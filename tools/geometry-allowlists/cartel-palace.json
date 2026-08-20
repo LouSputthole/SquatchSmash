@@ -10,7 +10,7 @@
       "right": "root:cartel-palace/collider:estate-east-wall",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -21,7 +21,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-east-wall#0",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -32,7 +32,7 @@
       "right": "root:cartel-palace/collider:gallery-service-partition",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -43,7 +43,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=gallery-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -54,7 +54,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -65,7 +65,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -76,7 +76,7 @@
       "right": "root:cartel-palace/collider:estate-front-east",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -87,7 +87,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-front-east#0",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -98,7 +98,7 @@
       "right": "root:cartel-palace/collider:estate-rear-wall-east",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -109,7 +109,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-rear-wall-east#0",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -120,7 +120,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -131,7 +131,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -142,7 +142,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -153,7 +153,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -164,7 +164,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -175,7 +175,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -186,7 +186,7 @@
       "right": "root:cartel-palace/collider:security-service-partition",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -197,7 +197,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -208,7 +208,7 @@
       "right": "root:cartel-palace/collider:office-north-partition",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -219,7 +219,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-north-partition#0",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -230,7 +230,7 @@
       "right": "root:cartel-palace/collider:office-south-partition",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -241,7 +241,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-south-partition#0",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -252,7 +252,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -263,7 +263,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -274,7 +274,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -285,7 +285,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -296,7 +296,7 @@
       "right": "root:cartel-palace/collider:estate-east-wall",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -307,7 +307,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-east-wall#0",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -318,7 +318,7 @@
       "right": "root:cartel-palace/collider:gallery-service-partition",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -329,7 +329,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=gallery-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -340,7 +340,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -351,7 +351,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -362,7 +362,7 @@
       "right": "root:cartel-palace/collider:estate-front-east",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -373,7 +373,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-front-east#0",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -384,7 +384,7 @@
       "right": "root:cartel-palace/collider:estate-rear-wall-east",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -395,7 +395,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-rear-wall-east#0",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -406,7 +406,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -417,7 +417,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -428,7 +428,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -439,7 +439,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -450,7 +450,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -461,7 +461,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -472,7 +472,7 @@
       "right": "root:cartel-palace/collider:security-service-partition",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -483,7 +483,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -494,7 +494,7 @@
       "right": "root:cartel-palace/collider:office-north-partition",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -505,7 +505,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-north-partition#0",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -516,7 +516,7 @@
       "right": "root:cartel-palace/collider:office-south-partition",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -527,7 +527,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-south-partition#0",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -538,7 +538,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -549,7 +549,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -560,7 +560,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -571,7 +571,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -582,7 +582,7 @@
       "right": "root:cartel-palace/collider:estate-east-wall",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -593,7 +593,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-east-wall#0",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -604,7 +604,7 @@
       "right": "root:cartel-palace/collider:gallery-service-partition",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -615,7 +615,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=gallery-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -626,7 +626,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -637,7 +637,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -648,7 +648,7 @@
       "right": "root:cartel-palace/collider:estate-front-east",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -659,7 +659,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-front-east#0",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -670,7 +670,7 @@
       "right": "root:cartel-palace/collider:estate-rear-wall-east",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -681,7 +681,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-rear-wall-east#0",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -692,7 +692,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -703,7 +703,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -714,7 +714,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -725,7 +725,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -736,7 +736,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -747,7 +747,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -758,7 +758,7 @@
       "right": "root:cartel-palace/collider:security-service-partition",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -769,7 +769,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -780,7 +780,7 @@
       "right": "root:cartel-palace/collider:office-north-partition",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -791,7 +791,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-north-partition#0",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -802,7 +802,7 @@
       "right": "root:cartel-palace/collider:office-south-partition",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -813,7 +813,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-south-partition#0",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -824,7 +824,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -835,7 +835,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -846,7 +846,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -857,7 +857,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -868,7 +868,7 @@
       "right": "root:cartel-palace/collider:estate-east-wall",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -879,7 +879,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-east-wall#0",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -890,7 +890,7 @@
       "right": "root:cartel-palace/collider:gallery-service-partition",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -901,7 +901,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=gallery-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -912,7 +912,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -923,7 +923,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -934,7 +934,7 @@
       "right": "root:cartel-palace/collider:estate-front-east",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -945,7 +945,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-front-east#0",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -956,7 +956,7 @@
       "right": "root:cartel-palace/collider:estate-rear-wall-east",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -967,7 +967,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-rear-wall-east#0",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -978,7 +978,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -989,7 +989,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -1000,7 +1000,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -1011,7 +1011,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -1022,7 +1022,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -1033,7 +1033,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -1044,7 +1044,7 @@
       "right": "root:cartel-palace/collider:security-service-partition",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -1055,7 +1055,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -1066,7 +1066,7 @@
       "right": "root:cartel-palace/collider:office-north-partition",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -1077,7 +1077,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-north-partition#0",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -1088,7 +1088,7 @@
       "right": "root:cartel-palace/collider:office-south-partition",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -1099,7 +1099,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-south-partition#0",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -1110,7 +1110,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -1121,7 +1121,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -1132,7 +1132,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -1143,7 +1143,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -1154,7 +1154,7 @@
       "right": "root:cartel-palace/collider:estate-east-wall",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -1165,7 +1165,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-east-wall#0",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -1176,7 +1176,7 @@
       "right": "root:cartel-palace/collider:gallery-service-partition",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -1187,7 +1187,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=gallery-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -1198,7 +1198,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -1209,7 +1209,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -1220,7 +1220,7 @@
       "right": "root:cartel-palace/collider:estate-front-east",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -1231,7 +1231,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-front-east#0",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -1242,7 +1242,7 @@
       "right": "root:cartel-palace/collider:estate-rear-wall-east",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -1253,7 +1253,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-rear-wall-east#0",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -1264,7 +1264,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -1275,7 +1275,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -1286,7 +1286,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -1297,7 +1297,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -1308,7 +1308,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -1319,7 +1319,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -1330,7 +1330,7 @@
       "right": "root:cartel-palace/collider:security-service-partition",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -1341,7 +1341,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -1352,7 +1352,7 @@
       "right": "root:cartel-palace/collider:office-north-partition",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -1363,7 +1363,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-north-partition#0",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -1374,7 +1374,7 @@
       "right": "root:cartel-palace/collider:office-south-partition",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -1385,7 +1385,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-south-partition#0",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -1396,7 +1396,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -1407,7 +1407,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -1418,7 +1418,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -1429,7 +1429,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -1440,7 +1440,7 @@
       "right": "root:cartel-palace/collider:estate-east-wall",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -1451,7 +1451,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-east-wall#0",
       "maxDepthM": 0.251,
       "reason": "The east dining partition deliberately terminates at the estate east wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -1462,7 +1462,7 @@
       "right": "root:cartel-palace/collider:gallery-service-partition",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -1473,7 +1473,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=gallery-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The east dining partition deliberately crosses the narrow gallery service partition at their authored T-junction; the exact visible walls and their matching runtime colliders duplicate that structural key.",
-      "source": "src/cartel-palace/world.js:752",
+      "source": "src/cartel-palace/world.js:1483",
       "sourceAnchor": "dining-partition-east"
     },
     {
@@ -1484,7 +1484,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -1495,7 +1495,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west dining partition deliberately terminates at the estate west wall centreline; its half-thickness key forms a closed structural corner in both the visible wall and matching runtime collider layers.",
-      "source": "src/cartel-palace/world.js:751",
+      "source": "src/cartel-palace/world.js:1482",
       "sourceAnchor": "dining-partition-west"
     },
     {
@@ -1506,7 +1506,7 @@
       "right": "root:cartel-palace/collider:estate-front-east",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -1517,7 +1517,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-front-east#0",
       "maxDepthM": 0.251,
       "reason": "The east facade segment is deliberately keyed one half wall thickness into the estate east wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:710",
+      "source": "src/cartel-palace/world.js:1442",
       "sourceAnchor": "estate-front-east"
     },
     {
@@ -1528,7 +1528,7 @@
       "right": "root:cartel-palace/collider:estate-rear-wall-east",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -1539,7 +1539,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-rear-wall-east#0",
       "maxDepthM": 0.251,
       "reason": "The east side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:714",
+      "source": "src/cartel-palace/world.js:1446",
       "sourceAnchor": "estate-rear-wall-east"
     },
     {
@@ -1550,7 +1550,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -1561,7 +1561,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:1160",
+      "source": "src/cartel-palace/world.js:2697",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -1572,7 +1572,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -1583,7 +1583,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.351,
       "reason": "The guest service partition deliberately terminates inside the west facade segment as a full partition-width T-junction; visible and collider layers duplicate this exact structural key.",
-      "source": "src/cartel-palace/world.js:742",
+      "source": "src/cartel-palace/world.js:1473",
       "sourceAnchor": "guest-service-partition"
     },
     {
@@ -1594,7 +1594,7 @@
       "right": "root:cartel-palace/collider:guest-service-partition",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -1605,7 +1605,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=guest-service-partition#0",
       "maxDepthM": 0.176,
       "reason": "The guest north partition keys one half of its thickness into the guest service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:747",
+      "source": "src/cartel-palace/world.js:1478",
       "sourceAnchor": "guest-north-partition"
     },
     {
@@ -1616,7 +1616,7 @@
       "right": "root:cartel-palace/collider:security-service-partition",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -1627,7 +1627,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.177,
       "reason": "The guest south partition keys one half of its thickness into the security service wall at their authored T-junction; the same exact join exists in the visual and collider layers.",
-      "source": "src/cartel-palace/world.js:749",
+      "source": "src/cartel-palace/world.js:1480",
       "sourceAnchor": "guest-south-partition"
     },
     {
@@ -1638,7 +1638,7 @@
       "right": "root:cartel-palace/collider:office-north-partition",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -1649,7 +1649,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-north-partition#0",
       "maxDepthM": 0.251,
       "reason": "The north office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:746",
+      "source": "src/cartel-palace/world.js:1477",
       "sourceAnchor": "office-north-partition"
     },
     {
@@ -1660,7 +1660,7 @@
       "right": "root:cartel-palace/collider:office-south-partition",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -1671,7 +1671,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=office-south-partition#0",
       "maxDepthM": 0.252,
       "reason": "The south office partition deliberately terminates at the west estate wall centreline as a structural T-junction; its visible solid and derived collider share the exact keyed contact.",
-      "source": "src/cartel-palace/world.js:748",
+      "source": "src/cartel-palace/world.js:1479",
       "sourceAnchor": "office-south-partition"
     },
     {
@@ -1682,7 +1682,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -1693,7 +1693,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west facade segment is deliberately keyed one half wall thickness into the estate west wall, closing the exterior masonry corner in both visual and collider layers.",
-      "source": "src/cartel-palace/world.js:709",
+      "source": "src/cartel-palace/world.js:1441",
       "sourceAnchor": "estate-front-west"
     },
     {
@@ -1704,7 +1704,7 @@
       "right": "root:cartel-palace/collider:estate-west-wall",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     },
     {
@@ -1715,7 +1715,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-west-wall#0",
       "maxDepthM": 0.251,
       "reason": "The west side and rear estate wall segments overlap by one half wall thickness to close the masonry corner; the visual solids and runtime colliders represent the same exact joint.",
-      "source": "src/cartel-palace/world.js:713",
+      "source": "src/cartel-palace/world.js:1445",
       "sourceAnchor": "estate-rear-wall-west"
     }
   ],

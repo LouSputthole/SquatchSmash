@@ -34,8 +34,7 @@ import * as THREE from 'three';
 import { lambert } from '../../../game/src/world.js';
 
 import {
-  assembly, bakedTexture, between, casts, conePart, cylinderPart,
-  namedGroup, part, pickOne, rng, speckle, structural,
+  assembly, bakedTexture, between, namedGroup, part, pickOne, rng, speckle, structural,
 } from './kit.js';
 import { TRACK, TRACK_HALF_WIDTH, TRAIL, TRAIL_HALF_WIDTH, siteFits } from './site.js';
 
@@ -188,143 +187,94 @@ function buildRuts(random) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Trees                                                               */
+/* Trees, and why they are instanced                                   */
 /* ------------------------------------------------------------------ */
 
 /**
- * A fir.
+ * WHY THIS FOREST IS ONE DOZEN DRAW CALLS AND NOT ELEVEN HUNDRED.
  *
- * Four meshes: a trunk that reaches the ground, and three crowns. The crowns
- * carry `overlap: false` because a forest is a forest — canopies interlock,
- * that is what a canopy is, and the gate would otherwise report every pair of
- * neighbours as two objects inside each other. Trunks keep their overlap check
- * ON: two trunks in the same hole is a real fault and the scatter's spacing is
- * what prevents it.
+ * The first pass built every tree as its own little group of four or five
+ * meshes: 148 trees, 84 more on the horizon, ferns, and a thousand-odd meshes
+ * on top of everything main.js already draws — with a bloom chain and shadow
+ * maps on the same frame. That is the kind of cost that never shows up in a
+ * screenshot and always shows up on somebody's laptop.
+ *
+ * It is also expensive in a second, less obvious way. Canopies INTERLOCK —
+ * that is what a canopy is — so every crown has to tell the geometry gate not
+ * to check it against its neighbours, and the gate ledgers every one of those
+ * as a named suppression. Per-tree meshes meant 764 separate suppression
+ * sources; batched, the identical forest is FOUR, one per batch, which is
+ * exactly how the golf course, the airstrip and the Special Meeting's road
+ * carry their own trees.
+ *
+ * Ownership survives the batching: `instanceAssemblyIds` gives every instance
+ * an explicit assembly, so a fir's trunk and its three crowns are still ONE
+ * object to the gate — they just live in two arrays instead of one group.
  */
-function buildFir(random, index) {
-  const scale = between(random, 0.85, 1.5);
-  const tree = assembly(`fir.${index}`, `initiation.fir.${index}`);
-  const bark = pickOne(random, BARK_COLOURS);
-  const needle = pickOne(random, NEEDLE_GREENS);
-  const trunkHeight = 2.6 * scale;
-  tree.add(casts(cylinderPart('fir.trunk', 0.16 * scale, 0.28 * scale, trunkHeight, 7, bark,
-    [0, trunkHeight / 2, 0])));
-  const tiers = 3;
-  for (let tier = 0; tier < tiers; tier++) {
-    const radius = (2.0 - tier * 0.52) * scale;
-    const height = (2.9 - tier * 0.35) * scale;
-    const crown = conePart(`fir.crown.${tier}`, radius, height, 8, needle,
-      [between(random, -0.1, 0.1) * scale, (1.9 + tier * 1.15) * scale, between(random, -0.1, 0.1) * scale]);
-    crown.userData.geometryGate = { overlap: false };
-    if (tier === 0) casts(crown);
-    tree.add(crown);
-  }
-  return { tree, scale, radius: 0.5 * scale };
-}
+
+const UNIT = {
+  /** Height 1, radius 1 at the base, tapering to 0.55. Scale to taste. */
+  trunk: new THREE.CylinderGeometry(0.55, 1, 1, 7),
+  crown: new THREE.ConeGeometry(1, 1, 8),
+  blade: new THREE.ConeGeometry(1, 1, 5),
+  limb: new THREE.CylinderGeometry(0.5, 1, 1, 5),
+  log: new THREE.CylinderGeometry(1, 1, 1, 7),
+  rock: new THREE.DodecahedronGeometry(1, 0),
+  collar: new THREE.CylinderGeometry(1, 1.1, 1, 9),
+};
 
 /**
- * A bare hardwood, for the ones that are just black shapes.
+ * The unit geometries are SHARED and must outlive any one build.
  *
- * Every third or fourth tree, because a wood of nothing but conifers reads as
- * a Christmas-tree farm, and the branches are what make a silhouette against
- * headlights look like a wood at all.
+ * A scene teardown that walks the graph disposing every geometry it finds
+ * would take these with it, and the next build would hand the GPU seven
+ * disposed buffers — a black forest, or nothing at all. The flag is what tells
+ * `dispose()` to leave them alone.
  */
-function buildHardwood(random, index) {
-  const scale = between(random, 0.9, 1.45);
-  const tree = assembly(`hardwood.${index}`, `initiation.hardwood.${index}`);
-  const bark = pickOne(random, BARK_COLOURS);
-  const trunkHeight = 5.2 * scale;
-  tree.add(casts(cylinderPart('hardwood.trunk', 0.13 * scale, 0.24 * scale, trunkHeight, 6, bark,
-    [0, trunkHeight / 2, 0])));
-  const branches = 3 + Math.floor(random() * 3);
-  for (let i = 0; i < branches; i++) {
-    const angle = (i / branches) * Math.PI * 2 + between(random, -0.4, 0.4);
-    const lift = between(random, 0.55, 0.86) * trunkHeight;
-    const length = between(random, 1.1, 2.2) * scale;
-    const branch = cylinderPart('hardwood.branch', 0.045 * scale, 0.09 * scale, length, 5, bark, [
-      Math.sin(angle) * length * 0.38,
-      lift + length * 0.24,
-      Math.cos(angle) * length * 0.38,
-    ]);
-    branch.rotation.z = -Math.cos(angle) * 0.95;
-    branch.rotation.x = Math.sin(angle) * 0.95;
-    branch.userData.geometryGate = { overlap: false };
-    tree.add(branch);
-  }
-  return { tree, scale, radius: 0.42 * scale };
-}
+for (const geometry of Object.values(UNIT)) geometry.userData.shared = true;
 
-/** Ferns and scrub: three blades, no collider, nothing walks into them. */
-function buildFern(random, index) {
-  const clump = assembly(`fern.${index}`, `initiation.fern.${index}`);
-  const green = pickOne(random, NEEDLE_GREENS);
-  for (let i = 0; i < 3; i++) {
-    const height = between(random, 0.5, 0.95);
-    const blade = conePart('fern.blade', between(random, 0.28, 0.5), height, 5, green, [
-      between(random, -0.35, 0.35), height / 2, between(random, -0.35, 0.35),
-    ]);
-    blade.userData.geometryGate = { overlap: false };
-    clump.add(blade);
-  }
-  return clump;
-}
-
-function buildStump(random, index) {
-  const scale = between(random, 0.8, 1.3);
-  const stump = assembly(`stump.${index}`, `initiation.stump.${index}`);
-  const height = 0.55 * scale;
-  stump.add(casts(cylinderPart('stump.body', 0.34 * scale, 0.44 * scale, height, 8, DEADWOOD,
-    [0, height / 2, 0])));
-  return stump;
-}
-
-function buildFallenLog(random, index) {
-  const scale = between(random, 0.9, 1.5);
-  const log = assembly(`deadfall.${index}`, `initiation.deadfall.${index}`);
-  const length = 3.4 * scale;
-  const radius = 0.26 * scale;
-  /* Both ends the same width. A tapered cylinder laid on its side rests on
-   * the WIDE end and hangs the narrow one, which put 5 cm of every fallen log
-   * on this site underground. */
-  const trunk = casts(cylinderPart('deadfall.trunk', radius, radius, length, 7, DEADWOOD,
-    [0, radius, 0]));
-  trunk.rotation.z = Math.PI / 2;
-  log.add(trunk);
-  const stub = cylinderPart('deadfall.stub', 0.06 * scale, 0.09 * scale, 0.8 * scale, 5, DEADWOOD,
-    [length * 0.22, radius + 0.28 * scale, 0]);
-  stub.rotation.x = between(random, -0.5, 0.5);
-  stub.userData.geometryGate = { overlap: false };
-  log.add(stub);
-  return { log, radius, length };
-}
+const _dummy = new THREE.Object3D();
+const _colour = new THREE.Color();
 
 /**
- * A boulder, bedded rather than buried.
+ * One batch.
  *
- * The obvious way to stop a rock looking dropped on the grass is to sink it a
- * third of the way in, and that is what the first pass did — and a rock whose
- * underside is 38 cm below the only surface on the site is a rock resting on
- * nothing, which is a FLOATING finding, correctly. So it sits ON the ground,
- * squashed flat enough to read as half-buried, with a collar of disturbed
- * earth around the base doing the job the burial was doing.
+ * `ids` is the per-instance assembly list — the thing that keeps a tree a
+ * tree. `overlap: false` is set on batches whose instances are MEANT to
+ * intersect their neighbours (crowns, branches, fronds) and never on trunks:
+ * two trunks in one hole is a real fault and the scatter's spacing is what
+ * prevents it.
  */
-function buildRock(random, index) {
-  const size = between(random, 0.6, 1.5);
-  const rock = assembly(`rock.${index}`, `initiation.rock.${index}`);
-  const squash = between(random, 0.4, 0.52);
-  const mesh = casts(part(
-    new THREE.DodecahedronGeometry(size, 0), lambert(0x2e3238, { flatShading: true }),
-    0, size * squash, 0, 'rock.body',
-  ));
-  mesh.scale.set(1, squash, between(random, 0.85, 1.2));
-  mesh.rotation.y = random() * Math.PI;
-  rock.add(mesh);
-  const collar = part(
-    new THREE.CylinderGeometry(size * 1.15, size * 1.25, 0.016, 9),
-    lambert(0x22201a), 0, 0.014, 0, 'rock.collar',
-  );
-  rock.add(collar);
-  return { rock, radius: size * 0.8 };
+function batch(name, geometry, material, ids, { overlap = true, cast = false } = {}) {
+  const mesh = new THREE.InstancedMesh(geometry, material, ids.length);
+  mesh.name = name;
+  mesh.castShadow = cast;
+  mesh.receiveShadow = false;
+  mesh.userData.geometryGate = overlap
+    ? { instanceAssemblyIds: ids }
+    : { instanceAssemblyIds: ids, overlap: false };
+  return mesh;
+}
+
+function place(mesh, index, { x, y, z, sx, sy, sz, yaw = 0, pitch = 0, roll = 0 }) {
+  _dummy.rotation.order = 'YXZ';
+  _dummy.position.set(x, y, z);
+  _dummy.rotation.set(pitch, yaw, roll);
+  _dummy.scale.set(sx, sy, sz);
+  _dummy.updateMatrix();
+  mesh.setMatrixAt(index, _dummy.matrix);
+}
+
+function tint(mesh, index, hex, scale = 1) {
+  _colour.setHex(hex).multiplyScalar(scale);
+  mesh.setColorAt(index, _colour);
+}
+
+function seal(mesh) {
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  mesh.computeBoundingSphere();
+  return mesh;
 }
 
 /* ------------------------------------------------------------------ */
@@ -356,7 +306,7 @@ function scatter(random, { count, minRadius, maxRadius, keepOutRadius, placed, t
         }
       }
       if (clash) continue;
-      const radius = make(x, z, random, made);
+      const radius = make(x, z, made);
       placed.push({ x, z, radius: radius ?? keepOutRadius });
       made += 1;
       break;
@@ -364,6 +314,284 @@ function scatter(random, { count, minRadius, maxRadius, keepOutRadius, placed, t
   }
   return made;
 }
+
+/**
+ * Where every tree, fern, rock, log and stump goes.
+ *
+ * Planned FIRST, as plain numbers, and built second. Separating the two is
+ * what makes the batching possible at all — a batch has to know how many
+ * instances it holds before it can be made — and it also means the layout can
+ * be reasoned about, and tested, without a renderer anywhere near it.
+ */
+function planWoods(random, { trees, ferns }) {
+  const placed = [];
+  const plan = { firs: [], hardwoods: [], ferns: [], rocks: [], logs: [], stumps: [] };
+  const colliders = [];
+
+  scatter(random, { count: trees, minRadius: 9, maxRadius: 96, keepOutRadius: 1.1, placed }, (x, z, index) => {
+    const scale = between(random, 0.85, 1.5);
+    const yaw = random() * Math.PI * 2;
+    if (index % 3 === 2) {
+      const radius = 0.42 * scale;
+      const limbs = [];
+      const trunkHeight = 5.2 * scale;
+      const count = 3 + Math.floor(random() * 3);
+      for (let i = 0; i < count; i++) {
+        limbs.push({
+          angle: (i / count) * Math.PI * 2 + between(random, -0.4, 0.4),
+          lift: between(random, 0.55, 0.86) * trunkHeight,
+          length: between(random, 1.1, 2.2) * scale,
+        });
+      }
+      plan.hardwoods.push({ x, z, scale, yaw, trunkHeight, limbs, bark: pickOne(random, BARK_COLOURS) });
+      colliders.push({ x, z, r: radius + 0.35 });
+      return radius;
+    }
+    const radius = 0.5 * scale;
+    plan.firs.push({
+      x, z, scale, yaw,
+      trunkHeight: 2.6 * scale,
+      bark: pickOne(random, BARK_COLOURS),
+      needle: pickOne(random, NEEDLE_GREENS),
+      lean: [between(random, -0.1, 0.1), between(random, -0.1, 0.1)],
+      shade: between(random, 0.8, 1.15),
+    });
+    colliders.push({ x, z, r: radius + 0.35 });
+    return radius;
+  });
+
+  scatter(random, { count: ferns, minRadius: 7, maxRadius: 68, keepOutRadius: 0.6, placed }, (x, z) => {
+    const blades = [];
+    for (let i = 0; i < 3; i++) {
+      blades.push({
+        dx: between(random, -0.35, 0.35),
+        dz: between(random, -0.35, 0.35),
+        radius: between(random, 0.28, 0.5),
+        height: between(random, 0.5, 0.95),
+      });
+    }
+    plan.ferns.push({ x, z, blades, green: pickOne(random, NEEDLE_GREENS), yaw: random() * Math.PI });
+    return 0.5;
+  });
+
+  scatter(random, { count: 14, minRadius: 12, maxRadius: 78, keepOutRadius: 1.4, placed }, (x, z) => {
+    const size = between(random, 0.6, 1.5);
+    const squash = between(random, 0.4, 0.52);
+    plan.rocks.push({ x, z, size, squash, stretch: between(random, 0.85, 1.2), yaw: random() * Math.PI });
+    colliders.push({ x, z, r: size * 0.8 });
+    return size * 0.8;
+  });
+
+  scatter(random, { count: 9, minRadius: 14, maxRadius: 74, keepOutRadius: 2.0, placed }, (x, z) => {
+    const scale = between(random, 0.9, 1.5);
+    plan.logs.push({
+      x, z, scale, yaw: random() * Math.PI * 2,
+      length: 3.4 * scale, radius: 0.26 * scale,
+      stub: { pitch: between(random, -0.5, 0.5), length: 0.8 * scale },
+    });
+    colliders.push({ x, z, r: 3.4 * scale * 0.3 });
+    return 3.4 * scale * 0.5;
+  });
+
+  scatter(random, { count: 8, minRadius: 11, maxRadius: 70, keepOutRadius: 1.0, placed }, (x, z) => {
+    const scale = between(random, 0.8, 1.3);
+    plan.stumps.push({ x, z, scale, yaw: random() * Math.PI });
+    colliders.push({ x, z, r: 0.5 });
+    return 0.6;
+  });
+
+  return { plan, colliders, placed };
+}
+
+/** Build every batch the plan asks for and add them to `group`. */
+function buildBatches(group, plan, random) {
+  const bark = lambert(0xffffff);
+  const foliage = lambert(0xffffff);
+  const stone = lambert(0xffffff, { flatShading: true });
+
+  /* ---- firs: one trunk and three crowns each ---- */
+  if (plan.firs.length) {
+    const trunkIds = plan.firs.map((_, index) => `initiation.fir.${index}`);
+    const crownIds = plan.firs.flatMap((_, index) => [
+      `initiation.fir.${index}`, `initiation.fir.${index}`, `initiation.fir.${index}`,
+    ]);
+    const trunks = batch('forest.fir.trunk', UNIT.trunk, bark, trunkIds, { cast: true });
+    const crowns = batch('forest.fir.crown', UNIT.crown, foliage, crownIds, { overlap: false, cast: true });
+    plan.firs.forEach((fir, index) => {
+      place(trunks, index, {
+        x: fir.x, y: fir.trunkHeight / 2, z: fir.z,
+        sx: 0.28 * fir.scale, sy: fir.trunkHeight, sz: 0.28 * fir.scale, yaw: fir.yaw,
+      });
+      tint(trunks, index, fir.bark);
+      for (let tier = 0; tier < 3; tier++) {
+        const at = index * 3 + tier;
+        place(crowns, at, {
+          x: fir.x + fir.lean[0] * fir.scale,
+          y: (1.9 + tier * 1.15) * fir.scale,
+          z: fir.z + fir.lean[1] * fir.scale,
+          sx: (2.0 - tier * 0.52) * fir.scale,
+          sy: (2.9 - tier * 0.35) * fir.scale,
+          sz: (2.0 - tier * 0.52) * fir.scale,
+          yaw: fir.yaw,
+        });
+        tint(crowns, at, fir.needle, fir.shade * (1 - tier * 0.06));
+      }
+    });
+    group.add(seal(trunks), seal(crowns));
+  }
+
+  /* ---- bare hardwoods: the silhouettes ---- */
+  if (plan.hardwoods.length) {
+    const trunkIds = plan.hardwoods.map((_, index) => `initiation.hardwood.${index}`);
+    const limbIds = plan.hardwoods.flatMap((tree, index) => (
+      tree.limbs.map(() => `initiation.hardwood.${index}`)
+    ));
+    const trunks = batch('forest.hardwood.trunk', UNIT.trunk, bark, trunkIds, { cast: true });
+    const limbs = batch('forest.hardwood.limb', UNIT.limb, bark, limbIds, { overlap: false });
+    let limbIndex = 0;
+    plan.hardwoods.forEach((tree, index) => {
+      place(trunks, index, {
+        x: tree.x, y: tree.trunkHeight / 2, z: tree.z,
+        sx: 0.24 * tree.scale, sy: tree.trunkHeight, sz: 0.24 * tree.scale, yaw: tree.yaw,
+      });
+      tint(trunks, index, tree.bark);
+      for (const limb of tree.limbs) {
+        place(limbs, limbIndex, {
+          x: tree.x + Math.sin(limb.angle) * limb.length * 0.38,
+          y: limb.lift + limb.length * 0.24,
+          z: tree.z + Math.cos(limb.angle) * limb.length * 0.38,
+          sx: 0.09 * tree.scale, sy: limb.length, sz: 0.09 * tree.scale,
+          yaw: limb.angle, pitch: 0.95,
+        });
+        tint(limbs, limbIndex, tree.bark, 0.9);
+        limbIndex += 1;
+      }
+    });
+    group.add(seal(trunks), seal(limbs));
+  }
+
+  /* ---- ferns and scrub ---- */
+  if (plan.ferns.length) {
+    const ids = plan.ferns.flatMap((clump, index) => clump.blades.map(() => `initiation.fern.${index}`));
+    const blades = batch('forest.fern.blade', UNIT.blade, foliage, ids, { overlap: false });
+    let index = 0;
+    for (const clump of plan.ferns) {
+      for (const blade of clump.blades) {
+        place(blades, index, {
+          x: clump.x + blade.dx, y: blade.height / 2, z: clump.z + blade.dz,
+          sx: blade.radius, sy: blade.height, sz: blade.radius, yaw: clump.yaw,
+        });
+        tint(blades, index, clump.green, 0.95);
+        index += 1;
+      }
+    }
+    group.add(seal(blades));
+  }
+
+  /* ---- boulders, bedded rather than buried ----
+   * A rock sunk a third of the way into the ground is a rock resting on
+   * nothing, which the gate calls floating and is right about. So it sits ON
+   * the surface, squashed flat, with a collar of disturbed earth doing the job
+   * the burial was doing. */
+  if (plan.rocks.length) {
+    const ids = plan.rocks.map((_, index) => `initiation.rock.${index}`);
+    const bodies = batch('forest.rock.body', UNIT.rock, stone, ids, { cast: true });
+    const collars = batch('forest.rock.collar', UNIT.collar, lambert(0xffffff), [...ids]);
+    plan.rocks.forEach((rock, index) => {
+      place(bodies, index, {
+        x: rock.x, y: rock.size * rock.squash, z: rock.z,
+        sx: rock.size, sy: rock.size * rock.squash, sz: rock.size * rock.stretch, yaw: rock.yaw,
+      });
+      tint(bodies, index, 0x2e3238, between(random, 0.8, 1.2));
+      place(collars, index, {
+        x: rock.x, y: 0.008, z: rock.z,
+        sx: rock.size * 1.15, sy: 0.016, sz: rock.size * 1.15 * rock.stretch,
+      });
+      tint(collars, index, 0x22201a);
+    });
+    group.add(seal(bodies), seal(collars));
+  }
+
+  /* ---- deadfall ---- */
+  if (plan.logs.length) {
+    const ids = plan.logs.map((_, index) => `initiation.deadfall.${index}`);
+    const trunks = batch('forest.deadfall.trunk', UNIT.log, bark, ids, { cast: true });
+    const stubs = batch('forest.deadfall.stub', UNIT.log, bark, [...ids], { overlap: false });
+    plan.logs.forEach((log, index) => {
+      /* Laid on its side: the unit cylinder stands up the Y axis, so it is
+       * rolled a quarter turn and then swung to the yaw it fell at. */
+      place(trunks, index, {
+        x: log.x, y: log.radius, z: log.z,
+        sx: log.radius, sy: log.length, sz: log.radius,
+        yaw: log.yaw, roll: Math.PI / 2,
+      });
+      tint(trunks, index, DEADWOOD);
+      place(stubs, index, {
+        x: log.x + Math.sin(log.yaw) * log.length * 0.22,
+        y: log.radius + 0.28 * log.scale,
+        z: log.z + Math.cos(log.yaw) * log.length * 0.22,
+        sx: 0.09 * log.scale, sy: log.stub.length, sz: 0.09 * log.scale,
+        yaw: log.yaw, pitch: log.stub.pitch,
+      });
+      tint(stubs, index, DEADWOOD, 0.9);
+    });
+    group.add(seal(trunks), seal(stubs));
+  }
+
+  /* ---- stumps ---- */
+  if (plan.stumps.length) {
+    const ids = plan.stumps.map((_, index) => `initiation.stump.${index}`);
+    const stumps = batch('forest.stump', UNIT.trunk, bark, ids, { cast: true });
+    plan.stumps.forEach((stump, index) => {
+      place(stumps, index, {
+        x: stump.x, y: 0.275 * stump.scale, z: stump.z,
+        sx: 0.44 * stump.scale, sy: 0.55 * stump.scale, sz: 0.44 * stump.scale, yaw: stump.yaw,
+      });
+      tint(stumps, index, DEADWOOD, 0.85);
+    });
+    group.add(seal(stumps));
+  }
+}
+
+/**
+ * The far treeline.
+ *
+ * A ring of low-detail firs out past anywhere the player can walk, at a
+ * distance the fog is already eating. It exists so the ground never ends in
+ * mid-air on the horizon, and it is two batches for the whole ring — nobody is
+ * ever close enough to count the branches.
+ */
+function buildTreeline(group, random) {
+  const count = 84;
+  const trunkIds = [];
+  const crownIds = [];
+  for (let i = 0; i < count; i++) {
+    trunkIds.push(`initiation.treeline.${i}`);
+    crownIds.push(`initiation.treeline.${i}`);
+  }
+  const trunks = batch('treeline.trunk', UNIT.trunk, lambert(0xffffff), trunkIds);
+  const crowns = batch('treeline.crown', UNIT.crown, lambert(0xffffff), crownIds, { overlap: false });
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2 + between(random, -0.02, 0.02);
+    const distance = TREELINE_RADIUS + between(random, -14, 16);
+    const scale = between(random, 1.3, 2.4);
+    const x = Math.cos(angle) * distance;
+    const z = Math.sin(angle) * distance;
+    place(trunks, i, {
+      x, y: 1.2 * scale, z, sx: 0.32 * scale, sy: 2.4 * scale, sz: 0.32 * scale, yaw: angle,
+    });
+    tint(trunks, i, 0x1a1409);
+    place(crowns, i, {
+      x, y: 3.4 * scale, z, sx: 2.1 * scale, sy: 5.4 * scale, sz: 2.1 * scale, yaw: angle,
+    });
+    tint(crowns, i, 0x0f1c14);
+  }
+  group.add(seal(trunks), seal(crowns));
+}
+
+/* ------------------------------------------------------------------ */
+/* The woods                                                           */
+/* ------------------------------------------------------------------ */
 
 /**
  * Build the woods.
@@ -375,8 +603,6 @@ function scatter(random, { count, minRadius, maxRadius, keepOutRadius, placed, t
 export function buildWoods({ seed = 0x1a17ed, trees = 148, ferns = 56, ground = true } = {}) {
   const random = rng(seed);
   const group = namedGroup('initiation.woods');
-  const colliders = [];
-  const placed = [];
 
   /* The ground is not part of the forest, it is part of the site — every
    * other module rests things on it. `ground: false` is for a caller that has
@@ -393,80 +619,16 @@ export function buildWoods({ seed = 0x1a17ed, trees = 148, ferns = 56, ground = 
   group.add(assembly('trail', 'initiation.trail',
     ribbon('trail.dirt.surface', TRAIL, TRAIL_HALF_WIDTH, 0.02, random, { tint: 0x2f2820, wear: 0.28, step: 0.9 })));
 
-  /* Trees. Two in three are firs; the rest are bare and read as silhouettes. */
-  scatter(random, { count: trees, minRadius: 9, maxRadius: 96, keepOutRadius: 1.1, placed }, (x, z, r, index) => {
-    const { tree, radius } = index % 3 === 2 ? buildHardwood(r, index) : buildFir(r, index);
-    tree.position.set(x, 0, z);
-    tree.rotation.y = r() * Math.PI * 2;
-    group.add(tree);
-    colliders.push({ x, z, r: radius + 0.35 });
-    return radius;
-  });
+  const { plan, colliders, placed } = planWoods(random, { trees, ferns });
+  buildBatches(group, plan, random);
+  buildTreeline(group, random);
 
-  scatter(random, { count: ferns, minRadius: 7, maxRadius: 68, keepOutRadius: 0.6, placed }, (x, z, r, index) => {
-    const clump = buildFern(r, index);
-    clump.position.set(x, 0, z);
-    clump.rotation.y = r() * Math.PI * 2;
-    group.add(clump);
-    return 0.5;
-  });
-
-  scatter(random, { count: 14, minRadius: 12, maxRadius: 78, keepOutRadius: 1.4, placed }, (x, z, r, index) => {
-    const { rock, radius } = buildRock(r, index);
-    rock.position.set(x, 0, z);
-    group.add(rock);
-    colliders.push({ x, z, r: radius });
-    return radius;
-  });
-
-  scatter(random, { count: 9, minRadius: 14, maxRadius: 74, keepOutRadius: 2.0, placed }, (x, z, r, index) => {
-    const { log, length } = buildFallenLog(r, index);
-    log.position.set(x, 0, z);
-    log.rotation.y = r() * Math.PI * 2;
-    group.add(log);
-    colliders.push({ x, z, r: length * 0.3 });
-    return length * 0.5;
-  });
-
-  scatter(random, { count: 8, minRadius: 11, maxRadius: 70, keepOutRadius: 1.0, placed }, (x, z, r, index) => {
-    const stump = buildStump(r, index);
-    stump.position.set(x, 0, z);
-    group.add(stump);
-    colliders.push({ x, z, r: 0.5 });
-    return 0.6;
-  });
-
-  /**
-   * The far treeline.
-   *
-   * A ring of low-detail firs out past anywhere the player can walk, at a
-   * distance the fog is already eating. It exists so the ground plane never
-   * ends in mid-air on the horizon, and it is deliberately two meshes a tree —
-   * nobody is ever close enough to count the branches.
-   */
-  const treeline = assembly('treeline', 'initiation.treeline');
-  for (let i = 0; i < 84; i++) {
-    const angle = (i / 84) * Math.PI * 2 + between(random, -0.02, 0.02);
-    const distance = TREELINE_RADIUS + between(random, -14, 16);
-    const scale = between(random, 1.3, 2.4);
-    const x = Math.cos(angle) * distance;
-    const z = Math.sin(angle) * distance;
-    const trunkHeight = 2.4 * scale;
-    treeline.add(cylinderPart('treeline.trunk', 0.2 * scale, 0.32 * scale, trunkHeight, 5, 0x1a1409,
-      [x, trunkHeight / 2, z]));
-    const crown = conePart('treeline.crown', 2.1 * scale, 5.4 * scale, 6, 0x0f1c14,
-      [x, 3.4 * scale, z]);
-    crown.userData.geometryGate = { overlap: false };
-    treeline.add(crown);
-  }
-  group.add(treeline);
-
-  return { group, colliders, placed: placed.length };
+  return { group, colliders, plan, placed: placed.length };
 }
 
 /** Every stem, blade and boulder disposed of, for a scene teardown. */
 export function disposeWoods(built) {
   built?.group?.traverse((object) => {
-    if (object.isMesh) object.geometry?.dispose?.();
+    if (object.isMesh && object.geometry?.userData?.shared !== true) object.geometry?.dispose?.();
   });
 }

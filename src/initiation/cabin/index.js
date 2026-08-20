@@ -159,7 +159,12 @@ export function buildInitiationCabinSite({
     },
     dispose() {
       root.traverse((object) => {
-        if (object.isMesh) object.geometry?.dispose?.();
+        /* Shared unit geometry — the forest's instanced trunks, crowns and
+         * blades — is not this build's to free. Disposing it here hands the
+         * next build seven dead buffers and an empty wood. */
+        if (object.isMesh && object.geometry?.userData?.shared !== true) {
+          object.geometry?.dispose?.();
+        }
       });
     },
   };

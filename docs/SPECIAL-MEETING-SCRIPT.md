@@ -58,7 +58,7 @@ Anybody adding, punching up or localising dialogue here — these break it:
 | **SEFF** | `seff` | Driving. Transactional, flat, always mid-errand. Has a "situation" he keeps deferring. Answers questions with the smallest true thing. |
 | **LAG** | `lag` | Back left, behind Seff. Detached, literal, observational, half on his phone. Latency brain. Not unkind — just does not experience the moment as tense. |
 | **NUMBSKULL** | `numbskull` | Back right — **directly behind the Prospect**. Enormous, sincere, gentle, literal. Says the quiet thing out loud without malice. He is the most frightening man in the car and he is being nice the entire time. |
-| **KITTENBOSS** | `kittenboss` *(new, uncast)* | In the trunk. Another Prospect. Aggrieved, deadpan, weirdly chipper. Treats being in a trunk as a logistics failure, not a crime. **Never explains it.** |
+| **KITTENBOSS** | `kittenboss` *(new, cast)* | **She.** In the trunk. Another Prospect. Aggrieved, deadpan, weirdly chipper. Treats being in a trunk as a logistics failure, not a crime. **Never explains it.** Same age and same rank as Tony, never comic relief, never frightened. |
 
 ### The seating, which is the whole scene
 
@@ -84,8 +84,23 @@ seat behind him refills itself without a word.
   already written and recorded and says different things. This call gets its
   own bank — suggested `vo.call.booski.special_meeting.*` with Tony's half at
   `vo.call.booski.special_meeting.tony.*` — so nothing existing is overwritten.
-- Kittenboss has no ElevenLabs id yet. Until one lands his lines play as
-  subtitles over silence. **That is the intended state, not a defect.**
+- **Kittenboss is a woman.** This document, `src/specialmeeting/script.js`,
+  `src/core/wardrobe.js`, `src/core/characters.js` and the manifest's booth
+  note all said *he* when the scene was first drafted — the cast row, the
+  production note, and roughly a dozen stage directions ("**He** climbs out
+  under **his** own power", "**He** brushes **himself** down", "**He** starts
+  up the trail"). All of them were corrected on 2026-08-20 on the owner's
+  ruling. **None of her lines changed**, and neither did her rank, her age or
+  her register: she is the other Prospect, she is not comic relief, and she is
+  never frightened. The one spoken word that moved is Tony's **[VERBATIM]**
+  question at SM-420, which is now "Why was **she** in the trunk?" — the
+  pronoun only, on the owner's own instruction.
+- Kittenboss **is cast**. She had no ElevenLabs id when this document was
+  written and the note here used to say her lines played as subtitles over
+  silence and that this was the intended state rather than a defect. That was
+  true then and is no longer: the owner has supplied a woman's id, it is on
+  `voices.kittenboss` in `assets/sfx/manifest.json`, and every
+  `vo.specialmeeting.kittenboss.*` cue is a real take.
 
 ### Reading this document
 
@@ -741,8 +756,8 @@ own, slowly, and the little bulb inside comes on.]*
 
 **KITTENBOSS:** "Next time somebody crack a window." **[VERBATIM]**
 
-*[He climbs out under his own power, unhurried, like a man getting off a
-long coach. He is dressed up. He has also put on something decent. It is
+*[She climbs out under her own power, unhurried, like somebody getting off a
+long coach. She is dressed up. She has also put on something decent. It is
 extremely creased.]*
 
 **PROSPECT:** "Who the hell is this?" **[VERBATIM]**
@@ -751,7 +766,7 @@ extremely creased.]*
 
 **KITTENBOSS:** "Hey." **[VERBATIM]**
 
-**PROSPECT:** "Why was he in the trunk?" **[VERBATIM]**
+**PROSPECT:** "Why was she in the trunk?" **[VERBATIM]**
 
 **NUMBSKULL:** *[shuts the trunk]* "Long story." **[VERBATIM]**
 
@@ -760,8 +775,8 @@ is never explained. Not in this scene, not at the fire, not afterwards.**]*
 
 ## SM-430 — Kittenboss, continued
 
-*[He brushes himself down. Rolls one shoulder. Looks at the trees, then at the
-car, then at Tony.]*
+*[She brushes herself down. Rolls one shoulder. Looks at the trees, then at
+the car, then at Tony.]*
 
 **KITTENBOSS:** "There's a spare wheel in there. Nobody tells you that."
 
@@ -805,8 +820,8 @@ the player likes.
 
 **KITTENBOSS:** "Yeah. That's what I got."
 
-*[Two men who do not know. **This is the moment the player realises nobody is
-going to tell either of them anything, ever.**]*
+*[Two prospects who do not know. **This is the moment the player realises
+nobody is going to tell either of them anything, ever.**]*
 
 ### SM-443
 **KITTENBOSS:** "Since March."
@@ -819,7 +834,7 @@ going to tell either of them anything, ever.**]*
 
 **KITTENBOSS:** "Right."
 
-*[He looks at the trees. Neither of them says the obvious thing. **This is the
+*[She looks at the trees. Neither of them says the obvious thing. **This is the
 first evidence the player is not being executed — two prospects, brought to the
 same place on the same night — and it arrives only after the peak of the dread,
 and it arrives with one of them having come in the boot. Do not let anybody
@@ -840,13 +855,13 @@ underline it.**]*
 
 **KITTENBOSS:** "Okay. Good. Good."
 
-*[He is not reassured. He is talking himself down, badly, and Tony can hear
-him doing it.]*
+*[She is not reassured. She is talking herself down, badly, and Tony can hear
+her doing it.]*
 
 ### SM-445
 **KITTENBOSS:** "Is it?"
 
-*[beat — he hears himself]*
+*[beat — she hears herself]*
 
 **KITTENBOSS:** "Sorry. That was— yeah. You too."
 
@@ -949,7 +964,7 @@ decision, drifts half a step back.]*
 
 **KITTENBOSS:** *[genuinely weighs this]* "That's fair."
 
-*[He starts up the trail.]*
+*[She starts up the trail.]*
 
 **LAG:** "Both of you."
 
@@ -997,12 +1012,12 @@ not lowering their voices. **They are not talking about tonight at all.**]*
 
 **PROSPECT:** "Yeah?"
 
-*[Kittenboss thinks about it for a long moment. He is genuinely trying to find
+*[Kittenboss thinks about it for a long moment. She is genuinely trying to find
 the end of that sentence.]*
 
 **KITTENBOSS:** "No. I had nothing. Sorry."
 
-*[Do not play this for the laugh. He tried to comfort a man and could not find
+*[Do not play this for the laugh. She tried to comfort a man and could not find
 anything to say, and they both have to keep walking.]*
 
 ### SM-534 — first light

@@ -31,6 +31,10 @@
  * update loop can skip them wholesale, which is cheaper and harder to forget.
  */
 
+/* How long a fallen body is belongs to the SITE — every clearance on the mud
+ * is measured against it — but it is derived from this file's pose, so it is
+ * re-exported here for ceremony code that only imports the poses. One number,
+ * one home, two doors. */
 import { FALL_REACH } from './site.js';
 
 export { FALL_REACH };

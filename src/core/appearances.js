@@ -253,7 +253,7 @@ export const SCENES = Object.freeze({
   }),
   special_meeting: Object.freeze({
     id: 'special_meeting',
-    label: 'THE SPECIAL MEETING — three men and a car',
+    label: 'THE SPECIAL MEETING — three men, one woman and a car',
     short: 'Meeting',
     rig: 'bing',
     modules: Object.freeze(['src/specialmeeting/cast.js']),
@@ -264,7 +264,10 @@ export const SCENES = Object.freeze({
       + "the Bing's because this is a night street under two sodium lamps and "
       + 'a dome light, which is the nearest of the three to what it is played '
       + 'in. Kittenboss is creased, and creases are not a garment flag: the '
-      + 'fitting room shows the shirt he owns, not the state he arrives in.',
+      + 'fitting room shows the shirt she owns, not the state she arrives in. '
+      + 'This card read "three men and a car" and called that shirt his until '
+      + '2026-08-20: Kittenboss is a woman, her wardrobe model had been built '
+      + 'male, and both were corrected on the ruling from the owner in one pass.',
   }),
   cartel_palace: Object.freeze({
     id: 'cartel_palace', label: 'The Cartel Palace — the final assault', short: 'Palace', rig: 'day',
@@ -328,7 +331,7 @@ export const CAMPAIGN_SCENE_COVERAGE = Object.freeze({
     ['src/cartel-palace/cast.js'], 'Four guard variants, Mark and Sauce are catalogued from the final mission cast.'),
   [SCENE_IDS.SPECIAL_MEETING]: coverage(SCENE_IDS.SPECIAL_MEETING, 'appearance-ledger', ['special_meeting'],
     ['src/specialmeeting/cast.js'],
-    'Four bodies on one block: Numbskull and Kittenboss from the canonical wardrobe, Seff and Lag pulled through the Bing roster exactly as the Mansion takes them. Kittenboss is the scene\'s new identity and his row is his first.',
+    'Four bodies on one block: Numbskull and Kittenboss from the canonical wardrobe, Seff and Lag pulled through the Bing roster exactly as the Mansion takes them. Kittenboss is the scene\'s new identity and her row is her first.',
     [{ scene: 'special_meeting', character: CHARACTER_IDS.KITTENBOSS }]),
   [SCENE_IDS.INITIATION]: coverage(SCENE_IDS.INITIATION, 'frozen', [],
     ['src/initiation/main.js'], 'Initiation is classified but unavailable: its runtime is frozen pending owner playtest and is neither imported nor reconstructed.'),
@@ -2121,10 +2124,19 @@ export const APPEARANCES = Object.freeze([
     from: { wardrobe: 'KITTENBOSS' },
     module: 'src/specialmeeting/cast.js',
     evidence: "if (key === 'kittenboss') return { ...WARDROBE.kittenboss };",
-    /* He was told to put on something decent and he did. The scene's own
+    /* She was told to put on something decent and she did. The scene's own
      * direction is that it is extremely creased, which is a note for the
      * animator and the writer and not a field on a model — so the ledger
-     * carries the shirt and says so here rather than inventing a flag. */
+     * carries the shirt and says so here rather than inventing a flag.
+     *
+     * This row said "he" until 2026-08-20, and so did the model it points at.
+     * Kittenboss is a woman: `WARDROBE.kittenboss` now carries
+     * `gender: 'female'`, `bodyShape: 'curvy'` and `hair: 'tied'`, and it also
+     * lost a bogus `neckline: 'collar'` that had been silently suppressing her
+     * placket and collar. Her height and build deliberately did NOT move --
+     * she is the same age and the same rank as Tony and stands eye to eye with
+     * him, and shrinking her would have thrown that away. The wardrobe model's
+     * own comment carries the full reasoning for each field. */
   }),
 
   /* ================================================================== *

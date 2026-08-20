@@ -7,7 +7,7 @@
  * is invisible in a screenshot of a dark clearing and obvious in world-space
  * vectors, so this file checks it in world-space vectors:
  *
- *   - the executioner is BEHIND the man he is shooting, at arm's length;
+ *   - the executioner is BEHIND the prospect he is shooting, at arm's length;
  *   - he is FURTHER FROM THE PLAYER than his victim, so he can never be
  *     standing in front of the thing the player is meant to be watching;
  *   - nobody else is either;
@@ -17,6 +17,12 @@
  *     at it;
  *   - and the player can walk from the line, up the trail, through the door,
  *     to the middle of the room, without meeting a collider.
+ *
+ * The executioners and the player are men and are written as men here. The
+ * four on the marks are not all men -- `kneel-4` is Kittenboss, who is a woman
+ * -- so anything describing a kneeling figure as a class says "prospect" or
+ * "they". These assertions read "the man he is shooting" until 2026-08-20;
+ * only the wording moved, not one number and not one threshold.
  *
  * That last one is not decoration. A beat that can be entered and not left is
  * the exact bug that left a player standing in the siege armoury, armed, with
@@ -63,7 +69,7 @@ function segmentDistance(a, b, point) {
 /**
  * Does a standing figure at `stance` block the player's view of `target`?
  *
- * Only if it is close to the line of sight AND in front of the target. A man
+ * Only if it is close to the line of sight AND in front of the target. A body
  * standing directly behind the thing you are looking at is in the shot, not in
  * the way, and conflating the two is how a staging test starts failing for
  * correct blocking.
@@ -104,11 +110,11 @@ test('every kneel mark has its executioner behind it, at arm\'s length', () => {
     assert.ok(behind < -0.9, `${mark.id}: the shooter is not behind the head (${behind.toFixed(3)})`);
     assert.ok(reach > 0.85 && reach < 1.3, `${mark.id}: reach is ${reach.toFixed(2)} m`);
 
-    /* And he is facing the man, not past him. */
+    /* And he is facing the prospect, not past them. */
     const aim = site.facingOf(mark.shooter.heading);
     const toMark = { x: mark.x - mark.shooter.x, z: mark.z - mark.shooter.z };
     const dot = (aim.x * toMark.x + aim.z * toMark.z) / Math.hypot(toMark.x, toMark.z);
-    assert.ok(dot > 0.99, `${mark.id}: the shooter is not looking at the man`);
+    assert.ok(dot > 0.99, `${mark.id}: the shooter is not looking at the prospect`);
   }
 });
 
@@ -131,7 +137,7 @@ test('the muzzle is at the back of the head, and the player can see the flash', 
   }
 });
 
-test('nobody stands between the player and the man being shot', () => {
+test('nobody stands between the player and the prospect being shot', () => {
   for (const mark of site.KNEEL_MARKS) {
     const standing = [
       { id: 'shooter', at: mark.shooter },
@@ -151,7 +157,7 @@ test('nobody stands between the player and the man being shot', () => {
     /* The executioner is specifically FURTHER AWAY than his victim. */
     assert.ok(
       distance(site.PLAYER_EYE, mark.shooter) > distance(site.PLAYER_EYE, mark) + 0.3,
-      `${mark.id}: the shooter is nearer the player than the man he is shooting`,
+      `${mark.id}: the shooter is nearer the player than the prospect he is shooting`,
     );
   }
 });
@@ -218,7 +224,7 @@ function worldBox(object) {
   return new THREE.Box3().setFromObject(object);
 }
 
-test('a kneeling man is on the ground, not in it or over it', () => {
+test('a kneeling prospect is on the ground, not in it or over it', () => {
   for (const mark of site.KNEEL_MARKS) {
     const victim = new Person();
     staging.poseKneeling(victim, mark);
@@ -251,7 +257,7 @@ test('a kneeling man is on the ground, not in it or over it', () => {
   }
 });
 
-test('Person.update() cannot stand a kneeling man back up', () => {
+test('Person.update() cannot stand a kneeling prospect back up', () => {
   const mark = site.KNEEL_MARKS[0];
   const victim = new Person();
   const headY = () => {
@@ -263,7 +269,7 @@ test('Person.update() cannot stand a kneeling man back up', () => {
 
   staging.poseKneeling(victim, mark);
   const posed = headY();
-  assert.ok(Math.abs(posed - site.KNEEL_HEAD_Y) < 0.12, 'he is kneeling to begin with');
+  assert.ok(Math.abs(posed - site.KNEEL_HEAD_Y) < 0.12, 'the figure is kneeling to begin with');
 
   /* One frame of the shared rig's own update, exactly as a scene loop would
    * run it. It rewrites both legs and the root height every frame — the head
@@ -273,10 +279,10 @@ test('Person.update() cannot stand a kneeling man back up', () => {
   assert.ok(headY() > posed + 0.8, 'this test is only meaningful if update() does break the pose');
 
   staging.poseKneeling(victim, mark);
-  assert.ok(Math.abs(headY() - posed) < 1e-9, 're-posing after the tick must put him back exactly');
+  assert.ok(Math.abs(headY() - posed) < 1e-9, 're-posing after the tick must put them back exactly');
 });
 
-test('a shot man goes down forward, and stays on his mark', () => {
+test('a shot prospect goes down forward, and stays on their mark', () => {
   for (const mark of site.KNEEL_MARKS) {
     const victim = new Person();
     staging.poseKneeling(victim, mark);
@@ -473,6 +479,45 @@ test('the woods keep out of the clearing, the paths and the yard', () => {
       Math.hypot(tree.x - site.CABIN.x, tree.z - site.CABIN.z) > 6,
       'a tree is growing through the cabin',
     );
+  }
+});
+
+test('both headlights reach every prospect who is put on their knees', () => {
+  const built = buildInitiationCabinSite({ woods: false, cabin: false });
+  built.root.updateMatrixWorld(true);
+  const spots = [];
+  built.root.traverse((object) => { if (object.isSpotLight) spots.push(object); });
+  assert.equal(spots.length, 2, 'two cars, two beams');
+
+  const position = new THREE.Vector3();
+  const target = new THREE.Vector3();
+  for (const mark of site.KNEEL_MARKS) {
+    const head = new THREE.Vector3(mark.head.x, mark.head.y, mark.head.z);
+    for (const [index, spot] of spots.entries()) {
+      spot.getWorldPosition(position);
+      spot.target.getWorldPosition(target);
+      const axis = target.clone().sub(position).normalize();
+      const toHead = head.clone().sub(position);
+      const angle = Math.acos(axis.dot(toHead.clone().normalize()));
+      assert.ok(
+        angle < spot.angle && toHead.length() < spot.distance,
+        `${mark.id} is outside beam ${index} (${angle.toFixed(2)} rad, cone ${spot.angle})`,
+      );
+    }
+  }
+
+  /* And the line itself is between the cars and the marks, so the prospects
+   * waiting their turn are shapes against their own headlights. */
+  for (const x of [...site.PROSPECT_XS, site.PLAYER_SLOT.x]) {
+    const standing = new THREE.Vector3(x, 1.6, site.LINE_Z);
+    const lit = spots.some((spot) => {
+      spot.getWorldPosition(position);
+      spot.target.getWorldPosition(target);
+      const axis = target.clone().sub(position).normalize();
+      const to = standing.clone().sub(position);
+      return Math.acos(axis.dot(to.clone().normalize())) < spot.angle && to.length() < spot.distance;
+    });
+    assert.ok(lit, `the prospect at x=${x} is standing in the dark`);
   }
 });
 

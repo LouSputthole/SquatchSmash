@@ -268,15 +268,30 @@ export const CHARACTER_REGISTRY = Object.freeze({
     species: 'human',
     role: 'family_member',
   }),
-  /* The other prospect. He is in the boot of the car in THE SPECIAL MEETING,
-   * he is alive, he is annoyed, and nobody explains it -- not in that scene
+  /* The other prospect. SHE is in the boot of the car in THE SPECIAL MEETING,
+   * she is alive, she is annoyed, and nobody explains it -- not in that scene
    * and not afterwards. `role: 'prospect'` is the same role Tony carries;
    * nothing branches on it, and the two of them being the same kind of thing
    * on the same night is the point.
    *
-   * Uncast: `assets/sfx/manifest.json` carries the profile with the standard
-   * `<owner to cast>` placeholder, so his lines play as subtitles over silence
-   * until an id lands. That is the intended state, not a defect. */
+   * She is a woman, and that is load-bearing rather than incidental.
+   * Kittenboss is a real, newish member of the club, and the fourth-wall joke
+   * is that the sweetest person the owner knows is driven out in a boot and
+   * does not survive the night. This record, the wardrobe model and
+   * every stage direction in `src/specialmeeting/script.js` said "he" when the
+   * scene was first written, which was wrong at the source and wrong in the
+   * booth; the pronoun was corrected across all of them 2026-08-20 on the
+   * owner's ruling. Nothing about her rank, her age or her register changes
+   * with it -- she is not comic relief, she is never frightened, and she is
+   * more annoyed about the spare wheel than about the boot.
+   *
+   * CAST. The profile in `assets/sfx/manifest.json` used to carry the standard
+   * `<owner to cast>` placeholder and her lines played as subtitles over
+   * silence, which was the intended state and not a defect for as long as it
+   * lasted. The owner has since supplied a woman's ElevenLabs id, so the
+   * placeholder is gone and every `vo.specialmeeting.kittenboss.*` cue is a
+   * real take. `tests/specialmeeting-script.test.mjs` asserts the placeholder
+   * cannot creep back. */
   [CHARACTER_IDS.KITTENBOSS]: character({
     id: CHARACTER_IDS.KITTENBOSS,
     canonicalName: 'Kittenboss',

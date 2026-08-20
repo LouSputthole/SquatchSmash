@@ -899,6 +899,27 @@ const RAW_BEATS = [
     ],
     next: 'SM-420',
   },
+  /* SM-420 through SM-533: Kittenboss is a WOMAN.
+   *
+   * The scene was authored with her written as a man throughout -- "He climbs
+   * out under his own power", "He brushes himself down", "He starts up the
+   * trail", and Tony asking "Why was HE in the trunk?" -- and every one of
+   * those was corrected 2026-08-20 on the owner's ruling. She is a real,
+   * newish member of the club and the fourth-wall joke is that the sweetest
+   * person the owner knows gets driven out in a boot and does not survive the
+   * night; the voice cast on `voices.kittenboss` is a woman's and always was,
+   * so the script was the last thing still calling her a bloke.
+   *
+   * Tony's "Why was she in the trunk?" keeps its `verbatim: true` mark. Only
+   * the pronoun moved, on the owner's own instruction; the words either side
+   * of it are the owner's and are not to be touched, and the manifest cue
+   * `vo.specialmeeting.tony.kittenboss.2` was re-minted by hand to match on
+   * the same pass, because there is no `vo:specialmeeting` generator.
+   *
+   * Nothing else about her moved and nothing else may. She is the same age
+   * and the same rank as Tony, she is not comic relief, she is never
+   * frightened, and she is more annoyed about the spare wheel than about the
+   * boot. */
   {
     id: 'SM-420',
     slug: 'kittenboss',
@@ -911,13 +932,13 @@ const RAW_BEATS = [
     lines: [
       l('KITTENBOSS', 'Jesus Christ. Finally.', { verbatim: true, alternate: 'trunk_greeting' }),
       l('KITTENBOSS', 'Next time somebody crack a window.', { verbatim: true, alternate: 'trunk_greeting' }),
-      sd('He climbs out under his own power, unhurried, like a man getting off '
-        + 'a long coach. He is dressed up. He has also put on something decent. '
-        + 'It is extremely creased.'),
+      sd('She climbs out under her own power, unhurried, like somebody getting '
+        + 'off a long coach. She is dressed up. She has also put on something '
+        + 'decent. It is extremely creased.'),
       l('PROSPECT', 'Who the hell is this?', { verbatim: true }),
       l('LAG', 'Kittenboss.', { verbatim: true }),
       l('KITTENBOSS', 'Hey.', { verbatim: true }),
-      l('PROSPECT', 'Why was he in the trunk?', { verbatim: true }),
+      l('PROSPECT', 'Why was she in the trunk?', { verbatim: true }),
       l('NUMBSKULL', 'Long story.', { verbatim: true, direction: 'shuts the trunk on the last word' }),
     ],
     next: 'SM-430',
@@ -930,8 +951,8 @@ const RAW_BEATS = [
     title: 'Kittenboss, continued',
     note: 'Seff is not being funny. He is being accurate.',
     lines: [
-      sd('He brushes himself down. Rolls one shoulder. Looks at the trees, then '
-        + 'at the car, then at Tony.'),
+      sd('She brushes herself down. Rolls one shoulder. Looks at the trees, '
+        + 'then at the car, then at Tony.'),
       l('KITTENBOSS', "There's a spare wheel in there. Nobody tells you that."),
       l('KITTENBOSS', 'How long was that? Honestly. Ballpark.'),
       l('SEFF', 'Forty minutes.'),
@@ -975,8 +996,8 @@ const RAW_BEATS = [
     act: 4,
     kind: 'lines',
     title: 'Why were you in the trunk?',
-    note: 'Two men who do not know. This is the moment the player realises '
-      + 'nobody is going to tell either of them anything, ever.',
+    note: 'Two prospects who do not know. This is the moment the player '
+      + 'realises nobody is going to tell either of them anything, ever.',
     lines: [
       l('KITTENBOSS', "You'd have to ask them."),
       l('PROSPECT', 'I did.'),
@@ -1001,7 +1022,7 @@ const RAW_BEATS = [
       l('KITTENBOSS', 'You?'),
       l('PROSPECT', '…Yeah.'),
       l('KITTENBOSS', 'Right.'),
-      sd('He looks at the trees. Neither of them says the obvious thing.'),
+      sd('She looks at the trees. Neither of them says the obvious thing.'),
     ],
     next: 'SM-440',
   },
@@ -1011,8 +1032,8 @@ const RAW_BEATS = [
     act: 4,
     kind: 'lines',
     title: 'Do you know what this is?',
-    note: 'He is not reassured. He is talking himself down, badly, and Tony can '
-      + 'hear him doing it.',
+    note: 'She is not reassured. She is talking herself down, badly, and Tony '
+      + 'can hear her doing it.',
     lines: [
       l('KITTENBOSS', 'Do you know what this is?', { direction: 'turning the question straight back' }),
       l('PROSPECT', 'No.'),
@@ -1032,7 +1053,7 @@ const RAW_BEATS = [
     title: 'Nice to meet you',
     lines: [
       l('KITTENBOSS', 'Is it?', { holdAfter: 1.6 }),
-      l('KITTENBOSS', 'Sorry. That was— yeah. You too.', { direction: 'he hears himself' }),
+      l('KITTENBOSS', 'Sorry. That was— yeah. You too.', { direction: 'she hears herself' }),
     ],
     next: 'SM-440',
   },
@@ -1156,7 +1177,7 @@ const RAW_BEATS = [
       l('KITTENBOSS', 'Why me?'),
       l('PROSPECT', "You've been here longer tonight than I have."),
       l('KITTENBOSS', "That's fair.", { direction: 'genuinely weighs it' }),
-      sd('He starts up the trail.'),
+      sd('She starts up the trail.'),
       l('LAG', 'Both of you.'),
     ],
     next: 'SM-530',
@@ -1212,8 +1233,8 @@ const RAW_BEATS = [
     act: 5,
     kind: 'lines',
     title: 'Kittenboss tries',
-    note: 'Do not play this for the laugh. He tried to comfort a man and could '
-      + 'not find anything to say, and they both have to keep walking.',
+    note: 'Do not play this for the laugh. She tried to comfort a man and '
+      + 'could not find anything to say, and they both have to keep walking.',
     lines: [
       l('KITTENBOSS', 'Hey. If this goes bad—', { direction: 'low, so only Tony hears' }),
       l('PROSPECT', 'Yeah?', { holdAfter: 4 }),

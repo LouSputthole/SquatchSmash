@@ -338,11 +338,37 @@ test('Palace: every static scene sound is start-bank; the finale speech is the d
   for (const name of staticAudioCueNames('src/cartel-palace/main.js')) {
     assert.ok(coveredBy(name, PALACE_START_BANK), `${name} must not wait on a later bank`);
   }
+  /* THE SPLIT IS THE CONFRONTATION, NOT THE `vo.palace.` PREFIX.
+   *
+   * This used to say that NO `vo.palace.` cue may be in the start bank,
+   * which was true on the day it was written: the whole namespace was the
+   * dining-room confrontation, twenty minutes past the service gate. The
+   * scene pass in 3dbe16d gave the estate a speaking cast that is heard long
+   * before that door -- Tony's recognition on each piece of evidence, the
+   * cleaner who panics in the foyer, the payroll's combat barks, and the
+   * idle guard conversations the whole stealth affordance depends on finding
+   * BY EAR from the first frame of the approach. Those four namespaces were
+   * moved into the start bank on purpose (see the comment on
+   * PALACE_START_BANK), and this assertion has been failing ever since on a
+   * scene that got its banking right.
+   *
+   * Both directions are pinned now, which is more than the old form asked:
+   * the confrontation must not block the start button, AND every line that
+   * can be heard before the dining door must. A line dispatched before its
+   * bank settles is a subtitle with nothing behind it -- nothing retries a
+   * line's audio -- so "not in the finale bank" is not a free pass, it is the
+   * other half of the same rule. A new pre-door namespace lands here as a
+   * failure until it is banked, which is the point. */
   for (const cue of soundManifest.sfx) {
     if (!cue.name.startsWith('vo.palace.')) continue;
     assert.ok(coveredBy(cue.name, PALACE_NEXT_BEAT_BANK), cue.name);
-    assert.ok(!coveredBy(cue.name, PALACE_START_BANK),
-      'the confrontation must not block the start button');
+    if (cue.name.startsWith('vo.palace.finale.')) {
+      assert.ok(!coveredBy(cue.name, PALACE_START_BANK),
+        'the confrontation must not block the start button');
+    } else {
+      assert.ok(coveredBy(cue.name, PALACE_START_BANK),
+        `${cue.name} can be heard before the dining door, so it cannot ride the next-beat bank`);
+    }
   }
   /* The three room loops all decode before their startLoop picks a buffer. */
   for (const name of ['ambience.rain', 'ambience.palace.interior', 'ambience.palace.dining']) {

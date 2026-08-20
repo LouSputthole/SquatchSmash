@@ -247,26 +247,73 @@ export const NUMBSKULL = Object.freeze({
 });
 
 /**
- * The other prospect, dressed for a thing nobody described to him.
+ * The other prospect, dressed for a thing nobody described to her.
  *
- * He was told to put on something decent, the same as Tony was, and he did:
- * a shirt with a collar, a belt, and shoes he does not wear to anything else.
- * `trim` is on -- he is one of two men the player stands beside for the whole
- * last act, so he earns the buttons and the placket. What the fitting room
- * cannot show, because it is not clothing, is that all of it is extremely
- * creased. He has been lying on a spare wheel.
+ * SHE. Corrected 2026-08-20 on the owner's ruling, and the correction is the
+ * point of the character rather than a courtesy: Kittenboss is a real, newish
+ * member of the club, and the whole fourth-wall gag is that the sweetest
+ * person the owner knows gets driven out in a boot, kneels in the mud with
+ * the rest of the prospects and does not make it. That joke does not land off
+ * a man. This model was built male on the day the Special Meeting was written
+ * -- `hair: 'short'`, no `gender`, no `bodyShape`, so `makePerson` gave her
+ * the 0.226 male shoulder frame and the hard-edged slabs -- and every one of
+ * those three fields is now the other thing. The manifest has had a woman's
+ * ElevenLabs id on `voices.kittenboss` since she was cast, so the body was
+ * the last place she was still being drawn as a bloke.
+ *
+ * She was told to put on something decent, the same as Tony was, and she did:
+ * a shirt with a collar, a belt, and shoes she does not wear to anything else.
+ * `trim` is on -- she is one of two people the player stands beside for the
+ * whole last act, so she earns the buttons and the placket. What the fitting
+ * room cannot show, because it is not clothing, is that all of it is extremely
+ * creased. She has been lying on a spare wheel.
+ *
+ * ## `neckline: 'collar'` was never a value, and it was cancelling the collar
+ *
+ * The model shipped with `neckline: 'collar'` sitting under `trim: true`, and
+ * it read like the obvious way to ask for a collar. It is not on the option
+ * list -- `src/bing/cast.js` documents `neckline` as `false | 'v'` and draws
+ * nothing for anything else -- and worse, the placket branch is guarded on
+ * `!neckline`, so the one truthy string switched OFF the placket, the buttons
+ * and the collar it was asking for. She has been standing on that block in a
+ * flat coloured torso since the day the scene was written. The field is gone
+ * and `trim` now does what the line above it always claimed: a real placket, a
+ * real collar, the shirt she was told to put on. This is the same read Tony
+ * gets in the seat next to her, which is the whole staging.
+ *
+ * ## The numbers deliberately did not move
+ *
+ * `height: 1.79` and `build: 1.06` are the same two numbers this model shipped
+ * with, and they stay. She is the same age and the same rank as Tony and she
+ * stands eye to eye with him, which is the read the scene needs: she is not
+ * small, not cute, not a victim and not comic relief. She is completely
+ * unbothered, and she is more annoyed about the spare wheel than about the
+ * boot. Shrinking her to signal "woman" would have thrown away the only thing
+ * the staging has -- two prospects, the same size problem, on the same night.
+ * DEATHMEGATRON is 1.79 on this same roster for the same reason.
+ *
+ * `gender: 'female'` narrows the shoulder frame and `bodyShape: 'curvy'` gives
+ * the hips and the chamfered slabs; the pair of them is how every woman on
+ * this roster is built (see HOG_MAMA, DEATHMEGATRON), and `makePerson` gates
+ * the performer figure on the bikini rather than on `curvy`, so nothing from
+ * the Silver Room's stage roles comes with them. `hair: 'tied'` replaces
+ * `'short'` because she has NO face photo: at ten metres, in the dark, under
+ * one dome light and a boot bulb, the hair silhouette is the only thing on
+ * screen that says who she is. It also earns its keep on the gag -- that is
+ * hair that has spent forty-two minutes against a spare wheel.
  *
  * Deliberately NOT luxury and deliberately no chain: the men in the front of
- * the car have both. He is what a prospect owns.
+ * the car have both. She is what a prospect owns.
  */
 export const KITTENBOSS = Object.freeze({
   height: 1.79,
   build: 1.06,
+  gender: 'female',
+  bodyShape: 'curvy',
   dress: 'shirt',
   shirt: 0x8d94a4,
-  neckline: 'collar',
   trim: true,
-  hair: 'short',
+  hair: 'tied',
   hairColour: 0x241a12,
   skin: 0xdcae86,
   belt: 'leather',

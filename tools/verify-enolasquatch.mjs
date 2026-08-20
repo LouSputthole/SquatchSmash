@@ -1040,7 +1040,37 @@ try {
    * polarity rather than merely checking the value written into `controls`:
    * A must bank/turn left and D must bank/turn right. Each direction starts
    * from the same high, level cruise pose so weather, ground contact and a
-   * previous maneuver cannot contaminate the comparison. ---- */
+   * previous maneuver cannot contaminate the comparison.
+   *
+   * THE HEADING IS MEASURED OVER THREE SECONDS, NOT ONE.
+   *
+   * The bank and the wing frame are read at one second, where they always were
+   * and where they are unambiguous (about 24 degrees of roll, left wing plainly
+   * lower). The HEADING was read there too, against a threshold of 0.02
+   * degrees, and that was never a measurement — it was a coin.
+   *
+   * A bank takes a moment to become a turn: in the first second the aeroplane
+   * is still rolling, so the whole heading change the stick has earned is about
+   * a quarter of a degree. Sitting underneath it is a steady rightward drift of
+   * about the same size — measured hands-off from a matching staged pose,
+   * -0.89, -0.51 and +0.14 degrees on three staged runs. The noise band is
+   * bigger than the signal, and the threshold sat inside the noise band.
+   *
+   * AND THE NOISE IS NOT REMOVABLE. `?airSeed=1945` pins the gust field, but
+   * `src/beefrun/engines.js` seeds each engine's idle-RPM wobble from
+   * `performance.now()` — the WALL clock, not the simulation clock — so four
+   * engines carry four wall-clock-dependent thrusts and the aeroplane yaws
+   * differently on every run of the identical deterministic tick. Observed on
+   * consecutive full runs of the SAME code: the one-second reading was -0.008
+   * on one and +0.028 on the next, i.e. a fail and a pass, decided by nothing.
+   *
+   * Held for three seconds the turn is worth four to five degrees each way and
+   * the drift is still a fraction of one, so the same claim is now made with a
+   * signal-to-noise ratio of about twenty rather than about one. Measured over
+   * three staged runs: A reached +4.32, +4.72 and +4.95; D reached -5.76,
+   * -5.28 and -5.43; hands-off stayed inside +/-0.29. The one-second reading is
+   * still reported next to it, because it is the number this file argued about
+   * for two sessions and somebody will want to see it. ---- */
   const flyEnolaKey = async (code) => {
     await page.evaluate(() => {
       const h = window.__enolaSquatch;
@@ -1059,18 +1089,24 @@ try {
     try {
       result = await page.evaluate(() => {
         const h = window.__enolaSquatch;
+        const signed = () => ((h.physics.headingDeg + 540) % 360) - 180;
         h.tick(1);
         h.aircraft.group.updateMatrixWorld(true);
         const left = h.aircraft.group.getObjectByName('air-brake-left');
         const right = h.aircraft.group.getObjectByName('air-brake-right');
-        const signedHeading = ((h.physics.headingDeg + 540) % 360) - 180;
-        return {
+        const signedHeading = signed();
+        const state = {
           controlRoll: h.physics.controls.roll,
           rollDeg: h.physics.rollDeg,
           signedHeading,
           leftY: left?.matrixWorld.elements[13] ?? null,
           rightY: right?.matrixWorld.elements[13] ?? null,
         };
+        // Keep the stick where it is for two more seconds and let the bank
+        // become a turn — see the note above for why the one-second reading is
+        // kept but is no longer what the heading is judged on.
+        h.tick(2);
+        return { ...state, turnedBy: +signed().toFixed(3), rollAtThree: +h.physics.rollDeg.toFixed(2) };
       });
     } finally {
       await page.keyboard.up(code);
@@ -1080,11 +1116,11 @@ try {
   const aTurn = await flyEnolaKey('KeyA');
   const dTurn = await flyEnolaKey('KeyD');
   check('real A input banks the Enola Squatch left through its physics and visible wing frame',
-    aTurn.controlRoll > 0.5 && aTurn.rollDeg > 2 && aTurn.signedHeading > 0.02
+    aTurn.controlRoll > 0.5 && aTurn.rollDeg > 2 && aTurn.turnedBy > 2
       && aTurn.leftY < aTurn.rightY,
     JSON.stringify(aTurn));
   check('real D input banks the Enola Squatch right through its physics and visible wing frame',
-    dTurn.controlRoll < -0.5 && dTurn.rollDeg < -2 && dTurn.signedHeading < -0.02
+    dTurn.controlRoll < -0.5 && dTurn.rollDeg < -2 && dTurn.turnedBy < -2
       && dTurn.leftY > dTurn.rightY,
     JSON.stringify(dTurn));
 
@@ -1653,13 +1689,21 @@ try {
   /* The drift bounds are the ones this law was always held to (4 degrees, 60
    * metres). They are not the interesting half any more: with the window given
    * room to run, the measured numbers are 0.0 degrees and about a metre. What
-   * is added is the state the window is measured IN — the mission still alive
-   * and still in the phase it started in — because a check that cannot tell
-   * "it could not hold an altitude" from "the mission ended underneath it" is
-   * the check that hid this for two sessions. */
+   * is added is `failed` — the state the window is measured IN — because a
+   * check that cannot tell "it could not hold an altitude" from "the mission
+   * ended underneath it" is the check that hid this for two sessions.
+   *
+   * `phaseHeld` is REPORTED but deliberately not asserted. Which phase the
+   * script happens to be in when it reaches this block depends on how early the
+   * fighter blocks above break out of their own loops, and one of the
+   * candidates (`bombMalfunction`) advances on an eight-second timer of its
+   * own — asserting the phase never moved would make this check fail for a
+   * reason that has nothing to do with the control law, which is the exact
+   * mistake being corrected here. If a transition ever does take the aeroplane
+   * away, `engaged` catches it and the transition is printed alongside. */
   check('the autopilot really holds a heading and an altitude while nobody is in the seat',
     autopilot.held.took && autopilot.held.engaged
-      && !autopilot.held.failed && autopilot.held.phaseHeld
+      && !autopilot.held.failed
       && autopilot.held.headingDrift < 4 && autopilot.held.altitudeDrift < 60
       && autopilot.held.readout && autopilot.held.strip === 'block',
     JSON.stringify(autopilot.held));

@@ -60,8 +60,13 @@ Never for the thing itself. This is the single hardest line to hold and it is
 the whole register.
 
 **4. Kittenboss is "she", everywhere.** Dialogue, subtitles, comments,
-character data, ledgers. See the pronoun note below — the Special Meeting script
-currently says "he" and that is now wrong.
+character data, ledgers. When this file was written the Special Meeting still
+said "he" throughout and the pronoun note below was an open item; that pass was
+carried out on 2026-08-20, so `docs/SPECIAL-MEETING-SCRIPT.md`,
+`src/specialmeeting/script.js`, `src/specialmeeting/cast.js`,
+`src/core/characters.js`, `src/core/wardrobe.js`, `src/core/appearances.js` and
+the manifest's booth note now agree with this document. **Anything new must
+match them.**
 
 **5. Kittenboss stays ordinary right to the end.** She was comic relief in a car
 boot an hour ago and she is exactly the same woman here — still cheerful, still
@@ -92,7 +97,7 @@ scene's discipline about this is what makes the last shot mean anything.
 | **RIPPINFLOW** | `rippinflow` | The quiet founder. Four words a night. He carries the blade. The owner's draft calls him **RIPPIN**; canonical display is **RIPPINFLOW**. |
 | **GRATIN** | `gratin` | Executioner, and the family's torture guy. Domestic, unhurried, mildly bored, kind out of habit. Talks the way a man talks in his own kitchen. Kneels them, and shoots the last two. |
 | **SEFF** | `seff` | Executioner. Transactional, flat, accurate, always mid-errand. Answers with the smallest true thing. Shoots Prospect One and the first two. |
-| **KITTENBOSS** | `kittenboss` *(**uncast** — see risks)* | **She.** Prospect. Aggrieved, deadpan, weirdly chipper. Treats a mass execution the way she treated a car boot: as a logistics failure. Never explains, never pleads, never reads the room. |
+| **KITTENBOSS** | `kittenboss` *(cast — `2bk7ULW9HfwvcIbMWod0`)* | **She.** Prospect. Aggrieved, deadpan, weirdly chipper. Treats a mass execution the way she treated a car boot: as a logistics failure. Never explains, never pleads, never reads the room. |
 | **PROSPECT ONE** | `doorman` | The one who does not understand what is happening until the moment it does. Cheerful. Guessing. Existing character, existing lines. |
 | **PROSPECT THREE** | *needs casting* | The one who argues. Not brave — **indignant.** He thinks there has been an administrative error and he wants it looked at. |
 | **PROSPECT FOUR** | *none — he never speaks* | The one who says nothing. Not one word in the whole scene. He understood first. |
@@ -1648,7 +1653,7 @@ This scene adds **four bodies** that the initiation does not currently stage:
 
 | New body | Voice profile | Voice id | Notes |
 |---|---|---|---|
-| **KITTENBOSS** | `kittenboss` | **NONE — uncast** | New character everywhere. Not in `characters.js`, not in `appearances.js`, not in any scene cast. **She. Get the pronoun right in the character data and the comments, not just the subtitles.** |
+| **KITTENBOSS** | `kittenboss` | `2bk7ULW9HfwvcIbMWod0` | Was a new character everywhere and uncast when this table was written. She is now in `characters.js`, in `appearances.js` with a wardrobe row, and staged in `tools/scene-casts.json` for the Special Meeting. **She. The pronoun is right in the character data and the comments as of 2026-08-20, not just in the subtitles — keep it that way.** |
 | **SEFF** | `seff` | `lnFzEtvLAfx8I9DtiJTS` | Exists as a character; **not currently staged at the initiation.** No face photo → real mouth, lip-syncs. |
 | **NUMBSKULL** | `numbskull` | `R4Zv8YQNcHyNDZl0ViUG` | Same — exists, not staged here. No face photo. |
 | **LAG** | `lag` | `fBD19tfE58bkETeiwUoC` | Same. No face photo. |
@@ -1733,33 +1738,52 @@ that slot to that mark is the full width of the working ground, past everyone,
 past the player, to the nearest mark of the night. That is the escalation the
 mark order was built for.
 
-## 1. Kittenboss has no voice, and she is the payload
+## 1. Kittenboss has no voice, and she is the payload — CLOSED
 
-`kittenboss` has **no ElevenLabs id.** In THE SPECIAL MEETING that was
-acceptable — the doc says so explicitly, her lines play as subtitles over
-silence, and it reads as deadpan.
+**This risk is closed.** `kittenboss` now carries `2bk7ULW9HfwvcIbMWod0` on
+`voices.kittenboss` in `assets/sfx/manifest.json`, supplied by the owner, and it
+is a woman's voice.
 
-**Here it is a real risk.** "Hey." is the last word of the best beat in the
-scene, and delivered as silent text it is a caption, not a performance. **Get her
-cast before this scene ships.** *(Task #15 is already open for exactly this.)*
+What it said before, and why it mattered: `kittenboss` had **no ElevenLabs id.**
+In THE SPECIAL MEETING that was acceptable — that doc said so explicitly, her
+lines played as subtitles over silence, and it read as deadpan. Here it was a
+real risk, because "Hey." is the last word of the best beat in the scene and
+delivered as silent text it is a caption rather than a performance.
 
-## 2. Kittenboss's pronoun is wrong in the existing doc
+**What is still owed is the booth direction, not the id.** The `_note` on that
+profile is what the voice director reads, and it describes her exactly: she
+treats forty-two minutes in a boot as a logistics failure rather than a crime,
+she is the same age and the same rank as Tony, she is never comic relief and
+**never** frightened. Every line she has in THIS scene has to be recorded off
+that same read — she does not discover a new register because the night gets
+worse.
 
-`docs/SPECIAL-MEETING-SCRIPT.md` refers to Kittenboss as **he** throughout —
-the cast table ("In the trunk. Another Prospect... **Never explains it.**"), the
-production note ("until one lands **his** lines play as subtitles"), and roughly
-a dozen stage directions ("**He** climbs out under **his** own power", "**He**
-brushes **himself** down", "**He** starts up the trail", "Kittenboss falls in
-beside **him** anyway").
+## 2. Kittenboss's pronoun is wrong in the existing doc — CLOSED
 
-**The owner's ruling is that Kittenboss is she.** That document needs a pronoun
-pass. **It was not touched by this one** — this task was scoped to writing this
-file only — and it should be picked up before either scene is implemented, so
-the two scripts do not disagree about her in front of whoever builds them.
+**This risk is closed.** The pronoun pass was carried out on 2026-08-20.
 
-None of her *lines* change. Every one of her VERBATIM lines in the Special
-Meeting reads identically as written; it is only the stage directions and the
-cast note.
+What it was: `docs/SPECIAL-MEETING-SCRIPT.md` referred to Kittenboss as **he**
+throughout — the cast table, the production note ("until one lands **his** lines
+play as subtitles"), and roughly a dozen stage directions ("**He** climbs out
+under **his** own power", "**He** brushes **himself** down", "**He** starts up
+the trail"). So did `src/specialmeeting/script.js`, `src/specialmeeting/cast.js`,
+`src/core/characters.js` and the manifest's booth note, and
+`src/core/wardrobe.js` had built her body male on top of it. All of them now say
+she.
+
+Two things that pass turned up and settled, worth carrying forward:
+
+- **"Kittenboss falls in beside him anyway"** at SM-446 was NOT a misgendering
+  and was left exactly as written. The "him" is Tony.
+- **One spoken line changed**, and only by a pronoun: Tony's **[VERBATIM]**
+  question at SM-420 is now "Why was **she** in the trunk?", on the owner's own
+  instruction. Its manifest cue `vo.specialmeeting.tony.kittenboss.2` was
+  re-minted by hand to match, because there is no `vo:specialmeeting` generator
+  in `package.json` the way there is for the other scenes.
+
+Nothing else about her moved. Every other VERBATIM line in the Special Meeting
+reads identically as written, and her rank, her age and her register are
+untouched.
 
 ## 3. The gauntlet, the roar and the great log
 

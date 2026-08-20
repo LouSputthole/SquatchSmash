@@ -129,7 +129,6 @@ function saintCardTexture() {
     context.fillRect(9, 9, size - 18, size - 18);
     /* A figure, roughed in. Nobody ever sees this from more than a metre. */
     context.fillStyle = '#6d5a3a';
-    context.beginPath?.();
     context.fillRect(size * 0.42, size * 0.22, size * 0.16, size * 0.18);
     context.fillRect(size * 0.34, size * 0.42, size * 0.32, size * 0.34);
     context.fillStyle = '#4a3c26';

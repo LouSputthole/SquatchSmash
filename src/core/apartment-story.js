@@ -8,6 +8,25 @@ import {
 } from './campaign.js';
 import { getCharacter, voiceProfileFor } from './characters.js';
 import { RING_SECONDS } from './phone.js';
+/**
+ * THE SPECIAL MEETING's own script, read rather than restated.
+ *
+ * The one import in this file that points OUT of core/, and it is deliberate.
+ * `src/specialmeeting/script.js` opens with "Everything downstream reads THIS
+ * file and nothing else", and Act One -- beats SM-010 to SM-090 -- is played
+ * in this flat rather than on that scene's page, so the flat is downstream.
+ *
+ * Copying the lines across instead would have desynchronised on the first
+ * punch-up: SM-030 is thirteen VERBATIM lines pinned by hash in
+ * `tests/specialmeeting-script.test.mjs`, and a second copy of them here would
+ * be pinned by nothing. The cue names come from the same place for the same
+ * reason -- one file builds them (`cueName()` over there), so a cue can never
+ * exist in the manifest under a name this flat does not ask for.
+ *
+ * It is data only. `script.js` imports `./campaign.js` and nothing else, so
+ * this pulls in no THREE, no DOM, and no cycle.
+ */
+import { CALL_CUE_PREFIX, beat as specialMeetingBeat } from '../specialmeeting/script.js';
 
 const FIRST_RING_DELAY = 6;
 /**
@@ -361,6 +380,11 @@ const SCENE_LABELS = Object.freeze({
   [SCENE_IDS.SILVER_PINES]: 'Silver Pines',
   [SCENE_IDS.BANK_HEIST]: 'THE TAKE',
   [SCENE_IDS.SILVER_CASE]: 'the Silver Case pickup',
+  /* Not "the Special Meeting". Nothing in Act One is allowed to name what he
+   * is going to, because nobody has named it to him -- see the forbidden-line
+   * list in docs/SPECIAL-MEETING-SCRIPT.md. What is downstairs is a car with
+   * its engine running, so that is what the panel says. */
+  [SCENE_IDS.SPECIAL_MEETING]: 'the car downstairs',
   [SCENE_IDS.INITIATION]: 'the Initiation',
 });
 
@@ -404,7 +428,13 @@ const CHAPTER_PLAN = Object.freeze({
     caller: 'Big Uncle Lou',
     routineRequired: false,
   }),
-  /* Grandfathered saves that already exposed Initiation retain this route. */
+  /* Grandfathered saves that already exposed Initiation retain this route.
+   *
+   * `big_night` is two nights now and this is the older one. A save that came
+   * home from the Cartel Palace is also in this chapter -- core/final-arc-story
+   * puts it here and this file cannot change that -- and it takes a DIFFERENT
+   * call to a different place; see `isSpecialMeetingNight` and `#plan()`, which
+   * is the one override this table has. */
   big_night: Object.freeze({
     event: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,
     caller: 'Booskibro',
@@ -670,6 +700,12 @@ const SLEEP_CHAPTERS = Object.freeze([
 const LAST_CHAPTER = 'heist_day';
 
 const APARTMENT_RETURN_PRIORITY = Object.freeze([
+  /* Newest first, and the Palace is now the newest thing that sends him home.
+   * It was missing from this list entirely, which mattered: mission completion
+   * accumulates, so a man letting himself in the night the Palace was over was
+   * told he was back from THE TAKE and asked to wash the bank off himself,
+   * because the heist is also complete and used to be top of the list. */
+  SCENE_IDS.CARTEL_PALACE,
   SCENE_IDS.BANK_HEIST,
   SCENE_IDS.SILVER_PINES,
   SCENE_IDS.SILVER_ROOM,
@@ -727,6 +763,180 @@ export const BIG_NIGHT_BOOSKI_CALL = Object.freeze({
     'Seven. Not early, not late.',
   ]),
 });
+
+/* ====================================================================== *
+ * THE SPECIAL MEETING — ACT ONE, WHICH IS THIS FLAT
+ *
+ * `docs/SPECIAL-MEETING-SCRIPT.md` beats SM-010 to SM-090. Tony gets home from
+ * the Cartel Palace, nobody has told him whether killing Sauce was the right
+ * call, Booskibro rings to say there is a meeting and it is going to be a
+ * special one, and then three men come and collect him.
+ *
+ * All of it was already authored and already minted as cues -- and none of it
+ * played, because the agent who wrote it could not reach this file or main.js.
+ * Everything below is the wiring, and it restates none of the writing: the
+ * lines and their cue names both come out of `specialMeetingBeat()` at the top
+ * of this file.
+ *
+ * ## Why it hangs off the CHAPTER and the PALACE rather than a chapter of its own
+ *
+ * `story.chapter` is already `big_night` by the time he is standing in here --
+ * `CartelPalaceCampaignStory.complete()` in core/final-arc-story.js sets it,
+ * and that file is not this one's to change. So the chapter cannot separate
+ * these two nights, and something else has to. The Palace does:
+ *
+ *   - `big_night` + the Palace genuinely played  -> this scene, the flat's
+ *     last evening as a prospect, ending at a car with its engine running.
+ *   - `big_night` + anything else                -> the grandfathered route
+ *     the chapter has always had, straight to the Initiation on Booskibro's
+ *     OTHER call. Saves that reached the Initiation before the final arc
+ *     existed carry `grandfathered: true` on every mission they never played,
+ *     including the Palace, so "genuinely played" is a fact the save states
+ *     rather than one inferred from a status.
+ *
+ * The same split is why the Initiation being COMPLETE ends this night: the
+ * campaign's last landing is back in this flat, and a door that kept asking a
+ * finished player to wait in for a car would be a trap with the credits
+ * already rolled.
+ * ====================================================================== */
+
+/**
+ * One beat's spoken lines, each with the exact cue `script.js` minted for it.
+ *
+ * Exact cues rather than a bank name, because these banks are not
+ * interchangeable takes of one line -- they are three or eight DIFFERENT
+ * sentences, and `AudioEngine.say()` picks from a bank at random. Play a bank
+ * at the door and the screen says "I don't know where it is" while the man
+ * says "They're picking me up", which is two people having half a conversation
+ * each. The cue travels with its own words instead.
+ */
+function actOneTakes(beatId) {
+  return Object.freeze(specialMeetingBeat(beatId).lines
+    .filter((line) => line.spoken)
+    .map((line) => Object.freeze({
+      text: line.text,
+      cue: line.cue,
+      /* SM-070 only. `wardrobe` and `mirror` in the script are the fittings of
+       * a flat that has neither; the nightstand drawer is this one's wardrobe
+       * and there is no mirror at all, so main.js reads this to decide which
+       * of the four lines the drawer gets. */
+      where: line.where ?? null,
+    })));
+}
+
+/**
+ * Every bank Act One speaks with, by the beat it comes from.
+ *
+ * The door's two are used by `tryLeave` below. The rest are the flat's, and
+ * `src/main.js` plays them: the idle timer, the drawer, the dead line after
+ * Booskibro hangs up, ringing him back, and the headlights.
+ */
+export const SPECIAL_MEETING_ACT_ONE = Object.freeze({
+  idleBefore: actOneTakes('SM-010'),
+  deadLine: actOneTakes('SM-040'),
+  callBack: actOneTakes('SM-050'),
+  idleAfter: actOneTakes('SM-060'),
+  gettingReady: actOneTakes('SM-070'),
+  doorRefusals: actOneTakes('SM-080'),
+  headlights: actOneTakes('SM-090'),
+});
+
+/**
+ * The one thing he says at the door before the phone has rung at all.
+ *
+ * SM-080 is written for AFTER the call -- all three of its lines are about
+ * three men who are on their way -- so none of them can be said by a man who
+ * has not been told anybody is coming. This is SM-010's second line, which is
+ * the same thought at the earlier hour, and it is deliberately reused rather
+ * than written fresh: a new line here would mean a new cue, and a new cue
+ * means a manifest row, and the manifest belongs to the pass that minted this
+ * scene. He repeats himself about a phone that has not rung. That is correct.
+ */
+const WAITING_ON_BOOSKI = Object.freeze([SPECIAL_MEETING_ACT_ONE.idleBefore[1]]);
+
+/** A door refusal spoken out of Act One rather than out of DEPARTURE_REFUSALS. */
+function actOneRefusal(takes) {
+  return { line: takes[0].text, takes };
+}
+
+/**
+ * Booskibro's half and Tony's, split the way `core/phone.js` wants them.
+ *
+ * SM-030 alternates strictly -- Booskibro, Tony, Booskibro, Tony, and then
+ * Booskibro hanging up mid-air without waiting for an answer -- so `lines` is
+ * his seven and `replies[i]` is whatever Tony said back to `lines[i]`, with a
+ * hole at the end where the goodbye he never says would go. `callScript()`
+ * numbers the cues off those two arrays and lands on exactly the names
+ * `script.js` minted: `vo.call.booski.special_meeting.<n>` for him and
+ * `...tony.<n>` for Tony, because both count per speaker in play order.
+ *
+ * Throws rather than guessing if the alternation is ever broken. A silently
+ * mis-paired call would put Tony's answer under Booskibro's cue and neither
+ * of them would be saying the owner's words any more.
+ */
+function specialMeetingCallHalves() {
+  const lines = [];
+  const replies = [];
+  for (const line of specialMeetingBeat('SM-030').lines) {
+    if (!line.spoken) continue;
+    if (line.who === 'BOOSKI') {
+      lines.push(line.text);
+      replies.push(null);
+      continue;
+    }
+    if (!lines.length) {
+      throw new Error('SM-030 opens on somebody other than Booskibro: this call is '
+        + 'a caller and his answers, and it cannot start with an answer');
+    }
+    if (replies[lines.length - 1] !== null) {
+      throw new Error('SM-030 gives Tony two answers to one Booskibro line: the '
+        + 'phone has one reply slot per caller line and the second would be lost');
+    }
+    replies[lines.length - 1] = line.text;
+  }
+  return { lines: Object.freeze(lines), replies: Object.freeze(replies) };
+}
+
+/**
+ * SM-030. The call that says nothing and ends mid-air.
+ *
+ * Its own bank on purpose -- see `CALL_CUE_PREFIX` in
+ * `src/specialmeeting/script.js`. `vo.call.booski.bignight.*` is already
+ * recorded and says warm things about a room assembling in the prospect's
+ * honour; this one gives no information and does not notice it is giving none,
+ * and overwriting the first with the second would lose a delivered take.
+ *
+ * `targetSceneId` is the Special Meeting rather than the Initiation because
+ * the Initiation is not where this call sends him. It sends him downstairs.
+ */
+export const SPECIAL_MEETING_BOOSKI_CALL = Object.freeze({
+  eventId: EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL,
+  characterId: CHARACTER_IDS.BOOSKI,
+  targetSceneId: SCENE_IDS.SPECIAL_MEETING,
+  from: getCharacter(CHARACTER_IDS.BOOSKI).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.BOOSKI),
+  /* `callScript()` wants the bank without the `vo.` and without the trailing
+   * dot, and rebuilds both. Derived from the script's own prefix rather than
+   * typed out, so the two cannot drift by a character. */
+  vo: CALL_CUE_PREFIX.replace(/^vo\./, '').replace(/\.$/, ''),
+  ...specialMeetingCallHalves(),
+});
+
+/**
+ * Is tonight the night three men come for him?
+ *
+ * The full test is in this file's Act One banner above. Exported because
+ * `src/main.js` asks the same question of the same save to decide whether the
+ * flat plays its idle lines in Tony's voice instead of the narrator's.
+ *
+ * @param {object} state a campaign state
+ */
+export function isSpecialMeetingNight(state) {
+  if (state?.story?.chapter !== 'big_night') return false;
+  const palace = state.missions?.[MISSION_IDS.CARTEL_PALACE];
+  if (palace?.status !== 'complete' || palace.grandfathered === true) return false;
+  return state.missions?.[MISSION_IDS.INITIATION]?.status !== 'complete';
+}
 
 /**
  * What is waiting on the answering machine, morning by morning.
@@ -1133,6 +1343,20 @@ class ApartmentStory {
       });
       return true;
     }
+    /* SM-030. The only call in this file that unlocks nothing.
+     *
+     * Every other one hands him a destination -- the Bing, the airstrip, the
+     * harbour -- and moves a mission to `available` on the way past. Booskibro
+     * does not say where, twice, on purpose, and the Palace has already left
+     * the Initiation unlocked behind it. So this writes down that he took the
+     * call and nothing else, which is also all the call did. */
+    if (definition?.eventId === EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL
+      && !this.#eventAnswered(EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL, (state) => {
+        state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status = 'answered';
+      });
+      return true;
+    }
     return false;
   }
 
@@ -1228,7 +1452,7 @@ class ApartmentStory {
    */
   objectives(activities = {}) {
     const state = this.campaign.state;
-    const plan = CHAPTER_PLAN[state.story.chapter];
+    const plan = this.#plan();
     if (!plan) return { chapter: state.story.chapter, day: state.story.day, items: [] };
 
     const items = DEPARTURE_REQUIREMENTS.map(({ id }) => ({
@@ -1304,6 +1528,14 @@ class ApartmentStory {
       items.push({ id: door.id, label: 'Find Lou’s package', done: false, required: true });
     } else if (door.kind === 'stay') {
       items.push({ id: door.id, label: 'Sleep', done: false, required: true });
+    } else if (door.kind === 'wait') {
+      /* `wait` is not `stay`, and the difference is the whole of Act One's
+       * second half. `stay` means the night is over and the answer is bed, so
+       * it draws itself as "Sleep". This is a man dressed, ready, and standing
+       * in his own front room with nothing left to do but be in when they
+       * arrive -- which is not a chore, not a sleep, and not something he can
+       * go and finish. The label carries the door's own words. */
+      items.push({ id: door.id, label: door.label, done: false, required: true });
     } else if (door.kind === 'activity' && !items.some((item) => item.id === door.id)) {
       items.push({ id: door.id, label: door.label, done: false, required: true });
     }
@@ -1350,6 +1582,58 @@ class ApartmentStory {
       };
     }
     return null;
+  }
+
+  /**
+   * The front door, on the night three men come for him.
+   *
+   * Four states, and the order of the middle two is the design.
+   *
+   *   1. Booskibro has not rung. He is not going anywhere on a guess, and he
+   *      has nothing to guess at -- the Palace ended and nobody said a word.
+   *   2. The car is outside. Everything else stops mattering the moment
+   *      headlights land on the ceiling, which is why this sits ABOVE the
+   *      pastimes rather than below them like every other chapter's does. Seff,
+   *      Lag and Numbskull are at the kerb with the engine running; a door that
+   *      answered that with "I would like to wreck a campground first" would be
+   *      the flat making a joke at the exact moment the scene stops being one.
+   *   3. His own thing, while there is still time for it. The big night's two
+   *      pastimes were written for this evening and still fit it: a last run of
+   *      Squatch Smash because it is the last night of something, and the caps
+   *      because they take ninety minutes to arrive and he has worked out
+   *      roughly when he would rather be somewhere else.
+   *   4. Waiting, in SM-080's own words. Not a chore and not a sleep -- see the
+   *      `wait` branch in `objectives()`.
+   *
+   * `carOutside` is a room fact, not a save fact: it is set by the headlights
+   * in `src/main.js` and it does not survive a reload, which is deliberate --
+   * a save has no field for it, and the flat answers by sweeping the ceiling
+   * again shortly after it rebuilds rather than by storing a new boolean and
+   * telling every existing player their save changed shape.
+   */
+  #specialMeetingDoor(activities) {
+    if (!this.#eventAnswered(EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL)) {
+      return {
+        kind: 'call',
+        id: EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL,
+        ...actOneRefusal(WAITING_ON_BOOSKI),
+      };
+    }
+    if (activities.carOutside === true) {
+      return { kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING };
+    }
+    const pastime = this.#pastimeGate(activities);
+    if (pastime) return pastime;
+    return {
+      kind: 'wait',
+      id: 'special_meeting_car',
+      /* Three of them, counted, because he counts them himself twice in
+       * SM-060 and the count is the thing that is wrong. It says who is coming
+       * and nothing whatever about what for -- the panel is not allowed to
+       * know more than he does. */
+      label: 'Wait in for Seff, Lag and Numbskull',
+      ...actOneRefusal(SPECIAL_MEETING_ACT_ONE.doorRefusals),
+    };
   }
 
   tryLeave(activities = {}) {
@@ -1426,6 +1710,7 @@ class ApartmentStory {
       return { kind: 'go', destination: SCENE_IDS.BANK_HEIST };
     }
     if (state.story.chapter === 'big_night') {
+      if (isSpecialMeetingNight(state)) return this.#specialMeetingDoor(activities);
       if (!this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
         return {
           kind: 'call',
@@ -1696,6 +1981,22 @@ class ApartmentStory {
       && state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_COME_HOME);
   }
 
+  /**
+   * This chapter's shape, with the one override CHAPTER_PLAN cannot express.
+   *
+   * `big_night` is two different nights sharing a chapter name (see the Act One
+   * banner near the top of this file), and they take different calls from the
+   * same man. The table is keyed by chapter, so the split has to happen here
+   * rather than in it -- one override, in one place, so the panel and the door
+   * cannot disagree about which telephone the morning is waiting on.
+   */
+  #plan() {
+    const state = this.campaign.state;
+    const plan = CHAPTER_PLAN[state.story.chapter];
+    if (!plan || !isSpecialMeetingNight(state)) return plan;
+    return { ...plan, event: EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL };
+  }
+
   #callAnswered() {
     return this.#eventAnswered(EVENT_IDS.LOU_FIRST_CALL);
   }
@@ -1713,6 +2014,15 @@ class ApartmentStory {
     if (state.story.chapter === 'heist_day'
       && !this.#eventAnswered(EVENT_IDS.LOU_HEIST_CALL)) {
       return DAY_FOUR_LOU_HEIST_CALL;
+    }
+    /* Both of `big_night`'s telephones, newest night first. The Special
+     * Meeting's has to be tested BEFORE the big night's or it is unreachable:
+     * `normalize()` force-answers the big-night call for any save whose
+     * Initiation is unlocked, and finishing the Palace is what unlocks it, so
+     * on this night the second test below is already false. */
+    if (isSpecialMeetingNight(state)
+      && !this.#eventAnswered(EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL)) {
+      return SPECIAL_MEETING_BOOSKI_CALL;
     }
     if (state.story.chapter === 'big_night'
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {

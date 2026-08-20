@@ -206,6 +206,12 @@ const ride = createRideSequence({
     if (b.id === 'SM-120') cast.lagTakesTheBack();
     if (b.id === 'SM-322') cast.swapRearSeats();
     if (b.id === 'SM-400') { cast.getOut(); forest?.leave(); }
+    /* The boot. Kittenboss stands herself up and climbs out under her own
+     * power — `cast.js` owns the move, and it is a stand rather than a lift
+     * because nobody helps her and she does not need it. She is a woman and
+     * the other prospect, at Tony's rank; the scene said "he" everywhere
+     * until 2026-08-20 and every one of those was corrected on the owner's
+     * ruling. Nothing about this call changed with it. */
     if (b.id === 'SM-420') cast.kittenbossOut();
   },
   onSeated: () => {

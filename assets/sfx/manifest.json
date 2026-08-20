@@ -632,8 +632,8 @@
       "similarity": 0.78
     },
     "kittenboss": {
-      "id": "<owner to cast>",
-      "_note": "Kittenboss -- the OTHER prospect, and the man in the boot of the car in THE SPECIAL MEETING. Aggrieved, deadpan, weirdly chipper: he treats having been shut in a boot for forty-two minutes as a logistics failure rather than a crime, and he is more annoyed about the spare wheel than about any of it. Same age and same rank as Tony, which is the point -- do not play him as comic relief and never as frightened. UNCAST: paste an id here and nothing else moves.",
+      "id": "2bk7ULW9HfwvcIbMWod0",
+      "_note": "Kittenboss -- the OTHER prospect, and the woman in the boot of the car in THE SPECIAL MEETING. SHE, everywhere: dialogue, subtitles and direction alike. Aggrieved, deadpan, weirdly chipper: she treats having been shut in a boot for forty-two minutes as a logistics failure rather than a crime, and she is genuinely more annoyed about the spare wheel than about any of it. She is not startled to be there, she does not ask to be let out, and she never once sounds rescued -- she sounds like somebody whose lift was badly organised. Same age and same rank as Tony, which is the point -- do not play her as comic relief and never as frightened. The dry ones ('It was not forty minutes.' / 'I am annoyed. That is different.') are flat and completely sincere, and there is no wink in any of them. The two on the trail ('Are we allowed to talk?' / 'No. I had nothing. Sorry.') are the only quiet she gets, and even those land matter-of-fact rather than scared. CAST 2026-08-20 from the id the owner supplied, which is a woman's voice.",
       "model": "eleven_multilingual_v2",
       "stability": 0.42,
       "similarity": 0.8,
@@ -23159,7 +23159,7 @@
     {
       "name": "vo.specialmeeting.tony.kittenboss.2",
       "voice": "player",
-      "say": "Why was he in the trunk?"
+      "say": "Why was she in the trunk?"
     },
     {
       "name": "vo.specialmeeting.numbskull.kittenboss.1",
@@ -23230,7 +23230,7 @@
       "say": "I'm annoyed. That's different."
     },
     {
-      "_comment": "SM-442 — Why were you in the trunk?. Two men who do not know. This is the moment the player realises nobody is going to tell either of them anything, ever.",
+      "_comment": "SM-442 — Why were you in the trunk?. Two prospects who do not know. This is the moment the player realises nobody is going to tell either of them anything, ever.",
       "name": "vo.specialmeeting.kittenboss.kb_trunk.1",
       "voice": "kittenboss",
       "say": "You'd have to ask them."
@@ -23277,7 +23277,7 @@
       "say": "Right."
     },
     {
-      "_comment": "SM-444 — Do you know what this is?. He is not reassured. He is talking himself down, badly, and Tony can hear him doing it.",
+      "_comment": "SM-444 — Do you know what this is?. She is not reassured. She is talking herself down, badly, and Tony can hear her doing it.",
       "name": "vo.specialmeeting.kittenboss.kb_what.1",
       "voice": "kittenboss",
       "say": "Do you know what this is?"
@@ -23508,7 +23508,7 @@
       "say": "That's all I'm saying. If."
     },
     {
-      "_comment": "SM-533 — Kittenboss tries. Do not play this for the laugh. He tried to comfort a man and could not find anything to say, and they both have to keep walking.",
+      "_comment": "SM-533 — Kittenboss tries. Do not play this for the laugh. She tried to comfort a man and could not find anything to say, and they both have to keep walking.",
       "name": "vo.specialmeeting.kittenboss.trail_comfort.1",
       "voice": "kittenboss",
       "say": "Hey. If this goes bad—"

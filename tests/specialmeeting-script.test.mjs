@@ -297,13 +297,21 @@ test('the campaign route runs Cartel Palace -> the Special Meeting -> Initiation
   assert.equal(arrived.scene.id, SCENE_IDS.INITIATION,
     'and it goes exactly one place from there');
 
-  /* And the old edge is still legal, on purpose and only for now: the Palace's
-   * own exit button still names the Initiation, and a transition the graph
-   * refuses throws rather than degrading. Repoint that button and this
-   * assertion is the one to delete. */
+  /* And the old edge is GONE.
+   *
+   * It was legal for exactly as long as the Palace's own exit button still
+   * named the Initiation: a transition the graph refuses throws rather than
+   * degrading, so pulling the edge first would have stranded anybody who had
+   * just finished the Palace. That button now names the Special Meeting
+   * (`src/cartel-palace/main.js`), so the bridge came out, and this assertion
+   * flipped from `doesNotThrow` to the opposite — which is the only proof that
+   * nothing can quietly route round the scene again. */
   const legacy = freshCampaign();
   legacy.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
-  assert.doesNotThrow(() => legacy.transition(SCENE_IDS.INITIATION, { spawn: 'gathering' }));
+  assert.throws(
+    () => legacy.transition(SCENE_IDS.INITIATION, { spawn: 'gathering' }),
+    /Cannot transition from "cartel_palace" to "initiation"/,
+  );
 });
 
 test('the scene has its own spawns and its own place on the clock', () => {
@@ -363,7 +371,7 @@ test('every spoken cue is named vo.* so the mouths lip-sync off the take', () =>
 test('Kittenboss is a whole character and not a scene-local name', () => {
   assert.equal(CHARACTER_IDS.KITTENBOSS, 'kittenboss');
   const record = CHARACTER_REGISTRY[CHARACTER_IDS.KITTENBOSS];
-  assert.ok(record, 'he has an identity record');
+  assert.ok(record, 'she has an identity record');
   assert.equal(record.canonicalName, 'Kittenboss');
   assert.equal(record.subtitleName, 'Kittenboss');
   assert.notEqual(record.subtitleName, 'Prospect',
@@ -381,7 +389,34 @@ test('Kittenboss has canonical clothes and a wardrobe-ledger row', () => {
   assert.equal(rows.length, 1, 'exactly one appearance, and it is this scene');
   assert.equal(rows[0].scene, 'special_meeting');
   assert.equal(rows[0].model, KITTENBOSS, 'the ledger points at the frozen model itself');
-  assert.match(rows[0].where, /boot|trunk/i, 'and says where he is');
+  assert.match(rows[0].where, /boot|trunk/i, 'and says where she is');
+
+  /* SHE. The scene was authored with Kittenboss written as a man and the body
+   * was built to match -- `hair: 'short'`, no `gender`, no `bodyShape`, so
+   * `makePerson` handed her the 0.226 male shoulder frame and the hard-edged
+   * slabs. Corrected 2026-08-20 on the owner's ruling. These are the exact
+   * three fields `makePerson` reads to decide the figure, so they are the
+   * three that are pinned. */
+  assert.equal(KITTENBOSS.gender, 'female', 'the body has to read as a woman on screen');
+  assert.equal(KITTENBOSS.bodyShape, 'curvy',
+    'gender alone only narrows the shoulders; the pair is how this roster builds a woman');
+  assert.equal(KITTENBOSS.hair, 'tied',
+    'she has no face photo, so the hair silhouette is the only thing that says who she is');
+
+  /* And NOT small, NOT cute, NOT a victim. She is the same age and the same
+   * rank as Tony, whose own model is 1.79 (`GOLF_PROSPECT`), and she stands
+   * eye to eye with him -- shrinking her to signal "woman" would throw away
+   * the only thing the staging has. */
+  assert.equal(KITTENBOSS.height, 1.79, 'she is the same height as Tony and must stay it');
+  assert.ok(KITTENBOSS.build >= 1, 'she is not built slighter than the prospect beside her');
+
+  /* `neckline` is documented in src/bing/cast.js as `false | 'v'`. It shipped
+   * as 'collar', which draws nothing AND fails the `!neckline` guard on the
+   * `trim` placket -- so the one truthy string switched off the collar, the
+   * placket and the buttons it was asking for. */
+  assert.equal(KITTENBOSS.trim, true, 'she is stood next to the player for a whole act');
+  assert.ok(!KITTENBOSS.neckline || KITTENBOSS.neckline === 'v',
+    "neckline is false | 'v'; anything else silently suppresses the trim placket");
   assert.ok(SCENES.special_meeting, 'the fitting room knows the scene');
 
   const coverage = CAMPAIGN_SCENE_COVERAGE[SCENE_IDS.SPECIAL_MEETING];
@@ -389,15 +424,93 @@ test('Kittenboss has canonical clothes and a wardrobe-ledger row', () => {
   assert.deepEqual(coverage.appearanceScenes, ['special_meeting']);
 });
 
-test('Kittenboss has a voice profile, uncast, in the house convention', () => {
+test('Kittenboss is cast, in the house convention', () => {
   const profile = manifest.voices.kittenboss;
-  assert.ok(profile, 'the profile exists so his lines can be minted');
-  assert.match(profile.id, /^<.*>$/,
-    'uncast on purpose: subtitles over silence until the owner supplies an id');
-  assert.ok(profile._note.length > 40, 'and the note tells whoever casts him who he is');
+  assert.ok(profile, 'the profile exists so her lines can be minted');
+  /* Cast by the owner. This assertion was `/^<.*>$/` — uncast on purpose,
+   * subtitles over silence — for as long as nobody had supplied an id, and it
+   * is now the opposite: a placeholder creeping back in would mean a part with
+   * this much of it silent, and `tools/voice-needed.mjs` reads a `<…>` id as
+   * cast rather than blocked, so nothing else would say so. */
+  assert.doesNotMatch(profile.id, /^<.*>$/, 'a placeholder id is back in the manifest');
+  assert.match(profile.id, /^[A-Za-z0-9]{16,}$/, 'not an ElevenLabs voice id');
+  assert.ok(profile._note.length > 40, 'and the note tells the booth who she is');
 
-  const his = cues.filter((cue) => cue.voice === 'kittenboss');
-  assert.ok(his.length >= 20, 'he has a real part, not a cameo');
+  /* The booth note is the only prose the voice director reads, and it used to
+   * open "the man in the boot" and close "do not play him as comic relief".
+   * Whoever records her would have read that before hearing a single line.
+   * Nothing in it may describe her as a man in any wording, so the assertion
+   * is on the whole vocabulary rather than on the two phrases that were
+   * actually wrong -- "the guy in the boot" would be exactly as bad. */
+  assert.doesNotMatch(profile._note, /\b(he|him|his|himself|man|men|bloke|guy|lad)\b/i,
+    'the booth note still describes Kittenboss as a man');
+  assert.match(profile._note, /\bshe\b/i, 'and it has to say what she is');
+  assert.match(profile._note, /same age and same rank as Tony/i,
+    'the rank is the point of the character and the booth needs it');
+  assert.match(profile._note, /never as frightened/i,
+    'she is never frightened, and that is the hardest thing to get out of a booth');
+  assert.doesNotMatch(profile._note, /UNCAST/i, 'she is cast; the placeholder sentence is gone');
+
+  const hers = cues.filter((cue) => cue.voice === 'kittenboss');
+  assert.ok(hers.length >= 20, 'she has a real part, not a cameo');
+});
+
+test('nothing in the scene calls Kittenboss a man', () => {
+  /* A blanket pronoun sweep is not available here and would be wrong if it
+   * were: this scene is four-fifths men, and "He is being accurate" (Seff, at
+   * SM-430) and "Kittenboss falls in beside him anyway" (Tony, at SM-446) are
+   * both correct as written. So the stage directions that describe HER are
+   * pinned individually, the same way the owner's spoken lines are. */
+  const directions = {
+    'SM-420': 'She climbs out under her own power, unhurried, like somebody getting '
+      + 'off a long coach. She is dressed up. She has also put on something '
+      + 'decent. It is extremely creased.',
+    'SM-430': 'She brushes herself down. Rolls one shoulder. Looks at the trees, '
+      + 'then at the car, then at Tony.',
+    'SM-443': 'She looks at the trees. Neither of them says the obvious thing.',
+    'SM-524': 'She starts up the trail.',
+  };
+  for (const [id, text] of Object.entries(directions)) {
+    const staged = beat(id).lines.filter((line) => !line.spoken).map((line) => line.stage);
+    assert.ok(staged.includes(text),
+      `${id} no longer carries its stage direction for her:\n${staged.join('\n')}`);
+  }
+
+  /* The one spoken word that moved, and the reason the manifest had to be
+   * re-minted by hand: there is no `vo:specialmeeting` generator. It keeps its
+   * verbatim mark because the owner changed the pronoun himself and nothing
+   * either side of it was touched. */
+  const asked = beat('SM-420').lines.find((line) => line.who === 'PROSPECT' && /trunk/.test(line.text));
+  assert.equal(asked.text, 'Why was she in the trunk?');
+  assert.equal(asked.verbatim, true, 'it is still a line the owner wrote');
+  assert.equal(manifestByName.get(asked.cue).say, asked.text,
+    'the cue for it has to say the same words');
+
+  /* And nobody else calls her one either.
+   *
+   * Scoped to acts four and five -- the boot and the walk -- and NOT to the
+   * scene, on purpose. Everyone in those two acts is stood in the same patch
+   * of mud and is spoken to directly, so the only person anybody refers to in
+   * the third person is Kittenboss, and any male word there is about her. A
+   * scene-wide sweep would be a false positive on the first try: at SM-310
+   * Tony says "the guy sitting behind you" about Numbskull, and that line is
+   * the owner's, is the only laugh in the scene, and is pinned verbatim
+   * elsewhere in this file. Over-applying the fix is worse than the bug.
+   *
+   * If a future line in these acts genuinely refers to Seff, Lag or Numbskull
+   * in the third person, narrow this to the beats Kittenboss is in rather than
+   * deleting it. */
+  const male = /\b(he|him|his|himself|man|men|bloke|guy|lad|fella)\b/i;
+  const late = BEATS.filter((b) => b.act >= 4);
+  assert.ok(late.length >= 15, 'acts four and five are the half of the scene she is in');
+  const offences = late
+    .flatMap((b) => [
+      ...b.lines.filter((line) => line.spoken).map((line) => `${b.id} ${line.who}: ${line.text}`),
+      ...b.options.map((o) => `${b.id} option: ${o.text}`),
+    ])
+    .filter((entry) => male.test(entry));
+  assert.deepEqual(offences, [],
+    `somebody at the car or on the trail is calling Kittenboss a man:\n${offences.join('\n')}`);
 });
 
 test('everybody with lines in this scene has a body in it, except the phone', () => {

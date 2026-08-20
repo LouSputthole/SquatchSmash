@@ -362,12 +362,26 @@ function buildIndoorFirewood() {
 /* Walls                                                               */
 /* ------------------------------------------------------------------ */
 
-function photoTexture(seed) {
-  return bakedTexture(64, (context, size) => {
-    speckle(context, size, '#6b5f4a', ['#7d7059', '#574c3b', '#8b7f66'], 220, { grain: [4, 18] });
-    context.fillStyle = '#3f3627';
-    context.fillRect(size * 0.3, size * 0.3, size * 0.4, size * 0.5);
-  }, { repeat: 1, srgb: true, seed });
+/**
+ * One photograph, baked once and hung eight times.
+ *
+ * At the size these are printed and in the light this room is under, eight
+ * separate 64-pixel canvases would be eight textures nobody could tell apart.
+ * So there is one, and the FRAMES differ instead — which is also how a wall of
+ * family photographs actually looks, because the frames were bought over
+ * fifty years and the people in them were not.
+ */
+let photoMaterial = null;
+function photoFace() {
+  if (!photoMaterial) {
+    const map = bakedTexture(64, (context, size) => {
+      speckle(context, size, '#6b5f4a', ['#7d7059', '#574c3b', '#8b7f66'], 220, { grain: [4, 18] });
+      context.fillStyle = '#3f3627';
+      context.fillRect(size * 0.3, size * 0.3, size * 0.4, size * 0.5);
+    }, { repeat: 1 });
+    photoMaterial = new THREE.MeshLambertMaterial({ map });
+  }
+  return photoMaterial;
 }
 
 /**
@@ -381,7 +395,6 @@ function photoTexture(seed) {
  */
 function buildWallPictures() {
   const group = assembly('cabin.pictures', 'initiation.cabin.pictures');
-  const random = rng(0x9a17c);
   /**
    * `side` is which way the picture STICKS OUT of the wall it is on: +1 for a
    * wall whose room is on its positive side, -1 for the back wall, where the
@@ -404,7 +417,7 @@ function buildWallPictures() {
     };
     frame.add(build(0x2e2415, 0, facing === 'x' ? depth : depth));
     const pane = build(0xffffff, 0.045, facing === 'x' ? depth + 0.004 : depth + 0.004);
-    pane.material = new THREE.MeshLambertMaterial({ map: photoTexture(random() * 1000) });
+    pane.material = photoFace();
     frame.add(pane);
     group.add(frame);
   };
@@ -453,7 +466,10 @@ function buildTrophies() {
         ]);
         beam.rotation.z = facing === 'z' ? side * (0.5 + tine * 0.16) : 0;
         beam.rotation.x = facing === 'z' ? 0 : -side * (0.5 + tine * 0.16);
-        beam.userData.geometryGate = { overlap: false };
+        /* No overlap suppression: every trophy on these walls is one assembly,
+         * so a tine crossing its own skull is already the same object as the
+         * skull. Suppressing it anyway would put twelve lines in the gate's
+         * ledger to permit something the gate was never going to look at. */
         mount.add(beam);
       }
     }

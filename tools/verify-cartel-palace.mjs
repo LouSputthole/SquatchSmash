@@ -19,6 +19,36 @@ const SENTINEL = '{"canonical":"cartel palace preview must not touch this"}';
 const CHECKPOINTS = Object.freeze([
   'approach', 'perimeter', 'estate', 'betrayal', 'dining_room', 'clear',
 ]);
+/**
+ * THE ROOMS THE MISSION WALKS THROUGH, and the fewest meshes each can carry
+ * and still read as a built room rather than a box with a name.
+ *
+ * These are the zones world.js publishes from `environmentZones`, which are
+ * the real authored rooms of the route: over the wall into the `courtyard`,
+ * through the `serviceCorridor` the cut power opens, into the `entry` foyer,
+ * the three evidence rooms (`office`, `guestSuite`, `security`), down the
+ * portrait `gallery`, and into `dining` for the confrontation. `ceilings` is
+ * the lid on the interiors -- one per room, so it is counted as lids and not
+ * as dressing.
+ *
+ * The floors are deliberately far under what the palace currently carries
+ * (measured 2026-08-20: ceilings 7, courtyard 42, office 54, security 62,
+ * guestSuite 86, serviceCorridor 89, gallery 126, entry 178, dining 231).
+ * That headroom is the point: an art pass may move every stick of furniture
+ * in a room without touching this file, and only a room that has been GUTTED
+ * -- or deleted, or landed as a stub -- trips the gate.
+ */
+const PALACE_ROOM_FLOORS = Object.freeze({
+  ceilings: 6,
+  courtyard: 30,
+  serviceCorridor: 30,
+  entry: 30,
+  office: 30,
+  guestSuite: 30,
+  security: 30,
+  gallery: 30,
+  dining: 30,
+});
 const NEW_GROUND_COMBAT_CUES = Object.freeze([
   'combat.bullet.impact.flesh',
   'combat.bullet.impact.flesh.heavy',
@@ -93,6 +123,51 @@ const browser = await chromium.launch({
   ],
 });
 const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
+/**
+ * EVERY WAIT IN THIS FILE IS A WAIT FOR A RENDERED FRAME, not for a network.
+ * The whole palace is served off localhost and rasterised in software, and
+ * the two things that follow from that both bit on 2026-08-20:
+ *
+ *   - `page.goto(..., { waitUntil: 'load' })` was on Playwright's implicit
+ *     30 s while the boot waits on the next line were already spelled out at
+ *     180 s. Building the palace happens inside module evaluation, so `load`
+ *     does not fire until the world exists: measured 45 s on a contended
+ *     four-core box. The gap between the implicit budget and the file's own
+ *     stated one was an oversight, not a policy.
+ *   - A held interaction advances on the runtime's clamped frame delta
+ *     (`Math.min(0.05, ...)` in src/cartel-palace/main.js), so a `hold` of
+ *     0.72 s -- the dining doors -- needs FIFTEEN rendered frames however
+ *     slow those frames are. Measured 26.2 s at 480x300 under load, longer
+ *     at this page's 960x600, against an implicit 30 s budget. The 0.48 s
+ *     power-box hold next to it needs ten frames and squeaked in, which is
+ *     why one E-hold passed and the other "timed out" on a beat that in fact
+ *     arrives every time.
+ *
+ * The six explicit ten-second budgets in the combat section were the same
+ * mistake in the other direction -- a number small enough to look careful,
+ * measured against nothing. Every one of them waits on a value the RUNTIME
+ * LOOP moves, and every one of them arrives:
+ *
+ *     pointer lock after the canvas click     13.6 s
+ *     weapons.aimBlend > 0.98 (ADS in)        51.4 s
+ *     weapons.aimBlend < 0.001 (ADS out)      76.5 s
+ *
+ * measured 2026-08-20 at this page's own 960x600 on a contended four-core
+ * box. Pointer lock is not even frame-bound -- it is the click and the poll
+ * that have to be serviced by a main thread rendering the whole estate --
+ * and the aim blend is a per-frame lerp, so it costs a fixed number of
+ * FRAMES and takes whatever wall time those frames take. They all read
+ * SCENE_WAIT_MS now.
+ *
+ * So the default is raised once, here, to the 180 s this file already uses
+ * for its boot waits. This is a budget for SLOWNESS, not a licence for a
+ * hang: a state the scene never reaches still fails the run, just three
+ * minutes later instead of thirty seconds later. Nothing asserted below
+ * moved.
+ */
+const SCENE_WAIT_MS = 180000;
+page.setDefaultTimeout(SCENE_WAIT_MS);
+page.setDefaultNavigationTimeout(SCENE_WAIT_MS);
 await page.addInitScript((sentinel) => {
   localStorage.setItem('squatchlife.campaign', sentinel);
 }, SENTINEL);
@@ -181,17 +256,50 @@ try {
         && state.materialLanguage === 'stucco-stone-clay-tile-courtyard'
         && state.geometry.colliders >= 20,
       JSON.stringify({ evidence: state.snapshot.evidenceFound, geometry: state.geometry }));
+    const zoneMeshes = Object.fromEntries(Object.entries(state.geometry.zones)
+      .map(([name, zone]) => [name, zone.meshes]));
+    const thinZones = Object.entries(PALACE_ROOM_FLOORS)
+      .filter(([name, floor]) => !(zoneMeshes[name] >= floor));
+    const emptyZones = Object.entries(zoneMeshes).filter(([, meshes]) => !(meshes > 0));
     check(`${checkpoint}: exposes the real refined environment inventory`,
       /* Richness is judged on rendered parts: instanced batches (world.js
        * `instanced`) collapse many authored repeats into one Mesh object, so
-       * the raw Mesh count measures draw calls, not what the player sees. */
+       * the raw Mesh count measures draw calls, not what the player sees.
+       *
+       * HISTORY, 2026-08-20. This check used to finish on an exact zone-name
+       * string -- 'ceilings,courtyard,dining,gallery,guestSuite,office,
+       * security' -- which was the palace's entire room list on the day it
+       * was written. The scene pass in 3dbe16d ("Motel, Siege and Palace:
+       * three scene passes") built two more rooms into the route: `entry`,
+       * the foyer behind the estate door, and `serviceCorridor`, the service
+       * wing the cut power opens. NOTHING WAS LOST -- all seven original
+       * zones are still standing and every one of them is denser than it
+       * was -- but an equality on the room list fails the moment the palace
+       * gains a room, which is the wrong direction to punish. It was
+       * measuring "the palace has not changed", not "the palace is built",
+       * and it went red on six checkpoints for a rework that improved the
+       * thing it was guarding.
+       *
+       * So the gate is structural now, and strictly stronger than the string
+       * it replaces on every axis except the one that rotted:
+       *
+       *   - every room the mission routes the player through must be PRESENT
+       *     (PALACE_ROOM_FLOORS -- a missing room is still a hard failure),
+       *   - each of those rooms must be DRESSED to a floor rather than the
+       *     old `> 0`, so a room emptied back to a box fails,
+       *   - and NO zone at all may be empty, including one added tomorrow,
+       *     so a new room cannot be landed as a stub.
+       *
+       * A palace that grows now passes without an edit here; a palace that
+       * is gutted still cannot. What this gate defends is tone doctrine, not
+       * a number: "an under-built scene fails the doctrine before any of its
+       * writing is heard" (docs/TONE-AND-PARODY.md). */
       state.geometry.renderedParts >= 750
         && state.geometry.meshes >= 400
         && state.geometry.groups >= 90
         && state.geometry.namedMeshes / state.geometry.meshes >= 0.85
-        && Object.keys(state.geometry.zones).sort().join(',')
-          === 'ceilings,courtyard,dining,gallery,guestSuite,office,security'
-        && Object.values(state.geometry.zones).every((zone) => zone.meshes > 0)
+        && thinZones.length === 0
+        && emptyZones.length === 0
         && state.geometry.solidWaterworks.sort().join(',')
           === 'courtyard-fountain-collider,reflecting-pool-collider',
       JSON.stringify({
@@ -199,7 +307,9 @@ try {
         renderedParts: state.geometry.renderedParts,
         groups: state.geometry.groups,
         namedMeshes: state.geometry.namedMeshes,
-        zones: Object.fromEntries(Object.entries(state.geometry.zones).map(([name, zone]) => [name, zone.meshes])),
+        zones: zoneMeshes,
+        thinZones: thinZones.map(([name, floor]) => `${name} ${zoneMeshes[name] ?? 'missing'} < ${floor}`),
+        emptyZones: emptyZones.map(([name]) => name),
         solidWaterworks: state.geometry.solidWaterworks,
       }));
     check(`${checkpoint}: uses the shared final-raid combat contract`,
@@ -562,7 +672,7 @@ try {
     await page.mouse.click(480, 300);
     await page.waitForFunction(() => (
       document.pointerLockElement === document.getElementById('scene')
-    ), null, { timeout: 10000 });
+    ), null, { timeout: SCENE_WAIT_MS });
   }
   await page.evaluate(() => {
     const runtime = window.CARTEL_PALACE;
@@ -633,11 +743,11 @@ try {
     await page.mouse.move(480, 300);
     await page.mouse.down({ button: 'right' });
     await page.waitForFunction(() => window.CARTEL_PALACE.weapons.aimBlend > 0.98,
-      null, { timeout: 10000 });
+      null, { timeout: SCENE_WAIT_MS });
     const aimed = await readWeaponFeedback();
     await page.mouse.up({ button: 'right' });
     await page.waitForFunction(() => window.CARTEL_PALACE.weapons.aimBlend < 0.001,
-      null, { timeout: 10000 });
+      null, { timeout: SCENE_WAIT_MS });
     const released = await readWeaponFeedback();
     const beforeShot = await page.evaluate(() => {
       const runtime = window.CARTEL_PALACE;
@@ -666,7 +776,7 @@ try {
         transform,
       };
       return true;
-    }, null, { timeout: 10000 });
+    }, null, { timeout: SCENE_WAIT_MS });
     const shot = await page.evaluate(() => window.__palaceShotMoment);
     await page.mouse.up({ button: 'left' });
     await page.evaluate(() => {
@@ -681,7 +791,7 @@ try {
       return runtime.player.keys.has('KeyW')
         && runtime.weapons.aimed
         && runtime.weapons.firearm(runtime.weapons.current).triggerHeld;
-    }, null, { timeout: 10000 });
+    }, null, { timeout: SCENE_WAIT_MS });
     const heldBeforeLoss = await page.evaluate(() => {
       const runtime = window.CARTEL_PALACE;
       return {
@@ -699,7 +809,7 @@ try {
         && runtime.player.keys.size === 0
         && runtime.weapons.aimed === false
         && runtime.weapons.firearm(runtime.weapons.current).triggerHeld === false;
-    }, null, { timeout: 10000 });
+    }, null, { timeout: SCENE_WAIT_MS });
     const clearedAfterLoss = await page.evaluate(() => {
       const runtime = window.CARTEL_PALACE;
       return {

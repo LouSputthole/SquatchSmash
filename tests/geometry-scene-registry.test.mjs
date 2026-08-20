@@ -17,11 +17,13 @@ const [
   { SCENE_AUDIT_SCENES },
   { APARTMENT_PREVIEW_VARIANTS },
   { DAMAGE_STATES },
+  { PALACE_GUARD_POSTS },
 ] = await Promise.all([
   import('../tools/geometry-scenes.mjs'),
   import('../tools/scene-audit-scenes.mjs'),
   import('../src/core/preview-mode.js'),
   import('../src/mansion/siege/state.js'),
+  import('../src/cartel-palace/cast.js'),
 ]);
 
 const EXPECTED_ADAPTERS = Object.freeze([
@@ -371,7 +373,18 @@ test('Cartel Palace approach smoke-build produces the world, cast, and colliders
   assert.equal(built.state, 'approach');
   assert.ok(meshCount > 0, 'Cartel Palace approach built no traversable meshes');
   assert.ok(built.colliders.length > 0, 'Cartel Palace approach built no colliders');
-  assert.equal(built.metadata.castCount, 10);
-  assert.equal(built.metadata.guardCount, 8);
+  /* These used to read `castCount === 10` and `guardCount === 8`, which was
+   * the roster on the day they were written. The 2026-08-20 owner playtest
+   * pass added the `entry-watch` post -- the guard seated at the computer
+   * facing the front door -- and both numbers went stale at once, failing a
+   * palace that had gained a man rather than lost one.
+   *
+   * Pinned to the authored roster instead of to a number: every post in
+   * PALACE_GUARD_POSTS must have become a body, and the combat cast is that
+   * roster plus the two named targets, Mark and Sauce. A post added or
+   * removed in cast.js moves both sides together; a post that silently fails
+   * to build, or a target that goes missing, still fails here. */
+  assert.equal(built.metadata.guardCount, PALACE_GUARD_POSTS.length);
+  assert.equal(built.metadata.castCount, PALACE_GUARD_POSTS.length + 2);
   assertPlainData(built.metadata, 'cartel-palace:approach.metadata');
 });

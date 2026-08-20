@@ -610,23 +610,54 @@ try {
       opacity: Number(style.opacity),
       visible: style.visibility,
       width: rect.width,
+      /* The brief is driven by ONE authored rule, `#hud.visible.control-ready
+       * #surveyBrief { animation: surveyBriefIn 10s ... }` in motel.html, so
+       * while Tony is still locked into the pull-in there is no animation on
+       * the element AT ALL -- not a paused one, not a finished one. Proving
+       * that here is what lets the handoff check below say the ten seconds
+       * begins at the handoff without having to time-stamp anything. */
+      animationName: style.animationName,
+      animations: element.getAnimations().length,
     };
   });
   check('the survey message stays hidden until Tony receives playable control',
     arrivalSurveyBrief.text === 'Survey the Motel before going into your meeting or go right into it'
       && arrivalSurveyBrief.opacity === 0
       && arrivalSurveyBrief.visible === 'hidden'
-      && arrivalSurveyBrief.width >= 500,
+      && arrivalSurveyBrief.width >= 500
+      && arrivalSurveyBrief.animationName === 'none'
+      && arrivalSurveyBrief.animations === 0,
     JSON.stringify(arrivalSurveyBrief));
 
   /* The rest of the drive is the same real-time clock: ~40 s of wall time on
-   * a software rasteriser before the phase turns over. */
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: 120000 });
+   * a software rasteriser before the phase turns over -- and ~256 s when the
+   * box is contended, because `updateArrival` advances on the clamped frame
+   * delta (`Math.min(clock.getDelta(), 0.05)` in src/motel/main.js), so the
+   * 4.4 s pull-in costs EIGHTY-EIGHT rendered frames however slow they are.
+   * The budget bounds a hang; it is not a statement about the drive. */
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: 300000 });
+  /**
+   * THE HANDOFF, and why this wait used to be three seconds and is not now.
+   *
+   * `finishArrival()` sets `phase = 'car'` and adds `control-ready` to the HUD
+   * in the same synchronous block, so the state itself lands instantly -- but
+   * the thing this used to wait on was the brief's COMPUTED OPACITY passing
+   * 0.5, and a CSS animation only advances on a composited frame. On a
+   * software rasteriser at 1280x720 the first frames after the handoff are
+   * seconds apart, so the animation sat at currentTime 0 (opacity 0) long
+   * after the class had landed: measured 2026-08-20, `control-ready` present
+   * within one poll, opacity crossing 0.5 at +16.5 s. Three seconds was
+   * measuring the frame rate, not the scene, and the run died on a beat that
+   * arrives every time.
+   *
+   * The wait is now generous, and the assertion no longer samples a clock at
+   * all -- see below.
+   */
   await previewPage.waitForFunction(() => {
     const element = document.getElementById('surveyBrief');
     return document.getElementById('hud')?.classList.contains('control-ready')
       && Number(getComputedStyle(element).opacity) > 0.5;
-  }, null, { timeout: 3000, polling: 30 });
+  }, null, { timeout: 90000, polling: 30 });
   const controlHandoffBrief = await previewPage.evaluate(() => {
     const element = document.getElementById('surveyBrief');
     const style = getComputedStyle(element);
@@ -635,6 +666,12 @@ try {
       controlReady: document.getElementById('hud').classList.contains('control-ready'),
       opacity: Number(style.opacity),
       visible: style.visibility,
+      /* Cascade-derived, not frame-sampled: these read the rule that is
+       * attached to the element the instant `control-ready` lands, whether or
+       * not a frame has been composited since. */
+      animationName: style.animationName,
+      animationDuration: style.animationDuration,
+      animationFillMode: style.animationFillMode,
       animations: element.getAnimations().map((animation) => ({
         currentTime: Number(animation.currentTime?.toFixed?.(1) || 0),
         playState: animation.playState,
@@ -642,12 +679,32 @@ try {
     };
   });
   check('the full ten-second survey brief starts at the playable passenger-seat handoff',
+    /* The old form of this asserted `currentTime < 2000` on the running
+     * animation, meaning "it started just now rather than during the
+     * cutscene". That is the right INTENT and the wrong INSTRUMENT: an
+     * animation's currentTime advances with composited frames, so on a slow
+     * box it can read 0 for seconds and then jump past 2000 in one step, and
+     * the assertion fails on a scene that is behaving perfectly.
+     *
+     * The same intent is proved exactly instead, without a stopwatch: the
+     * check above established that NO animation existed on this element
+     * before the handoff, and this one establishes that the animation now
+     * attached is the authored ten-second brief and is still running. An
+     * animation that did not exist a moment ago and has not finished yet has,
+     * by construction, its whole ten seconds still ahead of the player --
+     * which is what "the full ten-second survey brief" means. `playState ===
+     * 'running'` carries the "not finished" half on its own: the rule fills
+     * forwards, so a brief that had already burned away would report
+     * 'finished' here. */
     controlHandoffBrief.phase === 'car'
       && controlHandoffBrief.controlReady
       && controlHandoffBrief.opacity > 0.5
       && controlHandoffBrief.visible === 'visible'
-      && controlHandoffBrief.animations.some((animation) => animation.playState === 'running'
-        && animation.currentTime < 2000),
+      && controlHandoffBrief.animationName === 'surveyBriefIn'
+      && controlHandoffBrief.animationDuration === '10s'
+      && controlHandoffBrief.animationFillMode === 'forwards'
+      && controlHandoffBrief.animations.length === 1
+      && controlHandoffBrief.animations[0].playState === 'running',
     JSON.stringify(controlHandoffBrief));
   const parkedComposition = await previewPage.evaluate(() => {
     const motel = window.MOTEL;

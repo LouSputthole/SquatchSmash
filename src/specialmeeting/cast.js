@@ -1,9 +1,16 @@
 /**
- * THE SPECIAL MEETING — the four men, and where they stand.
+ * THE SPECIAL MEETING — the four of them, and where they stand.
  *
  * Three established Squatches and one other prospect. Nobody here is dressed
  * for the occasion except Kittenboss, who was told to put on something decent
  * and did, and has since been lying on a spare wheel.
+ *
+ * This file's header said "the four men" until 2026-08-20. Three of them are
+ * men; Kittenboss is a woman, and every pronoun in this file that pointed at
+ * her was corrected on the owner's ruling in the same pass. Nothing about the
+ * seating, the rearrangement or the boot moved with it -- she is the same
+ * prospect at the same rank doing the same thing, and the only thing that was
+ * ever wrong was who the comments said she was.
  *
  * ## Clothes come from the ledger, never from here
  *
@@ -195,8 +202,8 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
         kb.sit();
         sedan.occupy('rear_left', kb.group, { yaw: false });
         seated.delete('rear_left');
-        /* He is not in that seat. He is in the boot, and the boot has no
-         * ride-along of its own, so he borrows the nearest one and is moved
+        /* She is not in that seat. She is in the boot, and the boot has no
+         * ride-along of its own, so she borrows the nearest one and is moved
          * onto the boot anchor every frame by `update` below. */
         sedan.release('rear_left');
       }
@@ -271,7 +278,7 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
       return this;
     },
 
-    /** The boot, and the man in it, who climbs out under his own power. */
+    /** The boot, and the woman in it, who climbs out under her own power. */
     kittenbossOut() {
       if (!sedan) return this;
       const boot = sedan.doorWorld('trunk');
@@ -292,7 +299,7 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
       }
       for (const key of seated.values()) people[key].group.rotation.y = carYaw;
       if (sedan && !seated.has('rear_left') && people.kittenboss.seated) {
-        /* The boot. He rides where he is, and where he is is not a seat. */
+        /* The boot. She rides where she is, and where she is is not a seat. */
         const boot = sedan.trunkWorld();
         people.kittenboss.group.position.set(boot.x, boot.y - 0.62, boot.z);
         people.kittenboss.group.rotation.y = carYaw;

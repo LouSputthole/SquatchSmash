@@ -7,9 +7,10 @@ import { ensureDomShim, ensureThreeShim } from '../tools/three-shim.mjs';
 ensureThreeShim();
 ensureDomShim();
 
-const [{ buildGeometrySceneState }, THREE] = await Promise.all([
+const [{ buildGeometrySceneState }, THREE, { PALACE_GUARD_POSTS }] = await Promise.all([
   import('../tools/geometry-scenes.mjs'),
   import('three'),
+  import('../src/cartel-palace/cast.js'),
 ]);
 
 function objectsNamed(root, name) {
@@ -585,13 +586,31 @@ test('Cartel Palace approach checkpoint composes exact palm and cast assemblies'
   /* Fronds are five per-palm InstancedMesh batches now (world.js
    * `instanced()`, the batching pass) — nine fronds ride each batch. */
   assert.equal(objectsNamed(root, 'palm-frond').length, 5);
-  for (const name of ['carved-arch-crown', 'carved-arch-pillar', 'estate-service-door']) {
-    assert.equal(
-      objectsNamed(root, name).every((object) => (
-        gate(object).assemblyId === 'cartel-palace:estate-service-portal'
-      )),
-      true,
-      name,
+  /* THE FRONT DOOR AND THE ARCH IT HANGS IN ARE ONE INSTALLATION.
+   *
+   * This used to walk three names -- 'carved-arch-crown', 'carved-arch-pillar'
+   * and 'estate-service-door' -- and assert each carried the portal assembly.
+   * The scene pass replaced that entrance (a floating trim ring the leaf clipped
+   * through) with a portal that has a real section: header, step, threshold,
+   * jambs, imposts, a segmental ring, keystone, tympanum, monogram and the leaf,
+   * all authored into one `estate-entrance-portal` group. The old names are
+   * gone, so the annotation in tools/geometry-scenes.mjs now declares the
+   * ownership on that GROUP and every part inherits it.
+   *
+   * The assertion follows the declaration: the group owns the assembly, and the
+   * arch order and the leaf are inside the group. That is the same guarantee the
+   * three names were making -- the door and the arch are one fitted object, not
+   * two objects interpenetrating -- stated where it cannot rot the next time a
+   * piece of stonework is renamed. */
+  const entrancePortal = onlyNamed(root, 'estate-entrance-portal');
+  assert.equal(gate(entrancePortal).assemblyId, 'cartel-palace:estate-service-portal');
+  for (const name of [
+    'estate-entry-header', 'estate-entry-jamb', 'estate-entry-impost',
+    'estate-entry-arch-ring', 'estate-entry-keystone', 'estate-service-door',
+  ]) {
+    assert.ok(
+      objectsNamed(entrancePortal, name).length >= 1,
+      `${name} must be authored inside the entrance portal assembly`,
     );
   }
 
@@ -599,10 +618,17 @@ test('Cartel Palace approach checkpoint composes exact palm and cast assemblies'
   root.traverse((object) => {
     if (gate(object).assemblyId?.startsWith('cartel-palace-cast:')) castRoots.push(object);
   });
-  assert.equal(castRoots.length, 10);
-  assert.equal(new Set(castRoots.map((object) => gate(object).assemblyId)).size, 10);
-  assert.equal(built.metadata.castCount, 10);
-  assert.equal(built.metadata.guardCount, 8);
+  /* Ten, when this was written: eight guard posts plus Mark and Sauce. The
+   * 2026-08-20 owner playtest pass added the `entry-watch` post -- the guard
+   * seated at the computer facing the front door -- and every hard ten in
+   * this file went stale at once. The roster is the pin now, so a post added
+   * or retired in cast.js moves the expectation with it, while a body that
+   * fails to build, or two bodies sharing one assembly id, still fails. */
+  const castSize = PALACE_GUARD_POSTS.length + 2;
+  assert.equal(castRoots.length, castSize);
+  assert.equal(new Set(castRoots.map((object) => gate(object).assemblyId)).size, castSize);
+  assert.equal(built.metadata.castCount, castSize);
+  assert.equal(built.metadata.guardCount, PALACE_GUARD_POSTS.length);
   assert.equal(built.metadata.serviceGateOpen, false);
   assert.equal(built.metadata.markDown, false);
   assert.equal(built.metadata.sauceDown, false);
@@ -617,15 +643,47 @@ test('Cartel Palace approach checkpoint composes exact palm and cast assemblies'
   assert.deepEqual(guardhouseCollider.max.toArray(), guardhouseBounds.max.toArray());
   const guardhouseRoof = new built.THREE.Box3().setFromObject(onlyNamed(root, 'guardhouse-tile-roof'));
   assert.ok(Math.abs(guardhouseRoof.min.y - guardhouseBounds.max.y) < 1e-6);
-  assert.equal(objectsNamed(root, 'practical-suspension').length, 12);
-  assert.equal(objectsNamed(root, 'practical-wall-bracket').length, 2);
-  assert.equal(objectsNamed(root, 'practical-suspension').every((object) => gate(object).overlap !== false), true);
+  /* EVERY LIGHT IN THIS PALACE HANGS ON SOMETHING, AND NOTHING HANGS THROUGH
+   * A BEAM.
+   *
+   * This used to count twelve `practical-suspension` rods, because twelve
+   * generic `palace-ceiling-practical` bodies -- a brass cap, a bulb and a
+   * drop rod -- were what every point light in the estate was given. The
+   * refinement pass replaced the interior ten with authored fixtures that
+   * carry their own light (pendantLantern in src/cartel-palace/world.js: the
+   * entry hall's three, and one apiece for the office, security room and
+   * gallery, two in the guest suite and two over the dining table), leaving
+   * the generic body only where it is still right -- the exterior pair on the
+   * front perimeter wall. So the rod count is two, and the twelve hanging
+   * practicals are still twelve.
+   *
+   * The count was never the point; a light floating with no fixture under it,
+   * or a fixture hung through a coffer beam, was. Both statements are made
+   * over BOTH kinds of hanging practical now, and over the ROOMS rather than
+   * over a total, so hanging one more lantern in the gallery does not need an
+   * edit here. */
+  const PENDANT_ROOMS = ['entry', 'office', 'guest-suite', 'security', 'gallery', 'dining'];
+  const pendantChains = PENDANT_ROOMS.flatMap((room) => {
+    const chains = objectsNamed(root, `${room}-pendant.chain`);
+    assert.ok(chains.length >= 1, `${room} must hang at least one authored pendant lantern`);
+    return chains;
+  });
+  const genericPracticals = objectsNamed(root, 'palace-ceiling-practical');
+  assert.equal(objectsNamed(root, 'practical-suspension').length, genericPracticals.length);
+  assert.equal(objectsNamed(root, 'practical-wall-bracket').length, genericPracticals.length);
+  const hangingDrops = [...objectsNamed(root, 'practical-suspension'), ...pendantChains];
+  /* Twelve is the LIGHTING PLAN, not the implementation: ten interior
+   * pendants and the exterior pair. It survived the refinement pass intact
+   * and is pinned here on purpose -- changing how many lights hang in Mark's
+   * house is a decision, and it should have to be made in this file too. */
+  assert.equal(hangingDrops.length, 12);
+  assert.equal(hangingDrops.every((object) => gate(object).overlap !== false), true);
   assert.equal(objectsNamed(root, 'practical-wall-bracket').every((object) => gate(object).overlap !== false), true);
   const ceilingBeams = [
     ...objectsNamed(root, 'gallery-ceiling-beam'),
     ...objectsNamed(root, 'dining-coffer-beam'),
   ].map((object) => new built.THREE.Box3().setFromObject(object));
-  for (const suspension of objectsNamed(root, 'practical-suspension')) {
+  for (const suspension of hangingDrops) {
     const bounds = new built.THREE.Box3().setFromObject(suspension);
     for (const beam of ceilingBeams) {
       const depth = Math.min(

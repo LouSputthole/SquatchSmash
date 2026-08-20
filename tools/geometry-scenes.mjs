@@ -2666,9 +2666,36 @@ function annotateCartelPalaceGeometry(root, colliders) {
   ]) {
     annotateNamedSceneObjects(root, name, { assemblyId: 'cartel-palace:estate-facade' });
   }
-  for (const name of ['carved-arch-crown', 'carved-arch-pillar', 'estate-service-door']) {
-    annotateNamedSceneObjects(root, name, { assemblyId: 'cartel-palace:estate-service-portal' });
-  }
+  /**
+   * THE FRONT DOOR AND THE ARCH IT HANGS IN ARE ONE INSTALLATION.
+   *
+   * This used to list three names -- 'carved-arch-crown', 'carved-arch-pillar'
+   * and 'estate-service-door' -- which were the two jambs, the half-torus
+   * crown and the leaf of the old entrance. That entrance is gone: the
+   * 2026-08-20 playtest note in src/cartel-palace/world.js ("front door clips
+   * through the decorative ring/arch", "build out the top of the ring so the
+   * entrance is architecturally complete instead of a floating trim piece")
+   * was answered by rebuilding it as a portal with a real section -- header,
+   * step, threshold, jambs, imposts, a segmental ring, keystone, tympanum,
+   * monogram and the leaf -- under one authored group, `estate-entrance-
+   * portal`. The three old names ceased to exist, `namedSceneObjects` throws
+   * on a name it cannot find, and that throw took the whole Cartel Palace
+   * Adapter down with it: the smoke build, both checkpoint policy tests and
+   * `verify-geometry --scene cartel-palace:approach` were all failing on this
+   * one stale list rather than on anything wrong with the palace.
+   *
+   * Annotating the GROUP instead of its parts is the fix and also the
+   * anti-rot shape. assemblyId is inherited down the graph (see
+   * `inheritedMetadataValue` in ./geometry-collect.mjs), so every piece of
+   * the portal -- including the ones the next art pass adds, and whatever
+   * the pieces end up called -- is owned by the installation it was authored
+   * into, and the leaf can sit in its reveal without the gate reading a
+   * fitted door as a door clipping an arch. The id string is unchanged, so
+   * the `estate-service-door` collider below still joins the same assembly.
+   */
+  annotateNamedSceneObjects(root, 'estate-entrance-portal', {
+    assemblyId: 'cartel-palace:estate-service-portal',
+  });
 
   // Gate leaves, hinge details, piers and the flanking wall are one moving
   // installation. The open-state sweep still compares that assembly against
@@ -2715,9 +2742,35 @@ function annotateCartelPalaceGeometry(root, colliders) {
   }
 }
 
+/**
+ * WHO THE PALACE'S COMBAT CAST IS, checked by composition rather than by count.
+ *
+ * This used to demand `cast.all.length === 10`, which was eight guard posts
+ * plus Mark and Sauce on the day it was written. The 2026-08-20 owner playtest
+ * pass added a ninth post -- `entry-watch`, the guard seated at the computer
+ * facing the front door (see PALACE_GUARD_POSTS in src/cartel-palace/cast.js)
+ * -- and eleven bodies threw against a hard ten, taking the whole Adapter,
+ * both checkpoint policy tests and `verify-geometry` down with it. The palace
+ * had gained a man, which is the direction this gate should never punish.
+ *
+ * What it is really for is that EVERY BODY IN THE FIGHT IS A DISTINCT,
+ * IDENTIFIED ASSEMBLY -- no anonymous root, no two people sharing an id, and
+ * no member of `all` that is not one of the people the scene actually built.
+ * So the shape is asserted instead of the size: `all` is the guard roster plus
+ * the two named targets, exactly, and each of them is annotated once. Adding a
+ * tenth post needs no edit here; losing Mark, duplicating an id or smuggling
+ * an unlisted body into `all` still fails.
+ */
 function annotatePalaceCast(cast) {
-  if (!Array.isArray(cast?.all) || cast.all.length !== 10) {
-    throw new Error(`Cartel Palace Adapter expected ten cast members; found ${cast?.all?.length ?? 'none'}`);
+  const roster = [...(cast?.guards ?? []), cast?.mark, cast?.sauce];
+  if (!Array.isArray(cast?.guards) || cast.guards.length === 0 || !cast?.mark || !cast?.sauce) {
+    throw new Error('Cartel Palace Adapter expected a guard roster plus Mark and Sauce');
+  }
+  if (!Array.isArray(cast?.all)
+    || cast.all.length !== roster.length
+    || !roster.every((member) => cast.all.includes(member))) {
+    throw new Error(`Cartel Palace Adapter expected ${roster.length} cast members `
+      + `(${cast.guards.length} guards, Mark and Sauce); found ${cast?.all?.length ?? 'none'}`);
   }
   const ids = new Set();
   for (const member of cast.all) {

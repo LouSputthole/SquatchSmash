@@ -21,13 +21,23 @@
  * ═══════════════════════════════════════════════════════════════════════
  * WHY THIS FILE HAS NO THREE IMPORT
  *
- * Six separate things have to agree about where a man kneels: the mud that is
- * drawn under him, the light that has to reach him, the executioner who walks
- * up behind him, the body that falls in front of him, the player standing in
- * the line who has to SEE it, and the tests that hold all five still. The
- * moment any of those carries its own copy of a number, one of them is wrong
- * and nothing says so. So every measurement lives here, in plain data, and
- * everything else reads it.
+ * Six separate things have to agree about where a prospect kneels: the mud
+ * that is drawn under them, the light that has to reach them, the executioner
+ * who walks up behind them, the body that falls in front of them, the player
+ * standing in the line who has to SEE it, and the tests that hold all five
+ * still. The moment any of those carries its own copy of a number, one of
+ * them is wrong and nothing says so. So every measurement lives here, in
+ * plain data, and everything else reads it.
+ *
+ * A NOTE ON THE PRONOUNS IN THIS FILE, because they are not uniform and the
+ * unevenness is deliberate. The executioners, the escorts, Prospect One and
+ * the player are men and are written as men. The FOUR ON THE MARKS are not
+ * all men -- `kneel-4` is Kittenboss, who is a woman -- so every passage that
+ * describes a kneeling figure, a collected figure or the line as a class says
+ * "prospect" or "they", corrected 2026-08-20 on the owner's ruling. It read
+ * "a man kneels" throughout when the site was first measured. Nothing about
+ * any number moved with it; if a passage still says "he", check whether it is
+ * talking about the shooter before changing it, because most of them are.
  *
  * ═══════════════════════════════════════════════════════════════════════
  * THE FRAME (inherited from src/initiation/main.js — do not renumber)
@@ -167,7 +177,7 @@ export const STAND_MARK = Object.freeze({
 });
 
 /**
- * How far behind a kneeling man his executioner stands.
+ * How far behind a kneeling prospect their executioner stands.
  *
  * A man putting a pistol to the back of somebody's head does not press it
  * there; he stands at the length of his own forearm and reaches. One metre is
@@ -191,7 +201,7 @@ export const SHOOTER_OFFSET = 0.26;
 export const ESCORT_CLEARANCE = 1.75;
 
 /**
- * WHICH WAY A KNEELING MAN IS TURNED, and why it is not "at the player".
+ * WHICH WAY A KNEELING PROSPECT IS TURNED, and why it is not "at the player".
  *
  * They are put down facing the LINE — square-ish to it, turned a little in
  * toward its centre, each one at a slightly different angle because they are
@@ -201,15 +211,15 @@ export const ESCORT_CLEARANCE = 1.75;
  *   1. The player is IN the line, so facing the line is facing him. He gets
  *      their faces, which is the entire point of doing it in front of him.
  *   2. The executioner ends up NORTH of the mark — further from the player
- *      than the man he is shooting — so he can never stand in front of what
- *      the player is supposed to be watching.
+ *      than the prospect he is shooting — so he can never stand in front of
+ *      what the player is supposed to be watching.
  *   3. They fall SOUTH, all four of them, in parallel, toward the line. The
  *      first pass turned each one to face the player's own slot instead, and
  *      the far mark's body then fell WEST, straight along the row and onto the
- *      next mark: the second man would have been put on his knees on top of
- *      the first one. Bodies fall across the working ground or they fall onto
- *      it, and there is no third option — so the row runs east-west and the
- *      fall runs north-south, at right angles, on purpose.
+ *      next mark: the second prospect would have been put on their knees on
+ *      top of the first one. Bodies fall across the working ground or they
+ *      fall onto it, and there is no third option — so the row runs east-west
+ *      and the fall runs north-south, at right angles, on purpose.
  */
 export const KNEEL_AIM_INSET = 0.9;
 
@@ -222,9 +232,10 @@ export const KNEEL_AIM_INSET = 0.9;
  * allowed to do — by the time the last one is walked out, she is being put
  * down close enough for him to reach.
  *
- * The last one is KITTENBOSS, and she is last on purpose. She was alive in
- * the boot of the car parked forty feet behind the player, which is the only
- * evidence he has had all night that he is not the one being driven out here.
+ * The last one is KITTENBOSS, and she is last on purpose. She was alive in the
+ * boot of the Lincoln parked three metres off the end of the line, with the
+ * lid still standing open — which was the only evidence the player has had all
+ * night that he is not the one who was driven out here to be shot.
  *
  * `victim` is the default casting, and it is data rather than doctrine: the
  * ceremony code owns who is walked out. What this file owns is that wherever
@@ -253,7 +264,7 @@ export const KNEEL_HEAD_Y = 1.28;
  * The first pass wrote 2.3 here — the head's height mistaken for its reach —
  * which claimed a metre of body that does not exist. Every fall clearance on
  * this site is measured against this number, so getting it wrong in the OTHER
- * direction is a man put on his knees on top of the last one.
+ * direction is a prospect put on their knees on top of the last one.
  */
 export const FALL_REACH = 1.5;
 /** Where the muzzle is when it is at the back of that head. */
@@ -264,9 +275,9 @@ export const MUZZLE_Y = 1.24;
  *
  * MEASURED, not chosen: both sides are tried and the one that puts the muzzle
  * further off the player's line of sight to the head wins. On a mark east of
- * the player that is the man's left; on one west of him it flips. Hard-coding
- * a side is how you end up with the last execution of the night happening
- * behind the victim's own skull.
+ * the player that is the kneeling figure's left; on one west of him it flips.
+ * Hard-coding a side is how you end up with the last execution of the night
+ * happening behind the victim's own skull.
  */
 function chooseShooterSide(mark, heading) {
   const facing = facingOf(heading);
@@ -336,8 +347,8 @@ function buildMark(source) {
  *
  *   - Measured along the world axes first (east and a bit back). East of a
  *     mark that is already east of the player is straight DOWN his sightline,
- *     so the escort ended up standing directly behind the man being shot, in
- *     line with him, on every mark but the last.
+ *     so the escort ended up standing directly behind the prospect being
+ *     shot, in line with them, on every mark but the last.
  *   - Then measured across the sightline but on the near side, which put him
  *     0.09 m from Prospect Five's body. Everything that has been shot so far
  *     is lying SOUTH of its mark, because that is the way they fall.
@@ -369,10 +380,10 @@ export function kneelMark(id) {
 }
 
 /**
- * Where the two of them collect a man from.
+ * Where the two of them collect a prospect from.
  *
- * One pace in front of his slot in the line, so the walk out starts as a step
- * forward rather than as a man being dragged sideways out of a row.
+ * One pace in front of their slot in the line, so the walk out starts as a
+ * step forward rather than as somebody being dragged sideways out of a row.
  */
 export function collectionPointFor(lineX) {
   return Object.freeze({ x: lineX, z: LINE_Z + 0.95 });
@@ -387,10 +398,11 @@ export function collectionPointFor(lineX) {
  * parked arse-on with the boot open.
  *
  * The lighting is doing three jobs at once and the angles are chosen for all
- * three: the beams come from BEHIND the prospect line, so the men standing in
- * it are black shapes and the mud in front of them is white; they cross at
- * the kneel marks, so a kneeling man is lit from both sides and the shooter
- * behind him is not; and they are low, because a headlight is at knee height
+ * three: the beams come from BEHIND the prospect line, so the figures standing
+ * in it are black shapes and the mud in front of them is white; they cross at
+ * the kneel marks, so a kneeling prospect is lit from both sides and the
+ * shooter behind them is not; and they are low, because a headlight is at knee
+ * height
  * and everything it throws a shadow of is enormous.
  *
  * `aim` is the point on the ground the car is pointed at. `yaw` is derived
