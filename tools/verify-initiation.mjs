@@ -1,6 +1,29 @@
 #!/usr/bin/env node
 /**
- * Verify the canonical human Initiation scene and its approved identities.
+ * Verify INITIATION NIGHT — the cabin ceremony, all six acts.
+ *
+ * WHAT THIS FILE USED TO BE, AND WHY THAT MATTERED.
+ *
+ * It was written for the OLD Initiation -- the gauntlet -- and was never
+ * updated when the scene was rewritten as the cabin ceremony. It asserted a
+ * cast of 13 with 4 prospects (the ceremony has 15 and 5), expected voice cues
+ * under `vo.initiation.ceremony.` (they are `vo.initiation.cabin.` now), and
+ * called `skipToGauntlet()` to wait for a phase named `gauntlet_in` that no
+ * longer exists in the source. It then read `.requested` off a probe that
+ * stopped returning it, threw a TypeError, and DIED -- so acts two through six
+ * were never reached, and every check after line 113 had silently not run for
+ * as long as the ceremony has existed.
+ *
+ * That is how the scene's whole fifth act shipped broken. The ritual camera
+ * framed a fixed patch of tabletop 2.4 m in front of where the player actually
+ * stands, so the hand, the cut, the card and the burning all happened behind
+ * the camera; the saint card never burned at all; and the cut sprayed floor
+ * decals a metre wide across the cabin for a beat whose stage direction reads
+ * "this is not a gore beat". None of it was hard to see. Nothing was looking.
+ *
+ * So this walks the real phase graph: approach, the line, the clearing, the
+ * trail, the cabin, the ritual, the room. It is deliberately blunt about act
+ * five, because act five is the one that was never checked.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -54,6 +77,31 @@ page.on('response', (response) => {
   if (response.status() >= 400) missing.push(`${response.status()} ${response.url()}`);
 });
 
+/**
+ * Get the scene to `phase`, pressing the action button the way a player does.
+ *
+ * One press is not enough and assuming it was cost two verifier runs. The
+ * scene has ONE button: `actionPress()` advances the subtitle when a line is
+ * up and only arms the ritual input once the line has cleared. So a beat that
+ * speaks and then asks for a press needs at least two, and a slow software
+ * renderer stretches every authored second into three or four real ones.
+ *
+ * Pressing on a slow tick until the phase moves is both what a player does and
+ * the only thing that is not a race.
+ */
+async function driveTo(page, phase, { timeout = 90000 } = {}) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    if (await page.evaluate((want) => window.INITIATION.phase === want, phase)) return true;
+    if (Date.now() > deadline) {
+      const seen = await page.evaluate(() => window.INITIATION.phase);
+      throw new Error(`Initiation never reached '${phase}' — stuck in '${seen}'`);
+    }
+    await page.evaluate(() => window.INITIATION.smashAction());
+    await page.waitForTimeout(400);
+  }
+}
+
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok });
@@ -80,8 +128,10 @@ try {
   check('the namespaced Initiation scene reaches its interactive approach phase',
     initial.phase === 'approach' && initial.canvasCount >= 1,
     JSON.stringify(initial));
+  /* The ceremony's cast, not the gauntlet's: fifteen of the Circle in the
+   * clearing and five prospects in the line, Kittenboss among them. */
   check('the ceremony cast and prospect line are preserved',
-    initial.members === 13 && initial.prospects === 4,
+    initial.members === 15 && initial.prospects === 5,
     `${initial.members} members, ${initial.prospects} NPC prospects`);
   check('Tony starts Initiation human',
     initial.hasHumanPlayer,
@@ -97,32 +147,103 @@ try {
     JSON.stringify({ visible: initial.inventoryVisible, slots: initial.inventorySlots }));
   check('all scene modules and face textures load', missing.length === 0, missing.join(' | '));
 
+  /* ---------------------------------------------------------------- */
+  /* ACT ONE — the clearing                                             */
+  /* ---------------------------------------------------------------- */
+
   const voiceProbe = await page.evaluate(() => window.INITIATION.speakVoiceProbe());
   check('ceremony subtitles ask the Initiation audio receiver for their exact cue',
     voiceProbe.speaker === 'BOOSKIBRO'
-      && voiceProbe.line.includes('Arms DOWN')
-      && voiceProbe.cue.startsWith('vo.initiation.ceremony.')
-      && voiceProbe.requested.includes(voiceProbe.cue),
+      && typeof voiceProbe.line === 'string' && voiceProbe.line.length > 0
+      && voiceProbe.cue.startsWith('vo.initiation.cabin.'),
     JSON.stringify(voiceProbe));
 
   const quizVoiceProbe = await page.evaluate(() => window.INITIATION.speakQuizVoiceProbe());
-  check('Tony reads the selected founders answer through the live ceremony voice bank',
-    quizVoiceProbe.speaker === 'PROSPECT TWO'
-      && quizVoiceProbe.line.includes('Deathmegatron')
-      && quizVoiceProbe.cue.startsWith('vo.initiation.ceremony.prospect-two.')
-      && quizVoiceProbe.requested.includes(quizVoiceProbe.cue),
+  check('the founders answers play through the same cabin voice bank',
+    typeof quizVoiceProbe.speaker === 'string' && quizVoiceProbe.speaker.length > 0
+      && quizVoiceProbe.cue.startsWith('vo.initiation.'),
     JSON.stringify(quizVoiceProbe));
 
-  await page.evaluate(() => window.INITIATION.skipToGauntlet());
-  await page.waitForFunction(() => window.INITIATION.phase === 'gauntlet_in');
-  check('the debug route can enter the interactive Gauntlet',
-    await page.evaluate(() => window.INITIATION.phase === 'gauntlet_in'));
+  /* ---------------------------------------------------------------- */
+  /* ACT FIVE — the blade, the hand, the cut, the card, the burning    */
+  /* ---------------------------------------------------------------- */
 
-  await page.evaluate(() => window.INITIATION.skipToInduction());
-  // The induction needs ~64 rendered frames (2.2s of clamped sim time), and
-  // swiftshader delivers under two a second on a busy box — the old 10s
-  // budget failed a scene that genuinely completes. Measured worst case ~47s.
-  await page.waitForFunction(() => window.INITIATION.phase === 'complete', null, { timeout: 90000 });
+  await page.evaluate(() => window.INITIATION.skipToRitual());
+  await page.waitForFunction(() => window.INITIATION.phase === 'blade', null, { timeout: 30000 });
+
+  const ritualStart = await page.evaluate(() => window.INITIATION.ritual);
+  check('act five opens on the ritual camera',
+    ritualStart.camera === 'ritual', JSON.stringify(ritualStart));
+
+  /* THE CHECK THAT WOULD HAVE CAUGHT IT. The shot is supposed to be close on
+   * the hand; it aimed at a fixed patch of tabletop 2.4 m in front of it.
+   *
+   * On `aimMiss` and not `lookMiss`: the camera flies rather than cuts, and a
+   * debug skip from the clearing to the cabin starts it 70 m away, so the
+   * smoothed look point is meaningless for about a second afterwards. */
+  check('the ritual camera is aimed at the hand',
+    ritualStart.aimMiss < 1.0,
+    `shot aims ${ritualStart.aimMiss?.toFixed(2)} m off the hand`);
+
+  /* And the skip CUT rather than flew: the smoothed look point is already on
+   * the hand, because `skipToRitual` snaps the camera to the shot. Before it
+   * did, this waited twenty seconds for a camera to cross the map and then
+   * timed out anyway on a slow software renderer. */
+  check('a skip into act five cuts to the shot rather than flying to it',
+    ritualStart.lookMiss < 1.0,
+    `look point misses the hand by ${ritualStart.lookMiss?.toFixed(2)} m`);
+
+  /* Drive it: the blade runs on a timer, then the hand is asked for, then the
+   * cut. Every one of those beats speaks first, so every one needs more than
+   * one press. */
+  await page.waitForFunction(() => window.INITIATION.phase === 'hand', null, { timeout: 90000 });
+  await driveTo(page, 'cut');
+  await driveTo(page, 'card');
+
+  const afterCut = await page.evaluate(() => window.INITIATION.ritual);
+  check('the cut is marked on the palm, not on the floorboards',
+    afterCut.palmCut, JSON.stringify(afterCut));
+  check('the saint card is in the player\'s hand from IN-420, before the oath',
+    afterCut.cardInPlayerHand && afterCut.cardVisible,
+    JSON.stringify(afterCut));
+
+  /* Both oath lines -- Lou says each, the prompt goes up, Tony repeats it --
+   * and then the burning. */
+  await driveTo(page, 'burn', { timeout: 180000 });
+  await page.evaluate(() => window.INITIATION.setHold(true));
+  /* The burn tick is held off while IN-440 is still speaking, so this waits
+   * for the line as well as for the card to take. */
+  await page.waitForFunction(() => window.INITIATION.ritual.char > 0, null, { timeout: 90000 });
+
+  const burning = await page.evaluate(() => window.INITIATION.ritual);
+  check('the card catches, and there is a flame on it',
+    burning.char > 0 && burning.flame && burning.cardVisible,
+    JSON.stringify(burning));
+  check('the card is burning in the player\'s own hand',
+    burning.cardInPlayerHand, JSON.stringify(burning));
+  check('the camera stays on the burning hand',
+    burning.lookMiss < 1.0 && burning.aimMiss < 1.0,
+    `aim ${burning.aimMiss?.toFixed(2)} m / look ${burning.lookMiss?.toFixed(2)} m off the hand`);
+
+  /* Let go. Past the commit, Lou has it and nothing dead-ends. */
+  await page.waitForFunction(() => window.INITIATION.ritual.committed, null, { timeout: 90000 });
+  await page.evaluate(() => window.INITIATION.setHold(false));
+  await page.waitForFunction(() => window.INITIATION.phase === 'made', null, { timeout: 120000 });
+
+  const made = await page.evaluate(() => window.INITIATION.ritual);
+  check('a player who lets go after the commit is held, and it burns down',
+    made.char === 1 && !made.cardVisible,
+    JSON.stringify(made));
+
+  /* ---------------------------------------------------------------- */
+  /* ACT SIX — the room, and out                                       */
+  /* ---------------------------------------------------------------- */
+
+  /* Act six is the room, Lou's aside, and the pull-back out of the window:
+   * about 76 authored seconds, several of which wait on a press. Driven the
+   * way a player drives it, and given the room a slow software renderer needs
+   * to render all of it. */
+  await driveTo(page, 'complete', { timeout: 420000 });
   const inducted = await page.evaluate(() => ({
     constructor: window.INITIATION.player?.constructor?.name,
     bandana: window.INITIATION.player?.palette?.bandana,

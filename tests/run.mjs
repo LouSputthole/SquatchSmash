@@ -127,6 +127,7 @@ const TEST_MODULES = [
   './core-aim-proxy.test.mjs',
   './staging-gate.test.mjs',
   './shared-system-adoption.test.mjs',
+  './initiation-card-burn.test.mjs',
   './apartment-voice-coverage.test.mjs',
   './phone.test.mjs',
   './squatchfather-story.test.mjs',

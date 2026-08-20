@@ -188,6 +188,28 @@ export function clang() {
   noise(t, { peak: 0.18, attack: 0.002, decay: 0.12, freq: 4500, type: 'highpass' });
 }
 
+/**
+ * A cheap printed card catching light. IN-440.
+ *
+ * Not a whoosh and not a fireball: paper the thickness of a bus ticket taking
+ * from a candle is a short breathy rush and then a quiet crackle. It has to sit
+ * under the stove without competing with it, because the script's own note for
+ * this beat is that the stove is the loudest thing in the room.
+ */
+export function cardCatch() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.16, attack: 0.012, decay: 0.34, freq: 900, type: 'bandpass', q: 0.7 });
+  noise(t + 0.05, { peak: 0.07, attack: 0.01, decay: 0.5, freq: 2600, type: 'highpass' });
+}
+
+/** One flake of it going. Used sparsely while the char front travels. */
+export function ember() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.035, attack: 0.004, decay: 0.07, freq: 3400, type: 'bandpass', q: 1.6 });
+}
+
 // Soft heavy footfall.
 export function step() {
   if (!ctx) return;

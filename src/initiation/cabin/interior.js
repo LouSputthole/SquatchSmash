@@ -605,6 +605,14 @@ export function buildCabinInterior() {
         x: centreX + (halfX > halfZ ? t * (halfX - 0.3) : 0),
         z: centreZ + (halfZ >= halfX ? t * (halfZ - 0.3) : 0),
         r: Math.min(halfX, halfZ) + 0.3,
+        /* One piece of furniture, laid out as a row of circles along its long
+         * axis, and consecutive circles in that row share ground on purpose --
+         * a table approximated by three circles that merely touched would have
+         * two seams a player could stand in. The geometry gate blocks
+         * collider-collider penetration by default, so a tessellated run says
+         * so at the point it is built. Circles belonging to DIFFERENT pieces
+         * are not covered by this and are still audited against each other. */
+        overlap: false,
       });
     }
   }
