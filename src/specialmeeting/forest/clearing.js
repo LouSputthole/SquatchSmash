@@ -149,6 +149,17 @@ function buildTrail(group, materials) {
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'forest.trail';
+  /* The trail is worn GROUND, not a thing lying on it: a ribbon of vertices
+   * following the terrain a few centimetres proud of it so the duff reads
+   * as beaten down. It holds things up and the trees the clearing was cut
+   * around come straight up through its edges, which is why it is structural
+   * and out of the overlap test rather than a hundred waivers against the
+   * trunk batch. */
+  mesh.userData.geometryGate = {
+    structural: true,
+    fixedSupportAnchor: true,
+    overlap: false,
+  };
   mesh.castShadow = false;
   mesh.receiveShadow = true;
   mesh.matrixAutoUpdate = false;
@@ -198,6 +209,12 @@ export function buildClearing(parent, { colliders = null } = {}) {
      * treeline is measured from there. */
     car.group.rotation.y = -1.15 + spec.yaw;
     car.group.name = `forest.parked.${spec.kind}`;
+    /* Set on the clearing floor at `heightAt(x, z)` two lines up. That floor
+     * is the streamed heightfield, which the gate models as one box per 48 m
+     * chunk, so it can never see a wheel resting on it and reports the car as
+     * fifteen metres in the air over the road it came in on. See the trunk
+     * note in ./foliage.js. */
+    car.group.userData.geometryGate = { fixedSupportAnchor: true };
     /* Dark and cold. Nothing here has its lights on, nothing has anybody in
      * it, and the only reason the player can see them at all is that the
      * Lincoln's beams are still pointing this way for another three seconds. */
@@ -244,6 +261,9 @@ export function buildClearing(parent, { colliders = null } = {}) {
   const glowGeo = new THREE.PlaneGeometry(5.5, 4.2);
   const glow = new THREE.Mesh(glowGeo, glowMat);
   glow.name = 'forest.distant-fire';
+  /* An additive card hung two and a half metres up on a sightline. It is a
+   * glow in the air, so nothing holds it up and nothing is meant to. */
+  glow.userData.geometryGate = { fixedSupportAnchor: true, overlap: false };
   /* Up the trail and well past the end of it, on the sightline the corridor
    * opens. Two and a half metres up, because the trees between here and there
    * take the bottom of it. */

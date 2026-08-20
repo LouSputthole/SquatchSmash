@@ -1,3 +1,4 @@
+import { SPEECH_GAIN, speak } from '../core/dialogue.js';
 /**
  * EVERYTHING SAID IN THE PALACE THAT IS NOT THE DINING-ROOM SCRIPT.
  *
@@ -424,7 +425,7 @@ export class PalaceVoice {
    * which case the caller falls back to the line's authored hold.
    */
   playCue(cue, {
-    follow = null, position = null, volume = 0.95, radius = 22,
+    follow = null, position = null, gain = SPEECH_GAIN.normal, radius = 22,
   } = {}) {
     const empty = { source: null, duration: 0, name: null };
     if (!this.audio?.play || !this.audio.buffers) return empty;
@@ -436,18 +437,21 @@ export class PalaceVoice {
     if (!takes.length) return empty;
     takes.sort();
     const name = takes[Math.min(takes.length - 1, Math.floor(this.random() * takes.length))];
-    const source = this.audio.play(name, {
-      volume,
-      follow,
+    /* Through the shared dialogue path, which is where the voice bus and the
+     * duck live -- but NOT with the shared mix, which is the one place this
+     * scene is deliberately different. `SPEECH_MIX` is built for a man talking
+     * to you; a guard conversation in the Palace is meant to be quiet up close
+     * and gone by the next courtyard, because walking toward it to hear it is
+     * the gameplay. A tighter reference distance and a 1.6 rolloff are what
+     * make it that. The 0.95 that used to sit on `volume` is gone: level is
+     * the bus's business, distance is this scene's. */
+    const spoken = speak(this.audio, name, {
+      speaker: follow,
       position,
-      /* A conversation is quiet up close and gone by the next courtyard:
-       * inverse rolloff off a small reference distance is what makes it a
-       * thing the player has to walk toward. */
-      ref: 2.4,
-      maxDist: radius,
-      rolloff: 1.6,
+      gain,
+      mix: { ref: 2.4, maxDist: radius, rolloff: 1.6 },
     });
-    return { source: source ?? null, duration: this.audio.sampleDuration?.(name) ?? 0, name };
+    return { source: spoken.source ?? null, duration: spoken.seconds, name };
   }
 
   /**
@@ -480,7 +484,7 @@ export class PalaceVoice {
       /* Off the body, and glued to it: a guard who shouts "contact" and then
        * runs for cover takes the shout with him. */
       const take = this.playCue(cue, {
-        follow: speaker.root, position: at, radius: Math.max(radius, 18), volume: 1,
+        follow: speaker.root, position: at, radius: Math.max(radius, 18),
       });
       recorded = take.duration;
       speaker.figure?.say?.(

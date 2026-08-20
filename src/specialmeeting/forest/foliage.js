@@ -123,6 +123,123 @@ function pickKind(roll, progress) {
  * @param {object} bounds `{ minX, minZ, size }` of the chunk.
  * @returns {{trees: object[], rocks: object[], logs: object[], stumps: object[]}}
  */
+/**
+ * Everything a tree in cell (ix, iz) would be, or null if that cell has none.
+ *
+ * Pure in (ix, iz): no chunk, no iteration order, no accumulated state. That
+ * is the whole point of it. The clearance test below has to be able to ask
+ * "what is in the cell next door" for a cell in the NEXT CHUNK, which may have
+ * been built ten seconds ago, may be about to be built, or may never be built
+ * at all — and the answer has to be the same in all three cases or the forest
+ * rearranges itself at chunk seams.
+ */
+function treeCandidate(ix, iz) {
+  const rx = cellHash(ix, iz, 1);
+  const rz = cellHash(ix, iz, 2);
+  const x = (ix + 0.5 + (rx - 0.5) * 2 * TREE_JITTER) * TREE_CELL;
+  const z = (iz + 0.5 + (rz - 0.5) * 2 * TREE_JITTER) * TREE_CELL;
+
+  const frame = roadFrame(x, z);
+  const density = treeDensityAt(x, z, frame);
+  if (density <= 0 || !canStandAt(x, z)) return null;
+  if (cellHash(ix, iz, 3) > density / PEAK_DENSITY) return null;
+
+  const progress = clamp01(frame.s / roadLength());
+  const kind = pickKind(cellHash(ix, iz, 4), progress);
+  const grade = cellHash(ix, iz, 5);
+  /* Big trees near the road on the last stretch: the ones the beam picks
+   * out have to be worth picking out. */
+  const scale = 0.72 + grade * 0.85 + progress * 0.28;
+  return {
+    x,
+    z,
+    y: seatedHeight(x, z, frame),
+    kind,
+    scale,
+    radius: trunkRadius(kind, scale),
+    /* A lean, and more of one on the steep ground and in the wet. Nothing
+     * in a real wood is plumb and a forest of verticals looks planted. */
+    lean: (cellHash(ix, iz, 6) - 0.5) * (0.06 + landSlopeAt(x, z) * 0.09 + hollowAt(x, z) * 0.05),
+    leanYaw: cellHash(ix, iz, 7) * Math.PI * 2,
+    spin: cellHash(ix, iz, 8) * Math.PI * 2,
+    tint: cellHash(ix, iz, 9),
+  };
+}
+
+/**
+ * The trunk's footprint in plan, computed the way the RENDERER computes it.
+ *
+ * The old clearance test compared stumps: two centres, two base radii, done.
+ * That is not where a tree is. `buildFoliage` draws this batch by scaling the
+ * unit trunk to (radius, height, radius) and rotating it YXZ about its BASE,
+ * so a fifteen-metre pine leaning a twentieth of a radian carries the middle
+ * of itself a third of a metre off its stump and its axis-aligned box a third
+ * of a metre wider again. Two stumps that clear by twenty centimetres can
+ * therefore be one tree from the waist up, which is exactly what three pairs
+ * in the spur were.
+ *
+ * So the footprint is built from the same matrix the draw call gets, and the
+ * box it produces is the same box the geometry gate measures. There is no
+ * second model of the tree to drift out of step with the first.
+ */
+const _planMatrix = new THREE.Matrix4();
+const _planEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+const _planScale = new THREE.Vector3();
+const _planBox = new THREE.Box3();
+const _planUnit = new THREE.Box3(
+  new THREE.Vector3(-1, 0, -1),
+  new THREE.Vector3(1, 1, 1),
+);
+
+function planFootprint(tree) {
+  const height = trunkHeight(tree.kind, tree.scale);
+  _planEuler.set(tree.lean, tree.leanYaw, 0);
+  _planScale.set(tree.radius, height, tree.radius);
+  _planMatrix.compose(
+    new THREE.Vector3(tree.x, 0, tree.z),
+    new THREE.Quaternion().setFromEuler(_planEuler),
+    _planScale,
+  );
+  _planBox.copy(_planUnit).applyMatrix4(_planMatrix);
+  return {
+    minX: _planBox.min.x, maxX: _planBox.max.x,
+    minZ: _planBox.min.z, maxZ: _planBox.max.z,
+  };
+}
+
+/**
+ * Do these two trunks share space anywhere along their length?
+ *
+ * Twelve centimetres of daylight between the two footprints, not zero. The
+ * gate only reports an overlap past three centimetres, so zero would leave
+ * every accepted pair sitting on the edge of a finding and any later change to
+ * the lean field would push a handful over it.
+ */
+const TRUNK_PLAN_GAP_M = 0.12;
+
+function trunksClash(a, b) {
+  const fa = planFootprint(a);
+  const fb = planFootprint(b);
+  const apart = fa.minX - fb.maxX > TRUNK_PLAN_GAP_M
+    || fb.minX - fa.maxX > TRUNK_PLAN_GAP_M
+    || fa.minZ - fb.maxZ > TRUNK_PLAN_GAP_M
+    || fb.minZ - fa.maxZ > TRUNK_PLAN_GAP_M;
+  return !apart;
+}
+
+/**
+ * Which of two clashing cells keeps its tree.
+ *
+ * It has to be a property of the two cells and nothing else — not which was
+ * reached first, because they are frequently in different chunks reached in
+ * different orders. Bigger tree wins, because dropping the big one leaves the
+ * obvious hole; the cell index breaks a tie.
+ */
+function outranks(tree, ix, iz, other, ox, oz) {
+  if (tree.radius !== other.radius) return tree.radius > other.radius;
+  return ix !== ox ? ix > ox : iz > oz;
+}
+
 export function scatterChunk({ minX, minZ, size }) {
   const trees = [];
   const rocks = [];
@@ -134,38 +251,34 @@ export function scatterChunk({ minX, minZ, size }) {
   const i1 = Math.ceil((minX + size) / TREE_CELL);
   const j0 = Math.floor(minZ / TREE_CELL);
   const j1 = Math.ceil((minZ + size) / TREE_CELL);
-  /* Accepted trees keyed by cell, so the overlap test is eight lookups rather
-   * than a scan of everything placed so far. */
-  const placed = new Map();
+  /* One candidate per cell per chunk. Each cell is asked for by itself and by
+   * up to twenty-four neighbours, and `computeTreeCandidate` is four field
+   * lookups deep, so without this the widened search below would cost the
+   * streamer twenty-five times what the old one did. With it, a chunk
+   * evaluates each of its own cells once plus a two-cell skirt. */
+  const memo = new Map();
   for (let ix = i0; ix < i1; ix++) {
     for (let iz = j0; iz < j1; iz++) {
-      const rx = cellHash(ix, iz, 1);
-      const rz = cellHash(ix, iz, 2);
-      const x = (ix + 0.5 + (rx - 0.5) * 2 * TREE_JITTER) * TREE_CELL;
-      const z = (iz + 0.5 + (rz - 0.5) * 2 * TREE_JITTER) * TREE_CELL;
-      if (x < minX || x >= minX + size || z < minZ || z >= minZ + size) continue;
+      const tree = treeCandidate(ix, iz, memo);
+      if (!tree) continue;
+      if (tree.x < minX || tree.x >= minX + size || tree.z < minZ || tree.z >= minZ + size) continue;
 
-      const frame = roadFrame(x, z);
-      const density = treeDensityAt(x, z, frame);
-      if (density <= 0 || !canStandAt(x, z)) continue;
-      if (cellHash(ix, iz, 3) > density / PEAK_DENSITY) continue;
-
-      const progress = clamp01(frame.s / roadLength());
-      const kind = pickKind(cellHash(ix, iz, 4), progress);
-      const grade = cellHash(ix, iz, 5);
-      /* Big trees near the road on the last stretch: the ones the beam picks
-       * out have to be worth picking out. */
-      const scale = 0.72 + grade * 0.85 + progress * 0.28;
-      const radius = trunkRadius(kind, scale);
-
-      // Trunk-to-trunk clearance, against the eight cells around this one.
+      /* Trunk-to-trunk clearance against the cells around this one,
+       * recomputed rather than remembered — see `treeCandidate`.
+       *
+       * TWO cells out, not one. A cell is 3.09 m and the jitter moves a trunk
+       * up to 1.11 m off its centre, so two trees two cells apart start as
+       * close as 3.96 m — and each of them can carry its crown another metre
+       * and a half sideways on the lean. One ring of neighbours missed exactly
+       * that: three pairs in the spur, one of them nearly a quarter of a metre
+       * inside the other, and all three of them two cells apart. */
       let clash = false;
-      for (let ox = -1; ox <= 1 && !clash; ox++) {
-        for (let oz = -1; oz <= 1; oz++) {
+      for (let ox = -2; ox <= 2 && !clash; ox++) {
+        for (let oz = -2; oz <= 2; oz++) {
           if (!ox && !oz) continue;
-          const other = placed.get(`${ix + ox},${iz + oz}`);
-          if (!other) continue;
-          if (Math.hypot(other.x - x, other.z - z) < radius + other.radius + 0.22) {
+          const other = treeCandidate(ix + ox, iz + oz, memo);
+          if (!other || !trunksClash(tree, other)) continue;
+          if (!outranks(tree, ix, iz, other, ix + ox, iz + oz)) {
             clash = true;
             break;
           }
@@ -173,22 +286,7 @@ export function scatterChunk({ minX, minZ, size }) {
       }
       if (clash) continue;
 
-      const tree = {
-        x,
-        z,
-        y: seatedHeight(x, z, frame),
-        kind,
-        scale,
-        radius,
-        /* A lean, and more of one on the steep ground and in the wet. Nothing
-         * in a real wood is plumb and a forest of verticals looks planted. */
-        lean: (cellHash(ix, iz, 6) - 0.5) * (0.06 + landSlopeAt(x, z) * 0.09 + hollowAt(x, z) * 0.05),
-        leanYaw: cellHash(ix, iz, 7) * Math.PI * 2,
-        spin: cellHash(ix, iz, 8) * Math.PI * 2,
-        tint: cellHash(ix, iz, 9),
-      };
       trees.push(tree);
-      placed.set(`${ix},${iz}`, tree);
     }
   }
 
@@ -242,21 +340,30 @@ export function scatterChunk({ minX, minZ, size }) {
 
       if (cellHash(ix, iz, 23) < 0.30 + progress * 0.34) {
         const yaw = cellHash(ix, iz, 24) * Math.PI * 2;
-        const length = 3.6 + cellHash(ix, iz, 25) * 5.4;
+        const run = 3.6 + cellHash(ix, iz, 25) * 5.4;
         const radius = 0.17 + cellHash(ix, iz, 26) * 0.20;
         /* Rest it on the ground at both ends and let the middle be wherever
          * that puts it. A log lying flat on a slope is the giveaway that the
          * ground under it was never consulted. */
-        const ax = x - Math.sin(yaw) * length * 0.5;
-        const az = z - Math.cos(yaw) * length * 0.5;
-        const bx = x + Math.sin(yaw) * length * 0.5;
-        const bz = z + Math.cos(yaw) * length * 0.5;
+        const ax = x - Math.sin(yaw) * run * 0.5;
+        const az = z - Math.cos(yaw) * run * 0.5;
+        const bx = x + Math.sin(yaw) * run * 0.5;
+        const bz = z + Math.cos(yaw) * run * 0.5;
         const ay = seatedHeight(ax, az, roadFrame(ax, az)) + radius;
         const by = seatedHeight(bx, bz, roadFrame(bx, bz)) + radius;
+        /* `run` is the HORIZONTAL distance between the two ends; `length` is
+         * how long the log has to be to reach from one to the other once it is
+         * pitched. Using the horizontal run as the length -- which this did --
+         * leaves a tilted log short of its own ends by run*(1 - cos(pitch)),
+         * measured at four and a half centimetres on the steepest deadfall in
+         * the spur: enough for the downhill end to be buried and the uphill
+         * end to hang. The collider below still uses `run`, because what it
+         * bounds is the footprint. */
         logs.push({
-          x, z, yaw, length, radius,
+          x, z, yaw, run, radius,
+          length: Math.hypot(run, by - ay),
           y: (ay + by) * 0.5,
-          pitch: Math.atan2(by - ay, length),
+          pitch: Math.atan2(by - ay, run),
           tint: cellHash(ix, iz, 27),
         });
       }
@@ -460,7 +567,27 @@ export function buildFoliage(
      * takes the whole scene's collection down with
      * "userData.geometryGate has unknown key(s)", which is a scene that
      * cannot be checked at all rather than a scene that fails a check. */
-    trunks.userData.geometryGate = { instanceAssemblyPrefix: 'specialmeeting-forest-tree' };
+    /* THE GROUND HERE IS A HEIGHTFIELD AND THE GATE MEASURES BOXES.
+     *
+     * Every trunk is planted at `heightAt(x, z)` — the placement is DERIVED
+     * from the terrain, so a tree cannot be off the ground unless the terrain
+     * function itself is wrong. The gate cannot see that. It tests support by
+     * asking whether some solid's TOP sits under this one's BOTTOM, and a
+     * displaced 48 m chunk with fifteen metres of relief has an AABB that
+     * swallows everything standing on it, so the chunk is never "below" the
+     * tree and the search falls through to the road tarmac fifteen metres
+     * down. That is the whole of the 456 floating findings this scene used to
+     * report: not one tree off the floor, one floor the gate cannot model.
+     *
+     * `fixedSupportAnchor` is the honest answer to that — held up by
+     * something the gate does not model — and the contact it stops checking is
+     * checked directly instead, by tests/specialmeeting-forest-footing.test.mjs,
+     * which samples every instance against `heightAt` and fails on a real
+     * float. */
+    trunks.userData.geometryGate = {
+      instanceAssemblyPrefix: 'specialmeeting-forest-tree',
+      fixedSupportAnchor: true,
+    };
     add(trunks);
 
     /* ---- crowns ----
@@ -557,15 +684,30 @@ export function buildFoliage(
       _colour.setHex(0x4a4a4d).multiplyScalar(0.62 + r.tint * 0.5);
       mesh.setColorAt(i, _colour);
       if (colliders && r.size > 0.75) {
-        colliders.push(new THREE.Box3(
+        /* A boulder is an irregular lump and this is a square box 1.6 times
+         * its radius across, sized generously on purpose so the player is
+         * stopped a little before he can see himself touch it. A box that
+         * generous around a two-and-a-half-metre rock reaches four metres,
+         * and the trees growing out of the scree beside it stand in that
+         * reach — eleven of them across the spur. The overlap is in the
+         * BOX, not in the rock, so the opt-out goes on the box. */
+        const box = new THREE.Box3(
           new THREE.Vector3(r.x - r.size * 0.8, r.y, r.z - r.size * 0.8),
           new THREE.Vector3(r.x + r.size * 0.8, r.y + r.size * r.squash, r.z + r.size * 0.8),
-        ));
+        );
+        box.userData = { geometryGate: { overlap: false } };
+        colliders.push(box);
       }
     }
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     boundBatch(mesh, bounds);
+    /* Sunk a third into the ground on purpose, four lines up, and leaning on
+     * whatever else the forest floor put there. Both of those are the shape
+     * the scatter is FOR, so neither is a finding: see the trunk note above
+     * for why the support test cannot read a heightfield, and note that a
+     * boulder half buried under a fallen log is the look. */
+    mesh.userData.geometryGate = { fixedSupportAnchor: true, overlap: false };
     add(mesh);
   }
 
@@ -586,17 +728,32 @@ export function buildFoliage(
       _colour.setHex(0x3d3325).multiplyScalar(0.7 + l.tint * 0.5);
       mesh.setColorAt(i, _colour);
       if (colliders) {
-        const hx = Math.abs(Math.sin(l.yaw)) * l.length * 0.5 + l.radius;
-        const hz = Math.abs(Math.cos(l.yaw)) * l.length * 0.5 + l.radius;
-        colliders.push(new THREE.Box3(
+        const hx = Math.abs(Math.sin(l.yaw)) * l.run * 0.5 + l.radius;
+        const hz = Math.abs(Math.cos(l.yaw)) * l.run * 0.5 + l.radius;
+        /* A log lying at forty-five degrees is a five-metre cylinder, and an
+         * AXIS-ALIGNED box round it is five metres by two and a half, most of
+         * which is air. Every trunk standing in that air reads as a collision
+         * solid buried in another one -- a hundred and two of them across the
+         * spur, and not one of them a place the player can walk that he
+         * should not. The overlap is in the REPRESENTATION, so the opt-out
+         * goes on the box that causes it rather than on the trees it
+         * swallows, and the trunk boxes stay fully audited against everything
+         * else. */
+        const box = new THREE.Box3(
           new THREE.Vector3(l.x - hx, l.y - l.radius, l.z - hz),
           new THREE.Vector3(l.x + hx, l.y + l.radius, l.z + hz),
-        ));
+        );
+        box.userData = { geometryGate: { overlap: false } };
+        colliders.push(box);
       }
     }
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     boundBatch(mesh, bounds);
+    /* A fallen tree is pitched to the ground under its two ends and lies
+     * across whatever it fell on. Every one of those contacts is the point of
+     * it. */
+    mesh.userData.geometryGate = { fixedSupportAnchor: true, overlap: false };
     add(mesh);
   }
 
@@ -613,6 +770,9 @@ export function buildFoliage(
     }
     mesh.instanceMatrix.needsUpdate = true;
     boundBatch(mesh, bounds);
+    /* Set five centimetres INTO the ground, three lines up, so the cut face
+     * reads as a cut rather than a cylinder on a lawn. */
+    mesh.userData.geometryGate = { fixedSupportAnchor: true, overlap: false };
     add(mesh);
   }
 
@@ -655,6 +815,11 @@ export class Undergrowth {
     });
     this.mesh = new THREE.InstancedMesh(frond, this.material, count);
     this.mesh.name = 'forest.undergrowth';
+    /* Nine hundred alpha-cut quads planted at `heightAt` and packed to a
+     * 62 cm grid: they grow through each other, through the trunks and out of
+     * the ground, which is what a fern bed is. See the trunk note in
+     * `buildFoliage` for why the support test cannot read the terrain. */
+    this.mesh.userData.geometryGate = { fixedSupportAnchor: true, overlap: false };
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = false;
     this.mesh.receiveShadow = false;

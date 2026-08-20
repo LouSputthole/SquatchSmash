@@ -667,12 +667,20 @@ test('the scene plays its shots through the weapon layer and its lines through t
 
   /* 4. SPATIAL AUDIO. Every line is glued to its speaker and carries the
    * gentler dialogue rolloff; a one-shot without `follow` freezes where the
-   * speaker's mouth was on the first syllable. */
-  assert.match(MAIN, /sayFrom\(audio, line\.cue, body/);
-  assert.match(MAIN, /follow: \(\) => player\.position/);
+   * speaker's mouth was on the first syllable.
+   *
+   * Through the SHARED path since 2026-08-20. This scene's `sayFrom()` and
+   * its `DIALOGUE_MIX` were the only researched positional mix for speech in
+   * the game, so they were hoisted into `src/core/dialogue.js` as `speak()`
+   * and `SPEECH_MIX` and every other scene now gets them -- the heist had no
+   * positional mix at all, which is why a robber at the far end of the lobby
+   * was as loud as one on your shoulder. The rolloff assertion moves with
+   * them; what it is guarding is the NUMBER, and the number did not change. */
+  assert.match(MAIN, /speak\(audio, line\.cue, \{/);
+  assert.match(MAIN, /speaker: body \?\? \(\(\) => player\.position\)/);
   assert.equal(staging.FALL_REACH, site.FALL_REACH);
-  const ambience = read('src/initiation/cabin/ambience.js');
-  assert.match(ambience, /rolloff: 0\.7/);
+  const dialogue = read('src/core/dialogue.js');
+  assert.match(dialogue, /rolloff: 0\.7/);
   assert.match(MAIN, /audio\.updateListener\(camera\)/);
   assert.match(MAIN, /playFootstep\(audio,/);
 

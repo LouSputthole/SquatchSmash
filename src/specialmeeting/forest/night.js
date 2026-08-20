@@ -94,6 +94,12 @@ export function applyForestNight(scene, { renderer = null } = {}) {
   const discMat = new THREE.MeshBasicMaterial({ color: 0xc9d6e4, fog: false });
   const disc = new THREE.Mesh(discGeo, discMat);
   disc.name = 'forest.moon';
+  /* A hundred and ninety metres up and unlit by the fog, riding the camera so
+   * it stays on the horizon. It is a light source drawn as a ball; the halo
+   * below is the same light drawn as a card, sitting at the SAME point in
+   * space on purpose. Neither is a solid, neither rests on anything, and the
+   * question the gate asks about both is the wrong one. */
+  disc.userData.geometryGate = { fixedSupportAnchor: true, overlap: false };
   disc.position.set(-260, 190, 150);
   group.add(disc);
   geometries.push(discGeo);
@@ -111,6 +117,7 @@ export function applyForestNight(scene, { renderer = null } = {}) {
   });
   const halo = new THREE.Mesh(haloGeo, haloMat);
   halo.name = 'forest.moon.halo';
+  halo.userData.geometryGate = { fixedSupportAnchor: true, overlap: false };
   halo.position.copy(disc.position);
   group.add(halo);
   geometries.push(haloGeo);

@@ -280,6 +280,21 @@ function buildMarkerPosts(group, materials) {
   const caps = new THREE.InstancedMesh(postGeo, capMat, spots.length);
   posts.name = 'forest.road.markers';
   caps.name = 'forest.road.markers.caps';
+  /* Two batches, one delineator: instance i of `caps` is the white top of
+   * instance i of `posts`, seated ten centimetres down over it so the join
+   * survives the lean applied to both. Pairing the ids says that -- the gate
+   * then reads a post and its cap as one object and stops reporting thirteen
+   * delineators for having tops. The posts are also driven into the verge at
+   * `heightAt`, which is ground the gate cannot measure; see the trunk note in
+   * forest/foliage.js. */
+  posts.userData.geometryGate = {
+    instanceAssemblyPrefix: 'specialmeeting-road-marker',
+    fixedSupportAnchor: true,
+  };
+  caps.userData.geometryGate = {
+    instanceAssemblyPrefix: 'specialmeeting-road-marker',
+    fixedSupportAnchor: true,
+  };
   posts.castShadow = false;
   caps.castShadow = false;
   const dummy = new THREE.Object3D();
@@ -359,6 +374,11 @@ function buildStreetlights(group, materials, lights) {
 
     const post = new THREE.Group();
     post.name = `forest.streetlight.${lamp.s}`;
+    /* Concreted into the verge at `heightAt(x, z)`, which is the displaced
+     * terrain -- ground the gate models as one box per 48 m chunk and can
+     * therefore never see a lamp standing on. Same reasoning as the trunks in
+     * forest/foliage.js, and the same remedy. */
+    post.userData.geometryGate = { fixedSupportAnchor: true };
     post.position.set(x, base, z);
     post.rotation.y = road.yaw;
 
@@ -442,6 +462,11 @@ function buildCattleGrid(group, materials) {
   const barGeo = new THREE.BoxGeometry(half * 2 - 0.3, 0.09, 0.075);
   const bars = new THREE.InstancedMesh(barGeo, steel, 15);
   bars.name = 'forest.cattle-grid.bars';
+  /* Fifteen bars laid ACROSS an open pit, which is the entire idea of a cattle
+   * grid: there is deliberately nothing underneath them. They are carried at
+   * their two ends by the concrete kerbs the pit is cut into, and the gate
+   * measures downwards. */
+  bars.userData.geometryGate = { fixedSupportAnchor: true };
   const dummy = new THREE.Object3D();
   for (let i = 0; i < 15; i++) {
     dummy.position.set(0, 0.03, -1.15 + (i / 14) * 2.3);
@@ -523,6 +548,10 @@ function buildChainGate(group, materials) {
   const linkGeo = new THREE.CylinderGeometry(0.035, 0.035, 1, 5);
   const chain = new THREE.InstancedMesh(linkGeo, chainMat, LINKS);
   chain.name = 'forest.chain-gate.chain';
+  /* Eleven links slung between two posts in a catenary. It hangs -- that is
+   * what a chain across a track does -- and when it is dropped it lies in the
+   * dirt of the trail. Nothing is under it in either state. */
+  chain.userData.geometryGate = { fixedSupportAnchor: true };
   chain.castShadow = true;
   gate.add(chain);
 

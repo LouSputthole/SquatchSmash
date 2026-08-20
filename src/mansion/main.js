@@ -45,6 +45,7 @@ import { FocusRush } from '../core/focus-rush.js';
 import { PeeSystem } from '../core/pee-system.js';
 import { createResidencyBanks } from '../core/residency-banks.js';
 import { PostFX } from '../core/postfx.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { Radio } from '../core/radio.js';
 import {
@@ -1035,6 +1036,138 @@ function creditEveningBeat(id) {
     : `WINDING DOWN ${state?.done.length ?? 1}/${state?.required ?? 2} — ONE MORE THING, THEN BED`);
   return true;
 }
+/* ------------------------------------------------------------------
+ * EXPLORE THE MANSION
+ *
+ * Owner, 2026-08-20: "I want to have an objective to explore the house before
+ * going to bed... This should deliberately give the player time to wander
+ * around and meet everybody instead of immediately railroading them
+ * upstairs."
+ *
+ * So the night has three standing orders and they run in this order:
+ *
+ *   1. EXPLORE THE MANSION   free roam, no waypoint, nothing pointing at a
+ *                            bed. This is where the ensemble's ambient
+ *                            dialogue is, and it is the only stretch of the
+ *                            game where the house is a place rather than a
+ *                            corridor.
+ *   2. HEAD UPSTAIRS         once he has seen enough of it.
+ *   3. GO TO BED             the wind-down gate that was already here.
+ *
+ * "Enough of it" is MEASURED, not timed. A timer makes a player stand still
+ * for ninety seconds; a room count makes him walk. `EXPLORE_ROOMS` is the
+ * places the owner listed -- the theatre, the pool deck, the LAN room, the
+ * trophy hall, the office floor, the way down to the cellar -- and any
+ * EXPLORE_ENOUGH of them counts, so nobody is forced into a specific door.
+ * ------------------------------------------------------------------ */
+
+/** The places worth finding. Keys into `interior.rooms`. */
+const EXPLORE_ROOMS = Object.freeze([
+  'theatre', 'lanRoom', 'trophyHall', 'winterGarden', 'cellarHall',
+  'conference', 'office', 'gallery', 'ballroom', 'lounge', 'basement',
+]);
+/** How many of them make a house he has actually seen. Six of eleven. */
+const EXPLORE_ENOUGH = 6;
+/** Which of them he has stood in. Not persisted: it is one evening. */
+const exploredRooms = new Set();
+
+/** Is the player inside this room's floor plan right now? */
+function insideRoom(room, x, y, z) {
+  if (!room?.rect || !inRectXZ(room.rect, x, z)) return false;
+  /* The house is three storeys and two of them share a footprint, so an XZ
+   * test alone credits the office for standing in the ballroom under it. */
+  return Math.abs(y - room.floor) < 2.6;
+}
+
+/**
+ * Tick the explore ledger. Cheap: eleven rectangle tests, once a second.
+ *
+ * Called from the frame loop with the player's FOOT position, because
+ * `player.position` is the eye and every room datum here is a floor.
+ */
+let exploreClock = 0;
+function updateExplored(dt) {
+  if (exploredRooms.size >= EXPLORE_ENOUGH) return;
+  exploreClock -= dt;
+  if (exploreClock > 0) return;
+  exploreClock = 1;
+  const x = player.position.x;
+  const z = player.position.z;
+  const y = player.position.y - (player.eyeHeight ?? 0);
+  for (const key of EXPLORE_ROOMS) {
+    if (exploredRooms.has(key)) continue;
+    if (!insideRoom(interior.rooms[key], x, y, z)) continue;
+    exploredRooms.add(key);
+    if (exploredRooms.size === EXPLORE_ENOUGH) {
+      announceCheckpoint('YOU HAVE SEEN THE HOUSE — HEAD UPSTAIRS');
+    }
+  }
+}
+
+/** True once he has been round enough of it. */
+function houseExplored() {
+  return exploredRooms.size >= EXPLORE_ENOUGH;
+}
+
+/**
+ * The one standing order, for the shared upper-left panel.
+ *
+ * Returns the panel plan rather than a string, because the panel is a list and
+ * the evening genuinely has a list in it. The pause menu keeps taking a
+ * string; both read the same state, so they cannot disagree.
+ */
+function mansionObjectivePlan() {
+  if (mansionVisit === 'return') {
+    const line = mansionReturnObjective(mansionCampaign.story?.mission?.status);
+    return line ? { title: 'Objective', items: [{ label: line, done: false }] } : null;
+  }
+  const mission = mansionCampaign.story?.mission;
+  if (silentSquatch?.mission?.objective) {
+    return {
+      title: 'Objective',
+      items: [{ label: silentSquatch.mission.objective, done: false }],
+    };
+  }
+  if (mission?.status !== 'complete' || mission.sleptAtMansion === true) return null;
+  if (!houseExplored()) {
+    return {
+      title: 'Objective',
+      items: [{ label: 'Explore the mansion', done: false }],
+      hint: `Lou's house is bigger than it looks. ${exploredRooms.size}/${EXPLORE_ENOUGH} rooms found.`,
+    };
+  }
+  const state = eveningWindDown();
+  if (state && !state.ready) {
+    const menu = MANSION_EVENING_BEAT_IDS
+      .filter((id) => !state.done.includes(id))
+      .map((id) => EVENING_BEAT_MENU[id].toLowerCase())
+      .join(', ');
+    return {
+      title: 'Objective',
+      items: [
+        { label: 'Explore the mansion', done: true },
+        { label: 'Wind the night down', done: false },
+      ],
+      hint: `${state.required - state.done.length} more of: ${menu}.`,
+    };
+  }
+  return {
+    title: 'Objective',
+    items: [
+      { label: 'Explore the mansion', done: true },
+      { label: 'Wind the night down', done: true },
+      { label: 'Go to bed', done: false },
+    ],
+    hint: 'The guest room is off the cellar hall.',
+  };
+}
+
+/* The shared panel from src/core/objective-panel.js -- the same one the Bing
+ * and the Silver Case use, driven the same way, upper left. This house had no
+ * on-screen objective at all: its objective text existed and was only ever
+ * visible in the PAUSE MENU, which is the one place a player is not playing. */
+const objectivePanel = createObjectivePanel();
+
 /* The pause menu's objective line for the quiet evening: what is left on the
  * menu, and how far along the night is. Empty outside the evening. */
 function eveningObjective() {
@@ -1434,6 +1567,10 @@ const weaponSystem = new WeaponSystem({
     ...grounds.occluders,
     ...silent.occluders,
     silent?.lab?.targets?.xxx,
+    /* The aim volume AND the man inside it. The volume is what a crosshair
+     * finds; the body is what a decal needs, and a ray that only ever meets a
+     * box has no surface to put one on. `hitXxxWithFirearm` accepts either. */
+    silent?.lab?.targets?.xxxBody,
   ].filter(Boolean),
   range: 70,
   onImpact: (hit) => {
@@ -2337,6 +2474,11 @@ function updateGame(dt) {
   player.moveScale = mansionHighs.moveScale;
   player.lookDrag = mansionHighs.lookDrag;
   player.update(dt);
+  /* The explore ledger and the panel that reads it. Both cheap and both
+   * rate-limited internally -- `updateExplored` tests eleven rectangles once
+   * a second, and the panel only touches the DOM when the list changes. */
+  updateExplored(dt);
+  objectivePanel.set(mansionObjectivePlan());
   mansionSmoke.update(dt);
   mansionPee.update(dt);
   interaction.update(dt);

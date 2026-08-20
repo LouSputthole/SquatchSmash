@@ -76,7 +76,9 @@
         "hogmama",
         "snow",
         "old-stove",
-        "performer"
+        "performer",
+        "seff",
+        "lag"
       ],
       "sceneVoiceExemptions": {
         "labcomputer": "The laboratory's own annunciator -- script.js's SPEAKERS.LAB_COMPUTER docstring: 'Flat, synthetic, indifferent.' A PA voice with no body by design, the same class as vo.machine./vo.news."

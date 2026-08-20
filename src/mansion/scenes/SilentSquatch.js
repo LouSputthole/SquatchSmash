@@ -61,6 +61,9 @@
  * datums down here are the cellar floor and the lab floor.
  */
 import * as THREE from 'three';
+import {
+  contactNormal, isAimProxy, markAimProxy, resolveProxyContact,
+} from '../../core/combat/aim-proxy.js';
 import { box, cylinder, sphere, collider, mat, group } from '../../world/build.js';
 import { tileTex, fabricTex } from '../../world/textures.js';
 import { printed, tiled } from '../../bing/kit.js';
@@ -2877,16 +2880,35 @@ export function buildSilentSquatch({
     /* A generous hit volume, so aiming at a man reads as aiming at a man
      * rather than as threading a crosshair between a forearm and a rope.
      * Sized to the body he actually has: soles at LAB_Y + 2.42, knuckles at
-     * LAB_Y + 0.25. */
-    const aim = new THREE.Mesh(
+     * LAB_Y + 0.25.
+     *
+     * IT HANGS OFF THE RIG, not off the room. This used to be a child of
+     * `root` at a fixed world position while the man swung on `hang` -- one
+     * pendulum and one slow turn, every frame, for the whole scene. So the
+     * volume you aimed at and the man you were aiming at were two different
+     * objects in two different places, drifting apart and back together on a
+     * 0.55 Hz sine, and the blood landed on the box. That is the "decal on
+     * triple X is way off" the owner reported. Parented here, it is nailed to
+     * him: chain, shackle, man and hit box move as one rigid piece.
+     *
+     * `markAimProxy` is the other half. A generous box is a lie about where
+     * his surface is, so a round that strikes it is re-resolved onto the limb
+     * behind it by `resolveProxyContact` before anything is drawn -- see
+     * src/core/combat/aim-proxy.js, and `kill()` below. */
+    const aim = markAimProxy(new THREE.Mesh(
       new THREE.BoxGeometry(1.1, 2.5, 1.1),
       mat({
         color: 0x000000, transparent: true, opacity: 0, depthWrite: false, unique: true,
       }),
-    );
-    aim.position.set(XXX_AT.x, LAB_Y + 1.5, XXX_AT.z);
+    ));
+    /* In the rig's frame: `hang` pivots at the hook, his body hangs
+     * CHAIN_OFFSET in front of the chain, and the box is centred on the middle
+     * of him. Written from the same constants the body is, so it cannot drift
+     * from him the next time he is re-hung. */
+    aim.position.set(0, (LAB_Y + 1.5) - HOOK_Y, CHAIN_OFFSET);
     aim.name = 'xxx-aim';
-    root.add(aim);
+    geometryIntent(aim, { checkSupport: false, overlap: false });
+    hang.add(aim);
 
     const fate = { alive: true, cause: null, marks: [], pool: null };
     function kill(cause = 'unknown', hit = null) {
@@ -2894,15 +2916,35 @@ export function buildSilentSquatch({
       fate.alive = false;
       fate.cause = cause;
       root.updateMatrixWorld(true);
-      const point = hit?.point?.clone?.() ?? aim.getWorldPosition(new THREE.Vector3());
-      const anchor = nearestBodyGroup(hit?.object, fig.group, fig.torso);
+      /* THE CONTACT HAS TO BE ON HIM.
+       *
+       * A round that struck the aim box carries a point on a box a metre wide
+       * and a normal describing one of that box's faces, and neither says
+       * anything about where his surface is. `resolveProxyContact` walks the
+       * rest of the ray for a real limb intersection and uses that; where the
+       * round only clipped the corner of the volume it clamps the contact onto
+       * the nearest point of the body and drops the box normal, because a
+       * graze is still a hit but the box's facing is not his.
+       *
+       * `hits` is the ray's full sorted intersection list where the caller
+       * kept one. Without it this still clamps, which is the whole fix for
+       * the visible symptom -- the blood was landing in mid air beside him. */
+      const contact = hit && isAimProxy(hit.object)
+        ? resolveProxyContact(hit, hit.hits ?? [], null, { body: fig.group })
+        : hit;
+      const point = contact?.point?.clone?.() ?? fig.torso.getWorldPosition(new THREE.Vector3());
+      const anchor = nearestBodyGroup(contact?.object, fig.group, fig.torso);
       const marked = bloodImpacts.hit({
         actor: fate,
         anchor,
         spatterAnchor: fig.torso,
         point,
-        normal: hit?.normal ?? null,
-        from: hit?.from ?? null,
+        /* Face normals arrive in the struck geometry's LOCAL frame and he is
+         * upside down, so an unrotated one puts the wound on its side.
+         * `contactNormal` transforms it, and falls back to the direction the
+         * round came from where the graze path removed the face. */
+        normal: contact?.normal ?? contactNormal(contact, contact?.from ?? hit?.from ?? null),
+        from: contact?.from ?? hit?.from ?? null,
       });
       fate.marks = [marked.wound, marked.spatter].filter(Boolean);
       fate.pool = deathPools.spill(point, {
@@ -6583,6 +6625,15 @@ export function buildSilentSquatch({
       silentNight: obs.silentNight.target,
       doorLock: obs.lockPost,
       xxx: xxx.aim,
+      /* THE MAN, not the box around him.
+       *
+       * `xxx` above is the generous aim volume, which is what makes him
+       * aimable. This is the rig, and it goes in the weapon system's hit
+       * targets alongside it so a round that enters the volume has something
+       * REAL to strike -- see src/core/combat/aim-proxy.js. Without a body in
+       * the ray there is nothing to resolve a contact onto and the best the
+       * decal can do is be clamped to the edge of him. */
+      xxxBody: xxx.hang,
       core: core.group,
       transferTable: obs.transferTable,
     },

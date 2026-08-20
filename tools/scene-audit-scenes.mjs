@@ -45,6 +45,11 @@ export const SCENE_AUDIT_SCENES = Object.freeze([
     ['CARTEL_PALACE', 'player', 'camera', 'parent'],
   ]),
   entry('mansion-siege', 'mansion-siege.html?preview=1', '#startBtn'),
+  /* No start button: the Special Meeting opens in the car with the doors shut
+   * and boots straight into the ride. */
+  entry('special-meeting', 'specialmeeting.html?preview=1', null, [
+    ['SPECIAL_MEETING', 'scene'],
+  ]),
 ]);
 
 /**

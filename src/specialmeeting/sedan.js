@@ -512,7 +512,19 @@ function buildInterior(car, cabin) {
   screen.userData.geometryGate = { overlap: false };
   root.add(screen);
 
-  root.userData.geometryGate = { assemblyId: 'specialmeeting.sedan.interior', checkSupport: false };
+  /* ONE CAR, ONE ASSEMBLY.
+   *
+   * The interior used to carry an assembly id of its own, which made the gate
+   * treat the dash and the shell as two objects that happen to occupy the same
+   * cubic metre — sixteen interpenetration findings per kerb state for a
+   * steering wheel being inside a car. Sharing the body's id says the true
+   * thing instead: this is the same object as the panels around it.
+   *
+   * It also retires the `checkSupport: false` that used to sit here. That was
+   * only ever needed because an interior floating on its own has nothing under
+   * it; joined to the shell, the component the gate weighs is the whole car,
+   * and the whole car is on its wheels on the road. */
+  root.userData.geometryGate = { assemblyId: 'specialmeeting.sedan' };
 
   return {
     group: root,

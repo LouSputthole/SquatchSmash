@@ -5,9 +5,15 @@
   "suppressionPolicy": [
     {
       "state": "bank-lobby",
-      "overlap": 24,
+      "overlap": 44,
       "checkSupport": 0,
       "sources": [
+        {
+          "sourceId": "root:heist-bank_lobby/name=cash-staging#0",
+          "scope": "inherited",
+          "overlap": 20,
+          "checkSupport": 0
+        },
         {
           "sourceId": "root:heist-bank_lobby/type=Mesh#10",
           "scope": "direct",
@@ -398,9 +404,15 @@
     },
     {
       "state": "vault-open",
-      "overlap": 24,
+      "overlap": 44,
       "checkSupport": 0,
       "sources": [
+        {
+          "sourceId": "root:heist-vault_open/name=cash-staging#0",
+          "scope": "inherited",
+          "overlap": 20,
+          "checkSupport": 0
+        },
         {
           "sourceId": "root:heist-vault_open/type=Mesh#10",
           "scope": "direct",

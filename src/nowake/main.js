@@ -2041,7 +2041,12 @@ startButton.addEventListener('click', async () => {
   resumeCheckpoint();
   await audio.init();
   engineAudio.init();
-  if (audio.busMusic) audio.busMusic.gain.value = 1;
+  /* The boat's radio is the scene, so the music bed runs at full rather than
+   * at the engine's 0.7 default. Through `busLevel` rather than by writing the
+   * gain directly: dialogue now ducks the music bed under a spoken line and
+   * restores it to the level the SCENE set, so a bare `gain.value` here would
+   * be silently put back to 0.7 the first time anybody talked over the radio. */
+  audio.busLevel?.('music', 1, 0);
   await radioReady;
   const radioCueNames = radio.preloadCueNames({ hours: [12.75, 15, 17] });
   const loadedAudio = await audio.loadManifest(noWakeAudioLoadOptions(radioCueNames));

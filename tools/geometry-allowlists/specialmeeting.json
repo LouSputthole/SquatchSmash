@@ -1,12 +1,640 @@
 {
   "$schema": "squatchsmash.geometry-allowlist.v1",
   "scene": "specialmeeting",
-  "entries": [],
+  "entries": [
+    {
+      "id": "specialmeeting-kerb-arrived-alley-end-apartment-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m13p52-0-m24p02-6p52-13p2-m9p98",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m20p52-0-m24p62-m13p48-6p5-m23p98",
+      "maxDepthM": 0.04,
+      "reason": "A fixture keyed into the apartment block's own massing solid — a doorway jamb, a stoop, the wall closing the alley, or the gate wall between the building and the lot. Each is authored to sit inside the face it is fixed to so the boundary is sealed.",
+      "source": "src/specialmeeting/block.js:289",
+      "sourceAnchor": "solid(APARTMENT.minX, backZ, APARTMENT.maxX, FACADE_Z, 0, APARTMENT_HEIGHT)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-alley-end-neighbour-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m20p52-0-m24p62-m13p48-6p5-m23p98",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m38p52-0-m26p02-m20p48-16p4-m9p98",
+      "maxDepthM": 0.04,
+      "reason": "The wall closing the far end of the alley is keyed into the neighbouring block behind it, so the alley is a dead end rather than a slot the player can slide out of at the corner.",
+      "source": "src/specialmeeting/block.js:529",
+      "sourceAnchor": "solid(NEIGHBOUR.minX, NEIGHBOUR.facadeZ - NEIGHBOUR.depth, NEIGHBOUR.maxX, NEIGHBOUR.facadeZ"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-apartment-jamb-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m13p52-0-m24p02-6p52-13p2-m9p98",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m2p94-0-m10p02-m2p46-3p3-m9p64",
+      "maxDepthM": 0.04,
+      "reason": "A fixture keyed into the apartment block's own massing solid — a doorway jamb, a stoop, the wall closing the alley, or the gate wall between the building and the lot. Each is authored to sit inside the face it is fixed to so the boundary is sealed.",
+      "source": "src/specialmeeting/block.js:289",
+      "sourceAnchor": "solid(APARTMENT.minX, backZ, APARTMENT.maxX, FACADE_Z, 0, APARTMENT_HEIGHT)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-apartment-jamb-002",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m13p52-0-m24p02-6p52-13p2-m9p98",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m5p54-0-m10p02-m5p06-3p3-m9p64",
+      "maxDepthM": 0.04,
+      "reason": "A fixture keyed into the apartment block's own massing solid — a doorway jamb, a stoop, the wall closing the alley, or the gate wall between the building and the lot. Each is authored to sit inside the face it is fixed to so the boundary is sealed.",
+      "source": "src/specialmeeting/block.js:289",
+      "sourceAnchor": "solid(APARTMENT.minX, backZ, APARTMENT.maxX, FACADE_Z, 0, APARTMENT_HEIGHT)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-apartment-side-gate-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-6p48-0-m12p62-8p62-2p9-m9p98",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m13p52-0-m24p02-6p52-13p2-m9p98",
+      "maxDepthM": 0.04,
+      "reason": "A fixture keyed into the apartment block's own massing solid — a doorway jamb, a stoop, the wall closing the alley, or the gate wall between the building and the lot. Each is authored to sit inside the face it is fixed to so the boundary is sealed.",
+      "source": "src/specialmeeting/block.js:289",
+      "sourceAnchor": "solid(APARTMENT.minX, backZ, APARTMENT.maxX, FACADE_Z, 0, APARTMENT_HEIGHT)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-closer-leash-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-21p18-0-m24p02-38p02-9p5-m9p98",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-33p78-0-m30p02-34p22-6-30p02",
+      "maxDepthM": 0.441,
+      "reason": "The leash slab that ends the playable street is deliberately buried in the building massing behind it, so the player is stopped by geometry he can see rather than by an invisible plane standing in open air. Overlapping the block is the point of where it is put.",
+      "source": "src/specialmeeting/block.js:1120",
+      "sourceAnchor": "solid(minX, minZ, maxX, maxZ, 0, height)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-jamb-stoop-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m2p94-0-m10p02-m2p46-3p3-m9p64",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m5p62-0-m10-m2p38-0p45-m9p4",
+      "maxDepthM": 0.36,
+      "reason": "The stoop treads are keyed into the doorway jambs so the step up to 1149's front door has no gap at its edges for the player to catch on. Authored stair-to-jamb contact, capped at the tread depth.",
+      "source": "src/specialmeeting/block.js:376",
+      "sourceAnchor": "solid(ex + side * half - 0.22, FACADE_Z, ex + side * half + 0.22, FACADE_Z + 0.34, 0, 3.3)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-jamb-stoop-002",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m5p54-0-m10p02-m5p06-3p3-m9p64",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m5p62-0-m10-m2p38-0p45-m9p4",
+      "maxDepthM": 0.36,
+      "reason": "The stoop treads are keyed into the doorway jambs so the step up to 1149's front door has no gap at its edges for the player to catch on. Authored stair-to-jamb contact, capped at the tread depth.",
+      "source": "src/specialmeeting/block.js:376",
+      "sourceAnchor": "solid(ex + side * half - 0.22, FACADE_Z, ex + side * half + 0.22, FACADE_Z + 0.34, 0, 3.3)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-kerb-car-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-21p4446-0-3p6435-26p5554-2p26-6p0565",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-kerb-car-002",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-9p9359-0-m6p0755-15p0641-2p26-m3p6245",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-kerb-car-003",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m0p4812-0-3p4588-5p4812-3p7-6p2412",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-kerb-car-004",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m15p5664-0-3p7385-m11p4336-1p99-5p9615",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-kerb-car-005",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m27p3249-0-m6p1282-m21p6751-2p28-m3p5718",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-kerb-car-006",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m32p5713-0-m6p0912-m27p4287-2p26-m3p6088",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-kerb-car-007",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m5p7-0-m6p07-m0p1-2p28-m3p63",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:244",
+      "sourceAnchor": "solid(walk.minX, z0 - 0.12, walk.maxX, z0 + 0.12, 0, ROAD.kerbHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-leash-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-33p78-0-m30p02-34p22-6-30p02",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
+      "maxDepthM": 0.15,
+      "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
+      "source": "src/specialmeeting/block.js:1192",
+      "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-leash-002",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-33p78-0-m30p02-34p22-6-30p02",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "maxDepthM": 0.15,
+      "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
+      "source": "src/specialmeeting/block.js:1192",
+      "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-leash-003",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m38p22-0-m30p02-m37p78-6-30p02",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
+      "maxDepthM": 0.15,
+      "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
+      "source": "src/specialmeeting/block.js:1192",
+      "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-kerb-leash-004",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m38p22-0-m30p02-m37p78-6-30p02",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "maxDepthM": 0.15,
+      "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
+      "source": "src/specialmeeting/block.js:1192",
+      "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-leash-neighbour-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m38p22-0-m30p02-m37p78-6-30p02",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m38p52-0-m26p02-m20p48-16p4-m9p98",
+      "maxDepthM": 0.441,
+      "reason": "The leash slab that ends the playable street is deliberately buried in the building massing behind it, so the player is stopped by geometry he can see rather than by an invisible plane standing in open air. Overlapping the block is the point of where it is put.",
+      "source": "src/specialmeeting/block.js:529",
+      "sourceAnchor": "solid(NEIGHBOUR.minX, NEIGHBOUR.facadeZ - NEIGHBOUR.depth, NEIGHBOUR.maxX, NEIGHBOUR.facadeZ"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-leash-shopfront-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-14p98-0-9p98-38p02-10p2-25p02",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-33p78-0-m30p02-34p22-6-30p02",
+      "maxDepthM": 0.441,
+      "reason": "The leash slab that ends the playable street is deliberately buried in the building massing behind it, so the player is stopped by geometry he can see rather than by an invisible plane standing in open air. Overlapping the block is the point of where it is put.",
+      "source": "src/specialmeeting/block.js:744",
+      "sourceAnchor": "solid(unit.minX, SOUTH_BLOCK.facadeZ, unit.maxX, SOUTH_BLOCK.facadeZ + southDepth, 0, southHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-leash-shopfront-002",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m38p22-0-m30p02-m37p78-6-30p02",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m38p52-0-9p98-m9p48-10p2-25p02",
+      "maxDepthM": 0.441,
+      "reason": "The leash slab that ends the playable street is deliberately buried in the building massing behind it, so the player is stopped by geometry he can see rather than by an invisible plane standing in open air. Overlapping the block is the point of where it is put.",
+      "source": "src/specialmeeting/block.js:744",
+      "sourceAnchor": "solid(unit.minX, SOUTH_BLOCK.facadeZ, unit.maxX, SOUTH_BLOCK.facadeZ + southDepth, 0, southHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-lot-fence-lot-rail-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-15p38-0-m10p12-20p92-1p9-m9p78",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-20p78-0-m19p02-21p02-2-m9p98",
+      "maxDepthM": 0.14,
+      "reason": "Two sides of the parking lot's boundary meeting at a corner — the front rail, the rear kerb and the east fence are authored to overlap where they turn so the enclosure has no gap at its corners.",
+      "source": "src/specialmeeting/block.js:697",
+      "sourceAnchor": "solid(fromX, PARKING.maxZ - 0.1, toX, PARKING.maxZ + 0.2, 0, 1.9)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-lot-fence-lot-rear-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-20p78-0-m19p02-21p02-2-m9p98",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-8p28-0-m19p37-20p92-1p3-m18p98",
+      "maxDepthM": 0.04,
+      "reason": "Two sides of the parking lot's boundary meeting at a corner — the front rail, the rear kerb and the east fence are authored to overlap where they turn so the enclosure has no gap at its corners.",
+      "source": "src/specialmeeting/block.js:679",
+      "sourceAnchor": "solid(PARKING.maxX + 0.2, PARKING.minZ, PARKING.maxX + 0.4, PARKING.maxZ, 0, 2.0)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-lot-rail-side-gate-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-6p48-0-m12p62-8p62-2p9-m9p98",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-8p28-0-m10p12-10p42-1p9-m9p78",
+      "maxDepthM": 0.14,
+      "reason": "The gate wall between the building and the parking lot meets the lot’s own boundary rail where the two enclosures join. Authored corner join, capped at the rail depth.",
+      "source": "src/specialmeeting/block.js:1131",
+      "sourceAnchor": "solid(APARTMENT.maxX, FACADE_Z - 2.6, PARKING.minX, FACADE_Z, 0, 2.9)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-shopfront-shopfront-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-14p98-0-9p98-38p02-10p2-25p02",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-3p48-0-9p98-15p02-10p2-25p02",
+      "maxDepthM": 0.04,
+      "reason": "Two authored massing solids for adjoining buildings on the same building line, each padded 2 cm proud of its footprint so the run has no seam a player can be pushed into. The shared face is the join.",
+      "source": "src/specialmeeting/block.js:744",
+      "sourceAnchor": "solid(unit.minX, SOUTH_BLOCK.facadeZ, unit.maxX, SOUTH_BLOCK.facadeZ + southDepth, 0, southHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-shopfront-shopfront-002",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-3p48-0-9p98-15p02-10p2-25p02",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m9p52-0-9p98-3p52-10p2-25p02",
+      "maxDepthM": 0.041,
+      "reason": "Two authored massing solids for adjoining buildings on the same building line, each padded 2 cm proud of its footprint so the run has no seam a player can be pushed into. The shared face is the join.",
+      "source": "src/specialmeeting/block.js:744",
+      "sourceAnchor": "solid(unit.minX, SOUTH_BLOCK.facadeZ, unit.maxX, SOUTH_BLOCK.facadeZ + southDepth, 0, southHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-shopfront-shopfront-003",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m38p52-0-9p98-m9p48-10p2-25p02",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m9p52-0-9p98-3p52-10p2-25p02",
+      "maxDepthM": 0.04,
+      "reason": "Two authored massing solids for adjoining buildings on the same building line, each padded 2 cm proud of its footprint so the run has no seam a player can be pushed into. The shared face is the join.",
+      "source": "src/specialmeeting/block.js:744",
+      "sourceAnchor": "solid(unit.minX, SOUTH_BLOCK.facadeZ, unit.maxX, SOUTH_BLOCK.facadeZ + southDepth, 0, southHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-arrived-stoop-stoop-001",
+      "state": "kerb-arrived",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-arrived/collider:aabb-m5p62-0-m10-m2p38-0p45-m9p4",
+      "right": "root:specialmeeting-kerb-arrived/collider:aabb-m5p62-0-m9p47-m2p38-0p3-m9p03",
+      "maxDepthM": 0.07,
+      "reason": "The two stoop treads are stacked with their nosings overlapping, which is how a step overhangs the one below it. Authored tread-to-tread contact.",
+      "source": "src/specialmeeting/block.js:367",
+      "sourceAnchor": "solid(ex - half - 0.3, FACADE_Z + 0.02, ex + half + 0.3, FACADE_Z + 0.58, 0, 0.45)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-alley-end-apartment-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m13p52-0-m24p02-6p52-13p2-m9p98",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m20p52-0-m24p62-m13p48-6p5-m23p98",
+      "maxDepthM": 0.04,
+      "reason": "A fixture keyed into the apartment block's own massing solid — a doorway jamb, a stoop, the wall closing the alley, or the gate wall between the building and the lot. Each is authored to sit inside the face it is fixed to so the boundary is sealed.",
+      "source": "src/specialmeeting/block.js:289",
+      "sourceAnchor": "solid(APARTMENT.minX, backZ, APARTMENT.maxX, FACADE_Z, 0, APARTMENT_HEIGHT)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-alley-end-neighbour-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m20p52-0-m24p62-m13p48-6p5-m23p98",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m38p52-0-m26p02-m20p48-16p4-m9p98",
+      "maxDepthM": 0.04,
+      "reason": "The wall closing the far end of the alley is keyed into the neighbouring block behind it, so the alley is a dead end rather than a slot the player can slide out of at the corner.",
+      "source": "src/specialmeeting/block.js:529",
+      "sourceAnchor": "solid(NEIGHBOUR.minX, NEIGHBOUR.facadeZ - NEIGHBOUR.depth, NEIGHBOUR.maxX, NEIGHBOUR.facadeZ"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-apartment-jamb-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m13p52-0-m24p02-6p52-13p2-m9p98",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m2p94-0-m10p02-m2p46-3p3-m9p64",
+      "maxDepthM": 0.04,
+      "reason": "A fixture keyed into the apartment block's own massing solid — a doorway jamb, a stoop, the wall closing the alley, or the gate wall between the building and the lot. Each is authored to sit inside the face it is fixed to so the boundary is sealed.",
+      "source": "src/specialmeeting/block.js:289",
+      "sourceAnchor": "solid(APARTMENT.minX, backZ, APARTMENT.maxX, FACADE_Z, 0, APARTMENT_HEIGHT)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-apartment-jamb-002",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m13p52-0-m24p02-6p52-13p2-m9p98",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m5p54-0-m10p02-m5p06-3p3-m9p64",
+      "maxDepthM": 0.04,
+      "reason": "A fixture keyed into the apartment block's own massing solid — a doorway jamb, a stoop, the wall closing the alley, or the gate wall between the building and the lot. Each is authored to sit inside the face it is fixed to so the boundary is sealed.",
+      "source": "src/specialmeeting/block.js:289",
+      "sourceAnchor": "solid(APARTMENT.minX, backZ, APARTMENT.maxX, FACADE_Z, 0, APARTMENT_HEIGHT)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-apartment-side-gate-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-6p48-0-m12p62-8p62-2p9-m9p98",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m13p52-0-m24p02-6p52-13p2-m9p98",
+      "maxDepthM": 0.04,
+      "reason": "A fixture keyed into the apartment block's own massing solid — a doorway jamb, a stoop, the wall closing the alley, or the gate wall between the building and the lot. Each is authored to sit inside the face it is fixed to so the boundary is sealed.",
+      "source": "src/specialmeeting/block.js:289",
+      "sourceAnchor": "solid(APARTMENT.minX, backZ, APARTMENT.maxX, FACADE_Z, 0, APARTMENT_HEIGHT)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-closer-leash-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-21p18-0-m24p02-38p02-9p5-m9p98",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-33p78-0-m30p02-34p22-6-30p02",
+      "maxDepthM": 0.441,
+      "reason": "The leash slab that ends the playable street is deliberately buried in the building massing behind it, so the player is stopped by geometry he can see rather than by an invisible plane standing in open air. Overlapping the block is the point of where it is put.",
+      "source": "src/specialmeeting/block.js:1120",
+      "sourceAnchor": "solid(minX, minZ, maxX, maxZ, 0, height)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-jamb-stoop-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m2p94-0-m10p02-m2p46-3p3-m9p64",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m5p62-0-m10-m2p38-0p45-m9p4",
+      "maxDepthM": 0.36,
+      "reason": "The stoop treads are keyed into the doorway jambs so the step up to 1149's front door has no gap at its edges for the player to catch on. Authored stair-to-jamb contact, capped at the tread depth.",
+      "source": "src/specialmeeting/block.js:376",
+      "sourceAnchor": "solid(ex + side * half - 0.22, FACADE_Z, ex + side * half + 0.22, FACADE_Z + 0.34, 0, 3.3)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-jamb-stoop-002",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m5p54-0-m10p02-m5p06-3p3-m9p64",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m5p62-0-m10-m2p38-0p45-m9p4",
+      "maxDepthM": 0.36,
+      "reason": "The stoop treads are keyed into the doorway jambs so the step up to 1149's front door has no gap at its edges for the player to catch on. Authored stair-to-jamb contact, capped at the tread depth.",
+      "source": "src/specialmeeting/block.js:376",
+      "sourceAnchor": "solid(ex + side * half - 0.22, FACADE_Z, ex + side * half + 0.22, FACADE_Z + 0.34, 0, 3.3)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-kerb-kerb-car-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-21p4446-0-3p6435-26p5554-2p26-6p0565",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-kerb-kerb-car-002",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-9p9359-0-m6p0755-15p0641-2p26-m3p6245",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-kerb-kerb-car-003",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m0p4812-0-3p4588-5p4812-3p7-6p2412",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-kerb-kerb-car-004",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m15p5664-0-3p7385-m11p4336-1p99-5p9615",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-kerb-kerb-car-005",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m27p3249-0-m6p1282-m21p6751-2p28-m3p5718",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-kerb-kerb-car-006",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m32p5713-0-m6p0912-m27p4287-2p26-m3p6088",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "maxDepthM": 0.15,
+      "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
+      "source": "src/specialmeeting/block.js:982",
+      "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-kerb-leash-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-33p78-0-m30p02-34p22-6-30p02",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
+      "maxDepthM": 0.15,
+      "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
+      "source": "src/specialmeeting/block.js:1192",
+      "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-kerb-leash-002",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-33p78-0-m30p02-34p22-6-30p02",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "maxDepthM": 0.15,
+      "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
+      "source": "src/specialmeeting/block.js:1192",
+      "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-kerb-leash-003",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m38p22-0-m30p02-m37p78-6-30p02",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
+      "maxDepthM": 0.15,
+      "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
+      "source": "src/specialmeeting/block.js:1192",
+      "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-kerb-leash-004",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m38p22-0-m30p02-m37p78-6-30p02",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
+      "maxDepthM": 0.15,
+      "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
+      "source": "src/specialmeeting/block.js:1192",
+      "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-leash-neighbour-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m38p22-0-m30p02-m37p78-6-30p02",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m38p52-0-m26p02-m20p48-16p4-m9p98",
+      "maxDepthM": 0.441,
+      "reason": "The leash slab that ends the playable street is deliberately buried in the building massing behind it, so the player is stopped by geometry he can see rather than by an invisible plane standing in open air. Overlapping the block is the point of where it is put.",
+      "source": "src/specialmeeting/block.js:529",
+      "sourceAnchor": "solid(NEIGHBOUR.minX, NEIGHBOUR.facadeZ - NEIGHBOUR.depth, NEIGHBOUR.maxX, NEIGHBOUR.facadeZ"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-leash-shopfront-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-14p98-0-9p98-38p02-10p2-25p02",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-33p78-0-m30p02-34p22-6-30p02",
+      "maxDepthM": 0.441,
+      "reason": "The leash slab that ends the playable street is deliberately buried in the building massing behind it, so the player is stopped by geometry he can see rather than by an invisible plane standing in open air. Overlapping the block is the point of where it is put.",
+      "source": "src/specialmeeting/block.js:744",
+      "sourceAnchor": "solid(unit.minX, SOUTH_BLOCK.facadeZ, unit.maxX, SOUTH_BLOCK.facadeZ + southDepth, 0, southHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-leash-shopfront-002",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m38p22-0-m30p02-m37p78-6-30p02",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m38p52-0-9p98-m9p48-10p2-25p02",
+      "maxDepthM": 0.441,
+      "reason": "The leash slab that ends the playable street is deliberately buried in the building massing behind it, so the player is stopped by geometry he can see rather than by an invisible plane standing in open air. Overlapping the block is the point of where it is put.",
+      "source": "src/specialmeeting/block.js:744",
+      "sourceAnchor": "solid(unit.minX, SOUTH_BLOCK.facadeZ, unit.maxX, SOUTH_BLOCK.facadeZ + southDepth, 0, southHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-lot-fence-lot-rail-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-15p38-0-m10p12-20p92-1p9-m9p78",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-20p78-0-m19p02-21p02-2-m9p98",
+      "maxDepthM": 0.14,
+      "reason": "Two sides of the parking lot's boundary meeting at a corner — the front rail, the rear kerb and the east fence are authored to overlap where they turn so the enclosure has no gap at its corners.",
+      "source": "src/specialmeeting/block.js:697",
+      "sourceAnchor": "solid(fromX, PARKING.maxZ - 0.1, toX, PARKING.maxZ + 0.2, 0, 1.9)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-lot-fence-lot-rear-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-20p78-0-m19p02-21p02-2-m9p98",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-8p28-0-m19p37-20p92-1p3-m18p98",
+      "maxDepthM": 0.04,
+      "reason": "Two sides of the parking lot's boundary meeting at a corner — the front rail, the rear kerb and the east fence are authored to overlap where they turn so the enclosure has no gap at its corners.",
+      "source": "src/specialmeeting/block.js:679",
+      "sourceAnchor": "solid(PARKING.maxX + 0.2, PARKING.minZ, PARKING.maxX + 0.4, PARKING.maxZ, 0, 2.0)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-lot-rail-side-gate-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-6p48-0-m12p62-8p62-2p9-m9p98",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-8p28-0-m10p12-10p42-1p9-m9p78",
+      "maxDepthM": 0.14,
+      "reason": "The gate wall between the building and the parking lot meets the lot’s own boundary rail where the two enclosures join. Authored corner join, capped at the rail depth.",
+      "source": "src/specialmeeting/block.js:1131",
+      "sourceAnchor": "solid(APARTMENT.maxX, FACADE_Z - 2.6, PARKING.minX, FACADE_Z, 0, 2.9)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-shopfront-shopfront-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-14p98-0-9p98-38p02-10p2-25p02",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-3p48-0-9p98-15p02-10p2-25p02",
+      "maxDepthM": 0.04,
+      "reason": "Two authored massing solids for adjoining buildings on the same building line, each padded 2 cm proud of its footprint so the run has no seam a player can be pushed into. The shared face is the join.",
+      "source": "src/specialmeeting/block.js:744",
+      "sourceAnchor": "solid(unit.minX, SOUTH_BLOCK.facadeZ, unit.maxX, SOUTH_BLOCK.facadeZ + southDepth, 0, southHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-shopfront-shopfront-002",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-3p48-0-9p98-15p02-10p2-25p02",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m9p52-0-9p98-3p52-10p2-25p02",
+      "maxDepthM": 0.041,
+      "reason": "Two authored massing solids for adjoining buildings on the same building line, each padded 2 cm proud of its footprint so the run has no seam a player can be pushed into. The shared face is the join.",
+      "source": "src/specialmeeting/block.js:744",
+      "sourceAnchor": "solid(unit.minX, SOUTH_BLOCK.facadeZ, unit.maxX, SOUTH_BLOCK.facadeZ + southDepth, 0, southHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-shopfront-shopfront-003",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m38p52-0-9p98-m9p48-10p2-25p02",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m9p52-0-9p98-3p52-10p2-25p02",
+      "maxDepthM": 0.04,
+      "reason": "Two authored massing solids for adjoining buildings on the same building line, each padded 2 cm proud of its footprint so the run has no seam a player can be pushed into. The shared face is the join.",
+      "source": "src/specialmeeting/block.js:744",
+      "sourceAnchor": "solid(unit.minX, SOUTH_BLOCK.facadeZ, unit.maxX, SOUTH_BLOCK.facadeZ + southDepth, 0, southHeight)"
+    },
+    {
+      "id": "specialmeeting-kerb-waiting-stoop-stoop-001",
+      "state": "kerb-waiting",
+      "kind": "INTERPENETRATION",
+      "left": "root:specialmeeting-kerb-waiting/collider:aabb-m5p62-0-m10-m2p38-0p45-m9p4",
+      "right": "root:specialmeeting-kerb-waiting/collider:aabb-m5p62-0-m9p47-m2p38-0p3-m9p03",
+      "maxDepthM": 0.07,
+      "reason": "The two stoop treads are stacked with their nosings overlapping, which is how a step overhangs the one below it. Authored tread-to-tread contact.",
+      "source": "src/specialmeeting/block.js:367",
+      "sourceAnchor": "solid(ex - half - 0.3, FACADE_Z + 0.02, ex + half + 0.3, FACADE_Z + 0.58, 0, 0.45)"
+    }
+  ],
   "suppressionPolicy": [
     {
       "state": "kerb-arrived",
       "overlap": 366,
-      "checkSupport": 590,
+      "checkSupport": 549,
       "sources": [
         {
           "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#0",
@@ -1347,12 +1975,6 @@
           "checkSupport": 13
         },
         {
-          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.sedan#0/name=sedan.interior#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 41
-        },
-        {
           "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.sedan#0/name=sedan.interior#0/name=sedan.windscreen#0",
           "scope": "direct",
           "overlap": 1,
@@ -1381,7 +2003,7 @@
     {
       "state": "kerb-waiting",
       "overlap": 364,
-      "checkSupport": 588,
+      "checkSupport": 547,
       "sources": [
         {
           "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#0",
@@ -2722,12 +3344,6 @@
           "checkSupport": 13
         },
         {
-          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.sedan#0/name=sedan.interior#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 41
-        },
-        {
           "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.sedan#0/name=sedan.interior#0/name=sedan.windscreen#0",
           "scope": "direct",
           "overlap": 1,
@@ -2743,14 +3359,62 @@
     },
     {
       "state": "spur",
-      "overlap": 1790,
-      "checkSupport": 1790,
+      "overlap": 2548,
+      "checkSupport": 1771,
       "sources": [
+        {
+          "sourceId": "root:specialmeeting-spur/name=forest.night#0/name=forest.moon#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=forest.night#0/name=forest.moon.halo#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.clearing#0/name=forest.distant-fire#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.clearing#0/name=forest.trail#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
         {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-2#0/name=forest.foliage#0/name=forest.crowns.1#0",
           "scope": "direct",
           "overlap": 161,
           "checkSupport": 161
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-2#0/name=forest.foliage#0/name=forest.deadfall#0",
+          "scope": "direct",
+          "overlap": 7,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-2#0/name=forest.foliage#0/name=forest.rocks#0",
+          "scope": "direct",
+          "overlap": 5,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-2#0/name=forest.foliage#0/name=forest.stumps#0",
+          "scope": "direct",
+          "overlap": 3,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-3#0/name=forest.fog-pocket#0",
+          "scope": "direct",
+          "overlap": 3,
+          "checkSupport": 0
         },
         {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-3#0/name=forest.foliage#0/name=forest.crowns.1#0",
@@ -2759,10 +3423,46 @@
           "checkSupport": 156
         },
         {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-3#0/name=forest.foliage#0/name=forest.deadfall#0",
+          "scope": "direct",
+          "overlap": 6,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-3#0/name=forest.foliage#0/name=forest.rocks#0",
+          "scope": "direct",
+          "overlap": 9,
+          "checkSupport": 0
+        },
+        {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-4#0/name=forest.foliage#0/name=forest.crowns.1#0",
           "scope": "direct",
-          "overlap": 135,
-          "checkSupport": 135
+          "overlap": 134,
+          "checkSupport": 134
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-4#0/name=forest.foliage#0/name=forest.deadfall#0",
+          "scope": "direct",
+          "overlap": 7,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-4#0/name=forest.foliage#0/name=forest.rocks#0",
+          "scope": "direct",
+          "overlap": 20,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-4#0/name=forest.foliage#0/name=forest.stumps#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-2#0/name=forest.fog-pocket#0",
+          "scope": "direct",
+          "overlap": 3,
+          "checkSupport": 0
         },
         {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-2#0/name=forest.foliage#0/name=forest.crowns.1#0",
@@ -2771,46 +3471,172 @@
           "checkSupport": 144
         },
         {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-2#0/name=forest.foliage#0/name=forest.deadfall#0",
+          "scope": "direct",
+          "overlap": 7,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-2#0/name=forest.foliage#0/name=forest.rocks#0",
+          "scope": "direct",
+          "overlap": 6,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-2#0/name=forest.foliage#0/name=forest.stumps#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-3#0/name=forest.foliage#0/name=forest.crowns.1#0",
           "scope": "direct",
-          "overlap": 191,
-          "checkSupport": 191
+          "overlap": 188,
+          "checkSupport": 188
         },
         {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-3#0/name=forest.foliage#0/name=forest.crowns.2#0",
           "scope": "direct",
-          "overlap": 185,
-          "checkSupport": 185
+          "overlap": 182,
+          "checkSupport": 182
         },
         {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-3#0/name=forest.foliage#0/name=forest.crowns.3#0",
           "scope": "direct",
-          "overlap": 185,
-          "checkSupport": 185
+          "overlap": 182,
+          "checkSupport": 182
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-3#0/name=forest.foliage#0/name=forest.deadfall#0",
+          "scope": "direct",
+          "overlap": 6,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-3#0/name=forest.foliage#0/name=forest.rocks#0",
+          "scope": "direct",
+          "overlap": 3,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-3#0/name=forest.foliage#0/name=forest.stumps#0",
+          "scope": "direct",
+          "overlap": 5,
+          "checkSupport": 0
         },
         {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-4#0/name=forest.foliage#0/name=forest.crowns.1#0",
           "scope": "direct",
-          "overlap": 159,
-          "checkSupport": 159
+          "overlap": 156,
+          "checkSupport": 156
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-4#0/name=forest.foliage#0/name=forest.deadfall#0",
+          "scope": "direct",
+          "overlap": 8,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-4#0/name=forest.foliage#0/name=forest.rocks#0",
+          "scope": "direct",
+          "overlap": 7,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-4#0/name=forest.foliage#0/name=forest.stumps#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
         },
         {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-2#0/name=forest.foliage#0/name=forest.crowns.1#0",
           "scope": "direct",
-          "overlap": 173,
-          "checkSupport": 173
+          "overlap": 172,
+          "checkSupport": 172
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-2#0/name=forest.foliage#0/name=forest.deadfall#0",
+          "scope": "direct",
+          "overlap": 6,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-2#0/name=forest.foliage#0/name=forest.rocks#0",
+          "scope": "direct",
+          "overlap": 7,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-2#0/name=forest.foliage#0/name=forest.stumps#0",
+          "scope": "direct",
+          "overlap": 3,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-3#0/name=forest.fog-pocket#0",
+          "scope": "direct",
+          "overlap": 3,
+          "checkSupport": 0
         },
         {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-3#0/name=forest.foliage#0/name=forest.crowns.1#0",
           "scope": "direct",
-          "overlap": 171,
-          "checkSupport": 171
+          "overlap": 168,
+          "checkSupport": 168
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-3#0/name=forest.foliage#0/name=forest.deadfall#0",
+          "scope": "direct",
+          "overlap": 8,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-3#0/name=forest.foliage#0/name=forest.rocks#0",
+          "scope": "direct",
+          "overlap": 9,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-3#0/name=forest.foliage#0/name=forest.stumps#0",
+          "scope": "direct",
+          "overlap": 2,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-4#0/name=forest.fog-pocket#0",
+          "scope": "direct",
+          "overlap": 6,
+          "checkSupport": 0
         },
         {
           "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-4#0/name=forest.foliage#0/name=forest.crowns.1#0",
           "scope": "direct",
-          "overlap": 130,
-          "checkSupport": 130
+          "overlap": 128,
+          "checkSupport": 128
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-4#0/name=forest.foliage#0/name=forest.deadfall#0",
+          "scope": "direct",
+          "overlap": 11,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-4#0/name=forest.foliage#0/name=forest.rocks#0",
+          "scope": "direct",
+          "overlap": 15,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-4#0/name=forest.foliage#0/name=forest.stumps#0",
+          "scope": "direct",
+          "overlap": 3,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.undergrowth#0",
+          "scope": "direct",
+          "overlap": 592,
+          "checkSupport": 0
         }
       ]
     }

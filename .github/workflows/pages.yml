@@ -44,6 +44,7 @@ jobs:
           npm run check
           npm run check:flight
           npm run verify:campaign-route
+          npm run verify:dialogue:check
 
       # Everything the browser asks for, including the two development tools
       # linked from the public preview launcher.

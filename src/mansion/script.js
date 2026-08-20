@@ -148,6 +148,12 @@ export const SPEAKERS = Object.freeze({
   NUMBSKULL: Object.freeze({ name: 'Numbskull', voice: 'numbskull' }),
   HOGMAMA: Object.freeze({ name: 'Hog Mama', voice: 'hogmama' }),
   OLD_STOVE: Object.freeze({ name: 'Old Stove', voice: 'old-stove' }),
+  /* The other two in the back row of the theatre, and the two the owner asked
+   * for by name. Both are Family and both already have a profile on the
+   * roster (`src/core/characters.js`); they simply had nothing to say in this
+   * house until now. */
+  SEFF: Object.freeze({ name: 'Seff', voice: 'seff' }),
+  LAG: Object.freeze({ name: 'Lag', voice: 'lag' }),
   PERFORMER: Object.freeze({ name: 'Dancer', voice: 'performer' }),
 
   /* ---- the six scientists. Index order matches `lab.scientists`. ---- */
@@ -758,6 +764,58 @@ export const SEQUENCES = Object.freeze({
   ]),
   oldStoveBlow: Object.freeze([
     { speaker: 'OLD_STOVE', text: 'I knew a guy like this. Worse shirts.', cue: cue('evening', 'stove.blow'), hold: 3.0 },
+  ]),
+  /* ------------------------------------------------------------------
+   * THE BACK ROW OF THE THEATRE
+   *
+   * Owner, 2026-08-20: *"The guys in the theater absolutely need dialogue. It
+   * shouldn't just be several Sasquatches silently staring at a screen like
+   * they were recently unplugged."*
+   *
+   * Three men who have been in there forty minutes and have stopped watching
+   * the film in order to argue about it. `theatreArrival` fires ONCE, when the
+   * Prospect opens the door -- it is the room noticing him, not a cutscene --
+   * and the three follow-ups rotate on the E prompt so a player who keeps
+   * pressing gets a conversation rather than the same line back.
+   *
+   * The dead-guy exchange is the owner's, near enough verbatim, because the
+   * joke only lands at that exact length: three lines, no explanation, and
+   * Guy 3 does not defend himself.
+   * ------------------------------------------------------------------ */
+  theatreArrival: Object.freeze([
+    { speaker: 'OLD_STOVE', text: 'Hey, Prospect. Shut the door, you’re letting all the movie out.', cue: cue('evening', 'stove.lettingthemovieout'), hold: 3.6 },
+    { speaker: 'SEFF', text: 'We’ve been watching this thing for forty minutes. I still don’t know who the bad guy is.', cue: cue('evening', 'seff.whosthebadguy'), hold: 4.4 },
+    { speaker: 'LAG', text: 'It’s him.', cue: cue('evening', 'lag.itshim'), hold: 1.4 },
+    { speaker: 'SEFF', text: 'No, that guy’s dead.', cue: cue('evening', 'seff.thatguysdead'), hold: 1.8 },
+    { speaker: 'LAG', text: 'Exactly.', cue: cue('evening', 'lag.exactly'), hold: 1.6 },
+  ]),
+  theatreStanding: Object.freeze([
+    { speaker: 'OLD_STOVE', text: 'You gonna stand there all night?', cue: cue('evening', 'stove.standthereallnight'), hold: 2.4 },
+    { speaker: 'SEFF', text: 'Don’t invite him over here. We finally got the seats right.', cue: cue('evening', 'seff.gottheseatsright'), hold: 3.6 },
+  ]),
+  theatreProjector: Object.freeze([
+    { speaker: 'SEFF', text: 'Lou spent more on this projector than my first house.', cue: cue('evening', 'seff.morethanmyfirsthouse'), hold: 3.6 },
+    { speaker: 'LAG', text: 'You never owned a house.', cue: cue('evening', 'lag.neverownedahouse'), hold: 2.2 },
+    { speaker: 'SEFF', text: 'That’s not the point.', cue: cue('evening', 'seff.thatsnotthepoint'), hold: 2.0 },
+  ]),
+  /* ------------------------------------------------------------------
+   * LAG, WHEREVER HE IS STANDING
+   *
+   * Owner: *"Lag needs his own recognizable presence rather than just another
+   * generic mansion NPC."* Casual, not expository — he is not a signpost and
+   * he does not read the objective out. The third line does the work of the
+   * EXPLORE THE MANSION objective without being it, which is why it is worth
+   * having: a man telling you to go and look around is not the same thing as
+   * a HUD telling you to.
+   * ------------------------------------------------------------------ */
+  lagHello: Object.freeze([
+    { speaker: 'LAG', text: 'What’s up, Prospect? You lost already?', cue: cue('evening', 'lag.lostalready'), hold: 3.0 },
+  ]),
+  lagBigHouse: Object.freeze([
+    { speaker: 'LAG', text: 'Big house. You’ll figure it out.', cue: cue('evening', 'lag.bighouse'), hold: 2.6 },
+  ]),
+  lagLookAround: Object.freeze([
+    { speaker: 'LAG', text: 'Go look around. Lou’s got shit in this house I don’t think even Lou knows about.', cue: cue('evening', 'lag.golookaround'), hold: 4.6 },
   ]),
   poolGirlHello: Object.freeze([
     { speaker: 'PERFORMER', text: 'You gonna stand there looking nervous, or come say hello?', cue: cue('evening', 'performer.sayhello'), hold: 3.6 },

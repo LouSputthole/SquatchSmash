@@ -11,6 +11,9 @@ import {
 } from '../core/campaign.js';
 import { createBankHeistStory } from '../core/bank-heist-story.js';
 import { InteractionSystem } from '../core/interaction.js';
+import {
+  SPEECH_GAIN, SPEECH_MIX_CLOSE, SPEECH_MIX_INDOORS, speak, speechDuration,
+} from '../core/dialogue.js';
 import { Player } from '../core/player.js';
 import { translateKey, shakeScale } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
@@ -488,23 +491,38 @@ const dialogue = new DialogueArbiter({
     /* Whatever the last speaker was still saying, he has stopped -- the source
      * above was just cut, and a mouth left running would carry on without it. */
     hushCrew();
-    const duration = audio.sampleDuration(line.cue) ?? line.fallbackDuration;
+    const duration = speechDuration(audio, line.cue, line.fallbackDuration);
     hud.say(line, duration);
-    /* `analyse` explicitly, because THE TAKE's dialogue is on the `heist.`
-     * prefix rather than `vo.` -- the same prefix its forty-six sound effects
-     * use (ENGINE-TRAPS.md entry 4). The engine's automatic tap keys off `vo.`
-     * and would never fire here. */
-    activeDialogueSource = audio.hasSample(line.cue)
-      ? audio.play(line.cue, { volume: 0.85, analyse: true })
-      : null;
     /* The person who is saying it says it — crew, manager, guard or the
      * customer on the floor. See `figureForLine`; it used to be `crew.get()`
-     * alone, which is why nothing in the vault or the lobby moved a mouth.
+     * alone, which is why nothing in the vault or the lobby moved a mouth. */
+    const figure = figureForLine(line);
+    /* Through `speak()`, which is the shared dialogue path in
+     * src/core/dialogue.js: one voice bus with one trim, music and ambience
+     * ducked under the line, the analyser tapped for the mouth, and a
+     * positional mix so a robber shouting across the lobby is further away
+     * than one at your shoulder.
      *
-     * `Mouth` reads the RMS off the take's own analyser, so this is the sound
+     * This used to be `audio.play(line.cue, { volume: 0.85, analyse: true })`.
+     * Two things were wrong with it. The 0.85 was THE TAKE's own guess at how
+     * loud dialogue is, and every other scene had a different one. And there
+     * was no mix at all, so every line in the bank arrived at full level from
+     * nowhere in particular — the manager face-down behind the counter as
+     * present as Snow next to you.
+     *
+     * `bus: 'voice'` inside `speak()` is what carries the `heist.` prefix,
+     * which the engine cannot classify by name: `heist.snow.commit` is a line
+     * and `heist.cash.lift` is a sound effect (ENGINE-TRAPS.md entry 4). */
+    const spoken = speak(audio, line.cue, {
+      speaker: figure?.group ?? figure?.root ?? null,
+      mix: figure ? SPEECH_MIX_INDOORS : SPEECH_MIX_CLOSE,
+      gain: SPEECH_GAIN.normal,
+    });
+    activeDialogueSource = spoken.source;
+    /* `Mouth` reads the RMS off the take's own analyser, so this is the sound
      * driving the face rather than a timer next to it (ENGINE-TRAPS entry 8).
      * The `fallback` envelope is reached only where there is no recording. */
-    figureForLine(line)?.say(
+    figure?.say(
       duration,
       activeDialogueSource ? { audio, source: activeDialogueSource } : null,
     );

@@ -176808,7 +176808,7 @@
     {
       "state": "checkpoint-armed",
       "overlap": 1316,
-      "checkSupport": 1723,
+      "checkSupport": 1727,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -182856,13 +182856,13 @@
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-command#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-gallery#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-emergency#0/name=emergency-lamp-armory#0",
@@ -182923,7 +182923,7 @@
     {
       "state": "checkpoint-briefed",
       "overlap": 1316,
-      "checkSupport": 1723,
+      "checkSupport": 1727,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -188971,13 +188971,13 @@
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-command#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-gallery#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-emergency#0/name=emergency-lamp-armory#0",
@@ -189038,7 +189038,7 @@
     {
       "state": "checkpoint-wake",
       "overlap": 1316,
-      "checkSupport": 1723,
+      "checkSupport": 1727,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -195086,13 +195086,13 @@
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-command#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-gallery#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-emergency#0/name=emergency-lamp-armory#0",
@@ -195153,7 +195153,7 @@
     {
       "state": "checkpoint-wave-one",
       "overlap": 1316,
-      "checkSupport": 1723,
+      "checkSupport": 1727,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -201201,13 +201201,13 @@
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-command#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-gallery#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-emergency#0/name=emergency-lamp-armory#0",
@@ -206459,7 +206459,7 @@
     {
       "state": "damaged",
       "overlap": 1316,
-      "checkSupport": 1723,
+      "checkSupport": 1727,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -212507,13 +212507,13 @@
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-command#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-gallery#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-emergency#0/name=emergency-lamp-armory#0",
@@ -212574,7 +212574,7 @@
     {
       "state": "post-battle",
       "overlap": 1316,
-      "checkSupport": 1696,
+      "checkSupport": 1700,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -218622,13 +218622,13 @@
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-command#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-gallery#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         }
       ]
     },
@@ -223826,7 +223826,7 @@
     {
       "state": "under-attack",
       "overlap": 1316,
-      "checkSupport": 1723,
+      "checkSupport": 1727,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -229874,13 +229874,13 @@
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-command#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-battle-accents#0/name=siege-accent-gallery#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 2
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=siege-night#0/name=siege-emergency#0/name=emergency-lamp-armory#0",

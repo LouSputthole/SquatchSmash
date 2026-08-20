@@ -29,6 +29,7 @@
  * #objective / #objectiveText, #waveCount / #waveRemaining, #checkpoint,
  * #alarmWash and #damageWash.
  */
+import { SPEECH_MIX_CLOSE, speak } from '../../core/dialogue.js';
 import * as THREE from 'three';
 import {
   buildMansionGrounds, GROUND_Y, BASEMENT_Y, UPPER_Y,
@@ -1165,7 +1166,15 @@ function renderCombatBark(event = {}) {
    * of the manifest, so the field is there for the day the scene wants to tag
    * the subtitle or hold one A-Team throat at a time. */
   if (typeof event.cue === 'string' && event.cue) {
-    try { audio.play(event.cue, { volume: 0.9 }); } catch { /* no audio yet */ }
+    /* Through the shared dialogue path: one voice bus, one trim, and the beds
+     * ducked under the line. The 0.9 that used to be here was the siege's own
+     * guess at how loud dialogue is and differed from every other scene's.
+     * `SPEECH_MIX_CLOSE` because a siege bark is command chatter -- it belongs
+     * in the player's ear whichever way he is facing, and giving it a position
+     * is how a radio call ends up quieter when he turns his head. */
+    try {
+      speak(audio, event.cue, { mix: SPEECH_MIX_CLOSE });
+    } catch { /* no audio yet */ }
   }
   return true;
 }
