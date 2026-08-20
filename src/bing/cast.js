@@ -19,7 +19,7 @@
  * here should feel like standing in front of somebody.
  */
 import * as THREE from 'three';
-import { markActor, setActorPosture } from '../core/staging.js';
+import { coarseActorRole, markActor, setActorPosture } from '../core/staging.js';
 /* Read-only: her head is authored in the Silver Room's module and this is the
  * SAME woman, so the club borrows the builder rather than approximating her.
  * One Margo, one face, both scenes. */
@@ -3021,7 +3021,7 @@ export class Npc {
      * on their own. */
     markActor(this.group, {
       id: o.actorId ?? uniqueActorId(scene, name),
-      role: ACTOR_ROLE_FOR_JOB[job] ?? model.role ?? 'bystander',
+      role: ACTOR_ROLE_FOR_JOB[job] ?? coarseActorRole(model.role),
       posture: job === 'sit' ? 'sit' : 'stand',
       ...(o.seat ? { seat: o.seat } : {}),
     });

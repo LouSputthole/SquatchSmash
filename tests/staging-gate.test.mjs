@@ -23,7 +23,16 @@ import {
   rayBoxDistance,
   stagingFindings,
 } from '../tools/staging-gate.mjs';
-import { ACTOR_POSTURES, collectActors, markActor, readActor, setActorPosture } from '../src/core/staging.js';
+import {
+  ACTOR_POSTURES,
+  ACTOR_ROLE_FOR_SCENE_ROLE,
+  ACTOR_ROLES,
+  coarseActorRole,
+  collectActors,
+  markActor,
+  readActor,
+  setActorPosture,
+} from '../src/core/staging.js';
 
 const actor = (id, { role = 'civilian', yaw = 0, x = 0, z = 0, posture = 'stand', seat, hipY = 1.16 } = {}) => ({
   id,
@@ -203,4 +212,31 @@ test('collectActors reads the live posture, not the authored one', async () => {
   // Face axis is local +Z, so a quarter turn about Y points him down +X.
   assert.ok(Math.abs(collected.forward[0] - 1) < 1e-6);
   assert.ok(Math.abs(collected.yaw - Math.PI / 2) < 1e-6);
+});
+
+test("a scene's own role word never stops the scene from building", () => {
+  /* This is the regression. `role: 'performer'` went straight into markActor,
+   * which threw, which took the whole Bing build down and 46 tests with it.
+   * Strictness belongs on the authored call, not on the translation. */
+  assert.equal(coarseActorRole('performer'), 'bystander');
+  assert.equal(coarseActorRole('family_member'), 'crew');
+  assert.equal(coarseActorRole('lobby_guard'), 'guard');
+  assert.equal(coarseActorRole('a word nobody has mapped'), 'bystander');
+  assert.equal(coarseActorRole(undefined), 'bystander');
+});
+
+test('every mapped scene role lands on a role the gate knows', () => {
+  for (const [sceneRole, coarse] of Object.entries(ACTOR_ROLE_FOR_SCENE_ROLE)) {
+    assert.ok(ACTOR_ROLES.includes(coarse), `${sceneRole} maps to unknown role ${coarse}`);
+  }
+});
+
+test('the marker does not name the node it marks', () => {
+  /* The geometry gate groups assemblies BY NAME. An earlier draft named any
+   * unnamed object `actor:<id>`, which re-bucketed every anonymous figure
+   * group in the Bing. */
+  const object = markActor({ userData: {} }, { id: 'nameless', role: 'crew' });
+  assert.equal(object.name, undefined);
+  const named = markActor({ userData: {}, name: 'kept' }, { id: 'other', role: 'crew' });
+  assert.equal(named.name, 'kept');
 });

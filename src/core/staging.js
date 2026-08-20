@@ -52,6 +52,55 @@ export const ACTOR_ROLES = Object.freeze([
   'player', 'crew', 'civilian', 'guard', 'enemy', 'principal', 'bystander',
 ]);
 
+/**
+ * The role words the scenes ALREADY use, mapped onto the coarse ones above.
+ *
+ * This table exists because the first draft of this file did not have it, and
+ * instead handed a scene's own `role: 'performer'` straight to `markActor`,
+ * which threw and took the whole Bing build down with it -- 46 tests. Twenty
+ * role words were already in the source; inventing a second vocabulary beside
+ * them, in the very change that added a gate against reinvented systems, was
+ * the wrong way round.
+ *
+ * So the scenes keep their words, and this is where they meet the gate's.
+ * Anything unlisted is a `bystander`: a person the gate will still check for
+ * facing and footing, and will not hold to the spawn arc.
+ */
+export const ACTOR_ROLE_FOR_SCENE_ROLE = Object.freeze({
+  prospect: 'player',
+  crew: 'crew',
+  family_member: 'crew',
+  civilian: 'civilian',
+  customer: 'civilian',
+  teller: 'civilian',
+  guard: 'guard',
+  lobby_guard: 'guard',
+  enemy: 'enemy',
+  smg: 'enemy',
+  rifle: 'enemy',
+  flanker: 'enemy',
+  boss: 'principal',
+  founder: 'principal',
+  principal: 'principal',
+  traitor: 'principal',
+  clerk: 'bystander',
+  outsider: 'bystander',
+  performer: 'bystander',
+  seller: 'bystander',
+});
+
+/**
+ * A scene's own role word in the gate's vocabulary, never throwing.
+ *
+ * Strictness belongs on `markActor`, where a hand-written call with a typo in
+ * it should fail loudly. It does NOT belong on the path where a scene's
+ * existing data is being translated: a role nobody has mapped yet is a
+ * labelling gap, and a labelling gap must not stop a scene from building.
+ */
+export function coarseActorRole(role) {
+  return ACTOR_ROLE_FOR_SCENE_ROLE[role] ?? 'bystander';
+}
+
 const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
 
 function validateSpec(spec) {
