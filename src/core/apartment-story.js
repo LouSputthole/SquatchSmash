@@ -772,11 +772,13 @@ export const BIG_NIGHT_BOOSKI_CALL = Object.freeze({
  * call, Booskibro rings to say there is a meeting and it is going to be a
  * special one, and then three men come and collect him.
  *
- * All of it was already authored and already minted as cues -- and none of it
- * played, because the agent who wrote it could not reach this file or main.js.
- * Everything below is the wiring, and it restates none of the writing: the
- * lines and their cue names both come out of `specialMeetingBeat()` at the top
- * of this file.
+ * All nine beats were authored and minted as cues before anything played them:
+ * `src/specialmeeting/script.js` had the words and `assets/sfx/manifest.json`
+ * had a recording slot for every one of them, and no code in the game ever
+ * asked for either, because the flat is where they happen and the flat did not
+ * know. Everything below is that wiring, and it restates none of the writing:
+ * the lines and their cue names both come out of `specialMeetingBeat()` at the
+ * top of this file.
  *
  * ## Why it hangs off the CHAPTER and the PALACE rather than a chapter of its own
  *
@@ -827,9 +829,11 @@ function actOneTakes(beatId) {
 /**
  * Every bank Act One speaks with, by the beat it comes from.
  *
- * The door's two are used by `tryLeave` below. The rest are the flat's, and
- * `src/main.js` plays them: the idle timer, the drawer, the dead line after
- * Booskibro hangs up, ringing him back, and the headlights.
+ * `doorRefusals` is spoken by `tryLeave` below, and `idleBefore` lends the
+ * door one line for the hour before the phone rings (see `WAITING_ON_BOOSKI`).
+ * The other five belong to the room, and `src/main.js` plays them: the idle
+ * timer, the drawer, the dead line after Booskibro hangs up, ringing him back,
+ * and the headlights.
  */
 export const SPECIAL_MEETING_ACT_ONE = Object.freeze({
   idleBefore: actOneTakes('SM-010'),
@@ -1472,13 +1476,21 @@ class ApartmentStory {
 
     /* And the one thing in this chapter that is his rather than theirs. It
      * sits under the call because that is the order the door enforces: he is
-     * told where he is going, and then he does one thing before he goes. */
+     * told where he is going, and then he does one thing before he goes.
+     *
+     * Required on every morning but one. THE SPECIAL MEETING's door stops
+     * gating on these the moment headlights land on the ceiling -- see
+     * `#specialMeetingDoor` -- so from then on saying they are required is the
+     * panel lying about what is mandatory, which this file's own note on
+     * `routineRequired` calls worse than having no panel at all. Undone, still
+     * listed, no longer holding the door: which is exactly what they are. */
+    const pastimesStillGate = !(isSpecialMeetingNight(state) && activities.carOutside === true);
     for (const item of pastimesFor(state.story.chapter)) {
       items.push({
         id: item.id,
         label: pastimeLabel(item, activities),
         done: activities[item.id] === true,
-        required: true,
+        required: pastimesStillGate,
       });
     }
 

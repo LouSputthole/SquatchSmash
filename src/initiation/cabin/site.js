@@ -697,7 +697,21 @@ export const FURNITURE = Object.freeze([
   Object.freeze({ id: 'bench-east', minX: 29.06, maxX: 29.66, minZ: 23.20, maxZ: 25.60 }),
   Object.freeze({ id: 'chair-west-a', minX: 18.34, maxX: 18.94, minZ: 22.60, maxZ: 23.20 }),
   Object.freeze({ id: 'chair-west-b', minX: 18.34, maxX: 18.94, minZ: 23.50, maxZ: 24.10 }),
+  /**
+   * THE ONLY CHAIR ANYBODY IS SITTING IN.
+   *
+   * Behind the middle of the table's north side, facing the length of the
+   * room. Big Uncle Lou Sputthole is in it from the moment the player walks in
+   * and he does not get out of it until IN-370, which is the beat that works
+   * only because it is the first time he has moved.
+   *
+   * It is 0.66 m clear of the table's back edge and 0.26 m clear of the back
+   * wall face, and no blocking slot is within 1.8 m of it — the nearest are
+   * Booskibro at 22.20 and Rippinflow at 25.90, who stand at his shoulders.
+   */
+  Object.freeze({ id: 'chair-head', minX: 23.69, maxX: 24.31, minZ: 29.14, maxZ: 29.70 }),
 ]);
+
 
 /** The stove, whose flue runs into the chimney breast behind it. */
 export const STOVE = Object.freeze({
@@ -753,6 +767,23 @@ export const BLOCKING = Object.freeze(BLOCKING_SOURCE.map((slot) => Object.freez
 export function blockingSlot(id) {
   return BLOCKING.find((slot) => slot.id === id) ?? null;
 }
+
+/**
+ * Where Lou sits, and which way he faces.
+ *
+ * The heading is derived from CEREMONY_CENTRE like every other one in this
+ * file, because a typed heading is a heading that is wrong the first time
+ * anything else moves. `cushion` is what a seated pose is dropped onto: it is
+ * `CUSHION.chair`, the room's furniture was BUILT at it, and `seatBaseY()` of
+ * it is therefore exactly zero — which is the whole reason nobody in this
+ * cabin sinks through anything the way two characters did at the Bing.
+ */
+export const LOU_SEAT = Object.freeze({
+  x: 24.0,
+  z: 29.42,
+  cushion: CUSHION.chair,
+  heading: headingToward({ x: 24.0, z: 29.42 }, CEREMONY_CENTRE),
+});
 
 /** Standing figures need this much room; used by the clearance tests. */
 export const BODY_RADIUS = 0.42;

@@ -41,6 +41,42 @@ export const PIXEL_RATIO_CAP = 1.5;
  */
 export const PIXEL_RATIO_CAP_HEAVY = 1.25;
 
+/**
+ * The pages that get PIXEL_RATIO_CAP_HEAVY instead of PIXEL_RATIO_CAP.
+ *
+ * The membership test is not "big scene". It is: does the page hold a large
+ * outdoor world -- terrain, weather, distant instanced dressing -- in front of
+ * the camera at once, so that the fragment cost scales with the backbuffer
+ * rather than with what the player is looking at? Every entry below was
+ * measured, and the first four have verifiers that pin 1.25 on a 2x display.
+ *
+ * The list grew in three passes and the order is the order they were added,
+ * not an ordering that means anything:
+ *
+ *   - Beef Run, Enola, the Silver Room and NO WAKE, from the original measured
+ *     set (the comment on PIXEL_RATIO_CAP_HEAVY above is about those four and
+ *     was left alone rather than rewritten);
+ *   - the mansion and the Siege, added later without amending that comment,
+ *     which is why it reads as if it were still a four-entry list;
+ *   - THE SPECIAL MEETING, added 2026-08-20 with this note.
+ *
+ * The Special Meeting qualifies for a reason worth writing down, because on a
+ * first read "a car pulls up outside a flat" does not sound like Beef Run. The
+ * page is a NIGHT EXTERIOR and it builds TWO full outdoor worlds in one
+ * document, back to back, with a cut to black between them:
+ *
+ *   - the kerb: a city block -- wet street, pavement, alley, doorway, lamp
+ *     posts, an instanced skyline behind it -- lit at night, plus the sedan;
+ *   - the spur: 992 metres of forest road with its own terrain field,
+ *     instanced foliage, fog and headlamp shadows, and the clearing at the end.
+ *
+ * Night is the expensive part. Everything is lit by a handful of small moving
+ * lights against near-black, so there is no daylight ambient doing the work
+ * cheaply, and the fog and headlamps are per-fragment over the whole frame.
+ * That is the same shape of cost as NO WAKE (a night boat on open water) and
+ * the Enola raid, which is why it belongs on this list and the Squatchfather's
+ * one-room restaurant does not.
+ */
 export const HEAVY_SCENE_ENTRYPOINTS = Object.freeze([
   'beefrun.html',
   'enolasquatch.html',
@@ -48,6 +84,7 @@ export const HEAVY_SCENE_ENTRYPOINTS = Object.freeze([
   'nowake.html',
   'mansion.html',
   'mansion-siege.html',
+  'specialmeeting.html',
 ]);
 
 export function pixelRatioCapForScene(loc = globalThis.location) {

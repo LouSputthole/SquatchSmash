@@ -366,6 +366,12 @@ test('everybody in the cabin is in the room, clear of the furniture, facing the 
       `${slot.id} is standing in a wall`,
     );
     for (const box of site.FURNITURE) {
+      /* Lou is SITTING in `chair-head`, and it is the only chair anybody sits
+       * in tonight — he is in it from the moment the player walks in until
+       * IN-370, which is the beat that works because it is the first time he
+       * has moved. A seated man overlapping his own seat is the pose, not a
+       * finding; every other pairing on this floor still has to clear. */
+      if (slot.id === 'lou' && box.id === 'chair-head') continue;
       const dx = Math.max(box.minX - slot.x, 0, slot.x - box.maxX);
       const dz = Math.max(box.minZ - slot.z, 0, slot.z - box.maxZ);
       assert.ok(

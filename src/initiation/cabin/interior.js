@@ -325,7 +325,17 @@ function buildBench() {
   return group;
 }
 
-function buildChair(id) {
+/**
+ * A chair.
+ *
+ * `back` names the side the backrest is on, which is the side the sitter's
+ * spine goes against — so it also decides which way the chair faces. The two
+ * against the west wall have theirs on the east ('x'); the one at the head of
+ * the table has it on the north ('z'), because Lou sits in it facing the
+ * length of the room and a backrest drawn on the wrong side is a man sitting
+ * with his chest against a plank.
+ */
+function buildChair(id, back = 'x') {
   const box = furniture(id);
   const group = assembly(`cabin.chair.${id}`, `initiation.cabin.chair.${id}`);
   group.add(slab('chair.seat',
@@ -335,9 +345,15 @@ function buildChair(id) {
     const z = dz > 0 ? box.minZ + 0.03 : box.maxZ - 0.09;
     group.add(slab('chair.leg', [x, 0, z], [x + 0.06, CUSHION.chair - 0.05, z + 0.06], OAK_DARK));
   }
-  group.add(slab('chair.back',
-    [box.maxX - 0.06, CUSHION.chair, box.minZ + 0.02],
-    [box.maxX, CUSHION.chair + 0.46, box.maxZ - 0.02], OAK_DARK));
+  if (back === 'z') {
+    group.add(slab('chair.back',
+      [box.minX + 0.02, CUSHION.chair, box.maxZ - 0.06],
+      [box.maxX - 0.02, CUSHION.chair + 0.46, box.maxZ], OAK_DARK));
+  } else {
+    group.add(slab('chair.back',
+      [box.maxX - 0.06, CUSHION.chair, box.minZ + 0.02],
+      [box.maxX, CUSHION.chair + 0.46, box.maxZ - 0.02], OAK_DARK));
+  }
   return group;
 }
 
@@ -556,6 +572,8 @@ export function buildCabinInterior() {
   group.add(buildBench());
   group.add(buildChair('chair-west-a'));
   group.add(buildChair('chair-west-b'));
+  /* The only chair anybody is sitting in tonight. See LOU_SEAT in site.js. */
+  group.add(buildChair('chair-head', 'z'));
   group.add(buildIndoorFirewood());
   group.add(buildWallPictures());
   group.add(buildTrophies());

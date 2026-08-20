@@ -247,10 +247,12 @@ const TEST_MODULES = [
   './bing-rig-sockets.test.mjs',
   './initiation-cabin-staging.test.mjs',
   './initiation-cabin-geometry.test.mjs',
+  './initiation-cabin-ceremony.test.mjs',
   './specialmeeting-block.test.mjs',
   './specialmeeting-arrival.test.mjs',
   './specialmeeting-ambience.test.mjs',
   './specialmeeting-script.test.mjs',
+  './specialmeeting-act-one.test.mjs',
   './test-registry.test.mjs',
 ];
 

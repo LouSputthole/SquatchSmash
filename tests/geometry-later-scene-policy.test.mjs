@@ -766,15 +766,50 @@ test('Cartel Palace policy pins only exact structural joints and direct reviewed
   }
 
   assert.deepEqual(allowlist.suppressionPolicy.map(({ state }) => state), states);
+  /* WHICH OBJECTS ARE SUPPRESSED, not how many.
+   *
+   * This used to pin `overlap === 7` and `sources.length === 7`, and seven was
+   * the palace's finish layers on the day it was written: two roof slopes, the
+   * guardhouse roof, and the four floor layers. The 2026-08-20 scene pass laid
+   * a runner with two brass borders in the foyer and stuck a paper label on
+   * every liquor crate in the service corridor, and those are finish layers
+   * too (see annotateCartelPalaceGeometry in tools/geometry-scenes.mjs), so
+   * the number moved to nineteen and a count told nobody anything about
+   * whether that was right.
+   *
+   * The pin is the ROSTER now. Every suppression must still be `direct` --
+   * declared on the object itself and reviewed, never inherited wholesale from
+   * a parent group, which is the actual subject of this test's name -- and the
+   * objects carrying one must be exactly these, by leaf name and by count. A
+   * new suppression cannot appear without being named here, and a roof or a
+   * rug cannot quietly lose its own. */
+  const FINISH_LAYERS = {
+    'guardhouse-tile-roof': 1,
+    'clay-tile-roof': 2,
+    'office-detail.rug': 1,
+    'guest-suite-detail.rug': 1,
+    'security-detail.floor-field': 1,
+    'final-dining-rug': 1,
+    'entry-detail.runner': 1,
+    'entry-detail.runner-border': 2,
+    'service-case-label': 9,
+  };
+  const expectedTotal = Object.values(FINISH_LAYERS).reduce((sum, count) => sum + count, 0);
   for (const policy of allowlist.suppressionPolicy) {
-    assert.equal(policy.overlap, 7);
-    assert.equal(policy.checkSupport, 0);
-    assert.equal(policy.sources.length, 7);
     assert.ok(policy.sources.every(({ scope, sourceId }) => (
       scope === 'direct'
       && sourceId.startsWith('root:cartel-palace/')
       && sourceId !== 'root:cartel-palace'
-    )));
+    )), policy.state);
+    const byLeaf = {};
+    for (const { sourceId } of policy.sources) {
+      const leaf = sourceId.split('/').pop().replace(/^name=/, '').replace(/#\d+$/, '');
+      byLeaf[leaf] = (byLeaf[leaf] ?? 0) + 1;
+    }
+    assert.deepEqual(byLeaf, FINISH_LAYERS, policy.state);
+    assert.equal(policy.overlap, expectedTotal, policy.state);
+    assert.equal(policy.checkSupport, 0, policy.state);
+    assert.equal(policy.sources.length, expectedTotal, policy.state);
   }
 });
 

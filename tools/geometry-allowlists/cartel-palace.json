@@ -1722,7 +1722,7 @@
   "suppressionPolicy": [
     {
       "state": "approach",
-      "overlap": 7,
+      "overlap": 19,
       "checkSupport": 0,
       "sources": [
         {
@@ -1739,6 +1739,24 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=clay-tile-roof#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#1",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -1763,6 +1781,60 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-room-refinement#0/name=security-detail.floor-field#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#8",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -1771,7 +1843,7 @@
     },
     {
       "state": "betrayal",
-      "overlap": 7,
+      "overlap": 19,
       "checkSupport": 0,
       "sources": [
         {
@@ -1788,6 +1860,24 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=clay-tile-roof#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#1",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -1812,6 +1902,60 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-room-refinement#0/name=security-detail.floor-field#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#8",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -1820,7 +1964,7 @@
     },
     {
       "state": "clear",
-      "overlap": 7,
+      "overlap": 19,
       "checkSupport": 0,
       "sources": [
         {
@@ -1837,6 +1981,24 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=clay-tile-roof#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#1",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -1861,6 +2023,60 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-room-refinement#0/name=security-detail.floor-field#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#8",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -1869,7 +2085,7 @@
     },
     {
       "state": "dining-room",
-      "overlap": 7,
+      "overlap": 19,
       "checkSupport": 0,
       "sources": [
         {
@@ -1886,6 +2102,24 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=clay-tile-roof#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#1",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -1910,6 +2144,60 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-room-refinement#0/name=security-detail.floor-field#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#8",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -1918,7 +2206,7 @@
     },
     {
       "state": "estate",
-      "overlap": 7,
+      "overlap": 19,
       "checkSupport": 0,
       "sources": [
         {
@@ -1935,6 +2223,24 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=clay-tile-roof#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#1",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -1959,6 +2265,60 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-room-refinement#0/name=security-detail.floor-field#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#8",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -1967,7 +2327,7 @@
     },
     {
       "state": "perimeter",
-      "overlap": 7,
+      "overlap": 19,
       "checkSupport": 0,
       "sources": [
         {
@@ -1984,6 +2344,24 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=clay-tile-roof#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=estate-entry-refinement#0/name=entry-detail.runner-border#1",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
@@ -2008,6 +2386,60 @@
         },
         {
           "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-room-refinement#0/name=security-detail.floor-field#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=service-corridor-refinement#0/name=service-corridor-detail.liquor-cases#0/name=service-case-label#8",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0

@@ -885,6 +885,11 @@ async function boot() {
     dropHeld,
     poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
     heldSlice, updateConsume,
+    /* Act One, for the console and for anything driving the flat from outside
+     * it. `actOneCarArrives` in particular is the only way to reach SM-090
+     * without standing in the room for the length of the wait. */
+    actOne, specialMeetingNight, updateActOne, ringBooskiBack, endRingBooskiBack,
+    actOneCallEnded, actOneDressed, actOneCarArrives,
     playMessages, playNews, startMargoWake, finishMargoWake, updateMargoWake,
     startMargoComeHome, finishMargoComeHome, offerMargoDressHelp,
     margoDress, startMargoDressHelp, updateMargoDressHelp, abandonMargoDressHelp,
@@ -935,6 +940,21 @@ function apartmentStartupCueNames() {
     'ambience.city.day', 'ambience.city.night', 'ambience.room', 'bing.line.snort',
   ]);
   for (const cue of exactDefinitionCueNames(apartmentStory.pendingCall())) names.add(cue);
+  /* THE SPECIAL MEETING's Act One, all of it, on the one night it can happen.
+   *
+   * These are exact cues rather than a prefix because there is no `vo.
+   * specialmeeting.` prefix worth loading in a flat: the same bank carries the
+   * car, the trunk and the walk through the woods, and none of that is ever
+   * asked for in here. What IS asked for is the idle timer, which starts
+   * nineteen seconds after he is through the door -- well inside the window
+   * the background load is still filling -- and a bank that has not decoded
+   * yet is a line that never plays at all rather than one that plays late. */
+  if (specialMeetingNight) {
+    for (const bank of Object.values(SPECIAL_MEETING_ACT_ONE)) {
+      for (const take of bank) names.add(take.cue);
+    }
+    names.add('car.engine.idle');
+  }
   const news = apartmentStory.news();
   for (const bulletin of Object.values(news || {})) {
     if (bulletin?.vo) names.add(`vo.${bulletin.vo}.1`);
@@ -982,8 +1002,29 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.city.day', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.city.night', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
+    /* THE SPECIAL MEETING, Act One, opens here.
+     *
+     * The narrator goes quiet for the whole of it -- see the Act One section
+     * for why one idle voice is better than two -- and the car is put on the
+     * road if he is arriving into an evening whose call has already been taken,
+     * which means a reload rather than a fresh walk through the front door.
+     * A player who refreshed the page mid-wait gets his headlights back
+     * quickly instead of serving the whole wait again. */
+    if (specialMeetingNight) {
+      narrator.enabled = false;
+      if (specialMeetingCallTaken()) {
+        actOne.hungUp = true;
+        actOne.carIn = ACT_ONE_CAR_WAIT_RESUMED;
+      }
+    }
     if (returningToApartment) {
-      if (returningFromInitiation) {
+      if (returningFromPalace) {
+        /* No toast. Every other homecoming in this flat gets a green banner
+         * saying what he pulled off, and this one is a man standing in his own
+         * front room with nobody's opinion of it. The line names the thing he
+         * did and stops, exactly where the evening stops. */
+        hud.say('Home. Sauce is dealt with. <em>Nobody has rung.</em>', 5200);
+      } else if (returningFromInitiation) {
         hud.toast('Campaign complete · freeplay unlocked', 'good');
         hud.say('Home. The week is over. <em>The apartment is yours.</em>', 5200);
       } else if (returningFromHeist) {
@@ -3112,11 +3153,35 @@ function tryLeave() {
 
   audio.play('door.locked', { position: pos, volume: res.kind === 'call' ? 0.8 : 0.7 });
   narrator.note('door');
-  hud.say(res.line, res.kind === 'call' ? 4600 : 5200);
 
   const key = res.id ?? res.kind;
   const tries = (doorTries.get(key) ?? 0) + 1;
   doorTries.set(key, tries);
+
+  /* A refusal whose lines are AUTHORED SENTENCES rather than alternate takes.
+   *
+   * Everything else at this door is one line with a bank of readings of it, so
+   * the screen shows the line and `say()` picks a take. THE SPECIAL MEETING's
+   * SM-080 is three different sentences with three different cues, and
+   * `say()` picks from a bank at random -- so the screen would say "I don't
+   * know where it is" while the man said "They're picking me up", which is two
+   * people having half a conversation each. `takes` carries each sentence with
+   * its own cue, and which one he reaches for is which try this is: the first
+   * time he tells the door no, the second time he explains himself to it, the
+   * third time he admits he does not know where he is going. Then he repeats
+   * the last one, because by then so would anybody. */
+  if (res.takes?.length) {
+    const take = res.takes[Math.min(tries - 1, res.takes.length - 1)];
+    hud.say(take.text, res.kind === 'call' ? 4600 : 5200);
+    /* His own words if the take exists, the generic waiting bank until it is
+     * recorded -- the same rule the rest of this door already follows, asked
+     * of one exact cue instead of a group. */
+    if (audio.hasSample(take.cue)) audio.play(take.cue, { volume: 0.85, delay: 0.5 });
+    else audio.say('door.wait', { chance: 0.8, delay: 0.5 });
+    return res;
+  }
+
+  hud.say(res.line, res.kind === 'call' ? 4600 : 5200);
 
   /* Waiting on a phone call is not something he can go and fix, so it gets a
    * bank of its own and never gets a hint -- there is nothing to hint at.
@@ -3193,6 +3258,28 @@ function leaveForMission(destination) {
       state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
     });
     syncClockFromCampaign();
+  }
+  if (destination === SCENE_IDS.SPECIAL_MEETING) {
+    /* Act One's hour, booked at the front door like every other departure.
+     *
+     * Thirty-five minutes covering the call, getting changed and going down to
+     * a car that is already running -- which is a description of what the
+     * player has just spent the evening doing rather than of a gap. The Special
+     * Meeting's own page asks for the same marker on boot and gets `applied:
+     * false`, because `advanceTime` is an exact-once ledger; whichever arrives
+     * first is the only one that moves the clock, and from now on that is this.
+     *
+     * No mission moves. The Special Meeting is a scene and not a mission -- no
+     * MISSION_IDS entry, nothing to fail, no result to record -- and the
+     * Initiation is claimed by the Initiation, at the treeline, after the
+     * hand-off. Nothing in this flat gets to mark that started. */
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
+    syncClockFromCampaign();
+    /* The car is still running out there and it is about to be behind him.
+     * Stopping the loop here rather than letting the page unload take it means
+     * the fade happens under the blackout instead of cutting mid-idle. */
+    audio.stopLoop('specialmeeting.car', 1.4);
+    endRingBooskiBack();
   }
 
   interaction.setPaused(true);
@@ -3961,6 +4048,9 @@ const ACT_ONE_IDLE_GAP = 31;
 const ACT_ONE_RINGBACK_SECONDS = 11;
 /** The headlights, swinging across the ceiling and stopping. */
 const ACT_ONE_SWEEP_SECONDS = 2.4;
+/** What the beam settles at, and how much brighter it is mid-swing. */
+const ACT_ONE_BEAM_RESTING = 8.5;
+const ACT_ONE_BEAM_SWELL = 5.0;
 
 const actOne = {
   /** Cues already spoken this session, so no line lands twice. */
@@ -3985,11 +4075,28 @@ const actOne = {
   sweep: 0,
 };
 
-/** The bank the idle timer is drawing from: before the call, or after it. */
+/**
+ * Has SM-030 happened?
+ *
+ * Off the campaign rather than off `actOne`, because the answer has to survive
+ * a reload and `actOne` does not: everything else in this section is about one
+ * session in one room, and this one fact is the evening's hinge.
+ */
+function specialMeetingCallTaken() {
+  return campaign.state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]?.status === 'answered';
+}
+
+/**
+ * The bank the idle timer draws from. Same flat, different man.
+ *
+ * SM-060 REPLACES SM-010 rather than joining it -- the script is explicit --
+ * so a line he never got round to hearing before the phone rang is one he
+ * never hears. He has stopped having those thoughts.
+ */
 function actOneIdleBank() {
-  return apartmentStory.pendingCall() === SPECIAL_MEETING_BOOSKI_CALL
-    ? SPECIAL_MEETING_ACT_ONE.idleBefore
-    : SPECIAL_MEETING_ACT_ONE.idleAfter;
+  return specialMeetingCallTaken()
+    ? SPECIAL_MEETING_ACT_ONE.idleAfter
+    : SPECIAL_MEETING_ACT_ONE.idleBefore;
 }
 
 /** Say one authored take, and never say it again this session. */
@@ -4160,7 +4267,20 @@ function actOneHeadlightRig() {
   return actOne.beam;
 }
 
-/** Ease the sweep out, then leave it exactly where it stopped. */
+/**
+ * Ease the sweep out, then leave it exactly where it stopped.
+ *
+ * The numbers are scaled against the room's own ceiling lamp, which is a
+ * 9.5-intensity spot two metres off the furniture at decay 1.4 (`ceilSpot` in
+ * src/world/apartment.js). This one is thirteen metres away at decay 1.05, so
+ * a comparable figure arrives at the far wall an order of magnitude softer --
+ * which is what is wanted. Headlights through somebody's window are a change
+ * in the room, not a light in it, and the flat's own lamps stay brighter than
+ * they are whether or not he has switched any on.
+ *
+ * The swell in the middle is the car still turning: a beam sweeping past you
+ * is brightest as it crosses, and it settles once it has stopped moving.
+ */
 function updateActOneHeadlights(dt) {
   const rig = actOne.beam;
   if (!rig) { actOne.sweep = 0; return; }
@@ -4168,8 +4288,11 @@ function updateActOneHeadlights(dt) {
   const done = 1 - actOne.sweep / ACT_ONE_SWEEP_SECONDS;
   const eased = 1 - (1 - done) ** 3;
   rig.target.position.z = -7.4 + eased * 9.2;
-  rig.light.intensity = 6.5 + Math.sin(Math.min(1, done * 1.4) * Math.PI) * 4.0;
-  if (actOne.sweep <= 0) rig.light.intensity = 6.5;
+  rig.light.intensity = ACT_ONE_BEAM_RESTING
+    + Math.sin(Math.min(1, done * 1.4) * Math.PI) * ACT_ONE_BEAM_SWELL;
+  /* And then it does not move again. Nobody gets out, nobody knocks, and this
+   * light is still on the ceiling when he finally opens the door. */
+  if (actOne.sweep <= 0) rig.light.intensity = ACT_ONE_BEAM_RESTING;
 }
 
 /**

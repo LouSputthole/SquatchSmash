@@ -19,6 +19,7 @@ const SENTINEL = '{"canonical":"cartel palace preview must not touch this"}';
 const CHECKPOINTS = Object.freeze([
   'approach', 'perimeter', 'estate', 'betrayal', 'dining_room', 'clear',
 ]);
+
 /**
  * THE ROOMS THE MISSION WALKS THROUGH, and the fewest meshes each can carry
  * and still read as a built room rather than a box with a name.

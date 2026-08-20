@@ -194,10 +194,83 @@ export function poseFallen(figure, mark, k = 1) {
   return figure;
 }
 
+/* ------------------------------------------------------------------ */
+/* SITTING                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The one man in the cabin who is sitting down.
+ *
+ * THE NUMBER THAT MATTERS IS THE BASE HEIGHT. `src/bing/cast.js`'s STOOL_SIT
+ * exists because Booskibro spent a month buried in a bar stool to the waist:
+ * a seated pose drops a figure by a fixed amount tuned against one cushion
+ * height, and a chair is a different number. This cabin dodges the whole class
+ * of that bug by BUILDING its furniture at `POSE_CUSHION` (see site.js), so
+ * `seatBaseY(CUSHION.chair)` is exactly zero — but the pose still has to put
+ * the hips on the cushion rather than on the floor, and that is what `cushion`
+ * does here. Pass the seat's own height; never a constant.
+ *
+ *   hipLift    the hip pivot rides 6 cm above the cushion, which is where a
+ *              hip actually is when a man is sitting on a plank.
+ *   legPitch   NEGATIVE, so the leg swings FORWARD — a child at local -y goes
+ *              to local +z, and +z is a Person's facing. `poseKneeling` uses
+ *              the same joint the other way for exactly the opposite reason.
+ *   footPitch  the boot laid back level, same trick as the kneel.
+ *
+ * The rig has one joint per leg and no knee, so the honest reading is a man
+ * sitting with his legs out in front of him, which is what a man in a hard
+ * chair with nothing to do does.
+ */
+export const SEAT_POSE = Object.freeze({
+  hipLift: 0.06,
+  /** Local y of the hip pivot on `core/person.js`'s rig. */
+  hipY: 1.16,
+  legPitch: -1.05,
+  footPitch: 1.05,
+  bodyPitch: -0.06,
+});
+
+/** Base y for a figure seated on a cushion at `cushionY` above the floor. */
+export function seatedBaseY(cushionY, floorY = 0) {
+  return floorY + cushionY + SEAT_POSE.hipLift - SEAT_POSE.hipY;
+}
+
+/**
+ * Sit a figure on a seat.
+ *
+ * `seat` is `{ x, z, heading, cushion }` — `LOU_SEAT` from site.js, or any
+ * other. Idempotent, like the other two, and it sets the same `cabinPose` flag
+ * so `isPosed()` keeps `Person.update()` off it.
+ */
+export function poseSeated(figure, seat, floorY = 0) {
+  if (!figure?.group || !seat) return figure;
+  const group = figure.group;
+  group.rotation.order = ZERO_ROTATION_ORDER;
+  if (typeof seat.heading === 'number') {
+    figure.heading = seat.heading;
+    group.rotation.y = seat.heading;
+  }
+  group.rotation.x = 0;
+  group.rotation.z = 0;
+  if (typeof seat.x === 'number') group.position.x = seat.x;
+  if (typeof seat.z === 'number') group.position.z = seat.z;
+  group.position.y = seatedBaseY(seat.cushion ?? 0.53, floorY);
+  for (const leg of legsOf(figure)) {
+    leg.rotation.x = SEAT_POSE.legPitch;
+    const boot = lowestChild(leg);
+    if (boot) boot.rotation.x = SEAT_POSE.footPitch;
+  }
+  if (figure.body) figure.body.rotation.x = SEAT_POSE.bodyPitch;
+  figure.swing = 0;
+  figure.walkT = 0;
+  group.userData.cabinPose = 'seated';
+  return figure;
+}
+
 /** True while a figure is in a pose `Person.update()` would destroy. */
 export function isPosed(figure) {
   const pose = figure?.group?.userData?.cabinPose;
-  return pose === 'kneeling' || pose === 'falling' || pose === 'fallen';
+  return pose === 'kneeling' || pose === 'falling' || pose === 'fallen' || pose === 'seated';
 }
 
 /** Give a posed figure back to the walk cycle. */

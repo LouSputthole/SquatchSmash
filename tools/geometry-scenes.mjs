@@ -110,6 +110,72 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
     'mansion-siege', `checkpoint-${checkpoint.replaceAll('_', '-')}`, 'mansion-siege', ['mansion-siege'],
     { checkpoint, damageState: 'under_attack' },
   )),
+  /* THE SPECIAL MEETING IS BUILT BUT NOT REGISTERED. Read this before adding
+   * it, because the entries are written and they are four lines down.
+   *
+   * The Adapters exist: `specialmeeting-kerb` and `specialmeeting-spur` are in
+   * BUILDERS below, both build cleanly headless, and
+   * tools/geometry-allowlists/specialmeeting.json is checked in with a
+   * suppressionPolicy row for each of the three states they cover. What is
+   * missing is not here. The SCENE'S OWN gate metadata is not legal yet, and
+   * both faults are inside src/specialmeeting/, which this pass does not own:
+   *
+   *   1. src/specialmeeting/forest/foliage.js:458 tags the instanced trunk
+   *      batch `userData.geometryGate = { assemblyPrefix: ... }`. There is no
+   *      such key. The one the collector knows is `instanceAssemblyPrefix`,
+   *      which the SAME FUNCTION uses correctly on the crowns sixty lines
+   *      later (foliage.js:520). Every streamed chunk therefore fails
+   *      collection with "userData.geometryGate has unknown key(s):
+   *      assemblyPrefix". One word.
+   *
+   *   2. src/specialmeeting/block.js declares scene-scale inherited opt-outs:
+   *      `own(escape, 'fire-escape', { checkSupport: false, overlap: false })`
+   *      at block.js:1289 covers 72 parts spanning 9.714 m, and
+   *      `own(stack, 'utility-pole', { checkSupport: false })` at block.js:914
+   *      covers 11-12 parts spanning 9.600 m. The worker's
+   *      MAX_IMPLICIT_OBJECT_PARTS/MAX_IMPLICIT_OBJECT_SPAN_M policy caps an
+   *      inherited suppression at 64 parts and 8 m per axis on purpose --
+   *      "scene-scale structures therefore require explicit ownership" -- and
+   *      throws SCENE_SCALE_SUPPRESSION before it produces a report. A fire
+   *      escape really is three storeys tall and a telegraph pole really is
+   *      9.6 m, so the fix is to scope the opt-out (per storey, per pole
+   *      section) or to make the fixture its own support anchor, and that is a
+   *      shape decision for whoever owns the block.
+   *
+   * Both were found by running the Adapters against the real gate, not
+   * guessed. They are NOT fixable from this side: re-annotating another
+   * scene's fixtures from the registry would give the same geometry two
+   * competing owners, and renaming a mistyped key here would hide the typo
+   * from the file that has it.
+   *
+   * TO SWITCH IT ON, once those two land, add exactly this and nothing else,
+   * plus 'specialmeeting-kerb' and 'specialmeeting-spur' to EXPECTED_ADAPTERS
+   * in tests/geometry-scene-registry.test.mjs:
+   *
+   *   ...['waiting', 'arrived'].map((blockState) => entry(
+   *     'specialmeeting', `kerb-${blockState}`, 'specialmeeting-kerb', [],
+   *     { blockState },
+   *   )),
+   *   entry('specialmeeting', 'spur', 'specialmeeting-spur', []),
+   *
+   * The state names are the campaign's own spawn ids -- campaign.js declares
+   * `spawns: ['kerb', 'spur']` for this scene, one street and one patch of
+   * dirt in the woods with a cut to black between them -- and the kerb carries
+   * two of them because the block is authored in two arrangements
+   * (SPECIAL_MEETING_GEOMETRY_STATES in
+   * src/specialmeeting/runtime-geometry.js): `waiting`, which is where the
+   * pavement, doorway and alley are read from with no car parked on them, and
+   * `arrived`, which is the only state where the boot lid is up and
+   * overhanging. Two Adapters rather than one for the same reason the Silver
+   * Case has two: one page, one campaign scene, two mutually exclusive worlds.
+   *
+   * `launcherIds` is empty on all three deliberately. Those ids tie this
+   * inventory to the preview pages in tools/scene-audit-scenes.mjs, and
+   * specialmeeting.html has no `?preview=1` entry point, so it has no row
+   * there -- and geometryLauncherCoverage() is held to exactly that inventory
+   * by tests/geometry-scene-registry.test.mjs ("must neither omit nor invent
+   * public scene launchers"). Precedent for a state with no launcher of its
+   * own: bing:performer-bathroom, motel:late-cast, motel:drive. */
 ]);
 
 /**
@@ -2632,14 +2698,37 @@ function annotateCartelPalaceGeometry(root, colliders) {
     annotateNamedSceneObjects(root, name, { assemblyId: `cartel-palace:${name}` });
   }
 
-  // Rugs and the security floor field are finish layers. Furniture feet are
-  // deliberately planted through their shallow boxes, so they are not useful
-  // interpenetration participants even though they still render normally.
+  /* Rugs and the security floor field are finish layers. Furniture feet are
+   * deliberately planted through their shallow boxes, so they are not useful
+   * interpenetration participants even though they still render normally.
+   *
+   * The 2026-08-20 scene pass laid two more of them and applied a third kind.
+   * `entry-detail.runner` is the foyer runner with its two brass border
+   * strips, and it is walked on by everything the pass put in that hall --
+   * the watch chair's post, the cleaning cart's wheels, the wet-floor sign,
+   * the planter, the bin, and the seated guard's own shin. `service-case-
+   * label` is the paper stuck to the front of each liquor crate in the
+   * service corridor: an applied label is the same thing as a rug, a finish
+   * on a surface rather than an object in the room. Neither was listed here,
+   * because the Adapter threw before the gate could see either of them (see
+   * the entrance-portal note below), so twenty-six findings against a floor
+   * and some labels were sitting on top of the palace's real ones. */
   for (const name of [
     'office-detail.rug', 'guest-suite-detail.rug', 'security-detail.floor-field', 'final-dining-rug',
+    'entry-detail.runner', 'entry-detail.runner-border', 'service-case-label',
   ]) {
     annotateNamedSceneObjects(root, name, { overlap: false });
   }
+
+  /* One loaded shelving run down the service corridor's east wall, authored
+   * as one group: three bays of steel plates carried on posts that stand
+   * INSIDE the plate footprint, with the house's supply crates on them. The
+   * plate-through-post key is how the unit is built, not two objects that
+   * collided, so the run owns itself. */
+  annotateNamedSceneObjects(root, 'service-corridor-detail.shelving', {
+    assemblyId: 'cartel-palace:service-shelving',
+  });
+
   for (const [index, lantern] of namedSceneObjects(root, 'courtyard-wall-lantern').entries()) {
     setGeometryGateMetadata(lantern, {
       assemblyId: `cartel-palace:courtyard-wall-lantern:${index}`,
@@ -2978,6 +3067,168 @@ async function buildMansionSiege(descriptor, THREE) {
   });
 }
 
+/**
+ * THE SPECIAL MEETING, the kerb: the block outside the flat, and the car.
+ *
+ * Straight through src/specialmeeting/runtime-geometry.js, which the scene's
+ * author wrote for this gate and nothing else -- construction and authored
+ * pose, no WebGL, no audio, no campaign boot. The whole Scene is handed over
+ * as one root rather than the module's own two, the same way the Silver Case
+ * Adapter does, so the night rig and anything else the builder parents to the
+ * Scene is audited too rather than only the two groups it names.
+ */
+async function buildSpecialMeetingKerb(descriptor, THREE) {
+  const [
+    { SPECIAL_MEETING_GEOMETRY_STATES, buildSpecialMeetingRuntimeGeometry },
+    { SEDAN_STAGING, SEDAN_STOP },
+  ] = await Promise.all([
+    import('../src/specialmeeting/runtime-geometry.js'),
+    import('../src/specialmeeting/layout.js'),
+  ]);
+  const blockState = descriptor.blockState;
+  if (!SPECIAL_MEETING_GEOMETRY_STATES.includes(blockState)) {
+    throw new Error(
+      `Special Meeting kerb Adapter has no authored block state "${blockState}" for ${descriptor.id}`,
+    );
+  }
+
+  const scene = new THREE.Scene();
+  const runtime = withSeededGeometryRandom(
+    descriptor.id,
+    () => buildSpecialMeetingRuntimeGeometry(scene, { renderer: null, state: blockState }),
+  );
+  const { block, sedan } = runtime;
+  for (const [label, root] of [['block', block.group], ['sedan', sedan.group]]) {
+    if (root?.parent !== scene) {
+      throw new Error(`Special Meeting kerb Adapter did not mount the ${label} in ${descriptor.id}`);
+    }
+  }
+  if (runtime.colliders.length === 0) {
+    throw new Error(`Special Meeting kerb Adapter produced no colliders for ${descriptor.id}`);
+  }
+
+  /* The car is the whole difference between the two states, so prove it moved
+   * rather than trusting the state name. A metre of tolerance: `placeAt` puts
+   * the car ON the authored spot, but the shell is posed around its own axles
+   * and the group origin is not the anchor. */
+  const parked = blockState === 'arrived' ? SEDAN_STOP : SEDAN_STAGING;
+  const away = Math.hypot(sedan.group.position.x - parked.x, sedan.group.position.z - parked.z);
+  if (!(away < 1)) {
+    throw new Error(
+      `Special Meeting ${blockState} Adapter left the car ${away.toFixed(1)} m from its authored spot`,
+    );
+  }
+
+  return result(descriptor, [{ label: `specialmeeting-${descriptor.state}`, root: scene }], runtime.colliders, {
+    blockState,
+    producerCounts: { blocks: 1, sedans: 1, colliders: runtime.colliders.length },
+    sedan: { ...objectPose(sedan.group), trunkOpen: blockState === 'arrived' },
+    anchorIds: Object.keys(block.anchors ?? {}).toSorted(),
+  });
+}
+
+/**
+ * THE SPECIAL MEETING, the spur: the night forest road, driven to the end.
+ *
+ * The forest subtree is deliberately headless-safe (its own header says so --
+ * deterministic, no audio, no DOM beyond canvas textures, no campaign), so it
+ * is built the way the page builds it and then DRIVEN, rather than teleported.
+ *
+ * Driven, because the spur is not a place you can place a car at: the terrain
+ * streams in around wherever the car is, the clearing is 992 metres away, and
+ * the sprung suspension in ForestDrive settles the body onto the ground over
+ * several frames instead of snapping. Setting `drive.distance` and taking one
+ * step leaves the Lincoln twenty-eight metres under the clearing floor, which
+ * would be audited as a scene full of floating trees over a buried car. The
+ * whole drive at a fixed 30 Hz step is about sixteen seconds of wall clock in
+ * the worker -- well inside GEOMETRY_WORKER_TIMEOUT_MS -- and it is the only
+ * arrangement that is genuinely the one the player is looking at.
+ *
+ * The two scripted stops on the way (the chain, and the arrival itself) halt
+ * the drive until something releases them. In the played scene that something
+ * is a line of dialogue finishing; here the chain is released immediately,
+ * because the geometry does not care how long Lag took to unhook it, and the
+ * arrival is the state being built and so is left standing.
+ */
+async function buildSpecialMeetingSpur(descriptor, THREE) {
+  const { createNightForestRoad } = await import('../src/specialmeeting/forest/index.js');
+  const scene = new THREE.Scene();
+  const colliders = [];
+  const reached = [];
+
+  /* One seeded boundary around the build AND the drive: the terrain streams
+   * new chunks the whole way down the road, so the trees that exist at the
+   * spur are decided by draws taken during the drive, not at construction. */
+  const forest = withSeededGeometryRandom(descriptor.id, () => {
+    const built = createNightForestRoad({
+      scene,
+      renderer: null,
+      colliders,
+      shadows: false,
+      onNode: (id) => reached.push(id),
+    });
+    built.start();
+    const STEP = 1 / 30;
+    // 8000 steps is 266 authored seconds against a 105-second drive: a ceiling
+    // that can only be reached by a drive that has stopped making progress.
+    for (let step = 0; step < 8000 && !built.drive.arrived; step += 1) {
+      built.update(STEP);
+      if (built.drive.waitingAt && built.drive.waitingAt !== 'arrival') built.resume();
+    }
+    built.killEngine();
+    built.killLights();
+    built.update(STEP);
+    return built;
+  });
+
+  if (!forest.drive.arrived) {
+    throw new Error(
+      `Special Meeting spur Adapter never reached the clearing (stopped at ${forest.drive.distance.toFixed(0)} m`
+      + ` of ${forest.road.length().toFixed(0)} m, waiting on ${forest.drive.waitingAt ?? 'nothing'})`,
+    );
+  }
+  const authoredNodes = forest.road.events.map((event) => event.id);
+  if (reached.join(',') !== authoredNodes.join(',')) {
+    throw new Error(
+      `Special Meeting spur Adapter drove past ${reached.length} of ${authoredNodes.length} authored road nodes`,
+    );
+  }
+  if (forest.group.parent !== scene || colliders.length === 0) {
+    throw new Error(`Special Meeting spur Adapter mounted no world for ${descriptor.id}`);
+  }
+
+  /* The car has to be ON the clearing floor, not on the road it came in on and
+   * not under the ground the terrain streamed in around it. `heightAt` is the
+   * same field the trees and the trailhead are placed against. */
+  const car = forest.car.group.position;
+  const floor = forest.heightAt(car.x, car.z);
+  if (!Number.isFinite(floor) || Math.abs(car.y - floor) > 1.2) {
+    throw new Error(
+      `Special Meeting spur Adapter parked the car ${(car.y - floor).toFixed(2)} m off the clearing floor`,
+    );
+  }
+
+  const stats = forest.stats();
+  return result(descriptor, [{ label: 'specialmeeting-spur', root: scene }], colliders, {
+    producerCounts: {
+      forests: 1,
+      sedans: 1,
+      trees: stats.trees,
+      terrainChunks: stats.chunks,
+      colliders: colliders.length,
+    },
+    roadNodes: reached,
+    roadLength: stats.roadLength,
+    stage: stats.stage,
+    car: objectPose(forest.car.group),
+    trailhead: {
+      x: forest.trailhead.x,
+      y: forest.trailhead.y,
+      z: forest.trailhead.z,
+    },
+  });
+}
+
 const BUILDERS = Object.freeze({
   apartment: buildApartment,
   bing: (descriptor, THREE) => buildBing(descriptor, THREE, false),
@@ -2994,6 +3245,8 @@ const BUILDERS = Object.freeze({
   beefrun: buildBeefRun,
   'silvercase-car': buildSilverCaseCar,
   'silvercase-apartment': buildSilverCaseApartment,
+  'specialmeeting-kerb': buildSpecialMeetingKerb,
+  'specialmeeting-spur': buildSpecialMeetingSpur,
   squatchfather: buildSquatchfather,
   'cartel-palace': buildCartelPalace,
   'mansion-siege': buildMansionSiege,

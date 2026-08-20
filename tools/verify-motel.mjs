@@ -67,7 +67,48 @@ function trackRuntimeErrors(target) {
     if (response.status() === 404) notFound.push(response.url());
   });
 }
+
+/**
+ * THE MOTEL IS RASTERISED IN SOFTWARE, and every implicit budget in this file
+ * was Playwright's thirty seconds, which is a number about networks.
+ *
+ * Nothing here waits on a network -- the whole scene is served off localhost.
+ * What these calls wait on is the page's MAIN THREAD, which is busy drawing a
+ * motel forecourt: `previewPage.click('#startBtn')` timed out on 2026-08-20
+ * with the log reading "element is visible, enabled and stable ... done
+ * scrolling", i.e. the button was found, was clickable, and the click itself
+ * could not be dispatched inside thirty seconds. `goto(..., 'load')` has the
+ * same shape, because the level is built during module evaluation and `load`
+ * does not fire until it exists.
+ *
+ * The file's own explicit budgets were the same number in smaller clothes:
+ * five, twelve, twenty, thirty, forty-five, sixty seconds, all of them sized
+ * on a machine that renders this motel faster than this one does. They are
+ * all quantities of GAME time -- a line finishing, a wheel closing, a man
+ * walking sixty centimetres, the pull-in reaching eighteen per cent -- and
+ * game time advances on the runtime's clamped frame delta
+ * (`Math.min(clock.getDelta(), 0.05)` in src/motel/main.js), so each of them
+ * costs a fixed number of FRAMES and takes whatever wall time those frames
+ * take. Measured 2026-08-20 at 1280x720 on a contended four-core box: the
+ * 4.4 s pull-in took 256 s, and its mid-drive sample window -- budgeted at
+ * 45 s -- did not open until about 46 s. Every one of them now reads
+ * SCENE_WAIT_MS.
+ *
+ * NONE of these waits is an assertion. Each is followed by a `check()` that
+ * samples the state and does the asserting, and the conditions themselves are
+ * untouched -- the mid-drive sample still has to land strictly between 18%
+ * and 82% of the drive, whenever it lands. This is a budget for SLOWNESS, not
+ * a licence for a hang: a state the scene never reaches still fails the run,
+ * three minutes later instead of forty-five seconds later.
+ */
+const SCENE_WAIT_MS = 180000;
+function budgetForSoftwareRasteriser(target) {
+  target.setDefaultTimeout(SCENE_WAIT_MS);
+  target.setDefaultNavigationTimeout(SCENE_WAIT_MS);
+}
+
 trackRuntimeErrors(page);
+budgetForSoftwareRasteriser(page);
 
 async function capture(target, name) {
   if (!SCREENSHOT_DIR) return;
@@ -298,21 +339,63 @@ async function geometryState(target) {
  * for a man nobody had knocked for. Both halves are fixed; this waits for the
  * real gate and asserts the answer was taken.
  */
-async function answerWheel(target, style, { timeout = 45000 } = {}) {
+async function answerWheel(target, style, { timeout = SCENE_WAIT_MS } = {}) {
   await target.waitForFunction(() => window.MOTEL.dialogue?.ready === true, null, { timeout, polling: 80 });
   const taken = await target.evaluate((pick) => window.MOTEL.pick(pick), style);
   if (!taken) throw new Error(`the wheel refused the "${style}" answer`);
-  await target.waitForFunction(() => window.MOTEL.dialogue === null, null, { timeout: 5000 });
+  await target.waitForFunction(() => window.MOTEL.dialogue === null, null, { timeout: SCENE_WAIT_MS });
   return taken;
 }
 
 /** Wait until nobody in room twelve is mid-sentence. */
-async function waitQuiet(target, { timeout = 45000 } = {}) {
+async function waitQuiet(target, { timeout = SCENE_WAIT_MS } = {}) {
   await target.waitForFunction(() => !window.MOTEL.voice.busy(), null, { timeout, polling: 80 })
     .catch(() => { /* reported by whatever assertion comes next */ });
 }
 
-async function moveForward(target, { want = 0.6, timeout = 12000 } = {}) {
+/**
+ * WAIT OUT THE PULL-IN, BOUNDED BY PROGRESS RATHER THAN BY THE CLOCK.
+ *
+ * This was a flat wall-clock budget, and no number was ever going to be the
+ * right one. `updateArrival` advances on the runtime's clamped frame delta
+ * (`Math.min(clock.getDelta(), 0.05)` in src/motel/main.js), so the 4.4 s
+ * pull-in costs EIGHTY-EIGHT rendered frames whatever those frames cost:
+ * about 40 s on a quiet box, 256 s measured on 2026-08-20 at 1280x720 with
+ * the machine contended, and over 300 s an hour later with more browsers on
+ * it. Every budget picked from one of those runs is wrong for the next one,
+ * and the run dies on a drive that was finishing perfectly well.
+ *
+ * The thing worth failing on is a drive that has STOPPED, and that is a
+ * question about `arrival.progress`, not about seconds. So this watches the
+ * pull-in advance and only gives up when it has not moved for a full minute
+ * -- which on a scene that needs eighty-eight frames means the frames
+ * themselves have stopped arriving, i.e. a real hang rather than a slow box.
+ * A drive that crawls still passes; a drive that dies still fails, and says
+ * where it died.
+ */
+const ARRIVAL_STALL_MS = 60000;
+async function waitForArrivalHandoff(target) {
+  let furthest = -1;
+  let movedAt = Date.now();
+  for (;;) {
+    const state = await target.evaluate(() => ({
+      phase: window.MOTEL.phase,
+      progress: window.MOTEL.arrival.progress,
+    }));
+    if (state.phase === 'car') return state;
+    if (state.progress > furthest) {
+      furthest = state.progress;
+      movedAt = Date.now();
+    } else if (Date.now() - movedAt > ARRIVAL_STALL_MS) {
+      throw new Error(
+        `the arrival pull-in stalled at progress ${furthest.toFixed(3)} in phase ${state.phase}`,
+      );
+    }
+    await target.waitForTimeout(1000);
+  }
+}
+
+async function moveForward(target, { want = 0.6, timeout = SCENE_WAIT_MS } = {}) {
   const before = await target.evaluate(() => ({
     x: window.MOTEL.pos.x,
     z: window.MOTEL.pos.z,
@@ -353,11 +436,12 @@ async function moveForward(target, { want = 0.6, timeout = 12000 } = {}) {
 try {
   const previewPage = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   trackRuntimeErrors(previewPage);
+  budgetForSoftwareRasteriser(previewPage);
   await previewPage.goto(
     `http://localhost:${PORT}/motel.html?preview=1`,
     { waitUntil: 'load' },
   );
-  await previewPage.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+  await previewPage.waitForFunction(() => window.MOTEL?.story, null, { timeout: SCENE_WAIT_MS });
   const campaignSeed = await previewPage.evaluate(
     () => localStorage.getItem('squatchlife.campaign'),
   );
@@ -380,7 +464,7 @@ try {
   await previewPage.waitForFunction(
     () => window.MOTEL.arrival.progress > 0.18 && window.MOTEL.arrival.progress < 0.82,
     null,
-    { timeout: 45000, polling: 60 },
+    { timeout: SCENE_WAIT_MS, polling: 60 },
   );
   const arrivalComposition = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -629,13 +713,7 @@ try {
       && arrivalSurveyBrief.animations === 0,
     JSON.stringify(arrivalSurveyBrief));
 
-  /* The rest of the drive is the same real-time clock: ~40 s of wall time on
-   * a software rasteriser before the phase turns over -- and ~256 s when the
-   * box is contended, because `updateArrival` advances on the clamped frame
-   * delta (`Math.min(clock.getDelta(), 0.05)` in src/motel/main.js), so the
-   * 4.4 s pull-in costs EIGHTY-EIGHT rendered frames however slow they are.
-   * The budget bounds a hang; it is not a statement about the drive. */
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: 300000 });
+  await waitForArrivalHandoff(previewPage);
   /**
    * THE HANDOFF, and why this wait used to be three seconds and is not now.
    *
@@ -657,7 +735,7 @@ try {
     const element = document.getElementById('surveyBrief');
     return document.getElementById('hud')?.classList.contains('control-ready')
       && Number(getComputedStyle(element).opacity) > 0.5;
-  }, null, { timeout: 90000, polling: 30 });
+  }, null, { timeout: SCENE_WAIT_MS, polling: 30 });
   const controlHandoffBrief = await previewPage.evaluate(() => {
     const element = document.getElementById('surveyBrief');
     const style = getComputedStyle(element);
@@ -870,7 +948,7 @@ try {
   await previewPage.waitForFunction(
     () => document.getElementById('subtitle')?.textContent.includes('Room twelve. Meat first'),
     null,
-    { timeout: 45000 },
+    { timeout: SCENE_WAIT_MS },
   );
   const openingVoice = await previewPage.evaluate(() => ({
     cue: window.MOTEL.openingCue,
@@ -915,7 +993,7 @@ try {
   await previewPage.waitForFunction(() => {
     const model = window.MOTEL.heldModel;
     return model && model.position.y > -0.27;
-  }, null, { timeout: 30000, polling: 80 });
+  }, null, { timeout: SCENE_WAIT_MS, polling: 80 });
   const revolverPresentation = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const THREE = motel.three;
@@ -1006,7 +1084,7 @@ try {
    * lost to a download race. */
   await previewPage.waitForFunction(() => window.MOTEL.voiceReadyFor(
     window.MOTEL.voice.cueForLine('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.'),
-  ), null, { timeout: 45000, polling: 120 });
+  ), null, { timeout: SCENE_WAIT_MS, polling: 120 });
   await previewPage.keyboard.press('KeyE');
   await previewPage.waitForTimeout(150);
   await previewPage.keyboard.press('KeyE');
@@ -1048,7 +1126,7 @@ try {
     const motel = window.MOTEL;
     const cue = motel.voice.cueForLine('Snow', 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.');
     return motel.voice.played.some((entry) => entry.cue === cue);
-  }, null, { timeout: 45000, polling: 80 }).catch(() => {});
+  }, null, { timeout: SCENE_WAIT_MS, polling: 80 }).catch(() => {});
   const snowOffer = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const cue = motel.voice.cueForLine('Snow', 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.');
@@ -1101,7 +1179,7 @@ try {
       && passengerDoorAim.facingDot > 0.9,
     JSON.stringify(passengerDoorAim));
   await previewPage.keyboard.press('KeyE');
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'lot', null, { timeout: 5000 })
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'lot', null, { timeout: SCENE_WAIT_MS })
     .catch(() => {});
   const realDoorExit = await previewPage.evaluate(() => ({
     phase: window.MOTEL.phase,
@@ -1184,6 +1262,7 @@ try {
   const qContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const qPage = await qContext.newPage();
   trackRuntimeErrors(qPage);
+  budgetForSoftwareRasteriser(qPage);
   try {
     await qPage.addInitScript((seed) => {
       if (seed) localStorage.setItem('squatchlife.campaign', seed);
@@ -1192,11 +1271,11 @@ try {
       `http://localhost:${PORT}/motel.html?preview=1&q-exit=1`,
       { waitUntil: 'load' },
     );
-    await qPage.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+    await qPage.waitForFunction(() => window.MOTEL?.story, null, { timeout: SCENE_WAIT_MS });
     await qPage.click('#startBtn');
     await qPage.waitForFunction(() => window.MOTEL.phase === 'arrival');
     await qPage.evaluate(() => window.MOTEL.completeArrival());
-    await qPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: 5000 });
+    await qPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: SCENE_WAIT_MS });
     /* Take the .45 with him: this context is closed after the probes below,
      * so it is the safe place to actually pull a trigger. */
     await qPage.evaluate(() => window.MOTEL.forceInteract('glovebox'));
@@ -1273,7 +1352,7 @@ try {
     await qPage.waitForFunction(
       () => window.MOTEL.S.ammo === 6 && !window.MOTEL.weapons.reloading,
       null,
-      { timeout: 60000, polling: 100 },
+      { timeout: SCENE_WAIT_MS, polling: 100 },
     ).catch(() => { /* reported by the assertion below */ });
     const reloaded = await qPage.evaluate(() => ({
       ammo: window.MOTEL.S.ammo,
@@ -1361,7 +1440,7 @@ try {
   await previewPage.waitForFunction(() => {
     const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
     return clerk?.state === 'idle';
-  }, null, { timeout: 120000, polling: 80 }).catch(() => {});
+  }, null, { timeout: SCENE_WAIT_MS, polling: 80 }).catch(() => {});
   const clerkStoppedA = await previewPage.evaluate(() => {
     const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
     return clerk ? { x: clerk.position.x, z: clerk.position.z, state: clerk.state } : null;
@@ -1437,7 +1516,7 @@ try {
   await previewPage.waitForFunction(
     () => window.MOTEL.viewmodel.kind === null,
     null,
-    { timeout: 20000 },
+    { timeout: SCENE_WAIT_MS },
   ).catch(() => { /* reported by the assertion */ });
   const unarmed = await previewPage.evaluate(() => ({
     weapon: window.MOTEL.S.weapon, view: window.MOTEL.viewmodel,
@@ -1475,7 +1554,7 @@ try {
   await previewPage.waitForFunction(
     () => document.getElementById('subtitle')?.textContent.includes('Seatbelt. Or do not.'),
     null,
-    { timeout: 20000 },
+    { timeout: SCENE_WAIT_MS },
   );
   const deliveredSubtitle = await previewPage.evaluate(() => ({
     subtitle: document.getElementById('subtitle').textContent,
@@ -1550,7 +1629,7 @@ try {
    * radius stops a legal walk at about z = -3.8; a walked-through door sails
    * past -4.5 into the room, and the extra shove is what would carry him. */
   await previewPage.keyboard.down('KeyW');
-  await previewPage.waitForFunction(() => window.MOTEL.pos.z < -3.4, null, { timeout: 30000, polling: 60 })
+  await previewPage.waitForFunction(() => window.MOTEL.pos.z < -3.4, null, { timeout: SCENE_WAIT_MS, polling: 60 })
     .catch(() => { /* reported by the assertion below */ });
   await previewPage.waitForTimeout(1400);
   await previewPage.keyboard.up('KeyW');
@@ -1602,7 +1681,7 @@ try {
   await previewPage.waitForFunction(
     () => window.MOTEL.actors.some((actor) => actor.name === 'Rico'),
     null,
-    { timeout: 30000 },
+    { timeout: SCENE_WAIT_MS },
   );
   check('knocking brings Rico to the door of room twelve',
     await previewPage.evaluate(() => window.MOTEL.phase === 'door'
@@ -1637,7 +1716,7 @@ try {
    * wheel is up, so time runs slow, and every extra frame of held W is
    * another frame a hole would let him through. */
   await previewPage.keyboard.down('KeyW');
-  await previewPage.waitForFunction(() => window.MOTEL.pos.z < -3.8, null, { timeout: 30000, polling: 60 })
+  await previewPage.waitForFunction(() => window.MOTEL.pos.z < -3.8, null, { timeout: SCENE_WAIT_MS, polling: 60 })
     .catch(() => { /* reported by the assertion below */ });
   await previewPage.waitForTimeout(1400);
   await previewPage.keyboard.up('KeyW');
@@ -1688,7 +1767,7 @@ try {
   await previewPage.waitForFunction(
     () => document.getElementById('subtitle').textContent.includes('Come in before'),
     null,
-    { timeout: 45000 },
+    { timeout: SCENE_WAIT_MS },
   );
   await previewPage.waitForTimeout(80);
   const invitation = await previewPage.evaluate(() => {
@@ -1709,7 +1788,7 @@ try {
   await previewPage.waitForFunction(
     () => window.MOTEL.S.doorOpened && window.MOTEL.objective.sub.includes('Step inside'),
     null,
-    { timeout: 45000 },
+    { timeout: SCENE_WAIT_MS },
   );
   const doorObjective = await previewPage.evaluate(() => window.MOTEL.objective);
   check('answering at the door opens it and says, in words, to go in',
@@ -1725,7 +1804,7 @@ try {
     window.MOTEL.face(0, -12);
   });
   await previewPage.keyboard.down('KeyW');
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'room', null, { timeout: 45000, polling: 60 })
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'room', null, { timeout: SCENE_WAIT_MS, polling: 60 })
     .catch(() => { /* reported by the assertion below */ });
   await previewPage.keyboard.up('KeyW');
   const walkedIn = await previewPage.evaluate(() => ({
@@ -1763,8 +1842,8 @@ try {
    * need to put my sample on the table?" — the scene had four different nouns
    * for those three things and never said whose was whose. Every step below
    * asserts that the HUD names the object, the owner and the button. */
-  await previewPage.waitForFunction(() => window.MOTEL.S.sampleOut, null, { timeout: 60000 });
-  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'sample', null, { timeout: 45000 });
+  await previewPage.waitForFunction(() => window.MOTEL.S.sampleOut, null, { timeout: SCENE_WAIT_MS });
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'sample', null, { timeout: SCENE_WAIT_MS });
   const sampleStep = await previewPage.evaluate(() => ({
     deal: window.MOTEL.deal,
     objective: window.MOTEL.objective,
@@ -1797,7 +1876,7 @@ try {
   await previewPage.waitForFunction(
     () => document.getElementById('subtitle').textContent.includes('Meat first. Money second.'),
     null,
-    { timeout: 30000 },
+    { timeout: SCENE_WAIT_MS },
   );
   const refused = await previewPage.evaluate(() => ({
     onTable: window.MOTEL.S.moneyOnTable,
@@ -1818,7 +1897,7 @@ try {
     JSON.stringify({ before: roomClockBeforeInspection, during: roomClockDuringInspection }));
   await capture(previewPage, 'after-inspection-options');
   await previewPage.evaluate(() => window.MOTEL.inspect(window.MOTEL.inspection.available()[0].id));
-  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'count', null, { timeout: 60000 });
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'count', null, { timeout: SCENE_WAIT_MS });
   const countStep = await previewPage.evaluate(() => ({
     deal: window.MOTEL.deal,
     objective: window.MOTEL.objective,
@@ -1878,7 +1957,7 @@ try {
       && /counted/i.test(counted.label),
     JSON.stringify({ beforeCount, ...counted }));
 
-  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'pay', null, { timeout: 60000 });
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'pay', null, { timeout: SCENE_WAIT_MS });
   const payStep = await previewPage.evaluate(() => ({
     deal: window.MOTEL.deal,
     objective: window.MOTEL.objective,
@@ -1893,7 +1972,7 @@ try {
     JSON.stringify(payStep));
 
   await previewPage.evaluate(() => window.MOTEL.forceInteract('placeMoney'));
-  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'open', null, { timeout: 60000 });
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'open', null, { timeout: SCENE_WAIT_MS });
   const openStep = await previewPage.evaluate(() => ({
     deal: window.MOTEL.deal,
     objective: window.MOTEL.objective,
@@ -2017,7 +2096,7 @@ try {
   /* Rico has to cross the room and take him. That is simulation time, not wall
    * time, and this scene draws at a couple of frames a second on a software
    * rasteriser, so the budget is generous on purpose. */
-  await previewPage.waitForFunction(() => window.MOTEL.S.captured, null, { timeout: 45000 });
+  await previewPage.waitForFunction(() => window.MOTEL.S.captured, null, { timeout: SCENE_WAIT_MS });
   const capturedStart = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     return {
@@ -2032,7 +2111,7 @@ try {
   await previewPage.waitForFunction(
     () => window.MOTEL.phase === 'recover' || window.MOTEL.phase === 'escape',
     null,
-    { timeout: 30000 },
+    { timeout: SCENE_WAIT_MS },
   );
   const captureRecovery = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -2087,7 +2166,7 @@ try {
 
   /* ---- the getaway, from the driver's eye ---- */
   await previewPage.evaluate(() => window.MOTEL.drive());
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'drive', null, { timeout: 20000 });
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'drive', null, { timeout: SCENE_WAIT_MS });
   await previewPage.waitForTimeout(900);
   await capture(previewPage, 'after-drive-first-person');
 
@@ -2173,7 +2252,7 @@ try {
   await previewPage.close();
 
   await page.goto(`http://localhost:${PORT}/motel.html`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: SCENE_WAIT_MS });
 
   let current = await motelState();
   check('the campaign opens the Motel at its passenger-seat entry',
@@ -2201,7 +2280,7 @@ try {
     JSON.stringify(current));
 
   await page.reload({ waitUntil: 'load' });
-  await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: SCENE_WAIT_MS });
   await page.click('#startBtn');
   await page.waitForFunction(() => window.MOTEL.phase === 'car');
   current = await motelState();
@@ -2228,8 +2307,8 @@ try {
     JSON.stringify(current.mission));
 
   await page.click('#continueBtn');
-  await page.waitForURL(`http://localhost:${PORT}/index.html`, { timeout: 10000 });
-  await page.waitForFunction(() => window.__squatch?.campaign, null, { timeout: 60000 });
+  await page.waitForURL(`http://localhost:${PORT}/index.html`, { timeout: SCENE_WAIT_MS });
+  await page.waitForFunction(() => window.__squatch?.campaign, null, { timeout: SCENE_WAIT_MS });
   const home = await page.evaluate(() => ({
     scene: window.__squatch.campaign.state.scene,
     mission: window.__squatch.campaign.state.missions.jerky_motel,
