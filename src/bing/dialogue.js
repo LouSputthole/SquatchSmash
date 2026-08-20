@@ -153,6 +153,20 @@ export class Dialogue {
         this._cueHold(node, Math.max(1.6, text.length / 22)),
         take,
       );
+    } else {
+      /* A node with nothing to SAY says nothing -- it does not inherit the
+       * last thing anybody said.
+       *
+       * Golf's tee talk is options with no line (`answer` nodes), and the
+       * subtitle was only ever WRITTEN, never cleared: the player's own reply
+       * from the previous hole stayed in the element, end() hid the panel
+       * without emptying it, and the next hole's options-only node unhid the
+       * same panel with the old sentence still sitting above them. It read as
+       * the player answering a question he had not been asked yet, silently,
+       * because no live choose() had fired. The subtitle now belongs to the
+       * node on screen and to nothing else. */
+      this.ui.name.textContent = '';
+      this.ui.line.innerHTML = '';
     }
 
     // Options may be a function so they can depend on what has happened
@@ -163,6 +177,9 @@ export class Dialogue {
      * code painted the option elements into a root that was still hidden,
      * leaving a live conversation with no visible way to answer it. */
     if (this.options.length) this.ui.root.classList.remove('hidden');
+    /* Neither a line nor a reply to give: the panel goes away rather than
+     * standing there empty over the middle of a scene. */
+    else if (!text) this.ui.root.classList.add('hidden');
     this._paintOptions();
 
     // A node with no options runs on its own after a beat
@@ -283,6 +300,10 @@ export class Dialogue {
     if (!keepMovementLock) this.lockMovement = false;
     this.ui.root.classList.add('hidden');
     this.ui.options.classList.add('hidden');
+    /* Hiding the panel is not the same as emptying it. A conversation that
+     * ends leaves nothing behind for the next one to reopen on top of. */
+    this.ui.name.textContent = '';
+    this.ui.line.innerHTML = '';
     if (lockedMovement && !keepMovementLock) this.hooks.onMovementLock?.(false);
     this.hooks.onActive?.(false);
     this.hooks.onEnd?.(reason);

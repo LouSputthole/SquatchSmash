@@ -187,6 +187,11 @@ export class PalaceSecurity {
     colliders = [],
     combatPosts = PALACE_COMBAT_POSTS,
     playerActor = null,
+    /* Optional shared CombatAudio. The scene root already presents the
+     * physical impact through its own instance, and the shared vocal throttle
+     * coalesces the two, so wiring this only adds the hostile's reaction to
+     * the hits the root's per-trigger audio budget suppresses. */
+    audio = null,
     random = Math.random,
     onAlarm = () => {},
     onPlayerHit = () => {},
@@ -201,6 +206,7 @@ export class PalaceSecurity {
     this.colliders = colliders;
     this.combatPosts = Array.isArray(combatPosts) ? combatPosts : PALACE_COMBAT_POSTS;
     this.playerActor = playerActor;
+    this.audio = audio ?? null;
     this.random = typeof random === 'function' ? random : Math.random;
     this.onAlarm = onAlarm;
     this.onPlayerHit = onPlayerHit;
@@ -445,6 +451,15 @@ export class PalaceSecurity {
     if (!located.applied || !entry) return { ...located, entry };
     const runtime = this._runtime(entry);
     runtime?.impairments.applyResolvedHit(located);
+    /* He says so. Positional, off the body, throttled per man by the shared
+     * layer so a burst is one reaction. */
+    this.audio?.pain?.({
+      target: 'enemy',
+      id: entry.id,
+      zone: located.zone,
+      position: located.point ?? entry.root.position,
+      result: located.result,
+    });
     const reaction = resolveCombatReaction({
       direction: located.direction,
       actorYaw: entry.root.rotation.y,
@@ -682,11 +697,17 @@ export class PalaceSecurity {
     const reaction = runtime.impairments.reaction;
     const directional = runtime.reaction;
     const parts = entry.figure.parts;
+    /* Palace carries no braced-shoulder rig, so unlike Mansion Siege there is
+     * pose budget here to spend: 7 degrees of body lean was inside the noise
+     * of a man walking. `directional.roll` and `.pitch` are the shared
+     * Module's own signed magnitudes for where the round came from -- use
+     * them, instead of throwing the size away and keeping only the sign. */
     if (parts?.body) {
-      parts.body.rotation.z = (directional?.side ?? 0) * reaction * 0.13;
-      parts.body.rotation.x = (directional?.forward ?? 0) * reaction * 0.08;
+      parts.body.rotation.z = (directional?.roll ?? (directional?.side ?? 0) * 0.5) * reaction * 0.4;
+      parts.body.rotation.x = (directional?.pitch ?? (directional?.forward ?? 0) * 0.3)
+        * reaction * 0.45;
     }
-    if (parts?.head) parts.head.rotation.x = -frame.pitch * 0.32 + reaction * 0.16;
+    if (parts?.head) parts.head.rotation.x = -frame.pitch * 0.32 + reaction * 0.26;
     if (parts?.armR) parts.armR.rotation.x = -1.28 - frame.pitch * 0.72 + reaction * 0.52;
     if (parts?.foreR) parts.foreR.rotation.x = -0.16 - frame.pitch * 0.28;
     if (parts?.armL) parts.armL.rotation.x = -1.2 - frame.pitch * 0.65 - reaction * 0.25;

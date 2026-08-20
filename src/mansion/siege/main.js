@@ -610,8 +610,12 @@ function presentActorImpact(resolved, impact) {
   const result = resolved?.result ?? resolved;
   if (result?.applied !== true) return [];
   const contact = resolvedPresentationContact(resolved, impact);
+  /* The shared layer plays the man's own reaction alongside the physical hit;
+   * `id` keys its one-voice-per-burst throttle on the attacker rather than on
+   * the metre of air he was standing in, so a shotgun is one cry, not eight. */
   return combatAudio.impact({
     target: 'enemy',
+    id: resolved?.entry?.id ?? resolved?.combatant?.id ?? resolved?.id ?? null,
     zone: resolved?.zone ?? impact?.zone ?? 'chest',
     caliber: combatCaliber(impact?.weapon ?? resolved?.weapon),
     position: contact.point,

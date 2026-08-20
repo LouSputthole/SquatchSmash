@@ -252,6 +252,7 @@ const S = {
   sampleChecked: false,    // ran at least one test on their sample
   packagesCounted: false,  // counted their case of eight
   payRefused: false,       // Rico pushed the money back once: meat first
+  countRefused: false,     // and once more for the uncounted eight
   paidBlind: false,        // bought without checking — his own fault, and said so
 };
 
@@ -857,9 +858,18 @@ function addRead(n) {
 /** Which step the transaction is on, derived only from what has happened. */
 function dealStepNow() {
   if (S.betrayed || phase !== 'room') return null;
-  if (!S.sampleChecked) return 'sample';
-  if (!S.packagesCounted) return 'count';
-  if (!S.moneyOnTable) return 'pay';
+  /* The transaction only ever moves forwards. Once your case is on the table
+   * the looking-at-the-meat half of the room is over -- checked, or skipped on
+   * purpose and paid for in suspicion -- so it cannot be asked for again. This
+   * used to read the flags in order and nothing else, which meant paying with
+   * something unchecked sent the objective BACKWARDS to a step the player had
+   * deliberately walked past, and then jumped over 'pay' entirely on the way
+   * out. A skipped step is failed (see `paidBlind`), never re-demanded. */
+  if (!S.moneyOnTable) {
+    if (!S.sampleChecked) return 'sample';
+    if (!S.packagesCounted) return 'count';
+    return 'pay';
+  }
   if (!S.moneyOpened) return 'open';
   return 'done';
 }
@@ -1492,6 +1502,7 @@ addInteract({
   label: () => {
     if (S.moneyOnTable) return 'Open your case';
     if (!S.sampleChecked) return 'Put your case on the table (he wants the meat looked at first)';
+    if (!S.packagesCounted) return 'Put your case on the table (their eight are still uncounted)';
     return 'Put your case on the table';
   },
   enabled: () => phase === 'room' && S.sampleOut
@@ -1511,6 +1522,25 @@ addInteract({
         });
         return;
       }
+      /* And the second half of the same rule. The sample gate was the only one
+       * here, so a player could look at the meat, walk past their case of
+       * eight, and pay -- which put the money down with the count still owed
+       * and sent the objective back to "count their case" with cash already on
+       * the table. Rico asks for the count in his own voice, once, on the same
+       * terms as the line above: press again and he takes the money anyway. */
+      /* "Satisfied?" presupposes he looked, so this is the man who checked the
+       * sample and then tried to skip the count. Somebody blowing past both
+       * has already had Rico's one push-back above and does not get a second
+       * lecture for the same walk to the table. */
+      if (S.sampleChecked && !S.packagesCounted && !S.countRefused) {
+        S.countRefused = true;
+        sayThenInstruct('Rico', 'Satisfied? The case is right there. Eight of them. Count it.', 3.6, () => {
+          if (phase !== 'room' || S.betrayed) return;
+          advanceDeal();
+          toast('HE PUSHED IT BACK', '', 'Count their eight first — press [E] again to pay uncounted anyway');
+        });
+        return;
+      }
       S.moneyOnTable = true;
       S.carryingMoney = false;
       placeMoneyCase();
@@ -1520,6 +1550,12 @@ addInteract({
         addHeat(10);
         failObjective('inspect');
         say('Chino', 'He is buying it blind. Rico. He is buying it blind.', 3.4);
+      }
+      /* A step he chose to skip is struck off, not left standing as a live
+       * instruction behind money that is already down. */
+      if (!S.packagesCounted) {
+        addHeat(6);
+        failObjective('count');
       }
       updateGear();
       advanceDeal({ announce: ['Rico', 'There it is. Now we are all friends with a table between us.', 3.6] });

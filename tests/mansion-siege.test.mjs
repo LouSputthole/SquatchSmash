@@ -467,6 +467,78 @@ test('a full inherited loadout falls back to an owned gun and still advances', (
   });
 });
 
+test('a refused acquisition never leaves the player armed with the objective unsatisfiable', () => {
+  /* `Armory.take()` has ALREADY hidden the rack copy and put the gun in his
+   * hands by the time this runs. A silent `advance: false` therefore left a
+   * player standing in an empty armory, holding a gun, with "Arm yourself" on
+   * the HUD and nothing left in the room to press. Every refusal below either
+   * closes the beat on a gun he really holds or says out loud what to do. */
+  const decision = resolveArmoryTake({
+    takenId: 'carbine',
+    acquisition: { ok: false, reason: 'unknown_weapon' },
+    loadout: { slots: [null, null, null, null, null], selected: -1 },
+  });
+
+  assert.equal(decision.advance, true, 'the caller returns before it speaks on a false advance');
+  assert.equal(decision.keepTaken, true, 'the gun is already in his hands');
+  assert.equal(decision.weaponId, 'carbine');
+  assert.ok(decision.nudge, 'a refusal the player cannot see is the bug');
+  assert.equal(isSiegeLineWeapon(decision.weaponId), true,
+    'the beat can only close on a gun the firing step would also accept');
+});
+
+test('a rack gun the line does not accept goes back and the player is told to take another', () => {
+  const decision = resolveArmoryTake({
+    takenId: 'prop_musket',
+    acquisition: { ok: false, reason: 'unknown_weapon' },
+    loadout: { slots: [null, null, null, null, null], selected: -1 },
+  });
+
+  assert.equal(decision.keepTaken, false, 'the rack copy must come back so the stand works again');
+  assert.equal(decision.weaponId, null);
+  assert.equal(decision.equipSlot, -1);
+  assert.equal(decision.advance, true, 'advance is what carries the nudge to the HUD');
+  assert.match(decision.nudge, /rack/i);
+});
+
+test('a refused acquisition falls back to a gun the player already owns', () => {
+  const decision = resolveArmoryTake({
+    takenId: 'prop_musket',
+    acquisition: { ok: false, reason: 'unknown_weapon' },
+    loadout: { slots: ['ak47', null, null, null, null], selected: 3 },
+  });
+
+  assert.equal(decision.advance, true);
+  assert.equal(decision.keepTaken, false);
+  assert.equal(decision.equipSlot, 0, 'an empty selected slot falls through to the first real gun');
+  assert.equal(decision.weaponId, 'ak47');
+  assert.ok(decision.nudge);
+});
+
+test('every armory refusal reaches the player and none of them dead-ends the beat', () => {
+  for (const reason of ['unknown_weapon', 'full', 'locked', undefined]) {
+    for (const takenId of ['saw', 'prop_musket']) {
+      const decision = resolveArmoryTake({
+        takenId,
+        acquisition: { ok: false, reason },
+        loadout: { slots: ['revolver', null, null, null, null], selected: 0 },
+      });
+      const label = `${reason} / ${takenId}`;
+      assert.equal(decision.advance, true, label);
+      assert.ok(decision.nudge, `${label} must not fail in silence`);
+      assert.equal(isSiegeLineWeapon(decision.weaponId), true,
+        `${label} must hand the beat a gun that satisfies it`);
+      // And the beat really does close on it.
+      const { m } = mission();
+      m.start();
+      m.wokeUp();
+      m.enteredArmory();
+      assert.equal(m.weaponTaken(decision.weaponId), true, label);
+      assert.equal(m.beat, B.TO_OFFICE, label);
+    }
+  }
+});
+
 test('every armory catalog gun satisfies the firing-step weapon gate', () => {
   for (const id of ['revolver', 'pistol9', 'carbine', 'ak47', 'saw', 'barrett']) {
     assert.equal(isSiegeLineWeapon(id), true, `${id} should satisfy F`);

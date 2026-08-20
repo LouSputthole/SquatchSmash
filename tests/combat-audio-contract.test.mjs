@@ -114,6 +114,43 @@ const NEW_PRODUCTION_CUES = Object.freeze([
   },
 ]);
 
+/*
+ * The pain bank, added 2026-08-19 because a landed round made every physical
+ * noise a body makes and no sound the MAN makes, which is why hits registered
+ * and still read as nothing.
+ *
+ * These are queued, not delivered: unlike NEW_PRODUCTION_CUES they are held to
+ * the manifest brief but NOT to the recording-hash pin below, because the
+ * takes do not exist yet. They must stay discoverable by the booth sheet
+ * (`npm run record:sheet`) until they do. Move a name up into
+ * NEW_PRODUCTION_CUES when its mp3 lands.
+ *
+ * They are prompt-based effect cues rather than cast `say`/`voice` dialogue on
+ * purpose -- see the manifest comment on `combat.pain.grunt.a`.
+ */
+const VOCAL_PRODUCTION_CUES = Object.freeze([
+  {
+    name: 'combat.pain.grunt.a', duration: 0.7,
+    intent: /grunt|involuntary vocal/i,
+  },
+  {
+    name: 'combat.pain.grunt.b', duration: 0.75,
+    intent: /grunt|involuntary vocal/i,
+  },
+  {
+    name: 'combat.pain.cry', duration: 1.1,
+    intent: /cry|wounded/i,
+  },
+  {
+    name: 'combat.pain.death', duration: 1.5,
+    intent: /fatal|dying|death/i,
+  },
+  {
+    name: 'combat.player.pain', duration: 0.9,
+    intent: /first.?person|player/i,
+  },
+]);
+
 const REUSED_CUES = Object.freeze([
   'heist.bullet.whiz',
   'heist.bullet.impact',
@@ -138,6 +175,7 @@ const REUSED_CUES = Object.freeze([
 
 const EXPECTED_GROUND_COMBAT_AUDIO_CUES = Object.freeze([
   ...NEW_PRODUCTION_CUES.map(({ name }) => name),
+  ...VOCAL_PRODUCTION_CUES.map(({ name }) => name),
   ...REUSED_CUES,
 ]);
 
@@ -192,46 +230,148 @@ test('ground combat exports the reusable audio and positional step Interfaces', 
 test('CombatAudio maps physical body, head, armor, break and player-hit results', () => {
   const CombatAudio = requireClass('CombatAudio');
   const engine = audioSpy();
-  const audio = new CombatAudio({ audio: engine });
+  /* The vocal layer is time- and chance-gated, so this contract drives both:
+   * `clock` advances a full second between hits (clear of the per-man pain
+   * throttle) and `random` always rolls into the player's vocal chance, which
+   * leaves the player's hard cooldown as the only thing that can silence him. */
+  let clock = 0;
+  const audio = new CombatAudio({ audio: engine, now: () => clock, random: () => 0 });
   const position = { x: 2, y: 1.4, z: -3 };
+  const hit = (event) => {
+    clock += 1;
+    return audio.impact(event);
+  };
 
-  audio.impact({
+  hit({
     target: 'enemy', zone: 'body', caliber: 'rifle', position,
     result: { applied: true, absorbed: 0, armorBroken: false, fatal: false },
   });
-  audio.impact({
+  hit({
     target: 'enemy', zone: 'head', caliber: 'rifle', position,
     result: { applied: true, absorbed: 0, armorBroken: false, fatal: true },
   });
-  audio.impact({
+  hit({
     target: 'enemy', zone: 'body', caliber: 'rifle', position,
     result: { applied: true, absorbed: 8, armorBroken: false, fatal: false },
   });
-  audio.impact({
+  hit({
     target: 'enemy', zone: 'body', caliber: 'heavy', position,
     result: { applied: true, absorbed: 24, armorBroken: true, fatal: false },
   });
-  audio.impact({
+  hit({
     target: 'player', zone: 'body', caliber: 'rifle', position,
     result: { applied: true, absorbed: 0, armorBroken: false, fatal: false },
   });
-  audio.impact({
+  hit({
     target: 'player', zone: 'body', caliber: 'rifle', position,
     result: { applied: true, absorbed: 6, armorBroken: false, fatal: false },
   });
 
+  /* Every applied hit now carries the man's reaction as well as the physical
+   * event: the physical layer alone is what made a landed round read as
+   * nothing. The last player hit is silent because his voice is still inside
+   * its cooldown, one second after the previous one. */
   assert.deepEqual(cueNames(engine), [
     'combat.bullet.impact.flesh',
+    'combat.pain.grunt.a',
     'combat.bullet.impact.head',
+    'combat.pain.death',
     'combat.bullet.impact.armor',
+    'combat.pain.grunt.b',
     'combat.bullet.impact.armor.heavy',
     'combat.armor.break',
     'combat.armor.plate.drop',
+    'combat.pain.grunt.a',
     'combat.player.hit.flesh',
+    'combat.player.pain',
     'heist.player.hit',
   ]);
   assert.ok(engine.calls.every(({ options }) => options.position === position));
   assert.ok(cueNames(engine).every((name) => !name.startsWith('combat.hitconfirm.')));
+});
+
+test('CombatAudio gives a hostile one positional voice per burst, sorted by severity', () => {
+  const CombatAudio = requireClass('CombatAudio');
+  const engine = audioSpy();
+  let clock = 0;
+  const audio = new CombatAudio({ audio: engine, now: () => clock });
+  const guard = { x: 8, y: 1.3, z: 2 };
+
+  assert.equal(audio.pain({ id: 'guard-a', position: guard, result: { damage: 9 } }),
+    'combat.pain.grunt.a');
+  /* Seven more pellets from the same shell, same frame: still one man. */
+  for (let i = 0; i < 7; i++) {
+    assert.equal(audio.pain({ id: 'guard-a', position: guard, result: { damage: 9 } }), null,
+      'one shotgun blast became a choir out of one body');
+  }
+  /* A different man in the same instant still answers for himself. */
+  assert.equal(
+    audio.pain({ id: 'guard-b', position: { x: -8, y: 1.3, z: 2 }, result: { damage: 9 } }),
+    'combat.pain.grunt.b',
+  );
+  /* The scene root re-presenting THAT hit must not double it: no id, but the
+   * same body-sized cell. */
+  assert.equal(audio.pain({ position: { x: -8.1, y: 1.35, z: 2.1 }, result: { damage: 9 } }), null);
+
+  clock += 1;
+  assert.equal(audio.pain({ id: 'guard-a', position: guard, zone: 'head', result: { damage: 9 } }),
+    'combat.pain.cry', 'a head hit is heavy however small the number is');
+  clock += 1;
+  assert.equal(audio.pain({ id: 'guard-a', position: guard, result: { damage: 40 } }),
+    'combat.pain.cry');
+  clock += 1;
+  assert.equal(audio.pain({ id: 'guard-a', position: guard, result: { damage: 9, fatal: true } }),
+    'combat.pain.death');
+  assert.equal(audio.pain({ id: 'guard-a', position: guard, result: { applied: false } }), null);
+
+  assert.ok(engine.calls.every(({ options }) => options.position),
+    'pain must come out of the body, not out of the HUD');
+  assert.equal(engine.calls.length, 5);
+
+  audio.reset();
+  assert.equal(audio.pain({ id: 'guard-a', position: guard, result: { damage: 9 } }),
+    'combat.pain.grunt.a', 'a checkpoint restore carried a dead man\'s throttle into the retry');
+});
+
+test('the player vocal is rationed: a cooldown and a roll, not a percussion instrument', () => {
+  const CombatAudio = requireClass('CombatAudio');
+  const engine = audioSpy();
+  let clock = 100;
+  /* random() === 0 always clears the chance gate, so this isolates the
+   * cooldown: nothing but time may let him speak twice. */
+  const audio = new CombatAudio({ audio: engine, now: () => clock, random: () => 0 });
+  const at = { x: 0, y: 1.6, z: 0 };
+  const shot = () => audio.impact({
+    target: 'player', zone: 'chest', caliber: 'rifle', position: at,
+    result: { applied: true, absorbed: 0, armorBroken: false, fatal: false },
+  });
+
+  assert.ok(shot().includes('combat.player.pain'));
+  /* A full magazine into the vest over the next three and a half seconds. */
+  for (let i = 0; i < 30; i++) {
+    clock += 0.1;
+    assert.equal(shot().includes('combat.player.pain'), false,
+      `the player spoke again ${(clock - 100).toFixed(1)}s after his last vocal`);
+  }
+  assert.equal(
+    engine.calls.filter(({ cue }) => cue === 'combat.player.pain').length,
+    1,
+    '31 rounds produced more than one player vocal',
+  );
+
+  clock += 2;
+  assert.ok(shot().includes('combat.player.pain'), 'the cooldown never released');
+
+  /* And the roll: with the cooldown clear, most eligible hits still say
+   * nothing, so the vocal is not a metronome either. */
+  const rolled = new CombatAudio({ audio: audioSpy(), now: () => clock, random: () => 0.99 });
+  clock += 100;
+  assert.equal(rolled.playerVocal({ position: at }), null);
+  clock += 100;
+  assert.equal(rolled.playerVocal({ position: at }), null);
+  /* A killing hit skips the dice -- but never the cooldown. */
+  assert.equal(rolled.playerVocal({ position: at, fatal: true }), 'combat.player.pain');
+  assert.equal(rolled.playerVocal({ position: at, fatal: true }), null);
 });
 
 test('CombatAudio distinguishes pistol, rifle and heavy near-pass calibers', () => {
@@ -384,11 +524,11 @@ test('the manifest carries the exact non-story combat production queue and brief
   const queued = manifest.sfx
     .filter(({ name }) => name.startsWith('combat.') || name.startsWith('weapon.shotgun.'))
     .map(({ name }) => name);
-  const expectedNames = NEW_PRODUCTION_CUES.map(({ name }) => name);
+  const expectedNames = [...NEW_PRODUCTION_CUES, ...VOCAL_PRODUCTION_CUES].map(({ name }) => name);
   assert.deepEqual(queued, expectedNames, 'no missing cues, unapproved voices or duplicate semantics');
 
   const byName = new Map(manifest.sfx.map((cue) => [cue.name, cue]));
-  for (const expected of NEW_PRODUCTION_CUES) {
+  for (const expected of [...NEW_PRODUCTION_CUES, ...VOCAL_PRODUCTION_CUES]) {
     const cue = byName.get(expected.name);
     assert.ok(cue, `${expected.name} must have an authoritative manifest production brief`);
     assert.equal(cue.duration, expected.duration, `${expected.name} duration`);
@@ -412,7 +552,25 @@ test('the manifest carries the exact non-story combat production queue and brief
   ]);
 });
 
+test('the queued pain cues stay visible to the booth sheet until they are recorded', () => {
+  /* The point of the pain bank is that it is UN-recorded work that must not
+   * go quiet. `npm run record:sheet` lists a cue as an effect row exactly when
+   * it has a prompt and no delivered file, so that is what is pinned here. */
+  for (const { name } of VOCAL_PRODUCTION_CUES) {
+    const cue = manifest.sfx.find((entry) => entry.name === name);
+    assert.ok(cue, `${name} must remain a manifest cue`);
+    assert.equal(typeof cue.prompt, 'string', `${name} must carry a generatable brief`);
+    assert.equal(cue.file ?? null, null, `${name} must resolve to ${name}.mp3, not an alias`);
+    if (audioIndex.files.includes(`${name}.mp3`)) {
+      assert.fail(`${name} now has a recording — move it into NEW_PRODUCTION_CUES `
+        + 'so the hash pin below covers it');
+    }
+  }
+});
+
 test('every new combat production cue has a non-trivial indexed recording with its current hash', () => {
+  /* Delivered queue only. VOCAL_PRODUCTION_CUES is deliberately excluded: it
+   * is briefed, discoverable and not yet cut, and the test above owns it. */
   for (const { name } of NEW_PRODUCTION_CUES) {
     const filename = `${name}.mp3`;
     const bytes = readFileSync(new URL(`../assets/sfx/${filename}`, import.meta.url));

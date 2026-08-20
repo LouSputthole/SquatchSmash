@@ -9,6 +9,26 @@ export const SECOND_VISIT_CLEANUP_TASKS = Object.freeze([
   'final_sweep',
 ]);
 
+/**
+ * What each cleanup task is owed before it can happen.
+ *
+ * Lou's final sweep is the LAST thing that happens in the club, and it was the
+ * last thing only because one interaction in hotdog-main.js happened to check
+ * the other three first. Every other caller -- a preview checkpoint replaying
+ * the tasks, a future beat, a debug jump -- walked straight past that check and
+ * could close the sweep with the bathrooms unchecked and HotDog's jewellery
+ * still on the carpet. The order is a property of the mission, so it lives with
+ * the mission and not with one button.
+ */
+const CLEANUP_PREREQUISITES = Object.freeze({
+  final_sweep: Object.freeze(['bathrooms', 'cleaning_kit', 'missing_evidence']),
+});
+
+/** Which prerequisites a cleanup task is still waiting on. Empty means go. */
+export function pendingCleanupPrerequisites(task, done = new Set()) {
+  return (CLEANUP_PREREQUISITES[task] ?? []).filter((id) => !done.has(id));
+}
+
 const CLEANUP_LABELS = Object.freeze({
   bathrooms: 'Check the men\'s room',
   cleaning_kit: 'Retrieve Aubbie\'s cleanup kit from storage',
@@ -215,6 +235,9 @@ export class SecondVisitMission {
 
   completeCleanup(task) {
     if (this.state !== 'cleanup' || !SECOND_VISIT_CLEANUP_TASKS.includes(task)) return false;
+    /* Out of order is refused here rather than at the button, so no caller can
+     * finish the sweep over an unfinished club. */
+    if (pendingCleanupPrerequisites(task, this.cleanup).length) return false;
     this.cleanup.add(task);
     this.complete(`cleanup.${task}`);
     if (SECOND_VISIT_CLEANUP_TASKS.every((id) => this.cleanup.has(id))) {

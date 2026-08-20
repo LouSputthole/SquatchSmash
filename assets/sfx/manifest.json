@@ -17485,6 +17485,37 @@
       "prompt": "One complete pump-action shotgun cycle after firing: fore-end pulled sharply back, heavy bolt clack, shell ejected without a floor landing, then fore-end driven forward and locked, no shot, no voice, no music."
     },
     {
+      "_comment": "Hostile and player pain. Non-verbal vocal effort, generated as SFX prompts rather than cast dialogue: a grunt is not a line, text-to-speech says \"ugh\" instead of making the sound, and casting a `voice` would make every hostile in Cartel Palace and Mansion Siege the same performer. Selected by CombatAudio.pain() in src/core/combat/audio.js and played positionally from the body.",
+      "name": "combat.pain.grunt.a",
+      "duration": 0.7,
+      "loop": false,
+      "prompt": "One adult man grunting from a bullet wound: a short involuntary vocal effort, air forced out through a clenched throat, no words at all, dry and close, no music, no gunshot."
+    },
+    {
+      "name": "combat.pain.grunt.b",
+      "duration": 0.75,
+      "loop": false,
+      "prompt": "A second adult man grunting from a bullet wound: a sharp winded grunt breaking into a hissed breath, involuntary vocal effort with no words at all, dry and close, no music, no gunshot."
+    },
+    {
+      "name": "combat.pain.cry",
+      "duration": 1.1,
+      "loop": false,
+      "prompt": "An adult man badly wounded by gunfire: a loud pained cry collapsing into ragged breathing, raw involuntary vocal effort with no words at all, close and dry, no music, no gunshot."
+    },
+    {
+      "name": "combat.pain.death",
+      "duration": 1.5,
+      "loop": false,
+      "prompt": "An adult man taking a fatal gunshot: a short scream cut off into a wet exhale as he goes down, involuntary vocal effort with no words at all, no music, no gunshot."
+    },
+    {
+      "name": "combat.player.pain",
+      "duration": 0.9,
+      "loop": false,
+      "prompt": "First-person player hit by a bullet: one adult man's close winded grunt through gritted teeth, mouth-near and dry with no room, involuntary vocal effort with no words at all, no music, no gunshot."
+    },
+    {
       "name": "silent.bust.switch",
       "duration": 1.4,
       "prompt": "A small concealed toggle under a marble plinth: a hard mechanical click with a metallic aftertaste, then a relay closing somewhere behind the wall."

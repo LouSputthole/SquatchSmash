@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import {
   SECOND_VISIT_CLEANUP_TASKS,
   SecondVisitMission,
+  pendingCleanupPrerequisites,
   buildSecondVisitLouScript,
   buildHotDogPartySequence,
   secondVisitLouStartNode,
@@ -214,4 +215,82 @@ test('completed cleanup tasks restore every matching party prop and pad', () => 
   assert.equal(party.food.group.visible, false);
   assert.equal(party.cleanup.brokenStool.visible, false);
   assert.equal(party.cleanup.blood.material.opacity, 0.2);
+});
+
+/* ================================================================== */
+/* Lou's final sweep is LAST, whoever asks                             */
+/*                                                                     */
+/* The order used to live in one interaction in hotdog-main.js, so the  */
+/* model itself would happily close the sweep first and leave the       */
+/* bathrooms, Aubbie's kit and HotDog's jewellery standing as finished   */
+/* business behind a mission that had already moved on. The rule is the  */
+/* mission's now, and these walk the tasks in the order a confused       */
+/* player, a replayed checkpoint or a new caller would.                  */
+/* ================================================================== */
+
+function missionInCleanup() {
+  const mission = new SecondVisitMission();
+  mission.enteredClub();
+  mission.startPerformance();
+  mission.finishPerformance();
+  mission.startAttack();
+  mission.resolveAttack();
+  assert.equal(mission.state, 'cleanup');
+  return mission;
+}
+
+test('the final sweep is refused until the club is actually clean', () => {
+  const mission = missionInCleanup();
+
+  assert.equal(mission.completeCleanup('final_sweep'), false,
+    'nothing has been done yet -- there is nothing to sweep up after');
+  assert.equal(mission.cleanup.has('final_sweep'), false);
+
+  assert.equal(mission.completeCleanup('cleaning_kit'), true);
+  assert.equal(mission.completeCleanup('final_sweep'), false, 'two prerequisites still owed');
+
+  assert.equal(mission.completeCleanup('missing_evidence'), true);
+  assert.equal(mission.completeCleanup('final_sweep'), false, 'the men\'s room is still owed');
+  assert.equal(mission.objectives.find((o) => o.id === 'wrap'), undefined,
+    'the body cannot be wrapped off a sweep that never happened');
+
+  assert.equal(mission.completeCleanup('bathrooms'), true);
+  assert.equal(mission.completeCleanup('final_sweep'), true, 'now it is the last thing left');
+  assert.ok(mission.objectives.find((o) => o.id === 'wrap'));
+});
+
+test('an out-of-order sweep cannot short-circuit the body being wrapped', () => {
+  const mission = missionInCleanup();
+
+  // The exact bypass: a caller that never asks hotdog-main.js's Lou button.
+  for (const task of ['final_sweep', 'bathrooms', 'cleaning_kit']) mission.completeCleanup(task);
+  assert.equal(mission.wrapBody(), false, 'the sweep and the jewellery are both still outstanding');
+
+  assert.equal(mission.completeCleanup('missing_evidence'), true);
+  assert.equal(mission.completeCleanup('final_sweep'), true);
+  assert.equal(mission.wrapBody(), true);
+});
+
+test('the cleanup order is published so a caller can say what is still owed', () => {
+  assert.deepEqual(pendingCleanupPrerequisites('final_sweep', new Set()),
+    ['bathrooms', 'cleaning_kit', 'missing_evidence']);
+  assert.deepEqual(
+    pendingCleanupPrerequisites('final_sweep', new Set(['bathrooms', 'missing_evidence'])),
+    ['cleaning_kit'],
+  );
+  assert.deepEqual(pendingCleanupPrerequisites('final_sweep', new Set(SECOND_VISIT_CLEANUP_TASKS)), []);
+  // The other three are free-order: the player finds them in whatever order
+  // the club sends him round it.
+  for (const task of ['bathrooms', 'cleaning_kit', 'missing_evidence']) {
+    assert.deepEqual(pendingCleanupPrerequisites(task, new Set()), [], task);
+  }
+});
+
+test('the authored cleanup order ends on the final sweep', () => {
+  assert.equal(SECOND_VISIT_CLEANUP_TASKS.at(-1), 'final_sweep',
+    'callers that walk the authored list in order must still be walking a legal order');
+  const mission = missionInCleanup();
+  for (const task of SECOND_VISIT_CLEANUP_TASKS) {
+    assert.equal(mission.completeCleanup(task), true, task);
+  }
 });
