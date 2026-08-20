@@ -98,7 +98,11 @@ const NODES = Object.freeze([
   { x: 176, z: -156, y: 33.4, halfWidth: 1.45, stage: 'deep' },
   { x: 176, z: -136, y: 33.8, halfWidth: 1.4, stage: 'deep' },
   { x: 164, z: -122, y: 33.2, halfWidth: 1.5, stage: 'deep' },
-  { x: 146, z: -118, y: 32.6, halfWidth: 1.8, stage: 'deep' },
+  /* The last knot is the parking space, not a waypoint. `field.js` levels a
+   * spur around it, so the rail that has carried the car for a kilometre is
+   * what puts it on the pad — no separate parking manoeuvre, and the turn off
+   * the track is sold by the hairpin immediately before this. */
+  { x: 138, z: -108, y: 32.6, halfWidth: 1.9, stage: 'deep' },
 ]);
 
 /** Cruise speed by stage, metres per second, before bends are taken off it. */
@@ -306,7 +310,13 @@ export function cruiseSpeedAt(s) {
  * blade of undergrowth — six figures of calls per chunk row — and a 700-sample
  * scan each time is the difference between a scene that streams and one that
  * stutters every time the car crosses a chunk line. */
-const CELL = 20;
+/* Twenty-metre cells gathered a hundred-odd candidates per query wherever the
+ * route folds. Twelve costs one more ring in the rare far case and roughly
+ * halves the common one. Any point within twelve metres of the road is
+ * guaranteed to be answered exactly, which covers every query whose exact
+ * value is used: the corridor, the grading and the tree clearance are all
+ * inside eight. */
+const CELL = 12;
 const GRID = new Map();
 const key = (cx, cz) => `${cx},${cz}`;
 for (let i = 0; i < SAMPLES.length; i++) {
@@ -432,6 +442,9 @@ export function stageStartS(stage) {
  * ids are the script's, so wiring the dialogue to them is a lookup and not a
  * judgement call: see docs/SPECIAL-MEETING-SCRIPT.md.
  */
+/** Where the chain itself is strung. The car stops short of it, see below. */
+const CHAIN_GATE_S = sAtNode(17) - 12;
+
 export const ROAD_EVENTS = Object.freeze([
   Object.freeze({ id: 'pull_away', s: 0, stop: false }),
   /* The last streetlight in the game. Everything after this is headlights. */
@@ -442,8 +455,12 @@ export const ROAD_EVENTS = Object.freeze([
   Object.freeze({ id: 'dirt_first', s: sAtNode(13), stop: false }),
   Object.freeze({ id: 'dirt_second', s: sAtNode(15), stop: false }),
   /* SM-260. A chain across the track. Lag gets out twice and nobody mentions
-   * any of it. The drive stops here and waits for the scene to say go. */
-  Object.freeze({ id: 'chain', s: sAtNode(17) - 12, stop: true }),
+   * any of it. The drive stops here and waits for the scene to say go.
+   *
+   * The STOP is six and a half metres short of the gate, which is the whole
+   * staging of the beat: the chain has to be lit, ahead, with a man walking
+   * into the beams to reach it. Stopping on it would put it under the car. */
+  Object.freeze({ id: 'chain', s: CHAIN_GATE_S - 6.5, stop: true }),
   Object.freeze({ id: 'dirt_third', s: sAtNode(19), stop: false }),
   Object.freeze({ id: 'deep', s: stageStartS('deep'), stop: false }),
   Object.freeze({ id: 'dirt_fourth', s: sAtNode(24), stop: false }),
@@ -452,7 +469,7 @@ export const ROAD_EVENTS = Object.freeze([
 ]);
 
 /** The chain gate's own place on the road, for the prop and for Lag's feet. */
-export const CHAIN_S = ROAD_EVENTS.find((e) => e.id === 'chain').s;
+export const CHAIN_S = CHAIN_GATE_S;
 /** Where the tarmac ends. The cattle grid is laid across the road here. */
 export const TURN_OFF_S = ROAD_EVENTS.find((e) => e.id === 'turn_off').s;
 
@@ -493,6 +510,25 @@ export function driveSeconds(step = 4) {
   for (let s = 0; s < LENGTH; s += step) t += step / cruiseSpeedAt(s);
   return t;
 }
+
+/**
+ * Where the drive begins, in this scene's own space.
+ *
+ * The forest is its own world with its own origin: the road starts at (0, 0)
+ * heading NORTH and climbs from there. The block outside the flat
+ * (`../layout.js`) has the car heading EAST down a street at z = 0, so the two
+ * do not join up in world coordinates and are not meant to — they are separate
+ * loads with a cut between them. This is published so that whatever performs
+ * that cut can line the car up rather than guess.
+ */
+export const START = Object.freeze({
+  x: 0,
+  z: 0,
+  /** Vehicle-frame heading: forward is (sin h, cos h), so PI is due north. */
+  heading: Math.PI,
+  /** Camera yaw that matches it. A camera looks down its own −Z. */
+  cameraYaw: Math.PI * 2,
+});
 
 /** The authored knots, for anything that wants the shape rather than the line. */
 export function roadNodes() {

@@ -22,10 +22,17 @@
  * meant to be.
  */
 
-/** Road surface, kerb to kerb. */
+/**
+ * Road surface, kerb to kerb.
+ *
+ * Twelve metres, and the number is not cosmetic: a parking lane each side
+ * (2.4 m) plus two travel lanes (3.6 m) is what lets the sedan drive PAST the
+ * cars already at the kerb and then pull in behind them. At nine metres it
+ * cannot, and an arrival that drives through a parked Buick is not an arrival.
+ */
 export const ROAD = Object.freeze({
   centreZ: 0,
-  halfWidth: 4.5,
+  halfWidth: 6,
   kerbHeight: 0.15,
   /** How far the asphalt is drawn in each direction before the fog has it. */
   minX: -78,
@@ -34,14 +41,17 @@ export const ROAD = Object.freeze({
 
 /** The two pavements. `z0` is the kerb face, `z1` the building line. */
 export const SIDEWALK = Object.freeze({
-  north: Object.freeze({ z0: -ROAD.halfWidth, z1: -8.4, minX: -40, maxX: 34 }),
-  south: Object.freeze({ z0: ROAD.halfWidth, z1: 8.2, minX: -40, maxX: 34 }),
+  north: Object.freeze({ z0: -ROAD.halfWidth, z1: -10, minX: -40, maxX: 34 }),
+  south: Object.freeze({ z0: ROAD.halfWidth, z1: 10, minX: -40, maxX: 34 }),
 });
 
 /** Eastbound lane centre: the lane the sedan arrives in. */
-export const EASTBOUND_LANE_Z = -2.2;
+export const EASTBOUND_LANE_Z = -1.9;
 /** Westbound lane centre, used by the traffic that never stops here. */
-export const WESTBOUND_LANE_Z = 2.2;
+export const WESTBOUND_LANE_Z = 1.9;
+/** Kerb-side parking lane centres — where a stopped car's middle sits. */
+export const NORTH_PARKING_Z = -ROAD.halfWidth + 1.15;
+export const SOUTH_PARKING_Z = ROAD.halfWidth - 1.15;
 
 /** The apartment block itself. Four storeys of brick with a lit doorway. */
 export const APARTMENT = Object.freeze({
@@ -63,27 +73,34 @@ export const APARTMENT_HEIGHT = APARTMENT.storeys * APARTMENT.storeyHeight + APA
 /** Where the player is left standing when he comes downstairs. */
 export const SPAWN = Object.freeze({
   x: APARTMENT.entranceX,
-  z: -6.4,
+  z: SIDEWALK.north.z1 + 1.6,
   /** Player yaw convention is forward = (-sin y, -cos y); PI looks at +z. */
   yaw: Math.PI,
   /** Pavement top, so a scene can drop an eye height on it. */
   groundY: ROAD.kerbHeight,
 });
 
-/** The service alley, west of the building. Six metres, and no way through. */
+/**
+ * The service alley, west of the building. Six metres, and no way through.
+ *
+ * `maxX` is the apartment's own west wall and `endZ` is the back of it, on
+ * purpose: the alley is bounded on that side BY the building rather than by a
+ * wall of its own, so there is no strip of ground between the two for a
+ * curious player to walk into and fall off.
+ */
 export const ALLEY = Object.freeze({
   minX: -20.5,
-  maxX: -14.5,
+  maxX: -13.5,
   mouthZ: SIDEWALK.north.z1,
-  endZ: -25,
+  endZ: -24,
   dumpster: Object.freeze({ x: -18.5, z: -14.2, yaw: 0.08 }),
-  serviceDoor: Object.freeze({ x: -14.5, z: -11.6 }),
-  fireEscape: Object.freeze({ x: -14.5, z: -17.4 }),
+  serviceDoor: Object.freeze({ x: -13.5, z: -11.6 }),
+  fireEscape: Object.freeze({ x: -13.5, z: -17.4 }),
 });
 
 /** The neighbour to the west of the alley — five storeys, no entrance. */
 export const NEIGHBOUR = Object.freeze({
-  minX: -34,
+  minX: -38.5,
   maxX: ALLEY.minX,
   facadeZ: SIDEWALK.north.z1,
   depth: 16,
@@ -115,10 +132,10 @@ export const SOUTH_BLOCK = Object.freeze({
   storeys: 3,
   storeyHeight: 3.4,
   units: Object.freeze([
-    Object.freeze({ id: 'warehouse', minX: -26, maxX: -9.5, kind: 'blank' }),
+    Object.freeze({ id: 'warehouse', minX: -38.5, maxX: -9.5, kind: 'blank' }),
     Object.freeze({ id: 'laundromat', minX: -9.5, maxX: 3.5, kind: 'laundromat' }),
     Object.freeze({ id: 'shoe-repair', minX: 3.5, maxX: 15, kind: 'shuttered' }),
-    Object.freeze({ id: 'corner', minX: 15, maxX: 30, kind: 'blank' }),
+    Object.freeze({ id: 'corner', minX: 15, maxX: 38, kind: 'blank' }),
   ]),
 });
 
@@ -149,8 +166,8 @@ export const UTILITY_POLES = Object.freeze([
 
 /** Cars already at the kerb before anybody turns up. */
 export const PARKED_AT_KERB = Object.freeze([
-  Object.freeze({ x: -28.5, side: 'north', kind: 'sedan', colour: 0x1d2028 }),
-  Object.freeze({ x: -21.5, side: 'north', kind: 'lincoln', colour: 0x14161c }),
+  Object.freeze({ x: -30, side: 'north', kind: 'sedan', colour: 0x1d2028 }),
+  Object.freeze({ x: -24.5, side: 'north', kind: 'lincoln', colour: 0x14161c }),
   Object.freeze({ x: 12.5, side: 'north', kind: 'sedan', colour: 0x2c2f38, dented: true }),
   Object.freeze({ x: -13.5, side: 'south', kind: 'compact', colour: 0x3a2f45 }),
   Object.freeze({ x: 2.5, side: 'south', kind: 'van', colour: 0xb9b4a6 }),
@@ -161,20 +178,30 @@ export const PARKED_AT_KERB = Object.freeze([
 export const CROSS_STREET = Object.freeze({
   westX: -46,
   eastX: 48,
-  halfWidth: 4.5,
+  halfWidth: ROAD.halfWidth,
+  /**
+   * The lane a southbound car uses on the west cross street.
+   *
+   * Same rule as the main street and the same reason: traffic is on the right,
+   * so a car heading south (+Z) hugs +X. It matters because the turn onto the
+   * block has to be a RIGHT turn — a car swinging across the oncoming lane to
+   * get to the kerb is a car being driven by somebody in a hurry, and nobody
+   * in this one is.
+   */
+  lane: -46 + 1.9,
 });
 
 /**
  * Where the sedan stops.
  *
- * Half a Lincoln is a metre wide, so a centreline at z = −3.35 puts the
- * kerb-side flank 15 cm off a kerb face at −4.5: parked, not abandoned. The x
+ * Half a Lincoln is a metre wide, so a centreline in the parking lane puts the
+ * kerb-side flank 15 cm off the kerb face: parked, not abandoned. The x
  * is chosen so the FRONT PASSENGER door lands in front of the entrance, which
  * is the whole staging of the scene.
  */
 export const SEDAN_STOP = Object.freeze({
   x: -2.9,
-  z: -3.35,
+  z: NORTH_PARKING_Z,
   /** Heading in the vehicle's frame: forward = (sin h, cos h). PI/2 is east. */
   heading: Math.PI / 2,
 });
@@ -189,27 +216,28 @@ export const SEDAN_STOP = Object.freeze({
  * lane without ever crossing the centreline.
  */
 export const ARRIVAL_ROUTE = Object.freeze([
-  Object.freeze({ x: CROSS_STREET.westX, z: -20, speed: 9 }),
-  Object.freeze({ x: CROSS_STREET.westX, z: -12, speed: 7 }),
-  Object.freeze({ x: CROSS_STREET.westX + 1.6, z: -6.2, speed: 5.5 }),
-  Object.freeze({ x: CROSS_STREET.westX + 6.5, z: EASTBOUND_LANE_Z, speed: 6 }),
+  Object.freeze({ x: CROSS_STREET.lane, z: -20, speed: 9 }),
+  Object.freeze({ x: CROSS_STREET.lane, z: -14, speed: 7 }),
+  Object.freeze({ x: CROSS_STREET.lane + 2.1, z: -6.5, speed: 5.5 }),
+  Object.freeze({ x: CROSS_STREET.westX + 9, z: EASTBOUND_LANE_Z, speed: 6 }),
   Object.freeze({ x: -30, z: EASTBOUND_LANE_Z, speed: 7 }),
   Object.freeze({ x: -18, z: EASTBOUND_LANE_Z, speed: 5 }),
-  Object.freeze({ x: -11, z: -2.7, speed: 3.2 }),
-  Object.freeze({ x: -6.5, z: -3.2, speed: 2 }),
+  Object.freeze({ x: -12, z: -3, speed: 3.2 }),
+  Object.freeze({ x: -8, z: -4.5, speed: 2.2 }),
+  Object.freeze({ x: -5.2, z: SEDAN_STOP.z, speed: 1.6 }),
   Object.freeze({ x: SEDAN_STOP.x, z: SEDAN_STOP.z, speed: 0 }),
 ]);
 
 /** Where the sedan starts: parked, dark, well off the end of the block. */
 export const SEDAN_STAGING = Object.freeze({
-  x: CROSS_STREET.westX,
+  x: CROSS_STREET.lane,
   z: -34,
   heading: 0,
 });
 
 /** And the way out, once everybody is in it. East, and gone. */
 export const DEPARTURE_ROUTE = Object.freeze([
-  Object.freeze({ x: 4, z: -2.8, speed: 5 }),
+  Object.freeze({ x: 4, z: -3.4, speed: 5 }),
   Object.freeze({ x: 20, z: EASTBOUND_LANE_Z, speed: 9 }),
   Object.freeze({ x: 40, z: EASTBOUND_LANE_Z, speed: 12 }),
   Object.freeze({ x: 74, z: EASTBOUND_LANE_Z, speed: 14 }),

@@ -244,6 +244,9 @@ const TEST_MODULES = [
   './enolasquatch-interceptor-profiles.test.mjs',
   './heist-combat-adapter.test.mjs',
   './bing-rig-sockets.test.mjs',
+  './specialmeeting-block.test.mjs',
+  './specialmeeting-arrival.test.mjs',
+  './specialmeeting-ambience.test.mjs',
   './test-registry.test.mjs',
 ];
 
