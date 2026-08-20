@@ -973,7 +973,7 @@ const MEMORIAL_GRAVE_IDS = Object.freeze([
 ]);
 const TRAITOR_GRAVE_IDS = Object.freeze(['brawny', 'whiplash']);
 
-const SCENES = Object.freeze({
+export const SCENES = Object.freeze({
   [SCENE_IDS.APARTMENT]: Object.freeze({
     href: 'index.html',
     defaultSpawn: 'wake',
@@ -994,6 +994,7 @@ const SCENES = Object.freeze({
        * flat -- the call, the getting ready, the door refusing him and the
        * headlights -- and the front door is what ends it. The kerb is the
        * next thing he stands on. */
+      SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.INITIATION,
       SCENE_IDS.MANSION,
@@ -3448,6 +3449,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
+      SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.INITIATION,
     ].includes(sceneId) || finalArcPrelude) {
       firstBing.status = 'complete';
@@ -3480,6 +3482,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
+      SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.INITIATION,
     ].includes(sceneId) || finalArcPrelude) {
       squatchfather.status = 'complete';
@@ -3519,6 +3522,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
+      SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.INITIATION,
     ].includes(sceneId) || finalArcPrelude) {
       secondBing.status = 'complete';
@@ -3535,6 +3539,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     if ([
       SCENE_IDS.NO_WAKE, SCENE_IDS.SILVER_ROOM, SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
+      SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.INITIATION,
     ].includes(sceneId) || finalArcPrelude) {
       motel.status = 'complete';
@@ -3553,7 +3558,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
 
     if ([
       SCENE_IDS.SILVER_ROOM, SCENE_IDS.SILVER_PINES,
-      SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION,
+      SCENE_IDS.BANK_HEIST, SCENE_IDS.SPECIAL_MEETING, SCENE_IDS.INITIATION,
     ]
       .includes(sceneId) || finalArcPrelude) {
       noWake.status = 'complete';
@@ -3575,7 +3580,8 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       return;
     }
 
-    if ([SCENE_IDS.SILVER_PINES, SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION]
+    if ([SCENE_IDS.SILVER_PINES, SCENE_IDS.BANK_HEIST,
+      SCENE_IDS.SPECIAL_MEETING, SCENE_IDS.INITIATION]
       .includes(sceneId) || finalArcPrelude) {
       silver.status = 'complete';
       silver.outcome = 'strong';
@@ -3604,7 +3610,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       return;
     }
 
-    if ([SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION].includes(sceneId)
+    if ([SCENE_IDS.BANK_HEIST, SCENE_IDS.SPECIAL_MEETING, SCENE_IDS.INITIATION].includes(sceneId)
       || finalArcPrelude) {
       seedCompletedGolfRound(golf);
       state.story.chapter = 'heist_day';
@@ -3638,7 +3644,9 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       return;
     }
 
-    if (sceneId === SCENE_IDS.INITIATION || finalArcPrelude) {
+    if (sceneId === SCENE_IDS.INITIATION
+      || sceneId === SCENE_IDS.SPECIAL_MEETING
+      || finalArcPrelude) {
       bankHeist.status = 'complete';
       bankHeist.checkpoint = 'vehicle_swap';
       bankHeist.briefingComplete = true;

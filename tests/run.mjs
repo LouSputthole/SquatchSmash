@@ -253,6 +253,7 @@ const TEST_MODULES = [
   './specialmeeting-ambience.test.mjs',
   './specialmeeting-script.test.mjs',
   './specialmeeting-act-one.test.mjs',
+  './scene-pages-hud-contract.test.mjs',
   './test-registry.test.mjs',
 ];
 

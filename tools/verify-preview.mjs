@@ -44,7 +44,16 @@ const EXPECTED_SCENE_LINKS = Object.freeze({
   enolasquatch: 'enolasquatch.html?preview=1',
   'mansion-return': 'mansion.html?visit=return&preview=1',
   'cartel-palace': 'cartel-palace.html?preview=1',
+  'special-meeting': 'specialmeeting.html?preview=1',
 });
+/* Scenes with a page of their own that deliberately have no launcher card.
+ *
+ * The apartment has a whole block of its own (`APARTMENT_PREVIEW_CASES`) and
+ * would be a duplicate here; the graveyard is reached through the Bada Bing's
+ * card, not on its own. Everything else in `SCENES` with an `href` must have a
+ * card, and the check below derives that from the campaign rather than from
+ * the list above -- see why. */
+const NO_LAUNCHER_CARD = Object.freeze(new Set(['apartment']));
 const APARTMENT_PREVIEW_CASES = Object.freeze([
   Object.freeze({
     variant: 'day-one-wake', spawn: 'wake', chapter: 'day_one', day: 1,
@@ -227,6 +236,41 @@ try {
     launcher.title === 'Scene preview'
       && linksMatchExpected(launcher.links, EXPECTED_SCENE_LINKS),
     JSON.stringify(launcher));
+
+  /* AND THE LIST ABOVE IS NOT ALLOWED TO BE THE ONLY SOURCE OF TRUTH.
+   *
+   * `EXPECTED_SCENE_LINKS` is an exact match in both directions and it still
+   * missed a whole scene. THE SPECIAL MEETING shipped playable, with its own
+   * page, its own tests and its own place on the campaign route, and it was
+   * absent from the launcher AND from that list -- so the two agreed perfectly
+   * about a scene neither of them had heard of, and the guard written to stop
+   * exactly this reported everything was fine.
+   *
+   * A hand-maintained list cannot catch a scene nobody remembered. This reads
+   * `SCENES` out of the campaign instead: every scene with a page of its own
+   * has to be reachable from the launcher, and the only way to be exempt is to
+   * be named in `NO_LAUNCHER_CARD` with a reason beside it. */
+  const campaignPages = await page.evaluate(async () => {
+    const { SCENES } = await import('/src/core/campaign.js');
+    return Object.entries(SCENES)
+      .filter(([, scene]) => typeof scene?.href === 'string' && scene.href)
+      .map(([id, scene]) => [id, scene.href]);
+  });
+  /* Matched on the whole href as a PREFIX, not on the filename. Two scenes
+   * share `bing.html` and two share `mansion.html`, separated only by their
+   * query (`?visit=2`, `?visit=return`), so cutting at the '?' would let the
+   * first Bing's card stand in for the second's and pass a launcher that is
+   * missing one. */
+  const carded = launcher.links.map(([, href]) => String(href));
+  const missing = campaignPages
+    .filter(([id]) => !NO_LAUNCHER_CARD.has(id))
+    .filter(([, href]) => !carded.some((link) => link.startsWith(href)))
+    .map(([id, href]) => `${id} (${href})`);
+  check('every campaign scene with a page of its own is reachable from the launcher',
+    missing.length === 0,
+    missing.length
+      ? `no launcher card for: ${missing.join(', ')}`
+      : `${campaignPages.length} scene pages, all carded or deliberately exempt`);
   const expectedApartmentLinks = Object.fromEntries(APARTMENT_PREVIEW_CASES.map(({ variant }) => [
     variant,
     `index.html?preview=1&apartment=${variant}`,
