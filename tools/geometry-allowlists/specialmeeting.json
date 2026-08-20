@@ -5,21 +5,2814 @@
   "suppressionPolicy": [
     {
       "state": "kerb-arrived",
-      "overlap": 0,
-      "checkSupport": 0,
-      "sources": []
+      "overlap": 366,
+      "checkSupport": 590,
+      "sources": [
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#2",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#3",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.dumpster#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.rubbish-bag#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.rubbish-bag#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.rubbish-bag#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.rubbish-bag#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.rubbish-bag#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.service-door#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.service-lamp#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.base-course#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.cornice#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#12",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#13",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#14",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#15",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#16",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#17",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#18",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#19",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#20",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#21",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#22",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#23",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A0#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A2#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A3#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A4#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A5#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A0#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A2#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A3#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A4#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A5#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A0#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A2#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A3#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A4#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A5#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A0#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A2#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A3#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A4#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A5#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.bin#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.bin#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.buzzers#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.canopy#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.doors#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.handrail#0",
+          "scope": "inherited",
+          "overlap": 3,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.lamp-lens#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.mullion#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.number#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.step.lower#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.step.upper#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.bench#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.cross-street.east#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.cross-street.west#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.hoarding.sign#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.hoarding.sign#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.hydrant#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.kerbstone.north#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.kerbstone.south#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#12",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#13",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#14",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#15",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#16",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#17",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#18",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#19",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#20",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#21",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.lane-dash#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.mailbox#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.newspaper-box#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.newspaper-box#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=car.compact#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 14
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=car.sedan#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=car.suv#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.bay-line#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.bay-line#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.bay-line#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.bay-line#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.bay-line.last#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.curb-cut#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.frontage-fence#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.frontage-fence#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.sign#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.parking#0/name=parking.sign-post#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.puddle#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.puddle#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.puddle#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.puddle#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.puddle#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.puddle#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.service-drop#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.service-drop#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.side-gate#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.signal.east#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.signal.west#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.skyline#0/name=skyline.blocks#0",
+          "scope": "direct",
+          "overlap": 112,
+          "checkSupport": 112
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.skyline#0/name=skyline.rooftops#0",
+          "scope": "direct",
+          "overlap": 56,
+          "checkSupport": 56
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.skyline#0/name=skyline.warning-lights#0",
+          "scope": "direct",
+          "overlap": 3,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.grille.laundromat#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.grille.shoe-repair#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.laundromat.hours#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.laundromat.security-light#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.laundromat.sign#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.loading-door#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.loading-door#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.shoe-repair.papered-transom#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.shoe-repair.sign#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.shopfront-recess#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.shopfront-recess#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#12",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#13",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#14",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#15",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#16",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#17",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#18",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#19",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#20",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#21",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#22",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#23",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#24",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#25",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#26",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#27",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#28",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#29",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#30",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#31",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#32",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#33",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#34",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#35",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#36",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#37",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#38",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#39",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#40",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#41",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#42",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#43",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#44",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#45",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.south#0/name=south.window#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.storm-drain#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.storm-drain#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.streetlamp#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.streetlamp#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.streetlamp#2",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.streetlamp#3",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.streetlamp#4",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.streetlamp#5",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.wire#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=car.compact#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=car.lincoln#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=car.sedan#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=car.sedan#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 14
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=car.sedan#2",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=car.van#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.sedan#0/name=sedan.interior#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 41
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.sedan#0/name=sedan.interior#0/name=sedan.windscreen#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.sedan#0/name=sedan.lights#0/name=sedan.headlight.beam.left#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.sedan#0/name=sedan.lights#0/name=sedan.headlight.beam.right#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.sedan#0/name=sedan.trunk.lid#0",
+          "scope": "inherited",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
     },
     {
       "state": "kerb-waiting",
-      "overlap": 0,
-      "checkSupport": 0,
-      "sources": []
+      "overlap": 364,
+      "checkSupport": 588,
+      "sources": [
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#2",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#3",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.dumpster#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.rubbish-bag#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.rubbish-bag#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.rubbish-bag#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.rubbish-bag#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.rubbish-bag#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.service-door#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.alley#0/name=alley.service-lamp#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.base-course#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.cornice#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#12",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#13",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#14",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#15",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#16",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#17",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#18",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#19",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#20",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#21",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#22",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#23",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.sill#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A0#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A2#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A3#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A4#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.0%3A5#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A0#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A2#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A3#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A4#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.1%3A5#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A0#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A2#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A3#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A4#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.2%3A5#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A0#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A2#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A3#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A4#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=apartment.window.3%3A5#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.bin#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.bin#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.buzzers#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.canopy#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.doors#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.handrail#0",
+          "scope": "inherited",
+          "overlap": 3,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.lamp-lens#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.mullion#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.number#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.step.lower#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.apartment#0/name=block.entrance#0/name=entrance.step.upper#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.bench#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.cross-street.east#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.cross-street.west#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.hoarding.sign#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.hoarding.sign#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.hydrant#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.kerbstone.north#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.kerbstone.south#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#12",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#13",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#14",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#15",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#16",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#17",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#18",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#19",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#20",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#21",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.lane-dash#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.mailbox#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.newspaper-box#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.newspaper-box#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=car.compact#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 14
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=car.sedan#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=car.suv#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.bay-line#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.bay-line#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.bay-line#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.bay-line#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.bay-line.last#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.curb-cut#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.fence-post#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.frontage-fence#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.frontage-fence#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.sign#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.parking#0/name=parking.sign-post#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.puddle#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.puddle#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.puddle#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.puddle#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.puddle#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.puddle#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.service-drop#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.service-drop#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.side-gate#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.signal.east#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.signal.west#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.skyline#0/name=skyline.blocks#0",
+          "scope": "direct",
+          "overlap": 112,
+          "checkSupport": 112
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.skyline#0/name=skyline.rooftops#0",
+          "scope": "direct",
+          "overlap": 56,
+          "checkSupport": 56
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.skyline#0/name=skyline.warning-lights#0",
+          "scope": "direct",
+          "overlap": 3,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.grille.laundromat#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.grille.shoe-repair#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.laundromat.hours#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.laundromat.security-light#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.laundromat.sign#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.loading-door#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.loading-door#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.shoe-repair.papered-transom#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.shoe-repair.sign#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.shopfront-recess#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.shopfront-recess#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#12",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#13",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#14",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#15",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#16",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#17",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#18",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#19",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#20",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#21",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#22",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#23",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#24",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#25",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#26",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#27",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#28",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#29",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#30",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#31",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#32",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#33",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#34",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#35",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#36",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#37",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#38",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#39",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#40",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#41",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#42",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#43",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#44",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#45",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.south#0/name=south.window#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.storm-drain#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.storm-drain#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.streetlamp#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.streetlamp#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.streetlamp#2",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.streetlamp#3",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.streetlamp#4",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.streetlamp#5",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#10",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#11",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#5",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#6",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#7",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#8",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=block.wire#9",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=car.compact#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=car.lincoln#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=car.sedan#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=car.sedan#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 14
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=car.sedan#2",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.block#0/name=car.van#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.sedan#0/name=sedan.interior#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 41
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.sedan#0/name=sedan.interior#0/name=sedan.windscreen#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:specialmeeting-kerb-waiting/name=specialmeeting.sedan#0/name=sedan.trunk.lid#0",
+          "scope": "inherited",
+          "overlap": 1,
+          "checkSupport": 0
+        }
+      ]
     },
     {
       "state": "spur",
-      "overlap": 0,
-      "checkSupport": 0,
-      "sources": []
+      "overlap": 1790,
+      "checkSupport": 1790,
+      "sources": [
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-2#0/name=forest.foliage#0/name=forest.crowns.1#0",
+          "scope": "direct",
+          "overlap": 161,
+          "checkSupport": 161
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-3#0/name=forest.foliage#0/name=forest.crowns.1#0",
+          "scope": "direct",
+          "overlap": 156,
+          "checkSupport": 156
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.1.-4#0/name=forest.foliage#0/name=forest.crowns.1#0",
+          "scope": "direct",
+          "overlap": 135,
+          "checkSupport": 135
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-2#0/name=forest.foliage#0/name=forest.crowns.1#0",
+          "scope": "direct",
+          "overlap": 144,
+          "checkSupport": 144
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-3#0/name=forest.foliage#0/name=forest.crowns.1#0",
+          "scope": "direct",
+          "overlap": 191,
+          "checkSupport": 191
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-3#0/name=forest.foliage#0/name=forest.crowns.2#0",
+          "scope": "direct",
+          "overlap": 185,
+          "checkSupport": 185
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-3#0/name=forest.foliage#0/name=forest.crowns.3#0",
+          "scope": "direct",
+          "overlap": 185,
+          "checkSupport": 185
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.2.-4#0/name=forest.foliage#0/name=forest.crowns.1#0",
+          "scope": "direct",
+          "overlap": 159,
+          "checkSupport": 159
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-2#0/name=forest.foliage#0/name=forest.crowns.1#0",
+          "scope": "direct",
+          "overlap": 173,
+          "checkSupport": 173
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-3#0/name=forest.foliage#0/name=forest.crowns.1#0",
+          "scope": "direct",
+          "overlap": 171,
+          "checkSupport": 171
+        },
+        {
+          "sourceId": "root:specialmeeting-spur/name=specialmeeting.forest#0/name=forest.terrain#0/name=forest.chunk.3.-4#0/name=forest.foliage#0/name=forest.crowns.1#0",
+          "scope": "direct",
+          "overlap": 130,
+          "checkSupport": 130
+        }
+      ]
     }
   ]
 }

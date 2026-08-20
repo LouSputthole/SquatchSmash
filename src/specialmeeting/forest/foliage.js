@@ -455,7 +455,12 @@ export function buildFoliage(
      * crowns below are a porous silhouette that legitimately interpenetrates
      * and is excluded from the overlap test, the same exemption the
      * graveyard's pines carry. */
-    trunks.userData.geometryGate = { assemblyPrefix: 'specialmeeting-forest-tree' };
+    /* `instanceAssemblyPrefix`, not `assemblyPrefix`. The gate validates its
+     * own metadata keys and rejects an unknown one outright — a typo here
+     * takes the whole scene's collection down with
+     * "userData.geometryGate has unknown key(s)", which is a scene that
+     * cannot be checked at all rather than a scene that fails a check. */
+    trunks.userData.geometryGate = { instanceAssemblyPrefix: 'specialmeeting-forest-tree' };
     add(trunks);
 
     /* ---- crowns ----
