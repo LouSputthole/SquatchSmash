@@ -72,6 +72,96 @@ export const SHOTGUN_CUE_SLOTS = Object.freeze([
   'cycle',
 ]);
 
+/* ------------------------------------------------------------------------ *
+ * THE MIX. How loud each weapon is, relative to every other weapon.
+ *
+ * WHY THIS IS DATA AND WHY IT LIVES HERE. Every scene that plays a gun went
+ * through `playWeaponCue`, and every one of them passed its own flat volume:
+ * the player's fire was a hardcoded 0.75 for all seven guns, the palace's
+ * enemies 0.55, the siege's 0.6. So a .45 and a SAW came out of the speakers
+ * at exactly the same level, and the .45 — a 62-damage signature sidearm fired
+ * twice a second — was the one that disappeared, because a single crack has
+ * nowhere near the energy of thirteen rounds a second and needs the gain to
+ * say so. A per-scene fix would have to be made seven times and would drift
+ * six ways; the loudness of a gun is a property OF THE GUN, so it is a column
+ * in the catalog beside its capacity and its recoil.
+ *
+ * HOW IT IS APPLIED. `playWeaponCue` multiplies: final = caller.volume * mix.
+ * 1.0 is therefore "exactly what this cue used to be", so no call site had to
+ * change and none of them are wrong — a scene still says how present the event
+ * is (near/far, player/NPC) and the catalog says which gun it is.
+ *
+ * THE NUMBERS, against the player's 0.75 fire:
+ *
+ *   shotgun 1.50   The heaviest thing in the game indoors, which is where a
+ *                  pump gun is used. 1.35 rounds a second, one shell per
+ *                  trigger, so there is no stacking to worry about and all of
+ *                  the headroom can go into a single shell.
+ *   barrett 1.42   A bigger round than the 12-gauge, but it is a 0.95 rps
+ *                  standoff rifle used down long sightlines and through
+ *                  distance falloff. Deliberately ranked just under the pump
+ *                  so the shotgun keeps the room.
+ *   revolver 1.34  The signature sidearm, and previously inaudible. Six slow,
+ *                  loud, sharp rounds: nothing about a wheelgun is sustained,
+ *                  so it can afford to be near the top and it has to be, or
+ *                  the gun the player carries all game reads as a cap gun.
+ *   ak47 1.16      7.62, and it is not a 5.56 — the same reason its stand-in
+ *                  is pitched down a major second from the carbine's.
+ *   carbine 1.08   Punchy and snappy, clearly above the 9mm and clearly under
+ *                  the shotgun. 12.5 rps is the ceiling here: an automatic
+ *                  weapon multiplies its own gain by its rate of fire, and
+ *                  anything higher turns held fire into a wall.
+ *   saw 0.98       13.3 rps of belt. Left a hair under unity precisely
+ *                  because it stacks — it is the loudest gun in the game by
+ *                  arithmetic without any help from this table, and pushing
+ *                  it further only feeds the master limiter.
+ *   pistol9 0.90   The smallest round on the rack and the backup weapon.
+ *                  Under the .45 on purpose; that gap is the whole reason to
+ *                  pick up the .45.
+ *
+ * Handling slots (the magazine, the dry click, the pump) sit at 1.0 unless
+ * the gun's mass says otherwise: they are foley, not gunfire, and a reload
+ * that competes with a shot is a mix nobody asked for.
+ * ------------------------------------------------------------------------ */
+
+/** Every slot at its old level. Spread first, then override what differs. */
+const FLAT_MIX = Object.freeze({
+  fire: 1,
+  'reload.out': 1,
+  'reload.in': 1,
+  empty: 1,
+  'mag.floor': 1,
+  cycle: 1,
+});
+
+const mix = (fire, over = {}) => Object.freeze({ ...FLAT_MIX, fire, ...over });
+
+/** Per-weapon, per-slot gain multipliers. See the block comment above. */
+export const WEAPON_MIX = Object.freeze({
+  // A hammer falling on a spent chamber is this gun's second-most-heard sound.
+  [WEAPON_IDS.REVOLVER]: mix(1.34, { empty: 1.12, 'mag.floor': 0.85 }),
+  // The pump is half of what a pump gun sounds like; it gets to be heard.
+  [WEAPON_IDS.SHOTGUN]: mix(1.50, { cycle: 1.18, 'reload.in': 1.05 }),
+  [WEAPON_IDS.PISTOL9]: mix(0.90),
+  [WEAPON_IDS.CARBINE]: mix(1.08),
+  [WEAPON_IDS.AK47]: mix(1.16),
+  // A loaded hundred-round box is the heaviest thing that hits these floors.
+  [WEAPON_IDS.SAW]: mix(0.98, { 'mag.floor': 1.15 }),
+  [WEAPON_IDS.BARRETT]: mix(1.42, { 'mag.floor': 1.08 }),
+});
+
+/**
+ * The gain for one weapon's one cue slot.
+ *
+ * Unity for anything unknown, so a weapon or slot added tomorrow is merely
+ * unmixed rather than silent. The test in `tests/weapon-audio-mix.test.mjs`
+ * is what stops a new gun from staying unmixed.
+ */
+export function weaponMix(id, slot) {
+  const gain = WEAPON_MIX[id]?.[slot];
+  return Number.isFinite(gain) && gain > 0 ? gain : 1;
+}
+
 const def = (o) => Object.freeze({
   auto: false,
   partialLoss: true,

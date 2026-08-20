@@ -84,14 +84,58 @@ const SAMPLE_CUES = [...new Set([
  */
 export const weaponAudio = {
   hasSample: (name) => samples.get(name) != null,
-  play: (name, { volume = 1, rate = 1, delay = 0 } = {}) => {
+  /* Hand the WHOLE option bag down, rather than picking three fields out of
+   * it. This used to destructure `{ volume, rate, delay }` and rebuild the
+   * object, which silently ate `position`, `ref` and `maxDist` — so a gun
+   * fired anywhere but in the player's hands would have played flat and
+   * full-volume with nothing anywhere saying so. `playWeaponCue` fills those
+   * in for every positional call now, which is exactly the kind of argument
+   * a hand-copied wrapper drops. */
+  play: (name, opts = {}) => {
+    const { delay = 0 } = opts;
     if (delay > 0) {
-      setTimeout(() => playSample(name, { volume, rate }), delay * 1000);
+      setTimeout(() => playSample(name, opts), delay * 1000);
       return true;
     }
-    return playSample(name, { volume, rate });
+    return playSample(name, opts);
   },
 };
+
+/**
+ * Where the ear is, in the scene's own world coordinates.
+ *
+ * A `PannerNode` is measured against `ctx.listener`, and this module has no
+ * camera. Until something tells it where the player's head is, a positional
+ * cue is played FLAT rather than panned against an unset listener sitting at
+ * the origin — attenuating a sound against an ear that is not really there is
+ * a worse lie than not attenuating it at all.
+ */
+let listenerPlaced = false;
+
+/** Move the ear. Call it from the scene's frame loop with the camera. */
+export function setListenerPose(position, forward = null) {
+  if (!ctx || !position || !Number.isFinite(position.x)) return false;
+  const L = ctx.listener;
+  if (L.positionX) {
+    L.positionX.value = position.x;
+    L.positionY.value = position.y ?? 0;
+    L.positionZ.value = position.z;
+  } else {
+    L.setPosition(position.x, position.y ?? 0, position.z);
+  }
+  if (forward && Number.isFinite(forward.x)) {
+    if (L.forwardX) {
+      L.forwardX.value = forward.x;
+      L.forwardY.value = forward.y ?? 0;
+      L.forwardZ.value = forward.z;
+      L.upY.value = 1;
+    } else {
+      L.setOrientation(forward.x, forward.y ?? 0, forward.z, 0, 1, 0);
+    }
+  }
+  listenerPlaced = true;
+  return true;
+}
 
 // ---------- Recorded samples ----------
 // Preferred when decoded; every caller keeps its synth fallback, so nothing
@@ -121,7 +165,9 @@ function loadSamples(names) {
   return Promise.all(waits);
 }
 
-function playSample(name, { volume = 1, rate = 1 } = {}) {
+function playSample(name, {
+  volume = 1, rate = 1, position = null, ref = 3, maxDist = 55,
+} = {}) {
   const buf = samples.get(name);
   if (!buf || !ctx) return false;
   const src = ctx.createBufferSource();
@@ -129,7 +175,26 @@ function playSample(name, { volume = 1, rate = 1 } = {}) {
   src.playbackRate.value = rate;
   const g = ctx.createGain();
   g.gain.value = volume;
-  src.connect(g).connect(master);
+  /* `ref`/`maxDist` are the shared weapon system's names for a panner's
+   * reference and maximum distance, so a cue routed through `weaponAudio`
+   * lands here already carrying a gunshot's falloff rather than a prop's. */
+  if (position && listenerPlaced && ctx.createPanner) {
+    const p = ctx.createPanner();
+    p.panningModel = 'HRTF';
+    p.distanceModel = 'inverse';
+    p.refDistance = ref;
+    p.maxDistance = maxDist;
+    if (p.positionX) {
+      p.positionX.value = position.x;
+      p.positionY.value = position.y ?? 0;
+      p.positionZ.value = position.z;
+    } else {
+      p.setPosition(position.x, position.y ?? 0, position.z);
+    }
+    src.connect(g).connect(p).connect(master);
+  } else {
+    src.connect(g).connect(master);
+  }
   src.start();
   return true;
 }

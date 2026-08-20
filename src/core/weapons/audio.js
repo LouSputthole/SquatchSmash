@@ -24,7 +24,7 @@
  * the dry click, and the discarded magazine hitting the floor. The pump adds
  * its mechanically distinct cycle.
  */
-import { WEAPON_ORDER, weaponCue, weaponCueSlots } from './catalog.js';
+import { WEAPON_ORDER, weaponCue, weaponCueSlots, weaponMix } from './catalog.js';
 
 /** Every cue this system wants recorded, keyed `weapon.<id>.<slot>`. */
 export const WEAPON_SFX = Object.freeze(Object.fromEntries(
@@ -101,16 +101,65 @@ export function weaponCueNames() {
 }
 
 /**
+ * Default distance falloff for a gunshot placed in the world.
+ *
+ * `AudioEngine.play` defaults to ref 1.4 / maxDist 18, which are the numbers
+ * for a domestic prop — a fridge door, a bottle on a counter. A rifle heard
+ * across a courtyard on those numbers is inaudible past about four rooms, and
+ * that is exactly what happened: the mansion siege discovered it and tuned its
+ * own calls to ref 3 / maxDist 55-60, while the cartel palace passed a
+ * position and nothing else and its guards' guns went silent at 18 metres in
+ * an open compound.
+ *
+ * So the sensible falloff for a gun belongs to the gun layer, not to each
+ * scene that remembers. These are the siege's proven values. A caller that
+ * passes its own ref or maxDist still wins — nothing here overrides a scene
+ * that has actually thought about it.
+ */
+export const WEAPON_POSITIONAL_DEFAULTS = Object.freeze({ ref: 3, maxDist: 55 });
+
+/**
+ * The options one weapon cue is actually played with.
+ *
+ * Two things happen here and nowhere else, so that every call site — the
+ * player's own gun, the palace's guards, the siege's attackers and the family
+ * — gets both without asking:
+ *
+ *   1. the catalog's per-weapon mix SCALES the caller's volume. Multiplying
+ *      rather than replacing is what keeps every existing call working: a
+ *      scene still says how present an event is, the catalog says which gun.
+ *   2. a positional call with no falloff of its own gets a gunshot's falloff
+ *      instead of a prop's.
+ *
+ * Exported because it is the whole contract, and a contract a test can read
+ * is a contract that stays true.
+ */
+export function weaponCueOptions(id, slot, opts = {}) {
+  const out = { ...opts, volume: (opts.volume ?? 1) * weaponMix(id, slot) };
+  if (opts.position) {
+    if (opts.ref === undefined) out.ref = WEAPON_POSITIONAL_DEFAULTS.ref;
+    if (opts.maxDist === undefined) out.maxDist = WEAPON_POSITIONAL_DEFAULTS.maxDist;
+  }
+  return out;
+}
+
+/**
  * Play one weapon cue: the real recording if it has landed, else the stand-in.
  *
  * @param {object} audio  an `AudioEngine`
  * @param {string} id     catalog id, e.g. 'saw'
  * @param {string} slot   one of WEAPON_CUE_SLOTS
- * @param {object} [opts] passed straight through to `AudioEngine.play`
+ * @param {object} [opts] passed to `AudioEngine.play` after `weaponCueOptions`
+ *                        has scaled `volume` by the catalog mix and filled in
+ *                        a gunshot's distance falloff for a positional call
  */
 export function playWeaponCue(audio, id, slot, opts = {}) {
   if (!audio) return false;
   const wanted = weaponCue(id, slot);
+  /* Every `audio.play` below is handed THIS, not the caller's raw options.
+   * The literal cue names stay literal so `tools/check.mjs` can still read
+   * them out of the source; only the options are computed. */
+  opts = weaponCueOptions(id, slot, opts);
   if (audio.hasSample?.(wanted)) { audio.play(wanted, opts); return true; }
 
   switch (`${id}.${slot}`) {
