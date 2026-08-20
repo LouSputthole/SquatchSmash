@@ -446,7 +446,11 @@ export function buildSpecialMeetingBlock(scene, { registerLight = null } = {}) {
     mat: MAT.darkSteel,
     cast: false,
   }), entrance);
-  own(fixture, 'entrance-lamp');
+  /* Bolted to the brick 3.24 m up, over the door. Nothing is under it and
+   * nothing is meant to be -- the gate looks DOWN for support and finds the
+   * top step two and a half metres below, which is a correct measurement of
+   * the wrong thing. */
+  own(fixture, 'entrance-lamp', { fixedSupportAnchor: true });
   loose(add(box({
     name: 'entrance.lamp-lens',
     size: [0.26, 0.09, 0.2],
@@ -475,7 +479,14 @@ export function buildSpecialMeetingBlock(scene, { registerLight = null } = {}) {
   loose(rail);
   add(rail, entrance);
 
-  for (const [bx, bz, tilt] of [[ex + half + 0.75, FACADE_Z + 0.7, 0.05], [ex + half + 1.35, FACADE_Z + 0.55, -0.08]]) {
+  /* Two bins beside the steps, and they have to MISS each other. They were
+   * authored sixty centimetres apart with bodies of radius 0.34 and lids of
+   * 0.37, so the second one stood six centimetres inside the first and its lid
+   * four centimetres inside that body -- a detail nobody would place on
+   * purpose and nobody looking at the doorway would fail to see. A metre apart
+   * clears both radii and both leans with room to spare, and they still read
+   * as a pair rather than as two bins at opposite ends of the wall. */
+  for (const [bx, bz, tilt] of [[ex + half + 0.75, FACADE_Z + 0.7, 0.05], [ex + half + 1.75, FACADE_Z + 0.55, -0.08]]) {
     const bin = group('block.bin');
     bin.add(cylinder({ name: 'bin.body', r: 0.34, h: 0.95, pos: [0, 0.62, 0], mat: MAT.darkSteel }));
     bin.add(cylinder({ name: 'bin.lid', r: 0.37, h: 0.07, pos: [0, 1.12, 0], mat: MAT.steel }));
@@ -1009,11 +1020,29 @@ export function buildSpecialMeetingBlock(scene, { registerLight = null } = {}) {
   }
   bench.add(box({ name: 'bench.seat', size: [2.6, 0.09, 0.54], pos: [0, 0.48, 0], mat: MAT.wood }));
   bench.add(box({ name: 'bench.back', size: [2.6, 0.42, 0.08], pos: [0, 0.72, -0.23], mat: MAT.wood }));
-  bench.position.set(-3.4, ROAD.kerbHeight, kerbLineSouth + 0.5);
+  /* IT HAS TO MISS THE POLE.
+   *
+   * The bench used to sit at x = -3.4 with a seat 2.6 m across, which put its
+   * west end at -4.7 -- and UTILITY_POLES[1] stands at exactly -4, on this
+   * pavement, at this z. The pole came up through the seat. It is the sort of
+   * thing that is invisible in a wide shot and impossible to unsee once the
+   * player walks past it, so the position is DERIVED from the pole rather than
+   * typed next to it, and the derivation is checked. */
+  const benchHalf = 1.3;
+  const benchX = -6.2;
+  for (const pole of UTILITY_POLES) {
+    if (Math.abs(pole.x - benchX) < benchHalf + 0.17 + 0.15) {
+      throw new Error(
+        `Special Meeting: the laundromat bench at x=${benchX} would swallow the `
+        + `utility pole at x=${pole.x}`,
+      );
+    }
+  }
+  bench.position.set(benchX, ROAD.kerbHeight, kerbLineSouth + 0.5);
   bench.rotation.y = Math.PI;
   own(bench, 'bench', { checkSupport: false });
   add(bench);
-  solid(-4.8, kerbLineSouth + 0.2, -2, kerbLineSouth + 0.8, 0, 1.0);
+  solid(benchX - benchHalf - 0.1, kerbLineSouth + 0.2, benchX + benchHalf + 0.1, kerbLineSouth + 0.8, 0, 1.0);
 
   for (const [nx, colour] of [[-11.4, 0x2a4a3a], [-10.7, 0x5a3a20]]) {
     const stand = group('block.newspaper-box');

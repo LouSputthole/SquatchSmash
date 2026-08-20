@@ -1492,9 +1492,30 @@ export function mountMansionCast(scene, world = {}, {
   /* `lanCenter`, not `lan`: `lan` is the mount option carrying the room's
    * published stations (Shubes' seat below). */
   const lanCenter = at('lanRoomCenter', { x: 6.4, y: BASEMENT_Y, z: 71.15 });
+  /* LAG HAS HIS OWN LINES NOW.
+   *
+   * Owner, 2026-08-20: *"Lag needs his own recognizable presence rather than
+   * just another generic mansion NPC."* One line as you come near him, and two
+   * more on the E prompt, in order -- the second of which points at the house
+   * without reading the objective out, which is what an NPC nudging you toward
+   * EXPLORE THE MANSION should sound like.
+   *
+   * `bark` and `onUse` are the cast's own existing hooks. No new NPC dialogue
+   * system: `post()` has had both since the house was built and Lag simply
+   * had neither. */
+  let lagSaid = 0;
+  const LAG_REPLIES = Object.freeze([SEQUENCES.lagBigHouse, SEQUENCES.lagLookAround]);
   post('lag', {
     name: 'Lag',
     model: familyModel(CHARACTER_IDS.LAG),
+    bark: SEQUENCES.lagHello,
+    onUse: () => {
+      /* Holds on the last line rather than looping back to the first: a man
+       * who repeats himself forever is a vending machine. */
+      dialogue.interject(LAG_REPLIES[Math.min(lagSaid, LAG_REPLIES.length - 1)]);
+      lagSaid += 1;
+      return true;
+    },
     x: lanCenter.x,
     y: lanCenter.y,
     // The north desk row is centred at z 73.5; +2.4 put both thighs inside
@@ -1536,6 +1557,15 @@ export function mountMansionCast(scene, world = {}, {
   }
 
   const theatreAt = at('theatreCenter', { x: -2.85, y: BASEMENT_Y, z: 72.6 });
+  /* What the three of them say, in order, and then what is on. Thunks rather
+   * than sequences so the last one can read the projector at the moment it is
+   * asked instead of at mount time. */
+  let theatreSaid = 0;
+  const THEATRE_REPLIES = Object.freeze([
+    () => SEQUENCES.theatreStanding,
+    () => SEQUENCES.theatreProjector,
+    () => theatreLines(),
+  ]);
   const theatreLines = () => {
     const channel = String(theatreChannel?.() ?? '').toUpperCase();
     if (channel.includes('GOODFELLAS')) return SEQUENCES.oldStoveGoodfellas;
@@ -1570,7 +1600,23 @@ export function mountMansionCast(scene, world = {}, {
      * evening only add Seff and Lag, so neither may be a hidden permission
      * switch for the visible man's own E prompt. */
     interactEnabled: () => true,
-    onUse: () => { dialogue.interject(theatreLines()); return true; },
+    /* THE BACK ROW TALKS.
+     *
+     * Owner: *"It shouldn't just be several Sasquatches silently staring at a
+     * screen like they were recently unplugged."*
+     *
+     * Once the evening has staged Seff and Lag into the row beside him, the E
+     * prompt is a conversation rather than one man's opinion of the reel:
+     * they get the standing-in-the-doorway exchange, then the one about the
+     * projector, and only then fall back to what Old Stove thinks of what is
+     * on. Before the evening he is alone in there and there is nobody to have
+     * a conversation with, so it is the reel line and nothing else. */
+    onUse: () => {
+      dialogue.interject(theatreEveningStaged
+        ? THEATRE_REPLIES[Math.min(theatreSaid++, THEATRE_REPLIES.length - 1)]()
+        : theatreLines());
+      return true;
+    },
   });
   oldStoveNpc.inFixture = 'theatre recliner';
   oldStoveNpc.theatreSeat = oldStoveSeatIndex;
@@ -1622,6 +1668,22 @@ export function mountMansionCast(scene, world = {}, {
       npc.theatreSeat = assignment.seat;
       markTheatreSeatOccupied(seat, assignment.id);
     }
+    /* AND THE ROOM NOTICES HIM WHEN HE OPENS THE DOOR.
+     *
+     * Owner's first theatre line is "Shut the door, you're letting all the
+     * movie out", which only works as an ARRIVAL -- it is the room reacting,
+     * not a thing you press E for. `post()` already has that hook: `bark` is
+     * the once-only line a man says when the player comes inside his range,
+     * and the loop that fires it reads the mutable post entry every frame. So
+     * the arrival exchange is armed HERE, at the moment there are three of
+     * them in the row to have it, rather than at mount time when Old Stove is
+     * alone in there and the first two lines have nobody to say them.
+     *
+     * Armed on Old Stove because he speaks first; `dialogue.interject` plays
+     * the whole five-line exchange from the one trigger, which is how every
+     * other multi-speaker beat in this house works. */
+    const stovePost = posts.find((entry) => entry.id === 'oldStove');
+    if (stovePost && !stovePost.said) stovePost.bark = SEQUENCES.theatreArrival;
     theatreEveningStaged = true;
     return true;
   }
@@ -2385,12 +2447,26 @@ export function mountMansionCast(scene, world = {}, {
     return true;
   }
 
-  /** Accept only the aim volume WeaponSystem actually struck. */
+  /**
+   * Accept a round that struck him -- the aim volume OR the man in it.
+   *
+   * It used to accept only the volume, because the volume was the only thing
+   * in the weapon system's hit targets. The body is in them now (see
+   * `lab.targets.xxxBody`), which is what lets a wound land on the limb the
+   * round actually hit instead of on the edge of a box a metre wide, so a hit
+   * anywhere under the rig has to count too -- otherwise adding the body would
+   * have made him harder to kill the more accurately you shot him.
+   */
   function hitXxxWithFirearm(hit) {
     if (!torture?.target || lab?.xxx?.alive === false) return false;
+    const body = lab?.targets?.xxxBody ?? null;
     let part = hit?.object;
-    while (part && part !== torture.target) part = part.parent;
-    if (part !== torture.target) return false;
+    let struck = false;
+    while (part) {
+      if (part === torture.target || (body && part === body)) { struck = true; break; }
+      part = part.parent;
+    }
+    if (!struck) return false;
     /* The weapon owns the shot and tracer. This owns only its consequence. */
     burstAtHim();
     burstAtHim();

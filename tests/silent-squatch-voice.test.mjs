@@ -81,10 +81,19 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   gas: 11, // the seven stages
   aftermath: 3, // LIFE SIGNS: 0
   exit: 11, // Snow, the cart, xXx, and Lou ending the night in his office
-  /* 13, not 9. Owner note, 2026-08-19: the quiet evening gained settling-in
-   * beats and Shubes gained a LAN-room chair -- a proximity bark, an idle
-   * twin, and the two-line RuneScape chat on his E press. */
-  evening: 13, // Old Stove's reel, the pool-deck dress help, and Shubes' RuneScape
+  /* 26, not 13. Owner playtest, 2026-08-20: *"The guys in the theater
+   * absolutely need dialogue. It shouldn't just be several Sasquatches
+   * silently staring at a screen like they were recently unplugged"*, and
+   * *"Lag needs his own recognizable presence rather than just another
+   * generic mansion NPC."*
+   *
+   * So the back row talks: a five-line arrival exchange when the Prospect
+   * opens the theatre door, the two-line one about the seats, and the
+   * three-line one about Lou's projector -- ten between Old Stove, Seff and
+   * Lag, who were sitting in a row saying nothing. Lag gains three of his own
+   * anywhere in the house, one of which points at the EXPLORE THE MANSION
+   * objective without reading it out. */
+  evening: 26, // the back row, Lag, Old Stove's reel, the pool deck, RuneScape
 
   /* The house's own people, added 2026-08-04 with src/mansion/cast.js. The
    * mission was written before anybody lived here; these are the lines the

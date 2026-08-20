@@ -104,6 +104,23 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
   const car = makeCar('lincoln', colour);
   const group = car.group;
   group.name = 'specialmeeting.lincoln';
+  /* The shell comes out of `src/bing/vehicles.js` and everything below is
+   * added straight into the same group, so without an id of its own the gate
+   * sees a borrowed body and a locally built interior as two unrelated objects
+   * sharing a cubic metre — forty findings for a seat being in a car. One id
+   * over the whole group says what is true: it is one car. The id is set HERE
+   * rather than in `vehicles.js`, because the shared sedan is parked all over
+   * the game and giving it a Special Meeting name in the shared module would
+   * put this scene's fingerprints on every other one. */
+  group.userData.geometryGate = {
+    assemblyId: 'specialmeeting.forest.lincoln',
+    /* And it is parked on the clearing floor, which is the streamed
+     * heightfield -- see the trunk note in ./foliage.js for why the gate
+     * cannot see a wheel on that. The spur Adapter checks the thing this
+     * stops checking, and checks it better: it asserts the car is within
+     * 1.2 m of `heightAt` at the parking spot, measured, on every run. */
+    fixedSupportAnchor: true,
+  };
   parent.add(group);
 
   const cabin = openCabin(car);

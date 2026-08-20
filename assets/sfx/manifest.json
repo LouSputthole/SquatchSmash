@@ -14744,1103 +14744,6 @@
       "prompt": "one wounded large furry crewman helped from the floor back to his feet, heavy clothing and tactical gear shifting, a hand gripping a shoulder, boots planting and one controlled breath, no intelligible speech, no music"
     },
     {
-      "name": "vo.silentsquatch.arrival.prospect.humming",
-      "voice": "player",
-      "say": "Whatever’s in here has been humming since the car."
-    },
-    {
-      "name": "vo.silentsquatch.arrival.rippin.balls",
-      "voice": "rippinflow",
-      "say": "Whatever’s in that thing, I don’t want it near my balls."
-    },
-    {
-      "name": "vo.silentsquatch.arrival.rippin.overthere",
-      "voice": "rippinflow",
-      "say": "I’m serious. Take it over there."
-    },
-    {
-      "name": "vo.silentsquatch.arrival.eric.mood",
-      "voice": "eric",
-      "say": "Lou’s waiting for you. And he’s been in one of those moods."
-    },
-    {
-      "name": "vo.silentsquatch.arrival.eric.dontsitdown",
-      "voice": "eric",
-      "say": "Top of the stairs, past the boardroom. Don’t sit down."
-    },
-    {
-      "name": "vo.silentsquatch.arrival.shubes.whatsgoingon",
-      "voice": "shubenator",
-      "say": "Hey guys, what’s going on?"
-    },
-    {
-      "name": "vo.silentsquatch.arrival.shubes.nevermind",
-      "voice": "shubenator",
-      "say": "Actually, never mind. I don’t want to know."
-    },
-    {
-      "name": "vo.silentsquatch.arrival.shubes.arms",
-      "voice": "shubenator",
-      "say": "I’m gonna go do arms."
-    },
-    {
-      "name": "vo.silentsquatch.arrival.snow.morework",
-      "voice": "snow",
-      "say": "Try not to make more work for me tonight."
-    },
-    {
-      "name": "vo.silentsquatch.arrival.snow.doesntcomeout",
-      "voice": "snow",
-      "say": "It doesn’t come out. Marble."
-    },
-    {
-      "name": "vo.silentsquatch.office.lou.shutthedoor",
-      "voice": "lou1",
-      "say": "Shut the door."
-    },
-    {
-      "name": "vo.silentsquatch.office.lou.onthedesk",
-      "voice": "lou1",
-      "say": "On the desk. Where I can see it."
-    },
-    {
-      "name": "vo.silentsquatch.office.lou.itsadesk",
-      "voice": "lou1",
-      "say": "It’s a desk, kid. It’s been there longer than you have."
-    },
-    {
-      "name": "vo.silentsquatch.office.prospect.whatsinside",
-      "voice": "player",
-      "say": "What’s inside?"
-    },
-    {
-      "name": "vo.silentsquatch.office.lou.soonenough",
-      "voice": "lou1",
-      "say": "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
-    },
-    {
-      "name": "vo.silentsquatch.office.lou.deliverittobooski",
-      "voice": "lou1",
-      "say": "Go deliver it to Booski. He’s in the basement."
-    },
-    {
-      "name": "vo.silentsquatch.office.lou.heykid",
-      "voice": "lou1",
-      "say": "Hey, kid."
-    },
-    {
-      "name": "vo.silentsquatch.office.lou.nicejob",
-      "voice": "lou1",
-      "say": "Nice job."
-    },
-    {
-      "name": "vo.silentsquatch.office.lou.dontaskanything",
-      "voice": "lou1",
-      "say": "Now don’t fuck around, and don’t ask anything you don’t wanna know."
-    },
-    {
-      "name": "vo.silentsquatch.office.lou.pastthearmory",
-      "voice": "lou1",
-      "say": "Down past the armory. Booski knows you’re coming."
-    },
-    {
-      "name": "vo.silentsquatch.cellar.prospect.wineracks",
-      "voice": "player",
-      "say": "Wine racks. Pool table. Photographs of men nobody talks about."
-    },
-    {
-      "name": "vo.silentsquatch.cellar.prospect.wherewashemeant",
-      "voice": "player",
-      "say": "So where’s the basement he meant?"
-    },
-    {
-      "name": "vo.silentsquatch.cellar.prospect.somebodydusts",
-      "voice": "player",
-      "say": "Somebody dusts this thing."
-    },
-    {
-      "name": "vo.silentsquatch.cellar.prospect.gapundertheplinth",
-      "voice": "player",
-      "say": "…There’s a gap under the plinth."
-    },
-    {
-      "name": "vo.silentsquatch.cellar.prospect.okay",
-      "voice": "player",
-      "say": "Okay."
-    },
-    {
-      "name": "vo.silentsquatch.cellar.prospect.musicsgone",
-      "voice": "player",
-      "say": "Music’s gone."
-    },
-    {
-      "name": "vo.silentsquatch.corridor.irish.notdry",
-      "voice": "irish",
-      "say": "Mind the floor there. It’s not dry."
-    },
-    {
-      "name": "vo.silentsquatch.corridor.irish.drains",
-      "voice": "irish",
-      "say": "There’s a drain every three metres in this hallway. Have a think about why a house needs that."
-    },
-    {
-      "name": "vo.silentsquatch.corridor.irish.goondown",
-      "voice": "irish",
-      "say": "Go on down. He doesn’t like waiting and I don’t like watching him wait."
-    },
-    {
-      "name": "vo.silentsquatch.corridor.xxx.comehere",
-      "voice": "xxx",
-      "say": "…Who’s that. Come here where I can see you."
-    },
-    {
-      "name": "vo.silentsquatch.corridor.xxx.thenewkid",
-      "voice": "xxx",
-      "say": "Ah. The new kid. Course it is."
-    },
-    {
-      "name": "vo.silentsquatch.corridor.booski.decorations",
-      "voice": "booski",
-      "say": "Quit talking to the decorations and bring me the case!"
-    },
-    {
-      "name": "vo.silentsquatch.corridor.irish.samethreelines",
-      "voice": "irish",
-      "say": "He’s been at that all night, God love him. Same three lines."
-    },
-    {
-      "name": "vo.silentsquatch.lab.dmt.youarelate",
-      "voice": "deathmegatron",
-      "say": "You’re late."
-    },
-    {
-      "name": "vo.silentsquatch.lab.dmt.twelvecentimetres",
-      "voice": "deathmegatron",
-      "say": "Don’t lean on the glass. It’s twelve centimetres. You could drive a car at it."
-    },
-    {
-      "name": "vo.silentsquatch.lab.dmt.sixofthem",
-      "voice": "deathmegatron",
-      "say": "Six of them. Been in there since March."
-    },
-    {
-      "name": "vo.silentsquatch.delivery.booski.deliveryboy",
-      "voice": "booski",
-      "say": "There he is. Our little delivery boy."
-    },
-    {
-      "name": "vo.silentsquatch.delivery.booski.bothhands",
-      "voice": "booski",
-      "say": "On the transfer table. Both hands."
-    },
-    {
-      "name": "vo.silentsquatch.delivery.booski.doesntgetlighter",
-      "voice": "booski",
-      "say": "It doesn’t get lighter, kid."
-    },
-    {
-      "name": "vo.silentsquatch.delivery.booski.thesquatchanium",
-      "voice": "booski",
-      "say": "Ah, yes. The Squatchanium."
-    },
-    {
-      "name": "vo.silentsquatch.delivery.booski.howhard",
-      "voice": "booski",
-      "say": "Do you have any idea how hard this stuff is to get?"
-    },
-    {
-      "name": "vo.silentsquatch.delivery.prospect.i",
-      "voice": "player",
-      "say": "I —"
-    },
-    {
-      "name": "vo.silentsquatch.delivery.booski.rhetorical",
-      "voice": "booski",
-      "say": "Rhetorical question. I don’t care."
-    },
-    {
-      "name": "vo.silentsquatch.delivery.booski.throughitgoes",
-      "voice": "booski",
-      "say": "Through it goes. Watch what they do with it."
-    },
-    {
-      "name": "vo.silentsquatch.delivery.booski.holdontothis",
-      "voice": "booski",
-      "say": "Here. Hold onto this."
-    },
-    {
-      "name": "vo.silentsquatch.delivery.prospect.whatsitfor",
-      "voice": "player",
-      "say": "What’s it for?"
-    },
-    {
-      "name": "vo.silentsquatch.delivery.booski.nothinghopefully",
-      "voice": "booski",
-      "say": "Nothing, hopefully."
-    },
-    {
-      "name": "vo.silentsquatch.build.orlova.transferchamber",
-      "voice": "orlova",
-      "say": "Transfer chamber secure."
-    },
-    {
-      "name": "vo.silentsquatch.build.aubbie.containmentcylinder",
-      "voice": "aubbie",
-      "say": "Careful with the containment cylinder."
-    },
-    {
-      "name": "vo.silentsquatch.build.vetrov.shieldingnotready",
-      "voice": "vetrov",
-      "say": "Doctor Aubbie, the shielding is not ready."
-    },
-    {
-      "name": "vo.silentsquatch.build.aubbie.whenisayitis",
-      "voice": "aubbie",
-      "say": "The shielding is ready when I say the shielding is ready."
-    },
-    {
-      "name": "vo.silentsquatch.build.aubbie.connectthecore",
-      "voice": "aubbie",
-      "say": "Connect the Squatchanium core."
-    },
-    {
-      "name": "vo.silentsquatch.build.sokolov.rotationstable",
-      "voice": "sokolov",
-      "say": "Core rotation stable."
-    },
-    {
-      "name": "vo.silentsquatch.build.orlova.coolantpressure",
-      "voice": "orlova",
-      "say": "Purple coolant pressure holding."
-    },
-    {
-      "name": "vo.silentsquatch.build.aubbie.increasecoolant",
-      "voice": "aubbie",
-      "say": "Increase the purple coolant flow."
-    },
-    {
-      "name": "vo.silentsquatch.build.marchuk.reacting",
-      "voice": "marchuk",
-      "say": "The Squatchanium is reacting with the biological stabilizer."
-    },
-    {
-      "name": "vo.silentsquatch.build.aubbie.supposedtoreact",
-      "voice": "aubbie",
-      "say": "It is supposed to react. That is the entire principle."
-    },
-    {
-      "name": "vo.silentsquatch.build.vetrov.radiationclimbing",
-      "voice": "vetrov",
-      "say": "Radiation levels are climbing."
-    },
-    {
-      "name": "vo.silentsquatch.build.vetrov.pipeline",
-      "voice": "vetrov",
-      "say": "My wife thinks I am working on a pipeline."
-    },
-    {
-      "name": "vo.silentsquatch.build.bezmenov.donottellthem",
-      "voice": "bezmenov",
-      "say": "Do not tell them that."
-    },
-    {
-      "name": "vo.silentsquatch.build.aubbie.goldfirst",
-      "voice": "aubbie",
-      "say": "No, no, no. Gold coupling first, purple coupling second."
-    },
-    {
-      "name": "vo.silentsquatch.build.sokolov.throughthefloor",
-      "voice": "sokolov",
-      "say": "Feel that through the floor. That is the rings."
-    },
-    {
-      "name": "vo.silentsquatch.build.sokolov.beyondprediction",
-      "voice": "sokolov",
-      "say": "Power output is beyond prediction."
-    },
-    {
-      "name": "vo.silentsquatch.build.aubbie.shadowsonthewall",
-      "voice": "aubbie",
-      "say": "If the stabilizer falls below forty percent, we all become shadows on the wall."
-    },
-    {
-      "name": "vo.silentsquatch.build.vetrov.notintheagreement",
-      "voice": "vetrov",
-      "say": "This was not in the original agreement."
-    },
-    {
-      "name": "vo.silentsquatch.build.orlova.firstoneever",
-      "voice": "orlova",
-      "say": "First one ever built. Anywhere. By us."
-    },
-    {
-      "name": "vo.silentsquatch.build.bezmenov.theywillkillus",
-      "voice": "bezmenov",
-      "say": "They will kill us when this is finished."
-    },
-    {
-      "name": "vo.silentsquatch.build.aubbie.theyneedus",
-      "voice": "aubbie",
-      "say": "They need us."
-    },
-    {
-      "name": "vo.silentsquatch.build.bezmenov.needsnoone",
-      "voice": "bezmenov",
-      "say": "Men like him need no one."
-    },
-    {
-      "name": "vo.silentsquatch.build.marchuk.temperature",
-      "voice": "marchuk",
-      "say": "Core temperature is increasing."
-    },
-    {
-      "name": "vo.silentsquatch.build.marchuk.stepback",
-      "voice": "marchuk",
-      "say": "Whoever is standing closest, step back. Both of you."
-    },
-    {
-      "name": "vo.silentsquatch.build.marchuk.weshouldevacuate",
-      "voice": "marchuk",
-      "say": "We should evacuate."
-    },
-    {
-      "name": "vo.silentsquatch.build.aubbie.fourminutes",
-      "voice": "aubbie",
-      "say": "Nobody is evacuating. We are four minutes from finished."
-    },
-    {
-      "name": "vo.silentsquatch.build.aubbie.watchinghistory",
-      "voice": "aubbie",
-      "say": "You are watching history through that window. Try to look like it."
-    },
-    {
-      "name": "vo.silentsquatch.build.sokolov.willbeoperational",
-      "voice": "sokolov",
-      "say": "Silent Squatch will be operational."
-    },
-    {
-      "name": "vo.silentsquatch.build.orlova.finalsequence",
-      "voice": "orlova",
-      "say": "Beginning final sequence."
-    },
-    {
-      "name": "vo.silentsquatch.build.booski.twelveweeks",
-      "voice": "booski",
-      "say": "Twelve weeks they’ve been down here. Eating my food."
-    },
-    {
-      "name": "vo.silentsquatch.build.dmt.six",
-      "voice": "deathmegatron",
-      "say": "Six."
-    },
-    {
-      "name": "vo.silentsquatch.build.booski.therestarehands",
-      "voice": "booski",
-      "say": "The one doing the talking is the one that matters. The rest are hands."
-    },
-    {
-      "name": "vo.silentsquatch.build.dmt.handscanwrite",
-      "voice": "deathmegatron",
-      "say": "Hands can write."
-    },
-    {
-      "name": "vo.silentsquatch.completion.aubbie.finalstabilization",
-      "voice": "aubbie",
-      "say": "Initiating final stabilization."
-    },
-    {
-      "name": "vo.silentsquatch.completion.computer.corecomplete",
-      "voice": "labcomputer",
-      "say": "PROJECT SILENT SQUATCH: CORE COMPLETE."
-    },
-    {
-      "name": "vo.silentsquatch.completion.orlova.itisholding",
-      "voice": "orlova",
-      "say": "It is holding. It is holding!"
-    },
-    {
-      "name": "vo.silentsquatch.completion.sokolov.twelveweeks",
-      "voice": "sokolov",
-      "say": "Twelve weeks! Twelve weeks!"
-    },
-    {
-      "name": "vo.silentsquatch.completion.vetrov.itoldyou",
-      "voice": "vetrov",
-      "say": "I told you the shielding would hold."
-    },
-    {
-      "name": "vo.silentsquatch.completion.bezmenov.congratulations",
-      "voice": "bezmenov",
-      "say": "Congratulations, everybody."
-    },
-    {
-      "name": "vo.silentsquatch.completion.aubbie.itiscomplete",
-      "voice": "aubbie",
-      "say": "It is complete."
-    },
-    {
-      "name": "vo.silentsquatch.completion.booski.youarecertain",
-      "voice": "booski",
-      "say": "You’re certain?"
-    },
-    {
-      "name": "vo.silentsquatch.completion.aubbie.fatsquatch",
-      "voice": "aubbie",
-      "say": "The core is stable. The Fat Squatch can now be assembled."
-    },
-    {
-      "name": "vo.silentsquatch.completion.booski.nobodyelseknows",
-      "voice": "booski",
-      "say": "And nobody else knows how to reproduce it?"
-    },
-    {
-      "name": "vo.silentsquatch.completion.aubbie.onlymyteam",
-      "voice": "aubbie",
-      "say": "Only my team understands the full process."
-    },
-    {
-      "name": "vo.silentsquatch.completion.booski.good",
-      "voice": "booski",
-      "say": "Good."
-    },
-    {
-      "name": "vo.silentsquatch.lock.booski.lockthelab",
-      "voice": "booski",
-      "say": "Lock the lab."
-    },
-    {
-      "name": "vo.silentsquatch.lock.dmt.sixninesixnine",
-      "voice": "deathmegatron",
-      "say": "Six nine six nine."
-    },
-    {
-      "name": "vo.silentsquatch.lock.dmt.againslower",
-      "voice": "deathmegatron",
-      "say": "Again. Slower."
-    },
-    {
-      "name": "vo.silentsquatch.lock.booski.notalongnumber",
-      "voice": "booski",
-      "say": "Six. Nine. Six. Nine. It is not a long number."
-    },
-    {
-      "name": "vo.silentsquatch.lock.bezmenov.whyisdoorlocked",
-      "voice": "bezmenov",
-      "say": "Why is door locked?"
-    },
-    {
-      "name": "vo.silentsquatch.lock.orlova.opendoor",
-      "voice": "orlova",
-      "say": "Open door."
-    },
-    {
-      "name": "vo.silentsquatch.lock.aubbie.whatisthis",
-      "voice": "aubbie",
-      "say": "What is this?"
-    },
-    {
-      "name": "vo.silentsquatch.lock.booski.usefulnessexpired",
-      "voice": "booski",
-      "say": "He’s finished. He’s not a scientist any more, he’s a witness with a doctorate.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
-    },
-    {
-      "name": "vo.silentsquatch.lock.booski.handleit",
-      "voice": "booski",
-      "say": "Handle it."
-    },
-    {
-      "name": "vo.silentsquatch.execution.aubbie.wehadagreement",
-      "voice": "aubbie",
-      "say": "Booski, we had agreement."
-    },
-    {
-      "name": "vo.silentsquatch.execution.booski.wedid",
-      "voice": "booski",
-      "say": "We did."
-    },
-    {
-      "name": "vo.silentsquatch.execution.aubbie.maintainthecore",
-      "voice": "aubbie",
-      "say": "You need me to maintain the core."
-    },
-    {
-      "name": "vo.silentsquatch.execution.booski.copiesofyournotes",
-      "voice": "booski",
-      "say": "We made copies of your notes."
-    },
-    {
-      "name": "vo.silentsquatch.execution.aubbie.whatyouhavebuilt",
-      "voice": "aubbie",
-      "say": "You do not understand what you have built!"
-    },
-    {
-      "name": "vo.silentsquatch.execution.booski.isaidhandleit",
-      "voice": "booski",
-      "say": "I said do it. And now I’ve said it twice, which means from here on it isn’t an order any more, it’s a test. You understand the difference? Because the difference is your whole life.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
-    },
-    {
-      "name": "vo.silentsquatch.execution.aubbie.lookatme",
-      "voice": "aubbie",
-      "say": "Boy. Look at me. You do not have to do this."
-    },
-    {
-      "name": "vo.silentsquatch.execution.booski.anyday",
-      "voice": "booski",
-      "say": "Any day, Prospect."
-    },
-    {
-      "name": "vo.silentsquatch.execution.dmt.notgoingtogetquieter",
-      "voice": "deathmegatron",
-      "say": "He is not going to get quieter."
-    },
-    {
-      "name": "vo.silentsquatch.execution.booski.thatwasaconsole",
-      "voice": "booski",
-      "say": "That was a console. Look at what you’re pointing it at."
-    },
-    {
-      "name": "vo.silentsquatch.execution.dmt.inthewayofthedoor",
-      "voice": "deathmegatron",
-      "say": "He’s in the way of the door."
-    },
-    {
-      "name": "vo.silentsquatch.reaction.orlova.whatareyoudoing",
-      "voice": "orlova",
-      "say": "What are you doing?!"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.vetrov.openthedoor",
-      "voice": "vetrov",
-      "say": "Open the door!"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.marchuk.whydidyoukillhim",
-      "voice": "marchuk",
-      "say": "Why did you kill him?!"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.sokolov.everythingyouasked",
-      "voice": "sokolov",
-      "say": "We did everything you asked!"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.vetrov.please",
-      "voice": "vetrov",
-      "say": "Please!"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.marchuk.noventilation",
-      "voice": "marchuk",
-      "say": "There is no ventilation!"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.orlova.wehavefamilies",
-      "voice": "orlova",
-      "say": "We have families!"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.sokolov.cannotleaveus",
-      "voice": "sokolov",
-      "say": "You cannot leave us in here!"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.vetrov.canworkforyou",
-      "voice": "vetrov",
-      "say": "We can build you another one. Smaller. Eight weeks. Six if you stop asking about the shielding.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.orlova.tellnobody",
-      "voice": "orlova",
-      "say": "We will tell nobody!"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.sokolov.moveback",
-      "voice": "sokolov",
-      "say": "Move! Move back!"
-    },
-    {
-      "name": "vo.silentsquatch.reaction.bezmenov.stop",
-      "voice": "bezmenov",
-      "say": "Stop."
-    },
-    {
-      "name": "vo.silentsquatch.silentnight.booski.youstartedthejob",
-      "voice": "booski",
-      "say": "You started the job."
-    },
-    {
-      "name": "vo.silentsquatch.silentnight.booski.finishit",
-      "voice": "booski",
-      "say": "Finish it."
-    },
-    {
-      "name": "vo.silentsquatch.silentnight.booski.samehand",
-      "voice": "booski",
-      "say": "It’s the same hand you just used."
-    },
-    {
-      "name": "vo.silentsquatch.silentnight.computer.activated",
-      "voice": "labcomputer",
-      "say": "SILENT NIGHT PROTOCOL ACTIVATED."
-    },
-    {
-      "name": "vo.silentsquatch.gas.orlova.ventsareopen",
-      "voice": "orlova",
-      "say": "The vents are open."
-    },
-    {
-      "name": "vo.silentsquatch.gas.vetrov.whyarethevents",
-      "voice": "vetrov",
-      "say": "Why are the vents open?"
-    },
-    {
-      "name": "vo.silentsquatch.gas.sokolov.gettothedoor",
-      "voice": "sokolov",
-      "say": "Get to the door! All of you, the door!"
-    },
-    {
-      "name": "vo.silentsquatch.gas.bezmenov.itoldyou",
-      "voice": "bezmenov",
-      "say": "I told you."
-    },
-    {
-      "name": "vo.silentsquatch.gas.marchuk.sleeve",
-      "voice": "marchuk",
-      "say": "Sleeve over your mouth. Breathe through the sleeve."
-    },
-    {
-      "name": "vo.silentsquatch.gas.vetrov.masksarelocked",
-      "voice": "vetrov",
-      "say": "The masks are locked. The masks are locked!"
-    },
-    {
-      "name": "vo.silentsquatch.gas.vetrov.icant",
-      "voice": "vetrov",
-      "say": "I can’t — I can’t —"
-    },
-    {
-      "name": "vo.silentsquatch.gas.marchuk.staydown",
-      "voice": "marchuk",
-      "say": "Down. Stay down."
-    },
-    {
-      "name": "vo.silentsquatch.gas.orlova.lookatme",
-      "voice": "orlova",
-      "say": "Look at me. Look at me!"
-    },
-    {
-      "name": "vo.silentsquatch.gas.sokolov.openit",
-      "voice": "sokolov",
-      "say": "Open it! Open it! Open —"
-    },
-    {
-      "name": "vo.silentsquatch.gas.marchuk.giveyourhand",
-      "voice": "marchuk",
-      "say": "Nadia. Give me your hand."
-    },
-    {
-      "name": "vo.silentsquatch.aftermath.booski.efficient",
-      "voice": "booski",
-      "say": "Efficient."
-    },
-    {
-      "name": "vo.silentsquatch.aftermath.booski.lousgonnalikeyou",
-      "voice": "booski",
-      "say": "Lou’s gonna like you."
-    },
-    {
-      "name": "vo.silentsquatch.aftermath.dmt.stillrunning",
-      "voice": "deathmegatron",
-      "say": "It’s still running. Look at it."
-    },
-    {
-      "name": "vo.silentsquatch.exit.booski.snowbasement",
-      "voice": "booski",
-      "say": "Snow. Basement."
-    },
-    {
-      "name": "vo.silentsquatch.exit.snow.howbad",
-      "voice": "snow",
-      "say": "How bad?"
-    },
-    {
-      "name": "vo.silentsquatch.exit.booski.bringthecart",
-      "voice": "booski",
-      "say": "Bring the cart."
-    },
-    {
-      "name": "vo.silentsquatch.exit.snow.jesuschrist",
-      "voice": "snow",
-      "say": "Jesus Christ."
-    },
-    {
-      "name": "vo.silentsquatch.exit.booski.andamop",
-      "voice": "booski",
-      "say": "And a mop."
-    },
-    {
-      "name": "vo.silentsquatch.exit.booski.louisstillawake",
-      "voice": "booski",
-      "say": "Upstairs. Lou’s still awake."
-    },
-    {
-      "name": "vo.silentsquatch.exit.snow.itoldyou",
-      "voice": "snow",
-      "say": "I told you not to make more work for me."
-    },
-    {
-      "name": "vo.silentsquatch.exit.xxx.familymeeting",
-      "voice": "xxx",
-      "say": "Family meeting go well?"
-    },
-    {
-      "name": "vo.silentsquatch.exit.lou.stayingtonight",
-      "voice": "lou1",
-      "say": "You’re staying here tonight."
-    },
-    {
-      "name": "vo.silentsquatch.exit.lou.guestroomdownstairs",
-      "voice": "lou1",
-      "say": "Guest room’s downstairs, off the cellar hall. It’s made up."
-    },
-    {
-      "name": "vo.silentsquatch.exit.lou.enjoythehouse",
-      "voice": "lou1",
-      "say": "Look around if you want. Have a drink, watch a picture. Then get some sleep."
-    },
-    {
-      "name": "vo.silentsquatch.evening.stove.putsomethingon",
-      "voice": "old-stove",
-      "say": "Put something on, kid. House this size, picture still doesn’t start itself."
-    },
-    {
-      "name": "vo.silentsquatch.evening.stove.godfather",
-      "voice": "old-stove",
-      "say": "This one knows when to sit still. Leave it here."
-    },
-    {
-      "name": "vo.silentsquatch.evening.stove.goodfellas",
-      "voice": "old-stove",
-      "say": "Good picture. Everybody talks too much. Accurate."
-    },
-    {
-      "name": "vo.silentsquatch.evening.stove.heat",
-      "voice": "old-stove",
-      "say": "Turn this one up. The street part."
-    },
-    {
-      "name": "vo.silentsquatch.evening.stove.blow",
-      "voice": "old-stove",
-      "say": "I knew a guy like this. Worse shirts."
-    },
-    {
-      "name": "vo.silentsquatch.evening.performer.sayhello",
-      "voice": "performer",
-      "say": "You gonna stand there looking nervous, or come say hello?"
-    },
-    {
-      "name": "vo.silentsquatch.evening.prospect.smooth",
-      "voice": "player",
-      "say": "I was trying to think of something smooth."
-    },
-    {
-      "name": "vo.silentsquatch.evening.performer.holdthestrap",
-      "voice": "performer",
-      "say": "Keep trying. Hold this strap instead."
-    },
-    {
-      "name": "vo.silentsquatch.evening.performer.useful",
-      "voice": "performer",
-      "say": "There. See? Useful beats smooth."
-    },
-    {
-      "name": "vo.silentsquatch.evening.shubes.fortytwomillion",
-      "voice": "shubenator",
-      "say": "Careful. Forty-two million on this account, and no way to explain where the other kind came from."
-    },
-    {
-      "name": "vo.silentsquatch.evening.shubes.sleptgreat",
-      "voice": "shubenator",
-      "say": "Strangled a guy in a parking lot last month. Came home, played three hours of this. Slept great."
-    },
-    {
-      "name": "vo.silentsquatch.evening.shubes.oldschool",
-      "voice": "shubenator",
-      "say": "It’s called Old School RuneScape. It’s from 2007. So’s my patience — get out of my light."
-    },
-    {
-      "name": "vo.silentsquatch.evening.shubes.himproblem",
-      "voice": "shubenator",
-      "say": "Some kid called me a noob at the Grand Exchange. If I ever find out where he lives, that’s a him problem."
-    },
-    {
-      "name": "vo.silentsquatch.gate.doorman.farenough",
-      "voice": "mansion-gate",
-      "say": "That’s far enough. Hands out of the pockets."
-    },
-    {
-      "name": "vo.silentsquatch.gate.doorman.expected",
-      "voice": "mansion-gate",
-      "say": "You’re expected. That is not the same as welcome."
-    },
-    {
-      "name": "vo.silentsquatch.gate.doorman.driveway",
-      "voice": "mansion-gate",
-      "say": "You’re standing on a driveway I have to watch. Go in or go back down the steps."
-    },
-    {
-      "name": "vo.silentsquatch.gate.doorman.staysinyourhand",
-      "voice": "mansion-gate",
-      "say": "That stays in your hand. You don’t set it down, you don’t open it, and you don’t hand it to me."
-    },
-    {
-      "name": "vo.silentsquatch.gate.doorman.differentway",
-      "voice": "mansion-gate",
-      "say": "Do that again and you leave the property a different way than you came onto it."
-    },
-    {
-      "name": "vo.silentsquatch.gate.doorman.straightthrough",
-      "voice": "mansion-gate",
-      "say": "Straight through. Don’t wander, don’t touch anything, and don’t talk to the help."
-    },
-    {
-      "name": "vo.silentsquatch.gate.booth.stopthere",
-      "voice": "mansion-gate",
-      "say": "Stop there. Name."
-    },
-    {
-      "name": "vo.silentsquatch.gate.booth.onthelist",
-      "voice": "mansion-gate",
-      "say": "You’re on the list. That is the only reason this arm is up."
-    },
-    {
-      "name": "vo.silentsquatch.gate.booth.nobodystands",
-      "voice": "mansion-gate",
-      "say": "The house is up the drive. Nobody stands at my window."
-    },
-    {
-      "name": "vo.silentsquatch.gate.booth.dontseeacase",
-      "voice": "mansion-gate",
-      "say": "I don’t see a case. Walk on."
-    },
-    {
-      "name": "vo.silentsquatch.gate.booth.inthebook",
-      "voice": "mansion-gate",
-      "say": "Everything through this gate goes in the book. The plate, the time, the face."
-    },
-    {
-      "name": "vo.silentsquatch.gate.booth.yoursisinit",
-      "voice": "mansion-gate",
-      "say": "Yours is in it now. Go on."
-    },
-    {
-      "name": "vo.silentsquatch.guards.perimeter.path",
-      "voice": "mansion-guard",
-      "say": "Keep on the path."
-    },
-    {
-      "name": "vo.silentsquatch.guards.perimeter.camera",
-      "voice": "mansion-guard",
-      "say": "You’ve been on camera since the gate."
-    },
-    {
-      "name": "vo.silentsquatch.guards.perimeter.elevenlaps",
-      "voice": "mansion-guard-perimeter",
-      "say": "Long walk, this. I do it eleven times a night."
-    },
-    {
-      "name": "vo.silentsquatch.guards.stairs.seethegate",
-      "voice": "mansion-guard-stairs",
-      "say": "I can see the gate from up here."
-    },
-    {
-      "name": "vo.silentsquatch.guards.stairs.nobodycomesup",
-      "voice": "mansion-guard-stairs",
-      "say": "Nobody comes up these unless he says so."
-    },
-    {
-      "name": "vo.silentsquatch.guards.basement.nothingyours",
-      "voice": "mansion-guard-basement",
-      "say": "Nothing down here belongs to you."
-    },
-    {
-      "name": "vo.silentsquatch.guards.basement.keepwalking",
-      "voice": "mansion-guard-basement",
-      "say": "Keep walking. Whatever you heard down here, you heard the boiler.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
-    },
-    {
-      "name": "vo.silentsquatch.guards.vault.arrangement",
-      "voice": "mansion-guard-vault",
-      "say": "The door stays open. I stay here. That’s the arrangement."
-    },
-    {
-      "name": "vo.silentsquatch.guards.vault.backup",
-      "voice": "mansion-guard-vault",
-      "say": "Back up. I don’t get told what’s in there either, and I’ve stopped wanting to know.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
-    },
-    {
-      "name": "vo.silentsquatch.bar.bartender.orworking",
-      "voice": "bartender",
-      "say": "You want something, or are you working?"
-    },
-    {
-      "name": "vo.silentsquatch.bar.bartender.samebottle",
-      "voice": "bartender",
-      "say": "It’s the same bottle it was ten minutes ago."
-    },
-    {
-      "name": "vo.silentsquatch.bar.bartender.fifteenbottles",
-      "voice": "bartender",
-      "say": "Fifteen bottles back there and every one of them is Jack And Daniels. Makes the job simple."
-    },
-    {
-      "name": "vo.silentsquatch.torture.gratin.conversational",
-      "voice": "gratin",
-      "say": "Give us a minute. He’s nearly conversational."
-    },
-    {
-      "name": "vo.silentsquatch.torture.prospect.alwaysyou",
-      "voice": "player",
-      "say": "It’s always you doing this."
-    },
-    {
-      "name": "vo.silentsquatch.torture.gratin.kitchensdead",
-      "voice": "gratin",
-      "say": "I’m good at it, and the kitchen’s dead this time of night."
-    },
-    {
-      "name": "vo.silentsquatch.torture.gratin.youwantago",
-      "voice": "gratin",
-      "say": "You want a go? Everybody gets one. It keeps him talking."
-    },
-    {
-      "name": "vo.silentsquatch.torture.gratin.letthetenddoit",
-      "voice": "gratin",
-      "say": "Here. It’s a cord, not a bat — let the end of it do the work."
-    },
-    {
-      "name": "vo.silentsquatch.torture.gratin.panonupstairs",
-      "voice": "gratin",
-      "say": "I’ve got a pan on upstairs. Take your turn or don’t."
-    },
-    {
-      "name": "vo.silentsquatch.torture.gratin.suityourself",
-      "voice": "gratin",
-      "say": "Suit yourself. He’s not going anywhere."
-    },
-    {
-      "name": "vo.silentsquatch.torture.xxx.ouchone",
-      "voice": "xxx",
-      "say": "Hn — GHK—"
-    },
-    {
-      "name": "vo.silentsquatch.corridor.xxx.takethecar",
-      "voice": "xxx",
-      "say": "You can take the car… you can take the mission…"
-    },
-    {
-      "name": "vo.silentsquatch.corridor.xxx.turnyourback",
-      "voice": "xxx",
-      "say": "But you don’t turn your back on family."
-    },
-    {
-      "name": "vo.silentsquatch.torture.gratin.hesfine",
-      "voice": "gratin",
-      "say": "See? He’s fine."
-    },
-    {
-      "name": "vo.silentsquatch.torture.xxx.ouchtwo",
-      "voice": "xxx",
-      "say": "Agh — Christ—"
-    },
-    {
-      "name": "vo.silentsquatch.torture.xxx.hitlikefamily",
-      "voice": "xxx",
-      "say": "You hit like family."
-    },
-    {
-      "name": "vo.silentsquatch.torture.xxx.notacompliment",
-      "voice": "xxx",
-      "say": "That’s not a compliment. That’s just what they do."
-    },
-    {
-      "name": "vo.silentsquatch.torture.xxx.theelbow",
-      "voice": "xxx",
-      "say": "There it is. You’ve got the elbow into it now."
-    },
-    {
-      "name": "vo.silentsquatch.torture.xxx.ouchthree",
-      "voice": "xxx",
-      "say": "Hhh—!"
-    },
-    {
-      "name": "vo.silentsquatch.torture.xxx.stoppedatone",
-      "voice": "xxx",
-      "say": "Go on. Nobody in this house has ever stopped at one."
-    },
-    {
-      "name": "vo.silentsquatch.torture.xxx.ouchfour",
-      "voice": "xxx",
-      "say": "Nn—! …Ah."
-    },
-    {
-      "name": "vo.silentsquatch.torture.xxx.inthemorning",
-      "voice": "xxx",
-      "say": "That one’s going to be there in the morning."
-    },
-    {
-      "name": "vo.silentsquatch.torture.gratin.hecounts",
-      "voice": "gratin",
-      "say": "He’s counting. He always counts."
-    },
-    {
-      "name": "vo.silentsquatch.torture.gratin.oneeach",
-      "voice": "gratin",
-      "say": "One each. House rule."
-    },
-    {
-      "name": "vo.silentsquatch.house.sasole.notflying",
-      "voice": "lou2",
-      "say": "I’m not flying anything tonight, so don’t look at me like that."
-    },
-    {
-      "name": "vo.silentsquatch.house.sasole.didntseeit",
-      "voice": "lou2",
-      "say": "Whatever’s in the case, I didn’t carry it and I didn’t see it."
-    },
-    {
-      "name": "vo.silentsquatch.house.numbskull.nobodyswims",
-      "voice": "numbskull",
-      "say": "Nobody swims. It’s heated and nobody swims."
-    },
-    {
-      "name": "vo.silentsquatch.house.numbskull.hearthegate",
-      "voice": "numbskull",
-      "say": "I like it out here. You can hear the gate."
-    },
-    {
-      "name": "vo.silentsquatch.house.hogmama.theresfood",
-      "voice": "hogmama",
-      "say": "There’s food. Nobody in this house eats, but there’s food."
-    },
-    {
-      "name": "vo.silentsquatch.house.hogmama.leftapanon",
-      "voice": "hogmama",
-      "say": "Gratin left a pan on and went downstairs. Again."
-    },
-    {
       "name": "combat.bullet.impact.flesh",
       "duration": 0.75,
       "loop": false,
@@ -23756,6 +22659,1168 @@
       "name": "heist.prospect_debrief",
       "voice": "player",
       "say": "First one. I moved when Snow said move and I did not make anything worse."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.prospect.humming",
+      "voice": "player",
+      "say": "Whatever’s in here has been humming since the car."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.rippin.balls",
+      "voice": "rippinflow",
+      "say": "Whatever’s in that thing, I don’t want it near my balls."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.rippin.overthere",
+      "voice": "rippinflow",
+      "say": "I’m serious. Take it over there."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.eric.mood",
+      "voice": "eric",
+      "say": "Lou’s waiting for you. And he’s been in one of those moods."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.eric.dontsitdown",
+      "voice": "eric",
+      "say": "Top of the stairs, past the boardroom. Don’t sit down."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.shubes.whatsgoingon",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?"
+    },
+    {
+      "name": "vo.silentsquatch.arrival.shubes.nevermind",
+      "voice": "shubenator",
+      "say": "Actually, never mind. I don’t want to know."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.shubes.arms",
+      "voice": "shubenator",
+      "say": "I’m gonna go do arms."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.snow.morework",
+      "voice": "snow",
+      "say": "Try not to make more work for me tonight."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.snow.doesntcomeout",
+      "voice": "snow",
+      "say": "It doesn’t come out. Marble."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.shutthedoor",
+      "voice": "lou1",
+      "say": "Shut the door."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.onthedesk",
+      "voice": "lou1",
+      "say": "On the desk. Where I can see it."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.itsadesk",
+      "voice": "lou1",
+      "say": "It’s a desk, kid. It’s been there longer than you have."
+    },
+    {
+      "name": "vo.silentsquatch.office.prospect.whatsinside",
+      "voice": "player",
+      "say": "What’s inside?"
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.soonenough",
+      "voice": "lou1",
+      "say": "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.deliverittobooski",
+      "voice": "lou1",
+      "say": "Go deliver it to Booski. He’s in the basement."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.heykid",
+      "voice": "lou1",
+      "say": "Hey, kid."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.nicejob",
+      "voice": "lou1",
+      "say": "Nice job."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.dontaskanything",
+      "voice": "lou1",
+      "say": "Now don’t fuck around, and don’t ask anything you don’t wanna know."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.pastthearmory",
+      "voice": "lou1",
+      "say": "Down past the armory. Booski knows you’re coming."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.wineracks",
+      "voice": "player",
+      "say": "Wine racks. Pool table. Photographs of men nobody talks about."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.wherewashemeant",
+      "voice": "player",
+      "say": "So where’s the basement he meant?"
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.somebodydusts",
+      "voice": "player",
+      "say": "Somebody dusts this thing."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.gapundertheplinth",
+      "voice": "player",
+      "say": "…There’s a gap under the plinth."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.okay",
+      "voice": "player",
+      "say": "Okay."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.musicsgone",
+      "voice": "player",
+      "say": "Music’s gone."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.notdry",
+      "voice": "irish",
+      "say": "Mind the floor there. It’s not dry."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.drains",
+      "voice": "irish",
+      "say": "There’s a drain every three metres in this hallway. Have a think about why a house needs that."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.goondown",
+      "voice": "irish",
+      "say": "Go on down. He doesn’t like waiting and I don’t like watching him wait."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.comehere",
+      "voice": "xxx",
+      "say": "…Who’s that. Come here where I can see you."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.thenewkid",
+      "voice": "xxx",
+      "say": "Ah. The new kid. Course it is."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.booski.decorations",
+      "voice": "booski",
+      "say": "Quit talking to the decorations and bring me the case!"
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.samethreelines",
+      "voice": "irish",
+      "say": "He’s been at that all night, God love him. Same three lines."
+    },
+    {
+      "name": "vo.silentsquatch.lab.dmt.youarelate",
+      "voice": "deathmegatron",
+      "say": "You’re late."
+    },
+    {
+      "name": "vo.silentsquatch.lab.dmt.twelvecentimetres",
+      "voice": "deathmegatron",
+      "say": "Don’t lean on the glass. It’s twelve centimetres. You could drive a car at it."
+    },
+    {
+      "name": "vo.silentsquatch.lab.dmt.sixofthem",
+      "voice": "deathmegatron",
+      "say": "Six of them. Been in there since March."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.deliveryboy",
+      "voice": "booski",
+      "say": "There he is. Our little delivery boy."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.bothhands",
+      "voice": "booski",
+      "say": "On the transfer table. Both hands."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.doesntgetlighter",
+      "voice": "booski",
+      "say": "It doesn’t get lighter, kid."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.thesquatchanium",
+      "voice": "booski",
+      "say": "Ah, yes. The Squatchanium."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.howhard",
+      "voice": "booski",
+      "say": "Do you have any idea how hard this stuff is to get?"
+    },
+    {
+      "name": "vo.silentsquatch.delivery.prospect.i",
+      "voice": "player",
+      "say": "I —"
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.rhetorical",
+      "voice": "booski",
+      "say": "Rhetorical question. I don’t care."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.throughitgoes",
+      "voice": "booski",
+      "say": "Through it goes. Watch what they do with it."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.holdontothis",
+      "voice": "booski",
+      "say": "Here. Hold onto this."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.prospect.whatsitfor",
+      "voice": "player",
+      "say": "What’s it for?"
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.nothinghopefully",
+      "voice": "booski",
+      "say": "Nothing, hopefully."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.transferchamber",
+      "voice": "orlova",
+      "say": "Transfer chamber secure."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.containmentcylinder",
+      "voice": "aubbie",
+      "say": "Careful with the containment cylinder."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.shieldingnotready",
+      "voice": "vetrov",
+      "say": "Doctor Aubbie, the shielding is not ready."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.whenisayitis",
+      "voice": "aubbie",
+      "say": "The shielding is ready when I say the shielding is ready."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.connectthecore",
+      "voice": "aubbie",
+      "say": "Connect the Squatchanium core."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.rotationstable",
+      "voice": "sokolov",
+      "say": "Core rotation stable."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.coolantpressure",
+      "voice": "orlova",
+      "say": "Purple coolant pressure holding."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.increasecoolant",
+      "voice": "aubbie",
+      "say": "Increase the purple coolant flow."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.reacting",
+      "voice": "marchuk",
+      "say": "The Squatchanium is reacting with the biological stabilizer."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.supposedtoreact",
+      "voice": "aubbie",
+      "say": "It is supposed to react. That is the entire principle."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.radiationclimbing",
+      "voice": "vetrov",
+      "say": "Radiation levels are climbing."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.pipeline",
+      "voice": "vetrov",
+      "say": "My wife thinks I am working on a pipeline."
+    },
+    {
+      "name": "vo.silentsquatch.build.bezmenov.donottellthem",
+      "voice": "bezmenov",
+      "say": "Do not tell them that."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.goldfirst",
+      "voice": "aubbie",
+      "say": "No, no, no. Gold coupling first, purple coupling second."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.throughthefloor",
+      "voice": "sokolov",
+      "say": "Feel that through the floor. That is the rings."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.beyondprediction",
+      "voice": "sokolov",
+      "say": "Power output is beyond prediction."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.shadowsonthewall",
+      "voice": "aubbie",
+      "say": "If the stabilizer falls below forty percent, we all become shadows on the wall."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.notintheagreement",
+      "voice": "vetrov",
+      "say": "This was not in the original agreement."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.firstoneever",
+      "voice": "orlova",
+      "say": "First one ever built. Anywhere. By us."
+    },
+    {
+      "name": "vo.silentsquatch.build.bezmenov.theywillkillus",
+      "voice": "bezmenov",
+      "say": "They will kill us when this is finished."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.theyneedus",
+      "voice": "aubbie",
+      "say": "They need us."
+    },
+    {
+      "name": "vo.silentsquatch.build.bezmenov.needsnoone",
+      "voice": "bezmenov",
+      "say": "Men like him need no one."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.temperature",
+      "voice": "marchuk",
+      "say": "Core temperature is increasing."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.stepback",
+      "voice": "marchuk",
+      "say": "Whoever is standing closest, step back. Both of you."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.weshouldevacuate",
+      "voice": "marchuk",
+      "say": "We should evacuate."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.fourminutes",
+      "voice": "aubbie",
+      "say": "Nobody is evacuating. We are four minutes from finished."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.watchinghistory",
+      "voice": "aubbie",
+      "say": "You are watching history through that window. Try to look like it."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.willbeoperational",
+      "voice": "sokolov",
+      "say": "Silent Squatch will be operational."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.finalsequence",
+      "voice": "orlova",
+      "say": "Beginning final sequence."
+    },
+    {
+      "name": "vo.silentsquatch.build.booski.twelveweeks",
+      "voice": "booski",
+      "say": "Twelve weeks they’ve been down here. Eating my food."
+    },
+    {
+      "name": "vo.silentsquatch.build.dmt.six",
+      "voice": "deathmegatron",
+      "say": "Six."
+    },
+    {
+      "name": "vo.silentsquatch.build.booski.therestarehands",
+      "voice": "booski",
+      "say": "The one doing the talking is the one that matters. The rest are hands."
+    },
+    {
+      "name": "vo.silentsquatch.build.dmt.handscanwrite",
+      "voice": "deathmegatron",
+      "say": "Hands can write."
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.finalstabilization",
+      "voice": "aubbie",
+      "say": "Initiating final stabilization."
+    },
+    {
+      "name": "vo.silentsquatch.completion.computer.corecomplete",
+      "voice": "labcomputer",
+      "say": "PROJECT SILENT SQUATCH: CORE COMPLETE."
+    },
+    {
+      "name": "vo.silentsquatch.completion.orlova.itisholding",
+      "voice": "orlova",
+      "say": "It is holding. It is holding!"
+    },
+    {
+      "name": "vo.silentsquatch.completion.sokolov.twelveweeks",
+      "voice": "sokolov",
+      "say": "Twelve weeks! Twelve weeks!"
+    },
+    {
+      "name": "vo.silentsquatch.completion.vetrov.itoldyou",
+      "voice": "vetrov",
+      "say": "I told you the shielding would hold."
+    },
+    {
+      "name": "vo.silentsquatch.completion.bezmenov.congratulations",
+      "voice": "bezmenov",
+      "say": "Congratulations, everybody."
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.itiscomplete",
+      "voice": "aubbie",
+      "say": "It is complete."
+    },
+    {
+      "name": "vo.silentsquatch.completion.booski.youarecertain",
+      "voice": "booski",
+      "say": "You’re certain?"
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.fatsquatch",
+      "voice": "aubbie",
+      "say": "The core is stable. The Fat Squatch can now be assembled."
+    },
+    {
+      "name": "vo.silentsquatch.completion.booski.nobodyelseknows",
+      "voice": "booski",
+      "say": "And nobody else knows how to reproduce it?"
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.onlymyteam",
+      "voice": "aubbie",
+      "say": "Only my team understands the full process."
+    },
+    {
+      "name": "vo.silentsquatch.completion.booski.good",
+      "voice": "booski",
+      "say": "Good."
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.lockthelab",
+      "voice": "booski",
+      "say": "Lock the lab."
+    },
+    {
+      "name": "vo.silentsquatch.lock.dmt.sixninesixnine",
+      "voice": "deathmegatron",
+      "say": "Six nine six nine."
+    },
+    {
+      "name": "vo.silentsquatch.lock.dmt.againslower",
+      "voice": "deathmegatron",
+      "say": "Again. Slower."
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.notalongnumber",
+      "voice": "booski",
+      "say": "Six. Nine. Six. Nine. It is not a long number."
+    },
+    {
+      "name": "vo.silentsquatch.lock.bezmenov.whyisdoorlocked",
+      "voice": "bezmenov",
+      "say": "Why is door locked?"
+    },
+    {
+      "name": "vo.silentsquatch.lock.orlova.opendoor",
+      "voice": "orlova",
+      "say": "Open door."
+    },
+    {
+      "name": "vo.silentsquatch.lock.aubbie.whatisthis",
+      "voice": "aubbie",
+      "say": "What is this?"
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.usefulnessexpired",
+      "voice": "booski",
+      "say": "He’s finished. He’s not a scientist any more, he’s a witness with a doctorate.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.handleit",
+      "voice": "booski",
+      "say": "Handle it."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.wehadagreement",
+      "voice": "aubbie",
+      "say": "Booski, we had agreement."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.wedid",
+      "voice": "booski",
+      "say": "We did."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.maintainthecore",
+      "voice": "aubbie",
+      "say": "You need me to maintain the core."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.copiesofyournotes",
+      "voice": "booski",
+      "say": "We made copies of your notes."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.whatyouhavebuilt",
+      "voice": "aubbie",
+      "say": "You do not understand what you have built!"
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.isaidhandleit",
+      "voice": "booski",
+      "say": "I said do it. And now I’ve said it twice, which means from here on it isn’t an order any more, it’s a test. You understand the difference? Because the difference is your whole life.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.lookatme",
+      "voice": "aubbie",
+      "say": "Boy. Look at me. You do not have to do this."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.anyday",
+      "voice": "booski",
+      "say": "Any day, Prospect."
+    },
+    {
+      "name": "vo.silentsquatch.execution.dmt.notgoingtogetquieter",
+      "voice": "deathmegatron",
+      "say": "He is not going to get quieter."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.thatwasaconsole",
+      "voice": "booski",
+      "say": "That was a console. Look at what you’re pointing it at."
+    },
+    {
+      "name": "vo.silentsquatch.execution.dmt.inthewayofthedoor",
+      "voice": "deathmegatron",
+      "say": "He’s in the way of the door."
+    },
+    {
+      "name": "vo.silentsquatch.reaction.orlova.whatareyoudoing",
+      "voice": "orlova",
+      "say": "What are you doing?!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.vetrov.openthedoor",
+      "voice": "vetrov",
+      "say": "Open the door!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.marchuk.whydidyoukillhim",
+      "voice": "marchuk",
+      "say": "Why did you kill him?!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.sokolov.everythingyouasked",
+      "voice": "sokolov",
+      "say": "We did everything you asked!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.vetrov.please",
+      "voice": "vetrov",
+      "say": "Please!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.marchuk.noventilation",
+      "voice": "marchuk",
+      "say": "There is no ventilation!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.orlova.wehavefamilies",
+      "voice": "orlova",
+      "say": "We have families!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.sokolov.cannotleaveus",
+      "voice": "sokolov",
+      "say": "You cannot leave us in here!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.vetrov.canworkforyou",
+      "voice": "vetrov",
+      "say": "We can build you another one. Smaller. Eight weeks. Six if you stop asking about the shielding.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.orlova.tellnobody",
+      "voice": "orlova",
+      "say": "We will tell nobody!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.sokolov.moveback",
+      "voice": "sokolov",
+      "say": "Move! Move back!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.bezmenov.stop",
+      "voice": "bezmenov",
+      "say": "Stop."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.booski.youstartedthejob",
+      "voice": "booski",
+      "say": "You started the job."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.booski.finishit",
+      "voice": "booski",
+      "say": "Finish it."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.booski.samehand",
+      "voice": "booski",
+      "say": "It’s the same hand you just used."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.computer.activated",
+      "voice": "labcomputer",
+      "say": "SILENT NIGHT PROTOCOL ACTIVATED."
+    },
+    {
+      "name": "vo.silentsquatch.gas.orlova.ventsareopen",
+      "voice": "orlova",
+      "say": "The vents are open."
+    },
+    {
+      "name": "vo.silentsquatch.gas.vetrov.whyarethevents",
+      "voice": "vetrov",
+      "say": "Why are the vents open?"
+    },
+    {
+      "name": "vo.silentsquatch.gas.sokolov.gettothedoor",
+      "voice": "sokolov",
+      "say": "Get to the door! All of you, the door!"
+    },
+    {
+      "name": "vo.silentsquatch.gas.bezmenov.itoldyou",
+      "voice": "bezmenov",
+      "say": "I told you."
+    },
+    {
+      "name": "vo.silentsquatch.gas.marchuk.sleeve",
+      "voice": "marchuk",
+      "say": "Sleeve over your mouth. Breathe through the sleeve."
+    },
+    {
+      "name": "vo.silentsquatch.gas.vetrov.masksarelocked",
+      "voice": "vetrov",
+      "say": "The masks are locked. The masks are locked!"
+    },
+    {
+      "name": "vo.silentsquatch.gas.vetrov.icant",
+      "voice": "vetrov",
+      "say": "I can’t — I can’t —"
+    },
+    {
+      "name": "vo.silentsquatch.gas.marchuk.staydown",
+      "voice": "marchuk",
+      "say": "Down. Stay down."
+    },
+    {
+      "name": "vo.silentsquatch.gas.orlova.lookatme",
+      "voice": "orlova",
+      "say": "Look at me. Look at me!"
+    },
+    {
+      "name": "vo.silentsquatch.gas.sokolov.openit",
+      "voice": "sokolov",
+      "say": "Open it! Open it! Open —"
+    },
+    {
+      "name": "vo.silentsquatch.gas.marchuk.giveyourhand",
+      "voice": "marchuk",
+      "say": "Nadia. Give me your hand."
+    },
+    {
+      "name": "vo.silentsquatch.aftermath.booski.efficient",
+      "voice": "booski",
+      "say": "Efficient."
+    },
+    {
+      "name": "vo.silentsquatch.aftermath.booski.lousgonnalikeyou",
+      "voice": "booski",
+      "say": "Lou’s gonna like you."
+    },
+    {
+      "name": "vo.silentsquatch.aftermath.dmt.stillrunning",
+      "voice": "deathmegatron",
+      "say": "It’s still running. Look at it."
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.snowbasement",
+      "voice": "booski",
+      "say": "Snow. Basement."
+    },
+    {
+      "name": "vo.silentsquatch.exit.snow.howbad",
+      "voice": "snow",
+      "say": "How bad?"
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.bringthecart",
+      "voice": "booski",
+      "say": "Bring the cart."
+    },
+    {
+      "name": "vo.silentsquatch.exit.snow.jesuschrist",
+      "voice": "snow",
+      "say": "Jesus Christ."
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.andamop",
+      "voice": "booski",
+      "say": "And a mop."
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.louisstillawake",
+      "voice": "booski",
+      "say": "Upstairs. Lou’s still awake."
+    },
+    {
+      "name": "vo.silentsquatch.exit.snow.itoldyou",
+      "voice": "snow",
+      "say": "I told you not to make more work for me."
+    },
+    {
+      "name": "vo.silentsquatch.exit.xxx.familymeeting",
+      "voice": "xxx",
+      "say": "Family meeting go well?"
+    },
+    {
+      "name": "vo.silentsquatch.exit.lou.stayingtonight",
+      "voice": "lou1",
+      "say": "You’re staying here tonight."
+    },
+    {
+      "name": "vo.silentsquatch.exit.lou.guestroomdownstairs",
+      "voice": "lou1",
+      "say": "Guest room’s downstairs, off the cellar hall. It’s made up."
+    },
+    {
+      "name": "vo.silentsquatch.exit.lou.enjoythehouse",
+      "voice": "lou1",
+      "say": "Look around if you want. Have a drink, watch a picture. Then get some sleep."
+    },
+    {
+      "name": "vo.silentsquatch.evening.stove.putsomethingon",
+      "voice": "old-stove",
+      "say": "Put something on, kid. House this size, picture still doesn’t start itself."
+    },
+    {
+      "name": "vo.silentsquatch.evening.stove.godfather",
+      "voice": "old-stove",
+      "say": "This one knows when to sit still. Leave it here."
+    },
+    {
+      "name": "vo.silentsquatch.evening.stove.goodfellas",
+      "voice": "old-stove",
+      "say": "Good picture. Everybody talks too much. Accurate."
+    },
+    {
+      "name": "vo.silentsquatch.evening.stove.heat",
+      "voice": "old-stove",
+      "say": "Turn this one up. The street part."
+    },
+    {
+      "name": "vo.silentsquatch.evening.stove.blow",
+      "voice": "old-stove",
+      "say": "I knew a guy like this. Worse shirts."
+    },
+    {
+      "name": "vo.silentsquatch.evening.stove.lettingthemovieout",
+      "voice": "old-stove",
+      "say": "Hey, Prospect. Shut the door, you’re letting all the movie out."
+    },
+    {
+      "name": "vo.silentsquatch.evening.seff.whosthebadguy",
+      "voice": "seff",
+      "say": "We’ve been watching this thing for forty minutes. I still don’t know who the bad guy is."
+    },
+    {
+      "name": "vo.silentsquatch.evening.lag.itshim",
+      "voice": "lag",
+      "say": "It’s him."
+    },
+    {
+      "name": "vo.silentsquatch.evening.seff.thatguysdead",
+      "voice": "seff",
+      "say": "No, that guy’s dead."
+    },
+    {
+      "name": "vo.silentsquatch.evening.lag.exactly",
+      "voice": "lag",
+      "say": "Exactly."
+    },
+    {
+      "name": "vo.silentsquatch.evening.stove.standthereallnight",
+      "voice": "old-stove",
+      "say": "You gonna stand there all night?"
+    },
+    {
+      "name": "vo.silentsquatch.evening.seff.gottheseatsright",
+      "voice": "seff",
+      "say": "Don’t invite him over here. We finally got the seats right."
+    },
+    {
+      "name": "vo.silentsquatch.evening.seff.morethanmyfirsthouse",
+      "voice": "seff",
+      "say": "Lou spent more on this projector than my first house."
+    },
+    {
+      "name": "vo.silentsquatch.evening.lag.neverownedahouse",
+      "voice": "lag",
+      "say": "You never owned a house."
+    },
+    {
+      "name": "vo.silentsquatch.evening.seff.thatsnotthepoint",
+      "voice": "seff",
+      "say": "That’s not the point."
+    },
+    {
+      "name": "vo.silentsquatch.evening.lag.lostalready",
+      "voice": "lag",
+      "say": "What’s up, Prospect? You lost already?"
+    },
+    {
+      "name": "vo.silentsquatch.evening.lag.bighouse",
+      "voice": "lag",
+      "say": "Big house. You’ll figure it out."
+    },
+    {
+      "name": "vo.silentsquatch.evening.lag.golookaround",
+      "voice": "lag",
+      "say": "Go look around. Lou’s got shit in this house I don’t think even Lou knows about."
+    },
+    {
+      "name": "vo.silentsquatch.evening.performer.sayhello",
+      "voice": "performer",
+      "say": "You gonna stand there looking nervous, or come say hello?"
+    },
+    {
+      "name": "vo.silentsquatch.evening.prospect.smooth",
+      "voice": "player",
+      "say": "I was trying to think of something smooth."
+    },
+    {
+      "name": "vo.silentsquatch.evening.performer.holdthestrap",
+      "voice": "performer",
+      "say": "Keep trying. Hold this strap instead."
+    },
+    {
+      "name": "vo.silentsquatch.evening.performer.useful",
+      "voice": "performer",
+      "say": "There. See? Useful beats smooth."
+    },
+    {
+      "name": "vo.silentsquatch.evening.shubes.fortytwomillion",
+      "voice": "shubenator",
+      "say": "Careful. Forty-two million on this account, and no way to explain where the other kind came from."
+    },
+    {
+      "name": "vo.silentsquatch.evening.shubes.sleptgreat",
+      "voice": "shubenator",
+      "say": "Strangled a guy in a parking lot last month. Came home, played three hours of this. Slept great."
+    },
+    {
+      "name": "vo.silentsquatch.evening.shubes.oldschool",
+      "voice": "shubenator",
+      "say": "It’s called Old School RuneScape. It’s from 2007. So’s my patience — get out of my light."
+    },
+    {
+      "name": "vo.silentsquatch.evening.shubes.himproblem",
+      "voice": "shubenator",
+      "say": "Some kid called me a noob at the Grand Exchange. If I ever find out where he lives, that’s a him problem."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.farenough",
+      "voice": "mansion-gate",
+      "say": "That’s far enough. Hands out of the pockets."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.expected",
+      "voice": "mansion-gate",
+      "say": "You’re expected. That is not the same as welcome."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.driveway",
+      "voice": "mansion-gate",
+      "say": "You’re standing on a driveway I have to watch. Go in or go back down the steps."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.staysinyourhand",
+      "voice": "mansion-gate",
+      "say": "That stays in your hand. You don’t set it down, you don’t open it, and you don’t hand it to me."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.differentway",
+      "voice": "mansion-gate",
+      "say": "Do that again and you leave the property a different way than you came onto it."
+    },
+    {
+      "name": "vo.silentsquatch.gate.doorman.straightthrough",
+      "voice": "mansion-gate",
+      "say": "Straight through. Don’t wander, don’t touch anything, and don’t talk to the help."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.stopthere",
+      "voice": "mansion-gate",
+      "say": "Stop there. Name."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.onthelist",
+      "voice": "mansion-gate",
+      "say": "You’re on the list. That is the only reason this arm is up."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.nobodystands",
+      "voice": "mansion-gate",
+      "say": "The house is up the drive. Nobody stands at my window."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.dontseeacase",
+      "voice": "mansion-gate",
+      "say": "I don’t see a case. Walk on."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.inthebook",
+      "voice": "mansion-gate",
+      "say": "Everything through this gate goes in the book. The plate, the time, the face."
+    },
+    {
+      "name": "vo.silentsquatch.gate.booth.yoursisinit",
+      "voice": "mansion-gate",
+      "say": "Yours is in it now. Go on."
+    },
+    {
+      "name": "vo.silentsquatch.guards.perimeter.path",
+      "voice": "mansion-guard",
+      "say": "Keep on the path."
+    },
+    {
+      "name": "vo.silentsquatch.guards.perimeter.camera",
+      "voice": "mansion-guard",
+      "say": "You’ve been on camera since the gate."
+    },
+    {
+      "name": "vo.silentsquatch.guards.perimeter.elevenlaps",
+      "voice": "mansion-guard-perimeter",
+      "say": "Long walk, this. I do it eleven times a night."
+    },
+    {
+      "name": "vo.silentsquatch.guards.stairs.seethegate",
+      "voice": "mansion-guard-stairs",
+      "say": "I can see the gate from up here."
+    },
+    {
+      "name": "vo.silentsquatch.guards.stairs.nobodycomesup",
+      "voice": "mansion-guard-stairs",
+      "say": "Nobody comes up these unless he says so."
+    },
+    {
+      "name": "vo.silentsquatch.guards.basement.nothingyours",
+      "voice": "mansion-guard-basement",
+      "say": "Nothing down here belongs to you."
+    },
+    {
+      "name": "vo.silentsquatch.guards.basement.keepwalking",
+      "voice": "mansion-guard-basement",
+      "say": "Keep walking. Whatever you heard down here, you heard the boiler.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "name": "vo.silentsquatch.guards.vault.arrangement",
+      "voice": "mansion-guard-vault",
+      "say": "The door stays open. I stay here. That’s the arrangement."
+    },
+    {
+      "name": "vo.silentsquatch.guards.vault.backup",
+      "voice": "mansion-guard-vault",
+      "say": "Back up. I don’t get told what’s in there either, and I’ve stopped wanting to know.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "name": "vo.silentsquatch.bar.bartender.orworking",
+      "voice": "bartender",
+      "say": "You want something, or are you working?"
+    },
+    {
+      "name": "vo.silentsquatch.bar.bartender.samebottle",
+      "voice": "bartender",
+      "say": "It’s the same bottle it was ten minutes ago."
+    },
+    {
+      "name": "vo.silentsquatch.bar.bartender.fifteenbottles",
+      "voice": "bartender",
+      "say": "Fifteen bottles back there and every one of them is Jack And Daniels. Makes the job simple."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.conversational",
+      "voice": "gratin",
+      "say": "Give us a minute. He’s nearly conversational."
+    },
+    {
+      "name": "vo.silentsquatch.torture.prospect.alwaysyou",
+      "voice": "player",
+      "say": "It’s always you doing this."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.kitchensdead",
+      "voice": "gratin",
+      "say": "I’m good at it, and the kitchen’s dead this time of night."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.youwantago",
+      "voice": "gratin",
+      "say": "You want a go? Everybody gets one. It keeps him talking."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.letthetenddoit",
+      "voice": "gratin",
+      "say": "Here. It’s a cord, not a bat — let the end of it do the work."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.panonupstairs",
+      "voice": "gratin",
+      "say": "I’ve got a pan on upstairs. Take your turn or don’t."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.suityourself",
+      "voice": "gratin",
+      "say": "Suit yourself. He’s not going anywhere."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchone",
+      "voice": "xxx",
+      "say": "Hn — GHK—"
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.takethecar",
+      "voice": "xxx",
+      "say": "You can take the car… you can take the mission…"
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.turnyourback",
+      "voice": "xxx",
+      "say": "But you don’t turn your back on family."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.hesfine",
+      "voice": "gratin",
+      "say": "See? He’s fine."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchtwo",
+      "voice": "xxx",
+      "say": "Agh — Christ—"
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.hitlikefamily",
+      "voice": "xxx",
+      "say": "You hit like family."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.notacompliment",
+      "voice": "xxx",
+      "say": "That’s not a compliment. That’s just what they do."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.theelbow",
+      "voice": "xxx",
+      "say": "There it is. You’ve got the elbow into it now."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchthree",
+      "voice": "xxx",
+      "say": "Hhh—!"
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.stoppedatone",
+      "voice": "xxx",
+      "say": "Go on. Nobody in this house has ever stopped at one."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.ouchfour",
+      "voice": "xxx",
+      "say": "Nn—! …Ah."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.inthemorning",
+      "voice": "xxx",
+      "say": "That one’s going to be there in the morning."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.hecounts",
+      "voice": "gratin",
+      "say": "He’s counting. He always counts."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.oneeach",
+      "voice": "gratin",
+      "say": "One each. House rule."
+    },
+    {
+      "name": "vo.silentsquatch.house.sasole.notflying",
+      "voice": "lou2",
+      "say": "I’m not flying anything tonight, so don’t look at me like that."
+    },
+    {
+      "name": "vo.silentsquatch.house.sasole.didntseeit",
+      "voice": "lou2",
+      "say": "Whatever’s in the case, I didn’t carry it and I didn’t see it."
+    },
+    {
+      "name": "vo.silentsquatch.house.numbskull.nobodyswims",
+      "voice": "numbskull",
+      "say": "Nobody swims. It’s heated and nobody swims."
+    },
+    {
+      "name": "vo.silentsquatch.house.numbskull.hearthegate",
+      "voice": "numbskull",
+      "say": "I like it out here. You can hear the gate."
+    },
+    {
+      "name": "vo.silentsquatch.house.hogmama.theresfood",
+      "voice": "hogmama",
+      "say": "There’s food. Nobody in this house eats, but there’s food."
+    },
+    {
+      "name": "vo.silentsquatch.house.hogmama.leftapanon",
+      "voice": "hogmama",
+      "say": "Gratin left a pan on and went downstairs. Again."
     }
   ]
 }

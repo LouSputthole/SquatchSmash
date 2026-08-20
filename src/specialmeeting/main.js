@@ -27,6 +27,7 @@
  * text below says where he is and nothing about what happens next, because
  * nobody in the car knows either — and two of them are prospects.
  */
+import { SPEECH_MIX, speak } from '../core/dialogue.js';
 import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
@@ -139,21 +140,40 @@ function bodyFor(who) {
 function say(line) {
   const body = bodyFor(line.who);
   const name = SPEAKERS[line.who]?.name ?? '';
-  hud.say(`<em>${name}</em> ${line.text}`, 4200);
-  if (!audio.hasSample?.(line.cue)) {
+  /* Through the shared dialogue path in src/core/dialogue.js: one voice bus at
+   * one trim, music and ambience ducked under the line, the analyser tapped
+   * for the mouth, and `SPEECH_MIX` -- which is where this scene's own
+   * ref/maxDist/rolloff triple came from in the first place.
+   *
+   * The 0.95 that used to sit here is gone. It was this scene's guess at how
+   * loud dialogue is; the Initiation guessed 0.95 too, the heist 0.85, Silent
+   * Squatch 0.8, and the difference between them is what the owner heard as
+   * lines arriving at random levels.
+   *
+   * A speaker with no rig is on the phone or in the player's own head, so the
+   * line rides the camera. */
+  const spoken = speak(audio, line.cue, {
+    speaker: body ? body.group : camera,
+    mix: SPEECH_MIX,
+  });
+  /* THE SUBTITLE LASTS AS LONG AS THE LINE.
+   *
+   * It used to be on screen for a flat 4.2 seconds whatever was said, so a
+   * two-word answer sat there for four seconds and a long one was gone before
+   * he finished it. `speechDuration` is the decoded take when there is one and
+   * the manifest's authored length when there is not, so this reads correctly
+   * before the VO is cut and re-times itself when it lands. The floor is there
+   * because a very short line still needs long enough to be read. */
+  hud.say(`<em>${name}</em> ${line.text}`, Math.max(1600, spoken.seconds * 1000 + 700));
+  if (spoken.silent) {
+    /* No recording yet. The mouth still moves, on a read estimate, because a
+     * character delivering a subtitle with a closed face is worse than one
+     * whose timing is approximate. */
     body?.say?.(1.4 + 0.045 * line.text.length, null);
     return null;
   }
-  const source = audio.play(line.cue, {
-    volume: 0.95,
-    follow: body ? body.group : camera,
-    ref: 2.2,
-    maxDist: 34,
-    rolloff: 0.7,
-  });
-  const seconds = audio.sampleDuration?.(line.cue) ?? null;
-  body?.say?.(seconds ?? 2, source ? { audio, source } : null);
-  return seconds;
+  body?.say?.(spoken.seconds, spoken.source ? { audio, source: spoken.source } : null);
+  return spoken.seconds;
 }
 
 /* ------------------------------------------------------------------ */
@@ -385,4 +405,8 @@ document.getElementById('loading')?.classList.add('hidden');
  * gone out, so a scene that threw on the way up still reports as failed. */
 window.SPECIAL_MEETING = {
   campaign, ride, cast, stage, get forest() { return forest; },
+  /* The scene root, published for the repo-wide mesh sweep in
+   * tools/scene-audit-scenes.mjs, which finds a page's geometry by walking a
+   * declared path to a THREE.Scene rather than by guessing. */
+  scene,
 };

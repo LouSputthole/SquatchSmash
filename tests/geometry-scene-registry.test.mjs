@@ -44,6 +44,8 @@ const EXPECTED_ADAPTERS = Object.freeze([
   'silver',
   'silvercase-apartment',
   'silvercase-car',
+  'specialmeeting-kerb',
+  'specialmeeting-spur',
   'squatchfather',
 ]);
 

@@ -64,7 +64,8 @@ import {
   poseSeated,
   standOn,
 } from './cabin/staging.js';
-import { DIALOGUE_MIX, playFootstep, sayFrom } from './cabin/ambience.js';
+import { playFootstep } from './cabin/ambience.js';
+import { SPEECH_MIX, speak } from '../core/dialogue.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { shakeScale, bindAudioVolume, translateKey } from '../core/settings.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -732,11 +733,16 @@ function popText(worldPos, text, cls = '') {
  * DIALOGUE
  *
  * Every spoken line in this scene is POSITIONAL and GLUED TO ITS SPEAKER.
- * `sayFrom()` plays it with `follow` pointed at the speaker's rig and with
- * `DIALOGUE_MIX`'s gentler 0.7 rolloff, because the engine's 1.4 default is
- * right for a bottle breaking and wrong for a man talking across a clearing —
- * at the far kneel mark a line at 1.4 is inaudible, and on the trail a line
- * without `follow` stays in the mud thirty metres back.
+ * `speak()` from src/core/dialogue.js plays it with `follow` pointed at the
+ * speaker's rig and with `SPEECH_MIX`'s gentler 0.7 rolloff, because the
+ * engine's 1.4 default is right for a bottle breaking and wrong for a man
+ * talking across a clearing — at the far kneel mark a line at 1.4 is
+ * inaudible, and on the trail a line without `follow` stays in the mud thirty
+ * metres back.
+ *
+ * Those numbers used to live here, as this scene's own `DIALOGUE_MIX`, and
+ * were the only researched positional mix for speech in the game. They are now
+ * the shared one, so the heist and the Special Meeting get them too.
  * ------------------------------------------------------------------ */
 
 /** Whose rig a line comes out of. The player is the camera and has none. */
@@ -756,13 +762,27 @@ let sayOnLast = null;
 let sayAutoT = 0;
 const dialogActive = () => sayQueue.length > 0;
 
-/** Play one line where its speaker is standing, and report its length. */
-function speak(line) {
+/**
+ * Play one line where its speaker is standing, and report its length.
+ *
+ * Through the shared path in src/core/dialogue.js, which is where this
+ * scene's own `DIALOGUE_MIX` ended up: those numbers were the researched ones
+ * and are now `SPEECH_MIX`, used by every scene rather than by this one. The
+ * 0.95 that used to be here is gone with them -- dialogue level is a property
+ * of the voice bus now, not of whichever scene is on screen.
+ *
+ * A line with no body on it is the Prospect's own, so it plays from the
+ * player: he has no rig to follow and putting his voice anywhere else in the
+ * clearing is worse than putting it on the camera.
+ */
+function speakLine(line) {
   if (!line?.cue) return 0;
   const body = bodyFor(line);
-  if (body) sayFrom(audio, line.cue, body, { volume: 0.95 });
-  else audio.play(line.cue, { volume: 0.95, ...DIALOGUE_MIX, follow: () => player.position });
-  return audio.sampleDuration(line.cue) ?? 0;
+  const spoken = speak(audio, line.cue, {
+    speaker: body ?? (() => player.position),
+    mix: SPEECH_MIX,
+  });
+  return spoken.seconds;
 }
 
 function showCurrentLine() {
@@ -777,7 +797,7 @@ function showCurrentLine() {
   }
   speakerEl.textContent = line.who;
   lineEl.textContent = line.text;
-  const voiced = speak(line);
+  const voiced = speakLine(line);
   sayAutoT = Math.max(2.6 + line.text.length * 0.028, voiced > 0 ? voiced + 0.35 : 0);
   if (line.gesture === 'slam') {
     /* `gesture` is `dialogue.js`'s and only Booskibro and Lou carry one. It
@@ -866,7 +886,7 @@ function sayOverlapping(id) {
       /* The room does not stop, but Lou taking him aside does take the
        * subtitle: a straggler landing over IN-520 is a line nobody hears. */
       if (phase !== 'room') return;
-      speak(line);
+      speakLine(line);
       speakerEl.textContent = line.who;
       lineEl.textContent = line.text;
       dialogEl.classList.add('show');

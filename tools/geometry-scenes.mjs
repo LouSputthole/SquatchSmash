@@ -110,72 +110,27 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
     'mansion-siege', `checkpoint-${checkpoint.replaceAll('_', '-')}`, 'mansion-siege', ['mansion-siege'],
     { checkpoint, damageState: 'under_attack' },
   )),
-  /* THE SPECIAL MEETING IS BUILT BUT NOT REGISTERED. Read this before adding
-   * it, because the entries are written and they are four lines down.
-   *
-   * The Adapters exist: `specialmeeting-kerb` and `specialmeeting-spur` are in
-   * BUILDERS below, both build cleanly headless, and
-   * tools/geometry-allowlists/specialmeeting.json is checked in with a
-   * suppressionPolicy row for each of the three states they cover. What is
-   * missing is not here. The SCENE'S OWN gate metadata is not legal yet, and
-   * both faults are inside src/specialmeeting/, which this pass does not own:
-   *
-   *   1. src/specialmeeting/forest/foliage.js:458 tags the instanced trunk
-   *      batch `userData.geometryGate = { assemblyPrefix: ... }`. There is no
-   *      such key. The one the collector knows is `instanceAssemblyPrefix`,
-   *      which the SAME FUNCTION uses correctly on the crowns sixty lines
-   *      later (foliage.js:520). Every streamed chunk therefore fails
-   *      collection with "userData.geometryGate has unknown key(s):
-   *      assemblyPrefix". One word.
-   *
-   *   2. src/specialmeeting/block.js declares scene-scale inherited opt-outs:
-   *      `own(escape, 'fire-escape', { checkSupport: false, overlap: false })`
-   *      at block.js:1289 covers 72 parts spanning 9.714 m, and
-   *      `own(stack, 'utility-pole', { checkSupport: false })` at block.js:914
-   *      covers 11-12 parts spanning 9.600 m. The worker's
-   *      MAX_IMPLICIT_OBJECT_PARTS/MAX_IMPLICIT_OBJECT_SPAN_M policy caps an
-   *      inherited suppression at 64 parts and 8 m per axis on purpose --
-   *      "scene-scale structures therefore require explicit ownership" -- and
-   *      throws SCENE_SCALE_SUPPRESSION before it produces a report. A fire
-   *      escape really is three storeys tall and a telegraph pole really is
-   *      9.6 m, so the fix is to scope the opt-out (per storey, per pole
-   *      section) or to make the fixture its own support anchor, and that is a
-   *      shape decision for whoever owns the block.
-   *
-   * Both were found by running the Adapters against the real gate, not
-   * guessed. They are NOT fixable from this side: re-annotating another
-   * scene's fixtures from the registry would give the same geometry two
-   * competing owners, and renaming a mistyped key here would hide the typo
-   * from the file that has it.
-   *
-   * TO SWITCH IT ON, once those two land, add exactly this and nothing else,
-   * plus 'specialmeeting-kerb' and 'specialmeeting-spur' to EXPECTED_ADAPTERS
-   * in tests/geometry-scene-registry.test.mjs:
-   *
-   *   ...['waiting', 'arrived'].map((blockState) => entry(
-   *     'specialmeeting', `kerb-${blockState}`, 'specialmeeting-kerb', [],
-   *     { blockState },
-   *   )),
-   *   entry('specialmeeting', 'spur', 'specialmeeting-spur', []),
-   *
-   * The state names are the campaign's own spawn ids -- campaign.js declares
-   * `spawns: ['kerb', 'spur']` for this scene, one street and one patch of
-   * dirt in the woods with a cut to black between them -- and the kerb carries
-   * two of them because the block is authored in two arrangements
+  /* The Special Meeting is one campaign scene over two mutually exclusive
+   * worlds, so it registers three states rather than one. `kerb` is the
+   * street, authored in the two arrangements the runtime actually builds
    * (SPECIAL_MEETING_GEOMETRY_STATES in
-   * src/specialmeeting/runtime-geometry.js): `waiting`, which is where the
-   * pavement, doorway and alley are read from with no car parked on them, and
-   * `arrived`, which is the only state where the boot lid is up and
-   * overhanging. Two Adapters rather than one for the same reason the Silver
-   * Case has two: one page, one campaign scene, two mutually exclusive worlds.
+   * src/specialmeeting/runtime-geometry.js): `waiting`, where the pavement,
+   * doorway and alley are read with no car on them, and `arrived`, the only
+   * state where the boot lid is up and overhanging. `spur` is the patch of
+   * dirt in the woods on the far side of the cut to black. Same reason the
+   * Silver Case splits: one page, one scene, two worlds that never coexist.
    *
-   * `launcherIds` is empty on all three deliberately. Those ids tie this
-   * inventory to the preview pages in tools/scene-audit-scenes.mjs, and
-   * specialmeeting.html has no `?preview=1` entry point, so it has no row
-   * there -- and geometryLauncherCoverage() is held to exactly that inventory
-   * by tests/geometry-scene-registry.test.mjs ("must neither omit nor invent
-   * public scene launchers"). Precedent for a state with no launcher of its
-   * own: bing:performer-bathroom, motel:late-cast, motel:drive. */
+   * All three claim the `special-meeting` launcher. That id ties this
+   * inventory to the preview page in tools/scene-audit-scenes.mjs, and
+   * geometryLauncherCoverage() is held to exactly that inventory by
+   * tests/geometry-scene-registry.test.mjs ("must neither omit nor invent
+   * public scene launchers") -- one page, one launcher, three worlds behind
+   * it. */
+  ...['waiting', 'arrived'].map((blockState) => entry(
+    'specialmeeting', `kerb-${blockState}`, 'specialmeeting-kerb', ['special-meeting'],
+    { blockState },
+  )),
+  entry('specialmeeting', 'spur', 'specialmeeting-spur', ['special-meeting']),
 ]);
 
 /**

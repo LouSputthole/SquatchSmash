@@ -31,6 +31,7 @@
  *    correct way to play a spoken line in this scene.
  */
 
+import { SPEECH_MIX, speak } from '../../core/dialogue.js';
 import {
   CABIN, CABIN_DOOR, CLEARING, MUD, PORCH, ROOM, SPEAKERS, TRACK, TRAIL,
   TRACK_HALF_WIDTH, TRAIL_HALF_WIDTH, distanceToPath,
@@ -53,12 +54,13 @@ export const AMBIENCE_LOOPS = Object.freeze(['initiation.car.west', 'initiation.
 /**
  * The mix for a spoken line in this scene.
  *
- * `ref` 2.2 keeps a man at conversational distance at full level; `maxDist` 30
- * covers the whole clearing plus the far end of the trail; `rolloff` 0.7 is
- * half the engine default, because the alternative is a ceremony nobody can
- * hear the far half of.
+ * KEPT AS A RE-EXPORT, not as numbers. These were authored here and were the
+ * only researched positional mix for speech in the game, which is why they are
+ * now `SPEECH_MIX` in src/core/dialogue.js and every scene uses them. This
+ * name stays so the scene's own modules and its tests keep reading, and points
+ * at the shared value so there is exactly one set of numbers to change.
  */
-export const DIALOGUE_MIX = Object.freeze({ ref: 2.2, maxDist: 30, rolloff: 0.7 });
+export const DIALOGUE_MIX = SPEECH_MIX;
 
 /**
  * Play a spoken line from a MOVING speaker.
@@ -66,10 +68,13 @@ export const DIALOGUE_MIX = Object.freeze({ ref: 2.2, maxDist: 30, rolloff: 0.7 
  * `speaker` is whatever has a world position — a `Person`'s `group`, a rig, a
  * vector, or a function returning one. It is REQUIRED: a line with no speaker
  * is either a narrator or a bug, and this scene has no narrator.
+ *
+ * A thin wrapper over the shared `speak()` now, kept for the callers in
+ * `./index.js`'s public surface. New code should call `speak()` directly.
  */
 export function sayFrom(audio, cue, speaker, options = {}) {
   if (!audio || !speaker) return false;
-  audio.play(cue, { ...DIALOGUE_MIX, ...options, follow: speaker });
+  speak(audio, cue, { ...options, speaker, mix: SPEECH_MIX });
   return true;
 }
 

@@ -292,6 +292,12 @@ function buildFogPockets(minX, minZ, size, material, bounds = null) {
   const plane = new THREE.PlaneGeometry(1, 1);
   const mesh = new THREE.InstancedMesh(plane, material, pockets.length * 3);
   mesh.name = 'forest.fog-pocket';
+  /* Three transparent cards crossed through each other at the same point,
+   * hanging a metre off the ground in a hollow, and the whole point of a fog
+   * bank is that things stand IN it. It is not a solid and it is not resting
+   * on anything: it is the only object in the forest for which "does it
+   * interpenetrate" and "what holds it up" are both the wrong question. */
+  mesh.userData.geometryGate = { fixedSupportAnchor: true, overlap: false };
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   mesh.frustumCulled = true;

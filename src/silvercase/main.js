@@ -1,3 +1,4 @@
+import { SPEECH_MIX_CLOSE, speak } from '../core/dialogue.js';
 import * as THREE from 'three';
 import { ANCHORS, BATHROOM_DOOR, ROOMS } from './scenes/ApartmentScene.js';
 import { SILVERCASE_APE_PRESENTATION } from './cast/ape.js';
@@ -471,8 +472,15 @@ const dialogue = new DialogueController({
     voiceSource = null;
     voiceSeconds = 0;
     if (!cue || !audio?.hasSample?.(cue)) return 0;
-    voiceSource = audio.play(cue, { volume: 0.9 });
-    voiceSeconds = audio.sampleDuration?.(cue) ?? 0;
+    /* Through the shared dialogue path. The 0.9 that used to be here was this
+     * scene's own guess at dialogue level; it lives on the voice bus now, once,
+     * for the whole game. `SPEECH_MIX_CLOSE` because the Silver Case is two
+     * men in a room and a hallway -- there is nowhere far enough away for a
+     * positional mix to buy anything, and a line that fades when the player
+     * turns round is worse than one that does not. */
+    const spoken = speak(audio, cue, { mix: SPEECH_MIX_CLOSE });
+    voiceSource = spoken.source;
+    voiceSeconds = spoken.seconds;
     return voiceSeconds;
   },
   stopVoice() {

@@ -323,10 +323,28 @@ export function buildSiegeNight({ damage, registerLight = null } = {}) {
     x: 0, z: 49.0, dropY: 8.45,
     colour: 0x86b9e8, intensity: 3.4, reach: 11,
   });
-  /* Lou's desk (`deskZ = 71.6` in `MansionInterior.js`'s `buildOffice()`) --
-   * same values `accent('command', ...)` always used. */
+  /* OVER LOU'S DESK, which is `deskZ = 71.6` in `MansionInterior.js`'s
+   * `buildOffice()`.
+   *
+   * It used to hang at (-0.6, 70.85), which is where `accent('command', ...)`
+   * put a bare point light -- fine for a light, which has no body, and wrong
+   * the moment the fixture grew a rod. That spot is three quarters of a metre
+   * SHORT of the desk and directly on the office's picture rail: the drop rod
+   * went straight through the rail at y=9.2 and out the other side, three
+   * centimetres of it, in every state of the siege. Moving it onto the desk
+   * fixes the skewer and puts the light where a desk light goes. The office
+   * ceiling was swept for the whole fixture envelope -- rod, canopy and
+   * plate -- against all seventy-three fittings in the band.
+   *
+   * The desk centre itself is 71.6 and this hangs at 71.45, because the
+   * office ceiling is COFFERED: `office-coffer` beams run across it at
+   * z = 65.0, 68.4, 71.8 and 74.2, and their soffits drop to y=9.8, ten
+   * centimetres BELOW the trim the fixture mounts to. A canopy on the trim
+   * under a beam is four centimetres inside the beam. Fifteen centimetres
+   * back puts it in the panel between two beams, which is where a ceiling
+   * light goes in a room with a ceiling like this one. */
   ceilingAccent('command', {
-    x: -0.6, z: 70.85, dropY: 7.55,
+    x: 0, z: 71.45, dropY: 7.55,
     colour: 0xffb45f, intensity: 3.0, reach: 7.5, lens: [0.46, 0.07, 0.14],
   });
   damage.group('night.accents', { object: accentRoot, layers: ['battle'] });

@@ -59,6 +59,48 @@ function decodeDataUri(uri) {
   return bytes.buffer;
 }
 
+/**
+ * The one trim every spoken line in the game passes through.
+ *
+ * Set once, here, rather than nine times across nine scenes. It sits a little
+ * under the sfx bus because dialogue is recorded hot and a limiter is not a
+ * mix.
+ */
+export const VOICE_BUS_GAIN = 0.85;
+
+/**
+ * How far music and ambience step back while somebody is talking.
+ *
+ * A duck, not a mute: the room is still there behind him. 0.45 on music and
+ * 0.62 on ambience is roughly seven and four decibels, which is enough to
+ * clear a voice without the player noticing the bed move.
+ */
+export const VOICE_DUCK = Object.freeze({ music: 0.45, ambience: 0.62 });
+/** Down fast enough to be under the first syllable, up slow enough to hide. */
+export const VOICE_DUCK_ATTACK_S = 0.12;
+export const VOICE_DUCK_RELEASE_S = 0.55;
+/** How long after the last line ends before the bed comes back up. */
+export const VOICE_DUCK_HOLD_S = 0.35;
+
+/**
+ * Cue namespaces that ARE dialogue.
+ *
+ * `vo.` is the bulk of it and always has been. The rest of the game names its
+ * cues by scene rather than by kind -- `heist.snow.commit` is a line and
+ * `heist.cash.lift` is a sound effect, and both start with `heist.` -- so a
+ * prefix test cannot classify those and does not try. Anything outside this
+ * list declares itself by passing `bus: 'voice'`, which is what
+ * `src/core/dialogue.js` does for every line it plays.
+ */
+const VOICE_CUE_PREFIXES = Object.freeze(['vo.']);
+
+export function isVoiceCue(name, opts = {}) {
+  if (opts.bus === 'voice') return true;
+  if (opts.bus) return false;
+  const cue = String(name ?? '');
+  return VOICE_CUE_PREFIXES.some((prefix) => cue.startsWith(prefix));
+}
+
 export class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -144,9 +186,34 @@ export class AudioEngine {
     this.busSfx = this.ctx.createGain();
     this.busAmb = this.ctx.createGain();
     this.busMusic = this.ctx.createGain();
+    /* THE VOICE BUS.
+     *
+     * Every spoken line in the game used to arrive on `busSfx` at whatever
+     * per-call gain its scene happened to type: 0.95 in the Initiation, 0.9 in
+     * the Silver Case and the siege, 0.85 in the heist, 0.8 in Silent Squatch,
+     * 0.85 by default in `say()`. Nothing was wrong with any one of those and
+     * the result was a game where the volume of a line depended on which scene
+     * you were standing in.
+     *
+     * One bus fixes it in the only place it can be fixed: the graph. Dialogue
+     * now has a single trim that a mix change moves ONCE, and a per-call
+     * `volume` goes back to meaning what it should always have meant --
+     * this line is quieter than normal, because he is behind a door -- rather
+     * than being each scene's guess at how loud dialogue is.
+     *
+     * It also gives the ducking below something to key off. You cannot duck
+     * music under dialogue when dialogue is indistinguishable from a
+     * footstep. */
+    this.busVoice = this.ctx.createGain();
     this.busSfx.gain.value = 1.0;
     this.busAmb.gain.value = 0.55;
     this.busMusic.gain.value = 0.7;
+    this.busVoice.gain.value = VOICE_BUS_GAIN;
+    /* The bus `play()` compares against before it reroutes -- see the note in
+     * `play()`. A scene send (the reinforced glass in Silent Squatch, the
+     * suppressor in the Palace) works by swapping `busSfx` for the duration of
+     * one call, and rerouting out from under it would silently unhook it. */
+    this._busSfxDefault = this.busSfx;
 
     // A muffling filter on everything, used when the player is "inside" the
     // arcade game and the room should recede.
@@ -154,7 +221,9 @@ export class AudioEngine {
     this.duck.type = 'lowpass';
     this.duck.frequency.value = 20000;
 
-    for (const bus of [this.busSfx, this.busAmb, this.busMusic]) bus.connect(this.duck);
+    for (const bus of [this.busSfx, this.busAmb, this.busMusic, this.busVoice]) {
+      bus.connect(this.duck);
+    }
     this.duck.connect(this.limiter);
     this.limiter.connect(this.master);
     this.master.connect(this.ctx.destination);
@@ -390,7 +459,18 @@ export class AudioEngine {
     const out = this.ctx.createGain();
     out.gain.value = volume;
 
-    let sink = this.busSfx;
+    /* WHICH BUS.
+     *
+     * A spoken line goes to the voice bus so it has one trim and so the duck
+     * below has something to key off -- unless a scene send has temporarily
+     * hijacked `busSfx`, in which case that send wins and the line goes
+     * through it. Those sends (the reinforced glass in Silent Squatch, the
+     * suppressor in the Palace) work by swapping `busSfx` for exactly one
+     * call, and quietly rerouting a voice line past the swap would unhook a
+     * filter chain that the scene believes is in the path. `bus: 'sfx'`
+     * forces the old behaviour for anything that wants it. */
+    const voice = isVoiceCue(name, opts) && this.busSfx === this._busSfxDefault;
+    let sink = voice ? this.busVoice : this.busSfx;
     /* `muffle` is a lowpass corner in Hz for anything arriving through
      * building fabric. Distance attenuation alone makes a sound quieter, not
      * duller, and quiet-but-bright still reads as in-the-room. Two poles,
@@ -460,12 +540,23 @@ export class AudioEngine {
         naturalEnd: false,
         endedAt: null,
       };
+      if (voice) {
+        this._duckForVoice(when, src.buffer.duration / Math.max(0.001, Math.abs(rate)));
+        /* Every live spoken line, so `stopSpeech()` can cut the room off
+         * without stopping the room. See it below. */
+        (this._voiceSources ??= new Set()).add(src);
+      }
       this.playbacks.push(playback);
       // Keep diagnostics bounded. A busy apartment can make several hundred
       // tiny sounds over an evening; diagnostics must not become save-state.
       if (this.playbacks.length > 160) this.playbacks.splice(0, this.playbacks.length - 160);
       src.onended = () => {
         this._unfollow(src);
+        /* Off the live-speech roll, however it ended. `onended` rather than an
+         * 'ended' listener because that is the handler this engine has always
+         * used and a source that never fires it is a source that never
+         * started -- the set would grow without bound on either path. */
+        this._voiceSources?.delete(src);
         const endedAt = this.ctx.currentTime;
         playback.endedAt = endedAt;
         /* `onended` also fires for stop().  A natural end must therefore have
@@ -478,6 +569,137 @@ export class AudioEngine {
     }
     synth(this, name, out, when, rate);
     return null;
+  }
+
+  /**
+   * Pull the music and ambience beds back under a spoken line.
+   *
+   * Keyed off the LINE, not off a scene remembering to duck: the engine knows
+   * a voice cue is starting and how long it runs, so the bed steps down under
+   * the first syllable and comes back up when the room is quiet. Overlapping
+   * lines extend the same duck rather than stacking two of them, which is why
+   * this tracks a single release time instead of a count.
+   *
+   * @param {number} startsAt context time the line begins
+   * @param {number} seconds how long it runs at its playback rate
+   */
+  _duckForVoice(startsAt, seconds) {
+    if (!this.ready || !this.busMusic || !this.busAmb) return;
+    const until = startsAt + Math.max(0, seconds) + VOICE_DUCK_HOLD_S;
+    /* A line landing inside an existing duck only ever pushes the release
+     * later. Re-attacking a bed that is already down is a second dip the
+     * player hears as pumping. */
+    const already = (this._voiceDuckUntil ?? 0) > this.ctx.currentTime;
+    this._voiceDuckUntil = Math.max(this._voiceDuckUntil ?? 0, until);
+    if (!already) {
+      this._rampBus(this.busMusic, this._busMusicLevel(), VOICE_DUCK.music, startsAt);
+      this._rampBus(this.busAmb, this._busAmbLevel(), VOICE_DUCK.ambience, startsAt);
+    }
+    clearTimeout(this._voiceDuckTimer);
+    const wait = Math.max(0, (this._voiceDuckUntil - this.ctx.currentTime) * 1000);
+    this._voiceDuckTimer = setTimeout(() => this._releaseVoiceDuck(), wait);
+  }
+
+  /** Put the beds back where the scene had them. */
+  _releaseVoiceDuck() {
+    if (!this.ready) return;
+    this._voiceDuckUntil = 0;
+    const now = this.ctx.currentTime;
+    this._rampBus(this.busMusic, this._busMusicLevel(), 1, now, VOICE_DUCK_RELEASE_S);
+    this._rampBus(this.busAmb, this._busAmbLevel(), 1, now, VOICE_DUCK_RELEASE_S);
+  }
+
+  /**
+   * The level a bus would sit at with nobody talking.
+   *
+   * The duck is a MULTIPLIER on whatever the scene has set, so a scene that
+   * fades its music down for a cutscene and a duck that fires during it do not
+   * fight: the duck reads the scene's level, scales it, and restores to the
+   * scene's level rather than to the engine default. The stored level is
+   * updated by `setLoopVolume`-style callers through `busLevel()`.
+   */
+  _busMusicLevel() {
+    return this._musicLevel ?? 0.7;
+  }
+
+  _busAmbLevel() {
+    return this._ambienceLevel ?? 0.55;
+  }
+
+  /**
+   * Set a bus's resting level, so a later duck restores to it.
+   *
+   * Anything that wants to move the music or ambience bed itself should come
+   * through here rather than writing `busMusic.gain.value`, or the next duck
+   * release will put the bed back to a level the scene abandoned.
+   */
+  busLevel(which, value, ramp = 0.3) {
+    const level = Math.max(0, Number(value) || 0);
+    if (which === 'music') this._musicLevel = level;
+    else if (which === 'ambience') this._ambienceLevel = level;
+    else return false;
+    if (!this.ready) return true;
+    const bus = which === 'music' ? this.busMusic : this.busAmb;
+    const ducked = (this._voiceDuckUntil ?? 0) > this.ctx.currentTime;
+    const scale = ducked ? (which === 'music' ? VOICE_DUCK.music : VOICE_DUCK.ambience) : 1;
+    this._rampBus(bus, level, scale, this.ctx.currentTime, ramp);
+    return true;
+  }
+
+  /** One ramp, so every caller above schedules the same shape. */
+  _rampBus(bus, level, scale, at, seconds = VOICE_DUCK_ATTACK_S) {
+    if (!bus?.gain) return;
+    const target = level * scale;
+    const t = Math.max(at, this.ctx.currentTime);
+    bus.gain.cancelScheduledValues(t);
+    bus.gain.setValueAtTime(bus.gain.value, t);
+    bus.gain.linearRampToValueAtTime(target, t + Math.max(0.001, seconds));
+  }
+
+  /**
+   * Cut every line that is currently being spoken. Nothing else.
+   *
+   * A scene that is skipped, restarted, or transitioned away from has to
+   * silence its dialogue or the next scene opens with the last one's argument
+   * still going. Every scene that noticed this wrote its own version --
+   * `activeDialogueSource?.stop?.()` in the heist, `hushCrew()` beside it,
+   * `stopVoice()` in the Silver Case, `hush()` in the Motel -- and each of
+   * them only knew about the one source it had started, so a bark from an NPC
+   * and a line from a mission could not both be cut by either.
+   *
+   * The engine knows all of them, because they all go through the voice bus.
+   *
+   * @returns {number} how many lines were cut
+   */
+  stopSpeech() {
+    const live = this._voiceSources;
+    if (!live?.size) return 0;
+    let cut = 0;
+    for (const source of live) {
+      try {
+        source.stop();
+        cut += 1;
+      } catch { /* already ended: onended has not fired yet */ }
+    }
+    live.clear();
+    this._vo = null;
+    this._busyUntil = 0;
+    /* And put the beds back, or a scene skipped mid-line leaves the music
+     * ducked for the rest of the night. */
+    this._releaseVoiceDuck();
+    return cut;
+  }
+
+  /** Is anybody talking right now? */
+  get speaking() {
+    return (this._voiceSources?.size ?? 0) > 0;
+  }
+
+  /** The dialogue trim, for a settings slider that wants its own control. */
+  setVoiceVolume(v) {
+    this._voiceLevel = Math.max(0, Number(v) || 0);
+    if (this.busVoice) this.busVoice.gain.value = VOICE_BUS_GAIN * this._voiceLevel;
+    return this._voiceLevel;
   }
 
   /**

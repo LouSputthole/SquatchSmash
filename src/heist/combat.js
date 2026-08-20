@@ -1,3 +1,4 @@
+import { hiddenOrIgnored, resolveProxyContact } from '../core/combat/aim-proxy.js';
 import * as THREE from 'three';
 
 import { CombatFireControl } from '../core/combat/fire-control.js';
@@ -161,50 +162,21 @@ const _segment = new THREE.Vector3();
 const _eye = new THREE.Vector3();
 const _worldNormal = new THREE.Vector3();
 const _normalMatrix = new THREE.Matrix3();
-/* Scratch for pulling an aim-proxy contact back onto the body — see `trace`. */
-const _proxyBounds = new THREE.Box3();
-const _proxyPoint = new THREE.Vector3();
 
 /** Officer eye and muzzle heights; the palace Adapter's proportions. */
 const HOSTILE_EYE_HEIGHT = 1.52;
 const HOSTILE_MUZZLE_HEIGHT = 1.35;
 
-function hiddenOrIgnored(object, ignore) {
-  let node = object;
-  while (node) {
-    /* Hidden ancestors are filtered before an object can stop a round — the
-     * shot-truth contract — and a shooter's own rig cannot block his shot. */
-    if (node.visible === false || node === ignore) return true;
-    node = node.parent;
-  }
-  return false;
-}
-
 /**
- * Turn a hit on an aim proxy into a hit on the body behind it.
+ * Turning a proxy contact into a body contact now lives in
+ * `src/core/combat/aim-proxy.js`.
  *
- * See `HeistCombatAdapter.trace`. The proxy's parent is the figure root in
- * every place one is built (`level.js` for the lobby, `cast.js` for the crew,
- * `main.js` for the police), so "the same figure" is a parent test.
+ * It was written here, and it was right here, and it stayed here — so every
+ * other scene with an aim volume kept the bug it fixes. Triple X hanging in
+ * the Silent Squatch lab was the one the owner found: his hit box is a metre
+ * of empty air around a man on a swinging chain, and the blood landed on the
+ * box. Same fix, one copy, reachable from anywhere.
  */
-function resolveProxyContact(proxyHit, hits, ignore) {
-  const body = proxyHit.object.parent;
-  if (!body) return proxyHit;
-  for (const hit of hits) {
-    if (hit === proxyHit || hiddenOrIgnored(hit.object, ignore)) continue;
-    if (hit.object?.userData?.aimProxy === true) continue;
-    for (let node = hit.object; node; node = node.parent) {
-      if (node === body) return hit;
-    }
-  }
-  /* Nothing under him along this ray: the round clipped the corner of the
-   * volume. Keep the hit — a graze is a hit — but put the contact on the
-   * nearest point of the man rather than on the empty box around him. */
-  const bounds = _proxyBounds.setFromObject(body);
-  if (!Number.isFinite(bounds.min.y)) return proxyHit;
-  const point = bounds.clampPoint(proxyHit.point, _proxyPoint).clone();
-  return { ...proxyHit, point, face: null };
-}
 
 export class HeistCombatAdapter {
   /**

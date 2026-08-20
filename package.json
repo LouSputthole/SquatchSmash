@@ -72,6 +72,8 @@
     "radio:cues": "node tools/radio-cues.mjs",
     "check:radio-vo": "node tools/radio-cues.mjs --check",
     "audio:todo": "node tools/audio-todo.mjs",
+    "verify:dialogue": "node tools/verify-dialogue.mjs",
+    "verify:dialogue:check": "node tools/verify-dialogue.mjs --check",
     "voice:needed": "node tools/voice-needed.mjs",
     "voice:needed:check": "node tools/voice-needed.mjs --check",
     "record:sheet": "node tools/record-sheet.mjs",

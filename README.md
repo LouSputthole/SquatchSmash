@@ -85,6 +85,13 @@ is complete, and visibly transform Tony and every recognized family member into
 literal sasquatches. Prospect One's execution and gore remain. See
 [`docs/CHARACTER-ALIGNMENT.md`](./docs/CHARACTER-ALIGNMENT.md).
 
+**Before building a new gameplay system for a scene, read
+[`docs/REUSE-FIRST.md`](./docs/REUSE-FIRST.md).** It lists the one
+implementation of each shared system — objectives, dialogue playback and
+mixing, the player controller, prompts, weapons, decals, outfits, inventory,
+transitions — and it is a development requirement rather than a preference. The
+four bugs that paid for it are named in it.
+
 The authoritative release flow, scene-by-scene gap ledger, verification record,
 and finish order are in
 [`docs/RELEASE-CANDIDATE-FLOW-2026-08-01.md`](./docs/RELEASE-CANDIDATE-FLOW-2026-08-01.md).
