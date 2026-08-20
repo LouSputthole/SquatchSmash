@@ -261,6 +261,59 @@
   }
   #checkpoint.show { opacity: 1; }
 
+  /* ---------------------------------------------------------------- */
+  /* THE DEATH SCREEN                                                  */
+  /*                                                                   */
+  /* Bloody, but bloody at the EDGES: the middle of the screen has two  */
+  /* buttons on it that a player who has just been shot needs to read   */
+  /* at a glance. The gore is a vignette creeping in from the corners   */
+  /* and a wash over the top, not a texture behind the words.          */
+  /* ---------------------------------------------------------------- */
+  #death {
+    position: fixed; inset: 0; z-index: 40;
+    display: grid; place-items: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .55s ease;
+  }
+  #death.showing { opacity: 1; pointer-events: auto; }
+  .death-vignette {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 12% 8%, rgba(122, 8, 8, .85), transparent 44%),
+      radial-gradient(ellipse at 90% 14%, rgba(96, 6, 6, .78), transparent 40%),
+      radial-gradient(ellipse at 6% 92%, rgba(108, 7, 7, .8), transparent 42%),
+      radial-gradient(ellipse at 94% 88%, rgba(88, 5, 5, .75), transparent 38%),
+      radial-gradient(ellipse at 50% 50%, rgba(24, 2, 2, .5), rgba(6, 2, 2, .96) 78%);
+    animation: deathBleed 1.1s ease-out both;
+  }
+  .death-card { position: relative; text-align: center; padding: 0 20px; }
+  .death-card h2 {
+    margin: 0; color: #e9d7c6;
+    font-size: clamp(34px, 7vw, 66px); letter-spacing: .12em;
+    text-shadow: 0 0 26px rgba(150, 12, 12, .85);
+  }
+  .death-line { margin: 10px 0 30px; color: #a08c84; font-size: 13px; letter-spacing: .18em; }
+  .death-actions { display: grid; gap: 12px; justify-items: center; }
+  #death button {
+    min-width: 300px; padding: 14px 26px;
+    color: #120c0c; background: #c8a24e; border: 0; border-radius: 4px;
+    box-shadow: 0 4px 0 #8e6f2e;
+    font: 700 14px var(--font, system-ui); letter-spacing: .14em; cursor: pointer;
+  }
+  #death button:hover { background: #dfb85f; }
+  #death button:focus-visible { outline: 3px solid #fff1ca; outline-offset: 4px; }
+  .death-at { font-weight: 400; opacity: .85; }
+  #death .death-secondary {
+    color: #b9a9a2; background: transparent;
+    border: 1px solid rgba(224, 190, 180, .28); box-shadow: none;
+  }
+  #death .death-secondary:hover { color: #f0e2d8; background: rgba(255, 255, 255, .06); }
+  @keyframes deathBleed { from { opacity: 0; transform: scale(1.14); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    #death { transition: none; }
+    .death-vignette { animation: none; }
+  }
+
   /* The alarm's own light on the edges of the screen, driven from JS so it
    * stays in step with the klaxon rather than running its own CSS clock. */
   #alarmWash {
@@ -334,6 +387,24 @@
   </div>
 
   <div id="checkpoint">CHECKPOINT</div>
+
+  <!-- THE DEATH SCREEN. Two ways out and no third: take the checkpoint you
+       have, or start the night again. There is deliberately no "quit" here —
+       the pause menu owns leaving, and a fail card is a bad place to put an
+       exit somebody might hit by reflex. -->
+  <section id="death" role="dialog" aria-modal="true" aria-labelledby="deathTitle" aria-hidden="true">
+    <div class="death-vignette" aria-hidden="true"></div>
+    <div class="death-card">
+      <h2 id="deathTitle">YOU WENT DOWN</h2>
+      <p class="death-line">They are still in the house.</p>
+      <div class="death-actions">
+        <button id="deathRespawn" type="button">
+          Respawn <span class="death-at">at <b id="deathCheckpoint">THE LAST CHECKPOINT</b></span>
+        </button>
+        <button id="deathRestart" type="button" class="death-secondary">Restart the night</button>
+      </div>
+    </div>
+  </section>
 
   <div id="helping" hidden>
     <span class="who">Hold <b>E</b> &mdash; get <b id="helpingName"></b> off the floor</span>

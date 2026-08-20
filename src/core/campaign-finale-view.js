@@ -22,17 +22,25 @@ export function createCampaignFinaleView({ documentRef = globalThis.document } =
   const highlights = required(documentRef, 'campaign-finale-highlights');
   const credits = required(documentRef, 'campaign-finale-credits');
   const continueButton = required(documentRef, 'campaign-freeplay-btn');
+  const creditsButton = required(documentRef, 'campaign-roll-credits-btn');
   const error = required(documentRef, 'campaign-finale-error');
 
   let replay = false;
   let onContinue = null;
+  let onRollCredits = null;
 
   continueButton.addEventListener('click', () => onContinue?.({ replay }));
+  creditsButton.addEventListener('click', () => onRollCredits?.());
 
   return Object.freeze({
     setContinueHandler(handler) {
       if (typeof handler !== 'function') throw new TypeError('Finale continue handler must be a function');
       onContinue = handler;
+    },
+
+    setRollCreditsHandler(handler) {
+      if (typeof handler !== 'function') throw new TypeError('Finale credits handler must be a function');
+      onRollCredits = handler;
     },
 
     show(recap, { replay: isReplay = false } = {}) {

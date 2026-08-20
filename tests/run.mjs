@@ -128,6 +128,7 @@ const TEST_MODULES = [
   './staging-gate.test.mjs',
   './shared-system-adoption.test.mjs',
   './initiation-card-burn.test.mjs',
+  './campaign-credits.test.mjs',
   './apartment-voice-coverage.test.mjs',
   './phone.test.mjs',
   './squatchfather-story.test.mjs',

@@ -1521,11 +1521,16 @@ function shatterNearest({ x, z, opening }) {
 /**
  * He went down.
  *
- * The checkpoint is the failure state -- there is no death screen and no
- * retry menu, because the four checkpoints are placed so that the longest
- * thing a death can cost is one wave. `restoreCheckpoint()` puts the beat,
- * the wave rosters, the damage state, the broken glass and the player back
- * where the checkpoint had them; all this has to add is standing him up.
+ * This used to restore the checkpoint silently and say so in this comment:
+ * "there is no death screen and no retry menu, because the four checkpoints
+ * are placed so that the longest thing a death can cost is one wave." The
+ * owner asked for one, so there is one, and the comment is corrected rather
+ * than left contradicting the code underneath it.
+ *
+ * The restore itself has not changed and is still cheap -- it is simply on the
+ * far side of a button now. `restoreCheckpoint()` puts the beat, the wave
+ * rosters, the damage state, the broken glass and the player back where the
+ * checkpoint had them; `respawnFromCheckpoint()` adds standing him up.
  */
 let reviving = false;
 /**
@@ -1554,6 +1559,21 @@ function onPlayerDown() {
   weaponSystem.setAimed(false);
   weaponSystem.cancelPendingImpacts();
   player.clearKeys?.();
+  /* Let the mouse go. A card with two buttons on it behind a locked pointer
+   * is a card nobody can press. */
+  try { document.exitPointerLock?.(); } catch { /* not locked */ }
+  showDeathScreen();
+}
+
+/**
+ * Take the offered checkpoint.
+ *
+ * Everything here was the back half of `onPlayerDown` before the card existed,
+ * and it is unchanged: the point of the card is to ask, not to alter what
+ * happens once the player has answered.
+ */
+function respawnFromCheckpoint() {
+  hideDeathScreen();
   attackers.despawnAll();
   mission.restoreCheckpoint();
   playerActor.health = playerActor.maxHealth;
@@ -1569,6 +1589,55 @@ function onPlayerDown() {
   ammoDirty = true;
   waveDirty = true;
   reviving = false;
+}
+
+/**
+ * Start the night again.
+ *
+ * A reload rather than an in-page teardown, and for the same reason
+ * `replayBtn` has always used one: this scene mounts twenty-two people, four
+ * damage states and a weapon system, and the honest way to get a clean one is
+ * to ask the browser for a clean one.
+ */
+function restartScene() {
+  window.location.reload();
+}
+
+/* ---------------------------------------------------------------- */
+/* THE DEATH SCREEN                                                  */
+/* ---------------------------------------------------------------- */
+const deathEl = $('death');
+const deathCheckpointEl = $('deathCheckpoint');
+const deathRespawnBtn = $('deathRespawn');
+const deathRestartBtn = $('deathRestart');
+
+deathRespawnBtn?.addEventListener('click', respawnFromCheckpoint);
+deathRestartBtn?.addEventListener('click', restartScene);
+
+function showDeathScreen() {
+  if (!deathEl) {
+    /* No card in this page: fall back to what the scene did before it had
+     * one, rather than leaving the player on the floor forever. */
+    respawnFromCheckpoint();
+    return;
+  }
+  if (deathCheckpointEl) {
+    /* Name the checkpoint he is being offered, not the word "checkpoint":
+     * "back to LITTLE FRIEND" tells him how much he lost, and that is the
+     * only question anybody has on this screen. `CHECKPOINTS` is the same
+     * table the on-screen checkpoint tag reads. */
+    const label = CHECKPOINTS[mission.checkpoint?.id]?.label;
+    deathCheckpointEl.textContent = label ? label.toUpperCase() : 'THE LAST CHECKPOINT';
+  }
+  deathEl.classList.add('showing');
+  deathEl.setAttribute('aria-hidden', 'false');
+  deathRespawnBtn?.focus?.({ preventScroll: true });
+}
+
+function hideDeathScreen() {
+  if (!deathEl) return;
+  deathEl.classList.remove('showing');
+  deathEl.setAttribute('aria-hidden', 'true');
 }
 
 /* ================================================================== */
@@ -2822,11 +2891,25 @@ window.mansionSiege = {
   get playerDown() { return playerActor.incapacitated; },
   /** Headless only -- see the note on `invulnerable`. */
   setInvulnerable(on) { invulnerable = on !== false; return invulnerable; },
-  /** Put him on the floor, to prove the checkpoint catches him. */
+  /**
+   * Put him on the floor.
+   *
+   * This used to return the beat the checkpoint had already rewound him to,
+   * because dying restored it on the spot. Death raises a card now, so it
+   * returns the beat he DIED on and the restore happens when something takes
+   * the offer -- a player clicking, or `respawn()` below.
+   */
   killPlayer() {
     playerActor.health = 0;
     playerActor.incapacitated = true;
     onPlayerDown();
+    return mission.beat;
+  },
+  /** Is the death card up? */
+  get deathScreen() { return deathEl?.classList.contains('showing') === true; },
+  /** Take the checkpoint the card is offering, as the button does. */
+  respawn() {
+    respawnFromCheckpoint();
     return mission.beat;
   },
   equip: (id) => {

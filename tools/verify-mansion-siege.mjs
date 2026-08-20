@@ -1907,7 +1907,14 @@ try {
       && direction?.classList.contains('active') === true
       && hudRoot?.dataset.lastDamage === '23';
     const before = s.beat;
-    const after = s.killPlayer();
+    /* Dying raises a card now instead of rewinding on the spot: the owner
+     * asked for a death screen with respawn and restart on it. So this is two
+     * steps -- go down, then take the offer -- and the check below reads the
+     * card as well as the restore. */
+    const downAt = s.killPlayer();
+    const cardUp = s.deathScreen;
+    const after = s.respawn();
+    const cardCleared = s.deathScreen === false;
     const feedbackCleared = hudRoot?.classList.contains('hit') === false
       && hudRoot?.classList.contains('armor-hit') === false
       && hudRoot?.classList.contains('armor-break') === false
@@ -1920,13 +1927,17 @@ try {
       && direction?.dataset.bearing == null
       && direction?.dataset.sector == null;
     return {
-      before, after, hp: s.playerHealth, down: s.playerDown, cp: s.checkpoint,
+      before, downAt, after, cardUp, cardCleared,
+      hp: s.playerHealth, down: s.playerDown, cp: s.checkpoint,
       feedbackBefore, feedbackCleared,
     };
   });
-  check('going down in wave one rewinds to the last checkpoint rather than ending the run',
-    died.before === 'WAVE_ONE' && died.after === 'LITTLE_FRIEND' && died.hp === 100
-      && died.down === false && died.feedbackBefore && died.feedbackCleared,
+  check('going down raises the death screen instead of ending the run',
+    died.before === 'WAVE_ONE' && died.downAt === 'WAVE_ONE' && died.cardUp,
+    JSON.stringify(died));
+  check('taking the offered checkpoint rewinds to it and clears the card',
+    died.after === 'LITTLE_FRIEND' && died.hp === 100 && died.down === false
+      && died.cardCleared && died.feedbackBefore && died.feedbackCleared,
     JSON.stringify(died));
 
   /* Back to the top of the stairs, say it again, and this time do not die. */

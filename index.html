@@ -117,6 +117,17 @@
 </div>
 
 <!-- ============ Title / Pause ============ -->
+<!-- THE CREDIT ROLL. Outside #overlay on purpose: it fades the whole screen
+     to black, the recap card included, and a crawl nested inside the thing it
+     is supposed to cover cannot do that. -->
+<section id="credits" class="hidden-hard" role="dialog" aria-modal="true"
+  aria-label="Credits" aria-hidden="true">
+  <div class="credits-window">
+    <div id="credits-track" class="credits-track"></div>
+  </div>
+  <button id="credits-skip" type="button">Skip &mdash; <span class="key">Esc</span></button>
+</section>
+
 <div id="overlay">
   <div class="panel">
     <h1>SQUATCH<span>LIFE</span></h1>
@@ -135,6 +146,7 @@
         <div id="campaign-finale-credits" class="finale-credits-track"></div>
       </div>
       <p id="campaign-finale-error" class="finale-error" role="alert" hidden></p>
+      <button id="campaign-roll-credits-btn" type="button">Roll Credits</button>
       <button id="campaign-freeplay-btn" type="button">Continue in Freeplay</button>
     </section>
     <!-- Only revealed from the in-game pause card. It is deliberately a

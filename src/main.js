@@ -53,6 +53,7 @@ import {
   shouldPresentCampaignFinale,
 } from './core/campaign-finale.js';
 import { createCampaignFinaleView } from './core/campaign-finale-view.js';
+import { createCampaignCreditsView } from './core/campaign-credits-view.js';
 import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
@@ -111,6 +112,10 @@ const loading = document.getElementById('loading');
 const startBtn = document.getElementById('start-btn');
 const assetStatus = document.getElementById('asset-status');
 const campaignFinaleView = createCampaignFinaleView();
+/* The ending. The recap card offers it; the crawl covers everything, fades the
+ * screen to black first, and can always be left with Escape. */
+const campaignCreditsView = createCampaignCreditsView();
+campaignFinaleView.setRollCreditsHandler(() => campaignCreditsView.roll());
 const viewCareerRecapBtn = document.getElementById('view-career-recap-btn');
 const restartCampaignBtn = document.getElementById('restart-campaign-btn');
 const restartCampaignConfirm = document.getElementById('restart-campaign-confirm');
