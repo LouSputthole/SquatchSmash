@@ -209,16 +209,27 @@ test('the morning list is the door’s own requirements, chapter by chapter', ()
   const dayTwo = createApartmentStory({ campaign, ring: () => true });
   const morning = dayTwo.objectives(nothingDone);
   assert.equal(morning.day, 2);
+  /* `watchedTv` is Day Two's PASTIME -- see CHAPTER_PASTIMES in
+   * core/apartment-story.js. Every chapter that sends him home now asks for
+   * one thing that is his rather than the family's, and it is listed under the
+   * call because that is the order the door enforces. */
   assert.deepEqual(morning.items.map((i) => i.id), [
-    'eaten', 'showered', 'peed', 'pooped', 'changedClothes', EVENT_IDS.BOOSKI_DAY_TWO_CALL,
+    'eaten', 'showered', 'peed', 'pooped', 'changedClothes',
+    EVENT_IDS.BOOSKI_DAY_TWO_CALL, 'watchedTv',
   ]);
   assert.equal(morning.items.find((i) => i.id === 'eaten').required, false);
+  assert.equal(morning.items.find((i) => i.id === 'watchedTv').required, true);
   assert.equal(morning.items.at(-1).required, true);
   // Nobody from yesterday is on today's list.
   assert.ok(!morning.items.some((i) => i.id === EVENT_IDS.LOU_FIRST_CALL));
 
   dayTwo.callAnswered(DAY_TWO_BOOSKI_CALL);
-  assert.equal(dayTwo.objectives(nothingDone).items.at(-1).label, 'Leave for the airstrip');
+  /* The call is answered and the telly is not: the door is about the telly. */
+  assert.equal(dayTwo.objectives(nothingDone).items.at(-1).id, 'watchedTv');
+  assert.equal(
+    dayTwo.objectives({ ...nothingDone, watchedTv: true }).items.at(-1).label,
+    'Leave for the airstrip',
+  );
 });
 
 /*
@@ -477,6 +488,16 @@ test('sleep after Squatchfather creates a persistent Day Two wake checkpoint', (
     changedClothes: false,
     emailChecked: false,
     whiskeyRelaxed: false,
+    /* And the chapter's own thing, which belongs to its chapter for the same
+     * reason: a man who sat through the news on Tuesday night has not thereby
+     * watched Wednesday's. See CHAPTER_PASTIMES in core/apartment-story.js;
+     * `sleep()` clears all of them on a chapter turn, which is why they read
+     * false here rather than absent. */
+    watchedTv: false,
+    playedCounterSquatch: false,
+    playedSquatchShoot: false,
+    playedSquatchSmash: false,
+    tookShrooms: false,
   });
 });
 
@@ -712,7 +733,15 @@ test('the Day Two door waits for Booskibro, then routes to the Beef Run', () => 
   });
 
   story.callAnswered(DAY_TWO_BOOSKI_CALL);
-  assert.deepEqual(story.tryLeave({}), {
+  /* And then Day Two's own thing, before the airstrip. He put a man in the
+   * ground last night and the local news does a bulletin on the hour -- see
+   * CHAPTER_PASTIMES in core/apartment-story.js. */
+  const ownThing = story.tryLeave({});
+  assert.equal(ownThing.kind, 'activity');
+  assert.equal(ownThing.id, 'watchedTv');
+  assert.equal(ownThing.vo, 'door.refusal.watch_tv');
+
+  assert.deepEqual(story.tryLeave({ watchedTv: true }), {
     kind: 'go',
     destination: SCENE_IDS.AIRSTRIP_SMUGGLING,
   });
@@ -1062,7 +1091,13 @@ test('the Day 4 door routes through Golf before exposing THE TAKE', () => {
   });
 
   story.callAnswered(DAY_FOUR_LOU_GOLF_CALL);
-  assert.deepEqual(story.tryLeave({}), {
+  /* Golf morning's own thing stands between the call and the course -- Lou is
+   * about to put a club in his hand in front of people. See CHAPTER_PASTIMES
+   * in core/apartment-story.js. */
+  const warmUp = story.tryLeave({});
+  assert.equal(warmUp.kind, 'activity');
+  assert.equal(warmUp.id, 'playedSquatchShoot');
+  assert.deepEqual(story.tryLeave({ playedSquatchShoot: true }), {
     kind: 'go',
     destination: SCENE_IDS.SILVER_PINES,
   });
@@ -1106,7 +1141,13 @@ test('grandfathered big-night saves still route through Booskibro to Initiation'
   });
   const story = createApartmentStory({ campaign, ring: () => true });
   assert.equal(story.callAnswered(BIG_NIGHT_BOOSKI_CALL), true);
-  assert.deepEqual(story.tryLeave({}), {
+  /* The big night asks for two things, in order, and neither of them is an
+   * errand: a run of Squatch Smash and then the caps, which take ninety
+   * minutes to arrive and are therefore timed to land somewhere around the
+   * speeches. See CHAPTER_PASTIMES in core/apartment-story.js. */
+  assert.equal(story.tryLeave({}).id, 'playedSquatchSmash');
+  assert.equal(story.tryLeave({ playedSquatchSmash: true }).id, 'tookShrooms');
+  assert.deepEqual(story.tryLeave({ playedSquatchSmash: true, tookShrooms: true }), {
     kind: 'go', destination: SCENE_IDS.INITIATION,
   });
 });

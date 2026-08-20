@@ -121,6 +121,7 @@ const TEST_MODULES = [
   './convertible-waist-geometry.test.mjs',
   './motel-npc-dialogue-behavior.test.mjs',
   './apartment-story.test.mjs',
+  './apartment-pastimes.test.mjs',
   './apartment-voice-coverage.test.mjs',
   './phone.test.mjs',
   './squatchfather-story.test.mjs',
@@ -247,6 +248,7 @@ const TEST_MODULES = [
   './specialmeeting-block.test.mjs',
   './specialmeeting-arrival.test.mjs',
   './specialmeeting-ambience.test.mjs',
+  './specialmeeting-script.test.mjs',
   './test-registry.test.mjs',
 ];
 

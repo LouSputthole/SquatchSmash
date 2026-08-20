@@ -60,7 +60,11 @@ import {
   SILVER_ROOM_DRESS_ASK,
   HEIST_CLEANUP_ITEMS,
   HEIST_PREPARATION_ITEMS,
+  SHOOT_TARGET_SCORE,
+  SMASH_PLAY_SECONDS,
+  TV_WATCH_SECONDS,
   createApartmentStory,
+  pastimeActivityEvents,
 } from './core/apartment-story.js';
 import {
   apartmentRecoveryBeatId,
@@ -2272,6 +2276,14 @@ function eatShrooms() {
   audio.play('zyn.pack', { volume: 0.5 });
   audio.say('shrooms', { chance: 0.9, delay: 0.8 });
   highs.eatShrooms();
+  /* And on the big night this is an objective — see CHAPTER_PASTIMES. Latched
+   * here rather than watched for in the frame loop because `highs.dose` is a
+   * live reading that `sleepItOff()` wipes, and "he took them" is a thing that
+   * happened rather than a thing that is currently true. */
+  apartment.state.shroomsTaken = true;
+  if (campaign.state.activities.tookShrooms !== true) {
+    completeApartmentActivity('tookShrooms', PASTIME_EVENTS.tookShrooms);
+  }
   hud.toast('Nothing is happening', '');
   hud.say('Earthy. Unpleasant. Nothing is happening. '
     + '<em>Nothing is going to happen for a while.</em>', 6000);
@@ -2743,8 +2755,26 @@ function activityContext() {
      * un-look at it. */
     pcUsed: apartment.state.pcEverOn === true,
     playedGame: (apartment.state.csDeaths || 0) >= CS_ROUNDS,
+    /* The per-chapter pastimes -- see CHAPTER_PASTIMES in
+     * core/apartment-story.js. Read out of the CAMPAIGN rather than off the
+     * live readings beside them, because these have to survive leaving the
+     * flat: the room is rebuilt from nothing on every arrival, so half a
+     * minute of the news watched before the airstrip would otherwise be
+     * un-watched by the time he lets himself back in. `pastimeWatch()` in the
+     * frame loop is what moves a live reading into the campaign, once. */
+    watchedTv: campaign.state.activities.watchedTv === true,
+    playedCounterSquatch: campaign.state.activities.playedCounterSquatch === true,
+    playedSquatchShoot: campaign.state.activities.playedSquatchShoot === true,
+    playedSquatchSmash: campaign.state.activities.playedSquatchSmash === true,
+    tookShrooms: campaign.state.activities.tookShrooms === true,
+    /* Not a flag -- the seconds themselves, so the objective can count down
+     * rather than sit there saying the same thing for half a minute. */
+    tvSeconds: apartment.state.tvWatched || 0,
   };
 }
+
+/** Which pastime costs which slice of the morning. One copy, over there. */
+const PASTIME_EVENTS = pastimeActivityEvents();
 
 const APARTMENT_RECOVERY_ACTIVITY_EVENTS = Object.freeze({
   eaten: TIME_EVENT_IDS.EAT,
@@ -2752,6 +2782,11 @@ const APARTMENT_RECOVERY_ACTIVITY_EVENTS = Object.freeze({
   peed: TIME_EVENT_IDS.PEE,
   pooped: TIME_EVENT_IDS.POOP,
   changedClothes: TIME_EVENT_IDS.CHANGE_CLOTHES,
+  /* And the chapter's own thing. Without these the recovery skip walks
+   * `tryLeave` round its loop, meets an activity it cannot complete, and
+   * reports `apartment_recovery_blocked` -- a player who asked the game to get
+   * him unstuck and was told no because he had not watched the news. */
+  ...PASTIME_EVENTS,
 });
 
 /** Normalize one required hub activity immediately before a recovery leave. */
@@ -2768,6 +2803,17 @@ function completeApartmentRecoveryActivity(activityId) {
   if (activityId === 'peed') game.peed = true;
   if (activityId === 'pooped') game.pooped = true;
   if (activityId === 'changedClothes') apartment.state.dressed = true;
+  /* The pastimes are read out of the campaign rather than off the room, so the
+   * flag alone is enough for the door -- but a skipped beat should still leave
+   * a room that agrees with it rather than a telly the flat thinks nobody
+   * watched. */
+  if (activityId === 'watchedTv') apartment.state.tvWatched = TV_WATCH_SECONDS;
+  if (activityId === 'playedCounterSquatch') {
+    apartment.state.csDeaths = Math.max(apartment.state.csDeaths || 0, CS_ROUNDS);
+  }
+  if (activityId === 'playedSquatchShoot') apartment.state.shootScore = SHOOT_TARGET_SCORE;
+  if (activityId === 'playedSquatchSmash') apartment.state.smashPlayed = SMASH_PLAY_SECONDS;
+  if (activityId === 'tookShrooms') apartment.state.shroomsTaken = true;
   completeApartmentActivity(activityId, timeEventId);
   return campaign.state.activities[activityId] === true;
 }
@@ -2797,6 +2843,71 @@ function syncClockFromCampaign() {
   apartment?.refreshClocks?.();
   hud.setClock(day, time.clock12, time.elapsedReal);
   arcade.setClock?.(time.clock12);
+}
+
+/**
+ * The chapter's own thing, watched for.
+ *
+ * Owner note, 2026-08-20: *"I want different objectives to justify each
+ * return. Maybe one is watch TV (completes after 30 seconds of watching TV)
+ * one is play Counter strike in computer another is play squatch smash and
+ * take the mushrooms, etc"* -- the table is CHAPTER_PASTIMES in
+ * core/apartment-story.js and this is the half of it that watches the room.
+ *
+ * Everything below reads something that was already being tracked or was
+ * trivially trackable, and the thresholds are deliberately generous: the point
+ * of the beat is that he sat down and did a thing, not that he did it well.
+ * `completeApartmentActivity` is one-shot per activity id, so each of these
+ * fires exactly once and then costs a comparison a frame.
+ *
+ * THE TELLY IS THE ONE WITH A CLOCK ON IT. It counts only while he is on the
+ * couch AND the set is on, so standing in the kitchen with it burbling behind
+ * him is not watching television, and neither is sitting in the dark. The
+ * couch has had the comment "nothing happens while you are there" on it since
+ * the first build; this is the one morning something does.
+ */
+function pastimeWatch(dt) {
+  const st = apartment.state;
+
+  if (game.sitting === 'couch' && tv.on) {
+    st.tvWatched += dt;
+    if (st.tvWatched >= TV_WATCH_SECONDS
+      && campaign.state.activities.watchedTv !== true) {
+      completeApartmentActivity('watchedTv', PASTIME_EVENTS.watchedTv);
+    }
+  }
+
+  /* Counter-Squatch. `csDeaths` is already maintained by the monitor-glow
+   * block in the frame loop, which is where "a game with the boys" has always
+   * been counted -- CS_ROUNDS of being shot through a wall. */
+  if ((st.csDeaths || 0) >= CS_ROUNDS
+    && campaign.state.activities.playedCounterSquatch !== true) {
+    completeApartmentActivity('playedCounterSquatch', PASTIME_EVENTS.playedCounterSquatch);
+  }
+
+  /* Squatch Shoot keeps its own running score and resets it on a new game, so
+   * the best of the visit is what counts rather than whatever is on the screen
+   * at the instant this runs. */
+  if (arcade.app?.id === 'shoot') {
+    st.shootScore = Math.max(st.shootScore || 0, arcade.app.score || 0);
+  }
+  if ((st.shootScore || 0) >= SHOOT_TARGET_SCORE
+    && campaign.state.activities.playedSquatchShoot !== true) {
+    completeApartmentActivity('playedSquatchShoot', PASTIME_EVENTS.playedSquatchShoot);
+  }
+
+  /* Squatch Smash runs as itself in a frame on the monitor (see
+   * arcade/campground.js), so there is no score to read out of it and there
+   * should not be -- it is a separate game that happens to be installed on
+   * this desk. Seconds of it actually up, with him actually in the chair, is
+   * the honest reading and it is the only one available. */
+  if (arcade.app?.id === 'smash' && game.seated) {
+    st.smashPlayed += dt;
+    if (st.smashPlayed >= SMASH_PLAY_SECONDS
+      && campaign.state.activities.playedSquatchSmash !== true) {
+      completeApartmentActivity('playedSquatchSmash', PASTIME_EVENTS.playedSquatchSmash);
+    }
+  }
 }
 
 function completeApartmentActivity(activityId, timeEventId) {
@@ -4940,6 +5051,9 @@ function frame() {
         apartment.state.csDeaths = cs;
         audio.say(cs <= 2 ? 'cs.death.early' : 'cs.death.late', { chance: 0.4, delay: 0.7 });
       }
+
+      // And the chapter's own thing, whichever of them this chapter asks for.
+      pastimeWatch(dt);
 
       const glow = arcade.sampleGlow();
       apartment.screenGlow.color.setHex(glow.colour);

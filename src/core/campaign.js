@@ -51,6 +51,16 @@ export const CHARACTER_IDS = Object.freeze({
    * because he does not stay in it: after the side quest he turns up again,
    * immaculate, behaving as though the evening never happened. */
   JAMES_BLOND: 'james_blond',
+  /* The OTHER prospect, and the reason he needs an id of his own rather than
+   * a scene-local name: he is a second man in exactly Tony's position, which
+   * is the shape of thing that gets accidentally merged with the first. One
+   * id, one face, one voice, and `subtitleName` is 'Kittenboss' and never the
+   * bare word Prospect -- `src/bing/dialogue.js` treats a speaker literally
+   * called 'Prospect' as the player and animates nobody.
+   *
+   * Why he was in the boot of the car is not written down anywhere, here
+   * included. That is deliberate and it is the owner's. */
+  KITTENBOSS: 'kittenboss',
 });
 
 export const SCENE_IDS = Object.freeze({
@@ -70,6 +80,12 @@ export const SCENE_IDS = Object.freeze({
   ENOLA_SQUATCH: 'enola_squatch',
   MANSION_RETURN: 'mansion_return',
   CARTEL_PALACE: 'cartel_palace',
+  /* THE SPECIAL MEETING. The bridge from the Palace to the fire: a phone call,
+   * three men in a car, and a forty-two minute drive that ends at a treeline.
+   * It is a scene and not a mission -- there is nothing to fail, no end card
+   * and no result to record -- so it deliberately has no MISSION_IDS entry
+   * and costs no save-version bump. */
+  SPECIAL_MEETING: 'special_meeting',
   INITIATION: 'initiation',
   /* Lou's house. An explorable compound before PROJECT SILENT SQUATCH claims
    * it, and the mission's own scene after: the office upstairs, the wine
@@ -177,6 +193,16 @@ export const TIME_EVENT_IDS = Object.freeze({
   POOP: 'activity.poop',
   CHANGE_CLOTHES: 'activity.change_clothes',
   CHECK_EMAIL: 'activity.check_email',
+  /* The per-chapter pastimes -- see CHAPTER_PASTIMES in apartment-story.js.
+   * They are on the clock because they are things a man spends a morning on,
+   * and because a chapter whose only cost is a phone call has a morning that
+   * takes four minutes. None of them can move a departure: every DEPART_* below
+   * is `atLeast`-anchored, so an earlier hour is absorbed rather than added. */
+  WATCH_TV: 'activity.watch_tv',
+  PLAY_COUNTER_SQUATCH: 'activity.play_counter_squatch',
+  PLAY_SQUATCH_SHOOT: 'activity.play_squatch_shoot',
+  PLAY_SQUATCH_SMASH: 'activity.play_squatch_smash',
+  EAT_SHROOMS: 'activity.eat_shrooms',
   /* Standing at the sideboard listening to what landed while he was out. One
    * per chapter, because there is one message per chapter and a man does not
    * hear yesterday's twice. Registered as time events rather than as a new
@@ -250,6 +276,13 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_MANSION_RETURN: 'mission.mansion_return',
   DEPART_CARTEL_PALACE: 'travel.cartel_palace',
   COMPLETE_CARTEL_PALACE: 'mission.cartel_palace',
+  /* THE SPECIAL MEETING: waiting in the flat for a car nobody described, and
+   * then the drive out. `DEPART` is the wait and the walk downstairs; the
+   * completion is Seff's forty-two minutes plus the standing about at the spur
+   * and the walk up the trail. Relative minutes rather than an `atLeast`
+   * because the final arc's day is whatever the Palace left behind it. */
+  DEPART_SPECIAL_MEETING: 'travel.special_meeting',
+  COMPLETE_SPECIAL_MEETING: 'scene.special_meeting',
 });
 
 const TIME_EVENTS = Object.freeze({
@@ -260,6 +293,17 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.POOP]: Object.freeze({ minutes: 10 }),
   [TIME_EVENT_IDS.CHANGE_CLOTHES]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.CHECK_EMAIL]: Object.freeze({ minutes: 10 }),
+  // Half a minute of it is what the door counts. A bulletin is a quarter hour.
+  [TIME_EVENT_IDS.WATCH_TV]: Object.freeze({ minutes: 15 }),
+  // A game with the boys, even one you lose every round of, is not a quick one.
+  [TIME_EVENT_IDS.PLAY_COUNTER_SQUATCH]: Object.freeze({ minutes: 25 }),
+  [TIME_EVENT_IDS.PLAY_SQUATCH_SHOOT]: Object.freeze({ minutes: 15 }),
+  // Ninety seconds a run, and nobody has ever done exactly one run.
+  [TIME_EVENT_IDS.PLAY_SQUATCH_SMASH]: Object.freeze({ minutes: 20 }),
+  /* Chewing them takes no time at all. The ninety minutes they take to arrive
+   * are real minutes on the world clock -- see core/highs.js -- and belong to
+   * wherever he happens to be standing when they land, which is the joke. */
+  [TIME_EVENT_IDS.EAT_SHROOMS]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_DATE]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT]: Object.freeze({ minutes: 2 }),
@@ -399,10 +443,15 @@ const TIME_EVENTS = Object.freeze({
     atLeast: Object.freeze({ day: 6, timeMinutes: 20 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE]: Object.freeze({ minutes: 150 }),
+  // The phone call, getting changed, and going down to a car already running.
+  [TIME_EVENT_IDS.DEPART_SPECIAL_MEETING]: Object.freeze({ minutes: 35 }),
+  /* Forty-two minutes, per Seff, who is not being funny; then the spur, the
+   * boot, and the walk in. */
+  [TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING]: Object.freeze({ minutes: 65 }),
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 17;
+export const CAMPAIGN_VERSION = 18;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -1023,9 +1072,33 @@ const SCENES = Object.freeze({
     next: Object.freeze([SCENE_IDS.CARTEL_PALACE]),
   }),
   [SCENE_IDS.CARTEL_PALACE]: Object.freeze({
+    /* Two edges, and the second one is a bridge that should be pulled.
+     *
+     * SPECIAL_MEETING is the canonical route: the Palace is over, Booski
+     * rings, and three men come and collect him. INITIATION is the edge that
+     * was here before, and it stays legal only because the Palace's own exit
+     * button (`src/cartel-palace/main.js`) still names it -- and a transition
+     * the graph refuses THROWS rather than degrading, which would strand
+     * anybody who finished the Palace. Repoint that button at
+     * SCENE_IDS.SPECIAL_MEETING and this list becomes one entry. */
     href: 'cartel-palace.html',
     defaultSpawn: 'approach',
     spawns: Object.freeze(['approach', 'perimeter', 'estate', 'dining_room']),
+    next: Object.freeze([SCENE_IDS.SPECIAL_MEETING, SCENE_IDS.INITIATION]),
+  }),
+  /* THE SPECIAL MEETING.
+   *
+   * Two spawns, because the scene is two places with a cut to black between
+   * them: `kerb` is the street outside the flat with the car already running,
+   * and `spur` is the flat patch of dirt in the woods where it stops. A save
+   * that comes back after the drive resumes at the spur rather than replaying
+   * the drive, which is the only part of this scene that takes real minutes.
+   *
+   * It goes one place. It has always gone one place. */
+  [SCENE_IDS.SPECIAL_MEETING]: Object.freeze({
+    href: 'specialmeeting.html',
+    defaultSpawn: 'kerb',
+    spawns: Object.freeze(['kerb', 'spur']),
     next: Object.freeze([SCENE_IDS.INITIATION]),
   }),
 });
@@ -1070,6 +1143,17 @@ function initialState() {
       changedClothes: false,
       emailChecked: false,
       whiskeyRelaxed: false,
+      /* The per-chapter pastimes — see CHAPTER_PASTIMES in apartment-story.js.
+       * They are latched here rather than derived every frame because the flat
+       * is rebuilt from nothing on every arrival: half a minute of the news
+       * watched before the airstrip has to still be watched when he lets
+       * himself back in afterwards. `sleep()` clears all four on a chapter
+       * turn, so each one is only ever earned in the chapter that asks. */
+      watchedTv: false,
+      playedCounterSquatch: false,
+      playedSquatchShoot: false,
+      playedSquatchSmash: false,
+      tookShrooms: false,
     },
     /* 97.8 is one running station heard through several physical receivers.
      * The running order and bulletin history are shared, while each receiver
@@ -1868,6 +1952,38 @@ const MIGRATIONS = Object.freeze({
           timeMinutes: Number.isFinite(saved.story?.timeMinutes)
             ? saved.story.timeMinutes : 0,
         } : null,
+      },
+    };
+  },
+  17(saved) {
+    /* Schema 18 adds the five per-chapter pastime flags -- see
+     * CHAPTER_PASTIMES in apartment-story.js.
+     *
+     * This migration exists because the SHAPE moved, and a moved shape is not
+     * a cosmetic problem here. `normalize()` rebuilds `activities` from the
+     * base object's keys, so a v17 save would have come back with five new
+     * `false` fields it did not have on disk; `structurallyBroken` in
+     * `readSave()` is `!migrated.changed && normalizedChanged`, and with no
+     * migration to set `changed` the loader would have decided every existing
+     * save in the world was corrupt and told the player so on the title
+     * screen. (TIME_EVENT_IDS carries a comment from whoever found this the
+     * hard way -- three message markers were registered as time events rather
+     * than as save fields for exactly this reason.)
+     *
+     * Everything lands false, which is the honest answer: a save made before
+     * this existed cannot know whether he watched the news that morning, and
+     * false costs a returning player half a minute on the couch rather than
+     * skipping a beat they never had. */
+    return {
+      ...saved,
+      version: 18,
+      activities: {
+        ...saved.activities,
+        watchedTv: saved.activities?.watchedTv === true,
+        playedCounterSquatch: saved.activities?.playedCounterSquatch === true,
+        playedSquatchShoot: saved.activities?.playedSquatchShoot === true,
+        playedSquatchSmash: saved.activities?.playedSquatchSmash === true,
+        tookShrooms: saved.activities?.tookShrooms === true,
       },
     };
   },

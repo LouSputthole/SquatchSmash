@@ -75,6 +75,22 @@ function apartmentExit(story, campaign) {
   return story.tryLeave(campaign.state.activities);
 }
 
+/**
+ * Do the chapter's own thing, the way the flat does it.
+ *
+ * Every chapter that sends him home now asks for one thing that is his rather
+ * than the family's -- see CHAPTER_PASTIMES in core/apartment-story.js -- and
+ * the door will not open until it is done. `src/main.js` ticks these through
+ * `completeApartmentActivity`, which is `advanceTime` plus a flag, so that is
+ * exactly what happens here: this route is the one test that proves the whole
+ * campaign is walkable end to end, and a pastime with a missing time event or
+ * an unreachable gate would wedge a player in his own living room.
+ */
+function pastime(campaign, activityId, timeEventId) {
+  campaign.advanceTime(timeEventId, (state) => { state.activities[activityId] = true; });
+  assert.equal(campaign.state.activities[activityId], true);
+}
+
 test('a fresh Tony campaign persists the complete route to an in-progress Initiation', () => {
   const storage = new MemoryStorage();
   let campaign = createCampaign({ storage });
@@ -138,6 +154,9 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   // Day Two: Booskibro authorizes the Beef Run; the real mission checkpoint
   // API carries the cargo/detection/landing state to a reload.
   assert.equal(apartment.callAnswered(DAY_TWO_BOOSKI_CALL), true);
+  /* He put a man in the ground last night, so he puts the news on first. */
+  assert.equal(apartmentExit(apartment, campaign).id, 'watchedTv');
+  pastime(campaign, 'watchedTv', TIME_EVENT_IDS.WATCH_TV);
   assert.deepEqual(apartmentExit(apartment, campaign), {
     kind: 'go', destination: SCENE_IDS.AIRSTRIP_SMUGGLING,
   });
@@ -211,6 +230,9 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
     ok: true, chapter: 'no_wake', day: 3, timeMinutes: 12 * 60,
   });
   assert.equal(apartment.callAnswered(NO_WAKE_LOU_CALL), true);
+  /* One game with the boys, which in Counter-Squatch means losing five. */
+  assert.equal(apartmentExit(apartment, campaign).id, 'playedCounterSquatch');
+  pastime(campaign, 'playedCounterSquatch', TIME_EVENT_IDS.PLAY_COUNTER_SQUATCH);
   assert.deepEqual(apartmentExit(apartment, campaign), {
     kind: 'go', destination: SCENE_IDS.NO_WAKE,
   });
@@ -243,6 +265,9 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
     ok: true, chapter: 'golf_morning', day: 4, timeMinutes: 7 * 60,
   });
   assert.equal(apartment.callAnswered(DAY_FOUR_LOU_GOLF_CALL), true);
+  /* Lou is about to hand him a club in front of people. Warm the eye up. */
+  assert.equal(apartmentExit(apartment, campaign).id, 'playedSquatchShoot');
+  pastime(campaign, 'playedSquatchShoot', TIME_EVENT_IDS.PLAY_SQUATCH_SHOOT);
   assert.deepEqual(apartmentExit(apartment, campaign), {
     kind: 'go', destination: SCENE_IDS.SILVER_PINES,
   });

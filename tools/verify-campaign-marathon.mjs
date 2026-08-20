@@ -282,6 +282,24 @@ async function executeBrowserAction(page, step) {
         ensure(result?.kind === 'go' && result.destination === sceneId,
           `Apartment refused ${sceneId}: ${JSON.stringify(result)}`);
       };
+      /* The chapter's own thing, done the way the flat does it.
+       *
+       * Every chapter that sends him home asks for one thing that is his
+       * rather than the family's -- CHAPTER_PASTIMES in apartment-story.js --
+       * and the door will not open until it is done. Asserted before it is
+       * ticked rather than just ticked: this marathon is the end-to-end proof
+       * that the campaign is walkable, and a pastime that fires in the wrong
+       * chapter or never fires at all should stop it here. */
+      const pastime = (activityId) => {
+        const events = apartmentModule.pastimeActivityEvents();
+        const prompt = story.tryLeave(campaign.state.activities);
+        ensure(prompt?.kind === 'activity' && prompt.id === activityId,
+          `expected the ${activityId} beat, got ${JSON.stringify(prompt)}`);
+        const moved = campaign.advanceTime(events[activityId], (state) => {
+          state.activities[activityId] = true;
+        });
+        ensure(moved.applied === true, `${activityId} did not reach the clock`);
+      };
 
       if (currentStep.action === 'apartment:day-one') {
         for (const [eventId, activity] of [
@@ -312,6 +330,7 @@ async function executeBrowserAction(page, step) {
         ensure(story.sleep()?.ok === true, 'Day Two sleep failed');
         ensure(story.callAnswered(apartmentModule.DAY_TWO_BOOSKI_CALL) === true,
           'Day Two Booski call was not accepted');
+        pastime('watchedTv');
         leaveFor(S.AIRSTRIP_SMUGGLING);
         ensure(campaign.advanceTime(T.DEPART_AIRSTRIP).applied === true,
           'Beef Run departure was not recorded');
@@ -325,6 +344,7 @@ async function executeBrowserAction(page, step) {
         ensure(story.sleep()?.ok === true, 'post-Motel sleep failed');
         ensure(story.callAnswered(apartmentModule.NO_WAKE_LOU_CALL) === true,
           'NO WAKE call was not accepted');
+        pastime('playedCounterSquatch');
         leaveFor(S.NO_WAKE);
         ensure(campaign.advanceTime(T.DEPART_NO_WAKE).applied === true,
           'NO WAKE departure was not recorded');
@@ -338,6 +358,7 @@ async function executeBrowserAction(page, step) {
         ensure(story.sleep()?.ok === true, 'Day Four sleep failed');
         ensure(story.callAnswered(apartmentModule.DAY_FOUR_LOU_GOLF_CALL) === true,
           'Golf call was not accepted');
+        pastime('playedSquatchShoot');
         leaveFor(S.SILVER_PINES);
         ensure(campaign.advanceTime(T.DEPART_SILVER_PINES).applied === true,
           'Golf departure was not recorded');

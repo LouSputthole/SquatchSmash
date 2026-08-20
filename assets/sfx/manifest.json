@@ -630,6 +630,14 @@
       "model": "eleven_multilingual_v2",
       "stability": 0.42,
       "similarity": 0.78
+    },
+    "kittenboss": {
+      "id": "<owner to cast>",
+      "_note": "Kittenboss -- the OTHER prospect, and the man in the boot of the car in THE SPECIAL MEETING. Aggrieved, deadpan, weirdly chipper: he treats having been shut in a boot for forty-two minutes as a logistics failure rather than a crime, and he is more annoyed about the spare wheel than about any of it. Same age and same rank as Tony, which is the point -- do not play him as comic relief and never as frightened. UNCAST: paste an id here and nothing else moves.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.42,
+      "similarity": 0.8,
+      "style": 0.55
     }
   },
   "sfx": [
@@ -16544,98 +16552,6 @@
       "say": "Gratin left a pan on and went downstairs. Again."
     },
     {
-      "name": "vo.door.refusal.heist_cleanup.1",
-      "voice": "player",
-      "say": "Not walking into the Bing wearing the bank. Clean up first."
-    },
-    {
-      "name": "vo.door.refusal.final_arc_locked.1",
-      "voice": "player",
-      "say": "Bank’s done. Nobody’s called. And when nobody calls, you sit down.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
-    },
-    {
-      "name": "vo.door.refusal.initiation_locked.1",
-      "voice": "player",
-      "say": "Lou said seven. The invitation still has to land."
-    },
-    {
-      "name": "vo.door.refusal.golf_call.1",
-      "voice": "player",
-      "say": "Lou said he would call about this morning. I am not guessing where."
-    },
-    {
-      "name": "vo.door.refusal.golf_return.1",
-      "voice": "player",
-      "say": "Three holes done. Whatever comes next, Lou will call for it."
-    },
-    {
-      "name": "vo.door.refusal.heist_call.1",
-      "voice": "player",
-      "say": "Lou said he would call. Today is not a day to guess."
-    },
-    {
-      "name": "vo.door.refusal.heist_kit.1",
-      "voice": "player",
-      "say": "Everything Lou named goes with me. Nothing else does."
-    },
-    {
-      "name": "vo.door.refusal.big_night_call.1",
-      "voice": "player",
-      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
-    },
-    {
-      "name": "vo.door.refusal.no_wake_call.1",
-      "voice": "player",
-      "say": "Lou said he would call when he knew. I am not chasing him today."
-    },
-    {
-      "name": "vo.door.refusal.date_call.1",
-      "voice": "player",
-      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_date.1",
-      "voice": "player",
-      "say": "That was a good night. Tomorrow is the other kind. Bed."
-    },
-    {
-      "name": "vo.door.refusal.day_two_call.1",
-      "voice": "player",
-      "say": "Booskibro said he would call with the next job."
-    },
-    {
-      "name": "vo.door.refusal.second_bing_call.1",
-      "voice": "player",
-      "say": "Lou said he would call when he wanted you back at the Bing."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_motel.1",
-      "voice": "player",
-      "say": "It is not even light out. Whatever is next can wait until I have slept."
-    },
-    {
-      "name": "vo.door.refusal.first_call.1",
-      "voice": "player",
-      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_squatchfather.1",
-      "voice": "player",
-      "say": "That is enough going out for one night."
-    },
-    {
-      "name": "vo.door.refusal.lou_package.1",
-      "voice": "player",
-      "say": "I am not going anywhere until I find Lou’s package."
-    },
-    {
-      "name": "vo.door.refusal.whiskey.1",
-      "voice": "player",
-      "say": "Take one pull of whiskey. You earned the nerves."
-    },
-    {
       "name": "combat.bullet.impact.flesh",
       "duration": 0.75,
       "loop": false,
@@ -22493,6 +22409,1286 @@
       "name": "vo.enolasquatch.prospect.release-4.1",
       "voice": "player",
       "say": "Hope they’re hungry."
+    },
+    {
+      "_comment": "SM-010 — Idle, alone in the flat, before the call. On the apartment idle timer, one at a time, well spaced. He is not anxious yet. He is a man with nothing to do and nobody to tell.",
+      "name": "vo.specialmeeting.tony.idle_before.1",
+      "voice": "player",
+      "say": "Right. That's Sauce dealt with. That's a sentence I've said out loud now."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_before.2",
+      "voice": "player",
+      "say": "Nobody's rung. Nobody's rung all day."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_before.3",
+      "voice": "player",
+      "say": "I keep waiting for someone to tell me whether that was the right call."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_before.4",
+      "voice": "player",
+      "say": "The flat's exactly the same. That's the strange bit."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_before.5",
+      "voice": "player",
+      "say": "I could ring somebody. And say what."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_before.6",
+      "voice": "player",
+      "say": "I've had a shower and I can still smell that house."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_before.7",
+      "voice": "player",
+      "say": "Shoes are ruined. Not mine, that. That's the good version."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_before.8",
+      "voice": "player",
+      "say": "Sit down, Tony. That's the whole plan. That's the entire plan."
+    },
+    {
+      "_comment": "SM-030 — THE CALL. Every line is the owner’s. The pause after \"Special one.\" is the whole call. Booski hangs up first, mid-air, without waiting. He does not say goodbye. Do not add one.",
+      "name": "vo.call.booski.special_meeting.1",
+      "voice": "booski",
+      "say": "Prospect."
+    },
+    {
+      "name": "vo.call.booski.special_meeting.tony.1",
+      "voice": "player",
+      "say": "What's up?"
+    },
+    {
+      "name": "vo.call.booski.special_meeting.2",
+      "voice": "booski",
+      "say": "We're having a meeting tonight."
+    },
+    {
+      "name": "vo.call.booski.special_meeting.tony.2",
+      "voice": "player",
+      "say": "Yeah?"
+    },
+    {
+      "name": "vo.call.booski.special_meeting.3",
+      "voice": "booski",
+      "say": "Yeah. Special one."
+    },
+    {
+      "name": "vo.call.booski.special_meeting.tony.3",
+      "voice": "player",
+      "say": "What kinda special?"
+    },
+    {
+      "name": "vo.call.booski.special_meeting.4",
+      "voice": "booski",
+      "say": "You'll find out."
+    },
+    {
+      "name": "vo.call.booski.special_meeting.tony.4",
+      "voice": "player",
+      "say": "Where?"
+    },
+    {
+      "name": "vo.call.booski.special_meeting.5",
+      "voice": "booski",
+      "say": "Don't worry about that. We're sending some guys over to pick you up."
+    },
+    {
+      "name": "vo.call.booski.special_meeting.tony.5",
+      "voice": "player",
+      "say": "Who?"
+    },
+    {
+      "name": "vo.call.booski.special_meeting.6",
+      "voice": "booski",
+      "say": "Seff, Lag and Numbskull. They'll be there soon."
+    },
+    {
+      "name": "vo.call.booski.special_meeting.tony.6",
+      "voice": "player",
+      "say": "Booski, what is this?"
+    },
+    {
+      "name": "vo.call.booski.special_meeting.7",
+      "voice": "booski",
+      "say": "It's a meeting, Prospect. Put on something decent."
+    },
+    {
+      "_comment": "SM-040 — The dead line.",
+      "name": "vo.specialmeeting.tony.dead_line.1",
+      "voice": "player",
+      "say": "…Right."
+    },
+    {
+      "_comment": "SM-050 — Ringing Booski back. Player-initiated. It must go nowhere: it rings, and rings, and does not go to voicemail and does not get answered. Then one of these.",
+      "name": "vo.specialmeeting.tony.call_back.1",
+      "voice": "player",
+      "say": "He's not picking up. He literally just put the phone down."
+    },
+    {
+      "name": "vo.specialmeeting.tony.call_back.2",
+      "voice": "player",
+      "say": "It's not even ringing out. It's just ringing."
+    },
+    {
+      "name": "vo.specialmeeting.tony.call_back.3",
+      "voice": "player",
+      "say": "Fine. Fine."
+    },
+    {
+      "_comment": "SM-060 — Idle, after the call. Replaces SM-010 on the same timer. Same flat, different man.",
+      "name": "vo.specialmeeting.tony.idle_after.1",
+      "voice": "player",
+      "say": "'Special one.'"
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_after.2",
+      "voice": "player",
+      "say": "He's never once told me where. Not once. In a year."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_after.3",
+      "voice": "player",
+      "say": "Seff, Lag and Numbskull. That's three."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_after.4",
+      "voice": "player",
+      "say": "Three of them. To collect one bloke."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_after.5",
+      "voice": "player",
+      "say": "Put on something decent. Right. Decent."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_after.6",
+      "voice": "player",
+      "say": "It's a meeting. He said it's a meeting."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_after.7",
+      "voice": "player",
+      "say": "I'm reading into it. I'm aware I'm reading into it."
+    },
+    {
+      "name": "vo.specialmeeting.tony.idle_after.8",
+      "voice": "player",
+      "say": "I'd feel better if he'd shouted at me."
+    },
+    {
+      "_comment": "SM-070 — Getting ready. Chore beats in the flat’s existing frame. The last one is him talking himself down and failing. He is the only person in this scene permitted to say anything reassuring to Tony, and it has to fail.",
+      "name": "vo.specialmeeting.tony.getting_ready.1",
+      "voice": "player",
+      "say": "What do you wear to a special one."
+    },
+    {
+      "name": "vo.specialmeeting.tony.getting_ready.2",
+      "voice": "player",
+      "say": "That'll do. That's decent."
+    },
+    {
+      "name": "vo.specialmeeting.tony.getting_ready.3",
+      "voice": "player",
+      "say": "That's the jacket, then. That's the one I've picked."
+    },
+    {
+      "name": "vo.specialmeeting.tony.getting_ready.4",
+      "voice": "player",
+      "say": "It's a meeting. It's a meeting and I've been asked to it."
+    },
+    {
+      "_comment": "SM-080 — Door refusals while he waits. If the player tries to leave before the car arrives.",
+      "name": "vo.specialmeeting.tony.door_refusal.1",
+      "voice": "player",
+      "say": "No. He said they're coming here. I'm not walking out on that."
+    },
+    {
+      "name": "vo.specialmeeting.tony.door_refusal.2",
+      "voice": "player",
+      "say": "They're picking me up. If I'm not in when they get here, that's on me."
+    },
+    {
+      "name": "vo.specialmeeting.tony.door_refusal.3",
+      "voice": "player",
+      "say": "I don't know where it is. That's rather the point."
+    },
+    {
+      "_comment": "SM-090 — Headlights. Headlights swing across the ceiling and stop. The engine keeps running. Nobody knocks. It is still running when he gets outside.",
+      "name": "vo.specialmeeting.tony.headlights.1",
+      "voice": "player",
+      "say": "That's them, then."
+    },
+    {
+      "name": "vo.specialmeeting.tony.headlights.2",
+      "voice": "player",
+      "say": "They're early. …Or I'm late. One of the two."
+    },
+    {
+      "name": "vo.specialmeeting.tony.headlights.3",
+      "voice": "player",
+      "say": "Right. Down we go."
+    },
+    {
+      "_comment": "SM-100 — The car arrives. Lag gets out of the FRONT and stands with the door open behind him, on his phone. Numbskull gets out of the back, unhurried, and walks round. Seff stays at the wheel and leans across.",
+      "name": "vo.specialmeeting.seff.arrival.1",
+      "voice": "seff",
+      "say": "Tony. Hey."
+    },
+    {
+      "name": "vo.specialmeeting.seff.arrival.2",
+      "voice": "seff",
+      "say": "You look alright. That's a good jacket."
+    },
+    {
+      "name": "vo.specialmeeting.lag.arrival.1",
+      "voice": "lag",
+      "say": "Nice out."
+    },
+    {
+      "name": "vo.specialmeeting.seff.arrival.3",
+      "voice": "seff",
+      "say": "Quick thing before we go — no. Forget it. Later."
+    },
+    {
+      "name": "vo.specialmeeting.lag.arrival.2",
+      "voice": "lag",
+      "say": "Forty minutes, roughly. There's no signal past the reservoir. I checked."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.arrival.1",
+      "voice": "numbskull",
+      "say": "Front."
+    },
+    {
+      "_comment": "SM-120 — I'll sit in the back..",
+      "name": "vo.specialmeeting.tony.back_seat.1",
+      "voice": "player",
+      "say": "I'll sit in the back."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.back_seat.1",
+      "voice": "numbskull",
+      "say": "Nah. Take the front."
+    },
+    {
+      "name": "vo.specialmeeting.tony.back_seat.2",
+      "voice": "player",
+      "say": "I'm good back there."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.back_seat.2",
+      "voice": "numbskull",
+      "say": "Prospect. Sit up front."
+    },
+    {
+      "_comment": "SM-130 — Why do I have to sit up front?.",
+      "name": "vo.specialmeeting.tony.why_front.1",
+      "voice": "player",
+      "say": "Why do I have to sit up front?"
+    },
+    {
+      "name": "vo.specialmeeting.seff.why_front.1",
+      "voice": "seff",
+      "say": "Because we're asking you to sit up front."
+    },
+    {
+      "name": "vo.specialmeeting.tony.why_front.2",
+      "voice": "player",
+      "say": "That's not really an answer."
+    },
+    {
+      "name": "vo.specialmeeting.lag.why_front.1",
+      "voice": "lag",
+      "say": "It's the answer you're getting."
+    },
+    {
+      "_comment": "SM-140 — Is Lag not sitting there?.",
+      "name": "vo.specialmeeting.tony.lag_seat.1",
+      "voice": "player",
+      "say": "Is Lag not sitting there?"
+    },
+    {
+      "name": "vo.specialmeeting.lag.lag_seat.1",
+      "voice": "lag",
+      "say": "I was."
+    },
+    {
+      "name": "vo.specialmeeting.lag.lag_seat.2",
+      "voice": "lag",
+      "say": "It's free now."
+    },
+    {
+      "name": "vo.specialmeeting.tony.lag_seat.2",
+      "voice": "player",
+      "say": "Right."
+    },
+    {
+      "_comment": "SM-150 — Am I in trouble?. The direct question. He is allowed to ask it. He is not allowed to get an answer. Seff genuinely considers it and thinks he answered.",
+      "name": "vo.specialmeeting.tony.in_trouble.1",
+      "voice": "player",
+      "say": "Am I in trouble?"
+    },
+    {
+      "name": "vo.specialmeeting.seff.in_trouble.1",
+      "voice": "seff",
+      "say": "With who?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.in_trouble.2",
+      "voice": "player",
+      "say": "I don't know. That's why I asked."
+    },
+    {
+      "name": "vo.specialmeeting.seff.in_trouble.2",
+      "voice": "seff",
+      "say": "Well. There you go."
+    },
+    {
+      "_comment": "SM-160 — Can I just follow you in my own car?.",
+      "name": "vo.specialmeeting.tony.own_car.1",
+      "voice": "player",
+      "say": "Can I just follow you in my own car?"
+    },
+    {
+      "name": "vo.specialmeeting.lag.own_car.1",
+      "voice": "lag",
+      "say": "You'd never find it."
+    },
+    {
+      "name": "vo.specialmeeting.tony.own_car.2",
+      "voice": "player",
+      "say": "You could give me the address."
+    },
+    {
+      "name": "vo.specialmeeting.lag.own_car.2",
+      "voice": "lag",
+      "say": "There isn't one."
+    },
+    {
+      "_comment": "SM-170 — [Say nothing.]. Nobody fills the silence for him. Numbskull keeps holding the door. Lag keeps scrolling. Seff watches the road ahead through the windscreen. The engine idles. Hold this longer than is comfortable.",
+      "name": "vo.specialmeeting.seff.say_nothing.1",
+      "voice": "seff",
+      "say": "We're alright for time."
+    },
+    {
+      "_comment": "SM-180 — Final resistance. The hardest line anybody says in the scene, and it is still not aggressive. He is embarrassed for Tony. Play it that way.",
+      "name": "vo.specialmeeting.tony.dont_like.1",
+      "voice": "player",
+      "say": "I really don't like this."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.dont_like.1",
+      "voice": "numbskull",
+      "say": "You're making it weird."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.dont_like.2",
+      "voice": "numbskull",
+      "say": "Get in."
+    },
+    {
+      "_comment": "SM-190 — The seat. Numbskull closes the door for him — a courtesy, done properly, with two hands — then walks around the back of the car and gets in behind him. Lag behind Seff. Seff adjusts the rear-view mirror and in doing so ends up looking at Tony. He does not hold it. The central locking goes and nobody remarks on it. Do not have anybody remark on it.",
+      "name": "vo.specialmeeting.tony.seat.1",
+      "voice": "player",
+      "say": "All right."
+    },
+    {
+      "name": "vo.specialmeeting.seff.seat.1",
+      "voice": "seff",
+      "say": "Belt."
+    },
+    {
+      "name": "vo.specialmeeting.tony.seat.2",
+      "voice": "player",
+      "say": "Right."
+    },
+    {
+      "_comment": "SM-210 — The sandwich. From directly behind Tony’s head, the sound of a paper bag.",
+      "name": "vo.specialmeeting.numbskull.sandwich.1",
+      "voice": "numbskull",
+      "say": "You want half of this?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.sandwich.opt1",
+      "voice": "player",
+      "say": "No. Thanks."
+    },
+    {
+      "name": "vo.specialmeeting.tony.sandwich.opt2",
+      "voice": "player",
+      "say": "…Yeah. Go on."
+    },
+    {
+      "name": "vo.specialmeeting.tony.sandwich.opt3",
+      "voice": "player",
+      "say": "What is it?"
+    },
+    {
+      "_comment": "SM-211 — No, thanks.",
+      "name": "vo.specialmeeting.numbskull.sandwich_no.1",
+      "voice": "numbskull",
+      "say": "It's good."
+    },
+    {
+      "_comment": "SM-212 — Go on, then. Now Tony is eating a sandwich a man in the seat behind him handed him, and there is nothing wrong with that, and he cannot stop thinking about it.",
+      "name": "vo.specialmeeting.tony.sandwich_yes.1",
+      "voice": "player",
+      "say": "…It is good."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.sandwich_yes.1",
+      "voice": "numbskull",
+      "say": "I said."
+    },
+    {
+      "_comment": "SM-213 — What is it?.",
+      "name": "vo.specialmeeting.numbskull.sandwich_what.1",
+      "voice": "numbskull",
+      "say": "It's from the place by the laundrette."
+    },
+    {
+      "name": "vo.specialmeeting.tony.sandwich_what.1",
+      "voice": "player",
+      "say": "That's not what I asked."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.sandwich_what.2",
+      "voice": "numbskull",
+      "say": "Oh. It's ham."
+    },
+    {
+      "_comment": "SM-230 — Dirt road, first block. Every line is the owner’s.",
+      "name": "vo.specialmeeting.tony.dirt_one.1",
+      "voice": "player",
+      "say": "So where are we going?"
+    },
+    {
+      "name": "vo.specialmeeting.seff.dirt_one.1",
+      "voice": "seff",
+      "say": "Meeting."
+    },
+    {
+      "name": "vo.specialmeeting.tony.dirt_one.2",
+      "voice": "player",
+      "say": "Yeah, I caught that part."
+    },
+    {
+      "name": "vo.specialmeeting.tony.dirt_one.3",
+      "voice": "player",
+      "say": "Where's the meeting?"
+    },
+    {
+      "name": "vo.specialmeeting.lag.dirt_one.1",
+      "voice": "lag",
+      "say": "Out here."
+    },
+    {
+      "name": "vo.specialmeeting.tony.dirt_one.4",
+      "voice": "player",
+      "say": "No shit."
+    },
+    {
+      "name": "vo.specialmeeting.tony.dirt_one.5",
+      "voice": "player",
+      "say": "How far?"
+    },
+    {
+      "name": "vo.specialmeeting.seff.dirt_one.2",
+      "voice": "seff",
+      "say": "Not far."
+    },
+    {
+      "_comment": "SM-240 — Dirt road, second block.",
+      "name": "vo.specialmeeting.tony.dirt_two.1",
+      "voice": "player",
+      "say": "You guys always hold meetings in the middle of nowhere?"
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.dirt_two.1",
+      "voice": "numbskull",
+      "say": "Some meetings."
+    },
+    {
+      "_comment": "SM-250 — THE LONG SILENCE. The floor of the scene. Genuinely long — twenty to twenty-five seconds of real playtime with nobody speaking. Nothing fills it: no music sting, no bark, no HUD prompt. Just the engine, the road under the tyres, and one indicator tick when Seff takes a bend he did not need to indicate for.",
+      "name": "vo.specialmeeting.tony.silence.opt1",
+      "voice": "player",
+      "say": "Is anyone going to say anything?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.silence.opt2",
+      "voice": "player",
+      "say": "How long have you three known each other?"
+    },
+    {
+      "_comment": "SM-251 — About what?.",
+      "name": "vo.specialmeeting.lag.silence_anything.1",
+      "voice": "lag",
+      "say": "About what?"
+    },
+    {
+      "_comment": "SM-252 — Long time.",
+      "name": "vo.specialmeeting.seff.silence_known.1",
+      "voice": "seff",
+      "say": "Long time."
+    },
+    {
+      "name": "vo.specialmeeting.seff.silence_known.2",
+      "voice": "seff",
+      "say": "Numbskull's the newest."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.silence_known.1",
+      "voice": "numbskull",
+      "say": "Nine years."
+    },
+    {
+      "_comment": "SM-253 — Nice night for it. The silence runs its full length and nobody rescues it. At the very end of it, quietly, from the back seat, unprompted. Nobody says what \"it\" is. Nobody asks. Do not let anybody ask.",
+      "name": "vo.specialmeeting.numbskull.silence_hold.1",
+      "voice": "numbskull",
+      "say": "Nice night for it."
+    },
+    {
+      "_comment": "SM-260 — The chain. The car stops. Headlights on a rusted chain strung across the track between two posts. Lag gets out without being asked, unhooks it, drops it in the dirt, gets back in. The car goes through. Lag gets out again, hooks the chain back up BEHIND them, and gets back in. Nobody says one word about any of this.",
+      "name": "vo.specialmeeting.tony.chain.opt1",
+      "voice": "player",
+      "say": "Was that locked?"
+    },
+    {
+      "_comment": "SM-261 — It is now.",
+      "name": "vo.specialmeeting.lag.chain_locked.1",
+      "voice": "lag",
+      "say": "It is now."
+    },
+    {
+      "_comment": "SM-270 — I know what goes on out in the woods. The single most important non-event in the scene. Tony has just said the quiet part and it lands in absolutely nothing. Nobody follows it up. Not Seff, not Numbskull.",
+      "name": "vo.specialmeeting.tony.dirt_three.1",
+      "voice": "player",
+      "say": "I know what goes on out in the woods."
+    },
+    {
+      "name": "vo.specialmeeting.lag.dirt_three.1",
+      "voice": "lag",
+      "say": "You do?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.dirt_three.2",
+      "voice": "player",
+      "say": "Yeah."
+    },
+    {
+      "name": "vo.specialmeeting.lag.dirt_three.2",
+      "voice": "lag",
+      "say": "Huh."
+    },
+    {
+      "_comment": "SM-280 — The thing in the back. Two of them having a conversation that has nothing to do with Tony, in front of Tony. Seff is not stonewalling — from where he is sitting he has now told Tony twice.",
+      "name": "vo.specialmeeting.lag.in_the_back.1",
+      "voice": "lag",
+      "say": "Seff. Did you bring it?"
+    },
+    {
+      "name": "vo.specialmeeting.seff.in_the_back.1",
+      "voice": "seff",
+      "say": "It's in the back."
+    },
+    {
+      "name": "vo.specialmeeting.lag.in_the_back.2",
+      "voice": "lag",
+      "say": "Okay."
+    },
+    {
+      "name": "vo.specialmeeting.tony.in_the_back.1",
+      "voice": "player",
+      "say": "Did you bring what?"
+    },
+    {
+      "name": "vo.specialmeeting.seff.in_the_back.2",
+      "voice": "seff",
+      "say": "It's in the back."
+    },
+    {
+      "name": "vo.specialmeeting.tony.in_the_back.opt1",
+      "voice": "player",
+      "say": "That's not what I asked."
+    },
+    {
+      "_comment": "SM-281 — I know. Nothing further. Ever. This is not explained at SM-420, and it is not explained there either.",
+      "name": "vo.specialmeeting.seff.not_what_i_asked.1",
+      "voice": "seff",
+      "say": "I know."
+    },
+    {
+      "_comment": "SM-290 — The window. Of the three of them, Numbskull is the one thinking about air. Plant this. It pays at SM-420 and nobody ever connects the two out loud.",
+      "name": "vo.specialmeeting.numbskull.window.1",
+      "voice": "numbskull",
+      "say": "You want the window down?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.window.1",
+      "voice": "player",
+      "say": "No."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.window.2",
+      "voice": "numbskull",
+      "say": "Okay."
+    },
+    {
+      "_comment": "SM-300 — He could've. / Nope.. The run-up to the only laugh in the scene. Give the last silence at least ten seconds.",
+      "name": "vo.specialmeeting.tony.dirt_four.1",
+      "voice": "player",
+      "say": "Booski could've just told me where we were going."
+    },
+    {
+      "name": "vo.specialmeeting.seff.dirt_four.1",
+      "voice": "seff",
+      "say": "He could've."
+    },
+    {
+      "name": "vo.specialmeeting.tony.dirt_four.2",
+      "voice": "player",
+      "say": "But he didn't."
+    },
+    {
+      "name": "vo.specialmeeting.seff.dirt_four.2",
+      "voice": "seff",
+      "say": "Nope."
+    },
+    {
+      "_comment": "SM-310 — THE VALVE. The only pressure release in the entire scene, and it is the owner’s. Numbskull says \"Fair\" completely sincerely: he has considered the point and conceded it. He does not laugh. Nobody in the car laughs.",
+      "name": "vo.specialmeeting.numbskull.valve.1",
+      "voice": "numbskull",
+      "say": "Relax."
+    },
+    {
+      "name": "vo.specialmeeting.tony.valve.1",
+      "voice": "player",
+      "say": "That's usually not something you want to hear from the guy sitting behind you."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.valve.2",
+      "voice": "numbskull",
+      "say": "Fair."
+    },
+    {
+      "_comment": "SM-320 — Straight back down. This beat exists to close the valve. It follows SM-310 immediately and it is not optional.",
+      "name": "vo.specialmeeting.numbskull.move_seats.1",
+      "voice": "numbskull",
+      "say": "You want me to move?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.move_seats.1",
+      "voice": "player",
+      "say": "…What?"
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.move_seats.2",
+      "voice": "numbskull",
+      "say": "Seats. If you want, I'll move."
+    },
+    {
+      "name": "vo.specialmeeting.tony.move_seats.opt1",
+      "voice": "player",
+      "say": "No. You're fine."
+    },
+    {
+      "name": "vo.specialmeeting.tony.move_seats.opt2",
+      "voice": "player",
+      "say": "Yeah. Actually — yeah."
+    },
+    {
+      "_comment": "SM-321 — He does not move. Tony has now chosen the arrangement himself, out of manners, and he knows it.",
+      "name": "vo.specialmeeting.numbskull.stay.1",
+      "voice": "numbskull",
+      "say": "Okay."
+    },
+    {
+      "_comment": "SM-322 — The car reorganises itself. Lag slides across into the seat Numbskull has just left, directly behind Tony, without being asked and without looking up from his phone. Nobody says anything about it. Lag is asking sincerely — he wants to know if Tony is more comfortable.",
+      "name": "vo.specialmeeting.numbskull.swap.1",
+      "voice": "numbskull",
+      "say": "Okay."
+    },
+    {
+      "name": "vo.specialmeeting.lag.swap.1",
+      "voice": "lag",
+      "say": "Better?"
+    },
+    {
+      "_comment": "SM-323 — I'll stay, then.",
+      "name": "vo.specialmeeting.numbskull.no_answer.1",
+      "voice": "numbskull",
+      "say": "I'll stay, then."
+    },
+    {
+      "_comment": "SM-410 — Pop the trunk.",
+      "name": "vo.specialmeeting.numbskull.pop_trunk.1",
+      "voice": "numbskull",
+      "say": "Pop the trunk."
+    },
+    {
+      "_comment": "SM-420 — Kittenboss. Numbskull shuts the trunk on the last word and that is the end of the subject. It is never explained. Not in this scene, not at the fire, not afterwards.",
+      "name": "vo.specialmeeting.kittenboss.kittenboss.1",
+      "voice": "kittenboss",
+      "say": "Jesus Christ. Finally."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kittenboss.2",
+      "voice": "kittenboss",
+      "say": "Next time somebody crack a window."
+    },
+    {
+      "name": "vo.specialmeeting.tony.kittenboss.1",
+      "voice": "player",
+      "say": "Who the hell is this?"
+    },
+    {
+      "name": "vo.specialmeeting.lag.kittenboss.1",
+      "voice": "lag",
+      "say": "Kittenboss."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kittenboss.3",
+      "voice": "kittenboss",
+      "say": "Hey."
+    },
+    {
+      "name": "vo.specialmeeting.tony.kittenboss.2",
+      "voice": "player",
+      "say": "Why was he in the trunk?"
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.kittenboss.1",
+      "voice": "numbskull",
+      "say": "Long story."
+    },
+    {
+      "_comment": "SM-430 — Kittenboss, continued. Seff is not being funny. He is being accurate.",
+      "name": "vo.specialmeeting.kittenboss.kittenboss_more.1",
+      "voice": "kittenboss",
+      "say": "There's a spare wheel in there. Nobody tells you that."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kittenboss_more.2",
+      "voice": "kittenboss",
+      "say": "How long was that? Honestly. Ballpark."
+    },
+    {
+      "name": "vo.specialmeeting.seff.kittenboss_more.1",
+      "voice": "seff",
+      "say": "Forty minutes."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kittenboss_more.3",
+      "voice": "kittenboss",
+      "say": "It was not forty minutes."
+    },
+    {
+      "name": "vo.specialmeeting.seff.kittenboss_more.2",
+      "voice": "seff",
+      "say": "Forty-two."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kittenboss_more.4",
+      "voice": "kittenboss",
+      "say": "Right. Thank you."
+    },
+    {
+      "_comment": "SM-440 — Talking to Kittenboss. Available while the four of them sort themselves out by the car. Ask as many as the player likes.",
+      "name": "vo.specialmeeting.tony.kittenboss_hub.opt1",
+      "voice": "player",
+      "say": "Are you all right?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.kittenboss_hub.opt2",
+      "voice": "player",
+      "say": "Why were you in the trunk?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.kittenboss_hub.opt3",
+      "voice": "player",
+      "say": "Are you a prospect?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.kittenboss_hub.opt4",
+      "voice": "player",
+      "say": "Do you know what this is?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.kittenboss_hub.opt5",
+      "voice": "player",
+      "say": "Nice to meet you."
+    },
+    {
+      "_comment": "SM-441 — Are you all right?.",
+      "name": "vo.specialmeeting.kittenboss.kb_ok.1",
+      "voice": "kittenboss",
+      "say": "I'm annoyed. That's different."
+    },
+    {
+      "_comment": "SM-442 — Why were you in the trunk?. Two men who do not know. This is the moment the player realises nobody is going to tell either of them anything, ever.",
+      "name": "vo.specialmeeting.kittenboss.kb_trunk.1",
+      "voice": "kittenboss",
+      "say": "You'd have to ask them."
+    },
+    {
+      "name": "vo.specialmeeting.tony.kb_trunk.1",
+      "voice": "player",
+      "say": "I did."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kb_trunk.2",
+      "voice": "kittenboss",
+      "say": "And?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.kb_trunk.2",
+      "voice": "player",
+      "say": "Long story."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kb_trunk.3",
+      "voice": "kittenboss",
+      "say": "Yeah. That's what I got."
+    },
+    {
+      "_comment": "SM-443 — Are you a prospect?. The first evidence the player is not being executed — two prospects, brought to the same place on the same night — and it arrives only after the peak of the dread, and it arrives with one of them having come in the boot. Do not let anybody underline it.",
+      "name": "vo.specialmeeting.kittenboss.kb_prospect.1",
+      "voice": "kittenboss",
+      "say": "Since March."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kb_prospect.2",
+      "voice": "kittenboss",
+      "say": "You?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.kb_prospect.1",
+      "voice": "player",
+      "say": "…Yeah."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kb_prospect.3",
+      "voice": "kittenboss",
+      "say": "Right."
+    },
+    {
+      "_comment": "SM-444 — Do you know what this is?. He is not reassured. He is talking himself down, badly, and Tony can hear him doing it.",
+      "name": "vo.specialmeeting.kittenboss.kb_what.1",
+      "voice": "kittenboss",
+      "say": "Do you know what this is?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.kb_what.1",
+      "voice": "player",
+      "say": "No."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kb_what.2",
+      "voice": "kittenboss",
+      "say": "You've been around longer than me."
+    },
+    {
+      "name": "vo.specialmeeting.tony.kb_what.2",
+      "voice": "player",
+      "say": "I have."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kb_what.3",
+      "voice": "kittenboss",
+      "say": "So."
+    },
+    {
+      "name": "vo.specialmeeting.tony.kb_what.3",
+      "voice": "player",
+      "say": "So I don't know."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kb_what.4",
+      "voice": "kittenboss",
+      "say": "Okay. Good. Good."
+    },
+    {
+      "_comment": "SM-445 — Nice to meet you.",
+      "name": "vo.specialmeeting.kittenboss.kb_nice.1",
+      "voice": "kittenboss",
+      "say": "Is it?"
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kb_nice.2",
+      "voice": "kittenboss",
+      "say": "Sorry. That was— yeah. You too."
+    },
+    {
+      "_comment": "SM-446 — Do I look all right?.",
+      "name": "vo.specialmeeting.kittenboss.kb_collar.1",
+      "voice": "kittenboss",
+      "say": "Do I look all right?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.kb_collar.1",
+      "voice": "player",
+      "say": "You've got—"
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.kb_collar.2",
+      "voice": "kittenboss",
+      "say": "Yeah. Thanks."
+    },
+    {
+      "_comment": "SM-500 — Off we go.",
+      "name": "vo.specialmeeting.seff.off_we_go.1",
+      "voice": "seff",
+      "say": "Come on. They're waiting."
+    },
+    {
+      "_comment": "SM-510 — You first. Numbskull says the last line to be helpful. It is the worst line in the scene and it is said kindly.",
+      "name": "vo.specialmeeting.seff.you_first.1",
+      "voice": "seff",
+      "say": "Trail's up there. Straight up. You can't miss it."
+    },
+    {
+      "name": "vo.specialmeeting.seff.you_first.2",
+      "voice": "seff",
+      "say": "You go ahead."
+    },
+    {
+      "name": "vo.specialmeeting.tony.you_first.1",
+      "voice": "player",
+      "say": "You're not leading?"
+    },
+    {
+      "name": "vo.specialmeeting.lag.you_first.1",
+      "voice": "lag",
+      "say": "It's one trail."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.you_first.1",
+      "voice": "numbskull",
+      "say": "We're right behind you."
+    },
+    {
+      "_comment": "SM-521 — You first. Lag is not asking a question. He is repeating it back to check he heard it. Then nothing. Nobody moves. Nobody is going to.",
+      "name": "vo.specialmeeting.tony.tb_you_first.1",
+      "voice": "player",
+      "say": "You first."
+    },
+    {
+      "name": "vo.specialmeeting.seff.tb_you_first.1",
+      "voice": "seff",
+      "say": "Nah, go on."
+    },
+    {
+      "name": "vo.specialmeeting.tony.tb_you_first.2",
+      "voice": "player",
+      "say": "I'd rather follow."
+    },
+    {
+      "name": "vo.specialmeeting.lag.tb_you_first.1",
+      "voice": "lag",
+      "say": "You'd rather follow."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.tb_you_first.1",
+      "voice": "numbskull",
+      "say": "It's a nice trail."
+    },
+    {
+      "_comment": "SM-522 — Walk with me.",
+      "name": "vo.specialmeeting.tony.tb_walk_with_me.1",
+      "voice": "player",
+      "say": "Walk with me."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.tb_walk_with_me.1",
+      "voice": "numbskull",
+      "say": "Sure."
+    },
+    {
+      "name": "vo.specialmeeting.tony.tb_walk_with_me.2",
+      "voice": "player",
+      "say": "You're still behind me."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.tb_walk_with_me.2",
+      "voice": "numbskull",
+      "say": "Yeah."
+    },
+    {
+      "_comment": "SM-523 — How far is it?.",
+      "name": "vo.specialmeeting.tony.tb_how_far.1",
+      "voice": "player",
+      "say": "How far is it?"
+    },
+    {
+      "name": "vo.specialmeeting.seff.tb_how_far.1",
+      "voice": "seff",
+      "say": "You'll see the fire."
+    },
+    {
+      "name": "vo.specialmeeting.tony.tb_how_far.2",
+      "voice": "player",
+      "say": "There's a fire?"
+    },
+    {
+      "name": "vo.specialmeeting.seff.tb_how_far.2",
+      "voice": "seff",
+      "say": "There's a fire."
+    },
+    {
+      "_comment": "SM-524 — Kittenboss, you go first. So both prospects walk in front, side by side, with three men behind them. Which is somehow worse, and is also the clearest evidence yet, and neither of those cancels the other.",
+      "name": "vo.specialmeeting.tony.tb_kittenboss.1",
+      "voice": "player",
+      "say": "Kittenboss. You go first."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.tb_kittenboss.1",
+      "voice": "kittenboss",
+      "say": "Why me?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.tb_kittenboss.2",
+      "voice": "player",
+      "say": "You've been here longer tonight than I have."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.tb_kittenboss.2",
+      "voice": "kittenboss",
+      "say": "That's fair."
+    },
+    {
+      "name": "vo.specialmeeting.lag.tb_kittenboss.1",
+      "voice": "lag",
+      "say": "Both of you."
+    },
+    {
+      "_comment": "SM-531 — Are we allowed to talk?.",
+      "name": "vo.specialmeeting.kittenboss.trail_talk.1",
+      "voice": "kittenboss",
+      "say": "Are we allowed to talk?"
+    },
+    {
+      "name": "vo.specialmeeting.tony.trail_talk.1",
+      "voice": "player",
+      "say": "I don't know."
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.trail_talk.2",
+      "voice": "kittenboss",
+      "say": "Right."
+    },
+    {
+      "_comment": "SM-532 — The men behind. Seff and Lag, behind them, having an entirely ordinary conversation. They are not lowering their voices. They are not talking about tonight at all. Nothing comes of it. It just stops, the way conversations do.",
+      "name": "vo.specialmeeting.seff.trail_mattress.1",
+      "voice": "seff",
+      "say": "So the mattress thing. If I get the truck for Thursday—"
+    },
+    {
+      "name": "vo.specialmeeting.lag.trail_mattress.1",
+      "voice": "lag",
+      "say": "You're not getting the truck."
+    },
+    {
+      "name": "vo.specialmeeting.seff.trail_mattress.2",
+      "voice": "seff",
+      "say": "If I get the truck."
+    },
+    {
+      "name": "vo.specialmeeting.lag.trail_mattress.2",
+      "voice": "lag",
+      "say": "Mm."
+    },
+    {
+      "name": "vo.specialmeeting.seff.trail_mattress.3",
+      "voice": "seff",
+      "say": "That's all I'm saying. If."
+    },
+    {
+      "_comment": "SM-533 — Kittenboss tries. Do not play this for the laugh. He tried to comfort a man and could not find anything to say, and they both have to keep walking.",
+      "name": "vo.specialmeeting.kittenboss.trail_comfort.1",
+      "voice": "kittenboss",
+      "say": "Hey. If this goes bad—"
+    },
+    {
+      "name": "vo.specialmeeting.tony.trail_comfort.1",
+      "voice": "player",
+      "say": "Yeah?"
+    },
+    {
+      "name": "vo.specialmeeting.kittenboss.trail_comfort.2",
+      "voice": "kittenboss",
+      "say": "No. I had nothing. Sorry."
+    },
+    {
+      "_comment": "SM-534 — First light. Ahead, the trunks nearest the path pick up an orange edge on one side. Not a glow yet — just an edge, and it moves. Nobody mentions it. Do not have anybody mention it.",
+      "name": "vo.specialmeeting.tony.trail_light.opt1",
+      "voice": "player",
+      "say": "Is that it?"
+    },
+    {
+      "_comment": "SM-5341 — Keep going.",
+      "name": "vo.specialmeeting.seff.trail_keep_going.1",
+      "voice": "seff",
+      "say": "Keep going."
+    },
+    {
+      "_comment": "SM-535 — On the record. He is not threatening Tony. He is a man who has put something on a record before something happens, and Tony can hear the shape of that. Numbskull does not answer the last question. Twigs. Boots. The orange getting stronger on the left-hand side of every trunk.",
+      "name": "vo.specialmeeting.numbskull.trail_record.1",
+      "voice": "numbskull",
+      "say": "I told them I like you."
+    },
+    {
+      "name": "vo.specialmeeting.tony.trail_record.1",
+      "voice": "player",
+      "say": "…Okay."
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.trail_record.2",
+      "voice": "numbskull",
+      "say": "I wanted that said."
+    },
+    {
+      "name": "vo.specialmeeting.tony.trail_record.2",
+      "voice": "player",
+      "say": "Said to who?"
+    },
+    {
+      "_comment": "SM-536 — Voices. Ahead through the trees: not words. Just the shape of a lot of men talking at once, low, the sound a room makes. Then it stops. All of it, at once, the way a room goes quiet when a door opens. This is the last exchange before the trees open.",
+      "name": "vo.specialmeeting.tony.trail_voices.1",
+      "voice": "player",
+      "say": "They've gone quiet."
+    },
+    {
+      "name": "vo.specialmeeting.lag.trail_voices.1",
+      "voice": "lag",
+      "say": "Yeah."
+    },
+    {
+      "_comment": "SM-540 — HAND-OFF. The trail opens out. Firelight on a lot of faces, all of them already turned this way. Nobody in the clearing is moving. Nobody in the clearing is smiling. The scene ends here and INITIATION NIGHT takes over — it owns its own approach and this scene must not duplicate it.",
+      "name": "vo.specialmeeting.seff.handoff.1",
+      "voice": "seff",
+      "say": "Go on."
+    },
+    {
+      "name": "vo.door.refusal.heist_cleanup.1",
+      "voice": "player",
+      "say": "Not walking into the Bing wearing the bank. Clean up first."
+    },
+    {
+      "name": "vo.door.refusal.final_arc_locked.1",
+      "voice": "player",
+      "say": "Bank’s done. Nobody’s called. And when nobody calls, you sit down.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "name": "vo.door.refusal.initiation_locked.1",
+      "voice": "player",
+      "say": "Lou said seven. The invitation still has to land."
+    },
+    {
+      "name": "vo.door.refusal.golf_call.1",
+      "voice": "player",
+      "say": "Lou said he would call about this morning. I am not guessing where."
+    },
+    {
+      "name": "vo.door.refusal.golf_return.1",
+      "voice": "player",
+      "say": "Three holes done. Whatever comes next, Lou will call for it."
+    },
+    {
+      "name": "vo.door.refusal.heist_call.1",
+      "voice": "player",
+      "say": "Lou said he would call. Today is not a day to guess."
+    },
+    {
+      "name": "vo.door.refusal.heist_kit.1",
+      "voice": "player",
+      "say": "Everything Lou named goes with me. Nothing else does."
+    },
+    {
+      "name": "vo.door.refusal.big_night_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
+    },
+    {
+      "name": "vo.door.refusal.no_wake_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he knew. I am not chasing him today."
+    },
+    {
+      "name": "vo.door.refusal.date_call.1",
+      "voice": "player",
+      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_date.1",
+      "voice": "player",
+      "say": "That was a good night. Tomorrow is the other kind. Bed."
+    },
+    {
+      "name": "vo.door.refusal.day_two_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call with the next job."
+    },
+    {
+      "name": "vo.door.refusal.second_bing_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he wanted you back at the Bing."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_motel.1",
+      "voice": "player",
+      "say": "It is not even light out. Whatever is next can wait until I have slept."
+    },
+    {
+      "name": "vo.door.refusal.first_call.1",
+      "voice": "player",
+      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_squatchfather.1",
+      "voice": "player",
+      "say": "That is enough going out for one night."
+    },
+    {
+      "name": "vo.door.refusal.lou_package.1",
+      "voice": "player",
+      "say": "I am not going anywhere until I find Lou’s package."
+    },
+    {
+      "name": "vo.door.refusal.whiskey.1",
+      "voice": "player",
+      "say": "Take one pull of whiskey. You earned the nerves."
+    },
+    {
+      "name": "vo.door.refusal.watch_tv.1",
+      "voice": "player",
+      "say": "I put a man in the ground last night. I would like to know whether it made the news before I go anywhere."
+    },
+    {
+      "name": "vo.door.refusal.counter_squatch.1",
+      "voice": "player",
+      "say": "I told the boys one game. One game, and then I am out the door."
+    },
+    {
+      "name": "vo.door.refusal.squatch_shoot.1",
+      "voice": "player",
+      "say": "Lou is going to put a club in my hand in front of people. Something needs warming up and it is not going to be the swing."
+    },
+    {
+      "name": "vo.door.refusal.squatch_smash.1",
+      "voice": "player",
+      "say": "Whatever tonight is, it is the last night of something. I would like to wreck a campground first."
+    },
+    {
+      "name": "vo.door.refusal.shrooms_before.1",
+      "voice": "player",
+      "say": "They take ninety minutes. Take them now and they land about the time somebody starts making speeches."
     }
   ]
 }

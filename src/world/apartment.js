@@ -1756,6 +1756,26 @@ export async function buildApartment(ctx) {
     tvOn: false,
     /** He has sat down at the computer at least once today. */
     pcEverOn: false,
+    /* ---- the per-chapter pastimes, measured for THIS visit ----
+     *
+     * See CHAPTER_PASTIMES in core/apartment-story.js. Each chapter that sends
+     * him home asks for one thing that is his rather than the family's, and
+     * these are the raw readings the door is judged against: seconds on the
+     * couch with the telly on, the best Squatch Shoot score, seconds of the
+     * campground actually up on the monitor, and whether the caps went down.
+     * `main.js` latches each into the campaign the moment it passes its
+     * threshold, which is what survives leaving the flat -- the flat itself is
+     * built from nothing on every arrival, so everything here starts at zero
+     * again and is only ever the reading for the visit in progress.
+     */
+    /** Seconds sat on the couch with the telly actually on. */
+    tvWatched: 0,
+    /** Best Squatch Shoot score this visit. */
+    shootScore: 0,
+    /** Seconds of SQUATCH SMASH.exe up and in focus. */
+    smashPlayed: 0,
+    /** The caps went down. */
+    shroomsTaken: false,
     /** In the cylinder, and in his pocket. */
     rounds: 6,
     spareRounds: 0,

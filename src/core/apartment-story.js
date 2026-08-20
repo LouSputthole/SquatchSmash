@@ -64,6 +64,13 @@ export const DEPARTURE_REFUSALS = Object.freeze({
   sleep_after_squatchfather: 'That is enough going out for one night.',
   lou_package: 'I am not going anywhere until I find Lou’s package.',
   whiskey: 'Take one pull of whiskey. You earned the nerves.',
+  /* The five below are the per-chapter pastimes — see CHAPTER_PASTIMES. Each
+   * one is him refusing to leave until he has had one thing that is his. */
+  watch_tv: 'I put a man in the ground last night. I would like to know whether it made the news before I go anywhere.',
+  counter_squatch: 'I told the boys one game. One game, and then I am out the door.',
+  squatch_shoot: 'Lou is going to put a club in my hand in front of people. Something needs warming up and it is not going to be the swing.',
+  squatch_smash: 'Whatever tonight is, it is the last night of something. I would like to wreck a campground first.',
+  shrooms_before: 'They take ninety minutes. Take them now and they land about the time somebody starts making speeches.',
 });
 
 /**
@@ -187,6 +194,159 @@ const DAY_ONE_KILL_TIME = Object.freeze({
   done: false,
   required: false,
 });
+
+/* ------------------------------------------------------------------ */
+/* What a return to the flat is FOR                                    */
+/* ------------------------------------------------------------------ */
+
+/** How long he has to sit there before it counts as having watched anything. */
+export const TV_WATCH_SECONDS = 30;
+/** Squatch Shoot: the score that means a game was actually played. */
+export const SHOOT_TARGET_SCORE = 2000;
+/** Squatch Smash: seconds of the campground actually up on the monitor. */
+export const SMASH_PLAY_SECONDS = 45;
+
+/**
+ * One thing of his own, in every chapter that sends him home.
+ *
+ * Owner note, 2026-08-20: *"for the different times we return to the apartment
+ * through the campaign. I want different objectives to justify each return.
+ * Maybe one is watch TV (completes after 30 seconds of watching TV) one is
+ * play Counter strike in computer another is play squatch smash and take the
+ * mushrooms, etc"*
+ *
+ * The flat had a shape on Day One — five chores, a call, and seventeen hours
+ * to fill — and no shape at all on any morning after it. Every later return
+ * was the same room with the same short list: answer the phone, walk to the
+ * door. Which is how a place somebody lives turns into a corridor between
+ * missions that happens to have a bed in it.
+ *
+ * So each chapter that sends him home asks for one thing, and it is never a
+ * chore and never anybody else's errand. Two rules built the whole table:
+ *
+ *   IT IS ALREADY IN THE FLAT. Not one of these is a new toy. The couch has
+ *     been there since the first build under a comment reading "nothing
+ *     happens while you are there"; Counter-Squatch, Squatch Shoot and Squatch
+ *     Smash have been on that desk PC the entire time; the caps have been in
+ *     the drawer. All of it was optional, and optional in a first-person flat
+ *     means invisible. This is the game pointing at each of them once.
+ *
+ *   IT SAYS SOMETHING ABOUT THE NIGHT BEFORE. He puts the news on the morning
+ *     after the Squatchfather because he wants to know whether it made the
+ *     news. He eats the caps before the Initiation because he has worked out
+ *     what the Initiation is going to be. The objective is a line of
+ *     characterisation that happens to be tickable.
+ *
+ * `id` is an activity flag, read out of `activityContext()` in src/main.js the
+ * same way `pcUsed` and `playedGame` already are — derived from live apartment
+ * state rather than latched, because the flat is rebuilt on every arrival, so
+ * "this visit" is what the derivation naturally means.
+ *
+ * `refusal` is a key in DEPARTURE_REFUSALS above. That means a cue name, which
+ * means a recording: see `departureRefusalCues()`.
+ *
+ * The value is always an ARRAY, because the big night wants two things and a
+ * table that has to be reshaped the first time a chapter wants two is a table
+ * that will be reshaped wrong.
+ */
+const CHAPTER_PASTIMES = Object.freeze({
+  /* Home from the Squatchfather. He put a man in the ground somewhere out
+   * past the county line about six hours ago and the local news does a
+   * bulletin at the top of every hour. */
+  day_two: Object.freeze([
+    Object.freeze({
+      id: 'watchedTv',
+      event: TIME_EVENT_IDS.WATCH_TV,
+      label: (a) => (a.tvSeconds > 0 && a.tvSeconds < TV_WATCH_SECONDS
+        ? `Put the news on — ${Math.ceil(TV_WATCH_SECONDS - a.tvSeconds)}s`
+        : 'Put the news on for half a minute'),
+      refusal: 'watch_tv',
+      hint: 'Sit down on the couch with the telly on. Half a minute of it.',
+    }),
+  ]),
+  /* The harbour job. Booskibro's boys are on the server and he said he would
+   * get one in, which in Counter-Squatch means getting shot through a wall
+   * five times by somebody who is very obviously cheating. */
+  no_wake: Object.freeze([
+    Object.freeze({
+      id: 'playedCounterSquatch',
+      event: TIME_EVENT_IDS.PLAY_COUNTER_SQUATCH,
+      label: 'Get a game of Counter-Squatch in',
+      refusal: 'counter_squatch',
+      hint: 'Sit at the computer and open Counter-Squatch. You will lose. That is the game.',
+    }),
+  ]),
+  /* Golf with Lou, in front of people. */
+  golf_morning: Object.freeze([
+    Object.freeze({
+      id: 'playedSquatchShoot',
+      event: TIME_EVENT_IDS.PLAY_SQUATCH_SHOOT,
+      label: 'Warm the eye up on Squatch Shoot',
+      refusal: 'squatch_shoot',
+      hint: `Squatch Shoot on the desk PC. ${SHOOT_TARGET_SCORE} points and the eye is in.`,
+    }),
+  ]),
+  /* And the night it all goes wrong, which he has half worked out. */
+  big_night: Object.freeze([
+    Object.freeze({
+      id: 'playedSquatchSmash',
+      event: TIME_EVENT_IDS.PLAY_SQUATCH_SMASH,
+      label: 'Get a run of Squatch Smash in',
+      refusal: 'squatch_smash',
+      hint: 'SQUATCH SMASH.exe on the desk PC. Ninety seconds and a campground.',
+    }),
+    Object.freeze({
+      id: 'tookShrooms',
+      event: TIME_EVENT_IDS.EAT_SHROOMS,
+      label: 'Eat the mushrooms',
+      refusal: 'shrooms_before',
+      hint: 'The caps are in the nightstand drawer.',
+    }),
+  ]),
+});
+
+/** The chapter's list, or an empty one. Never null, so callers can just map. */
+function pastimesFor(chapter) {
+  return CHAPTER_PASTIMES[chapter] ?? [];
+}
+
+/**
+ * Every pastime's flag and the clock cost of doing it, as one flat map.
+ *
+ * Two callers need this and neither of them should be keeping its own copy.
+ * `src/main.js` reads it to tick a pastime off when the room sees it happen,
+ * and the recovery skip in `apartment-recovery.js` reads it to tick one off
+ * for a player who is stuck -- that second one is not optional. The skip walks
+ * `tryLeave` in a loop resolving whatever it refuses with, and an activity it
+ * has no way to complete makes it give up and report
+ * `apartment_recovery_blocked`, which is a player who asked the game to get
+ * him out of his own living room and was told no.
+ */
+export function pastimeActivityEvents() {
+  const out = {};
+  for (const list of Object.values(CHAPTER_PASTIMES)) {
+    for (const item of list) out[item.id] = item.event;
+  }
+  return out;
+}
+
+/**
+ * The whole table, for the guard in tests/apartment-pastimes.test.mjs.
+ *
+ * Exported rather than reached into, so the test asserts the same object the
+ * door reads and cannot drift from it: every id has to be a real activity flag
+ * on the campaign state, every `refusal` a real key in DEPARTURE_REFUSALS, and
+ * every one of them a time event -- three ledgers this table has to agree with
+ * and none of which it can check for itself.
+ */
+export function chapterPastimes() {
+  return CHAPTER_PASTIMES;
+}
+
+/** A pastime's list line, which may want to count down. */
+function pastimeLabel(item, activities) {
+  return typeof item.label === 'function' ? item.label(activities) : item.label;
+}
 
 /** Somewhere to go, in words a person would use for it. */
 const SCENE_LABELS = Object.freeze({
@@ -1033,6 +1193,14 @@ class ApartmentStory {
        * the clock, which is exactly what "it puts me back on day one" feels
        * like from the inside. */
       for (const { id } of DEPARTURE_REQUIREMENTS) next.activities[id] = false;
+      /* And the chapter's own pastime, because it is the CHAPTER'S. A man who
+       * sat through half a minute of the news on Wednesday morning has not
+       * thereby got his game of Counter-Squatch in on Thursday. Cleared for
+       * every chapter rather than only the one being left, so a flag can only
+       * ever be earned inside the chapter that asks for it. */
+      for (const list of Object.values(CHAPTER_PASTIMES)) {
+        for (const item of list) next.activities[item.id] = false;
+      }
       // Not emailChecked: telling HR where to go is a thing that happened
       // once, not a thing he does every morning.
     });
@@ -1074,6 +1242,18 @@ class ApartmentStory {
         id: plan.event,
         label: `Answer ${plan.caller}’s call`,
         done: this.#eventAnswered(plan.event),
+        required: true,
+      });
+    }
+
+    /* And the one thing in this chapter that is his rather than theirs. It
+     * sits under the call because that is the order the door enforces: he is
+     * told where he is going, and then he does one thing before he goes. */
+    for (const item of pastimesFor(state.story.chapter)) {
+      items.push({
+        id: item.id,
+        label: pastimeLabel(item, activities),
+        done: activities[item.id] === true,
         required: true,
       });
     }
@@ -1134,6 +1314,44 @@ class ApartmentStory {
     return { chapter: state.story.chapter, day: state.story.day, items };
   }
 
+  /**
+   * The chapter's own thing, as a door refusal.
+   *
+   * Returns the first unfinished pastime for the current chapter in the same
+   * `kind: 'activity'` shape every other gate in `tryLeave` hands back, or
+   * null when there is nothing outstanding.
+   *
+   * Called at four sites rather than once at the top of the method, and the
+   * placement at each of them is the design: inside the branch that sends him
+   * to the chapter's FIRST job, after its call has been answered and
+   * immediately before its `go`.
+   *
+   * Both halves of that were wrong on the first attempt and both were worth
+   * fixing. Sitting ABOVE the call meant a door that answered an unanswered
+   * telephone with "you have not played your game yet", which has the
+   * priorities of this campaign exactly backwards -- he is told where he is
+   * going, and then he takes one thing for himself on the way out. And sitting
+   * outside the branch meant it stayed in the path for the whole chapter:
+   * coming home from the Jerky Motel at half four in the morning with nothing
+   * left to do, the door stopped saying "go to bed" and started asking him to
+   * watch the news, twenty-two hours after the morning that asked for it. A
+   * pastime stands between him and the first job of its chapter and nothing
+   * else.
+   */
+  #pastimeGate(activities) {
+    for (const item of pastimesFor(this.campaign.state.story.chapter)) {
+      if (activities[item.id] === true) continue;
+      return {
+        kind: 'activity',
+        id: item.id,
+        label: pastimeLabel(item, activities),
+        ...refusal(item.refusal),
+        hint: item.hint,
+      };
+    }
+    return null;
+  }
+
   tryLeave(activities = {}) {
     const state = this.campaign.state;
     const bankHeist = state.missions[MISSION_IDS.BANK_HEIST];
@@ -1177,6 +1395,8 @@ class ApartmentStory {
         };
       }
       if (state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete') {
+        const pastime = this.#pastimeGate(activities);
+        if (pastime) return pastime;
         return { kind: 'go', destination: SCENE_IDS.SILVER_PINES };
       }
       return {
@@ -1213,6 +1433,8 @@ class ApartmentStory {
           ...refusal('big_night_call'),
         };
       }
+      const pastime = this.#pastimeGate(activities);
+      if (pastime) return pastime;
       return {
         kind: 'go',
         destination: SCENE_IDS.INITIATION,
@@ -1227,6 +1449,8 @@ class ApartmentStory {
         };
       }
       if (state.missions[MISSION_IDS.NO_WAKE].status !== 'complete') {
+        const pastime = this.#pastimeGate(activities);
+        if (pastime) return pastime;
         return { kind: 'go', destination: SCENE_IDS.NO_WAKE };
       }
     }
@@ -1264,6 +1488,8 @@ class ApartmentStory {
         };
       }
       if (state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status !== 'complete') {
+        const pastime = this.#pastimeGate(activities);
+        if (pastime) return pastime;
         return {
           kind: 'go',
           destination: SCENE_IDS.AIRSTRIP_SMUGGLING,
