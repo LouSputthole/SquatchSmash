@@ -116,6 +116,8 @@ export class HeistFigure {
     /** Look-and-hold idle state, and what it put on the rig last frame. */
     this._idleLook = null;
     this._lookApplied = null;
+    /** Where the walk cycle is, for a figure that moves. See `gait()`. */
+    this._gaitPhase = 0;
     /** A floor-length skirt, if this outfit has one — see `seated()`. */
     this._skirt = this.parts.group.getObjectByName('gown.skirt') ?? null;
     this._skirtY = this._skirt ? this._skirt.position.y : 0;
@@ -498,6 +500,45 @@ export class HeistFigure {
     this.parts.foreL.rotation.set(-0.3, 0.3, 0);
     this.pose = 'aiming';
     this._poseFrom = null;
+    this._gaitPhase = 0;
+    return this;
+  }
+
+  /**
+   * Legs for a man moving while his upper body stays on his weapon.
+   *
+   * Owner, on the street: *"Everyones just standing ther"*. Once the police
+   * bound between fire positions (`updatePoliceMovement` in the heist's
+   * `main.js`) they slide across the road with their boots welded together,
+   * which is worse than standing still — a static man reads as covering an
+   * angle, a gliding one reads as broken.
+   *
+   * This writes the FOUR LEG JOINTS and nothing else, so it composes with
+   * `aiming()` above rather than replacing it: the shared `CombatWeaponAim`
+   * keeps the shoulders and the muzzle, and this carries what is underneath.
+   * At zero speed it puts the legs back and returns, so a man who has reached
+   * cover stops walking on the spot.
+   *
+   * @param {number} dt simulated seconds
+   * @param {number} speed metres per second, from the mover
+   */
+  gait(dt, speed) {
+    const pace = Math.max(0, Number(speed) || 0);
+    const legs = [this.parts.legL, this.parts.legR, this.parts.shinL, this.parts.shinR];
+    if (pace <= 0.06) {
+      if (this._gaitPhase === 0) return this;
+      this._gaitPhase = 0;
+      for (const part of legs) part.rotation.x = 0;
+      return this;
+    }
+    this._gaitPhase = (this._gaitPhase ?? 0) + dt * (3.4 + pace * 1.5);
+    const stride = Math.sin(this._gaitPhase);
+    // A jog swings further than a walk, and a sprint does not swing double.
+    const swing = Math.min(0.66, 0.18 + pace * 0.15);
+    this.parts.legL.rotation.x = -stride * swing;
+    this.parts.legR.rotation.x = stride * swing;
+    this.parts.shinL.rotation.x = Math.max(0, stride) * swing * 1.35;
+    this.parts.shinR.rotation.x = Math.max(0, -stride) * swing * 1.35;
     return this;
   }
 

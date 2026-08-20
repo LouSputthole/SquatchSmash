@@ -15,6 +15,24 @@ export const HEIST_STATES = Object.freeze([
 
 export const MISSION_START_STATE = 'SAFEHOUSE_ARRIVAL';
 
+/**
+ * How many officers a block costs before the way through it opens.
+ *
+ * Owner: *"I want to fight my way through some waves of cops ... We fight are
+ * way down the street to the van."* Every block used to open at TWO, which
+ * with a fourteen-man budget and a wave director feeding the street meant the
+ * first two officers who arrived were the whole encounter — the player walked
+ * past the other twelve, because the van's prompt had already gone live.
+ *
+ * The garage is deliberately the cheapest of the three: it is a delaying
+ * action with the crew loading a car behind you, not a push.
+ */
+export const BLOCK_CLEAR_OFFICERS = Object.freeze({
+  bank_avenue: 5,
+  market_street: 4,
+  mercer_garage: 3,
+});
+
 export const HEIST_ESCAPE_VEHICLE_CONFIG = Object.freeze({
   acceleration: 12.5,
   reverseAcceleration: 6.5,

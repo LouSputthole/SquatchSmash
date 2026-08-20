@@ -1216,11 +1216,19 @@ function buildBank() {
    * the middle of the west floor, eight metres from the entrance, behind the
    * queue and beside a writing desk, so the crew came through the doors and
    * the one man in the room who was going to shoot somebody was a figure in
-   * the middle distance. A guard stands where the public comes in. This is
-   * three metres inside the doors on the west side, turned to look down the
-   * hall at the teller line — which is what he is watching until the doors go
-   * — with the entrance in the corner of his eye. */
-  const guardFigure = makeBankGuardFigure({ name: 'bank-guard', x: -4.8, z: 9.3, yaw: 2.83 });
+   * the middle distance. A guard stands where the public comes in.
+   *
+   * This is four metres inside the doors, three metres from where the crew
+   * come through, turned to look down the hall at the teller line — which is
+   * what he is watching until the doors go.
+   *
+   * IN FRONT of the entry point rather than beside it, on purpose: the whole
+   * beat is 2.75 seconds long, and a guard the player has to turn round to
+   * find is a guard who shoots a teller while he is being looked for. East
+   * side rather than west because the west door area is already four bodies
+   * and a column — the geometry gate found him standing inside `bank-column-2`
+   * on the first attempt. */
+  const guardFigure = makeBankGuardFigure({ name: 'bank-guard', x: 2.2, z: 6.4, yaw: -2.79 });
   group.add(guardFigure.root);
   const rearGuardFigure = makeBankGuardFigure({
     name: 'bank-rear-guard', x: 6.8, z: -0.2, yaw: Math.PI, height: 1.79,
@@ -1713,11 +1721,26 @@ function buildStreet() {
       ownAddedChildren(group, fixtureStart, `heist.street.lamp.${side}.${i}`);
     }
   }
+  /* The parked cars, and the fire positions they make.
+   *
+   * `firePositions` is the street's own answer to *"Everyones just standing
+   * ther"* — the police movement layer in `main.js` bounds between these
+   * rather than choosing arbitrary coordinates, so the fight runs along the
+   * cover the street actually has instead of down the middle of the road.
+   * They are AUTHORED HERE, beside the cars they belong to, because a cover
+   * list that lives somewhere else drifts the first time a car moves. */
   const coverCars = [];
+  const firePositions = [];
   for (let i = 0; i < 8; i++) {
     const position = [i % 2 ? -5.5 : 5.5, 0, -25 + i * 7];
     makeVehicleBody(group, position, i % 3 ? 0x31363a : 0x5a1f22, `cover-car-${i}`);
     coverCars.push(bounds([4.1, 1.9, 2.2], [position[0], 0.95, position[2]]));
+    /* Either end of the car, clear of its 2.2 m hull: a man tucked in at the
+     * bumper with two tonnes of parked saloon between him and the muzzle. */
+    firePositions.push({ id: `car-${i}-near`, x: position[0], z: position[2] - 2.9 });
+    firePositions.push({ id: `car-${i}-far`, x: position[0], z: position[2] + 2.9 });
+    // And the open centre lane, which is what a man crossing the road uses.
+    firePositions.push({ id: `lane-${i}`, x: i % 2 ? -1.9 : 1.9, z: position[2] - 1.4 });
   }
   // Planters on the bank steps: the cover Snow's authored line names.
   for (const x of [-3.4, 0, 3.4]) {
@@ -1753,9 +1776,16 @@ function buildStreet() {
   ownGeometry(garage, 'heist.street.garage-entry');
   ownGeometry(garageSign, 'heist.street.garage-entry');
 
+  /* The dead van is cover too — it is the biggest solid on the street and it
+   * is exactly where the first block is fought. */
+  for (const [id, x, z] of [['van-west', -3.6, 14], ['van-east', 3.6, 14]]) {
+    firePositions.push({ id, x, z });
+  }
+
   return {
     group,
     spawn: new THREE.Vector3(0, 1.66, 31),
+    firePositions: Object.freeze(firePositions.map((slot) => Object.freeze(slot))),
     interactables: { bankDoor, van, droppedBag, garage },
     colliders: [
       bounds([3.4, 10, 72], [-10.3, 5, 0]),
@@ -1908,6 +1938,23 @@ function buildGarage() {
      * = 0` looks down −Z, so the first thing in frame is the car the objective
      * is about instead of the back wall the spawn used to be pressed into. */
     spawn: new THREE.Vector3(0, 1.66, 6.4),
+    /* Fire positions for the men coming down the ramp: the pillar line at
+     * x ±3 and ±8, and the mouth of the ramp itself. Same contract as the
+     * street's — see `buildStreet`. The pillars are 0.8 m square, so a slot
+     * sits a body's width off one, not inside it. */
+    firePositions: Object.freeze([
+      { id: 'ramp-mouth', x: 0, z: 11.4 },
+      { id: 'ramp-west', x: -2.4, z: 12.2 },
+      { id: 'ramp-east', x: 2.4, z: 12.2 },
+      { id: 'pillar-w-out', x: -8, z: 11.2 },
+      { id: 'pillar-e-out', x: 8, z: 11.2 },
+      { id: 'pillar-w-near', x: -3, z: 1.4 },
+      { id: 'pillar-e-near', x: 3, z: 1.4 },
+      { id: 'pillar-w-mid', x: -8, z: 1.4 },
+      { id: 'pillar-e-mid', x: 8, z: 1.4 },
+      { id: 'lane-west', x: -5.6, z: 6.2 },
+      { id: 'lane-east', x: 5.6, z: 6.2 },
+    ].map((slot) => Object.freeze(slot))),
     interactables: { hold, load, drive },
     sedan,
     colliders: [

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { AudioEngine } from '../core/audio.js';
 import { CombatActor } from '../core/combat/actors.js';
 import { FACTIONS, FactionMatrix } from '../core/combat/factions.js';
+import { AabbCombatSpace } from '../core/combat/spatial.js';
 import { SuppressionModel } from '../core/combat/suppression.js';
 import { BloodImpactSystem, BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import {
@@ -39,7 +40,7 @@ import {
 import { BankGuardThreat } from './bank-threat.js';
 import { CheckpointDirector } from './checkpoints.js';
 import {
-  HEIST_ESCAPE_VEHICLE_CONFIG, HEIST_STATES, PERFORMANCE_BUDGET,
+  BLOCK_CLEAR_OFFICERS, HEIST_ESCAPE_VEHICLE_CONFIG, HEIST_STATES, PERFORMANCE_BUDGET,
   PHASE_FOR_STATE, PREVIEW_START_STATE,
 } from './config.js';
 import { DialogueArbiter } from './dialogue.js';
@@ -390,6 +391,7 @@ function refreshObjective(state = machine.state) {
     carryingBag,
     bankBagsStaged,
     officersDown,
+    officersNeeded: officersNeeded(),
     droppedBagDecision,
     weaponsDown,
     swapProgress,
@@ -1107,7 +1109,9 @@ function debugPoseForEvidence(name) {
       phase: 'safehouse', position: [-4.6, 1.66, 0.9], yaw: -2.125, pitch: -0.05,
       focus: ['primary-van-rear-door-left', 'primary-van-rear-door-right', 'loading-bay-header'],
     },
-    bank_guard: { phase: 'bank', position: [0, 1.66, 8.5], yaw: 0.9273 },
+    /* On the guard where he stands, which moved to the door in the 2026-08-20
+     * playtest pass. Derived: yaw = atan2(-dx, -dz) from this camera to him. */
+    bank_guard: { phase: 'bank', position: [0, 1.66, 8.5], yaw: -0.8086, pitch: -0.1661 },
     bank_lobby: { phase: 'bank', position: [-0.6, 1.66, 5.6], yaw: -0.88, pitch: -0.1 },
     bank_hostages: { phase: 'bank', position: [0.2, 1.66, 5.4], yaw: 0.05, pitch: -0.08 },
     bank_vault: { phase: 'bank', position: [0, 1.66, -6.0], yaw: 0, pitch: -0.05 },
@@ -1287,7 +1291,49 @@ function debugSnapshot() {
     bags: loot.summary(),
     carryingBag,
     bankBagsStaged,
+    /* The circle by the doors, and what is actually standing on it. The count
+     * and the meshes are reported separately on purpose: `bankBagsStaged` was
+     * a number that had never been attached to anything a player can see. */
+    staging: (() => {
+      const group = level.phases.bank.staging;
+      if (!group) return null;
+      let duffles = 0;
+      for (let i = 1; i <= 8; i++) {
+        if (group.getObjectByName(`staged-cash-${i}`)?.visible) duffles++;
+      }
+      let vaultBagsLeft = 0;
+      for (let i = 1; i <= 8; i++) {
+        if (level.phases.bank.group.getObjectByName(`cash-${i}`)?.visible) vaultBagsLeft++;
+      }
+      return {
+        staged: group.userData.staged ?? 0,
+        duffles,
+        vaultBagsLeft,
+        at: [group.position.x, group.position.z],
+      };
+    })(),
+    noWitnesses,
+    witnessesLeft: witnessesRemaining(),
     officersDown,
+    officersNeeded: officersNeeded(),
+    policeMovement: policeFigures
+      .filter((entry) => entry.root.visible && !entry.actor.incapacitated
+        && entry.root.userData.phaseId === activePhase)
+      .map((entry) => ({
+        id: entry.actor.id,
+        mode: entry.movement?.mode ?? 'hold',
+        speed: Number((entry.movement?.speed ?? 0).toFixed(3)),
+        standoff: Number((entry.movement?.standoff ?? 0).toFixed(2)),
+        slot: entry.movement?.slot ?? null,
+        position: [
+          Number(entry.root.position.x.toFixed(2)),
+          Number(entry.root.position.z.toFixed(2)),
+        ],
+        range: Number(Math.hypot(
+          entry.root.position.x - player.position.x,
+          entry.root.position.z - player.position.z,
+        ).toFixed(2)),
+      })),
     policeActive: activePoliceMeshes().length,
     policeTotal: policeFigures.length,
     policeActors: policeFigures.map((entry) => ({
@@ -2732,8 +2778,10 @@ function refreshInteractions() {
       if (machine.state === 'BANK_DOOR_CONTACT') advanceTo('STREET_BLOCK_ONE');
       refreshObjective();
     });
-    use(p.street.interactables.van, officersDown >= 2 ? 'Reach Rippin at the van' : 'Police fire blocks the van', () => {
-      if (machine.state !== 'STREET_BLOCK_ONE' || officersDown < 2) return;
+    use(p.street.interactables.van, () => (blockCleared()
+      ? 'Reach Rippin at the van'
+      : `Police fire blocks the van — ${officersDown}/${officersNeeded()} down`), () => {
+      if (machine.state !== 'STREET_BLOCK_ONE' || !blockCleared()) return;
       advanceTo('FALLBACK_ROUTE');
       crew.get(CHARACTER_IDS.RIPPINFLOW).injury = 'moderate';
       advanceTo('STREET_BLOCK_TWO');
@@ -2754,22 +2802,25 @@ function refreshInteractions() {
       refreshInteractions();
     });
     use(p.street.interactables.garage, 'Enter Mercer garage', () => {
-      if (!['STREET_BLOCK_TWO', 'DROPPED_BAG_DECISION'].includes(machine.state) || officersDown < 2) return;
+      if (!['STREET_BLOCK_TWO', 'DROPPED_BAG_DECISION'].includes(machine.state)
+        || !blockCleared()) return;
       enterGarage();
-    }, { enabled: () => officersDown >= 2 });
+    }, { enabled: () => blockCleared() });
     return;
   }
 
   if (activePhase === 'garage') {
-    use(p.garage.interactables.hold, officersDown >= 2 ? 'Signal the loading move' : 'Hold the garage entrance', () => {
+    use(p.garage.interactables.hold, () => (blockCleared()
+      ? 'Signal the loading move'
+      : `Hold the garage entrance — ${officersDown}/${officersNeeded()} down`), () => {
       if (machine.state === 'GARAGE_ENTRY') advanceTo('GARAGE_HOLD');
-      if (machine.state === 'GARAGE_HOLD' && officersDown >= 2) {
+      if (machine.state === 'GARAGE_HOLD' && blockCleared()) {
         say('shubes_garage');
         refreshObjective();
       }
     });
     use(p.garage.interactables.load, 'Load crew and cash into the sedan', () => {
-      if (machine.state !== 'GARAGE_HOLD' || officersDown < 2) return;
+      if (machine.state !== 'GARAGE_HOLD' || !blockCleared()) return;
       advanceTo('SECONDARY_CAR_LOAD');
       for (const record of loot.capture()) {
         if (record.abandoned || record.seized) continue;
@@ -2957,13 +3008,16 @@ function spawnPolice(block, count, { wave = false } = {}) {
      * appearing out of open road in front of you is what makes them read as
      * spawned rather than as arriving. */
     const entry = wave ? entries[(waveIndex * 2 + i) % Math.max(1, entries.length)] : null;
+    const contact = (BLOCK_CONTACT[block] ?? [])[i % Math.max(1, (BLOCK_CONTACT[block] ?? []).length)];
     addPoliceFigure({
       id: `${block}_${policeFigures.length}_${waveIndex}`,
       block,
       phaseId: activePhase,
       position: entry
         ? [entry[0] + (Math.random() - 0.5) * 1.6, 0, entry[1] + (Math.random() - 0.5) * 2.4]
-        : [(i % 2 ? -1 : 1) * (4 + i), 0, baseZ - i * 5],
+        : (contact
+          ? [contact[0], 0, contact[1]]
+          : [(i % 2 ? -1 : 1) * (4 + i), 0, baseZ - i * 5]),
       recycle: wave,
     });
   }
@@ -2977,6 +3031,22 @@ function spawnPolice(block, count, { wave = false } = {}) {
 /* Waves                                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * What the block the player is standing in costs, and whether it is paid.
+ *
+ * `officersDown >= 2` was hardcoded at five separate gates and in three
+ * objective strings, so the first two officers to arrive opened the way past
+ * the other twelve. `BLOCK_CLEAR_OFFICERS` in `config.js` is the one number,
+ * per block, and it is what the order counts down.
+ */
+function officersNeeded() {
+  return BLOCK_CLEAR_OFFICERS[activePoliceBlock()] ?? 2;
+}
+
+function blockCleared() {
+  return officersDown >= officersNeeded();
+}
+
 /** Which block is feeding the contact the player is standing in. */
 function activePoliceBlock() {
   if (activePhase === 'garage') return 'mercer_garage';
@@ -2985,11 +3055,48 @@ function activePoliceBlock() {
     .includes(machine.state) ? 'market_street' : 'bank_avenue';
 }
 
-/** Where a wave comes in from, per block. Behind and beside, never in front. */
+/**
+ * Where a wave comes in from, per block. IN FRONT, along the way out.
+ *
+ * Owner: *"the cops have spawned behind me instead of infront of me. I want
+ * to fight my way through some waves of cops ... We fight are way down the
+ * street to the van."*
+ *
+ * This table used to insist that a wave came in from behind and beside and
+ * never in front, and it meant it: every `bank_avenue` entry was between z 24 and z 32, and the player
+ * comes out of the bank at z 31 and works DOWN the street to the dead van at
+ * z 14. So the reinforcements for the first contact arrived on the bank steps
+ * he had just left, behind his shoulder, between him and nothing.
+ *
+ * That reasoning was not wrong in general — men appearing out of open road in
+ * front of you read as spawned. It was wrong HERE, because it was written for
+ * a defence and this is an advance. The player is going somewhere, and the
+ * police are what is between him and it: they come up the street toward him,
+ * at the far end of the block he has to cross, with the parked cars between.
+ * Far enough out that they are seen arriving rather than seen appearing.
+ */
 const WAVE_ENTRY = Object.freeze({
-  bank_avenue: [[-6.4, 26], [6.4, 24], [-5.2, 30], [5.6, 29], [0, 32]],
-  market_street: [[-6.6, -6], [6.6, -9], [-5.4, -14], [5.8, -16], [0, -19]],
+  // Block one: he leaves the bank at z 31 and fights down to the van at 14.
+  bank_avenue: [[-6.4, 4], [6.4, 2], [-5.2, -1], [5.6, -3], [0, -6]],
+  // Block two: he leaves the van at z 14 and falls back to the garage at −35.
+  market_street: [[-6.6, -18], [6.6, -21], [-5.4, -25], [5.8, -27], [0, -30]],
+  // The garage is a defence, and its entry is the ramp he is told to hold.
   mercer_garage: [[-7.2, 11], [7.2, 10], [-6.4, 13.5], [6.4, 13], [0, 14]],
+});
+
+/**
+ * Where the OPENING contact of a block is standing when it starts.
+ *
+ * `spawnPolice` used to stage the first five at
+ * `[(i % 2 ? -1 : 1) * (4 + i), 0, baseZ - i * 5]`, an arithmetic ladder down
+ * the middle of the road that put nobody near cover and depended on how many
+ * bodies the pool had already built. These are on the street's own fire
+ * positions, so the contact opens with men behind cars.
+ */
+const BLOCK_CONTACT = Object.freeze({
+  bank_avenue: [[5.5, 19.9], [-5.5, 21.1], [1.9, 15.6], [5.5, 14.1], [-1.9, 8.6]],
+  market_street: [[-5.5, -1.1], [5.5, -8.1], [1.9, -12.4], [-5.5, -15.1], [-1.9, -19.4]],
+  mercer_garage: [[-2.4, 12.2], [2.4, 12.2], [0, 11.4], [-8, 11.2], [8, 11.2]],
 });
 
 let waveClock = 4.5;
@@ -3080,6 +3187,11 @@ function addPoliceFigure({
     spare.root.position.set(position[0], 0, position[2]);
     spare.root.rotation.y = Math.PI;
     spare.figure.aiming?.();
+    /* A recycled body is a NEW officer. He does not inherit the bound the
+     * dead man was halfway through, or the fire position he had claimed —
+     * which would keep that slot reserved for a corpse for the rest of the
+     * block. See `updatePoliceMovement`. */
+    spare.movement = null;
     window.__heistDebug.policeActive = activePoliceMeshes().length;
     return spare.root;
   }
@@ -3216,6 +3328,207 @@ function fireWeapon() {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * FIRE AND MOVEMENT
+ *
+ * Owner: *"Im not sure the combat system is implemented in the street fight
+ * at all. Everyones just standing ther enad the cops have spawned behind me
+ * instead of infront of me. I want to fight my way through some waves of
+ * cops. Use the systems weve implemented for the mansion siege. Waves combat
+ * etc. We fight are way down the street to the van."*
+ *
+ * Half of it WAS implemented: `combat.updateHostile` runs the shared
+ * perception, aim, ammunition and fire-control pipeline for every officer,
+ * and `updatePoliceWaves` has fed the block a wave at a time since it was
+ * written. What was missing is the only part the player can see. Nothing in
+ * this scene ever moved an officer. He was spawned at a coordinate, he called
+ * `figure.aiming()`, and he stood on that coordinate shooting until he was
+ * killed — for the whole block, at whatever range he happened to arrive at.
+ *
+ * So this is the mansion siege's own movement layer, on the siege's own
+ * shared module: `AabbCombatSpace` from `src/core/combat/spatial.js` owns the
+ * step and the separation, exactly as `SIEGE_COMBAT_SPACE` does in
+ * `src/mansion/siege/attackers.js`, so an officer slides along a parked car
+ * instead of walking through it and two of them cannot stand in the same
+ * metre.
+ *
+ * The behaviour is BOUND AND HOLD, which is what men with rifles actually do
+ * and what makes a street fight read as one:
+ *
+ *   hold   two to five seconds, stationary, shooting through the shared
+ *          pipeline from behind whatever he is behind.
+ *   bound  a run of up to two seconds to the next authored fire position
+ *          closer to the player, at a third of his accuracy — because a man
+ *          crossing open ground is not the man to be afraid of, the two
+ *          holding on either side of him are.
+ *
+ * Every officer has his own STANDOFF, and he stops closing at it. Without one
+ * they converge on the player and the fight becomes a scrum at contact range;
+ * with a spread of them, the block occupies a depth of street and the player
+ * has to work through it rather than round it.
+ *
+ * The fire positions themselves are authored in `level.js` beside the cars
+ * they belong to (`phase.firePositions`), so the fight runs along the cover
+ * the street has rather than down the middle of the road.
+ * ------------------------------------------------------------------ */
+
+/** The same body the siege moves: a 0.36 m capsule that cannot share a metre. */
+const STREET_COMBAT_SPACE = new AabbCombatSpace({
+  radius: 0.36,
+  height: 1.82,
+  separation: 0.94,
+  verticalSeparation: 1.2,
+  floorClearance: 0.08,
+  headClearance: 0.04,
+});
+
+const POLICE_MOVEMENT = Object.freeze({
+  /** Metres per second across open ground between two fire positions. */
+  boundSpeed: 3.15,
+  /** Seconds in cover between bounds. */
+  hold: Object.freeze([2.3, 5.4]),
+  /** A bound is a bound. Past this he takes cover wherever he got to. */
+  boundSeconds: 2.1,
+  /** How near a slot counts as reached. */
+  arrive: 0.6,
+  /** Nobody closes past this, and nobody bothers moving from beyond that. */
+  standoff: Object.freeze([6.5, 14.5]),
+  /** A bound has to be worth making, and has to be reachable. */
+  gain: 3.0,
+  reach: 16,
+});
+
+const _policeStep = new THREE.Vector3();
+const _policeGoal = new THREE.Vector3();
+
+/** Every officer on his feet in the phase the player is standing in. */
+function livePoliceEntries() {
+  return policeFigures.filter((entry) => entry.root.visible
+    && !entry.actor.incapacitated
+    && entry.root.userData.phaseId === activePhase);
+}
+
+function policeMovementState(entry, index) {
+  if (entry.movement) return entry.movement;
+  const spread = ((index * 37) % 100) / 100;
+  entry.movement = {
+    mode: 'hold',
+    /* Staggered, so a wave does not bound as one body. */
+    clock: POLICE_MOVEMENT.hold[0] * 0.4 + spread * 2.4,
+    goal: null,
+    slot: null,
+    standoff: POLICE_MOVEMENT.standoff[0]
+      + spread * (POLICE_MOVEMENT.standoff[1] - POLICE_MOVEMENT.standoff[0]),
+    speed: 0,
+  };
+  return entry.movement;
+}
+
+function randomHold() {
+  const [low, high] = POLICE_MOVEMENT.hold;
+  return low + Math.random() * (high - low);
+}
+
+/**
+ * The next place forward worth being.
+ *
+ * A slot has to be unclaimed, meaningfully nearer the player than where he is
+ * standing, not nearer than his standoff, and inside one bound of him. Ties go
+ * to the slot that lands him closest to his own standoff, with a small
+ * preference for not running the length of the street to reach it.
+ */
+function chooseFirePosition(entry, taken) {
+  const slots = level.phases[activePhase]?.firePositions ?? [];
+  if (!slots.length) return null;
+  const here = entry.root.position;
+  const own = Math.hypot(here.x - player.position.x, here.z - player.position.z);
+  const standoff = entry.movement.standoff;
+  let best = null;
+  let bestScore = Infinity;
+  for (const slot of slots) {
+    if (taken.has(slot.id)) continue;
+    const toPlayer = Math.hypot(slot.x - player.position.x, slot.z - player.position.z);
+    if (toPlayer < standoff - 1.5) continue;
+    if (own - toPlayer < POLICE_MOVEMENT.gain) continue;
+    const travel = Math.hypot(slot.x - here.x, slot.z - here.z);
+    if (travel > POLICE_MOVEMENT.reach || travel < 0.6) continue;
+    const score = Math.abs(toPlayer - standoff) + travel * 0.25;
+    if (score < bestScore) { bestScore = score; best = slot; }
+  }
+  return best;
+}
+
+/**
+ * One frame of the whole block's movement.
+ *
+ * Runs BEFORE `updatePoliceCombat`, so the shared aim pipeline steers off the
+ * position a man has actually reached this frame rather than the one he left.
+ */
+function updatePoliceMovement(dt) {
+  if (!['street', 'garage'].includes(activePhase) || machine.state === 'FAILED') return;
+  const live = livePoliceEntries();
+  if (!live.length) return;
+  const colliders = level.world.colliders;
+  const taken = new Set();
+  for (const entry of live) if (entry.movement?.slot) taken.add(entry.movement.slot);
+
+  for (const [index, entry] of live.entries()) {
+    const state = policeMovementState(entry, index);
+    const position = entry.root.position;
+    state.clock -= dt;
+    if (state.mode === 'hold') {
+      state.speed = 0;
+      if (state.clock > 0) continue;
+      const slot = chooseFirePosition(entry, taken);
+      if (!slot) { state.clock = randomHold(); continue; }
+      taken.add(slot.id);
+      state.slot = slot.id;
+      state.goal = { x: slot.x, z: slot.z };
+      state.mode = 'bound';
+      state.clock = POLICE_MOVEMENT.boundSeconds;
+      continue;
+    }
+
+    // --- bounding ---
+    _policeGoal.set(state.goal.x, position.y, state.goal.z);
+    _policeStep.copy(_policeGoal).sub(position);
+    _policeStep.y = 0;
+    const remaining = _policeStep.length();
+    if (remaining <= POLICE_MOVEMENT.arrive || state.clock <= 0) {
+      state.mode = 'hold';
+      state.clock = randomHold();
+      state.speed = 0;
+      continue;
+    }
+    _policeStep.multiplyScalar(
+      Math.min(1, (POLICE_MOVEMENT.boundSpeed * dt) / remaining),
+    );
+    const before = position.x;
+    const beforeZ = position.z;
+    STREET_COMBAT_SPACE.move(position, _policeStep, { boxes: colliders, bounds: null });
+    STREET_COMBAT_SPACE.separate(entry, live, {
+      boxes: colliders,
+      bounds: null,
+      positionOf: (peer) => peer.root?.position ?? null,
+      idOf: (peer) => peer.actor?.id ?? '',
+      eligible: (peer) => peer.root?.visible === true && !peer.actor?.incapacitated,
+    });
+    const moved = Math.hypot(position.x - before, position.z - beforeZ);
+    state.speed = dt > 0 ? moved / dt : 0;
+    /* Wedged against a car with two seconds of bound left is not a bound. Take
+     * the ground he got to and start shooting from it. */
+    if (moved < POLICE_MOVEMENT.boundSpeed * dt * 0.15) {
+      state.mode = 'hold';
+      state.clock = randomHold();
+      state.speed = 0;
+    }
+  }
+
+  /* The legs. The upper body stays on the weapon (`figure.aiming()` and the
+   * shared `CombatWeaponAim`); this is only ever what is underneath it. */
+  for (const entry of live) entry.figure.gait?.(dt, entry.movement?.speed ?? 0);
+}
+
 /**
  * The street's authored difficulty. WHO fights (waves) and HOW HARD each
  * round presses stay Locality; all the truth underneath — sight, alignment,
@@ -3246,10 +3559,13 @@ function updatePoliceCombat(dt) {
   for (const entry of policeFigures) {
     if (!entry.root.visible || entry.actor.incapacitated
       || entry.root.userData.phaseId !== activePhase) continue;
+    /* A man crossing open ground is not the one to be afraid of; the two
+     * holding on either side of him are. See `updatePoliceMovement`. */
+    const bounding = entry.movement?.mode === 'bound';
     const update = combat.updateHostile(entry, dt, {
       targetPoint: policeAimPoint,
       targetActor: playerActor,
-      accuracy,
+      accuracy: bounding ? accuracy * 0.35 : accuracy,
       damage: POLICE_COMBAT.damage,
       range: POLICE_COMBAT.range,
       cadence: POLICE_COMBAT.cadence,
@@ -4345,6 +4661,9 @@ function animate() {
       updateHostageAim(dt);
       updateLobbyFigures(dt);
       updatePoliceWaves(dt);
+      /* Movement first: the shared aim pipeline has to steer off where a man
+       * has got to this frame, not where he left. */
+      updatePoliceMovement(dt);
       updatePoliceCombat(dt);
       if (camera.fov !== 72) { camera.fov = 72; camera.updateProjectionMatrix(); }
     }

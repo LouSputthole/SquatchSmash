@@ -62,6 +62,8 @@
  * @property {number}  [civilianCasualties] people who did not walk out
  */
 
+import { BLOCK_CLEAR_OFFICERS } from './config.js';
+
 /** How many of the seven evidence actions at the swap are done. */
 function swapDone(progress) {
   const values = Object.values(progress ?? {});
@@ -141,9 +143,11 @@ export const HEIST_ORDERS = Object.freeze({
   BANK_DOOR_CONTACT: 'Break contact from the bank steps. Work down the street to the van.',
   STREET_BLOCK_ONE: (c = {}) => {
     const down = c.officersDown ?? 0;
-    return down >= 2
+    const need = c.officersNeeded ?? BLOCK_CLEAR_OFFICERS.bank_avenue;
+    return down >= need
       ? 'Lane is open. Reach Rippin at the disabled van.'
-      : `Fight down Mercer to the van — ${down}/2 officers down. Use the cars and the planters for cover.`;
+      : `Fight down Mercer to the van — ${down}/${need} officers down. `
+        + 'Use the cars and the planters for cover.';
   },
   VAN_REACHED: 'The van is dead. Wait for Snow’s fallback call.',
   VAN_DISABLED: 'The van is dead. Wait for Snow’s fallback call.',
@@ -151,7 +155,10 @@ export const HEIST_ORDERS = Object.freeze({
   FALLBACK_ROUTE: 'Fall back on foot toward the Mercer garage.',
   STREET_BLOCK_TWO: (c = {}) => {
     const down = c.officersDown ?? 0;
-    if (down < 2) return `Second contact — ${down}/2 officers down. Clear the road to the Mercer garage.`;
+    const need = c.officersNeeded ?? BLOCK_CLEAR_OFFICERS.market_street;
+    if (down < need) {
+      return `Second contact — ${down}/${need} officers down. Clear the road to the Mercer garage.`;
+    }
     return c.droppedBagDecision
       ? 'Road is clear. Get into the Mercer garage.'
       : 'Road is clear. Recover the dropped bag if it is safe, then get into the Mercer garage.';
@@ -162,9 +169,11 @@ export const HEIST_ORDERS = Object.freeze({
   GARAGE_ENTRY: 'Hold the garage entrance. Do not let them up the ramp behind you.',
   GARAGE_HOLD: (c = {}) => {
     const down = c.officersDown ?? 0;
-    return down >= 2
+    const need = c.officersNeeded ?? BLOCK_CLEAR_OFFICERS.mercer_garage;
+    return down >= need
       ? 'Entrance is held. Load the cash and Rippin into the secondary car.'
-      : `Hold the garage entrance — ${down}/2 officers down. Clear a lane to the secondary car.`;
+      : `Hold the garage entrance — ${down}/${need} officers down. `
+        + 'Clear a lane to the secondary car.';
   },
   SECONDARY_CAR_LOAD: 'Take the driver seat. Rippin will call the route.',
 

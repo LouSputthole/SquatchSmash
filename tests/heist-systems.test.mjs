@@ -10,7 +10,9 @@ import { HeistMissionMachine } from '../src/heist/mission.js';
 import { AuthoredNavigationGraph, SquadDirector } from '../src/heist/navigation.js';
 import { PoliceDirector } from '../src/heist/police.js';
 import { intersectsDrivingObstacle } from '../src/heist/geometry.js';
-import { HEIST_CHECKPOINT_STATE, HEIST_STATES, PREVIEW_START_STATE } from '../src/heist/config.js';
+import {
+  BLOCK_CLEAR_OFFICERS, HEIST_CHECKPOINT_STATE, HEIST_STATES, PREVIEW_START_STATE,
+} from '../src/heist/config.js';
 import { HEIST_ORDERS, objectiveForState } from '../src/heist/orders.js';
 import { SNOW_CASUALTY_LADDER, dialogueLine } from '../src/heist/script.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
@@ -246,10 +248,22 @@ test('objectives that carry a sub-step read it from the context, not from a stat
   // Fetching a bag and carrying one are different instructions in CASH_LOADING.
   assert.match(objectiveForState('CASH_LOADING', { bankBagsStaged: 1 }), /1\/2 staged/);
   assert.match(objectiveForState('CASH_LOADING', { carryingBag: 'cash_3' }), /Carry the bag/);
-  // A contact counts down the officers still up.
-  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: 0 }), /0\/2 officers down/);
-  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: 2 }), /Reach Rippin/);
-  assert.match(objectiveForState('GARAGE_HOLD', { officersDown: 2 }), /Load the cash/);
+  /* A contact counts down the officers still up, against the block's OWN
+   * cost. Every block used to open at two, so with a fourteen-man budget and
+   * a wave director feeding the street the first two officers to arrive were
+   * the whole encounter and the player walked past the other twelve. */
+  const need = BLOCK_CLEAR_OFFICERS.bank_avenue;
+  assert.ok(need >= 4, 'a block that opens on three officers is not a block');
+  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: 0 }),
+    new RegExp(`0/${need} officers down`));
+  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: need }), /Reach Rippin/);
+  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: need - 1 }),
+    /officers down/, 'the lane opened one officer early');
+  assert.match(objectiveForState('GARAGE_HOLD',
+    { officersDown: BLOCK_CLEAR_OFFICERS.mercer_garage }), /Load the cash/);
+  // An explicit context beats the table, which is how the runtime passes it.
+  assert.match(objectiveForState('STREET_BLOCK_TWO', { officersDown: 1, officersNeeded: 9 }),
+    /1\/9 officers down/);
 });
 
 test('an unknown state falls back to an instruction rather than leaving a stale one', () => {
