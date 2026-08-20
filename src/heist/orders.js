@@ -62,6 +62,8 @@
  * @property {number}  [civilianCasualties] people who did not walk out
  */
 
+import { BLOCK_CLEAR_OFFICERS } from './config.js';
+
 /** How many of the seven evidence actions at the swap are done. */
 function swapDone(progress) {
   const values = Object.values(progress ?? {});
@@ -141,9 +143,11 @@ export const HEIST_ORDERS = Object.freeze({
   BANK_DOOR_CONTACT: 'Break contact from the bank steps. Work down the street to the van.',
   STREET_BLOCK_ONE: (c = {}) => {
     const down = c.officersDown ?? 0;
-    return down >= 2
+    const need = c.officersNeeded ?? BLOCK_CLEAR_OFFICERS.bank_avenue;
+    return down >= need
       ? 'Lane is open. Reach Rippin at the disabled van.'
-      : `Fight down Mercer to the van — ${down}/2 officers down. Use the cars and the planters for cover.`;
+      : `Fight down Mercer to the van — ${down}/${need} officers down. `
+        + 'Use the cars and the planters for cover.';
   },
   VAN_REACHED: 'The van is dead. Wait for Snow’s fallback call.',
   VAN_DISABLED: 'The van is dead. Wait for Snow’s fallback call.',
@@ -151,7 +155,10 @@ export const HEIST_ORDERS = Object.freeze({
   FALLBACK_ROUTE: 'Fall back on foot toward the Mercer garage.',
   STREET_BLOCK_TWO: (c = {}) => {
     const down = c.officersDown ?? 0;
-    if (down < 2) return `Second contact — ${down}/2 officers down. Clear the road to the Mercer garage.`;
+    const need = c.officersNeeded ?? BLOCK_CLEAR_OFFICERS.market_street;
+    if (down < need) {
+      return `Second contact — ${down}/${need} officers down. Clear the road to the Mercer garage.`;
+    }
     return c.droppedBagDecision
       ? 'Road is clear. Get into the Mercer garage.'
       : 'Road is clear. Recover the dropped bag if it is safe, then get into the Mercer garage.';
@@ -162,9 +169,11 @@ export const HEIST_ORDERS = Object.freeze({
   GARAGE_ENTRY: 'Hold the garage entrance. Do not let them up the ramp behind you.',
   GARAGE_HOLD: (c = {}) => {
     const down = c.officersDown ?? 0;
-    return down >= 2
+    const need = c.officersNeeded ?? BLOCK_CLEAR_OFFICERS.mercer_garage;
+    return down >= need
       ? 'Entrance is held. Load the cash and Rippin into the secondary car.'
-      : `Hold the garage entrance — ${down}/2 officers down. Clear a lane to the secondary car.`;
+      : `Hold the garage entrance — ${down}/${need} officers down. `
+        + 'Clear a lane to the secondary car.';
   },
   SECONDARY_CAR_LOAD: 'Take the driver seat. Rippin will call the route.',
 
@@ -214,7 +223,40 @@ export const HEIST_ORDERS = Object.freeze({
  *   order rather than leaving whatever was on screen before, because a STALE
  *   objective is the bug this module exists to fix and an empty one is worse.
  */
+/**
+ * The states in which the lobby is a room full of people who saw your face.
+ *
+ * Not the street or the garage: by then the survivors are behind you and the
+ * job is a getaway. This is only ever about the room.
+ */
+const WITNESS_SWEEP_STATES = new Set([
+  'LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS',
+  'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER',
+]);
+
+/**
+ * The order once four customers are down.
+ *
+ * Owner: *"one of the objectives turns to make sure there are no witnesses
+ * and you have to whack all the customers."* It REPLACES the standing order
+ * rather than trailing it, because at that point it is the only thing between
+ * the crew and a description of all six of them, and the doors do not open
+ * until it is done — see `noWitnesses` in `main.js`.
+ *
+ * @returns {string|null} null when the sweep is not on.
+ */
+function witnessSweepOrder(state, context) {
+  if (context.noWitnesses !== true || !WITNESS_SWEEP_STATES.has(state)) return null;
+  const left = Math.max(0, Math.trunc(context.witnessesLeft ?? 0));
+  if (left > 0) {
+    return `No witnesses. ${left} customer${left === 1 ? '' : 's'} still standing in the lobby.`;
+  }
+  return 'Lobby is clear. Take the bags to the staging point and leave.';
+}
+
 export function objectiveForState(state, context = {}) {
+  const sweep = witnessSweepOrder(state, context);
+  if (sweep) return sweep;
   const entry = HEIST_ORDERS[state];
   if (typeof entry === 'function') return entry(context);
   if (typeof entry === 'string' && entry) return entry;

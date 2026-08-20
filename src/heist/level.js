@@ -838,6 +838,16 @@ function buildSafehouse() {
 /* Van                                                                 */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Where the top of the van's bench cushion is, in metres.
+ *
+ * Not a taste number: it is the height of a `HeistFigure.seated()` hip with
+ * that figure's boots on y=0, measured on the campaign's 1.78 m frame. The
+ * seat is placed from the pose rather than the pose from the seat, which is
+ * the only ordering that survives somebody changing a leg length.
+ */
+export const VAN_SEAT_HEIGHT = 0.5;
+
 function buildVan() {
   const group = new THREE.Group();
   group.name = 'phase-van';
@@ -866,16 +876,28 @@ function buildVan() {
   box(group, [0.14, 2.8, 6.4], [-1.73, 1.4, 0], vanWall, 'van-wall-left');
   box(group, [0.14, 2.8, 6.4], [1.73, 1.4, 0], vanWall, 'van-wall-right');
   box(group, [3.6, 0.16, 6.4], [0, 2.78, 0], vanCeiling, 'van-ceiling');
-  // Benches down both sides, ribbed walls, grab rails, a strapped equipment
-  // case and the bulkhead window through to the cab.
+  /* Benches down both sides, ribbed walls, grab rails, a strapped equipment
+   * case and the bulkhead window through to the cab.
+   *
+   * THE SEAT IS AT SITTING HEIGHT NOW. It was a 62 cm block with a cushion on
+   * top of it, so the cushion's surface was at 96 cm — a bar stool, in a van,
+   * for people 1.78 m tall. Nobody could sit on it, which is a good part of
+   * why nobody did: `VAN_SEAT_HEIGHT` is the measured height of the hips in
+   * `HeistFigure.seated()` with the feet on this floor, so the seat arrives
+   * under the man rather than the man being posed to reach the seat.
+   *
+   * The pan also reaches further INBOARD than the block did (to x 0.94 from
+   * x 1.01) because a seated man's thighs run across it toward the aisle, and
+   * the block under it is set back so his boots land on open floor. */
   for (const [side, label] of [[-1, 'left'], [1, 'right']]) {
-    box(group, [0.62, 0.62, 4.8], [side * 1.32, 0.54, 0.1], vanBench, `van-bench-${label}`);
-    box(group, [0.66, 0.12, 4.62], [side * 1.32, 0.9, 0.1], vanCushion,
+    box(group, [0.5, VAN_SEAT_HEIGHT - 0.12, 4.8], [side * 1.42, (VAN_SEAT_HEIGHT - 0.12) / 2, 0.1],
+      vanBench, `van-bench-${label}`);
+    box(group, [0.72, 0.12, 4.72], [side * 1.30, VAN_SEAT_HEIGHT - 0.06, 0.1], vanCushion,
       `van-bench-cushion-${label}`);
-    box(group, [0.14, 0.74, 4.62], [side * 1.57, 1.2, 0.1], vanCushion,
+    box(group, [0.14, 0.95, 4.72], [side * 1.60, VAN_SEAT_HEIGHT + 0.475, 0.1], vanCushion,
       `van-bench-back-${label}`);
     for (const z of [-1.55, -0.45, 0.65, 1.75]) {
-      box(group, [0.68, 0.025, 0.045], [side * 1.32, 0.966, z], MAT.webbing,
+      box(group, [0.74, 0.025, 0.045], [side * 1.30, VAN_SEAT_HEIGHT + 0.007, z], MAT.webbing,
         `van-bench-seam-${label}-${z}`);
     }
   }
@@ -960,8 +982,8 @@ function buildVan() {
       bounds([3.6, 2.8, 0.14], [0, 1.4, 3.13]),
       bounds([0.14, 2.8, 6.4], [-1.73, 1.4, 0]),
       bounds([0.14, 2.8, 6.4], [1.73, 1.4, 0]),
-      bounds([0.62, 0.62, 4.8], [-1.32, 0.54, 0.1]),
-      bounds([0.62, 0.62, 4.8], [1.32, 0.54, 0.1]),
+      bounds([0.74, VAN_SEAT_HEIGHT, 4.8], [-1.30, VAN_SEAT_HEIGHT / 2, 0.1]),
+      bounds([0.74, VAN_SEAT_HEIGHT, 4.8], [1.30, VAN_SEAT_HEIGHT / 2, 0.1]),
     ],
     floorZones: [floorZone(3.6, 6.4, 'metal')],
   };
@@ -970,6 +992,15 @@ function buildVan() {
 /* ------------------------------------------------------------------ */
 /* Bank                                                                */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Where the crew piles the cash before the doors go.
+ *
+ * Off the entrance centre line on purpose: the crew come through x 0 and the
+ * player spawns on it, and a heap of duffles in a doorway is a heap of
+ * duffles somebody is standing in.
+ */
+export const STAGING_POINT = Object.freeze({ x: -1.6, z: 9.2 });
 
 /** Where the twenty-two lobby civilians stand when the doors come in. */
 export const LOBBY_ANCHORS = Object.freeze([
@@ -994,8 +1025,13 @@ export const LOBBY_ANCHORS = Object.freeze([
    * they lie in the clear run of floor between the counter and the vault
    * corridor, which is where a teller behind a counter would actually end up.
    */
-  { x: -6.1, z: -3.9, yaw: -Math.PI / 2 + 0.35, role: 'teller' },
-  { x: -2.6, z: -3.9, yaw: -Math.PI / 2 + 0.35, role: 'teller' },
+  /* The two west windows moved out from x −2.6 to make room for the vault
+   * door to swing. It is hinged on the west jamb and its free edge sweeps to
+   * x −2.45 at z −3.0, which is exactly where the second teller was standing
+   * — the geometry gate found her inside the leaf the moment the door became
+   * a thing that moves rather than a thing that teleports. */
+  { x: -7.4, z: -3.9, yaw: -Math.PI / 2 + 0.35, role: 'teller' },
+  { x: -4.9, z: -3.9, yaw: -Math.PI / 2 + 0.35, role: 'teller' },
   { x: 0.9, z: -3.9, yaw: Math.PI / 2 - 0.35, role: 'teller' },
   { x: 4.4, z: -3.9, yaw: Math.PI / 2 - 0.35, role: 'teller' },
   // The writing desks and the waiting seats on the east side.
@@ -1007,8 +1043,8 @@ export const LOBBY_ANCHORS = Object.freeze([
   /* Near the doors, which is where the people who nearly got out are — but
    * clear of x 0, because that is the doorway the crew comes through and a
    * stranger's shoulder blades filling the frame on entry is not an entrance. */
-  { x: -3.4, z: 8.1, yaw: 0.3 }, { x: 3.1, z: 8.4, yaw: -0.4 },
-  { x: 5.8, z: 8.1, yaw: -0.7 }, { x: -5.8, z: 8.2, yaw: 0.5 },
+  { x: -3.0, z: 7.9, yaw: 0.3 }, { x: 3.1, z: 8.4, yaw: -0.4 },
+  { x: 5.8, z: 8.1, yaw: -0.7 }, { x: -6.9, z: 7.9, yaw: 0.5 },
   { x: -3.2, z: 5.5, yaw: 0.1 },
 ]);
 
@@ -1174,7 +1210,25 @@ function buildBank() {
   }
   group.add(boxes);
 
-  const guardFigure = makeBankGuardFigure({ name: 'bank-guard', x: -6, z: 4, yaw: 0.9 });
+  /* THE GUARD STANDS ON THE DOOR.
+   *
+   * Owner: *"Lets put the gaurd closer to the door"*. He was at (-6, 4) —
+   * the middle of the west floor, eight metres from the entrance, behind the
+   * queue and beside a writing desk, so the crew came through the doors and
+   * the one man in the room who was going to shoot somebody was a figure in
+   * the middle distance. A guard stands where the public comes in.
+   *
+   * This is four metres inside the doors, three metres from where the crew
+   * come through, turned to look down the hall at the teller line — which is
+   * what he is watching until the doors go.
+   *
+   * IN FRONT of the entry point rather than beside it, on purpose: the whole
+   * beat is 2.75 seconds long, and a guard the player has to turn round to
+   * find is a guard who shoots a teller while he is being looked for. East
+   * side rather than west because the west door area is already four bodies
+   * and a column — the geometry gate found him standing inside `bank-column-2`
+   * on the first attempt. */
+  const guardFigure = makeBankGuardFigure({ name: 'bank-guard', x: 2.2, z: 6.4, yaw: -2.79 });
   group.add(guardFigure.root);
   const rearGuardFigure = makeBankGuardFigure({
     name: 'bank-rear-guard', x: 6.8, z: -0.2, yaw: Math.PI, height: 1.79,
@@ -1193,7 +1247,18 @@ function buildBank() {
   group.add(managerFigure.root);
   const manager = managerFigure.root;
   const managerStart = manager.position.clone();
-  const managerEnd = new THREE.Vector3(2.7, 0, -8.1);
+  /* THE MANAGER STOPS AT THE DOOR.
+   *
+   * Owner: *"The manager walks into the vault before its opened."* He did,
+   * literally: the escort's endpoint was (2.7, −8.1), and the vault corridor's
+   * mouth is at z −7.0. So the walk that is supposed to end with a man
+   * standing at his own access panel ended with him a metre inside a vault
+   * with a shut four-tonne door in front of him — and the collider that stops
+   * the PLAYER doing that has nothing to do with a tween on a Vector3.
+   *
+   * He ends beside the panel now, on the lobby side of the doorway, which is
+   * also where the order tells the player to go and hold E. */
+  const managerEnd = new THREE.Vector3(3.1, 0, -5.9);
   manager.userData.setEscortProgress = (progress) => {
     const p = Math.max(0, Math.min(1, progress));
     manager.position.lerpVectors(managerStart, managerEnd, p);
@@ -1224,11 +1289,89 @@ function buildBank() {
       `${figure.root.name}-proxy`);
     proxy.castShadow = false;
     proxy.receiveShadow = false;
+    /* An aim volume, not a surface. `HeistCombatAdapter.trace` resolves a
+     * round that lands on one of these onto the body behind it — a wound on
+     * the proxy's front face is 19 cm in front of the chest, which is the
+     * owner's *"decals float in the air"*. */
+    proxy.userData.aimProxy = true;
     figure.root.userData.proxy = proxy;
     figure.root.userData.hostageId = `hostage_${index + 1}`;
     figure.root.userData.setState = (state, options) => figure.setState(state, options);
     return figure.root;
   });
+
+  /* ------------------------------------------------------------------ *
+   * THE STAGING POINT
+   *
+   * Owner: *"The staging point should be clearly marked near the bank door.
+   * like a yellow circle maybe. lkets make sure the money bags appear there
+   * as duffle bags as you stage them."*
+   *
+   * There was no staging point. The order said "drop it on the staging point"
+   * and the thing it meant was `bank-exit` — the pane of glass in the
+   * doorway, 1.9 m up in the air — so the prompt appeared while you were
+   * looking at a window and the bag you had just carried the length of the
+   * lobby went into a number on the HUD and nowhere else. Eight bags could be
+   * staged without one of them ever being visible.
+   *
+   * A painted circle with hazard hatching, three metres inside the doors and
+   * a metre and a half off the entrance line so the crew are not walking
+   * through it. The eight duffles sit on it, heaped, and appear one at a time
+   * as they are carried out — which is also the only readout in the room that
+   * says how far through the job you are.
+   * ------------------------------------------------------------------ */
+  const staging = new THREE.Group();
+  staging.name = 'cash-staging';
+  ownGeometry(staging, 'heist.bank.staging', { overlap: false });
+  staging.position.set(STAGING_POINT.x, 0, STAGING_POINT.z);
+  const stagingRing = mesh(staging, new THREE.RingGeometry(1.06, 1.32, 40), MAT.warning,
+    [0, 0.015, 0], 'staging-ring');
+  stagingRing.rotation.x = -Math.PI / 2;
+  stagingRing.castShadow = false;
+  stagingRing.receiveShadow = false;
+  // Hazard hatching round the outside, and a bar stencil inside it.
+  for (let i = 0; i < 16; i++) {
+    const angle = (i / 16) * Math.PI * 2;
+    const tick = flat(staging, [0.1, 0.012, 0.26],
+      [Math.cos(angle) * 1.5, 0.013, Math.sin(angle) * 1.5], MAT.warning);
+    tick.rotation.y = -angle;
+    tick.castShadow = false;
+  }
+  for (const z of [-0.34, 0, 0.34]) {
+    flat(staging, [1.5, 0.012, 0.14], [0, 0.014, z], MAT.warning).castShadow = false;
+  }
+
+  /* The bags themselves: built once, hidden, and shown as they arrive. Laid
+   * out in a heap rather than a grid, because eight duffles in rows is a
+   * warehouse and this is a pile by a door. */
+  const stagedBags = [];
+  for (let i = 0; i < 8; i++) {
+    const bag = makeCashBag({ full: true });
+    bag.name = `staged-cash-${i + 1}`;
+    const angle = i * 2.4;
+    const radius = i < 4 ? 0.34 : 0.66;
+    bag.position.set(Math.cos(angle) * radius, i < 6 ? 0.16 : 0.44, Math.sin(angle) * radius);
+    bag.rotation.set(0, angle * 0.8, i > 5 ? 0.18 : 0);
+    bag.scale.setScalar(1.5);
+    bag.visible = false;
+    staging.add(bag);
+    stagedBags.push(bag);
+  }
+  staging.userData.setStaged = (count) => {
+    const shown = Math.max(0, Math.min(stagedBags.length, Math.round(count) || 0));
+    for (const [index, bag] of stagedBags.entries()) bag.visible = index < shown;
+    staging.userData.staged = shown;
+  };
+  staging.userData.setStaged(0);
+  /* A soft volume over the circle, so the prompt is on the marked floor
+   * rather than on a window. Soft, so a bag or a crew member standing on it
+   * still wins the ray. */
+  const stagingVolume = mesh(staging, new THREE.CylinderGeometry(1.4, 1.4, 2.2, 16),
+    MAT.invisible, [0, 1.1, 0], 'cash-staging-volume');
+  stagingVolume.castShadow = false;
+  stagingVolume.receiveShadow = false;
+  ownGeometry(stagingVolume, 'heist.bank.staging-volume', { overlap: false, checkSupport: false });
+  group.add(staging);
 
   for (const [x, color] of [[-7.2, 0xffd9a1], [0, 0xffe4bd], [7.2, 0xd6e6ff]]) {
     const light = new THREE.PointLight(color, 2.5, 15, 2);
@@ -1257,76 +1400,203 @@ function buildBank() {
   vaultRoom.add(vaultLight);
   group.add(vaultRoom);
 
+  /* ------------------------------------------------------------------ *
+   * THE VAULT DOOR
+   *
+   * Three separate faults, all reported in one breath: *"there is a big gap
+   * in the vault next to the doors ... when the vault opens it opens funky.
+   * Door is all wonky."*
+   *
+   * 1. THE GAP. The doorway between the two rear-wall panels is 8.4 m wide
+   *    and 4.2 m tall. The door hung in it was a 2 m-radius DISC — four
+   *    metres across, in an eight-metre hole, with nothing whatever in the
+   *    four metres of daylight either side of it. An invisible collider held
+   *    the player back, so you could stand at a wall you could see straight
+   *    through into the vault you had not opened yet.
+   *
+   *    The bulkhead is real now: one extruded steel plate filling the whole
+   *    opening with a circular aperture cut out of it, six centimetres bigger
+   *    than the door that plugs it. That is the reveal a vault door sits in,
+   *    and it is why the door reads as a door.
+   *
+   * 2. THE FUNKY OPEN. `setOpen(true)` teleported the whole leaf 4.8 m to the
+   *    left and 0.65 m forward in a single frame and rolled the disc 0.5 rad
+   *    on the way past. Nothing about that is a door opening; it is a door
+   *    being deleted from one place and drawn in another.
+   *
+   *    It is HINGED, and it takes three and a half seconds: the wheel spins
+   *    and the bolts withdraw first, and then four tonnes of steel swings out
+   *    on a smoothstep. `tickDoor` advances it and `main.js` drives that off
+   *    the same simulated clock as everything else.
+   *
+   * 3. THE SWING ANGLE is 1.12 rad rather than square, because the free edge
+   *    of a 2 m leaf on a hinge 2.35 m off centre reaches z −3.09 at that
+   *    angle and the teller counter's face is at z −2.825. A door that opens
+   *    into the counter is the next bug report.
+   * ------------------------------------------------------------------ */
+  const VAULT_DOOR_SWING = 1.12;
+  const VAULT_HINGE_X = -2.35;
+
   const vault = new THREE.Group();
   vault.name = 'vault-door';
   ownGeometry(vault, 'heist.bank.vault-door');
   vault.position.set(0, 0, -10.1);
-  const disc = mesh(vault, new THREE.CylinderGeometry(2.0, 2.0, 0.55, 32), MAT.steel, [0, 2.2, 3.1]);
+
+  /* The bulkhead: the whole opening, minus a round hole for the door. Extrude
+   * runs along +Z from the shape's own plane, so it is offset back by half
+   * its depth to sit centred on the doorway the leaf plugs. */
+  const APERTURE = 2.06;
+  const frameShape = new THREE.Shape();
+  frameShape.moveTo(-4.05, 0);
+  frameShape.lineTo(4.05, 0);
+  frameShape.lineTo(4.05, 4.2);
+  frameShape.lineTo(-4.05, 4.2);
+  frameShape.closePath();
+  const aperture = new THREE.Path();
+  aperture.absarc(0, 2.2, APERTURE, 0, Math.PI * 2, true);
+  frameShape.holes.push(aperture);
+  const bulkhead = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(frameShape, { depth: 0.5, bevelEnabled: false, curveSegments: 32 }),
+    MAT.steel,
+  );
+  bulkhead.name = 'vault-bulkhead';
+  bulkhead.position.set(0, 0, 3.1 - 0.25);
+  bulkhead.castShadow = true;
+  vault.add(bulkhead);
+  // A brass reveal round the aperture, so the hole is a mouth and not a cut.
+  const reveal = mesh(vault, new THREE.TorusGeometry(APERTURE + 0.06, 0.09, 8, 40),
+    MAT.brass, [0, 2.2, 3.36]);
+  reveal.name = 'vault-aperture-reveal';
+
+  /* The leaf, on a hinge. Everything that moves when the door opens is a
+   * child of this group and nothing else is — the old pose moved the disc and
+   * the wheel and left the bolts hanging in the doorway. */
+  const hinge = new THREE.Group();
+  hinge.name = 'vault-door-hinge';
+  hinge.position.set(VAULT_HINGE_X, 0, 3.1);
+  vault.add(hinge);
+  const leaf = (geometry, material, [x, y, z], name = '') => {
+    const m = new THREE.Mesh(geometry, material);
+    m.position.set(x - VAULT_HINGE_X, y, z - 3.1);
+    m.castShadow = true;
+    if (name) m.name = name;
+    hinge.add(m);
+    return m;
+  };
+
+  const disc = leaf(new THREE.CylinderGeometry(2.0, 2.0, 0.55, 32), MAT.steel,
+    [0, 2.2, 3.1], 'vault-door-leaf');
   disc.rotation.x = Math.PI / 2;
-  const ring = mesh(vault, new THREE.TorusGeometry(1.86, 0.12, 8, 32), MAT.brass, [0, 2.2, 3.1]);
+  const ring = leaf(new THREE.TorusGeometry(1.86, 0.12, 8, 32), MAT.brass, [0, 2.2, 3.1]);
   ring.rotation.x = 0;
+
+  /* The locking bolts, which withdraw into the leaf before it can move. */
+  const bolts = [];
   for (let i = 0; i < 10; i++) {
     const angle = (i / 10) * Math.PI * 2;
-    mesh(vault, new THREE.CylinderGeometry(0.11, 0.11, 0.6, 8),
-      MAT.brass, [Math.cos(angle) * 1.62, 2.2 + Math.sin(angle) * 1.62, 3.28])
-      .rotation.x = Math.PI / 2;
+    const bolt = leaf(new THREE.CylinderGeometry(0.11, 0.11, 0.6, 8), MAT.brass,
+      [Math.cos(angle) * 1.62, 2.2 + Math.sin(angle) * 1.62, 3.28], `vault-bolt-${i + 1}`);
+    bolt.rotation.x = Math.PI / 2;
+    bolts.push(bolt);
   }
-  const wheel = mesh(vault, new THREE.TorusGeometry(0.62, 0.075, 8, 20), MAT.brass, [0, 2.2, 3.44]);
-  wheel.name = 'vault-wheel';
-  for (let i = 0; i < 4; i++) {
-    const spoke = box(vault, [1.24, 0.08, 0.08], [0, 2.2, 3.44], MAT.brass);
-    spoke.rotation.z = (i / 4) * Math.PI;
-  }
-  mesh(vault, new THREE.CylinderGeometry(0.16, 0.16, 0.2, 12), MAT.steel, [0, 2.2, 3.5]).rotation.x = Math.PI / 2;
-  // Keep every visible lock-work part on the same leaf. The old open pose
-  // moved only the disc and wheel, leaving bolts hanging in the doorway.
-  const doorLeafParts = [...vault.children];
-  const closedDoorLeafPositions = doorLeafParts.map((part) => part.position.clone());
+  const boltHomeZ = bolts.map((bolt) => bolt.position.z);
 
-  const panel = box(vault, [0.55, 0.75, 0.14], [2.9, 1.7, 3.2], MAT.darkConcrete, 'vault-panel');
-  flat(vault, [0.4, 0.28, 0.03], [2.9, 1.92, 3.29], GLOW.alarm, 'vault-panel-screen');
-  for (let i = 0; i < 12; i++) {
-    box(vault, [0.09, 0.07, 0.03], [2.72 + (i % 3) * 0.18, 1.66 - Math.floor(i / 3) * 0.12, 3.29], MAT.steel);
+  /* The wheel, in its own group so that spinning it spins its spokes too. */
+  const wheelGroup = new THREE.Group();
+  wheelGroup.name = 'vault-wheel';
+  wheelGroup.position.set(0 - VAULT_HINGE_X, 2.2, 3.44 - 3.1);
+  hinge.add(wheelGroup);
+  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.075, 8, 20), MAT.brass);
+  wheel.castShadow = true;
+  wheelGroup.add(wheel);
+  for (let i = 0; i < 4; i++) {
+    const spoke = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.08, 0.08), MAT.brass);
+    spoke.rotation.z = (i / 4) * Math.PI;
+    spoke.castShadow = true;
+    wheelGroup.add(spoke);
   }
-  // A massive sliding door needs a visible floor guide. It spans the closed
-  // and open positions and physically seats the whole door assembly.
-  box(vault, [5.8, 0.12, 0.36], [-0.6, 0.06, 3.1], MAT.steel, 'vault-door-floor-guide');
+  const boss = leaf(new THREE.CylinderGeometry(0.16, 0.16, 0.2, 12), MAT.steel, [0, 2.2, 3.5]);
+  boss.rotation.x = Math.PI / 2;
+
+  /* The hinge itself, which a swinging door has to be visibly hung on. */
+  for (const y of [0.55, 2.2, 3.85]) {
+    const knuckle = mesh(vault, new THREE.CylinderGeometry(0.19, 0.19, 0.42, 12),
+      MAT.steel, [VAULT_HINGE_X, y, 3.36]);
+    knuckle.name = `vault-hinge-knuckle-${y}`;
+  }
+  mesh(vault, new THREE.CylinderGeometry(0.1, 0.1, 3.7, 10), MAT.brass,
+    [VAULT_HINGE_X, 2.2, 3.36]).name = 'vault-hinge-pin';
+
+  const panel = box(vault, [0.55, 0.75, 0.14], [2.9, 1.7, 3.42], MAT.darkConcrete, 'vault-panel');
+  panel.castShadow = true;
+  flat(vault, [0.4, 0.28, 0.03], [2.9, 1.92, 3.51], GLOW.alarm, 'vault-panel-screen');
+  for (let i = 0; i < 12; i++) {
+    box(vault, [0.09, 0.07, 0.03], [2.72 + (i % 3) * 0.18, 1.66 - Math.floor(i / 3) * 0.12, 3.51], MAT.steel);
+  }
   group.add(vault);
 
   /* THE DOOR IS A WALL WHILE IT IS SHUT.
    *
-   * Owner: *"the vault can be walked into before it opens"*. It could, and
-   * there was nothing stopping it — the bank's collider list has the vault
-   * corridor's two side walls and its back wall, and NOTHING across the
-   * 8.4 m doorway they meet at. The door itself is a decorative disc: a
-   * 2.3 m cylinder hung in the opening with no bounds of any kind, so the
-   * player walked through the shut door, past the bypass Shubenator has not
-   * run yet, and stood on the cash.
-   *
-   * `doorCollider` is real geometry. It fills the whole opening rather than
-   * just the disc, because the gap around a round door in a square hole is
-   * a gap a player will find, and it is added to and removed from the live
-   * collider list by `setOpen` — the same call that moves the disc, so the
-   * thing you can see and the thing you can walk through cannot disagree.
+   * Owner, an earlier pass: *"the vault can be walked into before it opens"*.
+   * The collider fills the whole opening rather than just the disc, because
+   * the gap around a round door in a square hole is a gap a player will find.
+   * It is added to and removed from the live collider list by `setOpen` — the
+   * same call that starts the swing, so the thing you can see and the thing
+   * you can walk through cannot disagree.
    */
-  const doorCollider = bounds([8.1, 4.4, 0.55], [0, 2.2, -7.0]);
+  const doorCollider = bounds([APERTURE * 2, 4.4, 0.55], [0, 2.2, -7.0]);
   vault.userData.doorCollider = doorCollider;
+  /* The swung-open leaf is four metres of steel standing in the corridor
+   * mouth. Without this the player walks through it, which is the same class
+   * of bug as walking through the shut one. */
+  vault.userData.openLeafCollider = bounds([2.24, 4.0, 3.78], [-1.33, 2.2, -4.85]);
   vault.userData.open = false;
-  vault.userData.setOpen = (open) => {
-    const isOpen = open === true;
-    vault.userData.open = isOpen;
-    for (const [index, part] of doorLeafParts.entries()) {
-      part.position.copy(closedDoorLeafPositions[index]);
-      if (isOpen) {
-        // Slide the complete leaf left and forward into its visible pocket,
-        // clear of the corridor wall instead of carving 30 cm through it.
-        part.position.x -= 4.8;
-        part.position.z += 0.65;
-      }
+  vault.userData.doorSwing = VAULT_DOOR_SWING;
+
+  let doorPhase = 0;
+  let doorTarget = 0;
+  const applyDoorPhase = () => {
+    /* The first third is the wheel and the bolts; the rest is the swing. A
+     * door this size does not start moving until it has been unlocked, and
+     * seeing that happen is most of what makes it read as a vault. */
+    const spin = Math.min(1, doorPhase / 0.34);
+    const raw = Math.max(0, (doorPhase - 0.34) / 0.66);
+    const swing = raw * raw * (3 - 2 * raw);
+    wheelGroup.rotation.z = -spin * Math.PI * 4;
+    for (const [index, bolt] of bolts.entries()) {
+      bolt.position.z = boltHomeZ[index] - spin * 0.24;
     }
-    disc.rotation.z = isOpen ? 0.5 : 0;
-    ring.visible = true;
-    vault.userData.onOpenChanged?.(isOpen);
+    hinge.rotation.y = -swing * VAULT_DOOR_SWING;
+    vault.userData.doorPhase = doorPhase;
+  };
+  applyDoorPhase();
+
+  /**
+   * @param {boolean} open
+   * @param {object} [options]
+   * @param {boolean} [options.animate] false (the default) snaps, which is
+   *   what a checkpoint restore and the preview stager want; the bypass in
+   *   `main.js` passes true and gets the three and a half seconds.
+   */
+  vault.userData.setOpen = (open, { animate = false } = {}) => {
+    const isOpen = open === true;
+    const changed = vault.userData.open !== isOpen;
+    vault.userData.open = isOpen;
+    doorTarget = isOpen ? 1 : 0;
+    if (!animate) doorPhase = doorTarget;
+    applyDoorPhase();
+    if (changed) vault.userData.onOpenChanged?.(isOpen);
+  };
+
+  /** Advance the swing. Returns true while it is still moving. */
+  vault.userData.tickDoor = (dt) => {
+    if (doorPhase === doorTarget) return false;
+    const step = Math.max(0, Number(dt) || 0) / 3.4;
+    doorPhase = doorTarget > doorPhase
+      ? Math.min(doorTarget, doorPhase + step)
+      : Math.max(doorTarget, doorPhase - step);
+    applyDoorPhase();
+    return doorPhase !== doorTarget;
   };
 
   const bags = new THREE.Group();
@@ -1365,7 +1635,9 @@ function buildBank() {
       manager,
       vault,
       exit,
+      staging: stagingVolume,
     },
+    staging,
     figures: { guard: guardFigure, rearGuard: rearGuardFigure, manager: managerFigure },
     civilians,
     alarmLight,
@@ -1380,6 +1652,10 @@ function buildBank() {
       bounds([0.4, 3, 3.4], [-10.5, 1.5, -4]),
       bounds([0.3, 4.4, 5.875], [-4.2, 2.2, -10.2125]),
       bounds([0.3, 4.4, 5.875], [4.2, 2.2, -10.2125]),
+      /* The bulkhead either side of the aperture. It is solid steel and it
+       * does not open, so unlike the door it is never taken back out. */
+      bounds([4.05 - APERTURE, 4.2, 0.5], [-(4.05 + APERTURE) / 2, 2.1, -7.0]),
+      bounds([4.05 - APERTURE, 4.2, 0.5], [(4.05 + APERTURE) / 2, 2.1, -7.0]),
       bounds([8.1, 4.4, 0.3], [0, 2.2, -13.3]),
       bounds([1.4, 1.0, 1.4], [8.4, 0.5, 2.5]),
       /* The shut vault door. `buildHeistLevel` takes this one back out when
@@ -1445,11 +1721,26 @@ function buildStreet() {
       ownAddedChildren(group, fixtureStart, `heist.street.lamp.${side}.${i}`);
     }
   }
+  /* The parked cars, and the fire positions they make.
+   *
+   * `firePositions` is the street's own answer to *"Everyones just standing
+   * ther"* — the police movement layer in `main.js` bounds between these
+   * rather than choosing arbitrary coordinates, so the fight runs along the
+   * cover the street actually has instead of down the middle of the road.
+   * They are AUTHORED HERE, beside the cars they belong to, because a cover
+   * list that lives somewhere else drifts the first time a car moves. */
   const coverCars = [];
+  const firePositions = [];
   for (let i = 0; i < 8; i++) {
     const position = [i % 2 ? -5.5 : 5.5, 0, -25 + i * 7];
     makeVehicleBody(group, position, i % 3 ? 0x31363a : 0x5a1f22, `cover-car-${i}`);
     coverCars.push(bounds([4.1, 1.9, 2.2], [position[0], 0.95, position[2]]));
+    /* Either end of the car, clear of its 2.2 m hull: a man tucked in at the
+     * bumper with two tonnes of parked saloon between him and the muzzle. */
+    firePositions.push({ id: `car-${i}-near`, x: position[0], z: position[2] - 2.9 });
+    firePositions.push({ id: `car-${i}-far`, x: position[0], z: position[2] + 2.9 });
+    // And the open centre lane, which is what a man crossing the road uses.
+    firePositions.push({ id: `lane-${i}`, x: i % 2 ? -1.9 : 1.9, z: position[2] - 1.4 });
   }
   // Planters on the bank steps: the cover Snow's authored line names.
   for (const x of [-3.4, 0, 3.4]) {
@@ -1485,9 +1776,16 @@ function buildStreet() {
   ownGeometry(garage, 'heist.street.garage-entry');
   ownGeometry(garageSign, 'heist.street.garage-entry');
 
+  /* The dead van is cover too — it is the biggest solid on the street and it
+   * is exactly where the first block is fought. */
+  for (const [id, x, z] of [['van-west', -3.6, 14], ['van-east', 3.6, 14]]) {
+    firePositions.push({ id, x, z });
+  }
+
   return {
     group,
     spawn: new THREE.Vector3(0, 1.66, 31),
+    firePositions: Object.freeze(firePositions.map((slot) => Object.freeze(slot))),
     interactables: { bankDoor, van, droppedBag, garage },
     colliders: [
       bounds([3.4, 10, 72], [-10.3, 5, 0]),
@@ -1640,6 +1938,23 @@ function buildGarage() {
      * = 0` looks down −Z, so the first thing in frame is the car the objective
      * is about instead of the back wall the spawn used to be pressed into. */
     spawn: new THREE.Vector3(0, 1.66, 6.4),
+    /* Fire positions for the men coming down the ramp: the pillar line at
+     * x ±3 and ±8, and the mouth of the ramp itself. Same contract as the
+     * street's — see `buildStreet`. The pillars are 0.8 m square, so a slot
+     * sits a body's width off one, not inside it. */
+    firePositions: Object.freeze([
+      { id: 'ramp-mouth', x: 0, z: 11.4 },
+      { id: 'ramp-west', x: -2.4, z: 12.2 },
+      { id: 'ramp-east', x: 2.4, z: 12.2 },
+      { id: 'pillar-w-out', x: -8, z: 11.2 },
+      { id: 'pillar-e-out', x: 8, z: 11.2 },
+      { id: 'pillar-w-near', x: -3, z: 1.4 },
+      { id: 'pillar-e-near', x: 3, z: 1.4 },
+      { id: 'pillar-w-mid', x: -8, z: 1.4 },
+      { id: 'pillar-e-mid', x: 8, z: 1.4 },
+      { id: 'lane-west', x: -5.6, z: 6.2 },
+      { id: 'lane-east', x: 5.6, z: 6.2 },
+    ].map((slot) => Object.freeze(slot))),
     interactables: { hold, load, drive },
     sedan,
     colliders: [
@@ -1918,12 +2233,22 @@ export function buildHeistLevel(scene) {
    * lobby takes effect on the same frame the disc rolls aside. */
   const vault = phases.bank.interactables.vault;
   const doorCollider = vault.userData.doorCollider;
+  const openLeafCollider = vault.userData.openLeafCollider;
   const bankColliders = phases.bank.colliders;
   vault.userData.onOpenChanged = (open) => {
+    /* Two solids trade places: shut, the aperture is blocked; open, the leaf
+     * standing in the corridor mouth is. Both lists are kept — the phase's
+     * own, so an `activate('bank')` after the door opened does not put the
+     * wall back, and the live one, so opening it while standing in the lobby
+     * takes effect on the same frame. */
+    const swap = (list, solid, wanted) => {
+      const at = list.indexOf(solid);
+      if (wanted && at < 0) list.push(solid);
+      if (!wanted && at >= 0) list.splice(at, 1);
+    };
     for (const list of [bankColliders, ...(active === 'bank' ? [world.colliders] : [])]) {
-      const at = list.indexOf(doorCollider);
-      if (open && at >= 0) list.splice(at, 1);
-      if (!open && at < 0) list.push(doorCollider);
+      swap(list, doorCollider, !open);
+      swap(list, openLeafCollider, open);
     }
   };
 

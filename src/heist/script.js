@@ -226,8 +226,51 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
   snow_no_souvenirs: line('snow_no_souvenirs', CHARACTER_IDS.SNOW,
     'That is a man’s wallet in your hand. Put it down, or carry it into Lou’s office and explain it.',
     P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING']),
+  /* THE CASUALTY LADDER. See `SNOW_CASUALTY_LADDER` for why there are
+   * eleven of these where there used to be one. */
   snow_casualty: line('snow_casualty', CHARACTER_IDS.SNOW,
     'That was a customer. That is the one thing we do not do.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_casualty_alt: line('snow_casualty_alt', CHARACTER_IDS.SNOW,
+    'He was queuing. He had a paying-in book in his hand.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_casualty_alt_two: line('snow_casualty_alt_two', CHARACTER_IDS.SNOW,
+    'Nobody in here owns the money. Aim at the ones who are paid to stop us.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_casualty_two: line('snow_casualty_two', CHARACTER_IDS.SNOW,
+    'That is two. Two is not an accident. Two is how you are doing this.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_casualty_two_alt: line('snow_casualty_two_alt', CHARACTER_IDS.SNOW,
+    'Second one. I am going to have to say who that was, out loud, to Lou.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_casualty_two_alt_two: line('snow_casualty_two_alt_two', CHARACTER_IDS.SNOW,
+    'Put it down. Every one of these costs us a year we have not got.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_casualty_three: line('snow_casualty_three', CHARACTER_IDS.SNOW,
+    'Three. You are not robbing this bank any more. You are clearing it.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_casualty_three_alt: line('snow_casualty_three_alt', CHARACTER_IDS.SNOW,
+    'Three of them. Whatever this is, it stopped being the plan two ago.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_casualty_three_alt_two: line('snow_casualty_three_alt_two', CHARACTER_IDS.SNOW,
+    'I am asking once more, and then I stop asking. Off the customers.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  /* The rung where the job changes. One line, because this is the beat. */
+  snow_committed: line('snow_committed', CHARACTER_IDS.SNOW,
+    'All right. We are committed now. Nobody in this room gets to describe us. '
+    + 'Finish it, and be quick, because the ones at the back have started counting doors.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_sweep: line('snow_sweep', CHARACTER_IDS.SNOW,
+    'Anyone still moving is a statement to a detective. Keep working.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_sweep_two: line('snow_sweep_two', CHARACTER_IDS.SNOW,
+    'Check behind the desks. The quiet ones are the ones who remember faces.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_sweep_three: line('snow_sweep_three', CHARACTER_IDS.SNOW,
+    'We do not get to stop halfway through this. Not now.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_sweep_clear: line('snow_sweep_clear', CHARACTER_IDS.SNOW,
+    'Room is quiet. Take the bags. We never talk about this one again.',
     P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
   /* ---- pointing a gun at your own crew ----
    *
@@ -497,6 +540,37 @@ export const HOSTAGE_BARKS = Object.freeze({
  * Pooled and cooled down in `main.js`, because the refusal that raises it
  * fires once per ROUND — see `snow_friendly_fire` above.
  */
+/**
+ * WHAT SNOW SAYS WHEN YOU SHOOT A CUSTOMER, AND HOW IT ESCALATES.
+ *
+ * Owner: *"SNow repeats the line that is a customer that is the one thing we
+ * dont do. Lets get some more variations of this for the first few you kill
+ * and if you kill 4+ he says okay we are commited now. Do them all."*
+ *
+ * `snow_casualty` was fired by `say()` on every civilian death — one line,
+ * unrationed, for the first body and the eleventh alike. And it was the wrong
+ * shape as well as the wrong count: a man watching a robbery turn into a
+ * massacre does not repeat his objection verbatim, he gives up on it.
+ *
+ * So it is a LADDER, indexed by how many are down. One and two are still the
+ * rule being enforced; three is him working out that this is what today is;
+ * four is the crew changing what job it is, and after that he stops arguing
+ * and starts counting, because the only way out of a room with four dead
+ * customers in it is a room with no witnesses in it.
+ *
+ * Three variants per rung so two runs of the same playthrough do not sound
+ * identical, and the four rung is deliberately a single line — it is the
+ * moment the mission changes and it does not get to be one of three things.
+ */
+export const SNOW_CASUALTY_LADDER = Object.freeze({
+  first: Object.freeze(['snow_casualty', 'snow_casualty_alt', 'snow_casualty_alt_two']),
+  second: Object.freeze(['snow_casualty_two', 'snow_casualty_two_alt', 'snow_casualty_two_alt_two']),
+  third: Object.freeze(['snow_casualty_three', 'snow_casualty_three_alt', 'snow_casualty_three_alt_two']),
+  committed: Object.freeze(['snow_committed']),
+  sweep: Object.freeze(['snow_sweep', 'snow_sweep_two', 'snow_sweep_three']),
+  clear: Object.freeze(['snow_sweep_clear']),
+});
+
 export const CREW_FRIENDLY_FIRE_LINES = Object.freeze({
   muzzle: Object.freeze([
     'snow_friendly_fire', 'snow_friendly_fire_two', 'death_friendly_fire',

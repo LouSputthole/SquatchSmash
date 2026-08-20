@@ -161,6 +161,9 @@ const _segment = new THREE.Vector3();
 const _eye = new THREE.Vector3();
 const _worldNormal = new THREE.Vector3();
 const _normalMatrix = new THREE.Matrix3();
+/* Scratch for pulling an aim-proxy contact back onto the body — see `trace`. */
+const _proxyBounds = new THREE.Box3();
+const _proxyPoint = new THREE.Vector3();
 
 /** Officer eye and muzzle heights; the palace Adapter's proportions. */
 const HOSTILE_EYE_HEIGHT = 1.52;
@@ -175,6 +178,32 @@ function hiddenOrIgnored(object, ignore) {
     node = node.parent;
   }
   return false;
+}
+
+/**
+ * Turn a hit on an aim proxy into a hit on the body behind it.
+ *
+ * See `HeistCombatAdapter.trace`. The proxy's parent is the figure root in
+ * every place one is built (`level.js` for the lobby, `cast.js` for the crew,
+ * `main.js` for the police), so "the same figure" is a parent test.
+ */
+function resolveProxyContact(proxyHit, hits, ignore) {
+  const body = proxyHit.object.parent;
+  if (!body) return proxyHit;
+  for (const hit of hits) {
+    if (hit === proxyHit || hiddenOrIgnored(hit.object, ignore)) continue;
+    if (hit.object?.userData?.aimProxy === true) continue;
+    for (let node = hit.object; node; node = node.parent) {
+      if (node === body) return hit;
+    }
+  }
+  /* Nothing under him along this ray: the round clipped the corner of the
+   * volume. Keep the hit — a graze is a hit — but put the contact on the
+   * nearest point of the man rather than on the empty box around him. */
+  const bounds = _proxyBounds.setFromObject(body);
+  if (!Number.isFinite(bounds.min.y)) return proxyHit;
+  const point = bounds.clampPoint(proxyHit.point, _proxyPoint).clone();
+  return { ...proxyHit, point, face: null };
 }
 
 export class HeistCombatAdapter {
@@ -217,6 +246,22 @@ export class HeistCombatAdapter {
    * The honest ray: first intersection of the active phase geometry whose
    * ancestor chain is visible and not the ignored shooter. Returns the raw
    * three.js intersection (allocated per shot, not per frame) or null.
+   *
+   * ## The aim proxy, and why a hit on one is not a contact point
+   *
+   * Owner: *"when you shoot the civilians the decals float in the air."*
+   * Every person in this scene carries an invisible 0.72 × 1.75 × 0.62 box so
+   * that shooting somebody does not depend on getting the crosshair onto a
+   * forearm. That box is a good aim volume and a terrible SURFACE: its front
+   * face is at z 0.31 and a chest is at 0.12, so a round that resolved
+   * against the proxy put its wound nineteen centimetres in front of the man
+   * it hit — hanging in the air, exactly as reported.
+   *
+   * So the proxy still decides WHO was hit, and the body decides WHERE. A
+   * proxy contact is replaced by the first real mesh under the same figure
+   * along the same ray; a round that clipped the edge of the volume and
+   * missed every mesh keeps the hit and has its point pulled onto the body's
+   * own bounds, because a graze still lands on a person.
    */
   trace(origin, direction, { far = 120, ignore = null } = {}) {
     if (!this.occluders.length) return null;
@@ -226,7 +271,9 @@ export class HeistCombatAdapter {
     _raycaster.far = Math.max(0, far);
     const hits = _raycaster.intersectObjects(this.occluders, true);
     for (const hit of hits) {
-      if (!hiddenOrIgnored(hit.object, ignore)) return hit;
+      if (hiddenOrIgnored(hit.object, ignore)) continue;
+      if (hit.object?.userData?.aimProxy !== true) return hit;
+      return resolveProxyContact(hit, hits, ignore);
     }
     return null;
   }

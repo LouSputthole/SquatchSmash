@@ -794,10 +794,27 @@ try {
   await use('vault-door');
   await pose('bank_vault');
   await shot('05-vault');
+  /* THE CASH GOES ON THE CIRCLE, NOT ON THE WINDOW.
+   *
+   * These four calls used to be `cash-1`, `bank-exit`, `cash-2`, `bank-exit`
+   * — because the staging interaction lived on `bank-exit`, the pane of glass
+   * in the doorway 1.9 m off the floor. Owner: *"The staging point should be
+   * clearly marked near the bank door. like a yellow circle maybe. lkets make
+   * sure the money bags appear there as duffle bags as you stage them."*
+   * It is a painted circle with an interaction volume standing on it now, and
+   * the duffles arrive on it one per bag. */
   await use('cash-1');
-  await use('bank-exit');
+  await use('cash-staging-volume');
+  const stagedOne = await page.evaluate(() => window.__heistDebug.snapshot().staging);
+  check('the first cash bag lands on the marked circle as a visible duffle',
+    stagedOne?.staged === 1 && stagedOne.duffles === 1 && stagedOne.vaultBagsLeft === 7,
+    JSON.stringify(stagedOne));
   await use('cash-2');
-  await use('bank-exit');
+  await use('cash-staging-volume');
+  const stagedAll = await page.evaluate(() => window.__heistDebug.snapshot().staging);
+  check('two by hand and the crew bring the rest, and all eight are on the floor',
+    stagedAll?.staged === 8 && stagedAll.duffles === 8 && stagedAll.vaultBagsLeft === 0,
+    JSON.stringify(stagedAll));
   await use('bank-exit');
 
   state = await snapshot();
@@ -817,6 +834,38 @@ try {
   check('failure tears down and rebuilds the checkpoint police wave',
     state.policeTotal === policeBeforeFailure && state.policeActive === policeBeforeFailure,
     JSON.stringify({ before: policeBeforeFailure, after: state.policeTotal }));
+
+  /* ---- owner note: "Everyones just standing ther ... the cops have spawned
+   * behind me instead of infront of me" ---- */
+  state = await snapshot();
+  const contactRanges = state.policeMovement.map((officer) => officer.range);
+  check('the opening contact is down the street in front of the player, not behind him',
+    state.policeMovement.length > 0
+      && state.policeMovement.every((officer) => officer.position[1] < 30)
+      && contactRanges.every((range) => range > 4),
+    JSON.stringify(state.policeMovement));
+
+  /* Let the block run for a few seconds of real frames and watch it CLOSE.
+   * Nothing in this scene ever moved an officer before this pass: he was
+   * spawned at a coordinate, called `figure.aiming()`, and stood on it. */
+  const opening = new Map(state.policeMovement.map((o) => [o.id, o.range]));
+  await page.waitForFunction(() => {
+    const officers = window.__heistDebug.snapshot().policeMovement;
+    return officers.some((officer) => officer.mode === 'bound' && officer.speed > 0.4);
+  }, null, { timeout: 90000, polling: 250 });
+  check('officers bound between fire positions instead of standing where they spawned', true);
+  await page.waitForFunction((before) => {
+    const officers = window.__heistDebug.snapshot().policeMovement;
+    return officers.filter((officer) => (before[officer.id] ?? 0) - officer.range > 2).length >= 1;
+  }, Object.fromEntries(opening), { timeout: 120000, polling: 400 });
+  state = await snapshot();
+  const closed = state.policeMovement
+    .filter((officer) => (opening.get(officer.id) ?? 0) - officer.range > 2);
+  check('the block closes on the player and holds a standoff rather than piling on',
+    closed.length >= 1 && state.policeMovement.every((officer) => officer.range > 3.5),
+    JSON.stringify({ closed: closed.map((o) => o.id), live: state.policeMovement }));
+  check('the block costs more than two officers, so it is a fight and not a turnstile',
+    state.officersNeeded >= 4, JSON.stringify({ needed: state.officersNeeded }));
 
   await page.evaluate(() => window.__heistDebug.neutralizePolice());
   await use('street-start');

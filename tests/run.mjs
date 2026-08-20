@@ -52,6 +52,7 @@ const TEST_MODULES = [
   './heist-safehouse.test.mjs',
   './heist-presentation.test.mjs',
   './heist-level-presentation.test.mjs',
+  './heist-street-fight.test.mjs',
   './heist-systems.test.mjs',
   './heist-route.test.mjs',
   './heist-hostages.test.mjs',

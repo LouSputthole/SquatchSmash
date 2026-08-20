@@ -11,6 +11,7 @@ import {
   HEIST_WEAPON_BINDINGS, HeistCombatAdapter, HeistFirearm,
 } from '../src/heist/combat.js';
 import { HEIST_WEAPON_DEFS, HeistLoadout } from '../src/heist/loadout.js';
+import { makeHostageFigure } from '../src/heist/people.js';
 
 const MAIN_SOURCE = await readFile(new URL('../src/heist/main.js', import.meta.url), 'utf8');
 const LOADOUT_SOURCE = await readFile(new URL('../src/heist/loadout.js', import.meta.url), 'utf8');
@@ -350,4 +351,122 @@ test('the old local firing path is gone: no second ammunition, ray or blood auth
     'the shared blood systems are not mounted');
   assert.ok(/combat\.setOccluders\s*\(\s*\[\s*phase\.group\s*\]\s*\)/.test(MAIN_SOURCE),
     'the adapter does not trace the active phase geometry');
+});
+
+/* ------------------------------------------------------------------ *
+ * The decals that floated
+ * ------------------------------------------------------------------ */
+
+/**
+ * A real lobby civilian, with the real aim proxy the level bolts onto them.
+ */
+function buildRealCustomer() {
+  const world = new THREE.Group();
+  const figure = makeHostageFigure({ id: 'probe', index: 0, role: 'customer', x: 0, z: -6, yaw: 0 });
+  const proxy = new THREE.Mesh(
+    new THREE.BoxGeometry(0.72, 1.75, 0.62),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }),
+  );
+  proxy.name = 'probe-proxy';
+  proxy.position.y = 0.9;
+  proxy.userData.aimProxy = true;
+  figure.root.add(proxy);
+  const actor = new CombatActor({
+    id: 'probe', faction: FACTIONS.CIVILIAN, maxHealth: 34, armor: 0,
+  });
+  figure.root.userData.combatActor = actor;
+  world.add(figure.root);
+  world.updateMatrixWorld(true);
+  return { world, figure, proxy, actor };
+}
+
+test('a round that lands on an aim proxy is resolved onto the body behind it', () => {
+  /* Owner: *"when you shoot the civilians the decals float in the air."*
+   *
+   * Half of it is this. Every person in THE TAKE carries an invisible
+   * 0.72 × 1.75 × 0.62 aim volume so that hitting them does not depend on
+   * getting the crosshair onto a forearm — and the ray was resolving against
+   * that box. Its front face is at z 0.31 and a chest is at 0.12, so the
+   * contact point, and therefore the wound, was 19 cm in front of the man.
+   */
+  const { world, figure, proxy } = buildRealCustomer();
+  const combat = new HeistCombatAdapter({ matrix: new FactionMatrix(), random: () => 0.5 });
+  combat.setOccluders([world]);
+
+  const origin = new THREE.Vector3(0, 1.3, 0);
+  const direction = new THREE.Vector3(0, 0, -1);
+  const hit = combat.trace(origin, direction);
+  assert.ok(hit, 'the round did not reach the customer at all');
+  assert.notEqual(hit.object, proxy, 'the round resolved against the aim volume');
+
+  // The contact is on the man: inside his own bounds, not the box around him.
+  const rig = new THREE.Box3().setFromObject(figure.parts.group);
+  assert.ok(hit.point.z <= rig.max.z + 1e-6 && hit.point.z >= rig.min.z - 1e-6,
+    `contact at z ${hit.point.z.toFixed(3)} is off the body (${rig.min.z.toFixed(3)}..${rig.max.z.toFixed(3)})`);
+
+  /* And a graze that clips the corner of the volume and misses every mesh is
+   * still a hit — pulled onto the nearest point of the man rather than left
+   * out on the empty box. */
+  const grazeOrigin = new THREE.Vector3(0.34, 1.3, 0);
+  const graze = combat.trace(grazeOrigin, direction);
+  if (graze) {
+    const body = new THREE.Box3().setFromObject(figure.root);
+    assert.ok(body.containsPoint(graze.point),
+      `a graze landed at ${graze.point.toArray().map((n) => n.toFixed(2)).join(',')}, off the body`);
+  }
+});
+
+test('a wound is anchored to the node a pose moves, so it goes down with the body', () => {
+  /* The other half, and the answer to *"I thought we had implemented the fix
+   * for this game wide?"* — the fix is real and lives in `src/world/blood.js`,
+   * which attaches a wound to a caller-chosen anchor. NOTHING in the game
+   * supplied one, so `CombatImpactResolver` fell back to the registered ROOT.
+   *
+   * `HeistFigure` never touches its root: the root is where the level put the
+   * body and every pose is written onto the `tilt` group inside it. So a
+   * customer took a round standing, wore the wound at chest height, and then
+   * lay down out from underneath it.
+   *
+   * The descriptor `main.js` registers every person with is asserted against
+   * the source, because the seam that matters is the one the browser uses.
+   */
+  assert.match(MAIN_SOURCE, /const bodyAnchorOf = \(object, \{ root \}\) =>\s*root\.userData\.figure\?\.tilt \?\? root;/,
+    'main.js no longer resolves a body anchor off the posed node');
+  assert.match(MAIN_SOURCE, /HEIST_BODY_DESCRIPTOR = Object\.freeze\(\{\s*actor: combatActorOf,\s*anchorOf: bodyAnchorOf,/,
+    'the shared body descriptor no longer carries anchorOf');
+  assert.equal((MAIN_SOURCE.match(/combat\.register\(/g) ?? []).length,
+    (MAIN_SOURCE.match(/combat\.register\([^)]*HEIST_BODY_DESCRIPTOR\)/g) ?? []).length,
+    'somebody in this scene is registered without a body anchor');
+
+  // And the seam itself: the anchor comes back as the posed node, and a mark
+  // attached to it travels when the pose does.
+  const { world, figure, actor } = buildRealCustomer();
+  const combat = new HeistCombatAdapter({ matrix: new FactionMatrix(), random: () => 0.5 });
+  combat.setOccluders([world]);
+  combat.register(figure.root, {
+    actor: (object, { root }) => root.userData.combatActor,
+    anchorOf: (object, { root }) => root.userData.figure?.tilt ?? root,
+  });
+  const { located } = combat.resolvePlayerShot({
+    origin: new THREE.Vector3(0, 1.3, 0),
+    direction: new THREE.Vector3(0, 0, -1),
+    weapon: WEAPON_IDS.CARBINE,
+    damage: 12,
+  });
+  assert.ok(located?.applied, 'the round did not reach the customer');
+  assert.equal(located.anchor, figure.tilt, 'the wound is anchored to the unmoving root');
+  assert.notEqual(located.anchor, figure.root);
+  assert.ok(actor.health < actor.maxHealth);
+
+  // A mark on that anchor follows the customer to the floor.
+  const mark = new THREE.Object3D();
+  mark.position.copy(figure.tilt.worldToLocal(located.point.clone()));
+  figure.tilt.add(mark);
+  world.updateMatrixWorld(true);
+  const standing = mark.getWorldPosition(new THREE.Vector3()).clone();
+  figure.setState('prone', { blend: false });
+  world.updateMatrixWorld(true);
+  const down = mark.getWorldPosition(new THREE.Vector3());
+  assert.ok(standing.y - down.y > 0.5,
+    `the wound stayed at y ${down.y.toFixed(2)} while the body went to the floor`);
 });

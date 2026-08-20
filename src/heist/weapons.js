@@ -120,220 +120,127 @@ const PORT_SHADOW = new THREE.MeshStandardMaterial({ color: 0x05060a, roughness:
 const EYE_WHITE = new THREE.MeshStandardMaterial({ color: 0xd6dade, roughness: 0.42 });
 const EYE_IRIS = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.3 });
 
-/* The mask's head is an ellipsoid — a 0.118 sphere stretched 1.13 tall and
- * 1.05 deep — and EVERY marking on the face has to lie on that surface rather
- * than near it. See `facePatch`. */
-const FACE_R = 0.118;
-const FACE_Y = 1.13;
-const FACE_Z = 1.05;
-
-/**
- * A marking that lies ON the mask instead of inside it.
- *
- * THIS IS THE FIX, AND IT IS WORTH THE PARAGRAPH. The pass before this one
- * answered *"balaclava model is bad"* by adding fourteen meshes to a plain
- * dark egg: two eye ports, a bridge, two rolled lids, a mouth vent, a brow
- * seam and two eyes. Then it placed all of them with hand-picked flat
- * z values in the 0.098–0.104 range — and the shell's own surface at the
- * middle of the face is at z 0.1239. So the eyes and the bridge were *fully
- * inside the sphere*, and the ports and the vent had six of their twenty-four
- * corners out. The mask still rendered as a featureless egg with two dark
- * nubs at the outer corners of where its eyes should be. The complaint was
- * repeated because the fix was invisible, not because it was wrong.
- *
- * A feature on a curved head has to be curved with it. So a marking is a
- * PATCH OF THE SAME ELLIPSOID, a couple of millimetres larger: it hugs the
- * shell across its whole width instead of standing off in the middle and
- * sinking at the edges, which is what a flat slab on a sphere does.
- *
- * Angles, because three.js's sphere is not obvious: a vertex sits at
- * `x = −r·cos φ·sin θ`, `z = r·sin φ·sin θ`, so dead ahead (+Z) is φ = π/2 and
- * `alpha` here is the angle round from there. Height is `y = FACE_Y·r·cos θ`,
- * so a wanted mask-local y inverts straight into θ.
- *
- * @param {THREE.Object3D} parent
- * @param {THREE.Material} material
- * @param {object} spec
- * @param {number} spec.yTop     mask-local y of the marking's top edge
- * @param {number} spec.yBottom  and its bottom edge
- * @param {number} spec.alpha    centre angle from dead ahead, +ve toward +X
- * @param {number} spec.half     half-width, radians
- * @param {number} [spec.lift]   metres proud of the shell
- * @param {string} [spec.name]
- */
-function facePatch(parent, material, {
-  yTop, yBottom, alpha, half, lift = 0.0015, name,
-}) {
-  const r = FACE_R + lift;
-  const theta = (y) => Math.acos(Math.max(-1, Math.min(1, y / (FACE_Y * r))));
-  const start = theta(yTop);
-  const span = theta(yBottom) - start;
-  // Segments by arc rather than a flat count: these are small patches and five
-  // people wear eight of them each.
-  const steps = (arc) => Math.max(3, Math.round(arc / 0.08));
-  const patch = new THREE.Mesh(
-    new THREE.SphereGeometry(r, steps(half * 2), steps(span),
-      Math.PI / 2 + alpha - half, half * 2, start, span),
-    material,
-  );
-  patch.scale.set(1, FACE_Y, FACE_Z);
-  patch.castShadow = false;
-  if (name) patch.name = name;
-  parent.add(patch);
-  return patch;
-}
-
 /**
  * A balaclava — the worn one and the rolled one.
  *
- * The owner's note was *"balaclava model is bad"*, and the worn version was
- * one sphere: `SphereGeometry(0.135)` scaled 1×1.16×1.06 over the skull, with
- * no opening in it. A featureless dark egg where a face should be does not
- * read as a mask; it reads as a missing head.
+ * ## Why this is boxes now
  *
- * What makes a balaclava legible is the OPENING and the KNIT, in that order.
- * So: a two-hole eye port with a wool bridge down the middle of it, the
- * shadow inside the port darker than the wool around it, a pale eye looking
- * out of each hole, a nose the knit is stretched over, a mouth vent, a brow
- * hem and a cheek hem rolled round the opening, seams down the panels, and a
- * ribbed neck skirt that disappears into the collar.
+ * Owner, third time of asking: *"The masks still look like shit over the
+ * square block heads"*. He named the fault exactly. The mask was an ELLIPSOID
+ * (`SphereGeometry(0.118)` stretched 1.13 tall and 1.05 deep) and the head
+ * underneath it is a SLAB — `makePerson` builds a 0.186 × 0.216 × 0.20 box
+ * skull with a flat face at z +0.10. Put a sphere over a box of similar size
+ * and the eight corners of the box come straight out through it: measured on
+ * the crew, each corner sat 43% beyond the mask's surface. From the front,
+ * four wedges of hair and skin stuck out of a dark egg.
  *
- * All of it is built with `facePatch`, which is the difference between this
- * pass and the last one: the markings are patches of the mask's own surface,
- * so they are actually on the outside of it. `tests/heist-presentation` walks
- * every vertex of every named feature and fails if it is inside the shell.
+ * Every previous pass made the egg more detailed. None of them could work,
+ * because the shape was wrong before the detail was drawn.
+ *
+ * So the hood is cut for the head it goes on: a knit slab a centimetre proud
+ * of the skull on every face, with a chamfer over the crown so it is a head
+ * and not a brick, and the whole vocabulary of the last pass — the two-hole
+ * port with a bridge, the eyes in the holes, the nose, the mouth vent, the
+ * brow and cheek hems, the panel seams, the neck skirt — laid on its FLAT
+ * FRONT, where a flat feature belongs. `cast.js` also takes the head's own
+ * hair, ears, brow and nose off while it is on, which is what a hood does.
  *
  * Local origin is the SKULL CENTRE — `cast.js` parents it to `parts.head` at
- * y 0.17, which is where that centre sits, with the face out along +Z.
+ * that centre, unscaled, with the face out along +Z.
  */
 export function makeBalaclava({ rolled = true } = {}) {
   const g = new THREE.Group();
   g.name = 'heist-balaclava';
 
+  /* Half-extents of the wool, from the widest skull `makePerson` builds
+   * (procedural: 0.186 × 0.216 × 0.20) plus 8 mm of knit on every face. The
+   * photographed skull is narrower, so the same hood covers both. */
+  const HX = 0.101;
+  const HY = 0.116;
+  const HZ = 0.108;
+  const FRONT = HZ;
+
+  /** A slab, at a position, on the mask's own axes. */
+  const slab = (material, [sx, sy, sz], [x, y, z], name = '') => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), material);
+    m.position.set(x, y, z);
+    if (name) m.name = name;
+    g.add(m);
+    return m;
+  };
+
   if (rolled) {
     /* Pushed up and sitting on the crown like a watch cap: this is the shape
-     * on the loadout bench and in Tony's hand before the van. */
-    const roll = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.036, 8, 18), KNIT);
-    roll.rotation.x = Math.PI / 2;
-    g.add(roll);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.076, 0.012, 6, 18), KNIT_RIB);
-    rim.rotation.x = Math.PI / 2;
-    rim.position.y = 0.03;
-    g.add(rim);
-    const crown = new THREE.Mesh(
-      new THREE.SphereGeometry(0.073, 14, 9, 0, Math.PI * 2, 0, Math.PI / 2), KNIT,
-    );
-    crown.position.y = 0.014;
-    crown.scale.set(1, 0.92, 1);
-    g.add(crown);
+     * on the loadout bench and in Tony's hand before the van. It was a torus
+     * of radius 0.075 — SMALLER than the 0.093 half-width of the head it was
+     * meant to be perched on, so the skull came out through the sides of the
+     * hat as well. It is a band round the top of the same slab now. */
+    slab(KNIT, [HX * 2 + 0.008, 0.062, HZ * 2 + 0.008], [0, 0.006, 0], 'balaclava-roll');
+    slab(KNIT_RIB, [HX * 2 + 0.012, 0.016, HZ * 2 + 0.012], [0, 0.036, 0], 'balaclava-roll-rim');
+    slab(KNIT, [HX * 2 - 0.014, 0.026, HZ * 2 - 0.014], [0, 0.056, 0], 'balaclava-roll-crown');
     /* The eye port, folded flat across the front of the roll — the one detail
-     * that says this pile of wool is a mask and not a hat, and the same
-     * mistake the worn version made: at z 0.088 it was 16 mm inside a torus
-     * whose front surface is at 0.111, so the detail that carries the whole
-     * model was not drawn. It straddles that surface now, with a lip of rib
-     * above it so the fold reads. */
-    const port = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.02, 0.014), PORT_SHADOW);
-    port.position.set(0, 0.006, 0.113);
-    port.name = 'balaclava-rolled-port';
-    g.add(port);
-    const lip = new THREE.Mesh(new THREE.BoxGeometry(0.094, 0.012, 0.016), KNIT_RIB);
-    lip.position.set(0, 0.021, 0.111);
-    lip.rotation.x = -0.3;
-    g.add(lip);
+     * that says this pile of wool is a mask and not a hat. It has to STRADDLE
+     * the front face, or it is not drawn at all. */
+    slab(PORT_SHADOW, [0.096, 0.019, 0.014], [0, 0.004, FRONT + 0.004],
+      'balaclava-rolled-port');
+    slab(KNIT_RIB, [0.104, 0.013, 0.016], [0, 0.02, FRONT + 0.005], 'balaclava-rolled-lip')
+      .rotation.x = -0.3;
     g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     return g;
   }
 
   // ---- worn ----
-  const shell = new THREE.Mesh(new THREE.SphereGeometry(FACE_R, 20, 14), KNIT);
-  shell.scale.set(1.0, FACE_Y, FACE_Z);
-  shell.name = 'balaclava-shell';
-  g.add(shell);
 
-  /* The nose, and the ridge of knit pulled over it. A balaclava reads as worn
-   * BY somebody because the wool is not spherical where the face is not. */
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.026, 10, 8), KNIT);
-  nose.scale.set(0.85, 1.15, 1.5);
-  nose.position.set(0, -0.012, 0.108);
-  nose.name = 'balaclava-nose';
-  g.add(nose);
-  const chin = new THREE.Mesh(new THREE.SphereGeometry(0.052, 12, 8), KNIT);
-  chin.scale.set(1, 0.78, 0.92);
-  chin.position.set(0, -0.076, 0.062);
-  g.add(chin);
+  /* The hood. Two slabs rather than one: the lower one is the head, and the
+   * narrower cap above it is the chamfer over the crown — the difference
+   * between a hood and a cardboard box. */
+  const shell = slab(KNIT, [HX * 2, HY * 2 - 0.022, HZ * 2], [0, -0.011, 0], 'balaclava-shell');
+  slab(KNIT, [HX * 2 - 0.026, 0.026, HZ * 2 - 0.026], [0, HY - 0.009, 0], 'balaclava-crown');
+  /* The jaw: wool follows a chin in rather than hanging square off it. */
+  slab(KNIT, [HX * 2 - 0.03, 0.03, HZ * 2 - 0.024], [0, -HY + 0.004, 0.006],
+    'balaclava-jaw');
 
   /* THE EYE PORT. Two holes with a bridge of wool between them, which is the
-   * silhouette everyone recognises. The port is the dark inside of the
-   * opening; the hems above and below are the wool edges rolled around it.
-   *
-   * The opening reaches 0.6 rad round from dead ahead, which puts its outer
-   * corner at x 0.062 once the mask is scaled onto a head 0.081 wide — wide
-   * enough to read from across the lobby, narrow enough that the hole never
-   * runs off the side of the skull and shows daylight through the man. */
-  const brow = facePatch(g, KNIT_RIB, {
-    yTop: 0.058, yBottom: 0.036, alpha: 0, half: 0.86, name: 'balaclava-brow-hem',
-  });
-  brow.castShadow = true;
+   * silhouette everybody recognises: the port is the dark inside of the
+   * opening and the bridge stands proud of both. Kept inside x ±0.086 so the
+   * opening never runs off the side of the skull and shows the room through
+   * the man. */
   for (const side of [-1, 1]) {
-    facePatch(g, PORT_SHADOW, {
-      yTop: 0.034, yBottom: -0.008, alpha: side * 0.35, half: 0.25, lift: 0.0026,
-      name: `balaclava-eye-port-${side < 0 ? 'left' : 'right'}`,
-    });
-    /* The eye in the hole, sitting 2 mm proud of the shadow it sits in. A
-     * mask with eyes in it is looking at you; a mask without them is a bag. */
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.0105, 12, 8), EYE_WHITE);
-    eye.scale.set(1, 0.86, 0.42);
-    eye.position.set(side * 0.0411, 0.0132, 0.1178);
-    eye.castShadow = false;
-    eye.name = `balaclava-eye-${side < 0 ? 'left' : 'right'}`;
-    g.add(eye);
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.0044, 8, 6), EYE_IRIS);
-    iris.scale.set(1, 1, 0.4);
-    iris.position.set(side * 0.0411, 0.0128, 0.1212);
-    iris.castShadow = false;
-    g.add(iris);
+    const label = side < 0 ? 'left' : 'right';
+    slab(PORT_SHADOW, [0.058, 0.038, 0.012], [side * 0.049, 0.025, FRONT + 0.001],
+      `balaclava-eye-port-${label}`);
+    /* The eye in the hole, standing 2 mm out of the shadow it sits in. A mask
+     * with eyes in it is looking at you; a mask without them is a bag. */
+    slab(EYE_WHITE, [0.024, 0.017, 0.008], [side * 0.049, 0.025, FRONT + 0.006],
+      `balaclava-eye-${label}`).castShadow = false;
+    slab(EYE_IRIS, [0.0095, 0.0095, 0.007], [side * 0.049, 0.024, FRONT + 0.0085],
+      `balaclava-iris-${label}`).castShadow = false;
+    // A panel seam over each ear: knit is panels sewn together.
+    slab(KNIT_RIB, [0.008, HY * 1.5, 0.03], [side * (HX + 0.002), -0.006, -0.014],
+      `balaclava-seam-${label}`);
   }
-  // The bridge of knit down the middle, standing proud of both ports.
-  facePatch(g, KNIT, {
-    yTop: 0.034, yBottom: -0.008, alpha: 0, half: 0.095, lift: 0.0032,
-    name: 'balaclava-bridge',
-  });
-  // The rolled hem under the opening, across both cheeks.
-  facePatch(g, KNIT_RIB, {
-    yTop: -0.011, yBottom: -0.03, alpha: 0, half: 0.74, name: 'balaclava-cheek-hem',
-  });
+  slab(KNIT, [0.026, 0.044, 0.014], [0, 0.024, FRONT + 0.003], 'balaclava-bridge');
+
+  // The hems the wool is rolled into round the opening, above and below.
+  slab(KNIT_RIB, [0.172, 0.016, 0.011], [0, 0.054, FRONT + 0.001], 'balaclava-brow-hem');
+  slab(KNIT_RIB, [0.164, 0.016, 0.011], [0, -0.006, FRONT + 0.001], 'balaclava-cheek-hem');
+
+  /* The nose, and the ridge of knit pulled over it. A balaclava reads as worn
+   * BY somebody because the wool is not flat where the face is not. */
+  slab(KNIT, [0.038, 0.03, 0.018], [0, -0.021, FRONT + 0.006], 'balaclava-nose');
   // The mouth vent, over where the mouth is.
-  facePatch(g, PORT_SHADOW, {
-    yTop: -0.05, yBottom: -0.069, alpha: 0, half: 0.25, lift: 0.0026,
-    name: 'balaclava-mouth-vent',
-  });
-  /* Two panel seams down the sides. Knit is made of panels sewn together, and
-   * a seam is the cheapest thing in the world that says wool rather than
-   * latex — one strip of darker rib each side, over the ear. */
-  for (const side of [-1, 1]) {
-    facePatch(g, KNIT_RIB, {
-      yTop: 0.09, yBottom: -0.052, alpha: side * 1.24, half: 0.045,
-      name: `balaclava-seam-${side < 0 ? 'left' : 'right'}`,
-    });
-  }
+  slab(PORT_SHADOW, [0.05, 0.017, 0.01], [0, -0.05, FRONT + 0.001], 'balaclava-mouth-vent');
 
   /* The neck skirt, ribbed, going down inside the collar. Without it the mask
    * stops at the jaw and the head looks decapitated from the side. */
-  const skirt = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.104, 0.088, 0.13, 16, 1, true), KNIT,
-  );
-  skirt.position.y = -0.128;
-  skirt.name = 'balaclava-skirt';
-  g.add(skirt);
+  slab(KNIT, [0.156, 0.13, 0.156], [0, -HY - 0.055, 0.002], 'balaclava-skirt');
   for (let i = 0; i < 3; i++) {
-    const rib = new THREE.Mesh(new THREE.TorusGeometry(0.099 - i * 0.005, 0.005, 5, 16), KNIT_RIB);
-    rib.rotation.x = Math.PI / 2;
-    rib.position.y = -0.1 - i * 0.032;
-    rib.castShadow = false;
-    g.add(rib);
+    slab(KNIT_RIB, [0.162 - i * 0.006, 0.009, 0.162 - i * 0.006],
+      [0, -HY - 0.022 - i * 0.034, 0.002]).castShadow = false;
   }
 
-  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+  shell.castShadow = true;
+  g.traverse((o) => { if (o.isMesh && o.castShadow !== false) { o.receiveShadow = false; } });
   return g;
 }
 

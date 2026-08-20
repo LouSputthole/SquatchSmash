@@ -71,7 +71,7 @@ export const HEIST_CREW_PRESENTATION = Object.freeze({
 
 const PHASE_FOCUS = Object.freeze({
   safehouse: Object.freeze({ x: 0, z: 0.2 }),
-  van: Object.freeze({ x: 0, z: -3.1 }),
+  van: Object.freeze({ x: 0, z: -3.1 }),   // unused: see the van case below
   bank: Object.freeze({ x: 0, z: -7 }),
   street: Object.freeze({ x: 0, z: 5 }),
   garage: Object.freeze({ x: 0, z: -8 }),
@@ -79,6 +79,17 @@ const PHASE_FOCUS = Object.freeze({
 });
 
 export function crewHeadingForPhase(phaseId, position) {
+  /* THE VAN IS NOT A FOCUS POINT.
+   *
+   * Owner: *"they are all ... looking foward at the same spot"*. Literally
+   * true — every phase pointed every crew member at one authored coordinate,
+   * and the van's was the rear doors, so five men on two facing benches all
+   * stared down the same aisle at the same square metre of door.
+   *
+   * A bench seat faces ACROSS, at the man opposite. That is where a body
+   * points; where the head points is `HeistFigure.setIdleLook`'s business,
+   * and it moves. */
+  if (phaseId === 'van') return position.x < 0 ? Math.PI / 2 : -Math.PI / 2;
   const focus = PHASE_FOCUS[phaseId] ?? PHASE_FOCUS.safehouse;
   return Math.atan2(focus.x - position.x, focus.z - position.z);
 }
@@ -175,6 +186,8 @@ export function buildHeistCrew(scene) {
     );
     proxy.name = `crew-${id}-proxy`;
     proxy.position.y = 0.95;
+    // See `HeistCombatAdapter.trace`: aim volume, never a contact surface.
+    proxy.userData.aimProxy = true;
     figure.root.add(proxy);
     scene.add(figure.root);
     actors.set(id, {
@@ -193,21 +206,51 @@ export function buildHeistCrew(scene) {
   return actors;
 }
 
+/**
+ * The mask goes on, and the head goes under it.
+ *
+ * TWO THINGS, and the second is half the owner's *"masks still look like shit
+ * over the square block heads"*. The first is the mask's own shape, which
+ * `makeBalaclava` now cuts for a slab skull instead of an egg. The second is
+ * that a hood COVERS a head: hair, ears, brows, a nose and a photographed
+ * face all carried on regardless underneath it, and the ears alone stand
+ * 0.111 out from centre against wool at 0.101 — so two skin-coloured tabs
+ * poked out of the sides of every mask in the van.
+ *
+ * Anything on the head that is not the mask and not the neck goes dark while
+ * the mask is down, and comes back when it goes up. The neck stays because
+ * the skirt goes down inside the collar and the throat is what it lands on.
+ */
 export function setCrewMasked(actors, masked) {
   for (const actor of actors.values()) {
     actor.masked = masked;
+    const head = actor.figure.parts.head;
     let mask = actor.group.getObjectByName('heist-mask');
     if (!mask) {
       mask = makeBalaclava({ rolled: false });
       mask.name = 'heist-mask';
-      // Head-local: the skull's centre is at 0.165 with its front at +0.10.
-      mask.position.set(0, 0.17, 0.005);
-      mask.scale.setScalar(0.92);
-      actor.figure.parts.head.add(mask);
+      /* Head-local, on the SKULL CENTRE and unscaled. It used to sit at 0.17
+       * scaled to 0.92, which shrank a mask that was already the wrong shape
+       * to smaller than the head inside it. */
+      mask.position.set(0, HEAD_SKULL_CENTRE_Y, 0);
+      mask.scale.setScalar(1);
+      head.add(mask);
     }
     mask.visible = masked;
+    for (const child of head.children) {
+      if (child === mask || child.name === 'person.neck') continue;
+      child.visible = !masked;
+    }
   }
 }
+
+/**
+ * Where `makePerson` puts the middle of the skull, in head-local metres.
+ *
+ * The photographed skull is centred at 0.168 and the procedural one at 0.165;
+ * this is the middle of those, which is inside the 8 mm of wool either way.
+ */
+const HEAD_SKULL_CENTRE_Y = 0.167;
 
 export function updateCrew(actors, dt) {
   for (const actor of actors.values()) {

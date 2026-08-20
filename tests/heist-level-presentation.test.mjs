@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as THREE from 'three';
 
-import { LOBBY_ANCHORS, buildHeistLevel } from '../src/heist/level.js';
+import { LOBBY_ANCHORS, VAN_SEAT_HEIGHT, buildHeistLevel } from '../src/heist/level.js';
+import { buildHeistCrew } from '../src/heist/cast.js';
+import { poseHeistCrewGeometry } from '../src/heist/preview.js';
 
 test('safehouse reads as a planned job with physical gear instead of appliance placeholders', () => {
   const level = buildHeistLevel(new THREE.Scene());
@@ -79,28 +81,122 @@ test('a takedown is blended across time rather than applied in one frame', () =>
 test('a shut vault door is a wall, and opening it takes the wall away', () => {
   /* Owner: "the vault can be walked into before it opens." The bank's
    * collider list had the vault corridor's walls and nothing at all across
-   * the opening they meet at. The 8.4 m outer shell has 0.15 m of wall on
-   * each side, leaving an exact 8.1 m clear span. */
+   * the opening they meet at.
+   *
+   * The whole 8.1 m span used to be one swinging solid, because the door in
+   * it was a 4 m disc hung in an 8 m hole with nothing filling the daylight
+   * either side — the owner's *"big gap in the vault next to the doors"*.
+   * The gap is a steel bulkhead now, so what opens is the APERTURE and only
+   * the aperture, and the bulkhead's two jambs are permanent. */
   const level = buildHeistLevel(new THREE.Scene());
   const vault = level.phases.bank.interactables.vault;
   const door = vault.userData.doorCollider;
+  const leaf = vault.userData.openLeafCollider;
   assert.ok(door, 'the vault door has no collider');
 
   level.activate('bank');
   assert.ok(level.world.colliders.includes(door), 'the shut vault door is walk-through');
-  // It spans the whole clear corridor between the inner wall faces, not just
-  // the round disc hanging in it, without embedding in either side wall.
-  assert.equal(door.max.x - door.min.x, 8.1, 'the door collider misses the clear corridor span');
+  assert.ok(!level.world.colliders.includes(leaf), 'the shut door is solid where it is not');
+
+  /* Nothing between the two rear-wall panels is open floor: the aperture is
+   * blocked by the door and everything either side of it by a jamb. Sampled
+   * across the whole 8.1 m span at head height. */
+  const blocksAt = (x) => level.world.colliders.some((solid) => (
+    x >= solid.min.x && x <= solid.max.x
+    && solid.min.z <= -7.0 && solid.max.z >= -7.0
+    && solid.min.y <= 1.6 && solid.max.y >= 1.6));
+  for (let x = -4.0; x <= 4.0; x += 0.25) {
+    assert.ok(blocksAt(x), `the shut vault is walk-through at x ${x.toFixed(2)}`);
+  }
 
   vault.userData.setOpen(true);
   assert.ok(!level.world.colliders.includes(door), 'the open vault is still walled off');
+  assert.ok(level.world.colliders.includes(leaf), 'the open leaf is walk-through');
+  // The jambs never move: the way in is the doorway, not the steel beside it.
+  assert.ok(blocksAt(-3.5) && blocksAt(3.5), 'opening the door dissolved the bulkhead');
+  assert.ok(!blocksAt(1.4), 'the opened aperture is still blocked');
+
   // Re-entering the phase must not put the wall back on an opened vault.
   level.activate('street');
   level.activate('bank');
   assert.ok(!level.world.colliders.includes(door), 'a phase change re-shut the open vault');
+  assert.ok(level.world.colliders.includes(leaf), 'a phase change lost the open leaf');
 
   vault.userData.setOpen(false);
   assert.ok(level.world.colliders.includes(door), 'shutting the vault left it walk-through');
+  assert.ok(!level.world.colliders.includes(leaf), 'the shut door left its open solid behind');
+});
+
+test('the vault door is hung in a bulkhead and swings rather than teleporting', () => {
+  /* Owner: *"there is a big gap in the vault next to the doors. Also when the
+   * vault opens it opens funky. Door is all wonky."*
+   *
+   * The old open pose moved the whole leaf 4.8 m sideways and 0.65 m forward
+   * IN ONE FRAME and rolled the disc half a radian on the way past. This
+   * holds the three things that replaced it: a bulkhead with a round hole in
+   * it, a hinge the leaf actually turns on, and a swing that takes seconds
+   * and stops short of the teller counter. */
+  const level = buildHeistLevel(new THREE.Scene());
+  const bank = level.phases.bank;
+  const vault = bank.interactables.vault;
+  bank.group.updateMatrixWorld(true);
+
+  // 1. The bulkhead fills the whole doorway between the rear-wall panels.
+  const bulkhead = new THREE.Box3()
+    .setFromObject(vault.getObjectByName('vault-bulkhead'));
+  assert.ok(bulkhead.min.x <= -4.05 && bulkhead.max.x >= 4.05,
+    `the bulkhead spans x ${bulkhead.min.x.toFixed(2)}..${bulkhead.max.x.toFixed(2)}`);
+  assert.ok(bulkhead.min.y <= 0.01 && bulkhead.max.y >= 4.2, 'the bulkhead is short');
+
+  // 2. It swings on a hinge, and every moving part is on it.
+  const hinge = vault.getObjectByName('vault-door-hinge');
+  assert.ok(hinge, 'the vault door has no hinge');
+  for (const part of ['vault-door-leaf', 'vault-wheel', 'vault-bolt-1', 'vault-bolt-10']) {
+    assert.ok(hinge.getObjectByName(part), `${part} does not move with the door`);
+  }
+  const shut = new THREE.Box3().setFromObject(hinge);
+  assert.ok(Math.abs(shut.max.z - -6.5) < 0.35, 'the shut leaf is not in the doorway');
+
+  // 3. Opening it takes real time, and it is not there in frame one.
+  vault.userData.setOpen(true, { animate: true });
+  bank.group.updateMatrixWorld(true);
+  assert.ok(Math.abs(hinge.rotation.y) < 1e-6, 'the door jumped open on the first frame');
+  let elapsed = 0;
+  while (vault.userData.tickDoor(0.1) && elapsed < 12) elapsed += 0.1;
+  assert.ok(elapsed > 2.5 && elapsed < 6,
+    `the swing took ${elapsed.toFixed(1)} s, which is not a vault door`);
+  assert.ok(Math.abs(hinge.rotation.y - -vault.userData.doorSwing) < 1e-6);
+
+  // 4. And it stops short of the teller counter, whose face is at z -2.825.
+  bank.group.updateMatrixWorld(true);
+  const swung = new THREE.Box3().setFromObject(hinge);
+  assert.ok(swung.max.z < -2.9,
+    `the open door reaches z ${swung.max.z.toFixed(2)} and hits the teller counter`);
+
+  // Snapping shut is still instant, which is what a checkpoint restore wants.
+  vault.userData.setOpen(false);
+  assert.ok(Math.abs(hinge.rotation.y) < 1e-9, 'snapping shut left the door ajar');
+});
+
+test('the manager escort stops at the vault door instead of walking through it', () => {
+  /* Owner: *"The manager walks into the vault before its opened."* The tween
+   * ended at z −8.1 and the corridor mouth is at z −7.0, so a man with no
+   * collider walked a metre into a sealed vault while the player stood
+   * outside a door that had not been bypassed yet. */
+  const level = buildHeistLevel(new THREE.Scene());
+  const manager = level.phases.bank.interactables.manager;
+  for (let p = 0; p <= 1.0001; p += 0.05) {
+    manager.userData.setEscortProgress(p);
+    assert.ok(manager.position.z > -6.9,
+      `the manager is at z ${manager.position.z.toFixed(2)} inside the vault at ${p.toFixed(2)}`);
+  }
+  manager.userData.setEscortProgress(1);
+  // Beside his own access panel, which is where the order sends the player.
+  const panel = level.phases.bank.interactables.vault.getObjectByName('vault-panel');
+  panel.updateWorldMatrix(true, false);
+  const at = new THREE.Vector3().setFromMatrixPosition(panel.matrixWorld);
+  assert.ok(manager.position.distanceTo(at) < 2.2,
+    `the manager ends ${manager.position.distanceTo(at).toFixed(2)} m from the panel`);
 });
 
 test('tellers stand clear enough of the counter to lie down behind it', () => {
@@ -523,11 +619,136 @@ test('van interior uses two bounded light pools to reveal its benches and rear d
   const colliderSignature = van.colliders.map((solid) => (
     `${solid.min.toArray().map((n) => n.toFixed(2)).join(',')}|${solid.max.toArray().map((n) => n.toFixed(2)).join(',')}`
   ));
+  /* The two bench solids sit at SITTING height and start at the floor. They
+   * were 62 cm blocks floating 23 cm up with a cushion at 96 cm, which is why
+   * the crew stood beside them: nothing on a 1.78 m frame can sit on a
+   * 96 cm ledge. `VAN_SEAT_HEIGHT` is the measured hip of the seated pose. */
   assert.deepEqual(colliderSignature, [
     '-1.80,0.00,3.06|1.80,2.80,3.20',
     '-1.80,0.00,-3.20|-1.66,2.80,3.20',
     '1.66,0.00,-3.20|1.80,2.80,3.20',
-    '-1.63,0.23,-2.30|-1.01,0.85,2.50',
-    '1.01,0.23,-2.30|1.63,0.85,2.50',
+    '-1.67,0.00,-2.30|-0.93,0.50,2.50',
+    '0.93,0.00,-2.30|1.67,0.50,2.50',
   ]);
+});
+
+test('the crew ride the van sat on the benches, facing each other', () => {
+  /* Owner: *"they are all standing in the seats once u are in the van instead
+   * of sitting in the seats and looking around naturally they are all looking
+   * foward at the same spot."* Three separate faults in one sentence, and all
+   * three were real:
+   *
+   *   1. the van formation put five STANDING figures on the floor beside the
+   *      benches, because `stand()` was the only non-floor pose the rig had;
+   *   2. `crewHeadingForPhase` aimed every phase's whole crew at one authored
+   *      coordinate, and the van's was the rear doors;
+   *   3. nothing in `HeistFigure` ever moved a head's yaw.
+   *
+   * This holds all three: hips on the cushion, bodies square across the aisle
+   * at the man opposite, and five different necks. */
+  const level = buildHeistLevel(new THREE.Scene());
+  const crew = buildHeistCrew(level.phases.safehouse.group);
+  poseHeistCrewGeometry({ level, crew, phase: 'van' });
+  level.phases.van.group.updateMatrixWorld(true);
+
+  const seatTop = VAN_SEAT_HEIGHT;
+  for (const actor of crew.values()) {
+    assert.equal(actor.figure.pose, 'seated', `${actor.id} is not sitting down`);
+    const side = Math.sign(actor.group.position.x);
+    // Square across the aisle: +90 degrees on the left bench, -90 on the right.
+    assert.ok(Math.abs(actor.group.rotation.y - side * -Math.PI / 2) < 1e-6,
+      `${actor.id} is not facing across the van`);
+    /* Boots on the van floor. Measured on the SHOES, because the rig's
+     * lowest mesh is DeathMegatron's gown hem and this is a claim about
+     * where a man's feet are. Five heights, one 50 cm bench: the knee is
+     * what takes up the difference, which is what a knee is for. */
+    const soles = [];
+    for (const shin of [actor.figure.parts.shinL, actor.figure.parts.shinR]) {
+      for (const child of shin.children) {
+        if (child.isMesh && /shoe|foot/.test(child.name)) {
+          soles.push(new THREE.Box3().setFromObject(child).min.y);
+        }
+      }
+    }
+    assert.ok(soles.length, `${actor.id} has no shoes to stand on`);
+    assert.ok(Math.min(...soles) > -0.01 && Math.min(...soles) < 0.01,
+      `${actor.id}'s boots are at y ${Math.min(...soles).toFixed(3)}, not on the van floor`);
+    const box = new THREE.Box3().setFromObject(actor.figure.parts.group);
+    assert.ok(box.min.y > -0.01,
+      `${actor.id} has ${(-box.min.y * 100).toFixed(0)} cm of himself through the van floor`);
+    /* Sat ON the cushion: the bottom of the pelvis is within a couple of
+     * centimetres of the seat surface, sinking into the foam rather than
+     * hovering over it. This is the assertion the seat height was chosen to
+     * satisfy, so nobody can move one without the other. */
+    const seat = new THREE.Box3().setFromObject(actor.figure.parts.hips);
+    assert.ok(seat.min.y > seatTop - 0.045 && seat.min.y < seatTop + 0.015,
+      `${actor.id} sits at ${seat.min.y.toFixed(3)}, cushion is at ${seatTop}`);
+    assert.ok(Math.abs(actor.group.position.x) > 0.94
+      && Math.abs(actor.group.position.x) < 1.66,
+      `${actor.id} is not over a cushion`);
+    // Heads clear the ceiling, and the seated man is shorter than he stands.
+    assert.ok(box.max.y < 1.7, `${actor.id} is ${box.max.y.toFixed(2)} m tall sitting down`);
+  }
+
+  // Five separate necks: the same tick must not move every head the same way.
+  for (const actor of crew.values()) actor.figure.update(0.5);
+  for (const actor of crew.values()) actor.figure.update(0.5);
+  const yaws = [...crew.values()].map((a) => a.figure.parts.head.rotation.y.toFixed(4));
+  assert.equal(new Set(yaws).size, yaws.length,
+    `all five heads point the same way: ${yaws.join(', ')}`);
+
+  // Out of the van, they stand back up.
+  poseHeistCrewGeometry({ level, crew, phase: 'bank' });
+  for (const actor of crew.values()) {
+    assert.equal(actor.figure.pose, 'stand', `${actor.id} walked into the bank sitting down`);
+  }
+});
+
+test('the cash staging point is a marked circle by the doors that fills with duffles', () => {
+  /* Owner: *"The staging point should be clearly marked near the bank door.
+   * like a yellow circle maybe. lkets make sure the money bags appear there
+   * as duffle bags as you stage them."*
+   *
+   * There was no staging point at all. The order said "drop it on the
+   * staging point" and the interaction lived on `bank-exit` — the pane of
+   * GLASS in the doorway, 1.9 m off the floor — so the prompt appeared while
+   * you were looking at a window, and staging a bag moved a number on the HUD
+   * and put nothing in the room. Eight bags could go without one being seen.
+   */
+  const level = buildHeistLevel(new THREE.Scene());
+  const bank = level.phases.bank;
+  const staging = bank.staging;
+  assert.ok(staging, 'the bank has no staging point');
+  bank.group.updateMatrixWorld(true);
+
+  // Near the doors (which are at z 10.6), and off the entrance centre line.
+  assert.ok(staging.position.z > 8 && staging.position.z < 10.4,
+    `the staging point is at z ${staging.position.z}, not by the doors`);
+  assert.ok(Math.abs(staging.position.x) > 0.9,
+    'the staging point is on the line the crew comes through');
+  // It is a marked circle a player can see from the vault.
+  const ring = staging.getObjectByName('staging-ring');
+  assert.ok(ring, 'the staging point is not marked');
+  const painted = new THREE.Box3().setFromObject(ring);
+  assert.ok(painted.max.x - painted.min.x > 2, 'the marking is too small to read');
+  assert.ok(painted.max.y < 0.05, 'the marking is not painted on the floor');
+
+  // Nothing on it to start with, and one duffle per bag as they arrive.
+  const duffles = () => [1, 2, 3, 4, 5, 6, 7, 8]
+    .map((i) => staging.getObjectByName(`staged-cash-${i}`))
+    .filter((bag) => bag?.visible).length;
+  assert.equal(duffles(), 0, 'the circle starts with cash on it');
+  for (const count of [1, 2, 5, 8]) {
+    staging.userData.setStaged(count);
+    assert.equal(duffles(), count, `staging ${count} bags showed ${duffles()}`);
+  }
+  staging.userData.setStaged(0);
+  assert.equal(duffles(), 0, 'a reset left cash on the circle');
+
+  // And the prompt has somewhere on the FLOOR to live.
+  const volume = bank.interactables.staging;
+  assert.ok(volume, 'the staging point has no interaction volume');
+  const box = new THREE.Box3().setFromObject(volume);
+  assert.ok(box.min.y < 0.2 && box.max.y > 1.6,
+    'the staging volume is not reachable from standing on the circle');
 });

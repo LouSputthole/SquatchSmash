@@ -5,7 +5,9 @@ import * as THREE from 'three';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
 import {
   HEIST_CREW_PRESENTATION,
+  buildHeistCrew,
   crewHeadingForPhase,
+  setCrewMasked,
 } from '../src/heist/cast.js';
 import { HeistFigure } from '../src/heist/people.js';
 import { makeBalaclava } from '../src/heist/weapons.js';
@@ -187,76 +189,161 @@ test('Numbskull has an explicit named procedural face treatment', () => {
   });
 });
 
-/* The shell the worn balaclava's face is built on: a 0.118 sphere stretched
- * 1.13 tall and 1.05 deep. Anything at or inside this surface is not drawn. */
-const SHELL = { x: 0.118, y: 0.118 * 1.13, z: 0.118 * 1.05 };
-const insideShell = (p) => (p.x / SHELL.x) ** 2 + (p.y / SHELL.y) ** 2 + (p.z / SHELL.z) ** 2 < 1;
+/**
+ * THE HOOD IS CUT FOR THE HEAD IT GOES ON.
+ *
+ * Owner, third time: *"The masks still look like shit over the square block
+ * heads"*. The mask was an ellipsoid and `makePerson`'s skull is a slab, so
+ * the box's eight corners came out through the sphere — 43% beyond its
+ * surface, measured. Every previous pass added detail to the egg, which could
+ * not help, because a detail on the wrong shape is a detail on the wrong
+ * shape.
+ *
+ * These two tests pin the two halves of the answer: the wool is a slab a
+ * centimetre bigger than the widest skull the builder makes, and every
+ * marking is on its FLAT FRONT rather than sunk inside it.
+ */
 
-test('every feature of the worn balaclava is on the outside of it', () => {
-  /* Owner: "balaclava model is bad", twice. The second answer added fourteen
-   * meshes to a plain dark egg -- two eye ports, a bridge, two lids, a vent, a
-   * brow seam and two eyes -- and then placed all of them with flat z values
-   * around 0.10, when the shell's own surface at the middle of the face is at
-   * 0.1239. The eyes and the bridge were entirely INSIDE the sphere and the
-   * ports had six of twenty-four corners out, so the mask still rendered as a
-   * featureless egg with two dark nubs on it. The complaint came back because
-   * the fix was invisible.
-   *
-   * Every marking is a patch of the mask's own ellipsoid now. This walks the
-   * real vertices, because that is the only thing that would have caught it. */
+/** The widest skull `makePerson` builds, in its own head-local metres. */
+const SKULL = { x: 0.186 / 2, y: 0.216 / 2, z: 0.20 / 2 };
+
+function maskHull(mask) {
+  const hull = new THREE.Box3().setFromObject(mask.getObjectByName('balaclava-shell'));
+  hull.union(new THREE.Box3().setFromObject(mask.getObjectByName('balaclava-crown')));
+  return hull;
+}
+
+test('the worn balaclava covers the whole slab skull it is worn over', () => {
   const mask = makeBalaclava({ rolled: false });
   mask.updateWorldMatrix(true, true);
+  const hull = maskHull(mask);
+  // Every corner of the skull, and every corner is where the old egg failed.
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const corner = new THREE.Vector3(sx * SKULL.x, sy * SKULL.y, sz * SKULL.z);
+        assert.ok(hull.containsPoint(corner),
+          `skull corner ${corner.toArray().join(',')} is outside the wool`);
+      }
+    }
+  }
+  // And it is wool, not a helmet: a centimetre of it, not five.
+  assert.ok(hull.max.x - SKULL.x < 0.02 && hull.max.z - SKULL.z < 0.02,
+    'the mask is thicker than a knit hood');
+  assert.ok(mask.getObjectByName('balaclava-skirt'), 'the neck skirt is missing');
+});
+
+test('every marking on the worn balaclava is on the outside of it', () => {
+  /* The old fault this replaces: fourteen meshes placed with flat z values
+   * around 0.10 on a shell whose own front surface was at 0.1239, so the eyes
+   * and the bridge were entirely INSIDE the mask and it still rendered as a
+   * featureless egg. The front is a plane now, which is the whole reason a
+   * flat feature can sit on it — but that only helps if somebody checks, so
+   * this walks the real vertices the way the old one did. */
+  const mask = makeBalaclava({ rolled: false });
+  mask.updateWorldMatrix(true, true);
+  const front = maskHull(mask).max.z;
   const buried = [];
   for (const name of ['balaclava-brow-hem', 'balaclava-eye-port-left',
     'balaclava-eye-port-right', 'balaclava-bridge', 'balaclava-cheek-hem',
-    'balaclava-mouth-vent', 'balaclava-seam-left', 'balaclava-seam-right']) {
+    'balaclava-mouth-vent', 'balaclava-nose',
+    'balaclava-eye-left', 'balaclava-eye-right']) {
     const part = mask.getObjectByName(name);
     assert.ok(part, `${name} is missing from the mask`);
-    const position = part.geometry.attributes.position;
-    const vertex = new THREE.Vector3();
-    let out = 0;
-    for (let i = 0; i < position.count; i++) {
-      vertex.fromBufferAttribute(position, i).applyMatrix4(part.matrixWorld);
-      if (!insideShell(vertex)) out++;
-    }
-    if (out < position.count) buried.push(`${name} (${position.count - out}/${position.count} in)`);
+    const box = new THREE.Box3().setFromObject(part);
+    if (box.max.z <= front) buried.push(`${name} ends at z ${box.max.z.toFixed(4)}`);
   }
-  assert.deepEqual(buried, [], `features sunk inside the shell: ${buried.join(', ')}`);
+  assert.deepEqual(buried, [],
+    `markings sunk inside the wool (front is z ${front.toFixed(4)}): ${buried.join(', ')}`);
+
+  // The seams are on the SIDES, so they are measured against the side.
+  const side = maskHull(mask).max.x;
+  for (const name of ['balaclava-seam-left', 'balaclava-seam-right']) {
+    const box = new THREE.Box3().setFromObject(mask.getObjectByName(name));
+    assert.ok(Math.max(-box.min.x, box.max.x) > side,
+      `${name} is inside the wool`);
+  }
 });
 
 test('the balaclava has eyes looking out of its holes, and the holes stay on the face', () => {
   const mask = makeBalaclava({ rolled: false });
   mask.updateWorldMatrix(true, true);
-  /* Where the eye-port patch's surface is directly in front of a point. The
-   * patch curves, so its bounding box maximum is at the bridge end of it and
-   * not over the eye — comparing boxes measures the wrong millimetres. */
-  const portFront = (x, y, lift = 0.0026) => {
-    const r = { x: SHELL.x + lift, y: (0.118 + lift) * 1.13, z: (0.118 + lift) * 1.05 };
-    return r.z * Math.sqrt(Math.max(0, 1 - (x / r.x) ** 2 - (y / r.y) ** 2));
-  };
-  for (const side of ['left', 'right']) {
-    const port = new THREE.Box3().setFromObject(mask.getObjectByName(`balaclava-eye-port-${side}`));
-    const eyeMesh = mask.getObjectByName(`balaclava-eye-${side}`);
-    const eye = new THREE.Box3().setFromObject(eyeMesh);
-    // The eye stands proud of the shadow it sits in — a few millimetres, so it
-    // catches the light without becoming a golf ball on a face.
-    const proud = eye.max.z - portFront(eyeMesh.position.x, eyeMesh.position.y);
-    assert.ok(proud > 0.0005 && proud < 0.006, `${side} eye stands ${(proud * 1000).toFixed(1)} mm out`);
-    assert.ok(eye.min.x > port.min.x && eye.max.x < port.max.x, `${side} eye is outside its hole`);
-    /* The mask is worn at 0.92 on a head whose skull is 0.081 half-wide. An
-     * opening wider than that runs off the side of the head and shows the
-     * room through the man. */
-    assert.ok(Math.max(-port.min.x, port.max.x) * 0.92 < 0.079,
-      `${side} eye port reaches past the edge of the skull`);
+  for (const label of ['left', 'right']) {
+    const port = new THREE.Box3().setFromObject(mask.getObjectByName(`balaclava-eye-port-${label}`));
+    const eye = new THREE.Box3().setFromObject(mask.getObjectByName(`balaclava-eye-${label}`));
+    // Proud of the shadow it sits in, without becoming a golf ball on a face.
+    const proud = eye.max.z - port.max.z;
+    assert.ok(proud > 0.0005 && proud < 0.006,
+      `${label} eye stands ${(proud * 1000).toFixed(1)} mm out of its hole`);
+    assert.ok(eye.min.x > port.min.x - 1e-6 && eye.max.x < port.max.x + 1e-6,
+      `${label} eye is wider than its hole`);
+    /* An opening wider than the skull runs off the side of the head and shows
+     * the room through the man. */
+    assert.ok(Math.max(-port.min.x, port.max.x) < SKULL.x,
+      `${label} eye port reaches past the edge of the skull`);
   }
 });
 
-test('the rolled balaclava shows the fold that says it is a mask', () => {
-  /* The same fault as the worn one: the port was at z 0.088 inside a roll
-   * whose front surface is at 0.111, so the one detail separating this from a
-   * beanie was not drawn. */
+test('the rolled balaclava shows the fold that says it is a mask, and fits the head', () => {
+  /* The rolled one had the same disease from the other direction: a torus of
+   * radius 0.075 perched on a skull 0.093 half-wide, so the head came out
+   * through the sides of the hat. It is a band round the same slab now. */
   const mask = makeBalaclava({ rolled: true });
   mask.updateWorldMatrix(true, true);
+  const roll = new THREE.Box3().setFromObject(mask.getObjectByName('balaclava-roll'));
+  assert.ok(roll.max.x > SKULL.x && roll.max.z > SKULL.z,
+    'the rolled cap is narrower than the head it sits on');
   const port = new THREE.Box3().setFromObject(mask.getObjectByName('balaclava-rolled-port'));
-  assert.ok(port.max.z > 0.111, `rolled eye port ends at z ${port.max.z.toFixed(3)}, inside the roll`);
+  assert.ok(port.max.z > roll.max.z,
+    `rolled eye port ends at z ${port.max.z.toFixed(3)}, inside the roll`);
+});
+
+test('a masked crew member has nothing of his own head sticking out of the wool', () => {
+  /* The other half of *"masks still look like shit over the square block
+   * heads"*: a hood COVERS a head, and this one did not. Hair, ears, brows,
+   * a nose and a photographed face all carried on underneath it — the ears
+   * alone stand 0.111 out from centre against wool at 0.101, so two
+   * skin-coloured tabs poked out of the side of every mask in the van.
+   *
+   * Vertex-exact, in world space, on the real crew: anything on the head that
+   * is not the mask and not the throat has to be inside the wool or invisible.
+   * And it has to come BACK when the mask goes up, or the safehouse is five
+   * bald men with no faces. */
+  const crew = buildHeistCrew(new THREE.Group());
+  setCrewMasked(crew, true);
+  const vertex = new THREE.Vector3();
+  for (const actor of crew.values()) {
+    actor.group.updateMatrixWorld(true);
+    const head = actor.figure.parts.head;
+    const mask = head.getObjectByName('heist-mask');
+    assert.ok(mask?.visible, `${actor.id} has no mask on`);
+    const hull = new THREE.Box3().setFromObject(mask.getObjectByName('balaclava-shell'));
+    hull.union(new THREE.Box3().setFromObject(mask.getObjectByName('balaclava-crown')));
+    const outside = [];
+    head.traverse((object) => {
+      if (!object.isMesh || !object.visible || object.name === 'person.neck') return;
+      for (let node = object; node && node !== head; node = node.parent) {
+        if (node === mask) return;
+        if (!node.visible) return;
+      }
+      const position = object.geometry.attributes.position;
+      for (let i = 0; i < position.count; i++) {
+        vertex.fromBufferAttribute(position, i).applyMatrix4(object.matrixWorld);
+        if (!hull.containsPoint(vertex)) { outside.push(object.name); return; }
+      }
+    });
+    assert.deepEqual(outside, [], `${actor.id} has ${outside.join(', ')} out through the mask`);
+  }
+
+  setCrewMasked(crew, false);
+  for (const actor of crew.values()) {
+    const head = actor.figure.parts.head;
+    assert.equal(head.getObjectByName('heist-mask').visible, false);
+    const hidden = [];
+    for (const child of head.children) {
+      if (child.name === 'heist-mask') continue;
+      if (!child.visible) hidden.push(child.name || child.type);
+    }
+    assert.deepEqual(hidden, [], `${actor.id} took the mask off and left ${hidden.join(', ')} hidden`);
+  }
 });

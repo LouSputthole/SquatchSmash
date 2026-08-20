@@ -70,6 +70,10 @@ const VISUAL_POSE_BY_STATE = Object.freeze({
   down: 'fallen',
 });
 
+/* Poses whose settle lift is measured rather than zero. Blending into or out
+ * of one has to re-ground every frame, or the rig drives through the floor
+ * halfway across. `seated` is in here for the same reason `kneeling` is: it
+ * ends 45 cm below where it started. */
 const FLOOR_POSES = new Set(['kneeling', 'prone', 'restrained', 'bolting', 'alarm', 'fallen']);
 
 /**
@@ -109,6 +113,14 @@ export class HeistFigure {
     this.voiceMouth = new Mouth(this.parts, { openScale: 2.6 });
     /** The head pitch a pose left, so a photo face can nod without erasing it. */
     this._poseHeadX = 0;
+    /** Look-and-hold idle state, and what it put on the rig last frame. */
+    this._idleLook = null;
+    this._lookApplied = null;
+    /** Where the walk cycle is, for a figure that moves. See `gait()`. */
+    this._gaitPhase = 0;
+    /** A floor-length skirt, if this outfit has one — see `seated()`. */
+    this._skirt = this.parts.group.getObjectByName('gown.skirt') ?? null;
+    this._skirtY = this._skirt ? this._skirt.position.y : 0;
     this.root.userData.figure = this;
     this.stand();
   }
@@ -130,6 +142,7 @@ export class HeistFigure {
     p.head.rotation.set(0, 0, 0);
     this.tilt.rotation.set(0, 0, 0);
     this.tilt.position.set(0, 0, 0);
+    if (this._skirt) this._skirt.position.y = this._skirtY;
   }
 
   stand() {
@@ -185,6 +198,191 @@ export class HeistFigure {
   }
 
   /**
+   * Sat on a bench, which is what a man in the back of a van is doing.
+   *
+   * Owner, on the ride to the bank: *"they are all standing in the seats once
+   * u are in the van instead of sitting in the seats"*. They were: the van
+   * formation put five standing figures at floor level beside the benches,
+   * because `stand()` was the only pose this rig had that was not a floor
+   * pose, and a hostage kneeling on marble is not a passenger.
+   *
+   * Thigh forward, shin down, hands on the knees, and then `_ground()` — so
+   * the FEET land on the van floor and the hips end up wherever the leg
+   * lengths put them, rather than at a lift guessed per bench. `buildVan`
+   * sets its cushion at that measured height (`VAN_SEAT_HEIGHT`), which is
+   * why the seat is under the man instead of the man being under the seat.
+   *
+   * @param {object} [options]
+   * @param {number} [options.slouch] 0 upright, 1 sprawled back — nobody in
+   *   the back of a van two blocks out is sitting the same way.
+   * @param {number} [options.seatY] the height of the bench surface. With it,
+   *   the PELVIS is the contact and the boots reach the floor or do not, which
+   *   is what sitting on a fixed bench means: five crew members are five
+   *   different heights, so grounding them all by the boot puts five different
+   *   backsides at five different heights over one cushion. Without it the
+   *   figure grounds on its feet, for a chair whose height is not known here.
+   */
+  seated({ slouch = 0, seatY = null } = {}) {
+    this._clear();
+    const s = Math.max(0, Math.min(1, slouch));
+    this.parts.legL.rotation.set(-1.52 + s * 0.16, 0.05 + s * 0.06, 0);
+    this.parts.legR.rotation.set(-1.52 + s * 0.16, -0.05 - s * 0.06, 0);
+    this.parts.shinL.rotation.x = 1.5 - s * 0.34;
+    this.parts.shinR.rotation.x = 1.5 - s * 0.28;
+    this.parts.armL.rotation.set(-0.42 - s * 0.1, 0, -0.2);
+    this.parts.armR.rotation.set(-0.42 - s * 0.1, 0, 0.2);
+    this.parts.foreL.rotation.set(-0.72, 0.16, 0);
+    this.parts.foreR.rotation.set(-0.72, -0.16, 0);
+    this.parts.body.rotation.x = 0.05 + s * 0.13;
+    this.parts.head.rotation.x = -s * 0.06;
+    this.pose = 'seated';
+    if (!Number.isFinite(seatY)) return this._settle();
+    /* Pelvis onto the cushion first: the bench does not move for anybody. */
+    this.tilt.position.y = 0;
+    this.root.updateMatrixWorld(true);
+    const seat = this._bounds.setFromObject(this.parts.hips);
+    if (!Number.isFinite(seat.min.y)) return this;
+    this.tilt.position.y += seatY - seat.min.y;
+    /* AND THEN THE KNEE TAKES UP THE DIFFERENCE.
+     *
+     * These five are 1.70 m to 1.95 m on one 50 cm bench. Grounded by the
+     * boot they end up at five different seat heights; pinned by the pelvis
+     * with one authored leg angle, Snow's boots hang 4 cm in the air and
+     * DeathMegatron's go 14 cm through the van floor.
+     *
+     * A person on a bench too low for them sits with their knees ABOVE their
+     * hips; a person on one too high lets their thigh fall away. Both are the
+     * thigh angle, and the shin gives back what the thigh takes so it stays
+     * hanging plumb — which is where a shin is when a boot is flat. Four
+     * secant steps against a 0.45 m thigh converge to under 4 mm. */
+    for (let i = 0; i < 4; i++) {
+      this.root.updateMatrixWorld(true);
+      /* The SHOES, not the whole rig: DeathMegatron wears a floor-length gown
+       * whose hem is the lowest thing on him by 14 cm, and no amount of knee
+       * would ever have satisfied a rig-box measurement. */
+      const error = this._soleHeight() - this.baseY;
+      if (!Number.isFinite(error) || Math.abs(error) < 0.004) break;
+      const step = Math.max(-0.24, Math.min(0.24, error / 0.45));
+      for (const [thigh, shin] of [[this.parts.legL, this.parts.shinL],
+        [this.parts.legR, this.parts.shinR]]) {
+        thigh.rotation.x = Math.max(-1.92, Math.min(-1.05, thigh.rotation.x + step));
+        shin.rotation.x -= step;
+      }
+    }
+    /* A floor-length coat does not stay floor-length when its wearer sits
+     * down: the hem gathers over the knees. The gown is authored to a standing
+     * ankle, so a seated figure drags a skirt through the floor. */
+    if (this._skirt) {
+      this.root.updateMatrixWorld(true);
+      const hem = this._bounds.setFromObject(this._skirt);
+      if (Number.isFinite(hem.min.y) && hem.min.y < this.baseY) {
+        this._skirt.position.y += (this.baseY - hem.min.y) / (this.scale || 1);
+      }
+    }
+    return this;
+  }
+
+  /** The lowest point of the two shoes, in world metres. */
+  _soleHeight() {
+    let lowest = Infinity;
+    for (const shin of [this.parts.shinL, this.parts.shinR]) {
+      for (const child of shin.children) {
+        if (!child.isMesh) continue;
+        if (!/shoe|foot/.test(child.name)) continue;
+        const box = this._bounds.setFromObject(child);
+        if (box.min.y < lowest) lowest = box.min.y;
+      }
+    }
+    return lowest;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Idle looking-about
+   *
+   * The other half of the same note: *"instead of looking around naturally
+   * they are all looking foward at the same spot"*. They were, and there was
+   * nothing in this class that could have done otherwise — `update()` drives
+   * breath, tremble, a bolt cycle and a talking nod, and the head's YAW is
+   * only ever whatever the pose wrote.
+   *
+   * A sine would be worse than nothing: five men swinging their heads on the
+   * same curve is a windscreen wiper, not a van. This is look-and-hold —
+   * pick somewhere, take a third of a second to get there, then stay on it
+   * for a beat or two — which is what a person's neck actually does, and the
+   * hold lengths and targets are drawn per figure from an injectable seed so
+   * a headless test gets the same van twice.
+   * ---------------------------------------------------------------- */
+
+  /**
+   * @param {object|null} spec `null` turns it off.
+   * @param {number} [spec.seed] per-figure, so five men do not share a neck.
+   * @param {number} [spec.range] radians of yaw either side of the pose.
+   * @param {number[]} [spec.hold] seconds to stay on a target, [min, max].
+   */
+  setIdleLook(spec) {
+    if (!spec) { this._clearIdleLook(); this._idleLook = null; return this; }
+    const seed = Number.isFinite(spec.seed) ? spec.seed : 1;
+    this._clearIdleLook();
+    this._idleLook = {
+      /* A tiny LCG rather than Math.random: the same figure has to look the
+       * same way twice or the van cannot be verified. */
+      state: (Math.floor(Math.abs(seed)) * 2654435761 + 12345) >>> 0,
+      range: Number.isFinite(spec.range) ? spec.range : 0.62,
+      hold: Array.isArray(spec.hold) ? spec.hold : [1.1, 3.2],
+      yaw: 0, pitch: 0, fromYaw: 0, fromPitch: 0, toYaw: 0, toPitch: 0,
+      clock: 0, t: 1, duration: 0.4,
+    };
+    return this;
+  }
+
+  _lookRandom() {
+    const look = this._idleLook;
+    look.state = (look.state * 1664525 + 1013904223) >>> 0;
+    return look.state / 4294967296;
+  }
+
+  /** Take last frame's look back off the rig, so the pose is read clean. */
+  _clearIdleLook() {
+    const applied = this._lookApplied;
+    if (!applied) return;
+    this.parts.head.rotation.y -= applied.headY;
+    this.parts.head.rotation.x -= applied.headX;
+    this.parts.body.rotation.y -= applied.bodyY;
+    this._lookApplied = null;
+  }
+
+  _updateIdleLook(dt) {
+    const look = this._idleLook;
+    if (!look) return;
+    look.clock -= dt;
+    if (look.clock <= 0) {
+      look.fromYaw = look.yaw;
+      look.fromPitch = look.pitch;
+      look.toYaw = (this._lookRandom() - 0.5) * look.range * 2;
+      look.toPitch = (this._lookRandom() - 0.5) * 0.22;
+      look.duration = 0.3 + this._lookRandom() * 0.34;
+      look.clock = look.duration + look.hold[0]
+        + this._lookRandom() * Math.max(0, look.hold[1] - look.hold[0]);
+      look.t = 0;
+    }
+    if (look.t < 1) {
+      look.t = Math.min(1, look.t + dt / look.duration);
+      const e = look.t * look.t * (3 - 2 * look.t);
+      look.yaw = look.fromYaw + (look.toYaw - look.fromYaw) * e;
+      look.pitch = look.fromPitch + (look.toPitch - look.fromPitch) * e;
+    }
+    /* Shoulders follow a neck a little way round. Past about 40 degrees a
+     * person turns their chest instead of straining, and that is the whole
+     * difference between a head on a swivel and somebody looking at
+     * something. */
+    const bodyY = look.yaw * 0.3;
+    this.parts.head.rotation.y += look.yaw;
+    this.parts.head.rotation.x += look.pitch;
+    this.parts.body.rotation.y += bodyY;
+    this._lookApplied = { headY: look.yaw, headX: look.pitch, bodyY };
+  }
+
+  /**
    * Sit the posed figure back down on the floor.
    *
    * Any pose that rotates the whole figure about a point at its feet swings
@@ -198,10 +396,23 @@ export class HeistFigure {
     return this._ground();
   }
 
-  /** Keep the currently interpolated rig touching its authored floor. */
+  /**
+   * Keep the currently interpolated rig touching its authored floor.
+   *
+   * MEASURES THE RIG, NOT THE ROOT. Scenes hang things off `root` that are not
+   * body: `level.js` gives every lobby civilian an invisible 1.75 m aim proxy
+   * at y 0.9, and `cast.js` gives every crew member one, so the lowest point of
+   * `root` was that box's bottom edge at y 0.025 — not a boot. Every grounded
+   * pose in the bank has therefore been floating 2.5 cm off the marble, and a
+   * seated crew member came to rest 2.5 cm above the van's bench.
+   *
+   * `parts.group` is the figure: everything a pose moves and everything worn
+   * (the carrier, the sling, the balaclava) hangs inside it, and nothing a
+   * scene bolts onto `root` for raycasting does.
+   */
   _ground() {
     this.root.updateMatrixWorld(true);
-    const box = this._bounds.setFromObject(this.root);
+    const box = this._bounds.setFromObject(this.parts.group);
     if (!Number.isFinite(box.min.y)) return this;
     this.tilt.position.y += this.baseY - box.min.y;
     return this;
@@ -289,6 +500,45 @@ export class HeistFigure {
     this.parts.foreL.rotation.set(-0.3, 0.3, 0);
     this.pose = 'aiming';
     this._poseFrom = null;
+    this._gaitPhase = 0;
+    return this;
+  }
+
+  /**
+   * Legs for a man moving while his upper body stays on his weapon.
+   *
+   * Owner, on the street: *"Everyones just standing ther"*. Once the police
+   * bound between fire positions (`updatePoliceMovement` in the heist's
+   * `main.js`) they slide across the road with their boots welded together,
+   * which is worse than standing still — a static man reads as covering an
+   * angle, a gliding one reads as broken.
+   *
+   * This writes the FOUR LEG JOINTS and nothing else, so it composes with
+   * `aiming()` above rather than replacing it: the shared `CombatWeaponAim`
+   * keeps the shoulders and the muzzle, and this carries what is underneath.
+   * At zero speed it puts the legs back and returns, so a man who has reached
+   * cover stops walking on the spot.
+   *
+   * @param {number} dt simulated seconds
+   * @param {number} speed metres per second, from the mover
+   */
+  gait(dt, speed) {
+    const pace = Math.max(0, Number(speed) || 0);
+    const legs = [this.parts.legL, this.parts.legR, this.parts.shinL, this.parts.shinR];
+    if (pace <= 0.06) {
+      if (this._gaitPhase === 0) return this;
+      this._gaitPhase = 0;
+      for (const part of legs) part.rotation.x = 0;
+      return this;
+    }
+    this._gaitPhase = (this._gaitPhase ?? 0) + dt * (3.4 + pace * 1.5);
+    const stride = Math.sin(this._gaitPhase);
+    // A jog swings further than a walk, and a sprint does not swing double.
+    const swing = Math.min(0.66, 0.18 + pace * 0.15);
+    this.parts.legL.rotation.x = -stride * swing;
+    this.parts.legR.rotation.x = stride * swing;
+    this.parts.shinL.rotation.x = Math.max(0, stride) * swing * 1.35;
+    this.parts.shinR.rotation.x = Math.max(0, -stride) * swing * 1.35;
     return this;
   }
 
@@ -365,7 +615,7 @@ export class HeistFigure {
     if (to === 'fallen' || to === 'down') return 0.32;
     if (from === 'prone' && to === 'restrained') return 0.42;
     if (to === 'prone' || to === 'restrained') return 0.72;
-    if (to === 'kneeling') return 0.5;
+    if (to === 'kneeling' || to === 'seated') return 0.5;
     if (to === 'bolting' || to === 'alarm') return 0.28;
     return 0.34;
   }
@@ -480,6 +730,10 @@ export class HeistFigure {
   /** Breathing, the shake that says a person is frightened, and the mouth. */
   update(dt, { fear = 0 } = {}) {
     const talk = this.voiceMouth.update(dt);
+    /* Last frame's idle look comes OFF before anything reads the rig, so the
+     * pose blend, `_poseHeadX` and the talking nod all see the authored pose
+     * rather than the pose plus wherever the neck happened to be pointing. */
+    this._clearIdleLook();
     /* The pose blend runs FIRST and writes the joints; the breath and the
      * tremble below are offsets laid on top of whatever it left. */
     const blending = this._updatePoseBlend(dt);
@@ -542,9 +796,12 @@ export class HeistFigure {
      * man is quiet. The poses in this file set `head.rotation.x` directly
      * (pleading tips it 0.18 forward, startled tips it back), and a nod that
      * wrote an absolute angle would quietly flatten every one of them. */
-    if (!this.voiceMouth.photo) return;
-    if (talk === 0) this._poseHeadX = this.parts.head.rotation.x;
-    else this.parts.head.rotation.x = (this._poseHeadX ?? 0) - talk * 0.085;
+    if (this.voiceMouth.photo) {
+      if (talk === 0) this._poseHeadX = this.parts.head.rotation.x;
+      else this.parts.head.rotation.x = (this._poseHeadX ?? 0) - talk * 0.085;
+    }
+    // Last, and on top of everything: see `setIdleLook`.
+    this._updateIdleLook(dt);
   }
 
   dispose() {
@@ -581,6 +838,35 @@ export function makeHostageFigure({ id, index, role, x, z, yaw }) {
  * `setThreatProgress` drives the draw and `setNeutralized` ends it. The old
  * version was six boxes and a sphere; this is a person with a gun on his hip.
  */
+/**
+ * A bank security guard.
+ *
+ * Owner, on the lobby: *"make him clearly a guard, needs a better outfit with
+ * a bulletproof verst and a clear badge"*, and then *"Does the guard even
+ * have a gun?"*
+ *
+ * The answer to the last one was NO, visibly. The pistol existed but was
+ * built `visible = false` and only appeared once he was already drawing it —
+ * so up to the moment he pulled, the one armed man in the room was a bloke in
+ * a blue work shirt with a 3 cm brass disc on his chest, an empty holster
+ * shape and a peaked cap. Nothing about him said what he was, which made
+ * shooting him first read as murdering a customer.
+ *
+ * So he is dressed for what he is, and every piece of it is legible across a
+ * 22 m lobby:
+ *
+ *   - a **vest**, the shared modelled carrier in security navy rather than
+ *     tactical black, with no rifle magazines on it — he is not a soldier;
+ *   - SECURITY across the chest and the back, which is how you know from
+ *     behind;
+ *   - a **shield badge**, 9 cm rather than 3, on the vest instead of under it,
+ *     with a name bar under it and a patch on the shoulder;
+ *   - a **holstered sidearm** that is there the whole time: the butt of it
+ *     stands out of the holster, so the threat is visible before it is aimed.
+ *
+ * When he draws, the holstered copy goes away in the same instant the one in
+ * his hand appears, so there is never two of them.
+ */
 export function makeBankGuardFigure({ name, x, z, yaw, height = HEIST_HEIGHTS.guard }) {
   const figure = new HeistFigure({
     name, x, z, yaw, tier: 'hero',
@@ -603,25 +889,86 @@ export function makeBankGuardFigure({ name, x, z, yaw, height = HEIST_HEIGHTS.gu
   const peak = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.016, 0.085), dark);
   peak.position.set(0, 0.228, 0.125);
   figure.parts.head.add(peak);
+  // The cap badge: the same shield as the chest, so the two read as one job.
+  const capBadge = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.032, 0.012), brass);
+  capBadge.position.set(0, 0.262, 0.104);
+  figure.parts.head.add(capBadge);
   // Named so the level-presentation test can still find a head on this man.
   const headMark = new THREE.Group();
   headMark.name = `${name}-head`;
   figure.parts.head.add(headMark);
-  const badge = new THREE.Mesh(new THREE.CircleGeometry(0.03, 10), brass);
-  badge.position.set(-0.1, 1.3, 0.152);
+
+  /* THE VEST. The shared carrier, unloaded — a guard wears body armour, not a
+   * combat rig, so there are no rifle magazines across his belly. */
+  const vest = makePlateCarrier({ colour: 0x1b2430, loaded: false });
+  vest.name = `${name}-vest`;
+  vest.position.set(0, 1.26, 0.012);
+  vest.scale.setScalar(1.04);
+  figure.parts.body.add(vest);
+
+  const marking = new THREE.MeshStandardMaterial({ color: 0xd9dee6, roughness: 0.85 });
+  // SECURITY, front and back. The band is the word at this distance.
+  const chestBand = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.038, 0.012), marking);
+  chestBand.position.set(0, 1.17, 0.196);
+  chestBand.name = `${name}-chest-legend`;
+  figure.parts.body.add(chestBand);
+  const backBand = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.05, 0.012), marking);
+  backBand.position.set(0, 1.3, -0.19);
+  backBand.name = `${name}-back-legend`;
+  figure.parts.body.add(backBand);
+
+  /* THE BADGE: a shield, on the outside of the vest, three times the size of
+   * the disc it replaces, with a dark centre so it is a badge and not a coin
+   * — and a name bar under it. */
+  const badge = new THREE.Group();
   badge.name = `${name}-badge`;
+  const shieldTop = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.058, 0.014), brass);
+  shieldTop.position.y = 0.018;
+  badge.add(shieldTop);
+  const shieldPoint = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.03, 0.014), brass);
+  shieldPoint.position.y = -0.026;
+  badge.add(shieldPoint);
+  const shieldFace = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.03, 0.008),
+    new THREE.MeshStandardMaterial({ color: 0x1a2b45, roughness: 0.5 }));
+  shieldFace.position.set(0, 0.02, 0.008);
+  badge.add(shieldFace);
+  badge.position.set(-0.098, 1.33, 0.2);
   figure.parts.body.add(badge);
+  const nameBar = new THREE.Mesh(new THREE.BoxGeometry(0.086, 0.02, 0.01), marking);
+  nameBar.position.set(0.09, 1.31, 0.198);
+  figure.parts.body.add(nameBar);
+  // A shoulder patch, which is the read from the side.
+  const patch = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.055, 0.045), brass);
+  patch.position.set(-0.105, 0.02, 0.01);
+  figure.parts.armL.add(patch);
+
   const belt = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.05, 0.24), dark);
   belt.position.set(0, 1.03, 0);
   figure.parts.body.add(belt);
-  const holster = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.14, 0.06), dark);
+  const holster = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.15, 0.065), dark);
   holster.position.set(0.17, 0.94, 0.02);
   holster.name = `${name}-holster`;
   figure.parts.body.add(holster);
 
+  const steel = new THREE.MeshStandardMaterial({ color: 0x2e3338, metalness: 0.7, roughness: 0.36 });
+
+  /* THE GUN IN THE HOLSTER. Not the drawn one — a second, static copy whose
+   * butt and hammer stand above the leather, so the man is visibly armed from
+   * the moment the doors come in. It goes away the instant the drawn one
+   * appears; `setThreatProgress` owns both. */
+  const holstered = new THREE.Group();
+  holstered.name = `${name}-holstered-sidearm`;
+  const buttStock = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.09, 0.038), dark);
+  buttStock.rotation.x = -0.2;
+  holstered.add(buttStock);
+  const hammer = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.03, 0.055), steel);
+  hammer.position.set(0, 0.05, -0.026);
+  holstered.add(hammer);
+  holstered.position.set(0.17, 1.045, 0.026);
+  figure.parts.body.add(holstered);
+
   const gun = new THREE.Group();
   gun.name = `${name}-gun`;
-  const steel = new THREE.MeshStandardMaterial({ color: 0x2e3338, metalness: 0.7, roughness: 0.36 });
   const slide = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.034, 0.15), steel);
   gun.add(slide);
   const grip = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.085, 0.036), dark);
@@ -640,6 +987,8 @@ export function makeBankGuardFigure({ name, x, z, yaw, height = HEIST_HEIGHTS.gu
   root.userData.setThreatProgress = (progress) => {
     const p = Math.max(0, Math.min(1, progress));
     gun.visible = p > 0.12;
+    // One pistol at a time: it is out of the holster or it is in it.
+    holstered.visible = !gun.visible;
     figure.parts.armR.rotation.set(-p * 1.62, 0, p * 0.18);
     figure.parts.foreR.rotation.x = -p * 0.25;
     figure.parts.armL.rotation.set(-p * 0.9, 0, -p * 0.32);
@@ -649,11 +998,13 @@ export function makeBankGuardFigure({ name, x, z, yaw, height = HEIST_HEIGHTS.gu
   };
   root.userData.setNeutralized = ({ blend = true } = {}) => {
     gun.visible = false;
+    holstered.visible = false;
     figure.setState('down', { blend, roll: -0.42 });
     root.userData.neutralized = true;
   };
   root.userData.resetThreatPose = () => {
     gun.visible = false;
+    holstered.visible = true;
     figure.stand();
     root.userData.neutralized = false;
     root.userData.threatProgress = 0;

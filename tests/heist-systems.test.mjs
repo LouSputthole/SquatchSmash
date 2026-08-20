@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 
 import { CheckpointDirector } from '../src/heist/checkpoints.js';
 import { CivilianController } from '../src/heist/civilians.js';
@@ -9,8 +10,14 @@ import { HeistMissionMachine } from '../src/heist/mission.js';
 import { AuthoredNavigationGraph, SquadDirector } from '../src/heist/navigation.js';
 import { PoliceDirector } from '../src/heist/police.js';
 import { intersectsDrivingObstacle } from '../src/heist/geometry.js';
-import { HEIST_CHECKPOINT_STATE, HEIST_STATES, PREVIEW_START_STATE } from '../src/heist/config.js';
+import {
+  BLOCK_CLEAR_OFFICERS, HEIST_CHECKPOINT_STATE, HEIST_STATES, PREVIEW_START_STATE,
+} from '../src/heist/config.js';
 import { HEIST_ORDERS, objectiveForState } from '../src/heist/orders.js';
+import { SNOW_CASUALTY_LADDER, dialogueLine } from '../src/heist/script.js';
+import { CHARACTER_IDS } from '../src/core/campaign.js';
+
+const HEIST_MAIN_SOURCE = await readFile(new URL('../src/heist/main.js', import.meta.url), 'utf8');
 
 test('heist mission sequence rejects skips, records failure, and restores authored state', () => {
   const machine = new HeistMissionMachine();
@@ -241,13 +248,101 @@ test('objectives that carry a sub-step read it from the context, not from a stat
   // Fetching a bag and carrying one are different instructions in CASH_LOADING.
   assert.match(objectiveForState('CASH_LOADING', { bankBagsStaged: 1 }), /1\/2 staged/);
   assert.match(objectiveForState('CASH_LOADING', { carryingBag: 'cash_3' }), /Carry the bag/);
-  // A contact counts down the officers still up.
-  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: 0 }), /0\/2 officers down/);
-  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: 2 }), /Reach Rippin/);
-  assert.match(objectiveForState('GARAGE_HOLD', { officersDown: 2 }), /Load the cash/);
+  /* A contact counts down the officers still up, against the block's OWN
+   * cost. Every block used to open at two, so with a fourteen-man budget and
+   * a wave director feeding the street the first two officers to arrive were
+   * the whole encounter and the player walked past the other twelve. */
+  const need = BLOCK_CLEAR_OFFICERS.bank_avenue;
+  assert.ok(need >= 4, 'a block that opens on three officers is not a block');
+  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: 0 }),
+    new RegExp(`0/${need} officers down`));
+  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: need }), /Reach Rippin/);
+  assert.match(objectiveForState('STREET_BLOCK_ONE', { officersDown: need - 1 }),
+    /officers down/, 'the lane opened one officer early');
+  assert.match(objectiveForState('GARAGE_HOLD',
+    { officersDown: BLOCK_CLEAR_OFFICERS.mercer_garage }), /Load the cash/);
+  // An explicit context beats the table, which is how the runtime passes it.
+  assert.match(objectiveForState('STREET_BLOCK_TWO', { officersDown: 1, officersNeeded: 9 }),
+    /1\/9 officers down/);
 });
 
 test('an unknown state falls back to an instruction rather than leaving a stale one', () => {
   assert.equal(objectiveForState('NOT_A_STATE'), objectiveForState('SAFEHOUSE_ARRIVAL'));
   assert.equal(objectiveForState(undefined), objectiveForState('SAFEHOUSE_ARRIVAL'));
+});
+
+test('Snow escalates over the bodies instead of repeating one line', () => {
+  /* Owner: *"SNow repeats the line that is a customer that is the one thing
+   * we dont do. Lets get some more variations of this for the first few you
+   * kill and if you kill 4+ he says okay we are commited now. Do them all."*
+   *
+   * `main.js` called `say('snow_casualty')` on every civilian death: one
+   * line, no cooldown, no count, for the first body and the eleventh. */
+  const rungs = Object.entries(SNOW_CASUALTY_LADDER);
+  assert.ok(rungs.length >= 5, 'the casualty ladder has no rungs');
+  const seen = new Set();
+  for (const [rung, ids] of rungs) {
+    assert.ok(ids.length >= 1, `${rung} is empty`);
+    for (const id of ids) {
+      const entry = dialogueLine(id);
+      assert.ok(entry, `${id} is on the ladder with nothing written for it`);
+      assert.equal(entry.speakerId, CHARACTER_IDS.SNOW, `${id} is not Snow`);
+      assert.ok(entry.text.length > 20, `${id} is too short to be a line`);
+      assert.ok(!seen.has(entry.text), `two rungs say the same thing: ${entry.text}`);
+      seen.add(entry.text);
+      // It has to be sayable in the room it fires in.
+      assert.ok(entry.states.includes('LOBBY_CONTROL'), `${id} cannot be said in the lobby`);
+    }
+  }
+  // The first three rungs are a bank each, the commitment beat is one line.
+  for (const rung of ['first', 'second', 'third']) {
+    assert.ok(SNOW_CASUALTY_LADDER[rung].length >= 3,
+      `${rung} has only ${SNOW_CASUALTY_LADDER[rung].length} variant(s)`);
+  }
+  assert.equal(SNOW_CASUALTY_LADDER.committed.length, 1,
+    'the commitment beat is not a beat if it is one of several');
+  assert.match(dialogueLine(SNOW_CASUALTY_LADDER.committed[0]).text, /committed/i);
+
+  // And the runtime drives it off the count rather than saying one thing.
+  assert.doesNotMatch(HEIST_MAIN_SOURCE, /^\s*say\('snow_casualty'\);$/m,
+    'main.js still fires the single unrationed casualty line');
+  assert.match(HEIST_MAIN_SOURCE, /const COMMITTED_CASUALTIES = 4;/,
+    'the fourth body is no longer the hinge');
+});
+
+test('four dead customers turns the job into clearing the room', () => {
+  /* Owner: *"one of the objectives turns to make sure there are no witnesses
+   * and you have to whack all the customers."* */
+  const BANK_STATES = ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT',
+    'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER'];
+
+  // Off, the orders are unchanged.
+  for (const state of BANK_STATES) {
+    const normal = objectiveForState(state, { noWitnesses: false, witnessesLeft: 9 });
+    assert.doesNotMatch(normal, /No witnesses/,
+      `${state} announced a sweep nobody started`);
+  }
+
+  // On, it replaces the standing order and it counts down.
+  for (const state of BANK_STATES) {
+    const order = objectiveForState(state, { noWitnesses: true, witnessesLeft: 9 });
+    assert.match(order, /^No witnesses\. 9 customers still standing/, `${state}: ${order}`);
+  }
+  assert.match(objectiveForState('CASH_LOADING', { noWitnesses: true, witnessesLeft: 1 }),
+    /1 customer still standing/, 'the last one is not "1 customers"');
+  assert.match(objectiveForState('CASH_LOADING', { noWitnesses: true, witnessesLeft: 0 }),
+    /Lobby is clear/);
+
+  // It is only ever about the room: the street and the getaway are unchanged.
+  for (const state of ['STREET_BLOCK_ONE', 'GARAGE_HOLD', 'CITY_PURSUIT', 'DEBRIEF']) {
+    assert.doesNotMatch(objectiveForState(state, { noWitnesses: true, witnessesLeft: 4 }),
+      /No witnesses/, `${state} is not the lobby`);
+  }
+
+  // And the doors are a consequence, not a caption.
+  assert.match(HEIST_MAIN_SOURCE, /if \(noWitnesses && witnessesRemaining\(\) > 0\)/,
+    'the crew can still walk out of a lobby that can describe them');
+  assert.match(HEIST_MAIN_SOURCE, /noWitnesses = false;/, 'the sweep latch never resets');
+  assert.match(HEIST_MAIN_SOURCE, /noWitnesses = snapshot\.noWitnesses === true;/,
+    'a checkpoint restore forgets the sweep');
 });

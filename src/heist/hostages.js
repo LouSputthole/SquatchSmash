@@ -61,6 +61,22 @@ export class Hostage {
     this.robbed = false;
     this.restrained = false;
     this.down = false;
+    /**
+     * OUT OF THE ROOM.
+     *
+     * Owner: *"The customer animations are funky."* The plainest case of it
+     * was `bolting`: `HeistFigure` runs a full stride cycle for that pose and
+     * a comment says the root "remains owned by the scene/navigation layer" —
+     * and this scene has no navigation layer for customers. So a panicking
+     * customer sprinted on the spot, in place, for the rest of the robbery.
+     *
+     * He runs for the doors now (`updateBoltingCustomers` in `main.js`), and
+     * a man who reaches them is GONE: not a hostage, not a target, and — the
+     * part that matters mechanically — not one of the witnesses the sweep is
+     * counting, or a lobby with one escapee in it could never be cleared and
+     * the crew would never get out of the bank.
+     */
+    this.escaped = false;
     this.noticedAim = false;
     /** Seconds this person has been unattended and free to make a decision. */
     this.unwatched = 0;
@@ -68,8 +84,20 @@ export class Hostage {
     this.driftFor = 0;
   }
 
-  get controlled() { return CONTROLLED_STATES.includes(this.state); }
-  get interactive() { return !this.down && !this.restrained; }
+  /** Somebody who has left the building is not a problem in it. */
+  get controlled() { return this.escaped || CONTROLLED_STATES.includes(this.state); }
+  get interactive() { return !this.down && !this.restrained && !this.escaped; }
+  /** Still in the room, still breathing, still able to describe somebody. */
+  get present() { return !this.escaped && !this.down; }
+
+  /** Out through the doors. Not a casualty, and no longer anybody's problem. */
+  escape() {
+    if (this.escaped || this.down) return false;
+    this.escaped = true;
+    this.aimPressure = 0;
+    this.panic = 1;
+    return true;
+  }
 
   /**
    * A muzzle is on this person.
@@ -186,7 +214,7 @@ export class Hostage {
    */
   update(dt, { control = 0, covered = false } = {}) {
     const step = Math.max(0, dt);
-    if (this.down || this.restrained) return null;
+    if (this.down || this.restrained || this.escaped) return null;
     this.panic = Math.max(0, this.panic - step * 0.09);
     const pressure = (covered ? 0.5 : 0) + control * 0.35 + (this.reassured ? 0.15 : 0);
     this.compliance = Math.max(0, this.compliance
@@ -215,7 +243,8 @@ export class Hostage {
     return {
       id: this.id, state: this.state, panic: this.panic, compliance: this.compliance,
       aimPressure: this.aimPressure, reassured: this.reassured, robbed: this.robbed,
-      restrained: this.restrained, down: this.down, noticedAim: this.noticedAim,
+      restrained: this.restrained, down: this.down, escaped: this.escaped,
+      noticedAim: this.noticedAim,
       unwatched: this.unwatched, driftFor: this.driftFor, valuables: this.valuables,
     };
   }
@@ -230,6 +259,7 @@ export class Hostage {
     this.robbed = record.robbed === true;
     this.restrained = record.restrained === true;
     this.down = record.down === true;
+    this.escaped = record.escaped === true;
     this.noticedAim = record.noticedAim === true;
     this.unwatched = Number(record.unwatched) || 0;
     this.driftFor = Number(record.driftFor) || 0;
@@ -245,6 +275,7 @@ export class Hostage {
     this.robbed = false;
     this.restrained = false;
     this.down = false;
+    this.escaped = false;
     this.noticedAim = false;
     this.unwatched = 0;
     this.driftFor = 0;
@@ -265,7 +296,10 @@ export class HostageDirector {
     this.robbedCount = 0;
     this.restrainedCount = 0;
     this.alarmAttempts = 0;
+    /** People who broke for the door. Not all of them reach it. */
     this.escapes = 0;
+    /** People who did. See `Hostage.escape`. */
+    this.escaped = 0;
     this.personalCashTaken = 0;
   }
 
@@ -303,6 +337,19 @@ export class HostageDirector {
     const result = person.restrain();
     if (result.ok) this.restrainedCount++;
     return result;
+  }
+
+  /** Somebody who bolted has reached the doors and is out of the building. */
+  escaped_(id) {
+    const person = this.get(id);
+    if (!person?.escape()) return false;
+    this.escaped++;
+    return true;
+  }
+
+  /** Everybody still in the room who could describe the crew afterwards. */
+  get witnesses() {
+    return this.hostages.filter((person) => person.present).length;
   }
 
   fell(id) {
@@ -343,6 +390,8 @@ export class HostageDirector {
       robbed: this.robbedCount,
       alarmAttempts: this.alarmAttempts,
       escapes: this.escapes,
+      escaped: this.escaped,
+      witnesses: this.witnesses,
       personalCashTaken: this.personalCashTaken,
       control: this.control,
     };
@@ -355,6 +404,7 @@ export class HostageDirector {
       restrainedCount: this.restrainedCount,
       alarmAttempts: this.alarmAttempts,
       escapes: this.escapes,
+      escaped: this.escaped,
       personalCashTaken: this.personalCashTaken,
       people: this.hostages.map((person) => person.capture()),
     };
@@ -366,6 +416,7 @@ export class HostageDirector {
     this.restrainedCount = snapshot.restrainedCount ?? 0;
     this.alarmAttempts = snapshot.alarmAttempts ?? 0;
     this.escapes = snapshot.escapes ?? 0;
+    this.escaped = snapshot.escaped ?? 0;
     this.personalCashTaken = snapshot.personalCashTaken ?? 0;
     for (const [index, record] of (snapshot.people ?? []).entries()) {
       this.hostages[index]?.restore(record);
@@ -378,6 +429,7 @@ export class HostageDirector {
     this.restrainedCount = 0;
     this.alarmAttempts = 0;
     this.escapes = 0;
+    this.escaped = 0;
     this.personalCashTaken = 0;
     for (const person of this.hostages) person.reset();
   }
