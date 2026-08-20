@@ -1,16 +1,23 @@
 import { crewHeadingForPhase, setCrewMasked } from './cast.js';
 import { HEIST_PREVIEW_CHECKPOINTS } from './config.js';
+import { VAN_SEAT_HEIGHT } from './level.js';
 
 export { HEIST_PREVIEW_CHECKPOINTS };
 
 export const HEIST_SQUAD_FORMATIONS = Object.freeze({
   safehouse: Object.freeze([[-3.4, -1.2], [-1.7, -2.4], [0, -2.6], [1.8, -2.3], [3.5, -1.1]]),
-  van: Object.freeze([[-1.15, 1.45], [1.15, 1.2], [-1.15, -0.2], [1.15, -0.55], [-1.15, -1.75]]),
+  /* On the benches, not beside them. x 1.42 puts the hips over the cushion
+   * (which spans 0.94 to 1.66) with the shoulders against the seat back, and
+   * the knees and boots land on the aisle floor in front. */
+  van: Object.freeze([[-1.42, 1.6], [1.42, 1.0], [-1.42, 0], [1.42, -0.8], [-1.42, -1.6]]),
   bank: Object.freeze([[-6.8, 6.4], [8.6, 6.0], [-8.8, -0.6], [8.8, -1.2], [4.2, 9.4]]),
   street: Object.freeze([[-2.5, 25], [6.6, 22], [-7, 18], [2.5, 17], [-6.8, 28]]),
   garage: Object.freeze([[-6.5, 7], [6.5, 6], [-7, 0], [7, -1], [-6.5, -6]]),
   driving: Object.freeze([[16, -649], [18, -651], [20, -653], [22, -651], [24, -649]]),
 });
+
+/** How far back each seat sits. Five men in a van do not share a posture. */
+const VAN_SLOUCH = Object.freeze([0.1, 0.5, 0.3, 0.62, 0]);
 
 const CHECKPOINT_GEOMETRY = Object.freeze({
   safehouse: Object.freeze({ phase: 'safehouse', masked: false, prepared: false, vaultOpen: false }),
@@ -70,6 +77,25 @@ export function poseHeistCrewGeometry({ level, crew, phase, assignAnchor = null 
     actor.group.position.set(x, 0, z);
     actor.heading = crewHeadingForPhase(phase, { x, z });
     actor.group.rotation.y = actor.heading;
+    /* THE POSE IS PART OF THE FORMATION. It has to be, because this seam is
+     * the only place both the browser and the headless adapter go through —
+     * putting the sit in `main.js` would mean the scale gate and the geometry
+     * gate keep measuring five standing men in a van nobody stands up in.
+     *
+     * The slouch is per SEAT rather than per person, so the same crew member
+     * sits the same way every ride and no two men beside each other sit
+     * identically. Anywhere else it is `stand()`, which also puts a man who
+     * has just got out of the van back on his feet. */
+    if (phase === 'van') {
+      actor.figure?.seated?.({
+        slouch: VAN_SLOUCH[index % VAN_SLOUCH.length],
+        seatY: VAN_SEAT_HEIGHT,
+      });
+      actor.figure?.setIdleLook?.({ seed: index + 1, range: 0.68, hold: [0.9, 2.8] });
+    } else {
+      if (actor.figure?.pose === 'seated') actor.figure.stand();
+      actor.figure?.setIdleLook?.(null);
+    }
     anchors[actor.id] = anchor;
   }
   return Object.freeze(anchors);

@@ -2522,7 +2522,9 @@ function refreshInteractions() {
           refreshInteractions();
         } else if (machine.state === 'VAULT_BYPASS') {
           advanceTo('CASH_LOADING');
-          p.bank.interactables.vault.userData.setOpen?.(true);
+          // Animated here and only here: the bypass is the one time anybody
+          // watches this door move. Restores and preview stagers snap.
+          p.bank.interactables.vault.userData.setOpen?.(true, { animate: true });
           recordCheckpoint('vault_open', 'CASH_LOADING', {
             alarmTriggered: true, bagsStaged: 0,
           });
@@ -3128,6 +3130,9 @@ function updatePoliceCombat(dt) {
 
 function updateBankSequence(dt) {
   if (activePhase !== 'bank' || machine.state === 'FAILED') return;
+  /* Four tonnes of steel swinging on a hinge, on the simulated clock like
+   * everything else. `tickDoor` is a no-op once the door has arrived. */
+  level.phases.bank.interactables.vault.userData.tickDoor?.(dt);
   if (guardThreat.state === 'drawing') {
     const outcome = guardThreat.update(dt);
     const snapshot = guardThreat.snapshot();
