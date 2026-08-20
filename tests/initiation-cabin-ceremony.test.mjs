@@ -612,6 +612,31 @@ test('the hub offers all five answers across the three gaps, and silence is alwa
   assert.equal(script.beatById('IN-185').lines.length, 0);
 });
 
+test('every choice in the script leads somewhere that exists', () => {
+  const withChoices = script.BEATS.filter((beat) => beat.choice);
+  assert.ok(withChoices.length >= 3, 'the scene has lost its choices');
+  for (const beat of withChoices) {
+    assert.ok(beat.choice.options.length <= 3,
+      `${beat.id} offers more options than initiation.html has buttons`);
+    for (const option of beat.choice.options) {
+      assert.ok(script.hasBeat(option.to), `${beat.id} → "${option.text}" leads to nothing`);
+    }
+    /* A choice either waits forever with a prompt on screen, or it resolves on
+     * its own to a destination that exists. Nothing in between. */
+    if (beat.choice.timeout === null) {
+      assert.equal(beat.choice.fallback, null, `${beat.id} has a fallback it can never take`);
+      assert.equal(beat.id, 'IN-370', 'only the oath question waits forever');
+    } else {
+      assert.ok(script.hasBeat(beat.choice.fallback),
+        `${beat.id} times out into nothing`);
+      assert.equal(beat.choice.options.some((option) => option.to === beat.choice.fallback), true,
+        `${beat.id}'s timeout goes somewhere the player was never offered`);
+    }
+  }
+  /* And the hub's own timeout, which is not on a beat. */
+  assert.ok(script.hasBeat(script.HUB.fallback));
+});
+
 test('speaking at the killing is remembered, and Lou has both halves of it', () => {
   assert.equal(script.asideFor(false).id, 'IN-365-silent');
   assert.equal(script.asideFor(true).id, 'IN-365-spoke');

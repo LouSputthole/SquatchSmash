@@ -1297,62 +1297,78 @@ try {
       JSON.stringify({ beforeQ, afterQ }));
     await capture(qPage, 'after-independent-q-exit');
 
-    /* ---- the shared .45, fired and reloaded for real ----
+    /* ---- the shared .45, and the trigger the deal will not let him pull ----
      *
-     * One trigger pull spends one round out of the shared Firearm, logs the
-     * shared cue, and costs Tony what a gunshot costs in this scene; one [R]
-     * runs the catalog's two-phase reload — brass out, six back in, reserve
-     * down by what the cylinder was short. This context is disposable, so
-     * the police heat and Snow's reaction stay out of the main run. */
+     * This used to fire a live round in the lot and run a real [R] reload:
+     * one pull spends one round out of the shared Firearm, logs the shared
+     * cue, and costs Tony what a gunshot costs in this scene. It could,
+     * because the glovebox was how the .45 got into his hands and it stayed
+     * there.
+     *
+     * The scene pass sealed the deal. The arrival draws the .45, looks at it
+     * and puts it away, and `dealSealed()` refuses a trigger pull "before a
+     * round, a cue, or a cadence timer is spent" for every phase up to and
+     * including room twelve -- only `releaseWeapon()` at the betrayal takes
+     * that decision back. A Q-exit into the lot is squarely inside the seal,
+     * so what this context can prove is the REFUSAL, and it proves it hard:
+     * nothing spent, nothing logged, nothing shot, and a man with an opinion
+     * rather than a man with a jammed gun.
+     *
+     * WHAT IS NO LONGER COVERED ANYWHERE, and should be: one pull spending
+     * one shared round and one [R] running the catalog's two-phase reload.
+     * Those belong after the betrayal, in the fight, and this disposable
+     * context cannot reach that beat -- `maybeBetray()` returns unless the
+     * phase is already 'room' or 'door'. Moving them needs a fight-phase
+     * probe the file does not have yet; it is a gap, not a decision. */
     await qPage.evaluate(() => window.MOTEL.face(0, -12));
     await qPage.waitForTimeout(200);
-    await capture(qPage, 'shared-revolver-viewmodel-lot');
+    await capture(qPage, 'shared-revolver-sealed-lot');
     const beforeFire = await qPage.evaluate(() => ({
       ammo: window.MOTEL.S.ammo,
       shots: window.MOTEL.weapons.stats.shots,
+      refusals: window.MOTEL.S.weaponRefusals,
       viewmodel: window.MOTEL.viewmodel,
     }));
     await qPage.evaluate(() => window.MOTEL.fire());
+    await qPage.waitForTimeout(200);
     const afterFire = await qPage.evaluate(() => ({
       ammo: window.MOTEL.S.ammo,
-      hud: window.MOTEL.weapons.hud,
       shots: window.MOTEL.weapons.stats.shots,
       cues: window.MOTEL.weapons.cues,
+      refusals: window.MOTEL.S.weaponRefusals,
       firedWeapon: window.MOTEL.S.firedWeapon,
       noshotFailed: window.MOTEL.objectives.failed.includes('noshot'),
+      subtitle: document.getElementById('subtitle').textContent,
     }));
-    check('one trigger pull spends one shared round and logs the shared fire cue',
-      beforeFire.viewmodel.shared === 'revolver'
-        && beforeFire.viewmodel.visible
+    check('the sealed deal refuses the trigger before a round, a cue or a shot is spent',
+      beforeFire.viewmodel.kind === null
+        && !beforeFire.viewmodel.visible
         && beforeFire.ammo === 6
-        && afterFire.ammo === 5
-        && afterFire.hud?.rounds === 5
-        && afterFire.shots === beforeFire.shots + 1
-        && afterFire.cues.includes('weapon.revolver.fire')
-        && afterFire.firedWeapon
-        && afterFire.noshotFailed,
+        && afterFire.ammo === 6
+        && afterFire.shots === beforeFire.shots
+        && !afterFire.cues.includes('weapon.revolver.fire')
+        && !afterFire.firedWeapon
+        && !afterFire.noshotFailed
+        && afterFire.refusals === beforeFire.refusals + 1
+        && [
+          'I should work the deal before resorting to that.',
+          'Not yet. Let us see how this plays out.',
+          'Lou sent me here to buy meat. Not to redecorate a motel.',
+        ].some((line) => afterFire.subtitle.includes(line)),
       JSON.stringify({ beforeFire, afterFire }));
 
     await qPage.evaluate(() => window.MOTEL.reload());
-    await qPage.waitForFunction(
-      () => window.MOTEL.S.ammo === 6 && !window.MOTEL.weapons.reloading,
-      null,
-      { timeout: SCENE_WAIT_MS, polling: 100 },
-    ).catch(() => { /* reported by the assertion below */ });
+    await qPage.waitForTimeout(400);
     const reloaded = await qPage.evaluate(() => ({
       ammo: window.MOTEL.S.ammo,
-      hud: window.MOTEL.weapons.hud,
       reserve: window.MOTEL.weapons.reserve,
       reloads: window.MOTEL.weapons.stats.reloads,
       cues: window.MOTEL.weapons.cues,
     }));
-    check('[R] runs the shared two-phase reload back to six, out of twelve loose',
+    check('[R] spends nothing out of a cylinder that is still full and put away',
       reloaded.ammo === 6
-        && reloaded.hud?.rounds === 6
-        && reloaded.reserve === 11
-        && reloaded.reloads >= 1
-        && reloaded.cues.includes('weapon.revolver.reload.out')
-        && reloaded.cues.includes('weapon.revolver.reload.in'),
+        && reloaded.reserve === 12
+        && reloaded.cues.every((cue) => !cue.startsWith('weapon.revolver.reload')),
       JSON.stringify(reloaded));
   } finally {
     await qContext.close();
@@ -1682,13 +1698,37 @@ try {
     doorSolid: window.MOTEL.refs.frontDoor.collider.enabled,
     thresholdHeld: window.MOTEL.refs.roomTwelveThreshold.enabled,
     answeredAfterMs: Math.round(window.MOTEL.S.doorAnsweredAt - window.MOTEL.S.knockedAt),
+    /* The doorstep wheel is what the door used to wait for. It is open and
+     * unanswered here, which is the owner's complaint answered in the one
+     * form no clock can argue with. */
+    doorstepNode: window.MOTEL.dialogue?.nodeId ?? null,
+    doorstepAnswered: window.MOTEL.dialogue === null,
   }));
-  check('room twelve opens its door within a second of the knock',
+  check('room twelve opens its door on the knock, not on the doorstep conversation',
+    /* The old bound was `answeredAfterMs <= 1000` and it read 2697 on
+     * 2026-08-20. Nothing about the door had changed: both timestamps are
+     * `performance.now()` (src/motel/main.js) taken either side of a
+     * `setTimeout(..., KNOCK_ANSWER_MS)` of 420 ms, and a setTimeout is
+     * DELIVERED late when the main thread is three seconds into rasterising a
+     * motel forecourt in software. The measurement was of the browser's task
+     * queue, not of Rico.
+     *
+     * What the owner actually asked for -- "they should open the door right
+     * after you knock on it", against a door that used to wait four lines for
+     * the doorstep wheel -- is a statement about ORDER, and order is exact:
+     * the leaf is open, its collider is off, Rico's body still holds the
+     * threshold, and the doorstep wheel is still sitting there UNANSWERED.
+     * That is pinned first. The elapsed time is kept as a sanity bound, and
+     * widened to five seconds with the delivery lag named, so it still
+     * catches a door that waits on a conversation (which would take tens of
+     * seconds here) without failing a box that is merely slow. */
     knockAnswer.doorOpen
       && !knockAnswer.doorSolid
       && knockAnswer.thresholdHeld
+      && knockAnswer.doorstepNode === 'atDoor'
+      && !knockAnswer.doorstepAnswered
       && knockAnswer.answeredAfterMs > 0
-      && knockAnswer.answeredAfterMs <= 1000,
+      && knockAnswer.answeredAfterMs <= 5000,
     JSON.stringify(knockAnswer));
 
   /* Open is not the same as clear: until the doorstep wheel is answered, the
@@ -1723,14 +1763,32 @@ try {
     const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
     rico.talkT = 1.2;
   });
-  await previewPage.waitForTimeout(120);
-  const ricoPresentation = await previewPage.evaluate(() => {
+  /* A mouth that is talking is OPEN AND SHUT, and which of the two a single
+   * sample catches is a coin toss weighted by the frame rate: this read
+   * `mouth.scale.y > 1` once, 120 ms after setting `talkT`, and on a software
+   * rasteriser 120 ms is a fraction of one frame. It caught the mouth closed
+   * on 2026-08-20 and called a working mouth broken.
+   *
+   * Watched across frames instead, from inside the page so no round trip can
+   * land between them: the claim is that the mouth MOVES while he speaks, and
+   * that is what "opened at least once before the line ran out" says. It is
+   * the stronger reading as well -- one lucky open frame never proved motion. */
+  const ricoPresentation = await previewPage.evaluate(async () => {
     const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
+    const frame = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
+    let opened = false;
+    let frames = 0;
+    while (frames < 20 && rico.talkT > 0 && !opened) {
+      await frame();
+      frames += 1;
+      if (rico.rig.mouth?.scale.y > 1) opened = true;
+    }
     return {
       identity: rico.identity,
       face: rico.rig.faceMesh?.name || null,
       mouth: rico.rig.mouth?.name || null,
-      mouthOpen: rico.rig.mouth?.scale.y > 1,
+      mouthOpened: opened,
+      framesWatched: frames,
       talkRemaining: rico.talkT,
     };
   });
@@ -1738,8 +1796,7 @@ try {
     ricoPresentation.identity === 'rico'
       && ricoPresentation.face === 'actor.face.rico'
       && ricoPresentation.mouth === 'actor.mouth'
-      && ricoPresentation.mouthOpen
-      && ricoPresentation.talkRemaining > 0,
+      && ricoPresentation.mouthOpened,
     JSON.stringify(ricoPresentation));
   await previewPage.evaluate(() => {
     window.MOTEL.teleport(0, -2.6);
@@ -1749,21 +1806,43 @@ try {
    * opening is a consequence of a chosen line, and the objective that follows
    * is the thing this scene keeps failing to deliver. */
   await answerWheel(previewPage, 'calm');
-  await previewPage.waitForFunction(
-    () => document.getElementById('subtitle').textContent.includes('Come in before'),
-    null,
-    { timeout: SCENE_WAIT_MS },
-  );
-  await previewPage.waitForTimeout(80);
-  const invitation = await previewPage.evaluate(() => {
-    const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
-    return {
-      objective: window.MOTEL.objective,
-      active: window.MOTEL.activeInteract(),
-      voiceBusy: window.MOTEL.voice.busy(),
-      rico: rico ? { x: rico.position.x, z: rico.position.z, state: rico.state } : null,
+  /* "WHILE he says come in" is a statement about two things being true at the
+   * same instant, and this used to try to catch that instant with a wait, an
+   * 80 ms sleep and a round trip -- three chances for the line to finish in
+   * between. It did finish, on 2026-08-20: `voiceBusy` read false against a
+   * scene that had said the line perfectly well, because a line lasts a fixed
+   * number of SECONDS and the sampling took longer than that on a software
+   * rasteriser.
+   *
+   * Sampled from inside the page instead, on the frame where both halves hold
+   * together, so nothing can land between them. The claim is unchanged and
+   * the proof is now exact: while the invitation is still being spoken, the
+   * doorway already offers its [E]. */
+  const invitation = await previewPage.evaluate(() => new Promise((resolve, reject) => {
+    const motel = window.MOTEL;
+    const deadline = performance.now() + 180000;
+    const tick = () => {
+      const subtitle = document.getElementById('subtitle').textContent;
+      if (subtitle.includes('Come in before') && motel.voice.busy()
+        && motel.activeInteract() === 'enterRoom') {
+        const rico = motel.actors.find((actor) => actor.name === 'Rico');
+        resolve({
+          objective: motel.objective,
+          active: motel.activeInteract(),
+          voiceBusy: motel.voice.busy(),
+          subtitle,
+          rico: rico ? { x: rico.position.x, z: rico.position.z, state: rico.state } : null,
+        });
+        return;
+      }
+      if (performance.now() > deadline) {
+        reject(new Error(`the doorway [E] never went live during the invitation: ${subtitle}`));
+        return;
+      }
+      requestAnimationFrame(tick);
     };
-  });
+    tick();
+  }));
   check('Rico steps aside and the [E] doorway prompt is live while he says come in',
     invitation.voiceBusy
       && invitation.objective.sub.includes('[E]')
@@ -1949,10 +2028,21 @@ try {
     label: window.MOTEL.interactableList.find((entry) => entry.id === 'placeMoney').label(),
   }));
   check('counting moves the deal on to your case, and says whose it is',
+    /* The label test read /put your case on the table/i. That interaction was
+     * found during the scene pass to be UNSELECTABLE -- it shared a point and
+     * a radius with the sample check, which was declared first, and selection
+     * uses a strict greater-than -- so the three table props were given
+     * distinct points and a priority that follows the deal step, and the act
+     * was renamed to what it now is: pushing your case ACROSS the table to
+     * him, rather than putting it down on it. The words moved with the fix.
+     *
+     * Pinned to the authored label as it now reads, and still saying the
+     * thing this check exists to say: the prompt names the PLAYER's case and
+     * the table it is going across, so it cannot be mistaken for theirs. */
     payStep.deal.step === 'pay'
       && payStep.objective.id === 'payment'
       && /your case/i.test(payStep.objective.title)
-      && /put your case on the table/i.test(payStep.label)
+      && /push your case across the table/i.test(payStep.label)
       && payStep.deal.board?.theirs.includes('eight counted'),
     JSON.stringify(payStep));
 

@@ -968,7 +968,31 @@ const chain = await page.evaluate(() => {
     }).length;
     const beforeWalk = b.player.position.clone();
     b.player.keys.add('KeyW');
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    /* WAIT FOR FRAMES, NOT FOR THE CLOCK.
+     *
+     * This held W for 400 ms of wall time and then asked how far he had gone.
+     * Under load that is not a walk, it is a coin: this check reported `moved`
+     * and `velocity` both at EXACTLY zero -- which reads as a player who
+     * refuses to move -- while three other browser verifiers and a handful of
+     * agents were competing for the machine and the page had been handed
+     * approximately no animation frames at all. Zero frames, zero movement,
+     * and a report that the end of the mission strands you beside the
+     * aeroplane unable to walk. It does not; it was starved.
+     *
+     * So the walk is measured in FRAMES the page actually got. Twenty-four of
+     * them is four hundred milliseconds on a machine doing nothing else and
+     * however long it takes on one that is busy, which is the same
+     * measurement either way. The 5 s ceiling keeps a genuinely dead loop
+     * failing instead of hanging. */
+    const frames = await new Promise((resolve) => {
+      let n = 0;
+      const deadline = Date.now() + 5000;
+      const tick = () => {
+        if (++n >= 24 || Date.now() > deadline) { resolve(n); return; }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
     /* Why he did not move, for the case where he does not.
      *
      * `moved` on its own cannot tell "the player refused to walk" from "the
@@ -985,6 +1009,12 @@ const chain = await page.evaluate(() => {
       enabled: b.player.enabled,
       keysHeld: [...b.player.keys],
       completeUp: b.flightHud.completeUp ?? null,
+      /* The frame loop's own gate, so "he would not walk" and "he was never
+       * asked to" stop looking identical from out here. */
+      gameStarted: b.game?.started ?? null,
+      gamePaused: b.game?.paused ?? null,
+      inCockpitFlag: b.mission.flags.inCockpit,
+      framesGranted: frames,
     };
     b.player.keys.delete('KeyW');
     const state = b.campaignState;

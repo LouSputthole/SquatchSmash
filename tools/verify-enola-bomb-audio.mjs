@@ -65,10 +65,28 @@ const REQUIRED_BOMB_CUES = Object.freeze([
   'enola.blast.b',
   'enola.blast.c',
 ]);
-/** The background load is assigned immediately after AudioEngine.init(). */
+/**
+ * How long the Start click gets to kick the residency ledger.
+ *
+ * `startAudio()` calls `audioBanks.kickoff()` synchronously inside the click
+ * handler, and `createResidencyBanks` marks a bank pending at the call rather
+ * than when its bytes move — so the apron bank leaves `idle` on the same turn.
+ * Anything past a couple of seconds here means the click did not reach
+ * `startAudio()` at all. (This used to be documented as "the background load
+ * is assigned immediately after AudioEngine.init()", from when the page had
+ * one undivided bank and no ledger.)
+ */
 const MANIFEST_START_TIMEOUT_MS = 15000;
-/** Decoding the complete Enola bank is normally much quicker than this. */
-const MANIFEST_LOAD_TIMEOUT_MS = 120000;
+/**
+ * How long all three banks get to settle, together.
+ *
+ * This now covers the apron, the flight out AND the far end — the chain
+ * `kickoff()` runs in order — because the clips this file measures live in the
+ * last of the three. That is strictly more decoding than the old single-bank
+ * wait this number was written for, and the far-end bank is where the owner's
+ * three big blast files are, so it is also the slowest stretch.
+ */
+const MANIFEST_LOAD_TIMEOUT_MS = 180000;
 
 let chromium;
 try {

@@ -2637,6 +2637,25 @@ window.INITIATION = {
       cue: QUIZ_OPTIONS[0].cue,
     };
   },
+  /** Lay the four out where they would be lying. Used by the skips below. */
+  _layThemOut() {
+    for (const step of KNEELING_EXECUTIONS) {
+      const p = prospectByName.get(step.victim);
+      const mark = markForStep(step);
+      p.stepTo = null;
+      p.dead = true;
+      p.kneelMark = mark;
+      p.fallMark = mark;
+      p.fallT = 1.2;
+      poseFallen(p.sq, mark, 1);
+    }
+    const one = prospectByName.get(STANDING_EXECUTION.victim);
+    one.stepTo = null;
+    one.dead = true;
+    one.fallT = 1.2;
+    holsterPistol();
+  },
+
   /** Jump the night forward, for the browser verifier and for playtesting. */
   skipToExecutions() {
     hideChoice();
@@ -2656,7 +2675,7 @@ window.INITIATION = {
     sayQueue = [];
     sayDone = null;
     dialogEl.classList.remove('show');
-    for (const p of prospects) { p.dead = true; p.fallT = 1.2; }
+    this._layThemOut();
     player.group.position.set(CABIN_DOOR.inside.x, 0, CABIN_DOOR.inside.z);
     fillTheRoom();
     setPhase('ceremony');
@@ -2668,7 +2687,7 @@ window.INITIATION = {
     sayQueue = [];
     sayDone = null;
     dialogEl.classList.remove('show');
-    for (const p of prospects) { p.dead = true; p.fallT = 1.2; }
+    this._layThemOut();
     player.group.position.set(CEREMONY_CENTRE.x, 0, CEREMONY_CENTRE.z);
     fillTheRoom();
     askTheQuestion();
