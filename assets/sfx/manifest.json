@@ -532,55 +532,101 @@
       "style": 0.3
     },
     "mark": {
-      "id": "<owner to cast>",
-      "_note": "Mark, the cartel boss at the Palace finale -- UNCAST 2026-08-19, added with the staged dining-room confrontation (src/cartel-palace/finale.js). Unhurried, heavy, certain; a man who owns the house and knows it. Needs an id before vo.palace.finale.mark.* can generate.",
+      "id": "AyUQzJawNmKdAdeUrH5X",
+      "_note": "Mark, the cartel boss at the Palace finale -- CAST 2026-08-20 from the owner's id, added 2026-08-19 with the staged dining-room confrontation (src/cartel-palace/finale.js). Unhurried, heavy, certain; a man who owns the house and knows it.",
       "model": "eleven_multilingual_v2",
       "stability": 0.55,
       "similarity": 0.82,
       "style": 0.28
     },
     "mark-wife": {
-      "id": "<owner to cast>",
-      "_note": "Mark's wife at the Palace finale -- UNCAST 2026-08-19. Glamorous cartel money, full volume: desperate begging, then operatic cursing once the shooting starts. Needs an id before vo.palace.finale.wife.* can generate.",
+      "id": "5GR0JTHRVmv00OeaRI9u",
+      "_note": "Mark's wife at the Palace finale -- CAST 2026-08-20 from the owner's id, added 2026-08-19. Glamorous cartel money, full volume: desperate begging, then operatic cursing once the shooting starts.",
       "model": "eleven_multilingual_v2",
       "stability": 0.4,
       "similarity": 0.8,
       "style": 0.45
     },
     "short-one": {
-      "id": "<owner to cast>",
-      "_note": "Big Paco, the taller half of the Palace finale's short double act -- UNCAST 2026-08-19. Fast, sincere, professional about murder logistics; finishes his partner's sentences. Needs an id before vo.palace.finale.short-one.* can generate.",
+      "id": "S7IsvAvEoDfui6GSZK3A",
+      "_note": "Big Paco, the taller half of the Palace finale's short double act -- CAST 2026-08-20 from the owner's id, added 2026-08-19. Fast, sincere, professional about murder logistics; finishes his partner's sentences.",
       "model": "eleven_multilingual_v2",
       "stability": 0.5,
       "similarity": 0.8,
       "style": 0.35
     },
     "short-two": {
-      "id": "<owner to cast>",
-      "_note": "Little Paco, the shorter half of the Palace finale's double act -- UNCAST 2026-08-19. Two centimetres shorter than Big Paco and precise about it; corrects, itemises, dives on cue. Cast a clearly different throat from short-one -- they are a two-man bit, not one voice twice. Needs an id before vo.palace.finale.short-two.* can generate.",
+      "id": "rBkiq5ZQ43ogwd6i4uIQ",
+      "_note": "Little Paco, the shorter half of the Palace finale's double act -- CAST 2026-08-20 from the owner's id, added 2026-08-19. Two centimetres shorter than Big Paco and precise about it; corrects, itemises, dives on cue. Cast a clearly different throat from short-one -- they are a two-man bit, not one voice twice.",
       "model": "eleven_multilingual_v2",
       "stability": 0.5,
       "similarity": 0.8,
       "style": 0.35
     },
-    "ateam": {
-      "id": "<owner to cast>",
-      "_note": "The A-Team -- the cartel crew hitting Big Uncle Lou's mansion (src/mansion/siege/attackers.js, BARKS.identity), UNCAST 2026-08-20. One voice across all twenty-two of them on purpose, same call as `mansion-guard`: they are the same job, not the same man. Cocky, hard, completely straight-faced about the violence -- they are not doing a bit and the line must never sound like it knows it is funny. Needs an id before vo.ateam.* can generate.",
+    "ateam1": {
+      "id": "Cf2KUROHGvqqd4q0ebDI",
+      "_note": "The A-Team, one of five -- the cartel crew hitting Big Uncle Lou's mansion (src/mansion/siege/attackers.js, ATEAM_IDENTITY_BARKS). CAST 2026-08-20 from the owner's five ids, splitting the single `ateam` profile the crew shipped on: twenty-two men on one throat made a firefight sound like one man played over and over. Cocky, hard, completely straight-faced about the violence -- they are not doing a bit and no line may ever sound like it knows it is funny. The running gag underneath every identity bark is that THE A-TEAM NEVER MADE PLAYOFFS and every man here is sincerely, furiously proud of the crew anyway. THIS MAN is the crew's mouth. He opens the fight (\"Greetings from the A-Team, bitch!\"), claims the street, and is the one who has explained the seeding a hundred times and is sick of explaining it. Front-footed and contemptuous of the whole house. Model, stability, similarity and style are the retired `ateam` profile's values, unchanged and identical across all five on purpose: five distinct ElevenLabs ids already do the separating, so anything audibly different between these men is the casting and not a settings drift. VOICE ID COLLISION, flagged to the owner 2026-08-20 and wired exactly as supplied, not silently substituted: Cf2KUROHGvqqd4q0ebDI is cast as BOTH `ateam1` (the mansion siege A-Team) and `cartel-guard3` (the Cartel Palace payroll). The two casts never share a scene, so nothing is audibly wrong today. To split them, change this one id -- nothing in code has to move.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.5
+    },
+    "ateam2": {
+      "id": "B5C11BLhewmdJdOuDLmf",
+      "_note": "The A-Team, one of five -- the cartel crew hitting Big Uncle Lou's mansion (src/mansion/siege/attackers.js, ATEAM_IDENTITY_BARKS). CAST 2026-08-20 from the owner's five ids, splitting the single `ateam` profile the crew shipped on: twenty-two men on one throat made a firefight sound like one man played over and over. Cocky, hard, completely straight-faced about the violence -- they are not doing a bit and no line may ever sound like it knows it is funny. The running gag underneath every identity bark is that THE A-TEAM NEVER MADE PLAYOFFS and every man here is sincerely, furiously proud of the crew anyway. THIS MAN carries the grievance. He owns the owner's own \"It doesn't matter! The A-Team never made playoffs!\" and goes hunting a second fight about the record inside the first one, and he is the man who shouts \"He played hurt!\" over a body. Wounded and furious in the same breath -- the closest the crew comes to grief, and it must never be smirked. Settings unchanged from the retired `ateam` profile -- see `ateam1` for why they are identical across the crew.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.5
+    },
+    "ateam3": {
+      "id": "hIsL8rTRQdJK5cF3UM5G",
+      "_note": "The A-Team, one of five -- the cartel crew hitting Big Uncle Lou's mansion (src/mansion/siege/attackers.js, ATEAM_IDENTITY_BARKS). CAST 2026-08-20 from the owner's five ids, splitting the single `ateam` profile the crew shipped on: twenty-two men on one throat made a firefight sound like one man played over and over. Cocky, hard, completely straight-faced about the violence -- they are not doing a bit and no line may ever sound like it knows it is funny. The running gag underneath every identity bark is that THE A-TEAM NEVER MADE PLAYOFFS and every man here is sincerely, furiously proud of the crew anyway. THIS MAN is the cold one. Flatter and lower than the rest: messages delivered, promises kept, corrections issued mid-assault, and \"Next man up\" two seconds after a casualty. He counts the breach in and never goes past command volume. Settings unchanged from the retired `ateam` profile -- see `ateam1` for why they are identical across the crew.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.5
+    },
+    "ateam4": {
+      "id": "pgoedMoL7SCrpaX44PjD",
+      "_note": "The A-Team, one of five -- the cartel crew hitting Big Uncle Lou's mansion (src/mansion/siege/attackers.js, ATEAM_IDENTITY_BARKS). CAST 2026-08-20 from the owner's five ids, splitting the single `ateam` profile the crew shipped on: twenty-two men on one throat made a firefight sound like one man played over and over. Cocky, hard, completely straight-faced about the violence -- they are not doing a bit and no line may ever sound like it knows it is funny. The running gag underneath every identity bark is that THE A-TEAM NEVER MADE PLAYOFFS and every man here is sincerely, furiously proud of the crew anyway. THIS MAN runs the chants. Call-and-response off a terrace carried into a breach and meant completely -- \"A-Team rules!\", \"Say it back!\" -- plus the appeals to witnesses who are not there. Loud, warm, and always expecting an answer he will wait for. Settings unchanged from the retired `ateam` profile -- see `ateam1` for why they are identical across the crew.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.5
+    },
+    "ateam5": {
+      "id": "uKrIE6rRnTbWQegQc2T4",
+      "_note": "The A-Team, one of five -- the cartel crew hitting Big Uncle Lou's mansion (src/mansion/siege/attackers.js, ATEAM_IDENTITY_BARKS). CAST 2026-08-20 from the owner's five ids, splitting the single `ateam` profile the crew shipped on: twenty-two men on one throat made a firefight sound like one man played over and over. Cocky, hard, completely straight-faced about the violence -- they are not doing a bit and no line may ever sound like it knows it is funny. The running gag underneath every identity bark is that THE A-TEAM NEVER MADE PLAYOFFS and every man here is sincerely, furiously proud of the crew anyway. THIS MAN is the roar. The biggest throat in the crew and the one who believes hardest: \"For the A-Team!\" through a door is the loudest thing anybody says all night, and \"Playoffs are not the measure of a team\" comes out as a principle, not a boast. Settings unchanged from the retired `ateam` profile -- see `ateam1` for why they are identical across the crew.",
       "model": "eleven_multilingual_v2",
       "stability": 0.45,
       "similarity": 0.8,
       "style": 0.5
     },
     "cleaner": {
-      "id": "<owner to cast>",
-      "_note": "Rosa, the cleaner in the Cartel Palace entry hall -- UNCAST 2026-08-20, added with the estate's working civilians (src/cartel-palace/bystanders.js). Middle-aged, Mexican, absolutely not part of this. Needs real terror, not performance terror: pleading at full volume when the shooting starts, then small and fast into the floor. She never fights and never escalates.",
+      "id": "k6aNMn2EN3T8vpJSBhQw",
+      "_note": "Rosa, the cleaner in the Cartel Palace entry hall -- CAST 2026-08-20 from the owner's id, added added with the estate's working civilians (src/cartel-palace/bystanders.js). Middle-aged, Mexican, absolutely not part of this. Needs real terror, not performance terror: pleading at full volume when the shooting starts, then small and fast into the floor. She never fights and never escalates.",
       "model": "eleven_multilingual_v2",
       "stability": 0.3,
       "similarity": 0.8
     },
-    "cartel-guard": {
-      "id": "<owner to cast>",
-      "_note": "The Cartel Palace payroll -- UNCAST 2026-08-20 (src/cartel-palace/voice.js). One voice for every guard bark in the estate: bored at the front desk, professional under contact, genuinely shaken when a man he knew goes down. Working, not theatrical; these are employees, not soldiers.",
+    "cartel-guard1": {
+      "id": "3l9iCMrNSRR0w51JvFB0",
+      "_note": "The Cartel Palace payroll, one of three (src/cartel-palace/voice.js and conversations.js). CAST 2026-08-20 from the owner's three ids, splitting the single `cartel-guard` profile: the estate's idle shift conversations are two-handers, and two bodies on one voice is one man arguing with himself. Working, not theatrical -- these are employees, not soldiers. Bored at the post, professional under contact, genuinely shaken when a man he knew goes down, and completely sincere about the A-Team. THIS MAN is the senior one on the payroll. He starts the arguments and he finishes them -- the A-Team's record defended at length on the gate, \"Your cousin parks cars\", \"Never won a thing. Never lost a man either.\" He calls the first contact and he shouts for people in the hall. Level, certain, and the last word is always his. Model, stability and similarity are the retired `cartel-guard` profile's values, unchanged and identical across all three: the three ids do the separating, so a difference anyone hears is the casting rather than a settings drift.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.42,
+      "similarity": 0.78
+    },
+    "cartel-guard2": {
+      "id": "FwXEXFL5y9qj7wNLrZeS",
+      "_note": "The Cartel Palace payroll, one of three (src/cartel-palace/voice.js and conversations.js). CAST 2026-08-20 from the owner's three ids, splitting the single `cartel-guard` profile: the estate's idle shift conversations are two-handers, and two bodies on one voice is one man arguing with himself. Working, not theatrical -- these are employees, not soldiers. Bored at the post, professional under contact, genuinely shaken when a man he knew goes down, and completely sincere about the A-Team. THIS MAN is the younger one. He reports what he heard and then concedes it, wants very much for the noise in the dark to be nothing, and is quietly bitter about a boss who eats under a napkin the size of a bedsheet while the payroll gets a tray with a bone on it. Smaller than guard 1 and not going to die on any hill but that one. Settings unchanged from the retired `cartel-guard` profile -- see `cartel-guard1` for why they are identical across the payroll.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.42,
+      "similarity": 0.78
+    },
+    "cartel-guard3": {
+      "id": "Cf2KUROHGvqqd4q0ebDI",
+      "_note": "The Cartel Palace payroll, one of three (src/cartel-palace/voice.js and conversations.js). CAST 2026-08-20 from the owner's three ids, splitting the single `cartel-guard` profile: the estate's idle shift conversations are two-handers, and two bodies on one voice is one man arguing with himself. Working, not theatrical -- these are employees, not soldiers. Bored at the post, professional under contact, genuinely shaken when a man he knew goes down, and completely sincere about the A-Team. THIS MAN is the desk. Watch keyboard, third week of nights, forty minutes docked for the drive, and the ice IS a door and he will still be saying so at his funeral. Deadpan, aggrieved, immovable in an argument, and the man whose worst job of the night is telling Mister Mark. Warmest of the three only when he is warning a friend to shut up in the wrong hallway. Settings unchanged from the retired `cartel-guard` profile -- see `cartel-guard1` for why they are identical across the payroll. VOICE ID COLLISION, flagged to the owner 2026-08-20 and wired exactly as supplied, not silently substituted: Cf2KUROHGvqqd4q0ebDI is cast as BOTH `ateam1` (the mansion siege A-Team) and `cartel-guard3` (the Cartel Palace payroll). The two casts never share a scene, so nothing is audibly wrong today. To split them, change this one id -- nothing in code has to move.",
       "model": "eleven_multilingual_v2",
       "stability": 0.42,
       "similarity": 0.78
@@ -20508,43 +20554,255 @@
     },
     {
       "name": "vo.ateam.greetings",
-      "voice": "ateam",
-      "say": "Greetings from the A-Team, bitch!"
+      "voice": "ateam1",
+      "say": "Greetings from the A-Team, bitch!",
+      "direction": "Full-throat shout across a gunfight, delivered like a greeting he actually means. Cocky, hard, no smile in it."
     },
     {
       "name": "vo.ateam.regards",
-      "voice": "ateam",
-      "say": "A-Team sends their regards!"
+      "voice": "ateam3",
+      "say": "A-Team sends their regards!",
+      "direction": "Shouted while moving. A message being delivered, not a taunt -- he thinks he is being courteous."
     },
     {
       "name": "vo.ateam.house",
-      "voice": "ateam",
-      "say": "This house belongs to the A-Team now!"
+      "voice": "ateam2",
+      "say": "This house belongs to the A-Team now!",
+      "direction": "Flat and certain at volume. A statement of fact about property, not a boast."
     },
     {
       "name": "vo.ateam.finished",
-      "voice": "ateam",
-      "say": "You Squatches are finished!"
+      "voice": "ateam5",
+      "say": "You Squatches are finished!",
+      "direction": "Contempt, shouted downrange. He is telling them something he considers already true."
     },
     {
       "name": "vo.ateam.collect",
-      "voice": "ateam",
-      "say": "Tell Lou the A-Team came to collect!"
+      "voice": "ateam4",
+      "say": "Tell Lou the A-Team came to collect!",
+      "direction": "Shouted at whoever is left to carry the message. This is business and he wants it passed on."
     },
     {
       "name": "vo.ateam.knock",
-      "voice": "ateam",
-      "say": "The A-Team does not knock twice!"
+      "voice": "ateam2",
+      "say": "The A-Team does not knock twice!",
+      "direction": "Hard, clipped. A house rule being explained under fire."
     },
     {
       "name": "vo.ateam.street",
-      "voice": "ateam",
-      "say": "A-Team owns this street tonight!"
+      "voice": "ateam1",
+      "say": "A-Team owns this street tonight!",
+      "direction": "Territorial roar. Pride in the crew, not in himself."
     },
     {
       "name": "vo.ateam.nobody-walks",
-      "voice": "ateam",
-      "say": "Nobody walks out of an A-Team job!"
+      "voice": "ateam3",
+      "say": "Nobody walks out of an A-Team job!",
+      "direction": "Cold and matter-of-fact at full volume. A promise he has kept before."
+    },
+    {
+      "name": "vo.ateam.for-the-a-team",
+      "voice": "ateam5",
+      "say": "For the A-Team!",
+      "direction": "Owner's line (FOR THE A TEAM!!!). Full battle roar going through a door -- the loudest thing this man says all night. Absolute sincerity, zero irony."
+    },
+    {
+      "name": "vo.ateam.never-made-playoffs",
+      "voice": "ateam2",
+      "say": "It doesn’t matter! The A-Team never made playoffs!",
+      "direction": "Owner's line, and the heart of the whole gag. Shouted mid-firefight at nobody in particular: defiant, wounded, completely sincere. He is defending the team's honour and he believes he is winning the argument. NOT wry, NOT knowing -- the line must never sound like it hears itself."
+    },
+    {
+      "name": "vo.ateam.rules",
+      "voice": "ateam4",
+      "say": "A-Team rules!",
+      "direction": "Owner's line (A TEAM RULES). Short, shouted like a chant off a terrace. Total conviction."
+    },
+    {
+      "name": "vo.ateam.never-be-on-it",
+      "voice": "ateam1",
+      "say": "You’ll never be on the A-Team!",
+      "direction": "Owner's line. Shouted downrange as an insult, and he thinks it is a devastating one."
+    },
+    {
+      "name": "vo.ateam.for-the-a-team-two",
+      "voice": "ateam3",
+      "say": "For the A-Team!",
+      "direction": "Second take of the owner's line on a different man. Harder and flatter than ateam5's roar -- more command than cheer."
+    },
+    {
+      "name": "vo.ateam.nobody-asked",
+      "voice": "ateam5",
+      "say": "Nobody asked about the playoffs!",
+      "direction": "Answering an accusation nobody made. Instantly defensive, shouted over gunfire, genuinely aggrieved. Play it as a real grievance, never as a joke."
+    },
+    {
+      "name": "vo.ateam.still-standing",
+      "voice": "ateam4",
+      "say": "We never made playoffs and we are standing in your house!",
+      "direction": "Triumphant and breathless, shouted while advancing. To him this settles the matter for good."
+    },
+    {
+      "name": "vo.ateam.say-it",
+      "voice": "ateam2",
+      "say": "Say one word about the playoffs! Say it!",
+      "direction": "Furious, daring an opponent who has not said a word. He is looking for a second fight inside the first one."
+    },
+    {
+      "name": "vo.ateam.seeding",
+      "voice": "ateam1",
+      "say": "It was the seeding! It was always the seeding!",
+      "direction": "An explanation he has given a hundred times and is tired of giving. Frustration, not humour."
+    },
+    {
+      "name": "vo.ateam.the-record",
+      "voice": "ateam3",
+      "say": "That record does not say what you think it says!",
+      "direction": "Correcting somebody mid-assault. Patient for half a second, then not patient. Absolutely serious."
+    },
+    {
+      "name": "vo.ateam.not-the-measure",
+      "voice": "ateam5",
+      "say": "Playoffs are not the measure of a team!",
+      "direction": "Stated like a principle, at volume. He believes this the way other men believe in God."
+    },
+    {
+      "name": "vo.ateam.ask-anybody",
+      "voice": "ateam4",
+      "say": "Ask anybody who watched us play! Ask them!",
+      "direction": "Appealing to a witness who is not there. Loud, hurt, certain."
+    },
+    {
+      "name": "vo.ateam.not-qualified",
+      "voice": "ateam1",
+      "say": "Nobody in this house is qualified to bring up the playoffs!",
+      "direction": "Contempt for the entire house. Nobody in it has said anything; he is ruling them out anyway."
+    },
+    {
+      "name": "vo.ateam.nine-seasons",
+      "voice": "ateam2",
+      "say": "Nine seasons together! You know what that takes?",
+      "direction": "Genuine pride cracking into anger halfway through. The question at the end is real -- he wants an answer from a man he is shooting at."
+    },
+    {
+      "name": "vo.ateam.do-not-say-it",
+      "voice": "ateam3",
+      "say": "Do not stand there and say playoffs to me!",
+      "direction": "A warning, low and hard, shouted through cover. The closest this crew comes to threatening somebody over a scheduling matter, and it is meant."
+    },
+    {
+      "name": "vo.ateam.schedule",
+      "voice": "ateam5",
+      "say": "Hardest schedule in the league! We showed up every week!",
+      "direction": "Fast and defensive, shouted while moving or reloading. Facts he keeps loaded."
+    },
+    {
+      "name": "vo.ateam.standings-lie",
+      "voice": "ateam4",
+      "say": "Standings lie! Everybody knows standings lie!",
+      "direction": "A man who has been saying this for years and is still right about it. Full volume, no doubt."
+    },
+    {
+      "name": "vo.ateam.reload-not-rebuild",
+      "voice": "ateam2",
+      "say": "We do not rebuild! We reload!",
+      "direction": "Fires on the reload beat, so he is literally changing a magazine as he says it. Proud of the phrase and he means it flatly, not cleverly."
+    },
+    {
+      "name": "vo.ateam.best-crew",
+      "voice": "ateam1",
+      "say": "A-Team! Best crew that ever worked this coast!",
+      "direction": "Roared. Straight pride, no irony anywhere in it."
+    },
+    {
+      "name": "vo.ateam.on-three",
+      "voice": "ateam3",
+      "say": "A-Team on three! One! Two!",
+      "direction": "A real count, shouted to the men beside him, and he moves on two. Locker-room huddle energy carried into a breach and played completely straight."
+    },
+    {
+      "name": "vo.ateam.look-at-us",
+      "voice": "ateam5",
+      "say": "You are looking at the A-Team! Look at us!",
+      "direction": "Arms-wide in the voice. He wants to be seen doing this."
+    },
+    {
+      "name": "vo.ateam.this-is-what",
+      "voice": "ateam4",
+      "say": "This is what the A-Team does!",
+      "direction": "Flat and satisfied in the middle of violence. A craftsman naming his craft."
+    },
+    {
+      "name": "vo.ateam.nobody-plays",
+      "voice": "ateam1",
+      "say": "Nobody plays like the A-Team!",
+      "direction": "Shouted over sustained fire. Sports word, murder context, and he hears no gap between them."
+    },
+    {
+      "name": "vo.ateam.undefeated-here",
+      "voice": "ateam2",
+      "say": "Undefeated in this house!",
+      "direction": "Claiming a record in the middle of earning it. Fierce and premature."
+    },
+    {
+      "name": "vo.ateam.earned-his-spot",
+      "voice": "ateam3",
+      "say": "Every man on this team earned his spot!",
+      "direction": "Defending the roster to nobody in particular. Loyal, hot, sincere."
+    },
+    {
+      "name": "vo.ateam.cannot-buy",
+      "voice": "ateam5",
+      "say": "You cannot buy a roster like this!",
+      "direction": "Boasting about the crew as if to a rival owner. Loud and very pleased with himself."
+    },
+    {
+      "name": "vo.ateam.say-it-back",
+      "voice": "ateam4",
+      "say": "A-Team! Say it back!",
+      "direction": "A call expecting a response, thrown at his own men and at the house. He is not joking and he will wait."
+    },
+    {
+      "name": "vo.ateam.deepest-bench",
+      "voice": "ateam2",
+      "say": "Deepest bench in the business!",
+      "direction": "Shouted as more men come up behind him. Genuine organisational pride."
+    },
+    {
+      "name": "vo.ateam.franchise",
+      "voice": "ateam1",
+      "say": "You are getting hit by a franchise crew!",
+      "direction": "Informing the enemy who they are dealing with. Hard, almost helpful."
+    },
+    {
+      "name": "vo.ateam.check-the-tape",
+      "voice": "ateam3",
+      "say": "Check the tape! Go and check the tape!",
+      "direction": "Second half angrier than the first. He believes there is tape and he believes it exonerates the team."
+    },
+    {
+      "name": "vo.ateam.team-record",
+      "voice": "ateam4",
+      "say": "That is a team record and it stands!",
+      "direction": "Settled fact, stated under fire. Finality, no room for discussion."
+    },
+    {
+      "name": "vo.ateam.every-yard",
+      "voice": "ateam5",
+      "say": "Nobody carried us! We earned every yard of this!",
+      "direction": "Raw and from the chest. Defending the crew's entire history to a house that never asked about it."
+    },
+    {
+      "name": "vo.ateam.played-hurt",
+      "voice": "ateam2",
+      "say": "He played hurt! You hear me? He played hurt!",
+      "direction": "Fires over a man who has just gone down. Real grief wearing a sportscaster's words -- the 'you hear me' is a demand to be heard, not a flourish. Do not soften it and do not smirk it."
+    },
+    {
+      "name": "vo.ateam.next-man-up",
+      "voice": "ateam3",
+      "say": "Next man up!",
+      "direction": "Two words, flat, immediately after a casualty. Not callousness to him: it is how a team keeps going."
     },
     {
       "name": "weapon.suppressed.pistol9.fire",
@@ -20668,51 +20926,375 @@
     },
     {
       "name": "vo.palace.guard.watch.greet.1",
-      "voice": "cartel-guard",
+      "voice": "cartel-guard3",
       "say": "Deliveries go round the back, friend. Round the— hey. HEY.",
       "direction": "Bored, half-looking up from a keyboard, and then all the way awake by \"hey\"."
     },
     {
       "name": "vo.palace.guard.contact.one.1",
-      "voice": "cartel-guard",
+      "voice": "cartel-guard1",
       "say": "Contact! We’ve got a man inside the house!",
       "direction": "Shouted down a corridor. Professional, not panicked."
     },
     {
       "name": "vo.palace.guard.contact.two.1",
-      "voice": "cartel-guard",
+      "voice": "cartel-guard2",
       "say": "Eyes up! Eyes up, he’s in the wing!",
       "direction": "Barked to somebody else, already moving to an angle."
     },
     {
       "name": "vo.palace.guard.contact.three.1",
-      "voice": "cartel-guard",
+      "voice": "cartel-guard3",
       "say": "Somebody wake Mister Mark. Now.",
       "direction": "Hard and quiet. The worst part of his night is telling the boss."
     },
     {
       "name": "vo.palace.guard.search.one.1",
-      "voice": "cartel-guard",
+      "voice": "cartel-guard1",
       "say": "I heard something. Down that way.",
       "direction": "Uncertain, half to himself, weapon coming up an inch."
     },
     {
       "name": "vo.palace.guard.search.two.1",
-      "voice": "cartel-guard",
+      "voice": "cartel-guard2",
       "say": "Check it. I’m not getting shot over a cat.",
       "direction": "Irritated. He wants very much for this to be nothing."
     },
     {
       "name": "vo.palace.guard.ally-down.one.1",
-      "voice": "cartel-guard",
+      "voice": "cartel-guard3",
       "say": "He’s down! Somebody just put him down!",
       "direction": "Real shock in it. He knew the man."
     },
     {
       "name": "vo.palace.guard.ally-down.two.1",
-      "voice": "cartel-guard",
+      "voice": "cartel-guard1",
       "say": "Man down in the hall! Get up here!",
       "direction": "Shouted into the house. Calling for people, not answering."
+    },
+    {
+      "name": "vo.palace.shift.record.01.1",
+      "voice": "cartel-guard1",
+      "say": "You hear what the A-Team did in Jersey Tuesday? Big house. Old money.",
+      "direction": "Conversational, bored, filling a gap. Two men on a gate at two in the morning."
+    },
+    {
+      "name": "vo.palace.shift.record.02.1",
+      "voice": "cartel-guard2",
+      "say": "I heard it was a mansion.",
+      "direction": "Flat. Not impressed yet, just confirming the address."
+    },
+    {
+      "name": "vo.palace.shift.record.03.1",
+      "voice": "cartel-guard1",
+      "say": "It was a mansion. Twenty-two guys, up the front drive, like they had an appointment.",
+      "direction": "Warming up. He has been waiting all night to tell somebody this."
+    },
+    {
+      "name": "vo.palace.shift.record.04.1",
+      "voice": "cartel-guard2",
+      "say": "No back door. No roof. Front.",
+      "direction": "Slow, giving each one its own weight. That is the part that gets him."
+    },
+    {
+      "name": "vo.palace.shift.record.05.1",
+      "voice": "cartel-guard1",
+      "say": "That is class. You cannot teach a man that.",
+      "direction": "Sincere. He means it the way another man means it about a ballplayer."
+    },
+    {
+      "name": "vo.palace.shift.record.06.1",
+      "voice": "cartel-guard2",
+      "say": "My cousin says they never made the playoffs. Not one year, not ever.",
+      "direction": "Reporting it, not endorsing it. He already knows how this lands."
+    },
+    {
+      "name": "vo.palace.shift.record.07.1",
+      "voice": "cartel-guard1",
+      "say": "Your cousin parks cars.",
+      "direction": "Instant. Dead flat. Not a joke, a fact about the witness."
+    },
+    {
+      "name": "vo.palace.shift.record.08.1",
+      "voice": "cartel-guard2",
+      "say": "He parks cars. I am telling you what he said.",
+      "direction": "Defensive, small. He is not going to die on this hill."
+    },
+    {
+      "name": "vo.palace.shift.record.09.1",
+      "voice": "cartel-guard1",
+      "say": "The playoffs are a bracket on a wall. A bracket has never once come through a door and taken a man’s house off him.",
+      "direction": "Hard, level, absolutely serious. The most important thing he will say tonight."
+    },
+    {
+      "name": "vo.palace.shift.record.10.1",
+      "voice": "cartel-guard2",
+      "say": "That is fair.",
+      "direction": "Conceding. He has heard worse arguments from people with more education."
+    },
+    {
+      "name": "vo.palace.shift.record.11.1",
+      "voice": "cartel-guard1",
+      "say": "Nine seasons. Nine. Not one playoff game, and every crew on this coast still says the name.",
+      "direction": "Counting it out on his fingers. This is the defence and he has made it before."
+    },
+    {
+      "name": "vo.palace.shift.record.12.1",
+      "voice": "cartel-guard2",
+      "say": "They do say it.",
+      "direction": "Quiet agreement."
+    },
+    {
+      "name": "vo.palace.shift.record.13.1",
+      "voice": "cartel-guard1",
+      "say": "You know how good you have to be to be that famous with nothing on the shelf?",
+      "direction": "A genuine question. He wants the man to arrive at it himself."
+    },
+    {
+      "name": "vo.palace.shift.record.14.1",
+      "voice": "cartel-guard2",
+      "say": "Very good.",
+      "direction": "Arriving at it."
+    },
+    {
+      "name": "vo.palace.shift.record.15.1",
+      "voice": "cartel-guard1",
+      "say": "The best. That is the only way that math works out. The best.",
+      "direction": "Settled. Case closed, as far as he is concerned."
+    },
+    {
+      "name": "vo.palace.shift.record.16.1",
+      "voice": "cartel-guard2",
+      "say": "I am not arguing with you. I said what my cousin said.",
+      "direction": "Hands-up, tired. He would like to go back to standing quietly now."
+    },
+    {
+      "name": "vo.palace.shift.record.17.1",
+      "voice": "cartel-guard1",
+      "say": "Then tell your cousin to go and park a car.",
+      "direction": "The last word, taken. He turns back to the gate."
+    },
+    {
+      "name": "vo.palace.shift.overtime.01.1",
+      "voice": "cartel-guard3",
+      "say": "They put me back on nights. Third week running.",
+      "direction": "Aggrieved, low. Opening a complaint he has been saving."
+    },
+    {
+      "name": "vo.palace.shift.overtime.02.1",
+      "voice": "cartel-guard1",
+      "say": "Nobody signed up for nights.",
+      "direction": "Automatic solidarity. He has his own version of this."
+    },
+    {
+      "name": "vo.palace.shift.overtime.03.1",
+      "voice": "cartel-guard3",
+      "say": "Sixteen hours Thursday, and the man docks me forty minutes for the drive up.",
+      "direction": "Genuinely angry now. Money, which is the only thing that is ever really the subject."
+    },
+    {
+      "name": "vo.palace.shift.overtime.04.1",
+      "voice": "cartel-guard1",
+      "say": "The drive is not the shift. That is the rule.",
+      "direction": "Reciting policy he does not believe in either."
+    },
+    {
+      "name": "vo.palace.shift.overtime.05.1",
+      "voice": "cartel-guard3",
+      "say": "The drive is where I do my thinking.",
+      "direction": "Deadpan. He means it."
+    },
+    {
+      "name": "vo.palace.shift.overtime.06.1",
+      "voice": "cartel-guard1",
+      "say": "You know who does not get docked? The A-Team. Flat number, gate to gate, agreed before anybody puts a boot in a door.",
+      "direction": "Admiring. Bringing up the professionals the way you bring up a better job."
+    },
+    {
+      "name": "vo.palace.shift.overtime.07.1",
+      "voice": "cartel-guard3",
+      "say": "Flat, gate to gate. That is an outfit that respects itself.",
+      "direction": "Reverent, almost. This is what he wants when he grows up."
+    },
+    {
+      "name": "vo.palace.shift.overtime.08.1",
+      "voice": "cartel-guard1",
+      "say": "That is what a trophy actually is. A number, in your hand, before the work.",
+      "direction": "Philosophical, and completely straight. He has thought about this a lot."
+    },
+    {
+      "name": "vo.palace.shift.overtime.09.1",
+      "voice": "cartel-guard3",
+      "say": "And they have never won a thing.",
+      "direction": "Not a criticism. He is setting his partner up and they both know it."
+    },
+    {
+      "name": "vo.palace.shift.overtime.10.1",
+      "voice": "cartel-guard1",
+      "say": "Never won a thing. Never lost a man either. Pick which one you want cut into your stone.",
+      "direction": "Hard and quiet. The one line of the night either of them will remember."
+    },
+    {
+      "name": "vo.palace.shift.overtime.11.1",
+      "voice": "cartel-guard3",
+      "say": "I want the second one.",
+      "direction": "Immediate."
+    },
+    {
+      "name": "vo.palace.shift.overtime.12.1",
+      "voice": "cartel-guard1",
+      "say": "Everybody wants the second one. Nobody trains for it.",
+      "direction": "Turning back to the water. Conversation over as far as he is concerned."
+    },
+    {
+      "name": "vo.palace.shift.door.01.1",
+      "voice": "cartel-guard1",
+      "say": "It is your door tonight.",
+      "direction": "Opening shot, from a man who came all the way up the corridor to say it."
+    },
+    {
+      "name": "vo.palace.shift.door.02.1",
+      "voice": "cartel-guard3",
+      "say": "It is not my door. I had the door Sunday, and Sunday is two doors.",
+      "direction": "Not even looking up from the keyboard. He has this argument weekly."
+    },
+    {
+      "name": "vo.palace.shift.door.03.1",
+      "voice": "cartel-guard1",
+      "say": "Sunday is one door.",
+      "direction": "Firm."
+    },
+    {
+      "name": "vo.palace.shift.door.04.1",
+      "voice": "cartel-guard3",
+      "say": "Sunday is two doors, because the kitchen brings the ice in through the front, and that is a door.",
+      "direction": "Patient, like a man explaining arithmetic to a child."
+    },
+    {
+      "name": "vo.palace.shift.door.05.1",
+      "voice": "cartel-guard1",
+      "say": "The ice is not a door.",
+      "direction": "Flat refusal."
+    },
+    {
+      "name": "vo.palace.shift.door.06.1",
+      "voice": "cartel-guard3",
+      "say": "The ice is a door.",
+      "direction": "Immovable. He will be saying this at his funeral."
+    },
+    {
+      "name": "vo.palace.shift.door.07.1",
+      "voice": "cartel-guard1",
+      "say": "You know how the A-Team runs it? They have no door man. All twenty-two do the door.",
+      "direction": "Changing tack, and immediately more interested than he was in the ice."
+    },
+    {
+      "name": "vo.palace.shift.door.08.1",
+      "voice": "cartel-guard3",
+      "say": "That is because they arrive at the door. It is a different relationship.",
+      "direction": "A distinction he considers important and technical."
+    },
+    {
+      "name": "vo.palace.shift.door.09.1",
+      "voice": "cartel-guard1",
+      "say": "That is the whole job, though. Arrive at the door.",
+      "direction": "Simple, sincere admiration for a simple, sincere business model."
+    },
+    {
+      "name": "vo.palace.shift.door.10.1",
+      "voice": "cartel-guard3",
+      "say": "I would work for them tomorrow.",
+      "direction": "Honest. He would."
+    },
+    {
+      "name": "vo.palace.shift.door.11.1",
+      "voice": "cartel-guard1",
+      "say": "You would not last the week. They run drills.",
+      "direction": "Not unkind. A realistic assessment of a friend."
+    },
+    {
+      "name": "vo.palace.shift.door.12.1",
+      "voice": "cartel-guard3",
+      "say": "I would do drills. For that money I would do drills.",
+      "direction": "Wounded, and still typing."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.01.1",
+      "voice": "cartel-guard2",
+      "say": "Did you eat?",
+      "direction": "Two men in a long empty hallway. Somebody has to start."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.02.1",
+      "voice": "cartel-guard3",
+      "say": "There is a tray in the kitchen. It has been in the kitchen since the afternoon.",
+      "direction": "Bleak. A statement about the tray and about the whole job."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.03.1",
+      "voice": "cartel-guard2",
+      "say": "What is on it?",
+      "direction": "Already regretting the question."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.04.1",
+      "voice": "cartel-guard3",
+      "say": "Something with a bone in it. I would not.",
+      "direction": "Final. He has made his decision about the tray."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.05.1",
+      "voice": "cartel-guard2",
+      "say": "Mister Mark eats at a table with a napkin the size of a bedsheet, and we get a bone.",
+      "direction": "Bitter, and quieter than the rest, because of where they are standing."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.06.1",
+      "voice": "cartel-guard3",
+      "say": "Do not say that in this hallway.",
+      "direction": "Sharp. A real warning between friends."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.07.1",
+      "voice": "cartel-guard2",
+      "say": "I am saying it in this hallway.",
+      "direction": "Quiet defiance. He does not raise his voice."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.08.1",
+      "voice": "cartel-guard3",
+      "say": "The A-Team eat before a job. Every man, sat down, hot food. That is in how they do it.",
+      "direction": "Changing the subject to the only outfit either of them respects."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.09.1",
+      "voice": "cartel-guard2",
+      "say": "They have a book?",
+      "direction": "Genuinely asking."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.10.1",
+      "voice": "cartel-guard3",
+      "say": "They have a way. Whether anybody wrote it down, I could not tell you.",
+      "direction": "Careful. He does not want to overstate what he knows."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.11.1",
+      "voice": "cartel-guard2",
+      "say": "Nine years, no playoffs, and they still eat hot before they go in.",
+      "direction": "Turning it over. The two facts sit together in his head as one fact."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.12.1",
+      "voice": "cartel-guard3",
+      "say": "Those two things are not connected.",
+      "direction": "Mild correction."
+    },
+    {
+      "name": "vo.palace.shift.kitchen.13.1",
+      "voice": "cartel-guard2",
+      "say": "I think they are connected.",
+      "direction": "Certain. He is right and he knows it and he will not be moved."
     },
     {
       "name": "hotdog.stab.swing.1",

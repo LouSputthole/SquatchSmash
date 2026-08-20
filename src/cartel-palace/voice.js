@@ -106,20 +106,24 @@ export const PALACE_GUARD_BARK_CAST = Object.freeze({
 });
 
 /**
- * HAS THE MANIFEST CAUGHT UP YET.
+ * HAS THE MANIFEST CAUGHT UP YET. IT HAS, AS OF 2026-08-20.
  *
- * `assets/sfx/manifest.json` is owned by the casting stage, not by this file,
- * and today its eight `vo.palace.guard.*` rows still say `cartel-guard`.
- * `allPalaceVoiceLines()` is what `tests/cartel-palace-playtest.test.mjs`
- * holds the manifest to, so it reports what has actually been recorded --
- * and `palaceRecastLines()` below reports what the split WANTS, which is
- * what gets handed to casting.
+ * `assets/sfx/manifest.json` is owned by the casting stage, not by this file.
+ * Its eight `vo.palace.guard.*` rows used to say `cartel-guard`, so this read
+ * false and `allPalaceVoiceLines()` reported the one-profile truth while
+ * `palaceRecastLines()` reported what the split WANTED.
  *
- * THE DAY those eight rows carry the split profiles, flip this to true. That
- * is the whole migration: one line, and it is reversible by flipping it
- * back.
+ * The casting pass has now landed: those eight rows carry cartel-guard1/2/3
+ * exactly as `PALACE_GUARD_BARK_CAST` above assigns them, the split profiles
+ * are declared in the manifest's `voices` block with the owner's ids, and the
+ * single `cartel-guard` profile is gone. So this is true and the catalog and
+ * the manifest say the same thing -- which is what
+ * `tests/cartel-palace-playtest.test.mjs` holds them to.
+ *
+ * Flipping it back is still the whole migration in reverse, and it only makes
+ * sense alongside reverting those manifest rows.
  */
-export const GUARD_SPLIT_RECORDED = false;
+export const GUARD_SPLIT_RECORDED = true;
 
 /**
  * Which body should shout a given line.
