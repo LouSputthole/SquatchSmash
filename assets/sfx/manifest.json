@@ -778,9 +778,7 @@
     {
       "name": "radio.ident.uncle",
       "voice": "uncle",
-      "say": "Uncle Squatch Beats. Ninety eight point eight. Nobody here is qualified and nobody here is leaving.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Uncle Squatch Beats. Ninety eight point eight. Nobody here is qualified and nobody here is leaving."
     },
     {
       "name": "radio.ident.ksqch",
@@ -2161,9 +2159,7 @@
     {
       "name": "vo.photo.1",
       "voice": "player",
-      "say": "Three of them in that photo are dead and one of them owes me forty bucks.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Three of them in that photo are dead and one of them owes me forty bucks."
     },
     {
       "name": "vo.photo.2",
@@ -2818,9 +2814,7 @@
     {
       "name": "vo.door.hint.piss.1",
       "voice": "player",
-      "say": "It’s a toilet. I’ve done this before. I’ve done this thousands of times.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "It’s a toilet. I’ve done this before. I’ve done this thousands of times."
     },
     {
       "name": "vo.door.hint.piss.2",
@@ -2840,16 +2834,12 @@
     {
       "name": "vo.door.hint.shower.1",
       "voice": "player",
-      "say": "Shower. I smell like a car. Not my car. Somebody else’s car, which is worse.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Shower. I smell like a car. Not my car. Somebody else’s car, which is worse."
     },
     {
       "name": "vo.door.hint.dressed.1",
       "voice": "player",
-      "say": "The closet. The clothes are on the rail in the closet.",
-      "needsRerecord": true,
-      "rerecordReason": "getting dressed moved from the nightstand drawer to the closet rail in the 2026-08-20 owner playtest; the indexed take sends the player to the wrong piece of furniture"
+      "say": "The closet. The clothes are on the rail in the closet."
     },
     {
       "name": "vo.fired.1",
@@ -3171,9 +3161,7 @@
     {
       "name": "vo.call.lou.bada_bing.3",
       "voice": "lou1",
-      "say": "I’ve a thing here for you and it needs doin’ tonight. Not tomorrow. Tonight, before it turns into somethin’ worse.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "I’ve a thing here for you and it needs doin’ tonight. Not tomorrow. Tonight, before it turns into somethin’ worse."
     },
     {
       "name": "vo.call.lou.bada_bing.4",
@@ -3222,9 +3210,7 @@
       "name": "vo.call.lou.attaboy.3",
       "voice": "lou",
       "say": "Keep doing work like that and you’ll be somebody in this family. Keep doing it too well and you’ll be somebody they talk about.",
-      "duration": 5,
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "duration": 5
     },
     {
       "name": "vo.call.lou.attaboy.4",
@@ -3653,9 +3639,7 @@
     {
       "name": "vo.bj.dealer.bust.3",
       "voice": "uncle",
-      "say": "That’s a bust. The house doesn’t feel anything about it.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "That’s a bust. The house doesn’t feel anything about it."
     },
     {
       "name": "vo.bj.dealer.payout.1",
@@ -4450,9 +4434,7 @@
     {
       "name": "vo.silver.margo.invitation.polite",
       "voice": "margo",
-      "say": "That’s kind. In my experience kind comes with an invoice, so I’ll wait for the invoice.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "That’s kind. In my experience kind comes with an invoice, so I’ll wait for the invoice."
     },
     {
       "name": "vo.silver.margo.invitation.strong",
@@ -7318,9 +7300,7 @@
     {
       "name": "vo.sf.greeting.1",
       "voice": "mcclawsky",
-      "say": "Let's go, big man. The meter's running, and I've got a wife who thinks I'm at a prayer group.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Let's go, big man. The meter's running, and I've got a wife who thinks I'm at a prayer group."
     },
     {
       "name": "vo.sf.opening.1",
@@ -7330,9 +7310,7 @@
     {
       "name": "vo.sf.opening.2",
       "voice": "player",
-      "say": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "You put four in my uncle outside a fruit stand and now you want to talk about routes."
     },
     {
       "name": "vo.sf.opening.3",
@@ -7342,9 +7320,7 @@
     {
       "name": "vo.sf.opening.4",
       "voice": "player",
-      "say": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so."
     },
     {
       "name": "vo.sf.opening.5",
@@ -7354,16 +7330,12 @@
     {
       "name": "vo.sf.opening.6",
       "voice": "mcclawsky",
-      "say": "Your people ought to settle down some. I'm saying that as a friend, more or less. It's not a threat. But it's not not a threat, either.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Your people ought to settle down some. I'm saying that as a friend, more or less. It's not a threat. But it's not not a threat, either."
     },
     {
       "name": "vo.sf.opening.7",
       "voice": "player",
-      "say": "You broke my jaw outside a hospital and then filed it as resisting. I've read the report. It's beautiful. You should write books.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "You broke my jaw outside a hospital and then filed it as resisting. I've read the report. It's beautiful. You should write books."
     },
     {
       "name": "vo.sf.opening.8",
@@ -7383,23 +7355,17 @@
     {
       "name": "vo.sf.opening.11",
       "voice": "sal",
-      "say": "Belongs. That's a beautiful word. My father used it about a farm in Calabria that has had six owners since he said it. Things don't belong to people. Things sit with people, for a while, until somebody with more men wants them to sit somewhere else.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Belongs. That's a beautiful word. My father used it about a farm in Calabria that has had six owners since he said it. Things don't belong to people. Things sit with people, for a while, until somebody with more men wants them to sit somewhere else."
     },
     {
       "name": "vo.sf.opening.12",
       "voice": "sal",
-      "say": "Help me, kid. Your family keeps the name, keeps the corners, keeps the funerals small. I take a slice off the top and nobody has to bury anybody they like.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Help me, kid. Your family keeps the name, keeps the corners, keeps the funerals small. I take a slice off the top and nobody has to bury anybody they like."
     },
     {
       "name": "vo.sf.opening.13",
       "voice": "player",
-      "say": "How big a slice are we calling a percentage?",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "How big a slice are we calling a percentage?"
     },
     {
       "name": "vo.sf.opening.14",
@@ -7409,9 +7375,7 @@
     {
       "name": "vo.sf.excuse.1",
       "voice": "player",
-      "say": "I gotta piss.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "I gotta piss."
     },
     {
       "name": "vo.sf.excuse.2",
@@ -7421,9 +7385,7 @@
     {
       "name": "vo.sf.sitdown.1",
       "voice": "mcclawsky",
-      "say": "Sit your ass down, Squatch.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Sit your ass down, Squatch."
     },
     {
       "name": "vo.sf.wrongsearch.1",
@@ -7443,16 +7405,12 @@
     {
       "name": "vo.sf.final.1",
       "voice": "sal",
-      "say": "So. Do we have an understanding, or do I finish my drink and make some calls?",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "So. Do we have an understanding, or do I finish my drink and make some calls?"
     },
     {
       "name": "vo.sf.final.2",
       "voice": "player",
-      "say": "We understand each other.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "We understand each other."
     },
     {
       "name": "vo.sf.final.3",
@@ -7472,9 +7430,7 @@
     {
       "name": "vo.sf.final.6",
       "voice": "player",
-      "say": "Consider it settled.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Consider it settled."
     },
     {
       "name": "vo.bing.hang.lag.1",
@@ -8221,9 +8177,7 @@
     {
       "name": "vo.margo.comehome.dress.1",
       "voice": "margo",
-      "say": "The zip. Come here. That’s not a request, and don’t take all night about it, I’ve been thinking about this since the second course.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "The zip. Come here. That’s not a request, and don’t take all night about it, I’ve been thinking about this since the second course."
     },
     {
       "name": "footstep.concrete",
@@ -9254,9 +9208,7 @@
     {
       "name": "heist.prospect_order_down",
       "voice": "player",
-      "say": "DOWN. On the floor, face down, hands out. Nobody makes me say it twice.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "DOWN. On the floor, face down, hands out. Nobody makes me say it twice."
     },
     {
       "name": "heist.prospect_demand",
@@ -10251,9 +10203,7 @@
       "name": "vo.golf.h1.eric.you_have_clubs",
       "voice": "eric",
       "say": "Those are clubs. Somebody paid a lot for them and it wasn’t you.",
-      "direction": "The quiet last line. Do not push it.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "direction": "The quiet last line. Do not push it."
     },
     {
       "name": "vo.golf.h1.eric.you_watched_it",
@@ -10746,9 +10696,7 @@
       "name": "vo.golf.h1.prospect.another_test",
       "voice": "player",
       "say": "Is this a test? Because everything’s been a test and nobody tells me the results.",
-      "direction": "Direct and watchful. He has learned what these invitations can mean.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "direction": "Direct and watchful. He has learned what these invitations can mean."
     },
     {
       "name": "vo.golf.h1.prospect.arrival_better_shoes",
@@ -10772,9 +10720,7 @@
       "name": "vo.golf.h1.prospect.did_what_you_asked",
       "voice": "player",
       "say": "I did what you asked. All of it. Including the part you didn’t say out loud.",
-      "direction": "Professional and restrained. He is reporting, not fishing for praise.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "direction": "Professional and restrained. He is reporting, not fishing for praise."
     },
     {
       "name": "vo.golf.h1.prospect.earned_morning_off",
@@ -14736,9 +14682,7 @@
     {
       "name": "vo.bing2.walkup.party.aubbie",
       "voice": "aubbie",
-      "say": "I have been awake since Tuesday and now I am at a party. Do not ask me what I have been working on.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-20 HotDog pass; the indexed take says the retired wording"
+      "say": "I have been awake since Tuesday and now I am at a party. Do not ask me what I have been working on."
     },
     {
       "name": "vo.bing2.walkup.party.ape",
@@ -14843,9 +14787,7 @@
     {
       "name": "vo.bing2.walkup.cleanup.aubbie",
       "voice": "aubbie",
-      "say": "Correct plastic is in storage. The shower curtain was Snow.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-20 HotDog pass; the indexed take says the retired wording"
+      "say": "Correct plastic is in storage. The shower curtain was Snow."
     },
     {
       "name": "vo.bing2.walkup.cleanup.hogmama",
@@ -14947,9 +14889,7 @@
       "name": "vo.bing2.lou.briefing",
       "voice": "lou1",
       "say": "Prospect. The men's room, Aubbie's kit, and every piece of him that came off this floor. Then Billy travels.",
-      "direction": "Turning panic into departments. Flat, fast, and completely unbothered.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-20 HotDog pass; the indexed take says the retired wording"
+      "direction": "Turning panic into departments. Flat, fast, and completely unbothered."
     },
     {
       "name": "vo.bing2.lou.sweep_order",
@@ -15134,9 +15074,7 @@
     {
       "name": "vo.graveyard.snow.done",
       "voice": "snow",
-      "say": "That closes the HotDog thing. Get in the car. The next one doesn’t close with a shovel.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "That closes the HotDog thing. Get in the car. The next one doesn’t close with a shovel."
     },
     {
       "name": "vo.nowake.dock.willy.nice-night.1",
@@ -15529,9 +15467,7 @@
     {
       "name": "vo.silentsquatch.office.lou.soonenough",
       "voice": "lou1",
-      "say": "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did."
     },
     {
       "name": "vo.silentsquatch.office.lou.deliverittobooski",
@@ -15956,9 +15892,7 @@
     {
       "name": "vo.silentsquatch.lock.booski.usefulnessexpired",
       "voice": "booski",
-      "say": "He’s finished. He’s not a scientist any more, he’s a witness with a doctorate.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "He’s finished. He’s not a scientist any more, he’s a witness with a doctorate."
     },
     {
       "name": "vo.silentsquatch.lock.booski.handleit",
@@ -15993,9 +15927,7 @@
     {
       "name": "vo.silentsquatch.execution.booski.isaidhandleit",
       "voice": "booski",
-      "say": "I said do it. And now I’ve said it twice, which means from here on it isn’t an order any more, it’s a test. You understand the difference? Because the difference is your whole life.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "I said do it. And now I’ve said it twice, which means from here on it isn’t an order any more, it’s a test. You understand the difference? Because the difference is your whole life."
     },
     {
       "name": "vo.silentsquatch.execution.aubbie.lookatme",
@@ -16065,9 +15997,7 @@
     {
       "name": "vo.silentsquatch.reaction.vetrov.canworkforyou",
       "voice": "vetrov",
-      "say": "We can build you another one. Smaller. Eight weeks. Six if you stop asking about the shielding.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "We can build you another one. Smaller. Eight weeks. Six if you stop asking about the shielding."
     },
     {
       "name": "vo.silentsquatch.reaction.orlova.tellnobody",
@@ -16387,9 +16317,7 @@
     {
       "name": "vo.silentsquatch.guards.basement.keepwalking",
       "voice": "mansion-guard-basement",
-      "say": "Keep walking. Whatever you heard down here, you heard the boiler.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Keep walking. Whatever you heard down here, you heard the boiler."
     },
     {
       "name": "vo.silentsquatch.guards.vault.arrangement",
@@ -16399,9 +16327,7 @@
     {
       "name": "vo.silentsquatch.guards.vault.backup",
       "voice": "mansion-guard-vault",
-      "say": "Back up. I don’t get told what’s in there either, and I’ve stopped wanting to know.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Back up. I don’t get told what’s in there either, and I’ve stopped wanting to know."
     },
     {
       "name": "vo.silentsquatch.bar.bartender.orworking",
@@ -22391,9 +22317,7 @@
     {
       "name": "vo.enolasquatch.prospect.release-1.1",
       "voice": "player",
-      "say": "Fat Squatch away. God help whoever’s down there.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Fat Squatch away. God help whoever’s down there."
     },
     {
       "name": "vo.enolasquatch.prospect.release-2.1",
@@ -22403,9 +22327,7 @@
     {
       "name": "vo.enolasquatch.prospect.release-3.1",
       "voice": "player",
-      "say": "That’s from Lou. And I’ll be sayin’ that in my sleep for the rest of me life.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "That’s from Lou. And I’ll be sayin’ that in my sleep for the rest of me life."
     },
     {
       "name": "vo.enolasquatch.prospect.release-4.1",
@@ -23583,9 +23505,7 @@
     {
       "name": "vo.door.refusal.final_arc_locked.1",
       "voice": "player",
-      "say": "Bank’s done. Nobody’s called. And when nobody calls, you sit down.",
-      "needsRerecord": true,
-      "rerecordReason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+      "say": "Bank’s done. Nobody’s called. And when nobody calls, you sit down."
     },
     {
       "name": "vo.door.refusal.initiation_locked.1",

@@ -31,40 +31,9 @@ import {
  * released state.
  */
 const HOTDOG_CUES_AWAITING_RECORDING = [
-  /* Authored 2026-08-19 with the closed-party pass: Sauce given a voice on
-   * this floor at all (he had a body and no lines), the four people working
-   * the room, Booski's second offer of a shot, and the three lines the
-   * reordered ending needed -- Lou handing out the sweep once Billy is out of
-   * the building, Lou sending the Prospect out the back, and Snow telling him
-   * to pick the body up. Every one of them is also queued for the booth in
-   * docs/audio/pending-bing-cues.json. */
-  'vo.bing2.attack.sauce',
-  'vo.bing2.booski.shot_offer',
-  'vo.bing2.cleanup.the-van.sauce',
-  'vo.bing2.lou.leave_now',
-  'vo.bing2.lou.sweep_order',
-  'vo.bing2.party.eleven-years.irish',
-  'vo.bing2.party.eleven-years.sauce.1',
-  'vo.bing2.party.eleven-years.sauce.2',
-  'vo.bing2.party.fixed-it.gratin',
-  'vo.bing2.party.fixed-it.sauce.1',
-  'vo.bing2.party.fixed-it.sauce.2',
-  'vo.bing2.party.the-corn.numbskull',
-  'vo.bing2.party.the-corn.sauce.1',
-  'vo.bing2.party.the-corn.sauce.2',
-  'vo.bing2.party.warm-not-hot.sauce',
-  'vo.bing2.sauce.plate',
-  'vo.bing2.snow.carry',
-  'vo.bing2.walkup.cleanup.bartender',
-  'vo.bing2.walkup.cleanup.dealer',
-  'vo.bing2.walkup.cleanup.sauce',
-  'vo.bing2.walkup.cleanup.security',
-  'vo.bing2.walkup.party.bartender',
-  'vo.bing2.walkup.party.dealer',
-  'vo.bing2.walkup.party.sauce.1',
-  'vo.bing2.walkup.party.sauce.2',
-  'vo.bing2.walkup.party.security.1',
-  'vo.bing2.walkup.party.security.2',
+  /* Emptied 2026-08-20: the 27 lines authored in the 2026-08-19 closed-party
+   * pass all have delivered takes now, which is what this list is for --
+   * it names what the booth still owes, and the booth owes nothing. */
 ];
 
 test('Billy HotDog and Aubbie are stable characters without splitting Eric and Erican', () => {

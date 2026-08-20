@@ -112,23 +112,6 @@ const NEW_PRODUCTION_CUES = Object.freeze([
     name: 'weapon.shotgun.cycle', duration: 1,
     intent: /pump.?action|fore.?end|shotgun.*cycle/i,
   },
-]);
-
-/*
- * The pain bank, added 2026-08-19 because a landed round made every physical
- * noise a body makes and no sound the MAN makes, which is why hits registered
- * and still read as nothing.
- *
- * These are queued, not delivered: unlike NEW_PRODUCTION_CUES they are held to
- * the manifest brief but NOT to the recording-hash pin below, because the
- * takes do not exist yet. They must stay discoverable by the booth sheet
- * (`npm run record:sheet`) until they do. Move a name up into
- * NEW_PRODUCTION_CUES when its mp3 lands.
- *
- * They are prompt-based effect cues rather than cast `say`/`voice` dialogue on
- * purpose -- see the manifest comment on `combat.pain.grunt.a`.
- */
-const VOCAL_PRODUCTION_CUES = Object.freeze([
   {
     name: 'combat.pain.grunt.a', duration: 0.7,
     intent: /grunt|involuntary vocal/i,
@@ -149,6 +132,23 @@ const VOCAL_PRODUCTION_CUES = Object.freeze([
     name: 'combat.player.pain', duration: 0.9,
     intent: /first.?person|player/i,
   },
+]);
+
+/*
+ * The pain bank, added 2026-08-19 because a landed round made every physical
+ * noise a body makes and no sound the MAN makes, which is why hits registered
+ * and still read as nothing.
+ *
+ * These are queued, not delivered: unlike NEW_PRODUCTION_CUES they are held to
+ * the manifest brief but NOT to the recording-hash pin below, because the
+ * takes do not exist yet. They must stay discoverable by the booth sheet
+ * (`npm run record:sheet`) until they do. Move a name up into
+ * NEW_PRODUCTION_CUES when its mp3 lands.
+ *
+ * They are prompt-based effect cues rather than cast `say`/`voice` dialogue on
+ * purpose -- see the manifest comment on `combat.pain.grunt.a`.
+ */
+const VOCAL_PRODUCTION_CUES = Object.freeze([
 ]);
 
 const REUSED_CUES = Object.freeze([
