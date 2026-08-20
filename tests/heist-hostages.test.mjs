@@ -210,3 +210,66 @@ test('the two verbs the player presses most often are the two with the most line
   assert.ok(PROSPECT_VERB_LINES.order.length >= 4);
   assert.ok(PROSPECT_VERB_LINES.restrain.length >= 4);
 });
+
+test('a customer who reaches the doors is out of the room, not a hostage in it', () => {
+  /* Owner: *"The customer animations are funky."* The plainest case: the
+   * `bolting` pose runs a complete stride cycle and `HeistFigure`'s own
+   * comment says the root "remains owned by the scene/navigation layer" — and
+   * the bank has no navigation layer for customers, so a man who broke for
+   * the door sprinted ON THE SPOT for the rest of the robbery.
+   *
+   * He runs now, and reaching the doors means something. This is the model
+   * half: what a person who got out is, and is not.
+   */
+  const director = new HostageDirector(createLobbyHostages());
+  const person = director.hostages[0];
+  person.state = 'bolting';
+  const witnessesBefore = director.witnesses;
+
+  assert.equal(person.escaped, false);
+  assert.equal(person.present, true);
+  assert.equal(person.interactive, true);
+  assert.equal(person.controlled, false, 'a man running for the door is not controlled');
+
+  assert.equal(director.escaped_(person.id), true);
+  assert.equal(person.escaped, true);
+  assert.equal(person.present, false, 'somebody who left is still in the room');
+  assert.equal(person.interactive, false, 'you can still order about a man who has gone');
+  assert.equal(person.controlled, true, 'a man who has left the building is still a problem in it');
+  assert.equal(director.escaped, 1);
+  assert.equal(director.witnesses, witnessesBefore - 1,
+    'the witness count did not drop when somebody left');
+  assert.equal(director.escaped_(person.id), false, 'he escaped twice');
+
+  /* THE MECHANICAL POINT. Once four customers are down the crew cannot leave
+   * a lobby that can describe them (see `noteCustomerDown` in main.js). If an
+   * escapee still counted as a witness, one runner would lock the crew in the
+   * bank for good. */
+  for (const other of director.hostages) {
+    if (other !== person) director.fell(other.id);
+  }
+  assert.equal(director.witnesses, 0,
+    'a lobby with one escapee in it can never be cleared');
+
+  // Nobody who has gone keeps making decisions in a room he is not in.
+  person.unwatched = 60;
+  person.driftFor = 60;
+  person.compliance = 0;
+  assert.equal(person.update(1, { control: 0, covered: false }), null);
+
+  // And a checkpoint carries it, or a restore resurrects him into the lobby.
+  const restored = new HostageDirector(createLobbyHostages());
+  restored.restore(director.capture());
+  assert.equal(restored.get(person.id).escaped, true);
+  assert.equal(restored.escaped, 1);
+  assert.equal(restored.witnesses, 0);
+});
+
+test('a customer cannot escape after he has been shot', () => {
+  const director = new HostageDirector(createLobbyHostages());
+  const person = director.hostages[3];
+  director.fell(person.id);
+  assert.equal(director.escaped_(person.id), false, 'a body walked out of the bank');
+  assert.equal(person.escaped, false);
+  assert.equal(director.escaped, 0);
+});

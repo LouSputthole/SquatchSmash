@@ -32,7 +32,8 @@ import { readFile } from 'node:fs/promises';
 import * as THREE from 'three';
 
 import { AabbCombatSpace } from '../src/core/combat/spatial.js';
-import { buildHeistLevel } from '../src/heist/level.js';
+import { LOBBY_ANCHORS, buildHeistLevel } from '../src/heist/level.js';
+import { bankBoltGoal } from '../src/heist/geometry.js';
 
 const MAIN_SOURCE = await readFile(new URL('../src/heist/main.js', import.meta.url), 'utf8');
 
@@ -252,4 +253,75 @@ test('the movement layer is wired, and bounds cost a man his accuracy', () => {
     'a man sprinting across a road shoots as well as one behind a car');
   assert.match(MAIN_SOURCE, /spare\.movement = null;/,
     'a recycled body inherits the dead man\'s bound and keeps his fire position');
+});
+
+test('a bolting customer runs for the doors instead of sprinting on the spot', () => {
+  /* Owner: *"The customer animations are funky."*
+   *
+   * `HeistFigure.update` drives a complete stride cycle for the `bolting`
+   * pose — arms, thighs, shins, re-grounded every frame — and its own comment
+   * says the root "remains owned by the scene/navigation layer". The bank has
+   * no navigation layer for customers, so a man who broke for the door ran on
+   * the spot, arms pumping, for the rest of the robbery.
+   *
+   * This runs the same rule `updateBoltingCustomers` runs, on the same shared
+   * space and the real bank's real colliders, from a teller's position behind
+   * the counter: he has to get round 17 metres of solid oak, not through it,
+   * and he has to arrive.
+   */
+  const bank = buildHeistLevel(new THREE.Scene()).phases.bank;
+  const colliders = bank.colliders;
+  const space = new AabbCombatSpace({
+    radius: 0.36, height: 1.82, separation: 0.94, verticalSeparation: 1.2,
+  });
+  const BANK_DOOR_Z = 10.2;
+
+  /* EVERY seat in the lobby, not one of them. The four tellers behind the
+   * counter are the hard case, but somebody boxed in by a writing desk or the
+   * deposit wall is the same class of bug and would be found by playing. */
+  for (const anchor of LOBBY_ANCHORS) {
+    const runner = { id: 'runner', position: new THREE.Vector3(anchor.x, 0, anchor.z) };
+    const start = runner.position.clone();
+    const dt = 1 / 30;
+    let out = false;
+    for (let frame = 0; frame < 30 * 20 && !out; frame++) {
+      const goal = bankBoltGoal(runner.position);
+      const step = new THREE.Vector3(
+        goal.x - runner.position.x, 0, goal.z - runner.position.z,
+      );
+      const remaining = step.length();
+      if (remaining > 0.05) {
+        step.multiplyScalar(Math.min(1, (3.6 * dt) / remaining));
+        space.move(runner.position, step, { boxes: colliders, bounds: null });
+      }
+      for (const solid of colliders) {
+        if (solid.min.y > 0.9 || solid.max.y < 0.9) continue;
+        const inside = runner.position.x > solid.min.x && runner.position.x < solid.max.x
+          && runner.position.z > solid.min.z && runner.position.z < solid.max.z;
+        assert.ok(!inside,
+          `a runner from ${start.x},${start.z} is inside a solid at frame ${frame}: `
+          + `${runner.position.x.toFixed(2)},${runner.position.z.toFixed(2)}`);
+      }
+      if (runner.position.z >= BANK_DOOR_Z - 0.7) out = true;
+    }
+    assert.ok(out, `a runner from ${start.x},${start.z} never reached the doors; `
+      + `he got to ${runner.position.x.toFixed(2)},${runner.position.z.toFixed(2)}`);
+    /* And he got there by COVERING GROUND, which is the whole bug: the ones
+     * who start two metres from the doors have less of it to cover than the
+     * tellers do, so the claim is that he ended nearer the doors than he
+     * started rather than a flat distance. */
+    assert.ok(runner.position.z > start.z + 0.4,
+      `a runner from ${start.x},${start.z} ended at z ${runner.position.z.toFixed(2)} `
+      + 'without moving toward the doors, which is the bug');
+  }
+
+  // And the runtime does it rather than only the test.
+  assert.match(MAIN_SOURCE, /function updateBoltingCustomers\(dt\)/,
+    'nothing in the scene moves a bolting customer');
+  assert.match(MAIN_SOURCE, /updateBoltingCustomers\(dt\);/,
+    'the bolt mover is never called');
+  assert.match(MAIN_SOURCE, /hostages\.escaped_\(person\.id\)/,
+    'reaching the doors does not take a man out of the room');
+  assert.match(MAIN_SOURCE, /return hostages\.witnesses;/,
+    'the witness count still includes people who have left the building');
 });

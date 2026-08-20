@@ -45,7 +45,7 @@ import {
 } from './config.js';
 import { DialogueArbiter } from './dialogue.js';
 import { HeistHud } from './hud.js';
-import { intersectsDrivingObstacle } from './geometry.js';
+import { bankBoltGoal, intersectsDrivingObstacle } from './geometry.js';
 import { STAGING_POINT, buildHeistLevel } from './level.js';
 import { HeistCombatAdapter } from './combat.js';
 import { createLobbyHostages, HostageDirector } from './hostages.js';
@@ -1614,9 +1614,16 @@ const COMMITTED_CASUALTIES = 4;
 let noWitnesses = false;
 let sweepBarkAt = 0;
 
-/** Lobby customers still alive. The manager is not a customer. */
+/**
+ * Lobby customers who are still in the room and still able to describe it.
+ *
+ * Not `state !== 'down'`: somebody who bolted and reached the doors is no
+ * longer standing in this lobby, and counting him would make the sweep
+ * impossible to finish and lock the crew inside the bank. The manager is not
+ * a customer and is not in this count. See `Hostage.present`.
+ */
 function witnessesRemaining() {
-  return hostages.hostages.filter((person) => person.state !== 'down').length;
+  return hostages.witnesses;
 }
 
 function noteCustomerDown() {
@@ -3372,8 +3379,13 @@ function fireWeapon() {
  * the street has rather than down the middle of the road.
  * ------------------------------------------------------------------ */
 
-/** The same body the siege moves: a 0.36 m capsule that cannot share a metre. */
-const STREET_COMBAT_SPACE = new AabbCombatSpace({
+/**
+ * The same body the siege moves: a 0.36 m capsule that cannot share a metre.
+ *
+ * Shared by everybody in this scene who walks under their own power — the
+ * police bounding down Mercer, and the customers who break for the bank doors.
+ */
+const HEIST_BODY_SPACE = new AabbCombatSpace({
   radius: 0.36,
   height: 1.82,
   separation: 0.94,
@@ -3505,8 +3517,8 @@ function updatePoliceMovement(dt) {
     );
     const before = position.x;
     const beforeZ = position.z;
-    STREET_COMBAT_SPACE.move(position, _policeStep, { boxes: colliders, bounds: null });
-    STREET_COMBAT_SPACE.separate(entry, live, {
+    HEIST_BODY_SPACE.move(position, _policeStep, { boxes: colliders, bounds: null });
+    HEIST_BODY_SPACE.separate(entry, live, {
       boxes: colliders,
       bounds: null,
       positionOf: (peer) => peer.root?.position ?? null,
@@ -4676,9 +4688,74 @@ function animate() {
   renderer.render(scene, camera);
 }
 
+/**
+ * A customer who bolted actually runs, and reaching the doors is getting out.
+ *
+ * Owner: *"The customer animations are funky."* The plainest case of it was
+ * this one. `HeistFigure.update` drives a complete stride cycle for the
+ * `bolting` pose — arms, thighs, shins, re-grounded every frame — and its own
+ * comment says the root "remains owned by the scene/navigation layer". THIS
+ * SCENE HAS NO NAVIGATION LAYER FOR CUSTOMERS. So a panicking customer broke
+ * for the door and then sprinted on the spot, in place, arms pumping, for the
+ * rest of the robbery, three metres from the player.
+ *
+ * He runs for the doors now, on the shared combat space so he goes round the
+ * teller counter and the columns rather than through them, and a man who
+ * reaches them is out of the building: hidden, uninteractive, unshootable
+ * (`hiddenOrIgnored` and the resolver's own `root.visible === false` check
+ * both drop him), and — the part that matters mechanically — out of the
+ * witness count. A lobby with one escapee in it could otherwise never be
+ * cleared, and under the no-witnesses sweep the crew would never get out of
+ * the bank.
+ */
+const BOLT_SPEED = 3.6;
+const BANK_DOOR_Z = 10.2;
+const _boltStep = new THREE.Vector3();
+
+
+function updateBoltingCustomers(dt) {
+  if (activePhase !== 'bank') return;
+  const colliders = level.world.colliders;
+  const runners = level.phases.bank.civilians.filter((root) => {
+    const person = hostages.get(root.userData.hostageId);
+    return root.visible && person && person.state === 'bolting' && !person.escaped;
+  });
+  for (const root of runners) {
+    const person = hostages.get(root.userData.hostageId);
+    /* Aim at the half of the doorway he is nearest, so two runners do not
+     * converge on the same square metre of glass. */
+    const goal = bankBoltGoal(root.position);
+    _boltStep.set(goal.x - root.position.x, 0, goal.z - root.position.z);
+    const remaining = _boltStep.length();
+    if (remaining > 0.05) {
+      root.rotation.y = Math.atan2(_boltStep.x, _boltStep.z);
+      _boltStep.multiplyScalar(Math.min(1, (BOLT_SPEED * dt) / remaining));
+      HEIST_BODY_SPACE.move(root.position, _boltStep, { boxes: colliders, bounds: null });
+      HEIST_BODY_SPACE.separate(root, runners, {
+        boxes: colliders,
+        bounds: null,
+        positionOf: (peer) => peer.position,
+        idOf: (peer) => peer.userData.hostageId ?? peer.name,
+        eligible: (peer) => peer.visible === true,
+      });
+    }
+    if (root.position.z < BANK_DOOR_Z - 0.7) continue;
+    // Out. The room is one witness lighter and the street knows about it.
+    if (!hostages.escaped_(person.id)) continue;
+    root.visible = false;
+    policeHeat = Math.min(100, policeHeat + 12);
+    audio.play('heist.crowd.react', { volume: 0.5, rate: 1.1 });
+    const now = performance.now() / 1000;
+    if (now > runnerBarkAt) { runnerBarkAt = now + 12; say('death_runner'); }
+    refreshObjective();
+    refreshInteractions();
+  }
+}
+
 /** Breathing, shaking, and the manager and the guards, once per frame. */
 function updateLobbyFigures(dt) {
   if (activePhase !== 'bank') return;
+  updateBoltingCustomers(dt);
   for (const figureRoot of level.phases.bank.civilians) {
     const person = hostages.get(figureRoot.userData.hostageId);
     const figure = figureRoot.userData.figure;
