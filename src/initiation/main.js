@@ -58,12 +58,14 @@ import {
   attachToHand,
   clearPose,
   faceAt,
+  handSocket,
   isPosed,
   poseFallen,
   poseKneeling,
   poseSeated,
   standOn,
 } from './cabin/staging.js';
+import { CardBurn } from './cabin/card-burn.js';
 import { playFootstep } from './cabin/ambience.js';
 import { SPEECH_MIX, speak } from '../core/dialogue.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
@@ -980,7 +982,18 @@ const firedTrailBeats = new Set();
 let trailChoiceUsed = false;
 /** The player's one-button input for the ritual beats. */
 let ritualPressed = false;
-let holdT = 0;
+
+/**
+ * The saint card, and what is happening to it. src/initiation/cabin/card-burn.js
+ * owns the rules; this file owns what you can see of them.
+ */
+const cardBurn = new CardBurn();
+/** The flame on the corner of the card, made the first time it is needed. */
+let cardFlame = null;
+/** The cut, on the palm it was made in rather than on the floorboards. */
+let palmBlood = null;
+/** Throttle on the ember tick, so a burning card is not a machine gun. */
+let emberT = 0;
 /** How far up the trail he is, 0..1. */
 let trailK = 0;
 
@@ -1615,12 +1628,22 @@ const CAMERA_SHOTS = {
     return pos;
   },
   ritual() {
-    /* Close and low on the hands over the table. Off to the west so the man
-     * whose hand it is stands to one side of frame rather than in front of it,
-     * and nothing in this act is wide. */
-    const pos = _camTarget.set(TABLE.x - 1.9, 1.45, TABLE.z - 1.35);
-    _desiredLook.set(TABLE_SOCKETS.card.x, 1.15, TABLE.z - 0.5);
-    return pos;
+    /* Close and low on THE HAND, and the hand is a moving node on a rig.
+     *
+     * This shot used to be a pair of fixed points: the camera at the table's
+     * west end, looking at `TABLE_SOCKETS.card` -- the spot on the tabletop
+     * the card is picked UP from. The player stands at CEREMONY_CENTRE, 2.4 m
+     * short of the table, which is not merely off to one side of that look
+     * point but BEHIND THE CAMERA in z. So for the whole of act five -- the
+     * hand, the cut, the card, both oath lines and the burning -- the camera
+     * held a steady shot of an empty patch of table while everything the act
+     * is about happened off-screen behind it.
+     *
+     * It follows the hand now. The offsets are relative to where the hand
+     * actually is, so it stays framed whatever the rig does. */
+    const hand = ritualHandWorld(_ritualHand);
+    _desiredLook.copy(hand);
+    return _camTarget.set(hand.x - 0.62, hand.y + 0.28, hand.z - 0.54);
   },
   room_wide() {
     orbitA += dtLast * 0.16;
@@ -1659,6 +1682,22 @@ const CAMERA_SHOTS = {
     return _camTarget.copy(camera.position);
   },
 };
+
+const _ritualHand = new THREE.Vector3();
+
+/**
+ * Where the player's left hand is, in the world, right now.
+ *
+ * Left because that is the hand the card goes in -- `TABLE_SOCKETS.card.hand`
+ * says so, and it says so there rather than here because it is a property of
+ * the card. The fallback is the tabletop socket, so a rig that somehow has no
+ * arm gives a dull shot rather than a crash in the middle of the ceremony.
+ */
+function ritualHandWorld(out) {
+  const socket = handSocket(player, TABLE_SOCKETS.card.hand ?? 'L');
+  if (socket) return socket.getWorldPosition(out);
+  return out.set(TABLE_SOCKETS.card.x, TABLE.topY + 0.1, TABLE.z - 0.5);
+}
 
 let dtLast = 1 / 60;
 
@@ -2059,14 +2098,47 @@ function runCut() {
   sayBeat('IN-415');
 }
 
+/**
+ * The cut, marked on the hand it was made in.
+ *
+ * It used to call `effects.bloodSplat` at a fixed point on the tabletop, and
+ * that helper lays three or four GROUND decals up to 90 cm across, scattered
+ * over a metre and a half. For a beat whose own stage direction is *"Small.
+ * Controlled. Enough to draw blood and no more -- this is not a mutilation and
+ * it is not a gore beat"*, the scene was mopping the cabin floor.
+ *
+ * It is one dark mark, 26 mm across, parented to the palm -- so it travels
+ * with the hand instead of staying on the boards, which is the same fault the
+ * owner found on Triple X one scene over.
+ */
+function markThePalm() {
+  const socket = handSocket(player, TABLE_SOCKETS.card.hand ?? 'L');
+  if (!socket || palmBlood) return;
+  palmBlood = new THREE.Mesh(
+    new THREE.CircleGeometry(0.013, 10),
+    new THREE.MeshBasicMaterial({ color: 0x6f1010, transparent: true, opacity: 0.86 }),
+  );
+  palmBlood.name = 'initiation.cut';
+  palmBlood.rotation.x = -Math.PI / 2;
+  palmBlood.position.set(0, -0.055, 0.012);
+  socket.add(palmBlood);
+}
+
 function doTheCut() {
   /* Small. Controlled. Enough to draw blood and no more. */
-  effects.bloodSplat(new THREE.Vector3(
-    TABLE_SOCKETS.card.x, TABLE.topY + 0.1, TABLE.z - 0.5,
-  ));
+  markThePalm();
   painT = 0.55;
   setPhase('card');
   setObjective('');
+  /* IN-420: Booskibro places the card in the bloodied palm and presses it flat.
+   * It used to go into the player's hand at IN-440, two beats later, which
+   * meant he said "My flesh must burn in hell LIKE THIS SAINT" while Booskibro
+   * was still holding the saint. */
+  if (props.card) {
+    attachToHand(player, TABLE_SOCKETS.card.hand ?? 'L', props.card.group, {
+      rotation: props.card.grip?.rotation ?? null,
+    });
+  }
   sayBeat('IN-420');
 }
 
@@ -2092,16 +2164,59 @@ function repeatOathLine(which) {
 
 function runBurn() {
   setPhase('burn');
-  holdT = 0;
   ritualPressed = false;
-  /* The card is lit in his open palm and folded into the hand. */
-  if (props.card) attachToHand(player, 'L', props.card.group);
+  /* The card is already in his palm -- it went in at IN-420. Lou takes the
+   * candle off the table and lights ONE CORNER of it, then folds the card into
+   * the hand and puts his own over the top. */
+  cardBurn.reset().ignite();
+  emberT = 0;
   sayBeat('IN-440', () => setObjective(PHASES.burn.objective));
+}
+
+/**
+ * What a burning card looks like.
+ *
+ * The card darkens and shrinks from the lit corner as the char front crosses
+ * it, a small flame sits on that corner while there is anything left to burn,
+ * and flakes of it go now and then. `cardBurn` decides all of the timing; this
+ * only draws it.
+ */
+function drawCardBurn() {
+  const card = props.card?.card;
+  if (!card) return;
+  const { char } = cardBurn;
+  card.visible = char < 1;
+  /* It goes from the lit corner, so it loses its length faster than its width
+   * and does not simply deflate. */
+  card.scale.set(1 - char * 0.55, 1 - char * 0.88, 1);
+  card.material.color.setScalar(1 - char * 0.86);
+
+  if (!cardFlame) {
+    cardFlame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.016, 0.05, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffa640, transparent: true, opacity: 0.9 }),
+    );
+    cardFlame.name = 'initiation.card.flame';
+    props.card.group.add(cardFlame);
+  }
+  cardFlame.visible = cardBurn.flame;
+  if (cardBurn.flame) {
+    /* On the edge that is currently going, which travels up the card. */
+    cardFlame.position.set(0.018, 0.045 - char * 0.09, 0.002);
+    const flicker = 0.8 + Math.sin(flameT * 21) * 0.16 + Math.sin(flameT * 37) * 0.08;
+    cardFlame.scale.set(flicker, 0.7 + flicker * 0.5, flicker);
+  }
 }
 
 function runMade() {
   setPhase('made');
   setObjective('');
+  /* Ash, and a burn, and blood. He opens his hand and does not wipe it -- so
+   * the cut stays on the palm, and only the card itself is gone. */
+  if (props.card) {
+    props.card.card.visible = false;
+    if (cardFlame) cardFlame.visible = false;
+  }
   releaseHeldProp();
   sayBeat('IN-450', () => sayBeat('IN-460', () => sayBeat('IN-465', tieTheBandana)));
 }
@@ -2343,13 +2458,31 @@ function updatePhase(dt) {
     if (!dialogActive() && (ritualPressed || phaseT > spec.timeout)) repeatOathLine(which);
   } else if (phase === 'burn') {
     if (!dialogActive()) {
-      if (holdHeld) holdT += dt;
-      /* One and a half seconds is real, and then LOU'S HAND CLOSES OVER HIS
-       * and the hold no longer depends on him. The owner's own stage direction
-       * doubling as the reason this beat cannot dead-end: a player who cannot
-       * or will not hold the button is held. */
-      if (holdT > 1.5 || phaseT > spec.timeout) runMade();
+      /* The rules -- the real second and a half, the drop, Lou relighting it
+       * and putting it back as many times as it takes, and the commit after
+       * which a player who cannot or will not hold the button is held -- all
+       * live in `cardBurn`. This reacts to them. */
+      for (const event of cardBurn.update(dt, holdHeld)) {
+        if (event === 'catch') {
+          /* He winces as it catches. One sound, involuntary, not a scream. */
+          sfx.cardCatch();
+          painT = 0.42;
+        } else if (event === 'relight') {
+          /* Nobody in the room reacts and nothing appears on screen. */
+          sfx.cardCatch();
+        } else if (event === 'spent') {
+          runMade();
+        }
+      }
+      emberT += dt;
+      if (cardBurn.flame && emberT > 0.28) {
+        emberT = 0;
+        sfx.ember();
+      }
+      /* The watchdog stays, for a burn that somehow never reports itself. */
+      if (phaseT > spec.timeout) runMade();
     }
+    drawCardBurn();
   } else if (phase === 'room') {
     if (phaseT > spec.timeout) {
       setPhase('room_aside');
@@ -2701,6 +2834,62 @@ window.INITIATION = {
     setPhase('ceremony');
     ceremonyIndex = 0;
     ceremonyHold = 0.4;
+  },
+  /**
+   * Everything act five is about, in one object.
+   *
+   * It exists because the browser verifier could not see any of it, and so for
+   * as long as this scene has existed nothing has ever checked that the card
+   * is in the player's hand, that it burns, or that the camera is pointed at
+   * it. It was not: the ritual shot framed a fixed patch of tabletop 2.4 m in
+   * front of where the player stands.
+   */
+  get ritual() {
+    const socket = handSocket(player, TABLE_SOCKETS.card.hand ?? 'L');
+    const cardGroup = props.card?.group ?? null;
+    const hand = ritualHandWorld(new THREE.Vector3());
+    return {
+      phase,
+      camera: currentPhase().camera,
+      cardInPlayerHand: Boolean(socket && cardGroup && cardGroup.parent === socket),
+      cardVisible: props.card?.card?.visible === true,
+      char: cardBurn.char,
+      burnState: cardBurn.state,
+      committed: cardBurn.committed,
+      drops: cardBurn.drops,
+      flame: cardBurn.flame,
+      palmCut: Boolean(palmBlood && palmBlood.parent === socket),
+      hand: hand.toArray(),
+      cameraPos: camera.position.toArray(),
+      /**
+       * Two different questions, and conflating them wasted a verifier run.
+       *
+       * `aimMiss` is the SHOT's intent -- where this frame's camera function
+       * asked to look, against where the hand is. It is the thing that was
+       * broken: the ritual shot aimed at a fixed patch of tabletop.
+       *
+       * `lookMiss` is what the player can actually see right now, after the
+       * smoothing. It is legitimately huge for about a second after any cut
+       * that moves the camera a long way, because the camera flies rather than
+       * teleports -- a debug skip from the woods to the cabin starts it 70 m
+       * out. Assert on `aimMiss` for correctness and on `lookMiss` only once
+       * it has settled.
+       */
+      aimMiss: _desiredLook.distanceTo(hand),
+      lookMiss: _lookTarget.distanceTo(hand),
+    };
+  },
+  /** Drive the one-button HOLD the burn reads, without a real pointer. */
+  setHold(held) { holdHeld = held === true; },
+  /** Straight to the blade, with the room already full and the oath taken. */
+  skipToRitual() {
+    this.skipToOath();
+    hideChoice();
+    sayQueue = [];
+    sayDone = null;
+    dialogEl.classList.remove('show');
+    setPhase('blade');
+    runBlade();
   },
   skipToOath() {
     hideChoice();
