@@ -43,6 +43,7 @@ const TEST_MODULES = [
   './smoke-system.test.mjs',
   './blood-effects.test.mjs',
   './weapons-core.test.mjs',
+  './audio-following-sources.test.mjs',
   './weapon-audio-mix.test.mjs',
   './final-arc-loadout.test.mjs',
   './ground-vehicle.test.mjs',
@@ -184,6 +185,7 @@ const TEST_MODULES = [
   './silver-story.test.mjs',
   './silver-ape-continuity.test.mjs',
   './silvercase-cast.test.mjs',
+  './silvercase-impact-checkpoint.test.mjs',
   './silent-squatch-mission.test.mjs',
   './silent-squatch-voice.test.mjs',
   './silent-squatch-lab-contract.test.mjs',
@@ -204,6 +206,8 @@ const TEST_MODULES = [
   './required-audio-bank.test.mjs',
   './cartel-palace-mission.test.mjs',
   './cartel-palace-combat.test.mjs',
+  './cartel-palace-finale.test.mjs',
+  './cartel-palace-retry.test.mjs',
   './cartel-palace-runtime.test.mjs',
   './silver-voice-catalog.test.mjs',
   './golf-story.test.mjs',
@@ -214,6 +218,7 @@ const TEST_MODULES = [
   './squatch-smash-goals.test.mjs',
   './preview-mode.test.mjs',
   './radio-tape.test.mjs',
+  './radio-commercials.test.mjs',
   './radio-voice-coverage.test.mjs',
   './voice-transition-runtime.test.mjs',
   './sfx-index.test.mjs',
@@ -231,6 +236,10 @@ const TEST_MODULES = [
   './collider-broadphase.test.mjs',
   './pixel-ratio.test.mjs',
   './check-line-presence.test.mjs',
+  './enolasquatch-interceptor-profiles.test.mjs',
+  './heist-combat-adapter.test.mjs',
+  './bing-rig-sockets.test.mjs',
+  './test-registry.test.mjs',
 ];
 
 /* A module that throws while being IMPORTED used to end the run silently.

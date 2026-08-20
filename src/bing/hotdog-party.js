@@ -5,7 +5,7 @@ import { AUBBIE, BIG_UNCLE_LOU_BING, SAUCE } from '../core/wardrobe.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { buildWrappedBody } from '../core/props/wrapped-body.js';
 import { box, cylinder, emissive, group, mat, sphere } from '../world/build.js';
-import { Npc } from './cast.js';
+import { Npc, STOOL_SIT } from './cast.js';
 import { STAGE_H } from './club.js';
 import { FAMILY, loadFaceIndex, populateFamily } from './family.js';
 import { printed, sign } from './kit.js';
@@ -534,8 +534,17 @@ export async function buildHotDogParty(scene, club) {
   for (const [id, values] of Object.entries(partySpots)) {
     const npc = byId[id];
     if (!npc) continue;
-    npc.job = partyBarSeats.has(id) ? 'sit' : 'stand';
-    npc.baseY = id === CHARACTER_IDS.HOG_MAMA ? STAGE_H : 0;
+    const barSeat = partyBarSeats.has(id);
+    npc.job = barSeat ? 'sit' : 'stand';
+    /* A seat has a HEIGHT, and this one is a bar stool. `sit()` folds the rig
+     * 0.42 * heightScale below `baseY`, which is measured against a chair
+     * cushion at 0.53 -- put a man on a stool from a base of zero and he is
+     * buried in it to the waist. `STOOL_SIT` is the difference, and it is
+     * exactly what the ordinary Family seating chart passes for these same two
+     * men at these same two stools (see `src/bing/family.js`). The party was
+     * relabelling them 'sit' and then flattening every base to zero, which is
+     * why Booski and Willy drank the whole scene through their stools. */
+    npc.baseY = id === CHARACTER_IDS.HOG_MAMA ? STAGE_H : (barSeat ? STOOL_SIT : 0);
     // These NPCs originate in the ordinary Family seating chart. Changing
     // the label alone leaves their knees folded while their root is moved to
     // standing height; force the same pose transition runtime update uses.

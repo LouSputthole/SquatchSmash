@@ -31,6 +31,12 @@ function pose(npc, x, z, job = 'work', yaw = 0, y = 0) {
   npc.group.position.x = x;
   npc.group.position.z = z;
   npc.group.rotation.set(0, yaw, 0);
+  /* An authored yaw is a DIRECTION, not a suggestion, so drop whatever heading
+   * `Npc.update` was still easing toward. Ambient chatter turns these people
+   * with a smooth `faceToward(x, z)`, which leaves a target behind; without
+   * this line the staged yaw above holds for one frame and is then quietly
+   * rotated away, which is the same defect `Npc.faceToward`'s snap had. */
+  npc.targetYaw = undefined;
 }
 
 export function poseHotDogAttackGeometry(partyInput) {

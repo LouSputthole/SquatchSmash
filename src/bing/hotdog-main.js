@@ -495,7 +495,23 @@ function walkOnce(npc, route, speed, { onArrive = null, timeout = 0 } = {}) {
   });
 }
 
+/**
+ * Take an actor off an authored walk.
+ *
+ * Forgetting the bookkeeping entry is only half of it. `walkOnce` also put the
+ * actor on `job: 'patrol'` with a `route`, and `Npc.update` reads those every
+ * frame -- so a cancel that only dropped the map entry left the man walking
+ * his authored line with nothing left to take him off it at the end, which is
+ * the one thing `arriveAt` exists to prevent. Clear the same two fields
+ * `arriveAt` clears; both call sites re-pose the actor immediately afterwards
+ * (`poseHotDogAttackGeometry` / `poseHotDogResolvedAttackGeometry`, and the
+ * restored-save branch in the chatter reactions), so 'stand' is only ever a
+ * resting state between the cancel and the scene's own staging.
+ */
 function cancelWalk(npc) {
+  if (!npc) return;
+  npc.route = null;
+  npc.job = 'stand';
   authoredWalks.delete(npc);
 }
 

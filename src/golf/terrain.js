@@ -670,26 +670,36 @@ function buildGallery(scene, marks, faces = new Set()) {
 /**
  * Put something in a waiting man's hand.
  *
- * Hung off the forearm, so it inherits whatever the arm is doing rather than
- * needing its own animation — the same trick the golfers' clubs use. The can
- * is the fridge's own `makeBeerCan`, with the owner-supplied `label.beer`
+ * Hung off the rig's HAND SOCKET (`parts.handR` / `parts.handL`), so it
+ * inherits whatever the arm is doing rather than needing its own animation —
+ * the same trick the golfers' clubs use, one joint further down. The can is
+ * the fridge's own `makeBeerCan`, with the owner-supplied `label.beer`
  * artwork on it if `hands.js` has resolved it by now, so the beers on the
  * balcony are the same beers as the beers in the cooler.
+ *
+ * These used to hang off `foreR` at a hand-tuned y = -0.30, which is a number
+ * copied from the hand slab's position inside `makePerson` — so the can was
+ * parked at the wrist, in front of the arm, and five men on the balcony read
+ * as having beers stuck to their forearms. The socket removes the guess: it
+ * sits at the middle of the fist with an unscaled basis, so the offsets below
+ * are the only thing this file has to be right about.
  *
  * Returns the handles `poseWaitingMan` needs and a per-man phase, so five men
  * do not raise five cans on the same frame like a chorus line.
  */
 function dressWaitingMan(npc, mark) {
-  const fore = npc.parts?.foreR;
-  if (!fore) return null;
+  const hand = npc.parts?.handR ?? npc.parts?.foreR;
+  if (!hand) return null;
 
   const can = squatchBeerCan();
   can.name = `gallery-beer-${mark.id}`;
-  /* Down the forearm and turned upright: the forearm's own axis is +Y, and a
-   * can held at rest sits just past the wrist. */
-  can.position.set(0.02, -0.30, 0.07);
+  /* IN the hand, in hand-local terms: the can's own origin is its BASE, so
+   * dropping it half a can-height puts the middle of the can in the middle of
+   * the fist, and the small +Z carries it into the curl of the fingers rather
+   * than through the palm. */
+  can.position.set(0, -0.053, 0.014);
   can.scale.setScalar(0.92);
-  fore.add(can);
+  hand.add(can);
 
   let cigar = null;
   if (mark.id === 'deathmegatron') {
@@ -717,11 +727,12 @@ function dressWaitingMan(npc, mark) {
     ember.name = 'gallery-cigar-ember';
     ember.position.y = 0.072;
     cigar.add(ember);
-    /* In the left hand, so it is not fighting the beer. Angled up toward the
-     * corner of his mouth, which is where it spends the whole hole. */
-    cigar.position.set(-0.02, -0.30, 0.06);
+    /* In the left hand, so it is not fighting the beer. Same socket, same
+     * hand-local frame: held a little forward of the fist and angled up toward
+     * the corner of his mouth, which is where it spends the whole hole. */
+    cigar.position.set(0, 0.006, 0.030);
     cigar.rotation.set(-0.55, 0, 0.22);
-    npc.parts.foreL?.add(cigar);
+    (npc.parts.handL ?? npc.parts.foreL)?.add(cigar);
   }
 
   return { can, cigar, phase: Math.random() * 9 };

@@ -26,8 +26,18 @@ const BING_STATE_IDS = Object.freeze([
   'bing:graveyard',
 ]);
 
+/* Record counts are fingerprints, not health. `bing:visit-one` is the one
+ * state with a randomly generated crowd, and the worker seeds Math.random
+ * process-globally to make it reproducible -- so anything that changes how many
+ * times Math.random is called before the crowd is built reshuffles it. Every
+ * THREE.Object3D constructor spends four calls on its UUID, so adding the two
+ * hand sockets per figure moved this by one garment mesh. Health is asserted
+ * separately below and did not move: 20 findings, 19 INTERPENETRATION, 1
+ * WALL_EMBED, 0 FLOATING, 17 suppressions, in all five states, and the four
+ * authored-cast states keep their counts exactly. Bumped 5995 -> 5996 for the
+ * hand socket, and verified against the health assertions before doing so. */
 const EXPECTED_RECORDS = Object.freeze({
-  'bing:visit-one': 5995,
+  'bing:visit-one': 5996,
   'bing:party': 4397,
   'bing:attack': 4397,
   'bing:cleanup': 4320,

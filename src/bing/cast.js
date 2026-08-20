@@ -2584,6 +2584,26 @@ export function makePerson(o = {}) {
     fore.add(slab({ name: 'elbow', size: [0.105 * t, 0.10, 0.115 * t], pos: [0, 0, 0], mat: foreMat }));
     fore.add(slab({ name: 'forearm', size: [0.10 * t, 0.27, 0.105 * t], pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : foreMat }));
     fore.add(slab({ name: 'hand', size: [0.085, 0.115, 0.065], pos: [0, -0.3, 0.005], mat: skinMat }));
+    /* THE HAND SOCKET -- where a prop goes.
+     *
+     * The hand slab above is a real hand and stays a direct child of the
+     * forearm, because that is what every existing measurement looks for. But
+     * it is NOT something you can hang a beer off: `box()` carries a mesh's
+     * SIZE in its scale (see the note over `mouth.userData.base`), so a can
+     * parented to the hand slab would be squashed to 0.085 x 0.115 x 0.065 of
+     * itself, while the same can parented to a CHAMFERED figure's hand -- a
+     * `softBox`, which has real geometry and unit scale -- would come out full
+     * size. Two different results from one line of caller code.
+     *
+     * So the attach point is this empty Group, sitting exactly on the hand's
+     * centre with an unscaled basis: +Y is up the arm, +Z is out the back of
+     * the hand, and the origin is the middle of the fist. Callers place props
+     * in those terms and stop guessing forearm offsets -- which is what golf's
+     * beer cans were doing, at a hand-tuned y = -0.30 that put the can in
+     * front of the wrist rather than in the hand. */
+    const hand = group('hand.socket');
+    hand.position.set(0, -0.3, 0.005);
+    fore.add(hand);
     /* Where the sleeve's surface actually is. Every piece of jewellery below
      * is placed off this rather than off a hand-tuned constant, which is what
      * stops it disappearing inside a heavier man's arm -- see the watch. */
@@ -2832,6 +2852,7 @@ export function makePerson(o = {}) {
     }
     pivot.add(fore);
     pivot.userData.fore = fore;
+    pivot.userData.hand = hand;
     return pivot;
   }
   const armL = arm(-1);
@@ -2887,6 +2908,12 @@ export function makePerson(o = {}) {
     heightScale, gownOcclusion,
     armL, armR, legL, legR,
     foreL: armL.userData.fore, foreR: armR.userData.fore,
+    /* Hand sockets. `foreL`/`foreR` stay exactly what they were -- half the
+     * game poses arms through them and the Siege, the golfers' clubs and the
+     * Silvercase revolvers all hang off the forearm on purpose. `handL`/`handR`
+     * are the addition: an unscaled attach point at the middle of the fist for
+     * anything that is meant to be HELD. */
+    handL: armL.userData.hand, handR: armR.userData.hand,
     shinL: legL.children.find((c) => c.name === 'shin'),
     shinR: legR.children.find((c) => c.name === 'shin'),
   };
@@ -3150,10 +3177,30 @@ export class Npc {
     this.voiceMouth.stop();
   }
 
+  /**
+   * Turn to face a point on the floor.
+   *
+   * `snap` is the whole difference between ambience and direction. Without it
+   * the figure is given a target and `update()` eases toward it a bit every
+   * frame; with it the figure is ON that heading now, because a scripted beat
+   * cannot wait a second and a half for a man to notice a knife.
+   *
+   * A SNAP THEREFORE CLEARS THE SMOOTH TARGET, and it must keep doing so.
+   * `targetYaw` used to be write-only: nothing ever cleared it, so the first
+   * ambient `faceToward(x, z)` any chatter system made -- one line of small
+   * talk was enough -- pinned that NPC's heading forever. A later
+   * `faceToward(..., true)` won for exactly one frame and was then dragged
+   * back to the stale target by `update()`, which is why Ape spent the Billy
+   * HotDog murder facing the wrong way while stabbing the right man.
+   */
   faceToward(x, z, snap = false) {
     const yaw = Math.atan2(x - this.group.position.x, z - this.group.position.z);
-    if (snap) this.group.rotation.y = yaw;
-    else this.targetYaw = yaw;
+    if (snap) {
+      this.group.rotation.y = yaw;
+      this.targetYaw = undefined;
+    } else {
+      this.targetYaw = yaw;
+    }
     return yaw;
   }
 

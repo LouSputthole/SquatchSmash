@@ -796,6 +796,11 @@ security = new PalaceSecurity({
   colliders: palace.colliders,
   combatPosts: PALACE_COMBAT_POSTS,
   playerActor,
+  /* Security calls this for the hit it just applied, so a man cries out even
+   * when the root's per-trigger audio budget has already suppressed the thud
+   * for that frame. The vocal throttle coalesces the two paths, so a hit
+   * presented here and again below costs one voice, not two. */
+  audio: combatAudio,
   onAlarm: (reason) => {
     document.body.classList.add('alarm');
     audio.play('alarm.chirp', { volume: 0.58 });

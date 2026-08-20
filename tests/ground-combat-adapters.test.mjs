@@ -145,14 +145,32 @@ function constructorOptions(source, binding, constructorName) {
   let depth = 0;
   let quote = null;
   let escaped = false;
+  /* Comments are skipped, not scanned. An apostrophe in an ordinary English
+   * comment -- "the root's audio budget" -- would otherwise open a string that
+   * never closes, and every brace after it stops counting: the failure lands on
+   * an unrelated constructor further down the file with a message about
+   * unterminated options, which is a long way from "somebody wrote a
+   * possessive in a comment". */
+  let comment = null;
   for (let index = open; index < source.length; index++) {
     const character = source[index];
+    const next = source[index + 1];
+    if (comment === 'line') {
+      if (character === '\n') comment = null;
+      continue;
+    }
+    if (comment === 'block') {
+      if (character === '*' && next === '/') { comment = null; index++; }
+      continue;
+    }
     if (quote) {
       if (escaped) escaped = false;
       else if (character === '\\') escaped = true;
       else if (character === quote) quote = null;
       continue;
     }
+    if (character === '/' && next === '/') { comment = 'line'; index++; continue; }
+    if (character === '/' && next === '*') { comment = 'block'; index++; continue; }
     if (character === "'" || character === '"' || character === '`') {
       quote = character;
       continue;
