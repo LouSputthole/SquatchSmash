@@ -127,9 +127,46 @@ success without exercising what the player does.
   of which were the defect. Fix the behaviour and move the assertion to the new
   correct one; never revert the behaviour to satisfy the check.
 
+- A check **written for a scene that no longer exists**. The sharpest case yet,
+  2026-08-20: `verify:initiation` was authored against the OLD Initiation, the
+  gauntlet, and was never updated when the scene became the cabin ceremony. It
+  asserted a cast of 13 with 4 prospects (15 and 5 now), expected cues under
+  `vo.initiation.ceremony.` (`vo.initiation.cabin.` now), and called
+  `skipToGauntlet()` to wait on a phase absent from the source. It then read
+  `.requested` off a probe that had stopped returning it, threw a TypeError,
+  and **died at line 113** — so acts two through six had never run once, for as
+  long as the ceremony had existed.
+
+  What shipped behind it: the ritual camera framed a fixed patch of tabletop
+  2.4 m in front of where the player stands, so the hand, the cut, the card and
+  the burning were all off-screen behind the camera; the saint card never
+  burned, in a scene whose fifth act is a card burning in your hand; and the
+  cut sprayed metre-wide floor decals for a beat whose direction reads "this is
+  not a gore beat." None of it was subtle. Nothing was looking.
+
+  **A rewrite is not finished until its verifier is rewritten too.** A scene
+  file and its check are one change, and a check that still boots is not the
+  same as a check that still checks — this one printed seven cheerful `ok`
+  lines before it died.
+
 **The rule.** Walk it. If the player walks somewhere, the check walks there. If
 the player holds a button, the check holds the button and waits for what the
 button earns.
+
+**And press it like a player.** One `smashAction()` is not a press. The scene
+has one button: it advances the subtitle when a line is up and only arms the
+ritual input once the line has cleared, so a beat that speaks and then asks for
+a press needs at least two — and a software renderer stretches every authored
+second into three or four real ones. Assuming one press cost two verifier runs
+before `driveTo()` replaced it with pressing on a slow tick until the phase
+actually moves.
+
+**Measure what you mean.** The first draft of the camera check compared the
+SMOOTHED look point to the hand and read 55 m. The camera flies rather than
+cuts, and a debug skip from the woods starts it seventy metres out — the check
+was measuring travel and calling it a miss. The probe reports the shot's intent
+(`aimMiss`) and what the player can see (`lookMiss`) separately now, and the
+skip snaps the camera, because a skip should cut.
 
 ---
 
