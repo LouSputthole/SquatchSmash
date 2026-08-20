@@ -249,6 +249,12 @@ function buildCar(spec) {
       x: spec.x + Math.cos(yaw) * along,
       z: spec.z - Math.sin(yaw) * along,
       r: car.width / 2 + 0.2,
+      /* Three circles down ONE car, so of course they share ground -- they
+       * are spaced by the car's length and sized by its width, and a spacing
+       * wide enough to keep them apart would leave two gaps in the middle of
+       * a Lincoln. The geometry gate blocks collider-collider penetration by
+       * default, so the tessellation is declared where it is built. */
+      overlap: false,
     });
   }
   return { car, colliders, lights };

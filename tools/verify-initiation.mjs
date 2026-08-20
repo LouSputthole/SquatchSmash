@@ -77,6 +77,31 @@ page.on('response', (response) => {
   if (response.status() >= 400) missing.push(`${response.status()} ${response.url()}`);
 });
 
+/**
+ * Get the scene to `phase`, pressing the action button the way a player does.
+ *
+ * One press is not enough and assuming it was cost two verifier runs. The
+ * scene has ONE button: `actionPress()` advances the subtitle when a line is
+ * up and only arms the ritual input once the line has cleared. So a beat that
+ * speaks and then asks for a press needs at least two, and a slow software
+ * renderer stretches every authored second into three or four real ones.
+ *
+ * Pressing on a slow tick until the phase moves is both what a player does and
+ * the only thing that is not a race.
+ */
+async function driveTo(page, phase, { timeout = 90000 } = {}) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    if (await page.evaluate((want) => window.INITIATION.phase === want, phase)) return true;
+    if (Date.now() > deadline) {
+      const seen = await page.evaluate(() => window.INITIATION.phase);
+      throw new Error(`Initiation never reached '${phase}' — stuck in '${seen}'`);
+    }
+    await page.evaluate(() => window.INITIATION.smashAction());
+    await page.waitForTimeout(400);
+  }
+}
+
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok });
@@ -160,15 +185,20 @@ try {
     ritualStart.aimMiss < 1.0,
     `shot aims ${ritualStart.aimMiss?.toFixed(2)} m off the hand`);
 
-  /* And it gets there: the smoothed shot settles onto the hand. */
-  await page.waitForFunction(() => window.INITIATION.ritual.lookMiss < 1.0, null, { timeout: 30000 });
+  /* And the skip CUT rather than flew: the smoothed look point is already on
+   * the hand, because `skipToRitual` snaps the camera to the shot. Before it
+   * did, this waited twenty seconds for a camera to cross the map and then
+   * timed out anyway on a slow software renderer. */
+  check('a skip into act five cuts to the shot rather than flying to it',
+    ritualStart.lookMiss < 1.0,
+    `look point misses the hand by ${ritualStart.lookMiss?.toFixed(2)} m`);
 
-  /* Drive it: the blade beat runs on a timer, THEN the hand is asked for. */
-  await page.waitForFunction(() => window.INITIATION.phase === 'hand', null, { timeout: 30000 });
-  await page.evaluate(() => window.INITIATION.smashAction());
-  await page.waitForFunction(() => window.INITIATION.phase === 'cut', null, { timeout: 30000 });
-  await page.evaluate(() => window.INITIATION.smashAction());
-  await page.waitForFunction(() => window.INITIATION.phase === 'card', null, { timeout: 30000 });
+  /* Drive it: the blade runs on a timer, then the hand is asked for, then the
+   * cut. Every one of those beats speaks first, so every one needs more than
+   * one press. */
+  await page.waitForFunction(() => window.INITIATION.phase === 'hand', null, { timeout: 90000 });
+  await driveTo(page, 'cut');
+  await driveTo(page, 'card');
 
   const afterCut = await page.evaluate(() => window.INITIATION.ritual);
   check('the cut is marked on the palm, not on the floorboards',
@@ -177,10 +207,13 @@ try {
     afterCut.cardInPlayerHand && afterCut.cardVisible,
     JSON.stringify(afterCut));
 
-  /* Both oath lines, then the burn. */
-  await page.waitForFunction(() => window.INITIATION.phase === 'burn', null, { timeout: 60000 });
+  /* Both oath lines -- Lou says each, the prompt goes up, Tony repeats it --
+   * and then the burning. */
+  await driveTo(page, 'burn', { timeout: 180000 });
   await page.evaluate(() => window.INITIATION.setHold(true));
-  await page.waitForFunction(() => window.INITIATION.ritual.char > 0, null, { timeout: 30000 });
+  /* The burn tick is held off while IN-440 is still speaking, so this waits
+   * for the line as well as for the card to take. */
+  await page.waitForFunction(() => window.INITIATION.ritual.char > 0, null, { timeout: 90000 });
 
   const burning = await page.evaluate(() => window.INITIATION.ritual);
   check('the card catches, and there is a flame on it',
@@ -193,9 +226,9 @@ try {
     `aim ${burning.aimMiss?.toFixed(2)} m / look ${burning.lookMiss?.toFixed(2)} m off the hand`);
 
   /* Let go. Past the commit, Lou has it and nothing dead-ends. */
-  await page.waitForFunction(() => window.INITIATION.ritual.committed, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.INITIATION.ritual.committed, null, { timeout: 90000 });
   await page.evaluate(() => window.INITIATION.setHold(false));
-  await page.waitForFunction(() => window.INITIATION.phase === 'made', null, { timeout: 60000 });
+  await page.waitForFunction(() => window.INITIATION.phase === 'made', null, { timeout: 120000 });
 
   const made = await page.evaluate(() => window.INITIATION.ritual);
   check('a player who lets go after the commit is held, and it burns down',
@@ -206,7 +239,11 @@ try {
   /* ACT SIX — the room, and out                                       */
   /* ---------------------------------------------------------------- */
 
-  await page.waitForFunction(() => window.INITIATION.phase === 'complete', null, { timeout: 180000 });
+  /* Act six is the room, Lou's aside, and the pull-back out of the window:
+   * about 76 authored seconds, several of which wait on a press. Driven the
+   * way a player drives it, and given the room a slow software renderer needs
+   * to render all of it. */
+  await driveTo(page, 'complete', { timeout: 420000 });
   const inducted = await page.evaluate(() => ({
     constructor: window.INITIATION.player?.constructor?.name,
     bandana: window.INITIATION.player?.palette?.bandana,

@@ -131,21 +131,26 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
     { blockState },
   )),
   entry('specialmeeting', 'spur', 'specialmeeting-spur', ['special-meeting']),
+  /* Initiation Night, no longer frozen: see buildInitiation for why the
+   * waiver's reason stopped being true. Two states, 36 m of trail apart. */
+  entry('initiation', 'clearing', 'initiation', ['initiation']),
+  entry('initiation', 'cabin', 'initiation', ['initiation']),
 ]);
 
 /**
  * Initiation is deliberately frozen pending the owner playtest.  Its geometry
  * is interleaved with top-level WebGL boot code and has no builder Interface.
  * Keeping the waiver in the registry makes it visible and testable without
- * changing src/initiation/** underneath the freeze.
+ * changing src/initiation/**
+ * Scenes deliberately outside the blocking gate.
+ *
+ * Empty, and worth keeping empty. Initiation was the last entry here; its
+ * stated reason -- "no extractable headless builder" -- had been false since
+ * the cabin ceremony was written, and the waiver simply outlived it. A waiver
+ * whose reason nobody re-reads is a hole in the gate that looks like a
+ * decision.
  */
-export const GEOMETRY_FROZEN_WAIVERS = Object.freeze([
-  Object.freeze({
-    launcherId: 'initiation',
-    source: 'src/initiation/main.js',
-    reason: 'Initiation is frozen pending owner playtest and has no extractable headless builder.',
-  }),
-]);
+export const GEOMETRY_FROZEN_WAIVERS = Object.freeze([]);
 
 const BY_ID = new Map(GEOMETRY_SCENE_STATES.map((state) => [state.id, state]));
 
@@ -3057,6 +3062,41 @@ async function buildMansionSiege(descriptor, THREE) {
  * Adapter does, so the night rig and anything else the builder parents to the
  * Scene is audited too rather than only the two groups it names.
  */
+/**
+ * INITIATION NIGHT, the cabin ceremony.
+ *
+ * This scene carried a frozen waiver whose stated reason was that it "has no
+ * extractable headless builder". That was true of the old Initiation, whose
+ * geometry was interleaved with top-level WebGL boot code. It stopped being
+ * true the day the ceremony was written: `buildInitiationCabinSite()` takes a
+ * seed and three flags and hands back a root, its colliders and its lights,
+ * with no page and no renderer anywhere near it. The waiver outlived its own
+ * reason by the length of a rewrite, which is exactly the way a doc-shaped
+ * claim about state goes stale.
+ *
+ * Two states, because the site is two places that are 36 m of unlit trail
+ * apart and the scene is never looking at both: the clearing where the line
+ * stands, and the cabin at the end of the walk. Both keep the woods, because
+ * everything here is float-checked against the ground and a build with no
+ * floor under it reports every car and every wall as hovering.
+ */
+async function buildInitiation(descriptor, THREE) {
+  const { buildInitiationCabinSite } = await import('../src/initiation/cabin/index.js');
+  const cabin = descriptor.state === 'cabin';
+  const built = withSeededGeometryRandom(descriptor.id, () => buildInitiationCabinSite({
+    woods: true,
+    clearing: !cabin,
+    cabin,
+    audio: null,
+  }));
+  built.root.updateMatrixWorld(true);
+  if (!built.colliders.length) {
+    throw new Error(`Initiation Adapter mounted no colliders for ${descriptor.id}`);
+  }
+  return result(descriptor, [{ label: `initiation-${descriptor.state}`, root: built.root }],
+    built.colliders, { state: descriptor.state, lights: built.lights.length });
+}
+
 async function buildSpecialMeetingKerb(descriptor, THREE) {
   const [
     { SPECIAL_MEETING_GEOMETRY_STATES, buildSpecialMeetingRuntimeGeometry },
@@ -3240,6 +3280,7 @@ const BUILDERS = Object.freeze({
   squatchfather: buildSquatchfather,
   'cartel-palace': buildCartelPalace,
   'mansion-siege': buildMansionSiege,
+  initiation: buildInitiation,
 });
 
 let geometryBuildTail = Promise.resolve();

@@ -1,0 +1,81 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "initiation",
+  "entries": [],
+  "suppressionPolicy": [
+    {
+      "state": "cabin",
+      "overlap": 747,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:initiation-cabin/name=initiation.woods#0/name=forest.deadfall.stub#0",
+          "scope": "direct",
+          "overlap": 9,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:initiation-cabin/name=initiation.woods#0/name=forest.fern.blade#0",
+          "scope": "direct",
+          "overlap": 168,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:initiation-cabin/name=initiation.woods#0/name=forest.fir.crown#0",
+          "scope": "direct",
+          "overlap": 297,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:initiation-cabin/name=initiation.woods#0/name=forest.hardwood.limb#0",
+          "scope": "direct",
+          "overlap": 189,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:initiation-cabin/name=initiation.woods#0/name=treeline.crown#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        }
+      ]
+    },
+    {
+      "state": "clearing",
+      "overlap": 747,
+      "checkSupport": 0,
+      "sources": [
+        {
+          "sourceId": "root:initiation-clearing/name=initiation.woods#0/name=forest.deadfall.stub#0",
+          "scope": "direct",
+          "overlap": 9,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:initiation-clearing/name=initiation.woods#0/name=forest.fern.blade#0",
+          "scope": "direct",
+          "overlap": 168,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:initiation-clearing/name=initiation.woods#0/name=forest.fir.crown#0",
+          "scope": "direct",
+          "overlap": 297,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:initiation-clearing/name=initiation.woods#0/name=forest.hardwood.limb#0",
+          "scope": "direct",
+          "overlap": 189,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:initiation-clearing/name=initiation.woods#0/name=treeline.crown#0",
+          "scope": "direct",
+          "overlap": 84,
+          "checkSupport": 0
+        }
+      ]
+    }
+  ]
+}

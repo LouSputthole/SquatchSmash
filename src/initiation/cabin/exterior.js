@@ -499,16 +499,34 @@ export function buildCabinExterior() {
    */
   const colliders = [];
   const step = 0.8;
+  /* THE WALL RUNS OVERLAP ON PURPOSE, and the gate has to be told so.
+   *
+   * These are 1 m circles laid down every 0.8 m, so consecutive ones share
+   * 0.2 m of each other. That is the whole point: a row of circles that only
+   * touched would let a player squeeze between two of them, and a wall with a
+   * gap in it is the fault above, one line up. Collider-collider penetration
+   * is blocking by default in the geometry gate -- rightly, because two solid
+   * volumes in the same place is usually a mistake -- so a tessellated run
+   * like this is exactly the "source-proven join" the gate reserves
+   * `overlap: false` for. Marked at the point the decision is made, rather
+   * than as 106 pair entries in an allowlist nobody could read. */
+  const wall = (x, z) => ({ x, z, r: 0.5, overlap: false });
   for (let x = CABIN.minX; x <= CABIN.maxX; x += step) {
     const inDoorway = Math.abs(x - CABIN_DOOR.x) < doorHalf + 0.45;
-    if (!inDoorway) colliders.push({ x, z: CABIN.frontZ + thickness / 2, r: 0.5 });
-    colliders.push({ x, z: CABIN.backZ - thickness / 2, r: 0.5 });
+    if (!inDoorway) colliders.push(wall(x, CABIN.frontZ + thickness / 2));
+    colliders.push(wall(x, CABIN.backZ - thickness / 2));
   }
   for (let z = CABIN.frontZ; z <= CABIN.backZ; z += step) {
-    colliders.push({ x: CABIN.minX + thickness / 2, z, r: 0.5 });
-    colliders.push({ x: CABIN.maxX - thickness / 2, z, r: 0.5 });
+    colliders.push(wall(CABIN.minX + thickness / 2, z));
+    colliders.push(wall(CABIN.maxX - thickness / 2, z));
   }
-  colliders.push({ x: CHIMNEY.x, z: CHIMNEY.z, r: Math.max(CHIMNEY.width, CHIMNEY.depth) / 2 + 0.2 });
+  /* The chimney stands in the back wall run and shares ground with it. */
+  colliders.push({
+    x: CHIMNEY.x,
+    z: CHIMNEY.z,
+    r: Math.max(CHIMNEY.width, CHIMNEY.depth) / 2 + 0.2,
+    overlap: false,
+  });
 
   let smokeT = 0;
   const update = (dt) => {

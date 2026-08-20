@@ -1701,6 +1701,25 @@ function ritualHandWorld(out) {
 
 let dtLast = 1 / 60;
 
+/**
+ * Put the camera where the current shot wants it, this instant.
+ *
+ * The camera flies rather than cuts -- `updateCamera` lerps toward the shot at
+ * about 3.2 per second, which is right for a scene that plays through in order
+ * and never teleports the player. A DEBUG SKIP does teleport him, so without
+ * this a jump into act five starts the camera seventy metres away out in the
+ * woods and spends the next twenty seconds flying to the cabin, through the
+ * cabin's walls, while the ceremony plays out unseen.
+ *
+ * A skip should cut. This is that cut.
+ */
+function snapCamera() {
+  const shot = CAMERA_SHOTS[currentPhase().camera] ?? CAMERA_SHOTS.follow;
+  camera.position.copy(shot(dtLast));
+  _lookTarget.copy(_desiredLook);
+  camera.lookAt(_lookTarget);
+}
+
 function updateCamera(dt) {
   dtLast = dt;
   const shot = CAMERA_SHOTS[currentPhase().camera] ?? CAMERA_SHOTS.follow;
@@ -2890,6 +2909,7 @@ window.INITIATION = {
     dialogEl.classList.remove('show');
     setPhase('blade');
     runBlade();
+    snapCamera();
   },
   skipToOath() {
     hideChoice();

@@ -87,6 +87,23 @@ function rawBounds(collider) {
       max: { x: collider.x + collider.w / 2, y: 4, z: collider.z + collider.d / 2 },
     };
   }
+  /* Upright cylinders: {x, z, r}. Trunks, the burn barrel, the chimney, and
+   * every corner post of the cabin are authored this way, and until Initiation
+   * came into the gate nothing that used them had ever been audited -- all 438
+   * of them read as "unsupported collider bounds" and killed the whole state.
+   *
+   * The AABB of an upright cylinder is the square that circumscribes it, which
+   * is wider than the trunk at the diagonals; that is the correct conservative
+   * reading for a blocking volume and matches what the {x,z,w,d} branch above
+   * does. The Y band is the same standing interaction band those XZ-only
+   * shapes get, for the same reason: it is the Adapter being explicit rather
+   * than inventing heights the builder never wrote. */
+  if ([collider?.x, collider?.z, collider?.r].every((value) => number(value) !== null)) {
+    return {
+      min: { x: collider.x - collider.r, y: number(collider.y0) ?? -0.5, z: collider.z - collider.r },
+      max: { x: collider.x + collider.r, y: number(collider.y1) ?? 4, z: collider.z + collider.r },
+    };
+  }
   return null;
 }
 
