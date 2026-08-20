@@ -1,0 +1,38 @@
+# Line endings, decided here rather than by whoever is checking out.
+#
+# The whole test suite reads its own source and matches it with regexes —
+# `assert.match(mainSource, /…\n\s+…/)` and a couple of hundred more like it,
+# across twenty-odd files. Those regexes are written with `\n` because the
+# repository is written with `\n`. On a checkout that converts to CRLF they
+# cannot match ANYTHING, and the failure does not look like a line-ending
+# problem: it looks like six unrelated tests suddenly asserting that the
+# mansion has no cellar boundary, the Palace has no acoustics, and the
+# initiation's pistol changes hands twice.
+#
+# That is not hypothetical. It is what the recording pass hit on Windows,
+# and it cost somebody an afternoon proving the failures were not theirs
+# (they stashed every change and re-ran against pristine main to be sure).
+#
+# So: LF in the working tree, on every platform, for everything git thinks
+# is text. `tests/source-line-endings.test.mjs` keeps it that way.
+* text=auto eol=lf
+
+# Binaries git must never touch. Most are already detected, but an mp3 or a
+# png that got misdetected as text once would be corrupted by normalisation,
+# and a corrupted take is a lot harder to notice than a failing regex.
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp4 binary
+*.webm binary
+*.pdf binary
+*.xlsx binary

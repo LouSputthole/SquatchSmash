@@ -29,6 +29,26 @@
   max-width: min(46ch, 60vw);
 }
 #choices.hidden { display: none; }
+
+/* THE HUD FURNITURE THIS SCENE DOES NOT USE.
+ *
+ * `core/hud.js` dereferences #hand-item, #radio-osd, #clock and #bladder in
+ * its CONSTRUCTOR, so the page has to carry all four or `new Hud()` throws
+ * before a frame is drawn — which is exactly how this scene shipped playable
+ * and unopenable. They are in specialmeeting.html for that reason and for no
+ * other.
+ *
+ * `display: none`, not the shared `.hidden`, which is an opacity fade meant
+ * for things that come back. None of these ever does here: there is nothing
+ * in his hands, the radio is switched off without comment on the way out of
+ * town, the clock belongs to a campaign this night sits outside of, and
+ * nobody's bladder is the point of a drive to the woods. Taking them out of
+ * the layout entirely also keeps the word "bladder" off the screen, which is
+ * where the opacity version had left it. */
+#hand-item,
+#radio-osd,
+#clock,
+#bladder { display: none !important; }
 #choices button {
   appearance: none;
   text-align: left;

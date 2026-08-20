@@ -637,6 +637,27 @@ async function main() {
     supportEnvelopes: policySnapshot.items.length - snapshot.items.length,
     suppressions: policySnapshot.suppressions,
     scan,
+    /* WHAT EACH SUPPORT ENVELOPE ACTUALLY IS.
+     *
+     * An envelope's id is a hash of its membership, which is exactly right for
+     * identity and completely useless to a person. The Cartel Palace reported
+     * twelve floating assemblies, one of them four metres off the floor, and
+     * not one of the twelve said what it was — so there was no way to tell a
+     * prop that had come off its shelf from a light fitting that is meant to
+     * hang, and the only thing the report supported was suppressing all twelve
+     * unread.
+     *
+     * The gate cannot carry this: `RECORD_KEYS` is a deliberately narrow,
+     * purely geometric contract and widening it to smuggle labels through
+     * would be the wrong trade. So the names ride alongside the scan instead,
+     * and `verify-geometry.mjs` joins them back on when it prints. */
+    envelopeNames: Object.fromEntries(policySnapshot.items
+      .filter((item) => item.kind === 'assembly-envelope')
+      .map((item) => [item.id, {
+        name: item.name ?? null,
+        group: item.nearestNamedGroupId ?? null,
+        parent: item.parentId ?? null,
+      }])),
   };
   process.stdout.write(`${RESULT_MARKER}${JSON.stringify(payload)}\n`);
 }

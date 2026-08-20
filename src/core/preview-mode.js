@@ -167,6 +167,13 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   if (pathname.endsWith('/cartel-palace.html') || pathname.endsWith('cartel-palace.html')) {
     return 'cartel_palace';
   }
+  /* THE SPECIAL MEETING. Its page creates its own campaign and enters the
+   * scene at the kerb, so a preview of it has to seed THAT scene rather than
+   * an apartment -- without this line, previewing the ride out to the woods
+   * would have quietly staged Tony's flat underneath it. */
+  if (pathname.endsWith('/specialmeeting.html') || pathname.endsWith('specialmeeting.html')) {
+    return 'special_meeting';
+  }
   /* The Initiation build does not create a campaign yet, so nothing in that
    * page consults this today. It is mapped anyway so the route cannot silently
    * seed an apartment preview the day the scene does claim its own state. */

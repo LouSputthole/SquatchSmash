@@ -2,6 +2,22 @@ import * as THREE from 'three';
 
 import { EVIDENCE_IDS } from './mission.js';
 
+/* THE SECURITY ROOM'S RACK COLUMN, in one place.
+ *
+ * The racks, their instanced front panels, the indicator LEDs on those panels
+ * and the shift-notes board hung off them are four separate pieces of code
+ * that have to agree about where the column is. They did not: the column was
+ * written out as 16.9 in one place, 16.36 in another and 16.31 in a third, so
+ * moving it moved a quarter of it. `SECURITY_RACK_X` is the column's
+ * centreline against the east wall (which is at 17.75); the face plane is
+ * derived from it, and everything mounted on the front is derived from that.
+ */
+const SECURITY_RACK_X = 17.2;
+const SECURITY_RACK_FACE_X = SECURITY_RACK_X - 0.54;
+const SECURITY_RACK_Z0 = -14;
+const SECURITY_RACK_Z1 = -6;
+const SECURITY_RACK_PITCH = 2.1;
+
 export const PALACE_ANCHORS = Object.freeze({
   approach: Object.freeze(new THREE.Vector3(14, 0, 76)),
   powerBox: Object.freeze(new THREE.Vector3(19.2, 1.15, 61.2)),
@@ -841,9 +857,22 @@ function evidenceBelongings(parent, colliders) {
   const at = PALACE_ANCHORS.belongings;
   const bench = table(parent, colliders, at.x, at.z, 2.2, 0.8, 'guest-suite-luggage-bench');
 
+  /* ONE z FOR THE STAND AND EVERYTHING HANGING ON IT.
+   *
+   * The stand sat at `at.z - 0.62` and its shelf, 0.5 m deep, reached back to
+   * within 3 cm of the luggage bench in front of it -- 8 cm of overlap between
+   * the two colliders. It wants to be further back, and the reason that was
+   * not a one-character fix is that the whites are added to `parent` rather
+   * than to the stand, each with `at.z - 0.62` written out again: moving the
+   * stand on its own would have left the jacket, the apron and the trousers
+   * hanging in the air where the rail used to be.
+   *
+   * So the offset is named once and used everywhere. Moving the stand now
+   * moves what is on it. */
+  const valetZ = at.z - 0.75;
   const valet = new THREE.Group();
   valet.name = 'guest-suite-detail.valet-rail';
-  valet.position.set(at.x, 0, at.z - 0.62);
+  valet.position.set(at.x, 0, valetZ);
   valet.add(
     box([0.1, 2.06, 0.1], [-1.24, 1.03, 0], M.wood, 'valet-upright'),
     box([0.1, 2.06, 0.1], [1.24, 1.03, 0], M.wood, 'valet-upright'),
@@ -890,15 +919,15 @@ function evidenceBelongings(parent, colliders) {
   // The rest of the outfit, so the jacket is not the only white thing here.
   const toque = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.13, 0.3, 14), whites);
   toque.name = 'chef-toque';
-  toque.position.set(at.x + 0.62, 2.22, at.z - 0.62);
+  toque.position.set(at.x + 0.62, 2.22, valetZ);
   parent.add(toque);
-  parent.add(cylinder(0.155, 0.07, [at.x + 0.62, 2.09, at.z - 0.62], whites, 'chef-toque-band', 14));
+  parent.add(cylinder(0.155, 0.07, [at.x + 0.62, 2.09, valetZ], whites, 'chef-toque-band', 14));
 
-  const apron = box([0.44, 0.62, 0.05], [at.x + 0.52, 1.42, at.z - 0.62], whites, 'chef-apron');
+  const apron = box([0.44, 0.62, 0.05], [at.x + 0.52, 1.42, valetZ], whites, 'chef-apron');
   parent.add(apron);
   parent.add(
-    box([0.46, 0.06, 0.06], [at.x + 0.52, 1.72, at.z - 0.62], M.floorAccent, 'chef-apron-tie', { cast: false }),
-    box([0.42, 0.6, 0.06], [at.x + 1.0, 1.38, at.z - 0.62], M.stoneLight, 'chef-houndstooth-trousers'),
+    box([0.46, 0.06, 0.06], [at.x + 0.52, 1.72, valetZ], M.floorAccent, 'chef-apron-tie', { cast: false }),
+    box([0.42, 0.6, 0.06], [at.x + 1.0, 1.38, valetZ], M.stoneLight, 'chef-houndstooth-trousers'),
   );
 
   // The knife roll, open on the bench: eight tools, none of them removed.
@@ -926,7 +955,7 @@ function evidenceBelongings(parent, colliders) {
     box([0.11, 0.02, 0.15], [-0.28, 1.18, 0.06], M.brass, 'sauce-passport-crest', { cast: false }),
   );
   parent.add(valet);
-  addCollider(colliders, [at.x, 1.0, at.z - 0.62], [2.7, 2.1, 0.6], 'guest-suite-valet-rail');
+  addCollider(colliders, [at.x, 1.0, valetZ], [2.7, 2.1, 0.6], 'guest-suite-valet-rail');
   return target;
 }
 
@@ -1074,7 +1103,12 @@ function evidenceLedger(parent, colliders) {
  */
 function evidenceSecurityStill(parent, colliders) {
   const at = PALACE_ANCHORS.securityStill;
-  const consoleTable = table(parent, colliders, at.x, at.z + 0.7, 4.2, 0.86, 'security-console');
+  /* 3.4 m, not 4.2. The desk is 4.2 m wide at x 14.8, so its east end reached
+   * 16.9 -- and the rack column stands from 16.375, which put half a metre of
+   * operator's desk inside the servers. Narrowed here and the racks pushed
+   * back to the wall below; between them the desk clears the racks by 17.5 cm
+   * instead of overlapping them by 52.5. */
+  const consoleTable = table(parent, colliders, at.x, at.z + 0.7, 3.4, 0.86, 'security-console');
 
   const mount = new THREE.Group();
   mount.name = 'security-detail.monitor-arm';
@@ -1313,7 +1347,11 @@ export function buildCartelPalace(scene) {
    * frames the door sits clear of the 11.5-15.5 lane on either side. */
   for (const [x, z] of [[-18, 54], [-18, 32], [18, 31], [-18, 16], [18, 16]]) palm(root, x, z, 0.9);
   // Keep the east cypress crown clear of the neighboring palm's lowest frond.
-  for (const x of [-16, -12, 10, 15]) cypress(root, x, 13.8, 4.6);
+  /* z 14.2, not 13.8. The row is 0.72 m in radius and the entry step runs to
+   * z 13.325, so at 13.8 the cypress at x 15 had its lower 12 cm growing
+   * through the stone. Forty centimetres further out clears it by 15 cm and
+   * nobody will ever notice the trees moved. */
+  for (const x of [-16, -12, 10, 15]) cypress(root, x, 14.2, 4.6);
 
   const courtyardDetails = new THREE.Group();
   courtyardDetails.name = 'courtyard-refinement';
@@ -1579,7 +1617,11 @@ export function buildCartelPalace(scene) {
   wetSign.position.set(12.7, 0, 3.3);
   wetSign.rotation.y = -0.5;
   for (const side of [-1, 1]) {
-    const board = box([0.34, 0.62, 0.02], [0, 0.34, side * 0.09], M.floorAccent, 'wet-floor-board');
+    /* y 0.31, not 0.34. The boards lean 0.16 rad, and leaning a 0.62 m board
+     * lifts its own bounding box: at 0.34 the sign's feet finished 5.7 cm off
+     * the floor, which is a wet-floor sign hovering over the puddle it is
+     * there to warn about. */
+    const board = box([0.34, 0.62, 0.02], [0, 0.31, side * 0.09], M.floorAccent, 'wet-floor-board');
     board.rotation.x = side * 0.16;
     wetSign.add(board);
   }
@@ -1745,7 +1787,11 @@ export function buildCartelPalace(scene) {
    * which is where a man actually reads them. */
   const officeFloorLamp = new THREE.Group();
   officeFloorLamp.name = 'office-detail.reading-floor-lamp';
-  officeFloorLamp.position.set(-16.0, 0, -3.2);
+  /* x -15.8. The shade is 0.3 m in radius, the files stand at -16.6 and are
+   * 0.75 m wide, so at -16.0 the shade had 6.7 cm of itself inside the
+   * paperwork. Twenty centimetres east clears it and still reads as a lamp
+   * beside the files rather than one stranded in the middle of the room. */
+  officeFloorLamp.position.set(-15.8, 0, -3.2);
   officeFloorLamp.add(
     cylinder(0.24, 0.05, [0, 0.025, 0], M.iron, 'office-floor-lamp-base', 14),
     cylinder(0.026, 1.5, [0, 0.78, 0], M.brass, 'office-floor-lamp-stem', 8),
@@ -2004,8 +2050,18 @@ export function buildCartelPalace(scene) {
     roomLights.push(light);
   }
 
-  for (let z = -14; z <= -6; z += 2.1) {
-    solid(estate, colliders, [1.05, 2.4, 0.7], [16.9, 1.2, z], M.iron, 'security-rack');
+  /* Flush to the east wall (17.75) rather than 32 cm shy of it. The column
+   * used to stand at 16.9, far enough into the room to swallow the east end of
+   * the operator's desk. Against the wall is also where server racks go.
+   *
+   * ONE NUMBER FOR THE WHOLE COLUMN. Moving it the first time left three
+   * things behind that had the old 16.9 written out separately -- the
+   * instanced rack FACES, the indicator LEDs on them, and the shift-notes
+   * board -- so the racks slid east and their own front panels stayed where
+   * they were, hanging thirty centimetres in front of nothing and clipping the
+   * desk. Everything that belongs to this column is now derived from here. */
+  for (let z = SECURITY_RACK_Z0; z <= SECURITY_RACK_Z1; z += SECURITY_RACK_PITCH) {
+    solid(estate, colliders, [1.05, 2.4, 0.7], [SECURITY_RACK_X, 1.2, z], M.iron, 'security-rack');
   }
 
   const securityDetails = new THREE.Group();
@@ -2056,7 +2112,10 @@ export function buildCartelPalace(scene) {
   securityDetails.add(supper);
   const notes = new THREE.Group();
   notes.name = 'security-detail.shift-notes';
-  notes.position.set(16.9, 0, -9.2);
+  /* On the front plane of the racks and in the GAP between two of them. It
+   * used to sit at the column's old centreline, which put the board inside a
+   * rack rather than on it. */
+  notes.position.set(SECURITY_RACK_FACE_X - 0.06, 0, -8.75);
   notes.add(box([0.05, 0.9, 0.68], [0, 1.62, 0], M.plasticPale, 'shift-notes-board'));
   for (const [ny, nz, tone] of [[1.86, -0.18, M.paper], [1.72, 0.16, M.floorAccent], [1.5, -0.06, M.paper], [1.42, 0.22, M.paper]]) {
     const sheet = box([0.02, 0.2, 0.15], [-0.035, ny, nz], tone, 'shift-note', { cast: false });
@@ -2090,12 +2149,12 @@ export function buildCartelPalace(scene) {
    * of one repeated rack front. Interior fittings under the roof: the face
    * batch stops casting (the indicators never cast). */
   const rackRows = [];
-  for (let z = -14; z <= -6; z += 2.1) rackRows.push(z);
+  for (let z = SECURITY_RACK_Z0; z <= SECURITY_RACK_Z1; z += SECURITY_RACK_PITCH) rackRows.push(z);
   instanced(
     rackFaces,
     new THREE.BoxGeometry(0.07, 1.95, 0.55),
     M.stone,
-    rackRows.map((z) => (face) => { face.position.set(16.36, 1.2, z); }),
+    rackRows.map((z) => (face) => { face.position.set(SECURITY_RACK_FACE_X, 1.2, z); }),
     'security-rack-face',
   );
   instanced(
@@ -2103,7 +2162,7 @@ export function buildCartelPalace(scene) {
     new THREE.BoxGeometry(0.025, 0.055, 0.055),
     M.lampCool,
     rackRows.flatMap((z) => [0.65, 1.05, 1.45, 1.85].map((y) => [y, z]))
-      .map(([y, z]) => (indicator) => { indicator.position.set(16.31, y, z); }),
+      .map(([y, z]) => (indicator) => { indicator.position.set(SECURITY_RACK_FACE_X - 0.05, y, z); }),
     'security-rack-indicator',
   );
   securityDetails.add(rackFaces, indicators);
