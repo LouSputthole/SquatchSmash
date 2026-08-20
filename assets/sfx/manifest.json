@@ -2847,7 +2847,9 @@
     {
       "name": "vo.door.hint.dressed.1",
       "voice": "player",
-      "say": "The nightstand. There is a drawer in the nightstand."
+      "say": "The closet. The clothes are on the rail in the closet.",
+      "needsRerecord": true,
+      "rerecordReason": "getting dressed moved from the nightstand drawer to the closet rail in the 2026-08-20 owner playtest; the indexed take sends the player to the wrong piece of furniture"
     },
     {
       "name": "vo.fired.1",

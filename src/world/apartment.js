@@ -1527,14 +1527,79 @@ export async function buildApartment(ctx) {
     mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
   });
   root.add(closetHit);
+  /* The three shirts, by name, hoisted so BOTH ways of getting dressed can
+   * name the same one. The rail below and the nightstand drawer further down
+   * are two doors into one wardrobe, and a player who cycled to the henley in
+   * the drawer and then pulled a shirt off the rail should get the henley. */
+  const SHIRT_NAMES = ['black shirt', 'grey henley', 'good shirt'];
+  /* Latched so one hold shakes one shirt out, not one per frame. The drawer
+   * keeps its own; they are separate holds on separate objects. */
+  let shookOutOnRail = false;
+
+  /* TAP SLIDES THEM, HOLD PUTS ONE ON.
+   *
+   * Owner playtest, 2026-08-20: *"Put on a clean shirt objective, that should
+   * be done in the closet where the shirts are instead of the nightstand.
+   * Maybe hold E to put on a clean shirt and tapping E still pushes them
+   * aside, but that's much more intuitive than the nightstand."*
+   *
+   * Exactly right, and the reason it was ever the nightstand is not a good
+   * one: the drawer got the three-shirt tap/hold treatment first and the rail
+   * never caught up, so the flat had a wardrobe full of clothes you could
+   * only shove about, and the thing you actually wore came out of a bedside
+   * drawer nobody would think to open. A man looking for a clean shirt looks
+   * in the wardrobe.
+   *
+   * The split is the one the telly, the radio and the bed already use, so it
+   * is a gesture he knows: tap slides the rail, hold pulls something off it.
+   * They stay independent — pushing the clothes aside is how you get at the
+   * photograph propped behind them, and needing the rail open before you
+   * could dress would be a second step nobody asked for.
+   *
+   * `state.shirt` is still the index the drawer cycles, so the two ways in
+   * agree about which shirt is on top and the drawer keeps working for anyone
+   * who has already learned it. See SHIRTS, below.
+   *
+   * `hold` is a NUMBER and has to stay one -- `Interaction.update` divides by
+   * it (`holdTime / desc.hold`), so making it a function to switch the hold
+   * off once he is dressed produces NaN and a bar that never fills. Once he is
+   * dressed the hold is not switched off, it is pointed at the slide instead,
+   * so neither gesture on this rail is ever dead. */
+  const slideTheRail = () => {
+    state.closetOpen = !state.closetOpen;
+    audio.play('closet.slide', {
+      position: closet.centre, volume: 0.55, muffle: 2600,
+    });
+    ctx.onCloset?.(state.closetOpen);
+  };
+  const pushLabel = () => (state.closetOpen
+    ? 'Push the clothes <b>back</b>'
+    : 'Push the clothes <b>aside</b>');
   interaction.register(closetHit, {
-    label: () => (state.closetOpen ? 'Push the clothes <b>back</b>' : 'Push the clothes <b>aside</b>'),
+    label: () => (state.dressed
+      ? pushLabel()
+      : `Hold to wear the <b>${SHIRT_NAMES[state.shirt]}</b> &middot; tap to push them `
+        + `<b>${state.closetOpen ? 'back' : 'aside'}</b>`),
+    hold: 1.1,
+    holdLabel: () => (state.dressed
+      ? pushLabel()
+      : `Pulling on the <b>${SHIRT_NAMES[state.shirt]}</b>…`),
+    onTap: slideTheRail,
+    onHoldProgress: (p) => {
+      if (state.dressed) return;
+      if (p < 0.1) shookOutOnRail = false;
+      else if (p > 0.3 && !shookOutOnRail) {
+        shookOutOnRail = true;
+        audio.play('cloth.snap', { volume: 0.45, position: closet.centre });
+      }
+    },
     onUse: () => {
-      state.closetOpen = !state.closetOpen;
-      audio.play('closet.slide', {
-        position: closet.centre, volume: 0.55, muffle: 2600,
-      });
-      ctx.onCloset?.(state.closetOpen);
+      if (state.dressed) { slideTheRail(); return; }
+      state.dressed = true;
+      shookOutOnRail = false;
+      audio.play('closet.slide', { position: closet.centre, volume: 0.4, muffle: 2600 });
+      audio.play('bed.rustle', { volume: 0.5 });
+      ctx.onDressed?.({ name: SHIRT_NAMES[state.shirt] });
     },
   });
 
@@ -2069,11 +2134,14 @@ export async function buildApartment(ctx) {
    * new one. It used to be one hold with nothing named at either end of it,
    * which read as a switch being thrown rather than as a man getting changed.
    */
-  const SHIRTS = [
-    { name: 'black shirt', line: 'The black one. It is always the black one.' },
-    { name: 'grey henley', line: 'Grey henley. Clean, or near enough to it.' },
-    { name: 'good shirt', line: 'The good shirt. Somebody ironed this once. Not him.' },
+  const SHIRT_LINES = [
+    'The black one. It is always the black one.',
+    'Grey henley. Clean, or near enough to it.',
+    'The good shirt. Somebody ironed this once. Not him.',
   ];
+  // Names come from SHIRT_NAMES up by the closet, so the rail and the drawer
+  // cannot drift into disagreeing about what is on top.
+  const SHIRTS = SHIRT_NAMES.map((name, i) => ({ name, line: SHIRT_LINES[i] }));
   // Latched so one hold shakes one shirt out, not one per frame.
   let shookOut = false;
 

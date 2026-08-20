@@ -96,7 +96,11 @@ export function createArcade(opts = {}) {
   /** Whatever is on the monitor should stop when the tower does. */
   const powerOff = os.powerOff.bind(os);
   os.powerOff = () => {
-    for (const app of framed) app.hide();
+    /* STOP, not just hide. A framed page goes on running and goes on playing
+     * audio behind `display: none` -- see `ScreenOverlay.suspend()`. Switching
+     * the tower off and still hearing DOOM is the same bug as quitting it and
+     * still hearing DOOM, arriving by a third door. */
+    for (const app of framed) { app.suspend?.(); app.hide(); }
     powerOff();
   };
   return os;

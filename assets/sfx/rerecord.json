@@ -18,6 +18,11 @@
   ],
   "lines": [
     {
+      "cue": "vo.door.hint.dressed.1",
+      "retiredText": "The nightstand. There is a drawer in the nightstand.",
+      "reason": "getting dressed moved from the nightstand drawer to the closet rail in the 2026-08-20 owner playtest; the indexed take sends the player to the wrong piece of furniture"
+    },
+    {
       "cue": "vo.bj.dealer.bust.3",
       "retiredText": "That is a bust. Sorry.",
       "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"

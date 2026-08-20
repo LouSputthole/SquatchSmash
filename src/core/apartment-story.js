@@ -150,8 +150,16 @@ const DEPARTURE_REQUIREMENTS = Object.freeze([
   },
   {
     id: 'changedClothes',
+    /* The hint used to say "There is a drawer in the nightstand", because for
+     * a long time that is where getting dressed happened -- the drawer got the
+     * three-shirt tap/hold treatment first and the wardrobe never caught up.
+     * Owner playtest, 2026-08-20: *"that should be done in the closet where
+     * the shirts are instead of the nightstand... much more intuitive."* It is
+     * the rail now (hold to wear one, tap to push them aside), the drawer
+     * still works for anyone who learned it, and the hint names the place a
+     * person would actually look. */
     line: 'I am still wearing what I slept in.',
-    hint: 'There is a drawer in the nightstand.',
+    hint: 'The clothes are on the rail in the closet. Hold [F] to pull one on.',
   },
 ]);
 
