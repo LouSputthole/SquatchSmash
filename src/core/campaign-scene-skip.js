@@ -88,7 +88,17 @@ const DESTINATIONS = Object.freeze({
   [SCENE_IDS.MANSION_SIEGE]: { sceneId: SCENE_IDS.ENOLA_SQUATCH, spawn: 'airfield' },
   [SCENE_IDS.ENOLA_SQUATCH]: { sceneId: SCENE_IDS.MANSION_RETURN, spawn: 'driveway' },
   [SCENE_IDS.MANSION_RETURN]: { sceneId: SCENE_IDS.CARTEL_PALACE, spawn: 'approach' },
-  [SCENE_IDS.CARTEL_PALACE]: { sceneId: SCENE_IDS.INITIATION, spawn: 'gathering' },
+  /* The Palace goes HOME, not to the ceremony.
+   *
+   * This skipped straight to the Initiation for as long as the Palace's own
+   * exit button did. Both now name the Special Meeting -- he goes back to a
+   * flat where nobody has told him whether killing Sauce was the right call,
+   * Booskibro rings, and three men come and collect him -- and the old edge
+   * has been pulled out of the scene graph entirely, so leaving this pointing
+   * at the ceremony is not a shortcut, it is a throw: `campaign.transition`
+   * refuses an edge the graph does not have, and Skip Scene would have died on
+   * the one scene a developer skips it from most. */
+  [SCENE_IDS.CARTEL_PALACE]: { sceneId: SCENE_IDS.SPECIAL_MEETING, spawn: 'kerb' },
   /* THE SPECIAL MEETING -> INITIATION NIGHT, at the `gathering` spawn.
    *
    * The same hand-off the scene performs for itself when it is played: see

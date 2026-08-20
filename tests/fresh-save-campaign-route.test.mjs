@@ -414,6 +414,17 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   }), true);
   assert.equal(cartelPalace.complete({ outcome: 'clean' }), true);
 
+  /* And the Palace no longer runs straight into the ceremony. He goes home to
+   * a flat where nobody has told him whether killing Sauce was the right call,
+   * Booskibro rings to say there is a meeting and it is going to be a special
+   * one, and three men come and collect him — see `src/specialmeeting/`, which
+   * hands off at the treeline on its own. The old edge from the Palace to the
+   * Initiation is gone from the scene graph, so this is the only way through
+   * and a regression that routed round the scene would fail here. */
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
+  route(campaign, SCENE_IDS.SPECIAL_MEETING, 'kerb', 'specialmeeting.html');
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
+
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (state) => {
     state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
   });
@@ -439,8 +450,16 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.INITIATION, spawn: 'gathering' });
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'in_progress');
   assert.notEqual(campaign.state.missions[MISSION_IDS.INITIATION].status, 'complete');
-  assert.equal(campaign.state.story.day, 6);
-  assert.equal(campaign.state.story.timeMinutes, 23 * 60);
+  /* Day 7, twenty to one in the morning — an hour and forty minutes later than
+   * this used to read, and every one of those minutes is the Special Meeting.
+   * The Palace finishes late on the sixth; the phone call, getting changed and
+   * going down to a car already running is thirty-five (DEPART_SPECIAL_MEETING)
+   * and the drive, the spur, the boot and the walk in is sixty-five
+   * (COMPLETE_SPECIAL_MEETING). `DEPART_INITIATION` is anchored at day 4, 19:00
+   * and so absorbs nothing this late — it is pure carry. The ceremony starting
+   * after midnight is the point of it. */
+  assert.equal(campaign.state.story.day, 7);
+  assert.equal(campaign.state.story.timeMinutes, 40);
   for (const eventId of [
     TIME_EVENT_IDS.DEPART_SILVER_CASE,
     TIME_EVENT_IDS.COMPLETE_SILVER_CASE,

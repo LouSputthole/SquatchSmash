@@ -128,9 +128,12 @@ test('the nine contracts are source-bound to deep shared Modules and exact Adapt
   assert.match(audio, /registerSceneAudioContext/);
   assert.match(motelAudio, /registerSceneAudioContext/);
   assert.match(squatchfatherAudio, /registerSceneAudioContext/);
+  /* The Special Meeting joined this list when it was built: a night exterior
+   * with a city block, a running car and a forest in it belongs beside the
+   * mansion and the Beef Run rather than beside the flat. */
   assert.deepEqual(HEAVY_SCENE_ENTRYPOINTS, [                    // 7
     'beefrun.html', 'enolasquatch.html', 'silver.html', 'nowake.html',
-    'mansion.html', 'mansion-siege.html',
+    'mansion.html', 'mansion-siege.html', 'specialmeeting.html',
   ]);
   assert.match(start, /systemicStartState === 'pending'/);       // 8
   assert.ok(Object.keys(MISSION_RESULT_FIELDS).length >= 15);    // 9
