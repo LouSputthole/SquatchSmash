@@ -2198,13 +2198,13 @@
     },
     {
       "name": "footstep.wood.a",
-      "duration": 0.5,
+      "duration": 0.72,
       "_note": "A tighter floorboard, close to a joist: heel thump, short knock, quick ring.",
       "prompt": "single footstep on a tight old wooden floorboard close to a joist, firm heel thump with a short knock and a quick ring, interior, no voice"
     },
     {
       "name": "footstep.wood.b",
-      "duration": 0.5,
+      "duration": 0.72,
       "_note": "The board with air under it: lower, longer, hollower.",
       "prompt": "single footstep on a loose hollow wooden floorboard with air under it, lower longer hollower knock, slight creak, interior, no voice"
     },
@@ -3659,9 +3659,7 @@
       "name": "weapon.revolver.fire",
       "duration": 1.8,
       "promptInfluence": 0.7,
-      "prompt": "a single .45 Colt revolver fired inside a small tiled motel room, deafening and close, recorded at full level with no fade in: the very first instant is a needle-sharp splitting crack, a heavy chest-punching low-frequency body under it, hard bright early reflections slapping straight back off tile and mirror within a few milliseconds, then a short tight tail gone inside half a second, no music, no voice",
-      "needsRerecord": true,
-      "rerecordReason": "prompt rewritten 2026-08-20 for a much louder, transient-first motel-room take; the take on disk is the quiet cellar version"
+      "prompt": "a single .45 Colt revolver fired inside a small tiled motel room, deafening and close, recorded at full level with no fade in: the very first instant is a needle-sharp splitting crack, a heavy chest-punching low-frequency body under it, hard bright early reflections slapping straight back off tile and mirror within a few milliseconds, then a short tight tail gone inside half a second, no music, no voice"
     },
     {
       "name": "weapon.revolver.reload.out",
