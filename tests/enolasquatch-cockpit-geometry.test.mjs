@@ -8,7 +8,7 @@ ensureThreeShim();
 ensureDomShim();
 
 const [
-  { EnolaSquatch }, { AircraftPhysics }, { AC_ENOLA }, { createCrew },
+  { EnolaSquatch, REAR_GUN_ARC }, { AircraftPhysics }, { AC_ENOLA }, { createCrew },
   { CameraManager }, { InteractionSystem }, { MissionController }, { GunnerStation }, { Player },
 ] = await Promise.all([
   import('../src/enolasquatch/scenes/EnolaSquatch.js'),
@@ -1468,7 +1468,14 @@ test('the real gunner reticle, modeled barrels, and tracer origin agree at every
   });
   gunner.take();
   const defects = [];
-  for (const [yaw, pitch] of [[0, 0], [-1.02, -0.38], [-1.02, 0.58], [1.02, -0.38], [1.02, 0.58]]) {
+  /* The real control limits, not a copy of them: `REAR_GUN_ARC` is what both
+   * `GunnerStation` and `EnolaSquatch.updateRearGun()` clamp to, so an audit
+   * that hardcodes numbers stops auditing the gun the moment the arc widens —
+   * which it did on 2026-08-19 ("widen the arc substantially left/right"). */
+  const { traverse, down, up } = REAR_GUN_ARC;
+  for (const [yaw, pitch] of [
+    [0, 0], [-traverse, down], [-traverse, up], [traverse, down], [traverse, up],
+  ]) {
     gunner.yaw = yaw;
     gunner.pitch = pitch;
     for (let frame = 0; frame < 300; frame += 1) {
@@ -1511,6 +1518,11 @@ test('taking the real rear-gun station gives an unoccluded camera and restores S
     physics: { onGround: false },
     autopilot: { engaged: true, engage() { return true; }, disengage() { this.engaged = false; } },
     gunFiring: false,
+    /* The tail gun is the RETURN leg's toy — outbound the player is the pilot
+     * and `toggleGun()` refuses (owner playtest, 2026-08-19). `offerTailGun()`
+     * is what raises this on the way home; this test is about the transition
+     * itself, so it starts from the state that transition happens in. */
+    gunOffered: true,
     dialogue: { play() {}, bark() {} },
     cameras: { setView() {} },
   });
@@ -1544,7 +1556,14 @@ test('the gunner camera has an opaque-free firing sightline at every control lim
     if (object.isMesh && shown(object)) meshes.push(object);
   });
   const blocked = [];
-  for (const [yaw, pitch] of [[0, 0], [-1.02, -0.38], [-1.02, 0.58], [1.02, -0.38], [1.02, 0.58]]) {
+  /* The real control limits, not a copy of them: `REAR_GUN_ARC` is what both
+   * `GunnerStation` and `EnolaSquatch.updateRearGun()` clamp to, so an audit
+   * that hardcodes numbers stops auditing the gun the moment the arc widens —
+   * which it did on 2026-08-19 ("widen the arc substantially left/right"). */
+  const { traverse, down, up } = REAR_GUN_ARC;
+  for (const [yaw, pitch] of [
+    [0, 0], [-traverse, down], [-traverse, up], [traverse, down], [traverse, up],
+  ]) {
     aircraft.parts.rearGunTurret.rotation.y = yaw;
     aircraft.parts.rearGunYoke.rotation.x = pitch;
     aircraft.group.updateMatrixWorld(true);

@@ -495,13 +495,20 @@ test('Enola allowlist pins all six public states to exact fitted-airframe residu
     new URL('../tools/geometry-allowlists/enolasquatch.json', import.meta.url),
     'utf8',
   ));
+  /* Re-pinned 2026-08-19 after the owner playtest pass. The airframe grew a
+   * rear-gun mount structure, a full canopy, two seat restraints and a
+   * bombardier station, so both halves of this census moved: every citation's
+   * line number, and the suppression counts (six more `overlap: false` surfaces
+   * per state — the connecting structure's collar and traverse ring, the new
+   * glazing, the bombardier cushion). The gate itself reports 0 violations and
+   * 0 configuration errors against these numbers. */
   const expected = {
-    bombrun: { overlap: 3494, checkSupport: 7719, sources: 108 },
-    detonation: { overlap: 3495, checkSupport: 6925, sources: 108 },
-    flak: { overlap: 3511, checkSupport: 7736, sources: 112 },
-    preflight: { overlap: 3462, checkSupport: 7687, sources: 101 },
-    return: { overlap: 3494, checkSupport: 7718, sources: 107 },
-    takeoff: { overlap: 3455, checkSupport: 7680, sources: 99 },
+    bombrun: { overlap: 3499, checkSupport: 7720, sources: 114 },
+    detonation: { overlap: 3500, checkSupport: 6926, sources: 114 },
+    flak: { overlap: 3516, checkSupport: 7737, sources: 118 },
+    preflight: { overlap: 3467, checkSupport: 7688, sources: 107 },
+    return: { overlap: 3499, checkSupport: 7719, sources: 113 },
+    takeoff: { overlap: 3460, checkSupport: 7681, sources: 105 },
   };
   const states = Object.keys(expected);
 
@@ -511,7 +518,7 @@ test('Enola allowlist pins all six public states to exact fitted-airframe residu
   assert.deepEqual(allowlist.suppressionPolicy.map(({ state }) => state), states);
   assert.deepEqual(
     [...new Set(allowlist.entries.map(({ source }) => source))].sort(),
-    [595, 672, 790, 853, 1167, 1267, 1992]
+    [698, 775, 893, 956, 1270, 1370, 2221]
       .map((line) => 'src/enolasquatch/scenes/EnolaSquatch.js:' + line)
       .sort(),
   );
