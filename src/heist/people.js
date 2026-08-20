@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { markActor } from '../core/staging.js';
 import { makePerson } from '../bing/cast.js';
 import { Mouth } from '../core/mouth.js';
 import { makePlateCarrier } from './weapons.js';
@@ -76,6 +77,15 @@ const VISUAL_POSE_BY_STATE = Object.freeze({
  * ends 45 cm below where it started. */
 const FLOOR_POSES = new Set(['kneeling', 'prone', 'restrained', 'bolting', 'alarm', 'fallen']);
 
+/** THE TAKE's pose vocabulary, in the four words the staging marker knows. */
+const HEIST_ACTOR_POSTURES = Object.freeze({
+  stand: 'stand', startled: 'stand', pleading: 'stand', bolting: 'stand',
+  alarm: 'stand', aiming: 'stand',
+  seated: 'sit',
+  kneeling: 'kneel', restrained: 'kneel',
+  prone: 'lie', fallen: 'lie',
+});
+
 /**
  * One person, plus the poses THE TAKE puts them in.
  *
@@ -86,10 +96,16 @@ const FLOOR_POSES = new Set(['kneeling', 'prone', 'restrained', 'bolting', 'alar
 export class HeistFigure {
   constructor({
     name = 'person', x = 0, z = 0, y = 0, yaw = 0, model = {}, tier = 'ambient',
+    role = 'bystander', seat, lookAt,
   } = {}) {
     this.root = new THREE.Group();
     this.root.name = name;
     this.root.userData.geometryGate = { assemblyId: `heist.figure.${name}` };
+    /* Everybody in this bank is a marked actor, so the staging gate can ask
+     * where they are looking without knowing this file exists.
+     * src/core/staging.js. The mark goes on before the first `this.pose =`
+     * below, because that assignment runs through the posture setter. */
+    markActor(this.root, { id: name, role, posture: 'stand', ...(seat ? { seat } : {}), ...(lookAt ? { lookAt } : {}) });
     this.root.position.set(x, y, z);
     this.root.rotation.y = yaw;
     this.tilt = new THREE.Group();
@@ -127,6 +143,19 @@ export class HeistFigure {
 
   get group() { return this.root; }
   get position() { return this.root.position; }
+
+  /* THE TAKE's pose names are its own -- `bolting`, `restrained`, `alarm` --
+   * and the staging gate speaks the four the shared marker defines. Making
+   * `pose` an accessor means every one of the dozen `this.pose = ...` lines
+   * below keeps the marker honest without each of them having to remember. */
+  get pose() { return this._pose; }
+
+  set pose(name) {
+    this._pose = name;
+    if (this.root.userData.actor) {
+      this.root.userData.actorPosture = HEIST_ACTOR_POSTURES[name] ?? 'stand';
+    }
+  }
 
   _clear() {
     const p = this.parts;
@@ -820,6 +849,7 @@ export function makeHostageFigure({ id, index, role, x, z, yaw }) {
   return new HeistFigure({
     name: id,
     x, z, yaw,
+    role: 'civilian',
     tier: index < 6 ? 'hero' : 'ambient',
     model: {
       height: Math.round(height * 100) / 100,
@@ -869,7 +899,7 @@ export function makeHostageFigure({ id, index, role, x, z, yaw }) {
  */
 export function makeBankGuardFigure({ name, x, z, yaw, height = HEIST_HEIGHTS.guard }) {
   const figure = new HeistFigure({
-    name, x, z, yaw, tier: 'hero',
+    name, x, z, yaw, tier: 'hero', role: 'guard',
     model: {
       height, build: 1.16, dress: 'work', shirt: 0x27384b, hair: 'crop',
       hairColour: 0x241a14, skin: 0xa9764f, bandana: false,
@@ -1016,7 +1046,7 @@ export function makeBankGuardFigure({ name, x, z, yaw, height = HEIST_HEIGHTS.gu
 /** The manager: a suit, a lanyard, and the case he will not put down. */
 export function makeBankManagerFigure({ name, x, z, yaw }) {
   const figure = new HeistFigure({
-    name, x, z, yaw, tier: 'hero',
+    name, x, z, yaw, tier: 'hero', role: 'principal',
     model: {
       height: HEIST_HEIGHTS.manager, build: 1.06, dress: 'suit', shirt: 0x2b2f36,
       hair: 'receding', hairColour: 0x504336, skin: 0xd2a074, glasses: true, bandana: false,
@@ -1054,7 +1084,7 @@ export function makeBankManagerFigure({ name, x, z, yaw }) {
  */
 export function makePoliceFigure({ name, x, z, yaw, index = 0 }) {
   const figure = new HeistFigure({
-    name, x, z, yaw, tier: index < 4 ? 'hero' : 'ambient',
+    name, x, z, yaw, role: 'enemy', tier: index < 4 ? 'hero' : 'ambient',
     model: {
       height: HEIST_HEIGHTS.officer - (index % 3) * 0.04,
       build: 1.2 + (index % 2) * 0.08,

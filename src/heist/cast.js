@@ -162,7 +162,7 @@ export function buildHeistCrew(scene) {
     const heading = crewHeadingForPhase('safehouse', { x, z });
     const figure = new HeistFigure({
       name: `crew-${id}`,
-      x, z, yaw: heading, tier: 'hero',
+      x, z, yaw: heading, tier: 'hero', role: 'crew',
       model: {
         ...presentation.model,
         bandana: false,

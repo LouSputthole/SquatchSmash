@@ -25,6 +25,8 @@ catches it. The procedure is: no scene ships without its machines green.**
 | Written-but-unwired audio | 33 `silent.*` cues authored in `SilentSquatch.js` that are not in the manifest — `npm run sfx` can never render them; invisible to `check` because they go through a local `sfx()` helper | Per-scene `tools/<scene>-vo.mjs` + `check:<scene>-vo`, and **never call audio through a local wrapper that hides the cue name from the greps**. ENGINE-TRAPS #3's corollary; it has now cost lines three times |
 | Recording drift | Door-excuse takes matching neither the old nor the shipping text; `needsRerecord` flags shipping for weeks | `VOICE-LINES-TODO.md` / `VOICE-LINES-NEEDED.md` are GENERATED (`npm run audio:todo`, `voice:needed`) — regenerate after every dialogue change; the sheet is the truth, not memory |
 | Stale docs lying to the next contributor | "not yet recorded" comments on fully recorded banks; a handoff pointing at a commit that isn't in this repo | Doc claims about state belong in generated files or verifier assertions. A hand-written "current state" line is stale the day after it's written |
+| People standing wrong, or all pointed the same way | "they are all looking foward at the same spot" (the crew in the van) · "they are all standing in the seats" · "the cops have spawned behind me instead of infront of me" · a man facing a wall | `npm run verify:staging` — the staging gate, over the same headless scene builds the geometry gate uses. docs/STAGING-GATE.md |
+| A scene quietly rebuilding a system we already have | "We keep reinventing and using different systems instead of using what we already have" — objectives, movement, dialogue volume, decals, all different per scene | `tests/shared-system-adoption.test.mjs` holds `tools/shared-systems.mjs` to the source tree. Adoption may rise freely and may only fall on purpose, in a diff somebody reads |
 | Cross-scene inconsistency | "We've fixed a lot of things in some scenes that aren't fixed in others" | The audit's full sweep (`node tools/scene-audit.mjs`) covers all 15 scenes including the siege; shared systems (weapons, PostFX, audio scoping, inventory) get adopted per scene with a verifier assertion so adoption is checkable |
 
 ## 2. The Definition of Done for a scene
@@ -38,15 +40,18 @@ order — cheap machines first:
 3. `node tools/scene-audit.mjs <scene>` — zero NEW findings vs. the previous
    run; pre-existing ones triaged, not ignored (half are legitimate — a hanging
    lamp IS floating; judgement stays with the reader).
-4. `npm run verify:<scene>` — the on-foot browser playthrough. **A scene
+4. `npm run verify:staging` — the cast is standing in it the way it was
+   written: nobody facing a wall, no rank of people sharing one yaw, nobody
+   standing in a seat, no wave arriving behind the player.
+5. `npm run verify:<scene>` — the on-foot browser playthrough. **A scene
    without a verifier is not done as a scene**; the graveyard ran without one
    for weeks and it was the only routed scene nobody could prove worked.
-5. The recording sheets regenerated if any line changed.
-6. The preview page reaches it — a play link, and `?checkpoint=` jumps for
+6. The recording sheets regenerated if any line changed.
+7. The preview page reaches it — a play link, and `?checkpoint=` jumps for
    anything longer than five minutes (heist/beefrun/enola/siege pattern). **The
    siege sat finished and verified for days and the owner had never seen it,
    because nothing linked to it and the deploy didn't stage its html.**
-7. The Pages workflow stages its html (`.github/workflows/pages.yml` copies by
+8. The Pages workflow stages its html (`.github/workflows/pages.yml` copies by
    name — a new page is invisible in production until it's in that list).
 
 ## 3. Process rules that came out of this session
@@ -78,6 +83,12 @@ order — cheap machines first:
 
 ## 4. What to build next (the gaps the machines still have)
 
+- ~~**Name everything.**~~ **STARTED, 2026-08-20.** The shared `Person` rig now
+  tags its own parts (`userData.rig` / `userData.rigPart`), which is what let
+  the staging gate find a body at all. Tags rather than names on purpose: the
+  geometry gate groups assemblies BY NAME, so naming the rig's parts would
+  move that gate's recorded buckets underneath every scene at once. The mesh
+  count below is still true and still worth burning down.
 - **Name everything.** 9,252 meshes in the mansion audit carry no name because
   `cylinder()`/`sphere()` in `src/world/build.js` silently drop the `name`
   option — no check can ever assert an anonymous mesh. Fix the two builders,

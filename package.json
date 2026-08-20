@@ -13,6 +13,7 @@
     "verify:systemic-polish": "node --test --test-isolation=none tests/systemic-polish.test.mjs",
     "verify:scene-recovery": "node tools/verify-scene-recovery.mjs",
     "verify:settings": "node tools/verify-settings.mjs",
+    "verify:staging": "node tools/verify-staging.mjs",
     "verify:geometry": "node tools/verify-geometry.mjs",
     "sfx": "node tools/generate-sfx.mjs",
     "sfx:dry": "node tools/generate-sfx.mjs --dry-run",

@@ -1,0 +1,154 @@
+/**
+ * Run the staging gate over the registered geometry scene states.
+ *
+ *   node tools/verify-staging.mjs                 # every state with a cast
+ *   node tools/verify-staging.mjs heist           # one scene
+ *   node tools/verify-staging.mjs --coverage      # who is still unmarked
+ *
+ * This deliberately rides tools/geometry-scenes.mjs rather than booting pages
+ * in a browser.  Those adapters already build ~80 real scene states headlessly
+ * with real world matrices, which is most of the cost of asking any question
+ * about a scene; the staging questions are just different arithmetic over the
+ * same build.  A second, parallel way to build the same scenes is a second
+ * thing to keep true.
+ */
+import process from 'node:process';
+import { ensureDomShim, ensureThreeShim } from './three-shim.mjs';
+import { withDescriptorGeometryRandom } from './verify-geometry-worker.mjs';
+import { buildGeometrySceneState, GEOMETRY_SCENE_STATES } from './geometry-scenes.mjs';
+import { collectActors, readActor } from '../src/core/staging.js';
+import { stagingFindings } from './staging-gate.mjs';
+
+/* The same two shims the geometry worker installs, for the same reason: half
+ * these scenes paint a texture on a canvas while they build, and a scene that
+ * cannot build is a scene this gate silently says nothing about. The seeded
+ * random comes from the same place, so a forest built twice is the same
+ * forest and a finding is reproducible. */
+ensureThreeShim();
+ensureDomShim();
+
+const args = process.argv.slice(2);
+const wantCoverage = args.includes('--coverage');
+const filters = args.filter((arg) => !arg.startsWith('--'));
+
+const THREE = await import('three');
+
+function worldBox(object) {
+  const box = new THREE.Box3().setFromObject(object);
+  if (box.isEmpty()) return null;
+  return {
+    name: object.name || null,
+    min: [box.min.x, box.min.y, box.min.z],
+    max: [box.max.x, box.max.y, box.max.z],
+  };
+}
+
+/**
+ * Seats are resolved by the name an actor's marker asks for, not by sniffing
+ * for chair-shaped things.  If a rig claims to be sitting on `van-bench-left`
+ * and no such object exists, that is a finding (SEAT_MISSING) rather than a
+ * silent pass -- a seat that was renamed out from under a marker is exactly
+ * the kind of drift this is here to catch.
+ */
+function resolveSeats(roots, actors) {
+  const wanted = new Set(actors.map((actor) => actor.actor?.seat).filter(Boolean));
+  const seats = {};
+  for (const name of wanted) {
+    for (const { root } of roots) {
+      const object = root.getObjectByName?.(name);
+      if (!object) continue;
+      const box = worldBox(object);
+      if (box) seats[name] = box;
+      break;
+    }
+  }
+  return seats;
+}
+
+function colliderBoxes(built) {
+  return built.colliders
+    .filter((collider) => collider?.isBox3 && !collider.isEmpty?.())
+    .map((collider) => ({
+      name: collider.name ?? null,
+      min: [collider.min.x, collider.min.y, collider.min.z],
+      max: [collider.max.x, collider.max.y, collider.max.z],
+    }));
+}
+
+/** The player's stance, when the adapter recorded one. */
+function playerStance(built) {
+  const spawn = built.metadata?.playerSpawn ?? built.metadata?.spawn ?? null;
+  if (!spawn || !Number.isFinite(spawn.x) || !Number.isFinite(spawn.z)) return null;
+  const yaw = Number.isFinite(spawn.yaw) ? spawn.yaw : Number.isFinite(spawn.heading) ? spawn.heading : null;
+  if (yaw === null) return null;
+  return { position: [spawn.x, spawn.y ?? 0, spawn.z], yaw };
+}
+
+const states = GEOMETRY_SCENE_STATES
+  .filter((state) => filters.length === 0 || filters.some((f) => state.id.includes(f)));
+
+let totalFindings = 0;
+let withCast = 0;
+const unmarked = [];
+const byKind = new Map();
+
+for (const state of states) {
+  let built;
+  try {
+    built = await withDescriptorGeometryRandom(state.id, () => buildGeometrySceneState(state.id));
+  } catch (error) {
+    console.log(`SKIP  ${state.id} — build failed: ${error.message}`);
+    continue;
+  }
+  const actors = built.roots.flatMap(({ root }) => collectActors(root, THREE));
+
+  let rigs = 0;
+  for (const { root } of built.roots) {
+    root.traverse((object) => {
+      if (object.userData?.rig === 'person' && !readActor(object)) rigs += 1;
+    });
+  }
+  if (rigs) unmarked.push({ id: state.id, rigs });
+
+  if (actors.length === 0) continue;
+  withCast += 1;
+
+  const { findings } = stagingFindings({
+    id: state.id,
+    actors,
+    boxes: colliderBoxes(built),
+    seats: resolveSeats(built.roots, actors),
+    player: playerStance(built),
+  });
+
+  for (const item of findings) byKind.set(item.kind, (byKind.get(item.kind) ?? 0) + 1);
+  totalFindings += findings.length;
+
+  const label = `${state.id} — ${actors.length} actor${actors.length === 1 ? '' : 's'}`;
+  if (findings.length === 0) {
+    console.log(`ok    ${label}`);
+    continue;
+  }
+  console.log(`FIND  ${label}, ${findings.length} finding${findings.length === 1 ? '' : 's'}`);
+  for (const item of findings) {
+    const extra = Object.entries(item)
+      .filter(([key]) => !['kind', 'id', 'role', 'posture', 'position'].includes(key))
+      .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
+      .join(' ');
+    console.log(`        ${item.kind}  ${item.id} (${item.role}/${item.posture}) ${extra}`);
+  }
+}
+
+console.log('');
+console.log(`Staged states with a cast: ${withCast} of ${states.length} built`);
+if (wantCoverage && unmarked.length) {
+  console.log('Unmarked shared rigs (bodies no check can reach):');
+  for (const { id, rigs } of unmarked) console.log(`  ${id}: ${rigs}`);
+}
+if (byKind.size) {
+  console.log('Findings by kind:');
+  for (const [kind, count] of [...byKind].sort((a, b) => b[1] - a[1])) {
+    console.log(`  ${kind}: ${count}`);
+  }
+}
+console.log(totalFindings === 0 ? 'Staging gate clean.' : `${totalFindings} staging findings.`);

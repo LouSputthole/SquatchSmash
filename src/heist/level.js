@@ -1008,9 +1008,22 @@ export const LOBBY_ANCHORS = Object.freeze([
    * it. The counter's front face is at z −1.975; a customer told to get down
    * lies along the way they are facing, so anybody inside about 1.8 m of the
    * counter lies through it. These start at z +0.4. */
-  { x: -5.2, z: 0.4, yaw: Math.PI }, { x: -3.6, z: 0.9, yaw: Math.PI },
-  { x: -2.0, z: 0.6, yaw: Math.PI }, { x: -0.4, z: 1.1, yaw: Math.PI },
-  { x: 1.2, z: 0.7, yaw: Math.PI }, { x: 2.8, z: 1.2, yaw: Math.PI },
+  /* Every one of these six used to be `yaw: Math.PI` to the last digit, and
+   * the staging gate is what noticed: FACING_UNIFORM, four customers inside
+   * one 6 m bucket pointed the same way to within 2°. A queue facing the
+   * counter is right; a queue facing the counter to nine decimal places is the
+   * owner's *"they are all looking forward at the same spot"*, one room over
+   * from where he first wrote it. So they still face the counter, and no two
+   * of them agree about exactly where it is: the man at the front is square
+   * on, the ones behind him are half-turned out of boredom, and the last is
+   * looking at the door because he has been here twenty minutes.
+   *
+   * The offsets are authored constants rather than jitter on purpose -- a
+   * random yaw would move the geometry gate's recorded buckets on every
+   * build. */
+  { x: -5.2, z: 0.4, yaw: Math.PI - 0.05 }, { x: -3.6, z: 0.9, yaw: Math.PI + 0.21 },
+  { x: -2.0, z: 0.6, yaw: Math.PI - 0.28 }, { x: -0.4, z: 1.1, yaw: Math.PI + 0.13 },
+  { x: 1.2, z: 0.7, yaw: Math.PI - 0.34 }, { x: 2.8, z: 1.2, yaw: Math.PI + 0.52 },
   /* THE TELLERS, BEHIND THE COUNTER — and turned along it.
    *
    * Owner: *"bank teller NPCs clip through the counter"*. They stood at
@@ -1031,9 +1044,9 @@ export const LOBBY_ANCHORS = Object.freeze([
    * — the geometry gate found her inside the leaf the moment the door became
    * a thing that moves rather than a thing that teleports. */
   { x: -7.4, z: -3.9, yaw: -Math.PI / 2 + 0.35, role: 'teller' },
-  { x: -4.9, z: -3.9, yaw: -Math.PI / 2 + 0.35, role: 'teller' },
-  { x: 0.9, z: -3.9, yaw: Math.PI / 2 - 0.35, role: 'teller' },
-  { x: 4.4, z: -3.9, yaw: Math.PI / 2 - 0.35, role: 'teller' },
+  { x: -4.9, z: -3.9, yaw: -Math.PI / 2 + 0.48, role: 'teller' },
+  { x: 0.9, z: -3.9, yaw: Math.PI / 2 - 0.22, role: 'teller' },
+  { x: 4.4, z: -3.9, yaw: Math.PI / 2 - 0.41, role: 'teller' },
   // The writing desks and the waiting seats on the east side.
   { x: 5.5, z: 2.4, yaw: -1.9 }, { x: 7.6, z: 1.2, yaw: -2.4 },
   { x: 8.5, z: 3.8, yaw: -1.2 }, { x: 5.4, z: 5.5, yaw: -0.8 },

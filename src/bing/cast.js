@@ -19,6 +19,7 @@
  * here should feel like standing in front of somebody.
  */
 import * as THREE from 'three';
+import { coarseActorRole, markActor, setActorPosture } from '../core/staging.js';
 /* Read-only: her head is authored in the Silver Room's module and this is the
  * SAME woman, so the club borrows the builder rather than approximating her.
  * One Margo, one face, both scenes. */
@@ -2954,6 +2955,28 @@ export const BADA_BING_PERFORMERS = Object.freeze([
   Object.freeze({ skin: 0xf0cba6, hairColour: 0xdcb04a, hair: 'long', shirt: 0xd94f9a }),  // blonde
 ]);
 
+/** A `job` says what somebody is doing; the marker wants to know who they are. */
+const ACTOR_ROLE_FOR_JOB = Object.freeze({
+  patrol: 'guard',
+  deal: 'bystander',
+  work: 'bystander',
+});
+
+/* One counter per scene, so a room full of people called 'somebody' still
+ * gets stable, distinguishable ids. Keyed weakly: a scene that goes away
+ * takes its numbering with it rather than leaking into the next build. */
+const ACTOR_ORDINALS = new WeakMap();
+
+function uniqueActorId(scene, name) {
+  const base = (name || 'somebody').trim() || 'somebody';
+  if (!scene || typeof scene !== 'object') return base;
+  if (!ACTOR_ORDINALS.has(scene)) ACTOR_ORDINALS.set(scene, new Map());
+  const seen = ACTOR_ORDINALS.get(scene);
+  const ordinal = seen.get(base) ?? 0;
+  seen.set(base, ordinal + 1);
+  return ordinal === 0 ? base : `${base}-${ordinal + 1}`;
+}
+
 export class Npc {
   /**
    * @param {object} o
@@ -2988,6 +3011,20 @@ export class Npc {
       role: model.role ?? null,
       ...this.parts.profile,
     };
+    /* And the shared actor marker, so the staging gate can ask which way this
+     * body is pointed without knowing that the Bing's Npc is also the Special
+     * Meeting's cast and half the mansion's. docs/STAGING-GATE.md.
+     *
+     * Ids come from the name where the name is unique -- 'Seff', 'Lag' -- and
+     * fall back to a per-scene ordinal for the crowds, where forty people are
+     * all called 'somebody' and none of them will ever appear in an allowlist
+     * on their own. */
+    markActor(this.group, {
+      id: o.actorId ?? uniqueActorId(scene, name),
+      role: ACTOR_ROLE_FOR_JOB[job] ?? coarseActorRole(model.role),
+      posture: job === 'sit' ? 'sit' : 'stand',
+      ...(o.seat ? { seat: o.seat } : {}),
+    });
     /* A gutted figure rests its arms differently -- see sit() and the 'sit'
      * and default cases in update() -- because the rest angles every other
      * figure uses were tuned for a flat front and bring the forearm straight
@@ -3037,6 +3074,7 @@ export class Npc {
    * hovering, and everybody in this club is sitting down.
    */
   sit() {
+    setActorPosture(this.group, 'sit');
     this._neutralPose();
     this.seated = true;
     this.parts.legL.position.y = SEATED_LEG_ROOT_Y;
@@ -3068,6 +3106,7 @@ export class Npc {
   }
 
   stand() {
+    setActorPosture(this.group, 'stand');
     this._neutralPose();
     this.parts.legL.position.y = STANDING_LEG_ROOT_Y;
     this.parts.legR.position.y = STANDING_LEG_ROOT_Y;

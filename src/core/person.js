@@ -1,5 +1,6 @@
 // Shared human character rig for story scenes.
 import * as THREE from 'three';
+import { markActor } from './staging.js';
 
 // The shared story-scene API is heading/facing/position, update, and
 // startSmash/consumeImpact, so a mission can animate Tony or a Circle member
@@ -135,6 +136,37 @@ export class Person {
     this.legL = this.buildLeg(-1);
     this.legR = this.buildLeg(1);
     this.group.add(this.legL, this.legR);
+
+    // The rig tags its own parts so a machine can find a body, and the front
+    // of its head, without knowing which scene built it.  Tags go in userData
+    // and NOT in .name on purpose: the geometry gate groups assemblies by
+    // name, so naming these parts would move that gate's recorded buckets
+    // underneath every scene at once for a change that buys nothing.
+    // src/core/staging.js explains what reads these.
+    this.group.userData.rig = 'person';
+    this.body.userData.rigPart = 'body';
+    this.head.userData.rigPart = 'head';
+    this.torso.userData.rigPart = 'torso';
+    this.armL.userData.rigPart = 'armL';
+    this.armR.userData.rigPart = 'armR';
+    this.legL.userData.rigPart = 'legL';
+    this.legR.userData.rigPart = 'legR';
+  }
+
+  /**
+   * Opt this body into the staging gate under a stable id.
+   *
+   * Ids are the scene's to choose because they end up in allowlists; a
+   * counter here would renumber every entry the first time a scene added a
+   * body in the middle of its cast.
+   */
+  markAs(spec) {
+    markActor(this.group, {
+      eyeHeight: this.head.position.y,
+      hipHeight: this.legL.position.y,
+      ...spec,
+    });
+    return this;
   }
 
   buildArm(side) {
