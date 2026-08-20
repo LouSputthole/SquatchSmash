@@ -102,6 +102,7 @@ function main() {
       cue: cue.name,
       text: spoken ? cue.say.trim() : cue.prompt,
       direction: cue.direction || cue.note || profile._note || '',
+      castingNote: profile._note || '',
       retired: isRerecord ? (retiredText.get(cue.name) ?? '') : '',
     });
   }
@@ -157,15 +158,17 @@ function main() {
     .map((r) => r.character))].sort();
   if (uncast.length) {
     const blocked = voiceRows.filter((r) => uncast.includes(r.character)).length;
-    md.push('## Blocked: four voices are not cast yet');
+    md.push(`## Blocked: ${uncast.length} voice${uncast.length === 1 ? ' is' : 's are'} not cast yet`);
     md.push('');
     md.push(`**${blocked} of the ${voiceRows.length} lines cannot be generated yet.** These `
       + 'profiles have no voice id in the manifest — they read `<owner to cast>`:');
     md.push('');
     for (const name of uncast) {
       const mine = voiceRows.filter((r) => r.character === name);
-      md.push(`- **${name}** — ${mine.length} line(s)`
-        + `${mine[0].direction ? ` · *${mine[0].direction}*` : ''}`);
+      /* The profile's casting note, not one cue's line direction -- this list
+       * is read by whoever has to go and cast the part. */
+      const note = mine.find((r) => r.castingNote)?.castingNote;
+      md.push(`- **${name}** — ${mine.length} line(s)${note ? `\n  ${note}` : ''}`);
     }
     md.push('');
     md.push('Cast them by putting a voice id into the `voices` block of');

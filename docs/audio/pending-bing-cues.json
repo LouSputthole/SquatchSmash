@@ -1,0 +1,280 @@
+[
+  {
+    "name": "hotdog.stab.swing.1",
+    "duration": 0.35,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). first wind-up: the knife arm comes up over the shoulder. Fires on the `cock` beat.",
+    "prompt": "a heavy suit jacket sleeve whipping upward fast in a small carpeted bar room, one short cloth rush with a leather grip creak at the end, close, dry, no voice, no impact, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.stab.swing.2",
+    "duration": 0.35,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). second wind-up, harder and faster than the first. Fires on the `cock` beat.",
+    "prompt": "a suit sleeve whipping upward hard, sharper cloth rush than before with a knuckle-tight leather grip squeeze, small carpeted bar room, close, dry, no voice, no impact, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.stab.swing.3",
+    "duration": 0.35,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). third wind-up: he has stopped measuring the man. Fires on the `cock` beat.",
+    "prompt": "a heavy arm swinging up fast in fabric, coarse cloth rush with a low air movement under it, small carpeted bar room, close, dry, no voice, no impact, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.stab.swing.4",
+    "duration": 0.35,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). fourth and final wind-up, the widest arc of the four. Fires on the `cock` beat.",
+    "prompt": "a wide fast arm swing in heavy suit cloth, long cloth rush with an audible air displacement and a tight leather grip creak, small carpeted bar room, close, dry, no voice, no impact, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.stab.withdraw.1",
+    "duration": 0.45,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the blade pulled back out after the first strike. Fires on the `withdraw` beat, 0.09s after impact.",
+    "prompt": "a knife blade drawn back out of a clothed torso, short wet suction with fabric dragging over steel, close, small dry room, no voice, no music, no scream",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.stab.withdraw.2",
+    "duration": 0.45,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the second withdraw, wetter than the first. Fires on the `withdraw` beat, 0.09s after impact.",
+    "prompt": "a knife blade pulled out of flesh through soaked fabric, wet suction and a thin steel scrape, close, small dry room, no voice, no music, no scream",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.stab.withdraw.3",
+    "duration": 0.45,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the third withdraw, ragged. Fires on the `withdraw` beat, 0.09s after impact.",
+    "prompt": "a knife wrenched back out of a body at an angle, ragged wet suction, soaked cloth peeling off steel, close, small dry room, no voice, no music, no scream",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.stab.withdraw.4",
+    "duration": 0.45,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the last withdraw, before the body goes down. Fires on the `withdraw` beat, 0.09s after impact.",
+    "prompt": "a knife dragged slowly back out of a body, long thick wet release with heavy soaked fabric, close, small dry room, no voice, no music, no scream",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.ape.effort.1",
+    "duration": 0.6,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). Ape's breath on the first wind-up: controlled, almost silent. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
+    "prompt": "one adult man's sharp controlled exhale through the nose while swinging, tight and quiet, no words, close mic, dry room, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.ape.effort.2",
+    "duration": 0.6,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). second: the control is going. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
+    "prompt": "one adult man's low grunt of effort through clenched teeth, short, no words, close mic, dry room, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.ape.effort.3",
+    "duration": 0.6,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). third: full weight behind it. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
+    "prompt": "one adult man's hard guttural effort grunt, chest-deep, short, no words, close mic, dry room, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.ape.effort.4",
+    "duration": 0.6,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). fourth: the one that ends it. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
+    "prompt": "one adult man's heaviest strained effort grunt with a ragged breath after it, no words, close mic, dry room, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.grapple.lapel",
+    "duration": 0.5,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). Ape's off hand takes HotDog by the lapel on the first wind-up -- the rig genuinely does this.",
+    "prompt": "a fist seizing a fistful of heavy suit jacket at the chest, sharp cloth grab with buttons and lining strain, close, dry room, no voice, no impact, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.struggle.scuffle",
+    "duration": 1.4,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). The two men fighting each other under everything else: shoes going out from under a man on bar boards. Played on strikes one and three.",
+    "prompt": "two men's dress shoes scuffing and skidding on old hardwood boards during a close struggle, leather soles, cloth friction, a small stumble, closed bar room, no voice, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.stool.knock",
+    "duration": 0.7,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). The bar stool that the cleanup finds broken. Third strike.",
+    "prompt": "a wooden and chrome bar stool knocked over and clattering onto hardwood, one impact then a short metallic roll, closed bar room, no voice, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.body.knees",
+    "duration": 0.55,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). He does not fall in one piece: knees first, then the whole of him (hotdog.body.floor, 0.26s later).",
+    "prompt": "a heavy adult man's knees dropping hard onto hardwood boards, dull double knock with cloth, closed bar room, no voice, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "hotdog.body.wet.breath",
+    "duration": 1.6,
+    "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). What is left of his breathing once he is on the floor. Plays 0.75s after the final impact.",
+    "prompt": "one adult man's shallow wet laboured breathing lying on the floor, thick and irregular, two or three breaths, no words, no groaning performance, close mic, dry room, no music",
+    "promptInfluence": 0.56
+  },
+  {
+    "name": "vo.bing2.party.fixed-it.sauce.1",
+    "voice": "sauce",
+    "say": "I did not cater this. I fixed it. There is a difference and the difference is eleven trays."
+  },
+  {
+    "name": "vo.bing2.party.fixed-it.gratin",
+    "voice": "gratin",
+    "say": "Nobody asked you to fix it."
+  },
+  {
+    "name": "vo.bing2.party.fixed-it.sauce.2",
+    "voice": "sauce",
+    "say": "Nobody asked the kitchen to serve that either. Here we are."
+  },
+  {
+    "name": "vo.bing2.party.the-corn.sauce.1",
+    "voice": "sauce",
+    "say": "The corn came in the van. The corn is mine. Do not let Numbskull near the corn."
+  },
+  {
+    "name": "vo.bing2.party.the-corn.numbskull",
+    "voice": "numbskull",
+    "say": "I have not touched the corn."
+  },
+  {
+    "name": "vo.bing2.party.the-corn.sauce.2",
+    "voice": "sauce",
+    "say": "You are standing in a corn posture."
+  },
+  {
+    "name": "vo.bing2.party.eleven-years.sauce.1",
+    "voice": "sauce",
+    "say": "Eleven years I have eaten in this place. Tonight is the first night anybody let me cook in it. For HIM."
+  },
+  {
+    "name": "vo.bing2.party.eleven-years.irish",
+    "voice": "irish",
+    "say": "Would you rather nobody had asked?"
+  },
+  {
+    "name": "vo.bing2.party.eleven-years.sauce.2",
+    "voice": "sauce",
+    "say": "I would rather they asked eleven years ago."
+  },
+  {
+    "name": "vo.bing2.party.warm-not-hot.sauce",
+    "voice": "sauce",
+    "say": "Second tray goes out warm at half eleven. Warm. Hot is for people who have earned hot."
+  },
+  {
+    "name": "vo.bing2.cleanup.the-van.sauce",
+    "voice": "sauce",
+    "say": "The food goes back in the van. All of it. Nobody in this room is eating tonight and I am not binning good beef."
+  },
+  {
+    "name": "vo.bing2.attack.sauce",
+    "voice": "sauce",
+    "say": "Not near the food. Whatever this is, not near the food.",
+    "direction": "Not frightened and not shocked. A man moving a tray out of the way of weather."
+  },
+  {
+    "name": "vo.bing2.walkup.party.sauce.1",
+    "voice": "sauce",
+    "say": "Plate. You are the only man in this room who has not eaten and it is starting to insult me."
+  },
+  {
+    "name": "vo.bing2.walkup.party.sauce.2",
+    "voice": "sauce",
+    "say": "Billy asked me what was in the sauce. Eight years I have known him. He has never once asked what was in anything."
+  },
+  {
+    "name": "vo.bing2.walkup.party.bartender",
+    "voice": "bartender",
+    "say": "Open bar, closed room. I have been told to keep pouring and to stop counting."
+  },
+  {
+    "name": "vo.bing2.walkup.party.dealer",
+    "voice": "dealer",
+    "say": "The table is open. It is Mister Sputthole's table and it is Mister Sputthole's money. Play accordingly."
+  },
+  {
+    "name": "vo.bing2.walkup.party.security.1",
+    "voice": "mansion-guard",
+    "say": "Nobody comes through this door tonight. That includes people you know."
+  },
+  {
+    "name": "vo.bing2.walkup.party.security.2",
+    "voice": "mansion-guard",
+    "say": "I work for Mister Sputthole. I do not work the party. Enjoy yourself."
+  },
+  {
+    "name": "vo.bing2.walkup.cleanup.sauce",
+    "voice": "sauce",
+    "say": "The food goes out covered, in my van, before anything else leaves this building. Nobody looks twice at a man carrying trays."
+  },
+  {
+    "name": "vo.bing2.walkup.cleanup.bartender",
+    "voice": "bartender",
+    "say": "Every glass in the room, washed twice. Nobody asked me to. I would like that noticed."
+  },
+  {
+    "name": "vo.bing2.walkup.cleanup.dealer",
+    "voice": "dealer",
+    "say": "Shoe is boxed, felt is brushed, chips are counted. I watched a comedian and I went home."
+  },
+  {
+    "name": "vo.bing2.walkup.cleanup.security",
+    "voice": "mansion-guard",
+    "say": "That door has not opened since eleven. It is what I will say, and it is also true."
+  },
+  {
+    "name": "vo.bing2.lou.sweep_order",
+    "voice": "lou1",
+    "say": "He is gone. Now the room. Every surface, every corner, the whole of it, once, properly. Then you have never been here.",
+    "direction": "Quiet and completely level. He is not angry, he is closing a shift."
+  },
+  {
+    "name": "vo.bing2.lou.leave_now",
+    "voice": "lou1",
+    "say": "Out the back with Snow. Do not stop in the lot and do not use the front."
+  },
+  {
+    "name": "vo.bing2.snow.carry",
+    "voice": "snow",
+    "say": "Take him. Through the store room, out the back, straight into the trunk. Do not put him down.",
+    "direction": "Instructions, not encouragement. He has said this to somebody before."
+  },
+  {
+    "name": "vo.bing2.booski.shot_offer",
+    "voice": "booski",
+    "say": "Prospect, how about a shot?",
+    "direction": "Not a question. Warm, flat, and already looking at the bartender."
+  },
+  {
+    "name": "vo.bing2.sauce.plate",
+    "voice": "sauce",
+    "say": "Eat something. Now, while it is still a party.",
+    "direction": "Handing over a plate the man did not ask for and will not be allowed to refuse."
+  },
+  {
+    "name": "vo.bing2.walkup.party.aubbie",
+    "voice": "aubbie",
+    "say": "I have been awake since Tuesday and now I am at a party. Do not ask me what I have been working on.",
+    "retiredText": "Microphone cable is fixed. Do not step on the new splice."
+  },
+  {
+    "name": "vo.bing2.walkup.cleanup.aubbie",
+    "voice": "aubbie",
+    "say": "Correct plastic is in storage. The shower curtain was Snow.",
+    "retiredText": "Correct plastic is in storage. The shower curtain was Lawnmower."
+  },
+  {
+    "name": "vo.bing2.lou.briefing",
+    "voice": "lou1",
+    "say": "Prospect. The men's room, Aubbie's kit, and every piece of him that came off this floor. Then Billy travels.",
+    "direction": "Turning panic into departments. Flat, fast, and completely unbothered.",
+    "retiredText": "Prospect. Both bathrooms, Aubbie's kit, and every piece of him that came off. Then me."
+  }
+]
