@@ -202,6 +202,21 @@
       "cue": "heist.prospect_order_down",
       "retiredText": "Down. Face on the floor, hands where I can see them.",
       "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.bing2.walkup.party.aubbie",
+      "retiredText": "Microphone cable is fixed. Do not step on the new splice.",
+      "reason": "rewritten in the 2026-08-20 HotDog pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.bing2.walkup.cleanup.aubbie",
+      "retiredText": "Correct plastic is in storage. The shower curtain was Lawnmower.",
+      "reason": "rewritten in the 2026-08-20 HotDog pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.bing2.lou.briefing",
+      "retiredText": "Prospect. Both bathrooms, Aubbie's kit, and every piece of him that came off. Then me.",
+      "reason": "rewritten in the 2026-08-20 HotDog pass; the indexed take says the retired wording"
     }
   ],
   "retired": [

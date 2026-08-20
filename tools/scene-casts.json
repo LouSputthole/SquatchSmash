@@ -116,7 +116,8 @@
       "sourceFiles": [
         "src/bing/hotdog-party.js",
         "src/bing/hotdog-main.js",
-        "src/bing/family.js"
+        "src/bing/family.js",
+        "src/bing/hotdog-house-staff.js"
       ],
       "staged": [
         "booski",
@@ -137,10 +138,14 @@
         "lou2",
         "eric",
         "lag",
-        "old-stove"
+        "old-stove",
+        "sauce",
+        "mansion-guard",
+        "bartender",
+        "dealer"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "buildHotDogParty() seats the whole FAMILY roster (minus the two it filters, which it then re-adds explicitly) plus Lou, Billy HotDog, Aubbie and Sauce by name. Sauce ('sauce') has no lines in this bank so it is absent from `staged` on purpose -- add it back if a Sauce line is ever authored here."
+      "notes": "buildHotDogParty() seats the whole FAMILY roster (minus the two it filters, which it then re-adds explicitly) plus Lou, Billy HotDog, Aubbie and Sauce by name. Sauce ('sauce') is seated by name and now speaks: the owner's 2026-08-20 playtest asked for ambient party lines so he feels present in the room. The bartender, the blackjack dealer and two mansion-archetype guards on the door are built by buildHotDogHouseStaff() in src/bing/hotdog-house-staff.js, added for the same playtest so the party is a working club before the Billy incident starts."
     },
     {
       "id": "enola-squatch",

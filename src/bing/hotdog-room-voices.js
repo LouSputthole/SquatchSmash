@@ -49,7 +49,15 @@ export const HOTDOG_SPEAKERS = Object.freeze({
   Snow: { slug: 'snow', voice: 'snow', characterId: CHARACTER_IDS.SNOW },
   'The Shubenator': { slug: 'shubenator', voice: 'shubenator', characterId: CHARACTER_IDS.SHUBENATOR },
   Willy: { slug: 'willy', voice: 'willy', characterId: CHARACTER_IDS.WILLY },
+  Sauce: { slug: 'sauce', voice: 'sauce', characterId: CHARACTER_IDS.SAUCE },
   Prospect: { slug: 'prospect', voice: 'player', characterId: CHARACTER_IDS.PROSPECT },
+  /* The people WORKING the party, who are jobs rather than campaign
+   * characters -- there is no `CHARACTER_IDS` entry for a bartender, and
+   * inventing one would put a man on the Family roster who is not on it. The
+   * `staff:` keys are what `hotdog-main.js` files their bodies under. */
+  'The Bartender': { slug: 'bartender', voice: 'bartender', characterId: 'staff.bartender' },
+  'The Dealer': { slug: 'dealer', voice: 'dealer', characterId: 'staff.dealer' },
+  Security: { slug: 'security', voice: 'mansion-guard', characterId: 'staff.security_door' },
   /* Names the authored spine and the party floor already use for people who
    * are above. Same person, same recording bank, no second body. */
   Shubenator: { slug: 'shubenator', voice: 'shubenator', characterId: CHARACTER_IDS.SHUBENATOR },
@@ -235,6 +243,30 @@ export const HOTDOG_PARTY_CHATTER = Object.freeze([
     ['Numbskull', 'What is a Negev.'],
     ['Willy', 'It is a gun, Numbskull. It is a very large gun.'],
   ]),
+  /* SAUCE, who is not Family and is in this building every night anyway.
+   *
+   * `src/bing/family.js` is where the man is: eleven years of bringing his own
+   * corn into a nightclub, a flat opinion of prospects, and the runway. He is
+   * working the buffet tonight because the food is the whole of him, and
+   * nobody has told him it is a favour. */
+  exchange('fixed-it', [
+    ['Sauce', 'I did not cater this. I fixed it. There is a difference and the difference is eleven trays.'],
+    ['Gratin', 'Nobody asked you to fix it.'],
+    ['Sauce', 'Nobody asked the kitchen to serve that either. Here we are.'],
+  ]),
+  exchange('the-corn', [
+    ['Sauce', 'The corn came in the van. The corn is mine. Do not let Numbskull near the corn.'],
+    ['Numbskull', 'I have not touched the corn.'],
+    ['Sauce', 'You are standing in a corn posture.'],
+  ]),
+  exchange('eleven-years', [
+    ['Sauce', 'Eleven years I have eaten in this place. Tonight is the first night anybody let me cook in it. For HIM.'],
+    ['Irish', 'Would you rather nobody had asked?'],
+    ['Sauce', 'I would rather they asked eleven years ago.'],
+  ]),
+  exchange('warm-not-hot', [
+    ['Sauce', 'Second tray goes out warm at half eleven. Warm. Hot is for people who have earned hot.'],
+  ]),
   exchange('utensils', [
     ['Gratin', 'He has touched every serving utensil on that table. I have re-laid it twice.'],
   ]),
@@ -301,6 +333,9 @@ export const HOTDOG_ATTACK_REACTIONS = Object.freeze(numbered('vo.bing2.attack',
   ['Snow', 'I will bring the car round. Nose out.'],
   ['Aubbie', 'Nobody walks east of that stool.'],
   ['Rippinflow', 'Not a bar. Nothing about that is a bar.'],
+  ['Sauce', 'Not near the food. Whatever this is, not near the food.', {
+    direction: 'Not frightened and not shocked. A man moving a tray out of the way of weather.',
+  }],
 ]));
 
 /**
@@ -351,6 +386,9 @@ export const HOTDOG_CLEANUP_CHATTER = Object.freeze([
   cleanupTalk('booth', [
     ['Ape', 'I am staying in the booth. Lou knows where I am.'],
   ]),
+  cleanupTalk('the-van', [
+    ['Sauce', 'The food goes back in the van. All of it. Nobody in this room is eating tonight and I am not binning good beef.'],
+  ]),
   cleanupTalk('mattresses', [
     ['Seff', 'So the mattress thing is off, then. That is what I am hearing.'],
   ]),
@@ -383,8 +421,12 @@ export const HOTDOG_WALKUP_LINES = Object.freeze({
     Snow: numbered('vo.bing2.walkup.party', [
       ['Snow', 'Cold in here. Good.'],
     ]),
+    /* He is the lead scientist on Lou's programme, not the man who fixes the
+     * microphone cable -- see AUBBIE in src/core/wardrobe.js and the lab in
+     * src/mansion/scenes/SilentSquatch.js. He still refuses to say what the
+     * work is, which is his whole bit on the ordinary Bing floor too. */
     Aubbie: numbered('vo.bing2.walkup.party', [
-      ['Aubbie', 'Microphone cable is fixed. Do not step on the new splice.'],
+      ['Aubbie', 'I have been awake since Tuesday and now I am at a party. Do not ask me what I have been working on.'],
     ]),
     Ape: numbered('vo.bing2.walkup.party', [
       ['Ape', 'Prospect. Have a drink, stand somewhere with a wall behind it, and enjoy the evening.'],
@@ -419,6 +461,20 @@ export const HOTDOG_WALKUP_LINES = Object.freeze({
     Seff: numbered('vo.bing2.walkup.party', [
       ['Seff', 'Quick thing. You are close with Lou now. Forget it. Later. It is a calendar thing.'],
     ]),
+    Sauce: numbered('vo.bing2.walkup.party', [
+      ['Sauce', 'Plate. You are the only man in this room who has not eaten and it is starting to insult me.'],
+      ['Sauce', 'Billy asked me what was in the sauce. Eight years I have known him. He has never once asked what was in anything.'],
+    ]),
+    'The Bartender': numbered('vo.bing2.walkup.party', [
+      ['The Bartender', 'Open bar, closed room. I have been told to keep pouring and to stop counting.'],
+    ]),
+    'The Dealer': numbered('vo.bing2.walkup.party', [
+      ['The Dealer', "The table is open. It is Mister Sputthole's table and it is Mister Sputthole's money. Play accordingly."],
+    ]),
+    Security: numbered('vo.bing2.walkup.party', [
+      ['Security', 'Nobody comes through this door tonight. That includes people you know.'],
+      ['Security', 'I work for Mister Sputthole. I do not work the party. Enjoy yourself.'],
+    ]),
   }),
   cleanup: Object.freeze({
     Booskibro: numbered('vo.bing2.walkup.cleanup', [
@@ -426,13 +482,18 @@ export const HOTDOG_WALKUP_LINES = Object.freeze({
     ]),
     Snow: numbered('vo.bing2.walkup.cleanup', [
       ['Snow', 'Route is clear. Graveyard first. Motel after.'],
-      /* Lawnmower is Snow. This line was authored for that name and could never
-       * fire, because the walk-up table is keyed by the body's name and the
-       * body is called Snow. It is his answer to Aubbie's shower-curtain line. */
+      /* His answer to Aubbie's shower-curtain line, which now names him. */
       ['Snow', 'The shovel made sense when I picked it up.'],
     ]),
+    /* SNOW, NOT LAWNMOWER. Lawnmower is Snow's nickname and always was --
+     * `HOTDOG_SPEAKERS` casts both names onto one body and one voice -- but
+     * this line was the last user-facing place in the scene where the two
+     * read as two men, because Aubbie was blaming somebody the player has
+     * never been introduced to while Snow stood four feet away holding a
+     * shovel. Same joke, same rhythm, the right name on it. The old wording
+     * is a re-record: see docs/audio/pending-bing-cues.json. */
     Aubbie: numbered('vo.bing2.walkup.cleanup', [
-      ['Aubbie', 'Correct plastic is in storage. The shower curtain was Lawnmower.'],
+      ['Aubbie', 'Correct plastic is in storage. The shower curtain was Snow.'],
     ]),
     'Hog Mama': numbered('vo.bing2.walkup.cleanup', [
       ['Hog Mama', 'The cake did not kill anybody and I am not throwing it out.'],
@@ -473,6 +534,18 @@ export const HOTDOG_WALKUP_LINES = Object.freeze({
     Seff: numbered('vo.bing2.walkup.cleanup', [
       ['Seff', 'Nobody is going to want the mattresses now. That is what gets me about tonight.'],
     ]),
+    Sauce: numbered('vo.bing2.walkup.cleanup', [
+      ['Sauce', 'The food goes out covered, in my van, before anything else leaves this building. Nobody looks twice at a man carrying trays.'],
+    ]),
+    'The Bartender': numbered('vo.bing2.walkup.cleanup', [
+      ['The Bartender', 'Every glass in the room, washed twice. Nobody asked me to. I would like that noticed.'],
+    ]),
+    'The Dealer': numbered('vo.bing2.walkup.cleanup', [
+      ['The Dealer', 'Shoe is boxed, felt is brushed, chips are counted. I watched a comedian and I went home.'],
+    ]),
+    Security: numbered('vo.bing2.walkup.cleanup', [
+      ['Security', 'That door has not opened since eleven. It is what I will say, and it is also true.'],
+    ]),
   }),
 });
 
@@ -498,11 +571,31 @@ export const HOTDOG_STAGED_LINES = Object.freeze({
     'Enjoy the party, Prospect. That is an order with a very short shelf life.',
     'vo.bing2.lou.enjoy',
   ),
+  /* REWRITTEN for the order the club actually works in (owner, 2026-08-19):
+   * the men's room, the kit and the jewellery, and then Billy travels. The
+   * sweep is not in this list any more because the sweep is the LAST thing
+   * that happens in this building and Lou hands it out himself, afterwards,
+   * once there is no longer a body in the room to sweep around. The old
+   * wording also said "both bathrooms" at a club with one working one. */
   louCleanupBriefing: line(
     'Big Uncle Lou',
-    'Prospect. Both bathrooms, Aubbie\'s kit, and every piece of him that came off. Then me.',
+    'Prospect. The men\'s room, Aubbie\'s kit, and every piece of him that came off this floor. Then Billy travels.',
     'vo.bing2.lou.briefing',
     { direction: 'Turning panic into departments. Flat, fast, and completely unbothered.' },
+  ),
+  /* The body is in the trunk and the man is still standing in his own club.
+   * THIS is where the evidence sweep comes from -- not from a checklist that
+   * appeared the second Billy hit the boards. */
+  louSweepOrder: line(
+    'Big Uncle Lou',
+    'He is gone. Now the room. Every surface, every corner, the whole of it, once, properly. Then you have never been here.',
+    'vo.bing2.lou.sweep_order',
+    { direction: 'Quiet and completely level. He is not angry, he is closing a shift.' },
+  ),
+  louLeaveNow: line(
+    'Big Uncle Lou',
+    'Out the back with Snow. Do not stop in the lot and do not use the front.',
+    'vo.bing2.lou.leave_now',
   ),
   louSweepIncomplete: line(
     'Big Uncle Lou',
@@ -545,10 +638,28 @@ export const HOTDOG_STAGED_LINES = Object.freeze({
     'Tight, covered, nothing loose. He travels now.',
     'vo.bing2.aubbie.wrapped',
   ),
+  snowCarryPrompt: line(
+    'Snow',
+    'Take him. Through the store room, out the back, straight into the trunk. Do not put him down.',
+    'vo.bing2.snow.carry',
+    { direction: 'Instructions, not encouragement. He has said this to somebody before.' },
+  ),
   snowLoadPrompt: line(
     'Snow',
     'Trunk is open. You and Numbskull, on three.',
     'vo.bing2.snow.trunk',
+  ),
+  booskiShotOffer: line(
+    'Booskibro',
+    'Prospect, how about a shot?',
+    'vo.bing2.booski.shot_offer',
+    { direction: 'Not a question. Warm, flat, and already looking at the bartender.' },
+  ),
+  sauceBuffetPlate: line(
+    'Sauce',
+    'Eat something. Now, while it is still a party.',
+    'vo.bing2.sauce.plate',
+    { direction: 'Handing over a plate the man did not ask for and will not be allowed to refuse.' },
   ),
 });
 

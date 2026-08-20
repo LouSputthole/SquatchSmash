@@ -3641,6 +3641,28 @@ export class Npc {
  * Twenty-nine people, which is a busy Tuesday.
  * @returns {{ all: Npc[], byName: Object<string, Npc> }}
  */
+/**
+ * The man across the felt.
+ *
+ * Was typed inline in `populate()` and nowhere else, which was fine until the
+ * closed party needed a dealer too -- and a second inline model would have
+ * been a second man doing the same job at the same table on a different
+ * night. Same rule as `BADA_BING_BARTENDER` in core/wardrobe.js: the body
+ * moves out, both places spread it, and there is one dealer. He stays here
+ * rather than in the wardrobe because he is a JOB in this building, not a
+ * person on the campaign roster -- the wardrobe is keyed by character id and
+ * the dealer has never had one.
+ */
+export const BING_BLACKJACK_DEALER = Object.freeze({
+  height: 1.76,
+  build: 0.95,
+  dress: 'waistcoat',
+  shirt: 0xe6e2da,
+  hair: 'short',
+  hairColour: 0x9a9a9a,
+  glasses: true,
+});
+
 export function populate(scene, club, { includeMargo = true } = {}) {
   const a = club.anchors;
   const all = [];
@@ -3712,7 +3734,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   add('dealer', new Npc(scene, {
     name: 'the dealer', tier: 'hero', job: 'deal',
     x: a.dealer.x, z: a.dealer.z, yaw: 0,
-    model: { height: 1.76, build: 0.95, dress: 'waistcoat', shirt: 0xe6e2da, hair: 'short', hairColour: 0x9a9a9a, glasses: true },
+    model: { ...BING_BLACKJACK_DEALER },
   }));
 
   /* The man on the office door is crew, not a doorman in a tracksuit: dark

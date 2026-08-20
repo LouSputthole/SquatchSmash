@@ -1221,10 +1221,13 @@ export function buildClub(scene, { renderer } = {}) {
 
     add(sign(printed('min-bet', ['$25', 'MIN'], { w: 256, h: 200, bg: '#e8e0cc', fg: '#1a1a1a', font: '900 76px "Trebuchet MS", sans-serif' }),
       0.3, 0.24, { x: bj.x + 1.05, y: 1.15, z: bj.z + 1.0, rotY: -0.6 }));
-    // Keep the two barrier posts outside every blackjack chair footprint.
-    for (const sx of [-2.55, 2.55]) {
-      add(cylinder({ r: 0.07, h: 0.95, pos: [bj.x + sx, 0.47, bj.z + 1.8], mat: M_BRASS }));
-    }
+    /* The two brass barrier posts that used to stand at bj.x +/- 2.55 are
+     * gone (owner, 2026-08-19: "remove the random yellow pole near the
+     * blackjack table"). They were rope stanchions with no rope on them and
+     * no rope anywhere near them -- the club's only velvet line is outside on
+     * the pavement -- so from the floor they read as two brass poles somebody
+     * had left standing in the middle of a casino corner. The lamp over the
+     * felt is what marks the table. */
   }
 
   /* ================================================================== */
@@ -1449,7 +1452,16 @@ export function buildClub(scene, { renderer } = {}) {
 
     // On the jamb beside each door, not floating on the leaf itself -- and on
     // the hallway FACE of the wall (x 7.71), not embedded in its thickness.
-    for (const [lz, label] of [[-3.8, 'MANAGER'], [3.4, 'LADIES']]) {
+    /* MEN is back (owner, 2026-08-19: "restore the MEN'S ROOM sign"). The
+     * men's room is the one door in this hallway the player is sent through
+     * by an objective, and it was the only one of the three without a plate
+     * on its jamb -- so the hallway named the manager's office and the
+     * ladies' (both locked) and said nothing about the door that opens. It
+     * takes the same jamb offset the other two already use -- the plate lands
+     * a quarter-metre past the far edge of its own leaf, so MEN sits at
+     * z 1.75 beside a door spanning -0.1 to 1.5 and stays clear of the
+     * ladies' leaf at 2.9. */
+    for (const [lz, label] of [[-3.8, 'MANAGER'], [1.0, 'MEN'], [3.4, 'LADIES']]) {
       add(sign(printed(`plate-${label}`, [label], { w: 256, h: 80, bg: '#26262e', fg: '#c8c8d0', font: '800 42px "Trebuchet MS", sans-serif' }),
         0.36, 0.11, { x: 7.7, y: 1.85, z: lz + 0.75, rotY: -Math.PI / 2 }));
     }

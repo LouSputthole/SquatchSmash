@@ -33,15 +33,33 @@ const BING_STATE_IDS = Object.freeze([
  * THREE.Object3D constructor spends four calls on its UUID, so adding the two
  * hand sockets per figure moved this by one garment mesh. Health is asserted
  * separately below and did not move: 20 findings, 19 INTERPENETRATION, 1
- * WALL_EMBED, 0 FLOATING, 17 suppressions, in all five states, and the four
- * authored-cast states keep their counts exactly. Bumped 5995 -> 5996 for the
- * hand socket, and verified against the health assertions before doing so. */
+ * WALL_EMBED, 0 FLOATING, 17 suppressions, in all five states.
+ *
+ * MOVED 2026-08-19, and verified against those health assertions first --
+ * findings, kinds and suppressions are identical before and after:
+ *
+ *   visit-one  5996 -> 6027   Aubbie's lab coat (AUBBIE is `trim: true`
+ *                             tailoring now, not a plain work shirt) plus the
+ *                             restored MEN door plate, less the two brass
+ *                             blackjack barrier posts; the crowd reshuffles
+ *                             off the Math.random cost of the extra meshes.
+ *   party      4397 -> 4696   the four people working the room (bartender,
+ *                             blackjack dealer, two of Lou's men on the door),
+ *                             Aubbie's coat and his pens/gloves in place of
+ *                             the tool pouch and keys, the MEN plate, less the
+ *                             brass posts and the floating TABLE CLOSED sign.
+ *   attack     4397 -> 4696   same content as `party`.
+ *   cleanup    4320 -> 4619   same, at the cleanup pose.
+ *   graveyard  4249 -> 4548   same, with Billy already gone.
+ *
+ * The three party states all move by the same +299 as `party`, which is the
+ * check that the delta is content and not staging. */
 const EXPECTED_RECORDS = Object.freeze({
-  'bing:visit-one': 5996,
-  'bing:party': 4397,
-  'bing:attack': 4397,
-  'bing:cleanup': 4320,
-  'bing:graveyard': 4249,
+  'bing:visit-one': 6027,
+  'bing:party': 4696,
+  'bing:attack': 4696,
+  'bing:cleanup': 4619,
+  'bing:graveyard': 4548,
 });
 
 function snapshotFor(built) {
@@ -129,11 +147,17 @@ test('Bing headless Adapters mount the complete runtime producer sets', async ()
   });
 
   const party = await buildGeometrySceneState('bing:party');
+  /* 24, not 20: the closed party now has people WORKING it -- a bartender, a
+   * blackjack dealer and two of Lou's men holding the inside of the club
+   * doors (src/bing/hotdog-house-staff.js). 29 colliders, not 27, because the
+   * two on the door are the only two of the four the player can walk into;
+   * the bartender and the dealer stand inside furniture that already
+   * collides and are deliberately given no body of their own. */
   assert.deepEqual(party.metadata, {
     checkpoint: 'party',
-    npcCount: 20,
-    partyColliderCount: 27,
-    ownedPartyColliderCount: 27,
+    npcCount: 24,
+    partyColliderCount: 29,
+    ownedPartyColliderCount: 29,
     seatedActorCount: 2,
     occupiedFixtureCount: 2,
     occupiedDiningFixtureCount: 12,
@@ -158,7 +182,7 @@ test('Bing gives every NPC a stable exact actor or occupied-fixture owner', asyn
         id + ' has an NPC without exact actor/fixture ownership',
       );
     });
-    assert.equal(actors.length, id === 'bing:visit-one' ? 51 : 20);
+    assert.equal(actors.length, id === 'bing:visit-one' ? 51 : 24);
 
     const snapshot = snapshotFor(built);
     assert.deepEqual(snapshot.collectionErrors, []);

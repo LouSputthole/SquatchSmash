@@ -70,6 +70,7 @@
 import { CHARACTER_IDS, SCENE_IDS } from './campaign.js';
 import { BILLY_HOTDOG_MODEL } from './hotdog-model.js';
 import { APE_FAMILY_MEMBER } from '../bing/family-ape.js';
+import { BING_BLACKJACK_DEALER } from '../bing/cast.js';
 import {
   AUBBIE, BADA_BING_BARTENDER, BIG_UNCLE_LOU, BIG_UNCLE_LOU_BING,
   BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
@@ -120,7 +121,15 @@ export const SCENES = Object.freeze({
     label: 'The Bada Bing — the closed party (HOT DOG)',
     short: 'Party',
     rig: 'bing',
-    modules: Object.freeze(['src/bing/hotdog-party.js']),
+    modules: Object.freeze([
+      'src/bing/hotdog-party.js',
+      /* The people working the room, added with the 2026-08-20 party opening.
+       * They are the club's staff rather than the Family, so they live in
+       * their own module -- and the ledger has to scan it, or four bodies the
+       * player walks straight past are invisible to the one document whose
+       * whole job is to say who is in the room. */
+      'src/bing/hotdog-house-staff.js',
+    ]),
     note: 'The same Family, the same building, the same clothes — the party '
       + 'moves people around the room and adds Lou, Billy HotDog, Aubbie and '
       + 'Sauce as figures with their own business. Nobody is redressed.',
@@ -566,6 +575,7 @@ export const PROCEDURAL_APPEARANCE_TEMPLATES = Object.freeze([
 
 export const EXTRAS = Object.freeze({
   'staff:bartender': 'The Bada Bing\'s bartender',
+  'staff:dealer': "The Bada Bing's blackjack dealer",
   'staff:door_man': "The man on Lou's door",
   'staff:booth_man': "The man in Lou's gate booth",
   'staff:guard_0': "Lou's security — 1.86, short dark hair",
@@ -1164,6 +1174,51 @@ export const APPEARANCES = Object.freeze([
     evidence: 'model: { ...BADA_BING_BARTENDER },',
     /* The waistcoat is the whole read: he is the only person in either
      * building dressed by an employer rather than by himself. */
+  }),
+  /* The four working the closed party. The two on the doors are deliberately
+   * the mansion archetype: the owner wanted men who look like they work for
+   * Lou, not for the room. */
+  row({
+    character: 'staff:bartender',
+    name: EXTRAS['staff:bartender'],
+    scene: 'bing_party',
+    where: 'behind the bar for the closed party, pouring and not counting',
+    model: BADA_BING_BARTENDER,
+    from: { wardrobe: 'BADA_BING_BARTENDER' },
+    module: 'src/bing/hotdog-house-staff.js',
+    evidence: 'model: { ...BADA_BING_BARTENDER },',
+  }),
+  row({
+    character: 'staff:dealer',
+    name: EXTRAS['staff:dealer'],
+    scene: 'bing_party',
+    where: 'the felt, dealing a table nobody is really playing',
+    model: BING_BLACKJACK_DEALER,
+    /* A direct export rather than a row inside a roster, so the path is empty
+     * -- the export IS the model. */
+    from: { module: 'src/bing/cast.js', export: 'BING_BLACKJACK_DEALER', at: [] },
+    module: 'src/bing/hotdog-house-staff.js',
+    evidence: 'model: { ...BING_BLACKJACK_DEALER },',
+  }),
+  row({
+    character: 'staff:guard_0',
+    name: EXTRAS['staff:guard_0'],
+    scene: 'bing_party',
+    where: 'the inside of the club doors, door side',
+    model: MANSION_GUARDS[0],
+    from: { wardrobe: 'MANSION_GUARDS[0]' },
+    module: 'src/bing/hotdog-house-staff.js',
+    evidence: 'model: { ...MANSION_GUARDS[post.guard] },',
+  }),
+  row({
+    character: 'staff:guard_3',
+    name: EXTRAS['staff:guard_3'],
+    scene: 'bing_party',
+    where: 'the inside of the club doors, room side',
+    model: MANSION_GUARDS[3],
+    from: { wardrobe: 'MANSION_GUARDS[3]' },
+    module: 'src/bing/hotdog-house-staff.js',
+    evidence: 'model: { ...MANSION_GUARDS[post.guard] },',
   }),
   row({
     character: CHARACTER_IDS.MARGO,

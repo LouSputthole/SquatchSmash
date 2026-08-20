@@ -332,16 +332,45 @@ export const SAUCE = Object.freeze({
   skin: 0xe8c39c,
 });
 
+/**
+ * Aubbie, who is a SCIENTIST.
+ *
+ * He used to wear `dress: 'work'` with a beard and ginger hair, which reads as
+ * the man who fixes the microphone cable — and the campaign has established
+ * him as something else entirely. `src/mansion/scenes/SilentSquatch.js` puts
+ * him at the head of Lou's programme in a lab coat, shirt and tie, the only
+ * one of the six with a tie showing: coat `0xe2e0d6`, shirt `0xdad8cc`, tie
+ * `0x4a2028`, hair `0x3a3630`, skin `0xc0956e`, and a height of 1.77 that was
+ * taken FROM this file in the first place so the two Aubbies would be one man.
+ * They were one man everywhere except his clothes. Owner, 2026-08-19.
+ *
+ * On the club rig a lab coat is a `suit` in coat colours: `shirt` is the
+ * garment's own body, `jacketColour` its lapels and sleeves, and `shirtAccent`
+ * the shirt showing at the front and on the collar points. `trim` is what
+ * turns that into a knotted tie, a collar and buttons rather than a pale
+ * rectangle, and he earns it — the Prospect stands in front of him twice in
+ * the cleanup. No pocket square: nothing about this man is decorative. Dark
+ * trousers under the coat, because a suit's trousers otherwise take the
+ * jacket colour and he would be white from the collar down.
+ *
+ * The mansion builds its own figures on a different rig (`Figure`), so it
+ * takes none of this — which is exactly why the two drifted. Anything that
+ * dresses Aubbie on the club rig takes it from here.
+ */
 export const AUBBIE = Object.freeze({
   height: 1.77,
-  build: 1.05,
-  dress: 'work',
-  shirt: 0x24292c,
+  build: 1.06,
+  dress: 'suit',
+  shirt: 0xe2e0d6,
+  jacketColour: 0xe2e0d6,
+  shirtAccent: 0xdad8cc,
+  tieColour: 0x4a2028,
+  trouserColour: 0x2b2d33,
+  trim: true,
+  pocketSquare: false,
   hair: 'short',
-  hairColour: 0x8a3e20,
-  beard: true,
-  skin: 0xd7a67e,
-  belt: 'leather',
+  hairColour: 0x3a3630,
+  skin: 0xc0956e,
 });
 
 /**

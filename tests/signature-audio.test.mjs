@@ -150,15 +150,38 @@ test('it fires on the keypress that takes the shot, not on the pour', () => {
   assert.equal(beat.includes('cueBabySnakes('), false,
     'the pour must not cue it — the swallow does');
 
-  const drink = bingMain.slice(
+  /* The beat moved to src/bing/booski-shot.js on 2026-08-19 so the closed
+   * party could run the same shot, and the record is a thing only the
+   * ordinary night has -- so main.js keeps `cueBabySnakes` and hands it over
+   * as the beat's `onDrinkStart` hook. Both halves are pinned: the ordinary
+   * night wires it to the swallow and nothing else, and the swallow itself
+   * still calls that hook only after the press can no longer be refused. */
+  assert.match(bingMain, /onDrinkStart: \(\) => cueBabySnakes\(/,
+    'the ordinary night must hand Baby Snakes to the beat as the drink hook');
+  const wiring = bingMain.slice(
+    bingMain.indexOf('const booskiShotBeat = createBooskiShotBeat({'),
     bingMain.indexOf('function startBooskiShotDrink()'),
-    bingMain.indexOf('function shotDrinkTick('),
+  );
+  assert.equal(wiring.match(/cueBabySnakes\(/g)?.length, 1,
+    'exactly one hook cues it, and it is the drink hook');
+
+  const shotBeatSource = fs.readFileSync(
+    new URL('../src/bing/booski-shot.js', import.meta.url), 'utf8',
+  );
+  const drink = shotBeatSource.slice(
+    shotBeatSource.indexOf('    drink() {'),
+    shotBeatSource.indexOf('    /** Frame driver.'),
   );
   const guard = drink.indexOf('return false;');
-  const call = drink.indexOf('cueBabySnakes(');
-  assert.ok(call > 0, 'the drink never cues Baby Snakes');
+  const call = drink.indexOf('onDrinkStart?.(');
+  assert.ok(call > 0, 'the drink never cues the scene\'s signature hook');
   assert.ok(guard > 0 && call > guard,
     'the cue must sit after the press can still be refused');
+  assert.equal(
+    shotBeatSource.slice(shotBeatSource.indexOf('    start() {')).includes('onDrinkStart'),
+    false,
+    'the pour must not cue it — the swallow does',
+  );
 
   const cue = bingMain.slice(bingMain.indexOf('function cueBabySnakes('), bingMain.indexOf('function startShotBeat()'));
   assert.match(cue, /if \(game\.babySnakesCued\) return;/);
