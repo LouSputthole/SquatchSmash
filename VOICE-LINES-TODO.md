@@ -180,7 +180,7 @@ Billy HotDog. Loud, comfortable, and casually cruel. The final insult gets quiet
 
 Voice profile: `kittenboss`.
 
-Kittenboss -- the OTHER prospect, and the man in the boot of the car in THE SPECIAL MEETING. Aggrieved, deadpan, weirdly chipper: he treats having been shut in a boot for forty-two minutes as a logistics failure rather than a crime, and he is more annoyed about the spare wheel than about any of it. Same age and same rank as Tony, which is the point -- do not play him as comic relief and never as frightened. UNCAST: paste an id here and nothing else moves.
+Kittenboss -- the OTHER prospect, and the woman in the boot of the car in THE SPECIAL MEETING. SHE, everywhere: dialogue, subtitles and direction alike. Aggrieved, deadpan, weirdly chipper: she treats having been shut in a boot for forty-two minutes as a logistics failure rather than a crime, and she is genuinely more annoyed about the spare wheel than about any of it. She is not startled to be there, she does not ask to be let out, and she never once sounds rescued -- she sounds like somebody whose lift was badly organised. Same age and same rank as Tony, which is the point -- do not play her as comic relief and never as frightened. The dry ones ('It was not forty minutes.' / 'I am annoyed. That is different.') are flat and completely sincere, and there is no wink in any of them. The two on the trail ('Are we allowed to talk?' / 'No. I had nothing. Sorry.') are the only quiet she gets, and even those land matter-of-fact rather than scared. CAST 2026-08-20 from the id the owner supplied, which is a woman's voice.
 
 - `vo.specialmeeting.kittenboss.kb_collar.1.mp3` — "Do I look all right?"
 - `vo.specialmeeting.kittenboss.kb_collar.2.mp3` — "Yeah. Thanks."
@@ -383,7 +383,7 @@ Tony Squatchtana. Younger, competent, and aware he is the only person treating a
 - `vo.specialmeeting.tony.kittenboss_hub.opt4.mp3` — "Do you know what this is?"
 - `vo.specialmeeting.tony.kittenboss_hub.opt5.mp3` — "Nice to meet you."
 - `vo.specialmeeting.tony.kittenboss.1.mp3` — "Who the hell is this?"
-- `vo.specialmeeting.tony.kittenboss.2.mp3` — "Why was he in the trunk?"
+- `vo.specialmeeting.tony.kittenboss.2.mp3` — "Why was she in the trunk?"
 - `vo.specialmeeting.tony.lag_seat.1.mp3` — "Is Lag not sitting there?"
 - `vo.specialmeeting.tony.lag_seat.2.mp3` — "Right." **PERFORMANCE REUSE GROUP 7: record once; 2 exact cue files share this approved take.**
 - `vo.specialmeeting.tony.move_seats.1.mp3` — "…What?"

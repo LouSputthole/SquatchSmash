@@ -38,7 +38,17 @@ test('Cartel Palace is a first-class runtime built on the shared game systems', 
     'Q must share the final-arc empty-hands contract');
   assert.match(main, /pagehide[\s\S]{0,180}loadout\.capture\(weapons\)/,
     'ammo changes must survive scene navigation');
-  assert.match(main, /navigateCampaign\([\s\S]*SCENE_IDS\.INITIATION/);
+  /* The Palace goes HOME, not to the ceremony.
+   *
+   * This pinned `SCENE_IDS.INITIATION` for as long as the exit button named
+   * it. He now goes back to a flat where nobody has told him whether killing
+   * Sauce was the right call, Booskibro rings to say there is a meeting and it
+   * is going to be a special one, and three men come and collect him — see
+   * `src/specialmeeting/`, which hands off to the Initiation at the treeline
+   * on its own. The old edge is gone from the scene graph entirely, so this
+   * also pins that the runtime cannot quietly route round the new scene. */
+  assert.match(main, /navigateCampaign\([\s\S]*SCENE_IDS\.SPECIAL_MEETING/);
+  assert.doesNotMatch(main, /navigateCampaign\([\s\S]{0,120}SCENE_IDS\.INITIATION/);
   assert.doesNotMatch(main, /vo\.cartel|SEQUENCES|DialogueController/,
     'locked confrontation voice lines must not be invented in the runtime');
 });
