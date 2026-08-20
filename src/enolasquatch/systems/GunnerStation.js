@@ -62,8 +62,16 @@ export const GUN_RANGE = 1250;
 const TRAVERSE = REAR_GUN_ARC.traverse;
 const ELEVATION = { down: REAR_GUN_ARC.down, up: REAR_GUN_ARC.up };
 const MUZZLE_SPEED = 860;
-/** How long the view takes to travel from the seat into the turret. */
-const TAKE_BLEND_SECONDS = 0.55;
+/**
+ * How long the view takes to travel from the seat into the turret.
+ *
+ * Exported because the browser verifier has to wait exactly this long before
+ * it can ask "is the camera in the turret yet" — see the tail-gun block in
+ * `tools/verify-enolasquatch.mjs`. Its old assertion was written against the
+ * teleport this replaced and read the camera one frame after T, which is now
+ * a man half way down the fuselage rather than a man in the seat.
+ */
+export const TAKE_BLEND_SECONDS = 0.55;
 
 const _eye = new THREE.Vector3();
 const _eyeLocal = new THREE.Vector3();

@@ -129,7 +129,11 @@ export const BEATS = {
   /* LOAD FAT SQUATCH. The bomb comes off its trolley and goes into the bay,
    * which is a five-second animation and about four seconds of this. The old
    * `preflight.restraints` beat above is kept: it is what Irish and Numbskull
-   * say once the thing is actually hanging in there. */
+   * say once the thing is actually hanging in there — and since 2026-08-20 it
+   * is fired from exactly there, off `BombTrolley.onLoaded` (see the LOAD FAT
+   * SQUATCH block in `../preflight.js`). For a day it was kept but not spoken:
+   * the trolley took over the payload check and nothing inherited the beat's
+   * trigger, so on the walked route the two lines simply never played. */
   'preflight.loadSquatch': [
     L('Load it. Slowly. It is the only one we brought.', 3.2),
     N('Bringing her under. Mind your feet.', 2.8),

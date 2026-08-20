@@ -502,10 +502,32 @@ try {
         countAfter: h.preflight.doneCount,
       });
     }
+    /* STAND THERE AND WATCH THE BOMB GO IN.
+     *
+     * LOAD FAT SQUATCH marks its own check done on the key press and then runs
+     * a real animation — roll, lift, withdraw (`LOAD_TIMING` in
+     * `src/enolasquatch/payload/BombTrolley.js`, about 5.1 s in total, with the
+     * bomb becoming a child of the aeroplane at the end of the lift). The two
+     * checks that follow it in walk order only account for about 2.6 s of that,
+     * so a run that snapshotted the crew's beats the instant the elevator
+     * moved was reading them while the Fat Squatch was still in the air on a
+     * hoist — which is a player who has pressed the last key, not a player who
+     * has finished the walkaround. Bounded by the trolley's own state rather
+     * than by a hard-coded wait, so a retune of `LOAD_TIMING` cannot silently
+     * turn this into either a hang or a too-short wait, and `loadedInSeconds`
+     * is reported so a sequence that never seats the bomb reads as exactly
+     * that. */
+    let loadWaited = 0;
+    while (!h.mission.bombTrolley?.loaded && loadWaited < 20) {
+      h.tick(0.25);
+      loadWaited += 0.25;
+    }
     return {
       log,
       complete: h.preflight.complete,
       done: h.preflight.doneCount,
+      bombLoaded: !!h.mission.bombTrolley?.loaded,
+      loadedInSeconds: +loadWaited.toFixed(2),
       tasks: Object.fromEntries(Object.entries(h.preflight.tasks)
         .map(([k, t]) => [k, `${t.count}/${t.need}`])),
       seen: {
@@ -534,10 +556,30 @@ try {
     JSON.stringify({ complete: walkaround.complete, tasks: walkaround.tasks, log: walkaround.log,
       firstMiss: walkaround.firstMiss }));
 
+  /* ---- The four crew beats ----
+   *
+   * `preflight.numbskull`, `.restraints`, `.bombbay` and `.shubes.first` used
+   * to fire off `updatePreflight`'s clock, at a player already strapped into
+   * the left seat with nothing to look at. Moving them onto the parts they are
+   * about is the whole reason `src/enolasquatch/preflight.js` exists.
+   *
+   * `restraints` is the one that fell through the gap. When the Fat Squatch
+   * moved out from under the belly and onto a trolley (owner playtest,
+   * 2026-08-19), the payload check started firing `preflight.loadSquatch`
+   * instead, and nothing inherited "Payload secure?" / "Secure enough." — the
+   * beat stayed authored, stayed commented as kept, and stopped being spoken on
+   * the only route a player takes. It now hangs off `BombTrolley.onLoaded`,
+   * which is why this block waits for the load above: the beat is fired by the
+   * bomb arriving in the bay, not by the key press that started it moving. So
+   * the bomb actually being aboard is asserted here too — four beats said by a
+   * crew standing round an aeroplane that is loaded is the state this check is
+   * really describing. */
   check('the walkaround fires the four crew beats that used to play at nobody from the left seat',
     walkaround.seen.numbskull && walkaround.seen.restraints
-      && walkaround.seen.bombbay && walkaround.seen.shubes,
-    JSON.stringify(walkaround.seen));
+      && walkaround.seen.bombbay && walkaround.seen.shubes
+      && walkaround.bombLoaded,
+    JSON.stringify({ ...walkaround.seen, bombLoaded: walkaround.bombLoaded,
+      loadedInSeconds: walkaround.loadedInSeconds }));
 
   /* ---- Sasole's new walkaround patter (owner: "whippy snappy voice lines") ---- */
   check('Sasole reacts to each check as it is finished, and the four propellers get four different lines',
@@ -1448,6 +1490,38 @@ try {
      * deck, on its side or below its stall, so the pose is staged the same way
      * every other leg of this script stages the one it means to test. */
     const at = h.physics.position.clone();
+    /* AND WITH ROOM TO RUN — the same lesson the tail-gun block below already
+     * paid for, arrived at from the other end.
+     *
+     * This was the LAST cause of a check that had never once been seen to
+     * pass. Measured with the instrumentation this comment replaces: `took`
+     * was true, the control law held heading to 0.0 degrees and altitude to a
+     * single metre for the whole window — and at the forty-fifth second the
+     * check reported `engaged: false`, `reason: null` and 225 m of drift.
+     *
+     * `reason: null` is the tell. Every way the AEROPLANE takes the autopilot
+     * away passes a reason string and starts a lockout (`Autopilot.disengage`);
+     * null is reserved for a hand-back the PLAYER asked for. Nobody asked. The
+     * caller was `MissionController.fail()`, which disengages with null on its
+     * way out — and the reason it fired was `You have left the area the map
+     * covers`: by the time this block runs, the script has flown four unbroken
+     * minutes of eastbound flight through the corridor, the barrage, two
+     * minutes of fighter passes and a breakoff pass, and the aeroplane is out
+     * past x = 19,000 with the map ending at 13,400 (`updateFlightCommon`).
+     * The block then staged its measurement wherever that had left it and flew
+     * another three kilometres in the same direction. The drift it printed was
+     * a bomber nosing over unattended after the mission had already ended.
+     *
+     * That is the MISSION behaving correctly and the TEST flying out of the
+     * world, exactly as it was for the turret. So the window starts from a
+     * known place with the whole map ahead of it: x = 3200, heading 090, about
+     * 3.1 km covered in the 46.5 s of flight below, ending near x = 6300 with
+     * seven kilometres of margin. The phase at this point is `release` parked
+     * on `awaitChoice`, which has no distance gate of its own, so nothing else
+     * moves underneath the measurement — and `failed`/`endedAtX` are reported
+     * either way, so if this ever runs out of room again it says so instead of
+     * blaming the control law. */
+    at.x = 3200;
     at.y = h.groundHeight(at.x, at.z) + 620;
     /* AND HIGH ENOUGH NOT TO FLY INTO A HILL.
      *
@@ -1536,11 +1610,24 @@ try {
       lockout: +h.autopilot.lockout.toFixed(2),
       alreadyEngaged: h.autopilot.engaged,
     };
+    const startedAtX = Math.round(h.physics.position.x);
+    const phaseAtStart = h.mission.phase;
+    const failedAtStart = h.mission.failed;
     const took = h.autopilotToggle();
     h.tick(45);
     const held = {
       took,
       preflightState,
+      /* WHAT ELSE HAPPENED IN THE 45 s. `failed` is the one that matters: the
+       * mission ending mid-window is what a `reason: null` disengage means, and
+       * without these three the check reported it as a control law that could
+       * not hold an altitude. See the ROOM TO RUN note above. */
+      startedAtX,
+      endedAtX: Math.round(h.physics.position.x),
+      phase: `${phaseAtStart} -> ${h.mission.phase}`,
+      phaseHeld: h.mission.phase === phaseAtStart,
+      failed: h.mission.failed,
+      failedDuringWindow: !!h.mission.failed && !failedAtStart,
       engaged: h.autopilot.engaged,
       reason: h.autopilot.reason,
       headingDrift: +Math.abs(((h.physics.headingDeg - heading + 540) % 360) - 180).toFixed(2),
@@ -1563,8 +1650,16 @@ try {
     h.mission.scrambleFighters = realScramble;
     return { held, kicked, refused, after };
   });
+  /* The drift bounds are the ones this law was always held to (4 degrees, 60
+   * metres). They are not the interesting half any more: with the window given
+   * room to run, the measured numbers are 0.0 degrees and about a metre. What
+   * is added is the state the window is measured IN — the mission still alive
+   * and still in the phase it started in — because a check that cannot tell
+   * "it could not hold an altitude" from "the mission ended underneath it" is
+   * the check that hid this for two sessions. */
   check('the autopilot really holds a heading and an altitude while nobody is in the seat',
     autopilot.held.took && autopilot.held.engaged
+      && !autopilot.held.failed && autopilot.held.phaseHeld
       && autopilot.held.headingDrift < 4 && autopilot.held.altitudeDrift < 60
       && autopilot.held.readout && autopilot.held.strip === 'block',
     JSON.stringify(autopilot.held));
@@ -1629,40 +1724,122 @@ try {
       && terrainFloor.engagedAfter && Math.abs(terrainFloor.climbed) < 40,
     JSON.stringify(terrainFloor));
 
-  /* ---- The tail gun, manned by the player ----
+  /* ---- The tail gun, manned by the player, ON THE LEG HOME ----
    *
    * Real fighters, real rounds, and a real hit test through the turret's own
    * arc — `aimGunAt` goes through `GunnerStation.pointAt()`, which clamps to
    * exactly the stops a player has, so a fighter that can only be reached from
-   * outside the traverse is reported as out of arc rather than quietly hit. */
-  const gunnery = await page.evaluate(() => {
+   * outside the traverse is reported as out of arc rather than quietly hit.
+   *
+   * WHICH LEG THIS IS, AND WHY IT MOVED. Owner playtest, 2026-08-19:
+   *
+   *   *"Outbound: player stays pilot. NO tail-gunner takeover at all. Return
+   *   (after the bomb drops): enemy aircraft arrive, Capt Sasole takes the
+   *   flying ('Plane's mine, you go shoot'), prompt T — TAKE OVER TAIL GUN
+   *   prominently."*
+   *
+   * `MissionController.toggleGun()` enforces exactly that now: it refuses
+   * outright until `offerTailGun()` has run, and `offerTailGun()` is called by
+   * `updateReturn` when the first wave of `RETURN_WAVES` arrives. This block
+   * used to stage the turret mid-raid, over the target, on the outbound leg —
+   * the leg the owner asked to have it taken OFF — so with the new rule in
+   * place `gunToggle()` correctly did nothing and four checks in a row reported
+   * that the turret was broken.
+   *
+   * So the whole thing is staged where the toy now lives, and the refusal is
+   * asserted rather than worked around: T is pressed once BEFORE the offer (it
+   * must do nothing and must leave the player in the seat), then the mission is
+   * put on the leg home and left alone until Sasole makes the offer himself.
+   * Nothing here calls `offerTailGun()` by hand — the check would then prove
+   * only that the method exists. */
+  const gunnery = await page.evaluate(async () => {
     const h = window.__enolaSquatch;
+    const { TAKE_BLEND_SECONDS } = await import('/src/enolasquatch/systems/GunnerStation.js');
+
+    /* THE FIRST HALF OF THE OWNER'S NOTE. The mission is still outbound here —
+     * `release`, holding on the bomb-line choice — so T must be refused and the
+     * player must still be flying. */
+    const outbound = {
+      phase: h.mission.phase,
+      offered: h.mission.gunOffered,
+      took: h.gunToggle(),
+      manned: h.gunner.manned,
+    };
+
+    /* And now the leg home. `setPhase` rather than `go('return')`: `go` routes
+     * through `restoreCheckpoint('return')`, which would re-pose and re-weather
+     * the aeroplane out from under the staging below and rewrite the score. The
+     * checkpoint bookkeeping `setPhase('return')` does IS a side effect that
+     * would leak — the restart block much further down needs `preRelease` and
+     * its saved data — so it is put back at the end of this block, the same way
+     * the battery and the fighter scramble are put back by the autopilot block
+     * above. */
+    const keepCheckpoint = { name: h.mission.checkpoint, data: h.mission.checkpointData };
+    h.mission.setPhase('return');
+
     const at = h.physics.position.clone();
-    /* ROOM TO RUN. This block flies unattended and eastbound for up to two
-     * minutes while the player works the turret, and a healthy Enola Squatch
-     * covers the better part of eight kilometres doing it. It used to start
-     * from wherever the flak block had left the aeroplane and get away with it
-     * for a reason that has now been deliberately removed: the barrage used to
-     * shoot two engines out and put the wing damage at its limit, so the
-     * cripple never got very far. With the guns firing blanks (`LIVE_FIRE`,
-     * src/enolasquatch/config.js) and ten per cent more thrust, it flies
-     * straight past the map's eastern bound (`updateFlightCommon`'s ±13.4 km),
-     * the mission correctly fails, `fail()` takes the player off the gun, and
-     * the turret test finds itself testing nothing. That is the MISSION
-     * behaving properly and the TEST flying too far, so the test starts from a
-     * known place with the whole map ahead of it and says so if it ever runs
-     * out of room again. */
-    at.x = 3200;
-    at.y = h.groundHeight(at.x, at.z) + 620;
-    h.physics.setPose(at, 90, 66);
+    /* ROOM TO RUN. This block flies unattended for up to two minutes while the
+     * player works the turret, and a healthy Enola Squatch covers the better
+     * part of eight kilometres doing it. It used to start from wherever the
+     * flak block had left the aeroplane and get away with it for a reason that
+     * has now been deliberately removed: the barrage used to shoot two engines
+     * out and put the wing damage at its limit, so the cripple never got very
+     * far. With the guns firing blanks (`LIVE_FIRE`, src/enolasquatch/
+     * config.js) and ten per cent more thrust, it flew straight past the map's
+     * eastern bound (`updateFlightCommon`'s ±13.4 km), the mission correctly
+     * failed, `fail()` took the player off the gun, and the turret test found
+     * itself testing nothing.
+     *
+     * The leg home runs the other way — `RETURN_HEADING` is 270 — so "room to
+     * run" is now room to the WEST: eleven kilometres out, with the field at
+     * x 0 and `updateReturn` handing off to the approach at x 1600. Measured,
+     * the whole sequence (ten seconds to the first wave, six to let it close,
+     * and a kill inside about three hundred passes) covers roughly 2.7 km, so
+     * this leaves seven kilometres of margin at both ends — and `ranOutOfMap`
+     * and `leftTheLeg` say so if either end is ever reached anyway. */
+    at.x = 11000;
+    let highest = 0;
+    for (let dx = 0; dx <= 9000; dx += 150) {
+      highest = Math.max(highest, h.groundHeight(at.x - dx, at.z));
+    }
+    at.y = highest + 620;
+    h.physics.setPose(at, 270, 66);
     h.physics.omega.set(0, 0, 0);
     h.input.throttle = 0.7;
-    h.tick(1);
+
+    /* "Plane's mine, you go shoot." Waited for, not called: `RETURN_WAVES[0]`
+     * is at ten seconds and `updateReturn` is what turns the offer on. */
+    let offerWait = 0;
+    while (!h.mission.gunOffered && offerWait < 40) {
+      h.tick(0.5);
+      offerWait += 0.5;
+    }
+    const offer = {
+      gunOffered: h.mission.gunOffered,
+      inSeconds: offerWait,
+      waveIndex: h.mission._waveIndex,
+      // He is flying it, so the gyro really is flying it, before T is touched.
+      sasoleFlying: h.autopilot.engaged,
+      beat: h.dialogue.seen('fighters.sasoleTakesIt'),
+    };
+
     if (h.state().fighters.active === 0) h.spawnFighters(2, 0);
     h.tick(6);
 
     const before = { autopilot: h.autopilot.engaged };
     const took = h.gunToggle();
+    /* THE CAMERA TRAVELS, IT DOES NOT CUT. Owner playtest, 2026-08-19: "camera
+     * transitions to the rear gun". `GunnerStation.take()` starts a
+     * `TAKE_BLEND_SECONDS` ease from wherever the view was, so this asserts
+     * both halves of that — one frame after T the view is still up the
+     * fuselage, and a blend later it is on the gunner's eye. The old check read
+     * the camera one frame after T and expected it to be in the turret already,
+     * which was true of the teleport this replaced and is now the description
+     * of a bug. Anchored on the module's own exported constant so a retune of
+     * the swoop cannot quietly turn this back into a teleport test. */
+    const eyeAtTake = h.aircraft.rearGunEyeWorld();
+    const camTravelling = h.camera.position.distanceTo(eyeAtTake) > 0.05;
+    h.tick(TAKE_BLEND_SECONDS + 1 / 60);
     const eye = h.aircraft.rearGunEyeWorld();
     const camAtTurret = h.camera.position.distanceTo(eye) < 0.05;
     const hudUp = document.getElementById('enola-combat')?.style.display;
@@ -1675,13 +1852,20 @@ try {
     let inArc = false;
     let closest = Infinity;
     let ranOutOfMap = false;
+    let leftTheLeg = false;
     for (let pass = 0; pass < 1600 && killed === 0; pass++) {
       /* If the stress test ever does reach the edge again, SAY SO. A silent
        * `fail()` mid-loop takes the player off the gun and every assertion
        * below then reports "the turret does not work", which is a diagnosis of
-       * the wrong system entirely — it cost an hour once. */
+       * the wrong system entirely — it cost an hour once. `leftTheLeg` is the
+       * western half of the same tell: reaching the circuit hands off to
+       * `landing`, which takes the player off the gun on purpose. */
       if (Math.abs(h.physics.position.x) > 12800 || h.mission.failed) {
         ranOutOfMap = true;
+        break;
+      }
+      if (h.mission.phase !== 'return') {
+        leftTheLeg = true;
         break;
       }
       const live = h.interceptors.fighters.filter((f) => f.alive);
@@ -1707,34 +1891,51 @@ try {
     const state = h.gunner.readout();
     const autopilotBefore = h.autopilot.engaged;
     const left = h.gunToggle();
+    /* The one leak this block would otherwise leave behind — see the note on
+     * `keepCheckpoint` above. Everything else it touched (the phase, the pose,
+     * the fighters) is either restaged or cleared by the `go()` that follows. */
+    h.mission.checkpoint = keepCheckpoint.name;
+    h.mission.checkpointData = keepCheckpoint.data;
     return {
-      took, before, camAtTurret, inArc, shots, killed,
+      outbound, offer, took, before, camTravelling, camAtTurret, inArc, shots, killed,
       closest: Math.round(closest),
       belt: state.rounds, heat: +state.heat.toFixed(2),
       hits: state.hits, hudUp, shubesQuiet,
       leftGun: left === false, backInSeat: h.gunner.manned === false,
       autopilotBefore, autopilotAfter: h.autopilot.engaged,
       hudDown: document.getElementById('enola-combat')?.style.display,
-      ranOutOfMap, endedAtX: Math.round(h.physics.position.x), failed: h.mission.failed,
+      ranOutOfMap, leftTheLeg,
+      endedAtX: Math.round(h.physics.position.x), phase: h.mission.phase,
+      failed: h.mission.failed,
     };
   });
+  /* Both halves of the owner's rule in one check, because they are one rule:
+   * outbound the tail gun is not on offer at all, and on the leg home Sasole
+   * offers it, takes the flying himself, and T then really does put the player
+   * down the back with the trigger in his hands and the Shubenator off it. */
   check('taking the tail gun puts the player in the turret, engages the autopilot, and hands Shubes off the trigger',
-    gunnery.took && gunnery.camAtTurret && gunnery.shubesQuiet && gunnery.hudUp === 'block',
+    gunnery.outbound.took === false && gunnery.outbound.manned === false
+      && gunnery.offer.gunOffered && gunnery.offer.sasoleFlying && gunnery.offer.beat
+      && gunnery.took && gunnery.camTravelling && gunnery.camAtTurret
+      && gunnery.shubesQuiet && gunnery.hudUp === 'block',
     JSON.stringify({ ...gunnery, shots: undefined, killed: undefined }));
 
   check('the player can actually shoot a night fighter down from the tail',
     gunnery.inArc && gunnery.shots > 0 && gunnery.killed > 0 && gunnery.belt < 1400
-      && !gunnery.ranOutOfMap,
+      && !gunnery.ranOutOfMap && !gunnery.leftTheLeg,
     `${gunnery.shots} rounds away, ${gunnery.hits} on, ${gunnery.killed} destroyed, `
     + `${gunnery.belt} left in the belt; closest pass ${gunnery.closest} m; `
-    + `ended at x ${gunnery.endedAtX}${gunnery.ranOutOfMap ? ' — RAN OUT OF MAP' : ''}`);
+    + `ended at x ${gunnery.endedAtX}${gunnery.ranOutOfMap ? ' — RAN OUT OF MAP' : ''}`
+    + `${gunnery.leftTheLeg ? ' — REACHED THE CIRCUIT' : ''}`);
 
   /* ---- E2: returning to the pilot seat disengages the autopilot automatically ----
    *
    * Owner playtest, 2026-08-06: "When the player returns to the pilot seat,
    * autopilot should disengage automatically." Taking the tail gun requires
-   * the autopilot (`toggleGun()`), so `gunnery.autopilotBefore` is always
-   * true here; coming back forward (`leaveGun()`, ../src/enolasquatch/
+   * the autopilot (`toggleGun()`), and since 2026-08-19 `offerTailGun()` has
+   * already engaged it before T is even available — Sasole takes the flying as
+   * part of the offer — so `gunnery.autopilotBefore` is true here either way;
+   * coming back forward (`leaveGun()`, ../src/enolasquatch/
    * mission/MissionController.js) now gives the aeroplane back the same way
    * the `P` key would -- this used to read "does not change who is flying",
    * which was the bug the owner hit, not a feature. */
@@ -1751,7 +1952,14 @@ try {
    * gunnery loop) so a regression here reads as exactly what broke, and pins
    * that the disengage uses the SAME cue the scene already plays for a
    * player-requested hand-back (`auto.off`, not `auto.kicked` -- nothing
-   * forced this) and the same predictability reset the fighters read. ---- */
+   * forced this) and the same predictability reset the fighters read.
+   *
+   * Deliberately run straight after the block above and NOT restaged: it rides
+   * on the leg home that block left the mission on, which is the only leg where
+   * `toggleGun()` will take T at all now (`gunOffered`, set by
+   * `offerTailGun()`). Restaging it anywhere else is how this check reads as
+   * "the turret is broken" when what is actually being tested is a T press on
+   * the outbound leg, where the owner asked for it to do nothing. ---- */
   const seatSwitch = await page.evaluate(() => {
     const h = window.__enolaSquatch;
     const m = h.mission;
@@ -1784,10 +1992,14 @@ try {
       autoOffPlayed: h.dialogue.seen('auto.off'),
       autoKickedPlayed: h.dialogue.seen('auto.kicked'),
       fighterPredictability: h.interceptors._predictability,
+      // The leg this is legal on, and the flag that makes it legal.
+      phase: m.phase,
+      gunOffered: m.gunOffered,
     };
   });
   check('a synthetic seat re-entry (T, T) leaves the autopilot state false, with the player-hand-back cue, not the forced-kick one',
-    seatSwitch.took && seatSwitch.engagedInTurret && seatSwitch.manningTurret
+    seatSwitch.phase === 'return' && seatSwitch.gunOffered
+      && seatSwitch.took && seatSwitch.engagedInTurret && seatSwitch.manningTurret
       && seatSwitch.left === false && seatSwitch.manned === false
       && seatSwitch.autopilotEngaged === false && seatSwitch.autoOffPlayed
       && !seatSwitch.autoKickedPlayed && seatSwitch.fighterPredictability === 0,
@@ -2432,6 +2644,27 @@ try {
    * Deliberately driven through `requestRestart()`, which is exactly what the
    * Tab menu's "Restart from checkpoint" calls, rather than through `go()`.
    * ================================================================ */
+  /* THE TOWN'S OWN TWO BRIGHTNESSES, read off the module the page actually
+   * loaded rather than typed here as numbers.
+   *
+   * `TargetCity.destroy()` writes `DEAD_WINDOW_GLOW` and `restore()` writes
+   * `WINDOW_GLOW`; those two constants exist precisely because the pair used to
+   * be bare literals in two places and a restored city ended up dark. This file
+   * had a third copy of the number — `windowGlow > 0.3`, written when
+   * `WINDOW_GLOW` was 0.5 — and when the owner's 2026-08-19 playtest turned the
+   * windows down to 0.2 ("far too intense — buildings read as lava towers")
+   * that copy started failing a restore that was working perfectly. So the
+   * check is anchored on the constants instead, and asserts something stronger
+   * than "clearly lit": that the restore puts back EXACTLY the live value the
+   * builder used, and that the destroy writes exactly the dead one. A retune of
+   * either now moves both ends of the check with it. The tolerance is the
+   * rounding in `state().target.windowGlow`, which reports to three places. */
+  const cityGlow = await page.evaluate(async () => {
+    const m = await import('/src/enolasquatch/scenes/TargetCity.js');
+    return { live: m.WINDOW_GLOW, dead: m.DEAD_WINDOW_GLOW };
+  });
+  const glowIs = (reported, authored) => Math.abs(reported - authored) < 1e-3;
+
   const beforeRestart = await page.evaluate(() => {
     const h = window.__enolaSquatch;
     // Everything the front had not reached yet goes now, so the restore is
@@ -2461,7 +2694,9 @@ try {
   check('after the raid the city really is gone: every lot down, the lights out, the water and the streets hidden',
     beforeRestart.destroyed && beforeRestart.standingLots === 0
       && beforeRestart.landmarksAlive === 0 && !beforeRestart.streetsVisible
-      && !beforeRestart.riverVisible && beforeRestart.windowGlow < 0.1
+      /* The lights: not "under 0.1" but exactly the `DEAD_WINDOW_GLOW` the
+       * destroy writes — see the note above `cityGlow`. */
+      && !beforeRestart.riverVisible && glowIs(beforeRestart.windowGlow, cityGlow.dead)
       && beforeRestart.crater && beforeRestart.craterMesh
       /* The hole, in the ground the aeroplane and the payload actually collide
        * with rather than only in the mesh: the full crater depth at ground
@@ -2528,16 +2763,26 @@ try {
       && restarted.standingLots === restarted.totalLots && restarted.totalLots > 800
       && restarted.landmarksAlive > 15
       && restarted.streetsVisible && restarted.riverVisible
-      /* Not a pin on the exact live brightness (`TargetCity.js`'s own
-       * `WINDOW_GLOW`, tuned down from 0.72 to 0.5 on 2026-08-06 for sparser,
-       * warmer windows — see that file) — just clearly "lit" rather than
-       * `DEAD_WINDOW_GLOW`'s 0.04, with headroom either way. */
-      && restarted.windowGlow > 0.3 && restarted.flattened === 0,
+      /* THE LIGHTS ARE BACK ON, at exactly the brightness the builder used.
+       *
+       * This used to read `windowGlow > 0.3`, a third copy of a number that
+       * lives in `TargetCity.js` — written when `WINDOW_GLOW` was 0.5, kept
+       * through the 0.72 -> 0.5 retune of 2026-08-06, and finally broken by the
+       * 0.5 -> 0.2 one of 2026-08-19 ("far too intense — buildings read as lava
+       * towers"). Every other part of this check was passing; a working restore
+       * was failing against a stale threshold. It is anchored on the constants
+       * now (see the `cityGlow` note above), which is also stricter: "clearly
+       * lit" would accept a restore that put back the wrong brightness, and
+       * this does not. `dead` is asserted alongside it so the pair can never
+       * quietly become the same number. */
+      && glowIs(restarted.windowGlow, cityGlow.live)
+      && !glowIs(cityGlow.live, cityGlow.dead)
+      && restarted.flattened === 0,
     JSON.stringify({
       standing: `${restarted.standingLots}/${restarted.totalLots}`,
       landmarks: restarted.landmarksAlive,
       streets: restarted.streetsVisible, river: restarted.riverVisible,
-      glow: restarted.windowGlow, flattened: restarted.flattened,
+      glow: restarted.windowGlow, authored: cityGlow, flattened: restarted.flattened,
     }));
 
   /* The same number, and now it has to be EXACTLY zero: a restored world with
@@ -2756,9 +3001,9 @@ try {
     h.physics.damage.wing = 0;
   });
 
-  /* ---- Escape naturally finds the engine damaged earlier and offers the
-   * emergency choice; resolve it with 'baby' (no forced effect, so the
-   * scripted overheat decays on its own rather than getting stuck). ---- */
+  /* ---- Escape naturally finds the engine damaged earlier and raises the
+   * engine emergency. What the player then DOES about it is the block after
+   * this one, and it is no longer a menu — see there. ---- */
   const emergencyEntry = await page.evaluate(() => {
     const h = window.__enolaSquatch;
     for (let i = 0; i < 12; i++) {
@@ -2774,38 +3019,148 @@ try {
       failed: h.mission.failed,
     };
   });
-  check('escape finds the engine damaged during the defense phase and offers the emergency choice',
+  check('escape finds the engine damaged during the defense phase and raises the engine emergency',
     emergencyEntry.phase === 'emergency' && emergencyEntry.engineHit >= 0 && !emergencyEntry.failed,
     JSON.stringify(emergencyEntry));
 
-  const emergencyResolved = await page.evaluate(() => {
+  /* ---- THE ENGINE IS FIXED WITH THE THROTTLE, NOT WITH A MENU ----
+   *
+   * Owner playtest, 2026-08-19: *"Require the player to actually reduce
+   * throttle. Show engine temp/RPM falling. On clear: remove warning, update
+   * objective, tell the player what happens next."*
+   *
+   * What this check used to do was call `chooseEmergencyResponse('baby')` and
+   * assert it returned true — the three-option panel (baby / push / shut it
+   * down) that answered an older brief. That panel is deliberately gone:
+   * `setPhase('emergency')` now sets `_emergencyResolved` true on entry
+   * precisely so `../src/enolasquatch/main.js` never raises it, and
+   * `chooseEmergencyResponse` therefore refuses. The old assertion was pressing
+   * a button that no player has.
+   *
+   * So the beat is flown instead of clicked, and the replacement is a stronger
+   * check than the one it replaces because it exercises the mechanic the owner
+   * actually asked for, end to end and through the real key:
+   *
+   *   - the menu really is gone (the call is refused AND the panel is not up);
+   *   - the lever really comes back, driven by `Z` through `FlightInput`;
+   *   - `emergency.stabilised` lands no sooner than `ENGINE_FIX.holdSeconds`
+   *     of holding it there (sampled once a second, so this is "not early",
+   *     not a stopwatch);
+   *   - the temperature on the REAL engine really falls, from its peak to at
+   *     or under `ENGINE_FIX.clearTemp`, with the scripted overheat run out;
+   *   - no HOT lamp is left on the glass when the leg ends (which is a weaker
+   *     statement than it looks, and deliberately reported rather than
+   *     dressed up: measured, a throttled-back engine peaks around 238 °C and
+   *     `updateFlightCommon` lights that lamp at 245, so pulling the lever back
+   *     takes the warning off almost at once rather than at the end);
+   *   - the engine is still RUNNING when the phase ends — `updateEmergency`
+   *     also clears on a stopped engine, and a check that cannot tell "he
+   *     nursed it" from "it died" is not testing the fix at all;
+   *   - and the crew say what happens next before `return` begins.
+   *
+   * Every number comes from the exported `ENGINE_FIX` rather than from copies
+   * typed here, so a retune of the gate moves the check with it. ---- */
+  const emergencyResolved = await page.evaluate(async () => {
     const h = window.__enolaSquatch;
-    const chose = h.mission.chooseEmergencyResponse('baby');
+    const { ENGINE_FIX } = await import('/src/enolasquatch/mission/MissionController.js');
+    const engineOf = () => h.engines.engines[h.mission._emergencyEngineIndex];
+
+    /* The menu, twice over: the call the old 1/2/3 keys made, and the panel
+     * `main.js` would have raised for them. */
+    const menu = {
+      chooseStillWorks: h.mission.chooseEmergencyResponse('baby'),
+      panelUp: !!document.getElementById('es-choice')?.classList.contains('show'),
+    };
+    const tempAtEntry = +engineOf().temp.toFixed(1);
+
+    /* Z, held, through the real input path — the same lever the objective names
+     * (`ENGINE_FIX.key`). Bounded so a control that has stopped responding
+     * reads as a stuck throttle rather than as a hung verification. */
+    let pullSeconds = 0;
+    while (h.input.throttle > ENGINE_FIX.throttle && pullSeconds < 10) {
+      h.input.key('KeyZ', true);
+      h.tick(0.1);
+      pullSeconds += 0.1;
+    }
+    h.input.key('KeyZ', false);
+    const throttleAfterPull = +h.input.throttle.toFixed(3);
+
     let minAgl = h.physics.agl;
+    let tempPeak = 0;
+    let maxThrottle = 0;
+    let stabilisedAt = null;
+    let seconds = 0;
     /* Keep flying while the authored 70-second overheat decays. The former
      * `tick(75)` left a heavy, untrimmed bomber completely hands-off; depending
      * on the approach state it hit terrain, killed the selected engine and
      * then reported an emergency-choice failure. Use the same light climb
-     * correction as the escape leg above, through the real input/physics path. */
-    for (let i = 0; i < 80 && h.mission.phase === 'emergency' && !h.mission.failed; i++) {
+     * correction as the escape leg above, through the real input/physics path
+     * — and keep the lever back while doing it, because that is the whole of
+     * what the player is being asked to do. */
+    for (let i = 0; i < 120 && h.mission.phase === 'emergency' && !h.mission.failed; i++) {
       h.input.key('KeyS', true);
       h.tick(0.25);
       h.input.key('KeyS', false);
       h.tick(0.75);
+      seconds += 1;
+      if (h.input.throttle > ENGINE_FIX.throttle) {
+        h.input.key('KeyZ', true);
+        h.tick(0.05);
+        h.input.key('KeyZ', false);
+      }
+      maxThrottle = Math.max(maxThrottle, h.input.throttle);
+      tempPeak = Math.max(tempPeak, engineOf().temp);
       minAgl = Math.min(minAgl, h.physics.agl);
+      if (stabilisedAt === null && h.mission._engineStabilised) stabilisedAt = seconds;
     }
     h.input.key('KeyS', false);
-    const engine = h.engines.engines[h.mission._emergencyEngineIndex];
+    h.input.key('KeyZ', false);
+    const engine = engineOf();
     return {
-      chose,
+      menu,
+      pullSeconds: +pullSeconds.toFixed(2),
+      throttleAfterPull,
+      heldUnderGate: maxThrottle <= ENGINE_FIX.throttle + 1e-6,
+      gate: { throttle: ENGINE_FIX.throttle, holdSeconds: ENGINE_FIX.holdSeconds, clearTemp: ENGINE_FIX.clearTemp },
+      stabilisedAt,
+      clearedInSeconds: seconds,
+      tempAtEntry,
+      tempPeak: +tempPeak.toFixed(1),
+      tempAtClear: +engine.temp.toFixed(1),
+      hotScript: +engine.hotScript.toFixed(1),
       phase: h.mission.phase,
       failed: h.mission.failed,
       minAgl: +minAgl.toFixed(1),
-      engine: { running: engine.running, dead: engine.dead, hotScript: engine.hotScript },
+      hotLampUp: [...(h.flightHud._warnState || [])].includes('hot'),
+      engine: { running: engine.running, dead: engine.dead },
+      beats: {
+        overheat: h.dialogue.seen('emergency.overheat'),
+        throttleBack: h.dialogue.seen('emergency.throttleBack'),
+        stabilised: h.dialogue.seen('emergency.stabilised'),
+        cooled: h.dialogue.seen('emergency.cooled'),
+      },
+      objective: h.mission.objective,
     };
   });
-  check('choosing the emergency response resolves it and the mission moves on to return',
-    emergencyResolved.chose && emergencyResolved.phase === 'return' && !emergencyResolved.failed,
+  check('pulling the throttle back really cools the engine, and the mission moves on to return',
+    // The menu is gone, both halves of it.
+    emergencyResolved.menu.chooseStillWorks === false && emergencyResolved.menu.panelUp === false
+    // The lever came back with Z and stayed back.
+    && emergencyResolved.throttleAfterPull <= emergencyResolved.gate.throttle
+    && emergencyResolved.heldUnderGate
+    // Held long enough to earn the crew's confirmation, and not before.
+    && emergencyResolved.stabilisedAt !== null
+    && emergencyResolved.stabilisedAt >= Math.floor(emergencyResolved.gate.holdSeconds)
+    && emergencyResolved.beats.stabilised
+    // And the needle really came down on the real engine.
+    && emergencyResolved.tempAtClear < emergencyResolved.tempPeak
+    && emergencyResolved.tempAtClear <= emergencyResolved.gate.clearTemp
+    && emergencyResolved.hotScript === 0 && !emergencyResolved.hotLampUp
+    // Nursed home, not lost: the engine is still turning.
+    && emergencyResolved.engine.running && !emergencyResolved.engine.dead
+    // And the mission says what happens next.
+    && emergencyResolved.beats.cooled
+    && emergencyResolved.phase === 'return' && !emergencyResolved.failed,
     JSON.stringify(emergencyResolved));
 
   /* ---- THE DIAMOND ON THE AIRPORT. The other half of the owner's request:

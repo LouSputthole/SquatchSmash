@@ -255,8 +255,14 @@ const ENGINE_OUT_HEALTH_FLOOR = 0.72;
  * temperature and is unmistakably a deliberate action rather than a wobble.
  * `key` is what the page has bound to throttle-down (see `../main.js`'s help
  * text: "Shift/Z — throttle"), named in the instruction because an objective
- * that does not name its control is the "consult the spirits" problem. */
-const ENGINE_FIX = Object.freeze({
+ * that does not name its control is the "consult the spirits" problem.
+ *
+ * Exported so the browser verifier can fly the beat against the real numbers
+ * instead of copies of them. It used to resolve the emergency by calling
+ * `chooseEmergencyResponse('baby')` — the three-option menu this replaced — and
+ * a check that presses a button nobody can press any more is not a check. See
+ * the emergency block in `tools/verify-enolasquatch.mjs`. */
+export const ENGINE_FIX = Object.freeze({
   throttle: 0.25,
   holdSeconds: 2.5,
   clearTemp: 205,

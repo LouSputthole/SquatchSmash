@@ -480,7 +480,24 @@ export class EnolaPreflight {
      * legs with no branches — the player keeps his controls throughout and
      * nothing about it can fail to finish. The check is marked done IMMEDIATELY
      * rather than on arrival, so a walkaround cannot be held open by an
-     * animation. */
+     * animation.
+     *
+     * THE BEAT THAT LOST ITS TRIGGER. `preflight.restraints` — Irish's "Payload
+     * secure?" and Numbskull's "Secure enough." — is one of the four crew beats
+     * this whole file exists to move out of the left seat, and when the bomb
+     * moved onto a trolley (2026-08-19) it was the one that did not come with
+     * it: the payload check now fires `preflight.loadSquatch` instead, and the
+     * old fallback in `MissionController.updatePreflight()` only speaks for a
+     * player who never walked the aeroplane at all. So on the route everybody
+     * actually plays, two authored lines went unsaid.
+     *
+     * `dialogue/script.js` already says where it belongs — "what Irish and
+     * Numbskull say once the thing is actually hanging in there" — so it hangs
+     * off `BombTrolley.onLoaded`, which fires exactly once, at the instant the
+     * bomb becomes a child of the aeroplane. That is true of both routes into
+     * the bay: the animation running to the end, and `forceSeat()` finishing it
+     * early for a player who went straight up the ladder. Queued, so it falls in
+     * behind the four lines of `preflight.loadSquatch` rather than over them. */
     const loadTarget = this.bombTrolley?.group ?? this.payload?.group ?? null;
     if (loadTarget) {
       reg(loadTarget, {
@@ -490,6 +507,9 @@ export class EnolaPreflight {
         enabled: () => !this.tasks.payload.done,
         onLook: () => this.dialogue.play('preflight.payload.look', { once: true }),
         onUse: () => {
+          if (this.bombTrolley) {
+            this.bombTrolley.onLoaded = () => this.dialogue.play('preflight.restraints', { once: true });
+          }
           this.bombTrolley?.beginLoad?.();
           this.dialogue.play('preflight.loadSquatch', { once: true });
           this.dialogue.play('preflight.sasole.payloadDone', { once: true });
