@@ -123,6 +123,40 @@ const SUPPRESSED_INVESTIGATE_SCALE = 2.1;
  * thing a suspicious man does, before he walks anywhere. */
 const SEATED_STAND_AWARENESS = 0.22;
 
+/*
+ * IDLE ERRANDS, AND THE ATTENTION THEY COST.
+ *
+ * Owner, 2026-08-20: guards should hold conversations with each other, and
+ * *"you can sneak up on them as they are talking"*. Both halves of that land
+ * here rather than in a parallel AI, because awareness is driven in exactly
+ * one place -- the ramp in `update` below -- and a second detection model
+ * beside it would be two answers to one question.
+ *
+ * An IDLE TASK is a posted man doing something that is not his patrol: today
+ * only "go and stand there and talk to him" (see ./conversations.js). It
+ * carries a goal, optionally a point to face once he arrives, and an
+ * `attention` in 0..1 that SCALES HIS AWARENESS GAIN. Nothing else about him
+ * changes: he still scans, still remembers, still investigates, still shoots,
+ * and the moment the alarm goes up every idle task in the estate is dropped.
+ *
+ * The attention term is why sneaking up works, and it is deliberately a
+ * multiplier on the existing ramp rather than a flat "cannot see you": a man
+ * who is looking straight at you across four metres still resolves you,
+ * talking or not. It buys distance and time, not invisibility.
+ */
+const IDLE_ARRIVAL = 0.34;
+const IDLE_TURN_RATE = 4.2;
+
+/**
+ * Awareness at which a man stops talking.
+ *
+ * Deliberately BELOW `SEATED_STAND_AWARENESS`: the first thing a distracted
+ * man does when something registers is stop mid-sentence, before he stands
+ * up and well before he walks anywhere. ./conversations.js cuts the take on
+ * this threshold, so the break is audible.
+ */
+export const CONVERSATION_BREAK_AWARENESS = 0.18;
+
 function finite(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -292,6 +326,9 @@ export class PalaceSecurity {
         detourSide: String(entry.id).split('')
           .reduce((sum, char) => sum + char.charCodeAt(0), 0) % 2 ? 1 : -1,
         detourTime: 0,
+        /* Runtime only: a checkpoint restore drops it with live targets and
+         * alignment, and the alarm drops it for the rest of the night. */
+        idleTask: null,
         tacticTime: 0,
         tacticalPost: null,
         reaction: null,
@@ -468,6 +505,9 @@ export class PalaceSecurity {
     this.alarm = true;
     this.alarmReason = reason;
     this.stats.alerts++;
+    /* Whatever anybody was in the middle of, they are not in the middle of it
+     * any more. ./conversations.js cuts its own take on the same frame. */
+    this._dropIdleTasks();
     this.onAlarm(reason);
     for (const guard of this.cast.guards) guard.active = !guard.down;
     /* Whatever raised it -- a gunshot, a contact, the dining-room doors --
@@ -486,6 +526,64 @@ export class PalaceSecurity {
       this.tacticalReservations.delete(runtime.tacticalPost.id);
     }
     runtime.tacticalPost = null;
+  }
+
+  /**
+   * Put a posted man on an idle errand instead of his patrol.
+   *
+   * The one seam ./conversations.js drives. `task` is
+   * `{ goal, face, anchored, attention, reason }`; passing null clears it.
+   * A man on an idle task walks to `goal` at patrol pace through the same
+   * `AabbCombatSpace` as everything else, turns to `face` when he gets there,
+   * and notices the estate at `attention` of his usual rate.
+   */
+  setIdleTask(entry, task = null) {
+    const runtime = this._runtime(entry);
+    if (!runtime) return null;
+    if (!task) {
+      runtime.idleTask = null;
+      return null;
+    }
+    runtime.idleTask = {
+      goal: task.goal?.isVector3 ? task.goal.clone() : entry.root.position.clone(),
+      face: task.face?.isVector3 ? task.face.clone() : null,
+      anchored: task.anchored === true,
+      attention: THREE.MathUtils.clamp(finite(task.attention, 1), 0.05, 1),
+      reason: task.reason ?? null,
+      arrived: task.anchored === true,
+    };
+    return runtime.idleTask;
+  }
+
+  /** Change how much of the estate a man on an errand is still watching. */
+  setIdleAttention(entry, attention) {
+    const task = this._runtime(entry)?.idleTask;
+    if (!task) return null;
+    task.attention = THREE.MathUtils.clamp(finite(attention, 1), 0.05, 1);
+    return task.attention;
+  }
+
+  /** Hand him back to his patrol. Idempotent. */
+  clearIdleTask(entry) {
+    const runtime = this._runtime(entry);
+    if (!runtime) return false;
+    const had = runtime.idleTask != null;
+    runtime.idleTask = null;
+    return had;
+  }
+
+  idleTask(entry) {
+    return this._runtime(entry)?.idleTask ?? null;
+  }
+
+  /** Is he standing on his mark yet? */
+  idleTaskArrived(entry) {
+    return this._runtime(entry)?.idleTask?.arrived === true;
+  }
+
+  /** Nobody is running errands once the estate knows. */
+  _dropIdleTasks() {
+    for (const runtime of this.runtime.values()) runtime.idleTask = null;
   }
 
   silentTakedown(id, { distance = Infinity } = {}) {
@@ -715,6 +813,49 @@ export class PalaceSecurity {
     if (!entry.aimAligned) entry.root.rotation.y = Math.atan2(toward.x, toward.z);
   }
 
+  /**
+   * Walk to an idle mark, then hold it and face what he was sent to face.
+   *
+   * Patrol pace, the same detour steering as everything else, and no
+   * awareness consequence of its own -- the consequence is `task.attention`,
+   * applied in the one awareness ramp in `update`.
+   */
+  _idleTask(entry, dt, task, speedScale = 1) {
+    if (task.anchored) {
+      /* A man already sitting down does not get up to have a chat, and does
+       * not swivel: the watch desk keeps its authored pose. */
+      task.arrived = true;
+      return true;
+    }
+    const runtime = this._runtime(entry);
+    const toward = _goalStep.copy(task.goal).sub(entry.root.position).setY(0);
+    const distance = toward.length();
+    if (distance > IDLE_ARRIVAL) {
+      task.arrived = false;
+      const speed = this._tactics(entry).patrol;
+      toward.multiplyScalar(Math.min(distance, dt * speed * speedScale) / distance);
+      this._moveWithDetour(entry, toward, runtime, dt);
+      if (!entry.aimAligned) entry.root.rotation.y = Math.atan2(toward.x, toward.z);
+      return false;
+    }
+    task.arrived = true;
+    if (task.face && !entry.aimAligned) {
+      const face = _strafe.copy(task.face).sub(entry.root.position).setY(0);
+      if (face.lengthSq() > 1e-6) {
+        /* Turn INTO the conversation, which is the whole stealth affordance:
+         * two men looking at each other are two men with their backs to a
+         * pair of approaches, and `_scan` reads this same yaw. */
+        const wanted = Math.atan2(face.x, face.z);
+        const delta = Math.atan2(
+          Math.sin(wanted - entry.root.rotation.y),
+          Math.cos(wanted - entry.root.rotation.y),
+        );
+        entry.root.rotation.y += delta * Math.min(1, dt * IDLE_TURN_RATE);
+      }
+    }
+    return true;
+  }
+
   _combatMove(entry, dt, targetPoint, speedScale = 1) {
     if (!targetPoint?.isVector3) return;
     const runtime = this._runtime(entry);
@@ -929,6 +1070,11 @@ export class PalaceSecurity {
             VISION.minimumGainScale,
             1,
           )
+          /* A man in the middle of something -- today, in the middle of a
+           * sentence -- resolves a shape into a person slower. One knob, on
+           * the one ramp, so "he is distracted" and "he can see you" are
+           * still the same number. */
+          * (runtime.idleTask?.attention ?? 1)
           : 0;
         runtime.perception.awareness = THREE.MathUtils.clamp(
           runtime.perception.awareness + (seen ? step * gain : -step * VISION.loss),
@@ -958,6 +1104,10 @@ export class PalaceSecurity {
           && runtime.perception.awareness >= INVESTIGATE_AWARENESS) {
           this._investigate(entry, step, runtime.perception.lastSeen,
             runtime.impairments.speedScale);
+        } else if (runtime.idleTask) {
+          /* Sent somewhere by something that is not his round. Suspicion
+           * still outranks it, above; the alarm drops it outright. */
+          this._idleTask(entry, step, runtime.idleTask, runtime.impairments.speedScale);
         } else {
           this._patrol(entry, step, runtime.impairments.speedScale);
         }
@@ -1080,6 +1230,8 @@ export class PalaceSecurity {
       runtime.aim.restore(record.aim, { root: entry.root });
       runtime.shotClock = Math.max(0, finite(record.shotClock, 0));
       runtime.detourTime = 0;
+      /* An errand belongs to the timeline the checkpoint discarded. */
+      runtime.idleTask = null;
       runtime.tacticTime = Math.max(0, finite(record.tacticTime, 0));
       runtime.tacticalPost = this.combatPosts.find(
         (post) => post.id === record.tacticalPost,

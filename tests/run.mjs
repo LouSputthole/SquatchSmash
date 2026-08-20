@@ -212,6 +212,7 @@ const TEST_MODULES = [
   './cartel-palace-retry.test.mjs',
   './cartel-palace-runtime.test.mjs',
   './cartel-palace-playtest.test.mjs',
+  './cartel-palace-conversations.test.mjs',
   './silver-voice-catalog.test.mjs',
   './golf-story.test.mjs',
   './golf-gallery.test.mjs',

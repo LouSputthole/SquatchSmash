@@ -750,16 +750,155 @@ const COVER_POINTS = Object.freeze([
 ]);
 
 /* ================================================================== */
-/* WHAT THEY SHOUT                                                      */
-/*                                                                       */
+/* WHAT THEY SHOUT                                                        */
+/*                                                                        */
 /* Twenty-two men and one sentence is worse than silence, so every pool   */
 /* below walks with a cursor -- the same `sayPooled` shape THE TAKE uses. */
 /* These are barks, not dialogue: nothing here is queued behind anything, */
 /* and no cue names are invented for the tactical pools -- they stay      */
 /* subtitle-only. BARKS.identity is the one exception (see its own        */
-/* comment): it carries a `vo.ateam.*` cue per line because the crew's     */
-/* identity is spoken, not just captioned.                                */
+/* comment): it carries a `vo.ateam.*` cue AND one of the crew's five     */
+/* voices per line, because the crew's identity is spoken, not just       */
+/* captioned, and since 2026-08-20 it is spoken by five different men.    */
 /* ================================================================== */
+
+/* ================================================================== */
+/* THE FIVE MEN OF THE A-TEAM                                             */
+/*                                                                        */
+/* The crew shipped on ONE voice profile, `ateam`, on the same reasoning  */
+/* as `mansion-guard`: same job, not the same man. The owner overruled it */
+/* on 2026-08-20 and cast five throats, so a firefight sounds like a crew */
+/* arguing rather than one man played twenty-two times.                   */
+/* `ATEAM_IDENTITY_BARKS` below names the man for every line, and nothing */
+/* else in the siege picks a voice for an attacker -- that table and that */
+/* one column are the whole mapping.                                      */
+/*                                                                        */
+/* THE CASTING, owner-supplied 2026-08-20 (real ElevenLabs ids, written   */
+/* into `assets/sfx/manifest.json` by the casting pass -- this module     */
+/* never reads an id, it only names the profile):                         */
+/*                                                                        */
+/*   ateam1  Cf2KUROHGvqqd4q0ebDI   <-- SEE THE COLLISION NOTE            */
+/*   ateam2  B5C11BLhewmdJdOuDLmf                                         */
+/*   ateam3  hIsL8rTRQdJK5cF3UM5G                                         */
+/*   ateam4  pgoedMoL7SCrpaX44PjD                                         */
+/*   ateam5  uKrIE6rRnTbWQegQc2T4                                         */
+/*                                                                        */
+/* COLLISION, FLAGGED TO THE OWNER AND WIRED AS GIVEN: ateam1's id,       */
+/* Cf2KUROHGvqqd4q0ebDI, is ALSO the third voice on the Cartel Palace's   */
+/* `cartel-guard` list. It arrived on both lists and it is wired on both, */
+/* rather than silently substituted for something that sounded close. The */
+/* two casts never share a scene, so nothing is audibly wrong tonight --  */
+/* and if the owner does want them split, changing ateam1's id in the     */
+/* manifest is the whole fix and nothing in this file moves. That         */
+/* note is on both manifest profiles too.                                 */
+/* ================================================================== */
+export const ATEAM_VOICES = Object.freeze([
+  'ateam1', 'ateam2', 'ateam3', 'ateam4', 'ateam5',
+]);
+
+/**
+ * One A-Team line: which man, the cue that records him, what he shouts.
+ *
+ * The `vo.ateam.` prefix lives here rather than in forty-two strings so the
+ * table stays one line per line and a cue can never drift off the prefix the
+ * manifest and `tools/scene-casts.json` are holding it to.
+ */
+const ateam = (voice, cue, line) => Object.freeze({
+  voice, cue: `vo.ateam.${cue}`, line,
+});
+
+/**
+ * THE A-TEAM, NAMING THEMSELVES.
+ *
+ * The rest of `BARKS` is tactical chatter that could be anyone's crew; this
+ * is the crew saying who they are while they do it, per the owner's
+ * playtest note: the attacking cartel outfit is the A-Team and the fight
+ * needs to say so out loud. docs/TONE-AND-PARODY.md governs the words --
+ * played straight and hard, crude because the crew is crude, never a wink
+ * at the player. Each entry also carries the `vo.ateam.*` cue that will
+ * eventually record it and the ONE MAN who says it; `bark()` hands both up
+ * through `onBark`, same shape as every other spoken line in this project.
+ *
+ * ## WHAT THE CREW IS ACTUALLY SHOUTING ABOUT
+ *
+ * Owner, 2026-08-20, now canon: the A-Team are named like a sports team,
+ * THE A-TEAM NEVER MADE THE PLAYOFFS, and they are proud of themselves
+ * anyway. That is the whole joke and it is load-bearing that NOBODY IN
+ * HERE KNOWS IT IS ONE. Every line below is meant sincerely by a man
+ * shooting at somebody. The funniest shape of it -- and there are a dozen
+ * of them below -- is a man defending the record to a house that never
+ * brought it up, mid-assault, because it is the thing he is carrying.
+ *
+ * THE RULE FOR ANYONE ADDING A LINE HERE, from the tone doctrine: no line
+ * may know it is funny. Nothing arch, nothing self-aware, no character
+ * noticing that shouting about seeding during a breach is strange. The
+ * moment one of these men hears himself, the joke belongs to the scene
+ * instead of the player, and the tone doctrine says that is the failure.
+ * If a line reads as a punchline rather than as a grievance, cut it.
+ */
+export const ATEAM_IDENTITY_BARKS = Object.freeze([
+  /* The eight that shipped first, re-voiced onto the five men. */
+  ateam('ateam1', 'greetings', 'Greetings from the A-Team, bitch!'),
+  ateam('ateam3', 'regards', 'A-Team sends their regards!'),
+  ateam('ateam2', 'house', 'This house belongs to the A-Team now!'),
+  ateam('ateam5', 'finished', 'You Squatches are finished!'),
+  ateam('ateam4', 'collect', 'Tell Lou the A-Team came to collect!'),
+  ateam('ateam2', 'knock', 'The A-Team does not knock twice!'),
+  ateam('ateam1', 'street', 'A-Team owns this street tonight!'),
+  ateam('ateam3', 'nobody-walks', 'Nobody walks out of an A-Team job!'),
+
+  /* The owner's own five, kept as close to verbatim as a recording sheet
+   * allows: his capitals are delivery, not spelling, and they are notes to
+   * the booth in `direction` rather than shouting in the string. The two
+   * apostrophes below are the only contractions in this module and they
+   * are his -- everything written here since keeps the house style. */
+  ateam('ateam5', 'for-the-a-team', 'For the A-Team!'),
+  ateam('ateam2', 'never-made-playoffs', 'It doesn’t matter! The A-Team never made playoffs!'),
+  ateam('ateam4', 'rules', 'A-Team rules!'),
+  ateam('ateam1', 'never-be-on-it', 'You’ll never be on the A-Team!'),
+  ateam('ateam3', 'for-the-a-team-two', 'For the A-Team!'),
+
+  /* THE RECORD, DEFENDED TO PEOPLE WHO DID NOT ASK. Nobody in this house
+   * has said one word about the playoffs. These men are answering anyway. */
+  ateam('ateam5', 'nobody-asked', 'Nobody asked about the playoffs!'),
+  ateam('ateam4', 'still-standing', 'We never made playoffs and we are standing in your house!'),
+  ateam('ateam2', 'say-it', 'Say one word about the playoffs! Say it!'),
+  ateam('ateam1', 'seeding', 'It was the seeding! It was always the seeding!'),
+  ateam('ateam3', 'the-record', 'That record does not say what you think it says!'),
+  ateam('ateam5', 'not-the-measure', 'Playoffs are not the measure of a team!'),
+  ateam('ateam4', 'ask-anybody', 'Ask anybody who watched us play! Ask them!'),
+  ateam('ateam1', 'not-qualified', 'Nobody in this house is qualified to bring up the playoffs!'),
+  ateam('ateam2', 'nine-seasons', 'Nine seasons together! You know what that takes?'),
+  ateam('ateam3', 'do-not-say-it', 'Do not stand there and say playoffs to me!'),
+  ateam('ateam5', 'schedule', 'Hardest schedule in the league! We showed up every week!'),
+  ateam('ateam4', 'standings-lie', 'Standings lie! Everybody knows standings lie!'),
+
+  /* The pride itself, in the register of a crew that thinks of itself as a
+   * franchise. Same rule: sincere, shouted, aimed at a man they are trying
+   * to kill. */
+  ateam('ateam2', 'reload-not-rebuild', 'We do not rebuild! We reload!'),
+  ateam('ateam1', 'best-crew', 'A-Team! Best crew that ever worked this coast!'),
+  ateam('ateam3', 'on-three', 'A-Team on three! One! Two!'),
+  ateam('ateam5', 'look-at-us', 'You are looking at the A-Team! Look at us!'),
+  ateam('ateam4', 'this-is-what', 'This is what the A-Team does!'),
+  ateam('ateam1', 'nobody-plays', 'Nobody plays like the A-Team!'),
+  ateam('ateam2', 'undefeated-here', 'Undefeated in this house!'),
+  ateam('ateam3', 'earned-his-spot', 'Every man on this team earned his spot!'),
+  ateam('ateam5', 'cannot-buy', 'You cannot buy a roster like this!'),
+  ateam('ateam4', 'say-it-back', 'A-Team! Say it back!'),
+  ateam('ateam2', 'deepest-bench', 'Deepest bench in the business!'),
+  ateam('ateam1', 'franchise', 'You are getting hit by a franchise crew!'),
+  ateam('ateam3', 'check-the-tape', 'Check the tape! Go and check the tape!'),
+  ateam('ateam4', 'team-record', 'That is a team record and it stands!'),
+  ateam('ateam5', 'every-yard', 'Nobody carried us! We earned every yard of this!'),
+
+  /* `identityBarkForCasualty` routes a man's death to whoever is still
+   * standing, so the pool wants lines a crew can say over one of its own
+   * without ever dropping the register. These are the two. */
+  ateam('ateam2', 'played-hurt', 'He played hurt! You hear me? He played hurt!'),
+  ateam('ateam3', 'next-man-up', 'Next man up!'),
+]);
+
 const BARKS = Object.freeze({
   contact: Object.freeze([
     'Contact, the stairs!',
@@ -807,28 +946,11 @@ const BARKS = Object.freeze({
     'He is on that landing. Go and get him!',
     'Last push. Finish it!',
   ]),
-  /**
-   * THE A-TEAM, NAMING THEMSELVES.
-   *
-   * The rest of `BARKS` is tactical chatter that could be anyone's crew; this
-   * is the crew saying who they are while they do it, per the owner's
-   * playtest note: the attacking cartel outfit is the A-Team and the fight
-   * needs to say so out loud. docs/TONE-AND-PARODY.md governs the words --
-   * played straight and hard, crude because the crew is crude, never a wink
-   * at the player. Each entry also carries the `vo.ateam.*` cue that will
-   * eventually record it; `bark()` plays the cue when one is present, same
-   * shape as every other spoken line in this project.
-   */
-  identity: Object.freeze([
-    Object.freeze({ line: 'Greetings from the A-Team, bitch!', cue: 'vo.ateam.greetings' }),
-    Object.freeze({ line: 'A-Team sends their regards!', cue: 'vo.ateam.regards' }),
-    Object.freeze({ line: 'This house belongs to the A-Team now!', cue: 'vo.ateam.house' }),
-    Object.freeze({ line: 'You Squatches are finished!', cue: 'vo.ateam.finished' }),
-    Object.freeze({ line: 'Tell Lou the A-Team came to collect!', cue: 'vo.ateam.collect' }),
-    Object.freeze({ line: 'The A-Team does not knock twice!', cue: 'vo.ateam.knock' }),
-    Object.freeze({ line: 'A-Team owns this street tonight!', cue: 'vo.ateam.street' }),
-    Object.freeze({ line: 'Nobody walks out of an A-Team job!', cue: 'vo.ateam.nobody-walks' }),
-  ]),
+  /* THE A-TEAM, NAMING THEMSELVES -- the pool itself lives above, and is the
+   * one bark table this module exports. It is also the only one carrying
+   * manifest cues, so the casting pass and its regression test read the real
+   * array instead of re-typing forty-two lines that would then drift. */
+  identity: ATEAM_IDENTITY_BARKS,
 });
 
 /* ================================================================== */
@@ -1101,9 +1223,9 @@ export function createAttackerPool({
     barkCursor.set(key, index + 1);
     const raw = lines[index];
     /* Every other bark pool is bare strings. BARKS.identity is the one pool
-     * that also carries a manifest cue (see its own comment), so a line here
-     * is either a string or `{ line, cue }` and only the second shape has
-     * anything to play.
+     * that also carries a manifest cue and a named speaker (see its own
+     * comment), so a line here is either a string or `{ line, cue, voice }`
+     * and only the second shape has anything to play.
      *
      * THE CUE IS HANDED UP, NOT PLAYED HERE. `context.audio` is also where
      * every weapon sound in this file goes -- fire, reload, cycle -- and the
@@ -1113,18 +1235,48 @@ export function createAttackerPool({
      * caller that only wanted gunfire acoustics. The scene that owns the
      * real voice engine hears about it through `onBark`'s `cue` field
      * instead, exactly the way it already learns the spoken TEXT. */
-    const line = typeof raw === 'string' ? raw : raw.line;
-    const cue = typeof raw === 'string' ? null : raw.cue;
+    const spoken = typeof raw === 'string';
+    const line = spoken ? raw : raw.line;
+    const cue = spoken ? null : (raw.cue ?? null);
+    /* WHICH OF THE FIVE. Carried up beside the cue rather than resolved here:
+     * the cue name already picks the right take out of the manifest, so the
+     * scene needs this only to know it heard a different man -- a subtitle
+     * tag, a mixer slot, a future one-voice-at-a-time gate. Null for every
+     * tactical pool, which stays captions. */
+    const voice = spoken ? null : (raw.voice ?? null);
     entry.lastBark = line;
     context.onBark?.({
-      id: entry.id, key, line, cue, role: entry.role.id,
+      id: entry.id, key, line, cue, voice, role: entry.role.id,
     });
     return line;
   }
 
-  const IDENTITY_BARK_COOLDOWN_MIN = 10;
-  const IDENTITY_BARK_COOLDOWN_MAX = 18;
-  /** Not every qualifying event earns one -- most contact is still tactical. */
+  /**
+   * THE CADENCE, RE-TUNED FOR A POOL FIVE TIMES THE SIZE.
+   *
+   * Was 10-18 s against eight lines. What the clock protects has not
+   * changed -- twenty-two men on five call sites will otherwise name the
+   * crew three times in one breach, and a crew that says its own name on a
+   * loop is a chant, which is the one note the owner gave on this beat.
+   * What HAS changed is the other failure: at ~14 s of spacing a long
+   * assault fires roughly thirty lines, so forty-two lines would mean a
+   * third of the crew never got said at all and every run heard the same
+   * opening eight in the same order.
+   *
+   * 7-13 s (~10 s average, and the chance roll below still adds a beat or
+   * two on top) walks the whole pool inside one hard fight without ever
+   * putting two identity lines close enough to overlap -- the shortest gap
+   * possible is still longer than the longest line in the table. Five
+   * voices buy the rest of the room: consecutive entries are always
+   * different men, so even back-to-back-ish lines read as a crew shouting
+   * over each other rather than one man repeating himself.
+   */
+  const IDENTITY_BARK_COOLDOWN_MIN = 7;
+  const IDENTITY_BARK_COOLDOWN_MAX = 13;
+  /** Not every qualifying event earns one -- most contact is still tactical.
+   * Held at the original 0.35 deliberately: the cooldown was loosened to fit
+   * the bigger pool, and raising this too would stop the line landing ON a
+   * combat beat and start it landing the instant the clock frees up. */
   const IDENTITY_BARK_CHANCE = 0.35;
 
   /**

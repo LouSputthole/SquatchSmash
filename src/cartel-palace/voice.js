@@ -35,6 +35,110 @@
  */
 
 /**
+ * THE PAYROLL IS THREE MEN NOW, NOT ONE.
+ *
+ * Owner supplied three ElevenLabs ids for the cartel guards on 2026-08-20,
+ * splitting the single `cartel-guard` profile. The split is what makes a
+ * conversation a conversation: two bodies on one voice is one man arguing
+ * with himself, and no amount of writing fixes that.
+ *
+ * NOTE, already flagged to the owner: the third id here
+ * (Cf2KUROHGvqqd4q0ebDI) is ALSO the first id on the A-Team list in
+ * src/mansion/siege. It is wired exactly as supplied rather than quietly
+ * substituted; the collision is recorded on both profiles in the manifest so
+ * it is obvious and one-line reversible.
+ */
+export const PALACE_GUARD_VOICES = Object.freeze([
+  'cartel-guard1',
+  'cartel-guard2',
+  'cartel-guard3',
+]);
+
+/**
+ * Which of the three each posted man is.
+ *
+ * Assigned so that every conversation below is two DIFFERENT profiles -- the
+ * casting is load-bearing, not decorative. `PALACE_GUARD_POSTS` in ./cast.js
+ * carries the same value on each post so a body knows its own voice; this is
+ * the table that decides it.
+ */
+export const PALACE_GUARD_VOICE_CAST = Object.freeze({
+  'gate-one': 'cartel-guard1',
+  guardhouse: 'cartel-guard2',
+  fountain: 'cartel-guard3',
+  pool: 'cartel-guard1',
+  'service-door': 'cartel-guard2',
+  'entry-watch': 'cartel-guard3',
+  'service-hall': 'cartel-guard1',
+  'gallery-east': 'cartel-guard2',
+  'gallery-west': 'cartel-guard3',
+});
+
+/** The profile a posted guard speaks with; the first voice is the fallback. */
+export function palaceGuardVoice(id) {
+  return PALACE_GUARD_VOICE_CAST[id] ?? PALACE_GUARD_VOICES[0];
+}
+
+/**
+ * THE EIGHT EXISTING BARKS, REDISTRIBUTED.
+ *
+ * Every guard line in the estate used to be recorded on the single
+ * `cartel-guard` profile, which meant the man who shouts "contact" in the
+ * courtyard and the man who answers him in the hall were audibly one person.
+ * The three-way split fixes that, and it only fixes it if the barks are
+ * spread across the three: one voice with three names is still one man.
+ *
+ * This table is the redistribution, and it is LOAD-BEARING -- `speakerFor`
+ * below picks the body that shouts a line by matching this against the
+ * posted man's own casting, so a line recorded on `cartel-guard2` comes out
+ * of a `cartel-guard2` body wherever the scene has one to hand.
+ */
+export const PALACE_GUARD_BARK_CAST = Object.freeze({
+  /* The man at the watch desk IS `entry-watch`, who is cast guard 3. */
+  'guard.watch.greet': 'cartel-guard3',
+  'guard.contact.one': 'cartel-guard1',
+  'guard.contact.two': 'cartel-guard2',
+  'guard.contact.three': 'cartel-guard3',
+  'guard.search.one': 'cartel-guard1',
+  'guard.search.two': 'cartel-guard2',
+  'guard.ally-down.one': 'cartel-guard3',
+  'guard.ally-down.two': 'cartel-guard1',
+});
+
+/**
+ * HAS THE MANIFEST CAUGHT UP YET.
+ *
+ * `assets/sfx/manifest.json` is owned by the casting stage, not by this file,
+ * and today its eight `vo.palace.guard.*` rows still say `cartel-guard`.
+ * `allPalaceVoiceLines()` is what `tests/cartel-palace-playtest.test.mjs`
+ * holds the manifest to, so it reports what has actually been recorded --
+ * and `palaceRecastLines()` below reports what the split WANTS, which is
+ * what gets handed to casting.
+ *
+ * THE DAY those eight rows carry the split profiles, flip this to true. That
+ * is the whole migration: one line, and it is reversible by flipping it
+ * back.
+ */
+export const GUARD_SPLIT_RECORDED = false;
+
+/**
+ * Which body should shout a given line.
+ *
+ * Prefers a live man cast to the line's own recorded voice and nearest to
+ * `from`; falls back to the nearest live man of any voice, because a bark
+ * with nobody to come out of is worse than a bark in the wrong register.
+ */
+export function speakerForLine(id, candidates = [], { from = null } = {}) {
+  const live = candidates.filter((entry) => entry && !entry.down && entry.active !== false);
+  if (!live.length) return null;
+  const distance = (entry) => (from ? entry.root.position.distanceTo(from) : 0);
+  const wanted = PALACE_GUARD_BARK_CAST[id] ?? null;
+  const ordered = [...live].sort((a, b) => distance(a) - distance(b));
+  if (!wanted) return ordered[0];
+  return ordered.find((entry) => palaceGuardVoice(entry.id) === wanted) ?? ordered[0];
+}
+
+/**
  * Who says what.
  *
  * `hold` is SECONDS of simulated clock — the runtime is driven by the scene
@@ -177,29 +281,65 @@ export const PALACE_VOICE_LINES = Object.freeze({
 /** `vo.<cue>.1` is what the recording sheet and AudioEngine.say look for. */
 export const palaceVoiceCue = (id) => `palace.${id}`;
 
+/**
+ * The profile a catalog line is RECORDED on.
+ *
+ * `PALACE_GUARD_BARK_CAST` is the split the payroll is moving to; until the
+ * manifest carries it (see GUARD_SPLIT_RECORDED) the recorded truth is still
+ * the one `cartel-guard` profile, and this reports the recorded truth so the
+ * manifest and the catalog can be held to each other.
+ */
+export function palaceLineVoice(id, { recast = GUARD_SPLIT_RECORDED } = {}) {
+  const line = PALACE_VOICE_LINES[id];
+  if (!line) return null;
+  return (recast && PALACE_GUARD_BARK_CAST[id]) || line.voice;
+}
+
 /** Every non-finale Palace line, in manifest-row shape. */
-export function allPalaceVoiceLines() {
+export function allPalaceVoiceLines({ recast = GUARD_SPLIT_RECORDED } = {}) {
   return Object.entries(PALACE_VOICE_LINES).map(([id, line]) => ({
     id,
     cue: palaceVoiceCue(id),
     name: `vo.${palaceVoiceCue(id)}.1`,
-    voice: line.voice,
+    voice: palaceLineVoice(id, { recast }),
     say: line.text,
     direction: line.direction ?? null,
   }));
+}
+
+/**
+ * The eight guard barks as the SPLIT wants them, for the casting stage.
+ *
+ * This is the hand-off: the rows here are exactly what
+ * `assets/sfx/manifest.json` should say once the three profiles exist, and
+ * nothing in this repo rewrites that file from here.
+ */
+export function palaceRecastLines() {
+  return allPalaceVoiceLines({ recast: true })
+    .filter((row) => PALACE_GUARD_BARK_CAST[row.id]);
 }
 
 /** Colours for the subtitle, by voice, so a shout reads as somebody. */
 const VOICE_COLOUR = Object.freeze({
   player: '#cfd4e0',
   cleaner: '#c8d8b0',
+  /* Three shades of the same payroll. A two-hander needs the subtitle to
+   * change hands when the voice does -- they are all "CARTEL GUARD" because
+   * the player never learns a name, but they must not look like one man
+   * typing both halves of an argument. */
   'cartel-guard': '#d8a06a',
+  'cartel-guard1': '#d8a06a',
+  'cartel-guard2': '#c39a72',
+  'cartel-guard3': '#e2b783',
 });
 
 const VOICE_NAME = Object.freeze({
   player: 'TONY',
   cleaner: 'ROSA',
   'cartel-guard': 'CARTEL GUARD',
+  'cartel-guard1': 'CARTEL GUARD',
+  'cartel-guard2': 'CARTEL GUARD',
+  'cartel-guard3': 'CARTEL GUARD',
 });
 
 /**
@@ -219,8 +359,10 @@ const VOICE_NAME = Object.freeze({
 export class PalaceVoice {
   constructor({
     audio = null, hud = null, player = null, trace = null, vector = null, gap = 1.1,
+    random = Math.random,
   } = {}) {
     this.audio = audio;
+    this.random = typeof random === 'function' ? random : Math.random;
     this.hud = hud;
     this.player = player;
     this.trace = typeof trace === 'function' ? trace : null;
@@ -258,6 +400,52 @@ export class PalaceVoice {
     return this.trace(from, to) == null;
   }
 
+  /** Subtitle colour for a voice profile, so a two-hander changes hands. */
+  colourFor(voice) {
+    return VOICE_COLOUR[voice] ?? '#cfd4e0';
+  }
+
+  /**
+   * PLAY ONE CUE OFF A BODY, AND KEEP IT THERE.
+   *
+   * `AudioEngine.say` is the engine's one-voice-at-a-time channel and it
+   * takes no position at all, which is fine for a line the player is
+   * standing in front of and useless for two men murmuring across a dark
+   * courtyard. This goes to `play()` directly with `follow`, so the panner is
+   * seeded on the speaker and then re-sampled every frame he moves -- the
+   * sound is on the man, not on the spot he was standing when he started.
+   *
+   * Returns `{ source, duration, name }`; `source` is what a caller CUTS to
+   * stop a man mid-sentence, and null when the cue has no recording yet, in
+   * which case the caller falls back to the line's authored hold.
+   */
+  playCue(cue, {
+    follow = null, position = null, volume = 0.95, radius = 22,
+  } = {}) {
+    const empty = { source: null, duration: 0, name: null };
+    if (!this.audio?.play || !this.audio.buffers) return empty;
+    const prefix = `vo.${cue}.`;
+    const takes = [];
+    for (const name of this.audio.buffers.keys?.() ?? []) {
+      if (name.startsWith(prefix)) takes.push(name);
+    }
+    if (!takes.length) return empty;
+    takes.sort();
+    const name = takes[Math.min(takes.length - 1, Math.floor(this.random() * takes.length))];
+    const source = this.audio.play(name, {
+      volume,
+      follow,
+      position,
+      /* A conversation is quiet up close and gone by the next courtyard:
+       * inverse rolloff off a small reference distance is what makes it a
+       * thing the player has to walk toward. */
+      ref: 2.4,
+      maxDist: radius,
+      rolloff: 1.6,
+    });
+    return { source: source ?? null, duration: this.audio.sampleDuration?.(name) ?? 0, name };
+  }
+
   /**
    * Say one catalog line.
    *
@@ -271,30 +459,47 @@ export class PalaceVoice {
    * @returns {boolean} whether the line was delivered.
    */
   say(id, {
-    position = null, radius = 14, once = true, urgent = false,
+    position = null, radius = 14, once = true, urgent = false, speaker = null,
   } = {}) {
     const line = PALACE_VOICE_LINES[id];
     if (!line) return false;
     if (once && this.said.has(id)) return false;
     if (!urgent && this.timer > 0) return false;
-    if (!this.audible(position, radius)) return false;
+    /* A `speaker` is a live body, so the line comes from wherever he is
+     * standing THIS frame rather than from a point copied at the call site. */
+    const at = speaker?.root?.position ?? position;
+    if (!this.audible(at, radius)) return false;
 
     const cue = palaceVoiceCue(id);
     let recorded = 0;
-    if (this.audio?.say) {
+    if (speaker?.root && this.audio?.play) {
+      /* Off the body, and glued to it: a guard who shouts "contact" and then
+       * runs for cover takes the shout with him. */
+      const take = this.playCue(cue, {
+        follow: speaker.root, position: at, radius: Math.max(radius, 18), volume: 1,
+      });
+      recorded = take.duration;
+      speaker.figure?.say?.(
+        Math.max(line.hold ?? 2.4, recorded),
+        { audio: this.audio, source: take.source },
+      );
+    } else if (this.audio?.say) {
       const prefix = `vo.${cue}.`;
       for (const [name, bank] of this.audio.buffers?.entries?.() ?? []) {
         if (!name.startsWith(prefix)) continue;
         for (const buffer of bank) recorded = Math.max(recorded, buffer?.duration || 0);
       }
-      if (!this.audio.say(cue, { chance: 1, volume: 1, position })) recorded = 0;
+      if (!this.audio.say(cue, { chance: 1, volume: 1, position: at })) recorded = 0;
     }
     this.said.add(id);
     this.spoken.push(cue);
     this.current = id;
     this.timer = Math.max(line.hold ?? 2.4, recorded > 0 ? recorded + 0.4 : 0) + this.gap;
-    const colour = VOICE_COLOUR[line.voice] ?? '#cfd4e0';
-    const who = VOICE_NAME[line.voice] ?? 'VOICE';
+    /* The subtitle takes the SPEAKER's colour where there is one, so the
+     * three-way split reads on screen as well as in the ear. */
+    const profile = speaker ? palaceGuardVoice(speaker.id) : line.voice;
+    const colour = VOICE_COLOUR[profile] ?? VOICE_COLOUR[line.voice] ?? '#cfd4e0';
+    const who = VOICE_NAME[line.voice] ?? VOICE_NAME[profile] ?? 'VOICE';
     this.hud?.say?.(
       `<b style="color:${colour}">${who}</b> ${line.text}`,
       Math.min(7600, Math.max(1400, this.timer * 1000)),

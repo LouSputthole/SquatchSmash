@@ -23,6 +23,12 @@ export const PALACE_START_BANK = Object.freeze({
   prefixes: Object.freeze([
     'weapon.', 'footstep.',
     'vo.palace.tony.', 'vo.palace.cleaner.', 'vo.palace.guard.',
+    /* The idle guard conversations (./conversations.js). These run from the
+     * first frame of the approach -- two men on a gate are already talking
+     * when the player climbs the fence -- so they cannot ride the next-beat
+     * bank either. They are also the one bank whose absence is FELT: the
+     * stealth affordance is finding a conversation by ear. */
+    'vo.palace.shift.',
   ]),
   names: Object.freeze([
     ...GROUND_COMBAT_AUDIO_CUES,

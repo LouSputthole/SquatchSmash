@@ -7,6 +7,7 @@ import { WEAPON_IDS } from '../core/weapons/catalog.js';
 import { buildWeaponModel } from '../core/weapons/models.js';
 import { HeistFigure } from '../heist/people.js';
 import { CombatArmorPresentation } from '../world/combat-armor.js';
+import { palaceGuardVoice } from './voice.js';
 import { PALACE_ANCHORS } from './world.js';
 
 export const PALACE_GUARD_POSTS = Object.freeze([
@@ -242,6 +243,7 @@ function tagHitZones(figure) {
 
 function makeCombatant({
   id, role, x, z, yaw = 0, model, weapon, health, armor = 0, patrol = null, seated = false,
+  voice = null,
 }) {
   const figure = new HeistFigure({
     name: `palace-${id}`, x, z, yaw, model, tier: role === 'boss' || role === 'traitor' ? 'hero' : 'ambient',
@@ -268,6 +270,11 @@ function makeCombatant({
     actor,
     weapon,
     weaponModel,
+    /* WHICH OF THE THREE HE IS. The payroll was one voice until 2026-08-20;
+     * a body that does not know its own profile cannot hold a conversation
+     * with another body, because both halves come back the same man. See
+     * ./voice.js's PALACE_GUARD_VOICE_CAST. */
+    voice,
     armed: Boolean(weaponModel),
     seated,
     patrol: patrol?.map(([px, pz]) => new THREE.Vector3(px, 0, pz)) ?? [],
@@ -327,6 +334,7 @@ export function buildPalaceCast(parent) {
   const guards = PALACE_GUARD_POSTS.map((post, index) => makeCombatant({
     ...post,
     role: 'guard',
+    voice: palaceGuardVoice(post.id),
     model: { ...GUARD_LOOKS[index % GUARD_LOOKS.length], bandana: true },
     health: post.weapon === WEAPON_IDS.CARBINE ? 105 : 82,
     armor: post.weapon === WEAPON_IDS.CARBINE ? 24 : 8,

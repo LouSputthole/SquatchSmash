@@ -529,8 +529,12 @@ test('the public environment inventory reports the real scene graph and every re
   assert.ok(inventory.namedMeshes / inventory.meshes >= 0.85,
     'too much palace geometry is anonymous to audit reliably');
 
+  /* `entry` joined the list in the 2026-08-20 owner playtest pass: the foyer
+   * was the one playable room with no refinement zone at all, which is
+   * exactly why it read as a giant empty box. */
   assert.deepEqual(Object.keys(inventory.zones).sort(), [
-    'ceilings', 'courtyard', 'dining', 'gallery', 'guestSuite', 'office', 'security',
+    'ceilings', 'courtyard', 'dining', 'entry', 'gallery', 'guestSuite', 'office',
+    'security', 'serviceCorridor',
   ]);
   for (const [name, zone] of Object.entries(inventory.zones)) {
     assert.ok(zone.meshes > 0, `${name} inventory is disconnected from its geometry`);

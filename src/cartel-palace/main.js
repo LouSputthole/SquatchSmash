@@ -57,8 +57,9 @@ import {
 } from './preview.js';
 import { PALACE_COMBAT_POSTS, PalaceSecurity } from './security.js';
 import { PalaceBystanders } from './bystanders.js';
+import { PalaceGuardConversations } from './conversations.js';
 import { PalaceSuppressor } from './suppressor.js';
-import { PalaceVoice } from './voice.js';
+import { PalaceVoice, speakerForLine } from './voice.js';
 import { PALACE_ANCHORS, buildCartelPalace } from './world.js';
 
 const canvas = document.getElementById('scene');
@@ -392,6 +393,10 @@ function civilianHitAnchor(object, figure) {
 }
 
 let security;
+/* The estate's idle guard conversations (./conversations.js). Built below,
+ * once security exists: it drives security's idle-task seam rather than
+ * moving anybody itself. */
+let conversations = null;
 let hitConfirmTimer = 0;
 let incomingFeedbackTimer = 0;
 let armorBreakTimer = 0;
@@ -881,9 +886,18 @@ security = new PalaceSecurity({
     if (reason === 'dining_room') return;
     /* Somebody shouts it. The nearest man who can actually see the player
      * gets the bark, so it never comes through a wall from the courtyard. */
-    const caller = nearestLiveGuard();
-    palaceVoice.say(reason === 'gunshot' ? 'guard.contact.two' : 'guard.contact.one', {
-      position: caller?.root.position ?? null, radius: 26, urgent: true,
+    /* Whatever anybody was in the middle of saying, they are not any more --
+     * cut before the bark so a shout never lands on top of a man finishing a
+     * sentence about the playoffs. */
+    conversations?.cutAll('alarm');
+    const line = reason === 'gunshot' ? 'guard.contact.two' : 'guard.contact.one';
+    /* The nearest man CAST TO THAT LINE'S VOICE shouts it, falling back to
+     * the nearest man of any voice -- the payroll is three profiles now (see
+     * ./voice.js) and the shout has to come out of a matching throat. */
+    const caller = speakerForLine(line, cast.guards, { from: player.position })
+      ?? nearestLiveGuard();
+    palaceVoice.say(line, {
+      speaker: caller, position: caller?.root.position ?? null, radius: 26, urgent: true,
     });
     bystanders.panic();
   },
@@ -974,13 +988,19 @@ security = new PalaceSecurity({
       /* Only a man who is still up, still active and can SEE the body says
        * anything about it -- a quiet takedown in an empty corridor stays
        * quiet, which is the whole point of the takedown. */
-      const witness = cast.guards.find((guard) => (
+      const line = security.alarm ? 'guard.ally-down.two' : 'guard.ally-down.one';
+      const witnesses = cast.guards.filter((guard) => (
         !guard.down && guard.active && guard.id !== entry.id
         && guard.root.position.distanceTo(position) <= 16
       ));
+      /* Same casting rule as the contact call: among the men who can be here
+       * for it, the one whose voice the line was recorded on gets it. */
+      const witness = speakerForLine(line, witnesses, { from: position });
       if (witness) {
-        palaceVoice.say(security.alarm ? 'guard.ally-down.two' : 'guard.ally-down.one', {
-          position: witness.root.position, radius: 22, urgent: true,
+        /* A man finding a body is a man who has stopped chatting. */
+        conversations?.cutAll('ally-down');
+        palaceVoice.say(line, {
+          speaker: witness, position: witness.root.position, radius: 22, urgent: true,
         });
       }
       return;
@@ -1001,6 +1021,23 @@ security = new PalaceSecurity({
  * tracer -- so "do not fire lines through walls" is answered by the walls
  * rather than by a radius that hopes. */
 palaceVoice.trace = (from, to) => security.space.trace(from, to);
+
+/**
+ * THE SHIFT TALKING TO ITSELF.
+ *
+ * Owner, 2026-08-20: *"Lets make sure the guards have conversations with each
+ * other and you can sneak up on them as they are talking"*. Four pairs, real
+ * two-way exchanges, and while a pair is talking they stand still, face each
+ * other and notice the estate at a fraction of their usual rate -- all of it
+ * through `PalaceSecurity.setIdleTask`, so there is no second AI in here.
+ * The moment either man's awareness moves, the take is cut mid-word.
+ */
+conversations = new PalaceGuardConversations({
+  cast,
+  security,
+  voice: palaceVoice,
+  player,
+});
 /* First fit: whatever the inherited loadout already put in his hands gets a
  * can now, and security learns how far that gun carries. */
 syncSuppressor();
@@ -1190,6 +1227,9 @@ function clearCombatTransients() {
    * once-only latches are deliberately KEPT -- a retry should not replay
    * every recognition line the player already heard. */
   palaceVoice.reset();
+  /* Every man back on his round: an errand belongs to the discarded
+   * timeline, exactly like a live target or a settled bore. */
+  conversations.reset();
   lastPlayerSuppression = null;
   resetCombatFeedback();
   hitConfirmTimer = 0;
@@ -1626,6 +1666,10 @@ const EVIDENCE_SPOT_RADIUS = 4.6;
 function updateAmbientVoice(dt) {
   palaceVoice.update(dt);
   bystanders.update(dt);
+  /* Runs on the scene clock like everything else here. It reads awareness
+   * off the bodies security just ticked, so a man who noticed the player on
+   * THIS frame stops talking on this frame. */
+  conversations.update(dt);
 
   const at = player.position;
   if (mission.beat === PALACE_BEATS.ESTATE) {
@@ -1734,6 +1778,7 @@ window.CARTEL_PALACE = {
   suppressor,
   palaceVoice,
   bystanders,
+  conversations,
   playerActor,
   suppression,
   combatAudio,

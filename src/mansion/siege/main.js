@@ -1157,7 +1157,13 @@ function renderCombatBark(event = {}) {
    * a regression test holds it to the weapon catalog). BARKS.identity is the
    * one pool with a real `vo.ateam.*` cue attached, carried up on `event.cue`
    * for exactly this reason -- this is the scene's OWN voice engine, not
-   * that shared channel, so playing it here costs that promise nothing. */
+   * that shared channel, so playing it here costs that promise nothing.
+   *
+   * The A-Team is FIVE men since 2026-08-20 (attackers.js, ATEAM_VOICES), and
+   * which one is speaking rides along on `event.voice`. Nothing is resolved
+   * from it here on purpose: the cue name already selects that man's take out
+   * of the manifest, so the field is there for the day the scene wants to tag
+   * the subtitle or hold one A-Team throat at a time. */
   if (typeof event.cue === 'string' && event.cue) {
     try { audio.play(event.cue, { volume: 0.9 }); } catch { /* no audio yet */ }
   }
