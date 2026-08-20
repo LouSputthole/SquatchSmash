@@ -86,18 +86,59 @@ const CLOUDBANK = LANDMARKS_EAST.find((l) => l.id === 'cloudbank');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
 /**
  * Resolve the climb-out's turn gate without making one invisible z coordinate
- * a mission soft-lock. The planned route crosses `TURN_POINT.z`; a player who
- * starts the east turn early stops travelling south, so radial clearance from
- * Whispering Pines is an equally safe alternative once the bomber is above
- * the same minimum AGL.
+ * a mission soft-lock.
+ *
+ * Owner playtest, 2026-08-19: *"the chain currently has a missing link and the
+ * player can end up flying with no objective... trigger the next heading
+ * AUTOMATICALLY on a forgiving condition: airborne ~10-15 s, OR above a minimum
+ * altitude, OR a short distance from the runway. NOT a tiny invisible trigger
+ * volume."*
+ *
+ * That is exactly what this now is, and the third clause is the one that was
+ * missing. The gate used to require `agl > 260` AND (crossing an unmarked z
+ * line OR 2200 m of radial clearance) — an altitude AND-condition on a
+ * fully-loaded four-engine bomber that this airframe genuinely struggles to
+ * meet (`AC_ENOLA` is deliberately "difficult to climb while loaded"). A player
+ * who levelled off low, or turned early, or simply climbed slowly, flew out of
+ * Whispering Pines with `CLIMB_TURN`'s "then turn onto the new heading" on the
+ * glass and no heading ever named — the missing link, verbatim.
+ *
+ * The three clauses are now a genuine OR and any ONE of them is enough:
+ *
+ *   TIME      `airborneSeconds >= CLIMB_TURN_GATE.seconds` — 12 s wheels-up.
+ *             This one cannot fail. Whatever else goes wrong, the heading gets
+ *             called, which is the whole point of the note.
+ *   ALTITUDE  `agl > TURN_POINT.minAltitudeAgl` — the fast climber gets it
+ *             early, as before.
+ *   DISTANCE  either the planned turn point, or `CLIMB_TURN_GATE.radius` of
+ *             clearance from the field.
+ *
+ * `ready` (the handoff into cruise) still wants the player actually tracking
+ * the new heading, because that is a different question from whether he has
+ * been TOLD it — but see `updateClimbTurn()`, which no longer lets a player who
+ * ignores it sit there unprompted either.
  */
+export const CLIMB_TURN_GATE = Object.freeze({
+  seconds: 12,
+  radius: 1800,
+  /** How long after the call before Capt Sasole asks what you are doing. */
+  nagAfter: 16,
+  /** And how often after that. */
+  nagEvery: 18,
+  /** Heading error, in degrees, that counts as "he has started turning". */
+  respondingWithin: 55,
+  /** How long NEW HEADING stands on the glass before the objective takes over. */
+  bannerSeconds: 6,
+});
+
 export function evaluateClimbTurnProgress({
-  x, z, agl, headingDeg, turnCalled = false, onCourseSeconds = 0,
+  x, z, agl, headingDeg, turnCalled = false, onCourseSeconds = 0, airborneSeconds = 0,
 }, dt) {
   const clearedPlannedPoint = z <= TURN_POINT.z;
-  const clearedFieldRadially = Math.hypot(x - WP.x, z - WP.z) >= 2200;
-  const cleared = agl > TURN_POINT.minAltitudeAgl
-    && (clearedPlannedPoint || clearedFieldRadially);
+  const clearedFieldRadially = Math.hypot(x - WP.x, z - WP.z) >= CLIMB_TURN_GATE.radius;
+  const clearedByTime = airborneSeconds >= CLIMB_TURN_GATE.seconds;
+  const clearedByAltitude = agl > TURN_POINT.minAltitudeAgl;
+  const cleared = clearedByTime || clearedByAltitude || clearedPlannedPoint || clearedFieldRadially;
   const callTurn = !turnCalled && cleared;
   const trackingHeading = turnCalled || callTurn;
   const headingError = Math.abs(headingDelta(headingDeg, TURN_POINT.newHeading));
@@ -109,11 +150,62 @@ export function evaluateClimbTurnProgress({
     onCourseSeconds: nextOnCourse,
     ready: nextOnCourse > 2.5,
     headingError,
+    clearedByTime,
+    clearedByAltitude,
     clearedPlannedPoint,
     clearedFieldRadially,
   };
 }
 const RETURN_HEADING = (TURN_POINT.newHeading + 180) % 360;   // 270 — back the way we came
+
+/**
+ * THE RUN HOME.
+ *
+ * Owner, 2026-08-19: *"Script several distinct waves of fighters attacking from
+ * behind on the RETURN leg while the plane navigates itself toward home. Target
+ * roughly one to two minutes of sustained action. Vary the waves — approach
+ * angle, count, timing — so it builds rather than repeats."*
+ *
+ * Five waves across 96 seconds of `return`-phase time, and every column varies
+ * on purpose:
+ *
+ *   TIMING     the gaps run 24, 22, 20, 18 s — tightening, so the leg gets
+ *              busier rather than metronomic, and the first one lands far
+ *              enough in that the player has heard Sasole hand him the gun.
+ *   COUNT      1, 2, 2, 3, 3 — it builds.
+ *   ANGLE      the `profiles` are `Interceptors`' authored attack behaviours
+ *              (see WAVE_SCRIPTS in `../combat/Interceptors.js`): `harass`
+ *              nags from outside the turret's reach, `crossing` sets up abeam
+ *              and slices across the track, `highside` perches above and comes
+ *              screaming down, `priority` reads the quarter the gunner is
+ *              covering least. Passing them explicitly rather than letting the
+ *              rota pick means the SHAPE of the fight is authored: one nag, a
+ *              scissors, a dive, a mixed pair, then everything at once.
+ *   AGGRESSION climbs 0.8 -> 1.25, so the last wave shoots the most.
+ *
+ * The whole table is roughly 1 minute 40 of action once the last wave's passes
+ * are counted, which is the "one to two minutes" the note asks for.
+ */
+export const RETURN_WAVES = Object.freeze([
+  { at: 10, count: 1, delay: 0, aggression: 0.80, profiles: ['harass'], call: 'fighters.first' },
+  { at: 28, count: 2, delay: 2, aggression: 0.95, profiles: ['crossing', 'crossing'] },
+  { at: 44, count: 2, delay: 1, aggression: 1.05, profiles: ['highside', 'harass'] },
+  { at: 60, count: 3, delay: 1, aggression: 1.15, profiles: ['priority', 'crossing', 'highside'] },
+  { at: 76, count: 3, delay: 0, aggression: 1.25, profiles: ['crossing', 'highside', 'priority'] },
+]);
+
+/**
+ * How long the approach will wait for the last pass to finish.
+ *
+ * The schedule above is timed against the leg itself: `return` starts about
+ * nine kilometres east of Whispering Pines and this airframe covers that in
+ * roughly a hundred seconds, so the last wave arrives with the field still
+ * ahead. A fast run home can still reach the circuit with a fighter mid-pass,
+ * and the handoff waits — but only this long, because a player who never fires
+ * a round must not be held east of his own runway by an aeroplane that will not
+ * break off. Past it, they break off and the approach begins regardless.
+ */
+const RETURN_FIGHT_GRACE_SECONDS = 25;
 
 /* THE ONE AUTHORED ENGINE PROBLEM.
  *
@@ -156,6 +248,22 @@ const ENGINE_OUT_HEALTH_FLOOR = 0.72;
  * moment of turbulence." `BLAST_TURB_SECONDS` is how long the air stays rough
  * afterwards, decaying back to `BASE_TURB` — the ordinary night air of the
  * escape leg, and the same number the escape phase resets to at +8 s. */
+/* THE THROTTLE-BACK GATE.
+ *
+ * `throttle` is the lever position that counts as "back" — a quarter, which on
+ * `EngineSystem`'s own `load` term takes about 145 °C out of the target
+ * temperature and is unmistakably a deliberate action rather than a wobble.
+ * `key` is what the page has bound to throttle-down (see `../main.js`'s help
+ * text: "Shift/Z — throttle"), named in the instruction because an objective
+ * that does not name its control is the "consult the spirits" problem. */
+const ENGINE_FIX = Object.freeze({
+  throttle: 0.25,
+  holdSeconds: 2.5,
+  clearTemp: 205,
+  nagEvery: 11,
+  key: 'Z',
+});
+
 const BLAST_TURB_SECONDS = 5.5;
 const BASE_TURB = 0.4;
 
@@ -293,6 +401,8 @@ export const NAV_BY_PHASE = Object.freeze({
 });
 
 const _navPos = new THREE.Vector3();
+/** Scratch for the tail gun's own `follow` callback — see `gunner.onShot`. */
+const _gunSoundAt = new THREE.Vector3();
 const _navView = new THREE.Matrix4();
 
 /**
@@ -337,6 +447,11 @@ const REPLAYED_BEATS = Object.freeze({
  * good enough to sit props on and to give `Targeting`/`Defense` a ground
  * reference, not good enough to fly an approach against.
  */
+/** A heading as the crew say it and the HUD prints it: 090, not 90. */
+export function headingLabel(deg) {
+  return String(Math.round(((deg % 360) + 360) % 360)).padStart(3, '0');
+}
+
 export function approxGroundHeight(x) {
   for (let i = 0; i < ZONES_EAST.length; i++) if (x < ZONES_EAST[i].to) return ZONES_EAST[i].base;
   return ZONES_EAST[ZONES_EAST.length - 1].base;
@@ -406,7 +521,25 @@ export class MissionController {
      * working it (the mission drives these) or the player is (`this.gunner`
      * drives them) — never both, see `updateRearGunner()`. */
     this.gunFiring = false;
+    /* Whether ANYBODY is working the gun right now — the player in the turret
+     * or the Shubenator with something to shoot at. Separate from `gunFiring`
+     * on purpose: `EnolaSquatch.updateRearGun()` used to track the aim point
+     * only while the trigger was down, which is the "the gun does not track,
+     * it snaps when you fire" defect from the 2026-08-19 playtest. */
+    this.gunTracking = false;
     this.gunAim = new THREE.Vector3();
+    /* The navigation chain's and the return leg's own bookkeeping — see
+     * `callNewHeading()`, `nagHeading()`, `offerTailGun()` and `RETURN_WAVES`. */
+    this.navHeading = null;
+    /** True once Sasole has handed the tail gun over — see `offerTailGun()`. */
+    this.gunOffered = false;
+    this._returnT = 0;
+    this._nearFieldT = 0;
+    this._waveIndex = 0;
+    this._airborneT = 0;
+    this._headingBannerT = 0;
+    this._headingNagT = 0;
+    this._headingNagIndex = 0;
     this._gunBurst = 0;
     this._gunRest = 0;
     /** Counts down between rounds of the Shubenator's burst — see `updateRearGunner()`. */
@@ -591,9 +724,50 @@ export class MissionController {
      * switch in `src/core/audio.js` for what is in it), and the rate is high
      * enough that the volume comes down and a little rate jitter goes in, or
      * eleven identical hits a second turn into a buzz rather than a gun. */
-    this.gunner.onShot = () => this.audio?.play?.('enolasquatch.gun.rear', {
-      volume: 0.5, rate: 0.94 + Math.random() * 0.12,
-    });
+    /* THE WEIGHT OF IT, IN FOUR LAYERS.
+     *
+     * Owner playtest, 2026-08-19: *"Audio: deeper mechanical report, sharper
+     * initial crack, heavy repeating rhythm, bolt/action layer, aircraft
+     * resonance, low-frequency punch, distant tail. It should sound like a
+     * large mounted aircraft gun, not an angry office stapler."*
+     *
+     * One sample cannot be all of those at once, so it is not asked to be.
+     * `enolasquatch.gun.rear` stays the body of the report and three new cues
+     * sit on it (see `assets/sfx/manifest.json`):
+     *
+     *   .crack  the supersonic transient, at full rate and no pitch wander, so
+     *           the front edge of every round is hard and identical — that is
+     *           what makes a burst read as fast rather than as mush.
+     *   .bolt   the action. Detuned per round, because the mechanical half is
+     *           where a real gun's rhythm lives and identical mechanism hits
+     *           are exactly what turned this into a stapler.
+     *   .body   the low-frequency punch and the tail boom answering it, pitched
+     *           DOWN and long enough to overlap the next round, so a burst
+     *           stacks into a shudder instead of a series of separate events.
+     *
+     * The fourth, `.tail`, is the report going away across open air, and it
+     * plays on roughly every fifth round only — on every round it would be mud.
+     *
+     * All four go through `follow`, so they stay glued to the muzzle as the
+     * aeroplane moves rather than being left behind at a fixed world point (see
+     * `src/core/audio.js`'s `play()` option). */
+    this.gunner.onShot = () => {
+      const follow = () => this.gunner.eyeWorld(_gunSoundAt);
+      this.audio?.play?.('enolasquatch.gun.rear', {
+        volume: 0.5, rate: 0.94 + Math.random() * 0.12, follow,
+      });
+      this.audio?.play?.('enolasquatch.gun.rear.crack', { volume: 0.42, follow });
+      this.audio?.play?.('enolasquatch.gun.rear.bolt', {
+        volume: 0.34, rate: 0.9 + Math.random() * 0.2, follow,
+      });
+      this.audio?.play?.('enolasquatch.gun.rear.body', {
+        volume: 0.55, rate: 0.82 + Math.random() * 0.08, follow,
+      });
+      this._gunTailCount = (this._gunTailCount ?? 0) + 1;
+      if (this._gunTailCount % 5 === 0) {
+        this.audio?.play?.('enolasquatch.gun.rear.tail', { volume: 0.28, follow });
+      }
+    };
     this.gunner.onJam = () => this.dialogue.bark('gunJam');
     this.gunner.onDry = () => this.dialogue.play('gun.dry', { once: true });
 
@@ -658,6 +832,26 @@ export class MissionController {
       this.hud?.say?.('<em>Not on the ground.</em> The tail gun is for when somebody else can fly her.', 3200);
       return false;
     }
+    /* OUTBOUND, YOU ARE THE PILOT.
+     *
+     * Owner playtest, 2026-08-19: *"Outbound: player stays pilot. NO
+     * tail-gunner takeover at all."*
+     *
+     * The tail gun used to be available from wheels-up, which meant the leg
+     * with the navigation, the stealth corridor and the bombing run in it could
+     * be flown from the back of the aeroplane by a gyro — and the leg home,
+     * which has nothing else to do, was the one with the fewest reasons to go
+     * back there. The whole toy is now the return leg's, and the switch is
+     * thrown by `offerTailGun()` when the first wave arrives, not by a phase
+     * name typed in here: if the offer has not been made, T says why. */
+    if (!this.gunOffered) {
+      this.dialogue.bark('gunRefused');
+      this.hud?.say?.(
+        '<em>Not yet.</em> You are flying her. The Shubenator has the tail until somebody says otherwise.',
+        3600,
+      );
+      return false;
+    }
     if (!this.autopilot.engaged && !this.autopilot.engage({})) {
       this.dialogue.bark('autoRefused');
       this.hud?.say?.('<em>Not from here.</em> Nobody can leave the seat until the gyro will hold her — wings level, out of the stall, above the deck.', 3600);
@@ -666,6 +860,7 @@ export class MissionController {
     this.gunner.take();
     this.crew?.setRearGunnerManned?.(true);
     this.gunFiring = false;
+    this.gunTracking = false;
     this.dialogue.play('gun.take', { once: true });
     this.cameras?.setView?.('cockpit');
     return true;
@@ -746,8 +941,15 @@ export class MissionController {
     this.gunner.leave();
     this.crew?.setRearGunnerManned?.(false);
     this.gunFiring = false;
+    this.gunTracking = false;
     this.dialogue.play('gun.leave', { once: true });
     if (this.autopilot.engaged) this.autopilot.disengage(null);
+    /* Back in the seat, back to a navigation objective — the owner's "NEVER
+     * leave the player without a navigation objective" applies to the man
+     * climbing out of the turret as much as to the man who just took off. */
+    if (this.phase === 'return') {
+      this.setObjective(`${OBJECTIVES.RETURN} Heading ${headingLabel(RETURN_HEADING)} for Whispering Pines.`);
+    }
     return true;
   }
 
@@ -952,6 +1154,11 @@ export class MissionController {
     this.player && (this.player.mode = 'frozen');
     this.interaction?.setPaused?.(true);
     this.crew?.takeSeats?.(this.aircraft);
+    /* Nobody takes off with the Fat Squatch still on the concrete. `forceSeat()`
+     * finishes the trolley sequence wherever it had got to — see
+     * `../payload/BombTrolley.js` — so a player who climbs the ladder half a
+     * second after pressing E still leaves with a bomb aboard. */
+    if (this.bombTrolley && !this.bombTrolley.loaded) this.bombTrolley.forceSeat();
     this.aircraft.setCrewDoorOpen?.(false);
     /* The boarding ladder comes off with the last man up it. It hangs on the
      * sill as a child of the airframe (see `EnolaSquatch.build()`), so leaving
@@ -1071,10 +1278,19 @@ export class MissionController {
         this.setObjective(OBJECTIVES.CLIMB_TURN);
         this.flags.turnCalled = false;
         this._onCourseT = 0;
+        this._airborneT = 0;
+        this.navHeading = null;
+        this._headingBannerT = 0;
+        this._headingNagIndex = 0;
         break;
 
       case 'cruise':
-        this.setObjective(OBJECTIVES.CRUISE);
+        /* The heading stays on the glass after the turn is flown. "Hold your
+         * heading" is not an instruction if the screen has stopped saying
+         * which one, and the owner's rule for this whole chain is that the
+         * player is NEVER without a navigation objective. */
+        this.navHeading = TURN_POINT.newHeading;
+        this.setObjective(`${OBJECTIVES.CRUISE} Heading ${headingLabel(TURN_POINT.newHeading)}.`);
         this.dialogue.play('cruise.settle', { once: true, delay: 1 });
         this.weather.setConditions({ dusk: 1, night: 1, cloudDensity: 0.5, turbulence: 0.4, lightning: 0 });
         this.saveCheckpoint('turnOnCourse');
@@ -1145,6 +1361,7 @@ export class MissionController {
       case 'escape':
         this.setObjective(OBJECTIVES.ESCAPE);
         this.gunFiring = false;
+        this.gunTracking = false;
         this.dialogue.play('escape.turn', { once: true, delay: 0.5 });
         this.weather.setConditions({ turbulence: 0.95, lightning: 0.3 });
         this.bombBayOpen = false;
@@ -1153,16 +1370,41 @@ export class MissionController {
         break;
 
       case 'emergency': {
-        this.setObjective('Handle the engine — your call');
+        /* ENGINE OVERHEATING — THROTTLE BACK.
+         *
+         * See the `emergency.*` block in `../dialogue/script.js` for the owner
+         * note this answers. The objective NAMES the fault, the objective NAMES
+         * the control, and `updateEmergency()` will not leave this phase until
+         * the throttle has actually come back — the three things the old
+         * "Handle the engine — your call" had none of.
+         *
+         * `_emergencyResolved` is set true here on purpose: it is what
+         * `../main.js` reads to decide whether to raise the three-option choice
+         * panel, and this beat is no longer a menu. The engine is fixed with the
+         * throttle, which is a control the player already has. */
+        this.setObjective(OBJECTIVES.ENGINE_OVERHEAT);
         this.dialogue.play('emergency.overheat', { urgent: true });
+        this.dialogue.play('emergency.throttleBack');
         this.engines.scriptOverheat(this._emergencyEngineIndex, 70);
-        this._emergencyResolved = false;
+        this._emergencyResolved = true;
         this._emergencyPushFailAt = null;
+        this._throttleBackT = 0;
+        this._throttleNagT = ENGINE_FIX.nagEvery;
+        this._engineStabilised = false;
+        this.armCombatInstruction(
+          `<b>ENGINE OVERHEATING</b> — number three. Pull the throttle back with <b>${ENGINE_FIX.key}</b>`
+          + ' and hold it there while she cools.', 9000,
+        );
         break;
       }
 
       case 'return':
-        this.setObjective(OBJECTIVES.RETURN);
+        this._returnT = 0;
+        this._nearFieldT = 0;
+        this._waveIndex = 0;
+        this.gunOffered = false;
+        this.navHeading = RETURN_HEADING;
+        this.setObjective(`${OBJECTIVES.RETURN} Heading ${headingLabel(RETURN_HEADING)} for Whispering Pines.`);
         this.saveCheckpoint('return');
         this.detection.active = false;
         this.weather.setConditions({ turbulence: 0.5, lightning: 0.1, cloudDensity: 0.5 });
@@ -1269,6 +1511,10 @@ export class MissionController {
    */
   updateWalkaround(dt) {
     const here = this.player?.position ?? this.camera?.position ?? null;
+    /* The trolley runs on the mission clock like everything else on the apron.
+     * It is a three-leg timer with no branches and nothing waits on it — see
+     * `../payload/BombTrolley.js` — so this can never hold the walkaround. */
+    this.bombTrolley?.update?.(dt);
     this.preflight.update(dt, this.physics, this.camera);
     if (here) this.crew?.lookAt?.(here);
 
@@ -1520,6 +1766,7 @@ export class MissionController {
 
   updateClimbTurn(dt) {
     const p = this.physics;
+    if (!p.onGround) this._airborneT += dt;
     const gate = evaluateClimbTurnProgress({
       x: p.position.x,
       z: p.position.z,
@@ -1527,13 +1774,108 @@ export class MissionController {
       headingDeg: p.headingDeg,
       turnCalled: this.flags.turnCalled,
       onCourseSeconds: this._onCourseT,
+      airborneSeconds: this._airborneT,
     }, dt);
-    if (gate.callTurn) {
-      this.flags.turnCalled = true;
-      this.dialogue.play('climb.turn.east', { once: true });
-    }
+    if (gate.callTurn) this.callNewHeading(TURN_POINT.newHeading);
     this._onCourseT = gate.onCourseSeconds;
+
+    /* THE BANNER, THEN THE OBJECTIVE.
+     *
+     * Owner: *"update the HUD/navigation marker, show NEW HEADING prominently
+     * for several seconds, put the heading into the persistent objective
+     * afterwards, and have the compass/nav indicator visibly point at it."*
+     *
+     * Three separate readouts with three different lifetimes, and they hand off
+     * in that order: `hud.say()` is the loud one and it expires; the objective
+     * is the quiet one and it does not; the compass bug is fed by
+     * `navTarget()`, which now returns a point 40 km down the called heading
+     * while this phase is running (see `NAV_BY_PHASE` and `navTarget()`). */
+    if (this.flags.turnCalled) {
+      this._headingBannerT -= dt;
+      if (this._headingBannerT <= 0) {
+        this.setObjective(`${OBJECTIVES.CLIMB_TURN} — heading ${headingLabel(TURN_POINT.newHeading)}.`);
+      }
+      this.nagHeading(dt, TURN_POINT.newHeading, gate.headingError);
+    }
     if (gate.ready) this.setPhase('cruise');
+  }
+
+  /**
+   * Call a new heading, once, and make sure the player cannot miss it.
+   *
+   * Owner: *"Radio dialogue must be subordinate to gameplay: if another
+   * character is talking when the nav trigger fires, QUEUE the heading
+   * instruction and play it immediately afterwards rather than losing it."*
+   *
+   * `DialogueSystem.play()` already appends to a queue rather than dropping,
+   * so the SPOKEN half of that is safe by construction — the one thing that
+   * could have lost it is `urgent: true`, which wipes the queue, and this
+   * deliberately does not use it. The SCREEN half is `armCombatInstruction()`,
+   * which exists for exactly this rule (see its own comment): it holds the
+   * instruction until `dialogue.busy` goes false, so the character speaks and
+   * then the screen clarifies, never both at once and never the screen alone.
+   *
+   * @param {number} deg the new magnetic heading
+   */
+  callNewHeading(deg) {
+    if (this.flags.turnCalled) return false;
+    this.flags.turnCalled = true;
+    this.navHeading = deg;
+    this._headingBannerT = CLIMB_TURN_GATE.bannerSeconds;
+    this._headingNagT = CLIMB_TURN_GATE.nagAfter;
+    this.dialogue.play('climb.turn.east', { once: true });
+    /* NEW HEADING goes on the glass through `armCombatInstruction()`, NOT
+     * through `hud.say()` directly — `DialogueSystem` subtitles the crew
+     * through that same `hud.say`, so a banner raised while Irish is mid-line
+     * would delete his line off the screen, which is the opposite of "radio
+     * dialogue must be subordinate to gameplay". Held until the queue is
+     * quiet, then shown for `bannerSeconds`; the objective below carries the
+     * heading from the first frame regardless, so nothing is ever unstated. */
+    this.armCombatInstruction(
+      `<b>NEW HEADING ${headingLabel(deg)}</b> — bank onto it and hold it. `
+      + 'The bug on the compass tape is where it is.',
+      CLIMB_TURN_GATE.bannerSeconds * 1000,
+    );
+    this.setObjective(`Turn onto heading ${headingLabel(deg)}.`);
+    this.updateNavMarker();
+    return true;
+  }
+
+  /**
+   * Nag a player who has been given a heading and has not started turning.
+   *
+   * Owner: *"If the player has not started turning toward the heading within
+   * ~15-20s, Capt Lou nags... Irish or Sasole can repeat periodically. NEVER
+   * leave the player without a navigation objective."*
+   *
+   * The condition is deliberately "has not STARTED turning" rather than "is not
+   * on the heading": a loaded bomber takes a long time to come round, and
+   * barking at a man who is already banking is worse than saying nothing.
+   * `respondingWithin` is the error that counts as underway.
+   *
+   * @param {number} dt
+   * @param {number} deg the heading he was given
+   * @param {number} headingError absolute degrees off it
+   */
+  nagHeading(dt, deg, headingError) {
+    void deg;
+    if (headingError < CLIMB_TURN_GATE.respondingWithin) {
+      // He is on his way. Reset the clock so a later wander gets a fresh leash.
+      this._headingNagT = CLIMB_TURN_GATE.nagAfter;
+      return false;
+    }
+    this._headingNagT -= dt;
+    if (this._headingNagT > 0 || this.dialogue.busy) return false;
+    this._headingNagT = CLIMB_TURN_GATE.nagEvery;
+    /* Sasole first, because it is his aeroplane, then the two of them
+     * alternating — the same instruction from two men reads as a crew getting
+     * impatient rather than as one line on a loop. */
+    const nags = ['nav.nag.sasole', 'nav.nag.irish', 'nav.nag.sasoleAgain'];
+    const id = nags[this._headingNagIndex % nags.length];
+    this._headingNagIndex += 1;
+    this.dialogue.forget(id);
+    this.dialogue.play(id);
+    return true;
   }
 
   /** Shared by `cruise` and `return` — Irish's heading corrections. */
@@ -1643,6 +1985,7 @@ export class MissionController {
     if (this.gunner.manned) return;
     if (!active) {
       this.gunFiring = false;
+      this.gunTracking = false;
       this._gunBurst = 0;
       // Idle chatter from the back, on the pool's own long cooldown.
       if (!p.onGround && this.flags.enginesEverStarted) this.dialogue.bark('gunnerIdle');
@@ -1654,10 +1997,14 @@ export class MissionController {
     const bogey = this._nearestFighter();
     if (bogey) this.gunAim.copy(bogey.position);
     else this.gunAim.set(TARGET_X, this.groundAt(TARGET_X, COMPOUND.z) + 12, COMPOUND.z);
+    // He tracks it whether or not he is squeezing the trigger this instant.
+    this.gunTracking = true;
     if (this._gunBurst > 0) {
       this._gunBurst -= dt;
       this.gunFiring = true;
       if (this._gunBurst <= 0) {
+        // Trigger off, barrels still on the fighter — the rest between bursts
+        // is not the gun losing interest.
         this.gunFiring = false;
         this._gunRest = 0.7 + Math.random() * 1.4;
       }
@@ -1685,8 +2032,16 @@ export class MissionController {
       this._gunSoundT = (this._gunSoundT ?? 0) - dt;
       if (this._gunSoundT <= 0) {
         this._gunSoundT = 1 / 9;
+        const follow = () => this.aircraft.rearGunMuzzleWorld(_gunSoundAt);
         this.audio?.play?.('enolasquatch.gun.rear.cabin', {
-          volume: 0.34, rate: 0.92 + Math.random() * 0.16,
+          volume: 0.34, rate: 0.92 + Math.random() * 0.16, follow,
+        });
+        /* Same weapon, different seat: he gets the airframe resonance too,
+         * because that layer is the tail boom and the tail boom is between the
+         * two of them. He does NOT get the muzzle crack — that belongs to
+         * whoever is sitting behind it. */
+        this.audio?.play?.('enolasquatch.gun.rear.body', {
+          volume: 0.3, rate: 0.8 + Math.random() * 0.08, follow,
         });
       }
     }
@@ -2337,14 +2692,13 @@ export class MissionController {
       this.weather.setConditions({ turbulence: 0.4, lightning: 0 });
       if (!this.dialogue.seen('escape.clear')) this.dialogue.play('escape.clear', { once: true });
     }
-    /* THE LAST WAVE. Whatever is still flying comes after them on the way out,
-     * and this is the stretch the player is most likely to be on the gun for —
-     * the bomb is gone, the aeroplane is two and a half tonnes lighter, and
-     * there is nothing left to do with the seat except point it west. */
-    if (this._escapeT > 6 && this.interceptors.activeCount < 2) {
-      this.interceptors.aggression = 1.0;
-      this.scrambleFighters(2, 4);
-    }
+    /* NO NEW FIGHTERS HERE ANY MORE. This used to scramble a wave into the
+     * escape, which put the fight in the middle of the break turn and the
+     * blast — the two beats that are already the loudest thing in the mission —
+     * and left the long flight home with nothing in it. The whole air battle is
+     * now scripted onto the RETURN leg instead, where the owner asked for it
+     * (see `RETURN_WAVES`): "several distinct waves of fighters attacking from
+     * behind on the RETURN leg while the plane navigates itself toward home". */
     /* The engine emergency happens to a player who came home with a damaged
      * engine, and it still can: with the guns firing blanks (`LIVE_FIRE`,
      * ../config.js) the flak and the fighters no longer put one out, but
@@ -2352,15 +2706,24 @@ export class MissionController {
      * player who lingered inside a kilometre of his own detonation, which is a
      * consequence he chose, rather than to whoever the barrage happened to
      * roll against. Everyone else flies home on four. */
+    /* THE ENGINE PROBLEM IS NOT OPTIONAL ANY MORE.
+     *
+     * It used to be reachable only through `defense.damage.engines`, and with
+     * `LIVE_FIRE.fighters`/`flak` off (see `../config.js`) the only thing that
+     * could still fill that array was a shock wave the player had to fly into
+     * — so almost nobody ever saw the beat, and the flight home was empty.
+     * That is half of why the owner's note calls the whole run-home unfinished.
+     *
+     * Everybody gets it now, and the fiction was already written for it: this
+     * is number three, the engine that has been derated and trailing smoke
+     * since `triggerEngineOut()` fired on the run-in (`ENGINE_OUT_INDEX`), not
+     * a new coincidence. A shock-wave or flak hit still takes priority so the
+     * player who earned a different dead engine hears about that one. */
     if (!this._emergencyDecided && this._escapeT > 10 && p.agl > 220) {
       this._emergencyDecided = true;
       const engineHit = this.defense.damage.engines.findIndex(Boolean);
-      if (engineHit >= 0) {
-        this._emergencyEngineIndex = engineHit;
-        this.setPhase('emergency');
-      } else {
-        this.setPhase('return');
-      }
+      this._emergencyEngineIndex = engineHit >= 0 ? engineHit : ENGINE_OUT_INDEX;
+      this.setPhase('emergency');
     }
   }
 
@@ -2392,40 +2755,175 @@ export class MissionController {
     return true;
   }
 
+  /**
+   * The engine problem, as a thing the player DOES.
+   *
+   * Owner playtest, 2026-08-19: *"Require the player to actually reduce
+   * throttle. Show engine temp/RPM falling. On clear: remove warning, update
+   * objective, tell the player what happens next."*
+   *
+   * All four of those are here and none of them were before. `EngineSystem`
+   * already does the physical half honestly — its `targetTemp` is
+   * `40 + load * 192 + (hotScript > 0 ? 185 : 0)`, so pulling the levers back
+   * genuinely takes 190-odd degrees out of the target and the needle genuinely
+   * comes down — which means the objective can quote the REAL temperature off
+   * the real engine rather than narrating a fake one.
+   *
+   * The gate is "throttle at or under `ENGINE_FIX.throttle` for
+   * `ENGINE_FIX.holdSeconds`", not "temperature below X", because the player
+   * has to be able to tell what he did that worked. Cooling then follows on its
+   * own and the phase ends when the needle says so.
+   */
   updateEmergency(dt) {
-    void dt;
     const e = this.engines.engines[this._emergencyEngineIndex];
+    const throttle = this.input?.throttle ?? 1;
+    const back = throttle <= ENGINE_FIX.throttle;
+
+    if (back) {
+      this._throttleBackT += dt;
+      /* The moment he has held it long enough, Numbskull says the second half
+       * of the owner's pair — "There you go. Hold it there until she cools
+       * off." — once, and the objective stops asking and starts reporting. */
+      if (!this._engineStabilised && this._throttleBackT >= ENGINE_FIX.holdSeconds) {
+        this._engineStabilised = true;
+        this.dialogue.play('emergency.stabilised', { once: true });
+      }
+    } else {
+      this._throttleBackT = 0;
+      // He has pushed it up again. Say so rather than silently restarting.
+      this._throttleNagT -= dt;
+      if (this._throttleNagT <= 0 && !this.dialogue.busy) {
+        this._throttleNagT = ENGINE_FIX.nagEvery;
+        this.dialogue.forget('emergency.throttleBack');
+        this.dialogue.play('emergency.throttleBack');
+      }
+    }
+
+    /* The readout. Temperature is the thing that is wrong, so temperature is
+     * what the objective counts down — and it is read off the engine, so if it
+     * is not falling the player can see that it is not falling. */
+    const temp = Math.round(e?.temp ?? 0);
+    this.setObjective(this._engineStabilised
+      ? `${OBJECTIVES.ENGINE_COOLING} ${temp}°C — hold the throttle back.`
+      : `${OBJECTIVES.ENGINE_OVERHEAT} ${temp}°C.`);
+
     if (this._emergencyPushFailAt && this.phaseTime > this._emergencyPushFailAt) {
       this.engines.kill(this._emergencyEngineIndex, 'destroyed');
       this._emergencyPushFailAt = null;
       this.dialogue.play('emergency.shutdown', { once: true });
     }
-    /* `EngineSystem.hotScript` only counts down while an engine is running.
-     * Shutdown is one of the three authored answers above, and fuel starvation
-     * or the push-it failure can stop the same engine too. Waiting only for
-     * `hotScript <= 0` therefore stranded every one of those valid outcomes in
-     * this phase forever. Once the player has answered, a stopped engine is
-     * already the resolution; a running one still serves the full heat timer. */
-    if (this._emergencyResolved && (!e.running || !e.hotScript || e.hotScript <= 0)) {
+
+    /* CLEARED. A stopped engine is already the answer (fuel starvation, the
+     * player shutting it down from the console, a seizure); otherwise the
+     * needle has to actually come back under `ENGINE_FIX.clearTemp`. Either
+     * way the warning lamp goes out, the crew say what happens next, and the
+     * heading home is on the glass before this method returns. */
+    const stopped = !e || !e.running;
+    if (stopped || (this._engineStabilised && e.temp <= ENGINE_FIX.clearTemp && e.hotScript <= 0)) {
+      /* The lamp is not cleared by hand: `updateFlightCommon()` recomputes the
+       * whole warning set every frame off the real engine (`temp > 245`), so
+       * the HOT lamp has already gone out by the time the needle reaches
+       * `clearTemp` — which is the honest version of "remove warning". */
+      this.dialogue.play('emergency.cooled', { once: true });
       this.setPhase('return');
     }
   }
 
   /* ---- Return / landing / epilogue ---- */
 
+  /**
+   * The way home, which is now the fight.
+   *
+   * Owner playtest, 2026-08-19, two notes that are one design:
+   *
+   *   *"Outbound: player stays pilot. NO tail-gunner takeover at all. Return
+   *   (after the bomb drops): enemy aircraft arrive, Capt Sasole takes the
+   *   flying ('Plane's mine, you go shoot'), prompt T - TAKE OVER TAIL GUN
+   *   prominently... aircraft maintains its flight path automatically."*
+   *
+   *   *"Script several distinct waves of fighters attacking from behind on the
+   *   RETURN leg while the plane navigates itself toward home. Target roughly
+   *   one to two minutes of sustained action. Vary the waves — approach angle,
+   *   count, timing — so it builds rather than repeats."*
+   *
+   * `RETURN_WAVES` is the script and this is its clock. The leg is deliberately
+   * held open until the last wave has been dealt with: `updateReturn` used to
+   * hand off to `landing` on a pure x threshold, which on a fast run home could
+   * cut a wave off mid-pass, and `clear()` used to fire the moment the aeroplane
+   * was 5.2 km west of the target and delete the entire battle.
+   */
   updateReturn(dt) {
     const p = this.physics;
-    /* They do not follow you home. Anything still up when the aeroplane is
-     * this far west turns back, because a fighter chase that never ends is not
-     * a threat, it is a chore. */
-    if (this.interceptors.activeCount > 0 && p.position.x < TARGET_X - 5200) {
+    this._returnT += dt;
+    this.updateNavCorrection(dt, RETURN_HEADING);
+
+    // The next wave, when its moment comes.
+    const wave = RETURN_WAVES[this._waveIndex];
+    if (wave && this._returnT >= wave.at) {
+      this._waveIndex += 1;
+      this.interceptors.aggression = wave.aggression;
+      this.interceptors.deploy({
+        around: p.position,
+        count: wave.count,
+        delay: wave.delay,
+        profiles: wave.profiles,
+      });
+      if (wave.call) this.dialogue.play(wave.call, { once: true });
+      // The first wave is the one that hands the player the gun.
+      if (this._waveIndex === 1) this.offerTailGun();
+      else if (this._waveIndex === RETURN_WAVES.length) {
+        this.armCombatInstruction('<b>LAST OF THEM.</b> Finish it and get back in the seat.', 6000);
+      }
+    }
+
+    const wavesDone = this._waveIndex >= RETURN_WAVES.length;
+    /* They do not follow you home. Anything still up once the script is spent
+     * AND the aeroplane is this far west turns back, because a fighter chase
+     * that never ends is not a threat, it is a chore. */
+    if (wavesDone && this.interceptors.activeCount > 0 && p.position.x < TARGET_X - 12000) {
       this.interceptors.clear();
       this.dialogue.play('fighters.broke', { once: true });
     }
-    this.updateNavCorrection(dt, RETURN_HEADING);
-    // Still counting stars back there, and still out of bullets.
-    this.updateRearGunner(dt, false);
-    if (p.position.x < WP.x + 1600) this.setPhase('landing');
+    // The Shubenator works it whenever the player is not.
+    this.updateRearGunner(dt, this.interceptors.engagedCount > 0);
+
+    /* Do not start the approach on top of a live pass. The x gate is still the
+     * primary one; the battle can hold it open for `RETURN_FIGHT_GRACE_SECONDS`
+     * after the aeroplane reaches the circuit, and no longer than that. */
+    const nearField = p.position.x < WP.x + 1600;
+    if (nearField) this._nearFieldT += dt;
+    const battleOver = wavesDone && this.interceptors.activeCount === 0;
+    if (nearField && (battleOver || this._nearFieldT > RETURN_FIGHT_GRACE_SECONDS)) {
+      if (this.interceptors.activeCount > 0) {
+        this.interceptors.clear();
+        this.dialogue.play('fighters.broke', { once: true });
+      }
+      this.setPhase('landing');
+    }
+  }
+
+  /**
+   * "Plane's mine, you go shoot."
+   *
+   * Sasole takes the aeroplane, the autopilot flies the heading home, and the
+   * player is TOLD — loudly, and with the key in it — that the tail gun is his
+   * now. Until this runs, `toggleGun()` refuses: outbound the player is the
+   * pilot and nothing else, which is the first half of the owner's note.
+   *
+   * @returns {boolean} whether the offer was made this call
+   */
+  offerTailGun() {
+    if (this.gunOffered) return false;
+    this.gunOffered = true;
+    this.dialogue.play('fighters.sasoleTakesIt', { once: true });
+    // He is flying it, so the gyro really does fly it. A refusal is survivable:
+    // the player can still take the gun once he has her level.
+    if (!this.autopilot.engaged) this.autopilot.engage({});
+    this.armCombatInstruction(
+      '<b>T — TAKE OVER TAIL GUN.</b> Captain Sasole has the aeroplane.', 10000,
+    );
+    this.setObjective(OBJECTIVES.TAIL_GUN);
+    return true;
   }
 
   updateLanding(dt) {
@@ -2518,6 +3016,9 @@ export class MissionController {
     if (state?.manned) {
       this.score.gunnerSeconds += dt;
       this.gunFiring = this.gunner.firing;
+      /* Every frame, trigger or no trigger: this is what makes the barrels
+       * follow the reticle instead of jumping onto it at the first round. */
+      this.gunTracking = true;
       this.gunner.aimPoint(this.gunAim);
     }
     if (this.autopilot.engaged) this.score.autopilotSeconds += dt;
@@ -2533,6 +3034,31 @@ export class MissionController {
    * @returns {?{x:number, z:number, up:number, label:string}}
    */
   navTarget() {
+    /* THE HEADING IS A PLACE, FOR THE PURPOSES OF THE COMPASS.
+     *
+     * Owner: *"have the compass/nav indicator visibly point at it."*
+     *
+     * `NAV_BY_PHASE` is a table of DESTINATIONS, and during the climb-out there
+     * is no destination yet — which is precisely why the table deliberately had
+     * no `climbTurn` entry and why the bug and the diamond were both dark for
+     * the one leg where the player has just been handed a heading and nothing
+     * else. A heading is not a destination, but forty kilometres down it from
+     * where the aeroplane is standing IS a point, and a bearing bug pointed at
+     * that point reads 090 for as long as the aeroplane is anywhere near it.
+     *
+     * Recomputed each call off the CURRENT position rather than cached, so the
+     * bug keeps reading the heading itself instead of slowly becoming a bearing
+     * to a fixed spot the aeroplane is drifting past. */
+    if (this.phase === 'climbTurn' && this.navHeading !== null) {
+      const p = this.physics;
+      const rad = (this.navHeading * Math.PI) / 180;
+      return {
+        x: p.position.x + Math.sin(rad) * 40000,
+        z: p.position.z + Math.cos(rad) * 40000,
+        up: 400,
+        label: `HEADING ${headingLabel(this.navHeading)}`,
+      };
+    }
     return NAV_BY_PHASE[this.phase] || null;
   }
 
@@ -2872,6 +3398,7 @@ export class MissionController {
      * reasoning as the turbulence and the screen wash below. */
     this.audio?.stopBlast?.(0.5);
     this.gunFiring = false;
+    this.gunTracking = false;
     // See `onPayloadImpact`: a restart before the drop must be able to detonate.
     this.detonation.dispose();
     this.explosionPoint = null;
@@ -3104,6 +3631,7 @@ export class MissionController {
     this.audio?.setStallHorn?.(false);
     this.audio?.endFallingWhistle?.(0.15);
     this.gunFiring = false;
+    this.gunTracking = false;
     this.gunner.leave();
     this.crew?.setRearGunnerManned?.(false);
     this.autopilot.disengage(null);

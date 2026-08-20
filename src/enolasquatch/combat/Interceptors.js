@@ -144,6 +144,8 @@ export const COMMIT_RANGE = 700;
 export const LAPSE_WINDOW = 4.5;
 /** The harasser's patience. It will not nag from range for the whole raid. */
 export const HARASS_PATIENCE = 45;
+/** How long one bullet strike stays visible on a fighter that survived it. */
+export const STRIKE_SECONDS = 0.34;
 
 /**
  * The authored rota. One entry per wave, advanced each `deploy()`, cycled.
@@ -183,6 +185,12 @@ const _cur = new THREE.Vector3();
 const _axis = new THREE.Vector3();
 const _perchPoint = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
+/* The strike effects get their OWN scratch. `damage()` is reached from a tracer
+ * arrival callback, which can land in the middle of `update()`'s per-fighter
+ * loop — borrowing `_v`/`_w` there would corrupt whatever steering computation
+ * was half way through using them. */
+const _strikeAt = new THREE.Vector3();
+const _sparkVel = new THREE.Vector3();
 
 /** Debris throw directions — fixed table, so a breakup allocates nothing. */
 const DEBRIS_DIRS = [
@@ -289,7 +297,48 @@ function makeFighter(colour) {
     debris.push(bit);
   }
 
-  return { group: g, exhaust, flashes, smoke, flame, flameMat, flameCore, flameCoreMat, debris };
+  /* STRIKES. Owner playtest, 2026-08-19: "better impact effects on enemy
+   * aircraft."
+   *
+   * A hit that does not kill used to be invisible: `damage()` moved the smoke
+   * trail's opacity and nothing else happened on the airframe, so a burst that
+   * connected looked exactly like a burst that missed and the player had no way
+   * to learn whether he was leading correctly. Three cheap pieces, all built
+   * now and all dark until something hits: a bright strike flash, a spray of
+   * chips off the skin, and a puff of grey where the round went in.
+   *
+   * Own materials, never `unlit()`'s cache — a shared one would light up every
+   * fighter in the wave at once, which is the trap the flame above documents. */
+  const strikeMat = new THREE.MeshBasicMaterial({
+    color: 0xfff4c0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+    depthWrite: false, toneMapped: false, fog: false,
+  });
+  const strike = new THREE.Mesh(sphereGeo(0.85, 8, 6), strikeMat);
+  strike.castShadow = false;
+  g.add(strike);
+  const sparkMat = new THREE.MeshBasicMaterial({
+    color: 0xffbe5a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+    depthWrite: false, toneMapped: false, fog: false,
+  });
+  const sparks = [];
+  for (let i = 0; i < 5; i++) {
+    const spark = new THREE.Mesh(boxGeo(0.14, 0.14, 0.9), sparkMat);
+    spark.castShadow = false;
+    spark.visible = false;
+    g.add(spark);
+    sparks.push(spark);
+  }
+  const chipMat = new THREE.MeshBasicMaterial({
+    color: 0x9aa0a6, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false,
+  });
+  const chip = new THREE.Mesh(sphereGeo(1.2, 7, 5), chipMat);
+  chip.castShadow = false;
+  g.add(chip);
+
+  return {
+    group: g, exhaust, flashes, smoke, flame, flameMat, flameCore, flameCoreMat, debris,
+    strike, strikeMat, sparks, sparkMat, chip, chipMat,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -309,6 +358,15 @@ class Fighter {
     this.flameMat = built.flameMat;
     this.flameCoreMat = built.flameCoreMat;
     this.debris = built.debris;
+    /* Strike effects — see the block at the end of `makeFighter()`. `strikeT`
+     * counts one impact down; everything is dark while it is zero. */
+    this.strike = built.strike;
+    this.strikeMat = built.strikeMat;
+    this.sparks = built.sparks;
+    this.sparkMat = built.sparkMat;
+    this.chip = built.chip;
+    this.chipMat = built.chipMat;
+    this.strikeT = 0;
     root.add(this.group);
 
     this.position = new THREE.Vector3();
@@ -571,6 +629,7 @@ export class Interceptors {
 
     for (const f of this.fighters) {
       if (!f.alive) { this._updateDying(dt, f); continue; }
+      this._updateStrike(dt, f);
       f.stateT += dt;
       const toUs = _w.subVectors(position, f.position);
       const range = toUs.length();
@@ -1078,6 +1137,7 @@ export class Interceptors {
     if (!f || !f.alive) return 'nothing';
     f.health -= amount;
     f.smokeMesh.material.opacity = clamp((FIGHTER_HEALTH - f.health) / FIGHTER_HEALTH, 0, 1) * 0.7;
+    this._strike(f);
     if (f.health > 0) {
       if (f.health <= WOUNDED_HEALTH && f.state !== 'withdraw') this._wound(f);
       return 'hit';
@@ -1096,6 +1156,51 @@ export class Interceptors {
     this.kills++;
     this.onKill?.(f);
     return 'killed';
+  }
+
+  /**
+   * A round went in. Put it somewhere on the airframe and light it.
+   *
+   * Placed at a random point on the fighter's own skin rather than at its
+   * origin, so a burst walks across it instead of strobing one spot, and the
+   * chips are thrown along the airframe's own axes so they read as coming OFF
+   * it. `STRIKE_SECONDS` is short: this is an impact, not a fire.
+   */
+  _strike(f) {
+    const where = _strikeAt.set(
+      (f.rand() - 0.5) * 4.6,
+      (f.rand() - 0.5) * 1.1,
+      (f.rand() - 0.5) * 5.4,
+    );
+    f.strike.position.copy(where);
+    f.chip.position.copy(where);
+    for (const [i, spark] of f.sparks.entries()) {
+      spark.visible = true;
+      spark.position.copy(where);
+      spark.rotation.set(f.rand() * 3, f.rand() * 3, i * 1.2);
+      spark.scale.setScalar(0.7 + f.rand() * 0.8);
+    }
+    f.strikeT = STRIKE_SECONDS;
+  }
+
+  /** One frame of a strike fading off an airframe that survived it. */
+  _updateStrike(dt, f) {
+    if (f.strikeT <= 0) return;
+    f.strikeT = Math.max(0, f.strikeT - dt);
+    const k = f.strikeT / STRIKE_SECONDS;
+    f.strikeMat.opacity = k * k;
+    f.strike.scale.setScalar(0.4 + (1 - k) * 1.6);
+    f.sparkMat.opacity = k * 0.9;
+    for (const spark of f.sparks) {
+      spark.position.addScaledVector(_sparkVel.set(
+        Math.sin(spark.rotation.z) * 6,
+        2.4,
+        Math.cos(spark.rotation.z) * 6,
+      ), dt);
+      if (f.strikeT <= 0) spark.visible = false;
+    }
+    f.chipMat.opacity = k * 0.5;
+    f.chip.scale.setScalar(0.5 + (1 - k) * 2.4);
   }
 
   /** Hurt past the threshold: on fire, out of the fight, breaking for home. */

@@ -95,6 +95,7 @@ import {
 import { EnolaSquatch } from './scenes/EnolaSquatch.js';
 import { TargetCity, craterOffset } from './scenes/TargetCity.js';
 import { FatSquatch } from './payload/FatSquatch.js';
+import { BombTrolley } from './payload/BombTrolley.js';
 import { DialogueSystem } from './dialogue/DialogueSystem.js';
 import { RELEASE_LINES } from './dialogue/script.js';
 import { MissionController } from './mission/MissionController.js';
@@ -108,6 +109,7 @@ import {
 } from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
 import { createEnolaWorldGeometry, zoneMixX } from './world-geometry.js';
+import { buildDistantHorizon } from './distant-horizon.js';
 import { EnolaAudioEngine, EnolaMissionAudio, enolaBankOfCue } from './audio.js';
 import { createResidencyBanks } from '../core/residency-banks.js';
 import { isPreviewMode } from '../core/preview-mode.js';
@@ -267,6 +269,23 @@ const {
 } = enolaWorldGeometry;
 let activeCrater = null;
 
+/* THE REST OF THE WORLD. Owner playtest, 2026-08-19: "The world ends just past
+ * the city... it needs depth so the player does not discover that the Earth
+ * stops 300 yards behind the city."
+ *
+ * One coarse 46 x 44 km heightfield, a mid-distance treeline and a haze shell,
+ * all built once and never touched again — see `./distant-horizon.js` for how it
+ * hides under the route's own terrain rather than fighting it, and for why the
+ * south edge of that terrain was the edge the owner was actually seeing. */
+window.__squatchStage?.('Raising the far mountains…');
+const horizon = buildDistantHorizon(scene, {
+  getHeight: groundHeightCombined,
+  detailed: {
+    boundsX: eastGround.userData.boundsX,
+    boundsZ: eastGround.userData.boundsZ,
+  },
+});
+
 /* ------------------------------------------------------------------ */
 /* Systems                                                            */
 /* ------------------------------------------------------------------ */
@@ -346,7 +365,15 @@ const aircraft = new EnolaSquatch();
 scene.add(aircraft.group);
 
 const payload = new FatSquatch();
-aircraft.anchors.payloadMount.add(payload.group);
+/* THE BOMB STARTS OUTSIDE, ON A TROLLEY. Owner playtest, 2026-08-19: "Put the
+ * Fat Squatch OUTSIDE the aircraft on a bomb trolley/cart before takeoff, fully
+ * visible so the player can walk around and read its ridiculous markings."
+ *
+ * `BombTrolley`'s constructor parents the payload onto its own cradle, so the
+ * bomb is on the concrete rather than inside the bay until LOAD FAT SQUATCH is
+ * used — see `./payload/BombTrolley.js` for the trap this replaces. It also
+ * builds the shackles, sway braces and release lever ON `payloadMount`, which
+ * had no geometry at all before, so a loaded bomb now hangs off something.
 
 /* The club's crest, onto the aeroplane's four badges and the bomb's two.
  * Owner: "Aircraft is nice. Needs Squatch logo." + "Squatch logo on the bomb
@@ -379,6 +406,18 @@ const city = new TargetCity(scene, {
   x: TARGET_X,
   z: COMPOUND.z,
   getHeight: (x, z) => groundHeightCombined(x, z),
+});
+
+const bombTrolley = new BombTrolley({
+  scene,
+  aircraft,
+  payload,
+  park: {
+    x: ENOLA_PARKING.x,
+    z: ENOLA_PARKING.z,
+    heading: ENOLA_PARKING.heading,
+    elev: groundHeightCombined(ENOLA_PARKING.x, ENOLA_PARKING.z) + ENOLA_HARDSTAND_SURFACE_OFFSET_M,
+  },
 });
 
 /* The crew, and Numbskull's tool cart under the bomb bay. */
@@ -521,13 +560,14 @@ const dialogue = new DialogueSystem(hud, {
 
 const preflight = new EnolaPreflight({
   scene, interaction, aircraft, payload, dialogue, crew, audio: missionAudio,
+  bombTrolley,
 });
 
 const mission = new MissionController({
   scene, camera, physics, engines, aircraft, payload, weather, detection,
   airfield, flightHud, hud, dialogue, input, cameras,
   audio: missionAudio,
-  player, interaction, preflight, crew, city,
+  player, interaction, preflight, crew, city, bombTrolley,
   getHeight: groundHeightCombined,
 });
 /* The static airfield boxes cannot represent a rotated aircraft with working
@@ -621,7 +661,12 @@ function updatePreflightChecklist() {
   if (mission.phase !== 'preflight') return;
   const rows = [
     { label: 'Battery & fuel selectors on', state: (engines.masterBattery && engines.fuelSelectors) ? 'done' : 'todo' },
-    { label: 'Payload restraints checked', state: dialogue.seen('preflight.restraints') ? 'done' : 'todo' },
+    /* The bomb is loaded on the apron now rather than inspected under the
+     * belly (see `./payload/BombTrolley.js`), so this row reads the beat that
+     * actually plays. `preflight.restraints` is still authored and still
+     * plays — as the crew's confirmation once it is hanging in the bay — but
+     * it is no longer the beat that says the check happened. */
+    { label: 'Fat Squatch loaded', state: dialogue.seen('preflight.loadSquatch') ? 'done' : 'todo' },
     { label: 'Bomb-bay panel checked', state: dialogue.seen('preflight.bombbay') ? 'done' : 'todo' },
     { label: 'All four engines running', state: engines.engines.every((e) => e.running) ? 'done' : 'todo' },
     { label: 'Parking brake released', state: !physics.controls.parkingBrake ? 'done' : 'todo' },
@@ -1130,6 +1175,7 @@ function simulateFrame(dt) {
     bombBayOpen: mission.bombBayOpen,
     dusk: weather.dusk > 0.4,
     gunFiring: mission.gunFiring,
+    gunTracking: mission.gunTracking,
     gunAim: mission.gunAim,
   });
 
@@ -1148,6 +1194,10 @@ function simulateFrame(dt) {
   updateAirRaidSiren();
 
   const focus = inCockpit ? physics.position : player.position;
+  /* The haze shell rides with the player. It is a 26 km cylinder, so this is
+   * imperceptible frame to frame and it is what stops the backdrop running out
+   * on a route that covers ten kilometres. */
+  horizon.follow(focus.x, focus.z);
   weather.update(dt, focus);
   applyNight();
   applyEastFog(focus.x, dt);
@@ -1159,7 +1209,7 @@ function simulateFrame(dt) {
      * fourth would mean editing `src/beefrun/cameras.js`, which the Beef Run
      * shares and the standing rules call canonical — so the turret places the
      * camera itself and the manager is simply not run that frame. */
-    if (mission.gunner.manned) mission.gunner.applyCamera(camera);
+    if (mission.gunner.manned) mission.gunner.applyCamera(camera, dt);
     else {
       cameras.update(dt, physics, aircraft.group, aircraft.pilotEye, {
         roughness: physics.gust.length() * 0.05 + (physics.onGround ? physics.groundSpeed * 0.01 : 0),

@@ -95,6 +95,112 @@ const LIVERY_X = SKIN_X + 0.038;  // boxes 0.036 thick -> +0.020 .. +0.056
 const DECAL_X = SKIN_X + 0.068;   // flat planes, clear of the livery
 const PANEL_X = SKIN_X + 0.105;   // boxes 0.06 thick -> +0.075 .. +0.135
 
+/* ------------------------------------------------------------------ */
+/* GLASS.
+ *
+ * Owner playtest, 2026-08-19: *"Cockpit glass is missing when viewed from
+ * outside... check transparency/material settings so they do not vanish at
+ * certain angles, make sure glass is not culled from the interior."*
+ *
+ * Both halves of that are properties of ONE material, and this aeroplane had
+ * two different ad-hoc copies of it written a thousand lines apart — the
+ * exterior glazing in `build()` and the cockpit panes in `buildCockpit()` —
+ * which is how they drifted and why a fix applied to one pane did not reach
+ * the next.
+ *
+ * The three settings that matter, and why each is not the three.js default:
+ *
+ *   `side: DoubleSide`   The default is FrontSide, so every pane on this
+ *     aeroplane was BACK-FACE CULLED from inside the cabin: the windshield, the
+ *     two side windows, the nose glasshouse and the tail bubble simply were not
+ *     drawn for the man sitting behind them. That is the "glass is culled from
+ *     the interior" half verbatim. It is also half of the exterior report,
+ *     because the nose glasshouse and the turret dome are SPHERES: from most
+ *     angles the surface you are looking at through is the far one, and with
+ *     FrontSide the near hemisphere hid the fact that the far one was missing.
+ *
+ *   `depthWrite: false`  A transparent surface that writes depth occludes
+ *     every transparent surface sorted after it, and three.js sorts
+ *     transparent draws back-to-front by centroid — so which pane wins flips as
+ *     the camera swings, which is precisely "they vanish at certain angles". A
+ *     pane that never writes depth cannot erase the pane behind it.
+ *
+ *   `renderOrder`        Set on the meshes (see `glazedPane()`), so the glass
+ *     is drawn after the aluminium regardless of what the sort makes of a wing
+ *     that is thirty-three metres across.
+ *
+ * The colour is a shade cooler and a touch more opaque than the old 0.40, with
+ * a low `envMapIntensity`-free sheen from `metalness`/`roughness` alone: this
+ * mission is flown at night, and glass with no highlight in it at night is
+ * indistinguishable from a hole.
+ */
+/**
+ * THE TAIL TURRET'S REAL LIMITS.
+ *
+ * Owner playtest, 2026-08-19: *"Widen the arc substantially left/right, check
+ * vertical too, so the player can track planes passing behind and slightly
+ * beside. Keep believable mounting limits so the barrel does not rotate through
+ * the fuselage."*
+ *
+ * The old stops were ±1.15 rad (66°) of traverse and -0.45..+0.65 of elevation,
+ * and `GunnerStation`'s own control limits were TIGHTER again at ±1.02 (58°) —
+ * so a fighter that broke away abeam left the arc while it was still the only
+ * thing in the sky worth shooting at.
+ *
+ * These are the widened stops, and they are structural rather than arbitrary.
+ * The turret is 9.75 m behind the aft fuselage face on the tail-cone extension,
+ * so LATERALLY there is no aeroplane to shoot through at all: the nearest
+ * structure to the barrels is the mount's own 0.60 m tail cone, forward of the
+ * elevation pivot. ±1.45 rad (83°) puts the muzzles at x ∓1.99 m and z -0.89 m
+ * from the pivot — still behind their own trunnions, and 1.4 m outboard of the
+ * cone. Beyond that the barrels would sweep the glazing ring, which is where a
+ * real stop would be welded, so that is where this one is.
+ *
+ * Vertically the fin's leading edge stands 5.35 m FORWARD of the pivot and the
+ * stabiliser 4.7 m forward of it, so up-elevation swings into open sky: +0.85
+ * rad puts the muzzle 1.5 m above and 2.0 m behind the pivot. Down is held
+ * shorter at -0.55 because that is where the gunner's own folded legs and the
+ * keel strut are.
+ *
+ * `cadence` is the visible flash rate. It is slower than it was (12/s) because
+ * the owner asked for a heavier repeating rhythm and a big mounted aircraft
+ * gun thumps rather than buzzes; `GunnerStation.RATE` is kept in step with it.
+ */
+export const REAR_GUN_ARC = Object.freeze({
+  traverse: 1.45,
+  down: -0.55,
+  up: 0.85,
+  cadence: 8,
+});
+
+const GLASS_RENDER_ORDER = 3;
+
+/** The one glazing material every pane on this aeroplane uses. */
+function glazing() {
+  return mat({
+    color: 0xaec4d8,
+    roughness: 0.16,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.46,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+}
+
+/**
+ * Finish a pane: name it, keep it out of the shadow pass, draw it last, and
+ * tell the geometry gate that a sheet of glass is a surface rather than a solid
+ * block of the volume behind it.
+ */
+function glazedPane(m, name) {
+  m.name = name;
+  m.castShadow = false;
+  m.renderOrder = GLASS_RENDER_ORDER;
+  m.userData.geometryGate = { ...(m.userData.geometryGate ?? {}), overlap: false };
+  return m;
+}
+
 /**
  * Three-bladed prop.
  *
@@ -263,9 +369,7 @@ export class EnolaSquatch {
     const trim = solid(TRIM, { roughness: 0.7 });
     const metal = solid(METAL, { roughness: 0.4, metalness: 0.68 });
     const rubber = solid(0x1e2024, { roughness: 0.92 });
-    const glassMat = mat({
-      color: 0xbfd0e0, roughness: 0.3, metalness: 0, transparent: true, opacity: 0.4,
-    });
+    const glassMat = glazing();
     const purple = solid(PURPLE, { roughness: 0.5, metalness: 0.15 });
     const purpleLight = solid(PURPLE_LIGHT, { roughness: 0.5, metalness: 0.1 });
 
@@ -542,12 +646,11 @@ export class EnolaSquatch {
     /* The bubble grew with the volume it now has to hold: a seated man is
      * about 1.3 m from heel to crown, and a 1.05 m sphere could not take one
      * however he was posed. */
-    const noseGlass = mesh(sphereGeo(GLASS_R, 16, 12), glassMat, 0, GLASS_Y, GLASS_Z);
-    noseGlass.castShadow = false;
-    noseGlass.name = 'bombardier-glazing';
     // A transparent bubble is a surface around the occupied station, not a
     // solid sphere. Its AABB necessarily contains the seated bombardier.
-    noseGlass.userData.geometryGate = { overlap: false };
+    const noseGlass = glazedPane(
+      mesh(sphereGeo(GLASS_R, 16, 12), glassMat, 0, GLASS_Y, GLASS_Z), 'bombardier-glazing',
+    );
     g.add(noseGlass);
     /* Framing on the bombardier glazing, so it reads as a glasshouse rather
      * than a soap bubble.
@@ -1381,9 +1484,7 @@ export class EnolaSquatch {
     dorsalBase.name = 'dorsal-turret-ring';
     dorsalBase.userData.geometryGate = { overlap: false, fixedSupportAnchor: true };
     dorsal.add(dorsalBase);
-    const dorsalGlass = mesh(sphereGeo(0.6, 12, 8), glassMat, 0, 0.12, 0);
-    dorsalGlass.name = 'dorsal-turret-glazing';
-    dorsalGlass.userData.geometryGate = { overlap: false };
+    const dorsalGlass = glazedPane(mesh(sphereGeo(0.6, 12, 8), glassMat, 0, 0.12, 0), 'dorsal-turret-glazing');
     dorsal.add(dorsalGlass);
     const dorsalGun = mesh(cylGeo(0.045, 0.045, 1.2, 6), metal, 0, 0.16, 0.7);
     dorsalGun.rotation.x = Math.PI / 2 - 0.25;
@@ -1391,7 +1492,7 @@ export class EnolaSquatch {
     g.add(dorsal);
     this.parts.dorsalTurret = dorsal;
     for (const sx of [-1, 1]) {
-      const blister = mesh(sphereGeo(0.55, 12, 8), glassMat, sx * (FUSE_W / 2 - 0.05), -0.2, -5.4);
+      const blister = glazedPane(mesh(sphereGeo(0.55, 12, 8), glassMat, sx * (FUSE_W / 2 - 0.05), -0.2, -5.4), 'waist-blister-glazing');
       blister.scale.set(0.6, 1, 1.1);
       blister.castShadow = false;
       blister.name = `waist-blister-${sx < 0 ? 'starboard' : 'port'}`;
@@ -1420,7 +1521,7 @@ export class EnolaSquatch {
     /* Ahead of the wing's 2.5 m leading edge. At z=2.4 the glass and both
      * roof cuts were real, but the main-wing slab still sealed the opening
      * 0.27 m below it. */
-    const astrodome = mesh(sphereGeo(0.34, 10, 7), glassMat, 0, FUSE_H / 2 + 0.05, ASTRODOME_Z);
+    const astrodome = glazedPane(mesh(sphereGeo(0.34, 10, 7), glassMat, 0, FUSE_H / 2 + 0.05, ASTRODOME_Z), 'astrodome-glazing');
     astrodome.scale.y = 0.7;
     astrodome.castShadow = false;
     astrodome.name = 'navigator-astrodome';
@@ -1430,6 +1531,28 @@ export class EnolaSquatch {
     /* Inside the glasshouse now that there is an inside — see the nose-cone
      * note above. `crew.js` sits Numbskull off this, so the two cannot drift. */
     this.anchors.bombardierStation = new THREE.Vector3(0, -0.5, FUSE_LEN / 2 + 3.4);
+
+    /* And something for him to sit on and be held onto by. The bombardier's
+     * station was an anchor vector and nothing else, so Numbskull rode the
+     * whole mission crouched on air in a glass bubble — the third occupied
+     * position on this aeroplane with no furniture and no restraint (see the
+     * rear turret above for the second). A low cushion at the measured drop
+     * `crew.js` uses, and a strap across his back. */
+    const bombardierSeat = group('bombardier-station');
+    bombardierSeat.position.copy(this.anchors.bombardierStation);
+    g.add(bombardierSeat);
+    this.parts.bombardierSeat = bombardierSeat;
+    /* 50 mm lower than the obvious datum: `crew.js` drops Numbskull 0.60 below
+     * this anchor and his boot soles land 37 mm under the obvious cushion top.
+     * The cushion is carried by the glasshouse structure rather than standing
+     * on anything, so it declares no support anchor of its own. */
+    const cushion = mesh(boxGeo(0.62, 0.12, 0.62), solid(0x3a3228, { roughness: 0.95 }), 0, -0.71, 0.06);
+    cushion.name = 'bombardier-seat-pan';
+    cushion.userData.geometryGate = { checkSupport: false };
+    bombardierSeat.add(cushion);
+    const bombardierBelt = mesh(boxGeo(0.56, 0.05, 0.08), solid(0x6b5a3a, { roughness: 0.95 }), 0, -0.5, -0.24);
+    bombardierBelt.name = 'bombardier-seat-strap';
+    bombardierSeat.add(bombardierBelt);
 
     // Navigation lights.
     this.parts.navLights = [];
@@ -1557,7 +1680,78 @@ export class EnolaSquatch {
     g.add(station);
     this.parts.rearGunStation = station;
 
-    // The fairing that carries the turret, faired into the boom.
+    /* ---- MOUNT ----
+     *
+     * Owner playtest, 2026-08-19: *"The rear gun looks detached. Build the
+     * visual hierarchy properly: airframe -> mount -> swivel -> weapon, with a
+     * structural bracket connecting gun to aircraft."*
+     *
+     * It WAS detached, and by a measured 2.30 m of open air. `build()`'s tail
+     * boom is a 5.8 m cone centred at z -10.65, so its aft face is at z -13.55.
+     * This station sits at z -17.50 and its fairing's forward lip at z -15.85.
+     * Nothing at all occupied the span between them: the turret was a bubble
+     * floating two and a bit metres off the back of the aeroplane, held on by
+     * being in the same `Object3D` tree. (It got there honestly — the note
+     * above `Z` records carrying the whole station one metre aft to clear the
+     * rudder envelope, and the boom was never carried with it.)
+     *
+     * So the hierarchy the note asks for is now real and is named for what each
+     * level does:
+     *
+     *   airframe   `this.group`
+     *     mount    `rear-gun-mount` — the tail-cone extension, its joint
+     *              collar, two side brackets and a ventral keel strut. Rigid.
+     *              This is the steel that bolts the gun to the aeroplane.
+     *     swivel   `rear-gun-turret` — traverse only, `rotation.y`.
+     *     weapon   `rear-gun-yoke` — elevation only, `rotation.x`, and the
+     *              barrels, jackets, feeds, sight and grips hang off it.
+     *
+     * The connecting structure threads BELOW the moving tail surfaces rather
+     * than through them: the rudder's lower edge is at y 0.55 and the
+     * stabiliser's underside at y 0.84, so the extension is carried at y -0.06
+     * with a 0.56 m radius, which puts its crown at 0.50 — a real 50 mm of air
+     * under the rudder at full travel. */
+    const mount = group('rear-gun-mount-structure');
+    mount.userData.geometryGate = { assemblyId: 'enola-aircraft:tail' };
+    station.add(mount);
+    /* `station` IS the mount level of the hierarchy — the rigid thing bolted to
+     * the airframe — so `parts.rearGunMount` names it, and `mount` above is
+     * only the connecting structure inside it. Keeping the fairing and the
+     * armour ring as direct children of `station` also keeps every existing
+     * geometry audit resolving them where it has always looked. */
+    this.parts.rearGunMount = station;
+
+    // Station-local z of the boom's aft face and of the fairing's forward lip.
+    const BOOM_AFT_LOCAL = (-FUSE_LEN / 2 - 5.8) - Z;      // +3.95
+    const FAIRING_LIP_LOCAL = 1.65;
+    const BRIDGE_LEN = BOOM_AFT_LOCAL - FAIRING_LIP_LOCAL; // 2.30
+    const BRIDGE_MID = (BOOM_AFT_LOCAL + FAIRING_LIP_LOCAL) / 2;
+    const BRIDGE_Y = -0.11;                                // y -0.06 in aircraft space
+
+    const tailCone = mesh(cylGeo(0.56, 0.60, BRIDGE_LEN, 14), skin, 0, BRIDGE_Y, BRIDGE_MID);
+    tailCone.rotation.x = Math.PI / 2;
+    tailCone.name = 'rear-gun-mount-tailcone';
+    tailCone.userData.geometryGate = { fixedSupportAnchor: true };
+    mount.add(tailCone);
+    // The joint collar where the extension meets the boom — a real seam ring.
+    const jointCollar = mesh(new THREE.TorusGeometry(0.58, 0.055, 8, 20), trim, 0, BRIDGE_Y, BOOM_AFT_LOCAL - 0.03);
+    jointCollar.name = 'rear-gun-mount-joint-collar';
+    jointCollar.userData.geometryGate = { overlap: false };
+    mount.add(jointCollar);
+    // Two side brackets and a keel strut: the load path, made visible.
+    for (const sx of [-1, 1]) {
+      const bracket = mesh(boxGeo(0.09, 0.34, BRIDGE_LEN + 0.3), trim,
+        sx * 0.48, BRIDGE_Y - 0.1, BRIDGE_MID);
+      bracket.name = `rear-gun-mount-bracket-${sx < 0 ? 'starboard' : 'port'}`;
+      mount.add(bracket);
+    }
+    /* Started aft of the spent-case bag (z 1.24..1.66 in station space), which
+     * the full-length strut ran 120 mm through. */
+    const keel = mesh(boxGeo(0.24, 0.12, BRIDGE_LEN - 0.1), trim, 0, BRIDGE_Y - 0.55, BRIDGE_MID + 0.2);
+    keel.name = 'rear-gun-mount-keel-strut';
+    mount.add(keel);
+
+    // The fairing that carries the turret, faired into the extension above.
     const shell = mesh(cylGeo(0.62, 0.9, 1.6, 14), skin, 0, 0, 0.85);
     shell.rotation.x = Math.PI / 2;
     shell.name = 'rear-gun-fairing';
@@ -1571,34 +1765,54 @@ export class EnolaSquatch {
     armourRing.userData.geometryGate = { overlap: false };
     station.add(armourRing);
 
-    /* The traversing part. `rotation.y` is traverse; the yoke inside it takes
-     * elevation on `rotation.x`, which is the only way the two axes stay
-     * independent when the mission points the gun at something. */
+    /* SWIVEL. `rotation.y` is traverse; the yoke inside it takes elevation on
+     * `rotation.x`, which is the only way the two axes stay independent when
+     * the mission points the gun at something. */
     const turret = group('rear-gun-turret');
     turret.position.set(0, 0, -0.15);
     station.add(turret);
     this.parts.rearGunTurret = turret;
+    /* NO TRAVERSE RING HERE. A ring in the plane of the swivel is the obvious
+     * way to draw "this thing rotates", and it was tried: a 0.66 m torus lying
+     * flat at the turret's own datum. It sat exactly 1.04 m down the barrel at
+     * the full-down, full-traverse corner of the arc — i.e. straight through
+     * the firing sightline the gunner-sightline audit checks. The mount's side
+     * brackets and keel strut already carry the "bolted to the aeroplane" read,
+     * and a decoration that blocks the gun is not a decoration. */
 
     // Glazing: a hemisphere open toward the tail, with framing.
-    const dome = mesh(sphereGeo(0.86, 16, 12), glassMat, 0, 0, 0);
-    dome.name = 'rear-gun-glazing';
-    dome.castShadow = false;
-    dome.userData.geometryGate = { overlap: false };
+    const dome = glazedPane(mesh(sphereGeo(0.86, 16, 12), glassMat, 0, 0, 0), 'rear-gun-glazing');
     turret.add(dome);
     /* Curved glazing frames hug the bubble. The old pair were straight 1.74 m
      * rods through its centre, and the down-traverse sightline hit one before
      * leaving the cup. Offset meridians plus an equator retain a readable
      * cage while leaving the gunner's firing cone open. */
-    for (const [name, rotateX, rotateY] of [
-      ['equator', Math.PI / 2, 0],
-      ['meridian-left', 0, Math.PI / 4],
-      ['meridian-right', 0, -Math.PI / 4],
+    /* THE FRAMES STOP AT THE EQUATOR NOW.
+     *
+     * The two meridians used to be complete great circles at ±45°, which was
+     * fine while the traverse stopped at ±1.02 rad — the barrels never reached
+     * them. The 2026-08-19 widening to ±1.45 (see `REAR_GUN_ARC`) put the
+     * full-up, full-traverse corner of the arc straight through both of them:
+     * the gunner-sightline audit measured opaque frame 0.64 m down the barrel
+     * at (±1.45, +0.85).
+     *
+     * A bubble's frames belong where a bubble needs bracing anyway, which is
+     * the half carrying the load into the ring — so each meridian is now a
+     * half-arc across the LOWER hemisphere and the upper quadrants the gun
+     * actually shoots through are open glass. The equator stays whole: the
+     * barrels lie in its plane at neutral elevation and leave it immediately in
+     * either direction. */
+    for (const [name, rotateX, rotateY, arc, rotateZ] of [
+      ['equator', Math.PI / 2, 0, Math.PI * 2, 0],
+      ['meridian-left', 0, Math.PI / 4, Math.PI, Math.PI],
+      ['meridian-right', 0, -Math.PI / 4, Math.PI, Math.PI],
     ]) {
-      const rib = mesh(new THREE.TorusGeometry(0.88, 0.022, 6, 28), trim, 0, 0, 0);
+      const rib = mesh(new THREE.TorusGeometry(0.88, 0.022, 6, 28, arc), trim, 0, 0, 0);
       rib.name = `rear-gun-frame-${name}`;
       rib.userData.geometryGate = { overlap: false };
       rib.rotation.x = rotateX;
       rib.rotation.y = rotateY;
+      rib.rotation.z = rotateZ;
       turret.add(rib);
     }
     const glazingRing = mesh(new THREE.TorusGeometry(0.82, 0.05, 8, 28), trim, 0, 0, 0.15);
@@ -1690,6 +1904,21 @@ export class EnolaSquatch {
     const rearSeatBack = mesh(boxGeo(0.5, 0.52, 0.09), solid(0x3a3228, { roughness: 0.95 }), 0, 0.29, 0.25);
     rearSeatBack.name = 'rear-gun-seat-back';
     rearSeatMount.add(rearSeatBack);
+    /* RESTRAINTS ON EVERY OCCUPIED SEAT (owner playtest, 2026-08-19, in the
+     * polish audit). The two flight-deck seats have had lap belts since they
+     * were built; the man doing the only job on this aeroplane that involves
+     * being thrown about had nothing at all. A lap strap across the pan and two
+     * shoulder straps over the back, in the same webbing as the bomb's own. */
+    const webbing = solid(0x6b5a3a, { roughness: 0.95 });
+    const rearLapBelt = mesh(boxGeo(0.46, 0.05, 0.09), webbing, 0, 0.095, -0.12);
+    rearLapBelt.name = 'rear-gun-seat-lap-belt';
+    rearSeatMount.add(rearLapBelt);
+    for (const sx of [-1, 1]) {
+      const shoulder = mesh(boxGeo(0.07, 0.5, 0.045), webbing, sx * 0.13, 0.3, 0.19);
+      shoulder.rotation.x = 0.12;
+      shoulder.name = `rear-gun-seat-shoulder-strap-${sx < 0 ? 'starboard' : 'port'}`;
+      rearSeatMount.add(shoulder);
+    }
     const rearGunEye = group('rear-gun-eye');
     rearGunEye.position.set(0, 0.87, -0.25);
     rearSeatMount.add(rearGunEye);
@@ -2135,34 +2364,140 @@ export class EnolaSquatch {
     this.parts.cockpit = g;
 
     const panelDark = solid(0x24222a, { roughness: 0.7 });
-    const glassMat = mat({ color: 0xbfd0e0, roughness: 0.3, metalness: 0, transparent: true, opacity: 0.4, unique: true });
+    const glassMat = glazing();
 
-    // Windshield, stepped up above the nose glazing, with real framing.
-    const windshield = mesh(boxGeo(2.5, 1.15, 0.1), glassMat, 0, 1.35, FUSE_LEN / 2 + 1.2);
-    windshield.name = 'cockpit-windshield';
-    windshield.rotation.x = -0.3;
-    windshield.castShadow = false;
+    /* ---- The canopy ----
+     *
+     * Owner playtest, 2026-08-19: *"Cockpit glass is missing when viewed from
+     * outside. Restore windshield/canopy panes ... and verify frames line up
+     * around the panes."*
+     *
+     * The material half of that is `glazing()` (see the block above
+     * `propBlade()`); this is the geometry half. There WAS a windshield and
+     * there WERE two side windows, but between them the flight deck had three
+     * mullions and a header and nothing else — no sill under the windshield, no
+     * side rails at its own edges, no frame at all around either side window,
+     * and no glass in the two corners where the windshield's outer edge (x
+     * ±1.25) has to meet a side window standing 0.33 m further outboard at x
+     * ±1.58. From three-quarter-front, which is the angle a chase camera spends
+     * most of its time at, that corner is exactly where you look through — and
+     * you looked through it into the cabin past an unframed edge, which reads as
+     * "the glass is missing" even while the centre pane is drawn.
+     *
+     * Everything below is struck off the windshield's own numbers rather than
+     * typed twice, so the frames cannot drift off the panes again: `WS_*` is the
+     * pane, and every rail is placed by rotating the pane's own local corner
+     * offsets through the same -0.3 rad rake. */
+    const frame = solid(0x2a2c30, { roughness: 0.7 });
+    const WS_W = 2.5;
+    const WS_H = 1.15;
+    const WS_Y = 1.35;
+    const WS_Z = FUSE_LEN / 2 + 1.2;
+    const WS_RAKE = -0.3;
+    /** A point on the raked windshield plane, in aeroplane coordinates. */
+    const wsAt = (localY, localZ = 0) => new THREE.Vector3(
+      0,
+      WS_Y + localY * Math.cos(WS_RAKE) - localZ * Math.sin(WS_RAKE),
+      WS_Z + localY * Math.sin(WS_RAKE) + localZ * Math.cos(WS_RAKE),
+    );
+
+    const windshield = glazedPane(
+      mesh(boxGeo(WS_W, WS_H, 0.1), glassMat, 0, WS_Y, WS_Z), 'cockpit-windshield',
+    );
+    windshield.rotation.x = WS_RAKE;
     g.add(windshield);
     this.parts.windshield = windshield;
-    const frame = solid(0x2a2c30, { roughness: 0.7 });
-    for (const sx of [-0.85, 0, 0.85]) {
-      const post = mesh(boxGeo(0.06, 1.2, 0.12), frame, sx, 1.35, FUSE_LEN / 2 + 1.18);
-      post.name = `cockpit-windshield-frame-post-${sx < 0 ? 'starboard' : sx > 0 ? 'port' : 'centre'}`;
-      post.rotation.x = -0.3;
+
+    // Mullions between the panes, and the two rails at the pane's own edges.
+    for (const sx of [-WS_W / 2 - 0.03, -0.85, 0, 0.85, WS_W / 2 + 0.03]) {
+      const edge = Math.abs(sx) > 1;
+      const post = mesh(boxGeo(edge ? 0.09 : 0.06, WS_H + 0.05, 0.12), frame, sx, WS_Y, WS_Z - 0.02);
+      post.name = edge
+        ? `cockpit-windshield-frame-rail-${sx < 0 ? 'starboard' : 'port'}`
+        : `cockpit-windshield-frame-post-${sx < 0 ? 'starboard' : sx > 0 ? 'port' : 'centre'}`;
+      post.rotation.x = WS_RAKE;
       g.add(post);
     }
-    const windshieldHeader = mesh(boxGeo(2.56, 0.1, 0.14), frame, 0, 1.9, FUSE_LEN / 2 + 1.02);
+    // Header along the top edge of the pane, and the coaming sill under it.
+    const head = wsAt(WS_H / 2);
+    const windshieldHeader = mesh(boxGeo(WS_W + 0.12, 0.1, 0.14), frame, 0, head.y + 0.02, head.z - 0.02);
     windshieldHeader.name = 'cockpit-windshield-frame-header';
+    windshieldHeader.rotation.x = WS_RAKE;
     g.add(windshieldHeader);
-    // Side windows for the two front seats.
+    const sillAt = wsAt(-WS_H / 2);
+    const windshieldSill = mesh(boxGeo(WS_W + 0.12, 0.12, 0.2), frame, 0, sillAt.y - 0.03, sillAt.z + 0.02);
+    windshieldSill.name = 'cockpit-windshield-frame-sill';
+    windshieldSill.rotation.x = WS_RAKE;
+    g.add(windshieldSill);
+
+    /* The two corner quarter-lights. These are the panes that were missing:
+     * each one spans from the windshield's outer rail back and outboard to the
+     * front edge of its side window, which is the only way the canopy closes. */
+    this.parts.quarterLights = [];
+    for (const sx of [-1, 1]) {
+      /* Sized to the space between the coaming and the cabin roof rather than
+       * to the pane it would like to be: the roof liner is at y 1.70 and a
+       * 1.24-centred metre of glass put both aft rails 50 mm through it. */
+      const quarter = glazedPane(
+        mesh(boxGeo(0.06, 0.82, 1.0), glassMat, sx * (FUSE_W / 2 - 0.16), 1.19, FUSE_LEN / 2 + 0.62),
+        `cockpit-quarter-light-${sx < 0 ? 'starboard' : 'port'}`,
+      );
+      quarter.rotation.y = sx * 0.34;
+      g.add(quarter);
+      this.parts.quarterLights.push(quarter);
+      // Its own forward and aft rails, so the pane has an edge to stop at.
+      for (const [dz, tag] of [[0.52, 'forward'], [-0.52, 'aft']]) {
+        const rail = mesh(boxGeo(0.09, 0.88, 0.09), frame,
+          sx * (FUSE_W / 2 - 0.16) + sx * dz * 0.34, 1.19, FUSE_LEN / 2 + 0.62 + dz);
+        rail.name = `cockpit-quarter-light-rail-${tag}-${sx < 0 ? 'starboard' : 'port'}`;
+        g.add(rail);
+      }
+    }
+
+    // Side windows for the two front seats, now with frames round them.
     this.parts.sideWindows = [];
     for (const sx of [-1, 1]) {
-      const side = mesh(boxGeo(0.06, 0.7, 1.5), glassMat, sx * (FUSE_W / 2 - 0.02), 1.15, FUSE_LEN / 2 - 0.6);
-      side.name = `cockpit-side-window-${sx < 0 ? 'starboard' : 'port'}`;
-      side.userData.geometryGate = { overlap: false };
-      side.castShadow = false;
+      const side = glazedPane(
+        mesh(boxGeo(0.06, 0.7, 1.5), glassMat, sx * (FUSE_W / 2 - 0.02), 1.15, FUSE_LEN / 2 - 0.6),
+        `cockpit-side-window-${sx < 0 ? 'starboard' : 'port'}`,
+      );
       g.add(side);
       this.parts.sideWindows.push(side);
+      /* INSIDE the aperture, never on the skin around it.
+       *
+       * `addSideSkin()`'s `cockpitOpening` is y 0.80..1.50, z 6.40..7.75, and a
+       * frame sized to overlap that opening's edges — which is what a frame
+       * naturally wants to do — drives 40 mm into the four skin panels and
+       * 60-70 mm into the upper chamfer strake. These sit in the hole instead,
+       * on the pane's own x, so the aluminium and the framing meet at a real
+       * seam rather than occupying each other. */
+      for (const [y, z, w, h, d, tag] of [
+        [1.455, -0.53, 0.06, 0.08, 1.44, 'header'],
+        [0.845, -0.53, 0.06, 0.08, 1.44, 'sill'],
+        [1.15, 0.19, 0.06, 0.54, 0.08, 'forward'],
+        [1.15, -1.31, 0.06, 0.54, 0.08, 'aft'],
+      ]) {
+        const rail = mesh(boxGeo(w, h, d), frame,
+          sx * (FUSE_W / 2 - 0.02), y, FUSE_LEN / 2 + z);
+        rail.name = `cockpit-side-window-frame-${tag}-${sx < 0 ? 'starboard' : 'port'}`;
+        g.add(rail);
+      }
+    }
+
+    /* An overhead observation panel between the header and the cabin roof.
+     * On a night bomber this is how the pilot finds anything above him, and
+     * from outside it is what stops the top of the flight deck reading as a
+     * blank metal lid over a lit cabin. */
+    const overheadPane = glazedPane(
+      mesh(boxGeo(1.5, 0.06, 0.9), glassMat, 0, 1.98, FUSE_LEN / 2 + 0.52),
+      'cockpit-overhead-panel',
+    );
+    g.add(overheadPane);
+    this.parts.overheadPanel = overheadPane;
+    for (const sx of [-0.79, 0, 0.79]) {
+      const rib = mesh(boxGeo(0.07, 0.08, 0.96), frame, sx, 1.98, FUSE_LEN / 2 + 0.52);
+      rib.name = 'cockpit-overhead-panel-rib';
+      g.add(rib);
     }
 
     // The inside of the aeroplane — see `buildCabin()`. Built before the
@@ -2524,9 +2859,30 @@ export class EnolaSquatch {
     const firing = !!state.gunFiring;
     this.rearGunFiring = firing;
 
+    /* THE TURRET FOLLOWS THE AIM BEFORE THE TRIGGER, NOT AFTER IT.
+     *
+     * Owner playtest, 2026-08-19: *"Aiming is wrong today: you move your aim,
+     * the gun does not track, and it snaps to the aim point only when you
+     * fire."*
+     *
+     * Exactly what the old condition here said. The aim branch was gated on
+     * `firing && state.gunAim`, so with the player sitting in the turret with
+     * his finger off the trigger the steel ran the IDLE SWEEP — a 0.42 rad/s
+     * sine wandering across the tail cone — while his reticle went wherever he
+     * pointed it. The first round then dragged the barrels onto the reticle in
+     * one visible lurch, which is the "snaps when you fire" half.
+     *
+     * `state.gunTracking` is the fix and it is deliberately a separate flag
+     * from `gunFiring`: the mission raises it whenever ANYBODY is working the
+     * gun — the player in the seat, or the Shubenator with a fighter to shoot
+     * at — and the idle sweep is then what it was always meant to be, the
+     * thing an unmanned gun does with nothing to look at.
+     */
+    const tracking = (!!state.gunTracking || firing) && !!state.gunAim;
+
     let wantYaw;
     let wantPitch;
-    if (firing && state.gunAim) {
+    if (tracking) {
       /* Convert the aim point into the aeroplane's own frame, then read the
        * traverse and elevation straight off it. The turret faces -Z (aft), so
        * the yaw is measured from -Z, not +Z. */
@@ -2544,34 +2900,60 @@ export class EnolaSquatch {
       wantYaw = Math.sin(a.gunSweep) * 0.55;
       wantPitch = Math.sin(a.gunSweep * 0.61) * 0.16 - 0.06;
     }
-    // The turret is a heavy thing on a hand crank: it never snaps.
-    const rate = firing ? 5.5 : 1.6;
-    a.gunYaw = damp(a.gunYaw, clamp(wantYaw, -1.15, 1.15), rate, dt);
-    a.gunPitch = damp(a.gunPitch, clamp(wantPitch, -0.45, 0.65), rate, dt);
+    /* The turret is a heavy thing on a hand crank: it never snaps. But it must
+     * not lag the reticle either, or the crosshair and the barrels stop being
+     * one line — so a player who is actually aiming gets a follow fast enough
+     * to feel connected (about 60 ms to close 90% of an error) and a gun
+     * nobody is holding keeps the slow sweep it had. */
+    const rate = tracking ? 26 : 1.6;
+    a.gunYaw = damp(a.gunYaw, clamp(wantYaw, -REAR_GUN_ARC.traverse, REAR_GUN_ARC.traverse), rate, dt);
+    a.gunPitch = damp(a.gunPitch, clamp(wantPitch, REAR_GUN_ARC.down, REAR_GUN_ARC.up), rate, dt);
     turret.rotation.y = a.gunYaw;
     /* GunnerStation.applyCamera()/aimWorld use positive local X for positive
      * elevation. Keep the steel on that same convention so the reticle,
      * barrels and modeled muzzle are one line rather than mirrored in pitch. */
     yoke.rotation.x = a.gunPitch;
 
-    // Muzzle flash and recoil, on a 12-rounds-a-second cadence.
+    /* ---- The weight of it ----
+     *
+     * Owner: *"Much heavier feel ... stronger muzzle flash, weapon vibration,
+     * barrel recoil ... It should sound like a large mounted aircraft gun, not
+     * an angry office stapler."*
+     *
+     * Three things carry that here (the fourth, the audio, is
+     * `../audio.js`/`main.js`): a slower, heavier cadence, a flash that is
+     * genuinely big for two frames rather than a permanent glow, and a whole
+     * WEAPON that moves — the barrels stroke back in their jackets and the
+     * yoke itself shakes on its trunnions, because a gun this size moves the
+     * mounting as well as the bolt. */
     if (firing) {
       a.gunFlash -= dt;
       if (a.gunFlash <= 0) {
-        a.gunFlash = 1 / 12;
+        a.gunFlash = 1 / REAR_GUN_ARC.cadence;
         a.gunRecoil = 1;
+        // Alternate the shake so the vibration has a rhythm rather than a hum.
+        a.gunShakeSign = -(a.gunShakeSign || 1);
       }
     } else {
       a.gunFlash = 0;
     }
-    a.gunRecoil = Math.max(0, a.gunRecoil - dt * 14);
+    a.gunRecoil = Math.max(0, a.gunRecoil - dt * 11);
     const lit = firing ? clamp(a.gunRecoil, 0, 1) : 0;
     for (const flash of this.parts.gunFlash) {
-      flash.material.opacity = lit * 0.95;
-      const s = 0.55 + lit * 0.9;
-      flash.scale.set(s, s, s * 2.4);
+      flash.material.opacity = lit * 1.0;
+      // Bigger, and much longer than it is wide: a muzzle blast, not a bulb.
+      const s = 0.7 + lit * 1.75;
+      flash.scale.set(s * 0.85, s * 0.85, s * 3.4);
     }
-    for (const barrel of this.parts.gunBarrels) barrel.position.z = -0.95 + a.gunRecoil * 0.09;
+    // Barrel recoil: a real stroke back into the cooling jacket and out again.
+    for (const barrel of this.parts.gunBarrels) barrel.position.z = -0.95 + a.gunRecoil * 0.16;
+    /* Weapon vibration. Applied to the YOKE, on top of the elevation written
+     * above, so the whole weapon — barrels, jackets, feeds, sight — trembles
+     * together and the aim it is trembling around is still the player's. */
+    const buzz = lit * (a.gunShakeSign || 1);
+    yoke.rotation.x = a.gunPitch + buzz * 0.016;
+    yoke.rotation.z = buzz * 0.011;
+    yoke.position.z = -0.5 + lit * 0.035;
     void phys;
   }
 

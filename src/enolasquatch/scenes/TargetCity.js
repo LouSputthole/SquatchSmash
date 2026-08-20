@@ -153,17 +153,54 @@ function windowTextures(seed) {
   }
   const cw = W / COLS;
   const ch = H / ROWS;
+  /* THE DARK HAS TO BE STRUCTURED, NOT SPRINKLED.
+   *
+   * Owner playtest, 2026-08-19: *"City lighting is far too intense — buildings
+   * read as lava towers... The city needs darkness around its lights for the
+   * lights to look good."*
+   *
+   * The previous pass got the DENSITY down (24% -> 13%) but left the lit
+   * windows scattered uniformly at random, and uniform-random is the one
+   * distribution a real building never has. Offices empty a floor at a time and
+   * a stairwell column is lit all the way up, so a genuinely dark tower with two
+   * bright floors reads as a building while a 13%-everywhere tower reads as a
+   * texture — and stretched over a 130 m box, as a glowing slab.
+   *
+   * So the vacancy is authored in two axes before a single window is drawn:
+   * whole floors go dark, whole columns go dark, and only what survives both
+   * gets a coin toss at all. 64% of the grid is struck out before the toss, so
+   * about one window in ten ends up lit — and it ends up lit in CLUMPS, with
+   * real black between them and one stairwell column running top to bottom.
+   *
+   * The count is only a third of the story. The other two thirds are
+   * `WINDOW_GLOW` (0.5 -> 0.2) and `PER_BUILDING_LIT` (most buildings get none
+   * of it at all), and the three together take roughly an order of magnitude
+   * out of how much warm light this city puts on the screen. */
+  const darkFloor = [];
+  for (let row = 0; row < ROWS; row++) darkFloor.push(rand() < 0.46);
+  const darkColumn = [];
+  for (let col = 0; col < COLS; col++) darkColumn.push(rand() < 0.34);
+  // One stairwell/lift column per building runs lit the whole way up.
+  const stairwell = Math.floor(rand() * COLS);
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col < COLS; col++) {
       const x = col * cw + cw * 0.22;
       const y = row * ch + ch * 0.22;
       const w = cw * 0.56;
       const h = ch * 0.5;
-      const lit = rand() < 0.13;
-      c.fillStyle = lit ? '#e69454' : '#20222c';
+      const blocked = darkFloor[row] || darkColumn[col];
+      const lit = col === stairwell ? rand() < 0.45 : (!blocked && rand() < 0.18);
+      /* Warm, but a long way off the old `#e69454`/`#ffa542` sodium orange:
+       * saturation is most of what made this read as lava. These are the
+       * colours a tungsten office window is at three thousand feet through a
+       * kilometre of night air — pale, slightly yellow, mostly not very
+       * bright at all. */
+      c.fillStyle = lit ? '#b09070' : '#1c1e26';
       c.fillRect(x, y, w, h);
       if (lit) {
-        e.fillStyle = rand() < 0.3 ? '#ffa542' : '#ff8a2e';
+        // A minority are properly bright; most are barely on.
+        const bright = rand();
+        e.fillStyle = bright < 0.12 ? '#d8c39a' : bright < 0.45 ? '#9c8a6e' : '#6e6250';
         e.fillRect(x, y, w, h);
       }
     }
@@ -359,8 +396,43 @@ const _scorched = new THREE.Color(0x1a1512);
  * playtest, 2026-08-06: "building lights too dense"): fewer lit windows at
  * full brightness still reads as a wall of light, so both numbers had to move
  * together — density in the texture, brightness here.
+ *
+ * 0.5 -> 0.2 (owner playtest, 2026-08-19: "far too intense — buildings read as
+ * lava towers"). This is the third of the three numbers that had to move
+ * together and it is the one that was doing the most damage: an emissive map
+ * multiplied by 0.5 and stretched 2.2 x 3.4 across a 130 m tower puts a
+ * half-brightness glow on a very large area of screen, and a half-brightness
+ * warm glow over a large area is exactly what lava looks like. The other two
+ * are `windowTextures()`'s structured vacancy (whole dark floors and columns,
+ * ~6% lit rather than 13% scattered) and `PER_BUILDING_LIT`, which makes most
+ * buildings dark rather than making every building identical.
  */
-export const WINDOW_GLOW = 0.5;
+export const WINDOW_GLOW = 0.2;
+
+/**
+ * How much of the window glow each individual building gets.
+ *
+ * Owner: *"Randomise so only a minority of windows are lit: dark buildings,
+ * partly lit buildings, occasional bright ones."*
+ *
+ * That is a PER-BUILDING property and the city had no way to express one: every
+ * block in Squatchbourg is an instance of one `InstancedMesh` sharing one
+ * emissive map, so before this every building in town was lit identically. The
+ * shared box geometry is cloned once here and given an `aWindowLit` instanced
+ * attribute, and a two-line `onBeforeCompile` hook multiplies
+ * `totalEmissiveRadiance` by it. Nothing else changes: `emissiveIntensity` is
+ * still the single knob `destroy()`/`restore()` turn, one material, one draw
+ * call per face slot, and a headless build that never compiles a shader is
+ * completely unaffected.
+ *
+ * The distribution is the owner's sentence, in order.
+ */
+export const PER_BUILDING_LIT = Object.freeze({
+  dark: 0.52,        // completely unlit: the majority
+  partial: 0.34,     // a few floors on
+  lit: 0.11,         // properly occupied
+  // the remainder are the "occasional bright ones"
+});
 /** And what it is turned down to once the town has no power and no windows. */
 export const DEAD_WINDOW_GLOW = 0.04;
 
@@ -730,11 +802,47 @@ export class TargetCity {
     const roofMaterial = new THREE.MeshStandardMaterial({
       color: 0x55565c, roughness: 0.98, metalness: 0,
     });
+    /* PER-BUILDING WINDOW GLOW — see `PER_BUILDING_LIT`.
+     *
+     * `aWindowLit` is one float per instance and the hook below is the whole of
+     * the plumbing: it rides the existing instancing path, costs no extra draw
+     * call, and leaves `emissiveIntensity` as the single global knob
+     * `destroy()`/`restore()` already turn. */
+    material.onBeforeCompile = (shader) => {
+      shader.vertexShader = `attribute float aWindowLit;\nvarying float vWindowLit;\n${shader.vertexShader}`
+        .replace('void main() {', 'void main() {\n\tvWindowLit = aWindowLit;');
+      shader.fragmentShader = `varying float vWindowLit;\n${shader.fragmentShader}`
+        .replace(
+          '#include <emissivemap_fragment>',
+          '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance *= vWindowLit;',
+        );
+    };
     this.parts.buildingWallMat = material;
     this.parts.buildingRoofMat = roofMaterial;
     const faces = [material, material, roofMaterial, roofMaterial, material, material];
 
-    const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), faces, Math.max(records.length, 1));
+    /* The unit box is CACHED and shared with everything else in this project
+     * (see `boxGeo`), so the instanced attribute goes on a clone. A unit box is
+     * twenty-four vertices; cloning one is free and clobbering the shared one
+     * would put window lighting on every crate in the campaign. */
+    const blockGeo = boxGeo(1, 1, 1).clone();
+    const litValues = new Float32Array(Math.max(records.length, 1));
+    const litRand = rng(this.cfg.seed + 7717);
+    for (let i = 0; i < litValues.length; i++) {
+      const roll = litRand();
+      if (roll < PER_BUILDING_LIT.dark) litValues[i] = 0;
+      else if (roll < PER_BUILDING_LIT.dark + PER_BUILDING_LIT.partial) {
+        litValues[i] = 0.18 + litRand() * 0.32;
+      } else if (roll < PER_BUILDING_LIT.dark + PER_BUILDING_LIT.partial + PER_BUILDING_LIT.lit) {
+        litValues[i] = 0.6 + litRand() * 0.35;
+      } else {
+        litValues[i] = 1.2 + litRand() * 0.5;
+      }
+    }
+    blockGeo.setAttribute('aWindowLit', new THREE.InstancedBufferAttribute(litValues, 1));
+    this.parts.buildingLit = litValues;
+
+    const im = new THREE.InstancedMesh(blockGeo, faces, Math.max(records.length, 1));
     im.name = 'squatchbourg-buildings';
     // Each base record is sampled from groundAt(); stepped tower records are
     // mounted directly on their authored host. The city-scale terrain AABB is
@@ -907,7 +1015,15 @@ export class TargetCity {
   buildStreetLights(rand) {
     const cfg = this.cfg;
     const want = 620;
-    const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), unlit(0xffdc9a), want);
+    /* The lamp heads came down from `0xffdc9a` — a near-white unlit yellow at
+     * full screen brightness, six hundred and twenty of them — to a warm amber
+     * that is unmistakably a sodium lamp rather than a hole in the world. The
+     * owner's note is about the buildings ("lava towers"), but the streets are
+     * the other half of the same picture: the point of dimming the towers is
+     * that the STREET LIGHTING BELOW becomes the brightest thing down there,
+     * and that only works if the street lighting is a light rather than a
+     * flare. The lines still read from three thousand feet. */
+    const im = new THREE.InstancedMesh(boxGeo(1, 1, 1), unlit(0xd8a860), want);
     im.name = 'squatchbourg-streetlights';
     // The columns. One extra draw call for six hundred lamp posts.
     const poles = new THREE.InstancedMesh(

@@ -91,7 +91,7 @@ const MARKER_OFFSET = {
   chocks: new THREE.Vector3(0, 0.2, 0),
   props: new THREE.Vector3(0, -1.6, 0.2),      // the low blade, not the hub
   bay: new THREE.Vector3(0, -0.1, 0),
-  payload: new THREE.Vector3(0, 0.4, 0),
+  payload: new THREE.Vector3(0, 2.1, 0),   // above the casing on the cart
   tail: new THREE.Vector3(0, -0.5, 0),
   surfaces: new THREE.Vector3(0, -1.0, 0),
   /* The crew door. Not one of the six checks — it is where the marker goes
@@ -120,11 +120,19 @@ export class EnolaPreflight {
   /**
    * @param {object} deps { scene, interaction, aircraft, payload, dialogue, crew, audio }
    */
-  constructor({ scene, interaction, aircraft, payload, dialogue, crew = null, audio = null }) {
+  constructor({
+    scene, interaction, aircraft, payload, dialogue, crew = null, audio = null,
+    bombTrolley = null,
+  }) {
     this.scene = scene;
     this.interaction = interaction;
     this.aircraft = aircraft;
     this.payload = payload;
+    /* The bomb, on the ground, on its cart — see `./payload/BombTrolley.js`.
+     * Optional so every existing headless caller that builds a preflight
+     * without one still works; the payload check falls back to a look-only
+     * beat in that case rather than throwing. */
+    this.bombTrolley = bombTrolley;
     this.dialogue = dialogue;
     this.crew = crew;
     this.audio = audio;
@@ -133,7 +141,7 @@ export class EnolaPreflight {
       chocks: { done: false, label: 'Wheel chocks', count: 0, need: 2 },
       props: { done: false, label: 'Four propellers', count: 0, need: 4 },
       bay: { done: false, label: 'Bomb-bay panel', count: 0, need: 1 },
-      payload: { done: false, label: 'Payload restraints', count: 0, need: 1 },
+      payload: { done: false, label: 'Load the Fat Squatch', count: 0, need: 1 },
       tail: { done: false, label: 'Rear gun station', count: 0, need: 1 },
       surfaces: { done: false, label: 'Control surfaces', count: 0, need: 1 },
     };
@@ -208,9 +216,19 @@ export class EnolaPreflight {
     // The elevator, from underneath the tailplane.
     hitProxy(ac.parts.elevator, 4.0, 3.0, 1.6, 0, -1.2, 0);
 
-    /* The Fat Squatch's straps. `payload.group` is parented to the aeroplane's
-     * `payloadMount`, so a proxy on it rides with the aeroplane too. */
-    if (this.payload?.group) hitProxy(this.payload.group, 2.6, 2.4, 3.4, 0, 0, 0);
+    /* NO HIT PROXY ON THE BOMB ANY MORE.
+     *
+     * Owner playtest, 2026-08-19: the restraint interaction "can trap the
+     * player inside the plane/interactable".
+     *
+     * This was it. A 2.6 x 2.4 x 3.4 m invisible interaction volume hung on
+     * `payload.group`, which is parented under the aeroplane's belly 3 m off
+     * the tarmac — so the only place to stand and hit it was in under the open
+     * bomb bay, between the mainwheels, with the volume around the player's
+     * own head. The bomb is out on its trolley now (`./payload/BombTrolley.js`)
+     * and the interaction goes on the TROLLEY, out in the open, where a man can
+     * walk round it. */
+    if (this.bombTrolley?.group) hitProxy(this.bombTrolley.group, 3.0, 2.6, 6.2, 0, 1.4, 0);
 
     /* The guide marker, built the same way Beef Run's is: a ring that lives on
      * the part and turns to face the camera, a slow diamond inside it, and a
@@ -310,7 +328,7 @@ export class EnolaPreflight {
       case 'chocks': return this.chocks.find((c) => !c.userData.pulled) ?? this.chocks[0];
       case 'props': return ac.parts.prop.find((_, i) => !this.propChecked[i]) ?? ac.parts.prop[0];
       case 'bay': return ac.parts.patches[2];
-      case 'payload': return this.payload?.group ?? ac.parts.patches[2];
+      case 'payload': return this.bombTrolley?.group ?? this.payload?.group ?? ac.parts.patches[2];
       case 'tail': return ac.parts.rearGunStation;
       case 'surfaces': return ac.parts.elevator;
       default: return null;
@@ -451,19 +469,32 @@ export class EnolaPreflight {
       onTap: () => this.dialogue.play('preflight.bombbay.tap', { once: true }),
     });
 
-    // ---- 4. Payload restraints ----
-    if (this.payload?.group) {
-      reg(this.payload.group, {
-        label: () => 'Check the <b>restraint straps</b>',
+    /* ---- 4. LOAD FAT SQUATCH ----
+     *
+     * Owner playtest, 2026-08-19: *"Interaction prompt: LOAD FAT SQUATCH. On
+     * use: short loading animation, cart moves toward the aircraft, bomb
+     * transitions into its secured bomb-bay position, objective updates."*
+     *
+     * The prompt is the owner's words in the owner's capitals. Everything after
+     * the key press belongs to `BombTrolley.update()`, which is three timed
+     * legs with no branches — the player keeps his controls throughout and
+     * nothing about it can fail to finish. The check is marked done IMMEDIATELY
+     * rather than on arrival, so a walkaround cannot be held open by an
+     * animation. */
+    const loadTarget = this.bombTrolley?.group ?? this.payload?.group ?? null;
+    if (loadTarget) {
+      reg(loadTarget, {
+        label: () => 'LOAD <b>FAT SQUATCH</b>',
         key: 'E',
         hold: 1.0,
         enabled: () => !this.tasks.payload.done,
         onLook: () => this.dialogue.play('preflight.payload.look', { once: true }),
         onUse: () => {
-          this.dialogue.play('preflight.restraints', { once: true });
+          this.bombTrolley?.beginLoad?.();
+          this.dialogue.play('preflight.loadSquatch', { once: true });
           this.dialogue.play('preflight.sasole.payloadDone', { once: true });
           this.audio?.play?.('can.set', { volume: 0.5 });
-          this.interaction.unregister(this.payload.group);
+          this.interaction.unregister(loadTarget);
           this.finish('payload');
         },
         onTap: () => this.dialogue.play('preflight.payload.tap', { once: true }),
@@ -482,6 +513,20 @@ export class EnolaPreflight {
         this.audio?.play?.('gun.dry', { volume: 0.5 });
         this.interaction.unregister(ac.parts.rearGunStation);
         this.finish('tail');
+        /* HE WALKS ON. Owner playtest, 2026-08-19: the Shubenator "must not
+         * just appear near the aircraft".
+         *
+         * This is the moment he is discovered at the tail with a gun he is not
+         * supposed to be manning, so it is the moment he gives up on the open
+         * back hatch and does it the correct way — out from under the tail,
+         * forward along the port flank, in through the crew door, and into the
+         * turret. `crew.sendShubesAboard()` owns the whole walk; it cannot
+         * block, cannot take the player's controls, and is a no-op if the
+         * player has already boarded. */
+        this.crew?.sendShubesAboard?.(ac, () => {
+          this.dialogue.play('preflight.shubes.aboard', { once: true });
+          this.crew?.speak?.('SHUBES', 2.0);
+        });
       },
     });
 

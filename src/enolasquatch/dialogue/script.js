@@ -93,8 +93,11 @@ export const BEATS = {
     I('That is the Fat Squatch. Do not lean on it, do not sit on it, do not put your coffee on it.', 4.2),
   ],
 
+  /* The bomb is on a trolley on the concrete now, not strapped under a belly
+   * three metres up, so the old "pull on the strap" prod no longer describes
+   * anything the player can do. Hold the key: it is going in the aeroplane. */
   'preflight.payload.tap': [
-    N('You have to actually pull on the strap. Tapping a strap tells you nothing.', 3.4),
+    N('Hold the key down. You do not load one of these with a tap.', 3.2),
   ],
 
   'preflight.bombbay.tap': [
@@ -123,6 +126,17 @@ export const BEATS = {
     N('Secure enough.', 2.2),
   ],
 
+  /* LOAD FAT SQUATCH. The bomb comes off its trolley and goes into the bay,
+   * which is a five-second animation and about four seconds of this. The old
+   * `preflight.restraints` beat above is kept: it is what Irish and Numbskull
+   * say once the thing is actually hanging in there. */
+  'preflight.loadSquatch': [
+    L('Load it. Slowly. It is the only one we brought.', 3.2),
+    N('Bringing her under. Mind your feet.', 2.8),
+    I('Six thousand pounds of somebody’s idea.', 2.8),
+    N('Shackles closed. Braces on. That is a bomb in a bomb bay.', 3.6),
+  ],
+
   'preflight.bombbay': [
     L('Bomb-bay panel closed and pinned?', 2.4),
     N('Closed. Pinned is a strong word.', 2.8),
@@ -133,6 +147,19 @@ export const BEATS = {
     L('How did you get on this aircraft?', 2.4),
     H('You left the back open.', 2.2),
     I('That is not an answer, that is a confession.', 2.6),
+  ],
+
+  /* He gets on. Owner, 2026-08-19: keep the running gag — "everyone is already
+   * strapped into a bomber carrying the Fat Squatch and he wanders aboard like
+   * a man five minutes late to a Zoom call". So the line that opens this beat
+   * is the same line he opens every beat with, and nobody acknowledges that it
+   * is the third time. `crew.sendShubesAboard()` fires it when he actually
+   * reaches the crew door, not when he sets off. */
+  'preflight.shubes.aboard': [
+    H('Hey guys, what’s going on?', 2.0),
+    L('You were at the back of the aeroplane forty seconds ago.', 3.2),
+    H('Yeah. I came round the front. It’s more polite.', 3.0),
+    I('He has used the door. I want that in the log.', 3.0),
   ],
 
   'preflight.engineStart': [
@@ -274,6 +301,28 @@ export const BEATS = {
   ],
   'nav.goodLine': [
     I('There. Hold that line.', 1.8),
+  ],
+
+  /* ---------------- Nobody flies this aeroplane without a heading ----------
+   *
+   * Owner playtest, 2026-08-19: *"If the player has not started turning toward
+   * the heading within ~15-20s, Capt Lou nags: 'You planning on sightseeing?
+   * Heading O nine O.' Irish or Sasole can repeat periodically. NEVER leave the
+   * player without a navigation objective."*
+   *
+   * The owner's line is the first one, near enough verbatim — the crew say
+   * headings digit by digit everywhere else in this script, so it is spelled
+   * the way it is spoken. `MissionController.nagHeading()` cycles the three in
+   * order and only while the aeroplane has NOT started coming round, so a
+   * player already in the turn never hears any of them. */
+  'nav.nag.sasole': [
+    L('You planning on sightseeing? Heading zero-nine-zero.', 3.2),
+  ],
+  'nav.nag.irish': [
+    I('Zero-nine-zero, Prospect. It is written down and everything.', 3.4),
+  ],
+  'nav.nag.sasoleAgain': [
+    L('Bank her over. East. The city is not going to come to us.', 3.4),
   ],
 
   /* ---------------- Detection / low route ---------------- */
@@ -504,14 +553,57 @@ export const BEATS = {
     H('I think we’re out of bullets.', 2.0),
     I('You fired into the same truck for four minutes.', 2.6),
   ],
+  /* Sasole hands the aeroplane over so the player can go and shoot. Owner's
+   * own words for the beat: "Plane's mine, you go shoot." */
+  'fighters.sasoleTakesIt': [
+    L('Plane’s mine. You go shoot.', 2.4),
+    L('Gyro has the heading, I have the yoke. Get in the tail, Prospect.', 3.8),
+    H('There is someone already in here.', 2.2),
+    L('Then budge up.', 1.8),
+  ],
+
   'escape.clear': [
     L('Clean air. Keep climbing.', 2.2),
   ],
 
   /* ---------------- Optional engine emergency ---------------- */
 
+  /* ---------------- The engine problem, said as an instruction -------------
+   *
+   * Owner playtest, 2026-08-19: *"currently the game says something is wrong
+   * and leaves the player to consult the spirits. Make the objective explicit:
+   * ENGINE OVERHEATING / THROTTLE BACK... Cecil: 'Ease her back. Bring the
+   * throttle down.' then once stabilised: 'There you go. Hold it there until
+   * she cools off.'"*
+   *
+   * Two notes on how that is honoured here. First, there is no Cecil on this
+   * aeroplane — the crew is Sasole, Irish, Numbskull and the Shubenator (see
+   * SPEAKERS at the top of this file), and minting a fifth voice for two lines
+   * would create a character the campaign has never met. The lines go to
+   * NUMBSKULL, who is the man who does the spanner work on this airframe and is
+   * therefore the one who would be reading a cylinder-head gauge; the owner's
+   * words are kept exactly. Second, the old beat above asked the player to make
+   * a CHOICE ("your call — babied throttle, or push it and hope"), which is the
+   * "consult the spirits" the note is about: it named no control, no key and no
+   * success condition. It is now a plain instruction with a plain answer. */
   'emergency.overheat': [
-    L('Number two’s running hot. Your call — babied throttle and a long way home, or push it and hope.', 4.6),
+    /* The captain notices it and the engineer says what to do about it, in that
+     * order — which also keeps this beat's first line on SASOLE, where the one
+     * recording that already exists for it was cut. Only the WORDS changed, so
+     * it goes through the re-record queue rather than orphaning a delivered
+     * take (see `assets/sfx/rerecord.json`). */
+    L('Number three is running hot. Two-forty and climbing.', 3.2),
+    N('Ease her back. Bring the throttle down.', 2.8),
+  ],
+  'emergency.throttleBack': [
+    L('Throttle, Prospect. All the way back to the stop and leave it there.', 3.6),
+  ],
+  'emergency.stabilised': [
+    N('There you go. Hold it there until she cools off.', 3.2),
+  ],
+  'emergency.cooled': [
+    N('Two hundred and falling. She will live.', 2.8),
+    L('Then we go home on four warm ones. Whispering Pines, straight in.', 3.6),
   ],
   'emergency.shutdown': [
     L('Shutting two down. She’ll fly on three, she just won’t enjoy it.', 3.4),
@@ -688,7 +780,15 @@ export const OBJECTIVES = {
   BREAK_TURN: 'Turn. Hard. Get distance before it goes off.',
   BLAST: 'Keep going. Do not look at it.',
   ESCAPE: 'Climb. Bank away. Don’t look back.',
+  /* The engine problem, named. See the `emergency.*` beats above for the owner
+   * note these two answer — an objective that says what is wrong, which engine
+   * it is, and what the player has to do about it. */
+  ENGINE_OVERHEAT: 'ENGINE OVERHEATING — number three. THROTTLE BACK.',
+  ENGINE_COOLING: 'Number three cooling —',
   RETURN: 'Get her home.',
+  /* The tail gun, on the leg it belongs to. Named with its key, because a toy
+   * nobody is told about is not a toy. */
+  TAIL_GUN: 'Press T — take over the tail gun. Sasole is flying.',
   LANDING: 'Land on the runway you left from. Stop before it ends.',
 };
 

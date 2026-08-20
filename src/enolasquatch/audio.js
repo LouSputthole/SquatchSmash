@@ -171,6 +171,12 @@ const ENOLA_FLIGHT_GROUPS = new Set([
 const ENOLA_START_BARK_POOLS = new Set(['walkaroundIdle']);
 const ENOLA_FLIGHT_EFFECTS = new Set([
   'enolasquatch.gun.rear', 'enolasquatch.gun.rear.cabin',
+  /* The four layers that give the tail gun its weight — see the manifest
+   * entries and `MissionController`'s `gunner.onShot`. They live in the same
+   * bank as the gun itself: a burst missing its bolt and its body is not a
+   * quieter gun, it is a different one. */
+  'enolasquatch.gun.rear.crack', 'enolasquatch.gun.rear.bolt',
+  'enolasquatch.gun.rear.body', 'enolasquatch.gun.rear.tail',
   'enola.wind.high', 'enola.interceptor.breakup', 'enola.interceptor.scream',
 ]);
 
