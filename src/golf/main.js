@@ -64,7 +64,7 @@ import {
 } from './preview.js';
 import {
   USE_TIME, createHeldProps, dressGolfCartConsumables, dressSquatchBeer,
-  loadSquatchBeerLabel,
+  loadSquatchBeerLabel, loadSquatchZynLid,
 } from './hands.js';
 
 /* ------------------------------------------------------------------ */
@@ -219,7 +219,7 @@ window.addEventListener('resize', () => {
 /* ------------------------------------------------------------------ */
 
 stage('Opening the gate…');
-const course = new Course(scene, renderer, { onProgress: stage });
+const course = new Course(scene, renderer, { onProgress: stage, smoke });
 
 stage('Rounding up the foursome…');
 const golfers = {
@@ -2089,7 +2089,18 @@ function showEndCard(summary) {
 const returnHome = () => {
   navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
 };
-document.getElementById('endcard-home')?.addEventListener('click', returnHome);
+/**
+ * "Go home" read as an early exit -- a way to bail out of the round rather
+ * than the round's own ending. Golf is a campaign mission, not a free-play
+ * scene, so the card should offer only PLAY AGAIN and CONTINUE: the same
+ * navigation as before (the apartment is genuinely where the campaign goes
+ * next), relabelled so it reads as the story moving forward instead of an
+ * escape hatch. Done here rather than in golf.html so the button's own id,
+ * markup and every other scene's copy of this pattern stay untouched.
+ */
+const continueBtn = document.getElementById('endcard-home');
+if (continueBtn) continueBtn.textContent = 'Continue';
+continueBtn?.addEventListener('click', returnHome);
 document.getElementById('endcard-again')?.addEventListener('click', () => {
   if (completedRoundAction() === 'replay') window.location.reload();
   else returnHome();
@@ -2371,8 +2382,12 @@ async function boot() {
   /* The owner-supplied beer artwork, on every can the course stocks. Awaited
    * here rather than fired and forgotten so the first cooler he walks up to
    * already has the real label on it; `resolveGear` never rejects and a
-   * missing file leaves the plain can, so this cannot hold the round up. */
-  await loadSquatchBeerLabel();
+   * missing file leaves the plain can, so this cannot hold the round up.
+   * The apartment's own Zyn lid graphic is awaited alongside it for the same
+   * reason: the cart tin `restockSquatchBeer` dresses below only builds its
+   * geometry once, so this has to resolve before that first pass or the tin
+   * is stuck with a bare lid all round. */
+  await Promise.all([loadSquatchBeerLabel(), loadSquatchZynLid()]);
   restockSquatchBeer();
   carts.lead.radioWorld(cartRadioPosition);
   cartRadio.setPosition(cartRadioPosition);

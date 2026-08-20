@@ -20,11 +20,17 @@ import { HOLE, setActiveHole } from './hole.js';
 import { Npc } from '../bing/cast.js';
 import { FAMILY, loadFaceIndex } from '../bing/family.js';
 import { squatchBeerCan } from './hands.js';
+import { emitCigaretteExhale } from '../world/smoke.js';
 
 /* Late morning after overnight rain: the light is warm and low-ish, the air
  * still has mist in it, and everything is a shade wetter than it will be by
  * lunchtime. */
 export const SKY_COLOUR = 0xbcd4e6;
+
+/* Scratch vectors for the gallery cigar's smoke, reused every frame instead
+ * of allocated -- the same pattern `main.js` uses for the player's own. */
+const _gallerySmokeOrigin = new THREE.Vector3();
+const _gallerySmokeDir = new THREE.Vector3();
 
 /**
  * How far you can see, per hole.
@@ -920,22 +926,42 @@ function buildGrilleBalcony(house) {
   }
 
   /* Railing: a top rail, a mid rail and uprights along the front and returns
-   * down both ends. */
-  const railTop = new THREE.Mesh(new THREE.BoxGeometry(19.0, 0.09, 0.09), railMat);
-  railTop.name = 'clubhouse-balcony-rail';
-  railTop.position.set(0, 1.02, 3.44);
-  balcony.add(railTop);
-  const railMid = new THREE.Mesh(new THREE.BoxGeometry(19.0, 0.05, 0.05), railMat);
-  railMid.name = 'clubhouse-balcony-rail-mid';
-  railMid.position.set(0, 0.56, 3.44);
-  balcony.add(railMid);
+   * down both ends. Broken into two runs rather than one 19 m bar, leaving a
+   * gap at `STAIR_X` for the stair below to actually pass through it instead
+   * of running straight through a solid rail. */
+  const STAIR_X = 7.6;
+  const STAIR_GAP = [STAIR_X - 0.8, STAIR_X + 0.8];
+  for (const [x0, x1] of [[-9.5, STAIR_GAP[0]], [STAIR_GAP[1], 9.5]]) {
+    const width = x1 - x0;
+    const cx = (x0 + x1) / 2;
+    const railTop = new THREE.Mesh(new THREE.BoxGeometry(width, 0.09, 0.09), railMat);
+    railTop.name = 'clubhouse-balcony-rail';
+    railTop.position.set(cx, 1.02, 3.44);
+    balcony.add(railTop);
+    const railMid = new THREE.Mesh(new THREE.BoxGeometry(width, 0.05, 0.05), railMat);
+    railMid.name = 'clubhouse-balcony-rail-mid';
+    railMid.position.set(cx, 0.56, 3.44);
+    balcony.add(railMid);
+  }
   for (let i = -9; i <= 9; i++) {
+    const x = i * 1.0;
+    if (x > STAIR_GAP[0] && x < STAIR_GAP[1]) continue;   // the stair opening
     const post = new THREE.Mesh(
       new THREE.CylinderGeometry(0.028, 0.028, 1.02, 6), railMat,
     );
     post.name = 'clubhouse-balcony-post';
-    post.position.set(i * 1.0, 0.51, 3.44);
+    post.position.set(x, 0.51, 3.44);
     balcony.add(post);
+  }
+  /* Newel posts framing the stair opening, so the gap in the rail reads as a
+   * doorway rather than a piece that was simply left off. */
+  for (const x of STAIR_GAP) {
+    const newel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.036, 0.036, 1.02, 8), railMat,
+    );
+    newel.name = 'clubhouse-balcony-stair-newel';
+    newel.position.set(x, 0.51, 3.44);
+    balcony.add(newel);
   }
   for (const sx of [-1, 1]) {
     const end = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 3.5), railMat);
@@ -1066,10 +1092,19 @@ function buildGrilleBalcony(house) {
 
   /* An outside stair up the right-hand end. Snow's whole line at the end of
    * the round is "he means come up", and a terrace with no visible way onto
-   * it makes that a joke about a wall. */
+   * it makes that a joke about a wall.
+   *
+   * Anchored at `STAIR_X`, exactly on the rail line (z 3.44) rather than 0.84
+   * m short of it: the old anchor put the top tread under the solid deck
+   * slab and the rest of the run punched straight through an unbroken front
+   * rail on its way down -- a staircase that did not actually connect to the
+   * platform it was next to. Starting it at the rail's own gap (see above)
+   * puts the top step right at the terrace edge and lets every tread below
+   * it run downward and outward, in the open air past the rail, the
+   * direction a real exterior stair descends. */
   const stair = new THREE.Group();
   stair.name = 'clubhouse-balcony-stair';
-  stair.position.set(8.9, 0, 2.6);
+  stair.position.set(STAIR_X, 0, 3.44);
   balcony.add(stair);
   for (let i = 0; i < 11; i++) {
     const tread = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.10, 0.30), deckMat);
@@ -1155,7 +1190,9 @@ function buildSideCooler(scene) {
  * A slow raise about every nine seconds, out of phase with each other, with
  * the elbow doing the work and the shoulder barely moving — which is how a man
  * drinks standing up, and the same reading `Npc`'s seated version is built on.
- * The cigar burns brighter on the draw and is otherwise left alone.
+ * The cigar burns brighter on the draw; `updateGalleryCigarSmoke` below reads
+ * the `drawing` flag this leaves on the kit and turns it into an exhale and
+ * an ambient wisp between drags.
  */
 function poseWaitingMan(npc, t) {
   const kit = npc.gallery;
@@ -1172,22 +1209,61 @@ function poseWaitingMan(npc, t) {
 
   /* Left arm: folded across, or holding the cigar up if he has one. */
   if (kit.cigar) {
-    const draw = cycle > 4.4 && cycle < 5.8
-      ? Math.sin(((cycle - 4.4) / 1.4) * Math.PI)
-      : 0;
+    const drawing = cycle > 4.4 && cycle < 5.8;
+    const draw = drawing ? Math.sin(((cycle - 4.4) / 1.4) * Math.PI) : 0;
     parts.armL.rotation.x = -0.30 - draw * 0.34;
     parts.armL.rotation.z = -0.14;
     parts.foreL.rotation.x = -1.18 - draw * 0.95;
     const ember = kit.cigar.getObjectByName('gallery-cigar-ember');
     if (ember) ember.material.emissiveIntensity = 1.8 + draw * 2.8;
     if (draw > 0.6) parts.head.rotation.x = -0.06;
+    kit.drawing = drawing;
   } else {
     parts.armL.rotation.x = -0.24;
     parts.armL.rotation.z = -0.12;
     parts.foreL.rotation.x = -0.92;
+    kit.drawing = false;
   }
 
   if (lift > 0.62) parts.head.rotation.x = -0.13;
+}
+
+/**
+ * DeathMegatron's cigar: a real exhale when a drag finishes, and a thin
+ * ambient wisp off the resting ember the rest of the time -- the same plume
+ * the player's own cigarette uses (`emitCigaretteExhale`/`SmokeSystem.wisp`
+ * in `world/smoke.js`), so his reads as smoking the same object rather than
+ * a second effect built to match it.
+ *
+ * Split out from `poseWaitingMan` rather than folded into it so that
+ * function's own call site — asserted verbatim by
+ * `tests/golf-gallery.test.mjs` — stays the two-argument call it has always
+ * been. This reads the `drawing` flag that call just set on the kit.
+ * `smoke` is optional and comes from `Course` (see `update` below); passing
+ * none just skips the particles, which is what keeps the gallery buildable
+ * from the node test suite where there is no `SmokeSystem` at all.
+ */
+function updateGalleryCigarSmoke(npc, dt, smoke) {
+  const kit = npc.gallery;
+  if (!kit?.cigar || !smoke) return;
+  const ember = kit.cigar.getObjectByName('gallery-cigar-ember');
+  if (!ember) return;
+  if (kit.drawing) {
+    kit.exhaled = false;
+  } else if (kit.wasDrawing && !kit.exhaled) {
+    // The drag just ended -- one real exhale, not one every frame the hand
+    // happens to be back down.
+    kit.exhaled = true;
+    ember.getWorldPosition(_gallerySmokeOrigin);
+    npc.group.getWorldDirection(_gallerySmokeDir);
+    emitCigaretteExhale(smoke, _gallerySmokeOrigin, _gallerySmokeDir);
+  } else if (Math.random() < dt * 0.45) {
+    // Between drags: a slow, occasional wisp off the resting ember so the
+    // cigar never reads as unlit.
+    ember.getWorldPosition(_gallerySmokeOrigin);
+    smoke.wisp(_gallerySmokeOrigin);
+  }
+  kit.wasDrawing = kit.drawing;
 }
 
 /** The next tee, over the trees. Scenery, and a promise about the round. */
@@ -1282,10 +1358,17 @@ class GrassDetail {
 /* ------------------------------------------------------------------ */
 
 export class Course {
-  constructor(scene, renderer, { onProgress } = {}) {
+  constructor(scene, renderer, { onProgress, smoke = null } = {}) {
     this.scene = scene;
     this.renderer = renderer;
     this.onProgress = onProgress;
+    /* Optional: the shared `SmokeSystem` main.js already runs for the
+     * player's own cigarette. Passed in rather than imported and constructed
+     * here so there is one particle pool for the whole scene, not one per
+     * smoker; DeathMegatron's cigar (see `updateGalleryCigarSmoke`) is simply
+     * left unlit if nothing was given, which is what keeps `Course`
+     * constructible from `runtime-geometry.js` and the node test suite. */
+    this.smoke = smoke;
     this.colliders = [];
     /* Which Family face photos exist, for the last hole's gallery. Filled in
      * from `assets/faces/index.json` once it loads; empty until then, which is
@@ -1443,6 +1526,7 @@ export class Course {
         npc.update(dt, playerPos);
         /* After the job, never before — see poseWaitingMan. */
         poseWaitingMan(npc, this._t);
+        updateGalleryCigarSmoke(npc, dt, this.smoke);
       }
     }
 

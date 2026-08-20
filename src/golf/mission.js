@@ -50,14 +50,30 @@ const NPC_TEE_SOLUTION_CACHE = new Map();
  * the target line. Keeping this in one pure helper prevents tee shots and
  * ready-golf approaches from drifting back to a front-facing stance.
  */
-export function golfStanceFor(ball, target, distance = 0.72) {
+/**
+ * Small, per-golfer nudge along the shot line so two men converging on the
+ * same ball or the same pin never resolve to the literal same standing spot.
+ *
+ * Ready golf lets Eric, Lou and Rippin all be playing at once (`
+ * _playNpcApproaches`), and a straggler's very last stroke aims dead at
+ * `HOLE.pin` (`_strikeNpcApproach`) rather than a scattered near-pin point —
+ * on a hole where two of them finish close together (Hole 2 was the one this
+ * was caught on) that put Eric and Rippin's stances within centimetres of
+ * each other and their models walked into one another over the last putt.
+ * Distinct, non-zero offsets per character keep every navigation target this
+ * function hands out apart even when the inputs it is called with coincide.
+ */
+const STANCE_SPREAD = Object.freeze({ [ERIC]: -0.55, [RIPPIN]: 0.55, [LOU]: 0.20 });
+
+export function golfStanceFor(ball, target, distance = 0.72, id = null) {
   const dx = (target?.x ?? ball.x) - ball.x;
   const dz = (target?.z ?? ball.z - 1) - ball.z;
   const shotYaw = Math.atan2(dx, dz);
   const offset = Math.max(0.45, Number.isFinite(distance) ? distance : 0.72);
+  const spread = STANCE_SPREAD[id] ?? 0;
   return {
-    x: ball.x - Math.cos(shotYaw) * offset,
-    z: ball.z + Math.sin(shotYaw) * offset,
+    x: ball.x - Math.cos(shotYaw) * offset + Math.sin(shotYaw) * spread,
+    z: ball.z + Math.sin(shotYaw) * offset + Math.cos(shotYaw) * spread,
     yaw: shotYaw + Math.PI / 2,
     shotYaw,
   };
@@ -1149,7 +1165,7 @@ export class Round {
       const surface = surfaceAt(from.x, from.z);
       const onGreen = surface === SURFACE.GREEN || surface === SURFACE.FRINGE;
       const club = onGreen ? 'putter' : 'iron';
-      const stance = golfStanceFor(from, HOLE.pin);
+      const stance = golfStanceFor(from, HOLE.pin, 0.72, id);
       const golfer = this.golfers[id];
       golfer?.setClub(club);
       golfer?.walkTo(stance.x, stance.z, {
