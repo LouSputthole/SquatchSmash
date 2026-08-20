@@ -21,7 +21,12 @@ test('the WebGL health gate covers every playable launcher runtime except frozen
   const initiation = launcherEntries.filter(({ id, url }) => /initiation/i.test(`${id} ${url}`));
 
   assert.equal(initiation.length, 1, 'the launcher should expose exactly one frozen Initiation entry');
-  assert.equal(NON_INITIATION_RUNTIME_CASES.length, 30);
+  /* 31 since the Special Meeting joined the launcher. The count is pinned on
+   * purpose — `validateRuntimeMatrix` below already proves the gate and the
+   * launcher agree, and this catches the other direction: a runtime quietly
+   * dropped from the gate AND from the launcher in the same change, which
+   * would leave the two agreeing about a scene neither covers. */
+  assert.equal(NON_INITIATION_RUNTIME_CASES.length, 31);
   assert.doesNotMatch(
     NON_INITIATION_RUNTIME_CASES.map(({ id, url }) => `${id} ${url}`).join('\n'),
     /initiation/i,

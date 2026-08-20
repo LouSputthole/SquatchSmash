@@ -911,7 +911,10 @@ export function buildSpecialMeetingBlock(scene, { registerLight = null } = {}) {
       }));
     }
     stack.position.set(pole.x, ROAD.kerbHeight, z);
-    own(stack, 'utility-pole', { checkSupport: false });
+    /* In the ground, not resting on it — same reasoning as the fire escape
+     * above, and the same 9.6 m span that made a blanket opt-out too wide to
+     * be allowed. */
+    own(stack, 'utility-pole', { fixedSupportAnchor: true });
     add(stack);
     solid(pole.x - 0.22, z - 0.22, pole.x + 0.22, z + 0.22, 0, 9.6);
     poleTops.push({ x: pole.x, z, y: ROAD.kerbHeight + 8.73 });
@@ -1286,7 +1289,19 @@ function buildFireEscape({ name, x, faceZ, outward, landings, mats, own }) {
     escape.add(ladder);
   }
 
-  own(escape, 'fire-escape', { checkSupport: false, overlap: false });
+  /* BOLTED TO THE BUILDING, not standing on the pavement.
+   *
+   * This used to be a blanket `checkSupport: false, overlap: false`, and the
+   * gate refuses one of those at this scale on purpose: a fire escape is 72
+   * parts spanning nearly ten metres, and an opt-out that wide stops being a
+   * note about one fixture and becomes a hole you could drive most of a scene
+   * through. `SCENE_SCALE_SUPPRESSION` is the error, and it is a good one.
+   *
+   * `fixedSupportAnchor` is the narrower and truer statement: this thing is
+   * held up by something the gate does not model — the wall it is bolted to —
+   * and it applies per connected component, so each storey answers for
+   * itself instead of the whole run being waved through at once. */
+  own(escape, 'fire-escape', { fixedSupportAnchor: true });
   return escape;
 }
 

@@ -126,6 +126,11 @@ export const NON_INITIATION_RUNTIME_CASES = Object.freeze([
   runtime('enolasquatch', 'enolasquatch.html?preview=1', '#start-btn', ['__squatch', 'enolaSquatch']),
   runtime('mansion-return', 'mansion.html?visit=return&preview=1', '#startBtn', ['mansion', 'player']),
   runtime('cartel-palace', 'cartel-palace.html?preview=1', '#start-btn', ['CARTEL_PALACE']),
+  /* No start button: the Special Meeting opens on a street with a car already
+   * running and hands the player straight to it, so there is nothing to press.
+   * `SPECIAL_MEETING.campaign` is the handle that proves it got all the way
+   * through its boot. */
+  runtime('special-meeting', 'specialmeeting.html?preview=1', null, ['SPECIAL_MEETING', 'campaign']),
   runtime('wardrobe', 'wardrobe.html', null, ['fittingRoom']),
   runtime('combat', 'combatlab.html?preview=1', '#startBtn', ['combatSystem', 'targetVisuals']),
 ]);

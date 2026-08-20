@@ -741,28 +741,62 @@ test('Cartel Palace policy pins only exact structural joints and direct reviewed
     'utf8',
   ));
   const states = ['approach', 'betrayal', 'clear', 'dining-room', 'estate', 'perimeter'];
-  assert.equal(allowlist.entries.length, 156);
+  /* 96 per state, not 26.
+   *
+   * The 26 were the STRUCTURAL joints — walls keyed into walls, partitions
+   * meeting the façade. The 2026-08-20 geometry pass added the other 70: the
+   * scene's own furniture, fittings and people, which had never been in here
+   * because `verify:geometry` had never been run against this scene until
+   * Playwright was installed and 78 findings fell out of it.
+   *
+   * Five of those were real and are fixed in `src/cartel-palace/world.js` — a
+   * desk half a metre inside the server racks, a cypress growing through the
+   * entry step, a valet stand overlapping the luggage bench, a lamp shade in
+   * the office files and a wet-floor sign hovering over its own puddle. The
+   * rest are things that are SUPPOSED to touch: a guard sitting in his chair,
+   * picture lights screwed to the walls they light, a television bracketed to
+   * a media wall, Sauce's whites hanging on the valet rail.
+   *
+   * The per-state symmetry is the load-bearing half and it is unchanged: the
+   * palace builds the same room at every checkpoint, so a count that differs
+   * between states means an entry was added for one and forgotten for five. */
+  assert.equal(allowlist.entries.length, 576);
   assert.deepEqual(
     Object.fromEntries(states.map((state) => [
       state,
       allowlist.entries.filter((entry) => entry.state === state).length,
     ])),
-    Object.fromEntries(states.map((state) => [state, 26])),
+    Object.fromEntries(states.map((state) => [state, 96])),
   );
+  /* The same 96 pairs in every state, counted by identity rather than by
+   * state — this is what catches an entry that drifted to a different object
+   * in one checkpoint. FLOATING entries name one `object` rather than a pair. */
   assert.equal(
-    new Set(allowlist.entries.map(({ kind, left, right }) => `${kind}|${left}|${right}`)).size,
-    26,
+    new Set(allowlist.entries.map(({ kind, left, right, object }) => (
+      kind === 'FLOATING' ? `${kind}|${object}` : `${kind}|${left}|${right}`
+    ))).size,
+    96,
   );
+  // FLOATING entries have no `left`, so this reads the side that exists.
   assert.equal(
-    allowlist.entries.filter(({ left }) => left.includes('/name=practical-wall-bracket#0')).length,
+    allowlist.entries.filter(({ left }) => left?.includes('/name=practical-wall-bracket#0')).length,
     12,
   );
+  /* NO WILDCARDS, EVER, and everything rooted in this scene. That is what
+   * keeps the file a list of reviewed joints rather than a pattern that
+   * quietly swallows whatever lands near it. FLOATING joined the permitted
+   * kinds with the scene pass — eleven of the palace's fittings hang off
+   * walls and ceilings, and a support check has no way to know that. */
   for (const entry of allowlist.entries) {
-    assert.match(entry.kind, /^(?:INTERPENETRATION|WALL_EMBED)$/);
-    assert.doesNotMatch(entry.left, /[*?\[\]]/);
-    assert.doesNotMatch(entry.right, /[*?\[\]]/);
-    assert.ok(entry.left.startsWith('root:cartel-palace/'));
-    assert.ok(entry.right.startsWith('root:cartel-palace/'));
+    assert.match(entry.kind, /^(?:INTERPENETRATION|WALL_EMBED|FLOATING)$/);
+    assert.ok(entry.reason && entry.reason.length > 40,
+      `${entry.id} has no reason worth reading`);
+    assert.ok(entry.source && entry.sourceAnchor,
+      `${entry.id} does not point at the code that authors it`);
+    for (const side of entry.kind === 'FLOATING' ? [entry.object] : [entry.left, entry.right]) {
+      assert.doesNotMatch(side, /[*?[\]]/);
+      assert.ok(side.startsWith('root:cartel-palace/'));
+    }
   }
 
   assert.deepEqual(allowlist.suppressionPolicy.map(({ state }) => state), states);
