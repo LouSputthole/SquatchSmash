@@ -20,6 +20,15 @@ export class SalController {
       temples: 0xb8b2a8,
       browTilt: 0.11,
       iris: 0x3a2a18,
+      // The made man, dressed like one: his own charcoal-plum cloth with the
+      // chalk stripe lifted out of it, and gold kept to the two places a man
+      // who is not showing off wears it — the bar on the tie and the buckle.
+      trim: true,
+      pinstripe: true,
+      pocketSquare: 0xb8a05a,
+      tieBar: 0xc9a94a,
+      belt: 0x1c1a18,
+      buckle: 0xb9993f,
     });
     this.fig.setPose('sit');
     // Faces -Z, across the table at Prospect's seat. The figure's face is on
