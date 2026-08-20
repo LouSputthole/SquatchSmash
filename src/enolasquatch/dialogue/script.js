@@ -578,28 +578,28 @@ export const BEATS = {
    *
    * Two notes on how that is honoured here. First, there is no Cecil on this
    * aeroplane — the crew is Sasole, Irish, Numbskull and the Shubenator (see
-   * SPEAKERS at the top of this file), and minting a fifth voice for two lines
-   * would create a character the campaign has never met. The lines go to
-   * NUMBSKULL, who is the man who does the spanner work on this airframe and is
-   * therefore the one who would be reading a cylinder-head gauge; the owner's
+   * SPEAKERS at the top of this file). The owner settled it on 2026-08-20:
+   * *"anything that was Cecil was meant to be Sasole"*, so both of his lines
+   * are the CAPTAIN's. That also reads better than the first guess at it: the
+   * man flying the aeroplane is the man who tells you what to do with the
+   * throttle, and Numbskull is left doing what an engineer actually does, which
+   * is calling the gauge back once the temperature starts moving. The owner's
    * words are kept exactly. Second, the old beat above asked the player to make
    * a CHOICE ("your call — babied throttle, or push it and hope"), which is the
    * "consult the spirits" the note is about: it named no control, no key and no
    * success condition. It is now a plain instruction with a plain answer. */
   'emergency.overheat': [
-    /* The captain notices it and the engineer says what to do about it, in that
-     * order — which also keeps this beat's first line on SASOLE, where the one
-     * recording that already exists for it was cut. Only the WORDS changed, so
-     * it goes through the re-record queue rather than orphaning a delivered
-     * take (see `assets/sfx/rerecord.json`). */
+    /* Both halves are the captain: he sees the gauge and he gives the order.
+     * The first line already had a recording cut for Sasole, and the second is
+     * unrecorded, so moving it costs nothing — no delivered take is orphaned. */
     L('Number three is running hot. Two-forty and climbing.', 3.2),
-    N('Ease her back. Bring the throttle down.', 2.8),
+    L('Ease her back. Bring the throttle down.', 2.8),
   ],
   'emergency.throttleBack': [
     L('Throttle, Prospect. All the way back to the stop and leave it there.', 3.6),
   ],
   'emergency.stabilised': [
-    N('There you go. Hold it there until she cools off.', 3.2),
+    L('There you go. Hold it there until she cools off.', 3.2),
   ],
   'emergency.cooled': [
     N('Two hundred and falling. She will live.', 2.8),

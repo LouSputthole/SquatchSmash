@@ -20715,6 +20715,125 @@
       "direction": "Shouted into the house. Calling for people, not answering."
     },
     {
+      "name": "hotdog.stab.swing.1",
+      "duration": 0.35,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). first wind-up: the knife arm comes up over the shoulder. Fires on the `cock` beat.",
+      "prompt": "a heavy suit jacket sleeve whipping upward fast in a small carpeted bar room, one short cloth rush with a leather grip creak at the end, close, dry, no voice, no impact, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.stab.swing.2",
+      "duration": 0.35,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). second wind-up, harder and faster than the first. Fires on the `cock` beat.",
+      "prompt": "a suit sleeve whipping upward hard, sharper cloth rush than before with a knuckle-tight leather grip squeeze, small carpeted bar room, close, dry, no voice, no impact, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.stab.swing.3",
+      "duration": 0.35,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). third wind-up: he has stopped measuring the man. Fires on the `cock` beat.",
+      "prompt": "a heavy arm swinging up fast in fabric, coarse cloth rush with a low air movement under it, small carpeted bar room, close, dry, no voice, no impact, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.stab.swing.4",
+      "duration": 0.35,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). fourth and final wind-up, the widest arc of the four. Fires on the `cock` beat.",
+      "prompt": "a wide fast arm swing in heavy suit cloth, long cloth rush with an audible air displacement and a tight leather grip creak, small carpeted bar room, close, dry, no voice, no impact, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.stab.withdraw.1",
+      "duration": 0.45,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the blade pulled back out after the first strike. Fires on the `withdraw` beat, 0.09s after impact.",
+      "prompt": "a knife blade drawn back out of a clothed torso, short wet suction with fabric dragging over steel, close, small dry room, no voice, no music, no scream",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.stab.withdraw.2",
+      "duration": 0.45,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the second withdraw, wetter than the first. Fires on the `withdraw` beat, 0.09s after impact.",
+      "prompt": "a knife blade pulled out of flesh through soaked fabric, wet suction and a thin steel scrape, close, small dry room, no voice, no music, no scream",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.stab.withdraw.3",
+      "duration": 0.45,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the third withdraw, ragged. Fires on the `withdraw` beat, 0.09s after impact.",
+      "prompt": "a knife wrenched back out of a body at an angle, ragged wet suction, soaked cloth peeling off steel, close, small dry room, no voice, no music, no scream",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.stab.withdraw.4",
+      "duration": 0.45,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the last withdraw, before the body goes down. Fires on the `withdraw` beat, 0.09s after impact.",
+      "prompt": "a knife dragged slowly back out of a body, long thick wet release with heavy soaked fabric, close, small dry room, no voice, no music, no scream",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.ape.effort.1",
+      "duration": 0.6,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). Ape's breath on the first wind-up: controlled, almost silent. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
+      "prompt": "one adult man's sharp controlled exhale through the nose while swinging, tight and quiet, no words, close mic, dry room, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.ape.effort.2",
+      "duration": 0.6,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). second: the control is going. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
+      "prompt": "one adult man's low grunt of effort through clenched teeth, short, no words, close mic, dry room, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.ape.effort.3",
+      "duration": 0.6,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). third: full weight behind it. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
+      "prompt": "one adult man's hard guttural effort grunt, chest-deep, short, no words, close mic, dry room, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.ape.effort.4",
+      "duration": 0.6,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). fourth: the one that ends it. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
+      "prompt": "one adult man's heaviest strained effort grunt with a ragged breath after it, no words, close mic, dry room, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.grapple.lapel",
+      "duration": 0.5,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). Ape's off hand takes HotDog by the lapel on the first wind-up -- the rig genuinely does this.",
+      "prompt": "a fist seizing a fistful of heavy suit jacket at the chest, sharp cloth grab with buttons and lining strain, close, dry room, no voice, no impact, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.struggle.scuffle",
+      "duration": 1.4,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). The two men fighting each other under everything else: shoes going out from under a man on bar boards. Played on strikes one and three.",
+      "prompt": "two men's dress shoes scuffing and skidding on old hardwood boards during a close struggle, leather soles, cloth friction, a small stumble, closed bar room, no voice, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.stool.knock",
+      "duration": 0.7,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). The bar stool that the cleanup finds broken. Third strike.",
+      "prompt": "a wooden and chrome bar stool knocked over and clattering onto hardwood, one impact then a short metallic roll, closed bar room, no voice, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.body.knees",
+      "duration": 0.55,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). He does not fall in one piece: knees first, then the whole of him (hotdog.body.floor, 0.26s later).",
+      "prompt": "a heavy adult man's knees dropping hard onto hardwood boards, dull double knock with cloth, closed bar room, no voice, no music",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.body.wet.breath",
+      "duration": 1.6,
+      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). What is left of his breathing once he is on the floor. Plays 0.75s after the final impact.",
+      "prompt": "one adult man's shallow wet laboured breathing lying on the floor, thick and irregular, two or three breaths, no words, no groaning performance, close mic, dry room, no music",
+      "promptInfluence": 0.56
+    },
+    {
       "name": "vo.enolasquatch.lou.call-opening-1.1",
       "voice": "lou1",
       "say": "Remember that little delivery flight?"
@@ -21530,8 +21649,8 @@
       "say": "Number three is running hot. Two-forty and climbing."
     },
     {
-      "name": "vo.enolasquatch.numbskull.emergency-overheat-2.1",
-      "voice": "numbskull",
+      "name": "vo.enolasquatch.sasole.emergency-overheat-2.1",
+      "voice": "lou2",
       "say": "Ease her back. Bring the throttle down."
     },
     {
@@ -21540,8 +21659,8 @@
       "say": "Throttle, Prospect. All the way back to the stop and leave it there."
     },
     {
-      "name": "vo.enolasquatch.numbskull.emergency-stabilised-1.1",
-      "voice": "numbskull",
+      "name": "vo.enolasquatch.sasole.emergency-stabilised-1.1",
+      "voice": "lou2",
       "say": "There you go. Hold it there until she cools off."
     },
     {
@@ -21792,125 +21911,6 @@
       "name": "vo.enolasquatch.prospect.release-4.1",
       "voice": "player",
       "say": "Hope they’re hungry."
-    },
-    {
-      "name": "hotdog.stab.swing.1",
-      "duration": 0.35,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). first wind-up: the knife arm comes up over the shoulder. Fires on the `cock` beat.",
-      "prompt": "a heavy suit jacket sleeve whipping upward fast in a small carpeted bar room, one short cloth rush with a leather grip creak at the end, close, dry, no voice, no impact, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.stab.swing.2",
-      "duration": 0.35,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). second wind-up, harder and faster than the first. Fires on the `cock` beat.",
-      "prompt": "a suit sleeve whipping upward hard, sharper cloth rush than before with a knuckle-tight leather grip squeeze, small carpeted bar room, close, dry, no voice, no impact, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.stab.swing.3",
-      "duration": 0.35,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). third wind-up: he has stopped measuring the man. Fires on the `cock` beat.",
-      "prompt": "a heavy arm swinging up fast in fabric, coarse cloth rush with a low air movement under it, small carpeted bar room, close, dry, no voice, no impact, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.stab.swing.4",
-      "duration": 0.35,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). fourth and final wind-up, the widest arc of the four. Fires on the `cock` beat.",
-      "prompt": "a wide fast arm swing in heavy suit cloth, long cloth rush with an audible air displacement and a tight leather grip creak, small carpeted bar room, close, dry, no voice, no impact, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.stab.withdraw.1",
-      "duration": 0.45,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the blade pulled back out after the first strike. Fires on the `withdraw` beat, 0.09s after impact.",
-      "prompt": "a knife blade drawn back out of a clothed torso, short wet suction with fabric dragging over steel, close, small dry room, no voice, no music, no scream",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.stab.withdraw.2",
-      "duration": 0.45,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the second withdraw, wetter than the first. Fires on the `withdraw` beat, 0.09s after impact.",
-      "prompt": "a knife blade pulled out of flesh through soaked fabric, wet suction and a thin steel scrape, close, small dry room, no voice, no music, no scream",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.stab.withdraw.3",
-      "duration": 0.45,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the third withdraw, ragged. Fires on the `withdraw` beat, 0.09s after impact.",
-      "prompt": "a knife wrenched back out of a body at an angle, ragged wet suction, soaked cloth peeling off steel, close, small dry room, no voice, no music, no scream",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.stab.withdraw.4",
-      "duration": 0.45,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). the last withdraw, before the body goes down. Fires on the `withdraw` beat, 0.09s after impact.",
-      "prompt": "a knife dragged slowly back out of a body, long thick wet release with heavy soaked fabric, close, small dry room, no voice, no music, no scream",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.ape.effort.1",
-      "duration": 0.6,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). Ape's breath on the first wind-up: controlled, almost silent. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
-      "prompt": "one adult man's sharp controlled exhale through the nose while swinging, tight and quiet, no words, close mic, dry room, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.ape.effort.2",
-      "duration": 0.6,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). second: the control is going. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
-      "prompt": "one adult man's low grunt of effort through clenched teeth, short, no words, close mic, dry room, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.ape.effort.3",
-      "duration": 0.6,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). third: full weight behind it. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
-      "prompt": "one adult man's hard guttural effort grunt, chest-deep, short, no words, close mic, dry room, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.ape.effort.4",
-      "duration": 0.6,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). fourth: the one that ends it. Non-verbal, so it is an effect and not a `vo.bing2.*` line. Fires on the `cock` beat, 0.05s in.",
-      "prompt": "one adult man's heaviest strained effort grunt with a ragged breath after it, no words, close mic, dry room, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.grapple.lapel",
-      "duration": 0.5,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). Ape's off hand takes HotDog by the lapel on the first wind-up -- the rig genuinely does this.",
-      "prompt": "a fist seizing a fistful of heavy suit jacket at the chest, sharp cloth grab with buttons and lining strain, close, dry room, no voice, no impact, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.struggle.scuffle",
-      "duration": 1.4,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). The two men fighting each other under everything else: shoes going out from under a man on bar boards. Played on strikes one and three.",
-      "prompt": "two men's dress shoes scuffing and skidding on old hardwood boards during a close struggle, leather soles, cloth friction, a small stumble, closed bar room, no voice, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.stool.knock",
-      "duration": 0.7,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). The bar stool that the cleanup finds broken. Third strike.",
-      "prompt": "a wooden and chrome bar stool knocked over and clattering onto hardwood, one impact then a short metallic roll, closed bar room, no voice, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.body.knees",
-      "duration": 0.55,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). He does not fall in one piece: knees first, then the whole of him (hotdog.body.floor, 0.26s later).",
-      "prompt": "a heavy adult man's knees dropping hard onto hardwood boards, dull double knock with cloth, closed bar room, no voice, no music",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.body.wet.breath",
-      "duration": 1.6,
-      "_comment": "Bada Bing, HotDog Incident (2026-08-19): Ape's four-strike knife attack, synced to the animation's own beat table (HOTDOG_ATTACK_BEATS in src/bing/hotdog-attack.js). What is left of his breathing once he is on the floor. Plays 0.75s after the final impact.",
-      "prompt": "one adult man's shallow wet laboured breathing lying on the floor, thick and irregular, two or three breaths, no words, no groaning performance, close mic, dry room, no music",
-      "promptInfluence": 0.56
     }
   ]
 }
