@@ -74,8 +74,8 @@ import { BING_BLACKJACK_DEALER } from '../bing/cast.js';
 import {
   AUBBIE, BADA_BING_BARTENDER, BIG_UNCLE_LOU, BIG_UNCLE_LOU_BING,
   BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
-  GRATIN, HOG_MAMA, IRISH, MANSION_BOOTH_MAN, MANSION_DOOR_MAN, MANSION_GUARDS, NUMBSKULL,
-  JAMES_BLOND, RIPPINFLOW, SAUCE, SHUBENATOR, SNOW, WILLY,
+  GRATIN, HOG_MAMA, IRISH, KITTENBOSS, MANSION_BOOTH_MAN, MANSION_DOOR_MAN, MANSION_GUARDS,
+  NUMBSKULL, JAMES_BLOND, RIPPINFLOW, SAUCE, SHUBENATOR, SNOW, WILLY,
 } from './wardrobe.js';
 
 /* ====================================================================== *
@@ -251,6 +251,21 @@ export const SCENES = Object.freeze({
       + 'translation of one rig\'s options into another\'s, so these rows are '
       + 'listed and not drawn. They are the ledger\'s loudest finding.',
   }),
+  special_meeting: Object.freeze({
+    id: 'special_meeting',
+    label: 'THE SPECIAL MEETING — three men and a car',
+    short: 'Meeting',
+    rig: 'bing',
+    modules: Object.freeze(['src/specialmeeting/cast.js']),
+    note: 'Four bodies, and not one of them is dressed for the occasion. '
+      + 'Numbskull and Kittenboss are canonical wardrobe models; Seff and Lag '
+      + 'come through the Bing roster the way the Mansion takes them, because '
+      + 'the ledger has already decided their clothes live there. The rig is '
+      + "the Bing's because this is a night street under two sodium lamps and "
+      + 'a dome light, which is the nearest of the three to what it is played '
+      + 'in. Kittenboss is creased, and creases are not a garment flag: the '
+      + 'fitting room shows the shirt he owns, not the state he arrives in.',
+  }),
   cartel_palace: Object.freeze({
     id: 'cartel_palace', label: 'The Cartel Palace — the final assault', short: 'Palace', rig: 'day',
     modules: Object.freeze(['src/cartel-palace/cast.js']),
@@ -311,6 +326,10 @@ export const CAMPAIGN_SCENE_COVERAGE = Object.freeze({
     ['src/mansion/cast.js'], 'The return visit reuses the exact house cast and outfits; only poses and evening locations change.'),
   [SCENE_IDS.CARTEL_PALACE]: coverage(SCENE_IDS.CARTEL_PALACE, 'appearance-ledger', ['cartel_palace'],
     ['src/cartel-palace/cast.js'], 'Four guard variants, Mark and Sauce are catalogued from the final mission cast.'),
+  [SCENE_IDS.SPECIAL_MEETING]: coverage(SCENE_IDS.SPECIAL_MEETING, 'appearance-ledger', ['special_meeting'],
+    ['src/specialmeeting/cast.js'],
+    'Four bodies on one block: Numbskull and Kittenboss from the canonical wardrobe, Seff and Lag pulled through the Bing roster exactly as the Mansion takes them. Kittenboss is the scene\'s new identity and his row is his first.',
+    [{ scene: 'special_meeting', character: CHARACTER_IDS.KITTENBOSS }]),
   [SCENE_IDS.INITIATION]: coverage(SCENE_IDS.INITIATION, 'frozen', [],
     ['src/initiation/main.js'], 'Initiation is classified but unavailable: its runtime is frozen pending owner playtest and is neither imported nor reconstructed.'),
   [SCENE_IDS.MANSION]: coverage(SCENE_IDS.MANSION, 'appearance-ledger', ['mansion_house'],
@@ -2045,6 +2064,67 @@ export const APPEARANCES = Object.freeze([
     character: CHARACTER_IDS.SAUCE, name: 'Sauce', scene: 'cartel_palace',
     where: 'the final encounter as the traitor', model: SAUCE,
     from: { wardrobe: 'SAUCE' }, module: 'src/cartel-palace/cast.js', evidence: 'model: SAUCE,',
+  }),
+
+  /* ================================================================== *
+   * THE SPECIAL MEETING — the car
+   *
+   * The bridge between the Palace and the fire. Three established Squatches
+   * and one other prospect, in and around one sedan on one wet block.
+   *
+   * Seff and Lag are the ledger's standing exception: their clothes are typed
+   * inline on the Bing roster rather than promoted into the wardrobe, and
+   * `src/specialmeeting/cast.js` pulls them straight out of `FAMILY` rather
+   * than restating anything, exactly as `src/mansion/cast.js` does. This is
+   * now their third building, so the case for promoting both men into
+   * `src/core/wardrobe.js` is stronger than it was — but that is a ledger-wide
+   * change (every Bing, party and mansion row flips its `from` shape with it)
+   * and it should be somebody's deliberate decision, not this scene's
+   * side effect.
+   * ================================================================== */
+  row({
+    character: CHARACTER_IDS.SEFF,
+    name: 'Seff',
+    scene: 'special_meeting',
+    where: 'the driver\'s seat, leaning across to say hello, and never once getting out until the woods',
+    model: BING_SEFF,
+    from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.SEFF, 'model'] },
+    module: 'src/specialmeeting/cast.js',
+    evidence: 'characterId: CHARACTER_IDS.SEFF,',
+  }),
+  row({
+    character: CHARACTER_IDS.LAG,
+    name: 'Lag',
+    scene: 'special_meeting',
+    where: 'the front passenger seat when the car arrives, and the seat behind the driver by the time it leaves',
+    model: BING_LAG,
+    from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.LAG, 'model'] },
+    module: 'src/specialmeeting/cast.js',
+    evidence: 'characterId: CHARACTER_IDS.LAG,',
+  }),
+  row({
+    character: CHARACTER_IDS.NUMBSKULL,
+    name: 'Numbskull',
+    scene: 'special_meeting',
+    where: 'holding the front passenger door open, then directly behind the Prospect for the whole drive',
+    model: NUMBSKULL,
+    from: { wardrobe: 'NUMBSKULL' },
+    module: 'src/specialmeeting/cast.js',
+    evidence: "if (key === 'numbskull') return { ...WARDROBE.numbskull };",
+  }),
+  row({
+    character: CHARACTER_IDS.KITTENBOSS,
+    name: 'Kittenboss',
+    scene: 'special_meeting',
+    where: 'the boot of the car, and afterwards on the trail beside the other prospect',
+    model: KITTENBOSS,
+    from: { wardrobe: 'KITTENBOSS' },
+    module: 'src/specialmeeting/cast.js',
+    evidence: "if (key === 'kittenboss') return { ...WARDROBE.kittenboss };",
+    /* He was told to put on something decent and he did. The scene's own
+     * direction is that it is extremely creased, which is a note for the
+     * animator and the writer and not a field on a model — so the ledger
+     * carries the shirt and says so here rather than inventing a flag. */
   }),
 
   /* ================================================================== *

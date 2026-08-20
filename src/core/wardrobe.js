@@ -247,6 +247,32 @@ export const NUMBSKULL = Object.freeze({
 });
 
 /**
+ * The other prospect, dressed for a thing nobody described to him.
+ *
+ * He was told to put on something decent, the same as Tony was, and he did:
+ * a shirt with a collar, a belt, and shoes he does not wear to anything else.
+ * `trim` is on -- he is one of two men the player stands beside for the whole
+ * last act, so he earns the buttons and the placket. What the fitting room
+ * cannot show, because it is not clothing, is that all of it is extremely
+ * creased. He has been lying on a spare wheel.
+ *
+ * Deliberately NOT luxury and deliberately no chain: the men in the front of
+ * the car have both. He is what a prospect owns.
+ */
+export const KITTENBOSS = Object.freeze({
+  height: 1.79,
+  build: 1.06,
+  dress: 'shirt',
+  shirt: 0x8d94a4,
+  neckline: 'collar',
+  trim: true,
+  hair: 'short',
+  hairColour: 0x241a12,
+  skin: 0xdcae86,
+  belt: 'leather',
+});
+
+/**
  * The matriarch. Luxury finish, no watch -- owner's note: the men on this
  * roster wear one, the women do not, and a gold watch was never the thing
  * that said "runs the place" about her anyway. `docs/OUTCOMES-AND-NPCS.md`
@@ -522,6 +548,7 @@ export const WARDROBE = Object.freeze({
   aubbie: AUBBIE,
   sauce: SAUCE,
   james_blond: JAMES_BLOND,
+  kittenboss: KITTENBOSS,
 });
 
 /** The canonical model for a character id, or null for anyone not on it. */

@@ -1041,7 +1041,6 @@ export function buildSpecialMeetingBlock(scene, { registerLight = null } = {}) {
     });
     mast.add(head);
     const amberMat = lit(0xffa42a, 2.4);
-    amberMat.transparent = true;
     signalMats.push(amberMat);
     mast.add(box({
       name: 'signal.amber', size: [0.2, 0.2, 0.06],

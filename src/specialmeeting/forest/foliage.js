@@ -36,7 +36,7 @@
 
 import * as THREE from 'three';
 import {
-  clamp01, heightAt, hollowAt, landSlopeAt, roadFrame,
+  clamp01, clearGroundAt, heightAt, hollowAt, landSlopeAt, roadFrame,
   surfaceAt, SURFACE, treeDensityAt, undergrowthAt,
 } from './field.js';
 import { roadLength } from './road.js';
@@ -61,6 +61,44 @@ function cellHash(ix, iz, salt) {
   h = Math.imul(h ^ (h >>> 15), 0x27d4eb2d) ^ Math.imul(salt + 1, 0x165667b1);
   h ^= h >>> 13;
   return (h >>> 0) / 4294967296;
+}
+
+/**
+ * The height to STAND something at, which is not quite the ground height.
+ *
+ * Trees are placed on `heightAt`; the ground beside them is drawn by a mesh on
+ * a three-metre grid, and on a steep bank the chord between two of its
+ * vertices sits below the true surface by a few tens of centimetres. A tree at
+ * its true height on that bank therefore floats — measured at forty-two
+ * centimetres on the steepest ground in the scene, which is exactly the sort
+ * of thing a headlight finds.
+ *
+ * So anything standing on the ground is bedded in by an amount that follows
+ * the local steepness. It is an approximation of the mesh's own error rather
+ * than a computation of it — the exact answer needs the chunk's resolution,
+ * which the scatter deliberately does not know — but it is the right shape and
+ * it costs one lookup. A trunk sunk twenty centimetres into a bank reads as a
+ * tree; one hanging twenty centimetres over it reads as a bug.
+ */
+function seatedHeight(x, z, frame) {
+  return heightAt(x, z, frame) - Math.min(2, landSlopeAt(x, z)) * 0.22;
+}
+
+/**
+ * Ground solid enough to stand something on.
+ *
+ * The clearing's rim drops two metres over five and the terrain mesh nearest
+ * the car is on a three-metre grid, so the drawn ground on that rim can be
+ * three quarters of a metre below the true surface. Anything placed there at
+ * its true height hangs in the air — which is how a fallen log ended up
+ * levitating over the edge of the car park where four men are standing.
+ *
+ * The density field already fades over the rim; this is the hard edge under
+ * it, and it applies to everything that stands on the ground rather than only
+ * to the trees.
+ */
+function canStandAt(x, z) {
+  return clearGroundAt(x, z) > 0.85;
 }
 
 /** Three trees and a dead one. Which grows where is the drive's progression. */
@@ -109,7 +147,7 @@ export function scatterChunk({ minX, minZ, size }) {
 
       const frame = roadFrame(x, z);
       const density = treeDensityAt(x, z, frame);
-      if (density <= 0) continue;
+      if (density <= 0 || !canStandAt(x, z)) continue;
       if (cellHash(ix, iz, 3) > density / PEAK_DENSITY) continue;
 
       const progress = clamp01(frame.s / roadLength());
@@ -138,7 +176,7 @@ export function scatterChunk({ minX, minZ, size }) {
       const tree = {
         x,
         z,
-        y: heightAt(x, z, frame),
+        y: seatedHeight(x, z, frame),
         kind,
         scale,
         radius,
@@ -164,17 +202,21 @@ export function scatterChunk({ minX, minZ, size }) {
       if (x < minX || x >= minX + size || z < minZ || z >= minZ + size) continue;
       const frame = roadFrame(x, z);
       // Not on the road, and not in the mud beside it where a wheel would find it.
-      if (frame.distance < frame.halfWidth * 2.1) continue;
+      if (frame.distance < frame.halfWidth * 2.1 || !canStandAt(x, z)) continue;
       const surface = surfaceAt(x, z, frame);
-      const chance = surface === SURFACE.ROCK ? 0.72
+      const chance = (surface === SURFACE.ROCK ? 0.72
         : landSlopeAt(x, z) > 0.4 ? 0.24
-          : hollowAt(x, z) > 0.6 ? 0.16 : 0.055;
+          : hollowAt(x, z) > 0.6 ? 0.16 : 0.055)
+        /* Off the spur and off the trail, same as everything else that stands
+         * on the ground — and faded rather than cut, so the last rock before
+         * the clearing is not a line of them. */
+        * clearGroundAt(x, z);
       if (cellHash(ix, iz, 13) > chance) continue;
       const grade = cellHash(ix, iz, 14);
       rocks.push({
         x,
         z,
-        y: heightAt(x, z, frame),
+        y: seatedHeight(x, z, frame),
         /* Boulders are rare and worth having: most of these are a foot across
          * and every so often one is the size of the car. */
         size: 0.24 + grade * grade * grade * 2.4,
@@ -195,7 +237,7 @@ export function scatterChunk({ minX, minZ, size }) {
       const z = (iz + 0.2 + cellHash(ix, iz, 22) * 0.6) * LOG_CELL;
       if (x < minX || x >= minX + size || z < minZ || z >= minZ + size) continue;
       const frame = roadFrame(x, z);
-      if (treeDensityAt(x, z, frame) <= 0) continue;
+      if (treeDensityAt(x, z, frame) <= 0 || !canStandAt(x, z)) continue;
       const progress = clamp01(frame.s / roadLength());
 
       if (cellHash(ix, iz, 23) < 0.30 + progress * 0.34) {
@@ -209,8 +251,8 @@ export function scatterChunk({ minX, minZ, size }) {
         const az = z - Math.cos(yaw) * length * 0.5;
         const bx = x + Math.sin(yaw) * length * 0.5;
         const bz = z + Math.cos(yaw) * length * 0.5;
-        const ay = heightAt(ax, az) + radius;
-        const by = heightAt(bx, bz) + radius;
+        const ay = seatedHeight(ax, az, roadFrame(ax, az)) + radius;
+        const by = seatedHeight(bx, bz, roadFrame(bx, bz)) + radius;
         logs.push({
           x, z, yaw, length, radius,
           y: (ay + by) * 0.5,
@@ -222,11 +264,11 @@ export function scatterChunk({ minX, minZ, size }) {
         const sx = x + 4.2;
         const sz = z - 3.1;
         if (sx >= minX && sx < minX + size && sz >= minZ && sz < minZ + size
-          && treeDensityAt(sx, sz) > 0) {
+          && treeDensityAt(sx, sz) > 0 && canStandAt(sx, sz)) {
           stumps.push({
             x: sx,
             z: sz,
-            y: heightAt(sx, sz),
+            y: seatedHeight(sx, sz, roadFrame(sx, sz)),
             radius: 0.26 + cellHash(ix, iz, 29) * 0.30,
             height: 0.32 + cellHash(ix, iz, 30) * 0.55,
             spin: cellHash(ix, iz, 31) * Math.PI * 2,
@@ -321,10 +363,38 @@ function instanced(geometry, material, count, name) {
 }
 
 /**
+ * Hand a batch its bounding sphere instead of making it work one out.
+ *
+ * `InstancedMesh.computeBoundingSphere()` walks every instance, and measured
+ * at a hundred and fifty trees it is one and a quarter MILLISECONDS. Five
+ * batches a chunk and it was the entire cost of dressing one — seven
+ * milliseconds of a sixteen-millisecond frame, spent deriving a number that is
+ * already known: the chunk is a forty-eight-metre square and nothing in it is
+ * taller than a tree.
+ *
+ * A conservative sphere culls very slightly less, which for one chunk of a
+ * forest is nothing, and it is O(1).
+ */
+function boundBatch(mesh, bounds) {
+  if (!bounds) {
+    mesh.computeBoundingSphere();
+    return mesh;
+  }
+  const half = bounds.size / 2;
+  mesh.boundingSphere = new THREE.Sphere(
+    new THREE.Vector3(bounds.minX + half, bounds.midY + 12, bounds.minZ + half),
+    Math.hypot(half, half) + 30,
+  );
+  return mesh;
+}
+
+/**
  * Turn one chunk's scatter into meshes.
  *
  * @param {object} scatter the result of `scatterChunk`.
  * @param {object} options
+ * @param {'near'|'far'} [options.detail] `far` builds one crown tier instead
+ *        of three. The chunk the car is in is `near`; everything else is not.
  * @param {boolean} options.shadows whether trunks cast into the headlight map.
  *        Only the near ring does: a shadow map that has to hold the whole
  *        streamed radius has no resolution left where the beam actually is.
@@ -333,7 +403,10 @@ function instanced(geometry, material, count, name) {
  *        nothing walks and the array would just be churn.
  * @returns {{group: THREE.Group, materials: THREE.Material[], trees: number}}
  */
-export function buildFoliage(scatter, { shadows = false, colliders = null } = {}) {
+export function buildFoliage(
+  scatter,
+  { shadows = false, colliders = null, bounds = null, detail = 'near' } = {},
+) {
   const UNIT = units();
   const group = new THREE.Group();
   group.name = 'forest.foliage';
@@ -376,7 +449,7 @@ export function buildFoliage(scatter, { shadows = false, colliders = null } = {}
     }
     trunks.instanceMatrix.needsUpdate = true;
     if (trunks.instanceColor) trunks.instanceColor.needsUpdate = true;
-    trunks.computeBoundingSphere();
+    boundBatch(trunks, bounds);
     /* The gate identifies an instanced batch by its own tag rather than by
      * guessing from geometry parameters. Trunks are solid and audited; the
      * crowns below are a porous silhouette that legitimately interpenetrates
@@ -388,9 +461,17 @@ export function buildFoliage(scatter, { shadows = false, colliders = null } = {}
     /* ---- crowns ----
      * Conifers get three tiers, birch one broad one, and the dead get nothing,
      * which is what makes them read as dead from a hundred metres.
-     * Everything is a cone; only the proportions change. */
+     * Everything is a cone; only the proportions change.
+     *
+     * AND THIS IS WHERE THE LEVEL OF DETAIL IS. The chunk the car is actually
+     * in gets all three tiers; the eight around it get one, because a conifer
+     * at sixty metres through this fog is a dark shape and a dark shape is one
+     * cone. It is worth about two draw calls and a millisecond and a half per
+     * chunk, which is the difference between the streamer dropping a frame
+     * when it crosses a chunk line and not. */
+    const tiers = detail === 'near' ? 3 : 1;
     const crowned = trees.filter((t) => t.kind !== 'dead');
-    for (let tier = 0; tier < 3; tier++) {
+    for (let tier = 0; tier < tiers; tier++) {
       const list = crowned.filter((t) => (t.kind === 'birch' ? tier === 0 : true));
       if (!list.length) continue;
       const crowns = instanced(
@@ -405,11 +486,17 @@ export function buildFoliage(scatter, { shadows = false, colliders = null } = {}
         const t = list[i];
         const height = trunkHeight(t.kind, t.scale);
         const broad = t.kind === 'birch';
-        const spread = (broad ? 2.6 : 1.9 - tier * 0.42) * t.scale * (0.85 + t.tint * 0.3);
-        const tall = (broad ? 4.0 : 4.4 - tier * 0.5) * t.scale;
+        /* With one tier standing in for three, it has to cover what the three
+         * did: wider at the bottom and tall enough to reach where the top one
+         * finished, or the far chunks read as a shorter species than the near
+         * ones and the treeline steps down at the chunk line. */
+        const lone = tiers === 1 && !broad;
+        const spread = (broad ? 2.6 : lone ? 2.3 : 1.9 - tier * 0.42)
+          * t.scale * (0.85 + t.tint * 0.3);
+        const tall = (broad ? 4.0 : lone ? 7.2 : 4.4 - tier * 0.5) * t.scale;
         /* Crowns start well up the trunk. A conifer skirted to the ground
          * would hide the one thing the headlights are for. */
-        const base = height * (broad ? 0.52 : 0.34 + tier * 0.21);
+        const base = height * (broad ? 0.52 : lone ? 0.36 : 0.34 + tier * 0.21);
         _dummy.rotation.order = 'YXZ';
         _dummy.rotation.y = t.leanYaw;
         _dummy.rotation.x = t.lean;
@@ -428,7 +515,7 @@ export function buildFoliage(scatter, { shadows = false, colliders = null } = {}
       }
       crowns.instanceMatrix.needsUpdate = true;
       if (crowns.instanceColor) crowns.instanceColor.needsUpdate = true;
-      crowns.computeBoundingSphere();
+      boundBatch(crowns, bounds);
       crowns.userData.geometryGate = {
         instanceAssemblyPrefix: 'specialmeeting-forest-tree',
         overlap: false,
@@ -473,7 +560,7 @@ export function buildFoliage(scatter, { shadows = false, colliders = null } = {}
     }
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.computeBoundingSphere();
+    boundBatch(mesh, bounds);
     add(mesh);
   }
 
@@ -504,7 +591,7 @@ export function buildFoliage(scatter, { shadows = false, colliders = null } = {}
     }
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.computeBoundingSphere();
+    boundBatch(mesh, bounds);
     add(mesh);
   }
 
@@ -520,7 +607,7 @@ export function buildFoliage(scatter, { shadows = false, colliders = null } = {}
       mesh.setMatrixAt(i, _dummy.matrix);
     }
     mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
+    boundBatch(mesh, bounds);
     add(mesh);
   }
 

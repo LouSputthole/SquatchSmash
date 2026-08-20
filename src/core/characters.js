@@ -268,6 +268,23 @@ export const CHARACTER_REGISTRY = Object.freeze({
     species: 'human',
     role: 'family_member',
   }),
+  /* The other prospect. He is in the boot of the car in THE SPECIAL MEETING,
+   * he is alive, he is annoyed, and nobody explains it -- not in that scene
+   * and not afterwards. `role: 'prospect'` is the same role Tony carries;
+   * nothing branches on it, and the two of them being the same kind of thing
+   * on the same night is the point.
+   *
+   * Uncast: `assets/sfx/manifest.json` carries the profile with the standard
+   * `<owner to cast>` placeholder, so his lines play as subtitles over silence
+   * until an id lands. That is the intended state, not a defect. */
+  [CHARACTER_IDS.KITTENBOSS]: character({
+    id: CHARACTER_IDS.KITTENBOSS,
+    canonicalName: 'Kittenboss',
+    subtitleName: 'Kittenboss',
+    voiceProfile: 'kittenboss',
+    species: 'human',
+    role: 'prospect',
+  }),
 });
 
 const CHARACTER_ALIASES = Object.freeze(

@@ -41,6 +41,7 @@ import {
   smootherstep, surfaceAt, surfaceProps,
 } from './field.js';
 import { buildFoliage, scatterChunk, Undergrowth } from './foliage.js';
+import { roadSamples } from './road.js';
 import { groundDetailTexture, softCardTexture, tiled } from './textures.js';
 
 const CHUNK = 48;
@@ -51,8 +52,22 @@ const TREE_RINGS = 1;
 const SKIRT = 2.2;
 /** Metres of ground per tile of the detail texture. */
 const DETAIL_TILE = 5.5;
-/** How far the ground is dropped under the road's own mesh. */
-const CORRIDOR_SINK = 0.16;
+/**
+ * How far the ground is dropped under the road's own mesh.
+ *
+ * Not a fudge factor — a measured one, and the measurement is the reason it is
+ * this big. The road corridor is four to eight metres wide with structure at
+ * the one-metre scale, and the terrain grid nearest the car is three metres:
+ * a chord between two terrain vertices spanning a cut bank sits over a metre
+ * above the road it is spanning. At sixteen centimetres of sink the forest
+ * floor came up through the carriageway; at a metre and a quarter it does not.
+ *
+ * All of it is under the ribbon and none of it is visible. Where the sink is
+ * released — the outermost fifth of the corridor — the ribbon carries a skirt
+ * for the same reason the chunks do, so the seam is covered rather than
+ * negotiated.
+ */
+const CORRIDOR_SINK = 0.9;
 
 const _colour = new THREE.Color();
 const _scratchRock = new THREE.Color();
@@ -126,9 +141,21 @@ function buildChunkGeometry(minX, minZ, size, seg) {
        * tarmac in the middle of the lane. Faded to nothing at the corridor
        * edge, where the two meshes have to meet exactly. */
       const corridor = corridorHalfWidth(frame);
-      if (frame.distance < corridor) {
+      if (frame.distance < corridor * 1.05) {
+        /* Full depth across three quarters of the corridor, gone by the time
+         * the trees start.
+         *
+         * That last clause is the constraint, and it is not obvious. Trees
+         * stand on `heightAt`, not on this — so any tree inside the sink band
+         * would be planted on ground the mesh has moved out from under it and
+         * would float. The taper therefore has to finish OUTSIDE the corridor
+         * and INSIDE the tree clearance, which is what these two numbers are.
+         * Making the sink deeper to buy more headroom is not free: it buys a
+         * row of levitating firs. */
         y -= CORRIDOR_SINK
-          * (1 - smootherstep(clamp01((frame.distance - corridor * 0.72) / (corridor * 0.28))));
+          * (1 - smootherstep(clamp01(
+            (frame.distance - corridor * 0.75) / (corridor * 0.30),
+          )));
       }
 
       positions[i * 3] = x;
@@ -209,42 +236,56 @@ function buildChunkGeometry(minX, minZ, size, seg) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Fog pockets: three crossed cards a piece, lying in the low ground.
+ * Fog pockets: three crossed cards a piece, lying across the road.
  *
- * Distance fog is a property of the whole scene and cannot be a place. What
+ * Distance fog is a property of the whole scene and cannot be a PLACE. What
  * makes a wood at night feel like a wood is that the fog is somewhere — a bank
- * of it lying in a dip that the headlights go into and come out of. So these
- * are geometry, in the hollows the height function already dug, and they are
- * LAMBERT rather than basic on purpose: an unlit card is a grey smear, and a
- * lit one flares white when the beam swings into it and goes back to nothing
- * when it swings off. That one behaviour is most of the atmosphere in the
- * scene, and it costs three quads.
+ * of it lying in a dip that the headlights go into and come out of.
+ *
+ * They are LAMBERT rather than basic on purpose: an unlit card is a grey
+ * smear, and a lit one flares white when the beam swings into it and goes back
+ * to nothing when it swings off. That one behaviour is most of the atmosphere
+ * in the scene, and it costs three quads.
  *
  * Crossed at fixed angles rather than billboarded: a billboard has to be
  * updated every frame per card and a card that turns to face you as you pass
  * it reads as a sprite. Three fixed planes read as a volume from any angle a
  * car on a road can reach.
+ *
+ * PLACED FROM THE ROAD, NOT FROM A GRID. The first version scattered them over
+ * the map wherever the ground was low and left the whole thing to chance —
+ * which produced ninety-odd pockets, six of them within sight of the road and
+ * none at all in the deep woods, where the car is slowest and the fog matters
+ * most. So they are laid along the road at an authored spacing instead, biased
+ * toward the dips rather than confined to them. The player drives through
+ * them, which is the entire point of building fog out of geometry.
  */
-function buildFogPockets(minX, minZ, size, material) {
-  const CELL = 22;
+function buildFogPockets(minX, minZ, size, material, bounds = null) {
   const pockets = [];
-  for (let ix = Math.floor(minX / CELL); ix < Math.ceil((minX + size) / CELL); ix++) {
-    for (let iz = Math.floor(minZ / CELL); iz < Math.ceil((minZ + size) / CELL); iz++) {
-      const x = (ix + 0.2 + cellHash(ix, iz, 61) * 0.6) * CELL;
-      const z = (iz + 0.2 + cellHash(ix, iz, 62) * 0.6) * CELL;
-      if (x < minX || x >= minX + size || z < minZ || z >= minZ + size) continue;
-      const damp = hollowAt(x, z);
-      if (damp < 0.34) continue;
-      if (cellHash(ix, iz, 63) > 0.30 + damp * 0.55) continue;
-      pockets.push({
-        x,
-        z,
-        y: heightAt(x, z) + 0.5 + cellHash(ix, iz, 64) * 0.7,
-        width: 9 + cellHash(ix, iz, 65) * 11,
-        height: 2.0 + cellHash(ix, iz, 66) * 2.2,
-        phase: cellHash(ix, iz, 67) * Math.PI * 2,
-      });
-    }
+  const samples = roadSamples();
+  /* Every twentieth sample is about twenty-eight metres of road, and roughly
+   * half of those pass the roll: a bank every fifty or sixty metres, more of
+   * them in the low ground. */
+  for (let i = 0; i < samples.length; i += 20) {
+    const sample = samples[i];
+    if (sample.x < minX || sample.x >= minX + size) continue;
+    if (sample.z < minZ || sample.z >= minZ + size) continue;
+    const damp = hollowAt(sample.x, sample.z);
+    if (cellHash(i, 0, 71) > 0.44 + damp * 0.45) continue;
+
+    // Off to one side, far enough that the bank has an edge the beam finds.
+    const side = cellHash(i, 0, 72) < 0.5 ? -1 : 1;
+    const off = side * (2 + cellHash(i, 0, 73) * 7);
+    const x = sample.x - Math.cos(sample.yaw) * off;
+    const z = sample.z + Math.sin(sample.yaw) * off;
+    pockets.push({
+      x,
+      z,
+      y: heightAt(x, z) + 0.9 + cellHash(i, 0, 74) * 0.8,
+      width: 12 + cellHash(i, 0, 75) * 11,
+      height: 2.4 + cellHash(i, 0, 76) * 2.1,
+      phase: cellHash(i, 0, 77) * Math.PI * 2,
+    });
   }
   if (!pockets.length) return null;
 
@@ -266,7 +307,15 @@ function buildFogPockets(minX, minZ, size, material) {
     }
   }
   mesh.instanceMatrix.needsUpdate = true;
-  mesh.computeBoundingSphere();
+  if (bounds) {
+    const half = size / 2;
+    mesh.boundingSphere = new THREE.Sphere(
+      new THREE.Vector3(minX + half, bounds.midY + 3, minZ + half),
+      Math.hypot(half, half) + 18,
+    );
+  } else {
+    mesh.computeBoundingSphere();
+  }
   return { mesh, geometry: plane };
 }
 
@@ -338,7 +387,16 @@ export class ForestTerrain {
     return out;
   }
 
-  #build({ cx, cz, ring }) {
+  /**
+   * Ground now, trees next frame.
+   *
+   * Both halves of a near chunk in one frame is eleven milliseconds — a
+   * dropped frame, and the streamer builds one every few seconds all the way
+   * down the road. Split, neither half is over six, and the only cost is that
+   * a chunk stands bare for one frame at the edge of a fog that has already
+   * taken it.
+   */
+  #build({ cx, cz, ring }, phase = 'all') {
     const minX = cx * CHUNK;
     const minZ = cz * CHUNK;
     const seg = DETAIL[Math.min(ring, DETAIL.length - 1)];
@@ -357,28 +415,46 @@ export class ForestTerrain {
 
     const record = {
       cx, cz, ring, group, geometry, foliage: null, fog: null, trees: 0, colliders: [],
+      /* A far chunk has nothing to dress, so it is born finished. */
+      dressed: ring > TREE_RINGS,
     };
-
-    if (ring <= TREE_RINGS) {
-      const scatter = scatterChunk({ minX, minZ, size: CHUNK });
-      const built = buildFoliage(scatter, {
-        shadows: ring === 0,
-        colliders: this.colliders ? record.colliders : null,
-      });
-      group.add(built.group);
-      record.foliage = built;
-      record.trees = built.trees;
-      this.treeCount += built.trees;
-
-      const fog = buildFogPockets(minX, minZ, CHUNK, this.fogMaterial);
-      if (fog) {
-        group.add(fog.mesh);
-        record.fog = fog;
-      }
-    }
 
     this.group.add(group);
     this.chunks.set(`${cx},${cz}`, record);
+    if (phase === 'all') this.#dress(record);
+    return record;
+  }
+
+  /** The other half: the trees, the deadfall and the fog that lies in it. */
+  #dress(record) {
+    if (record.dressed) return record;
+    record.dressed = true;
+    const minX = record.cx * CHUNK;
+    const minZ = record.cz * CHUNK;
+
+    const scatter = scatterChunk({ minX, minZ, size: CHUNK });
+    /* The chunk's own extent, handed to the batch builder so it does not have
+     * to walk two hundred instances to rediscover it. `midY` is taken off the
+     * ground the chunk was meshed on. */
+    const bounds = {
+      minX, minZ, size: CHUNK, midY: heightAt(minX + CHUNK / 2, minZ + CHUNK / 2),
+    };
+    const built = buildFoliage(scatter, {
+      shadows: record.ring === 0,
+      detail: record.ring === 0 ? 'near' : 'far',
+      colliders: this.colliders ? record.colliders : null,
+      bounds,
+    });
+    record.group.add(built.group);
+    record.foliage = built;
+    record.trees = built.trees;
+    this.treeCount += built.trees;
+
+    const fog = buildFogPockets(minX, minZ, CHUNK, this.fogMaterial, bounds);
+    if (fog) {
+      record.group.add(fog.mesh);
+      record.fog = fog;
+    }
     if (this.colliders && record.colliders.length) this.#syncColliders();
     return record;
   }
@@ -395,6 +471,10 @@ export class ForestTerrain {
     }
     if (record.fog) record.fog.geometry.dispose();
     this.chunks.delete(`${record.cx},${record.cz}`);
+    /* Take its colliders out with it. A dropped chunk whose boxes are still in
+     * the shared array is a wall in the dark where a tree used to be, and the
+     * only place anybody walks in this scene is the one place it would show. */
+    if (this.colliders && record.colliders.length) this.#syncColliders();
   }
 
   /** Refill the shared collider array in place. */
@@ -416,7 +496,7 @@ export class ForestTerrain {
   prime(focus) {
     this._at = { x: focus.x, z: focus.z };
     for (const want of this.#wantedFor(focus.x, focus.z)) {
-      if (!this.chunks.has(`${want.cx},${want.cz}`)) this.#build(want);
+      if (!this.chunks.has(`${want.cx},${want.cz}`)) this.#build(want, 'all');
     }
     this.undergrowth.update(focus);
     return this;
@@ -450,24 +530,32 @@ export class ForestTerrain {
       if (dropped && this.colliders) this.#syncColliders();
     }
 
-    // Build, up to the budget, nearest ring first.
+    /* Build, up to the budget, nearest ring first. A chunk costs two units of
+     * budget — ground, then trees — and each is charged separately, so a
+     * budget of one is one HALF-chunk a frame and never a whole one. */
     let built = 0;
     while (built < this.budget && this.wanted.length) {
       const want = this.wanted[0];
-      const key = `${want.cx},${want.cz}`;
-      if (this.chunks.has(key)) {
-        const existing = this.chunks.get(key);
-        /* A chunk that has come closer wants more detail and its trees. Drop
-         * and rebuild rather than patch: the geometry is a hundred vertices
-         * and rebuilding it is honest about what changed. */
-        if (existing.ring === want.ring) {
-          this.wanted.shift();
+      const existing = this.chunks.get(`${want.cx},${want.cz}`);
+      if (existing) {
+        if (existing.ring !== want.ring) {
+          /* A chunk that has come closer wants more detail and its trees. Drop
+           * and rebuild rather than patch: the geometry is a hundred vertices
+           * and rebuilding it is honest about what changed. */
+          this.#drop(existing);
+          this.#build(want, 'ground');
+          built++;
           continue;
         }
-        this.#drop(existing);
+        if (!existing.dressed) {
+          this.#dress(existing);
+          built++;
+          continue;
+        }
+        this.wanted.shift();
+        continue;
       }
-      this.#build(want);
-      this.wanted.shift();
+      this.#build(want, 'ground');
       built++;
     }
 
@@ -487,7 +575,7 @@ export class ForestTerrain {
   get pending() {
     return this.wanted.filter((w) => {
       const record = this.chunks.get(`${w.cx},${w.cz}`);
-      return !record || record.ring !== w.ring;
+      return !record || record.ring !== w.ring || !record.dressed;
     }).length;
   }
 

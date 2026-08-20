@@ -35,7 +35,7 @@
  * spur at the end that they park on.
  */
 
-import { nearestRoad, roadLength, roadSamples } from './road.js';
+import { nearestRoad, roadLength } from './road.js';
 
 /* ------------------------------------------------------------------ */
 /* Deterministic value noise                                           */
@@ -196,15 +196,30 @@ function buildTrend() {
   const sum = new Float64Array(n);
   const count = new Uint16Array(n);
 
-  /* Pin every cell the road passes through to the mean road height in it. A
-   * cell can hold several samples on a bend, and averaging them is what keeps
-   * a hairpin from pinning one cell to two different heights. */
-  for (const sample of roadSamples()) {
-    const cx = Math.round((sample.x - TREND.minX) / TREND.cell);
-    const cz = Math.round((sample.z - TREND.minZ) / TREND.cell);
-    if (cx < 0 || cz < 0 || cx >= TREND_W || cz >= TREND_H) continue;
-    const i = cz * TREND_W + cx;
-    sum[i] += sample.y;
+  /* Pin every node the road comes NEAR — not only the ones it passes through.
+   *
+   * The first version pinned a node only if a road sample rounded onto it,
+   * which on an eight-metre grid is one node every few samples. Between them
+   * the relaxation sagged toward the unpinned country either side, so the
+   * trend ran a metre and a half BELOW its own road: the whole track ended up
+   * standing on an embankment nobody built, with a hundred-and-seventy-five
+   * per cent fill slope down off both shoulders, and the headlights pointed
+   * straight at it.
+   *
+   * A road is graded into the land on a bench. Pinning the bench — every node
+   * within about a cell of the road, at the height of the road beside it — is
+   * both the honest model and the thing that makes the shoulders gentle,
+   * because there is then almost nothing for the grading blend to absorb.
+   */
+  const PIN_RADIUS = 7;
+  for (let i = 0; i < n; i++) {
+    const cx = i % TREND_W;
+    const cz = (i - cx) / TREND_W;
+    const x = TREND.minX + cx * TREND.cell;
+    const z = TREND.minZ + cz * TREND.cell;
+    const near = nearestRoad(x, z);
+    if (near.distance > PIN_RADIUS) continue;
+    sum[i] += near.y;
     count[i]++;
   }
   let mean = 0;
@@ -280,7 +295,7 @@ export function trendAt(x, z) {
  * drainage.
  */
 export function corridorHalfWidth(frame) {
-  return frame.paved ? frame.halfWidth + 2.6 : frame.halfWidth * 2.05;
+  return frame.paved ? frame.halfWidth + 4.4 : frame.halfWidth * 2.3;
 }
 
 /**
@@ -380,7 +395,25 @@ function reliefAt(frame, x, z) {
    * roadside and flattens the term out once it has done its job. */
   const reach = 20;
   const tilt = noise2(frame.s * 0.006, 11.5) * 0.34;
-  let h = tilt * Math.tanh(frame.offset / reach) * reach * ramp(d, 2, 26);
+  /* AND IT HAS TO DIE OUT BEFORE THE MEDIAL AXIS.
+   *
+   * Both `frame.s` and `frame.offset` are properties of the NEAREST road, and
+   * the route folds — so halfway between two legs they both jump: the
+   * arclength to a different part of the road, and the offset to the other
+   * side of it. Any term built on them is discontinuous along that line.
+   * Ramped merely UP with distance this one was worth six metres out there,
+   * and the jump across the line was a three-metre step in the ground with
+   * trees standing in mid-air over it, thirty-five metres from a road nobody
+   * would have thought to look at.
+   *
+   * So the cross-slope is a ROADSIDE feature and is written as one: it comes
+   * in over the first few metres, does its work in the cut-bank zone, and is
+   * gone by sixteen — comfortably inside the seventeen and a half metres that
+   * `minimumLegSeparation()` guarantees for the medial axis. Everything
+   * further out is the trend and the noise, both of which are continuous
+   * everywhere by construction. */
+  const tiltReach = ramp(d, 1.5, 5) * (1 - ramp(d, 8, 16));
+  let h = tilt * Math.tanh(frame.offset / reach) * reach * tiltReach;
 
   // Ridges: the shape of the country. Only felt properly away from the road.
   h += noise2(x * 0.0075, z * 0.0075) * 8.0 * ramp(d, 8, 70);
@@ -406,7 +439,14 @@ function reliefAt(frame, x, z) {
  */
 export function hollowAt(x, z) {
   const n = noise2(x * 0.011 + 40.3, z * 0.011 - 17.9);
-  return smootherstep(clamp01((n - 0.18) / 0.55));
+  /* Tuned so that a good half of the forest is in a dip of some sort. The
+   * first pass wanted `n` over 0.18 before anything counted as a hollow at
+   * all, which this noise almost never reaches — so the ground had no basins
+   * in it, the fog pockets that sit in basins never appeared anywhere in the
+   * whole drive, and the one atmospheric effect the scene was built around was
+   * silently absent. Broad and shallow is the shape wanted: uneven ground with
+   * damp in the low bits, not a landscape of craters. */
+  return smootherstep(clamp01((n + 0.02) / 0.5));
 }
 
 /**
@@ -442,6 +482,21 @@ export function roadSurfaceHeight(frame) {
 }
 
 /**
+ * How far the grading blend may ever reach, in metres.
+ *
+ * Hard-capped, and the cap is not a taste judgement. `roadSurfaceHeight` is a
+ * property of the NEAREST road, so it jumps where two legs are equidistant —
+ * and anything multiplied by it has to be zero by then or the jump becomes a
+ * cliff. `minimumLegSeparation()` guarantees the medial axis is never closer
+ * than seventeen and a half metres, so thirteen is safe with margin, and the
+ * inside of the tightest bend (a fifteen-metre radius) clears it too.
+ *
+ * Raising this to let the blend swallow a bigger drop is exactly the mistake
+ * that put a three-and-a-half-metre step through the woods at s = 196.
+ */
+const BLEND_LIMIT = 13;
+
+/**
  * Ground height at a point, with the road blended in.
  *
  * @param {number} x
@@ -454,10 +509,34 @@ export function heightAt(x, z, frame = roadFrame(x, z)) {
   const road = roadSurfaceHeight(frame);
 
   /* Grade the road in. Full weight across the carriageway, feathering out over
-   * a road's width of verge — which is what turns the difference between the
-   * road and the hillside into a cut bank on one side and a shoulder that
-   * falls away on the other, without either of them being authored. */
-  const w = 1 - ramp(frame.distance, hw * 0.9, hw * 2.3);
+   * the verge — which is what turns the difference between the road and the
+   * hillside into a cut bank on one side and a shoulder that falls away on the
+   * other, without either of them being authored.
+   *
+   * THE BLEND IS AS LONG AS IT NEEDS TO BE, AND NOT LONGER.
+   *
+   * Two things pull against each other here. It should finish INSIDE the road
+   * corridor, because the ribbon is drawn at half-metre resolution and the
+   * ground beside it at three, so any curvature left outside the ribbon is
+   * curvature a terrain triangle will cut the corner of and stand up through
+   * the road. But it also has to absorb whatever the difference is between the
+   * road and the hillside — and on the switchback, where the track runs along
+   * the top of a bank twenty-two metres above the road it passed ten minutes
+   * ago, a fixed blend was forcing that whole drop through a metre and a
+   * quarter of shoulder. A three-hundred-and-seventy-per-cent bank. Not a
+   * bank: a wall, and one the headlights point straight at.
+   *
+   * So the blend is the corridor's width normally — the poke-safe case, which
+   * is nearly everywhere — and stretches beyond it only where the drop demands
+   * it, capping the shoulder at about two in three. Out there the ground is a
+   * long even slope, which is the one shape a coarse triangle CAN follow.
+   */
+  const drop = Math.abs(base - road);
+  const blendEnd = Math.max(
+    corridorHalfWidth(frame) * 0.72,
+    Math.min(BLEND_LIMIT, drop * 1.5),
+  );
+  const w = 1 - ramp(frame.distance, hw * 0.85, blendEnd);
   let h = lerp(base, road, w);
 
   /* The ditch. Both sides, deeper where the track is unpaved, and it is what
@@ -558,7 +637,7 @@ export function surfaceAt(x, z, frame = roadFrame(x, z)) {
   }
 
   // Forest floor, from here to the fog.
-  if (hollowAt(x, z) > 0.76 && landSlopeAt(x, z) < 0.16) return SURFACE.BOG;
+  if (hollowAt(x, z) > 0.9 && landSlopeAt(x, z) < 0.14) return SURFACE.BOG;
   if (landSlopeAt(x, z) > 0.5 && hashAt(x, z, 3) > 0.45) return SURFACE.ROCK;
   if (noise2(x * 0.085 + 3.1, z * 0.085 - 8.7) > 0.06) return SURFACE.FERN;
   return SURFACE.DUFF;
@@ -597,8 +676,12 @@ export function treeDensityAt(x, z, frame = roadFrame(x, z)) {
    * three metres. */
   const stage = 0.016 + 0.114 * smootherstep(clamp01((progress - 0.06) / 0.72));
 
-  // Closing in: the last stretch has trees right up to the mud.
-  const edge = ramp(frame.distance - clear, 0, 14 - 9 * progress);
+  /* Closing in. Fourteen metres of thinning at the edge of town, two and a
+   * half by the deep woods — which is what puts trunks within arm's reach of
+   * the wing mirror on the last stretch. At `14 - 9 * progress` the ramp was
+   * still six metres wide at the end and the track ran down the middle of a
+   * clearing. */
+  const edge = ramp(frame.distance - clear, 0, 14 - 11.5 * progress);
 
   /* Clumps and clearings, because a forest with an even density reads as an
    * orchard. The low band is where the fog pockets and the bracken go. */
@@ -613,10 +696,39 @@ export function treeDensityAt(x, z, frame = roadFrame(x, z)) {
 
   /* And nothing grows on the spur, or on the trail out of it. Folded in here
    * rather than special-cased in the scatter so the rocks, the deadfall and
-   * the fog pockets all get the same answer from one place. */
-  const open = (1 - clearingWeight(x, z)) * (1 - trailWeight(x, z));
+   * the fog pockets all get the same answer from one place.
+   *
+   * The clearance is WIDER than the flattening. The rim of the pad drops two
+   * metres over five, which a three-metre terrain triangle cuts the corner of
+   * by most of a metre — so a tree planted on the rim at its true height
+   * stands clear of the ground that is actually drawn. Keeping the trees off
+   * the rim entirely is the fix, and it costs a slightly bigger clearing,
+   * which is not a cost. */
+  const open = clearGroundAt(x, z);
 
   return stage * edge * clump * wet * steep * open;
+}
+
+/**
+ * Ground that has been kept clear: the spur, and the trail out of it.
+ *
+ * 1 in the forest, 0 on either. Asked by everything that puts something on the
+ * ground — trees, rocks, deadfall, stumps — so that all four agree about where
+ * the clearing is and none of them has its own idea.
+ *
+ * The clearance is WIDER than the flattening in `heightAt`. The rim of the pad
+ * drops two metres over five, which a three-metre terrain triangle cuts the
+ * corner of by most of a metre — so anything placed on the rim at its true
+ * height stands clear of the ground that is actually drawn. Keeping the rim
+ * empty is the fix, and a slightly bigger clearing is not a cost.
+ */
+export function clearGroundAt(x, z) {
+  const rim = ramp(
+    Math.hypot(x - CLEARING.x, z - CLEARING.z),
+    CLEARING.radius * 0.5,
+    CLEARING.radius * 1.2,
+  );
+  return rim * (1 - trailWeight(x, z));
 }
 
 /**
@@ -653,7 +765,11 @@ export function trailWeight(x, z) {
 
 /** Ferns, bracken and deadfall per square metre, for the detail ring. */
 export function undergrowthAt(x, z, frame = roadFrame(x, z)) {
-  if (frame.distance < frame.halfWidth * 1.15) return 0;
+  /* Outside the corridor and outside the band the terrain mesh is sunk over —
+   * bracken planted on `heightAt` inside that band hangs in the air above the
+   * ground that is actually drawn. Same trap as the trees, one metre tall
+   * instead of ten, and just as visible in a headlight. */
+  if (frame.distance < corridorHalfWidth(frame) * 1.06) return 0;
   const progress = clamp01(frame.s / roadLength());
   const base = 0.5 + 0.5 * progress;
   const patch = clamp01(noise2(x * 0.075 + 12.1, z * 0.075 - 4.4) + 0.55);

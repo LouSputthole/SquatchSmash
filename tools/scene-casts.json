@@ -516,6 +516,26 @@
       ],
       "sceneVoiceExemptions": {},
       "notes": "Every prefix here except vo.margo.* is exclusively the player's own muttering (voice 'player', globally exempt -- see the checker). Margo is built once per campaign load in apartment.js ('Built in every chapter and shown by the cutscene') and shown/hidden by chapter, not rebuilt per scene."
+    },
+    {
+      "id": "special-meeting",
+      "label": "THE SPECIAL MEETING",
+      "cuePrefixes": [
+        "vo.specialmeeting."
+      ],
+      "sourceFiles": [
+        "src/specialmeeting/cast.js",
+        "src/specialmeeting/script.js",
+        "src/specialmeeting/ride.js"
+      ],
+      "staged": [
+        "seff",
+        "lag",
+        "numbskull",
+        "kittenboss"
+      ],
+      "sceneVoiceExemptions": {},
+      "notes": "Four bodies, all four built by buildSpecialMeetingCast() in src/specialmeeting/cast.js and all four on screen: Seff at the wheel, Lag in the front passenger seat and then behind the driver, Numbskull holding the front door and then directly behind the Prospect, and Kittenboss in the boot until SM-410 pops it. Booskibro speaks in this scene and has NO body in it -- he is a phone call and nothing else -- but his cues are minted on vo.call.booski.special_meeting.*, which the global vo.call.* exemption already covers, so he needs no entry here. Kittenboss is uncast: his lines play as subtitles over silence until the owner supplies an ElevenLabs id."
     }
   ]
 }

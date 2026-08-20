@@ -1,0 +1,58 @@
+/**
+ * THE SPECIAL MEETING — the two pieces of screen this scene owns.
+ *
+ * `#blackout` already exists in `src/style.css` as a 1.4-second dissolve, which
+ * is the right thing for going home and the wrong thing here: SM-196 is a CUT,
+ * hard, on a car that has been driving for five seconds in total silence, and
+ * the road noise carries on underneath it. `.cut` takes the transition off so
+ * the picture stops rather than fades. SM-197 puts a duration back on, long, so
+ * the dirt road arrives slowly.
+ */
+#blackout.cut { transition-duration: 0s; }
+
+/**
+ * The replies.
+ *
+ * Bottom left, small, numbered, and deliberately undecorated. Nobody in this
+ * car is rushing him and the interface should not either: there is no timer
+ * bar, no highlight, and nothing that reads as a warning. He can stand on the
+ * pavement with the door open for as long as he likes.
+ */
+#choices {
+  position: fixed;
+  left: 26px;
+  bottom: 92px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(46ch, 60vw);
+}
+#choices.hidden { display: none; }
+#choices button {
+  appearance: none;
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #ded7c6;
+  background: rgba(8, 9, 12, 0.72);
+  border: 1px solid rgba(222, 215, 198, 0.18);
+  border-radius: 3px;
+  padding: 7px 11px 7px 9px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+#choices button:hover,
+#choices button:focus-visible {
+  background: rgba(20, 22, 27, 0.86);
+  border-color: rgba(222, 215, 198, 0.4);
+  outline: none;
+}
+#choices button b {
+  display: inline-block;
+  min-width: 1.2em;
+  margin-right: 8px;
+  color: #8d8674;
+  font-weight: 600;
+}

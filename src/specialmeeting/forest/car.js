@@ -68,8 +68,26 @@ export const SEATS = Object.freeze({
  * road gets longer while the trees at the edge of it go dark.
  */
 const DECAY = 1.8;
-const DIPPED = Object.freeze({ intensity: 300, distance: 70, angle: 0.42 });
-const MAIN = Object.freeze({ intensity: 430, distance: 96, angle: 0.33 });
+/**
+ * `aim` is where the beam is pointed, relative to the lamp: `ahead` metres
+ * forward, `drop` metres down, `out` metres toward the kerb.
+ *
+ * These are angles in disguise and the angles are the point. A lamp a metre off
+ * the ground aimed two degrees down puts its hotspot thirty metres away, which
+ * is what a dipped beam does. Aimed at a target three metres down and thirty
+ * ahead — six and a half degrees, which is what "point it at the road" gets you
+ * if you write the numbers without checking — the hotspot lands nine metres out
+ * and the car drives around inside a puddle of its own light with blackness
+ * beyond it.
+ */
+const DIPPED = Object.freeze({
+  intensity: 300, distance: 70, angle: 0.32,
+  aim: { ahead: 55, drop: 1.9, out: 2.6 }, beam: 27,
+});
+const MAIN = Object.freeze({
+  intensity: 430, distance: 96, angle: 0.24,
+  aim: { ahead: 90, drop: 2.2, out: 1.4 }, beam: 40,
+});
 
 /**
  * Build the car.
@@ -338,9 +356,10 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
      * Angle and penumbra are a real dipped beam: about twenty-four degrees,
      * soft at the edge, and aimed a little down and a little to the kerb. */
     const spot = new THREE.SpotLight(0xfff0d2, DIPPED.intensity, DIPPED.distance,
-      DIPPED.angle, 0.55, DECAY);
+      DIPPED.angle, 0.6, DECAY);
     spot.position.set(shape.L / 2 - 0.1, lampY, z);
-    spot.target.position.set(shape.L / 2 + 30, lampY - 3.4, z + side * 2.2);
+    spot.target.position.set(shape.L / 2, lampY, z);
+    spot.userData.side = side;
     spot.castShadow = shadows && side < 0;
     if (spot.castShadow) {
       spot.shadow.mapSize.set(1024, 1024);
@@ -360,9 +379,9 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
      * the difference between headlights and two bright spots on the ground. */
     const beam = new THREE.Mesh(beamGeo, beamMat);
     beam.name = 'lincoln.beam';
-    beam.position.set(shape.L / 2 + 13, lampY - 1.2, z + side * 0.9);
-    beam.rotation.z = Math.PI / 2 + 0.085;
-    beam.scale.set(4.4, 27, 4.4);
+    beam.userData.side = side;
+    beam.userData.lampY = lampY;
+    beam.userData.z = z;
     beam.castShadow = false;
     beam.renderOrder = 3;
     group.add(beam);
@@ -387,6 +406,14 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
     (child) => child.isMesh && child.geometry?.type === 'CylinderGeometry'
       && child.geometry.parameters?.radiusTop === shape.wheelR,
   );
+  if (wheels.length !== 4) {
+    throw new Error(
+      `Special Meeting: found ${wheels.length} wheels on the Lincoln, not 4 — `
+      + 'the shell in src/bing/vehicles.js has changed shape and the lookup below it '
+      + 'no longer matches. A car with static wheels reads as a prop being slid '
+      + 'along the ground, which is exactly what it is.',
+    );
+  }
   for (const wheel of wheels) {
     wheel.name = 'lincoln.wheel';
     wheel.material = rubber;
@@ -395,17 +422,35 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
   const state = { lit: true, main: false };
   function applyLamps() {
     const profile = state.main ? MAIN : DIPPED;
+    const droop = Math.atan2(profile.aim.drop, profile.aim.ahead);
     for (const spot of spots) {
+      const side = spot.userData.side;
       spot.intensity = state.lit ? profile.intensity : 0;
       spot.angle = profile.angle;
       spot.distance = profile.distance;
+      spot.target.position.set(
+        spot.position.x + profile.aim.ahead,
+        spot.position.y - profile.aim.drop,
+        spot.position.z + side * profile.aim.out,
+      );
+      spot.target.updateMatrix();
     }
     for (const beam of beams) {
       beam.visible = state.lit;
-      const reach = state.main ? 38 : 27;
-      const spread = state.main ? 3.8 : 4.4;
+      const reach = profile.beam;
+      const spread = state.main ? 3.6 : 4.6;
       beam.scale.set(spread, reach, spread);
-      beam.position.x = car.length / 2 + reach * 0.48;
+      /* The cone's own tip is on its +Y. Turned a quarter turn about Z that
+       * axis lands on −X, which puts the TIP at the lamp and the mouth of the
+       * cone out in front — and the quarter turn is short by the droop, so the
+       * mouth is the part that drops. A quarter turn PLUS the droop tips the
+       * far end up into the trees instead, which is a searchlight. */
+      beam.rotation.set(0, 0, Math.PI / 2 - droop);
+      beam.position.set(
+        car.length / 2 + Math.cos(droop) * reach * 0.5,
+        beam.userData.lampY - Math.sin(droop) * reach * 0.5,
+        beam.userData.z + beam.userData.side * 0.9,
+      );
     }
     for (const lens of headlamps) {
       lens.material.color.setHex(state.lit ? 0xfff2cf : 0x2a2822);

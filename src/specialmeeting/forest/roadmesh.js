@@ -113,10 +113,56 @@ function buildRibbon(fromS, toS, material, name) {
     }
   }
 
+  /* Skirts down both long edges.
+   *
+   * The chunked ground beside the road is meshed at three metres and this is
+   * meshed at half of one, so at the seam between them the coarse mesh cuts
+   * the corner of every bank and stands a little above the fine one. A skirt
+   * turns that from a hole into an overlap: the verge simply meets the edge of
+   * the road slightly high, which is what a verge does. Same fix, same reason
+   * and same shape as the one in `terrain.js`.
+   */
+  const skirtBase = rows * ACROSS;
+  const skirt = new Float32Array(rows * 2 * 3);
+  const skirtColour = new Float32Array(rows * 2 * 3);
+  const skirtUv = new Float32Array(rows * 2 * 2);
+  for (let r = 0; r < rows; r++) {
+    for (let side = 0; side < 2; side++) {
+      const src = r * ACROSS + (side === 0 ? 0 : ACROSS - 1);
+      const w = r * 2 + side;
+      skirt[w * 3] = positions[src * 3];
+      skirt[w * 3 + 1] = positions[src * 3 + 1] - 1.6;
+      skirt[w * 3 + 2] = positions[src * 3 + 2];
+      skirtColour[w * 3] = colours[src * 3] * 0.6;
+      skirtColour[w * 3 + 1] = colours[src * 3 + 1] * 0.6;
+      skirtColour[w * 3 + 2] = colours[src * 3 + 2] * 0.6;
+      skirtUv[w * 2] = uvs[src * 2];
+      skirtUv[w * 2 + 1] = uvs[src * 2 + 1];
+    }
+  }
+  const allPositions = new Float32Array(positions.length + skirt.length);
+  allPositions.set(positions);
+  allPositions.set(skirt, positions.length);
+  const allColours = new Float32Array(colours.length + skirtColour.length);
+  allColours.set(colours);
+  allColours.set(skirtColour, colours.length);
+  const allUvs = new Float32Array(uvs.length + skirtUv.length);
+  allUvs.set(uvs);
+  allUvs.set(skirtUv, uvs.length);
+  for (let r = 0; r < rows - 1; r++) {
+    for (let side = 0; side < 2; side++) {
+      const top0 = r * ACROSS + (side === 0 ? 0 : ACROSS - 1);
+      const top1 = (r + 1) * ACROSS + (side === 0 ? 0 : ACROSS - 1);
+      const low0 = skirtBase + r * 2 + side;
+      const low1 = skirtBase + (r + 1) * 2 + side;
+      indices.push(top0, low0, top1, top1, low0, low1);
+    }
+  }
+
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colours, 3));
-  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geometry.setAttribute('position', new THREE.BufferAttribute(allPositions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(allColours, 3));
+  geometry.setAttribute('uv', new THREE.BufferAttribute(allUvs, 2));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
@@ -339,7 +385,12 @@ function buildStreetlights(group, materials, lights) {
        * and the underside of a tree, and that is all it is allowed to do — a
        * generous one would light the forest and give away that there is
        * nothing in it. */
-      const light = new THREE.PointLight(0xffb765, 9.5, 22, 2.1);
+      /* Fifty-five candela with a square-law falloff puts about a quarter of a
+       * unit on the road seven metres under the lamp, which reads as a sodium
+       * light. Under ten — the number you write if you think of intensity as a
+       * brightness dial rather than as the top of a curve — the lamp is lit and
+       * the road under it is not. */
+      const light = new THREE.PointLight(0xffb765, 55, 26, 2.1);
       light.position.set(-lamp.side * 1.45, 7.0, 0);
       light.castShadow = false;
       post.add(light);
@@ -565,8 +616,16 @@ export function buildRoadMesh(parent) {
 
   const tarmacMap = tiled(tarmacTexture(), 1, 1);
   const dirtMap = tiled(dirtTexture(), 1, 1);
-  const tarmacMat = new THREE.MeshLambertMaterial({ map: tarmacMap, vertexColors: true });
-  const dirtMat = new THREE.MeshLambertMaterial({ map: dirtMap, vertexColors: true });
+  /* Double sided for the skirt's sake, exactly as the ground chunks are: the
+   * band hanging off each edge is only ever seen through the seam it exists to
+   * fill, and getting four winding orders right by hand for geometry nobody
+   * will knowingly look at is not a good use of an afternoon. */
+  const tarmacMat = new THREE.MeshLambertMaterial({
+    map: tarmacMap, vertexColors: true, side: THREE.DoubleSide,
+  });
+  const dirtMat = new THREE.MeshLambertMaterial({
+    map: dirtMap, vertexColors: true, side: THREE.DoubleSide,
+  });
   materials.push(tarmacMat, dirtMat);
 
   const dirtStart = stageStartS('dirt');

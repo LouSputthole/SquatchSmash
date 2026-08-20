@@ -316,9 +316,28 @@ export function cruiseSpeedAt(s) {
  * guaranteed to be answered exactly, which covers every query whose exact
  * value is used: the corridor, the grading and the tree clearance are all
  * inside eight. */
+/* The sample positions again, flat.
+ *
+ * The exact fallback scans every sample, and reading `SAMPLES[i].x` off four
+ * hundred ten-field objects is a cache miss per sample — measured at seventy
+ * nanoseconds each, which turned an exact query into twenty-two microseconds
+ * and a chunk build into seven milliseconds. Two typed arrays make the same
+ * scan about half a microsecond. */
+const SX = new Float64Array(SAMPLES.length);
+const SZ = new Float64Array(SAMPLES.length);
+for (let i = 0; i < SAMPLES.length; i++) {
+  SX[i] = SAMPLES[i].x;
+  SZ[i] = SAMPLES[i].z;
+}
+
 const CELL = 12;
 const GRID = new Map();
-const key = (cx, cz) => `${cx},${cz}`;
+/* NUMERIC keys, not `${cx},${cz}`. A far query walks up to twenty-five cells
+ * and a string key means twenty-five template-literal allocations and twenty-
+ * five string hashes per call — which, at a hundred thousand calls a chunk
+ * row, was most of the cost of building a chunk. The offset keeps both halves
+ * positive over a map that runs to a few hundred metres either way. */
+const key = (cx, cz) => (cx + 4096) * 8192 + (cz + 4096);
 for (let i = 0; i < SAMPLES.length; i++) {
   const cx = Math.floor(SAMPLES[i].x / CELL);
   const cz = Math.floor(SAMPLES[i].z / CELL);
@@ -336,7 +355,9 @@ function refine(x, z, seed) {
   const lo = Math.max(0, seed - 3);
   const hi = Math.min(SAMPLES.length - 1, seed + 3);
   for (let i = lo; i <= hi; i++) {
-    const d2 = (SAMPLES[i].x - x) ** 2 + (SAMPLES[i].z - z) ** 2;
+    const dx = SX[i] - x;
+    const dz = SZ[i] - z;
+    const d2 = dx * dx + dz * dz;
     if (d2 < bestD2) { bestD2 = d2; bestIndex = i; }
   }
   /* Project onto the segment either side of the winner so the answer is a
@@ -364,34 +385,52 @@ function refine(x, z, seed) {
  * Returns the full road record — position, heading, half-width, stage, `s` —
  * plus `distance`, which is how far off the road the query point is.
  */
+/**
+ * Nearest point on the road to (x, z).
+ *
+ * Returns the full road record — position, heading, half-width, stage, `s` —
+ * plus `distance`, which is how far off the road the query point is.
+ *
+ * THE ANSWER IS EXACT, AND IT HAS TO BE.
+ *
+ * The grid is a fast path, not the algorithm. Scanning a fixed neighbourhood
+ * and trusting whatever it found is wrong whenever the true nearest leg is
+ * outside that neighbourhood and some OTHER leg is inside it — which the
+ * folded route makes common. It answered a point twenty-seven metres from the
+ * deep-woods track with a rural road forty-two metres away, and because
+ * neighbouring query points disagreed about which leg had won, the ground
+ * built on it had a metre-high cliff down the middle of the forest.
+ *
+ * So the neighbourhood result is only accepted when it PROVES itself: a hit
+ * within one cell of the query cannot be beaten by anything outside the nine
+ * cells already searched. Anything else falls through to a full scan of four
+ * hundred samples, which is a microsecond and a half and is never wrong.
+ */
 export function nearestRoad(x, z) {
   const cx = Math.floor(x / CELL);
   const cz = Math.floor(z / CELL);
   let seed = -1;
   let seedD2 = Infinity;
-  /* The 3x3 neighbourhood is searched WHOLE rather than shell by shell,
-   * because a point near a cell edge has its nearest road sample in the next
-   * cell along and a first-hit-wins ring walk would answer with the wrong one.
-   * Nine cells at twenty metres covers everything inside twenty metres of the
-   * road, which is every query whose exact answer matters. */
-  for (let ring = 1; ring <= 3 && seed < 0; ring++) {
-    for (let ox = -ring; ox <= ring; ox++) {
-      for (let oz = -ring; oz <= ring; oz++) {
-        const bucket = GRID.get(key(cx + ox, cz + oz));
-        if (!bucket) continue;
-        for (const i of bucket) {
-          const d2 = (SAMPLES[i].x - x) ** 2 + (SAMPLES[i].z - z) ** 2;
-          if (d2 < seedD2) { seedD2 = d2; seed = i; }
-        }
+  for (let ox = -2; ox <= 2; ox++) {
+    for (let oz = -2; oz <= 2; oz++) {
+      const bucket = GRID.get(key(cx + ox, cz + oz));
+      if (!bucket) continue;
+      for (const i of bucket) {
+        const dx = SX[i] - x;
+        const dz = SZ[i] - z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < seedD2) { seedD2 = d2; seed = i; }
       }
     }
   }
-  if (seed < 0) {
-    /* Well off the road — the far side of the forest, or the horizon. Nothing
-     * out there needs a metre-accurate answer, only a stage and a rough
-     * distance, so a coarse scan is both enough and cheap. */
-    for (let i = 0; i < SAMPLES.length; i += 11) {
-      const d2 = (SAMPLES[i].x - x) ** 2 + (SAMPLES[i].z - z) ** 2;
+  /* Proof: a sample within CELL metres differs by at most one cell index on
+   * each axis, so the 3x3 (inside the 5x5 just searched) contained it. */
+  if (seed < 0 || seedD2 > CELL * CELL) {
+    seedD2 = Infinity;
+    for (let i = 0; i < SX.length; i++) {
+      const dx = SX[i] - x;
+      const dz = SZ[i] - z;
+      const d2 = dx * dx + dz * dz;
       if (d2 < seedD2) { seedD2 = d2; seed = i; }
     }
   }

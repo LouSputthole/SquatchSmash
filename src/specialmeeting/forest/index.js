@@ -78,6 +78,13 @@ import { ForestTerrain } from './terrain.js';
  *        shadows. Omit and the caller keeps its own renderer settings.
  * @param {object} [options.player] the core `Player`. Given one, the
  *        passenger seat is wired and `board()` puts him in it.
+ * @param {object} [options.car] the car to drive. THE FINISHED SCENE SHOULD
+ *        PASS ONE: the block outside the flat builds the Lincoln the player
+ *        watches pull up and gets into (`../sedan.js`), and it has to be the
+ *        same car that arrives in the woods — wrap it with
+ *        `adaptMeetingSedan()` from `./sedan-adapter.js` and hand it in.
+ *        Omitted, this builds its own, which is right for a preview page or a
+ *        headless harness and wrong for the campaign.
  * @param {THREE.Box3[]} [options.colliders] a live array for the walk at the
  *        far end. Kept in place, never replaced.
  * @param {(id: string) => void} [options.onNode] the script's beats.
@@ -91,6 +98,7 @@ export function createNightForestRoad({
   scene,
   renderer = null,
   player = null,
+  car: injectedCar = null,
   colliders = null,
   onNode = null,
   onJolt = null,
@@ -117,7 +125,15 @@ export function createNightForestRoad({
   const clearing = buildClearing(group, { colliders });
 
   onProgress?.('The car…');
-  const car = buildNightSedan(group, { shadows });
+  const car = injectedCar ?? buildNightSedan(group, { shadows });
+  const ownsCar = !injectedCar;
+  /* An injected car is borrowed, not taken. It is re-parented under the forest
+   * so one `remove` takes the whole scene away, and put back where it came
+   * from on the way out — the block still needs it after the drive, and a
+   * borrowed car quietly deleted at teardown is the sort of thing that shows
+   * up two scenes later as nothing at the kerb. */
+  const carHome = injectedCar ? injectedCar.group.parent : null;
+  if (injectedCar && carHome !== group) group.add(injectedCar.group);
 
   const drive = new ForestDrive(car, {
     onNode: (id) => {
@@ -292,7 +308,13 @@ export function createNightForestRoad({
 
     dispose() {
       clearing.dispose();
+      /* An injected car belongs to whoever built it — the block, which still
+       * needs it after the drive. Only the lamps this subtree bolted on go. */
       car.dispose();
+      if (!ownsCar) {
+        group.remove(car.group);
+        carHome?.add(car.group);
+      }
       terrain.dispose();
       roadMesh.dispose();
       night.dispose();
@@ -312,6 +334,7 @@ export function createNightForestRoad({
  * preview page, a geometry harness, or the block outside the flat, which
  * should build the SAME car rather than a second one that looks like it. */
 export { buildNightSedan, SEATS } from './car.js';
+export { adaptMeetingSedan } from './sedan-adapter.js';
 export { ForestDrive } from './driver.js';
 export { PassengerRig, CREW_SEATS, LOOK_CONE } from './passenger.js';
 export { applyForestNight, FOG_BY_STAGE } from './night.js';
