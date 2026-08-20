@@ -53,7 +53,8 @@ jobs:
           cp index.html bing.html squatchfather.html motel.html beefrun.html \
              graveyard.html nowake.html silver.html golf.html heist.html initiation.html \
              silvercase.html mansion.html mansion-siege.html enolasquatch.html \
-             cartel-palace.html preview.html roster.html wardrobe.html combatlab.html _site/
+             cartel-palace.html specialmeeting.html preview.html roster.html \
+             wardrobe.html combatlab.html _site/
           cp -r src vendor assets game lib _site/
           test -f _site/nowake.html
           test -f _site/graveyard.html
@@ -65,6 +66,7 @@ jobs:
           test -f _site/enolasquatch.html
           test -f _site/cartel-palace.html
           test -f _site/combatlab.html
+          test -f _site/specialmeeting.html
           test -f _site/src/nowake/main.js
           test -f _site/src/graveyard/main.js
           test -f _site/src/heist/main.js
@@ -75,6 +77,7 @@ jobs:
           test -f _site/src/enolasquatch/main.js
           test -f _site/src/cartel-palace/main.js
           test -f _site/src/combatlab/main.js
+          test -f _site/src/specialmeeting/main.js
           test -f _site/lib/jsm/postprocessing/EffectComposer.js
           test -f _site/lib/jsm/postprocessing/UnrealBloomPass.js
           grep -q 'src/nowake/main.js' _site/nowake.html
@@ -82,6 +85,7 @@ jobs:
           grep -q 'src/mansion/siege/main.js' _site/mansion-siege.html
           grep -q 'src/cartel-palace/main.js' _site/cartel-palace.html
           grep -q 'src/combatlab/main.js' _site/combatlab.html
+          grep -q 'src/specialmeeting/main.js' _site/specialmeeting.html
           grep -q '../../lib/jsm/postprocessing/EffectComposer.js' _site/src/initiation/main.js
           node tools/verify-pages-routes.mjs _site
           echo "Staged $(du -sh _site | cut -f1)"

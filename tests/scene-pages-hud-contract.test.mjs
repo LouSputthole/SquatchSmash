@@ -99,3 +99,30 @@ test('every page that builds a Hud carries every element the Hud dereferences', 
   assert.deepEqual(broken, [],
     'these pages construct a Hud that will throw on them, so the scene cannot open at all');
 });
+
+/**
+ * EVERY PAGE AT THE ROOT HAS TO BE IN THE DEPLOY.
+ *
+ * The Special Meeting's second half. Once the page carried its HUD furniture
+ * and booted, the site still did not have it: `.github/workflows/pages.yml`
+ * copies the scene pages into `_site` BY NAME, and a page nobody adds to that
+ * `cp` line is simply not published. `tools/verify-pages-routes.mjs` caught
+ * the 404 — on the runner, in the deploy step, AFTER `npm test` had gone
+ * green, which failed the whole job and skipped the upload.
+ *
+ * So three runs of the deploy went red and the owner played an old build the
+ * entire time, because the only thing that knew about the new page was a step
+ * that runs after the suite.
+ *
+ * This asserts the same thing at `npm test`: a new `*.html` at the repository
+ * root is in the staging list, or the suite says so before anything is merged.
+ */
+test('the Pages deploy stages every scene page at the repository root', () => {
+  const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/pages.yml'), 'utf8');
+  const staged = new Set([...workflow.matchAll(/([a-z0-9-]+\.html)/g)].map((m) => m[1]));
+  const missing = fs.readdirSync(ROOT)
+    .filter((name) => name.endsWith('.html'))
+    .filter((name) => !staged.has(name));
+  assert.deepEqual(missing, [],
+    `these pages exist but pages.yml never copies them into _site: ${missing.join(', ')}`);
+});
