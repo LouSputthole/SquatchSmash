@@ -36,6 +36,7 @@ const EXPECTED_ADAPTERS = Object.freeze([
   'golf',
   'graveyard',
   'heist',
+  'initiation',
   'mansion',
   'mansion-siege',
   'motel',
@@ -101,7 +102,7 @@ test('geometry registry contains every canonical apartment preview variant', () 
   );
 });
 
-test('geometry registry covers every browser-audit launcher and waives only frozen Initiation', () => {
+test('geometry registry covers every browser-audit launcher, and waives nothing', () => {
   const coverage = geometryLauncherCoverage();
   const auditLauncherIds = SCENE_AUDIT_SCENES.map(({ id }) => id);
 
@@ -114,23 +115,36 @@ test('geometry registry covers every browser-audit launcher and waives only froz
     );
   }
 
-  assert.deepEqual(
-    GEOMETRY_FROZEN_WAIVERS.map(({ launcherId }) => launcherId),
-    ['initiation'],
-  );
+  /* Nothing is waived, and this is the assertion that keeps it that way.
+   *
+   * Initiation was the last entry, on the grounds that it had "no extractable
+   * headless builder". That was true of the old scene, whose geometry was
+   * interleaved with top-level WebGL boot code, and it stopped being true the
+   * day the cabin ceremony was written -- `buildInitiationCabinSite()` needs
+   * neither a page nor a renderer. The waiver outlived its reason by the
+   * length of a rewrite, and nothing re-read it, because a frozen waiver is
+   * the one kind of gate entry that never fails.
+   *
+   * A new one is a decision somebody has to make in a diff, against this line. */
+  assert.deepEqual(GEOMETRY_FROZEN_WAIVERS, []);
   assert.deepEqual(
     coverage.get('initiation'),
-    ['waiver:src/initiation/main.js'],
+    ['initiation:cabin', 'initiation:clearing'],
   );
   assert.deepEqual(
     [...coverage.keys()].sort(),
     [...auditLauncherIds, 'initiation'].sort(),
     'the headless gate must neither omit nor invent public scene launchers',
   );
+  /* The inverse of what this line used to say. It read "frozen Initiation must
+   * not be imported through a geometry Adapter", which was the freeze
+   * defending itself: while it held, the scene could not be audited, and while
+   * it could not be audited nothing could show the freeze was no longer
+   * needed. It is imported, it builds, and it passes. */
   assert.equal(
     GEOMETRY_SCENE_STATES.some(({ launcherIds }) => launcherIds.includes('initiation')),
-    false,
-    'frozen Initiation must not be imported through a geometry Adapter',
+    true,
+    'Initiation is in the gate and must stay there',
   );
 });
 
