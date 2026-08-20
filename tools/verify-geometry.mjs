@@ -424,10 +424,23 @@ function formatMeters(value) {
   return value === null || value === undefined ? 'unbounded' : `${Number(value).toFixed(3)}m`;
 }
 
+/**
+ * Envelope id -> what it is, joined from every worker payload in this run.
+ *
+ * A floating support assembly is reported by the hash of its membership. That
+ * is right for identity and unreadable for a person, so the worker sends the
+ * names alongside the scan and they are put back together here — see the
+ * `envelopeNames` comment in `verify-geometry-worker.mjs` for why they travel
+ * separately rather than through the gate.
+ */
+let envelopeLabels = new Map();
+
 function findingDescription(violation) {
   const finding = violation.finding;
+  const label = finding.kind === 'FLOATING' ? envelopeLabels.get(finding.object) : null;
+  const named = label?.name ? ` [${label.name}]` : '';
   const target = finding.kind === 'FLOATING'
-    ? finding.object
+    ? `${finding.object}${named}`
     : `${finding.left} <> ${finding.right}`;
   const magnitude = finding.kind === 'FLOATING' ? finding.gapM : finding.depthM;
   const cap = violation.code === 'CAP_EXCEEDED' ? ` (cap ${formatMeters(violation.capM)})` : '';
@@ -445,7 +458,11 @@ export async function verifyGeometry({ descriptors, onProgress = () => {} }) {
   for (const [index, descriptor] of descriptors.entries()) {
     onProgress({ index, total: descriptors.length, descriptor });
     try {
-      payloads.push(await runGeometryWorker(descriptor));
+      const payload = await runGeometryWorker(descriptor);
+      for (const [id, label] of Object.entries(payload.envelopeNames ?? {})) {
+        envelopeLabels.set(id, label);
+      }
+      payloads.push(payload);
     } catch (error) {
       workerErrors.push(Object.freeze({ id: descriptor.id, message: error.message }));
     }
