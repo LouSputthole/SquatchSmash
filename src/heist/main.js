@@ -45,7 +45,7 @@ import {
 import { DialogueArbiter } from './dialogue.js';
 import { HeistHud } from './hud.js';
 import { intersectsDrivingObstacle } from './geometry.js';
-import { buildHeistLevel } from './level.js';
+import { STAGING_POINT, buildHeistLevel } from './level.js';
 import { HeistCombatAdapter } from './combat.js';
 import { createLobbyHostages, HostageDirector } from './hostages.js';
 import { HEIST_ITEM_CATALOG, HEIST_SLOT_ORDER, HeistLoadout } from './loadout.js';
@@ -59,7 +59,8 @@ import { PoliceDirector } from './police.js';
 import { SafehousePreparation } from './safehouse.js';
 import { makeHeistViewModel } from './weapons.js';
 import {
-  CREW_FRIENDLY_FIRE_LINES, HOSTAGE_BARKS, PROSPECT_VERB_LINES, dialogueLine,
+  CREW_FRIENDLY_FIRE_LINES, HOSTAGE_BARKS, PROSPECT_VERB_LINES,
+  SNOW_CASUALTY_LADDER, dialogueLine,
   pendingHeistCues, recordedHeistCues,
 } from './script.js';
 
@@ -175,6 +176,31 @@ const playerActor = new CombatActor({
 const combat = new HeistCombatAdapter({ matrix: factionMatrix });
 /** Every combat root answers hits through the resolver, wherever it sits. */
 const combatActorOf = (object, { root }) => root.userData.combatActor;
+
+/**
+ * The node a wound has to hang on: the one a POSE moves.
+ *
+ * The second half of the owner's *"when you shoot the civilians the decals
+ * float in the air. I thought we had implemented the fix for this game
+ * wide?"* — the fix is in `src/world/blood.js`, which attaches a wound to a
+ * caller-chosen anchor and moves it with that anchor forever after. Nothing
+ * in this game supplied one. Without `anchorOf`, `CombatImpactResolver`
+ * falls back to the registered ROOT, and `HeistFigure` deliberately never
+ * touches its root: the root is where the level put the body, and every pose
+ * — kneeling, prone, restrained, fallen — is written onto the `tilt` group
+ * inside it.
+ *
+ * So a customer took a round standing up, wore the wound at chest height,
+ * and then lay down out from under it. The blood stayed at 1.3 m in the air
+ * where a man used to be. Anchored to `tilt`, it goes down with him.
+ */
+const bodyAnchorOf = (object, { root }) => root.userData.figure?.tilt ?? root;
+
+/** Every person in this scene is registered the same way. See `bodyAnchorOf`. */
+const HEIST_BODY_DESCRIPTOR = Object.freeze({
+  actor: combatActorOf,
+  anchorOf: bodyAnchorOf,
+});
 const loadout = new HeistLoadout();
 const viewModel = makeHeistViewModel(camera);
 /** Kept as the name the rest of the file reads: whatever is in Tony's hands. */
@@ -224,12 +250,12 @@ const lobbyGuardActor = new CombatActor({
   id: 'bank_lobby_guard', faction: FACTIONS.POLICE, maxHealth: 38, armor: 0,
 });
 level.phases.bank.interactables.guard.userData.combatActor = lobbyGuardActor;
-combat.register(level.phases.bank.interactables.guard, { actor: combatActorOf });
+combat.register(level.phases.bank.interactables.guard, HEIST_BODY_DESCRIPTOR);
 const rearGuardActor = new CombatActor({
   id: 'bank_rear_guard', faction: FACTIONS.POLICE, maxHealth: 38, armor: 0,
 });
 level.phases.bank.interactables.rearGuard.userData.combatActor = rearGuardActor;
-combat.register(level.phases.bank.interactables.rearGuard, { actor: combatActorOf });
+combat.register(level.phases.bank.interactables.rearGuard, HEIST_BODY_DESCRIPTOR);
 
 /**
  * Everybody in the lobby is now a thing a bullet can find.
@@ -253,13 +279,13 @@ for (const [index, figureRoot] of level.phases.bank.civilians.entries()) {
   /* A hostage may only be reached by a round whose honest trace reaches them:
    * the resolver answers to `resolvePlayerShot`'s first visible hit, so a wall
    * between the muzzle and this figure is a wall, for every caller. */
-  combat.register(figureRoot, { actor: combatActorOf });
+  combat.register(figureRoot, HEIST_BODY_DESCRIPTOR);
 }
 const managerActor = new CombatActor({
   id: 'bank_manager', faction: FACTIONS.CIVILIAN, maxHealth: 40, armor: 0,
 });
 level.phases.bank.interactables.manager.userData.combatActor = managerActor;
-combat.register(level.phases.bank.interactables.manager, { actor: combatActorOf });
+combat.register(level.phases.bank.interactables.manager, HEIST_BODY_DESCRIPTOR);
 
 /** Return a scene-owned actor to the state a fresh bank build gives it. */
 function resetLobbyCombatActor(actor) {
@@ -374,6 +400,9 @@ function refreshObjective(state = machine.state) {
     bagsRecovered: objective.bagsRecovered,
     totalBags: objective.totalBags,
     civilianCasualties: objective.civilianCasualties,
+    /* The lobby sweep. See `noteCustomerDown`. */
+    noWitnesses,
+    witnessesLeft: noWitnesses ? witnessesRemaining() : 0,
   }));
 }
 
@@ -542,7 +571,7 @@ for (const actor of crew.values()) {
     id: `crew_${actor.id}`, faction: FACTIONS.CREW, maxHealth: 100, armor: 40, core: true,
   });
   actor.group.userData.combatActor = actor.combatActor;
-  combat.register(actor.group, { actor: combatActorOf });
+  combat.register(actor.group, HEIST_BODY_DESCRIPTOR);
 }
 
 /**
@@ -1513,6 +1542,70 @@ function sayPooled(pool, key) {
   return lines[index];
 }
 
+/* ------------------------------------------------------------------ *
+ * THE CASUALTY LADDER, AND THE JOB IT TURNS INTO
+ *
+ * Owner: *"SNow repeats the line that is a customer that is the one thing we
+ * dont do. Lets get some more variations of this for the first few you kill
+ * and if you kill 4+ he says okay we are commited now. Do them all. And one
+ * of the objectives turns to make sure there are no witnesses and you have to
+ * whack all the customers."*
+ *
+ * Every civilian death called `say('snow_casualty')` — one line, no cooldown,
+ * no count, for the first body and the eleventh alike. `SNOW_CASUALTY_LADDER`
+ * in `script.js` is what he says instead, indexed by how many are down.
+ *
+ * FOUR IS THE HINGE. At four, the mission stops being a robbery with an
+ * accident in it: `noWitnesses` latches, the order changes to clearing the
+ * room, and the doors will not let the crew out until it is clear. It is a
+ * latch and not a comparison on purpose — a player who reaches four has made
+ * a decision the scene does not then take back for him.
+ * ------------------------------------------------------------------ */
+
+/** How many bodies it takes before there is no version of this that is a robbery. */
+const COMMITTED_CASUALTIES = 4;
+
+let noWitnesses = false;
+let sweepBarkAt = 0;
+
+/** Lobby customers still alive. The manager is not a customer. */
+function witnessesRemaining() {
+  return hostages.hostages.filter((person) => person.state !== 'down').length;
+}
+
+function noteCustomerDown() {
+  const count = objective.civilianCasualties;
+  if (count >= COMMITTED_CASUALTIES && !noWitnesses) {
+    /* The beat. Once, at the fourth, and it interrupts whatever is talking. */
+    noWitnesses = true;
+    sayPooled(SNOW_CASUALTY_LADDER, 'committed');
+    announceObjective('No witnesses. Clear the lobby.');
+    refreshObjective();
+    refreshInteractions();
+    return;
+  }
+  if (!noWitnesses) {
+    sayPooled(SNOW_CASUALTY_LADDER, count <= 1 ? 'first' : (count === 2 ? 'second' : 'third'));
+    refreshObjective();
+    return;
+  }
+  /* Past the hinge he stops objecting and starts counting. Rate-limited, or
+   * a magazine into a crowd becomes Snow narrating each round. */
+  const left = witnessesRemaining();
+  if (left === 0) {
+    sayPooled(SNOW_CASUALTY_LADDER, 'clear');
+    refreshObjective();
+    refreshInteractions();
+    return;
+  }
+  const now = performance.now() / 1000;
+  if (now > sweepBarkAt) {
+    sweepBarkAt = now + 7;
+    sayPooled(SNOW_CASUALTY_LADDER, 'sweep');
+  }
+  refreshObjective();
+}
+
 function hostageFor(object) {
   let node = object;
   while (node) {
@@ -1767,7 +1860,7 @@ function applyPlayerImpactConsequences(located) {
       hostages.fell(person.id);
       syncHostageFigure(person);
       for (const other of hostages.hostages) syncHostageFigure(other);
-      say('snow_casualty');
+      noteCustomerDown();
       /* The witness is not the person who was shot — it is whoever is nearest
        * and still alive, and it is their mouth that has to move. */
       pendingBarkSpeaker = nearestLivingHostageTo(person.id);
@@ -1776,7 +1869,7 @@ function applyPlayerImpactConsequences(located) {
     } else if (result.fatal) {
       objective.civilianCasualties++;
       located.root?.userData.figure?.fallen?.();
-      say('snow_casualty');
+      noteCustomerDown();
     }
     return result;
   }
@@ -1874,6 +1967,21 @@ function setAudioZone(id) {
   audio.startLoop(audioZoneCue, { volume: id === 'safehouse' ? 0.12 : 0.2, ambience: true, fade: 0.8 });
   if (['street', 'garage', 'driving'].includes(id)) {
     audio.startLoop('heist.police.sirens', { volume: 0.16, ambience: true, fade: 0.5 });
+  }
+}
+
+/**
+ * Show the duffles that have reached the circle by the doors.
+ *
+ * The vault's own bags go away as they are carried out, so eight bags in a
+ * vault becomes eight bags at a door rather than sixteen bags in a bank.
+ */
+function stageBankBags(count) {
+  const staged = Math.max(0, Math.min(8, Math.round(count) || 0));
+  level.phases.bank.staging?.userData.setStaged?.(staged);
+  for (let i = 1; i <= 8; i++) {
+    const mesh = level.phases.bank.group.getObjectByName(`cash-${i}`);
+    if (mesh) mesh.visible = i > staged;
   }
 }
 
@@ -2551,35 +2659,71 @@ function refreshInteractions() {
         hud.setBag(loot.get(bagId).value, 1);
       }, { enabled: () => machine.state === 'CASH_LOADING' && !carryingBag && !loot.get(bagId).recovered });
     }
-    use(p.bank.interactables.exit,
-      carryingBag ? 'Stage the carried cash bag' : (bankBagsStaged >= 8 ? 'Withdraw from the bank' : 'Cash staging point'), () => {
-        if (machine.state === 'CASH_LOADING' && carryingBag) {
-          const bagId = carryingBag;
-          loot.drop(bagId, { anchor: 'bank_exit', position: { x: 0, y: 0.3, z: 8.8 } });
-          carryingBag = null;
-          bankBagsStaged++;
-          audio.play('heist.cash.drop');
-          if (carriedBagMesh) carriedBagMesh.userData.carried = false;
-          carriedBagMesh = null;
-          hud.setBag(0, 0);
-          if (bankBagsStaged >= 2) {
-            for (let i = 1; i <= 8; i++) {
-              const id = `cash_${i}`;
-              const bag = loot.get(id);
-              if (!bag.carrier && !bag.position) loot.carry(id, i % 2 ? CHARACTER_IDS.DEATHMEGATRON : CHARACTER_IDS.NUMBSKULL);
-              if (loot.get(id).carrier) loot.drop(id, { anchor: 'bank_exit', position: { x: (i - 4) * 0.4, y: 0.3, z: 8.5 } });
-            }
-            bankBagsStaged = 8;
-            audio.startLoop('heist.bank.alarm', { volume: 0.34, ambience: true, fade: 0.15 });
-            advanceTo('ALARM_DISCOVERED');
-            advanceTo('EXIT_ORDER');
-            sayCommand('lou_radio_street');
-            sayInTurn('numb_signal', 'rippin_street', 'snow_exit');
-            refreshObjective();
+    /* THE STAGING POINT IS A PLACE ON THE FLOOR.
+     *
+     * Owner: *"The staging point should be clearly marked near the bank door.
+     * like a yellow circle maybe. lkets make sure the money bags appear there
+     * as duffle bags as you stage them."* Both halves were missing. The
+     * prompt used to live on `bank-exit` — the pane of glass in the doorway,
+     * 1.9 m up — so the order said "drop it on the staging point" and the
+     * only thing that could take a bag was a window; and staging one moved a
+     * number on the HUD and put nothing whatever in the room.
+     *
+     * `level.js` paints the circle. This puts a duffle on it per bag.
+     */
+    use(p.bank.interactables.staging,
+      carryingBag ? 'Drop the cash bag on the staging point' : 'Cash staging point', () => {
+        if (machine.state !== 'CASH_LOADING' || !carryingBag) return;
+        const bagId = carryingBag;
+        loot.drop(bagId, { anchor: 'bank_exit', position: { ...STAGING_POINT, y: 0.3 } });
+        carryingBag = null;
+        bankBagsStaged++;
+        audio.play('heist.cash.drop');
+        if (carriedBagMesh) { carriedBagMesh.userData.carried = false; carriedBagMesh.visible = false; }
+        carriedBagMesh = null;
+        hud.setBag(0, 0);
+        stageBankBags(bankBagsStaged);
+        if (bankBagsStaged >= 2) {
+          /* Two by hand and the crew bring the rest — which is what the order
+           * has always said, and what the heap on the circle now shows. */
+          for (let i = 1; i <= 8; i++) {
+            const id = `cash_${i}`;
+            const bag = loot.get(id);
+            if (!bag.carrier && !bag.position) loot.carry(id, i % 2 ? CHARACTER_IDS.DEATHMEGATRON : CHARACTER_IDS.NUMBSKULL);
+            if (loot.get(id).carrier) loot.drop(id, { anchor: 'bank_exit', position: { ...STAGING_POINT, y: 0.3 } });
           }
-          refreshInteractions();
-        } else if (machine.state === 'EXIT_ORDER') beginStreet();
-      });
+          bankBagsStaged = 8;
+          stageBankBags(8);
+          audio.startLoop('heist.bank.alarm', { volume: 0.34, ambience: true, fade: 0.15 });
+          advanceTo('ALARM_DISCOVERED');
+          advanceTo('EXIT_ORDER');
+          sayCommand('lou_radio_street');
+          sayInTurn('numb_signal', 'rippin_street', 'snow_exit');
+          refreshObjective();
+        }
+        refreshInteractions();
+      }, { soft: true, enabled: () => machine.state === 'CASH_LOADING' && Boolean(carryingBag) });
+    /* THE DOORS DO NOT OPEN ON A ROOM WITH WITNESSES IN IT.
+     *
+     * Once the sweep has latched (see `noteCustomerDown`) the crew cannot
+     * leave a lobby that can describe them. It is the consequence that makes
+     * the changed objective an objective rather than a caption. */
+    use(p.bank.interactables.exit, () => {
+      if (noWitnesses && witnessesRemaining() > 0) {
+        return `${witnessesRemaining()} of them can still describe us — the room first`;
+      }
+      return bankBagsStaged >= 8
+        ? 'Withdraw from the bank'
+        : 'The doors — the cash goes on the circle first';
+    }, () => {
+      if (machine.state !== 'EXIT_ORDER') return;
+      if (noWitnesses && witnessesRemaining() > 0) {
+        announceObjective(`No witnesses. ${witnessesRemaining()} still standing in the lobby.`);
+        sayPooled(SNOW_CASUALTY_LADDER, 'sweep');
+        return;
+      }
+      beginStreet();
+    });
     return;
   }
 
@@ -2953,13 +3097,15 @@ function addPoliceFigure({
     new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }),
   );
   proxy.position.y = 0.95;
+  // See `HeistCombatAdapter.trace`: aim volume, never a contact surface.
+  proxy.userData.aimProxy = true;
   root.add(proxy);
   if (actor.incapacitated) figure.fallen();
   level.phases[phaseId].group.add(root);
   /* One shared-resolver registration per BODY — recycled officers swap the
    * actor on the same root, and the descriptor reads it live. The unregister
    * handle travels with the entry so a checkpoint teardown can release it. */
-  const unregister = combat.register(root, { actor: combatActorOf });
+  const unregister = combat.register(root, HEIST_BODY_DESCRIPTOR);
   policeFigures.push({ root, figure, actor, unregister });
   return root;
 }
@@ -3328,6 +3474,7 @@ checkpoints.register('effects', { capture: () => activeEffects, reset: () => { a
 checkpoints.register('mission-local', {
   capture: () => ({
     preparation: preparation.capture(), bankBagsStaged, carryingBag, droppedBagDecision,
+    noWitnesses,
     lobbyControlled, rearGuardSecured, managerEscortProgress,
     guardThreat: guardThreat.capture(), lobbyGuardActor: lobbyGuardActor.snapshot(),
     lobbyCombatActors: {
@@ -3347,7 +3494,10 @@ checkpoints.register('mission-local', {
     lobbyControlled = false;
     rearGuardSecured = false;
     managerEscortProgress = 0;
+    noWitnesses = false;
+    sweepBarkAt = 0;
     bankBagsStaged = 0;
+    stageBankBags(0);
     carryingBag = null;
     carriedBagMesh = null;
     droppedBagDecision = null;
@@ -3376,7 +3526,11 @@ checkpoints.register('mission-local', {
     lobbyControlled = snapshot.lobbyControlled === true;
     rearGuardSecured = snapshot.rearGuardSecured === true;
     managerEscortProgress = snapshot.managerEscortProgress ?? 0;
+    noWitnesses = snapshot.noWitnesses === true;
     bankBagsStaged = snapshot.bankBagsStaged ?? 0;
+    /* The heap on the circle is a function of the count, so a restore that
+     * puts the count back puts the duffles back with it. */
+    stageBankBags(bankBagsStaged);
     carryingBag = snapshot.carryingBag ?? null;
     carriedBagMesh = null;
     droppedBagDecision = snapshot.droppedBagDecision ?? null;
@@ -3450,6 +3604,7 @@ function seedLootForCheckpoint(checkpoint, mission) {
   const atOrAfterStreet = ['street_withdrawal', 'mercer_garage', 'vehicle_swap'].includes(checkpoint);
   if (!atOrAfterStreet) return;
   bankBagsStaged = 8;
+  stageBankBags(8);
   const atGarage = ['mercer_garage', 'vehicle_swap'].includes(checkpoint);
   const recoveredIds = Array.from({ length: mission.droppedBagRecovered ? 8 : 7 }, (_, index) => `cash_${index + 1}`);
   for (const id of recoveredIds) {
@@ -3559,6 +3714,7 @@ function primePreview(checkpoint) {
       else loot.drop(record.id, { anchor: 'bank_exit', position: { x: 0, y: 0.3, z: 8 } });
     }
     bankBagsStaged = 8;
+    stageBankBags(8);
   }
   if (count >= 5) crew.get(CHARACTER_IDS.RIPPINFLOW).injury = 'moderate';
   if (count >= 1) {

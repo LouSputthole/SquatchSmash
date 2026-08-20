@@ -29,7 +29,7 @@ import {
   syncHeistVoiceManifest,
 } from '../tools/heist-vo.mjs';
 import { SEQUENCES } from '../src/silvercase/dialogue/script.js';
-import { ALL_HEIST_DIALOGUE, HEIST_PENDING_DIALOGUE } from '../src/heist/script.js';
+import { ALL_HEIST_DIALOGUE, HEIST_PENDING_DIALOGUE, dialogueLine } from '../src/heist/script.js';
 import {
   RELEASE_LINES, releaseCueOf, allEnolaSquatchLines,
 } from '../src/enolasquatch/dialogue/script.js';
@@ -252,6 +252,47 @@ test('the heist tool owns its dialogue and leaves its 46 sound effects alone', (
     assert.ok(synced.sfx.some((cue) => cue.name === effect && cue.prompt),
       `${effect} was eaten by the dialogue rebuild`);
   }
+});
+
+test('a heist sync carries the recording side\'s own bookkeeping across', () => {
+  /* FOUND THE HARD WAY. Adding thirteen lines to Snow's casualty ladder and
+   * running `vo:heist` silently deleted `needsRerecord` from
+   * `heist.prospect_order_down` — a re-record the owner had asked for in the
+   * 2026-08-19 dialogue pass, wiped by a tool run that had nothing to do with
+   * it, in a 9000-line diff where nobody would have seen it.
+   *
+   * A sync rebuilds every owned cue from `script.js`, and `script.js` cannot
+   * know which takes are cut or which ones are owed. Those fields belong to
+   * the manifest and to `vo:rerecord`, and a sync has to leave them where it
+   * found them. (The audio side had already asked for this from the other
+   * direction: *"Run vo:rerecord on its own, not vo:sync."*) */
+  const marked = {
+    sfx: [{
+      name: 'heist.prospect_order_down',
+      voice: 'player',
+      say: 'superseded by the script',
+      needsRerecord: true,
+      rerecordReason: 'rewritten in the 2026-08-19 dialogue pass',
+      recorded: true,
+      takeId: 'take-0042',
+    }],
+  };
+  const synced = syncHeistVoiceManifest(marked);
+  const cue = synced.sfx.find((entry) => entry.name === 'heist.prospect_order_down');
+  assert.ok(cue, 'the sync lost the cue entirely');
+  assert.equal(cue.needsRerecord, true, 'the sync dropped an owed re-record');
+  assert.equal(cue.rerecordReason, 'rewritten in the 2026-08-19 dialogue pass');
+  assert.equal(cue.recorded, true, 'the sync forgot that a take exists');
+  assert.equal(cue.takeId, 'take-0042');
+  // The words still come from the script — that is the whole point of a sync.
+  assert.equal(cue.say, dialogueLine('prospect_order_down').text);
+
+  // A cue the manifest has never seen arrives with no bookkeeping invented.
+  const fresh = syncHeistVoiceManifest({ sfx: [] }).sfx
+    .find((entry) => entry.name === 'heist.snow_committed');
+  assert.ok(fresh, 'the new line is not in a fresh sync');
+  assert.equal(fresh.needsRerecord, undefined, 'a brand new cue was born owing a re-record');
+  assert.equal(fresh.recorded, undefined, 'a brand new cue was born already recorded');
 });
 
 test('the bank\'s own people are cast, and the two Lous stay apart', () => {

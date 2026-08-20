@@ -214,7 +214,40 @@ export const HEIST_ORDERS = Object.freeze({
  *   order rather than leaving whatever was on screen before, because a STALE
  *   objective is the bug this module exists to fix and an empty one is worse.
  */
+/**
+ * The states in which the lobby is a room full of people who saw your face.
+ *
+ * Not the street or the garage: by then the survivors are behind you and the
+ * job is a getaway. This is only ever about the room.
+ */
+const WITNESS_SWEEP_STATES = new Set([
+  'LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS',
+  'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER',
+]);
+
+/**
+ * The order once four customers are down.
+ *
+ * Owner: *"one of the objectives turns to make sure there are no witnesses
+ * and you have to whack all the customers."* It REPLACES the standing order
+ * rather than trailing it, because at that point it is the only thing between
+ * the crew and a description of all six of them, and the doors do not open
+ * until it is done — see `noWitnesses` in `main.js`.
+ *
+ * @returns {string|null} null when the sweep is not on.
+ */
+function witnessSweepOrder(state, context) {
+  if (context.noWitnesses !== true || !WITNESS_SWEEP_STATES.has(state)) return null;
+  const left = Math.max(0, Math.trunc(context.witnessesLeft ?? 0));
+  if (left > 0) {
+    return `No witnesses. ${left} customer${left === 1 ? '' : 's'} still standing in the lobby.`;
+  }
+  return 'Lobby is clear. Take the bags to the staging point and leave.';
+}
+
 export function objectiveForState(state, context = {}) {
+  const sweep = witnessSweepOrder(state, context);
+  if (sweep) return sweep;
   const entry = HEIST_ORDERS[state];
   if (typeof entry === 'function') return entry(context);
   if (typeof entry === 'string' && entry) return entry;

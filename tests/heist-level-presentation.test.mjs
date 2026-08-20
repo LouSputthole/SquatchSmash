@@ -703,3 +703,52 @@ test('the crew ride the van sat on the benches, facing each other', () => {
     assert.equal(actor.figure.pose, 'stand', `${actor.id} walked into the bank sitting down`);
   }
 });
+
+test('the cash staging point is a marked circle by the doors that fills with duffles', () => {
+  /* Owner: *"The staging point should be clearly marked near the bank door.
+   * like a yellow circle maybe. lkets make sure the money bags appear there
+   * as duffle bags as you stage them."*
+   *
+   * There was no staging point at all. The order said "drop it on the
+   * staging point" and the interaction lived on `bank-exit` — the pane of
+   * GLASS in the doorway, 1.9 m off the floor — so the prompt appeared while
+   * you were looking at a window, and staging a bag moved a number on the HUD
+   * and put nothing in the room. Eight bags could go without one being seen.
+   */
+  const level = buildHeistLevel(new THREE.Scene());
+  const bank = level.phases.bank;
+  const staging = bank.staging;
+  assert.ok(staging, 'the bank has no staging point');
+  bank.group.updateMatrixWorld(true);
+
+  // Near the doors (which are at z 10.6), and off the entrance centre line.
+  assert.ok(staging.position.z > 8 && staging.position.z < 10.4,
+    `the staging point is at z ${staging.position.z}, not by the doors`);
+  assert.ok(Math.abs(staging.position.x) > 0.9,
+    'the staging point is on the line the crew comes through');
+  // It is a marked circle a player can see from the vault.
+  const ring = staging.getObjectByName('staging-ring');
+  assert.ok(ring, 'the staging point is not marked');
+  const painted = new THREE.Box3().setFromObject(ring);
+  assert.ok(painted.max.x - painted.min.x > 2, 'the marking is too small to read');
+  assert.ok(painted.max.y < 0.05, 'the marking is not painted on the floor');
+
+  // Nothing on it to start with, and one duffle per bag as they arrive.
+  const duffles = () => [1, 2, 3, 4, 5, 6, 7, 8]
+    .map((i) => staging.getObjectByName(`staged-cash-${i}`))
+    .filter((bag) => bag?.visible).length;
+  assert.equal(duffles(), 0, 'the circle starts with cash on it');
+  for (const count of [1, 2, 5, 8]) {
+    staging.userData.setStaged(count);
+    assert.equal(duffles(), count, `staging ${count} bags showed ${duffles()}`);
+  }
+  staging.userData.setStaged(0);
+  assert.equal(duffles(), 0, 'a reset left cash on the circle');
+
+  // And the prompt has somewhere on the FLOOR to live.
+  const volume = bank.interactables.staging;
+  assert.ok(volume, 'the staging point has no interaction volume');
+  const box = new THREE.Box3().setFromObject(volume);
+  assert.ok(box.min.y < 0.2 && box.max.y > 1.6,
+    'the staging volume is not reachable from standing on the circle');
+});

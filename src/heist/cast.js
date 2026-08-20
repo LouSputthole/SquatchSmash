@@ -186,6 +186,8 @@ export function buildHeistCrew(scene) {
     );
     proxy.name = `crew-${id}-proxy`;
     proxy.position.y = 0.95;
+    // See `HeistCombatAdapter.trace`: aim volume, never a contact surface.
+    proxy.userData.aimProxy = true;
     figure.root.add(proxy);
     scene.add(figure.root);
     actors.set(id, {

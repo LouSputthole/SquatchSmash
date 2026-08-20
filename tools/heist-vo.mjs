@@ -92,11 +92,43 @@ export function collectHeistVoiceCues() {
   }));
 }
 
+/**
+ * Fields the RECORDING SIDE owns, which a sync must never invent or destroy.
+ *
+ * A sync rebuilds every owned cue from `script.js`, and `script.js` does not
+ * know which takes have been cut or which ones the owner has asked to be done
+ * again. Those live on the manifest cue itself, put there by `vo:rerecord` and
+ * read by the recording sheet.
+ *
+ * This was found the hard way: adding thirteen lines to Snow's casualty ladder
+ * and running `vo:heist` silently dropped `needsRerecord` from
+ * `heist.prospect_order_down` — a re-record the owner had asked for in the
+ * 2026-08-19 dialogue pass, deleted by a tool run that had nothing to do with
+ * it. The audio side had already flagged exactly this shape of problem:
+ * *"Run vo:rerecord on its own, not vo:sync."* It should not have to be run
+ * on its own, so a sync carries these across.
+ */
+const RECORDING_SIDE_FIELDS = Object.freeze([
+  'needsRerecord', 'rerecordReason', 'recorded', 'recordedAt', 'takeId', 'duration',
+]);
+
 /** Return an updated manifest without mutating or writing the input. */
 export function syncHeistVoiceManifest(manifest) {
   const owned = heistDialogueCueNames();
   const kept = (manifest.sfx || []).filter((cue) => !owned.has(cue.name));
-  return { ...manifest, sfx: [...kept, ...collectHeistVoiceCues()] };
+  const existing = new Map((manifest.sfx || [])
+    .filter((cue) => owned.has(cue.name))
+    .map((cue) => [cue.name, cue]));
+  const synced = collectHeistVoiceCues().map((cue) => {
+    const previous = existing.get(cue.name);
+    if (!previous) return cue;
+    const carried = {};
+    for (const field of RECORDING_SIDE_FIELDS) {
+      if (previous[field] !== undefined) carried[field] = previous[field];
+    }
+    return { ...cue, ...carried };
+  });
+  return { ...manifest, sfx: [...kept, ...synced] };
 }
 
 /** Report scene cue drift without changing the manifest. */

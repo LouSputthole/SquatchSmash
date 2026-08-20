@@ -993,6 +993,15 @@ function buildVan() {
 /* Bank                                                                */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Where the crew piles the cash before the doors go.
+ *
+ * Off the entrance centre line on purpose: the crew come through x 0 and the
+ * player spawns on it, and a heap of duffles in a doorway is a heap of
+ * duffles somebody is standing in.
+ */
+export const STAGING_POINT = Object.freeze({ x: -1.6, z: 9.2 });
+
 /** Where the twenty-two lobby civilians stand when the doors come in. */
 export const LOBBY_ANCHORS = Object.freeze([
   /* The queue at the teller line, facing the counter — and standing clear of
@@ -1272,11 +1281,89 @@ function buildBank() {
       `${figure.root.name}-proxy`);
     proxy.castShadow = false;
     proxy.receiveShadow = false;
+    /* An aim volume, not a surface. `HeistCombatAdapter.trace` resolves a
+     * round that lands on one of these onto the body behind it — a wound on
+     * the proxy's front face is 19 cm in front of the chest, which is the
+     * owner's *"decals float in the air"*. */
+    proxy.userData.aimProxy = true;
     figure.root.userData.proxy = proxy;
     figure.root.userData.hostageId = `hostage_${index + 1}`;
     figure.root.userData.setState = (state, options) => figure.setState(state, options);
     return figure.root;
   });
+
+  /* ------------------------------------------------------------------ *
+   * THE STAGING POINT
+   *
+   * Owner: *"The staging point should be clearly marked near the bank door.
+   * like a yellow circle maybe. lkets make sure the money bags appear there
+   * as duffle bags as you stage them."*
+   *
+   * There was no staging point. The order said "drop it on the staging point"
+   * and the thing it meant was `bank-exit` — the pane of glass in the
+   * doorway, 1.9 m up in the air — so the prompt appeared while you were
+   * looking at a window and the bag you had just carried the length of the
+   * lobby went into a number on the HUD and nowhere else. Eight bags could be
+   * staged without one of them ever being visible.
+   *
+   * A painted circle with hazard hatching, three metres inside the doors and
+   * a metre and a half off the entrance line so the crew are not walking
+   * through it. The eight duffles sit on it, heaped, and appear one at a time
+   * as they are carried out — which is also the only readout in the room that
+   * says how far through the job you are.
+   * ------------------------------------------------------------------ */
+  const staging = new THREE.Group();
+  staging.name = 'cash-staging';
+  ownGeometry(staging, 'heist.bank.staging', { overlap: false });
+  staging.position.set(STAGING_POINT.x, 0, STAGING_POINT.z);
+  const stagingRing = mesh(staging, new THREE.RingGeometry(1.06, 1.32, 40), MAT.warning,
+    [0, 0.015, 0], 'staging-ring');
+  stagingRing.rotation.x = -Math.PI / 2;
+  stagingRing.castShadow = false;
+  stagingRing.receiveShadow = false;
+  // Hazard hatching round the outside, and a bar stencil inside it.
+  for (let i = 0; i < 16; i++) {
+    const angle = (i / 16) * Math.PI * 2;
+    const tick = flat(staging, [0.1, 0.012, 0.26],
+      [Math.cos(angle) * 1.5, 0.013, Math.sin(angle) * 1.5], MAT.warning);
+    tick.rotation.y = -angle;
+    tick.castShadow = false;
+  }
+  for (const z of [-0.34, 0, 0.34]) {
+    flat(staging, [1.5, 0.012, 0.14], [0, 0.014, z], MAT.warning).castShadow = false;
+  }
+
+  /* The bags themselves: built once, hidden, and shown as they arrive. Laid
+   * out in a heap rather than a grid, because eight duffles in rows is a
+   * warehouse and this is a pile by a door. */
+  const stagedBags = [];
+  for (let i = 0; i < 8; i++) {
+    const bag = makeCashBag({ full: true });
+    bag.name = `staged-cash-${i + 1}`;
+    const angle = i * 2.4;
+    const radius = i < 4 ? 0.34 : 0.66;
+    bag.position.set(Math.cos(angle) * radius, i < 6 ? 0.16 : 0.44, Math.sin(angle) * radius);
+    bag.rotation.set(0, angle * 0.8, i > 5 ? 0.18 : 0);
+    bag.scale.setScalar(1.5);
+    bag.visible = false;
+    staging.add(bag);
+    stagedBags.push(bag);
+  }
+  staging.userData.setStaged = (count) => {
+    const shown = Math.max(0, Math.min(stagedBags.length, Math.round(count) || 0));
+    for (const [index, bag] of stagedBags.entries()) bag.visible = index < shown;
+    staging.userData.staged = shown;
+  };
+  staging.userData.setStaged(0);
+  /* A soft volume over the circle, so the prompt is on the marked floor
+   * rather than on a window. Soft, so a bag or a crew member standing on it
+   * still wins the ray. */
+  const stagingVolume = mesh(staging, new THREE.CylinderGeometry(1.4, 1.4, 2.2, 16),
+    MAT.invisible, [0, 1.1, 0], 'cash-staging-volume');
+  stagingVolume.castShadow = false;
+  stagingVolume.receiveShadow = false;
+  ownGeometry(stagingVolume, 'heist.bank.staging-volume', { overlap: false, checkSupport: false });
+  group.add(staging);
 
   for (const [x, color] of [[-7.2, 0xffd9a1], [0, 0xffe4bd], [7.2, 0xd6e6ff]]) {
     const light = new THREE.PointLight(color, 2.5, 15, 2);
@@ -1540,7 +1627,9 @@ function buildBank() {
       manager,
       vault,
       exit,
+      staging: stagingVolume,
     },
+    staging,
     figures: { guard: guardFigure, rearGuard: rearGuardFigure, manager: managerFigure },
     civilians,
     alarmLight,
