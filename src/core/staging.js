@@ -105,7 +105,12 @@ export function markActor(object, spec) {
     ...(spec.lookAt === undefined ? {} : { lookAt: Object.freeze([...spec.lookAt]) }),
     ...(spec.note === undefined ? {} : { note: spec.note }),
   });
-  if (!object.name) object.name = `actor:${spec.id}`;
+  /* Deliberately NOT `object.name = ...`. The marker went in as a userData
+   * tag for exactly this reason and then the first draft of this function
+   * named unnamed objects anyway, which walked straight into the trap: the
+   * geometry gate groups assemblies BY NAME, so naming a previously anonymous
+   * Npc group re-bucketed its scene and took 46 tests with it. The id lives in
+   * the marker; nothing needs it on the node. */
   return object;
 }
 
