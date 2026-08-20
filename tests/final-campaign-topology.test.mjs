@@ -55,6 +55,10 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
   follow(campaign, SCENE_IDS.ENOLA_SQUATCH, 'enolasquatch.html');
   follow(campaign, SCENE_IDS.MANSION_RETURN, 'mansion.html?visit=return');
   follow(campaign, SCENE_IDS.CARTEL_PALACE, 'cartel-palace.html');
+  /* And the Palace no longer runs straight into the ceremony. He goes home,
+   * Booskibro rings, and three men come and collect him — see
+   * `src/specialmeeting/`, which hands off at the treeline. */
+  follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
   follow(campaign, SCENE_IDS.INITIATION, 'initiation.html');
 
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.INITIATION, spawn: 'gathering' });
@@ -585,6 +589,8 @@ test('Cartel Palace records the betrayal and only opens Initiation after the fin
   campaign.update((next) => {
     next.missions[MISSION_IDS.INITIATION].status = 'in_progress';
   });
+  // Through the Special Meeting, which is the only way out of the Palace now.
+  follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
   follow(campaign, SCENE_IDS.INITIATION, 'initiation.html');
   campaign = createCampaign({ storage });
   state = campaign.state;

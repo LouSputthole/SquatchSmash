@@ -1541,7 +1541,15 @@ initiationButton.addEventListener('click', () => {
   campaign.update((next) => {
     next.missions[MISSION_IDS.INITIATION].status = 'in_progress';
   });
-  navigateCampaign(campaign, SCENE_IDS.INITIATION, { spawn: 'gathering', location });
+  /* NOT straight to the Initiation any more.
+   *
+   * The Palace is over and nobody has told him whether killing Sauce was the
+   * right call. He goes home, Booskibro rings to say there is a meeting and it
+   * is going to be a special one, and three men come and collect him — see
+   * `src/specialmeeting/`. That scene hands off to the Initiation at the
+   * treeline on its own, so this is a repoint rather than an insertion, and
+   * `SCENES[CARTEL_PALACE].next` is one edge again because of it. */
+  navigateCampaign(campaign, SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb', location });
 });
 
 document.addEventListener('pointerlockchange', () => {

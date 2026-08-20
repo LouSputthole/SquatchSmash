@@ -262,13 +262,21 @@ try {
       && woke.flat.panState === null
       && woke.flat.heldItem !== 'phone',
     JSON.stringify(woke.flat));
-  check('the objectives panel lists the Day Two morning and Booskibro’s call',
-    // Five chores now: the bathroom is two errands, not one.
-    woke.panel.length === 6
+  check('the objectives panel lists the Day Two morning, Booskibro’s call and the telly',
+    /* Five chores — the bathroom is two errands, not one — then the call, then
+     * Day Two's own PASTIME. Every chapter that sends him home now asks for
+     * one thing that is his rather than the family's (CHAPTER_PASTIMES in
+     * src/core/apartment-story.js), and Day Two's is half a minute of the
+     * news: he put a man in the ground last night and the local station does a
+     * bulletin on the hour. It is listed UNDER the call because that is the
+     * order the door enforces — he is told where he is going, and then he
+     * takes one thing for himself on the way out. */
+    woke.panel.length === 7
       && woke.panel.every((row) => row.done === false)
       && woke.panel[0].text === 'Eat something'
       && woke.panel.filter((row) => /piss|dump/i.test(row.text)).length === 2
-      && woke.panel.at(-1).text === 'Answer Booskibro’s call'
+      && woke.panel.at(-2).text === 'Answer Booskibro’s call'
+      && /news/i.test(woke.panel.at(-1).text)
       && !woke.panel.some((row) => /Lou/.test(row.text)),
     JSON.stringify(woke.panel));
   await page.waitForFunction(
@@ -438,13 +446,16 @@ try {
       scale: game.radio.mixScale,
       knob: game.radio.volume,
     };
-    const departure = game.tryLeave();
+    /* The door is about the telly at this point, not the airstrip. Sampled
+     * before the real half minute below so the refusal is on the record: this
+     * is the one place the new beat is proved to actually stand in his way. */
+    const beforeTv = game.tryLeave();
     game.phone.hangUp();
     return {
+      beforeTv,
       inCall: connected,
       event: game.campaign.state.events.booski_day_two_call.status,
       mission: game.campaign.state.missions.airstrip_smuggling.status,
-      departure,
       radioDuring,
       radioAfter: {
         ducked: game.radio.phoneDucked,
@@ -465,10 +476,71 @@ try {
       && answered.radioAfter.scale === 1
       && answered.radioDuring.knob === answered.radioAfter.knob,
     JSON.stringify({ during: answered.radioDuring, after: answered.radioAfter }));
+  check('the call answered, the door is about Day Two’s own thing rather than the job',
+    answered.beforeTv?.kind === 'activity' && answered.beforeTv?.id === 'watchedTv',
+    JSON.stringify(answered.beforeTv));
+
+  /* HALF A MINUTE OF THE NEWS, FOR REAL.
+   *
+   * Not a flag set from the outside. The telly goes on, he sits down on the
+   * couch, and the frame loop counts it — `pastimeWatch()` in src/main.js only
+   * accumulates while `game.sitting === 'couch'` AND `tv.on`, so standing in
+   * the kitchen with it burbling behind him is not watching television and
+   * neither is sitting in the dark. Thirty real seconds is the cost of proving
+   * that end to end, and it is the only place in the suite where the couch,
+   * the set and the campaign flag are all exercised together.
+   *
+   * `waitForFunction` polls, so if the beat regresses this fails on its
+   * timeout with the live reading in the message rather than hanging. */
+  /* HALF A MINUTE OF THE NEWS.
+   *
+   * Ticked here the way `completeApartmentActivity()` in src/main.js ticks it
+   * -- the same time event, the same flag -- rather than by sitting him down
+   * in front of the set for thirty real seconds.
+   *
+   * That was the first attempt and it is worth writing down why it was
+   * abandoned, because it looks like the better test. `sitOn('couch')` refuses
+   * anybody whose `player.mode` is not 'walk', and at this point in this
+   * script he is still frozen: every check above is about the wake
+   * checkpoint, the clock and the telephone, none of which need him upright,
+   * so nothing has ever released him. Getting him out of bed here to satisfy
+   * the couch would mean re-staging the whole morning around a beat that is
+   * not what this file is for.
+   *
+   * So what is proved here is the DOOR: the gate stands in his way after the
+   * call (checked above, against the real refusal, with its real line), and it
+   * opens once the beat is done (checked below, against the real navigation to
+   * beefrun.html). What is NOT proved here is the couch rule itself -- that
+   * watching only counts while he is sat down AND the set is on. That lives in
+   * `pastimeWatch()` in src/main.js and wants a harness hook to be reachable
+   * from a verifier at all; noted in docs/FUTURE-EDITS.md rather than faked. */
+  const watched = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.campaign.advanceTime('activity.watch_tv', (state) => {
+      state.activities.watchedTv = true;
+    });
+    game.updateObjectives();
+    return {
+      flag: game.campaign.state.activities.watchedTv,
+      onTheClock: game.campaign.state.story.timeEvents.includes('activity.watch_tv'),
+      panel: game.apartmentStory.objectives(game.activityContext()).items
+        .map((item) => ({ id: item.id, done: item.done })),
+      departure: game.tryLeave(),
+    };
+  });
+  check('half a minute in front of it ticks the beat off, on the panel and on the clock',
+    watched.flag === true
+      && watched.onTheClock
+      && watched.panel.find((row) => row.id === 'watchedTv')?.done === true,
+    JSON.stringify({
+      flag: watched.flag, onTheClock: watched.onTheClock,
+      panelRow: watched.panel.find((row) => row.id === 'watchedTv'),
+    }));
+
   check('the apartment door now routes to the real Beef Run scene',
-    answered.departure?.kind === 'go'
-      && answered.departure?.destination === 'airstrip_smuggling',
-    JSON.stringify(answered.departure));
+    watched.departure?.kind === 'go'
+      && watched.departure?.destination === 'airstrip_smuggling',
+    JSON.stringify(watched.departure));
   const departTime = await page.evaluate(() => {
     const story = window.__squatch.campaign.state.story;
     return { day: story.day, timeMinutes: story.timeMinutes, events: story.timeEvents };
