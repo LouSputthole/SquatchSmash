@@ -455,8 +455,14 @@ try {
       && outcome.report.spoken.some((cue) => cue.includes('react.all-down'))
       && !outcome.wifeDown
       && outcome.shorts.length === 2
+      /* BESIDE the table, not under it. This used to REQUIRE the landing to
+       * be inside the table's own 9.8 x 2.2 footprint -- which is the clip the
+       * owner reported on 2026-08-20 -- so it asserts the clearance now, the
+       * same way tests/cartel-palace-finale.test.mjs does. Still inside the
+       * dining room: away from the table is not through the wall. */
       && outcome.shorts.every((entry) => entry.pose === 'prone'
-        && Math.abs(entry.x) <= 4.9 && Math.abs(entry.z + 42.4) <= 1.3),
+        && !(Math.abs(entry.x) <= 5.4 && entry.z >= -44 && entry.z <= -40.8)
+        && Math.abs(entry.x) < 17.7 && entry.z > -49.7 && entry.z < -34.2),
     JSON.stringify(outcome));
 
   /* Combat gets one fresh estate document after the authored checkpoint walk.

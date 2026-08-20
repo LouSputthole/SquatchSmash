@@ -55,9 +55,10 @@ const ST = (text, hold, extra = null) => ({ who: 'SHORT_TWO', text, hold, ...ext
  *   begging.*      The wife, then the double act, begging for no murders.
  *   go             Mark closes the negotiation; Tony's line carries
  *                  `engage: true` — the shooting may start on it.
- *   react.*        After a kill lands. `dive: true` sends both short men
- *                  under the table (the survivor alone if one is already a
- *                  rug stain).
+ *   react.*        After a kill lands. `dive: true` sends both short men to
+ *                  the floor BESIDE the table (the survivor alone if one is
+ *                  already a rug stain); `react.dive-landed` is the
+ *                  postscript they deliver from down there.
  */
 export const FINALE_BEATS = Object.freeze({
   'arrival.quiet': [
@@ -143,15 +144,24 @@ export const FINALE_BEATS = Object.freeze({
   'react.mark-first': [
     W('MARCO! You shot him in the FACE — the deposit, you ANIMAL, the DEPOSIT!', 4.6,
       { direction: 'Screamed over a fresh corpse. Grief and cosmetic-surgery accounting at equal volume.' }),
-    SO('TABLE!', 0.9, { dive: true, direction: 'One barked syllable, mid-dive.' }),
-    ST('TABLE!', 0.9, { dive: true, direction: 'The identical bark a half-beat later. It is rehearsed.' }),
+    SO('NOT the table! AWAY from the table!', 1.6,
+      { dive: true, direction: 'One barked correction, already moving. Twenty years of the wrong drill, unlearned mid-air.' }),
+    ST('AWAY FROM THE TABLE!', 1.3,
+      { dive: true, direction: 'The identical bark a half-beat later. It is rehearsed. It is finally rehearsed correctly.' }),
   ],
   'react.sauce-first': [
     W('The CHEF?! Who garnishes the branzino now, you son of a bitch?!', 4.2,
       { direction: 'Screamed fury. The catering implications hit her before the mortality does.' }),
     ST('He still owed me forty bucks—', 1.9,
       { direction: 'Genuine dismay, already crouching.' }),
-    SO('—forty bucks, gone. TABLE!', 1.8, { dive: true, direction: 'Finishes the accounting, then the bark, then the dive.' }),
+    SO('—forty bucks, gone. AWAY FROM THE TABLE!', 2.2,
+      { dive: true, direction: 'Finishes the accounting, then the bark, then the dive. All three at full commitment.' }),
+  ],
+  'react.dive-landed': [
+    SO('Wall. The WALL is cover. A table is a table.', 3.4,
+      { direction: 'Winded, flat on the floor, delivering the correction like a man who has just lost an argument with physics.' }),
+    ST('I am updating the procedure.', 2.2,
+      { direction: 'Muffled and absolutely serious. Somewhere there is a laminated card and he intends to reprint it.' }),
   ],
   'react.all-down': [
     W('FINE! Fine. I hope every rug you ever love betrays you. Now get out of my house, you gorgeous psychopath!', 5.8,
@@ -227,14 +237,38 @@ export function composeConfrontation({ evidenceFound = [], alarmRaised = false }
   return beats;
 }
 
-/* Where the double act ends up when the diving becomes a whole thing: under
- * Mark's 9.8 x 2.2 table at (0, -42.4) — see world.js's final dining stage.
- * Module scope, cloned into per-diver tween state once per dive, never per
- * frame. */
+/*
+ * WHERE THE DOUBLE ACT LANDS.
+ *
+ * Owner, 2026-08-20 playtest: *"their dive animation must land them BESIDE
+ * or AWAY from the table, not underneath it. Check the navigation target
+ * before the animation begins and reserve clearance around chairs/table so
+ * the landing does not intersect furniture."*
+ *
+ * They used to land at (2.4, -42.5) and (0.7, -42.3), which is dead under
+ * Mark's 9.8 x 2.2 table -- a prone 1.5 m rig inside a table top at 0.82 m,
+ * so both of them clipped through it every time.
+ *
+ * The clearance the landing has to respect, measured off world.js's final
+ * dining stage:
+ *
+ *   table       x -4.9..4.9,  z -43.5..-41.3   (collider 9.8 x 2.2)
+ *   end chairs  x  5.1..6.0,  z -42.85..-41.95 (and its mirror at -6.0..-5.1)
+ *   long chairs x -4.05..4.05 in pairs, z -44.65..-43.75
+ *   credenza    x  8.35..10.85, z -36.98..-36.22
+ *   sideboard   x 12.8..16.6,  z -43.875..-43.125
+ *
+ * Both landings sit in open floor east of the chair line and south of the
+ * table, and `_diveClearance` proves it against the LIVE collider list at
+ * dive time rather than trusting these numbers to stay true.
+ */
 const DIVE_POINTS = Object.freeze({
-  'short-one': Object.freeze(new THREE.Vector3(2.4, 0, -42.5)),
-  'short-two': Object.freeze(new THREE.Vector3(0.7, 0, -42.3)),
+  'short-one': Object.freeze(new THREE.Vector3(8.0, 0, -46.0)),
+  'short-two': Object.freeze(new THREE.Vector3(9.6, 0, -44.4)),
 });
+
+/** Half-width of the box a prone rig needs to land in without clipping. */
+const DIVE_CLEARANCE = 0.95;
 const DIVE_SECONDS = 0.55;
 
 /* How hard each civilian shakes, by phase. `HeistFigure.update`'s fear term. */
@@ -254,9 +288,14 @@ const FEAR = Object.freeze({
  * player-driven kills, as before this script existed.
  */
 export class PalaceFinaleDirector {
-  constructor({ cast, hud, audio = null, onEngage = () => {} } = {}) {
+  constructor({
+    cast, hud, audio = null, colliders = [], onEngage = () => {},
+  } = {}) {
     if (!cast?.civilians) throw new TypeError('PalaceFinaleDirector requires a cast with civilians');
     this.cast = cast;
+    /* The live palace collider list, for `_diveClearance`. Empty is legal: a
+     * harness with no world simply gets the authored landing points. */
+    this.colliders = Array.isArray(colliders) ? colliders : [];
     this.hud = hud;
     this.audio = audio;
     this.onEngage = onEngage;
@@ -387,7 +426,29 @@ export class PalaceFinaleDirector {
     return true;
   }
 
-  /** Both short men under the table, in unison — the survivor alone if one is down. */
+  /**
+   * Is this landing actually clear?
+   *
+   * The owner's instruction is explicit that the navigation target is
+   * checked BEFORE the animation begins, so this asks the furniture rather
+   * than a comment: `colliders` is the live palace list, and a landing whose
+   * clearance box overlaps any waist-height collider is refused -- the man
+   * goes down where he stands instead of into a chair.
+   */
+  _diveClearance(point) {
+    for (const box of this.colliders) {
+      if (!box?.min || !box?.max) continue;
+      // Waist height: the boxes that matter are tables, chairs and cabinets.
+      if (box.max.y < 0.08 || box.min.y > 1.1) continue;
+      if (point.x > box.min.x - DIVE_CLEARANCE && point.x < box.max.x + DIVE_CLEARANCE
+        && point.z > box.min.z - DIVE_CLEARANCE && point.z < box.max.z + DIVE_CLEARANCE) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** Both short men to the floor BESIDE the table — the survivor alone if one is down. */
   _dive() {
     if (this.dived) return;
     this.dived = true;
@@ -395,13 +456,17 @@ export class PalaceFinaleDirector {
       const divePoint = DIVE_POINTS[entry.id];
       if (!divePoint || entry.down) continue;
       entry.figure.setState?.('prone', { blend: true });
+      const to = this._diveClearance(divePoint) ? divePoint : entry.root.position.clone();
       this._divers.push({
         entry,
         from: entry.root.position.clone(),
-        to: divePoint,
+        to,
         t: 0,
       });
     }
+    /* Queued, not urgent: it lands behind whichever reaction beat sent them
+     * down, which is exactly where a postscript belongs. */
+    if (this._divers.length) this.play('react.dive-landed');
   }
 
   _fear() {

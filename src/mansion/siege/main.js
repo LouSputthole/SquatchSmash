@@ -84,6 +84,7 @@ import {
 } from './waves.js';
 import { buildSiegeNight, scoreSiegeLight } from './night.js';
 import { buildSiegeDressing } from './dressing.js';
+import { buildSiegeArmorCache } from './armor-cache.js';
 import { buildSiegeGlass } from './glass.js';
 import { createAttackerPool } from './attackers.js';
 import { buildSiegeEnsemble } from './ensemble.js';
@@ -979,6 +980,37 @@ for (const id of finalArcLoadout.items) {
   armory.claim(id);
 }
 
+/* ================================================================== */
+/* The armor stand                                                       */
+/*                                                                        */
+/* Owner playtest, 2026-08-19: armor was supposed to be available in the  */
+/* cellar armory and there was nothing to see or take -- `grantSiegeArmor` */
+/* above already credited it invisibly the moment a weapon came off the    */
+/* rack. This puts an actual plate carrier in the room, on its own valet   */
+/* frame clear of every rack (see ./armor-cache.js). Taking it runs the     */
+/* same credit `completeArmoryPickup` already gives on first weapon, so a   */
+/* player who takes both only ever gets armored once -- `replenishArmor`    */
+/* is already a clamp, not an add.                                          */
+/* ================================================================== */
+const armorCache = buildSiegeArmorCache({
+  parent: scene,
+  interaction,
+  enabled: () => running,
+  addCollider: (x0, x1, y0, y1, z0, z1) => {
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(Math.min(x0, x1), y0, Math.min(z0, z1)),
+      new THREE.Vector3(Math.max(x0, x1), y1, Math.max(z0, z1)),
+    ));
+  },
+  armor: Math.round(playerActor.maxArmor),
+  onTake: () => {
+    const added = grantSiegeArmor();
+    nudge(added > 0
+      ? `Plate carrier secured — ${Math.round(playerActor.armor)} armor.`
+      : 'Already at full armor.', 2.6);
+  },
+});
+
 function ownedFirearms() {
   return [...new Set(finalArcLoadout.items.filter(Boolean))]
     .map((id) => weaponSystem.firearm(id));
@@ -1120,6 +1152,15 @@ function renderCombatBark(event = {}) {
   subtitleWhoEl.textContent = String(event.name ?? event.role ?? event.id ?? '').toUpperCase();
   subtitleTextEl.textContent = line;
   combatBarkTimer = THREE.MathUtils.clamp(line.length * 0.055, 1.4, 3.2);
+  /* Most bark pools are subtitle-only (attackers.js's own header explains
+   * why: their `context.audio` channel is shared with weapon acoustics, and
+   * a regression test holds it to the weapon catalog). BARKS.identity is the
+   * one pool with a real `vo.ateam.*` cue attached, carried up on `event.cue`
+   * for exactly this reason -- this is the scene's OWN voice engine, not
+   * that shared channel, so playing it here costs that promise nothing. */
+  if (typeof event.cue === 'string' && event.cue) {
+    try { audio.play(event.cue, { volume: 0.9 }); } catch { /* no audio yet */ }
+  }
   return true;
 }
 
@@ -2613,6 +2654,7 @@ window.mansionSiege = {
   combatHud,
   interaction,
   armory,
+  armorCache,
   grounds,
   interior,
   colliders,

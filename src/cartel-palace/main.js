@@ -56,6 +56,9 @@ import {
   stagePalaceCheckpointGeometry,
 } from './preview.js';
 import { PALACE_COMBAT_POSTS, PalaceSecurity } from './security.js';
+import { PalaceBystanders } from './bystanders.js';
+import { PalaceSuppressor } from './suppressor.js';
+import { PalaceVoice } from './voice.js';
 import { PALACE_ANCHORS, buildCartelPalace } from './world.js';
 
 const canvas = document.getElementById('scene');
@@ -262,6 +265,24 @@ const interaction = new InteractionSystem(camera, hud);
 interaction.setOccluders([palace.root]);
 const audio = new AudioEngine();
 
+/* THE CAN. Owner's direction for this mission is that the Prospect goes in
+ * with a suppressor on: a real one on the barrel, a dull small flash, a
+ * dedicated suppressed report with the mechanical action still on top, and a
+ * much smaller radius in which a guard hears the shot at all. See
+ * ./suppressor.js -- nothing about it reaches into src/core. */
+const suppressor = new PalaceSuppressor({ audio });
+
+/* Everything said in the palace that is not the dining-room script: the
+ * Prospect recognising Sauce in the evidence, the cleaner, and the payroll
+ * reacting to a raid. Radius and line of sight are enforced by the runtime
+ * (./voice.js); `trace` is wired below, once security exists. */
+const palaceVoice = new PalaceVoice({
+  audio,
+  hud,
+  player,
+  vector: (x, y, z) => new THREE.Vector3(x, y, z),
+});
+
 /**
  * The raid in three residency banks (./audio-banks.js): everything a
  * firefight can ask for blocks the start button, the finale's speech blocks
@@ -311,8 +332,16 @@ const finale = new PalaceFinaleDirector({
   cast,
   hud,
   audio,
+  /* The live collider list, so the short men's dive can prove its landing is
+   * clear of the table and the chairs before the animation starts. */
+  colliders: palace.colliders,
   onEngage: () => security.activateFinalEncounter(),
 });
+
+/* The estate's working civilians -- today, the cleaner in the entry hall.
+ * PalaceSecurity never ticks them (they are not combatants), so this owns
+ * their clock, their panic run and their lines. */
+const bystanders = new PalaceBystanders({ cast, voice: palaceVoice, player });
 
 /* ------------------------------------------------------------------ */
 /* Five-slot final-raid loadout                                        */
@@ -390,6 +419,32 @@ function weaponCaliber(id) {
   return 'rifle';
 }
 
+/**
+ * Keep the suppressor and the security layer agreeing about the gun.
+ *
+ * `WeaponSystem.modelFor` builds a weapon's model the first time it is
+ * equipped, so a gun swapped to twenty minutes in is only fittable right
+ * then; and `PalaceSecurity.gunshotHearingRadius` is what a shot that lands
+ * on a body (`applyPlayerImpact`) is heard at, which has to follow whatever
+ * is in the player's hands rather than whatever was in them at boot.
+ */
+/** The closest guard who is still standing, for a positional bark. */
+function nearestLiveGuard() {
+  let best = null;
+  let bestDistance = Infinity;
+  for (const guard of cast.guards) {
+    if (guard.down || !guard.active) continue;
+    const distance = guard.root.position.distanceTo(player.position);
+    if (distance < bestDistance) { best = guard; bestDistance = distance; }
+  }
+  return best;
+}
+
+function syncSuppressor() {
+  suppressor.sync(weapons);
+  if (security) security.gunshotHearingRadius = suppressor.hearingRadius;
+}
+
 function palaceSurfaceAt(position) {
   if (position?.z < -35 && Math.abs(position.x) < 8) return 'rug';
   if (position?.z < 12 && Math.abs(position.x) < 19) return 'tile';
@@ -399,12 +454,9 @@ function palaceSurfaceAt(position) {
 /* WeaponSystem still owns gun handling, but the Palace Adapter owns contact
  * classification. Suppress only its legacy generic contact cue so a delayed
  * actor/world contact produces one truthful physical sound below. */
-const weaponPlayback = {
-  hasSample: (name) => audio.hasSample(name),
-  play: (name, options) => (
-    name === 'heist.bullet.impact' ? null : audio.play(name, options)
-  ),
-};
+const weaponPlayback = suppressor.playback({
+  suppress: (name) => name === 'heist.bullet.impact',
+});
 
 /* Built once per trigger pull, not per pellet: nobody moves between the
  * pellets of one shot, and the per-pellet rebuild cost two Vector3s per man
@@ -551,14 +603,27 @@ const weapons = new WeaponSystem({
     if (['equip', 'stow', 'fire', 'loaded'].includes(event.type)) {
       loadout?.capture(weapons);
     }
+    if (event.type === 'equip' || event.type === 'stow') syncSuppressor();
     if (event.type !== 'fire' || state.phase !== 'active') return;
     /* A shot during the confrontation is the player's answer to it: the
      * speech stops mid-sentence and the room engages. The kills stay
      * player-driven — the script never fires first. */
     if (mission.beat === PALACE_BEATS.DINING_ROOM) finale.interrupt();
     if (![PALACE_BEATS.DINING_ROOM, PALACE_BEATS.CLEAR].includes(mission.beat)) {
-      security?.raiseAlarm('gunshot');
+      /* THE SUPPRESSED HEARING RADIUS. This used to be an unconditional
+       * `raiseAlarm('gunshot')`: one round anywhere in the compound and the
+       * whole estate knew. With a can on the barrel the shot is heard nine
+       * metres, and men inside the wider investigate ring are handed the
+       * position to walk over and look at rather than an alarm. Off a
+       * revolver or a shotgun the radius is Infinity and the old behaviour
+       * is exactly what happens. */
+      syncSuppressor();
+      security?.noteGunshot(player.position, {
+        radius: suppressor.hearingRadiusFor(event.id),
+      });
     }
+    // The room goes to the floor whether or not anybody heard the shot.
+    bystanders.panic();
   },
 });
 
@@ -698,8 +763,15 @@ function applyCivilianImpact(impact, entry) {
           .reduce((seed, char) => ((seed * 31) + char.charCodeAt(0)) >>> 0, 11),
       });
       combatAudio.bodyFall({ surface: palaceSurfaceAt(at), position: at });
-      finale.onCivilianDown(entry);
-      hud.toast('They were begging · the job does not care', 'bad', 2800);
+      /* The finale director's roster is the three people at Mark's table by
+       * name; a working civilian killed in the entry hall is not one of them
+       * and must never trigger a dining-room reaction beat. */
+      if (cast.civilians.includes(entry)) {
+        finale.onCivilianDown(entry);
+        hud.toast('They were begging · the job does not care', 'bad', 2800);
+      } else {
+        hud.toast('She was unarmed · the job does not care', 'bad', 2800);
+      }
     }
   }
   confirmCombatHit(zone === 'head' ? 'headshot' : fatal ? 'kill' : 'hit');
@@ -806,6 +878,14 @@ security = new PalaceSecurity({
     audio.play('alarm.chirp', { volume: 0.58 });
     if (reason !== 'dining_room') mission.raiseAlarm(reason);
     if (reason === 'guard_contact') hud.say('<em>CONTACT.</em> The quiet route is gone.', 3000);
+    if (reason === 'dining_room') return;
+    /* Somebody shouts it. The nearest man who can actually see the player
+     * gets the bark, so it never comes through a wall from the courtyard. */
+    const caller = nearestLiveGuard();
+    palaceVoice.say(reason === 'gunshot' ? 'guard.contact.two' : 'guard.contact.one', {
+      position: caller?.root.position ?? null, radius: 26, urgent: true,
+    });
+    bystanders.panic();
   },
   onWeaponEvent: (event) => {
     const position = event.origin ?? event.position ?? event.entry?.root?.position ?? null;
@@ -891,6 +971,18 @@ security = new PalaceSecurity({
     combatAudio.bodyFall({ surface: palaceSurfaceAt(position), position });
     if (entry.role === 'guard') {
       hud.toast(silent ? 'Guard down · quiet' : 'Guard down', silent ? 'good' : '');
+      /* Only a man who is still up, still active and can SEE the body says
+       * anything about it -- a quiet takedown in an empty corridor stays
+       * quiet, which is the whole point of the takedown. */
+      const witness = cast.guards.find((guard) => (
+        !guard.down && guard.active && guard.id !== entry.id
+        && guard.root.position.distanceTo(position) <= 16
+      ));
+      if (witness) {
+        palaceVoice.say(security.alarm ? 'guard.ally-down.two' : 'guard.ally-down.one', {
+          position: witness.root.position, radius: 22, urgent: true,
+        });
+      }
       return;
     }
     mission.registerTargetDown(entry.id);
@@ -904,6 +996,14 @@ security = new PalaceSecurity({
     if (phase === 'exposed') hud.say('<em>MARK\'S ARMOR IS GONE.</em>', 2200);
   },
 });
+
+/* Line of sight for the voice layer, off the security space's own collider
+ * tracer -- so "do not fire lines through walls" is answered by the walls
+ * rather than by a radius that hopes. */
+palaceVoice.trace = (from, to) => security.space.trace(from, to);
+/* First fit: whatever the inherited loadout already put in his hands gets a
+ * can now, and security learns how far that gun carries. */
+syncSuppressor();
 
 /* ------------------------------------------------------------------ */
 /* Interactions                                                        */
@@ -939,6 +1039,24 @@ interaction.register(palace.targets.estateDoor, {
   },
 });
 
+/**
+ * The two lines each clue is worth: one when he first gets close enough to
+ * see what it is, one when he logs it. Different words per piece, which is
+ * the owner's whole ask -- *"so it feels like an investigation rather than
+ * clicking glowing props"*.
+ */
+const EVIDENCE_VOICE = Object.freeze({
+  [EVIDENCE_IDS.SECURITY_STILL]: Object.freeze({
+    spot: 'tony.evidence.still.spot', log: 'tony.evidence.still.log',
+  }),
+  [EVIDENCE_IDS.BELONGINGS]: Object.freeze({
+    spot: 'tony.evidence.uniform.spot', log: 'tony.evidence.uniform.log',
+  }),
+  [EVIDENCE_IDS.PAYMENT_LEDGER]: Object.freeze({
+    spot: 'tony.evidence.ledger.spot', log: 'tony.evidence.ledger.log',
+  }),
+});
+
 for (const [id, target] of Object.entries(palace.evidence)) {
   interaction.register(target, {
     label: () => target.userData.collected
@@ -957,6 +1075,13 @@ for (const [id, target] of Object.entries(palace.evidence)) {
       repaintEvidence();
       audio.play('chat.ping', { volume: 0.38, rate: 1.05 });
       hud.say(`<em>${target.userData.evidenceTitle}</em> · ${target.userData.evidenceDetail}`, 5200);
+      /* RECOGNITION, not exposition. One line per clue, so three evidence
+       * pieces read as an investigation rather than three glowing props --
+       * and the complete-trail line only once the case is actually closed. */
+      palaceVoice.say(EVIDENCE_VOICE[id]?.log, { urgent: true });
+      if (mission.snapshot().evidenceFound.length === Object.keys(EVIDENCE_IDS).length) {
+        palaceVoice.say('tony.evidence.complete');
+      }
     },
   });
 }
@@ -1061,6 +1186,10 @@ function clearCombatTransients() {
   /* A restore discards the timeline the current subtitle came from; the
    * confrontation's phase and reactions are re-derived by the caller. */
   finale.clearLines();
+  /* Same reason: the pending line belongs to the discarded timeline. The
+   * once-only latches are deliberately KEPT -- a retry should not replay
+   * every recognition line the player already heard. */
+  palaceVoice.reset();
   lastPlayerSuppression = null;
   resetCombatFeedback();
   hitConfirmTimer = 0;
@@ -1127,6 +1256,11 @@ function stageWorldForCheckpoint(id) {
     });
   }
   if (progress.alarmRaised) security.raiseAlarm(progress.alarmReason ?? 'detected');
+  /* A checkpoint past the alarm resumes with the working civilians already
+   * flat where they landed -- no replayed run, no replayed screaming. */
+  if (progress.alarmRaised || ['betrayal', 'dining_room', 'clear'].includes(id)) {
+    bystanders.stagePanicked();
+  }
   if (['dining_room', 'clear'].includes(id)) {
     security.activateFinalEncounter();
     ui.boss.classList.remove('hidden');
@@ -1286,6 +1420,7 @@ startButton.addEventListener('click', async () => {
   player.enabled = true;
   inventoryBar.show();
   loadout.apply(weapons);
+  syncSuppressor();
   if (restored.checkpointSnapshot) restoreCombatCheckpoint(restored.checkpointSnapshot);
   syncLoadout();
   overlay.classList.add('hidden');
@@ -1452,6 +1587,80 @@ function updateBoss() {
   ui.bossState.textContent = mark.incapacitated ? 'DOWN' : mark.armor > 0 ? 'ARMORED' : 'EXPOSED';
 }
 
+/**
+ * WHEN A ROOM HAS GONE QUIET.
+ *
+ * Owner asked for post-combat / room-cleared lines. A "room" here is the men
+ * posted in it: once the alarm has been up, every guard on a stretch is
+ * down, the player is standing in that stretch and nothing live is within
+ * eighteen metres, he says so. Nothing fires on a stealth run that never
+ * woke anybody -- there is no fight to be the other side of.
+ */
+const CLEARED_ZONES = Object.freeze([
+  Object.freeze({
+    line: 'tony.cleared.entry',
+    guards: Object.freeze(['entry-watch', 'service-door']),
+    inside: (at) => at.z > -4 && at.z < 12,
+  }),
+  Object.freeze({
+    line: 'tony.cleared.halls',
+    guards: Object.freeze(['service-hall']),
+    inside: (at) => at.z > -17 && at.z <= -4,
+  }),
+  Object.freeze({
+    line: 'tony.cleared.estate',
+    guards: Object.freeze(['gallery-east', 'gallery-west']),
+    inside: (at) => at.z > -34 && at.z <= -17,
+  }),
+]);
+
+const EVIDENCE_SPOT_RADIUS = 4.6;
+
+/**
+ * The proximity half of the voice layer, on the scene clock.
+ *
+ * Every trigger here is distance + line of sight through PalaceVoice, so a
+ * line cannot fire through a wall or before the player can see who is
+ * saying it -- the owner's two explicit conditions.
+ */
+function updateAmbientVoice(dt) {
+  palaceVoice.update(dt);
+  bystanders.update(dt);
+
+  const at = player.position;
+  if (mission.beat === PALACE_BEATS.ESTATE) {
+    for (const [id, target] of Object.entries(palace.evidence)) {
+      if (target.userData.collected) continue;
+      const spot = EVIDENCE_VOICE[id]?.spot;
+      if (!spot) continue;
+      const point = target.getWorldPosition(_evidencePoint);
+      if (at.distanceTo(point) > EVIDENCE_SPOT_RADIUS) continue;
+      palaceVoice.say(spot, { position: point, radius: EVIDENCE_SPOT_RADIUS });
+    }
+  }
+
+  /* She notices him before he notices her, if he walks in far enough. */
+  const cleaner = cast.bystanders[0];
+  if (cleaner && !cleaner.down && !cleaner.panicked
+    && at.distanceTo(cleaner.root.position) <= 8.5) {
+    if (palaceVoice.audible(cleaner.root.position, 8.5)) bystanders.notice(cleaner);
+  }
+
+  if (!security.alarm) return;
+  const liveNear = cast.guards.some((guard) => (
+    !guard.down && guard.active && guard.root.position.distanceTo(at) <= 18
+  ));
+  if (liveNear) return;
+  for (const zone of CLEARED_ZONES) {
+    if (!zone.inside(at)) continue;
+    const posted = cast.guards.filter((guard) => zone.guards.includes(guard.id));
+    if (!posted.length || !posted.every((guard) => guard.down)) continue;
+    palaceVoice.say(zone.line);
+  }
+}
+
+const _evidencePoint = new THREE.Vector3();
+
 let last = performance.now();
 function animate(now) {
   requestAnimationFrame(animate);
@@ -1477,6 +1686,12 @@ function animate(now) {
     suppression.update(dt);
     weapons.setSuppression(suppression);
     weapons.update(dt, { speed: Math.hypot(player.velocity.x, player.velocity.z) });
+    /* The shared system writes the flash's opacity and light from its own
+     * decay curve every frame; this scales what it just wrote, so a
+     * suppressed shot blooms small and dull instead of throwing a yellow
+     * star down a dark corridor. Unsuppressed frames are untouched. */
+    suppressor.afterWeaponUpdate(weapons);
+    updateAmbientVoice(dt);
     const feedback = weapons.feedback();
     /* A per-frame DOM lookup plus an unconditional style write is layout work
      * on the many frames where bloom sits still at its floor. */
@@ -1516,6 +1731,9 @@ window.CARTEL_PALACE = {
   cast,
   finale,
   security,
+  suppressor,
+  palaceVoice,
+  bystanders,
   playerActor,
   suppression,
   combatAudio,

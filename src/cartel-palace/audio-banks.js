@@ -13,7 +13,17 @@
 import { GROUND_COMBAT_AUDIO_CUES } from '../core/combat/index.js';
 
 export const PALACE_START_BANK = Object.freeze({
-  prefixes: Object.freeze(['weapon.', 'footstep.']),
+  /* `weapon.` also covers the mission's suppressed report and its mechanical
+   * layer (`weapon.suppressed.*`, see ./suppressor.js), which the FIRST
+   * trigger pull reaches for. The three voice prefixes are the non-finale
+   * palace lines (./voice.js): recognition on the evidence, the cleaner, and
+   * the payroll's combat barks -- all of which can fire minutes before the
+   * dining door, so they cannot ride the next-beat bank. Unrecorded cues
+   * cost nothing; the index filter skips absent files. */
+  prefixes: Object.freeze([
+    'weapon.', 'footstep.',
+    'vo.palace.tony.', 'vo.palace.cleaner.', 'vo.palace.guard.',
+  ]),
   names: Object.freeze([
     ...GROUND_COMBAT_AUDIO_CUES,
     /* The estate's own weather and rooms: the rain loop and the two

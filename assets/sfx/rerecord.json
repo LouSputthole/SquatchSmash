@@ -18,6 +18,12 @@
   ],
   "lines": [
     {
+      "_comment": "Not a spoken line -- an effect. The Motel's .45 was reported as missing or inaudible; the code path was measured clean end to end (preloaded by src/motel/audio.js, forwarded whole by its weaponAudio wrapper, played at unity through the catalog's revolver mix) and the recording itself is the weakest weapon fire in the bank. The prompt was rewritten for a louder, harder motel-room take, so the indexed file is now the wrong take and the booth sheet has to say so.",
+      "cue": "weapon.revolver.fire",
+      "retiredText": "a single .45 Colt revolver fired in a bare concrete cellar, deep flat crack with a hard mechanical hammer fall under it, tight low-ceiling slap and a short tail, close, dry, no voice",
+      "reason": "prompt rewritten 2026-08-20 for a much louder, transient-first motel-room take; the take on disk is the quiet cellar version"
+    },
+    {
       "cue": "vo.bj.dealer.bust.3",
       "retiredText": "That is a bust. Sorry.",
       "reason": "rewritten in the 2026-08-19 dialogue pass; the indexed take says the retired wording"

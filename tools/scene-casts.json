@@ -87,21 +87,24 @@
       "id": "mansion-siege",
       "label": "MANSION UNDER SIEGE",
       "cuePrefixes": [
-        "vo.siege."
+        "vo.siege.",
+        "vo.ateam."
       ],
       "sourceFiles": [
         "src/mansion/siege/ensemble.js",
-        "src/mansion/siege/script.js"
+        "src/mansion/siege/script.js",
+        "src/mansion/siege/attackers.js"
       ],
       "staged": [
         "lou1",
         "lou2",
         "booski",
         "mansion-guard",
-        "deathmegatron"
+        "deathmegatron",
+        "ateam"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "ensemble.js's ROSTER fields the whole family as defenders (lou, booski, rippinflow, snow, shubenator, eric, aubbie, irish, deathmegatron, numbskull, hogmama, captain_lou_sasole) plus guard_0/1/2/wounded on the mansion-guard voice. Every siege voice resolves to a body."
+      "notes": "ensemble.js's ROSTER fields the whole family as defenders (lou, booski, rippinflow, snow, shubenator, eric, aubbie, irish, deathmegatron, numbskull, hogmama, captain_lou_sasole) plus guard_0/1/2/wounded on the mansion-guard voice. Every siege voice resolves to a body. `vo.ateam.` is a second, deliberately separate prefix (not folded into `vo.siege.`, which `tools/siege-vo.mjs` regenerates wholesale from `script.js`'s `allSiegeLines()` and would silently delete anything else on it): attackers.js's BARKS.identity is the attacking cartel crew naming themselves -- the A-Team -- on the `ateam` voice, one voice across all twenty-two of them the same way mansion-guard covers the defenders."
     },
     {
       "id": "hotdog-incident",
@@ -410,10 +413,12 @@
         "sauce",
         "mark-wife",
         "short-one",
-        "short-two"
+        "short-two",
+        "cleaner",
+        "cartel-guard"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "cast.js builds Mark (makeCombatant 'mark', voice 'mark') and Sauce ('sauce') at the dining-room anchors plus the three begging civilians (PALACE_CIVILIAN_POSTS: 'wife' -> voice 'mark-wife', 'short-one', 'short-two'); finale.js's PalaceFinaleDirector plays every vo.palace.finale.* line through those bodies. Tony's lines are voice 'player', globally exempt."
+      "notes": "cast.js builds Mark (makeCombatant 'mark', voice 'mark') and Sauce ('sauce') at the dining-room anchors plus the three begging civilians (PALACE_CIVILIAN_POSTS: 'wife' -> voice 'mark-wife', 'short-one', 'short-two'); finale.js's PalaceFinaleDirector plays every vo.palace.finale.* line through those bodies. Added 2026-08-20 with the owner playtest pass: PALACE_BYSTANDER_POSTS builds the entry-hall cleaner (voice 'cleaner', spoken through bystanders.js's PalaceBystanders) and PALACE_GUARD_POSTS builds nine guards whose barks are voiced 'cartel-guard' through voice.js's PalaceVoice, which gates every line on radius AND line of sight to a specific live body. Tony's lines are voice 'player', globally exempt."
     },
     {
       "id": "initiation",

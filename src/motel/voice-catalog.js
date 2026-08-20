@@ -28,6 +28,23 @@ export const MOTEL_STORY_LINES = Object.freeze([
   ['Snow', 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.'],
   ['Prospect', 'It is under my coat. It stays under my coat.'],
   ['Prospect', 'Hands. Both of them. On the case.'],
+  /* THE ARRIVAL SEQUENCE. The .45 comes out of the glovebox, gets looked at,
+   * and goes away again before Tony walks anywhere -- and then his own case
+   * goes into both hands, so he arrives at room twelve holding the thing the
+   * scene is about instead of whatever the last prompt left him with. */
+  ['Prospect', 'And away it goes. Nobody sells meat to a man with his hand full.'],
+  ['Snow', 'Case in both hands. That is the only thing they need to see you holding.'],
+  /* Setting it down. Two cases on one table is the whole tableau of the deal:
+   * theirs open on Rico's side, yours shut on yours, facing each other. */
+  ['Prospect', 'Two cases, one table. Mine stays shut until I like what I see.'],
+  ['Rico', 'Set it down. It is not going to be sitting there long.'],
+  /* The room refusing a trigger pull before the deal has turned. Tony is here
+   * to buy jerky; the gun is not an answer to anything yet, and he says so. */
+  ['Prospect', 'I should work the deal before resorting to that.'],
+  ['Prospect', 'Not yet. Let us see how this plays out.'],
+  ['Prospect', 'Lou sent me here to buy meat. Not to redecorate a motel.'],
+  /* And the moment it stops being true. */
+  ['Prospect', 'The deal is dead. Now it is a gun.'],
   ['Rico', 'Whoa — WHOA—'],
   ['Prospect', 'Third man. Of course there is a third man.'],
   ['Snow', 'Crowbar. And the thing we never mention.'],

@@ -89,8 +89,19 @@ const EMERGENCY_POSTS = Object.freeze([
    * they throw SOUTH across the landing and the rail is lit from behind. */
   { name: 'gallery.west', x: -11, y: 8.2, z: GALLERY_Z1, reach: 11, face: 'z', into: -1 },
   { name: 'gallery.east', x: 11, y: 8.2, z: GALLERY_Z1, reach: 11, face: 'z', into: -1 },
-  /* Upstairs, on the conference room's north wall outside Lou's office. */
-  { name: 'office.hall', x: 0, y: 8.2, z: CONFERENCE_Z1, reach: 11, face: 'z', into: -1 },
+  /* Upstairs, on the conference room's north wall outside Lou's office --
+   * the red one the owner's playtest flagged as "intended to sit above the
+   * conference-room door" and not doing it.
+   *
+   * MansionInterior's own door here (`conferenceToOffice`, Z_OFFICE=63) runs
+   * y 6.0..8.6 (UY..UY+2.6). This post's `z` was already the conference-side
+   * finished wall face, but `y` was 8.2 -- INSIDE that opening, not above it,
+   * so the fitting hung in the doorway's own open air with no wall behind
+   * its backplate: a mounted-looking fixture that was still floating for
+   * the same reason the pre-fix emergency posts were. 8.85 clears the
+   * lintel (8.6) with room to spare under the room's own ceiling (UCY-0.3 =
+   * 9.9), so the backplate now sinks into wall that is actually there. */
+  { name: 'office.hall', x: 0, y: 8.85, z: CONFERENCE_Z1, reach: 11, face: 'z', into: -1 },
 ]);
 
 const RED = 0xff2d18;
@@ -223,17 +234,100 @@ export function buildSiegeNight({ damage, registerLight = null } = {}) {
     return entry;
   }
 
+  /**
+   * A battle accent hung from a real ceiling rose instead of standing at its
+   * working height in mid-air.
+   *
+   * Owner's playtest, 2026-08-19: a floating light at the top of the stairs
+   * and a floating light over Lou's desk. Both were `accent()` calls -- a
+   * backplate-and-lens housing with no wall or ceiling behind it, sitting at
+   * its OWN working height rather than on anything. `accent()` still suits
+   * `breach`, which the playtest did not flag; this is the same lens-and-glow
+   * presentation for the two that were, mounted on the ceiling those rooms
+   * actually have: `MansionInterior.js` trims every upper room to `UCY - 0.3`
+   * (`trimRoom(r, UY, UCY - 0.3)`), copied here as `UPPER_CEILING_TRIM` for
+   * the same reason the wall coordinates above are copied rather than
+   * imported. A rose sits flush there; a drop rod carries the lamp housing
+   * down to the same working height and light values `accent()` used, so the
+   * room reads exactly as bright as it did before, just hanging from
+   * something.
+   */
+  const UPPER_CEILING_TRIM = 9.9; // MansionInterior.js UCY(10.2) - 0.3, every upper room
+  function ceilingAccent(role, {
+    x, z, dropY, colour, intensity, reach, lens = [0.7, 0.08, 0.16],
+  }) {
+    const fixture = new THREE.Group();
+    fixture.name = `siege-accent-${role}`;
+    /* A ceiling fixture, not a floor-standing prop. */
+    fixture.userData.geometryGate = { checkSupport: false };
+    fixture.position.set(x, UPPER_CEILING_TRIM, z);
+
+    const rose = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 0.18, 0.04, 16),
+      new THREE.MeshStandardMaterial({ color: 0x20252b, roughness: 0.8 }),
+    );
+    rose.name = `siege-accent-${role}.rose`;
+    rose.position.y = -0.02;
+    fixture.add(rose);
+
+    const drop = UPPER_CEILING_TRIM - dropY;
+    const rod = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.018, 0.018, drop, 8),
+      new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.55, metalness: 0.45 }),
+    );
+    rod.name = `siege-accent-${role}.rod`;
+    rod.position.y = -drop / 2;
+    fixture.add(rod);
+
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(lens[0] + 0.12, lens[1] + 0.08, lens[2] + 0.05),
+      new THREE.MeshStandardMaterial({ color: 0x20252b, roughness: 0.82 }),
+    );
+    plate.name = `siege-accent-${role}.plate`;
+    plate.position.y = -drop;
+    fixture.add(plate);
+    const glow = new THREE.Mesh(
+      new THREE.BoxGeometry(...lens),
+      new THREE.MeshBasicMaterial({ color: colour }),
+    );
+    glow.name = `siege-accent-${role}.lens`;
+    glow.position.set(0, -drop, lens[2] / 2 + 0.03);
+    fixture.add(glow);
+
+    const light = new THREE.PointLight(colour, intensity, reach, 2);
+    light.name = `siege-accent-${role}.light`;
+    light.position.set(0, -drop - 0.05, 0.12);
+    light.userData.siegeAccent = role;
+    fixture.add(light);
+    accentRoot.add(fixture);
+    registerLight?.(light);
+
+    const entry = {
+      fixture,
+      light,
+      anchor: Object.freeze({ x, y: dropY, z }),
+    };
+    accents[role] = entry;
+    return entry;
+  }
+
   accent('breach', {
     x: 0, y: 4.25, z: 36.55,
     colour: 0x7faeff, intensity: 4.2, reach: 14, into: 1,
   });
-  accent('gallery', {
-    x: 0, y: 8.45, z: 49.0,
-    colour: 0x86b9e8, intensity: 3.4, reach: 11, into: -1,
+  /* Top of the stairs -- the gallery, in `MansionInterior.js`'s own words
+   * ("UPPER FLOOR -- THE GALLERY (top of the stairs)"). Same x/z/colour/
+   * intensity/reach `accent('gallery', ...)` always used; `dropY` is that
+   * former `y` and is now the rod's bottom, not the fixture's whole position. */
+  ceilingAccent('gallery', {
+    x: 0, z: 49.0, dropY: 8.45,
+    colour: 0x86b9e8, intensity: 3.4, reach: 11,
   });
-  accent('command', {
-    x: -0.6, y: 7.55, z: 70.85,
-    colour: 0xffb45f, intensity: 3.0, reach: 7.5, lens: [0.46, 0.07, 0.14], into: -1,
+  /* Lou's desk (`deskZ = 71.6` in `MansionInterior.js`'s `buildOffice()`) --
+   * same values `accent('command', ...)` always used. */
+  ceilingAccent('command', {
+    x: -0.6, z: 70.85, dropY: 7.55,
+    colour: 0xffb45f, intensity: 3.0, reach: 7.5, lens: [0.46, 0.07, 0.14],
   });
   damage.group('night.accents', { object: accentRoot, layers: ['battle'] });
 

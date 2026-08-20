@@ -213,12 +213,29 @@ test('the kills land as before — mission clears — and the trio screams, dive
     .some((cue) => cue.includes('react.mark-first')), 'the first kill must queue its reaction');
   assert.equal(finale.report().dived, true, 'the short pair dives on the first kill');
 
-  // The dive is unison and physical: both end prone under the 9.8 x 2.2 table.
+  /* The dive is unison and physical, and it lands them BESIDE the table.
+   *
+   * Owner, 2026-08-20 playtest: *"their dive animation must land them BESIDE
+   * or AWAY from the table, not underneath it"*. This assertion used to
+   * REQUIRE the old landing -- inside the table's own 9.8 x 2.2 footprint --
+   * which is the clip the owner reported, so it is inverted here: the
+   * landing must be clear of the table and clear of every chair collider. */
   drain(finale);
   for (const entry of cast.civilians.filter((civilian) => civilian.id.startsWith('short-'))) {
     assert.equal(entry.figure.pose, 'prone', `${entry.id} did not end up prone`);
-    assert.ok(Math.abs(entry.root.position.x) <= 4.9 && Math.abs(entry.root.position.z + 42.4) <= 1.3,
-      `${entry.id} did not make it under the table (${entry.root.position.x}, ${entry.root.position.z})`);
+    const { x, z } = entry.root.position;
+    const underTable = Math.abs(x) <= 4.9 + 0.5 && z >= -43.5 - 0.5 && z <= -41.3 + 0.5;
+    assert.equal(underTable, false,
+      `${entry.id} dived under Mark's table again (${x}, ${z})`);
+    for (const [cx, cz] of [
+      [-3.6, -44.2], [-1.2, -44.2], [1.2, -44.2], [3.6, -44.2], [-5.55, -42.4], [5.55, -42.4],
+    ]) {
+      assert.ok(Math.hypot(x - cx, z - cz) > 0.95,
+        `${entry.id} landed on the chair at (${cx}, ${cz})`);
+    }
+    // And still inside the dining room, not through its walls.
+    assert.ok(Math.abs(x) < 17.7 && z > -49.7 && z < -34.2,
+      `${entry.id} landed outside the dining room (${x}, ${z})`);
   }
 
   // Second kill: Sauce. Mission clears exactly as before; the wife gets her aria.

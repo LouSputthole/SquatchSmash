@@ -113,6 +113,16 @@ export const PALACE_COMBAT_POSTS = Object.freeze([
   Object.freeze({ id: 'gallery-bench-west', kind: 'flank', position: new THREE.Vector3(-7.8, 0, -27.2), score: 0.91 }),
 ]);
 
+/* How much wider than the alarm radius a suppressed shot is still heard as
+ * "something happened over there" -- close enough to walk toward, not close
+ * enough to be certain about. */
+const SUPPRESSED_INVESTIGATE_SCALE = 2.1;
+
+/* Awareness at which a seated guard stops typing and stands up. Below
+ * INVESTIGATE_AWARENESS on purpose: getting out of a chair is the FIRST
+ * thing a suspicious man does, before he walks anywhere. */
+const SEATED_STAND_AWARENESS = 0.22;
+
 function finite(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -192,6 +202,18 @@ export class PalaceSecurity {
      * coalesces the two, so wiring this only adds the hostile's reaction to
      * the hits the root's per-trigger audio budget suppresses. */
     audio = null,
+    /* HOW FAR A SHOT CARRIES, in metres.
+     *
+     * Owner, 2026-08-20 playtest, on the mission's suppressed weapon: *"if
+     * stealth detection exists in this scene, suppressed shots should have a
+     * much smaller AI hearing radius"*.
+     *
+     * Infinity is the historical behaviour and stays the DEFAULT, because it
+     * is what an unsuppressed rifle in a stucco courtyard actually does and
+     * what every existing caller and test assumes: one round, one estate-wide
+     * alarm. The composition root lowers it per shot from the player's
+     * equipped weapon (see main.js and ./suppressor.js). */
+    gunshotHearingRadius = Infinity,
     random = Math.random,
     onAlarm = () => {},
     onPlayerHit = () => {},
@@ -207,6 +229,9 @@ export class PalaceSecurity {
     this.combatPosts = Array.isArray(combatPosts) ? combatPosts : PALACE_COMBAT_POSTS;
     this.playerActor = playerActor;
     this.audio = audio ?? null;
+    this.gunshotHearingRadius = Number.isFinite(Number(gunshotHearingRadius))
+      ? Math.max(0, Number(gunshotHearingRadius))
+      : Infinity;
     this.random = typeof random === 'function' ? random : Math.random;
     this.onAlarm = onAlarm;
     this.onPlayerHit = onPlayerHit;
@@ -388,6 +413,56 @@ export class PalaceSecurity {
     return Boolean(this._scan(entry, playerPosition, options));
   }
 
+  /**
+   * A SHOT WAS FIRED, AND WHO IS CLOSE ENOUGH TO CARE.
+   *
+   * Unsuppressed (`radius` Infinity, the default) this is the old behaviour
+   * exactly: one round anywhere in the compound raises the alarm.
+   *
+   * Suppressed, it is the whole difference between a can and no can. Nobody
+   * inside `radius` means nobody raises the alarm -- but the shot is not
+   * silent either, so anyone inside the wider investigate ring is handed the
+   * position as REMEMBERED CONTACT and walks over to look. That is a
+   * `perception.restore`, the Module's own public seam for durable memory,
+   * not a poke at its fields: it seeds `lastSeen` + `memory` so the guard
+   * branch of `update` takes `_investigate` instead of `_patrol`.
+   *
+   * `ignore` is the man the round actually hit -- he does not need to be told
+   * where the shooting was.
+   *
+   * @returns {boolean} whether this shot raised the alarm.
+   */
+  noteGunshot(point, { radius = this.gunshotHearingRadius, reason = 'gunshot', ignore = null } = {}) {
+    const at = point?.isVector3 ? point : this.playerPoint;
+    if (!at) return this.raiseAlarm(reason);
+    const heardRadius = Number.isFinite(radius) ? Math.max(0, radius) : Infinity;
+    if (heardRadius === Infinity) {
+      this._noteContact(at);
+      return this.raiseAlarm(reason);
+    }
+    const listeners = this.cast.all.filter((entry) => (
+      entry !== ignore && entry.active && !entry.down
+    ));
+    if (listeners.some((entry) => entry.root.position.distanceTo(at) <= heardRadius)) {
+      this._noteContact(at);
+      return this.raiseAlarm(reason);
+    }
+    /* Out of earshot for an alarm, inside earshot for a suspicion. */
+    this._noteContact(at);
+    for (const entry of listeners) {
+      if (entry.root.position.distanceTo(at) > heardRadius * SUPPRESSED_INVESTIGATE_SCALE) continue;
+      const runtime = this._runtime(entry);
+      if (!runtime) continue;
+      runtime.perception.restore({
+        awareness: Math.max(runtime.perception.awareness, INVESTIGATE_AWARENESS + 0.06),
+        memory: VISION.memorySeconds,
+        lastSeen: at.toArray(),
+      });
+      entry.awareness = runtime.perception.awareness;
+    }
+    return false;
+  }
+
   raiseAlarm(reason = 'detected') {
     if (this.alarm) return false;
     this.alarm = true;
@@ -434,7 +509,14 @@ export class PalaceSecurity {
 
   applyPlayerImpact(impact) {
     if (!impact?.object) return { applied: false, reason: 'no-object' };
-    this.raiseAlarm('gunshot');
+    /* A round landing on a body is a gunshot at that body's address. With no
+     * hearing radius configured this is the historical unconditional alarm;
+     * with a suppressed radius it is heard only by the men who are near it,
+     * and the man it hit is excluded -- he is about to have his own opinion. */
+    this.noteGunshot(
+      impact.point?.isVector3 ? impact.point : this.playerPoint,
+      { ignore: impact.object?.userData?.palaceCombatant ?? null },
+    );
     const def = weaponDef(impact.weapon);
     const zone = zoneOf(impact.object);
     const located = this.impactResolver.resolve({
@@ -860,6 +942,11 @@ export class PalaceSecurity {
         runtime.perception.awareness = Math.max(0.7, runtime.perception.awareness - step * 0.04);
       }
       entry.awareness = runtime.perception.awareness;
+      /* A man at a keyboard gets out of the chair the moment he has a reason
+       * to. The cast owns the pose; security owns the moment. */
+      if (entry.seated && (this.alarm || runtime.perception.awareness >= SEATED_STAND_AWARENESS)) {
+        this.cast.standUp?.(entry);
+      }
 
       /* Own eyes first, own memory second, the shared contact call last. */
       const remembered = seen?.point

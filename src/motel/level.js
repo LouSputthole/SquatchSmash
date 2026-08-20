@@ -17,6 +17,25 @@ import { makeMotelArrivalCar } from './vehicle.js';
 export const BOUNDS = { x0: -62, x1: 62, z0: -30, z1: 42 };
 export const MOTEL_DOOR_OPEN_ANGLE = -1.52;
 
+/**
+ * THE DEAL TABLE, and the two cases that sit on it.
+ *
+ * The dining table in room twelve is 1.6 x 1.6 at (1.4, -6.4). Two suitcases
+ * crowd it, which is exactly how the room should read -- nobody was ever going
+ * to eat here. THEIRS goes down first, hinged open on Rico's side; YOURS comes
+ * in under Tony's arm and lands shut on his own edge, facing it.
+ *
+ * `y` is the resting height of a case lid on the table top (the top slab spans
+ * 0.73..0.83), and `ry` is the lazy angle of something set down rather than
+ * placed. Both cases are positioned from here, and so are the interaction
+ * points in `src/motel/main.js`, so the prompt can never drift off the prop.
+ */
+export const MOTEL_TABLE = Object.freeze({ x: 1.4, z: -6.4, top: 0.83 });
+export const MOTEL_THEIR_CASE = Object.freeze({ x: 1.32, y: 0.845, z: -6.82, ry: 0.16 });
+export const MOTEL_YOUR_CASE = Object.freeze({ x: 1.5, y: 0.845, z: -5.92, ry: -0.22 });
+/** Where your case ends up once it has been pushed across and paid. */
+export const MOTEL_YOUR_CASE_PAID = Object.freeze({ x: 1.62, y: 0.845, z: -6.5, ry: -0.42 });
+
 // Palette: sickly motel yellow, turquoise doors, hot neon pink, tropical green
 const C = {
   stucco: 0xd8c88a,
@@ -731,15 +750,27 @@ export function buildMotel(scene, renderer) {
   lights.push(roomLight);
   refs.roomLight = roomLight;
 
-  // The Reserve suitcase, open on the far bed
+  /* THE RESERVE SUITCASE, OPEN ON THE TABLE -- their half of the deal.
+   *
+   * It used to sit on the near bed while every word, prompt and objective in
+   * the scene talked about a table: the player was told to count a case that
+   * was lying on the bedding two metres behind the thing he was standing at.
+   * A deal happens on the table, so the case a deal is about starts on the
+   * table, on Rico's side of it, and the player's own case comes down facing
+   * it. Room event 38 is what moves it AWAY, which is the whole point of that
+   * beat -- the object leaving the table is the first thing that goes wrong.
+   *
+   * MOTEL_THEIR_CASE at the top of this file is the one authority on where it
+   * sits; the room's interaction point is placed from it rather than typed
+   * again. */
   refs.jerkyCase = makeJerkyCase();
   refs.jerkyCase.group.name = 'motel.room12.reserve-case';
   ownGeometry(refs.jerkyCase.group, 'motel.room12.reserve-case');
-  refs.jerkyCase.group.position.set(-3.1, 0.835, -8.4);
-  refs.jerkyCase.group.rotation.y = 0.2;
+  refs.jerkyCase.group.position.set(MOTEL_THEIR_CASE.x, MOTEL_THEIR_CASE.y, MOTEL_THEIR_CASE.z);
+  refs.jerkyCase.group.rotation.y = MOTEL_THEIR_CASE.ry;
   scene.add(refs.jerkyCase.group);
-  refs.jerkyCase.x = -3.1;
-  refs.jerkyCase.z = -8.4;
+  refs.jerkyCase.x = MOTEL_THEIR_CASE.x;
+  refs.jerkyCase.z = MOTEL_THEIR_CASE.z;
 
   // Rico's hidden premium stash, under the far bed
   const stash = makeJerkyCase(0x1d1d22);

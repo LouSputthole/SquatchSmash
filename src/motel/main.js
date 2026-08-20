@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
-import { buildMotel, makeJerkyCase, BOUNDS, MOTEL_DOOR_OPEN_ANGLE } from './level.js';
+import {
+  buildMotel, makeJerkyCase, BOUNDS, MOTEL_DOOR_OPEN_ANGLE,
+  MOTEL_YOUR_CASE, MOTEL_YOUR_CASE_PAID,
+} from './level.js';
 import { WEAPON_STATS, buildWeaponMesh } from './actors.js';
 import { Person } from '../core/person.js';
 import { DebrisSystem } from '../../game/src/debris.js';
@@ -82,7 +85,14 @@ const ROAD_Z = MOTEL_ROAD_Z;
  * two words where anybody else would use ten. One name, one place to change it. */
 const ALLY = 'Snow';
 const ALLY_FACE = 'assets/faces/snow.png';
-/** The first line anybody speaks in this scene — Snow's, and it is recorded. */
+/**
+ * The line the scene's opening BEAT turns on — Snow's brief, and it is recorded.
+ *
+ * It is no longer literally the first thing spoken: the arrival sequence draws
+ * the .45, puts it away and hands Tony his case ahead of it. Those three lines
+ * do not need the priority decode this one gets, because they start on the far
+ * side of the non-playable pull-in and the brief still waits on them.
+ */
 const OPENING_CUE = motelVoiceCue(ALLY, NODES.snowBrief.line);
 
 const campaign = createCampaign();
@@ -182,6 +192,16 @@ const S = {
   ammo: 0,
   carryingMoney: false,
   carryingJerky: false,
+  /* YOUR CASE, in three states rather than one.
+   *
+   * `caseHeld` is it under his arm on the way in -- the arrival sequence puts
+   * it there so the player never arrives at room twelve holding the wrong
+   * thing. `caseDown` is it resting shut on his own edge of the table, which
+   * is the tableau the whole inspection plays against: two cases, one table.
+   * `moneyOnTable` is the deal step -- the case pushed ACROSS and offered --
+   * and it stays exactly what it always was, so the transaction is unchanged. */
+  caseHeld: false,
+  caseDown: false,
   moneyOnTable: false,
   moneyOpened: false,
   couponOnly: false,
@@ -199,6 +219,21 @@ const S = {
   enteredRoom: false,
   /** The glovebox has been opened once. Opening it again is not news. */
   weaponChecked: false,
+  /* THE GUN IS ON HIM, AND IT IS PUT AWAY.
+   *
+   * The arrival sequence draws the .45, shows it, and holsters it before Tony
+   * ever walks a step, so "am I armed" is answered once and never becomes an
+   * inventory fight. While it is holstered nothing is drawn at the lens and
+   * nothing can be discharged: room twelve is a negotiation, and a player who
+   * can shoot the room on the way in has no scene left to play. It comes out
+   * the instant the deal goes bad and never goes back (see `releaseWeapon`). */
+  holstered: false,
+  /** The arrival draw/holster/case handover has run. Once, per scene. */
+  armedUp: false,
+  /** ...and has finished speaking, which is what the briefing waits on. */
+  armedUpSpoken: false,
+  /** How many times the room has refused a trigger pull, for line variety. */
+  weaponRefusals: 0,
   dealStarted: false,
   sampleOut: false,
   betrayed: false,
@@ -279,7 +314,7 @@ const OBJECTIVES = {
     { id: 'reach', text: 'Reach room twelve' },
     { id: 'inspect', text: 'Inspect their sample' },
     { id: 'count', text: 'Count their case of eight' },
-    { id: 'payment', text: 'Put your case on the table' },
+    { id: 'payment', text: 'Push your case across the table' },
     { id: 'survive', text: 'Survive the betrayal' },
     { id: 'recover', text: 'Recover the jerky' },
     { id: 'escape', text: 'Escape the motel' },
@@ -874,29 +909,33 @@ function dealStepNow() {
   return 'done';
 }
 
+/* Both cases are on the table from the moment Tony walks in, so the board
+ * describes a table with two cases on it rather than a room with things
+ * scattered around it. `theirs` is the only half that ever moves -- room event
+ * 38 takes their case to the far bed, and `renderDealBoard` says so. */
 const DEAL_HUD = {
   sample: {
     objective: 'inspect',
-    sub: 'Their sample is on the table. [E] there to work it over.',
-    have: 'Your case · $40,000, shut',
-    theirs: 'One strip on the table · a case of eight behind Rico',
+    sub: 'Their sample is between the two cases. [E] on it to work it over.',
+    have: 'Your case · $40,000, shut, on your edge of the table',
+    theirs: 'One strip on the table · their case of eight, open, across from you',
   },
   count: {
     objective: 'count',
-    sub: 'Their case, on their side of the room. [E] on it to count the eight.',
-    have: 'Your case · $40,000, shut',
+    sub: 'Their case is across the table, hinged open. [E] on it to count the eight.',
+    have: 'Your case · $40,000, shut, on your edge of the table',
     theirs: 'Sample checked · eight packages uncounted',
   },
   pay: {
     objective: 'payment',
-    sub: 'Meat first, money second. Your case goes on the table. [E] there.',
-    have: 'Your case · $40,000, in your hand',
+    sub: 'Meat first, money second. Push your case across to him. [E] on it.',
+    have: 'Your case · $40,000, still on your side',
     theirs: 'Sample checked · eight counted',
   },
   open: {
     objective: 'payment',
     sub: 'Open your case when you are ready. Nothing you have not checked gets checked after.',
-    have: 'Your case · on the table, shut',
+    have: 'Your case · across the table, shut',
     theirs: 'Their case · eight, waiting on your latch',
   },
 };
@@ -957,8 +996,17 @@ function frameSnowFromPassenger() {
   camPitch = 0.04;
 }
 
+/**
+ * Snow's briefing, once the car has finished handing Tony his gear.
+ *
+ * `openDialogue` slows time to a third and puts a four-answer wheel on screen,
+ * so opening it while the arrival sequence is still speaking would leave the
+ * player in slow motion staring at four disabled buttons for the length of
+ * three lines. The sequence calls back into here when it is done.
+ */
 function maybeOpenCarBrief() {
   if (!openingVoiceReady || phase !== 'car' || dialogue || S.dealStarted) return;
+  if (!S.armedUpSpoken) return;
   openDialogue('snowBrief');
 }
 
@@ -989,7 +1037,71 @@ function finishArrival() {
   // This is the first playable frame. Start the requested ten-second survey
   // message here, not while Tony is locked into the pull-in composition.
   hudEl.classList.add('control-ready');
+  runArrivalInventory();
   maybeOpenCarBrief();
+}
+
+/**
+ * WHAT TONY IS HOLDING WHEN THE SCENE STARTS, decided by the scene.
+ *
+ * Owner: the player should never have to fight the inventory system to be
+ * carrying what the cutscene expects. So the car does it for him, in the order
+ * a man actually does it, and it is over before he can reach a door handle:
+ *
+ *   1. the .45 comes out of the glovebox and he looks at it,
+ *   2. it goes away again -- the whole transaction is played unarmed,
+ *   3. his own case goes into both hands,
+ *   4. and he walks into room twelve carrying it.
+ *
+ * The glovebox prompt still exists and still works; this only means a player
+ * who never touches it is armed anyway, and a player who does gets the "still
+ * six" line rather than a second draw. The holster is not cosmetic: see
+ * `dealSealed()` -- nothing can be fired while the deal is still a deal.
+ */
+function runArrivalInventory() {
+  if (S.armedUp) return;
+  S.armedUp = true;
+
+  S.weaponChecked = true;
+  equipWeapon('revolver');
+  sfx.select();
+  const drawHold = say('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.', 3.6);
+
+  afterLine(drawHold, () => {
+    if (phase === 'end' || phase === 'menu') return;
+    holsterWeapon();
+    const awayHold = say('Prospect', 'And away it goes. Nobody sells meat to a man with his hand full.', 3.8);
+    afterLine(awayHold, () => {
+      if (phase === 'end' || phase === 'menu') return;
+      takeOwnCase();
+      sayThenInstruct(
+        ALLY,
+        'Case in both hands. That is the only thing they need to see you holding.',
+        4.2,
+        () => {
+          toast('YOUR CASE IS IN YOUR HANDS', '', "Lou's $40,000, shut · the .45 is put away until it is not");
+          S.armedUpSpoken = true;
+          maybeOpenCarBrief();
+        },
+      );
+    });
+  });
+}
+
+/** Put the gun away. It stays away until the room takes that decision back. */
+function holsterWeapon() {
+  if (S.holstered) return;
+  S.holstered = true;
+  sfx.select();
+  updateGear();
+}
+
+/** Tony's own case, under his arm. */
+function takeOwnCase() {
+  if (S.caseDown) return;
+  S.caseHeld = true;
+  sfx.caseLatch();
+  updateGear();
 }
 
 function updateArrival(dt) {
@@ -1047,6 +1159,14 @@ function startScene() {
   refs.manCar.collider.enabled = false;
   refs.manCar.placeArrival(0);
   S.carryingMoney = true;
+  /* A retry re-enters this function with the same `S`, so the arrival sequence
+   * has to be able to run again: hands empty, gun away, case not yet down. */
+  S.armedUp = false;
+  S.armedUpSpoken = false;
+  S.holstered = false;
+  S.caseHeld = false;
+  S.caseDown = false;
+  S.weaponRefusals = 0;
   setObjective('reach', 'Pulling into the Flamingo with Snow. Room twelve, tonight.');
   renderObjectiveList();
   updateGear();
@@ -1190,7 +1310,10 @@ addInteract({
 addInteract({
   id: 'glovebox', x: -6.2, y: 1.1, z: 17.6, r: 3.0,
   requiresAim: true,
-  label: () => (S.weaponChecked ? 'The .45 is already out' : 'Check your weapon'),
+  /* The arrival sequence has already opened it, so in practice this is always
+   * the second label -- it is kept because the glovebox is still a thing in
+   * the car a player will look at, and it should answer him. */
+  label: () => (S.weaponChecked ? 'The .45 is checked and put away' : 'Check your weapon'),
   follow: () => refs.manCar.gloveboxPosition(),
   enabled: () => phase === 'car',
   act: () => {
@@ -1429,8 +1552,17 @@ addInteract({
 });
 
 // -- inside the room --
+/* THE THREE THINGS ON THE TABLE, and one rule for all of them.
+ *
+ * Their sample sits between the two cases; their case is hinged open on
+ * Rico's side; yours is shut on yours. Each has its own point on the table
+ * rather than three prompts stacked on the same coordinate, and each carries
+ * the deal step it belongs to so the room offers what it is asking for. */
+const stepPriority = (...steps) => () => (steps.includes(dealStepNow()) ? 0.7 : 0);
+
 addInteract({
   id: 'sample', x: 1.4, y: 1.0, z: -6.4, r: 3.4,
+  priority: stepPriority('sample'),
   label: () => (inspecting ? 'Step back from their sample' : 'Inspect their sample'),
   enabled: () => (phase === 'room') && S.sampleOut,
   act: () => (inspecting ? closeInspection() : openInspection()),
@@ -1463,9 +1595,15 @@ addInteract({
  * without ever meaning to. */
 addInteract({
   id: 'jerkyCase', x: refs.jerkyCase.x, y: 1.2, z: refs.jerkyCase.z, r: 3.2,
+  priority: stepPriority('count'),
   label: () => {
     if (S.carryingJerky) return 'You have the Reserve';
-    if (phase === 'room') return S.packagesCounted ? 'Their case · eight, counted' : 'Count their case of eight';
+    if (phase === 'room') {
+      if (S.packagesCounted) return 'Their case · eight, counted';
+      return S.reserveMoved
+        ? 'Count their case of eight (they moved it to the far bed)'
+        : 'Count their case of eight, across the table';
+    }
     return 'Take the Reserve';
   },
   enabled: () => onFoot() && phase !== 'lot'
@@ -1498,12 +1636,17 @@ addInteract({
  * second one is the one that ends the negotiation — so it is said out loud
  * before it can be taken by accident. */
 addInteract({
-  id: 'placeMoney', x: 1.4, y: 1.0, z: -6.4, r: 3.4,
+  id: 'placeMoney', x: MOTEL_YOUR_CASE.x, y: 1.0, z: MOTEL_YOUR_CASE.z, r: 3.4,
+  priority: stepPriority('pay', 'open'),
   label: () => {
+    /* The case is already on the table -- he carried it in and set it down.
+     * What is left is pushing it ACROSS, which is the payment, and opening it,
+     * which ends the negotiation. Two decisions, two labels, neither of them
+     * pretending the object is somewhere it is not. */
     if (S.moneyOnTable) return 'Open your case';
-    if (!S.sampleChecked) return 'Put your case on the table (he wants the meat looked at first)';
-    if (!S.packagesCounted) return 'Put your case on the table (their eight are still uncounted)';
-    return 'Put your case on the table';
+    if (!S.sampleChecked) return 'Push your case across (he wants the meat looked at first)';
+    if (!S.packagesCounted) return 'Push your case across (their eight are still uncounted)';
+    return 'Push your case across the table';
   },
   enabled: () => phase === 'room' && S.sampleOut
     && (S.carryingMoney || S.moneyOnTable) && !S.moneyOpened,
@@ -1543,7 +1686,13 @@ addInteract({
       }
       S.moneyOnTable = true;
       S.carryingMoney = false;
-      placeMoneyCase();
+      /* Across the table it goes, into the middle, where it is Rico's to look
+       * at. The prompt travels with the object. */
+      placeMoneyCase(MOTEL_YOUR_CASE_PAID);
+      const paid = ix('placeMoney');
+      paid.x = MOTEL_YOUR_CASE_PAID.x;
+      paid.z = MOTEL_YOUR_CASE_PAID.z;
+      sfx.caseLatch();
       addHeat(4);
       if (!S.sampleChecked) {
         S.paidBlind = true;
@@ -1565,6 +1714,12 @@ addInteract({
       });
     } else {
       S.moneyOpened = true;
+      /* The latch. The lid comes up on the model as well as in the sentence --
+       * this is the last thing anybody in room twelve does before it turns. */
+      if (carriedCases.money) {
+        const lid = carriedCases.money.children.find((child) => child.isGroup);
+        if (lid) lid.rotation.x = -2.0;
+      }
       completeObjective('payment');
       say('*', 'The lamp catches the silver foil. For one second the case looks holy.', 4);
       addHeat(24);
@@ -2052,6 +2207,22 @@ function knockOnTwelve() {
   }, KNOCK_ANSWER_MS);
 }
 
+/**
+ * The room's answer to the case landing on its table, and then the four beats
+ * that were already there. Rico's line is new; everything after it is
+ * `ROOM_ENTRY_BEATS` unchanged, so the exchange that earns the inspection
+ * controls is the same exchange it has always been.
+ */
+const CASE_DOWN_BEATS = Object.freeze([
+  Object.freeze({
+    speaker: 'Rico',
+    line: 'Set it down. It is not going to be sitting there long.',
+    seconds: 3.6,
+    leadSeconds: 0.6,
+  }),
+  ...ROOM_ENTRY_BEATS,
+]);
+
 function enterRoom() {
   /* Two callers now — the [E] prompt and the doorway itself — so this has to
    * be safe to run twice on the same frame. It spawns three actors. */
@@ -2063,7 +2234,7 @@ function enterRoom() {
   feetY = 0;
   closeDialogue();
   completeObjective('reach');
-  setObjective('inspect', 'Wait for Rico to put something on the table.');
+  setObjective('inspect', 'Their case is open on the table. Put yours down and let Rico lay the sample out.');
   renderDealBoard();
 
   /* Everyone takes their positions.
@@ -2093,10 +2264,18 @@ function enterRoom() {
     addHeat(6);
     addRead(10);
     sfx.packaging();
+    /* AND THE CASE GOES DOWN.
+     *
+     * He walked in holding it; the first thing he does in room twelve is put
+     * it on the table next to theirs. Two cases, one table, before a word is
+     * said about either -- which is what the whole deal is, staged physically
+     * instead of explained by the HUD. */
+    putOwnCaseDown();
+    const downHold = say('Prospect', 'Two cases, one table. Mine stays shut until I like what I see.', 4.0);
     /* Establish all three objects, in words, before the inspection becomes
      * clickable: their sample, their case of eight, and Lou's money case.
      * These are existing recorded Motel takes played by the shared floor. */
-    speakAuthoredBeats(ROOM_ENTRY_BEATS, 0, () => {
+    speakAuthoredBeats(CASE_DOWN_BEATS, downHold, () => {
       if (phase !== 'room' || S.betrayed) return;
       S.sampleOut = true;
       advanceDeal();
@@ -2141,9 +2320,14 @@ function moveCaseAway() {
   refs.jerkyCase.group.position.set(-3.4, 0.92, -12.6);
   refs.jerkyCase.x = -3.4;
   refs.jerkyCase.z = -12.6;
-  const i = ix('jerkyCase');
-  i.x = -3.4;
-  i.z = -12.6;
+  /* Both prompts on this object travel with it. `burnCase` used to be left
+   * behind wherever the case started, which was survivable while that was a
+   * bed nobody stood at and is not now that it is the deal table. */
+  for (const id of ['jerkyCase', 'burnCase']) {
+    const i = ix(id);
+    i.x = -3.4;
+    i.z = -12.6;
+  }
   S.reserveMoved = true;
   renderDealBoard();
 }
@@ -2300,6 +2484,9 @@ function pickDialogue(style) {
 // ---------- Inspection ----------
 function openInspection() {
   inspecting = true;
+  /* `viewmodelShown()` hides anything held while the panel is up, and both
+   * rigs are only refreshed by `updateGear` -- so it has to be told. */
+  updateGear();
   inspectEl.classList.add('show');
   inspectSerialEl.textContent = `SAMPLE ${shipment.serial} · RESTRICTED AGRICULTURAL PRODUCT`;
   renderInspection();
@@ -2309,6 +2496,7 @@ function openInspection() {
 
 function closeInspection() {
   inspecting = false;
+  updateGear();
   inspectEl.classList.remove('show');
   timeScale = 1;
   if (inspection.done.size >= 2 && !S.sampleTalked) {
@@ -2432,6 +2620,10 @@ function maybeBetray(trigger, { fastDraw = false } = {}) {
     ? say('Rico', 'Whoa — WHOA—', 1.6)
     : say('Rico', 'Bring out the cutting board.', 3.4);
   toast(fastDraw ? 'YOU DREW FIRST' : 'IT IS HAPPENING', 'warn', `Trigger: ${trigger}`);
+  /* The hinge. Everything above this line is a negotiation the trigger cannot
+   * touch; everything below it is a gunfight. Spoken after Rico because the
+   * dialogue floor queues it there on its own. */
+  releaseWeapon();
 
   // The bathroom door opens and the third man walks out
   afterLine(betrayalHold, () => {
@@ -2506,6 +2698,16 @@ function drawSilverback() {
     return;
   }
   if (S.silverbackDrawn) return;
+  /* Not in the lot, not on the doorstep. The Commander is the Family's, with
+   * the crest on the frame, and the only place drawing it is a decision rather
+   * than a mistake is across the table from Rico -- where it turns the deal
+   * bad on Tony's count. Anywhere else in the protected portion it stays where
+   * Snow put it. */
+  if (dealSealed() && phase !== 'room') {
+    sayThrottled('silverback.sealed', 'Prospect', 'It is under my coat. It stays under my coat.', 3.0);
+    toast('NOT HERE', '', 'The Commander comes out across the table or it does not come out');
+    return;
+  }
 
   S.silverbackDrawn = true;
   S.weapon = 'silverback';
@@ -2554,6 +2756,76 @@ function snowJoins(reason) {
   }
 }
 
+// ---------- The gun stays down until the deal goes bad ----------
+/**
+ * THE PROTECTED PORTION OF THE SCENE.
+ *
+ * Owner: "before the deal turns bad, the player must not be able to simply
+ * murder everyone and destroy the scene." Everything from the pull-in to the
+ * moment room twelve turns is a negotiation -- a lookout by the ice machine, a
+ * night clerk behind a counter, three men around a table -- and a player who
+ * can empty a .45 into any of them has skipped the entire scene and left the
+ * rest of it playing to an empty room.
+ *
+ * So it is REFUSED, not faked. `onRanged` never spends a round, never calls
+ * into `WeaponSystem`, never plays a shot and never damages anybody while this
+ * is true; the .45 is not in his hands at all (`heldKind()` reads the holster).
+ * Tony says why, in his own voice, and the deal is still there afterwards.
+ *
+ * It ends exactly once, at `releaseWeapon()`, which `maybeBetray` calls on the
+ * frame the room turns -- including the fast draw, where the player is the one
+ * who turned it.
+ */
+function dealSealed() {
+  if (S.betrayed) return false;
+  return phase === 'arrival' || phase === 'car' || phase === 'lot'
+    || phase === 'door' || phase === 'room';
+}
+
+/* Three ways of saying the same no, so a player leaning on the trigger gets a
+ * man with an opinion rather than a man with one sentence. */
+const WEAPON_REFUSALS = [
+  'I should work the deal before resorting to that.',
+  'Not yet. Let us see how this plays out.',
+  'Lou sent me here to buy meat. Not to redecorate a motel.',
+];
+
+/** The room's answer to a trigger pull it is not ready for. */
+function refuseWeapon() {
+  const line = WEAPON_REFUSALS[S.weaponRefusals % WEAPON_REFUSALS.length];
+  const spoke = sayThrottled('weapon.sealed', 'Prospect', line, 3.4);
+  /* Only a line that actually got said moves the rotation on. Counting the
+   * suppressed ones would burn two of the three answers inside the cooldown
+   * and hand him the same sentence twice in a row afterwards. */
+  if (spoke <= 0) return;
+  S.weaponRefusals += 1;
+  toast('NOT YET', '', S.weapon === 'fists'
+    ? 'Work the deal. There is nothing here worth shooting yet'
+    : 'The .45 stays put away until room twelve makes it necessary');
+}
+
+/**
+ * The gun comes out, and the player is left in no doubt that it has.
+ *
+ * This is the hinge of the whole scene: one frame the room is a transaction
+ * and the trigger does nothing, the next frame it is a gunfight and the same
+ * trigger kills people. It is announced four ways at once -- the .45 appears
+ * at the lens, the gear box stops saying PUT AWAY, the screen kicks, and Tony
+ * says it out loud on the floor behind Rico's line.
+ */
+function releaseWeapon() {
+  if (!S.holstered) return;
+  S.holstered = false;
+  updateGear();
+  sfx.select();
+  shake = Math.max(shake, 0.5);
+  const armed = S.weapon !== 'fists';
+  toast('WEAPON LIVE', 'warn', armed
+    ? `${(WEAPON_STATS[S.weapon] || WEAPON_STATS.fists).name} · in your hands · [LMB] fires`
+    : 'Nothing in your hands. Take something off somebody');
+  if (armed) say('Prospect', 'The deal is dead. Now it is a gun.', 2.8);
+}
+
 // ---------- Combat ----------
 function onAttack() {
   if (phase === 'menu' || phase === 'arrival' || phase === 'car' || phase === 'end' || paused) return;
@@ -2573,6 +2845,11 @@ function resolvePlayerHit(st) {
   const fx = Math.sin(camYaw);
   const fz = Math.cos(camYaw);
   let hitAny = false;
+  /* The same protection the trigger has. Swinging at the scenery is fine --
+   * kicking the table over is one of the scene's authored ways to start the
+   * fight -- but a fist landing on Rico before the room has turned is the
+   * walk-through defect with an extra step, so the swing is pulled. */
+  const sealed = dealSealed();
 
   for (const a of actors) {
     if (!a.alive || a.faction === 'friendly' || a === snow) continue;
@@ -2582,6 +2859,7 @@ function resolvePlayerHit(st) {
     if (d > st.reach + 0.6) continue;
     const dot = (dx * fx + dz * fz) / (d || 1);
     if (dot < 0.25) continue;
+    if (sealed) { refuseWeapon(); return; }
     hitAny = true;
     const dmg = st.dmg * (S.weapon === 'fists' ? 1.25 : 1);
     const down = a.damage(dmg, st.lethal, pos.x, pos.z);
@@ -2611,6 +2889,11 @@ function resolvePlayerHit(st) {
 
 function onRanged() {
   if (phase === 'menu' || phase === 'arrival' || phase === 'car' || phase === 'end' || paused || grapple) return;
+  /* Nothing leaves the barrel while the deal is still a deal. This is BEFORE
+   * every other test on purpose: no round is spent, no cue is played, no
+   * cadence timer is started and `WeaponSystem` is never touched, so there is
+   * no shot to pretend did not happen. */
+  if (dealSealed()) { refuseWeapon(); return; }
   const st = WEAPON_STATS[S.weapon];
   if (!st) return;
   if (!st.ranged) { throwWeapon(); return; }
@@ -2655,6 +2938,12 @@ function onReload() {
   if (phase === 'menu' || phase === 'end' || paused || grapple) return;
   const st = WEAPON_STATS[S.weapon];
   if (!st?.shared) return;
+  /* [R] is not a dead key during the deal, it is a refused one. The cylinder
+   * is full, the gun is in his coat, and saying so beats silence. */
+  if (dealSealed()) {
+    toast('PUT AWAY', '', 'Six in the wheel and the wheel is under your coat');
+    return;
+  }
   const firearm = weapons.firearm(st.shared);
   if (firearm.rounds >= firearm.capacity) {
     toast('FULL', '', `${st.name} · ${firearm.rounds}/${firearm.capacity}`);
@@ -3092,12 +3381,41 @@ function makeCarryCase(color) {
   return c;
 }
 
-function placeMoneyCase() {
-  if (carriedCases.money) { scene.remove(carriedCases.money); carriedCases.money = null; }
-  const c = makeCarryCase(0x3a2a1a);
-  c.group.position.set(1.4, 0.85, -6.4);
-  scene.add(c.group);
-  refs.moneyCase = { ...c, x: 1.4, z: -6.4 };
+/**
+ * Put Tony's case down on the table, shut, on his own edge of it.
+ *
+ * This is the physical beat, not the transaction: the case leaves his hands
+ * and joins theirs on the same table, which is the tableau the entire
+ * inspection is played against. `S.carryingMoney` is deliberately untouched --
+ * nobody has been paid, and pushing it across is still its own decision.
+ */
+function putOwnCaseDown() {
+  if (S.caseDown) return;
+  S.caseDown = true;
+  S.caseHeld = false;
+  placeMoneyCase(MOTEL_YOUR_CASE);
+  sfx.caseLatch();
+  const i = ix('placeMoney');
+  i.x = MOTEL_YOUR_CASE.x;
+  i.z = MOTEL_YOUR_CASE.z;
+  updateGear();
+}
+
+/** Build (or move) the money case model at one of the authored table poses. */
+function placeMoneyCase(pose = MOTEL_YOUR_CASE_PAID) {
+  if (!carriedCases.money) {
+    const c = makeCarryCase(0x3a2a1a);
+    /* Shut. Its packs are jerky, and this case does not contain jerky. */
+    c.lid.rotation.x = 0;
+    for (const pack of c.packs) pack.mesh.visible = false;
+    scene.add(c.group);
+    carriedCases.money = c.group;
+    refs.moneyCase = { ...c, x: pose.x, z: pose.z };
+  }
+  carriedCases.money.position.set(pose.x, pose.y, pose.z);
+  carriedCases.money.rotation.y = pose.ry;
+  refs.moneyCase.x = pose.x;
+  refs.moneyCase.z = pose.z;
 }
 
 function takeJerkyCase() {
@@ -3609,7 +3927,14 @@ function updateInteract() {
       distance: d,
       requiresAim: it.requiresAim,
       minDot: it.minDot,
-      priority: it.priority,
+      /* Three prompts share one small table -- their sample, their case and
+       * yours -- so priority is allowed to be a function of the deal. The step
+       * the room is actually asking for wins the tie; aiming at one of the
+       * others still picks it. Before this, `sample` and `placeMoney` sat on
+       * the same authored point with the same radius and `sample` was declared
+       * first, which meant the winner was decided by array order and putting
+       * your case on the table could not be selected at all. */
+      priority: typeof it.priority === 'function' ? it.priority() : it.priority,
       interact: it,
     });
   }
@@ -3704,8 +4029,16 @@ function sharedWeaponId(kind) {
   return (kind && WEAPON_STATS[kind]?.shared) || null;
 }
 
-/** What is in Tony's hand right now, shared or improvised, or null. */
+/**
+ * What is in Tony's hand right now, shared or improvised, or null.
+ *
+ * A holstered gun is a gun he HAS and is not HOLDING: the shared rack stows
+ * it, the lens shows nothing, and `dealSealed()` will not let it fire. One
+ * answer for the view model, the HUD and the trigger, so they cannot disagree
+ * about whether he is armed.
+ */
 function heldKind() {
+  if (S.holstered) return null;
   return S.weapon && S.weapon !== 'fists' ? S.weapon : null;
 }
 
@@ -3724,6 +4057,7 @@ function viewmodelShown() {
 
 let viewmodelKind = null;
 let viewSway = 0;
+let carrySway = 0;
 /* Low and to the right, close enough to read and far enough not to own the
  * screen. Half a metre out at a 62 degree lens is about a third of the frame. */
 const _viewRest = new THREE.Vector3(0.175, -0.145, -0.40);
@@ -3776,8 +4110,63 @@ function updateViewmodel() {
   viewmodel.visible = !!kind && viewmodelShown();
 }
 
+/* ---- Tony's own case, in Tony's own hands ----------------------------- *
+ *
+ * A suitcase is neither a catalog weapon nor a Motel prop, so it rides its own
+ * group rather than borrowing `viewmodel` -- which means the case and a gun can
+ * never end up fighting for the same corner of the lens, and the arrival
+ * sequence can hand him the case without touching `S.weapon` at all.
+ *
+ * It is carried SHUT. What is inside it is between Tony and Lou until the deal
+ * says otherwise, and the packs are hidden for the same reason. */
+const carryRig = new THREE.Group();
+carryRig.visible = false;
+camera.add(carryRig);
+let carryModel = null;
+
+function updateCarryRig() {
+  const show = S.caseHeld && !S.caseDown && viewmodelShown();
+  if (show && !carryModel) {
+    const built = makeCarryCase(0x3a2a1a);
+    built.lid.rotation.x = 0;
+    for (const pack of built.packs) pack.mesh.visible = false;
+    built.group.scale.setScalar(0.26);
+    built.group.position.set(0.02, -0.30, -0.52);
+    built.group.rotation.set(0.20, 0.34, 0.06);
+    built.group.traverse((node) => {
+      if (!node.isMesh) return;
+      node.castShadow = false;
+      node.receiveShadow = false;
+      /* Same trick the gun and the props use: a faint self-glow so the thing
+       * in his hands reads at a parking lot at night without lighting the lot. */
+      node.material = node.material.clone();
+      if (node.material.emissive) {
+        node.material.emissive.copy(node.material.color).multiplyScalar(0.5);
+      }
+    });
+    carryModel = built.group;
+    carryRig.add(carryModel);
+  }
+  carryRig.visible = show;
+}
+
 /** A little weight on the end of his arm: bob while walking, lag while turning. */
 function updateViewmodelSway(dt, moving) {
+  if (carryRig.visible) {
+    /* Forty thousand dollars in a hard case is heavier than a revolver, so it
+     * swings slower and further. Same clock, different weight. */
+    carrySway += dt * (moving ? 6.5 : 1.6);
+    carryRig.position.set(
+      Math.sin(carrySway * 0.5) * (moving ? 0.016 : 0.005),
+      Math.abs(Math.sin(carrySway)) * (moving ? 0.018 : 0.005),
+      0,
+    );
+    carryRig.rotation.set(
+      Math.sin(carrySway * 0.5) * 0.024,
+      Math.sin(carrySway * 0.31) * 0.018,
+      Math.sin(carrySway * 0.5) * 0.03,
+    );
+  }
   if (!viewmodel.visible) return;
   viewSway += dt * (moving ? 9 : 2.2);
   const bob = moving ? 0.012 : 0.004;
@@ -3808,14 +4197,29 @@ function inventoryItems() {
   const items = [];
   const weapon = WEAPON_STATS[S.weapon] || WEAPON_STATS.fists;
   if (S.weapon && S.weapon !== 'fists') {
+    /* A holstered gun is on the bar but is NOT the selected slot -- the case
+     * is what is in his hands. Two items both claiming to be selected put the
+     * highlight on the wrong one, which is the inventory fight this whole pass
+     * exists to remove. */
     items.push({
       id: `weapon:${S.weapon}`,
       icon: weapon.ammo ? '🔫' : '🔧',
-      text: `${weapon.name} · EQUIPPED${weapon.ammo ? ` · ${S.ammo}/${weapon.ammo}` : ''}`,
-      selected: true,
+      text: `${weapon.name} · ${S.holstered ? 'PUT AWAY' : 'EQUIPPED'}`
+        + `${weapon.ammo ? ` · ${S.ammo}/${weapon.ammo}` : ''}`,
+      dim: S.holstered,
+      selected: !S.holstered,
     });
   }
-  if (S.carryingMoney && !S.couponOnly) items.push({ id: 'money', icon: '💼', text: '$40,000, mostly' });
+  if (S.carryingMoney && !S.couponOnly) {
+    /* One item, three states, so the bar always says where the case is rather
+     * than only that it exists: in his hands, resting on the table, or gone. */
+    items.push({
+      id: 'money',
+      icon: '💼',
+      text: S.caseDown ? '$40,000, shut · on the table' : '$40,000, mostly',
+      selected: S.caseHeld && !S.caseDown,
+    });
+  }
   if (S.couponOnly) items.push({ id: 'coupon', icon: '🎟️', text: 'One expired steakhouse coupon' });
   if (S.carryingJerky) {
     items.push({
@@ -3839,7 +4243,14 @@ function inventoryItems() {
 let packShown = new Set();
 function renderInventory() {
   const items = inventoryItems();
-  sceneInventory.set(items.map((item) => ({ icon: item.icon, label: item.text })));
+  /* Whatever is in his hands is the selected slot on the bar. The scene, not
+   * the player, decides that -- there is no slot cycling in this room -- so the
+   * bar and the lens can never disagree about what he is carrying. */
+  const held = items.findIndex((item) => item.selected);
+  sceneInventory.set(
+    items.map((item) => ({ icon: item.icon, label: item.text })),
+    held < 0 ? 0 : held,
+  );
   packBoxEl.classList.toggle('empty', items.length === 0);
   packListEl.innerHTML = items.map((item) => {
     const fresh = packShown.has(item.id) ? '' : ' new';
@@ -3851,16 +4262,32 @@ function renderInventory() {
 
 function updateGear() {
   const st = WEAPON_STATS[S.weapon] || WEAPON_STATS.fists;
-  weaponNameEl.textContent = st.name + (st.ammo ? ` · ${S.ammo}/${st.ammo}` : '');
-  weaponSubEl.textContent = `EQUIPPED · ${st.improvised === false ? 'seized' : 'improvised'} · ${st.lethal ? 'lethal' : 'non-lethal'}`;
+  const armed = S.weapon !== 'fists';
+  /* The gear box is where a player looks to answer "can I shoot yet". While
+   * the deal is sealed it says so in those words, next to the gun he is
+   * carrying but not holding, and it changes the instant `releaseWeapon` runs. */
+  if (S.caseHeld && !S.caseDown) {
+    /* What is in his hands wins the name line, whatever else he is carrying. */
+    weaponNameEl.textContent = "Lou's case";
+    weaponSubEl.textContent = armed && S.holstered
+      ? `BOTH HANDS · $40,000, shut · ${st.name} put away`
+      : 'BOTH HANDS · $40,000, shut';
+  } else if (armed && S.holstered) {
+    weaponNameEl.textContent = `${st.name} · PUT AWAY`;
+    weaponSubEl.textContent = 'CARRIED, NOT DRAWN · the deal comes first';
+  } else {
+    weaponNameEl.textContent = st.name + (st.ammo ? ` · ${S.ammo}/${st.ammo}` : '');
+    weaponSubEl.textContent = `EQUIPPED · ${st.improvised === false ? 'seized' : 'improvised'} · ${st.lethal ? 'lethal' : 'non-lethal'}`;
+  }
   const carry = [];
-  if (S.carryingMoney) carry.push('💼 $40,000');
+  if (S.carryingMoney) carry.push(S.caseDown ? '💼 $40,000 on the table' : '💼 $40,000');
   if (S.couponOnly) carry.push('🎟️ one expired coupon');
   if (S.carryingJerky) carry.push(`🥩 The Reserve ${S.packagesIntact}/8`);
   if (S.stashTaken) carry.push('📦 premium stash');
   carryLineEl.textContent = carry.join('  ·  ');
   renderInventory();
   updateViewmodel();
+  updateCarryRig();
 }
 
 // ---------- The drive ----------
