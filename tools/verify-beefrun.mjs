@@ -295,8 +295,23 @@ try {
   const knockingIntro = await page.evaluate(async () => {
     const b = window.__beefrun;
     const handle = await b.mission.playTakeoffRecord();
-    for (let i = 0; i < 40 && !handle?.beefIntroBoost; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+    /* WAIT FOR THE RECORD TO ACTUALLY START.
+     *
+     * `beefIntroBoost` is stamped by `armTakeoffRecordIntro` on the element's
+     * `playing` event -- deliberately, so an autoplay retry cannot burn the
+     * louder twenty-four seconds in silence (see src/beefrun/audio.js). This
+     * used to poll for forty fiftieths of a second and give up, which is two
+     * seconds to fetch and decode `cant-you-hear-me-knocking.mp3`. It is ten
+     * megabytes. So the check reported four nulls and read as a boost that was
+     * never armed, when the boost was armed correctly every time and simply
+     * had not started yet.
+     *
+     * Thirty seconds, and the readyState and currentTime come back with it, so
+     * a record that genuinely never plays is distinguishable from one that was
+     * still loading. */
+    const deadline = Date.now() + 30000;
+    while (!handle?.beefIntroBoost && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
     const authored = handle?.beefIntroBoost ?? null;
     const result = {
@@ -304,6 +319,9 @@ try {
       baseVolume: authored?.baseVolume ?? null,
       boostedVolume: authored?.boostedVolume ?? null,
       seconds: authored?.seconds ?? null,
+      // What the element was doing, for the case where the boost never arms.
+      readyState: handle?.element?.readyState ?? null,
+      elementTime: Number(handle?.element?.currentTime) || 0,
       audibleSecondsRemaining: authored
         ? authored.settlesAt - b.audio.engine.ctx.currentTime
           + (Number(handle.element?.currentTime) || 0)
@@ -951,6 +969,23 @@ const chain = await page.evaluate(() => {
     const beforeWalk = b.player.position.clone();
     b.player.keys.add('KeyW');
     await new Promise((resolve) => setTimeout(resolve, 400));
+    /* Why he did not move, for the case where he does not.
+     *
+     * `moved` on its own cannot tell "the player refused to walk" from "the
+     * frame loop never called him", and those want completely different
+     * fixes. Everything the walk itself needs is in here; a reading of all-
+     * correct-but-speed-zero means `player.update()` is not being reached,
+     * which puts the fault in the caller (see the on-foot branch of `frame()`
+     * in src/beefrun/main.js and what gates it) rather than in the player. */
+    const walkProbe = {
+      moveScale: b.player.moveScale,
+      speed: b.player.velocity.length(),
+      tween: !!b.player._tween,
+      mode: b.player.mode,
+      enabled: b.player.enabled,
+      keysHeld: [...b.player.keys],
+      completeUp: b.flightHud.completeUp ?? null,
+    };
     b.player.keys.delete('KeyW');
     const state = b.campaignState;
     return {
@@ -974,6 +1009,7 @@ const chain = await page.evaluate(() => {
         aircraftLocal: aircraftLocal.toArray(),
         colliderHits,
         moved: b.player.position.distanceTo(beforeWalk),
+        walkProbe,
         cameraDistance: b.camera.position.distanceTo(b.player.position),
       },
     };
@@ -1315,11 +1351,36 @@ const chain = await page.evaluate(() => {
           T.terrainMeshHeight(x, z, T.TERRAIN_DETAIL[0]),
           T.terrainMeshHeight(x, z, T.TERRAIN_DETAIL[1]),
         );
+        /* Instance counts, by NAME, and `null` when the named mesh is not
+         * there at all.
+         *
+         * That distinction is the whole reason this reads the way it does.
+         * Two of these four were looking for meshes that had been renamed and
+         * re-split -- the crowns are `el-hueso-jungle-foliage`, and the fronds
+         * stopped being one 672-instance mesh and became seven fans of 96 so
+         * each frond in the fan can carry its own droop -- and `|| 0` reported
+         * a jungle that is standing there in full as "zero crowns, zero
+         * fronds". A number that cannot tell a missing mesh from an empty one
+         * is worse than no number: it reads as a scene that failed to build.
+         *
+         * The fronds are summed across the fan batches rather than pinned to
+         * seven of them, so splitting or merging the fan again is not a
+         * failure -- the count of fronds in the air is what this check is
+         * about, and it stays 7 per palm either way. */
+        const count = (name) => {
+          const mesh = m.airstrip.root.getObjectByName(name);
+          return mesh ? (mesh.count ?? 0) : null;
+        };
+        let palmFronds = null;
+        m.airstrip.root.traverse((o) => {
+          if (!/^el-hueso-palm-frond-fan-\d+$/.test(o.name || '')) return;
+          palmFronds = (palmFronds ?? 0) + (o.count ?? 0);
+        });
         return {
-          trunks: m.airstrip.root.getObjectByName('el-hueso-jungle-trunks')?.count || 0,
-          crowns: m.airstrip.root.getObjectByName('el-hueso-jungle-canopy')?.count || 0,
-          palmTrunks: m.airstrip.root.getObjectByName('el-hueso-palm-trunks')?.count || 0,
-          palmFronds: m.airstrip.root.getObjectByName('el-hueso-palm-fronds')?.count || 0,
+          trunks: count('el-hueso-jungle-trunks'),
+          crowns: count('el-hueso-jungle-foliage'),
+          palmTrunks: count('el-hueso-palm-trunks'),
+          palmFronds,
           planted: trees.length,
           floating: trees.filter((t) => t.y > drawnGround(t.x, t.z) + 1e-6).length,
           onSurface: trees.filter((t) => j.onOperatingSurface(t.x, t.z, 0)).length,
@@ -1373,6 +1434,10 @@ const chain = await page.evaluate(() => {
       && remotePresentation.falls.mist >= 6
       && remotePresentation.falls.foliagePieces >= 30,
     JSON.stringify(remotePresentation.falls));
+  /* Every crowned trunk crowned, every palm with its full fan, and the whole
+   * hillside still cheap to draw. The two equalities are the load-bearing
+   * half: a canopy with fewer crowns than trunks is bare poles up the valley
+   * wall, and a palm short of its seven fronds is a stick. */
   check('El Hueso has a low-draw-call jungle: instanced palms and an instanced canopy wall',
     remotePresentation.jungle.trunks >= 44
       && remotePresentation.jungle.crowns === remotePresentation.jungle.trunks

@@ -670,6 +670,114 @@ test('the scene plays its shots through the weapon layer and its lines through t
   assert.match(MAIN, /const AIM_PITCH_NAPE = -\d/);
 });
 
+test('the shot lands on the last word, not five seconds into the walk', () => {
+  /* They are walked out and put on their knees WHILE the beat is spoken, and
+   * the round arrives ON the last line. Prospect Three is cut off mid-word and
+   * must be; Kittenboss is shot on "Hey." Firing on arrival instead would put
+   * the shot seven seconds in, over the top of Gratin apologising for the mud. */
+  assert.match(MAIN, /sayBeat\(step\.beat, null, \(\) => \{ pendingShot = true; tryFire\(\); \}\);/);
+  assert.match(MAIN, /if \(sayQueue\.length === 1 && sayOnLast\)/);
+  /* And it waits for the knees: the words can run out before the walk does. */
+  assert.match(MAIN, /if \(p\.kneelMark !== markForStep\(currentStep\)\) return;/);
+  /* The last line of each beat is the one the shot cuts. */
+  const cut = {
+    'IN-120': 'Are you seeing this? Are you—',
+    'IN-130': 'That’s it. Good.',
+    'IN-145': 'Right. Good.',
+    'IN-160': 'Hey.',
+  };
+  for (const [id, text] of Object.entries(cut)) {
+    const lines = script.beatById(id).lines;
+    assert.equal(lines[lines.length - 1].say, text, `${id} does not end on the line the shot cuts`);
+  }
+});
+
+test('only the one who argues has to be fetched', () => {
+  /* Three of them go on their own. The staging says so and so does the script:
+   * Prospect Four steps out before Gratin reaches him, Prospect Five comes out
+   * before he is called, and Kittenboss sees him coming and goes. Prospect
+   * Three does not move, which is the only reason his argument gets to run. */
+  assert.deepEqual(
+    KNEELING_EXECUTIONS.map((step) => [step.victim, step.stepsOutEarly === true]),
+    [
+      ['PROSPECT THREE', false],
+      ['PROSPECT FOUR', true],
+      ['PROSPECT FIVE', true],
+      ['KITTENBOSS', true],
+    ],
+  );
+  assert.match(MAIN, /if \(step\.stepsOutEarly\) \{/);
+  /* And whoever fetches them walks a step behind, without a hand on them. */
+  assert.match(MAIN, /A step behind them, the whole way, without a hand on them/);
+  assert.equal(KNEELING_EXECUTIONS.every((step) => step.walker === 'GRATIN'), true);
+});
+
+test('every phase names a beat that exists somewhere', () => {
+  /* Act One's beats are `dialogue.js`'s and are frozen — the shipped bank the
+   * manifest already carries. Everything else is `script.js`'s. A phase naming
+   * neither is a typo nobody would ever see. */
+  const SHIPPED = new Set(['IN-010', 'IN-020', 'IN-040', 'IN-050', 'IN-070', 'IN-080', 'IN-085', 'IN-090']);
+  for (const id of PHASE_IDS) {
+    const beat = PHASES[id].beat;
+    if (!beat) continue;
+    /* IN-180 is the hub rather than a beat: it is a table of options that lead
+     * to five beats, and it lives on `HUB`. */
+    if (beat === script.HUB.id) continue;
+    assert.ok(script.hasBeat(beat) || SHIPPED.has(beat), `${id} names beat "${beat}", which is nowhere`);
+  }
+  /* And the phases that carry the executions' own beats agree with the run
+   * order, so the words and the blocking are describing one night. */
+  for (const step of KNEELING_EXECUTIONS) {
+    assert.ok(script.hasBeat(step.beat), `${step.victim} has no beat`);
+    assert.equal(script.beatById(step.beat).phase, 'exec_prospect');
+  }
+});
+
+test('Gratin and Seff are never cruel, and never enjoy any of it', () => {
+  /* The joke is that they are the two gentlest men in the game and this is why
+   * they are the two doing it. Nothing in their behaviour may acknowledge it.
+   * Every line either of them has is about logistics, footing, the weather, or
+   * a piece of manners. */
+  const theirs = script.BEATS
+    .flatMap((beat) => beat.lines)
+    .filter((line) => line.speakerKey === 'GRATIN' || line.speakerKey === 'SEFF');
+  assert.ok(theirs.length >= 20, 'they have lost most of their lines');
+  const BANNED = [
+    'shut up', 'beg', 'please', 'scream', 'deserve', 'enjoy', 'fun',
+    'kill', 'shoot', 'die', 'dead', 'body', 'blood', 'orders', 'nothing personal',
+  ];
+  for (const line of theirs) {
+    const say = line.say.toLowerCase();
+    for (const word of BANNED) {
+      /* Whole words: "Nobody's eating it" is not a line about a body. */
+      assert.equal(new RegExp(`\\b${word}\\b`).test(say), false,
+        `${line.speakerKey}: "${line.say}" contains "${word}"`);
+    }
+    /* In the clearing and on the trail, neither of them ever raises his voice.
+     * The exception is the room, where Seff toasts with everybody else — which
+     * is the point of the whole gag and is the owner's own line. */
+    const inTheRoom = script.beatById(line.beat).act === 6;
+    if (!inTheRoom) {
+      assert.equal(/!/.test(line.say), false, `${line.speakerKey} raises his voice: "${line.say}"`);
+    }
+  }
+  /* And Gratin's line in the room is the one to protect: an hour after this he
+   * is quietly upset that nobody is eating. */
+  const food = script.beatById('IN-510').lines.find((line) => line.speakerKey === 'GRATIN');
+  assert.equal(food.say, 'There’s food. Nobody’s eating it.');
+});
+
+test('the scene never winks, and the gesture that plays an animation is speaker-bound', () => {
+  /* `gesture: 'slam'` used to play BOOSKIBRO's animation for any speaker who
+   * was not Lou, which would have had Gratin swinging a founder's staff over a
+   * kneeling man. The lookup is by speaker now and an unknown speaker gets
+   * nothing at all. */
+  assert.match(MAIN, /line\.who === 'BIG UNCLE LOU SPUTTHOLE' \? lou\s*\n\s*: line\.who === 'BOOSKIBRO' \? boosk : null/);
+  assert.match(MAIN, /if \(owner\) \{/);
+  /* No line in the rewrite carries a gesture at all. */
+  assert.equal(script.BEATS.flatMap((beat) => beat.lines).some((line) => line.gesture), false);
+});
+
 test('the site is built once, by the cabin module, and main.js scatters nothing', () => {
   /* 3 of `cabin/index.js`'s integration contract: two forests interleave and
    * half of one moves on every reload, two ground planes z-fight, and a lit

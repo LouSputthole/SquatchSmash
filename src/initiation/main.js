@@ -752,6 +752,7 @@ function bodyFor(line) {
 
 let sayQueue = [];
 let sayDone = null;
+let sayOnLast = null;
 let sayAutoT = 0;
 const dialogActive = () => sayQueue.length > 0;
 
@@ -766,6 +767,14 @@ function speak(line) {
 
 function showCurrentLine() {
   const line = sayQueue[0];
+  if (sayQueue.length === 1 && sayOnLast) {
+    /* ON the last line, not after it. Prospect Three is cut off mid-word and
+     * must be: he does not finish the sentence and he does not get a last
+     * look. Fired before the line is spoken so the aim runs under it. */
+    const hook = sayOnLast;
+    sayOnLast = null;
+    hook();
+  }
   speakerEl.textContent = line.who;
   lineEl.textContent = line.text;
   const voiced = speak(line);
@@ -785,10 +794,13 @@ function showCurrentLine() {
   }
 }
 
-function say(lines, done = null) {
+function say(lines, done = null, onLast = null) {
   sayQueue = (lines ?? []).filter((line) => line && line.cue);
   sayDone = done;
+  sayOnLast = onLast;
   if (sayQueue.length === 0) {
+    sayOnLast = null;
+    if (onLast) onLast();
     if (done) done();
     return;
   }
@@ -808,6 +820,9 @@ function say(lines, done = null) {
 function drainSay() {
   if (!dialogActive()) return;
   sayQueue = [];
+  const hook = sayOnLast;
+  sayOnLast = null;
+  if (hook) hook();
   dialogEl.classList.remove('show');
   const done = sayDone;
   sayDone = null;
@@ -828,9 +843,9 @@ function advanceSay() {
 }
 
 /** Say a whole scripted beat, then continue. Stage directions are not lines. */
-function sayBeat(id, done = null) {
+function sayBeat(id, done = null, onLast = null) {
   const beat = beatById(id);
-  say(beat ? beat.lines : [], done);
+  say(beat ? beat.lines : [], done, onLast);
 }
 
 /**
@@ -883,6 +898,9 @@ function showChoice({ prompt, options, hint, onPick }) {
     if (!option) return;
     btn.innerHTML = `<span class="num">${i + 1}.</span>`;
     btn.appendChild(document.createTextNode(option.text));
+    /* Only the founders quiz has a right answer; every other choice in this
+     * scene is a thing he says, not a thing he gets wrong. */
+    btn.dataset.correct = option.correct ? '1' : '0';
   });
   quizEl.classList.add('show');
 }
@@ -1093,7 +1111,9 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
   zone.addEventListener('pointercancel', endStick);
 
   const smashBtn = $('smashBtn');
-  smashBtn.textContent = 'HOLD';
+  /* One button, and mostly it means "go on". When the ceremony wants a hold
+   * the objective bar says HOLD; the button never contradicts it. */
+  smashBtn.textContent = '▸';
   smashBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); actionPress(); holdHeld = true; });
   smashBtn.addEventListener('pointerup', (e) => { e.preventDefault(); actionRelease(); });
 }
@@ -1148,7 +1168,7 @@ function showQuiz() {
   showChoice({
     prompt: 'Who are the FIVE founding members of the Silver Sasquatches?',
     hint: 'Choose carefully. You saw what happened.',
-    options: opts.map((option) => ({ text: option.text, option })),
+    options: opts.map((option) => ({ text: option.text, correct: option.correct, option })),
     onPick: (choice) => answerQuiz(choice.option),
   });
 }
@@ -1157,10 +1177,13 @@ function answerQuiz(selected) {
   setPhase('q2_result');
   say([selected], () => {
     if (selected.correct) {
-      say(CORRECT_LINES, () => {
-        setPhase('q2_correct');
-        sayBeat('IN-090', () => setPhase('clear_line'));
-      });
+      /* TWO of the three shipped `correct` lines. The third handed off to the
+       * gauntlet — "Now we test the BODY. Clear the line — THE GAUNTLET
+       * AWAITS" — and IN-100 replaces it with three words at a normal volume.
+       * It stays in `dialogue.js` until the recording handoff is merged; see
+       * RETIRED_CEREMONY_LINES. */
+      setPhase('q2_correct');
+      say(CORRECT_LINES.slice(0, 2), () => setPhase('clear_line'));
     } else {
       say(WRONG_LINES, () => {
         setPhase('exec_player');
@@ -1495,7 +1518,6 @@ const _camForward = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3(LINE_CENTER.x, 2.4, LINE_CENTER.z);
 const _desiredLook = new THREE.Vector3();
 const _facing = new THREE.Vector3();
-const _held = new THREE.Vector3();
 
 camera.position.set(6, 4.5, SPAWN.z - 12);
 camera.lookAt(LINE_CENTER.x, 2.4, LINE_CENTER.z);
@@ -1519,8 +1541,10 @@ const CAMERA_SHOTS = {
     return pos;
   },
   speech() {
+    /* A slow creep in from off the west end. Clear of the west car, which is
+     * parked at (-9.8, -12.8) with its lights on. */
     const k = Math.min(1, phaseT / 20);
-    const pos = _camTarget.set(-9.5 + k * 2.2, 3.4 - k * 0.7, -12.5 + k * 1.8);
+    const pos = _camTarget.set(-8.2 + k * 2.0, 3.6 - k * 0.7, -11.6 + k * 1.6);
     _desiredLook.set(-2.4, 2.2, -6.2);
     return pos;
   },
@@ -1551,7 +1575,12 @@ const CAMERA_SHOTS = {
      * staging is that he is watching it from inside the row. */
     const step = currentStep ?? KNEELING_EXECUTIONS[0];
     const mark = markForStep(step);
-    const pos = _camTarget.set(PLAYER_SLOT.x - 1.8, 2.35, LINE_Z - 1.9);
+    /* Behind the west end of the row, at head height, with the player's
+     * shoulder half a metre off the sightline: the whole point of the staging
+     * is that he is watching it from inside the line, so he is in the frame
+     * and never in front of the mark. Everybody in the Circle is south of
+     * z = -9.8 and this stands at -9.5, so nobody is between it and the mud. */
+    const pos = _camTarget.set(PLAYER_SLOT.x - 1.9, 2.5, LINE_Z - 1.5);
     _desiredLook.set(mark.x, 1.25, mark.z);
     return pos;
   },
@@ -1566,9 +1595,11 @@ const CAMERA_SHOTS = {
     return pos;
   },
   ritual() {
-    /* Close on the hands over the table. Nothing in this act is wide. */
-    const pos = _camTarget.set(TABLE_SOCKETS.card.x - 1.15, 1.5, TABLE.z - 1.9);
-    _desiredLook.set(TABLE_SOCKETS.card.x, 1.05, TABLE.z - 0.55);
+    /* Close and low on the hands over the table. Off to the west so the man
+     * whose hand it is stands to one side of frame rather than in front of it,
+     * and nothing in this act is wide. */
+    const pos = _camTarget.set(TABLE.x - 1.9, 1.45, TABLE.z - 1.35);
+    _desiredLook.set(TABLE_SOCKETS.card.x, 1.15, TABLE.z - 0.5);
     return pos;
   },
   room_wide() {
@@ -1590,9 +1621,11 @@ const CAMERA_SHOTS = {
     const eased = k * k * (3 - 2 * k);
     const pos = _camTarget.set(
       CEREMONY_CENTRE.x - 1.4 + eased * 2.0,
-      1.85 + eased * 5.4,
-      CEREMONY_CENTRE.z - 2.2 - eased * 34,
+      1.85 + eased * 7.5,
+      CEREMONY_CENTRE.z - 2.2 - eased * 26,
     );
+    /* It rises as it goes, so the last frame is over the tops of the trees
+     * looking back at one lit window, and not a camera bulldozing trunks. */
     _desiredLook.set(CABIN.x, 1.6 + eased * 0.9, CABIN.z);
     return pos;
   },
@@ -1653,33 +1686,59 @@ function advanceRun() {
   else finishExecutions();
 }
 
-/** Walk one of them out, put them down, and shoot them. */
+/**
+ * Walk one of them out, put them down, and shoot them.
+ *
+ * THE ORDER MATTERS. They are walked out and put on their knees WHILE the beat
+ * is being spoken, and the shot arrives on the LAST LINE — not after it and
+ * not five seconds into the walk. Prospect Three is cut off mid-word, Prospect
+ * Five is shot on "Right. Good.", and Kittenboss is shot on "Hey."
+ */
+let pendingShot = false;
+
 function runExecutionStep(step) {
   currentStep = step;
+  pendingShot = false;
   setPhase('exec_prospect');
   const p = prospectByName.get(step.victim);
   const mark = markForStep(step);
   const walker = memberByKey.get(step.walker);
-  /* Gratin goes and gets them. He does not take hold of them: he stands there
-   * and waits, and waiting wins. */
-  walker.stepTo = { x: p.home.x, z: LINE_Z + 0.95, then: 'collect' };
-  if (p.kneelMark === mark) {
-    /* Prospect Five is ALREADY down — he was brought out before the reload and
-     * has been kneeling through all of it. Walking him out again would stand
-     * him back up, and `isPosed()` would then swallow the arrival that fires
-     * the shot: the beat would hang with a blank objective, which is exactly
-     * the class of bug this scene is not allowed to have. */
-    executeKneeling(step, advanceRun);
-  } else {
-    p.stepTo = { x: mark.x, z: mark.z, then: 'kneel', mark };
+  if (p.kneelMark !== mark) {
+    /* Gratin goes and gets them FIRST. He does not take hold of them: he walks
+     * down the line, stops in front of them, and waits, and waiting wins. The
+     * victim only starts walking when he arrives — see the member loop.
+     *
+     * (Prospect Five is the exception: he is ALREADY down, brought out before
+     * the reload and kneeling through all of it. Walking him out again would
+     * stand him back up, and `isPosed()` would then swallow the arrival that
+     * fires the shot — a beat entered and not left, with a blank objective on
+     * it, which is the one thing this scene may not do.) */
+    walker.stepTo = { x: p.home.x, z: LINE_Z + 0.95, then: 'collect', victim: p, mark };
+    /* Three of them do not wait to be fetched. Prospect Four steps out before
+     * Gratin reaches him; Prospect Five comes out before he is called; and she
+     * sees him coming and goes, the way you do when somebody is obviously
+     * heading for you. Only Prospect Three makes him stand there. */
+    if (step.stepsOutEarly) {
+      p.stepTo = { x: mark.x, z: mark.z, then: 'kneel', mark };
+    }
   }
-  sayBeat(step.beat);
+  sayBeat(step.beat, null, () => { pendingShot = true; tryFire(); });
+}
+
+/** Fire once the words have run out AND they are actually on their knees. */
+function tryFire() {
+  if (!pendingShot || exec || phase !== 'exec_prospect' || !currentStep) return;
+  const p = prospectByName.get(currentStep.victim);
+  if (p.kneelMark !== markForStep(currentStep)) return;
+  pendingShot = false;
+  executeKneeling(currentStep, advanceRun);
 }
 
 /** Called the frame a prospect reaches their mark. */
 function kneelOnMark(p, mark) {
   p.kneelMark = mark;
   poseKneeling(p.sq, mark);
+  tryFire();
 }
 
 /**
@@ -1712,10 +1771,14 @@ function openGap(gapNumber) {
 function runReload(entry) {
   setPhase('exec_reload');
   if (entry.next) {
+    /* The camera and the Circle follow the mark being made ready, not the one
+     * that has just been used. */
+    currentStep = entry.next;
     const p = prospectByName.get(entry.next.victim);
     const mark = markForStep(entry.next);
-    p.stepTo = { x: mark.x, z: mark.z, then: 'kneel', mark };
-    memberByKey.get(entry.next.walker).stepTo = { x: p.home.x, z: LINE_Z + 0.95, then: 'collect' };
+    memberByKey.get(entry.next.walker).stepTo = {
+      x: p.home.x, z: LINE_Z + 0.95, then: 'collect', victim: p, mark,
+    };
   }
   sayBeat('IN-140', () => {
     handPistolTo(entry.to);
@@ -1766,20 +1829,24 @@ function startTheWalk() {
 
 /** Beats fire at fractions of the trail, in order. */
 const TRAIL_BEATS = [
-  { id: 'IN-210', at: 0.18 },
-  { id: 'IN-220', at: 0.36 },
-  { id: 'IN-230', at: 0.54 },
-  { id: 'IN-240', at: 0.70 },
+  { id: 'IN-210', at: 0.16 },
+  { id: 'IN-220', at: 0.34 },
+  { id: 'IN-230', at: 0.50 },
+  { id: 'IN-240', at: 0.64 },
 ];
 
 function updateTrailBeats() {
   for (const entry of TRAIL_BEATS) {
     if (trailK < entry.at || firedTrailBeats.has(entry.id)) continue;
+    /* A beat is marked fired when it is SAID, never when it is passed. A
+     * sprinting player used to run through three markers while one line was
+     * playing and lose the other two silently. */
+    if (dialogActive()) return;
     firedTrailBeats.add(entry.id);
-    if (!dialogActive()) sayBeat(entry.id);
+    sayBeat(entry.id);
     return;
   }
-  if (!trailChoiceUsed && trailK > 0.84 && !dialogActive() && !openChoice) {
+  if (!trailChoiceUsed && trailK > 0.76 && !dialogActive() && !openChoice) {
     trailChoiceUsed = true;
     setPhase('trail_choice');
     const beat = beatById('IN-245');
@@ -1795,9 +1862,24 @@ function updateTrailBeats() {
   }
 }
 
-/** Everybody goes in ahead of him and is already standing when he arrives. */
-function fillTheRoom() {
+/**
+ * They walk up onto the porch, stamp their boots off, and go in.
+ *
+ * All of them EXCEPT Booskibro, who holds the door. Fifteen people milling on
+ * the last two metres of a one-man trail is fifteen colliders across the only
+ * door in the level — the cabin version of the siege armoury.
+ */
+function goInsideAhead() {
+  fillTheRoom('BOOSKIBRO');
+  const booskibro = memberByKey.get('BOOSKIBRO');
+  booskibro.trailOffset = 0;
+  booskibro.stepTo = { x: CABIN_DOOR.x - 1.0, z: CABIN_DOOR.outside.z - 0.3, face: CABIN_DOOR.outside };
+}
+
+/** Everybody in their place, standing, facing the middle of the room. */
+function fillTheRoom(except = null) {
   for (const member of members) {
+    if (member.key === except) continue;
     member.stepTo = null;
     member.trailOffset = 0;
     const slotId = CABIN_BLOCKING[member.key];
@@ -1805,6 +1887,7 @@ function fillTheRoom() {
     if (!slot) continue;
     const heading = slot.heading ?? headingToward(slot, CEREMONY_CENTRE);
     standOn(member.sq, { x: slot.x, z: slot.z, heading });
+    member.placed = true;
   }
   if (!louSeated) {
     louSeated = true;
@@ -2104,6 +2187,16 @@ function updatePhase(dt) {
   if (spec.advance === 'event' && spec.timeout !== null && phaseT > spec.timeout) {
     if (dialogActive()) { drainSay(); return; }
   }
+  /* The same net under the beats that WAIT FOR A CHOICE. Their own timeout is
+   * the choice's, and it only starts once the buttons are up — so a line that
+   * never drains would leave a player looking at a subtitle with nothing to
+   * press. Four times the choice's own patience, because this is a stuck
+   * scene and not a slow one. */
+  if (spec.choice && !openChoice && dialogActive()
+    && phaseT > (spec.timeout === null ? 20 : spec.timeout * 4)) {
+    drainSay();
+    return;
+  }
 
   if (phase === 'approach') {
     if (distance2D(player.position, LINE_CENTER) < ARRIVE_R) setPhase('line_up');
@@ -2147,9 +2240,22 @@ function updatePhase(dt) {
       sayBeat('IN-110', advanceRun);
     }
   } else if (phase === 'exec_one' || phase === 'exec_player' || phase === 'exec_prospect') {
-    /* A hard cap per victim. If an execution somehow stops mid-way the scene
-     * takes its exit rather than standing in the mud forever. */
-    if (phaseT > spec.timeout) forceExec();
+    /* A hard cap per victim. If an execution stops mid-way — or never starts,
+     * because a prospect never reached their mark — the scene takes its exit
+     * rather than standing in the mud forever with an empty objective bar. */
+    if (phaseT > spec.timeout) {
+      if (exec) forceExec();
+      else if (phase === 'exec_prospect' && currentStep) {
+        const p = prospectByName.get(currentStep.victim);
+        if (!p.dead) {
+          p.dead = true;
+          p.fallT = 0;
+          p.fallMark = markForStep(currentStep);
+        }
+        pendingShot = false;
+        advanceRun();
+      }
+    }
   } else if (phase === 'exec_gap') {
     if (openChoice && choiceT > spec.timeout) {
       hideChoice();
@@ -2157,25 +2263,38 @@ function updatePhase(dt) {
       sayBeat(HUB.fallback, advanceRun);
     }
   } else if (phase === 'walk_out') {
-    if (distance2D(player.position, TRAIL[0]) < 4.5) setPhase('trail');
+    /* Either gate: he reaches the trail head, or he has already started up it
+     * cross-country. One route out of a clearing with no signs in it is one
+     * route too few. */
+    if (distance2D(player.position, TRAIL[0]) < 4.5 || trailProgress(player.position) > 0.05) {
+      setPhase('trail');
+    }
   } else if (phase === 'trail' || phase === 'trail_choice' || phase === 'trail_reply') {
     trailK = trailProgress(player.position);
-    if (phase === 'trail') updateTrailBeats();
+    if (phase === 'trail') {
+      updateTrailBeats();
+      /* Only from `trail` itself: arriving out of a reply would cut a line off
+       * for the sake of a HUD string. */
+      if (!openChoice && distance2D(player.position, CABIN_DOOR.outside) < 6) {
+        setPhase('cabin_arrive');
+        goInsideAhead();
+      }
+    }
     if (phase === 'trail_choice' && openChoice && choiceT > spec.timeout) {
       hideChoice();
       setPhase('trail_reply');
       sayBeat(beatById('IN-245').choice.fallback, () => setPhase('trail'));
     }
-    if (distance2D(player.position, CABIN_DOOR.outside) < 9) setPhase('cabin_arrive');
   } else if (phase === 'cabin_arrive') {
     trailK = 1;
     if (distance2D(player.position, CABIN_DOOR.outside) < 2.8) {
       setPhase('cabin_door');
-      fillTheRoom();
       sayBeat('IN-260');
     }
   } else if (phase === 'cabin_door') {
     if (player.position.z > CABIN.frontZ + 0.6) {
+      /* Booskibro comes in behind him and the door shuts. */
+      fillTheRoom();
       setPhase('ceremony');
       ceremonyIndex = 0;
       ceremonyHold = 2.4;
@@ -2345,14 +2464,23 @@ function tick() {
     }
     if (p.stepTo) {
       const speed = p.stepTo.then === 'kneel' ? 1.5 : 2.6;
+      if (p.stepTo.then === 'kneel' && currentStep && currentStep.victim === p.name && !exec) {
+        /* A step behind them, the whole way, without a hand on them. */
+        const walker = memberByKey.get(currentStep.walker);
+        if (walker) {
+          walker.stepTo = {
+            x: p.sq.position.x - Math.sin(p.sq.heading) * 1.1,
+            z: p.sq.position.z - Math.cos(p.sq.heading) * 1.1,
+          };
+        }
+      }
       if (walkNpc(p.sq, p.stepTo.x, p.stepTo.z, dt, speed, 0.22)) {
         const step = p.stepTo;
         p.stepTo = null;
         if (step.then === 'kneel') {
           kneelOnMark(p, step.mark);
-          if (currentStep && currentStep.victim === p.name && phase === 'exec_prospect') {
-            executeKneeling(currentStep, advanceRun);
-          }
+          /* `kneelOnMark` has already tried to fire; if the words have not run
+           * out yet the shot waits for them. */
         }
       }
     } else {
@@ -2388,23 +2516,31 @@ function tick() {
     }
     if (m.stepTo) {
       if (walkNpc(m.sq, m.stepTo.x, m.stepTo.z, dt, 2.4, 0.3)) {
-        if (m.stepTo.face) faceAt(m.sq, m.stepTo.face);
+        const arrived = m.stepTo;
         m.stepTo = null;
+        if (arrived.face) faceAt(m.sq, arrived.face);
+        if (arrived.then === 'collect' && arrived.victim && !arrived.victim.dead) {
+          /* He has arrived and said "This way." Now they go, and he walks a
+           * step behind them the whole way without a hand on them. */
+          faceAt(m.sq, arrived.victim.sq.position);
+          arrived.victim.stepTo = {
+            x: arrived.mark.x, z: arrived.mark.z, then: 'kneel', mark: arrived.mark,
+          };
+        }
       }
       continue;
     }
     m.sq.update(dt, _zero, 0);
     /* Whatever the evening's business currently is. Nobody looks away from
      * the working ground while it is being used. */
-    if ((phase === 'exec_prospect' || phase === 'exec_reload') && currentStep) {
+    if (m.placed) {
+      /* Inside, in their place, all facing the same way — which is the reason
+       * a room big enough for sixteen does not feel it. */
+      faceAt(m.sq, CEREMONY_CENTRE);
+    } else if ((phase === 'exec_prospect' || phase === 'exec_reload') && currentStep) {
       faceAt(m.sq, markForStep(currentStep));
     } else if (phase === 'exec_one' || phase === 'q1' || phase === 'q1_again') {
       faceAt(m.sq, prospectByName.get('PROSPECT ONE').sq.position);
-    } else if (phase === 'ceremony' || phase === 'oath_question' || phase === 'blade'
-      || phase === 'hand' || phase === 'cut' || phase === 'card'
-      || phase === 'oath_1' || phase === 'oath_2' || phase === 'burn'
-      || phase === 'made' || phase === 'room' || phase === 'room_aside') {
-      faceAt(m.sq, player.position);
     } else {
       faceAt(m.sq, m.key === 'BOOSKIBRO' || m.key === 'LOU' ? LINE_CENTER : player.position);
     }
@@ -2474,6 +2610,9 @@ window.INITIATION = {
   get inducted() { return inducted; },
   get spokeAtTheKilling() { return spokeAtTheKilling; },
   get quizOpen() { return quizEl.classList.contains('show'); },
+  get correctChoice() {
+    return quizButtons.findIndex((btn) => btn.dataset.correct === '1');
+  },
   get deadProspects() { return prospects.filter((p) => p.dead).map((p) => p.name); },
   get inductionK() { return inductionK; },
   chooseAnswer: pickChoice,

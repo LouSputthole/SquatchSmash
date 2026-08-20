@@ -3108,14 +3108,17 @@ async function buildSpecialMeetingKerb(descriptor, THREE) {
   }
 
   /* The car is the whole difference between the two states, so prove it moved
-   * rather than trusting the state name. A metre of tolerance: `placeAt` puts
-   * the car ON the authored spot, but the shell is posed around its own axles
-   * and the group origin is not the anchor. */
+   * rather than trusting the state name. Checked tight rather than loosely:
+   * `placeAt` writes x and z straight onto the vehicle and `syncMesh` copies
+   * them straight onto the group origin, so the only slack that belongs here
+   * is float noise. A centimetre. If this ever needs widening, the reason is
+   * that the car stopped being placed by its origin and that is worth
+   * noticing rather than absorbing. */
   const parked = blockState === 'arrived' ? SEDAN_STOP : SEDAN_STAGING;
   const away = Math.hypot(sedan.group.position.x - parked.x, sedan.group.position.z - parked.z);
-  if (!(away < 1)) {
+  if (!(away < 0.01)) {
     throw new Error(
-      `Special Meeting ${blockState} Adapter left the car ${away.toFixed(1)} m from its authored spot`,
+      `Special Meeting ${blockState} Adapter left the car ${away.toFixed(3)} m from its authored spot`,
     );
   }
 
@@ -3199,7 +3202,14 @@ async function buildSpecialMeetingSpur(descriptor, THREE) {
 
   /* The car has to be ON the clearing floor, not on the road it came in on and
    * not under the ground the terrain streamed in around it. `heightAt` is the
-   * same field the trees and the trailhead are placed against. */
+   * same field the trees and the trailhead are placed against.
+   *
+   * Measured at 0.017 m on the authored drive, so 1.2 m is deliberate slack
+   * rather than a fudged threshold: this is here to catch the failure mode
+   * where the car is put at the spur without being driven there and ends up
+   * twenty-eight metres under the floor, not to police the suspension. Do not
+   * tighten it to the measured value -- the tolerance also has to survive the
+   * clearing being re-cut on a slope. */
   const car = forest.car.group.position;
   const floor = forest.heightAt(car.x, car.z);
   if (!Number.isFinite(floor) || Math.abs(car.y - floor) > 1.2) {

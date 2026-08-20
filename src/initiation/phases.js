@@ -160,12 +160,20 @@ export const PHASES = Object.freeze({
     camera: 'clearing', advance: 'timer', timeout: 2.2, beat: 'IN-100', exits: ['exec_setup'],
   }),
   exec_setup: phase('exec_setup', {
-    camera: 'clearing', advance: 'event', timeout: 20, beat: 'IN-110', exits: ['exec_prospect'],
+    camera: 'clearing', advance: 'event', timeout: 30, beat: 'IN-110', exits: ['exec_prospect'],
   }),
-  /* One phase for all four, indexed by `execIndex`. The victim, the mark, the
-   * man behind them and the man beside them all come from executions.js. */
+  /**
+   * One phase for all four. The victim, the mark, the man behind them and the
+   * man beside them all come from executions.js.
+   *
+   * SIXTY SECONDS is a watchdog and not a pace. The longest of the four —
+   * Prospect Three, who argues the whole way out — is about forty seconds of
+   * walking and talking, and the beat is meant to be unbearable rather than
+   * brisk. This number exists so that a lost callback ends the night instead of
+   * leaving a man on his knees and the objective bar empty.
+   */
   exec_prospect: phase('exec_prospect', {
-    camera: 'kneel_exec', advance: 'event', timeout: 40,
+    camera: 'kneel_exec', advance: 'event', timeout: 60,
     exits: ['exec_gap', 'exec_reload', 'exec_done'],
   }),
   exec_gap: phase('exec_gap', {
@@ -223,8 +231,11 @@ export const PHASES = Object.freeze({
   oath_yes: phase('oath_yes', {
     camera: 'oath', advance: 'event', timeout: 30, beat: 'IN-371', exits: ['blade'],
   }),
+  /* SILENCE, HELD LONGER THAN A GAME NORMALLY HOLDS ANYTHING. "No. I don't."
+   * runs about three seconds; the rest of this is nobody moving, one boot on
+   * one board, the tiniest nod, and then the shot. */
   oath_no: phase('oath_no', {
-    camera: 'black', advance: 'timer', timeout: 3.4, beat: 'FAIL-B', exits: ['failed_oath'],
+    camera: 'black', advance: 'timer', timeout: 6.5, beat: 'FAIL-B', exits: ['failed_oath'],
   }),
   /* FAIL-B's retry resumes on Lou standing with the question re-asked, and
    * NOTHING BEFORE IT REPLAYS — not the code, not the deeds, not the aside. */
@@ -236,20 +247,23 @@ export const PHASES = Object.freeze({
   blade: phase('blade', {
     camera: 'ritual', advance: 'timer', timeout: 3.0, beat: 'IN-400', exits: ['hand'],
   }),
+  /* The timeouts in this act count from the START of the beat, and Lou has to
+   * finish speaking first — so they are the owner's four seconds PLUS the line
+   * that precedes them. Refusing the hand cannot fail it: Lou takes it. */
   hand: phase('hand', {
-    objective: OBJ_HAND, camera: 'ritual', advance: 'event', timeout: 4, beat: 'IN-410', exits: ['cut'],
+    objective: OBJ_HAND, camera: 'ritual', advance: 'event', timeout: 10, beat: 'IN-410', exits: ['cut'],
   }),
   cut: phase('cut', {
-    objective: OBJ_PRESS, camera: 'ritual', advance: 'event', timeout: 4, beat: 'IN-415', exits: ['card'],
+    objective: OBJ_PRESS, camera: 'ritual', advance: 'event', timeout: 6, beat: 'IN-415', exits: ['card'],
   }),
   card: phase('card', {
     camera: 'ritual', advance: 'timer', timeout: 2.6, beat: 'IN-420', exits: ['oath_1'],
   }),
   oath_1: phase('oath_1', {
-    objective: OBJ_REPEAT, camera: 'ritual', advance: 'event', timeout: 12, beat: 'IN-430', exits: ['oath_2'],
+    objective: OBJ_REPEAT, camera: 'ritual', advance: 'event', timeout: 22, beat: 'IN-430', exits: ['oath_2'],
   }),
   oath_2: phase('oath_2', {
-    objective: OBJ_REPEAT, camera: 'ritual', advance: 'event', timeout: 12, beat: 'IN-435', exits: ['burn'],
+    objective: OBJ_REPEAT, camera: 'ritual', advance: 'event', timeout: 20, beat: 'IN-435', exits: ['burn'],
   }),
   /* Lou's hand closing over the player's IS the fallback. A player who cannot
    * or will not hold the button is held. */
@@ -265,7 +279,7 @@ export const PHASES = Object.freeze({
     camera: 'room_wide', advance: 'timer', timeout: 22, beat: 'IN-500', exits: ['room_aside'],
   }),
   room_aside: phase('room_aside', {
-    camera: 'room_wide', advance: 'event', timeout: 30, beat: 'IN-520', exits: ['pullback'],
+    camera: 'room_wide', advance: 'event', timeout: 40, beat: 'IN-520', exits: ['pullback'],
   }),
   pullback: phase('pullback', {
     camera: 'pullback', advance: 'timer', timeout: 14, beat: 'IN-540', exits: ['complete'],

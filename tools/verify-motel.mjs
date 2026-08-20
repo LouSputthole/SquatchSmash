@@ -974,107 +974,83 @@ try {
     moneyCaseAim.active === 'moneyCase' && /case/i.test(moneyCaseAim.prompt),
     JSON.stringify(moneyCaseAim));
   const gloveboxAim = await aimPublicInteract(previewPage, 'glovebox');
-  check('aiming at the glovebox selects the revolver rather than the door or case',
-    gloveboxAim.active === 'glovebox' && /weapon/i.test(gloveboxAim.prompt),
+  /* The glovebox answers with one of two authored labels (src/motel/main.js):
+   * 'Check your weapon' before the .45 has been looked at, and 'The .45 is
+   * checked and put away' after. This used to test for /weapon/i, which only
+   * matched the first one -- and the arrival now draws the .45, looks at it
+   * and holsters it before Tony can reach a door handle, so the first label
+   * is never the one a player sees here. The scene's own comment says as
+   * much: "in practice this is always the second label". The check went red
+   * on a scene doing exactly what it was rebuilt to do.
+   *
+   * Pinned to the label the beat actually produces, which is a stronger
+   * statement than "the word weapon appears somewhere": the crosshair has to
+   * resolve to the GLOVEBOX, the prompt has to be the already-checked line,
+   * and it must not read as either of the neighbours this check exists to
+   * rule out -- the passenger door beside it and the case on the seat. */
+  check('aiming at the glovebox selects the checked .45 rather than the door or case',
+    gloveboxAim.active === 'glovebox'
+      && /the \.45 is checked and put away/i.test(gloveboxAim.prompt)
+      && !/passenger door|case/i.test(gloveboxAim.prompt),
     JSON.stringify(gloveboxAim));
   const earlyDoorAim = await aimPublicInteract(previewPage, 'exitCar');
   check('aiming at the passenger door selects the exit without stealing other cabin targets',
     earlyDoorAim.active === 'exitCar' && /passenger door/i.test(earlyDoorAim.prompt),
     JSON.stringify(earlyDoorAim));
-  // Public interaction path: return the crosshair to the glovebox and press E.
+  /* THE GUN IS PUT AWAY FOR THE WHOLE TRANSACTION -- and this is where that
+   * is proved, because it is where the old check assumed the opposite.
+   *
+   * This used to aim at the glovebox, press E, and wait for the revolver to
+   * rise into the hold so it could measure it. That worked when the glovebox
+   * was how Tony first got the .45. The arrival now does it for him: the
+   * gun comes out, he looks at it, and it goes away again before he can
+   * reach a door handle, "because nobody sells meat to a man with his hand
+   * full" (runArrivalInventory in src/motel/main.js). Pressing E on the
+   * glovebox afterwards is the throttled second label, not a second draw --
+   * `holsterWeapon()` says the gun "stays away until the room takes that
+   * decision back", and only `releaseWeapon()` at the betrayal takes it
+   * back. So the old wait sat on a view model that is deliberately null.
+   *
+   * The beat is asserted as it now is: the public press does NOT re-arm him.
+   * The shared system still owns the .45 with six in it, the HUD says PUT
+   * AWAY rather than EQUIPPED, and nothing is at the lens. The proof that
+   * the .45 is the shared catalog revolver, right-side up in the frame, has
+   * moved with the gun -- see the betrayal below, where the scene itself
+   * says it "appears at the lens". */
   await aimPublicInteract(previewPage, 'glovebox');
   await previewPage.keyboard.press('KeyE');
-  /* The .45 is the SHARED .45 — owner: "Lets used the shared guns we already
-   * have built." The view model must be the catalog revolver mounted by
-   * `WeaponSystem` on this camera, right-side up at its siege/Palace hold
-   * pose, not a bespoke box sculpture and not a line of HUD text. Equipping
-   * plays a short raise animation (the swap dip), so wait for the gun to
-   * settle at the hold before measuring where it sits on screen. */
-  await previewPage.waitForFunction(() => {
-    const model = window.MOTEL.heldModel;
-    return model && model.position.y > -0.27;
-  }, null, { timeout: SCENE_WAIT_MS, polling: 80 });
-  const revolverPresentation = await previewPage.evaluate(() => {
+  await previewPage.waitForTimeout(240);
+  const gloveboxAgain = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    const THREE = motel.three;
-    motel.scene.updateMatrixWorld(true);
-    motel.camera.updateMatrixWorld(true);
-    const view = motel.viewmodel;
-    const model = motel.heldModel;
     const item = motel.inventory.find((entry) => entry.id === 'weapon:revolver');
-    let screenBox = null;
-    let up = null;
-    if (model) {
-      /* Project the model's own bounding-box corners: the claim is that the
-       * gun overlaps the frame, and a corner test survives a hold pose that
-       * deliberately tucks the grip below the bottom edge. */
-      const box = new THREE.Box3().setFromObject(model);
-      const xs = [];
-      const ys = [];
-      const zs = [];
-      for (const x of [box.min.x, box.max.x]) {
-        for (const y of [box.min.y, box.max.y]) {
-          for (const z of [box.min.z, box.max.z]) {
-            const p = new THREE.Vector3(x, y, z).project(motel.camera);
-            xs.push(p.x);
-            ys.push(p.y);
-            zs.push(p.z);
-          }
-        }
-      }
-      screenBox = {
-        minX: Number(Math.min(...xs).toFixed(2)),
-        maxX: Number(Math.max(...xs).toFixed(2)),
-        minY: Number(Math.min(...ys).toFixed(2)),
-        maxY: Number(Math.max(...ys).toFixed(2)),
-        minZ: Number(Math.min(...zs).toFixed(2)),
-      };
-      /* Right-side up: the model's local +Y, taken to world and back through
-       * the view, still points up the screen. An upside-down mount flips it. */
-      const q = model.getWorldQuaternion(new THREE.Quaternion());
-      const camQ = motel.camera.getWorldQuaternion(new THREE.Quaternion());
-      up = new THREE.Vector3(0, 1, 0).applyQuaternion(q)
-        .applyQuaternion(camQ.invert());
-    }
-    const rounds = model?.userData?.moving?.rounds ?? [];
     return {
-      kind: view.kind,
-      shared: view.shared,
-      visible: view.visible,
-      inCamera: view.inCamera,
+      viewmodel: motel.viewmodel,
+      held: Boolean(motel.heldModel),
       systemEquipped: motel.weapons.equipped,
       hud: motel.weapons.hud,
-      parts: view.parts,
-      visibleRounds: rounds.filter((round) => round.visible).length,
-      screenBox,
-      screenUpY: up ? Number(up.y.toFixed(2)) : null,
       inventoryText: item?.text || '',
       selected: item?.selected === true,
+      subtitle: document.getElementById('subtitle').textContent,
     };
   });
-  check('the glovebox revolver is the shared catalog .45, in hand and right-side up',
-    revolverPresentation.kind === 'revolver'
-      && revolverPresentation.shared === 'revolver'
-      && revolverPresentation.visible
-      && revolverPresentation.inCamera
-      && revolverPresentation.systemEquipped === 'revolver'
-      && revolverPresentation.hud?.rounds === 6
-      && revolverPresentation.hud?.capacity === 6
-      && revolverPresentation.visibleRounds === 6
-      && ['revolver-barrel', 'revolver-cylinder', 'revolver-grip', 'revolver-trigger',
-        'revolver-ejector-rod'].every((name) => revolverPresentation.parts.includes(name))
-      && revolverPresentation.screenBox
-      && revolverPresentation.screenBox.maxY > -1
-      && revolverPresentation.screenBox.minY < 1
-      && revolverPresentation.screenBox.maxX > -1
-      && revolverPresentation.screenBox.minX < 1
-      && revolverPresentation.screenBox.minZ > -1
-      && revolverPresentation.screenUpY > 0.7
-      && revolverPresentation.inventoryText.includes('EQUIPPED')
-      && revolverPresentation.inventoryText.includes('6/6')
-      && revolverPresentation.selected,
-    JSON.stringify(revolverPresentation));
-  await capture(previewPage, 'shared-revolver-viewmodel-car');
+  check('the glovebox does not put the .45 back in his hands once the arrival has put it away',
+    /* Holstering releases the shared rack as well as the lens -- `equipped`
+     * is null and there is no weapon HUD, which is the whole point of playing
+     * the transaction unarmed: there is nothing to fire, not merely nothing
+     * to see. What survives is the INVENTORY line, and it still reads six in
+     * the wheel, because "the round you did not fire is still in there"
+     * (equipWeapon, src/motel/main.js). And the press is heard, not ignored:
+     * the throttled second line answers it. */
+    gloveboxAgain.viewmodel.kind === null
+      && !gloveboxAgain.held
+      && !gloveboxAgain.viewmodel.visible
+      && gloveboxAgain.systemEquipped === null
+      && gloveboxAgain.inventoryText.includes('Compact revolver')
+      && gloveboxAgain.inventoryText.includes('PUT AWAY')
+      && gloveboxAgain.inventoryText.includes('6/6')
+      && !gloveboxAgain.selected
+      && /still six/i.test(gloveboxAgain.subtitle),
+    JSON.stringify(gloveboxAgain));
 
   /* Owner: "I check revolver and he just keeps saying the voice line over and
    * over." The pickup line is delivered exactly once; every later press gets
@@ -1102,10 +1078,19 @@ try {
   check('the glovebox pickup line refuses to repeat, however many times [E] lands',
     /* <= 1, not === 1: the FIRST press may have beaten the download, in which
      * case the line was subtitled silent. What a regression produces here is
-     * 2+, because the decoded take replays on the later presses. */
+     * 2+, because the decoded take replays on the later presses.
+     *
+     * The label test used to read /already out/i, which was the second
+     * glovebox label before the arrival started drawing and holstering the
+     * .45 for him. The gun is not out any more once that beat has finished,
+     * so the authored second label now says so: 'The .45 is checked and put
+     * away' (src/motel/main.js). Same statement, current words -- the point
+     * was always that a second press gets the OTHER label, not the pickup
+     * one, and it still is. */
     gloveboxRepeat.weaponChecked
       && gloveboxRepeat.pickupPlays <= 1
-      && /already out/i.test(gloveboxRepeat.label),
+      && /checked and put away/i.test(gloveboxRepeat.label)
+      && !/check your weapon/i.test(gloveboxRepeat.label),
     JSON.stringify(gloveboxRepeat));
   const clerkSpawn = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -2067,9 +2052,103 @@ try {
       && signalState.state === 'idle',
     JSON.stringify(signalState));
 
+  /* THE HINGE. `releaseWeapon()` is the one place the room takes the holster
+   * decision back: "one frame the room is a transaction and the trigger does
+   * nothing, the next frame it is a gunfight and the same trigger kills
+   * people", announced by the .45 appearing at the lens. So the shared-gun
+   * proof that used to live at the glovebox lives here, where the gun is
+   * genuinely in his hands and STAYS there -- no three-second draw window to
+   * race, on any machine. Every assertion below is the one the glovebox
+   * block used to make. */
+  await previewPage.evaluate(() => window.MOTEL.betray());
+  await previewPage.waitForFunction(() => {
+    const model = window.MOTEL.heldModel;
+    return model && model.position.y > -0.27;
+  }, null, { timeout: SCENE_WAIT_MS, polling: 80 });
+  const revolverPresentation = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const THREE = motel.three;
+    motel.scene.updateMatrixWorld(true);
+    motel.camera.updateMatrixWorld(true);
+    const view = motel.viewmodel;
+    const model = motel.heldModel;
+    const item = motel.inventory.find((entry) => entry.id === 'weapon:revolver');
+    let screenBox = null;
+    let up = null;
+    if (model) {
+      /* Project the model's own bounding-box corners: the claim is that the
+       * gun overlaps the frame, and a corner test survives a hold pose that
+       * deliberately tucks the grip below the bottom edge. */
+      const box = new THREE.Box3().setFromObject(model);
+      const xs = [];
+      const ys = [];
+      const zs = [];
+      for (const x of [box.min.x, box.max.x]) {
+        for (const y of [box.min.y, box.max.y]) {
+          for (const z of [box.min.z, box.max.z]) {
+            const p = new THREE.Vector3(x, y, z).project(motel.camera);
+            xs.push(p.x);
+            ys.push(p.y);
+            zs.push(p.z);
+          }
+        }
+      }
+      screenBox = {
+        minX: Number(Math.min(...xs).toFixed(2)),
+        maxX: Number(Math.max(...xs).toFixed(2)),
+        minY: Number(Math.min(...ys).toFixed(2)),
+        maxY: Number(Math.max(...ys).toFixed(2)),
+        minZ: Number(Math.min(...zs).toFixed(2)),
+      };
+      /* Right-side up: the model's local +Y, taken to world and back through
+       * the view, still points up the screen. An upside-down mount flips it. */
+      const q = model.getWorldQuaternion(new THREE.Quaternion());
+      const camQ = motel.camera.getWorldQuaternion(new THREE.Quaternion());
+      up = new THREE.Vector3(0, 1, 0).applyQuaternion(q)
+        .applyQuaternion(camQ.invert());
+    }
+    const rounds = model?.userData?.moving?.rounds ?? [];
+    return {
+      kind: view.kind,
+      shared: view.shared,
+      visible: view.visible,
+      inCamera: view.inCamera,
+      systemEquipped: motel.weapons.equipped,
+      hud: motel.weapons.hud,
+      parts: view.parts,
+      visibleRounds: rounds.filter((round) => round.visible).length,
+      screenBox,
+      screenUpY: up ? Number(up.y.toFixed(2)) : null,
+      inventoryText: item?.text || '',
+      selected: item?.selected === true,
+    };
+  });
+  check('the betrayal puts the shared catalog .45 in his hands, right-side up at the lens',
+    revolverPresentation.kind === 'revolver'
+      && revolverPresentation.shared === 'revolver'
+      && revolverPresentation.visible
+      && revolverPresentation.inCamera
+      && revolverPresentation.systemEquipped === 'revolver'
+      && revolverPresentation.hud?.rounds === 6
+      && revolverPresentation.hud?.capacity === 6
+      && revolverPresentation.visibleRounds === 6
+      && ['revolver-barrel', 'revolver-cylinder', 'revolver-grip', 'revolver-trigger',
+        'revolver-ejector-rod'].every((name) => revolverPresentation.parts.includes(name))
+      && revolverPresentation.screenBox
+      && revolverPresentation.screenBox.maxY > -1
+      && revolverPresentation.screenBox.minY < 1
+      && revolverPresentation.screenBox.maxX > -1
+      && revolverPresentation.screenBox.minX < 1
+      && revolverPresentation.screenBox.minZ > -1
+      && revolverPresentation.screenUpY > 0.7
+      && revolverPresentation.inventoryText.includes('EQUIPPED')
+      && revolverPresentation.inventoryText.includes('6/6')
+      && revolverPresentation.selected,
+    JSON.stringify(revolverPresentation));
+  await capture(previewPage, 'shared-revolver-viewmodel-car');
+
   const mattressState = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    motel.betray();
     motel.forceInteract('mattress');
     const mattress = motel.refs.beds[0].mattress;
     const world = new motel.three.Vector3();

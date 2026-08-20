@@ -47,8 +47,8 @@ export const PIXEL_RATIO_CAP_HEAVY = 1.25;
  * The membership test is not "big scene". It is: does the page hold a large
  * outdoor world -- terrain, weather, distant instanced dressing -- in front of
  * the camera at once, so that the fragment cost scales with the backbuffer
- * rather than with what the player is looking at? Every entry below was
- * measured, and the first four have verifiers that pin 1.25 on a 2x display.
+ * rather than with what the player is looking at? The first four were
+ * measured on real machines and their verifiers pin 1.25 on a 2x display.
  *
  * The list grew in three passes and the order is the order they were added,
  * not an ordering that means anything:
@@ -58,7 +58,11 @@ export const PIXEL_RATIO_CAP_HEAVY = 1.25;
  *     was left alone rather than rewritten);
  *   - the mansion and the Siege, added later without amending that comment,
  *     which is why it reads as if it were still a four-entry list;
- *   - THE SPECIAL MEETING, added 2026-08-20 with this note.
+ *   - THE SPECIAL MEETING, added 2026-08-20 with this note. Placed by the
+ *     membership test above and by what the scene actually builds, NOT by a
+ *     frame-time measurement -- nobody has profiled this page yet, and if a
+ *     playtest says 1.5 is comfortable on it the honest move is to take it
+ *     back off this list rather than to leave it here and stop asking.
  *
  * The Special Meeting qualifies for a reason worth writing down, because on a
  * first read "a car pulls up outside a flat" does not sound like Beef Run. The

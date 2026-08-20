@@ -31,6 +31,19 @@
  */
 import { KNEEL_MARKS, PLAYER_EYE, STAND_MARK, facingOf } from './cabin/site.js';
 
+/**
+ * Where Kittenboss stands.
+ *
+ * A constant of its own rather than a fifth entry in `PROSPECT_XS`, because
+ * `cabin/site.js` copies those four numbers out of `main.js` and a test
+ * asserts the copy still matches; growing the array would break that assertion
+ * to add a body the array was never about. 2.2 m of spacing, the same as
+ * everybody else, which puts her in front of the boot car she was driven out
+ * here in — the lid is still standing open behind her and nobody shuts it and
+ * nobody refers to it.
+ */
+export const KITTENBOSS_SLOT = Object.freeze({ x: 6.6 });
+
 /** Everybody who is standing in the line when the speech starts. */
 export const LINE_UP = Object.freeze([
   Object.freeze({ id: 'prospect-one', name: 'PROSPECT ONE', x: -4.4, speaks: true }),
@@ -38,22 +51,11 @@ export const LINE_UP = Object.freeze([
   Object.freeze({ id: 'prospect-three', name: 'PROSPECT THREE', x: 0, speaks: true }),
   Object.freeze({ id: 'prospect-four', name: 'PROSPECT FOUR', x: 2.2, speaks: false }),
   Object.freeze({ id: 'prospect-five', name: 'PROSPECT FIVE', x: 4.4, speaks: true }),
-  /**
-   * KITTENBOSS, on the end.
-   *
-   * She gets a slot of her own rather than a sixth entry in `PROSPECT_XS`,
-   * because `cabin/site.js` copies those four numbers out of `main.js` and a
-   * test asserts the copy still matches. Growing the array would break that
-   * assertion to add a body the array was never about. 2.2 m of spacing, the
-   * same as everybody else, which puts her in front of the boot car she was
-   * driven out here in — the lid is still standing open behind her and nobody
-   * shuts it and nobody refers to it.
-   */
-  Object.freeze({ id: 'kittenboss', name: 'KITTENBOSS', x: 6.6, speaks: true, she: true }),
+  /** KITTENBOSS, on the end. See KITTENBOSS_SLOT above. */
+  Object.freeze({
+    id: 'kittenboss', name: 'KITTENBOSS', x: KITTENBOSS_SLOT.x, speaks: true, she: true,
+  }),
 ]);
-
-/** Where Kittenboss stands. Named because `main.js` places her from it. */
-export const KITTENBOSS_SLOT = Object.freeze({ x: 6.6 });
 
 /**
  * Prospect One.
@@ -90,22 +92,36 @@ export const KNEELING_EXECUTIONS = Object.freeze([
   Object.freeze({
     index: 0, beat: 'IN-120', victim: 'PROSPECT THREE', markId: 'kneel-1',
     walker: 'GRATIN', shooter: 'SEFF', second: 'GRATIN', rounds: 1, kneeling: true,
+    /* He does not move. Gratin has to come and stand in front of him and wait,
+     * and waiting wins — which is the only reason his argument gets to run. */
+    stepsOutEarly: false,
     gapAfter: true, reloadAfter: false,
   }),
   Object.freeze({
     index: 1, beat: 'IN-130', victim: 'PROSPECT FOUR', markId: 'kneel-2',
     walker: 'GRATIN', shooter: 'SEFF', second: 'GRATIN', rounds: 1, kneeling: true,
+    /* He steps out before Gratin reaches him. He understood three minutes ago
+     * and he has had three minutes with it. */
+    stepsOutEarly: true,
     /* The pistol is empty after this one. The gap comes first, then IN-140. */
     gapAfter: true, reloadAfter: true,
   }),
   Object.freeze({
     index: 2, beat: 'IN-145', victim: 'PROSPECT FIVE', markId: 'kneel-3',
     walker: 'GRATIN', shooter: 'GRATIN', second: 'SEFF', rounds: 1, kneeling: true,
+    /* He comes out before he is called, because being liked is the only skill
+     * he has ever had. In practice he is already on the mark: he is brought
+     * out at the reload and kneels through all of it. */
+    stepsOutEarly: true,
     gapAfter: true, reloadAfter: false,
   }),
   Object.freeze({
     index: 3, beat: 'IN-160', victim: 'KITTENBOSS', markId: 'kneel-4',
     walker: 'GRATIN', shooter: 'GRATIN', second: 'SEFF', rounds: 1, kneeling: true,
+    /* She sees him coming and steps out before he arrives, the way you do when
+     * somebody is obviously heading for you. It is the longest walk of the
+     * night and she does it herself. */
+    stepsOutEarly: true,
     /* Nothing follows her. IN-170 is two men counting. */
     gapAfter: false, reloadAfter: false,
   }),

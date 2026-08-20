@@ -601,6 +601,23 @@ const IN_248 = beat('IN-248', 3, 'trail_reply', [
   sd('He keeps walking.'),
 ]);
 
+const IN_250 = beat('IN-250', 3, 'cabin_arrive', [
+  sd('The porch light shows up through the trunks at the second bend, and the '
+    + 'clearing behind goes out of sight in the same moment. Then the trail '
+    + 'gives up into a yard and it is simply there, the way a building in woods '
+    + 'is: no approach, no avenue, just trunks and then a wall.'),
+  sd('OLD, PRIVATE, IMPORTANT — AND NOT RUNDOWN. Twelve metres of squared '
+    + 'timber gone black-grey, a stone chimney with woodsmoke going straight up '
+    + 'because there is no wind down here, windows lit orange from inside. A big '
+    + 'building for the woods and a small one for a family that owns this much '
+    + 'of them. No porch swing, no lanterns strung up, no sign, nothing carved '
+    + 'over the door — and two cars already parked in the yard that were here '
+    + 'before anybody arrived, which means people were waiting in that room '
+    + 'while all of it was happening down the hill.'),
+  sd('Nobody says anything about it. NOBODY IN THIS FAMILY HAS EVER REMARKED ON '
+    + 'THIS BUILDING IN THEIR LIVES.'),
+]);
+
 const IN_260 = beat('IN-260', 3, 'cabin_door', [
   sd('The trail gives up into a yard and the cabin is simply there, the way a '
     + 'building in woods is: no approach, no avenue, just trunks and then a '
@@ -932,7 +949,7 @@ export const BEATS = Object.freeze([
   IN_030, IN_031, IN_032, IN_033, IN_060, IN_075,
   IN_100, IN_110, IN_120, IN_130, IN_140, IN_145, IN_160, IN_170,
   IN_181, IN_182, IN_183, IN_184, IN_185,
-  IN_200, IN_210, IN_220, IN_230, IN_240, IN_245, IN_246, IN_247, IN_248, IN_260,
+  IN_200, IN_210, IN_220, IN_230, IN_240, IN_245, IN_246, IN_247, IN_248, IN_250, IN_260,
   IN_300, IN_310, IN_320, IN_330, IN_340, IN_350, IN_360,
   IN_365_SILENT, IN_365_SPOKE, IN_370, IN_371, FAIL_B, IN_380,
   IN_400, IN_410, IN_415, IN_420, IN_430, IN_435, IN_440,
