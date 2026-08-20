@@ -544,6 +544,14 @@ export async function verifyGeometry({ descriptors, onProgress = () => {} }) {
     frozenWaivers: GEOMETRY_FROZEN_WAIVERS,
     workerErrors: Object.freeze(workerErrors),
     scenes: Object.freeze(sceneResults),
+    /* What each floating support envelope actually is, keyed by its id.
+     *
+     * The printed report already joins these on so a person can read a
+     * FLOATING finding; the machine-readable one carried the bare hashes,
+     * which made it the less useful of the two outputs for the one job the
+     * JSON exists to support — deciding, in bulk, which findings are a light
+     * fitting doing its job and which are a prop that has come off a shelf. */
+    envelopeNames: Object.freeze(Object.fromEntries(envelopeLabels)),
   });
 }
 

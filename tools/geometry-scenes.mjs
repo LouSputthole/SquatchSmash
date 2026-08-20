@@ -2868,6 +2868,31 @@ function annotatePalaceCast(cast) {
     }
     ids.add(member.id);
     setGeometryGateMetadata(member.root, { assemblyId: `cartel-palace-cast:${member.id}` });
+    /* A FOREARM IS CARRIED BY AN ARM, NOT BY THE FLOOR.
+     *
+     * The gate splits an assembly into CONNECTED components before working
+     * out what holds each one up, and a bent elbow separates the forearm's
+     * boxes from the upper arm's. On the entry watch — the one guard in this
+     * scene who is SEATED, with his arms up at a keyboard — that leaves the
+     * forearm a component of its own with nothing beneath it at all, reported
+     * as an "elbow support envelope" floating an unbounded distance. It is a
+     * check with no concept of skeletons, not a man with a detached arm.
+     *
+     * `fixedSupportAnchor` is the gate's own word for "held up by something I
+     * do not model", and it applies PER COMPONENT — so this silences the arm
+     * and leaves the check that matters intact: the component with the feet
+     * in it is still tested, and a guard hovering over his own floor still
+     * fails.
+     *
+     * Done HERE rather than in `src/bing/cast.js`, which builds every person
+     * in the game. Marking it in the shared rig worked and then drifted the
+     * recorded suppression counts of a scene that has nothing to do with this
+     * one — a cross-scene ripple for a cosmetic finding is a bad trade. */
+    member.root.traverse((node) => {
+      if (node.isGroup && node.name === 'forearm') {
+        setGeometryGateMetadata(node, { fixedSupportAnchor: true });
+      }
+    });
   }
 }
 
