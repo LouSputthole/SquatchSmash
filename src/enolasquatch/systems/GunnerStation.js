@@ -33,20 +33,45 @@
  */
 import * as THREE from 'three';
 import { clamp } from '../../beefrun/util.js';
+import { REAR_GUN_ARC } from '../scenes/EnolaSquatch.js';
 import { bindLookSensitivity, shakeScale } from '../../core/settings.js';
 
 /** How far off the round's path a fighter can be and still be hit, in metres. */
 export const HIT_RADIUS = 12;
 /** The belt. Runs out, and does not come back. */
 export const BELT = 1400;
-/** Rounds a second, per barrel pair. */
-export const RATE = 11;
+/**
+ * Rounds a second, per barrel pair.
+ *
+ * Owner playtest, 2026-08-19: the gun should read as "a large mounted aircraft
+ * weapon, not an angry office stapler". A big aircraft gun's rhythm is the
+ * first thing that says how big it is, so this is deliberately slower than it
+ * was (11/s) and is the SAME number the modelled muzzle flash strobes at —
+ * `REAR_GUN_ARC.cadence` in `../scenes/EnolaSquatch.js` — because a flash that
+ * does not land on the report is what made the old gun read as a toy.
+ */
+export const RATE = REAR_GUN_ARC.cadence;
 /** Effective range. Past this the rounds are still drawn and hit nothing. */
 export const GUN_RANGE = 1250;
 
-const TRAVERSE = 1.02;                 // rad each side, inside the model's stops
-const ELEVATION = { down: -0.38, up: 0.58 };
+/* The control limits ARE the model's stops now, rather than a second, tighter
+ * set of numbers typed next to them — see the block above `REAR_GUN_ARC` in
+ * `../scenes/EnolaSquatch.js` for where the stops come from. A player who can
+ * see a fighter inside the glazing must be able to put the barrels on it, and
+ * the two limits drifting apart is how that stopped being true. */
+const TRAVERSE = REAR_GUN_ARC.traverse;
+const ELEVATION = { down: REAR_GUN_ARC.down, up: REAR_GUN_ARC.up };
 const MUZZLE_SPEED = 860;
+/**
+ * How long the view takes to travel from the seat into the turret.
+ *
+ * Exported because the browser verifier has to wait exactly this long before
+ * it can ask "is the camera in the turret yet" — see the tail-gun block in
+ * `tools/verify-enolasquatch.mjs`. Its old assertion was written against the
+ * teleport this replaced and read the camera one frame after T, which is now
+ * a man half way down the fuselage rather than a man in the seat.
+ */
+export const TAKE_BLEND_SECONDS = 0.55;
 
 const _eye = new THREE.Vector3();
 const _eyeLocal = new THREE.Vector3();
@@ -85,6 +110,8 @@ export class GunnerStation {
     this.kills = 0;
     this._roundT = 0;
     this._kick = 0;
+    this._blend = 0;
+    this._blendFrom = null;
     bindLookSensitivity(this, 0.0016); // × the player's sensitivity setting, live
 
     this.onShot = null;        // () => void — for the audio
@@ -100,6 +127,17 @@ export class GunnerStation {
     if (this.manned) return false;
     this.manned = true;
     this.firing = false;
+    /* THE CAMERA MOVES RATHER THAN CUTS.
+     *
+     * Owner playtest, 2026-08-19: *"camera transitions to the rear gun"*. It
+     * used to teleport — one frame in the left seat, the next seventeen metres
+     * aft facing the other way, which reads as a bug rather than as a man
+     * climbing down the fuselage. `applyCamera()` captures wherever the view
+     * was on its first call after this and eases from there, so the player sees
+     * the cabin go past. Short on purpose: this fires in the middle of a
+     * fighter pass and a long swoop would be a hole in the fight. */
+    this._blend = TAKE_BLEND_SECONDS;
+    this._blendFrom = null;
     return true;
   }
 
@@ -185,20 +223,37 @@ export class GunnerStation {
    * Put the camera in the turret. Called instead of `CameraManager.update()`
    * while the station is manned — see `../main.js`.
    */
-  applyCamera(camera) {
+  applyCamera(camera, dt = 0) {
     if (!this.manned) return false;
+    if (this._blend > 0 && !this._blendFrom) {
+      this._blendFrom = {
+        position: camera.position.clone(),
+        quaternion: camera.quaternion.clone(),
+      };
+    }
     this.eyeWorld(_eye);
     camera.position.copy(_eye);
     _e.set(this.pitch, this.yaw, 0, 'YXZ');
     _q.setFromEuler(_e);
     camera.quaternion.copy(this.aircraft.group.quaternion).multiply(_q);
+    if (this._blend > 0) {
+      this._blend = Math.max(0, this._blend - dt);
+      // Ease-out, so it arrives softly rather than stopping dead at the seat.
+      const t = 1 - (this._blend / TAKE_BLEND_SECONDS) ** 2;
+      camera.position.lerp(this._blendFrom.position, 1 - t);
+      camera.quaternion.slerp(this._blendFrom.quaternion, 1 - t);
+      if (this._blend <= 0) this._blendFrom = null;
+    }
     if (this._kick > 0.001) {
-      // The gun shakes the man holding it, not the aeroplane.
+      /* The gun shakes the man holding it, not the aeroplane. Heavier than it
+       * was (0.05/0.05/0.06) because the owner asked for weight, and biased
+       * DOWNWARD in pitch rather than symmetric: a mounted gun's recoil has a
+       * direction, and a camera that only jitters reads as a rumble pack. */
       const kick = this._kick * shakeScale();
       _shake.setFromEuler(new THREE.Euler(
-        (Math.random() - 0.5) * kick * 0.05,
-        (Math.random() - 0.5) * kick * 0.05,
-        (Math.random() - 0.5) * kick * 0.06,
+        (Math.random() - 0.75) * kick * 0.085,
+        (Math.random() - 0.5) * kick * 0.075,
+        (Math.random() - 0.5) * kick * 0.1,
         'YXZ',
       ));
       camera.quaternion.multiply(_shake);
@@ -212,7 +267,7 @@ export class GunnerStation {
    * @returns {?object} a state block for the HUD, or null when nobody is there
    */
   update(dt) {
-    this._kick = Math.max(0, this._kick - dt * 6);
+    this._kick = Math.max(0, this._kick - dt * 5);
     if (this.jammed > 0) {
       this.jammed = Math.max(0, this.jammed - dt);
       this.heat = Math.max(0, this.heat - dt * 0.5);
@@ -277,8 +332,11 @@ export class GunnerStation {
       from: _muzzle,
       to: _aimPoint,
       speed: MUZZLE_SPEED,
-      colour: 0xa8ff7a,
-      width: 0.6,
+      /* Fatter and hotter than the fighters' own tracer, so the player can see
+       * where his own fire is actually going against a night sky full of
+       * everybody else's. */
+      colour: 0xfff0a8,
+      width: 1.15,
       onArrive: () => {
         if (!target) return;
         const result = this.interceptors.damage(target.fighter, 1);
@@ -334,6 +392,8 @@ export class GunnerStation {
   /** A checkpoint restart puts the player back in the seat with a fresh belt. */
   reset() {
     this.leave();
+    this._blend = 0;
+    this._blendFrom = null;
     this.rounds = BELT;
     this.heat = 0;
     this.jammed = 0;

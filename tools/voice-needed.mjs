@@ -61,6 +61,41 @@ const sceneOf = (name) => SCENES.find(([, owns]) => owns(name))?.[0] || 'Apartme
 const fileOf = (cue) => `${cue.file || cue.name}.mp3`;
 
 /**
+ * Has this profile actually been cast?
+ *
+ * This is the same test `tools/generate-sfx.mjs` applies before it will spend
+ * an API call on a line -- see its `unset` loop:
+ *
+ *     if (!v?.id || /^<.*>$/.test(v.id)) unset.add(cue.voice || 'player');
+ *
+ * A profile gets stubbed into the manifest with an angle-bracket placeholder
+ * (`"id": "<owner to cast>"`) so a scene's cues can be authored, minted and
+ * read long before anybody has picked a throat for them. That placeholder is
+ * a non-empty STRING, so it is truthy.
+ *
+ * Until 2026-08-20 this file asked the question as a bare `voices[v]?.id`,
+ * which read every one of those placeholders as CAST. That was not cosmetic.
+ * The profile then fell out of the "Blocked -- no voice id" section, so the
+ * owner's own recording sheet quietly asserted that a part was cast when
+ * nobody had supplied an id, and the only thing that would ever say otherwise
+ * was a production run failing later. `generate-sfx` had it right the whole
+ * time; this is that test, moved somewhere both readers can share it.
+ *
+ * Every place in this file that asks the question goes through here, not just
+ * the Blocked list -- the "same voice, different setting" grouping keys on the
+ * id, and two profiles that both carry `<owner to cast>` are two uncast parts
+ * rather than one performer with two settings on the desk.
+ *
+ * @param {object} [profile] one entry from the manifest's `voices` block.
+ * @returns {string|null} the ElevenLabs id, or null when nothing is cast yet.
+ */
+function castVoiceId(profile) {
+  const id = profile?.id;
+  if (!id || /^<.*>$/.test(id)) return null;
+  return id;
+}
+
+/**
  * The Initiation party catalog is authored but unreachable in the playable
  * scene, and the production sheet excludes it from the line run for that
  * reason. Excluded here too: this file is what needs SAYING, and nobody hears
@@ -95,7 +130,9 @@ function main() {
     byVoice.get(key).push(cue);
   }
 
-  const uncast = [...new Set(needed.filter((c) => !voices[c.voice]?.id).map((c) => c.voice))];
+  /* A placeholder id counts as uncast -- see `castVoiceId` above for what was
+   * wrong with asking `voices[c.voice]?.id` and what it cost. */
+  const uncast = [...new Set(needed.filter((c) => !castVoiceId(voices[c.voice])).map((c) => c.voice))];
 
   const out = [];
   const total = needed.length;
@@ -137,10 +174,14 @@ function main() {
    * because they are two settings on the desk, but a voice actor looking at
    * three profiles with "lou" in the name needs telling which of them are the
    * same throat before he books three sessions. Derived from the ids, so it
-   * cannot go stale the way a hand-written note would. */
+   * cannot go stale the way a hand-written note would.
+   *
+   * Placeholder ids are excluded rather than grouped: two parts both waiting
+   * on `<owner to cast>` would otherwise be printed here as "one voice", which
+   * is the opposite of true and would book one session for two performers. */
   const sameVoice = new Map();
   for (const v of byVoice.keys()) {
-    const id = voices[v]?.id;
+    const id = castVoiceId(voices[v]);
     if (!id) continue;
     if (!sameVoice.has(id)) sameVoice.set(id, []);
     sameVoice.get(id).push(v);
@@ -183,7 +224,9 @@ function main() {
     const profile = voices[voice];
     out.push(`### ${voice.replace(/-/g, ' ').toUpperCase()} — ${cues.length} line${cues.length === 1 ? '' : 's'}`);
     out.push('');
-    if (!profile?.id) {
+    if (!castVoiceId(profile)) {
+      /* Including a profile whose id is still `<owner to cast>`: the block
+       * header must say so, or a session gets booked against a stub. */
       out.push('> **No voice id yet.** These cannot be rendered until the owner supplies one.');
       out.push('');
     } else if (profile._note) {

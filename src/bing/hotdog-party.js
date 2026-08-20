@@ -5,9 +5,10 @@ import { AUBBIE, BIG_UNCLE_LOU_BING, SAUCE } from '../core/wardrobe.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { buildWrappedBody } from '../core/props/wrapped-body.js';
 import { box, cylinder, emissive, group, mat, sphere } from '../world/build.js';
-import { Npc } from './cast.js';
+import { Npc, STOOL_SIT } from './cast.js';
 import { STAGE_H } from './club.js';
 import { FAMILY, loadFaceIndex, populateFamily } from './family.js';
+import { buildHotDogHouseStaff } from './hotdog-house-staff.js';
 import { printed, sign } from './kit.js';
 import { createPartyCollider } from './party-collision.js';
 
@@ -25,19 +26,36 @@ function makeNpc(scene, club, options) {
   return npc;
 }
 
+/**
+ * Aubbie, kitted the way the man is actually kitted.
+ *
+ * He used to carry a leather tool pouch and a ring of four keys, which reads
+ * as the building's handyman -- and he is not. `src/mansion/scenes/
+ * SilentSquatch.js` establishes him as the LEAD SCIENTIST on Lou's programme:
+ * lab coat, shirt and tie, the only one in that room with a tie showing. Same
+ * man, so the same read here (owner, 2026-08-19).
+ *
+ * What is left is what a chemist carries into a room he has been called to
+ * clean: a row of pens, a folded pair of nitrile gloves out of the breast
+ * pocket, and the cigarette, which stays because it is his and because a man
+ * who knows exactly what bleach does to a carpet smoking beside it is the
+ * funniest thing on this side of the room.
+ */
 function attachAubbieTools(aubbie) {
-  const steel = mat({ color: 0x8f9492, roughness: 0.32, metalness: 0.82 });
-  const leather = mat({ color: 0x3e291d, roughness: 0.9 });
-  const pouch = box({ size: [0.24, 0.22, 0.1], pos: [0.21, 0.78, 0.11], mat: leather });
-  aubbie.parts.body.add(pouch);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.012, 6, 16), steel);
-  ring.position.set(-0.2, 0.78, 0.12);
-  aubbie.parts.body.add(ring);
-  for (let i = 0; i < 4; i++) {
-    const key = box({ size: [0.022, 0.11, 0.012], pos: [-0.2 + (i - 1.5) * 0.025, 0.69 - (i % 2) * 0.02, 0.13], mat: steel });
-    key.rotation.z = (i - 1.5) * 0.18;
-    aubbie.parts.body.add(key);
+  const ink = mat({ color: 0x1b1d22, roughness: 0.5 });
+  const nitrile = mat({ color: 0x3f6fa8, roughness: 0.72 });
+  for (let i = 0; i < 3; i++) {
+    const pen = box({
+      size: [0.012, 0.1, 0.012],
+      pos: [0.13 + i * 0.022, 1.4, 0.135],
+      mat: i === 1 ? mat({ color: 0x8f9492, roughness: 0.3, metalness: 0.8 }) : ink,
+    });
+    pen.rotation.z = (i - 1) * 0.05;
+    aubbie.parts.body.add(pen);
   }
+  const gloves = box({ size: [0.09, 0.06, 0.03], pos: [-0.16, 1.36, 0.132], mat: nitrile });
+  gloves.rotation.z = 0.22;
+  aubbie.parts.body.add(gloves);
   const cigarette = cylinder({ r: 0.008, h: 0.1, seg: 8, pos: [0.16, 1.68, 0.02], mat: mat({ color: 0xe5dfcf, roughness: 0.85 }), rotZ: Math.PI / 2 });
   aubbie.parts.body.add(cigarette);
 }
@@ -55,6 +73,13 @@ function partyBanner() {
   }), 6.9, 0.82, { x: -11.5, y: 3.55, z: 10.595 });
   words.material.transparent = true;
   banner.add(words);
+  // Four short stand-offs terminate on the club wall at z=10.84. The cloth
+  // keeps its authored proud-of-wall silhouette without hanging in open air.
+  for (const x of [-15.2, -7.8]) {
+    for (const y of [3.12, 3.98]) {
+      banner.add(cylinder({ r: 0.015, h: 0.165, pos: [x, y, 10.71875], rotX: Math.PI / 2, mat: mat({ color: 0x27292b, roughness: 0.6, metalness: 0.6 }) }));
+    }
+  }
   return banner;
 }
 
@@ -178,7 +203,8 @@ export function buildHotDogCleanupProps() {
   const g = group('hotdog.cleanup-props');
   const plastic = mat({ color: 0xd7dbe0, roughness: 0.48, transparent: true, opacity: 0.72 });
   const kit = group('aubbie.cleanup-kit');
-  kit.position.set(7.2, 0, -11.2);
+  // The kit sits beyond the service-side wall return, not through its corner.
+  kit.position.set(7.2, 0, -11.35);
   kit.add(
     box({ size: [1.0, 0.44, 0.62], pos: [0, 0.24, 0], mat: mat({ color: 0x30383c, roughness: 0.75, metalness: 0.25 }) }),
     box({ size: [0.78, 0.08, 0.48], pos: [0, 0.5, 0], mat: plastic }),
@@ -266,7 +292,10 @@ export function buildHotDogCleanupProps() {
   g.add(blood);
 
   const brokenStool = group('broken.bar-stool');
-  brokenStool.position.set(-15.5, 0, -1.25);
+  // Rotate about the same authored pivot, then raise the lowest leg to the floor.
+  // Keep the discarded stool beside the confrontation, clear of both the
+  // fallen body and the permanent two-top.
+  brokenStool.position.set(-15.5, 0.192, -2.15);
   brokenStool.rotation.set(0.08, 0.3, 1.18);
   brokenStool.add(
     cylinder({ r: 0.24, h: 0.1, pos: [0, 0.45, 0], mat: mat({ color: 0x6b1f27, roughness: 0.75 }) }),
@@ -372,7 +401,7 @@ function offsetCenter(x, y, z) {
 }
 
 function installPartyColliders(club, {
-  food, stage, cleanup, all, hotdog,
+  food, stage, cleanup, all, hotdog, withoutBodies = new Set(),
 }) {
   const entries = [];
   const byId = {};
@@ -419,8 +448,17 @@ function installPartyColliders(club, {
     halfX: 0.5, halfZ: 1.16, minY: -0.03, maxY: 0.5,
   });
 
+  /* WHO GETS A BODY.
+   *
+   * Everybody the player can walk into, which is everybody standing on the
+   * floor. The bartender and the dealer are deliberately not on it: they work
+   * INSIDE furniture that already collides -- the bar's own counter run and
+   * the blackjack table's footprint -- so a body box on either of them is a
+   * box permanently inside a wall, and the geometry gate is right to call it
+   * one. Nothing can reach them to need it. */
   const cast = [];
-  for (const [index, npc] of [...new Set(all)].entries()) {
+  const bodied = [...new Set(all)].filter((npc) => !withoutBodies.has(npc));
+  for (const [index, npc] of bodied.entries()) {
     const characterId = npc.characterId ?? npc.group.userData.npc?.characterId;
     const slug = characterId ?? String(npc.name || `guest-${index}`)
       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -504,25 +542,52 @@ export async function buildHotDogParty(scene, club) {
     [CHARACTER_IDS.DEATHMEGATRON]: [-17.4, -2.0, 1.2],
     [CHARACTER_IDS.SEFF]: [4.0, 2.8, -1.2],
     [CHARACTER_IDS.IRISH]: [-6.0, 4.8, -2.45],
-    [CHARACTER_IDS.GRATIN]: [-3.1, 5.4, -2.7],
-    [CHARACTER_IDS.OLD_STOVE]: [3.9, 6.1, -1.7],
-    [CHARACTER_IDS.LAG]: [3.8, 8.5, -2.55],
-    [CHARACTER_IDS.ERIC]: [-8.6, 4.1, -2.7],
+    // Keep standing rigs clear of the permanent chairs, two-tops, and stage
+    // controls. These are small staging offsets, not collision exemptions.
+    [CHARACTER_IDS.GRATIN]: [-2.9, 5.4, -2.7],
+    [CHARACTER_IDS.OLD_STOVE]: [3.55, 6.1, -1.7],
+    [CHARACTER_IDS.LAG]: [3.8, 7.55, -2.55],
+    [CHARACTER_IDS.ERIC]: [-8.4, 4.3, -2.7],
     [CHARACTER_IDS.WILLY]: [-18.3, 5.4, 1.4],
     [CHARACTER_IDS.APE]: [-14.2, 0.2, 1.35],
-    [CHARACTER_IDS.HOG_MAMA]: [-12.0, -3.45, 0],
-    [CHARACTER_IDS.SHUBENATOR]: [-6.0, -7.8, 2.6],
+    [CHARACTER_IDS.HOG_MAMA]: [-12.0, -3.65, 0],
+    [CHARACTER_IDS.SHUBENATOR]: [-6.0, -7.5, 2.6],
     [CHARACTER_IDS.RIPPINFLOW]: [-12.8, 2.8, 2.3],
-    [CHARACTER_IDS.CAPTAIN_LOU_SASOLE]: [-10.2, 3.2, 2.4],
+    [CHARACTER_IDS.CAPTAIN_LOU_SASOLE]: [-10.4, 3.1, 2.4],
     [CHARACTER_IDS.SNOW]: [6.55, -3.2, 2.9],
     [CHARACTER_IDS.NUMBSKULL]: [-9.0, 1.0, 2.1],
   };
+  const partyBarSeats = new Set([CHARACTER_IDS.BOOSKI, CHARACTER_IDS.WILLY]);
+  /* THE TABLE IS OPEN -- from behind it.
+   *
+   * Lou has shut the club to the public, not to his own people, so the felt is
+   * running: `buildHotDogHouseStaff` puts a dealer on the flat side of it. The
+   * five chairs stay empty on purpose. A party guest seated in one of them
+   * sits 8.12 on z against a table whose collision volume ends at 7.98, so
+   * every cast body put in a blackjack chair interpenetrates the table it is
+   * playing at -- the ordinary night gets away with it only because visit one
+   * gives its patrons no collision bodies at all. The dealer working a lit
+   * felt is the read; a man buried 7cm in the rail is not. */
   for (const [id, values] of Object.entries(partySpots)) {
     const npc = byId[id];
     if (!npc) continue;
-    npc.job = 'stand';
-    npc.baseY = id === CHARACTER_IDS.HOG_MAMA ? STAGE_H : 0;
-    npc.group.position.set(values[0], npc.baseY, values[1]);
+    const barSeat = partyBarSeats.has(id);
+    npc.job = barSeat ? 'sit' : 'stand';
+    /* A seat has a HEIGHT, and this one is a bar stool. `sit()` folds the rig
+     * 0.42 * heightScale below `baseY`, which is measured against a chair
+     * cushion at 0.53 -- put a man on a stool from a base of zero and he is
+     * buried in it to the waist. `STOOL_SIT` is the difference, and it is
+     * exactly what the ordinary Family seating chart passes for these same two
+     * men at these same two stools (see `src/bing/family.js`). The party was
+     * relabelling them 'sit' and then flattening every base to zero, which is
+     * why Booski and Willy drank the whole scene through their stools. */
+    npc.baseY = id === CHARACTER_IDS.HOG_MAMA ? STAGE_H : (barSeat ? STOOL_SIT : 0);
+    // These NPCs originate in the ordinary Family seating chart. Changing
+    // the label alone leaves their knees folded while their root is moved to
+    // standing height; force the same pose transition runtime update uses.
+    npc._syncJob(true);
+    npc.group.position.x = values[0];
+    npc.group.position.z = values[1];
     npc.group.rotation.y = values[2];
     npc.homeX = values[0];
     npc.homeZ = values[1];
@@ -545,7 +610,7 @@ export async function buildHotDogParty(scene, club) {
   const apeKnife = attachApeKnife(byId[CHARACTER_IDS.APE]);
   const aubbie = makeNpc(scene, club, {
     name: 'Aubbie', characterId: CHARACTER_IDS.AUBBIE,
-    x: 5.9, z: -1.3, yaw: 2.4, job: 'stand', folded: true,
+    x: 6.1, z: -1.3, yaw: 2.4, job: 'stand', folded: true,
     model: AUBBIE,
   });
   aubbie.folded = true;
@@ -566,6 +631,12 @@ export async function buildHotDogParty(scene, club) {
     model: SAUCE,
   });
 
+  /* The people working the room, rather than drinking in it: the bartender,
+   * the dealer behind the felt, and two of Lou's men holding the inside of
+   * the club doors. See src/bing/hotdog-house-staff.js -- every one of them
+   * is an existing body, none of them is a new person. */
+  const houseStaff = buildHotDogHouseStaff(club, (options) => makeNpc(scene, club, options));
+
   window.__squatchStage?.('Dressing the closed party...');
 
   const banner = partyBanner();
@@ -574,9 +645,11 @@ export async function buildHotDogParty(scene, club) {
   const cleanup = buildHotDogCleanupProps();
   scene.add(banner, food.group, stage.group, cleanup.group);
 
+  // Rest the closure card on the felt instead of suspending it over a chair.
   const closedSign = sign(printed('blackjack-closed-party', ['TABLE CLOSED', 'FAMILY PARTY'], {
     w: 512, h: 256, bg: '#211519', fg: '#e3c987', font: '900 48px "Trebuchet MS", sans-serif',
-  }), 1.25, 0.62, { x: -12.8, y: 1.25, z: 8.2 });
+  }), 1.25, 0.62, { x: club.bj.x + 0.7, y: 1.25, z: club.bj.z + 0.6 });
+  closedSign.name = 'blackjack-closed-party-sign';
   closedSign.rotation.y = Math.PI;
   scene.add(closedSign);
 
@@ -602,14 +675,23 @@ export async function buildHotDogParty(scene, club) {
 
   window.__squatchStage?.('Party ready...');
 
-  const all = [...new Set([...family.all, lou, hotdog, aubbie, lawnmower, sauce].filter(Boolean))];
-  const extra = { lou, hotdog, aubbie, lawnmower, sauce };
+  const all = [...new Set([
+    ...family.all, lou, hotdog, aubbie, lawnmower, sauce, ...houseStaff.all,
+  ].filter(Boolean))];
+  const extra = {
+    lou, hotdog, aubbie, lawnmower, sauce,
+    bartender: houseStaff.bartender,
+    dealer: houseStaff.dealer,
+    securityL: houseStaff.security[0],
+    securityR: houseStaff.security[1],
+  };
   const collision = installPartyColliders(club, {
     food,
     stage,
     cleanup,
     all,
     hotdog,
+    withoutBodies: new Set([houseStaff.bartender, houseStaff.dealer]),
   });
   return {
     family,

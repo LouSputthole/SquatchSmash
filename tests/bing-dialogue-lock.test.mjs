@@ -168,3 +168,109 @@ test("a chosen reply's take replaces the node's as what hush() stops", () => {
     'after a reply is chosen, hush() must stop the reply, not the finished node line');
   globalThis.document = priorDocument;
 });
+
+/* ================================================================== */
+/* The subtitle belongs to the conversation on screen                  */
+/*                                                                     */
+/* Golf runs this class, and its tee talk is built out of reply-only   */
+/* nodes (`line: null`, options underneath). The panel used to be       */
+/* written to and never cleared, so hole two's chosen reply outlived     */
+/* the conversation it belonged to and reappeared over hole three's      */
+/* fresh question -- text the player had not said, in a hole he had not  */
+/* answered yet, with no audio behind it because no live choose() ever   */
+/* fired. Both halves are pinned here: end() empties the panel, and a    */
+/* node with no line of its own refuses to inherit one.                  */
+/* ================================================================== */
+
+function stubDocument() {
+  const prior = globalThis.document;
+  globalThis.document = { createElement: () => ({ className: '', innerHTML: '' }) };
+  return () => { globalThis.document = prior; };
+}
+
+const teeTalk = (question) => ({
+  answer: {
+    line: null,
+    options: [{ text: question, next: 'beat' }],
+  },
+  // The follow-up beats golf authors after a tee answer: no line of their own.
+  beat: { line: null, next: null },
+});
+
+test('a finished conversation leaves no subtitle behind for the next one', () => {
+  const restore = stubDocument();
+  const nodes = ui();
+  const dialogue = new Dialogue(nodes);
+
+  dialogue.start(teeTalk('I am cutting the corner.'), 'answer');
+  assert.equal(dialogue.choose(0), true);
+  assert.equal(nodes.line.innerHTML, 'I am cutting the corner.');
+  assert.equal(nodes.name.textContent, 'PROSPECT');
+
+  dialogue.end();
+  assert.equal(nodes.root.classList.contains('hidden'), true);
+  assert.equal(nodes.line.innerHTML, '', 'the hidden panel must not still hold the last reply');
+  assert.equal(nodes.name.textContent, '', 'nor the last speaker');
+  restore();
+});
+
+test('a reply-only node opens on an empty subtitle, not the previous hole\'s answer', () => {
+  const restore = stubDocument();
+  const nodes = ui();
+  const dialogue = new Dialogue(nodes);
+
+  // Hole two: the player answers, and the conversation ends on that reply.
+  dialogue.start(teeTalk('I am cutting the corner.'), 'answer');
+  dialogue.choose(0);
+  dialogue.end();
+
+  // Hole three opens its own tee talk, which is options with no line.
+  dialogue.start(teeTalk('I am laying up.'), 'answer');
+  assert.equal(nodes.root.classList.contains('hidden'), false, 'the new question must be answerable');
+  assert.equal(dialogue.options.length, 1);
+  assert.equal(nodes.line.innerHTML, '',
+    'a node with no line of its own must not show the previous conversation\'s reply');
+  assert.equal(nodes.name.textContent, '');
+  restore();
+});
+
+test('an interrupting tree cannot inherit the interrupted line', () => {
+  const restore = stubDocument();
+  const nodes = ui();
+  const dialogue = new Dialogue(nodes);
+
+  dialogue.start(tree, 'brief');
+  assert.equal(nodes.line.innerHTML, 'Listen close.');
+
+  // No end() at all: one tree cuts straight over another.
+  dialogue.start(teeTalk('I am cutting the corner.'), 'answer');
+  assert.equal(nodes.line.innerHTML, '');
+  assert.equal(nodes.name.textContent, '');
+  restore();
+});
+
+test('a spoken node still paints its own line and speaker', () => {
+  const nodes = ui();
+  const dialogue = new Dialogue(nodes);
+  dialogue.start(tree, 'brief', { name: 'Lou', group: { position: { x: 0, z: 0 } }, say() {} });
+
+  assert.equal(nodes.line.innerHTML, 'Listen close.');
+  assert.equal(nodes.name.textContent, 'LOU');
+  assert.equal(nodes.root.classList.contains('hidden'), false);
+});
+
+test('a node with neither a line nor a reply puts the panel away', () => {
+  const nodes = ui();
+  const dialogue = new Dialogue(nodes);
+  dialogue.start({
+    said: { line: 'That is the last of it.', hold: 0.2, next: 'pause' },
+    pause: { line: null, hold: 5, next: null },
+  }, 'said');
+  assert.equal(nodes.root.classList.contains('hidden'), false);
+
+  dialogue.update(0.3);
+  assert.equal(dialogue.nodeId, 'pause');
+  assert.equal(nodes.root.classList.contains('hidden'), true,
+    'an empty panel is worse than no panel');
+  assert.equal(nodes.line.innerHTML, '');
+});

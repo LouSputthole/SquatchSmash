@@ -71,6 +71,11 @@ const BING_RUNTIME_CUES = new Set([
   'bing.grill.smash.metal',
   'bing.grill.smash.fabric',
   'bing.grill.table.pickup',
+  /* The execution beat (2026-08-19 playtest): Numbskull's draw, the single
+   * report, and the body going slack. Asked-for like the eight above. */
+  'bing.grill.gun.draw',
+  'bing.grill.gun.shot',
+  'bing.grill.body.slack',
   /* …and the recordings standing in for them tonight. Every one of these is
    * in `assets/sfx/index.json` — a stand-in that has no file is not a
    * stand-in, it is a synthesised noise with a comment over it. */
@@ -81,6 +86,7 @@ const BING_RUNTIME_CUES = new Set([
   'glass.wine.fall',
   'heist.guard.weapon.drop',
   'heist.swap.fabric',
+  'heist.police.gunshot',
 ]);
 
 /** Recorded cues authored specifically for either Bada Bing visit. */
@@ -93,6 +99,12 @@ export function isBingPreloadCue(cue) {
     || name.startsWith('vo.call.')
     || name.startsWith('footstep.')
     || BING_RUNTIME_CUES.has(name)
+    /* The performer-bathroom beat owns its cue list (dress-help claps, the
+     * men's-room door). Membership lives on the feature and is imported here
+     * for the same reason this function is imported by the verifier instead
+     * of mirrored: two copies of "is this cue ours" is how phone.vibrate
+     * went missing. */
+    || BING_PERFORMER_BATHROOM_CUES.includes(name)
   );
 }
 
@@ -142,5 +154,6 @@ export class BingAudioEngine extends AudioEngine {
 import { AudioEngine } from '../core/audio.js';
 import { isBundled, loadJson } from '../core/assets.js';
 import { loadOnceRetriable } from '../core/load-queue.js';
+import { BING_PERFORMER_BATHROOM_CUES } from './performer-bathroom.js';
 
 const SFX_DIR = 'assets/sfx/';

@@ -260,19 +260,20 @@ function graveMarker(id, x, z, yaw = 0) {
   return { group: g, slab, collider: collider([x - width / 2, 0, z - 0.18], [x + width / 2, height + 0.6, z + 0.18], 0.04) };
 }
 
-function openPlot(name, x, z, { occupied = false } = {}) {
+function openPlot(name, x, z, { occupied = false, length = 2.15 } = {}) {
   const g = group(name);
   const pitDepth = 0.22;
-  const pit = box({ size: [1.05, 0.025, 2.15], pos: [x, -pitDepth, z], mat: BLACK, cast: false });
+  const endZ = length / 2 + 0.025;
+  const pit = box({ size: [1.05, 0.025, length], pos: [x, -pitDepth, z], mat: BLACK, cast: false });
   pit.material = pit.material.clone();
   pit.material.color.setHex(0x050403);
-  const innerLeft = box({ size: [0.1, 0.34, 2.15], pos: [x - 0.57, -0.06, z], mat: DIRT });
-  const innerRight = box({ size: [0.1, 0.34, 2.15], pos: [x + 0.57, -0.06, z], mat: DIRT });
-  const innerHead = box({ size: [1.25, 0.34, 0.1], pos: [x, -0.06, z - 1.1], mat: DIRT });
-  const innerFoot = box({ size: [1.25, 0.34, 0.1], pos: [x, -0.06, z + 1.1], mat: DIRT });
-  const left = box({ size: [0.38, 0.24, 2.35], pos: [x - 0.76, 0.12, z], mat: FRESH_DIRT });
-  const right = box({ size: [0.38, 0.24, 2.35], pos: [x + 0.76, 0.12, z], mat: FRESH_DIRT });
-  const end = box({ size: [1.85, 0.18, 0.34], pos: [x, 0.09, z + 1.26], mat: FRESH_DIRT });
+  const innerLeft = box({ size: [0.1, 0.34, length], pos: [x - 0.57, -0.06, z], mat: DIRT });
+  const innerRight = box({ size: [0.1, 0.34, length], pos: [x + 0.57, -0.06, z], mat: DIRT });
+  const innerHead = box({ size: [1.25, 0.34, 0.1], pos: [x, -0.06, z - endZ], mat: DIRT });
+  const innerFoot = box({ size: [1.25, 0.34, 0.1], pos: [x, -0.06, z + endZ], mat: DIRT });
+  const left = box({ size: [0.38, 0.24, length + 0.2], pos: [x - 0.76, 0.12, z], mat: FRESH_DIRT });
+  const right = box({ size: [0.38, 0.24, length + 0.2], pos: [x + 0.76, 0.12, z], mat: FRESH_DIRT });
+  const end = box({ size: [1.85, 0.18, 0.34], pos: [x, 0.09, z + endZ + 0.16], mat: FRESH_DIRT });
   g.add(pit, innerLeft, innerRight, innerHead, innerFoot, left, right, end);
   if (occupied) {
     const mound = box({ size: [1.08, 0.08, 2.06], pos: [x, 0.055, z], mat: DIRT });
@@ -283,20 +284,49 @@ function openPlot(name, x, z, { occupied = false } = {}) {
   return g;
 }
 
-function pine(x, z, scale = 1) {
+const GRAVEYARD_PINE_ASSEMBLY_PREFIX = 'graveyard-pine';
+
+function pineTrunk(x, z, scale = 1, index = 0) {
   const g = group('pine');
   const trunk = cylinder({ rTop: 0.17 * scale, rBottom: 0.24 * scale, h: 5.2 * scale, seg: 8, pos: [x, 2.6 * scale, z], mat: BARK });
+  trunk.name = 'graveyard.pine.trunk';
+  trunk.userData.geometryGate = {
+    assemblyId: `${GRAVEYARD_PINE_ASSEMBLY_PREFIX}-${index}`,
+  };
   g.add(trunk);
-  for (let i = 0; i < 4; i++) {
-    const crown = new THREE.Mesh(
-      new THREE.ConeGeometry((2.0 - i * 0.28) * scale, 2.8 * scale, 9),
-      NEEDLES,
-    );
-    crown.position.set(x, (4.0 + i * 1.05) * scale, z);
-    crown.castShadow = i < 2;
-    g.add(crown);
-  }
   return g;
+}
+
+function addPineCrowns(root, pines) {
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < 4; i++) {
+    const crowns = new THREE.InstancedMesh(
+      new THREE.ConeGeometry(2.0 - i * 0.28, 2.8, 9),
+      NEEDLES,
+      pines.length,
+    );
+    crowns.name = `graveyard.pine.needles.${i + 1}`;
+    /* Pine needles are a porous silhouette, not four nested solid cones.
+     * Keep trunks and every non-foliage prop collision-visible while excluding
+     * only each exact crown batch from the solid-volume overlap test. Instance
+     * ownership still binds every tier to its own audited trunk. */
+    crowns.userData.geometryGate = {
+      instanceAssemblyPrefix: GRAVEYARD_PINE_ASSEMBLY_PREFIX,
+      overlap: false,
+    };
+    crowns.castShadow = i < 2;
+    for (let index = 0; index < pines.length; index++) {
+      const { x, z, s } = pines[index];
+      dummy.position.set(x, (4.0 + i * 1.05) * s, z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.setScalar(s);
+      dummy.updateMatrix();
+      crowns.setMatrixAt(index, dummy.matrix);
+    }
+    crowns.instanceMatrix.needsUpdate = true;
+    crowns.frustumCulled = false;
+    root.add(crowns);
+  }
 }
 
 function parkedCar() {
@@ -345,6 +375,10 @@ export function hotDogBody() {
   body.userData.characterId = 'billy_hotdog';
   body.userData.presentation = 'character';
   body.userData.bodyPhase = 'trunk';
+  body.userData.geometryGate = {
+    assemblyId: 'graveyard.body.billy-hotdog',
+    checkSupport: true,
+  };
 
   /*
    * This is the same bundle Snow and the Prospect carried out of the Bada Bing
@@ -369,13 +403,16 @@ export function hotDogBody() {
   body.add(wrapped.group);
 
   // Open trunk: head inward, taped-off feet protruding toward the player.
-  body.position.set(0, 0.87, 17.46);
+  // Rest the bundle on the trunk deck instead of leaving its underside
+  // fifteen centimetres in the air.
+  body.position.set(0, 0.72, 17.46);
   body.userData.wrapped = wrapped;
   return { group: body, wrapped };
 }
 
 function moonVisual() {
   const moon = group('graveyard.moon');
+  moon.userData.geometryGate = { checkSupport: false };
   const disc = new THREE.Mesh(
     new THREE.SphereGeometry(1.9, 28, 18),
     new THREE.MeshBasicMaterial({ color: 0xcad9df, fog: false }),
@@ -414,7 +451,9 @@ export function buildGraveyard(scene) {
   const colliders = [];
   const floorZones = [{ box: new THREE.Box3(new THREE.Vector3(-50, -1, -50), new THREE.Vector3(50, 1, 50)), surface: 'grass' }];
 
-  root.add(box({ size: [72, 0.12, 72], pos: [0, -0.07, 0], mat: GRASS, cast: false }));
+  const ground = box({ size: [72, 0.12, 72], pos: [0, -0.07, 0], mat: GRASS, cast: false });
+  ground.name = 'graveyard.ground';
+  root.add(ground);
   root.add(
     box({ size: [7.2, 0.035, 22], pos: [0, 0.008, 24], mat: ROAD, cast: false }),
     box({ size: [1.8, 0.024, 30], pos: [0, 0.012, -2], mat: ROAD, cast: false }),
@@ -422,28 +461,70 @@ export function buildGraveyard(scene) {
   floorZones.unshift({ box: new THREE.Box3(new THREE.Vector3(-3.6, -1, -10), new THREE.Vector3(3.6, 1, 35)), surface: 'dirt' });
 
   const rng = seeded();
+  const plantedPines = [];
+  const separatedPine = (sample) => {
+    let candidate;
+    for (let attempt = 0; attempt < 24; attempt++) {
+      candidate = sample();
+      const clear = plantedPines.every((other) => (
+        Math.hypot(candidate.x - other.x, candidate.z - other.z)
+          > 0.26 * (candidate.s + other.s) + 0.08
+      ));
+      if (clear) break;
+    }
+    plantedPines.push(candidate);
+    return candidate;
+  };
   for (let i = 0; i < 62; i++) {
     const side = i % 2 ? -1 : 1;
-    const x = side * (10 + rng() * 24);
-    const z = -27 + rng() * 62;
-    const s = 0.78 + rng() * 0.58;
-    root.add(pine(x, z, s));
-    if (Math.abs(x) < 14) colliders.push(collider([x - 0.22 * s, 0, z - 0.22 * s], [x + 0.22 * s, 5.2 * s, z + 0.22 * s], 0.04));
+    const { x, z, s } = separatedPine(() => ({
+      x: side * (10 + rng() * 24),
+      z: -27 + rng() * 62,
+      s: 0.78 + rng() * 0.58,
+    }));
+    const pineIndex = plantedPines.length - 1;
+    root.add(pineTrunk(x, z, s, pineIndex));
+    const trunkRadius = 0.22 * s + 0.04;
+    const insideBoundary = Math.abs(x) + trunkRadius < 15
+      && z - trunkRadius > -34
+      && z + trunkRadius < 34;
+    if (insideBoundary) {
+      const trunkCollider = collider(
+        [x - 0.22 * s, 0, z - 0.22 * s],
+        [x + 0.22 * s, 5.2 * s, z + 0.22 * s],
+        0.04,
+      );
+      trunkCollider.name = `${GRAVEYARD_PINE_ASSEMBLY_PREFIX}-${pineIndex}-collider`;
+      trunkCollider.userData = {
+        geometryGate: {
+          assemblyId: `${GRAVEYARD_PINE_ASSEMBLY_PREFIX}-${pineIndex}`,
+        },
+      };
+      colliders.push(trunkCollider);
+    }
   }
   for (let i = 0; i < 22; i++) {
-    const x = -12 + rng() * 24;
-    const z = -31 - rng() * 7;
-    root.add(pine(x, z, 0.78 + rng() * 0.5));
+    const { x, z, s } = separatedPine(() => ({
+      x: -12 + rng() * 24, z: -31 - rng() * 7, s: 0.78 + rng() * 0.5,
+    }));
+    root.add(pineTrunk(x, z, s, plantedPines.length - 1));
   }
+  addPineCrowns(root, plantedPines);
 
   // Invisible forest boundary: the clearing feels open while the playable
   // ground remains compact and every edge is backed by trees.
-  colliders.push(
+  const forestBoundary = [
     collider([-31, 0, -38], [-15, 5, 35], 0),
     collider([15, 0, -38], [31, 5, 35], 0),
     collider([-31, 0, -40], [31, 5, -34], 0),
     collider([-31, 0, 34], [31, 5, 40], 0),
-  );
+  ];
+  for (const boundary of forestBoundary) {
+    boundary.userData = {
+      geometryGate: { assemblyId: 'graveyard.boundary.forest' },
+    };
+  }
+  colliders.push(...forestBoundary);
 
   const layout = [
     ['babs', -6.0, -3.5, 0.01],
@@ -459,27 +540,43 @@ export function buildGraveyard(scene) {
   const plotMeshes = {};
   for (const [id, x, z, yaw] of layout) {
     const marker = graveMarker(id, x, z, yaw);
+    marker.group.userData.geometryGate = {
+      assemblyId: `graveyard.plot.${id}`,
+      // Ruined stones are deliberately sunk and canted into their plots.
+      ...(GRAVES[id].tier === 'ruined' ? { checkSupport: false } : {}),
+    };
     root.add(marker.group);
     colliders.push(marker.collider);
     graves[id] = marker.group;
     if (id !== 'sauce') {
       const plot = box({ size: [1.25, 0.06, 2.25], pos: [x, 0.035, z + 1.23], mat: DIRT, cast: false });
+      plot.userData.geometryGate = { assemblyId: `graveyard.plot.${id}` };
       root.add(plot);
       plotMeshes[id] = plot;
     }
   }
   const saucePlot = openPlot('grave.sauce.open', 5.8, -8.42);
+  saucePlot.userData.geometryGate = { checkSupport: false };
   root.add(saucePlot);
   // The pits read as deep set pieces, but the shared walking controller has no
   // pit traversal. Block their dark openings so Tony cannot stand on empty air.
   colliders.push(collider([5.17, 0, -9.48], [6.43, 1.2, -7.34], 0.02));
 
-  const freshPlot = openPlot('grave.hotdog.fresh', 0, -17.0, { occupied: true });
+  // Billy's wrapped silhouette is longer than the generic open marker. Give
+  // the burial plot real head clearance instead of pushing the bundle through
+  // its inner wall.
+  const freshPlot = openPlot('grave.hotdog.fresh', 0, -17.0, {
+    occupied: true,
+    length: 2.45,
+  });
+  freshPlot.userData.geometryGate = { checkSupport: false };
   const freshMound = freshPlot.getObjectByName('grave.hotdog.fresh.mound');
   root.add(freshPlot);
-  colliders.push(collider([-0.63, 0, -18.08], [0.63, 1.2, -15.92], 0.02));
-  const temporary = graveMarker('geewiz', 0, -18.55, 0).group;
+  colliders.push(collider([-0.63, 0, -18.23], [0.63, 1.2, -15.77], 0.02));
+  const temporaryMarker = graveMarker('geewiz', 0, -18.55, 0);
+  const temporary = temporaryMarker.group;
   temporary.name = 'hotdog.temporary-marker';
+  colliders.push(temporaryMarker.collider);
   const label = temporary.children.find((child) => child.material?.map);
   if (label) {
     label.material = label.material.clone();
@@ -544,6 +641,8 @@ export function buildGraveyard(scene) {
   const body = hotdog.group;
   root.add(body);
   const shovel = group('burial.shovel');
+  // The blade is intentionally planted below grade beside the fresh grave.
+  shovel.userData.geometryGate = { checkSupport: false };
   shovel.add(
     cylinder({ r: 0.035, h: 1.45, seg: 10, pos: [0, 0.73, 0], mat: mat({ color: 0x6b482b, roughness: 0.92 }) }),
     box({ size: [0.34, 0.42, 0.055], pos: [0, 0.08, 0], mat: CHROME }),
@@ -562,6 +661,7 @@ export function buildGraveyard(scene) {
     },
   });
   snow.characterId = 'snow';
+  snow.group.userData.geometryGate = { assemblyId: 'graveyard.cast.snow' };
 
   // A small key ring and flashlight make Snow read as the man who came ready.
   const keyRing = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 6, 16), CHROME);
@@ -574,6 +674,11 @@ export function buildGraveyard(scene) {
   const fireflyMat = emissive(0xb8d977, 2.2);
   for (let i = 0; i < 32; i++) {
     const dot = sphere({ r: 0.018, pos: [-10 + rng() * 20, 0.35 + rng() * 2.2, -27 + rng() * 35], mat: fireflyMat, cast: false, receive: false });
+    dot.name = `graveyard.firefly.${i + 1}`;
+    dot.userData.geometryGate = { checkSupport: false };
+    // The update loop drives emissiveIntensity per dot on its own phase, so a
+    // shared material would collapse every firefly onto one twinkle.
+    dot.material = fireflyMat.clone();
     dot.userData.phase = rng() * Math.PI * 2;
     dot.userData.baseY = dot.position.y;
     root.add(dot);
@@ -591,21 +696,58 @@ export function buildGraveyard(scene) {
 
   const carryPosition = new THREE.Vector3(0, -0.92, -1.72);
   const carryQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
-  const gravePosition = new THREE.Vector3(0, 0.07, -17.0);
+  const trunkPosition = body.position.clone();
+  const trunkQuaternion = body.quaternion.clone();
+  // The wrapped body's underside now meets the excavated pit floor.
+  const gravePosition = new THREE.Vector3(0, 0.02, -17.0);
   const graveQuaternion = new THREE.Quaternion();
 
   function startEchoRumble() {
     state.echoRumble = 2.8;
   }
 
+  function stageBodyPhase(phase, { carryAnchor = null } = {}) {
+    if (!['trunk', 'carrying', 'placed', 'buried'].includes(phase)) {
+      throw new RangeError(`Unknown Graveyard body phase: ${phase}`);
+    }
+    if (phase === 'carrying' && !carryAnchor) {
+      throw new TypeError('The carrying body phase requires a carry anchor');
+    }
+
+    state.bodyTween = null;
+    state.burialTween = 0;
+    freshMound.visible = phase === 'buried';
+    freshMound.scale.y = phase === 'buried' ? 1 : 0.05;
+    freshMound.position.y = 0.055 * freshMound.scale.y;
+    temporary.visible = phase === 'buried';
+    body.visible = phase !== 'buried';
+
+    if (phase === 'carrying') {
+      carryAnchor.attach(body);
+      body.position.copy(carryPosition);
+      body.quaternion.copy(carryQuaternion);
+    } else {
+      root.attach(body);
+      if (phase === 'trunk') {
+        body.position.copy(trunkPosition);
+        body.quaternion.copy(trunkQuaternion);
+      } else {
+        body.position.copy(gravePosition);
+        body.quaternion.copy(graveQuaternion);
+      }
+    }
+    state.bodyPhase = phase;
+    body.userData.bodyPhase = phase;
+    // A carried body is supported by the player's carry anchor rather than by
+    // world geometry. Trunk and grave states remain support-audited.
+    body.userData.geometryGate.checkSupport = phase !== 'carrying';
+    root.updateMatrixWorld(true);
+    return true;
+  }
+
   function pickUpBody(carryAnchor) {
     if (state.bodyPhase !== 'trunk' || !carryAnchor) return false;
-    carryAnchor.attach(body);
-    body.position.copy(carryPosition);
-    body.quaternion.copy(carryQuaternion);
-    state.bodyPhase = 'carrying';
-    body.userData.bodyPhase = state.bodyPhase;
-    return true;
+    return stageBodyPhase('carrying', { carryAnchor });
   }
 
   function placeBody(done) {
@@ -624,12 +766,8 @@ export function buildGraveyard(scene) {
 
   function finishBurial() {
     if (state.bodyPhase !== 'placed') return false;
-    body.visible = false;
-    freshMound.visible = true;
-    temporary.visible = true;
+    stageBodyPhase('buried');
     state.burialTween = 1;
-    state.bodyPhase = 'buried';
-    body.userData.bodyPhase = state.bodyPhase;
     return true;
   }
 
@@ -705,6 +843,7 @@ export function buildGraveyard(scene) {
     echoPosition: new THREE.Vector3(-6, 0, -8.9),
     freshPosition: new THREE.Vector3(0, 0, -17),
     startEchoRumble,
+    stageBodyPhase,
     pickUpBody,
     placeBody,
     finishBurial,

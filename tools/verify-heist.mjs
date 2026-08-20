@@ -515,7 +515,8 @@ try {
       && after.inventory.handsShowing === 'sidearm'
       && after.inventory.handsVisible
       && after.inventory.weaponName === 'COMMANDER'
-      && after.inventory.magazine === 10,
+      /* The sidearm is the shared catalog's fifteen-round 9mm now. */
+      && after.inventory.magazine === 15,
     JSON.stringify(after.inventory));
   const barSelected = await page.locator('#hotbar .slot.on').getAttribute('data-key');
   const barLabel = await page.locator('#hotbar .slot.on').getAttribute('aria-label');

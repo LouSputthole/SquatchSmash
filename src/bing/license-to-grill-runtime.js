@@ -74,6 +74,12 @@ const MARKS = Object.freeze({
    * same way Gratin and Numbskull already are, for the one beat, and put
    * back the moment it is over — see `markShubes`/`shubesLeaves`. */
   shubes: { x: 6.9, z: -9.95, faceAt: { x: 9.6, z: -12.3 } },
+  /* Where Snow stands when the shout down the hallway lands (2026-08-19
+   * playtest, the execution's aftermath). Just inside the door beside the
+   * Shubenator's mark, mop-side, looking at the chair he is about to be
+   * responsible for. He is borrowed off the hallway exactly the way Gratin,
+   * Numbskull and Shubes are, and put back by `close()`. */
+  snow: { x: 7.35, z: -10.35, faceAt: { x: 9.6, z: -12.3 } },
 });
 
 /** The chair, which is what "walked in" means for the purposes of starting. */
@@ -142,6 +148,30 @@ const PENDING_SFX = Object.freeze({
   SMASH_METAL: 'bing.grill.smash.metal',
   SMASH_FABRIC: 'bing.grill.smash.fabric',
   TABLE_PICKUP: 'bing.grill.table.pickup',
+  /* The execution beat (2026-08-19 playtest): Numbskull's draw, the one
+   * shot, and the body going slack against the restraints. */
+  GUN_DRAW: 'bing.grill.gun.draw',
+  GUN_SHOT: 'bing.grill.gun.shot',
+  BODY_SLACK: 'bing.grill.body.slack',
+});
+
+/**
+ * The execution's clock, in simulated seconds from the moment the player
+ * chooses the only ending there is. Beat by beat:
+ *   0.00  Numbskull's hand comes out from under his jacket with the pistol;
+ *         the arm rises through RAISE
+ *   RAISE the aim is level at Blond's face and it holds — long enough to be
+ *         a decision, short enough that nobody mistakes it for one
+ *   SHOT  one report, one muzzle flash, one mark on his face; the head
+ *         starts down on the same frame
+ *   SLUMP the head is fully down, the body slack against the ankle chain
+ *   RESUME Gratin speaks (`endShot`) and the aftermath owns the room
+ */
+const EXECUTION_BEATS = Object.freeze({
+  RAISE: 0.55,
+  SHOT: 1.35,
+  SLUMP: 2.2,
+  RESUME: 2.7,
 });
 
 /** Which noise each of his things makes on its way to pieces. */
@@ -802,11 +832,30 @@ export function createLicenseToGrill({
     /** Queued HUD lines, shown one at a time once nobody is talking. */
     pendingSay: [],
     sayCooldown: 0,
+    /**
+     * The staged execution (2026-08-19 playtest: the only ending). `phase`
+     * walks idle → draw → aim → shot → settled on the simulated clock in
+     * `EXECUTION_BEATS`; `t` is seconds since the draw. The gun and the
+     * muzzle-flash light are built once, on first use, and reused.
+     */
+    execution: {
+      phase: 'idle', t: 0, gun: null, flash: null, flashT: 0,
+    },
+    /** He is dead by the shot, not by the beating — `grill.dead` stays the
+     * fatal-hits route's flag so the information survives being persisted. */
+    executed: false,
+    /** Ending banked by the tree, completed by update() once the last line
+     * has closed itself — so nobody is teleported home mid-sentence. */
+    pendingFinish: null,
   };
   const blood = scene?.add ? {
     impacts: new BloodImpactSystem(scene),
     pools: new DeathBloodPool(scene, { capacity: 2 }),
   } : null;
+  /* Working vectors for the execution beat, allocated once with the quest —
+   * the beat itself runs on the frame loop and must not allocate there. */
+  const _execPoint = new THREE.Vector3();
+  const _execFrom = new THREE.Vector3();
 
   /* ---------------- sound ---------------- */
 
@@ -837,6 +886,15 @@ export function createLicenseToGrill({
       case PENDING_SFX.SMASH_METAL: audio?.play('heist.guard.weapon.drop', opts); break;
       case PENDING_SFX.SMASH_FABRIC: audio?.play('heist.swap.fabric', opts); break;
       case PENDING_SFX.TABLE_PICKUP: audio?.play('gun.pickup', opts); break;
+      // A compact pistol coming off a waistband: the pickup recording is the
+      // closest thing in the building to steel leaving cloth.
+      case PENDING_SFX.GUN_DRAW: audio?.play('gun.pickup', opts); break;
+      // One indoor report. The heist's police shot is the loudest recorded
+      // single gunshot in the library and this room is small and tiled.
+      case PENDING_SFX.GUN_SHOT: audio?.play('heist.police.gunshot', opts); break;
+      // Fabric settling: a body going slack in a dinner jacket is mostly the
+      // jacket.
+      case PENDING_SFX.BODY_SLACK: audio?.play('cloth.snap', opts); break;
       default: break;
     }
   }
@@ -897,14 +955,43 @@ export function createLicenseToGrill({
     },
     shubesLeaves: () => putBack(CHARACTER_IDS.SHUBENATOR),
     answerCounter: (id, respect) => runtime.grill.answerCounter(id, respect),
-    finish: (ending) => complete(ending),
+    execute: () => beginExecution(),
+    callSnow: () => bringIn(CHARACTER_IDS.SNOW, MARKS.snow),
+    /* Deferred, not immediate: `complete()` calls `close()`, and `close()`
+     * teleports every borrowed actor home — which used to happen on the
+     * option press, so Gratin delivered his outro line from his booth two
+     * rooms away. The ending is banked here and `update()` completes it on
+     * the first frame after the last line has closed itself. */
+    finish: (ending) => { runtime.pendingFinish = ending; },
   });
 
   const tree = script[CHARACTER_IDS.JAMES_BLOND];
 
+  /**
+   * Who each of the thread's `who` names is, for Dialogue's mouth wiring.
+   *
+   * Blond's thread is the one conversation in the club with four people in
+   * it, and it used to be started with Blond as its only speaker — so Blond's
+   * jaw ran on Gratin's lines, Numbskull's asides and even Tony's own spoken
+   * questions, while the men actually talking stood with dead faces. The map
+   * names everybody with a face in the room; 'Prospect' is deliberately
+   * absent, because Tony is the camera. Built per start rather than once,
+   * because Gratin and company are borrowed off the floor and the roster can
+   * differ by campaign state.
+   */
+  function storeRoomCast() {
+    return {
+      Blond: runtime.blond,
+      Gratin: family?.byId?.[CHARACTER_IDS.GRATIN] ?? null,
+      Numbskull: family?.byId?.[CHARACTER_IDS.NUMBSKULL] ?? null,
+      'The Shubenator': family?.byId?.[CHARACTER_IDS.SHUBENATOR] ?? null,
+      Snow: family?.byId?.[CHARACTER_IDS.SNOW] ?? null,
+    };
+  }
+
   function resume(node) {
     if (runtime.phase !== 'open') return;
-    dialogue?.start(tree, node, runtime.blond);
+    dialogue?.start(tree, node, runtime.blond, { cast: storeRoomCast() });
   }
 
   /**
@@ -1148,6 +1235,184 @@ export function createLicenseToGrill({
     armR.rotation.set(0.1, 0, 1.05);
     foreL.rotation.set(0.25, 0, -0.12);
     foreR.rotation.set(0.25, 0, 0.12);
+  }
+
+  /* ---------------- the execution (2026-08-19 playtest) ----------------
+   *
+   * The only ending. Numbskull draws, one shot, a mark on Blond's face, and
+   * the head goes down. Staged on the simulated clock (`EXECUTION_BEATS`),
+   * driven from `update()` like the cord and the tools, with no per-frame
+   * allocations — the gun, the flash light and the working vectors are all
+   * built once and reused. */
+
+  /** Put a compact pistol in Numbskull's right fist, built once. The model is
+   * the same `makeBelonging('pistol')` the prep table uses — a second pistol
+   * built somewhere else would be a second idea of what a pistol looks like.
+   * Oriented barrel-down-the-forearm, the same frame the Ape knife uses. */
+  function armNumbskull() {
+    const numbskull = family?.byId?.[CHARACTER_IDS.NUMBSKULL];
+    if (!numbskull?.parts?.foreR || runtime.execution.gun) return runtime.execution.gun ?? null;
+    const gun = makeBelonging('pistol');
+    gun.name = 'grill.numbskull.pistol';
+    /* The belonging is modelled slide-along-+X; the forearm's own -Y runs
+     * down into the fist and out past it, so a -90° roll about Z lays the
+     * barrel along the forearm the way the raised arm will aim it. */
+    gun.rotation.set(0, 0, -Math.PI / 2);
+    gun.position.set(0.02, -0.4, 0.03);
+    gun.visible = false;
+    numbskull.parts.foreR.add(gun);
+    runtime.execution.gun = gun;
+    return gun;
+  }
+
+  function clearNumbskullGun() {
+    const gun = runtime.execution.gun;
+    if (!gun) return;
+    gun.parent?.remove(gun);
+    runtime.execution.gun = null;
+  }
+
+  /** Numbskull's arm through the draw: rest → raised one-handed aim. The
+   * arm angles are the mansion's own pistol precedent (armed-pose.js's
+   * one-handed raise), eased on this beat's clock. */
+  function poseNumbskullAim(progress) {
+    const numbskull = family?.byId?.[CHARACTER_IDS.NUMBSKULL];
+    if (!numbskull?.parts?.armR) return;
+    const p = Math.max(0, Math.min(1, progress));
+    const ease = p * p * (3 - 2 * p);
+    numbskull.parts.armR.rotation.set(-1.28 * ease, 0, 0.16 * ease);
+    numbskull.parts.foreR.rotation.set(-0.16 * ease, 0, 0);
+  }
+
+  /** Blond's head going down: 0 is the shot frame, 1 is settled — chin on
+   * the chest, shoulders slack against the chair, arms hanging on the ties. */
+  function poseShotBlond(progress) {
+    const blond = runtime.blond;
+    if (!blond?.parts) return;
+    const p = Math.max(0, Math.min(1, progress));
+    const ease = p * p * (3 - 2 * p);
+    const { body, head, armL, armR, foreL, foreR } = blond.parts;
+    head.rotation.set(0.66 * ease, 0, -0.10 * ease);
+    body.rotation.set(0.14 * ease, 0, -0.06 * ease);
+    armL.rotation.set(0.06 * ease, 0, -0.18 * ease);
+    armR.rotation.set(0.06 * ease, 0, 0.18 * ease);
+    foreL.rotation.set(0.10 * ease, 0, 0);
+    foreR.rotation.set(0.10 * ease, 0, 0);
+  }
+
+  /** The shot frame: report, flash, the mark on his face, and the state. */
+  function fireExecutionShot() {
+    const blond = runtime.blond;
+    const numbskull = family?.byId?.[CHARACTER_IDS.NUMBSKULL];
+    sfx(PENDING_SFX.GUN_SHOT, {
+      volume: 0.92,
+      position: new THREE.Vector3(CHAIR.x, 1.3, CHAIR.z),
+    });
+    /* One reused light, the bullet system's own flash recipe: bright for a
+     * frame or two, gone before anybody can look at it. */
+    if (scene?.add && !runtime.execution.flash) {
+      runtime.execution.flash = new THREE.PointLight(0xffd9a0, 0, 6, 2);
+      runtime.execution.flash.visible = false;
+      scene.add(runtime.execution.flash);
+    }
+    const flash = runtime.execution.flash;
+    if (flash && runtime.execution.gun) {
+      runtime.execution.gun.getWorldPosition(flash.position);
+      flash.visible = true;
+      flash.intensity = 9;
+      runtime.execution.flashT = 0.06;
+    }
+    /* The mark on his FACE — attached to the head anchor so it stays on him
+     * through the slump, from Numbskull's side of the room. */
+    if (blood && blond?.parts?.head) {
+      blond.group.updateWorldMatrix(true, true);
+      _execPoint.set(0.02, 0.06, 0.09);
+      blond.parts.head.localToWorld(_execPoint);
+      if (numbskull) {
+        _execFrom.set(numbskull.group.position.x, 1.5, numbskull.group.position.z);
+      } else {
+        _execFrom.copy(_execPoint).add(new THREE.Vector3(0.4, 0.3, 0.4));
+      }
+      blood.impacts.hit({
+        actor: blond,
+        anchor: blond.parts.head,
+        point: _execPoint,
+        from: _execFrom,
+        spatter: false,
+      });
+      /* And the drain gets its work: a modest pool finds the floor under the
+       * chair a beat later, while the room is still quiet. */
+      blood.pools.spill(blond.group.getWorldPosition(_execPoint), {
+        floorY: 0, size: 0.62, opacity: 0.86, delay: 0.6, seed: 909,
+      });
+    }
+    runtime.executed = true;
+    if (blond) {
+      blond.hush?.();
+      blond.job = 'dead';
+      blond.group.userData.dead = true;
+      if (blond.group.userData.npc) blond.group.userData.npc.dead = true;
+    }
+  }
+
+  /** Start the beat. Fired by the tree's only ending option. */
+  function beginExecution() {
+    if (runtime.phase !== 'open' || runtime.execution.phase !== 'idle') return false;
+    runtime.execution.phase = 'draw';
+    runtime.execution.t = 0;
+    const numbskull = family?.byId?.[CHARACTER_IDS.NUMBSKULL];
+    numbskull?.faceToward?.(CHAIR.x, CHAIR.z, true);
+    const gun = armNumbskull();
+    if (gun) gun.visible = true;
+    sfx(PENDING_SFX.GUN_DRAW, {
+      volume: 0.5,
+      position: numbskull
+        ? new THREE.Vector3(numbskull.group.position.x, 1.2, numbskull.group.position.z)
+        : undefined,
+    });
+    return true;
+  }
+
+  /** The beat's per-frame clock. Runs from `update()` while phase is open. */
+  function updateExecution(dt) {
+    const beat = runtime.execution;
+    if (beat.flashT > 0 && beat.flash) {
+      beat.flashT -= dt;
+      beat.flash.intensity = Math.max(0, beat.flash.intensity - dt * 190);
+      if (beat.flashT <= 0 || beat.flash.intensity <= 0) {
+        beat.flash.visible = false;
+        beat.flash.intensity = 0;
+        beat.flashT = 0;
+      }
+    }
+    if (beat.phase === 'idle' || beat.phase === 'settled') return;
+    beat.t += dt;
+    if (beat.phase === 'draw') {
+      poseNumbskullAim(beat.t / EXECUTION_BEATS.RAISE);
+      if (beat.t >= EXECUTION_BEATS.RAISE) beat.phase = 'aim';
+    }
+    if (beat.phase === 'aim' && beat.t >= EXECUTION_BEATS.SHOT) {
+      fireExecutionShot();
+      beat.phase = 'shot';
+    }
+    if (beat.phase === 'shot') {
+      const settle = (beat.t - EXECUTION_BEATS.SHOT)
+        / (EXECUTION_BEATS.SLUMP - EXECUTION_BEATS.SHOT);
+      poseShotBlond(settle);
+      if (beat.t >= EXECUTION_BEATS.SLUMP) {
+        /* The jacket settles on the restraints as the last thing that moves. */
+        sfx(PENDING_SFX.BODY_SLACK, {
+          volume: 0.4,
+          position: new THREE.Vector3(CHAIR.x, 0.9, CHAIR.z),
+        });
+        poseNumbskullAim(0);
+        if (runtime.execution.gun) runtime.execution.gun.visible = false;
+      }
+      if (beat.t >= EXECUTION_BEATS.RESUME && !dialogue?.active) {
+        beat.phase = 'settled';
+        resume('endShot');
+      }
+    }
   }
 
   /**
@@ -1465,6 +1730,10 @@ export function createLicenseToGrill({
   function bringIn(id, mark) {
     const npc = family?.byId?.[id];
     if (!npc) return;
+    /* Already in here for us — Gratin and Numbskull are pre-staged in the
+     * room from scene build (see `holdCastInBackRoom`), and re-parking them
+     * would overwrite their remembered FLOOR marks with their room marks. */
+    if (runtime.parked.has(id)) return;
     runtime.parked.set(id, {
       x: npc.group.position.x,
       z: npc.group.position.z,
@@ -1510,6 +1779,22 @@ export function createLicenseToGrill({
   }
 
   /**
+   * Gratin and Numbskull are NOT on the Bing floor before the store-room
+   * scene (owner, 2026-08-19 playtest): a man who caught a spy at seven
+   * o'clock is in the back room with him, not drinking at his booth. They
+   * are moved onto their room marks the moment the quest mounts, and their
+   * FLOOR spots — where the family roster seated them — are what `bringIn`
+   * remembers, so `close()` sends them out to take their usual places only
+   * once the room is dealt with. A completed save skips all of it and the
+   * floor keeps them from the start, which is `available()` doing the gating.
+   */
+  function holdCastInBackRoom() {
+    if (!available()) return;
+    bringIn(CHARACTER_IDS.GRATIN, MARKS.gratin);
+    bringIn(CHARACTER_IDS.NUMBSKULL, MARKS.numbskull);
+  }
+
+  /**
    * Put a crosshair on the man in the chair.
    *
    * This is the answer to "where do I start the torture sequence?". The scene
@@ -1531,8 +1816,11 @@ export function createLicenseToGrill({
       },
       /* Not while something of his is in your hands: [E] on the man while
        * holding his own watch would open a menu on top of a beat that is
-       * already about the watch. */
-      enabled: () => runtime.phase === 'open' && !runtime.held,
+       * already about the watch. And not once Numbskull has drawn — from
+       * that moment the room belongs to the staged beat, and afterwards to
+       * the aftermath; there is nobody left to talk to in the chair. */
+      enabled: () => runtime.phase === 'open' && !runtime.held
+        && !runtime.executed && runtime.execution.phase === 'idle',
       onUse: () => resume(reentry()),
     }));
   }
@@ -1588,6 +1876,10 @@ export function createLicenseToGrill({
     return true;
   }
 
+  /* Before the first frame: the two of them are already in the back room
+   * with the man they caught — see `holdCastInBackRoom`. */
+  holdCastInBackRoom();
+
   function complete(ending) {
     if (runtime.phase !== 'open') return null;
     const cash = ending === ENDINGS.SHOT ? BLOND_CASH : 0;
@@ -1607,6 +1899,7 @@ export function createLicenseToGrill({
   function close() {
     runtime.phase = 'done';
     runtime.handOff = null;
+    runtime.pendingFinish = null;
     runtime.pendingSay.length = 0;
     audio?.stopLoop?.('music.storeroom', 1.2);
     unmountTargets();
@@ -1615,6 +1908,16 @@ export function createLicenseToGrill({
     /* A no-op unless the room ended mid-interruption — a no-op is exactly
      * what putBack does for anyone it never parked. */
     putBack(CHARACTER_IDS.SHUBENATOR);
+    /* Snow goes back to his hallway; the mop work is a graveyard-shift
+     * problem, not a rendered one. The pistol does not leave the room on
+     * Numbskull's arm either. */
+    putBack(CHARACTER_IDS.SNOW);
+    clearNumbskullGun();
+    if (runtime.execution.flash) {
+      runtime.execution.flash.visible = false;
+      runtime.execution.flash.intensity = 0;
+      runtime.execution.flashT = 0;
+    }
     /* Whatever is still in his hands goes back on the steel. Walking out of a
      * store room holding a dead man's pistol is a different game. */
     putBackHeld();
@@ -1629,10 +1932,12 @@ export function createLicenseToGrill({
      * and the bar at the bottom of the screen is allowed to remember that. */
     paintHand();
     if (runtime.blond) {
-      /* He stays in the chair whatever the ending — tied, one hand free, or
-       * not needing the chair any more. The room keeps him; the floor does
-       * not get a barefoot man in a dinner jacket walking through it. */
+      /* He stays in the chair whatever the ending — the room keeps him; the
+       * floor does not get a barefoot man in a dinner jacket walking through
+       * it. Beaten takes the sideways slump; shot keeps the settled
+       * head-down pose the execution beat already put him in. */
       if (runtime.grill?.dead) poseDeadBlond();
+      else if (runtime.executed) poseShotBlond(1);
       else {
         runtime.blond.job = 'sit';
         runtime.blond._syncJob?.(true);
@@ -1652,6 +1957,10 @@ export function createLicenseToGrill({
     get tool() { return runtime.tool; },
     get toolSwing() { return runtime.toolSwing; },
     get blood() { return blood; },
+    /** The staged execution's clock and props, for tests and the verifier. */
+    get execution() { return runtime.execution; },
+    /** Dead by Numbskull's shot — distinct from `state.dead`, the beating. */
+    get executed() { return runtime.executed; },
     /** His effects, the pads over them, and any wreckage — for verification. */
     get props() { return runtime.litter; },
     /** id -> { group, pad, wreck, at } for whatever is on the table. */
@@ -1774,10 +2083,24 @@ export function createLicenseToGrill({
         }
       }
 
+      /* The execution beat: Numbskull's draw, the shot, the slump, and the
+       * hand-back to `endShot`. Same clock discipline as the two swings. */
+      updateExecution(dt);
+
       /* A fatal impact can close the quest from inside either animation.
        * Nothing below this point may restart dialogue or run Npc.update over
        * the locked dead pose on that same frame. */
       if (runtime.phase !== 'open') return;
+
+      /* An ending banked by the tree completes once its last line has closed
+       * itself — completing on the option press teleported the whole cast
+       * home in the middle of Gratin's own outro. */
+      if (runtime.pendingFinish && !dialogue?.active) {
+        const ending = runtime.pendingFinish;
+        runtime.pendingFinish = null;
+        complete(ending);
+        return;
+      }
 
       /* Walking in is what starts it. `open()` no longer teleports anybody, so
        * the introduction waits until Tony is genuinely in front of the chair
@@ -1815,7 +2138,10 @@ export function createLicenseToGrill({
         hud?.say(text, ms);
       }
 
-      runtime.blond?.update(dt, player?.position ?? new THREE.Vector3());
+      /* Not once he is shot: Npc.update clears head/body rotations every
+       * tick and would sit the settled slump back upright. The beaten route
+       * never reaches here because its phase flips to done on the hit. */
+      if (!runtime.executed) runtime.blond?.update(dt, player?.position ?? new THREE.Vector3());
     },
 
     /**
@@ -1835,8 +2161,11 @@ export function createLicenseToGrill({
     press() {
       if (!inStoreRoom()) return false;
       /* The body remains in the room after the fatal close; its left button
-       * must not turn back into E and interact through the corpse. */
-      if (runtime.grill?.dead) return true;
+       * must not turn back into E and interact through the corpse. The
+       * executed ending leaves one in the chair too. */
+      if (runtime.grill?.dead || runtime.executed) return true;
+      /* And from the moment Numbskull's hand comes out, the room is his. */
+      if (runtime.execution.phase !== 'idle') return true;
       if (runtime.phase !== 'open') return false;
       /* Breaking one possession has already secured the information route.
        * Consume violent input while the authored response resolves so a

@@ -28,11 +28,15 @@ export class Instruments {
    * @param {object} [opts]
    * @param {object} [opts.ac] aircraft tuning profile (dial scaling, fuel
    *   capacity), defaults to Beef Run's AC.
+   * @param {number[]} [opts.engineIndices] which two engines drive the L/R
+   *   needles. The panel only has one RPM/temp pair, so a four-engine ship
+   *   picks the pair worth watching (the Enola shows its inner engines).
    */
-  constructor(canvas, { ac = AC } = {}) {
+  constructor(canvas, { ac = AC, engineIndices = [0, 1] } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.ac = ac;
+    this.engineIndices = engineIndices;
     this.dirty = true;
     this.t = 0;
     this.acc = 0;
@@ -57,10 +61,11 @@ export class Instruments {
     n.vsi = damp(n.vsi, phys.vspeed * FT * 60, 2.2, dt);
     n.pitch = damp(n.pitch, phys.pitchDeg, 12, dt);
     n.roll = damp(n.roll, phys.rollDeg, 12, dt);
-    n.rpmL = damp(n.rpmL, engines.engines[0].rpm + wob() * 12, 7, dt);
-    n.rpmR = damp(n.rpmR, engines.engines[1].rpm + wob() * 12, 7, dt);
-    n.tempL = damp(n.tempL, engines.engines[0].temp, 3, dt);
-    n.tempR = damp(n.tempR, engines.engines[1].temp, 3, dt);
+    const [engL, engR] = this.engineIndices.map((i) => engines.engines[i]);
+    n.rpmL = damp(n.rpmL, engL.rpm + wob() * 12, 7, dt);
+    n.rpmR = damp(n.rpmR, engR.rpm + wob() * 12, 7, dt);
+    n.tempL = damp(n.tempL, engL.temp, 3, dt);
+    n.tempR = damp(n.tempR, engR.temp, 3, dt);
     n.fuel = damp(n.fuel, clamp(engines.fuel / this.ac.fuelMass, 0, 1), 1.2, dt);
     // Oil pressure reads low and always has. There is a note about it.
     n.oil = damp(n.oil, engines.anyRunning ? 14 + (n.rpmL / 2450) * 42 : 3, 2, dt);

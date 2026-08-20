@@ -42,6 +42,7 @@ export class InteractionSystem {
     this.raycaster.far = MAX_DISTANCE;
     this.targets = [];
     this.occluders = [];
+    this._rayList = null;
     this.exclusiveTarget = null;
     this.current = null;
     this.holdTime = 0;
@@ -52,7 +53,10 @@ export class InteractionSystem {
   /** @param {THREE.Object3D} mesh @param {object} desc */
   register(mesh, desc) {
     mesh.userData.interact = desc;
-    this.targets.push(mesh);
+    /* Re-registering an existing target replaces its descriptor above; it must
+     * not enter the ray list twice, or every frame pays for the duplicate. */
+    if (!this.targets.includes(mesh)) this.targets.push(mesh);
+    this._rayList = null;
     return mesh;
   }
 
@@ -60,10 +64,14 @@ export class InteractionSystem {
     const i = this.targets.indexOf(mesh);
     if (i >= 0) this.targets.splice(i, 1);
     delete mesh.userData.interact;
+    this._rayList = null;
   }
 
   /** Geometry that may block a target without itself becoming interactive. */
-  setOccluders(objects = []) { this.occluders = [...objects]; }
+  setOccluders(objects = []) {
+    this.occluders = [...objects];
+    this._rayList = null;
+  }
 
   /** Temporarily make one authored target the whole interaction surface. */
   setExclusiveTarget(target = null) {
@@ -93,8 +101,12 @@ export class InteractionSystem {
     }
 
     this.raycaster.setFromCamera(ORIGIN, this.camera);
-    const targets = this.exclusiveTarget ? [this.exclusiveTarget] : this.targets;
-    const hits = this.raycaster.intersectObjects([...targets, ...this.occluders], true);
+    /* The combined ray list only changes when a target or the occluder set
+     * does, so it is rebuilt then rather than spread fresh on every frame. */
+    const hits = this.exclusiveTarget
+      ? this.raycaster.intersectObjects([this.exclusiveTarget, ...this.occluders], true)
+      : this.raycaster.intersectObjects(
+        this._rayList ??= [...this.targets, ...this.occluders], true);
 
     let found = null;
     let soft = null;

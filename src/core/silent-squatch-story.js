@@ -1,5 +1,7 @@
 import {
   ITEM_IDS,
+  MANSION_EVENING_BEATS_REQUIRED,
+  MANSION_EVENING_BEAT_IDS,
   MISSION_IDS,
   SCENE_IDS,
   SILENT_SQUATCH_CHECKPOINT_IDS,
@@ -155,6 +157,44 @@ class SilentSquatchStory {
       }
     });
     return true;
+  }
+
+  /**
+   * One settling-in beat of the quiet evening, banked.
+   *
+   * Owner note, 2026-08-19: the evening's activities existed and the bed was
+   * immediately available, so nobody saw them. The guest bed now asks for any
+   * MANSION_EVENING_BEATS_REQUIRED of MANSION_EVENING_BEAT_IDS first; this is
+   * the only writer of that ledger, so the scene can call it from every
+   * activity unconditionally -- outside the quiet evening it refuses, and a
+   * beat already banked stays banked rather than being recorded twice.
+   *
+   * The gate itself lives on the BED INTERACTION in src/mansion/main.js, not
+   * in `restAtMansion` below: the campaign-scene-skip flow and the recovery
+   * paths sleep through `restAtMansion` directly, and a skip that had to
+   * pantomime two evening activities first would be a skip that skips
+   * nothing.
+   */
+  logEveningBeat(id) {
+    if (!MANSION_EVENING_BEAT_IDS.includes(id)) return false;
+    const night = this.mission;
+    if (night.status !== 'complete' || !night.eveningReady) return false;
+    if (night.sleptAtMansion || night.eveningBeats.includes(id)) return false;
+    this.campaign.update((state) => {
+      const saved = state.missions[MISSION_IDS.SILENT_SQUATCH];
+      if (!saved.eveningBeats.includes(id)) saved.eveningBeats.push(id);
+    });
+    return true;
+  }
+
+  /** The bed's half of the ledger: what is done, and whether it is enough. */
+  get windDown() {
+    const done = this.mission.eveningBeats;
+    return {
+      done: [...done],
+      required: MANSION_EVENING_BEATS_REQUIRED,
+      ready: done.length >= MANSION_EVENING_BEATS_REQUIRED,
+    };
   }
 
   /**

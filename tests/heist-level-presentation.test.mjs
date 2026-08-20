@@ -79,7 +79,8 @@ test('a takedown is blended across time rather than applied in one frame', () =>
 test('a shut vault door is a wall, and opening it takes the wall away', () => {
   /* Owner: "the vault can be walked into before it opens." The bank's
    * collider list had the vault corridor's walls and nothing at all across
-   * the 8.4 m doorway they meet at. */
+   * the opening they meet at. The 8.4 m outer shell has 0.15 m of wall on
+   * each side, leaving an exact 8.1 m clear span. */
   const level = buildHeistLevel(new THREE.Scene());
   const vault = level.phases.bank.interactables.vault;
   const door = vault.userData.doorCollider;
@@ -87,9 +88,9 @@ test('a shut vault door is a wall, and opening it takes the wall away', () => {
 
   level.activate('bank');
   assert.ok(level.world.colliders.includes(door), 'the shut vault door is walk-through');
-  // It spans the whole opening between the two rear-wall panels, not just
-  // the round disc hanging in it.
-  assert.ok(door.max.x - door.min.x >= 8.4, 'the doorway is wider than the door collider');
+  // It spans the whole clear corridor between the inner wall faces, not just
+  // the round disc hanging in it, without embedding in either side wall.
+  assert.equal(door.max.x - door.min.x, 8.1, 'the door collider misses the clear corridor span');
 
   vault.userData.setOpen(true);
   assert.ok(!level.world.colliders.includes(door), 'the open vault is still walled off');

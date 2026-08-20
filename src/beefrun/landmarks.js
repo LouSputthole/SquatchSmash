@@ -119,6 +119,7 @@ function traceSlope(ox, oz, lx, lz, sign, len, wander, heading = 0) {
 
 function brokenTower(x, z) {
   const g = group('landmark-tower');
+  g.userData.geometryGate = { assemblyId: 'beefrun.landmark.tower' };
   const steel = solid(0x8a5a42, { roughness: 0.85, metalness: 0.4 });   // rusted through
   const feet = [[-1, -0.6], [1, -0.6], [0, 1.2]];
   /* The tower's own footprint is 14 m across and the ground under it is not
@@ -133,6 +134,10 @@ function brokenTower(x, z) {
     feet.forEach(([ax, az], f) => {
       const dig = i === 0 ? y - footY[f] : 0;             // reach down to my own ground
       const leg = mesh(boxGeo(1.1, 9 + dig, 1.1), steel, ax * 7 * shrink, y + level + 4.5 - dig / 2, az * 7 * shrink);
+      if (i === 0 && f === 0) {
+        leg.name = 'broken-tower-support-leg';
+        leg.userData.geometryGate = { checkSupport: false };
+      }
       leg.rotation.z = -ax * 0.03;
       g.add(leg);
     });
@@ -144,6 +149,11 @@ function brokenTower(x, z) {
   fallen.rotation.set(0.1, 0.6, 0.06);
   fallen.updateMatrixWorld(true);
   fallen.position.y = terrainHeight(x + 40, z + 26) - new THREE.Box3().setFromObject(fallen).min.y;
+  fallen.name = 'broken-tower-fallen-top';
+  fallen.userData.geometryGate = {
+    assemblyId: 'beefrun.landmark.tower.fallen-top',
+    checkSupport: false,
+  };
   g.add(fallen);
   g.position.set(x, 0, z);
   return g;
@@ -211,6 +221,7 @@ function horseshoeRiver(x, z) {
         const bar = flatMesh(new THREE.CircleGeometry(22, 10), sand,
           barX, terrainHeight(x + barX, z + barZ) + 1.3, barZ);
         bar.name = `${name}-bar-${i}`;
+        bar.userData.geometryGate = { checkSupport: false };
         bar.rotation.x = -Math.PI / 2;
         run.add(bar);
       }
@@ -256,6 +267,13 @@ function horseshoeRiver(x, z) {
     geometry.computeBoundingSphere();
     const surface = flatMesh(geometry, water);
     surface.name = 'river-course-surface';
+    /* This is a tessellated two-dimensional ribbon, not the enormous solid
+     * AABB enclosing every bend. Keep every bank and tower audited while
+     * excluding only the exact water surface from volume overlap/support. */
+    surface.userData.geometryGate = {
+      overlap: false,
+      checkSupport: false,
+    };
     g.add(surface);
     return surface;
   };
@@ -356,6 +374,7 @@ function horseshoeRiver(x, z) {
     const nz = Math.sin(a) * R * 0.42;
     const spit = flatMesh(new THREE.CircleGeometry(26 - i * 3, 10), sand, nx, terrainHeight(x + nx, z + nz) + 1.35, nz);
     spit.name = `river-neck-spit-${i}`;
+    spit.userData.geometryGate = { checkSupport: false };
     spit.rotation.x = -Math.PI / 2;
     neck.add(spit);
   }
@@ -388,6 +407,7 @@ function horseshoeRiver(x, z) {
  */
 function volcano(x, z) {
   const g = group('landmark-volcano');
+  g.userData.geometryGate = { assemblyId: 'beefrun.landmark.volcano' };
   const y = terrainHeight(x, z);
   const rock = solid(0x4a4038, { roughness: 1 });
   const rockDark = solid(0x38302a, { roughness: 1 });
@@ -403,6 +423,7 @@ function volcano(x, z) {
    * flat ground. */
   const talus = mesh(coneGeo(700, 180, 26), ash, 0, y + 62, 0);
   talus.name = 'volcano-talus';
+  talus.userData.geometryGate = { checkSupport: false };
   talus.receiveShadow = false;
   g.add(talus);
   /* Where the cone's own surface is, so everything hung on the flanks sits ON
@@ -533,6 +554,7 @@ function updatePlume(puffs, ventY, dt, t) {
 
 function redCliff(x, z) {
   const g = group('landmark-cliff');
+  g.userData.geometryGate = { assemblyId: 'beefrun.landmark.cliff' };
   const y = terrainHeight(x, z);
   const red = solid(0xa8442a, { roughness: 1 });
   const redDark = solid(0x7a2f1e, { roughness: 1 });
@@ -540,6 +562,10 @@ function redCliff(x, z) {
   for (let i = 0; i < 7; i++) {
     const w = 420 - i * 26;
     const slab = mesh(boxGeo(w, 42, 150 - i * 12), i % 2 ? red : redDark, (i % 2 ? 8 : -8), y + 20 + i * 40, 0);
+    if (i === 0) {
+      slab.name = 'red-cliff-foundation';
+      slab.userData.geometryGate = { checkSupport: false };
+    }
     g.add(slab);
   }
   g.position.set(x, 0, z);
@@ -574,6 +600,7 @@ function redCliff(x, z) {
  */
 function waterfall(x, z) {
   const g = group('landmark-falls');
+  g.userData.geometryGate = { assemblyId: 'beefrun.landmark.waterfall' };
   const rand = rng(0xfa115);
   // The cliff mass stays safely east of final, while the water itself drops
   // on its runway-side shoulder: "fly toward the waterfall" now points the
@@ -615,6 +642,7 @@ function waterfall(x, z) {
     // at the crest, which is exactly what a cliff does.
     boulder.position.set(cx, foot + h * 0.5, cz);
     boulder.rotation.set(rand() * 0.18, rand() * 0.5, (rand() - 0.5) * 0.16);
+    if (i === 0) boulder.userData.geometryGate = { checkSupport: false };
     cliff.add(boulder);
   }
   /* Wing buttresses: the wall does not end in mid-air at either side, it runs
@@ -820,7 +848,7 @@ function waterfall(x, z) {
     trunk.name = `waterfall-tree-trunk-${i}`;
     foliage.add(trunk);
     const crown = mesh(coneGeo(8 + rand() * 5, 18 + rand() * 10, 7), solid(i % 2 ? 0x245b31 : 0x31703b, { roughness: 1 }), tx, gy + 22, tz);
-    crown.name = `waterfall-tree-crown-${i}`;
+    crown.name = `waterfall-tree-foliage-${i}`;
     foliage.add(crown);
   }
   g.add(foliage);
@@ -853,6 +881,7 @@ export function caibRelief(x, z) {
 
 export function caibTower(x, z) {
   const g = group('caib-tower');
+  g.userData.geometryGate = { assemblyId: `beefrun.caib-tower.${x}.${z}` };
   // Found on the lowest leg corner so that no leg is left standing on air.
   const y = caibRelief(x, z).low;
   const steel = solid(0xb8bcc2, { roughness: 0.5, metalness: 0.6 });
@@ -861,7 +890,12 @@ export function caibTower(x, z) {
     const band = i % 2 ? red : steel;
     for (const [ax, az] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
       const shrink = 1 - i * 0.07;
-      g.add(mesh(boxGeo(0.5, 7, 0.5), band, ax * 3.4 * shrink, y + i * 7 + 3.5, az * 3.4 * shrink));
+      const leg = mesh(boxGeo(0.5, 7, 0.5), band, ax * 3.4 * shrink, y + i * 7 + 3.5, az * 3.4 * shrink);
+      if (i === 0 && ax < 0 && az < 0) {
+        leg.name = 'caib-tower-support-leg';
+        leg.userData.geometryGate = { checkSupport: false };
+      }
+      g.add(leg);
     }
     g.add(mesh(boxGeo(7 * (1 - i * 0.07), 0.4, 7 * (1 - i * 0.07)), steel, 0, y + i * 7 + 7, 0));
   }

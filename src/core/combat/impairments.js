@@ -1,7 +1,33 @@
+/*
+ * How a hit reads, and why these numbers are what they are.
+ *
+ * `stagger` is the interruption: how long the man is off his aim. `reaction`
+ * is the VISIBLE flinch both scenes' pose code multiplies into authored joint
+ * rotations. Until 2026-08-19 the flinch was a straight linear fade from 1
+ * over 0.42 s, which is the shape you get when the numbers are right and
+ * nobody watches the result: full size for a single frame, half gone by the
+ * time an eye finds the man, and the owner's note was that hits registered
+ * and still felt like nothing happened.
+ *
+ * AMPLITUDE is not the lever it looks like. Mansion Siege adds the flinch on
+ * top of a contact-tested long-gun shoulder, and `tests/mansion-siege-people`
+ * caps the weapon arm at 0.37 rad of total deviation precisely so the two
+ * cannot compound into the corkscrew that shipped once already. A peak of 1
+ * already spends 0.335 of that. So the readability is bought where there is
+ * room for it -- in the WINDOW and the ENVELOPE:
+ *
+ *   - the stagger windows are ~40% longer, so a hit man is visibly off his
+ *     weapon long enough to see, and
+ *   - `reaction` now HOLDS at full size for the part of the stagger beyond
+ *     `reactionSeconds` and then releases slightly slower than linear, so the
+ *     knock is a held, broken posture that snaps back rather than a one-frame
+ *     spike. Roughly twice the flinch, frame for frame, at the same amplitude
+ *     the corkscrew guard allows.
+ */
 const DEFAULTS = Object.freeze({
-  headStagger: 0.55,
-  chestStagger: 0.42,
-  limbStagger: 0.3,
+  headStagger: 0.74,
+  chestStagger: 0.58,
+  limbStagger: 0.4,
   legBase: 0.18,
   legDamageDivisor: 160,
   armBase: 0.2,
@@ -9,7 +35,14 @@ const DEFAULTS = Object.freeze({
   legSpeedPenalty: 0.5,
   armAccuracyPenalty: 0.55,
   armAimPenalty: 0.45,
+  /* The release, not the whole knock: stagger beyond this is held at peak. */
   reactionSeconds: 0.42,
+  /* Ceiling on the visible flinch. 1 is not a tuning shrug -- it is what the
+   * Mansion Siege corkscrew guard leaves once the braced shoulder has taken
+   * its share. Raising it must be paid for in that scene's pose offsets. */
+  reactionPeak: 1,
+  /* Sub-linear: the knock lets go a little slower than it arrives. */
+  reactionFalloff: 0.8,
 });
 
 function finiteNonNegative(value) {
@@ -110,9 +143,19 @@ export class CombatImpairments {
 
   get interrupted() { return this.stagger > 0; }
 
+  /**
+   * The visible hit reaction: `reactionPeak` while the stagger still has more
+   * than `reactionSeconds` to run, then a sub-linear release to 0 as it ends.
+   * Scenes multiply it into authored rotations, so this one number is the
+   * shared lever that makes a hit readable in every scene at once.
+   */
   get reaction() {
     const seconds = Math.max(1e-6, finiteNonNegative(this.config.reactionSeconds));
-    return Math.min(1, this.stagger / seconds);
+    const phase = Math.min(1, this.stagger / seconds);
+    if (phase <= 0) return 0;
+    const peak = Math.max(0, finiteNonNegative(this.config.reactionPeak));
+    const falloff = Math.max(1e-6, finiteNonNegative(this.config.reactionFalloff));
+    return peak * phase ** falloff;
   }
 
   snapshot() {

@@ -33,15 +33,17 @@ import {
   POOL,
 } from './scenes/MansionGrounds.js';
 import { buildMansionInterior } from './scenes/MansionInterior.js';
-import { buildSilentSquatch, silentSquatchCueNames } from './scenes/SilentSquatch.js';
+import { buildSilentSquatch } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
 import { translateKey, shakeScale } from '../core/settings.js';
+import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { Highs } from '../core/highs.js';
 import { FocusRush } from '../core/focus-rush.js';
-import { PEE_CUE_NAMES, PeeSystem } from '../core/pee-system.js';
+import { PeeSystem } from '../core/pee-system.js';
+import { createResidencyBanks } from '../core/residency-banks.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { Radio } from '../core/radio.js';
@@ -50,17 +52,19 @@ import {
 } from '../core/tv.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../core/weapons/Armory.js';
-import { weaponCueNames } from '../core/weapons/audio.js';
 import { WEAPON_IDS, WEAPON_ORDER } from '../core/weapons/catalog.js';
 import { createFinalArcLoadout } from '../core/final-arc-loadout.js';
 import { mountSilentSquatch } from './mission/mount.js';
-import { INSTRUCTIONS } from './script.js';
+import { INSTRUCTIONS, SEQUENCES } from './script.js';
 import { createMansionLoadout } from './loadout.js';
 import {
-  mountMansionCast, MANSION_CAST_CUE_NAMES, theatreSeatAvailable, theatreSeatOccupant,
+  mountMansionCast, theatreSeatAvailable, theatreSeatOccupant,
 } from './cast.js';
+import { MANSION_NEXT_BEAT_ZONES, mansionAudioBanks } from './audio-banks.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
-import { MISSION_IDS, SCENE_IDS, createCampaign } from '../core/campaign.js';
+import {
+  MANSION_EVENING_BEAT_IDS, MISSION_IDS, SCENE_IDS, createCampaign,
+} from '../core/campaign.js';
 import { createFinalArcRuntimeSession } from '../core/final-arc-runtime.js';
 import {
   createCampaignSceneRecovery, createCampaignSceneRestartAdapter,
@@ -72,6 +76,12 @@ import {
   MANSION_RETURN_REPORT, mansionReturnObjective, mansionVisitMode,
 } from './campaign.js';
 import { createNpcSpeechGate } from './npc-speech-gate.js';
+import {
+  GUEST_SLEEP_AUDIO_SECONDS,
+  playGuestBedSleep,
+  playTheatreSit,
+  playTheatreStand,
+} from './interaction-audio.js';
 import { StreamSystem } from '../world/stream.js';
 import { SmokeSystem } from '../world/smoke.js';
 import { createBongBehavior, registerInteractiveBong } from '../world/bong.js';
@@ -134,7 +144,7 @@ const tinyHud = {
   showPrompt(label, key = 'E') {
     promptLabelEl.innerHTML = label;
     const passive = key === 'LOOK';
-    promptKeyEl.textContent = passive ? '' : key;
+    writeGameplayPromptKey(promptKeyEl, passive ? '' : key);
     promptKeyEl.classList.toggle('hidden', passive);
     promptEl.classList.remove('hidden');
   },
@@ -319,6 +329,45 @@ function exteriorGroundAt(x, z) {
 }
 
 /* ================================================================== */
+/* Room/portal visibility: draw the rooms a sightline could reach        */
+/*                                                                        */
+/* The interior build organises every room's static contents under one    */
+/* group and precomputes, per room, the set of rooms an open doorway,      */
+/* arch, void or stair could carry a sightline into (see the ROOM /        */
+/* PORTAL VISIBILITY section of scenes/MansionInterior.js for the graph,   */
+/* the hop rule and everything that deliberately stays global). This is    */
+/* the per-frame half: resolve which room(s) the player is standing in,    */
+/* OR their precomputed sets together, and write the result to the room    */
+/* groups -- a mask compare and at most twenty-six boolean writes, no      */
+/* allocation, nothing else touched. VISIBILITY ONLY: every system in      */
+/* updateGame below still ticks hidden rooms -- patrols walk, TVs paint,   */
+/* the mission moves its people -- because a room you cannot see is still   */
+/* a room the story is happening in.                                       */
+/*                                                                          */
+/* Kill switch: `?novis=1` boots with the culling off (every group          */
+/* visible, exactly the pre-pass frame), and `mansion.visibility            */
+/* .setEnabled(false)` turns it off live -- for debugging, and for any      */
+/* verifier that wants to photograph a room it is not standing in.          */
+/* ================================================================== */
+const roomVisibility = interior.visibility;
+/* Opt in: the reparenting into room groups happens HERE, not in the builder,
+ * because the geometry gate's allowlists record exact graph paths -- headless
+ * scans and the siege keep the flat graph they always had. */
+roomVisibility.claim();
+let roomVisEnabled = new URLSearchParams(window.location.search).get('novis') !== '1';
+let roomVisMask = roomVisibility.ALL;
+function updateRoomVisibility() {
+  const mask = roomVisEnabled
+    ? roomVisibility.visibleMaskAt(
+      player.position.x, player.position.y - player.eyeHeight, player.position.z,
+    )
+    : roomVisibility.ALL;
+  if (mask === roomVisMask) return;
+  roomVisMask = mask;
+  roomVisibility.apply(mask);
+}
+
+/* ================================================================== */
 /* Light rig: keep a fixed number of the nearest practical lights on     */
 /*                                                                        */
 /* The house is furnished room by room, so between the two modules there  */
@@ -360,6 +409,18 @@ function registerLocalLight(light) {
   _lightRank.push({ light, score: 0 });
 }
 
+/* A light in a room the portal pass has hidden lights nothing anybody can
+ * see, so it must not hold one of the ACTIVE_LIGHTS slots against a light
+ * in a room that is actually on screen -- the armory's lamps are METRES
+ * from a player standing in the foyer, one storey straight down, and they
+ * out-scored the foyer's own sconces on distance alone. The penalty ranks
+ * hidden-room lights below every visible-room light while keeping them in
+ * the pool (the COUNT never changes -- see the note above -- and a light
+ * with no resolvable room, like the grounds' exterior practicals or the
+ * foyer chandelier in the void, is never penalised). */
+const FAR_ROOM_LIGHT_PENALTY = 1e4;
+const _lightWorldPos = new THREE.Vector3();
+
 function updateLightRig(dt) {
   _lightTimer -= dt;
   if (_lightTimer > 0) return;
@@ -370,6 +431,17 @@ function updateLightRig(dt) {
     // Score = how far OUTSIDE its own range the camera is. Negative means the
     // camera is inside the light's falloff, so it genuinely contributes.
     entry.score = l.position.distanceTo(cam) - (l.distance || 0);
+    /* Which room owns the light is a fact about the built house, resolved
+     * once on the entry (after the first render, so matrixWorld is real). */
+    if (entry.roomBits === undefined && framesRendered > 0) {
+      l.getWorldPosition(_lightWorldPos);
+      entry.roomBits = roomVisibility.roomBitsAt(
+        _lightWorldPos.x, _lightWorldPos.y, _lightWorldPos.z,
+      );
+    }
+    if (entry.roomBits && (entry.roomBits & roomVisMask) === 0) {
+      entry.score += FAR_ROOM_LIGHT_PENALTY;
+    }
   }
   _lightRank.sort((a, b) => a.score - b.score);
   for (let i = 0; i < _lightRank.length; i++) {
@@ -381,6 +453,23 @@ function updateLightRig(dt) {
 /* Audio                                                                 */
 /* ================================================================== */
 const audio = new AudioEngine();
+
+/**
+ * The house's three residency banks (src/mansion/audio-banks.js): the walk
+ * to Lou's office blocks the start button, the basement decodes behind it
+ * and is awaited at the cellar boundary, the evening dressing rides along
+ * whenever the pipe is free. `loadManifest` is the engine's one immutable
+ * first slice; the other two go through `loadAdditional`, which skips
+ * anything the first slice already decoded.
+ */
+const mansionBankSelections = mansionAudioBanks(mansionVisit);
+const mansionBanks = createResidencyBanks({
+  start: () => audio.loadManifest(mansionBankSelections.start),
+  nextBeat: mansionBankSelections.nextBeat
+    ? () => audio.loadAdditional(mansionBankSelections.nextBeat)
+    : null,
+  background: () => audio.loadAdditional(mansionBankSelections.background),
+});
 
 /**
  * Every cue named below is an existing procedural fallback already built
@@ -915,13 +1004,72 @@ flavor(
   interior.props.guestRoom.art,
   'Made up, turned down, and a window that looks out on a light bulb.',
 );
+/* ---- The wind-down ledger (owner note, 2026-08-19) --------------------
+ * The evening's activities were built and the bed was available the moment
+ * Lou said goodnight, so nobody saw them. The bed now wants ANY TWO of the
+ * five settling-in beats first. The campaign story owns the ledger (see
+ * `logEveningBeat` in core/silent-squatch-story.js -- it refuses everything
+ * outside the quiet evening, so every activity below credits itself
+ * unconditionally); this file owns the gate on the bed, the checkpoint
+ * banner when a beat lands, and the pause-menu objective that lists what is
+ * on offer. Preview links have no story and therefore no gate. */
+const EVENING_BEAT_MENU = Object.freeze({
+  theatre: 'A PICTURE IN THE THEATRE',
+  pool: 'THE GIRLS ON THE POOL DECK',
+  bar: 'A DRINK OFF THE BARTENDER',
+  dog: 'THE DOG ON THE THIRD FLOOR',
+  lan: "SHUBES' RUNESCAPE",
+});
+function eveningWindDown() {
+  return mansionCampaign.story?.windDown ?? null;
+}
+function windDownReady() {
+  const state = eveningWindDown();
+  return state ? state.ready : true;
+}
+function creditEveningBeat(id) {
+  if (mansionCampaign.story?.logEveningBeat?.(id) !== true) return false;
+  const state = eveningWindDown();
+  announceCheckpoint(state?.ready
+    ? 'WOUND DOWN — THE GUEST BED WILL TAKE YOU NOW'
+    : `WINDING DOWN ${state?.done.length ?? 1}/${state?.required ?? 2} — ONE MORE THING, THEN BED`);
+  return true;
+}
+/* The pause menu's objective line for the quiet evening: what is left on the
+ * menu, and how far along the night is. Empty outside the evening. */
+function eveningObjective() {
+  const mission = mansionCampaign.story?.mission;
+  if (mission?.status !== 'complete' || mission.sleptAtMansion === true
+    || mansionVisit === 'return') return '';
+  const state = eveningWindDown();
+  if (!state) return '';
+  if (state.ready) {
+    return 'The night is wound down. The guest room is off the cellar hall; sleep when you want to.';
+  }
+  const menu = MANSION_EVENING_BEAT_IDS
+    .filter((id) => !state.done.includes(id))
+    .map((id) => EVENING_BEAT_MENU[id].toLowerCase())
+    .join(', ');
+  return `Wind the night down before bed — ${state.required - state.done.length} more of: ${menu}.`;
+}
+
 /* After PROJECT SILENT SQUATCH, the house does not eject the player through
  * a menu. The quiet evening remains playable until he deliberately sleeps in
  * the real guest bed; that one physical action advances the campaign clock,
- * opens the siege, and performs the registered scene transition. */
+ * opens the siege, and performs the registered scene transition.
+ *
+ * THE BED STAYS VISIBLE WHILE IT REFUSES. Owner note, 2026-08-19: sleep is
+ * gated behind any two settling-in beats, and a gated interaction that goes
+ * quiet is the silent-failure class this project has paid for three times --
+ * so the label says what is missing and the refusal names the menu. */
 if (interior.props.guestRoom.bed) {
   interaction.register(interior.props.guestRoom.bed, {
-    label: 'Sleep in the guest room',
+    label: () => {
+      if (windDownReady()) return 'Sleep in the guest room';
+      return (eveningWindDown()?.done.length ?? 0) > 0
+        ? 'One more thing around the house, then the <b>bed</b>'
+        : 'Wind down first — do <b>2 things</b> around the house tonight';
+    },
     hold: 1.15,
     enabled: () => {
       if (!running || mansionPreview || mansionVisit === 'return') return false;
@@ -931,9 +1079,27 @@ if (interior.props.guestRoom.bed) {
         && mission.sleptAtMansion !== true;
     },
     onUse: () => {
+      if (!windDownReady()) {
+        const state = eveningWindDown();
+        const menu = MANSION_EVENING_BEAT_IDS
+          .filter((id) => !state?.done.includes(id))
+          .map((id) => EVENING_BEAT_MENU[id])
+          .join(' · ');
+        announceCheckpoint(`TOO WIRED TO SLEEP — ${state ? state.required - state.done.length : 2} MORE: ${menu}`);
+        return false;
+      }
       const rested = mansionCampaign.story?.restAtMansion?.();
       if (!rested?.ok) return false;
-      mansionCampaign.navigate(SCENE_IDS.MANSION_SIEGE, { spawn: 'guest_suite' });
+      const position = interior.props.guestRoom.bed.getWorldPosition(new THREE.Vector3());
+      playGuestBedSleep(audio, position);
+      /* Navigation replaces the page and its AudioContext. Hold it for the
+       * two short, scheduled bedding beats instead of cutting the creak off
+       * on the same tick it was requested. The durable rest flag above makes
+       * the target unavailable during this bounded settle. */
+      window.setTimeout(
+        () => mansionCampaign.navigate(SCENE_IDS.MANSION_SIEGE, { spawn: 'guest_suite' }),
+        GUEST_SLEEP_AUDIO_SECONDS * 1000,
+      );
       return true;
     },
   });
@@ -1030,6 +1196,19 @@ const secretBookcase = interior.props.masterSuite.secretStair;
  * the interior's array, so the bookcase has to be told about it or it opens on
  * screen and stays shut under your feet. See the note where it is built. */
 secretBookcase?.bindColliders?.(colliders);
+/* Owner playtest, 2026-08-19: "make it so the way to his bedroom upstairs
+ * starts out as open — the bookcase door is open — that way the player can go
+ * up there more likely." So the tour (and any preview) boots with the leaf
+ * already swung out and the way to the third floor readable from the office.
+ * Nothing in the night needs it shut: no script or mission beat ever calls
+ * `setOpen` — the only writers are the player's own E press, the `suite`
+ * preview checkpoint (which stages it open) and the debug handle — so only
+ * the INITIAL state changes, and the same press still swings it shut and open.
+ * Lil Tom Cruze's gate is this door, so he walks his office round from the
+ * first minute instead of holding on his cushion all night. AFTER
+ * `bindColliders`, so the open/shut collider swap lands in the merged list
+ * the player actually walks against. */
+if (mansionVisit !== 'return' || mansionPreview) secretBookcase?.setOpen(true);
 if (secretBookcase?.target) {
   interaction.register(secretBookcase.target, {
     label: () => (secretBookcase.isOpen()
@@ -1102,7 +1281,11 @@ function sitInTheatre(seat) {
     playerMode: player.mode,
   })) return false;
   activeTheatreSeat = seat;
+  /* Taking a seat down here is a settling-in beat of the quiet evening; the
+   * story ignores the credit at every other point of the night. */
+  creditEveningBeat('theatre');
   interaction.setPaused(true);
+  playTheatreSit(audio, seat.getWorldPosition(new THREE.Vector3()));
   player.sitAt({
     position: new THREE.Vector3(data.pose.x, data.pose.y, data.pose.z),
     yaw: data.pose.yaw,
@@ -1116,9 +1299,11 @@ function sitInTheatre(seat) {
 }
 
 function standFromTheatre() {
-  const data = activeTheatreSeat?.userData?.theatreSeat;
+  const seat = activeTheatreSeat;
+  const data = seat?.userData?.theatreSeat;
   if (!data) return false;
   interaction.setPaused(true);
+  playTheatreStand(audio, seat.getWorldPosition(new THREE.Vector3()));
   activeTheatreSeat = null;
   /* Player.standFrom assumes the apartment floor is world Y zero. This room
    * is at -2.8, so use this scene's floor-aware teleport instead. */
@@ -1187,8 +1372,16 @@ function registerTvInteraction({ tv, prop }) {
     onUse: () => {
       if (tv.on) tv.next(); else tv.toggle();
       syncTheatreLights();
+      /* A reel running in the theatre is the other half of the 'theatre'
+       * settling-in beat -- standing at the projector counts the same as
+       * taking a chair under it. Every other set stays a television. */
+      if (tv === theatreTv && tv.on) creditEveningBeat('theatre');
     },
-    onTap: () => { tv.toggle(); syncTheatreLights(); },
+    onTap: () => {
+      tv.toggle();
+      syncTheatreLights();
+      if (tv === theatreTv && tv.on) creditEveningBeat('theatre');
+    },
   });
   return true;
 }
@@ -1410,6 +1603,58 @@ const lab = interior.props.lab
   ?? silent?.lab
   ?? null;
 
+/* ================================================================== */
+/* THE WALL CLOSES BEHIND HIM, NEVER ON HIM                             */
+/*                                                                       */
+/* Beat 11's `wall.close` stage fires off the `cellarTop` threshold —     */
+/* the TOP of the hidden stairwell, still 4.6 m INSIDE the secret         */
+/* doorway — and the panel covers the aperture in ~2.7 s (SilentSquatch's */
+/* `returning` phase). Measured on the live page: a player who does not   */
+/* beeline the doorway is sealed into the landing, and the only opener    */
+/* (the switch under the bust) is on the OTHER side of two tonnes of      */
+/* masonry. That is a softlock in the exact minute the mission tells him  */
+/* to go and see Lou.                                                     */
+/*                                                                        */
+/* The script's own words are "the wall closes behind him" — so the        */
+/* composition root makes the verb mean that: a close ordered while his    */
+/* feet are still west of the doorway plane (the landing, the stairwell,   */
+/* the laboratory) is HELD, and performed the moment he steps through      */
+/* into the wine cellar. The wall still seats, the underworld ambience     */
+/* still cuts, and nobody is ever built into the wall. The doorway plane   */
+/* is read off the published `hiddenWall.rect`, not typed. Wrapped here    */
+/* rather than in the scene or the mission because both are a concurrent   */
+/* pass's files and this is exactly a composition-root concern — the wall  */
+/* is the scene's, the order is the mission's, and where the PLAYER is is  */
+/* this file's.                                                            */
+/* ================================================================== */
+let hiddenWallCloseHeld = false;
+const hiddenWallRealClose = lab?.hiddenWall?.close ?? null;
+function playerInsideHiddenComplex() {
+  if (!lab?.hiddenWall?.rect) return false;
+  const feetY = player.position.y - player.eyeHeight;
+  /* Below the ground floor, west of the doorway plane (+0.45 m so the seat
+   * never starts until he is clear of the panel's whole travel path). The
+   * innocent cellar rooms all live east of x -15.6, so this cannot hold the
+   * wall open for a man merely browsing the wine racks. */
+  return feetY < -1.8 && player.position.x < lab.hiddenWall.rect.x1 + 0.45;
+}
+if (lab?.hiddenWall && typeof hiddenWallRealClose === 'function') {
+  lab.hiddenWall.close = () => {
+    if (playerInsideHiddenComplex()) {
+      hiddenWallCloseHeld = true;
+      return false;
+    }
+    hiddenWallCloseHeld = false;
+    return hiddenWallRealClose();
+  };
+}
+/** Per frame: perform a held close the moment the player is through. */
+function settleHeldHiddenWall() {
+  if (!hiddenWallCloseHeld || playerInsideHiddenComplex()) return;
+  hiddenWallCloseHeld = false;
+  hiddenWallRealClose?.();
+}
+
 /**
  * The campaign seam.
  *
@@ -1506,7 +1751,92 @@ if (lab && night.play) {
     },
     story: missionStory,
     enabled: () => running,
+    /* The await-at-the-boundary, in gate form: a basement zone holds until
+     * the basement voice bank has settled, so no beat down there can begin
+     * — and therefore no first line can be asked for — while its recordings
+     * are still decoding. Zones outside the set never consult the banks.
+     * A visit with no basement run (the return briefing) has no nextBeat
+     * bank and `settled` is true the moment the chain runs. */
+    zoneAudioResident: (id) => !MANSION_NEXT_BEAT_ZONES.has(id)
+      || mansionBanks.settled('nextBeat'),
+    /* NOT at module load. The mount's default `autoStart` dispatched the
+     * mission's opening line while the page was still building -- no start
+     * click, no AudioContext, no decoded bank -- which is how the first line
+     * of the night was a silent subtitle on every run (see `beginTour`).
+     * The tour starts the mission once the voice bank is resident;
+     * `jumpToCheckpoint` starts it for a ladder that cannot wait. */
+    autoStart: false,
   });
+}
+
+/* ================================================================== */
+/* STATE-GATED ZONES MUST SURVIVE A CROSSING THEIR BEAT REFUSED         */
+/*                                                                       */
+/* Owner playtest, 2026-08-19: "Irish's voice line didn't trigger" and    */
+/* "I'm still not seeing where to end the mansion mission when Booski     */
+/* tells you to return to Lou." Both are the same fault, measured on the  */
+/* live page: `mission.arrive(id)` consumes a trigger volume's one-shot   */
+/* id on the FIRST crossing whatever the handler then does with it, and   */
+/* several handlers only act in one beat. `cellarTop` (the top of the     */
+/* hidden stairwell) only calls `leave()` from EXIT — but every player    */
+/* walks DOWN through that exact cylinder in STAIRWELL on the way in, so  */
+/* the walk back out crossed a spent zone, the state never flipped to     */
+/* BACK_TO_LOU, and Lou's "Report to Lou" press (enabled only in that     */
+/* state) never armed. The night literally could not be finished on foot. */
+/* `corridor` (which summons Irish) only acts from STAIRWELL, and a       */
+/* player who opens the hidden wall early — the bust switch is a house    */
+/* interaction and works in any beat — spends it in ARRIVAL and loses     */
+/* Irish's lines for the whole night. Same class: `observation`, `stairs`,*/
+/* `bust`.                                                                */
+/*                                                                        */
+/* The mission already has the idiom for this — `officeReturn` puts its   */
+/* id straight back when a visit is not beat 11's (see #onZone). These    */
+/* zones live in files a concurrent pass owns, so the composition root    */
+/* applies the same rule from outside: after each mission tick, any of    */
+/* these ids that is spent WITHOUT its effect on record is re-armed. Each */
+/* predicate is the effect itself (a state reached, a bark on the ledger, */
+/* a latch set), so a zone that has genuinely done its job is never       */
+/* re-armed and nothing ever replays.                                     */
+/* ================================================================== */
+const REARMABLE_MISSION_ZONES = [
+  /* The wine-cellar bust hint plays in HIDDEN_ENTRANCE; the sequence's own
+   * first cue is the proof it ran. `wallOpened` covers a switch pressed
+   * before the hint could finish arming. */
+  ['bust', (m) => m.wallOpened
+    || m.dialogue.cueLog.includes(SEQUENCES.cellarBust[0].cue)],
+  /* Irish's corridor: acts only from STAIRWELL, where it enters beat 4. */
+  ['corridor', (m) => m.fsm.history.includes('INTERROGATION')],
+  /* Booski's threshold: acts only from INTERROGATION/STAIRWELL. */
+  ['observation', (m) => m.fsm.history.includes('OBSERVATION')],
+  /* Snow's return bark on the stairwell: EXIT only. */
+  ['stairs', (m) => m.barked.has('snowStairs')],
+  /* The way out: `leave()` fires only from EXIT, and latches `leaving`. */
+  ['cellarTop', (m) => m.leaving === true],
+];
+
+function rearmSilentSquatchZones() {
+  const mission = silentSquatch?.mission;
+  if (!mission?.zonesEntered) return;
+  for (const [id, effectHappened] of REARMABLE_MISSION_ZONES) {
+    if (mission.zonesEntered.has(id) && !effectHappened(mission)) {
+      mission.zonesEntered.delete(id);
+    }
+  }
+}
+
+/* The ending, announced the way this scene announces things. The objective
+ * card flips to "Lou is waiting" on its own; this adds the same full-width
+ * banner `announceCheckpoint` already paints for the return briefing, once,
+ * the moment beat 11's second leg begins — so walking out of the cellar
+ * tells the player where the night ends without inventing any new HUD. */
+let missionStateSeen = null;
+function announceMissionLeg() {
+  const now = silentSquatch?.debug?.state ?? null;
+  if (now === missionStateSeen) return;
+  missionStateSeen = now;
+  if (now === 'BACK_TO_LOU') {
+    announceCheckpoint('REPORT TO LOU — HIS OFFICE, UPSTAIRS');
+  }
 }
 
 function returnLouLabel() {
@@ -1563,6 +1893,9 @@ const cast = mountMansionCast(scene, world, {
   suite: interior.props.masterSuite,
   pool: grounds.props.poolPatio,
   theatre: interior.props.theatre,
+  /* The LAN room's published stations -- the cast sits Shubes at the
+   * RuneScape one for the quiet evening. */
+  lan: interior.props.lanRoom,
   hud: silentSquatch?.hud ?? null,
   hasCase: () => loadout.hasCase(),
   /* Gratin's cord is a thing he is carrying, so it is a slot. Owner
@@ -1583,9 +1916,17 @@ const cast = mountMansionCast(scene, world, {
       enabled: () => silentSquatch?.debug?.state === 'BACK_TO_LOU',
       onUse: () => silentSquatch?.debug?.reportToLou?.() === true,
     },
+  /* The background bank carries the evening's own scope, so the dressing
+   * waits for it the same way the basement waits for its bank: the evening
+   * cannot start speaking off cues that are still decoding. A preview boot
+   * skips the gate along with everything else audio. */
   eveningEnabled: () => mansionPreview
-    || mansionCampaign.story?.mission?.status === 'complete',
+    || (mansionCampaign.story?.mission?.status === 'complete'
+      && mansionBanks.settled('background')),
   theatreChannel: () => (theatreTv?.on ? theatreTv.channel?.name ?? '' : ''),
+  /* The cast's activities -- the bar, the pool, the dog, Shubes -- report
+   * their settling-in beats through the same ledger the theatre uses. */
+  onEveningBeat: (id) => creditEveningBeat(id),
   /* Scene dressing, not campaign state, so preview return visits get the
    * same morning: the return is the one where the wire says the Cartel took
    * Sauce, and the cast hides him accordingly. */
@@ -1709,6 +2050,9 @@ const sharedPauseMenu = createPauseMenu({
   getObjective: () => mansionVisit === 'return' && !mansionPreview
     ? mansionReturnObjective(mansionCampaign.story?.mission?.status)
     : silentSquatch?.mission.objective
+      /* The quiet evening's own objective: the wind-down checklist, in the
+       * same slot the mission's objectives used. Empty outside the evening. */
+      || eveningObjective()
       || 'Walk the grounds and the house: the horseshoe stair, the conference room and Lou’s office above it, the bedrooms down the sides, the west wing and the Great Includer, the lower level behind the armory, and the walled garden and hedge maze behind the pool.',
   instructions: [
     'W A S D -- walk. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
@@ -1763,8 +2107,9 @@ const sharedPauseMenu = createPauseMenu({
 /* ================================================================== */
 /* Boot gate: AudioContext and pointer lock both need a user gesture      */
 /* ================================================================== */
+let tourBegun = false;
 async function beginTour() {
-  if (running) return;
+  if (running || tourBegun) return;
   if (!mansionCampaignEntry.ok && mansionCampaignEntry.reason !== 'already_complete') {
     const sub = menuEl?.querySelector?.('.sub');
     if (sub) sub.textContent = mansionVisit === 'return'
@@ -1772,8 +2117,14 @@ async function beginTour() {
       : "Lou's mansion is locked until The Silver Case is complete.";
     return;
   }
-  running = true;
+  tourBegun = true;
   menuEl.classList.add('hidden');
+  /* Requested here, before anything is awaited, while this click still
+   * carries real user activation -- the Silver Case/NO WAKE start-button
+   * rule (src/silvercase/main.js): a pointer lock asked for after an awaited
+   * init plus an awaited three-hundred-cue decode is a pointer lock the
+   * browser is free to refuse. */
+  lockPointer();
   await audio.init();
   startAmbience();
   /* The station's own record list. It is loaded but the set stays OFF: this
@@ -1809,23 +2160,51 @@ async function beginTour() {
    * in this list, so a torture session ran on the procedural synth even
    * though the real take was sitting in assets/sfx. It also owns the one
    * Mansion ambient line reused from a different recorded prefix (Sauce's
-   * existing Bing opener), which a `vo.silentsquatch.` prefix cannot load. */
-  audio.loadManifest({
-    names: [
-      ...weaponCueNames(),
-      ...silentSquatchCueNames(),
-      ...MANSION_CAST_CUE_NAMES,
-      ...PEE_CUE_NAMES,
-      'bing.line.snort',
-    ],
-    prefixes: ['vo.silentsquatch.'],
-  }).catch(() => {});
+   * existing Bing opener), which a `vo.silentsquatch.` prefix cannot load.
+   *
+   * AWAITED, which it was not before, and the mission starts only after it
+   * resolves. This is THE FIRST LINE'S OWN BUG that The Silver Case documents
+   * at its own loadManifest call (src/silvercase/main.js) happening here for
+   * the second time: `mountSilentSquatch` used to `mission.start()` at module
+   * load -- before the start click, before `audio.init()`, before a single
+   * cue had decoded -- so the Prospect's opening line ran `playCue()` against
+   * an empty buffer table, `hasSample()` said no, and a take that was on disk
+   * and in the manifest played as a silent subtitle on every single run. And
+   * with the load un-awaited, every bark in the first seconds of the walk
+   * (the gate man is standing at the spawn) raced the decode for the same
+   * silent result. Nothing retries a line's audio; dispatch is the one
+   * chance, so the bank has to be resident before anything can speak.
+   *
+   * WHAT IS AWAITED IS NOW THE START BANK, not the whole page. The
+   * guarantee above holds per beat instead of per manifest: everything
+   * hearable between the gate and Lou's office blocks this click; the
+   * basement decodes right behind it and is awaited at the cellar boundary
+   * (the `zoneAudioResident` gate on the mount, plus the explicit awaits on
+   * the checkpoint-resume paths below); the evening dressing loads whenever
+   * the pipe is free. src/mansion/audio-banks.js owns the split, and
+   * `kickoff()` is fire-and-forget by design — the ONLY thing allowed to
+   * wait on the later banks is a boundary whose beat needs them. */
+  await mansionBanks.loadStart();
+  mansionBanks.kickoff();
+  /* PROJECT SILENT SQUATCH begins NOW, with its voice bank decoded -- the
+   * mount no longer autostarts it at module load (see `autoStart: false`
+   * below). `start()` is idempotent, so a `?checkpoint=` jump that outran
+   * these awaits and started the mission itself is left exactly where its
+   * ladder put it. The first beat hands over the case, so he is holding it
+   * before the first playable frame. */
+  silentSquatch?.mission.start();
+  running = true;
   player.enabled = true;
-  lockPointer();
   clock.getDelta();
   if (mansionVisit !== 'return'
     && mansionCampaignEntry.resumed
     && CHECKPOINTS[mansionCampaignEntry.checkpoint]) {
+    /* A campaign resume can land in the middle of the basement, past the
+     * cellar boundary the organic walk would have awaited at — so the
+     * boundary await happens HERE instead, before the ladder replays a
+     * single basement verb. This is the same wait a fresh page used to pay
+     * for the whole manifest, now paid only by the resume that needs it. */
+    await mansionBanks.whenNextBeat();
     jumpToCheckpoint(mansionCampaignEntry.checkpoint);
   }
 }
@@ -1835,7 +2214,10 @@ startBtn.addEventListener('click', beginTour);
 /* Input                                                                 */
 /* ================================================================== */
 window.addEventListener('keydown', (e) => {
-  if (!running) return;
+  /* Tab never gets here — the pause menu's own capture-phase listener owns it
+   * (src/core/pause-menu.js). Everything below mutates the live tour, so it
+   * must go dark while the overlay is up. */
+  if (!running || sharedPauseMenu.isPaused()) return;
   /* The laboratory keypad gets first refusal on a keystroke: while it is up,
    * the digits he types are a code rather than a walk. */
   if (silentSquatch?.keydown(e)) {
@@ -1880,7 +2262,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
 });
 window.addEventListener('wheel', (e) => {
-  if (!running) return;
+  if (!running || sharedPauseMenu.isPaused()) return;
   loadout.cycle(e.deltaY > 0 ? 1 : -1);
 }, { passive: true });
 window.addEventListener('keyup', (e) => {
@@ -1962,18 +2344,21 @@ function updateGame(dt) {
   // The camera position is what Lou's gaze tracks in his office upstairs.
   interior.update(dt, camera.position);
   silent.update(dt);
+  /* Room visibility BEFORE the light rig, so this frame's rig ranks its
+   * lights against this frame's visible rooms, not last frame's. */
+  updateRoomVisibility();
   updateLightRig(dt);
   /* The sets. A television repaints its canvas and re-uploads the texture,
    * which is not free, so a set that is switched off does nothing at all --
-   * `Tv.update` returns immediately when `on` is false, and the texture is
-   * only flagged when it has actually changed. */
+   * `Tv.update` returns immediately when `on` is false, it repaints on its
+   * own ~12 Hz cadence rather than every frame, and the texture is only
+   * flagged on frames it reports actually painting. */
   for (const tv of houseTvs) {
     if (!tv.on) {
       if (tv._glowLight && tv._glowLight.intensity !== 0) tv._glowLight.intensity = 0;
       continue;
     }
-    tv.update(dt);
-    tv._tex.needsUpdate = true;
+    if (tv.update(dt)) tv._tex.needsUpdate = true;
     if (tv._glowLight) {
       const g = tv.glow();
       tv._glowLight.color.setHex(g.colour);
@@ -1986,6 +2371,12 @@ function updateGame(dt) {
   /* The mission, if the house has a laboratory in it. It moves the beat on,
    * plays the writing, and drives the lab; it never moves the camera. */
   silentSquatch?.update(dt);
+  /* Then put back any state-gated one-shot zone this tick spent without its
+   * effect, and announce beat 11's second leg — see the notes on
+   * REARMABLE_MISSION_ZONES above. */
+  rearmSilentSquatchZones();
+  announceMissionLeg();
+  settleHeldHiddenWall();
   /* The house's own people: patrols walk, posts stand, and the barks fire off
    * proximity to the man who says them. */
   cast?.update(dt);
@@ -2062,6 +2453,10 @@ function teleport(x, y, z, yawDeg = 0) {
   running = true;
   menuEl.classList.add('hidden');
   player.update(1 / 60);
+  /* A teleport is followed by whatever the caller does next -- often a
+   * one-shot `perf.drawCalls()` render with no updateGame in between -- so
+   * the room-visibility mask must be true for the NEW pose immediately. */
+  updateRoomVisibility();
 }
 
 
@@ -2226,6 +2621,13 @@ function jumpToCheckpoint(id) {
   if (!running) beginTour();
   const mission = silentSquatch?.debug ?? null;
   if (cp.play && mission) {
+    /* The ladder below replays real mission verbs, so the mission must be
+     * running. Idempotent: `beginTour` has already started it unless this
+     * jump outran its awaited voice-bank load (the `?checkpoint=` URL path
+     * fires off a rAF while that await is still in flight). The lines the
+     * pump fast-forwards through advance in zero real time, so they race no
+     * recording either way. */
+    silentSquatch.mission.start();
     const DT = 1 / 30;
     const pump = (pred, limit = 400) => {
       for (let t = 0; t < limit; t += DT) {
@@ -2254,18 +2656,33 @@ function jumpToCheckpoint(id) {
   if (mansionPreview && wanted && CHECKPOINTS[wanted]) {
     /* After a frame, so the scene has finished building and the mission has
      * mounted; before that, `silentSquatch` is null and the ladder would run
-     * against nothing. */
-    requestAnimationFrame(() => jumpToCheckpoint(wanted));
+     * against nothing. And AFTER `beginTour()` has resolved, so the voice
+     * bank is decoded and the mission is started before the jump replays it
+     * -- jumping the moment the frame fired left `?checkpoint=arrival` (the
+     * one jump with no ladder) standing at the gate with no mission, no case
+     * and no opening line until the load caught up. */
+    /* And after the BASEMENT bank too, not just the start bank: every jump
+     * except `arrival` lands past the cellar boundary, and the ladder's
+     * landing beat speaks from that bank. */
+    requestAnimationFrame(() => beginTour()
+      .then(() => mansionBanks.whenNextBeat())
+      .then(() => jumpToCheckpoint(wanted)));
   }
 }
 
 window.mansion = {
+  /** The three-bank residency ledger — which slice of the soundscape has
+   * settled, for the verifier and the console. */
+  audioBanks: mansionBanks,
   campaign: {
     visit: mansionVisit,
     preview: mansionPreview,
     entry: mansionCampaignEntry,
     state: () => mansionCampaign.campaign?.state ?? null,
     rest: () => mansionCampaign.story?.restAtMansion?.() ?? { ok: false, reason: 'preview' },
+    /** The bed's wind-down ledger, for a check that wants to prove the gate. */
+    windDown: () => eveningWindDown(),
+    creditEveningBeat: (id) => creditEveningBeat(id),
     brief: () => useReturnBriefing(),
   },
   /* Handed out so a verifier can do real geometry (Box3 of a mesh, say)
@@ -2749,6 +3166,28 @@ window.mansion = {
   get framesRendered() { return framesRendered; },
   get running() { return running; },
   get paused() { return sharedPauseMenu.isPaused(); },
+  /**
+   * The room/portal visibility pass, inspectable and switchable. A verifier
+   * that teleports the player photographs whatever that pose could really
+   * see; one that wants to photograph a room from somewhere else calls
+   * `setEnabled(false)` first (or boots with `?novis=1`) and gets the whole
+   * house back, exactly as built.
+   */
+  visibility: {
+    get enabled() { return roomVisEnabled; },
+    setEnabled(on) {
+      roomVisEnabled = !!on;
+      updateRoomVisibility();
+    },
+    get mask() { return roomVisMask; },
+    names: roomVisibility.names,
+    roomCount: roomVisibility.names.length,
+    claimedCount: roomVisibility.claimedCount,
+    /** The rooms the current mask leaves out, by name -- debug reading only. */
+    get hiddenRooms() {
+      return roomVisibility.names.filter((_, i) => (roomVisMask & (1 << i)) === 0);
+    },
+  },
   /**
    * What ./perf.js took off the frame, so tools/verify-mansion.mjs can
    * assert the RULE (nothing indoors casts the moon's shadow; no material

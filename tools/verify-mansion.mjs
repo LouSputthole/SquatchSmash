@@ -849,14 +849,28 @@ try {
     };
   });
   const SUITE_Y = suite.room.floor;
-  /* HIS GATE IS THE DOOR, SO THIS READING HAS TO HAPPEN FIRST. Lil Tom Cruze
-   * holds on his cushion while the bookcase is shut and walks the moment it is
-   * not; taken after the press, "he is on his cushion" measures how fast the
-   * check ran rather than where the dog lives. */
+  /* Lil Tom Cruze's gate is the door. With the leaf open from boot (below) he
+   * has been walking his office round since the tour began, so this reading
+   * proves the body, not a resting spot — the cushion is simply his longest
+   * waypoint now, not a boot state. */
   const dogAtRest = await page.evaluate(() => window.mansion.suite.dog);
 
-  /* ---- 1. The bookcase is a bookcase until you use it. Squared up in the
-   * office alcove, hold W east and be stopped by it. */
+  /* ---- 0. The way up starts OPEN. Owner playtest, 2026-08-19: "make it so
+   * the way to his bedroom upstairs starts out as open — the bookcase door is
+   * open — that way the player can go up there more likely." The old default
+   * (shut until pressed) is exactly what the next two checks used to pin, so
+   * the boot state is asserted here and the shut-leaf mechanics are then
+   * tested from an explicitly staged shut state. */
+  const bootOpen = await page.evaluate(() => window.mansion.suite.stair.open);
+  check('the bookcase to the third floor starts the tour already open',
+    bootOpen === true, String(bootOpen));
+
+  /* ---- 1. Shut, the bookcase is a bookcase. Staged shut through the
+   * published debug verb (the same leaf, colliders and all), then squared up
+   * in the office alcove, hold W east and be stopped by it. The real E press
+   * is still what re-opens it in step 2. */
+  await page.evaluate(() => window.mansion.suite.openBookcase(false));
+  await settle(1.4);
   await teleport(5.2, UPPER_Y, 65.0, EAST);
   await settle(0.4);
   await walk(5);
@@ -1084,9 +1098,13 @@ try {
     const ok = window.mansion.suite.petDog();
     return { ok, state: window.mansion.suite.dog.state, pets: window.mansion.suite.dog.pets };
   });
-  check('Lil Tom Cruze is in the suite, on his cushion, and he is a real dog',
+  /* Not "on his cushion" any more: the bookcase starts the tour open (owner
+   * playtest, 2026-08-19), so his door-gate has been satisfied since boot and
+   * by the time this section runs he is legitimately anywhere on his
+   * cushion -> stair -> office round. The body and its registration are the
+   * boot contract; the route itself is proven by the walk check below. */
+  check('Lil Tom Cruze is mounted with a real petable body',
     dogAtRest && dogAtRest.meshes > 60
-      && Math.hypot(dogAtRest.x - suite.dogCushion.x, dogAtRest.z - suite.dogCushion.z) < 0.4
       && dogAtRest.registered === true,
     JSON.stringify(dogAtRest));
   check('...he walks his route once the bookcase is open, and he sits down to be petted',
@@ -1134,8 +1152,24 @@ try {
       camera: { x: m.camera.position.x, y: m.camera.position.y, z: m.camera.position.z },
     };
   });
+  /* The shipped reels are H.264 mp4s. Playwright's open-source Chromium
+   * ships without that decoder on some machines (canPlayType comes back
+   * empty and play() rejects NotSupportedError), and no amount of waiting
+   * wires a graph onto a video that cannot decode. The check is skipped
+   * with its reason on such a machine rather than timing out — it still
+   * runs everywhere the codec exists, the owner's machine included. */
+  const h264 = await page.evaluate(() => document.createElement('video')
+    .canPlayType('video/mp4; codecs="avc1.42E01E"'));
   let tvDistance = tvSetup;
-  if (!tvSetup.error) {
+  if (!tvSetup.error && !h264) {
+    await page.evaluate((restore) => {
+      const m = window.mansion;
+      m.teleport(restore.x, restore.y, restore.z, restore.yaw * 180 / Math.PI);
+      m.player.pitch = restore.pitch;
+      m.tick(0.1);
+    }, tvSetup.restore);
+  }
+  if (!tvSetup.error && h264) {
     await page.waitForFunction(() => {
       const tv = window.mansion.media.tvs.find((entry) => entry.id === 'master-suite');
       const graph = tv?.audioGraph;
@@ -1186,6 +1220,11 @@ try {
   const pointDistance = (a, b) => (a && b
     ? Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) : Infinity);
   const liveProfile = tvDistance.near?.graph?.panner;
+  if (!h264) {
+    check('a real Mansion video reel uses its live Panner/listener and becomes inaudible outside the room',
+      !tvSetup.error && /^REEL /.test(tvSetup.channel ?? ''),
+      'SKIPPED BODY: this Chromium has no H.264 decoder, so the reel cannot decode here; the channel wiring itself is still proven');
+  } else {
   check('a real Mansion video reel uses its live Panner/listener and becomes inaudible outside the room',
     !tvDistance.error
       && tvDistance.id === 'master-suite'
@@ -1211,6 +1250,7 @@ try {
       && tvDistance.far.graph.effectiveGain <= 0.02
       && tvDistance.near.graph.effectiveGain > tvDistance.far.graph.effectiveGain,
     JSON.stringify(tvDistance));
+  }
 
   /* CHANGING CHANNEL ON THE SUITE'S OWN SET, ON THE PLAYER'S OWN ACTIONS.
    *
@@ -1315,6 +1355,12 @@ try {
       { at: [-14.6, 44.4], note: 'round the end of the south couch to the wing arcade' },
       { at: [-20.0, 43.9], room: 'trophyHall', note: 'through the middle arch into the Great Includer hall' },
       { at: [-16.9, 50.0], note: 'up the east side of the hall, past the dais' },
+      /* The aisle case (A, z 50.9-52.1 on the east wall) narrows the walk to
+       * the slot between its face and the colonnade — a person sidesteps it,
+       * so the tour does too, through the gap west of the case and back to
+       * the wall once the dais flank opens the full aisle. */
+      { at: [-17.4, 50.6], note: 'sidestep west around the aisle case' },
+      { at: [-17.35, 52.4], note: 'through the slot between case and colonnade' },
       { at: [-16.9, 58.0], room: 'winterGarden', note: 'through the wing door into the winter garden' },
       { at: [-16.7, 70.4], note: 'up the winter garden to the dining doors' },
       { at: [-13.6, 70.8], room: 'dining', note: 'through the French doors into the dining room' },
@@ -1767,15 +1813,19 @@ try {
   const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
   const indexedFiles = new Set(soundIndex.files || []);
   const mansionCueLists = await page.evaluate(async () => {
-    const [weapons, silentSquatch, cast] = await Promise.all([
+    const [weapons, silentSquatch, cast, furniture] = await Promise.all([
       import('/src/core/weapons/audio.js'),
       import('/src/mansion/scenes/SilentSquatch.js'),
       import('/src/mansion/cast.js'),
+      import('/src/mansion/interaction-audio.js'),
     ]);
     return {
       weaponCueNames: weapons.weaponCueNames(),
       silentSquatchCueNames: silentSquatch.silentSquatchCueNames(),
       mansionCastCueNames: [...cast.MANSION_CAST_CUE_NAMES],
+      /* The furniture foley main.js preloads (chair.sit, bed.creak…);
+       * omitting it made four legitimately resident cues read unscoped. */
+      interactionCueNames: [...furniture.MANSION_INTERACTION_CUE_NAMES],
     };
   });
   const MANSION_CAST_CUE_NAMES = mansionCueLists.mansionCastCueNames;
@@ -1787,6 +1837,7 @@ try {
     ...mansionCueLists.weaponCueNames,
     ...mansionCueLists.silentSquatchCueNames,
     ...MANSION_CAST_CUE_NAMES,
+    ...mansionCueLists.interactionCueNames,
     ...mansionFixtureCueNames,
   ]);
   const mansionSelectedCues = soundManifest.sfx.filter((cue) => (
@@ -3272,7 +3323,12 @@ try {
   for (const leg of ROUTE) {
     const got = await walkTo(leg.at[0], leg.at[1], { steps: 34, tol: 0.9 });
     if (!got.ok) { routeFails.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
-    if (leg.note.includes('head of the flight')) stairTopGround = got.s.ground;
+    /* The cellar-floor sample comes from the landing, two metres of flat
+     * concrete from the stair lip. The head-of-flight leg's 0.9 m arrival
+     * tolerance can legally stop a step past the edge, one tread down —
+     * measured 1.8 cm outside the floor tolerance on a run whose walk and
+     * climb-out were both green. */
+    if (leg.note.includes('onto the concrete landing')) stairTopGround = got.s.ground;
     if (leg.room) {
       const r = lab.rooms[leg.room];
       if (!inside(r.rect, got.s, 0.2) || Math.abs(got.s.ground - r.floor) > 0.45) {
@@ -4014,13 +4070,19 @@ try {
       miscast.slice(0, 3).join(' | ') || `${authored.length} lines, every one on its speaker's profile`);
   }
 
-  /* ---- And the wall closes again, which is the exit. */
+  /* ---- And the wall closes again, which is the exit. FROM THE WINE-CELLAR
+   * SIDE: since the 2026-08-19 pass the composition root holds a close
+   * ordered while the player is still inside the hidden complex and seats
+   * the panel the moment he is through the doorway ("the wall closes behind
+   * him, never on him" — see main.js). The tour is standing in the lab from
+   * the checks above, so step out first, exactly like the man the wall is
+   * closing behind. */
+  await teleport(-13.6, BASEMENT_Y, 65.85, WEST);
   const closed = await page.evaluate(async () => {
     window.mansion.lab.hiddenWall.close();
     window.mansion.tick(9);
     return window.mansion.lab.hiddenWall.phase;
   });
-  await teleport(-13.6, BASEMENT_Y, 65.85, WEST);
   await settle(0.4);
   await walk(7);
   await settle(0.5);

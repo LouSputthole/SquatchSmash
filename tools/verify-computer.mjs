@@ -822,6 +822,89 @@ try {
     !state.seated && state.playerMode === 'walk' && state.campaignScene === 'apartment',
     JSON.stringify(state));
 
+  /* ---- A FRAMED APP THAT IS QUIT HAS TO STOP, NOT JUST GO AWAY ----
+   *
+   * Owner playtest, 2026-08-20: *"I still can't quit Doom on the computer, and
+   * the music volume is playing at full even after I get up from the desk."*
+   *
+   * Both of those were one defect. DOOM and SQUATCH SMASH run as real pages in
+   * an iframe on the monitor (`src/arcade/webapp.js`), and exiting hid the
+   * frame and left the page RUNNING. So the way out worked perfectly and was
+   * completely invisible: the desktop came back and the soundtrack carried on
+   * at full volume out of an iframe nobody could see, which from where the
+   * player is standing is a game that will not quit. Standing up went the same
+   * way, and so did switching the tower off — three doors onto one room.
+   *
+   * THE TWO APPS STOP DIFFERENTLY, ON PURPOSE, and this checks each on its own
+   * terms rather than flattening them:
+   *
+   *   SQUATCH SMASH is ours, served out of this repo, so `Campground.suspend()`
+   *     presses P inside it. The run is PAUSED and is still there when he sits
+   *     back down, which is the better answer and the reason that override
+   *     exists.
+   *   DOOM is cross-origin. There is no reaching into it and no styling that
+   *     silences it, so the frame is blanked. That costs the session, and it
+   *     is the right trade: the alternative on offer is not "keep your
+   *     progress", it is "keep your progress AND the music, everywhere, until
+   *     you quit the tab".
+   *
+   * LAST in this file deliberately. It leaves apps quit and frames blanked,
+   * and run any earlier it pulls the ground out from under the checks below
+   * it — which it did, on its first outing, by handing the cross-origin
+   * keyboard check a DOOM that was no longer there. */
+  const framedStop = await page.evaluate(async () => {
+    const os = window.__squatch.arcade;
+    const srcOf = (app) => app.overlay?.el?.getAttribute('src') ?? app.overlay?.el?.getAttribute('src') ?? null;
+    const playing = (app) => {
+      let state = null;
+      try { app.overlay?.withWindow?.((w) => { state = w.SQUATCH?.state ?? null; }); } catch { state = 'unreachable'; }
+      return state;
+    };
+    const out = {};
+    for (const id of ['smash', 'doom']) {
+      const app = os.apps.find((candidate) => candidate.id === id);
+      const sample = () => (id === 'doom' ? srcOf(app) : playing(app));
+      os.launch(app);
+      os.setSeated?.(true);
+      os.update(0.1);
+      const running = sample();
+      os.toDesktop();
+      os.update(0.1);
+      const afterQuit = sample();
+      os.launch(app);
+      os.setSeated?.(true);
+      os.update(0.1);
+      os.setSeated?.(false);
+      os.update(0.1);
+      const afterStandingUp = sample();
+      os.launch(app);
+      os.setSeated?.(true);
+      os.update(0.1);
+      os.powerOff();
+      os.update(0.1);
+      const afterPowerOff = sample();
+      out[id] = { running, afterQuit, afterStandingUp, afterPowerOff };
+    }
+    return out;
+  });
+  /* DOOM: the frame is blanked by all three doors out. Asserted on the SRC
+   * because that is the lever the fix turns and the thing a regression turns
+   * back off — not on any audio API, which cannot be read across origins. */
+  check('DOOM stops when it is quit, when you stand up, and when the tower goes off',
+    framedStop.doom.running !== 'about:blank'
+      && framedStop.doom.afterQuit === 'about:blank'
+      && framedStop.doom.afterStandingUp === 'about:blank'
+      && framedStop.doom.afterPowerOff === 'about:blank',
+    JSON.stringify(framedStop.doom));
+  /* SQUATCH SMASH: paused rather than binned, by every one of the same three.
+   * `null` is the campground sitting on its title screen, which is stopped as
+   * far as this is concerned; what must never come back is 'playing'. */
+  check('SQUATCH SMASH pauses rather than running on behind the desktop',
+    framedStop.smash.afterQuit !== 'playing'
+      && framedStop.smash.afterStandingUp !== 'playing'
+      && framedStop.smash.afterPowerOff !== 'playing',
+    JSON.stringify(framedStop.smash));
+
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
 } finally {
   await browser.close();

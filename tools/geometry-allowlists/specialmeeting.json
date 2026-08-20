@@ -1,0 +1,25 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "specialmeeting",
+  "entries": [],
+  "suppressionPolicy": [
+    {
+      "state": "kerb-arrived",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "kerb-waiting",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "spur",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    }
+  ]
+}

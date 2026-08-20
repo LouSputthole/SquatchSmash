@@ -47,6 +47,12 @@ const CAMPAIGN_PAGES = Object.freeze([
   },
   { id: 'cartel_palace', href: 'cartel-palace.html', entry: 'src/cartel-palace/main.js', source: 'src/cartel-palace/main.js' },
   {
+    id: 'special_meeting',
+    href: 'specialmeeting.html',
+    entry: 'src/specialmeeting/main.js',
+    source: 'src/specialmeeting/main.js',
+  },
+  {
     id: 'initiation',
     href: 'initiation.html',
     entry: 'src/initiation/main.js',
@@ -83,6 +89,7 @@ const SCENE_ID_TOKENS = Object.freeze({
   enola_squatch: 'ENOLA_SQUATCH',
   mansion_return: 'MANSION_RETURN',
   cartel_palace: 'CARTEL_PALACE',
+  special_meeting: 'SPECIAL_MEETING',
   initiation: 'INITIATION',
 });
 
@@ -116,7 +123,7 @@ test('every root HTML entry is classified as campaign content or a named tool', 
 });
 
 test('every playable campaign page has shared pause and recovery wiring or an explicit boundary', () => {
-  assert.equal(CAMPAIGN_PAGES.length, 18, 'update the authored campaign inventory intentionally');
+  assert.equal(CAMPAIGN_PAGES.length, 19, 'update the authored campaign inventory intentionally');
   assert.deepEqual(
     CAMPAIGN_PAGES.filter(({ protected: boundary }) => boundary).map(({ id }) => id),
     ['initiation'],

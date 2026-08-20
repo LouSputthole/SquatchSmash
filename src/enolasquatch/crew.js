@@ -30,6 +30,7 @@
  *    way `makeGuard`/`makeAssociate` figures are. Nobody else's photograph is
  *    borrowed for him — that is how a second identity gets minted by accident.
  */
+import * as THREE from 'three';
 import {
   fromWardrobe, makeFigure, setPose, nameTag, updateFigure, speak, walkTo,
 } from '../beefrun/npc.js';
@@ -62,31 +63,121 @@ const SEAT_DROP = 0.45;
 const SEAT_FORWARD = -0.1;
 
 /**
- * How far a seated man turns his head toward the man next to him.
+ * WHERE A SEATED MAN IS LOOKING.
  *
- * THE MISSING FACE (owner playtest, 2026-08-04: "I am much higher than capt
- * sasole. Thats okay, but his face is also missing.")
+ * Owner playtest, 2026-08-19: *"Head/eye tracking is broken: he stares hard to
+ * the right instead of engaging the player."*
  *
- * The photograph was never missing. `makeFigure` puts `assets/faces/sasole.png`
- * on material index 4 of the head box — the +Z face — because "the figure
- * faces +z" (see the head block in `../beefrun/npc.js`), and it loads
- * correctly: read back off the live scene it is a 715x1462 texture on the
- * right slot. The problem is geometry, not art. Sasole sat bolt upright
- * facing the windshield, 1.1 m to the pilot's right and half a metre BELOW
- * his eye line, so the only faces of that box the player could ever see from
- * the left seat were the ±X sides — and those are `wrap`, plain hair colour.
- * A man with a photograph for a face, pointed at the glass, is a man with no
- * face for everybody in the aeroplane.
+ * He did, and it was one line. `takeSeats()` used to write ONE fixed neck yaw
+ * (`HEAD_TURN_INBOARD`, 0.92 rad) into Captain Sasole's neck and never touch it
+ * again, on the reasoning that `updateFigure` skipped seated figures' look-at
+ * so a static value would hold for the whole flight. `updateFigure` no longer
+ * skips them — a seated man turns his neck and spills the rest into his torso
+ * (see its `lookAt` block) — but the static write was still there, and
+ * `crew.update()` passed `null` for the camera position once the crew were
+ * aboard, so the one figure the player spends the whole mission sitting beside
+ * was frozen at a bearing that was measurably wrong: the player's eye is 1.06 m
+ * to Sasole's +X and 0.10 m forward of him, which is 1.32 rad off his seat's
+ * own facing, and he was pinned at 0.92. Twenty-three degrees short, with no
+ * vertical component at all against an eye half a metre above his own — which
+ * from the left seat reads exactly as "staring hard past your shoulder".
  *
- * So the two men in the front seats turn their heads toward each other, which
- * is what two people flying an aeroplane together do anyway. `updateFigure`
- * only writes `neck.rotation.y` for figures whose pose is NOT 'sit' (see its
- * `lookAt` block), so a yaw set here on a seated figure stays put for the rest
- * of the flight and nothing has to run per frame to hold it.
+ * This replaces the frozen number with a gaze that is worth having: he looks at
+ * whoever he is talking to WHILE he is talking, holds it a beat afterwards the
+ * way people do, then breaks off to his own station — the panel, the glass, the
+ * chart — and glances back every few seconds. Nothing about that is expensive:
+ * it is one target vector a frame per man, handed to the look-at that already
+ * exists, plus the vertical the shared rig does not carry.
  *
- * Positive yaw turns the head toward +X, which is the pilot's side.
+ * This also subsumes the 2026-08-04 note it replaces ("his face is also
+ * missing"): that was the same defect one step earlier — a man with a
+ * photograph for a face pointed at the windshield shows the player the plain
+ * hair-coloured side of his skull. The frozen inboard yaw was the fix for it,
+ * and a live gaze is the same fix without the freeze.
+ *
+ * The numbers are the human ones. A held gaze past about six seconds is a
+ * stare; a break shorter than about two seconds is a twitch.
  */
-const HEAD_TURN_INBOARD = 0.92;
+const GAZE = Object.freeze({
+  /** Held on the player after his own line finishes. */
+  afterTalk: 1.4,
+  /** How long a natural break in eye contact lasts. */
+  breakMin: 2.6,
+  breakMax: 5.2,
+  /** How long an unprompted glance back at the player lasts. */
+  glanceMin: 1.3,
+  glanceMax: 2.6,
+  /** Neck pitch limits — a man in a seat does not crane. */
+  pitchDown: -0.34,
+  pitchUp: 0.42,
+});
+
+/**
+ * Where each seated man's eyes go when they are NOT on the player, in
+ * aeroplane-local metres. These are real places on this aeroplane: the
+ * windshield ahead of the flight deck, Irish's own chart, the bombsight in the
+ * nose, the empty sky behind the tail.
+ */
+const GAZE_STATION = Object.freeze({
+  sasole: new THREE.Vector3(-0.2, 1.5, 14.0),
+  irish: new THREE.Vector3(0.1, 0.45, 4.85),
+  numbskull: new THREE.Vector3(0, -1.4, 14.0),
+  shubes: new THREE.Vector3(0, 0.2, -34.0),
+});
+
+/**
+ * One frame of one seated man's gaze.
+ *
+ * Writes `f.lookAt` (a world point `updateFigure`'s own look-at block converts
+ * into the aeroplane's frame and damps the neck toward) and `f.gaze.pitch` (the
+ * vertical `updateFigure` has no concept of). Everything else — the damping,
+ * the seated torso spill, the sweep clamp — is the shared rig's, unchanged.
+ *
+ * @param {object} f      a seated crew figure carrying `f.gaze`
+ * @param {number} dt
+ * @param {THREE.Vector3} playerEye the player's camera position, in world space
+ * @param {?THREE.Object3D} airframe the aeroplane, so an away-station authored
+ *   in aeroplane-local metres lands where it was authored while it moves
+ */
+function aimGaze(f, dt, playerEye, airframe) {
+  const g = f.gaze;
+  g.hold -= dt;
+  /* A man looks at whoever he is talking to. `f.talk` is the shared rig's own
+   * countdown, set by `speak()` off the real recording, so this is the take
+   * driving the eyes rather than a clock guessing at them. */
+  if (f.talk > 0) {
+    g.onPlayer = true;
+    g.hold = Math.max(g.hold, GAZE.afterTalk);
+  } else if (g.hold <= 0) {
+    g.onPlayer = !g.onPlayer;
+    g.hold = g.onPlayer
+      ? GAZE.glanceMin + Math.random() * (GAZE.glanceMax - GAZE.glanceMin)
+      : GAZE.breakMin + Math.random() * (GAZE.breakMax - GAZE.breakMin);
+  }
+
+  if (!g.world) g.world = new THREE.Vector3();
+  if (g.onPlayer) {
+    g.world.copy(playerEye);
+  } else if (airframe) {
+    // The station is authored in aeroplane-local metres; the aeroplane moves.
+    airframe.updateWorldMatrix(true, false);
+    g.world.copy(g.station).applyMatrix4(airframe.matrixWorld);
+  } else {
+    g.world.copy(g.station);
+  }
+  f.lookAt = g.world;
+
+  /* Vertical. Measured from the neck joint the rotation actually happens at,
+   * not from the hips: the player's eye sits about half a metre above a seated
+   * man's, and a look-at with no pitch in it is the other half of "staring
+   * past your shoulder". */
+  if (!g.eye) g.eye = new THREE.Vector3();
+  f.neck.getWorldPosition(g.eye);
+  const dy = g.world.y - g.eye.y;
+  const flat = Math.hypot(g.world.x - g.eye.x, g.world.z - g.eye.z);
+  const want = Math.max(GAZE.pitchDown, Math.min(GAZE.pitchUp, Math.atan2(dy, Math.max(flat, 0.2))));
+  g.pitch += (want - g.pitch) * Math.min(1, dt * 4);
+}
 
 export function createCrew() {
   const sasole = makeFigure({
@@ -98,7 +189,32 @@ export function createCrew() {
     shades: true,
     hat: 'headset',
     face: 'assets/faces/sasole.png',
-    faceCrop: [0.08, 0.28, 0.84, 0.63],
+    /* THE NOSE. Owner playtest, 2026-08-19: *"His nose reads as a giant sphere
+     * stuck on his face."*
+     *
+     * It is not geometry. Nothing in this mission, in `makeFigure()`, or in the
+     * shared wardrobe ever builds a nose for this man: with `face:` set,
+     * `makeFigure()` puts ONE photograph on material index 4 of a 0.24 x 0.28
+     * head box and skips the procedural hair box and shades bar entirely. So
+     * the owner's own instinct in the note — "check this is not a bad morph or
+     * scale value rather than the geometry itself" — was right, and the bad
+     * scale value is this crop.
+     *
+     * `assets/faces/sasole.png` is 256 x 256. `faceTexture()` writes the crop
+     * straight into `offset`/`repeat`, and the old numbers asked for a 0.76 x
+     * 0.35 region — 195 x 90 pixels, a wide letterbox strip — stretched onto a
+     * nearly square face plate. That is a 2.5x VERTICAL stretch applied to the
+     * band of the photograph that happens to contain his sunglasses, nose and
+     * moustache, so the nose became a tall pale lobe filling the middle of his
+     * head: a sphere stuck on his face, exactly as reported. (The comments in
+     * this file and in `makeLou()` still described a 715 x 1462 portrait; the
+     * asset has been square for some time and the crop never followed it.)
+     *
+     * The new crop is square-ish — 0.76 x 0.76, 195 x 195 px onto a 0.24 x 0.28
+     * plate — and framed on the whole head: the backwards cap at the top, the
+     * chin at the bottom, both ears inside the width. The nose is then simply
+     * the size a nose is, because nothing is stretching it any more. */
+    faceCrop: [0.10, 0.16, 0.76, 0.76],
   });
   sasole.tag = nameTag('CAPT. LOU SASOLE', COLOUR.SASOLE);
   sasole.group.add(sasole.tag);
@@ -180,6 +296,61 @@ export function createCrew() {
     bySpeaker: { SASOLE: sasole, IRISH: irish, NUMBSKULL: numbskull, SHUBES: shubes },
   };
 
+  const sit = (f, parent, x, y, z, facing = 0) => {
+    setPose(f, 'sit');
+    f.walk = null;
+    f.lookAt = null;
+    parent.add(f.group);
+    f.group.position.set(x, y, z);
+    f.group.rotation.set(0, facing, 0);
+    /* The name tag comes OFF, not merely `visible = false`: the gaze below
+     * hands `updateFigure` a real camera position every frame from here on,
+     * and its tag block would switch a hidden tag back on the moment the
+     * player's head came within its fade radius — which, in a cockpit, is
+     * always. Nobody wants a floating caption inside the cabin they are
+     * sitting in. */
+    if (f.tag) {
+      f.tag.parent?.remove(f.tag);
+      f.tag.material?.map?.dispose?.();
+      f.tag.material?.dispose?.();
+      f.tag = null;
+    }
+    /* Gaze bookkeeping. `station` is where his eyes rest when they are not
+     * on anybody; `hold` counts the current state down. Everyone starts
+     * looking at the man who has just climbed in, which is what four men in
+     * an aeroplane do when a fifth arrives. */
+    f.gaze = {
+      station: GAZE_STATION[f.name === 'captain_lou_sasole' ? 'sasole' : f.name]
+        ?? GAZE_STATION.sasole,
+      onPlayer: true,
+      hold: GAZE.glanceMax,
+      pitch: 0,
+    };
+  };
+
+  /**
+   * Put the Shubenator in the tail turret, wherever he walked in from.
+   *
+   * Factored out of `takeSeats()` because he can now arrive by two routes and
+   * both must produce the same man in the same seat: the walk in
+   * `sendShubesAboard()`, and the everybody-in reparent when the player boards.
+   */
+  const seatRearGunner = () => {
+    const aircraft = crew.aircraft;
+    const mount = aircraft?.parts?.rearGunSeatMount;
+    if (!mount) return false;
+    /* The Shubenator, in the tail turret, facing aft. Use the same measured
+     * pan contact as every other seated crewman; the former extra 0.2 m drop
+     * drove his torso 120 mm through the cushion. His legs fold tighter below
+     * so the complete seated rig stays inside the turret glazing. */
+    sit(shubes, mount, 0, -SEAT_DROP, -0.25, Math.PI);
+    for (const leg of shubes.legs) {
+      leg.hip.rotation.x = -1.8;
+      leg.knee.rotation.x = 1.2;
+    }
+    return true;
+  };
+
   /**
    * Stand everybody around the parked aeroplane, in world space, at the
    * station each one is talking about during the walkaround:
@@ -227,30 +398,16 @@ export function createCrew() {
     crew.aboard = true;
     crew.aircraft = aircraft;
     const seats = aircraft.anchors.seats || {};
-    const sit = (f, parent, x, y, z, facing = 0, headYaw = 0) => {
-      setPose(f, 'sit');
-      f.walk = null;
-      f.lookAt = null;
-      parent.add(f.group);
-      f.group.position.set(x, y, z);
-      f.group.rotation.set(0, facing, 0);
-      /* See `HEAD_TURN_INBOARD`: `updateFigure` leaves a seated figure's neck
-       * yaw alone, so this survives the whole flight without a per-frame hook
-       * and without a second animation system. */
-      f.neck.rotation.y = headYaw;
-      // Nobody wants a floating name tag inside the cabin they are sitting in.
-      if (f.tag) f.tag.visible = false;
-    };
     /* Sasole, in the right-hand seat, turned toward the man flying — which is
      * the whole fix for "his face is missing". Keep the shared `SEAT_DROP`
      * contact datum: raising his whole rig to change apparent height left the
      * visible torso floating 120 mm above the pan. */
-    if (seats.copilot) sit(sasole, seats.copilot, 0.04, -SEAT_DROP, SEAT_FORWARD, 0.16, HEAD_TURN_INBOARD);
+    if (seats.copilot) sit(sasole, seats.copilot, 0.04, -SEAT_DROP, SEAT_FORWARD, 0.16);
     /* Irish faces his chart table, which the seat itself is already turned
      * toward — so his head only needs a nudge back up the cabin toward the
      * flight deck he is calling headings to. */
     if (seats.navigator) {
-      sit(irish, seats.navigator, 0, -SEAT_DROP, SEAT_FORWARD, 0, 0.5);
+      sit(irish, seats.navigator, 0, -SEAT_DROP, SEAT_FORWARD, 0);
       /* The stock sit pose hangs both hands below desk height. At this rotated
        * station that drove all four forearm/hand meshes through the table's
        * raised edge. Bring his elbows forward and up so he works over the
@@ -289,12 +446,81 @@ export function createCrew() {
      * pan contact as every other seated crewman; the former extra 0.2 m drop
      * drove his torso 120 mm through the cushion. His legs fold tighter below
      * so the complete seated rig stays inside the turret glazing. */
-    const gun = aircraft.parts.rearGunSeatMount;
-    sit(shubes, gun, 0, -SEAT_DROP, -0.25, Math.PI);
-    for (const leg of shubes.legs) {
-      leg.hip.rotation.x = -1.8;
-      leg.knee.rotation.x = 1.2;
+    /* He may already be in it: if he walked aboard during the walkaround
+     * (`sendShubesAboard()`) this is a no-op that puts him in exactly the same
+     * place, because both routes go through the one seating call. */
+    shubes.boarding = null;
+    seatRearGunner();
+  };
+
+  /**
+   * THE SHUBENATOR BOARDS THE AEROPLANE.
+   *
+   * Owner playtest, 2026-08-19: *"He must not just appear near the aircraft. He
+   * walks toward the plane, boards through the correct entrance, moves to his
+   * assigned seat, and stays visibly aboard."*
+   *
+   * He used to do exactly the thing that note forbids: he stood at the tail
+   * through the whole walkaround and then TELEPORTED into the turret inside
+   * `takeSeats()` at the instant the player climbed the ladder — which is the
+   * one man on this crew whose entire joke is that nobody saw him get on.
+   *
+   * The joke only works if you DO see him get on. So he walks it, and he walks
+   * it in three legs because an aeroplane is in the way of a straight line:
+   * out from under the tail to the port side, forward along the flank to the
+   * crew door, then through the door. That last leg is the one that ends: the
+   * moment he reaches the sill he is reparented into the airframe and put in
+   * the tail turret, which is the seat he was always going to be in and is now
+   * somewhere he demonstrably walked to rather than materialised in.
+   *
+   * Deliberately NOT a scripted cutscene, a camera move, or anything that can
+   * take the player's controls away: it is three `walkTo()` calls on the shared
+   * rig's own carrier, ticked by the same `crew.update()` that was already
+   * running, and if the player boards first `takeSeats()` simply seats him
+   * where he has got to. Nothing in here can stall the walkaround.
+   *
+   * @param {object} aircraft the EnolaSquatch
+   * @param {?function} onAboard called once, when he is actually inside
+   * @returns {boolean} false if he is already aboard or already walking
+   */
+  crew.sendShubesAboard = (aircraft, onAboard = null) => {
+    if (crew.aboard || shubes.boarding) return false;
+    const door = aircraft.anchors.crewDoor;
+    if (!door) return false;
+    crew.aircraft = aircraft;
+    aircraft.group.updateWorldMatrix(true, false);
+    /* The door in world space, and the two waypoints that keep him off the
+     * tailplane and the port mainwheel on the way to it. Both are struck in
+     * the aeroplane's own frame and then transformed, so a differently parked
+     * aeroplane moves the route with it. */
+    const at = (lx, ly, lz) => new THREE.Vector3(lx, ly, lz).applyMatrix4(aircraft.group.matrixWorld);
+    const sill = at(door.x - 1.1, 0, door.z);
+    const clearOfTail = at(door.x - 2.6, 0, door.z - 6.4);
+    shubes.boarding = {
+      legs: [clearOfTail, sill],
+      leg: 0,
+      onAboard,
+    };
+    walkTo(shubes, clearOfTail.x, clearOfTail.z, { speed: 1.35 });
+    return true;
+  };
+
+  /** One frame of the Shubenator's own walk to the door. */
+  const updateBoardingWalk = () => {
+    const b = shubes.boarding;
+    if (!b || crew.aboard) return;
+    if (shubes.walk) return;                       // still on this leg
+    b.leg += 1;
+    if (b.leg < b.legs.length) {
+      const next = b.legs[b.leg];
+      walkTo(shubes, next.x, next.z, { speed: 1.35 });
+      return;
     }
+    // Through the door. From here he is part of the aeroplane.
+    shubes.boarding = null;
+    shubes.aboardEarly = true;
+    seatRearGunner();
+    b.onAboard?.();
   };
 
   /**
@@ -302,15 +528,35 @@ export function createCrew() {
    * and, on the apron, who they are looking at.
    */
   crew.update = (dt, camPos = null) => {
+    if (shubes.boarding) updateBoardingWalk();
     for (const f of crew.all) {
-      updateFigure(f, dt, crew.aboard ? null : camPos);
+      /* `f.gaze` is set by `sit()` and by nothing else, so it is the honest
+       * "this man is aboard and strapped in" test — truer than `crew.aboard`
+       * now that the Shubenator can walk aboard on his own several minutes
+       * before anybody else does. */
+      const riding = !!f.gaze;
+      if (riding && camPos) aimGaze(f, dt, camPos, crew.aircraft?.group ?? null);
+      updateFigure(f, dt, riding ? null : camPos);
       /* Breathing belongs above the waist in a strapped-in aeroplane. The
        * shared block rig lifts the hips ±12 mm, which makes every boot and pan
        * alternately penetrate and hover. Hold the seated root at its authored
        * 0.52 m datum; neck/talk/face life continues independently. */
-      if (crew.aboard && f.pose === 'sit') f.hips.position.y = 0.52;
+      if (riding && f.pose === 'sit') f.hips.position.y = 0.52;
+      /* The vertical half of the look, which the shared rig does not carry:
+       * `updateFigure` only ever writes `neck.rotation.y` from a look-at and
+       * damps `neck.rotation.x` back to its talking idle. Applied AFTER it, so
+       * the talk bob still reads on top of a head that is aimed at the right
+       * height — the player's eye sits half a metre above Sasole's. */
+      /* MINUS, not plus. `rotation.x` is a right-handed rotation about +X, so a
+       * POSITIVE angle carries the figure's own +Z face toward -Y — i.e. a
+       * positive `rotation.x` looks DOWN. `gaze.pitch` is measured the human
+       * way (positive means the target is above the eye), so it is subtracted.
+       * Getting this backwards is worth 48 degrees on a man sitting next to a
+       * player whose eye is half a metre above his own, which is most of the
+       * "staring past your shoulder" read all by itself. */
+      if (riding) f.neck.rotation.x -= f.gaze.pitch;
     }
-    if (crew.aboard && crew.aircraft?.parts?.rearGunYoke) {
+    if (shubes.gaze && crew.aircraft?.parts?.rearGunYoke) {
       /* Shubes keeps hold of the reachable spade arc. These three measured
        * poses are continuous linear functions of the gun's real elevation;
        * interpolating through neutral gives the shoulder/elbow follow a human
@@ -354,7 +600,8 @@ export function createCrew() {
   /** Everybody looks at Tony while he is doing the walkaround. */
   crew.lookAt = (point) => {
     if (crew.aboard) return;
-    for (const f of crew.all) f.lookAt = point;
+    // Anyone already aboard has his own gaze and must not be overwritten.
+    for (const f of crew.all) if (!f.gaze) f.lookAt = point;
   };
 
   /** Send a man to a spot on the apron — used when Shubes is caught. */

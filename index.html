@@ -122,9 +122,25 @@
     <h1>SQUATCH<span>LIFE</span></h1>
     <p class="tag">Day One, 6:04 AM. You are a prospect. Lou will call when he is ready.</p>
     <button id="start-btn">Wake Up</button>
+    <section id="campaign-finale" class="campaign-finale-card hidden-hard"
+      role="dialog" aria-modal="true" aria-labelledby="campaign-finale-title" aria-hidden="true">
+      <div class="finale-recap">
+        <p class="finale-eyebrow">CAMPAIGN COMPLETE</p>
+        <h2 id="campaign-finale-title">Made.</h2>
+        <p id="campaign-finale-subtitle" class="finale-subtitle"></p>
+        <dl id="campaign-finale-stats" class="finale-stats"></dl>
+        <ul id="campaign-finale-highlights" class="finale-highlights"></ul>
+      </div>
+      <div class="finale-credits-window" aria-label="Credits">
+        <div id="campaign-finale-credits" class="finale-credits-track"></div>
+      </div>
+      <p id="campaign-finale-error" class="finale-error" role="alert" hidden></p>
+      <button id="campaign-freeplay-btn" type="button">Continue in Freeplay</button>
+    </section>
     <!-- Only revealed from the in-game pause card. It is deliberately a
          second confirmation: this clears story progress, not the separate
          Squatch Smash high score/career on Tony's computer. -->
+    <button id="view-career-recap-btn" class="campaign-reset hidden" type="button">View career recap</button>
     <button id="restart-campaign-btn" class="campaign-reset hidden" type="button">Restart campaign…</button>
     <div id="restart-campaign-confirm" class="campaign-reset-confirm hidden" role="alert">
       <p><strong>Start over from Day One?</strong><br>Story progress, inventory, calls, and mission checkpoints will be permanently replaced. Squatch Smash scores stay.</p>

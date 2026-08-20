@@ -44,11 +44,144 @@ export const MEETING_NOTICE = [
 ];
 
 /* ------------------------------------------------------------------ */
+/* The 97.8 news minute                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What the news desk knows about the campaign, which is never who did it.
+ *
+ * After each newsworthy job, the station's rotation picks up a straight-faced
+ * news segment about it -- a desk reporting a strange incident from the
+ * outside, with no idea the man listening is the story. Nobody is ever named:
+ * the desk has witnesses, and witnesses have only ever seen an unidentified
+ * large gentleman. Per the owner, only things that would actually make the
+ * news are here -- no golf, no Silver Room, nothing about Margo.
+ *
+ * `when` reads the durable campaign save and nothing else: each gate is a
+ * mission's own completed state, so a segment cannot air before its event, on
+ * any receiver, ever. The radio does the scheduling (see `_refill` in
+ * radio.js): a fresh segment airs soon after the player is back in the
+ * apartment, is marked heard through the shared bulletin history, and then
+ * settles into one low-frequency slot in the running order.
+ *
+ * The desk plays it dead straight -- see docs/TONE-AND-PARODY.md. The comedy
+ * is the wire's usual comedy: what officials will not say, said officially.
+ */
+export const NEWS_SEGMENTS = Object.freeze([
+  {
+    /* The Bada Bing incident night: a man gone after a closed party. */
+    id: 'news.segment.bing_night',
+    when: (state) => state?.missions?.bada_bing_two?.status === 'complete',
+    lines: [
+      'ANNOUNCER: The news at the top of the hour. Police are asking for information about a man reported missing after a private party at a nightclub on the east side.',
+      'ANNOUNCER: Guests describe a lively evening, a disagreement nobody saw, and a car park with one more car in it than there were owners to drive them home.',
+      'ANNOUNCER: Staff say the night was completely ordinary. They say it in the same words, in the same order, every time they are asked.',
+      'ANNOUNCER: Anyone with information is asked to come forward. So far nobody has any. Sport after the break.',
+    ],
+  },
+  {
+    /* The Jerky Motel: the county road, the cargo, the smell. */
+    id: 'news.segment.motel',
+    when: (state) => state?.missions?.jerky_motel?.status === 'complete',
+    lines: [
+      'ANNOUNCER: An update from the county road, where police spent the morning at a roadside motel and will not say why.',
+      'ANNOUNCER: Officers removed what one witness describes as boxes, and what a second witness describes as a lot of boxes.',
+      'ANNOUNCER: Rumors that the cargo was jerky remain unconfirmed. The smell, our reporter notes, does not.',
+      'ANNOUNCER: The motel says it is open for business. The county road is not.',
+    ],
+  },
+  {
+    /* NO WAKE: a boating accident on the lake, one missing. */
+    id: 'news.segment.lake',
+    when: (state) => state?.missions?.no_wake?.status === 'complete',
+    lines: [
+      'ANNOUNCER: From the lake — the search has been suspended after a boating incident left one man unaccounted for.',
+      'ANNOUNCER: The vessel returned to the marina with fewer passengers than it left with. The remaining passengers describe a calm and pleasant afternoon.',
+      'ANNOUNCER: Nobody on board recalls the missing man being on board, including the man who invited him.',
+      'ANNOUNCER: The lake has been asked for comment. The lake is calm.',
+    ],
+  },
+  {
+    /* THE TAKE: the big one. Brazen, daylight, and every hostage fine. */
+    id: 'news.segment.heist',
+    when: (state) => state?.missions?.bank_heist?.status === 'complete',
+    lines: [
+      'ANNOUNCER: Our top story remains the daylight robbery at Cumberland Fidelity, where an armed crew emptied the vault and shot their way out of downtown.',
+      'ANNOUNCER: Every hostage walked out unharmed. Several describe the gunmen as polite, professional, and considerably larger than the doors.',
+      'ANNOUNCER: Witnesses describe the man carrying the duffel bags as an unidentified large gentleman. Witnesses describe the other four the same way.',
+      'ANNOUNCER: Police have released a description. The description is: large. Further details as they refuse to develop.',
+      'ANNOUNCER: The bank reopens Monday. The vault, we are told, needs longer.',
+    ],
+  },
+  {
+    /* The mansion siege: an armed assault on a private estate, repelled. */
+    id: 'news.segment.estate',
+    when: (state) => state?.missions?.mansion_siege?.status === 'complete',
+    lines: [
+      'ANNOUNCER: Police have confirmed an armed assault overnight on a private estate outside the city, repelled before officers arrived.',
+      'ANNOUNCER: The homeowner, described as a retired businessman, declined to be interviewed, photographed, or approached.',
+      'ANNOUNCER: Neighbors report roughly twenty minutes of sustained gunfire, which the estate’s groundskeeper attributes to raccoons.',
+      'ANNOUNCER: No arrests have been made. No attackers could be located to arrest.',
+    ],
+  },
+  {
+    /* The Enola Squatch: somebody bombed a city and nobody knows who. */
+    id: 'news.segment.detonation',
+    when: (state) => state?.missions?.enola_squatch?.status === 'complete',
+    lines: [
+      'ANNOUNCER: International news. Authorities overseas are investigating a large unexplained detonation outside a coastal city late last night.',
+      'ANNOUNCER: Residents report a single aircraft, a very bright light, and a cloud one witness would only describe as historically shaped.',
+      'ANNOUNCER: Air-defense batteries were active for most of an hour. Officials confirm they hit nothing, and have asked us to emphasize that they were close.',
+      'ANNOUNCER: No group has claimed responsibility. Aviation records show no aircraft of that size registered to anybody sensible.',
+    ],
+  },
+  {
+    /* The cartel palace: a succession, reported at a careful distance. */
+    id: 'news.segment.compound',
+    when: (state) => state?.missions?.cartel_palace?.status === 'complete',
+    lines: [
+      'ANNOUNCER: Overseas again — officials are investigating an outbreak of violence at a fortified private compound south of the border.',
+      'ANNOUNCER: The compound belonged to a businessman described in the regional press as an agricultural exporter, with the quotation marks audible.',
+      'ANNOUNCER: Sources report a change of leadership in the local organization. The new leadership has not been named, located, or seen.',
+      'ANNOUNCER: Regional authorities have declared the matter internal, closed, and none of anyone’s business, in that order.',
+    ],
+  },
+  {
+    /* PROJECT SILENT SQUATCH, at the only distance the public gets: some
+     * scientists stopped answering their phones. Deliberately vague -- the
+     * night is a secret and the wire only has the edges of it. Gated on
+     * scientists actually being lost, because families only ring the station
+     * about people who did not come home. */
+    id: 'news.segment.scientists',
+    when: (state) => state?.missions?.silent_squatch?.status === 'complete'
+      && (state?.missions?.silent_squatch?.scientistsLost ?? 0) > 0,
+    lines: [
+      'ANNOUNCER: A strange one from the wire. The families of several research scientists say they have been unable to reach them for days.',
+      'ANNOUNCER: Their employer cannot be reached either. Calls to the listed number reach a man who says there is no listed number.',
+      'ANNOUNCER: The scientists were last seen leaving for a private contract at an undisclosed residence. That is the entire sentence we have been given.',
+      'ANNOUNCER: Police are not treating the matter as suspicious, on the grounds that they have not been told about it.',
+    ],
+  },
+].map((segment) => Object.freeze({ ...segment, lines: Object.freeze(segment.lines) })));
+
+/**
+ * The segments whose events have happened, in campaign order. Pure: reads the
+ * durable save it is handed and mutates nothing -- campaign state is the
+ * missions' to write. A gate that throws on a malformed save reports the
+ * segment ineligible rather than taking the station down with it.
+ */
+export function newsSegmentsFor(state) {
+  return NEWS_SEGMENTS.filter((segment) => {
+    try { return segment.when(state) === true; } catch { return false; }
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* 97.8 THE SQUATCH                                                    */
 /* ------------------------------------------------------------------ */
 
-/** The 60-second station commercial, beat by beat. */
-const COMMERCIAL = [
+/** The station's own promo, beat by beat. */
+const COMMERCIAL_STATION = [
   seg('…', 'radio.riff'),
   seg('Tired of boring radio stations that care about "facts" and "professionalism"?'),
   seg('Then tune your dial to 97.8… THE SQUATCH!', 'radio.airhorn'),
@@ -71,6 +204,75 @@ const COMMERCIAL = [
     + 'the building… and somehow they are.'),
   seg('Eat those pasture raised eggs folks!'),
   seg('97.8 THE SQUATCH. "If it’s on the air… it probably shouldn’t be."', 'radio.jingle'),
+];
+
+/** Lou's jerky, sold the way a family business sells anything. */
+const COMMERCIAL_JERKY = [
+  seg('…', 'radio.riff'),
+  seg('A word about LOU’S ORIGINAL JERKY.'),
+  seg('Three generations. One smokehouse. Same building on Route 9 since '
+    + 'nineteen fifty-one, and the same recipe, because nobody has ever been '
+    + 'allowed to write it down.'),
+  seg('Big Uncle Lou still comes in at four in the morning to check the racks '
+    + 'himself. Ask anybody. They’ll tell you. They’ll tell you quickly.'),
+  seg('No fillers. No additives. Nothing in it that wasn’t walking around this '
+    + 'county a week ago.'),
+  seg('LOU’S ORIGINAL JERKY. Available at fine retailers, and at several '
+    + 'retailers who have not been asked.'),
+  seg('Because family is everything.', 'radio.jingle'),
+];
+
+/** A criminal defence attorney's personal injury ad. */
+const COMMERCIAL_ATTORNEY = [
+  seg('…', 'radio.riff'),
+  seg('Have you been hurt? Have you hurt somebody? Either one. Call the number.'),
+  seg('I’m Vincent Marrow, and for twenty-two years I have stood beside the '
+    + 'people of this county at what I would describe as the worst moment of '
+    + 'their lives.'),
+  seg('Slip and fall. Dog bite. Boating accident with an unclear number of '
+    + 'people on the boat when it left and when it came back.'),
+  seg('I don’t judge. I have never judged. Judging is somebody else’s job in '
+    + 'that building and frankly they are not good at it either.'),
+  seg('No fee unless we win. No questions at all, ever, about anything, at any '
+    + 'point in our relationship.'),
+  seg('MARROW AND ASSOCIATES. There are no associates.'),
+  seg('Do not talk to anyone. Talk to me.', 'radio.jingle'),
+];
+
+/** A man screaming about financing, until he stops. */
+const COMMERCIAL_DEALERSHIP = [
+  seg('…', 'radio.airhorn'),
+  seg('SUNDAY! SUNDAY! SUNDAY! at BUDDY GRAVES AUTOMOTIVE on the Old Post Road!'),
+  seg('EVERY TRUCK ON THE LOT! EVERY CAR ON THE LOT! EVERY VEHICLE MY WIFE’S '
+    + 'BROTHER LEFT ON THE LOT!'),
+  seg('ZERO DOWN! ZERO INTEREST! ZERO CREDIT CHECK! ZERO PAPERWORK OF ANY KIND '
+    + 'THAT COULD LATER BE PRODUCED!'),
+  seg('WE WILL BEAT ANY PRICE! WE WILL BEAT ANY OFFER! WE HAVE BEATEN OFFERS '
+    + 'THAT WERE NEVER MADE!'),
+  seg('IF YOU CAN GET HERE, YOU CAN DRIVE HOME! IF YOU CANNOT GET HERE, WE WILL '
+    + 'COME AND GET YOU, AND WE HAVE.'),
+  seg('BUDDY GRAVES AUTOMOTIVE! OLD POST ROAD! SUNDAY!', 'radio.airhorn'),
+  seg('…'),
+  seg('Come down and see me. Please. Anybody. Come down and see me on Sunday.'),
+];
+
+/**
+ * The ad break rotates. One commercial on a loop is the tell that a radio
+ * station is scenery; four is a station that has advertisers, and the ad break
+ * is where this world gets to be as crude as it likes, because nobody in an
+ * advert is a character in a scene.
+ *
+ * `live` is what separates a written break from an aired one. Every break here
+ * is indexed and therefore queued for recording, but only a live one reaches
+ * the running order -- a break whose takes have not been delivered would air as
+ * silence, and NO WAKE in particular is gated on preloading nothing it cannot
+ * play. Flip `live` to true once the lines are in `assets/sfx/index.json`.
+ */
+const COMMERCIALS = [
+  { id: 'station', live: true, segments: COMMERCIAL_STATION },
+  { id: 'jerky', live: false, segments: COMMERCIAL_JERKY },
+  { id: 'attorney', live: false, segments: COMMERCIAL_ATTORNEY },
+  { id: 'dealership', live: false, segments: COMMERCIAL_DEALERSHIP },
 ];
 
 /**
@@ -592,7 +794,7 @@ export const STATIONS = [
     ident: 'radio.ident.squatch',
     shows: SQUATCH_SHOWS,
     overnight: OVERNIGHT,
-    commercial: COMMERCIAL,
+    commercials: COMMERCIALS,
     /** This station reads the community notice. */
     notices: true,
     /**
@@ -777,8 +979,20 @@ function buildVoiceIndex() {
     };
     for (const show of st.shows ?? []) walk(show);
     walk(st.overnight);
-    for (const seg of st.commercial ?? []) add(seg.line, 'announcer');
+    /* Every authored break is indexed, live or not: that is what puts an
+     * unrecorded ad on the booth sheet in the first place. */
+    for (const ad of st.commercials ?? []) {
+      for (const seg of ad.segments) add(seg.line, 'announcer');
+    }
     if (st.notices) for (const seg of MEETING_NOTICE) add(seg.line, 'announcer');
+    /* The news minute belongs to the station that reads the wire. Every
+     * segment is indexed whether or not its event has happened -- eligibility
+     * is a runtime question, the clip ledger is not. */
+    if (st.notices) {
+      for (const segment of NEWS_SEGMENTS) {
+        for (const line of segment.lines) add(line, 'announcer');
+      }
+    }
     for (const line of st.lines ?? []) add(line, 'announcer');
     /* A tape's own audio is a file somebody recorded, not something to
      * generate -- but the announcer topping and tailing it is a line like any

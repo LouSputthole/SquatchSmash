@@ -207,10 +207,26 @@ export function buildClub(scene, { renderer } = {}) {
     return dressed;
   }
 
-  function solid(minX, minZ, maxX, maxZ, minY = 0, maxY = 3) {
+  // GEOMETRY_GATE_FITTED_JOIN: wall, jamb, and fitted-range collision solids
+  // deliberately key into an adjoining face; the gate waives only exact pairs.
+  function solid(minX, minZ, maxX, maxZ, minY = 0, maxY = 3, assemblyId = null) {
     const b = collider([minX, minY, minZ], [maxX, maxY, maxZ]);
+    if (assemblyId) {
+      b.userData = { geometryGate: { assemblyId } };
+    }
     colliders.push(b);
     return b;
+  }
+
+  function markStructural(object, name) {
+    if (name) object.name = name;
+    object.userData.geometryGate = {
+      ...(object.userData.geometryGate ?? {}),
+      structural: true,
+      overlap: false,
+      checkWallEmbed: false,
+    };
+    return object;
   }
 
   function floor(r, material, surface, y = 0) {
@@ -218,6 +234,7 @@ export function buildClub(scene, { renderer } = {}) {
     m.rotation.x = -Math.PI / 2;
     m.position.set((r.x0 + r.x1) / 2, y, (r.z0 + r.z1) / 2);
     m.receiveShadow = true;
+    markStructural(m, `floor.${surface}`);
     add(m);
     floorZones.push({
       box: new THREE.Box3(new THREE.Vector3(r.x0, -1, r.z0), new THREE.Vector3(r.x1, 1, r.z1)),
@@ -230,16 +247,42 @@ export function buildClub(scene, { renderer } = {}) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(r.x1 - r.x0, r.z1 - r.z0), material);
     m.rotation.x = Math.PI / 2;
     m.position.set((r.x0 + r.x1) / 2, y, (r.z0 + r.z1) / 2);
+    markStructural(m, 'ceiling');
     add(m);
     return m;
+  }
+
+  function wallPanel(wallAxis, size, pos, material, name = 'club-wall-panel') {
+    const panel = box({
+      name,
+      size,
+      pos,
+      mat: material,
+    });
+    panel.userData.geometryGate = {
+      assemblyId: 'bing-club-walls',
+      wall: true,
+      wallAxis,
+    };
+    add(panel);
+    return panel;
   }
 
   /** Wall running along X or Z, with collision. */
   function wall(x0, z0, x1, z1, h, material, t = 0.18, y0 = 0) {
     const w = Math.max(Math.abs(x1 - x0), t);
     const d = Math.max(Math.abs(z1 - z0), t);
-    add(box({ size: [w, h, d], pos: [(x0 + x1) / 2, y0 + h / 2, (z0 + z1) / 2], mat: material }));
-    solid((x0 + x1) / 2 - w / 2, (z0 + z1) / 2 - d / 2, (x0 + x1) / 2 + w / 2, (z0 + z1) / 2 + d / 2, y0, y0 + h);
+    const wallAxis = Math.abs(x1 - x0) >= Math.abs(z1 - z0) ? 'z' : 'x';
+    wallPanel(wallAxis, [w, h, d], [(x0 + x1) / 2, y0 + h / 2, (z0 + z1) / 2], material);
+    solid(
+      (x0 + x1) / 2 - w / 2,
+      (z0 + z1) / 2 - d / 2,
+      (x0 + x1) / 2 + w / 2,
+      (z0 + z1) / 2 + d / 2,
+      y0,
+      y0 + h,
+      'bing-club-walls',
+    );
   }
 
   /** Wall with a doorway punched through it: two jambs and a lintel. */
@@ -247,11 +290,11 @@ export function buildClub(scene, { renderer } = {}) {
     if (axis === 'x') {
       wall(from, fixed, gapFrom, fixed, h, material, t);
       wall(gapTo, fixed, to, fixed, h, material, t);
-      add(box({ size: [gapTo - gapFrom, h - DOOR_H, t], pos: [(gapFrom + gapTo) / 2, DOOR_H + (h - DOOR_H) / 2, fixed], mat: material }));
+      wallPanel('z', [gapTo - gapFrom, h - DOOR_H, t], [(gapFrom + gapTo) / 2, DOOR_H + (h - DOOR_H) / 2, fixed], material);
     } else {
       wall(fixed, from, fixed, gapFrom, h, material, t);
       wall(fixed, gapTo, fixed, to, h, material, t);
-      add(box({ size: [t, h - DOOR_H, gapTo - gapFrom], pos: [fixed, DOOR_H + (h - DOOR_H) / 2, (gapFrom + gapTo) / 2], mat: material }));
+      wallPanel('x', [t, h - DOOR_H, gapTo - gapFrom], [fixed, DOOR_H + (h - DOOR_H) / 2, (gapFrom + gapTo) / 2], material);
     }
   }
 
@@ -262,6 +305,7 @@ export function buildClub(scene, { renderer } = {}) {
   function hangDoor(id, { axis, fixed, from, to, material = M_DARKWOOD, locked = false, label, swing = -1.9, hinge = 'low', alarmed = false, glass = false }) {
     const width = to - from;
     const pivot = new THREE.Group();
+    pivot.name = `door.${id}`;
     const leafMat = glass ? M_GLASS : material;
     const leaf = box({
       size: axis === 'x' ? [width, DOOR_H, 0.06] : [0.06, DOOR_H, width],
@@ -317,6 +361,7 @@ export function buildClub(scene, { renderer } = {}) {
     g.rotation.x = -Math.PI / 2;
     g.position.set(0, -0.01, 12);
     g.receiveShadow = true;
+    markStructural(g, 'exterior-asphalt');
     add(g);
     floorZones.push({
       box: new THREE.Box3(new THREE.Vector3(-130, -1, -118), new THREE.Vector3(130, 1, 142)),
@@ -329,12 +374,16 @@ export function buildClub(scene, { renderer } = {}) {
     const grass = new THREE.Mesh(new THREE.PlaneGeometry(260, 46), mat({ color: 0x1b2418, roughness: 1 }));
     grass.rotation.x = -Math.PI / 2;
     grass.position.set(0, 0.0, 78);
+    markStructural(grass, 'roadside-grass');
     add(grass);
 
-    add(box({ size: [260, 1.5, 10], pos: [0, 8.4, 92], mat: M_CONCRETE }));
+    const highway = group('elevated-highway');
+    highway.userData.geometryGate = { assemblyId: 'bing-exterior-highway' };
+    highway.add(box({ size: [260, 1.5, 10], pos: [0, 8.4, 92], mat: M_CONCRETE }));
     for (let x = -120; x <= 120; x += 20) {
-      add(cylinder({ r: 1.2, h: 8, pos: [x, 4, 92], mat: M_CONCRETE }));
+      highway.add(cylinder({ r: 1.2, h: 8, pos: [x, 4, 92], mat: M_CONCRETE }));
     }
+    add(highway);
     // Trucks on it all night, reduced to a pair of lights and a shape
     for (let i = 0; i < 7; i++) {
       const dir = i % 2 ? 1 : -1;
@@ -343,7 +392,12 @@ export function buildClub(scene, { renderer } = {}) {
         box({ size: [0.4, 0.3, 0.5], pos: [dir * 3.3, -1.1, 0.9], mat: lit(dir > 0 ? 0xfff0c0 : 0xff4a3a, 3) }),
         box({ size: [0.4, 0.3, 0.5], pos: [dir * 3.3, -1.1, -0.9], mat: lit(dir > 0 ? 0xfff0c0 : 0xff4a3a, 3) }),
       );
-      t.position.set(rand(-120, 120), 10.7, 92 + (i % 2 ? 2.6 : -2.6));
+      // Each carriageway gets fixed, well-separated slots plus a little
+      // authored jitter. Fully random X positions regularly spawned two
+      // six-metre trucks inside one another before the first update tick.
+      const laneIndex = Math.floor(i / 2);
+      const laneX = i % 2 ? -80 + laneIndex * 80 : -90 + laneIndex * 60;
+      t.position.set(laneX + rand(-6, 6), 10.75, 92 + (i % 2 ? 2.6 : -2.6));
       add(t);
       ticking.push((dt) => {
         t.position.x += dir * rand(15, 16) * dt;
@@ -356,12 +410,17 @@ export function buildClub(scene, { renderer } = {}) {
      * shed they belong to -- built loose in world space they ended up hanging
      * in the middle of the club, which is a good way to find out that `add()`
      * returns the object rather than positioning it. */
+    const warehouseSlots = Array.from({ length: 10 }, (_, index) => ({
+      x: -80 + (index % 5) * 40,
+      z: index < 5 ? -67 : -39,
+    }));
     for (let i = 0; i < 10; i++) {
       const w = rand(16, 30);
       const h = rand(6, 13);
       const d = rand(12, 22);
       const shed = group('warehouse',
         box({ size: [w, h, d], pos: [0, h / 2, 0], mat: mat({ color: pick([0x14141a, 0x1a1a22, 0x121218]), roughness: 1 }) }));
+      shed.userData.geometryGate = { assemblyId: `bing-exterior-warehouse-${i}` };
       for (let k = 0; k < 3; k++) {
         shed.add(box({
           size: [1.0, 0.8, 0.1],
@@ -369,14 +428,18 @@ export function buildClub(scene, { renderer } = {}) {
           mat: lit(pick([0xffd9a0, 0x9ab8d8]), 0.9),
         }));
       }
-      shed.position.set(rand(-100, 100), 0, rand(-75, -34));
+      const slot = warehouseSlots[i];
+      shed.position.set(slot.x + rand(-2, 2), 0, slot.z + rand(-1, 1));
       add(shed);
     }
     // Power lines along the lot's edge
     for (let i = 0; i < 8; i++) {
       const px = -84 + i * 24;
-      add(cylinder({ r: 0.18, h: 9, pos: [px, 4.5, 66], mat: M_WOOD }));
-      add(box({ size: [0.14, 0.14, 3.0], pos: [px, 8.3, 66], mat: M_WOOD }));
+      const pole = group('power-pole',
+        cylinder({ r: 0.18, h: 9, pos: [px, 4.5, 66], mat: M_WOOD }),
+        box({ size: [0.14, 0.14, 3.0], pos: [px, 8.3, 66], mat: M_WOOD }));
+      pole.userData.geometryGate = { assemblyId: `bing-exterior-power-pole-${i}` };
+      add(pole);
     }
   }
 
@@ -388,17 +451,33 @@ export function buildClub(scene, { renderer } = {}) {
   function shell(x0, z0, x1, z1) {
     const w = Math.max(Math.abs(x1 - x0), 0.4);
     const d = Math.max(Math.abs(z1 - z0), 0.4);
-    add(box({ size: [w, EXT_H, d], pos: [(x0 + x1) / 2, EXT_H / 2, (z0 + z1) / 2], mat: M_BRICK }));
-    solid((x0 + x1) / 2 - w / 2, (z0 + z1) / 2 - d / 2, (x0 + x1) / 2 + w / 2, (z0 + z1) / 2 + d / 2, 0, EXT_H);
+    const wallAxis = Math.abs(x1 - x0) >= Math.abs(z1 - z0) ? 'z' : 'x';
+    wallPanel(wallAxis, [w, EXT_H, d], [(x0 + x1) / 2, EXT_H / 2, (z0 + z1) / 2], M_BRICK);
+    solid(
+      (x0 + x1) / 2 - w / 2,
+      (z0 + z1) / 2 - d / 2,
+      (x0 + x1) / 2 + w / 2,
+      (z0 + z1) / 2 + d / 2,
+      0,
+      EXT_H,
+      'bing-club-walls',
+    );
   }
 
   shell(-21, -15, -21, 11);
   shell(21, -15, 21, 11);
   shell(-21, -15, 8.4, -15);
   shell(9.7, -15, 21, -15);
+  // The service doorway is a cut-out, not a six-metre slot in the rear wall.
+  // Close it above the 2.05 m leaf so the alarm has real masonry to mount to.
+  wallPanel('z', [1.3, EXT_H - DOOR_H, 0.4],
+    [9.05, DOOR_H + (EXT_H - DOOR_H) / 2, -15], M_BRICK, 'service-door-lintel');
+  solid(8.4, -15.2, 9.7, -14.8, DOOR_H, EXT_H, 'bing-club-walls');
   shell(-21, 11, -4, 11);
   shell(4, 11, 21, 11);
-  add(box({ size: [42.8, 0.4, 26.8], pos: [0, EXT_H + 0.2, -2], mat: mat({ color: 0x24211c, roughness: 1 }) }));
+  add(markStructural(
+    box({ size: [42.8, 0.4, 26.8], pos: [0, EXT_H + 0.2, -2], mat: mat({ color: 0x24211c, roughness: 1 }) }),
+    'club-roof'));
 
   // Roof plant nobody has serviced since the nineties
   for (const [rx, rz] of [[-8, -8], [6, -3], [-15, 3]]) {
@@ -413,27 +492,34 @@ export function buildClub(scene, { renderer } = {}) {
   shell(V.x0, V.z0, V.x0, V.z1);
   shell(V.x1, V.z0, V.x1, V.z1);
   wallGap('x', V.z1, V.x0, V.x1, -1.15, 1.15, 3.5, M_BRICK, 0.3);
-  add(box({ size: [8.6, 0.3, 4.8], pos: [0, 3.6, 13.2], mat: mat({ color: 0x24211c, roughness: 1 }) }));
+  add(markStructural(
+    box({ size: [8.6, 0.3, 4.8], pos: [0, 3.6, 13.2], mat: mat({ color: 0x24211c, roughness: 1 }) }),
+    'vestibule-roof'));
 
   {
-    add(box({ size: [9.6, 0.34, 3.4], pos: [0, 4.0, 16.8], mat: mat({ color: 0x4d1520, roughness: 0.8 }) }));
+    add(markStructural(box({ size: [9.6, 0.34, 3.4], pos: [0, 4.0, 16.8], mat: mat({ color: 0x4d1520, roughness: 0.8 }) }), 'entrance-canopy'));
     for (const sx of [-4.4, 4.4]) {
       add(cylinder({ r: 0.09, h: 4.0, pos: [sx, 2.0, 18.2], mat: M_BRASS }));
     }
     // Velvet rope on brass posts
+    const ropeLine = group('velvet-rope-line');
     for (let i = 0; i < 4; i++) {
       const x = -3.45 + i * 2.3;
-      add(cylinder({ r: 0.08, h: 1.0, pos: [x, 0.5, 18.9], mat: M_BRASS }));
-      add(sphere({ r: 0.09, pos: [x, 1.05, 18.9], mat: M_BRASS }));
+      ropeLine.add(cylinder({ r: 0.08, h: 1.0, pos: [x, 0.5, 18.9], mat: M_BRASS }));
+      ropeLine.add(sphere({ r: 0.09, pos: [x, 1.05, 18.9], mat: M_BRASS }));
       if (i < 3) {
-        add(cylinder({ r: 0.045, h: 2.3, pos: [x + 1.15, 0.84, 18.9], rotZ: Math.PI / 2, mat: mat({ color: 0x5e161f, roughness: 0.9 }) }));
+        ropeLine.add(cylinder({ r: 0.045, h: 2.3, pos: [x + 1.15, 0.84, 18.9], rotZ: Math.PI / 2, mat: mat({ color: 0x5e161f, roughness: 0.9 }) }));
       }
       solid(x - 0.12, 18.78, x + 0.12, 19.02, 0, 1.1);
     }
+    add(ropeLine);
     // The heater the bouncer stands under
-    add(cylinder({ r: 0.2, h: 1.9, pos: [3.7, 0.95, 17.5], mat: M_STEEL }));
-    const glow = cylinder({ r: 0.34, h: 0.55, pos: [3.7, 2.05, 17.5], mat: lit(0xff7a3a, 3.2) });
-    add(glow);
+    const heater = group('patio-heater',
+      cylinder({ r: 0.2, h: 1.9, pos: [3.7, 0.95, 17.5], mat: M_STEEL }),
+      cylinder({ r: 0.34, h: 0.55, pos: [3.7, 2.05, 17.5], mat: lit(0xff7a3a, 3.2) }),
+    );
+    heater.userData.geometryGate = { assemblyId: 'bing-patio-heater' };
+    add(heater);
     const doorSpill = new THREE.PointLight(0xffb070, 14, 10, 2);
     doorSpill.position.set(0, 2.2, 15.9);
     add(doorSpill);
@@ -445,39 +531,51 @@ export function buildClub(scene, { renderer } = {}) {
 
   // BADA BING, enormous, pink, and buzzing
   {
-    add(box({ size: [11.4, 2.8, 0.4], pos: [0, 5.5, 15.6], mat: mat({ color: 0x120a16, roughness: 1 }) }));
+    const frontSign = group('front-sign-fixture');
+    frontSign.userData.geometryGate = { assemblyId: 'bing-front-sign-fixture' };
+    frontSign.add(box({ size: [11.4, 2.8, 0.4], pos: [0, 5.5, 15.6], mat: mat({ color: 0x120a16, roughness: 1 }) }));
     const letters = sign(neonText('bada-bing', 'BADA BING'), 10.4, 2.2, { x: 0, y: 5.5, z: 15.85, emissive: 0xff3d8b, intensity: 3.4 });
-    add(letters);
+    letters.name = 'front-wall-light-neon';
+    frontSign.add(letters);
     const signLight = new THREE.PointLight(0xff3d8b, 55, 30, 2);
     signLight.position.set(0, 5.0, 17.4);
     add(signLight);
 
     // The dancer: a neon squatch in a bandana, mid-kick, wired up wrong
     const dancer = sign(neonSilhouette(), 1.9, 2.7, { x: 6.7, y: 5.5, z: 15.85, emissive: 0xff77c0, intensity: 3.0 });
-    add(dancer);
+    dancer.name = 'front-wall-light-dancer';
+    frontSign.add(dancer);
     const dancerLight = new THREE.PointLight(0xff77c0, 14, 14, 2);
     dancerLight.position.set(6.7, 5.5, 17);
     add(dancerLight);
     neon.push({ mesh: dancer, light: dancerLight, base: 14, next: rand(3, 8), on: true, kind: 'neon' });
 
-    add(sign(printed('world-famous', ['WORLD FAMOUS ENTERTAINMENT'], {
+    frontSign.add(sign(printed('world-famous', ['WORLD FAMOUS ENTERTAINMENT'], {
       w: 1024, h: 128, bg: '#231a29', fg: '#7d7086', font: '800 60px "Trebuchet MS", sans-serif',
     }), 5.4, 0.68, { x: 0, y: 3.2, z: 15.42 }));
+    add(frontSign);
   }
 
   /* ---- exits, cameras, the alley ---- */
   {
     // Employee side door and two fire exits, glowing red and going nowhere tonight
-    for (const [ex, ey, ez, ry] of [[21.06, 1.05, 6.5, Math.PI / 2], [-21.06, 1.05, -6, -Math.PI / 2]]) {
-      add(box({ size: [0.08, DOOR_H, 1.0], pos: [ex, ey, ez], mat: M_STEEL }));
-      add(sign(printed('exit', ['EXIT'], { w: 256, h: 96, bg: '#240606', fg: '#ff4a4a', font: '900 62px "Trebuchet MS", sans-serif' }),
-        0.8, 0.28, { x: ex + (ex > 0 ? -0.1 : 0.1), y: 2.5, z: ez, rotY: ry, emissive: 0xff2a2a, intensity: 2.4 }));
+    for (const [ex, ey, ez, ry] of [[20.66, 1.05, 6.5, Math.PI / 2], [-20.66, 1.05, -6, -Math.PI / 2]]) {
+      const side = ex > 0 ? 'east' : 'west';
+      const fixture = group(`side-exit-fixture-${side}`,
+        box({ name: `side-exit-door-${side}`, size: [0.08, DOOR_H, 1.0], pos: [ex, ey, ez], mat: M_STEEL }),
+        sign(printed('exit', ['EXIT'], { w: 256, h: 96, bg: '#240606', fg: '#ff4a4a', font: '900 62px "Trebuchet MS", sans-serif' }),
+          0.8, 0.28, { x: ex + (ex > 0 ? -0.1 : 0.1), y: 2.5, z: ez, rotY: ry, emissive: 0xff2a2a, intensity: 2.4 }),
+      );
+      fixture.userData.geometryGate = { assemblyId: `bing-side-exit-fixture-${side}` };
+      add(fixture);
     }
 
     // Dumpster enclosure down the delivery alley
+    const dumpsterEnclosure = group('dumpster-enclosure');
     for (const [dx, dz, w, d] of [[24, -8.6, 5.2, 0.24], [21.5, -7, 0.24, 3.4], [26.5, -7, 0.24, 3.4]]) {
-      add(box({ size: [w, 1.9, d], pos: [dx, 0.95, dz], mat: mat({ color: 0x33333a, roughness: 0.95 }) }));
+      dumpsterEnclosure.add(box({ size: [w, 1.9, d], pos: [dx, 0.95, dz], mat: mat({ color: 0x33333a, roughness: 0.95 }) }));
     }
+    add(dumpsterEnclosure);
     solid(21.4, -8.8, 26.6, -5.2, 0, 1.9);
     add(box({ size: [2.5, 1.25, 1.45], pos: [24, 0.62, -7.2], mat: mat({ color: 0x24402c, roughness: 0.9 }) }));
     add(box({ size: [2.55, 0.12, 1.5], pos: [24, 1.3, -7.2], mat: mat({ color: 0x1c3423, roughness: 0.9 }) }));
@@ -505,13 +603,20 @@ export function buildClub(scene, { renderer } = {}) {
     // Lamp posts: cones of sodium light, the only warm thing out here
     // Two of these are out in the middle of the bays, because a lot lit only
     // round the edges is a lot full of black shapes.
-    for (const [lx, lz] of [[-24, 21], [-24, 41], [17, 41], [26, 26], [0, 50], [-9, 30], [9, 30]]) {
-      add(cylinder({ r: 0.1, h: 6.6, pos: [lx, 3.3, lz], mat: M_STEEL }));
-      add(box({ size: [0.7, 0.16, 0.4], pos: [lx + 0.3, 6.6, lz], mat: M_STEEL }));
-      add(box({ size: [0.55, 0.08, 0.32], pos: [lx + 0.35, 6.5, lz], mat: lit(0xffd9a0, 2.6) }));
-      const l = new THREE.PointLight(0xffc98a, 42, 26, 2);
-      l.position.set(lx + 0.35, 6.4, lz);
-      add(l);
+    // Only the two mid-bay posts and the back one carry a real light --
+    // seven PointLights out here would swamp the forward renderer, and the
+    // edge posts read fine as emissive heads over the spill from these three.
+    for (const [lx, lz, real] of [[-24, 21], [-24, 41], [17, 41], [26, 26], [0, 50, 1], [-9, 30, 1], [9, 30, 1]]) {
+      const lampPost = group('parking-lamp-post',
+        cylinder({ r: 0.1, h: 6.6, pos: [lx, 3.3, lz], mat: M_STEEL }),
+        box({ size: [0.7, 0.16, 0.4], pos: [lx + 0.3, 6.6, lz], mat: M_STEEL }),
+        box({ size: [0.55, 0.08, 0.32], pos: [lx + 0.35, 6.5, lz], mat: lit(0xffd9a0, 2.6) }));
+      add(lampPost);
+      if (real) {
+        const l = new THREE.PointLight(0xffc98a, 42, 26, 2);
+        l.position.set(lx + 0.35, 6.4, lz);
+        add(l);
+      }
       solid(lx - 0.15, lz - 0.15, lx + 0.15, lz + 0.15, 0, 6.6);
     }
     // Drains, for the water to pretend to go somewhere
@@ -556,41 +661,30 @@ export function buildClub(scene, { renderer } = {}) {
      * inside it -- a skin buried in the wall it is skinning is just brick with
      * extra draw calls, which is exactly what the first pass shipped. */
     // West wall, behind the bar
-    add(box({ size: [0.08, 1.3, 22], pos: [-20.74, 0.65, 0], mat: dado }));
-    add(box({ size: [0.08, 3.2, 22], pos: [-20.74, 2.9, 0], mat: above }));
+    wallPanel('x', [0.08, 1.3, 22], [-20.74, 0.65, 0], dado);
+    wallPanel('x', [0.08, 3.2, 22], [-20.74, 2.9, 0], above);
     // Front wall, either side of the doors
     for (const [cx, w] of [[-11.6, 18.6], [3.3, 4.2]]) {
-      add(box({ size: [w, 1.3, 0.08], pos: [cx, 0.65, 10.84], mat: dado }));
-      add(box({ size: [w, 3.2, 0.08], pos: [cx, 2.9, 10.84], mat: above }));
+      wallPanel('z', [w, 1.3, 0.08], [cx, 0.65, 10.84], dado);
+      wallPanel('z', [w, 3.2, 0.08], [cx, 2.9, 10.84], above);
     }
     // The vestibule, which is small enough that its walls are most of it.
     // The front skin has to repeat the real doorway cut-out. The original
     // single 7.4 m panel covered the opening even after the physical door had
     // swung away, so from the lot an open door revealed an opaque wall.
     for (const [vx, vz, vw, vd] of [[-3.74, 13.2, 0.06, 4.4], [3.74, 13.2, 0.06, 4.4]]) {
-      add(box({ size: [vw, 1.3, vd], pos: [vx, 0.65, vz], mat: dado }));
-      add(box({ size: [vw, 1.9, vd], pos: [vx, 2.25, vz], mat: above }));
+      wallPanel('x', [vw, 1.3, vd], [vx, 0.65, vz], dado);
+      wallPanel('x', [vw, 1.9, vd], [vx, 2.25, vz], above);
     }
     for (const [name, vx] of [['left', -2.425], ['right', 2.425]]) {
-      add(box({
-        name: `vestibule.front-skin.${name}.dado`,
-        size: [2.55, 1.3, 0.06],
-        pos: [vx, 0.65, 15.18],
-        mat: dado,
-      }));
-      add(box({
-        name: `vestibule.front-skin.${name}.upper`,
-        size: [2.55, 1.9, 0.06],
-        pos: [vx, 2.25, 15.18],
-        mat: above,
-      }));
+      wallPanel('z', [2.55, 1.3, 0.06], [vx, 0.65, 15.18], dado,
+        `vestibule.front-skin.${name}.dado`);
+      wallPanel('z', [2.55, 1.9, 0.06], [vx, 2.25, 15.18], above,
+        `vestibule.front-skin.${name}.upper`);
     }
-    add(box({
-      name: 'vestibule.front-skin.lintel',
-      size: [2.3, 3.2 - DOOR_H, 0.06],
-      pos: [0, DOOR_H + (3.2 - DOOR_H) / 2, 15.18],
-      mat: above,
-    }));
+    wallPanel('z', [2.3, 3.2 - DOOR_H, 0.06],
+      [0, DOOR_H + (3.2 - DOOR_H) / 2, 15.18], above,
+      'vestibule.front-skin.lintel');
   }
 
   const H = ROOMS.hallway;
@@ -641,6 +735,10 @@ export function buildClub(scene, { renderer } = {}) {
    */
   {
     const gx = 7.8;                       // the hallway wall's own plane
+    const glazing = group('lou-office-glazing');
+    // These frames and panes fill the wall opening; they are joinery in the
+    // same collision union, not furniture intersecting the partition.
+    glazing.userData.geometryGate = { assemblyId: 'bing-club-walls' };
     const panes = [];
     const frameMat = M_WOOD;
     const glaze = (z0, z1, y0, y1, tag) => {
@@ -656,19 +754,20 @@ export function buildClub(scene, { renderer } = {}) {
       });
       pane.castShadow = false;
       pane.receiveShadow = false;
-      add(pane);
+      glazing.add(pane);
       panes.push(pane);
-      add(box({ size: [0.075, h, 0.05], pos: [gx, cy, z0 + 0.025], mat: frameMat }));
-      add(box({ size: [0.075, h, 0.05], pos: [gx, cy, z1 - 0.025], mat: frameMat }));
-      add(box({ size: [0.075, 0.05, w], pos: [gx, y0 + 0.025, cz], mat: frameMat }));
-      add(box({ size: [0.075, 0.05, w], pos: [gx, y1 - 0.025, cz], mat: frameMat }));
+      glazing.add(box({ size: [0.075, h, 0.05], pos: [gx, cy, z0 + 0.025], mat: frameMat }));
+      glazing.add(box({ size: [0.075, h, 0.05], pos: [gx, cy, z1 - 0.025], mat: frameMat }));
+      glazing.add(box({ size: [0.075, 0.05, w], pos: [gx, y0 + 0.025, cz], mat: frameMat }));
+      glazing.add(box({ size: [0.075, 0.05, w], pos: [gx, y1 - 0.025, cz], mat: frameMat }));
       // A glazing bar across the middle, so it reads as joinery not a hole
-      add(box({ size: [0.06, 0.035, w - 0.1], pos: [gx, cy, cz], mat: frameMat }));
-      solid(gx - 0.05, z0, gx + 0.05, z1, y0, y1);
+      glazing.add(box({ size: [0.06, 0.035, w - 0.1], pos: [gx, cy, cz], mat: frameMat }));
+      solid(gx - 0.05, z0, gx + 0.05, z1, y0, y1, 'bing-club-walls');
     };
     glaze(-8.02, -7.58, 0.0, DOOR_H, 'south');
     glaze(-6.52, -5.98, 0.0, DOOR_H, 'north');
     glaze(-8.02, -5.98, DOOR_H, CEIL_BACK, 'transom');
+    add(glazing);
     doors.lou.glass = panes;
   }
 
@@ -677,14 +776,28 @@ export function buildClub(scene, { renderer } = {}) {
   /* ================================================================== */
   {
     add(box({ size: [2.2, 1.05, 0.7], pos: [-2.6, 0.53, 13.2], mat: M_PANEL }));
-    add(box({ size: [2.35, 0.08, 0.82], pos: [-2.6, 1.09, 13.2], mat: M_DARKWOOD }));
+    add(box({ size: [2.2, 0.08, 0.82], pos: [-2.6, 1.09, 13.2], mat: M_DARKWOOD }));
     solid(-3.75, 12.82, -1.45, 13.6, 0, 1.1);
-    add(box({ size: [0.36, 0.28, 0.32], pos: [-2.0, 1.26, 13.2], mat: mat({ color: 0x2e2e36, roughness: 0.6 }) }));
-    add(box({ size: [0.2, 0.1, 0.02], pos: [-2.0, 1.36, 13.37], mat: lit(0x2affc8, 2) }));
-    for (let i = 0; i < 6; i++) {
-      add(box({ size: [0.13, 0.75, 0.34], pos: [-3.4 + i * 0.26, 2.0, 12.85], mat: mat({ color: pick([0x22222a, 0x2e211c, 0x1c222c]), roughness: 0.9 }) }));
+    const coatCheckRegister = [
+      box({ size: [0.36, 0.28, 0.32], pos: [-2.0, 1.26, 13.2], mat: mat({ color: 0x2e2e36, roughness: 0.6 }) }),
+      box({ size: [0.2, 0.1, 0.02], pos: [-2.0, 1.36, 13.37], mat: lit(0x2affc8, 2) }),
+    ];
+    for (const part of coatCheckRegister) {
+      part.userData.geometryGate = { assemblyId: 'bing-coat-check-register' };
+      add(part);
     }
-    add(cylinder({ r: 0.02, h: 2.4, pos: [-2.6, 2.4, 12.85], rotZ: Math.PI / 2, mat: M_CHROME }));
+    const coatHanging = group('coat-check-hanging');
+    coatHanging.userData.geometryGate = { assemblyId: 'bing-coat-check-hanging' };
+    for (let i = 0; i < 6; i++) {
+      coatHanging.add(box({ size: [0.13, 0.75, 0.34], pos: [-3.4 + i * 0.26, 2.0, 12.85], mat: mat({ color: pick([0x22222a, 0x2e211c, 0x1c222c]), roughness: 0.9 }) }));
+    }
+    coatHanging.add(cylinder({ r: 0.02, h: 2.2, pos: [-2.6, 2.4, 12.85], rotZ: Math.PI / 2, mat: M_CHROME }));
+    // Two rods carry the rail into the vestibule ceiling. They make the visual
+    // promise match the physical one and keep the whole rack auditable.
+    for (const x of [-3.55, -1.65]) {
+      coatHanging.add(cylinder({ r: 0.012, h: 0.9, pos: [x, 2.85, 12.85], mat: M_CHROME }));
+    }
+    add(coatHanging);
 
     // Velvet, either side of the inner doors, hanging against the wall's
     // vestibule face (z 11.09) rather than a hand's width off it
@@ -703,11 +816,14 @@ export function buildClub(scene, { renderer } = {}) {
     }
 
     // A metal detector that may or may not work
+    const metalDetector = group('entrance-metal-detector');
+    metalDetector.userData.geometryGate = { assemblyId: 'bing-entrance-metal-detector' };
     for (const sx of [-1.0, 1.0]) {
-      add(box({ size: [0.18, 2.0, 0.32], pos: [sx, 1.0, 12.2], mat: mat({ color: 0x2a2a32, roughness: 0.8 }) }));
+      metalDetector.add(box({ size: [0.18, 2.0, 0.32], pos: [sx, 1.0, 12.2], mat: mat({ color: 0x2a2a32, roughness: 0.8 }) }));
       solid(sx - 0.1, 12.05, sx + 0.1, 12.35, 0, 2.0);
     }
-    add(box({ size: [2.2, 0.18, 0.32], pos: [0, 2.05, 12.2], mat: mat({ color: 0x2a2a32, roughness: 0.8 }) }));
+    metalDetector.add(box({ size: [2.2, 0.18, 0.32], pos: [0, 2.05, 12.2], mat: mat({ color: 0x2a2a32, roughness: 0.8 }) }));
+    add(metalDetector);
 
     // Printed notices sit ON the front skin (face z 15.15), not a step out
     // from it: half a centimetre proud is a sticker, thirty is a seance.
@@ -721,7 +837,7 @@ export function buildClub(scene, { renderer } = {}) {
      * shell's brick, which read from the room as pictures adrift in a wall. */
     for (let i = 0; i < 4; i++) {
       add(makeFrame(M, {
-        x: -3.674, y: 2.15, z: 11.9 + i * 0.72, rotY: Math.PI / 2, w: 0.42, h: 0.54,
+        x: -3.674, y: 2.15, z: 11.75 + i * 0.72, rotY: Math.PI / 2, w: 0.42, h: 0.54,
         /* The wall of stars, and the star is the house's own mark rather
        * than a typographic asterisk: the same drawSquatchSilhouette every
        * poster, cabinet and tail fin in the game draws. */
@@ -745,7 +861,7 @@ export function buildClub(scene, { renderer } = {}) {
   /* C. The stage                                                        */
   /* ================================================================== */
   {
-    const stage = new THREE.Group();
+    const stage = group('stage');
     /* The main platform is a plain slab. The old extruded arc pointed its
      * cap backwards through the club wall and rode a storey above groundAt,
      * burying the performers to the waist; the round thrust the room sees is
@@ -789,25 +905,65 @@ export function buildClub(scene, { renderer } = {}) {
     navBlockers.push(collider([-13.0, 0, -1.8], [-11.0, STAGE_H, 0.2]));
 
     anchors.poles = [];
-    for (const px of [-15, -12, -9]) {
-      add(cylinder({ r: 0.055, h: CEIL_MAIN, pos: [px, CEIL_MAIN / 2, -8.4], mat: M_CHROME }));
+    for (const [index, px] of [-15, -12, -9].entries()) {
+      const pole = group('stage-pole',
+        cylinder({ r: 0.055, h: CEIL_MAIN, pos: [px, CEIL_MAIN / 2, -8.4], mat: M_CHROME }));
+      pole.userData.geometryGate = { assemblyId: `bing-stage-pole-${index}` };
+      add(pole);
       anchors.poles.push(new THREE.Vector3(px, STAGE_H, -8.4));
     }
     anchors.runway = new THREE.Vector3(-12, STAGE_H, -2.9);
     anchors.stageFront = new THREE.Vector3(-12, 0, -2.2);
 
     // Rigging, speaker stacks, mirrored panels, a disco ball doing its best
-    add(box({ size: [11, 0.16, 0.16], pos: [-12, CEIL_MAIN - 0.25, -9.6], mat: mat({ color: 0x101014, roughness: 1 }) }));
-    add(box({ size: [11, 0.16, 0.16], pos: [-12, CEIL_MAIN - 0.25, -4.4], mat: mat({ color: 0x101014, roughness: 1 }) }));
-    for (const sx of [-16.4, -7.6]) {
-      add(box({ size: [0.75, 1.6, 0.65], pos: [sx, CEIL_MAIN - 1.1, -7.2], mat: mat({ color: 0x101014, roughness: 0.9 }) }));
+    const rigging = group('stage-ceiling-rigging');
+    const mountRigPart = (object, assemblyId) => {
+      object.userData.geometryGate = { assemblyId };
+      rigging.add(object);
+      return object;
+    };
+    for (const [index, z] of [-9.6, -4.4].entries()) {
+      const assemblyId = `bing-stage-truss-${index}`;
+      mountRigPart(box({
+        size: [11, 0.16, 0.16], pos: [-12, CEIL_MAIN - 0.25, z],
+        mat: mat({ color: 0x101014, roughness: 1 }),
+      }), assemblyId);
+      for (const x of [-16.4, -7.6]) {
+        mountRigPart(cylinder({
+          r: 0.025, h: 0.17, pos: [x, CEIL_MAIN - 0.085, z], mat: M_STEEL,
+        }), assemblyId);
+      }
     }
-    const ball = sphere({ r: 0.42, pos: [-12, CEIL_MAIN - 0.95, -6.0], mat: mat({ color: 0xc8cede, roughness: 0.12, metalness: 1 }) });
-    add(ball);
+    for (const [index, sx] of [-16.4, -7.6].entries()) {
+      const assemblyId = `bing-stage-speaker-${index}`;
+      mountRigPart(box({
+        size: [0.75, 1.6, 0.65], pos: [sx, CEIL_MAIN - 1.1, -7.2],
+        mat: mat({ color: 0x101014, roughness: 0.9 }),
+      }), assemblyId);
+      mountRigPart(cylinder({
+        r: 0.025, h: 0.3, pos: [sx, CEIL_MAIN - 0.15, -7.2], mat: M_STEEL,
+      }), assemblyId);
+    }
+    const ball = mountRigPart(sphere({
+      r: 0.42, pos: [-12, CEIL_MAIN - 0.95, -6.0],
+      mat: mat({ color: 0xc8cede, roughness: 0.12, metalness: 1 }),
+    }), 'bing-stage-disco-ball');
+    mountRigPart(cylinder({
+      r: 0.02, h: 0.53, pos: [-12, CEIL_MAIN - 0.265, -6.0], mat: M_STEEL,
+    }), 'bing-stage-disco-ball');
     ticking.push((dt) => { ball.rotation.y += dt * 0.8; });
     for (let i = 0; i < 8; i++) {
-      add(box({ size: [0.5, 0.9, 0.04], pos: [-16.5 + i * 1.3, 3.5, -10.82], mat: mat({ color: 0x8a94a8, roughness: 0.15, metalness: 0.9 }) }));
+      const x = -16.5 + i * 1.3;
+      const assemblyId = `bing-stage-mirror-${i}`;
+      mountRigPart(box({
+        size: [0.5, 0.9, 0.04], pos: [x, 3.5, -10.82],
+        mat: mat({ color: 0x8a94a8, roughness: 0.15, metalness: 0.9 }),
+      }), assemblyId);
+      mountRigPart(cylinder({
+        r: 0.012, h: 0.55, pos: [x, CEIL_MAIN - 0.275, -10.82], mat: M_STEEL,
+      }), assemblyId);
     }
+    add(rigging);
 
     // Two spots that sweep the stage, plus a wash that changes colour
     const spots = [];
@@ -847,21 +1003,32 @@ export function buildClub(scene, { renderer } = {}) {
     const z0 = -3.5;
     const z1 = 8.5;
     const cx = -19.4;
-    add(box({ size: [0.78, 1.05, z1 - z0], pos: [cx, 0.53, (z0 + z1) / 2], mat: M_PANEL }));
-    add(box({ size: [0.98, 0.09, z1 - z0], pos: [cx, 1.1, (z0 + z1) / 2], mat: mat({ color: 0x14100f, roughness: 0.2, metalness: 0.15 }) }));
-    solid(cx - 0.52, z0, cx + 0.42, z1, 0, 1.15);
-    add(cylinder({ r: 0.05, h: z1 - z0, pos: [cx + 0.52, 0.2, (z0 + z1) / 2], rotX: Math.PI / 2, mat: M_BRASS }));
+    const barCounterAssembly = 'bing-bar-counter';
+    const frontBar = [
+      box({ size: [0.78, 1.05, z1 - z0], pos: [cx, 0.53, (z0 + z1) / 2], mat: M_PANEL }),
+      box({ size: [0.98, 0.09, z1 - z0], pos: [cx, 1.1, (z0 + z1) / 2], mat: mat({ color: 0x14100f, roughness: 0.2, metalness: 0.15 }) }),
+      cylinder({ r: 0.05, h: z1 - z0, pos: [cx + 0.52, 0.2, (z0 + z1) / 2], rotX: Math.PI / 2, mat: M_BRASS }),
+    ];
+    for (const part of frontBar) {
+      part.userData.geometryGate = { assemblyId: barCounterAssembly };
+      add(part);
+    }
+    solid(cx - 0.52, z0, cx + 0.42, z1, 0, 1.15, barCounterAssembly);
 
-    add(box({ size: [0.5, 1.0, z1 - z0], pos: [-20.6, 0.5, (z0 + z1) / 2], mat: M_DARKWOOD }));
-    solid(-20.9, z0, -20.3, z1, 0, 1.0);
+    add(box({ size: [0.5, 1.0, z1 - z0], pos: [-20.44, 0.5, (z0 + z1) / 2], mat: M_DARKWOOD }));
+    solid(-20.69, z0, -20.19, z1, 0, 1.0);
     // The mirror behind the bottles: dark, and honest about the room
-    add(box({ size: [0.05, 2.2, z1 - z0 - 0.4], pos: [-20.86, 2.1, (z0 + z1) / 2], mat: mat({ color: 0x2a2530, roughness: 0.1, metalness: 0.9 }) }));
+    // Leave deliberate openings for the clock and suspended television
+    // instead of burying both fixtures in one uninterrupted mirror slab.
+    for (const [mirrorZ, mirrorDepth] of [[-2.15, 2.3], [4.05, 8.5]]) {
+      add(box({ size: [0.05, 2.2, mirrorDepth], pos: [-20.67, 2.1, mirrorZ], mat: mat({ color: 0x2a2530, roughness: 0.1, metalness: 0.9 }) }));
+    }
 
     for (let s = 0; s < 3; s++) {
-      add(box({ size: [0.34, 0.05, z1 - z0 - 0.6], pos: [-20.64, 1.24 + s * 0.52, (z0 + z1) / 2], mat: M_DARKWOOD }));
+      add(box({ size: [0.34, 0.05, z1 - z0 - 0.6], pos: [-20.50, 1.24 + s * 0.52, (z0 + z1) / 2], mat: M_DARKWOOD }));
       for (let i = 0; i < 14; i++) {
         const b = makeWhiskeyBottle(M, {
-          x: -20.64 + rand(-0.05, 0.05),
+          x: -20.50 + rand(-0.05, 0.05),
           y: 1.29 + s * 0.52,
           z: z0 + 0.7 + i * ((z1 - z0 - 1.4) / 13),
           rotY: rand(0, 3),
@@ -881,10 +1048,35 @@ export function buildClub(scene, { renderer } = {}) {
       add(cylinder({ r: 0.03, h: 0.3, pos: [-19.9, 1.28, 1.4 + i * 0.22], mat: M_CHROME }));
       add(box({ size: [0.1, 0.06, 0.07], pos: [-19.82, 1.45, 1.4 + i * 0.22], mat: mat({ color: pick([0xd92e2e, 0x2e6ed9, 0xd9a22e]), roughness: 0.6 }) }));
     }
-    add(box({ size: [0.42, 0.3, 0.95], pos: [-20.12, 0.85, -1.5], mat: M_STEEL }));
-    add(box({ size: [0.45, 0.32, 0.5], pos: [-20.2, 1.16, 5.8], mat: mat({ color: 0x2e2e36, roughness: 0.7 }) }));
-    add(box({ size: [0.02, 0.16, 0.3], pos: [-19.96, 1.32, 5.8], mat: lit(0x2affc8, 1.6) }));
-    for (let i = 0; i < 12; i++) add(makeShotGlass(M, { x: -19.35 + rand(-0.1, 0.1), y: 1.15, z: rand(z0 + 0.7, z1 - 0.7) }));
+    const iceWell = box({ size: [0.42, 0.3, 0.95], pos: [-19.95, 0.85, -1.5], mat: M_STEEL });
+    iceWell.userData.geometryGate = { assemblyId: barCounterAssembly };
+    add(iceWell);
+    const barRegister = [
+      // The till sits on the customer counter. Its old pose straddled the
+      // narrow service gap and buried the lower 9 cm in the worktop.
+      box({ size: [0.45, 0.32, 0.5], pos: [-19.55, 1.305, 5.8], mat: mat({ color: 0x2e2e36, roughness: 0.7 }) }),
+      box({ size: [0.02, 0.16, 0.3], pos: [-19.315, 1.465, 5.8], mat: lit(0x2affc8, 1.6) }),
+    ];
+    for (const part of barRegister) {
+      part.userData.geometryGate = { assemblyId: 'bing-bar-register' };
+      add(part);
+    }
+    // Random scatter still rejects the two occupied counter footprints. A
+    // descriptor seed must never decide whether a glass starts inside the till.
+    const clearBarGlassZ = () => {
+      for (let attempt = 0; attempt < 32; attempt++) {
+        const z = rand(z0 + 0.7, z1 - 0.7);
+        if (Math.abs(z - 5.8) > 0.36 && Math.abs(z - 6.4) > 0.2) return z;
+      }
+      throw new Error('Bing bar glass scatter could not find a clear counter position');
+    };
+    for (let i = 0; i < 12; i++) {
+      add(makeShotGlass(M, {
+        x: -19.35 + rand(-0.1, 0.1),
+        y: 1.15,
+        z: clearBarGlassZ(),
+      }));
+    }
     add(makeAshtray(M, { x: -19.5, y: 1.15, z: 6.4 }));
 
     /* The clock behind the bar. Every room in this game knows what time it
@@ -894,13 +1086,18 @@ export function buildClub(scene, { renderer } = {}) {
     /* Proud of the wall SKIN's inner face (x -20.70), not inside it: the
      * shell's dado runs -20.78..-20.70 and the first hanging put the whole
      * clock in the middle of it, where it rendered as a bright speck. */
-    const barClock = makeWallClock(M, { x: -20.64, y: 2.72, z: -0.6, rotY: Math.PI / 2, r: 0.34 });
+    const barClock = makeWallClock(M, { x: -20.68, y: 2.72, z: -0.6, rotY: Math.PI / 2, r: 0.34 });
     add(barClock);
     clocks.push(barClock);
 
     // Small television showing a game nobody is watching
-    const tvGlow = box({ size: [0.06, 0.52, 0.86], pos: [-20.72, 2.95, 6.9], mat: lit(0x2a4a6a, 1.2) });
-    add(tvGlow);
+    const barTelevision = group('bar-television');
+    barTelevision.userData.geometryGate = { assemblyId: 'bing-bar-television' };
+    const tvGlow = box({ size: [0.06, 0.52, 0.86], pos: [-20.58, 2.95, 6.9], mat: lit(0x2a4a6a, 1.2) });
+    barTelevision.add(tvGlow);
+    // A visible ceiling drop carries the set clear of the mirror.
+    barTelevision.add(cylinder({ r: 0.015, h: 1.29, pos: [-20.58, 3.855, 6.9], mat: M_STEEL }));
+    add(barTelevision);
     ticking.push((dt, t) => {
       if (Math.random() < 0.02) tvGlow.material.emissive.setHex(pick([0x2a4a6a, 0x2f5a3a, 0x5a4a2a]));
       void t;
@@ -923,10 +1120,12 @@ export function buildClub(scene, { renderer } = {}) {
         cylinder({ r: 0.26, h: 0.04, pos: [0, 0.02, 0], mat: M_CHROME }),
         cylinder({ r: 0.18, h: 0.02, pos: [0, 0.3, 0], mat: M_BRASS }),
       );
-      stool.position.set(-18.7, 0, sz);
+      const stoolAssembly = `bing-bar-stool:${i}`;
+      stool.position.set(-18.3, 0, sz);
+      stool.userData.geometryGate = { assemblyId: stoolAssembly };
       add(stool);
-      solid(-18.95, sz - 0.25, -18.45, sz + 0.25, 0, 0.85);
-      anchors.barStools.push(new THREE.Vector3(-18.7, 0, sz));
+      solid(-18.55, sz - 0.25, -18.05, sz + 0.25, 0, 0.85, stoolAssembly);
+      anchors.barStools.push(new THREE.Vector3(-18.3, 0, sz));
     }
     anchors.barService = new THREE.Vector3(-18.35, 0, 2.2);
     anchors.bartender = new THREE.Vector3(-20.05, 0, 2.2);
@@ -947,7 +1146,7 @@ export function buildClub(scene, { renderer } = {}) {
    * and none behind the booths. */
   const bj = { x: -13.5, z: 6.78 };
   {
-    const table = new THREE.Group();
+    const table = group('blackjack-table');
     const shape = new THREE.Shape();
     shape.absarc(0, 0, 1.15, Math.PI, 0, true);
     shape.lineTo(-1.15, 0);
@@ -982,7 +1181,7 @@ export function buildClub(scene, { renderer } = {}) {
     // middle one is the seat they keep open for the prospect.
     anchors.blackjackSeats = [];
     for (let i = 0; i < 5; i++) {
-      const a = (i - 2) * 0.42;
+      const a = (i - 2) * 0.6;
       const sx = bj.x + Math.sin(a) * 1.62;
       const sz = bj.z + Math.cos(a) * 1.62;
       add(makeChair(M, { x: sx, z: sz, rotY: a + Math.PI }));
@@ -999,14 +1198,18 @@ export function buildClub(scene, { renderer } = {}) {
     anchors.dealer = new THREE.Vector3(bj.x, 0, bj.z - 1.75);
 
     // Brass lamp low over the felt: the only pool of light in the corner
-    add(cylinder({ r: 0.02, h: 1.3, pos: [bj.x, 3.05, bj.z], mat: M_BRASS }));
+    const blackjackLamp = group('blackjack-lamp');
+    blackjackLamp.userData.geometryGate = { assemblyId: 'bing-blackjack-lamp' };
+    // The flex reaches the 4.5 m ceiling instead of ending in open air.
+    blackjackLamp.add(cylinder({ r: 0.02, h: 2.1, pos: [bj.x, 3.45, bj.z], mat: M_BRASS }));
     const shade = new THREE.Mesh(
       new THREE.CylinderGeometry(0.12, 0.44, 0.32, 14, 1, true),
       mat({ color: 0x2a1c10, roughness: 0.7, side: THREE.DoubleSide }),
     );
     shade.position.set(bj.x, 2.3, bj.z);
-    add(shade);
-    add(cylinder({ r: 0.4, h: 0.03, pos: [bj.x, 2.16, bj.z], mat: lit(0xffd9a0, 2.2) }));
+    blackjackLamp.add(shade);
+    blackjackLamp.add(cylinder({ r: 0.4, h: 0.03, pos: [bj.x, 2.16, bj.z], mat: lit(0xffd9a0, 2.2) }));
+    add(blackjackLamp);
     const tableLight = new THREE.PointLight(0xffd9a0, 16, 7, 2);
     tableLight.position.set(bj.x, 2.05, bj.z);
     // A shadow-casting point light renders six shadow maps. In this dense
@@ -1018,9 +1221,13 @@ export function buildClub(scene, { renderer } = {}) {
 
     add(sign(printed('min-bet', ['$25', 'MIN'], { w: 256, h: 200, bg: '#e8e0cc', fg: '#1a1a1a', font: '900 76px "Trebuchet MS", sans-serif' }),
       0.3, 0.24, { x: bj.x + 1.05, y: 1.15, z: bj.z + 1.0, rotY: -0.6 }));
-    for (const sx of [-2.2, 2.2]) {
-      add(cylinder({ r: 0.07, h: 0.95, pos: [bj.x + sx, 0.47, bj.z + 2.3], mat: M_BRASS }));
-    }
+    /* The two brass barrier posts that used to stand at bj.x +/- 2.55 are
+     * gone (owner, 2026-08-19: "remove the random yellow pole near the
+     * blackjack table"). They were rope stanchions with no rope on them and
+     * no rope anywhere near them -- the club's only velvet line is outside on
+     * the pavement -- so from the floor they read as two brass poles somebody
+     * had left standing in the middle of a casino corner. The lamp over the
+     * felt is what marks the table. */
   }
 
   /* ================================================================== */
@@ -1043,7 +1250,7 @@ export function buildClub(scene, { renderer } = {}) {
   /* B. The floor: booths, tables, cameras                               */
   /* ================================================================== */
   {
-    function booth(x, z, rotY, width = 2.4) {
+    function booth(x, z, rotY, width = 2.4, assemblyId = null) {
       /* The cushion tops out at 0.52 -- chair height. It used to sit at 0.675,
        * which is bar-stool height, and everybody seated on one was folded for
        * a chair and sunk to the hips in the upholstery. */
@@ -1057,6 +1264,7 @@ export function buildClub(scene, { renderer } = {}) {
       }
       g.position.set(x, 0, z);
       g.rotation.y = rotY;
+      if (assemblyId) g.userData.geometryGate = { assemblyId };
       add(g);
       return g;
     }
@@ -1077,15 +1285,17 @@ export function buildClub(scene, { renderer } = {}) {
      * -- and everything seated on it -- is unchanged. */
     for (let i = 0; i < 4; i++) {
       const bz = -8.5 + i * 3.2;
-      booth(4.55, bz, -Math.PI / 2);
-      solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5);
+      const assemblyId = `bing-booth:east:${i}`;
+      booth(4.55, bz, -Math.PI / 2, 2.4, assemblyId);
+      solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId);
       boothTable(3.25, bz);
       anchors.booths.push(new THREE.Vector3(4.2, 0, bz));
     }
     {
       const bz = 5.4;
-      booth(4.55, bz, -Math.PI / 2, 1.8);
-      solid(4.05, bz - 0.95, 5.4, bz + 0.95, 0, 1.5);
+      const assemblyId = 'bing-booth:east:4';
+      booth(4.55, bz, -Math.PI / 2, 1.8, assemblyId);
+      solid(4.05, bz - 0.95, 5.4, bz + 0.95, 0, 1.5, assemblyId);
       boothTable(3.25, bz);
       anchors.booths.push(new THREE.Vector3(4.2, 0, bz));
     }
@@ -1106,8 +1316,9 @@ export function buildClub(scene, { renderer } = {}) {
     const NORTH_BENCH = 10.3;
     for (let i = 0; i < 4; i++) {
       const bx = -19.0 + i * 3.4;
-      booth(bx, NORTH_BENCH, Math.PI);
-      solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5);
+      const assemblyId = `bing-booth:north:${i}`;
+      booth(bx, NORTH_BENCH, Math.PI, 2.4, assemblyId);
+      solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId);
       boothTable(bx, NORTH_BENCH - 1.15);
       anchors.booths.push(new THREE.Vector3(bx, 0, NORTH_BENCH - 0.6));
     }
@@ -1127,12 +1338,11 @@ export function buildClub(scene, { renderer } = {}) {
       solid(tx - 0.44, tz - 0.44, tx + 0.44, tz + 0.44, 0, 0.82);
       // The candle: a red glass with a small flame in it, not a strip light
       add(cylinder({ r: 0.045, h: 0.1, pos: [tx, 0.86, tz], mat: mat({ color: 0x6a1a1a, roughness: 0.3, transparent: true, opacity: 0.85, emissive: new THREE.Color(0x3a0a06), emissiveIntensity: 1.4 }) }));
+      // Emissive only -- eleven of these in a forward-rendered scene is
+      // eleven real lights too many, and the flame reads without one.
       const flame = cylinder({ rTop: 0.004, rBottom: 0.016, h: 0.05, seg: 6, pos: [tx, 0.93, tz], mat: lit(0xffb060, 4.5) });
       add(flame);
-      const cl = new THREE.PointLight(0xff8a4a, 2.2, 3.2, 2);
-      cl.position.set(tx, 0.95, tz);
-      add(cl);
-      candles.push({ flame, light: cl, phase: rand(0, 6) });
+      candles.push({ flame, phase: rand(0, 6) });
       anchors.tables.push(new THREE.Vector3(tx, 0, tz));
       for (const off of [[-0.85, 0.2], [0.85, -0.2]]) {
         add(makeChair(M, { x: tx + off[0], z: tz + off[1], rotY: Math.atan2(-off[0], -off[1]) }));
@@ -1141,14 +1351,14 @@ export function buildClub(scene, { renderer } = {}) {
     ticking.push((dt, t) => {
       for (const c of candles) {
         const f = 0.85 + Math.sin(t * 9 + c.phase) * 0.1 + Math.sin(t * 21 + c.phase) * 0.05;
-        c.light.intensity = 2.2 * f;
+        c.flame.material.emissiveIntensity = 4.5 * f;
         c.flame.scale.y = f;
       }
     });
 
     // Cameras that see everything and are recorded by nothing
     anchors.cameras = [];
-    for (const [cx, cy, cz, ry] of [[5.1, 4.0, 9.3, Math.PI * 0.78], [-20.7, 4.0, 9.3, -Math.PI * 0.78], [5.1, 4.0, -10.5, Math.PI * 0.25]]) {
+    for (const [cx, cy, cz, ry] of [[5.1, 4.0, 9.3, Math.PI * 0.78], [-20.51, 4.0, 9.3, -Math.PI * 0.78], [5.1, 4.0, -10.5, Math.PI * 0.25]]) {
       const cam = group('cctv',
         box({ size: [0.12, 0.11, 0.26], pos: [0, 0, 0], mat: mat({ color: 0x26262e, roughness: 0.8 }) }),
         cylinder({ r: 0.05, h: 0.1, pos: [0, 0, 0.17], rotX: Math.PI / 2, mat: M_BLACKGLOSS }),
@@ -1156,6 +1366,9 @@ export function buildClub(scene, { renderer } = {}) {
       );
       const led = sphere({ r: 0.018, pos: [0.05, 0.04, 0.14], mat: lit(0xff2a2a, 3) });
       cam.add(led);
+      // The original bracket stopped 29 cm below the ceiling. This stem makes
+      // the camera visibly mounted while preserving its authored aim.
+      cam.add(cylinder({ r: 0.015, h: 0.38, pos: [0, 0.31, -0.06], mat: M_STEEL }));
       cam.position.set(cx, cy, cz);
       cam.rotation.y = ry;
       add(cam);
@@ -1180,7 +1393,7 @@ export function buildClub(scene, { renderer } = {}) {
   {
     for (let i = 0; i < 4; i++) {
       const z = H.z0 + 2 + i * 3.4;
-      const tube = box({ size: [0.18, 0.06, 1.2], pos: [6.7, CEIL_BACK - 0.1, z], mat: lit(0xd8f0d8, 2.0), cast: false });
+      const tube = box({ name: 'hallway-ceiling-light-fluoro', size: [0.18, 0.06, 1.2], pos: [6.7, CEIL_BACK - 0.035, z], mat: lit(0xd8f0d8, 2.0), cast: false });
       add(tube);
       const l = new THREE.PointLight(0xcfe8cf, 9, 7.5, 2);
       l.position.set(6.7, CEIL_BACK - 0.3, z);
@@ -1239,7 +1452,16 @@ export function buildClub(scene, { renderer } = {}) {
 
     // On the jamb beside each door, not floating on the leaf itself -- and on
     // the hallway FACE of the wall (x 7.71), not embedded in its thickness.
-    for (const [lz, label] of [[-3.8, 'MANAGER'], [3.4, 'LADIES']]) {
+    /* MEN is back (owner, 2026-08-19: "restore the MEN'S ROOM sign"). The
+     * men's room is the one door in this hallway the player is sent through
+     * by an objective, and it was the only one of the three without a plate
+     * on its jamb -- so the hallway named the manager's office and the
+     * ladies' (both locked) and said nothing about the door that opens. It
+     * takes the same jamb offset the other two already use -- the plate lands
+     * a quarter-metre past the far edge of its own leaf, so MEN sits at
+     * z 1.75 beside a door spanning -0.1 to 1.5 and stays clear of the
+     * ladies' leaf at 2.9. */
+    for (const [lz, label] of [[-3.8, 'MANAGER'], [1.0, 'MEN'], [3.4, 'LADIES']]) {
       add(sign(printed(`plate-${label}`, [label], { w: 256, h: 80, bg: '#26262e', fg: '#c8c8d0', font: '800 42px "Trebuchet MS", sans-serif' }),
         0.36, 0.11, { x: 7.7, y: 1.85, z: lz + 0.75, rotY: -Math.PI / 2 }));
     }
@@ -1322,15 +1544,21 @@ export function buildClub(scene, { renderer } = {}) {
       basin.position.set(bx, 0, sz);
       add(basin);
     }
-    // Soap on the wall between the two of them, and the paper towels below it
-    add(box({ size: [0.1, 0.18, 0.12], pos: [B.x1 - 0.12, 1.12, -0.2], mat: mat({ color: 0x2e3238, roughness: 0.6 }) }));
-    add(cylinder({ r: 0.012, h: 0.05, pos: [B.x1 - 0.14, 1.01, -0.2], rotZ: Math.PI / 2, mat: M_CHROME }));
+    // Soap on the wall between the two of them, and the paper towels below it.
+    // The button/spout belongs to the dispenser body; keeping them as one
+    // fixture also makes its wall attachment auditable as one physical unit.
+    const soapDispenser = group('soap-dispenser',
+      box({ size: [0.1, 0.18, 0.12], pos: [B.x1 - 0.17, 1.12, -0.2], mat: mat({ color: 0x2e3238, roughness: 0.6 }) }),
+      cylinder({ r: 0.012, h: 0.05, pos: [B.x1 - 0.19, 1.01, -0.2], rotZ: Math.PI / 2, mat: M_CHROME }),
+    );
+    soapDispenser.userData.geometryGate = { assemblyId: 'bing-bathroom-soap-dispenser' };
+    add(soapDispenser);
     solid(B.x1 - 0.55, -0.85, B.x1 - 0.05, 0.45, 0, 0.95);
     anchors.mirror = new THREE.Vector3(B.x1 - 1.0, 0, -0.2);
-    const mirror = box({ size: [0.04, 0.85, 1.5], pos: [B.x1 - 0.08, 1.6, -0.2], mat: mat({ color: 0x3a3a44, roughness: 0.08, metalness: 0.95 }) });
+    const mirror = box({ size: [0.04, 0.85, 1.5], pos: [B.x1 - 0.12, 1.68, -0.2], mat: mat({ color: 0x3a3a44, roughness: 0.08, metalness: 0.95 }) });
     add(mirror);
     // The crack across it, drawn as a thin dark quad rather than faked in a map
-    add(box({ size: [0.01, 0.9, 0.02], pos: [B.x1 - 0.1, 1.6, -0.3], mat: mat({ color: 0x14141a, roughness: 1 }), rotX: 0.3 }));
+    add(box({ size: [0.01, 0.9, 0.02], pos: [B.x1 - 0.14, 1.68, -0.3], mat: mat({ color: 0x14141a, roughness: 1 }), rotX: 0.3 }));
 
     /* ---- the urinals ----
      * Two full-height bowls with rolled lips, a sparge pipe up to the flush
@@ -1339,7 +1567,7 @@ export function buildClub(scene, { renderer } = {}) {
      * main.js registers it. */
     const urinals = [];
     for (const sz of [1.5, 2.1]) {
-      const ux = B.x1 - 0.26;
+      const ux = B.x1 - 0.32;
       const bowl = new THREE.Mesh(
         new THREE.CylinderGeometry(0.19, 0.13, 0.5, 18, 1, true, Math.PI * 0.35, Math.PI * 1.3),
         porcelain,
@@ -1353,9 +1581,11 @@ export function buildClub(scene, { renderer } = {}) {
        * dimension along the tiled wall and the thin one normal to it. */
       const backplate = box({
         /* Local X becomes wall-width after the fixture turns. Local Z is the
-         * wall normal: -9.25cm puts the back face on the tile and the plate's
-         * centre directly behind the bowl rather than 11cm to its right. */
-        size: [0.42, 0.76, 0.085], pos: [0.03, 0.84, -0.0925], mat: porcelain,
+         * wall normal. The fixture origin sits at B.x1 - 0.32 and the east
+         * wall panel's inner face at B.x1 - 0.09 (measured, club-wall-panel),
+         * so the back face lands on the tile at local -0.23: the old -9.25cm
+         * centre left the plate floating 9.5cm out in the room. */
+        size: [0.42, 0.76, 0.085], pos: [0.03, 0.84, -0.1875], mat: porcelain,
       });
       backplate.name = 'urinal-backplate';
       const u = group('urinal',
@@ -1370,18 +1600,21 @@ export function buildClub(scene, { renderer } = {}) {
         box({ size: [0.1, 0.14, 0.1], pos: [0.09, 1.6, 0], mat: M_CHROME }),
         cylinder({ r: 0.014, h: 0.07, pos: [0.03, 1.53, 0], rotZ: Math.PI / 2, mat: M_CHROME }),
         // Waste, down to the floor
-        cylinder({ r: 0.03, h: 0.5, pos: [0.03, 0.3, 0], mat: M_CHROME }),
+        cylinder({ r: 0.03, h: 0.5, pos: [0.03, 0.255, 0], mat: M_CHROME }),
       );
+      u.userData.geometryGate = { assemblyId: `bing-bathroom-urinal-${sz}` };
       u.position.set(ux, 0, sz);
       u.rotation.y = -Math.PI / 2;
       add(u);
       urinals.push(u);
       // The blue cube in the bottom of it, which is somehow always there
-      add(box({ size: [0.05, 0.03, 0.05], pos: [ux - 0.03, 0.63, sz], mat: mat({ color: 0x3a7bd9, roughness: 0.8 }) }));
+      const deodorizer = box({ name: 'urinal-deodorizer', size: [0.05, 0.03, 0.05], pos: [ux - 0.03, 0.63, sz], mat: mat({ color: 0x3a7bd9, roughness: 0.8 }) });
+      deodorizer.userData.geometryGate = { assemblyId: `bing-bathroom-urinal-${sz}` };
+      add(deodorizer);
     }
-    anchors.urinal = new THREE.Vector3(B.x1 - 0.42, 1.12, 1.5);
+    anchors.urinal = new THREE.Vector3(B.x1 - 0.48, 1.12, 1.5);
     // Modesty divider between the two of them
-    add(box({ size: [0.42, 0.72, 0.04], pos: [B.x1 - 0.28, 1.02, 1.8], mat: mat({ color: 0x25302f, roughness: 0.8 }) }));
+    add(box({ size: [0.42, 0.72, 0.04], pos: [B.x1 - 0.34, 1.02, 1.8], mat: mat({ color: 0x25302f, roughness: 0.8 }) }));
     /* The line on the left-hand lip. Somebody's evening, left where they
      * put it down. main.js makes it usable. */
     const powderLine = box({
@@ -1398,10 +1631,11 @@ export function buildClub(scene, { renderer } = {}) {
     });
     powderCard.name = 'urinal-line-card';
     const powder = group('bathroom-powder', powderLine, powderCard);
-    powder.position.set(B.x1 - 0.31, 1.122, 1.5);
+    powder.userData.geometryGate = { assemblyId: 'bing-bathroom-urinal-1.5' };
+    powder.position.set(B.x1 - 0.37, 1.122, 1.5);
     powder.rotation.y = 0.12;
     add(powder);
-    anchors.powder = new THREE.Vector3(B.x1 - 0.31, 1.12, 1.5);
+    anchors.powder = new THREE.Vector3(B.x1 - 0.37, 1.12, 1.5);
     anchors.powderMesh = powder;
     anchors.stalls = [];
     for (let i = 0; i < 3; i++) {
@@ -1445,7 +1679,7 @@ export function buildClub(scene, { renderer } = {}) {
     add(bathroomPicture);
     anchors.bathroomPicture = bathroomPicture.group;
 
-    const tube = box({ size: [1.6, 0.07, 0.15], pos: [bx, CEIL_BACK - 0.1, 0.6], mat: lit(0xd8f0e8, 2.0), cast: false });
+    const tube = box({ name: 'bathroom-ceiling-light-fluoro', size: [1.6, 0.07, 0.15], pos: [bx, CEIL_BACK - 0.035, 0.6], mat: lit(0xd8f0e8, 2.0), cast: false });
     add(tube);
     const bl = new THREE.PointLight(0xd0e8e0, 10, 9, 2);
     bl.position.set(bx, CEIL_BACK - 0.3, 0.6);
@@ -1467,20 +1701,23 @@ export function buildClub(scene, { renderer } = {}) {
     1.06, 0.8, { x: B.x0 - 0.005, y: 1.52, z: 2.11, rotY: Math.PI / 2 }));
     anchors.graffiti = new THREE.Vector3(B.x0 + 0.95, 0, 2.11);
 
-    add(box({ size: [0.06, 0.55, 0.85], pos: [B.x1 - 0.04, 1.95, 2.2], mat: lit(0x5a6a7a, 0.5) }));
+    add(box({ size: [0.06, 0.55, 0.85], pos: [B.x1 - 0.14, 1.95, 2.2], mat: lit(0x5a6a7a, 0.5) }));
     const vent = box({ size: [0.52, 0.06, 0.42], pos: [B.x0 + 1.3, CEIL_BACK - 0.05, B.z0 + 0.45], mat: M_STEEL });
     add(vent);
     anchors.vent = new THREE.Vector3(B.x0 + 1.3, 0, B.z0 + 1.0);
     /* The hand dryer, moved off the graffiti and down the wall to where a
      * hand dryer belongs: on the sink run, between the two basins, at the
      * height a hand comes up to. */
-    add(group('hand-dryer',
-      box({ size: [0.22, 0.34, 0.28], pos: [B.x1 - 0.19, 1.28, 0.75], mat: mat({ color: 0xc4c6cc, roughness: 0.38, metalness: 0.3 }) }),
-      box({ size: [0.06, 0.3, 0.24], pos: [B.x1 - 0.06, 1.28, 0.75], mat: mat({ color: 0x8e9098, roughness: 0.5 }) }),
+    const handDryer = group('hand-dryer',
+      box({ size: [0.22, 0.34, 0.28], pos: [B.x1 - 0.28, 1.28, 0.75], mat: mat({ color: 0xc4c6cc, roughness: 0.38, metalness: 0.3 }) }),
+      // A slim back plate ends on the tiled wall's inner face.
+      box({ size: [0.04, 0.3, 0.24], pos: [B.x1 - 0.145, 1.28, 0.75], mat: mat({ color: 0x8e9098, roughness: 0.5 }) }),
       // Nozzle underneath, and the little red lamp above it
-      box({ size: [0.13, 0.05, 0.11], pos: [B.x1 - 0.24, 1.11, 0.75], mat: mat({ color: 0x8e9098, roughness: 0.5 }) }),
-      sphere({ r: 0.012, pos: [B.x1 - 0.29, 1.38, 0.75], mat: lit(0xd92e2e, 1.6) }),
-    ));
+      box({ size: [0.13, 0.05, 0.11], pos: [B.x1 - 0.33, 1.11, 0.75], mat: mat({ color: 0x8e9098, roughness: 0.5 }) }),
+      sphere({ r: 0.012, pos: [B.x1 - 0.39, 1.38, 0.75], mat: lit(0xd92e2e, 1.6) }),
+    );
+    handDryer.userData.geometryGate = { assemblyId: 'bing-bathroom-hand-dryer' };
+    add(handDryer);
   }
 
   /* ================================================================== */
@@ -1574,17 +1811,24 @@ export function buildClub(scene, { renderer } = {}) {
       add(box({ size: [0.62, 0.06, 4.4], pos: [S.x1 - 0.42, 0.55 + s * 0.7, S.z0 + 2.7], mat: M_STEEL }));
     }
     solid(S.x1 - 0.75, S.z0 + 0.5, S.x1 - 0.1, S.z0 + 4.9, 0, 2.0);
-    add(box({ size: [0.95, 1.75, 0.8], pos: [S.x1 - 1.1, 0.87, S.z1 - 1.3], mat: mat({ color: 0xc0c0c6, roughness: 0.5 }) }));
-    solid(S.x1 - 1.6, S.z1 - 1.75, S.x1 - 0.6, S.z1 - 0.85, 0, 1.8);
-    add(box({ size: [0.62, 0.5, 0.5], pos: [S.x0 + 0.7, 0.4, S.z1 - 1.0], mat: M_STEEL }));
-    add(box({ size: [0.42, 0.9, 0.3], pos: [S.x0 + 4.9, 1.3, S.z0 + 0.2], mat: mat({ color: 0x2e2e36, roughness: 0.8 }) }));
+    add(box({ size: [0.95, 1.75, 0.8], pos: [S.x1 - 1.30, 0.87, S.z1 - 1.3], mat: mat({ color: 0xc0c0c6, roughness: 0.5 }) }));
+    solid(S.x1 - 1.80, S.z1 - 1.75, S.x1 - 0.80, S.z1 - 0.85, 0, 1.8);
+    add(box({ name: 'storage-mop-sink', size: [0.62, 0.5, 0.5], pos: [S.x0 + 0.7, 0.25, S.z1 - 1.0], mat: M_STEEL }));
+    const servicePanel = box({ name: 'aubbie-service-panel', size: [0.42, 0.9, 0.3], pos: [S.x0 + 4.9, 1.3, S.z0 + 0.35], mat: mat({ color: 0x2e2e36, roughness: 0.8 }) });
+    servicePanel.userData.geometryGate = { assemblyId: 'bing-aubbie-service-panel' };
+    add(servicePanel);
+    const servicePanelMount = box({ name: 'aubbie-service-panel-mount', size: [0.32, 0.7, 0.02], pos: [S.x0 + 4.9, 1.3, S.z0 + 0.21], mat: M_STEEL });
+    servicePanelMount.userData.geometryGate = { assemblyId: 'bing-aubbie-service-panel' };
+    add(servicePanelMount);
     /* Aubbie predates the HotDog incident even though this is the first scene
      * that needs him on camera. His service label is already on the Bing's
      * electrical panel during visit one: quiet environmental continuity, not
      * a new mission beat or a line the player has to stop and hear. */
-    add(sign(printed('aubbie-service-label', ['AUBBIE', 'SERVICE / KEYS', 'DO NOT RESET'], {
+    const serviceLabel = sign(printed('aubbie-service-label', ['AUBBIE', 'SERVICE / KEYS', 'DO NOT RESET'], {
       w: 320, h: 220, bg: '#d8d2b8', fg: '#29251f', font: '800 30px "Trebuchet MS", sans-serif',
-    }), 0.34, 0.24, { x: S.x0 + 4.9, y: 1.42, z: S.z0 + 0.365 }));
+    }), 0.34, 0.24, { x: S.x0 + 4.9, y: 1.42, z: S.z0 + 0.505 });
+    serviceLabel.userData.geometryGate = { assemblyId: 'bing-aubbie-service-panel' };
+    add(serviceLabel);
     anchors.aubbiePanel = new THREE.Vector3(S.x0 + 4.9, 1.42, S.z0 + 0.8);
     // A broken sign that used to say something
     add(sign(neonText('broken-bin', 'BIN', { font: '900 130px "Trebuchet MS", sans-serif' }), 1.3, 0.4,
@@ -1594,7 +1838,7 @@ export function buildClub(scene, { renderer } = {}) {
       const l = new THREE.PointLight(0xcfe8cf, 7, 10, 2);
       l.position.set(S.x0 + 2.6 + i * 4.6, CEIL_BACK - 0.3, (S.z0 + S.z1) / 2);
       add(l);
-      add(box({ size: [1.2, 0.06, 0.15], pos: [S.x0 + 2.6 + i * 4.6, CEIL_BACK - 0.1, (S.z0 + S.z1) / 2], mat: lit(0xd8f0d8, 1.6), cast: false }));
+      add(box({ name: 'storage-ceiling-light-fluoro', size: [1.2, 0.06, 0.15], pos: [S.x0 + 2.6 + i * 4.6, CEIL_BACK - 0.035, (S.z0 + S.z1) / 2], mat: lit(0xd8f0d8, 1.6), cast: false }));
     }
 
     /* ---- the chair that is bolted to the floor ----
@@ -1663,7 +1907,7 @@ export function buildClub(scene, { renderer } = {}) {
       }
       for (const [lx, lz] of [[-0.38, -0.2], [0.38, -0.2], [-0.38, 0.2], [0.38, 0.2]]) {
         cart.add(cylinder({ r: 0.018, h: 0.8, pos: [lx, 0.4, lz], mat: M_UTIL }));
-        cart.add(cylinder({ r: 0.045, h: 0.05, pos: [lx, 0.03, lz], rotX: Math.PI / 2, mat: mat({ color: 0x1c1c1c, roughness: 0.9 }) }));
+        cart.add(cylinder({ r: 0.045, h: 0.05, pos: [lx, 0.045, lz], rotX: Math.PI / 2, mat: mat({ color: 0x1c1c1c, roughness: 0.9 }) }));
       }
       add(cart);
       solid(7.75, -13.15, 8.65, -12.55, 0, 0.95);
@@ -1673,7 +1917,7 @@ export function buildClub(scene, { renderer } = {}) {
       // Utensils hanging off a rail on the south wall, where a kitchen keeps
       // them and where they read as ordinary until the room stops being one.
       const rail = group('utensil-rail');
-      rail.position.set(7.6, 1.72, S.z0 + 0.06);
+      rail.position.set(7.6, 1.72, S.z0 + 0.22);
       rail.add(cylinder({ r: 0.012, h: 1.5, pos: [0, 0, 0], rotZ: Math.PI / 2, mat: M_UTIL }));
       for (let i = 0; i < 5; i++) {
         const hx = -0.6 + i * 0.3;
@@ -1817,9 +2061,13 @@ export function buildClub(scene, { renderer } = {}) {
     anchors.manifest = new THREE.Vector3(8.2, 0, S.z0 + 0.8);
     anchors.serviceDoor = new THREE.Vector3(9.05, 0, -14.2);
     // The alarm box above the service door, with a light that is definitely on
-    add(box({ size: [0.26, 0.2, 0.12], pos: [9.05, 2.35, S.z0 + 0.2], mat: mat({ color: 0xd8d8dc, roughness: 0.6 }) }));
-    const alarmLed = sphere({ r: 0.025, pos: [9.05, 2.35, S.z0 + 0.3], mat: lit(0x2aff5a, 3) });
-    add(alarmLed);
+    const alarmBox = box({ size: [0.26, 0.2, 0.12], pos: [9.05, 2.35, S.z0 + 0.28], mat: mat({ color: 0xd8d8dc, roughness: 0.6 }) });
+    const alarmLed = sphere({ r: 0.025, pos: [9.05, 2.35, S.z0 + 0.39], mat: lit(0x2aff5a, 3) });
+    const alarmMount = box({ size: [0.18, 0.14, 0.02], pos: [9.05, 2.35, S.z0 + 0.21], mat: M_STEEL });
+    for (const part of [alarmBox, alarmLed, alarmMount]) {
+      part.userData.geometryGate = { assemblyId: 'bing-service-door-alarm' };
+      add(part);
+    }
     anchors.alarmLed = alarmLed;
   }
 
@@ -1830,8 +2078,12 @@ export function buildClub(scene, { renderer } = {}) {
   {
     const ox = (O.x0 + O.x1) / 2;
     const oz = (O.z0 + O.z1) / 2;
-    for (const [wx, wz, w, d] of [[ox, O.z0 + 0.09, O.x1 - O.x0, 0.07], [ox, O.z1 - 0.09, O.x1 - O.x0, 0.07], [O.x1 - 0.09, oz, 0.07, O.z1 - O.z0]]) {
-      add(box({ size: [w, 1.1, d], pos: [wx, 0.55, wz], mat: M_WOOD }));
+    for (const [wallAxis, wx, wz, w, d] of [
+      ['z', ox, O.z0 + 0.09, O.x1 - O.x0, 0.07],
+      ['z', ox, O.z1 - 0.09, O.x1 - O.x0, 0.07],
+      ['x', O.x1 - 0.09, oz, 0.07, O.z1 - O.z0],
+    ]) {
+      wallPanel(wallAxis, [w, 1.1, d], [wx, 0.55, wz], M_WOOD, 'office-wainscot');
     }
 
     /* ---- the office's real wall planes ----
@@ -1860,16 +2112,18 @@ export function buildClub(scene, { renderer } = {}) {
     // The desk: heavy, wooden, and covered in the evening's paperwork
     const dx = ox + 0.4;
     const dz = O.z0 + 1.6;
-    add(group('desk',
+    const officeDesk = group('desk',
       box({ size: [2.1, 0.09, 1.05], pos: [dx, 0.76, dz], mat: M_WOOD }),
       box({ size: [0.72, 0.72, 0.95], pos: [dx - 0.62, 0.38, dz], mat: M_DARKWOOD }),
       box({ size: [0.72, 0.72, 0.95], pos: [dx + 0.62, 0.38, dz], mat: M_DARKWOOD }),
       box({ size: [2.14, 0.02, 1.1], pos: [dx, 0.81, dz], mat: M_LEATHER_DARK }),
-    ));
+    );
+    officeDesk.userData.geometryGate = { assemblyId: 'bing-office-desk' };
     for (let i = 0; i < 3; i++) {
-      add(box({ size: [0.62, 0.16, 0.03], pos: [dx + 0.62, 0.62 - i * 0.2, dz + 0.49], mat: M_WOOD }));
-      add(cylinder({ r: 0.02, h: 0.16, pos: [dx + 0.62, 0.62 - i * 0.2, dz + 0.52], rotZ: Math.PI / 2, mat: M_BRASS }));
+      officeDesk.add(box({ size: [0.62, 0.16, 0.03], pos: [dx + 0.62, 0.62 - i * 0.2, dz + 0.49], mat: M_WOOD }));
+      officeDesk.add(cylinder({ r: 0.02, h: 0.16, pos: [dx + 0.62, 0.62 - i * 0.2, dz + 0.52], rotZ: Math.PI / 2, mat: M_BRASS }));
     }
+    add(officeDesk);
     solid(dx - 1.1, dz - 0.6, dx + 1.1, dz + 0.6, 0, 0.85);
     anchors.desk = new THREE.Vector3(dx, 0, dz);
     anchors.deskFront = new THREE.Vector3(dx, 0, dz + 1.35);
@@ -1966,7 +2220,8 @@ export function buildClub(scene, { renderer } = {}) {
     const bowl = sphere({ r: 0.11, ry: 0.055, pos: [dx - 0.85, 0.85, dz - 0.05], mat: mat({ color: 0x8a6a3a, roughness: 0.5 }) });
     add(bowl);
     for (let i = 0; i < 7; i++) {
-      add(sphere({ r: 0.022, pos: [dx - 0.85 + rand(-0.06, 0.06), 0.9, dz - 0.05 + rand(-0.05, 0.05)], mat: mat({ color: pick([0xd92e2e, 0xe8c04a, 0x3a7bd9]), roughness: 0.4 }) }));
+      const angle = (i / 7) * Math.PI * 2;
+      add(sphere({ r: 0.022, pos: [dx - 0.85 + Math.cos(angle) * 0.065, 0.9, dz - 0.05 + Math.sin(angle) * 0.055], mat: mat({ color: pick([0xd92e2e, 0xe8c04a, 0x3a7bd9]), roughness: 0.4 }) }));
     }
     anchors.candy = new THREE.Vector3(dx - 0.85, 0.9, dz - 0.05);
     add(group('deskphone',
@@ -2020,12 +2275,13 @@ export function buildClub(scene, { renderer } = {}) {
       box({ size: [0.44, 1.1, 0.9], pos: [0, 0.55, 0], mat: M_WOOD }),
       box({ size: [0.48, 0.05, 0.94], pos: [0, 1.12, 0], mat: M_DARKWOOD }),
     );
+    cab.userData.geometryGate = { assemblyId: 'bing-office-cabinet-ledge' };
     for (let i = 0; i < 4; i++) {
       cab.add(makeWhiskeyBottle(M, { x: 0, y: 1.15, z: -0.3 + i * 0.2, rotY: rand(0, 3) }).group);
     }
     cab.position.set(O.x1 - 0.5, 0, oz + 1.2);
     add(cab);
-    solid(O.x1 - 0.75, oz + 0.7, O.x1 - 0.2, oz + 1.7, 0, 1.15);
+    solid(O.x1 - 0.75, oz + 0.7, O.x1 - 0.2, oz + 1.7, 0, 1.15, 'bing-office-cabinet-ledge');
     anchors.liquor = new THREE.Vector3(O.x1 - 1.15, 1.2, oz + 1.2);
     office.cabinet = cab;
 
@@ -2059,8 +2315,9 @@ export function buildClub(scene, { renderer } = {}) {
         // A lipped front edge, so it reads as joinery and not as a plank
         box({ size: [0.05, 0.09, lz1 - lz0], pos: [O.x1 - 0.585, 1.105, lcz], mat: M_WOOD }),
         // The batten it is screwed to
-        box({ size: [0.05, 0.07, lz1 - lz0], pos: [O.x1 - 0.115, 1.06, lcz], mat: M_WOOD }),
+        box({ size: [0.05, 0.07, lz1 - lz0], pos: [O.x1 - 0.15, 1.06, lcz], mat: M_WOOD }),
       );
+      ledge.userData.geometryGate = { assemblyId: 'bing-office-cabinet-ledge' };
       for (const bz of [oz - 0.75, oz - 0.05]) {
         const corbel = box({ size: [0.34, 0.22, 0.06], pos: [O.x1 - 0.42, 0.99, bz], mat: M_WOOD });
         corbel.rotation.z = -0.5;
@@ -2068,7 +2325,7 @@ export function buildClub(scene, { renderer } = {}) {
       }
       add(ledge);
       office.ledge = ledge;
-      solid(O.x1 - 0.62, lz0, O.x1 - 0.1, lz1, 0.98, 1.16);
+      solid(O.x1 - 0.62, lz0, O.x1 - 0.1, lz1, 0.98, 1.16, 'bing-office-cabinet-ledge');
       anchors.officeLedge = new THREE.Vector3(O.x1 - 0.36, 1.15, lcz);
     }
 
@@ -2253,6 +2510,7 @@ export function buildClub(scene, { renderer } = {}) {
       );
       stand.children[stand.children.length - 1].rotation.x = Math.PI / 2;
       stand.children[stand.children.length - 1].position.set(0, 0.3, 0);
+      stand.userData.geometryGate = { assemblyId: 'bing-office-coat-stand' };
       // Four hooks, angled up and out, with brass tips
       for (let i = 0; i < 4; i++) {
         const a = (i / 4) * Math.PI * 2 + 0.4;
@@ -2513,13 +2771,16 @@ export function buildClub(scene, { renderer } = {}) {
       box({ size: [0.64, 0.5, 0.12], pos: [0, 0, 0], mat: mat({ color: 0x26262e, roughness: 0.7 }) }),
       monScreen,
     );
+    const monitorAssembly = group('monitor-assembly');
+    monitorAssembly.userData.geometryGate = { assemblyId: 'bing-office-monitor' };
     monitor.position.set(13.44, 1.72, -9.0);
     monitor.rotation.y = -1.1;
     monitor.rotation.x = 0.12;
-    add(monitor);
+    monitorAssembly.add(monitor);
     // The mount: a plate on the wall face (x 13.81) and an arm to the set
-    add(box({ size: [0.06, 0.3, 0.3], pos: [13.78, 1.72, -9.0], mat: M_STEEL }));
-    add(box({ size: [0.32, 0.05, 0.06], pos: [13.6, 1.78, -9.0], mat: M_STEEL }));
+    monitorAssembly.add(box({ size: [0.06, 0.3, 0.3], pos: [13.78, 1.72, -9.0], mat: M_STEEL }));
+    monitorAssembly.add(box({ size: [0.32, 0.05, 0.06], pos: [13.6, 1.78, -9.0], mat: M_STEEL }));
+    add(monitorAssembly);
     office.monitor = monitor;
     office.monitorScreen = monScreen;
     anchors.monitor = new THREE.Vector3(13.3, 1.7, -8.8);

@@ -190,7 +190,7 @@ export function buildScripts(ctx) {
         ]
         : [
           { tone: 'Dry', text: 'Then why’d you put a bar between me and his office?', next: 'joke' },
-          { tone: 'Order', text: 'What have you got?', next: 'order' },
+          { tone: 'Order', text: 'What’s good back there that isn’t going to kill me?', next: 'order' },
           { tone: 'Ask', text: 'Anything I should know before I go back there?', next: 'tip' },
           { tone: 'Leave', text: 'Later.', next: null },
         ]),

@@ -536,8 +536,11 @@ const dressing = await page.evaluate(() => {
 
   /* (a) the stairwells read open: from eye height at the top of each ramp,
    * the sight line to eye height at the bottom hits nothing on the way down.
-   * The 300m street plane used to lid both wells at y=-0.02. */
+   * The 300m street plane used to lid both wells at y=-0.02. Sprites (the
+   * kitchen's steam wisps) are not sight blockers, and THREE's Sprite.raycast
+   * throws without a camera on the raycaster — give it one and skip them. */
   const ray = new T.Raycaster();
+  ray.camera = b.camera;
   out.stairs = [
     ['entry ramp', [23, 1.66, 11.6], [15.9, -1.35, 10.6]],
     ['kitchen well', [20.6, 1.66, 1], [15.7, -1.35, 1]],
@@ -548,7 +551,8 @@ const dressing = await page.evaluate(() => {
     const len = dir.length();
     ray.set(o, dir.normalize());
     ray.far = len - 0.05;
-    const hit = ray.intersectObjects(b.scene.children, true).find((h) => h.object.visible);
+    const hit = ray.intersectObjects(b.scene.children, true)
+      .find((h) => h.object.visible && !h.object.isSprite);
     return { name, len: +len.toFixed(2), hit: hit ? +hit.distance.toFixed(2) : null };
   });
 
@@ -1355,7 +1359,10 @@ const arrivals = await page.evaluate(() => {
     p.update(1 / 60);
   };
 
+  /* Camera for Sprite.raycast (the kitchen's steam wisps), which throws
+   * without one; sprites are filtered out of every hit below regardless. */
   const ray = new T.Raycaster();
+  ray.camera = b.camera;
   const runs = [
     /* [name, where he starts on his feet, what he is walking at,
      *  the x the slab stops at, how far past it he must get] */
@@ -1381,7 +1388,8 @@ const arrivals = await page.evaluate(() => {
     const eye = new T.Vector3(r.footX - 0.1, -2.9 + 1.66, r.at[1]);
     ray.set(eye, new T.Vector3(-1, 0, 0));
     ray.far = 2.8;
-    const hit = ray.intersectObjects(b.scene.children, true).find((h) => h.object.visible);
+    const hit = ray.intersectObjects(b.scene.children, true)
+      .find((h) => h.object.visible && !h.object.isSprite);
     return {
       name: r.name,
       dropped: +(top - feet).toFixed(2),
@@ -1807,8 +1815,22 @@ check('with bloom on, the table lamp does not glare and she is visible across th
 /* ---- floor chatter is atmosphere, not a repeating bit ----
  * Drive the same bark tick as frame(), pinning the random picks to civilian,
  * waiter, civilian. The front-door joke may land once; it must then leave the
- * deck, and the crowded dining room should breathe longer than the kitchen. */
-const floorChatter = await page.evaluate(() => {
+ * deck, and the crowded dining room should breathe longer than the kitchen.
+ *
+ * The bark gate now respects the subtitle floor (owner, 2026-08-18: clean the
+ * subtitle overlap), so the probe must find the floor genuinely free the way
+ * a bark would: no live voice, no patter number holding the room, and the
+ * narrate gap breathed out — hence the wait, the in-probe subtitle-timer
+ * reset (the same neutralization the probe already does to dialogue.active),
+ * and the retry across the 260 ms narration gap. */
+await page.waitForFunction(() => {
+  const b = window.__silver;
+  return !b.__voice().speaking && !b.performance.holdingTheFloor;
+}, null, { timeout: 120000, polling: 120 });
+let floorChatter = { lines: [], delays: [] };
+for (let attempt = 0; attempt < 20 && floorChatter.lines.length === 0; attempt++) {
+  if (attempt > 0) await page.waitForTimeout(400);
+  floorChatter = await page.evaluate(() => {
   const b = window.__silver;
   const was = {
     active: b.dialogue.active,
@@ -1823,6 +1845,8 @@ const floorChatter = await page.evaluate(() => {
   const delays = [];
   b.dialogue.active = false;
   b.game.lastBark = -1;
+  const sayUntil = b.hud._sayUntil;
+  b.hud._sayUntil = 0;
   b.hud.say = (line) => lines.push(String(line));
   /* Aim at floor line six by its INDEX, not at a magic fraction.
    *
@@ -1843,13 +1867,15 @@ const floorChatter = await page.evaluate(() => {
   }
   Math.random = was.random;
   b.hud.say = was.say;
+  b.hud._sayUntil = sayUntil;
   b.dialogue.active = was.active;
   b.game.barkAt = was.barkAt;
   b.game.lastBark = was.lastBark;
   b.game.floorFrontDoorBarked = was.frontDoorBarked;
   b.game.voLog.length = was.voLength;
   return { lines, delays };
-});
+  });
+}
 const frontDoorBarks = floorChatter.lines.filter((line) => line.includes('front door')).length;
 check('the civilian front-door diner speaks once and floor ambience waits at least 28 seconds',
   frontDoorBarks === 1 && floorChatter.delays.every((delay) => delay >= 28),
@@ -3166,6 +3192,7 @@ const city = await page.evaluate(() => {
    * where the arrival leaves him standing. */
   const from = b.room.anchors.dropOff;
   const ray = new T.Raycaster();
+  ray.camera = b.camera;
   let hits = 0;
   for (let i = -4; i <= 4; i++) {
     const a = i * 0.14;

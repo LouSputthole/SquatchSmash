@@ -63,16 +63,16 @@ export const WALL_SLOTS = [
 
   // North wall: one by the shelf, one riding high over the corkboard, and a
   // pair either side of the monitor with a small one stacked above.
-  { slot: 'north.corner', x: -4.20, y: 1.70, z: -4.40, rotY: 0, h: 0.44 },
-  { slot: 'shelf.left', x: -3.30, y: 1.98, z: -4.40, rotY: 0, h: 0.34 },
+  { slot: 'north.corner', x: -4.20, y: 1.70, z: -4.43, rotY: 0, h: 0.44 },
+  { slot: 'shelf.left', x: -3.30, y: 1.98, z: -4.43, rotY: 0, h: 0.34 },
   /* Above the shelf, but pushed right of the crest, which is a 21cm radius
    * centred on x -2.70 and therefore owns -2.91 to -2.49. The first placement
    * sat almost exactly on top of it. */
-  { slot: 'shelf.above', x: -2.16, y: 2.10, z: -4.40, rotY: 0, h: 0.26 },
-  { slot: 'cork.above', x: -0.10, y: 2.20, z: -4.40, rotY: 0, h: 0.46 },
-  { slot: 'desk.left', x: 0.95, y: 1.80, z: -4.40, rotY: 0, h: 0.44 },
-  { slot: 'desk.right', x: 2.72, y: 1.62, z: -4.40, rotY: 0, h: 0.52 },
-  { slot: 'desk.high', x: 2.72, y: 2.22, z: -4.40, rotY: 0, h: 0.24 },
+  { slot: 'shelf.above', x: -2.16, y: 2.10, z: -4.43, rotY: 0, h: 0.26 },
+  { slot: 'cork.above', x: -0.10, y: 2.20, z: -4.43, rotY: 0, h: 0.46 },
+  { slot: 'desk.left', x: 0.95, y: 1.80, z: -4.43, rotY: 0, h: 0.44 },
+  { slot: 'desk.right', x: 2.72, y: 1.62, z: -4.43, rotY: 0, h: 0.52 },
+  { slot: 'desk.high', x: 2.72, y: 2.22, z: -4.43, rotY: 0, h: 0.24 },
 
   // South wall gallery, with a stacked pair in the middle of the run.
   // The stretch between the stacked pair and the front door was the last
@@ -82,7 +82,7 @@ export const WALL_SLOTS = [
    * occupies out to -0.85. The first attempt started at exactly -0.85 and read
    * as hung on top of it. Dropped a little too, so it is not sharing a centre
    * line with the clock face either. */
-  { slot: 'south.shield', x: -0.31, y: 1.62, z: 4.40, rotY: Math.PI, h: 0.44 },
+  { slot: 'south.shield', x: -0.31, y: 1.62, z: 4.43, rotY: Math.PI, h: 0.44 },
 
   /* The pair used to fight the kitchen cabinets — one riding their tops, one
    * on the tile between them. Both now hang on the blank stretch of east wall
@@ -93,21 +93,21 @@ export const WALL_SLOTS = [
   // one. This part of the east wall is clear of the fridge and cabinetry.
   { slot: 'east.golf-trip', x: 4.97, y: 2.31, z: 2.85, rotY: -Math.PI / 2, h: 0.40 },
   { slot: 'east.casa-bonita', x: 4.97, y: 2.24, z: 3.75, rotY: -Math.PI / 2, h: 0.52 },
-  { slot: 'door.side', x: 0.92, y: 1.74, z: 4.40, rotY: Math.PI, h: 0.46 },
-  { slot: 'south.a', x: -2.10, y: 1.88, z: 4.40, rotY: Math.PI, h: 0.38 },
-  { slot: 'south.b', x: -2.10, y: 1.36, z: 4.40, rotY: Math.PI, h: 0.34 },
-  { slot: 'south.wide', x: -3.38, y: 1.66, z: 4.40, rotY: Math.PI, h: 0.34 },
+  { slot: 'door.side', x: 0.92, y: 1.74, z: 4.43, rotY: Math.PI, h: 0.46 },
+  { slot: 'south.a', x: -2.10, y: 1.88, z: 4.43, rotY: Math.PI, h: 0.38 },
+  { slot: 'south.b', x: -2.10, y: 1.36, z: 4.43, rotY: Math.PI, h: 0.34 },
+  { slot: 'south.wide', x: -3.38, y: 1.66, z: 4.43, rotY: Math.PI, h: 0.34 },
   /* A tall portrait in the one stretch of this wall wide enough for it. The
    * gap between south.wide and the stacked pair is 0.67m; this is 0.30 across,
    * which leaves it looking hung rather than wedged. */
-  { slot: 'south.stands', x: -2.72, y: 1.62, z: 4.40, rotY: Math.PI, h: 0.62 },
-  { slot: 'south.portrait', x: -4.42, y: 1.72, z: 4.40, rotY: Math.PI, h: 0.54 },
+  { slot: 'south.stands', x: -2.72, y: 1.62, z: 4.43, rotY: Math.PI, h: 0.62 },
+  { slot: 'south.portrait', x: -4.42, y: 1.72, z: 4.43, rotY: Math.PI, h: 0.54 },
   // Between the door and the Denver piece, which was the last empty stretch of
   // wall in the flat. Not a tournament photo.
   // Was at x 2.34, which is across the front door and its swing.
-  { slot: 'poster.pinup', x: 1.72, y: 1.66, z: 4.40, rotY: Math.PI, h: 0.56 },
+  { slot: 'poster.pinup', x: 1.72, y: 1.66, z: 4.43, rotY: Math.PI, h: 0.56 },
   // The other big one, facing you as you come away from the desk.
-  { slot: 'feature.denver', x: 3.88, y: 1.82, z: 4.40, rotY: Math.PI, h: 0.86 },
+  { slot: 'feature.denver', x: 3.88, y: 1.82, z: 4.43, rotY: Math.PI, h: 0.86 },
 ];
 
 /**
@@ -124,24 +124,24 @@ export const WALL_SLOTS = [
  */
 export const BATH_SLOTS = [
   // East wall above the toilet. You look up at this one, at length.
-  { slot: 'bath.toilet', x: -0.31, y: 1.98, z: -6.55, rotY: -Math.PI / 2, h: 0.34 },
+  { slot: 'bath.toilet', x: -0.345, y: 1.98, z: -6.55, rotY: -Math.PI / 2, h: 0.34 },
   // The portrait-format beach poster beside it. Keeps the existing red-plane
   // print over the toilet and leaves both clear of the mirror cabinet.
-  { slot: 'bath.toilet.poster', x: -0.31, y: 2.05, z: -5.90, rotY: -Math.PI / 2, h: 0.42 },
+  { slot: 'bath.toilet.poster', x: -0.345, y: 2.05, z: -5.90, rotY: -Math.PI / 2, h: 0.42 },
   // Above and behind the cistern.
-  { slot: 'bath.far', x: -1.30, y: 2.10, z: -7.09, rotY: 0, h: 0.36 },
+  { slot: 'bath.far', x: -1.30, y: 2.10, z: -7.055, rotY: 0, h: 0.36 },
   // Over the mirror cabinet.
-  { slot: 'bath.mirror', x: -0.31, y: 1.96, z: -5.02, rotY: -Math.PI / 2, h: 0.30 },
+  { slot: 'bath.mirror', x: -0.345, y: 1.96, z: -5.02, rotY: -Math.PI / 2, h: 0.30 },
   // West wall between the bath and the door, high enough to stay dry.
-  { slot: 'bath.high', x: -2.69, y: 2.24, z: -5.12, rotY: Math.PI / 2, h: 0.28 },
+  { slot: 'bath.high', x: -2.655, y: 2.24, z: -5.12, rotY: Math.PI / 2, h: 0.28 },
 ];
 
 /**
  * Hanging cloth banners rather than framed pictures.
  *
- * The wall face is z -4.5 and the framed pieces hang at -4.436, so a banner at
- * -4.33 was standing 15cm off the wall -- twice as proud as anything around
- * it, which reads as floating rather than hanging. They sit in the same plane
+ * The wall face is z -4.5 and the framed pieces sit within 3.5cm of it, so the
+ * old banner at -4.33 was standing 15cm off the wall -- far enough to read as
+ * floating rather than hanging. They sit in the same attachment plane
  * as the frames now.
  *
  * Austin is 1.6m of cloth and was centred at 4.15, which put its right edge
@@ -154,13 +154,13 @@ const BANNER_SLOTS = [
    * walked into the banner's left edge. A picture's width is never written
    * down here -- it comes from the file's aspect ratio -- so swapping art
    * moves the edges of things that were fine yesterday. */
-  { slot: 'banner.main', x: 4.08, y: 1.62, z: -4.42, rotY: 0, h: 0.56 },
+  { slot: 'banner.main', x: 4.08, y: 1.62, z: -4.45, rotY: 0, h: 0.56 },
   // Strung above the monitor, the way a setup backdrop goes up.
-  { slot: 'banner.twitch', x: 1.90, y: 2.34, z: -4.42, rotY: 0, h: 0.30 },
+  { slot: 'banner.twitch', x: 1.90, y: 2.34, z: -4.45, rotY: 0, h: 0.30 },
 ];
 
 /** Round crest hung above the bookshelf on the north wall. */
-const CREST_SLOT = { slot: 'crest.round', x: -2.70, y: 2.13, z: -4.40, rotY: 0, r: 0.21 };
+const CREST_SLOT = { slot: 'crest.round', x: -2.70, y: 2.13, z: -4.45, rotY: 0, r: 0.21 };
 
 /**
  * The one that has been crooked for months.
@@ -268,23 +268,45 @@ export async function buildApartment(ctx) {
   const colliders = [];
   const floorZones = [];
   const ticks = [];        // per-frame updaters
-  const addCollider = (b) => colliders.push(collider(b[0], b[1]));
+  const addCollider = (bounds, { name = '', assemblyId = null } = {}) => {
+    const volume = collider(bounds[0], bounds[1]);
+    if (name) volume.name = name;
+    if (assemblyId) volume.userData = { geometryGate: { assemblyId } };
+    colliders.push(volume);
+    return volume;
+  };
+  const SHELL_COLLISION_ASSEMBLY = 'apartment-shell-collision';
+  const addShellCollider = (name, bounds) => addCollider(bounds, {
+    name,
+    assemblyId: SHELL_COLLISION_ASSEMBLY,
+  });
+  /* Wall meshes for `interaction.setOccluders` -- the ray reaches 2.7 m, which
+   * is through the bedroom/bathroom wall to the tub, so prompts need the walls
+   * in the way. Segments only: the doorway gaps stay open by construction. */
+  const occluders = [];
 
   /* ================================================================ */
   /* Shell                                                             */
   /* ================================================================ */
 
+  const apartmentShell = group('apartment-shell');
+  apartmentShell.userData.geometryGate = {
+    assemblyId: 'apartment-shell',
+    structural: true,
+  };
+  root.add(apartmentShell);
+
   const { x0, x1, z0, z1, h, wall } = ROOM;
 
   const floor = boxFrom(x0, -0.1, z0, x1, 0, z1, M.floor, { cast: false });
-  root.add(floor);
+  apartmentShell.add(floor);
   const ceiling = boxFrom(x0, h, z0, x1, h + 0.1, z1, M.ceiling, { cast: false });
-  root.add(ceiling);
+  apartmentShell.add(ceiling);
 
   // Walls, with openings left for the two doors and the window.
   // North wall (z0): bathroom door at x -1.9..-0.9, otherwise solid.
-  addWallRun(root, M, 'north', [[x0, -1.90], [-0.90, x1]], z0, wall, h);
-  addDoorHeader(root, M, 'north', -1.90, -0.90, z0, wall, h, 2.05);
+  occluders.push(...addWallRun(apartmentShell, M, 'north', [[x0, -1.90], [-0.90, x1]], z0, wall, h));
+  addDoorHeader(apartmentShell, M, 'north', -1.90, -0.90, z0, wall, h, 2.05);
 
   /* South wall (z1): front door at x 2.30..3.30, and the closet beside it.
    *
@@ -296,44 +318,51 @@ export async function buildApartment(ctx) {
    *
    * It is 60cm wide, which is narrow for a closet and exactly right for the
    * one by the front door that came with the flat. */
-  addWallRun(root, M, 'south', [[x0, 2.30], [3.30, CLOSET.x0], [CLOSET.x1, x1]], z1, wall, h);
-  addDoorHeader(root, M, 'south', 2.30, 3.30, z1, wall, h, 2.05);
-  addDoorHeader(root, M, 'south', CLOSET.x0, CLOSET.x1, z1, wall, h, CLOSET.h);
+  occluders.push(...addWallRun(apartmentShell, M, 'south', [[x0, 2.30], [3.30, CLOSET.x0], [CLOSET.x1, x1]], z1, wall, h));
+  addDoorHeader(apartmentShell, M, 'south', 2.30, 3.30, z1, wall, h, 2.05);
+  addDoorHeader(apartmentShell, M, 'south', CLOSET.x0, CLOSET.x1, z1, wall, h, CLOSET.h);
 
   // West wall: solid.
-  addWallRunSide(root, M, 'west', [[z0, z1]], x0, wall, h);
+  occluders.push(...addWallRunSide(apartmentShell, M, 'west', [[z0, z1]], x0, wall, h));
 
   // East wall: window opening at z -3.90..-2.30, y 0.95..2.15.
-  addWallRunSide(root, M, 'east', [[z0, -3.90], [-2.30, z1]], x1, wall, h);
-  root.add(boxFrom(x1, 0, -3.90, x1 + wall, 0.95, -2.30, M.wall, { cast: false }));       // sill wall
-  root.add(boxFrom(x1, 2.15, -3.90, x1 + wall, h, -2.30, M.wall, { cast: false }));       // header
+  occluders.push(...addWallRunSide(apartmentShell, M, 'east', [[z0, -3.90], [-2.30, z1]], x1, wall, h));
+  apartmentShell.add(geometryWall(
+    boxFrom(x1, 0, -3.90, x1 + wall, 0.95, -2.30, M.wall, { cast: false }),
+    'x',
+  )); // sill wall
+  apartmentShell.add(geometryWall(
+    boxFrom(x1, 2.15, -3.90, x1 + wall, h, -2.30, M.wall, { cast: false }),
+    'x',
+  )); // header
 
   // Skirting board all the way round — stopping at the doorways instead of
   // running a nine-centimetre board across each threshold.
   const skirt = M.trim;
-  root.add(boxFrom(x0, 0, z0, -1.90, 0.09, z0 + 0.02, skirt, { cast: false }));
-  root.add(boxFrom(-0.90, 0, z0, x1, 0.09, z0 + 0.02, skirt, { cast: false }));
-  root.add(boxFrom(x0, 0, z1 - 0.02, 2.30, 0.09, z1, skirt, { cast: false }));
-  root.add(boxFrom(3.20, 0, z1 - 0.02, 4.38, 0.09, z1, skirt, { cast: false }));
-  root.add(boxFrom(x0, 0, z0, x0 + 0.02, 0.09, z1, skirt, { cast: false }));
-  root.add(boxFrom(x1 - 0.02, 0, z0, x1, 0.09, z1, skirt, { cast: false }));
+  apartmentShell.add(boxFrom(x0, 0, z0, -1.90, 0.09, z0 + 0.02, skirt, { cast: false }));
+  apartmentShell.add(boxFrom(-0.90, 0, z0, x1, 0.09, z0 + 0.02, skirt, { cast: false }));
+  apartmentShell.add(boxFrom(x0, 0, z1 - 0.02, 2.30, 0.09, z1, skirt, { cast: false }));
+  apartmentShell.add(boxFrom(3.30, 0, z1 - 0.02, 4.38, 0.09, z1, skirt, { cast: false }));
+  apartmentShell.add(boxFrom(x0, 0, z0, x0 + 0.02, 0.09, z1, skirt, { cast: false }));
+  apartmentShell.add(boxFrom(x1 - 0.02, 0, z0, x1, 0.09, z1, skirt, { cast: false }));
 
-  // Room colliders (walls). The north wall is split so the bathroom doorway
-  // at x -1.90..-0.90 is actually walkable.
-  addCollider([[x0 - 0.5, 0, z0 - wall, ], [-1.90, h, z0]]);
-  addCollider([[-0.90, 0, z0 - wall], [x1 + 0.5, h, z0]]);
-  addCollider([[x0 - 0.5, 0, z0 - 0.5], [-1.90, h, z0 - wall]]);
-  addCollider([[-0.90, 0, z0 - 0.5], [x1 + 0.5, h, z0 - wall]]);
+  // Room colliders are padded pieces of one fixed architectural collision
+  // union. Give that union narrow ownership while doors and furnishings stay
+  // independent and fully audited.
+  addShellCollider('apartment-shell-north-west-inner', [[x0 - 0.5, 0, z0 - wall], [-1.90, h, z0]]);
+  addShellCollider('apartment-shell-north-east-inner', [[-0.90, 0, z0 - wall], [x1 + 0.5, h, z0]]);
+  addShellCollider('apartment-shell-north-west-outer', [[x0 - 0.5, 0, z0 - 0.5], [-1.90, h, z0 - wall]]);
+  addShellCollider('apartment-shell-north-east-outer', [[-0.90, 0, z0 - 0.5], [x1 + 0.5, h, z0 - wall]]);
   /* South side, split around the closet mouth so it is walkable, with the
    * alcove's own three walls closing it off behind. */
-  addCollider([[x0 - 0.5, 0, z1], [CLOSET.x0, h, z1 + 0.5]]);
-  addCollider([[CLOSET.x1, 0, z1], [x1 + 0.5, h, z1 + 0.5]]);
+  addShellCollider('apartment-shell-south-west', [[x0 - 0.5, 0, z1], [CLOSET.x0, h, z1 + 0.5]]);
+  addShellCollider('apartment-shell-south-east', [[CLOSET.x1, 0, z1], [x1 + 0.5, h, z1 + 0.5]]);
   // The closet is in the corner, so its east side is the room's own east wall.
-  addCollider([[CLOSET.x0 - 0.5, 0, CLOSET.back], [CLOSET.x1 + 0.5, h, CLOSET.back + 0.5]]);
-  addCollider([[CLOSET.x0 - 0.5, 0, z1], [CLOSET.x0, h, CLOSET.back + 0.2]]);
-  addCollider([[CLOSET.x1, 0, z1], [CLOSET.x1 + 0.5, h, CLOSET.back + 0.2]]);
-  addCollider([[x0 - 0.5, 0, z0 - 0.5], [x0, h, z1 + 0.5]]);
-  addCollider([[x1, 0, z0 - 0.5], [x1 + 0.5, h, z1 + 0.5]]);
+  addShellCollider('apartment-shell-closet-back', [[CLOSET.x0 - 0.5, 0, CLOSET.back], [CLOSET.x1 + 0.5, h, CLOSET.back + 0.5]]);
+  addShellCollider('apartment-shell-closet-west', [[CLOSET.x0 - 0.5, 0, z1], [CLOSET.x0, h, CLOSET.back + 0.2]]);
+  addShellCollider('apartment-shell-closet-east', [[CLOSET.x1, 0, z1], [CLOSET.x1 + 0.5, h, CLOSET.back + 0.2]]);
+  addShellCollider('apartment-shell-west', [[x0 - 0.5, 0, z0 - 0.5], [x0, h, z1 + 0.5]]);
+  addShellCollider('apartment-shell-east', [[x1, 0, z0 - 0.5], [x1 + 0.5, h, z1 + 0.5]]);
 
   /* ---- rug + floor surfaces ---- */
   const rug = boxFrom(-4.90, 0.001, -0.60, -2.30, 0.014, 2.00, M.rug, { cast: false });
@@ -355,6 +384,10 @@ export async function buildApartment(ctx) {
   /* ================================================================ */
 
   const win = group('window');
+  win.userData.geometryGate = {
+    assemblyId: 'apartment-shell',
+    structural: true,
+  };
   const wz0 = -3.90, wz1 = -2.30, wy0 = 0.95, wy1 = 2.15;
   // Reveal + frame.
   win.add(boxFrom(x1, wy0 - 0.06, wz0 - 0.05, x1 + 0.05, wy0, wz1 + 0.05, M.trim, { cast: false }));
@@ -410,6 +443,16 @@ export async function buildApartment(ctx) {
   root.add(frontDoor.group);
   const bathDoor = makeDoor(M, { x: -1.40, z: z0 - wall / 2, w: 1.0, rotY: 0, hinge: -1 });
   root.add(bathDoor.group);
+  /* The wall colliders leave the doorway permanently walkable, so the closed
+   * leaf brings its own box. It parks below the floor while the door stands
+   * open -- the broadphase follows boxes moved in place, and the resolver
+   * skips anything wholly under his feet. */
+  // Inset the raw leaf by the shared 2 cm collider padding on each hinge
+  // edge, so the final volume exactly fills rather than enters the jamb.
+  addCollider([[-1.88, 0, z0 - wall], [-0.92, 2.05, z0]], {
+    name: 'apartment-bathroom-door-leaf',
+  });
+  const bathDoorCollider = colliders[colliders.length - 1];
 
   /* ================================================================ */
   /* Bathroom, through the door in the north wall                      */
@@ -421,16 +464,27 @@ export async function buildApartment(ctx) {
 
   const bath = group('bathroom');
   root.add(bath);
+  const bathroomShell = group('bathroom-shell');
+  bathroomShell.userData.geometryGate = {
+    assemblyId: 'apartment-bathroom-shell',
+    structural: true,
+  };
+  bath.add(bathroomShell);
 
   // Floor, ceiling and the three outer walls (the fourth is the room's own
   // north wall, which already has the door opening in it).
   // The floor runs to the room's own north wall line, so the doorway has
   // boards under it instead of a sixteen-centimetre void.
-  bath.add(boxFrom(BATH.x0, -0.1, BATH.z0, BATH.x1, 0, z0, M.splash, { cast: false }));
-  bath.add(boxFrom(BATH.x0, h, BATH.z0, BATH.x1, h + 0.1, BATH.z1, M.ceiling, { cast: false }));
-  bath.add(boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z0, M.wall, { cast: false }));
-  bath.add(boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x0, h, BATH.z1, M.wall, { cast: false }));
-  bath.add(boxFrom(BATH.x1, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z1, M.wall, { cast: false }));
+  bathroomShell.add(boxFrom(BATH.x0, -0.1, BATH.z0, BATH.x1, 0, z0, M.splash, { cast: false }));
+  bathroomShell.add(boxFrom(BATH.x0, h, BATH.z0, BATH.x1, h + 0.1, BATH.z1, M.ceiling, { cast: false }));
+  for (const bw of [
+    geometryWall(boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z0, M.wall, { cast: false }), 'z'),
+    geometryWall(boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x0, h, BATH.z1, M.wall, { cast: false }), 'x'),
+    geometryWall(boxFrom(BATH.x1, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z1, M.wall, { cast: false }), 'x'),
+  ]) {
+    bathroomShell.add(bw);
+    occluders.push(bw);
+  }
 
   // Tiled to shoulder height, painted above.
   for (const [px, py, pz, pw, ph, ry] of [
@@ -441,12 +495,12 @@ export async function buildApartment(ctx) {
     const t = plane(pw, ph, M.splash);
     t.position.set(px, py, pz);
     t.rotation.y = ry;
-    bath.add(t);
+    bathroomShell.add(t);
   }
 
-  addCollider([[BATH.x0 - wall, 0, BATH.z0 - wall], [BATH.x1 + wall, h, BATH.z0]]);
-  addCollider([[BATH.x0 - wall, 0, BATH.z0 - wall], [BATH.x0, h, BATH.z1]]);
-  addCollider([[BATH.x1, 0, BATH.z0 - wall], [BATH.x1 + wall, h, BATH.z1]]);
+  addShellCollider('apartment-shell-bathroom-north', [[BATH.x0 - wall, 0, BATH.z0 - wall], [BATH.x1 + wall, h, BATH.z0]]);
+  addShellCollider('apartment-shell-bathroom-west', [[BATH.x0 - wall, 0, BATH.z0 - wall], [BATH.x0, h, BATH.z1]]);
+  addShellCollider('apartment-shell-bathroom-east', [[BATH.x1, 0, BATH.z0 - wall], [BATH.x1 + wall, h, BATH.z1]]);
 
   floorZones.push({
     box: new THREE.Box3(
@@ -456,7 +510,9 @@ export async function buildApartment(ctx) {
     surface: 'tile',
   });
 
+  const BATH_TUB_ASSEMBLY = 'apartment-bath-tub-fixture';
   const tub = P.makeTub(M, { x0: BATH.x0 + 0.02, z0: BATH.z0 + 0.02, x1: -1.90, z1: -5.50 });
+  tub.group.userData.geometryGate = { assemblyId: BATH_TUB_ASSEMBLY };
   bath.add(tub.group);
   addCollider(tub.bounds);
 
@@ -471,10 +527,20 @@ export async function buildApartment(ctx) {
 
   // Bath mat, and the fluorescent tube that buzzes.
   bath.add(boxFrom(-1.85, 0.001, -5.95, -1.05, 0.016, -5.35, M.rug, { cast: false }));
+  const bathLightFixture = group('bathroom-light');
+  bathLightFixture.userData.geometryGate = { assemblyId: 'apartment-bathroom-light' };
   const bathTube = box({
     size: [0.9, 0.06, 0.10], pos: [(BATH.x0 + BATH.x1) / 2, h - 0.09, -5.9], mat: M.bulbOff,
   });
-  bath.add(bathTube);
+  bathLightFixture.add(bathTube);
+  for (const hangerX of [-1.76, -1.24]) {
+    bathLightFixture.add(box({
+      size: [0.025, 0.06, 0.025],
+      pos: [hangerX, h - 0.03, -5.9],
+      mat: M.chrome,
+    }));
+  }
+  bath.add(bathLightFixture);
   const bathLight = new THREE.PointLight(0xdff0ff, 0, 5.5, 1.9);
   bathLight.position.set((BATH.x0 + BATH.x1) / 2, h - 0.16, -5.9);
   bath.add(bathLight);
@@ -602,6 +668,68 @@ export async function buildApartment(ctx) {
   const kitchen = P.makeKitchen(M, { z0: -1.90, z1: 1.45, wallX: x1 });
   root.add(kitchen.group);
   addCollider(kitchen.bounds);
+
+  /* The same unlabelled line and card as the Bada Bing urinal, on the clear
+   * strip of worktop just south of the sink. The effect remains the shared
+   * FocusRush in core; this scene owns only its prop, prose, and one-shot
+   * consumption state. */
+  const counterPowderLine = box({
+    name: 'apartment-counter-line',
+    size: [0.20, 0.008, 0.012], pos: [0, 0.004, 0],
+    mat: mat({
+      color: 0xffffff, emissive: 0xbfd6ff, emissiveIntensity: 0.72,
+      roughness: 0.72,
+    }),
+    cast: false,
+  });
+  const counterPowderCard = box({
+    name: 'apartment-counter-line-card',
+    size: [0.08, 0.004, 0.055], pos: [0.08, 0.002, -0.035], rotY: 0.28,
+    mat: mat({ color: 0x33233f, roughness: 0.78 }),
+    cast: false,
+  });
+  const counterPowder = group(
+    'apartment-counter-powder', counterPowderLine, counterPowderCard,
+  );
+  counterPowder.userData.geometryGate = { assemblyId: 'apartment-counter-white-line' };
+  counterPowder.position.set(x1 - 0.42, kitchen.top + 0.002, 0.29);
+  root.add(counterPowder);
+  const counterPowderHit = box({
+    name: 'apartment-counter-line-target',
+    size: [0.34, 0.30, 0.28],
+    pos: [counterPowder.position.x, kitchen.top + 0.15, counterPowder.position.z],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(counterPowderHit);
+  let counterPowderConsumed = false;
+  function consumeCounterPowder() {
+    if (counterPowderConsumed) return false;
+    counterPowderConsumed = true;
+    counterPowderLine.visible = false;
+    counterPowderCard.position.x += 0.04;
+    counterPowderCard.rotation.y += 0.18;
+    return true;
+  }
+  interaction.register(counterPowderHit, {
+    label: () => (counterPowderConsumed
+      ? 'The empty space on the <b>kitchen counter</b>'
+      : ctx.isFocusActive?.() ? 'You are fine. You are <b>great</b>.' : 'The line on the <b>kitchen counter</b>'),
+    hold: 1.1,
+    onTap: () => hud.say('A white line beside the sink, laid out with a card. You do not remember putting it there.', 4800),
+    onUse: () => {
+      if (!consumeCounterPowder()) {
+        hud.say('There is nothing left and you checked anyway.', 3000);
+        return false;
+      }
+      ctx.onWhiteLine?.();
+      audio.play('bing.line.snort', {
+        volume: 0.5, position: counterPowder.position, ref: 0.9, maxDist: 6,
+      });
+      hud.toast('Locked in', 'good');
+      hud.say('<em>Oh.</em> The flat sharpens around you. For twenty-five seconds, every unfinished job looks easy.', 5200);
+      return true;
+    },
+  });
 
   // Pan, sitting on the hob where it has been since the last time.
   const panPos = kitchen.hob.clone();
@@ -800,10 +928,12 @@ export async function buildApartment(ctx) {
   const gluekit = P.makeGlueAndTissues(M, { x: 0.98, y: 0.74, z: -3.92 });
   root.add(gluekit.group);
 
-  const cork = P.makeCorkboard(M, { x: -0.10, y: 1.58, z: -4.40, rotY: 0 });
+  const CORKBOARD_ASSEMBLY = 'apartment-corkboard-fixture';
+  const cork = P.makeCorkboard(M, { x: -0.10, y: 1.58, z: -4.46, rotY: 0 });
+  cork.group.userData.geometryGate = { assemblyId: CORKBOARD_ASSEMBLY };
   root.add(cork.group);
 
-  const wallClock = P.makeWallClock(M, { x: -1.00, y: 1.95, z: 4.40, rotY: Math.PI });
+  const wallClock = P.makeWallClock(M, { x: -1.00, y: 1.95, z: 4.46, rotY: Math.PI });
   root.add(wallClock.group);
 
   /* Candles, either side of the shrine. Lit. Nobody lights candles in a
@@ -1094,7 +1224,9 @@ export async function buildApartment(ctx) {
       suitBag: {
         x: (CLOSET.x0 + CLOSET.x1) / 2, y: P.CLOSET_RAIL_Y, z: (z1 + CLOSET.back) / 2, rotY: 0,
       },
-      gunCase: { x: -4.15, y: 0.73, z: -2.70, rotY: 0.35 },
+      /* The open lid lies on the flat duvet, clear of the bunched fold. At
+       * z -2.70 it cut 5cm through that raised fold instead of resting on it. */
+      gunCase: { x: -4.15, y: 0.73, z: -2.58, rotY: 0.35 },
       /* East along the counter. At x 4.72 the top two bags of it were 3.5cm
        * inside the canister standing behind them. */
       jerkyHaul: { x: 4.86, y: kitchen.top, z: -0.66, rotY: 0.4 },
@@ -1134,12 +1266,25 @@ export async function buildApartment(ctx) {
       rain: { x: x1 - 0.02, y: (wy0 + wy1) / 2, z: (wz0 + wz1) / 2, w: wz1 - wz0, h: wy1 - wy0 },
     },
   });
+  // The post-heist towel is deliberately draped over this exact tub rim. Keep
+  // that fitted relationship local to the fixture rather than exempting the
+  // bathroom or every hanging cloth object.
+  dressing.get('heistWash').group.userData.geometryGate = {
+    assemblyId: BATH_TUB_ASSEMBLY,
+  };
+  dressing.get('suitBag').group.userData.geometryGate = {
+    assemblyId: 'apartment-closet-suit-carrier',
+  };
 
   /* Margo, for the one morning she is here. Built in every chapter and shown
    * by the cutscene rather than by the dressing table -- she is a person who
    * stayed the night, not a possession he accumulated. */
   const margo = makeMorningGuest(M);
   root.add(margo.group);
+  /* Her mouth and talking head-life, every frame she exists. Costs one
+   * comparison a frame while she is silent or hidden (src/core/mouth.js),
+   * and it is what closes her mouth when a line ends or is cut. */
+  ticks.push((dt) => margo.update(dt));
 
   /** Weather and light for the morning currently on show. */
   let dressAir = dressingFor('day_one').air;
@@ -1306,6 +1451,8 @@ export async function buildApartment(ctx) {
   const closetBack = gear.get('closet.back');
   const closet = P.makeCloset(M, {
     x0: CLOSET.x0 + 0.02, x1: CLOSET.x1 - 0.02, z0: z1, z1: CLOSET.back, h: CLOSET.h,
+    architectureAssembly: 'apartment-shell',
+    railAssembly: 'apartment-closet-suit-carrier',
     /* 0.52 wide, not 0.40. The closet mouth is 60cm, so this is very nearly
      * the full width of the back wall — which is the point. It is the thing
      * he hid, and shoving the shirts aside should uncover something big
@@ -1380,14 +1527,79 @@ export async function buildApartment(ctx) {
     mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
   });
   root.add(closetHit);
+  /* The three shirts, by name, hoisted so BOTH ways of getting dressed can
+   * name the same one. The rail below and the nightstand drawer further down
+   * are two doors into one wardrobe, and a player who cycled to the henley in
+   * the drawer and then pulled a shirt off the rail should get the henley. */
+  const SHIRT_NAMES = ['black shirt', 'grey henley', 'good shirt'];
+  /* Latched so one hold shakes one shirt out, not one per frame. The drawer
+   * keeps its own; they are separate holds on separate objects. */
+  let shookOutOnRail = false;
+
+  /* TAP SLIDES THEM, HOLD PUTS ONE ON.
+   *
+   * Owner playtest, 2026-08-20: *"Put on a clean shirt objective, that should
+   * be done in the closet where the shirts are instead of the nightstand.
+   * Maybe hold E to put on a clean shirt and tapping E still pushes them
+   * aside, but that's much more intuitive than the nightstand."*
+   *
+   * Exactly right, and the reason it was ever the nightstand is not a good
+   * one: the drawer got the three-shirt tap/hold treatment first and the rail
+   * never caught up, so the flat had a wardrobe full of clothes you could
+   * only shove about, and the thing you actually wore came out of a bedside
+   * drawer nobody would think to open. A man looking for a clean shirt looks
+   * in the wardrobe.
+   *
+   * The split is the one the telly, the radio and the bed already use, so it
+   * is a gesture he knows: tap slides the rail, hold pulls something off it.
+   * They stay independent — pushing the clothes aside is how you get at the
+   * photograph propped behind them, and needing the rail open before you
+   * could dress would be a second step nobody asked for.
+   *
+   * `state.shirt` is still the index the drawer cycles, so the two ways in
+   * agree about which shirt is on top and the drawer keeps working for anyone
+   * who has already learned it. See SHIRTS, below.
+   *
+   * `hold` is a NUMBER and has to stay one -- `Interaction.update` divides by
+   * it (`holdTime / desc.hold`), so making it a function to switch the hold
+   * off once he is dressed produces NaN and a bar that never fills. Once he is
+   * dressed the hold is not switched off, it is pointed at the slide instead,
+   * so neither gesture on this rail is ever dead. */
+  const slideTheRail = () => {
+    state.closetOpen = !state.closetOpen;
+    audio.play('closet.slide', {
+      position: closet.centre, volume: 0.55, muffle: 2600,
+    });
+    ctx.onCloset?.(state.closetOpen);
+  };
+  const pushLabel = () => (state.closetOpen
+    ? 'Push the clothes <b>back</b>'
+    : 'Push the clothes <b>aside</b>');
   interaction.register(closetHit, {
-    label: () => (state.closetOpen ? 'Push the clothes <b>back</b>' : 'Push the clothes <b>aside</b>'),
+    label: () => (state.dressed
+      ? pushLabel()
+      : `Hold to wear the <b>${SHIRT_NAMES[state.shirt]}</b> &middot; tap to push them `
+        + `<b>${state.closetOpen ? 'back' : 'aside'}</b>`),
+    hold: 1.1,
+    holdLabel: () => (state.dressed
+      ? pushLabel()
+      : `Pulling on the <b>${SHIRT_NAMES[state.shirt]}</b>…`),
+    onTap: slideTheRail,
+    onHoldProgress: (p) => {
+      if (state.dressed) return;
+      if (p < 0.1) shookOutOnRail = false;
+      else if (p > 0.3 && !shookOutOnRail) {
+        shookOutOnRail = true;
+        audio.play('cloth.snap', { volume: 0.45, position: closet.centre });
+      }
+    },
     onUse: () => {
-      state.closetOpen = !state.closetOpen;
-      audio.play('closet.slide', {
-        position: closet.centre, volume: 0.55, muffle: 2600,
-      });
-      ctx.onCloset?.(state.closetOpen);
+      if (state.dressed) { slideTheRail(); return; }
+      state.dressed = true;
+      shookOutOnRail = false;
+      audio.play('closet.slide', { position: closet.centre, volume: 0.4, muffle: 2600 });
+      audio.play('bed.rustle', { volume: 0.5 });
+      ctx.onDressed?.({ name: SHIRT_NAMES[state.shirt] });
     },
   });
 
@@ -1609,6 +1821,26 @@ export async function buildApartment(ctx) {
     tvOn: false,
     /** He has sat down at the computer at least once today. */
     pcEverOn: false,
+    /* ---- the per-chapter pastimes, measured for THIS visit ----
+     *
+     * See CHAPTER_PASTIMES in core/apartment-story.js. Each chapter that sends
+     * him home asks for one thing that is his rather than the family's, and
+     * these are the raw readings the door is judged against: seconds on the
+     * couch with the telly on, the best Squatch Shoot score, seconds of the
+     * campground actually up on the monitor, and whether the caps went down.
+     * `main.js` latches each into the campaign the moment it passes its
+     * threshold, which is what survives leaving the flat -- the flat itself is
+     * built from nothing on every arrival, so everything here starts at zero
+     * again and is only ever the reading for the visit in progress.
+     */
+    /** Seconds sat on the couch with the telly actually on. */
+    tvWatched: 0,
+    /** Best Squatch Shoot score this visit. */
+    shootScore: 0,
+    /** Seconds of SQUATCH SMASH.exe up and in focus. */
+    smashPlayed: 0,
+    /** The caps went down. */
+    shroomsTaken: false,
     /** In the cylinder, and in his pocket. */
     rounds: 6,
     spareRounds: 0,
@@ -1902,11 +2134,14 @@ export async function buildApartment(ctx) {
    * new one. It used to be one hold with nothing named at either end of it,
    * which read as a switch being thrown rather than as a man getting changed.
    */
-  const SHIRTS = [
-    { name: 'black shirt', line: 'The black one. It is always the black one.' },
-    { name: 'grey henley', line: 'Grey henley. Clean, or near enough to it.' },
-    { name: 'good shirt', line: 'The good shirt. Somebody ironed this once. Not him.' },
+  const SHIRT_LINES = [
+    'The black one. It is always the black one.',
+    'Grey henley. Clean, or near enough to it.',
+    'The good shirt. Somebody ironed this once. Not him.',
   ];
+  // Names come from SHIRT_NAMES up by the closet, so the rail and the drawer
+  // cannot drift into disagreeing about what is on top.
+  const SHIRTS = SHIRT_NAMES.map((name, i) => ({ name, line: SHIRT_LINES[i] }));
   // Latched so one hold shakes one shirt out, not one per frame.
   let shookOut = false;
 
@@ -2107,9 +2342,10 @@ export async function buildApartment(ctx) {
     },
   });
   // The card nobody has taken down. Reading it is how the game begins.
-  /* The board's own notes front at z -4.385 and their pins at -4.379, so a
-   card at -4.385 grows straight through the paper behind it. Clear both. */
-  const note = P.makeCorkNote(M, { x: -0.10, y: 1.74, z: -4.366, rotY: 0.04 });
+  /* The board's own notes front at z -4.445 and their pins at -4.439, so a
+   card at -4.445 grows straight through the paper behind it. Clear both. */
+  const note = P.makeCorkNote(M, { x: -0.10, y: 1.74, z: -4.426, rotY: 0.04 });
+  note.group.userData.geometryGate = { assemblyId: CORKBOARD_ASSEMBLY };
   root.add(note.group);
   interaction.register(note.group, {
     label: () => 'Read the <b>card</b>',
@@ -2190,7 +2426,12 @@ export async function buildApartment(ctx) {
     audio.say('photo', { delay: deliberate ? 0.35 : 0.55 });
   };
 
+  /* Banners ride in `frames` as well as `banners`, and their own loop below
+   * is the registration that should win -- registering them here too only
+   * writes a descriptor the next loop immediately replaces. */
+  const bannerMeshes = new Set(banners.map((b) => b.mesh));
   for (const f of frames) {
+    if (bannerMeshes.has(f.mesh)) continue;
     /* The one hung too high, which has been crooked for months. Using it
      * starts the fix; the label says nothing about what that involves. */
     if (f.slot === 'cork.above') {
@@ -2227,8 +2468,7 @@ export async function buildApartment(ctx) {
     });
   }
 
-  // Banners are in `frames` too, so this re-registration would otherwise drop
-  // the remark the loop above just attached to them.
+  // The banners' only registration -- the frames loop skips their meshes.
   for (const b of banners) {
     interaction.register(b.mesh, {
       label: () => `Look at <b>${b.info.title}</b>`,
@@ -2278,6 +2518,12 @@ export async function buildApartment(ctx) {
     if (Math.abs(bathDoorTarget - bathDoorT) < 0.0005) bathDoorT = bathDoorTarget;
     // 1.55 rad full open — 1.85 swung the leaf six centimetres into the bath.
     bathDoor.pivot.rotation.y = bathDoorT * 1.55 + bathDoorNudge;
+    /* The doorway is blocked while the leaf still crosses it, and the box
+     * drops out of reach once the swing has cleared the opening. Only y
+     * moves, so the broadphase never has to re-file it. */
+    const leafClear = bathDoorT > 0.5;
+    bathDoorCollider.min.y = leafClear ? -3 : 0;
+    bathDoorCollider.max.y = leafClear ? -2.9 : 2.05;
     bathLight.intensity += ((state.bathLightOn ? 4.6 : 0) - bathLight.intensity) * Math.min(1, dt * 7);
     // Fluorescent tubes never quite settle.
     if (state.bathLightOn) bathLight.intensity *= 0.985 + Math.random() * 0.03;
@@ -2457,6 +2703,7 @@ export async function buildApartment(ctx) {
     root,
     materials: M,
     colliders,
+    occluders,
     floorZones,
     state,
     inventory,
@@ -2543,6 +2790,15 @@ export async function buildApartment(ctx) {
     showerHead: tub.headPos,
     /** Where it goes when you are already standing in there. */
     tubDrain: new THREE.Vector3(tub.standPos.x, 0.03, tub.standPos.z + 0.10),
+    /** The apartment counterpart to the Bada Bing urinal line. */
+    whiteLine: {
+      group: counterPowder,
+      line: counterPowderLine,
+      card: counterPowderCard,
+      target: counterPowderHit,
+      consume: consumeCounterPowder,
+      get consumed() { return counterPowderConsumed; },
+    },
     /** The pan, so the eggs can appear in it. */
     pan,
     panPos,
@@ -2684,29 +2940,38 @@ export async function buildApartment(ctx) {
 /* Shell helpers                                                       */
 /* ------------------------------------------------------------------ */
 
+function geometryWall(mesh, wallAxis) {
+  mesh.userData.geometryGate = { wall: true, wallAxis };
+  return mesh;
+}
+
 /** Build a north/south wall as a set of x-ranges, leaving gaps for doors. */
 function addWallRun(root, M, side, ranges, zAt, thick, h) {
   const inner = side === 'north' ? zAt - thick : zAt;
   const outer = side === 'north' ? zAt : zAt + thick;
-  for (const [a, b] of ranges) {
-    root.add(boxFrom(a, 0, inner, b, h, outer, M.wall, { cast: false }));
-  }
+  return ranges.map(([a, b]) => {
+    const w = geometryWall(boxFrom(a, 0, inner, b, h, outer, M.wall, { cast: false }), 'z');
+    root.add(w);
+    return w;
+  });
 }
 
 /** Build a west/east wall as a set of z-ranges. */
 function addWallRunSide(root, M, side, ranges, xAt, thick, h) {
   const inner = side === 'west' ? xAt - thick : xAt;
   const outer = side === 'west' ? xAt : xAt + thick;
-  for (const [a, b] of ranges) {
-    root.add(boxFrom(inner, 0, a, outer, h, b, M.wall, { cast: false }));
-  }
+  return ranges.map(([a, b]) => {
+    const w = geometryWall(boxFrom(inner, 0, a, outer, h, b, M.wall, { cast: false }), 'x');
+    root.add(w);
+    return w;
+  });
 }
 
 /** The bit of wall above a door opening. */
 function addDoorHeader(root, M, side, a, b, zAt, thick, h, doorH) {
   const inner = side === 'north' ? zAt - thick : zAt;
   const outer = side === 'north' ? zAt : zAt + thick;
-  root.add(boxFrom(a, doorH, inner, b, h, outer, M.wall, { cast: false }));
+  root.add(geometryWall(boxFrom(a, doorH, inner, b, h, outer, M.wall, { cast: false }), 'z'));
   // Casing.
   root.add(boxFrom(a - 0.05, 0, inner, a, doorH + 0.05, outer, M.trim, { cast: false }));
   root.add(boxFrom(b, 0, inner, b + 0.05, doorH + 0.05, outer, M.trim, { cast: false }));

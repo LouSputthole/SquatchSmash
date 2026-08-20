@@ -42,7 +42,9 @@ import { PostFX } from '../../core/postfx.js';
 import { attachPixelRatio } from '../../core/pixel-ratio.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
 import { translateKey, shakeScale } from '../../core/settings.js';
+import { writeGameplayPromptKey } from '../../core/gameplay-key-adapter.js';
 import { createCampaignSceneRecovery } from '../../core/campaign-scene-skip.js';
+import { prewarmAudio, prewarmScene } from '../../core/prewarm.js';
 import { WeaponSystem } from '../../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../../core/weapons/Armory.js';
 import { weaponCueNames } from '../../core/weapons/audio.js';
@@ -82,6 +84,7 @@ import {
 } from './waves.js';
 import { buildSiegeNight, scoreSiegeLight } from './night.js';
 import { buildSiegeDressing } from './dressing.js';
+import { buildSiegeArmorCache } from './armor-cache.js';
 import { buildSiegeGlass } from './glass.js';
 import { createAttackerPool } from './attackers.js';
 import { buildSiegeEnsemble } from './ensemble.js';
@@ -138,7 +141,7 @@ const helpingBarEl = $('helpingBar');
 const tinyHud = {
   showPrompt(label, key = 'E') {
     if (!promptEl) return;
-    promptKeyEl.textContent = key;
+    writeGameplayPromptKey(promptKeyEl, key);
     promptLabelEl.innerHTML = label;
     promptEl.classList.remove('hidden');
   },
@@ -291,14 +294,19 @@ const dressing = buildSiegeDressing({
 });
 scene.add(dressing.root);
 
-const glass = buildSiegeGlass({ damage, grounds, interior });
-scene.add(glass.root);
-
 /* ================================================================== */
 /* Audio                                                                 */
 /* ================================================================== */
 const audio = new AudioEngine();
 const missionAudio = new SiegeMissionAudio(audio);
+const glass = buildSiegeGlass({
+  damage,
+  grounds,
+  interior,
+  onCrack: ({ position }) => missionAudio.glassCracked(position),
+  onShatter: ({ position }) => missionAudio.glassShattered(position),
+});
+scene.add(glass.root);
 const SIEGE_COMBAT_CUES = Object.freeze([...new Set([
   ...GROUND_COMBAT_AUDIO_CUES,
   'heist.player.hit',
@@ -603,8 +611,12 @@ function presentActorImpact(resolved, impact) {
   const result = resolved?.result ?? resolved;
   if (result?.applied !== true) return [];
   const contact = resolvedPresentationContact(resolved, impact);
+  /* The shared layer plays the man's own reaction alongside the physical hit;
+   * `id` keys its one-voice-per-burst throttle on the attacker rather than on
+   * the metre of air he was standing in, so a shotgun is one cry, not eight. */
   return combatAudio.impact({
     target: 'enemy',
+    id: resolved?.entry?.id ?? resolved?.combatant?.id ?? resolved?.id ?? null,
     zone: resolved?.zone ?? impact?.zone ?? 'chest',
     caliber: combatCaliber(impact?.weapon ?? resolved?.weapon),
     position: contact.point,
@@ -789,6 +801,12 @@ function resolvePlayerWeaponImpact(impact) {
   if (!attackers || !impact?.object) return [];
   const combatant = combatantForObject(impact.object);
   if (!combatant) {
+    const paneId = ancestorData(impact.object, 'siegeGlassPaneId');
+    /* An intact authored pane owns its first-hit presentation: the crack
+     * overlay is the visible mark and its injected callback is the one glass
+     * impact cue. Once cracked, ordinary impacts fall back to the shared
+     * decal/audio path. That prevents the first round sounding twice. */
+    if (paneId && glass.crack(paneId)) return [];
     presentWorldImpact(impact);
     return [];
   }
@@ -962,6 +980,37 @@ for (const id of finalArcLoadout.items) {
   armory.claim(id);
 }
 
+/* ================================================================== */
+/* The armor stand                                                       */
+/*                                                                        */
+/* Owner playtest, 2026-08-19: armor was supposed to be available in the  */
+/* cellar armory and there was nothing to see or take -- `grantSiegeArmor` */
+/* above already credited it invisibly the moment a weapon came off the    */
+/* rack. This puts an actual plate carrier in the room, on its own valet   */
+/* frame clear of every rack (see ./armor-cache.js). Taking it runs the     */
+/* same credit `completeArmoryPickup` already gives on first weapon, so a   */
+/* player who takes both only ever gets armored once -- `replenishArmor`    */
+/* is already a clamp, not an add.                                          */
+/* ================================================================== */
+const armorCache = buildSiegeArmorCache({
+  parent: scene,
+  interaction,
+  enabled: () => running,
+  addCollider: (x0, x1, y0, y1, z0, z1) => {
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(Math.min(x0, x1), y0, Math.min(z0, z1)),
+      new THREE.Vector3(Math.max(x0, x1), y1, Math.max(z0, z1)),
+    ));
+  },
+  armor: Math.round(playerActor.maxArmor),
+  onTake: () => {
+    const added = grantSiegeArmor();
+    nudge(added > 0
+      ? `Plate carrier secured — ${Math.round(playerActor.armor)} armor.`
+      : 'Already at full armor.', 2.6);
+  },
+});
+
 function ownedFirearms() {
   return [...new Set(finalArcLoadout.items.filter(Boolean))]
     .map((id) => weaponSystem.firearm(id));
@@ -1103,6 +1152,21 @@ function renderCombatBark(event = {}) {
   subtitleWhoEl.textContent = String(event.name ?? event.role ?? event.id ?? '').toUpperCase();
   subtitleTextEl.textContent = line;
   combatBarkTimer = THREE.MathUtils.clamp(line.length * 0.055, 1.4, 3.2);
+  /* Most bark pools are subtitle-only (attackers.js's own header explains
+   * why: their `context.audio` channel is shared with weapon acoustics, and
+   * a regression test holds it to the weapon catalog). BARKS.identity is the
+   * one pool with a real `vo.ateam.*` cue attached, carried up on `event.cue`
+   * for exactly this reason -- this is the scene's OWN voice engine, not
+   * that shared channel, so playing it here costs that promise nothing.
+   *
+   * The A-Team is FIVE men since 2026-08-20 (attackers.js, ATEAM_VOICES), and
+   * which one is speaking rides along on `event.voice`. Nothing is resolved
+   * from it here on purpose: the cue name already selects that man's take out
+   * of the manifest, so the field is there for the day the scene wants to tag
+   * the subtitle or hold one A-Team throat at a time. */
+  if (typeof event.cue === 'string' && event.cue) {
+    try { audio.play(event.cue, { volume: 0.9 }); } catch { /* no audio yet */ }
+  }
   return true;
 }
 
@@ -1418,7 +1482,6 @@ function shatterNearest({ x, z, opening }) {
       if (entry.window !== opening) continue;
       if (entry.state === 'broken') return null;
       if (glass.shatter(id)) {
-        missionAudio.glassShattered({ x, y: 1.2, z });
         ensemble.noteImpact({ x, y: 1.2, z }, 7);
         return id;
       }
@@ -1440,7 +1503,6 @@ function shatterNearest({ x, z, opening }) {
     if (distance < bestDistance) { bestDistance = distance; best = id; }
   }
   if (best && glass.shatter(best)) {
-    missionAudio.glassShattered({ x, y: 1.2, z });
     ensemble.noteImpact({ x, y: 1.2, z }, 7);
     return best;
   }
@@ -1574,7 +1636,10 @@ function holdTheLine() {
 /* error anywhere to say why. It cost this file one verifier run.          */
 /* ================================================================== */
 window.addEventListener('keydown', (e) => {
-  if (!running) return;
+  /* Tab never gets here — the pause menu's own capture-phase listener owns it
+   * (src/core/pause-menu.js). Everything below mutates the live mission, so it
+   * must go dark while the overlay is up, same as the mousedown handler. */
+  if (!running || pauseMenu.isPaused()) return;
   if (e.code === 'Space') e.preventDefault();
   player.setKey(translateKey(e.code), true);
   if (e.code === 'KeyE' && !e.repeat) interaction.press();
@@ -1606,7 +1671,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
 });
 window.addEventListener('wheel', (e) => {
-  if (!running) return;
+  if (!running || pauseMenu.isPaused()) return;
   const occupied = finalArcLoadout.items;
   if (occupied.filter(Boolean).length <= 1) return;
   let index = finalArcLoadout.selected;
@@ -2219,6 +2284,15 @@ async function beginSiege() {
     await audio.loadAdditional({
       names: [...weaponCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames()],
     }).catch(() => {});
+    /* The banks above were awaited, so this normally resolves at once. It
+     * exists to pin the exact cues the first trigger pull reaches for as
+     * decoded-or-reported (src/core/prewarm.js) BEFORE the siege can start;
+     * a cue that never decoded is reported and plays its synth stand-in
+     * rather than stalling the boot. */
+    window.mansionSiege.prewarmAudioReport = await prewarmAudio(audio, [
+      ...weaponCueNames().filter((name) => name.endsWith('.fire')),
+      'heist.bullet.impact', 'heist.bullet.whiz',
+    ], { timeout: 500 });
     /* A direct/legacy entry still gets the nightstand .45. Campaign entry keeps
      * the exact guns, selected slot and ammunition brought out of the previous
      * Mansion scene instead of replacing them at boot. A stowed weapon is a
@@ -2586,6 +2660,7 @@ window.mansionSiege = {
   combatHud,
   interaction,
   armory,
+  armorCache,
   grounds,
   interior,
   colliders,
@@ -2814,3 +2889,86 @@ window.mansionSiege = {
     },
   },
 };
+
+/* ================================================================== */
+/* Prewarm -- pay the first shot's costs behind the menu                 */
+/* ================================================================== */
+/* Same bug and same cure as the Squatchfather (src/core/prewarm.js): the
+ * cartel's shared muzzle flash is a PointLight that sits `visible = false`
+ * until the first shot, three.js keys every material's shader program on the
+ * visible light counts, so the frame that light first appears is the frame
+ * the whole house needs programs it has never had. The impact decals, the
+ * blood systems, the player's muzzle card and the glass wreckage are cheaper
+ * shapes of the same first-use bill. Draw those states once, clipped to a
+ * single pixel, while the menu is still up -- never mid-frame during play.
+ * Nothing about the look changes; the cost just stops landing mid-firefight. */
+
+/** Everything hidden now that the firefight puts on screen later. */
+function siegeFirstShotObjects() {
+  /* Shard groups, crack overlays and the particle pool are all hidden until
+   * a pane breaks. Collecting whatever glass.js hides NOW keeps this list
+   * honest if it grows another effect layer. */
+  const hiddenGlass = [];
+  glass.root.traverse((o) => { if (o.visible === false) hiddenGlass.push(o); });
+  return [
+    ballisticImpacts,        // pooled bullet marks ({ pool } holder)
+    bloodImpacts.wounds,     // entry wounds
+    bloodImpacts.spatter,    // and their secondary marks
+    deathBloodPools.meshes,  // spreading floor pools
+    weaponSystem.flash,      // the player's own muzzle card
+    hiddenGlass,
+  ];
+}
+
+async function prewarmSiegeFirstShot() {
+  const effects = siegeFirstShotObjects();
+  const flash = attackers.muzzleFlash;
+  /* Intensity is irrelevant to the program key but is set anyway so the warm
+   * draw is the draw a real cartel shot performs (attackers.js sets 3.4). */
+  const flashIntensity = flash.intensity;
+  flash.intensity = 3.4;
+  try {
+    return await prewarmScene({
+      renderer,
+      scene,
+      camera,
+      // A frame between the passes: the menu stays clickable while they run.
+      spread: true,
+      /* Gameplay draws through the composer, and three keys programs on the
+       * render target's tone mapping and colour space -- warming the canvas
+       * would warm the WRONG programs (prewarm.js, reason 2). */
+      options: {
+        target: postfx.enabled && postfx.composer ? postfx.composer.readBuffer : null,
+      },
+      passes: [
+        // The house's own lighting, with every hidden effect object drawn.
+        { name: 'combat effects', reveal: effects },
+        /* And again with the flash lit: one more visible point light than
+         * the rig's steady ten -- the exact state that used to hitch. */
+        { name: 'muzzle flash', reveal: [...effects, flash] },
+      ],
+      /* No pools to fill and no audio wait here: every effect pool above is
+       * built eagerly in its constructor, and beginSiege() already awaits the
+       * weapon/combat banks (plus prewarmAudio on the first-shot cues) before
+       * the mission can start. */
+    });
+  } finally {
+    flash.intensity = flashIntensity;
+    flash.visible = false;
+  }
+}
+
+/* One frame later -- so the first real render has already put the house on
+ * the GPU -- buy the firefight its shader programs behind the menu, where
+ * nobody is counting frames. Checkpoint restarts never re-enter this path:
+ * the compiled programs outlive every in-page retry. */
+requestAnimationFrame(() => {
+  /* Never fatal: a scene that cannot be prewarmed is a scene that hitches
+   * once, not one that fails to boot. */
+  window.mansionSiege.prewarming = prewarmSiegeFirstShot()
+    .catch((err) => ({ failed: String(err?.message ?? err) }))
+    .then((report) => {
+      window.mansionSiege.prewarmReport = report;
+      return report;
+    });
+});

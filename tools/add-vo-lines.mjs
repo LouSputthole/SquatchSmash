@@ -228,7 +228,7 @@ const LINES = {
    * actually say out loud on seeing it, and they land for anyone who was
    * there. Do not make these explanatory. */
   photo: [
-    'Ahh. What a good time.',
+    'Three of them in that photo are dead and one of them owes me forty bucks.',
     'Let me hear you. Let me sing.',
     'It is all love.',
     'Let it be known: that was a great time.',

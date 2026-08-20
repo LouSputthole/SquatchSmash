@@ -77,9 +77,8 @@ import { PostFX } from '../core/postfx.js';
 import { roomEnvironment } from '../world/textures.js';
 import { resolveGear } from '../world/gear.js';
 
-import { WP, ZONES } from '../beefrun/config.js';
+import { WP } from '../beefrun/config.js';
 import { buildAirfield } from '../beefrun/airfield.js';
-import { terrainHeight } from '../beefrun/terrain.js';
 import { AircraftPhysics } from '../beefrun/physics.js';
 import { EngineSystem } from '../beefrun/engines.js';
 import { WeatherSystem } from '../beefrun/weather.js';
@@ -87,17 +86,16 @@ import { DetectionSystem } from '../beefrun/detection.js';
 import { FlightHud } from '../beefrun/hud.js';
 import { CameraManager } from '../beefrun/cameras.js';
 import { FlightInput } from '../beefrun/input.js';
-import {
-  clamp, lerp, smoothstep, fbm, ridged, rng, solid, boxGeo, coneGeo, mesh, group,
-} from '../beefrun/util.js';
+import { clamp, lerp, smoothstep } from '../beefrun/util.js';
 
 import {
   AC_ENOLA, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X, ENOLA_PARKING, CRATER,
   TARGET_CITY, LIVE_FIRE,
 } from './config.js';
 import { EnolaSquatch } from './scenes/EnolaSquatch.js';
-import { TargetCity, craterOffset, riverCarve } from './scenes/TargetCity.js';
+import { TargetCity, craterOffset } from './scenes/TargetCity.js';
 import { FatSquatch } from './payload/FatSquatch.js';
+import { BombTrolley } from './payload/BombTrolley.js';
 import { DialogueSystem } from './dialogue/DialogueSystem.js';
 import { RELEASE_LINES } from './dialogue/script.js';
 import { MissionController } from './mission/MissionController.js';
@@ -105,10 +103,21 @@ import {
   blastLuminance, blastWhiteout, shockRadiusAt, shellOpacity, shockPass,
 } from './vfx/Detonation.js';
 import { EnolaPreflight, syncInteractionTargetMatrices } from './preflight.js';
-import { buildAirfieldScenery } from './airfield-scenery.js';
+import {
+  buildAirfieldScenery,
+  ENOLA_HARDSTAND_SURFACE_OFFSET_M,
+} from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
-import { EnolaAudioEngine, EnolaMissionAudio } from './audio.js';
+import { createEnolaWorldGeometry, zoneMixX } from './world-geometry.js';
+import { buildDistantHorizon } from './distant-horizon.js';
+import { EnolaAudioEngine, EnolaMissionAudio, enolaBankOfCue } from './audio.js';
+import { createResidencyBanks } from '../core/residency-banks.js';
 import { isPreviewMode } from '../core/preview-mode.js';
+import {
+  ENOLA_PREVIEW_CHECKPOINT_LABELS as PREVIEW_CHECKPOINT_LABELS,
+  applyEnolaPhaseCheckpointWeather,
+  previewEnolaCheckpointForLocation,
+} from './preview.js';
 import { SCENE_IDS, createCampaign } from '../core/campaign.js';
 import {
   createFinalArcRuntimeSession,
@@ -128,9 +137,6 @@ import {
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
 const RETURN_HEADING = (TURN_POINT.newHeading + 180) % 360;
-/* Beef Run's own palette for the ground Whispering Pines stands on — see the
- * colour blend in `buildEastGround()`. */
-const PINES_ZONE = ZONES.find((z) => z.id === 'pines');
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('scene');
@@ -164,41 +170,8 @@ const loading = $('loading');
  * the owner's six named waypoints, mapped onto the mission's real phase
  * names rather than inventing a second one.
  */
-const CHECKPOINT_ALIASES = Object.freeze({
-  preflight: 'preflight',       // in the seat, engines not yet started
-  takeoff: 'takeoff',           // lined up on the runway — a real CHECKPOINTS entry
-  flak: 'defense',              // over the corridor, into the flak/fighter stretch
-  bombrun: 'bombApproach',      // final approach on Squatchbourg — a real CHECKPOINTS entry
-  detonation: 'explosion',      // the Fat Squatch has just gone off
-  return: 'return',             // outbound of the crater, flying home — a real CHECKPOINTS entry
-});
-
-const PREVIEW_CHECKPOINT_LABELS = Object.freeze({
-  preflight: 'PREFLIGHT — ENGINE START',
-  takeoff: 'TAKEOFF ROLL',
-  defense: 'FLAK & FIGHTERS',
-  bombApproach: 'BOMB RUN',
-  explosion: 'DETONATION',
-  return: 'RETURN LEG',
-});
-
-function previewCheckpointForLocation(locationLike = window.location) {
-  // Same gate as `src/core/preview-mode.js`'s own two checkpoint parsers
-  // (`previewCheckpointForLocation` for Heist, `previewBeefRunCheckpointForLocation`
-  // for the Beef Run): a bare `?checkpoint=` on an ordinary link does nothing,
-  // it takes `?preview=1` alongside it, so a shared preview link cannot be
-  // mistaken for (or fired off from) a normal campaign entry.
-  if (!isPreviewMode(locationLike)) return null;
-  let params;
-  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
-  const value = params.get('checkpoint');
-  return value && Object.prototype.hasOwnProperty.call(CHECKPOINT_ALIASES, value)
-    ? CHECKPOINT_ALIASES[value]
-    : null;
-}
-
 /** Resolved once at boot — a real `go()` phase name, or null for the ordinary opening. */
-const previewCheckpoint = previewCheckpointForLocation();
+const previewCheckpoint = previewEnolaCheckpointForLocation();
 const enolaCampaignPreview = isPreviewMode();
 const enolaCampaign = createFinalArcRuntimeSession({
   preview: enolaCampaignPreview,
@@ -287,283 +260,31 @@ window.addEventListener('resize', () => {
 /* Eastbound terrain — see the file header for the design decision.   */
 /* ------------------------------------------------------------------ */
 
-function zoneIndexForX(x) {
-  for (let i = 0; i < ZONES_EAST.length; i++) if (x < ZONES_EAST[i].to) return i;
-  return ZONES_EAST.length - 1;
-}
-
-function zoneMixX(x) {
-  const i = zoneIndexForX(x);
-  const edge = ZONES_EAST[i].to;
-  const band = 420;
-  if (i < ZONES_EAST.length - 1 && x > edge - band) {
-    return { i, j: i + 1, t: smoothstep(edge - band, edge, x) };
-  }
-  return { i, j: i, t: 0 };
-}
-
-function zoneHeightEast(zone, x, z) {
-  const s = zone.scale;
-  const soft = fbm(x / s, z / s, 4);
-  const sharp = ridged(x / s, z / s, 4);
-  const h = lerp(soft, sharp, clamp(zone.ridge, 0, 1));
-  return zone.base + h * zone.relief;
-}
-
-/** Real, non-flat eastbound heightfield — banded by `x` per `ZONES_EAST`. */
-function rawEastHeight(x, z) {
-  const { i, j, t } = zoneMixX(x);
-  let h = t > 0
-    ? lerp(zoneHeightEast(ZONES_EAST[i], x, z), zoneHeightEast(ZONES_EAST[j], x, z), t)
-    : zoneHeightEast(ZONES_EAST[i], x, z);
-  // The landing-pad-sized carve around the target the config.js safety note
-  // asks for — flattens a bowl so the bombing run and the compound's own
-  // defense props sit on sensible ground, the same way WP's own carve does
-  // at the airfield.
-  const dPad = Math.hypot(x - TARGET_X, (z - COMPOUND.z) * 1.3);
-  const pad = smoothstep(640, 260, dPad);
-  h = lerp(h, ZONES_EAST[ZONES_EAST.length - 1].base - 12, pad);
-  /* Squatchbourg's river runs in a real channel rather than lying on the
-   * ground as a flat blue ribbon. `riverCarve` is exported by
-   * `scenes/TargetCity.js` and is the ONLY definition of that channel: the
-   * city lays its water surface and its quays against the same function, so
-   * what the aeroplane can hit and what the player can see are one surface.
-   * See the header note above `craterOffset` for the same argument about the
-   * crater. */
-  h += riverCarve(x - TARGET_X, z - COMPOUND.z, TARGET_CITY);
-  return h;
-}
-
-/**
- * The crater, once there is one.
- *
- * `null` until the Fat Squatch arrives, then the record `TargetCity.destroy()`
- * hands back. It is deliberately a mutable module-level binding rather than
- * something threaded through: `groundHeightCombined` is passed by reference
- * into `AircraftPhysics`, `FatSquatch.update`, `Defense` and `Targeting`
- * before the crater exists, and every one of them has to start returning the
- * new ground the moment it does. One binding they all close over is the only
- * version of this that cannot go stale in one of them.
- */
+const enolaWorldGeometry = createEnolaWorldGeometry(scene);
+window.__squatchStage?.('Painting the desert corridor…');
+const {
+  ground: eastGround,
+  groundHeightCombined,
+  rawEastHeight,
+} = enolaWorldGeometry;
 let activeCrater = null;
 
-/**
- * The mission's one ground-height function, used for physics, targeting,
- * defense prop placement and payload impact alike — see the file header.
- * Blends from Beef Run's own carved corridor near the field into the real
- * eastbound heightfield as `x` grows past the turn point, and then drops
- * through `craterOffset()` if the target has already been hit.
- */
-function groundHeightCombined(x, z) {
-  const blend = smoothstep(500, 1400, x);
-  let h;
-  if (blend <= 0) h = terrainHeight(x, z);
-  else if (blend >= 1) h = rawEastHeight(x, z);
-  else h = lerp(terrainHeight(x, z), rawEastHeight(x, z), blend);
-  if (activeCrater) {
-    const d = Math.hypot(x - activeCrater.x, z - activeCrater.z);
-    if (d < CRATER.radius + CRATER.rimWidth) h += craterOffset(d, CRATER);
-  }
-  return h;
-}
-
-/** One static, non-streamed ground mesh covering the whole flight envelope. */
-function buildEastGround(sceneRef) {
-  /* Keep drawing past the target and past the mission's 13.4 km safety
-   * boundary. The old mesh ended only 1.2 km beyond Squatchbourg, so the
-   * player could see the terrain fall off while making the bomb-break turn. */
-  const boundsX = [-1400, 14500];
-  const boundsZ = [-4200, 1000];
-  const segX = 318;
-  const segZ = 104;
-  const width = boundsX[1] - boundsX[0];
-  const depth = boundsZ[1] - boundsZ[0];
-  const cx = (boundsX[0] + boundsX[1]) / 2;
-  const cz = (boundsZ[0] + boundsZ[1]) / 2;
-
-  const geo = new THREE.PlaneGeometry(width, depth, segX, segZ);
-  geo.rotateX(-Math.PI / 2);
-  const pos = geo.attributes.position;
-  const colors = new Float32Array(pos.count * 3);
-  const c = new THREE.Color();
-  for (let i = 0; i < pos.count; i++) {
-    const wx = cx + pos.getX(i);
-    const wz = cz + pos.getZ(i);
-    const h = groundHeightCombined(wx, wz);
-    pos.setY(i, h);
-    const zone = ZONES_EAST[zoneIndexForX(wx)];
-    const groundCol = new THREE.Color(zone.ground);
-    const rockCol = new THREE.Color(zone.rock);
-    const hx = groundHeightCombined(wx + 10, wz) - groundHeightCombined(wx - 10, wz);
-    const hz = groundHeightCombined(wx, wz + 10) - groundHeightCombined(wx, wz - 10);
-    const steep = clamp(Math.hypot(hx, hz) / 26, 0, 1);
-    c.copy(groundCol).lerp(rockCol, steep * 0.85);
-    /* WHISPERING PINES IS GREEN. Owner: "Missing all the grass and stuff at
-     * whispering pines airport." The heights already blend into Beef Run's
-     * carved corridor near the field (`groundHeightCombined`, above) but the
-     * COLOURS did not: every vertex within sight of the aerodrome was painted
-     * `ZONES_EAST[0]`'s night-desert slate, so the Beef Run's forest airstrip
-     * became a grey pan the moment this mission drew it. Blending the palette
-     * over the same `x` window the height blend uses is the one-line
-     * counterpart to that blend, and it means the tree scatter in
-     * `./airfield-scenery.js` stands on ground the same colour as itself.
-     *
-     * A second, finer grass mesh laid over this one was tried first and is
-     * exactly what NOT to do: two co-planar heightfields at different vertex
-     * densities z-fight into speckled confetti across the whole field. One
-     * ground mesh, recoloured. */
-    const west = 1 - smoothstep(400, 1500, Math.hypot(wx - WP.x, 0));
-    if (west > 0) {
-      const near = PINES_ZONE.ground;
-      c.lerp(new THREE.Color(near).lerp(new THREE.Color(PINES_ZONE.rock), steep * 0.85), west);
-    }
-    const tint = 0.86 + fbm(wx / 110, wz / 110, 2) * 0.28;
-    c.multiplyScalar(tint);
-    colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geo.computeVertexNormals();
-  const mat_ = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0 });
-  const groundMesh = new THREE.Mesh(geo, mat_);
-  groundMesh.name = 'eastbound terrain ground';
-  groundMesh.userData.boundsX = [...boundsX];
-  groundMesh.userData.boundsZ = [...boundsZ];
-  groundMesh.position.set(cx, 0, cz);
-  groundMesh.receiveShadow = true;
-  sceneRef.add(groundMesh);
-
-  // A sparse, single-draw-call scatter of simple cone "trees/scrub" for
-  // atmosphere — not a full forest system, just enough that the corridor
-  // does not read as bare ground. Kept off the airfield's own footprint and
-  // off the compound's landing-pad carve.
-  const COUNT = 620;
-  const scatterGeo = coneGeo(3, 9, 6);
-  const scatterMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
-  const scatter = new THREE.InstancedMesh(scatterGeo, scatterMat, COUNT);
-  scatter.name = 'eastbound terrain scatter';
-  const rand = rng(0xE57A11);
-  const dummy = new THREE.Object3D();
-  let used = 0;
-  /* Rejected candidates must not consume the visible-instance budget. The
-   * old COUNT-attempt loop asked for 620 but rendered only about 214 after
-   * the runway, city and zone-density filters did their work. */
-  for (let attempts = 0; attempts < COUNT * 8 && used < COUNT; attempts++) {
-    const wx = boundsX[0] + rand() * width;
-    const wz = boundsZ[0] + rand() * depth;
-    const zone = ZONES_EAST[zoneIndexForX(wx)];
-    if (zone.trees <= 0) continue;
-    if (rand() > zone.trees / 60) continue;
-    // Clear of the runway/apron footprint and of the target's flattened pad.
-    if (Math.abs(wx - WP.x) < 60 && Math.abs(wz) < WP.rwyHalf + 90) continue;
-    if (wx > -160 && wx < 40 && wz > 300 && wz < 460) continue;
-    if (Math.hypot(wx - TARGET_X, wz - COMPOUND.z) < TARGET_CITY.radius + 140) continue;
-    const h = groundHeightCombined(wx, wz);
-    dummy.position.set(wx, h + 4.2, wz);
-    dummy.rotation.y = rand() * Math.PI * 2;
-    const s = 0.7 + rand() * 0.8;
-    dummy.scale.set(s, s, s * (0.8 + rand() * 0.6));
-    dummy.updateMatrix();
-    scatter.setMatrixAt(used, dummy.matrix);
-    scatter.setColorAt(used, new THREE.Color(zone.tree));
-    used++;
-  }
-  scatter.count = used;
-  scatter.instanceMatrix.needsUpdate = true;
-  if (scatter.instanceColor) scatter.instanceColor.needsUpdate = true;
-  scatter.castShadow = false;
-  sceneRef.add(scatter);
-
-  return groundMesh;
-}
-
-const eastGround = buildEastGround(scene);
-window.__squatchStage?.('Painting the desert corridor…');
-
-/**
- * What `depressGroundForCrater()` overwrote, so a checkpoint restart before the
- * drop can put it back — `null` while there is no hole. Every entry is one
- * vertex of the coarse east ground: its index, the height it stood at and the
- * colour it was painted, taken BEFORE the crater profile was folded in.
- * Restoring from the recorded values rather than by re-running the height
- * function is what makes the undo exact: the mesh was built by sampling
- * `groundHeightCombined`, which now answers with the hole in it.
- */
-let craterGroundEdits = null;
-
-/**
- * Sink the coarse ground under the crater.
+/* THE REST OF THE WORLD. Owner playtest, 2026-08-19: "The world ends just past
+ * the city... it needs depth so the player does not discover that the Earth
+ * stops 300 yards behind the city."
  *
- * The east ground is one static mesh at 50 m per cell — plenty for a route
- * flown at cruise altitude and far too coarse for an 1,,600 m hole, which is
- * why `TargetCity.buildCraterMesh()` builds a separate, much finer bowl. But
- * the coarse mesh is still there, flat, and would occlude the whole crater
- * from above. So: push its vertices down to just BELOW the crater's own
- * profile inside the footprint (tapering to exactly the profile at the outer
- * edge, so there is no step where they meet), and darken them, and let the
- * fine mesh be the surface the player actually looks at.
- *
- * Only the ~1,200 vertices inside the footprint are touched, out of 24,465.
- * Every one of them is recorded into `craterGroundEdits` on the way past, which
- * is what makes `raiseGroundAfterCrater()` below possible.
- */
-function depressGroundForCrater(craterRecord) {
-  const geo = eastGround.geometry;
-  const pos = geo.attributes.position;
-  const colours = geo.attributes.color;
-  const ox = eastGround.position.x;
-  const oz = eastGround.position.z;
-  const outer = CRATER.radius + CRATER.rimWidth;
-  const scorch = new THREE.Color(0x241d18);
-  const c = new THREE.Color();
-  const edits = [];
-  let touched = 0;
-  for (let i = 0; i < pos.count; i++) {
-    const wx = ox + pos.getX(i);
-    const wz = oz + pos.getZ(i);
-    const d = Math.hypot(wx - craterRecord.x, wz - craterRecord.z);
-    if (d >= outer) continue;
-    edits.push({
-      i,
-      y: pos.getY(i),
-      r: colours ? colours.getX(i) : 0,
-      g: colours ? colours.getY(i) : 0,
-      b: colours ? colours.getZ(i) : 0,
-    });
-    // 8 m of clearance in the middle, closing to nothing at the lip, so the
-    // fine crater mesh always wins the depth test where it exists.
-    const clearance = 8 * smoothstep(outer, outer - 140, d);
-    pos.setY(i, pos.getY(i) + craterOffset(d, CRATER) - clearance);
-    if (colours) {
-      c.setRGB(colours.getX(i), colours.getY(i), colours.getZ(i))
-        .lerp(scorch, clamp(1.15 - d / outer, 0, 1));
-      colours.setXYZ(i, c.r, c.g, c.b);
-    }
-    touched++;
-  }
-  craterGroundEdits = edits;
-  pos.needsUpdate = true;
-  if (colours) colours.needsUpdate = true;
-  geo.computeVertexNormals();
-  return touched;
-}
-
-/** Fill the hole in again — the undo for `depressGroundForCrater()`. */
-function raiseGroundAfterCrater() {
-  const edits = craterGroundEdits;
-  craterGroundEdits = null;
-  if (!edits?.length) return 0;
-  const geo = eastGround.geometry;
-  const pos = geo.attributes.position;
-  const colours = geo.attributes.color;
-  for (const e of edits) {
-    pos.setY(e.i, e.y);
-    if (colours) colours.setXYZ(e.i, e.r, e.g, e.b);
-  }
-  pos.needsUpdate = true;
-  if (colours) colours.needsUpdate = true;
-  geo.computeVertexNormals();
-  return edits.length;
-}
+ * One coarse 46 x 44 km heightfield, a mid-distance treeline and a haze shell,
+ * all built once and never touched again — see `./distant-horizon.js` for how it
+ * hides under the route's own terrain rather than fighting it, and for why the
+ * south edge of that terrain was the edge the owner was actually seeing. */
+window.__squatchStage?.('Raising the far mountains…');
+const horizon = buildDistantHorizon(scene, {
+  getHeight: groundHeightCombined,
+  detailed: {
+    boundsX: eastGround.userData.boundsX,
+    boundsZ: eastGround.userData.boundsZ,
+  },
+});
 
 /* ------------------------------------------------------------------ */
 /* Systems                                                            */
@@ -582,6 +303,34 @@ function paintDurableCarry() {
 paintDurableCarry();
 
 const audio = new EnolaAudioEngine();
+
+/**
+ * The night in three residency banks (see `enolaBankOfCue` in ./audio.js):
+ * the apron, the flight out, and the far end. `loadStart` is what
+ * `startAudio()` runs inside the start click's gesture; the later banks are
+ * kicked the moment it settles and are never awaited at boot — the
+ * DialogueSystem's `canSpeak` gate below holds each beat's first line at
+ * its own boundary instead, which is the only place a wait is owed.
+ */
+const audioBanks = createResidencyBanks({
+  start: async () => {
+    try {
+      await audio.init();
+      missionAudio.init();
+      const sfx = await audio.loadManifest();
+      console.info(`[sfx] ${sfx.loaded}/${sfx.total} apron samples loaded; later banks follow.`);
+      return sfx;
+    } catch (err) {
+      // A page with no sound is still a playable page. Say so once; the bank
+      // settles regardless, so the dispatch gate opens and subtitles flow.
+      console.warn('[enolasquatch] audio unavailable:', err?.message || err);
+      return null;
+    }
+  },
+  nextBeat: () => audio.loadBank('nextBeat'),
+  background: () => audio.loadBank('background'),
+});
+
 const missionAudio = new EnolaMissionAudio(audio);
 missionAudio.takeoffAnthemFile = 'fortunate-son.mp3';
 missionAudio.takeoffAnthemOptions = { volume: 0.435, cutAt: 150, cutFade: 4 };
@@ -616,7 +365,15 @@ const aircraft = new EnolaSquatch();
 scene.add(aircraft.group);
 
 const payload = new FatSquatch();
-aircraft.anchors.payloadMount.add(payload.group);
+/* THE BOMB STARTS OUTSIDE, ON A TROLLEY. Owner playtest, 2026-08-19: "Put the
+ * Fat Squatch OUTSIDE the aircraft on a bomb trolley/cart before takeoff, fully
+ * visible so the player can walk around and read its ridiculous markings."
+ *
+ * `BombTrolley`'s constructor parents the payload onto its own cradle, so the
+ * bomb is on the concrete rather than inside the bay until LOAD FAT SQUATCH is
+ * used — see `./payload/BombTrolley.js` for the trap this replaces. It also
+ * builds the shackles, sway braces and release lever ON `payloadMount`, which
+ * had no geometry at all before, so a loaded bomb now hangs off something.
 
 /* The club's crest, onto the aeroplane's four badges and the bomb's two.
  * Owner: "Aircraft is nice. Needs Squatch logo." + "Squatch logo on the bomb
@@ -651,13 +408,29 @@ const city = new TargetCity(scene, {
   getHeight: (x, z) => groundHeightCombined(x, z),
 });
 
+const bombTrolley = new BombTrolley({
+  scene,
+  aircraft,
+  payload,
+  park: {
+    x: ENOLA_PARKING.x,
+    z: ENOLA_PARKING.z,
+    heading: ENOLA_PARKING.heading,
+    elev: groundHeightCombined(ENOLA_PARKING.x, ENOLA_PARKING.z) + ENOLA_HARDSTAND_SURFACE_OFFSET_M,
+  },
+});
+
 /* The crew, and Numbskull's tool cart under the bomb bay. */
 const crew = createCrew();
 const toolCart = makeToolCart();
 scene.add(toolCart);
 {
   const elev = groundHeightCombined(ENOLA_PARKING.x, ENOLA_PARKING.z);
-  toolCart.position.set(ENOLA_PARKING.x + 3.2, elev, ENOLA_PARKING.z - 2.4);
+  toolCart.position.set(
+    ENOLA_PARKING.x + 3.2,
+    elev + ENOLA_HARDSTAND_SURFACE_OFFSET_M,
+    ENOLA_PARKING.z - 2.4,
+  );
   toolCart.rotation.y = 0.6;
 }
 
@@ -776,17 +549,25 @@ const dialogue = new DialogueSystem(hud, {
   /* `DialogueSystem.update` plays the take and THEN calls this, so the take is
    * already under way and the mouth can run on it rather than on the hold. */
   onLine: (line) => crew.speak(line.who, (line.hold ?? 2) * 0.8, missionAudio.voiceTake()),
+  /* The await-at-the-boundary for a page whose start click must stay
+   * synchronous: a line is held ONLY while the bank it speaks from is still
+   * in flight. Before startAudio() runs (a page with no audio at all) no
+   * bank is pending and everything reads as subtitles, exactly as before;
+   * after a bank settles — loaded or failed — its lines flow and a missing
+   * take degrades to a subtitle the same way it always has. */
+  canSpeak: (line) => !audioBanks.pending(enolaBankOfCue(line.cue)),
 });
 
 const preflight = new EnolaPreflight({
   scene, interaction, aircraft, payload, dialogue, crew, audio: missionAudio,
+  bombTrolley,
 });
 
 const mission = new MissionController({
   scene, camera, physics, engines, aircraft, payload, weather, detection,
   airfield, flightHud, hud, dialogue, input, cameras,
   audio: missionAudio,
-  player, interaction, preflight, crew, city,
+  player, interaction, preflight, crew, city, bombTrolley,
   getHeight: groundHeightCombined,
 });
 /* The static airfield boxes cannot represent a rotated aircraft with working
@@ -822,13 +603,8 @@ mission.onCheckpoint = (id, snapshot) => {
  * ground mesh. Rebuilding the city without undoing those two would stand a
  * restored Squatchbourg in the air over a hundred-metre pit. */
 mission.onCrater = (crater) => {
-  if (crater) {
-    activeCrater = crater;
-    depressGroundForCrater(crater);
-  } else {
-    activeCrater = null;
-    raiseGroundAfterCrater();
-  }
+  activeCrater = crater ?? null;
+  enolaWorldGeometry.setCrater(activeCrater);
 };
 
 function showEnolaCompletion(report, {
@@ -885,7 +661,12 @@ function updatePreflightChecklist() {
   if (mission.phase !== 'preflight') return;
   const rows = [
     { label: 'Battery & fuel selectors on', state: (engines.masterBattery && engines.fuelSelectors) ? 'done' : 'todo' },
-    { label: 'Payload restraints checked', state: dialogue.seen('preflight.restraints') ? 'done' : 'todo' },
+    /* The bomb is loaded on the apron now rather than inspected under the
+     * belly (see `./payload/BombTrolley.js`), so this row reads the beat that
+     * actually plays. `preflight.restraints` is still authored and still
+     * plays — as the crew's confirmation once it is hanging in the bay — but
+     * it is no longer the beat that says the check happened. */
+    { label: 'Fat Squatch loaded', state: dialogue.seen('preflight.loadSquatch') ? 'done' : 'todo' },
     { label: 'Bomb-bay panel checked', state: dialogue.seen('preflight.bombbay') ? 'done' : 'todo' },
     { label: 'All four engines running', state: engines.engines.every((e) => e.running) ? 'done' : 'todo' },
     { label: 'Parking brake released', state: !physics.controls.parkingBrake ? 'done' : 'todo' },
@@ -1394,6 +1175,7 @@ function simulateFrame(dt) {
     bombBayOpen: mission.bombBayOpen,
     dusk: weather.dusk > 0.4,
     gunFiring: mission.gunFiring,
+    gunTracking: mission.gunTracking,
     gunAim: mission.gunAim,
   });
 
@@ -1412,6 +1194,10 @@ function simulateFrame(dt) {
   updateAirRaidSiren();
 
   const focus = inCockpit ? physics.position : player.position;
+  /* The haze shell rides with the player. It is a 26 km cylinder, so this is
+   * imperceptible frame to frame and it is what stops the backdrop running out
+   * on a route that covers ten kilometres. */
+  horizon.follow(focus.x, focus.z);
   weather.update(dt, focus);
   applyNight();
   applyEastFog(focus.x, dt);
@@ -1423,7 +1209,7 @@ function simulateFrame(dt) {
      * fourth would mean editing `src/beefrun/cameras.js`, which the Beef Run
      * shares and the standing rules call canonical — so the turret places the
      * camera itself and the manager is simply not run that frame. */
-    if (mission.gunner.manned) mission.gunner.applyCamera(camera);
+    if (mission.gunner.manned) mission.gunner.applyCamera(camera, dt);
     else {
       cameras.update(dt, physics, aircraft.group, aircraft.pilotEye, {
         roughness: physics.gust.length() * 0.05 + (physics.onGround ? physics.groundSpeed * 0.01 : 0),
@@ -1609,6 +1395,9 @@ function go(phase) {
     default:
       mission.setPhase(phase);
   }
+  // Public checkpoint jumps and the headless geometry adapter share one
+  // visible weather contract; organic mission transitions remain untouched.
+  applyEnolaPhaseCheckpointWeather(phase, weather);
   simulateFrame(0);
   return mission.phase;
 }
@@ -1625,6 +1414,8 @@ window.__enolaSquatch = {
   mission, physics, engines, aircraft, payload, dialogue, weather, detection,
   cameras, input, hud, flightHud, scene, camera, renderer, airfield, postfx,
   player, interaction, preflight, crew, city, eastGround, audio: missionAudio,
+  /** The three-bank residency ledger; the verifier awaits `whenAllSettled`. */
+  audioBanks,
   get defense() { return mission.defense; },
   get targeting() { return mission.targeting; },
   get interceptors() { return mission.interceptors; },
@@ -1926,19 +1717,19 @@ window.__enolaSquatch = {
  * block, and more importantly a player should not watch a black screen while a
  * voice bank decodes. `AudioEngine.init()` still runs inside the user gesture,
  * which is the part browsers actually require.
+ *
+ * So the start bank does not block the click the way the Mansion's does —
+ * it blocks the FIRST LINE instead. `kickoff()` marks the apron bank
+ * pending synchronously, the DialogueSystem's `canSpeak` gate holds any
+ * line whose bank is still in flight, and the later banks decode in order
+ * behind the apron's. Same guarantee, applied at the dispatch boundary the
+ * page actually owns.
  */
 let audioStarted = false;
 function startAudio() {
   if (audioStarted) return;
   audioStarted = true;
-  audio.init().then(async () => {
-    missionAudio.init();
-    const sfx = await audio.loadManifest();
-    console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
-  }).catch((err) => {
-    // A page with no sound is still a playable page. Say so once and move on.
-    console.warn('[enolasquatch] audio unavailable:', err?.message || err);
-  });
+  audioBanks.kickoff();
 }
 
 startBtn.addEventListener('click', () => {
@@ -2145,7 +1936,9 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   const code = input.keyEvent(e, true);
-  if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
+  // keyEvent keeps the physical ShiftLeft/ShiftRight code for the keymap, so
+  // the modifiers are recognised here by their logical names.
+  if (code === 'Space' || e.key === 'Shift' || e.key === 'Control') e.preventDefault();
   player.setKey(translateKey(e.code), true);
   if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
   // The flashing camera hint goes away the first time the player uses the key

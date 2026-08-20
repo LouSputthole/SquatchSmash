@@ -289,13 +289,13 @@ systems. It is powerful, not a turret, and this is not on rails.
 | One | 1B | 4 | the same door, splitting to the other flight inside | 2 rifle, 1 SMG, 1 flanker |
 | — | *lull* | — | — | reload, reposition, callouts |
 | Two | 2A | 5 | the door again, plus a suppressor who holds the door line | 3 rifle, 1 suppressor, 1 SMG |
-| Two | 2B | 4 | **the flanks, once**: trophy-hall glass west, bay glass east | 1 shotgun rusher, 2 rifle, 1 flanker |
+| Two | 2B | 4 | **the flanks, once**: trophy-hall glass west, bay glass east, released on a short stagger behind 2A | 1 shotgun rusher, 2 rifle, 1 flanker |
 | Two | 2C | 5 | back to the door for the final push | 1 leader, 1 armored, 1 MG, 2 rifle |
 | | | **22** | **18 front door / 4 flank** | |
 
 **Eighteen of twenty-two come in the front door.** The split is 82 %, it is
 asserted by `frontDoorShare()` and by a test with bounds in both directions,
-and the four who do not are ONE group arriving late in the second wave. Zero
+and the four who do not are ONE group in the middle of the second wave. Zero
 flankers would make the defence a shooting gallery pointed at a doorway;
 six staging zones made it a 360-degree problem fought from a balcony that can
 see one of them. Wave one is all door, so the shape is taught before it is
@@ -304,6 +304,16 @@ broken once.
 **1B does not wait for 1A to die.** It activates on a timer or on 1A's
 half-strength, whichever comes first, so the player can never grind the room
 clean at leisure. Same rule for 2B against 2A and 2C against 2B.
+
+**The flank is released EARLY, because its route is long.** 2B goes six
+seconds behind 2A (`FLANK_RELEASE_STAGGER` in `waves.js`), not on the 18 s
+clock the frontal groups pace themselves by: the wing walk is about
+twenty-five metres of lawn, glass and furniture, so the stagger plus the walk
+lands the flankers in the foyer's rear while 2A's push is still alive. The old
+release had them breaking glass for a room the fight had already left. Routes,
+release times and group sizes are one authored table now — `ASSAULT_ROUTES`
+and the wave plan in `waves.js` — and a test holds the flank's release before
+2C's with all of 2A still standing.
 
 **Nothing appears out of thin air.** Every attacker activates in a staging
 zone out of the player's view and walks in:
@@ -503,10 +513,10 @@ overview to be approved so the house gets designed right once.
 | Give the gallery a window onto the forecourt | The only upper glazing over the drive is the two front bedrooms' and the top half of the foyer's entrance glass; the gallery — where the whole climax is fought — is an internal room over the void with no exterior wall at all | The staircase defence cannot see, or shoot at, what is coming up the drive. Sharper than the sightlines row above, which assumes the windows exist | Base, Siege | yes | no | no | med | med | with the overview |
 | Clear a run of the cellar corridor's north wall | Brick piers stand every few metres on BOTH long walls (0.44 m deep) and four doorways open off the north side, leaving 2.09 m — between the theatre reveal at x −1.87 and the pier at x 0.25 — as the only place a piece of furniture fits. The dead guard's settee is 2.06 m and only just clears it | Anything the mission wants to stand in that corridor, now or later, has one slot | Base, Siege | yes | yes | no | low | low | with the overview |
 | Move the driveway lamp posts out of the carriageway | Four of them stand at x ±4.6, z 16 and z 21 — inside the drive's own kerbs at x ±6.85 — so the usable lane is 8.9 m and a vehicle abandoned anywhere near either pair intersects one | Vehicle placement, wreck staging, and anything that ever drives up this drive | Base, Siege | no | no | yes | low | low | now, cheap |
-| Widen the way past the fountain, or move the basin off the drive's centre line | The basin's collider is a 7.2 m box on (0, 27) and the drive comes up at x = 0, so **there is no straight walk from the gate to the front door**. With the siege's two burning cars slewed across the turnaround the remaining channel each side is 1.15 m — between the wreck's inner edge at x ±4.75 and the basin's at ±3.6. Four nav anchors thread it and they have about 0.2 m of margin | Every attacker in the mission now walks this, and so does the player on the way out. A 1.15 m gap is a file, not an approach | Base, Siege | no | yes | no | med | low | with the overview |
+| Move the basin off the drive's centre line | The basin stands on (0, 27) and the drive comes up at x = 0, so **there is no straight walk from the gate to the front door**. The siege's half is FIXED: the burning shells that once pinched the way past the fountain to a 1.15 m file each side are re-parked against the verges at x ±11.5, the approach anchors take the outside line, and the walked channel is held at ≥ 2.5 m (`APPROACH_CLEAR_WIDTH`, sampled against the real colliders by `tests/mansion-siege-dressing.test.mjs`; measured minimum 2.76 m at the motor-court car/urn pinch, 3.55 m past the wrecks) | The remaining fault is the base house's: an approach whose centre line dead-ends in a basin still bends every walk from the gate around stone | Base | no | yes | no | low | low | with the overview |
 | Give the front portico some depth | The landing is 0.5 m deep (z 35.5..36) and the facade's own wall band takes z 35.69..35.91 of it, so the usable portico outside the door is about 0.19 m. The porch anchors sit on the top tread instead | Eighteen of twenty-two attackers now come through this door; a porch that cannot hold two men makes the funnel a queue | Base, Siege | yes | yes | no | med | med | with the overview |
 | Guard or re-site the basement stairwell mouth in the foyer | `BASEMENT_SHAFT` is a real hole in the foyer slab at x 5.4..9, z 51..58, and `foyerToLounge` runs z 48.5..52.5 — so the northern metre and a half of the lounge arch opens onto a void. The siege's east flank route had to be moved south of it | Anything routed between the foyer's rear and the east wing, for either side | Base, Siege | yes | yes | no | med | low | with the overview |
-| Bring the service door back as a third-wave entry | `rear_service` was cut from the wave table this pass: the kitchen door at (16, 66) is thirty metres of house from the foyer, and with real routing its occupant arrives after the group he was released with is dead | A long flank is a good beat for a wave that is released a minute early, not for one released with a frontal group. The route (kitchen → lounge → the arch → the foyer's rear) is authored and walkable; only the timing is wrong | Siege | no | no | no | low | low | with the overview |
+| Bring the service door back as a third-wave entry | `rear_service` was cut from the wave table: the kitchen door at (16, 66) is thirty metres of house from the foyer, and released on a frontal group's clock its occupant arrived after that group was dead. The timing half of that fault is solved — flank releases are authored data now (`ASSAULT_ROUTES` and `FLANK_RELEASE_STAGGER` in `waves.js`, and 2B already goes in six seconds behind 2A) — but the kitchen → lounge → arch → foyer-rear anchor chain is no longer authored in `nav.js` and would need re-measuring against the lounge's furniture | A long flank is a good beat for a group released early, and the seam now supports exactly that; what remains is the route itself | Siege | no | yes | no | low | low | with the overview |
 
 **Rule:** anything in this table that is marked "with the overview" stays in
 this table. Items marked "now, cheap" are art-only or anchor-only and can

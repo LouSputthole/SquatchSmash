@@ -75,6 +75,64 @@ export function createPoolTreadingMotion(npc, {
   });
 }
 
+/**
+ * A man at a LAN station (owner note, 2026-08-19: Shubes, on RuneScape, all
+ * evening). The neutral chair loop reads as a passenger; a man at a mouse is
+ * hunched at the desk, and every so often his mouse hand goes -- a burst of
+ * small flicks, with a slow lean toward the screen underneath it. Same
+ * contract as the two controllers above: clock-authored, never accumulates,
+ * never touches the measured seat Y, allocates nothing per frame.
+ */
+export function createLanGamerMotion(npc, {
+  phase = 0,
+} = {}) {
+  if (!npc?.group || !npc?.parts) return null;
+  /* The Mansion's measured seat pass runs after the cast is constructed. Take
+   * the authoritative Y on the first update, after that pass, not here. */
+  let seatY = null;
+  let time = 0;
+
+  return Object.freeze({
+    id: 'lan-gamer',
+    update(dt) {
+      if (Number.isFinite(dt) && dt > 0) time += dt;
+      const t = time + phase;
+      seatY ??= npc.group.position.y;
+      npc.group.position.y = seatY;
+
+      /* The flick envelope: mostly still, then a two-ish-second burst every
+       * ten seconds or so. sin^6 keeps the rest phase genuinely at rest. */
+      const gate = Math.max(0, Math.sin(t * 0.6));
+      const burst = gate * gate * gate * gate * gate * gate;
+      const flick = Math.sin(t * 9.7) * burst;
+      const lean = Math.sin(t * 0.17);
+
+      npc.parts.body.rotation.x = 0.14 + lean * 0.045;
+      npc.parts.body.rotation.z = Math.sin(t * 0.23) * 0.015;
+      npc.parts.head.rotation.x = -0.06 + lean * 0.03;
+      npc.parts.head.rotation.z = Math.sin(t * 0.41) * 0.02;
+      /* Left hand parked on the keys; right hand on the mouse, where the
+       * burst lands. */
+      npc.parts.armL.rotation.set(-0.60, 0.10, -0.18);
+      npc.parts.foreL.rotation.set(-0.56, 0, -0.05);
+      npc.parts.armR.rotation.set(-0.58 + flick * 0.03, -0.12, 0.16 + flick * 0.05);
+      npc.parts.foreR.rotation.set(-0.50 + flick * 0.10, 0, 0.05);
+    },
+    /* The hunch pitches the body ~0.18 rad, which swings the measured hips
+     * box ~4 cm below its upright height — so the seat correction must run
+     * AGAINST THE HUNCHED POSE and then re-pin this motion's held Y. The
+     * stager poses one update, corrects, and calls this. */
+    rebaseSeatY() { seatY = null; },
+    get snapshot() {
+      return {
+        motion: 'lan-gamer',
+        time,
+        y: npc.group.position.y,
+      };
+    },
+  });
+}
+
 export function createSeatedPerformerMotion(npc, {
   kind = 'recliner',
   phase = 0,

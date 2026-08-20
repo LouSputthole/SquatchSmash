@@ -85,6 +85,7 @@ export class HeistFigure {
   } = {}) {
     this.root = new THREE.Group();
     this.root.name = name;
+    this.root.userData.geometryGate = { assemblyId: `heist.figure.${name}` };
     this.root.position.set(x, y, z);
     this.root.rotation.y = yaw;
     this.tilt = new THREE.Group();
@@ -739,6 +740,11 @@ export function makePoliceFigure({ name, x, z, yaw, index = 0 }) {
   gun.add(grip);
   gun.position.set(0, -0.32, 0.03);
   gun.rotation.x = -Math.PI / 2;
+  /* The muzzle end of the 0.24 m slide, on the project's -Z bore axis. The
+   * shared `CombatWeaponAim` samples this to steer the visible gun and to give
+   * `CombatFireControl` the true origin of every round — an officer's shot now
+   * leaves his weapon, not an invented point 1.35 m over his feet. */
+  gun.userData.muzzle = new THREE.Vector3(0, 0, -0.12);
   figure.parts.foreR.add(gun);
 
   figure.aiming();

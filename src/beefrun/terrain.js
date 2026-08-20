@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ZONES, WP, EH } from './config.js';
+import { ZONES, WP, EH, LANDMARKS } from './config.js';
 import { clamp, lerp, smoothstep, fbm, ridged, rng, solid, mat } from './util.js';
 
 // TerrainStreamingSystem
@@ -216,6 +216,45 @@ treeCanopyGeo.translate(0, 11, 0);
 const _c = new THREE.Color();
 const _obj = new THREE.Object3D();
 
+function insideRotatedRectangle(dx, dz, halfWidth, halfDepth, heading = 0) {
+  const c = Math.cos(heading), s = Math.sin(heading);
+  const lx = c * dx - s * dz;
+  const lz = s * dx + c * dz;
+  return Math.abs(lx) <= halfWidth && Math.abs(lz) <= halfDepth;
+}
+
+/**
+ * True when procedural tree scatter would occupy an authored landmark mass.
+ *
+ * The landmark models are permanent while terrain chunks stream in and out.
+ * Keeping this decision in world coordinates makes the result independent of
+ * chunk build order and stops a reloaded chunk from growing a new tree through
+ * the radio-tower wreck, volcano, red cliff, or waterfall rockwork.
+ */
+export function treeScatterBlockedByLandmark(wx, wz) {
+  for (const landmark of LANDMARKS) {
+    const dx = wx - landmark.x;
+    const dz = wz - landmark.z;
+    if (landmark.kind === 'tower') {
+      // Upright lattice plus the detached top lying forty metres downrange.
+      if (Math.hypot(dx, dz) <= 18) return true;
+      if (dx >= 25 && dx <= 55 && dz >= 7 && dz <= 45) return true;
+    } else if (landmark.kind === 'volcano') {
+      // The authored talus cone has a 700 m basal radius.
+      if (Math.hypot(dx, dz) <= 706) return true;
+    } else if (landmark.kind === 'cliff') {
+      // Seven rotated slabs: widest is 420 x 150 m. Six metres clear the
+      // largest possible procedural trunk at either edge.
+      if (insideRotatedRectangle(dx, dz, 216, 81, 0.3)) return true;
+    } else if (landmark.kind === 'falls') {
+      // Main cliff/header and the authored river leaving its plunge basin.
+      if (dx >= -370 && dx <= 370 && dz >= -200 && dz <= 75) return true;
+      if (dx >= -395 && dx <= -135 && dz >= 50 && dz <= 505) return true;
+    }
+  }
+  return false;
+}
+
 export class TerrainStreamingSystem {
   constructor(scene) {
     this.scene = scene;
@@ -279,6 +318,7 @@ export class TerrainStreamingSystem {
 
   build(cx, cz, segs) {
     const group = new THREE.Group();
+    group.name = `beefrun-terrain-chunk-${cx}-${cz}`;
     const ox = cx * CHUNK, oz = cz * CHUNK;
     const geo = new THREE.PlaneGeometry(CHUNK, CHUNK, segs, segs);
     geo.rotateX(-Math.PI / 2);
@@ -306,6 +346,18 @@ export class TerrainStreamingSystem {
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, this.groundMat);
+    m.name = `${group.name}-ground`;
+    /* The rendered heightfield is a triangulated surface, not the solid AABB
+     * enclosing a whole 500 m relief range. Its own support is procedural and
+     * every planted object below uses the matching rendered mesh height. */
+    m.userData.geometryGate = {
+      overlap: false,
+      checkSupport: false,
+      // The heightfield is a walkable triangulated surface, never a vertical
+      // wall. Its relief AABB must not classify distant route landmarks as
+      // embedded merely because both occupy the same 500 m chunk envelope.
+      checkWallEmbed: false,
+    };
     m.position.set(ox, 0, oz);
     m.receiveShadow = segs >= 20;
     group.add(m);
@@ -318,8 +370,21 @@ export class TerrainStreamingSystem {
       const n = zone.trees;
       trunks = new THREE.InstancedMesh(treeTrunkGeo, this.trunkMat, n);
       canopies = new THREE.InstancedMesh(treeCanopyGeo, solid(zone.tree, { roughness: 1 }), n);
+      const treePrefix = `${group.name}-tree`;
+      trunks.name = `${treePrefix}-trunks`;
+      trunks.userData.geometryGate = {
+        instanceAssemblyPrefix: treePrefix,
+        checkSupport: false,
+      };
+      canopies.name = `${treePrefix}-canopies`;
+      canopies.userData.geometryGate = {
+        instanceAssemblyPrefix: treePrefix,
+        // Needle crowns are porous silhouettes; their trunks remain audited.
+        overlap: false,
+      };
       trunks.castShadow = canopies.castShadow = false;
       let used = 0;
+      const planted = [];
       for (let i = 0; i < n; i++) {
         const wx = ox + (rand() - 0.5) * CHUNK;
         const wz = oz + (rand() - 0.5) * CHUNK;
@@ -333,13 +398,31 @@ export class TerrainStreamingSystem {
          * the hangar wall. Everything anybody walks between lives inside this
          * rectangle, so nothing may sprout in it. */
         if (wx > -130 && wx < -12 && wz > 320 && wz < 450) continue;
-        if (Math.abs(wx - EH.x) < 30 && wz > EH.zHigh - 40 && wz < EH.zLow + 40) continue;
+        /* El Hueso owns its own slope-aware palm and jungle producers out to
+         * roughly 105 m either side of the strip. Procedural route trees must
+         * not add a second forest inside that authored stand. */
+        if (Math.abs(wx - EH.x) < 120 && wz > EH.zHigh - 90 && wz < EH.zLow + 80) continue;
+        if (treeScatterBlockedByLandmark(wx, wz)) continue;
         const h = terrainHeight(wx, wz);
         const hx = terrainHeight(wx + 8, wz) - terrainHeight(wx - 8, wz);
         const hz = terrainHeight(wx, wz + 8) - terrainHeight(wx, wz - 8);
         if (Math.hypot(hx, hz) > 16) continue;          // too steep
         if (h < 3) continue;                             // in the water
         const s = zone.treeScale * (0.7 + rand() * 0.7);
+        /* The scatter used to validate terrain and runways but never another
+         * tree. Three current chunks therefore grew trunks through trunks.
+         * Keep their solid 0.8 m base radii apart; crowns remain porous and
+         * are intentionally allowed to mingle above this rooted clearance. */
+        const overlapsTree = planted.some((other) => {
+          /* The gate deliberately compares world AABBs. A radial distance can
+           * still let two diagonal AABBs cross, so reserve the largest trunk
+           * half-extent independently on x and z. */
+          // Rotating the five-sided trunk's asymmetric local box can project
+          // 1.09 times its scale onto either horizontal axis.
+          const clearance = 1.12 * (s + other.scale) + 0.06;
+          return Math.abs(wx - other.x) < clearance && Math.abs(wz - other.z) < clearance;
+        });
+        if (overlapsTree) continue;
         /* Plant it on the surface this chunk actually draws, not on the
          * heightfield the surface approximates, and a little under it: a
          * trunk that reaches half a metre into the hill reads as rooted, one
@@ -350,6 +433,7 @@ export class TerrainStreamingSystem {
         _obj.updateMatrix();
         trunks.setMatrixAt(used, _obj.matrix);
         canopies.setMatrixAt(used, _obj.matrix);
+        planted.push({ x: wx, z: wz, scale: s });
         used++;
       }
       trunks.count = used;

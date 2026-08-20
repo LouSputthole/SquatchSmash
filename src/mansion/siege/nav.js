@@ -363,14 +363,17 @@ export const ANCHORS = Object.freeze([
   }),
   /* EITHER SIDE OF THE FOUNTAIN, AND THAT IS THE POINT.
    *
-   * The basin's collider is a 7.2 m box about (0, 27) and the drive comes up
-   * at x = 0, so a single centre anchor walks every man in the mission
-   * through it. The two burning cars `dressing.js` slews across the
-   * turnaround leave a 1.15 m channel each side, between the wreck's inner
-   * edge at x +/-4.75 and the basin's at +/-3.6 -- measured off the real
-   * colliders by `tools/probe-siege-anchors.mjs`, not by eye. These four
-   * anchors thread it, which is also the reading the brief wants: they come
-   * up the drive and file past the fountain and the burning cars. */
+   * The basin stands on the drive's centre line at (0, 27) and the drive
+   * comes up at x = 0, so a single centre anchor walks every man in the
+   * mission through its apron. The burning shells `dressing.js` parks in the
+   * turnaround used to pinch this to a 1.15 m file each side -- between a
+   * wreck inner edge at x +/-4.75 and the basin's boxes -- which is a queue,
+   * not an approach. The wrecks are re-parked against the verges at x +/-11.5
+   * now, and the aisle each side of the fountain is held at or above
+   * `APPROACH_CLEAR_WIDTH` (waves.js, 2.5 m) by a sampled collider test in
+   * `tests/mansion-siege-dressing.test.mjs`, not by eye. These anchors take
+   * that aisle, which is also the reading the brief wants: they come up the
+   * drive and past the fountain and the burning cars, in fighting width. */
   /* Turn along the south tangent before climbing either side of the real
    * r=6 apron.  A single diagonal from the drive cut through its stone. */
   A('court_gap_west', 'approach', -6.5, 19.5, G, 'forecourt', 0.15, {

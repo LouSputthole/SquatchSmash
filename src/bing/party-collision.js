@@ -58,6 +58,8 @@ export function createPartyCollider({
   };
 
   const box3Like = {
+    // A semantic name keeps the gate identity stable when a staged actor moves.
+    name: id,
     userData: { partyCollision: true, partyCollisionKind: kind, partyCollisionId: id },
     get min() { resolve(); return min; },
     get max() { resolve(); return max; },

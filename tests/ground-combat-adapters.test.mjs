@@ -145,14 +145,32 @@ function constructorOptions(source, binding, constructorName) {
   let depth = 0;
   let quote = null;
   let escaped = false;
+  /* Comments are skipped, not scanned. An apostrophe in an ordinary English
+   * comment -- "the root's audio budget" -- would otherwise open a string that
+   * never closes, and every brace after it stops counting: the failure lands on
+   * an unrelated constructor further down the file with a message about
+   * unterminated options, which is a long way from "somebody wrote a
+   * possessive in a comment". */
+  let comment = null;
   for (let index = open; index < source.length; index++) {
     const character = source[index];
+    const next = source[index + 1];
+    if (comment === 'line') {
+      if (character === '\n') comment = null;
+      continue;
+    }
+    if (comment === 'block') {
+      if (character === '*' && next === '/') { comment = null; index++; }
+      continue;
+    }
     if (quote) {
       if (escaped) escaped = false;
       else if (character === '\\') escaped = true;
       else if (character === quote) quote = null;
       continue;
     }
+    if (character === '/' && next === '/') { comment = 'line'; index++; continue; }
+    if (character === '/' && next === '*') { comment = 'block'; index++; continue; }
     if (character === "'" || character === '"' || character === '`') {
       quote = character;
       continue;
@@ -334,7 +352,7 @@ test('the gameplay catalog names both production Adapters and bounds migration',
   );
   assert.match(section, /reuse claim is proven for both player\/hostile and hostile\/player paths/);
   assert.match(section, /friendly ensemble additionally proves the shared perception/);
-  assert.match(section, /WeaponController[\s\S]*still used directly by Heist/);
+  assert.match(section, /WeaponController[\s\S]*no production consumer left/);
   assert.doesNotMatch(section, /Mansion Siege[\s\S]{0,180}WeaponController/);
   assert.match(section, /CombatLab\s+is\s+verification\s+only/);
 

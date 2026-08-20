@@ -200,8 +200,8 @@ test('the mission still honours the campaign contract at both ends', () => {
   assert.match(main, /story\.complete\(\{/);
   assert.match(main, /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT/);
   for (const checkpoint of ['dock', 'underway', 'open_water', 'execution', 'weighted']) {
-    assert.ok(main.includes(`story.checkpoint('${checkpoint}')`),
-      `the ${checkpoint} checkpoint is never recorded`);
+    assert.ok(main.includes(`checkpointNoWake('${checkpoint}'`),
+      `the ${checkpoint} checkpoint never reaches the durable checkpoint wrapper`);
   }
 });
 

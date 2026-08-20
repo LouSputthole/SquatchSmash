@@ -7,6 +7,7 @@ import { MansionDamageState, DAMAGE_STATES, STATE_LAYERS } from '../src/mansion/
 import {
   WaveDirector, WAVES, ENCOUNTERS, STAGING, ROLES, totalAttackers, COMBAT_BOUNDARY, DEFENCE_POST,
   FRONT_DOOR_STAGING, frontDoorShare, waveById,
+  ASSAULT_ROUTES, FLANK_RELEASE_STAGGER,
 } from '../src/mansion/siege/waves.js';
 import { anchorById } from '../src/mansion/siege/nav.js';
 import {
@@ -298,6 +299,60 @@ test('a fast player pulls the second group forward instead of waiting', () => {
   assert.equal(spawns.at(-1).trigger, 'attrition');
 });
 
+test('every group is authored on a named route, and stages only on it', () => {
+  /* The encounter-director seam: route choice is data in ASSAULT_ROUTES and
+   * the plan, not constants scattered across the pool and the nav file. The
+   * builder already throws on a group staged off its own route; this holds
+   * the derived facts the rest of the suite leans on. */
+  for (const wave of WAVES) {
+    for (const group of wave.groups) {
+      assert.ok(group.routes.length > 0, `${group.id} has no route`);
+      for (const route of group.routes) {
+        assert.ok(ASSAULT_ROUTES[route], `${group.id} names unknown route ${route}`);
+      }
+      const flankByRoute = group.routes.some((route) => ASSAULT_ROUTES[route].flank);
+      assert.equal(group.flank, flankByRoute,
+        `${group.id}'s flank flag disagrees with its routes`);
+    }
+  }
+  /* The main route IS the front-door funnel: same zones, no drift between
+   * the route table and the share the owner asked for. */
+  assert.deepEqual([...ASSAULT_ROUTES.main.staging].sort(), [...FRONT_DOOR_STAGING].sort());
+});
+
+test('the flank releases into the main push, not after it dies down', () => {
+  /* The service-door lesson, applied to the flank that survived: a long
+   * route released on the frontal groups' 18 s clock arrives at a room the
+   * frontal group already died in. The stagger is short ON PURPOSE -- the
+   * wing walk is the delay -- and 2B must come before the final frontal
+   * push, so the player is pressured from behind DURING the fight. */
+  const two = waveById('two');
+  assert.deepEqual(two.groups.map((g) => g.id), ['2A', '2B', '2C']);
+  const flank = two.groups.find((g) => g.flank);
+  assert.equal(flank.id, '2B');
+  assert.equal(flank.after, FLANK_RELEASE_STAGGER);
+  assert.ok(FLANK_RELEASE_STAGGER <= 8,
+    `a ${FLANK_RELEASE_STAGGER} s stagger plus the wing walk lands after 2A is dead`);
+  assert.ok(flank.after < two.groups.find((g) => g.id === '2C').after,
+    'the flank must be moving before the final frontal group');
+
+  /* And on the director itself: nobody shot, six seconds on the clock, and
+   * the flank is in while all five of 2A are still standing. */
+  const spawns = [];
+  const wave = new WaveDirector({ wave: 'two', onSpawn: (o) => spawns.push(o) });
+  wave.begin();
+  assert.equal(spawns.length, 5);
+  wave.update(FLANK_RELEASE_STAGGER);
+  assert.equal(spawns.length, 9, 'the flank did not release on its stagger');
+  assert.equal(spawns.at(-1).group, '2B');
+  assert.equal(wave.standing.size, 9, 'all of 2A must still be standing at the flank release');
+  /* 2C keeps its own clock, measured from the flank's release. */
+  wave.update(19.9);
+  assert.equal(spawns.length, 9, '2C released early');
+  wave.update(0.2);
+  assert.equal(spawns.length, 14);
+});
+
 test('a wave is not cleared before it has finished arriving', () => {
   const wave = new WaveDirector({ wave: 'one' });
   const first = wave.begin();
@@ -410,6 +465,78 @@ test('a full inherited loadout falls back to an owned gun and still advances', (
     weaponId: 'carbine',
     nudge: 'You are already carrying five guns. You are armed - get upstairs.',
   });
+});
+
+test('a refused acquisition never leaves the player armed with the objective unsatisfiable', () => {
+  /* `Armory.take()` has ALREADY hidden the rack copy and put the gun in his
+   * hands by the time this runs. A silent `advance: false` therefore left a
+   * player standing in an empty armory, holding a gun, with "Arm yourself" on
+   * the HUD and nothing left in the room to press. Every refusal below either
+   * closes the beat on a gun he really holds or says out loud what to do. */
+  const decision = resolveArmoryTake({
+    takenId: 'carbine',
+    acquisition: { ok: false, reason: 'unknown_weapon' },
+    loadout: { slots: [null, null, null, null, null], selected: -1 },
+  });
+
+  assert.equal(decision.advance, true, 'the caller returns before it speaks on a false advance');
+  assert.equal(decision.keepTaken, true, 'the gun is already in his hands');
+  assert.equal(decision.weaponId, 'carbine');
+  assert.ok(decision.nudge, 'a refusal the player cannot see is the bug');
+  assert.equal(isSiegeLineWeapon(decision.weaponId), true,
+    'the beat can only close on a gun the firing step would also accept');
+});
+
+test('a rack gun the line does not accept goes back and the player is told to take another', () => {
+  const decision = resolveArmoryTake({
+    takenId: 'prop_musket',
+    acquisition: { ok: false, reason: 'unknown_weapon' },
+    loadout: { slots: [null, null, null, null, null], selected: -1 },
+  });
+
+  assert.equal(decision.keepTaken, false, 'the rack copy must come back so the stand works again');
+  assert.equal(decision.weaponId, null);
+  assert.equal(decision.equipSlot, -1);
+  assert.equal(decision.advance, true, 'advance is what carries the nudge to the HUD');
+  assert.match(decision.nudge, /rack/i);
+});
+
+test('a refused acquisition falls back to a gun the player already owns', () => {
+  const decision = resolveArmoryTake({
+    takenId: 'prop_musket',
+    acquisition: { ok: false, reason: 'unknown_weapon' },
+    loadout: { slots: ['ak47', null, null, null, null], selected: 3 },
+  });
+
+  assert.equal(decision.advance, true);
+  assert.equal(decision.keepTaken, false);
+  assert.equal(decision.equipSlot, 0, 'an empty selected slot falls through to the first real gun');
+  assert.equal(decision.weaponId, 'ak47');
+  assert.ok(decision.nudge);
+});
+
+test('every armory refusal reaches the player and none of them dead-ends the beat', () => {
+  for (const reason of ['unknown_weapon', 'full', 'locked', undefined]) {
+    for (const takenId of ['saw', 'prop_musket']) {
+      const decision = resolveArmoryTake({
+        takenId,
+        acquisition: { ok: false, reason },
+        loadout: { slots: ['revolver', null, null, null, null], selected: 0 },
+      });
+      const label = `${reason} / ${takenId}`;
+      assert.equal(decision.advance, true, label);
+      assert.ok(decision.nudge, `${label} must not fail in silence`);
+      assert.equal(isSiegeLineWeapon(decision.weaponId), true,
+        `${label} must hand the beat a gun that satisfies it`);
+      // And the beat really does close on it.
+      const { m } = mission();
+      m.start();
+      m.wokeUp();
+      m.enteredArmory();
+      assert.equal(m.weaponTaken(decision.weaponId), true, label);
+      assert.equal(m.beat, B.TO_OFFICE, label);
+    }
+  }
 });
 
 test('every armory catalog gun satisfies the firing-step weapon gate', () => {

@@ -1,0 +1,79 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "apartment",
+  "entries": [],
+  "suppressionPolicy": [
+    {
+      "state": "after-beef-run",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "after-bing-one",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "after-golf",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "after-heist",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "after-motel",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "after-no-wake",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "after-silver-room",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "after-squatchfather",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "day-four-wake",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "day-one-wake",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "day-three-wake",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "day-two-wake",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    }
+  ]
+}

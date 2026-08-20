@@ -484,6 +484,80 @@ kbd.key, .controls kbd {
 }
 #overlay.ending #start-btn { order: 4; margin-top: 14px; }
 
+/* The real campaign ending belongs to the Apartment wrapper, leaving the
+   frozen Initiation untouched. Recap and credits share one dismissible card. */
+#overlay.campaign-finale { overflow: auto; padding: 24px; }
+#overlay.campaign-finale .panel { max-width: 920px; width: min(920px, 100%); padding: 0; }
+#overlay.campaign-finale .panel > h1,
+#overlay.campaign-finale .panel > .tag,
+#overlay.campaign-finale .panel > #start-btn,
+#overlay.campaign-finale .panel > .campaign-reset,
+#overlay.campaign-finale .panel > .campaign-reset-confirm,
+#overlay.campaign-finale .panel > .controls,
+#overlay.campaign-finale .panel > .fine { display: none; }
+.campaign-finale-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(230px, .65fr);
+  gap: 22px;
+  width: 100%;
+  max-height: calc(100vh - 48px);
+  padding: 24px;
+  text-align: left;
+  color: #e8decc;
+  background: linear-gradient(145deg, rgba(25, 21, 18, .98), rgba(8, 8, 9, .98));
+  border: 1px solid rgba(255, 182, 72, .35);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .7);
+  overflow: auto;
+}
+.finale-recap { min-width: 0; }
+.finale-eyebrow { margin: 0 0 5px; color: var(--amber); font-size: 11px; letter-spacing: 3px; }
+.campaign-finale-card h2 { margin: 0; color: var(--paper); font-size: clamp(38px, 7vw, 68px); line-height: 1; }
+.finale-subtitle { margin: 10px 0 18px; color: #a99e8c; font-size: 13px; }
+.finale-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.finale-stats div { padding: 9px 10px; background: rgba(255, 255, 255, .035); border-left: 2px solid #72552e; }
+.finale-stats dt { color: #908674; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+.finale-stats dd { margin: 3px 0 0; color: #f0e2c9; font-size: 14px; }
+.finale-highlights { margin: 16px 0 0; padding-left: 18px; color: #b9ae9b; font-size: 12px; line-height: 1.65; }
+.finale-credits-window {
+  position: relative;
+  min-height: 260px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .07);
+  background: radial-gradient(circle at 50% 50%, rgba(255, 182, 72, .07), transparent 66%);
+  mask-image: linear-gradient(transparent, #000 13%, #000 87%, transparent);
+}
+.finale-credits-track { position: absolute; inset: 0; padding: 28px 18px; text-align: center; }
+.finale-credits-track.rolling { animation: finaleCreditsRoll 15s linear both; }
+.finale-credits-track > div { margin: 24px 0; }
+.finale-credit-mark { margin: 0 0 44px; color: var(--amber); font-size: 20px; letter-spacing: 4px; }
+.finale-credit-role { display: block; margin-bottom: 4px; color: #7f7667; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; }
+.finale-credits-track strong { color: #e8decc; font-size: 14px; font-weight: 600; }
+@keyframes finaleCreditsRoll { from { transform: translateY(88%); } to { transform: translateY(-102%); } }
+.finale-error { grid-column: 1 / -1; margin: 0; color: #ff9d8c; font-size: 12px; text-align: center; }
+#campaign-freeplay-btn {
+  grid-column: 1 / -1;
+  justify-self: center;
+  padding: 12px 28px;
+  color: var(--ink);
+  background: var(--amber);
+  border: 0;
+  border-radius: 4px;
+  box-shadow: 0 4px 0 var(--amber-dim);
+  font: 700 14px var(--font);
+  letter-spacing: 1.5px;
+  cursor: pointer;
+}
+#campaign-freeplay-btn:focus-visible { outline: 3px solid #fff1ca; outline-offset: 4px; }
+@media (max-width: 680px) {
+  .campaign-finale-card { grid-template-columns: 1fr; max-height: none; }
+  .finale-credits-window { min-height: 190px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .finale-credits-track.rolling { animation: none; position: static; }
+  .finale-credits-window { overflow: auto; mask-image: none; }
+}
+
 #overlay h1 {
   margin: 0;
   font-size: clamp(38px, 8vw, 74px);

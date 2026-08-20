@@ -83,6 +83,100 @@ const COLLAPSE_ORDER = Object.freeze([
 ]);
 
 /**
+ * DeathMegatron, enjoying it (owner playtest, 2026-08-19: *"she is really
+ * taking pleasure in the killing of the scientists, making fun of their need
+ * to breathe, and laughing at them ... some offensive lines calling them
+ * names"*).
+ *
+ * The brief cast her "completely heartless and cold in this scene", and the
+ * pleasure is played INSIDE that register — deadpan doom-voice relish, never a
+ * cackle, per docs/TONE-AND-PARODY.md: the cruelty is real and the scene does
+ * not wink. The insults stay aimed at what she despises about them — their
+ * frailty, their little coats, their embarrassing dependence on air.
+ *
+ * AUTHORED HERE RATHER THAN IN ../script.js, deliberately and temporarily: a
+ * concurrent pass owns script.js tonight, and these lines ride the gassing —
+ * this file's own beat. They are line objects in the script's exact shape and
+ * they run through the same DialogueController as everything else, so moving
+ * them into script.js's `gas` scope later is a cut-and-paste plus a cue
+ * rename. The cues live on the sibling `vo.silentnight.` prefix because
+ * `vo.silentsquatch.*` is contract-checked against `allSilentSquatchLines()`
+ * (tools/mansion-vo.mjs, tests/silent-squatch-voice.test.mjs) and a cue on
+ * that prefix that script.js does not author is, correctly, a build failure.
+ * The manifest carries them under her existing `deathmegatron` casting.
+ *
+ * `at` is a `lab.gas.density`, exactly like GAS_STAGES — offset BETWEEN the
+ * stages' own thresholds, and each line additionally waits for the dialogue
+ * floor to be free (see `#gassing`), so she is reacting to what the room is
+ * doing rather than talking over her own scene.
+ */
+const DMT_GAS_TAUNTS = Object.freeze([
+  Object.freeze({
+    at: 0.07,
+    line: Object.freeze({
+      speaker: 'DEATHMEGATRON',
+      text: 'There it goes. Breathe deep, lab rats. You earned every lungful.',
+      cue: 'vo.silentnight.dmt.labrats',
+      hold: 3.8,
+    }),
+  }),
+  Object.freeze({
+    at: 0.22,
+    line: Object.freeze({
+      speaker: 'DEATHMEGATRON',
+      text: 'Look at them go. Little coats. Big hurry.',
+      cue: 'vo.silentnight.dmt.littlecoats',
+      hold: 3.0,
+    }),
+  }),
+  Object.freeze({
+    at: 0.37,
+    line: Object.freeze({
+      speaker: 'DEATHMEGATRON',
+      text: 'They’re covering their mouths. Adorable. Air was always their weakness.',
+      cue: 'vo.silentnight.dmt.adorable',
+      hold: 4.2,
+    }),
+  }),
+  Object.freeze({
+    at: 0.52,
+    line: Object.freeze({
+      speaker: 'DEATHMEGATRON',
+      text: 'Heh. Needing to breathe. How embarrassing for you.',
+      cue: 'vo.silentnight.dmt.embarrassing',
+      hold: 3.4,
+    }),
+  }),
+  Object.freeze({
+    at: 0.67,
+    line: Object.freeze({
+      speaker: 'DEATHMEGATRON',
+      text: 'Knock all you want, pencil-necks. The glass doesn’t do sympathy.',
+      cue: 'vo.silentnight.dmt.pencilnecks',
+      hold: 3.8,
+    }),
+  }),
+  Object.freeze({
+    at: 0.82,
+    line: Object.freeze({
+      speaker: 'DEATHMEGATRON',
+      text: 'Crawling. Finally some exercise, eggheads.',
+      cue: 'vo.silentnight.dmt.exercise',
+      hold: 3.0,
+    }),
+  }),
+  Object.freeze({
+    at: 0.95,
+    line: Object.freeze({
+      speaker: 'DEATHMEGATRON',
+      text: 'Shh. Shh, shh, shh. There it is. Silent night.',
+      cue: 'vo.silentnight.dmt.silentnight',
+      hold: 3.6,
+    }),
+  }),
+]);
+
+/**
  * The level a laboratory body plays a line at with nobody overriding it.
  *
  * The number belongs to `scenes/SilentSquatch.js` (`say()`'s `opts.volume ??
@@ -217,6 +311,10 @@ class SilentSquatchMission {
     this.asideTimer = 0;
     this.collapseTimer = 0;
     this.collapseCursor = 0;
+    /** Which of DeathMegatron's gassing taunts fires next, and how long the
+     * pending one has been waiting for a gap in the dying. See #gassing. */
+    this.tauntCursor = 0;
+    this.tauntWait = 0;
     this.aftermathWait = 0;
 
     this.fsm = new SilentSquatchStateMachine(this.#states(), (name) => {
@@ -409,6 +507,15 @@ class SilentSquatchMission {
   /** Beat 10. Booski lifted the cover. He does not pull it. */
   pullSilentNight() {
     if (!this.#at(S.SILENT_NIGHT)) return false;
+    /* The LEVER, not only the sequence. The mount's registration replaces
+     * the scene's own on the same mesh (`userData.interact` is a single
+     * slot), so without this the physical lever never travelled and the
+     * cover state never latched -- the gas arrived out of a pedestal that
+     * had visibly not been pulled. `pull()` also starts the gas; the
+     * `alarm.start` stage at the head of `silentNightPulled` fires on the
+     * same frame and its second `gas.start()` is a guarded no-op, so the
+     * timing is exactly what it was. */
+    this.lab.silentNight?.pull?.();
     this.#instruct('');
     this.dialogue.play(SEQUENCES.silentNightPulled, {
       onDone: () => this.fsm.go(S.GASSING),
@@ -486,6 +593,8 @@ class SilentSquatchMission {
       glassRouted: this.glassRouted,
       dryRouted: this.dryRouted,
       gasStages: [...this.gasStages],
+      /** How many of DeathMegatron's gassing taunts actually landed. */
+      dmtTaunts: this.tauntCursor,
       collapsed: [...this.collapsed],
       handprints: this.handprints,
       bezmenovTriedHandleFirst: this.bezmenovTriedHandleFirst,
@@ -661,7 +770,24 @@ class SilentSquatchMission {
       case 'alarm.start':
         this.lab.gas?.start?.();
         break;
+      /* Beat 10's set-up: "Booski lifts the cover and does not pull it." The
+       * direction has been in `silentNightOrder` since it was written and
+       * nothing performed it -- the scene's red safety cover stayed shut over
+       * the lever for the whole of beats 10 and 11 while Booski said he had
+       * lifted it. (It also opens the scene's own `silentNight` gate, for a
+       * house running without the mount's registrations.) */
+      case 'cover.lift':
+        this.lab.silentNight?.liftCover?.();
+        break;
       case 'glass.chair':
+        /* The swing as well as the flag. Sokolov's "Move! Move back!" is the
+         * line before this direction, so he is the one with the chair --
+         * `chairStrike()` is the impact on the glass audio path plus the
+         * chair deforming, and until this call the real lab never heard it:
+         * the verifier drove `chairStrike` directly, the mission only set a
+         * bookkeeping flag, and beat 9's one big physical beat played as a
+         * subtitle over silence. */
+        this.lab.scientists?.[SCIENTIST_INDEX.SOKOLOV]?.chairStrike?.();
         this.chairBent = true;
         break;
       case 'xxx.cough':
@@ -1171,6 +1297,36 @@ class SilentSquatchMission {
       if (lines) this.dialogue.interject(lines);
     }
 
+    /* DeathMegatron's running commentary, one line at a time, never OVER
+     * anybody — `interject` is a queue, so her line always waits for the
+     * active mouth to finish. A free floor she takes at once; a floor the
+     * dying keep full (they do — the seven stages' lines run the gas nearly
+     * wall to wall) she cuts into after a few seconds' relish, landing
+     * between their lines rather than on top of them. Still strictly in
+     * order, and anything unfired when the aftermath takes the floor is
+     * simply never said, which is also how a person behaves. */
+    if (this.tauntCursor < DMT_GAS_TAUNTS.length
+      && density >= DMT_GAS_TAUNTS[this.tauntCursor].at) {
+      this.tauntWait += dt;
+      /* Three seconds of relish before she cuts in: an interjection lands
+       * in front of whatever is queued, so a waited taunt slots in after
+       * the line being spoken and ahead of the next cry — between their
+       * lines, never over them. The seven stages keep this floor close to
+       * full, so without the cut-in she never speaks at all; with it she
+       * takes the NEXT slot now and then, which is exactly the cruelty the
+       * owner asked to hear. Nothing is lost to the jump: the aftermath
+       * below waits for the whole floor to drain, so a displaced cry still
+       * plays — after her, which is the point of her. */
+      if (!this.dialogue.busy || this.tauntWait >= 3) {
+        this.dialogue.interject([DMT_GAS_TAUNTS[this.tauntCursor].line]);
+        this.tauntCursor++;
+        this.tauntWait = 0;
+        this.onNpcBark?.('deathmegatron', 'gassing');
+      }
+    } else {
+      this.tauntWait = 0;
+    }
+
     if (!this.gasStages.includes('collapsing')) return;
 
     /* One by one, not all at once. The last one to the glass leaves the
@@ -1192,6 +1348,18 @@ class SilentSquatchMission {
       return;
     }
 
+    /* The room finishes dying OUT LOUD before anybody reviews it.
+     * `AFTERMATH.enter` opens with `dialogue.play`, which replaces the queue
+     * and cuts the active take — so transitioning the moment the last body
+     * dropped clipped whoever was dying loudest mid-word and silently threw
+     * away every cry still queued behind them (on most runs that was half of
+     * `gasCrawling` and DeathMegatron's "Silent night"). Booski's
+     * "Efficient." waits for the first beat of quiet, which is also the read
+     * that line wants. The timeout clock below deliberately does not run
+     * while lines are draining — it exists for a lab whose MONITOR lags, not
+     * to cut off the scene's own writing. */
+    if (this.dialogue.busy) return;
+
     /* The monitor is the authority on whether they are dead, not this file. */
     const signs = this.lab.lifeSigns;
     this.aftermathWait += dt;
@@ -1208,4 +1376,6 @@ class SilentSquatchMission {
   }
 }
 
-export { S, BEAT_OF, GAS_STAGES, COLLAPSE_ORDER, LAB_DOOR_CODE };
+export {
+  S, BEAT_OF, GAS_STAGES, COLLAPSE_ORDER, LAB_DOOR_CODE, DMT_GAS_TAUNTS,
+};

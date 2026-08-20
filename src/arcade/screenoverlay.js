@@ -145,6 +145,45 @@ export class ScreenOverlay {
     this.el.blur();
   }
 
+  /**
+   * Stop the embedded page making noise.
+   *
+   * Owner playtest, 2026-08-20: *"the music volume is playing at full even
+   * after I get up from the desk."*
+   *
+   * `hide()` sets `display: none`, and a hidden iframe goes on running and
+   * goes on playing audio -- display has never had anything to do with sound.
+   * `mount.js` has always CALLED for this on standing up (`app.suspend?.()`)
+   * and the optional chaining meant the call did nothing at all, silently, for
+   * as long as no such method existed. So a man could walk away from his desk
+   * and take DOOM's soundtrack with him round the flat at full volume.
+   *
+   * There is no gentler way to do it for a CROSS-ORIGIN page: we cannot reach
+   * into it to pause anything, and no amount of styling silences it. Blanking
+   * the frame is what actually stops the audio, so blanking is what this does,
+   * and `resume()` puts the page back.
+   *
+   * That costs the session -- stand up in the middle of E1M1 and you come back
+   * to the title screen. It is the right trade: the alternative on offer is
+   * not "keep your progress", it is "keep your progress AND the music,
+   * everywhere, until you quit the tab".
+   */
+  suspend() {
+    if (!this.el || this._suspendedSrc != null) return false;
+    this._suspendedSrc = this.el.getAttribute('src') || this.src || '';
+    this.el.setAttribute('src', 'about:blank');
+    return true;
+  }
+
+  /** Put the page back on the monitor after a `suspend()`. */
+  resume() {
+    if (this._suspendedSrc == null) return false;
+    const src = this._suspendedSrc;
+    this._suspendedSrc = null;
+    this.el.setAttribute('src', src);
+    return true;
+  }
+
   /** Run `fn` against the embedded window, if it is there and same-origin. */
   withWindow(fn) {
     try {

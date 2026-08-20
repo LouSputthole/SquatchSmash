@@ -107,6 +107,9 @@ test('the in-water performer visibly treads and drifts without leaving the pool'
         y: swimmer.group.position.y,
         z: swimmer.group.position.z,
         arm: swimmer.parts.armL.rotation.z,
+        footMinY: Math.min(...limbMeshes(swimmer)
+          .filter(({ part }) => part === 'foot')
+          .map(({ mesh }) => new THREE.Box3().setFromObject(mesh).min.y)),
       });
     }
   }
@@ -121,6 +124,8 @@ test('the in-water performer visibly treads and drifts without leaving the pool'
   assert.ok(Math.max(...arms) - Math.min(...arms) >= 0.12, 'her arms never scull the water');
   assert.ok(Math.min(...xs) > water.x0 + 0.35 && Math.max(...xs) < water.x1 - 0.35);
   assert.ok(Math.min(...zs) > water.z0 + 0.35 && Math.max(...zs) < water.z1 - 0.35);
+  assert.ok(Math.min(...samples.map(({ footMinY }) => footMinY)) > grounds.props.poolPatio.waterY - 1.1,
+    'the swimmer bobs through the finished pool floor');
   assert.equal(cast.debug.evening.poolComposition.find(({ id }) => id === 'poolPerformer2')?.motion,
     'treading');
 });

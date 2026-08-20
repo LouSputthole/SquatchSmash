@@ -1,0 +1,55 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "silvercase",
+  "entries": [
+    {
+      "id": "silvercase-car-driver-door-card-contact",
+      "state": "car",
+      "kind": "INTERPENETRATION",
+      "left": "root:silvercase-car/name=carInterior#0/name=person#0/name=body#0/name=arm#1/name=upperarm#0",
+      "right": "root:silvercase-car/name=carInterior#0/type=Mesh#33",
+      "maxDepthM": 0.056,
+      "reason": "Ape's authored both-hands-on-wheel pose leaves his outside upper arm compressed 5.5 cm into the padded driver-side door card in the intentionally cramped cabin.",
+      "source": "src/silvercase/scenes/CarInterior.js:324",
+      "sourceAnchor": "root.add(box({ size: [0.09, 0.055, 0.5]"
+    }
+  ],
+  "suppressionPolicy": [
+    {
+      "state": "aftermath",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "bathroom",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "car",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "hallway",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "prayer",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    },
+    {
+      "state": "room",
+      "overlap": 0,
+      "checkSupport": 0,
+      "sources": []
+    }
+  ]
+}

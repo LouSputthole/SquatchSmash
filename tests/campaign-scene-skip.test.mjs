@@ -244,7 +244,11 @@ const MATRIX = Object.freeze([
   [SCENE_IDS.MANSION_SIEGE, MISSION_IDS.MANSION_SIEGE, SCENE_IDS.ENOLA_SQUATCH],
   [SCENE_IDS.ENOLA_SQUATCH, MISSION_IDS.ENOLA_SQUATCH, SCENE_IDS.MANSION_RETURN],
   [SCENE_IDS.MANSION_RETURN, MISSION_IDS.MANSION_RETURN, SCENE_IDS.CARTEL_PALACE],
-  [SCENE_IDS.CARTEL_PALACE, MISSION_IDS.CARTEL_PALACE, SCENE_IDS.INITIATION],
+  /* The Palace skips HOME now, not to the ceremony. He goes back to a flat
+   * where nobody has told him whether killing Sauce was the right call,
+   * Booskibro rings, and three men come and collect him — and the Special
+   * Meeting hands off to the Initiation itself, which is the row below. */
+  [SCENE_IDS.CARTEL_PALACE, MISSION_IDS.CARTEL_PALACE, SCENE_IDS.SPECIAL_MEETING],
 ]);
 
 const SPAWN = Object.freeze({

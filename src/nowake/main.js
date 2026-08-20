@@ -24,6 +24,7 @@
  */
 import * as THREE from 'three';
 import { AudioEngine } from '../core/audio.js';
+import { createCampaignAudioFeedback } from '../core/campaign-audio-feedback.js';
 import { AuthoredClock } from '../core/authored-clock.js';
 import {
   MISSION_IDS, SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
@@ -37,7 +38,6 @@ import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js'
 import { PostFX } from '../core/postfx.js';
 import { Radio } from '../core/radio.js';
 import { BulletHoles } from '../world/bullets.js';
-import { makeNineMillimeterPistol, makeRevolver } from '../world/props.js';
 import {
   NO_WAKE_BODY_LINES,
   NO_WAKE_CABIN_SCRIPT,
@@ -53,9 +53,23 @@ import {
 } from './route-policy.js';
 import { buildNoWakeWorld } from './world.js';
 import { createBodyRig } from './body.js';
+import {
+  flashNoWakeMuzzle as flashMuzzle,
+  mountNoWakeExecutionGuns,
+  stowNoWakeExecutionGunsGeometry,
+  NO_WAKE_MUZZLE_FLASH_SECONDS as MUZZLE_FLASH_SECONDS,
+  NO_WAKE_TRACER_SECONDS as TRACER_SECONDS,
+} from './execution-geometry.js';
 import { CABIN_CAST_STAGING, CABIN_STAGING } from './deck-collision.js';
+import {
+  completeNoWakeStartupGeometry,
+  NO_WAKE_CHECKPOINT_LABELS,
+  placeNoWakeCabinCastGeometry,
+  poseNoWakeExecutedBodyGeometry,
+  prepareNoWakeWeightedBodyGeometry,
+  previewNoWakeCheckpointForLocation,
+} from './preview.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
-import { isPreviewMode } from '../core/preview-mode.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 
@@ -97,39 +111,8 @@ const speakerEl = document.getElementById('speaker');
  * way src/mansion/siege/main.js's `jumpToCheckpoint` walks its own beat
  * chain instead of assigning `state.phase` by hand.
  */
-const NO_WAKE_CHECKPOINT_ALIASES = Object.freeze({
-  dock: 'dock',
-  underway: 'underway',
-  inlet: 'inlet',
-  confrontation: 'confrontation',
-  body: 'body',
-  weighted: 'weighted',
-  return: 'return',
-});
-const NO_WAKE_CHECKPOINT_LABELS = Object.freeze({
-  dock: 'GATE C — ABOARD',
-  underway: 'UNDERWAY — CLEAR OF THE MARINA',
-  inlet: 'THE INLET — OPEN WATER, IDLE',
-  confrontation: 'THE CONFRONTATION',
-  body: 'THE BODY',
-  weighted: 'THE WEIGHTS — WRAPPED AND BALLASTED',
-  return: 'THE RIDE HOME',
-});
-function previewCheckpointForLocation(locationLike = window.location) {
-  // Same gate as `src/core/preview-mode.js`'s own checkpoint parsers: a bare
-  // `?checkpoint=` on an ordinary link does nothing without `?preview=1`
-  // alongside it, so a shared preview link cannot be mistaken for a normal
-  // campaign entry.
-  if (!isPreviewMode(locationLike)) return null;
-  let params;
-  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
-  const value = params.get('checkpoint');
-  return value && Object.prototype.hasOwnProperty.call(NO_WAKE_CHECKPOINT_ALIASES, value)
-    ? NO_WAKE_CHECKPOINT_ALIASES[value]
-    : null;
-}
 /** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
-const previewCheckpoint = previewCheckpointForLocation();
+const previewCheckpoint = previewNoWakeCheckpointForLocation();
 if (previewCheckpoint) {
   const label = NO_WAKE_CHECKPOINT_LABELS[previewCheckpoint] ?? previewCheckpoint;
   const tag = overlay?.querySelector('.tag');
@@ -159,6 +142,8 @@ const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 const player = new Player(camera, world);
 const interaction = new InteractionSystem(camera, hud);
 const audio = new AudioEngine();
+const campaignAudioFeedback = createCampaignAudioFeedback(audio);
+player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 const engineAudio = new NoWakeEngineAudio(audio);
 const postfx = new PostFX(renderer, scene, camera);
 postfx.enable();
@@ -173,6 +158,12 @@ const boat = world.boat;
 const cabin = boat.cabin;
 const bodyRig = createBodyRig(boat);
 const cameraDirector = new NoWakeCameraDirector(camera, boat);
+
+function checkpointNoWake(id, { force = false } = {}) {
+  const accepted = story.checkpoint(id);
+  campaignAudioFeedback.checkpoint(id, accepted || force);
+  return accepted;
+}
 
 const DECK_H = boat.deck.height;
 const FOREDECK_H = boat.deck.foredeckHeight;
@@ -227,6 +218,15 @@ const state = {
   cueLog: [],
   phaseTime: 0,
   executionShots: 0,
+  /* The volley, as a schedule stepped by the frame loop -- the same simulated
+   * clock everything else in the scene runs on -- so a slow rasteriser slows
+   * the beat instead of letting wall-clock timers finish it unseen. */
+  executionPlan: null,
+  executionClock: 0,
+  tracers: [],
+  willyHit: 0,
+  willyHitSide: 1,
+  willySlump: 0,
   stagingLocked: false,
   carriedBallast: false,
   bodyDisposed: false,
@@ -430,7 +430,9 @@ function beginBoarding() {
     player.yawCenter = null;
     player.yawRange = Math.PI;
     interaction.setPaused(false);
-    story.checkpoint('dock');
+    // begin() establishes the initial dock checkpoint, so boarding is the
+    // one intentional forced announcement. The adapter still deduplicates it.
+    checkpointNoWake('dock', { force: true });
     phase('startup');
     /* Lou says it, then the checklist appears. He does not say anything else
      * for the rest of the procedure however long the player takes. */
@@ -624,7 +626,7 @@ function enterHelm() {
   if (state.phase === 'startup') {
     completeStartupStep('helm');
     phase('drive');
-    story.checkpoint('underway');
+    checkpointNoWake('underway');
     setObjective('RUN THE NO WAKE CHANNEL', 'Idle out past the marker · keep the red to starboard');
   }
   player.mode = 'seated';
@@ -677,7 +679,7 @@ function leaveHelm({ force = false } = {}) {
 function reachInlet() {
   if (state.phase !== 'drive') return;
   phase('inlet');
-  story.checkpoint('open_water');
+  checkpointNoWake('open_water');
   /* Lou asks for it; the player brings the levers down himself, and the
    * engines are only killed once she has actually come off the way. */
   sayThenObjective(
@@ -856,37 +858,7 @@ function beginCabinScene() {
 }
 
 function placeCabinCast() {
-  const put = (npc, mark) => {
-    npc.group.position.set(mark.x, mark.baseY, mark.z);
-    npc.group.rotation.y = mark.yaw;
-    npc.baseY = mark.baseY;
-    npc.job = mark.job;
-    npc._syncJob(true);
-  };
-  /* The salon is 0.72 m wider and 0.80 m longer than the room these three
-   * marks were first blocked in (punch list N1), so they are re-blocked to it:
-   * Lou at the forward end of the dinette, Booski behind the length of the bar,
-   * Willy standing between them with the whole room behind him. The player
-   * arrives at (-0.25, -2.80) and `tools/verify-no-wake.mjs` re-casts the sight
-   * line from his eye to each man's chest, so none of this may put anybody
-   * behind anything.
-   *
-   * They are also blocked to the CAMERA, not just to the floor plan, and that
-   * is the whole reason a bigger room needed new marks rather than the old ones
-   * moved outward. Spread across the full width of it, Booski left the frame:
-   * at a 68° vertical FOV the horizontal half-angle is 50°, and a man 1.2 m to
-   * port of a player standing 0.9 m away is past it. Stood where they used to
-   * stand, all three were close enough to fill the screen with a shoulder. They
-   * are 1.8-2.7 m forward of the player's mark now and inside 35° of his eye
-   * line, which is a composition instead of a crowd, and the verifier measures
-   * both the sight line and the NDC. */
-  put(boat.cast.lou, CABIN_CAST_STAGING.lou);
-  put(boat.cast.booski, CABIN_CAST_STAGING.booski);
-  put(boat.cast.willy, CABIN_CAST_STAGING.willyStanding);
-  // Irish never abandons his lookout. He is on the bow the whole time.
-  boat.cast.irish.group.position.set(.10, FOREDECK_H, -4.80);
-  boat.cast.irish.group.rotation.y = Math.PI;
-  boat.cast.irish.baseY = FOREDECK_H;
+  placeNoWakeCabinCastGeometry(boat);
 }
 
 /**
@@ -988,45 +960,32 @@ function runCabinBeat(beat, when) {
  * The execution
  * ------------------------------------------------------------------ */
 
-function executionGun(model, name, calibre, scale = 1) {
-  const gun = model.group;
-  gun.name = name;
-  gun.scale.setScalar(scale);
-  gun.userData.weaponModel = calibre;
-  gun.userData.muzzle = model.muzzle.clone();
-  return gun;
-}
-
+/**
+ * WHICH WAY UP A HELD PISTOL GOES.
+ *
+ * Owner, playtest 2026-08-18: *"The guns in No wake in Lou and Booskis hands
+ * are upside down."* Measured, and he is right: the guns were attached to
+ * `foreR` with an identity-ish rotation, and a forearm's own axes are not a
+ * gun's. In the raised execution pose the bore (model local -Z,
+ * `src/core/weapons/models.js`'s stated convention) pointed (0.03, -1.00,
+ * -0.06) in the shooter's frame -- straight down at the sole -- and the top
+ * strap pointed (-0.08, 0.06, -1.00), back at the shooter's own chest, with
+ * the grip stuck out toward Willy.
+ *
+ * Same fix as `src/mansion/siege/armed-pose.js` (`MOUNT_ROTATION`), which
+ * settled this exact bug class for the mansion: -90 degrees about X lays the
+ * bore down the forearm's -Y, the direction the arm points, and the 180 about
+ * the model's own bore -- applied before the X turn, so it changes only roll
+ * -- lands model +Y on the forearm's +Z, the back of the hand. Aimed, the
+ * bore now runs (0.08, -0.11, 0.99) at Willy with the sights up (-0.02, 0.99,
+ * 0.11); at rest the muzzle hangs at the floor. The grip anchor is the siege
+ * mount's own measured pistol9 grip point, so the palm holds the grip rather
+ * than the trigger guard.
+ */
 function prepareGuns() {
   if (state.gunsReady) return;
   state.gunsReady = true;
-  state.louGun = executionGun(
-    makeNineMillimeterPistol(null, { x: 0, y: 0, z: 0 }),
-    'Lou 9mm pistol', '9mm semi-automatic', 1.15,
-  );
-  state.booskiGun = executionGun(
-    makeNineMillimeterPistol(null, { x: 0, y: 0, z: 0 }),
-    'Booski 9mm pistol', '9mm semi-automatic', 1.15,
-  );
-  boat.cast.lou.parts.foreR.add(state.louGun);
-  boat.cast.booski.parts.foreR.add(state.booskiGun);
-  state.louGun.position.set(0, -.20, -.10);
-  state.louGun.rotation.set(-.05, 0, 0);
-  state.booskiGun.position.copy(state.louGun.position);
-  state.booskiGun.rotation.copy(state.louGun.rotation);
-  for (const gun of [state.louGun, state.booskiGun]) {
-    gun.userData.basePosition = gun.position.clone();
-    gun.userData.baseRotation = gun.rotation.clone();
-    gun.userData.recoil = 0;
-  }
-  state.playerGun = executionGun(
-    makeRevolver(null, { x: 0, y: 0, z: 0 }),
-    'Tony revolver', 'six-shot revolver', 1.35,
-  );
-  state.playerGun.position.set(.20, -.24, -.34);
-  state.playerGun.rotation.set(.06, -.16, 0);
-  state.playerGun.visible = false;
-  camera.add(state.playerGun);
+  Object.assign(state, mountNoWakeExecutionGuns({ boat, camera }));
   sceneInventory.set([{ icon: '🔫', label: "Tony's revolver · concealed" }]);
 }
 
@@ -1051,19 +1010,43 @@ function fireExecution() {
   if (state.phase !== 'ready_to_fire') return;
   phase('execution');
   executionPrompt.classList.add('hidden');
-  story.checkpoint('execution');
+  checkpointNoWake('execution');
   setObjective('', '');
-  /* All three fire on the same beat, and all three keep firing: the owner's
+  /* All three shooters fire, and all three are SEEN to fire: the owner's
    * complaint about the old scene was that Lou and Booski were not visibly
-   * shooting. Three or four rounds each, over about a second, and then it
-   * stops. */
-  const volleys = [0, 220, 470, 760];
-  for (const [i, delay] of volleys.entries()) {
-    setTimeout(() => playerShot(), delay + 0);
-    setTimeout(() => npcShot(boat.cast.lou, state.louGun), delay + 45);
-    setTimeout(() => npcShot(boat.cast.booski, state.booskiGun), delay + 90);
-    if (i === volleys.length - 1) setTimeout(dropWilly, delay + 320);
+   * shooting, and packing twelve rounds into one second with every shooter
+   * inside the same tenth of it left nothing for the eye to attribute. Each
+   * volley is the player, then Lou, then Booski, far enough apart that each
+   * man's flash, kick and tracer is his own -- the player always first, held
+   * in the aimed pose the whole time. Seconds of simulated time, stepped by
+   * `updateExecution()`, never wall clock. */
+  const volleys = [0, .65, 1.30, 1.90];
+  const stagger = .22;
+  state.executionClock = 0;
+  state.executionPlan = [];
+  for (const [i, beat] of volleys.entries()) {
+    state.executionPlan.push({ at: beat, fire: () => playerShot() });
+    state.executionPlan.push({ at: beat + stagger, fire: () => npcShot(boat.cast.lou, state.louGun) });
+    state.executionPlan.push({ at: beat + stagger * 2, fire: () => npcShot(boat.cast.booski, state.booskiGun) });
+    if (i === volleys.length - 1) {
+      state.executionPlan.push({ at: beat + stagger * 2 + .35, fire: dropWilly });
+    }
   }
+}
+
+/**
+ * One shot has landed; the seated man answers it.
+ *
+ * A flinch per round and a slump that only accumulates -- restrained on
+ * purpose ("no exaggerated gasp, no double take" is the scene's own tone
+ * rule), but present between every volley, so the rounds visibly arrive in a
+ * man rather than a prop. Applied in `updateCast()` after the cast update,
+ * which clears `parts` rotations each mover tick.
+ */
+function hitWilly() {
+  state.willyHit = 1;
+  state.willyHitSide = -state.willyHitSide;
+  state.willySlump = Math.min(1, state.willySlump + 1 / 9);
 }
 
 function playerShot() {
@@ -1074,6 +1057,7 @@ function playerShot() {
   audio.play('boat.gunshot.deck', { volume: 1 });
   const muzzle = state.playerGun.localToWorld(state.playerGun.userData.muzzle.clone());
   blood.muzzle(muzzle);
+  flashMuzzle(state.playerGun);
   showShotTracer(muzzle, impact, 0xffe2a3);
   /* On the man, not in the air where he was standing -- so the wounds ride his
    * fall and go over the side inside the bag. Not on every round: "no excessive
@@ -1083,6 +1067,7 @@ function playerShot() {
   }
   state.executionShots++;
   state.playerGun.rotation.x = .32;
+  hitWilly();
 }
 
 function npcShot(npc, gun) {
@@ -1090,6 +1075,7 @@ function npcShot(npc, gun) {
   const muzzle = gun.localToWorld(gun.userData.muzzle.clone());
   audio.play('boat.gunshot.deck', { volume: .94, position: muzzle });
   blood.muzzle(muzzle);
+  flashMuzzle(gun);
   const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(
     (Math.random() - .5) * .18, .95 + Math.random() * .30, .14,
   ));
@@ -1101,6 +1087,7 @@ function npcShot(npc, gun) {
   }
   state.executionShots++;
   gun.userData.recoil = 1;
+  hitWilly();
 }
 
 function showShotTracer(from, to, colour) {
@@ -1110,26 +1097,65 @@ function showShotTracer(from, to, colour) {
   );
   tracer.name = 'no-wake-shot-tracer';
   tracer.renderOrder = 1200;
+  tracer.userData.ttl = TRACER_SECONDS;
   scene.add(tracer);
-  setTimeout(() => {
-    scene.remove(tracer);
-    tracer.geometry.dispose();
-    tracer.material.dispose();
-  }, 95);
+  state.tracers.push(tracer);
 }
 
 function poseExecutionShooter(npc, gun, dt) {
   if (!npc || !gun) return;
-  npc.parts.armR.rotation.set(-1.18, 0, .08);
-  npc.parts.foreR.rotation.set(-.28, 0, 0);
-  npc.parts.armL.rotation.set(-1.00, 0, -.18);
-  npc.parts.foreL.rotation.set(-.72, 0, 0);
   gun.userData.recoil = Math.max(0, (gun.userData.recoil ?? 0) - dt * 7.5);
   const kick = gun.userData.recoil;
+  // Recoil travels up the arm, not just the wrist: the shoulder rides the kick.
+  npc.parts.armR.rotation.set(-1.18 - kick * .14, 0, .08);
+  npc.parts.foreR.rotation.set(-.28 - kick * .10, 0, 0);
+  npc.parts.armL.rotation.set(-1.00, 0, -.18);
+  npc.parts.foreL.rotation.set(-.72, 0, 0);
   gun.position.copy(gun.userData.basePosition);
-  gun.position.z -= kick * .075;
+  /* Forearm +Y runs from the hand back to the elbow, so this is the gun
+   * driven rearward along the bore; the X turn is muzzle climb about the
+   * mounted frame (see GUN_MOUNT_ROTATION). */
+  gun.position.y += kick * .075;
   gun.rotation.copy(gun.userData.baseRotation);
   gun.rotation.x -= kick * .34;
+}
+
+/**
+ * Step the execution beat on the frame loop's dt -- the scene's simulated
+ * clock -- and age everything a shot leaves behind: flash petals, tracer
+ * lines, Willy's flinch. Due entries fire in authored order even when one
+ * slow frame covers several, so the round count and the final `dropWilly()`
+ * cannot be starved by frame rate.
+ */
+function updateExecution(dt) {
+  if (state.executionPlan && state.phase === 'execution') {
+    state.executionClock += dt;
+    while (state.executionPlan.length && state.executionPlan[0].at <= state.executionClock) {
+      state.executionPlan.shift().fire();
+    }
+    if (!state.executionPlan.length) state.executionPlan = null;
+  }
+  state.willyHit = Math.max(0, state.willyHit - dt * 6);
+  for (const gun of [state.louGun, state.booskiGun, state.playerGun]) {
+    if (!gun || gun.userData.flashTtl <= 0) continue;
+    gun.userData.flashTtl = Math.max(0, gun.userData.flashTtl - dt);
+    const glow = gun.userData.flashTtl / MUZZLE_FLASH_SECONDS;
+    gun.userData.flash.visible = glow > 0;
+    gun.userData.flash.scale.setScalar(.6 + .5 * glow);
+    gun.userData.flashMaterial.opacity = glow;
+  }
+  for (let i = state.tracers.length - 1; i >= 0; i--) {
+    const tracer = state.tracers[i];
+    tracer.userData.ttl -= dt;
+    if (tracer.userData.ttl <= 0) {
+      scene.remove(tracer);
+      tracer.geometry.dispose();
+      tracer.material.dispose();
+      state.tracers.splice(i, 1);
+    } else {
+      tracer.material.opacity = .95 * tracer.userData.ttl / TRACER_SECONDS;
+    }
+  }
 }
 
 /**
@@ -1140,12 +1166,7 @@ function poseExecutionShooter(npc, gun, dt) {
 function dropWilly() {
   if (state.phase !== 'execution') return;
   phase('body');
-  const willy = boat.cast.willy;
-  willy.baseY = CABIN_H;
-  willy.job = 'stand';
-  willy._syncJob(true);
-  willy.group.position.set(.28, CABIN_H, -3.78);
-  willy.group.rotation.set(0, Math.PI * .9, -1.42);
+  poseNoWakeExecutedBodyGeometry(boat);
   state.playerGun.visible = false;
   state.glassRoll = { t: 0 };
   audio.play('hotdog.body.floor', { volume: .74 });
@@ -1174,7 +1195,7 @@ function beginWrap() {
   state.wrapStage = 'roll';
   sayThenObjective(NO_WAKE_BODY_LINES.finishIt, 'WRAP HIM', 'Hold E to roll him onto the tarp');
   boat.bodyMarker.visible = true;
-  boat.bodyMarker.position.set(.10, CABIN_H + .90, -3.85);
+  boat.bodyMarker.position.set(.10, CABIN_H + .90, -3.53);
 }
 
 function advanceWrap() {
@@ -1215,7 +1236,7 @@ function advanceWrap() {
     state.wrapStage = null;
     state.carriedBallast = false;
     sceneInventory.set([{ icon: '🔫', label: "Tony's revolver · concealed" }]);
-    story.checkpoint('weighted');
+    checkpointNoWake('weighted');
     speak(NO_WAKE_BODY_LINES.sockets);
     setTimeout(beginCarry, 3400);
   }
@@ -1259,7 +1280,7 @@ function beginBallastAttach() {
   phase('weights_attach');
   state.wrapStage = 'ballast';
   boat.bodyMarker.visible = true;
-  boat.bodyMarker.position.set(.10, CABIN_H + .90, -3.85);
+  boat.bodyMarker.position.set(.10, CABIN_H + .90, -3.53);
   setObjective('ATTACH THE WEIGHT', 'Hold E to clip it to the rings');
 }
 
@@ -1275,12 +1296,18 @@ function beginCarry() {
   document.body.classList.add('cinematic');
   player.mode = 'frozen';
   interaction.setPaused(true);
+  stowNoWakeExecutionGunsGeometry({
+    louGun: state.louGun,
+    booskiGun: state.booskiGun,
+    playerGun: state.playerGun,
+  });
   cameraDirector.frameCarryLift();
   speak(NO_WAKE_BODY_LINES.moveHim);
   setObjective('', '');
   // Lou follows and does not help carry.
-  boat.cast.lou.group.position.set(.60, CABIN_H, -3.10);
+  boat.cast.lou.group.position.set(.40, DECK_H, .20);
   boat.cast.lou.group.rotation.y = 0;
+  boat.cast.lou.baseY = DECK_H;
 }
 
 const CARRY_LIFT_SECONDS = 1.8;
@@ -1447,12 +1474,13 @@ function beginExit() {
   interaction.setPaused(false);
   physics.anchored = false;
   // Irish goes forward for the anchor as soon as both engines are running.
-  boat.cast.irish.group.position.set(.10, FOREDECK_H, -4.80);
+  boat.cast.irish.group.position.set(1.75, FOREDECK_H, -4.55);
   boat.cast.irish.group.rotation.y = Math.PI;
   boat.cast.booski.group.position.set(-1.30, DECK_H, 3.90);
   boat.cast.booski.group.rotation.y = 0;
-  boat.cast.lou.group.position.set(-.95, DECK_H, 2.30);
+  boat.cast.lou.group.position.set(0, DECK_H, 3.45);
   boat.cast.lou.group.rotation.y = Math.PI;
+  boat.cast.lou.baseY = DECK_H;
 }
 
 function restartEngine(side) {
@@ -1480,7 +1508,7 @@ function weighAnchor() {
   audio.play('boat.rope.release', { volume: .8, rate: .7 });
   setTimeout(() => {
     state.anchorUp = true;
-    boat.cast.irish.group.position.set(.10, FOREDECK_H, -3.20);
+    boat.cast.irish.group.position.set(1.75, FOREDECK_H, -3.20);
     setObjective('LEAVE THE INLET', 'Take the helm and get her out');
   }, 4200);
 }
@@ -1522,6 +1550,7 @@ function completeMission() {
     state.leaving = false;
     return;
   }
+  campaignAudioFeedback.complete('no-wake', completed);
   setTimeout(() => {
     navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door', location });
   }, 3200);
@@ -1696,6 +1725,14 @@ function updateCast(dt) {
     poseExecutionShooter(boat.cast.lou, state.louGun, dt);
     poseExecutionShooter(boat.cast.booski, state.booskiGun, dt);
   }
+  if (state.phase === 'execution') {
+    /* After the cast update, which clears these rotations each mover tick.
+     * `dropWilly()` owns everything from the 'body' phase on. */
+    const willy = boat.cast.willy;
+    willy.parts.body.rotation.x = .06 + state.willyHit * .10 + state.willySlump * .20;
+    willy.parts.body.rotation.z = state.willyHitSide * state.willyHit * .06;
+    willy.parts.head.rotation.x = state.willyHit * .10 + state.willySlump * .26;
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -1703,14 +1740,7 @@ function updateCast(dt) {
  * ------------------------------------------------------------------ */
 
 function setStartupCompleteVisuals() {
-  boat.gangway.visible = false;
-  boat.targets.board.visible = false;
-  for (const key of ['battery', 'blower', 'fuel', 'ignitionPort', 'ignitionStarboard', 'navLights']) {
-    boat.controls[key].setOn(true);
-  }
-  boat.controls.running.setOn(true);
-  boat.targets.dockLine.userData.attached = false;
-  boat.targets.dockLine.visible = false;
+  completeNoWakeStartupGeometry(boat);
 }
 
 function resumeCheckpoint() {
@@ -1751,12 +1781,7 @@ function resumeCheckpoint() {
     player.position.copy(world.fromBoatLocal(new THREE.Vector3(-.25, CABIN_H + 1.66, -2.55)));
     prepareGuns();
     if (checkpoint === 'weighted') {
-      bodyRig.swapToWrapped(boat.cast.willy);
-      bodyRig.foldSide('port');
-      bodyRig.foldSide('starboard');
-      bodyRig.fastenStraps();
-      bodyRig.closeBag();
-      bodyRig.attachBallast(boat.ballast);
+      prepareNoWakeWeightedBodyGeometry(boat, bodyRig);
       beginCarry();
     } else {
       dropWilly();
@@ -1785,8 +1810,8 @@ function resumeCheckpoint() {
  * to route them through the way `resumeCheckpoint()`, above, routes
  * `underway`/`open_water`/past-execution resumes. `body` calls
  * `readyToFire()` then `fireExecution()`, the exact functions a played run
- * calls, and lets `fireExecution()`'s own real (non-frame-bound) timers drop
- * Willy on their own schedule. `weighted` mirrors `resumeCheckpoint()`'s own
+ * calls, then settles the volley's simulated-clock plan synchronously so the
+ * preview lands past the shot. `weighted` mirrors `resumeCheckpoint()`'s own
  * `checkpoint === 'weighted'` branch exactly: the body wrapped and
  * ballasted without sitting through the shooting. `return` continues past
  * that into the same real state `updateDisposal()` reaches right before it
@@ -1873,9 +1898,12 @@ function jumpToPreviewCheckpoint(id) {
   if (id === 'body') {
     readyToFire();
     fireExecution();
-    // fireExecution()'s own volley timers (real setTimeout, not frame-bound)
-    // call dropWilly() about a second later, landing `state.phase` on
-    // 'body' exactly as a played run reaches it.
+    // The volley runs on the scene's simulated clock, and a preview jump is
+    // a pose, not a playthrough -- the same reasoning resumeCheckpoint()'s
+    // post-execution branch uses when it calls dropWilly() without any
+    // shooting. Settle the whole plan here so the page lands on 'body'
+    // regardless of how slowly its frames are being drawn.
+    while (state.executionPlan) updateExecution(.25);
     return;
   }
 
@@ -1884,12 +1912,7 @@ function jumpToPreviewCheckpoint(id) {
   // `checkpoint === 'weighted'` branch reaches for a resumed campaign run.
   prepareGuns();
   story.checkpoint('execution');
-  bodyRig.swapToWrapped(boat.cast.willy);
-  bodyRig.foldSide('port');
-  bodyRig.foldSide('starboard');
-  bodyRig.fastenStraps();
-  bodyRig.closeBag();
-  bodyRig.attachBallast(boat.ballast);
+  prepareNoWakeWeightedBodyGeometry(boat, bodyRig);
   story.checkpoint('weighted');
 
   if (id === 'weighted') {
@@ -2196,6 +2219,7 @@ function animate(now) {
   clampToStaging();
   interaction.update(dt);
   updateCast(dt);
+  updateExecution(dt);
   updateGlassRoll(dt);
   updateCarry(dt);
   updateDisposal();

@@ -270,7 +270,7 @@ export function populateCast(root) {
     position: { x: ANCHORS.chairSeat.x, y: ANCHORS.chairSeat.y, z: ANCHORS.chairSeat.z },
     yaw: ANCHORS.chairSeat.yaw,
     // Shot in the chair, he stays in the chair, over its right armrest.
-    collapse: { ...COLLAPSE.seated, bodyRoll: 0.46, bodyPitch: 0.34 },
+    collapse: { ...COLLAPSE.seated, bodyRoll: 0.46, bodyPitch: 0.34, sink: -0.01 },
   });
   const chester = chesterBuild.actor;
 
@@ -324,9 +324,15 @@ export function populateCast(root) {
     yaw: ANCHORS.bathroomDoorway.yaw,
     pose: twoHandedAim,
     // Shot as he clears the doorway, he drops where he stood — half in the
-    // room, half still in the bathroom. He never reaches the alcove's back
-    // wall because he falls FORWARD, the way he was already moving.
-    collapse: { ...COLLAPSE.standing, pitch: Math.PI / 2 - 0.14, roll: -0.14 },
+    // room, half still in the bathroom. The positive roll keeps his shoulder
+    // on the open-room side of the kitchen run instead of driving it through
+    // the cabinet beside the doorway as he falls forward.
+    collapse: {
+      ...COLLAPSE.standing,
+      pitch: Math.PI / 2 - 0.14,
+      roll: 0.15,
+      lift: 0.39,
+    },
   });
   const pruitt = pruittBuild.actor;
   pruitt.group.visible = false;
@@ -335,23 +341,60 @@ export function populateCast(root) {
   // Ape's rides in. See `mountHandRevolver` in ../props/weapon.js for why it
   // hangs off the forearm rather than off the figure.
   const pruittGun = mountHandRevolver(pruitt.parts.foreR);
+  pruittGun.userData.geometryGate = { assemblyId: 'silvercase:pruitt' };
   pruitt.weapon = pruittGun;
+  const pruittGunHandPose = {
+    position: pruittGun.position.clone(),
+    quaternion: pruittGun.quaternion.clone(),
+    scale: pruittGun.scale.clone(),
+  };
 
-  /** A pace clear of the door frame, so he reads as coming OUT of the room. */
+  function resetPruittGun() {
+    if (pruittGun.parent !== pruitt.parts.foreR) pruitt.parts.foreR.add(pruittGun);
+    pruittGun.position.copy(pruittGunHandPose.position);
+    pruittGun.quaternion.copy(pruittGunHandPose.quaternion);
+    pruittGun.scale.copy(pruittGunHandPose.scale);
+  }
+
+  function dropPruittGun() {
+    if (pruittGun.parent === root) return;
+    root.updateMatrixWorld(true);
+    root.attach(pruittGun);
+    pruittGun.position.set(11.05, 0, -1.45);
+    pruittGun.rotation.set(0, 0.35, Math.PI / 2);
+    pruittGun.scale.copy(pruittGunHandPose.scale);
+    root.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(pruittGun);
+    pruittGun.position.y += 0.006 - bounds.min.y;
+    root.updateMatrixWorld(true);
+  }
+
+  const killPruitt = pruitt.kill.bind(pruitt);
+  pruitt.kill = function killAndDropWeapon(options) {
+    const wasAlive = pruitt.alive;
+    killPruitt(options);
+    if (wasAlive && !pruitt.alive) dropPruittGun();
+  };
+
+  /** A pace clear of the door frame, aimed down the player's ambush lane. */
   const pruittRevealed = {
-    x: ANCHORS.bathroomDoorway.x, y: ANCHORS.bathroomDoorway.y, z: ANCHORS.bathroomDoorway.z + 0.28,
+    x: ANCHORS.bathroomDoorway.x - 0.1,
+    y: ANCHORS.bathroomDoorway.y,
+    z: ANCHORS.bathroomDoorway.z + 0.4,
+    yaw: -0.55,
   };
   pruitt.reveal = function reveal() {
     if (pruitt.group.visible) return;
     pruitt.group.visible = true;
     pruitt.group.position.set(pruittRevealed.x, pruittRevealed.y, pruittRevealed.z);
-    pruitt.group.rotation.y = ANCHORS.bathroomDoorway.yaw;
-    pruitt.npc.homeYaw = ANCHORS.bathroomDoorway.yaw;
+    pruitt.group.rotation.y = pruittRevealed.yaw;
+    pruitt.npc.homeYaw = pruittRevealed.yaw;
   };
 
   /** Tuck him back into the dark for a checkpoint retry. */
   pruitt.hide = function hide() {
     pruitt.revive();
+    resetPruittGun();
     pruitt.group.visible = false;
     pruitt.group.position.set(pruittHidden.x, pruittHidden.y, pruittHidden.z);
     pruitt.group.rotation.y = ANCHORS.bathroomDoorway.yaw;

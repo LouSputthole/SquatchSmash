@@ -16,13 +16,18 @@ import { Player } from './core/player.js';
 import { translateKey, shakeScale } from './core/settings.js';
 import { attachPixelRatio } from './core/pixel-ratio.js';
 import { Radio } from './core/radio.js';
-import { SPOOKY_RADIO_LINES, voiceOf as radioVoiceOf } from './core/stations.js';
+import { SPOOKY_RADIO_LINES, newsSegmentsFor, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
+import {
+  APARTMENT_MARGO_GEOMETRY_STAGES,
+  stageApartmentMargoGeometry,
+} from './world/apartment-preview-geometry.js';
 import { cashPilesForCampaign, persistentDressingForCampaign } from './world/dressing.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { Highs } from './core/highs.js';
+import { FocusRush } from './core/focus-rush.js';
 import { Goals, ENDINGS, MEETING, CS_ROUNDS } from './core/goals.js';
 import { Chat } from './core/chat.js';
 import { Spooky } from './core/spooky.js';
@@ -43,12 +48,25 @@ import {
   navigateCampaign,
 } from './core/campaign.js';
 import {
+  buildCampaignCareerRecap,
+  enterCampaignFreeplay,
+  shouldPresentCampaignFinale,
+} from './core/campaign-finale.js';
+import { createCampaignFinaleView } from './core/campaign-finale-view.js';
+import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
   SILVER_ROOM_COME_HOME,
+  SILVER_ROOM_DRESS_ASK,
   HEIST_CLEANUP_ITEMS,
   HEIST_PREPARATION_ITEMS,
+  SHOOT_TARGET_SCORE,
+  SMASH_PLAY_SECONDS,
+  SPECIAL_MEETING_ACT_ONE,
+  TV_WATCH_SECONDS,
   createApartmentStory,
+  isSpecialMeetingNight,
+  pastimeActivityEvents,
 } from './core/apartment-story.js';
 import {
   apartmentRecoveryBeatId,
@@ -92,6 +110,8 @@ const overlay = document.getElementById('overlay');
 const loading = document.getElementById('loading');
 const startBtn = document.getElementById('start-btn');
 const assetStatus = document.getElementById('asset-status');
+const campaignFinaleView = createCampaignFinaleView();
+const viewCareerRecapBtn = document.getElementById('view-career-recap-btn');
 const restartCampaignBtn = document.getElementById('restart-campaign-btn');
 const restartCampaignConfirm = document.getElementById('restart-campaign-confirm');
 const restartCampaignConfirmBtn = document.getElementById('restart-campaign-confirm-btn');
@@ -184,6 +204,26 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 const time = new DayNight(6 + 4 / 60);
 const campaign = createCampaign();
 const campaignAtLoad = campaign.state;
+const campaignFinaleRecapAtLoad = shouldPresentCampaignFinale(campaignAtLoad)
+  ? buildCampaignCareerRecap(campaignAtLoad) : null;
+campaignFinaleView.setContinueHandler(({ replay }) => {
+  try {
+    if (!replay) {
+      const transition = enterCampaignFreeplay(campaign);
+      if (!transition.applied && transition.reason !== 'already_freeplay') {
+        throw new Error('Campaign completion is not ready for freeplay');
+      }
+    }
+  } catch (error) {
+    campaignFinaleView.showError(
+      error?.message || 'Could not save freeplay. Your completed campaign is still intact.',
+    );
+    return;
+  }
+  campaignFinaleView.hide();
+  startBtn.textContent = replay ? 'Resume' : 'Enter Freeplay';
+  startBtn.click();
+});
 /* A save that had to be recovered is worth saying out loud -- but not here,
  * which is what this used to do. The notice went up 200ms into module scope,
  * behind a full-screen title card he has not clicked through yet, and its
@@ -207,6 +247,24 @@ const returningFromNoWake = returnSource === SCENE_IDS.NO_WAKE;
 const returningFromMotel = returnSource === SCENE_IDS.JERKY_MOTEL;
 const returningFromAirstrip = returnSource === SCENE_IDS.AIRSTRIP_SMUGGLING;
 const returningFromSquatchfather = returnSource === SCENE_IDS.SQUATCHFATHER;
+const returningFromInitiation = returnSource === SCENE_IDS.INITIATION;
+const returningFromPalace = returnSource === SCENE_IDS.CARTEL_PALACE;
+/**
+ * THE SPECIAL MEETING, ACT ONE — whether this flat is playing it.
+ *
+ * Beats SM-010 to SM-090 of `docs/SPECIAL-MEETING-SCRIPT.md` all happen in
+ * here: the idle lines of a man nobody has rung, Booskibro's call, the dead
+ * line afterwards, ringing him back and getting nothing, getting dressed for
+ * something he has not been told about, the door refusing him, and headlights
+ * on the ceiling with an engine that never switches off.
+ *
+ * Read once, at load, off the save as it arrived -- `isSpecialMeetingNight`
+ * asks the campaign whether the Cartel Palace was genuinely played and the
+ * Initiation is still ahead, and neither of those can change while he is
+ * standing in this room. Everything Act One does is gated on this constant, so
+ * a night that is not this one pays for it with one boolean.
+ */
+const specialMeetingNight = isSpecialMeetingNight(campaignAtLoad);
 const apartmentGunUnlocked =
   campaignAtLoad.missions[MISSION_IDS.BADA_BING_ONE].packageReceived === true;
 const wakingOnDayTwo = !returningToApartment
@@ -263,6 +321,12 @@ const radio = new Radio(audio, hud, time, {
     defaultPower: true,
   }),
   canPlayNotice: () => campaign.state.story.chapter === 'day_one',
+  /* The apartment is where the news catches up with him: after each
+   * newsworthy job, the desk's segment about it joins this receiver's
+   * rotation (stations.js gates every segment on the mission's own durable
+   * state, so nothing airs before its event). Read live rather than snapshot,
+   * so a save that advances mid-session is reported on the same evening. */
+  news: () => newsSegmentsFor(campaign.state),
 });
 const DAY_TWO_CALL_AFTER_BULLETIN = 20;
 // Nothing happens in here. Somebody should say so.
@@ -270,6 +334,8 @@ const narrator = new Narrator(hud, time, audio);
 const drunk = new Drunk();
 // The coffee table's contribution. Neither of these costs you Wednesday.
 const highs = new Highs();
+// The Bada Bing line's exact timing/FOV/movement curve, reused by the flat.
+const focusRush = new FocusRush({ baseFov: camera.fov });
 // The only goal in the game, and it never announces itself.
 const goals = new Goals(time);
 goals.known = campaign.state.story.meetingKnown;
@@ -364,7 +430,16 @@ const phone = new Phone({
   audio,
   calls: [],
   threads: phoneThreadsForCampaign(campaign.state),
-  onCallState: (connected) => radio.setPhoneDucked(connected),
+  onCallState: (connected, definition) => {
+    radio.setPhoneDucked(connected);
+    /* SM-040. The end of a CONNECTED call, which is the only kind Booskibro
+     * ends -- he hangs up first, mid-air, without waiting. A ring-out he never
+     * picked up arrives here as nothing, because `Phone.hangUp` only reports
+     * the state change for a call that was actually talking. */
+    if (!connected && definition?.eventId === EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL) {
+      actOneCallEnded();
+    }
+  },
   onThreadRead: (thread) => {
     if (thread.readEventId) campaign.advanceTime(thread.readEventId);
   },
@@ -579,6 +654,8 @@ async function boot() {
     onZyn: takeZyn,
     onBong: hitBong,
     onShrooms: eatShrooms,
+    isFocusActive: () => focusRush.remaining > 0,
+    onWhiteLine: () => focusRush.start(25),
     onShower: takeShower,
     // The drawer names the shirt he settled on, so the toast can say which.
     onDressed: (shirt) => {
@@ -587,6 +664,11 @@ async function boot() {
       audio.say('dress', { chance: 0.8, delay: 0.4 });
       hud.toast(`Changed · ${name}`, 'good');
       hud.say(`The ${name}, then. <em>It even smells like a clean shirt.</em>`, 4200);
+      /* SM-070, on top of the ordinary line rather than instead of it. "Put on
+       * something decent" was an instruction and this is him following it, so
+       * the flat behaves exactly as it does on every other morning and he is
+       * the only thing in the room that has changed. */
+      actOneDressed();
     },
     onCook: cookEggs,
     onEat: eatEggs,
@@ -676,6 +758,11 @@ async function boot() {
 
   world.colliders = apartment.colliders;
   world.floorZones = apartment.floorZones;
+  /* Prompts stop at walls: without this the 2.7 m ray reads the tub through
+   * the bedroom/bathroom wall. The door leaves stay out of the list -- they
+   * are registered targets, and the nearest hit already lets them shadow
+   * whatever is behind them while staying usable themselves. */
+  interaction.setOccluders(apartment.occluders);
 
   // Wire the arcade canvas onto the monitor. Basic material so the screen is
   // self-lit rather than depending on room lighting.
@@ -744,8 +831,13 @@ async function boot() {
      * is as up and about as one getting out of bed. This used to be wired only
      * to standing up, so a call scheduled against a RETURN -- Lou ringing to
      * say well done about the Squatchfather -- could never have landed. */
-    apartmentStory.beginMorning();
-    overlay.querySelector('.tag').textContent = returningFromHeist
+    apartmentStory.beginMorning({ delay: specialMeetingNight ? ACT_ONE_RING_DELAY : undefined });
+    /* The Palace goes first, because it is the newest thing that sends him
+     * home and the card says nothing about what tonight is. Nobody has told
+     * him. That is the beat. */
+    overlay.querySelector('.tag').textContent = returningFromPalace
+      ? 'Home from the Palace. Sauce is dealt with. Nobody has said whether that was the right call.'
+      : returningFromHeist
       ? 'Back from THE TAKE. Clean up, change, and put every piece of it away.'
       : returningFromGolf
         ? 'Back from Silver Pines. One job left before seven. Lou will call.'
@@ -757,7 +849,9 @@ async function boot() {
           ? 'Back from South Harbor. Margo said she would ring about tonight.'
         : returningFromMotel
           ? 'Back from the Jerky Motel. It is half four in the morning. Go to bed.'
-          : 'Back from the restaurant. The business is settled.';
+          : returningFromInitiation
+            ? 'Home from the Initiation. The campaign is complete.'
+            : 'Back from the restaurant. The business is settled.';
     startBtn.textContent = 'Go Inside';
   } else {
     player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
@@ -774,13 +868,14 @@ async function boot() {
 
   window.__squatchStage?.('Ready.');
   loading.classList.add('hidden');
+  if (campaignFinaleRecapAtLoad) campaignFinaleView.show(campaignFinaleRecapAtLoad);
 
   // Dev handle: lets you inspect and pose the scene from the console, e.g.
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction, hud, campaign,
     apartmentStory, apartmentReturnSource: returnSource,
-    drunk, highs, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
+    drunk, highs, focusRush, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
@@ -790,6 +885,11 @@ async function boot() {
     dropHeld,
     poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
     heldSlice, updateConsume,
+    /* Act One, for the console and for anything driving the flat from outside
+     * it. `actOneCarArrives` in particular is the only way to reach SM-090
+     * without standing in the room for the length of the wait. */
+    actOne, specialMeetingNight, updateActOne, ringBooskiBack, endRingBooskiBack,
+    actOneCallEnded, actOneDressed, actOneCarArrives,
     playMessages, playNews, startMargoWake, finishMargoWake, updateMargoWake,
     startMargoComeHome, finishMargoComeHome, offerMargoDressHelp,
     margoDress, startMargoDressHelp, updateMargoDressHelp, abandonMargoDressHelp,
@@ -837,9 +937,24 @@ function apartmentStartupCueNames() {
      * Apartment resident load after control opens, instead of holding the
      * post-mission Start card over dozens of later radio exchanges. */
     ...radio.preloadCueNames({ startupOnly: true }),
-    'ambience.city.day', 'ambience.city.night', 'ambience.room',
+    'ambience.city.day', 'ambience.city.night', 'ambience.room', 'bing.line.snort',
   ]);
   for (const cue of exactDefinitionCueNames(apartmentStory.pendingCall())) names.add(cue);
+  /* THE SPECIAL MEETING's Act One, all of it, on the one night it can happen.
+   *
+   * These are exact cues rather than a prefix because there is no `vo.
+   * specialmeeting.` prefix worth loading in a flat: the same bank carries the
+   * car, the trunk and the walk through the woods, and none of that is ever
+   * asked for in here. What IS asked for is the idle timer, which starts
+   * nineteen seconds after he is through the door -- well inside the window
+   * the background load is still filling -- and a bank that has not decoded
+   * yet is a line that never plays at all rather than one that plays late. */
+  if (specialMeetingNight) {
+    for (const bank of Object.values(SPECIAL_MEETING_ACT_ONE)) {
+      for (const take of bank) names.add(take.cue);
+    }
+    names.add('car.engine.idle');
+  }
   const news = apartmentStory.news();
   for (const bulletin of Object.values(news || {})) {
     if (bulletin?.vo) names.add(`vo.${bulletin.vo}.1`);
@@ -847,6 +962,7 @@ function apartmentStartupCueNames() {
   if (apartmentStory.margoWakeOwed() || apartmentStory.margoComeHomeOwed()) {
     for (const cue of exactDefinitionCueNames(BIG_NIGHT_MARGO_WAKE)) names.add(cue);
     for (const cue of exactDefinitionCueNames(SILVER_ROOM_COME_HOME)) names.add(cue);
+    for (const cue of exactDefinitionCueNames(SILVER_ROOM_DRESS_ASK)) names.add(cue);
     names.add('cloth.snap');
     /* The dress foley belongs here too. It shipped in 8963415, but it was left
      * to arrive with the background resident bank, and `playMargoDressImpact`
@@ -886,8 +1002,32 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.city.day', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.city.night', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
+    /* THE SPECIAL MEETING, Act One, opens here.
+     *
+     * The narrator goes quiet for the whole of it -- see the Act One section
+     * for why one idle voice is better than two -- and the car is put on the
+     * road if he is arriving into an evening whose call has already been taken,
+     * which means a reload rather than a fresh walk through the front door.
+     * A player who refreshed the page mid-wait gets his headlights back
+     * quickly instead of serving the whole wait again. */
+    if (specialMeetingNight) {
+      narrator.enabled = false;
+      if (specialMeetingCallTaken()) {
+        actOne.hungUp = true;
+        actOne.carIn = ACT_ONE_CAR_WAIT_RESUMED;
+      }
+    }
     if (returningToApartment) {
-      if (returningFromHeist) {
+      if (returningFromPalace) {
+        /* No toast. Every other homecoming in this flat gets a green banner
+         * saying what he pulled off, and this one is a man standing in his own
+         * front room with nobody's opinion of it. The line names the thing he
+         * did and stops, exactly where the evening stops. */
+        hud.say('Home. Sauce is dealt with. <em>Nobody has rung.</em>', 5200);
+      } else if (returningFromInitiation) {
+        hud.toast('Campaign complete · freeplay unlocked', 'good');
+        hud.say('Home. The week is over. <em>The apartment is yours.</em>', 5200);
+      } else if (returningFromHeist) {
         hud.toast('All six made it home', 'good');
         hud.say('Home. Wash it off, change, and hide the gear. <em>Then the Bing.</em>', 5200);
       } else if (returningFromGolf) {
@@ -1043,13 +1183,26 @@ function pauseGame() {
     ? 'Still at the desk. The meeting is not until tomorrow.'
     : 'The fridge is not going anywhere.';
   startBtn.textContent = 'Resume';
+  viewCareerRecapBtn.classList.toggle(
+    'hidden',
+    campaign.state.finale?.freeplayUnlocked !== true,
+  );
   restartCampaignBtn.classList.remove('hidden');
 }
 
 function hideCampaignRestart() {
+  viewCareerRecapBtn.classList.add('hidden');
   restartCampaignBtn.classList.add('hidden');
   restartCampaignConfirm.classList.add('hidden');
 }
+
+viewCareerRecapBtn.addEventListener('click', () => {
+  const recap = buildCampaignCareerRecap(campaign.state);
+  if (!recap) return;
+  restartCampaignBtn.classList.add('hidden');
+  viewCareerRecapBtn.classList.add('hidden');
+  campaignFinaleView.show(recap, { replay: true });
+});
 
 restartCampaignBtn.addEventListener('click', () => {
   restartCampaignBtn.classList.add('hidden');
@@ -1075,10 +1228,20 @@ restartCampaignConfirmBtn.addEventListener('click', () => {
 });
 
 function apartmentObjective() {
+  if (campaign.state.finale?.freeplayUnlocked === true) {
+    return 'Campaign complete. The apartment is yours; pause to reopen the career recap.';
+  }
   if (game.inBed || player.mode === 'bed') return 'Press E to get out of bed.';
   if (game.onToilet) return 'Press E to stand up from the toilet.';
   if (game.showering !== null) return 'Finish the shower, or step back out when you are ready.';
-  if (apartment?.state?.heldItem === 'phone') return 'Use E to read or answer the phone; the wheel moves through messages.';
+  if (apartment?.state?.heldItem === 'phone') {
+    /* SM-050. The line about ringing him back is only offered once Booskibro
+     * has already rung and hung up, because before that there is nothing to
+     * ring back. */
+    return canRingBooskiBack()
+      ? 'Use E to read or answer the phone; R rings the last caller back.'
+      : 'Use E to read or answer the phone; the wheel moves through messages.';
+  }
   if (returningToApartment) return 'You are home. Use the apartment freely; the front door continues the story when another scene is ready.';
   return 'Explore the apartment and take care of the morning. Lou will call when he is ready.';
 }
@@ -1157,6 +1320,11 @@ document.addEventListener('mousedown', (e) => {
   dragging = true;
   if (game.seated) arcade.onClick(true);
   else if (apartment.state.heldItem === 'gun') fireGun();
+  /* Same posture guards as [E] below: a click while he is on the toilet or
+   * mid-stream has to resolve the posture first, not reach whatever target
+   * the ray lands on from that position. */
+  else if (game.onToilet) standFromToilet();
+  else if (game.peeing) stopPee();
   else interaction.press();
 });
 
@@ -1293,6 +1461,12 @@ document.addEventListener('keydown', (e) => {
        * revolver in your pocket would stop [R] working on the radio, which is
        * what it is for everywhere else in the flat. */
       if (apartment.state.heldItem === 'gun') reloadGun();
+      /* SM-050, on the same rule the gun already set: [R] means whatever the
+       * thing in his hand means. With the phone in it, on the one night
+       * Booskibro has rung off mid-sentence, it rings him back -- and gets
+       * nothing. Second press hangs it up. */
+      else if (actOne.ringingOut > 0) endRingBooskiBack();
+      else if (canRingBooskiBack()) ringBooskiBack();
       else if (interaction.current && interaction.current.name === 'radio') radio.next();
       break;
     case 'KeyQ':
@@ -2032,15 +2206,19 @@ let nextShoutAt = 0;
 function updateNeighbours(dt) {
   const h = time.hour;
 
+  // Absolute minutes, not minute-of-day: a row that starts at 23:20 has to
+  // survive midnight to run its forty minutes, and one slept past has to end.
+  const nowAbs = time.day * 1440 + time.minutes;
+
   // Kick off once a night, then keep it going for about forty in-game minutes.
   if (h >= ARGUMENT_HOUR && h < ARGUMENT_HOUR + 0.7 && argumentDay !== time.day) {
     argumentDay = time.day;
-    argumentUntil = time.minutes + 40;
+    argumentUntil = nowAbs + 40;
     nextShoutAt = 0;
     hud.say('Upstairs. Or next door. It is hard to tell through the wall.', 5200);
   }
 
-  if (time.minutes > argumentUntil) return;
+  if (nowAbs > argumentUntil) return;
 
   nextShoutAt -= dt;
   if (nextShoutAt <= 0) {
@@ -2190,6 +2368,14 @@ function eatShrooms() {
   audio.play('zyn.pack', { volume: 0.5 });
   audio.say('shrooms', { chance: 0.9, delay: 0.8 });
   highs.eatShrooms();
+  /* And on the big night this is an objective — see CHAPTER_PASTIMES. Latched
+   * here rather than watched for in the frame loop because `highs.dose` is a
+   * live reading that `sleepItOff()` wipes, and "he took them" is a thing that
+   * happened rather than a thing that is currently true. */
+  apartment.state.shroomsTaken = true;
+  if (campaign.state.activities.tookShrooms !== true) {
+    completeApartmentActivity('tookShrooms', PASTIME_EVENTS.tookShrooms);
+  }
   hud.toast('Nothing is happening', '');
   hud.say('Earthy. Unpleasant. Nothing is happening. '
     + '<em>Nothing is going to happen for a while.</em>', 6000);
@@ -2661,8 +2847,32 @@ function activityContext() {
      * un-look at it. */
     pcUsed: apartment.state.pcEverOn === true,
     playedGame: (apartment.state.csDeaths || 0) >= CS_ROUNDS,
+    /* The per-chapter pastimes -- see CHAPTER_PASTIMES in
+     * core/apartment-story.js. Read out of the CAMPAIGN rather than off the
+     * live readings beside them, because these have to survive leaving the
+     * flat: the room is rebuilt from nothing on every arrival, so half a
+     * minute of the news watched before the airstrip would otherwise be
+     * un-watched by the time he lets himself back in. `pastimeWatch()` in the
+     * frame loop is what moves a live reading into the campaign, once. */
+    watchedTv: campaign.state.activities.watchedTv === true,
+    playedCounterSquatch: campaign.state.activities.playedCounterSquatch === true,
+    playedSquatchShoot: campaign.state.activities.playedSquatchShoot === true,
+    playedSquatchSmash: campaign.state.activities.playedSquatchSmash === true,
+    tookShrooms: campaign.state.activities.tookShrooms === true,
+    /* Not a flag -- the seconds themselves, so the objective can count down
+     * rather than sit there saying the same thing for half a minute. */
+    tvSeconds: apartment.state.tvWatched || 0,
+    /* SM-090. Also not a flag on the save, and deliberately: a car at the kerb
+     * is a fact about the room this evening, the same kind of fact as how long
+     * the telly has been on, and giving it a slot in `activities` would move
+     * the save's shape for a boolean that is true for about four minutes. The
+     * door reads it out of here; `actOneCarArrives` is what sets it. */
+    carOutside: actOne.carOutside,
   };
 }
+
+/** Which pastime costs which slice of the morning. One copy, over there. */
+const PASTIME_EVENTS = pastimeActivityEvents();
 
 const APARTMENT_RECOVERY_ACTIVITY_EVENTS = Object.freeze({
   eaten: TIME_EVENT_IDS.EAT,
@@ -2670,6 +2880,11 @@ const APARTMENT_RECOVERY_ACTIVITY_EVENTS = Object.freeze({
   peed: TIME_EVENT_IDS.PEE,
   pooped: TIME_EVENT_IDS.POOP,
   changedClothes: TIME_EVENT_IDS.CHANGE_CLOTHES,
+  /* And the chapter's own thing. Without these the recovery skip walks
+   * `tryLeave` round its loop, meets an activity it cannot complete, and
+   * reports `apartment_recovery_blocked` -- a player who asked the game to get
+   * him unstuck and was told no because he had not watched the news. */
+  ...PASTIME_EVENTS,
 });
 
 /** Normalize one required hub activity immediately before a recovery leave. */
@@ -2686,6 +2901,17 @@ function completeApartmentRecoveryActivity(activityId) {
   if (activityId === 'peed') game.peed = true;
   if (activityId === 'pooped') game.pooped = true;
   if (activityId === 'changedClothes') apartment.state.dressed = true;
+  /* The pastimes are read out of the campaign rather than off the room, so the
+   * flag alone is enough for the door -- but a skipped beat should still leave
+   * a room that agrees with it rather than a telly the flat thinks nobody
+   * watched. */
+  if (activityId === 'watchedTv') apartment.state.tvWatched = TV_WATCH_SECONDS;
+  if (activityId === 'playedCounterSquatch') {
+    apartment.state.csDeaths = Math.max(apartment.state.csDeaths || 0, CS_ROUNDS);
+  }
+  if (activityId === 'playedSquatchShoot') apartment.state.shootScore = SHOOT_TARGET_SCORE;
+  if (activityId === 'playedSquatchSmash') apartment.state.smashPlayed = SMASH_PLAY_SECONDS;
+  if (activityId === 'tookShrooms') apartment.state.shroomsTaken = true;
   completeApartmentActivity(activityId, timeEventId);
   return campaign.state.activities[activityId] === true;
 }
@@ -2715,6 +2941,71 @@ function syncClockFromCampaign() {
   apartment?.refreshClocks?.();
   hud.setClock(day, time.clock12, time.elapsedReal);
   arcade.setClock?.(time.clock12);
+}
+
+/**
+ * The chapter's own thing, watched for.
+ *
+ * Owner note, 2026-08-20: *"I want different objectives to justify each
+ * return. Maybe one is watch TV (completes after 30 seconds of watching TV)
+ * one is play Counter strike in computer another is play squatch smash and
+ * take the mushrooms, etc"* -- the table is CHAPTER_PASTIMES in
+ * core/apartment-story.js and this is the half of it that watches the room.
+ *
+ * Everything below reads something that was already being tracked or was
+ * trivially trackable, and the thresholds are deliberately generous: the point
+ * of the beat is that he sat down and did a thing, not that he did it well.
+ * `completeApartmentActivity` is one-shot per activity id, so each of these
+ * fires exactly once and then costs a comparison a frame.
+ *
+ * THE TELLY IS THE ONE WITH A CLOCK ON IT. It counts only while he is on the
+ * couch AND the set is on, so standing in the kitchen with it burbling behind
+ * him is not watching television, and neither is sitting in the dark. The
+ * couch has had the comment "nothing happens while you are there" on it since
+ * the first build; this is the one morning something does.
+ */
+function pastimeWatch(dt) {
+  const st = apartment.state;
+
+  if (game.sitting === 'couch' && tv.on) {
+    st.tvWatched += dt;
+    if (st.tvWatched >= TV_WATCH_SECONDS
+      && campaign.state.activities.watchedTv !== true) {
+      completeApartmentActivity('watchedTv', PASTIME_EVENTS.watchedTv);
+    }
+  }
+
+  /* Counter-Squatch. `csDeaths` is already maintained by the monitor-glow
+   * block in the frame loop, which is where "a game with the boys" has always
+   * been counted -- CS_ROUNDS of being shot through a wall. */
+  if ((st.csDeaths || 0) >= CS_ROUNDS
+    && campaign.state.activities.playedCounterSquatch !== true) {
+    completeApartmentActivity('playedCounterSquatch', PASTIME_EVENTS.playedCounterSquatch);
+  }
+
+  /* Squatch Shoot keeps its own running score and resets it on a new game, so
+   * the best of the visit is what counts rather than whatever is on the screen
+   * at the instant this runs. */
+  if (arcade.app?.id === 'shoot') {
+    st.shootScore = Math.max(st.shootScore || 0, arcade.app.score || 0);
+  }
+  if ((st.shootScore || 0) >= SHOOT_TARGET_SCORE
+    && campaign.state.activities.playedSquatchShoot !== true) {
+    completeApartmentActivity('playedSquatchShoot', PASTIME_EVENTS.playedSquatchShoot);
+  }
+
+  /* Squatch Smash runs as itself in a frame on the monitor (see
+   * arcade/campground.js), so there is no score to read out of it and there
+   * should not be -- it is a separate game that happens to be installed on
+   * this desk. Seconds of it actually up, with him actually in the chair, is
+   * the honest reading and it is the only one available. */
+  if (arcade.app?.id === 'smash' && game.seated) {
+    st.smashPlayed += dt;
+    if (st.smashPlayed >= SMASH_PLAY_SECONDS
+      && campaign.state.activities.playedSquatchSmash !== true) {
+      completeApartmentActivity('playedSquatchSmash', PASTIME_EVENTS.playedSquatchSmash);
+    }
+  }
 }
 
 function completeApartmentActivity(activityId, timeEventId) {
@@ -2862,11 +3153,35 @@ function tryLeave() {
 
   audio.play('door.locked', { position: pos, volume: res.kind === 'call' ? 0.8 : 0.7 });
   narrator.note('door');
-  hud.say(res.line, res.kind === 'call' ? 4600 : 5200);
 
   const key = res.id ?? res.kind;
   const tries = (doorTries.get(key) ?? 0) + 1;
   doorTries.set(key, tries);
+
+  /* A refusal whose lines are AUTHORED SENTENCES rather than alternate takes.
+   *
+   * Everything else at this door is one line with a bank of readings of it, so
+   * the screen shows the line and `say()` picks a take. THE SPECIAL MEETING's
+   * SM-080 is three different sentences with three different cues, and
+   * `say()` picks from a bank at random -- so the screen would say "I don't
+   * know where it is" while the man said "They're picking me up", which is two
+   * people having half a conversation each. `takes` carries each sentence with
+   * its own cue, and which one he reaches for is which try this is: the first
+   * time he tells the door no, the second time he explains himself to it, the
+   * third time he admits he does not know where he is going. Then he repeats
+   * the last one, because by then so would anybody. */
+  if (res.takes?.length) {
+    const take = res.takes[Math.min(tries - 1, res.takes.length - 1)];
+    hud.say(take.text, res.kind === 'call' ? 4600 : 5200);
+    /* His own words if the take exists, the generic waiting bank until it is
+     * recorded -- the same rule the rest of this door already follows, asked
+     * of one exact cue instead of a group. */
+    if (audio.hasSample(take.cue)) audio.play(take.cue, { volume: 0.85, delay: 0.5 });
+    else audio.say('door.wait', { chance: 0.8, delay: 0.5 });
+    return res;
+  }
+
+  hud.say(res.line, res.kind === 'call' ? 4600 : 5200);
 
   /* Waiting on a phone call is not something he can go and fix, so it gets a
    * bank of its own and never gets a hint -- there is nothing to hint at.
@@ -2943,6 +3258,28 @@ function leaveForMission(destination) {
       state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
     });
     syncClockFromCampaign();
+  }
+  if (destination === SCENE_IDS.SPECIAL_MEETING) {
+    /* Act One's hour, booked at the front door like every other departure.
+     *
+     * Thirty-five minutes covering the call, getting changed and going down to
+     * a car that is already running -- which is a description of what the
+     * player has just spent the evening doing rather than of a gap. The Special
+     * Meeting's own page asks for the same marker on boot and gets `applied:
+     * false`, because `advanceTime` is an exact-once ledger; whichever arrives
+     * first is the only one that moves the clock, and from now on that is this.
+     *
+     * No mission moves. The Special Meeting is a scene and not a mission -- no
+     * MISSION_IDS entry, nothing to fail, no result to record -- and the
+     * Initiation is claimed by the Initiation, at the treeline, after the
+     * hand-off. Nothing in this flat gets to mark that started. */
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
+    syncClockFromCampaign();
+    /* The car is still running out there and it is about to be behind him.
+     * Stopping the loop here rather than letting the page unload take it means
+     * the fade happens under the blackout instead of cutting mid-idle. */
+    audio.stopLoop('specialmeeting.car', 1.4);
+    endRingBooskiBack();
   }
 
   interaction.setPaused(true);
@@ -3545,22 +3882,28 @@ const READ_PER_CHAR = 0.042;
  *
  * @returns {number} seconds the line should hold the floor
  */
-function speakLine(cue, text, { volume = 0.9, subtitle = null } = {}) {
+function speakLine(cue, text, { volume = 0.9, subtitle = null, speaker = null } = {}) {
   const source = audio.play?.(cue, { volume });
   const hold = source?.buffer
     ? source.buffer.duration + 0.4
     : READ_BASE + text.replace(/<[^>]+>/g, '').length * READ_PER_CHAR;
+  /* The mouth, when the line belongs to somebody with a face in the room —
+   * Margo is the case. Handed the TAKE rather than the hold, so a recorded
+   * line runs the jaw on its own amplitude and closes when the recording
+   * does; an unrecorded one animates on the fallback envelope for exactly
+   * the subtitle's length (src/core/mouth.js). */
+  speaker?.say?.(hold, source ? { audio, source } : null);
   hud.say(subtitle ?? text, Math.round(hold * 1000));
   return hold;
 }
 
-/** Play a list of {cue, text} in order, one after the other. */
+/** Play a list of {cue, text[, speaker]} in order, one after the other. */
 function speakSequence(turns, { onDone = null } = {}) {
   let i = 0;
   const step = () => {
     if (i >= turns.length) { onDone?.(); return; }
     const turn = turns[i++];
-    const hold = speakLine(turn.cue, turn.text, { subtitle: turn.subtitle });
+    const hold = speakLine(turn.cue, turn.text, { subtitle: turn.subtitle, speaker: turn.speaker });
     setTimeout(step, Math.round(hold * 1000) + 220);
   };
   step();
@@ -3630,6 +3973,355 @@ function playNews(station, { onStart = null } = {}) {
     onStart?.({ hold, bulletin });
   }, 900);
   return true;
+}
+
+/* ------------------------------------------------------------------ */
+/* THE SPECIAL MEETING — ACT ONE                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Everything the flat does on the night three men come for him.
+ *
+ * `docs/SPECIAL-MEETING-SCRIPT.md`, beats SM-010 to SM-090. The words and
+ * their cue names are all authored elsewhere -- `src/specialmeeting/script.js`,
+ * reached through `SPECIAL_MEETING_ACT_ONE` in core/apartment-story.js -- so
+ * nothing below writes a line of dialogue. This is the half that decides WHEN.
+ *
+ * The order of the evening, and what drives each part:
+ *
+ *   SM-010  idle, before the call        `updateActOne`, on the still timer
+ *   SM-020  the phone rings              `ApartmentStory`, after ACT_ONE_RING_DELAY
+ *   SM-030  THE CALL                     core/phone.js, off SPECIAL_MEETING_BOOSKI_CALL
+ *   SM-040  the dead line                `actOneCallEnded`, off the phone's own hang-up
+ *   SM-050  ringing him back             `ringBooskiBack`, [R] with the phone in hand
+ *   SM-060  idle, after the call         `updateActOne`, same timer, other bank
+ *   SM-070  getting ready                the nightstand drawer's `onDressed`
+ *   SM-080  door refusals                `tryLeave`, out of ApartmentStory
+ *   SM-090  headlights                   `actOneCarArrives`, on the wait timer
+ *
+ * ## The narrator does not speak tonight
+ *
+ * `core/narrator.js` is the flat's own voice and it is a comedian: "There is no
+ * objective. There was never going to be one." It has been the right voice for
+ * every other hour spent in here and it is the wrong one for this one, and
+ * worse, it is a SECOND voice competing for the same subtitle bar as Tony's --
+ * two idle speakers taking turns is not twice the flat, it is neither of them.
+ * So on this night the narrator is switched off and Tony's own eight lines
+ * take the idle timer instead. See `narrator.enabled` below.
+ *
+ * ## Nothing here reassures him
+ *
+ * The script's forbidden-line list is a rule about the HUD as much as the cast:
+ * no toast, no subtitle and no objective may tell the player he is safe or say
+ * what the meeting is. The only instructions in this whole section are which
+ * button rings a telephone.
+ */
+
+/**
+ * How long he is left alone in the flat before Booskibro rings.
+ *
+ * Every other call in this campaign is six seconds after he is up and about,
+ * because every other call is the thing he is waiting for. This one is the
+ * opposite: SM-010 is eight lines of a man with nothing to do and nobody to
+ * tell, and they need somewhere to happen. Long enough for two or three of
+ * them, short enough that a player who sits still is not sitting still for a
+ * chapter -- and a player who does not sit still hears fewer of them, which is
+ * how an idle bank is supposed to work.
+ */
+const ACT_ONE_RING_DELAY = 74;
+/**
+ * And how long after the call before headlights land on the ceiling.
+ *
+ * "They'll be there soon" is all he is given, so the wait is real and he
+ * spends it doing the two things the big night asks of him. The short version
+ * is for a reload: the car does not un-arrive because somebody refreshed the
+ * page, and making him serve the full sentence twice would be the flat
+ * punishing him for it. Neither number is a save field -- see `carOutside` in
+ * `#specialMeetingDoor`.
+ */
+const ACT_ONE_CAR_WAIT = 170;
+const ACT_ONE_CAR_WAIT_RESUMED = 16;
+/** Stand still this long and he says one. Then this long again. */
+const ACT_ONE_IDLE_AFTER = 19;
+const ACT_ONE_IDLE_GAP = 31;
+/** How long the earpiece rings, unanswered, before he takes it off his ear. */
+const ACT_ONE_RINGBACK_SECONDS = 11;
+/** The headlights, swinging across the ceiling and stopping. */
+const ACT_ONE_SWEEP_SECONDS = 2.4;
+/** What the beam settles at, and how much brighter it is mid-swing. */
+const ACT_ONE_BEAM_RESTING = 8.5;
+const ACT_ONE_BEAM_SWELL = 5.0;
+
+const actOne = {
+  /** Cues already spoken this session, so no line lands twice. */
+  said: new Set(),
+  /** Seconds he has been still, and how long is left before the next line. */
+  still: 0,
+  cooldown: 14,
+  /** True once Booskibro has hung up. SM-040 and SM-050 both wait for it. */
+  hungUp: false,
+  /** Seconds until the car, or null while nothing has been set moving. */
+  carIn: null,
+  /** Outside, engine running. `activityContext` hands this to the door. */
+  carOutside: false,
+  /** Which of SM-050's three lines the next ring-back ends on. */
+  rungBack: 0,
+  /** Seconds of unanswered ringing left, or 0 when he is not on the phone. */
+  ringingOut: 0,
+  /** Which of SM-070's mirror lines the drawer gets next. */
+  dressed: 0,
+  /** The headlight rig, built the first time it is needed, and its sweep. */
+  beam: null,
+  sweep: 0,
+};
+
+/**
+ * Has SM-030 happened?
+ *
+ * Off the campaign rather than off `actOne`, because the answer has to survive
+ * a reload and `actOne` does not: everything else in this section is about one
+ * session in one room, and this one fact is the evening's hinge.
+ */
+function specialMeetingCallTaken() {
+  return campaign.state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]?.status === 'answered';
+}
+
+/**
+ * The bank the idle timer draws from. Same flat, different man.
+ *
+ * SM-060 REPLACES SM-010 rather than joining it -- the script is explicit --
+ * so a line he never got round to hearing before the phone rang is one he
+ * never hears. He has stopped having those thoughts.
+ */
+function actOneIdleBank() {
+  return specialMeetingCallTaken()
+    ? SPECIAL_MEETING_ACT_ONE.idleAfter
+    : SPECIAL_MEETING_ACT_ONE.idleBefore;
+}
+
+/** Say one authored take, and never say it again this session. */
+function sayActOne(take, opts = {}) {
+  if (!take) return 0;
+  actOne.said.add(take.cue);
+  return speakLine(take.cue, take.text, opts);
+}
+
+/** The first line in a bank he has not used yet, or null once it is empty. */
+function nextActOne(bank) {
+  return bank.find((take) => !actOne.said.has(take.cue)) ?? null;
+}
+
+/**
+ * Tony, alone in his own front room, saying things to nobody.
+ *
+ * Deliberately the same shape as the narrator's idle rule and deliberately
+ * quieter about it: he waits for the room to be silent (`hud.saying` is the
+ * subtitle bar, which the radio, the telly and the phone all take), he waits
+ * for the player to stop moving, and he never repeats himself. Eight lines
+ * before the call and eight after, and running out is a real outcome -- a man
+ * who has said everything he has to say goes quiet, which is worse.
+ */
+function updateActOne(dt, { busy = false, moving = false } = {}) {
+  if (!specialMeetingNight || game.left) return;
+  actOne.cooldown -= dt;
+  actOne.still = busy || moving ? 0 : actOne.still + dt;
+
+  /* The earpiece, ringing out at Booskibro's end. Counted here rather than on
+   * a timeout so pausing the game pauses the call, like everything else. */
+  if (actOne.ringingOut > 0) {
+    actOne.ringingOut -= dt;
+    if (actOne.ringingOut <= 0) endRingBooskiBack();
+  }
+
+  if (actOne.carIn !== null) {
+    actOne.carIn -= dt;
+    if (actOne.carIn <= 0) actOneCarArrives();
+  }
+  if (actOne.sweep > 0) updateActOneHeadlights(dt);
+
+  if (busy || actOne.cooldown > 0 || hud.saying) return;
+  if (actOne.still < ACT_ONE_IDLE_AFTER) return;
+  const take = nextActOne(actOneIdleBank());
+  if (!take) return;
+  sayActOne(take);
+  actOne.still = 0;
+  actOne.cooldown = ACT_ONE_IDLE_GAP;
+}
+
+/**
+ * SM-040. Booskibro hangs up first, mid-air, and Tony stands there holding it.
+ *
+ * Wired to the phone's own call-state callback rather than to a timer, so it
+ * lands on the real end of the real conversation however long the takes turn
+ * out to be once they are recorded. The button prompt comes AFTER his line and
+ * not on the same frame as it: `docs/TONE-AND-PARODY.md` -- the character
+ * speaks, and then the screen clarifies.
+ */
+function actOneCallEnded() {
+  if (!specialMeetingNight || actOne.hungUp) return;
+  actOne.hungUp = true;
+  /* And the car is now on its way, whatever he does with the next few
+   * minutes. Set here rather than at the door so a player who never touches
+   * the handle still gets his headlights. */
+  actOne.carIn = ACT_ONE_CAR_WAIT;
+  const hold = sayActOne(SPECIAL_MEETING_ACT_ONE.deadLine[0]);
+  setTimeout(() => {
+    if (game.left) return;
+    hud.toast('Phone in hand · [R] rings the last caller back', '', 9000);
+  }, Math.round(hold * 1000) + 400);
+  updateObjectives();
+}
+
+/** Whether [R] currently means anything, which is: has Booskibro rung off. */
+function canRingBooskiBack() {
+  return specialMeetingNight
+    && actOne.hungUp
+    && !phone.call
+    && apartment?.state?.heldItem === 'phone';
+}
+
+/**
+ * SM-050. He rings Booskibro back, and it goes nowhere.
+ *
+ * The first thing in this scene that is actually WRONG, and it is wrong by
+ * doing nothing: it does not go to voicemail, it does not get answered, it is
+ * not engaged. It rings. The player is allowed to do this as many times as he
+ * likes and gets a different line about it three times.
+ *
+ * The sound is `phone.ring` held quiet and lowpassed, which is the handset's
+ * own ring standing in for a ringback tone in an earpiece -- there is no
+ * ringback cue in the manifest and minting one belongs to the pass that owns
+ * `assets/sfx/manifest.json`. What the player hears is a telephone ringing
+ * somewhere it is not being picked up, which is the whole content of the beat.
+ */
+function ringBooskiBack() {
+  if (!canRingBooskiBack() || actOne.ringingOut > 0) return false;
+  actOne.ringingOut = ACT_ONE_RINGBACK_SECONDS;
+  audio.startLoop('specialmeeting.ringback', {
+    name: 'phone.ring',
+    volume: 0.22,
+  });
+  audio.setLoopCutoff('specialmeeting.ringback', 1400, 0.1);
+  hud.say('<em>Calling Booskibro.</em>', 4000);
+  return true;
+}
+
+/** The player hangs up, or gives up waiting. Either way, nobody answered. */
+function endRingBooskiBack() {
+  if (actOne.ringingOut <= 0 && !audio.loops?.has?.('specialmeeting.ringback')) return;
+  actOne.ringingOut = 0;
+  audio.stopLoop('specialmeeting.ringback', 0.12);
+  audio.play('phone.hangup', { volume: 0.5 });
+  const bank = SPECIAL_MEETING_ACT_ONE.callBack;
+  const take = bank[Math.min(actOne.rungBack, bank.length - 1)];
+  actOne.rungBack += 1;
+  setTimeout(() => { if (!game.left) sayActOne(take); }, 500);
+}
+
+/**
+ * SM-070. Getting dressed for something nobody has described to him.
+ *
+ * The script stages these at a wardrobe and a mirror. This flat has neither --
+ * the clean shirts are in the nightstand drawer and there is no mirror in the
+ * build at all -- so the drawer carries both halves: the wardrobe line the
+ * first time he opens it, and one of the three mirror lines every time after,
+ * ending on the one that is him talking himself down and failing.
+ *
+ * Called from `onDressed` AFTER the ordinary toast, because the ordinary toast
+ * is the flat behaving normally and that is the joke he is standing inside.
+ */
+function actOneDressed() {
+  if (!specialMeetingNight) return;
+  const bank = SPECIAL_MEETING_ACT_ONE.gettingReady;
+  const take = bank[Math.min(actOne.dressed, bank.length - 1)];
+  actOne.dressed += 1;
+  setTimeout(() => { if (!game.left) sayActOne(take); }, 1600);
+}
+
+/**
+ * The headlights, and the engine that never switches off.
+ *
+ * A spotlight outside the east window, below the sill, throwing up and in --
+ * the flat is upstairs and the car is at the kerb, so the beam lands on the
+ * ceiling and the far wall rather than on the floor. It swings across, slows,
+ * and stops, and then it simply stays there, which is the point: nobody gets
+ * out, nobody knocks, and the engine is still running when he gets outside.
+ *
+ * Built here rather than in `src/world/apartment.js` because it belongs to one
+ * evening rather than to the flat, and because that file builds every other
+ * night in the campaign too.
+ */
+function actOneHeadlightRig() {
+  if (actOne.beam) return actOne.beam;
+  const target = new THREE.Object3D();
+  /* Starting aim: through the window and onto the ceiling well to the north,
+   * so the sweep crosses the room rather than arriving already pointed at it. */
+  target.position.set(-4.2, 2.68, -7.4);
+  scene.add(target);
+  const light = new THREE.SpotLight(0xfff3dc, 0, 30, 0.40, 0.62, 1.05);
+  light.position.set(8.6, 0.30, -3.10);
+  light.castShadow = false;
+  light.target = target;
+  scene.add(light);
+  actOne.beam = { light, target };
+  return actOne.beam;
+}
+
+/**
+ * Ease the sweep out, then leave it exactly where it stopped.
+ *
+ * The numbers are scaled against the room's own ceiling lamp, which is a
+ * 9.5-intensity spot two metres off the furniture at decay 1.4 (`ceilSpot` in
+ * src/world/apartment.js). This one is thirteen metres away at decay 1.05, so
+ * a comparable figure arrives at the far wall an order of magnitude softer --
+ * which is what is wanted. Headlights through somebody's window are a change
+ * in the room, not a light in it, and the flat's own lamps stay brighter than
+ * they are whether or not he has switched any on.
+ *
+ * The swell in the middle is the car still turning: a beam sweeping past you
+ * is brightest as it crosses, and it settles once it has stopped moving.
+ */
+function updateActOneHeadlights(dt) {
+  const rig = actOne.beam;
+  if (!rig) { actOne.sweep = 0; return; }
+  actOne.sweep = Math.max(0, actOne.sweep - dt);
+  const done = 1 - actOne.sweep / ACT_ONE_SWEEP_SECONDS;
+  const eased = 1 - (1 - done) ** 3;
+  rig.target.position.z = -7.4 + eased * 9.2;
+  rig.light.intensity = ACT_ONE_BEAM_RESTING
+    + Math.sin(Math.min(1, done * 1.4) * Math.PI) * ACT_ONE_BEAM_SWELL;
+  /* And then it does not move again. Nobody gets out, nobody knocks, and this
+   * light is still on the ceiling when he finally opens the door. */
+  if (actOne.sweep <= 0) rig.light.intensity = ACT_ONE_BEAM_RESTING;
+}
+
+/**
+ * SM-090. They are outside. Nobody knocks.
+ *
+ * Order matters and it is the tone doctrine's: the room changes first -- light
+ * across the ceiling, an engine you can hear through the glass -- and Tony
+ * says what he makes of it after. Nothing on screen tells the player to go
+ * downstairs; the door does that itself the next time he touches it, and the
+ * objective panel picks up "Leave for the car downstairs" on its own second.
+ */
+function actOneCarArrives() {
+  if (actOne.carOutside) return;
+  actOne.carIn = null;
+  actOne.carOutside = true;
+  actOneHeadlightRig();
+  actOne.sweep = ACT_ONE_SWEEP_SECONDS;
+  audio.startLoop('specialmeeting.car', {
+    name: 'car.engine.idle',
+    volume: 0.16,
+    position: new THREE.Vector3(6.4, 0.2, -3.1),
+    maxDist: 20,
+  });
+  // Through a closed window, from a floor below. It is a presence, not a sound.
+  audio.setLoopCutoff('specialmeeting.car', 520, 0.4);
+  const bank = SPECIAL_MEETING_ACT_ONE.headlights;
+  const take = nextActOne(bank) ?? bank[0];
+  setTimeout(() => { if (!game.left) sayActOne(take); }, 1500);
+  updateObjectives();
 }
 
 /* ------------------------------------------------------------------ */
@@ -3950,16 +4642,10 @@ function startMargoWake() {
     names: [...MARGO_DRESS_IMPACT_CUES, ...DRESS_HELP_CUES],
   })?.catch?.(() => {});
   const margo = apartment.margo;
-  margo.setPose('lying');
   /* Last night off her, both halves of it: the mess AND the fastening. The
-   * glue was already cleared here; the closure was not, so a morning after
-   * the come-home night opened on a dress that was still done up from the
-   * beat she is about to ask for help with again. `startMargoComeHome` clears
-   * both, and these two scenes share one rig -- whichever runs second inherits
-   * whatever the first left on it. */
-  margo.setDressGlue(0);
-  margo.setDressHelpProgress(0);
-  margo.group.visible = true;
+   * shared pure stage is also what the geometry gate uses, so the person seen
+   * in this beat cannot disappear from its headless audit. */
+  stageApartmentMargoGeometry(apartment, APARTMENT_MARGO_GEOMETRY_STAGES.WAKE_LYING);
   interaction.setPaused(true);
   hud.hidePrompt();
   /* A cone wide enough to turn and look at somebody, and a floor low enough to
@@ -3973,7 +4659,10 @@ function startMargoWake() {
 
   const turns = [];
   BIG_NIGHT_MARGO_WAKE.lines.forEach((line, i) => {
-    turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.${i + 1}`, text: `Margo: ${line}` });
+    /* Her lines carry her as the speaker so her mouth runs on them
+     * (src/core/mouth.js via the rig's own say()); Tony's replies are the
+     * player, first person, and animate nobody. */
+    turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.${i + 1}`, text: `Margo: ${line}`, speaker: margo });
     const reply = BIG_NIGHT_MARGO_WAKE.replies[i];
     if (reply) {
       turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.tony.${i + 1}`, text: `You: ${reply}` });
@@ -4005,7 +4694,6 @@ function startMargoWake() {
  */
 function startMargoComeHome() {
   if (game.margoScene) return false;
-  const margo = apartment.margo;
   game.margoScene = newMargoScene('comeHome');
   game.margoScene.walk = 0;
   game.margoScene.entry = true;
@@ -4013,16 +4701,12 @@ function startMargoComeHome() {
   audio.loadAdditional?.({
     names: [...MARGO_DRESS_IMPACT_CUES, ...DRESS_HELP_CUES],
   })?.catch?.(() => {});
-  margo.setPose('standing');
-  margo.setDressHelpProgress(0);
-  margo.setDressGlue(0);
-  /* The far end of her own exit path is the front door -- close enough to
-   * where `returningToApartment` puts the player that "in together" reads,
-   * without needing a second authored position just for this. */
-  const [doorX, doorZ] = MARGO_PATH[MARGO_PATH.length - 1];
-  margo.group.position.set(doorX, MARGO_STAND_Y, doorZ);
-  margo.group.rotation.y = 0;
-  margo.group.visible = true;
+  /* The pure stage owns the exact far end of her exit path at the front door.
+   * Browser play and the headless geometry gate therefore use one entry pose. */
+  stageApartmentMargoGeometry(
+    apartment,
+    APARTMENT_MARGO_GEOMETRY_STAGES.COME_HOME_ENTRY,
+  );
   return true;
 }
 
@@ -4030,7 +4714,12 @@ function startMargoComeHome() {
 function startMargoComeHomeTalk() {
   const turns = [];
   SILVER_ROOM_COME_HOME.lines.forEach((line, i) => {
-    turns.push({ cue: `vo.${SILVER_ROOM_COME_HOME.vo}.${i + 1}`, text: `Margo: ${line}` });
+    /* Same speaker rule as the wake: her lines run her mouth, his run nobody's. */
+    turns.push({
+      cue: `vo.${SILVER_ROOM_COME_HOME.vo}.${i + 1}`,
+      text: `Margo: ${line}`,
+      speaker: apartment.margo,
+    });
     const reply = SILVER_ROOM_COME_HOME.replies[i];
     if (reply) {
       turns.push({ cue: `vo.${SILVER_ROOM_COME_HOME.vo}.tony.${i + 1}`, text: `You: ${reply}` });
@@ -4068,9 +4757,20 @@ function offerMargoDressHelp() {
   scene.dressProgress = 0;
   // Only does anything if he never got up: lets him see her over the duvet.
   scene.cameraLiftTarget = 1;
-  hud.say(scene.kind === 'comeHome'
-    ? '<em>Can you get this?</em> She turns, back to him, reaching for a zip she cannot see.'
-    : '<em>Can you get this?</em> She turns, back to him, waiting on the clasp.', 4400);
+  if (scene.kind === 'comeHome') {
+    /* The night she came home, the ask is HERS — a spoken line with a real
+     * cue, her mouth on the take and her face turned to him for the length
+     * of it (see the speaking-facing block in updateMargoWake), instead of a
+     * stage direction on the subtitle bar. One line, played once: this
+     * function is idempotent per scene. */
+    speakLine(
+      `vo.${SILVER_ROOM_DRESS_ASK.vo}.1`,
+      `Margo: ${SILVER_ROOM_DRESS_ASK.lines[0]}`,
+      { speaker: margo },
+    );
+  } else {
+    hud.say('<em>Can you get this?</em> She turns, back to him, waiting on the clasp.', 4400);
+  }
   return true;
 }
 
@@ -4312,6 +5012,22 @@ function updateMargoWake(dt) {
     }
   }
 
+  /* She talks TO him. While a line of hers is up and she is on her feet --
+   * not mid-walk, not bent over the fastening -- she turns to face wherever
+   * he actually is, instead of delivering it to the wardrobe on the standing
+   * pose's fixed yaw. Eased, so it is a person turning and not a turret; and
+   * only while SPEAKING, so the authored staging (her back to him for the
+   * zip once the ask has landed and he walks around her) is otherwise
+   * untouched. Lying and sitting keep their authored facings entirely. */
+  if (margo.speakingFor > 0 && margo.pose === 'standing'
+    && scene.walk === null && !margoDress.active) {
+    const wantYaw = yawNear(Math.atan2(
+      player.position.x - margo.group.position.x,
+      player.position.z - margo.group.position.z,
+    ), margo.group.rotation.y);
+    margo.group.rotation.y += (wantYaw - margo.group.rotation.y) * Math.min(1, dt * 4);
+  }
+
   /* His head, turned toward whatever she is doing -- when there is anything
    * worth turning toward, and when there is a head here left to turn: once he
    * is up (`player.mode !== 'bed'`), the mouse is entirely his again. Without
@@ -4456,6 +5172,15 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
     game.toiletPee = false;
     audio.stopLoop('pee.stream', 0.25);
   }
+  /* A shower he passes out in ends here, or its completion timer would stand
+   * him out of the bed the blackout is about to put him in, with the water
+   * still running over an empty tub. */
+  if (game.showering !== null) {
+    game.showering = null;
+    audio.stopLoop('shower.run', 0.6);
+    showerFx.stop();
+    hud.setMode('walk');
+  }
 
   // Abandon anything mid-drag.
   cig.t = -1;
@@ -4573,7 +5298,7 @@ const chromaR = document.querySelector('#chroma feOffset');
 const chromaB = document.querySelectorAll('#chroma feOffset')[1];
 function applyDrunkFx() {
   const blur = Math.round(drunk.blur * 20) / 20;
-  const amount = Math.round(drunk.vignette * 50) / 50;
+  const amount = Math.round((drunk.vignette + 0.42 * focusRush.strength) * 50) / 50;
 
   // The other two. Same trick: only touch the DOM when a rounded value moves,
   // because setting a custom property forces a style recalc every time.
@@ -4741,7 +5466,6 @@ function frame() {
         ? 0
         : Math.max(0, (drunk.level - 0.34) / 0.66) * felt;
       arcade.setImpairment?.(drunk.swayStrength);
-      applyDrunkFx();
 
       // Weed rides on top of the drink rather than replacing it.
       player.sway.yaw += highs.sway.yaw;
@@ -4756,6 +5480,9 @@ function frame() {
       }
       player.moveScale = highs.moveScale;
       player.lookDrag = highs.lookDrag;
+      focusRush.update(dt);
+      focusRush.apply(camera, player, { baseMoveScale: player.moveScale });
+      applyDrunkFx();
 
       player.update(dt);
       apartment.update(hdt, elapsed);
@@ -4784,13 +5511,22 @@ function frame() {
           audio.play('chat.ping', { position: apartment.deskPose.position, volume: 0.5 });
         }
       }
+      const idleBusy = game.passingOut || game.seated || game.peeing || game.onToilet
+        || cig.t >= 0 || player.mode === 'frozen' || phone.inCall
+        /* And the earpiece. He is not going to muse about the flat while he is
+         * stood there listening to a phone nobody is picking up. */
+        || actOne.ringingOut > 0;
+      const idleMoving = player.velocity.lengthSq() > 0.04;
       narrator.update(dt, {
         /* A call is on the list now that he answers them out loud. Two of his
          * own voice at once is not a joke twice, it is one of them ruined. */
-        busy: game.passingOut || game.seated || game.peeing || game.onToilet
-          || cig.t >= 0 || player.mode === 'frozen' || phone.inCall,
-        moving: player.velocity.lengthSq() > 0.04,
+        busy: idleBusy,
+        moving: idleMoving,
       });
+      /* And the one night the narrator is silent and Tony has the room to
+       * himself. `narrator.enabled` is switched off at boot on this night --
+       * see the Act One section -- so exactly one of these two ever speaks. */
+      updateActOne(dt, { busy: idleBusy, moving: idleMoving });
 
       if (game.seated) {
         arcade.update(hdt);
@@ -4817,6 +5553,9 @@ function frame() {
         apartment.state.csDeaths = cs;
         audio.say(cs <= 2 ? 'cs.death.early' : 'cs.death.late', { chance: 0.4, delay: 0.7 });
       }
+
+      // And the chapter's own thing, whichever of them this chapter asks for.
+      pastimeWatch(dt);
 
       const glow = arcade.sampleGlow();
       apartment.screenGlow.color.setHex(glow.colour);

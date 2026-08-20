@@ -70,11 +70,12 @@
 import { CHARACTER_IDS, SCENE_IDS } from './campaign.js';
 import { BILLY_HOTDOG_MODEL } from './hotdog-model.js';
 import { APE_FAMILY_MEMBER } from '../bing/family-ape.js';
+import { BING_BLACKJACK_DEALER } from '../bing/cast.js';
 import {
   AUBBIE, BADA_BING_BARTENDER, BIG_UNCLE_LOU, BIG_UNCLE_LOU_BING,
   BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
-  GRATIN, HOG_MAMA, IRISH, MANSION_BOOTH_MAN, MANSION_DOOR_MAN, MANSION_GUARDS, NUMBSKULL,
-  JAMES_BLOND, RIPPINFLOW, SAUCE, SHUBENATOR, SNOW, WILLY,
+  GRATIN, HOG_MAMA, IRISH, KITTENBOSS, MANSION_BOOTH_MAN, MANSION_DOOR_MAN, MANSION_GUARDS,
+  NUMBSKULL, JAMES_BLOND, RIPPINFLOW, SAUCE, SHUBENATOR, SNOW, WILLY,
 } from './wardrobe.js';
 
 /* ====================================================================== *
@@ -120,7 +121,15 @@ export const SCENES = Object.freeze({
     label: 'The Bada Bing — the closed party (HOT DOG)',
     short: 'Party',
     rig: 'bing',
-    modules: Object.freeze(['src/bing/hotdog-party.js']),
+    modules: Object.freeze([
+      'src/bing/hotdog-party.js',
+      /* The people working the room, added with the 2026-08-20 party opening.
+       * They are the club's staff rather than the Family, so they live in
+       * their own module -- and the ledger has to scan it, or four bodies the
+       * player walks straight past are invisible to the one document whose
+       * whole job is to say who is in the room. */
+      'src/bing/hotdog-house-staff.js',
+    ]),
     note: 'The same Family, the same building, the same clothes — the party '
       + 'moves people around the room and adds Lou, Billy HotDog, Aubbie and '
       + 'Sauce as figures with their own business. Nobody is redressed.',
@@ -242,6 +251,24 @@ export const SCENES = Object.freeze({
       + 'translation of one rig\'s options into another\'s, so these rows are '
       + 'listed and not drawn. They are the ledger\'s loudest finding.',
   }),
+  special_meeting: Object.freeze({
+    id: 'special_meeting',
+    label: 'THE SPECIAL MEETING — three men, one woman and a car',
+    short: 'Meeting',
+    rig: 'bing',
+    modules: Object.freeze(['src/specialmeeting/cast.js']),
+    note: 'Four bodies, and not one of them is dressed for the occasion. '
+      + 'Numbskull and Kittenboss are canonical wardrobe models; Seff and Lag '
+      + 'come through the Bing roster the way the Mansion takes them, because '
+      + 'the ledger has already decided their clothes live there. The rig is '
+      + "the Bing's because this is a night street under two sodium lamps and "
+      + 'a dome light, which is the nearest of the three to what it is played '
+      + 'in. Kittenboss is creased, and creases are not a garment flag: the '
+      + 'fitting room shows the shirt she owns, not the state she arrives in. '
+      + 'This card read "three men and a car" and called that shirt his until '
+      + '2026-08-20: Kittenboss is a woman, her wardrobe model had been built '
+      + 'male, and both were corrected on the ruling from the owner in one pass.',
+  }),
   cartel_palace: Object.freeze({
     id: 'cartel_palace', label: 'The Cartel Palace — the final assault', short: 'Palace', rig: 'day',
     modules: Object.freeze(['src/cartel-palace/cast.js']),
@@ -302,6 +329,10 @@ export const CAMPAIGN_SCENE_COVERAGE = Object.freeze({
     ['src/mansion/cast.js'], 'The return visit reuses the exact house cast and outfits; only poses and evening locations change.'),
   [SCENE_IDS.CARTEL_PALACE]: coverage(SCENE_IDS.CARTEL_PALACE, 'appearance-ledger', ['cartel_palace'],
     ['src/cartel-palace/cast.js'], 'Four guard variants, Mark and Sauce are catalogued from the final mission cast.'),
+  [SCENE_IDS.SPECIAL_MEETING]: coverage(SCENE_IDS.SPECIAL_MEETING, 'appearance-ledger', ['special_meeting'],
+    ['src/specialmeeting/cast.js'],
+    'Four bodies on one block: Numbskull and Kittenboss from the canonical wardrobe, Seff and Lag pulled through the Bing roster exactly as the Mansion takes them. Kittenboss is the scene\'s new identity and her row is her first.',
+    [{ scene: 'special_meeting', character: CHARACTER_IDS.KITTENBOSS }]),
   [SCENE_IDS.INITIATION]: coverage(SCENE_IDS.INITIATION, 'frozen', [],
     ['src/initiation/main.js'], 'Initiation is classified but unavailable: its runtime is frozen pending owner playtest and is neither imported nor reconstructed.'),
   [SCENE_IDS.MANSION]: coverage(SCENE_IDS.MANSION, 'appearance-ledger', ['mansion_house'],
@@ -566,6 +597,7 @@ export const PROCEDURAL_APPEARANCE_TEMPLATES = Object.freeze([
 
 export const EXTRAS = Object.freeze({
   'staff:bartender': 'The Bada Bing\'s bartender',
+  'staff:dealer': "The Bada Bing's blackjack dealer",
   'staff:door_man': "The man on Lou's door",
   'staff:booth_man': "The man in Lou's gate booth",
   'staff:guard_0': "Lou's security — 1.86, short dark hair",
@@ -1164,6 +1196,51 @@ export const APPEARANCES = Object.freeze([
     evidence: 'model: { ...BADA_BING_BARTENDER },',
     /* The waistcoat is the whole read: he is the only person in either
      * building dressed by an employer rather than by himself. */
+  }),
+  /* The four working the closed party. The two on the doors are deliberately
+   * the mansion archetype: the owner wanted men who look like they work for
+   * Lou, not for the room. */
+  row({
+    character: 'staff:bartender',
+    name: EXTRAS['staff:bartender'],
+    scene: 'bing_party',
+    where: 'behind the bar for the closed party, pouring and not counting',
+    model: BADA_BING_BARTENDER,
+    from: { wardrobe: 'BADA_BING_BARTENDER' },
+    module: 'src/bing/hotdog-house-staff.js',
+    evidence: 'model: { ...BADA_BING_BARTENDER },',
+  }),
+  row({
+    character: 'staff:dealer',
+    name: EXTRAS['staff:dealer'],
+    scene: 'bing_party',
+    where: 'the felt, dealing a table nobody is really playing',
+    model: BING_BLACKJACK_DEALER,
+    /* A direct export rather than a row inside a roster, so the path is empty
+     * -- the export IS the model. */
+    from: { module: 'src/bing/cast.js', export: 'BING_BLACKJACK_DEALER', at: [] },
+    module: 'src/bing/hotdog-house-staff.js',
+    evidence: 'model: { ...BING_BLACKJACK_DEALER },',
+  }),
+  row({
+    character: 'staff:guard_0',
+    name: EXTRAS['staff:guard_0'],
+    scene: 'bing_party',
+    where: 'the inside of the club doors, door side',
+    model: MANSION_GUARDS[0],
+    from: { wardrobe: 'MANSION_GUARDS[0]' },
+    module: 'src/bing/hotdog-house-staff.js',
+    evidence: 'model: { ...MANSION_GUARDS[post.guard] },',
+  }),
+  row({
+    character: 'staff:guard_3',
+    name: EXTRAS['staff:guard_3'],
+    scene: 'bing_party',
+    where: 'the inside of the club doors, room side',
+    model: MANSION_GUARDS[3],
+    from: { wardrobe: 'MANSION_GUARDS[3]' },
+    module: 'src/bing/hotdog-house-staff.js',
+    evidence: 'model: { ...MANSION_GUARDS[post.guard] },',
   }),
   row({
     character: CHARACTER_IDS.MARGO,
@@ -1990,6 +2067,76 @@ export const APPEARANCES = Object.freeze([
     character: CHARACTER_IDS.SAUCE, name: 'Sauce', scene: 'cartel_palace',
     where: 'the final encounter as the traitor', model: SAUCE,
     from: { wardrobe: 'SAUCE' }, module: 'src/cartel-palace/cast.js', evidence: 'model: SAUCE,',
+  }),
+
+  /* ================================================================== *
+   * THE SPECIAL MEETING — the car
+   *
+   * The bridge between the Palace and the fire. Three established Squatches
+   * and one other prospect, in and around one sedan on one wet block.
+   *
+   * Seff and Lag are the ledger's standing exception: their clothes are typed
+   * inline on the Bing roster rather than promoted into the wardrobe, and
+   * `src/specialmeeting/cast.js` pulls them straight out of `FAMILY` rather
+   * than restating anything, exactly as `src/mansion/cast.js` does. This is
+   * now their third building, so the case for promoting both men into
+   * `src/core/wardrobe.js` is stronger than it was — but that is a ledger-wide
+   * change (every Bing, party and mansion row flips its `from` shape with it)
+   * and it should be somebody's deliberate decision, not this scene's
+   * side effect.
+   * ================================================================== */
+  row({
+    character: CHARACTER_IDS.SEFF,
+    name: 'Seff',
+    scene: 'special_meeting',
+    where: 'the driver\'s seat, leaning across to say hello, and never once getting out until the woods',
+    model: BING_SEFF,
+    from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.SEFF, 'model'] },
+    module: 'src/specialmeeting/cast.js',
+    evidence: 'characterId: CHARACTER_IDS.SEFF,',
+  }),
+  row({
+    character: CHARACTER_IDS.LAG,
+    name: 'Lag',
+    scene: 'special_meeting',
+    where: 'the front passenger seat when the car arrives, and the seat behind the driver by the time it leaves',
+    model: BING_LAG,
+    from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.LAG, 'model'] },
+    module: 'src/specialmeeting/cast.js',
+    evidence: 'characterId: CHARACTER_IDS.LAG,',
+  }),
+  row({
+    character: CHARACTER_IDS.NUMBSKULL,
+    name: 'Numbskull',
+    scene: 'special_meeting',
+    where: 'holding the front passenger door open, then directly behind the Prospect for the whole drive',
+    model: NUMBSKULL,
+    from: { wardrobe: 'NUMBSKULL' },
+    module: 'src/specialmeeting/cast.js',
+    evidence: "if (key === 'numbskull') return { ...WARDROBE.numbskull };",
+  }),
+  row({
+    character: CHARACTER_IDS.KITTENBOSS,
+    name: 'Kittenboss',
+    scene: 'special_meeting',
+    where: 'the boot of the car, and afterwards on the trail beside the other prospect',
+    model: KITTENBOSS,
+    from: { wardrobe: 'KITTENBOSS' },
+    module: 'src/specialmeeting/cast.js',
+    evidence: "if (key === 'kittenboss') return { ...WARDROBE.kittenboss };",
+    /* She was told to put on something decent and she did. The scene's own
+     * direction is that it is extremely creased, which is a note for the
+     * animator and the writer and not a field on a model — so the ledger
+     * carries the shirt and says so here rather than inventing a flag.
+     *
+     * This row said "he" until 2026-08-20, and so did the model it points at.
+     * Kittenboss is a woman: `WARDROBE.kittenboss` now carries
+     * `gender: 'female'`, `bodyShape: 'curvy'` and `hair: 'tied'`, and it also
+     * lost a bogus `neckline: 'collar'` that had been silently suppressing her
+     * placket and collar. Her height and build deliberately did NOT move --
+     * she is the same age and the same rank as Tony and stands eye to eye with
+     * him, and shrinking her would have thrown that away. The wardrobe model's
+     * own comment carries the full reasoning for each field. */
   }),
 
   /* ================================================================== *

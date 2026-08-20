@@ -186,6 +186,7 @@ let chips = [];
 
 function buildStrip() {
   stripEl.innerHTML = '';
+  stripKey = '';
   chips = room.state.row.length > 1 ? room.state.row.map((entry) => {
     const el = document.createElement('div');
     el.className = `chip${entry.appearance?.divergence ? ' flag' : ''}`;
@@ -199,12 +200,30 @@ function buildStrip() {
   }) : [];
 }
 
+/* The row itself never moves in line-up mode (the turntable only spins a solo
+ * figure), so the captions only travel when the camera or the frame does —
+ * yet this runs every rAF, and labelPositions() updates world matrices for up
+ * to eight full figures per call. The key holds everything that can move a
+ * caption: the orbit, the dolly, the aim point, and both the strip's and the
+ * canvas's dimensions (a height-only resize changes the aspect and so the
+ * projected x with the strip width unchanged). buildStrip clears it, since
+ * fresh chips start with no `left` at all. */
+let stripKey = '';
+
 function moveStrip() {
   if (chips.length === 0) return;
-  const places = room.labelPositions();
+  const { yaw, pitch, dist, target } = room.state;
   const width = stripEl.clientWidth || 1;
+  const key = `${yaw},${pitch},${dist},${target.x},${target.y},${target.z},`
+    + `${width},${canvas.width}x${canvas.height}`;
+  if (key === stripKey) return;
+  stripKey = key;
+  const places = room.labelPositions();
   places.forEach((place, i) => {
-    if (chips[i]) chips[i].style.left = `${Math.max(4, Math.min(width - 4, place.at * width))}px`;
+    const chip = chips[i];
+    if (!chip) return;
+    const left = `${Math.max(4, Math.min(width - 4, place.at * width))}px`;
+    if (chip.style.left !== left) chip.style.left = left;
   });
 }
 

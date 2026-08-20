@@ -15,7 +15,7 @@ test('resolved arm and leg hits produce bounded tactical impairments that recove
   assert.equal(impairments.applyResolvedHit({
     zone: 'chest', part: 'leg', result: { applied: true, damage: 8 },
   }), true);
-  assert.equal(impairments.stagger, 0.42);
+  assert.equal(impairments.stagger, 0.58);
   assert.ok(impairments.legWound > 0);
   assert.ok(impairments.speedScale < 1);
   assert.equal(impairments.accuracyScale, 1);
@@ -27,10 +27,35 @@ test('resolved arm and leg hits produce bounded tactical impairments that recove
   assert.ok(impairments.accuracyScale < 1);
   assert.ok(impairments.aimSettleScale < 1);
   assert.equal(impairments.interrupted, true);
-  assert.ok(impairments.reaction > 0 && impairments.reaction <= 1);
 
-  impairments.update(0.42);
+  /*
+   * The visible flinch (2026-08-19: "hits register and still feel like nothing
+   * happened"). Amplitude is capped by the Mansion Siege corkscrew guard, so
+   * what makes a hit readable is the SHAPE: full size while the stagger has
+   * more than `reactionSeconds` left to run -- a held, broken posture -- then
+   * a release that is slower than linear, and then nothing at all. It must
+   * still be bounded, and it must still come all the way back.
+   */
+  assert.equal(impairments.reaction, impairments.config.reactionPeak,
+    'a fresh hit must read at full flinch on the frame it lands');
+  assert.ok(impairments.config.reactionPeak > 0 && impairments.config.reactionPeak <= 1,
+    'the flinch must stay inside the pose budget the scenes multiply it into');
+
+  /* Held, not spiked: a sixth of a second later a shot man is still visibly
+   * off his weapon. The old linear fade was down to 0.6 by here. */
+  impairments.update(0.15);
+  assert.equal(impairments.reaction, impairments.config.reactionPeak,
+    'the flinch decayed before the interruption did');
+
+  /* Then it lets go, and it lets go slower than it arrived. */
+  impairments.update(0.22);
+  const releasing = impairments.reaction;
+  assert.ok(releasing > 0.5 && releasing < impairments.config.reactionPeak,
+    `flinch release is not sub-linear: ${releasing}`);
+
+  impairments.update(0.21);
   assert.equal(impairments.stagger, 0);
+  assert.equal(impairments.reaction, 0, 'the flinch outlived the stagger that owns it');
   assert.equal(impairments.interrupted, false);
   assert.ok(impairments.legWound > 0, 'a transient stagger cleared the durable leg wound');
   assert.ok(impairments.armWound > 0, 'a transient stagger cleared the durable arm wound');

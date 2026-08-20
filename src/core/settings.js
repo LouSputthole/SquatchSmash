@@ -56,6 +56,10 @@ export const DEFAULT_KEYS = Object.freeze({
   sprint: 'ShiftLeft',
   crouch: 'KeyC',
   jump: 'Space',
+  interact: 'KeyE',
+  utility: 'KeyF',
+  reload: 'KeyR',
+  backAction: 'KeyQ',
 });
 
 /** Codes the shared Player treats as the same action as the default. */
@@ -71,6 +75,10 @@ export const KEY_ACTIONS = Object.freeze([
   ['sprint', 'Sprint'],
   ['crouch', 'Crouch'],
   ['jump', 'Jump'],
+  ['interact', 'Interact'],
+  ['utility', 'Use / special'],
+  ['reload', 'Reload / next'],
+  ['backAction', 'Back / stow'],
 ]);
 
 const SCHEMA = {
@@ -193,7 +201,7 @@ export function set(name, value) {
   const next = spec.coerce(value);
   state[name] = next;
   writeStored(name, next);
-  if (name === 'subtitles' || name === 'bigSubtitles') applyBody();
+  if (name === 'subtitles' || name === 'bigSubtitles' || name === 'reduceShake') applyBody();
   for (const fn of [...listeners]) {
     try {
       fn(name, next, state);
@@ -265,7 +273,36 @@ body.bigsubs #dialog #line { font-size: 25px; }
 body.nosubs #subtitle,
 body.nosubs #subs,
 body.nosubs .ss-subs { display: none !important; }
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after {
+  scroll-behavior: auto !important;
+  animation-duration: .001ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+  transition-delay: 0ms !important;
+}
 `;
+
+let motionMedia = null;
+let motionMediaListening = false;
+
+function reducedMotionMedia() {
+  if (motionMedia) return motionMedia;
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return null;
+  motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
+  return motionMedia;
+}
+
+function installMotionPreferenceListener() {
+  const media = reducedMotionMedia();
+  if (!media || motionMediaListening) return;
+  const refresh = () => applyBody();
+  if (typeof media.addEventListener === 'function') media.addEventListener('change', refresh);
+  else if (typeof media.addListener === 'function') media.addListener(refresh);
+  motionMediaListening = true;
+}
 
 function installStyle() {
   const doc = globalThis.document;
@@ -282,8 +319,10 @@ export function applyBody() {
   const body = globalThis.document?.body;
   if (!body?.classList) return false;
   installStyle();
+  installMotionPreferenceListener();
   body.classList.toggle('nosubs', !get('subtitles'));
   body.classList.toggle('bigsubs', get('bigSubtitles'));
+  body.classList.toggle('reduce-motion', reducedMotionEnabled());
   return true;
 }
 
@@ -294,7 +333,16 @@ export function applyBody() {
 /** How much of a camera shake to keep. Reduced is Silver's 0.3. */
 export const REDUCED_SHAKE = 0.3;
 export function shakeScale() {
-  return get('reduceShake') ? REDUCED_SHAKE : 1;
+  return reducedMotionEnabled() ? REDUCED_SHAKE : 1;
+}
+
+export function reducedMotionEnabled() {
+  return get('reduceShake') || reducedMotionMedia()?.matches === true;
+}
+
+export function motionDuration(seconds, { minimum = 0.001 } = {}) {
+  const duration = Math.max(0, Number(seconds) || 0);
+  return reducedMotionEnabled() ? Math.min(duration, Math.max(0, minimum)) : duration;
 }
 
 /** `base` radians per pixel, scaled by the player's multiplier. */
@@ -336,6 +384,18 @@ export function bindAudioVolume(engine) {
 /* Keymap                                                              */
 /* ------------------------------------------------------------------ */
 
+let canonicalKeyDispatch = null;
+
+export function withCanonicalKeyDispatch(code, callback) {
+  const previous = canonicalKeyDispatch;
+  canonicalKeyDispatch = code;
+  try {
+    return callback();
+  } finally {
+    canonicalKeyDispatch = previous;
+  }
+}
+
 /** The full action → code map, defaults filled in. */
 export function getKeymap() {
   return { ...DEFAULT_KEYS, ...get('keys') };
@@ -373,6 +433,7 @@ export function resetKeys() {
  * not read, so the old key stops working; anything else passes through.
  */
 export function translateKey(code) {
+  if (canonicalKeyDispatch === code) return code;
   const overrides = get('keys');
   const actions = Object.keys(overrides);
   if (!actions.length) return code;
@@ -414,4 +475,18 @@ export function keyLabel(code) {
   m = /^Arrow(Up|Down|Left|Right)$/.exec(code);
   if (m) return `Arrow ${m[1]}`;
   return code.replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
+const GAMEPLAY_TEXT_ACTIONS = Object.freeze({
+  E: 'interact',
+  F: 'utility',
+  R: 'reload',
+  Q: 'backAction',
+});
+
+export function projectGameplayKeysInText(value, keymap = getKeymap()) {
+  return String(value ?? '').replace(/\b([EFRQ])\b/g, (label) => {
+    const action = GAMEPLAY_TEXT_ACTIONS[label];
+    return keyLabel(keymap[action] ?? DEFAULT_KEYS[action]);
+  });
 }

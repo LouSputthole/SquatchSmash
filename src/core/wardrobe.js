@@ -247,6 +247,79 @@ export const NUMBSKULL = Object.freeze({
 });
 
 /**
+ * The other prospect, dressed for a thing nobody described to her.
+ *
+ * SHE. Corrected 2026-08-20 on the owner's ruling, and the correction is the
+ * point of the character rather than a courtesy: Kittenboss is a real, newish
+ * member of the club, and the whole fourth-wall gag is that the sweetest
+ * person the owner knows gets driven out in a boot, kneels in the mud with
+ * the rest of the prospects and does not make it. That joke does not land off
+ * a man. This model was built male on the day the Special Meeting was written
+ * -- `hair: 'short'`, no `gender`, no `bodyShape`, so `makePerson` gave her
+ * the 0.226 male shoulder frame and the hard-edged slabs -- and every one of
+ * those three fields is now the other thing. The manifest has had a woman's
+ * ElevenLabs id on `voices.kittenboss` since she was cast, so the body was
+ * the last place she was still being drawn as a bloke.
+ *
+ * She was told to put on something decent, the same as Tony was, and she did:
+ * a shirt with a collar, a belt, and shoes she does not wear to anything else.
+ * `trim` is on -- she is one of two people the player stands beside for the
+ * whole last act, so she earns the buttons and the placket. What the fitting
+ * room cannot show, because it is not clothing, is that all of it is extremely
+ * creased. She has been lying on a spare wheel.
+ *
+ * ## `neckline: 'collar'` was never a value, and it was cancelling the collar
+ *
+ * The model shipped with `neckline: 'collar'` sitting under `trim: true`, and
+ * it read like the obvious way to ask for a collar. It is not on the option
+ * list -- `src/bing/cast.js` documents `neckline` as `false | 'v'` and draws
+ * nothing for anything else -- and worse, the placket branch is guarded on
+ * `!neckline`, so the one truthy string switched OFF the placket, the buttons
+ * and the collar it was asking for. She has been standing on that block in a
+ * flat coloured torso since the day the scene was written. The field is gone
+ * and `trim` now does what the line above it always claimed: a real placket, a
+ * real collar, the shirt she was told to put on. This is the same read Tony
+ * gets in the seat next to her, which is the whole staging.
+ *
+ * ## The numbers deliberately did not move
+ *
+ * `height: 1.79` and `build: 1.06` are the same two numbers this model shipped
+ * with, and they stay. She is the same age and the same rank as Tony and she
+ * stands eye to eye with him, which is the read the scene needs: she is not
+ * small, not cute, not a victim and not comic relief. She is completely
+ * unbothered, and she is more annoyed about the spare wheel than about the
+ * boot. Shrinking her to signal "woman" would have thrown away the only thing
+ * the staging has -- two prospects, the same size problem, on the same night.
+ * DEATHMEGATRON is 1.79 on this same roster for the same reason.
+ *
+ * `gender: 'female'` narrows the shoulder frame and `bodyShape: 'curvy'` gives
+ * the hips and the chamfered slabs; the pair of them is how every woman on
+ * this roster is built (see HOG_MAMA, DEATHMEGATRON), and `makePerson` gates
+ * the performer figure on the bikini rather than on `curvy`, so nothing from
+ * the Silver Room's stage roles comes with them. `hair: 'tied'` replaces
+ * `'short'` because she has NO face photo: at ten metres, in the dark, under
+ * one dome light and a boot bulb, the hair silhouette is the only thing on
+ * screen that says who she is. It also earns its keep on the gag -- that is
+ * hair that has spent forty-two minutes against a spare wheel.
+ *
+ * Deliberately NOT luxury and deliberately no chain: the men in the front of
+ * the car have both. She is what a prospect owns.
+ */
+export const KITTENBOSS = Object.freeze({
+  height: 1.79,
+  build: 1.06,
+  gender: 'female',
+  bodyShape: 'curvy',
+  dress: 'shirt',
+  shirt: 0x8d94a4,
+  trim: true,
+  hair: 'tied',
+  hairColour: 0x241a12,
+  skin: 0xdcae86,
+  belt: 'leather',
+});
+
+/**
  * The matriarch. Luxury finish, no watch -- owner's note: the men on this
  * roster wear one, the women do not, and a gold watch was never the thing
  * that said "runs the place" about her anyway. `docs/OUTCOMES-AND-NPCS.md`
@@ -332,16 +405,45 @@ export const SAUCE = Object.freeze({
   skin: 0xe8c39c,
 });
 
+/**
+ * Aubbie, who is a SCIENTIST.
+ *
+ * He used to wear `dress: 'work'` with a beard and ginger hair, which reads as
+ * the man who fixes the microphone cable — and the campaign has established
+ * him as something else entirely. `src/mansion/scenes/SilentSquatch.js` puts
+ * him at the head of Lou's programme in a lab coat, shirt and tie, the only
+ * one of the six with a tie showing: coat `0xe2e0d6`, shirt `0xdad8cc`, tie
+ * `0x4a2028`, hair `0x3a3630`, skin `0xc0956e`, and a height of 1.77 that was
+ * taken FROM this file in the first place so the two Aubbies would be one man.
+ * They were one man everywhere except his clothes. Owner, 2026-08-19.
+ *
+ * On the club rig a lab coat is a `suit` in coat colours: `shirt` is the
+ * garment's own body, `jacketColour` its lapels and sleeves, and `shirtAccent`
+ * the shirt showing at the front and on the collar points. `trim` is what
+ * turns that into a knotted tie, a collar and buttons rather than a pale
+ * rectangle, and he earns it — the Prospect stands in front of him twice in
+ * the cleanup. No pocket square: nothing about this man is decorative. Dark
+ * trousers under the coat, because a suit's trousers otherwise take the
+ * jacket colour and he would be white from the collar down.
+ *
+ * The mansion builds its own figures on a different rig (`Figure`), so it
+ * takes none of this — which is exactly why the two drifted. Anything that
+ * dresses Aubbie on the club rig takes it from here.
+ */
 export const AUBBIE = Object.freeze({
   height: 1.77,
-  build: 1.05,
-  dress: 'work',
-  shirt: 0x24292c,
+  build: 1.06,
+  dress: 'suit',
+  shirt: 0xe2e0d6,
+  jacketColour: 0xe2e0d6,
+  shirtAccent: 0xdad8cc,
+  tieColour: 0x4a2028,
+  trouserColour: 0x2b2d33,
+  trim: true,
+  pocketSquare: false,
   hair: 'short',
-  hairColour: 0x8a3e20,
-  beard: true,
-  skin: 0xd7a67e,
-  belt: 'leather',
+  hairColour: 0x3a3630,
+  skin: 0xc0956e,
 });
 
 /**
@@ -493,6 +595,7 @@ export const WARDROBE = Object.freeze({
   aubbie: AUBBIE,
   sauce: SAUCE,
   james_blond: JAMES_BLOND,
+  kittenboss: KITTENBOSS,
 });
 
 /** The canonical model for a character id, or null for anyone not on it. */

@@ -25,10 +25,13 @@ export const START = 12;
  * Every scoring event in the mission.
  *
  * The balance, which `tools/balance-silver.mjs` exists to defend: talking well
- * for a whole evening is worth about sixty-six, tipping the whole route is
- * worth forty, and you start on twelve. So charm alone reaches a good
- * night and no further, tips alone reach a decent one, and the perfect ending
- * needs the room as well as her — which is the entire premise of the mission.
+ * for a whole evening is worth about seventy, the seven-hand "taken care of"
+ * goal about thirty (see TIP_GOAL), the whole fifteen-name route close to
+ * fifty, and you start on twelve. So charm alone reaches a strong night and no
+ * further, tips alone reach a decent one, and the perfect ending still needs
+ * the room as well as her — which is the entire premise of the mission. The
+ * go-home line itself moved down in `mission.resolve` on the owner's item-7
+ * note; an ordinary evening that does the stated goal clears it comfortably.
  *
  * The first pass had the conversation worth eighty-eight, which put a charming
  * man on a hundred before he had handed anybody a dollar. Every tip in the
@@ -70,7 +73,15 @@ export const EVENTS = {
 
   'Woo.GenerousTip':        { points: 1,  repeat: true },
   'Woo.ContextualTip':      { points: 1,  label: 'Right Moment', repeat: true },
-  'Woo.FullTipStreak':      { points: 8,  label: 'Everybody Eats' },
+  /* The "taken care of" goal bonus, paid when the SEVENTH hand closes — see
+   * TIP_GOAL. Worth nearly double what it was because it is the owner's own
+   * yardstick for the evening now ("if you tip 7 people it should be 100% of
+   * the taken care of goal") and because it is the one big score a player
+   * following the mission's stated goal earns without being charming: seven
+   * handshakes plus an ordinary evening at the table is what carries a normal
+   * run over the go-home line, which is the balance item 7 asks for. Tipping
+   * the other eight after it still pays their own per-tip points. */
+  'Woo.FullTipStreak':      { points: 15, label: 'Everybody Eats' },
   /* `Woo.TipRefused` used to live here. Nothing in this building refuses money,
    * and the one place it nearly fitted — holding the button on a man you have
    * already looked after — is refused by the interface for nothing, which is
@@ -86,8 +97,16 @@ export const EVENTS = {
   'Woo.DoorInHerFace':      { points: -2, repeat: true },
   'Woo.QuestionIgnored':    { points: -3, repeat: true },
 
-  /* ---- the table ---- */
-  'Woo.TableReaction':      { points: 2 },
+  /* ---- the table ----
+   *
+   * Four of the ordinary evening's beats — the reaction to the table, the
+   * family handled, the pillar acknowledged, the toast — each picked up a
+   * point on the item-7 rebalance: they are the things a player doing the
+   * mission's normal beats always does, and they are what has to carry a
+   * normal evening over the go-home line now that it is meant to be the easy
+   * default. The listening beats (the drink, the callback) keep their edge
+   * over all of them. */
+  'Woo.TableReaction':      { points: 3 },
   'Woo.ChairPulled':        { points: 3,  label: 'Pulled Her Chair' },
   'Woo.DateIntroduced':     { points: 4,  label: 'Introduced Her' },
   'Woo.WrongName':          { points: -6, label: 'That Is Not Her Name' },
@@ -103,8 +122,8 @@ export const EVENTS = {
   'Woo.Bragged':            { points: -4, repeat: true },
   'Woo.GruesomeDetail':     { points: -4, repeat: true },
   'Woo.LingeredWithFamily': { points: -3, repeat: true },
-  'Woo.FamilyHandled':      { points: 3,  label: 'Handled It' },
-  'Woo.ChampagneAcknowledged': { points: 2, label: 'Said Thank You' },
+  'Woo.FamilyHandled':      { points: 4,  label: 'Handled It' },
+  'Woo.ChampagneAcknowledged': { points: 4, label: 'Said Thank You' },
   'Woo.FunnyHowSuccess':    { points: 5,  label: 'Funny How' },
   'Woo.FunnyHowOverplayed': { points: -3 },
   'Woo.PersonalHonest':     { points: 3,  label: 'Straight Answer' },
@@ -114,7 +133,7 @@ export const EVENTS = {
   'Woo.PerformancePreferenceRemembered': { points: 4, label: 'Her Kind of Band' },
   'Woo.SongRequested':      { points: 2 },
   'Woo.StaredAtStage':      { points: -3, label: 'She Noticed', repeat: true },
-  'Woo.ToastMade':          { points: 3,  label: 'A Decent Toast' },
+  'Woo.ToastMade':          { points: 4,  label: 'A Decent Toast' },
   'Woo.ToastFumbled':       { points: -2 },
   'Woo.SwayCompleted':      { points: 5,  label: 'Danced, Technically' },
   'Woo.SwayRecovered':      { points: 2,  label: 'Recovered' },
@@ -166,10 +185,23 @@ export const TIP_POINTS = [
 /** What it costs to do the whole route properly, before you buy anything. */
 export const TIP_TOTAL = TIP_POINTS.reduce((n, t) => n + t.amount, 0);
 
-/** Every tip in the mission. Getting all of them is the streak. */
+/** Every tip in the mission. */
 export const TIP_ROSTER = Object.entries(EVENTS)
   .filter(([, e]) => e.group === 'tip')
   .map(([id]) => id);
+
+/**
+ * The "taken care of" goal: seven hands, not the whole roster.
+ *
+ * "If you tip 7 people it should be 100% of the taken care of goal." The
+ * streak used to demand all fifteen names, which made the board's promise a
+ * completionist hunt across two floors. Seven is the goal now, whatever the
+ * roster grows to: each tip is worth `ceil(100 / 7)` = 15% of the goal, the
+ * seventh closes it (105 → capped at 100), and the eight beyond it still pay
+ * their own points — they are just past the finish line, not the line itself.
+ */
+export const TIP_GOAL = 7;
+export const TIP_GOAL_CREDIT = Math.ceil(100 / TIP_GOAL);
 
 /**
  * Events that exist and cannot fire yet, with the reason.
@@ -246,9 +278,11 @@ export class Woo {
     this.hooks.onEvent?.(id, delta, def);
     if (delta !== 0) this.hooks.onChange?.(this.score, delta, def.label ?? null);
 
-    /* The streak closes itself the moment the last name on the roster is
-     * ticked, wherever the player happens to be standing. */
-    if (def.group === 'tip' && !this.streakClosed && this.tipsLeft === 0) {
+    /* The goal closes itself the moment the SEVENTH hand is shaken, wherever
+     * the player happens to be standing — see TIP_GOAL. It used to wait for
+     * the whole roster, which is still counted (`tipsLeft`, the ending card)
+     * but is no longer what the board asks anybody to finish. */
+    if (def.group === 'tip' && !this.streakClosed && this.tips.size >= TIP_GOAL) {
       this.streakClosed = true;
       this.hooks.onStreak?.(this.tips.size);
       this.fire('Woo.FullTipStreak');
@@ -260,6 +294,8 @@ export class Woo {
 
   get tipsLeft() { return TIP_ROSTER.filter((id) => !this.tips.has(id)).length; }
   get tipCount() { return this.tips.size; }
+  /** 0..100: how much of the taken-care-of goal is bought. 7 tips is 100. */
+  get goalProgress() { return Math.min(100, this.tips.size * TIP_GOAL_CREDIT); }
   get band() { return bandFor(this.score); }
 
   /** For the save, and for the ending. */

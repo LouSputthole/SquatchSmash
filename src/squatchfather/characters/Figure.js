@@ -23,8 +23,40 @@ function box(w, h, d, color, x = 0, y = 0, z = 0, opts = null) {
   return m;
 }
 
+// Trim comes in sets — two cuffs, two collar points, a row of buttons — so a
+// set is cut from ONE material rather than one material per slab.
+function part(w, h, d, mat, x = 0, y = 0, z = 0, rotZ = 0) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.rotation.z = rotZ;
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+// The one round thing on a figure cut from slabs: a button is a disc lying
+// against the cloth, which is the same recipe the shared cast uses.
+function disc(r, h, mat, x, y, z) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 8), mat);
+  m.position.set(x, y, z);
+  m.rotation.x = Math.PI / 2;
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+// A seam, a hem or a stripe is the garment's own cloth under different light,
+// never a second colour: positive darkens toward the shadow in the fold,
+// negative lifts toward the chalk in the weave.
+function shade(color, amount) {
+  return new THREE.Color(color)
+    .lerp(new THREE.Color(amount < 0 ? 0xffffff : 0x000000), Math.abs(amount))
+    .getHex();
+}
+
 export const DEFAULTS = {
   coat: 0x1e1f28,
+  trouser: null,        // defaults to the coat: a suit whose trousers match
   shirt: 0xe6e2d8,
   tie: 0x5a1e22,
   skin: 0xc79a72,
@@ -32,6 +64,18 @@ export const DEFAULTS = {
   bulk: 1,
   height: 1,
   fur: false,
+  // ---- tailoring ----
+  // Trim is not free — collar, notches, buttons, pockets, cuffs, hem and
+  // waistband are about twenty meshes on a figure. It goes to the men the
+  // camera holds on across a table, not to the room behind them.
+  trim: false,
+  pinstripe: false,     // true chalks the coat's own cloth; a colour overrides
+  pocketSquare: false,  // a colour puts one in the breast pocket
+  tieBar: false,        // a colour clips a bar across the tie
+  belt: false,          // a colour straps a waistband on under the jacket hem
+  buckle: 0xb9993f,
+  badge: false,         // a colour clips a shield on the belt beside the buckle
+  holster: false,       // a colour runs a shoulder strap across the shirt
   // ---- face ----
   iris: 0x3a2a18,       // eye colour, for whoever leans in close
   brow: null,           // defaults to a shade darker than the hair
@@ -181,6 +225,22 @@ export function buildFigure(opts = {}) {
   g.name = 'sf.figure';
   const bw = 0.52 * o.bulk;
   const bd = 0.3 * o.bulk;
+  const trouser = o.trouser ?? o.coat;
+  // The shirt's own front plane. The suit stacks against it in the order a man
+  // puts it on — shirt, tie over the shirt, jacket front over the shirt's
+  // edges — so nothing on the suit is drawn inside the garment beneath it.
+  const suitFront = bd * 0.71;
+  // One material per surface the trim is cut from, shared by every piece cut
+  // from that surface.
+  const trim = o.trim ? {
+    linen: new THREE.MeshLambertMaterial({ color: o.shirt }),
+    // A collar laid on the shirt front is the same cloth twice, so it only
+    // reads as a collar if the top layer is carrying a shadow.
+    collar: new THREE.MeshLambertMaterial({ color: shade(o.shirt, 0.16) }),
+    silk: new THREE.MeshLambertMaterial({ color: o.tie }),
+    seam: new THREE.MeshLambertMaterial({ color: shade(o.coat, 0.32) }),
+    horn: new THREE.MeshLambertMaterial({ color: shade(o.coat, 0.66) }),
+  } : null;
 
   // `root` tips the whole body in the character's own frame — used for falling.
   const root = new THREE.Group();
@@ -191,9 +251,36 @@ export function buildFigure(opts = {}) {
   pelvis.name = 'sf.pelvis';
   pelvis.position.y = STAND_PELVIS;
   root.add(pelvis);
-  const pelvisCoat = box(bw * 0.92, 0.2, bd, o.coat, 0, -0.04, 0);
+  const pelvisCoat = box(bw * 0.92, 0.2, bd, trouser, 0, -0.04, 0);
   pelvisCoat.name = 'sf.pelvis.coat';
   pelvis.add(pelvisCoat);
+
+  // ---- Waistband: the join between the jacket and the trousers, low enough
+  // on the hip that the jacket hem clears it instead of swallowing it.
+  if (o.belt) {
+    const strapMat = new THREE.MeshLambertMaterial({ color: o.belt });
+    const beltY = 0.005;
+    const strap = part(bw * 0.94, 0.046, bd * 1.02, strapMat, 0, beltY, 0);
+    strap.name = 'sf.pelvis.belt.strap';
+    const buckle = part(0.062, 0.05, 0.016, new THREE.MeshLambertMaterial({ color: o.buckle }),
+      0, beltY, bd * 0.52);
+    buckle.name = 'sf.pelvis.belt.buckle';
+    const tongue = part(0.011, 0.03, 0.008, strapMat, 0, beltY, bd * 0.55);
+    tongue.name = 'sf.pelvis.belt.tongue';
+    pelvis.add(strap, buckle, tongue);
+    // The shield rides the belt beside the buckle, on the hip a right hand
+    // clears — clipped on and standing a centimetre off the strap, not a
+    // decal and not a billboard.
+    if (o.badge) {
+      const shieldMat = new THREE.MeshLambertMaterial({ color: o.badge });
+      const shield = part(0.04, 0.036, 0.012, shieldMat, -bw * 0.17, beltY + 0.008, bd * 0.51);
+      shield.name = 'sf.pelvis.belt.badge';
+      const point = part(0.026, 0.026, 0.011, shieldMat,
+        -bw * 0.17, beltY - 0.012, bd * 0.51, Math.PI / 4);
+      point.name = 'sf.pelvis.belt.badge.point';
+      pelvis.add(shield, point);
+    }
+  }
 
   // ---- Legs: hip pivot → thigh → knee pivot → shin → shoe
   function leg(side) {
@@ -202,14 +289,14 @@ export function buildFigure(opts = {}) {
     hip.name = `sf.leg.${sideName}.hip`;
     hip.position.set(side * 0.15 * o.bulk, -0.1, 0);
     pelvis.add(hip);
-    const thigh = box(0.2 * o.bulk, 0.4, 0.21, o.coat, 0, -0.2, 0);
+    const thigh = box(0.2 * o.bulk, 0.4, 0.21, trouser, 0, -0.2, 0);
     thigh.name = `sf.leg.${sideName}.thigh`;
     hip.add(thigh);
     const knee = new THREE.Group();
     knee.name = `sf.leg.${sideName}.knee`;
     knee.position.set(0, -0.4, 0);
     hip.add(knee);
-    const shin = box(0.18 * o.bulk, 0.37, 0.19, o.coat, 0, -0.185, 0);
+    const shin = box(0.18 * o.bulk, 0.37, 0.19, trouser, 0, -0.185, 0);
     shin.name = `sf.leg.${sideName}.shin`;
     knee.add(shin);
     const shoe = box(0.19 * o.bulk, 0.1, 0.3, 0x14141a, 0, -0.37, 0.06);
@@ -243,27 +330,116 @@ export function buildFigure(opts = {}) {
   );
   shirt.name = 'sf.torso.shirt';
   torsoGarments.add(shirt);
+  // Proud of the shirt rather than inside it: a tie drawn behind the shirt
+  // front is a tie nobody in the restaurant will ever see.
   const tie = box(
     bw * 0.13, 0.4 * o.height, 0.03, o.tie,
-    0, -0.01 * o.height, bd * 0.6,
+    0, -0.01 * o.height, suitFront - 0.008,
   );
   tie.name = 'sf.torso.tie';
   torsoGarments.add(tie);
-  const lapelL = box(
-    bw * 0.2, 0.4 * o.height, 0.06, o.coat,
-    -bw * 0.24, 0.05 * o.height, bd * 0.45,
-  );
-  lapelL.name = 'sf.torso.lapel.left';
-  const lapelR = lapelL.clone();
-  lapelR.position.x = bw * 0.24;
-  lapelR.name = 'sf.torso.lapel.right';
-  torsoGarments.add(lapelL, lapelR);
+  const lapels = [];
+  for (const sx of [-1, 1]) {
+    // The jacket front closes over the shirt's edges, which is what narrows
+    // the visible shirt to a V instead of a bib.
+    const lapel = box(
+      bw * 0.2, 0.4 * o.height, 0.06, o.coat,
+      sx * bw * 0.24, 0.05 * o.height, suitFront - 0.026,
+    );
+    lapel.name = `sf.torso.lapel.${sx < 0 ? 'left' : 'right'}`;
+    torsoGarments.add(lapel);
+    lapels.push(lapel);
+  }
+  const [lapelL, lapelR] = lapels;
   const shoulderBar = box(
     bw * 1.18, 0.16, bd * 1.05, o.coat,
     0, 0.29 * o.height, 0,
   );
   shoulderBar.name = 'sf.torso.shoulders';
   torsoGarments.add(shoulderBar);
+
+  // ---- What a suit reads by at conversation distance: a notched lapel, a
+  // collar with a knotted tie in it, buttons on the closing edge, a breast
+  // pocket, and a hem that ends the jacket instead of letting it run into the
+  // trousers. All of it hangs on the breathing garment rig with the coat.
+  if (trim) {
+    const collar = part(bw * 0.44, 0.042, bd * 0.72, trim.collar, 0, 0.298 * o.height, bd * 0.26);
+    collar.name = 'sf.torso.collar.stand';
+    const knot = part(bw * 0.17, 0.052, 0.038, trim.silk, 0, 0.212 * o.height, suitFront - 0.004);
+    knot.name = 'sf.torso.tie.knot';
+    const tip = part(bw * 0.16, 0.052, 0.028, trim.silk, 0, -0.203 * o.height, suitFront - 0.006);
+    tip.name = 'sf.torso.tie.tip';
+    const hem = part(bw * 1.01, 0.034, bd * 1.02, trim.seam, 0, -0.30 * o.height, 0);
+    hem.name = 'sf.torso.jacket.hem';
+    const welt = part(bw * 0.18, 0.016, 0.012, trim.seam, bw * 0.38, 0.115 * o.height, bd * 0.5 + 0.008);
+    welt.name = 'sf.torso.pocket.welt';
+    torsoGarments.add(collar, knot, tip, hem, welt);
+
+    for (const sx of [-1, 1]) {
+      const side = sx < 0 ? 'left' : 'right';
+      const point = part(bw * 0.14, 0.082, 0.022, trim.collar,
+        sx * bw * 0.115, 0.252 * o.height, suitFront - 0.006, sx * 0.34);
+      point.name = `sf.torso.collar.point.${side}`;
+      // The notch: a short wing off the top of the lapel toward the shoulder
+      // seam, which is the step that separates a lapel from a slab of coat.
+      const notch = part(bw * 0.16, 0.052, 0.058, trim.seam,
+        sx * bw * 0.305, 0.238 * o.height, suitFront - 0.03, -sx * 0.4);
+      notch.name = `sf.torso.lapel.notch.${side}`;
+      // The roll line, kept clear of the shirt so it draws the jacket's own
+      // edge rather than a stripe down the shirt front.
+      const roll = part(0.014, 0.3 * o.height, 0.062, trim.seam,
+        sx * bw * 0.245, 0.05 * o.height, suitFront - 0.024);
+      roll.name = `sf.torso.lapel.roll.${side}`;
+      torsoGarments.add(point, notch, roll);
+    }
+
+    // Buttons on the closing edge, on his left — the figure faces +Z, so his
+    // left hand is on +X and a man's jacket buttons go with it.
+    for (const by of [-0.03, -0.115]) {
+      const button = disc(0.011, 0.006, trim.horn,
+        bw * 0.245, by * o.height, suitFront + 0.008);
+      button.name = 'sf.torso.jacket.button';
+      torsoGarments.add(button);
+    }
+
+    if (o.pinstripe) {
+      // Chalk stripe on the coat the jacket actually shows: the middle of the
+      // chest is shirt and lapel, so a stripe there is a stripe nobody sees.
+      const stripeMat = new THREE.MeshLambertMaterial({
+        color: o.pinstripe === true ? shade(o.coat, -0.3) : o.pinstripe,
+      });
+      for (const sx of [-0.455, -0.375, 0.375, 0.455]) {
+        const stripe = part(0.008, 0.44 * o.height, 0.008, stripeMat,
+          sx * bw, 0, bd * 0.5 + 0.004);
+        stripe.name = 'sf.torso.pinstripe';
+        torsoGarments.add(stripe);
+      }
+    }
+    if (o.pocketSquare) {
+      const square = part(bw * 0.13, 0.026, 0.014,
+        new THREE.MeshLambertMaterial({ color: o.pocketSquare }),
+        bw * 0.38, 0.132 * o.height, bd * 0.5 + 0.012);
+      square.name = 'sf.torso.pocket-square';
+      torsoGarments.add(square);
+    }
+    if (o.tieBar) {
+      const bar = part(bw * 0.19, 0.014, 0.016,
+        new THREE.MeshLambertMaterial({ color: o.tieBar }),
+        0, 0.06 * o.height, suitFront + 0.006);
+      bar.name = 'sf.torso.tie.bar';
+      torsoGarments.add(bar);
+    }
+    if (o.holster) {
+      // Over the right shoulder and down under the jacket front, which is the
+      // way the strap runs on a man who draws with his right hand. Kept off
+      // the tie: a strap across the knot is a seatbelt, not a holster.
+      const strap = part(0.034, 0.3 * o.height, 0.018,
+        new THREE.MeshLambertMaterial({ color: o.holster }),
+        -bw * 0.155, 0.12 * o.height, suitFront + 0.004, 0.2);
+      strap.name = 'sf.torso.holster.strap';
+      torsoGarments.add(strap);
+    }
+  }
 
   // ---- Head
   const neck = new THREE.Group();
@@ -294,6 +470,15 @@ export function buildFigure(opts = {}) {
     const hand = box(0.13, 0.13, 0.15, o.skin, 0, -0.36, 0.02);
     hand.name = `sf.arm.${sideName}.hand`;
     elbow.add(hand);
+    if (trim) {
+      // A turnback at the end of the sleeve with a sliver of shirt cuff below
+      // it — the wrist is where a suit either finishes or stops.
+      const cuff = part(0.142 * o.bulk, 0.052, 0.152, trim.seam, 0, -0.276, 0);
+      cuff.name = `sf.arm.${sideName}.cuff.coat`;
+      const linen = part(0.133 * o.bulk, 0.032, 0.143, trim.linen, 0, -0.318, 0);
+      linen.name = `sf.arm.${sideName}.cuff.shirt`;
+      elbow.add(cuff, linen);
+    }
     return { shoulder, elbow, hand };
   }
   const armL = arm(-1);
@@ -337,7 +522,7 @@ export class Figure {
   }
 
   place(x, z, facing) {
-    this.group.position.set(x, 0, z);
+    this.group.position.set(x, 0.005, z);
     this.group.rotation.y = facing;
   }
 

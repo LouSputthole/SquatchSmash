@@ -39,7 +39,7 @@ function follow(campaign, sceneId, href) {
   assert.equal(campaign.state.scene.id, sceneId);
 }
 
-test('the final arc has stable scene ids, URLs, spawns, and no edge past Initiation', () => {
+test('the final arc has stable scene ids, URLs, spawns, and one ending edge home', () => {
   assert.equal(SCENE_IDS.SILVER_CASE, 'silver_case');
   assert.equal(SCENE_IDS.MANSION, 'mansion');
   assert.equal(SCENE_IDS.MANSION_SIEGE, 'mansion_siege');
@@ -55,12 +55,15 @@ test('the final arc has stable scene ids, URLs, spawns, and no edge past Initiat
   follow(campaign, SCENE_IDS.ENOLA_SQUATCH, 'enolasquatch.html');
   follow(campaign, SCENE_IDS.MANSION_RETURN, 'mansion.html?visit=return');
   follow(campaign, SCENE_IDS.CARTEL_PALACE, 'cartel-palace.html');
+  /* And the Palace no longer runs straight into the ceremony. He goes home,
+   * Booskibro rings, and three men come and collect him — see
+   * `src/specialmeeting/`, which hands off at the treeline. */
+  follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
   follow(campaign, SCENE_IDS.INITIATION, 'initiation.html');
 
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.INITIATION, spawn: 'gathering' });
-  /* Past the Initiation there is only the gap G1 temporary exit home — one
-   * edge, to the apartment, so no save is trapped in a terminal scene. The
-   * arc itself still ends here until the owner-gated rewrite routes it. */
+  /* Initiation remains frozen and owns the ceremony; its one edge home is
+   * now the durable Apartment credits, career recap, and freeplay handoff. */
   assert.throws(
     () => campaign.transition(SCENE_IDS.MANSION, { spawn: 'gate' }),
     /Cannot transition from "initiation" to "mansion"/,
@@ -70,7 +73,7 @@ test('the final arc has stable scene ids, URLs, spawns, and no edge past Initiat
 });
 
 test('a fresh schema carries locked durable records for every final-arc mission', () => {
-  assert.equal(CAMPAIGN_VERSION, 16);
+  assert.equal(CAMPAIGN_VERSION, 19);
   assert.equal(MISSION_IDS.SILVER_CASE, 'silver_case');
   assert.equal(MISSION_IDS.MANSION_SIEGE, 'mansion_siege');
   assert.equal(MISSION_IDS.ENOLA_SQUATCH, 'enola_squatch');
@@ -126,7 +129,7 @@ test('a valid v14 Siege save gains the compact checkpoint field without corrupti
   const migrated = createCampaign({ storage });
   assert.equal(migrated.recoveredNow, false);
   assert.equal(migrated.recovery, null);
-  assert.equal(migrated.state.version, 16);
+  assert.equal(migrated.state.version, CAMPAIGN_VERSION);
   assert.equal(migrated.state.revision, 37);
   assert.deepEqual(migrated.state.scene, {
     id: SCENE_IDS.MANSION_SIEGE,
@@ -167,7 +170,7 @@ test('a valid v15 Palace save gains combat durability without changing its facts
   const migrated = createCampaign({ storage });
   assert.equal(migrated.recoveredNow, false);
   assert.equal(migrated.recovery, null);
-  assert.equal(migrated.state.version, 16);
+  assert.equal(migrated.state.version, CAMPAIGN_VERSION);
   assert.equal(migrated.state.revision, 52);
   assert.deepEqual(migrated.state.scene, {
     id: SCENE_IDS.CARTEL_PALACE,
@@ -586,6 +589,8 @@ test('Cartel Palace records the betrayal and only opens Initiation after the fin
   campaign.update((next) => {
     next.missions[MISSION_IDS.INITIATION].status = 'in_progress';
   });
+  // Through the Special Meeting, which is the only way out of the Palace now.
+  follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
   follow(campaign, SCENE_IDS.INITIATION, 'initiation.html');
   campaign = createCampaign({ storage });
   state = campaign.state;

@@ -35,9 +35,9 @@ import { CABIN } from './deck-collision.js';
  * lower because the sole did, and the platform is 0.50 m further aft.
  */
 const CARRY_PATH = Object.freeze([
-  { at: 0.00, pos: [0.10, -0.48, -3.85], yaw: -0.10, roll: 0 },
-  { at: 0.10, pos: [0.00, 0.14, -3.55], yaw: -0.06, roll: 0 },
-  { at: 0.22, pos: [-0.25, 0.20, -2.95], yaw: 0.02, roll: 0 },
+  { at: 0.00, pos: [0.10, -0.48, -3.53], yaw: -0.10, roll: 0 },
+  { at: 0.10, pos: [0.00, 0.14, -3.23], yaw: -0.06, roll: 0 },
+  { at: 0.22, pos: [-0.25, 0.20, -2.75], yaw: 0.02, roll: 0 },
   { at: 0.40, pos: [-0.80, 1.14, -1.30], yaw: 0.02, roll: 0 },
   { at: 0.52, pos: [-1.10, 1.34, -0.30], yaw: 0.06, roll: 0 },
   { at: 0.70, pos: [0.05, 1.34, 2.10], yaw: 0.10, roll: 0 },
@@ -46,7 +46,7 @@ const CARRY_PATH = Object.freeze([
 ]);
 
 /** Where each carrier stands relative to the bag, at the head and the feet. */
-const CARRIER_OFFSET = Object.freeze({ head: -1.14, feet: 1.14 });
+const CARRIER_OFFSET = Object.freeze({ head: -1.30, feet: 1.14 });
 
 function samplePath(t) {
   const k = THREE.MathUtils.clamp(t, 0, 1);
@@ -87,7 +87,7 @@ export function createBodyRig(boat) {
   const tarpGroup = new THREE.Group();
   tarpGroup.name = 'tarpaulin';
   tarpGroup.add(tarp);
-  tarpGroup.position.set(0.10, CABIN.height + 0.01, -3.85);
+  tarpGroup.position.set(0.10, CABIN.height + 0.01, -3.53);
   tarpGroup.rotation.y = -0.10;
   tarpGroup.visible = false;
   root.add(tarpGroup);

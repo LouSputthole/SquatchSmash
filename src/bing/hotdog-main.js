@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
 import { AuthoredClock } from '../core/authored-clock.js';
+import { BloodImpactSystem, BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import {
   CHARACTER_IDS,
   MISSION_IDS,
@@ -18,6 +19,7 @@ import { translateKey, shakeScale } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { buildBooskiShotProps, createBooskiShotBeat } from './booski-shot.js';
 import { buildClub, roomAt } from './club.js';
 import {
   APE_EXIT_ROUTE,
@@ -29,12 +31,18 @@ import { createHotDogChatter } from './hotdog-chatter.js';
 import { restoreHotDogCleanupPresentation } from './hotdog-cleanup-presentation.js';
 import { buildHotDogParty } from './hotdog-party.js';
 import {
+  HOTDOG_PREVIEW_CHECKPOINTS,
+  poseHotDogAttackGeometry,
+  poseHotDogCleanupRolesGeometry,
+  poseHotDogResolvedAttackGeometry,
+  showHotDogCleanupGuidesGeometry,
+} from './preview.js';
+import {
   HOTDOG_SPEAKERS,
   HOTDOG_STAGED_LINES,
   HOTDOG_WALKUP_LINES,
 } from './hotdog-room-voices.js';
 import {
-  SECOND_VISIT_CLEANUP_TASKS,
   SecondVisitMission,
   buildHotDogPartySequence,
 } from './second-visit.js';
@@ -95,7 +103,7 @@ assetStatus.textContent = 'Closed party · Hog Mama set · sudden attack · clea
  * leaves the party director running afterward so the real handoff dialogue
  * and the real ending card play out on the next few real frames.
  */
-const HOTDOG_CHECKPOINTS = Object.freeze(['party', 'attack', 'cleanup', 'graveyard']);
+const HOTDOG_CHECKPOINTS = HOTDOG_PREVIEW_CHECKPOINTS;
 const HOTDOG_CHECKPOINT_LABELS = Object.freeze({
   party: 'THE PARTY',
   attack: 'THE ATTACK',
@@ -184,7 +192,12 @@ const state = {
   kitTaken: false,
   finalSwept: false,
   wrapped: false,
+  carrying: false,
   loaded: false,
+  debriefed: false,
+  departing: false,
+  holdingShot: false,
+  plateTaken: false,
   lineHistory: [],
   endingShown: false,
   cinematic: {
@@ -383,6 +396,17 @@ const partyActors = {
   [CHARACTER_IDS.LOU]: party.extra.lou,
   [CHARACTER_IDS.BILLY_HOTDOG]: party.extra.hotdog,
   [CHARACTER_IDS.AUBBIE]: party.extra.aubbie,
+  /* Sauce is built by the party rather than seated by the Family roster (he
+   * is working the buffet), so he never reached this table and every line
+   * anybody wrote him came out of a HUD with nobody's mouth moving. */
+  [CHARACTER_IDS.SAUCE]: party.extra.sauce,
+  /* The people working the room. They are jobs, not campaign characters, so
+   * `HOTDOG_SPEAKERS` files them under `staff:` keys rather than inventing
+   * roster ids for a bartender. Only the left-hand guard talks; the other man
+   * holds the door, which is what two men on a door are for. */
+  'staff.bartender': party.extra.bartender,
+  'staff.dealer': party.extra.dealer,
+  'staff.security_door': party.extra.securityL,
 };
 
 /**
@@ -487,7 +511,23 @@ function walkOnce(npc, route, speed, { onArrive = null, timeout = 0 } = {}) {
   });
 }
 
+/**
+ * Take an actor off an authored walk.
+ *
+ * Forgetting the bookkeeping entry is only half of it. `walkOnce` also put the
+ * actor on `job: 'patrol'` with a `route`, and `Npc.update` reads those every
+ * frame -- so a cancel that only dropped the map entry left the man walking
+ * his authored line with nothing left to take him off it at the end, which is
+ * the one thing `arriveAt` exists to prevent. Clear the same two fields
+ * `arriveAt` clears; both call sites re-pose the actor immediately afterwards
+ * (`poseHotDogAttackGeometry` / `poseHotDogResolvedAttackGeometry`, and the
+ * restored-save branch in the chatter reactions), so 'stand' is only ever a
+ * resting state between the cancel and the scene's own staging.
+ */
 function cancelWalk(npc) {
+  if (!npc) return;
+  npc.route = null;
+  npc.job = 'stand';
   authoredWalks.delete(npc);
 }
 
@@ -543,24 +583,22 @@ function walkShubenatorIn() {
  * They used to appear on Ape's last punch, which put two glowing rings in the
  * middle of the shot while the room was still watching a man go down. */
 function revealEvidenceCircles() {
-  for (const marker of Object.values(party.cleanup.evidenceMarkers)) marker.visible = true;
+  showHotDogCleanupGuidesGeometry(party);
 }
 
 function applyResolvedAttackPresentation() {
   state.fallen = true;
+  cancelWalk(party.byId.ape);
+  poseHotDogResolvedAttackGeometry(party);
+  /* The pool keeps spreading under him while the room decides what to do —
+   * on the shared bounded pool system, on the sim clock, beside the authored
+   * cleanup decal rather than replacing it. Anchored to wherever the shared
+   * pose helper left the body, so the two never drift apart. */
   const hotdog = party.extra.hotdog;
-  const ape = party.byId.ape;
-  cancelWalk(ape);
-  hotdog.job = 'stand';
-  hotdog.route = null;
-  hotdog.group.position.set(-15.8, 0.25, -0.45);
-  hotdog.group.rotation.set(0, 1.3, -1.34);
-  ape.route = null;
-  ape.job = 'stand';
-  ape.group.position.set(-14.9, 0, -0.25);
-  ape.group.rotation.y = -1.6;
-  party.cleanup.blood.visible = true;
-  party.cleanup.brokenStool.visible = true;
+  _spillAt.set(hotdog.group.position.x + 0.2, 0, hotdog.group.position.z - 0.1);
+  gore.splats.spill(_spillAt, {
+    floorY: 0, size: 0.9, opacity: 0.88, delay: 0.35, seed: 41,
+  });
 }
 
 function resolveAttack() {
@@ -576,6 +614,121 @@ function resolveAttack() {
   return true;
 }
 
+/* ---- the gore layer (2026-08-19 owner note) ----
+ *
+ * "Gorey, I want extra extra gore. Blood splatting into the air."  Three
+ * shared systems from src/world/blood.js, the same module the mansion and the
+ * store room already use, mounted once and updated on the sim clock:
+ *   impacts  attached wounds + secondary spatter on both bodies
+ *   spurts   arterial droplets thrown INTO THE AIR off each strike
+ *   splats   small bounded floor decals where those droplets come down,
+ *            plus the spreading pool once he is on the boards
+ * All working vectors are preallocated — nothing here allocates per frame. */
+const gore = {
+  impacts: new BloodImpactSystem(scene),
+  spurts: new BloodSpurtSystem(scene, { capacity: 56 }),
+  splats: new DeathBloodPool(scene, { capacity: 8, growthSeconds: 0.55 }),
+};
+const _stabPoint = new THREE.Vector3();
+const _stabDir = new THREE.Vector3();
+const _spillAt = new THREE.Vector3();
+/* How many airborne droplets may still become a floor decal. Topped up per
+ * strike, spent by landings, so one burst cannot drain the bounded pool. */
+let splatBudget = 0;
+const splatWhereItLands = (x, z) => {
+  if (splatBudget <= 0) return;
+  splatBudget -= 1;
+  _spillAt.set(x, 0, z);
+  gore.splats.spill(_spillAt, {
+    floorY: 0,
+    size: 0.2 + Math.random() * 0.18,
+    opacity: 0.78,
+  });
+};
+/* The evidence the mop is FOR. The final sweep is the beat where the floor
+ * stops testifying, so the sweep clears the strike decals with it. Wounds on
+ * the two men deliberately stay — nobody has changed clothes. */
+function clearStrikeSplats() {
+  gore.splats.reset();
+}
+
+function goreStrike(hit) {
+  const hotdog = party.extra.hotdog;
+  const ape = party.byId.ape;
+  hotdog.group.updateWorldMatrix(true, true);
+  /* The wound: chest height on the rig, alternating sides per strike, at the
+   * exact point the shared system pins to the body so it follows his fall. */
+  _stabPoint.set(hit % 2 ? 0.09 : -0.07, 1.26 - (hit % 3) * 0.08, 0.16);
+  hotdog.parts.body.localToWorld(_stabPoint);
+  _stabDir.set(
+    hotdog.position.x - ape.position.x,
+    0.3,
+    hotdog.position.z - ape.position.z,
+  ).normalize();
+  gore.impacts.hit({
+    actor: hotdog,
+    anchor: hotdog.parts.body,
+    point: _stabPoint,
+    normal: _stabDir,
+  });
+  /* Arterial spurt: droplets arc INTO THE AIR off the wound, away from the
+   * blade, and each landing may stamp a splatter decal on the boards. */
+  splatBudget = Math.min(splatBudget + 2, 4);
+  gore.spurts.burst(_stabPoint, _stabDir, {
+    count: 8 + hit * 3,
+    speed: 2.1 + hit * 0.4,
+    upward: 2.5 + hit * 0.25,
+    floorY: 0,
+    onLand: splatWhereItLands,
+  });
+  /* Blood on Ape. He is standing in it from the second strike on: a mark on
+   * his own rig, no secondary spatter — it is HotDog's blood, not his. */
+  if (hit >= 2) {
+    ape.group.updateWorldMatrix(true, true);
+    _stabPoint.set(hit % 2 ? 0.07 : -0.05, 1.12 + (hit % 2) * 0.1, 0.17);
+    ape.parts.body.localToWorld(_stabPoint);
+    _stabDir.set(
+      ape.position.x - hotdog.position.x,
+      0.1,
+      ape.position.z - hotdog.position.z,
+    ).normalize();
+    gore.impacts.hit({
+      actor: ape,
+      anchor: ape.parts.body,
+      point: _stabPoint,
+      normal: _stabDir,
+      spatter: false,
+    });
+  }
+}
+
+/* One strike's sound: the recorded body thud carries the weight tonight, and
+ * the authored stab layer sits on top the moment each recording lands —
+ * gated on `hasSample`, the same contract License to Grill's PENDING cues
+ * keep, so an undelivered cue is silence rather than a synth noise. */
+function strikeAudio(hit, final, at) {
+  audio.play(`hotdog.fist.impact.${hit}`, {
+    volume: final ? 0.96 : 0.82,
+    position: at,
+  });
+  if (audio.hasSample?.(`hotdog.stab.flesh.${hit}`)) {
+    audio.play(`hotdog.stab.flesh.${hit}`, { volume: final ? 0.9 : 0.78, position: at });
+  }
+  /* The jacket goes on the first strike; after that the blade is through it. */
+  if (hit === 1 && audio.hasSample?.('hotdog.stab.cloth.tear')) {
+    audio.play('hotdog.stab.cloth.tear', { volume: 0.55, position: at, delay: 0.04 });
+  }
+  /* His grunts going quiet: loud on one, a wheeze by four. The recordings are
+   * performed quieter AND mixed quieter, so the fade survives either. */
+  if (audio.hasSample?.(`hotdog.stab.grunt.${hit}`)) {
+    audio.play(`hotdog.stab.grunt.${hit}`, {
+      volume: [0.9, 0.72, 0.5, 0.34][hit - 1] ?? 0.34,
+      position: at,
+      delay: 0.09,
+    });
+  }
+}
+
 const attack = createHotDogAttack({
   ape: party.byId.ape,
   hotdog: party.extra.hotdog,
@@ -583,10 +736,8 @@ const attack = createHotDogAttack({
   onImpact: ({ hit, final }) => {
     const hotdog = party.extra.hotdog;
     state.cinematic.shake = final ? 0.15 : 0.10;
-    audio.play(`hotdog.fist.impact.${hit}`, {
-      volume: final ? 0.96 : 0.82,
-      position: hotdog.position,
-    });
+    strikeAudio(hit, final, hotdog.position);
+    goreStrike(hit);
     if (final) {
       audio.play('hotdog.body.floor', { volume: 0.94, position: hotdog.position });
       audio.play('glass.wine.fall', { volume: 0.72, position: hotdog.position });
@@ -595,46 +746,13 @@ const attack = createHotDogAttack({
   },
 });
 
-/**
- * What the rest of the party does with its head while Ape works.
- *
- * Most of them turn to the noise. Gratin, Old Stove and Lag turn away from it,
- * which is a pose and not a line -- what each of them says is queued behind
- * this and comes out either side of the aftermath beats.
- */
-function turnRoomToTheAttack() {
-  const hotdog = party.extra.hotdog;
-  const ape = party.byId.ape;
-  const lookAway = new Set([
-    party.byId[CHARACTER_IDS.GRATIN],
-    party.byId[CHARACTER_IDS.OLD_STOVE],
-    party.byId[CHARACTER_IDS.LAG],
-  ].filter(Boolean));
-  for (const npc of party.all) {
-    if (npc === ape || npc === hotdog) continue;
-    if (lookAway.has(npc)) {
-      npc.faceToward(npc.position.x * 2 - hotdog.position.x, npc.position.z * 2 - hotdog.position.z);
-    } else {
-      npc.faceToward(hotdog.position.x, hotdog.position.z);
-    }
-  }
-}
-
 function stageAttack() {
   if (state.fallen || attack.active || !mission.startAttack()) return false;
   const hotdog = party.extra.hotdog;
   const ape = party.byId.ape;
   cancelWalk(ape);
-  ape.route = null;
-  ape.job = 'stand';
-  ape.group.position.set(-14.9, 0, -0.25);
-  ape.faceToward(hotdog.position.x, hotdog.position.z, true);
-  hotdog.route = null;
-  hotdog.job = 'stand';
-  hotdog.group.position.set(-15.8, 0, -0.45);
-  hotdog.faceToward(ape.position.x, ape.position.z, true);
+  poseHotDogAttackGeometry(party);
   audio.play('hotdog.knife.draw', { volume: 0.68, position: ape.position });
-  turnRoomToTheAttack();
   chatter.startAttackReactions();
   state.director.waitingForAttack = true;
   return attack.start();
@@ -643,29 +761,7 @@ function stageAttack() {
 function assignCleanupRoles() {
   if (state.cleanupActive) return;
   state.cleanupActive = true;
-  const set = (npc, x, z, job = 'work', yaw = 0) => {
-    if (!npc) return;
-    npc.route = null;
-    npc.job = job;
-    npc.baseY = 0;
-    npc.group.position.set(x, 0, z);
-    npc.group.rotation.y = yaw;
-  };
-  set(party.byId.ape, 4.25, -4.5, 'sit', -Math.PI / 2);
-  set(party.byId.deathmegatron, 3.25, -3.7, 'stand', -Math.PI / 2);
-  party.byId.deathmegatron.folded = true;
-  // Keep the east side of the body and both evidence approaches open for the
-  // player; the helpers work from the bar side instead of becoming blockers.
-  set(party.byId.rippinflow, -16.8, 1.15, 'stand', 2.5);
-  set(party.byId.numbskull, -17.65, -2.15, 'stand', 0.65);
-  set(party.extra.aubbie, -18.25, 0.15, 'work', 1.45);
-  set(party.byId.booski, -18.2, 1.9, 'work', Math.PI / 2);
-  set(party.byId.hogmama, -2.4, 5.8, 'work', -2.8);
-  set(party.byId.gratin, -1.0, 5.8, 'work', 2.8);
-  set(party.byId.shubenator, -5.6, -8.1, 'work', 0);
-  set(party.byId.snow, 6.45, -8.2, 'stand', Math.PI);
-  set(party.extra.sauce, -3.6, 6.2, 'work', -2.6);
-  party.byId.eric.group.visible = false;
+  poseHotDogCleanupRolesGeometry(party);
   /* Lou turns panic into departments, and he does it out loud. Queued rather
    * than spoken now: the aftermath beats are still running, and the chatter
    * only takes the room once the director has finished with it. */
@@ -727,7 +823,7 @@ function updateDirector(dt) {
   if (!next) {
     d.running = false;
     releaseCinematic();
-    if (mission.readyToLeave) finishParty();
+    beginDeparture();
     return;
   }
   if (next.phase === 'handoff' && !d.handoffReady) return;
@@ -776,6 +872,120 @@ interaction.register(party.stage.controls, {
     if (!beginSequence()) return;
     hud.toast('HOG MAMA · 30 SECOND SET', 'good');
     audio.play('switch.click', { volume: 0.72, position: party.stage.controls.position });
+  },
+});
+
+/* ------------------------------------------------------------------ *
+ * THE PARTY, before any of this is a crime scene.
+ *
+ * Owner, 2026-08-19: the opening objective is ENJOY THE PARTY, and the player
+ * gets to be in the room before Billy's night starts. Nothing below is a new
+ * system -- it is Booski's shot (the same one the ordinary night runs, out of
+ * src/bing/booski-shot.js), Sauce's buffet, the felt, and the Family's own
+ * walk-up conversations. The set becomes an objective once the Prospect has
+ * actually had three of them, or after ninety seconds, whichever he reaches
+ * first; nobody is locked out of their own scene by an optional drink.
+ * ------------------------------------------------------------------ */
+function partyBeat(id) {
+  if (mission.enjoyedParty(id)) repaintObjectives();
+}
+
+/* Booski's already-recorded shot bank, reused verbatim rather than rewritten:
+ * these are the exact takes `src/bing/family.js` gives him on the ordinary
+ * night (`vo.bing.booski.shot.*`), so the party costs the booth nothing. */
+const BOOSKI_SHOT_TAKES = Object.freeze({
+  bartender: Object.freeze({
+    text: 'House rye. If he asks, it was twenty-nine seconds.',
+    cue: 'vo.bing.bartender.booski-shot.pour',
+  }),
+  handoff: Object.freeze({
+    who: 'Booskibro',
+    line: 'Twenty-eight. He\'s growin\' on me. Drink, baby.',
+    cue: 'vo.bing.booski.shot.handoff',
+    seconds: 2.8,
+  }),
+  after: Object.freeze({
+    who: 'Booskibro',
+    line: 'There he is. Now you look like you belong in here.',
+    cue: 'vo.bing.booski.shot.after',
+    seconds: 3.5,
+  }),
+});
+
+const shotProps = buildBooskiShotProps({
+  scene,
+  camera,
+  bartender: party.extra.bartender,
+  barService: club.anchors.barService,
+});
+
+const shotBeat = createBooskiShotBeat({
+  props: shotProps,
+  audio,
+  player,
+  interaction,
+  hud,
+  bartender: party.extra.bartender,
+  booski: party.byId.booski ?? null,
+  barService: club.anchors.barService,
+  cueSeconds,
+  voiceCue: (name) => playCue(name),
+  bartenderLine: BOOSKI_SHOT_TAKES.bartender,
+  /* This page has no inventory and no drunk meter, so the glass is a flag and
+   * throwing it back is a party beat rather than a stat. */
+  hasGlass: () => state.holdingShot,
+  onDeliver: () => {
+    state.holdingShot = true;
+    hud.toast('Booski is watching. [E] Throw it back.', 'good');
+  },
+  onDrained: () => {
+    state.holdingShot = false;
+    mission.drank();
+    partyBeat('shot');
+  },
+  onHandoff: () => chatter.interrupt(BOOSKI_SHOT_TAKES.handoff),
+  onAfter: () => chatter.interrupt(BOOSKI_SHOT_TAKES.after),
+  isDialogueBusy: () => !!state.director.current || !!chatter.speaking,
+});
+
+/** Whether Booskibro is currently the man with the shot rather than a chat. */
+function booskiOffersShot(npc) {
+  return npc === party.byId.booski
+    && !shotBeat.done
+    && !!party.extra.bartender
+    && mission.state === 'party';
+}
+
+function startBooskiShot() {
+  const seconds = chatter.interrupt(HOTDOG_STAGED_LINES.booskiShotOffer);
+  /* He asks, and then the bartender moves. Same contract the ordinary night
+   * keeps for his thirty-seconds yell: the pour may not begin until Booski
+   * has actually finished speaking. Re-checked on arrival, because three
+   * seconds is long enough for the player to have started Hog Mama's set --
+   * a bar cutaway landing on top of the authored spine is the one thing this
+   * page is careful never to allow. */
+  setTimeout(() => {
+    if (state.phase !== 'active' || state.paused) return;
+    if (mission.state !== 'party' || state.director.running) return;
+    shotBeat.start();
+  }, Math.round(Math.max(0, seconds + 0.2) * 1000));
+}
+
+interaction.register(party.food.group, {
+  label: 'Take a plate from <b>Sauce</b>',
+  enabled: () => state.phase === 'active'
+    && mission.state === 'party'
+    && !state.director.current
+    && !state.plateTaken,
+  onUse: () => {
+    state.plateTaken = true;
+    party.extra.sauce?.faceToward(player.position.x, player.position.z, true);
+    speakThenNote(
+      HOTDOG_STAGED_LINES.sauceBuffetPlate,
+      'Beef, peppers, and corn nobody in this building paid for.',
+      3600,
+    );
+    partyBeat('plate');
   },
 });
 
@@ -836,39 +1046,84 @@ for (const [id, prop] of [['cufflink', party.cleanup.cufflink], ['lapel', party.
   });
 }
 
+/**
+ * Lou, at every stage of his own evening.
+ *
+ * The order is the owner's (2026-08-19) and it is the whole reason the
+ * mission grew a `debrief` state: the floor first, then the body leaves the
+ * building, and ONLY THEN does the man ask for the room to be swept. Lou is
+ * the gate on that last step and nothing else can open it.
+ */
 interaction.register(party.extra.lou.group, {
-  label: () => state.cleanupActive ? 'Report to <b>Lou for the final sweep</b>' : 'Talk to <b>Lou</b>',
+  label: () => {
+    if (!state.cleanupActive) return 'Talk to <b>Lou</b>';
+    if (mission.state === 'debrief') return 'Report to <b>Big Uncle Lou</b>';
+    return 'Talk to <b>Lou</b>';
+  },
   enabled: () => state.phase === 'active' && !state.director.current,
   onUse: () => {
     if (!state.cleanupActive) {
       chatter.interrupt(HOTDOG_STAGED_LINES.louPartyGreeting);
+      partyBeat('talk');
       return;
     }
-    const prerequisites = ['bathrooms', 'cleaning_kit', 'missing_evidence']
-      .every((task) => mission.cleanup.has(task));
-    if (!prerequisites) {
+    if (mission.state === 'cleanup' && !mission.roomClean) {
       const missing = [];
-      if (!mission.cleanup.has('bathrooms')) missing.push('bathrooms');
+      if (!mission.cleanup.has('bathrooms')) missing.push('the men\'s room');
       if (!mission.cleanup.has('cleaning_kit')) missing.push('Aubbie\'s kit');
       if (!mission.cleanup.has('missing_evidence')) missing.push('HotDog\'s jewelry');
-      /* He refuses the sweep in his own voice. The list of what is still owed
-       * is a checklist, so it follows him rather than standing in for him --
-       * and it is the part that cannot be a recording, because it depends on
-       * what this particular player has left undone. */
+      /* He refuses in his own voice. The list of what is still owed is a
+       * checklist, so it follows him rather than standing in for him -- and it
+       * is the part that cannot be a recording, because it depends on what
+       * this particular player has left undone. */
       speakThenNote(HOTDOG_STAGED_LINES.louSweepIncomplete, `Still owed: ${missing.join(', ')}.`, 4200);
       return;
     }
-    if (!state.finalSwept) {
-      state.finalSwept = true;
-      completeCleanupTask('final_sweep');
-      restoreHotDogCleanupPresentation(party, mission.cleanup);
+    if (mission.state === 'cleanup' || mission.state === 'body-ready') {
       /* The line the owner caught: the HUD used to narrate Lou checking the
        * room and then quote him, with Lou stood in front of the player saying
        * nothing. He says it. */
       chatter.interrupt(HOTDOG_STAGED_LINES.louWrapHim);
-    } else {
-      chatter.interrupt(HOTDOG_STAGED_LINES.louRoomClosed);
+      return;
     }
+    if (mission.state === 'debrief') {
+      if (!mission.debriefLou()) return;
+      state.debriefed = true;
+      repaintObjectives();
+      /* THE SWEEP IS BORN HERE. Not on the frame Billy hit the boards. */
+      speakThenNote(
+        HOTDOG_STAGED_LINES.louSweepOrder,
+        'The boards where he fell, and everything the pool reached.',
+        4200,
+      );
+      return;
+    }
+    chatter.interrupt(HOTDOG_STAGED_LINES.louRoomClosed);
+  },
+});
+
+/**
+ * Lou's final evidence sweep, as an actual act rather than a conversation.
+ *
+ * It used to be a second press on Lou himself, which meant "sweep the room"
+ * was two men talking. He orders it; the Prospect does it, on his knees, on
+ * the boards Billy bled into, with the kit he already went and fetched.
+ */
+interaction.register(party.cleanup.blood, {
+  label: 'Hold to <b>sweep the floor</b> with Aubbie\'s kit',
+  hold: 2.2,
+  enabled: () => state.phase === 'active'
+    && mission.state === 'sweep'
+    && !state.finalSwept,
+  onTap: () => hud.say('Hold it. Chemicals, then the light, then again.', 2600),
+  onUse: () => {
+    if (!completeCleanupTask('final_sweep')) return;
+    state.finalSwept = true;
+    restoreHotDogCleanupPresentation(party, mission.cleanup);
+    clearStrikeSplats();
+    audio.play('cloth.suit.movement', { volume: 0.6, position: party.cleanup.blood.position });
+    bankTheClub();
+    beginEndingCutscene();
   },
 });
 
@@ -877,7 +1132,7 @@ interaction.register(party.extra.hotdog.group, {
   hold: 1.8,
   enabled: () => state.phase === 'active'
     && state.fallen
-    && SECOND_VISIT_CLEANUP_TASKS.every((task) => mission.cleanup.has(task))
+    && mission.roomClean
     && !state.wrapped,
   onTap: () => speakThenNote(HOTDOG_STAGED_LINES.rippinWrapPrompt, 'Hold to take the legs.', 2800),
   onUse: () => {
@@ -898,32 +1153,130 @@ interaction.register(party.extra.hotdog.group, {
   },
 });
 
+/* ------------------------------------------------------------------ *
+ * CARRYING BILLY
+ *
+ * Owner, 2026-08-19: the player picks the wrapped body up and carries it,
+ * reusing the graveyard's body-carry. That carry is a private closure inside
+ * `buildGraveyard()` in src/graveyard/world.js -- its anchor, its bob, its
+ * grave and its trunk are all baked into the same function -- and that file
+ * is outside this pass's ownership, so it could not be imported. What IS
+ * reused is its contract, to the number: the same carry anchor offset, the
+ * same quarter-turn, the same 5.2 rad/s bob at 12 mm, the same
+ * `cloth.suit.movement` on the lift, the same "Billy HotDog · carrying"
+ * toast, and the same refusal to jump or hurry with a man in both arms. If
+ * that closure is later lifted into a parameterised factory, this is the
+ * call site that should take it.
+ * ------------------------------------------------------------------ */
+const CARRY_POSITION = new THREE.Vector3(0, -0.92, -1.72);
+const CARRY_QUATERNION = new THREE.Quaternion()
+  .setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
+const wrapHome = {
+  parent: party.cleanup.wrap.parent,
+  position: party.cleanup.wrap.position.clone(),
+  quaternion: party.cleanup.wrap.quaternion.clone(),
+};
+/* The wrapped body carries a live party collider. Carried, it rides the
+ * camera -- so the box would ride the player and shove him through the club.
+ * Take it out of the collision list for exactly as long as he is holding it,
+ * the same way a Door takes its own box out while the leaf is open. */
+const wrapCollider = party.collision.byId['prop.wrapped-body']?.box ?? null;
+
+function setWrapColliding(colliding) {
+  if (!wrapCollider) return;
+  const index = club.colliders.indexOf(wrapCollider);
+  if (colliding && index < 0) club.colliders.push(wrapCollider);
+  if (!colliding && index >= 0) club.colliders.splice(index, 1);
+}
+
+function updateCarry() {
+  if (!state.carrying) return;
+  party.cleanup.wrap.position.y = CARRY_POSITION.y + Math.sin(state.elapsed * 5.2) * 0.012;
+}
+
+interaction.register(party.cleanup.wrap, {
+  label: 'Hold to <b>pick Billy up</b>',
+  hold: 1.6,
+  enabled: () => state.phase === 'active' && state.wrapped && !state.carrying && !state.loaded,
+  onTap: () => speakThenNote(HOTDOG_STAGED_LINES.snowCarryPrompt, 'Hold to take his weight.', 3200),
+  onUse: () => {
+    if (!mission.carryBody()) return;
+    state.carrying = true;
+    setWrapColliding(false);
+    /* Off the ray list as well as out of the collision list. A body parented
+     * to the camera sits 1.72 m dead ahead of the crosshair, and the
+     * interaction raycast takes the NEAREST hit -- leaving it registered
+     * would put Billy between the player and every prompt in the building,
+     * including the loading pad he is carrying Billy to. */
+    interaction.unregister(party.cleanup.wrap);
+    camera.attach(party.cleanup.wrap);
+    party.cleanup.wrap.position.copy(CARRY_POSITION);
+    party.cleanup.wrap.quaternion.copy(CARRY_QUATERNION);
+    player.clearKeys();
+    audio.play('cloth.suit.movement', { volume: 0.75, position: player.position });
+    repaintObjectives();
+    hud.toast('Billy HotDog · carrying', 'good');
+  },
+});
+
 interaction.register(party.cleanup.loadPad, {
-  label: 'Hold to <b>load HotDog into Snow\'s car</b>',
+  label: 'Hold to <b>load Billy into Snow\'s car</b>',
   hold: 1.7,
-  enabled: () => state.phase === 'active' && state.wrapped && !state.loaded,
+  enabled: () => state.phase === 'active' && state.carrying && !state.loaded,
   onTap: () => speakThenNote(HOTDOG_STAGED_LINES.snowLoadPrompt, 'Hold to lift with Numbskull.', 3000),
   onUse: () => {
     if (!mission.assign('reserve_pickup')) return;
     state.loaded = true;
-    party.cleanup.wrap.visible = false;
-    party.cleanup.serviceGuide.visible = false;
+    state.carrying = false;
+    releaseWrappedBody();
     audio.play('car.door.close.heavy', { volume: 0.75, position: party.cleanup.loadPad.position });
-    const banked = story.completeClub({
-      assignment: mission.assignment,
-      bodyWrapped: mission.flags.bodyWrapped,
-      bodyLoaded: mission.flags.bodyLoaded,
-    });
-    if (!banked) {
-      console.error('[bing-two] cleanup could not be banked', campaign.state.missions[MISSION_IDS.BADA_BING_TWO]);
-      hud.toast('Campaign save failed', 'bad', 5200);
-      return;
-    }
-    state.director.handoffReady = true;
-    state.director.running = true;
     repaintObjectives();
+    /* He is in the trunk. The next thing that happens is a conversation with
+     * Lou, not an evidence sweep -- the sweep does not exist yet. This one is
+     * genuinely the Prospect's own read of the alley and stays on the HUD;
+     * Snow has already said his piece on the hold prompt. */
+    hud.say('Billy is in the trunk. Lou is still standing in his own club.', 4200);
   },
 });
+
+/** Put the sheet back in the world and stop drawing it. */
+function releaseWrappedBody() {
+  wrapHome.parent?.attach(party.cleanup.wrap);
+  party.cleanup.wrap.position.copy(wrapHome.position);
+  party.cleanup.wrap.quaternion.copy(wrapHome.quaternion);
+  party.cleanup.wrap.visible = false;
+  party.cleanup.serviceGuide.visible = false;
+  setWrapColliding(true);
+}
+
+/** The campaign checkpoint, banked once the club is genuinely finished. */
+function bankTheClub() {
+  const banked = story.completeClub({
+    assignment: mission.assignment,
+    bodyWrapped: mission.flags.bodyWrapped,
+    bodyLoaded: mission.flags.bodyLoaded,
+  });
+  if (banked) return true;
+  console.error('[bing-two] cleanup could not be banked', campaign.state.missions[MISSION_IDS.BADA_BING_TWO]);
+  hud.toast('Campaign save failed', 'bad', 5200);
+  return false;
+}
+
+/**
+ * The ending, INSIDE, before anybody walks out.
+ *
+ * Owner, 2026-08-19: the player used to leave and then watch a cutscene of
+ * something happening back in a room he had already left, which breaks the
+ * continuity of his own exit. So the handoff beats -- Lou giving Snow the
+ * body and the Prospect the Motel, and Snow refusing to say what is at room
+ * twelve -- play in the club, with everybody still in it, and the objective
+ * to leave only exists once they are over.
+ */
+function beginEndingCutscene() {
+  state.director.handoffReady = true;
+  state.director.running = true;
+  repaintObjectives();
+}
 window.__squatchStage?.('Checking the service exit...');
 
 /* Which line each person is up to. A second walk-up should be a second
@@ -931,14 +1284,30 @@ window.__squatchStage?.('Checking the service exit...');
  * the party and the cleanup are two different conversations. */
 const walkUpTurns = new Map();
 
+/* Which walk-up is also a piece of the party the Prospect has actually had.
+ * Sitting down at the felt with the man dealing it is cards; everybody else
+ * on the floor is a conversation. */
+const PARTY_BEAT_FOR = new Map([[party.extra.dealer, 'cards']]);
+
 // Family walk-ups remain short ambient context. They never replace an
 // objective and they shut off while the authored sequence owns the room.
 for (const npc of party.all) {
-  if ([party.extra.lou, party.extra.hotdog].includes(npc)) continue;
+  /* Lou and Billy have their own scripted interactions, and the second man on
+   * the door does not talk to guests -- one of the two answers, which is what
+   * two men on a door are for. */
+  if ([party.extra.lou, party.extra.hotdog, party.extra.securityR].includes(npc)) continue;
   interaction.register(npc.group, {
-    label: () => `Check in with <b>${npc.name}</b>`,
+    label: () => (booskiOffersShot(npc)
+      ? `Have a drink with <b>${npc.name}</b>`
+      : `Check in with <b>${npc.name}</b>`),
     enabled: () => state.phase === 'active' && !state.director.current && !state.director.waitingForAttack,
     onUse: () => {
+      /* Owner, 2026-08-19: give the player another chance to drink with
+       * Booski. He offers; the club's existing shot system does the rest. */
+      if (booskiOffersShot(npc)) {
+        startBooskiShot();
+        return;
+      }
       const phase = state.cleanupActive ? 'cleanup' : 'party';
       const lines = HOTDOG_WALKUP_LINES[phase][npc.name];
       if (lines?.length) {
@@ -946,6 +1315,7 @@ for (const npc of party.all) {
         const turn = walkUpTurns.get(key) ?? 0;
         walkUpTurns.set(key, turn + 1);
         chatter.interrupt(lines[turn % lines.length]);
+        partyBeat(PARTY_BEAT_FOR.get(npc) ?? 'talk');
         return;
       }
       /* Nobody has written this one anything, so nobody speaks. What is left
@@ -956,6 +1326,7 @@ for (const npc of party.all) {
       hud.say(state.cleanupActive
         ? `${npc.name} has a job and no interest in swapping.`
         : `${npc.name} watches HotDog like a glass set too close to an edge.`, 3800);
+      partyBeat(PARTY_BEAT_FOR.get(npc) ?? 'talk');
     },
   });
 }
@@ -975,13 +1346,16 @@ function restoreFromCampaign() {
   // already passed.
   state.shubesArrived = true;
   assignCleanupRoles();
-  for (const task of saved.cleanupTasks) {
-    mission.completeCleanup(task);
+  /* Replay the mission's own progression in the order the club now works in:
+   * the three floor tasks, the body, the report to Lou, and only then the
+   * sweep. Walking `saved.cleanupTasks` blindly would offer the sweep to a
+   * mission that has not been given it yet, and it would be refused. */
+  for (const task of mission.roomTasks) {
+    if (saved.cleanupTasks.includes(task)) mission.completeCleanup(task);
   }
   state.bathroom = new Set(saved.cleanupTasks.includes('bathrooms') ? ['mens'] : []);
   state.kitTaken = saved.cleanupTasks.includes('cleaning_kit');
   state.evidence = new Set(saved.cleanupTasks.includes('missing_evidence') ? ['cufflink', 'lapel'] : []);
-  state.finalSwept = saved.cleanupTasks.includes('final_sweep');
   restoreHotDogCleanupPresentation(party, saved.cleanupTasks);
   if (saved.bodyWrapped) {
     mission.wrapBody();
@@ -989,6 +1363,21 @@ function restoreFromCampaign() {
     party.extra.hotdog.group.visible = false;
     party.cleanup.wrap.visible = true;
     party.cleanup.serviceGuide.visible = true;
+  }
+  if (saved.bodyLoaded && mission.carryBody() && mission.assign(saved.assignment || 'reserve_pickup')) {
+    state.loaded = true;
+    releaseWrappedBody();
+  }
+  if (saved.cleanupTasks.includes('final_sweep') && mission.debriefLou()) {
+    state.debriefed = true;
+    mission.completeCleanup('final_sweep');
+    state.finalSwept = true;
+    restoreHotDogCleanupPresentation(party, mission.cleanup);
+    clearStrikeSplats();
+    /* A save this far along has already banked `body_loaded` and the Start
+     * handler sends it straight to the graveyard -- but if it ever lands here
+     * it must not land in a club with no remaining objective. */
+    beginEndingCutscene();
   }
   repaintObjectives();
 }
@@ -1041,27 +1430,52 @@ function jumpToPreviewCheckpoint(id) {
 
   if (id === 'cleanup') return;
 
-  // graveyard: every cleanup task done, the body wrapped and loaded -- the
-  // same three interactions a player fires from Lou/HotDog/the load pad.
-  for (const task of SECOND_VISIT_CLEANUP_TASKS) completeCleanupTask(task);
-  restoreHotDogCleanupPresentation(party, mission.cleanup);
+  /* graveyard: the whole of the club, in the order a player walks it -- the
+   * three floor tasks, the wrap, the lift, the trunk, Lou's debrief and only
+   * then his sweep. Every one of these is the same call the interaction it
+   * belongs to makes. */
+  for (const task of mission.roomTasks) completeCleanupTask(task);
   if (!mission.wrapBody()) return;
   state.wrapped = true;
   party.extra.hotdog.group.visible = false;
   party.cleanup.wrap.visible = true;
   party.cleanup.serviceGuide.visible = true;
+  if (!mission.carryBody()) return;
   if (!mission.assign('reserve_pickup')) return;
   state.loaded = true;
-  party.cleanup.wrap.visible = false;
-  party.cleanup.serviceGuide.visible = false;
-  story.completeClub({
-    assignment: mission.assignment,
-    bodyWrapped: mission.flags.bodyWrapped,
-    bodyLoaded: mission.flags.bodyLoaded,
-  });
-  state.director.handoffReady = true;
-  state.director.running = true;
+  releaseWrappedBody();
+  if (!mission.debriefLou()) return;
+  state.debriefed = true;
+  if (!completeCleanupTask('final_sweep')) return;
+  state.finalSwept = true;
+  restoreHotDogCleanupPresentation(party, mission.cleanup);
+  clearStrikeSplats();
+  bankTheClub();
+  beginEndingCutscene();
+}
+
+/**
+ * The cutscene is over and the only thing left is the back door.
+ *
+ * The scene does NOT end here: it ends when the player walks out of it,
+ * which is what `updateRoom` is watching for.
+ */
+function beginDeparture() {
+  if (state.departing || !mission.beginDeparture()) return;
+  state.departing = true;
   repaintObjectives();
+  const service = club.doors.service;
+  if (service && !service.open) {
+    /* Snow is holding it. A locked fire door between the player and the only
+     * remaining objective is not tension, it is a bug report. */
+    service.toggle();
+    audio.play('door.creak', { volume: 0.5, position: service.pivot.position });
+  }
+  speakThenNote(
+    HOTDOG_STAGED_LINES.louLeaveNow,
+    'Out through the store room and the service door. Snow is already in the car.',
+    5200,
+  );
 }
 
 function finishParty() {
@@ -1078,7 +1492,7 @@ function finishParty() {
     overlay.classList.remove('hidden');
     overlay.classList.add('ending');
     overlay.querySelector('h1').innerHTML = 'THE HOTDOG <span>INCIDENT</span>';
-    overlay.querySelector('.tag').textContent = 'Snow and the Prospect take the wrapped body out through the service door. The Bada Bing cleanup continues behind them.';
+    overlay.querySelector('.tag').textContent = 'The Prospect walks out of the Bada Bing behind Snow. Billy is already in the trunk, the floor is already clean, and the door closes on a room nobody was ever in.';
     assetStatus.innerHTML = '<b>NEXT: THE SQUATCH GRAVEYARD</b><br>HotDog still has to disappear before the Motel opens.';
     startButton.textContent = 'Ride with Snow to the graveyard →';
     startButton.disabled = false;
@@ -1107,6 +1521,14 @@ function updateRoom() {
     repaintObjectives();
     hud.say('No customers, no dancers, no open tables. Every face in the room belongs to the Family.', 5200);
   }
+  /* THE EXIT ENDS THE SCENE, on the frame he steps through it.
+   *
+   * `yard` is the strip behind the building and `ROOMS` says in its own
+   * comment that it is how the game knows you left by the back -- every
+   * interior room resolves first, so reaching it means the service door is
+   * behind him. No fade to a cutscene of a room he has already walked out
+   * of: that has already played, inside, with everybody still standing in it. */
+  if (state.departing && ['yard', 'alley'].includes(next)) finishParty();
 }
 
 function teleport(x, z, yaw = player.yaw) {
@@ -1165,6 +1587,7 @@ const runtime = {
   updateDirector,
   applyCinematicCamera,
   attack,
+  gore,
   completeCleanupTask,
   get campaignState() { return campaign.state; },
 };
@@ -1284,7 +1707,17 @@ document.addEventListener('mousemove', (event) => {
 document.addEventListener('keydown', (event) => {
   if (event.code === 'Space') event.preventDefault();
   if (state.phase !== 'active' || state.paused) return;
-  player.setKey(translateKey(event.code), true);
+  /* Carrying Billy takes both arms. Same restriction the graveyard puts on
+   * the same body: no jumping and no hurrying with a man on your shoulder. */
+  const key = translateKey(event.code);
+  if (state.carrying && ['Space', 'ShiftLeft', 'ShiftRight'].includes(key)) {
+    player.setKey(key, false);
+    if (key === 'Space' && !event.repeat) hud.say('Not with Billy in both arms.', 2200);
+    return;
+  }
+  player.setKey(key, true);
+  // The shot beat owns [E] while the glass is in his hand.
+  if (event.code === 'KeyE' && shotBeat.drink()) return;
   if (event.code === 'KeyE') interaction.press();
   if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
 });
@@ -1343,6 +1776,8 @@ function animate(now) {
      * it was never called here, so that nudge could not fire at all. */
     mission.update(dt);
     chatter.update(dt);
+    shotBeat.update(dt);
+    updateCarry(dt);
     for (const npc of party.all) {
       if (state.fallen && npc === party.extra.hotdog) continue;
       npc.update(dt, player.position);
@@ -1351,6 +1786,12 @@ function animate(now) {
     // Npc.update owns idle motion; the attack controller applies its
     // intentional pose afterward so the four hits cannot be overwritten.
     attack.update(dt);
+    /* After the attack pose, so a droplet launched this frame leaves the
+     * wound where it visibly is. Sim-clock driven; each system is a no-op
+     * once its droplets have landed and its pools have grown. */
+    gore.impacts.update(dt);
+    gore.spurts.update(dt);
+    gore.splats.update(dt);
     applyCinematicCamera(dt);
   }
   if (!state.paused) {

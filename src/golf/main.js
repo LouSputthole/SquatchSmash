@@ -25,7 +25,6 @@ import {
   SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
 } from '../core/campaign.js';
 import { createGolfStory } from '../core/golf-story.js';
-import { isPreviewMode } from '../core/preview-mode.js';
 import { Radio } from '../core/radio.js';
 import { Inventory } from '../core/inventory.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
@@ -34,7 +33,7 @@ import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { SmokeSystem, emitCigaretteExhale } from '../world/smoke.js';
 
 import { Course } from './terrain.js';
-import { Golfer, makeBag, makeBall, makeBallMarker, makeClub } from './cast.js';
+import { Golfer, makeBag, makeBall, makeBallMarker } from './cast.js';
 import { CartPair } from './carts.js';
 import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
@@ -55,10 +54,17 @@ import {
   CourseAudio, GOLF_LATER_AUDIO_SCOPES, GOLF_START_AUDIO_SCOPE,
   playRecordedGolfChoice, playRecordedGolfCue, recordedGolfClip,
 } from './audio.js';
-import { completedRoundAction, connectGolfFootsteps } from './runtime.js';
+import { collectGolfBagGeometry, completedRoundAction, connectGolfFootsteps } from './runtime.js';
+import {
+  PLAYER_CLUB_SHAFT_PITCH, createGolfLandingPreview, createPlayerClubRig,
+} from './presentation-geometry.js';
+import {
+  GOLF_CHECKPOINT_LABELS, GOLF_PREVIEW_HOLE_CARDS, golfPreviewStage,
+  previewCheckpointForLocation,
+} from './preview.js';
 import {
   USE_TIME, createHeldProps, dressGolfCartConsumables, dressSquatchBeer,
-  loadSquatchBeerLabel,
+  loadSquatchBeerLabel, loadSquatchZynLid,
 } from './hands.js';
 
 /* ------------------------------------------------------------------ */
@@ -141,33 +147,6 @@ const ui = {
  * resumed save already uses in `boot()`, below, so the round opens on state
  * that is genuinely that far along rather than a teleport.
  */
-const GOLF_CHECKPOINTS = Object.freeze({
-  hole1: 1, hole2: 2, hole3: 3, grille: 'grille',
-});
-const GOLF_CHECKPOINT_LABELS = Object.freeze({
-  hole1: 'HOLE 1 · THE INVITATION',
-  hole2: 'HOLE 2 · THE LONG WALK',
-  hole3: 'HOLE 3 · THE BIG NIGHT',
-  grille: 'THE GRILLE · ROUND COMPLETE',
-});
-/**
- * Plausible completed-hole cards for the holes a jump skips, in the same
- * shape `story.recordHole()` expects. These are the exact values
- * `seedCompletedGolfRound()` in src/core/campaign.js already uses for a
- * preview'd fully-completed round -- reused here rather than invented twice.
- */
-const GOLF_PREVIEW_HOLE_CARDS = Object.freeze({
-  1: Object.freeze({ hole: 1, par: 3, strokes: 4, penalties: 0 }),
-  2: Object.freeze({ hole: 2, par: 5, strokes: 5, penalties: 0 }),
-  3: Object.freeze({ hole: 3, par: 4, strokes: 5, penalties: 0 }),
-});
-function previewCheckpointForLocation(locationLike = window.location) {
-  if (!isPreviewMode(locationLike)) return null;
-  let params;
-  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
-  const value = params.get('checkpoint');
-  return value && Object.prototype.hasOwnProperty.call(GOLF_CHECKPOINTS, value) ? value : null;
-}
 /** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
 const previewCheckpoint = previewCheckpointForLocation();
 if (previewCheckpoint) {
@@ -240,7 +219,7 @@ window.addEventListener('resize', () => {
 /* ------------------------------------------------------------------ */
 
 stage('Opening the gate…');
-const course = new Course(scene, renderer, { onProgress: stage });
+const course = new Course(scene, renderer, { onProgress: stage, smoke });
 
 stage('Rounding up the foursome…');
 const golfers = {
@@ -278,164 +257,13 @@ const npcBallMarkers = new Map([
 ]);
 for (const marker of npcBallMarkers.values()) marker.visible = false;
 
-/* Hot Shots-style pre-shot read: a bright world-space landing area whose
- * distance follows club, lie and the live power bar. The ring is an estimate,
- * not an aim-bot point, so the uncertainty grows with dispersion. */
-const landingPreview = new THREE.Group();
-landingPreview.name = 'golf-landing-preview';
-const landingDisk = new THREE.Mesh(
-  new THREE.CircleGeometry(1, 48),
-  new THREE.MeshBasicMaterial({
-    color: 0xffd84a, transparent: true, opacity: 0.11,
-    depthTest: false, depthWrite: false, side: THREE.DoubleSide,
-  }),
-);
-landingDisk.rotation.x = -Math.PI / 2;
-landingDisk.name = 'golf-landing-preview-fill';
-landingDisk.renderOrder = 900;
-landingPreview.add(landingDisk);
-const landingRing = new THREE.Mesh(
-  new THREE.RingGeometry(0.82, 1, 64),
-  new THREE.MeshBasicMaterial({
-    color: 0xffdf57, transparent: true, opacity: 0.92,
-    depthTest: false, depthWrite: false, side: THREE.DoubleSide,
-  }),
-);
-landingRing.rotation.x = -Math.PI / 2;
-landingRing.name = 'golf-landing-preview-ring';
-landingRing.renderOrder = 901;
-landingPreview.add(landingRing);
-for (const rotation of [0, Math.PI / 2]) {
-  const line = new THREE.Mesh(
-    new THREE.BoxGeometry(1.25, 0.025, 0.035),
-    new THREE.MeshBasicMaterial({
-      color: 0xffe36b, transparent: true, opacity: 0.85,
-      depthTest: false, depthWrite: false,
-    }),
-  );
-  line.rotation.y = rotation;
-  line.position.y = 0.018;
-  line.renderOrder = 902;
-  landingPreview.add(line);
-}
-landingPreview.visible = false;
-landingPreview.renderOrder = 4;
-scene.add(landingPreview);
-
-/**
- * The club in the player's own hands.
- *
- * The golfers use the same silhouettes, so the club selected in the HUD is the
- * club the player sees. What was wrong with it — and what "the clubs are a bit
- * wonky" is about — is that it was never anywhere near the ball.
- *
- * It has to be a stylisation and it is worth being honest about why. The
- * address camera sits 1.25 m behind the ball with its eye 1.52 m up, looking
- * out along the target line — so the ball itself is about fifty degrees below
- * the camera axis and a 66-degree lens simply does not contain it. A club held
- * where a real club is held is entirely off the bottom of the screen, which
- * means the spec's requirement that driver, iron and putter be *readable at
- * address* can only be met by cheating the club up into frame.
- *
- * The old cheat put it at 48% scale hanging off a point 0.42 m ABOVE the eye
- * line, head in the air, shaft across the view, hands as two loose capsules at
- * the top of the grip: a man holding a driver beside his ear. That is what "the
- * clubs are still wonky" is looking at.
- *
- * This one is aimed rather than dialled in. The head is placed at the bottom
- * of the frame where the ball would be if the lens reached it, the hands go
- * up and right where a right-hander's hands are, and the three numbers below
- * are solved from those two points: `HANDS` is the grip, `SHAFT_PITCH` and
- * `ADDRESS_LEAN` are the two rotations that lay the shaft along the line
- * between them, and the scale is the length that line asks for. The rig owns
- * the Z rotation so it can sweep for the swing; the pitch lives on a child so
- * the two transforms cannot fight over the same axis.
- */
-const HANDS = new THREE.Vector3(0.36, -0.12, -0.55);
-const SHAFT_PITCH = 0.65;
-const playerClubRig = new THREE.Group();
-playerClubRig.name = 'player-club-rig';
-playerClubRig.position.copy(HANDS);
-playerClubRig.visible = false;
-/* The forward lean. Rotating the club's own -Y down-and-away by this much
- * lands an iron's head within a few centimetres of the teed ball. */
-const playerClubTilt = new THREE.Group();
-playerClubTilt.name = 'player-club-tilt';
-playerClubTilt.rotation.x = SHAFT_PITCH;
-playerClubRig.add(playerClubTilt);
-/* One scaled space holding the club AND the hands, so they cannot drift apart:
- * the hands used to be full size against a shrunken club, which is two mittens
- * floating beside a shaft. Foreshortened to the length the frame has room for
- * — see the note on the rig above — and big enough that an iron's grooves and
- * a driver's crown both still read. */
-const playerClubHold = new THREE.Group();
-playerClubHold.name = 'player-club-hold';
-playerClubHold.scale.setScalar(0.66);
-playerClubTilt.add(playerClubHold);
-for (const kind of CLUB_IDS) {
-  const model = makeClub(kind);
-  model.userData.kind = kind;
-  model.visible = kind === 'iron';
-  /* Show the actual striking face from first person, not the cavity/back. */
-  model.rotation.y = Math.PI - 0.22;
-  model.traverse((object) => {
-    if (!object.isMesh) return;
-    object.renderOrder = 1000;
-    /* The camera rig is an overlay, so scene lighting can otherwise turn a
-     * silver iron into a black rectangle against the turf. Preserve the
-     * authored colours while making the silhouette and face details read. */
-    object.material = new THREE.MeshBasicMaterial({
-      color: object.material.color?.clone?.() ?? new THREE.Color(0xffffff),
-      transparent: object.material.transparent,
-      opacity: object.material.opacity,
-      side: object.material.side,
-      fog: false,
-    });
-    object.material.depthTest = true;
-    object.material.depthWrite = false;
-  });
-  playerClubHold.add(model);
-}
-/**
- * Two hands, on the grip, overlapping the way a golf grip overlaps.
- *
- * They were two small capsules floating at the top of the shaft above where
- * anybody's hands could be. These sit on the grip itself — the model's grip
- * runs from y +0.02 down to -0.23 — with the lower hand under the upper one
- * and both rolled onto the shaft rather than beside it.
- */
-const handMaterial = new THREE.MeshStandardMaterial({ color: 0xc8916d, roughness: 0.82 });
-for (const hand of [
-  { y: -0.030, rz: -0.18, scale: 1.0 },
-  { y: -0.132, rz: 0.15, scale: 0.94 },
-]) {
-  /* A fist on a grip is nearly as wide as it is long, so these are short and
-   * fat rather than the long capsules that used to read as two sausages laid
-   * end to end down the shaft. */
-  const mesh = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.040, 0.030, 4, 10), handMaterial.clone(),
-  );
-  mesh.name = 'player-hand';
-  mesh.position.set(0, hand.y, 0);
-  mesh.scale.set(0.94 * hand.scale, 1.0 * hand.scale, 0.88 * hand.scale);
-  mesh.rotation.set(0.10, 0, hand.rz);
-  mesh.renderOrder = 1001;
-  mesh.material.depthTest = true;
-  mesh.material.depthWrite = false;
-  playerClubHold.add(mesh);
-}
-/* The glove cuff, which is what stops the two fists reading as one shape. */
-const gloveCuff = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.042, 0.038, 0.024, 10),
-  new THREE.MeshBasicMaterial({ color: 0x2a2d34, fog: false }),
-);
-gloveCuff.name = 'player-glove-cuff';
-gloveCuff.position.set(0, -0.082, 0);
-gloveCuff.rotation.z = -0.02;
-gloveCuff.renderOrder = 1002;
-gloveCuff.material.depthWrite = false;
-playerClubHold.add(gloveCuff);
-camera.add(playerClubRig);
+/* Camera and world presentation geometry are built by import-safe helpers
+ * shared with the permanent headless gate. */
+const landingPreview = createGolfLandingPreview(scene);
+const {
+  rig: playerClubRig, tilt: playerClubTilt, hold: playerClubHold,
+} = createPlayerClubRig(camera);
+const SHAFT_PITCH = PLAYER_CLUB_SHAFT_PITCH;
 
 /* ------------------------------------------------------------------ */
 /* Player, HUD, audio                                                  */
@@ -502,11 +330,18 @@ const cues = new CueQueue({
     activeVoice?.stop?.();
     activeVoice = playRecordedGolfCue(audio, cue.id, {
       volume: 0.88,
-      position: speaker?.position ?? null,
+      /* Follow the man, not the spot he was standing on when he started. Most
+       * of this round is said on the walk to the green, and a panner fixed at
+       * the first syllable leaves the rest of the sentence behind a player who
+       * has kept moving -- which is what made these read as distant. */
+      follow: speaker ? () => speaker.position : null,
       ref: 2.2,
       /* The balcony is across the green and up a storey, so heckling has to
        * carry further than a man standing next to you reading a putt. */
       maxDist: golfers[cue.speaker] ? 34 : 58,
+      /* Conversation, not scenery: a gentler curve than the engine's default
+       * so a line stays intelligible while the group spreads out over a hole. */
+      rolloff: 0.7,
     });
     /* The mouth goes on AFTER the take has started, because it is driven by
      * the take (src/core/mouth.js) rather than by `secs`. A heckler on the
@@ -668,6 +503,9 @@ inventory.onChange = syncGolfInventory;
 
 /** The bag arrives as three real items rather than as a boolean. */
 function stockBag() {
+  // The physical car-park bag has been picked up. The same staging seam
+  // handles restored/preview rounds whose completed Hole 1 terrain is gone.
+  collectGolfBagGeometry(bag);
   for (const id of CLUB_IDS) if (!inventory.has(id)) inventory.add(id);
   selectClub('iron');
 }
@@ -1067,14 +905,29 @@ function applyCartCamera() {
 /* HUD                                                                 */
 /* ------------------------------------------------------------------ */
 
+/* Written only on change, same contract as paintGuide below: a textContent
+ * store invalidates the node's layout even when the string is identical, and
+ * this runs every frame. Only the pin distance actually moves per frame; the
+ * rest changes once a stroke. */
+let _cardCopy = '';
+let _cardPin = '';
+
 function paintCard() {
   const hole = getHole(HOLE.number);
   const h = round.card.hole(CHARACTER_IDS.PROSPECT, HOLE.number);
-  ui.hole.textContent = `HOLE ${hole.number} · ${hole.name.toUpperCase()}`;
-  ui.par.textContent = `PAR ${hole.par} · ${hole.yards} YDS`;
-  ui.strokes.textContent = h ? `${h.strokes}` : '0';
+  const copy = `${hole.number}·${h ? h.strokes : 0}`;
+  if (copy !== _cardCopy) {
+    _cardCopy = copy;
+    ui.hole.textContent = `HOLE ${hole.number} · ${hole.name.toUpperCase()}`;
+    ui.par.textContent = `PAR ${hole.par} · ${hole.yards} YDS`;
+    ui.strokes.textContent = h ? `${h.strokes}` : '0';
+  }
   const d = round.distanceToPin();
-  ui.pin.textContent = d < 27 ? `${Math.round(toFeet(d))} ft` : `${Math.round(toYards(d))} yds`;
+  const pin = d < 27 ? `${Math.round(toFeet(d))} ft` : `${Math.round(toYards(d))} yds`;
+  if (pin !== _cardPin) {
+    _cardPin = pin;
+    ui.pin.textContent = pin;
+  }
 }
 
 /* The authored scene can stay quiet; the interaction contract cannot. Each
@@ -1945,9 +1798,24 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'KeyE') interaction.release();
   if (e.code === 'KeyF') cancelItemUse();
 });
+/* Alt-tab safety. A window that loses focus never gets the keyup, so without
+ * this the last held key keeps walking (or driving the cart) for as long as
+ * the window is away — the pattern in src/silver/main.js and
+ * src/nowake/main.js. */
+window.addEventListener('blur', () => {
+  player.clearKeys();
+  interaction.release();
+  cancelItemUse();
+});
+/* A hidden tab must not keep playing the round at nobody: route through the
+ * pause menu, whose onPause clears keys and suspends the audio context. The
+ * radio rides an HTML media element the context suspend does not touch, so it
+ * is paused here — and only resumes if the menu is not still up. */
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) cartRadio.pause();
-  else cartRadio.resume();
+  if (document.hidden) {
+    cartRadio.pause();
+    pauseMenu.pause();
+  } else if (!paused) cartRadio.resume();
 });
 
 function nearBall() {
@@ -2221,7 +2089,18 @@ function showEndCard(summary) {
 const returnHome = () => {
   navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
 };
-document.getElementById('endcard-home')?.addEventListener('click', returnHome);
+/**
+ * "Go home" read as an early exit -- a way to bail out of the round rather
+ * than the round's own ending. Golf is a campaign mission, not a free-play
+ * scene, so the card should offer only PLAY AGAIN and CONTINUE: the same
+ * navigation as before (the apartment is genuinely where the campaign goes
+ * next), relabelled so it reads as the story moving forward instead of an
+ * escape hatch. Done here rather than in golf.html so the button's own id,
+ * markup and every other scene's copy of this pattern stay untouched.
+ */
+const continueBtn = document.getElementById('endcard-home');
+if (continueBtn) continueBtn.textContent = 'Continue';
+continueBtn?.addEventListener('click', returnHome);
 document.getElementById('endcard-again')?.addEventListener('click', () => {
   if (completedRoundAction() === 'replay') window.location.reload();
   else returnHome();
@@ -2475,9 +2354,8 @@ async function boot() {
    * (`begun.resumed` is false the first time `story.begin()` claims the
    * round), so it can never collide with an actually-resumed save. */
   if (previewCheckpoint && !begun.resumed) {
-    const target = GOLF_CHECKPOINTS[previewCheckpoint];
-    const throughHole = target === 'grille' ? 3 : target - 1;
-    for (let n = 1; n <= throughHole; n++) stagePreviewHoleScore(n);
+    const { completedThrough } = golfPreviewStage(previewCheckpoint);
+    for (let n = 1; n <= completedThrough; n++) stagePreviewHoleScore(n);
   }
 
   const resumeHole = begun.resumed || previewCheckpoint
@@ -2504,8 +2382,12 @@ async function boot() {
   /* The owner-supplied beer artwork, on every can the course stocks. Awaited
    * here rather than fired and forgotten so the first cooler he walks up to
    * already has the real label on it; `resolveGear` never rejects and a
-   * missing file leaves the plain can, so this cannot hold the round up. */
-  await loadSquatchBeerLabel();
+   * missing file leaves the plain can, so this cannot hold the round up.
+   * The apartment's own Zyn lid graphic is awaited alongside it for the same
+   * reason: the cart tin `restockSquatchBeer` dresses below only builds its
+   * geometry once, so this has to resolve before that first pass or the tin
+   * is stuck with a bare lid all round. */
+  await Promise.all([loadSquatchBeerLabel(), loadSquatchZynLid()]);
   restockSquatchBeer();
   carts.lead.radioWorld(cartRadioPosition);
   cartRadio.setPosition(cartRadioPosition);

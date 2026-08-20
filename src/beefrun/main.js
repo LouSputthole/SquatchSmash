@@ -246,10 +246,24 @@ window.__beefrun = {
   THREE, scene, camera, renderer,
   mission, physics, engines, cargo, detection, weather, aircraft, terrain,
   player, cameras, dialogue, interaction, input, audio: missionAudio, hud, flightHud,
+
   radio, radioClock, radioAudioPlan,
   sceneInventory,
   campaign, story,
   get campaignState() { return campaign.state; },
+  /* The frame loop's own gate. `frame()` steps the world only while
+   * `game.started && !game.paused && !flightHud.completeUp`, so when the world
+   * is not moving this is the first thing worth reading -- until it was handed
+   * out here a verifier could see a player who was enabled, in walk mode,
+   * unblocked and holding a key, and still not moving, with no way to tell
+   * whether he was refusing to walk or was simply never being called.
+   *
+   * A GETTER, like `campaignState` above and for the same reason: `game` is
+   * declared some thirty lines BELOW this object, so naming it directly here
+   * reads a `const` in its temporal dead zone and the whole module fails to
+   * boot -- which presents as the page never defining `window.__beefrun`
+   * rather than as anything to do with this line. */
+  get game() { return game; },
 };
 
 // Tell the page watchdog the module has finished booting before the first
@@ -571,7 +585,9 @@ document.addEventListener('keydown', (e) => {
   if (isBrowserReservedChord(e)) nudgeAwayFromBrowserChord();
   if (e.repeat) return;
   const code = input.keyEvent(e, true);
-  if (code === 'Space' || code === 'Shift') e.preventDefault();
+  // keyEvent keeps the physical ShiftLeft/ShiftRight code for the keymap, so
+  // the modifier is recognised here by its logical name.
+  if (code === 'Space' || e.key === 'Shift') e.preventDefault();
   player.setKey(translateKey(e.code), true);
   if (!mission.flags.inCockpit && e.code === 'KeyE') interaction.press();
 }, true);

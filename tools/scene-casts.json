@@ -39,7 +39,8 @@
       "id": "silent-squatch",
       "label": "PROJECT SILENT SQUATCH",
       "cuePrefixes": [
-        "vo.silentsquatch."
+        "vo.silentsquatch.",
+        "vo.silentnight."
       ],
       "sourceFiles": [
         "src/mansion/cast.js",
@@ -86,32 +87,41 @@
       "id": "mansion-siege",
       "label": "MANSION UNDER SIEGE",
       "cuePrefixes": [
-        "vo.siege."
+        "vo.siege.",
+        "vo.ateam."
       ],
       "sourceFiles": [
         "src/mansion/siege/ensemble.js",
-        "src/mansion/siege/script.js"
+        "src/mansion/siege/script.js",
+        "src/mansion/siege/attackers.js"
       ],
       "staged": [
         "lou1",
         "lou2",
         "booski",
         "mansion-guard",
-        "deathmegatron"
+        "deathmegatron",
+        "ateam1",
+        "ateam2",
+        "ateam3",
+        "ateam4",
+        "ateam5"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "ensemble.js's ROSTER fields the whole family as defenders (lou, booski, rippinflow, snow, shubenator, eric, aubbie, irish, deathmegatron, numbskull, hogmama, captain_lou_sasole) plus guard_0/1/2/wounded on the mansion-guard voice. Every siege voice resolves to a body."
+      "notes": "ensemble.js's ROSTER fields the whole family as defenders (lou, booski, rippinflow, snow, shubenator, eric, aubbie, irish, deathmegatron, numbskull, hogmama, captain_lou_sasole) plus guard_0/1/2/wounded on the mansion-guard voice. Every siege voice resolves to a body. `vo.ateam.` is a second, deliberately separate prefix (not folded into `vo.siege.`, which `tools/siege-vo.mjs` regenerates wholesale from `script.js`'s `allSiegeLines()` and would silently delete anything else on it): attackers.js's ATEAM_IDENTITY_BARKS is the attacking cartel crew naming themselves -- the A-Team -- and since 2026-08-20 it is FIVE voices, not one: the owner cast ateam1..ateam5 and the table names the man for every line, so a firefight is a crew arguing rather than one throat played twenty-two times. `mansion-guard` still covers the defenders on one voice; the attackers no longer do."
     },
     {
       "id": "hotdog-incident",
       "label": "The HotDog Incident",
       "cuePrefixes": [
-        "vo.bing2."
+        "vo.bing2.",
+        "hotdog.stab.grunt."
       ],
       "sourceFiles": [
         "src/bing/hotdog-party.js",
         "src/bing/hotdog-main.js",
-        "src/bing/family.js"
+        "src/bing/family.js",
+        "src/bing/hotdog-house-staff.js"
       ],
       "staged": [
         "booski",
@@ -132,10 +142,14 @@
         "lou2",
         "eric",
         "lag",
-        "old-stove"
+        "old-stove",
+        "sauce",
+        "mansion-guard",
+        "bartender",
+        "dealer"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "buildHotDogParty() seats the whole FAMILY roster (minus the two it filters, which it then re-adds explicitly) plus Lou, Billy HotDog, Aubbie and Sauce by name. Sauce ('sauce') has no lines in this bank so it is absent from `staged` on purpose -- add it back if a Sauce line is ever authored here."
+      "notes": "buildHotDogParty() seats the whole FAMILY roster (minus the two it filters, which it then re-adds explicitly) plus Lou, Billy HotDog, Aubbie and Sauce by name. Sauce ('sauce') is seated by name and now speaks: the owner's 2026-08-20 playtest asked for ambient party lines so he feels present in the room. The bartender, the blackjack dealer and two mansion-archetype guards on the door are built by buildHotDogHouseStaff() in src/bing/hotdog-house-staff.js, added for the same playtest so the party is a working club before the Billy incident starts."
     },
     {
       "id": "enola-squatch",
@@ -393,6 +407,33 @@
       "notes": "Both principals have dedicated controllers."
     },
     {
+      "id": "cartel-palace",
+      "label": "CARTEL PALACE",
+      "cuePrefixes": [
+        "vo.palace."
+      ],
+      "sourceFiles": [
+        "src/cartel-palace/cast.js",
+        "src/cartel-palace/finale.js",
+        "src/cartel-palace/main.js",
+        "src/cartel-palace/voice.js",
+        "src/cartel-palace/conversations.js"
+      ],
+      "staged": [
+        "mark",
+        "sauce",
+        "mark-wife",
+        "short-one",
+        "short-two",
+        "cleaner",
+        "cartel-guard1",
+        "cartel-guard2",
+        "cartel-guard3"
+      ],
+      "sceneVoiceExemptions": {},
+      "notes": "cast.js builds Mark (makeCombatant 'mark', voice 'mark') and Sauce ('sauce') at the dining-room anchors plus the three begging civilians (PALACE_CIVILIAN_POSTS: 'wife' -> voice 'mark-wife', 'short-one', 'short-two'); finale.js's PalaceFinaleDirector plays every vo.palace.finale.* line through those bodies. Added 2026-08-20 with the owner playtest pass: PALACE_BYSTANDER_POSTS builds the entry-hall cleaner (voice 'cleaner', spoken through bystanders.js's PalaceBystanders) and PALACE_GUARD_POSTS builds nine guards through voice.js's PalaceVoice, which gates every line on radius AND line of sight to a specific live body. The single 'cartel-guard' profile was split three ways on 2026-08-20 with the owner's ids: voice.js's PALACE_GUARD_VOICE_CAST gives each of the nine posted men one of cartel-guard1/2/3 so every idle two-hander in conversations.js is two different throats, and PALACE_GUARD_BARK_CAST spreads the eight contact/search/ally-down barks across all three. Tony's lines are voice 'player', globally exempt."
+    },
+    {
       "id": "initiation",
       "label": "Initiation",
       "cuePrefixes": [
@@ -475,6 +516,26 @@
       ],
       "sceneVoiceExemptions": {},
       "notes": "Every prefix here except vo.margo.* is exclusively the player's own muttering (voice 'player', globally exempt -- see the checker). Margo is built once per campaign load in apartment.js ('Built in every chapter and shown by the cutscene') and shown/hidden by chapter, not rebuilt per scene."
+    },
+    {
+      "id": "special-meeting",
+      "label": "THE SPECIAL MEETING",
+      "cuePrefixes": [
+        "vo.specialmeeting."
+      ],
+      "sourceFiles": [
+        "src/specialmeeting/cast.js",
+        "src/specialmeeting/script.js",
+        "src/specialmeeting/ride.js"
+      ],
+      "staged": [
+        "seff",
+        "lag",
+        "numbskull",
+        "kittenboss"
+      ],
+      "sceneVoiceExemptions": {},
+      "notes": "Four bodies, all four built by buildSpecialMeetingCast() in src/specialmeeting/cast.js and all four on screen: Seff at the wheel, Lag in the front passenger seat and then behind the driver, Numbskull holding the front door and then directly behind the Prospect, and Kittenboss in the boot until SM-410 pops it. Booskibro speaks in this scene and has NO body in it -- he is a phone call and nothing else -- but his cues are minted on vo.call.booski.special_meeting.*, which the global vo.call.* exemption already covers, so he needs no entry here. Kittenboss is a WOMAN and is cast: the owner supplied her ElevenLabs id, so every vo.specialmeeting.kittenboss.* cue is a real take rather than a subtitle over silence, which is what this note said while she was still waiting on one. Her body is WARDROBE.kittenboss and it was built male by mistake -- corrected 2026-08-20 in src/core/wardrobe.js along with every pronoun in the script and the two script docs. Nothing about her staging changed: she is in the boot, she gets out of it under her own power, and she walks the trail beside Tony at the same rank he holds."
     }
   ]
 }

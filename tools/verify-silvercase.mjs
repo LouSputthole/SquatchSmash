@@ -1052,6 +1052,33 @@ try {
       && ambushStaging.inHand && ambushStaging.revealed && ambushStaging.bathDoorOpen,
     JSON.stringify(ambushStaging));
 
+  // ---- Dirty the doomed attempt first: a graze on Winston and a round into
+  // the floor — attempt-scoped marks and damage the retry must take back out
+  // of the room, while Deke's couch wounds (pre-checkpoint history) stay. ---
+  const dirtyAttempt = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const wrongMan = sc.shootAt('winston');
+    sc.tick(0.1);
+    sc.player.pitch = -1.2;
+    sc.player.update(0);
+    sc.camera.updateMatrixWorld(true);
+    sc.pressFire();
+    sc.tick(0.1);
+    return { wrongMan, state: sc.state() };
+  });
+  check('the failed attempt genuinely dirties the room: Winston grazed, plaster marked',
+    dirtyAttempt.wrongMan.resolvesTo === 'winston'
+      && dirtyAttempt.state.actors.winston.alive === true
+      && dirtyAttempt.state.actors.winston.hp < afterLou.state.actors.winston.hp
+      && dirtyAttempt.state.marks.onBodies.winston >= 1
+      && dirtyAttempt.state.marks.holes > afterLou.state.marks.holes,
+    JSON.stringify({
+      wrongMan: dirtyAttempt.wrongMan,
+      winston: dirtyAttempt.state.actors.winston,
+      marks: dirtyAttempt.state.marks,
+      baselineMarks: afterLou.state.marks,
+    }));
+
   // ---- BATHROOM_AMBUSH, slow/no-fire path: let Pruitt's reaction window
   // expire untouched. Ape's death here is a direct, scripted kill() call from
   // the state machine, never routed through any player-hit-resolution path. -
@@ -1078,6 +1105,55 @@ try {
       && retried.reactionWindow.state === 'idle'
       && deathOverlayAfterRetry.hidden === true,
     JSON.stringify({ retried, deathOverlayAfterRetry }));
+
+  // ---- The retry is a rollback, not a fresh coat of paint. `afterLou.state`
+  // is the state at the moment SQUATCH_PRAYER — the mission's one death
+  // checkpoint — was first entered: attempt-scoped marks and damage vanish,
+  // pre-checkpoint history (Deke's wounds) survives, and no timer, tween or
+  // line from the failed timeline keeps running. --------------------------
+  {
+    const baseline = afterLou.state;
+    // Chester's baseline marks are the couch-beat wrong-man graze — REAL
+    // pre-checkpoint history, kept exactly like Deke's; only the chair-beat
+    // kill wounds and the ambush graze on Winston are attempt-scoped.
+    check('retry rolls the room back to the checkpoint: attempt marks gone, history kept',
+      retried.marks.holes === baseline.marks.holes
+        && retried.marks.onBodies.chester === baseline.marks.onBodies.chester
+        && retried.marks.onBodies.winston === baseline.marks.onBodies.winston
+        && retried.marks.onBodies.pruitt === 0
+        && retried.marks.onBodies.deke === baseline.marks.onBodies.deke
+        && retried.marks.onBodies.deke >= 1
+        && retried.actors.winston.hp === baseline.actors.winston.hp
+        && retried.actors.pruitt.revealed === false,
+      JSON.stringify({
+        retried: { marks: retried.marks, winstonHp: retried.actors.winston.hp },
+        baseline: { marks: baseline.marks, winstonHp: baseline.actors.winston.hp },
+      }));
+    const retryHygiene = await page.evaluate(async () => {
+      const { SEQUENCES } = await import('/src/silvercase/dialogue/script.js');
+      const sc = window.silvercase;
+      const prayerTexts = new Set(
+        [...SEQUENCES.squatchPrayerIntro, ...SEQUENCES.squatchPrayer,
+          ...SEQUENCES.squatchPrayerFinish].map((line) => line.text),
+      );
+      const failedTexts = new Set(SEQUENCES.bathroomFailed.map((line) => line.text));
+      const live = [sc.dialogue.active, ...sc.dialogue.queue].filter(Boolean);
+      return {
+        liveLines: live.length,
+        choiceOpen: Boolean(sc.dialogue.choice),
+        allPrayer: live.every((line) => prayerTexts.has(line.text)),
+        anyFailed: live.some((line) => failedTexts.has(line.text)),
+        pendingTweens: sc.pendingTweens,
+        flags: sc.state().mission.flags,
+      };
+    });
+    check('retry cancels the failed run\'s dialogue and timers — only the prayer speaks',
+      (retryHygiene.liveLines >= 1 ? retryHygiene.allPrayer : retryHygiene.choiceOpen)
+        && retryHygiene.anyFailed === false
+        && retryHygiene.flags.apeFinishedChester === false
+        && retryHygiene.flags.apeFinishedWinston === false,
+      JSON.stringify(retryHygiene));
+  }
 
   // ---- Replay the prayer, this time resolving BATHROOM_AMBUSH fast, so the
   // reaction window is neutralized instead of expiring. -------------------

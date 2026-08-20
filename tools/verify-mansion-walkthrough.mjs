@@ -999,7 +999,11 @@ try {
   check(12, 'classic bedroom furniture has requested spacing and angle',
     staticAudit.bedrooms.classic.chairWardrobe && staticAudit.bedrooms.classic.tableBed
       && staticAudit.bedrooms.classic.tvAngle >= 0.2
-      && staticAudit.bedrooms.classic.weight.x >= 14.5 && staticAudit.bedrooms.classic.weight.z >= 44.5,
+      /* z >= 44.5 was the window-corner placement that put the weight set
+       * inside the steamer trunk (owner playtest 2026-08-18); it now stands
+       * on the same window wall south of the trunk. */
+      && staticAudit.bedrooms.classic.weight.x >= 14.5
+      && staticAudit.bedrooms.classic.weight.z >= 42.0 && staticAudit.bedrooms.classic.weight.z <= 44.0,
     JSON.stringify(staticAudit.bedrooms.classic));
   check(13, 'Gothic furniture clears and Old Chapel placard is outside',
     staticAudit.bedrooms.gothic.chairWardrobe && staticAudit.bedrooms.gothic.tableBed

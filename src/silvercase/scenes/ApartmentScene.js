@@ -67,19 +67,23 @@ export const ANCHORS = Object.freeze({
   // The couch's cushions sit at 0.54 and the chair's at 0.53, so both bases
   // are effectively the floor. Handing this rig the cushion height instead
   // parks a man 46 cm in the air.
-  couchSeat: Object.freeze({ x: 8.42, y: 0.01, z: 2.1, yaw: Math.PI }), // heading, faces -z (north)
+  couchSeat: Object.freeze({ x: 8.42, y: 0.01, z: 1.94, yaw: Math.PI }), // heading, faces -z (north)
   chairSeat: Object.freeze({ x: 8, y: 0, z: -1.2, yaw: 0 }), // heading, faces +z (south)
-  kitchenSpot: Object.freeze({ x: 10.6, y: 0, z: -0.2, yaw: -Math.PI / 2 }), // Person heading, faces -x
+  kitchenSpot: Object.freeze({ x: 10.6, y: 0, z: -0.1, yaw: -Math.PI / 2 }), // Person heading, faces -x
   bathroomDoorway: Object.freeze({ x: 11.2, y: 0, z: -2.4, yaw: 0 }), // Person heading, faces +z (into the room)
   caseSpot: Object.freeze({ x: 9.6, y: 0.05, z: 1.6 }),
   // In FRONT of the couch, not inside it. The couch is a 2.15 m run centred on
-  // x=8 with its front face at z=1.76 (see the COUCH block below); the table is
+  // x=8 with its front face at z=1.60 (see the COUCH block below); the table is
   // 1.20 x 0.62, so at the old (9.0, 1.6) its near half was buried in the
   // cushions and its long axis was hanging off the end of the couch. Centred on
-  // the couch and set back 0.30 m from its front edge — a normal walking gap —
-  // the whole living half of the flat reads as one arrangement.
-  coffeeTableSpot: Object.freeze({ x: 8.0, y: 0, z: 1.05 }),
-  tvSpot: Object.freeze({ x: 6.06, y: 1.55, z: -1.6 }),
+  // the couch and 0.34 m clear of its front edge — a small flat's knee gap the
+  // player's 0.30 m capsule can still cross — the whole living half of the
+  // flat reads as one arrangement.
+  coffeeTableSpot: Object.freeze({ x: 8.0, y: 0, z: 0.95 }),
+  // The west wall's inner face is x=6.10. A 9 cm-deep set centred at 6.165
+  // leaves the repo-standard 2 cm service gap instead of burying its back
+  // 8.5 cm into the plaster.
+  tvSpot: Object.freeze({ x: 6.165, y: 1.55, z: -1.6 }),
   fridgeSpot: Object.freeze({ x: 11.64, y: 0, z: 1.95 }),
   // On the wall's west segment, well clear of the bathroom doorway. The
   // brief's own "(e.g. z=-1.2)" would sit mid-room rather than on the wall
@@ -96,10 +100,19 @@ export function buildApartmentScene() {
   const interactables = [];
 
   /** Build a wall box and register its collider in one step. */
-  function wallBox(x0, y0, z0, x1, y1, z1, m) {
+  function wallBox(x0, y0, z0, x1, y1, z1, m, supportAssemblyId) {
     const mesh = boxFrom(x0, y0, z0, x1, y1, z1, m);
+    mesh.name = 'silvercase.apartment.shell-panel';
+    mesh.userData.geometryGate = {
+      structural: true,
+      wall: true,
+      fixedSupportAnchor: true,
+      supportAssemblyId,
+    };
     root.add(mesh);
-    colliders.push(collider([x0, y0, z0], [x1, y1, z1]));
+    // Shell pieces are authored to meet exactly; player padding belongs on
+    // standalone furniture, not on every adjoining wall segment.
+    colliders.push(collider([x0, y0, z0], [x1, y1, z1], 0));
     return mesh;
   }
 
@@ -158,28 +171,36 @@ export function buildApartmentScene() {
   // ---------------- floors + ceilings ----------------
   const H = ROOMS.hallway;
   const hallFloor = plane(H.x1 - H.x0, H.z1 - H.z0, M2.hallFloor);
+  hallFloor.name = 'silvercase.hallway.floor';
+  hallFloor.userData.geometryGate = { structural: true, fixedSupportAnchor: true, supportAssemblyId: 'silvercase.shell.hallway' };
   hallFloor.rotation.x = -Math.PI / 2;
-  hallFloor.position.set((H.x0 + H.x1) / 2, 0.01, (H.z0 + H.z1) / 2);
+  hallFloor.position.set((H.x0 + H.x1) / 2, 0, (H.z0 + H.z1) / 2);
   root.add(hallFloor);
   const hallCeil = plane(H.x1 - H.x0, H.z1 - H.z0, M2.ceiling);
+  hallCeil.name = 'silvercase.hallway.ceiling';
+  hallCeil.userData.geometryGate = { structural: true, fixedSupportAnchor: true, supportAssemblyId: 'silvercase.shell.hallway' };
   hallCeil.rotation.x = Math.PI / 2;
   hallCeil.position.set((H.x0 + H.x1) / 2, H.h, (H.z0 + H.z1) / 2);
   root.add(hallCeil);
 
   const A = ROOMS.apartment;
   const aptFloor = plane(A.x1 - A.x0, A.z1 - A.z0, M2.floor);
+  aptFloor.name = 'silvercase.apartment.floor';
+  aptFloor.userData.geometryGate = { structural: true, fixedSupportAnchor: true, supportAssemblyId: 'silvercase.shell.apartment' };
   aptFloor.rotation.x = -Math.PI / 2;
-  aptFloor.position.set((A.x0 + A.x1) / 2, 0.01, (A.z0 + A.z1) / 2);
+  aptFloor.position.set((A.x0 + A.x1) / 2, 0, (A.z0 + A.z1) / 2);
   root.add(aptFloor);
   const aptCeil = plane(A.x1 - A.x0, A.z1 - A.z0, M2.ceiling);
+  aptCeil.name = 'silvercase.apartment.ceiling';
+  aptCeil.userData.geometryGate = { structural: true, fixedSupportAnchor: true, supportAssemblyId: 'silvercase.shell.apartment' };
   aptCeil.rotation.x = Math.PI / 2;
   aptCeil.position.set((A.x0 + A.x1) / 2, A.h, (A.z0 + A.z1) / 2);
   root.add(aptCeil);
 
   // ---------------- hallway shell ----------------
-  wallBox(H.x0 - 0.15, 0, H.z0 - 0.2, H.x1 + 0.1, H.h, H.z0, M2.wall); // north side
-  wallBox(H.x0 - 0.15, 0, H.z1, H.x1 + 0.1, H.h, H.z1 + 0.2, M2.wall); // south side
-  wallBox(H.x0 - 0.2, 0, H.z0 - 0.2, H.x0, H.h, H.z1 + 0.2, M2.wallDark); // entrance end cap
+  wallBox(H.x0, 0, H.z0 - 0.2, H.x1 - 0.1, H.h, H.z0, M2.wall, 'silvercase.shell.hallway');
+  wallBox(H.x0, 0, H.z1, H.x1 - 0.1, H.h, H.z1 + 0.2, M2.wall, 'silvercase.shell.hallway');
+  wallBox(H.x0 - 0.2, 0, H.z0 - 0.2, H.x0, H.h, H.z1 + 0.2, M2.wallDark, 'silvercase.shell.hallway');
 
   // ---------------- hallway dressing ----------------
   //
@@ -223,12 +244,15 @@ export function buildApartmentScene() {
   const hallwayDoors = [];
   function hallwayDoor(dx, side, unit, { mat: leafMat = M2.doorWood, mail = false } = {}) {
     const d = group('hallwayDoor');
+    d.userData.geometryGate = {
+      assemblyId: `silvercase.hallway-door.${unit}`,
+    };
     d.add(box({ size: [0.85, 2.05, 0.04], pos: [0, 1.05, 0], mat: leafMat }));
     // The casing goes BEHIND the leaf in the door's own local frame — the
     // whole group is turned 180° for the south wall, so this must not be
     // flipped by `side` as well or the dark frame lands in front of the door
     // and every neighbour's flat reads as a black hole in the plaster.
-    d.add(box({ size: [0.95, 2.2, 0.06], pos: [0, 1.12, -0.03], mat: M2.doorFrame }));
+    d.add(box({ size: [0.95, 2.2, 0.04], pos: [0, 1.12, -0.02], mat: M2.doorFrame }));
     // Two panels, so a door is not one slab.
     for (const py of [0.62, 1.48]) {
       d.add(box({ size: [0.58, 0.62, 0.012], pos: [0, py, 0.026], mat: M2.doorPanel }));
@@ -248,7 +272,9 @@ export function buildApartmentScene() {
       matRug.position.set(dx, 0.014, (side < 0 ? H.z0 : H.z1) - side * 0.36);
       root.add(matRug);
     }
-    d.position.set(dx, 0, (side < 0 ? H.z0 : H.z1) + side * -0.02);
+    // Keep the casing flush to the plaster instead of embedding it four
+    // centimetres through the wall and both moulding rails.
+    d.position.set(dx, 0, (side < 0 ? H.z0 : H.z1) + side * -0.06);
     d.rotation.y = side < 0 ? 0 : Math.PI;
     root.add(d);
     hallwayDoors.push(d);
@@ -263,8 +289,13 @@ export function buildApartmentScene() {
   // Skirting and a picture rail down both sides, the two mouldings that stop
   // a corridor reading as a cardboard box.
   for (const [z0, z1] of [[H.z0 - 0.02, H.z0 + 0.03], [H.z1 - 0.03, H.z1 + 0.02]]) {
-    root.add(boxFrom(H.x0 - 0.15, 0, z0, H.x1, 0.13, z1, M2.trim));
-    root.add(boxFrom(H.x0 - 0.15, 1.06, z0, H.x1, 1.11, z1, M2.trim));
+    const skirting = boxFrom(H.x0 - 0.15, 0, z0, H.x1, 0.13, z1, M2.trim);
+    const pictureRail = boxFrom(H.x0 - 0.15, 1.06, z0, H.x1, 1.11, z1, M2.trim);
+    for (const moulding of [skirting, pictureRail]) {
+      moulding.name = 'silvercase.apartment.shell-moulding';
+      moulding.userData.geometryGate = {};
+      root.add(moulding);
+    }
   }
 
   // The runner. Worn strip down the middle, stopping short of both ends.
@@ -295,16 +326,34 @@ export function buildApartmentScene() {
   boxes.position.set(H.x0 + 0.03, 0, 0);
   root.add(boxes);
 
-  // A radiator under the picture rail, a standpipe and an extinguisher.
+  // A radiator under the picture rail and an extinguisher on a real wall
+  // bracket, rather than two cylinders hanging 6.5 cm off the plaster.
   const rad = group('radiator');
+  rad.userData.geometryGate = { assemblyId: 'silvercase.radiator' };
   for (let i = 0; i < 11; i++) {
     rad.add(box({ size: [0.05, 0.52, 0.06], pos: [i * 0.062, 0.4, 0], mat: M2.radiator }));
   }
   rad.add(box({ size: [0.72, 0.05, 0.09], pos: [0.31, 0.68, 0], mat: M2.radiator }));
+  // Two real feet carry the radiator to the floor instead of asking a support
+  // annotation to bridge fourteen centimetres of empty air.
+  for (const x of [0.06, 0.56]) {
+    const foot = box({ size: [0.04, 0.14, 0.04], pos: [x, 0.071, 0], mat: M2.radiator });
+    foot.name = 'radiator-foot';
+    rad.add(foot);
+  }
   rad.position.set(3.05, 0, H.z1 - 0.09);
   root.add(rad);
-  root.add(cylinder({ r: 0.055, h: 0.34, pos: [4.35, 0.95, H.z0 + 0.12], mat: M2.extinguisher }));
-  root.add(cylinder({ r: 0.02, h: 0.12, pos: [4.35, 1.18, H.z0 + 0.12], mat: M2.doorFrame }));
+  const extinguisher = group('fire-extinguisher');
+  extinguisher.userData.geometryGate = {
+    assemblyId: 'silvercase.fire-extinguisher',
+  };
+  // Clear unit 2C's casing; the old x=4.35 put the bottle and brackets
+  // through the door's strike-side edge.
+  extinguisher.add(box({ size: [0.15, 0.04, 0.08], pos: [4.65, 0.87, H.z0 + 0.03], mat: M2.doorFrame }));
+  extinguisher.add(box({ size: [0.15, 0.04, 0.08], pos: [4.65, 1.03, H.z0 + 0.03], mat: M2.doorFrame }));
+  extinguisher.add(cylinder({ r: 0.055, h: 0.34, pos: [4.65, 0.95, H.z0 + 0.12], mat: M2.extinguisher }));
+  extinguisher.add(cylinder({ r: 0.02, h: 0.12, pos: [4.65, 1.18, H.z0 + 0.12], mat: M2.doorFrame }));
+  root.add(extinguisher);
 
   // Somebody's recycling, and last week's free paper nobody took in.
   root.add(box({ size: [0.3, 0.26, 0.3], pos: [0.55, 0.13, H.z1 - 0.22], mat: M2.bag, rotY: 0.3 }));
@@ -350,7 +399,12 @@ export function buildApartmentScene() {
     bg: '#3a0d0a', fg: '#ffd9d2', font: 'bold 30px "Trebuchet MS", sans-serif',
   });
   const exitSign = group('exitSign');
+  exitSign.userData.geometryGate = { assemblyId: 'silvercase.exit-sign' };
   exitSign.add(box({ size: [0.04, 0.16, 0.36], pos: [0, 0, 0], mat: M2.trim }));
+  // The sign hangs from the 2.6m hallway ceiling through a visible stem.
+  const exitStem = box({ size: [0.04, 0.24, 0.04], pos: [0, 0.2, 0], mat: M2.brass });
+  exitStem.name = 'exit-sign-ceiling-stem';
+  exitSign.add(exitStem);
   const exitFace = plane(0.32, 0.13, mat({
     map: exitTex, roughness: 0.6, emissive: 0xffffff, emissiveMap: exitTex, emissiveIntensity: 1.9,
   }));
@@ -362,22 +416,23 @@ export function buildApartmentScene() {
 
   // ---------------- apartment shell ----------------
   // West wall, shared with the hallway mouth, split around the front door.
-  wallBox(A.x0 - 0.1, 0, A.z0, A.x0 + 0.1, A.h, FRONT_DOOR.z - FRONT_DOOR.width / 2, M2.wall);
-  wallBox(A.x0 - 0.1, 0, FRONT_DOOR.z + FRONT_DOOR.width / 2, A.x0 + 0.1, A.h, A.z1, M2.wall);
-  // South wall.
-  wallBox(A.x0, 0, A.z1, A.x1, A.h, A.z1 + 0.2, M2.wall);
-  // East wall, behind the kitchen run.
-  wallBox(A.x1 - 0.1, 0, A.z0, A.x1 + 0.1, A.h, A.z1, M2.wallDark);
-  // North wall, split around the bathroom doorway.
+  wallBox(A.x0 - 0.1, 0, A.z0, A.x0 + 0.1, A.h, FRONT_DOOR.z - FRONT_DOOR.width / 2, M2.wall, 'silvercase.shell.apartment');
+  wallBox(A.x0 - 0.1, 0, FRONT_DOOR.z + FRONT_DOOR.width / 2, A.x0 + 0.1, A.h, A.z1, M2.wall, 'silvercase.shell.apartment');
+  // Corners butt at their physical faces instead of crossing through each other.
+  wallBox(A.x0 + 0.1, 0, A.z1, A.x1 - 0.1, A.h, A.z1 + 0.2, M2.wall, 'silvercase.shell.apartment');
+  wallBox(A.x1 - 0.1, 0, A.z0, A.x1 + 0.1, A.h, A.z1, M2.wallDark, 'silvercase.shell.apartment');
   const bathX0 = BATHROOM_DOOR.hinge.x;
   const bathX1 = BATHROOM_DOOR.hinge.x + BATHROOM_DOOR.width;
-  wallBox(A.x0, 0, A.z0 - 0.2, bathX0, A.h, A.z0, M2.wall);
-  wallBox(bathX1, 0, A.z0 - 0.2, A.x1, A.h, A.z0, M2.wall);
+  wallBox(A.x0 + 0.1, 0, A.z0 - 0.2, bathX0 - 0.1, A.h, A.z0, M2.wall, 'silvercase.shell.apartment');
+  wallBox(bathX1 + 0.1, 0, A.z0 - 0.2, A.x1 - 0.1, A.h, A.z0, M2.wall, 'silvercase.shell.apartment');
 
   // Decorative bedroom door — closed, non-interactive, never opens. Not
   // registered as an interactable at all, which is the "hitbox absent"
   // option the brief allows for a door the player is never meant to open.
   const bedroomDoor = group('bedroomDoor');
+  bedroomDoor.userData.geometryGate = {
+    assemblyId: 'silvercase.bedroom-door',
+  };
   bedroomDoor.add(box({ size: [0.85, 2.05, 0.04], pos: [0, 1.05, 0], mat: M2.doorWood }));
   bedroomDoor.add(box({ size: [0.95, 2.2, 0.06], pos: [0, 1.12, -0.03], mat: M2.doorFrame }));
   for (const py of [0.62, 1.48]) {
@@ -386,7 +441,9 @@ export function buildApartmentScene() {
   bedroomDoor.add(cylinder({
     r: 0.016, h: 0.055, pos: [0.31, 1.0, 0.04], rotX: Math.PI / 2, mat: M.chrome,
   }));
-  bedroomDoor.position.set(ANCHORS.bedroomDoor.x, 0, A.z0 + 0.02);
+  // Flush the casing to the north wall's room face rather than sinking its
+  // back four centimetres into the plaster.
+  bedroomDoor.position.set(ANCHORS.bedroomDoor.x, 0, A.z0 + 0.06);
   root.add(bedroomDoor);
 
   // ---------------- the window over the couch ----------------
@@ -408,6 +465,7 @@ export function buildApartmentScene() {
   cityPane.rotation.y = Math.PI;
   root.add(cityPane);
   const windowFrame = group('window');
+  windowFrame.userData.geometryGate = { assemblyId: 'silvercase.window' };
   for (const [sx, sy, w, h] of [[0, -0.52, 1.44, 0.08], [0, 0.52, 1.44, 0.08],
     [-0.7, 0, 0.06, 1.04], [0.7, 0, 0.06, 1.04], [0, 0, 1.4, 0.05]]) {
     windowFrame.add(box({ size: [w, h, 0.07], pos: [sx, sy, 0], mat: M2.trim }));
@@ -418,7 +476,10 @@ export function buildApartmentScene() {
   windowFrame.position.set(10.25, 1.62, A.z1 - 0.06);
   root.add(windowFrame);
   // Sill, and the cold light the street throws back into the room.
-  root.add(box({ size: [1.5, 0.05, 0.16], pos: [10.25, 1.08, A.z1 - 0.08], mat: M2.trim }));
+  const windowSill = box({ size: [1.5, 0.05, 0.16], pos: [10.25, 1.08, A.z1 - 0.08], mat: M2.trim });
+  windowSill.name = 'silvercase.window.sill';
+  windowSill.userData.geometryGate = { assemblyId: 'silvercase.window' };
+  root.add(windowSill);
   const streetSpill = new THREE.PointLight(0x8fa6d8, 1.4, 4.5, 2);
   streetSpill.position.set(10.25, 1.62, A.z1 - 0.35);
   root.add(streetSpill);
@@ -466,6 +527,7 @@ export function buildApartmentScene() {
   const frontDoorCollider = collider(
     [FRONT_DOOR.x - 0.1, 0, FRONT_DOOR.z - FRONT_DOOR.width / 2],
     [FRONT_DOOR.x + 0.1, FRONT_DOOR.height, FRONT_DOOR.z + FRONT_DOOR.width / 2],
+    0,
   );
   colliders.push(frontDoorCollider);
 
@@ -488,6 +550,7 @@ export function buildApartmentScene() {
   // it sits ajar, and a light behind it.
   const bathDoorPivot = new THREE.Group();
   bathDoorPivot.name = 'bathDoorPivot';
+  bathDoorPivot.userData.geometryGate = { assemblyId: 'silvercase.bathroom-door-installation' };
   bathDoorPivot.position.set(BATHROOM_DOOR.hinge.x, 0, BATHROOM_DOOR.hinge.z);
   const BW = BATHROOM_DOOR.width;
   const BH = BATHROOM_DOOR.height;
@@ -518,7 +581,9 @@ export function buildApartmentScene() {
   // Privacy bolt on the room side, and three hinges on the jamb side.
   bathDoorPivot.add(box({ size: [0.05, 0.075, 0.02], pos: [BW - 0.08, 1.2, 0.04], mat: M2.brass }));
   for (const hy of [0.32, 1.1, 1.88]) {
-    bathDoorPivot.add(box({ size: [0.03, 0.11, 0.075], pos: [0.02, hy, 0], mat: M2.brass }));
+    const hinge = box({ size: [0.03, 0.11, 0.075], pos: [0.02, hy, 0], mat: M2.brass });
+    hinge.name = 'bath-door-hinge';
+    bathDoorPivot.add(hinge);
   }
   root.add(bathDoorPivot);
 
@@ -526,6 +591,7 @@ export function buildApartmentScene() {
   // in a wall read as a doorway. Sits just proud of the wall plane (A.z0) so it
   // never z-fights with it, and stops short of the leaf's swing.
   const bathCasing = group('bathroomCasing');
+  bathCasing.userData.geometryGate = { assemblyId: 'silvercase.bathroom-door-installation' };
   bathCasing.add(box({ size: [0.07, BH + 0.09, 0.05], pos: [bathX0 - 0.03, (BH + 0.09) / 2, 0.03], mat: M2.trim }));
   bathCasing.add(box({ size: [0.07, BH + 0.09, 0.05], pos: [bathX1 + 0.03, (BH + 0.09) / 2, 0.03], mat: M2.trim }));
   bathCasing.add(box({ size: [BW + 0.2, 0.09, 0.05], pos: [(bathX0 + bathX1) / 2, BH + 0.045, 0.03], mat: M2.trim }));
@@ -549,7 +615,7 @@ export function buildApartmentScene() {
   bathDoorPivot.rotation.y = BATHROOM_DOOR.ajarRotationY;
 
   const bathDoorCollider = collider(
-    [bathX0, 0, A.z0 - 0.1], [bathX1, BATHROOM_DOOR.height, A.z0 + 0.1],
+    [bathX0 + 0.1, 0, A.z0 - 0.1], [bathX1 - 0.1, BATHROOM_DOOR.height, A.z0 + 0.1], 0,
   );
   colliders.push(bathDoorCollider);
 
@@ -559,12 +625,14 @@ export function buildApartmentScene() {
   // building anything back there to see.
   const ALC_DEPTH = 0.7;
   const alcBack = A.z0 - ALC_DEPTH;
-  wallBox(bathX0 - 0.1, 0, alcBack - 0.1, bathX0 + 0.1, A.h, A.z0, M2.dark);
-  wallBox(bathX1 - 0.1, 0, alcBack - 0.1, bathX1 + 0.1, A.h, A.z0, M2.dark);
-  wallBox(bathX0, 0, alcBack - 0.1, bathX1, A.h, alcBack, M2.dark);
+  wallBox(bathX0 - 0.1, 0, alcBack, bathX0 + 0.1, A.h, A.z0, M2.dark, 'silvercase.shell.apartment');
+  wallBox(bathX1 - 0.1, 0, alcBack, bathX1 + 0.1, A.h, A.z0, M2.dark, 'silvercase.shell.apartment');
+  wallBox(bathX0 + 0.1, 0, alcBack - 0.1, bathX1 - 0.1, A.h, alcBack, M2.dark, 'silvercase.shell.apartment');
   const alcFloor = plane(bathX1 - bathX0, ALC_DEPTH, M2.dark);
+  alcFloor.name = 'silvercase.bathroom-alcove.floor';
+  alcFloor.userData.geometryGate = { structural: true, fixedSupportAnchor: true, supportAssemblyId: 'silvercase.shell.apartment' };
   alcFloor.rotation.x = -Math.PI / 2;
-  alcFloor.position.set((bathX0 + bathX1) / 2, 0.01, A.z0 - ALC_DEPTH / 2);
+  alcFloor.position.set((bathX0 + bathX1) / 2, 0, A.z0 - ALC_DEPTH / 2);
   root.add(alcFloor);
 
   // ---------------- couch (against the south wall, facing north) ----------
@@ -572,12 +640,17 @@ export function buildApartmentScene() {
   // rather than positioning a group, so it is built at the origin and then
   // wrapped in a rotated/translated group — the same swapped-half-extents
   // trick makeCoffeeTable already uses internally for its own bounds.
-  const COUCH = { x: 8, z: 2.2 };
+  // z puts the back plane at 2.48, two centimetres clear of the south wall's
+  // inner face (A.z1 = 2.5) — the stand-off the repo's furniture keeps against
+  // walls (docs/NO-WAKE-PRODUCTION.md, "Two centimetres, everywhere") —
+  // rather than 14 cm inside it, rear feet and all.
+  const COUCH = { x: 8, z: 2.04 };
   const COUCH_LEN = 2.15;
   const COUCH_DEPTH = 0.88;
   const couchBuilt = makeCouch(M, { x: 0, z: 0, len: COUCH_LEN, depth: COUCH_DEPTH });
   const couchGroup = new THREE.Group();
   couchGroup.name = 'couch';
+  couchGroup.userData.geometryGate = { assemblyId: 'silvercase.couch' };
   couchGroup.position.set(COUCH.x, 0, COUCH.z);
   couchGroup.rotation.y = Math.PI / 2; // rotates the couch's default +x facing to -z (north)
   couchGroup.add(couchBuilt.group);
@@ -593,8 +666,9 @@ export function buildApartmentScene() {
   // cushion from where Deke is sitting (ANCHORS.couchSeat), or the body would
   // land on top of the one detail that says these three were not unarmed.
   const couchGrip = group('couchGrip');
+  couchGrip.userData.geometryGate = { assemblyId: 'silvercase.couch' };
   couchGrip.add(box({ size: [0.05, 0.09, 0.03], pos: [0, 0.02, 0], mat: M2.grip, rotZ: 0.5 }));
-  couchGrip.position.set(7.45, 0.53, 1.86);
+  couchGrip.position.set(7.45, 0.53, 1.70);
   root.add(couchGrip);
 
   // A rug under the couch, table and chair, so the living half of the flat
@@ -640,6 +714,7 @@ export function buildApartmentScene() {
 
   // ---------------- wall-mounted TV, entry-side wall ----------------
   const tv = group('tv');
+  tv.userData.geometryGate = { assemblyId: 'silvercase.tv' };
   tv.add(box({ size: [0.09, 0.55, 0.9], pos: [0, 0, 0], mat: M2.wallDark }));
   const tvScreenMesh = box({ size: [0.02, 0.46, 0.8], pos: [0.05, 0, 0], mat: tvScreen });
   tv.add(tvScreenMesh);
@@ -649,20 +724,36 @@ export function buildApartmentScene() {
   // A bat leaning in the corner near the TV — purely visual, same optional
   // onLook hook as the couch grip.
   const batBehindTV = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.028, 0.75, 8), M2.batWood);
-  batBehindTV.position.set(6.1, 0.4, -1.85);
+  // Keep the tilted upper end tangent to the west wall instead of burying
+  // half the bat through it.
+  batBehindTV.position.set(6.25, 0.4, -1.85);
   batBehindTV.rotation.z = 0.32;
   root.add(batBehindTV);
 
   // ---------------- kitchen nook, east wall ----------------
   const kitchen = makeKitchen(M, { x: A.x1 - 0.3, z0: -1.85, z1: 1.5, wallX: A.x1 });
+  // Two slim wall rails meet the worktop and the two disconnected upper runs.
+  // They make the vertical load path visible and auditable without exempting
+  // the entire shared kitchen builder from support checks.
+  for (const z of [0.5, 1.2]) {
+    kitchen.group.add(box({ size: [0.04, 0.56, 0.04], pos: [A.x1 - 0.15, 1.2, z], mat: M.darkSteel }));
+  }
   root.add(kitchen.group);
-  colliders.push(collider(kitchen.bounds[0], kitchen.bounds[1]));
+  colliders.push(collider(
+    kitchen.bounds[0],
+    [A.x1 - 0.1, kitchen.bounds[1][1], kitchen.bounds[1][2]],
+    0,
+  ));
 
   const fridge = makeFridge(M, {
     x: ANCHORS.fridgeSpot.x, z: ANCHORS.fridgeSpot.z, w: 0.8, d: 0.72, h: 1.85,
   });
   root.add(fridge.group);
-  colliders.push(collider(fridge.bounds[0], fridge.bounds[1]));
+  colliders.push(collider(
+    fridge.bounds[0],
+    [A.x1 - 0.1, fridge.bounds[1][1], fridge.bounds[1][2]],
+    0,
+  ));
 
   // ---------------- the case, hidden near the kitchen/coffee table --------
   const caseInstance = makeCase({
@@ -675,9 +766,12 @@ export function buildApartmentScene() {
   // nudges aside) this group once that happens; no collider of its own, the
   // coffee table's collider already guards this footprint.
   const caseOcclusion = group('caseOcclusion');
+  caseOcclusion.userData.geometryGate = { assemblyId: 'silvercase.case-occlusion' };
   caseOcclusion.add(box({ size: [0.32, 0.22, 0.22], pos: [0, 0.11, 0], mat: M2.bag, rotY: 0.5 }));
   caseOcclusion.add(box({ size: [0.24, 0.1, 0.18], pos: [0.05, 0.24, 0.02], mat: M2.bag, rotY: 0.2 }));
-  caseOcclusion.position.set(ANCHORS.caseSpot.x - 0.06, 0, ANCHORS.caseSpot.z + 0.14);
+  // Keep the bag between the room and the case, not intersecting the case it
+  // is meant to hide. This still blocks the player's first sightline.
+  caseOcclusion.position.set(ANCHORS.caseSpot.x - 0.06, 0.01, ANCHORS.caseSpot.z - 0.42);
   root.add(caseOcclusion);
 
   const caseHit = new THREE.Mesh(

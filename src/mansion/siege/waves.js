@@ -38,8 +38,8 @@
  * legible and it was not at the rail.
  *
  * THE SPLIT, AND WHY: eighteen of twenty-two (82%) come up the drive and
- * through `FRONT_DOOR`. The other four are ONE group, 2B, arriving late in
- * the second wave through two panes on opposite flanks. That is deliberately
+ * through `FRONT_DOOR`. The other four are ONE group, 2B, released on a short
+ * stagger behind 2A through two panes on opposite flanks. That is deliberately
  * not zero: the brief's other standing instruction is that "twenty-two
  * identical riflemen walking through the same doorway is not an encounter",
  * and a defence with no reason ever to turn round is a shooting gallery. Four
@@ -204,16 +204,103 @@ export const ENCOUNTERS = Object.freeze({
   }),
 });
 
+/* ================================================================== */
+/* THE ENCOUNTER DIRECTOR'S SEAM                                        */
+/*                                                                       */
+/* The ways onto the property, named once. A group in the plan below      */
+/* names the route it releases on and stages only in that route's zones   */
+/* -- `assaultGroup` throws at module load if it does not -- so "who      */
+/* comes which way, and when" is this table plus the plan, not constants  */
+/* scattered across the pool, the nav file and the scene.                 */
+/* ================================================================== */
+export const ASSAULT_ROUTES = Object.freeze({
+  /* Up the drive, past the fountain and the wrecks, up the steps and in
+   * through `FRONT_DOOR`. Eighteen of twenty-two walk this. */
+  main: Object.freeze({
+    id: 'main', flank: false,
+    label: 'the drive, the steps and the front door',
+    staging: Object.freeze(['front_steps', 'court_north']),
+  }),
+  /* The long west flank: the lawn, the trophy hall's south pane, the
+   * arcade, the living room, and out of its arch into the foyer's rear. */
+  flank_west: Object.freeze({
+    id: 'flank_west', flank: true,
+    label: 'the west lawn and the trophy hall glass',
+    staging: Object.freeze(['living_west']),
+  }),
+  /* The long east flank: the service-road verge, the billiard bay's south
+   * pane, the lounge, and its arch into the foyer's rear. */
+  flank_east: Object.freeze({
+    id: 'flank_east', flank: true,
+    label: 'the east lawn and the billiard bay glass',
+    staging: Object.freeze(['lounge_bay']),
+  }),
+});
+
 /**
- * The staircase defence. Twenty-two men in five groups.
+ * How much clear channel the main route must offer, in metres, everywhere
+ * along the walked approach. 2.5 m is two men abreast with a rifle between
+ * them -- an assault frontage. The 1.15 m file the old wreck placement left
+ * between the burning shells and the fountain's apron is the fault this
+ * number exists to keep fixed; `tests/mansion-siege-dressing.test.mjs`
+ * samples the approach against the real colliders and holds the line.
+ */
+export const APPROACH_CLEAR_WIDTH = 2.5;
+
+/**
+ * Seconds between the frontal group 2A going in and the flank release.
+ *
+ * DELIBERATELY SHORT, and the walk is the point: the wing routes are about
+ * twenty-five metres of lawn, glass and furniture, so a flanker released
+ * six seconds behind 2A reaches the foyer's rear roughly fifteen seconds
+ * into 2A's push -- while the player is committed to the stairs -- instead
+ * of arriving, as the old 18 s release did, to an already-quiet room. The
+ * long flank is pressure DURING the fight or it is nothing.
+ */
+export const FLANK_RELEASE_STAGGER = 6;
+
+/**
+ * One row of the plan, checked as it is authored.
+ *
+ * `routes` names entries in `ASSAULT_ROUTES`; every staging zone the group
+ * uses must belong to one of them, and `flank` is derived from the route
+ * rather than declared a second time. A group authored off its own route is
+ * a module-load error, not a playtest surprise.
+ */
+function assaultGroup(id, routes, { count, after, whenRemaining, staging, roles }) {
+  const named = routes.map((route) => {
+    if (!ASSAULT_ROUTES[route]) throw new Error(`${id} releases on unknown route "${route}"`);
+    return ASSAULT_ROUTES[route];
+  });
+  for (const zone of staging) {
+    if (!named.some((route) => route.staging.includes(zone))) {
+      throw new Error(`${id} stages "${zone}", which is on none of its routes`);
+    }
+  }
+  return Object.freeze({
+    id,
+    routes: Object.freeze([...routes]),
+    count,
+    after,
+    whenRemaining,
+    flank: named.some((route) => route.flank),
+    staging: Object.freeze([...staging]),
+    roles: Object.freeze([...roles]),
+  });
+}
+
+/**
+ * The staircase defence. Twenty-two men in five groups. This is the single
+ * authored table the wave director reads: routes, release times and group
+ * sizes, in one place.
  *
  * `after` is seconds since the previous group released. `whenRemaining` is
  * how many of everything already released must still be standing before the
  * next group is held back -- drop to that number or below and it comes early.
  *
- * `flank: true` marks the one group that does not come through the front
- * door. There is exactly one, `frontDoorShare()` asserts the proportion, and
- * a test holds it above four fifths.
+ * The one `flank` group (derived from its routes) is the only one that does
+ * not come through the front door. There is exactly one, `frontDoorShare()`
+ * asserts the proportion, and a test holds it above four fifths.
  */
 export const WAVES = Object.freeze([
   Object.freeze({
@@ -223,18 +310,18 @@ export const WAVES = Object.freeze([
       /* Straight up the drive and in. Two already on the steps, two walking
        * up from the turnaround, so the first contact is immediate and the
        * second arrives while he is dealing with it. */
-      Object.freeze({
-        id: '1A', count: 4, after: 0, whenRemaining: null,
-        staging: Object.freeze(['front_steps', 'court_north', 'front_steps', 'court_north']),
-        roles: Object.freeze(['rifle', 'rifle', 'rifle', 'smg']),
+      assaultGroup('1A', ['main'], {
+        count: 4, after: 0, whenRemaining: null,
+        staging: ['front_steps', 'court_north', 'front_steps', 'court_north'],
+        roles: ['rifle', 'rifle', 'rifle', 'smg'],
       }),
       /* Same door. The flanker in this group flanks INSIDE -- he takes the
        * other flight of the horseshoe, which is the split the house was built
        * to offer and the reason the player cannot hold one arc. */
-      Object.freeze({
-        id: '1B', count: 4, after: 22, whenRemaining: 2,
-        staging: Object.freeze(['court_north', 'front_steps', 'court_north', 'front_steps']),
-        roles: Object.freeze(['rifle', 'rifle', 'smg', 'flanker']),
+      assaultGroup('1B', ['main'], {
+        count: 4, after: 22, whenRemaining: 2,
+        staging: ['court_north', 'front_steps', 'court_north', 'front_steps'],
+        roles: ['rifle', 'rifle', 'smg', 'flanker'],
       }),
     ]),
   }),
@@ -244,34 +331,44 @@ export const WAVES = Object.freeze([
     groups: Object.freeze([
       /* Front door again, with the suppressor who sets up on the door line
        * and pins the rail rather than climbing. */
-      Object.freeze({
-        id: '2A', count: 5, after: 0, whenRemaining: null,
-        staging: Object.freeze(['front_steps', 'front_steps', 'court_north', 'court_north', 'court_north']),
-        roles: Object.freeze(['rifle', 'rifle', 'rifle', 'suppressor', 'smg']),
+      assaultGroup('2A', ['main'], {
+        count: 5, after: 0, whenRemaining: null,
+        staging: ['front_steps', 'front_steps', 'court_north', 'court_north', 'court_north'],
+        roles: ['rifle', 'rifle', 'rifle', 'suppressor', 'smg'],
       }),
       /* THE ONE TIME HE HAS TO LOOK AWAY FROM THE STAIRS. Two panes go at
        * once on opposite flanks -- the trophy hall's west glazing and the
        * billiard bay's east -- and four men come through the wings into the
        * BACK of the foyer, behind the horseshoe. They are the only four of
-       * twenty-two who are not on the drive. */
-      Object.freeze({
-        id: '2B', count: 4, after: 18, whenRemaining: 3, flank: true,
-        staging: Object.freeze(['living_west', 'living_west', 'lounge_bay', 'lounge_bay']),
-        roles: Object.freeze(['shotgun', 'rifle', 'rifle', 'flanker']),
+       * twenty-two who are not on the drive.
+       *
+       * Released on `FLANK_RELEASE_STAGGER`, not on the 18 s the frontal
+       * groups pace themselves by: their route is a long walk, and the old
+       * clock had them breaking glass for a room 2A had already died in. The
+       * attrition clause stays so a player shredding 2A pulls the flank in
+       * even sooner, never later. */
+      assaultGroup('2B', ['flank_west', 'flank_east'], {
+        count: 4, after: FLANK_RELEASE_STAGGER, whenRemaining: 3,
+        staging: ['living_west', 'living_west', 'lounge_bay', 'lounge_bay'],
+        roles: ['shotgun', 'rifle', 'rifle', 'flanker'],
       }),
       /* And back to the door for the last push, with the three men who make
-       * 2C the hardest group rather than merely the longest. */
-      Object.freeze({
-        id: '2C', count: 5, after: 20, whenRemaining: 3,
-        staging: Object.freeze(['front_steps', 'court_north', 'front_steps', 'court_north', 'court_north']),
-        roles: Object.freeze(['leader', 'armored', 'gunner', 'rifle', 'rifle']),
+       * 2C the hardest group rather than merely the longest. Its clock runs
+       * from 2B's release, so pulling the flank forward pulls the finale
+       * forward with it -- the wave is denser, not merely re-ordered. */
+      assaultGroup('2C', ['main'], {
+        count: 5, after: 20, whenRemaining: 3,
+        staging: ['front_steps', 'court_north', 'front_steps', 'court_north', 'court_north'],
+        roles: ['leader', 'armored', 'gunner', 'rifle', 'rifle'],
       }),
     ]),
   }),
 ]);
 
-/** Staging zones that funnel through `FRONT_DOOR`. */
-export const FRONT_DOOR_STAGING = Object.freeze(new Set(['court_north', 'front_steps']));
+/** Staging zones that funnel through `FRONT_DOOR` -- the main route's own,
+ * derived rather than restated so the share below cannot drift from the
+ * route table. */
+export const FRONT_DOOR_STAGING = Object.freeze(new Set(ASSAULT_ROUTES.main.staging));
 
 /**
  * How much of the staircase defence comes in the front door.

@@ -10,13 +10,22 @@ const DOOR_POST = new THREE.Vector3(1.1, 0, 1.0);
 export class McClawskyController {
   constructor(scene) {
     this.fig = new Figure({
-      coat: 0x2a3038,
-      shirt: 0xdfe2e4,
+      // A city salary in a grey-brown suit whose trousers were never quite the
+      // same bolt as the jacket, a shirt a week past pressing, and no pocket
+      // square — the same tailoring as Sal's, none of the money.
+      coat: 0x3d3a33,
+      trouser: 0x46413a,
+      shirt: 0xd6d4cc,
       tie: 0x1c2430,
       skin: 0xd8a888,
       hair: 0x5a4a3a,
       bulk: 1.24,
       height: 1.04,
+      trim: true,
+      belt: 0x241f1a,
+      buckle: 0x8d8a80,
+      badge: 0xc9a63f,
+      holster: 0x2a2019,
       // The big bored cop: cropped hair, heavy flat brows, lids at half
       // mast over grey-blue eyes.
       hairStyle: 'crop',

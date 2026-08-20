@@ -377,7 +377,11 @@ function stats(samples, body) {
 /* ------------------------------------------------------------------ */
 
 console.log(`\nThe mouths — http://localhost:${PORT}/silvercase.html\n`);
-await page.goto(`http://localhost:${PORT}/silvercase.html`, { waitUntil: 'domcontentloaded' });
+/* Through the preview gate at the room checkpoint: The Silver Case grew a
+ * campaign entry gate after this file was written, so a bare page load now
+ * refuses begin() and the voice bank never decodes. The room beat stages all
+ * five bodies this file samples. */
+await page.goto(`http://localhost:${PORT}/silvercase.html?preview=1&checkpoint=room`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
 await installSampler();
 

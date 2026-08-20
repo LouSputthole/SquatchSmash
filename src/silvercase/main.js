@@ -1,7 +1,5 @@
 import * as THREE from 'three';
-import { buildApartmentScene, ANCHORS, BATHROOM_DOOR } from './scenes/ApartmentScene.js';
-import { buildCarInterior } from './scenes/CarInterior.js';
-import { populateCast } from './cast/cast.js';
+import { ANCHORS, BATHROOM_DOOR, ROOMS } from './scenes/ApartmentScene.js';
 import { SILVERCASE_APE_PRESENTATION } from './cast/ape.js';
 import { makeRevolverViewModel, muzzleWorld } from './props/weapon.js';
 import { makeCase } from './props/case.js';
@@ -12,12 +10,18 @@ import {
   SEQUENCES, CHOICES, OBJECTIVES, INSTRUCTIONS, TARGET_CALLOUTS,
 } from './dialogue/script.js';
 import { silverCaseAudioLoadOptions } from './audio.js';
+import {
+  SILVERCASE_CHECKPOINT_LABELS, applySilverCasePreviewPose,
+  previewCheckpointForLocation,
+} from './preview.js';
 import { SilverCaseStateMachine, S, CHECKPOINT } from './state/SilverCaseStateMachine.js';
 import { Player } from '../core/player.js';
 import { translateKey } from '../core/settings.js';
+import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
+import { createCampaignAudioFeedback } from '../core/campaign-audio-feedback.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
@@ -36,6 +40,7 @@ import {
   silverCaseCampaignReport,
   silverCaseResumeCheckpoint,
 } from './campaign.js';
+import { buildSilverCaseRuntimeGeometry } from './runtime-geometry.js';
 
 /**
  * The Silver Case — composition root.
@@ -186,31 +191,6 @@ function setObjective(text) {
  * it. `jumpToPreviewCheckpoint()`, near the bottom of this file, is where
  * that staging happens.
  */
-const SILVERCASE_CHECKPOINTS = Object.freeze({
-  car: 'car',
-  hallway: 'hallway',
-  room: 'room',
-  prayer: 'prayer',
-  bathroom: 'bathroom',
-  aftermath: 'aftermath',
-});
-const SILVERCASE_CHECKPOINT_LABELS = Object.freeze({
-  car: 'THE CAR RIDE',
-  hallway: 'THE HALLWAY',
-  room: 'CONTROL ESTABLISHED',
-  prayer: 'THE SQUATCH PRAYER',
-  bathroom: 'THE BATHROOM AMBUSH',
-  aftermath: 'THE AFTERMATH',
-});
-function previewCheckpointForLocation(locationLike = window.location) {
-  if (!isPreviewMode(locationLike)) return null;
-  let params;
-  try { params = new URLSearchParams(locationLike?.search || ''); } catch { return null; }
-  const value = params.get('checkpoint');
-  return value && Object.prototype.hasOwnProperty.call(SILVERCASE_CHECKPOINTS, value)
-    ? SILVERCASE_CHECKPOINTS[value]
-    : null;
-}
 /** Resolved once at boot -- a real waypoint id, or null for the ordinary opening. */
 const previewCheckpoint = previewCheckpointForLocation();
 const campaignPreview = isPreviewMode();
@@ -274,7 +254,7 @@ function setInstruction(text, { urgent = false } = {}) {
  * exactly showPrompt/hidePrompt/setHold, nothing from core/hud.js. */
 const tinyHud = {
   showPrompt(label, key) {
-    ui.promptKey.textContent = key || 'E';
+    writeGameplayPromptKey(ui.promptKey, key || 'E');
     ui.promptText.textContent = typeof label === 'function' ? label() : label;
     ui.prompt.classList.add('show');
   },
@@ -323,14 +303,7 @@ function renderChoice(choiceDef) {
 
 // ---------------------------------------------------------------- systems
 
-const apartment = buildApartmentScene();
-const car = buildCarInterior();
-scene.add(apartment.root);
-scene.add(car.root);
-apartment.root.visible = false;
-car.root.visible = false;
-
-const cast = populateCast(apartment.root);
+const { apartment, car, cast } = buildSilverCaseRuntimeGeometry(scene);
 
 // world.colliders starts as a *copy* of ApartmentScene's own collider list —
 // copying the array (not just aliasing it) so the front door's collider can
@@ -338,13 +311,24 @@ const cast = populateCast(apartment.root);
 // mutating ApartmentScene's own returned array. The Box3 element itself is
 // still the exact same object ApartmentScene built, so identity checks
 // (indexOf) still work.
-const world = { colliders: [...apartment.colliders], floorZones: [] };
+const world = {
+  colliders: [...apartment.colliders],
+  floorZones: [{
+    box: new THREE.Box3(
+      new THREE.Vector3(ROOMS.hallway.x0, -0.1, ROOMS.hallway.z0),
+      new THREE.Vector3(ROOMS.hallway.x1, ROOMS.hallway.h, ROOMS.hallway.z1),
+    ),
+    surface: 'tile',
+  }],
+};
 
 const player = new Player(camera, world);
 player.mode = 'walk';
 
 const interactions = new InteractionSystem(camera, tinyHud);
 const audio = new AudioEngine();
+const campaignAudioFeedback = createCampaignAudioFeedback(audio);
+player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 // 3.2s, not 2.2. The owner's note: "lets give another second to get the
 // bathroom guy." The window still starts the instant the door is kicked and
 // still ends the mission when it runs out — it is now long enough to find a
@@ -568,6 +552,7 @@ function voiceState() {
 
 const pauseMenu = createPauseMenu({
   title: 'The Silver Case',
+  assist: true,
   canPause: () => running,
   getObjective: () => ui.objectiveText.textContent?.trim() || 'Follow Ape.',
   instructions: [
@@ -597,6 +582,12 @@ const pauseMenu = createPauseMenu({
     campaign: silverCaseRecoveryCampaign,
     sceneId: SCENE_IDS.SILVER_CASE,
     location: window.location,
+    /* Deliberately still a rebuild: this recovery can rewind to ANY campaign
+     * checkpoint from ANY beat — mid-dialogue, mid-tween, doors and case in
+     * later states — which is exactly the fast-forward staging a fresh boot
+     * already owns (jumpToPreviewCheckpoint). The hot path — dying at the
+     * bathroom ambush and retrying — restores in memory via
+     * restoreCheckpoint() and never reloads. */
     restartCheckpoint: () => window.location.reload(),
     canRestartCheckpoint: () => Boolean(
       silverCaseRecoveryCampaign.state.missions[MISSION_IDS.SILVER_CASE].checkpoint,
@@ -809,6 +800,31 @@ function updateChoiceHold(dt) {
  */
 const RETRY_SPOT = { x: 9.4, z: 0.55 };
 
+/**
+ * Everything a death retry must roll back that restoreCheckpoint() cannot
+ * derive on its own, captured the moment the checkpoint beat is entered
+ * (see reportSilverCaseBeat):
+ *
+ *   - the decal pools' exact placement (impacts.captureCheckpoint), so the
+ *     failed attempt's plaster holes and blood vanish while pre-checkpoint
+ *     history — Deke's couch wounds — stays put;
+ *   - the relationship flags and the early-draw memory: the chair beat
+ *     REPLAYS on retry, so a fact the failed attempt wrote (Ape finishing
+ *     Chester at the stall timeout, say) must not survive into the replay;
+ *   - Winston's health: he is never revived (he is alive), so a stray
+ *     pre-checkpoint graze has to come back at its checkpoint value rather
+ *     than be healed by the retry or doubled by the replay.
+ */
+let retryBaseline = null;
+function captureRetryBaseline() {
+  impacts.captureCheckpoint();
+  retryBaseline = {
+    flags: { ...flags },
+    earlyDrawCount,
+    winstonHp: cast.winston.hp,
+  };
+}
+
 function restoreCheckpoint() {
   tweens.length = 0;
   reactionWindow.reset();
@@ -823,11 +839,25 @@ function restoreCheckpoint() {
   cast.pruitt.hide();
   // Reviving a man puts his body back; it does not take the blood off it, and
   // the wound decals are parented to his own limbs so they would ride back up
-  // onto a living Chester. Deke's stay exactly where they are: he does not
-  // come back, and neither does what happened to him.
-  impacts.clearActor(cast.chester);
-  impacts.clearActor(cast.pruitt);
-  impacts.clearActor(cast.ape);
+  // onto a living Chester. The pools roll back to their exact checkpoint
+  // placement instead: every attempt-scoped mark — Chester's wounds, a
+  // wrong-man graze on Winston, the failed attempt's plaster holes — vanishes,
+  // while Deke's stay exactly where they are: he does not come back, and
+  // neither does what happened to him. The per-actor clears remain as the
+  // fallback for a retry that somehow never crossed the checkpoint capture.
+  if (!impacts.revertToCheckpoint()) {
+    impacts.clearActor(cast.chester);
+    impacts.clearActor(cast.pruitt);
+    impacts.clearActor(cast.ape);
+    impacts.clearActor(cast.winston);
+  }
+  // Mission facts written after the checkpoint belong to the discarded
+  // attempt; the replayed beats must start from the checkpoint's own ledger.
+  if (retryBaseline) {
+    Object.assign(flags, retryBaseline.flags);
+    earlyDrawCount = retryBaseline.earlyDrawCount;
+    cast.winston.hp = retryBaseline.winstonHp;
+  }
   // Ape is back beside the chair with his gun in his hand, because that is
   // where the checkpoint's own beat put him — revive() alone would return him
   // to his BUILD position, which is now the corridor downstairs.
@@ -855,6 +885,8 @@ function restoreCheckpoint() {
   player.yaw = yawToward(RETRY_SPOT, { x: ANCHORS.chairSeat.x, z: ANCHORS.chairSeat.z });
   player.pitch = 0;
   player.velocity.set(0, 0, 0);
+  /* A key held across the death card must not walk the restored player. */
+  player.clearKeys();
 
   interactions.setPaused(false);
   ui.hud.classList.add('visible');
@@ -891,64 +923,28 @@ function restoreCheckpoint() {
  */
 function jumpToPreviewCheckpoint(id, savedMission = null) {
   // Relationship/execution facts can be earned before the coarse checkpoint
-  // advances. Restore them before every local staging branch so a later
-  // completion cannot rewrite a durable true back to false.
+  // advances. Restore them before staging the shared visible pose.
   flags.irritatedApe ||= savedMission?.irritatedApe === true;
   flags.apeFinishedChester ||= savedMission?.apeFinishedChester === true;
   flags.apeFinishedWinston ||= savedMission?.apeFinishedWinston === true;
+
+  const poseId = id === 'case_recovered' ? 'aftermath' : id;
+  applySilverCasePreviewPose(poseId, {
+    apartment,
+    car,
+    cast,
+    player,
+    setFrontDoorColliderOpen: setDoorColliderOpen,
+    setBathroomDoorColliderOpen: setDoorColliderOpen,
+    drawPlayerWeapon: drawWeapon,
+  });
+
   if (id === 'car') { fsm.go(S.CAR_RIDE); return; }
   if (id === 'hallway') { fsm.go(S.ARRIVE_HALLWAY); return; }
-
-  // Everything from here on has already walked in the (open) front door.
-  car.root.visible = false;
-  apartment.root.visible = true;
-  player.mode = 'walk';
-  player.eyeHeight = 1.66;
-  player.targetEye = 1.66;
-  player.pitchMin = -Math.PI / 2 + 0.05;
-  player.pitchMax = Math.PI / 2 - 0.05;
-  player.yawCenter = null;
-  player.velocity.set(0, 0, 0);
-  apartment.doors.frontDoor.group.rotation.y = apartment.doors.frontDoor.openRotationY;
-  setDoorColliderOpen(apartment.doors.frontDoor.collider, true);
-  // Just inside the door, where Ape is walking from -- ESTABLISH_CONTROL's
-  // own enter() lerps him the rest of the way to 'start' over about a second.
-  cast.ape.snapTo('door');
-
-  if (id === 'room') {
-    player.position.set(ANCHORS.frontDoorInside.x, 1.66, ANCHORS.frontDoorInside.z);
-    player.yaw = ANCHORS.frontDoorInside.yaw;
-    player.pitch = 0;
-    fsm.go(S.ESTABLISH_CONTROL);
-    return;
-  }
-
-  // prayer and later: control established, the case found and closed, Deke
-  // shot on the couch, both guns out -- restoreCheckpoint()'s own baseline
-  // for the mission's one real checkpoint.
-  apartment.props.caseOcclusion.visible = false;
-  apartment.props.case.close({ instant: true });
-  cast.deke.kill();
-  drawWeapon();
-  cast.ape.drawWeapon();
-  cast.ape.snapTo('chair');
-  player.position.set(RETRY_SPOT.x, 1.66, RETRY_SPOT.z);
-  player.yaw = yawToward(RETRY_SPOT, { x: ANCHORS.chairSeat.x, z: ANCHORS.chairSeat.z });
-  player.pitch = 0;
-
+  if (id === 'room') { fsm.go(S.ESTABLISH_CONTROL); return; }
   if (id === 'prayer') { fsm.go(S.SQUATCH_PRAYER); return; }
-
-  // bathroom and later: the man in the chair is down too, Ape's gun back at
-  // his side.
-  cast.chester.kill();
-  cast.ape.aimWeapon(false);
-
   if (id === 'bathroom') { fsm.go(S.BATHROOM_AMBUSH); return; }
-
-  // aftermath: the bathroom ambush is already won.
-  cast.pruitt.reveal();
-  cast.pruitt.kill();
-  apartment.doors.bathroomDoor.group.rotation.y = apartment.doors.bathroomDoor.openRotationY;
+  if (id === 'aftermath') { fsm.go(S.AFTERMATH); return; }
   if (id === 'case_recovered') {
     if (!['spared', 'player_killed', 'ape_killed'].includes(savedMission?.winstonOutcome)) {
       fsm.go(S.AFTERMATH);
@@ -960,9 +956,8 @@ function jumpToPreviewCheckpoint(id, savedMission = null) {
     fsm.go(S.PICK_UP_CASE);
     return;
   }
-  fsm.go(S.AFTERMATH);
+  throw new Error(`Unknown Silver Case preview checkpoint: ${id}`);
 }
-
 // ---------------------------------------------------------------- interactables
 //
 // Registered once, here, rather than re-registered per beat — each
@@ -1198,12 +1193,18 @@ function buildStates() {
         player.pitchMax = car.anchors.pitchMax;
         player.pitch = 0;
         player.velocity.set(0, 0, 0);
+        audio.startLoop('silvercase-car-ride', {
+          name: 'car.engine.idle', volume: 0.28, fade: 0.8, ambience: true,
+        });
+        audio.play('car.engine.rev', { volume: 0.34, rate: 0.9 });
         dialogue.play(SEQUENCES.carRide, { onDone: () => fsm.go(S.ARRIVE_HALLWAY) });
       },
     },
 
     [S.ARRIVE_HALLWAY]: {
       enter() {
+        audio.stopLoop('silvercase-car-ride', 0.45);
+        audio.play('car.door.close.heavy', { volume: 0.52, rate: 0.95 });
         car.root.visible = false;
         apartment.root.visible = true;
         player.mode = 'walk';
@@ -1470,6 +1471,7 @@ function buildStates() {
           apartment.doors.bathroomDoor.openRotationY,
           0.22,
         );
+        setDoorColliderOpen(apartment.doors.bathroomDoor.collider, true);
         cast.pruitt.reveal();
         dialogue.interject(SEQUENCES.bathroomWarning);
         const cluesCount = Object.values(cluesFound).filter(Boolean).length;
@@ -1498,6 +1500,9 @@ function buildStates() {
           const result = reactionWindow.resolve('player_shot');
           if (result.ok) {
             cast.pruitt.kill();
+            audio.play('gun.drop.wood', {
+              volume: 0.56, delay: 0.14, position: { x: 11.05, y: 0.01, z: -1.45 },
+            });
             setInstruction('');
             const seq = reactionWindow.readinessBonus
               ? SEQUENCES.bathroomFastWithClues
@@ -1657,12 +1662,18 @@ function showSilverCaseCompletion({ campaignComplete = silverCaseCampaignComplet
 }
 
 function reportSilverCaseBeat(name) {
+  // The retry boundary: entering the mission's one death checkpoint freezes
+  // the decal pools and the mission ledger. Fires again on every retry —
+  // idempotent, since restoreCheckpoint() has already rolled the state back
+  // to exactly what this captures.
+  if (name === CHECKPOINT) captureRetryBaseline();
   const checkpoint = checkpointForSilverCaseBeat(name);
   if (checkpoint) {
-    silverCaseCampaign.checkpoint(checkpoint, silverCaseCampaignReport({
+    const accepted = silverCaseCampaign.checkpoint(checkpoint, silverCaseCampaignReport({
       winstonAlive: cast.winston.alive,
       flags,
     }));
+    campaignAudioFeedback.checkpoint(checkpoint, accepted);
   }
   if (name !== S.SCENE_COMPLETE) return;
 
@@ -1672,6 +1683,7 @@ function reportSilverCaseBeat(name) {
       flags,
     }),
   );
+  campaignAudioFeedback.complete('silver-case', silverCaseCampaignComplete);
   if (silverCaseCampaignComplete && ui.playAgainBtn) {
     ui.playAgainBtn.textContent = "CONTINUE TO LOU'S MANSION";
   }
@@ -1968,6 +1980,9 @@ window.silvercase = {
   }),
   begin: () => beginScene(),
   retry: () => { ui.deathOverlay.classList.add('hidden'); restoreCheckpoint(); },
+  /** Scripted delays still pending — a retry must leave none of the failed
+   * attempt's timers alive, and a verify script can prove it here. */
+  get pendingTweens() { return tweens.length; },
   pressFire: () => { firePressed = true; },
   pressDraw: () => { drawPressed = true; },
   /**

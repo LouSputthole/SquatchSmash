@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
+import { createCampaignAudioFeedback } from '../core/campaign-audio-feedback.js';
 import {
   MISSION_IDS,
   SCENE_IDS,
@@ -13,7 +14,6 @@ import {
   CombatStepCadence,
   CombatSuppressionField,
   FACTIONS,
-  GROUND_COMBAT_AUDIO_CUES,
   SuppressionModel,
   TracerPool,
   combatVitals,
@@ -34,20 +34,32 @@ import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
+import { prewarmAudio, prewarmScene } from '../core/prewarm.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { playWeaponCue } from '../core/weapons/audio.js';
-import { WEAPON_IDS, weaponDef } from '../core/weapons/catalog.js';
+import { WEAPON_IDS, weaponCue, weaponDef } from '../core/weapons/catalog.js';
+import { createResidencyBanks } from '../core/residency-banks.js';
 import { BloodImpactSystem, DeathBloodPool } from '../world/blood.js';
 import { BallisticImpactSystem } from '../world/impacts.js';
 
+import { createPalaceAcoustics } from './acoustics.js';
+import {
+  PALACE_BACKGROUND_BANK, PALACE_NEXT_BEAT_BANK, PALACE_START_BANK,
+} from './audio-banks.js';
 import { buildPalaceCast } from './cast.js';
+import { PalaceFinaleDirector } from './finale.js';
 import { EVIDENCE_IDS, PALACE_BEATS, CartelPalaceMission } from './mission.js';
 import {
   previewPalaceCheckpointForLocation,
   previewSnapshotForCheckpoint,
+  stagePalaceCheckpointGeometry,
 } from './preview.js';
 import { PALACE_COMBAT_POSTS, PalaceSecurity } from './security.js';
+import { PalaceBystanders } from './bystanders.js';
+import { PalaceGuardConversations } from './conversations.js';
+import { PalaceSuppressor } from './suppressor.js';
+import { PalaceVoice, speakerForLine } from './voice.js';
 import { PALACE_ANCHORS, buildCartelPalace } from './world.js';
 
 const canvas = document.getElementById('scene');
@@ -253,6 +265,41 @@ player.pitch = -0.06;
 const interaction = new InteractionSystem(camera, hud);
 interaction.setOccluders([palace.root]);
 const audio = new AudioEngine();
+
+/* THE CAN. Owner's direction for this mission is that the Prospect goes in
+ * with a suppressor on: a real one on the barrel, a dull small flash, a
+ * dedicated suppressed report with the mechanical action still on top, and a
+ * much smaller radius in which a guard hears the shot at all. See
+ * ./suppressor.js -- nothing about it reaches into src/core. */
+const suppressor = new PalaceSuppressor({ audio });
+
+/* Everything said in the palace that is not the dining-room script: the
+ * Prospect recognising Sauce in the evidence, the cleaner, and the payroll
+ * reacting to a raid. Radius and line of sight are enforced by the runtime
+ * (./voice.js); `trace` is wired below, once security exists. */
+const palaceVoice = new PalaceVoice({
+  audio,
+  hud,
+  player,
+  vector: (x, y, z) => new THREE.Vector3(x, y, z),
+});
+
+/**
+ * The raid in three residency banks (./audio-banks.js): everything a
+ * firefight can ask for blocks the start button, the finale's speech blocks
+ * the dining door, the city bed rides along behind both. The room-aware mix
+ * (./acoustics.js) automates the three always-running loops off the
+ * player's room; it is started once at boot and only ever re-asserted —
+ * never restarted — by the death retry.
+ */
+const audioBanks = createResidencyBanks({
+  start: () => audio.loadManifest(PALACE_START_BANK),
+  nextBeat: () => audio.loadAdditional(PALACE_NEXT_BEAT_BANK),
+  background: () => audio.loadAdditional(PALACE_BACKGROUND_BANK),
+});
+const acoustics = createPalaceAcoustics(audio);
+
+const campaignAudioFeedback = createCampaignAudioFeedback(audio);
 const combatAudio = new CombatAudio({ audio });
 player.onFootstep = (_surface, intensity) => combatAudio.step({
   surface: palaceSurfaceAt(player.position),
@@ -276,6 +323,26 @@ const playerActor = new CombatActor({ id: 'prospect', faction: FACTIONS.CREW, ma
 const suppression = new SuppressionModel();
 const bloodImpacts = new BloodImpactSystem(scene);
 const deathBloodPools = new DeathBloodPool(scene, { capacity: 12 });
+
+/* The staged dining-room confrontation. Engagement stays player-paced: the
+ * script hands combat over on Tony's verdict line, and any shot the player
+ * fires first interrupts the speech and engages immediately — the words
+ * never take the trigger away. `security` is assigned below; the callback
+ * runs only once the dining doors are open, long after construction. */
+const finale = new PalaceFinaleDirector({
+  cast,
+  hud,
+  audio,
+  /* The live collider list, so the short men's dive can prove its landing is
+   * clear of the table and the chairs before the animation starts. */
+  colliders: palace.colliders,
+  onEngage: () => security.activateFinalEncounter(),
+});
+
+/* The estate's working civilians -- today, the cleaner in the entry hall.
+ * PalaceSecurity never ticks them (they are not combatants), so this owns
+ * their clock, their panic run and their lines. */
+const bystanders = new PalaceBystanders({ cast, voice: palaceVoice, player });
 
 /* ------------------------------------------------------------------ */
 /* Five-slot final-raid loadout                                        */
@@ -306,7 +373,30 @@ function combatantFromObject(object) {
   return null;
 }
 
+function civilianFromObject(object) {
+  let node = object;
+  while (node) {
+    if (node.userData?.palaceCivilian) return node.userData.palaceCivilian;
+    node = node.parent;
+  }
+  return null;
+}
+
+/** The tagged body group a civilian hit landed on, for wound attachment. */
+function civilianHitAnchor(object, figure) {
+  let node = object;
+  while (node) {
+    if (node.userData?.hitZone) return { anchor: node, zone: node.userData.hitZone };
+    node = node.parent;
+  }
+  return { anchor: figure.parts.body, zone: 'chest' };
+}
+
 let security;
+/* The estate's idle guard conversations (./conversations.js). Built below,
+ * once security exists: it drives security's idle-task seam rather than
+ * moving anybody itself. */
+let conversations = null;
 let hitConfirmTimer = 0;
 let incomingFeedbackTimer = 0;
 let armorBreakTimer = 0;
@@ -334,6 +424,32 @@ function weaponCaliber(id) {
   return 'rifle';
 }
 
+/**
+ * Keep the suppressor and the security layer agreeing about the gun.
+ *
+ * `WeaponSystem.modelFor` builds a weapon's model the first time it is
+ * equipped, so a gun swapped to twenty minutes in is only fittable right
+ * then; and `PalaceSecurity.gunshotHearingRadius` is what a shot that lands
+ * on a body (`applyPlayerImpact`) is heard at, which has to follow whatever
+ * is in the player's hands rather than whatever was in them at boot.
+ */
+/** The closest guard who is still standing, for a positional bark. */
+function nearestLiveGuard() {
+  let best = null;
+  let bestDistance = Infinity;
+  for (const guard of cast.guards) {
+    if (guard.down || !guard.active) continue;
+    const distance = guard.root.position.distanceTo(player.position);
+    if (distance < bestDistance) { best = guard; bestDistance = distance; }
+  }
+  return best;
+}
+
+function syncSuppressor() {
+  suppressor.sync(weapons);
+  if (security) security.gunshotHearingRadius = suppressor.hearingRadius;
+}
+
 function palaceSurfaceAt(position) {
   if (position?.z < -35 && Math.abs(position.x) < 8) return 'rug';
   if (position?.z < 12 && Math.abs(position.x) < 19) return 'tile';
@@ -343,22 +459,27 @@ function palaceSurfaceAt(position) {
 /* WeaponSystem still owns gun handling, but the Palace Adapter owns contact
  * classification. Suppress only its legacy generic contact cue so a delayed
  * actor/world contact produces one truthful physical sound below. */
-const weaponPlayback = {
-  hasSample: (name) => audio.hasSample(name),
-  play: (name, options) => (
-    name === 'heist.bullet.impact' ? null : audio.play(name, options)
-  ),
-};
+const weaponPlayback = suppressor.playback({
+  suppress: (name) => name === 'heist.bullet.impact',
+});
 
+/* Built once per trigger pull, not per pellet: nobody moves between the
+ * pellets of one shot, and the per-pellet rebuild cost two Vector3s per man
+ * per pellet. Each `point` stays a real copy -- it is a sampled position, not
+ * a live reference (CONTEXT.md "Sampled aim point"). */
 function playerSuppressionCandidates(excluded = new Set()) {
-  return cast.all.filter((entry) => !excluded.has(entry.id)).map((entry) => ({
-    id: entry.id,
-    actor: entry.actor,
-    active: entry.active && !entry.down,
-    incapacitated: entry.down || entry.actor.incapacitated,
-    point: entry.root.position.clone().add(new THREE.Vector3(0, 1.35, 0)),
-    suppression: entry.suppression,
-  }));
+  return cast.all.filter((entry) => !excluded.has(entry.id)).map((entry) => {
+    const point = entry.root.position.clone();
+    point.y += 1.35;
+    return {
+      id: entry.id,
+      actor: entry.actor,
+      active: entry.active && !entry.down,
+      incapacitated: entry.down || entry.actor.incapacitated,
+      point,
+      suppression: entry.suppression,
+    };
+  });
 }
 
 function routePlayerShotTruth(shot) {
@@ -372,6 +493,7 @@ function routePlayerShotTruth(shot) {
     }
   }
   const suppressedIds = new Set(hitIds);
+  const candidates = playerSuppressionCandidates(suppressedIds);
   const pelletResults = [];
   const suppressed = [];
   for (const pellet of pellets) {
@@ -379,7 +501,7 @@ function routePlayerShotTruth(shot) {
       .some((contact) => combatantFromObject(contact.object));
     const result = suppressionField.applyPlayerShot({
       shot: { ...pellet, hit: hitCombatant },
-      combatants: playerSuppressionCandidates(suppressedIds),
+      combatants: candidates.filter((candidate) => !suppressedIds.has(candidate.id)),
     });
     pelletResults.push(result);
     for (const record of result.suppressed) {
@@ -441,6 +563,8 @@ const weapons = new WeaponSystem({
   hitTargets: [palace.root, ...cast.hitTargets],
   range: 95,
   onImpact: (impact) => {
+    const civilian = civilianFromObject(impact.object);
+    if (civilian) return applyCivilianImpact(impact, civilian);
     const combatant = combatantFromObject(impact.object);
     if (combatant) {
       const { located, budget, submitted } = applyCappedPlayerImpact(impact);
@@ -484,10 +608,27 @@ const weapons = new WeaponSystem({
     if (['equip', 'stow', 'fire', 'loaded'].includes(event.type)) {
       loadout?.capture(weapons);
     }
+    if (event.type === 'equip' || event.type === 'stow') syncSuppressor();
     if (event.type !== 'fire' || state.phase !== 'active') return;
+    /* A shot during the confrontation is the player's answer to it: the
+     * speech stops mid-sentence and the room engages. The kills stay
+     * player-driven — the script never fires first. */
+    if (mission.beat === PALACE_BEATS.DINING_ROOM) finale.interrupt();
     if (![PALACE_BEATS.DINING_ROOM, PALACE_BEATS.CLEAR].includes(mission.beat)) {
-      security?.raiseAlarm('gunshot');
+      /* THE SUPPRESSED HEARING RADIUS. This used to be an unconditional
+       * `raiseAlarm('gunshot')`: one round anywhere in the compound and the
+       * whole estate knew. With a can on the barrel the shot is heard nine
+       * metres, and men inside the wider investigate ring are handed the
+       * position to walk over and look at rather than an alarm. Off a
+       * revolver or a shotgun the radius is Infinity and the old behaviour
+       * is exactly what happens. */
+      syncSuppressor();
+      security?.noteGunshot(player.position, {
+        radius: suppressor.hearingRadiusFor(event.id),
+      });
     }
+    // The room goes to the floor whether or not anybody heard the shot.
+    bystanders.panic();
   },
 });
 
@@ -538,6 +679,20 @@ function resetCombatFeedback() {
   ui.suppression.dataset.pressure = '0.000';
 }
 
+/** The death card: brutal, immediate, and the same whoever fired the round.
+ * Kept as one function so the retry path can be certain everything the death
+ * froze (input, trigger, ADS, pointer lock) has a matching un-freeze. */
+function presentPlayerDeath() {
+  state.phase = 'dead';
+  player.enabled = false;
+  player.clearKeys();
+  interaction.setPaused(true);
+  weapons.setTrigger(false);
+  weapons.setAimed(false);
+  document.exitPointerLock?.();
+  death.classList.remove('hidden');
+}
+
 function showPalaceBlood(located, impact) {
   const { actor, anchor } = located;
   if (!actor || !anchor?.isObject3D) return false;
@@ -569,6 +724,63 @@ function showPalaceBlood(located, impact) {
     });
   }
   return true;
+}
+
+/*
+ * A player round into one of the begging trio. Civilians sit outside
+ * PalaceSecurity entirely — no Combatant, no Durable combat state — so their
+ * hits resolve here: full blood through the shared systems (this game rewards
+ * gore), a head hit or a spent 40-point pool puts them down for good, the
+ * room reacts, and the MISSION DOES NOT MOVE. Killing the wife or the short
+ * men can never soft-lock or fail the palace; Mark and Sauce remain the only
+ * two names the mission counts.
+ */
+function applyCivilianImpact(impact, entry) {
+  const { anchor, zone } = civilianHitAnchor(impact.object, entry.figure);
+  bloodImpacts.hit({
+    actor: entry,
+    anchor,
+    point: impact.point,
+    normal: impact.normal,
+    from: impact.origin,
+    spatter: true,
+    spatterAnchor: anchor,
+  });
+  combatAudio.impact({
+    target: 'enemy',
+    zone,
+    caliber: weaponCaliber(impact.weapon),
+    position: impact.point,
+  });
+  let fatal = false;
+  if (!entry.down) {
+    const def = weaponDef(impact.weapon);
+    const damage = Math.max(0, Number(impact.damage) || def?.damage || 25)
+      * (zone === 'limb' ? 0.62 : 1);
+    entry.health = zone === 'head' ? 0 : Math.max(0, entry.health - damage);
+    fatal = entry.health <= 0;
+    if (fatal) {
+      cast.civilianDown(entry, { roll: entry.id === 'wife' ? -0.36 : 0.44 });
+      const at = entry.root.getWorldPosition(new THREE.Vector3());
+      deathBloodPools.spill(at, {
+        floorY: palace.groundAt(at.x, at.z),
+        seed: String(entry.id).split('')
+          .reduce((seed, char) => ((seed * 31) + char.charCodeAt(0)) >>> 0, 11),
+      });
+      combatAudio.bodyFall({ surface: palaceSurfaceAt(at), position: at });
+      /* The finale director's roster is the three people at Mark's table by
+       * name; a working civilian killed in the entry hall is not one of them
+       * and must never trigger a dining-room reaction beat. */
+      if (cast.civilians.includes(entry)) {
+        finale.onCivilianDown(entry);
+        hud.toast('They were begging · the job does not care', 'bad', 2800);
+      } else {
+        hud.toast('She was unarmed · the job does not care', 'bad', 2800);
+      }
+    }
+  }
+  confirmCombatHit(zone === 'head' ? 'headshot' : fatal ? 'kill' : 'hit');
+  return { applied: true, fatal, zone, entry };
 }
 
 loadout = createFinalArcLoadout();
@@ -624,7 +836,8 @@ function captureCombatCheckpoint(name = mission.beat) {
 function persistCheckpoint(id, facts = {}) {
   state.lastCheckpoint = id;
   const checkpointSnapshot = captureCombatCheckpoint(id);
-  campaignStory.checkpoint(id, { ...facts, checkpointSnapshot });
+  const accepted = campaignStory.checkpoint(id, { ...facts, checkpointSnapshot });
+  campaignAudioFeedback.checkpoint(id, accepted);
 }
 
 const mission = new CartelPalaceMission({
@@ -636,10 +849,12 @@ const mission = new CartelPalaceMission({
     hud.toast('Evidence complete · rescue premise disproved', 'good', 3600);
   },
   onComplete: (report) => {
-    if (!campaignStory.complete(report)) {
+    const completed = campaignStory.complete(report);
+    if (!completed) {
       hud.toast('The palace is not clear yet.', 'bad');
       return;
     }
+    campaignAudioFeedback.complete('cartel-palace', completed);
     state.completeReport = report;
     loadout.capture(weapons);
     state.phase = 'complete';
@@ -658,11 +873,33 @@ security = new PalaceSecurity({
   colliders: palace.colliders,
   combatPosts: PALACE_COMBAT_POSTS,
   playerActor,
+  /* Security calls this for the hit it just applied, so a man cries out even
+   * when the root's per-trigger audio budget has already suppressed the thud
+   * for that frame. The vocal throttle coalesces the two paths, so a hit
+   * presented here and again below costs one voice, not two. */
+  audio: combatAudio,
   onAlarm: (reason) => {
     document.body.classList.add('alarm');
     audio.play('alarm.chirp', { volume: 0.58 });
     if (reason !== 'dining_room') mission.raiseAlarm(reason);
     if (reason === 'guard_contact') hud.say('<em>CONTACT.</em> The quiet route is gone.', 3000);
+    if (reason === 'dining_room') return;
+    /* Somebody shouts it. The nearest man who can actually see the player
+     * gets the bark, so it never comes through a wall from the courtyard. */
+    /* Whatever anybody was in the middle of saying, they are not any more --
+     * cut before the bark so a shout never lands on top of a man finishing a
+     * sentence about the playoffs. */
+    conversations?.cutAll('alarm');
+    const line = reason === 'gunshot' ? 'guard.contact.two' : 'guard.contact.one';
+    /* The nearest man CAST TO THAT LINE'S VOICE shouts it, falling back to
+     * the nearest man of any voice -- the payroll is three profiles now (see
+     * ./voice.js) and the shout has to come out of a matching throat. */
+    const caller = speakerForLine(line, cast.guards, { from: player.position })
+      ?? nearestLiveGuard();
+    palaceVoice.say(line, {
+      speaker: caller, position: caller?.root.position ?? null, radius: 26, urgent: true,
+    });
+    bystanders.panic();
   },
   onWeaponEvent: (event) => {
     const position = event.origin ?? event.position ?? event.entry?.root?.position ?? null;
@@ -740,16 +977,7 @@ security = new PalaceSecurity({
     });
     presentIncomingCombatFeedback(feedback);
     updatePlayerStatus();
-    if (hit.fatal || playerActor.incapacitated) {
-      state.phase = 'dead';
-      player.enabled = false;
-      player.clearKeys();
-      interaction.setPaused(true);
-      weapons.setTrigger(false);
-      weapons.setAimed(false);
-      document.exitPointerLock?.();
-      death.classList.remove('hidden');
-    }
+    if (hit.fatal || playerActor.incapacitated) presentPlayerDeath();
   },
   onTargetDown: (entry, { silent }) => {
     const position = entry.root.position.clone();
@@ -757,16 +985,62 @@ security = new PalaceSecurity({
     combatAudio.bodyFall({ surface: palaceSurfaceAt(position), position });
     if (entry.role === 'guard') {
       hud.toast(silent ? 'Guard down · quiet' : 'Guard down', silent ? 'good' : '');
+      /* Only a man who is still up, still active and can SEE the body says
+       * anything about it -- a quiet takedown in an empty corridor stays
+       * quiet, which is the whole point of the takedown. */
+      const line = security.alarm ? 'guard.ally-down.two' : 'guard.ally-down.one';
+      const witnesses = cast.guards.filter((guard) => (
+        !guard.down && guard.active && guard.id !== entry.id
+        && guard.root.position.distanceTo(position) <= 16
+      ));
+      /* Same casting rule as the contact call: among the men who can be here
+       * for it, the one whose voice the line was recorded on gets it. */
+      const witness = speakerForLine(line, witnesses, { from: position });
+      if (witness) {
+        /* A man finding a body is a man who has stopped chatting. */
+        conversations?.cutAll('ally-down');
+        palaceVoice.say(line, {
+          speaker: witness, position: witness.root.position, radius: 22, urgent: true,
+        });
+      }
       return;
     }
     mission.registerTargetDown(entry.id);
     if (entry.id === 'mark') hud.toast('Mark eliminated', 'good', 3200);
     if (entry.id === 'sauce') hud.toast('Sauce eliminated', 'good', 3200);
+    /* The table reacts to the kill: the wife's scream, the double act's
+     * rehearsed dive, and the cursing-out once both bodies are down. */
+    finale.onTargetDown(entry.id);
   },
   onBossPhase: (phase) => {
     if (phase === 'exposed') hud.say('<em>MARK\'S ARMOR IS GONE.</em>', 2200);
   },
 });
+
+/* Line of sight for the voice layer, off the security space's own collider
+ * tracer -- so "do not fire lines through walls" is answered by the walls
+ * rather than by a radius that hopes. */
+palaceVoice.trace = (from, to) => security.space.trace(from, to);
+
+/**
+ * THE SHIFT TALKING TO ITSELF.
+ *
+ * Owner, 2026-08-20: *"Lets make sure the guards have conversations with each
+ * other and you can sneak up on them as they are talking"*. Four pairs, real
+ * two-way exchanges, and while a pair is talking they stand still, face each
+ * other and notice the estate at a fraction of their usual rate -- all of it
+ * through `PalaceSecurity.setIdleTask`, so there is no second AI in here.
+ * The moment either man's awareness moves, the take is cut mid-word.
+ */
+conversations = new PalaceGuardConversations({
+  cast,
+  security,
+  voice: palaceVoice,
+  player,
+});
+/* First fit: whatever the inherited loadout already put in his hands gets a
+ * can now, and security learns how far that gun carries. */
+syncSuppressor();
 
 /* ------------------------------------------------------------------ */
 /* Interactions                                                        */
@@ -779,7 +1053,13 @@ interaction.register(palace.targets.powerBox, {
   onUse: () => {
     if (!palace.doors.openServiceGate()) return;
     state.powerCut = true;
-    audio.play('door.creak', { volume: 0.56, position: PALACE_ANCHORS.powerBox });
+    audio.play('switch.click', { volume: 0.62, position: PALACE_ANCHORS.powerBox });
+    audio.play('light.dip', {
+      volume: 0.48, delay: 0.1, position: PALACE_ANCHORS.powerBox,
+    });
+    audio.play('door.creak', {
+      volume: 0.56, delay: 0.18, position: PALACE_ANCHORS.powerBox,
+    });
     mission.enterPerimeter({ powerCut: true });
     hud.toast('Exterior cameras dark · service gate open', 'good');
   },
@@ -794,6 +1074,24 @@ interaction.register(palace.targets.estateDoor, {
     audio.play('door.creak', { volume: 0.5, position: PALACE_ANCHORS.estate });
     mission.enterEstate();
   },
+});
+
+/**
+ * The two lines each clue is worth: one when he first gets close enough to
+ * see what it is, one when he logs it. Different words per piece, which is
+ * the owner's whole ask -- *"so it feels like an investigation rather than
+ * clicking glowing props"*.
+ */
+const EVIDENCE_VOICE = Object.freeze({
+  [EVIDENCE_IDS.SECURITY_STILL]: Object.freeze({
+    spot: 'tony.evidence.still.spot', log: 'tony.evidence.still.log',
+  }),
+  [EVIDENCE_IDS.BELONGINGS]: Object.freeze({
+    spot: 'tony.evidence.uniform.spot', log: 'tony.evidence.uniform.log',
+  }),
+  [EVIDENCE_IDS.PAYMENT_LEDGER]: Object.freeze({
+    spot: 'tony.evidence.ledger.spot', log: 'tony.evidence.ledger.log',
+  }),
 });
 
 for (const [id, target] of Object.entries(palace.evidence)) {
@@ -812,7 +1110,15 @@ for (const [id, target] of Object.entries(palace.evidence)) {
         if (node.isMesh && node.material?.emissive) node.material.emissiveIntensity = 0;
       });
       repaintEvidence();
+      audio.play('chat.ping', { volume: 0.38, rate: 1.05 });
       hud.say(`<em>${target.userData.evidenceTitle}</em> · ${target.userData.evidenceDetail}`, 5200);
+      /* RECOGNITION, not exposition. One line per clue, so three evidence
+       * pieces read as an investigation rather than three glowing props --
+       * and the complete-trail line only once the case is actually closed. */
+      palaceVoice.say(EVIDENCE_VOICE[id]?.log, { urgent: true });
+      if (mission.snapshot().evidenceFound.length === Object.keys(EVIDENCE_IDS).length) {
+        palaceVoice.say('tony.evidence.complete');
+      }
     },
   });
 }
@@ -821,12 +1127,26 @@ interaction.register(palace.targets.diningDoor, {
   label: 'Open Mark\'s <b>dining room</b>',
   hold: 0.72,
   enabled: () => state.phase === 'active' && mission.beat === PALACE_BEATS.BETRAYAL,
-  onUse: () => {
+  onUse: async () => {
+    /* THE BEAT BOUNDARY. The finale's `vo.palace.` bank was kicked at boot;
+     * this is where it is owed — the door does not swing, and the beat does
+     * not begin, until the confrontation's recordings have settled. Nothing
+     * retries a line's audio; dispatch is the one chance. In practice the
+     * bank settled twenty minutes ago and this await is a microtask; a
+     * double press while it is genuinely pending re-enters below, where
+     * `openDiningRoom()` refuses a door already open. */
+    await audioBanks.whenNextBeat();
     if (!palace.doors.openDiningRoom() || !mission.enterDiningRoom()) return;
     audio.play('door.creak', { volume: 0.7, position: PALACE_ANCHORS.diningRoom });
-    security.activateFinalEncounter();
     ui.boss.classList.remove('hidden');
-    hud.say('<em>MARK AND SAUCE.</em> No rescue. No speech. Finish it.', 3600);
+    /* The confrontation the evidence earned, in place of the old two-line
+     * hand-off. Combat activates on Tony's verdict line — or instantly on
+     * the player's first shot, whichever comes first. */
+    const progress = mission.snapshot();
+    finale.beginConfrontation({
+      evidenceFound: progress.evidenceFound,
+      alarmRaised: progress.alarmRaised,
+    });
   },
 });
 
@@ -835,7 +1155,8 @@ interaction.register(palace.targets.extractionGate, {
   hold: 0.82,
   enabled: () => state.phase === 'active' && mission.beat === PALACE_BEATS.CLEAR,
   onUse: () => {
-    palace.doors.openExtraction();
+    if (!palace.doors.openExtraction()) return;
+    audio.play('door.creak', { volume: 0.68, position: PALACE_ANCHORS.extraction });
     mission.extract();
   },
 });
@@ -899,6 +1220,16 @@ function clearCombatTransients() {
   playerTriggerDamage.clear();
   bloodImpacts.reset();
   deathBloodPools.reset();
+  /* A restore discards the timeline the current subtitle came from; the
+   * confrontation's phase and reactions are re-derived by the caller. */
+  finale.clearLines();
+  /* Same reason: the pending line belongs to the discarded timeline. The
+   * once-only latches are deliberately KEPT -- a retry should not replay
+   * every recognition line the player already heard. */
+  palaceVoice.reset();
+  /* Every man back on his round: an errand belongs to the discarded
+   * timeline, exactly like a live target or a settled bore. */
+  conversations.reset();
   lastPlayerSuppression = null;
   resetCombatFeedback();
   hitConfirmTimer = 0;
@@ -906,19 +1237,26 @@ function clearCombatTransients() {
   ui.crosshair.style.transform = 'scale(1)';
 }
 
+/** True for the full v1 combat snapshot shape — the only shape an in-memory
+ * death retry may trust; anything else falls back to the page rebuild. */
+function completeCombatSnapshot(snapshot) {
+  return Boolean(snapshot && typeof snapshot === 'object'
+    && snapshot.player?.actor?.id === playerActor.id
+    && snapshot.loadout && typeof snapshot.loadout === 'object'
+    && snapshot.security && typeof snapshot.security === 'object');
+}
+
 function restoreCombatCheckpoint(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return false;
   const legacySecurity = !snapshot.security && Array.isArray(snapshot.entries);
-  const complete = snapshot.player?.actor?.id === playerActor.id
-    && snapshot.loadout && typeof snapshot.loadout === 'object'
-    && snapshot.security && typeof snapshot.security === 'object';
-  if (!legacySecurity && !complete) return false;
+  if (!legacySecurity && !completeCombatSnapshot(snapshot)) return false;
   clearCombatTransients();
 
   /* Keep the short-lived pre-v16 authoring seam usable: an old raw security
    * snapshot restores only guards and never manufactures player/loadout data. */
   if (legacySecurity) {
     security.restore(snapshot);
+    restageEliminatedTargets();
     updatePlayerStatus();
     return security;
   }
@@ -930,6 +1268,13 @@ function restoreCombatCheckpoint(snapshot) {
   weapons.setAimed(false);
   weapons.setSuppression(suppression);
   security.restore(snapshot.security);
+  restageEliminatedTargets();
+  /* The dining-room checkpoint snapshot is captured by enterDiningRoom()'s
+   * own transition, one call BEFORE activateFinalEncounter() flips Mark and
+   * Sauce live — so restoring into the boss beat must re-assert the
+   * encounter or both targets come back passive. Idempotent: it only sets
+   * active = !down, and raiseAlarm('dining_room') no-ops if already up. */
+  if (mission.beat === PALACE_BEATS.DINING_ROOM) security.activateFinalEncounter();
   syncLoadout();
   updatePlayerStatus();
   updateAmmo();
@@ -941,11 +1286,8 @@ function restoreCombatCheckpoint(snapshot) {
 
 function stageWorldForCheckpoint(id) {
   const progress = mission.snapshot();
-  if (id !== 'approach') {
-    palace.doors.openServiceGate();
-    state.powerCut = true;
-  }
-  if (['estate', 'betrayal', 'dining_room', 'clear'].includes(id)) palace.doors.openEstateDoor();
+  const geometry = stagePalaceCheckpointGeometry(id, { palace, cast });
+  state.powerCut = geometry.powerCut;
   for (const [evidenceId, target] of Object.entries(palace.evidence)) {
     if (!progress.evidenceFound.includes(evidenceId)) continue;
     target.userData.collected = true;
@@ -954,11 +1296,31 @@ function stageWorldForCheckpoint(id) {
     });
   }
   if (progress.alarmRaised) security.raiseAlarm(progress.alarmReason ?? 'detected');
+  /* A checkpoint past the alarm resumes with the working civilians already
+   * flat where they landed -- no replayed run, no replayed screaming. */
+  if (progress.alarmRaised || ['betrayal', 'dining_room', 'clear'].includes(id)) {
+    bystanders.stagePanicked();
+  }
   if (['dining_room', 'clear'].includes(id)) {
-    palace.doors.openDiningRoom();
     security.activateFinalEncounter();
     ui.boss.classList.remove('hidden');
+    /* Resuming inside a live (or cleared) dining room never replays the
+     * speech: the encounter is already activated above, so the director only
+     * stages the trio to match — braced for a fight, or in the aftermath. */
+    if (id === 'clear') finale.stageAftermath();
+    else finale.skipConfrontation();
   }
+  restageEliminatedTargets(progress);
+  placeAtCheckpoint(id);
+  repaintEvidence();
+}
+
+/* The mission's eliminated flags are the durable authority on the two
+ * targets. A checkpoint snapshot captured in the same transition that
+ * flipped a flag can still hold Mark or Sauce alive, so both the world
+ * staging and a combat-snapshot restore re-assert the flags afterward —
+ * a reload must never resurrect a man the save says is down. */
+function restageEliminatedTargets(progress = mission.snapshot()) {
   if (progress.markEliminated) {
     cast.mark.actor.health = 0;
     cast.mark.actor.incapacitated = true;
@@ -972,8 +1334,6 @@ function stageWorldForCheckpoint(id) {
   if (progress.markEliminated && progress.sauceEliminated) {
     ui.boss.classList.add('hidden');
   }
-  placeAtCheckpoint(id);
-  repaintEvidence();
 }
 
 function restoreMissionProgress() {
@@ -985,6 +1345,11 @@ function restoreMissionProgress() {
     const restoredCheckpoint = mission.beat;
     stageWorldForCheckpoint(restoredCheckpoint);
     state.lastCheckpoint = restoredCheckpoint;
+    /* Give a preview boot the same durable retry seam a campaign resume has:
+     * capture the freshly staged world as the checkpoint snapshot, so an
+     * in-memory death retry never needs the page rebuild. Preview campaign
+     * writes land in PreviewMemoryStorage only. */
+    if (previewCheckpoint) persistCheckpoint(restoredCheckpoint);
     return {
       checkpoint: restoredCheckpoint,
       checkpointSnapshot: previewCheckpoint ? null : progress.checkpointSnapshot,
@@ -1036,6 +1401,10 @@ const pauseMenu = createPauseMenu({
     campaign,
     sceneId: SCENE_IDS.CARTEL_PALACE,
     location,
+    /* Deliberately still a rebuild: pause-menu recovery is the cold escape
+     * hatch (a player bailing out mid-anything, including states the combat
+     * snapshot never covers). The hot path — dying and retrying — restores
+     * in memory via retryFromCheckpoint() below. */
     restartCheckpoint: () => location.reload(),
     canRestartCheckpoint: () => Boolean(campaignStory.mission.checkpoint),
   }),
@@ -1060,21 +1429,38 @@ startButton.addEventListener('click', async () => {
   startButton.disabled = true;
   startButton.textContent = 'Loading final operation…';
   await audio.init();
-  await audio.loadManifest({
-    prefixes: ['weapon.', 'footstep.'],
-    names: [
-      ...GROUND_COMBAT_AUDIO_CUES,
-      'ambience.rain', 'ambience.city.night', 'alarm.chirp',
-      'door.creak', 'door.locked', 'heist.bullet.impact',
-    ],
-  });
-  audio.startLoop('palace-night', { name: 'ambience.rain', volume: 0.052, ambience: true, fade: 1.4 });
+  /* The START bank only — the raid's guns, steps, doors and weather. The
+   * finale's `vo.palace.` speech decodes right behind it and is awaited at
+   * the dining door, which is that beat's boundary; twenty minutes of
+   * approach never again waited on a confrontation bank. */
+  await audioBanks.loadStart();
+  audioBanks.kickoff();
+  /* The START bank above was awaited, so the weapon cues are normally already
+   * decoded; this pins the exact cues the FIRST trigger pull reaches for as
+   * decoded-or-reported (src/core/prewarm.js) before combat can start. A cue
+   * that never decoded is reported and plays its synth stand-in rather than
+   * stalling the boot. */
+  window.CARTEL_PALACE.prewarmAudioReport = await prewarmAudio(audio, [
+    ...loadout.items.filter(Boolean).map((id) => weaponCue(id, 'fire')),
+    'heist.bullet.impact',
+  ], { timeout: 500 });
   const restored = restoreMissionProgress();
+  /* After the restore, so a mid-estate checkpoint boots hearing its own
+   * room — the loops start at the restored room's gains, not outdoors. */
+  acoustics.start(player.position);
+  /* A resume INTO the dining room (or its aftermath) is already past the
+   * door that would have awaited the finale bank, and the trio's kill
+   * reactions speak from it on the first shot — so the boundary await moves
+   * here for exactly those boots. Every other checkpoint starts without it. */
+  if ([PALACE_BEATS.DINING_ROOM, PALACE_BEATS.CLEAR].includes(mission.beat)) {
+    await audioBanks.whenNextBeat();
+  }
   state.phase = 'active';
   interaction.setPaused(false);
   player.enabled = true;
   inventoryBar.show();
   loadout.apply(weapons);
+  syncSuppressor();
   if (restored.checkpointSnapshot) restoreCombatCheckpoint(restored.checkpointSnapshot);
   syncLoadout();
   overlay.classList.add('hidden');
@@ -1082,7 +1468,72 @@ startButton.addEventListener('click', async () => {
   requestGamePointerLock();
 });
 
-retryButton.addEventListener('click', () => location.reload());
+/**
+ * In-memory death retry — the same restore sequence a page reload boots
+ * through (mission.restore → stageWorldForCheckpoint → restoreCombatCheckpoint),
+ * minus the reload. The persisted checkpoint is the single source of truth,
+ * so what comes back is exactly what a rebuild would have staged:
+ *
+ *   - mission/beat, objective HUD, evidence and boss-bar staging;
+ *   - the security snapshot (guards revive or stay down per the record, the
+ *     shared contact call and live aim are forgotten — security.restore);
+ *   - restageEliminatedTargets() re-asserts the eliminated flags afterward,
+ *     same as the reload path;
+ *   - player health/armor/suppression, loadout, ammo;
+ *   - every attempt-scoped transient via clearCombatTransients(): pending
+ *     tracer impacts, blood decals and death pools (reload parity — a rebuild
+ *     starts with clean pools too), hostile flashes, suppression fields,
+ *     combat feedback, step cadence and one-shot combat audio.
+ *
+ * Audio: the three room loops — rain, interior bed, dining tone — simply
+ * keep running (startLoop is idempotent per key and the retry never re-runs
+ * the start button), so nothing can stack; what the retry DOES own is their
+ * automation, and `acoustics.refresh()` below re-asserts every gain from
+ * the restored room so a death in the gallery never leaves its hush hanging
+ * over a respawn on the approach. The alarm chirp and
+ * body-class come back only if the checkpoint itself holds the alarm — the
+ * alarm is DURABLE here (raising it re-persists the checkpoint), matching a
+ * reload. Doors never need closing: every door in the palace opens in the
+ * same interaction that advances its checkpoint, so door state and
+ * checkpoint state cannot diverge.
+ *
+ * Returns false — and the caller falls back to location.reload() — when the
+ * persisted snapshot is missing or predates the full v1 shape; that is the
+ * one category that genuinely needs the rebuild.
+ */
+function retryFromCheckpoint() {
+  if (state.phase !== 'dead') return false;
+  const progress = campaignStory.mission;
+  const snapshot = progress?.checkpoint ? progress.checkpointSnapshot : null;
+  if (!completeCombatSnapshot(snapshot)) return false;
+  if (!mission.restore({ ...progress, status: 'in_progress' })) return false;
+  death.classList.add('hidden');
+  /* The failed attempt's pending narration and toasts belong to the
+   * discarded timeline; the retry must not let them keep talking. */
+  hud.clearSay();
+  hud.toasts.replaceChildren();
+  state.powerCut = mission.powerCut === true;
+  stageWorldForCheckpoint(mission.beat);
+  state.lastCheckpoint = mission.beat;
+  restoreCombatCheckpoint(snapshot);
+  /* Gains re-asserted from the restored room; the loops never restarted. */
+  acoustics.refresh(player.position);
+  /* The body class follows the restored truth: a transient alarm from the
+   * dead run (dining-room activation aside) goes dark again, a durable one
+   * stays lit without replaying the chirp. */
+  document.body.classList.toggle('alarm', security.alarm);
+  state.phase = 'active';
+  interaction.setPaused(false);
+  player.enabled = true;
+  requestGamePointerLock();
+  return true;
+}
+
+retryButton.addEventListener('click', () => {
+  /* Instant in-memory restore first; the full page rebuild stays as the
+   * fallback for a missing or pre-v1 checkpoint snapshot. */
+  if (!retryFromCheckpoint()) location.reload();
+});
 addEventListener('pagehide', () => loadout.capture(weapons));
 
 initiationButton.addEventListener('click', () => {
@@ -1090,7 +1541,15 @@ initiationButton.addEventListener('click', () => {
   campaign.update((next) => {
     next.missions[MISSION_IDS.INITIATION].status = 'in_progress';
   });
-  navigateCampaign(campaign, SCENE_IDS.INITIATION, { spawn: 'gathering', location });
+  /* NOT straight to the Initiation any more.
+   *
+   * The Palace is over and nobody has told him whether killing Sauce was the
+   * right call. He goes home, Booskibro rings to say there is a meeting and it
+   * is going to be a special one, and three men come and collect him — see
+   * `src/specialmeeting/`. That scene hands off to the Initiation at the
+   * treeline on its own, so this is a repoint rather than an insertion, and
+   * `SCENES[CARTEL_PALACE].next` is one edge again because of it. */
+  navigateCampaign(campaign, SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb', location });
 });
 
 document.addEventListener('pointerlockchange', () => {
@@ -1176,6 +1635,84 @@ function updateBoss() {
   ui.bossState.textContent = mark.incapacitated ? 'DOWN' : mark.armor > 0 ? 'ARMORED' : 'EXPOSED';
 }
 
+/**
+ * WHEN A ROOM HAS GONE QUIET.
+ *
+ * Owner asked for post-combat / room-cleared lines. A "room" here is the men
+ * posted in it: once the alarm has been up, every guard on a stretch is
+ * down, the player is standing in that stretch and nothing live is within
+ * eighteen metres, he says so. Nothing fires on a stealth run that never
+ * woke anybody -- there is no fight to be the other side of.
+ */
+const CLEARED_ZONES = Object.freeze([
+  Object.freeze({
+    line: 'tony.cleared.entry',
+    guards: Object.freeze(['entry-watch', 'service-door']),
+    inside: (at) => at.z > -4 && at.z < 12,
+  }),
+  Object.freeze({
+    line: 'tony.cleared.halls',
+    guards: Object.freeze(['service-hall']),
+    inside: (at) => at.z > -17 && at.z <= -4,
+  }),
+  Object.freeze({
+    line: 'tony.cleared.estate',
+    guards: Object.freeze(['gallery-east', 'gallery-west']),
+    inside: (at) => at.z > -34 && at.z <= -17,
+  }),
+]);
+
+const EVIDENCE_SPOT_RADIUS = 4.6;
+
+/**
+ * The proximity half of the voice layer, on the scene clock.
+ *
+ * Every trigger here is distance + line of sight through PalaceVoice, so a
+ * line cannot fire through a wall or before the player can see who is
+ * saying it -- the owner's two explicit conditions.
+ */
+function updateAmbientVoice(dt) {
+  palaceVoice.update(dt);
+  bystanders.update(dt);
+  /* Runs on the scene clock like everything else here. It reads awareness
+   * off the bodies security just ticked, so a man who noticed the player on
+   * THIS frame stops talking on this frame. */
+  conversations.update(dt);
+
+  const at = player.position;
+  if (mission.beat === PALACE_BEATS.ESTATE) {
+    for (const [id, target] of Object.entries(palace.evidence)) {
+      if (target.userData.collected) continue;
+      const spot = EVIDENCE_VOICE[id]?.spot;
+      if (!spot) continue;
+      const point = target.getWorldPosition(_evidencePoint);
+      if (at.distanceTo(point) > EVIDENCE_SPOT_RADIUS) continue;
+      palaceVoice.say(spot, { position: point, radius: EVIDENCE_SPOT_RADIUS });
+    }
+  }
+
+  /* She notices him before he notices her, if he walks in far enough. */
+  const cleaner = cast.bystanders[0];
+  if (cleaner && !cleaner.down && !cleaner.panicked
+    && at.distanceTo(cleaner.root.position) <= 8.5) {
+    if (palaceVoice.audible(cleaner.root.position, 8.5)) bystanders.notice(cleaner);
+  }
+
+  if (!security.alarm) return;
+  const liveNear = cast.guards.some((guard) => (
+    !guard.down && guard.active && guard.root.position.distanceTo(at) <= 18
+  ));
+  if (liveNear) return;
+  for (const zone of CLEARED_ZONES) {
+    if (!zone.inside(at)) continue;
+    const posted = cast.guards.filter((guard) => zone.guards.includes(guard.id));
+    if (!posted.length || !posted.every((guard) => guard.down)) continue;
+    palaceVoice.say(zone.line);
+  }
+}
+
+const _evidencePoint = new THREE.Vector3();
+
 let last = performance.now();
 function animate(now) {
   requestAnimationFrame(animate);
@@ -1187,7 +1724,11 @@ function animate(now) {
       if (hitConfirmTimer <= 0) delete ui.crosshair.dataset.confirmed;
     }
     player.update(dt);
+    /* Room-aware mix: identity-compares the room singleton and touches
+     * WebAudio only on a doorway crossing — free on every other frame. */
+    acoustics.update(player.position);
     interaction.update(dt);
+    finale.update(dt);
     security.update(dt, {
       playerPosition: player.position,
       powerCut: state.powerCut,
@@ -1197,8 +1738,19 @@ function animate(now) {
     suppression.update(dt);
     weapons.setSuppression(suppression);
     weapons.update(dt, { speed: Math.hypot(player.velocity.x, player.velocity.z) });
+    /* The shared system writes the flash's opacity and light from its own
+     * decay curve every frame; this scales what it just wrote, so a
+     * suppressed shot blooms small and dull instead of throwing a yellow
+     * star down a dark corridor. Unsuppressed frames are untouched. */
+    suppressor.afterWeaponUpdate(weapons);
+    updateAmbientVoice(dt);
     const feedback = weapons.feedback();
-    document.getElementById('crosshair').style.transform = `scale(${(1 + feedback.bloom * 60).toFixed(3)})`;
+    /* A per-frame DOM lookup plus an unconditional style write is layout work
+     * on the many frames where bloom sits still at its floor. */
+    const crosshairScale = `scale(${(1 + feedback.bloom * 60).toFixed(3)})`;
+    if (ui.crosshair.style.transform !== crosshairScale) {
+      ui.crosshair.style.transform = crosshairScale;
+    }
     tracers.update(dt);
     bloodImpacts.update(dt);
     deathBloodPools.update(dt);
@@ -1221,12 +1773,20 @@ requestAnimationFrame(animate);
 
 window.CARTEL_PALACE = {
   campaignStory,
+  /** The three-bank residency ledger and the room-aware mix, for checks. */
+  audioBanks,
+  acoustics,
   mission,
   player,
   interaction,
   palace,
   cast,
+  finale,
   security,
+  suppressor,
+  palaceVoice,
+  bystanders,
+  conversations,
   playerActor,
   suppression,
   combatAudio,
@@ -1247,6 +1807,10 @@ window.CARTEL_PALACE = {
   snapshot: () => mission.snapshot(),
   combatSnapshot: () => captureCombatCheckpoint(mission.beat),
   combatRestore: restoreCombatCheckpoint,
+  /** The death card, exactly as an incoming fatal round presents it. */
+  presentPlayerDeath,
+  /** The in-memory death retry the retry button drives. */
+  retryFromCheckpoint,
   combatImpact: (impact) => {
     const located = security.applyPlayerImpact(impact);
     if (located?.applied) {
@@ -1278,6 +1842,86 @@ window.CARTEL_PALACE = {
   evidence: () => Object.fromEntries(Object.entries(palace.evidence).map(([id, target]) => [id, target.userData.collected === true])),
   geometry: () => ({ ...palace.inspectEnvironment(), drawCalls: renderer.info.render.calls }),
 };
+
+/* ------------------------------------------------------------------ */
+/* Prewarm -- first-shot costs paid behind the menu                    */
+/* ------------------------------------------------------------------ */
+/* Same bug and same cure as the Squatchfather (src/core/prewarm.js): every
+ * hostile muzzle-flash root sits `visible = false` until the first cartel
+ * shot, three.js keys every material's shader program on the visible light
+ * counts, so the frame the first flash appears is the frame the whole estate
+ * needs programs it has never had. The impact decals, blood systems and the
+ * player's own muzzle card are cheaper shapes of the same first-use bill.
+ * Draw those states once, clipped to a single pixel, behind the overlay --
+ * never mid-frame during play. Nothing about the look changes.
+ *
+ * Boot-once by construction: this runs from the module's single
+ * requestAnimationFrame below, and retryFromCheckpoint() restores in memory
+ * without re-entering it -- the compiled programs outlive every retry. */
+
+/** Everything hidden now that the firefight puts on screen later. */
+function palaceFirstShotObjects() {
+  return [
+    ballisticImpacts,        // pooled bullet marks ({ pool } holder)
+    bloodImpacts.wounds,     // entry wounds
+    bloodImpacts.spatter,    // and their secondary marks
+    deathBloodPools.meshes,  // spreading floor pools
+    weapons.flash,           // the player's own muzzle card
+  ];
+}
+
+async function prewarmPalaceCombat() {
+  const effects = palaceFirstShotObjects();
+  /* One flash slot stands in for the pool: every slot shares the same flare
+   * material and light configuration, so warming one warms the programs for
+   * all twelve. Intensity is irrelevant to the program key but is set anyway
+   * so the warm draw is the draw a real shot performs. */
+  const slot = hostileMuzzleFlashes.pool[0];
+  const flashIntensity = slot.light.intensity;
+  slot.light.intensity = slot.peak;
+  try {
+    return await prewarmScene({
+      renderer,
+      scene,
+      camera,
+      // A frame between the passes: the overlay stays clickable while they run.
+      spread: true,
+      /* Gameplay draws through the composer, and three keys programs on the
+       * render target's tone mapping and colour space -- warming the canvas
+       * would warm the WRONG programs (prewarm.js, reason 2). */
+      options: {
+        target: postfx.enabled && postfx.composer ? postfx.composer.readBuffer : null,
+      },
+      passes: [
+        // The estate's own lighting, with every hidden effect object drawn.
+        { name: 'combat effects', reveal: effects },
+        /* And again with one hostile flash lit: one more visible point light
+         * than the estate carries at rest -- the state that used to hitch. */
+        { name: 'muzzle flash', reveal: [...effects, slot.root] },
+      ],
+      /* No pools to fill and no audio wait here: every effect pool above is
+       * built eagerly in its constructor, and the start button already awaits
+       * loadManifest plus prewarmAudio on the first-shot cues before combat
+       * can begin. */
+    });
+  } finally {
+    slot.light.intensity = flashIntensity;
+    slot.root.visible = false;
+  }
+}
+
+/* One frame later -- so the first real render has already put the estate on
+ * the GPU -- buy the firefight its shader programs behind the overlay. */
+requestAnimationFrame(() => {
+  /* Never fatal: a scene that cannot be prewarmed is a scene that hitches
+   * once, not one that fails to boot. */
+  window.CARTEL_PALACE.prewarming = prewarmPalaceCombat()
+    .catch((error) => ({ failed: String(error?.message ?? error) }))
+    .then((report) => {
+      window.CARTEL_PALACE.prewarmReport = report;
+      return report;
+    });
+});
 
 window.__squatchSceneReady?.('CARTEL PALACE ready');
 setTimeout(() => loading.classList.add('out'), 170);

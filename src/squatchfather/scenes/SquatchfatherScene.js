@@ -407,24 +407,46 @@ export function buildSquatchfatherScene(scene, renderer) {
     return m;
   }
 
+  let geometryAssemblySerial = 0;
+  function markGeometryAssembly(root, kind, policy = {}) {
+    const assemblyId = `squatchfather.${kind}.${++geometryAssemblySerial}`;
+    if (!root.name) root.name = assemblyId;
+    root.userData.geometryGate = { assemblyId, ...policy };
+    return root;
+  }
+  function markStructure(mesh, { wall = false } = {}) {
+    mesh.userData.geometryGate = {
+      ...(mesh.userData.geometryGate ?? {}),
+      structural: true,
+      fixedSupportAnchor: true,
+      ...(wall ? { wall: true } : {}),
+    };
+    return mesh;
+  }
+
   // ================= EXTERIOR =================
 
   const street = new THREE.Group();
+  street.name = 'squatchfather.street';
   scene.add(street);
 
   const road = new THREE.Mesh(new THREE.PlaneGeometry(90, 12), phong(0x20222a, {
     map: T.asphalt, shininess: 60, specular: 0x556070,
   }));
+  road.name = 'squatchfather.street.road';
+  markStructure(road);
   road.rotation.x = -Math.PI / 2;
-  road.position.set(-4, 0.01, -10.6);
+  road.position.set(-4, 0, -10.6);
   road.receiveShadow = true;
   street.add(road);
 
   const walk = new THREE.Mesh(new THREE.PlaneGeometry(90, 4.6), phong(0x35373f, {
     map: T.sidewalk, shininess: 34, specular: 0x424a58,
   }));
+  walk.name = 'squatchfather.street.sidewalk';
+  markStructure(walk);
   walk.rotation.x = -Math.PI / 2;
-  walk.position.set(-4, 0.06, -2.3);
+  walk.position.set(-4, 0, -2.3);
   walk.receiveShadow = true;
   street.add(walk);
   street.add(box(90, 0.16, 0.3, lam(0x4a4c54), -4, 0.05, -4.55)); // curb
@@ -435,16 +457,19 @@ export function buildSquatchfatherScene(scene, renderer) {
     const p = new THREE.Mesh(new THREE.CircleGeometry(ps, 16), puddleMat);
     p.rotation.x = -Math.PI / 2;
     p.scale.y = 0.6;
-    p.position.set(px, 0.075, pz);
+    p.position.set(px, 0.006, pz);
     street.add(p);
   }
 
   // Far side of the street: blank warehouse wall so the road reads as a canyon
   const farWall = box(90, 12, 1, lam(0x1a1720, { map: T.brick }), -4, 6, -17.5);
+  farWall.name = 'squatchfather.street.far-wall';
+  markStructure(farWall, { wall: true });
   street.add(farWall);
 
   // Elevated railway
   const rail = new THREE.Group();
+  markGeometryAssembly(rail, 'elevated-rail');
   street.add(rail);
   const girder = lam(0x241f28);
   rail.add(box(90, 0.7, 7, girder, -4, 7.6, -10.2));
@@ -452,8 +477,8 @@ export function buildSquatchfatherScene(scene, renderer) {
   rail.add(box(90, 0.35, 0.35, lam(0x1b1720), -4, 8.05, -7.8));
   for (let i = 0; i < 12; i++) {
     const x = -46 + i * 8;
-    rail.add(box(1.0, 7.3, 1.0, girder, x, 3.65, -13.4));
-    rail.add(box(1.0, 7.3, 1.0, girder, x, 3.65, -7.0));
+    rail.add(box(1.0, 7.3, 1.0, girder, x, 3.655, -13.4));
+    rail.add(box(1.0, 7.3, 1.0, girder, x, 3.655, -7.0));
     rail.add(box(1.0, 0.5, 7, girder, x, 7.1, -10.2));
   }
   // Ties read fine as one dark strip from street level
@@ -464,6 +489,7 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // The train itself — parked far off-screen until the sequence needs it.
   const train = new THREE.Group();
+  markGeometryAssembly(train, 'train');
   const carMat = lam(0x2b3340);
   const litMat = new THREE.MeshBasicMaterial({ color: 0xffe6a8 });
   for (let i = 0; i < 5; i++) {
@@ -486,20 +512,27 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // Restaurant facade
   const facade = new THREE.Group();
+  // Reserve the long-standing serial/name without assigning the entire
+  // 26-metre frontage one collision owner. Each wall remains independently
+  // auditable while the connected dressing still shares physical support.
+  markGeometryAssembly(facade, 'facade');
+  delete facade.userData.geometryGate.assemblyId;
   scene.add(facade);
   const brickMat = lam(0x3a2622, { map: T.brick });
   // Built around the shopfront rather than across it — a single slab here
   // walled the place up, so from the street there was no door and no windows.
-  facade.add(box(6, 11, 0.5, brickMat, -10, 5.5, -0.25));   // left of the front
-  facade.add(box(6, 11, 0.5, brickMat, 10, 5.5, -0.25));    // right of the front
-  facade.add(box(14, 8.6, 0.5, brickMat, 0, 6.7, -0.25));   // header above the glass
-  facade.add(box(6.3, 1.0, 0.5, brickMat, -3.85, 0.5, -0.25)); // stall risers, either
-  facade.add(box(6.3, 1.0, 0.5, brickMat, 3.85, 0.5, -0.25));  // side of the doorway
+  facade.add(markStructure(box(6, 11, 0.5, brickMat, -10, 5.5, -0.25), { wall: true }));   // left of the front
+  facade.add(markStructure(box(6, 11, 0.5, brickMat, 10, 5.5, -0.25), { wall: true }));    // right of the front
+  facade.add(markStructure(box(14, 8.6, 0.5, brickMat, 0, 6.7, -0.25), { wall: true }));   // header above the glass
+  facade.add(markStructure(box(6.3, 1.0, 0.5, brickMat, -3.85, 0.5, -0.25), { wall: true })); // stall risers, either
+  facade.add(markStructure(box(6.3, 1.0, 0.5, brickMat, 3.85, 0.5, -0.25), { wall: true }));  // side of the doorway
   block(-10, -0.25, 6, 0.5);
   block(10, -0.25, 6, 0.5);
   facade.add(box(13, 0.5, 1.4, lam(0x241a2e), 0, 4.0, -0.7)); // awning band
+  // Painted stripe faces sit on the street face of the rigid awning instead
+  // of duplicating five full-depth solids through it.
   for (let i = 0; i < 5; i++) {
-    facade.add(box(1.9, 0.42, 1.4, lam(i % 2 ? 0x6e2f2f : 0xe8e6de), -4 + i * 2, 3.75, -0.72));
+    facade.add(box(1.9, 0.42, 0.04, lam(i % 2 ? 0x6e2f2f : 0xe8e6de), -4 + i * 2, 3.75, -1.42));
   }
 
   // Neon-ish sign over the door
@@ -514,9 +547,15 @@ export function buildSquatchfatherScene(scene, renderer) {
     c.font = 'italic 24px Georgia, serif';
     c.fillText('· ITALIAN · UNDER THE LINE ·', w / 2, 100);
   });
+  const signFixture = new THREE.Group();
+  markGeometryAssembly(signFixture, 'facade-sign', { fixedSupportAnchor: true });
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.6), new THREE.MeshBasicMaterial({ map: signTex }));
   sign.position.set(0, 5.1, -0.55);
-  facade.add(sign);
+  signFixture.add(sign);
+  for (const sx of [-2.6, 2.6]) {
+    signFixture.add(box(0.08, 0.14, 0.05, lam(0x241a2e), sx, 5.1, -0.525));
+  }
+  facade.add(signFixture);
   const signGlow = new THREE.PointLight(0xffbe66, 14, 11, 2);
   signGlow.position.set(0, 4.6, -1.2);
   facade.add(signGlow);
@@ -530,8 +569,9 @@ export function buildSquatchfatherScene(scene, renderer) {
   facade.add(doorLamp);
 
   // Streetlamps
-  for (const lx of [-13, 6]) {
+  for (const lx of [-12.9, 6]) {
     const pole = new THREE.Group();
+    markGeometryAssembly(pole, 'streetlamp');
     pole.add(cyl(0.09, 0.11, 5.6, lam(0x24242c), 0, 2.8, 0));
     pole.add(box(1.4, 0.12, 0.2, lam(0x24242c), 0.6, 5.6, 0));
     const head = new THREE.Mesh(boxGeo(0.5, 0.2, 0.4), new THREE.MeshBasicMaterial({ color: 0xffe9b0 }));
@@ -548,6 +588,7 @@ export function buildSquatchfatherScene(scene, renderer) {
   // ---------- Cars ----------
   function makeCar(bodyColor) {
     const g = new THREE.Group();
+    markGeometryAssembly(g, 'car');
     const body = box(4.6, 0.95, 1.95, lam(bodyColor), 0, 0.75, 0);
     g.add(body);
     g.add(box(2.5, 0.8, 1.8, lam(bodyColor), -0.15, 1.5, 0));
@@ -570,9 +611,11 @@ export function buildSquatchfatherScene(scene, renderer) {
   }
 
   const parkedCar = makeCar(0x2e2a33);
-  parkedCar.position.set(-15.6, 0, -3.4);
+  // Leave wheel clearance at the kerb; the old z=-3.4 pose buried the
+  // street-side tyres 12 cm into the curb mesh.
+  parkedCar.position.set(-15.6, 0, -3.2);
   street.add(parkedCar);
-  block(-15.6, -3.4, 4.8, 2.1);
+  block(-15.6, -3.2, 4.8, 2.1);
 
   const getawayCar = makeCar(0x1c1a22);
   getawayCar.position.copy(POS.getawayCar);
@@ -589,7 +632,9 @@ export function buildSquatchfatherScene(scene, renderer) {
     const c = makeCar([0x3a2030, 0x1f3040, 0x40391f, 0x2b2b34][i]);
     const dir = i % 2 ? -1 : 1;
     c.rotation.y = dir > 0 ? 0 : Math.PI;
-    c.position.set(-40 + i * 24, 0, dir > 0 ? -8.6 : -12.4);
+    // Lanes sit 1.6 m off their rail columns (at z -7.0 and -13.4) so car
+    // bodies pass the supports on both sides instead of clipping through.
+    c.position.set(-40 + i * 24, 0, dir > 0 ? -8.6 : -11.8);
     street.add(c);
     traffic.push({ mesh: c, dir, speed: 9 + i * 2.5 });
   }
@@ -597,27 +642,38 @@ export function buildSquatchfatherScene(scene, renderer) {
   // ================= RESTAURANT SHELL =================
 
   const D = ROOM.dining;
+  const restaurantShell = new THREE.Group();
+  restaurantShell.name = 'squatchfather.restaurant-shell';
+  scene.add(restaurantShell);
   const wallMat = lam(0x4a2f22, { map: T.wallpaper });
   const wainscot = lam(0x2e1d14);
   const floorMat = lam(0x2a1c12, { map: T.woodFloor });
   const ceilMat = lam(0x181017);
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(D.x1 - D.x0, D.z1 - D.z0), floorMat);
+  floor.name = 'squatchfather.dining.floor';
+  markStructure(floor);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, 0.02, (D.z0 + D.z1) / 2);
+  floor.position.set(0, 0, (D.z0 + D.z1) / 2);
   floor.receiveShadow = true;
-  scene.add(floor);
+  restaurantShell.add(floor);
 
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(D.x1 - D.x0, D.z1 - D.z0), ceilMat);
+  ceil.name = 'squatchfather.dining.ceiling';
+  markStructure(ceil);
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(0, D.h, (D.z0 + D.z1) / 2);
-  scene.add(ceil);
+  restaurantShell.add(ceil);
 
   // Interior walls. Wainscot band along the bottom, wallpaper above.
   function innerWall(cx, cz, w, d, h = D.h) {
     const upper = box(w, h - 1.0, d, wallMat, cx, 1.0 + (h - 1.0) / 2, cz);
     const lower = box(w, 1.0, d, wainscot, cx, 0.5, cz);
-    scene.add(upper, lower);
+    upper.name = 'squatchfather.restaurant.wall.upper';
+    lower.name = 'squatchfather.restaurant.wall.lower';
+    markStructure(upper, { wall: true });
+    markStructure(lower, { wall: true });
+    restaurantShell.add(upper, lower);
     block(cx, cz, w, d);
     return upper;
   }
@@ -626,36 +682,56 @@ export function buildSquatchfatherScene(scene, renderer) {
   innerWall(D.x0 - 0.1, 5.5, 0.2, 11);
   innerWall(D.x1 + 0.1, 5.5, 0.2, 11);
   innerWall(-6.1, 11.1, 1.8, 0.2);       // back wall, left of the kitchen door
-  innerWall(-0.05, 11.1, 7.7, 0.2);      // back wall, between kitchen and hallway
-  innerWall(6.6, 11.1, 0.8, 0.2);        // back wall, right of the hallway
+  innerWall(-0.15, 11.1, 7.5, 0.2);      // back wall, between kitchen and hallway
+  innerWall(6.7, 11.1, 0.6, 0.2);        // back wall, right of the hallway
 
   // Front wall with two windows and a doorway at x ∈ [-0.7, 0.7]
   const frontSegs = [[-3.85, 6.3], [3.85, 6.3]]; // centre x, width
   for (const [cx, w] of frontSegs) {
-    scene.add(box(w, 1.0, 0.2, wainscot, cx, 0.5, -0.1));                 // below glass
-    scene.add(box(w, D.h - 2.4, 0.2, wallMat, cx, 2.4 + (D.h - 2.4) / 2, -0.1)); // above glass
+    const lowerFront = box(w, 1.0, 0.2, wainscot, cx, 0.5, -0.1);
+    const upperFront = box(w, D.h - 2.4, 0.2, wallMat, cx, 2.4 + (D.h - 2.4) / 2, -0.1);
+    lowerFront.name = 'squatchfather.restaurant.wall.front-lower';
+    upperFront.name = 'squatchfather.restaurant.wall.front-upper';
+    markStructure(lowerFront, { wall: true });
+    markStructure(upperFront, { wall: true });
+    restaurantShell.add(lowerFront, upperFront);
     block(cx, -0.1, w, 0.2);
   }
   // Window glass + mullions
   const glassMat = phong(0x8fb4d8, { transparent: true, opacity: 0.14, shininess: 100, specular: 0xffffff });
   for (const cx of [-3.85, 3.85]) {
+    const windowFixture = new THREE.Group();
+    markGeometryAssembly(windowFixture, 'window', { fixedSupportAnchor: true });
     const g = new THREE.Mesh(new THREE.PlaneGeometry(6.0, 1.4), glassMat);
+    g.name = 'squatchfather.restaurant.window-glass';
+    // The masonry-set glass is the exact support provenance for this bounded
+    // six-piece window kit; vertical-only support cannot infer a wall fixing.
+    g.userData.geometryGate = { checkSupport: false };
     g.position.set(cx, 1.7, -0.1);
-    scene.add(g);
-    for (let i = -1; i <= 1; i++) scene.add(box(0.08, 1.4, 0.14, lam(0x1e1410), cx + i * 2.0, 1.7, -0.1));
-    scene.add(box(6.2, 0.12, 0.16, lam(0x1e1410), cx, 1.0, -0.1));
-    scene.add(box(6.2, 0.12, 0.16, lam(0x1e1410), cx, 2.4, -0.1));
+    windowFixture.add(g);
+    for (let i = -1; i <= 1; i++) {
+      const mullion = box(0.08, 1.4, 0.14, lam(0x1e1410), cx + i * 2.0, 1.7, -0.1);
+      mullion.name = 'squatchfather.restaurant.window-mullion';
+      windowFixture.add(mullion);
+    }
+    for (const y of [1.0, 2.4]) {
+      const rail = box(6.2, 0.12, 0.16, lam(0x1e1410), cx, y, -0.1);
+      rail.name = 'squatchfather.restaurant.window-rail';
+      windowFixture.add(rail);
+    }
+    restaurantShell.add(windowFixture);
   }
 
   // ---------- Front door ----------
   const frontDoor = new THREE.Group();
+  markGeometryAssembly(frontDoor, 'front-door');
   const doorLeaf = box(1.35, 2.35, 0.1, lam(0x3a2416), 0.675, 1.18, 0);
   frontDoor.add(doorLeaf);
   frontDoor.add(box(0.9, 1.0, 0.06, phong(0x9fbcd8, { transparent: true, opacity: 0.2, shininess: 90 }), 0.675, 1.62, 0.03));
   frontDoor.add(cyl(0.05, 0.05, 0.28, lam(0xc8a45a), 1.22, 1.1, 0.09));
   frontDoor.position.set(-0.7, 0, -0.05);
   scene.add(frontDoor);
-  const frontDoorBlock = block(0, -0.05, 1.5, 0.14, 'frontDoor');
+  const frontDoorBlock = block(0, -0.05, 1.4, 0.14, 'frontDoor');
 
   // A "NO SHOES, NO SHIRT, NO SQUATCH" placard beside the door
   // Taped up inside the window by the door, facing the room. Double-sided so
@@ -664,7 +740,10 @@ export function buildSquatchfatherScene(scene, renderer) {
     new THREE.PlaneGeometry(0.95, 0.37),
     new THREE.MeshLambertMaterial({ map: T.noSquatch, side: THREE.DoubleSide, transparent: true })
   );
-  placard.position.set(2.3, 2.05, 0.05);
+  placard.name = 'squatchfather.front-door.placard';
+  // Tape it two centimetres inside the fixed shopfront glass rather than
+  // floating fifteen centimetres off the pane.
+  placard.position.set(2.3, 2.05, -0.08);
   scene.add(placard);
 
   // ---------- Furniture ----------
@@ -674,10 +753,11 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   function makeChair(x, z, facing) {
     const g = new THREE.Group();
+    markGeometryAssembly(g, 'chair');
     g.add(box(0.52, 0.09, 0.52, chairMat, 0, 0.45, 0));
     g.add(box(0.52, 0.62, 0.1, chairMat, 0, 0.78, -0.22));
     for (const [lx, lz] of [[0.22, 0.22], [-0.22, 0.22], [0.22, -0.22], [-0.22, -0.22]]) {
-      g.add(box(0.06, 0.45, 0.06, chairFrame, lx, 0.22, lz));
+      g.add(box(0.06, 0.45, 0.06, chairFrame, lx, 0.225, lz));
     }
     g.position.set(x, 0, z);
     g.rotation.y = facing;
@@ -687,10 +767,16 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   function makeTable(x, z, r = 0.85, withSetting = true) {
     const g = new THREE.Group();
+    markGeometryAssembly(g, 'table');
     const top = cyl(r, r, 0.08, clothMat, 0, 0.74, 0, 18);
+    top.name = 'squatchfather.table.top';
     g.add(top);
     // Tablecloth skirt
     const skirt = cyl(r, r * 0.9, 0.72, clothMat, 0, 0.38, 0, 18);
+    skirt.name = 'squatchfather.table.cloth-skirt';
+    // The hanging cloth is a non-solid drape. Keep the rigid tabletop fully
+    // audited while legs can occupy the knee space behind this visual shell.
+    skirt.userData.geometryGate = { overlap: false };
     g.add(skirt);
     g.position.set(x, 0, z);
     scene.add(g);
@@ -701,6 +787,7 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   function makeCandle(x, z, parent = scene) {
     const g = new THREE.Group();
+    markGeometryAssembly(g, 'candle');
     g.add(cyl(0.05, 0.06, 0.16, lam(0xd8cdb0), 0, 0.86, 0, 8));
     const flame = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.11, 6), new THREE.MeshBasicMaterial({ color: 0xffd27a }));
     flame.position.set(0, 1.0, 0);
@@ -716,6 +803,7 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   function makeWineGlass(x, y, z, parent = scene) {
     const g = new THREE.Group();
+    markGeometryAssembly(g, 'wine-glass');
     const glass = phong(0xd8e4f0, { transparent: true, opacity: 0.32, shininess: 110, specular: 0xffffff });
     g.add(cyl(0.055, 0.03, 0.13, glass, 0, 0.09, 0, 10));
     g.add(cyl(0.012, 0.012, 0.07, glass, 0, 0.015, 0, 6));
@@ -730,6 +818,7 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   function makeBottle(x, y, z, parent = scene) {
     const g = new THREE.Group();
+    markGeometryAssembly(g, 'wine-bottle');
     g.add(cyl(0.055, 0.065, 0.28, lam(0x14301c), 0, 0.14, 0, 10));
     g.add(cyl(0.022, 0.03, 0.16, lam(0x14301c), 0, 0.34, 0, 8));
     const label = new THREE.Mesh(new THREE.CylinderGeometry(0.067, 0.067, 0.14, 12, 1, true), new THREE.MeshLambertMaterial({ map: T.wineLabel }));
@@ -742,6 +831,7 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   function makeBreadBasket(x, y, z) {
     const g = new THREE.Group();
+    markGeometryAssembly(g, 'bread-basket');
     g.add(cyl(0.17, 0.13, 0.09, lam(0x7d5a2e), 0, 0.045, 0, 10));
     for (let i = 0; i < 3; i++) {
       const b = box(0.2, 0.07, 0.07, lam(0xd8ac68), (i - 1) * 0.06, 0.11, (i % 2) * 0.04);
@@ -770,8 +860,8 @@ export function buildSquatchfatherScene(scene, renderer) {
   }
 
   const prospectChair = makeChair(POS.prospectSeat.x, POS.prospectSeat.z, 0);
-  makeChair(POS.salSeat.x, POS.salSeat.z, Math.PI);
-  makeChair(POS.mcSeat.x, POS.mcSeat.z, -Math.PI / 2);
+  const salChair = makeChair(POS.salSeat.x, POS.salSeat.z, Math.PI);
+  const mcChair = makeChair(POS.mcSeat.x, POS.mcSeat.z, -Math.PI / 2);
 
   // The chair the player is told to take
   const chairHit = new THREE.Mesh(boxGeo(0.9, 1.5, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
@@ -781,23 +871,36 @@ export function buildSquatchfatherScene(scene, renderer) {
   interactables.push(chairHit);
 
   // Background tables
+  const backgroundSeats = [];
   for (const [tx, tz, rot] of [[-4.7, 2.4, 0.3], [4.7, 2.2, -0.4], [-4.9, 7.2, 0.1], [-6.0, 4.6, 1.4]]) {
-    makeTable(tx, tz, 0.7);
+    const backgroundTable = makeTable(tx, tz, 0.7);
     // The occupant looks along local +Z = (sin θ, cos θ); these angles turn
     // each chair back toward its own table rather than out into the room.
-    makeChair(tx + Math.cos(rot) * 1.1, tz + Math.sin(rot) * 1.1, -rot - Math.PI / 2);
-    makeChair(tx - Math.cos(rot) * 1.1, tz - Math.sin(rot) * 1.1, -rot + Math.PI / 2);
+    const plusChair = makeChair(tx + Math.cos(rot) * 1.1, tz + Math.sin(rot) * 1.1, -rot - Math.PI / 2);
+    const minusChair = makeChair(tx - Math.cos(rot) * 1.1, tz - Math.sin(rot) * 1.1, -rot + Math.PI / 2);
+    backgroundSeats.push({ table: backgroundTable, plusChair, minusChair });
   }
 
   // Counter / bar along the back left
-  const counter = solid(4.6, 1.05, 0.7, lam(0x3d2415), -4.2, 0.52, 9.6);
+  const counter = solid(4.6, 1.05, 0.7, lam(0x3d2415), -4.2, 0.525, 9.6);
   scene.add(box(4.7, 0.08, 0.85, lam(0x241610), -4.2, 1.08, 9.6));
   // Bottle shelf behind it
-  scene.add(box(4.6, 0.08, 0.4, lam(0x241610), -4.2, 1.75, 10.55));
+  const bottleShelf = new THREE.Group();
+  markGeometryAssembly(bottleShelf, 'bottle-shelf', { fixedSupportAnchor: true });
+  bottleShelf.add(box(4.6, 0.08, 0.4, lam(0x241610), -4.2, 1.75, 10.55));
+  // The old shelf stopped 25 cm short of the back wall. These steel brackets
+  // meet both its underside and the fixed restaurant shell.
+  for (const bx of [-5.7, -2.7]) {
+    const bracket = box(0.08, 0.4, 0.3, lam(0x241610), bx, 1.58, 10.865);
+    bracket.name = 'squatchfather.bottle-shelf.bracket';
+    bottleShelf.add(bracket);
+  }
+  scene.add(bottleShelf);
   for (let i = 0; i < 7; i++) makeBottle(-6.2 + i * 0.62, 1.79, 10.55);
 
   // ---------- Kitchen swinging door ----------
   const kitchenDoor = new THREE.Group();
+  markGeometryAssembly(kitchenDoor, 'kitchen-door');
   kitchenDoor.add(box(1.3, 2.2, 0.09, lam(0x4a3320), -0.65, 1.1, 0));
   kitchenDoor.add(box(0.6, 0.5, 0.05, phong(0xaac0d0, { transparent: true, opacity: 0.25, shininess: 80 }), -0.65, 1.72, 0.03));
   kitchenDoor.position.set(-3.9, 0, 11.0);
@@ -808,18 +911,39 @@ export function buildSquatchfatherScene(scene, renderer) {
   // in something when he comes to look, and the door does swing open.
   const KIT = { x0: -7, x1: -2.5, z0: 11.2, z1: 14.6, h: 2.8 };
   const kitTile = lam(0x8d9490);
+  const kitchenShell = new THREE.Group();
+  kitchenShell.name = 'squatchfather.kitchen-shell';
+  // Preserve deterministic downstream serials but do not make the whole room
+  // shell one owner.
+  markGeometryAssembly(kitchenShell, 'kitchen-shell');
+  delete kitchenShell.userData.geometryGate.assemblyId;
+  scene.add(kitchenShell);
   const kFloor = new THREE.Mesh(new THREE.PlaneGeometry(KIT.x1 - KIT.x0, KIT.z1 - KIT.z0), lam(0x4c5250));
+  kFloor.name = 'squatchfather.kitchen.floor';
+  markStructure(kFloor);
   kFloor.rotation.x = -Math.PI / 2;
-  kFloor.position.set((KIT.x0 + KIT.x1) / 2, 0.02, (KIT.z0 + KIT.z1) / 2);
-  scene.add(kFloor);
+  kFloor.position.set((KIT.x0 + KIT.x1) / 2, 0, (KIT.z0 + KIT.z1) / 2);
+  kitchenShell.add(kFloor);
   const kCeil = kFloor.clone();
+  kCeil.name = 'squatchfather.kitchen.ceiling';
+  markStructure(kCeil);
   kCeil.rotation.x = Math.PI / 2;
   kCeil.position.y = KIT.h;
-  scene.add(kCeil);
-  scene.add(box(0.2, KIT.h, KIT.z1 - KIT.z0, kitTile, KIT.x0 - 0.1, KIT.h / 2, (KIT.z0 + KIT.z1) / 2));
-  scene.add(box(0.2, KIT.h, KIT.z1 - KIT.z0, kitTile, KIT.x1 + 0.1, KIT.h / 2, (KIT.z0 + KIT.z1) / 2));
-  scene.add(box(KIT.x1 - KIT.x0 + 0.4, KIT.h, 0.2, kitTile, (KIT.x0 + KIT.x1) / 2, KIT.h / 2, KIT.z1 + 0.1));
-  scene.add(box(3.6, 0.9, 0.7, phong(0xb8bcc0, { shininess: 60, specular: 0xdddddd }), -4.7, 0.45, 13.9));
+  kitchenShell.add(kCeil);
+  for (const wall of [
+    box(0.2, KIT.h, KIT.z1 - KIT.z0, kitTile, KIT.x0 - 0.1, KIT.h / 2, (KIT.z0 + KIT.z1) / 2),
+    box(0.2, KIT.h, KIT.z1 - KIT.z0, kitTile, KIT.x1 + 0.1, KIT.h / 2, (KIT.z0 + KIT.z1) / 2),
+    box(KIT.x1 - KIT.x0 + 0.4, KIT.h, 0.2, kitTile, (KIT.x0 + KIT.x1) / 2, KIT.h / 2, KIT.z1 + 0.1),
+  ]) {
+    wall.name = 'squatchfather.kitchen.wall';
+    markStructure(wall, { wall: true });
+    kitchenShell.add(wall);
+  }
+  const kitchenPrep = box(3.6, 0.9, 0.7,
+    phong(0xb8bcc0, { shininess: 60, specular: 0xdddddd }), -4.7, 0.45, 13.9);
+  kitchenPrep.name = 'squatchfather.kitchen.prep-counter';
+  markGeometryAssembly(kitchenPrep, 'kitchen-prep-counter', { fixedSupportAnchor: true });
+  scene.add(kitchenPrep);
   for (let i = 0; i < 4; i++) scene.add(cyl(0.09, 0.09, 0.34, lam(0xc8ccd0), -6.0 + i * 0.9, 1.06, 13.9, 8));
   const kitchenLight = new THREE.PointLight(0xdfe8ee, 5, 8, 2);
   kitchenLight.position.set(-4.7, 2.5, 12.8);
@@ -834,15 +958,20 @@ export function buildSquatchfatherScene(scene, renderer) {
     c.fillStyle = 'rgba(0,0,0,.25)';
     c.fillRect(0, 0, 6, h);
   });
+  const kitchenScarf = new THREE.Group();
+  kitchenScarf.name = 'squatchfather.kitchen-scarf';
+  markGeometryAssembly(kitchenScarf, 'kitchen-scarf');
   const scarf = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 1.5), new THREE.MeshLambertMaterial({ map: scarfTex, side: THREE.DoubleSide }));
   scarf.position.set(-6.92, 1.9, 10.3);
   scarf.rotation.y = Math.PI / 2;
-  scene.add(scarf);
-  scene.add(box(0.12, 0.06, 0.06, lam(0x8a7a5a), -6.94, 2.66, 10.3));
+  kitchenScarf.add(scarf);
+  kitchenScarf.add(box(0.12, 0.06, 0.06, lam(0x8a7a5a), -6.94, 2.66, 10.3));
+  scene.add(kitchenScarf);
 
   // ---------- Wall dressing ----------
   function framed(tex, w, h, x, y, z, ry) {
     const g = new THREE.Group();
+    markGeometryAssembly(g, 'framed-art');
     g.add(box(w + 0.09, h + 0.09, 0.05, lam(0x2a1c10), 0, 0, -0.02));
     const art = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: tex }));
     art.position.z = 0.012;
@@ -884,14 +1013,18 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   const H = ROOM.hall;
   const hallFloor = new THREE.Mesh(new THREE.PlaneGeometry(H.x1 - H.x0, H.z1 - H.z0), floorMat);
+  hallFloor.name = 'squatchfather.hall.floor';
+  markStructure(hallFloor);
   hallFloor.rotation.x = -Math.PI / 2;
-  hallFloor.position.set((H.x0 + H.x1) / 2, 0.02, (H.z0 + H.z1) / 2);
+  hallFloor.position.set((H.x0 + H.x1) / 2, 0, (H.z0 + H.z1) / 2);
   hallFloor.receiveShadow = true;
-  scene.add(hallFloor);
+  restaurantShell.add(hallFloor);
   const hallCeil = new THREE.Mesh(new THREE.PlaneGeometry(H.x1 - H.x0, H.z1 - H.z0), ceilMat);
+  hallCeil.name = 'squatchfather.hall.ceiling';
+  markStructure(hallCeil);
   hallCeil.rotation.x = Math.PI / 2;
   hallCeil.position.set((H.x0 + H.x1) / 2, H.h, (H.z0 + H.z1) / 2);
-  scene.add(hallCeil);
+  restaurantShell.add(hallCeil);
 
   innerWall(H.x0 - 0.1, 13, 0.2, 4, H.h);
   innerWall(H.x1 + 0.1, 13, 0.2, 4, H.h);
@@ -899,11 +1032,16 @@ export function buildSquatchfatherScene(scene, renderer) {
   innerWall(3.15, 15.1, 2.3, 0.2, H.h);
   innerWall(6.0, 15.1, 0.8, 0.2, H.h);
 
-  const hallLampGeo = new THREE.SphereGeometry(0.12, 8, 6);
-  const hallLamp = new THREE.Mesh(hallLampGeo, new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
-  hallLamp.position.set(5, 2.4, 13);
+  const hallLamp = new THREE.Group();
+  markGeometryAssembly(hallLamp, 'hall-lamp');
+  const hallBulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
+  hallBulb.position.set(5, 2.4, 13);
+  hallLamp.add(hallBulb);
+  // Extend the flex through the bulb and up to the fixed hall ceiling.
+  hallLamp.add(cyl(0.012, 0.012, 0.20, lam(0x1a1a1a), 5, 2.48, 13, 4));
+  hallLamp.add(cyl(0.08, 0.08, 0.04, lam(0x1a1a1a), 5, H.h - 0.02, 13, 8));
   scene.add(hallLamp);
-  scene.add(cyl(0.012, 0.012, 0.2, lam(0x1a1a1a), 5, 2.52, 13, 4));
 
   // ================= BATHROOM =================
 
@@ -912,17 +1050,23 @@ export function buildSquatchfatherScene(scene, renderer) {
   const bathFloorMat = lam(0x47554a, { map: T.tile });
 
   const bFloor = new THREE.Mesh(new THREE.PlaneGeometry(B.x1 - B.x0, B.z1 - B.z0), bathFloorMat);
+  bFloor.name = 'squatchfather.bathroom.floor';
+  markStructure(bFloor);
   bFloor.rotation.x = -Math.PI / 2;
-  bFloor.position.set((B.x0 + B.x1) / 2, 0.02, (B.z0 + B.z1) / 2);
+  bFloor.position.set((B.x0 + B.x1) / 2, 0, (B.z0 + B.z1) / 2);
   bFloor.receiveShadow = true;
   scene.add(bFloor);
   const bCeil = new THREE.Mesh(new THREE.PlaneGeometry(B.x1 - B.x0, B.z1 - B.z0), lam(0x3d4a40));
+  bCeil.name = 'squatchfather.bathroom.ceiling';
+  markStructure(bCeil);
   bCeil.rotation.x = Math.PI / 2;
   bCeil.position.set((B.x0 + B.x1) / 2, B.h, (B.z0 + B.z1) / 2);
   scene.add(bCeil);
 
   function tileWall(cx, cz, w, d) {
     const m = box(w, B.h, d, tileMat, cx, B.h / 2, cz);
+    m.name = 'squatchfather.bathroom.wall';
+    markStructure(m, { wall: true });
     scene.add(m);
     block(cx, cz, w, d);
     return m;
@@ -936,6 +1080,7 @@ export function buildSquatchfatherScene(scene, renderer) {
   const tilePiece = (name, w, h, x, y) => {
     const piece = box(w, h, 0.2, tileMat, x, y, bathBackZ);
     piece.name = name;
+    markStructure(piece, { wall: true });
     scene.add(piece);
     return piece;
   };
@@ -947,6 +1092,7 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // Bathroom door — hinged at x=4.3, standing open until he walks through it
   const bathDoor = new THREE.Group();
+  markGeometryAssembly(bathDoor, 'bathroom-door');
   bathDoor.add(box(1.3, 2.3, 0.09, lam(0x3f2b1a), 0.65, 1.15, 0));
   bathDoor.add(box(0.12, 0.12, 0.06, lam(0xb8a06a), 1.18, 1.1, 0.07));
   bathDoor.position.set(4.3, 0, 15.05);
@@ -961,11 +1107,15 @@ export function buildSquatchfatherScene(scene, renderer) {
     transparent: true, opacity: 0.5, shininess: 80, specular: 0xaaccee,
   }));
   bwin.name = 'bathroom.window.glass';
+  bwin.userData.geometryGate = { fixedSupportAnchor: true };
   bwin.position.set(3.2, 2.35, B.z1 - 0.012);
   bwin.rotation.y = Math.PI;
   scene.add(bwin);
-  scene.add(box(1.0, 0.06, 0.08, lam(0x2c3830), 3.2, 2.62, B.z1 - 0.035));
-  scene.add(box(1.0, 0.06, 0.08, lam(0x2c3830), 3.2, 2.08, B.z1 - 0.035));
+  for (const y of [2.62, 2.08]) {
+    const frameRail = box(1.0, 0.06, 0.08, lam(0x2c3830), 3.2, y, B.z1 - 0.035);
+    frameRail.name = 'squatchfather.bathroom.window-frame';
+    scene.add(frameRail);
+  }
   const moonSpill = new THREE.PointLight(0x6f88b8, 5, 5.5, 2);
   moonSpill.position.set(3.2, 2.1, B.z1 - 0.5);
   scene.add(moonSpill);
@@ -973,6 +1123,7 @@ export function buildSquatchfatherScene(scene, renderer) {
   // ---------- The toilet ----------
   const porcelain = phong(0xd8d8d0, { shininess: 40, specular: 0x9aa0a8 });
   const toilet = new THREE.Group();
+  markGeometryAssembly(toilet, 'toilet');
   toilet.add(cyl(0.28, 0.22, 0.42, porcelain, 0, 0.21, 0, 14));          // bowl base
   const bowl = cyl(0.3, 0.26, 0.14, porcelain, 0, 0.47, 0.02, 16);
   toilet.add(bowl);
@@ -987,13 +1138,16 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // Exposed pipes
   const pipeMat = phong(0x8d8a80, { shininess: 60, specular: 0xbbbbb0 });
-  scene.add(cyl(0.045, 0.045, 2.6, pipeMat, 6.3, 1.3, 19.05, 8));
+  const exposedPipes = new THREE.Group();
+  markGeometryAssembly(exposedPipes, 'bathroom-services');
+  exposedPipes.add(cyl(0.045, 0.045, 2.6, pipeMat, 6.3, 1.3, 19.05, 8));
   const runPipe = cyl(0.045, 0.045, 2.2, pipeMat, 5.2, 2.45, 19.05, 8);
   runPipe.rotation.z = Math.PI / 2;
-  scene.add(runPipe);
-  scene.add(cyl(0.045, 0.045, 0.95, pipeMat, 4.12, 1.99, 19.05, 8)); // elbow down
+  exposedPipes.add(runPipe);
+  exposedPipes.add(cyl(0.045, 0.045, 0.95, pipeMat, 4.12, 1.99, 19.05, 8)); // elbow down
   const toiletPipe = cyl(0.035, 0.035, 0.5, pipeMat, POS.toilet.x + 0.4, 0.5, 19.05, 8);
-  scene.add(toiletPipe);
+  exposedPipes.add(toiletPipe);
+  scene.add(exposedPipes);
 
   // The interaction volume: the narrow gap behind the upper rear of the tank.
   const searchHit = new THREE.Mesh(boxGeo(0.75, 0.5, 0.26), new THREE.MeshBasicMaterial({ visible: false }));
@@ -1004,6 +1158,7 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // The wrapped package itself — hidden until it comes out.
   const wrapped = new THREE.Group();
+  markGeometryAssembly(wrapped, 'wrapped-package');
   wrapped.add(box(0.26, 0.12, 0.11, lam(0x6d6558), 0, 0, 0));
   wrapped.add(box(0.28, 0.04, 0.13, lam(0x585044), 0, 0.02, 0));
   wrapped.position.set(POS.toilet.x, 1.02, 19.13);
@@ -1012,6 +1167,7 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // ---------- Sink + cracked mirror ----------
   const sink = new THREE.Group();
+  markGeometryAssembly(sink, 'bathroom-sink');
   sink.add(box(0.62, 0.16, 0.48, porcelain, 0, 0.9, 0));
   sink.add(cyl(0.13, 0.1, 0.34, porcelain, 0, 0.68, 0, 10));
   sink.add(cyl(0.02, 0.02, 0.14, pipeMat, -0.18, 1.04, 0, 6));
@@ -1022,17 +1178,23 @@ export function buildSquatchfatherScene(scene, renderer) {
   scene.add(sink);
   block(B.x0 + 0.32, 16.9, 0.6, 0.6);
 
+  const mirrorFixture = new THREE.Group();
+  markGeometryAssembly(mirrorFixture, 'bathroom-mirror', { fixedSupportAnchor: true });
   const mirror = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 1.05), new THREE.MeshLambertMaterial({ map: T.mirror }));
   mirror.position.set(B.x0 + 0.06, 1.62, 16.9);
   mirror.rotation.y = Math.PI / 2;
-  scene.add(mirror);
-  scene.add(box(0.05, 1.14, 0.94, lam(0x4a4438), B.x0 + 0.02, 1.62, 16.9));
+  mirrorFixture.add(mirror);
+  mirrorFixture.add(box(0.05, 1.14, 0.94, lam(0x4a4438), B.x0 + 0.02, 1.62, 16.9));
 
-  // Strip light over the glass — without it he is a black cut-out in his own
-  // reflection, and that beat only works if he can see his face.
+  // Strip light over the glass, with two short brackets joining the tube to
+  // the mirror backing instead of leaving it suspended in front of the wall.
   const vanityTube = new THREE.Mesh(boxGeo(0.08, 0.07, 0.8), new THREE.MeshBasicMaterial({ color: 0xe6f2ea }));
   vanityTube.position.set(B.x0 + 0.16, 2.28, 16.9);
-  scene.add(vanityTube);
+  mirrorFixture.add(vanityTube);
+  for (const z of [16.58, 17.22]) {
+    mirrorFixture.add(box(0.08, 0.025, 0.025, lam(0x4a4438), B.x0 + 0.08, 2.28, z));
+  }
+  scene.add(mirrorFixture);
   const vanityLight = new THREE.PointLight(0xdfeee6, 6, 4.5, 2);
   vanityLight.position.set(B.x0 + 0.45, 2.18, 16.9);
   scene.add(vanityLight);
@@ -1056,6 +1218,7 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // Radiator
   const radiator = new THREE.Group();
+  markGeometryAssembly(radiator, 'radiator');
   for (let i = 0; i < 7; i++) radiator.add(cyl(0.05, 0.05, 0.62, lam(0x9a9288), -0.2 + i * 0.07, 0.34, 0, 6));
   radiator.add(box(0.56, 0.08, 0.12, lam(0x9a9288), 0, 0.66, 0));
   radiator.position.set(3.0, 0, B.z1 - 0.14);
@@ -1065,7 +1228,8 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // Flickering ceiling light
   const bathLampMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.5), new THREE.MeshBasicMaterial({ color: 0xdff0e0 }));
-  bathLampMesh.position.set(4.3, B.h - 0.08, 17.3);
+  bathLampMesh.name = 'squatchfather.bathroom.ceiling-light';
+  bathLampMesh.position.set(4.3, B.h - 0.04, 17.3);
   scene.add(bathLampMesh);
   const bathLight = new THREE.PointLight(0xcfe6d2, 15, 9, 2);
   bathLight.position.set(4.3, B.h - 0.25, 17.3);
@@ -1108,7 +1272,10 @@ export function buildSquatchfatherScene(scene, renderer) {
   // Wall sconces so the sides of the room aren't a void
   for (const [sx, sz, ry] of [[-6.86, 2.0, 1], [-6.86, 6.6, 1], [6.86, 4.0, -1], [6.86, 8.0, -1]]) {
     const shade = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.26, 8, 1, true), lam(0xd8b070, { side: THREE.DoubleSide }));
-    shade.position.set(sx, 2.25, sz);
+    markGeometryAssembly(shade, 'wall-sconce');
+    // Pull the shade seven centimetres off the wall so its rotated cone no
+    // longer cuts 5.5 cm through the plaster or the nearby portrait frame.
+    shade.position.set(Math.sign(sx) * 6.79, 2.25, sz);
     shade.rotation.z = ry * 0.35;
     scene.add(shade);
     const sl = new THREE.PointLight(0xffa860, 6, 7, 2);
@@ -1129,16 +1296,19 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // Hanging lamps over the background tables
   for (const [lx, lz] of [[-4.7, 2.4], [4.7, 2.2], [-4.9, 7.2]]) {
-    scene.add(cyl(0.01, 0.01, 0.9, lam(0x1a1a1a), lx, 2.75, lz, 4));
+    const hangingLamp = new THREE.Group();
+    markGeometryAssembly(hangingLamp, 'hanging-lamp');
+    hangingLamp.add(cyl(0.01, 0.01, 0.9, lam(0x1a1a1a), lx, 2.75, lz, 4));
     const shade = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.3, 10, 1, true), lam(0x8e1f24, { side: THREE.DoubleSide }));
     shade.position.set(lx, 2.2, lz);
-    scene.add(shade);
+    hangingLamp.add(shade);
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
     bulb.position.set(lx, 2.08, lz);
-    scene.add(bulb);
+    hangingLamp.add(bulb);
     const pl = new THREE.PointLight(0xffb066, 7, 6.5, 2);
     pl.position.set(lx, 2.0, lz);
-    scene.add(pl);
+    hangingLamp.add(pl);
+    scene.add(hangingLamp);
   }
 
   // ================= BACKGROUND STAFF & DINERS =================
@@ -1150,6 +1320,7 @@ export function buildSquatchfatherScene(scene, renderer) {
   function makeBystander(x, z, facing, coat, skin, face = {}) {
     const g = new THREE.Group();
     g.name = 'sf.bystander.cook';
+    markGeometryAssembly(g, 'bystander-cook');
     const addPart = (name, part) => {
       part.name = name;
       g.add(part);
@@ -1174,6 +1345,7 @@ export function buildSquatchfatherScene(scene, renderer) {
   // their chairs.
   function makeFigure(x, z, facing, opts, pose = 'stand') {
     const f = new Figure({ height: 0.96, ...opts });
+    markGeometryAssembly(f.group, 'figure');
     f.setPose(pose);
     f.place(x, z, facing);
     scene.add(f.group);
@@ -1214,9 +1386,12 @@ export function buildSquatchfatherScene(scene, renderer) {
   interactables.push(carHit);
 
   // Keep the player on the sidewalk instead of wandering into traffic.
-  block(-4, -5.0, 90, 0.6);
-  block(-24, -2.3, 0.6, 5);
-  block(13, -2.3, 0.6, 5);
+  // Split the street boundary around the getaway car instead of running a
+  // second solid through its blocker; endcaps meet it and the facade exactly.
+  block(-27.1, -5.0, 43.8, 0.6);
+  block(20.3, -5.0, 41.4, 0.6);
+  block(-24, -2.3, 0.6, 4.8);
+  block(13.3, -2.3, 0.6, 4.8);
 
   // ================= LIVE STATE =================
 
@@ -1235,7 +1410,10 @@ export function buildSquatchfatherScene(scene, renderer) {
       roomLight, entryLight, counterLight, carGlow, signGlow,
     },
     props: {
-      table, chairHit, searchHit, wrapped, mirror, prospectChair,
+      table, chairHit, searchHit, wrapped, mirror, prospectChair, salChair, mcChair,
+      diner1Chair: backgroundSeats[0].minusChair,
+      diner2Chair: backgroundSeats[1].plusChair,
+      diner2Table: backgroundSeats[1].table,
       prospectGlass, salGlass, mcGlass, toilet, getawayCar, parkedCar,
       coastPicture: coastPicture.group, coastPictureArt: coastPicture.art,
       familyPortraits: familyPortraits.map((portrait) => portrait.group),

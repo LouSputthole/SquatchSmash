@@ -1,4 +1,5 @@
 import { renderInventorySlots } from './scene-inventory.js';
+import { writeGameplayPromptKey } from './gameplay-key-adapter.js';
 
 /** Thin wrapper over the DOM overlay so game code never touches elements directly. */
 export class Hud {
@@ -32,7 +33,7 @@ export class Hud {
     this.prompt.classList.remove('hidden');
     this.crosshair.classList.add('active');
     if (this.promptLabel.innerHTML !== label) this.promptLabel.innerHTML = label;
-    if (this.promptKey.textContent !== key) this.promptKey.textContent = key;
+    writeGameplayPromptKey(this.promptKey, key);
   }
 
   hidePrompt() {
@@ -63,6 +64,16 @@ export class Hud {
   /** True while a subtitle is on screen -- the narrator waits its turn. */
   get saying() {
     return performance.now() < (this._sayUntil || 0);
+  }
+
+  /** Cut a pending narration line dead. A checkpoint retry calls this so the
+   * failed attempt's subtitle (and its hide timer) cannot play on into the
+   * restored timeline. */
+  clearSay() {
+    clearTimeout(this._subTimer);
+    this._subTimer = null;
+    this._sayUntil = 0;
+    this.subtitle.classList.add('hidden');
   }
 
   toast(text, kind = '', duration = 2800) {

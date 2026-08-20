@@ -80,7 +80,9 @@ export class Date_ {
 
     this.npc = new Npc(scene, {
       name: DATE.name, tier: 'hero', job: 'stand', look: true,
-      x: room.anchors.dropOff.x - 1.4, z: room.anchors.dropOff.z, yaw: Math.PI,
+      x: room.anchors.dropOff.x - 1.4,
+      y: room.groundAt(room.anchors.dropOff.x - 1.4, room.anchors.dropOff.z),
+      z: room.anchors.dropOff.z, yaw: Math.PI,
       model: {
         /* Dressed for the one night a week she is not on her feet in whites,
          * and slightly overdressed for it on purpose — she does not get many

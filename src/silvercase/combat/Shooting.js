@@ -140,6 +140,8 @@ export class ImpactKit {
     this.spatter = new BulletHoles(scene, 'blood');
     /** Actor -> the decals stuck to him, so a checkpoint retry can wipe them. */
     this._onActors = new Map();
+    /** Frozen pool placement at the checkpoint — see captureCheckpoint(). */
+    this._checkpoint = null;
   }
 
   /** Light the room from the muzzle for the length of the flash. */
@@ -208,6 +210,69 @@ export class ImpactKit {
     this._onActors.delete(actor);
   }
 
+  /** One pool's exact placement: every quad's parent, local transform and
+   * visibility, plus the ring cursor. Mesh references are stable — the pools
+   * never allocate after construction — so this is a plain freeze, not a
+   * clone of any geometry. Checkpoint-time only; never called per frame. */
+  _freezePool(pool) {
+    return {
+      next: pool.next,
+      marks: pool.pool.map((mesh) => ({
+        mesh,
+        visible: mesh.visible,
+        parent: mesh.parent,
+        position: mesh.position.clone(),
+        quaternion: mesh.quaternion.clone(),
+        scale: mesh.scale.clone(),
+      })),
+    };
+  }
+
+  _thawPool(pool, frozen) {
+    pool.next = frozen.next;
+    for (const mark of frozen.marks) {
+      const { mesh } = mark;
+      /* add(), not attach(): the recorded transform is LOCAL to the recorded
+       * parent, so re-parenting must not compensate for world space. */
+      if (mesh.parent !== mark.parent) mark.parent.add(mesh);
+      mesh.position.copy(mark.position);
+      mesh.quaternion.copy(mark.quaternion);
+      mesh.scale.copy(mark.scale);
+      mesh.visible = mark.visible;
+    }
+  }
+
+  /**
+   * Freeze every pool so a death retry can put the room back EXACTLY:
+   * attempt-scoped marks (anything punched after this call) vanish on
+   * revert, while everything before it — Deke's couch wounds, a missed
+   * couch shot's plaster hole — survives, even if the attempt's shots
+   * recycled their pooled quads.
+   */
+  captureCheckpoint() {
+    this._checkpoint = {
+      holes: this._freezePool(this.holes),
+      wounds: this._freezePool(this.wounds),
+      spatter: this._freezePool(this.spatter),
+      onActors: new Map(
+        [...this._onActors].map(([actor, marks]) => [actor, [...marks]]),
+      ),
+    };
+  }
+
+  /** Roll every pool back to the captured checkpoint. Returns false (and
+   * changes nothing) when no checkpoint was ever captured. */
+  revertToCheckpoint() {
+    if (!this._checkpoint) return false;
+    this._thawPool(this.holes, this._checkpoint.holes);
+    this._thawPool(this.wounds, this._checkpoint.wounds);
+    this._thawPool(this.spatter, this._checkpoint.spatter);
+    this._onActors = new Map(
+      [...this._checkpoint.onActors].map(([actor, marks]) => [actor, [...marks]]),
+    );
+    return true;
+  }
+
   update(dt) {
     this.holes.update(dt);
     this.wounds.update(dt);
@@ -219,5 +284,8 @@ export class ImpactKit {
     this.wounds.reset();
     this.spatter.reset();
     this._onActors.clear();
+    /* A wiped room has no history to revert to — a stale freeze must not be
+     * able to resurrect pre-reset decals. */
+    this._checkpoint = null;
   }
 }

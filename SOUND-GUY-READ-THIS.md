@@ -1,29 +1,48 @@
 # SOUND GUY — READ THIS FIRST
 
-**There is nothing left to generate. All 3,216 voice lines are recorded.**
-The 111-line backlog this file used to open with was cleared on Aug 7–13, 2026;
-the ledger (`VOICE-LINES-NEEDED.md`, regenerated straight from the game) reads
-**"0 lines to record. 3216 of 3216 are already done."** and the full production
-sheet (`VOICE-LINES-TODO.md`) shows 3,809 of 3,809 manifest cues with indexed
-recordings.
+**There are 161 voice lines to record.** 36 of them are RE-RECORDS: lines that
+were already recorded and have since been rewritten, so the take on disk says
+the wrong words. They are marked **[RE-RECORD]** in `VOICE-LINES-NEEDED.md`.
 
-*(Updated 2026-08-14. The previous version of this file still said "111 left" —
-it was written before the Aug 7–13 generation runs and never caught up with its
-own definition of done. The generated ledgers are the source of truth; this
-page is only the doorman.)*
+The rest are new: 11 replacement cues whose ids changed with their wording, 20
+lines for three new 97.8 THE SQUATCH ad breaks, and the 94 that were already
+outstanding.
+
+*(Updated 2026-08-19, after the dialogue pass. The generated ledgers are the
+source of truth; this page is only the doorman. If it disagrees with
+`npm run voice:needed`, believe the command.)*
+
+## About the re-records
+
+You do **not** need `--force` for them. `assets/sfx/rerecord.json` is the queue,
+`npm run vo:rerecord` stamps it onto the manifest, and `tools/generate-sfx.mjs`
+treats a marked cue as work to do even though a file already exists — because
+"the file exists" is the wrong reason to skip a line whose words changed.
+
+Once a replacement take is indexed, delete that line's entry from
+`assets/sfx/rerecord.json` and run `npm run vo:rerecord`. `npm run check` fails
+if the queue and the manifest disagree.
+
+## About the three new ad breaks
+
+The 20 new 97.8 THE SQUATCH lines belong to three commercials that are written
+but **not on air yet** — they carry `live: false` in `src/core/stations.js`, so
+the ad slot keeps playing the one break that has audio. Record them like
+anything else, then flip those three to `live: true` in the same file. Until
+you do, the lines are on your sheet but nobody hears them.
 
 ## Prove it to yourself
 
 ```
 git checkout main
 git pull
-npm run voice:needed     # must print: 0 lines to record
-npm run sfx:dry -- --voice-only --live-only   # must print: Nothing to do
+npm run voice:needed     # the count, and every line, grouped by voice
+npm run sfx:dry -- --voice-only --live-only   # the same work as filenames + words
 ```
 
-If either command says anything else, **new lines have been written since this
-was updated** — see the next section. If they disagree with each other, your
-checkout is stale: stop and pull first.
+Those two must agree. If they disagree, your checkout is stale: stop and pull
+first. If they agree but disagree with the number at the top of this page, new
+lines have landed since it was written — believe the commands.
 
 ## When new lines land
 

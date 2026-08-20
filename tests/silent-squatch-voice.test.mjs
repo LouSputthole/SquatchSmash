@@ -81,7 +81,10 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   gas: 11, // the seven stages
   aftermath: 3, // LIFE SIGNS: 0
   exit: 11, // Snow, the cart, xXx, and Lou ending the night in his office
-  evening: 9, // Old Stove's reel remarks and the pool-deck dress-help exchange
+  /* 13, not 9. Owner note, 2026-08-19: the quiet evening gained settling-in
+   * beats and Shubes gained a LAN-room chair -- a proximity bark, an idle
+   * twin, and the two-line RuneScape chat on his E press. */
+  evening: 13, // Old Stove's reel, the pool-deck dress help, and Shubes' RuneScape
 
   /* The house's own people, added 2026-08-04 with src/mansion/cast.js. The
    * mission was written before anybody lived here; these are the lines the
@@ -134,7 +137,7 @@ const SPEC_LINES = Object.freeze([
   ['SNOW', 'Try not to make more work for me tonight.'],
 
   ['PROSPECT', "What's inside?"],
-  ['LOU', "Eh. You'll find out soon enough."],
+  ['LOU', "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did."],
   ['LOU', "Go deliver it to Booski. He's in the basement."],
   ['LOU', 'Hey, kid.'],
   ['LOU', 'Nice job.'],
@@ -184,14 +187,14 @@ const SPEC_LINES = Object.freeze([
   ['BEZMENOV', 'Why is door locked?'],
   ['ORLOVA', 'Open door.'],
   ['AUBBIE', 'What is this?'],
-  ['BOOSKI', "This guy's usefulness has expired."],
+  ['BOOSKI', "He’s finished. He’s not a scientist any more, he’s a witness with a doctorate."],
   ['BOOSKI', 'Handle it.'],
   ['AUBBIE', 'Booski, we had agreement.'],
   ['BOOSKI', 'We did.'],
   ['AUBBIE', 'You need me to maintain the core.'],
   ['BOOSKI', 'We made copies of your notes.'],
   ['AUBBIE', 'You do not understand what you have built!'],
-  ['BOOSKI', 'I said handle it.'],
+  ['BOOSKI', 'I said do it. And now I’ve said it twice, which means from here on it isn’t an order any more, it’s a test. You understand the difference? Because the difference is your whole life.'],
 
   ['ORLOVA', 'What are you doing?!'],
   ['VETROV', 'Open the door!'],
@@ -201,7 +204,7 @@ const SPEC_LINES = Object.freeze([
   ['MARCHUK', 'There is no ventilation!'],
   ['ORLOVA', 'We have families!'],
   ['SOKOLOV', 'You cannot leave us in here!'],
-  ['VETROV', 'We can work for you!'],
+  ['VETROV', 'We can build you another one. Smaller. Eight weeks. Six if you stop asking about the shielding.'],
   ['ORLOVA', 'We will tell nobody!'],
 
   ['BOOSKI', 'You started the job.'],

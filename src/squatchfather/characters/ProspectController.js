@@ -64,6 +64,7 @@ export class ProspectController {
     };
     this.fig.group.traverse((o) => o.layers.set(1));
     scene.add(this.fig.group);
+    this._syncBodyPose();
 
     // ---- Concealed revolver view-model
     // Lou's package IS the flat's coffee-table revolver, so the view-model is
@@ -129,9 +130,16 @@ export class ProspectController {
     this.autoDone = onArrive;
   }
 
+  _syncBodyPose() {
+    this.fig.group.position.set(this.pos.x, 0.005, this.pos.z);
+    // Camera forward is -Z but the figure's face is on local +Z.
+    this.fig.group.rotation.y = this.yaw + Math.PI;
+  }
+
   teleport(v, yaw = null) {
     this.pos.set(v.x, 0, v.z);
     if (yaw !== null) this.yaw = yaw;
+    this._syncBodyPose();
   }
 
   sit() {
@@ -151,6 +159,7 @@ export class ProspectController {
     this.eyeHeight = EYE_STAND;
     this.fig.setPose('stand');
     this.pos.set(POS.prospectSeat.x + 0.5, 0, POS.prospectSeat.z - 0.3);
+    this._syncBodyPose();
   }
 
   // ---------- Weapon ----------
@@ -270,11 +279,9 @@ export class ProspectController {
       }
     }
 
-    // Mirror body follows him. Camera forward is -Z but the figure's face is
-    // +Z, so the body that looks where he looks sits at yaw + pi.
+    // Mirror body follows him.
     if (!this.seated) {
-      this.fig.group.position.set(this.pos.x, 0, this.pos.z);
-      this.fig.group.rotation.y = this.yaw + Math.PI;
+      this._syncBodyPose();
       this.fig.walkAmt += ((moving ? 1 : 0) - this.fig.walkAmt) * Math.min(1, dt * 8);
       this.fig.walkT += dt * (moving ? this.speed * 3.2 : 0);
     }

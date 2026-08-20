@@ -39,6 +39,8 @@ const {
 const { buildSiegeGlass, SIEGE_GLASS } = await import('../src/mansion/siege/glass.js');
 const { buildSiegeNight } = await import('../src/mansion/siege/night.js');
 const { ANCHORS, anchorById, crossingFor } = await import('../src/mansion/siege/nav.js');
+const { APPROACH_CLEAR_WIDTH } = await import('../src/mansion/siege/waves.js');
+const { groundHeightAt } = await import('../src/mansion/siege/attackers.js');
 const { BLOOD_POOL_NAME } = await import('../src/world/blood.js');
 
 /**
@@ -118,6 +120,30 @@ test('every pane the siege names is a real opening in the base shell', () => {
   assert.equal(glass.panes.size, SIEGE_GLASS.length);
   const ids = SIEGE_GLASS.map((s) => s.id);
   assert.equal(new Set(ids).size, ids.length, 'duplicate siege glass id');
+});
+
+test('the north living breach is framed in a real bay and every shard set is one assembly', () => {
+  const { grounds, interior, glass } = WORLD;
+  const record = grounds.shell.windows.find(({ id }) => id === 'livingWestNorth');
+  assert.ok(record, 'the north living breach has no shell opening');
+  assert.equal(record.z0, 56.15);
+  assert.equal(record.z1, 57.65);
+
+  const pane = glass.panes.get('living.west.north');
+  assert.ok(pane, 'the siege no longer resolves the north living breach');
+  const paneBox = worldBox(pane.pane);
+  const crossWall = [];
+  interior.root.traverse((object) => {
+    if (object.isMesh && /^wing-cross-(solid|case)$/.test(object.name)) crossWall.push(object);
+  });
+  assert.ok(crossWall.length > 0, 'the west-wing cross-wall is missing');
+  assert.ok(crossWall.every((part) => !worldBox(part).intersectsBox(paneBox)),
+    'the west-wing partition still passes through the living-room glass');
+
+  for (const candidate of glass.panes.values()) {
+    assert.equal(candidate.shards.userData.geometryGate?.assemblyId,
+      `siege-glass-${candidate.id}-shards`, `${candidate.id} shards have no stable local owner`);
+  }
 });
 
 test('shattering a pane withdraws its collider AND hides it, together', () => {
@@ -468,22 +494,27 @@ test('the firing-step worklamp clamp physically grips the east gallery-edge rail
 
   /* The railing system batches all turned shafts. Measure every real instance
    * in world space rather than comparing the lamp to a duplicated coordinate. */
-  const shafts = interior.root.getObjectByName('baluster-shaft');
-  assert.ok(shafts?.isInstancedMesh, 'the shared balcony baluster batch is missing');
-  shafts.geometry.computeBoundingBox();
-  const localBox = shafts.geometry.boundingBox;
+  const shaftBatches = [];
+  interior.root.traverse((object) => {
+    if (object.name === 'baluster-shaft' && object.isInstancedMesh) shaftBatches.push(object);
+  });
+  assert.ok(shaftBatches.length > 0, 'the shared balcony baluster batches are missing');
   const instance = new THREE.Matrix4();
   const world = new THREE.Matrix4();
   let nearest = null;
-  for (let index = 0; index < shafts.count; index += 1) {
-    shafts.getMatrixAt(index, instance);
-    world.multiplyMatrices(shafts.matrixWorld, instance);
-    const box = localBox.clone().applyMatrix4(world);
-    const dx = Math.max(box.min.x - clampBox.max.x, clampBox.min.x - box.max.x, 0);
-    const dy = Math.max(box.min.y - clampBox.max.y, clampBox.min.y - box.max.y, 0);
-    const dz = Math.max(box.min.z - clampBox.max.z, clampBox.min.z - box.max.z, 0);
-    const gap = Math.hypot(dx, dy, dz);
-    if (!nearest || gap < nearest.gap) nearest = { box, gap, index };
+  for (const shafts of shaftBatches) {
+    shafts.geometry.computeBoundingBox();
+    const localBox = shafts.geometry.boundingBox;
+    for (let index = 0; index < shafts.count; index += 1) {
+      shafts.getMatrixAt(index, instance);
+      world.multiplyMatrices(shafts.matrixWorld, instance);
+      const box = localBox.clone().applyMatrix4(world);
+      const dx = Math.max(box.min.x - clampBox.max.x, clampBox.min.x - box.max.x, 0);
+      const dy = Math.max(box.min.y - clampBox.max.y, clampBox.min.y - box.max.y, 0);
+      const dz = Math.max(box.min.z - clampBox.max.z, clampBox.min.z - box.max.z, 0);
+      const gap = Math.hypot(dx, dy, dz);
+      if (!nearest || gap < nearest.gap) nearest = { box, gap, index };
+    }
   }
   assert.ok(nearest, 'the clamp has no balcony support to attach to');
   assert.ok(nearest.gap <= 0.01,
@@ -491,10 +522,18 @@ test('the firing-step worklamp clamp physically grips the east gallery-edge rail
     + `clamp x ${clampBox.min.x.toFixed(3)}..${clampBox.max.x.toFixed(3)}, `
     + `support x ${nearest.box.min.x.toFixed(3)}..${nearest.box.max.x.toFixed(3)}`);
   const supportCentre = nearest.box.getCenter(new THREE.Vector3());
-  assert.ok(Math.abs(supportCentre.x - 5.143) <= 0.001
+  assert.ok(Math.abs(supportCentre.x - 4.786) <= 0.001
       && Math.abs(supportCentre.z - 48) <= 0.001,
   `the practical grips baluster ${nearest.index} at ${supportCentre.toArray()}, `
     + 'not the east gallery-edge support');
+  const eastNewelFinials = [];
+  interior.root.traverse((object) => {
+    if (object.name === 'mansion-railing:gallery-edge-east-newel-finial') eastNewelFinials.push(object);
+  });
+  assert.equal(eastNewelFinials.length, 2, 'the east gallery-edge newels are not independently auditable');
+  assert.ok(eastNewelFinials.every((finial) => !worldBox(finial).intersectsBox(worldBox(shade))),
+    'the worklamp shade still passes through an east gallery-edge newel finial');
+
   assert.equal(dressing.props.firingStep.colliders.length, 3,
     'mounting the practical on the gallery rail must not create a fourth route collider');
 });
@@ -532,6 +571,23 @@ test('the north-gallery battery flood rests on the real console without adding a
   `the task-flood battery overhangs its console: battery ${JSON.stringify({
     min: batteryBox.min.toArray(), max: batteryBox.max.toArray(),
   })}, support ${JSON.stringify({ min: support.box.min.toArray(), max: support.box.max.toArray() })}`);
+  const floodMeshes = [];
+  taskFlood.group.traverse((object) => { if (object.isMesh) floodMeshes.push(object); });
+  const conflicts = [];
+  interior.root.traverse((object) => {
+    if (!object.isMesh || object.isInstancedMesh || object === support.object || !object.visible) return;
+    const base = worldBox(object);
+    for (const mesh of floodMeshes) {
+      const flood = worldBox(mesh);
+      const depth = Math.min(
+        Math.min(base.max.x, flood.max.x) - Math.max(base.min.x, flood.min.x),
+        Math.min(base.max.y, flood.max.y) - Math.max(base.min.y, flood.min.y),
+        Math.min(base.max.z, flood.max.z) - Math.max(base.min.z, flood.min.z),
+      );
+      if (depth > 0.03) conflicts.push({ base: object.name || object.type, flood: mesh.name, depth });
+    }
+  });
+  assert.deepEqual(conflicts, [], 'the task flood is buried in another console ornament');
   assert.deepEqual(dressing.props.defenceStations.colliders, [],
     'the battery flood expanded the route collider set');
   assert.equal(damage.entry('siege.stations').colliders.length, 0,
@@ -644,6 +700,8 @@ test('the broken foyer lamp shade rests on the marble instead of entering it', (
   const { damage, dressing } = WORLD;
   damage.apply('under_attack');
   dressing.root.updateMatrixWorld(true);
+  const lamp = dressing.props.debris.foyer.group
+    .getObjectByName('siege.debris.foyer.lamp');
   const shade = dressing.props.debris.foyer.group
     .getObjectByName('siege.debris.foyer.lamp.shade');
   const shadeBox = worldBox(shade);
@@ -651,6 +709,23 @@ test('the broken foyer lamp shade rests on the marble instead of entering it', (
     `the fallen lamp shade is ${(GROUND_Y - shadeBox.min.y).toFixed(3)} m inside the foyer floor`);
   assert.ok(shadeBox.min.y <= GROUND_Y + 0.01,
     `the fallen lamp shade floats ${(shadeBox.min.y - GROUND_Y).toFixed(3)} m above the foyer floor`);
+  assert.equal(worldBox(lamp).intersectsBox(worldBox(dressing.props.debris.foyer.sideboard.group)), false,
+    'the fallen lamp enters the overturned sideboard');
+});
+
+test('cellar casing scatter stays inside the corridor end walls', () => {
+  const { damage, dressing } = WORLD;
+  damage.apply('under_attack');
+  dressing.root.updateMatrixWorld(true);
+  const faults = [];
+  dressing.props.debris.cellar.group.traverse((object) => {
+    if (!object.isMesh || !/\.casings\..*\.case\./.test(object.name)) return;
+    const bounds = worldBox(object);
+    if (bounds.min.z < CELLAR_HALL.z0 || bounds.max.z > CELLAR_HALL.z1) {
+      faults.push(`${object.name} spans z ${bounds.min.z.toFixed(3)}..${bounds.max.z.toFixed(3)}`);
+    }
+  });
+  assert.deepEqual(faults, [], faults.join('; '));
 });
 
 test('the fallen cellar bin fits between the fixed brick piers and wall', () => {
@@ -754,6 +829,13 @@ test('smoke never comes down to where a man is standing', () => {
   dressing.update(0.5);
   for (let i = 0; i < 200; i++) dressing.update(0.05); // walk the drift through a cycle
   for (const layer of dressing.props.smoke.columns) {
+    const smokeMeshes = [];
+    layer.group.traverse((object) => { if (object.isMesh) smokeMeshes.push(object); });
+    assert.ok(smokeMeshes.length > 0, `${layer.group.name} has no smoke leaves`);
+    assert.ok(smokeMeshes.every((mesh) => mesh.userData.geometryGate?.overlap === false),
+      `${layer.group.name} contains physical geometry instead of non-colliding haze`);
+    assert.ok(smokeMeshes.every((mesh) => mesh.userData.geometryGate?.checkSupport === false),
+      `${layer.group.name} contains floor-supported solid geometry`);
     if (!layer.slabs) continue; // fire columns are exempt; see the module header
     const b = worldBox(layer.group);
     assert.ok(b.min.y >= layer.lowestY - 1e-6,
@@ -793,6 +875,26 @@ test('the forecourt reads as a car park somebody ran out of', () => {
   assert.ok(inCourt.length >= 2, 'nothing is in the motor court at all');
   for (const w of inCourt) {
     assert.ok(Math.hypot(w.spot.x - COURT_CENTRE.x, w.spot.z - COURT_CENTRE.z) <= COURT_RADIUS);
+  }
+});
+
+test('wreck wheels, dropped bags and colliders sit on the finished driveway surface', () => {
+  const { damage, dressing } = WORLD;
+  damage.apply('under_attack');
+  dressing.root.updateMatrixWorld(true);
+
+  for (const wreck of Object.values(dressing.props.wrecks)) {
+    const carBottom = worldBox(wreck.car.group).min.y;
+    assert.ok(Math.abs(carBottom - 0.05) < 0.001,
+      `${wreck.id} tyres miss the driveway top: y=${carBottom.toFixed(4)}`);
+    assert.ok(Math.abs(wreck.collider.min.y - 0.05) < 0.001,
+      `${wreck.id} collider misses its raised shell`);
+
+    const bag = wreck.group.getObjectByName(`siege.wreck.${wreck.id}.bag`);
+    if (!bag) continue;
+    const bagBottom = worldBox(bag).min.y;
+    assert.ok(Math.abs(bagBottom - 0.05) < 0.001,
+      `${wreck.id} dropped bag is buried in the pavers: y=${bagBottom.toFixed(4)}`);
   }
 });
 
@@ -852,6 +954,67 @@ test('the burning and burnt motor-court wrecks clear the fountain stonework mesh
     });
   }
   assert.deepEqual(faults, [], faults.join('; '));
+});
+
+test('the main approach offers an assault frontage, not a file', () => {
+  /* THE FOUNTAIN/WRECK CHANNEL, GATED. The turnaround's old wreck placement
+   * left a 1.15 m file each side between the burning shells and the basin --
+   * every attacker in the mission queued through it and stalled. The shells
+   * are parked against the verges now, and this samples the walked approach
+   * -- the same forecourt anchor chains the nav graph routes the waves down
+   * -- every half metre against the REAL colliders, holding the channel at
+   * `APPROACH_CLEAR_WIDTH` (2.5 m: two men abreast) with the walked line
+   * itself at least a shoulder clear of either edge. Under `under_attack`,
+   * because the wreck hulls are combat truth and the fight is when the
+   * channel matters. */
+  const { damage, colliders } = WORLD;
+  damage.apply('under_attack');
+  /* A box only pinches the channel when it stands proud of the walker's own
+   * floor -- same quarter-metre rule as tools/probe-siege-anchors.mjs, so a
+   * kerb, a scorch mark or a floor inlay is not an obstacle. */
+  const relevant = (box, y) => box?.min && box.max.y > y + 0.25 && box.min.y < y + 1.75;
+  for (const side of ['west', 'east']) {
+    const chain = [
+      'drive_head', `court_gap_${side}`, `court_side_${side}`,
+      `court_north_${side}`, `court_step_turn_${side}`, `steps_${side}`,
+    ].map((id) => {
+      const anchor = anchorById(id);
+      assert.ok(anchor, `the ${side} approach chain lost its ${id} anchor`);
+      return anchor;
+    });
+    for (let leg = 0; leg + 1 < chain.length; leg++) {
+      const a = chain[leg];
+      const b = chain[leg + 1];
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.5));
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = a.x + (b.x - a.x) * t;
+        const z = a.z + (b.z - a.z) * t;
+        const y = groundHeightAt(x, z);
+        /* The clear x-interval the walked point stands in at this z. */
+        let lo = -14;
+        let hi = 14;
+        for (const box of colliders) {
+          if (!relevant(box, y)) continue;
+          if (z < box.min.z || z > box.max.z) continue;
+          if (box.max.x <= x) lo = Math.max(lo, box.max.x);
+          else if (box.min.x >= x) hi = Math.min(hi, box.min.x);
+          else {
+            assert.fail(`the ${side} approach walks through a collider at `
+              + `(${x.toFixed(2)}, ${z.toFixed(2)})`);
+          }
+        }
+        const width = hi - lo;
+        assert.ok(width >= APPROACH_CLEAR_WIDTH,
+          `the ${side} approach channel is ${width.toFixed(2)} m at `
+          + `(${x.toFixed(2)}, ${z.toFixed(2)}) on ${a.id} -> ${b.id} -- a file, not a frontage`);
+        assert.ok(Math.min(x - lo, hi - x) >= 0.6,
+          `the ${side} approach walks ${Math.min(x - lo, hi - x).toFixed(2)} m off an edge at `
+          + `(${x.toFixed(2)}, ${z.toFixed(2)}) on ${a.id} -> ${b.id}`);
+      }
+    }
+  }
+  damage.apply('clean');
 });
 
 test('the gate-bound abandoned sedan follows the drive without entering its curb or planting', () => {
@@ -989,6 +1152,11 @@ test('the wrecked centrepiece is the table\'s own corpse, not a ghost bubble', (
   const topSize = topBox.getSize(new THREE.Vector3());
   assert.ok(Math.max(topSize.x, topSize.z) >= 2.4, 'the tabletop is not readable as a 2.7 m disc');
   assert.ok(topBox.max.y > box.max.y, 'the dust rises over the tabletop');
+  for (const piece of ['top', 'column', 'urn']) {
+    const pieceBox = worldBox(named.get(`siege.centrepiece.${piece}`));
+    assert.ok(Math.abs(pieceBox.min.y - floor) <= 0.001,
+      `${piece} misses the foyer floor by ${(pieceBox.min.y - floor).toFixed(3)} m`);
+  }
 });
 
 test('the foyer fire has movement, light and smoke, and no way to put it out', () => {
@@ -997,6 +1165,8 @@ test('the foyer fire has movement, light and smoke, and no way to put it out', (
   assert.ok(fire, 'there is no fire in the foyer');
   assert.ok(fire.light, 'the fire does not light anything');
   assert.ok(fire.smoke, 'the fire makes no smoke');
+  assert.ok(fire.lumps.every(({ mesh }) => mesh.userData.geometryGate?.overlap === false),
+    'flame sprites participate in solid-mesh overlap checks');
   assert.ok(fire.smoke.radius <= 0.95, 'the fire column is a fog bank');
   assert.ok(WORLD.registered.includes(fire.light), 'the fire never joined the light rig');
 
@@ -1015,6 +1185,13 @@ test('battle damage reads continuously from the facade to Lou\'s office without 
   const baseCount = colliders.length;
   const architecture = dressing.props.architecture;
   assert.ok(architecture, 'the damage layer exposes its architectural battle pass');
+  const architectureMarks = [];
+  architecture.group.traverse((object) => { if (object.isMesh) architectureMarks.push(object); });
+  assert.ok(architectureMarks.length > 0, 'the architecture damage pass has no marks');
+  assert.ok(architectureMarks.every((mesh) => mesh.userData.geometryGate?.checkSupport === false),
+    'a surface-damage leaf lacks its mounted support contract');
+  assert.ok(architectureMarks.every((mesh) => mesh.userData.geometryGate?.overlap === false),
+    'a surface-damage leaf participates in solid-mesh overlap checks');
 
   damage.apply('under_attack');
   const zones = architecture.zones;
@@ -1085,6 +1262,13 @@ test('the firing-step ammunition crates are exposed as a usable interaction surf
   const { dressing } = WORLD;
   assert.equal(dressing.props.firingStep.ammo?.name, 'siege.step.ammo');
   assert.ok(dressing.props.firingStep.ammo?.getObjectByName('siege.step.ammo.crate.low'));
+  const ammoBox = worldBox(dressing.props.firingStep.ammo);
+  const sandbags = [];
+  dressing.props.firingStep.group.traverse((object) => {
+    if (object.isMesh && object.name.startsWith('siege.step.sandbag.')) sandbags.push(object);
+  });
+  assert.ok(sandbags.every((bag) => !ammoBox.intersectsBox(worldBox(bag))),
+    'the ammunition crates enter the west sandbag stack');
 });
 
 test('battle lighting separates the cold breach, the firing rail and the warm command room', () => {
@@ -1096,6 +1280,23 @@ test('battle lighting separates the cold breach, the firing rail and the warm co
     'the hierarchy costs exactly three bounded practical lights');
 
   const { breach, gallery, command } = night.accents;
+  assert.ok(Object.values(night.accents).every(
+    ({ fixture }) => fixture.userData.geometryGate?.checkSupport === false,
+  ), 'battle practicals declare their architectural mounting');
+  const emergencyByName = (name) => night.emergency.getObjectByName(`emergency-lamp-${name}`);
+  const cellarMid = emergencyByName('cellar.mid');
+  const cellarEast = emergencyByName('cellar.east');
+  const armory = emergencyByName('armory');
+  assert.ok(cellarMid.position.x + 0.17 <= -3.85,
+    'the middle cellar fitting stays on solid wall left of the theatre opening');
+  assert.ok(cellarEast.position.x - 0.17 >= 9.75 && cellarEast.position.x + 0.17 <= 10.565,
+    'the east cellar fitting occupies the solid bay between the brick pier and cellar wall art');
+  assert.equal(armory.position.x, -8.8,
+    'the armory fitting mounts on the finished face of its west wall panel');
+
+  assert.ok(night.emergency.children.every(
+    (fitting) => fitting.userData.geometryGate?.checkSupport === false,
+  ), 'every emergency fitting declares its wall mounting');
   assert.ok(breach.light.color.b > breach.light.color.r, 'the broken entrance reads cold');
   assert.ok(gallery.light.color.b > gallery.light.color.r, 'the firing rail carries a cold rim');
   assert.ok(command.light.color.r > command.light.color.b, 'Lou\'s command pool stays warm');

@@ -89,7 +89,7 @@ export const COCKPIT_VISUAL_OWNER_POLICIES = Object.freeze({
     'rear-gun-seat': roots(['rear-gun-seat-pan'], 1),
     'rear-gun-fairing': roots(['rear-gun-fairing'], 1),
     'aft-tail-shell': roots(['fuselage-aft-cap', 'vertical-fin'], 2),
-    'rear-turret-pane': roots(['(unnamed)'], 1, 'root-only'),
+    'rear-turret-pane': roots(['rear-gun-glazing'], 1, 'root-only'),
     'rear-turret-frames': roots(['rear-gun-frame-equator', 'rear-gun-frame-meridian-left', 'rear-gun-frame-meridian-right', 'rear-gun-glazing-ring'], 4),
     'gun-tracer': roots(['tracer-pool'], 1, 'root-only'),
     'pinup-port': roots(['enola-squatch-nose-art'], 1, 'root-only'),

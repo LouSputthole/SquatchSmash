@@ -16,6 +16,26 @@ import * as THREE from 'three';
 import { loadJson, assetUrl, isBundled } from './assets.js';
 import { loadOnceRetriable, runWorkerPool } from './load-queue.js';
 import { bindAudioVolume } from './settings.js';
+import { registerSceneAudioContext } from './scene-lifecycle.js';
+
+/** Scratch for readWorldPosition, which runs per follower per frame. */
+const _follow = new THREE.Vector3();
+
+/**
+ * The world position of whatever a caller handed us: an Object3D (a character,
+ * a radio on a moving cart), a plain {x,y,z}, or a function returning either
+ * so a caller can defer the lookup. Returns null for anything else, which is
+ * how play() decides a sound is not positional at all.
+ */
+function readWorldPosition(target) {
+  if (!target) return null;
+  if (typeof target === 'function') return readWorldPosition(target());
+  if (typeof target.getWorldPosition === 'function') return target.getWorldPosition(_follow);
+  if (typeof target.x === 'number' && typeof target.y === 'number'
+    && typeof target.z === 'number') return target;
+  if (target.position) return readWorldPosition(target.position);
+  return null;
+}
 
 const SFX_DIR = 'assets/sfx/';
 
@@ -53,6 +73,16 @@ export class AudioEngine {
      * timer. Weak, and keyed by the source, so it dies with the line: one
      * analyser per line being spoken, never one per character. */
     this.playbackAnalysers = new WeakMap();
+    /** The PannerNode of each active one-shot, so a started sound can be moved. */
+    this.playbackPanners = new WeakMap();
+    /* One-shots that have asked to FOLLOW something that moves. A panner's
+     * position is set once at play() time, which is correct for a gunshot and
+     * wrong for every line spoken by a walking character or played out of a
+     * moving vehicle: the sound is pinned to wherever the speaker was when the
+     * clip started, and the listener drives away from it. Entries here are
+     * re-sampled every frame and drop themselves when the source ends. */
+    this._following = new Set();
+    this._followPump = null;
     this.manifest = { sfx: [] };
     this.loadedCount = 0;
     /* Every cue that was SUPPOSED to decode and did not: a 404, a truncated
@@ -93,6 +123,7 @@ export class AudioEngine {
     }
     const Ctx = window.AudioContext || window.webkitAudioContext;
     this.ctx = new Ctx();
+    registerSceneAudioContext(this.ctx);
 
     /* Before the master gain is created below, so it opens at the volume the
      * player chose. The kept handle is both the once-guard and the only way
@@ -378,8 +409,15 @@ export class AudioEngine {
       lp1.connect(lp2);
       head = lp2;
     }
-    if (position) {
-      const panner = this._makePanner(position, opts.ref ?? 1.4, opts.maxDist ?? 18);
+    /* `follow` is anything with a world position that can move while the clip
+     * runs: an Object3D, a {x,y,z}, or a function returning either. It seeds
+     * the panner and then keeps it there, so the sound stays on the speaker. */
+    const follow = opts.follow ?? null;
+    const seed = position ?? (follow ? readWorldPosition(follow) : null);
+    let panner = null;
+    if (seed) {
+      panner = this._makePanner(seed, opts.ref ?? 1.4, opts.maxDist ?? 18,
+        opts.rolloff ?? 1.4, opts.distanceModel ?? 'inverse');
       head.connect(panner);
       panner.connect(sink);
     } else {
@@ -409,6 +447,8 @@ export class AudioEngine {
         src.connect(out);
       }
       this.playbackGains.set(src, out.gain);
+      if (panner) this.playbackPanners.set(src, panner);
+      if (panner && follow) this._follow(src, panner, follow);
       const playback = {
         name,
         source: 'buffer',
@@ -425,6 +465,7 @@ export class AudioEngine {
       // tiny sounds over an evening; diagnostics must not become save-state.
       if (this.playbacks.length > 160) this.playbacks.splice(0, this.playbacks.length - 160);
       src.onended = () => {
+        this._unfollow(src);
         const endedAt = this.ctx.currentTime;
         playback.endedAt = endedAt;
         /* `onended` also fires for stop().  A natural end must therefore have
@@ -437,6 +478,76 @@ export class AudioEngine {
     }
     synth(this, name, out, when, rate);
     return null;
+  }
+
+  /**
+   * Move an already-playing one-shot. The counterpart to `moveLoop`, which
+   * loops have had all along -- without this a one-shot's panner is frozen at
+   * whatever position it was given when the clip started.
+   *
+   * Returns false for a sound that was played without a position, because
+   * there is no panner in its chain to move.
+   */
+  setPlaybackPosition(source, position) {
+    const panner = source && this.playbackPanners.get(source);
+    const at = readWorldPosition(position);
+    if (!panner || !at) return false;
+    if (panner.positionX) {
+      const t = this.ctx.currentTime;
+      /* Smoothed, like the listener: a per-frame step into `value` zipper-
+       * noises on a fast mover, and a gunshot is not the only thing that
+       * travels. 0.02s is short enough to stay glued to the object. */
+      panner.positionX.setTargetAtTime(at.x, t, 0.02);
+      panner.positionY.setTargetAtTime(at.y, t, 0.02);
+      panner.positionZ.setTargetAtTime(at.z, t, 0.02);
+    } else {
+      panner.setPosition(at.x, at.y, at.z);
+    }
+    return true;
+  }
+
+  /** Keep `source` glued to `target` until it ends. See play()'s `follow`. */
+  _follow(source, panner, target) {
+    this._following.add({ source, panner, target });
+    this._startFollowPump();
+  }
+
+  _unfollow(source) {
+    for (const entry of this._following) {
+      if (entry.source === source) this._following.delete(entry);
+    }
+    if (!this._following.size) this._stopFollowPump();
+  }
+
+  /**
+   * Re-sample every follower's position. Called from `updateListener`, which
+   * most scenes run every frame -- but not all of them do, and a scene that
+   * forgets would get the old frozen-panner behaviour back without any sign
+   * that it had. So this also drives itself off rAF while anything is
+   * following, and the two are idempotent.
+   */
+  serviceFollowers() {
+    if (!this.ready || !this._following.size) return;
+    for (const entry of this._following) {
+      const at = readWorldPosition(entry.target);
+      if (at) this.setPlaybackPosition(entry.source, at);
+    }
+  }
+
+  _startFollowPump() {
+    if (this._followPump !== null || typeof requestAnimationFrame !== 'function') return;
+    const pump = () => {
+      if (!this._following.size) { this._followPump = null; return; }
+      this.serviceFollowers();
+      this._followPump = requestAnimationFrame(pump);
+    };
+    this._followPump = requestAnimationFrame(pump);
+  }
+
+  _stopFollowPump() {
+    if (this._followPump === null) return;
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._followPump);
+    this._followPump = null;
   }
 
   /** Ramp an already-playing sampled cue without stopping or restarting it. */
@@ -607,13 +718,16 @@ export class AudioEngine {
     });
   }
 
-  _makePanner(position, refDistance, maxDistance) {
+  _makePanner(position, refDistance, maxDistance, rolloff = 1.4, distanceModel = 'inverse') {
     const p = this.ctx.createPanner();
     p.panningModel = 'HRTF';
-    p.distanceModel = 'inverse';
+    p.distanceModel = distanceModel;
     p.refDistance = refDistance;
     p.maxDistance = maxDistance;
-    p.rolloffFactor = 1.4;
+    /* Dialogue wants a gentler curve than a footstep: a line that has to be
+     * understood cannot lose a third of its level because the speaker took two
+     * steps. Callers pass `rolloff` for that; everything else keeps 1.4. */
+    p.rolloffFactor = rolloff;
     if (p.positionX) {
       p.positionX.value = position.x;
       p.positionY.value = position.y;
@@ -1030,6 +1144,7 @@ export class AudioEngine {
 
   updateListener(camera) {
     if (!this.ready) return;
+    this.serviceFollowers();
     const L = this.ctx.listener;
     const p = camera.getWorldPosition(_v1);
     const q = camera.getWorldQuaternion(_q1);
@@ -2380,6 +2495,27 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t + r(0.01), { dur: r(0.09), type: 'bandpass', freq: 520, q: 1.1, gain: 0.16, sweep: 0.4 });
       burst(ctx, dest, t + r(0.05), { dur: r(0.30), type: 'lowpass', freq: 900, q: 0.5, gain: 0.07, sweep: 0.5 });
       break;
+    /* A night fighter's engine screaming — wounded and running, or on its way
+     * down. The caller pitches it: up for the runner, down for the kill. A
+     * long sawtooth falling most of an octave with the supercharger whine an
+     * octave and a half over it, both under a widening wind wash. */
+    case 'enola.interceptor.scream':
+      tone(ctx, dest, t, { freq: 620, to: 260, dur: r(2.4), gain: 0.16, type: 'sawtooth' });
+      tone(ctx, dest, t + r(0.03), { freq: 1900, to: 760, dur: r(2.2), gain: 0.07, type: 'sine' });
+      tone(ctx, dest, t + r(0.05), { freq: 92, to: 46, dur: r(2.4), gain: 0.14, type: 'triangle' });
+      burst(ctx, dest, t + r(0.2), { dur: r(2.2), type: 'bandpass', freq: 900, q: 0.6, gain: 0.08, sweep: 1.4 });
+      break;
+    /* A fighter coming apart under cannon fire: the structural crunch, the
+     * tear of skin, the whump of fuel, and the small stuff whistling away. */
+    case 'enola.interceptor.breakup':
+      tone(ctx, dest, t, { freq: 120, to: 32, dur: r(0.5), gain: 0.5, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.16), type: 'lowpass', freq: 420, gain: 0.6, sweep: 0.4 });
+      burst(ctx, dest, t + r(0.05), { dur: r(0.6), type: 'bandpass', freq: 2300, q: 1.4, gain: 0.26, sweep: 0.8 });
+      burst(ctx, dest, t + r(0.24), { dur: r(0.7), type: 'lowpass', freq: 240, gain: 0.34, sweep: 0.7 });
+      tone(ctx, dest, t + r(0.5), { freq: 3200, to: 900, dur: r(0.9), gain: 0.05, type: 'sine' });
+      tone(ctx, dest, t + r(0.8), { freq: 2600, to: 700, dur: r(1.0), gain: 0.04, type: 'sine' });
+      burst(ctx, dest, t + r(0.4), { dur: r(1.4), type: 'bandpass', freq: 700, q: 0.5, gain: 0.1, sweep: 1.2 });
+      break;
 
     /* -------- the Silver Room's kitchen, and its dining room --------
      *
@@ -2415,6 +2551,34 @@ function synth(engine, name, dest, t, rate = 1) {
       tone(ctx, dest, t, { freq: 1580, dur: r(0.035), gain: 0.10, type: 'square' });
       tone(ctx, dest, t + r(0.06), { freq: 1860, dur: r(0.035), gain: 0.09, type: 'square' });
       burst(ctx, dest, t + r(0.13), { dur: r(0.11), type: 'highpass', freq: 3600, q: 0.7, gain: 0.10, sweep: 0.7 });
+      break;
+    case 'kitchen.sizzle':
+      // Food hitting hot fat: a hard wet onset that settles into a fast simmer.
+      burst(ctx, dest, t, { dur: r(0.10), type: 'highpass', freq: 4200, q: 0.7, gain: 0.20, sweep: 0.5 });
+      burst(ctx, dest, t + r(0.04), { dur: r(0.9), type: 'bandpass', freq: 5200, q: 0.6, gain: 0.12, sweep: 0.35 });
+      burst(ctx, dest, t + r(0.30), { dur: r(0.5), type: 'bandpass', freq: 3400, q: 0.9, gain: 0.06, sweep: 0.5 });
+      break;
+    case 'kitchen.steam':
+      // Steam off a lid: a hiss that rises, holds a beat, and dies.
+      burst(ctx, dest, t, { dur: r(0.75), type: 'bandpass', freq: 6200, q: 0.7, gain: 0.11, sweep: 1.4 });
+      burst(ctx, dest, t + r(0.05), { dur: r(0.5), type: 'highpass', freq: 7800, q: 0.6, gain: 0.06, sweep: 0.8 });
+      tone(ctx, dest, t + r(0.02), { freq: 2900, to: 2200, dur: r(0.10), gain: 0.02, type: 'sine' });
+      break;
+    case 'kitchen.chop.fast':
+      // A prep run: eight quick chops, the rhythm tightening slightly.
+      for (let i = 0; i < 8; i++) {
+        const at = t + i * (0.135 - i * 0.004);
+        burst(ctx, dest, at, { dur: r(0.014), type: 'highpass', freq: 3200, q: 0.8, gain: 0.09 });
+        tone(ctx, dest, at + 0.003, { freq: 190 + (i % 3) * 14, to: 90, dur: r(0.07), gain: 0.13, type: 'triangle' });
+      }
+      break;
+    case 'kitchen.glasses':
+      // A rack of glasses at a brisk walk: dense small chimes, no casualties.
+      for (let i = 0; i < 9; i++) {
+        const at = t + i * 0.075 + (((i * 37) % 10) / 10) * 0.03;
+        tone(ctx, dest, at, { freq: 2100 + ((i * 53) % 7) * 190, dur: r(0.06), gain: 0.035, type: 'sine' });
+      }
+      burst(ctx, dest, t, { dur: r(0.7), type: 'bandpass', freq: 2900, q: 1.4, gain: 0.05, sweep: 0.4 });
       break;
 
     /* The floor. Under the band and under the conversation, so every one of
@@ -2623,6 +2787,29 @@ function synthLoop(engine, name, dest) {
       osc('sine', 84, 0.014);
       osc('sine', 84.7, 0.010);
       noise('highpass', 6400, 2.0, 0.006);
+      break;
+    /* -------- Mark's estate (src/cartel-palace/acoustics.js) -------- */
+    case 'ambience.palace.interior':
+      /* The service wing's own quiet: plant hum through stucco and a
+       * pressurised stillness. The `mansion.suite.tone` recipe a floor
+       * lower and a shade colder — the beating pair sits at duct pitch and
+       * the hiss corner is higher, because these halls are stone and tile,
+       * not carpet. Stands in until the recording lands (see the manifest
+       * brief); volume automation lives entirely in the room mix. */
+      noise('lowpass', 260, 0.7, 0.034);
+      osc('sine', 92, 0.013);
+      osc('sine', 92.8, 0.009);
+      noise('highpass', 7200, 2.0, 0.005);
+      break;
+    case 'ambience.palace.dining':
+      /* The dining room reads as an ARRIVAL, so its tone is a different
+       * sound from the halls, not a louder one: lower and warmer — the
+       * beating pair drops nearly a fifth — with a narrow mid band for the
+       * long room's own presence and no hiss at all. Candles, not ducts. */
+      noise('lowpass', 180, 0.8, 0.030);
+      osc('sine', 62, 0.015);
+      osc('sine', 62.4, 0.011);
+      noise('bandpass', 420, 2.4, 0.010);
       break;
     case 'mansion.suite.hottub': {
       /* BUBBLING = FILTERED NOISE, and the LFO is what makes it bubbles

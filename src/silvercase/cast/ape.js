@@ -88,5 +88,6 @@ export function buildSilverCaseApe(parent, {
     yaw,
     model: { ...SILVERCASE_APE_PRESENTATION.model, castShadow: true },
   });
+  npc.group.userData.geometryGate = { assemblyId: 'silvercase.ape' };
   return identifySilverCaseApe(npc);
 }

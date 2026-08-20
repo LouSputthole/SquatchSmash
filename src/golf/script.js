@@ -192,7 +192,7 @@ cue('golf.h1.lou.rippin_wouldnt', LOU,
 cue('golf.h1.rippin.credentials', RIPPIN, 'I have credentials.',
   { direction: 'Wounded.', priority: PRIORITY.STORY, once: true });
 
-cue('golf.h1.eric.you_have_clubs', ERIC, 'You have clubs.',
+cue('golf.h1.eric.you_have_clubs', ERIC, 'Those are clubs. Somebody paid a lot for them and it wasn’t you.',
   { direction: 'The quiet last line. Do not push it.', priority: PRIORITY.STORY, once: true });
 
 cue('golf.h1.lou.earned_invitation', LOU,
@@ -1118,7 +1118,7 @@ cue('golf.h1.prospect.needed_a_fourth', PROSPECT,
   'You needed a fourth.',
   { direction: 'Modest on purpose. He is giving Lou an easy answer.', priority: PRIORITY.STORY, once: true, interruptible: false });
 cue('golf.h1.prospect.another_test', PROSPECT,
-  'Is this another test?',
+  'Is this a test? Because everything’s been a test and nobody tells me the results.',
   { direction: 'Direct and watchful. He has learned what these invitations can mean.', priority: PRIORITY.STORY, once: true, interruptible: false });
 cue('golf.h1.prospect.earned_morning_off', PROSPECT,
   'I figured I earned a morning off.',
@@ -1128,7 +1128,7 @@ cue('golf.h1.prospect.whats_the_catch', PROSPECT,
   { direction: 'Light joke with a real question underneath it.', priority: PRIORITY.STORY, once: true, interruptible: false });
 
 cue('golf.h1.prospect.did_what_you_asked', PROSPECT,
-  'I did what you asked.',
+  'I did what you asked. All of it. Including the part you didn’t say out loud.',
   { direction: 'Professional and restrained. He is reporting, not fishing for praise.', priority: PRIORITY.STORY, once: true, interruptible: false });
 cue('golf.h1.prospect.got_lucky', PROSPECT,
   'I got lucky.',

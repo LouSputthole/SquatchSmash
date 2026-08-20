@@ -1,11 +1,26 @@
 /**
- * LIL TOM CRUZE — Lou's German Shepherd.
+ * LIL TOM CRUZE — Lou's golden dog.
  *
- * Owner, verbatim:
+ * Owner, verbatim, when he was commissioned:
  *
  *   "I also want a german shepard type dog. It needs to be animated and work
  *    and go from the office to the bed room and stuff and the player can pet
  *    it. It's named Lil Tom cruze."
+ *
+ * ...and owner, 2026-08-19, revising him:
+ *
+ *   "let's refine lil Tom Cruise a bit, make him more dog-like and make him
+ *    more golden."
+ *
+ * So the shepherd dressing is gone and he is a GOLDEN now — retriever gold
+ * coat over cream feathering (the framed birthday goldendoodle on Lou's desk
+ * is the reference), drop ears instead of the erect pair, a longer muzzle
+ * with a coat-coloured face and a black nose, a fuller tail carried nearer
+ * level, and a squarer stance (the extreme rear angulation was the one thing
+ * making him read shepherd from across a room). The RIG is untouched: same
+ * joints, same gait arithmetic, same sit solve, same route, same pet target —
+ * every rest angle and paw offset below is re-measured so the pads still land
+ * on y = 0 standing AND sitting (see the FK notes at each number).
  *
  * ------------------------------------------------------------ CALL SIGNATURE
  *
@@ -66,7 +81,8 @@
  * ---------------------------------------------------------------- THE BUDGET
  *
  * He runs beside a 12,000-mesh house, so:
- *   - 79 meshes, all named, sharing eleven materials and a geometry cache;
+ *   - 73 meshes (measured — `report().meshes`), all named, sharing eleven
+ *     materials and a geometry cache;
  *   - the whole gait is SCALAR trigonometry written straight into
  *     `rotation.x` / `position.y`. `update()` allocates nothing — no vectors,
  *     no arrays, no closures per frame;
@@ -119,8 +135,12 @@ function softGeometry(w, h, d, r) {
   return geo;
 }
 
-/** Same call shape as build.js's box(), so a slab softens in place. */
-function softBox({ size, pos, mat: material, name, rotX = 0, rotY = 0, rotZ = 0, r = 0.018 }) {
+/** Same call shape as build.js's box(), so a slab softens in place.
+ * The default chamfer went 0.018 -> 0.026 in the golden pass: a retriever is
+ * a rounder animal than a shepherd and this one number softens every slab at
+ * zero extra geometry (the radius is still capped at a third of the smallest
+ * dimension, so thin parts do not collapse into pills). */
+function softBox({ size, pos, mat: material, name, rotX = 0, rotY = 0, rotZ = 0, r = 0.026 }) {
   const m = new THREE.Mesh(softGeometry(size[0], size[1], size[2], r), material);
   m.position.set(pos[0], pos[1], pos[2]);
   m.rotation.set(rotX, rotY, rotZ);
@@ -134,15 +154,28 @@ function softBox({ size, pos, mat: material, name, rotX = 0, rotY = 0, rotZ = 0,
 function named(mesh, name) { mesh.name = name; return mesh; }
 
 /* ================================================================== */
-/* Palette — a black-and-tan shepherd, in Lou's house, so: a gold collar */
+/* Palette — golden-retriever gold, in Lou's house, so: a gold collar    */
+/*                                                                       */
+/* The keys keep their original names (they are wired through every       */
+/* mesh below); only the colours moved. The four coat materials keep      */
+/* four distinct VALUES — deep amber shading under mid gold under light   */
+/* gold under cream — so the shape still reads the way the old            */
+/* black/tan/cream/sable stack did. Before -> after:                      */
+/*   saddle  0x211c19 (black blanket) -> 0xc08a45 (the main gold coat)    */
+/*   tan     0x9a6634 (tan points)    -> 0xdaa95f (light gold)            */
+/*   cream   0xc6a374 (cream)         -> 0xecd7a8 (cream feathering)      */
+/*   sable   0x59391d (dark overlay)  -> 0x9a6b2e (deep amber shading)    */
+/*   black   0x14100e — unchanged, but now ONLY the nose, pads and eye     */
+/*           rims wear it; a golden's muzzle is coat-coloured.             */
+/*   eye     0x53300d -> 0x3e2a12 (darker warm brown)                      */
 /* ================================================================== */
 const M = {
-  saddle: mat({ color: 0x211c19, roughness: 0.94 }),      // the black blanket
-  tan: mat({ color: 0x9a6634, roughness: 0.93 }),         // legs, chest, mask
-  cream: mat({ color: 0xc6a374, roughness: 0.93 }),       // throat and underside
-  sable: mat({ color: 0x59391d, roughness: 0.94 }),       // the shaded overlay
-  black: mat({ color: 0x14100e, roughness: 0.86 }),       // muzzle, nose, pads
-  eye: mat({ color: 0x53300d, roughness: 0.28, metalness: 0.1 }),
+  saddle: mat({ color: 0xc08a45, roughness: 0.94 }),      // the main gold coat
+  tan: mat({ color: 0xdaa95f, roughness: 0.93 }),         // legs, chest, face
+  cream: mat({ color: 0xecd7a8, roughness: 0.93 }),       // throat, underside, feathering
+  sable: mat({ color: 0x9a6b2e, roughness: 0.94 }),       // the shaded overlay
+  black: mat({ color: 0x14100e, roughness: 0.86 }),       // nose, pads, eye rims
+  eye: mat({ color: 0x3e2a12, roughness: 0.28, metalness: 0.1 }),
   gleam: mat({ color: 0xf2ead8, roughness: 0.2 }),
   tongue: mat({ color: 0x9c4a52, roughness: 0.6 }),
   gold: mat({ color: 0xcda434, roughness: 0.3, metalness: 0.8 }),
@@ -167,11 +200,19 @@ const SIT_TILT = 0.34;
  * Tuned against the measured pad heights rather than eyeballed: at `sit = 1`
  * these put the rear pastern flat on y = 0 with the hock behind the hip, which
  * is the shape a dog's back leg makes when it sits down.
+ *
+ * The golden pass squared the STANDING rests (see `buildLeg`), so each offset
+ * here changed by exactly the opposite amount — the absolute sit pose
+ * (rest + offset) is the same three angles it was tuned to: 0.55, -2.053,
+ * 1.163. Measured after (with the re-zeroed paw offset): sitting rear pads
+ * at y +0.005, against +0.002 before — a hover no floorboard will notice.
  */
-const REAR_SIT = Object.freeze({ hip: 0.25, knee: -1.353, paw: 0.763 });
-/** Nose to tail tip, measured. A real male shepherd is about 1.55 m. */
-export const DOG_LENGTH = 1.51;
-/** Height at the withers. A real male shepherd is 0.60-0.65 m. */
+const REAR_SIT = Object.freeze({ hip: 0.33, knee: -1.533, paw: 0.863 });
+/** Nose to tail tip, measured off the built model (the level plume reaches
+ * further back than the old up-curled sabre did, so he measures longer than
+ * he stands). */
+export const DOG_LENGTH = 1.70;
+/** Height at the withers: a big male golden. */
 export const DOG_SHOULDER_HEIGHT = 0.636;
 
 /* ================================================================== */
@@ -184,9 +225,10 @@ export const DOG_SHOULDER_HEIGHT = 0.636;
  *   knee     (the stifle in front, the hock behind) folds the lower leg
  *   paw      keeps the foot flat while the leg above it swings
  *
- * The rear pair carry a shepherd's angulation as a REST offset on the hip and
- * hock, which is the single thing that makes the silhouette read as this breed
- * and not as a labrador: the back legs are already bent when he is standing.
+ * The rear pair still carry their angulation as a REST offset on the hip and
+ * hock — every dog stands with SOME bend back there — but the golden pass
+ * relaxed it from the shepherd's deep crouch to a squarer, retriever stance
+ * (see the rest numbers at the bottom of this function).
  */
 function buildLeg(side, rear, tag) {
   const sx = side < 0 ? 'left' : 'right';
@@ -233,8 +275,11 @@ function buildLeg(side, rear, tag) {
   paw.name = `dog.${tag}.paw`;
   /* Measured, not guessed: with the rest angles below, these two numbers put
    * the lowest point of every pad on y = 0.000 in the dog's own space, so he
-   * stands ON a floor rather than 3 cm over it. */
-  paw.position.set(0, rear ? -0.216 : -0.206, rear ? -0.024 : 0);
+   * stands ON a floor rather than 3 cm over it. The rear pair was -0.216
+   * under the shepherd's angulation; the golden's squarer rests dropped the
+   * pads 7.5 mm through the boards, so the offset came up by that error over
+   * cos(hip + knee) — re-measured standing at +0.0001 and sitting at +0.005. */
+  paw.position.set(0, rear ? -0.208 : -0.206, rear ? -0.024 : 0);
   knee.add(paw);
   paw.add(softBox({
     size: [0.078, 0.056, 0.116], pos: [0, -0.028, -0.020], mat: M.tan,
@@ -249,10 +294,15 @@ function buildLeg(side, rear, tag) {
     r: 0.026, ry: 0.011, rz: 0.026, pos: [0, -0.054, -0.012], mat: M.black,
   }), `dog.${tag}.pad.${sx}`));
 
-  // Rest angulation. A shepherd stands with the rear leg already folded.
-  hip.userData.rest = rear ? 0.30 : 0.02;
-  knee.userData.rest = rear ? -0.70 : -0.10;
-  paw.userData.rest = rear ? 0.40 : 0.08;
+  /* Rest angulation. The shepherd stood with the rear leg deeply folded
+   * (0.30 / -0.70 / 0.40); a golden stands squarer, so the golden pass
+   * relaxed the three rear angles together, keeping their sum at 0.0 — the
+   * sum is the foot's pitch, and a flat foot is hip + knee + paw = 0 on
+   * both pairs. The paw group's y/z offsets above were re-measured for
+   * these angles (FK, not eyeballed) so every pad still lands on y = 0. */
+  hip.userData.rest = rear ? 0.22 : 0.02;
+  knee.userData.rest = rear ? -0.52 : -0.10;
+  paw.userData.rest = rear ? 0.30 : 0.08;
   hip.rotation.x = hip.userData.rest;
   knee.rotation.x = knee.userData.rest;
   paw.rotation.x = paw.userData.rest;
@@ -271,23 +321,26 @@ function buildLeg(side, rear, tag) {
 export function buildLilTomCruze() {
   const root = group('lil-tom-cruze');
 
-  /* ---- Trunk. Three slabs on a falling line: a deep chest, the barrel under
-   * the black saddle, and a croup that slopes away. The slope IS the breed —
-   * a shepherd whose back is level is an alsatian-shaped crate. */
+  /* ---- Trunk. Three slabs: a deep chest, the barrel, and the croup. The
+   * shepherd's croup fell away hard (rotX 0.16, centred at 0.420) because
+   * that slope IS that breed; a golden's topline runs close to LEVEL, so
+   * the croup came up 18 mm and its pitch halved — the withers at 0.636
+   * are still the highest point, but the back now reads as a flat table a
+   * hand actually strokes. */
   const body = group('dog.body');
   root.add(body);
   body.add(softBox({
-    size: [0.234, 0.300, 0.330], pos: [0, 0.480, -0.196], mat: M.saddle, name: 'dog.chest',
+    size: [0.234, 0.300, 0.330], pos: [0, 0.480, -0.196], mat: M.saddle, name: 'dog.chest', r: 0.034,
   }));
   body.add(softBox({
-    size: [0.238, 0.280, 0.316], pos: [0, 0.462, 0.058], mat: M.saddle, name: 'dog.barrel',
+    size: [0.238, 0.280, 0.316], pos: [0, 0.462, 0.058], mat: M.saddle, name: 'dog.barrel', r: 0.034,
   }));
   body.add(softBox({
-    size: [0.212, 0.240, 0.238], pos: [0, 0.420, 0.286], mat: M.saddle,
-    rotX: 0.16, name: 'dog.croup',
+    size: [0.212, 0.240, 0.238], pos: [0, 0.438, 0.286], mat: M.saddle,
+    rotX: 0.09, name: 'dog.croup', r: 0.034,
   }));
-  // The tan comes UP the flanks and the cream runs along the belly, so the
-  // black reads as a blanket laid over him rather than as paint.
+  // The lighter gold comes UP the flanks and the cream runs along the belly,
+  // so the coat reads as layered fur catching the light rather than as paint.
   for (const side of [-1, 1]) {
     const sx = side < 0 ? 'left' : 'right';
     body.add(softBox({
@@ -306,9 +359,9 @@ export function buildLilTomCruze() {
     size: [0.190, 0.150, 0.070], pos: [0, 0.446, -0.352], mat: M.cream, name: 'dog.brisket',
   }));
   /* Withers: the bump over the shoulders, and the highest point on the dog.
-   * 0.596 + 0.040 = 0.636, which is DOG_SHOULDER_HEIGHT and a real male
-   * shepherd's 0.60-0.65. The chest tops out at 0.630 and the croup at about
-   * 0.55, so the topline FALLS from front to back — that slope is the breed. */
+   * 0.596 + 0.040 = 0.636, which is DOG_SHOULDER_HEIGHT — a big male golden.
+   * The chest tops out at 0.630 and the raised croup at about 0.575, so the
+   * topline now runs close to level instead of falling away shepherd-style. */
   body.add(softBox({
     size: [0.190, 0.080, 0.200], pos: [0, 0.596, -0.176], mat: M.saddle, name: 'dog.withers',
   }));
@@ -322,8 +375,9 @@ export function buildLilTomCruze() {
    * -0.7463), so the head base lands at
    *   y = 0.500 + 0.6656 * 0.218 = 0.645
    *   z = -0.250 - 0.7463 * 0.218 = -0.413
-   * which puts the top of his skull at 0.731, his ear tips at 0.846 and his
-   * nose at 0.603 — an alert shepherd on 0.636 m of leg. */
+   * which puts the top of his skull at 0.731 and his nose at 0.603 — an
+   * alert dog on 0.636 m of leg. (The drop ears hang DOWN from the skull to
+   * 0.557 now, so the skull, not an ear tip, is the head's highest point.) */
   const neck = new THREE.Group();
   neck.name = 'dog.neck';
   neck.position.set(0, 0.500, -0.250);
@@ -366,27 +420,31 @@ export function buildLilTomCruze() {
   head.userData.rest = 0.844;
   neck.add(head);
 
+  /* A golden's head: coat-gold skull, light-gold stop and a LONGER
+   * coat-coloured muzzle (0.196 against the shepherd's 0.166, its centre
+   * carried 16 mm further forward) under a black nose. The black MASK is
+   * gone — on this dog only the nose and the eye rims stay black — and the
+   * underjaw runs cream like the throat it meets. */
   head.add(softBox({
-    size: [0.146, 0.135, 0.204], pos: [0, 0.018, -0.062], mat: M.sable, name: 'dog.head.skull',
+    size: [0.146, 0.135, 0.204], pos: [0, 0.018, -0.062], mat: M.saddle, name: 'dog.head.skull', r: 0.032,
   }));
   head.add(softBox({
-    size: [0.126, 0.096, 0.104], pos: [0, -0.014, -0.166], mat: M.sable, name: 'dog.head.stop',
-  }));
-  // The black mask over the muzzle: the other half of the breed's read.
-  head.add(softBox({
-    size: [0.088, 0.078, 0.166], pos: [0, -0.040, -0.246], mat: M.black, name: 'dog.head.muzzle',
+    size: [0.126, 0.096, 0.104], pos: [0, -0.014, -0.166], mat: M.tan, name: 'dog.head.stop', r: 0.030,
   }));
   head.add(softBox({
-    size: [0.094, 0.020, 0.150], pos: [0, -0.072, -0.246], mat: M.black, name: 'dog.head.jaw',
+    size: [0.088, 0.078, 0.196], pos: [0, -0.040, -0.262], mat: M.tan, name: 'dog.head.muzzle', r: 0.028,
+  }));
+  head.add(softBox({
+    size: [0.094, 0.020, 0.178], pos: [0, -0.072, -0.262], mat: M.cream, name: 'dog.head.jaw',
   }));
   head.add(named(sphere({
-    r: 0.030, ry: 0.024, rz: 0.024, pos: [0, -0.018, -0.328], mat: M.black,
+    r: 0.030, ry: 0.024, rz: 0.024, pos: [0, -0.018, -0.360], mat: M.black,
   }), 'dog.head.nose'));
   head.add(softBox({
-    size: [0.062, 0.014, 0.056], pos: [0, -0.062, -0.268], mat: M.tongue, name: 'dog.head.tongue',
+    size: [0.062, 0.014, 0.056], pos: [0, -0.062, -0.288], mat: M.tongue, name: 'dog.head.tongue',
   }));
   head.add(softBox({
-    size: [0.128, 0.044, 0.070], pos: [0, 0.052, -0.178], mat: M.tan, name: 'dog.head.brow',
+    size: [0.128, 0.044, 0.070], pos: [0, 0.052, -0.178], mat: M.tan, name: 'dog.head.brow', r: 0.020,
   }));
 
   const eyes = [];
@@ -406,62 +464,73 @@ export function buildLilTomCruze() {
     }));
   }
 
-  /* Ears. Big, erect, forward, and half the silhouette. A shepherd with soft
-   * ears is a different dog from across the room. */
+  /* Ears. DROP ears now — the single biggest breed cue there is. The
+   * shepherd's erect pair stood 0.10 m over the skull; a golden's ear is a
+   * folded leaf that hangs from a root high on the skull down past the
+   * cheek, so each ear keeps its pivot GROUP (the update still swivels it,
+   * pet still tips it forward) but its three slabs run DOWN from the pivot:
+   * a small root fold on top, the hanging shell against the side of the
+   * head, and a rounded tip reaching the jaw line. The old black `ear-inner`
+   * is gone (a hanging ear shows no inner) — the fold took its slot, in the
+   * shading amber so the leaf still reads against the gold skull. */
   const ears = [];
   for (const side of [-1, 1]) {
     const sx = side < 0 ? 'left' : 'right';
     const ear = new THREE.Group();
     ear.name = `dog.head.ear.${sx}`;
-    ear.position.set(side * 0.058, 0.086, 0.004);
-    ear.rotation.z = -side * 0.20;
-    ear.rotation.x = -0.14;
-    ear.userData.restZ = -side * 0.20;
-    ear.userData.restX = -0.14;
+    ear.position.set(side * 0.060, 0.078, -0.006);
+    ear.rotation.z = -side * 0.16;
+    ear.rotation.x = 0.08;
+    ear.userData.restZ = -side * 0.16;
+    ear.userData.restX = 0.08;
     head.add(ear);
     ear.add(softBox({
-      size: [0.034, 0.108, 0.088], pos: [0, 0.056, -0.010], mat: M.sable,
+      size: [0.042, 0.048, 0.094], pos: [0, 0.012, 0.004], mat: M.sable,
+      name: `dog.head.ear-fold.${sx}`, r: 0.014,
+    }));
+    ear.add(softBox({
+      size: [0.026, 0.128, 0.092], pos: [side * 0.012, -0.052, 0.008], mat: M.sable,
       name: `dog.head.ear-shell.${sx}`, r: 0.012,
     }));
     ear.add(softBox({
-      size: [0.020, 0.080, 0.058], pos: [side * 0.010, 0.050, -0.028], mat: M.black,
-      name: `dog.head.ear-inner.${sx}`, r: 0.010,
-    }));
-    ear.add(softBox({
-      size: [0.028, 0.038, 0.066], pos: [0, 0.107, -0.004], mat: M.sable,
+      size: [0.024, 0.054, 0.076], pos: [side * 0.016, -0.134, 0.014], mat: M.sable,
       name: `dog.head.ear-tip.${sx}`, r: 0.012,
     }));
     ears.push(ear);
   }
 
-  /* ---- Tail. A sabre: three tapering segments, carried low and swinging from
-   * the root, so a wag is one number multiplied down the chain. */
+  /* ---- Tail. Was a shepherd sabre curled 72 degrees up over the croup
+   * (rests -0.62 / -0.34 / -0.30); a golden carries a FLUFFY PLUME nearer
+   * level, so the three rests relax to a 25-degree lift, every segment gets
+   * a fuller cross-section, and the tip flies the breed's pale feathering
+   * (cream) instead of the sabre's black point. Same three-link chain, same
+   * wag arithmetic — a wag still multiplies one number down it. */
   const tail = new THREE.Group();
   tail.name = 'dog.tail';
-  tail.position.set(0, 0.444, 0.390);
-  tail.rotation.x = -0.62;
-  tail.userData.rest = -0.62;
+  tail.position.set(0, 0.458, 0.390);
+  tail.rotation.x = -0.30;
+  tail.userData.rest = -0.30;
   body.add(tail);
   tail.add(softBox({
-    size: [0.086, 0.088, 0.200], pos: [0, -0.012, 0.096], mat: M.saddle, name: 'dog.tail.root',
+    size: [0.092, 0.098, 0.200], pos: [0, -0.012, 0.096], mat: M.saddle, name: 'dog.tail.root',
   }));
   const tailMid = new THREE.Group();
   tailMid.name = 'dog.tail.mid-pivot';
   tailMid.position.set(0, -0.016, 0.192);
-  tailMid.rotation.x = -0.34;
-  tailMid.userData.rest = -0.34;
+  tailMid.rotation.x = -0.16;
+  tailMid.userData.rest = -0.16;
   tail.add(tailMid);
   tailMid.add(softBox({
-    size: [0.072, 0.074, 0.190], pos: [0, -0.010, 0.092], mat: M.saddle, name: 'dog.tail.mid',
+    size: [0.082, 0.090, 0.190], pos: [0, -0.010, 0.092], mat: M.saddle, name: 'dog.tail.mid',
   }));
   const tailTip = new THREE.Group();
   tailTip.name = 'dog.tail.tip-pivot';
   tailTip.position.set(0, -0.014, 0.184);
-  tailTip.rotation.x = -0.30;
-  tailTip.userData.rest = -0.30;
+  tailTip.rotation.x = -0.12;
+  tailTip.userData.rest = -0.12;
   tailMid.add(tailTip);
   tailTip.add(softBox({
-    size: [0.058, 0.058, 0.164], pos: [0, -0.008, 0.078], mat: M.black, name: 'dog.tail.tip',
+    size: [0.068, 0.074, 0.164], pos: [0, -0.008, 0.078], mat: M.cream, name: 'dog.tail.tip',
   }));
 
   /* ---- Legs. */

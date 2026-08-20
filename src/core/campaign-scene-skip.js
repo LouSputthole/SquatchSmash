@@ -31,6 +31,28 @@ import { createSilentSquatchStory } from './silent-squatch-story.js';
 import { createSquatchfatherStory } from './squatchfather-story.js';
 import { createSceneRecovery } from './scene-recovery.js';
 
+/**
+ * Scenes whose page offers RESTART SCENE -- the destructive one, which rewinds
+ * durable mission facts to the authored scene start and reloads.
+ *
+ * This is NOT the same inventory as the Skip Scene maps below, and the two are
+ * allowed to differ. A scene belongs here only if `resetCampaignScene` has
+ * something real to put back: a mission record with checkpoints, flags and
+ * inventory that the scene wrote on its way through.
+ *
+ * THE SPECIAL MEETING IS DELIBERATELY NOT ON THIS LIST. It is the one campaign
+ * scene with no mission record at all -- there is no `MISSION_IDS` entry for
+ * it, because nothing in it can be done well or badly. The player is collected
+ * in a car, driven, and let out at a spur; the only durable thing the scene
+ * writes is the exact-once `COMPLETE_SPECIAL_MEETING` time event, and an
+ * exact-once event cannot be rewound (same reason MANSION_RETURN's branch in
+ * `resetCampaignScene` refuses to touch a completed briefing). A Restart Scene
+ * entry here would therefore reduce to `campaign.update(() => {})` plus a
+ * reload, which is exactly what Restart Checkpoint already does on every page
+ * -- a second button with the same effect and a more frightening name. So the
+ * Special Meeting gets the SKIP adapter and not the RESTART one. See its
+ * entries in DESTINATIONS, COMPLETERS and CANONICAL_COMPLETIONS below.
+ */
 export const RECOVERABLE_CAMPAIGN_SCENES = Object.freeze([
   SCENE_IDS.BADA_BING_ONE,
   SCENE_IDS.SQUATCHFATHER,
@@ -66,7 +88,28 @@ const DESTINATIONS = Object.freeze({
   [SCENE_IDS.MANSION_SIEGE]: { sceneId: SCENE_IDS.ENOLA_SQUATCH, spawn: 'airfield' },
   [SCENE_IDS.ENOLA_SQUATCH]: { sceneId: SCENE_IDS.MANSION_RETURN, spawn: 'driveway' },
   [SCENE_IDS.MANSION_RETURN]: { sceneId: SCENE_IDS.CARTEL_PALACE, spawn: 'approach' },
-  [SCENE_IDS.CARTEL_PALACE]: { sceneId: SCENE_IDS.INITIATION, spawn: 'gathering' },
+  /* The Palace goes HOME, not to the ceremony.
+   *
+   * This skipped straight to the Initiation for as long as the Palace's own
+   * exit button did. Both now name the Special Meeting -- he goes back to a
+   * flat where nobody has told him whether killing Sauce was the right call,
+   * Booskibro rings, and three men come and collect him -- and the old edge
+   * has been pulled out of the scene graph entirely, so leaving this pointing
+   * at the ceremony is not a shortcut, it is a throw: `campaign.transition`
+   * refuses an edge the graph does not have, and Skip Scene would have died on
+   * the one scene a developer skips it from most. */
+  [SCENE_IDS.CARTEL_PALACE]: { sceneId: SCENE_IDS.SPECIAL_MEETING, spawn: 'kerb' },
+  /* THE SPECIAL MEETING -> INITIATION NIGHT, at the `gathering` spawn.
+   *
+   * The same hand-off the scene performs for itself when it is played: see
+   * `handOff()` in `src/specialmeeting/main.js`, which fades out at the
+   * treeline and navigates to exactly this scene and spawn. Skip Scene must
+   * land the player where finishing the scene would have, not somewhere more
+   * convenient, or the developer affordance stops testing the real route.
+   *
+   * It is also the scene's only outgoing edge (`SCENES[SPECIAL_MEETING].next`
+   * is `[INITIATION]`), so `campaign.transition` accepts it. */
+  [SCENE_IDS.SPECIAL_MEETING]: { sceneId: SCENE_IDS.INITIATION, spawn: 'gathering' },
 });
 
 const ADVANCED_MISSION_STATUSES = Object.freeze(['available', 'in_progress', 'complete']);
@@ -228,6 +271,26 @@ function hasCanonicalCartelEnding(campaign) {
     && mission.sauceBetrayalConfirmed === true
     && mission.markEliminated === true
     && mission.sauceEliminated === true
+    && missionIsUnlocked(campaign.state.missions[MISSION_IDS.INITIATION]);
+}
+
+/**
+ * THE SPECIAL MEETING has finished exactly when its clock says it has.
+ *
+ * Every other scene on this page proves its ending out of a mission record.
+ * This one has none -- see the note on RECOVERABLE_CAMPAIGN_SCENES above --
+ * so the durable fact that the drive happened is the exact-once
+ * `COMPLETE_SPECIAL_MEETING` time event on the story ledger. That event is
+ * what the scene itself commits in `handOff()`, and `advanceTime` refuses to
+ * apply it twice, which is what makes it safe to read as the completion mark.
+ *
+ * Initiation being unlocked is checked as well, and is not redundant with it:
+ * the Palace is what opens the Initiation (see `hasCanonicalCartelEnding`),
+ * and skipping INTO a locked Initiation would leave the campaign somewhere the
+ * played route can never put it.
+ */
+function hasCanonicalSpecialMeetingEnding(campaign) {
+  return campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING)
     && missionIsUnlocked(campaign.state.missions[MISSION_IDS.INITIATION]);
 }
 
@@ -450,6 +513,21 @@ function completeCartelPalace(campaign) {
   });
 }
 
+/**
+ * Commit the Special Meeting's ending through the same seam the played scene
+ * uses.
+ *
+ * One call, because there is one fact -- there is no story module to drive and
+ * no mission to fill in. `advanceTime` is the exact-once ledger, so a second
+ * skip after a legitimate completion changes nothing on the clock and the
+ * canonical check still passes, which is the behaviour the re-entry tests
+ * demand of every completer on this page.
+ */
+function completeSpecialMeeting(campaign) {
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
+  return hasCanonicalSpecialMeetingEnding(campaign);
+}
+
 const COMPLETERS = Object.freeze({
   [SCENE_IDS.BADA_BING_ONE]: completeBadaBingOne,
   [SCENE_IDS.SQUATCHFATHER]: (campaign) => createSquatchfatherStory({ campaign }).complete(),
@@ -467,6 +545,7 @@ const COMPLETERS = Object.freeze({
   [SCENE_IDS.ENOLA_SQUATCH]: completeEnola,
   [SCENE_IDS.MANSION_RETURN]: completeMansionReturn,
   [SCENE_IDS.CARTEL_PALACE]: completeCartelPalace,
+  [SCENE_IDS.SPECIAL_MEETING]: completeSpecialMeeting,
 });
 
 const CANONICAL_COMPLETIONS = Object.freeze({
@@ -486,6 +565,7 @@ const CANONICAL_COMPLETIONS = Object.freeze({
   [SCENE_IDS.ENOLA_SQUATCH]: hasCanonicalEnolaEnding,
   [SCENE_IDS.MANSION_RETURN]: hasCanonicalMansionReturnEnding,
   [SCENE_IDS.CARTEL_PALACE]: hasCanonicalCartelEnding,
+  [SCENE_IDS.SPECIAL_MEETING]: hasCanonicalSpecialMeetingEnding,
 });
 
 function resetCampaignScene(campaign, sceneId) {

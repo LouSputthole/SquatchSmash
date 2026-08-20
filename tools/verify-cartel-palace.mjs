@@ -19,6 +19,37 @@ const SENTINEL = '{"canonical":"cartel palace preview must not touch this"}';
 const CHECKPOINTS = Object.freeze([
   'approach', 'perimeter', 'estate', 'betrayal', 'dining_room', 'clear',
 ]);
+
+/**
+ * THE ROOMS THE MISSION WALKS THROUGH, and the fewest meshes each can carry
+ * and still read as a built room rather than a box with a name.
+ *
+ * These are the zones world.js publishes from `environmentZones`, which are
+ * the real authored rooms of the route: over the wall into the `courtyard`,
+ * through the `serviceCorridor` the cut power opens, into the `entry` foyer,
+ * the three evidence rooms (`office`, `guestSuite`, `security`), down the
+ * portrait `gallery`, and into `dining` for the confrontation. `ceilings` is
+ * the lid on the interiors -- one per room, so it is counted as lids and not
+ * as dressing.
+ *
+ * The floors are deliberately far under what the palace currently carries
+ * (measured 2026-08-20: ceilings 7, courtyard 42, office 54, security 62,
+ * guestSuite 86, serviceCorridor 89, gallery 126, entry 178, dining 231).
+ * That headroom is the point: an art pass may move every stick of furniture
+ * in a room without touching this file, and only a room that has been GUTTED
+ * -- or deleted, or landed as a stub -- trips the gate.
+ */
+const PALACE_ROOM_FLOORS = Object.freeze({
+  ceilings: 6,
+  courtyard: 30,
+  serviceCorridor: 30,
+  entry: 30,
+  office: 30,
+  guestSuite: 30,
+  security: 30,
+  gallery: 30,
+  dining: 30,
+});
 const NEW_GROUND_COMBAT_CUES = Object.freeze([
   'combat.bullet.impact.flesh',
   'combat.bullet.impact.flesh.heavy',
@@ -93,6 +124,51 @@ const browser = await chromium.launch({
   ],
 });
 const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
+/**
+ * EVERY WAIT IN THIS FILE IS A WAIT FOR A RENDERED FRAME, not for a network.
+ * The whole palace is served off localhost and rasterised in software, and
+ * the two things that follow from that both bit on 2026-08-20:
+ *
+ *   - `page.goto(..., { waitUntil: 'load' })` was on Playwright's implicit
+ *     30 s while the boot waits on the next line were already spelled out at
+ *     180 s. Building the palace happens inside module evaluation, so `load`
+ *     does not fire until the world exists: measured 45 s on a contended
+ *     four-core box. The gap between the implicit budget and the file's own
+ *     stated one was an oversight, not a policy.
+ *   - A held interaction advances on the runtime's clamped frame delta
+ *     (`Math.min(0.05, ...)` in src/cartel-palace/main.js), so a `hold` of
+ *     0.72 s -- the dining doors -- needs FIFTEEN rendered frames however
+ *     slow those frames are. Measured 26.2 s at 480x300 under load, longer
+ *     at this page's 960x600, against an implicit 30 s budget. The 0.48 s
+ *     power-box hold next to it needs ten frames and squeaked in, which is
+ *     why one E-hold passed and the other "timed out" on a beat that in fact
+ *     arrives every time.
+ *
+ * The six explicit ten-second budgets in the combat section were the same
+ * mistake in the other direction -- a number small enough to look careful,
+ * measured against nothing. Every one of them waits on a value the RUNTIME
+ * LOOP moves, and every one of them arrives:
+ *
+ *     pointer lock after the canvas click     13.6 s
+ *     weapons.aimBlend > 0.98 (ADS in)        51.4 s
+ *     weapons.aimBlend < 0.001 (ADS out)      76.5 s
+ *
+ * measured 2026-08-20 at this page's own 960x600 on a contended four-core
+ * box. Pointer lock is not even frame-bound -- it is the click and the poll
+ * that have to be serviced by a main thread rendering the whole estate --
+ * and the aim blend is a per-frame lerp, so it costs a fixed number of
+ * FRAMES and takes whatever wall time those frames take. They all read
+ * SCENE_WAIT_MS now.
+ *
+ * So the default is raised once, here, to the 180 s this file already uses
+ * for its boot waits. This is a budget for SLOWNESS, not a licence for a
+ * hang: a state the scene never reaches still fails the run, just three
+ * minutes later instead of thirty seconds later. Nothing asserted below
+ * moved.
+ */
+const SCENE_WAIT_MS = 180000;
+page.setDefaultTimeout(SCENE_WAIT_MS);
+page.setDefaultNavigationTimeout(SCENE_WAIT_MS);
 await page.addInitScript((sentinel) => {
   localStorage.setItem('squatchlife.campaign', sentinel);
 }, SENTINEL);
@@ -154,6 +230,7 @@ try {
         extractionVisible: runtime.palace.targets.extractionGate.visible,
         geometry: {
           meshes: environment.meshes,
+          renderedParts: environment.renderedParts,
           groups: environment.groups,
           namedMeshes: environment.namedMeshes,
           colliders: environment.colliders,
@@ -180,20 +257,60 @@ try {
         && state.materialLanguage === 'stucco-stone-clay-tile-courtyard'
         && state.geometry.colliders >= 20,
       JSON.stringify({ evidence: state.snapshot.evidenceFound, geometry: state.geometry }));
+    const zoneMeshes = Object.fromEntries(Object.entries(state.geometry.zones)
+      .map(([name, zone]) => [name, zone.meshes]));
+    const thinZones = Object.entries(PALACE_ROOM_FLOORS)
+      .filter(([name, floor]) => !(zoneMeshes[name] >= floor));
+    const emptyZones = Object.entries(zoneMeshes).filter(([, meshes]) => !(meshes > 0));
     check(`${checkpoint}: exposes the real refined environment inventory`,
-      state.geometry.meshes >= 750
+      /* Richness is judged on rendered parts: instanced batches (world.js
+       * `instanced`) collapse many authored repeats into one Mesh object, so
+       * the raw Mesh count measures draw calls, not what the player sees.
+       *
+       * HISTORY, 2026-08-20. This check used to finish on an exact zone-name
+       * string -- 'ceilings,courtyard,dining,gallery,guestSuite,office,
+       * security' -- which was the palace's entire room list on the day it
+       * was written. The scene pass in 3dbe16d ("Motel, Siege and Palace:
+       * three scene passes") built two more rooms into the route: `entry`,
+       * the foyer behind the estate door, and `serviceCorridor`, the service
+       * wing the cut power opens. NOTHING WAS LOST -- all seven original
+       * zones are still standing and every one of them is denser than it
+       * was -- but an equality on the room list fails the moment the palace
+       * gains a room, which is the wrong direction to punish. It was
+       * measuring "the palace has not changed", not "the palace is built",
+       * and it went red on six checkpoints for a rework that improved the
+       * thing it was guarding.
+       *
+       * So the gate is structural now, and strictly stronger than the string
+       * it replaces on every axis except the one that rotted:
+       *
+       *   - every room the mission routes the player through must be PRESENT
+       *     (PALACE_ROOM_FLOORS -- a missing room is still a hard failure),
+       *   - each of those rooms must be DRESSED to a floor rather than the
+       *     old `> 0`, so a room emptied back to a box fails,
+       *   - and NO zone at all may be empty, including one added tomorrow,
+       *     so a new room cannot be landed as a stub.
+       *
+       * A palace that grows now passes without an edit here; a palace that
+       * is gutted still cannot. What this gate defends is tone doctrine, not
+       * a number: "an under-built scene fails the doctrine before any of its
+       * writing is heard" (docs/TONE-AND-PARODY.md). */
+      state.geometry.renderedParts >= 750
+        && state.geometry.meshes >= 400
         && state.geometry.groups >= 90
         && state.geometry.namedMeshes / state.geometry.meshes >= 0.85
-        && Object.keys(state.geometry.zones).sort().join(',')
-          === 'ceilings,courtyard,dining,gallery,guestSuite,office,security'
-        && Object.values(state.geometry.zones).every((zone) => zone.meshes > 0)
+        && thinZones.length === 0
+        && emptyZones.length === 0
         && state.geometry.solidWaterworks.sort().join(',')
           === 'courtyard-fountain-collider,reflecting-pool-collider',
       JSON.stringify({
         meshes: state.geometry.meshes,
+        renderedParts: state.geometry.renderedParts,
         groups: state.geometry.groups,
         namedMeshes: state.geometry.namedMeshes,
-        zones: Object.fromEntries(Object.entries(state.geometry.zones).map(([name, zone]) => [name, zone.meshes])),
+        zones: zoneMeshes,
+        thinZones: thinZones.map(([name, floor]) => `${name} ${zoneMeshes[name] ?? 'missing'} < ${floor}`),
+        emptyZones: emptyZones.map(([name]) => name),
         solidWaterworks: state.geometry.solidWaterworks,
       }));
     check(`${checkpoint}: uses the shared final-raid combat contract`,
@@ -281,6 +398,183 @@ try {
         JSON.stringify(departure));
     }
   }
+
+  /* The staged finale confrontation (owner's 2026-08-19 direction) gets its
+   * own fresh betrayal document: the begging trio must be present before the
+   * doors open, the real E-hold on the doors must start the scripted beats in
+   * order without activating combat, Tony's verdict must hand the encounter
+   * over, and the player-driven kills must still clear the mission while the
+   * trio screams, dives and curses. The director runs on simulated dt, so the
+   * probes drive its clock directly instead of waiting out real dialogue. */
+  const confrontationHref = `http://localhost:${PORT}/cartel-palace.html?preview=1&checkpoint=betrayal`;
+  await page.goto(confrontationHref, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'menu', null, {
+    timeout: 180000,
+  });
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'active', null, {
+    timeout: 180000,
+  });
+  await page.waitForTimeout(180);
+
+  const trio = await page.evaluate(() => {
+    const runtime = window.CARTEL_PALACE;
+    return {
+      civilians: runtime.cast.civilians.map((entry) => ({
+        id: entry.id,
+        role: entry.role,
+        down: entry.down,
+        height: entry.figure.height,
+        x: entry.root.position.x,
+        z: entry.root.position.z,
+        hitTarget: runtime.cast.hitTargets.includes(entry.root),
+        inCombatCast: runtime.cast.all.includes(entry),
+      })),
+      finale: runtime.finale.report(),
+    };
+  });
+  check('betrayal: the wife and both short men are staged at the table, shootable and non-hostile',
+    trio.civilians.length === 3
+      && trio.civilians.every((civilian) => civilian.role === 'civilian' && !civilian.down
+        && civilian.hitTarget && !civilian.inCombatCast
+        && civilian.z < -34.2 && civilian.z > -49.7 && Math.abs(civilian.x) < 16)
+      && trio.civilians.filter((civilian) => civilian.height <= 1.56).length === 2
+      && trio.finale.phase === 'idle',
+    JSON.stringify(trio));
+
+  await page.evaluate(() => {
+    const runtime = window.CARTEL_PALACE;
+    /* Off the door centreline on purpose: the double doors meet at x 0 with
+     * a real seam, and a ray down the exact seam slips between the panels. */
+    runtime.player.position.set(0.9, 1.66, -32.4);
+    runtime.player.yaw = 0;
+    runtime.player.pitch = 0;
+    runtime.player.update(0);
+  });
+  await page.waitForFunction(() => {
+    const runtime = window.CARTEL_PALACE;
+    return runtime.interaction.current === runtime.palace.targets.diningDoor;
+  });
+  await page.keyboard.down('e');
+  await page.waitForFunction(() => window.CARTEL_PALACE.snapshot().beat === 'dining_room');
+  await page.keyboard.up('e');
+  await page.waitForTimeout(180);
+
+  const staged = await page.evaluate(() => {
+    const runtime = window.CARTEL_PALACE;
+    const report = runtime.finale.report();
+    return {
+      report,
+      alarm: runtime.security.alarm,
+      markActive: runtime.cast.mark.active,
+      sauceActive: runtime.cast.sauce.active,
+    };
+  });
+  const beatOf = (cue) => cue.replace(/^palace\.finale\.[a-z-]+\./, '').replace(/-\d+$/, '');
+  const stagedBeats = [...staged.report.spoken, ...staged.report.pendingCues].map(beatOf);
+  const beatsInOrder = (beats) => beats.every((beat, index) => index === 0
+    || stagedBeats.indexOf(beat) > stagedBeats.indexOf(beats[index - 1]))
+    && beats.every((beat) => stagedBeats.includes(beat));
+  check('dining_room: the real E-hold stages accusation, admission and both begging beats in order, holding fire',
+    staged.report.phase === 'confrontation'
+      && !staged.report.engaged
+      && !staged.markActive && !staged.sauceActive
+      && beatsInOrder(['accuse', 'accuse.belongings', 'accuse.ledger', 'accuse.still',
+        'admission.cornered', 'mark.cornered', 'begging.wife', 'begging.shorts', 'go']),
+    JSON.stringify(staged));
+
+  const played = await page.evaluate(() => {
+    const runtime = window.CARTEL_PALACE;
+    for (let step = 0; step < 1200 && !runtime.finale.report().engaged; step++) {
+      runtime.finale.update(0.1);
+    }
+    return {
+      report: runtime.finale.report(),
+      alarm: runtime.security.alarm,
+      markActive: runtime.cast.mark.active,
+      sauceActive: runtime.cast.sauce.active,
+    };
+  });
+  const playedBeats = played.report.spoken.map(beatOf);
+  check('dining_room: the wife and the double act deliver the begging beats, then the verdict engages',
+    played.report.engaged
+      && played.report.phase === 'combat'
+      && played.alarm && played.markActive && played.sauceActive
+      && played.report.spoken.some((cue) => cue.startsWith('palace.finale.wife.begging.wife-'))
+      && played.report.spoken.some((cue) => cue.startsWith('palace.finale.short-one.begging.shorts-'))
+      && played.report.spoken.some((cue) => cue.startsWith('palace.finale.short-two.begging.shorts-'))
+      && playedBeats.indexOf('begging.wife') < playedBeats.indexOf('begging.shorts')
+      && playedBeats.indexOf('begging.shorts') < playedBeats.indexOf('go'),
+    JSON.stringify(played));
+
+  const outcome = await page.evaluate(async () => {
+    const THREE = await import('/vendor/three.module.min.js');
+    const runtime = window.CARTEL_PALACE;
+    const kill = (target) => {
+      const anchor = target.figure.parts.head;
+      let object = null;
+      anchor.traverse((node) => { if (!object && node.isMesh) object = node; });
+      target.root.updateMatrixWorld(true);
+      const point = anchor.localToWorld(new THREE.Vector3(0.02, 0.03, 0.01));
+      const origin = point.clone().add(new THREE.Vector3(0, 0, 4));
+      const direction = point.clone().sub(origin).normalize();
+      const result = runtime.combatImpact({
+        object,
+        weapon: runtime.weapons.current,
+        point,
+        normal: direction.clone().negate(),
+        origin,
+        direction,
+        distance: origin.distanceTo(point),
+        damage: 500,
+        penetration: 0,
+      });
+      return { applied: result.applied, fatal: result.fatal };
+    };
+    const markKill = kill(runtime.cast.mark);
+    const sauceKill = kill(runtime.cast.sauce);
+    for (let step = 0; step < 900; step++) runtime.finale.update(0.1);
+    const snapshot = runtime.snapshot();
+    return {
+      markKill,
+      sauceKill,
+      beat: snapshot.beat,
+      markEliminated: snapshot.markEliminated,
+      sauceEliminated: snapshot.sauceEliminated,
+      report: runtime.finale.report(),
+      shorts: runtime.cast.civilians
+        .filter((entry) => entry.id.startsWith('short-'))
+        .map((entry) => ({
+          id: entry.id,
+          pose: entry.figure.pose,
+          x: entry.root.position.x,
+          z: entry.root.position.z,
+        })),
+      wifeDown: runtime.cast.civilians.find((entry) => entry.id === 'wife').down,
+    };
+  });
+  check('dining_room: the player-driven kills still clear the mission over the begging trio',
+    outcome.markKill.applied && outcome.markKill.fatal
+      && outcome.sauceKill.applied && outcome.sauceKill.fatal
+      && outcome.beat === 'clear'
+      && outcome.markEliminated && outcome.sauceEliminated,
+    JSON.stringify(outcome));
+  check('dining_room: the kills trigger the unison dive, the screams and the cursing-out',
+    outcome.report.dived
+      && outcome.report.phase === 'aftermath'
+      && outcome.report.spoken.some((cue) => cue.includes('react.mark-first'))
+      && outcome.report.spoken.some((cue) => cue.includes('react.all-down'))
+      && !outcome.wifeDown
+      && outcome.shorts.length === 2
+      /* BESIDE the table, not under it. This used to REQUIRE the landing to
+       * be inside the table's own 9.8 x 2.2 footprint -- which is the clip the
+       * owner reported on 2026-08-20 -- so it asserts the clearance now, the
+       * same way tests/cartel-palace-finale.test.mjs does. Still inside the
+       * dining room: away from the table is not through the wall. */
+      && outcome.shorts.every((entry) => entry.pose === 'prone'
+        && !(Math.abs(entry.x) <= 5.4 && entry.z >= -44 && entry.z <= -40.8)
+        && Math.abs(entry.x) < 17.7 && entry.z > -49.7 && entry.z < -34.2),
+    JSON.stringify(outcome));
 
   /* Combat gets one fresh estate document after the authored checkpoint walk.
    * Each probe takes the public JSON-safe combat checkpoint and clears both
@@ -379,7 +673,7 @@ try {
     await page.mouse.click(480, 300);
     await page.waitForFunction(() => (
       document.pointerLockElement === document.getElementById('scene')
-    ), null, { timeout: 10000 });
+    ), null, { timeout: SCENE_WAIT_MS });
   }
   await page.evaluate(() => {
     const runtime = window.CARTEL_PALACE;
@@ -450,11 +744,11 @@ try {
     await page.mouse.move(480, 300);
     await page.mouse.down({ button: 'right' });
     await page.waitForFunction(() => window.CARTEL_PALACE.weapons.aimBlend > 0.98,
-      null, { timeout: 10000 });
+      null, { timeout: SCENE_WAIT_MS });
     const aimed = await readWeaponFeedback();
     await page.mouse.up({ button: 'right' });
     await page.waitForFunction(() => window.CARTEL_PALACE.weapons.aimBlend < 0.001,
-      null, { timeout: 10000 });
+      null, { timeout: SCENE_WAIT_MS });
     const released = await readWeaponFeedback();
     const beforeShot = await page.evaluate(() => {
       const runtime = window.CARTEL_PALACE;
@@ -483,7 +777,7 @@ try {
         transform,
       };
       return true;
-    }, null, { timeout: 10000 });
+    }, null, { timeout: SCENE_WAIT_MS });
     const shot = await page.evaluate(() => window.__palaceShotMoment);
     await page.mouse.up({ button: 'left' });
     await page.evaluate(() => {
@@ -498,7 +792,7 @@ try {
       return runtime.player.keys.has('KeyW')
         && runtime.weapons.aimed
         && runtime.weapons.firearm(runtime.weapons.current).triggerHeld;
-    }, null, { timeout: 10000 });
+    }, null, { timeout: SCENE_WAIT_MS });
     const heldBeforeLoss = await page.evaluate(() => {
       const runtime = window.CARTEL_PALACE;
       return {
@@ -516,7 +810,7 @@ try {
         && runtime.player.keys.size === 0
         && runtime.weapons.aimed === false
         && runtime.weapons.firearm(runtime.weapons.current).triggerHeld === false;
-    }, null, { timeout: 10000 });
+    }, null, { timeout: SCENE_WAIT_MS });
     const clearedAfterLoss = await page.evaluate(() => {
       const runtime = window.CARTEL_PALACE;
       return {
@@ -2143,6 +2437,123 @@ try {
       && headProof.deathPools >= 1
       && headProof.visiblePool,
     JSON.stringify(headProof));
+
+  /* ---- In-memory death retry -------------------------------------------
+   * A fresh estate document first: the combat probes above drive security
+   * directly (bypassing mission persistence), so the campaign's persisted
+   * snapshot no longer matches the scene they restored — a real run never
+   * diverges like that, and the retry contract is defined against real play.
+   *
+   * Then dirty the run for real — a guard shot dead (which raises the alarm
+   * and re-persists the checkpoint snapshot in the same call, with the guard
+   * still alive at capture time), a floor blood pool, a narration line
+   * mid-air — kill the player, and drive the same retryFromCheckpoint() the
+   * retry button uses. The page must NOT reload (sentinel survives), and the
+   * restored run must have no duplicate actors, no leftover blood, no
+   * stacked audio loops and no talking corpse of a subtitle. */
+  await page.goto(combatHref, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'menu', null, {
+    timeout: 180000,
+  });
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'active', null, {
+    timeout: 180000,
+  });
+  await page.waitForTimeout(180);
+
+  const retryProof = await page.evaluate(() => {
+    const runtime = window.CARTEL_PALACE;
+    window.__palaceRetrySentinel = 'no-reload';
+    const audio = runtime.combatAudio.audio;
+    const loopsBefore = [...(audio.loops?.keys?.() ?? [])].sort();
+    const guard = runtime.cast.guards.find((entry) => entry.active && !entry.down);
+    const guardId = guard.id;
+    for (let round = 0; round < 6 && !guard.down; round++) {
+      runtime.security.applyPlayerShot(guard.figure.parts.head, 'carbine');
+    }
+    runtime.deathBloodPools.spill(guard.root.position.clone(), { floorY: 0 });
+    document.getElementById('subtitle')?.classList.remove('hidden');
+    const snapshot = runtime.campaignStory.mission.checkpointSnapshot ?? null;
+    const before = {
+      guardDown: guard.down,
+      alarm: runtime.security.alarm,
+      bodyAlarm: document.body.classList.contains('alarm'),
+      pools: runtime.deathBloodPools.visibleCount,
+      snapshotAlarm: snapshot?.security?.alarm ?? null,
+      snapshotGuardDown: snapshot?.security?.entries
+        ?.find((entry) => entry.id === guardId)?.down ?? null,
+    };
+    runtime.playerActor.health = 0;
+    runtime.playerActor.incapacitated = true;
+    runtime.presentPlayerDeath();
+    const dead = {
+      phase: runtime.phase,
+      overlayShown: !document.getElementById('death').classList.contains('hidden'),
+    };
+    const retried = runtime.retryFromCheckpoint();
+    const restoredGuard = runtime.cast.guards.find((entry) => entry.id === guardId);
+    const after = {
+      retried,
+      phase: runtime.phase,
+      overlayHidden: document.getElementById('death').classList.contains('hidden'),
+      guardDown: restoredGuard.down,
+      guardActive: restoredGuard.active,
+      guardWeaponVisible: restoredGuard.weaponModel?.visible === true,
+      guardHealth: restoredGuard.actor.health,
+      guardMaxHealth: restoredGuard.actor.maxHealth,
+      health: runtime.playerActor.health,
+      maxHealth: runtime.playerActor.maxHealth,
+      incapacitated: runtime.playerActor.incapacitated,
+      pools: runtime.deathBloodPools.visibleCount,
+      bloodMarks: [...runtime.bloodImpacts.wounds.pool, ...runtime.bloodImpacts.spatter.pool]
+        .filter((mesh) => mesh.visible).length,
+      alarm: runtime.security.alarm,
+      bodyAlarm: document.body.classList.contains('alarm'),
+      subtitleHidden: document.getElementById('subtitle')?.classList.contains('hidden') ?? true,
+      loopsAfter: [...(audio.loops?.keys?.() ?? [])].sort(),
+      sentinel: window.__palaceRetrySentinel,
+      checkpoint: runtime.checkpoint,
+      beat: runtime.mission.beat,
+      playerAt: {
+        x: +runtime.player.position.x.toFixed(2),
+        z: +runtime.player.position.z.toFixed(2),
+      },
+    };
+    return { loopsBefore, before, dead, after };
+  });
+  check('dying mid-estate presents the death card with the world genuinely dirty',
+    retryProof.before.guardDown && retryProof.before.alarm && retryProof.before.bodyAlarm
+      && retryProof.before.pools >= 1
+      && retryProof.dead.phase === 'dead' && retryProof.dead.overlayShown
+      && retryProof.before.snapshotAlarm === true
+      && retryProof.before.snapshotGuardDown === false,
+    JSON.stringify({ before: retryProof.before, dead: retryProof.dead }));
+  check('the retry restores the checkpoint in memory — same document, no reload',
+    retryProof.after.retried === true
+      && retryProof.after.sentinel === 'no-reload'
+      && retryProof.after.phase === 'active'
+      && retryProof.after.overlayHidden
+      && retryProof.after.checkpoint === 'estate'
+      && retryProof.after.beat === 'estate'
+      && Math.abs(retryProof.after.playerAt.x - 14.3) < 0.5
+      && Math.abs(retryProof.after.playerAt.z - 5.5) < 0.5,
+    JSON.stringify(retryProof.after));
+  check('the retry resurrects nobody wrongly and leaves nobody wrongly dead',
+    retryProof.after.guardDown === false
+      && retryProof.after.guardActive === true
+      && retryProof.after.guardWeaponVisible === true
+      && retryProof.after.guardHealth === retryProof.after.guardMaxHealth
+      && retryProof.after.health === retryProof.after.maxHealth
+      && retryProof.after.incapacitated === false,
+    JSON.stringify(retryProof.after));
+  check('the retry wipes the attempt\'s blood, cuts its subtitle and stacks no audio loops',
+    retryProof.after.pools === 0
+      && retryProof.after.bloodMarks === 0
+      && retryProof.after.subtitleHidden === true
+      && JSON.stringify(retryProof.after.loopsAfter) === JSON.stringify(retryProof.loopsBefore)
+      && retryProof.after.alarm === true
+      && retryProof.after.bodyAlarm === true,
+    JSON.stringify({ loops: retryProof.loopsBefore, after: retryProof.after }));
 
   const webgl = await page.evaluate(() => {
     const gl = window.CARTEL_PALACE.renderer.getContext();

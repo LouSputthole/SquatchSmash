@@ -335,7 +335,20 @@ test('the recording sheet shows both scenes rather than only counting them', () 
    * the same reason: an undeclared new line still fails, a scene dropping off
    * the sheet entirely still fails, and the number is still checked. When the
    * list goes back to empty this reduces to the original assertion. */
-  const enolaOwed = owed(collectEnolaSquatchVoiceCues()) - ENOLA_CUES_AWAITING_VO_SYNC.length;
+  /* A section counts PICKUPS, and a pickup is either a line with no take yet or
+   * a line whose take says the wrong words. `owed()` only sees the first kind —
+   * it tests `assets/sfx/index.json` — so a scene with anything in the
+   * re-record queue reads two short of its own heading and this test fails for
+   * a reason that has nothing to do with the bug it guards. The queue is the
+   * second kind, counted from the same file `npm run vo:rerecord` writes. */
+  const rerecord = JSON.parse(
+    fs.readFileSync(new URL('../assets/sfx/rerecord.json', import.meta.url), 'utf8'),
+  );
+  const queued = (prefix) => (rerecord.lines || [])
+    .filter(({ cue }) => typeof cue === 'string' && cue.startsWith(prefix)).length;
+  const enolaOwed = owed(collectEnolaSquatchVoiceCues())
+    - ENOLA_CUES_AWAITING_VO_SYNC.length
+    + queued('vo.enolasquatch.');
   if (silverCaseOwed) {
     assert.match(todo, new RegExp(`## Voice pickups — The Silver Case \\(${silverCaseOwed}\\)`));
   }

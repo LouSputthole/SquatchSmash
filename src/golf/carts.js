@@ -21,6 +21,24 @@ const BODY = 0xd8d2be;      // beige, and it was beige twenty years ago too
 const TRIM = 0x4a4a52;
 const ROOF = 0xe4e0d2;
 
+/**
+ * The dash's own placement, shared between the panel mesh below and every
+ * prop that has to rest on top of it.
+ *
+ * The panel used to sit at z 0.64 -- most of a driver's knee-room away from
+ * the windscreen at z 1.06, with the cigarettes and Zyn simply pushed into
+ * the box to read as "on the dash" at all. Moved forward to sit properly
+ * under the screen instead, clear of the steering column ahead of it.
+ * `DASH_TOP_Y`/`DASH_TOP_Z` are the real top surface in cart space, derived
+ * from the panel's own centre and rake rather than re-guessed, so anything
+ * placed at that height actually rests on the panel instead of floating
+ * above it or sinking into it.
+ */
+const DASH_Z = 0.88;
+const DASH_RAKE = -0.18;
+const DASH_TOP_Y = 1.04 + 0.15 * Math.cos(DASH_RAKE);
+const DASH_TOP_Z = DASH_Z + 0.15 * Math.sin(DASH_RAKE);
+
 function buildAmenities(cart) {
   const root = new THREE.Group();
   root.name = 'golf-cart-amenities';
@@ -89,12 +107,15 @@ function buildAmenities(cart) {
     beers.push(can);
   }
 
+  /* Both sit on TOP of the dash's real top surface (`DASH_TOP_Y`/
+   * `DASH_TOP_Z`, derived from the dash's own centre and rake above), not
+   * sunk into the box that makes up the panel. */
   const cigarettes = new THREE.Mesh(
     new THREE.BoxGeometry(0.14, 0.035, 0.09),
     mat({ color: 0xf1eee3, roughness: 0.78 }),
   );
   cigarettes.name = 'golf-cart-cigarettes';
-  cigarettes.position.set(0.28, 1.15, 0.70);
+  cigarettes.position.set(0.30, DASH_TOP_Y + 0.018, DASH_TOP_Z);
   cigarettes.rotation.y = 0.22;
   root.add(cigarettes);
 
@@ -103,7 +124,7 @@ function buildAmenities(cart) {
     mat({ color: 0x3f78b8, roughness: 0.62 }),
   );
   zyn.name = 'golf-cart-zyn-tin';
-  zyn.position.set(0.46, 1.16, 0.69);
+  zyn.position.set(0.47, DASH_TOP_Y + 0.013, DASH_TOP_Z);
   root.add(zyn);
 
   cart.add(root);
@@ -231,14 +252,16 @@ function buildCart(scene) {
 
   /* Dash, pedals and a floor to rest his feet on. All of it is inside the
    * driver's own view and none of it existed: he was sitting on a bench in
-   * front of an empty beige box. */
+   * front of an empty beige box. Pushed forward to `DASH_Z`, under the
+   * windscreen rather than in the middle of his legroom, and clear of the
+   * steering column raked up in front of the driver's seat. */
   const dash = new THREE.Mesh(
     new THREE.BoxGeometry(1.10, 0.30, 0.10),
     mat({ color: 0xc9c3af, roughness: 0.86 }),
   );
   dash.name = 'golf-cart-dash';
-  dash.position.set(0, 1.04, 0.64);
-  dash.rotation.x = -0.18;
+  dash.position.set(0, 1.04, DASH_Z);
+  dash.rotation.x = DASH_RAKE;
   g.add(dash);
 
   const floor = new THREE.Mesh(
@@ -320,10 +343,14 @@ function buildCart(scene) {
    * lamp and position the shared spatial radio mix at the speaker. */
   const radio = new THREE.Group();
   radio.name = 'golf-cart-radio';
-  /* Driver-left keeps the receiver visible instead of hiding it behind Lou
-   * in the passenger seat. It is intentionally chunky enough to read as a
-   * physical dashboard prop from the first-person cart camera. */
-  radio.position.set(-0.26, 1.20, 0.69);
+  /* Centred, a little left of the cigarettes and Zyn tin that sit further
+   * right on the same dash: still square in the driver's forward view
+   * without hiding behind Lou on the passenger side, and clear of the
+   * steering wheel raked up in front of the driver's seat at x -0.49 to
+   * -0.19 -- the radio used to sit at x -0.26, inside that span, so the rim
+   * ran straight through the case. It is intentionally chunky enough to read
+   * as a physical dashboard prop from the first-person cart camera. */
+  radio.position.set(-0.05, 1.20, DASH_Z + 0.05);
   radio.scale.setScalar(0.86);
   radio.rotation.x = -0.16;
   const radioCase = new THREE.Mesh(
@@ -537,9 +564,22 @@ export class Cart {
     this.radioPower.material.emissiveIntensity = on ? 1.25 : 0.35;
   }
 
-  /** First-person driving eye, centred enough that neither roof post blinds it. */
+  /**
+   * First-person driving eye, centred enough that neither roof post blinds
+   * it.
+   *
+   * Used to sit at x -0.08, almost on the cart's own centreline, well in from
+   * the driver seat at x -0.34 and the wheel raked up directly in front of
+   * it -- from that eye he read as perched in the middle of the bench
+   * peering over the dash rather than seated behind his own wheel. Raised
+   * and moved outward toward the driver's door (the cart's yaw is flipped a
+   * half turn from its facing here, so "outward" on screen is toward more
+   * negative local x, the same side the seat and the wheel are already on)
+   * so the view sits where a driver's head actually is: up over the dash,
+   * behind the wheel, not dead centre of the cart.
+   */
   driverViewWorld(out = new THREE.Vector3()) {
-    out.set(-0.08, 1.39, 0.04);
+    out.set(-0.20, 1.50, 0.04);
     return this.group.localToWorld(out);
   }
 
@@ -617,8 +657,11 @@ export class CartPair {
     this.rolling = false;
     this.lead.stop();
     this.follow.stop();
-    this.lead.distance = 2;
-    this.follow.distance = -6.5;
+    // pathPoint clamps before-path distances to zero. Keep the authored
+    // 8.5 m gap entirely on the path so the follow cart does not collapse
+    // into the lead cart at later-hole checkpoints.
+    this.lead.distance = 8.5;
+    this.follow.distance = 0;
     this.lead._place();
     this.follow._place();
   }

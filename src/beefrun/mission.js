@@ -24,6 +24,7 @@ import { evaluateLineupGate } from './lineup-gate.js';
 import { stageRunwayStartup } from './runway-start.js';
 import { selectApproachCall } from './approach-coaching.js';
 import { stageRemoteDeparture } from './remote-departure.js';
+import { stageBeefRunCheckpointGeometry } from './preview.js';
 import { armTakeoffRecordIntro, takeoffRecordIntroVolume } from './audio.js';
 import { SIGNATURE_TRACKS, playSignatureTrack } from '../core/signature-music.js';
 
@@ -236,8 +237,29 @@ export class MissionController {
     this.flags.inCockpit = false;
     this.interaction?.setPaused?.(false);
     this.checkpoint = null;
+    /* Runtime controllers always own a scene and therefore take the shared,
+     * fail-closed geometry path. Keeping the collaborator-light fallback makes
+     * this small transition independently testable without inventing a second
+     * browser scene in the unit fixture. */
+    if (this.scene) {
+      stageBeefRunCheckpointGeometry('preflight', {
+        scene: this.scene,
+        physics: this.physics,
+        aircraft: this.aircraft,
+        terrain: this.terrain,
+        weather: this.weather,
+        airfield: this.airfield,
+        airstrip: this.airstrip,
+        lou: this.lou,
+        stove: this.stove,
+        preflight: this.preflight,
+        camera: this.camera,
+        crosswindScale: this.difficulty?.crosswind,
+      });
+    } else {
+      this.terrain?.prime?.(this.player.position.x, this.player.position.z);
+    }
     this.setPhase('preflight');
-    this.terrain?.prime?.(this.player.position.x, this.player.position.z);
     return true;
   }
 
@@ -2019,8 +2041,21 @@ export class MissionController {
     this.flightHud.showControls(true);
 
     setup[name]();
-    this.terrain.prime(this.physics.position.x, this.physics.position.z);
-    this.aircraft.syncTo(this.physics);
+    const geometryStage = stageBeefRunCheckpointGeometry(name, {
+      scene: this.scene,
+      physics: this.physics,
+      aircraft: this.aircraft,
+      terrain: this.terrain,
+      weather: this.weather,
+      airfield: this.airfield,
+      airstrip: this.airstrip,
+      lou: this.lou,
+      stove: this.stove,
+      preflight: this.preflight,
+      camera: this.camera,
+      crosswindScale: this.difficulty.crosswind,
+    });
+    this.flags.louAboard = geometryStage.louAboard;
     return true;
   }
 
@@ -2032,13 +2067,23 @@ export class MissionController {
    */
   restorePreviewLanding() {
     if (!this.restoreCheckpoint('return')) return false;
-    const a = HOME_APPROACH.demoLanding;
-    this.physics.setPose(new THREE.Vector3(a.x, a.y, a.z), a.heading, a.speed);
     this.input.throttle = 0.46;
     this.input.flaps = 0.5;
     syncCheckpointParkingBrake(this.input, this.physics.controls, false);
-    this.terrain.prime(this.physics.position.x, this.physics.position.z);
-    this.aircraft.syncTo(this.physics);
+    stageBeefRunCheckpointGeometry('landing', {
+      scene: this.scene,
+      physics: this.physics,
+      aircraft: this.aircraft,
+      terrain: this.terrain,
+      weather: this.weather,
+      airfield: this.airfield,
+      airstrip: this.airstrip,
+      lou: this.lou,
+      stove: this.stove,
+      preflight: this.preflight,
+      camera: this.camera,
+      crosswindScale: this.difficulty.crosswind,
+    });
     return true;
   }
 

@@ -67,7 +67,48 @@ function trackRuntimeErrors(target) {
     if (response.status() === 404) notFound.push(response.url());
   });
 }
+
+/**
+ * THE MOTEL IS RASTERISED IN SOFTWARE, and every implicit budget in this file
+ * was Playwright's thirty seconds, which is a number about networks.
+ *
+ * Nothing here waits on a network -- the whole scene is served off localhost.
+ * What these calls wait on is the page's MAIN THREAD, which is busy drawing a
+ * motel forecourt: `previewPage.click('#startBtn')` timed out on 2026-08-20
+ * with the log reading "element is visible, enabled and stable ... done
+ * scrolling", i.e. the button was found, was clickable, and the click itself
+ * could not be dispatched inside thirty seconds. `goto(..., 'load')` has the
+ * same shape, because the level is built during module evaluation and `load`
+ * does not fire until it exists.
+ *
+ * The file's own explicit budgets were the same number in smaller clothes:
+ * five, twelve, twenty, thirty, forty-five, sixty seconds, all of them sized
+ * on a machine that renders this motel faster than this one does. They are
+ * all quantities of GAME time -- a line finishing, a wheel closing, a man
+ * walking sixty centimetres, the pull-in reaching eighteen per cent -- and
+ * game time advances on the runtime's clamped frame delta
+ * (`Math.min(clock.getDelta(), 0.05)` in src/motel/main.js), so each of them
+ * costs a fixed number of FRAMES and takes whatever wall time those frames
+ * take. Measured 2026-08-20 at 1280x720 on a contended four-core box: the
+ * 4.4 s pull-in took 256 s, and its mid-drive sample window -- budgeted at
+ * 45 s -- did not open until about 46 s. Every one of them now reads
+ * SCENE_WAIT_MS.
+ *
+ * NONE of these waits is an assertion. Each is followed by a `check()` that
+ * samples the state and does the asserting, and the conditions themselves are
+ * untouched -- the mid-drive sample still has to land strictly between 18%
+ * and 82% of the drive, whenever it lands. This is a budget for SLOWNESS, not
+ * a licence for a hang: a state the scene never reaches still fails the run,
+ * three minutes later instead of forty-five seconds later.
+ */
+const SCENE_WAIT_MS = 180000;
+function budgetForSoftwareRasteriser(target) {
+  target.setDefaultTimeout(SCENE_WAIT_MS);
+  target.setDefaultNavigationTimeout(SCENE_WAIT_MS);
+}
+
 trackRuntimeErrors(page);
+budgetForSoftwareRasteriser(page);
 
 async function capture(target, name) {
   if (!SCREENSHOT_DIR) return;
@@ -298,21 +339,63 @@ async function geometryState(target) {
  * for a man nobody had knocked for. Both halves are fixed; this waits for the
  * real gate and asserts the answer was taken.
  */
-async function answerWheel(target, style, { timeout = 45000 } = {}) {
+async function answerWheel(target, style, { timeout = SCENE_WAIT_MS } = {}) {
   await target.waitForFunction(() => window.MOTEL.dialogue?.ready === true, null, { timeout, polling: 80 });
   const taken = await target.evaluate((pick) => window.MOTEL.pick(pick), style);
   if (!taken) throw new Error(`the wheel refused the "${style}" answer`);
-  await target.waitForFunction(() => window.MOTEL.dialogue === null, null, { timeout: 5000 });
+  await target.waitForFunction(() => window.MOTEL.dialogue === null, null, { timeout: SCENE_WAIT_MS });
   return taken;
 }
 
 /** Wait until nobody in room twelve is mid-sentence. */
-async function waitQuiet(target, { timeout = 45000 } = {}) {
+async function waitQuiet(target, { timeout = SCENE_WAIT_MS } = {}) {
   await target.waitForFunction(() => !window.MOTEL.voice.busy(), null, { timeout, polling: 80 })
     .catch(() => { /* reported by whatever assertion comes next */ });
 }
 
-async function moveForward(target, { want = 0.6, timeout = 12000 } = {}) {
+/**
+ * WAIT OUT THE PULL-IN, BOUNDED BY PROGRESS RATHER THAN BY THE CLOCK.
+ *
+ * This was a flat wall-clock budget, and no number was ever going to be the
+ * right one. `updateArrival` advances on the runtime's clamped frame delta
+ * (`Math.min(clock.getDelta(), 0.05)` in src/motel/main.js), so the 4.4 s
+ * pull-in costs EIGHTY-EIGHT rendered frames whatever those frames cost:
+ * about 40 s on a quiet box, 256 s measured on 2026-08-20 at 1280x720 with
+ * the machine contended, and over 300 s an hour later with more browsers on
+ * it. Every budget picked from one of those runs is wrong for the next one,
+ * and the run dies on a drive that was finishing perfectly well.
+ *
+ * The thing worth failing on is a drive that has STOPPED, and that is a
+ * question about `arrival.progress`, not about seconds. So this watches the
+ * pull-in advance and only gives up when it has not moved for a full minute
+ * -- which on a scene that needs eighty-eight frames means the frames
+ * themselves have stopped arriving, i.e. a real hang rather than a slow box.
+ * A drive that crawls still passes; a drive that dies still fails, and says
+ * where it died.
+ */
+const ARRIVAL_STALL_MS = 60000;
+async function waitForArrivalHandoff(target) {
+  let furthest = -1;
+  let movedAt = Date.now();
+  for (;;) {
+    const state = await target.evaluate(() => ({
+      phase: window.MOTEL.phase,
+      progress: window.MOTEL.arrival.progress,
+    }));
+    if (state.phase === 'car') return state;
+    if (state.progress > furthest) {
+      furthest = state.progress;
+      movedAt = Date.now();
+    } else if (Date.now() - movedAt > ARRIVAL_STALL_MS) {
+      throw new Error(
+        `the arrival pull-in stalled at progress ${furthest.toFixed(3)} in phase ${state.phase}`,
+      );
+    }
+    await target.waitForTimeout(1000);
+  }
+}
+
+async function moveForward(target, { want = 0.6, timeout = SCENE_WAIT_MS } = {}) {
   const before = await target.evaluate(() => ({
     x: window.MOTEL.pos.x,
     z: window.MOTEL.pos.z,
@@ -353,11 +436,12 @@ async function moveForward(target, { want = 0.6, timeout = 12000 } = {}) {
 try {
   const previewPage = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   trackRuntimeErrors(previewPage);
+  budgetForSoftwareRasteriser(previewPage);
   await previewPage.goto(
     `http://localhost:${PORT}/motel.html?preview=1`,
     { waitUntil: 'load' },
   );
-  await previewPage.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+  await previewPage.waitForFunction(() => window.MOTEL?.story, null, { timeout: SCENE_WAIT_MS });
   const campaignSeed = await previewPage.evaluate(
     () => localStorage.getItem('squatchlife.campaign'),
   );
@@ -373,10 +457,14 @@ try {
 
   await previewPage.click('#startBtn');
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'arrival');
+  /* The arrival drive is real-time on this page's own clock: a software
+   * rasteriser takes ~8 s of wall time just to reach 0.18. The budget only
+   * bounds a hang — the upper edge of the window still proves the sample
+   * was taken mid-drive. */
   await previewPage.waitForFunction(
     () => window.MOTEL.arrival.progress > 0.18 && window.MOTEL.arrival.progress < 0.82,
     null,
-    { timeout: 8000, polling: 60 },
+    { timeout: SCENE_WAIT_MS, polling: 60 },
   );
   const arrivalComposition = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -606,21 +694,48 @@ try {
       opacity: Number(style.opacity),
       visible: style.visibility,
       width: rect.width,
+      /* The brief is driven by ONE authored rule, `#hud.visible.control-ready
+       * #surveyBrief { animation: surveyBriefIn 10s ... }` in motel.html, so
+       * while Tony is still locked into the pull-in there is no animation on
+       * the element AT ALL -- not a paused one, not a finished one. Proving
+       * that here is what lets the handoff check below say the ten seconds
+       * begins at the handoff without having to time-stamp anything. */
+      animationName: style.animationName,
+      animations: element.getAnimations().length,
     };
   });
   check('the survey message stays hidden until Tony receives playable control',
     arrivalSurveyBrief.text === 'Survey the Motel before going into your meeting or go right into it'
       && arrivalSurveyBrief.opacity === 0
       && arrivalSurveyBrief.visible === 'hidden'
-      && arrivalSurveyBrief.width >= 500,
+      && arrivalSurveyBrief.width >= 500
+      && arrivalSurveyBrief.animationName === 'none'
+      && arrivalSurveyBrief.animations === 0,
     JSON.stringify(arrivalSurveyBrief));
 
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'car');
+  await waitForArrivalHandoff(previewPage);
+  /**
+   * THE HANDOFF, and why this wait used to be three seconds and is not now.
+   *
+   * `finishArrival()` sets `phase = 'car'` and adds `control-ready` to the HUD
+   * in the same synchronous block, so the state itself lands instantly -- but
+   * the thing this used to wait on was the brief's COMPUTED OPACITY passing
+   * 0.5, and a CSS animation only advances on a composited frame. On a
+   * software rasteriser at 1280x720 the first frames after the handoff are
+   * seconds apart, so the animation sat at currentTime 0 (opacity 0) long
+   * after the class had landed: measured 2026-08-20, `control-ready` present
+   * within one poll, opacity crossing 0.5 at +16.5 s. Three seconds was
+   * measuring the frame rate, not the scene, and the run died on a beat that
+   * arrives every time.
+   *
+   * The wait is now generous, and the assertion no longer samples a clock at
+   * all -- see below.
+   */
   await previewPage.waitForFunction(() => {
     const element = document.getElementById('surveyBrief');
     return document.getElementById('hud')?.classList.contains('control-ready')
       && Number(getComputedStyle(element).opacity) > 0.5;
-  }, null, { timeout: 3000, polling: 30 });
+  }, null, { timeout: SCENE_WAIT_MS, polling: 30 });
   const controlHandoffBrief = await previewPage.evaluate(() => {
     const element = document.getElementById('surveyBrief');
     const style = getComputedStyle(element);
@@ -629,6 +744,12 @@ try {
       controlReady: document.getElementById('hud').classList.contains('control-ready'),
       opacity: Number(style.opacity),
       visible: style.visibility,
+      /* Cascade-derived, not frame-sampled: these read the rule that is
+       * attached to the element the instant `control-ready` lands, whether or
+       * not a frame has been composited since. */
+      animationName: style.animationName,
+      animationDuration: style.animationDuration,
+      animationFillMode: style.animationFillMode,
       animations: element.getAnimations().map((animation) => ({
         currentTime: Number(animation.currentTime?.toFixed?.(1) || 0),
         playState: animation.playState,
@@ -636,12 +757,32 @@ try {
     };
   });
   check('the full ten-second survey brief starts at the playable passenger-seat handoff',
+    /* The old form of this asserted `currentTime < 2000` on the running
+     * animation, meaning "it started just now rather than during the
+     * cutscene". That is the right INTENT and the wrong INSTRUMENT: an
+     * animation's currentTime advances with composited frames, so on a slow
+     * box it can read 0 for seconds and then jump past 2000 in one step, and
+     * the assertion fails on a scene that is behaving perfectly.
+     *
+     * The same intent is proved exactly instead, without a stopwatch: the
+     * check above established that NO animation existed on this element
+     * before the handoff, and this one establishes that the animation now
+     * attached is the authored ten-second brief and is still running. An
+     * animation that did not exist a moment ago and has not finished yet has,
+     * by construction, its whole ten seconds still ahead of the player --
+     * which is what "the full ten-second survey brief" means. `playState ===
+     * 'running'` carries the "not finished" half on its own: the rule fills
+     * forwards, so a brief that had already burned away would report
+     * 'finished' here. */
     controlHandoffBrief.phase === 'car'
       && controlHandoffBrief.controlReady
       && controlHandoffBrief.opacity > 0.5
       && controlHandoffBrief.visible === 'visible'
-      && controlHandoffBrief.animations.some((animation) => animation.playState === 'running'
-        && animation.currentTime < 2000),
+      && controlHandoffBrief.animationName === 'surveyBriefIn'
+      && controlHandoffBrief.animationDuration === '10s'
+      && controlHandoffBrief.animationFillMode === 'forwards'
+      && controlHandoffBrief.animations.length === 1
+      && controlHandoffBrief.animations[0].playState === 'running',
     JSON.stringify(controlHandoffBrief));
   const parkedComposition = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -807,7 +948,7 @@ try {
   await previewPage.waitForFunction(
     () => document.getElementById('subtitle')?.textContent.includes('Room twelve. Meat first'),
     null,
-    { timeout: 45000 },
+    { timeout: SCENE_WAIT_MS },
   );
   const openingVoice = await previewPage.evaluate(() => ({
     cue: window.MOTEL.openingCue,
@@ -833,107 +974,83 @@ try {
     moneyCaseAim.active === 'moneyCase' && /case/i.test(moneyCaseAim.prompt),
     JSON.stringify(moneyCaseAim));
   const gloveboxAim = await aimPublicInteract(previewPage, 'glovebox');
-  check('aiming at the glovebox selects the revolver rather than the door or case',
-    gloveboxAim.active === 'glovebox' && /weapon/i.test(gloveboxAim.prompt),
+  /* The glovebox answers with one of two authored labels (src/motel/main.js):
+   * 'Check your weapon' before the .45 has been looked at, and 'The .45 is
+   * checked and put away' after. This used to test for /weapon/i, which only
+   * matched the first one -- and the arrival now draws the .45, looks at it
+   * and holsters it before Tony can reach a door handle, so the first label
+   * is never the one a player sees here. The scene's own comment says as
+   * much: "in practice this is always the second label". The check went red
+   * on a scene doing exactly what it was rebuilt to do.
+   *
+   * Pinned to the label the beat actually produces, which is a stronger
+   * statement than "the word weapon appears somewhere": the crosshair has to
+   * resolve to the GLOVEBOX, the prompt has to be the already-checked line,
+   * and it must not read as either of the neighbours this check exists to
+   * rule out -- the passenger door beside it and the case on the seat. */
+  check('aiming at the glovebox selects the checked .45 rather than the door or case',
+    gloveboxAim.active === 'glovebox'
+      && /the \.45 is checked and put away/i.test(gloveboxAim.prompt)
+      && !/passenger door|case/i.test(gloveboxAim.prompt),
     JSON.stringify(gloveboxAim));
   const earlyDoorAim = await aimPublicInteract(previewPage, 'exitCar');
   check('aiming at the passenger door selects the exit without stealing other cabin targets',
     earlyDoorAim.active === 'exitCar' && /passenger door/i.test(earlyDoorAim.prompt),
     JSON.stringify(earlyDoorAim));
-  // Public interaction path: return the crosshair to the glovebox and press E.
+  /* THE GUN IS PUT AWAY FOR THE WHOLE TRANSACTION -- and this is where that
+   * is proved, because it is where the old check assumed the opposite.
+   *
+   * This used to aim at the glovebox, press E, and wait for the revolver to
+   * rise into the hold so it could measure it. That worked when the glovebox
+   * was how Tony first got the .45. The arrival now does it for him: the
+   * gun comes out, he looks at it, and it goes away again before he can
+   * reach a door handle, "because nobody sells meat to a man with his hand
+   * full" (runArrivalInventory in src/motel/main.js). Pressing E on the
+   * glovebox afterwards is the throttled second label, not a second draw --
+   * `holsterWeapon()` says the gun "stays away until the room takes that
+   * decision back", and only `releaseWeapon()` at the betrayal takes it
+   * back. So the old wait sat on a view model that is deliberately null.
+   *
+   * The beat is asserted as it now is: the public press does NOT re-arm him.
+   * The shared system still owns the .45 with six in it, the HUD says PUT
+   * AWAY rather than EQUIPPED, and nothing is at the lens. The proof that
+   * the .45 is the shared catalog revolver, right-side up in the frame, has
+   * moved with the gun -- see the betrayal below, where the scene itself
+   * says it "appears at the lens". */
   await aimPublicInteract(previewPage, 'glovebox');
   await previewPage.keyboard.press('KeyE');
-  /* The .45 is the SHARED .45 — owner: "Lets used the shared guns we already
-   * have built." The view model must be the catalog revolver mounted by
-   * `WeaponSystem` on this camera, right-side up at its siege/Palace hold
-   * pose, not a bespoke box sculpture and not a line of HUD text. Equipping
-   * plays a short raise animation (the swap dip), so wait for the gun to
-   * settle at the hold before measuring where it sits on screen. */
-  await previewPage.waitForFunction(() => {
-    const model = window.MOTEL.heldModel;
-    return model && model.position.y > -0.27;
-  }, null, { timeout: 30000, polling: 80 });
-  const revolverPresentation = await previewPage.evaluate(() => {
+  await previewPage.waitForTimeout(240);
+  const gloveboxAgain = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    const THREE = motel.three;
-    motel.scene.updateMatrixWorld(true);
-    motel.camera.updateMatrixWorld(true);
-    const view = motel.viewmodel;
-    const model = motel.heldModel;
     const item = motel.inventory.find((entry) => entry.id === 'weapon:revolver');
-    let screenBox = null;
-    let up = null;
-    if (model) {
-      /* Project the model's own bounding-box corners: the claim is that the
-       * gun overlaps the frame, and a corner test survives a hold pose that
-       * deliberately tucks the grip below the bottom edge. */
-      const box = new THREE.Box3().setFromObject(model);
-      const xs = [];
-      const ys = [];
-      const zs = [];
-      for (const x of [box.min.x, box.max.x]) {
-        for (const y of [box.min.y, box.max.y]) {
-          for (const z of [box.min.z, box.max.z]) {
-            const p = new THREE.Vector3(x, y, z).project(motel.camera);
-            xs.push(p.x);
-            ys.push(p.y);
-            zs.push(p.z);
-          }
-        }
-      }
-      screenBox = {
-        minX: Number(Math.min(...xs).toFixed(2)),
-        maxX: Number(Math.max(...xs).toFixed(2)),
-        minY: Number(Math.min(...ys).toFixed(2)),
-        maxY: Number(Math.max(...ys).toFixed(2)),
-        minZ: Number(Math.min(...zs).toFixed(2)),
-      };
-      /* Right-side up: the model's local +Y, taken to world and back through
-       * the view, still points up the screen. An upside-down mount flips it. */
-      const q = model.getWorldQuaternion(new THREE.Quaternion());
-      const camQ = motel.camera.getWorldQuaternion(new THREE.Quaternion());
-      up = new THREE.Vector3(0, 1, 0).applyQuaternion(q)
-        .applyQuaternion(camQ.invert());
-    }
-    const rounds = model?.userData?.moving?.rounds ?? [];
     return {
-      kind: view.kind,
-      shared: view.shared,
-      visible: view.visible,
-      inCamera: view.inCamera,
+      viewmodel: motel.viewmodel,
+      held: Boolean(motel.heldModel),
       systemEquipped: motel.weapons.equipped,
       hud: motel.weapons.hud,
-      parts: view.parts,
-      visibleRounds: rounds.filter((round) => round.visible).length,
-      screenBox,
-      screenUpY: up ? Number(up.y.toFixed(2)) : null,
       inventoryText: item?.text || '',
       selected: item?.selected === true,
+      subtitle: document.getElementById('subtitle').textContent,
     };
   });
-  check('the glovebox revolver is the shared catalog .45, in hand and right-side up',
-    revolverPresentation.kind === 'revolver'
-      && revolverPresentation.shared === 'revolver'
-      && revolverPresentation.visible
-      && revolverPresentation.inCamera
-      && revolverPresentation.systemEquipped === 'revolver'
-      && revolverPresentation.hud?.rounds === 6
-      && revolverPresentation.hud?.capacity === 6
-      && revolverPresentation.visibleRounds === 6
-      && ['revolver-barrel', 'revolver-cylinder', 'revolver-grip', 'revolver-trigger',
-        'revolver-ejector-rod'].every((name) => revolverPresentation.parts.includes(name))
-      && revolverPresentation.screenBox
-      && revolverPresentation.screenBox.maxY > -1
-      && revolverPresentation.screenBox.minY < 1
-      && revolverPresentation.screenBox.maxX > -1
-      && revolverPresentation.screenBox.minX < 1
-      && revolverPresentation.screenBox.minZ > -1
-      && revolverPresentation.screenUpY > 0.7
-      && revolverPresentation.inventoryText.includes('EQUIPPED')
-      && revolverPresentation.inventoryText.includes('6/6')
-      && revolverPresentation.selected,
-    JSON.stringify(revolverPresentation));
-  await capture(previewPage, 'shared-revolver-viewmodel-car');
+  check('the glovebox does not put the .45 back in his hands once the arrival has put it away',
+    /* Holstering releases the shared rack as well as the lens -- `equipped`
+     * is null and there is no weapon HUD, which is the whole point of playing
+     * the transaction unarmed: there is nothing to fire, not merely nothing
+     * to see. What survives is the INVENTORY line, and it still reads six in
+     * the wheel, because "the round you did not fire is still in there"
+     * (equipWeapon, src/motel/main.js). And the press is heard, not ignored:
+     * the throttled second line answers it. */
+    gloveboxAgain.viewmodel.kind === null
+      && !gloveboxAgain.held
+      && !gloveboxAgain.viewmodel.visible
+      && gloveboxAgain.systemEquipped === null
+      && gloveboxAgain.inventoryText.includes('Compact revolver')
+      && gloveboxAgain.inventoryText.includes('PUT AWAY')
+      && gloveboxAgain.inventoryText.includes('6/6')
+      && !gloveboxAgain.selected
+      && /still six/i.test(gloveboxAgain.subtitle),
+    JSON.stringify(gloveboxAgain));
 
   /* Owner: "I check revolver and he just keeps saying the voice line over and
    * over." The pickup line is delivered exactly once; every later press gets
@@ -943,7 +1060,7 @@ try {
    * lost to a download race. */
   await previewPage.waitForFunction(() => window.MOTEL.voiceReadyFor(
     window.MOTEL.voice.cueForLine('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.'),
-  ), null, { timeout: 45000, polling: 120 });
+  ), null, { timeout: SCENE_WAIT_MS, polling: 120 });
   await previewPage.keyboard.press('KeyE');
   await previewPage.waitForTimeout(150);
   await previewPage.keyboard.press('KeyE');
@@ -961,10 +1078,19 @@ try {
   check('the glovebox pickup line refuses to repeat, however many times [E] lands',
     /* <= 1, not === 1: the FIRST press may have beaten the download, in which
      * case the line was subtitled silent. What a regression produces here is
-     * 2+, because the decoded take replays on the later presses. */
+     * 2+, because the decoded take replays on the later presses.
+     *
+     * The label test used to read /already out/i, which was the second
+     * glovebox label before the arrival started drawing and holstering the
+     * .45 for him. The gun is not out any more once that beat has finished,
+     * so the authored second label now says so: 'The .45 is checked and put
+     * away' (src/motel/main.js). Same statement, current words -- the point
+     * was always that a second press gets the OTHER label, not the pickup
+     * one, and it still is. */
     gloveboxRepeat.weaponChecked
       && gloveboxRepeat.pickupPlays <= 1
-      && /already out/i.test(gloveboxRepeat.label),
+      && /checked and put away/i.test(gloveboxRepeat.label)
+      && !/check your weapon/i.test(gloveboxRepeat.label),
     JSON.stringify(gloveboxRepeat));
   const clerkSpawn = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -985,7 +1111,7 @@ try {
     const motel = window.MOTEL;
     const cue = motel.voice.cueForLine('Snow', 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.');
     return motel.voice.played.some((entry) => entry.cue === cue);
-  }, null, { timeout: 45000, polling: 80 }).catch(() => {});
+  }, null, { timeout: SCENE_WAIT_MS, polling: 80 }).catch(() => {});
   const snowOffer = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const cue = motel.voice.cueForLine('Snow', 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.');
@@ -1038,7 +1164,7 @@ try {
       && passengerDoorAim.facingDot > 0.9,
     JSON.stringify(passengerDoorAim));
   await previewPage.keyboard.press('KeyE');
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'lot', null, { timeout: 5000 })
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'lot', null, { timeout: SCENE_WAIT_MS })
     .catch(() => {});
   const realDoorExit = await previewPage.evaluate(() => ({
     phase: window.MOTEL.phase,
@@ -1121,6 +1247,7 @@ try {
   const qContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const qPage = await qContext.newPage();
   trackRuntimeErrors(qPage);
+  budgetForSoftwareRasteriser(qPage);
   try {
     await qPage.addInitScript((seed) => {
       if (seed) localStorage.setItem('squatchlife.campaign', seed);
@@ -1129,11 +1256,11 @@ try {
       `http://localhost:${PORT}/motel.html?preview=1&q-exit=1`,
       { waitUntil: 'load' },
     );
-    await qPage.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+    await qPage.waitForFunction(() => window.MOTEL?.story, null, { timeout: SCENE_WAIT_MS });
     await qPage.click('#startBtn');
     await qPage.waitForFunction(() => window.MOTEL.phase === 'arrival');
     await qPage.evaluate(() => window.MOTEL.completeArrival());
-    await qPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: 5000 });
+    await qPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: SCENE_WAIT_MS });
     /* Take the .45 with him: this context is closed after the probes below,
      * so it is the safe place to actually pull a trigger. */
     await qPage.evaluate(() => window.MOTEL.forceInteract('glovebox'));
@@ -1170,62 +1297,78 @@ try {
       JSON.stringify({ beforeQ, afterQ }));
     await capture(qPage, 'after-independent-q-exit');
 
-    /* ---- the shared .45, fired and reloaded for real ----
+    /* ---- the shared .45, and the trigger the deal will not let him pull ----
      *
-     * One trigger pull spends one round out of the shared Firearm, logs the
-     * shared cue, and costs Tony what a gunshot costs in this scene; one [R]
-     * runs the catalog's two-phase reload — brass out, six back in, reserve
-     * down by what the cylinder was short. This context is disposable, so
-     * the police heat and Snow's reaction stay out of the main run. */
+     * This used to fire a live round in the lot and run a real [R] reload:
+     * one pull spends one round out of the shared Firearm, logs the shared
+     * cue, and costs Tony what a gunshot costs in this scene. It could,
+     * because the glovebox was how the .45 got into his hands and it stayed
+     * there.
+     *
+     * The scene pass sealed the deal. The arrival draws the .45, looks at it
+     * and puts it away, and `dealSealed()` refuses a trigger pull "before a
+     * round, a cue, or a cadence timer is spent" for every phase up to and
+     * including room twelve -- only `releaseWeapon()` at the betrayal takes
+     * that decision back. A Q-exit into the lot is squarely inside the seal,
+     * so what this context can prove is the REFUSAL, and it proves it hard:
+     * nothing spent, nothing logged, nothing shot, and a man with an opinion
+     * rather than a man with a jammed gun.
+     *
+     * WHAT IS NO LONGER COVERED ANYWHERE, and should be: one pull spending
+     * one shared round and one [R] running the catalog's two-phase reload.
+     * Those belong after the betrayal, in the fight, and this disposable
+     * context cannot reach that beat -- `maybeBetray()` returns unless the
+     * phase is already 'room' or 'door'. Moving them needs a fight-phase
+     * probe the file does not have yet; it is a gap, not a decision. */
     await qPage.evaluate(() => window.MOTEL.face(0, -12));
     await qPage.waitForTimeout(200);
-    await capture(qPage, 'shared-revolver-viewmodel-lot');
+    await capture(qPage, 'shared-revolver-sealed-lot');
     const beforeFire = await qPage.evaluate(() => ({
       ammo: window.MOTEL.S.ammo,
       shots: window.MOTEL.weapons.stats.shots,
+      refusals: window.MOTEL.S.weaponRefusals,
       viewmodel: window.MOTEL.viewmodel,
     }));
     await qPage.evaluate(() => window.MOTEL.fire());
+    await qPage.waitForTimeout(200);
     const afterFire = await qPage.evaluate(() => ({
       ammo: window.MOTEL.S.ammo,
-      hud: window.MOTEL.weapons.hud,
       shots: window.MOTEL.weapons.stats.shots,
       cues: window.MOTEL.weapons.cues,
+      refusals: window.MOTEL.S.weaponRefusals,
       firedWeapon: window.MOTEL.S.firedWeapon,
       noshotFailed: window.MOTEL.objectives.failed.includes('noshot'),
+      subtitle: document.getElementById('subtitle').textContent,
     }));
-    check('one trigger pull spends one shared round and logs the shared fire cue',
-      beforeFire.viewmodel.shared === 'revolver'
-        && beforeFire.viewmodel.visible
+    check('the sealed deal refuses the trigger before a round, a cue or a shot is spent',
+      beforeFire.viewmodel.kind === null
+        && !beforeFire.viewmodel.visible
         && beforeFire.ammo === 6
-        && afterFire.ammo === 5
-        && afterFire.hud?.rounds === 5
-        && afterFire.shots === beforeFire.shots + 1
-        && afterFire.cues.includes('weapon.revolver.fire')
-        && afterFire.firedWeapon
-        && afterFire.noshotFailed,
+        && afterFire.ammo === 6
+        && afterFire.shots === beforeFire.shots
+        && !afterFire.cues.includes('weapon.revolver.fire')
+        && !afterFire.firedWeapon
+        && !afterFire.noshotFailed
+        && afterFire.refusals === beforeFire.refusals + 1
+        && [
+          'I should work the deal before resorting to that.',
+          'Not yet. Let us see how this plays out.',
+          'Lou sent me here to buy meat. Not to redecorate a motel.',
+        ].some((line) => afterFire.subtitle.includes(line)),
       JSON.stringify({ beforeFire, afterFire }));
 
     await qPage.evaluate(() => window.MOTEL.reload());
-    await qPage.waitForFunction(
-      () => window.MOTEL.S.ammo === 6 && !window.MOTEL.weapons.reloading,
-      null,
-      { timeout: 60000, polling: 100 },
-    ).catch(() => { /* reported by the assertion below */ });
+    await qPage.waitForTimeout(400);
     const reloaded = await qPage.evaluate(() => ({
       ammo: window.MOTEL.S.ammo,
-      hud: window.MOTEL.weapons.hud,
       reserve: window.MOTEL.weapons.reserve,
       reloads: window.MOTEL.weapons.stats.reloads,
       cues: window.MOTEL.weapons.cues,
     }));
-    check('[R] runs the shared two-phase reload back to six, out of twelve loose',
+    check('[R] spends nothing out of a cylinder that is still full and put away',
       reloaded.ammo === 6
-        && reloaded.hud?.rounds === 6
-        && reloaded.reserve === 11
-        && reloaded.reloads >= 1
-        && reloaded.cues.includes('weapon.revolver.reload.out')
-        && reloaded.cues.includes('weapon.revolver.reload.in'),
+        && reloaded.reserve === 12
+        && reloaded.cues.every((cue) => !cue.startsWith('weapon.revolver.reload')),
       JSON.stringify(reloaded));
   } finally {
     await qContext.close();
@@ -1292,10 +1435,13 @@ try {
   await previewPage.waitForTimeout(180);
   await capture(previewPage, 'after-office-door-open');
   await previewPage.evaluate(() => window.MOTEL.forceInteract('clerk'));
+  /* His panic run is real time on the page's own clock, like the arrival
+   * drive above: under swiftshader the sprint to the wall can outlast the
+   * old 30 s budget with the sample missing idle by a few hundred ms. */
   await previewPage.waitForFunction(() => {
     const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
     return clerk?.state === 'idle';
-  }, null, { timeout: 30000, polling: 80 }).catch(() => {});
+  }, null, { timeout: SCENE_WAIT_MS, polling: 80 }).catch(() => {});
   const clerkStoppedA = await previewPage.evaluate(() => {
     const clerk = window.MOTEL.actors.find((actor) => actor.identity === 'clerk');
     return clerk ? { x: clerk.position.x, z: clerk.position.z, state: clerk.state } : null;
@@ -1371,7 +1517,7 @@ try {
   await previewPage.waitForFunction(
     () => window.MOTEL.viewmodel.kind === null,
     null,
-    { timeout: 20000 },
+    { timeout: SCENE_WAIT_MS },
   ).catch(() => { /* reported by the assertion */ });
   const unarmed = await previewPage.evaluate(() => ({
     weapon: window.MOTEL.S.weapon, view: window.MOTEL.viewmodel,
@@ -1409,7 +1555,7 @@ try {
   await previewPage.waitForFunction(
     () => document.getElementById('subtitle')?.textContent.includes('Seatbelt. Or do not.'),
     null,
-    { timeout: 20000 },
+    { timeout: SCENE_WAIT_MS },
   );
   const deliveredSubtitle = await previewPage.evaluate(() => ({
     subtitle: document.getElementById('subtitle').textContent,
@@ -1484,7 +1630,7 @@ try {
    * radius stops a legal walk at about z = -3.8; a walked-through door sails
    * past -4.5 into the room, and the extra shove is what would carry him. */
   await previewPage.keyboard.down('KeyW');
-  await previewPage.waitForFunction(() => window.MOTEL.pos.z < -3.4, null, { timeout: 30000, polling: 60 })
+  await previewPage.waitForFunction(() => window.MOTEL.pos.z < -3.4, null, { timeout: SCENE_WAIT_MS, polling: 60 })
     .catch(() => { /* reported by the assertion below */ });
   await previewPage.waitForTimeout(1400);
   await previewPage.keyboard.up('KeyW');
@@ -1536,7 +1682,7 @@ try {
   await previewPage.waitForFunction(
     () => window.MOTEL.actors.some((actor) => actor.name === 'Rico'),
     null,
-    { timeout: 30000 },
+    { timeout: SCENE_WAIT_MS },
   );
   check('knocking brings Rico to the door of room twelve',
     await previewPage.evaluate(() => window.MOTEL.phase === 'door'
@@ -1552,13 +1698,37 @@ try {
     doorSolid: window.MOTEL.refs.frontDoor.collider.enabled,
     thresholdHeld: window.MOTEL.refs.roomTwelveThreshold.enabled,
     answeredAfterMs: Math.round(window.MOTEL.S.doorAnsweredAt - window.MOTEL.S.knockedAt),
+    /* The doorstep wheel is what the door used to wait for. It is open and
+     * unanswered here, which is the owner's complaint answered in the one
+     * form no clock can argue with. */
+    doorstepNode: window.MOTEL.dialogue?.nodeId ?? null,
+    doorstepAnswered: window.MOTEL.dialogue === null,
   }));
-  check('room twelve opens its door within a second of the knock',
+  check('room twelve opens its door on the knock, not on the doorstep conversation',
+    /* The old bound was `answeredAfterMs <= 1000` and it read 2697 on
+     * 2026-08-20. Nothing about the door had changed: both timestamps are
+     * `performance.now()` (src/motel/main.js) taken either side of a
+     * `setTimeout(..., KNOCK_ANSWER_MS)` of 420 ms, and a setTimeout is
+     * DELIVERED late when the main thread is three seconds into rasterising a
+     * motel forecourt in software. The measurement was of the browser's task
+     * queue, not of Rico.
+     *
+     * What the owner actually asked for -- "they should open the door right
+     * after you knock on it", against a door that used to wait four lines for
+     * the doorstep wheel -- is a statement about ORDER, and order is exact:
+     * the leaf is open, its collider is off, Rico's body still holds the
+     * threshold, and the doorstep wheel is still sitting there UNANSWERED.
+     * That is pinned first. The elapsed time is kept as a sanity bound, and
+     * widened to five seconds with the delivery lag named, so it still
+     * catches a door that waits on a conversation (which would take tens of
+     * seconds here) without failing a box that is merely slow. */
     knockAnswer.doorOpen
       && !knockAnswer.doorSolid
       && knockAnswer.thresholdHeld
+      && knockAnswer.doorstepNode === 'atDoor'
+      && !knockAnswer.doorstepAnswered
       && knockAnswer.answeredAfterMs > 0
-      && knockAnswer.answeredAfterMs <= 1000,
+      && knockAnswer.answeredAfterMs <= 5000,
     JSON.stringify(knockAnswer));
 
   /* Open is not the same as clear: until the doorstep wheel is answered, the
@@ -1571,7 +1741,7 @@ try {
    * wheel is up, so time runs slow, and every extra frame of held W is
    * another frame a hole would let him through. */
   await previewPage.keyboard.down('KeyW');
-  await previewPage.waitForFunction(() => window.MOTEL.pos.z < -3.8, null, { timeout: 30000, polling: 60 })
+  await previewPage.waitForFunction(() => window.MOTEL.pos.z < -3.8, null, { timeout: SCENE_WAIT_MS, polling: 60 })
     .catch(() => { /* reported by the assertion below */ });
   await previewPage.waitForTimeout(1400);
   await previewPage.keyboard.up('KeyW');
@@ -1593,14 +1763,32 @@ try {
     const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
     rico.talkT = 1.2;
   });
-  await previewPage.waitForTimeout(120);
-  const ricoPresentation = await previewPage.evaluate(() => {
+  /* A mouth that is talking is OPEN AND SHUT, and which of the two a single
+   * sample catches is a coin toss weighted by the frame rate: this read
+   * `mouth.scale.y > 1` once, 120 ms after setting `talkT`, and on a software
+   * rasteriser 120 ms is a fraction of one frame. It caught the mouth closed
+   * on 2026-08-20 and called a working mouth broken.
+   *
+   * Watched across frames instead, from inside the page so no round trip can
+   * land between them: the claim is that the mouth MOVES while he speaks, and
+   * that is what "opened at least once before the line ran out" says. It is
+   * the stronger reading as well -- one lucky open frame never proved motion. */
+  const ricoPresentation = await previewPage.evaluate(async () => {
     const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
+    const frame = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
+    let opened = false;
+    let frames = 0;
+    while (frames < 20 && rico.talkT > 0 && !opened) {
+      await frame();
+      frames += 1;
+      if (rico.rig.mouth?.scale.y > 1) opened = true;
+    }
     return {
       identity: rico.identity,
       face: rico.rig.faceMesh?.name || null,
       mouth: rico.rig.mouth?.name || null,
-      mouthOpen: rico.rig.mouth?.scale.y > 1,
+      mouthOpened: opened,
+      framesWatched: frames,
       talkRemaining: rico.talkT,
     };
   });
@@ -1608,8 +1796,7 @@ try {
     ricoPresentation.identity === 'rico'
       && ricoPresentation.face === 'actor.face.rico'
       && ricoPresentation.mouth === 'actor.mouth'
-      && ricoPresentation.mouthOpen
-      && ricoPresentation.talkRemaining > 0,
+      && ricoPresentation.mouthOpened,
     JSON.stringify(ricoPresentation));
   await previewPage.evaluate(() => {
     window.MOTEL.teleport(0, -2.6);
@@ -1619,21 +1806,43 @@ try {
    * opening is a consequence of a chosen line, and the objective that follows
    * is the thing this scene keeps failing to deliver. */
   await answerWheel(previewPage, 'calm');
-  await previewPage.waitForFunction(
-    () => document.getElementById('subtitle').textContent.includes('Come in before'),
-    null,
-    { timeout: 45000 },
-  );
-  await previewPage.waitForTimeout(80);
-  const invitation = await previewPage.evaluate(() => {
-    const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
-    return {
-      objective: window.MOTEL.objective,
-      active: window.MOTEL.activeInteract(),
-      voiceBusy: window.MOTEL.voice.busy(),
-      rico: rico ? { x: rico.position.x, z: rico.position.z, state: rico.state } : null,
+  /* "WHILE he says come in" is a statement about two things being true at the
+   * same instant, and this used to try to catch that instant with a wait, an
+   * 80 ms sleep and a round trip -- three chances for the line to finish in
+   * between. It did finish, on 2026-08-20: `voiceBusy` read false against a
+   * scene that had said the line perfectly well, because a line lasts a fixed
+   * number of SECONDS and the sampling took longer than that on a software
+   * rasteriser.
+   *
+   * Sampled from inside the page instead, on the frame where both halves hold
+   * together, so nothing can land between them. The claim is unchanged and
+   * the proof is now exact: while the invitation is still being spoken, the
+   * doorway already offers its [E]. */
+  const invitation = await previewPage.evaluate(() => new Promise((resolve, reject) => {
+    const motel = window.MOTEL;
+    const deadline = performance.now() + 180000;
+    const tick = () => {
+      const subtitle = document.getElementById('subtitle').textContent;
+      if (subtitle.includes('Come in before') && motel.voice.busy()
+        && motel.activeInteract() === 'enterRoom') {
+        const rico = motel.actors.find((actor) => actor.name === 'Rico');
+        resolve({
+          objective: motel.objective,
+          active: motel.activeInteract(),
+          voiceBusy: motel.voice.busy(),
+          subtitle,
+          rico: rico ? { x: rico.position.x, z: rico.position.z, state: rico.state } : null,
+        });
+        return;
+      }
+      if (performance.now() > deadline) {
+        reject(new Error(`the doorway [E] never went live during the invitation: ${subtitle}`));
+        return;
+      }
+      requestAnimationFrame(tick);
     };
-  });
+    tick();
+  }));
   check('Rico steps aside and the [E] doorway prompt is live while he says come in',
     invitation.voiceBusy
       && invitation.objective.sub.includes('[E]')
@@ -1643,7 +1852,7 @@ try {
   await previewPage.waitForFunction(
     () => window.MOTEL.S.doorOpened && window.MOTEL.objective.sub.includes('Step inside'),
     null,
-    { timeout: 45000 },
+    { timeout: SCENE_WAIT_MS },
   );
   const doorObjective = await previewPage.evaluate(() => window.MOTEL.objective);
   check('answering at the door opens it and says, in words, to go in',
@@ -1659,7 +1868,7 @@ try {
     window.MOTEL.face(0, -12);
   });
   await previewPage.keyboard.down('KeyW');
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'room', null, { timeout: 45000, polling: 60 })
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'room', null, { timeout: SCENE_WAIT_MS, polling: 60 })
     .catch(() => { /* reported by the assertion below */ });
   await previewPage.keyboard.up('KeyW');
   const walkedIn = await previewPage.evaluate(() => ({
@@ -1697,8 +1906,8 @@ try {
    * need to put my sample on the table?" — the scene had four different nouns
    * for those three things and never said whose was whose. Every step below
    * asserts that the HUD names the object, the owner and the button. */
-  await previewPage.waitForFunction(() => window.MOTEL.S.sampleOut, null, { timeout: 60000 });
-  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'sample', null, { timeout: 45000 });
+  await previewPage.waitForFunction(() => window.MOTEL.S.sampleOut, null, { timeout: SCENE_WAIT_MS });
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'sample', null, { timeout: SCENE_WAIT_MS });
   const sampleStep = await previewPage.evaluate(() => ({
     deal: window.MOTEL.deal,
     objective: window.MOTEL.objective,
@@ -1731,7 +1940,7 @@ try {
   await previewPage.waitForFunction(
     () => document.getElementById('subtitle').textContent.includes('Meat first. Money second.'),
     null,
-    { timeout: 30000 },
+    { timeout: SCENE_WAIT_MS },
   );
   const refused = await previewPage.evaluate(() => ({
     onTable: window.MOTEL.S.moneyOnTable,
@@ -1752,7 +1961,7 @@ try {
     JSON.stringify({ before: roomClockBeforeInspection, during: roomClockDuringInspection }));
   await capture(previewPage, 'after-inspection-options');
   await previewPage.evaluate(() => window.MOTEL.inspect(window.MOTEL.inspection.available()[0].id));
-  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'count', null, { timeout: 60000 });
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'count', null, { timeout: SCENE_WAIT_MS });
   const countStep = await previewPage.evaluate(() => ({
     deal: window.MOTEL.deal,
     objective: window.MOTEL.objective,
@@ -1812,22 +2021,33 @@ try {
       && /counted/i.test(counted.label),
     JSON.stringify({ beforeCount, ...counted }));
 
-  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'pay', null, { timeout: 60000 });
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'pay', null, { timeout: SCENE_WAIT_MS });
   const payStep = await previewPage.evaluate(() => ({
     deal: window.MOTEL.deal,
     objective: window.MOTEL.objective,
     label: window.MOTEL.interactableList.find((entry) => entry.id === 'placeMoney').label(),
   }));
   check('counting moves the deal on to your case, and says whose it is',
+    /* The label test read /put your case on the table/i. That interaction was
+     * found during the scene pass to be UNSELECTABLE -- it shared a point and
+     * a radius with the sample check, which was declared first, and selection
+     * uses a strict greater-than -- so the three table props were given
+     * distinct points and a priority that follows the deal step, and the act
+     * was renamed to what it now is: pushing your case ACROSS the table to
+     * him, rather than putting it down on it. The words moved with the fix.
+     *
+     * Pinned to the authored label as it now reads, and still saying the
+     * thing this check exists to say: the prompt names the PLAYER's case and
+     * the table it is going across, so it cannot be mistaken for theirs. */
     payStep.deal.step === 'pay'
       && payStep.objective.id === 'payment'
       && /your case/i.test(payStep.objective.title)
-      && /put your case on the table/i.test(payStep.label)
+      && /push your case across the table/i.test(payStep.label)
       && payStep.deal.board?.theirs.includes('eight counted'),
     JSON.stringify(payStep));
 
   await previewPage.evaluate(() => window.MOTEL.forceInteract('placeMoney'));
-  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'open', null, { timeout: 60000 });
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'open', null, { timeout: SCENE_WAIT_MS });
   const openStep = await previewPage.evaluate(() => ({
     deal: window.MOTEL.deal,
     objective: window.MOTEL.objective,
@@ -1922,9 +2142,103 @@ try {
       && signalState.state === 'idle',
     JSON.stringify(signalState));
 
+  /* THE HINGE. `releaseWeapon()` is the one place the room takes the holster
+   * decision back: "one frame the room is a transaction and the trigger does
+   * nothing, the next frame it is a gunfight and the same trigger kills
+   * people", announced by the .45 appearing at the lens. So the shared-gun
+   * proof that used to live at the glovebox lives here, where the gun is
+   * genuinely in his hands and STAYS there -- no three-second draw window to
+   * race, on any machine. Every assertion below is the one the glovebox
+   * block used to make. */
+  await previewPage.evaluate(() => window.MOTEL.betray());
+  await previewPage.waitForFunction(() => {
+    const model = window.MOTEL.heldModel;
+    return model && model.position.y > -0.27;
+  }, null, { timeout: SCENE_WAIT_MS, polling: 80 });
+  const revolverPresentation = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const THREE = motel.three;
+    motel.scene.updateMatrixWorld(true);
+    motel.camera.updateMatrixWorld(true);
+    const view = motel.viewmodel;
+    const model = motel.heldModel;
+    const item = motel.inventory.find((entry) => entry.id === 'weapon:revolver');
+    let screenBox = null;
+    let up = null;
+    if (model) {
+      /* Project the model's own bounding-box corners: the claim is that the
+       * gun overlaps the frame, and a corner test survives a hold pose that
+       * deliberately tucks the grip below the bottom edge. */
+      const box = new THREE.Box3().setFromObject(model);
+      const xs = [];
+      const ys = [];
+      const zs = [];
+      for (const x of [box.min.x, box.max.x]) {
+        for (const y of [box.min.y, box.max.y]) {
+          for (const z of [box.min.z, box.max.z]) {
+            const p = new THREE.Vector3(x, y, z).project(motel.camera);
+            xs.push(p.x);
+            ys.push(p.y);
+            zs.push(p.z);
+          }
+        }
+      }
+      screenBox = {
+        minX: Number(Math.min(...xs).toFixed(2)),
+        maxX: Number(Math.max(...xs).toFixed(2)),
+        minY: Number(Math.min(...ys).toFixed(2)),
+        maxY: Number(Math.max(...ys).toFixed(2)),
+        minZ: Number(Math.min(...zs).toFixed(2)),
+      };
+      /* Right-side up: the model's local +Y, taken to world and back through
+       * the view, still points up the screen. An upside-down mount flips it. */
+      const q = model.getWorldQuaternion(new THREE.Quaternion());
+      const camQ = motel.camera.getWorldQuaternion(new THREE.Quaternion());
+      up = new THREE.Vector3(0, 1, 0).applyQuaternion(q)
+        .applyQuaternion(camQ.invert());
+    }
+    const rounds = model?.userData?.moving?.rounds ?? [];
+    return {
+      kind: view.kind,
+      shared: view.shared,
+      visible: view.visible,
+      inCamera: view.inCamera,
+      systemEquipped: motel.weapons.equipped,
+      hud: motel.weapons.hud,
+      parts: view.parts,
+      visibleRounds: rounds.filter((round) => round.visible).length,
+      screenBox,
+      screenUpY: up ? Number(up.y.toFixed(2)) : null,
+      inventoryText: item?.text || '',
+      selected: item?.selected === true,
+    };
+  });
+  check('the betrayal puts the shared catalog .45 in his hands, right-side up at the lens',
+    revolverPresentation.kind === 'revolver'
+      && revolverPresentation.shared === 'revolver'
+      && revolverPresentation.visible
+      && revolverPresentation.inCamera
+      && revolverPresentation.systemEquipped === 'revolver'
+      && revolverPresentation.hud?.rounds === 6
+      && revolverPresentation.hud?.capacity === 6
+      && revolverPresentation.visibleRounds === 6
+      && ['revolver-barrel', 'revolver-cylinder', 'revolver-grip', 'revolver-trigger',
+        'revolver-ejector-rod'].every((name) => revolverPresentation.parts.includes(name))
+      && revolverPresentation.screenBox
+      && revolverPresentation.screenBox.maxY > -1
+      && revolverPresentation.screenBox.minY < 1
+      && revolverPresentation.screenBox.maxX > -1
+      && revolverPresentation.screenBox.minX < 1
+      && revolverPresentation.screenBox.minZ > -1
+      && revolverPresentation.screenUpY > 0.7
+      && revolverPresentation.inventoryText.includes('EQUIPPED')
+      && revolverPresentation.inventoryText.includes('6/6')
+      && revolverPresentation.selected,
+    JSON.stringify(revolverPresentation));
+  await capture(previewPage, 'shared-revolver-viewmodel-car');
+
   const mattressState = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    motel.betray();
     motel.forceInteract('mattress');
     const mattress = motel.refs.beds[0].mattress;
     const world = new motel.three.Vector3();
@@ -1951,7 +2265,7 @@ try {
   /* Rico has to cross the room and take him. That is simulation time, not wall
    * time, and this scene draws at a couple of frames a second on a software
    * rasteriser, so the budget is generous on purpose. */
-  await previewPage.waitForFunction(() => window.MOTEL.S.captured, null, { timeout: 45000 });
+  await previewPage.waitForFunction(() => window.MOTEL.S.captured, null, { timeout: SCENE_WAIT_MS });
   const capturedStart = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     return {
@@ -1966,7 +2280,7 @@ try {
   await previewPage.waitForFunction(
     () => window.MOTEL.phase === 'recover' || window.MOTEL.phase === 'escape',
     null,
-    { timeout: 30000 },
+    { timeout: SCENE_WAIT_MS },
   );
   const captureRecovery = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -2021,7 +2335,7 @@ try {
 
   /* ---- the getaway, from the driver's eye ---- */
   await previewPage.evaluate(() => window.MOTEL.drive());
-  await previewPage.waitForFunction(() => window.MOTEL.phase === 'drive', null, { timeout: 20000 });
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'drive', null, { timeout: SCENE_WAIT_MS });
   await previewPage.waitForTimeout(900);
   await capture(previewPage, 'after-drive-first-person');
 
@@ -2107,7 +2421,7 @@ try {
   await previewPage.close();
 
   await page.goto(`http://localhost:${PORT}/motel.html`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: SCENE_WAIT_MS });
 
   let current = await motelState();
   check('the campaign opens the Motel at its passenger-seat entry',
@@ -2135,7 +2449,7 @@ try {
     JSON.stringify(current));
 
   await page.reload({ waitUntil: 'load' });
-  await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: SCENE_WAIT_MS });
   await page.click('#startBtn');
   await page.waitForFunction(() => window.MOTEL.phase === 'car');
   current = await motelState();
@@ -2162,8 +2476,8 @@ try {
     JSON.stringify(current.mission));
 
   await page.click('#continueBtn');
-  await page.waitForURL(`http://localhost:${PORT}/index.html`, { timeout: 10000 });
-  await page.waitForFunction(() => window.__squatch?.campaign, null, { timeout: 60000 });
+  await page.waitForURL(`http://localhost:${PORT}/index.html`, { timeout: SCENE_WAIT_MS });
+  await page.waitForFunction(() => window.__squatch?.campaign, null, { timeout: SCENE_WAIT_MS });
   const home = await page.evaluate(() => ({
     scene: window.__squatch.campaign.state.scene,
     mission: window.__squatch.campaign.state.missions.jerky_motel,

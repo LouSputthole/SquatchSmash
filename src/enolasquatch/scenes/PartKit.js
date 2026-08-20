@@ -36,6 +36,10 @@ import * as THREE from 'three';
 const _dummy = new THREE.Object3D();
 const _colour = new THREE.Color();
 const _hidden = new THREE.Matrix4().makeScale(0.00001, 0.00001, 0.00001);
+const _unitBounds = new THREE.Box3(
+  new THREE.Vector3(-0.5, -0.5, -0.5),
+  new THREE.Vector3(0.5, 0.5, 0.5),
+);
 
 /** The finishes a part can have. One material each, shared by every shape. */
 const FINISHES = {
@@ -63,6 +67,7 @@ export class PartKit {
     /** shape|finish -> the InstancedMesh built for it. */
     this.meshes = new Map();
     this.mounted = false;
+    this.activeAssemblyId = null;
   }
 
   /** How many parts have been collected in total. */
@@ -75,11 +80,25 @@ export class PartKit {
   /** How many draw calls this kit will cost once mounted. */
   get drawCalls() { return this.buckets.size; }
 
+  /** Collect every part built by `build` under one logical landmark owner. */
+  withAssembly(assemblyId, build) {
+    const normalizedId = typeof assemblyId === 'string' ? assemblyId.trim() : '';
+    if (!normalizedId) throw new TypeError('PartKit.withAssembly requires a stable non-empty ID');
+    if (typeof build !== 'function') throw new TypeError('PartKit.withAssembly requires a builder');
+    const previous = this.activeAssemblyId;
+    this.activeAssemblyId = normalizedId;
+    try {
+      return build();
+    } finally {
+      this.activeAssemblyId = previous;
+    }
+  }
+
   _push(shape, finish, record) {
     const key = `${shape}|${finish}`;
     let list = this.buckets.get(key);
     if (!list) { list = []; this.buckets.set(key, list); }
-    list.push(record);
+    list.push({ ...record, assemblyId: this.activeAssemblyId });
     return { key, index: list.length - 1, x: record.x, z: record.z };
   }
 
@@ -105,6 +124,22 @@ export class PartKit {
     return this._push('sphere', finish, { x, y, z, sx: r * 2, sy: yr * 2, sz: r * 2, rx: 0, ry: 0, rz: 0, colour });
   }
 
+  /** Exact authored bounds for a set of handles before the kit is mounted. */
+  boundsFor(handles) {
+    const bounds = new THREE.Box3().makeEmpty();
+    for (const handle of handles) {
+      const part = this.buckets.get(handle?.key)?.[handle?.index];
+      if (!part) throw new Error('PartKit.boundsFor received an unknown handle');
+      _dummy.position.set(part.x, part.y, part.z);
+      _dummy.rotation.set(part.rx, part.ry, part.rz);
+      _dummy.scale.set(part.sx, part.sy, part.sz);
+      _dummy.updateMatrix();
+      bounds.union(_unitBounds.clone().applyMatrix4(_dummy.matrix));
+    }
+    if (bounds.isEmpty()) throw new Error('PartKit.boundsFor requires at least one part');
+    return bounds;
+  }
+
   /** Build every bucket into an InstancedMesh and add them to `parent`. */
   mount(parent) {
     if (this.mounted) return this;
@@ -115,6 +150,14 @@ export class PartKit {
       const material = (FINISHES[finish] || FINISHES.matte)();
       const im = new THREE.InstancedMesh(geo, material, list.length);
       im.name = `${this.name}-${shape}-${finish}`;
+      const assemblyIds = list.map(({ assemblyId }) => assemblyId);
+      const hasAssemblyIds = assemblyIds.some(Boolean);
+      if (hasAssemblyIds && assemblyIds.some((assemblyId) => !assemblyId)) {
+        throw new Error(`PartKit ${this.name} bucket ${key} mixes owned and unowned parts`);
+      }
+      if (hasAssemblyIds) {
+        im.userData.geometryGate = { instanceAssemblyIds: assemblyIds };
+      }
       im.castShadow = false;
       im.receiveShadow = false;
       list.forEach((p, i) => {

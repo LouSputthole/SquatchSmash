@@ -301,7 +301,7 @@ export const SEQUENCES = Object.freeze({
     // spec
     { speaker: 'PROSPECT', text: 'What’s inside?', cue: cue('office', 'prospect.whatsinside'), hold: 1.6 },
     // spec
-    { speaker: 'LOU', text: 'Eh. You’ll find out soon enough.', cue: cue('office', 'lou.soonenough'), hold: 2.6 },
+    { speaker: 'LOU', text: 'You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.', cue: cue('office', 'lou.soonenough'), hold: 2.6 },
     { speaker: 'HUD', stage: 'case.close', hold: 1.6 },
     // spec
     { speaker: 'LOU', text: 'Go deliver it to Booski. He’s in the basement.', cue: cue('office', 'lou.deliverittobooski'), hold: 3.2 },
@@ -552,7 +552,7 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'AUBBIE', text: 'What is this?', cue: cue('lock', 'aubbie.whatisthis'), hold: 1.8 },
     { speaker: 'HUD', stage: 'booski.silent', hold: 1.8 },
     // spec
-    { speaker: 'BOOSKI', text: 'This guy’s usefulness has expired.', cue: cue('lock', 'booski.usefulnessexpired'), hold: 3.0 },
+    { speaker: 'BOOSKI', text: 'He’s finished. He’s not a scientist any more, he’s a witness with a doctorate.', cue: cue('lock', 'booski.usefulnessexpired'), hold: 3.0 },
     // spec
     { speaker: 'BOOSKI', text: 'Handle it.', cue: cue('lock', 'booski.handleit'), hold: 1.6 },
   ]),
@@ -568,7 +568,7 @@ export const SEQUENCES = Object.freeze({
     // spec
     { speaker: 'AUBBIE', text: 'You do not understand what you have built!', cue: cue('execution', 'aubbie.whatyouhavebuilt'), hold: 3.4 },
     // spec
-    { speaker: 'BOOSKI', text: 'I said handle it.', cue: cue('execution', 'booski.isaidhandleit'), hold: 2.0 },
+    { speaker: 'BOOSKI', text: 'I said do it. And now I’ve said it twice, which means from here on it isn’t an order any more, it’s a test. You understand the difference? Because the difference is your whole life.', cue: cue('execution', 'booski.isaidhandleit'), hold: 2.0 },
   ]),
   executionStallAubbie: Object.freeze([
     { speaker: 'AUBBIE', text: 'Boy. Look at me. You do not have to do this.', cue: cue('execution', 'aubbie.lookatme'), hold: 3.6 },
@@ -605,7 +605,7 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'MARCHUK', text: 'There is no ventilation!', cue: cue('reaction', 'marchuk.noventilation'), hold: 2.0, muffled: true }, // spec
     { speaker: 'ORLOVA', text: 'We have families!', cue: cue('reaction', 'orlova.wehavefamilies'), hold: 1.8, muffled: true }, // spec
     { speaker: 'SOKOLOV', text: 'You cannot leave us in here!', cue: cue('reaction', 'sokolov.cannotleaveus'), hold: 2.4, muffled: true }, // spec
-    { speaker: 'VETROV', text: 'We can work for you!', cue: cue('reaction', 'vetrov.canworkforyou'), hold: 2.0, muffled: true }, // spec
+    { speaker: 'VETROV', text: 'We can build you another one. Smaller. Eight weeks. Six if you stop asking about the shielding.', cue: cue('reaction', 'vetrov.canworkforyou'), hold: 2.0, muffled: true }, // spec
     { speaker: 'ORLOVA', text: 'We will tell nobody!', cue: cue('reaction', 'orlova.tellnobody'), hold: 2.0, muffled: true }, // spec
   ]),
   /* One of them takes a metal chair to the glass. The chair bends. The glass
@@ -769,6 +769,23 @@ export const SEQUENCES = Object.freeze({
   poolGirlDressHelp: Object.freeze([
     { speaker: 'PERFORMER', text: 'There. See? Useful beats smooth.', cue: cue('evening', 'performer.useful'), hold: 2.8 },
   ]),
+  /* ---- Shubes, in the LAN room, on the account ------------------------
+   * Owner note, 2026-08-19: the quiet evening gained settling-in beats and
+   * Shubes gained a chair -- once the mission gives way to the evening,
+   * `cast.js` sits him at a LAN station with Old School RuneScape on the
+   * monitor, and these are his lines about it. Bark and idle fire off the
+   * post's own proximity gate like every other bark in the house; the chat
+   * pair is the E press, which is also the beat the bed can count. */
+  shubesLanBark: Object.freeze([
+    { speaker: 'SHUBES', text: 'Careful. Forty-two million on this account, and no way to explain where the other kind came from.', cue: cue('evening', 'shubes.fortytwomillion'), hold: 5.6 },
+  ]),
+  shubesLanIdle: Object.freeze([
+    { speaker: 'SHUBES', text: 'Strangled a guy in a parking lot last month. Came home, played three hours of this. Slept great.', cue: cue('evening', 'shubes.sleptgreat'), hold: 5.4 },
+  ]),
+  shubesLanChat: Object.freeze([
+    { speaker: 'SHUBES', text: 'It’s called Old School RuneScape. It’s from 2007. So’s my patience — get out of my light.', cue: cue('evening', 'shubes.oldschool'), hold: 5.2 },
+    { speaker: 'SHUBES', text: 'Some kid called me a noob at the Grand Exchange. If I ever find out where he lives, that’s a him problem.', cue: cue('evening', 'shubes.himproblem'), hold: 5.8 },
+  ]),
 
   /* =================================================================== */
   /* THE HOUSE ITSELF — the people who are in it whether or not the       */
@@ -869,14 +886,14 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'GUARD_BASEMENT', text: 'Nothing down here belongs to you.', cue: cue('guards', 'basement.nothingyours'), hold: 2.6 },
   ]),
   guardBasementIdle: Object.freeze([
-    { speaker: 'GUARD_BASEMENT', text: 'Keep walking.', cue: cue('guards', 'basement.keepwalking'), hold: 1.4 },
+    { speaker: 'GUARD_BASEMENT', text: 'Keep walking. Whatever you heard down here, you heard the boiler.', cue: cue('guards', 'basement.keepwalking'), hold: 1.4 },
   ]),
   /* Eleven inches of steel, standing open, and a man in front of it. */
   guardVaultBark: Object.freeze([
     { speaker: 'GUARD_VAULT', text: 'The door stays open. I stay here. That’s the arrangement.', cue: cue('guards', 'vault.arrangement'), hold: 4.2 },
   ]),
   guardVaultIdle: Object.freeze([
-    { speaker: 'GUARD_VAULT', text: 'Back up.', cue: cue('guards', 'vault.backup'), hold: 1.4 },
+    { speaker: 'GUARD_VAULT', text: 'Back up. I don’t get told what’s in there either, and I’ve stopped wanting to know.', cue: cue('guards', 'vault.backup'), hold: 1.4 },
   ]),
 
   /* ---- The bar in the billiard bay. -----------------------------------

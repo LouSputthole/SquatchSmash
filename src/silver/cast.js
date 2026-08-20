@@ -90,7 +90,9 @@ export function populate(scene, room) {
     const dress = pick(['suit', 'gown', 'suit', 'shirt']);
     const inGown = dress === 'gown';
     const qx = 4.2 - i * 1.05 + rand(-0.08, 0.08);
-    const qz = 38.14 + rand(-0.07, 0.07);
+    // Keep the whole body on the road side of the velvet, including a
+    // relaxed forearm; the former 24 cm centre gap put three arms through it.
+    const qz = 38.42 + rand(-0.07, 0.07);
     /* Faces up the line (+x); the head of it faces the man on the door. */
     const yaw = i === 0
       ? Math.atan2(a.doorman.x - qx, a.doorman.z - qz)
@@ -182,6 +184,17 @@ export function populate(scene, room) {
     model: { height: 1.73, dress: 'porter', shirt: 0xdad6cc, hair: 'long' },
   }));
 
+  /* The runner: plates out, empties back, all night. His loop is the marked
+   * aisle east of the pass down to the dish pit — the lane the route paints
+   * on the floor, so it is known walkable and clear of the player's own line
+   * through the room. */
+  add('runner', new Npc(scene, {
+    name: 'a runner', tier: 'ambient', job: 'patrol',
+    x: 22.7, z: -8, yaw: 0,
+    route: [{ x: 22.7, z: -5.5 }, { x: 22.7, z: -11.5 }, { x: 24.2, z: -14.6 }, { x: 22.7, z: -8.5 }],
+    model: { height: 1.7, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'short' },
+  }));
+
   /* ---- the corridor ---- */
 
   /* Both corridor stations used to stand their staff at anchor+2.6 — which is
@@ -197,7 +210,7 @@ export function populate(scene, room) {
 
   add('coatcheck', new Npc(scene, {
     name: 'coat check', tier: 'hero', job: 'work',
-    x: a.coatCheck.x + 1.98, z: a.coatCheck.z, yaw: -Math.PI / 2,
+    x: a.coatCheck.x + 1.8, z: a.coatCheck.z, yaw: -Math.PI / 2,
     model: { height: 1.67, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'tied' },
   }));
 
@@ -283,18 +296,19 @@ export function populate(scene, room) {
    * centre, which was almost always the gap between two chairs and read as a
    * room full of people sitting on air next to their own seats.
    */
+  const dinerTarget = 27;
   let diner = 0;
-  for (const t of room.anchors.tableSeats) {
-    if (diner > 26) break;
+  dinerTables: for (const t of room.anchors.tableSeats) {
     if (!t.seats.length) continue;
     const near = t.z > -2 && t.x > -20;
     const opposite = t.seats[Math.floor(t.seats.length / 2)];
     for (const seat of t.seats.length > 1 ? [t.seats[0], opposite] : [t.seats[0]]) {
+      if (diner >= dinerTarget) break dinerTables;
       if (Math.random() < 0.28) continue;
       /* One roll, not three. The dress, the colour and the frame have to agree
        * or the room fills up with gowns in undertaker grey on men's shoulders. */
       const inGown = Math.random() < 0.42;
-      add(`diner${diner}`, new Npc(scene, {
+      const seated = add(`diner${diner}`, new Npc(scene, {
         name: 'a diner', tier: near && diner < 10 ? 'ambient' : 'background',
         job: Math.random() < 0.4 ? 'drink' : 'sit',
         /* `look: false`, not `look: near`.
@@ -316,8 +330,15 @@ export function populate(scene, room) {
           ...(inGown ? { gender: 'female', bodyShape: 'curvy' } : {}),
         },
       }));
+      seated.geometrySeat = seat.chair;
+      seated.geometryTable = seat.table;
+      seated.geometryAssemblyId = seat.geometryAssemblyId;
       diner++;
     }
+  }
+
+  if (diner !== dinerTarget) {
+    throw new Error(`Silver Room populated ${diner}/${dinerTarget} authored diners`);
   }
 
   /* ---- the table by the pillar, who send the champagne ---- */
@@ -343,6 +364,9 @@ export function populate(scene, room) {
       yaw: seat.yaw,
       model,
     }));
+    npc.geometrySeat = seat.chair;
+    npc.geometryTable = seat.table;
+    npc.geometryAssemblyId = seat.geometryAssemblyId;
     if (key === CHARACTER_IDS.APE) identifySilverApe(npc);
   });
   by.ape.homeSeat = { x: by.ape.group.position.x, z: by.ape.group.position.z, yaw: by.ape.group.rotation.y };
@@ -402,18 +426,39 @@ function makeViolin() {
    * parented to the forearm bone below (`parts.foreR`, in `makeBand`) and given
    * a LOCAL offset computed once, algebraically, from the same hand point
    * `verify-silver.mjs` already uses for the left hand: `fore.localToWorld(new
-   * THREE.Vector3(0, -0.3, 0.005))`. Solve `bow.position` so that the frog's own
-   * local point (0.012, -0.31, 0), rotated by this bow.rotation.z, lands exactly
-   * on that hand point:
+   * THREE.Vector3(0, -0.3, 0.005))`.
    *
-   *   bowPos = handLocal - Rz(rotZ) * frogLocal = (-0.0612, 0.0041, 0.005)
+   * The first solve of that offset kept the shipped rotation (`rotation.z =
+   * 0.16` relative to the forearm) and only moved the frog into the hand --
+   * which put the hand on the bow and the bow ON THE ARM: 0.16 rad off the
+   * forearm's own axis is a stick lying along the sleeve, pointing 20 degrees
+   * off PARALLEL to the strings and half a metre from them. "His violin bow is
+   * in his arm instead of towards his violin", exactly.
    *
-   * Wherever the forearm goes -- rest pose, mid-stroke, whatever `perform.js`
-   * asks of it next -- the bow is rigidly attached to it, so the hand is on the
-   * bow by construction rather than by a number that happens to land close this
-   * frame. */
-  bow.position.set(-0.0612, 0.0041, 0.005);
-  bow.rotation.z = 0.16;
+   * So both numbers are solved now, against the violin rather than against the
+   * arm. In the instrument's own frame: the hair meets the strings at
+   * (0.05, 0, 0.076) -- just tailpiece-side of the bridge, on the string tops
+   * -- the stick crosses them along (-0.33, 0.94, 0), i.e. ACROSS the strings
+   * and leaning toward the scroll, with its centreline 20mm proud of the plane
+   * so the 22mm of hair is what touches, and the frog sits 0.30m of hair
+   * before the contact. Push that through the violin's mount
+   * (pos (-0.01, 1.35, 0.205), rot (-0.08, 0, -0.12)) and the frog lands at
+   * body-space (0.104, 1.060, 0.325); `perform.js`'s playing pose (armR
+   * (-0.242, -0.459, -0.006), foreR (-1.041, 0, -0.061), solved together with
+   * these numbers) puts the hand point there to 0.4mm. Basis: bow +Y = the
+   * stick direction, bow +X = the string-plane normal negated (hair side
+   * toward the strings), orthogonalised; expressed in foreR's frame and with
+   * the frog pinned to the hand:
+   *
+   *   bowRot = R_fore^-1 * R_bow          = (-1.5992, 1.0348, 2.8501) XYZ
+   *   bowPos = handLocal - bowRot*frogLocal = (-0.0396, -0.2248, 0.3034)
+   *
+   * Measured across the whole stroke (`foreR.x + stroke*0.16`, `armR.x +
+   * stroke*0.08`): the hair stays within 1-39mm of the strings, the contact
+   * point travels 52mm along them past the bridge, and the frog never leaves
+   * the hand (0.1mm). Wherever the forearm goes, the bow goes with it. */
+  bow.position.set(-0.0396, -0.2248, 0.3034);
+  bow.rotation.set(-1.5992, 1.0348, 2.8501);
 
   return { group: violin, bow };
 }

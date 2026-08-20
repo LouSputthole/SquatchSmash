@@ -68,6 +68,10 @@ const BOOTH_SEAT = SOLE + 0.40;
 const TABLE_TOP = SOLE + 0.82;
 /** Centreline of the companionway, below deck. */
 const STAIRS_X = -0.25;
+/** The berth base matches its player collider while the curtain stays tucked
+ * into the bow, clear of the two-person carry mark at the foot of the salon. */
+const BERTH_Z = -5.52;
+const BERTH_CURTAIN_Z = -5.60;
 
 /**
  * Build the cabin under the foredeck.
@@ -271,28 +275,28 @@ export function buildCabin(root) {
   group.add(berth);
   /* Its foot is 2 cm below the sole, not level with it: the tarpaulin gets
    * laid on that sole and the two bottoms were fighting for the same plane. */
-  berth.add(box('V-berth base', [4.00, .54, .86], veneerDark, 0, SOLE + .25, -5.52));
-  berth.add(box('V-berth mattress', [3.80, .16, .82], vinyl, 0, SOLE + .58, -5.52));
-  berth.add(box('V-berth rumpled bedding', [2.60, .13, .60], mat(0x8a8272, .95), -.14, SOLE + .71, -5.60));
-  berth.add(box('V-berth pillow port', [.60, .13, .30], mat(0xc9c3b2, .92), -.94, SOLE + .73, -5.82));
-  berth.add(box('V-berth pillow starboard', [.60, .13, .30], mat(0xc9c3b2, .92), .86, SOLE + .73, -5.82));
-  berth.add(box('V-berth storage locker door', [1.60, .30, .04], veneer, 0, SOLE + .22, -5.08));
-  berth.add(box('V-berth storage locker latch', [.09, .09, .04], brass, 0, SOLE + .22, -5.07));
+  berth.add(box('V-berth base', [4.00, .54, .86], veneerDark, 0, SOLE + .25, BERTH_Z));
+  berth.add(box('V-berth mattress', [3.80, .16, .82], vinyl, 0, SOLE + .58, BERTH_Z));
+  berth.add(box('V-berth rumpled bedding', [2.60, .13, .60], mat(0x8a8272, .95), -.14, SOLE + .71, BERTH_Z - .08));
+  berth.add(box('V-berth pillow port', [.60, .13, .30], mat(0xc9c3b2, .92), -.94, SOLE + .73, BERTH_Z - .30));
+  berth.add(box('V-berth pillow starboard', [.60, .13, .30], mat(0xc9c3b2, .92), .86, SOLE + .73, BERTH_Z - .30));
+  berth.add(box('V-berth storage locker door', [1.60, .30, .04], veneer, 0, SOLE + .22, BERTH_Z + .44));
+  berth.add(box('V-berth storage locker latch', [.09, .09, .04], brass, 0, SOLE + .22, BERTH_Z + .45));
   for (const sx of [-1, 1]) {
-    const lamp = box(`V-berth reading lamp ${sx < 0 ? 'port' : 'starboard'}`, [.10, .09, .14], brass, sx * 1.80, SOLE + 1.30, -5.60);
+    const lamp = box(`V-berth reading lamp ${sx < 0 ? 'port' : 'starboard'}`, [.10, .09, .14], brass, sx * 1.80, SOLE + 1.30, BERTH_Z - .08);
     berth.add(lamp);
     const glow = new THREE.PointLight(0xf3cd93, 1.1, 2.0, 2);
     glow.name = `V-berth reading lamp glow ${sx < 0 ? 'port' : 'starboard'}`;
-    glow.position.set(sx * 1.68, SOLE + 1.26, -5.60);
+    glow.position.set(sx * 1.68, SOLE + 1.26, BERTH_Z - .08);
     berth.add(glow);
   }
   // The dark deck hatch overhead, and the curtain drawn most of the way across.
-  berth.add(box('V-berth overhead hatch frame', [.66, .05, .66], veneerDark, 0, CEILING - .10, -5.52));
-  berth.add(box('V-berth overhead hatch pane', [.56, .03, .56], black, 0, CEILING - .13, -5.52));
-  const curtain = box('V-berth curtain', [2.90, .96, .05], mat(0x6d5f4c, .95), -.18, SOLE + 1.10, -5.02);
+  berth.add(box('V-berth overhead hatch frame', [.66, .05, .66], veneerDark, 0, CEILING - .10, BERTH_Z));
+  berth.add(box('V-berth overhead hatch pane', [.56, .03, .56], black, 0, CEILING - .13, BERTH_Z));
+  const curtain = box('V-berth curtain', [2.90, .96, .05], mat(0x6d5f4c, .95), -.18, SOLE + 1.10, BERTH_CURTAIN_Z);
   berth.add(curtain);
   berth.add(beamBetween('V-berth curtain rail',
-    new THREE.Vector3(-1.90, SOLE + 1.60, -5.02), new THREE.Vector3(1.90, SOLE + 1.60, -5.02), .014, brass, 8));
+    new THREE.Vector3(-1.90, SOLE + 1.60, BERTH_CURTAIN_Z), new THREE.Vector3(1.90, SOLE + 1.60, BERTH_CURTAIN_Z), .014, brass, 8));
 
   /* ---- aft bulkhead: head to starboard, mid-cabin berth to port ---- */
   const aft = new THREE.Group();

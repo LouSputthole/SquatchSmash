@@ -243,6 +243,71 @@ starts passing is not proof you understood it; it is proof you changed
 something. The evidence that closed this was six altitudes measured on a fresh
 page, not the check going green.
 
+### A fourth cause, 2026-08-20 — and this entry was written before the check had ever run
+
+The paragraph above turned out to be its own best example. `playwright` was a
+declared devDependency that was **missing from `node_modules`**, so
+`verify:enolasquatch` had never executed against the current code at all: the
+three causes above were found by reasoning and by targeted probes, and the
+conclusion "it is very good" was true but had never been read off this check.
+Installed and run for real, it reported the same shape one more time —
+`took: true`, heading held to 0.0 degrees, and then `engaged: false`,
+`reason: null` and 225 m of drift at the forty-fifth second.
+
+**`reason: null` was the whole answer.** `Autopilot.disengage` takes a reason
+string every time the AEROPLANE takes control away, and starts a lockout with
+it. `null` is reserved for a hand-back the PLAYER asked for. Nobody asked. The
+caller was `MissionController.fail()`, which disengages with `null` on its way
+out, and it fired because the aeroplane was at x ≈ 19,000 with the map ending
+at 13,400: by the time the script reaches this block it has flown four unbroken
+minutes of eastbound flight (the corridor, thirty seconds of barrage, two
+minutes of fighter passes, a breakoff pass), and the block staged its
+measurement wherever that had left the aeroplane and flew another three
+kilometres the same way. Staged instead from a known place with the whole map
+ahead of it (x = 3200, heading 090, ending near 6300) the law holds heading to
+**0.00 degrees** and altitude to **2 m** across the same forty-five seconds.
+
+**The rule this adds: a check that ends with the mission dead must say the
+mission died.** `held` now reports `failed`, `startedAtX`/`endedAtX` and the
+phase either side of the window. The tail-gun block sixty lines further down
+had already paid for this exact lesson and staged itself at a known x "with the
+whole map ahead of it", in a comment that says so. Nobody carried it up the
+file.
+
+**And a rule about the tool itself: a verifier that cannot run is not a
+verifier.** Eleven of this file's hundred and three checks were red on that
+first real run, and only two of them were bugs. The rest were checks written
+against a design the game had since moved past — a tail gun that had been
+deliberately taken off the outbound leg, a three-option emergency menu replaced
+by "pull the throttle back", a window brightness retuned from 0.5 to 0.2. A
+check that never runs does not stay correct; it quietly becomes a description
+of an older game. Where those were fixed, the replacements are anchored on the
+source's own exported constants (`ENGINE_FIX`, `WINDOW_GLOW`/`DEAD_WINDOW_GLOW`,
+`TAKE_BLEND_SECONDS`) rather than on copies of their values, so the next retune
+moves the check with it.
+
+### 7b. A threshold underneath the noise floor is not a check
+
+Found in the same run, in the same file. *"Real A input banks the Enola Squatch
+left"* asserted that one second of held aileron moved the heading by more than
+**0.02 degrees**. One second of a bank that is still building is worth about a
+quarter of a degree of turn, and underneath it sits a steady rightward drift of
+about the same size — measured hands-off from a matching staged pose: -0.89,
+-0.51 and +0.14 degrees on three runs.
+
+Seeding the weather does not remove it. `src/beefrun/engines.js` seeds each
+engine's idle-RPM wobble from `performance.now()` — the **wall** clock, not the
+simulation clock — so four engines carry four wall-clock-dependent thrusts and
+the aeroplane yaws differently on every run of an identical deterministic tick.
+Consecutive full runs of the same code read -0.008 and +0.028: one fail, one
+pass, decided by nothing.
+
+The fix is not a wider threshold, it is a longer window. Held for three seconds
+the turn is worth four to five degrees each way while the drift is still a
+fraction of one — the same claim, at a signal-to-noise ratio of about twenty
+instead of about one. **Before widening a bound, check whether the quantity is
+even bigger than its own noise; if it is not, measure it somewhere it is.**
+
 ---
 
 ## 8. An animation on a clock is not connected to anything

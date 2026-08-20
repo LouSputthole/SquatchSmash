@@ -76,6 +76,12 @@ const BANDANA = 0xd92e2e;
  */
 export const STOOL_SIT = 0.315;
 
+// The dress-shoe sole extends 2.2 cm below the old 0.90 leg root. Folding the
+// same rig onto a chair needs another 3.8 cm of lower-leg lift to keep both
+// soles on the floor without moving the hips off the authored cushion height.
+const STANDING_LEG_ROOT_Y = 0.922;
+const SEATED_LEG_ROOT_Y = 0.960;
+
 /**
  * One person.
  *
@@ -545,7 +551,11 @@ export function makePerson(o = {}) {
     const pivot = group('leg');
     // A little more daylight between the legs than the rounded frame had, or
     // two slabs this close read as one column with a seam down it.
-    pivot.position.set(side * (curvy ? 0.118 : 0.108) * t, 0.90, 0);
+    pivot.position.set(
+      side * (curvy ? 0.118 : 0.108) * t,
+      STANDING_LEG_ROOT_Y,
+      0,
+    );
     /* Plus-fours are cut FULL -- that is the whole point of them, and a
      * knickerbocker on a normal trouser leg is just a trouser leg with a band
      * round the bottom. Widen the thigh rather than adding a second shape. */
@@ -2574,6 +2584,26 @@ export function makePerson(o = {}) {
     fore.add(slab({ name: 'elbow', size: [0.105 * t, 0.10, 0.115 * t], pos: [0, 0, 0], mat: foreMat }));
     fore.add(slab({ name: 'forearm', size: [0.10 * t, 0.27, 0.105 * t], pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : foreMat }));
     fore.add(slab({ name: 'hand', size: [0.085, 0.115, 0.065], pos: [0, -0.3, 0.005], mat: skinMat }));
+    /* THE HAND SOCKET -- where a prop goes.
+     *
+     * The hand slab above is a real hand and stays a direct child of the
+     * forearm, because that is what every existing measurement looks for. But
+     * it is NOT something you can hang a beer off: `box()` carries a mesh's
+     * SIZE in its scale (see the note over `mouth.userData.base`), so a can
+     * parented to the hand slab would be squashed to 0.085 x 0.115 x 0.065 of
+     * itself, while the same can parented to a CHAMFERED figure's hand -- a
+     * `softBox`, which has real geometry and unit scale -- would come out full
+     * size. Two different results from one line of caller code.
+     *
+     * So the attach point is this empty Group, sitting exactly on the hand's
+     * centre with an unscaled basis: +Y is up the arm, +Z is out the back of
+     * the hand, and the origin is the middle of the fist. Callers place props
+     * in those terms and stop guessing forearm offsets -- which is what golf's
+     * beer cans were doing, at a hand-tuned y = -0.30 that put the can in
+     * front of the wrist rather than in the hand. */
+    const hand = group('hand.socket');
+    hand.position.set(0, -0.3, 0.005);
+    fore.add(hand);
     /* Where the sleeve's surface actually is. Every piece of jewellery below
      * is placed off this rather than off a hand-tuned constant, which is what
      * stops it disappearing inside a heavier man's arm -- see the watch. */
@@ -2822,6 +2852,7 @@ export function makePerson(o = {}) {
     }
     pivot.add(fore);
     pivot.userData.fore = fore;
+    pivot.userData.hand = hand;
     return pivot;
   }
   const armL = arm(-1);
@@ -2877,6 +2908,12 @@ export function makePerson(o = {}) {
     heightScale, gownOcclusion,
     armL, armR, legL, legR,
     foreL: armL.userData.fore, foreR: armR.userData.fore,
+    /* Hand sockets. `foreL`/`foreR` stay exactly what they were -- half the
+     * game poses arms through them and the Siege, the golfers' clubs and the
+     * Silvercase revolvers all hang off the forearm on purpose. `handL`/`handR`
+     * are the addition: an unscaled attach point at the middle of the fist for
+     * anything that is meant to be HELD. */
+    handL: armL.userData.hand, handR: armR.userData.hand,
     shinL: legL.children.find((c) => c.name === 'shin'),
     shinR: legR.children.find((c) => c.name === 'shin'),
   };
@@ -3002,6 +3039,8 @@ export class Npc {
   sit() {
     this._neutralPose();
     this.seated = true;
+    this.parts.legL.position.y = SEATED_LEG_ROOT_Y;
+    this.parts.legR.position.y = SEATED_LEG_ROOT_Y;
     this.parts.legL.rotation.x = -1.45;
     this.parts.legR.rotation.x = -1.45;
     this.parts.shinL.rotation.x = 1.4;
@@ -3030,6 +3069,8 @@ export class Npc {
 
   stand() {
     this._neutralPose();
+    this.parts.legL.position.y = STANDING_LEG_ROOT_Y;
+    this.parts.legR.position.y = STANDING_LEG_ROOT_Y;
     this._splayCurvyArms();
     this.seated = false;
     this.group.position.y = this.baseY;
@@ -3042,25 +3083,22 @@ export class Npc {
     for (const mesh of occlusion.always) mesh.visible = false;
     for (const mesh of occlusion.seated) mesh.visible = !seated;
     for (const mesh of occlusion.visibleBelowHem) mesh.visible = true;
-    /* A gown PERCHED on a bar stool hangs its hem at the footrest, not the
-     * floor. The authored skirt is floor-length (hem 0.23, top 1.16 in figure
-     * space — pinned by tests/outfits.test.mjs on standing AND chair-seated
-     * builds, neither of which this touches): on a dining chair a floor-length
-     * hem still reaches the floor, which is correct fabric. On a stool the
-     * figure sits from a raised base (`STOOL_SIT`) and the same tube hung past
-     * the brass ring nearly to the floor — which is how DeathMegatron's gown
-     * became the lowest geometry on a woman whose feet were correctly on the
-     * footrest. Real fabric on a perched body breaks over the knees and stops
-     * around the ring, so the perched hem stops at the footrest line the way
-     * everyone else's trouser cuffs do (0.36 local puts it level with the
-     * seated shoe soles). Top edge stays put under the bodice. */
+    /* Sitting lowers the entire figure by 0.42 model metres. A standing
+     * skirt left at its 0.23 local hem therefore entered a dining-room floor
+     * by roughly 18cm even while both shoes remained correctly planted. On a
+     * dining chair, shorten the skirt to a 0.42 local hem so it meets the
+     * floor at the same datum as the seated rig. A raised stool uses the
+     * established 0.36 local break over the knees and brass footrest. The top
+     * edge stays registered under the bodice in every pose. */
     const skirt = this.group.getObjectByName('gown.skirt');
     if (skirt) {
       const top = 1.16;
       const standHem = 0.23;
+      const diningHem = 0.42;
       const perchedHem = 0.36;
-      const perched = this.baseY > 0.1;
-      const hem = seated && perched ? perchedHem : standHem;
+      const hem = !seated
+        ? standHem
+        : this.baseY > 0.1 ? perchedHem : diningHem;
       skirt.scale.y = (top - hem) / (top - standHem);
       skirt.position.y = top - (top - standHem) * skirt.scale.y / 2;
     }
@@ -3139,10 +3177,30 @@ export class Npc {
     this.voiceMouth.stop();
   }
 
+  /**
+   * Turn to face a point on the floor.
+   *
+   * `snap` is the whole difference between ambience and direction. Without it
+   * the figure is given a target and `update()` eases toward it a bit every
+   * frame; with it the figure is ON that heading now, because a scripted beat
+   * cannot wait a second and a half for a man to notice a knife.
+   *
+   * A SNAP THEREFORE CLEARS THE SMOOTH TARGET, and it must keep doing so.
+   * `targetYaw` used to be write-only: nothing ever cleared it, so the first
+   * ambient `faceToward(x, z)` any chatter system made -- one line of small
+   * talk was enough -- pinned that NPC's heading forever. A later
+   * `faceToward(..., true)` won for exactly one frame and was then dragged
+   * back to the stale target by `update()`, which is why Ape spent the Billy
+   * HotDog murder facing the wrong way while stabbing the right man.
+   */
   faceToward(x, z, snap = false) {
     const yaw = Math.atan2(x - this.group.position.x, z - this.group.position.z);
-    if (snap) this.group.rotation.y = yaw;
-    else this.targetYaw = yaw;
+    if (snap) {
+      this.group.rotation.y = yaw;
+      this.targetYaw = undefined;
+    } else {
+      this.targetYaw = yaw;
+    }
     return yaw;
   }
 
@@ -3583,6 +3641,28 @@ export class Npc {
  * Twenty-nine people, which is a busy Tuesday.
  * @returns {{ all: Npc[], byName: Object<string, Npc> }}
  */
+/**
+ * The man across the felt.
+ *
+ * Was typed inline in `populate()` and nowhere else, which was fine until the
+ * closed party needed a dealer too -- and a second inline model would have
+ * been a second man doing the same job at the same table on a different
+ * night. Same rule as `BADA_BING_BARTENDER` in core/wardrobe.js: the body
+ * moves out, both places spread it, and there is one dealer. He stays here
+ * rather than in the wardrobe because he is a JOB in this building, not a
+ * person on the campaign roster -- the wardrobe is keyed by character id and
+ * the dealer has never had one.
+ */
+export const BING_BLACKJACK_DEALER = Object.freeze({
+  height: 1.76,
+  build: 0.95,
+  dress: 'waistcoat',
+  shirt: 0xe6e2da,
+  hair: 'short',
+  hairColour: 0x9a9a9a,
+  glasses: true,
+});
+
 export function populate(scene, club, { includeMargo = true } = {}) {
   const a = club.anchors;
   const all = [];
@@ -3654,7 +3734,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   add('dealer', new Npc(scene, {
     name: 'the dealer', tier: 'hero', job: 'deal',
     x: a.dealer.x, z: a.dealer.z, yaw: 0,
-    model: { height: 1.76, build: 0.95, dress: 'waistcoat', shirt: 0xe6e2da, hair: 'short', hairColour: 0x9a9a9a, glasses: true },
+    model: { ...BING_BLACKJACK_DEALER },
   }));
 
   /* The man on the office door is crew, not a doorman in a tracksuit: dark
@@ -3781,7 +3861,9 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     }));
   });
 
-  const standing = [[-18.4, 0.6], [-18.4, 4.4], [-17.6, 7.4]];
+  // Keep the middle leaner between stools 5 and 6. At z=4.4 their lowered
+  // hand clipped stool 5 even though the performer was visibly standing.
+  const standing = [[-18.4, 0.6], [-18.4, 4.6], [-17.6, 7.4]];
   standing.forEach(([sx, sz], i) => {
     add(`stander${i}`, new Npc(scene, {
       name: 'a regular', tier: i === 0 ? 'ambient' : 'background', job: 'lean',

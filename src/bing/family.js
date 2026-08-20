@@ -45,7 +45,7 @@ export const FAMILY = [
     id: CHARACTER_IDS.BOOSKI, name: 'Booskibro', slug: 'booski', photo: 'booski.png',
     /* AT THE BAR, by the service station — his shot beat happens here. On
      * the stool, not in it: see STOOL_SIT. */
-    spot: { x: -18.7, z: 1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: -18.3, z: 1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
     /* Patriarch money, not crew uniform: a midnight-blue open knit with
      * restrained gold ribs, a layered founder chain and a real watch. */
     model: WARDROBE.booski,
@@ -53,7 +53,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.DEATHMEGATRON, name: 'DeathMegatron', slug: 'deathmegatron', photo: 'deathmegatron.png',
     // Two stools down from Booski, with the spritz the world owed her.
-    spot: { x: -18.7, z: -1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: -18.3, z: -1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
     /* She is a woman and one of the FIVE, and the figure said neither: she was
      * carrying the roster's default unspecified frame in an off-the-peg grey
      * suit, which is what everybody at the back of the Silver Room wears.
@@ -74,7 +74,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.SEFF, name: 'Seff', slug: 'seff', photo: 'seff.png',
     // The far end of the bar, where a man waits for his situation to clear.
-    spot: { x: -18.7, z: 5.2, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'sit' },
+    spot: { x: -18.3, z: 5.2, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'sit' },
     model: {
       height: 1.76, build: 1.0, dress: 'suit', shirt: 0x3a2a2a,
       hair: 'short', hairColour: 0x14100e, skin: 0xe8c39c,
@@ -141,7 +141,12 @@ export const FAMILY = [
     model: WARDROBE.hogmama,
   },
   {
-    id: CHARACTER_IDS.SHUBENATOR, name: 'The Shubenator', slug: 'shubenator', photo: 'shubes.png',
+    /* Face: the owner's pick (2026-08-19) — "the guy in the goggles". The
+     * cropped photo lands at assets/faces/shubenator.png; until it is in the
+     * faces index, `photoFallback` keeps the existing shubes.png portrait on
+     * him rather than dropping back to a drawn face. */
+    id: CHARACTER_IDS.SHUBENATOR, name: 'The Shubenator', slug: 'shubenator', photo: 'shubenator.png',
+    photoFallback: 'shubes.png',
     // Another stage two-top, nine hundred push-ups deep.
     spot: { x: -8.15, z: 3.2, yaw: -1.34, job: 'drink' },
     model: WARDROBE.shubenator,
@@ -188,7 +193,7 @@ export const FAMILY = [
     /* The south end of the bar -- stool zero, the quiet one, furthest from
      * the service station and from anybody who wants a conversation. A man
      * who has come out for one drink and has not taken his coat off. */
-    spot: { x: -18.7, z: -2.6, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: -18.3, z: -2.6, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
     model: WARDROBE.aubbie,
   },
   {
@@ -249,7 +254,13 @@ export function populateFamily(scene, club, { present = FAMILY, faces = new Set(
   const all = [];
   const byId = {};
   for (const member of present) {
-    const face = faces.has(member.photo) ? `assets/faces/${member.photo}` : null;
+    /* Prefer the member's named photo; `photoFallback` covers a face whose
+     * replacement has been wired but not yet dropped into assets/faces/
+     * (the index only lists files that exist, so a missing drop degrades to
+     * the previous portrait instead of a 404 or a blank). */
+    const photo = faces.has(member.photo) ? member.photo
+      : (member.photoFallback && faces.has(member.photoFallback) ? member.photoFallback : null);
+    const face = photo ? `assets/faces/${photo}` : null;
     const npc = new Npc(scene, {
       name: member.name,
       tier: 'ambient',
@@ -539,7 +550,7 @@ export function buildFamilyScripts({
 
   const captain_lou_sasole = hangout('Captain Lou Sasole', 'sasole', {
     line1: 'Ground people, Tony. Everyone in here. Beautiful souls, zero situational awareness.',
-    reply: { text: 'They’re alright.' },
+    reply: { text: 'They’re alive, which this week counts.' },
     line2: 'You flew with me once and you walked away from the landing. That puts you top five pilots in this room.',
     last: 'Top five? Who’s ahead of me?',
     lastCue: 'vo.bing.hang.sasole.tony.1',
@@ -586,7 +597,7 @@ export function buildFamilyScripts({
 
   const ape = hangout('Ape', 'ape', {
     line1: 'Statements made in this establishment are for entertainment purposes only.',
-    reply: { text: 'Noted for the record.' },
+    reply: { text: 'I’ll write that on my hand.' },
     line2: 'I am having a nice time. This is my nice-time face. It is load-bearing.',
     aside: {
       tone: 'Ask', ask: 'Load-bearing how?',

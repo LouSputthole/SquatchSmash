@@ -404,6 +404,36 @@
       "caption": "A spy-noir print of Lou's DJ alter ego, east wall of the office."
     },
     {
+      "slot": "bing.office.the_boys",
+      "file": "silver-sasquatches-austin.jpg",
+      "title": "BLAST Austin Major \u2014 Silver Sasquatches",
+      "caption": "Top row of the door wall in Lou's office. The whole squad in Austin, back when everybody still had their original knees."
+    },
+    {
+      "slot": "bing.office.shore",
+      "file": "goodfellas-tommy.jpg",
+      "title": "A Friend of Ours",
+      "caption": "Behind the desk, over Lou's shoulder. You don't ask who he is. He already knows who you are."
+    },
+    {
+      "slot": "bing.office.first_truck",
+      "file": "silver-sasquatches-5-years.jpg",
+      "title": "5 Years of Stacks",
+      "caption": "Top row of the door wall. Five years, one crest, and nobody has ever produced a receipt."
+    },
+    {
+      "slot": "bing.office.old_place",
+      "file": "silver-sasquatches-denver-2026.jpg",
+      "title": "Silver Sasquatches \u2014 Denver 2026",
+      "caption": "Door wall of Lou's office. The Denver badge went up before anybody had actually been to Denver."
+    },
+    {
+      "slot": "bing.office.bing_1979",
+      "file": "sasquatches-jersey-fan.jpg",
+      "title": "The Jersey",
+      "caption": "East wall of the office. A man, a hotel room, and the team jersey. Game day never really ends."
+    },
+    {
       "slot": "bing.bathroom.anime4",
       "file": "bing-bathroom-anime4.jpg",
       "title": "Bada Bing bathroom print",
@@ -764,6 +794,12 @@
       "caption": "The approved house crest replaces the temporary footprint on both street-facing medallions."
     },
     {
+      "slot": "mansion.lan.runescape",
+      "file": "osrs-screen.png",
+      "title": "Old School RuneScape",
+      "caption": "Shubes' monitor. Eleven years on the account and he still banks after every trip."
+    },
+    {
       "slot": "mansion.bedroom.booski-death.crest",
       "file": "logo-crest.png",
       "title": "The crest, over Booski and DeathMegatron's bed",
@@ -852,6 +888,54 @@
       "file": "logo-denver-2026.jpg",
       "title": "Denver 2026",
       "caption": "In the LAN room, east wall. Next stop."
+    },
+    {
+      "slot": "mansion.bedroom.booski-death.booski-portrait",
+      "file": "booski-portrait.jpg",
+      "title": "Booski, at home",
+      "caption": "Green paint, ogre ears, not a flicker. The biggest frame on his own wall, which is how he would want it."
+    },
+    {
+      "slot": "mansion.foyer.savior",
+      "file": "squatch-jesus.jpg",
+      "title": "The good shepherd",
+      "caption": "Robes, halo, a bottle of wine and a basket of eggs. High on the foyer's west wall, level with the crest, where the double height finally earns its keep."
+    },
+    {
+      "slot": "mansion.gallery.heaven",
+      "file": "squatch-heaven-roster.jpg",
+      "title": "The stairway roster",
+      "caption": "All of them on the stairway to heaven, under a very large ape. End of the gallery, so the walk past the founders finishes looking up."
+    },
+    {
+      "slot": "mansion.office.birthday-dog",
+      "file": "birthday-dog.jpg",
+      "title": "The birthday girl",
+      "caption": "A goldendoodle in a party hat, framed on the desk, facing Lou's chair. It was her birthday. Everyone had been informed."
+    },
+    {
+      "slot": "mansion.office.lou-is-back",
+      "file": "uncle-lou-is-back.jpg",
+      "title": "UNCLE LOU IS BACK",
+      "caption": "Purple and chrome, number 69, whiskey and gold. A man hangs his own poster where the meetings happen."
+    },
+    {
+      "slot": "mansion.suite.lou-is-back",
+      "file": "uncle-lou-is-back.jpg",
+      "title": "UNCLE LOU IS BACK, again",
+      "caption": "The same poster, in the bedroom, so it is also the last thing he sees. Nobody said it once."
+    },
+    {
+      "slot": "mansion.office.vacation-vienna",
+      "file": "lou-vacation-vienna.jpg",
+      "title": "Vienna",
+      "caption": "Her, at the palace funfair. Hung over the safe, which tells you the order things are valued in."
+    },
+    {
+      "slot": "mansion.suite.vacation-florence",
+      "file": "lou-vacation-florence.jpg",
+      "title": "Florence",
+      "caption": "The whole city at sunset, over somebody else's crowd. By the wardrobes, where a suitcase gets packed."
     }
   ]
 }

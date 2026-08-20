@@ -145,9 +145,22 @@ const M_CRACK = mat({
 });
 const M_FRAME_BENT = mat({ color: 0x2a2d33, roughness: 0.7, metalness: 0.4 });
 
-export function buildSiegeGlass({ damage, grounds, interior } = {}) {
+/* GEOMETRY_GATE_SIEGE_GLASS_REVEAL_JOIN: exact broken-pane teeth and bent frame ends intentionally key into the surviving authored reveal, sill or mullion only. */
+export function buildSiegeGlass({
+  damage,
+  grounds,
+  interior,
+  onCrack = null,
+  onShatter = null,
+} = {}) {
   if (!damage) throw new Error('buildSiegeGlass needs the damage-state overlay');
   if (!grounds?.shell?.windows) throw new Error('buildSiegeGlass needs the built grounds');
+  if (onCrack != null && typeof onCrack !== 'function') {
+    throw new TypeError('buildSiegeGlass onCrack must be a function');
+  }
+  if (onShatter != null && typeof onShatter !== 'function') {
+    throw new TypeError('buildSiegeGlass onShatter must be a function');
+  }
 
   const root = new THREE.Group();
   root.name = 'MansionSiegeGlass';
@@ -299,12 +312,19 @@ export function buildSiegeGlass({ damage, grounds, interior } = {}) {
     );
     const inward = spec.into[0] === '+' ? 1 : -1;
     const paneBox = colliderForPane(mesh);
+    /* The weapon ray reports the exact rendered object it struck. Publish the
+     * stable pane id there so main.js can transition only that pane instead
+     * of guessing from a nearby opening or a collider centre. */
+    mesh.userData.siegeGlassPaneId = spec.id;
     /* The house's own floor under this pane: the sill for a ground-floor
      * window, the upper slab for one over the forecourt. Shards land on it. */
     const floorY = record.y0 > 5 ? 6.0 : 1.2;
 
     /* ---- shards: the frame with the glass gone out of it ---- */
     const shards = group(`siege.glass.${spec.id}.shards`);
+    shards.userData.geometryGate = {
+      assemblyId: `siege-glass-${spec.id}-shards`,
+    };
     const w = axis === 'z' ? record.x1 - record.x0 : record.z1 - record.z0;
     const h = record.y1 - record.y0;
     /* Teeth left in the frame, alternating top and bottom, so the opening
@@ -496,7 +516,10 @@ export function buildSiegeGlass({ damage, grounds, interior } = {}) {
     if (!pane || pane.state !== 'intact') return false;
     writeLayers(pane, 'cracked');
     damage.refresh();
-    /* Cue: `siege.glass.crack` at pane.centre. */
+    onCrack?.({
+      id: pane.id,
+      position: pane.centre.clone(),
+    });
     return true;
   }
 
@@ -514,7 +537,10 @@ export function buildSiegeGlass({ damage, grounds, interior } = {}) {
     writeLayers(pane, 'broken');
     damage.refresh();
     if (pane.box) throwParticles(pane, 12);
-    /* Cue: `siege.glass.shatter` at pane.centre. */
+    onShatter?.({
+      id: pane.id,
+      position: pane.centre.clone(),
+    });
     return true;
   }
 

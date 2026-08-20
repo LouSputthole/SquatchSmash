@@ -34,7 +34,20 @@ const MUSIC_DIR = 'assets/music/';
 
 /** How long a spoken segment sits on screen before the next one. */
 const SEGMENT_TIME = 8.5;
+/* A radio set is a thing you walk away from and a thing that gets driven
+ * across a golf course, and a host's line has to survive both. 0.7 against the
+ * 1.4 the engine gives a footstep roughly halves how fast the level falls off
+ * with distance -- far enough to stay intelligible across a room, still short
+ * of the whole map. */
+const DIALOGUE_ROLLOFF = 0.7;
+
 const SEGMENT_GAP = 1.4;
+
+/* How many blocks a FRESH news segment waits after tune-in. Soon enough that
+ * coming home from a job means hearing about the job, late enough that the
+ * radio gets to be a radio first -- an intro and a beat of show, not a desk
+ * waiting at the door with a report on you. */
+const NEWS_AFTER = 2;
 
 /* Records are played as a excerpt rather than end to end. A full track is
  * three or four minutes of an eighteen-minute game, which is most of a
@@ -65,6 +78,7 @@ export class Radio {
     venue = 'apartment',
     state = null,
     canPlayNotice = () => true,
+    news = () => [],
     fullSongs = false,
     output = 1,
   } = {}) {
@@ -74,6 +88,11 @@ export class Radio {
     this.venue = venue;
     this.state = state;
     this.canPlayNotice = typeof canPlayNotice === 'function' ? canPlayNotice : () => true;
+    /* The news segments this receiver may air, already gated on the campaign:
+     * the scene passes `() => newsSegmentsFor(campaign.state)` (stations.js)
+     * or nothing at all. Default silence, so a cart or a cockpit never
+     * reports on the man tuned in unless its scene opts in. */
+    this.news = typeof news === 'function' ? news : () => [];
     /* Most receivers air short radio edits. Silver Pines is the deliberate
      * exception: it is a player-controlled cart stereo and plays a selected
      * song from its opening through the media element's natural `ended`
@@ -122,6 +141,8 @@ export class Radio {
       ? saved.adReactionCursor : 0;
     /** Blocks aired since tuning in, so the notice can hold off at first. */
     this._blocks = 0;
+    /** Block number of the last news line, so segments never air back-to-back. */
+    this._lastNewsBlock = Number.NEGATIVE_INFINITY;
     /** Seconds into the record on air, or -1 when none is. */
     this._songT = -1;
     this._track = null;
@@ -227,9 +248,12 @@ export class Radio {
         }
       }
       if (startupOnly) continue;
-      for (const segment of station.commercial ?? []) {
-        if (segment.cue) cues.add(segment.cue);
-        addLine(segment.line);
+      for (const ad of station.commercials ?? []) {
+        if (!ad.live) continue;   // never preload a break that cannot air
+        for (const segment of ad.segments) {
+          if (segment.cue) cues.add(segment.cue);
+          addLine(segment.line);
+        }
       }
       for (const line of station.lines ?? []) addLine(line);
       for (const tape of station.tapes ?? []) {
@@ -241,6 +265,14 @@ export class Radio {
         for (const segment of MEETING_NOTICE) {
           if (segment.cue) cues.add(segment.cue);
           addLine(segment.line);
+        }
+      }
+      if (station.notices) {
+        /* Only the segments the campaign has actually unlocked -- the whole
+         * news ledger is most of a season of radio, and the point of this
+         * method is not decoding things that cannot air. */
+        for (const segment of this._eligibleNews()) {
+          for (const line of segment.lines) addLine(line);
         }
       }
     }
@@ -492,6 +524,7 @@ export class Radio {
     this._songT = -1;
     this._track = null;
     this._blocks = 0;
+    this._lastNewsBlock = Number.NEGATIVE_INFINITY;
     this._activeBroadcast = null;
     this._activeSegment = null;
     this._phase = 'gap';
@@ -557,6 +590,20 @@ export class Radio {
       return;
     }
 
+    /* A FRESH news segment -- eligible, never yet heard anywhere -- jumps the
+     * running order the first chance it decently can, so coming home after a
+     * job means hearing about the job within a block or two of switching on.
+     * It is marked heard on air through the shared bulletin history, after
+     * which it only comes round again in the cycle's own low-frequency news
+     * slot below. The gap guard keeps a priority segment off the back of one
+     * the cycle just played. */
+    if (st.notices && this._blocks >= NEWS_AFTER && this._newsGapClear()) {
+      const fresh = this._eligibleNews().find(
+        (segment) => !this.hasHeardBulletin(segment.id),
+      );
+      if (fresh) { this._queueNews(fresh); return; }
+    }
+
     /* An explicit rotation rather than three independent counters.
      *
      * Counters were the bug: songEvery counted BLOCKS, and an ident or a
@@ -566,6 +613,10 @@ export class Radio {
      * points, so a show is always a proper stretch of show and a record is
      * always introduced.
      */
+    /* `news` sits after `notice` rather than mid-cycle so the notice keeps
+     * its long-standing position in the order; the two are never eligible on
+     * the same day (the notice is Day One's, the news only exists once jobs
+     * have happened), so nothing ever airs them adjacent. */
     const CYCLE = [
       'talk', 'link', 'song',
       'talk', 'talk', 'link', 'song',
@@ -573,7 +624,7 @@ export class Radio {
       'talk', 'link', 'song',
       'talk', 'tape',
       'talk', 'talk', 'link', 'song',
-      'talk', 'notice',
+      'talk', 'notice', 'news',
     ];
     const noMusic = !this.playlist.length;
 
@@ -606,7 +657,11 @@ export class Radio {
         return;
       }
       if (slot === 'ad') {
-        this._queue.push(...st.commercial, { reaction: 'ad' });
+        /* Round-robin like every other slot, so every live break airs before
+         * any of them repeats, and which one is next survives a save. */
+        const live = (st.commercials ?? []).filter((ad) => ad.live);
+        this._queue.push(...(this._pick(`${st.id}:ad`, live)?.segments ?? []),
+          { reaction: 'ad' });
         this._persist();
         return;
       }
@@ -618,6 +673,16 @@ export class Radio {
         this._queue.push(...MEETING_NOTICE.filter((segment) => !segment.bulletinId
           || !this.hasHeardBulletin(segment.bulletinId)));
         this._persist();
+        return;
+      }
+      if (slot === 'news') {
+        /* The rotation slot: once a segment has had its fresh airing it comes
+         * round here, once per cycle, deterministic coverage over everything
+         * the campaign has made eligible. Never straight after another news
+         * block -- two reports in a row is a news station, and this is not. */
+        const eligible = this._eligibleNews();
+        if (!eligible.length || !this._newsGapClear()) continue;
+        this._queueNews(this._pick(`${st.id}:news`, eligible));
         return;
       }
       // talk: a whole exchange, which is the point of the whole rewrite.
@@ -642,6 +707,33 @@ export class Radio {
     return this.canPlayNotice()
       && MEETING_NOTICE.some((segment) => !segment.bulletinId
         || !this.hasHeardBulletin(segment.bulletinId));
+  }
+
+  /** The news segments whose events have happened, per the scene's gate. */
+  _eligibleNews() {
+    try {
+      const segments = this.news();
+      return Array.isArray(segments) ? segments : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** True once at least one full non-news block has aired since the last one. */
+  _newsGapClear() {
+    return this._blocks > this._lastNewsBlock + 1;
+  }
+
+  /** Queue one whole segment: sting on the first line, then the read. */
+  _queueNews(segment) {
+    if (!segment?.lines?.length) return;
+    segment.lines.forEach((line, i) => this._queue.push({
+      line,
+      cue: i === 0 ? 'radio.jingle' : null,
+      news: true,
+      newsId: i === 0 ? segment.id : null,
+    }));
+    this._persist();
   }
 
   /** Move the next segment on air. */
@@ -675,6 +767,13 @@ export class Radio {
       if (s.bulletinId) this.markBulletinHeard(s.bulletinId);
       this.onNotice?.();
     }
+    /* A news line remembers its block so the next news block keeps its
+     * distance, and the segment's first line retires it from the priority
+     * queue -- heard once anywhere, it is rotation material everywhere. */
+    if (s.news) {
+      this._lastNewsBlock = this._blocks;
+      if (s.newsId) this.markBulletinHeard(s.newsId);
+    }
     this._playSegmentAudio(s);
 
     this._showOsd();
@@ -683,12 +782,13 @@ export class Radio {
   _playSegmentAudio(s) {
     if (s.reactionCue) {
       this._voice = this.audio.play(s.reactionCue, {
-        position: this.position, volume: this._level(1), ref: 3.4, maxDist: 26,
+        follow: () => this.position, volume: this._level(1),
+        ref: 3.4, maxDist: 26, rolloff: DIALOGUE_ROLLOFF,
       });
       this._dwell = this._voice?.buffer?.duration ?? 2.2;
       return;
     }
-    if (s.cue) this.audio.play(s.cue, { position: this.position, volume: this._level(0.5) });
+    if (s.cue) this.audio.play(s.cue, { follow: () => this.position, volume: this._level(0.5) });
 
     // The hosts are recorded now, so hold a line on air for exactly as long as
     // it takes to say. Anything without a clip -- the dynamically composed
@@ -706,7 +806,8 @@ export class Radio {
      * default 1.4m rolloff is a murmur by the time you are at the fridge, so
      * from anywhere but the sideboard the station read as dead air. */
     this._voice = v ? this.audio.play(v.cue, {
-      position: this.position, volume: this._level(1), ref: 3.4, maxDist: 26,
+      follow: () => this.position, volume: this._level(1),
+      ref: 3.4, maxDist: 26, rolloff: DIALOGUE_ROLLOFF,
     }) : null;
     this._dwell = this._voice?.buffer
       ? this._voice.buffer.duration
@@ -738,7 +839,8 @@ export class Radio {
     this._line = line;
     this._showOsd();
     this._voice = cue ? this.audio.play(cue, {
-      position: this.position, volume: this._level(1), ref: 3.4, maxDist: 26,
+      follow: () => this.position, volume: this._level(1),
+      ref: 3.4, maxDist: 26, rolloff: DIALOGUE_ROLLOFF,
     }) : null;
     this._broadcastT = this._voice?.buffer
       ? this._voice.buffer.duration + SEGMENT_GAP

@@ -55,6 +55,21 @@ function flat(group, size, position, material, name = '') {
   return item;
 }
 
+function ownGeometry(node, assemblyId, policy = {}) {
+  node.userData.geometryGate = {
+    ...node.userData.geometryGate,
+    assemblyId,
+    ...policy,
+  };
+  return node;
+}
+
+function ownAddedChildren(group, startIndex, assemblyId, policy = {}) {
+  for (const child of group.children.slice(startIndex)) {
+    ownGeometry(child, assemblyId, policy);
+  }
+}
+
 function bounds(size, position) {
   const half = size.map((value) => value / 2);
   return new THREE.Box3(
@@ -68,17 +83,21 @@ function floorZone(width, depth, surface, x = 0, z = 0) {
 }
 
 function roomColliders(width, depth, height) {
+  const thickness = 0.25;
+  // Collision-union members meet at their faces. Full-width slabs overlap at
+  // every corner and turn an intentional wall run into a permanent false hit.
   return [
-    bounds([width, height, 0.25], [0, height / 2, -depth / 2]),
-    bounds([width, height, 0.25], [0, height / 2, depth / 2]),
-    bounds([0.25, height, depth], [-width / 2, height / 2, 0]),
-    bounds([0.25, height, depth], [width / 2, height / 2, 0]),
+    bounds([width - thickness, height, thickness], [0, height / 2, -depth / 2]),
+    bounds([width - thickness, height, thickness], [0, height / 2, depth / 2]),
+    bounds([thickness, height, depth - thickness], [-width / 2, height / 2, 0]),
+    bounds([thickness, height, depth - thickness], [width / 2, height / 2, 0]),
   ];
 }
 
 function room(group, width, depth, height, floorMaterial = MAT.concrete, {
   back = true, front = true,
 } = {}) {
+  const firstChild = group.children.length;
   box(group, [width, 0.2, depth], [0, -0.1, 0], floorMaterial);
   if (front) box(group, [width, height, 0.25], [0, height / 2, -depth / 2], MAT.darkConcrete);
   if (back) box(group, [width, height, 0.25], [0, height / 2, depth / 2], MAT.darkConcrete);
@@ -87,12 +106,20 @@ function room(group, width, depth, height, floorMaterial = MAT.concrete, {
   /* A ceiling that casts shadow would put the whole room under the key light's
    * own roof and black the floor out — it is a lid, not an occluder. */
   flat(group, [width, 0.2, depth], [0, height, 0], MAT.darkConcrete);
+  ownAddedChildren(group, firstChild, `heist.${group.name}.shell`, {
+    fixedSupportAnchor: true,
+    structural: true,
+  });
+  group.children[firstChild].name = `${group.name}-floor`;
 }
 
 /** One car body, shared by the level, the street and the whole escape city. */
 export function makeVehicleBody(group, position, color = 0x17191c, name = 'vehicle') {
   const root = new THREE.Group();
   root.name = name;
+  root.userData.geometryGate = {
+    assemblyId: `heist.vehicle.${name}`,
+  };
   root.position.set(...position);
   const bodyMat = new THREE.MeshStandardMaterial({ color, metalness: 0.55, roughness: 0.42 });
   const trim = new THREE.MeshStandardMaterial({ color: 0x0e1012, roughness: 0.75 });
@@ -141,6 +168,9 @@ export function makeCargoVan(group, position, color = 0x151719, name = 'cargo-va
   root.name = name;
   root.position.set(...position);
   root.userData.kind = 'cargo-van';
+  root.userData.geometryGate = {
+    assemblyId: `heist.vehicle.${name}`,
+  };
 
   const bodyMat = new THREE.MeshStandardMaterial({ color, metalness: 0.48, roughness: 0.5 });
   const trim = new THREE.MeshStandardMaterial({ color: 0x0d1012, roughness: 0.78 });
@@ -228,6 +258,7 @@ function buildSafehouse() {
   const loadingBay = new THREE.Group();
   loadingBay.name = 'safehouse-loading-bay';
   loadingBay.userData.kind = 'loading-bay';
+  ownGeometry(loadingBay, 'heist.phase-safehouse.shell', { structural: true, fixedSupportAnchor: true });
   loadingBay.position.set(0, 0, 7);
   const BAY_OPENING = 3.7;
   const BAY_WING = (18 - BAY_OPENING) / 2;
@@ -275,6 +306,7 @@ function buildSafehouse() {
     const locker = new THREE.Group();
     locker.name = `prep-locker-${index + 1}`;
     locker.userData.kind = 'prep-locker';
+    ownGeometry(locker, `heist.safehouse.locker.${index + 1}`);
     locker.position.set(x, 0, -6.45);
     box(locker, [1.55, 2.9, 0.72], [0, 1.45, 0], MAT.steel);
     box(locker, [1.35, 2.62, 0.06], [0, 1.45, 0.39], MAT.darkConcrete);
@@ -290,7 +322,12 @@ function buildSafehouse() {
 
   const evidence = new THREE.Group();
   evidence.name = 'evidence-board';
-  evidence.position.set(0.5, 2.35, -6.76);
+  evidence.userData.geometryGate = {
+    assemblyId: 'heist.safehouse.evidence-board',
+  };
+  // Five millimetres off the finished wall face: visibly mounted and inside
+  // the gate's four-centimetre fixed-anchor tolerance.
+  evidence.position.set(0.5, 2.35, -6.81);
   box(evidence, [5.25, 2.55, 0.12], [0, 0, 0], MAT.wood);
   const paperLayout = [
     [-1.72, 0.55, 0.9, 0.68], [-0.55, 0.72, 0.7, 0.52],
@@ -351,6 +388,7 @@ function buildSafehouse() {
    * ---------------------------------------------------------------- */
   const briefing = new THREE.Group();
   briefing.name = 'briefing-map';
+  ownGeometry(briefing, 'heist.safehouse.briefing-map');
   briefing.position.set(0, 0, 0.2);
   box(briefing, [5.8, 0.18, 2.4], [0, 0.88, 0], MAT.wood, 'briefing-table-top');
   for (const x of [-2.45, 2.45]) {
@@ -603,6 +641,7 @@ function buildSafehouse() {
    */
   const armor = new THREE.Group();
   armor.name = 'safehouse-armor';
+  ownGeometry(armor, 'heist.safehouse.armor');
   armor.position.set(-5.5, 0, 2.8);
   box(armor, [0.09, 1.35, 0.09], [0, 0.68, -0.16], MAT.steel, 'armor-stand');
   box(armor, [0.62, 0.07, 0.42], [0, 0.05, -0.16], MAT.steel);
@@ -628,6 +667,7 @@ function buildSafehouse() {
    * thing he picks up is visibly the thing he then holds. */
   const loadout = new THREE.Group();
   loadout.name = 'safehouse-loadout';
+  ownGeometry(loadout, 'heist.safehouse.loadout');
   loadout.position.set(4.7, 0, 2.5);
   box(loadout, [3.8, 0.17, 1.35], [0, 0.9, 0], MAT.wood, 'loadout-table');
   for (const x of [-1.55, 1.55]) box(loadout, [0.2, 0.9, 0.9], [x, 0.43, 0], MAT.steel);
@@ -690,14 +730,26 @@ function buildSafehouse() {
    * stack of tyres, a workbench, a coffee urn and a wall clock. Nothing here
    * is interactive; all of it is why the room reads as somewhere people are. */
   for (const x of [-4.5, 4.5]) {
+    const side = x < 0 ? 'left' : 'right';
+    const fixture = new THREE.Group();
+    fixture.name = `safehouse-strip-light-${side}`;
+    ownGeometry(fixture, `heist.safehouse.strip-light.${side}`);
+    group.add(fixture);
     const light = new THREE.PointLight(0xffd89d, 2.8, 11, 2);
-    light.name = `safehouse-overhead-${x < 0 ? 'left' : 'right'}`;
+    light.name = `safehouse-overhead-${side}`;
     light.position.set(x, 3.45, 0);
-    group.add(light);
-    const fitting = box(group, [2.4, 0.12, 0.34], [x, 3.5, 0], MAT.steel);
+    fixture.add(light);
+    const fitting = box(fixture, [2.4, 0.12, 0.34], [x, 3.5, 0], MAT.steel,
+      `safehouse-strip-light-body-${side}`);
     fitting.castShadow = false;
-    flat(group, [2.2, 0.05, 0.28], [x, 3.42, 0], GLOW.amber);
-    for (let i = -2; i <= 2; i++) box(group, [0.03, 0.16, 0.32], [x + i * 0.5, 3.42, 0], MAT.steel);
+    flat(fixture, [2.2, 0.05, 0.28], [x, 3.42, 0], GLOW.amber,
+      `safehouse-strip-light-glow-${side}`);
+    for (let i = -2; i <= 2; i++) box(fixture, [0.03, 0.16, 0.32],
+      [x + i * 0.5, 3.42, 0], MAT.steel, `safehouse-strip-light-cage-${side}-${i + 3}`);
+    // The old fitting stopped 54 cm below the ceiling with nothing holding it.
+    // Two hangers now join its top to the underside of the room shell.
+    for (const dx of [-0.8, 0.8]) box(fixture, [0.04, 0.54, 0.04],
+      [x + dx, 3.83, 0], MAT.steel, `safehouse-strip-light-hanger-${side}`);
   }
   const cameraFill = new THREE.PointLight(0xffe5c2, 1.9, 11, 2);
   cameraFill.position.set(0, 2.75, 4.25);
@@ -713,6 +765,7 @@ function buildSafehouse() {
 
   const bench = new THREE.Group();
   bench.name = 'safehouse-bench';
+  ownGeometry(bench, 'heist.safehouse.bench');
   bench.position.set(-8.2, 0, -1.6);
   box(bench, [1.1, 0.14, 4.2], [0, 0.92, 0], MAT.wood);
   box(bench, [0.9, 0.9, 0.14], [0, 0.45, -2], MAT.steel);
@@ -725,6 +778,8 @@ function buildSafehouse() {
   group.add(bench);
 
   const urn = new THREE.Group();
+  urn.name = 'safehouse-coffee-urn';
+  ownGeometry(urn, 'heist.safehouse.coffee-urn');
   urn.position.set(8.2, 0, -3.4);
   box(urn, [1.1, 0.9, 1.6], [0, 0.45, 0], MAT.steel);
   mesh(urn, new THREE.CylinderGeometry(0.16, 0.16, 0.44, 12), MAT.steel, [0, 1.12, 0]);
@@ -738,10 +793,16 @@ function buildSafehouse() {
       new THREE.MeshStandardMaterial({ color: 0x131416, roughness: 1 }), [8.1, 0.16 + i * 0.24, 4.6]);
     tyre.rotation.x = Math.PI / 2;
   }
-  const clock = mesh(group, new THREE.CylinderGeometry(0.3, 0.3, 0.06, 16), MAT.paper, [-8.7, 3.1, 2.4]);
+  const clockAssembly = new THREE.Group();
+  clockAssembly.name = 'safehouse-clock';
+  ownGeometry(clockAssembly, 'heist.safehouse.clock');
+  // Back of the 6 cm case is tangent to the west wall's inner face.
+  clockAssembly.position.set(-8.845, 3.1, 2.4);
+  const clock = mesh(clockAssembly, new THREE.CylinderGeometry(0.3, 0.3, 0.06, 16),
+    MAT.paper, [0, 0, 0], 'safehouse-clock-face');
   clock.rotation.z = Math.PI / 2;
-  clock.name = 'safehouse-clock';
-  box(group, [0.04, 0.2, 0.03], [-8.63, 3.18, 2.4], MAT.ink);
+  box(clockAssembly, [0.04, 0.2, 0.03], [0.07, 0.08, 0], MAT.ink, 'safehouse-clock-hand');
+  group.add(clockAssembly);
 
   /* Nose outside, cargo doors inside: this van is backed through the bay
    * instead of parked sideways across the work floor. */
@@ -757,11 +818,11 @@ function buildSafehouse() {
     interactables: { briefing, armor, loadout, van: vanDoor },
     colliders: [
       // Safehouse shell with a real 3.7 m opening at the loading bay.
-      bounds([18, 4.2, 0.25], [0, 2.1, -7]),
-      bounds([0.25, 4.2, 14], [-9, 2.1, 0]),
-      bounds([0.25, 4.2, 14], [9, 2.1, 0]),
-      bounds([BAY_WING, 4.2, 0.25], [-BAY_WING_X, 2.1, 7]),
-      bounds([BAY_WING, 4.2, 0.25], [BAY_WING_X, 2.1, 7]),
+      bounds([17.75, 4.2, 0.25], [0, 2.1, -7]),
+      bounds([0.25, 4.2, 13.75], [-9, 2.1, 0]),
+      bounds([0.25, 4.2, 13.75], [9, 2.1, 0]),
+      bounds([7.025, 4.2, 0.25], [-5.3625, 2.1, 7]),
+      bounds([7.025, 4.2, 0.25], [5.3625, 2.1, 7]),
       bounds([BAY_OPENING, 0.68, 0.25], [0, 3.86, 7]),
       bounds([5.8, 1.05, 2.4], [0, 0.52, 0.2]),
       bounds([4.1, 1.2, 1.5], [4.7, 0.6, 2.5]),
@@ -780,6 +841,9 @@ function buildSafehouse() {
 function buildVan() {
   const group = new THREE.Group();
   group.name = 'phase-van';
+  group.userData.geometryGate = {
+    assemblyId: 'heist.van.interior',
+  };
   /* The first captured interior was functionally black: one 1.1-intensity
    * bulb over near-black concrete panels gave the renderer no gradients to
    * return. These are still work-van colours, but painted metal rather than
@@ -935,22 +999,23 @@ export const LOBBY_ANCHORS = Object.freeze([
   { x: 0.9, z: -3.9, yaw: Math.PI / 2 - 0.35, role: 'teller' },
   { x: 4.4, z: -3.9, yaw: Math.PI / 2 - 0.35, role: 'teller' },
   // The writing desks and the waiting seats on the east side.
-  { x: 6.4, z: 2.4, yaw: -1.9 }, { x: 7.6, z: 1.2, yaw: -2.4 },
-  { x: 7.9, z: 4.1, yaw: -1.2 }, { x: 6.2, z: 5.2, yaw: -0.8 },
+  { x: 5.5, z: 2.4, yaw: -1.9 }, { x: 7.6, z: 1.2, yaw: -2.4 },
+  { x: 8.5, z: 3.8, yaw: -1.2 }, { x: 5.4, z: 5.5, yaw: -0.8 },
   // The manager's desks on the west side.
-  { x: -7.4, z: 3.2, yaw: 1.9, role: 'clerk' }, { x: -6.4, z: 5.0, yaw: 1.4, role: 'clerk' },
-  { x: -8.1, z: 6.2, yaw: 0.9 },
+  { x: -8.2, z: 2.8, yaw: 1.9, role: 'clerk' }, { x: -5.5, z: 5.5, yaw: 1.4, role: 'clerk' },
+  { x: -8.8, z: 5.5, yaw: 0.9 },
   /* Near the doors, which is where the people who nearly got out are — but
    * clear of x 0, because that is the doorway the crew comes through and a
    * stranger's shoulder blades filling the frame on entry is not an entrance. */
   { x: -3.4, z: 8.1, yaw: 0.3 }, { x: 3.1, z: 8.4, yaw: -0.4 },
-  { x: 4.6, z: 7.0, yaw: -0.7 }, { x: -5.2, z: 7.4, yaw: 0.5 },
+  { x: 5.8, z: 8.1, yaw: -0.7 }, { x: -5.8, z: 8.2, yaw: 0.5 },
   { x: -3.2, z: 5.5, yaw: 0.1 },
 ]);
 
 function buildTellerLine(group) {
   const line = new THREE.Group();
   line.name = 'teller-line';
+  ownGeometry(line, 'heist.bank.teller-line');
   line.position.set(-1, 0, -2.4);
   box(line, [17.2, 1.12, 0.85], [0, 0.56, 0], MAT.richWood, 'teller-counter');
   box(line, [17.4, 0.09, 1.0], [0, 1.16, 0], MAT.marbleDark);
@@ -981,11 +1046,13 @@ function buildBank() {
    * 8.4 m doorway between them. A single slab there is what would make the
    * vault unreachable. */
   room(group, 22, 22, 6.4, MAT.marble, { back: false, front: false });
+  const rearShellStart = group.children.length;
   for (const side of [-1, 1]) {
     box(group, [6.8, 6.4, 0.25], [side * 7.6, 3.2, -11], MAT.darkConcrete, `bank-rear-wall-${side}`);
   }
   box(group, [8.4, 2.6, 0.25], [0, 5.1, -11], MAT.darkConcrete, 'bank-vault-lintel');
   box(group, [8.9, 0.3, 0.4], [0, 3.75, -11], MAT.brass, 'bank-vault-arch');
+  ownAddedChildren(group, rearShellStart, 'heist.phase-bank.shell', { structural: true, fixedSupportAnchor: true });
 
   // A veined marble floor with a compass inlay, because a bank floor is the
   // first thing you see and a flat grey slab reads as an empty level.
@@ -993,13 +1060,16 @@ function buildBank() {
     flat(group, [21.6, 0.012, 0.09], [0, 0.007, i * 2], MAT.marbleDark);
     flat(group, [0.09, 0.012, 21.6], [i * 2, 0.007, 0], MAT.marbleDark);
   }
+  const inlayStart = group.children.length - 22;
   const inlay = mesh(group, new THREE.CylinderGeometry(2.3, 2.3, 0.02, 24), MAT.marbleDark, [0, 0.012, 3.2]);
   inlay.castShadow = false;
   const inlayInner = mesh(group, new THREE.CylinderGeometry(1.75, 1.75, 0.03, 24), MAT.brass, [0, 0.016, 3.2]);
   inlayInner.castShadow = false;
+  ownAddedChildren(group, inlayStart, 'heist.bank.floor-inlay', { overlap: false });
 
   const columnXs = [-8, -4.4, 4.4, 8];
   for (const [index, x] of columnXs.entries()) {
+    const columnStart = group.children.length;
     const column = mesh(group, new THREE.CylinderGeometry(0.42, 0.55, 5.6, 18),
       MAT.marble, [x, 2.8, 7], `bank-column-${index + 1}`);
     column.userData.kind = 'bank-column';
@@ -1011,15 +1081,17 @@ function buildBank() {
         [x + Math.cos(angle) * 0.45, 2.8, 7 + Math.sin(angle) * 0.45], MAT.marbleDark);
       groove.castShadow = false;
     }
+    ownAddedChildren(group, columnStart, `heist.bank.column.${index + 1}`);
   }
 
   buildTellerLine(group);
 
   // A coffered ceiling with pendant fittings, and a mezzanine rail behind the
   // teller line — vertical detail is what stops a big room reading as a box.
+  const ceilingStart = group.children.length;
   for (let i = -2; i <= 2; i++) {
     for (let j = -2; j <= 2; j++) {
-      const coffer = flat(group, [3.6, 0.22, 3.6], [i * 4, 6.28, j * 4], MAT.marbleDark);
+      const coffer = flat(group, [3.6, 0.22, 3.6], [i * 4, 6.08, j * 4], MAT.marbleDark);
       coffer.receiveShadow = false;
     }
   }
@@ -1029,12 +1101,16 @@ function buildBank() {
     shade.castShadow = false;
     flat(group, [0.9, 0.05, 0.9], [x, 4.42, z], GLOW.amber);
   }
+  ownAddedChildren(group, ceilingStart, 'heist.bank.ceiling-fixtures');
+  const mezzanineStart = group.children.length;
   box(group, [21, 0.2, 0.24], [0, 3.4, -8.4], MAT.brass, 'bank-mezzanine-rail');
   for (let i = -9; i <= 9; i += 2) box(group, [0.07, 0.9, 0.07], [i, 2.95, -8.4], MAT.brass);
+  ownAddedChildren(group, mezzanineStart, 'heist.phase-bank.shell', { structural: true, fixedSupportAnchor: true });
 
   // The doors: a revolving vestibule at +Z with brass frames and a lit EXIT.
   const doors = new THREE.Group();
   doors.name = 'bank-entrance';
+  ownGeometry(doors, 'heist.phase-bank.shell', { structural: true, fixedSupportAnchor: true });
   doors.position.set(0, 0, 10.6);
   box(doors, [22, 6.4, 0.4], [0, 3.2, 0.3], MAT.marbleDark);
   const exit = box(doors, [3.2, 3.8, 0.12], [0, 1.9, 0.2], MAT.glass, 'bank-exit');
@@ -1048,8 +1124,10 @@ function buildBank() {
   group.add(doors);
 
   // Furniture: writing desks, a rope queue, seats, a deposit-box wall.
-  for (const [x, z, yaw] of [[7.0, 2.4, -0.6], [7.0, 5.0, -0.6], [-7.2, 4.2, 0.6]]) {
+  for (const [index, [x, z, yaw]] of [[7.0, 2.4, -0.6], [7.0, 5.0, -0.6], [-7.2, 4.2, 0.6]].entries()) {
     const desk = new THREE.Group();
+    desk.name = `bank-writing-desk-${index + 1}`;
+    ownGeometry(desk, `heist.bank.writing-desk.${index + 1}`);
     desk.position.set(x, 0, z);
     desk.rotation.y = yaw;
     box(desk, [1.5, 0.1, 0.8], [0, 1.02, 0], MAT.richWood);
@@ -1060,6 +1138,8 @@ function buildBank() {
   }
   for (let i = 0; i < 5; i++) {
     const post = new THREE.Group();
+    post.name = `bank-queue-post-${i + 1}`;
+    ownGeometry(post, 'heist.bank.queue');
     post.position.set(-6.4 + i * 2.2, 0, 1.9);
     mesh(post, new THREE.CylinderGeometry(0.06, 0.13, 1.0, 10), MAT.brass, [0, 0.5, 0]);
     mesh(post, new THREE.SphereGeometry(0.09, 8, 6), MAT.brass, [0, 1.05, 0]);
@@ -1071,6 +1151,8 @@ function buildBank() {
   }
   for (let i = 0; i < 4; i++) {
     const seat = new THREE.Group();
+    seat.name = `bank-waiting-seat-${i + 1}`;
+    ownGeometry(seat, `heist.bank.waiting-seat.${i + 1}`);
     seat.position.set(8.4, 0, 0.4 + i * 1.4);
     box(seat, [0.6, 0.1, 0.55], [0, 0.46, 0], MAT.richWood);
     box(seat, [0.6, 0.5, 0.1], [0, 0.7, -0.24], MAT.richWood);
@@ -1081,6 +1163,7 @@ function buildBank() {
   }
   const boxes = new THREE.Group();
   boxes.name = 'deposit-wall';
+  ownGeometry(boxes, 'heist.bank.deposit-wall');
   boxes.position.set(-10.5, 0, -4);
   for (let row = 0; row < 7; row++) {
     for (let col = 0; col < 8; col++) {
@@ -1104,6 +1187,7 @@ function buildBank() {
    * but every individual is now their own target in front of it. */
   const crowd = box(group, [18, 0.12, 9], [0, 0.06, 3.4], MAT.invisible, 'bank-crowd');
   crowd.castShadow = false;
+  ownGeometry(crowd, 'heist.bank.crowd-proxy', { overlap: false, checkSupport: false });
 
   const managerFigure = makeBankManagerFigure({ name: 'bank-manager', x: 7.5, z: -4.2, yaw: -1.9 });
   group.add(managerFigure.root);
@@ -1160,12 +1244,14 @@ function buildBank() {
    * bolt work, and the cash on trolleys inside it. */
   const vaultRoom = new THREE.Group();
   vaultRoom.name = 'vault-room';
+  ownGeometry(vaultRoom, 'heist.phase-bank.shell', { structural: true, fixedSupportAnchor: true });
   vaultRoom.position.set(0, 0, -10.1);
   box(vaultRoom, [8.4, 4.4, 0.3], [0, 2.2, -3.2], MAT.steel);
   box(vaultRoom, [0.3, 4.4, 6.4], [-4.2, 2.2, 0], MAT.steel);
   box(vaultRoom, [0.3, 4.4, 6.4], [4.2, 2.2, 0], MAT.steel);
   box(vaultRoom, [8.4, 0.2, 6.4], [0, 4.3, 0], MAT.steel);
-  box(vaultRoom, [8.4, 0.1, 6.4], [0, 0.02, 0], MAT.darkConcrete);
+  const vaultFloor = box(vaultRoom, [8.4, 0.1, 6.4], [0, 0.02, 0], MAT.darkConcrete, 'vault-room-floor');
+  ownGeometry(vaultFloor, 'heist.phase-bank.shell');
   const vaultLight = new THREE.PointLight(0xcfe0ea, 2.2, 12, 2);
   vaultLight.position.set(0, 3.6, -1.4);
   vaultRoom.add(vaultLight);
@@ -1173,29 +1259,38 @@ function buildBank() {
 
   const vault = new THREE.Group();
   vault.name = 'vault-door';
+  ownGeometry(vault, 'heist.bank.vault-door');
   vault.position.set(0, 0, -10.1);
-  const disc = mesh(vault, new THREE.CylinderGeometry(2.3, 2.3, 0.55, 32), MAT.steel, [0, 2.5, 3.1]);
+  const disc = mesh(vault, new THREE.CylinderGeometry(2.0, 2.0, 0.55, 32), MAT.steel, [0, 2.2, 3.1]);
   disc.rotation.x = Math.PI / 2;
-  const ring = mesh(vault, new THREE.TorusGeometry(2.42, 0.16, 8, 32), MAT.brass, [0, 2.5, 3.1]);
+  const ring = mesh(vault, new THREE.TorusGeometry(1.86, 0.12, 8, 32), MAT.brass, [0, 2.2, 3.1]);
   ring.rotation.x = 0;
   for (let i = 0; i < 10; i++) {
     const angle = (i / 10) * Math.PI * 2;
     mesh(vault, new THREE.CylinderGeometry(0.11, 0.11, 0.6, 8),
-      MAT.brass, [Math.cos(angle) * 1.85, 2.5 + Math.sin(angle) * 1.85, 3.28])
+      MAT.brass, [Math.cos(angle) * 1.62, 2.2 + Math.sin(angle) * 1.62, 3.28])
       .rotation.x = Math.PI / 2;
   }
-  const wheel = mesh(vault, new THREE.TorusGeometry(0.62, 0.075, 8, 20), MAT.brass, [0, 2.5, 3.44]);
+  const wheel = mesh(vault, new THREE.TorusGeometry(0.62, 0.075, 8, 20), MAT.brass, [0, 2.2, 3.44]);
   wheel.name = 'vault-wheel';
   for (let i = 0; i < 4; i++) {
-    const spoke = box(vault, [1.24, 0.08, 0.08], [0, 2.5, 3.44], MAT.brass);
+    const spoke = box(vault, [1.24, 0.08, 0.08], [0, 2.2, 3.44], MAT.brass);
     spoke.rotation.z = (i / 4) * Math.PI;
   }
-  mesh(vault, new THREE.CylinderGeometry(0.16, 0.16, 0.2, 12), MAT.steel, [0, 2.5, 3.5]).rotation.x = Math.PI / 2;
+  mesh(vault, new THREE.CylinderGeometry(0.16, 0.16, 0.2, 12), MAT.steel, [0, 2.2, 3.5]).rotation.x = Math.PI / 2;
+  // Keep every visible lock-work part on the same leaf. The old open pose
+  // moved only the disc and wheel, leaving bolts hanging in the doorway.
+  const doorLeafParts = [...vault.children];
+  const closedDoorLeafPositions = doorLeafParts.map((part) => part.position.clone());
+
   const panel = box(vault, [0.55, 0.75, 0.14], [2.9, 1.7, 3.2], MAT.darkConcrete, 'vault-panel');
   flat(vault, [0.4, 0.28, 0.03], [2.9, 1.92, 3.29], GLOW.alarm, 'vault-panel-screen');
   for (let i = 0; i < 12; i++) {
     box(vault, [0.09, 0.07, 0.03], [2.72 + (i % 3) * 0.18, 1.66 - Math.floor(i / 3) * 0.12, 3.29], MAT.steel);
   }
+  // A massive sliding door needs a visible floor guide. It spans the closed
+  // and open positions and physically seats the whole door assembly.
+  box(vault, [5.8, 0.12, 0.36], [-0.6, 0.06, 3.1], MAT.steel, 'vault-door-floor-guide');
   group.add(vault);
 
   /* THE DOOR IS A WALL WHILE IT IS SHUT.
@@ -1214,26 +1309,34 @@ function buildBank() {
    * collider list by `setOpen` — the same call that moves the disc, so the
    * thing you can see and the thing you can walk through cannot disagree.
    */
-  const doorCollider = bounds([8.4, 4.4, 0.7], [0, 2.2, -7.0]);
+  const doorCollider = bounds([8.1, 4.4, 0.55], [0, 2.2, -7.0]);
   vault.userData.doorCollider = doorCollider;
   vault.userData.open = false;
   vault.userData.setOpen = (open) => {
     const isOpen = open === true;
     vault.userData.open = isOpen;
-    disc.position.x = isOpen ? -2.6 : 0;
+    for (const [index, part] of doorLeafParts.entries()) {
+      part.position.copy(closedDoorLeafPositions[index]);
+      if (isOpen) {
+        // Slide the complete leaf left and forward into its visible pocket,
+        // clear of the corridor wall instead of carving 30 cm through it.
+        part.position.x -= 4.8;
+        part.position.z += 0.65;
+      }
+    }
     disc.rotation.z = isOpen ? 0.5 : 0;
-    ring.visible = !isOpen;
-    wheel.position.x = isOpen ? -2.6 : 0;
+    ring.visible = true;
     vault.userData.onOpenChanged?.(isOpen);
   };
 
   const bags = new THREE.Group();
   bags.name = 'vault-cash';
+  ownGeometry(bags, 'heist.bank.vault-cash');
   bags.position.set(0, 0, -10.1);
   for (let i = 0; i < 8; i++) {
     const bag = makeCashBag({ full: true });
     bag.name = `cash-${i + 1}`;
-    bag.position.set(-2.4 + (i % 4) * 1.6, 0.16, -0.6 + Math.floor(i / 4) * 1.3);
+    bag.position.set(-2.4 + (i % 4) * 1.6, 0.28, -0.6 + Math.floor(i / 4) * 1.3);
     bag.rotation.y = (i % 3 - 1) * 0.3;
     bag.scale.setScalar(1.5);
     bags.add(bag);
@@ -1267,17 +1370,17 @@ function buildBank() {
     civilians,
     alarmLight,
     colliders: [
-      bounds([22, 6.4, 0.25], [0, 3.2, 11]),
-      bounds([0.25, 6.4, 22], [-11, 3.2, 0]),
-      bounds([0.25, 6.4, 22], [11, 3.2, 0]),
-      bounds([6.8, 6.4, 0.25], [-7.6, 3.2, -11]),
-      bounds([6.8, 6.4, 0.25], [7.6, 3.2, -11]),
+      bounds([21.75, 6.4, 0.25], [0, 3.2, 11]),
+      bounds([0.25, 6.4, 21.75], [-11, 3.2, 0]),
+      bounds([0.25, 6.4, 21.75], [11, 3.2, 0]),
+      bounds([6.525, 6.4, 0.25], [-7.6125, 3.2, -11]),
+      bounds([6.525, 6.4, 0.25], [7.6125, 3.2, -11]),
       ...columnXs.map((x) => bounds([1.1, 5.6, 1.1], [x, 2.8, 7])),
       bounds([17.2, 1.3, 0.9], [-1, 0.65, -2.4]),
       bounds([0.4, 3, 3.4], [-10.5, 1.5, -4]),
-      bounds([0.3, 4.4, 6.4], [-4.2, 2.2, -10.1]),
-      bounds([0.3, 4.4, 6.4], [4.2, 2.2, -10.1]),
-      bounds([8.4, 4.4, 0.3], [0, 2.2, -13.3]),
+      bounds([0.3, 4.4, 5.875], [-4.2, 2.2, -10.2125]),
+      bounds([0.3, 4.4, 5.875], [4.2, 2.2, -10.2125]),
+      bounds([8.1, 4.4, 0.3], [0, 2.2, -13.3]),
       bounds([1.4, 1.0, 1.4], [8.4, 0.5, 2.5]),
       /* The shut vault door. `buildHeistLevel` takes this one back out when
        * the bypass finishes — see `vault.userData.onOpenChanged`. Without it
@@ -1297,12 +1400,19 @@ function buildBank() {
 function buildStreet() {
   const group = new THREE.Group();
   group.name = 'phase-street';
-  box(group, [18, 0.2, 72], [0, -0.1, 0], MAT.asphalt);
-  for (let z = -34; z < 34; z += 8) flat(group, [0.2, 0.02, 4], [0, 0.015, z], MAT.warning);
+  ownGeometry(box(group, [18, 0.2, 72], [0, -0.1, 0], MAT.asphalt, 'heist-street-ground'),
+    'heist.street.ground', { structural: true, fixedSupportAnchor: true });
+  for (let z = -34; z < 34; z += 8) {
+    ownGeometry(flat(group, [0.2, 0.02, 4], [0, 0.015, z], MAT.warning),
+      'heist.street.lane-paint', { overlap: false });
+  }
   for (const side of [-1, 1]) {
-    box(group, [3.4, 0.35, 72], [side * 10.3, 0.12, 0], MAT.concrete);
-    box(group, [0.3, 0.42, 72], [side * 8.7, 0.2, 0], MAT.marbleDark);
+    ownGeometry(box(group, [3.4, 0.35, 72], [side * 10.3, 0.175, 0], MAT.concrete),
+      `heist.street.sidewalk.${side}`, { overlap: false });
+    ownGeometry(box(group, [0.3, 0.42, 72], [side * 8.7, 0.2, 0], MAT.marbleDark),
+      `heist.street.sidewalk.${side}`, { overlap: false });
     for (let i = 0; i < 9; i++) {
+      const facadeStart = group.children.length;
       const color = i % 2 ? 0x3d4449 : 0x342f2b;
       const height = 8 + (i % 3) * 2;
       const facade = box(group, [6, height, 7], [side * 13.4, height / 2, -31 + i * 8],
@@ -1321,13 +1431,18 @@ function buildStreet() {
           box(group, [0.06, 2.6, 0.06], [side * 9.1, 4.7 + f * 2.6, -32.4 + i * 8], MAT.steel);
         }
       }
+      // Storefronts stand on the 35 cm pavement instead of intersecting it.
+      for (const part of group.children.slice(facadeStart)) part.position.y += 0.35;
+      ownAddedChildren(group, facadeStart, `heist.street.facade.${side}.${i}`);
     }
     // Lamp posts and a hydrant run down both kerbs.
     for (let i = 0; i < 6; i++) {
+      const fixtureStart = group.children.length;
       const z = -30 + i * 12;
       box(group, [0.16, 6.4, 0.16], [side * 9.6, 3.2, z], MAT.steel);
       box(group, [1.8, 0.12, 0.12], [side * 8.7, 6.3, z], MAT.steel);
       flat(group, [0.7, 0.14, 0.32], [side * 7.9, 6.15, z], GLOW.amber, `street-practical-${side}-${i}`);
+      ownAddedChildren(group, fixtureStart, `heist.street.lamp.${side}.${i}`);
     }
   }
   const coverCars = [];
@@ -1338,11 +1453,14 @@ function buildStreet() {
   }
   // Planters on the bank steps: the cover Snow's authored line names.
   for (const x of [-3.4, 0, 3.4]) {
+    const planterStart = group.children.length;
     const planter = box(group, [2.2, 0.9, 1.1], [x, 0.45, 31.5], MAT.marbleDark, `bank-planter-${x}`);
     planter.userData.kind = 'street-cover';
     box(group, [1.9, 0.4, 0.85], [x, 1.0, 31.5], new THREE.MeshStandardMaterial({ color: 0x2f3a27, roughness: 1 }));
+    ownAddedChildren(group, planterStart, 'heist.street.bank-entry');
     coverCars.push(bounds([2.2, 1.1, 1.1], [x, 0.55, 31.5]));
   }
+  const bankFacadeStart = group.children.length;
   box(group, [7, 6.5, 1], [-5.5, 3.25, 35], MAT.marble, 'bank-facade-left');
   box(group, [7, 6.5, 1], [5.5, 3.25, 35], MAT.marble, 'bank-facade-right');
   box(group, [4, 2.2, 1], [0, 5.4, 35], MAT.marble, 'bank-facade-lintel');
@@ -1351,17 +1469,21 @@ function buildStreet() {
   }
   for (let i = 0; i < 3; i++) box(group, [11, 0.22, 0.9], [0, 0.11 + i * 0.22, 33 - i * 0.9], MAT.marble);
   const bankDoor = box(group, [4, 4, 0.2], [0, 2, 34], MAT.brass, 'street-start');
+  ownAddedChildren(group, bankFacadeStart, 'heist.street.bank-entry');
   const van = makeVehicleBody(group, [0, 0, 14], 0x111316, 'disabled-van');
   van.rotation.y = 0.18;
   van.scale.set(1.2, 1.15, 1.05);
   const droppedBag = makeCashBag({ full: true });
   droppedBag.name = 'dropped-bag';
-  droppedBag.position.set(-3.2, 0.22, -6);
+  ownGeometry(droppedBag, 'heist.street.dropped-bag');
+  droppedBag.position.set(-3.2, 0.38, -6);
   droppedBag.rotation.set(0.2, 0.7, 0.35);
   droppedBag.scale.setScalar(1.5);
   group.add(droppedBag);
   const garage = box(group, [7, 4.5, 0.2], [0, 2.25, -35], MAT.concrete, 'garage-entry');
-  flat(group, [4.4, 0.5, 0.1], [0, 4.9, -35], GLOW.amber, 'garage-sign');
+  const garageSign = flat(group, [4.4, 0.5, 0.1], [0, 4.65, -35], GLOW.amber, 'garage-sign');
+  ownGeometry(garage, 'heist.street.garage-entry');
+  ownGeometry(garageSign, 'heist.street.garage-entry');
 
   return {
     group,
@@ -1372,8 +1494,8 @@ function buildStreet() {
       bounds([3.4, 10, 72], [10.3, 5, 0]),
       ...coverCars,
       bounds([4.9, 2.0, 2.2], [0, 1, 14]),
-      bounds([7, 6.5, 1], [-5.5, 3.25, 35]),
-      bounds([7, 6.5, 1], [5.5, 3.25, 35]),
+      bounds([6.6, 6.5, 1], [-5.3, 3.25, 35]),
+      bounds([6.6, 6.5, 1], [5.3, 3.25, 35]),
     ],
     floorZones: [floorZone(18, 72, 'asphalt')],
   };
@@ -1386,29 +1508,45 @@ function buildStreet() {
 function buildGarage() {
   const group = new THREE.Group();
   group.name = 'phase-garage';
-  room(group, 24, 30, 4.4);
+  room(group, 24, 30, 4.4, MAT.concrete, { back: false });
+  const rearShellStart = group.children.length;
+  for (const side of [-1, 1]) {
+    box(group, [8.2, 4.4, 0.25], [side * 7.9, 2.2, 15], MAT.darkConcrete,
+      `garage-ramp-portal-wing-${side}`);
+  }
+  box(group, [7.6, 1.2, 0.25], [0, 3.8, 15], MAT.darkConcrete, 'garage-ramp-portal-lintel');
+  ownAddedChildren(group, rearShellStart, 'heist.phase-garage.shell', { structural: true, fixedSupportAnchor: true });
   for (const x of [-8, -3, 3, 8]) {
     for (const z of [-10, 0, 10]) {
+      if (z === 10 && Math.abs(x) === 3) continue;
+      const pillarStart = group.children.length;
       box(group, [0.8, 4.4, 0.8], [x, 2.2, z], MAT.concrete);
       flat(group, [0.9, 0.6, 0.9], [x, 0.3, z], MAT.warning);
+      ownAddedChildren(group, pillarStart, 'heist.phase-garage.shell', { structural: true, fixedSupportAnchor: true });
     }
   }
   // Bays, arrows, drips, and the strip lights that make a garage a garage.
   for (let i = -5; i <= 5; i++) {
-    flat(group, [0.12, 0.01, 5.4], [i * 2.2, 0.006, -11], MAT.paper);
-    flat(group, [0.12, 0.01, 5.4], [i * 2.2, 0.006, 11], MAT.paper);
+    ownGeometry(flat(group, [0.12, 0.01, 5.4], [i * 2.2, 0.006, -11], MAT.paper),
+      'heist.garage.bay-paint', { overlap: false });
+    ownGeometry(flat(group, [0.12, 0.01, 5.4], [i * 2.2, 0.006, 11], MAT.paper),
+      'heist.garage.bay-paint', { overlap: false });
   }
   for (let i = -2; i <= 2; i++) {
+    const overheadStart = group.children.length;
     const fitting = box(group, [0.28, 0.14, 9], [i * 5, 4.2, 0], MAT.steel);
     fitting.castShadow = false;
     flat(group, [0.22, 0.05, 8.6], [i * 5, 4.1, 0], GLOW.amber);
+    ownAddedChildren(group, overheadStart, `heist.garage.overhead.${i}`);
     const light = new THREE.PointLight(0xe8d7ae, 1.6, 14, 2);
     light.name = `garage-overhead-${i + 3}`;
     light.position.set(i * 5, 3.9, 0);
     group.add(light);
   }
-  for (const [x, z] of [[-10, -6], [9.6, 4]]) {
+  for (const [x, z] of [[-6.8, -13], [9.6, 4]]) {
+    const crateStart = group.children.length;
     for (let i = 0; i < 4; i++) box(group, [0.9, 0.9, 0.9], [x, 0.45 + i * 0.9, z], MAT.darkConcrete);
+    ownAddedChildren(group, crateStart, `heist.garage.crate-stack.${x}.${z}`);
   }
   /* The ramp down from the street, and the thing the player used to spawn
    * inside of.
@@ -1421,22 +1559,28 @@ function buildGarage() {
    *
    * The ramp keeps its place — it is where the crew came in from — and is a
    * solid now. The spawn moved to the clear floor in front of it. */
-  const ramp = box(group, [7, 0.3, 8], [0, 0.9, 13], MAT.concrete, 'garage-ramp');
+  const rampStart = group.children.length;
+  const ramp = box(group, [7, 0.3, 8], [0, 1.05, 13], MAT.concrete, 'garage-ramp');
   ramp.rotation.x = 0.22;
   for (const side of [-1, 1]) {
     box(group, [0.3, 1.6, 8], [side * 3.5, 1.5, 13], MAT.darkConcrete, `garage-ramp-wall-${side}`);
   }
+  ownAddedChildren(group, rampStart, 'heist.garage.ramp');
   const hold = box(group, [8, 0.1, 3], [0, 0.05, 8], MAT.invisible, 'garage-hold');
   hold.castShadow = false;
+  ownGeometry(hold, 'heist.garage.hold-proxy', { overlap: false, checkSupport: false });
   const sedan = makeVehicleBody(group, [0, 0, -8], 0x34393d, 'escape-sedan');
   const load = box(group, [2.4, 1.1, 0.2], [0, 0.85, -7], MAT.steel, 'sedan-trunk');
   const drive = box(group, [1, 1.3, 0.2], [-1.1, 1.1, -8], MAT.glass, 'driver-door');
+  ownGeometry(load, 'heist.vehicle.escape-sedan');
+  ownGeometry(drive, 'heist.vehicle.escape-sedan');
 
   /* A transfer lane, not an isolated car in the dark. The five ceiling pools
    * stay unchanged; one directed work lamp picks out the trunk without adding
    * another omnidirectional light to every surface in the garage. */
   const transfer = new THREE.Group();
   transfer.name = 'garage-transfer-zone';
+  ownGeometry(transfer, 'heist.garage.transfer-zone', { overlap: false });
   transfer.position.set(0, 0, -8);
   flat(transfer, [0.1, 0.018, 6.4], [-2.55, 0.012, 0], MAT.warning,
     'garage-transfer-stripe-left');
@@ -1453,6 +1597,7 @@ function buildGarage() {
 
   const workLamp = new THREE.Group();
   workLamp.name = 'garage-work-lamp';
+  ownGeometry(workLamp, 'heist.garage.work-lamp');
   workLamp.position.set(3.8, 0, -4.8);
   box(workLamp, [0.62, 0.08, 0.62], [0, 0.04, 0], MAT.steel, 'garage-work-lamp-base');
   box(workLamp, [0.08, 3.1, 0.08], [0, 1.55, 0], MAT.steel, 'garage-work-lamp-mast');
@@ -1472,6 +1617,7 @@ function buildGarage() {
 
   const toolCart = new THREE.Group();
   toolCart.name = 'garage-tool-cart';
+  ownGeometry(toolCart, 'heist.garage.tool-cart');
   toolCart.position.set(5.5, 0, -5.5);
   box(toolCart, [1.35, 0.12, 0.72], [0, 0.42, 0], MAT.steel, 'garage-tool-cart-lower');
   box(toolCart, [1.35, 0.12, 0.72], [0, 1.02, 0], MAT.steel, 'garage-tool-cart-top');
@@ -1484,7 +1630,7 @@ function buildGarage() {
   box(toolCart, [0.24, 0.18, 0.32], [-0.34, 1.17, 0], MAT.warning, 'garage-tool-case');
   group.add(toolCart);
   for (let i = 0; i < 5; i++) {
-    const parked = makeVehicleBody(group, [i % 2 ? -9.4 : 9.4, 0, -11 + i * 5.5],
+    const parked = makeVehicleBody(group, [i % 2 ? -10.2 : 10.2, 0, -11 + i * 5.5],
       [0x2b3035, 0x4a2222, 0x223528, 0x36363c, 0x2d3a48][i], `garage-parked-${i}`);
     parked.rotation.y = Math.PI / 2;
   }
@@ -1497,19 +1643,23 @@ function buildGarage() {
     interactables: { hold, load, drive },
     sedan,
     colliders: [
-      ...roomColliders(24, 30, 4.4),
+      ...roomColliders(24, 30, 4.4).filter((_, index) => index !== 1),
+      bounds([8.075, 4.4, 0.25], [-7.8375, 2.2, 15]),
+      bounds([8.075, 4.4, 0.25], [7.8375, 2.2, 15]),
+      bounds([7.6, 1.2, 0.25], [0, 3.8, 15]),
       ...[-8, -3, 3, 8].flatMap((x) => [-10, 0, 10]
+        .filter((z) => !(z === 10 && Math.abs(x) === 3))
         .map((z) => bounds([0.8, 4.4, 0.8], [x, 2.2, z]))),
       bounds([4.1, 1.9, 2.2], [0, 0.95, -8]),
       // The ramp and its side walls, which were drawn but not solid.
-      bounds([7, 2.6, 8], [0, 1.3, 13]),
+      bounds([6.7, 2.6, 8], [0, 1.3, 13]),
       ...[-1, 1].map((side) => bounds([0.3, 1.6, 8], [side * 3.5, 1.5, 13])),
       // The stacked crates in the two corners.
-      ...[[-10, -6], [9.6, 4]].map(([x, z]) => bounds([0.9, 3.6, 0.9], [x, 1.8, z])),
+      ...[[-6.8, -13], [9.6, 4]].map(([x, z]) => bounds([0.9, 3.6, 0.9], [x, 1.8, z])),
       bounds([1.4, 1.2, 0.8], [5.5, 0.6, -5.5]),
       // The five parked cars down the side walls.
       ...Array.from({ length: 5 }, (_, i) => bounds([2.2, 1.9, 4.1],
-        [i % 2 ? -9.4 : 9.4, 0.95, -11 + i * 5.5])),
+        [i % 2 ? -10.2 : 10.2, 0.95, -11 + i * 5.5])),
     ],
     floorZones: [floorZone(24, 30, 'concrete')],
   };
@@ -1528,6 +1678,7 @@ function buildDriving() {
 
   const roadblock = new THREE.Group();
   roadblock.name = 'roadblock';
+  ownGeometry(roadblock, 'heist.driving.roadblock');
   const blockNode = city.route.find((node) => node.id === 'roadblock');
   roadblock.position.set(blockNode.x, 0, blockNode.z);
   // Two cruisers nose-out with a gap between them, spike strips at the kerbs
@@ -1551,14 +1702,19 @@ function buildDriving() {
   const swapMat = MAT.invisible;
   const swap = box(group, [9, 0.1, 7], [20, 0.05, -652], swapMat, 'industrial-swap');
   swap.castShadow = false;
+  ownGeometry(swap, 'heist.driving.swap-proxy', { overlap: false, checkSupport: false });
   // The swap yard: a lit shed, a skip, a stack of pallets and a chain fence.
-  box(group, [11, 5, 8], [8, 2.5, -655], MAT.darkConcrete, 'swap-shed');
+  const swapShed = box(group, [11, 5, 8], [8, 2.5, -655], MAT.darkConcrete, 'swap-shed');
   // Small, and set back off the walking area: at three metres square and 1.6 m
   // from where the player is put down, this was a wall of yellow.
-  flat(group, [0.08, 0.34, 0.9], [13.6, 3.4, -655], GLOW.amber, 'swap-shed-light');
-  flat(group, [0.08, 0.34, 0.9], [13.6, 3.4, -651], GLOW.amber, 'swap-shed-light-2');
+  const swapShedLight = flat(group, [0.08, 0.34, 0.9], [13.53, 3.4, -655], GLOW.amber, 'swap-shed-light');
+  const swapShedLight2 = flat(group, [0.08, 0.34, 0.9], [13.53, 3.4, -651], GLOW.amber, 'swap-shed-light-2');
+  ownGeometry(swapShed, 'heist.driving.swap-shed');
+  ownGeometry(swapShedLight, 'heist.driving.swap-shed');
+  ownGeometry(swapShedLight2, 'heist.driving.swap-shed');
   const yardPole = new THREE.Group();
   yardPole.name = 'swap-yard-light-pole';
+  ownGeometry(yardPole, 'heist.driving.yard-light-pole');
   yardPole.position.set(17, 0, -648.2);
   box(yardPole, [0.18, 6.6, 0.18], [0, 3.3, 0], MAT.steel, 'swap-yard-light-mast');
   box(yardPole, [0.16, 0.16, 4.8], [0, 6.5, -2.4], MAT.steel, 'swap-yard-light-arm');
@@ -1568,12 +1724,15 @@ function buildDriving() {
   yardLight.name = 'swap-yard-fill';
   yardLight.position.set(17, 6.35, -652.9);
   group.add(yardLight);
-  box(group, [3, 1.6, 2.2], [26, 0.8, -659], MAT.warning, 'swap-skip');
+  box(group, [3, 1.6, 2.2], [27, 0.8, -659], MAT.warning, 'swap-skip');
+  const palletStart = group.children.length;
   for (let i = 0; i < 4; i++) box(group, [1.2, 0.16, 1.0], [25, 0.1 + i * 0.18, -646], MAT.wood);
+  ownAddedChildren(group, palletStart, 'heist.driving.pallet-stack');
   for (let i = 0; i < 8; i++) box(group, [0.08, 2.4, 0.08], [13 + i * 2.2, 1.2, -644], MAT.steel);
 
   const cleanCarBay = new THREE.Group();
   cleanCarBay.name = 'swap-clean-car-bay';
+  ownGeometry(cleanCarBay, 'heist.driving.clean-car-bay', { overlap: false });
   cleanCarBay.position.set(23.8, 0, -656);
   flat(cleanCarBay, [0.1, 0.02, 6.2], [-1.55, 0.012, 0], MAT.warning,
     'swap-clean-car-stripe-left');
@@ -1585,6 +1744,7 @@ function buildDriving() {
 
   const workbench = new THREE.Group();
   workbench.name = 'swap-workbench';
+  ownGeometry(workbench, 'heist.driving.workbench');
   workbench.position.set(18.8, 0, -654);
   box(workbench, [7, 0.16, 1.2], [0, 0.72, 0], MAT.steel, 'swap-workbench-top');
   for (const x of [-3.2, 3.2]) {
@@ -1595,6 +1755,7 @@ function buildDriving() {
 
   const sortingTarp = new THREE.Group();
   sortingTarp.name = 'swap-sorting-tarp';
+  ownGeometry(sortingTarp, 'heist.driving.sorting-tarp', { overlap: false });
   sortingTarp.position.set(19.1, 0, -657);
   flat(sortingTarp, [5.8, 0.018, 2.0], [0, 0.012, 0], MAT.tactical, 'swap-sorting-tarp-sheet');
   for (const x of [-1.4, 0, 1.4]) {
@@ -1605,6 +1766,7 @@ function buildDriving() {
   for (const [x, z, label] of [[14.35, -658.15, 'left'], [25.65, -650.25, 'right']]) {
     const bollard = new THREE.Group();
     bollard.name = `swap-bollard-${label}`;
+    ownGeometry(bollard, `heist.driving.bollard.${label}`);
     bollard.position.set(x, 0, z);
     mesh(bollard, new THREE.CylinderGeometry(0.16, 0.19, 1.2, 12), MAT.warning, [0, 0.6, 0]);
     flat(bollard, [0.35, 0.1, 0.35], [0, 0.78, 0], MAT.paper, `swap-bollard-band-${label}`);
@@ -1615,7 +1777,14 @@ function buildDriving() {
   // more point lights to the entire driving scene.
   const taskRig = new THREE.Group();
   taskRig.name = 'swap-task-light-rig';
+  taskRig.userData.geometryGate = {
+    assemblyId: 'heist.driving.task-light-rig',
+  };
   box(taskRig, [11.2, 0.16, 0.16], [20.2, 4.75, -651.2], MAT.steel, 'swap-task-light-truss');
+  for (const [x, label] of [[14.68, 'left'], [25.72, 'right']]) {
+    box(taskRig, [0.16, 4.75, 0.16], [x, 2.375, -651.2], MAT.steel,
+      `swap-task-light-post-${label}`);
+  }
   for (const [id, x, targetPosition] of [
     ['workbench', 18.2, [18.5, 0.8, -654]],
     ['car', 24, [23.8, 0.9, -656]],
@@ -1638,6 +1807,7 @@ function buildDriving() {
   const cleanCar = makeVehicleBody(group, [23.8, 0, -656], 0x18231f, 'clean-swap-car');
   cleanCar.rotation.y = Math.PI / 2;
   const trunk = box(group, [1.4, 0.7, 0.2], [22.9, 0.82, -656], MAT.steel, 'swap-trunk');
+  ownGeometry(trunk, 'heist.vehicle.clean-swap-car');
   const bagsProp = box(group, [1.6, 0.7, 0.8], [17.7, 0.36, -652], MAT.darkConcrete, 'swap-bags');
   const aid = box(group, [0.62, 0.18, 0.42], [15.8, 0.89, -654], MAT.marble, 'swap-aid');
   const masks = box(group, [0.72, 0.16, 0.48], [17.1, 0.88, -654], MAT.darkConcrete, 'swap-masks');
@@ -1645,6 +1815,12 @@ function buildDriving() {
   const weapons = box(group, [1.7, 0.24, 0.62], [20.2, 0.16, -657], MAT.steel, 'swap-weapons');
   const wipe = box(group, [0.6, 0.08, 0.42], [21.7, 0.84, -654], MAT.marble, 'swap-wipe');
   const depart = box(group, [1.2, 1.4, 0.2], [24.1, 1.0, -655.2], swapMat, 'swap-depart');
+  ownGeometry(aid, 'heist.driving.workbench');
+  ownGeometry(masks, 'heist.driving.workbench');
+  ownGeometry(wipe, 'heist.driving.workbench');
+  ownGeometry(jackets, 'heist.driving.sorting-tarp');
+  ownGeometry(weapons, 'heist.driving.sorting-tarp');
+  ownGeometry(depart, 'heist.driving.depart-proxy', { overlap: false, checkSupport: false });
 
   const car = makeVehicleBody(group, [ESCAPE_START.x, 0, ESCAPE_START.z], 0x34393d, 'player-car');
   for (const z of [-0.58, 0.58]) {
@@ -1705,7 +1881,7 @@ function buildDriving() {
     },
     colliders: [
       // Large authored solids in the walkable swap-yard bounds.
-      bounds([3, 1.6, 2.2], [26, 0.8, -659]),
+      bounds([3, 1.6, 2.2], [27, 0.8, -659]),
       bounds([2.2, 1.9, 4.1], [23.8, 0.95, -656]),
       bounds([7, 0.88, 1.2], [18.8, 0.44, -654]),
       bounds([1.2, 0.82, 1], [25, 0.41, -646]),

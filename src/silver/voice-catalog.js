@@ -4,6 +4,7 @@ import {
   DATE_BARKS,
   PROFILE_OF,
   VOICE_OF,
+  WALK_GREETS,
   buildScripts,
   silverSpokenWords,
 } from './script.js';
@@ -106,6 +107,11 @@ export function allSilverVoiceLines() {
   }
   for (const [key, lines] of Object.entries(BARKS)) {
     lines.forEach(([, line], i) => add(`vo.silver.room.${key}.${i + 1}`, 'room', line, `room bark: ${key}`));
+  }
+  /* The walk-in greetings land in each speaker's own bank, so recasting the
+   * chef never touches the cook's welcome. */
+  for (const greet of WALK_GREETS) {
+    add(greet.cue, VOICE_OF[greet.who], greet.line, `walk-in greet: ${greet.npc}`);
   }
   for (const number of SET) {
     if (number.say) add(number.cue, VOICE_OF[number.lead], number.say, `set: ${number.id}`);

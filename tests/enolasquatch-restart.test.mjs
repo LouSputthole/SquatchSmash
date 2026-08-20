@@ -340,54 +340,62 @@ test('the city marker is up for the whole run in and the field marker for the wa
   assert.ok(NAV_CITY.up > 132);
 });
 
-test('every resolved emergency can hand off to return even when its engine stops', () => {
-  const makeMission = ({ running = true, hotScript = 70 } = {}) => {
-    const engine = { running, dead: false, hotScript };
-    const self = {
-      phase: 'emergency',
-      phaseTime: 2,
-      _emergencyResolved: false,
-      _emergencyEngineIndex: 0,
-      _emergencyPushFailAt: null,
-      engines: {
-        engines: [engine],
-        kill() { engine.running = false; },
-      },
-      dialogue: { play() {} },
-      setPhase(name) { self.phase = name; },
-    };
-    return { self, engine };
-  };
-
-  const shutdown = makeMission();
-  assert.equal(MissionController.prototype.chooseEmergencyResponse.call(shutdown.self, 'shutdown'), true);
-  assert.equal(shutdown.engine.running, false, 'shutdown did not stop the selected engine');
-  MissionController.prototype.updateEmergency.call(shutdown.self, 1 / 60);
-  assert.equal(shutdown.self.phase, 'return', 'the shutdown choice stranded the mission in emergency');
-
-  const starved = makeMission({ running: false, hotScript: 35 });
-  assert.equal(MissionController.prototype.chooseEmergencyResponse.call(starved.self, 'baby'), true);
-  MissionController.prototype.updateEmergency.call(starved.self, 1 / 60);
-  assert.equal(starved.self.phase, 'return', 'a fuel-starved engine stranded the mission in emergency');
-});
-
-test('a running emergency engine still waits for its authored heat timer', () => {
-  const engine = { running: true, hotScript: 0.5 };
+/* THE ENGINE PROBLEM IS AN INSTRUCTION NOW, NOT A MENU.
+ *
+ * Owner playtest, 2026-08-19: *"currently the game says something is wrong and
+ * leaves the player to consult the spirits. Make the objective explicit: ENGINE
+ * OVERHEATING / THROTTLE BACK... Require the player to actually reduce
+ * throttle."*
+ *
+ * So the thing these two used to assert — that each of the three menu choices
+ * could still hand off to `return` — is no longer the contract. The contract is:
+ * the phase does not end until the throttle has genuinely come back AND the
+ * needle has genuinely fallen, and a stopped engine is its own answer.
+ */
+const emergencyStub = ({ running = true, hotScript = 70, temp = 250, throttle = 1 } = {}) => {
+  const engine = { running, dead: false, hotScript, temp };
   const self = {
     phase: 'emergency',
     phaseTime: 2,
     _emergencyResolved: true,
     _emergencyEngineIndex: 0,
     _emergencyPushFailAt: null,
-    engines: { engines: [engine] },
-    dialogue: { play() {} },
+    _throttleBackT: 0,
+    _throttleNagT: 99,
+    _engineStabilised: false,
+    objective: '',
+    input: { throttle },
+    engines: { engines: [engine], kill() { engine.running = false; } },
+    dialogue: { play() {}, busy: false, forget() {} },
+    setObjective(text) { self.objective = text; },
     setPhase(name) { self.phase = name; },
   };
-  MissionController.prototype.updateEmergency.call(self, 1 / 60);
-  assert.equal(self.phase, 'emergency');
+  return { self, engine };
+};
+
+test('the engine emergency will not clear until the throttle actually comes back', () => {
+  const { self, engine } = emergencyStub({ throttle: 1, temp: 250 });
+  // Ten seconds at full power: hot, loud, and going nowhere.
+  for (let i = 0; i < 10 * 60; i++) MissionController.prototype.updateEmergency.call(self, 1 / 60);
+  assert.equal(self.phase, 'emergency', 'a full-throttle engine cleared itself');
+  assert.match(self.objective, /THROTTLE BACK/, 'the objective stopped naming the fix');
+  assert.equal(self._engineStabilised, false);
+
+  // Throttle back, and let the engine cool the way EngineSystem really cools it.
+  self.input.throttle = 0.1;
+  for (let i = 0; i < 3 * 60; i++) MissionController.prototype.updateEmergency.call(self, 1 / 60);
+  assert.equal(self._engineStabilised, true, 'holding the throttle back never stabilised it');
+  assert.equal(self.phase, 'emergency', 'it cleared before the needle had come down');
+  engine.temp = 200;
   engine.hotScript = 0;
   MissionController.prototype.updateEmergency.call(self, 1 / 60);
-  assert.equal(self.phase, 'return');
+  assert.equal(self.phase, 'return', 'a cooled engine stranded the mission in emergency');
+});
+
+test('a stopped emergency engine is its own answer', () => {
+  const starved = emergencyStub({ running: false, hotScript: 35, throttle: 1 });
+  MissionController.prototype.updateEmergency.call(starved.self, 1 / 60);
+  assert.equal(starved.self.phase, 'return', 'a fuel-starved engine stranded the mission in emergency');
 });
 
 /** A camera at `from`, looking along `dir`, the way the projection expects. */

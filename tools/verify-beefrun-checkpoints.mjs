@@ -47,6 +47,23 @@ function planarDistance(position, origin) {
   return Math.hypot(position.x - origin.x, position.z - origin.z);
 }
 
+/* How long the title card gets to finish handing the screen to the scene.
+ *
+ * This is not a guess and it is not a comfort blanket. The fade itself is
+ * `transition: opacity .5s ease` on `#overlay` (src/style.css), and a CSS
+ * transition needs TWO frames to be observable at its end value: one style
+ * recalc to start it, and one more at least .5s later to land it. On real
+ * hardware that is about 32ms. This harness renders with
+ * `--use-gl=swiftshader`, and the frames either side of a checkpoint staging
+ * its scene are not 16ms -- an instrumented run of the preflight link counted
+ * 59 frames in 140 seconds, with a single 10.9s gap for the first render after
+ * `startPreviewPreflight()` builds the airfield, and measured the fade landing
+ * 21.6s after the class went on. Sixty seconds is about six of those
+ * worst-case frames: wide enough that a software rasteriser is never mistaken
+ * for a stuck title card, tight enough that a card which genuinely never hides
+ * still fails the run. */
+const OVERLAY_HANDOFF_BUDGET_MS = 60000;
+
 const report = [];
 let browser;
 try {
@@ -224,12 +241,92 @@ try {
       const game = window.__beefrun;
       return game?.mission?.flags?.inCockpit === inCockpit && game.mission.phase === phase;
     }, { phase: spec.phase, inCockpit: spec.inCockpit }, { timeout: 300000 });
-    // The title card fades over half a second.  Wait for the actual visual
-    // handoff, not merely the mission state, before claiming a playable link.
-    await page.waitForFunction(() => {
-      const overlay = document.getElementById('overlay');
-      return overlay?.classList.contains('hidden') && Number(getComputedStyle(overlay).opacity) < 0.01;
-    }, null, { timeout: 10000 });
+    /* The title card's handoff, as three separate player-facing facts.
+     *
+     * What the design is now: main.js adds `.hidden` to `#overlay` at the end
+     * of the Start handler -- BEFORE `mission.begin()` and before the
+     * checkpoint stages its geometry -- and `#overlay.hidden` in src/style.css
+     * sets `opacity: 0; pointer-events: none` behind a half-second opacity
+     * transition. A playable link therefore owes the player all three: the
+     * class (the game decided to hand over), zero opacity (the black card is
+     * actually off the screen) and `pointer-events: none` (the card is not
+     * still swallowing the clicks meant for the cockpit). The old check tested
+     * only the first two; a title card left at `pointer-events: auto` is a
+     * dead cockpit and used to pass here.
+     *
+     * The old check was a rAF-polled `waitForFunction` on a 10s budget, and it
+     * was the line this entire file died on -- every run, serial or parallel,
+     * timed out here on the very first link and printed nothing at all. Two
+     * things were wrong with it and neither of them was the overlay:
+     *
+     *   - Playwright's default polling is requestAnimationFrame, and a CSS
+     *     transition also only advances when frames are produced. So the check
+     *     and the thing it was checking starved from the same cause, and what
+     *     the 10s budget actually measured was the frame supply of a software
+     *     rasteriser mid-scene-build. See OVERLAY_HANDOFF_BUDGET_MS for the
+     *     measurements. Polling on a plain interval decouples the two: frames
+     *     can stall for ten seconds and the sampler still reports honestly.
+     *
+     *   - `overlay?.classList` folded "there is no #overlay in the markup at
+     *     all" into the same silent falsy as "still fading", and the timeout
+     *     then reported neither -- no class, no opacity, no phase, no frame
+     *     count. A missing element is a markup regression and now says so on
+     *     the first sample instead of after ten seconds of nothing.
+     *
+     * The sampler returns its terminal state either way, so a stuck overlay, a
+     * broken stylesheet and a starved renderer stop reading the same. */
+    const handoff = await page.evaluate((budgetMs) => new Promise((resolve) => {
+      const started = performance.now();
+      let frames = 0;
+      let timer = null;
+      let settled = false;
+      const countFrame = () => {
+        if (settled) return;
+        frames += 1;
+        requestAnimationFrame(countFrame);
+      };
+      requestAnimationFrame(countFrame);
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        if (timer !== null) clearInterval(timer);
+        resolve(result);
+      };
+      const sample = () => {
+        const overlay = document.getElementById('overlay');
+        const style = overlay ? getComputedStyle(overlay) : null;
+        const state = {
+          elapsedMs: Math.round(performance.now() - started),
+          frames,
+          present: Boolean(overlay),
+          hiddenClass: Boolean(overlay?.classList.contains('hidden')),
+          opacity: style ? Number(style.opacity) : null,
+          pointerEvents: style ? style.pointerEvents : null,
+          transitionDuration: style ? style.transitionDuration : null,
+          phase: window.__beefrun?.mission?.phase ?? null,
+        };
+        if (!state.present) {
+          // A missing title card is a markup regression, not a slow one. Do
+          // not spend the fade budget waiting for an element to appear that
+          // nothing ever creates.
+          finish({ ok: false, ...state });
+        } else if (state.hiddenClass && state.opacity < 0.01 && state.pointerEvents === 'none') {
+          finish({ ok: true, ...state });
+        } else if (state.elapsedMs > budgetMs) {
+          finish({ ok: false, ...state });
+        }
+      };
+      sample();
+      if (!settled) timer = setInterval(sample, 50);
+    }), OVERLAY_HANDOFF_BUDGET_MS);
+    assert.ok(
+      handoff.present,
+      `Beef Run ${spec.checkpoint}: beefrun.html has no #overlay title card to hand off from`,
+    );
+    assert.ok(
+      handoff.ok,
+      `Beef Run ${spec.checkpoint}: the title card never handed the screen to the scene: ${JSON.stringify(handoff)}`,
+    );
     let preflightWalked = 0;
     if (!spec.inCockpit) {
       const before = await page.evaluate(() => ({

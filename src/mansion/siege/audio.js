@@ -217,6 +217,13 @@ export class SiegeMissionAudio {
     });
   }
 
+  glassCracked(position = null) {
+    return this._play('combat.bullet.impact.glass', 'glass_cracked', {
+      volume: 0.74,
+      ...(position ? { position } : {}),
+    });
+  }
+
   friendlyRevived(position = null) {
     return this._play('siege.friendly.revived', 'friendly_revived', {
       volume: 0.8,

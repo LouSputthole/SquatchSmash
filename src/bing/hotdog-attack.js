@@ -23,13 +23,32 @@ export const APE_RETURN_ROUTE = Object.freeze([
 ]);
 
 export const HOTDOG_ATTACK_HIT_COUNT = 4;
-export const HOTDOG_ATTACK_WINDUP = 0.18;
-export const HOTDOG_ATTACK_IMPACT = 0.26;
-export const HOTDOG_ATTACK_RECOVERY = 0.50;
-export const HOTDOG_ATTACK_GAP = 0.12;
+/* Timing retuned for the 2026-08-19 playtest ("make sure the ape stabbing
+ * animation is on point"): a longer, readable wind-up over the shoulder, a
+ * committed strike, and a real recovery between blows. The whole four-hit
+ * incident still lands inside the four simulated seconds the focused browser
+ * check drives (tools/verify-bing-two.mjs steps 200 × 0.02s). */
+export const HOTDOG_ATTACK_WINDUP = 0.26;
+export const HOTDOG_ATTACK_IMPACT = 0.36;
+export const HOTDOG_ATTACK_RECOVERY = 0.68;
+export const HOTDOG_ATTACK_GAP = 0.14;
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 
+/**
+ * Ape's stab, one strike per interval.
+ *
+ * Three phases, all driven off the same clock the impacts land on:
+ *   cocked        the wind-up — knife hand drawn high over the shoulder,
+ *                 torso twisted away, off arm raised to pin HotDog
+ *   followThrough the strike — the whole body pitches into it, the arm
+ *                 drives DOWN past horizontal, the head drops with it
+ *   recover       he pulls the blade back out and re-sets
+ *
+ * Everything below is rotations on the same six rig parts the original
+ * four-hit controller posed (body/head/armR/foreR/armL/foreL) so both Npc
+ * rigs and the headless test rig stay valid.
+ */
 function poseApeStrike(ape, knife, localTime, strikeIndex) {
   const windup = clamp01(localTime / HOTDOG_ATTACK_WINDUP);
   const strike = clamp01((localTime - HOTDOG_ATTACK_WINDUP)
@@ -39,30 +58,93 @@ function poseApeStrike(ape, knife, localTime, strikeIndex) {
   const followThrough = strike * (1 - recover);
   const cocked = windup * (1 - strike);
   const alternating = strikeIndex % 2 === 0 ? 1 : -1;
+  /* Later strikes are heavier: he has stopped measuring the man and is just
+   * driving the blade. Scales the lean and the arc, never the timing. */
+  const commitment = 1 + strikeIndex * 0.12;
 
-  ape.parts.body.rotation.z = -0.08 * cocked + 0.09 * followThrough;
-  ape.parts.head.rotation.x = -0.05 - followThrough * 0.09;
-  ape.parts.armR.rotation.x = -0.30 - cocked * 1.02 - followThrough * 1.22;
-  ape.parts.foreR.rotation.x = -0.46 - cocked * 0.82 - followThrough * 0.52;
-  ape.parts.armR.rotation.z = 0.08 * alternating + cocked * 0.22;
-  ape.parts.armL.rotation.x = -0.20 + cocked * 0.38 - followThrough * 0.22;
-  ape.parts.foreL.rotation.x = -0.45 + cocked * 0.20;
+  /* Body weight into it: twist back on the wind-up, pitch forward hard on
+   * the strike — the stab comes off the hips, not off the elbow. */
+  ape.parts.body.rotation.x = 0.10 * cocked - 0.34 * followThrough * commitment;
+  ape.parts.body.rotation.y = 0.26 * cocked * alternating - 0.14 * followThrough * alternating;
+  ape.parts.body.rotation.z = -0.14 * cocked + 0.12 * followThrough;
+  ape.parts.head.rotation.x = 0.08 * cocked - 0.05 - followThrough * 0.22;
+
+  /* The knife arm: cocked high over the shoulder, then a committed downward
+   * drive well past the old punch arc. */
+  ape.parts.armR.rotation.x = -0.30 - cocked * 1.55 - followThrough * 1.50 * commitment;
+  ape.parts.foreR.rotation.x = -0.46 - cocked * 1.05 - followThrough * 0.42;
+  ape.parts.armR.rotation.z = 0.08 * alternating + cocked * 0.34;
+
+  /* The off hand does a job: it reaches out and pins HotDog by the lapel
+   * through the strike instead of idling at his side. */
+  ape.parts.armL.rotation.x = -0.20 - cocked * 0.55 - followThrough * 0.72;
+  ape.parts.foreL.rotation.x = -0.45 - cocked * 0.30 - followThrough * 0.25;
 
   if (knife) {
     knife.visible = true;
-    knife.rotation.x = -0.32 - cocked * 0.55 + followThrough * 0.34;
-    knife.rotation.z = 0.18 + alternating * 0.12;
+    /* Blade up and back on the wind-up, rolled point-down through the
+     * strike — an ice-pick grip stab, not a swung club. */
+    knife.rotation.x = -0.32 - cocked * 0.85 + followThrough * 0.55;
+    knife.rotation.z = 0.18 + alternating * 0.12 + followThrough * 0.10;
   }
 }
 
+/**
+ * HotDog reads every strike: a flinch UP on Ape's wind-up (he can see it
+ * coming), a hard buckle around the blade on the hit, and less and less
+ * recovery each time — by the fourth he is folding, not recoiling.
+ */
 function poseHotDogRecoil(hotdog, origin, localTime, strikeIndex) {
+  const windup = clamp01(localTime / HOTDOG_ATTACK_WINDUP);
   const recoil = clamp01((localTime - HOTDOG_ATTACK_WINDUP)
     / (HOTDOG_ATTACK_RECOVERY - HOTDOG_ATTACK_WINDUP));
   const hit = Math.sin(recoil * Math.PI);
-  hotdog.group.position.x = origin.x - hit * (0.07 + strikeIndex * 0.018);
-  hotdog.group.position.z = origin.z - hit * 0.035;
-  hotdog.parts.body.rotation.z = hit * (strikeIndex % 2 ? 0.11 : -0.11);
-  hotdog.parts.head.rotation.z = hit * (strikeIndex % 2 ? -0.18 : 0.18);
+  /* Accumulated damage: each landed strike leaves him more folded than the
+   * last, so the recoil rides on a sagging baseline instead of resetting. */
+  const sag = strikeIndex * 0.16;
+  const flinch = windup * (1 - recoil) * (1 - strikeIndex * 0.2);
+
+  hotdog.group.position.x = origin.x - hit * (0.09 + strikeIndex * 0.03);
+  hotdog.group.position.z = origin.z - hit * 0.045;
+  /* Doubles over the wound as the strikes stack up. */
+  hotdog.parts.body.rotation.x = -0.06 * flinch + (hit * 0.24 + sag * 0.55) * 1.0;
+  hotdog.parts.body.rotation.z = hit * (strikeIndex % 2 ? 0.14 : -0.14);
+  hotdog.parts.head.rotation.x = -0.14 * flinch + hit * 0.30 + sag * 0.35;
+  hotdog.parts.head.rotation.z = hit * (strikeIndex % 2 ? -0.20 : 0.20);
+  /* Hands come up at the blade — guarding on the early strikes, clutching
+   * the wounds on the late ones. */
+  hotdog.parts.armR.rotation.x = -0.25 * flinch - hit * 0.85 - sag * 0.6;
+  hotdog.parts.foreR.rotation.x = -0.3 * flinch - hit * 0.9 - sag * 0.5;
+  hotdog.parts.armL.rotation.x = -0.25 * flinch - hit * 0.7 - sag * 0.7;
+  hotdog.parts.foreL.rotation.x = -0.3 * flinch - hit * 0.8 - sag * 0.6;
+}
+
+/**
+ * THE ATTACK'S OWN TIMELINE, published.
+ *
+ * Owner, 2026-08-19: sync the effects to the animation rather than playing
+ * generic impacts independently. So the animation says when, in its own
+ * clock, and the runtime hangs sound on these rather than guessing offsets:
+ *
+ *   cock      the arm starts up over the shoulder -- cloth, the grip shifting
+ *   withdraw  the blade starts coming back out of him
+ *
+ * The impact frame is not in here because it already has a callback of its
+ * own (`onImpact`), which is what the gore and the camera shake also ride.
+ */
+export const HOTDOG_ATTACK_BEATS = Object.freeze(
+  Array.from({ length: HOTDOG_ATTACK_HIT_COUNT }, (_, strike) => [
+    Object.freeze({ strike: strike + 1, phase: 'cock', at: 0 }),
+    Object.freeze({ strike: strike + 1, phase: 'withdraw', at: HOTDOG_ATTACK_IMPACT + 0.09 }),
+  ]).flat(),
+);
+
+const STRIKE_INTERVAL = HOTDOG_ATTACK_RECOVERY + HOTDOG_ATTACK_GAP;
+
+/** When one published beat happens, in the controller's own elapsed seconds. */
+function beatTime(index) {
+  const beat = HOTDOG_ATTACK_BEATS[index];
+  return (beat.strike - 1) * STRIKE_INTERVAL + beat.at;
 }
 
 /**
@@ -70,14 +152,19 @@ function poseHotDogRecoil(hotdog, origin, localTime, strikeIndex) {
  * instances have finished their normal update so the authored pose is not
  * overwritten by the generic stand animation.
  */
-export function createHotDogAttack({ ape, hotdog, knife = null, onImpact = null, onComplete = null } = {}) {
+export function createHotDogAttack({
+  ape, hotdog, knife = null, onImpact = null, onPhase = null, onComplete = null,
+} = {}) {
   if (!ape?.parts || !hotdog?.parts) throw new TypeError('HotDog attack requires Ape and HotDog Npc rigs');
 
   let active = false;
   let elapsed = 0;
   let landed = 0;
   let origin = null;
-  const interval = HOTDOG_ATTACK_RECOVERY + HOTDOG_ATTACK_GAP;
+  /* Which animation beats have already been announced, so a frame long enough
+   * to cross two of them still fires both, once each, in order. */
+  let announced = 0;
+  const interval = STRIKE_INTERVAL;
 
   const finish = () => {
     active = false;
@@ -87,12 +174,14 @@ export function createHotDogAttack({ ape, hotdog, knife = null, onImpact = null,
   return {
     get active() { return active; },
     get landed() { return landed; },
+    get announced() { return announced; },
 
     start() {
       if (active) return false;
       active = true;
       elapsed = 0;
       landed = 0;
+      announced = 0;
       origin = { x: hotdog.group.position.x, z: hotdog.group.position.z };
       ape.route = null;
       ape.job = 'stand';
@@ -110,12 +199,34 @@ export function createHotDogAttack({ ape, hotdog, knife = null, onImpact = null,
       poseApeStrike(ape, knife, localTime, strikeIndex);
       poseHotDogRecoil(hotdog, origin, localTime, strikeIndex);
 
+      /* The non-impact beats, announced off the SAME clock the pose is read
+       * from rather than off a timer running beside it. `cock` is the frame
+       * the arm starts up; `withdraw` is the frame he starts pulling the
+       * blade back out. Sound hung on these lands on the animation instead of
+       * beside it (owner, 2026-08-19: sync the effects to the animation). */
+      while (announced < HOTDOG_ATTACK_BEATS.length
+        && elapsed >= beatTime(announced)) {
+        const beat = HOTDOG_ATTACK_BEATS[announced];
+        announced += 1;
+        onPhase?.({ ...beat, elapsed });
+      }
+
       while (landed < HOTDOG_ATTACK_HIT_COUNT
         && elapsed >= landed * interval + HOTDOG_ATTACK_IMPACT) {
         landed += 1;
         const final = landed === HOTDOG_ATTACK_HIT_COUNT;
         onImpact?.({ hit: landed, final, elapsed });
         if (final) {
+          /* The last withdraw happens 0.09s AFTER the last impact, which is
+           * 0.09s after this controller stops -- so without this it was the
+           * one beat in the table that could never fire, and the blade came
+           * out of him in silence. Flush it on the way out: he pulls it back
+           * and the man goes down, which is the same frame. */
+          while (announced < HOTDOG_ATTACK_BEATS.length) {
+            const beat = HOTDOG_ATTACK_BEATS[announced];
+            announced += 1;
+            onPhase?.({ ...beat, elapsed });
+          }
           finish();
           return true;
         }

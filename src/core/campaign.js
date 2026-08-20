@@ -51,6 +51,16 @@ export const CHARACTER_IDS = Object.freeze({
    * because he does not stay in it: after the side quest he turns up again,
    * immaculate, behaving as though the evening never happened. */
   JAMES_BLOND: 'james_blond',
+  /* The OTHER prospect, and the reason he needs an id of his own rather than
+   * a scene-local name: he is a second man in exactly Tony's position, which
+   * is the shape of thing that gets accidentally merged with the first. One
+   * id, one face, one voice, and `subtitleName` is 'Kittenboss' and never the
+   * bare word Prospect -- `src/bing/dialogue.js` treats a speaker literally
+   * called 'Prospect' as the player and animates nobody.
+   *
+   * Why he was in the boot of the car is not written down anywhere, here
+   * included. That is deliberate and it is the owner's. */
+  KITTENBOSS: 'kittenboss',
 });
 
 export const SCENE_IDS = Object.freeze({
@@ -70,6 +80,12 @@ export const SCENE_IDS = Object.freeze({
   ENOLA_SQUATCH: 'enola_squatch',
   MANSION_RETURN: 'mansion_return',
   CARTEL_PALACE: 'cartel_palace',
+  /* THE SPECIAL MEETING. The bridge from the Palace to the fire: a phone call,
+   * three men in a car, and a forty-two minute drive that ends at a treeline.
+   * It is a scene and not a mission -- there is nothing to fail, no end card
+   * and no result to record -- so it deliberately has no MISSION_IDS entry
+   * and costs no save-version bump. */
+  SPECIAL_MEETING: 'special_meeting',
   INITIATION: 'initiation',
   /* Lou's house. An explorable compound before PROJECT SILENT SQUATCH claims
    * it, and the mission's own scene after: the office upstairs, the wine
@@ -163,6 +179,27 @@ export const EVENT_IDS = Object.freeze({
   LOU_GOLF_CALL: 'lou_golf_call',
   LOU_HEIST_CALL: 'lou_heist_call',
   BOOSKI_BIG_NIGHT_CALL: 'booski_big_night_call',
+  /**
+   * THE SPECIAL MEETING — Booskibro's second call, and why it is a second one.
+   *
+   * SM-030 in `docs/SPECIAL-MEETING-SCRIPT.md`. It rings in the flat the night
+   * the Cartel Palace is over, it says nothing, and it ends mid-air.
+   *
+   * It is NOT `BOOSKI_BIG_NIGHT_CALL`, and the reason is a trap somebody would
+   * otherwise fall into twice. `normalize()` below force-answers the big-night
+   * call for any save whose Initiation is no longer `locked` -- "an exposed
+   * Initiation is proof Booskibro's call already landed", which is true and
+   * has to stay true for the grandfathered saves that reached the Initiation
+   * before the final arc existed. But completing the Palace is exactly what
+   * unlocks the Initiation now, so hanging this scene off that event would
+   * have handed every player a call that arrived pre-answered and never rang.
+   * A separate id is the only shape that survives both facts.
+   *
+   * The two calls also say opposite things. `vo.call.booski.bignight.*` is
+   * already recorded and is warm -- a room assembling in the prospect's honour.
+   * This one gives no information and does not notice it is giving none.
+   */
+  BOOSKI_SPECIAL_MEETING_CALL: 'booski_special_meeting_call',
 });
 
 export const TIME_EVENT_IDS = Object.freeze({
@@ -177,6 +214,16 @@ export const TIME_EVENT_IDS = Object.freeze({
   POOP: 'activity.poop',
   CHANGE_CLOTHES: 'activity.change_clothes',
   CHECK_EMAIL: 'activity.check_email',
+  /* The per-chapter pastimes -- see CHAPTER_PASTIMES in apartment-story.js.
+   * They are on the clock because they are things a man spends a morning on,
+   * and because a chapter whose only cost is a phone call has a morning that
+   * takes four minutes. None of them can move a departure: every DEPART_* below
+   * is `atLeast`-anchored, so an earlier hour is absorbed rather than added. */
+  WATCH_TV: 'activity.watch_tv',
+  PLAY_COUNTER_SQUATCH: 'activity.play_counter_squatch',
+  PLAY_SQUATCH_SHOOT: 'activity.play_squatch_shoot',
+  PLAY_SQUATCH_SMASH: 'activity.play_squatch_smash',
+  EAT_SHROOMS: 'activity.eat_shrooms',
   /* Standing at the sideboard listening to what landed while he was out. One
    * per chapter, because there is one message per chapter and a man does not
    * hear yesterday's twice. Registered as time events rather than as a new
@@ -205,6 +252,11 @@ export const TIME_EVENT_IDS = Object.freeze({
   LOU_GOLF_CALL: 'call.lou_golf',
   LOU_HEIST_CALL: 'call.lou_heist',
   BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
+  /* The Special Meeting call. A marker rather than an errand -- see its zero
+   * in TIME_EVENTS below. It exists because `ApartmentStory.callAnswered()`
+   * commits every answered call through `advanceTime`, so a call with no time
+   * event is a call that cannot be recorded as answered. */
+  BOOSKI_SPECIAL_MEETING_CALL: 'call.booski_special_meeting',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
   /* Coming home from the restaurant. The Squatchfather scene keeps no clock of
    * its own -- it is deliberately frozen -- so the return leg is what puts the
@@ -250,6 +302,13 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_MANSION_RETURN: 'mission.mansion_return',
   DEPART_CARTEL_PALACE: 'travel.cartel_palace',
   COMPLETE_CARTEL_PALACE: 'mission.cartel_palace',
+  /* THE SPECIAL MEETING: waiting in the flat for a car nobody described, and
+   * then the drive out. `DEPART` is the wait and the walk downstairs; the
+   * completion is Seff's forty-two minutes plus the standing about at the spur
+   * and the walk up the trail. Relative minutes rather than an `atLeast`
+   * because the final arc's day is whatever the Palace left behind it. */
+  DEPART_SPECIAL_MEETING: 'travel.special_meeting',
+  COMPLETE_SPECIAL_MEETING: 'scene.special_meeting',
 });
 
 const TIME_EVENTS = Object.freeze({
@@ -260,6 +319,17 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.POOP]: Object.freeze({ minutes: 10 }),
   [TIME_EVENT_IDS.CHANGE_CLOTHES]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.CHECK_EMAIL]: Object.freeze({ minutes: 10 }),
+  // Half a minute of it is what the door counts. A bulletin is a quarter hour.
+  [TIME_EVENT_IDS.WATCH_TV]: Object.freeze({ minutes: 15 }),
+  // A game with the boys, even one you lose every round of, is not a quick one.
+  [TIME_EVENT_IDS.PLAY_COUNTER_SQUATCH]: Object.freeze({ minutes: 25 }),
+  [TIME_EVENT_IDS.PLAY_SQUATCH_SHOOT]: Object.freeze({ minutes: 15 }),
+  // Ninety seconds a run, and nobody has ever done exactly one run.
+  [TIME_EVENT_IDS.PLAY_SQUATCH_SMASH]: Object.freeze({ minutes: 20 }),
+  /* Chewing them takes no time at all. The ninety minutes they take to arrive
+   * are real minutes on the world clock -- see core/highs.js -- and belong to
+   * wherever he happens to be standing when they land, which is the joke. */
+  [TIME_EVENT_IDS.EAT_SHROOMS]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_DATE]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT]: Object.freeze({ minutes: 2 }),
@@ -285,6 +355,18 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.LOU_GOLF_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.LOU_HEIST_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
+  /* Zero, and that is not an oversight.
+   *
+   * Every other call on this list buys its own minutes because nothing else
+   * prices it. This one is already priced: DEPART_SPECIAL_MEETING below is
+   * thirty-five minutes of "the phone call, getting changed, and going down to
+   * a car already running", written when the whole of Act One lived on the
+   * Special Meeting's own page. Act One is played in the flat now, but the
+   * thirty-five minutes still cover it end to end, so charging the call again
+   * here would bill the same forty seconds twice. Kept as a registered event
+   * with no cost rather than dropped, because `advanceTime` is the exact-once
+   * ledger that records the call as answered -- see the id's note above. */
+  [TIME_EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
   }),
@@ -399,10 +481,23 @@ const TIME_EVENTS = Object.freeze({
     atLeast: Object.freeze({ day: 6, timeMinutes: 20 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE]: Object.freeze({ minutes: 150 }),
+  /* The phone call, getting changed, and going down to a car already running.
+   *
+   * All three of those are now played rather than described -- Act One (beats
+   * SM-010 to SM-090) happens in the flat, so this is the hour the FLAT spends,
+   * and the apartment's own `leaveForMission` books it on the way out of the
+   * front door the same way every other departure is booked. The Special
+   * Meeting's page still asks for it on boot, which costs nothing: `advanceTime`
+   * is exact-once, so whichever of the two gets there first is the only one
+   * that moves the clock. */
+  [TIME_EVENT_IDS.DEPART_SPECIAL_MEETING]: Object.freeze({ minutes: 35 }),
+  /* Forty-two minutes, per Seff, who is not being funny; then the spur, the
+   * boot, and the walk in. */
+  [TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING]: Object.freeze({ minutes: 65 }),
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 16;
+export const CAMPAIGN_VERSION = 19;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -427,6 +522,32 @@ export const SILENT_SQUATCH_CHECKPOINT_IDS = Object.freeze([
   'silent_night',
   'clear',
 ]);
+
+/**
+ * The quiet mansion evening's settling-in beats.
+ *
+ * Owner note, 2026-08-19: the theatre, the pool and the rest of the evening
+ * were built and nobody saw them, because the guest bed was available the
+ * moment Lou said goodnight. The bed now wants ANY TWO of these done first.
+ * Persisted per-id rather than as a counter so a reload mid-evening keeps
+ * credit for the exact things he did, and so a save cannot bank the same
+ * beat twice.
+ *
+ *   theatre  a picture running in the basement theatre, or a seat taken in it
+ *   pool     the pool-deck dress-strap exchange, either performer's
+ *   bar      a Jack And Daniels off the bartender in the billiard bay
+ *   dog      Lil Tom Cruze, petted, on the third floor
+ *   lan      Shubes and his RuneScape account, in the LAN room
+ */
+export const MANSION_EVENING_BEAT_IDS = Object.freeze([
+  'theatre',
+  'pool',
+  'bar',
+  'dog',
+  'lan',
+]);
+/** How many of those the bed asks for. Any two; the list is the menu. */
+export const MANSION_EVENING_BEATS_REQUIRED = 2;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -869,6 +990,11 @@ const SCENES = Object.freeze({
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.SILVER_CASE,
+      /* THE SPECIAL MEETING. Act One (SM-010 to SM-090) is played in this
+       * flat -- the call, the getting ready, the door refusing him and the
+       * headlights -- and the front door is what ends it. The kerb is the
+       * next thing he stands on. */
+      SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.INITIATION,
       SCENE_IDS.MANSION,
     ]),
@@ -997,9 +1123,49 @@ const SCENES = Object.freeze({
     next: Object.freeze([SCENE_IDS.CARTEL_PALACE]),
   }),
   [SCENE_IDS.CARTEL_PALACE]: Object.freeze({
+    /* Two edges, and both of them are THE SPECIAL MEETING.
+     *
+     * The Palace is over and nobody has told him whether killing Sauce was the
+     * right call. He goes home; Booskibro rings to say there is a meeting and
+     * it is going to be a special one; three men come and collect him. That
+     * scene hands off to the Initiation at the treeline on its own.
+     *
+     * This list carried a second, legacy edge straight to INITIATION for
+     * exactly as long as the Palace's own exit button still named it -- a
+     * transition the graph refuses THROWS rather than degrading, so pulling
+     * the edge before repointing the button would have stranded anybody who
+     * had just finished the Palace. The button now names SPECIAL_MEETING
+     * (`src/cartel-palace/main.js`), so that bridge is pulled.
+     *
+     * APARTMENT is here for the same reason SPECIAL_MEETING was left in place
+     * while the button still said INITIATION, and it is the same manoeuvre in
+     * the same direction. "He goes home" above is literal: Act One of the
+     * Special Meeting -- beats SM-010 to SM-090, the call, the getting ready,
+     * the door refusing him and the headlights -- is played in the flat, and
+     * the flat's own front door is what carries him to the kerb (see
+     * `SCENES[APARTMENT].next` and `tryLeave` in core/apartment-story.js).
+     * The Palace's exit button has not been repointed yet, because
+     * `src/cartel-palace/main.js` belongs to another pass; it still names
+     * SPECIAL_MEETING and jumps the flat entirely. The edge is declared first
+     * so that repoint is one line and cannot throw when it lands. */
     href: 'cartel-palace.html',
     defaultSpawn: 'approach',
     spawns: Object.freeze(['approach', 'perimeter', 'estate', 'dining_room']),
+    next: Object.freeze([SCENE_IDS.APARTMENT, SCENE_IDS.SPECIAL_MEETING]),
+  }),
+  /* THE SPECIAL MEETING.
+   *
+   * Two spawns, because the scene is two places with a cut to black between
+   * them: `kerb` is the street outside the flat with the car already running,
+   * and `spur` is the flat patch of dirt in the woods where it stops. A save
+   * that comes back after the drive resumes at the spur rather than replaying
+   * the drive, which is the only part of this scene that takes real minutes.
+   *
+   * It goes one place. It has always gone one place. */
+  [SCENE_IDS.SPECIAL_MEETING]: Object.freeze({
+    href: 'specialmeeting.html',
+    defaultSpawn: 'kerb',
+    spawns: Object.freeze(['kerb', 'spur']),
     next: Object.freeze([SCENE_IDS.INITIATION]),
   }),
 });
@@ -1044,6 +1210,17 @@ function initialState() {
       changedClothes: false,
       emailChecked: false,
       whiskeyRelaxed: false,
+      /* The per-chapter pastimes — see CHAPTER_PASTIMES in apartment-story.js.
+       * They are latched here rather than derived every frame because the flat
+       * is rebuilt from nothing on every arrival: half a minute of the news
+       * watched before the airstrip has to still be watched when he lets
+       * himself back in afterwards. `sleep()` clears all four on a chapter
+       * turn, so each one is only ever earned in the chapter that asks. */
+      watchedTv: false,
+      playedCounterSquatch: false,
+      playedSquatchShoot: false,
+      playedSquatchSmash: false,
+      tookShrooms: false,
     },
     /* 97.8 is one running station heard through several physical receivers.
      * The running order and bulletin history are shared, while each receiver
@@ -1061,6 +1238,14 @@ function initialState() {
     inventory: {
       carried: [],
       concealed: [],
+    },
+    /* The frozen Initiation earns this handoff; the Apartment owns presenting
+     * credits and releasing the same save into post-campaign freeplay. */
+    finale: {
+      status: 'locked',
+      creditsViewed: false,
+      freeplayUnlocked: false,
+      completedAt: null,
     },
     missions: {
       [MISSION_IDS.BADA_BING_ONE]: {
@@ -1233,6 +1418,9 @@ function initialState() {
         conspiracyBoard: false,
         trophyAwarded: false,
         eveningReady: false,
+        /** Which settling-in beats the quiet evening has banked. See
+         * MANSION_EVENING_BEAT_IDS -- the bed wants any two before sleep. */
+        eveningBeats: [],
         sleptAtMansion: false,
       },
     },
@@ -1262,6 +1450,9 @@ function initialState() {
         status: 'pending',
       },
       [EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]: {
         status: 'pending',
       },
     },
@@ -1812,6 +2003,98 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  16(saved) {
+    /* Schema 17 adds the Apartment-owned ending wrapper without changing the
+     * frozen Initiation runtime. A completed v16 save receives its credits on
+     * the next Apartment load; an unfinished save remains locked. */
+    const complete = saved.missions?.[MISSION_IDS.INITIATION]?.status === 'complete'
+      && uniqueStrings(saved.story?.timeEvents).includes(TIME_EVENT_IDS.COMPLETE_INITIATION);
+    return {
+      ...saved,
+      version: 17,
+      finale: {
+        status: complete ? 'ready' : 'locked',
+        creditsViewed: false,
+        freeplayUnlocked: false,
+        completedAt: complete ? {
+          day: Number.isSafeInteger(saved.story?.day) && saved.story.day > 0
+            ? saved.story.day : 1,
+          timeMinutes: Number.isFinite(saved.story?.timeMinutes)
+            ? saved.story.timeMinutes : 0,
+        } : null,
+      },
+    };
+  },
+  17(saved) {
+    /* Schema 18 adds the five per-chapter pastime flags -- see
+     * CHAPTER_PASTIMES in apartment-story.js.
+     *
+     * This migration exists because the SHAPE moved, and a moved shape is not
+     * a cosmetic problem here. `normalize()` rebuilds `activities` from the
+     * base object's keys, so a v17 save would have come back with five new
+     * `false` fields it did not have on disk; `structurallyBroken` in
+     * `readSave()` is `!migrated.changed && normalizedChanged`, and with no
+     * migration to set `changed` the loader would have decided every existing
+     * save in the world was corrupt and told the player so on the title
+     * screen. (TIME_EVENT_IDS carries a comment from whoever found this the
+     * hard way -- three message markers were registered as time events rather
+     * than as save fields for exactly this reason.)
+     *
+     * Everything lands false, which is the honest answer: a save made before
+     * this existed cannot know whether he watched the news that morning, and
+     * false costs a returning player half a minute on the couch rather than
+     * skipping a beat they never had. */
+    return {
+      ...saved,
+      version: 18,
+      activities: {
+        ...saved.activities,
+        watchedTv: saved.activities?.watchedTv === true,
+        playedCounterSquatch: saved.activities?.playedCounterSquatch === true,
+        playedSquatchShoot: saved.activities?.playedSquatchShoot === true,
+        playedSquatchSmash: saved.activities?.playedSquatchSmash === true,
+        tookShrooms: saved.activities?.tookShrooms === true,
+      },
+    };
+  },
+  18(saved) {
+    /* Schema 19 adds Booskibro's SECOND call -- THE SPECIAL MEETING, SM-030 --
+     * as an event of its own. See EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL for why
+     * it cannot share the big night's id.
+     *
+     * Same reasoning as the pastimes migration above and the same stakes: the
+     * `events` block is rebuilt from the base object's keys in `normalize()`,
+     * so a v18 save with no migration would come back carrying a field it did
+     * not have on disk, `structurallyBroken` in `readSave()` would be
+     * `!migrated.changed && normalizedChanged`, and every save in the world
+     * would be announced to its owner as recovered.
+     *
+     * Where it lands is not uniformly `pending`, because for once the save can
+     * actually know. Anybody standing in the Special Meeting or past it has
+     * already taken this call -- the scene does not exist without it -- and
+     * putting it back to `pending` would leave a finished campaign with a
+     * telephone ringing in an empty flat. Anybody earlier than that has not,
+     * INCLUDING a save sitting in the flat with the Palace freshly finished:
+     * that is the exact player this whole beat was written for, and answering
+     * it on their behalf is the failure this migration exists to avoid. */
+    const scene = saved.scene?.id;
+    const initiation = saved.missions?.[MISSION_IDS.INITIATION]?.status;
+    const taken = scene === SCENE_IDS.SPECIAL_MEETING
+      || scene === SCENE_IDS.INITIATION
+      || initiation === 'in_progress'
+      || initiation === 'complete';
+    return {
+      ...saved,
+      version: 19,
+      events: {
+        ...(saved.events ?? {}),
+        [EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]: {
+          status: saved.events?.[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]?.status === 'answered'
+            || taken ? 'answered' : 'pending',
+        },
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -1856,6 +2139,7 @@ function hasCurrentShape(saved) {
     && saved.activities && typeof saved.activities === 'object'
     && saved.radio && typeof saved.radio === 'object'
     && saved.inventory && typeof saved.inventory === 'object'
+    && saved.finale && typeof saved.finale === 'object'
     && saved.missions && typeof saved.missions === 'object'
     && saved.events && typeof saved.events === 'object';
 }
@@ -1950,6 +2234,25 @@ function normalize(saved) {
   const initiation = saved.missions?.[MISSION_IDS.INITIATION] ?? {};
   const initiationStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(initiation.status) ? initiation.status : base.missions.initiation.status;
+  const finaleEligible = initiationStatus === 'complete'
+    && uniqueStrings(saved.story?.timeEvents).includes(TIME_EVENT_IDS.COMPLETE_INITIATION);
+  const savedFinale = saved.finale && typeof saved.finale === 'object'
+    ? saved.finale : base.finale;
+  const finaleStatus = finaleEligible && savedFinale.status === 'freeplay'
+    ? 'freeplay' : (finaleEligible ? 'ready' : 'locked');
+  const finaleCompletedAt = finaleEligible ? {
+    day: Number.isSafeInteger(savedFinale.completedAt?.day)
+      && savedFinale.completedAt.day > 0
+      ? savedFinale.completedAt.day
+      : (Number.isSafeInteger(saved.story?.day) && saved.story.day > 0 ? saved.story.day : 1),
+    timeMinutes: boundedNumber(
+      savedFinale.completedAt?.timeMinutes,
+      0,
+      MINUTES_PER_DAY - 1,
+      boundedNumber(saved.story?.timeMinutes, 0, MINUTES_PER_DAY - 1, 0, true),
+      true,
+    ),
+  } : null;
   const silentSquatch = saved.missions?.[MISSION_IDS.SILENT_SQUATCH] ?? {};
   const silentSquatchStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(silentSquatch.status)
@@ -1964,6 +2267,8 @@ function normalize(saved) {
   const golfCall = saved.events?.[EVENT_IDS.LOU_GOLF_CALL] ?? {};
   const louHeistCall = saved.events?.[EVENT_IDS.LOU_HEIST_CALL] ?? {};
   const booskiBigNightCall = saved.events?.[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL] ?? {};
+  const booskiSpecialMeetingCall = saved
+    .events?.[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL] ?? {};
   const radio = saved.radio ?? {};
   const radioSelections = Object.fromEntries(
     Object.entries(radio.selections && typeof radio.selections === 'object'
@@ -2020,6 +2325,12 @@ function normalize(saved) {
     inventory: {
       carried: uniqueStrings(saved.inventory?.carried),
       concealed: uniqueStrings(saved.inventory?.concealed),
+    },
+    finale: {
+      status: finaleStatus,
+      creditsViewed: finaleStatus === 'freeplay',
+      freeplayUnlocked: finaleStatus === 'freeplay',
+      completedAt: finaleCompletedAt,
     },
     missions: {
       [MISSION_IDS.BADA_BING_ONE]: {
@@ -2283,6 +2594,11 @@ function normalize(saved) {
         conspiracyBoard: silentSquatch.conspiracyBoard === true,
         trophyAwarded: silentSquatch.trophyAwarded === true,
         eveningReady: silentSquatch.eveningReady === true,
+        /* Only beats the whitelist knows survive a read, exactly the way
+         * checkpoints are handled -- a beat id the list dropped must not keep
+         * counting toward the bed from an old save. */
+        eveningBeats: uniqueStrings(silentSquatch.eveningBeats)
+          .filter((id) => MANSION_EVENING_BEAT_IDS.includes(id)),
         sleptAtMansion: silentSquatch.sleptAtMansion === true,
       },
     },
@@ -2331,11 +2647,33 @@ function normalize(saved) {
         status: louHeistCall.status === 'answered' || bankHeistStatus !== 'locked'
           ? 'answered' : 'pending',
       },
-      // Same rule at the end of the line: an exposed Initiation is proof
-      // Booskibro's big-night call already landed.
+      /* Same rule at the end of the line: an exposed Initiation is proof
+       * Booskibro's big-night call already landed.
+       *
+       * THIS INFERENCE IS A TRAP FOR THE NEXT SCENE THAT WANTS A CALL HERE,
+       * and it is left in place deliberately rather than tightened. Finishing
+       * the Cartel Palace is what unlocks the Initiation now, so the rule fires
+       * the instant the Palace is over: any beat hung off this event arrives
+       * pre-answered and its phone never rings once. It has to stay, because
+       * it is the only thing that keeps the grandfathered saves that reached
+       * the Initiation before the final arc existed from being sent back to a
+       * telephone that will never ring for them either. The way past it is a
+       * SEPARATE event id, which is what the line below is. */
       [EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: {
         status: booskiBigNightCall.status === 'answered' || initiationStatus !== 'locked'
           ? 'answered' : 'pending',
+      },
+      /* And THE SPECIAL MEETING's call, which infers nothing from anywhere.
+       *
+       * There is no mission whose exposure proves this one landed: the scene it
+       * opens is not a mission, it has no MISSION_IDS entry, and the only thing
+       * that could stand in for it -- the Initiation -- is unlocked by the beat
+       * immediately BEFORE the call rather than the one after. So the save says
+       * whether he took it, and nothing else gets a vote. A v18 save that
+       * predates the event is handled once, in MIGRATIONS[18], where the scene
+       * he is standing in is the evidence. */
+      [EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]: {
+        status: booskiSpecialMeetingCall.status === 'answered' ? 'answered' : 'pending',
       },
     },
   };
@@ -3016,6 +3354,21 @@ function seedApartmentPreviewCampaign(state, variant) {
   return checkpoint.spawn;
 }
 
+/**
+ * Build the same normalized temporary campaign state used by an Apartment
+ * preview without consulting browser globals or persistent storage. Headless
+ * verifiers use this to dress each preview variant exactly as runtime does.
+ */
+export function apartmentPreviewCampaignState(variant) {
+  let spawn = null;
+  const campaign = new Campaign(null);
+  const state = campaign.update((candidate) => {
+    spawn = seedApartmentPreviewCampaign(candidate, variant);
+    if (spawn === null) throw new RangeError(`Unknown Apartment preview variant "${variant}"`);
+  });
+  return Object.freeze({ state, spawn });
+}
+
 function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
   let apartmentSpawn = null;
   campaign.update((state) => {
@@ -3335,6 +3688,8 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
         conspiracyBoard: true,
         trophyAwarded: true,
         eveningReady: true,
+        /* A canonical slept-through record: the wind-down happened too. */
+        eveningBeats: ['theatre', 'bar'],
         sleptAtMansion: true,
       });
 
@@ -3404,6 +3759,12 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       state.story.chapter = 'big_night';
       seedFinalArcClock(12);
       state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status = 'answered';
+      /* Everything past the Palace opens ON or AFTER the kerb -- the Special
+       * Meeting's own page and the Initiation are the only two scenes this
+       * tail seeds -- and a man standing at a running car has taken the call
+       * that sent it. Answered, or a preview of Act Two would boot with the
+       * flat's telephone still owed. */
+      state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status = 'answered';
       initiation.status = 'available';
     }
   });

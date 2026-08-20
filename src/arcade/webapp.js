@@ -341,6 +341,33 @@ export class WebApp {
   }
 
   exit() {
+    /* STOP IT FIRST, before any of the teardown that can throw.
+     *
+     * Owner playtest, 2026-08-20: *"I still can't quit Doom on the computer,
+     * and the music volume is playing at full even after I get up from the
+     * desk."* Both of those were one defect — exiting hid the frame and left
+     * the page RUNNING, so the way out worked perfectly and was completely
+     * invisible: the desktop came back and the soundtrack carried on at full
+     * volume out of an iframe nobody could see. A quit that leaves the thing
+     * you quit running is not a quit.
+     *
+     * The ORDER is the second half of it, and it is why SQUATCH SMASH went on
+     * playing after DOOM had been fixed. This used to stop the page at the
+     * bottom, after the listener teardown. Same-origin apps are the only ones
+     * with `_frameKeys` to tear down, `withWindow` reaches into a frame that
+     * may be mid-navigation, and anything it throws takes the rest of the
+     * method with it — so the one app whose page we can actually talk to was
+     * the one that never got told to stop. Silencing it does not depend on any
+     * of that, so it does not wait for any of it.
+     *
+     * Guarded, because `suspend()` is overridable and one subclass overrides
+     * it with something that reaches INTO the frame: `Campground.suspend()`
+     * presses P inside the campground, which is the better answer for a page
+     * we own — the run is paused rather than thrown away and it is still there
+     * when he sits back down. Reaching into a frame mid-navigation can throw,
+     * and a quit that fails because the pause failed is the bug this method
+     * exists to close. */
+    try { this.suspend(); } catch { /* a frame that is already gone */ }
     if (this._frameKeys) {
       this.overlay.withWindow((w) => {
         w.removeEventListener('keydown', this._frameKeys.down, true);
@@ -352,6 +379,17 @@ export class WebApp {
       this.overlay.el.removeEventListener('load', this._onLoad);
       this._onLoad = null;
     }
+    /* AND STOP IT. Owner playtest, 2026-08-20: *"I still can't quit Doom on
+     * the computer, and the music volume is playing at full even after I get
+     * up from the desk."*
+     *
+     * Those are one bug. Exiting hid the frame and left the page RUNNING, so
+     * the way out worked perfectly and was completely invisible: the monitor
+     * went back to the desktop, DOOM kept playing its soundtrack at full
+     * volume out of an iframe nobody could see, and from where the player is
+     * standing that is a game that would not quit. Standing up did the same
+     * thing by the same route. A quit that leaves the thing you quit running
+     * is not a quit. */
     this.hide();
     this.os?.setInputMode?.('relative');
     this.onExit?.();
@@ -359,6 +397,8 @@ export class WebApp {
 
   /** Show every DOM layer owned by the framed app. */
   show() {
+    // Sitting back down after a stand-up puts the page back on the monitor.
+    this.overlay.resume();
     this.overlay.show();
     document.body.appendChild(this.quit);
     this.quit.style.display = 'block';
@@ -382,6 +422,21 @@ export class WebApp {
     this.quit.style.display = 'none';
     this.quit.remove();
     this._cursorRule.remove();
+  }
+
+  /**
+   * Standing up: stop it making noise.
+   *
+   * `mount.js` calls this on every stand-up (`app.suspend?.()`) and has done
+   * since framed apps existed. Nothing implemented it, and optional chaining
+   * meant the call was a no-op that never said so -- see
+   * `ScreenOverlay.suspend()` for what "hidden but still playing" costs and
+   * why blanking the frame is the only thing that actually silences a
+   * cross-origin page.
+   */
+  suspend() {
+    this._cancelHold();
+    return this.overlay.suspend();
   }
 
   /** Keep the frame on the monitor. The way out does not move with it. */

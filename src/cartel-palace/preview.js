@@ -29,3 +29,38 @@ export function previewSnapshotForCheckpoint(checkpoint) {
     outcome: id === 'clear' ? 'clean' : null,
   };
 }
+
+/** Stage Palace geometry without campaign, UI, audio or combat-system side effects. */
+export function stagePalaceCheckpointGeometry(checkpoint, { palace, cast } = {}) {
+  if (!PALACE_PREVIEW_CHECKPOINTS.includes(checkpoint)) {
+    throw new Error(`Unknown Cartel Palace geometry checkpoint: ${checkpoint}`);
+  }
+  if (!palace?.doors || !cast?.markDown || !Array.isArray(cast.all)) {
+    throw new Error('Cartel Palace checkpoint geometry requires the complete world and cast');
+  }
+  const snapshot = previewSnapshotForCheckpoint(checkpoint);
+  if (checkpoint !== 'approach') palace.doors.openServiceGate();
+  if (['estate', 'betrayal', 'dining_room', 'clear'].includes(checkpoint)) {
+    palace.doors.openEstateDoor();
+  }
+  if (['dining_room', 'clear'].includes(checkpoint)) palace.doors.openDiningRoom();
+  if (snapshot.markEliminated) {
+    cast.mark.actor.health = 0;
+    cast.mark.actor.incapacitated = true;
+    cast.markDown(cast.mark);
+  }
+  if (snapshot.sauceEliminated) {
+    cast.sauce.actor.health = 0;
+    cast.sauce.actor.incapacitated = true;
+    cast.markDown(cast.sauce);
+  }
+  return {
+    checkpoint,
+    powerCut: snapshot.powerCut,
+    serviceGateOpen: checkpoint !== 'approach',
+    estateDoorOpen: ['estate', 'betrayal', 'dining_room', 'clear'].includes(checkpoint),
+    diningRoomOpen: ['dining_room', 'clear'].includes(checkpoint),
+    markDown: cast.mark.down === true,
+    sauceDown: cast.sauce.down === true,
+  };
+}

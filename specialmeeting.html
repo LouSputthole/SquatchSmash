@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>The Special Meeting · Squatch Life</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128663;</text></svg>" />
+  <link rel="stylesheet" href="src/style.css" />
+  <link rel="stylesheet" href="src/specialmeeting/specialmeeting.css" />
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body class="specialmeeting">
+  <canvas id="scene"></canvas>
+
+  <div id="hud" aria-hidden="true">
+    <div id="crosshair"><span></span></div>
+    <div id="prompt" class="hidden"><kbd class="key">E</kbd><span class="label">Interact</span><div class="holdbar"><i></i></div></div>
+    <div id="subtitle" class="hidden"></div>
+    <div id="toast-stack"></div>
+  </div>
+
+  <!-- The replies. Numbered, unhurried, and never on a clock. -->
+  <div id="choices" class="hidden"></div>
+
+  <!-- SM-196. A cut, not a dissolve; the road noise does not cut with it. -->
+  <div id="blackout"><span></span></div>
+
+  <div id="loading"><div class="bar"><i></i></div><span>A car, already running…</span></div>
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong><span data-boot-detail></span>
+    <div class="actions"><button type="button" data-boot-reload>RELOAD</button><a href="./index.html">APARTMENT</a></div>
+  </div>
+  <!-- data-ready is the NAME OF THE GLOBAL the scene publishes, not a title. -->
+  <script src="./src/core/boot-guard.js" data-target="bootFailure" data-ready="SPECIAL_MEETING" data-scene="THE SPECIAL MEETING"></script>
+  <script>window.__squatchStage=function(t){var s=document.querySelector('#loading span');if(s)s.textContent=t;};</script>
+  <script type="module" src="src/specialmeeting/main.js" onerror="window.__squatchSceneFail('Could not load the Special Meeting','src/specialmeeting/main.js failed to load.')"></script>
+</body>
+</html>

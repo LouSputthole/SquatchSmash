@@ -10,7 +10,9 @@ ensureDomShim();
 const {
   BLOOD_MARK_NAME,
   BLOOD_POOL_NAME,
+  BLOOD_SPURT_NAME,
   BloodImpactSystem,
+  BloodSpurtSystem,
   DeathBloodPool,
 } = await import('../src/world/blood.js');
 
@@ -117,6 +119,47 @@ test('repeated hits on one actor keep a bounded, duplicate-free wound ledger', (
   assert.equal(blood._marks.get(actor).size, blood.wounds.pool.length);
   assert.equal(blood.clearActor(actor), true);
   assert.equal(blood.wounds.pool.filter((mark) => mark.visible).length, 0);
+});
+
+test('spurts arc into the air, land on the explicit floor, and stay bounded', () => {
+  /* The HotDog Incident's stabbing beat (2026-08-19 owner note: "Blood
+   * splatting into the air") is the reason this emitter exists: arterial
+   * droplets thrown UP off the wound, pulled back down, and reported to the
+   * caller where they land so a splatter decal can be put there. */
+  const scene = new THREE.Scene();
+  const spurts = new BloodSpurtSystem(scene, { capacity: 6, random: () => 0.5 });
+
+  const wound = new THREE.Vector3(2, 1.3, -1);
+  const landings = [];
+  const launched = spurts.burst(wound, new THREE.Vector3(0, 0, -1), {
+    count: 4,
+    floorY: 0.1,
+    onLand: (x, z) => landings.push({ x, z }),
+  });
+  assert.equal(launched, 4);
+  assert.equal(spurts.airborneCount, 4);
+  const droplet = spurts._entries[0].mesh;
+  assert.equal(droplet.name, `${BLOOD_SPURT_NAME}.01`);
+  assert.equal(droplet.userData.reusableSystem, 'blood');
+  assert.equal(droplet.userData.bloodEffect, 'spurt');
+  assert.equal(droplet.visible, true);
+
+  // Rises first — the whole point is blood in the AIR, not a decal.
+  spurts.update(0.05);
+  assert.ok(droplet.position.y > wound.y, 'the droplet never went up');
+
+  // Then falls, lands at the explicit floor height, and reports where.
+  for (let i = 0; i < 100 && spurts.airborneCount > 0; i++) spurts.update(0.05);
+  assert.equal(spurts.airborneCount, 0, 'droplets never came back down');
+  assert.equal(landings.length, 4, 'landings were not reported to the caller');
+  assert.ok(landings.every(({ x, z }) => Number.isFinite(x) && Number.isFinite(z)));
+  assert.ok(spurts._entries.every((entry) => entry.mesh.visible === false));
+
+  // A burst bigger than the pool recycles instead of allocating.
+  assert.equal(spurts.burst(wound, new THREE.Vector3(0, 0, -1), { count: 40 }), 6);
+  assert.equal(spurts.airborneCount, 6);
+  spurts.reset();
+  assert.equal(spurts.airborneCount, 0);
 });
 
 test('death pools use an explicit floor point, grow deterministically, and stay bounded', () => {

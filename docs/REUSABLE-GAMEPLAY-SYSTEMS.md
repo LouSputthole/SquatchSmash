@@ -26,7 +26,7 @@ A shared-system adoption is complete only when all four are present:
 | TV playback and attenuation | `src/core/tv.js`, with `src/core/audio.js` listener state | Canonical | Apartment and Mansion televisions, including the Mansion theatre |
 | Smoke and cigarette exhale | `src/world/smoke.js` | Canonical | Apartment, Silver Pines, Enola Squatch, Mansion bong behavior |
 | Functioning bong | `src/world/bong.js` | Canonical | Apartment and Mansion LAN room |
-| Weapon operation | `src/core/weapons/index.js` | Canonical; `Firearm` is the state authority | Cartel Palace, Mansion and Mansion Siege; CombatLab verifies; Heist shares selected models/audio and still carries a compatibility debt |
+| Weapon operation | `src/core/weapons/index.js` | Canonical; `Firearm` is the state authority | Cartel Palace, Mansion and Mansion Siege; CombatLab verifies; Heist runs catalog `Firearm` behind the `HeistFirearm` compatibility Adapter in `src/heist/combat.js` |
 | Ground-combat truth | `src/core/combat/` | Canonical Modules behind scene Adapters | Mansion Siege and Cartel Palace are green production Adapters; Mansion's ensemble also proves friendly perception/aim/fire reuse; CombatLab is verification only |
 | Player inventory | `src/core/inventory.js` | Canonical | Apartment, Bing, Silver, Silver Pines and Mansion final-arc loadout |
 | Look/hold interactions | `src/core/interaction.js` | Canonical | All first-person scenes that use world-object prompts |
@@ -88,9 +88,10 @@ from the wound point so a chest hit cannot create a pool in mid-air.
   applied Located hit and `DeathBloodPool` for an actual fatal result. Their
   checkpoint/restart Adapters reset both pools rather than saving decals as
   durable combat state.
-- `src/heist/main.js` has scene-local blood particles and floor circles. Keep
-  particles as scene flavor if wanted, but move persistent wounds and death
-  pools to the shared Module.
+- Heist / THE TAKE mounts `BloodImpactSystem`, `BloodSpurtSystem` and
+  `DeathBloodPool` through `src/heist/combat.js#presentImpact`: applied hits
+  attach shared wounds at the real ray point, fatal results own exactly one
+  spreading floor pool, and the old scene-local sphere/decal pools are gone.
 - `src/squatchfather/main.js` uses `BulletHoles` at a guessed eye point. Move it
   to the real resolved intersection before claiming exact impact placement.
 
@@ -434,12 +435,15 @@ latching and phased reload behavior. Its restore Interface intentionally keeps
 durable ammunition but clears reload timers, recoil, cooldown and held-trigger
 latches.
 
-There is remaining migration debt in `src/core/combat/weapon.js`:
-`WeaponController` overlaps `Firearm` and is still used directly by Heist.
-Mansion Siege hostiles and its friendly ensemble have migrated to canonical
-`Firearm`; do not reintroduce a second ammunition/reload authority there.
-Future Adapters must translate old trigger/burst calls to `Firearm` first and
-avoid adding new behavior to both classes in the meantime.
+The `WeaponController` debt in `src/core/combat/weapon.js` is retired:
+`WeaponController` has no production consumer left. Heist / THE TAKE — its
+last scene — now runs canonical `Firearm` behind the `HeistFirearm`
+compatibility Adapter in `src/heist/combat.js`, and Mansion Siege hostiles and
+its friendly ensemble migrated earlier. Do not reintroduce a second
+ammunition/reload authority anywhere; a scene that still speaks the old
+trigger dialect gets a thin compatibility Adapter over `Firearm`, never new
+behavior on `WeaponController`. `BurstController` remains a useful NPC
+trigger policy and stays exported.
 
 ### CombatActor Interface: health, armor and lethal hits
 
@@ -779,7 +783,7 @@ Adapter change local enough to verify:
 
 | Order | Scene / current Implementation | Required Adapter migration | Acceptance boundary |
 | --- | --- | --- | --- |
-| 1 | Heist / THE TAKE: shared actors and selected ballistics, but `HeistLoadout` and hostile weapons still use `WeaponController`; blood remains scene-local. | Put `Firearm` behind a compatibility Adapter first, then adopt common spatial/perception/aim/fire-control/impact Seams and shared blood. Keep hostages, police phases, threat escalation, objectives and authored navigation local. | No wall or hostage damage without an honest trace; NPC bore alignment is visible; ammo/armor restore; applied/fatal impacts create bounded shared blood; focused and browser Heist proof. |
+| 1 | Heist / THE TAKE — DONE: the compatibility Adapter is `src/heist/combat.js`. `HeistFirearm` puts catalog `Firearm` behind the old loadout surface; player and mission-tooling rounds resolve through one honest phase-geometry trace into `CombatImpactResolver`; hostile officers run `CombatPerception`, `CombatWeaponAim` (visible bore on a modelled weapon) and `CombatFireControl` per round; applied/fatal impacts drive shared blood. Hostages, police phases/waves, threat escalation, objectives and authored navigation stayed local. | Delivered: no wall or hostage damage without an honest trace (the `shootHostage` probe included); catalog damage/armor rules identical to every other scene; durable ammo and hostile-pipeline checkpoints. `tests/heist-combat-adapter.test.mjs` is the focused proof; `tools/verify-heist.mjs` remains the browser proof. | Do not regress: any new heist damage path must trace through the Adapter; no second ammunition authority; blood stays the shared systems'. |
 | 2 | Motel: `S.weapon`/`S.ammo`, cone selection, `segmentBlocked`, direct actor/player damage and local gun feedback. | Move gun state to `Firearm`, register actors, then route movement/LOS/aim/hostile rounds/player impacts through the shared Modules. Preserve the authored Silverback consequences and combat/story state machine. Represent the intentional bathroom-wall shot as an explicit material Adapter, not a global exception that lets colliders leak damage. | Exact blocker/miss endpoints, no sight or damage through ordinary walls, visible NPC alignment, armor/head/limb behavior, shared blood, checkpoint-safe ammo and acceptable fight performance. |
 | 3a | Silver Case: older `ShotResolver`/`ImpactKit` and reaction windows. | Replace its impact and blood Seam first; adopt `WeaponSystem`/`Firearm` only where the player actually owns ammo/reload. Keep reaction-window and narrative outcome logic local. | Real world hit point and body anchor survive motion; lethal/armor rules agree with `CombatActor`; no duplicate blood authority. |
 | 3b | Regular Mansion / Silent Squatch: shared blood is already mounted, but the scripted firearm path and figure mapping remain scene-specific. | Register the cast with the stable protocol and feed the full `WeaponSystem` impact into `CombatImpactResolver`. Do not turn a stealth/scripted sequence into generic siege AI. | Exact wound and one fatal pool, stable reset, protected cast remains protected, existing mission timing unchanged. |
@@ -961,9 +965,10 @@ the threshold, durability and preview isolation.
 
 1. Move Bing and Silver drink motion to `poseHeldDrink`; then extract the
    apartment held-consumable sequence once for all four drinking scenes.
-2. Complete ground-combat Adapters in the matrix order above: Heist, Motel,
-   then Silver Case, regular Mansion and other scripted firearm scenes. This
-   includes moving remaining applied hits to shared blood; air, arcade and
-   cinematic Initiation combat remain excluded.
+2. Complete ground-combat Adapters in the matrix order above: Heist is done
+   (`src/heist/combat.js`); Motel is next, then Silver Case, regular Mansion
+   and other scripted firearm scenes. This includes moving remaining applied
+   hits to shared blood; air, arcade and cinematic Initiation combat remain
+   excluded.
 3. Continue replacing scene-local prop approximations with `world/props.js`
    builders plus the stable `reusableProp` vocabulary.

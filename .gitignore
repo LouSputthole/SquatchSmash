@@ -23,3 +23,8 @@ artifacts/
 # Regenerate with: npm run sfx:listen
 assets/sfx/_listen.html
 .claude/worktrees/
+
+# Scratch probes. Agents and humans both end up writing a throwaway script that
+# builds one scene and measures it; those are working notes, not deliverables,
+# and they should never reach a commit.
+.tmp/

@@ -26,6 +26,9 @@ const {
 } = await import('../src/world/bong.js');
 const { BLOOD_MARK_NAME, BLOOD_POOL_NAME } = await import('../src/world/blood.js');
 const mansionMainSource = readFileSync(new URL('../src/mansion/main.js', import.meta.url), 'utf8');
+/* The preload selector moved into the residency-bank module; the cue-name
+ * spreads the checks below used to find in main.js live there now. */
+const mansionBanksSource = readFileSync(new URL('../src/mansion/audio-banks.js', import.meta.url), 'utf8');
 const apartmentMainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 const apartmentSource = readFileSync(new URL('../src/world/apartment.js', import.meta.url), 'utf8');
 const bingMainSource = readFileSync(new URL('../src/bing/main.js', import.meta.url), 'utf8');
@@ -869,8 +872,10 @@ test('every Mansion toilet is published and bound to the shared hold-to-pee inte
   assert.match(mansionMainSource, /onHoldProgress:[\s\S]*mansionPee\.start/);
   assert.match(mansionMainSource, /onTap:[\s\S]*mansionPee\.stop/);
   assert.deepEqual(PEE_CUE_NAMES, ['toilet.lid', 'pee.zip', 'pee.stream', 'pee.miss']);
-  assert.match(mansionMainSource, /import \{ PEE_CUE_NAMES, PeeSystem \} from '\.\.\/core\/pee-system\.js'/);
-  assert.match(mansionMainSource, /names: \[[\s\S]*\.\.\.weaponCueNames\(\),[\s\S]*\.\.\.PEE_CUE_NAMES/);
+  assert.match(mansionMainSource, /import \{ PeeSystem \} from '\.\.\/core\/pee-system\.js'/);
+  assert.match(mansionBanksSource, /import \{ PEE_CUE_NAMES \} from '\.\.\/core\/pee-system\.js'/);
+  assert.match(mansionBanksSource, /names: \[[\s\S]*\.\.\.weaponCueNames\(\),/);
+  assert.match(mansionBanksSource, /\.\.\.PEE_CUE_NAMES/);
 });
 
 test('the shared Bing focus rush narrows the view and boosts movement for twenty-five seconds', () => {
@@ -917,7 +922,7 @@ test('Lou suite publishes one visible cocaine line that consumes into the shared
   assert.match(mansionMainSource, /interaction\.register\(suitePowder\.group/);
   assert.match(mansionMainSource, /suiteFocus\.start\(25\)/);
   assert.match(mansionMainSource, /audio\.play\('bing\.line\.snort'/);
-  assert.match(mansionMainSource, /names:[\s\S]*'bing\.line\.snort'/);
+  assert.match(mansionBanksSource, /names:[\s\S]*'bing\.line\.snort'/);
 });
 
 test('the transfer table visibly marks the exact diamond handoff spot', () => {

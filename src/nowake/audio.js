@@ -33,6 +33,8 @@ export const NO_WAKE_AUDIO_CUE_NAMES = Object.freeze([
   'pour',
   'radio.click',
   'switch.click',
+  'ui.select',
+  'woo.streak',
   'water.splash',
   'whiskey.pour',
 ]);

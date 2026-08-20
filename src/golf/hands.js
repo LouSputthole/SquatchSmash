@@ -49,6 +49,28 @@ export function loadSquatchBeerLabel() {
 }
 
 /**
+ * Fetch the Squatch-branded Zyn lid — the same "SQUATCH UP" cover the
+ * apartment desk tin wears — and cache the texture for every tin the course
+ * dresses.
+ *
+ * Unlike the beer label, a Zyn lid always has *something* to show: `zyn.lid`
+ * has a drawn placeholder in `world/gear.js`, so this never resolves to null
+ * the way a missing beer label does. Cached the same way, so the cart's tin
+ * and any tin dressed after it share one decode instead of one each.
+ */
+let zynLidReady = null;
+let zynLidTexture = null;
+export function loadSquatchZynLid() {
+  zynLidReady ??= resolveGear(['zyn.lid'])
+    .then((gear) => {
+      zynLidTexture = gear.get('zyn.lid')?.texture ?? null;
+      return zynLidTexture;
+    })
+    .catch(() => null);
+  return zynLidReady;
+}
+
+/**
  * Give the course's stocked cans the fridge's own beer.
  *
  * The cart cooler and the trailside coolers built their cans as bare tinted
@@ -133,8 +155,13 @@ export function dressGolfCartConsumables(amenities) {
     const target = amenities.zyn;
     target.userData.reusableProp = 'zyn-tin';
     if (!target.getObjectByName('zyn')) {
+      /* The generic blue-lid placeholder this used to be replaced with the
+       * apartment's own tin, lid graphic and all -- `zynLidTexture` is
+       * whatever `loadSquatchZynLid` has resolved by the time the cart is
+       * first dressed, real owner art if it exists and the same drawn
+       * "SQUATCH UP" cover otherwise, never nothing. */
       const prop = makeZynCan(
-        reusableMaterials(), { x: 0, y: -0.013, z: 0 },
+        reusableMaterials(), { x: 0, y: -0.013, z: 0, lidTexture: zynLidTexture },
       ).group;
       target.add(prop);
       if (target.material) target.material.visible = false;

@@ -1,5 +1,6 @@
 import * as Foley from '../audio/Foley.js';
 import { weaponDrop } from '../audio/GunshotAudio.js';
+import { writeGameplayPromptKey } from '../../core/gameplay-key-adapter.js';
 
 // Letting go of it has to be the player's doing. He will not walk out of the
 // restaurant with it in his hand — if the player tries, he stops and looks at
@@ -15,7 +16,7 @@ export class WeaponDropInteraction {
   }
 
   prompt(show, text = 'Drop the weapon') {
-    this.ui.promptKey.textContent = 'E';
+    writeGameplayPromptKey(this.ui.promptKey, 'E');
     this.ui.promptText.textContent = text;
     this.ui.prompt.classList.toggle('show', show);
   }

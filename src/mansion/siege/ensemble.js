@@ -501,7 +501,10 @@ const ROSTER = Object.freeze([
       LULL: P(-5.0, 50.0, -5.0, 45),
       WAVE_TWO: P(-6.2, 48.7, -6.2, 42),
       AFTERMATH: P(-5.2, 49.4, -5.2, 44),
-      TO_SASOLE: P(-5.2, 49.4, 0, 51),
+      /* Turning east toward Sasole swings the carbine across guard_0's
+       * chest at the adjacent x=-4.4 mark. Keep the same rail line but widen
+       * the post-battle rank by 45 cm before that turn. */
+      TO_SASOLE: P(-5.65, 49.4, 0, 51),
       COMPLETE: P(-5.2, 49.4, 0, 51),
     }),
   }),
@@ -539,15 +542,22 @@ const ROSTER = Object.freeze([
     model: () => withFace(SHUBENATOR, FACES.shubes),
     routine: Object.freeze(['radio', 'callout', 'window']),
     posts: Object.freeze({
-      TO_OFFICE: P(-2.6, 59.0, -2.6, 55),
-      BRIEFING: P(-2.6, 59.0, -2.6, 55),
+      /* Stand west of the conference table rather than through its leather
+       * top. The table ends at x=-3; -4.0 keeps Shubes and his carbine clear
+       * while he still faces the radio surface. */
+      TO_OFFICE: P(-4.0, 59.0, -2.6, 58.2),
+      BRIEFING: P(-4.0, 59.0, -2.6, 58.2),
       LITTLE_FRIEND: P(-3.0, 55.4, -3.0, 51),
       WAVE_ONE: P(-3.0, 55.4, -3.0, 51),
       LULL: P(-3.0, 56.6, -3.0, 52),
       WAVE_TWO: P(-3.0, 55.4, -3.0, 51),
-      AFTERMATH: P(-3.4, 54.0, -3.4, 50),
-      TO_SASOLE: P(-3.4, 54.0, 0, 51),
-      COMPLETE: P(-3.4, 54.0, 0, 51),
+      /* The gallery-north partition reaches z=53.18. At z=54.0 the back of
+       * Shubes and the carbine occupied that plaster; 40 cm farther into the
+       * gallery preserves the same radio-side blocking position with air
+       * behind the complete figure. */
+      AFTERMATH: P(-3.4, 54.4, -3.4, 50),
+      TO_SASOLE: P(-3.4, 54.4, 0, 51),
+      COMPLETE: P(-3.4, 54.4, 0, 51),
     }),
   }),
 
@@ -588,15 +598,22 @@ const ROSTER = Object.freeze([
     model: () => withFace(GRATIN, FACES.gratin),
     routine: Object.freeze(['tend', 'passMag', 'tend', 'reload']),
     posts: Object.freeze({
-      TO_OFFICE: P(3.4, 65.2, 4.2, 65),
-      BRIEFING: P(3.4, 65.2, 4.2, 65),
-      LITTLE_FRIEND: P(2.8, 51.6, 3.6, 51.4),
+      /* Keep the tending composition close without sharing limb volume. At
+       * x=3.4 Gratin's left upper arm entered the wounded guard's right hand
+       * by 32 mm in the armed checkpoint. Six centimetres west leaves a
+       * readable handspan while both figures still face one another. */
+      TO_OFFICE: P(3.34, 65.2, 4.2, 65),
+      BRIEFING: P(3.34, 65.2, 4.2, 65),
+      /* The planter starts at x=2.858,z=51.643 and the wounded guard owns the
+       * floor east of x=3.1. Reuse the clear tending flank from the lull so
+       * Gratin's body and holstered pistol have negative space around both. */
+      LITTLE_FRIEND: P(2.2, 51.2, 3.0, 50),
       WAVE_ONE: P(2.8, 51.6, 3.6, 51.4),
       LULL: P(2.2, 51.2, 3.0, 50),
       WAVE_TWO: P(2.8, 51.6, 3.6, 51.4),
-      AFTERMATH: P(3.0, 51.8, 3.8, 51.6),
-      TO_SASOLE: P(3.0, 51.8, 3.8, 51.6),
-      COMPLETE: P(3.0, 51.8, 3.8, 51.6),
+      AFTERMATH: P(2.0, 50.4, 3.6, 50.4),
+      TO_SASOLE: P(2.0, 50.4, 3.6, 50.4),
+      COMPLETE: P(2.0, 50.4, 3.6, 50.4),
     }),
   }),
 
@@ -612,13 +629,23 @@ const ROSTER = Object.freeze([
     posts: Object.freeze({
       TO_OFFICE: Object.freeze({ x: -3.5, y: -2.8, z: 65.8, lookX: 6, lookZ: 65.8 }),
       BRIEFING: P(-8.4, 49.4, -8.4, 45),
-      LITTLE_FRIEND: P(-8.4, 49.4, -8.4, 44),
+      /* Numbskull holds the inner west landing. Use the outer clear post here
+       * so the two armed figures do not share shoulder and forearm volume. */
+      LITTLE_FRIEND: P(-9.4, 50.4, -9.4, 46),
       WAVE_ONE: P(-8.4, 49.4, -8.4, 44),
       LULL: P(-9.4, 50.4, -9.4, 46),
       WAVE_TWO: P(-8.4, 49.4, -8.4, 44),
-      AFTERMATH: P(-8.0, 50.0, -8.0, 45),
-      TO_SASOLE: P(-8.0, 50.0, 0, 51),
-      COMPLETE: P(-8.0, 50.0, 0, 51),
+      /* Numbskull owns x=-7.4 in these beats. The former x=-8.0 root gap
+       * cleared coarse body boxes while Irish's left elbow and upper arm
+       * still entered Numbskull's right upper arm by 48-55 mm. Widen the
+       * same west-rail composition by one quarter metre. */
+      AFTERMATH: P(-8.25, 50.0, -8.25, 45),
+      /* Irish can face down the rail at the aftermath mark, but turning his
+       * AK toward Sasole sweeps it through Numbskull. Step north into the
+       * open landing for that conversation instead of widening into the west
+       * wall. */
+      TO_SASOLE: P(-8.25, 50.65, 0, 51),
+      COMPLETE: P(-8.25, 50.0, 0, 51),
     }),
   }),
 
@@ -631,8 +658,12 @@ const ROSTER = Object.freeze([
     model: () => withFace(DEATHMEGATRON, FACES.deathmegatron),
     routine: Object.freeze(['reload', 'scan']),
     posts: Object.freeze({
-      TO_OFFICE: P(6.4, 67.5, 6.4, 63),
-      BRIEFING: P(6.4, 67.5, 6.4, 63),
+      /* The east bookcase occupies x 6.25..6.55 and the secret-stair treads
+       * begin at x=6.66, so there is no person-sized bay between them. The
+       * fireside chairs also occupy z 67.8. This x=5.5,z=65 post holds the
+       * same suite flank on the open floor south-west of all three fittings. */
+      TO_OFFICE: P(5.5, 65.0, 5.5, 62.5),
+      BRIEFING: P(5.5, 65.0, 5.5, 62.5),
       LITTLE_FRIEND: P(6.8, 48.7, 6.8, 42),
       WAVE_ONE: P(6.8, 48.7, 6.8, 42),
       LULL: P(6.0, 50.2, 6.0, 45),
@@ -652,7 +683,7 @@ const ROSTER = Object.freeze([
     posts: Object.freeze({
       TO_OFFICE: P(-7.9, 49.4, -7.9, 45),
       BRIEFING: P(-7.9, 49.4, -7.9, 45),
-      LITTLE_FRIEND: P(-7.9, 49.0, -7.9, 44),
+      LITTLE_FRIEND: P(-7.0, 50.6, -7.0, 46),
       WAVE_ONE: P(-7.9, 49.0, -7.9, 44),
       LULL: P(-7.0, 50.6, -7.0, 46),
       WAVE_TWO: P(-7.9, 49.0, -7.9, 44),
@@ -677,7 +708,10 @@ const ROSTER = Object.freeze([
       LULL: P(1.6, 55.0, 1.6, 51),
       WAVE_TWO: P(2.4, 54.2, 2.4, 50),
       AFTERMATH: P(2.0, 53.4, 2.0, 50),
-      TO_SASOLE: P(2.0, 53.4, 0, 51),
+      /* The post-battle turn put her right shoulder into the doorway's
+       * x=2.185 jamb and one shoe through its z=53.15 finish strip. Stand
+       * wholly behind the opening before she turns toward Sasole. */
+      TO_SASOLE: P(1.8, 53.55, 0, 51),
       COMPLETE: P(2.0, 53.4, 0, 51),
     }),
   }),
@@ -693,9 +727,12 @@ const ROSTER = Object.freeze([
     model: () => withFace(CAPTAIN_LOU_SASOLE, FACES.sasole),
     routine: Object.freeze(['scan', 'window']),
     posts: Object.freeze({
-      AFTERMATH: P(3.4, 52.0, 0, 50),
-      TO_SASOLE: P(3.4, 52.0, -1.4, 50.2),
-      COMPLETE: P(3.4, 52.0, -1.4, 50.2),
+      /* The east gallery planter owns x 2.86..3.96, z 51.64..52.82. The old
+       * three-person aftermath tableau was authored inside its foliage. Keep
+       * Sasole west of Gratin and the wounded man, all south of the planter. */
+      AFTERMATH: P(1.0, 50.8, 3.0, 50.4),
+      TO_SASOLE: P(1.0, 50.8, 3.0, 50.4),
+      COMPLETE: P(1.0, 50.8, 3.0, 50.4),
     }),
   }),
 
@@ -725,16 +762,20 @@ const ROSTER = Object.freeze([
     posts: Object.freeze({
       TO_OFFICE: P(4.6, 49.0, 4.6, 45),
       BRIEFING: P(4.6, 49.0, 4.6, 45),
-      /* East of the dark stair mass, turned toward the live firing lane. This
-       * keeps the supported carbine broadside to Eric's revive approach while
-       * leaving real negative space between the two defenders. */
-      LITTLE_FRIEND: P(4.8, 50.45, 6.0612, 54.246),
-      WAVE_ONE: P(4.6, 48.5, 4.6, 43),
+      /* The open triage case occupies x=4.0..5.0,z=50.37..50.93 and the
+       * clamped worklamp stands at x=5.143,z=48. Hold the same east lane at
+       * x=4,z=49 so the guard clears both fixtures throughout the live beats.
+       * Retain a broadside carbine read after its scripted 21 cm flinch rather
+       * than flattening the supported weapon into the closer evidence camera. */
+      LITTLE_FRIEND: P(4.0, 49.0, 4.97948729479092, 52.796),
+      WAVE_ONE: P(4.0, 49.0, 4.0, 43),
       LULL: P(4.2, 50.2, 4.2, 46),
-      WAVE_TWO: P(4.6, 48.5, 4.6, 43),
-      AFTERMATH: P(4.4, 49.4, 4.4, 44),
-      TO_SASOLE: P(4.4, 49.4, 0, 51),
-      COMPLETE: P(4.4, 49.4, 0, 51),
+      WAVE_TWO: P(4.0, 49.0, 4.0, 43),
+      /* Booski holds x=5.0 on this beat. Move the guard west into the open
+       * landing so their bodies and carried guns no longer occupy each other. */
+      AFTERMATH: P(3.8, 49.4, 3.8, 44),
+      TO_SASOLE: P(3.8, 49.4, 0, 51),
+      COMPLETE: P(3.8, 49.4, 0, 51),
     }),
   }),
   Object.freeze({
@@ -768,13 +809,16 @@ const ROSTER = Object.freeze([
     posts: Object.freeze({
       TO_OFFICE: P(4.2, 65.0, 3.4, 65.2),
       BRIEFING: P(4.2, 65.0, 3.4, 65.2),
-      LITTLE_FRIEND: P(3.6, 51.4, 2.8, 51.6),
-      WAVE_ONE: P(3.6, 51.4, 2.8, 51.6),
-      LULL: P(3.6, 51.4, 2.8, 51.6),
-      WAVE_TWO: P(3.6, 51.4, 2.8, 51.6),
-      AFTERMATH: P(3.8, 51.6, 3.0, 51.8),
-      TO_SASOLE: P(3.8, 51.6, 3.0, 51.8),
-      COMPLETE: P(3.8, 51.6, 3.0, 51.8),
+      /* South of the east gallery planter's 51.64 m foliage edge. At 51.4
+       * the authored wounded pose put his ribcage through the leaves; 50.7
+       * retains Gratin's tending composition with visible negative space. */
+      LITTLE_FRIEND: P(3.6, 50.7, 2.8, 51.6),
+      WAVE_ONE: P(3.6, 50.7, 2.8, 51.6),
+      LULL: P(3.6, 50.7, 2.8, 51.6),
+      WAVE_TWO: P(3.6, 50.7, 2.8, 51.6),
+      AFTERMATH: P(3.6, 50.4, 2.0, 50.4),
+      TO_SASOLE: P(3.6, 50.4, 2.0, 50.4),
+      COMPLETE: P(3.6, 50.4, 2.0, 50.4),
     }),
   }),
 ]);
@@ -872,6 +916,10 @@ function poseFor(figure, pose, gun = null) {
     return pose;
   }
   if (pose === 'wounded') {
+    const resolvedFloor = figure.root.userData?.siegeSupportY?.();
+    figure.baseY = Number.isFinite(resolvedFloor)
+      ? resolvedFloor
+      : figure.root.position.y + FINISHED_FLOOR_TOP;
     figure.stand();
     p.legL.rotation.x = -1.35;
     p.legR.rotation.x = -1.2;
@@ -882,7 +930,10 @@ function poseFor(figure, pose, gun = null) {
     p.armL.rotation.set(-0.4, 0, -0.5);
     p.armR.rotation.set(-0.9, 0, 0.35);
     p.foreR.rotation.x = -1.5;
-    figure.tilt.position.y = -0.5 * figure.scale;
+    /* The former fixed -0.5 m shift buried the bent legs below the office
+     * finish. Measure this exact authored pose and put its lowest rendered
+     * point on the same resolved surface Gratin is tending him from. */
+    figure._settle();
     figure.pose = pose;
     return pose;
   }
@@ -933,6 +984,17 @@ function poseFor(figure, pose, gun = null) {
       p.armR.rotation.set(-1.85, 0, 0.5);
       p.foreL.rotation.x = -1.1;
       p.foreR.rotation.x = -1.1;
+      if (figure.root.userData?.memberId === 'guard_1') {
+        /* This is a live hit reaction beside the player's firing step, not a
+         * standing lean. Fold both legs under the east-gallery guard so the
+         * supported carbine and his head read above Eric without parking the
+         * root in the balcony approach or the neighbouring tending tableau. */
+        p.legL.rotation.x = -0.72;
+        p.legR.rotation.x = -0.58;
+        p.shinL.rotation.x = 1.24;
+        p.shinR.rotation.x = 1.05;
+        p.body.position.y = -0.5;
+      }
       break;
     case 'phone':
       p.armR.rotation.set(-2.35, 0, 0.28);
@@ -952,6 +1014,11 @@ function poseFor(figure, pose, gun = null) {
   figure.pose = pose;
   if (gun?.visible) {
     syncSiegeWeaponPose(figure, gun, { support: SUPPORTED_WEAPON_POSES.has(pose) });
+  }
+  if (pose === 'flinch' && figure.root.userData?.memberId === 'guard_1') {
+    const resolvedFloor = figure.root.userData?.siegeSupportY?.();
+    figure.baseY = Number.isFinite(resolvedFloor) ? resolvedFloor : figure.root.position.y;
+    figure._settle();
   }
   return pose;
 }

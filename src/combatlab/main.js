@@ -269,17 +269,29 @@ let whipTime = -1;
 let frames = 0;
 let automaticSimulation = true;
 
+/* The readout only writes to the DOM when its composed text changes, the same
+ * discipline as the siege HUD's `ammoDirty` (src/mansion/siege/main.js):
+ * `update()` calls this every simulated frame, and an unconditional
+ * textContent write is layout work on frames where nothing moved. */
+let weaponPaintSignature = null;
 function paintWeapon() {
+  let name;
+  let ammo;
   if (selected === 'whip') {
-    weaponReadoutEl.textContent = 'CORD WHIP';
-    ammoReadoutEl.textContent = session.whipCooldown > 0 ? 'RECOVERING' : 'READY';
-    return;
+    name = 'CORD WHIP';
+    ammo = session.whipCooldown > 0 ? 'RECOVERING' : 'READY';
+  } else {
+    const state = weaponSystem.hud();
+    name = state?.name?.toUpperCase() ?? 'EMPTY HANDS';
+    ammo = state
+      ? `${state.rounds} / ${state.reserve}${state.reloading ? ' · RELOADING' : ''}`
+      : '—';
   }
-  const state = weaponSystem.hud();
-  weaponReadoutEl.textContent = state?.name?.toUpperCase() ?? 'EMPTY HANDS';
-  ammoReadoutEl.textContent = state
-    ? `${state.rounds} / ${state.reserve}${state.reloading ? ' · RELOADING' : ''}`
-    : '—';
+  const signature = `${name}|${ammo}`;
+  if (signature === weaponPaintSignature) return;
+  weaponPaintSignature = signature;
+  weaponReadoutEl.textContent = name;
+  ammoReadoutEl.textContent = ammo;
 }
 
 function equip(id) {

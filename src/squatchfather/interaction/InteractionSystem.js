@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { writeGameplayPromptKey } from '../../core/gameplay-key-adapter.js';
 
 // Look-at-it-and-press-E. A short ray from the centre of the view finds the
 // nearest allowed interaction volume and drives the on-screen prompt; holds
@@ -62,7 +63,7 @@ export class InteractionSystem {
     const info = hit ? hit.userData.interact : null;
 
     if (info) {
-      this.ui.promptKey.textContent = info.hold ? 'HOLD E' : 'E';
+      writeGameplayPromptKey(this.ui.promptKey, info.hold ? 'HOLD E' : 'E');
       this.ui.promptText.textContent = info.label;
       this.ui.prompt.classList.add('show');
     } else {

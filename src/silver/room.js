@@ -336,6 +336,22 @@ export function buildRoom(scene, { renderer } = {}) {
     return l;
   }
 
+  function geometryGate(object, values) {
+    object.userData ??= {};
+    object.userData.geometryGate = {
+      ...(object.userData.geometryGate ?? {}),
+      ...values,
+    };
+    return object;
+  }
+
+  function fitted(object, assemblyId = 'silver-building-shell') {
+    return geometryGate(object, {
+      assemblyId,
+      fixedSupportAnchor: true,
+    });
+  }
+
   function add(...objs) {
     let first = null;
     for (const o of objs) {
@@ -348,14 +364,21 @@ export function buildRoom(scene, { renderer } = {}) {
     return first;
   }
 
-  function solid(minX, minZ, maxX, maxZ, minY = 0, maxY = 3) {
+  let solidOrdinal = 0;
+  function solid(minX, minZ, maxX, maxZ, minY = 0, maxY = 3, name = null) {
     const b = collider([minX, minY, minZ], [maxX, maxY, maxZ]);
+    b.name = name ?? `silver-solid-${solidOrdinal}`;
+    solidOrdinal += 1;
     colliders.push(b);
     return b;
   }
 
+  let floorOrdinal = 0;
   function floor(r, material, surface, y = 0) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(r.x1 - r.x0, r.z1 - r.z0), material);
+    m.name = `silver-floor-${surface}-${floorOrdinal}`;
+    floorOrdinal += 1;
+    geometryGate(m, { structural: true });
     m.rotation.x = -Math.PI / 2;
     m.position.set((r.x0 + r.x1) / 2, y, (r.z0 + r.z1) / 2);
     m.receiveShadow = true;
@@ -373,21 +396,35 @@ export function buildRoom(scene, { renderer } = {}) {
     return m;
   }
 
+  let ceilingOrdinal = 0;
   function ceiling(r, material, y) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(r.x1 - r.x0, r.z1 - r.z0), material);
+    m.name = `silver-ceiling-${ceilingOrdinal}`;
+    ceilingOrdinal += 1;
+    geometryGate(m, { structural: true });
     m.rotation.x = Math.PI / 2;
     m.position.set((r.x0 + r.x1) / 2, y, (r.z0 + r.z1) / 2);
     add(m);
     return m;
   }
 
+  let wallOrdinal = 0;
   function wall(x0, z0, x1, z1, h, material, t = 0.2, y0 = 0) {
+    const ordinal = wallOrdinal;
     const w = Math.max(Math.abs(x1 - x0), t);
     const d = Math.max(Math.abs(z1 - z0), t);
     const cx = (x0 + x1) / 2;
     const cz = (z0 + z1) / 2;
-    add(box({ size: [w, h, d], pos: [cx, y0 + h / 2, cz], mat: material }));
-    solid(cx - w / 2, cz - d / 2, cx + w / 2, cz + d / 2, y0, y0 + h);
+    const segment = box({
+      name: `silver-wall-${ordinal}`, size: [w, h, d], pos: [cx, y0 + h / 2, cz], mat: material,
+    });
+    wallOrdinal += 1;
+    geometryGate(segment, { assemblyId: 'silver-building-shell', wall: true });
+    add(segment);
+    solid(
+      cx - w / 2, cz - d / 2, cx + w / 2, cz + d / 2, y0, y0 + h,
+      `silver-wall-${ordinal}-collider`,
+    );
   }
 
   /** Wall with a doorway punched through it. */
@@ -396,19 +433,25 @@ export function buildRoom(scene, { renderer } = {}) {
       wall(from, fixed, gapFrom, fixed, h, material, t, y0);
       wall(gapTo, fixed, to, fixed, h, material, t, y0);
       if (h > DOOR_H) {
-        add(box({
-          size: [gapTo - gapFrom, h - DOOR_H, t],
+        const header = box({
+          name: `silver-wall-${wallOrdinal}`, size: [gapTo - gapFrom, h - DOOR_H, t],
           pos: [(gapFrom + gapTo) / 2, y0 + DOOR_H + (h - DOOR_H) / 2, fixed], mat: material,
-        }));
+        });
+        wallOrdinal += 1;
+        geometryGate(header, { assemblyId: 'silver-building-shell', wall: true });
+        add(header);
       }
     } else {
       wall(fixed, from, fixed, gapFrom, h, material, t, y0);
       wall(fixed, gapTo, fixed, to, h, material, t, y0);
       if (h > DOOR_H) {
-        add(box({
-          size: [t, h - DOOR_H, gapTo - gapFrom],
+        const header = box({
+          name: `silver-wall-${wallOrdinal}`, size: [t, h - DOOR_H, gapTo - gapFrom],
           pos: [fixed, y0 + DOOR_H + (h - DOOR_H) / 2, (gapFrom + gapTo) / 2], mat: material,
-        }));
+        });
+        wallOrdinal += 1;
+        geometryGate(header, { assemblyId: 'silver-building-shell', wall: true });
+        add(header);
       }
     }
   }
@@ -419,7 +462,8 @@ export function buildRoom(scene, { renderer } = {}) {
     label, swing = -1.9, hinge = 'low', alarmed = false, glass = false,
   }) {
     const width = to - from;
-    const pivot = new THREE.Group();
+    const pivot = fitted(new THREE.Group());
+    pivot.name = `silver-door-${id}`;
     const leafMat = glass ? M_GLASS : material;
     const sgn = hinge === 'low' ? 1 : -1;
     const leaf = box({
@@ -438,6 +482,7 @@ export function buildRoom(scene, { renderer } = {}) {
     const cbox = axis === 'x'
       ? collider([from, y0, fixed - 0.09], [to, y0 + DOOR_H, fixed + 0.09])
       : collider([fixed - 0.09, y0, from], [fixed + 0.09, y0 + DOOR_H, to]);
+    cbox.name = `silver-door-${id}-collider`;
     colliders.push(cbox);
 
     const d = new Door({ pivot, leaf, colliders, box: cbox, locked, label, swing, alarmed });
@@ -560,6 +605,7 @@ export function buildRoom(scene, { renderer } = {}) {
    * ground floors of the building sit at y=0 and hide the seams. */
   {
     const HOLE = { x0: 14.7, x1: 29.6, z0: -14.5, z1: 14.9 };
+    let groundPieceOrdinal = 0;
     for (const [x0, z0, x1, z1] of [
       [-150, -130, HOLE.x0, 170],
       [HOLE.x1, -130, 150, 170],
@@ -572,10 +618,12 @@ export function buildRoom(scene, { renderer } = {}) {
         new THREE.PlaneGeometry(x1 - x0, z1 - z0),
         mat({ map: tex, roughness: 0.44, metalness: 0.08 }),
       );
+      g.name = `silver-city-ground-${groundPieceOrdinal}`;
+      groundPieceOrdinal += 1;
       g.rotation.x = -Math.PI / 2;
       g.position.set((x0 + x1) / 2, -0.02, (z0 + z1) / 2);
       g.receiveShadow = true;
-      add(g);
+      add(geometryGate(g, { structural: true, overlap: false }));
     }
   }
 
@@ -631,21 +679,30 @@ export function buildRoom(scene, { renderer } = {}) {
     wall(22, 34.2, 22, 26, 9, M_BRICK, 0.4);
 
     // Canopy over the public door, and the queue under it
-    add(box({ size: [11, 0.16, 4.6], pos: [0, 3.3, 36.4], mat: M_BURGUNDY }));
+    const frontCanopy = fitted(group('front-canopy'));
+    add(frontCanopy);
+    frontCanopy.add(box({ size: [11, 0.16, 4.6], pos: [0, 3.3, 36.4], mat: M_BURGUNDY }));
     for (const px of [-5.2, 5.2]) {
       /* On the pavement, which is 140mm up: a post whose base is at road level
        * is a post buried to the ankle in its own paving. */
-      add(cylinder({ r: 0.09, h: 3.3, pos: [px, kerbY + 1.65, 38.2], mat: M_BRASS }));
+      frontCanopy.add(cylinder({ r: 0.09, h: 3.3, pos: [px, kerbY + 1.65, 38.2], mat: M_BRASS }));
       solid(px - 0.14, 38.06, px + 0.14, 38.34, kerbY, kerbY + 3.3);
     }
     // Rope and posts, and the thirty people who have been there an hour
+    const queueBarrier = fitted(group('queue-barrier'), 'silver-queue-barrier');
+    add(queueBarrier);
+    /* Every stanchion was authored 145mm above the raised pavement: its
+     * 950mm shaft used kerbY + .62 as the centre, so the whole rope line
+     * visibly floated. Settle the coherent fixture onto the same kerb datum
+     * as the canopy posts without changing its internal spacing. */
+    queueBarrier.position.y = -0.145;
     for (let i = 0; i < 5; i++) {
       const px = -4.4 + i * 2.2;
-      add(cylinder({ r: 0.06, h: 0.95, pos: [px, kerbY + 0.62, 37.9], mat: M_BRASS }));
-      add(sphere({ r: 0.075, pos: [px, kerbY + 1.11, 37.9], mat: M_BRASS }));
+      queueBarrier.add(cylinder({ r: 0.06, h: 0.95, pos: [px, kerbY + 0.62, 37.9], mat: M_BRASS }));
+      queueBarrier.add(sphere({ r: 0.075, pos: [px, kerbY + 1.11, 37.9], mat: M_BRASS }));
       if (i < 4) {
         const rope = cylinder({ r: 0.035, h: 2.2, pos: [px + 1.1, kerbY + 0.98, 37.9], mat: M_VELVET, rotZ: Math.PI / 2 });
-        add(rope);
+        queueBarrier.add(rope);
       }
     }
     anchors.publicDoor = new THREE.Vector3(0, 0, 35.4);
@@ -729,8 +786,10 @@ export function buildRoom(scene, { renderer } = {}) {
     }
     // Street lamps, cold, on the far side
     for (const pz of [38, 48, 58]) {
-      add(cylinder({ r: 0.11, h: 6.4, pos: [-24, 3.2, pz], mat: M_STEEL_D }));
-      add(box({ size: [1.6, 0.18, 0.5], pos: [-23.2, 6.3, pz], mat: M_STEEL_D }));
+      const streetLamp = fitted(group(`street-lamp-${pz}`), `silver-street-lamp-${pz}`);
+      streetLamp.add(cylinder({ r: 0.11, h: 6.4, pos: [-24, 3.2, pz], mat: M_STEEL_D }));
+      streetLamp.add(box({ size: [1.6, 0.18, 0.5], pos: [-23.2, 6.3, pz], mat: M_STEEL_D }));
+      add(streetLamp);
       const l = pointLight(0xbdd0e8, 2.6);
       l.position.set(-22.6, 6.1, pz);
       l.distance = 20;
@@ -990,6 +1049,7 @@ export function buildRoom(scene, { renderer } = {}) {
     /* The lamp housing sits ON the wall face (30.2), not 400mm out in the
      * air over the doorway. */
     const bulb = box({ size: [0.42, 0.3, 0.3], pos: [30.34, 2.5, 11.7], mat: M_STEEL_D });
+    bulb.name = 'service-door-light';
     add(bulb);
     // 1.7, not 2.4: at 900mm off the brick the old one washed the whole
     // elevation to flat white and the alley lost its wall
@@ -1026,13 +1086,19 @@ export function buildRoom(scene, { renderer } = {}) {
      * beside the route at z=20, which is the one the owner kept walking past.
      * The offset is 60mm and a few degrees now, which is a crate put down on
      * another crate by somebody in a hurry rather than a crate in orbit. */
-    for (const [cx, cz, stack, rot] of [
+    for (const [index, [cx, cz, stack, rot]] of [
       [31.4, -12, 0, 0.12], [31.46, -11.94, 1, -0.22], [31.5, -5.4, 0, -0.08],
       [32.4, 2.2, 0, 0.3], [31.6, 19.8, 0, -0.15], [31.66, 19.87, 1, 0.24],
       [31.5, 24.2, 0, 0.06],
-    ]) {
+    ].entries()) {
       add(box({ size: [0.6, 0.42, 0.5], pos: [cx, 0.21 + stack * 0.42, cz], mat: M_WOOD, rotY: rot }));
-      solid(cx - 0.34, cz - 0.31, cx + 0.34, cz + 0.31, 0, 0.42 + stack * 0.42);
+      /* Each crate owns only its own vertical band. The old cumulative boxes
+       * made every upper crate collide with the crate it was resting on. */
+      solid(
+        cx - 0.34, cz - 0.31, cx + 0.34, cz + 0.31,
+        stack * 0.42, 0.42 + stack * 0.42,
+        `silver-alley-crate-${index}`,
+      );
     }
 
     /* A fire escape, because every alley has one and it takes the eye upward.
@@ -1044,27 +1110,29 @@ export function buildRoom(scene, { renderer } = {}) {
      * dropped. It is a landing now: a grating, a kick rail, a handrail on
      * posts, brackets back to the brick, and a ladder down to the next one.
      * Still eight boxes a storey, and still nothing anybody can climb. */
+    const fireEscape = fitted(group('fire-escape'));
+    add(fireEscape);
     for (let i = 1; i <= 3; i++) {
       const y = 2.4 * i;
       // The grating, 1.1m out from the brick, and the angle brackets under it
-      add(box({ size: [1.1, 0.05, 3.4], pos: [37.45, y, 24], mat: M_STEEL_D }));
+      fireEscape.add(box({ size: [1.1, 0.05, 3.4], pos: [37.45, y, 24], mat: M_STEEL_D }));
       for (const bz of [22.5, 24, 25.4]) {
         // 37.58, so the 0.9 bracket tilted 0.36rad lands its top on the brick
-        add(box({ size: [0.9, 0.05, 0.05], pos: [37.58, y - 0.34, bz], mat: M_STEEL_D, rotZ: 0.36 }));
+        fireEscape.add(box({ size: [0.9, 0.05, 0.05], pos: [37.58, y - 0.34, bz], mat: M_STEEL_D, rotZ: 0.36 }));
       }
       // Kick rail, handrail, and the posts between them, on the alley side
-      add(box({ size: [0.04, 0.14, 3.4], pos: [36.92, y + 0.09, 24], mat: M_STEEL_D }));
-      add(box({ size: [0.05, 0.05, 3.4], pos: [36.92, y + 1.0, 24], mat: M_STEEL_D }));
+      fireEscape.add(box({ size: [0.04, 0.14, 3.4], pos: [36.92, y + 0.09, 24], mat: M_STEEL_D }));
+      fireEscape.add(box({ size: [0.05, 0.05, 3.4], pos: [36.92, y + 1.0, 24], mat: M_STEEL_D }));
       for (const pz of [22.4, 24, 25.6]) {
-        add(cylinder({ r: 0.025, h: 1.0, pos: [36.92, y + 0.5, pz], mat: M_STEEL_D }));
+        fireEscape.add(cylinder({ r: 0.025, h: 1.0, pos: [36.92, y + 0.5, pz], mat: M_STEEL_D }));
       }
       // Stringers of the ladder up from the landing below, and four rungs
       if (i < 3) {
         for (const sz of [25.35, 25.75] ) {
-          add(box({ size: [0.05, 2.45, 0.05], pos: [37.3, y + 1.2, sz], mat: M_STEEL_D, rotX: 0.16 }));
+          fireEscape.add(box({ size: [0.05, 2.45, 0.05], pos: [37.3, y + 1.2, sz], mat: M_STEEL_D, rotX: 0.16 }));
         }
         for (let r = 0; r < 4; r++) {
-          add(cylinder({
+          fireEscape.add(cylinder({
             r: 0.02, h: 0.4, rotZ: Math.PI / 2,
             pos: [37.3, y + 0.35 + r * 0.55, 25.55 - r * 0.09], mat: M_STEEL_D,
           }));
@@ -1089,12 +1157,14 @@ export function buildRoom(scene, { renderer } = {}) {
      * covers 6.46m of floor and leaves half a metre of daylight at the top of
      * the ramp, which reads as a hole in the concrete right where somebody is
      * about to walk into it. */
+    const entryRampAssembly = fitted(group('entry-ramp'));
+    add(entryRampAssembly);
     const rampLen = Math.hypot(rampRun, -CELLAR_Y);
     const rampMesh = box({
       size: [rampLen, 0.16, 6.2], pos: [18.5, CELLAR_Y / 2, 11.5], mat: M_CONCRETE_L,
       rotZ: Math.atan2(-CELLAR_Y, rampRun),
     });
-    add(rampMesh);
+    entryRampAssembly.add(rampMesh);
     // Sampled rather than solved: the ramp is one plane and this is one lerp.
     /* `from` is the height at x0 and `to` the height at x1, so the deep end is
      * the low x -- this was the wrong way round, and the effect was that
@@ -1178,18 +1248,18 @@ export function buildRoom(scene, { renderer } = {}) {
       for (let i = 0; i <= 6; i++) {
         const rx = 15.5 + i;
         const ry = CELLAR_Y * (1 - i / 6) + 0.95;
-        add(cylinder({ r: 0.045, h: 0.95, pos: [rx, ry - 0.47, rz], mat: M_STEEL_D }));
-        add(sphere({ r: 0.055, pos: [rx, ry, rz], mat: M_BRASS }));
+        entryRampAssembly.add(cylinder({ r: 0.045, h: 0.95, pos: [rx, ry - 0.47, rz], mat: M_STEEL_D }));
+        entryRampAssembly.add(sphere({ r: 0.055, pos: [rx, ry, rz], mat: M_BRASS }));
       }
       for (const drop of [0, 0.46]) {
-        add(box({
+        entryRampAssembly.add(box({
           size: [rampLen + 0.2, drop ? 0.045 : 0.06, drop ? 0.045 : 0.06],
           pos: [18.5, CELLAR_Y / 2 + 0.95 - drop, rz], mat: M_STEEL_D, rotZ: rampTilt,
         }));
       }
       // The returns, into the concrete at each end
-      add(box({ size: [0.05, 0.05, 0.42], pos: [15.5, CELLAR_Y + 0.95, rz + (rz > 11 ? 0.24 : -0.24)], mat: M_STEEL_D }));
-      add(box({ size: [0.05, 0.05, 0.42], pos: [21.5, 0.95, rz + (rz > 11 ? 0.24 : -0.24)], mat: M_STEEL_D }));
+      entryRampAssembly.add(box({ size: [0.05, 0.05, 0.42], pos: [15.5, CELLAR_Y + 0.95, rz + (rz > 11 ? 0.24 : -0.24)], mat: M_STEEL_D }));
+      entryRampAssembly.add(box({ size: [0.05, 0.05, 0.42], pos: [21.5, 0.95, rz + (rz > 11 ? 0.24 : -0.24)], mat: M_STEEL_D }));
     }
 
     const C = ROOMS.cellar;
@@ -1241,7 +1311,7 @@ export function buildRoom(scene, { renderer } = {}) {
 
     anchors.cellarman = new THREE.Vector3(24.5, CELLAR_Y, 3.2);
     anchors.cellarMid = new THREE.Vector3(21, CELLAR_Y, 1);
-    anchors.spokenForCrate = new THREE.Vector3(27.4, CELLAR_Y, -4);
+    anchors.spokenForCrate = new THREE.Vector3(27.4, CELLAR_Y, -4.2);
 
     // Wine racks: the whole point of the room
     const rackMat = mat({ color: 0x38251a, roughness: 0.9 });
@@ -1273,9 +1343,13 @@ export function buildRoom(scene, { renderer } = {}) {
     }
 
     // The crate that is spoken for, on its own, with a chalk mark on it
-    const crate = box({ size: [1.1, 0.75, 0.9], pos: [27.4, CELLAR_Y + 0.38, -4], mat: M_WOOD });
+    const crate = box({ size: [1.1, 0.75, 0.9], pos: [27.4, CELLAR_Y + 0.38, -4.4], mat: M_WOOD });
+    crate.name = 'spoken-for-crate';
     add(crate);
-    solid(26.85, -4.45, 27.95, -3.55, CELLAR_Y, CELLAR_Y + 0.75);
+    solid(
+      26.85, -4.85, 27.95, -3.95, CELLAR_Y, CELLAR_Y + 0.75,
+      'silver-spoken-for-crate',
+    );
     anchors.crateMesh = crate;
 
     // Strip lights: two, and one of them is going
@@ -1341,12 +1415,30 @@ export function buildRoom(scene, { renderer } = {}) {
     coldLight.distance = 10;
     add(coldLight);
     houseLights.push({ light: coldLight, back: true });
-    for (const hx of [23, 26.5]) {
+    for (const [hx, side] of [[23, 'west'], [26.5, 'east']]) {
+      const hookRack = geometryGate(group(`walkin-hook-rack-${side}`), {
+        assemblyId: `silver-walkin-hook-rack-${side}`,
+      });
       for (let h = 0; h < 3; h++) {
         // On the rail: its underside is at 2.02, so the top of this is too
-        add(box({ size: [0.16, 0.5, 0.24], pos: [hx, CELLAR_Y + 1.77, -8 - h * 1.8], mat: mat({ color: 0x8a4a44, roughness: 0.75 }) }));
+        hookRack.add(box({
+          name: 'walkin-meat-hook',
+          size: [0.16, 0.5, 0.24],
+          pos: [hx, CELLAR_Y + 1.77, -8 - h * 1.8],
+          mat: mat({ color: 0x8a4a44, roughness: 0.75 }),
+        }));
       }
-      add(box({ size: [0.1, 0.06, 5.4], pos: [hx, CELLAR_Y + 2.05, -10.6], mat: M_STEEL }));
+      hookRack.add(box({
+        name: 'walkin-hook-rail', size: [0.1, 0.06, 5.4],
+        pos: [hx, CELLAR_Y + 2.05, -10.6], mat: M_STEEL,
+      }));
+      for (const z of [-8.15, -13.05]) {
+        hookRack.add(box({
+          name: 'walkin-hook-hanger', size: [0.08, 0.32, 0.08],
+          pos: [hx, CELLAR_Y + 2.24, z], mat: M_STEEL,
+        }));
+      }
+      add(hookRack);
     }
     anchors.walkin = new THREE.Vector3(24.5, CELLAR_Y, -10);
   }
@@ -1407,9 +1499,12 @@ export function buildRoom(scene, { renderer } = {}) {
     }
     /* Empty kegs on their sides, because a cellar passage with nothing on the
      * floor is a corridor with a light in it. */
-    for (const [kz, kx] of [[9.4, 14.2], [5.2, 14.2], [3.4, 14.25]]) {
+    for (const [index, [kz, kx]] of [[9.4, 14.2], [5.2, 14.2], [3.4, 14.15]].entries()) {
       add(cylinder({ r: 0.24, h: 0.82, pos: [kx, CELLAR_Y + 0.24, kz], mat: M_STEEL_D, rotZ: Math.PI / 2 }));
-      solid(kx - 0.42, kz - 0.25, kx + 0.42, kz + 0.25, CELLAR_Y, CELLAR_Y + 0.48);
+      solid(
+        kx - 0.42, kz - 0.25, kx + 0.42, kz + 0.25,
+        CELLAR_Y, CELLAR_Y + 0.48, `silver-undercroft-keg-${index}`,
+      );
     }
 
     anchors.undercroft = new THREE.Vector3(13.2, CELLAR_Y, 6);
@@ -1441,7 +1536,9 @@ export function buildRoom(scene, { renderer } = {}) {
      */
     const upRun = RAMP_UP.x1 - RAMP_UP.x0;
     const upTilt = Math.atan2(-CELLAR_Y, upRun);
-    add(box({
+    const kitchenRampAssembly = fitted(group('kitchen-ramp'));
+    add(kitchenRampAssembly);
+    kitchenRampAssembly.add(box({
       size: [Math.hypot(upRun, CELLAR_Y), 0.16, RAMP_UP.z1 - RAMP_UP.z0],
       pos: [(RAMP_UP.x0 + RAMP_UP.x1) / 2, CELLAR_Y / 2, (RAMP_UP.z0 + RAMP_UP.z1) / 2],
       mat: M_CONCRETE_L, rotZ: upTilt,
@@ -1479,19 +1576,22 @@ export function buildRoom(scene, { renderer } = {}) {
     for (const fz of [RAMP_UP.z0, RAMP_UP.z1]) {
       const run = RAMP_UP.x1 - 15;
       const mid = (15 + RAMP_UP.x1) / 2;
-      add(box({ size: [run, 0.06, 0.06], pos: [mid, 0.95, fz], mat: M_STEEL_D }));
-      add(box({ size: [run, 0.045, 0.045], pos: [mid, 0.5, fz], mat: M_STEEL_D }));
-      add(box({ size: [run, 0.12, 0.02], pos: [mid, 0.06, fz], mat: M_STEEL_D }));
+      kitchenRampAssembly.add(box({ size: [run, 0.06, 0.06], pos: [mid, 0.95, fz], mat: M_STEEL_D }));
+      kitchenRampAssembly.add(box({ size: [run, 0.045, 0.045], pos: [mid, 0.5, fz], mat: M_STEEL_D }));
+      kitchenRampAssembly.add(box({ size: [run, 0.12, 0.02], pos: [mid, 0.06, fz], mat: M_STEEL_D }));
       for (let i = 0; i <= 4; i++) {
-        add(cylinder({ r: 0.04, h: 0.95, pos: [15.4 + i * 1.15, 0.48, fz], mat: M_STEEL_D }));
+        kitchenRampAssembly.add(cylinder({ r: 0.04, h: 0.95, pos: [15.4 + i * 1.15, 0.48, fz], mat: M_STEEL_D }));
       }
       /* An end post at the open end only. The west end of this run dies into
        * the corridor's east wall, which is where a handrail is supposed to
        * finish -- a post there would be a post inside 250mm of tiled
        * blockwork. */
-      add(cylinder({ r: 0.045, h: 0.98, pos: [RAMP_UP.x1 - 0.04, 0.49, fz], mat: M_STEEL_D }));
-      add(sphere({ r: 0.055, pos: [RAMP_UP.x1 - 0.04, 0.98, fz], mat: M_BRASS }));
-      solid(15, fz - 0.05, RAMP_UP.x1, fz + 0.05, 0, 0.95);
+      kitchenRampAssembly.add(cylinder({ r: 0.045, h: 0.98, pos: [RAMP_UP.x1 - 0.04, 0.49, fz], mat: M_STEEL_D }));
+      kitchenRampAssembly.add(sphere({ r: 0.055, pos: [RAMP_UP.x1 - 0.04, 0.98, fz], mat: M_BRASS }));
+      solid(
+        15, fz - 0.05, RAMP_UP.x1, fz + 0.05, 0, 0.95,
+        `silver-kitchen-ramp-guard-${fz === RAMP_UP.z0 ? 'south' : 'north'}`,
+      );
     }
 
     /* The prep floor, with the ramp well left out of it. `floor()` also
@@ -1544,10 +1644,24 @@ export function buildRoom(scene, { renderer } = {}) {
     add(box({ size: [5.6, 0.1, 0.9], pos: [19, 0.95, -6.6], mat: mat({ color: 0xc8ccd2, roughness: 0.28, metalness: 0.65 }) }));
     add(box({ size: [5.6, 0.85, 0.9], pos: [19, 0.45, -6.6], mat: M_STEEL_D }));
     solid(16.2, -7.05, 21.8, -6.15, 0, 1.05);
-    add(box({ size: [5.6, 0.06, 0.1], pos: [19, 1.72, -6.9], mat: M_STEEL }));
+    const ticketRail = geometryGate(group('pass-ticket-rail'), {
+      assemblyId: 'silver-pass-ticket-rail',
+    });
+    ticketRail.add(box({
+      name: 'pass-ticket-rail-bar', size: [5.6, 0.06, 0.1],
+      pos: [19, 1.72, -6.9], mat: M_STEEL,
+    }));
     for (let i = 0; i < 9; i++) {
-      add(box({ size: [0.14, 0.2, 0.01], pos: [16.6 + i * 0.6, 1.6, -6.88], mat: mat({ color: 0xf0ece0, roughness: 1 }) }));
+      ticketRail.add(box({
+        name: 'pass-ticket', size: [0.14, 0.2, 0.01],
+        pos: [16.6 + i * 0.6, 1.6, -6.88], mat: mat({ color: 0xf0ece0, roughness: 1 }),
+      }));
     }
+    for (const x of [16.35, 21.65]) ticketRail.add(box({
+      name: 'pass-ticket-rail-post', size: [0.08, 0.67, 0.08],
+      pos: [x, 1.36, -6.9], mat: M_STEEL,
+    }));
+    add(ticketRail);
     const passLight = pointLight(0xffd9a8, 2.7);
     passLight.position.set(19, 1.9, -6.6);
     passLight.distance = 8;
@@ -1581,10 +1695,11 @@ export function buildRoom(scene, { renderer } = {}) {
     const hoodX0 = 16.4;
     const hoodX1 = 24.4;
     add(box({
-      size: [hoodX1 - hoodX0, 0.9, 2.2], pos: [(hoodX0 + hoodX1) / 2, 2.3, -10.5],
+      name: 'extraction-hood-canopy', size: [hoodX1 - hoodX0, 0.9, 2.2],
+      pos: [(hoodX0 + hoodX1) / 2, 2.3, -10.5],
       mat: mat({ color: 0xb0b6bc, roughness: 0.3, metalness: 0.7 }),
     }));
-    add(box({ size: [hoodX1 - hoodX0, 0.4, 0.16], pos: [(hoodX0 + hoodX1) / 2, 2.25, -9.35], mat: M_STEEL }));
+    add(box({ name: 'extraction-hood-lip', size: [hoodX1 - hoodX0, 0.4, 0.16], pos: [(hoodX0 + hoodX1) / 2, 2.25, -9.35], mat: M_STEEL }));
 
     // Prep benches
     for (const [bx, bz] of [[18.5, 4.6], [22, 4.6], [18.5, 6.8]]) {
@@ -1597,15 +1712,22 @@ export function buildRoom(scene, { renderer } = {}) {
 
     // The dish station
     const DS = ROOMS.dish;
-    add(box({ size: [1.6, 0.95, 6.4], pos: [26.6, 0.48, -13.6], mat: M_STEEL_D }));
+    const dishStation = fitted(group('dish-station'), 'silver-dish-station');
+    add(dishStation);
+    dishStation.add(box({ size: [1.6, 0.95, 6.4], pos: [26.6, 0.48, -13.6], mat: M_STEEL_D }));
     solid(25.8, -16.8, 27.4, -10.4, 0, 1);
-    add(box({ size: [1.5, 0.05, 6.2], pos: [26.6, 0.97, -13.6], mat: mat({ color: 0xa8b0b8, roughness: 0.24, metalness: 0.75 }) }));
+    dishStation.add(box({ size: [1.5, 0.05, 6.2], pos: [26.6, 0.97, -13.6], mat: mat({ color: 0xa8b0b8, roughness: 0.24, metalness: 0.75 }) }));
     for (let i = 0; i < 5; i++) {
-      add(box({ size: [0.9, 0.5, 0.9], pos: [28.6, 0.9 + (i % 2) * 0.05, -12 - i * 1.1], mat: mat({ color: 0x3a5a7a, roughness: 0.8 }) }));
+      const rack = box({
+        name: 'dish-wall-rack', size: [0.9, 0.5, 0.9],
+        pos: [28.6, 1.2 + (i % 2) * 0.05, -12 - i * 1.1],
+        mat: mat({ color: 0x3a5a7a, roughness: 0.8 }),
+      });
+      add(geometryGate(rack, { wall: false, checkSupport: false }));
     }
     // A hose on a spring, which is the one thing everybody recognises
-    add(cylinder({ r: 0.04, h: 1.3, pos: [26.4, 1.6, -13.6], mat: M_STEEL }));
-    add(cylinder({ r: 0.05, h: 0.5, pos: [26.4, 2.1, -13.2], mat: M_STEEL, rotX: 0.6 }));
+    dishStation.add(cylinder({ r: 0.04, h: 1.3, pos: [26.4, 1.6, -13.6], mat: M_STEEL }));
+    dishStation.add(cylinder({ r: 0.05, h: 0.5, pos: [26.4, 2.1, -13.2], mat: M_STEEL, rotX: 0.6 }));
     // Wet floor
     floorZones.push({
       box: new THREE.Box3(new THREE.Vector3(24, -1, -18), new THREE.Vector3(30, 1, -10)),
@@ -1624,7 +1746,9 @@ export function buildRoom(scene, { renderer } = {}) {
       for (const lx of [18, 25]) {
         if (lz === 4 && lx === 25) continue;
         // Flush to the ceiling. At CEIL_BACK-0.14 it hung 100mm under it.
-        add(box({ size: [0.14, 0.08, 1.6], pos: [lx, CEIL_BACK - 0.04, lz], mat: mat({ color: 0xeef2f6, roughness: 1, emissive: 0xd0e0f0, emissiveIntensity: 0.7 }) }));
+        const strip = box({ size: [0.14, 0.08, 1.6], pos: [lx, CEIL_BACK - 0.04, lz], mat: mat({ color: 0xeef2f6, roughness: 1, emissive: 0xd0e0f0, emissiveIntensity: 0.7 }) });
+        strip.name = 'kitchen-strip-light';
+        add(strip);
         const l = pointLight(0xdce8f4, 1.4);
         l.position.set(lx, CEIL_BACK - 0.3, lz);
         l.distance = 11;
@@ -1698,16 +1822,20 @@ export function buildRoom(scene, { renderer } = {}) {
       /* Utensils off the front rail of the hood: ladles, a skimmer, tongs.
        * These are what a cook reaches up for without looking. */
       const utensils = group('hood-utensils');
-      const utensilRail = cylinder({ r: 0.016, h: 2.6, pos: [18.4, 2.02, -9.32], mat: M_STEEL, rotZ: Math.PI / 2 });
+      /* Keep the hanging bowls above the cooks' authored head envelope. At the
+       * former 2.02m rail height, the longest ladle ended at eye level and
+       * passed through line0's face at scene start. */
+      const utensilRailY = 2.4;
+      const utensilRail = cylinder({ r: 0.016, h: 2.6, pos: [18.4, utensilRailY, -9.32], mat: M_STEEL, rotZ: Math.PI / 2 });
       utensilRail.name = 'hood-utensil-rail';
       utensils.add(utensilRail);
       for (let i = 0; i < 7; i++) {
         const ux = 17.25 + i * 0.38;
         utensils.add(box({
           name: 'hood-utensil', size: [0.024, 0.30 + (i % 3) * 0.06, 0.024],
-          pos: [ux, 1.85 - (i % 3) * 0.03, -9.32], mat: M_ALLOY,
+          pos: [ux, utensilRailY - 0.17 - (i % 3) * 0.03, -9.32], mat: M_ALLOY,
         }));
-        const bowl = sphere({ r: 0.055, ry: 0.035, rz: 0.055, pos: [ux, 1.69 - (i % 3) * 0.06, -9.32], mat: M_ALLOY });
+        const bowl = sphere({ r: 0.055, ry: 0.035, rz: 0.055, pos: [ux, utensilRailY - 0.33 - (i % 3) * 0.06, -9.32], mat: M_ALLOY });
         bowl.name = 'hood-utensil-bowl';
         utensils.add(bowl);
       }
@@ -1902,7 +2030,7 @@ export function buildRoom(scene, { renderer } = {}) {
     add(box({ size: [0.6, 0.07, 4.4], pos: [14.5, 1.13, 10.5], mat: M_BRASS }));
     // Shelf above, against the wall, which is what a back-bar actually is
     add(box({ size: [0.28, 0.05, 4.2], pos: [14.72, 1.72, 10.5], mat: M_DARKWOOD }));
-    solid(14.3, 8.4, 14.95, 12.6, 0, 1.2);
+    solid(14.3, 8.4, 14.82, 12.6, 0, 1.2, 'silver-service-bar');
     for (let i = 0; i < 5; i++) {
       add(makeWhiskeyBottle(M, { x: 14.72, y: BAR_TOP, z: 9 + i * 0.7 }));
     }
@@ -1917,13 +2045,15 @@ export function buildRoom(scene, { renderer } = {}) {
 
     /* Coat check: a counter, a rail, ninety-two numbered tickets.
      *
-     * Pulled 700mm off the wall so there is a staff side to it. There was not
-     * one before — the counter was hard against x=15 and the rail was at 15.6,
-     * which is 600mm inside the wainscot, so every coat in the building was
-     * hanging in masonry. */
-    add(box({ size: [0.5, 1.1, 3.4], pos: [13.9, 0.55, 20], mat: M_DARKWOOD }));
-    add(box({ size: [0.72, 0.07, 3.6], pos: [13.9, 1.13, 20], mat: M_BRASS }));
-    solid(13.6, 18.2, 14.25, 21.8, 0, 1.2);
+     * Pulled a metre off the wall so there is a real staff side to it. The
+     * 460mm clear slot between its collision edge and the hanging coats fits
+     * the coat-check attendant without putting her body through either one.
+     * There was no staff side before — the counter was hard against x=15 and
+     * the rail was at 15.6, 600mm inside the wainscot, so every coat in the
+     * building was hanging in masonry. */
+    add(box({ size: [0.5, 1.1, 3.4], pos: [13.6, 0.55, 20], mat: M_DARKWOOD }));
+    add(box({ size: [0.72, 0.07, 3.6], pos: [13.6, 1.13, 20], mat: M_BRASS }));
+    solid(13.3, 18.2, 13.95, 21.8, 0, 1.2);
     const railG = group('coat-rail');
     railG.add(cylinder({ r: 0.03, h: 3.2, pos: [0, 1.75, 0], mat: M_BRASS, rotX: Math.PI / 2 }));
     for (let i = 0; i < 16; i++) {
@@ -2018,6 +2148,9 @@ export function buildRoom(scene, { renderer } = {}) {
           mat: cmat, rotX: Math.PI / 2,
         });
         run.name = 'corridor-conduit';
+        /* This is one continuous fitted service run through the corridor
+         * partitions, not a freestanding pipe waiting for floor support. */
+        geometryGate(run, { checkSupport: false });
         add(run);
       }
       add(box({
@@ -2037,7 +2170,7 @@ export function buildRoom(scene, { renderer } = {}) {
           }));
         }
       }
-      linen.position.set(10.095, 1.42, 6.2);
+      linen.position.set(10.43, 1.42, 6.2);
       add(linen);
 
       /* Stacked spare chairs and a mop bucket, in the corner where the
@@ -2058,9 +2191,9 @@ export function buildRoom(scene, { renderer } = {}) {
       for (const [lx, lz] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) {
         spares.add(box({ name: 'spare-chair-leg', size: [0.04, 0.44, 0.04], pos: [lx, 0.22, lz], mat: M_DARKWOOD }));
       }
-      spares.position.set(10.32, 0, 13.1);
+      spares.position.set(10.55, 0, 13.1);
       add(spares);
-      solid(10.05, 12.8, 10.6, 13.42, 0, 1.2);
+      solid(10.30, 12.8, 10.80, 13.42, 0, 1.2, 'silver-spare-chairs');
 
       const mop = group('mop-bucket');
       mop.add(box({ name: 'mop-bucket-body', size: [0.42, 0.34, 0.32], pos: [0, 0.17, 0], mat: mat({ color: 0xc8a41c, roughness: 0.7 }) }));
@@ -2068,9 +2201,9 @@ export function buildRoom(scene, { renderer } = {}) {
       const handle = cylinder({ r: 0.022, h: 1.3, pos: [-0.10, 0.85, 0.06], mat: M_DARKWOOD, rotZ: 0.20 });
       handle.name = 'mop-handle';
       mop.add(handle);
-      mop.position.set(10.34, 0, 14.6);
+      mop.position.set(10.55, 0, 14.6);
       add(mop);
-      solid(10.1, 14.38, 10.6, 14.84, 0, 0.6);
+      solid(10.30, 14.38, 10.80, 14.84, 0, 0.6, 'silver-mop-bucket');
 
       /* And then it stops being a service corridor. The photographs start
        * where the carpet does and walk north with it, and the last thing
@@ -2237,12 +2370,12 @@ export function buildRoom(scene, { renderer } = {}) {
 
     // Wainscoting all the way round, at seated eye height
     for (const [x0, z0, x1, z1] of [[-30, -16, -30, 26], [-30, 26, 10, 26]]) {
-      add(box({
+      add(fitted(box({
         size: [Math.max(Math.abs(x1 - x0), 0.06), 1.15, Math.max(Math.abs(z1 - z0), 0.06)],
         pos: [(x0 + x1) / 2 + (x0 === x1 ? (x0 < 0 ? 0.12 : -0.12) : 0), 0.58,
           (z0 + z1) / 2 + (z0 === z1 ? -0.12 : 0)],
         mat: M_WAINSCOT, cast: false,
-      }));
+      })));
     }
     /* The east run is the one wall the curtain doorway is punched into
      * (z 22.6..25.6 at x≈9.8..10.1, the wallGap two calls back). This loop used
@@ -2254,11 +2387,11 @@ export function buildRoom(scene, { renderer } = {}) {
      * because this loop draws its own boxes and does not call `wallGap`. Split
      * either side of the same opening instead. */
     for (const [z0, z1] of [[-8, 22.6], [25.6, 26]]) {
-      add(box({
+      add(fitted(box({
         size: [0.06, 1.15, Math.max(Math.abs(z1 - z0), 0.06)],
         pos: [10 - 0.12, 0.58, (z0 + z1) / 2],
         mat: M_WAINSCOT, cast: false,
-      }));
+      })));
     }
 
     /* ---- the lobby, visible from the floor so the front door is real ---- */
@@ -2277,7 +2410,15 @@ export function buildRoom(scene, { renderer } = {}) {
     /* ---- the host station ---- */
     const hostDesk = group('host-station');
     hostDesk.add(box({ size: [1.5, 1.12, 0.6], pos: [0, 0.56, 0], mat: M_DARKWOOD }));
-    hostDesk.add(box({ size: [1.62, 0.06, 0.72], pos: [0, 1.15, 0], mat: M_BRASS }));
+    /* Its own brass, duller than the rail stock. The shared M_BRASS is a
+     * 0.28-roughness mirror, and under the desk's own lamp a third of a metre
+     * above it the specular blob cleared the room's 1.35 bloom bar even after
+     * the room-wide pass took a third off the strength — the desk read as a
+     * flare, not a desk. A satin top stays visibly brass and stays under it. */
+    hostDesk.add(box({
+      size: [1.62, 0.06, 0.72], pos: [0, 1.15, 0],
+      mat: mat({ color: 0xb08d3a, roughness: 0.52, metalness: 0.7 }),
+    }));
     // The book. It is the book. The book does not lie.
     hostDesk.add(box({ size: [0.42, 0.05, 0.3], pos: [0, 1.2, 0.02], mat: mat({ color: 0x2a1a12, roughness: 0.8 }) }));
     hostDesk.position.set(0.5, 0, 24.2);
@@ -2287,7 +2428,12 @@ export function buildRoom(scene, { renderer } = {}) {
     anchors.host = new THREE.Vector3(0.5, 0, 24.9);
     anchors.hostMark = new THREE.Vector3(2.2, 0, 23.4);   // where the two of them wait
 
-    const hostLamp = pointLight(0xffc27a, 1.5);
+    /* 0.7, down from 1.5. At 1.5 the lamp is 350mm over the desk top, which
+     * is inverse-square fire whatever the fitting: the hot pool it left on
+     * the brass was the other half of the "bloom on the host desk" note. The
+     * desk stays warmly lit; the book stays readable; nothing else uses this
+     * light. */
+    const hostLamp = pointLight(0xffc27a, 0.7);
     hostLamp.position.set(0.5, 1.5, 24.2);
     hostLamp.distance = 5;
     add(hostLamp);
@@ -2295,10 +2441,15 @@ export function buildRoom(scene, { renderer } = {}) {
 
     /* ---- the stage ---- */
     const S = ROOMS.stage;
+    const stageAssembly = fitted(group('stage-installation'));
+    add(stageAssembly);
     floor(S, mat({ color: 0x241812, roughness: 0.7 }), 'wood', STAGE_H);
-    add(box({ size: [20, STAGE_H, 7], pos: [-16, STAGE_H / 2, -11.5], mat: M_DARKWOOD }));
-    solid(-26, -15, -6, -8, 0, STAGE_H);
-    add(box({ size: [20.3, 0.08, 0.14], pos: [-16, STAGE_H, -8.05], mat: M_BRASS }));
+    stageAssembly.add(box({ size: [20, STAGE_H, 7], pos: [-16, STAGE_H / 2, -11.5], mat: M_DARKWOOD }));
+    geometryGate(
+      solid(-26, -15, -6, -8, 0, STAGE_H, 'silver-stage-platform'),
+      { assemblyId: 'silver-stage-collision-installation' },
+    );
+    stageAssembly.add(box({ size: [20.3, 0.08, 0.14], pos: [-16, STAGE_H, -8.05], mat: M_BRASS }));
     wall(-26.2, -15.2, -5.8, -15.2, CEIL_FLOOR, mat({ color: 0x1a0f14, roughness: 0.95 }), 0.3);
 
     // Stage curtains, drawn, until they are not
@@ -2310,7 +2461,7 @@ export function buildRoom(scene, { renderer } = {}) {
       }));
     }
     stageCurtain.position.set(0, STAGE_H, -9.4);
-    add(stageCurtain);
+    stageAssembly.add(stageCurtain);
     anchors.stageCurtain = stageCurtain;
     anchors.stageFront = new THREE.Vector3(-16, STAGE_H, -9.6);
     anchors.stageCentre = new THREE.Vector3(-16, STAGE_H, -11);
@@ -2323,21 +2474,29 @@ export function buildRoom(scene, { renderer } = {}) {
      * room lit warm enough to read a face in. This one is a house fitting and
      * is not on the stage dimmer — it is the pelmet wash that says there is a
      * stage there, and it stays on when the spots come up. */
-    add(box({ size: [21, 1.1, 0.5], pos: [-16, 4.9, -9.4], mat: M_VELVET }));
+    stageAssembly.add(box({ name: 'stage-proscenium-pelmet', size: [21, 1.1, 0.5], pos: [-16, 4.9, -9.4], mat: M_VELVET }));
     const pelmet = pointLight(0xffc98a, 0.9, 20);
     // A metre clear of the velvet: any closer and it is a hotspot, not a wash
     pelmet.position.set(-16, 4.35, -8.3);
     add(pelmet);
     houseLights.push({ light: pelmet });
-    for (const px of [-26.2, -5.8]) {
-      add(box({ size: [0.7, 5.2, 0.7], pos: [px, 2.6, -9.4], mat: M_WAINSCOT }));
-      solid(px - 0.35, -9.75, px + 0.35, -9.05, 0, 5.2);
+    for (const [side, px] of [['west', -26.2], ['east', -5.8]]) {
+      stageAssembly.add(box({ name: 'stage-proscenium-leg', size: [0.7, 5.2, 0.7], pos: [px, 2.6, -9.4], mat: M_WAINSCOT }));
+      geometryGate(
+        solid(
+          px - 0.35, -9.75, px + 0.35, -9.05, 0, 5.2,
+          `silver-stage-proscenium-${side}`,
+        ),
+        { assemblyId: 'silver-stage-collision-installation' },
+      );
     }
 
     // Spots on a bar, off until the announcer says otherwise
     for (let i = 0; i < 5; i++) {
       const sx = -23 + i * 3.5;
-      add(cylinder({ r: 0.16, h: 0.34, pos: [sx, 4.5, -8.6], mat: M_STEEL_D, rotX: 0.6 }));
+      const spot = cylinder({ r: 0.16, h: 0.34, pos: [sx, 4.5, -8.6], mat: M_STEEL_D, rotX: 0.6 });
+      spot.name = 'stage-spotlight';
+      add(geometryGate(spot, { checkSupport: false }));
       const l = pointLight(0xfff0d0, 4.2, 16);
       l.intensity = 0;                      // until the announcer says otherwise
       l.position.set(sx, 4.3, -8.8);
@@ -2361,9 +2520,12 @@ export function buildRoom(scene, { renderer } = {}) {
      * two chairs and occasionally the inside of one. */
     anchors.tableSeats = [];
     const seatsAt = [];
+    let diningTableOrdinal = 0;
     const tableTop = mat({ color: 0xece7dc, roughness: 0.95 });
     function diningTable(x, z, seats = 4, { r = 0.72, seatBase = 0.4, seatR = null, reserved = false } = {}) {
       const g = group('table');
+      const geometryAssemblyId = `silver-seating-${diningTableOrdinal}`;
+      diningTableOrdinal += 1;
       g.add(cylinder({ r: 0.09, h: 0.72, pos: [0, 0.36, 0], mat: M_DARKWOOD }));
       g.add(cylinder({ r: 0.36, h: 0.05, pos: [0, 0.03, 0], mat: M_DARKWOOD }));
       g.add(cylinder({ r, h: 0.05, pos: [0, 0.74, 0], mat: tableTop }));
@@ -2403,12 +2565,23 @@ export function buildRoom(scene, { renderer } = {}) {
          * a chair into the oak — which is exactly what the pillar-adjacent
          * tables did. A chair that would foul a column is not laid. */
         if (COLUMNS.some(([cx, cz]) => Math.abs(sx - cx) < 0.78 && Math.abs(sz - cz) < 0.78)) continue;
-        add(makeChair(M, { x: sx, y: 0, z: sz, rotY: a + Math.PI }));
-        seatsAt.push({ x: sx, z: sz, yaw: a + Math.PI });
-        placed.push({ x: sx, z: sz, yaw: a + Math.PI });
+        const chair = makeChair(M, { x: sx, y: 0, z: sz, rotY: a + Math.PI });
+        add(chair);
+        const authoredSeat = { x: sx, z: sz, yaw: a + Math.PI };
+        seatsAt.push(authoredSeat);
+        // Keep the exact chair reference outside userData: Object3D userData
+        // must remain serializable, while runtime geometry needs provenance
+        // from a seated actor back to the one chair authored for that seat.
+        placed.push({
+          ...authoredSeat, chair: chair.group, table: g, geometryAssemblyId,
+        });
       }
       if (!reserved) anchors.tableSeats.push({ x, z, seats: placed });
-      g.userData.seats = placed;
+      g.userData.seats = placed.map(({ x: seatX, z: seatZ, yaw }) => ({
+        x: seatX, z: seatZ, yaw,
+      }));
+      g.geometrySeats = placed;
+      g.geometryAssemblyId = geometryAssemblyId;
       return g;
     }
 
@@ -2491,21 +2664,23 @@ export function buildRoom(scene, { renderer } = {}) {
      * crew sitting half in the cloth with spare chairs through their backs.
      * `reserved` keeps it off the diner deal, because those seats are taken. */
     const crewTable = diningTable(-8.6, 1.6, 4, { r: 0.72, seatBase: 0.6, seatR: 1.2, reserved: true });
-    anchors.crewSeats = crewTable.userData.seats;
+    anchors.crewSeats = crewTable.geometrySeats;
     // Banquettes down the east wall
     for (let i = 0; i < 5; i++) {
       const bz = -3 + i * 5.2;
+      const banquette = fitted(group(`east-banquette-${i}`), `silver-east-banquette-${i}`);
+      add(banquette);
       const banquetteBase = box({ size: [1.5, 0.45, 3.6], pos: [8.6, 0.28, bz], mat: M_BURGUNDY });
       banquetteBase.name = 'east-banquette-seat-base';
-      add(banquetteBase);
+      banquette.add(banquetteBase);
       const banquetteBack = box({ size: [0.35, 1.15, 3.6], pos: [9.4, 0.62, bz], mat: M_BURGUNDY_D });
       banquetteBack.name = 'east-banquette-back';
-      add(banquetteBack);
+      banquette.add(banquetteBack);
       const banquettePlinth = box({
         size: [1.36, 0.055, 3.42], pos: [8.66, 0.0275, bz], mat: M_DARKWOOD,
       });
       banquettePlinth.name = 'east-banquette-plinth';
-      add(banquettePlinth);
+      banquette.add(banquettePlinth);
       solid(7.85, bz - 1.8, 9.6, bz + 1.8, 0, 0.75);
       anchors.tables.push(new THREE.Vector3(7.2, 0, bz));
       diningTable(7.0, bz, 2, { r: 0.6 });

@@ -29,6 +29,8 @@
  * `onChange`.
  */
 
+import { registerSceneRenderer } from './scene-lifecycle.js';
+
 /** Shared cap on `devicePixelRatio`. 1.5x on a 2x display is 56% of the pixels of 2x. */
 export const PIXEL_RATIO_CAP = 1.5;
 /**
@@ -38,6 +40,63 @@ export const PIXEL_RATIO_CAP = 1.5;
  * 1.25 on a 2x display.
  */
 export const PIXEL_RATIO_CAP_HEAVY = 1.25;
+
+/**
+ * The pages that get PIXEL_RATIO_CAP_HEAVY instead of PIXEL_RATIO_CAP.
+ *
+ * The membership test is not "big scene". It is: does the page hold a large
+ * outdoor world -- terrain, weather, distant instanced dressing -- in front of
+ * the camera at once, so that the fragment cost scales with the backbuffer
+ * rather than with what the player is looking at? The first four were
+ * measured on real machines and their verifiers pin 1.25 on a 2x display.
+ *
+ * The list grew in three passes and the order is the order they were added,
+ * not an ordering that means anything:
+ *
+ *   - Beef Run, Enola, the Silver Room and NO WAKE, from the original measured
+ *     set (the comment on PIXEL_RATIO_CAP_HEAVY above is about those four and
+ *     was left alone rather than rewritten);
+ *   - the mansion and the Siege, added later without amending that comment,
+ *     which is why it reads as if it were still a four-entry list;
+ *   - THE SPECIAL MEETING, added 2026-08-20 with this note. Placed by the
+ *     membership test above and by what the scene actually builds, NOT by a
+ *     frame-time measurement -- nobody has profiled this page yet, and if a
+ *     playtest says 1.5 is comfortable on it the honest move is to take it
+ *     back off this list rather than to leave it here and stop asking.
+ *
+ * The Special Meeting qualifies for a reason worth writing down, because on a
+ * first read "a car pulls up outside a flat" does not sound like Beef Run. The
+ * page is a NIGHT EXTERIOR and it builds TWO full outdoor worlds in one
+ * document, back to back, with a cut to black between them:
+ *
+ *   - the kerb: a city block -- wet street, pavement, alley, doorway, lamp
+ *     posts, an instanced skyline behind it -- lit at night, plus the sedan;
+ *   - the spur: 992 metres of forest road with its own terrain field,
+ *     instanced foliage, fog and headlamp shadows, and the clearing at the end.
+ *
+ * Night is the expensive part. Everything is lit by a handful of small moving
+ * lights against near-black, so there is no daylight ambient doing the work
+ * cheaply, and the fog and headlamps are per-fragment over the whole frame.
+ * That is the same shape of cost as NO WAKE (a night boat on open water) and
+ * the Enola raid, which is why it belongs on this list and the Squatchfather's
+ * one-room restaurant does not.
+ */
+export const HEAVY_SCENE_ENTRYPOINTS = Object.freeze([
+  'beefrun.html',
+  'enolasquatch.html',
+  'silver.html',
+  'nowake.html',
+  'mansion.html',
+  'mansion-siege.html',
+  'specialmeeting.html',
+]);
+
+export function pixelRatioCapForScene(loc = globalThis.location) {
+  const pathname = String(loc?.pathname ?? '').toLowerCase();
+  const entry = pathname.split('/').filter(Boolean).at(-1) ?? '';
+  return HEAVY_SCENE_ENTRYPOINTS.includes(entry) ? PIXEL_RATIO_CAP_HEAVY : PIXEL_RATIO_CAP;
+}
+
 /** Never render below this many device pixels per CSS pixel. */
 export const PIXEL_RATIO_FLOOR = 0.6;
 
@@ -183,7 +242,9 @@ export function initialPixelRatio(cap = PIXEL_RATIO_CAP, {
  *   handles by re-fitting renderer, camera and post-processing.
  * @returns {{ ratio: number, initial: number, level: number, adaptive: boolean, dispose(): void }}
  */
-export function attachPixelRatio(renderer, { cap = PIXEL_RATIO_CAP, onChange } = {}) {
+export function attachPixelRatio(renderer, { cap = pixelRatioCapForScene(), onChange } = {}) {
+  const unregisterRenderer = registerSceneRenderer(renderer);
+  let disposed = false;
   const initial = initialPixelRatio(cap);
   renderer.setPixelRatio(initial);
   const adaptive = !isDeterministicRun()
@@ -200,7 +261,12 @@ export function attachPixelRatio(renderer, { cap = PIXEL_RATIO_CAP, onChange } =
     adaptive,
     changes: 0,
     policy: null,
-    dispose() { control.adaptive = false; },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      control.adaptive = false;
+      unregisterRenderer();
+    },
   };
   if (!adaptive) {
     globalThis.__pixelRatio = control;

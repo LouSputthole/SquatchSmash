@@ -8,7 +8,7 @@
  *   'frozen' - cutscene / transition, no input
  */
 import * as THREE from 'three';
-import { bindLookSensitivity } from './settings.js';
+import { bindLookSensitivity, motionDuration } from './settings.js';
 import { ColliderGrid } from './collider-broadphase.js';
 
 const EYE_STAND = 1.66;
@@ -161,7 +161,7 @@ export class Player {
     this.mode = 'frozen';
     this._tween = {
       t: 0,
-      dur: 1.5,
+      dur: motionDuration(1.5),
       fromPos: this.position.clone(),
       toPos: new THREE.Vector3(target.x, EYE_STAND, target.z),
       fromPitch: this.pitch,
@@ -191,7 +191,7 @@ export class Player {
     this.mode = 'frozen';
     this._tween = {
       t: 0,
-      dur: pose.dur ?? 1.0,
+      dur: motionDuration(pose.dur ?? 1.0),
       fromPos: this.position.clone(),
       toPos: pose.position.clone(),
       fromPitch: this.pitch,
@@ -215,7 +215,7 @@ export class Player {
     this.mode = 'frozen';
     this._tween = {
       t: 0,
-      dur: pose.dur ?? 1.3,
+      dur: motionDuration(pose.dur ?? 1.3),
       fromPos: this.position.clone(),
       toPos: pose.position.clone(),
       fromPitch: this.pitch,
@@ -241,7 +241,7 @@ export class Player {
     this.yawCenter = null;
     this._tween = {
       t: 0,
-      dur: 0.85,
+      dur: motionDuration(0.85),
       fromPos: this.position.clone(),
       toPos: new THREE.Vector3(target.x, EYE_STAND, target.z),
       fromPitch: this.pitch,

@@ -59,9 +59,15 @@ test('Booski gets the full yell before the bartender takes the voice floor, then
   assert.doesNotMatch(yell, /enter:\s*\(\)\s*=>\s*startShot\(\)/);
   assert.match(yell, /next:\s*\(\)\s*=>\s*\{\s*startShot\(\);\s*return null;/);
 
+  /* The beat itself moved to src/bing/booski-shot.js on 2026-08-19 so the
+   * closed party could run THE existing shot rather than a second one. Same
+   * assertions, at the file that now owns them. */
+  const beat = source('src/bing/booski-shot.js');
+  assert.match(beat, /const SHOT_PASS_SECONDS = 1\.25/);
+  assert.match(beat, /props\.delivery\.root\.position\.lerpVectors\(SHOT_TRAY_HOME, SHOT_TRAY_PASS, pass\)/);
+  assert.match(beat, /if \(beatTime < bartenderVoiceUntil\) return/);
   const bing = source('src/bing/main.js');
-  const shot = between(bing, 'function startShotBeat(', 'function sendAssociate(');
-  assert.match(bing, /const SHOT_PASS_SECONDS = 1\.25/);
-  assert.match(shot, /shotDelivery\.root\.position\.lerpVectors\(SHOT_TRAY_HOME, SHOT_TRAY_PASS, pass\)/);
-  assert.match(shot, /if \(beatTime < bartenderVoiceUntil\) return/);
+  assert.match(bing, /createBooskiShotBeat\(\{/, 'the ordinary night mounts the shared beat');
+  assert.match(source('src/bing/hotdog-main.js'), /createBooskiShotBeat\(\{/,
+    'and so does the closed party');
 });

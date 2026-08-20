@@ -657,6 +657,13 @@ test('apartment readiness and learned story context survive a reload', () => {
     changedClothes: true,
     emailChecked: false,
     whiskeyRelaxed: false,
+    /* Schema 18's per-chapter pastimes — see CHAPTER_PASTIMES in
+     * core/apartment-story.js. Untouched here, so all five read false. */
+    watchedTv: false,
+    playedCounterSquatch: false,
+    playedSquatchShoot: false,
+    playedSquatchSmash: false,
+    tookShrooms: false,
   });
   assert.equal(restored.story.meetingKnown, true);
   assert.equal(restored.story.meetingLearnedFrom, 'lou_call');
@@ -716,6 +723,41 @@ test('a version ten save splits the bathroom chore in two without losing it', ()
   assert.equal(owing.state.activities.pooped, false);
   assert.equal(owing.state.activities.peed, false);
   assert.equal(owing.recoveredNow, false);
+});
+
+/*
+ * Schema 18 put five new flags in `activities`, which is the change the
+ * TIME_EVENT_IDS comment in campaign.js warns about in as many words: the
+ * loader decides a save is corrupt by normalising it and comparing, so a state
+ * shape that grows a field WITHOUT a migration makes every save in the world
+ * come back different from what was written and get reported to the player as
+ * recovered. This is the guard on that, and it is deliberately about the
+ * player-visible symptom rather than about the field.
+ */
+test('a version seventeen save gains the pastime flags without being called corrupt', () => {
+  const storage = new MemoryStorage();
+  const before = createCampaign({ storage: new MemoryStorage() }).state;
+  before.version = 17;
+  before.activities.eaten = true;
+  for (const key of ['watchedTv', 'playedCounterSquatch', 'playedSquatchShoot',
+    'playedSquatchSmash', 'tookShrooms']) delete before.activities[key];
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(before));
+
+  const campaign = createCampaign({ storage });
+  assert.equal(campaign.recoveredNow, false,
+    'an existing save was reported to the player as recovered by a schema bump');
+  assert.equal(campaign.recovery, null);
+  // The morning it did know about survives.
+  assert.equal(campaign.state.activities.eaten, true);
+  // And the five it could not have known about arrive as "not done yet".
+  assert.equal(campaign.state.activities.watchedTv, false);
+  assert.equal(campaign.state.activities.playedCounterSquatch, false);
+  assert.equal(campaign.state.activities.playedSquatchShoot, false);
+  assert.equal(campaign.state.activities.playedSquatchSmash, false);
+  assert.equal(campaign.state.activities.tookShrooms, false);
+  assert.equal(
+    JSON.parse(storage.getItem(CAMPAIGN_STORAGE_KEY)).version, CAMPAIGN_VERSION,
+  );
 });
 
 /** Two errands means two clock costs, and the quick one is the cheap one. */

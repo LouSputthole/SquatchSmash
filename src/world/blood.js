@@ -22,6 +22,7 @@ import { BulletHoles } from './bullets.js';
 export const BLOOD_MARK_NAME = 'blood.impact';
 export const BLOOD_SPATTER_NAME = 'blood.spatter';
 export const BLOOD_POOL_NAME = 'blood.death-pool';
+export const BLOOD_SPURT_NAME = 'blood.spurt';
 
 const FLOOR_LIFT = 0.006;
 const DEFAULT_CAPACITY = 12;
@@ -201,6 +202,127 @@ export class BloodImpactSystem {
     this.wounds.reset();
     this.spatter.reset();
     this._marks.clear();
+  }
+}
+
+/**
+ * Airborne arterial spurts: pooled droplets thrown INTO THE AIR off a wound
+ * and pulled back down by gravity until they cross an explicit floor height.
+ *
+ * The other two systems are decals — evidence that a hit already happened.
+ * This one is the hit itself, mid-air, which neither of them could fake:
+ * an attached mark cannot arc across a room and a floor pool never leaves
+ * it. Same contracts as its siblings: bounded pool, injected `random` for
+ * deterministic tests, explicit `floorY` because a droplet does not know
+ * which surface it is falling toward, and zero per-frame allocations —
+ * every droplet's state lives in a preallocated entry.
+ */
+export class BloodSpurtSystem {
+  constructor(scene, {
+    capacity = 48,
+    gravity = 9.8,
+    random = Math.random,
+  } = {}) {
+    if (!scene?.add) throw new TypeError('BloodSpurtSystem requires a scene or parent Group');
+    this.scene = scene;
+    this.capacity = Math.max(1, Math.trunc(capacity) || 48);
+    this.gravity = Math.max(0.1, Number(gravity) || 9.8);
+    this.random = random;
+    this._entries = [];
+    this._next = 0;
+    const geometry = new THREE.SphereGeometry(1, 5, 4);
+    const material = new THREE.MeshBasicMaterial({ color: 0x6e1010 });
+    for (let i = 0; i < this.capacity; i++) {
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.name = `${BLOOD_SPURT_NAME}.${String(i + 1).padStart(2, '0')}`;
+      mesh.userData.reusableSystem = 'blood';
+      mesh.userData.bloodEffect = 'spurt';
+      mesh.visible = false;
+      scene.add(mesh);
+      this._entries.push({
+        mesh, vx: 0, vy: 0, vz: 0, floorY: 0, onLand: null, active: false,
+      });
+    }
+  }
+
+  /**
+   * Throw one burst of droplets off a wound.
+   *
+   * @param {THREE.Vector3} point world-space wound point the spurt leaves
+   * @param {THREE.Vector3} direction rough away-from-the-body direction; the
+   *   upward arc is added here, so callers pass the wound normal, not "up"
+   * @param {object} [options]
+   * @param {number} [options.count=10] droplets in this burst (pool-bounded)
+   * @param {number} [options.speed=2.6] outward speed in m/s
+   * @param {number} [options.upward=2.4] extra vertical throw in m/s
+   * @param {number} [options.floorY=0] explicit landing height
+   * @param {(x: number, z: number) => void} [options.onLand] told where each
+   *   droplet comes down, so the caller can put a splatter decal there
+   */
+  burst(point, direction, {
+    count = 10,
+    speed = 2.6,
+    upward = 2.4,
+    floorY = 0,
+    onLand = null,
+  } = {}) {
+    if (!finiteVector(point)) throw new TypeError('BloodSpurtSystem.burst requires a world point');
+    const out = directionFor({ point, normal: direction });
+    const droplets = Math.max(1, Math.trunc(count) || 1);
+    let launched = 0;
+    for (let i = 0; i < droplets && i < this.capacity; i++) {
+      const entry = this._entries[this._next];
+      this._next = (this._next + 1) % this._entries.length;
+      const jitterX = (this.random() - 0.5) * 1.4;
+      const jitterZ = (this.random() - 0.5) * 1.4;
+      const pace = speed * (0.55 + this.random() * 0.75);
+      entry.vx = out.x * pace + jitterX;
+      entry.vy = upward * (0.6 + this.random() * 0.8);
+      entry.vz = out.z * pace + jitterZ;
+      entry.floorY = Number.isFinite(floorY) ? floorY : 0;
+      entry.onLand = onLand;
+      entry.active = true;
+      const size = 0.014 + this.random() * 0.022;
+      entry.mesh.scale.set(size, size, size);
+      entry.mesh.position.copy(point);
+      entry.mesh.visible = true;
+      launched += 1;
+    }
+    return launched;
+  }
+
+  update(dt) {
+    const step = Math.max(0, Number(dt) || 0);
+    if (step === 0) return;
+    for (const entry of this._entries) {
+      if (!entry.active) continue;
+      entry.vy -= this.gravity * step;
+      const { position } = entry.mesh;
+      position.x += entry.vx * step;
+      position.y += entry.vy * step;
+      position.z += entry.vz * step;
+      /* A droplet only lands on the way DOWN: a burst may start below its
+       * own floor plane for a frame while it is still being thrown upward. */
+      if (entry.vy < 0 && position.y <= entry.floorY) {
+        entry.active = false;
+        entry.mesh.visible = false;
+        entry.onLand?.(position.x, position.z);
+        entry.onLand = null;
+      }
+    }
+  }
+
+  get airborneCount() {
+    return this._entries.filter((entry) => entry.active).length;
+  }
+
+  reset() {
+    for (const entry of this._entries) {
+      entry.active = false;
+      entry.onLand = null;
+      entry.mesh.visible = false;
+    }
+    this._next = 0;
   }
 }
 

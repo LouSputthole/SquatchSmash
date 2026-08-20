@@ -35,6 +35,29 @@ const NEW_PRODUCTION_CUES = Object.freeze([
   'weapon.shotgun.cycle',
 ]);
 
+/*
+ * Pain. The half of a hit the player actually reads.
+ *
+ * Everything above is a physical impact -- fabric, plate, bone -- and a man
+ * shot by all of it made no sound at all, which is why hits registered and
+ * still felt like nothing happened. These are the reactions: non-verbal vocal
+ * effort, sorted by how badly the round hurt.
+ *
+ * They are PROMPT-based effect cues, not cast `say`/`voice` dialogue, on
+ * purpose. A grunt is not a line: text-to-speech pronounces "ugh" instead of
+ * making the sound, and casting a profile would make every hostile in two
+ * missions the same performer. They are still generated audio and still
+ * appear in `docs/audio/RECORD-THIS.*` as effect rows, so the booth sheet
+ * can see them.
+ */
+const VOCAL_PRODUCTION_CUES = Object.freeze([
+  'combat.pain.grunt.a',
+  'combat.pain.grunt.b',
+  'combat.pain.cry',
+  'combat.pain.death',
+  'combat.player.pain',
+]);
+
 const REUSED_CUES = Object.freeze([
   'heist.bullet.whiz',
   'heist.bullet.impact',
@@ -60,8 +83,57 @@ const REUSED_CUES = Object.freeze([
 /** Exact preload bank: new production queue first, approved reuse second. */
 export const GROUND_COMBAT_AUDIO_CUES = Object.freeze([
   ...NEW_PRODUCTION_CUES,
+  ...VOCAL_PRODUCTION_CUES,
   ...REUSED_CUES,
 ]);
+
+/** Light hits alternate, so a man taking a burst does not repeat one sample. */
+const PAIN_LIGHT_CUES = Object.freeze(['combat.pain.grunt.a', 'combat.pain.grunt.b']);
+const PAIN_HEAVY_CUE = 'combat.pain.cry';
+const PAIN_FATAL_CUE = 'combat.pain.death';
+const PLAYER_PAIN_CUE = 'combat.player.pain';
+
+/**
+ * A round is "heavy" when it takes a quarter of a healthy man's hundred
+ * points in one hit; a head hit is heavy whatever the number says.
+ */
+const PAIN_HEAVY_DAMAGE = 24;
+
+/**
+ * One man, one voice. A shotgun puts eight pellets into a chest inside a
+ * single frame and both scenes present each of them, so without a per-source
+ * throttle one trigger pull is eight screams from one body.
+ */
+const PAIN_VOICE_INTERVAL = 0.4;
+
+/** Throttle cell for a hit with no actor id: about one body wide. */
+const PAIN_POSITION_CELL = 0.75;
+
+/*
+ * The player's own voice, and why it is rationed.
+ *
+ * Owner's requirement, verbatim: a vocal on every bullet turns the Prospect
+ * into "a Prospect percussion instrument". Incoming fire lands far faster
+ * than a man reacts to it, so his voice is gated twice and both gates are
+ * explicit:
+ *
+ *   - PLAYER_VOCAL_COOLDOWN is a hard floor. No second vocal inside it, ever,
+ *     however many rounds arrive.
+ *   - PLAYER_VOCAL_CHANCE is rolled on the hits that DO clear the cooldown, so
+ *     the vocal is not a metronome either -- most eligible hits stay silent
+ *     and the one that speaks is not predictable.
+ *
+ * Under sustained fire that is one vocal per ~4 s at the very most, and in
+ * practice noticeably less. A losing roll deliberately does NOT stamp the
+ * clock: it costs the hit its voice, not the next four seconds of them.
+ *
+ * A killing hit skips the dice but not the cooldown -- the last sound a man
+ * makes is not left to a coin toss.
+ */
+const PLAYER_VOCAL_COOLDOWN = 4;
+const PLAYER_VOCAL_CHANCE = 0.34;
+
+const defaultClock = () => (globalThis.performance?.now?.() ?? Date.now()) / 1000;
 
 const HEAVY_CALIBERS = new Set([
   'heavy', '.50', '50', '50cal', '50-cal', 'anti-materiel', 'antimateriel', 'lmg',
@@ -193,8 +265,20 @@ function stepCue(surface, foot = 0) {
  * explicit armor-break layer when the result says a plate actually broke).
  */
 export class CombatAudio {
-  constructor({ audio } = {}) {
+  constructor({ audio, random = Math.random, now = defaultClock } = {}) {
     this.audio = audio ?? null;
+    /* Injected so the player's rationed voice is testable and so a scene can
+     * make it deterministic; both default to the real world. */
+    this.random = typeof random === 'function' ? random : Math.random;
+    this.now = typeof now === 'function' ? now : defaultClock;
+    this._painAt = new Map();
+    this._painVariant = 0;
+    this._playerVocalAt = -Infinity;
+  }
+
+  _clock() {
+    const value = Number(this.now());
+    return Number.isFinite(value) ? value : 0;
   }
 
   _play(cue, { position = null, volume, rate } = {}) {
@@ -207,7 +291,17 @@ export class CombatAudio {
     return true;
   }
 
-  impact({ target = 'enemy', zone = 'body', caliber = 'rifle', position = null, result = {} } = {}) {
+  /**
+   * Every applied hit also gets its vocal reaction, because the physical layer
+   * alone is what made a landed round read as nothing. Pass `vocal: false` for
+   * a presentation pass that only wants the impact (a re-presented pellet, a
+   * silent takedown), and `id` so the per-actor throttle keys on the man
+   * rather than on the spot he was standing in.
+   */
+  impact({
+    target = 'enemy', zone = 'body', caliber = 'rifle', position = null,
+    result = {}, id = null, vocal = true,
+  } = {}) {
     if (result?.applied !== true) return [];
     const cues = [];
     const absorbed = positive(result.absorbed);
@@ -231,7 +325,87 @@ export class CombatAudio {
       cues.push('combat.armor.break', 'combat.armor.plate.drop');
     }
     for (const cue of cues) this._play(cue, { position });
+    if (vocal !== false) {
+      const voice = this.pain({ target, id, zone, position, result });
+      if (voice) cues.push(voice);
+    }
     return cues;
+  }
+
+  /**
+   * The reaction, from the man who was hit. Positional, so it comes out of the
+   * body rather than out of the HUD, and throttled per source so one burst is
+   * one reaction. Returns the cue it played, or null when the throttle, the
+   * cooldown or the dice ate it.
+   */
+  pain({
+    target = 'enemy', id = null, zone = 'body', position = null,
+    result = {}, fatal = null,
+  } = {}) {
+    if (result?.applied === false) return null;
+    const mortal = fatal === true || result?.fatal === true;
+    if (token(target) === 'player') return this.playerVocal({ position, fatal: mortal });
+
+    const keys = this._painKeys(id, position);
+    const now = this._clock();
+    for (const key of keys) {
+      const last = this._painAt.get(key);
+      if (last != null && now - last < PAIN_VOICE_INTERVAL) return null;
+    }
+
+    let cue = null;
+    let volume = 0.62;
+    if (mortal) {
+      cue = PAIN_FATAL_CUE;
+      volume = 0.9;
+    } else if (token(zone) === 'head' || positive(result?.damage) >= PAIN_HEAVY_DAMAGE) {
+      cue = PAIN_HEAVY_CUE;
+      volume = 0.8;
+    } else {
+      cue = PAIN_LIGHT_CUES[this._painVariant % PAIN_LIGHT_CUES.length];
+      this._painVariant++;
+    }
+    if (!this._play(cue, { position, volume })) return null;
+    for (const key of keys) this._painAt.set(key, now);
+    /* A long fight must not grow one throttle entry per hostile per corpse. */
+    if (this._painAt.size > 64) {
+      for (const [key, at] of this._painAt) {
+        if (now - at >= PAIN_VOICE_INTERVAL) this._painAt.delete(key);
+      }
+    }
+    return cue;
+  }
+
+  /**
+   * The player's own grunt, behind the cooldown and the dice above. `force`
+   * exists for a scripted beat that must be heard; ordinary combat never
+   * passes it.
+   */
+  playerVocal({ position = null, fatal = false, force = false } = {}) {
+    const now = this._clock();
+    if (!force && now - this._playerVocalAt < PLAYER_VOCAL_COOLDOWN) return null;
+    if (!force && fatal !== true && Number(this.random()) >= PLAYER_VOCAL_CHANCE) return null;
+    if (!this._play(PLAYER_PAIN_CUE, { position, volume: fatal === true ? 0.95 : 0.8 })) {
+      return null;
+    }
+    this._playerVocalAt = now;
+    return PLAYER_PAIN_CUE;
+  }
+
+  /** Actor id when the scene knows it, plus the body-sized cell it stood in,
+   * so the same hit presented twice (director and scene root both speaking)
+   * still costs one voice. */
+  _painKeys(id, position) {
+    const keys = [];
+    const key = String(id ?? '').trim();
+    if (key) keys.push(`id:${key}`);
+    const point = pointOf(position);
+    if (point) {
+      keys.push(`at:${Math.round(point.x / PAIN_POSITION_CELL)}`
+        + `,${Math.round(point.y / PAIN_POSITION_CELL)}`
+        + `,${Math.round(point.z / PAIN_POSITION_CELL)}`);
+    }
+    return keys.length ? keys : ['at:unknown'];
   }
 
   whiz({ caliber = 'rifle', position = null } = {}) {
@@ -293,8 +467,12 @@ export class CombatAudio {
     return cue;
   }
 
-  /** CombatAudio owns no playback handles; this keeps scene reset uniform. */
+  /** CombatAudio owns no playback handles, but it does own the vocal clocks:
+   * a checkpoint restore must not carry a dead man's throttle into the retry. */
   reset() {
+    this._painAt.clear();
+    this._painVariant = 0;
+    this._playerVocalAt = -Infinity;
     return false;
   }
 }

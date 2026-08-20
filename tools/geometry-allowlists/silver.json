@@ -1,0 +1,1814 @@
+{
+  "$schema": "squatchsmash.geometry-allowlist.v1",
+  "scene": "silver",
+  "entries": [
+    {
+      "id": "silver-default-001",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-0-collider",
+      "right": "root:silver-runtime/collider:silver-wall-3-collider",
+      "maxDepthM": 0.24,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-002",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-0-collider",
+      "right": "root:silver-runtime/collider:silver-wall-88-collider",
+      "maxDepthM": 0.041,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-003",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-1-collider",
+      "right": "root:silver-runtime/collider:silver-wall-4-collider",
+      "maxDepthM": 0.241,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-004",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-1-collider",
+      "right": "root:silver-runtime/collider:silver-wall-6-collider",
+      "maxDepthM": 0.24,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-005",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-1-collider",
+      "right": "root:silver-runtime/collider:silver-wall-89-collider",
+      "maxDepthM": 0.041,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-006",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-10-collider",
+      "right": "root:silver-runtime/collider:silver-wall-14-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-007",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-10-collider",
+      "right": "root:silver-runtime/collider:silver-wall-25-collider",
+      "maxDepthM": 0.042,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-008",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-10-collider",
+      "right": "root:silver-runtime/collider:silver-wall-34-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-009",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-10-collider",
+      "right": "root:silver-runtime/collider:silver-wall-55-collider",
+      "maxDepthM": 0.29,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-010",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-10-collider",
+      "right": "root:silver-runtime/collider:silver-wall-56-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-011",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-100-collider",
+      "right": "root:silver-runtime/collider:silver-wall-102-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-012",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-100-collider",
+      "right": "root:silver-runtime/collider:silver-wall-104-collider",
+      "maxDepthM": 0.066,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-013",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-100-collider",
+      "right": "root:silver-runtime/collider:silver-wall-94-collider",
+      "maxDepthM": 0.066,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-014",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-100-collider",
+      "right": "root:silver-runtime/collider:silver-wall-96-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-015",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-101-collider",
+      "right": "root:silver-runtime/collider:silver-wall-102-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-016",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-101-collider",
+      "right": "root:silver-runtime/collider:silver-wall-64-collider",
+      "maxDepthM": 0.265,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-017",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-101-collider",
+      "right": "root:silver-runtime/collider:silver-wall-92-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-018",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-101-collider",
+      "right": "root:silver-runtime/collider:silver-wall-97-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-019",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-102-collider",
+      "right": "root:silver-runtime/collider:silver-wall-104-collider",
+      "maxDepthM": 0.041,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-020",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-103-collider",
+      "right": "root:silver-runtime/collider:silver-wall-99-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-021",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-11-collider",
+      "right": "root:silver-runtime/collider:silver-wall-15-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-022",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-11-collider",
+      "right": "root:silver-runtime/collider:silver-wall-18-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-023",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-11-collider",
+      "right": "root:silver-runtime/collider:silver-wall-68-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-024",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-12-collider",
+      "right": "root:silver-runtime/collider:silver-wall-14-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-025",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-12-collider",
+      "right": "root:silver-runtime/collider:silver-wall-55-collider",
+      "maxDepthM": 0.29,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-026",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-12-collider",
+      "right": "root:silver-runtime/collider:silver-wall-56-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-027",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-13-collider",
+      "right": "root:silver-runtime/collider:silver-wall-15-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-028",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-13-collider",
+      "right": "root:silver-runtime/collider:silver-wall-68-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-029",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-17-collider",
+      "right": "root:silver-runtime/collider:silver-wall-36-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-030",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-18-collider",
+      "right": "root:silver-runtime/collider:silver-wall-46-collider",
+      "maxDepthM": 0.341,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-031",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-20-collider",
+      "right": "root:silver-runtime/collider:silver-wall-21-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-032",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-21-collider",
+      "right": "root:silver-runtime/collider:silver-wall-22-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-033",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-22-collider",
+      "right": "root:silver-runtime/collider:silver-wall-23-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-034",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-23-collider",
+      "right": "root:silver-runtime/collider:silver-wall-24-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-035",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-24-collider",
+      "right": "root:silver-runtime/collider:silver-wall-25-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-036",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-29-collider",
+      "right": "root:silver-runtime/collider:silver-wall-31-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-037",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-29-collider",
+      "right": "root:silver-runtime/collider:silver-wall-41-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-038",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-3-collider",
+      "right": "root:silver-runtime/collider:silver-wall-74-collider",
+      "maxDepthM": 0.34,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-039",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-31-collider",
+      "right": "root:silver-runtime/collider:silver-wall-41-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-040",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-32-collider",
+      "right": "root:silver-runtime/collider:silver-wall-34-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-041",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-32-collider",
+      "right": "root:silver-runtime/collider:silver-wall-43-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-042",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-34-collider",
+      "right": "root:silver-runtime/collider:silver-wall-43-collider",
+      "maxDepthM": 0.24,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-043",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-35-collider",
+      "right": "root:silver-runtime/collider:silver-wall-39-collider",
+      "maxDepthM": 0.24,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-044",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-35-collider",
+      "right": "root:silver-runtime/collider:silver-wall-45-collider",
+      "maxDepthM": 0.341,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-045",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-38-collider",
+      "right": "root:silver-runtime/collider:silver-wall-43-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-046",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-44-collider",
+      "right": "root:silver-runtime/collider:silver-wall-45-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-047",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-44-collider",
+      "right": "root:silver-runtime/collider:silver-wall-46-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-048",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-47-collider",
+      "right": "root:silver-runtime/collider:silver-wall-48-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-049",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-48-collider",
+      "right": "root:silver-runtime/collider:silver-wall-49-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-050",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-49-collider",
+      "right": "root:silver-runtime/collider:silver-wall-50-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-051",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-5-collider",
+      "right": "root:silver-runtime/collider:silver-wall-9-collider",
+      "maxDepthM": 0.24,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-052",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-51-collider",
+      "right": "root:silver-runtime/collider:silver-wall-52-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-053",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-52-collider",
+      "right": "root:silver-runtime/collider:silver-wall-53-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-054",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-53-collider",
+      "right": "root:silver-runtime/collider:silver-wall-54-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-055",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-55-collider",
+      "right": "root:silver-runtime/collider:silver-wall-56-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-056",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-55-collider",
+      "right": "root:silver-runtime/collider:silver-wall-68-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-057",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-56-collider",
+      "right": "root:silver-runtime/collider:silver-wall-59-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-058",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-57-collider",
+      "right": "root:silver-runtime/collider:silver-wall-58-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-059",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-57-collider",
+      "right": "root:silver-runtime/collider:silver-wall-64-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-060",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-58-collider",
+      "right": "root:silver-runtime/collider:silver-wall-59-collider",
+      "maxDepthM": 0.166,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-061",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-61-collider",
+      "right": "root:silver-runtime/collider:silver-wall-65-collider",
+      "maxDepthM": 0.041,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-062",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-63-collider",
+      "right": "root:silver-runtime/collider:silver-wall-70-collider",
+      "maxDepthM": 0.065,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-063",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-63-collider",
+      "right": "root:silver-runtime/collider:silver-wall-83-collider",
+      "maxDepthM": 0.29,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-064",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-63-collider",
+      "right": "root:silver-runtime/collider:silver-wall-97-collider",
+      "maxDepthM": 0.29,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-065",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-66-collider",
+      "right": "root:silver-runtime/collider:silver-wall-68-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-066",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-69-collider",
+      "right": "root:silver-runtime/collider:silver-wall-75-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-067",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-69-collider",
+      "right": "root:silver-runtime/collider:silver-wall-78-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-068",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-71-collider",
+      "right": "root:silver-runtime/collider:silver-wall-75-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-069",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-74-collider",
+      "right": "root:silver-runtime/collider:silver-wall-85-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-070",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-74-collider",
+      "right": "root:silver-runtime/collider:silver-wall-88-collider",
+      "maxDepthM": 0.34,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-071",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-75-collider",
+      "right": "root:silver-runtime/collider:silver-wall-78-collider",
+      "maxDepthM": 0.091,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-072",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-75-collider",
+      "right": "root:silver-runtime/collider:silver-wall-86-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-073",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-75-collider",
+      "right": "root:silver-runtime/collider:silver-wall-89-collider",
+      "maxDepthM": 0.34,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-074",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-77-collider",
+      "right": "root:silver-runtime/collider:silver-wall-83-collider",
+      "maxDepthM": 0.091,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-075",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-8-collider",
+      "right": "root:silver-runtime/collider:silver-wall-9-collider",
+      "maxDepthM": 0.24,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-076",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-80-collider",
+      "right": "root:silver-runtime/collider:silver-wall-82-collider",
+      "maxDepthM": 0.041,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-077",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-83-collider",
+      "right": "root:silver-runtime/collider:silver-wall-92-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-078",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-90-collider",
+      "right": "root:silver-runtime/collider:silver-wall-91-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-079",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-90-collider",
+      "right": "root:silver-runtime/collider:silver-wall-93-collider",
+      "maxDepthM": 0.29,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-080",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-90-collider",
+      "right": "root:silver-runtime/collider:silver-wall-99-collider",
+      "maxDepthM": 0.19,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-081",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-91-collider",
+      "right": "root:silver-runtime/collider:silver-wall-93-collider",
+      "maxDepthM": 0.14,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-082",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-91-collider",
+      "right": "root:silver-runtime/collider:silver-wall-99-collider",
+      "maxDepthM": 0.04,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-083",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-92-collider",
+      "right": "root:silver-runtime/collider:silver-wall-97-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-084",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-93-collider",
+      "right": "root:silver-runtime/collider:silver-wall-99-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-085",
+      "state": "default",
+      "kind": "INTERPENETRATION",
+      "left": "root:silver-runtime/collider:silver-wall-94-collider",
+      "right": "root:silver-runtime/collider:silver-wall-96-collider",
+      "maxDepthM": 0.041,
+      "source": "src/silver/room.js:412",
+      "sourceAnchor": "function wall(",
+      "reason": "These exact wall colliders deliberately key through each other at an authored corner or T-junction; the bounded overlap closes the runtime collision shell without leaving a navigable seam."
+    },
+    {
+      "id": "silver-default-086",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-front-collider",
+      "right": "root:silver-runtime/collider:silver-wall-0-collider",
+      "maxDepthM": 0.221,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-087",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-front-collider",
+      "right": "root:silver-runtime/collider:silver-wall-1-collider",
+      "maxDepthM": 0.221,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-088",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-kitchenSwing-collider",
+      "right": "root:silver-runtime/collider:silver-wall-60-collider",
+      "maxDepthM": 0.155,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-089",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-kitchenSwing-collider",
+      "right": "root:silver-runtime/collider:silver-wall-61-collider",
+      "maxDepthM": 0.155,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-090",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-manager-collider",
+      "right": "root:silver-runtime/collider:silver-wall-96-collider",
+      "maxDepthM": 0.155,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-091",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-manager-collider",
+      "right": "root:silver-runtime/collider:silver-wall-97-collider",
+      "maxDepthM": 0.155,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-092",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-rear-collider",
+      "right": "root:silver-runtime/collider:silver-wall-103-collider",
+      "maxDepthM": 0.22,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-093",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-rear-collider",
+      "right": "root:silver-runtime/collider:silver-wall-104-collider",
+      "maxDepthM": 0.22,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-094",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-service-collider",
+      "right": "root:silver-runtime/collider:silver-wall-5-collider",
+      "maxDepthM": 0.22,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-095",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-service-collider",
+      "right": "root:silver-runtime/collider:silver-wall-6-collider",
+      "maxDepthM": 0.22,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-096",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-walkin-collider",
+      "right": "root:silver-runtime/collider:silver-wall-40-collider",
+      "maxDepthM": 0.155,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-097",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-door-walkin-collider",
+      "right": "root:silver-runtime/collider:silver-wall-41-collider",
+      "maxDepthM": 0.155,
+      "source": "src/silver/room.js:460",
+      "sourceAnchor": "function hangDoor(",
+      "reason": "This exact swinging-door collision slab deliberately keys into its two adjacent jamb colliders so the closed doorway has no collision seam."
+    },
+    {
+      "id": "silver-default-098",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-kitchen-ramp-guard-north",
+      "right": "root:silver-runtime/collider:silver-wall-65-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:1593",
+      "sourceAnchor": "silver-kitchen-ramp-guard-",
+      "reason": "The kitchen ramp guard deliberately terminates inside the tiled end wall so the rail has a closed structural mount rather than ending in open space."
+    },
+    {
+      "id": "silver-default-099",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-kitchen-ramp-guard-south",
+      "right": "root:silver-runtime/collider:silver-wall-65-collider",
+      "maxDepthM": 0.165,
+      "source": "src/silver/room.js:1593",
+      "sourceAnchor": "silver-kitchen-ramp-guard-",
+      "reason": "The kitchen ramp guard deliberately terminates inside the tiled end wall so the rail has a closed structural mount rather than ending in open space."
+    },
+    {
+      "id": "silver-default-100",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-stage-platform",
+      "right": "root:silver-runtime/collider:silver-wall-79-collider",
+      "maxDepthM": 0.29,
+      "source": "src/silver/room.js:2449",
+      "sourceAnchor": "silver-stage-platform",
+      "reason": "The stage platform collider deliberately terminates inside the matching side or front wall collider as a fitted installation; the exact keyed contact prevents a gap around the raised stage."
+    },
+    {
+      "id": "silver-default-101",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/collider:silver-stage-platform",
+      "right": "root:silver-runtime/collider:silver-wall-91-collider",
+      "maxDepthM": 0.24,
+      "source": "src/silver/room.js:2449",
+      "sourceAnchor": "silver-stage-platform",
+      "reason": "The stage platform collider deliberately terminates inside the matching side or front wall collider as a fitted installation; the exact keyed contact prevents a gap around the raised stage."
+    },
+    {
+      "id": "silver-default-102",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/type=Group#0/name=corridor-conduit#0",
+      "right": "root:silver-runtime/type=Group#0/name=silver-wall-101#0",
+      "maxDepthM": 0.091,
+      "source": "src/silver/room.js:2150",
+      "sourceAnchor": "run.name = 'corridor-conduit'",
+      "reason": "The continuous back-corridor service conduit is deliberately routed through these exact fitted partition and wall runs."
+    },
+    {
+      "id": "silver-default-103",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/type=Group#0/name=corridor-conduit#0",
+      "right": "root:silver-runtime/type=Group#0/name=silver-wall-77#0",
+      "maxDepthM": 0.091,
+      "source": "src/silver/room.js:2150",
+      "sourceAnchor": "run.name = 'corridor-conduit'",
+      "reason": "The continuous back-corridor service conduit is deliberately routed through these exact fitted partition and wall runs."
+    },
+    {
+      "id": "silver-default-104",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/type=Group#0/name=corridor-conduit#0",
+      "right": "root:silver-runtime/type=Group#0/name=silver-wall-83#0",
+      "maxDepthM": 0.301,
+      "source": "src/silver/room.js:2150",
+      "sourceAnchor": "run.name = 'corridor-conduit'",
+      "reason": "The continuous back-corridor service conduit is deliberately routed through these exact fitted partition and wall runs."
+    },
+    {
+      "id": "silver-default-105",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/type=Group#0/name=corridor-conduit#0",
+      "right": "root:silver-runtime/type=Group#0/name=silver-wall-92#0",
+      "maxDepthM": 0.091,
+      "source": "src/silver/room.js:2150",
+      "sourceAnchor": "run.name = 'corridor-conduit'",
+      "reason": "The continuous back-corridor service conduit is deliberately routed through these exact fitted partition and wall runs."
+    },
+    {
+      "id": "silver-default-106",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/type=Group#0/name=corridor-conduit#0",
+      "right": "root:silver-runtime/type=Group#0/name=silver-wall-97#0",
+      "maxDepthM": 0.251,
+      "source": "src/silver/room.js:2150",
+      "sourceAnchor": "run.name = 'corridor-conduit'",
+      "reason": "The continuous back-corridor service conduit is deliberately routed through these exact fitted partition and wall runs."
+    },
+    {
+      "id": "silver-default-107",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/type=Group#0/name=corridor-conduit#1",
+      "right": "root:silver-runtime/type=Group#0/name=silver-wall-101#0",
+      "maxDepthM": 0.058,
+      "source": "src/silver/room.js:2150",
+      "sourceAnchor": "run.name = 'corridor-conduit'",
+      "reason": "The continuous back-corridor service conduit is deliberately routed through these exact fitted partition and wall runs."
+    },
+    {
+      "id": "silver-default-108",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/type=Group#0/name=corridor-conduit#1",
+      "right": "root:silver-runtime/type=Group#0/name=silver-wall-77#0",
+      "maxDepthM": 0.065,
+      "source": "src/silver/room.js:2150",
+      "sourceAnchor": "run.name = 'corridor-conduit'",
+      "reason": "The continuous back-corridor service conduit is deliberately routed through these exact fitted partition and wall runs."
+    },
+    {
+      "id": "silver-default-109",
+      "state": "default",
+      "kind": "WALL_EMBED",
+      "left": "root:silver-runtime/type=Group#0/name=corridor-conduit#1",
+      "right": "root:silver-runtime/type=Group#0/name=silver-wall-92#0",
+      "maxDepthM": 0.065,
+      "source": "src/silver/room.js:2150",
+      "sourceAnchor": "run.name = 'corridor-conduit'",
+      "reason": "The continuous back-corridor service conduit is deliberately routed through these exact fitted partition and wall runs."
+    }
+  ],
+  "suppressionPolicy": [
+    {
+      "state": "default",
+      "overlap": 188,
+      "checkSupport": 561,
+      "sources": [
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=card-rack#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 13
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=city-blocks#0",
+          "scope": "direct",
+          "overlap": 116,
+          "checkSupport": 116
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=city-rooftops#0",
+          "scope": "direct",
+          "overlap": 58,
+          "checkSupport": 58
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=city-warning-lights#0",
+          "scope": "direct",
+          "overlap": 5,
+          "checkSupport": 5
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=coat-rail#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 17
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=corridor-conduit#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=corridor-conduit#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=curtain#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 19
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=dish-rack#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 49
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=dish-wall-rack#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=dish-wall-rack#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=dish-wall-rack#2",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=dish-wall-rack#3",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=dish-wall-rack#4",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=extraction-hood-canopy#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=extraction-hood-lip#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=fire-point#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=floor-plate#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=floor-plate#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#10",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#11",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#12",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#13",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#14",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#15",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#16",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#17",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#18",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#19",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#2",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#20",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#3",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#4",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#5",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#6",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#7",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#8",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=frame#9",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 4
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=hood-utensils#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 15
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=hose-reel#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=kitchen-strip-light#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=kitchen-strip-light#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=kitchen-strip-light#2",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=kitchen-strip-light#3",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=kitchen-strip-light#4",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=kitchen-strip-light#5",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=kitchen-strip-light#6",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=knife-blade#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=knife-blade#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=knife-blade#2",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=knife-blade#3",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=knife-blade#4",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=knife-rail#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=moon#0/type=Mesh#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=moon#0/type=Mesh#1",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=moon#0/type=Mesh#2",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=moon#0/type=Mesh#3",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=moon#0/type=Mesh#4",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=pot-rack#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 20
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-board#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 9
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-board#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-board#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-tub#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-tub#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-tub#2",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-tub#3",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-tub#4",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-tub#5",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-tub#6",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-tub#7",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=prep-shelf-tub#8",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=rota-board#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#10",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#2",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#3",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#4",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#5",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#6",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#7",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#8",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=sconce#9",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=service-door-light#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=silver-city-ground-0#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=silver-city-ground-1#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=silver-city-ground-2#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=silver-city-ground-3#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=staff-mirror#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=stage-spotlight#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=stage-spotlight#1",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=stage-spotlight#2",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=stage-spotlight#3",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=stage-spotlight#4",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=ticket-board#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 49
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=wallclock#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=wallclock#1",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:silver-runtime/type=Group#0/name=wallclock#2",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        }
+      ]
+    }
+  ]
+}

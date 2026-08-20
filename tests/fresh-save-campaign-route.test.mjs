@@ -75,6 +75,22 @@ function apartmentExit(story, campaign) {
   return story.tryLeave(campaign.state.activities);
 }
 
+/**
+ * Do the chapter's own thing, the way the flat does it.
+ *
+ * Every chapter that sends him home now asks for one thing that is his rather
+ * than the family's -- see CHAPTER_PASTIMES in core/apartment-story.js -- and
+ * the door will not open until it is done. `src/main.js` ticks these through
+ * `completeApartmentActivity`, which is `advanceTime` plus a flag, so that is
+ * exactly what happens here: this route is the one test that proves the whole
+ * campaign is walkable end to end, and a pastime with a missing time event or
+ * an unreachable gate would wedge a player in his own living room.
+ */
+function pastime(campaign, activityId, timeEventId) {
+  campaign.advanceTime(timeEventId, (state) => { state.activities[activityId] = true; });
+  assert.equal(campaign.state.activities[activityId], true);
+}
+
 test('a fresh Tony campaign persists the complete route to an in-progress Initiation', () => {
   const storage = new MemoryStorage();
   let campaign = createCampaign({ storage });
@@ -138,6 +154,9 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   // Day Two: Booskibro authorizes the Beef Run; the real mission checkpoint
   // API carries the cargo/detection/landing state to a reload.
   assert.equal(apartment.callAnswered(DAY_TWO_BOOSKI_CALL), true);
+  /* He put a man in the ground last night, so he puts the news on first. */
+  assert.equal(apartmentExit(apartment, campaign).id, 'watchedTv');
+  pastime(campaign, 'watchedTv', TIME_EVENT_IDS.WATCH_TV);
   assert.deepEqual(apartmentExit(apartment, campaign), {
     kind: 'go', destination: SCENE_IDS.AIRSTRIP_SMUGGLING,
   });
@@ -211,6 +230,9 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
     ok: true, chapter: 'no_wake', day: 3, timeMinutes: 12 * 60,
   });
   assert.equal(apartment.callAnswered(NO_WAKE_LOU_CALL), true);
+  /* One game with the boys, which in Counter-Squatch means losing five. */
+  assert.equal(apartmentExit(apartment, campaign).id, 'playedCounterSquatch');
+  pastime(campaign, 'playedCounterSquatch', TIME_EVENT_IDS.PLAY_COUNTER_SQUATCH);
   assert.deepEqual(apartmentExit(apartment, campaign), {
     kind: 'go', destination: SCENE_IDS.NO_WAKE,
   });
@@ -243,6 +265,9 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
     ok: true, chapter: 'golf_morning', day: 4, timeMinutes: 7 * 60,
   });
   assert.equal(apartment.callAnswered(DAY_FOUR_LOU_GOLF_CALL), true);
+  /* Lou is about to hand him a club in front of people. Warm the eye up. */
+  assert.equal(apartmentExit(apartment, campaign).id, 'playedSquatchShoot');
+  pastime(campaign, 'playedSquatchShoot', TIME_EVENT_IDS.PLAY_SQUATCH_SHOOT);
   assert.deepEqual(apartmentExit(apartment, campaign), {
     kind: 'go', destination: SCENE_IDS.SILVER_PINES,
   });
@@ -389,6 +414,17 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   }), true);
   assert.equal(cartelPalace.complete({ outcome: 'clean' }), true);
 
+  /* And the Palace no longer runs straight into the ceremony. He goes home to
+   * a flat where nobody has told him whether killing Sauce was the right call,
+   * Booskibro rings to say there is a meeting and it is going to be a special
+   * one, and three men come and collect him — see `src/specialmeeting/`, which
+   * hands off at the treeline on its own. The old edge from the Palace to the
+   * Initiation is gone from the scene graph, so this is the only way through
+   * and a regression that routed round the scene would fail here. */
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
+  route(campaign, SCENE_IDS.SPECIAL_MEETING, 'kerb', 'specialmeeting.html');
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
+
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (state) => {
     state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
   });
@@ -414,8 +450,16 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.INITIATION, spawn: 'gathering' });
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'in_progress');
   assert.notEqual(campaign.state.missions[MISSION_IDS.INITIATION].status, 'complete');
-  assert.equal(campaign.state.story.day, 6);
-  assert.equal(campaign.state.story.timeMinutes, 23 * 60);
+  /* Day 7, twenty to one in the morning — an hour and forty minutes later than
+   * this used to read, and every one of those minutes is the Special Meeting.
+   * The Palace finishes late on the sixth; the phone call, getting changed and
+   * going down to a car already running is thirty-five (DEPART_SPECIAL_MEETING)
+   * and the drive, the spur, the boot and the walk in is sixty-five
+   * (COMPLETE_SPECIAL_MEETING). `DEPART_INITIATION` is anchored at day 4, 19:00
+   * and so absorbs nothing this late — it is pure carry. The ceremony starting
+   * after midnight is the point of it. */
+  assert.equal(campaign.state.story.day, 7);
+  assert.equal(campaign.state.story.timeMinutes, 40);
   for (const eventId of [
     TIME_EVENT_IDS.DEPART_SILVER_CASE,
     TIME_EVENT_IDS.COMPLETE_SILVER_CASE,

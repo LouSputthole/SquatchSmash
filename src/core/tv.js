@@ -30,6 +30,11 @@ const VIDEO_DIR = 'assets/video/';
 
 /** Seconds of snow when the channel changes. */
 const SWITCH = 0.45;
+/* A repaint is a full 512x288 canvas pass plus a texture re-upload, and the
+ * programming is lo-fi enough that 12 Hz reads the same as 60 from across a
+ * room. Every switched-on set painting per frame was measurable renderer
+ * time spent on channels nobody was even facing. */
+const PAINT_INTERVAL = 1 / 12;
 
 /**
  * One spatial contract for every television carrying audible video.
@@ -560,6 +565,10 @@ export function videoChannel({ name, file, files, card, glow, startAt = 0 }) {
       g.fillText(failed ? card : 'TRACKING…', W / 2, H * 0.52);
       g.textAlign = 'left';
     },
+    /* A tape carries real 24-30 fps motion, unlike the drawn channels the
+     * set's throttled repaint cadence was tuned for: the theatre projector
+     * runs these reels, and half-rate film is visible from the seats. */
+    paintInterval: 0,
     glow: () => glow,
   };
 }
@@ -622,6 +631,8 @@ export class Tv {
     this.on = false;
     this.t = 0;
     this._switch = 0;
+    // Primed so the first update after switch-on paints immediately.
+    this._paintDue = PAINT_INTERVAL;
     this._paint();
   }
 
@@ -637,6 +648,7 @@ export class Tv {
     this.on = !this.on;
     this.t = 0;
     this._switch = this.on ? SWITCH : 0;
+    this._paintDue = PAINT_INTERVAL;
     this.audio?.play('tv.click', { volume: 0.6, position: this.position });
     if (this.on) this._enter();
     else { this._leave(); this._paint(); }
@@ -649,6 +661,7 @@ export class Tv {
     this.index = (this.index + 1) % this.channels.length;
     this.t = 0;
     this._switch = SWITCH;
+    this._paintDue = PAINT_INTERVAL;
     this.audio?.play('tv.click', { volume: 0.45, position: this.position });
     this._enter();
   }
@@ -666,11 +679,21 @@ export class Tv {
     try { this.channel.leave?.(); } catch { /* as above */ }
   }
 
+  /**
+   * Returns whether the canvas was repainted this call, so a caller that
+   * uploads the canvas as a texture can flag `needsUpdate` only when there
+   * are new pixels. Callers that ignore the return value keep working.
+   */
   update(dt) {
-    if (!this.on) return;
+    if (!this.on) return false;
     this.t += dt;
     if (this._switch > 0) this._switch -= dt;
+    const interval = this.channel?.paintInterval ?? PAINT_INTERVAL;
+    this._paintDue += dt;
+    if (this._paintDue < interval) return false;
+    this._paintDue = interval > 0 ? this._paintDue % interval : 0;
     this._paint();
+    return true;
   }
 
   _paint() {

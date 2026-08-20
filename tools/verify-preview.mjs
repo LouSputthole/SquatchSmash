@@ -344,7 +344,9 @@ try {
    * for the page to go quiet, and a scene rendering under a software
    * rasteriser never does. The listener only wants the event. */
   await page.evaluate(() => document.querySelector('#startBtn').click());
-  await page.waitForFunction(() => window.MOTEL.phase === 'car');
+  /* The Motel arrival drive runs on the page's own real-time clock: ~40 s of
+   * wall time on a software rasteriser before the phase turns over. */
+  await page.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: 120000 });
   motel = await page.evaluate(() => ({
     phase: window.MOTEL.phase,
     status: window.MOTEL.campaignState.missions.jerky_motel.status,

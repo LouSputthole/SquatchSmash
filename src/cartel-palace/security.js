@@ -87,6 +87,19 @@ const INVESTIGATE_AWARENESS = 0.35;
 const HIT_ZONE_MULTIPLIER = Object.freeze({ head: 1, chest: 1, limb: 0.62 });
 const UP = new THREE.Vector3(0, 1, 0);
 
+/* Scratch vectors, the src/mansion/siege/attackers.js pattern: allocating
+ * inside a per-frame loop over the whole cast is how a firefight becomes a
+ * garbage-collection stutter. None of these is ever handed to code that keeps
+ * the reference -- anything retained (a sampled aim point, perception memory)
+ * stays a real copy made by its owner. */
+const _eye = new THREE.Vector3();
+const _sample = new THREE.Vector3();
+const _look = new THREE.Vector3();
+const _goalStep = new THREE.Vector3();
+const _strafe = new THREE.Vector3();
+const _beforeMove = new THREE.Vector3();
+const _stepPoint = new THREE.Vector3();
+
 /** Authored mechanical posts only; objectives, story anchors and boss phases stay untouched. */
 export const PALACE_COMBAT_POSTS = Object.freeze([
   Object.freeze({ id: 'gate-jamb', kind: 'cover', position: new THREE.Vector3(10.8, 0, 51.4), score: 1.05 }),
@@ -99,6 +112,50 @@ export const PALACE_COMBAT_POSTS = Object.freeze([
   Object.freeze({ id: 'gallery-bench-east', kind: 'cover', position: new THREE.Vector3(7.8, 0, -23.1), score: 1 }),
   Object.freeze({ id: 'gallery-bench-west', kind: 'flank', position: new THREE.Vector3(-7.8, 0, -27.2), score: 0.91 }),
 ]);
+
+/* How much wider than the alarm radius a suppressed shot is still heard as
+ * "something happened over there" -- close enough to walk toward, not close
+ * enough to be certain about. */
+const SUPPRESSED_INVESTIGATE_SCALE = 2.1;
+
+/* Awareness at which a seated guard stops typing and stands up. Below
+ * INVESTIGATE_AWARENESS on purpose: getting out of a chair is the FIRST
+ * thing a suspicious man does, before he walks anywhere. */
+const SEATED_STAND_AWARENESS = 0.22;
+
+/*
+ * IDLE ERRANDS, AND THE ATTENTION THEY COST.
+ *
+ * Owner, 2026-08-20: guards should hold conversations with each other, and
+ * *"you can sneak up on them as they are talking"*. Both halves of that land
+ * here rather than in a parallel AI, because awareness is driven in exactly
+ * one place -- the ramp in `update` below -- and a second detection model
+ * beside it would be two answers to one question.
+ *
+ * An IDLE TASK is a posted man doing something that is not his patrol: today
+ * only "go and stand there and talk to him" (see ./conversations.js). It
+ * carries a goal, optionally a point to face once he arrives, and an
+ * `attention` in 0..1 that SCALES HIS AWARENESS GAIN. Nothing else about him
+ * changes: he still scans, still remembers, still investigates, still shoots,
+ * and the moment the alarm goes up every idle task in the estate is dropped.
+ *
+ * The attention term is why sneaking up works, and it is deliberately a
+ * multiplier on the existing ramp rather than a flat "cannot see you": a man
+ * who is looking straight at you across four metres still resolves you,
+ * talking or not. It buys distance and time, not invisibility.
+ */
+const IDLE_ARRIVAL = 0.34;
+const IDLE_TURN_RATE = 4.2;
+
+/**
+ * Awareness at which a man stops talking.
+ *
+ * Deliberately BELOW `SEATED_STAND_AWARENESS`: the first thing a distracted
+ * man does when something registers is stop mid-sentence, before he stands
+ * up and well before he walks anywhere. ./conversations.js cuts the take on
+ * this threshold, so the break is audible.
+ */
+export const CONVERSATION_BREAK_AWARENESS = 0.18;
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -174,6 +231,23 @@ export class PalaceSecurity {
     colliders = [],
     combatPosts = PALACE_COMBAT_POSTS,
     playerActor = null,
+    /* Optional shared CombatAudio. The scene root already presents the
+     * physical impact through its own instance, and the shared vocal throttle
+     * coalesces the two, so wiring this only adds the hostile's reaction to
+     * the hits the root's per-trigger audio budget suppresses. */
+    audio = null,
+    /* HOW FAR A SHOT CARRIES, in metres.
+     *
+     * Owner, 2026-08-20 playtest, on the mission's suppressed weapon: *"if
+     * stealth detection exists in this scene, suppressed shots should have a
+     * much smaller AI hearing radius"*.
+     *
+     * Infinity is the historical behaviour and stays the DEFAULT, because it
+     * is what an unsuppressed rifle in a stucco courtyard actually does and
+     * what every existing caller and test assumes: one round, one estate-wide
+     * alarm. The composition root lowers it per shot from the player's
+     * equipped weapon (see main.js and ./suppressor.js). */
+    gunshotHearingRadius = Infinity,
     random = Math.random,
     onAlarm = () => {},
     onPlayerHit = () => {},
@@ -188,6 +262,10 @@ export class PalaceSecurity {
     this.colliders = colliders;
     this.combatPosts = Array.isArray(combatPosts) ? combatPosts : PALACE_COMBAT_POSTS;
     this.playerActor = playerActor;
+    this.audio = audio ?? null;
+    this.gunshotHearingRadius = Number.isFinite(Number(gunshotHearingRadius))
+      ? Math.max(0, Number(gunshotHearingRadius))
+      : Infinity;
     this.random = typeof random === 'function' ? random : Math.random;
     this.onAlarm = onAlarm;
     this.onPlayerHit = onPlayerHit;
@@ -248,6 +326,9 @@ export class PalaceSecurity {
         detourSide: String(entry.id).split('')
           .reduce((sum, char) => sum + char.charCodeAt(0), 0) % 2 ? 1 : -1,
         detourTime: 0,
+        /* Runtime only: a checkpoint restore drops it with live targets and
+         * alignment, and the alarm drops it for the rest of the night. */
+        idleTask: null,
         tacticTime: 0,
         tacticalPost: null,
         reaction: null,
@@ -309,14 +390,16 @@ export class PalaceSecurity {
   _scan(entry, playerPosition, { powerCut = false, crouching = false } = {}) {
     const runtime = this._runtime(entry);
     if (!runtime || !entry.active || entry.down) return null;
-    const origin = entry.root.position.clone();
+    /* Scratch is safe here: CombatPerception.scan copies origin, forward and
+     * the sampled point into vectors it owns before remembering anything. */
+    const origin = _eye.copy(entry.root.position);
     origin.y += 1.52;
-    const point = playerPosition.clone();
+    const point = _sample.copy(playerPosition);
     point.y = crouching ? 0.96 : 1.5;
     let range = powerCut ? VISION.blackoutDistance : VISION.poweredDistance;
     if (crouching) range *= VISION.crouchFactor;
     runtime.sightRange = range;
-    const forward = new THREE.Vector3(0, 0, 1)
+    const forward = _look.set(0, 0, 1)
       .applyAxisAngle(UP, entry.root.rotation.y);
     const candidate = {
       id: 'prospect',
@@ -367,17 +450,140 @@ export class PalaceSecurity {
     return Boolean(this._scan(entry, playerPosition, options));
   }
 
+  /**
+   * A SHOT WAS FIRED, AND WHO IS CLOSE ENOUGH TO CARE.
+   *
+   * Unsuppressed (`radius` Infinity, the default) this is the old behaviour
+   * exactly: one round anywhere in the compound raises the alarm.
+   *
+   * Suppressed, it is the whole difference between a can and no can. Nobody
+   * inside `radius` means nobody raises the alarm -- but the shot is not
+   * silent either, so anyone inside the wider investigate ring is handed the
+   * position as REMEMBERED CONTACT and walks over to look. That is a
+   * `perception.restore`, the Module's own public seam for durable memory,
+   * not a poke at its fields: it seeds `lastSeen` + `memory` so the guard
+   * branch of `update` takes `_investigate` instead of `_patrol`.
+   *
+   * `ignore` is the man the round actually hit -- he does not need to be told
+   * where the shooting was.
+   *
+   * @returns {boolean} whether this shot raised the alarm.
+   */
+  noteGunshot(point, { radius = this.gunshotHearingRadius, reason = 'gunshot', ignore = null } = {}) {
+    const at = point?.isVector3 ? point : this.playerPoint;
+    if (!at) return this.raiseAlarm(reason);
+    const heardRadius = Number.isFinite(radius) ? Math.max(0, radius) : Infinity;
+    if (heardRadius === Infinity) {
+      this._noteContact(at);
+      return this.raiseAlarm(reason);
+    }
+    const listeners = this.cast.all.filter((entry) => (
+      entry !== ignore && entry.active && !entry.down
+    ));
+    if (listeners.some((entry) => entry.root.position.distanceTo(at) <= heardRadius)) {
+      this._noteContact(at);
+      return this.raiseAlarm(reason);
+    }
+    /* Out of earshot for an alarm, inside earshot for a suspicion. */
+    this._noteContact(at);
+    for (const entry of listeners) {
+      if (entry.root.position.distanceTo(at) > heardRadius * SUPPRESSED_INVESTIGATE_SCALE) continue;
+      const runtime = this._runtime(entry);
+      if (!runtime) continue;
+      runtime.perception.restore({
+        awareness: Math.max(runtime.perception.awareness, INVESTIGATE_AWARENESS + 0.06),
+        memory: VISION.memorySeconds,
+        lastSeen: at.toArray(),
+      });
+      entry.awareness = runtime.perception.awareness;
+    }
+    return false;
+  }
+
   raiseAlarm(reason = 'detected') {
     if (this.alarm) return false;
     this.alarm = true;
     this.alarmReason = reason;
     this.stats.alerts++;
+    /* Whatever anybody was in the middle of, they are not in the middle of it
+     * any more. ./conversations.js cuts its own take on the same frame. */
+    this._dropIdleTasks();
     this.onAlarm(reason);
     for (const guard of this.cast.guards) guard.active = !guard.down;
     /* Whatever raised it -- a gunshot, a contact, the dining-room doors --
      * happened where the player is standing. Everyone gets that address. */
     this._noteContact(this.playerPoint);
     return true;
+  }
+
+  /* A reservation is otherwise only released when the same guard re-picks in
+   * _combatMove, and the dead never re-pick: without this, every death would
+   * permanently retire one of the nine cover posts for the survivors. */
+  _releaseTacticalPost(entry) {
+    const runtime = this._runtime(entry);
+    if (!runtime?.tacticalPost) return;
+    if (this.tacticalReservations.get(runtime.tacticalPost.id) === entry.id) {
+      this.tacticalReservations.delete(runtime.tacticalPost.id);
+    }
+    runtime.tacticalPost = null;
+  }
+
+  /**
+   * Put a posted man on an idle errand instead of his patrol.
+   *
+   * The one seam ./conversations.js drives. `task` is
+   * `{ goal, face, anchored, attention, reason }`; passing null clears it.
+   * A man on an idle task walks to `goal` at patrol pace through the same
+   * `AabbCombatSpace` as everything else, turns to `face` when he gets there,
+   * and notices the estate at `attention` of his usual rate.
+   */
+  setIdleTask(entry, task = null) {
+    const runtime = this._runtime(entry);
+    if (!runtime) return null;
+    if (!task) {
+      runtime.idleTask = null;
+      return null;
+    }
+    runtime.idleTask = {
+      goal: task.goal?.isVector3 ? task.goal.clone() : entry.root.position.clone(),
+      face: task.face?.isVector3 ? task.face.clone() : null,
+      anchored: task.anchored === true,
+      attention: THREE.MathUtils.clamp(finite(task.attention, 1), 0.05, 1),
+      reason: task.reason ?? null,
+      arrived: task.anchored === true,
+    };
+    return runtime.idleTask;
+  }
+
+  /** Change how much of the estate a man on an errand is still watching. */
+  setIdleAttention(entry, attention) {
+    const task = this._runtime(entry)?.idleTask;
+    if (!task) return null;
+    task.attention = THREE.MathUtils.clamp(finite(attention, 1), 0.05, 1);
+    return task.attention;
+  }
+
+  /** Hand him back to his patrol. Idempotent. */
+  clearIdleTask(entry) {
+    const runtime = this._runtime(entry);
+    if (!runtime) return false;
+    const had = runtime.idleTask != null;
+    runtime.idleTask = null;
+    return had;
+  }
+
+  idleTask(entry) {
+    return this._runtime(entry)?.idleTask ?? null;
+  }
+
+  /** Is he standing on his mark yet? */
+  idleTaskArrived(entry) {
+    return this._runtime(entry)?.idleTask?.arrived === true;
+  }
+
+  /** Nobody is running errands once the estate knows. */
+  _dropIdleTasks() {
+    for (const runtime of this.runtime.values()) runtime.idleTask = null;
   }
 
   silentTakedown(id, { distance = Infinity } = {}) {
@@ -392,6 +598,7 @@ export class PalaceSecurity {
     });
     if (!result.applied) return false;
     this.cast.markDown(entry);
+    this._releaseTacticalPost(entry);
     this.stats.takedowns++;
     this.stats.targetsDown.push(entry.id);
     this.onTargetDown(entry, { silent: true, result });
@@ -400,7 +607,14 @@ export class PalaceSecurity {
 
   applyPlayerImpact(impact) {
     if (!impact?.object) return { applied: false, reason: 'no-object' };
-    this.raiseAlarm('gunshot');
+    /* A round landing on a body is a gunshot at that body's address. With no
+     * hearing radius configured this is the historical unconditional alarm;
+     * with a suppressed radius it is heard only by the men who are near it,
+     * and the man it hit is excluded -- he is about to have his own opinion. */
+    this.noteGunshot(
+      impact.point?.isVector3 ? impact.point : this.playerPoint,
+      { ignore: impact.object?.userData?.palaceCombatant ?? null },
+    );
     const def = weaponDef(impact.weapon);
     const zone = zoneOf(impact.object);
     const located = this.impactResolver.resolve({
@@ -417,6 +631,15 @@ export class PalaceSecurity {
     if (!located.applied || !entry) return { ...located, entry };
     const runtime = this._runtime(entry);
     runtime?.impairments.applyResolvedHit(located);
+    /* He says so. Positional, off the body, throttled per man by the shared
+     * layer so a burst is one reaction. */
+    this.audio?.pain?.({
+      target: 'enemy',
+      id: entry.id,
+      zone: located.zone,
+      position: located.point ?? entry.root.position,
+      result: located.result,
+    });
     const reaction = resolveCombatReaction({
       direction: located.direction,
       actorYaw: entry.root.rotation.y,
@@ -432,6 +655,7 @@ export class PalaceSecurity {
     }
     if (located.fatal || entry.actor.incapacitated) {
       this.cast.markDown(entry, { reaction });
+      this._releaseTacticalPost(entry);
       if (entry.role === 'boss') {
         entry.phase = 'down';
         this.onBossPhase('down', entry);
@@ -551,7 +775,7 @@ export class PalaceSecurity {
   _patrol(entry, dt, speedScale = 1) {
     if (!entry.patrol.length) return;
     const goal = entry.patrol[entry.patrolIndex % entry.patrol.length];
-    const direction = goal.clone().sub(entry.root.position).setY(0);
+    const direction = _goalStep.copy(goal).sub(entry.root.position).setY(0);
     const distance = direction.length();
     if (distance < 0.22) {
       entry.patrolIndex = (entry.patrolIndex + 1) % entry.patrol.length;
@@ -575,7 +799,7 @@ export class PalaceSecurity {
   _investigate(entry, dt, point, speedScale = 1) {
     if (!point?.isVector3) return;
     const runtime = this._runtime(entry);
-    const toward = point.clone().sub(entry.root.position).setY(0);
+    const toward = _goalStep.copy(point).sub(entry.root.position).setY(0);
     const distance = toward.length();
     if (distance <= 1.2) {
       if (!entry.aimAligned && distance > 1e-6) {
@@ -587,6 +811,49 @@ export class PalaceSecurity {
     toward.multiplyScalar(Math.min(distance, dt * speed * speedScale) / distance);
     this._moveWithDetour(entry, toward, runtime, dt);
     if (!entry.aimAligned) entry.root.rotation.y = Math.atan2(toward.x, toward.z);
+  }
+
+  /**
+   * Walk to an idle mark, then hold it and face what he was sent to face.
+   *
+   * Patrol pace, the same detour steering as everything else, and no
+   * awareness consequence of its own -- the consequence is `task.attention`,
+   * applied in the one awareness ramp in `update`.
+   */
+  _idleTask(entry, dt, task, speedScale = 1) {
+    if (task.anchored) {
+      /* A man already sitting down does not get up to have a chat, and does
+       * not swivel: the watch desk keeps its authored pose. */
+      task.arrived = true;
+      return true;
+    }
+    const runtime = this._runtime(entry);
+    const toward = _goalStep.copy(task.goal).sub(entry.root.position).setY(0);
+    const distance = toward.length();
+    if (distance > IDLE_ARRIVAL) {
+      task.arrived = false;
+      const speed = this._tactics(entry).patrol;
+      toward.multiplyScalar(Math.min(distance, dt * speed * speedScale) / distance);
+      this._moveWithDetour(entry, toward, runtime, dt);
+      if (!entry.aimAligned) entry.root.rotation.y = Math.atan2(toward.x, toward.z);
+      return false;
+    }
+    task.arrived = true;
+    if (task.face && !entry.aimAligned) {
+      const face = _strafe.copy(task.face).sub(entry.root.position).setY(0);
+      if (face.lengthSq() > 1e-6) {
+        /* Turn INTO the conversation, which is the whole stealth affordance:
+         * two men looking at each other are two men with their backs to a
+         * pair of approaches, and `_scan` reads this same yaw. */
+        const wanted = Math.atan2(face.x, face.z);
+        const delta = Math.atan2(
+          Math.sin(wanted - entry.root.rotation.y),
+          Math.cos(wanted - entry.root.rotation.y),
+        );
+        entry.root.rotation.y += delta * Math.min(1, dt * IDLE_TURN_RATE);
+      }
+    }
+    return true;
   }
 
   _combatMove(entry, dt, targetPoint, speedScale = 1) {
@@ -620,7 +887,7 @@ export class PalaceSecurity {
     const holdingPost = Boolean(tacticalGoal
       && tacticalGoal.distanceTo(entry.root.position) > 0.48);
     const movementTarget = holdingPost ? tacticalGoal : targetPoint;
-    const toward = movementTarget.clone().sub(entry.root.position).setY(0);
+    const toward = _goalStep.copy(movementTarget).sub(entry.root.position).setY(0);
     const distance = toward.length();
     if (distance < 0.001) return;
     toward.multiplyScalar(1 / distance);
@@ -632,11 +899,11 @@ export class PalaceSecurity {
      * opinions about range, or he sidesteps into the wall he was avoiding. */
     if (!holdingPost && runtime.detourTime <= 0) {
       if (distance < tactics.standoff - 2) {
-        direction = toward.clone().negate();
+        direction = _strafe.copy(toward).negate();
         speed = tactics.strafe;
       } else if (distance <= tactics.standoff + 1.5) {
         const side = runtime.detourSide;
-        direction = new THREE.Vector3(toward.z * side, 0, -toward.x * side);
+        direction = _strafe.set(toward.z * side, 0, -toward.x * side);
         speed = tactics.strafe;
       }
     }
@@ -653,11 +920,17 @@ export class PalaceSecurity {
     const reaction = runtime.impairments.reaction;
     const directional = runtime.reaction;
     const parts = entry.figure.parts;
+    /* Palace carries no braced-shoulder rig, so unlike Mansion Siege there is
+     * pose budget here to spend: 7 degrees of body lean was inside the noise
+     * of a man walking. `directional.roll` and `.pitch` are the shared
+     * Module's own signed magnitudes for where the round came from -- use
+     * them, instead of throwing the size away and keeping only the sign. */
     if (parts?.body) {
-      parts.body.rotation.z = (directional?.side ?? 0) * reaction * 0.13;
-      parts.body.rotation.x = (directional?.forward ?? 0) * reaction * 0.08;
+      parts.body.rotation.z = (directional?.roll ?? (directional?.side ?? 0) * 0.5) * reaction * 0.4;
+      parts.body.rotation.x = (directional?.pitch ?? (directional?.forward ?? 0) * 0.3)
+        * reaction * 0.45;
     }
-    if (parts?.head) parts.head.rotation.x = -frame.pitch * 0.32 + reaction * 0.16;
+    if (parts?.head) parts.head.rotation.x = -frame.pitch * 0.32 + reaction * 0.26;
     if (parts?.armR) parts.armR.rotation.x = -1.28 - frame.pitch * 0.72 + reaction * 0.52;
     if (parts?.foreR) parts.foreR.rotation.x = -0.16 - frame.pitch * 0.28;
     if (parts?.armL) parts.armL.rotation.x = -1.2 - frame.pitch * 0.65 - reaction * 0.25;
@@ -797,6 +1070,11 @@ export class PalaceSecurity {
             VISION.minimumGainScale,
             1,
           )
+          /* A man in the middle of something -- today, in the middle of a
+           * sentence -- resolves a shape into a person slower. One knob, on
+           * the one ramp, so "he is distracted" and "he can see you" are
+           * still the same number. */
+          * (runtime.idleTask?.attention ?? 1)
           : 0;
         runtime.perception.awareness = THREE.MathUtils.clamp(
           runtime.perception.awareness + (seen ? step * gain : -step * VISION.loss),
@@ -810,17 +1088,26 @@ export class PalaceSecurity {
         runtime.perception.awareness = Math.max(0.7, runtime.perception.awareness - step * 0.04);
       }
       entry.awareness = runtime.perception.awareness;
+      /* A man at a keyboard gets out of the chair the moment he has a reason
+       * to. The cast owns the pose; security owns the moment. */
+      if (entry.seated && (this.alarm || runtime.perception.awareness >= SEATED_STAND_AWARENESS)) {
+        this.cast.standUp?.(entry);
+      }
 
       /* Own eyes first, own memory second, the shared contact call last. */
       const remembered = seen?.point
         ?? runtime.perception.lastSeen
         ?? this._sharedContact(entry);
-      const beforeMove = entry.root.position.clone();
+      const beforeMove = _beforeMove.copy(entry.root.position);
       if (!this.alarm && entry.role === 'guard') {
         if (runtime.perception.hasMemory
           && runtime.perception.awareness >= INVESTIGATE_AWARENESS) {
           this._investigate(entry, step, runtime.perception.lastSeen,
             runtime.impairments.speedScale);
+        } else if (runtime.idleTask) {
+          /* Sent somewhere by something that is not his round. Suspicion
+           * still outranks it, above; the alarm drops it outright. */
+          this._idleTask(entry, step, runtime.idleTask, runtime.impairments.speedScale);
         } else {
           this._patrol(entry, step, runtime.impairments.speedScale);
         }
@@ -832,11 +1119,14 @@ export class PalaceSecurity {
         id: entry.id,
       });
       const moved = beforeMove.distanceTo(entry.root.position);
+      /* Scratch, valid for the duration of the callback: CombatStepCadence
+       * copies the coordinates it keeps, and positioned audio reads them
+       * synchronously. A listener that wants the point later must copy it. */
       this.onStep({
         id: entry.id,
         entry,
         dt: step,
-        position: entry.root.position.clone(),
+        position: _stepPoint.copy(entry.root.position),
         distance: moved,
         moving: moved > 1e-6,
       });
@@ -940,6 +1230,8 @@ export class PalaceSecurity {
       runtime.aim.restore(record.aim, { root: entry.root });
       runtime.shotClock = Math.max(0, finite(record.shotClock, 0));
       runtime.detourTime = 0;
+      /* An errand belongs to the timeline the checkpoint discarded. */
+      runtime.idleTask = null;
       runtime.tacticTime = Math.max(0, finite(record.tacticTime, 0));
       runtime.tacticalPost = this.combatPosts.find(
         (post) => post.id === record.tacticalPost,

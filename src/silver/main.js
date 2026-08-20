@@ -25,23 +25,24 @@ import { Highs } from '../core/highs.js';
 import { PostFX } from '../core/postfx.js';
 import { Inventory, ITEMS } from '../core/inventory.js';
 import { makeHeldDrinks } from '../world/props.js';
+import { SmokeSystem } from '../world/smoke.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
 
-import { buildRoom, ROOMS, roomAt, zoneAt, CELLAR_Y, STAGE_H, STEP_UP } from './room.js';
-import { populate, makeBand } from './cast.js';
-import { Date_ } from './date.js';
+import { ROOMS, roomAt, zoneAt, CELLAR_Y, STAGE_H, STEP_UP } from './room.js';
 import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
 import { Mission, ENDINGS, BACK_OF_HOUSE_TOTAL } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
-import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF } from './script.js';
+import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF, WALK_GREETS } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
 import { enqueueVoiceFloor } from './voice-floor.js';
-import { makeTaxi } from './vehicle.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createSilverStory } from '../core/silver-story.js';
 import { getPreviewRuntime } from '../core/preview-mode.js';
 import * as prefs from '../core/settings.js';
+import {
+  buildSilverRuntimeDate, buildSilverRuntimeRoom, populateSilverRuntimeEnvironment,
+} from './runtime-geometry.js';
 
 /* The campaign owns the save. Loading this page claims the scene; the story
  * class gates the evening on the Motel being finished and on Margo having
@@ -224,6 +225,7 @@ const game = {
   noted: new Set(),
   known: new Set(),          // things the player has been told and may recall
   greeted: new Set(),
+  passGreeted: new Set(),    // staff who already said hello as he went by
   scene: null,               // the running cutscene, if any
   round: null,               // which conversation round is up
   pausedSeatedRound: null,   // Margo's exact table thread, paused by standing
@@ -240,14 +242,12 @@ const game = {
 };
 
 window.__squatchStage?.('Wetting the pavement…');
-const room = buildRoom(scene, { renderer });
+const room = buildSilverRuntimeRoom(scene, { renderer });
 world.colliders = room.colliders;
 world.floorZones = room.floorZones;
 
 window.__squatchStage?.('Opening for the evening…');
-const cast = populate(scene, room);
-const band = makeBand(scene, room);
-const taxi = makeTaxi(scene, room.anchors.dropOff);
+const { cast, band, taxi } = populateSilverRuntimeEnvironment(scene, room);
 
 /* ------------------------------------------------------------------ */
 /* The score                                                           */
@@ -263,7 +263,11 @@ const woo = new Woo({
   onStreak: (n) => {
     audio.play('woo.streak', { volume: 0.6 });
     hud.toast('EVERYBODY EATS', 'good');
-    narrate(`<em>Every last one of them. ${n} people, and not one of them said thank you like it was a favour.</em>`, 5200);
+    /* Seven closes the goal now, not fifteen — see TIP_GOAL. The line stops
+     * claiming "every last one of them" over a room with eight hands still
+     * unshaken; what it is actually marking is that the room is bought. */
+    narrate(`<em>${n} people looked after, and not one of them said thank you like it was a favour. `
+      + 'The room is taken care of.</em>', 5200);
     mission.complete('tips');
   },
 });
@@ -452,7 +456,7 @@ const dialogue = new Dialogue(ui.dialogue, {
 /* Her                                                                 */
 /* ------------------------------------------------------------------ */
 
-const date = new Date_(scene, room, {
+const date = buildSilverRuntimeDate(scene, room, {
   /* Deferred, not dropped, and subtitle-with-take. She is reacting to
    * something somebody has just said, so she says it when he has finished
    * saying it — which is also what a person does. */
@@ -615,11 +619,14 @@ function paintWoo(score, delta, label) {
 }
 
 function paintTips() {
-  const left = woo.tipsLeft;
   if (woo.tipCount === 0) { ui.tips.classList.add('hidden'); return; }
   ui.tips.classList.remove('hidden');
-  ui.tips.innerHTML = `<span class="cap">looked after</span><span class="n">${woo.tipCount}</span>`
-    + `<span class="of">of ${woo.tipCount + left}</span>`;
+  /* Progress against the GOAL, not the roster: seven hands is 100% taken care
+   * of (see TIP_GOAL in woo.js), and the strip says so in percent because
+   * that is the owner's own framing of it. Past seven it just reads done —
+   * the other eight are generosity, not homework. */
+  ui.tips.innerHTML = `<span class="cap">taken care of</span><span class="n">${woo.goalProgress}%</span>`
+    + `<span class="of">${woo.tipCount} looked after</span>`;
 }
 
 /**
@@ -1154,25 +1161,93 @@ const thanksPad = new THREE.Mesh(
 thanksPad.position.set(cast.crewTable.x, 1.1, cast.crewTable.z);
 thanksPad.visible = false;
 scene.add(thanksPad);
+
+/* Where the pillar table is FROM THE CHAIR, in player-yaw terms, and how far
+ * round the seat has to allow him to turn to face it. His seat centres on her
+ * (`faceYaw` π/2) with a ±1.7 range; the pillar sits at yaw ≈ 3.90, which is
+ * 0.63 rad past the clamp — so the old salud could not even be LOOKED at
+ * without standing up, never mind pressed. While the salud is owed, the seat
+ * allows the turn; the range goes back the moment the glass goes up. */
+const SALUD_SEAT = room.anchors.frontSeats[0];
+const SALUD_YAW = Math.atan2(
+  -(cast.crewTable.x - SALUD_SEAT.x),
+  -(cast.crewTable.z - SALUD_SEAT.z),
+) + Math.PI * 2;                       // ≈ 3.90, in the seat clamp's own wrap
+const SALUD_SEAT_RANGE = 2.5;          // π/2 + 2.5 = 4.07 > 3.90: reachable
+const SEATED_YAW_RANGE = 1.7;          // what sitAt gives back afterwards
+
+/**
+ * The salud, from wherever he is.
+ *
+ * "I need to be able to salud the other table without getting up once the
+ * waiter brings over a drink from them." One beat, three ways in: the pad at
+ * the pillar (walking past it later), the soft pad the chair can see (below),
+ * and [R] from the seat. From the chair he turns TO the table he is toasting
+ * — the yaw snaps to the pillar so the glass goes up at somebody rather than
+ * at the room — and Margo lifts hers with him, on the same raise the room's
+ * drinkers already use (the `drink` job's full-lift arm, `bing/cast.js`).
+ */
+function saludThePillar() {
+  if (!mission.flags.champagneSent || mission.flags.champagneThanked) return false;
+  mission.flags.champagneThanked = true;
+  woo.fire('Woo.ChampagneAcknowledged');
+  mission.complete('thanks');
+  if (game.seated) {
+    player.yaw = SALUD_YAW;
+    player.yawRange = SEATED_YAW_RANGE;
+  }
+  audio.play('glass.set', { volume: 0.35, position: thanksPad.position });
+  const b = cast.byName['bing-bouncer'];
+  b?.faceToward(player.position.x, player.position.z);
+  b?.say(1.4);
+  /* Her glass comes up beside his — the drink job's raise at full lift, held
+   * for a beat and handed back to the seated pose it borrowed the arm from. */
+  if (date.mode === 'seated') {
+    date.npc.parts.armR.rotation.x = -0.85;
+    date.npc.parts.foreR.rotation.x = -1.9;
+    setTimeout(() => { if (date.mode === 'seated') date.npc.sit(); }, 1600);
+  }
+  narrate('<em>Two fingers off the cloth, and back to whatever they were saying. '
+    + 'That is the entire exchange and everybody in this room understood it.</em>', 5200);
+  date.watch(thanksPad, 3);
+  return true;
+}
+
 reg(thanksPad, {
   label: () => (mission.flags.champagneThanked
     ? 'The <b>table by the pillar</b>'
     : 'Raise your glass to <b>the pillar</b>'),
   enabled: () => mission.flags.champagneSent,
-  onUse: () => {
-    if (mission.flags.champagneThanked) return;
-    mission.flags.champagneThanked = true;
-    woo.fire('Woo.ChampagneAcknowledged');
-    mission.complete('thanks');
-    audio.play('glass.set', { volume: 0.35, position: thanksPad.position });
-    const b = cast.byName['bing-bouncer'];
-    b?.faceToward(player.position.x, player.position.z);
-    b?.say(1.4);
-    narrate('<em>Two fingers off the cloth, and back to whatever they were saying. '
-      + 'That is the entire exchange and everybody in this room understood it.</em>', 5200);
-    date.watch(thanksPad, 3);
-  },
+  onUse: () => { saludThePillar(); },
 });
+
+/* The generous soft target the CHAIR can reach. The interaction ray stops at
+ * 2.7m and the pillar is nine metres off, so the pad at the table itself is
+ * only pressable on foot — the exact "had to get up to say thank you" the
+ * owner is closing. This one floats two metres from the seat, dead on the
+ * seat→pillar sightline, and exists only while the salud is owed and he is
+ * sitting down. `soft`, so anything solid — the waiter mid-delivery, her —
+ * still wins its own ray. */
+{
+  const dx = cast.crewTable.x - SALUD_SEAT.x;
+  const dz = cast.crewTable.z - SALUD_SEAT.z;
+  const d = Math.hypot(dx, dz);
+  const pad = new THREE.Mesh(
+    new THREE.BoxGeometry(1.7, 1.7, 1.7),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  pad.position.set(
+    SALUD_SEAT.x + (dx / d) * 1.9, 1.3,
+    SALUD_SEAT.z + (dz / d) * 1.9,
+  );
+  scene.add(pad);
+  reg(pad, {
+    soft: true,
+    label: 'Raise your glass to <b>the pillar</b>',
+    enabled: () => game.seated && mission.flags.champagneSent && !mission.flags.champagneThanked,
+    onUse: () => { saludThePillar(); },
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* Cutscenes                                                           */
@@ -1594,11 +1669,26 @@ function sendChampagne() {
   const pillar = cast.crewTable;
   const bouncer = cast.byName['bing-bouncer'];
   let pointing = 0;
+  /* The staging the owner asked to feel: brought a drink, FROM them. He
+   * presents facing the player — bottle down into the bucket while he is
+   * looking at you, and he says whose it is to your face — and only then does
+   * he turn to the pillar and put his arm out at the table that sent it. When
+   * the hand comes down he takes a step clear of the seat's sightline to that
+   * table, so the salud that follows is at THEM, not at his waistcoat. */
   const beats = [
     ...scripts.scenes.champagne.map((b) => ({ ...b })),
     {
-      at: 2.4,
+      at: 0.4,
       run: () => {
+        // Presenting: square to the player, and the bottle lands on the cloth.
+        waiter?.faceToward(player.position.x, player.position.z);
+        audio.play('glass.set', { volume: 0.4, delay: 0.6, position: target });
+      },
+    },
+    {
+      at: 4.6,
+      run: () => {
+        // The gesture: he turns to the senders and the arm goes out at them.
         waiter?.faceToward(pillar.x, pillar.z);
         pointing = 1;
       },
@@ -1615,6 +1705,16 @@ function sendChampagne() {
       },
     },
     { at: 8.6, run: () => { pointing = 0; } },
+    {
+      at: 8.9,
+      run: () => {
+        // And he steps aside — back off the table, clear of the seat→pillar
+        // sightline, still turned toward the men who sent it.
+        if (!waiter) return;
+        waiter.group.position.set(target.x + 1.0, 0, target.z + 2.6);
+        waiter.faceToward(pillar.x, pillar.z, true);
+      },
+    },
   ];
 
   game.scene = new Cutscene(beats, {
@@ -1639,7 +1739,11 @@ function sendChampagne() {
       goesBack(waiter);
       mission.addObjective('thanks', 'Acknowledge the table by the pillar', { optional: true });
       thanksPad.visible = true;
-      narrate('<em>Look over at the pillar and [E] to lift a glass at them.</em>', 4600);
+      /* The seat lets him turn to the table he owes a glass to — see
+       * SALUD_SEAT_RANGE. `saludThePillar` hands the ordinary range back. */
+      if (game.seated) player.yawRange = SALUD_SEAT_RANGE;
+      narrate('<em>Look over at the pillar and [E] — or press [R] — to lift a glass '
+        + 'at them. No need to get up.</em>', 4600);
     },
   });
 }
@@ -1811,6 +1915,11 @@ function beginRound(id, { resume = false } = {}) {
  * tightened here and the two warm-ups are shortened in `perform.js`; the
  * master is what it is.
  */
+/* Where "the back end" of the featured number begins: its final third,
+ * measured off the SET data rather than a copied constant, so recutting the
+ * master moves dessert with it. 192.62s → dessert from ~128s in. */
+const DESSERT_INTO_THE_ONE = SET.find((n) => n.theOne).dur * (2 / 3);
+
 const ROUND_QUEUE = [
   { id: 'table', after: 0 },
   { id: 'entrance', after: 6 },
@@ -1832,7 +1941,20 @@ const ROUND_QUEUE = [
    * it is going well rather than being handed a button that says so. */
   { id: 'another', after: 262, run: () => waiterComesOver('another') },
   { id: 'toast', after: 318, run: () => raiseAGlass() },
-  { id: 'dessert', after: 376, ready: () => mission.flags.mainPerformanceComplete,
+  /* "Lets have dessert come during towards the back end of banana phone."
+   * It used to wait for the number to FINISH (`mainPerformanceComplete`),
+   * which put the figs on the table in the between-numbers lull. Now the gate
+   * is the number's own clock: once Bananaphone is in its final third —
+   * `DESSERT_INTO_THE_ONE` seconds of a 192.62s master — the waiter comes
+   * over mid-song, which is when a supper club actually runs dessert. The
+   * completion flag stays as the fallback for a run where the number was
+   * skipped past or never measured (an old checkpoint restoring between
+   * sets), so dessert can never be stranded behind a clock that already
+   * stopped. `after` drops from 376 to 340: the queue is strictly ordered, so
+   * the toast at 318 still goes first, and the real gate is the song. */
+  { id: 'dessert', after: 340,
+    ready: () => mission.flags.mainPerformanceComplete
+      || (performance_.onTheOne && performance_.t >= DESSERT_INTO_THE_ONE),
     run: () => waiterComesOver('dessert') },
   /* And then the thing the whole evening has been for. Without this the queue
    * simply ran out after dessert and the player was left at a table with a
@@ -2152,7 +2274,7 @@ function finish(outcome) {
 
   const extras = [
     `<b>Woo:</b> ${woo.score} — ${woo.band.name}.`,
-    `<b>Looked after:</b> ${woo.tipCount} of ${woo.tipCount + woo.tipsLeft}${woo.streakClosed ? ' — everybody eats.' : '.'}`,
+    `<b>Looked after:</b> ${woo.tipCount} of ${woo.tipCount + woo.tipsLeft}${woo.streakClosed ? ' — the room was taken care of.' : '.'}`,
   ];
   if (saved.rememberedDrink) extras.push('You remembered the ice cube.');
   if (saved.funnyHow) extras.push('You made a room go quiet for a second and a half.');
@@ -2204,6 +2326,7 @@ function saveCheckpoint(state) {
     woo: woo.snapshot(),
     known: [...game.known],
     greeted: [...game.greeted],
+    passGreeted: [...game.passGreeted],
     noted: [...game.noted],
     seated: game.seated,
     round: game.round,
@@ -2243,6 +2366,7 @@ function restoreCheckpoint(cp = game.checkpoint) {
   mission.restore(cp.mission);
   game.known = new Set(cp.known ?? []);
   game.greeted = new Set(cp.greeted ?? []);
+  game.passGreeted = new Set(cp.passGreeted ?? []);
   game.noted = new Set(cp.noted ?? []);
   game.round = cp.round ?? null;
   queueAt = cp.queueAt;
@@ -2312,6 +2436,11 @@ function restoreCheckpoint(cp = game.checkpoint) {
    * first conversation, and put her in hers. */
   if (cp.seated) seatPlayer();
   else if (date.mode === 'seated') date.sitAt(room.anchors.frontSeats[1]);
+  /* A restore mid-salud comes back with the same wider seat the champagne
+   * scene granted, or the pillar is unreachable again from the chair. */
+  if (game.seated && mission.flags.champagneSent && !mission.flags.champagneThanked) {
+    player.yawRange = SALUD_SEAT_RANGE;
+  }
   paintWoo(woo.score, 0, null);
   paintTips();
   return true;
@@ -2329,7 +2458,9 @@ function onMissionState(state) {
     arrivalIn = 3;
   }
   if (state === 'host') {
-    mission.addObjective('tips', 'Take care of everybody', { optional: true });
+    /* Seven does it — TIP_GOAL — so the line stops saying "everybody" at a
+     * board that no longer asks for everybody. */
+    mission.addObjective('tips', 'Take care of the room', { optional: true });
     /* The whole route walked without once leaving her in a doorway. Worth a
      * point, and worth it here rather than at the end, because this is the last
      * moment at which it is still true. */
@@ -2543,19 +2674,26 @@ const KITCHEN_WORK = [
   // [cue, x, z, volume, weight]
   ['kitchen.clatter', 20.4, -10.5, 0.42, 5],
   ['kitchen.pan', 20.4, -10.5, 0.38, 4],
+  ['kitchen.sizzle', 20.4, -10.5, 0.40, 5],
+  ['kitchen.sizzle', 23.0, -10.5, 0.36, 3],
   ['kitchen.plate', 19.0, -6.6, 0.34, 4],
   ['kitchen.chop', 18.5, 5.2, 0.40, 3],
+  ['kitchen.chop.fast', 18.5, 5.2, 0.36, 3],
   ['kitchen.oven', 23.0, -10.5, 0.34, 2],
   ['kitchen.ticket', 19.0, -6.9, 0.30, 2],
   ['kitchen.clatter', 26.6, -13.6, 0.36, 4],
+  ['kitchen.steam', 25.4, -13.6, 0.34, 3],
+  ['kitchen.steam', 21.7, -10.5, 0.30, 2],
+  ['kitchen.glasses', 17.5, -13.0, 0.30, 2],
 ];
 const KITCHEN_WEIGHT = KITCHEN_WORK.reduce((n, w) => n + w[4], 0);
+const KITCHEN_ROOMS = ['kitchen', 'prep', 'dish'];
 let kitchenAt = 2.5;
 const _workAt = new THREE.Vector3();
 function kitchenSound(dt) {
   /* Prep and dish count as the kitchen: they are the same room with a
    * different job in them, and the pass is audible from all of it. */
-  if (!['kitchen', 'prep', 'dish'].includes(where) || game.scene) return;
+  if (!KITCHEN_ROOMS.includes(where) || game.scene) return;
   kitchenAt -= dt;
   if (kitchenAt > 0) return;
   /* Close together, because that is what a service sounds like. Two and a
@@ -2570,9 +2708,102 @@ function kitchenSound(dt) {
   }
   const [cue, x, z, volume] = pick;
   _workAt.set(x, 1.0, z);
+  /* Under a conversation, not through it — same rule the dining room's
+   * one-shots follow. The kitchen keeps working while somebody talks to him;
+   * it just stops competing for the sentence. */
+  const busy = dialogue.active ? 0.55 : 1;
   audio.play(cue, {
-    volume: volume * (0.7 + Math.random() * 0.5), position: _workAt, ref: 3, maxDist: 26,
+    volume: volume * busy * (0.7 + Math.random() * 0.5), position: _workAt, ref: 3, maxDist: 26,
   });
+  /* The two heat cues carry their own visible heat. */
+  if (cue === 'kitchen.sizzle' || cue === 'kitchen.steam') {
+    _workAt.y = 1.1;
+    smoke.emit(_workAt, STEAM_UP, {
+      count: 4, speed: 0.55, spread: 0.14, size0: 0.04, size1: 0.42, life: 2.2, peak: 0.16, rise: 0.5,
+    });
+  }
+}
+
+/**
+ * The kitchen, visibly hot.
+ *
+ * The shared pooled sprite system every other scene's smoke uses — nothing
+ * new is built here, and the pool never allocates mid-frame. Steady wisps
+ * off the range line and the dish pit while the player is in the room, so
+ * the stations read as working even between one-shots.
+ */
+const smoke = new SmokeSystem(scene);
+const STEAM_UP = new THREE.Vector3(0, 1, 0);
+const STEAM_AT = [
+  new THREE.Vector3(20.4, 1.08, -10.5),   // the range line
+  new THREE.Vector3(23.0, 1.08, -10.5),   // the second range
+  new THREE.Vector3(25.4, 1.02, -13.9),   // the dish pit
+];
+let steamAt = 0.8;
+function kitchenSteam(dt) {
+  smoke.update(dt);
+  if (!KITCHEN_ROOMS.includes(where) || game.scene) return;
+  steamAt -= dt;
+  if (steamAt > 0) return;
+  steamAt = 0.5 + Math.random() * 1.1;
+  const at = STEAM_AT[(Math.random() * STEAM_AT.length) | 0];
+  smoke.emit(at, STEAM_UP, {
+    count: 2, speed: 0.45, spread: 0.10, size0: 0.03, size1: 0.30, life: 1.9, peak: 0.12, rise: 0.5,
+  });
+}
+
+/**
+ * Staff who see him coming.
+ *
+ * The route already had people you could stop and talk to; this is the other
+ * half of the Copacabana walk — the back of house speaking FIRST, once each,
+ * as he passes their station with her watching. Fired by proximity, gated to
+ * the walk-in states so the room does not greet a man who has lived in it for
+ * an hour, and queued through the same deferred voice floor as everything
+ * else so nobody talks over the mission's own dialogue or over each other.
+ */
+const GREET_REACH = {
+  cellarman: { r: 4.2, rooms: ['cellar'] },
+  prepCook: { r: 3.8, rooms: ['prep', 'kitchen'] },
+  chef: { r: 4.4, rooms: ['kitchen', 'prep'] },
+  porter: { r: 3.8, rooms: ['kitchen', 'dish', 'prep'] },
+  dishwasher: { r: 5.0, rooms: ['dish', 'kitchen'] },
+  servicebar: { r: 4.2, rooms: ['corridor'] },
+};
+const GREET_STATES = new Set(['service-route', 'cellar', 'kitchen', 'corridor']);
+let greetGapAt = 0;
+function walkInGreets() {
+  /* `holdingTheFloor` can never be true in a GREET_STATE tonight — the show
+   * starts seated — but the discipline is the same as the barks': nobody says
+   * hello over the comedian's set. */
+  if (game.scene || dialogue.active || performance_.holdingTheFloor
+    || !GREET_STATES.has(mission.state)) return;
+  const now = performance.now();
+  if (now < greetGapAt) return;
+  for (const g of WALK_GREETS) {
+    if (game.passGreeted.has(g.npc)) continue;
+    const npc = cast.byName[g.npc];
+    const reach = GREET_REACH[g.npc];
+    if (!npc || !reach || !reach.rooms.includes(where)) continue;
+    /* Already stopped and spoken to: the hello is spent. */
+    if (game.greeted.has(npc.name)) { game.passGreeted.add(g.npc); continue; }
+    const dx = npc.group.position.x - player.position.x;
+    const dz = npc.group.position.z - player.position.z;
+    if (dx * dx + dz * dz > reach.r * reach.r) continue;
+    game.passGreeted.add(g.npc);
+    /* One at a time with real air between them; a corridor of overlapping
+     * hellos is a receiving line, not a kitchen. */
+    greetGapAt = now + 6000;
+    npc.faceToward(player.position.x, player.position.z);
+    narrate(`<em>${g.who}:</em> ${g.line}`, 4400, {
+      cue: g.cue,
+      volume: 0.85,
+      /* A hello said four rooms later is worse than one never said. */
+      expires: 9000,
+      speaker: { say: (secs, take) => npc.say(secs, take) },
+    });
+    return;
+  }
 }
 
 /**
@@ -2662,7 +2893,23 @@ function arrivalTick(dt) {
 /* What the building sounds like when nobody is talking to you. */
 function barks(dt) {
   game.barkAt -= dt;
-  if (game.barkAt > 0 || dialogue.active || game.scene) return;
+  /* "When he's doing the jokes, waiters and shit are talking." The patter
+   * number owns the floor the same way a live conversation does: the bark is
+   * held, not dropped — the timer stays due, and the room gets its voice back
+   * the moment the bit is over. Only voices wait; the kitchen one-shots and
+   * the dining-room cutlery are not routed through here and keep going.
+   *
+   * `floorBusy()` is the other half of the same discipline, and the one this
+   * function never had: "still a lot of subtitle overlap … let's see if we can
+   * clean the subtitles." `hud.say` is a single element that replaces its own
+   * contents, and this was the one scheduler still calling it with no floor
+   * check — so a diner's overheard line landed mid-read on top of a narration,
+   * a walk-in hello or one of Margo's barks, all of which queue politely
+   * through `narrate()` and then got wiped by the room talking to itself.
+   * Returning without resetting `barkAt` keeps the retry natural: the bark is
+   * due, the floor is taken, and it fires the frame the line clears. */
+  if (game.barkAt > 0 || dialogue.active || game.scene
+    || performance_.holdingTheFloor || floorBusy()) return;
   const key = { street: null, alley: 'alley', stair: 'alley', cellar: 'cellar',
     drystore: 'cellar', walkin: 'cellar', prep: 'kitchen', kitchen: 'kitchen',
     dish: 'kitchen', corridor: 'corridor', floor: 'floor', lobby: 'floor' }[where];
@@ -2731,6 +2978,8 @@ function evening(dt) {
    * something the headless driver silently does not run, and a kitchen that
    * makes no noise is exactly the kind of thing nobody notices is untested. */
   kitchenSound(dt);
+  kitchenSteam(dt);
+  walkInGreets();
   floorSound(dt);
   arrivalTick(dt);
   flushVoice();
@@ -2812,7 +3061,7 @@ const pauseMenu = createPauseMenu({
     'W A S D — move. E or Click — interact.',
     'Q — stand up or leave the current seat.',
     'During dialogue: number keys — answer.',
-    'At the table: R — say the next planned toast or invitation when it is ready.',
+    'At the table: R — raise your glass (their bottle, the toast) or say the invitation when it is ready.',
     'During the sway: press E on the beat.',
     'Tab — pause and review the current objective.',
   ],
@@ -2897,6 +3146,11 @@ window.addEventListener('keydown', (e) => {
      * and got the dance conversation instead of the one the objective on his
      * screen was telling him to have. */
     if (mission.invitationReady) offerInvitation();
+    /* The salud, from the chair, on the same "say the thing you have been
+     * working up to" key — the explicit way in for a player who never finds
+     * the look-at pad. It sits behind the invitation and ahead of the toast:
+     * while the bottle is unacknowledged, this IS the thing he owes the room. */
+    else if (mission.flags.champagneSent && !mission.flags.champagneThanked) saludThePillar();
     else if (mission.flags.swayed === 'refused' && !mission.flags.toast) askAgain();
     else if (mission.flags.showStarted && !mission.flags.toast) raiseAGlass();
   }
