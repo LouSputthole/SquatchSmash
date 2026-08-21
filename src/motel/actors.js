@@ -819,7 +819,13 @@ export class Actor {
     armPitch = -0.38,
   } = {}) {
     this.state = 'seated';
-    setActorPosture(this.group, 'sit');
+    /* `ride`, not `sit`: this is the pose for a body inside a VEHICLE, and the
+     * staging gate reads the two differently on purpose. A car's collider is
+     * one solid box from the road up -- it has to be, it is the wall the
+     * player walks round -- so a passenger is inside masonry by definition,
+     * and the gate exempts a rider from "he is standing in the furniture"
+     * while still holding a man in a sofa to it (tools/staging-gate.mjs). */
+    setActorPosture(this.group, 'ride');
     this.target = null;
     this.seatedPose = { scaleFactor, headYaw, armPitch };
     this.group.position.copy(position);

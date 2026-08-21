@@ -415,6 +415,10 @@ export function buildCarInterior() {
     /* Not 'ape': the corridor Ape carries that one, and both bodies are built
      * in every state this scene records. See markSilverCaseActor. */
     actorId: 'ape-driving',
+    /* `ride`, not the `sit` his job implies: he is in a car. The staging gate
+     * exempts a rider from "standing inside a solid", because a car's collider
+     * is one box and the man is supposed to be in it. */
+    posture: 'ride',
     x: CAR_ANCHORS.driverSeat.x,
     y: CAR_ANCHORS.driverSeat.y,
     z: CAR_ANCHORS.driverSeat.z,

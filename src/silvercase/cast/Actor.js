@@ -112,10 +112,11 @@ const SCENE_ROLE_FOR_FACTION = Object.freeze({
  * the same name.
  */
 export function markSilverCaseActor(npc, { id, faction = 'neutral', posture, seat }) {
+  const pose = posture ?? (npc.seated ? 'sit' : 'stand');
   markActor(npc.group, {
     id,
     role: coarseActorRole(SCENE_ROLE_FOR_FACTION[faction] ?? faction),
-    posture: posture ?? (npc.seated ? 'sit' : 'stand'),
+    posture: pose,
     eyeHeight: EYE_PER_SCALE * npc.parts.heightScale,
     hipHeight: HIP_PER_SCALE * npc.parts.heightScale,
     /* The furniture is named rather than sniffed for, so a couch renamed out
@@ -123,6 +124,11 @@ export function markSilverCaseActor(npc, { id, faction = 'neutral', posture, sea
      * passing quietly. */
     ...(seat ? { seat } : {}),
   });
+  /* `Npc` moves the live posture every time it sits somebody down, and it
+   * already did so in its own constructor, before this mark. Say it again on
+   * the live field or an authored `ride` is quietly overruled by the `sit` the
+   * rig set on the way in. */
+  setActorPosture(npc.group, pose);
   return npc;
 }
 
