@@ -164,7 +164,7 @@ built.metadata.framingBeats     // an array the adapter hands over
 object.userData.framingBeat     // a beat stamped on the node it films
 ```
 
-**Nothing publishes either yet, and that is the honest state of it.** The
+**Three scenes publish now: Initiation, the Special Meeting and THE TAKE, and that is the honest state of it.** The
 arithmetic is finished and under test; the scenes opt in one at a time.
 `--coverage` prints exactly how much of the game is still dark, the way
 `verify-staging --coverage` prints the bodies no check can reach. A gate that

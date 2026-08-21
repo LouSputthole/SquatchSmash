@@ -90,6 +90,27 @@ they still face the counter, and no two of them now agree about precisely
 where it is. Offsets are **authored constants, not jitter**, because a random
 yaw moves the geometry gate's recorded buckets on every build.
 
+## The marker's heights are the rig's, not the marker's defaults
+
+`markActor` defaults to a 2.30 m eye and a 1.16 m hip, which are
+`core/person.js`'s Sasquatch. Most of the game is `makePerson`, a 1.78 m human
+scaled per body. Left on the defaults, thirty bodies in the bank lobby declared
+an eye at **2.300 m** while their irises measured **1.511 to 1.842**, and the
+tallest skull in the room topped out at 1.958. Both this gate and the framing
+gate were casting sightlines from a point in the air above every head, asking
+whether THAT was inside a wall, and framing shots on it.
+
+Every rig that marks an actor must pass its own `eyeHeight` and `hipHeight`.
+The shared `Npc` now derives them from its `heightScale`; `HeistFigure` and the
+Special Meeting's cast do the same.
+
+**And a posture the marker does not know about is the same bug one level
+down.** Correcting the heights immediately surfaced 26 findings in the Bing
+that the wrong number had been hiding — booth drinkers marked `stand`, sitting
+down, with a standing eye 10 cm above a 1.5 m booth. A scene that poses a body
+seated must say so with `setActorPosture`, or the gate reasons about a man who
+is not there. That triage is open work, not a clean sheet.
+
 ## What it still needs: an allowlist
 
 `ACTOR_INSIDE_SOLID` currently reports 106 findings in the Bing and 70 in the

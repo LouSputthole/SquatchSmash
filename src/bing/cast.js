@@ -3019,10 +3019,26 @@ export class Npc {
      * fall back to a per-scene ordinal for the crowds, where forty people are
      * all called 'somebody' and none of them will ever appear in an allowlist
      * on their own. */
+    /* THE HEIGHTS ARE THIS RIG'S, NOT THE MARKER'S DEFAULTS.
+     *
+     * `markActor` defaults to 2.30 m eyes and 1.16 m hips, which are
+     * `core/person.js`'s Sasquatch. `makePerson` is a 1.78 m human scaled by
+     * `heightScale`. Left to the defaults, every body built here declared an
+     * eye 2.30 m up while its irises were between 1.51 and 1.84 -- measured on
+     * thirty bodies in the bank lobby, where the TALLEST skull in the room
+     * topped out at 1.958. Both the staging gate and the framing gate were
+     * reasoning about a point in the air above every head: casting sightlines
+     * from it, asking whether it was inside a wall, framing shots on it.
+     *
+     * 1.66 and 1.15 are the rig's own head and hip heights on its 1.78 m
+     * frame, so scaling them by `heightScale` gives this body's real ones. */
+    const rigScale = this.parts.heightScale ?? 1;
     markActor(this.group, {
       id: o.actorId ?? uniqueActorId(scene, name),
       role: ACTOR_ROLE_FOR_JOB[job] ?? coarseActorRole(model.role),
       posture: job === 'sit' ? 'sit' : 'stand',
+      eyeHeight: 1.66 * rigScale,
+      hipHeight: 1.15 * rigScale,
       ...(o.seat ? { seat: o.seat } : {}),
     });
     /* A gutted figure rests its arms differently -- see sit() and the 'sit'
