@@ -1,4 +1,5 @@
 import { Npc } from '../../bing/cast.js';
+import { markSilverCaseActor } from './Actor.js';
 import { APE_FACE_URL, APE_FAMILY_MEMBER } from '../../bing/family-ape.js';
 import { CHARACTER_IDS } from '../../core/campaign.js';
 
@@ -76,6 +77,7 @@ export function identifySilverCaseApe(npc) {
  */
 export function buildSilverCaseApe(parent, {
   x = 0, y = 0, z = 0, yaw = 0, job = 'stand', look = true, tier = 'hero',
+  actorId = 'ape',
 } = {}) {
   const npc = new Npc(parent, {
     name: APE_FAMILY_MEMBER.name,
@@ -89,5 +91,11 @@ export function buildSilverCaseApe(parent, {
     model: { ...SILVERCASE_APE_PRESENTATION.model, castShadow: true },
   });
   npc.group.userData.geometryGate = { assemblyId: 'silvercase.ape' };
+  /* `actorId`, not the name, and the callers pass different ones: this mission
+   * builds Ape twice -- at the wheel on the way over and in the corridor once
+   * they are inside -- and both bodies exist in every built state. Named after
+   * himself they were one id twice, which the staging gate reported as
+   * ACTOR_ID_DUPLICATE in all six. */
+  markSilverCaseActor(npc, { id: actorId, faction: 'friendly' });
   return identifySilverCaseApe(npc);
 }

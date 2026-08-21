@@ -3,6 +3,7 @@ import { lambert } from '../../game/src/world.js';
 import { Mouth } from '../core/mouth.js';
 import { weaponDef } from '../core/weapons/catalog.js';
 import { buildRevolver } from '../core/weapons/models.js';
+import { coarseActorRole, markActor, setActorPosture } from '../core/staging.js';
 
 // ---------------------------------------------------------------------------
 // Everybody in the motel who is not Prospect.
@@ -613,6 +614,66 @@ function nameEquippedWeapon(kind, model) {
 
 let nextId = 1;
 
+/**
+ * WHO IS IN THE LOT, IN THE STAGING GATE'S WORDS. docs/STAGING-GATE.md.
+ *
+ * Nothing in this motel was marked at all, so every check the gate knows —
+ * who is facing a wall, who is standing in the furniture, which way a rank of
+ * sellers is pointed — was silently saying nothing about the whole scene.
+ *
+ * The words are this scene's own (`cfg.role`) and they are translated rather
+ * than handed over: `markActor` validates strictly and throws on a word it has
+ * not been taught, which is how a role of 'performer' took the Bing build down
+ * with it — see ACTOR_ROLE_FOR_SCENE_ROLE in src/core/staging.js. The shared
+ * table already maps 'civilian' and would map 'seller' to a BYSTANDER, which
+ * is true of a man selling hot dogs and false of every seller in this lot:
+ * these are the men the scene is a fight with. So the motel's own reading goes
+ * in here, next to the roles it is reading, and the result still goes through
+ * `coarseActorRole`.
+ */
+const ACTOR_ROLE_FOR_MOTEL_ROLE = Object.freeze({
+  ally: 'family_member',   // Snow, who drove you here
+  seller: 'enemy',
+  thug: 'enemy',
+  civilian: 'civilian',    // the clerk behind his counter, and nobody else
+});
+
+/**
+ * Eye and hip height, in metres, on an UNSCALED rig of each species.
+ *
+ * Read off the rigs above rather than guessed: the human's head joint is at
+ * 1.84 with its eyes 0.03 proud of it, and its `actor.garment.pants.waist`
+ * slab is centred on 0.98; the sasquatch's head sits at 2.55 with eyes at
+ * +0.06, and its leg pivots — its hips — at 1.05. Both are multiplied by the
+ * body's own `scale`, which is what `baseScale` is.
+ *
+ * The marker's defaults (2.30 and 1.16) are `core/person.js`'s Sasquatch, a
+ * different rig again, and would have put a 0.96-scale lookout's eye ray
+ * 45 cm above his own head — a man measured against somebody else's skeleton,
+ * which is the same class of mistake as a rig that does not declare which way
+ * it faces.
+ */
+const RIG_EYE_HEIGHT_M = Object.freeze({ human: 1.87, squatch: 2.61 });
+const RIG_HIP_HEIGHT_M = Object.freeze({ human: 0.98, squatch: 1.05 });
+
+/* One counter per scene, so that a lot full of men called 'Seller' still gets
+ * distinguishable ids if one is ever built without an authored one. Every
+ * actor the scene builds today comes through `createMotelActor`, which passes
+ * its own stage id — 'lookout', 'reinforcement-hook' — and those are the ids
+ * that end up in allowlists. Keyed weakly: a scene that goes away takes its
+ * numbering with it rather than leaking into the next build. */
+const ACTOR_ORDINALS = new WeakMap();
+
+function uniqueActorId(scene, base) {
+  const name = (base || 'seller').trim() || 'seller';
+  if (!scene || typeof scene !== 'object') return name;
+  if (!ACTOR_ORDINALS.has(scene)) ACTOR_ORDINALS.set(scene, new Map());
+  const seen = ACTOR_ORDINALS.get(scene);
+  const ordinal = seen.get(name) ?? 0;
+  seen.set(name, ordinal + 1);
+  return ordinal === 0 ? name : `${name}-${ordinal + 1}`;
+}
+
 export class Actor {
   constructor(scene, cfg) {
     this.id = nextId++;
@@ -625,6 +686,19 @@ export class Actor {
     this.rig = buildActor(cfg);
     this.group = this.rig.group;
     this.baseScale = this.group.scale.x;
+    /* The staging marker, on the one object every figure in this scene is
+     * built through. The id is the caller's authored stage id where there is
+     * one — `createMotelActor` passes it — because ids end up in allowlists
+     * and a counter renumbers itself the first time somebody is added in the
+     * middle of the cast. */
+    const species = this.rig.species === 'squatch' ? 'squatch' : 'human';
+    markActor(this.group, {
+      id: cfg.actorId || uniqueActorId(scene, this.identity),
+      role: coarseActorRole(ACTOR_ROLE_FOR_MOTEL_ROLE[this.role] ?? this.role),
+      posture: 'stand',
+      eyeHeight: RIG_EYE_HEIGHT_M[species] * this.baseScale,
+      hipHeight: RIG_HIP_HEIGHT_M[species] * this.baseScale,
+    });
     this.group.position.set(cfg.x || 0, 0, cfg.z || 0);
     this.heading = cfg.heading ?? 0;
     /* The pose the scene authored, kept apart from `heading` so that idling —
@@ -745,6 +819,7 @@ export class Actor {
     armPitch = -0.38,
   } = {}) {
     this.state = 'seated';
+    setActorPosture(this.group, 'sit');
     this.target = null;
     this.seatedPose = { scaleFactor, headYaw, armPitch };
     this.group.position.copy(position);
@@ -764,6 +839,7 @@ export class Actor {
   /** Put a vehicle occupant back into the ordinary grounded actor loop. */
   standAt(position, heading = this.heading) {
     this.state = 'idle';
+    setActorPosture(this.group, 'stand');
     this.target = null;
     this.seatedPose = null;
     this.group.position.copy(position);
@@ -796,6 +872,11 @@ export class Actor {
       this.hp = 0;
       this.downT = 0;
       this.lethalKill = !!lethal;
+      /* He falls over and stays down — see the `downT >= 0` branch of
+       * update(), which pitches him flat and then leaves him alone. The gate
+       * is told, so a body on the tarmac is never read as a man standing on
+       * it. */
+      setActorPosture(this.group, 'lie');
       return true;
     }
     return false;

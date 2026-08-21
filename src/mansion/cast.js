@@ -112,6 +112,7 @@ import {
   MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
 } from '../core/wardrobe.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { coarseActorRole, markActor } from '../core/staging.js';
 import { TimingBar } from '../core/timingbar.js';
 import { box, cylinder, group, mat } from '../world/build.js';
 import { createDressHelpSequence } from '../world/dress-help.js';
@@ -205,6 +206,55 @@ const BASEMENT_Y = -2.8;
 /* working while the two scene files are being edited beside it and      */
 /* stops guessing the moment they hand it a better number.               */
 /* ================================================================== */
+
+/**
+ * WHO IS IN THE HOUSE, IN THE STAGING GATE'S WORDS. docs/STAGING-GATE.md.
+ *
+ * `Npc` already stamps a marker and takes its id from the display NAME, which
+ * is right in the Bing -- a floor full of anonymous drinkers -- and wrong
+ * here. Six of the men in this house are called 'a guard' and two of the
+ * women 'a dancer', so the ids came out as 'a guard-4' and 'a dancer-2': a
+ * numbering that renumbers itself the first time somebody adds a guard in the
+ * middle of the list, which is precisely what an authored id exists to
+ * prevent. The `post()` id -- 'vault', 'oldStove', 'poolPerformer2' -- is
+ * already the stable handle every other part of this module uses, so it is
+ * the one the gate gets too.
+ *
+ * ROLES ARE THE HOUSE'S OWN WORDS, TRANSLATED. They go through
+ * `coarseActorRole` rather than into `markActor` raw, because that call
+ * validates strictly and throws on a word it has not been taught -- which is
+ * how a role of 'performer' took the whole Bing build down, 46 tests, in the
+ * very change that added the marker (see ACTOR_ROLE_FOR_SCENE_ROLE). Without
+ * them the gate saw one undifferentiated crowd: it called the man in the
+ * booth a bystander, and it called Shubes a GUARD because he happens to walk
+ * a loop, so a rank of real guards agreeing on a heading could never be told
+ * from a family party agreeing on one.
+ *
+ * The heights are declared for the same reason `faceAxis` is. The marker's
+ * defaults -- 2.30 m eye, 1.16 m hip -- are `core/person.js`'s Sasquatch, and
+ * everybody in this house is a `makePerson` human. Measured on the built rig
+ * across model heights 1.66..2.00 m, the head centre sits at 1.637 x
+ * heightScale and the hips at 1.000 x heightScale, linear in both; the
+ * default puts an eye ray half a metre above the head it is meant to come out
+ * of, which is how a man staring at a wall reads as a man staring over it.
+ */
+const ACTOR_EYE_PER_SCALE = 1.637;
+const ACTOR_HIP_PER_SCALE = 1.000;
+
+function markMansionActor(npc, { id, role, seat }) {
+  markActor(npc.group, {
+    id,
+    role: coarseActorRole(role),
+    /* What the rig actually DID with the job, not what the post asked for:
+     * `Npc` decides between sitting and standing itself, and `sit()`/`stand()`
+     * keep the live posture moving from there. */
+    posture: npc.seated ? 'sit' : 'stand',
+    eyeHeight: ACTOR_EYE_PER_SCALE * npc.parts.heightScale,
+    hipHeight: ACTOR_HIP_PER_SCALE * npc.parts.heightScale,
+    ...(seat ? { seat } : {}),
+  });
+  return npc;
+}
 
 /** yaw that points a figure at (x, z). makePerson faces +Z at yaw 0. */
 function yawToward(fromX, fromZ, atX, atZ) {
@@ -781,16 +831,26 @@ export function mountMansionCast(scene, world = {}, {
    * `onArrive`/`onLeave` are for the one man whose approach is an exchange
    * rather than a bark — Gratin. They are hooks rather than an `if (id ===
    * 'gratin')` in the loop, because the loop should not know who anybody is.
+   *
+   * `role` is the house's own word for who somebody is — 'guard', 'boss',
+   * 'family_member', 'performer', 'clerk' — and this is the one place it is
+   * translated for the staging gate. It defaults to `family_member` because
+   * that is what most of a house full of the Family is; a post that means
+   * something else says so. `seat` names the object a sitter should be on,
+   * and is left off where a room's furniture shares one name (the theatre
+   * recliners are all called `theatre-recliner`, so naming one would resolve
+   * to whichever the traversal reached first). See `markMansionActor`.
    */
   function post(id, {
     model, name, x, y = 0, z, yaw = 0, job = 'stand', folded = false,
-    route = null, speed = 1.0, tier = 'hero',
+    route = null, speed = 1.0, tier = 'hero', role = 'family_member', seat = null,
     bark = null, idle = null, range = BARK_RANGE, look = null, onUse = null,
     interactEnabled = null, onArrive = null, onLeave = null,
   }) {
     const npc = new Npc(scene, {
       name, tier, job, x, y, z, yaw, route, speed, model, colliders,
     });
+    markMansionActor(npc, { id, role, seat });
     npc.folded = folded;
     people[id] = npc;
     posts.push({
@@ -832,6 +892,7 @@ export function mountMansionCast(scene, world = {}, {
    * glazing. +0.75 retains the top-tread position with clear air behind him. */
   const gateAt = { x: doorPost.x + 2.4, y: doorPost.y ?? GROUND_Y, z: doorPost.z + 0.75 };
   post('gateMan', {
+    role: 'guard',
     name: 'the man on the door',
     model: MANSION_DOOR_MAN,
     x: gateAt.x,
@@ -872,6 +933,7 @@ export function mountMansionCast(scene, world = {}, {
   const boothStand = at('boothPost', { x: 8.32, y: 0, z: 3.82 });
   const boothLook = at('boothLook', { x: 2, y: 0, z: 2.8 });
   post('booth', {
+    role: 'guard',
     name: 'the man on the gate',
     model: MANSION_BOOTH_MAN,
     job: 'work',
@@ -909,6 +971,7 @@ export function mountMansionCast(scene, world = {}, {
     : PATROL_ROUTES;
   perimeterRoutes.forEach((route, i) => {
     post(`patrol${i}`, {
+      role: 'guard',
       name: 'a guard',
       model: MANSION_GUARDS[i],
       tier: 'ambient',
@@ -931,6 +994,7 @@ export function mountMansionCast(scene, world = {}, {
    * gate from. */
   const balcony = at('balconyRail', { x: 0, y: UPPER_Y, z: 45.8 });
   post('stairs', {
+    role: 'guard',
     name: 'a guard',
     model: MANSION_GUARDS[3],
     x: balcony.x + 1.2,
@@ -978,6 +1042,7 @@ export function mountMansionCast(scene, world = {}, {
     : { x: armory.x + 2.2, y: armory.y, z: armory.z - 1.6 };
   const cellarTvAt = cellarSet ?? { x: armory.x, y: armory.y, z: armory.z + 4.4 };
   post('basement', {
+    role: 'guard',
     name: 'a guard',
     model: MANSION_GUARDS[4],
     x: basementAt.x,
@@ -1000,6 +1065,7 @@ export function mountMansionCast(scene, world = {}, {
    * and into the cellar hall, which is where a man guarding a room stands. */
   const vaultPost = vault.z - 4.0;
   post('vault', {
+    role: 'guard',
     name: 'a guard',
     model: MANSION_GUARDS[5],
     x: vault.x,
@@ -1019,6 +1085,7 @@ export function mountMansionCast(scene, world = {}, {
   const bay = at('billiardBay', { x: 18.3, y: GROUND_Y, z: 47.5 });
   const barTop = { x: bay.x + 0.85, y: bay.y, z: bay.z - 3.1 };
   post('bartender', {
+    role: 'clerk',
     name: 'the bartender',
     model: BADA_BING_BARTENDER,
     job: 'work',
@@ -1063,6 +1130,7 @@ export function mountMansionCast(scene, world = {}, {
    * sits at x -2.551..-1.749, 349 mm clear of the table's western edge. */
   const snowAt = { x: foyer.x - 3.6, y: foyer.y, z: foyer.z - 1.2 };
   post('snow', {
+    role: 'family_member',
     name: 'Snow',
     model: withFace(SNOW, FACES.snow),
     job: 'work',
@@ -1288,6 +1356,7 @@ export function mountMansionCast(scene, world = {}, {
   const desk = at('officeDesk', { x: 0, y: UPPER_Y, z: 70.2 });
   const louAt = { x: desk.x + 1.05, y: desk.y, z: desk.z + 2.55 };
   post('lou', {
+    role: 'boss',
     name: 'Big Uncle Lou',
     model: withFace(BIG_UNCLE_LOU_MANSION, FACES.lou),
     x: louAt.x,
@@ -1325,6 +1394,7 @@ export function mountMansionCast(scene, world = {}, {
   const lounge = at('loungeCenter', { x: 12.5, y: GROUND_Y, z: 45.5 });
   const rippinAt = { x: lounge.x - 0.1, y: lounge.y, z: lounge.z - 0.3 };
   post('rippin', {
+    role: 'family_member',
     name: 'Rippinflow',
     model: withFace(RIPPINFLOW, FACES.rippinflow),
     job: 'stand',
@@ -1343,6 +1413,7 @@ export function mountMansionCast(scene, world = {}, {
   const dining = at('diningTable', { x: -12.5, y: GROUND_Y, z: 66 });
   const ericAt = { x: dining.x + 1.5, y: seatBase(dining.y, CUSHION.chair), z: dining.z };
   post('eric', {
+    role: 'family_member',
     name: 'Eric',
     model: withFace(ERIC, FACES.erican),
     job: 'sit',
@@ -1367,6 +1438,7 @@ export function mountMansionCast(scene, world = {}, {
     { x: gallery.x + 5.0, z: gallery.z - 0.1 },
   ];
   post('shubes', {
+    role: 'family_member',
     name: 'The Shubenator',
     model: withFace(SHUBENATOR, FACES.shubes),
     job: 'patrol',
@@ -1401,6 +1473,12 @@ export function mountMansionCast(scene, world = {}, {
     x: bayBar.x + 0.7, y: seatBase(bayBar.y, CUSHION.barStool), z: bayBar.z - 1.6,
   };
   post('sasole', {
+    role: 'family_member',
+    /* One of the four lounge stools, by its own name: measured on the built
+     * bay, the man is inside `mansion-lounge-bar-stool-0` and not inside any
+     * of the other three, so a stool renamed out from under him reports
+     * SEAT_MISSING rather than passing quietly. */
+    seat: 'mansion-lounge-bar-stool-0',
     name: 'Captain Lou Sasole',
     model: withFace(CAPTAIN_LOU_SASOLE, FACES.sasole),
     job: 'drink',
@@ -1422,6 +1500,9 @@ export function mountMansionCast(scene, world = {}, {
     x: kitchen.x, y: seatBase(kitchen.y, CUSHION.islandStool), z: kitchen.z + 0.5,
   };
   post('hogmama', {
+    role: 'family_member',
+    /* Measured the same way: she is on the middle stool of the island's three. */
+    seat: 'mansion-kitchen-island-stool-1',
     name: 'Hog Mama',
     model: withFace(HOG_MAMA, FACES.hogmama),
     job: 'drink',
@@ -1458,6 +1539,7 @@ export function mountMansionCast(scene, world = {}, {
   const poolDoor = at('poolDoorOutside', { x: 10.8, y: GROUND_Y, z: 76.5 });
   const numbAt = { x: poolDoor.x - 0.2, y: poolDoor.y, z: poolDoor.z + 0.9 };
   post('numbskull', {
+    role: 'family_member',
     name: 'Numbskull',
     model: NUMBSKULL,
     x: numbAt.x,
@@ -1477,6 +1559,7 @@ export function mountMansionCast(scene, world = {}, {
   let theatreEveningStaged = false;
   const conference = at('conferenceTable', { x: 0, y: UPPER_Y, z: 58 });
   post('seff', {
+    role: 'family_member',
     name: 'Seff',
     model: familyModel(CHARACTER_IDS.SEFF),
     job: 'work',
@@ -1506,6 +1589,7 @@ export function mountMansionCast(scene, world = {}, {
   let lagSaid = 0;
   const LAG_REPLIES = Object.freeze([SEQUENCES.lagBigHouse, SEQUENCES.lagLookAround]);
   post('lag', {
+    role: 'family_member',
     name: 'Lag',
     model: familyModel(CHARACTER_IDS.LAG),
     bark: SEQUENCES.lagHello,
@@ -1529,6 +1613,7 @@ export function mountMansionCast(scene, world = {}, {
 
   const ballroom = at('ballroomCenter', { x: 0, y: GROUND_Y, z: 66 });
   post('ape', {
+    role: 'family_member',
     name: 'Ape',
     model: withFace(familyModel(CHARACTER_IDS.APE), FACES.ape),
     folded: true,
@@ -1544,6 +1629,7 @@ export function mountMansionCast(scene, world = {}, {
    * kidnapped is a continuity hole, not a cameo. */
   if (visit !== 'return') {
     post('sauce', {
+      role: 'family_member',
       name: 'Sauce',
       model: familyModel(CHARACTER_IDS.SAUCE),
       job: 'work',
@@ -1586,6 +1672,7 @@ export function mountMansionCast(scene, world = {}, {
   const oldStoveScreenAt = theatre?.screen?.getWorldPosition?.(new THREE.Vector3())
     ?? new THREE.Vector3(theatreAt.x, theatreAt.y + 1.5, theatreAt.z + 4);
   const oldStoveNpc = post('oldStove', {
+    role: 'family_member',
     name: 'Old Stove',
     model: withFace(familyModel(CHARACTER_IDS.OLD_STOVE), FACES.stove),
     job: 'sit',
@@ -1803,6 +1890,7 @@ export function mountMansionCast(scene, world = {}, {
   tubSeats.slice(0, 2).forEach((seat, i) => {
     const look = BADA_BING_PERFORMERS[i === 0 ? 3 : 1];
     const npc = post(`suitePerformer${i}`, {
+      role: 'performer',
       name: 'a dancer',
       tier: 'ambient',
       job: 'sit',
@@ -1883,6 +1971,7 @@ export function mountMansionCast(scene, world = {}, {
   };
   let dressStrap = null;
   const primaryPoolGirl = post('poolPerformer0', {
+    role: 'performer',
     name: 'the Bada Bing platinum performer',
     tier: 'ambient',
     job: 'sit',
@@ -1943,6 +2032,7 @@ export function mountMansionCast(scene, world = {}, {
   primaryPoolGirl.parts.body.add(dressStrap);
 
   const secondPoolGirl = post('poolPerformer1', {
+    role: 'performer',
     name: 'the Bada Bing black-haired performer',
     tier: 'ambient',
     job: 'sit',
@@ -2109,6 +2199,7 @@ export function mountMansionCast(scene, world = {}, {
   const water = pool?.pool ?? { x0: -7, x1: 7, z0: 81, z1: 89 };
   const waterY = pool?.waterY ?? poolAt.y - 0.2;
   const poolGirlInWater = post('poolPerformer2', {
+    role: 'performer',
     name: 'the Bada Bing brunette performer',
     tier: 'ambient',
     x: (water.x0 + water.x1) / 2 + 2.2,
@@ -2206,6 +2297,7 @@ export function mountMansionCast(scene, world = {}, {
     if (foot && Number.isFinite(foot.x)) {
       const irishAt = { x: foot.x - 0.55, y: foot.y, z: foot.z - 1.5 };
       post('irish', {
+        role: 'family_member',
         name: 'Irish',
         model: withFace(IRISH, FACES.irish),
         job: 'work',
@@ -2232,6 +2324,7 @@ export function mountMansionCast(scene, world = {}, {
     if (table && Number.isFinite(table.x)) {
       const booskiAt = { x: table.x + 1.6, y: table.y, z: table.z - 0.9 };
       post('booski', {
+        role: 'family_member',
         name: 'Booski',
         model: withFace(BOOSKI, FACES.booski),
         x: booskiAt.x,
@@ -2279,6 +2372,7 @@ export function mountMansionCast(scene, world = {}, {
     if (glassDoor && Number.isFinite(glassDoor.x)) {
       const dmtAt = { x: glassDoor.x - 1.8, y: glassDoor.y, z: glassDoor.z - 0.35 };
       post('deathmegatron', {
+        role: 'family_member',
         name: 'DeathMegatron',
         model: withFace(DEATHMEGATRON, FACES.deathmegatron),
         x: dmtAt.x,
@@ -2296,6 +2390,7 @@ export function mountMansionCast(scene, world = {}, {
     const gx = hangingAt.x + 1.5;
     const gz = hangingAt.z - 1.15;
     const gratin = post('gratin', {
+      role: 'family_member',
       name: 'Gratin',
       model: withFace(GRATIN, FACES.gratin),
       x: gx,

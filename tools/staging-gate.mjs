@@ -134,6 +134,10 @@ export function stagingFindings({
   findings.push(...uniformFacing(actors, { radius: uniformRadius }));
 
   for (const actor of actors) {
+    /* In a vehicle, the two "he is in the masonry" checks are meaningless:
+     * the masonry is the car and he is supposed to be in it. */
+    const riding = actor.posture === 'ride';
+
     // Facing a wall. The ray starts at the eye and runs along the face axis.
     let nearest = Infinity;
     let hit = null;
@@ -141,7 +145,7 @@ export function stagingFindings({
       const distance = rayBoxDistance(actor.eye, actor.forward, box);
       if (distance < nearest) { nearest = distance; hit = box; }
     }
-    if (nearest < FACING_WALL_DISTANCE_M) {
+    if (nearest < FACING_WALL_DISTANCE_M && !riding) {
       findings.push(finding('FACING_INTO_SOLID', actor, {
         distanceM: Math.round(nearest * 1000) / 1000,
         solid: hit?.name ?? null,
@@ -150,9 +154,22 @@ export function stagingFindings({
 
     // Standing inside something. Measured at the hip, which is the one height
     // that is inside a body for every posture the marker knows.
-    const swallowed = boxes.find((box) => inside(box, actor.hip));
-    if (swallowed) {
-      findings.push(finding('ACTOR_INSIDE_SOLID', actor, { solid: swallowed.name ?? null }));
+    //
+    // EXCEPT WHEN HE IS IN A CAR. A rider is inside the vehicle's collider
+    // because that is what riding in it means, and the Special Meeting's
+    // sedan is one solid box from the road to 2.28 m with the cabin inside
+    // it -- it has to be, because it is the wall the player walks round.
+    // Six ACTOR_INSIDE_SOLID and four FACING_INTO_SOLID on four seated men
+    // is the gate reporting the scene working. The alternative on offer was
+    // dropping the car from the audited set, which would blind the geometry
+    // gate to the only moving wall in the scene.
+    //
+    // `sit` is NOT exempt: a man inside a sofa is still a bug. Only `ride`.
+    if (!riding) {
+      const swallowed = boxes.find((box) => inside(box, actor.hip));
+      if (swallowed) {
+        findings.push(finding('ACTOR_INSIDE_SOLID', actor, { solid: swallowed.name ?? null }));
+      }
     }
 
     // Sitting on a seat, or standing on one.

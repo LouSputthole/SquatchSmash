@@ -412,6 +412,9 @@ export function buildCarInterior() {
   // The canonical Ape body, id and supplied face, wearing this mission's
   // scene-local black suit. See ../cast/ape.js.
   const apeNpc = buildSilverCaseApe(root, {
+    /* Not 'ape': the corridor Ape carries that one, and both bodies are built
+     * in every state this scene records. See markSilverCaseActor. */
+    actorId: 'ape-driving',
     x: CAR_ANCHORS.driverSeat.x,
     y: CAR_ANCHORS.driverSeat.y,
     z: CAR_ANCHORS.driverSeat.z,

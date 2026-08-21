@@ -7,6 +7,12 @@ export const MOTEL_SNOW_SEATED_SCALE_FACTOR = 0.74;
 export const MOTEL_SNOW_HEAD_GLANCE = Math.PI / 2;
 export const MOTEL_SNOW_ARM_PITCH = -1.05;
 
+/**
+ * The doorway the fight is around: Rico's own room door, at the middle of the
+ * row. Written down once because two stages point at it.
+ */
+export const MOTEL_ROOM_DOORWAY = Object.freeze({ x: 0, z: -4.9 });
+
 export const MOTEL_REINFORCEMENT_STAGES = Object.freeze([
   Object.freeze({ id: 'reinforcement-hook', weapon: 'hook', x: 26, z: 4 }),
   Object.freeze({ id: 'reinforcement-prod', weapon: 'prod', x: -26, z: 6 }),
@@ -97,6 +103,23 @@ export function stageMotelActor(actor, stageId, {
   const reinforcement = MOTEL_REINFORCEMENT_STAGES.find(({ id }) => id === stageId);
   if (reinforcement) {
     actor.group.position.set(reinforcement.x, 0, reinforcement.z);
+    /* FACING THE FIGHT THEY ARE RUNNING INTO, not due north.
+     *
+     * All three arrived on `heading` 0 — the Actor default — from three
+     * different corners of the lot, so the toast said "they are coming across
+     * the concrete" and three men stood facing the same compass point with
+     * their backs to the cars they got out of. Nobody sees it for long,
+     * because `state: 'chase'` turns them at the player on the first frame,
+     * but the staging gate reads the pose as authored and this is the exact
+     * shape of a FACING_UNIFORM: three actors of one role agreeing on a
+     * heading to nine decimal places. It only escaped the finding because the
+     * gate wants them within 6 m of each other and these are 20 m apart.
+     *
+     * Each one is turned at the row of doors instead, which is where the
+     * fight is; that is three different authored headings — measured on the
+     * built state at -108.9deg, 112.7deg and -142.6deg — rather than three
+     * copies of one, and it is derived from the doorway rather than typed. */
+    actor.faceAt(MOTEL_ROOM_DOORWAY.x, MOTEL_ROOM_DOORWAY.z);
     actor.state = 'chase';
     actor.hostile = true;
     return ownActor(actor, `motel.cast:${stageId}`, stageId);
@@ -120,9 +143,9 @@ export function stageMotelActor(actor, stageId, {
       actor.faceAt(-44, -4);
       break;
     case 'rico-doorway':
-      actor.group.position.set(0, 0, -4.9);
+      actor.group.position.set(MOTEL_ROOM_DOORWAY.x, 0, MOTEL_ROOM_DOORWAY.z);
       actor.state = 'deal';
-      actor.anchor = { x: 0, z: -4.9 };
+      actor.anchor = { x: MOTEL_ROOM_DOORWAY.x, z: MOTEL_ROOM_DOORWAY.z };
       actor.faceAt(0, 16);
       break;
     case 'rico-room':
@@ -156,7 +179,9 @@ export function stageMotelActor(actor, stageId, {
 export function createMotelActor(scene, stageId, options = {}) {
   const factory = FACTORIES[stageId];
   if (!factory) throw new RangeError(`Unknown Motel actor geometry stage: ${stageId}`);
-  const actor = new Actor(scene, factory());
+  /* The stage id IS the actor's id for the staging gate: it is authored,
+   * stable, and already the handle `ownActor` names his assembly with. */
+  const actor = new Actor(scene, { ...factory(), actorId: stageId });
   return stageMotelActor(actor, stageId, options);
 }
 

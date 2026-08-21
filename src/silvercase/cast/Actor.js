@@ -1,4 +1,5 @@
 import { Npc } from '../../bing/cast.js';
+import { coarseActorRole, markActor, setActorPosture } from '../../core/staging.js';
 
 /**
  * A small humanoid actor: a canonical `Npc` body (src/bing/cast.js, built on
@@ -66,6 +67,63 @@ export const COLLAPSE = Object.freeze({
 
 function smooth(k) {
   return k * k * (3 - 2 * k);
+}
+
+/**
+ * WHERE THIS RIG'S EYES AND HIPS ACTUALLY ARE, per unit of `heightScale`.
+ *
+ * Measured on the built figure over model heights 1.66..2.00 m: the head
+ * centre lands on 1.637 x heightScale and the hip centre on 1.000 x
+ * heightScale, linear in both. The staging marker's defaults are 2.30 and
+ * 1.16, which are `core/person.js`'s SASQUATCH -- the same 2.6 m rig whose
+ * heads were inside this flat's ceiling before the cast moved to `makePerson`
+ * (see this file's opening note). Handing the gate those numbers would put
+ * every eye ray half a metre above the head it belongs to, so the marker
+ * declares the real ones the same way a rig facing another way declares
+ * `faceAxis`.
+ */
+const EYE_PER_SCALE = 1.637;
+const HIP_PER_SCALE = 1.000;
+
+/**
+ * The mission's own words for who somebody is, in the gate's vocabulary.
+ *
+ * Faction is what this scene already sorts people by, so faction is what the
+ * marker translates -- through `coarseActorRole`, never straight into
+ * `markActor`, which validates strictly and throws on a word it does not know
+ * (that is how a role of 'performer' once took the Bing build down; see
+ * ACTOR_ROLE_FOR_SCENE_ROLE). Ape is Family and on the errand with you; the
+ * men in the flat are the other side of the deal until the bathroom door
+ * opens.
+ */
+const SCENE_ROLE_FOR_FACTION = Object.freeze({
+  friendly: 'family_member',
+  neutral: 'seller',
+  hostile: 'enemy',
+});
+
+/**
+ * Stamp one built figure for the staging gate. docs/STAGING-GATE.md.
+ *
+ * The id is AUTHORED and passed in rather than taken from the display name:
+ * ids end up in allowlists, and this mission builds two Apes -- one at the
+ * wheel and one in the corridor -- which is precisely the duplicate the gate
+ * reported (ACTOR_ID_DUPLICATE, six states of it) when both took their id from
+ * the same name.
+ */
+export function markSilverCaseActor(npc, { id, faction = 'neutral', posture, seat }) {
+  markActor(npc.group, {
+    id,
+    role: coarseActorRole(SCENE_ROLE_FOR_FACTION[faction] ?? faction),
+    posture: posture ?? (npc.seated ? 'sit' : 'stand'),
+    eyeHeight: EYE_PER_SCALE * npc.parts.heightScale,
+    hipHeight: HIP_PER_SCALE * npc.parts.heightScale,
+    /* The furniture is named rather than sniffed for, so a couch renamed out
+     * from under the man sitting on it reports SEAT_MISSING instead of
+     * passing quietly. */
+    ...(seat ? { seat } : {}),
+  });
+  return npc;
 }
 
 export class Actor {
@@ -173,6 +231,10 @@ export class Actor {
   _startDeath() {
     this.alive = false;
     this.downT = 0;
+    /* The gate is told what the body is DOING, not just where it is: a man
+     * shot in a chair is still sitting in it (COLLAPSE.seated never leaves
+     * the furniture) and a man shot on his feet ends up on the floor. */
+    setActorPosture(this.group, this.collapse.seat ? 'sit' : 'lie');
     /* Whatever he was saying, he has stopped. `Npc.update()` is never called
      * again for this body, so the mouth would otherwise be frozen at whatever
      * width the last frame left it — mid-word, on a corpse. */
@@ -292,12 +354,16 @@ export class Actor {
  * (sin(h), 0, cos(h)), 0 = +z), so ApartmentScene's seat and doorway anchors
  * still feed straight in; its `hallwaySpawn`/`frontDoorInside` anchors are
  * camera yaw and still must not.
+ *
+ * `actorId` is the handle the staging gate knows this body by, and it is the
+ * one field here that must be authored rather than derived -- see
+ * `markSilverCaseActor`.
  */
 export function makeActor({
-  parent, name = '', faction = 'neutral', hp = 100, model = {},
+  parent, name = '', actorId = '', faction = 'neutral', hp = 100, model = {},
   position = { x: 0, y: 0, z: 0 }, yaw = 0, job = 'stand', tier = 'hero',
   look = true, folded = false, collapse = COLLAPSE.standing, characterId = null,
-  pose = null, npc = null,
+  pose = null, npc = null, seat,
 } = {}) {
   const figure = npc ?? new Npc(parent, {
     name,
@@ -311,6 +377,14 @@ export function makeActor({
     model: { ...model, castShadow: true },
   });
   figure.folded = folded;
+  /* Only a figure THIS call built. A body handed in ready-made (Ape, from
+   * ./ape.js) was marked by the builder that owns it, and a second stamp here
+   * would be a second authority on one body's id. */
+  if (!npc) {
+    markSilverCaseActor(figure, {
+      id: actorId || name, faction, seat, posture: job === 'sit' ? 'sit' : 'stand',
+    });
+  }
   const actor = new Actor({
     name, faction, hp, npc: figure, collapse, characterId, pose,
   });

@@ -674,6 +674,62 @@ function cruiserHullTrimGeometry({
   return geometry;
 }
 
+/* WHERE A `makePerson` BODY'S EYES AND HIPS ACTUALLY ARE, AS A MULTIPLE OF THE
+ * RIG'S OWN `heightScale`.
+ *
+ * Measured on the built rig rather than assumed: over model heights 1.66 to
+ * 2.00 m the head centre lands on 1.637 x heightScale and the hip centre on
+ * 1.000 x heightScale, dead linear in both. The staging marker's defaults are
+ * 2.30 and 1.16, which are `core/person.js`'s SASQUATCH -- half a metre above
+ * the top of a human's head -- and the gate believed them: it reported Booski
+ * staring at the bow pulpit from inside the cabin, 0.78 m off. The pulpit rail
+ * spans y 1.50..2.50; the phantom eye was at 1.68 and his own is at 1.02,
+ * below the rail and looking under it at the man on the sole. So this boat
+ * declares its heights the same way a rig that faces another way declares
+ * `faceAxis`, rather than being measured against somebody else's skeleton.
+ */
+const CREW_EYE_PER_SCALE = 1.637;
+const CREW_HIP_PER_SCALE = 1.000;
+
+/**
+ * WHO IS ABOARD, IN THE STAGING GATE'S WORDS. docs/STAGING-GATE.md.
+ *
+ * `Npc` stamps a marker of its own and takes the id from the display name,
+ * which is right in the Bing -- forty anonymous drinkers, none of whom will
+ * ever be named in an allowlist -- and wrong here. These four ARE the scene,
+ * so the keys of `cast` are the ids and 'Big Uncle Lou' goes back to being a
+ * caption.
+ *
+ * Willy is `traitor` rather than `family_member`, which is the whole evening:
+ * he came aboard as one and the trip exists to settle the other. It also keeps
+ * him out of the crew's cohort in the facing check, where three men turned
+ * toward the man they are about to shoot is the staging and not the bug.
+ *
+ * The words are the scene's and they go through `coarseActorRole` to reach the
+ * gate's: `markActor` validates roles strictly and throws on anything it does
+ * not know, which is right for a hand-typed call and wrong for a translation
+ * (see ACTOR_ROLE_FOR_SCENE_ROLE's note about the Bing build).
+ */
+const CREW_ROLES = Object.freeze({
+  lou: 'boss',
+  booski: 'family_member',
+  willy: 'traitor',
+  irish: 'family_member',
+});
+
+function markCrew(cast) {
+  for (const [id, npc] of Object.entries(cast)) {
+    markActor(npc.group, {
+      id,
+      role: coarseActorRole(CREW_ROLES[id]),
+      posture: npc.seated ? 'sit' : 'stand',
+      eyeHeight: CREW_EYE_PER_SCALE * npc.parts.heightScale,
+      hipHeight: CREW_HIP_PER_SCALE * npc.parts.heightScale,
+    });
+  }
+  return cast;
+}
+
 /**
  * The boat.
  *
@@ -1458,6 +1514,7 @@ function buildBoat(scene, marina) {
       },
     }),
   };
+  markCrew(cast);
   cast.willy.group.userData.characterId = CHARACTER_IDS.WILLY;
   cast.booski.group.userData.characterId = CHARACTER_IDS.BOOSKI;
   cast.lou.group.userData.characterId = CHARACTER_IDS.LOU;

@@ -149,7 +149,11 @@ export function stageNoWakeCheckpointGeometry(checkpoint, {
   boat.cabin.setDoorsClosed(false);
   boat.cast.irish.group.position.set(1.75, boat.deck.foredeckHeight, -4.55);
   boat.cast.irish.group.rotation.y = Math.PI;
-  boat.cast.booski.group.position.set(-1.30, boat.deck.height, 3.90);
+  /* x -1.10 here and in `beginExit()`, which this mirrors: -1.30 stood him
+   * 40 mm inside the port cockpit bench (its starboard face is x -1.26 in
+   * DECK_COLLIDERS), which is what the staging gate reported on this state as
+   * ACTOR_INSIDE_SOLID. -1.10 is the spot he keeps all night. */
+  boat.cast.booski.group.position.set(-1.10, boat.deck.height, 3.90);
   boat.cast.booski.group.rotation.y = 0;
   boat.cast.lou.group.position.set(0, boat.deck.height, 3.45);
   boat.cast.lou.group.rotation.y = Math.PI;

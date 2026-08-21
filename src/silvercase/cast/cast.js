@@ -126,6 +126,7 @@ export function populateCast(root) {
   // Canonical body, face and id under The Silver Case's scene-local suit.
   const apeNpc = buildSilverCaseApe(root, {
     x: APE_SPOTS.hallway.x, z: APE_SPOTS.hallway.z, yaw: APE_SPOTS.hallway.yaw, job: 'stand',
+    actorId: 'ape',
   });
   const apeBuild = makeActor({
     npc: apeNpc,
@@ -228,6 +229,8 @@ export function populateCast(root) {
   const dekeBuild = makeActor({
     parent: root,
     name: 'Deke',
+    actorId: 'deke',
+    seat: 'couch',
     faction: 'neutral',
     hp: 60,
     job: 'sit',
@@ -254,6 +257,8 @@ export function populateCast(root) {
   const chesterBuild = makeActor({
     parent: root,
     name: 'Chester',
+    actorId: 'chester',
+    seat: 'chair',
     faction: 'neutral',
     hp: 60,
     job: 'sit',
@@ -278,6 +283,7 @@ export function populateCast(root) {
   const winstonBuild = makeActor({
     parent: root,
     name: 'Winston',
+    actorId: 'winston',
     faction: 'neutral',
     hp: 60,
     job: 'stand',
@@ -307,6 +313,7 @@ export function populateCast(root) {
   const pruittBuild = makeActor({
     parent: root,
     name: 'Pruitt',
+    actorId: 'pruitt',
     faction: 'hostile',
     hp: 80,
     job: 'stand',

@@ -145,9 +145,14 @@ test('NO WAKE body, weighted carry, and return checkpoints preserve visible runt
     onlyAssembly(returnRoot, 'no-wake-cast:lou').position.toArray(),
     [0, 1.02, 3.45],
   );
+  /* -1.10, not -1.30: the staging gate reported him standing IN the port
+   * cockpit bench on the ride home (ACTOR_INSIDE_SOLID), and the bench's own
+   * starboard face is x -1.26 in DECK_COLLIDERS, so the old mark buried 40 mm
+   * of him in the moulding. `beginExit()` and its preview mirror both moved to
+   * the spot he keeps for the rest of the night. */
   assert.deepEqual(
     onlyAssembly(returnRoot, 'no-wake-cast:booski').position.toArray(),
-    [-1.30, 1.02, 3.90],
+    [-1.10, 1.02, 3.90],
   );
   assert.deepEqual(
     onlyAssembly(returnRoot, 'no-wake-cast:irish').position.toArray(),

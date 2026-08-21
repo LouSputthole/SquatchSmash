@@ -263,6 +263,7 @@ const TEST_MODULES = [
   './specialmeeting-script.test.mjs',
   './specialmeeting-act-one.test.mjs',
   './specialmeeting-forest-footing.test.mjs',
+  './specialmeeting-cast.test.mjs',
   './scene-pages-hud-contract.test.mjs',
   './source-line-endings.test.mjs',
   './test-registry.test.mjs',

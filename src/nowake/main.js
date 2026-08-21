@@ -1476,7 +1476,13 @@ function beginExit() {
   // Irish goes forward for the anchor as soon as both engines are running.
   boat.cast.irish.group.position.set(1.75, FOREDECK_H, -4.55);
   boat.cast.irish.group.rotation.y = Math.PI;
-  boat.cast.booski.group.position.set(-1.30, DECK_H, 3.90);
+  /* x -1.10, not -1.30: the staging gate caught him standing IN the cockpit
+   * bench on the way home (ACTOR_INSIDE_SOLID, `cockpit seating · port
+   * return`). That seat unit's starboard face is at x -1.26 in boat space --
+   * see DECK_COLLIDERS -- so -1.30 put 40 mm of him inside the moulding. He
+   * stands on -1.10 everywhere else in this scene, which is the same 160 mm
+   * of clear sole he has had all night. */
+  boat.cast.booski.group.position.set(-1.10, DECK_H, 3.90);
   boat.cast.booski.group.rotation.y = 0;
   boat.cast.lou.group.position.set(0, DECK_H, 3.45);
   boat.cast.lou.group.rotation.y = Math.PI;

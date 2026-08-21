@@ -45,6 +45,7 @@
  * See docs/STAGING-GATE.md.
  */
 import { Npc } from '../bing/cast.js';
+import { setActorPosture } from '../core/staging.js';
 import { FAMILY } from '../bing/family.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { WARDROBE } from '../core/wardrobe.js';
@@ -321,6 +322,8 @@ export function buildSpecialMeetingCast(scene, {
     const kb = people.kittenboss;
     kb.group.position.set(boot.x, boot.y - 0.62, boot.z);
     kb.group.rotation.y = carFacing() + BOOT_YAW_OFFSET;
+    /* She is riding too, and more thoroughly inside the car than anybody. */
+    setActorPosture(kb.group, 'ride');
   }
 
   function sit(key, seatId) {
@@ -334,6 +337,13 @@ export function buildSpecialMeetingCast(scene, {
      * +Z. `facingYaw()` is the same quarter turn the player gets, and it is
      * reapplied every frame in `update` because the car turns. */
     sedan.occupy(seatId, npc.group, { yaw: false });
+    /* RIDING, not merely sitting. The distinction earns its keep at the
+     * staging gate: a man in a chair who is inside a solid is a bug, and a
+     * man in a car who is inside a solid is a passenger -- the sedan's
+     * collider is one box from the road to 2.28 m with the cabin inside it,
+     * because it is the wall the player walks round. Marking the difference
+     * here is what stops four passengers reporting as ten faults. */
+    setActorPosture(npc.group, 'ride');
     seated.set(seatId, key);
     faceRider(key);
     return npc;

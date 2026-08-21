@@ -133,6 +133,12 @@ test('every one of them is marked for the staging gate', () => {
   assert.deepEqual([...actors.keys()].sort(), ['Kittenboss', 'Lag', 'Numbskull', 'Seff']);
   for (const actor of actors.values()) {
     assert.equal(typeof actor.actor.role, 'string');
-    assert.equal(actor.posture, 'sit');
+    /* RIDING, not sitting, and the difference is load-bearing. The sedan's
+     * collider is one box from the road to 2.28 m with the cabin inside it,
+     * because it is the wall the player walks round; four passengers inside
+     * it reported as ten staging findings until the gate learned that a man
+     * in a car is supposed to be inside the car. `sit` stays checked -- a man
+     * inside a sofa is still a bug -- so this has to be the other word. */
+    assert.equal(actor.posture, 'ride');
   }
 });
