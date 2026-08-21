@@ -198,6 +198,11 @@ try {
     prospects: window.INITIATION.prospects.length,
     hasHumanPlayer: window.INITIATION.player?.constructor?.name === 'Person',
     objective: document.querySelector('#objective')?.textContent,
+    /* WHAT THE PLAYER ACTUALLY READS, which is now the shared upper-left
+     * panel every other scene uses rather than this scene's own div. The keys
+     * live in the panel's hint line, so a check that wants to know the player
+     * was told how to move has to look at both halves. */
+    panel: document.querySelector('#objectives')?.textContent ?? null,
     canvasCount: document.querySelectorAll('canvas').length,
     inventoryVisible: Boolean(document.querySelector('#hotbar'))
       && getComputedStyle(document.querySelector('#hotbar')).display !== 'none',
@@ -218,9 +223,9 @@ try {
   check('Captain Lou Sasole appears under his canonical identity',
     initial.memberNames.includes('CAPTAIN LOU SASOLE'),
     initial.memberNames.join(' | '));
-  check('the scene gives a visible movement objective',
-    initial.objective?.includes('WASD'),
-    initial.objective || 'no objective');
+  check('the scene gives a visible movement objective, on the shared panel',
+    Boolean(initial.objective) && (initial.panel ?? '').includes('WASD'),
+    `${initial.objective || 'no objective'} | panel: ${initial.panel ?? 'absent'}`);
   check('Initiation keeps the shared five-slot inventory visible',
     initial.inventoryVisible && initial.inventorySlots === 5,
     JSON.stringify({ visible: initial.inventoryVisible, slots: initial.inventorySlots }));

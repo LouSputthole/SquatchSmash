@@ -57,7 +57,6 @@ const CAMPAIGN_PAGES = Object.freeze([
     href: 'initiation.html',
     entry: 'src/initiation/main.js',
     source: 'src/initiation/main.js',
-    protected: 'Initiation gameplay is frozen pending the human playtest.',
   },
 ]);
 
@@ -125,8 +124,14 @@ test('every root HTML entry is classified as campaign content or a named tool', 
 test('every playable campaign page has shared pause and recovery wiring or an explicit boundary', () => {
   assert.equal(CAMPAIGN_PAGES.length, 19, 'update the authored campaign inventory intentionally');
   assert.deepEqual(
+    /* NO PROTECTED PAGES. Initiation was the only one, held out with
+     * "frozen pending the human playtest" while its gameplay waited on the
+     * owner. The owner lifted it, so the scene is held to the same wiring as
+     * the other sixteen and this list is empty on purpose: an exception here
+     * is a scene the recovery pass is not allowed to touch, and there is no
+     * longer one. */
     CAMPAIGN_PAGES.filter(({ protected: boundary }) => boundary).map(({ id }) => id),
-    ['initiation'],
+    [],
     'Initiation is the sole frozen gameplay exception',
   );
 
@@ -149,14 +154,6 @@ test('every playable campaign page has shared pause and recovery wiring or an ex
         'the shared Mansion source must account for its return visit');
       assert.match(source, /visit[^\n]*return|return[^\n]*visit/i,
         'the Mansion return must remain selected by the visit query');
-    }
-
-    if (page.protected) {
-      assert.equal(page.id, 'initiation');
-      assert.match(page.protected, /frozen.*human playtest/i);
-      assert.equal(hasRecoveryWiring(source), false,
-        `${label} is a protected exception and must not be changed by this recovery pass`);
-      continue;
     }
 
     assert.ok(source.includes(`SCENE_IDS.${SCENE_ID_TOKENS[page.id]}`),

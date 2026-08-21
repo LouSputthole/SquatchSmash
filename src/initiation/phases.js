@@ -63,16 +63,21 @@ export const CAMERA_MODES = Object.freeze([
   'hold',        // a fail card is up; the camera stops where it was
 ]);
 
-const OBJ_LIGHTS = 'Follow the lights — <span class="key">WASD</span> move · <span class="key">Shift</span> run';
-const OBJ_LINE = 'Take your place in the line — stand in the <span class="key">light</span>';
+const OBJ_LIGHTS = 'Follow the lights';
+const KEYS_MOVE = 'WASD move · Shift run';
+const OBJ_LINE = 'Take your place in the line';
+const KEYS_LINE = 'Stand in the light';
 const OBJ_TREES = 'Follow Booskibro into the trees';
 const OBJ_INSIDE = 'Go inside';
-const OBJ_ANSWER = 'Answer — <span class="key">1</span> <span class="key">2</span> <span class="key">3</span>';
-const OBJ_ANSWER_LOU = 'Answer Lou — <span class="key">1</span> or <span class="key">2</span>';
-const OBJ_HAND = 'Hold out your hand <span class="key">(Space / Click)</span>';
-const OBJ_PRESS = 'Press <span class="key">(Space / Click)</span>';
-const OBJ_REPEAT = 'Repeat the words <span class="key">(Space / Click)</span>';
-const OBJ_HOLD = 'HOLD <span class="key">(Space / Click)</span>';
+const OBJ_ANSWER = 'Answer';
+const KEYS_THREE = '1 · 2 · 3';
+const OBJ_ANSWER_LOU = 'Answer Lou';
+const KEYS_TWO = '1 or 2';
+const OBJ_HAND = 'Hold out your hand';
+const KEYS_PRESS = 'Space or Click';
+const OBJ_PRESS = 'Press on';
+const OBJ_REPEAT = 'Repeat the words';
+const OBJ_HOLD = 'HOLD';
 
 function phase(id, spec) {
   const exits = Object.freeze([...(spec.exits ?? [])]);
@@ -80,6 +85,15 @@ function phase(id, spec) {
     id,
     /** HUD string, or '' for the scene's watch-this convention. */
     objective: spec.objective ?? '',
+    /* The keys that go with it, as their own field.
+     *
+     * These used to be `<span class="key">` markup inside the objective
+     * string, which made the phase table carry its own presentation and made
+     * the string unusable by anything that renders text -- including the
+     * shared objective panel every other scene uses, which sets textContent
+     * and would have printed the tags. Label and keys, separately, and the
+     * panel puts the keys in its hint line. */
+    keys: spec.keys ?? '',
     camera: spec.camera,
     advance: spec.advance,
     /** Seconds. `null` only where `advance` is 'player' or 'input'. */
@@ -104,11 +118,11 @@ function phase(id, spec) {
 export const PHASES = Object.freeze({
   /* ---- ACT ONE, as shipped ---- */
   approach: phase('approach', {
-    objective: OBJ_LIGHTS, camera: 'follow', advance: 'player', canMove: true,
+    objective: OBJ_LIGHTS, keys: KEYS_MOVE, camera: 'follow', advance: 'player', canMove: true,
     beat: 'IN-010', exits: ['line_up'],
   }),
   line_up: phase('line_up', {
-    objective: OBJ_LINE, camera: 'follow', advance: 'player', canMove: true,
+    objective: OBJ_LINE, keys: KEYS_LINE, camera: 'follow', advance: 'player', canMove: true,
     beat: 'IN-020', exits: ['line_chat'],
   }),
   line_chat: phase('line_chat', {
@@ -137,7 +151,7 @@ export const PHASES = Object.freeze({
     camera: 'q2', advance: 'event', timeout: 60, beat: 'IN-080', exits: ['q2_choice'],
   }),
   q2_choice: phase('q2_choice', {
-    objective: OBJ_ANSWER, camera: 'q2', advance: 'input', choice: true,
+    objective: OBJ_ANSWER, keys: KEYS_THREE, camera: 'q2', advance: 'input', choice: true,
     beat: 'IN-085', exits: ['q2_result'],
   }),
   q2_result: phase('q2_result', {
@@ -225,7 +239,7 @@ export const PHASES = Object.freeze({
    * No timeout, deliberately — Lou will wait, and the room will wait. It is
    * legal because the prompt is on screen: this is not a blank objective. */
   oath_question: phase('oath_question', {
-    objective: OBJ_ANSWER_LOU, camera: 'oath', advance: 'input', choice: true,
+    objective: OBJ_ANSWER_LOU, keys: KEYS_TWO, camera: 'oath', advance: 'input', choice: true,
     beat: 'IN-370', exits: ['oath_yes', 'oath_no'],
   }),
   oath_yes: phase('oath_yes', {
@@ -251,24 +265,24 @@ export const PHASES = Object.freeze({
    * finish speaking first — so they are the owner's four seconds PLUS the line
    * that precedes them. Refusing the hand cannot fail it: Lou takes it. */
   hand: phase('hand', {
-    objective: OBJ_HAND, camera: 'ritual', advance: 'event', timeout: 10, beat: 'IN-410', exits: ['cut'],
+    objective: OBJ_HAND, keys: KEYS_PRESS, camera: 'ritual', advance: 'event', timeout: 10, beat: 'IN-410', exits: ['cut'],
   }),
   cut: phase('cut', {
-    objective: OBJ_PRESS, camera: 'ritual', advance: 'event', timeout: 6, beat: 'IN-415', exits: ['card'],
+    objective: OBJ_PRESS, keys: KEYS_PRESS, camera: 'ritual', advance: 'event', timeout: 6, beat: 'IN-415', exits: ['card'],
   }),
   card: phase('card', {
     camera: 'ritual', advance: 'timer', timeout: 2.6, beat: 'IN-420', exits: ['oath_1'],
   }),
   oath_1: phase('oath_1', {
-    objective: OBJ_REPEAT, camera: 'ritual', advance: 'event', timeout: 22, beat: 'IN-430', exits: ['oath_2'],
+    objective: OBJ_REPEAT, keys: KEYS_PRESS, camera: 'ritual', advance: 'event', timeout: 22, beat: 'IN-430', exits: ['oath_2'],
   }),
   oath_2: phase('oath_2', {
-    objective: OBJ_REPEAT, camera: 'ritual', advance: 'event', timeout: 20, beat: 'IN-435', exits: ['burn'],
+    objective: OBJ_REPEAT, keys: KEYS_PRESS, camera: 'ritual', advance: 'event', timeout: 20, beat: 'IN-435', exits: ['burn'],
   }),
   /* Lou's hand closing over the player's IS the fallback. A player who cannot
    * or will not hold the button is held. */
   burn: phase('burn', {
-    objective: OBJ_HOLD, camera: 'ritual', advance: 'event', timeout: 8, beat: 'IN-440', exits: ['made'],
+    objective: OBJ_HOLD, keys: KEYS_PRESS, camera: 'ritual', advance: 'event', timeout: 8, beat: 'IN-440', exits: ['made'],
   }),
   made: phase('made', {
     camera: 'ritual', advance: 'event', timeout: 40, beat: 'IN-450', exits: ['room'],

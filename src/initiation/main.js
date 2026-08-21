@@ -74,7 +74,9 @@ import { playFootstep } from './cabin/ambience.js';
 import { SPEECH_MIX, speak } from '../core/dialogue.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { shakeScale, bindAudioVolume, translateKey } from '../core/settings.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import {
   MISSION_IDS,
   SCENE_IDS,
@@ -634,6 +636,7 @@ const props = site.props ?? {};
 const $ = (id) => document.getElementById(id);
 const hudEl = $('hud');
 const objectiveEl = $('objective');
+const objectives = createObjectivePanel();
 const painFlashEl = $('painFlash');
 const fadeEl = $('fade');
 const dialogEl = $('dialog');
@@ -656,8 +659,33 @@ $('hpWrap').classList.remove('show');
 const roarBtn = $('roarBtn');
 if (roarBtn) roarBtn.style.display = 'none';
 
-function setObjective(html) {
-  objectiveEl.innerHTML = html;
+/* THE SHARED PANEL, like every other scene.
+ *
+ * This wrote raw HTML into a bespoke `#objective` div of its own -- the
+ * pattern the owner named directly: "we keep reinventing and using different
+ * systems instead of using what we already have". `core/objective-panel.js`
+ * is the upper-left panel the mansion uses, it adopts an existing
+ * `#objectives` element if the page has one, and `setLine` is documented as
+ * "the common case: one standing order, optionally with a direction" -- which
+ * is exactly the shape of every objective in this scene.
+ *
+ * The keys go in the hint rather than in the label, because the panel sets
+ * textContent and the old strings carried `<span class="key">` markup that
+ * would have printed as tags. See `phases.js`.
+ *
+ * `#objective` stays in initiation.html and stays fed, because the pause
+ * menu reads it back for "what were you doing" and the scene's own fail card
+ * sits beside it. */
+function setObjective(label, keys = '') {
+  const text = String(label ?? '');
+  objectiveEl.textContent = text;
+  if (text) objectives.setLine(text, { title: 'Initiation Night', hint: keys });
+  else objectives.clear();
+}
+
+/** A phase's objective and its keys, in one call. */
+function setPhaseObjective(spec) {
+  setObjective(spec?.objective ?? '', spec?.keys ?? '');
 }
 
 /* NO BANNERS. The shipped scene threw "THE GAUNTLET", "YOU ENDURED" and
@@ -976,7 +1004,7 @@ function setPhase(next) {
   }
   phase = next;
   phaseT = 0;
-  setObjective(PHASES[next].objective);
+  setPhaseObjective(PHASES[next]);
 }
 
 const canMove = () => currentPhase().canMove && playerFallT < 0;
@@ -1054,6 +1082,21 @@ createPauseMenu({
     sfx.resume();
     audio.ctx?.resume?.();
   },
+  /* RESTART CHECKPOINT AND RESTART SCENE, like every other campaign scene.
+   *
+   * Sixteen of the eighteen scene pages carried this; the two that did not
+   * were the combat lab, which is a test harness and not a campaign scene,
+   * and this one -- held out by an explicit exception reading "Initiation
+   * gameplay is frozen pending the human playtest".
+   *
+   * So a player who got stuck, or who simply wanted to answer the questions
+   * again, had a pause menu and no way out of the night but the browser's
+   * back button. In the one scene where the wrong answer is an ending. */
+  recovery: createCampaignSceneRecovery({
+    campaign,
+    sceneId: SCENE_IDS.INITIATION,
+    location,
+  }),
 });
 
 muteBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMute(); });
@@ -1156,7 +1199,7 @@ window.addEventListener('keydown', ensureAudio, { once: true });
 window.addEventListener('pointerdown', ensureAudio, { once: true });
 
 hudEl.classList.add('visible');
-setObjective(PHASES.approach.objective);
+setPhaseObjective(PHASES.approach);
 setTimeout(() => { fadeEl.style.opacity = 0; }, 120);
 
 /* ------------------------------------------------------------------
@@ -1980,7 +2023,7 @@ function askTheQuestion() {
   standOn(lou, { x: LOU_SEAT.x, z: LOU_SEAT.z - 0.55, heading: LOU_SEAT.heading });
   const beat = beatById('IN-370');
   say(beat.lines, () => {
-    setObjective(PHASES.oath_question.objective);
+    setPhaseObjective(PHASES.oath_question);
     showChoice({
       prompt: beat.choice.prompt,
       hint: '',
@@ -2064,13 +2107,13 @@ function runBlade() {
 function runHand() {
   setPhase('hand');
   ritualPressed = false;
-  sayBeat('IN-410', () => setObjective(PHASES.hand.objective));
+  sayBeat('IN-410', () => setPhaseObjective(PHASES.hand));
 }
 
 function runCut() {
   setPhase('cut');
   ritualPressed = false;
-  setObjective(PHASES.cut.objective);
+  setPhaseObjective(PHASES.cut);
   sayBeat('IN-415');
 }
 
@@ -2128,7 +2171,7 @@ function runOathLine(which) {
    * never presses, Tony says it anyway, quietly, and the scene continues —
    * nothing in this act can fail. */
   const louLines = beat.lines.filter((line) => line.who !== 'PROSPECT');
-  say(louLines, () => setObjective(PHASES[which === 1 ? 'oath_1' : 'oath_2'].objective));
+  say(louLines, () => setPhaseObjective(PHASES[which === 1 ? 'oath_1' : 'oath_2']));
 }
 
 function repeatOathLine(which) {
@@ -2146,7 +2189,7 @@ function runBurn() {
    * the hand and puts his own over the top. */
   cardBurn.reset().ignite();
   emberT = 0;
-  sayBeat('IN-440', () => setObjective(PHASES.burn.objective));
+  sayBeat('IN-440', () => setPhaseObjective(PHASES.burn));
 }
 
 /**
