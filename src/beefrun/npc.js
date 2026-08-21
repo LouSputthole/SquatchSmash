@@ -13,6 +13,9 @@ import {
 } from './util.js';
 import { CAPTAIN_LOU_SASOLE } from '../core/wardrobe.js';
 import { Mouth } from '../core/mouth.js';
+import {
+  coarseActorRole, markActor, readActor, setActorHeights, setActorPosture,
+} from '../core/staging.js';
 
 const SKIN = [0xd9a878, 0xb07a4e, 0x8a5a38, 0xe8c49a];
 
@@ -168,6 +171,18 @@ export function nameTag(text, colour) {
  *   colours: { shirt, trousers, boots, skin, hat, jacket }
  *   build:   0..1 (0 = narrow, 1 = wide)
  */
+/**
+ * Where this rig's hips and eyes are when it is standing up, in metres.
+ *
+ * Measured off the build below rather than chosen: the hips group sits at
+ * 0.86, the neck hangs +0.66 above that, and the head box is centred a
+ * further +0.14 up, which puts the face -- and the photograph printed on it --
+ * at 1.66. `setPose` folds the body by moving the hips, so everything above
+ * the waist moves with them and both numbers go live; see `setActorHeights`.
+ */
+export const FIGURE_HIP_Y = 0.86;
+export const FIGURE_EYE_Y = 1.66;
+
 export function makeFigure(o = {}) {
   const skin = solid(o.skin ?? SKIN[0], { roughness: 1 });
   const shirt = solid(o.shirt ?? 0x8a8f7a, { roughness: 1 });
@@ -182,9 +197,31 @@ export function makeFigure(o = {}) {
   };
   const g = group(figureName);
   g.userData.geometryGate = { assemblyId: `beefrun.figure.${figureName}` };
+  /* The staging marker, here rather than at each call site, because this one
+   * rig is the whole cast of two missions -- Beef Run's guards and associates
+   * and the Enola's flight crew -- and twelve built states were handing the
+   * staging gate an empty cast list and reading as a clean pass.
+   *
+   * The heights are measured off the rig below, not guessed: hips sit at
+   * 0.86, the neck at +0.66 on top of that, and the head box is centred a
+   * further +0.14 up, which puts the face -- and the photograph on it -- at
+   * 1.66. Getting these from the marker's 2.30 m Sasquatch defaults is what
+   * had thirty bank-lobby bodies casting sightlines from above their own
+   * heads. The rig applies no height scale, so both numbers are constant.
+   *
+   * `actorRole` is the caller's word for what this man is; unknown words fall
+   * back to `bystander` rather than throwing, so a new mission cannot take
+   * the build down by inventing a job title. */
+  markActor(g, {
+    id: figureName,
+    role: coarseActorRole(o.actorRole),
+    posture: 'stand',
+    eyeHeight: FIGURE_EYE_Y,
+    hipHeight: FIGURE_HIP_Y,
+  });
   const hips = new THREE.Group();
   hips.name = `${figureName}-hips`;
-  hips.position.y = 0.86;
+  hips.position.y = FIGURE_HIP_Y;
   g.add(hips);
 
   const torso = mesh(boxGeo(w, 0.62, 0.28), o.jacket ? solid(o.jacket, { roughness: 0.85 }) : shirt, 0, 0.31, 0);
@@ -580,6 +617,28 @@ export function setPose(f, pose) {
     arms: f.arms.map((a) => ({ sx: a.shoulder.rotation.x, ex: a.elbow.rotation.x })),
     legs: f.legs.map((l) => l.hip.rotation.z),
   };
+
+  /* Tell the staging marker what the pose just did to him.
+   *
+   * A pose folds the body by moving the hips, and everything above the waist
+   * rides along, so both the hip and the eye move by the same amount. Nothing
+   * told the marker that, and the whole Enola crew flew the mission declaring
+   * an eye 0.340 m above where their heads were -- 0.86 minus the 0.52 that
+   * `sit` drops them to. The gate was asking whether a point above each man's
+   * head was inside the fuselage.
+   *
+   * `sit` is the only pose here that is a posture in the gate's vocabulary;
+   * lean, gut, carry, inspect and guard are all things a man does standing
+   * up. A rider says so for itself after this runs -- see the Enola's
+   * `sit()`, which straps them into an aeroplane. */
+  if (readActor(f.group)) {
+    const drop = f.hips.position.y - FIGURE_HIP_Y;
+    setActorHeights(f.group, {
+      eyeHeight: FIGURE_EYE_Y + drop,
+      hipHeight: f.hips.position.y,
+    });
+    setActorPosture(f.group, pose === 'sit' ? 'sit' : 'stand');
+  }
 }
 
 /**
@@ -797,6 +856,8 @@ export function makeLou() {
   const f = makeFigure({
     ...fromWardrobe(CAPTAIN_LOU_SASOLE),
     name: 'captain_lou_sasole',
+    // He flies the aeroplane in both missions that use this rig.
+    actorRole: 'crew',
     // Local to the airfield: the headset lives round his neck, never on his ears.
     hat: 'headset',
     /* His actual face. The crop keeps the backwards cap, headset mic and
@@ -843,6 +904,8 @@ export function makeLou() {
 export function makeOldStove() {
   const f = makeFigure({
     name: 'stove',
+    // A pilot first and an Agency employee second, per the note above.
+    actorRole: 'crew',
     skin: 0xd8b48c,
     shirt: 0x4a5260,          // dark grey-blue tee
     trousers: 0xbfa878,       // khakis
@@ -966,7 +1029,10 @@ export function makeGuard(i) {
     { shirt: 0x4a5a6a, trousers: 0x2e3a2e, hat: 'cap', hatColor: 0x2a2a2a },
     { shirt: 0x8a4a3a, trousers: 0x3a3a42, hat: null },
   ][i % 4];
-  const f = makeFigure({ name: `guard${i}`, skin: SKIN[(i + 1) % SKIN.length], build: 0.45 + (i % 3) * 0.1, ...kit });
+  const f = makeFigure({
+    name: `guard${i}`, actorRole: 'guard',
+    skin: SKIN[(i + 1) % SKIN.length], build: 0.45 + (i % 3) * 0.1, ...kit,
+  });
   setPose(f, i % 2 ? 'guard' : 'idle');
   if (i % 2) {
     // Something long held across the chest. Never raised, never used.
@@ -980,6 +1046,7 @@ export function makeGuard(i) {
 export function makeAssociate(i) {
   const f = makeFigure({
     name: `associate${i}`,
+    actorRole: 'crew',
     skin: SKIN[i % SKIN.length],
     shirt: 0x2a2a30,
     jacket: i % 2 ? 0x3a2f5f : null,

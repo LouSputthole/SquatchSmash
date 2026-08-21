@@ -256,10 +256,16 @@ for (const state of states) {
   withCast += 1;
 
   const boxes = colliderBoxes(built);
+  /* Does this scene author any collider heights at all? See the gate's
+   * SIGHTLINES_NOT_EVIDENCE note. -0.5 to 4 is what the collider reader
+   * invents for a footprint that carries no y. */
+  const planOnlySolids = boxes.length > 0
+    && boxes.every((box) => box.min[1] === -0.5 && box.max[1] === 4);
   const { findings: raw } = stagingFindings({
     id: state.id,
     actors,
     boxes,
+    planOnlySolids,
     seats: resolveSeats(built.roots, actors, boxes),
     player: playerStance(built),
   });
@@ -285,7 +291,10 @@ for (const state of states) {
       .filter(([key]) => !['kind', 'id', 'role', 'posture', 'position'].includes(key))
       .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
       .join(' ');
-    console.log(`        ${item.kind}  ${item.id} (${item.role}/${item.posture}) ${extra}`);
+    /* Not every finding is about one person. A scene-level one carries no id,
+     * and printing it as `null (null/null)` reads like a broken marker. */
+    const who = item.id === null ? '(whole scene)' : `${item.id} (${item.role}/${item.posture})`;
+    console.log(`        ${item.kind}  ${who} ${extra}`);
   }
 }
 

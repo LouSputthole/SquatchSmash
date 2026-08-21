@@ -40,6 +40,9 @@ export const KIND_SUBJECTS = Object.freeze({
   SEAT_MISSING: ['actor', 'seat'],
   SPAWN_BEHIND_PLAYER: ['actor'],
   ACTOR_ID_DUPLICATE: ['actor'],
+  /* Scene-level: it is about the scene's collision model, not one person, so
+   * it matches on the state alone and names nobody. */
+  SIGHTLINES_NOT_EVIDENCE: [],
 });
 
 /** A reason has to be a sentence, not a shrug. */
@@ -129,6 +132,12 @@ function matches(entry, finding, state) {
     const allowed = [...entry.cohort].sort();
     return cohort.length === allowed.length && cohort.every((id, i) => id === allowed[i]);
   }
+  /* A kind with no subjects is about the whole state, so state and kind are
+   * the whole match. Falling through to the actor comparison below would
+   * compare an absent `entry.actor` against a null `finding.id` and never
+   * match, which is how the first scene-level entry read as stale on the run
+   * that created it. */
+  if (KIND_SUBJECTS[entry.kind].length === 0) return true;
   if (entry.actor !== finding.id) return false;
   if ('solid' in entry && entry.solid !== (finding.solid ?? null)) return false;
   if ('seat' in entry && entry.seat !== (finding.seat ?? null)) return false;

@@ -169,8 +169,33 @@ function uniformFacing(actors, { radius = 6 }) {
 /** Everything the gate can say about one built scene state. */
 export function stagingFindings({
   id, actors = [], boxes = [], seats = {}, player = null, uniformRadius = 6,
+  planOnlySolids = false,
 } = {}) {
   const findings = [];
+
+  /* A SCENE THAT COLLIDES IN PLAN CANNOT ANSWER A QUESTION ABOUT HEIGHT.
+   *
+   * The Squatchfather and Initiation block the player with 2D footprints --
+   * `block(x, z, w, d)`, no y at all -- because everything in them happens on
+   * one floor and the height never mattered. The collider reader has to give
+   * those a height to work with and gives them -0.5 to 4, so every table,
+   * chair and doormat in those two scenes becomes a four-and-a-half-metre
+   * column standing in front of whoever is near it. Both seated diners in the
+   * restaurant reported facing a wall at 0.4 m, and the wall was the table
+   * they were eating off.
+   *
+   * Reported once, as its own thing, rather than either emitting the per-actor
+   * findings (which name the wrong fault, and would train somebody to
+   * allowlist a real one) or dropping them silently (which is how a gate goes
+   * quiet -- see the theatre recliners). The measurement that decides this is
+   * the input's, not a guess: 36 of 36 and 189 of 189 in those two scenes,
+   * 0 of every collider in the other fifteen. */
+  if (planOnlySolids && actors.length) {
+    findings.push({
+      kind: 'SIGHTLINES_NOT_EVIDENCE', id: null, role: null, posture: null,
+      solids: boxes.length,
+    });
+  }
 
   const ids = new Set();
   for (const actor of actors) {
@@ -229,7 +254,7 @@ export function stagingFindings({
       const distance = rayBoxDistance(actor.eye, actor.forward, box);
       if (distance < nearest) { nearest = distance; hit = box; }
     }
-    if (nearest < FACING_WALL_DISTANCE_M && !riding) {
+    if (nearest < FACING_WALL_DISTANCE_M && !riding && !planOnlySolids) {
       findings.push(finding('FACING_INTO_SOLID', actor, {
         distanceM: Math.round(nearest * 1000) / 1000,
         solid: hit?.name ?? null,

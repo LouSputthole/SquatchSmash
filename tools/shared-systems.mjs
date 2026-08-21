@@ -87,7 +87,7 @@ export const SHARED_SYSTEMS = Object.freeze([
 export const SCENE_SYSTEM_ADOPTION = Object.freeze({
   airstrip: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, notes: "A story table, not a playable set: src/core/airstrip-story.js holds the scene." },
   arcade: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, notes: "The in-world cabinets. It hosts other games; it is not one." },
-  beefrun: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
+  beefrun: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 1 },
   bing: { objectives: 0, dialogue: 0, interaction: 2, player: 2, hud: 2, pause: 2, inventory: 1, blood: 2, staging: 2 },
   'cartel-palace': { objectives: 1, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 1, staging: 0 },
   combatlab: { objectives: 0, dialogue: 0, interaction: 0, player: 1, hud: 0, pause: 1, inventory: 0, blood: 0, staging: 0, notes: "A test harness for the combat systems, not a campaign scene." },
@@ -102,7 +102,7 @@ export const SCENE_SYSTEM_ADOPTION = Object.freeze({
   silver: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 0 },
   silvercase: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1 },
   specialmeeting: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 1 },
-  squatchfather: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 0 },
+  squatchfather: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1 },
   wardrobe: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, notes: "The fitting room tool, reached from the wardrobe page rather than the campaign." },
 });
 

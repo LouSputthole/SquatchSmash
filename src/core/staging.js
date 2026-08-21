@@ -203,6 +203,29 @@ export function setActorSeat(object, seat) {
   return object;
 }
 
+/**
+ * Say how tall an already-marked actor is RIGHT NOW.
+ *
+ * The marker's `eyeHeight` and `hipHeight` are the heights a body was
+ * authored at, and for anything that stands still that is the end of it. A
+ * pose that folds a man changes both: the shared airfield rig drops its hips
+ * from 0.86 to 0.52 to sit somebody down, so the whole body above the waist
+ * comes with it. Measured on the Enola crew, all four declared an eye 0.340 m
+ * above where their heads actually were, in an aeroplane, for the whole
+ * flight -- the same class of fault as the 2.30 m Sasquatch default, arriving
+ * through the pose instead of through the marker.
+ *
+ * Live beside the frozen marker, exactly like posture and seat, because a
+ * pose changes several times a scene and re-marking would mean a fresh frozen
+ * object every time somebody sat down.
+ */
+export function setActorHeights(object, { eyeHeight, hipHeight } = {}) {
+  if (!readActor(object)) throw new Error('Cannot set heights on an unmarked object');
+  if (eyeHeight !== undefined) object.userData.actorEyeHeight = eyeHeight;
+  if (hipHeight !== undefined) object.userData.actorHipHeight = hipHeight;
+  return object;
+}
+
 export function readActor(object) {
   const actor = object?.userData?.actor;
   return actor && typeof actor.id === 'string' ? actor : null;
@@ -232,8 +255,11 @@ export function collectActors(root, THREE) {
     const actor = readActor(object);
     if (!actor) return;
     const posture = object.userData.actorPosture ?? actor.posture;
-    /* The seat a pose sat him in beats the one the roster authored. */
+    /* The seat a pose sat him in beats the one the roster authored, and so do
+     * the heights it folded him to. */
     const seat = object.userData.actorSeat ?? actor.seat ?? null;
+    const eyeHeight = object.userData.actorEyeHeight ?? actor.eyeHeight;
+    const hipHeight = object.userData.actorHipHeight ?? actor.hipHeight;
     object.matrixWorld.decompose(position, quaternion, scale);
     const axis = faceAxisVector(actor);
     forward.set(axis[0], axis[1], axis[2]).applyQuaternion(quaternion);
@@ -249,8 +275,8 @@ export function collectActors(root, THREE) {
       position: [position.x, position.y, position.z],
       forward: [forward.x, forward.y, forward.z],
       yaw,
-      eye: [position.x, position.y + actor.eyeHeight, position.z],
-      hip: [position.x, position.y + actor.hipHeight, position.z],
+      eye: [position.x, position.y + eyeHeight, position.z],
+      hip: [position.x, position.y + hipHeight, position.z],
     });
   });
   return found;

@@ -1,0 +1,14 @@
+{
+  "$schema": "squatchsmash.staging-allowlist.v1",
+  "scene": "squatchfather",
+  "entries": [
+    {
+      "id": "squatchfather-default-plan-only-collision",
+      "state": "default",
+      "kind": "SIGHTLINES_NOT_EVIDENCE",
+      "reason": "The restaurant collides in plan and nothing else. Every one of its 36 blockers comes from block(x, z, w, d), which takes a footprint and no height, because the whole scene happens on one floor and a height was never needed to stop the player walking through a table. The collider reader has to give a footprint some y and gives it -0.5 to 4, so every table and chair in the room reads as a four-and-a-half-metre column: both seated diners were reported facing a wall at 0.4 m, and the wall was the table they were eating off. Their hips are still checked against the same footprints, which is the part that means something here. Authoring real heights would lift this; until then a sightline in this room is not evidence and should not be quoted as one.",
+      "source": "src/squatchfather/scenes/SquatchfatherScene.js:398",
+      "sourceAnchor": "function block(x, z, w, d, id = null) {"
+    }
+  ]
+}

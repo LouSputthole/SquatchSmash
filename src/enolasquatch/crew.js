@@ -182,6 +182,7 @@ function aimGaze(f, dt, playerEye, airframe) {
 export function createCrew() {
   const sasole = makeFigure({
     name: 'captain_lou_sasole',
+    actorRole: 'crew',
     /* His clothes and body palette are the same canonical contract Beef Run
      * already adapts onto this private block rig. The aeroplane owns only the
      * headset, face crop, pose and station below. */
@@ -221,6 +222,7 @@ export function createCrew() {
 
   const irish = makeFigure({
     name: 'irish',
+    actorRole: 'crew',
     skin: 0xe0b48c,
     shirt: 0x6a8ba8,
     jacket: 0x2f3a4a,
@@ -243,6 +245,7 @@ export function createCrew() {
    * bomb-bay bolts. */
   const numbskull = makeFigure({
     name: 'numbskull',
+    actorRole: 'crew',
     skin: 0xb07a4e,
     shirt: 0xb8a04a,
     jacket: 0x5a5a3a,          // grease-shiny coveralls
@@ -262,6 +265,7 @@ export function createCrew() {
 
   const shubes = makeFigure({
     name: 'shubes',
+    actorRole: 'crew',
     skin: 0xd8b48c,
     shirt: 0x8a7ab8,
     jacket: 0x3a2f5f,

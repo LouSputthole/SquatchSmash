@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Figure, buildHead } from '../characters/Figure.js';
 import { resolveGear } from '../../world/gear.js';
+import { coarseActorRole, markActor } from '../../core/staging.js';
 
 // The whole set: wet street under the elevated line, the dining room, the
 // narrow hallway, and the bathroom with the thing behind the toilet.
@@ -1343,11 +1344,37 @@ export function buildSquatchfatherScene(scene, renderer) {
   // The waiter and the diners are full Figures — they need the rig so they
   // can serve the room, and later actually cower instead of clipping into
   // their chairs.
-  function makeFigure(x, z, facing, opts, pose = 'stand') {
+  /**
+   * `id` and `actorRole` are for the staging gate, which had no cast at all in
+   * this restaurant and was therefore reporting it clean without looking at
+   * anybody.
+   *
+   * The two height ratios are measured off a built figure rather than read
+   * out of the rig: at `height: 0.96` the head box centres 1.759 above the
+   * group origin and the pelvis 0.880, which is 1.832 and 0.9167 per unit of
+   * height. Sitting drops the pelvis from STAND_PELVIS 0.92 to SIT_PELVIS
+   * 0.60, and everything above the waist goes with it.
+   */
+  const SF_EYE_PER_HEIGHT = 1.832;
+  const SF_HIP_PER_HEIGHT = 0.9167;
+  const SF_SIT_DROP = 0.32;
+
+  function makeFigure(x, z, facing, opts, pose = 'stand', id = null, actorRole = 'civilian') {
+    const height = opts?.height ?? 0.96;
     const f = new Figure({ height: 0.96, ...opts });
     markGeometryAssembly(f.group, 'figure');
     f.setPose(pose);
     f.place(x, z, facing);
+    if (id) {
+      const drop = pose === 'sit' ? -SF_SIT_DROP : 0;
+      markActor(f.group, {
+        id,
+        role: coarseActorRole(actorRole),
+        posture: pose === 'sit' ? 'sit' : 'stand',
+        eyeHeight: SF_EYE_PER_HEIGHT * height + drop,
+        hipHeight: SF_HIP_PER_HEIGHT * height + drop,
+      });
+    }
     scene.add(f.group);
     return f;
   }
@@ -1356,7 +1383,7 @@ export function buildSquatchfatherScene(scene, renderer) {
   const waiterFig = makeFigure(-3.2, 8.5, Math.PI, {
     coat: 0xe8e4dc, shirt: 0xdcd6c8, tie: 0x2a2a30, skin: 0xc79c72,
     bulk: 0.95, hair: 0x241c14, hairStyle: 'short', browTilt: 0.08, iris: 0x3a2a18,
-  });
+  }, 'stand', 'sf-waiter', 'clerk');
   const cook = makeBystander(-5.2, 11.6, Math.PI, 0xdcd8d0, 0xb98a63,
     { hair: 0x3a3230, hairStyle: 'crop', browHeavy: true, browTilt: 0.03, iris: 0x2a3a2a });
   cook.visible = true;
@@ -1366,11 +1393,11 @@ export function buildSquatchfatherScene(scene, renderer) {
   const diner1Fig = makeFigure(-5.75, 2.07, -0.3 + Math.PI / 2, {
     coat: 0x3a3b48, shirt: 0xd8d0c0, tie: 0x4a2a2a, skin: 0xd0a87e,
     bulk: 0.95, hair: 0x4a3826, hairStyle: 'short', browTilt: 0.1, iris: 0x2a3a4a,
-  }, 'sit');
+  }, 'sit', 'sf-diner-west', 'customer');
   const diner2Fig = makeFigure(5.71, 1.77, 0.4 - Math.PI / 2, {
     coat: 0x4a3a3a, shirt: 0xd0c8b8, tie: 0x2a3040, skin: 0xc09069,
     bulk: 0.95, hair: 0x2c241c, hairStyle: 'crop', lidHeavy: true, browTilt: 0.05, iris: 0x3a2a18,
-  }, 'sit');
+  }, 'sit', 'sf-diner-east', 'customer');
   const waiter = waiterFig.group;
   const diner1 = diner1Fig.group;
   const diner2 = diner2Fig.group;
