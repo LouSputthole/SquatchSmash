@@ -97,19 +97,19 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.IRISH, name: 'Irish', slug: 'irish', photo: 'irish.png',
     // East booth run, mid-story, sharing a booth with a regular.
-    spot: { x: 4.55, z: -4.55, yaw: -Math.PI / 2 + 0.06, job: 'sit' },
+    spot: { x: 4.55, z: -4.55, yaw: -Math.PI / 2 + 0.06, job: 'sit', seat: 'bing-booth:east:1' },
     model: WARDROBE.irish,
   },
   {
     id: CHARACTER_IDS.GRATIN, name: 'Gratin', slug: 'gratin', photo: 'gratin.png',
     // His own east booth, near the kitchen door, loyal to the wrong shrimp.
-    spot: { x: 4.55, z: -2.1, yaw: -Math.PI / 2 - 0.15, job: 'drink' },
+    spot: { x: 4.55, z: -2.1, yaw: -Math.PI / 2 - 0.15, job: 'drink', seat: 'bing-booth:east:2' },
     model: WARDROBE.gratin,
   },
   {
     id: CHARACTER_IDS.OLD_STOVE, name: 'Old Stove', slug: 'stove', photo: 'stove.png',
     // The short booth by the slot alcove, complaining about the ice in it.
-    spot: { x: 4.55, z: 5.65, yaw: -Math.PI / 2 + 0.1, job: 'drink' },
+    spot: { x: 4.55, z: 5.65, yaw: -Math.PI / 2 + 0.1, job: 'drink', seat: 'bing-booth:east:4' },
     model: {
       height: 1.72, build: 1.1, dress: 'shirt', shirt: 0x24303a,
       hair: 'receding', hairColour: 0x9a9a9a, beard: true, skin: 0xc08a5e,
@@ -121,7 +121,7 @@ export const FAMILY = [
     /* North booth with Eric, watching the lights flicker like packet loss.
      * Moved south with the bench: the run used to stand at z 11.0, which is
      * inside the front wall, and the two of them sat in the brick with it. */
-    spot: { x: -8.35, z: 10.25, yaw: Math.PI + 0.15, job: 'sit' },
+    spot: { x: -8.35, z: 10.25, yaw: Math.PI + 0.15, job: 'sit', seat: 'bing-booth:north:3' },
     model: {
       height: 1.74, build: 0.9, dress: 'tracksuit', shirt: 0x1f3a2a,
       hair: 'crop', hairColour: 0x2a1c14, glasses: true, skin: 0xe8c39c,
@@ -130,7 +130,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.ERIC, name: 'Eric', slug: 'eric', photo: 'erican.png',
     // Same booth as Lag, current on everything overseas, same move south.
-    spot: { x: -9.35, z: 10.25, yaw: Math.PI - 0.06, job: 'sit' },
+    spot: { x: -9.35, z: 10.25, yaw: Math.PI - 0.06, job: 'sit', seat: 'bing-booth:north:3' },
     model: WARDROBE.eric,
   },
   {
@@ -282,6 +282,13 @@ export function populateFamily(scene, club, { present = FAMILY, faces = new Set(
       z: member.spot.z,
       y: member.spot.y ?? 0,
       yaw: member.spot.yaw,
+      /* The booth he is sitting in, by the collider assembly id the club
+       * authors. The staging gate's facing ray skips the solid an actor
+       * NAMES as his seat -- a booth is one box from the floor to the top of
+       * its back, so a seated head is inside it by construction -- and it
+       * raises SEAT_MISSING if the name stops resolving, which is the point
+       * of naming it rather than guessing by proximity. */
+      ...(member.spot.seat ? { seat: member.spot.seat } : {}),
       colliders: club.colliders,
       navBlockers: club.navBlockers ?? null,
       model: { ...member.model, face },

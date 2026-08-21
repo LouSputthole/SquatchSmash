@@ -9,7 +9,7 @@
       "actor": "Ape",
       "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
       "reason": "Ape is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.20 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -19,7 +19,7 @@
       "actor": "Ape",
       "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
       "reason": "Ape is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.20 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -29,7 +29,7 @@
       "actor": "a regular-2",
       "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
       "reason": "a regular-2 is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.23 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -39,7 +39,7 @@
       "actor": "a regular-3",
       "solid": "aabb-4p03-0-m0p17-5p42-1p5-2p37",
       "reason": "a regular-3 is sitting in the east-run booth bing-booth:east:3, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.23 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -49,7 +49,7 @@
       "actor": "a regular-4",
       "solid": "aabb-m20p27-0-9p83-m17p73-1p5-10p37",
       "reason": "a regular-4 is sitting on the north bench bing-booth:north:0, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.22 m above the cushion top -- sat down, not stood in the furniture.",
-      "source": "src/bing/club.js:1321",
+      "source": "src/bing/club.js:1331",
       "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
     },
     {
@@ -59,7 +59,7 @@
       "actor": "a regular-5",
       "solid": "aabb-m16p87-0-9p83-m14p33-1p5-10p37",
       "reason": "a regular-5 is sitting on the north bench bing-booth:north:1, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.21 m above the cushion top -- sat down, not stood in the furniture.",
-      "source": "src/bing/club.js:1321",
+      "source": "src/bing/club.js:1331",
       "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
     },
     {
@@ -69,7 +69,7 @@
       "actor": "a regular-6",
       "solid": "aabb-m13p47-0-9p83-m10p93-1p5-10p37",
       "reason": "a regular-6 is sitting on the north bench bing-booth:north:2, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.22 m above the cushion top -- sat down, not stood in the furniture.",
-      "source": "src/bing/club.js:1321",
+      "source": "src/bing/club.js:1331",
       "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
     },
     {
@@ -79,7 +79,7 @@
       "actor": "a regular",
       "solid": "aabb-4p03-0-m9p77-5p42-1p5-m7p23",
       "reason": "a regular is sitting in the east-run booth bing-booth:east:0, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.23 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -89,7 +89,7 @@
       "actor": "Eric",
       "solid": "aabb-m10p07-0-9p83-m7p53-1p5-10p37",
       "reason": "Eric is sitting on the north bench bing-booth:north:3, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.22 m above the cushion top -- sat down, not stood in the furniture.",
-      "source": "src/bing/club.js:1321",
+      "source": "src/bing/club.js:1331",
       "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
     },
     {
@@ -99,7 +99,7 @@
       "actor": "Gratin",
       "solid": "aabb-4p03-0-m3p37-5p42-1p5-m0p83",
       "reason": "Gratin is sitting in the east-run booth bing-booth:east:2, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.22 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -109,7 +109,7 @@
       "actor": "Irish",
       "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
       "reason": "Irish is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.22 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -119,7 +119,7 @@
       "actor": "Lag",
       "solid": "aabb-m10p07-0-9p83-m7p53-1p5-10p37",
       "reason": "Lag is sitting on the north bench bing-booth:north:3, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.23 m above the cushion top -- sat down, not stood in the furniture.",
-      "source": "src/bing/club.js:1321",
+      "source": "src/bing/club.js:1331",
       "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
     },
     {
@@ -129,7 +129,7 @@
       "actor": "Old Stove",
       "solid": "aabb-4p03-0-4p43-5p42-1p5-6p37",
       "reason": "Old Stove is sitting in the east-run booth bing-booth:east:4, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.23 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1298",
+      "source": "src/bing/club.js:1307",
       "sourceAnchor": "solid(4.05, bz - 0.95, 5.4, bz + 0.95, 0, 1.5, assemblyId)"
     },
     {
@@ -139,7 +139,7 @@
       "actor": "a regular-2",
       "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
       "reason": "a regular-2 is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.25 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -149,7 +149,7 @@
       "actor": "a regular-3",
       "solid": "aabb-4p03-0-m0p17-5p42-1p5-2p37",
       "reason": "a regular-3 is sitting in the east-run booth bing-booth:east:3, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.24 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -159,7 +159,7 @@
       "actor": "a regular-4",
       "solid": "aabb-m20p27-0-9p83-m17p73-1p5-10p37",
       "reason": "a regular-4 is sitting on the north bench bing-booth:north:0, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.23 m above the cushion top -- sat down, not stood in the furniture.",
-      "source": "src/bing/club.js:1321",
+      "source": "src/bing/club.js:1331",
       "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
     },
     {
@@ -169,7 +169,7 @@
       "actor": "a regular-5",
       "solid": "aabb-m16p87-0-9p83-m14p33-1p5-10p37",
       "reason": "a regular-5 is sitting on the north bench bing-booth:north:1, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.21 m above the cushion top -- sat down, not stood in the furniture.",
-      "source": "src/bing/club.js:1321",
+      "source": "src/bing/club.js:1331",
       "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
     },
     {
@@ -179,7 +179,7 @@
       "actor": "a regular-6",
       "solid": "aabb-m13p47-0-9p83-m10p93-1p5-10p37",
       "reason": "a regular-6 is sitting on the north bench bing-booth:north:2, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.22 m above the cushion top -- sat down, not stood in the furniture.",
-      "source": "src/bing/club.js:1321",
+      "source": "src/bing/club.js:1331",
       "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
     },
     {
@@ -189,7 +189,7 @@
       "actor": "a regular",
       "solid": "aabb-4p03-0-m9p77-5p42-1p5-m7p23",
       "reason": "a regular is sitting in the east-run booth bing-booth:east:0, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.21 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -199,7 +199,7 @@
       "actor": "Eric",
       "solid": "aabb-m10p07-0-9p83-m7p53-1p5-10p37",
       "reason": "Eric is sitting on the north bench bing-booth:north:3, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.22 m above the cushion top -- sat down, not stood in the furniture.",
-      "source": "src/bing/club.js:1321",
+      "source": "src/bing/club.js:1331",
       "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
     },
     {
@@ -209,7 +209,7 @@
       "actor": "Gratin",
       "solid": "aabb-4p03-0-m3p37-5p42-1p5-m0p83",
       "reason": "Gratin is sitting in the east-run booth bing-booth:east:2, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.22 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -219,7 +219,7 @@
       "actor": "Irish",
       "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
       "reason": "Irish is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.22 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1290",
+      "source": "src/bing/club.js:1298",
       "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
     },
     {
@@ -229,7 +229,7 @@
       "actor": "Lag",
       "solid": "aabb-m10p07-0-9p83-m7p53-1p5-10p37",
       "reason": "Lag is sitting on the north bench bing-booth:north:3, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.23 m above the cushion top -- sat down, not stood in the furniture.",
-      "source": "src/bing/club.js:1321",
+      "source": "src/bing/club.js:1331",
       "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
     },
     {
@@ -239,7 +239,7 @@
       "actor": "Old Stove",
       "solid": "aabb-4p03-0-4p43-5p42-1p5-6p37",
       "reason": "Old Stove is sitting in the east-run booth bing-booth:east:4, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.23 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
-      "source": "src/bing/club.js:1298",
+      "source": "src/bing/club.js:1307",
       "sourceAnchor": "solid(4.05, bz - 0.95, 5.4, bz + 0.95, 0, 1.5, assemblyId)"
     }
   ]

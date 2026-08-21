@@ -177,10 +177,32 @@ export function setActorPosture(object, posture) {
   }
   if (!readActor(object)) throw new Error('Cannot set a posture on an unmarked object');
   object.userData.actorPosture = posture;
+  // See setActorSeat: a seat outlives the sitting only as a stale excuse.
+  if (posture !== 'sit') object.userData.actorSeat = undefined;
   return object;
 }
 
 /** The marker on an object, or null.  Never throws: callers traverse with it. */
+/**
+ * Say which seat an already-marked actor is sitting in.
+ *
+ * The marker's own `seat` is the seat a body was AUTHORED into, and for most
+ * of the cast that is the only one it ever has. It is not enough on its own:
+ * Ape stands at his roster spot in the Bing and sits in the east booth for
+ * the cleanup, so his seat belongs to the pose, not to the roster -- and the
+ * marker is frozen, so the pose cannot re-mark him.
+ *
+ * Clearing on any posture but `sit` is the point rather than a tidy-up. You
+ * have a seat while you are sitting in one; a stale seat left on a body that
+ * has stood up and walked off would go on excusing that solid from the
+ * facing ray somewhere else in the room.
+ */
+export function setActorSeat(object, seat) {
+  if (!readActor(object)) throw new Error('Cannot set a seat on an unmarked object');
+  object.userData.actorSeat = seat ?? undefined;
+  return object;
+}
+
 export function readActor(object) {
   const actor = object?.userData?.actor;
   return actor && typeof actor.id === 'string' ? actor : null;
@@ -210,6 +232,8 @@ export function collectActors(root, THREE) {
     const actor = readActor(object);
     if (!actor) return;
     const posture = object.userData.actorPosture ?? actor.posture;
+    /* The seat a pose sat him in beats the one the roster authored. */
+    const seat = object.userData.actorSeat ?? actor.seat ?? null;
     object.matrixWorld.decompose(position, quaternion, scale);
     const axis = faceAxisVector(actor);
     forward.set(axis[0], axis[1], axis[2]).applyQuaternion(quaternion);
@@ -218,6 +242,7 @@ export function collectActors(root, THREE) {
     found.push({
       object,
       actor,
+      seat,
       id: actor.id,
       role: actor.role,
       posture,

@@ -1278,6 +1278,14 @@ export function buildClub(scene, { renderer } = {}) {
     }
 
     anchors.booths = [];
+    /* The collider assembly id of the booth at the same index in
+     * `anchors.booths`, published so that anything seating a body on a booth
+     * can NAME the solid it is sitting in rather than re-deriving the id from
+     * the run and the index. The staging gate skips an actor's named seat on
+     * its facing ray, and a booth that gets renumbered here now breaks the
+     * marker loudly (SEAT_MISSING) instead of silently seating people in a
+     * booth that moved. */
+    anchors.boothAssembly = [];
     /* The east run stops SHORT of the archway through to the back of house
      * (z 2.4..4.4): the old fifth booth's collider lay across the mouth of
      * it, which is the way to the bathroom. Four sit south of the arch and a
@@ -1290,6 +1298,7 @@ export function buildClub(scene, { renderer } = {}) {
       solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId);
       boothTable(3.25, bz);
       anchors.booths.push(new THREE.Vector3(4.2, 0, bz));
+      anchors.boothAssembly.push(assemblyId);
     }
     {
       const bz = 5.4;
@@ -1298,6 +1307,7 @@ export function buildClub(scene, { renderer } = {}) {
       solid(4.05, bz - 0.95, 5.4, bz + 0.95, 0, 1.5, assemblyId);
       boothTable(3.25, bz);
       anchors.booths.push(new THREE.Vector3(4.2, 0, bz));
+      anchors.boothAssembly.push(assemblyId);
     }
     /* ---- the north run ----
      * It was pushed to z 11.0 to keep its tables off the blackjack corner,
@@ -1321,6 +1331,7 @@ export function buildClub(scene, { renderer } = {}) {
       solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId);
       boothTable(bx, NORTH_BENCH - 1.15);
       anchors.booths.push(new THREE.Vector3(bx, 0, NORTH_BENCH - 0.6));
+      anchors.boothAssembly.push(assemblyId);
     }
 
     // Candlelit two-tops around the stage

@@ -197,8 +197,12 @@ test('Silver default mounts room, deterministic cast, band, taxi, driver, and Da
   assert.equal(gateAssembly(built.roots[0].root, 'silver-taxi').length, 2);
   assert.equal(gateAssembly(built.roots[0].root, 'silver-date').length, 1);
   assert.equal(built.colliders.length, 197);
+  /* The 0.11 is authored, and src/silver/date.js says why: she, the front
+   * doorman and her taxi driver were all three on exactly Math.PI, which the
+   * staging gate reads as three strangers sighted on one spot down the
+   * street. This snapshot follows the constant rather than pinning it. */
   assert.deepEqual(built.metadata.poses.date, {
-    x: 7.6, y: 0.14, z: 38.2, yaw: Math.PI,
+    x: 7.6, y: 0.14, z: 38.2, yaw: Math.PI + 0.11,
   });
 
   const dateBounds = new THREE.Box3().setFromObject(gateAssembly(built.roots[0].root, 'silver-date')[0]);

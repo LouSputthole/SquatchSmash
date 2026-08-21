@@ -32,16 +32,29 @@ import {
   markActor,
   readActor,
   setActorPosture,
+  setActorSeat,
 } from '../src/core/staging.js';
 
-const actor = (id, { role = 'civilian', yaw = 0, x = 0, z = 0, posture = 'stand', seat, hipY = 1.16 } = {}) => ({
+/* The eye is 1.75, not the marker's 2.30 default.
+ *
+ * 2.30 is core/person.js's Sasquatch, and every body collider in this file is
+ * 1.9 m tall -- which is a fixture that pairs a head with a box the head is
+ * not in, and that combination cannot happen in a built scene. It stopped
+ * mattering only because nothing measured the two together; once `isOwnBody`
+ * started asking whether a solid comes up to the actor's eye, the fixture's
+ * own body boxes stopped being its own body. Same mismatch the game had:
+ * thirty bodies in the bank lobby declared a 2.300 m eye over irises that
+ * measured 1.511 to 1.842. */
+const actor = (id, {
+  role = 'civilian', yaw = 0, x = 0, z = 0, posture = 'stand', seat, hipY = 1.16, eyeY = 1.75,
+} = {}) => ({
   id,
   role,
   posture,
   position: [x, 0, z],
   forward: [Math.sin(yaw), 0, Math.cos(yaw)],
   yaw,
-  eye: [x, 2.3, z],
+  eye: [x, eyeY, z],
   hip: [x, hipY, z],
   actor: { id, role, posture, ...(seat ? { seat } : {}) },
 });
@@ -280,4 +293,156 @@ test('and standing inside SOMEBODY ELSE still reports', () => {
     id: 'fixture', actors: [actor('lag', { x: 2.3, z: 0 })], boxes: [other] });
   assert.equal(displaced.findings.filter(({ kind }) => kind === 'ACTOR_INSIDE_SOLID').length, 1,
     'a hand-width off centre is another man\'s box, and that is a real finding');
+});
+
+/* ------------------------------------------------------------------ *
+ * A PERSON IS NOT A WALL, AND A BOOTH IS NOT A WALL EITHER.
+ *
+ * Measured repo-wide, the facing ray raised 29 findings and 26 of them were
+ * the gate's own fault: 24 seated regulars whose heads were inside the booth
+ * they were sitting in, and the two men squaring up in bing:attack, each
+ * reported as staring at masonry that was in fact the other man. Three were
+ * real. These hold the line at three.
+ * ------------------------------------------------------------------ */
+
+const bodyBox = (x, z, name) => box([x - 0.24, 0, z - 0.24], [x + 0.24, 1.9, z + 0.24], name);
+
+/* A sitter, with the eye and hip of somebody actually sitting down --
+ * measured off the Bing's booth regulars at 1.2 m and 0.71 m. The shared
+ * `actor` fixture puts every eye at 2.30 m, which clears a 1.5 m booth
+ * outright and would let both booth tests pass without the gate doing
+ * anything at all. */
+const seatedActor = (id, seat, { yaw = 0, x = 0, z = 0 } = {}) => (
+  actor(id, { yaw, x, z, posture: 'sit', seat, hipY: 0.71, eyeY: 1.2 })
+);
+
+test('two actors squaring up are not facing a wall', () => {
+  // Ape at the origin looking +z at Billy 0.9 m away, and Billy looking back.
+  const ape = actor('ape', { yaw: 0, x: 0, z: 0 });
+  const billy = actor('billy', { yaw: Math.PI, x: 0, z: 0.9 });
+  const { findings } = stagingFindings({
+    id: 'fixture',
+    actors: [ape, billy],
+    boxes: [bodyBox(0, 0, 'cast.ape'), bodyBox(0, 0.9, 'cast.billy')],
+  });
+  assert.deepEqual(findings.filter(({ kind }) => kind === 'FACING_INTO_SOLID'), []);
+});
+
+test('a real wall behind another actor is still a finding', () => {
+  // The skip must not blind the ray -- it drops the body and keeps looking.
+  const watcher = actor('watcher', { yaw: 0, x: 0, z: 0 });
+  const other = actor('other', { yaw: Math.PI, x: 0, z: 0.4 });
+  const { findings } = stagingFindings({
+    id: 'fixture',
+    actors: [watcher, other],
+    boxes: [
+      bodyBox(0, 0, 'cast.watcher'),
+      bodyBox(0, 0.4, 'cast.other'),
+      box([-2, 0, 0.6], [2, 3, 0.8], 'wall'),
+    ],
+  });
+  /* Only the watcher: `other` is turned round and has nothing in front of
+   * him. The point is that the watcher's ray dropped the body in its way and
+   * carried on to the masonry behind it. */
+  const wall = findings.filter(({ kind }) => kind === 'FACING_INTO_SOLID');
+  assert.equal(wall.length, 1);
+  assert.equal(wall[0].id, 'watcher');
+  assert.equal(wall[0].solid, 'wall');
+});
+
+test('a sitter does not report the booth he is sitting in', () => {
+  // A booth is one box from the floor to the top of its back, so a seated
+  // head is inside it by construction. He names it, so the ray skips it.
+  const booth = { ...box([-1, 0, -1.2], [1, 1.5, 1.2], 'aabb-booth'), assembly: 'bing-booth:east:0' };
+  const sitter = seatedActor('regular', 'bing-booth:east:0');
+  const { findings } = stagingFindings({
+    id: 'fixture',
+    actors: [sitter],
+    boxes: [booth],
+    seats: { 'bing-booth:east:0': { min: { x: -1, y: 0, z: -1.2 }, max: { x: 1, y: 1.5, z: 1.2 } } },
+  });
+  assert.deepEqual(findings.filter(({ kind }) => kind === 'FACING_INTO_SOLID'), []);
+});
+
+test('a sitter still reports the solid he did NOT name', () => {
+  // The whole reason the skip is by name: an exemption that guessed which
+  // solid was his seat would go on to excuse the sofa he is buried in.
+  const booth = { ...box([-1, 0, -1.2], [1, 1.5, 1.2], 'aabb-booth'), assembly: 'bing-booth:east:0' };
+  const sofa = { ...box([-1, 0, -1.2], [1, 1.5, 1.2], 'aabb-sofa'), assembly: 'some-other-sofa' };
+  const sitter = seatedActor('regular', 'bing-booth:east:0');
+  const { findings } = stagingFindings({
+    id: 'fixture',
+    actors: [sitter],
+    boxes: [booth, sofa],
+    seats: { 'bing-booth:east:0': { min: { x: -1, y: 0, z: -1.2 }, max: { x: 1, y: 1.5, z: 1.2 } } },
+  });
+  const facing = findings.filter(({ kind }) => kind === 'FACING_INTO_SOLID');
+  assert.equal(facing.length, 1);
+  assert.equal(facing[0].solid, 'aabb-sofa');
+});
+
+test('two actors standing in the same place is STILL a finding', () => {
+  // The facing ray forgives a body; the hip check must not. This is the
+  // fault where two rigs are posed into the same cubic metre.
+  /* 0.20 m apart: further than OWN_BODY_CENTRE_M, so neither man's collider
+   * reads as the other's own, and closer than the collider is wide, so each
+   * hip really is inside the other's box. Posed on top of each other at the
+   * exact same coordinate they would each claim both boxes as their own and
+   * the fault would hide -- which is worth knowing, and is why the numbers
+   * here are spelt out. */
+  const one = actor('one', { x: 0, z: 0 });
+  const two = actor('two', { x: 0.2, z: 0 });
+  const { findings } = stagingFindings({
+    id: 'fixture',
+    actors: [one, two],
+    boxes: [bodyBox(0, 0, 'cast.one'), bodyBox(0.2, 0, 'cast.two')],
+  });
+  const swallowed = findings.filter(({ kind }) => kind === 'ACTOR_INSIDE_SOLID');
+  assert.equal(swallowed.length, 2);
+});
+
+test('a seat belongs to the sitting, not to the body', () => {
+  /* Ape stands at his roster spot in the Bing and sits in the east booth for
+   * the cleanup. The marker is frozen, so the pose has to be able to say
+   * where it put him -- and standing him back up has to take the seat away
+   * again, or that booth goes on being excused from his facing ray on the
+   * other side of the room. */
+  const node = { userData: {} };
+  markActor(node, { id: 'ape', role: 'principal', posture: 'stand' });
+  assert.equal(node.userData.actorSeat, undefined);
+
+  setActorPosture(node, 'sit');
+  setActorSeat(node, 'bing-booth:east:1');
+  assert.equal(node.userData.actorSeat, 'bing-booth:east:1');
+
+  setActorPosture(node, 'stand');
+  assert.equal(node.userData.actorSeat, undefined);
+});
+
+test('setActorSeat refuses a body nobody has marked', () => {
+  assert.throws(() => setActorSeat({ userData: {} }, 'a-booth'), /unmarked/);
+});
+
+test('a chair is not the man sitting in it', () => {
+  /* THE GATE WENT QUIET AND THE FAULT WAS STILL THERE.
+   *
+   * The mansion's cinema recliners are collided as one box per chair,
+   * measured 1.00 x 0.90 x 0.88 m, and a man sits in the middle of one --
+   * lag's mark is 0.02 m off the box centre. Person-sized and centred on him
+   * was the whole of the old own-body test, so forty-two ACTOR_INSIDE_SOLID
+   * findings across ten mansion states stopped firing while the hips they
+   * described were still inside the chairs. The allowlist then reported all
+   * forty-two as stale, which reads exactly like the fault having been
+   * fixed. Numbers below are the measured ones off mansion:tour. */
+  const recliner = box([-7, -2.5, 68.76], [-6, -1.6, 69.64], 'mansion-theatre-recliner-1-collider');
+  const sitter = {
+    ...actor('oldStove', { posture: 'sit', x: -6.5, z: 69.22 }),
+    position: [-6.5, -2.805, 69.22],
+    hip: [-6.5, -1.839, 69.22],
+    eye: [-6.5, -1.223, 69.22],
+  };
+  const { findings } = stagingFindings({ id: 'fixture', actors: [sitter], boxes: [recliner] });
+  const swallowed = findings.filter(({ kind }) => kind === 'ACTOR_INSIDE_SOLID');
+  assert.equal(swallowed.length, 1, 'the chair is furniture, and he is inside it');
+  assert.equal(swallowed[0].solid, 'mansion-theatre-recliner-1-collider');
 });

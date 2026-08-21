@@ -3895,8 +3895,8 @@ export function populate(scene, club, { includeMargo = true } = {}) {
    * which put one man inside his own table and left the north row hovering a
    * step in front of their seats. */
   const seatedSpots = [
-    [a.booths[0], 0.6], [a.booths[1], -0.4], [a.booths[3], 0.2],
-    [a.booths[5], 0.1], [a.booths[6], -0.2], [a.booths[7], 0.4],
+    [a.booths[0], 0.6, 0], [a.booths[1], -0.4, 1], [a.booths[3], 0.2, 3],
+    [a.booths[5], 0.1, 5], [a.booths[6], -0.2, 6], [a.booths[7], 0.4, 7],
   ];
   /* How far off square each of them has settled, in radians, in the order of
    * the spots above -- three down the east run, three along the north bench.
@@ -3909,10 +3909,18 @@ export function populate(scene, club, { includeMargo = true } = {}) {
    * with it. Nothing here is more than about twelve degrees, so every man is
    * still turned out of his booth at the floor he came to watch. */
   const SEATED_SETTLE = [0.13, -0.09, 0.19, 0.12, -0.14, 0.08];
-  seatedSpots.forEach(([spot, off], i) => {
+  seatedSpots.forEach(([spot, off, booth], i) => {
     const eastRun = spot.x > 0;
     add(`patron${i}`, new Npc(scene, {
       name: 'a regular', tier: i < 3 ? 'ambient' : 'background', job: i % 2 ? 'drink' : 'sit',
+      /* The booth's collider assembly id, read back out of the club rather
+       * than spelled out here, for the same reason the z is read off the
+       * anchor: the run has been renumbered once already. The staging gate
+       * skips the solid an actor names as his seat, because a booth is one
+       * box from the floor to the top of its back and a seated head is inside
+       * it by construction -- these six each reported facing a wall at zero
+       * metres, and the wall was the booth they were sitting in. */
+      ...(a.boothAssembly?.[booth] ? { seat: a.boothAssembly[booth] } : {}),
       x: eastRun ? 4.55 : spot.x + off,
       /* Read off the seat anchor rather than written out again: the north run
        * moved south out of the front wall it had been pushed into, and a

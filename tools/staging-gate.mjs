@@ -102,7 +102,25 @@ export function isOwnBody(box, actor) {
   if (spanX > OWN_BODY_MAX_SPAN_M || spanZ > OWN_BODY_MAX_SPAN_M) return false;
   const centreX = (box.min[0] + box.max[0]) / 2;
   const centreZ = (box.min[2] + box.max[2]) / 2;
-  return Math.hypot(centreX - actor.position[0], centreZ - actor.position[2]) <= OWN_BODY_CENTRE_M;
+  if (Math.hypot(centreX - actor.position[0], centreZ - actor.position[2]) > OWN_BODY_CENTRE_M) {
+    return false;
+  }
+  /* AND IT HAS TO COME UP TO HIS EYE.
+   *
+   * Person-sized-and-centred-on-him was not enough, because a cinema
+   * recliner is person-sized (measured 1.00 x 0.88 m) and centred on the man
+   * sitting in it to within 0.02 m. The mansion's theatre chairs were
+   * therefore read as the sitters' own bodies, and forty-two
+   * ACTOR_INSIDE_SOLID findings stopped firing -- while the fault they
+   * described was still there. Measured on mansion:tour, lag's hips sit at
+   * -1.837 inside a box running -2.500 to -1.600, exactly as the allowlist
+   * entry says they do. The gate had gone quiet, the entries read as stale,
+   * and deleting them as stale would have thrown away the only record of it.
+   *
+   * A body collider runs from the feet to over the head -- cast.ape measures
+   * 0 to 1.94 against an eye at 1.75 -- and furniture does not. The eye is
+   * already on the marker, so this costs nothing and needs no new number. */
+  return actor.eye[1] >= box.min[1] && actor.eye[1] <= box.max[1];
 }
 
 const finding = (kind, actor, detail) => ({
@@ -162,6 +180,11 @@ export function stagingFindings({
 
   findings.push(...uniformFacing(actors, { radius: uniformRadius }));
 
+  /* Which solids are somebody's body, computed once rather than per ray.
+   * Bing state: 51 actors against 147 boxes, and the facing loop below would
+   * otherwise ask the question 51 times per box. */
+  const bodyBoxes = new Set(boxes.filter((box) => actors.some((a) => isOwnBody(box, a))));
+
   for (const actor of actors) {
     /* In a vehicle, the two "he is in the masonry" checks are meaningless:
      * the masonry is the car and he is supposed to be in it. */
@@ -170,10 +193,39 @@ export function stagingFindings({
     // Facing a wall. The ray starts at the eye and runs along the face axis.
     let nearest = Infinity;
     let hit = null;
+    /* `actor.seat` is what collectActors resolved -- the pose's seat where a
+     * pose set one, the marker's otherwise. The `actor.actor` fallback keeps
+     * hand-built actors in the unit tests working. */
+    const seatAssembly = actor.seat ?? actor.actor?.seat ?? null;
     for (const box of boxes) {
-      /* His own body box is centred on his eye, so the ray starts inside it
-       * and every actor would read as facing a wall at zero metres. */
-      if (isOwnBody(box, actor)) continue;
+      /* ANYBODY'S body box, not just his own.
+       *
+       * His own is the obvious one: it is centred on his eye, so the ray
+       * starts inside it and every actor would read as facing a wall at zero
+       * metres. But the ray used to skip ONLY his own, and so the two men
+       * squaring up in bing:attack each reported facing a wall at 0.68 m --
+       * and the wall was the other man. A person is not masonry, and two
+       * characters at arm's length is the staging working, not a defect.
+       *
+       * ACTOR_INSIDE_SOLID below deliberately keeps the his-own-body test:
+       * a man standing INSIDE another man is still a bug, even though a man
+       * LOOKING AT another man is not. */
+      if (bodyBoxes.has(box)) continue;
+      /* The seat he is sitting in.
+       *
+       * A booth is authored as one box from the floor to the top of its back
+       * -- it has to be, because it is the thing the player walks into -- so
+       * a seated head is inside it by construction. That is what sitting in
+       * a booth IS. Twenty-four of the Bing's seated regulars reported
+       * facing a wall at zero metres, and the wall was their own booth.
+       *
+       * Skipped by the assembly id the actor NAMES, never by proximity or by
+       * a height threshold: a rule that guessed which solid was his seat
+       * would go on to excuse the sofa he is genuinely buried in, and an
+       * earlier "seat swallows sitter" distance was dropped for exactly that
+       * reason. A seat that gets renamed out from under the marker raises
+       * SEAT_MISSING rather than quietly excusing nothing. */
+      if (seatAssembly && box.assembly === seatAssembly) continue;
       const distance = rayBoxDistance(actor.eye, actor.forward, box);
       if (distance < nearest) { nearest = distance; hit = box; }
     }
@@ -205,15 +257,15 @@ export function stagingFindings({
     }
 
     // Sitting on a seat, or standing on one.
-    if (actor.posture === 'sit' && actor.actor?.seat) {
-      const seat = seats[actor.actor.seat];
+    if (actor.posture === 'sit' && seatAssembly) {
+      const seat = seats[seatAssembly];
       if (!seat) {
-        findings.push(finding('SEAT_MISSING', actor, { seat: actor.actor.seat }));
+        findings.push(finding('SEAT_MISSING', actor, { seat: seatAssembly }));
       } else {
         const above = actor.hip[1] - seat.max[1];
         if (above > SEAT_HIP_TOLERANCE_M) {
           findings.push(finding('SEAT_STANDING', actor, {
-            seat: actor.actor.seat,
+            seat: seatAssembly,
             aboveCushionM: Math.round(above * 1000) / 1000,
           }));
         }

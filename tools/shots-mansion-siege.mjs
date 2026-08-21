@@ -631,9 +631,20 @@ try {
       /* The north-west pose looked through the atrium rail/case and certified
        * off-screen vertices rather than readable pixels. The east clear bay
        * stays inside Eric's revive sphere and looks west across Eric, the
-       * armed guard, and the clamped worklamp on one unobstructed diagonal. */
+       * armed guard, and the clamped worklamp on one unobstructed diagonal.
+       *
+       * The aim point is a centimetre below the eye rather than level with
+       * it, and the centimetre is load-bearing. Aimed level, the bottom of
+       * Eric's blood pool sat at -0.9500 in NDC against a -0.95 frame margin:
+       * no margin at all. Turning Eric 2.9 degrees east -- to get his AK out
+       * of DeathMegatron's ribcage -- moved it to -0.9503 and the shot failed
+       * on a quarter of a thousandth of the frame. Dropping the aim lifts
+       * every subject in frame; a centimetre buys about seven thousandths,
+       * which the guard's head can afford (it had 0.0136 of headroom) and the
+       * blood needs. The camera itself cannot move: the light-budget proof
+       * pins x and z to this exact piece of gallery parquet. */
       id: 'worklamp-eric-flinch', x: 7.0, y: 6, z: 52.2,
-      target: [6.4, 5.95, 49.7], crouch: true, tick: 0.05, waitMs: 250,
+      target: [6.4, 5.94, 49.7], crouch: true, tick: 0.05, waitMs: 250,
       setup: 'eric-flinch',
     },
     { id: 'gallery-operations', x: 0, y: 6, z: 48.7, yaw: 180, pitch: -0.05 },

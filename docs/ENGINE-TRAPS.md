@@ -426,3 +426,36 @@ which is exactly where the tagged support exists. The reds were in the
 verifier that walks doorways, and a red that predates you is a red nobody
 owns. Entry 7's rule applies: before filing a red as pre-existing, find out
 what it is measuring. Here it was measuring the floor.
+
+## 10. A stale allowlist entry is a claim about the world, not a chore
+
+**Trap.** An allowlist entry says "this finding is expected, and here is why".
+When the gate stops raising that finding, the entry is reported as *stale* —
+and stale reads like good news: the fault was fixed, tidy the record up. It is
+just as likely that the gate went blind and the entry is the last surviving
+record of a real defect.
+
+**The incident.** `tools/staging-allowlists/mansion.json` reported forty-two
+stale entries across ten mansion states, all of them theatre-recliner sitters.
+Nothing had fixed them. `isOwnBody` identified an actor's own body collider as
+"person-sized AND centred on him", and a cinema recliner is person-sized
+(1.00 x 0.90 x 0.88 m) and centred on the man sitting in it to within 0.02 m,
+so every chair was being read as its own sitter and skipped. Measured on
+`mansion:tour`, lag's hips sat at -1.837 inside a box running -2.500 to
+-1.600 — precisely the geometry his entry describes, still true, no longer
+reported.
+
+Deleting the forty-two as stale would have destroyed the only written record
+of the fault AND left the blind spot in place, and both the deletion and the
+green run after it would have looked like progress.
+
+**The rule.** When an entry goes stale, go and measure the thing it describes
+before deleting it. If the geometry it cites is still true, the gate is the
+thing that broke. Entry 5's rule, arriving from the other direction: there, a
+gate reported success without exercising the path; here, it reported *nothing*,
+which is the same lie with fewer words.
+
+**What made it visible.** Nothing in the finding stream — by construction,
+there was no finding. It surfaced because the verifier exits non-zero on stale
+entries and somebody went and measured instead of tidying. A gate that quietly
+drops stale entries would never have shown it at all.

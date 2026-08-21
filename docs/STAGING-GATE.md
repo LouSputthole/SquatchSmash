@@ -109,7 +109,69 @@ down.** Correcting the heights immediately surfaced 26 findings in the Bing
 that the wrong number had been hiding — booth drinkers marked `stand`, sitting
 down, with a standing eye 10 cm above a 1.5 m booth. A scene that poses a body
 seated must say so with `setActorPosture`, or the gate reasons about a man who
-is not there. That triage is open work, not a clean sheet.
+is not there.
+
+Those 26 were then triaged, and **not one of them was the scene's fault.** The
+whole set is now zero, with no allowlist entry written for any of it, because
+the gate was wrong twice over.
+
+### A person is not a wall
+
+`FACING_INTO_SOLID` skipped the actor's OWN body collider and nothing else, so
+the two men squaring up in `bing:attack` each reported staring at masonry —
+and the masonry was the other man, at 0.68 m. The ray now drops *anybody's*
+body box and carries on to whatever is behind it, so a genuine wall past a
+person still reports at its real distance.
+
+`ACTOR_INSIDE_SOLID` deliberately keeps the old his-own-body test. A man
+LOOKING AT another man is staging; a man standing INSIDE one is a bug.
+
+### A booth is not a wall either
+
+A booth is authored as one box from the floor to the top of its back — it has
+to be, because it is the thing the player walks into — so a seated head is
+inside it by construction. Twenty-four seated regulars reported facing a wall
+at zero metres, and the wall was their own booth.
+
+The ray now skips the solid an actor **names** as his seat, via the collider
+`assemblyId` the scene already authors (`bing-booth:east:0`). Never by
+proximity and never by a height threshold: a rule that guessed which solid was
+his seat would go on to excuse the sofa he is genuinely buried in, and the
+"seat swallows sitter" distance below was dropped for exactly that reason. A
+booth renamed out from under a marker raises `SEAT_MISSING`.
+
+A seat belongs to the sitting, not to the body. Ape stands at his roster spot
+and sits in the east booth for the cleanup, so `setActorSeat` sets it and any
+posture but `sit` clears it — a seat left on a man who has stood up and walked
+off would go on excusing that booth from his ray across the room.
+
+Caveat worth knowing: an assembly-resolved seat box is the whole booth, floor
+to seat back, so `SEAT_STANDING` measured against it is weaker than against an
+authored cushion mesh — a man standing ON the bench is still under the seat
+back and goes unreported. Scenes that author a named cushion get the tight
+check; the named-object branch wins.
+
+### A chair is not the man sitting in it
+
+Found by chasing a *stale* allowlist entry rather than a finding, which is the
+only reason it was found at all.
+
+Own-body was "person-sized AND centred on him", and a cinema recliner is
+person-sized (measured 1.00 x 0.90 x 0.88 m) and centred on its sitter to
+within 0.02 m. The mansion's theatre chairs were therefore read as the sitters'
+own bodies, and **forty-two `ACTOR_INSIDE_SOLID` findings across ten mansion
+states stopped firing while the fault they described was still there** —
+lag's hips measured at -1.837 inside a box running -2.500 to -1.600, exactly as
+his allowlist entry says. The allowlist then reported all forty-two as stale,
+which reads precisely like the fault having been fixed.
+
+The rule now also asks whether the box comes up to the actor's **eye**. A body
+collider runs feet to over the head (`cast.ape` measures 0 to 1.94 against an
+eye at 1.75); furniture does not. The eye is already on the marker, so this
+needed no new number.
+
+**A gate going quiet is not the same as a fault going away.** When an entry
+goes stale, measure the thing it described before deleting it.
 
 ## What it still needs: an allowlist
 

@@ -147,8 +147,8 @@ function worldBox(object) {
  * silent pass -- a seat that was renamed out from under a marker is exactly
  * the kind of drift this is here to catch.
  */
-function resolveSeats(roots, actors) {
-  const wanted = new Set(actors.map((actor) => actor.actor?.seat).filter(Boolean));
+function resolveSeats(roots, actors, boxes = []) {
+  const wanted = new Set(actors.map((actor) => actor.seat ?? actor.actor?.seat).filter(Boolean));
   const seats = {};
   for (const name of wanted) {
     for (const { root } of roots) {
@@ -157,6 +157,27 @@ function resolveSeats(roots, actors) {
       const box = worldBox(object);
       if (box) seats[name] = box;
       break;
+    }
+    if (seats[name]) continue;
+    /* Failing a named object, a collider assembly of that name.
+     *
+     * Furniture in this project is authored as a collider carrying an
+     * assembly id -- `bing-booth:east:0` -- and often no Object3D of that
+     * name at all, because the id exists to group the collider with its
+     * meshes for the geometry gate. A sitter naming his booth had nothing to
+     * resolve against until this looked here too.
+     *
+     * The box this yields is the whole booth, floor to the top of its back,
+     * so SEAT_STANDING measured against it is weaker than against an
+     * authored cushion mesh: a man standing ON the bench is still under the
+     * seat back and goes unreported. Scenes that author a cushion get the
+     * tight check, because the named-object branch above wins. */
+    const assembly = boxes.find((box) => box.assembly === name);
+    if (assembly) {
+      seats[name] = {
+        min: { x: assembly.min[0], y: assembly.min[1], z: assembly.min[2] },
+        max: { x: assembly.max[0], y: assembly.max[1], z: assembly.max[2] },
+      };
     }
   }
   return seats;
@@ -182,6 +203,12 @@ function colliderBoxes(built) {
     .filter((record) => !record.invalid && record.min && record.max)
     .map((record) => ({
       name: record.id ?? null,
+      /* The authored group this solid belongs to, e.g. `bing-booth:east:0`.
+       * `record.id` is synthesised from coordinates when the collider has no
+       * name of its own, which is most of them, so the assembly is the only
+       * stable handle an actor's `seat` marker can name. Every one of the
+       * Bing's 147 collider records carries one. */
+      assembly: record.assemblyId ?? null,
       min: [record.min.x, record.min.y, record.min.z],
       max: [record.max.x, record.max.y, record.max.z],
     }));
@@ -228,11 +255,12 @@ for (const state of states) {
   if (actors.length === 0) continue;
   withCast += 1;
 
+  const boxes = colliderBoxes(built);
   const { findings: raw } = stagingFindings({
     id: state.id,
     actors,
-    boxes: colliderBoxes(built),
-    seats: resolveSeats(built.roots, actors),
+    boxes,
+    seats: resolveSeats(built.roots, actors, boxes),
     player: playerStance(built),
   });
 

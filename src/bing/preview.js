@@ -1,3 +1,5 @@
+import { readActor, setActorSeat } from '../core/staging.js';
+
 export const HOTDOG_PREVIEW_CHECKPOINTS = Object.freeze([
   'party',
   'attack',
@@ -23,11 +25,18 @@ function actor(party, key) {
   return value;
 }
 
-function pose(npc, x, z, job = 'work', yaw = 0, y = 0) {
+function pose(npc, x, z, job = 'work', yaw = 0, y = 0, seat = null) {
   npc.route = null;
   npc.job = job;
   npc.baseY = y;
   npc._syncJob?.(true);
+  /* AFTER _syncJob, which is what puts him in the posture: sitting him down
+   * clears any seat he was holding, so naming the seat first would name it
+   * into the bin. The staging gate skips the solid a sitter names as his
+   * seat, and a booth is one box from the floor to the top of its back --
+   * without this Ape reported facing a wall at zero metres, and the wall was
+   * the booth he had just been posed into. */
+  if (readActor(npc.group)) setActorSeat(npc.group, job === 'sit' ? seat : null);
   npc.group.position.x = x;
   npc.group.position.z = z;
   npc.group.rotation.set(0, yaw, 0);
@@ -80,7 +89,7 @@ export function poseHotDogResolvedAttackGeometry(partyInput) {
 
 export function poseHotDogCleanupRolesGeometry(partyInput) {
   const party = requireParty(partyInput);
-  pose(actor(party, 'ape'), 4.25, -4.5, 'sit', -Math.PI / 2);
+  pose(actor(party, 'ape'), 4.25, -4.5, 'sit', -Math.PI / 2, 0, 'bing-booth:east:1');
   const deathmegatron = actor(party, 'deathmegatron');
   pose(deathmegatron, 3.25, -3.7, 'stand', -Math.PI / 2);
   deathmegatron.folded = true;
