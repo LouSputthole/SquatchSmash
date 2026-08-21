@@ -30,6 +30,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { voiceOverlapFindings } from './voice-overlap-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5206;
@@ -69,7 +70,13 @@ const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
 
 const problems = [];
 const missing = [];
-page.on('pageerror', (error) => problems.push(error.message));
+page.on('pageerror', (error) => {
+  /* WITH THE STACK. A bare message names the Web Audio call that threw and
+   * not the code that fed it, and there are twenty-five ramp sites in this
+   * game. Two runs were spent narrowing it by hand. */
+  const where = (error.stack ?? '').split('\n').slice(1, 4).join(' | ');
+  problems.push(where ? `${error.message} @ ${where}` : error.message);
+});
 page.on('console', (message) => {
   if (message.type() === 'error') problems.push(message.text().slice(0, 240));
 });
@@ -99,6 +106,78 @@ async function driveTo(page, phase, { timeout = 90000 } = {}) {
     }
     await page.evaluate(() => window.INITIATION.smashAction());
     await page.waitForTimeout(400);
+  }
+}
+
+/**
+ * Walk the player, on the real keys, until the phase moves.
+ *
+ * `approach` and `line_up` advance on DISTANCE -- within 17 m of the line,
+ * then within 1.05 m of the slot -- so pressing the action key at them does
+ * nothing at all, which is why the first attempt at driving the middle acts
+ * sat in `approach` for four two-minute timeouts and reported the scene
+ * broken. It was the driver that had no legs.
+ *
+ * Which key is forward is MEASURED rather than assumed: it holds one, watches
+ * whether the gap to the target actually closes, and swaps if it does not.
+ * The spawn heading is authored and could be re-authored, and a walker that
+ * silently strolls the wrong way would look exactly like a scene that cannot
+ * advance.
+ */
+async function walkTo(page, phase, { timeout = 120000 } = {}) {
+  /* Where he is, which way he is pointed, and how far off the mark. */
+  const state = () => page.evaluate(() => {
+    const p = window.INITIATION.player.group.position;
+    const c = window.INITIATION.PLAYER_SLOT;
+    return {
+      dx: c.x - p.x,
+      dz: c.z - p.z,
+      yaw: window.INITIATION.player.group.rotation.y,
+      phase: window.INITIATION.phase,
+    };
+  });
+
+  const held = new Set();
+  const hold = async (keys) => {
+    for (const key of [...held]) if (!keys.has(key)) { await page.keyboard.up(key); held.delete(key); }
+    for (const key of keys) if (!held.has(key)) { await page.keyboard.down(key); held.add(key); }
+  };
+
+  const deadline = Date.now() + timeout;
+  /* Which strafe key is his right is MEASURED, not assumed: pick one, watch
+   * whether the gap closes, flip once if it does not. Walking confidently in
+   * the wrong direction looks exactly like a scene that cannot advance, which
+   * is how the first version of this reported four phases broken. */
+  let rightIsD = true;
+  let best = Infinity;
+  let stale = 0;
+  try {
+    for (;;) {
+      const at = await state();
+      if (at.phase === phase) return true;
+      const gap = Math.hypot(at.dx, at.dz);
+      if (Date.now() > deadline) {
+        throw new Error(`Initiation never walked to '${phase}' — in '${at.phase}', ${gap.toFixed(1)} m out`);
+      }
+      if (gap < best - 0.1) { best = gap; stale = 0; } else { stale += 1; }
+      if (stale === 4) { rightIsD = !rightIsD; stale = 0; }
+
+      /* The heading-relative move. Forward is +Z rotated by the yaw, which is
+       * the convention `Math.atan2(x, z)` reads for everywhere else here. */
+      const sin = Math.sin(at.yaw);
+      const cos = Math.cos(at.yaw);
+      const forward = at.dx * sin + at.dz * cos;
+      const right = at.dx * cos - at.dz * sin;
+      const keys = new Set();
+      if (forward > 0.4) keys.add('KeyW');
+      else if (forward < -0.4) keys.add('KeyS');
+      if (right > 0.4) keys.add(rightIsD ? 'KeyD' : 'KeyA');
+      else if (right < -0.4) keys.add(rightIsD ? 'KeyA' : 'KeyD');
+      await hold(keys);
+      await page.waitForTimeout(450);
+    }
+  } finally {
+    await hold(new Set());
   }
 }
 
@@ -163,6 +242,61 @@ try {
     typeof quizVoiceProbe.speaker === 'string' && quizVoiceProbe.speaker.length > 0
       && quizVoiceProbe.cue.startsWith('vo.initiation.'),
     JSON.stringify(quizVoiceProbe));
+
+  /* ---------------------------------------------------------------- */
+  /* ACTS TWO TO FOUR — the part nothing had ever played               */
+  /* ---------------------------------------------------------------- */
+
+  /* THIS IS THE GAP THAT LET ACT FIVE SHIP BROKEN, ONE ACT EARLIER.
+   *
+   * Until now this verifier touched `approach` and then called
+   * `skipToRitual()`, so forty of the scene's forty-five phases were never
+   * once played by anything. The pure tests prove the phase graph is sound --
+   * every phase reachable, every exit real, every beat authored -- and that is
+   * a different claim from the runtime actually walking it: timers firing,
+   * cameras cutting, lines playing, the pistol changing hands. Act five was
+   * proven as data too, and shipped broken. See docs/ENGINE-TRAPS.md 5.
+   *
+   * Driven, not skipped. `driveTo` presses the action key on a slow tick,
+   * which is what a player does and the only thing that is not a race. */
+  /* On foot to the line, because that is how a player gets there. */
+  let walked = true;
+  try {
+    await walkTo(page, 'line_chat', { timeout: 120000 });
+  } catch (error) {
+    walked = false;
+    check('the player can walk from the woods to his place in the line', false, error.message);
+  }
+  if (walked) check('the player can walk from the woods to his place in the line', true);
+
+  const MIDDLE = [
+    ['speech', 'Booskibro speaks to the line'],
+    ['q1', 'the first question is asked'],
+    ['exec_one', 'the first man is taken out of the line'],
+    ['q2_intro', 'the second question comes round'],
+  ];
+  for (const [phase, what] of MIDDLE) {
+    let reached = true;
+    try {
+      await driveTo(page, phase, { timeout: 120000 });
+    } catch (error) {
+      reached = false;
+      check(`the scene reaches ${phase} — ${what}`, false, error.message);
+    }
+    if (reached) check(`the scene reaches ${phase} — ${what}`, true);
+  }
+
+  /* Nobody talked over anybody on the way here. The engine's own playback log
+   * is the evidence; `voiceOverlaps()` is the arithmetic. A line that MEANS
+   * to cut in says so with `interrupt: true` and is not reported. */
+  const midOverlap = await voiceOverlapFindings(page, 'window.INITIATION.audio');
+  check('the audio engine is reachable, so silence here means silence',
+    midOverlap.reachable, midOverlap.reachable ? `${midOverlap.voices} voice lines heard ${JSON.stringify(midOverlap.windows?.slice(0, 5))}` : 'window.INITIATION.audio did not resolve');
+  check('no two people talk over each other through the executions',
+    midOverlap.reachable && midOverlap.findings.length === 0,
+    midOverlap.findings.length
+      ? JSON.stringify(midOverlap.findings.slice(0, 4))
+      : `${midOverlap.voices} lines, none overlapping`);
 
   /* ---------------------------------------------------------------- */
   /* ACT FIVE — the blade, the hand, the cut, the card, the burning    */

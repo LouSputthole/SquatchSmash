@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
+import { SPEECH_MIX_INDOORS, hasSpeech, speak } from '../core/dialogue.js';
 import { AuthoredClock } from '../core/authored-clock.js';
 import { BloodImpactSystem, BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import {
@@ -251,7 +252,7 @@ chatter = createHotDogChatter({
   sequence,
   mission,
   speakerActor: (name) => actorFor(name),
-  playCue: (cue) => playCue(cue),
+  playCue: (cue, speaker) => playCue(cue, speaker),
   cueSeconds: (cue) => cueSeconds(cue),
 });
 
@@ -265,14 +266,38 @@ function cueSeconds(name) {
  * (src/core/mouth.js) rather than on a guessed duration. Null when the cue has
  * no recording, which is what the fallback envelope is for.
  */
-function playCue(name) {
+/**
+ * One line, out of the mouth of the man saying it.
+ *
+ * THIS USED TO BE `audio.play(name, { volume: 0.9 })` AND NOTHING ELSE, which
+ * is three faults in one line. A flat 0.9 with no positional mix means a man
+ * across the club is exactly as loud as one leaning on your shoulder --
+ * `src/core/dialogue.js` was written for that note, which the owner reported
+ * as "random volume differences". It also missed the voice bus, so a line
+ * never ducked the jukebox it was competing with, and never picked up the one
+ * trim the rest of the game's dialogue goes through.
+ *
+ * `SPEECH_MIX_INDOORS` rather than the open-air mix: this is a room with walls
+ * about twenty metres apart, and the clearing's 30 m falloff would carry a
+ * murmur at the far booth all the way to the door.
+ *
+ * The `_vo.stop()` stays. It is this scene's interrupt: a new line cuts the
+ * one before it dead rather than sounding over it, which is why the voice
+ * overlap gate reports nothing here. It works because `stop()` fires
+ * `onended`, which stamps `endedAt`, and `voiceOverlaps()` believes a real
+ * end over a scheduled one.
+ */
+function playCue(name, speaker = null) {
   if (!name || !audio.ready) return null;
-  const bank = audio.buffers?.get(name);
-  if (!bank?.length) return null;
+  if (!hasSpeech(audio, name)) return null;
   audio._vo?.stop?.();
-  const source = audio.play(name, { volume: 0.9 });
-  audio._vo = source;
-  return { audio, source, seconds: bank[0].duration };
+  const spoken = speak(audio, name, {
+    mix: SPEECH_MIX_INDOORS,
+    ...(speaker ? { speaker } : {}),
+    speakerId: speaker?.name ?? null,
+  });
+  audio._vo = spoken.source;
+  return { audio, source: spoken.source, seconds: spoken.seconds };
 }
 
 /* How far off the authored framing the player may look. Wide enough to watch
@@ -442,7 +467,7 @@ function showLine(beat) {
   else actor?.faceToward(player.position.x, player.position.z);
   directBeatCamera(beat);
   /* Started AFTER the cue, because the mouth is driven by the take. */
-  actor?.say(seconds, playCue(beat.cue));
+  actor?.say(seconds, playCue(beat.cue, actor));
 }
 
 function hideLine() {

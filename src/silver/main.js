@@ -14,6 +14,7 @@
  */
 import * as THREE from 'three';
 import { SilverAudioEngine } from './audio.js';
+import { SPEECH_MIX_INDOORS, hasSpeech, speak } from '../core/dialogue.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
@@ -410,12 +411,28 @@ function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
     audio._vo = null;
   }
   if (!audio.ready) return null;
-  const bank = audio.buffers?.get(name);
-  if (!bank?.length) return null;
-  const src = audio.play(name, { volume, delay });
+  if (!hasSpeech(audio, name)) return null;
+  /* THROUGH THE SHARED SPEECH PATH, not a bare `audio.play`.
+   *
+   * A flat 0.9 with no positional mix put a diner at the far wall at the same
+   * level as Margo across the table — one of the rooms behind the owner's
+   * "random volume differences". `SPEECH_MIX_INDOORS` is the dining room's
+   * scale, and the voice bus gives the line the one trim the rest of the
+   * game's dialogue goes through plus a duck under the band.
+   *
+   * `ambientVoice` on the non-solo lines is the room's own murmur declaring
+   * itself, so the voice overlap gate reads two overheard diners as a
+   * restaurant rather than as the scene talking over itself. `speak()` also
+   * holds the floor, which is why the explicit `hold` below is gone. */
+  const spoken = speak(audio, name, {
+    mix: SPEECH_MIX_INDOORS,
+    gain: volume,
+    delay,
+    ...(solo ? {} : { ambientVoice: true }),
+  });
+  const src = spoken.source;
   if (solo) audio._vo = src;
-  const seconds = delay + (src?.buffer ? src.buffer.duration : 1.6);
-  audio.hold(seconds + 0.25);
+  const seconds = delay + spoken.seconds;
   /* Only a solo line holds the floor. The room's own overheard voices are
    * played `solo: false` on purpose and must not make a bark wait. */
   if (solo) voiceFreeAt = performance.now() + seconds * 1000;

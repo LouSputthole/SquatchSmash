@@ -97,7 +97,11 @@ export function createHotDogChatter({
     }
     /* The cue first, then the mouth: `playCue` hands back the take and the
      * mouth is driven by it (src/core/mouth.js), so the order matters. */
-    const take = playCue?.(entry.cue) || null;
+    /* The speaker goes WITH the cue: the shared dialogue path seeds the
+     * panner at him and follows him if he walks, which is the difference
+     * between a line that stays with a man and one pinned to where he was
+     * standing when he opened his mouth. */
+    const take = playCue?.(entry.cue, actor) || null;
     actor?.say(Math.max(1.4, seconds), take);
     hud.say(`<em>${entry.who}:</em> ${entry.line}`, Math.round(seconds * 1000));
     speaking = entry;

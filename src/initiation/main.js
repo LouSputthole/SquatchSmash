@@ -729,6 +729,22 @@ const dialogActive = () => sayQueue.length > 0;
  */
 function speakLine(line) {
   if (!line?.cue) return 0;
+  /* SILENCE THE MAN BEFORE HIM.
+   *
+   * `sayAutoT` below is only the AUTO advance. A player can press on at any
+   * point in a line, and every press calls straight back in here, so the
+   * ceremony used to stack: measured on a real run of the speech, one
+   * Booskibro take was still sounding while three more of his own lines and
+   * one of Lou's started on top of it — 2.22 s, 1.43 s, 0.81 s and 0.21 s of
+   * two voices at once. Mashing through a long speech is the first thing
+   * anybody does, so it is the first thing anybody would have heard.
+   *
+   * `src/initiation/audio.js` has always done this for its own path and its
+   * comment says why — "advancing the ceremony silences the prior actor" —
+   * but the ceremony's lines go through the SHARED engine, and nothing was
+   * telling that one. `stopSpeech()` cuts live speech only, and puts the
+   * music and ambience beds back, so a skip does not leave the room ducked. */
+  audio.stopSpeech?.();
   const body = bodyFor(line);
   const spoken = speak(audio, line.cue, {
     speaker: body ?? (() => player.position),
@@ -2866,6 +2882,10 @@ window.INITIATION = {
 
 /* Referenced so the shared inventory bar and the script's speaker table are
  * not tree-shaken out of a bundle that only reads them at run time. */
+/* The audio engine, so a verifier can ask what was actually heard.
+ * tools/voice-overlap-check.mjs reads `playbacks` off it to answer whether
+ * two people talked at once — the note the owner kept having to make by ear. */
+window.INITIATION.audio = audio;
 window.INITIATION.inventory = sceneInventory;
 window.INITIATION.speakers = SCRIPT_SPEAKERS;
 window.INITIATION.cameraModes = CAMERA_MODES;

@@ -172,7 +172,11 @@ export function createCabinAmbience({ audio = null } = {}) {
 
     stop() {
       running = false;
-      for (const key of AMBIENCE_LOOPS) audio?.stopLoop?.(key, { fade: 1.2 });
+      /* A NUMBER, not an options object. `stopLoop(key, fade = 0.5)` takes
+       * seconds, so `{ fade: 1.2 }` made `t + fade` NaN and the fade-out threw
+       * every time the cabin ambience stopped. Nothing caught it because
+       * nothing had ever played this part of the scene. */
+      for (const key of AMBIENCE_LOOPS) audio?.stopLoop?.(key, 1.2);
     },
   };
 }

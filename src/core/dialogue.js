@@ -303,3 +303,88 @@ export class DialogueSequence {
     this.onLine?.(line, spoken);
   }
 }
+
+/**
+ * Scheduling jitter, in seconds, that is not two people talking at once.
+ *
+ * `DialogueSequence` leaves `SPEECH_GAP_S` (0.28 s) between its own lines, so
+ * anything that genuinely overlaps does so by a lot. This is here only so that
+ * two lines butted end to end by the audio clock -- where one source's
+ * scheduled end and the next one's scheduled start land on the same
+ * millisecond from opposite sides of a float -- do not read as a fault.
+ */
+export const VOICE_OVERLAP_GRACE_S = 0.02;
+
+/**
+ * Two people talking at once, found in the engine's own playback log.
+ *
+ * THE PROBLEM THIS IS FOR. `DialogueSequence` cannot talk over itself -- it
+ * waits for the real clip length plus a beat before the next line. What it
+ * cannot see is anything ELSE: a second sequence started by another system, an
+ * ambient bark, a scripted beat firing while a hangout conversation is still
+ * running. `AudioEngine.hold()` exists for that and is advisory: it makes the
+ * cues that CHOOSE to check `busy()` wait, and stops nothing that does not.
+ * So the only instrument for "are lines playing over each other" was the
+ * owner listening, which is exactly the kind of note this project turns into
+ * arithmetic.
+ *
+ * Pure on purpose, like the geometry and staging gates: playbacks in,
+ * findings out. The recording is `AudioEngine.playbacks`, which already
+ * carried the timings and now carries `voice`, `speakerId` and `interrupt`
+ * beside them.
+ *
+ * A line marked `interrupt` is allowed to start inside the one before it,
+ * because cutting somebody off is a thing scenes do on purpose. It is not
+ * allowed to be *interrupted* in turn by an unmarked line, and it does not
+ * excuse a third voice.
+ *
+ * @param {Array} playbacks entries from `AudioEngine.playbacks`
+ * @param {object} [options]
+ * @param {number} [options.grace] seconds of overlap to forgive
+ * @returns {Array} `{ kind, a, b, overlapS, speakerA, speakerB }`
+ */
+export function voiceOverlaps(playbacks = [], { grace = VOICE_OVERLAP_GRACE_S } = {}) {
+  const lines = playbacks
+    .filter((entry) => entry?.voice && Number.isFinite(entry.scheduledAt))
+    .map((entry) => {
+      /* The real sounding window. `endedAt` is the truth when the source has
+       * finished; before that, the scheduled start plus the clip length at its
+       * playback rate is the best available and is what the sequencer used. */
+      const seconds = Number.isFinite(entry.seconds) ? entry.seconds : 0;
+      const end = Number.isFinite(entry.endedAt)
+        ? entry.endedAt : entry.scheduledAt + seconds;
+      return { ...entry, start: entry.scheduledAt, end };
+    })
+    .sort((a, b) => a.start - b.start);
+
+  const findings = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const a = lines[i];
+      const b = lines[j];
+      /* Sorted by start, so once b begins after a has finished, so does
+       * everything after it. */
+      if (b.start >= a.end - grace) break;
+      const overlapS = Math.min(a.end, b.end) - b.start;
+      if (overlapS <= grace) continue;
+      /* The LATER line is the one that chose to come in early, so it is the
+       * one that has to declare itself. */
+      if (b.interrupt) continue;
+      /* Room murmur is allowed to sit under anything, including other room
+       * murmur. It is scenery made of voices. What this gate is for is two
+       * SUBTITLED lines colliding, which is what the owner hears as the
+       * scene talking over itself. */
+      if (a.ambient || b.ambient) continue;
+      const sameMouth = a.speakerId != null && a.speakerId === b.speakerId;
+      findings.push({
+        kind: sameMouth ? 'SPEAKER_TALKS_OVER_SELF' : 'VOICES_OVERLAP',
+        a: a.name,
+        b: b.name,
+        speakerA: a.speakerId ?? null,
+        speakerB: b.speakerId ?? null,
+        overlapS: Math.round(overlapS * 1000) / 1000,
+      });
+    }
+  }
+  return findings;
+}

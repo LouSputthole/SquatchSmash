@@ -10,7 +10,16 @@ test('exact-cue scenes stop the prior solo speaker before an unavailable pickup 
     const body = between(source(relative), 'function voiceCue(', '/** A node');
     assert.ok(body.indexOf('audio._vo?.stop?.()') >= 0, relative);
     assert.ok(body.indexOf('audio._vo?.stop?.()') < body.indexOf('if (!audio.ready)'), relative);
-    assert.ok(body.indexOf('audio._vo?.stop?.()') < body.indexOf('if (!bank?.length)'), relative);
+    /* THE RULE IS THE ORDER, NOT THE SPELLING. The previous speaker has to be
+     * cut off BEFORE the function gives up on an unavailable cue, or a pickup
+     * that turns out to have no recording leaves the last line still running
+     * underneath whatever comes next -- which is the fault this whole file is
+     * about. Silver now asks `hasSpeech()` where it used to read the buffer
+     * bank by hand; the guard moved, the order it has to keep did not. */
+    const bail = ['if (!bank?.length)', 'if (!hasSpeech(audio, name))']
+      .map((form) => body.indexOf(form)).find((at) => at >= 0);
+    assert.ok(bail !== undefined, `${relative} has no unavailable-cue guard at all`);
+    assert.ok(body.indexOf('audio._vo?.stop?.()') < bail, relative);
   }
   for (const relative of ['src/motel/audio.js', 'src/initiation/audio.js']) {
     const body = between(source(relative), 'export function voice(', 'export function stopVoice(');

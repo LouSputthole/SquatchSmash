@@ -539,6 +539,28 @@ export class AudioEngine {
         connectedToSfx: true,
         naturalEnd: false,
         endedAt: null,
+        /* WHO IS TALKING, AND FOR HOW LONG.
+         *
+         * `hold()` above claims the floor so a fart waits for a line, but it
+         * is advisory -- it makes held-back cues wait and stops nothing. Two
+         * authored lines from two different systems can and do sound at once,
+         * and the only instrument for noticing was the owner's ears. These
+         * three fields are what `voiceOverlaps()` in core/dialogue.js reads
+         * to answer it in arithmetic instead.
+         *
+         * `interrupt` is the line saying it MEANS to talk over the one before
+         * it, which is a real thing a scene does and has to be sayable. */
+        voice,
+        speakerId: opts.speakerId ?? null,
+        interrupt: opts.interrupt === true,
+        /* Room murmur, not dialogue. The Silver Room plays its overheard
+         * diners deliberately under the scene -- that is what a restaurant
+         * sounds like -- and two of them talking at once is the effect
+         * working, not a fault. Declared per call rather than guessed from
+         * the cue name, because `silver.margo.invitation` and
+         * `silver.diner.overheard` are the same shape and opposite things. */
+        ambient: opts.ambientVoice === true,
+        seconds: src.buffer.duration / Math.max(0.001, Math.abs(rate)),
       };
       if (voice) {
         this._duckForVoice(when, src.buffer.duration / Math.max(0.001, Math.abs(rate)));
@@ -547,6 +569,8 @@ export class AudioEngine {
         (this._voiceSources ??= new Set()).add(src);
       }
       this.playbacks.push(playback);
+      /* So `stopSpeech()` can stamp the moment it cut this one. See there. */
+      (this._playbackBySource ??= new WeakMap()).set(src, playback);
       // Keep diagnostics bounded. A busy apartment can make several hundred
       // tiny sounds over an evening; diagnostics must not become save-state.
       if (this.playbacks.length > 160) this.playbacks.splice(0, this.playbacks.length - 160);
@@ -558,7 +582,14 @@ export class AudioEngine {
          * started -- the set would grow without bound on either path. */
         this._voiceSources?.delete(src);
         const endedAt = this.ctx.currentTime;
-        playback.endedAt = endedAt;
+        /* NOT over a stamp `stopSpeech()` has already written. This callback
+         * arrives whenever the browser gets round to it -- measured at 0.169 s
+         * after the cut under a software renderer -- and overwriting the exact
+         * moment with the late one put every cut line's recorded end AFTER the
+         * start of the line that replaced it. That read as a fixed ~0.19 s of
+         * two voices on every consecutive pair of the Initiation's ceremony,
+         * for lines that are stopped before the next one is played. */
+        if (playback.endedAt === null) playback.endedAt = endedAt;
         /* `onended` also fires for stop().  A natural end must therefore have
          * survived its decoded duration at its selected playback rate. */
         const expected = src.buffer.duration / Math.max(0.001, Math.abs(rate));
@@ -618,12 +649,17 @@ export class AudioEngine {
    * scene's level rather than to the engine default. The stored level is
    * updated by `setLoopVolume`-style callers through `busLevel()`.
    */
+  /* `??` catches an unset level and does NOT catch NaN, which is the one that
+   * actually turned up: a scene that computes its bed level from something
+   * undefined stores a NaN, the getter hands it straight back, and the duck
+   * release below asks the Web Audio API to ramp to it. Finite or the
+   * authored resting value. */
   _busMusicLevel() {
-    return this._musicLevel ?? 0.7;
+    return Number.isFinite(this._musicLevel) ? this._musicLevel : 0.7;
   }
 
   _busAmbLevel() {
-    return this._ambienceLevel ?? 0.55;
+    return Number.isFinite(this._ambienceLevel) ? this._ambienceLevel : 0.55;
   }
 
   /**
@@ -650,6 +686,15 @@ export class AudioEngine {
   _rampBus(bus, level, scale, at, seconds = VOICE_DUCK_ATTACK_S) {
     if (!bus?.gain) return;
     const target = level * scale;
+    /* THE BOUNDARY WITH THE API, so nothing past here can throw.
+     *
+     * `linearRampToValueAtTime` rejects a non-finite double, and the whole
+     * graph's gain scheduling goes down with it. This surfaced the first time
+     * the Initiation stopped a spoken line on every advance rather than once
+     * a scene: the release ran forty times instead of twice and found the one
+     * moment a bed level was NaN. Refusing the ramp leaves the bed where it
+     * is, which is audible and recoverable; throwing is neither. */
+    if (!Number.isFinite(target)) return;
     const t = Math.max(at, this.ctx.currentTime);
     bus.gain.cancelScheduledValues(t);
     bus.gain.setValueAtTime(bus.gain.value, t);
@@ -678,6 +723,22 @@ export class AudioEngine {
     for (const source of live) {
       try {
         source.stop();
+        /* STAMP THE END HERE, not in `onended`.
+         *
+         * `stop()` silences the source on this line; `onended` arrives whenever
+         * the browser gets round to it, measured at about 0.2 s later under a
+         * software renderer. Until this, the playback log said a cut line ran
+         * to its full length, so the voice overlap gate reported a fixed ~0.2 s
+         * of two voices on every consecutive pair of the Initiation's ceremony
+         * -- lines that cannot overlap, because the scene stops the previous
+         * one on the line above the one that starts the next.
+         *
+         * The engine knows the truth at the moment it cuts the source, so it
+         * writes it down. Widening the gate's tolerance to swallow the lag
+         * would have hidden a real 0.2 s overlap everywhere else in the game.
+         * `onended` still fires and still sets `naturalEnd` false. */
+        const playback = this._playbackBySource?.get(source);
+        if (playback && playback.endedAt === null) playback.endedAt = this.ctx.currentTime;
         cut += 1;
       } catch { /* already ended: onended has not fired yet */ }
     }
@@ -1217,10 +1278,15 @@ export class AudioEngine {
     return this.startMusicLoop(key, url, opts);
   }
 
-  stopLoop(key, fade = 0.5) {
+  stopLoop(key, fadeIn = 0.5) {
     const h = this.loops.get(key);
     if (!h) return;
     this.loops.delete(key);
+    /* Seconds. A caller that hands over `{ fade: 1.2 }` — and one did, in the
+     * Initiation's cabin ambience — makes `t + fade` NaN and takes the whole
+     * gain schedule down with it. The boundary with the API is where that
+     * stops, and the authored default is a better answer than a throw. */
+    const fade = Number.isFinite(fadeIn) ? fadeIn : 0.5;
     const t = this.ctx.currentTime;
     h.gain.gain.cancelScheduledValues(t);
     h.gain.gain.setValueAtTime(h.gain.gain.value, t);
