@@ -57,6 +57,63 @@ export const LOOK_CONE = Object.freeze({
   pitchMax: 0.55,
 });
 
+/**
+ * How far back along the car the man getting out of it is turned to look.
+ *
+ * A quarter of the car's length behind its middle, and the fraction is
+ * measured rather than chosen. See `exitYaw()`.
+ */
+const EXIT_LOOK_BACK = 0.25;
+
+/**
+ * Which way he is turned when he gets out at the spur.
+ *
+ * AT THE CAR, NOT ALONG IT, and this is the second time this scene has had to
+ * learn that. `src/specialmeeting/cast.js` fixed it for the bodies months
+ * before anything could see it -- its `placeBeside()` comment is explicit:
+ * *"everybody who got out used to be turned to `facingYaw() + PI`, which is
+ * where the car's NOSE points, so a man standing at an open door with the
+ * Prospect beside it was looking down the street past the wing."* Every NPC
+ * who gets out of this car was turned round by that fix. The PLAYER was not,
+ * because `leave()` took `#forwardYaw()` -- the nose -- and the `yaw` argument
+ * that exists to override it was never passed by anybody.
+ *
+ * The framing gate measured what that costs, on the built spur: at SM-400,
+ * with all four of them out of the car and about to spend Act Four talking to
+ * him, EVERY ONE of them was behind the camera. Seff at 0.05 m of depth, Lag
+ * and Numbskull at 1.73 m behind, and Kittenboss -- who climbs out of the boot
+ * saying *"Jesus Christ. Finally."*, which is the first thing anybody says in
+ * the act -- 3.85 m behind. The whole of Act Four opened on a dark trail with
+ * the scene happening over his shoulder.
+ *
+ * The heading is the car's own long axis, a quarter of its length back from
+ * the middle, and that fraction is the measurement: at the car's CENTRE two of
+ * the four are in frame and Kittenboss is outside the left edge; at the middle
+ * of the BOOT LID three are in and Seff is outside the right; at a quarter
+ * back, Seff, Lag and Kittenboss are all in frame and the only one out is
+ * Numbskull, standing 0.67 m off his elbow, which no lens holds and which
+ * SM-400 puts there on purpose ("Numbskull stands beside Tony's door and steps
+ * back to give him room").
+ *
+ * `exitLookPoint()` is the point itself, exported so the shot list can name
+ * what the beat is aimed at without owning a second copy of the rule.
+ *
+ * @param {object} car the object `buildNightSedan` returned.
+ * @param {THREE.Vector3} from where he is standing.
+ */
+export function exitLookPoint(car, out = new THREE.Vector3()) {
+  return car.group.localToWorld(out.set(-car.length * EXIT_LOOK_BACK, 0, 0));
+}
+
+export function exitYaw(car, from) {
+  const at = exitLookPoint(car);
+  /* `Player`'s convention: forward is (-sin yaw, ., -cos yaw), so the yaw that
+   * looks from one point at another is atan2(-dx, -dz). Half a turn from the
+   * `makePerson` rig's, which is the mistake this scene has already paid for
+   * twice -- see `cast.js`'s `carFacing()`. */
+  return Math.atan2(-(at.x - from.x), -(at.z - from.z));
+}
+
 export class PassengerRig {
   /**
    * @param {object} player the core `Player`.
@@ -157,7 +214,11 @@ export class PassengerRig {
     player.yawCenter = null;
     player.pitchMin = -Math.PI / 2 + 0.05;
     player.pitchMax = Math.PI / 2 - 0.05;
-    player.yaw = yaw ?? this.#forwardYaw();
+    /* Turned at the car rather than along it. `exitYaw()` has the incident and
+     * the numbers; the short version is that this line used to read
+     * `this.#forwardYaw()` and pointed him up an empty trail while all four of
+     * the people he is in the woods with talked to the back of his head. */
+    player.yaw = yaw ?? exitYaw(this.car, player.position);
     player.pitch = 0;
     this.seated = false;
     return this;

@@ -317,6 +317,14 @@ function startTheWalk() {
   player.mode = 'walk';
   const trailhead = forest.trailhead;
   if (trailhead) player.position.set(trailhead.x, trailhead.y + EYE_HEIGHT, trailhead.z);
+  /* AND TURNED UP IT. This used to move him and change nothing else, so he
+   * arrived at the trailhead still carrying whichever way `leave()` had turned
+   * him at the car -- which, once `exitYaw()` started turning him AT the car
+   * so he could see the four people talking to him, is a hundred and
+   * forty-odd degrees off the path. *"Trail's up there. Straight up. You can't
+   * miss it."* The forest surveyed the path; `trailYaw` is its first segment,
+   * and it is read from there rather than written down again here. */
+  if (Number.isFinite(forest.trailYaw)) player.yaw = forest.trailYaw;
 }
 
 /* ------------------------------------------------------------------ */

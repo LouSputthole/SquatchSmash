@@ -1,6 +1,7 @@
 import { crewHeadingForPhase, setCrewMasked } from './cast.js';
 import { HEIST_PREVIEW_CHECKPOINTS } from './config.js';
 import { VAN_SEAT_HEIGHT } from './level.js';
+import { publishHeistFramingBeats } from './shots.js';
 
 export { HEIST_PREVIEW_CHECKPOINTS };
 
@@ -141,5 +142,19 @@ export function stageHeistCheckpointGeometry(checkpoint, { level, crew } = {}) {
   if (!active) throw new Error(`Heist checkpoint geometry is missing phase ${geometry.phase}`);
   const anchors = poseHeistCrewGeometry({ level, crew, phase: geometry.phase });
   applyHeistCheckpointSetpieceGeometry(checkpoint, { level, crew });
+  /* AND THE SHOT LIST, LAST, BECAUSE IT READS THE STAGING IT DESCRIBES.
+   *
+   * `src/heist/shots.js` says why the beats exist; this is why they are
+   * published HERE rather than in `buildHeistLevel`. A mark that names a
+   * subject plants its look point at that subject's own range, and the guard,
+   * the van doors and the escape car are only where they are going to be once
+   * the phase is active, the crew are on their anchors and the setpieces have
+   * been applied. Published at build time, half the shot list would be aimed
+   * at a vault door that had not been opened yet.
+   *
+   * This is also the one seam both the browser and the headless adapter cross
+   * -- the same argument the crew pose above makes for itself -- so the beats
+   * the framing gate reads are the beats the played mission has. */
+  publishHeistFramingBeats(geometry.phase, active.group, { spawn: active.spawn ?? null });
   return Object.freeze({ checkpoint, phase: geometry.phase, anchors });
 }

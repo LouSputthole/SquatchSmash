@@ -45,7 +45,7 @@
  * See docs/STAGING-GATE.md.
  */
 import { Npc } from '../bing/cast.js';
-import { setActorPosture } from '../core/staging.js';
+import { markActor, readActor, setActorPosture } from '../core/staging.js';
 import { FAMILY } from '../bing/family.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { WARDROBE } from '../core/wardrobe.js';
@@ -187,6 +187,51 @@ const STEP_CLEAR_M = 1.7;
  */
 const WAITING_STANDOFF_M = 0.55;
 
+/**
+ * The shared rig's eye line and belt, on its unscaled 1.78 m frame.
+ *
+ * `makePerson`'s own header states the eye: *"1.78m to the top of the head,
+ * eyes at 1.66"*, which is also exactly the height `main.js` puts the player's
+ * camera at. The belt is measured on a built rig, where the waist pivot sits
+ * at 1.150.
+ */
+const RIG_EYE_M = 1.66;
+const RIG_WAIST_M = 1.15;
+
+/**
+ * Put this body's OWN proportions on its actor marker.
+ *
+ * `Npc` marks every body it builds, which is the whole reason this scene is
+ * checkable at all -- but it marks them with `markActor`'s defaults, and those
+ * defaults are `src/core/person.js`'s: an eye at 2.30 m and a belt at 1.16 m,
+ * off the old Sasquatch Smash rig. Nobody in this car is built on it. Measured
+ * on the built kerb, all four of them declared an eye 2.300 above their feet
+ * while the top of Numbskull's head -- the tallest of them -- was 1.942 above
+ * his, so the point the staging gate rays out of and the framing gate frames
+ * was between forty and eighty centimetres above every skull in the scene.
+ *
+ * The right place for this is `Npc` itself, which knows its own `heightScale`
+ * and does not currently pass it on. Until it does, the scene that knows its
+ * cast are `makePerson` bodies says so here, and re-marking is safe because
+ * everything else on the marker is read straight back off it: only the two
+ * heights change. Posture is set separately (`setActorPosture`) and is not
+ * touched by a re-mark.
+ */
+function markWithRealProportions(npc) {
+  const marked = readActor(npc.group);
+  if (!marked) throw new Error('Special Meeting cast member was built without an actor marker');
+  const scale = npc.parts?.heightScale;
+  if (!Number.isFinite(scale) || scale <= 0) {
+    throw new Error(`${marked.id} has no rig scale to take an eye height from`);
+  }
+  markActor(npc.group, {
+    ...marked,
+    eyeHeight: RIG_EYE_M * scale,
+    hipHeight: RIG_WAIST_M * scale,
+  });
+  return npc;
+}
+
 function modelFor(key) {
   if (key === 'numbskull') return { ...WARDROBE.numbskull };
   if (key === 'kittenboss') return { ...WARDROBE.kittenboss };
@@ -219,6 +264,7 @@ export function buildSpecialMeetingCast(scene, {
     npc.group.userData.npc.characterId = spec.characterId;
     npc.group.name = `special-meeting ${spec.name}`;
     npc.group.visible = false;
+    markWithRealProportions(npc);
     people[key] = npc;
   }
 

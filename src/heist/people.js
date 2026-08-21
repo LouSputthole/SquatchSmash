@@ -34,6 +34,20 @@ import { makePlateCarrier } from './weapons.js';
  * thickness through it.
  */
 
+/**
+ * The shared rig's own eye line and belt, on its unscaled 1.78 m frame.
+ *
+ * `makePerson`'s header states the first: *"1.78m to the top of the head, eyes
+ * at 1.66"*. The second is measured on a built rig -- the waist pivot sits at
+ * 1.150 with the hips at 1.000 -- and it is the belt, which is the height the
+ * staging gate asks "is this body standing inside something" at.
+ *
+ * Both are multiplied by `heightScale`, because a 1.60 m customer and a 1.95 m
+ * Numbskull are the same rig at different sizes.
+ */
+const RIG_EYE_M = 1.66;
+const RIG_WAIST_M = 1.15;
+
 /** Canonical heights, in metres to the top of the head. */
 export const HEIST_HEIGHTS = Object.freeze({
   guard: 1.84,
@@ -101,11 +115,6 @@ export class HeistFigure {
     this.root = new THREE.Group();
     this.root.name = name;
     this.root.userData.geometryGate = { assemblyId: `heist.figure.${name}` };
-    /* Everybody in this bank is a marked actor, so the staging gate can ask
-     * where they are looking without knowing this file exists.
-     * src/core/staging.js. The mark goes on before the first `this.pose =`
-     * below, because that assignment runs through the posture setter. */
-    markActor(this.root, { id: name, role, posture: 'stand', ...(seat ? { seat } : {}), ...(lookAt ? { lookAt } : {}) });
     this.root.position.set(x, y, z);
     this.root.rotation.y = yaw;
     this.tilt = new THREE.Group();
@@ -116,6 +125,37 @@ export class HeistFigure {
     this.height = this.parts.profile.height;
     this.scale = this.parts.heightScale;
     this.baseY = y;
+    /* Everybody in this bank is a marked actor, so the staging gate can ask
+     * where they are looking without knowing this file exists.
+     * src/core/staging.js. The mark goes on before the first `this.pose =`
+     * below, because that assignment runs through the posture setter.
+     *
+     * WITH THIS BODY'S OWN PROPORTIONS, AND THAT IS THE WHOLE POINT OF THE
+     * TWO EXTRA FIELDS. `markActor` defaults to an eye at 2.30 m and a belt
+     * at 1.16, which are `src/core/person.js`'s numbers -- the old Sasquatch
+     * Smash rig, the one the owner's *"Everyone is giant"* note got rid of.
+     * Nobody in this bank is built on it. Measured on the built lobby, every
+     * marked body here declared its eyes at 2.300 while its irises were
+     * between 1.511 and 1.842 and the top of its skull was at most 1.958: the
+     * point both gates were reasoning about was in the air above every head
+     * in the room. The framing gate then read a shot correctly aimed at the
+     * guard's chest as a metre and a half off him.
+     *
+     * The numbers are `makePerson`'s own, off its header -- 1.78 m to the top
+     * of the head, eyes at 1.66, which is also exactly the player's camera
+     * height -- times the scale that rig applied for this person's height.
+     * The belt is measured on the same rig at 1.15, which is what the 1.16
+     * default was always approximating. They belong on the shared builder
+     * rather than here, and should move there the day it will take them. */
+    markActor(this.root, {
+      id: name,
+      role,
+      posture: 'stand',
+      eyeHeight: RIG_EYE_M * this.scale,
+      hipHeight: RIG_WAIST_M * this.scale,
+      ...(seat ? { seat } : {}),
+      ...(lookAt ? { lookAt } : {}),
+    });
     this.pose = 'stand';
     this.phase = Math.random() * 6.28;
     this.tremble = 0;

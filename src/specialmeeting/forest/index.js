@@ -63,11 +63,12 @@ import { buildNightSedan, SEATS } from './car.js';
 import { buildClearing } from './clearing.js';
 import { ForestDrive } from './driver.js';
 import { applyForestNight } from './night.js';
-import { CREW_SEATS, PassengerRig } from './passenger.js';
+import { CREW_SEATS, PassengerRig, exitLookPoint, exitYaw } from './passenger.js';
 import { buildRoadMesh } from './roadmesh.js';
 import { disposeForestTextures } from './textures.js';
 import { disposeFoliageGeometry } from './foliage.js';
 import { ForestTerrain } from './terrain.js';
+import { publishMeetingFramingBeats, spurFramingBeats } from '../shots.js';
 
 /**
  * Build the drive.
@@ -144,6 +145,15 @@ export function createNightForestRoad({
        * has said. Everything else is the scene's business, not the road's. */
       if (id === 'turn_off') car.setMainBeam(true);
       if (id === 'arrival') car.setPhone(false);
+      /* AND THE SHOT LIST FOR THE SPUR, at the one moment the car is where it
+       * is going to be. `src/specialmeeting/shots.js` says what a beat here
+       * may honestly claim; this is why they are published HERE and not at
+       * construction. Both spur beats are cameras derived from the parked car
+       * -- the ground beside the front passenger door he steps out onto, and
+       * the heading `PassengerRig.leave()` turns him to -- and the car spends
+       * the preceding kilometre nowhere near either. Published at build time
+       * they would describe a shot taken at the start of the road. */
+      if (id === 'arrival') publishSpurShots();
       onNode?.(id, api);
     },
     onJolt,
@@ -159,7 +169,38 @@ export function createNightForestRoad({
   onProgress?.('Filling the dark in…');
   terrain.prime(car.group.position);
 
+  /** The player's standing eye, in metres. `stage.js` builds him at it. */
+  const PLAYER_EYE_M = 1.66;
+
   let elapsed = 0;
+
+  /**
+   * The two shots at the far end of the road, as data the framing gate reads.
+   *
+   * A function declaration rather than an inline block because it is called
+   * from `ForestDrive`'s node callback, which is wired above the car it needs
+   * -- hoisting is doing real work here and not tidiness.
+   */
+  function publishSpurShots() {
+    const exit = car.exitWorld('frontPassenger', new THREE.Vector3());
+    /* The eye, not the ground: `leave()` stands him up before it turns him,
+     * and the heading is measured from where he ends up. */
+    const standing = exit.clone().setY(exit.y + PLAYER_EYE_M);
+    publishMeetingFramingBeats(group, spurFramingBeats({
+      exit,
+      /* `exitYaw()` and not a second opinion about it. The whole value of the
+       * beat is that the shot list and the rig agree about which way he is
+       * pointed; two copies of that rule is two things to keep true, and this
+       * scene has already been bitten twice by a heading written down twice. */
+      heading: exitYaw(car, standing),
+      /* What that heading is pointed at, taken from the rule rather than
+       * rebuilt from the car: one copy of "the back half of the Lincoln". */
+      lookTarget: exitLookPoint(car),
+      trailHeading: api.trailYaw,
+      trailhead: clearing.trailhead,
+      trailNext: clearing.path[1] ?? null,
+    }));
+  }
 
   const api = {
     /** Everything this built, under one node. Remove it and the forest is gone. */
@@ -271,6 +312,19 @@ export function createNightForestRoad({
 
     /** Where the walk starts. SM-500. */
     get trailhead() { return clearing.trailhead; },
+    /**
+     * The heading that starts UP the trail, in the player's own convention.
+     *
+     * SM-530 moves him to the trailhead and, until the framing gate was
+     * pointed at this scene, changed nothing else -- so he arrived there still
+     * carrying whichever way `leave()` had turned him at the car, which is
+     * roughly back down the clearing. *"Trail's up there. Straight up. You
+     * can't miss it."* He could.
+     */
+    get trailYaw() {
+      const [head, next] = clearing.path;
+      return Math.atan2(-(next.x - head.x), -(next.z - head.z));
+    },
     /** The trail, surveyed once, for whatever walks it. */
     get trail() { return clearing.path; },
     get clearingCentre() { return clearing.centre; },

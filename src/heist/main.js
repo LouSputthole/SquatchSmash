@@ -61,6 +61,7 @@ import { objectiveForState } from './orders.js';
 import { makePoliceFigure } from './people.js';
 import { PoliceDirector } from './police.js';
 import { SafehousePreparation } from './safehouse.js';
+import { HEIST_CAMERA_MARKS, publishHeistFramingBeats } from './shots.js';
 import { makeHeistViewModel } from './weapons.js';
 import {
   CREW_FRIENDLY_FIRE_LINES, HOSTAGE_BARKS, PROSPECT_VERB_LINES,
@@ -1117,35 +1118,20 @@ function debugProbeCollision() {
 let lastEvidenceFrame = null;
 let lastPoliceRecycleProbe = null;
 
-/** Deterministic camera marks used only by browser evidence capture. */
+/**
+ * Deterministic camera marks used only by browser evidence capture.
+ *
+ * The table itself lives in `./shots.js` now, because the framing gate reads
+ * the same marks out of it headlessly (`npm run verify:framing`) and two
+ * copies of a camera position drift the moment one of them is nudged -- at
+ * which point the screenshot tool and the gate are describing different shots
+ * of a scene that only has one camera. `focus` and the NDC test below stay
+ * here: they are the browser half, and they ask a different question (does the
+ * node project inside the picture) from the gate's (is the aim within a metre
+ * of it).
+ */
 function debugPoseForEvidence(name) {
-  const poses = {
-    briefing: { phase: 'safehouse', position: [0, 1.66, 2.55], yaw: 0, pitch: -0.28 },
-    armor: { phase: 'safehouse', position: [-5.5, 1.66, 4.45], yaw: 0, pitch: -0.18 },
-    loadout: { phase: 'safehouse', position: [4.7, 1.66, 4.25], yaw: 0, pitch: -0.38 },
-    safehouse_van: {
-      phase: 'safehouse', position: [-4.6, 1.66, 0.9], yaw: -2.125, pitch: -0.05,
-      focus: ['primary-van-rear-door-left', 'primary-van-rear-door-right', 'loading-bay-header'],
-    },
-    /* On the guard where he stands, which moved to the door in the 2026-08-20
-     * playtest pass. Derived: yaw = atan2(-dx, -dz) from this camera to him. */
-    bank_guard: { phase: 'bank', position: [0, 1.66, 8.5], yaw: -0.8086, pitch: -0.1661 },
-    bank_lobby: { phase: 'bank', position: [-0.6, 1.66, 5.6], yaw: -0.88, pitch: -0.1 },
-    bank_hostages: { phase: 'bank', position: [0.2, 1.66, 5.4], yaw: 0.05, pitch: -0.08 },
-    bank_vault: { phase: 'bank', position: [0, 1.66, -6.0], yaw: 0, pitch: -0.05 },
-    bank_exit: { phase: 'street', position: [-4, 1.66, 28], yaw: -2.5536 },
-    downtown_firefight: { phase: 'street', position: [0, 1.66, 27], yaw: 0 },
-    garage_transfer: {
-      phase: 'garage', position: [-6.5, 1.66, -2], yaw: -0.826, pitch: -0.1,
-      focus: ['escape-sedan', 'garage-transfer-zone', 'garage-tool-cart'],
-    },
-    vehicle_swap: { phase: 'driving', position: [14, 1.66, -657], yaw: -2.158 },
-    vehicle_swap_workbench: {
-      phase: 'driving', position: [14.8, 1.66, -650], yaw: -0.763, pitch: -0.15,
-      focus: ['swap-workbench', 'swap-sorting-tarp', 'swap-aid', 'swap-wipe'],
-    },
-  };
-  const pose = poses[name];
+  const pose = HEIST_CAMERA_MARKS[name];
   if (!pose || activePhase !== pose.phase) return false;
   player.position.fromArray(pose.position);
   player.velocity.set(0, 0, 0);
@@ -2090,6 +2076,13 @@ function activatePhase(id, preservePlayer = false) {
   renderer.toneMappingExposure = id === 'driving' ? 1.32
     : (id === 'safehouse' ? 1.02 : (id === 'bank' ? 1.06 : 0.94));
   placeCrew(id);
+  /* And the shot list for the phase we have just walked into, so the played
+   * mission carries the same beats the framing gate reads off the headless
+   * build. `src/heist/shots.js` has the why; it is published after the crew
+   * because a mark that names a subject plants its look point at that
+   * subject's range, and it replaces rather than adds, so walking back into a
+   * phase does not leave two copies of every shot on the group. */
+  publishHeistFramingBeats(id, phase.group, { spawn: phase.spawn ?? null });
   if (!preservePlayer) {
     player.position.copy(phase.spawn);
     player.velocity.set(0, 0, 0);

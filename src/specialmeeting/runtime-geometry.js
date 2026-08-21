@@ -24,7 +24,8 @@
 import { buildSpecialMeetingBlock } from './block.js';
 import { applySpecialMeetingNight } from './night.js';
 import { buildMeetingSedan } from './sedan.js';
-import { SEDAN_STAGING, SEDAN_STOP } from './layout.js';
+import { SEDAN_STAGING, SEDAN_STOP, SPAWN } from './layout.js';
+import { kerbFramingBeats, publishMeetingFramingBeats } from './shots.js';
 
 export const SPECIAL_MEETING_GEOMETRY_STATES = Object.freeze(['waiting', 'arrived']);
 
@@ -56,6 +57,21 @@ export function buildSpecialMeetingRuntimeGeometry(scene, {
   } else {
     sedan.placeAt(SEDAN_STAGING.x, SEDAN_STAGING.z, SEDAN_STAGING.heading);
   }
+
+  /* AND THE SHOT LIST. `src/specialmeeting/shots.js` says what a beat here may
+   * honestly claim; this is why it is published from the headless builder
+   * rather than from `stage.js`. The block's beats are all one camera -- the
+   * pavement spawn -- and its target is the block's own kerb anchor, so
+   * everything either of them needs is finished by the time this line runs and
+   * none of it depends on where the four bodies end up. `tools/verify-framing`
+   * traverses the roots the Adapter hands it, which for this scene is the
+   * whole Scene, so hanging them here is enough to publish them. */
+  publishMeetingFramingBeats(scene, kerbFramingBeats({
+    state,
+    anchors: block.anchors,
+    groundY: SPAWN.groundY,
+    spawn: SPAWN,
+  }));
 
   return Object.freeze({
     block,
