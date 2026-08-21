@@ -38,18 +38,82 @@ import {
  */
 const ALLOWLIST_DIR = path.join(ROOT, 'tools', 'staging-allowlists');
 const allowlists = new Map();
-if (fs.existsSync(ALLOWLIST_DIR)) {
-  for (const file of fs.readdirSync(ALLOWLIST_DIR).filter((n) => n.endsWith('.json'))) {
-    const scene = file.replace(/\.json$/, '');
-    const parsed = JSON.parse(fs.readFileSync(path.join(ALLOWLIST_DIR, file), 'utf8'));
-    const { entries, issues } = validateStagingAllowlist(parsed, { scene });
-    if (issues.length) {
-      console.error(`staging allowlist ${file} is not usable:`);
-      for (const issue of issues) console.error(`  ${issue}`);
-      process.exit(1);
+
+/**
+ * Hold every entry's citation to the file it actually cites.
+ *
+ * THE GEOMETRY GATE ALREADY DOES THIS, and it is the reason that gate can be
+ * trusted: an entry whose cited line has moved is caught the moment the source
+ * shifts. The siege's geometry allowlist was found this morning pointing at
+ * SilentSquatch.js:899 for an anchor that had been on 902 for weeks -- 480
+ * entries, all quietly wrong, and this check was the only thing that noticed.
+ *
+ * The pure validator cannot do it: it has no filesystem, deliberately. So it
+ * lives here beside the reading, exactly as it does for geometry.
+ */
+function citationIssues(entries) {
+  const found = [];
+  const cache = new Map();
+  entries.forEach((entry, index) => {
+    const at = `entries[${index}]`;
+    const match = /^(.+):(\d+)$/.exec(entry.source ?? '');
+    if (!match) {
+      found.push(`${at}.source must be "path/to/file.js:line"`);
+      return;
     }
-    allowlists.set(scene, entries);
+    const [, relative, rawLine] = match;
+    const file = path.join(ROOT, relative);
+    if (!cache.has(file)) {
+      cache.set(file, fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\n') : null);
+    }
+    const lines = cache.get(file);
+    if (!lines) {
+      found.push(`${at}.source cites ${relative}, which does not exist`);
+      return;
+    }
+    const lineNumber = Number(rawLine);
+    if (!(lineNumber >= 1 && lineNumber <= lines.length)) {
+      found.push(`${at}.source cites ${relative}:${lineNumber}, past the end of a ${lines.length}-line file`);
+      return;
+    }
+    const cited = lines[lineNumber - 1];
+    if (!cited.trim()) {
+      found.push(`${at}.source cites ${relative}:${lineNumber}, which is blank`);
+      return;
+    }
+    if (entry.sourceAnchor !== undefined && !cited.includes(entry.sourceAnchor)) {
+      found.push(`${at}.sourceAnchor ${JSON.stringify(entry.sourceAnchor)} is not on ${relative}:${lineNumber}`);
+    }
+  });
+  return found;
+}
+
+/**
+ * Read one scene's allowlist, the first time that scene is run.
+ *
+ * LAZILY, and that matters. Reading every file up front means a half-written
+ * allowlist for one scene fails the run of a completely different scene -- and
+ * the message did not say which file it came from, so it read as "the mansion
+ * is broken" when the mansion was fine. A gate that misreports WHICH thing is
+ * broken is only marginally better than one that misses it.
+ */
+function allowlistFor(scene) {
+  if (allowlists.has(scene)) return allowlists.get(scene);
+  const file = path.join(ALLOWLIST_DIR, `${scene}.json`);
+  if (!fs.existsSync(file)) {
+    allowlists.set(scene, []);
+    return [];
   }
+  const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const { entries, issues } = validateStagingAllowlist(parsed, { scene });
+  issues.push(...citationIssues(entries));
+  if (issues.length) {
+    console.error(`staging allowlist ${scene}.json is not usable:`);
+    for (const issue of issues) console.error(`  ${issue}`);
+    process.exit(1);
+  }
+  allowlists.set(scene, entries);
+  return entries;
 }
 
 /* The same two shims the geometry worker installs, for the same reason: half
@@ -172,7 +236,7 @@ for (const state of states) {
     player: playerStance(built),
   });
 
-  const entries = allowlists.get(state.scene) ?? [];
+  const entries = allowlistFor(state.scene);
   const { kept: findings, suppressed, used } = applyStagingAllowlist(raw, entries, state.state);
   for (const id of used) usedEntryIds.add(id);
   if (!statesByScene.has(state.scene)) statesByScene.set(state.scene, []);
