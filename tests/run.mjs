@@ -126,6 +126,7 @@ const TEST_MODULES = [
   './core-dialogue.test.mjs',
   './core-aim-proxy.test.mjs',
   './staging-gate.test.mjs',
+  './scene-cast-marking.test.mjs',
   './framing-gate.test.mjs',
   './shared-system-adoption.test.mjs',
   './initiation-card-burn.test.mjs',

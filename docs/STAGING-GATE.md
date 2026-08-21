@@ -90,6 +90,34 @@ they still face the counter, and no two of them now agree about precisely
 where it is. Offsets are **authored constants, not jitter**, because a random
 yaw moves the geometry gate's recorded buckets on every build.
 
+## What it still needs: an allowlist
+
+`ACTOR_INSIDE_SOLID` currently reports 106 findings in the Bing and 70 in the
+mansion, and **most of them are the scene working**. A man in a booth is inside
+the booth's collider; two dancers in a hot tub are inside one solid
+4.1 x 4.1 x 1.04 m box; the mansion's back-row recliners span floor+0.30 to
++1.20 with their sitters' hips dead on the pad. You cannot sit in a tub without
+being inside the tub.
+
+Two exemptions are in and are principled:
+
+- **`ride`** — a passenger is inside the vehicle by definition, and the Special
+  Meeting's sedan has to be one solid box because it is the wall the player
+  walks round. Took that scene from ten findings to zero.
+- Nothing else.
+
+A third was tried and **reverted**: skip the finding when the swallowing box
+rises less than half a metre above a seated actor's hips. It caught neither the
+Bing's booths (~0.9 m) nor the mansion's recliners (~0.66 m), and raising the
+number until they fell inside it would be choosing a threshold to make a count
+go down — which is how a gate stops meaning anything. The measurement is in the
+history; the knob is not in the code.
+
+**The right mechanism is the one the geometry gate already has:** a per-scene
+allowlist, entries keyed by actor id and solid, each with a reason and a source
+line, sorted, no wildcards — see `tools/geometry-allowlists/`. Until that
+exists, these counts are triaged, not ignored, and this section is the triage.
+
 ## Running it
 
 ```
