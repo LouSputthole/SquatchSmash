@@ -823,6 +823,68 @@ const ROSTER = Object.freeze([
   }),
 ]);
 
+/* ==================================================================== */
+/* AIM LANES                                                             */
+/*                                                                       */
+/* WHY THEY EXIST. Most of the postings above put the look point dead     */
+/* south of the mark -- `lookX === x` -- so atan2 handed back exactly     */
+/* Math.PI, and in the aftermath ELEVEN men strung right across the       */
+/* gallery agreed on a heading to the last bit of a double. That is the   */
+/* owner's note about the bank van, "they are all looking foward at the   */
+/* same spot", arriving by arithmetic rather than by intent. They are     */
+/* right to be watching the foyer. They are wrong to be watching          */
+/* precisely the same square inch of it.                                  */
+/*                                                                       */
+/* A lane is one small constant swing of a man's look point about his own */
+/* mark, the same at every posting he holds, so his stance reads as his   */
+/* and not as a rank at attention. AUTHORED CONSTANTS AND NOT JITTER: a   */
+/* random yaw would move the geometry gate's recorded buckets on every    */
+/* build, and this scene's buckets were re-anchored this morning.         */
+/*                                                                       */
+/* A lane is 0.05 rad -- 2.9 deg, which clears the staging gate's 0.04    */
+/* tolerance with room -- or it is nothing, and WHO GETS ONE IS MEASURED  */
+/* rather than dealt out. Seven men carry one and nine carry none, which  */
+/* is the fewest that leaves no anchor anywhere in the house gathering    */
+/* three, across all ten built states of this scene.                      */
+/*                                                                       */
+/* IT IS THIS SMALL, AND THE SIGNS ARE THIS SPECIFIC, BECAUSE THE FIRST   */
+/* ATTEMPT WAS NEITHER. A seven-value fan across 17 degrees gave every    */
+/* man his own heading and put Eric's AK 52 mm inside DeathMegatron's     */
+/* ribcage on the post-battle landing, where they stand a metre apart;    */
+/* the geometry gate said so in four places. Narrowing that to 2.9 deg    */
+/* then put guard_1's carbine sling 40 mm into the clamped worklamp at    */
+/* x 5.143, z 48, a foot off his TO_OFFICE mark. So Eric turns east, away */
+/* from DeathMegatron, and guard_1 does not turn at all.                  */
+/* ==================================================================== */
+const AIM_LANE_RAD = Object.freeze({
+  booski: -0.05,
+  lou: -0.05,
+  shubenator: -0.05,
+  eric: 0.05,
+  guard_0: 0.05,
+  hogmama: 0.05,
+  irish: 0.05,
+});
+
+/**
+ * A man's look point with his lane swung in, about the mark he stands on.
+ *
+ * SWUNG INTO THE LOOK POINT rather than added to a yaw, because the headless
+ * geometry adapter settles the cast by taking its own `atan2` off `lookAt`.
+ * An angle added anywhere downstream of that is an angle half the gates never
+ * see, which is how two builds of one scene end up disagreeing about which
+ * way a man is pointed.
+ */
+function laneLookAt(id, x, z, lookX, lookZ) {
+  const lane = AIM_LANE_RAD[id] ?? 0;
+  if (!lane) return { x: lookX, z: lookZ };
+  const dx = lookX - x;
+  const dz = lookZ - z;
+  const cos = Math.cos(lane);
+  const sin = Math.sin(lane);
+  return { x: x + dx * cos + dz * sin, z: z + dz * cos - dx * sin };
+}
+
 /**
  * How many attackers the friendlies are allowed to put down, per beat.
  *
@@ -1198,10 +1260,14 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
 
   ROSTER.forEach((definition, index) => {
     const first = definition.posts.BRIEFING ?? definition.posts.AFTERMATH ?? P(0, 60, 0, 56);
+    /* His lane applies before he has been staged as well as after: the damage
+     * states build the house with nobody posted, and the cast stands where
+     * this constructor left it. */
+    const firstLook = laneLookAt(definition.id, first.x, first.z, first.lookX, first.lookZ);
     const figure = new HeistFigure({
       name: `siege-${definition.id}`,
       x: first.x, y: first.y, z: first.z,
-      yaw: Math.atan2(first.lookX - first.x, first.lookZ - first.z),
+      yaw: Math.atan2(firstLook.x - first.x, firstLook.z - first.z),
       tier: index < 8 ? 'hero' : 'ambient',
       model: definition.model(),
     });
@@ -1270,7 +1336,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
       lastShot: null,
       post: null,
       goal: new THREE.Vector3(first.x, first.y, first.z),
-      lookAt: new THREE.Vector2(first.lookX, first.lookZ),
+      lookAt: new THREE.Vector2(firstLook.x, firstLook.z),
       /* Staggered off the index so sixteen people never do the same thing on
        * the same frame. The whole "not a motionless semicircle" instruction
        * comes down to this line and the routine list. */
@@ -1397,8 +1463,11 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
       if (member.staged && (member.downed || member.actor.incapacitated)) {
         if (post) {
           const target = inHouse(keepClear({ x: post.x, y: post.y, z: post.z }));
+          const look = laneLookAt(
+            member.id, target.x, target.z, post.lookX ?? post.x, post.lookZ ?? post.z - 4,
+          );
           member.goal.set(target.x, target.y, target.z);
-          member.lookAt.set(post.lookX ?? post.x, post.lookZ ?? post.z - 4);
+          member.lookAt.set(look.x, look.z);
         } else {
           member.goal.copy(member.root.position);
         }
@@ -1418,9 +1487,12 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
         continue;
       }
       const target = inHouse(keepClear({ x: post.x, y: post.y, z: post.z }));
+      const look = laneLookAt(
+        member.id, target.x, target.z, post.lookX ?? post.x, post.lookZ ?? post.z - 4,
+      );
       const changedFloor = !member.staged || Math.abs(member.root.position.y - target.y) > 1.2;
       member.goal.set(target.x, target.y, target.z);
-      member.lookAt.set(post.lookX ?? post.x, post.lookZ ?? post.z - 4);
+      member.lookAt.set(look.x, look.z);
       if (changedFloor) {
         member.root.position.set(target.x, target.y, target.z);
         member.root.rotation.y = Math.atan2(

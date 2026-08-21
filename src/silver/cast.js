@@ -28,6 +28,83 @@ const SUIT_DINERS = [0x1b1b22, 0x232430, 0x2a2028, 0x1e2430];
 const GOWNS = [0x5a1430, 0x1a2a4a, 0x2a4a3a, 0x4a3a10, 0x3a1a3a];
 const SILVER_WAITER_FACE = 'assets/faces/silver-waiter.png';
 
+/* ==================================================================== */
+/* WHERE PEOPLE ARE POINTED                                              */
+/*                                                                       */
+/* All thirteen of this room's staging findings were the same fault in    */
+/* six places: a bank of people authored at one round number -- 0, or     */
+/* Math.PI, or the yaw their chair happened to be laid at -- and so       */
+/* agreeing about where forward is to the last bit of a double. That is   */
+/* the owner's note about the bank van, "they are all looking foward at   */
+/* the same spot", and the staging gate reports it as FACING_UNIFORM.     */
+/*                                                                       */
+/* Nobody is turned round by any of the tables below. The queue still     */
+/* faces up the queue, the line still faces the pass, the diners still    */
+/* face their own tables and the band still faces the room. They just no  */
+/* longer agree to nine decimal places about exactly where those things   */
+/* are. Every value is an AUTHORED CONSTANT and not a roll, because a yaw */
+/* that moves on every build moves the geometry gate's recorded buckets   */
+/* with it.                                                               */
+/* ==================================================================== */
+
+/**
+ * How far off the line each person in the queue is standing, in radians, by
+ * position in it -- slot 0 is the head, who faces the man on the door instead.
+ *
+ * The queue was right to face one way and wrong about how: the angle came off
+ * a +/-0.18 roll wide enough that three of them landed within a fifth of a
+ * degree of each other. These are spaced 0.07 apart, which the roll that
+ * remains (a twelfth of the old one, and only there to keep the last degree of
+ * wobble human) cannot close to inside the gate's 0.04 tolerance. They are not
+ * in order along the line, because a queue fanning evenly from one end reads
+ * as choreography rather than as nine people waiting.
+ */
+const QUEUE_LEAN = [0, 0.105, -0.175, 0.245, -0.035, 0.175, -0.245, 0.035, -0.105];
+
+/**
+ * How far off square each of the five people working the pass is standing.
+ *
+ * Chef, the stock hand and the three on the line were all on exactly Math.PI,
+ * which is five men in one kitchen sighted on the same point. A kitchen line
+ * does face the pass; no two cooks on it face the same inch of it.
+ */
+const PASS_LEAN = Object.freeze({
+  chef: 0.09, stocker: -0.13, line: Object.freeze([-0.06, 0.15, 0.02]),
+});
+
+/**
+ * How far off his chair's own yaw each diner has settled, in radians, dealt
+ * round the room in order.
+ *
+ * Every chair in the room was laid on one of two headings, so twenty-seven
+ * diners sat on exactly two yaws and six separate cohorts of neighbouring
+ * tables read as a formation. Nobody sits square to the chair he was shown to.
+ * Four values, cycled: measured to hold whatever phase the night's seating
+ * lands on, so a table gained or lost does not put three of them back in
+ * agreement.
+ */
+const DINER_SETTLE = [0.03, -0.13, -0.03, 0.08];
+
+/**
+ * A patroller's stance at the instant the room is built.
+ *
+ * The waiter, the two table movers, the three servers, the runner, the porter,
+ * the man with the hot pan, the musician and the delivery driver were every
+ * one of them authored at `yaw: 0` and then handed a round to walk -- so until
+ * the first frame moved them, nine members of staff were square to +z at once.
+ * Nobody stands facing nowhere in particular: he faces the way he is about to
+ * walk. Taking it off the round rather than writing it down also means it
+ * cannot drift away from the round when somebody re-plans the round.
+ *
+ * The first mark of a round is usually the spot he is already standing on, so
+ * the heading comes from the first one that is not.
+ */
+function facingRound(options) {
+  const { x, z, route } = options;
+  const leg = route?.find((mark) => Math.hypot(mark.x - x, mark.z - z) > 0.1);
+  return { ...options, yaw: leg ? Math.atan2(leg.x - x, leg.z - z) : 0 };
+}
+
 /**
  * The Silver Room owns Ape's seat and visit choreography, but not a second
  * version of the man. This is the Bing FAMILY model plus its supplied face.
@@ -73,7 +150,10 @@ export function populate(scene, room) {
   // The man on the public door, thirty metres away, who you are not using
   add('frontDoor', new Npc(scene, {
     name: 'the doorman', tier: 'background', job: 'stand',
-    x: a.doorman.x, z: a.doorman.z, y: 0.14, yaw: Math.PI,
+    /* Off square by 0.13: he, Margo on the kerb and the man in her taxi were
+     * all three on exactly Math.PI, which the staging gate reads as the three
+     * of them sighted on one spot down the street. He still watches the road. */
+    x: a.doorman.x, z: a.doorman.z, y: 0.14, yaw: Math.PI - 0.13,
     model: { height: 1.88, build: 1.3, dress: 'suit', hair: 'bald' },
   }));
   by.frontDoor.folded = true;
@@ -93,10 +173,12 @@ export function populate(scene, room) {
     // Keep the whole body on the road side of the velvet, including a
     // relaxed forearm; the former 24 cm centre gap put three arms through it.
     const qz = 38.42 + rand(-0.07, 0.07);
-    /* Faces up the line (+x); the head of it faces the man on the door. */
+    /* Faces up the line (+x); the head of it faces the man on the door. The
+     * lean is authored per position -- see QUEUE_LEAN for why it is not a
+     * roll any more. */
     const yaw = i === 0
       ? Math.atan2(a.doorman.x - qx, a.doorman.z - qz)
-      : Math.PI / 2 + rand(-0.18, 0.18);
+      : Math.PI / 2 + QUEUE_LEAN[i] + rand(-0.012, 0.012);
     add(`queue${i}`, new Npc(scene, {
       name: 'somebody waiting', tier: 'background', job: i === 5 ? 'lean' : 'stand',
       x: qx, z: qz, y: 0.14, yaw, look: false,
@@ -128,16 +210,16 @@ export function populate(scene, room) {
     model: { height: 1.74, build: 1.1, dress: 'porter', shirt: 0xdad6cc, hair: 'receding', beard: true },
   }));
 
-  add('delivery', new Npc(scene, {
+  add('delivery', new Npc(scene, facingRound({
     name: 'the driver', tier: 'hero', job: 'patrol',
-    x: a.cellarMid.x, y: a.cellarMid.y, z: a.cellarMid.z, yaw: 0,
+    x: a.cellarMid.x, y: a.cellarMid.y, z: a.cellarMid.z,
     route: [{ x: 21, z: 1 }, { x: 26, z: -3 }, { x: 21, z: 5 }],
     model: { height: 1.81, build: 1.2, dress: 'work', shirt: 0x3a3320, hair: 'crop' },
-  }));
+  })));
 
   add('stocker', new Npc(scene, {
     name: 'a stock hand', tier: 'background', job: 'work',
-    x: a.drystore.x + 1.5, y: a.drystore.y, z: a.drystore.z + 2, yaw: Math.PI,
+    x: a.drystore.x + 1.5, y: a.drystore.y, z: a.drystore.z + 2, yaw: Math.PI + PASS_LEAN.stocker,
     model: { height: 1.68, dress: 'porter', shirt: 0xdad6cc, hair: 'tied' },
   }));
 
@@ -145,7 +227,7 @@ export function populate(scene, room) {
 
   add('chef', new Npc(scene, {
     name: 'Chef', tier: 'hero', job: 'work',
-    x: a.chef.x, z: a.chef.z, yaw: Math.PI,
+    x: a.chef.x, z: a.chef.z, yaw: Math.PI + PASS_LEAN.chef,
     model: { height: 1.79, build: 1.24, dress: 'chef', hair: 'crop', hairColour: 0x9a9a9a, beard: true },
   }));
 
@@ -156,17 +238,17 @@ export function populate(scene, room) {
   }));
 
   // The one carrying something hot, on a loop through the middle of the route
-  add('hotPan', new Npc(scene, {
+  add('hotPan', new Npc(scene, facingRound({
     name: 'a cook', tier: 'hero', job: 'patrol',
-    x: a.hotPan.x, z: a.hotPan.z, yaw: 0,
+    x: a.hotPan.x, z: a.hotPan.z,
     route: [{ x: 21.5, z: -9.5 }, { x: 18, z: -7 }, { x: 22.5, z: -5 }, { x: 23, z: -10 }],
     model: { height: 1.76, build: 1.05, dress: 'chef', hair: 'short' },
-  }));
+  })));
 
   for (let i = 0; i < 3; i++) {
     add(`line${i}`, new Npc(scene, {
       name: 'a cook', tier: i ? 'background' : 'ambient', job: 'work',
-      x: 17.6 + i * 2.6, z: -9.4, yaw: Math.PI,
+      x: 17.6 + i * 2.6, z: -9.4, yaw: Math.PI + PASS_LEAN.line[i],
       model: { height: rand(1.66, 1.84), dress: 'chef', hair: pick(['crop', 'tied', 'short']) },
     }));
   }
@@ -177,23 +259,23 @@ export function populate(scene, room) {
     model: { height: 1.66, build: 1.15, dress: 'porter', shirt: 0xc8c4ba, hair: 'crop', skin: 0x8d5a3a },
   }));
 
-  add('porter', new Npc(scene, {
+  add('porter', new Npc(scene, facingRound({
     name: 'the porter', tier: 'hero', job: 'patrol',
-    x: a.porter.x, z: a.porter.z, yaw: 0,
+    x: a.porter.x, z: a.porter.z,
     route: [{ x: 17.5, z: -13 }, { x: 24, z: -15.5 }, { x: 17, z: -16.5 }, { x: 16.5, z: -9 }],
     model: { height: 1.73, dress: 'porter', shirt: 0xdad6cc, hair: 'long' },
-  }));
+  })));
 
   /* The runner: plates out, empties back, all night. His loop is the marked
    * aisle east of the pass down to the dish pit — the lane the route paints
    * on the floor, so it is known walkable and clear of the player's own line
    * through the room. */
-  add('runner', new Npc(scene, {
+  add('runner', new Npc(scene, facingRound({
     name: 'a runner', tier: 'ambient', job: 'patrol',
-    x: 22.7, z: -8, yaw: 0,
+    x: 22.7, z: -8,
     route: [{ x: 22.7, z: -5.5 }, { x: 22.7, z: -11.5 }, { x: 24.2, z: -14.6 }, { x: 22.7, z: -8.5 }],
     model: { height: 1.7, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'short' },
-  }));
+  })));
 
   /* ---- the corridor ---- */
 
@@ -214,12 +296,12 @@ export function populate(scene, room) {
     model: { height: 1.67, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'tied' },
   }));
 
-  add('musician', new Npc(scene, {
+  add('musician', new Npc(scene, facingRound({
     name: 'a musician', tier: 'background', job: 'patrol',
-    x: 12.5, z: 14, yaw: 0,
+    x: 12.5, z: 14,
     route: [{ x: 12.5, z: 14 }, { x: 12.5, z: 22 }, { x: 12.5, z: 4 }],
     model: { height: 1.8, dress: 'suit', shirt: 0x1b1b22, hair: 'receding' },
-  }));
+  })));
 
   /* ---- the floor ---- */
 
@@ -236,9 +318,9 @@ export function populate(scene, room) {
   }));
   by.manager.folded = true;
 
-  add('waiter', new Npc(scene, {
+  add('waiter', new Npc(scene, facingRound({
     name: 'the waiter', tier: 'hero', job: 'patrol',
-    x: -8, z: 8, yaw: 0,
+    x: -8, z: 8,
     route: [{ x: -8, z: 8 }, { x: -18, z: 4 }, { x: -12, z: -2 }, { x: -4, z: 6 }],
     /* This is the featured server in Tony and Margo's ordered dinner beats.
      * Give him the supplied East Asian-inspired portrait without cloning that
@@ -249,40 +331,40 @@ export function populate(scene, room) {
       waistcoatColour: 0xc85a17,
       bowtie: true, bowtieColour: 0xb71926,
     },
-  }));
+  })));
 
-  add('photographer', new Npc(scene, {
+  add('photographer', new Npc(scene, facingRound({
     name: 'the photographer', tier: 'ambient', job: 'patrol',
-    x: -6, z: 14, yaw: 0,
+    x: -6, z: 14,
     route: [{ x: -6, z: 14 }, { x: -20, z: 12 }, { x: -14, z: 18 }],
     model: { height: 1.71, dress: 'suit', shirt: 0x2a2028, hair: 'long' },
-  }));
+  })));
 
   /* The two staff who carry the table. They are on the floor doing something
    * else until the manager says four words to them, which is the point. */
-  add('mover1', new Npc(scene, {
+  add('mover1', new Npc(scene, facingRound({
     name: 'a waiter', tier: 'ambient', job: 'patrol',
-    x: a.tableStaging.x, z: a.tableStaging.z, yaw: 0,
+    x: a.tableStaging.x, z: a.tableStaging.z,
     route: [{ x: -9.5, z: 0.5 }, { x: -4, z: 4 }, { x: -12, z: 2 }],
     model: { height: 1.8, build: 1.1, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'crop' },
-  }));
-  add('mover2', new Npc(scene, {
+  })));
+  add('mover2', new Npc(scene, facingRound({
     name: 'a waiter', tier: 'ambient', job: 'patrol',
-    x: a.tableStaging.x + 1.4, z: a.tableStaging.z + 1.2, yaw: 0,
+    x: a.tableStaging.x + 1.4, z: a.tableStaging.z + 1.2,
     route: [{ x: -8.1, z: 1.7 }, { x: -14, z: 6 }, { x: -6, z: -1 }],
     model: { height: 1.74, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'tied' },
-  }));
+  })));
 
   for (let i = 0; i < 3; i++) {
-    add(`server${i}`, new Npc(scene, {
+    add(`server${i}`, new Npc(scene, facingRound({
       name: 'a waiter', tier: 'background', job: 'patrol',
-      x: -20 + i * 7, z: 18 - i * 6, yaw: 0,
+      x: -20 + i * 7, z: 18 - i * 6,
       route: [
         { x: -22 + i * 7, z: 20 - i * 6 }, { x: -12 + i * 5, z: 8 },
         { x: -24 + i * 4, z: 2 }, { x: -16, z: 16 },
       ],
       model: { height: rand(1.68, 1.84), dress: 'waistcoat', shirt: 0xd8d4cc, hair: pick(['crop', 'short', 'tied']) },
-    }));
+    })));
   }
 
   /* ---- the room, eating ----
@@ -318,7 +400,7 @@ export function populate(scene, room) {
          * date. A room full of people watching one table is a horror beat,
          * not a restaurant — they face the way they were seated and get on
          * with their own evening. */
-        x: seat.x, z: seat.z, yaw: seat.yaw, look: false,
+        x: seat.x, z: seat.z, yaw: seat.yaw + DINER_SETTLE[diner % DINER_SETTLE.length], look: false,
         model: {
           height: inGown ? rand(1.6, 1.78) : rand(1.68, 1.9),
           build: rand(0.92, 1.3),
@@ -595,6 +677,8 @@ function makeKeyboard() {
 export function makeBand(scene, room) {
   const a = room.anchors;
   const members = [];
+  /* See the note on the yaw below: nobody up here is square to the room. */
+  const BAND_FACING = [0.03, -0.15, -0.09, -0.03, 0.03, 0.09, 0.15];
   const layout = [
     // [x offset, z offset, dress, what they are holding]
     [-4.6, -2.0, 0x1b1b22, 'horn'],
@@ -614,7 +698,12 @@ export function makeBand(scene, room) {
       name: i === 6 ? 'the bandleader' : 'the band', tier: i === 6 ? 'hero' : 'ambient',
       job: 'stand', look: i === 6,
       x: a.stageCentre.x + ox, y: a.stageCentre.y, z: a.stageCentre.z + oz,
-      yaw: 0,
+      /* Each of them a little off the room's centre line, because seven
+       * players on a stand at exactly yaw 0 is a rank at attention, not a
+       * section: the staging gate found them as two cohorts. Authored, small,
+       * and in the order of the layout above -- they are all still playing
+       * out at the tables. */
+      yaw: BAND_FACING[i],
       model: {
         height: rand(1.68, 1.86),
         /* The leader's build is fixed and everybody else's is not.

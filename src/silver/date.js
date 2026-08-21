@@ -82,7 +82,11 @@ export class Date_ {
       name: DATE.name, tier: 'hero', job: 'stand', look: true,
       x: room.anchors.dropOff.x - 1.4,
       y: room.groundAt(room.anchors.dropOff.x - 1.4, room.anchors.dropOff.z),
-      z: room.anchors.dropOff.z, yaw: Math.PI,
+      /* Off square by 0.11. She, the man on the front door and the driver of
+       * the taxi she came in were all three on exactly Math.PI, which the
+       * staging gate reads as three people sighted on one spot down the
+       * street. She is still facing the way she got out of the car. */
+      z: room.anchors.dropOff.z, yaw: Math.PI + 0.11,
       model: {
         /* Dressed for the one night a week she is not on her feet in whites,
          * and slightly overdressed for it on purpose — she does not get many
