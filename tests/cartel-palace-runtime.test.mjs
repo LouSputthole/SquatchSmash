@@ -19,12 +19,18 @@ test('Cartel Palace is a first-class runtime built on the shared game systems', 
   ]);
 
   assert.match(html, /src\/cartel-palace\/main\.js/);
-  for (const id of ['scene', 'overlay', 'start-btn', 'objective', 'prompt', 'crosshair', 'hotbar', 'ammo', 'boss']) {
+  /* `objective` is deliberately not on this list any more. The Palace used to
+   * draw its own objective card in this page's markup; it drives the shared
+   * one from src/core/objective-panel.js now, which builds its own element at
+   * runtime -- so the pin for it is in the shared-module list below, where a
+   * scene quietly dropping it fails the same way. */
+  for (const id of ['scene', 'overlay', 'start-btn', 'prompt', 'crosshair', 'hotbar', 'ammo', 'boss']) {
     assert.match(html, new RegExp(`id=["']${id}["']`), `missing #${id}`);
   }
   for (const shared of [
     '../core/player.js', '../core/hud.js', '../core/interaction.js', '../core/audio.js',
     '../core/postfx.js', '../core/weapons/WeaponSystem.js', '../core/scene-inventory.js',
+    '../core/objective-panel.js',
     '../core/pause-menu.js', '../core/final-arc-story.js', '../core/final-arc-loadout.js',
   ]) {
     assert.ok(main.includes(shared), `runtime bypasses shared ${shared}`);

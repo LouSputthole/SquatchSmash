@@ -96,18 +96,33 @@ body.alarm #alarm-wash { opacity: 1; animation: alarmPulse 1.15s ease-in-out inf
 }
 #subtitle em { color: #ffca66; font-style: normal; }
 
+/* The mission card is down to the evidence count: the objective, its kicker
+ * and its detail line moved to the shared card from
+ * src/core/objective-panel.js, which sits directly under this strip.
+ *
+ * The strip keeps the top-left corner because its height is fixed and the
+ * card's is not -- an objective that wraps to three lines would otherwise
+ * push a counter around the screen. */
 #mission-card {
   position: absolute; left: 22px; top: 24px; width: min(390px, calc(100vw - 44px));
-  padding: 14px 17px 13px; border-left: 3px solid var(--brass);
+  padding: 10px 14px 9px; border-left: 3px solid var(--brass);
   background: linear-gradient(90deg, rgba(8, 12, 13, .92), rgba(8, 12, 13, .66));
   box-shadow: 0 13px 36px rgba(0, 0, 0, .32);
 }
-#mission-card small, #ammo small, #boss small, #stealth small, #health small {
+#ammo small, #boss small, #stealth small, #health small {
   display: block; color: #c8a464; font-size: 10px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase;
 }
-#mission-card strong { display: block; margin-top: 4px; color: #fff7e6; font-size: 20px; text-transform: uppercase; }
-#objective-detail { display: block; margin-top: 4px; color: #b8b8ae; font-size: 12px; line-height: 1.4; }
-#evidence-count { display: flex; align-items: center; gap: 9px; margin-top: 10px; color: #d8c9aa; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+#evidence-count { display: flex; align-items: center; gap: 9px; color: #d8c9aa; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+
+/* Where the shared card sits on this HUD, and nothing else about it.
+ *
+ * src/style.css owns `#objectives` for the apartment -- top RIGHT, under the
+ * clock, right-aligned -- and this page links that sheet for the shared
+ * furniture, so the two declarations the panel does not set for itself are
+ * put back here. A `text-align: left` in the panel's own `#objectives.op-panel`
+ * rule would remove this from the Palace, the golf and the graveyard at once. */
+#objectives.op-panel { top: 70px; left: 22px; text-align: left; }
+#objectives.op-panel .olist { display: block; }
 #evidence-count i { width: 74px; height: 3px; background: linear-gradient(90deg, var(--brass) var(--evidence, 0%), rgba(255,255,255,.13) var(--evidence, 0%)); }
 
 #stealth, #health {
@@ -190,6 +205,7 @@ body.alarm #alarm-wash { opacity: 1; animation: alarmPulse 1.15s ease-in-out inf
 
 @media (max-width: 720px) {
   #mission-card { top: 12px; left: 12px; width: calc(100vw - 24px); }
+  #objectives.op-panel { top: 56px; left: 12px; max-width: calc(100vw - 24px); }
   #stealth { top: 140px; left: 12px; right: auto; width: 145px; }
   #health { top: 140px; right: 12px; width: 145px; }
   #boss { top: 226px; width: calc(100vw - 24px); }

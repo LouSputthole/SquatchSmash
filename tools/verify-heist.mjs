@@ -422,6 +422,34 @@ try {
       && state.presentation.lockers === 3,
     JSON.stringify(state.presentation));
 
+  /* THE STANDING ORDER, ON THE SHARED CARD.
+   *
+   * THE TAKE had no gate on its objective at all. The scene drew its own
+   * `#objective` box, nothing ever read it, and that is precisely how "Meet
+   * the crew." survived the entire job on the `?checkpoint=` path -- the
+   * defect `src/heist/orders.js` exists to kill. The sentence is on the
+   * shared card from `src/core/objective-panel.js` now; a gate still reading
+   * the deleted id would go green on an empty string, which is
+   * docs/ENGINE-TRAPS.md section 5. So this reads the card that exists, and
+   * fails if the old box comes back beside it. */
+  const objectiveCard = await page.evaluate(() => {
+    const panel = document.getElementById('objectives');
+    return {
+      legacy: Boolean(document.getElementById('objective')),
+      shared: Boolean(panel) && panel.classList.contains('op-panel'),
+      parent: panel?.parentElement?.id ?? null,
+      visible: Boolean(panel) && !panel.classList.contains('hidden'),
+      title: panel?.querySelector('.otitle')?.textContent?.trim() ?? '',
+      order: panel?.querySelector('.olist li')?.textContent?.trim() ?? '',
+    };
+  });
+  check('the standing order is on the shared objective card and nowhere else',
+    objectiveCard.shared && !objectiveCard.legacy
+      && objectiveCard.parent === 'heist-hud'
+      && objectiveCard.visible
+      && /join Snow at the table/i.test(objectiveCard.order),
+    JSON.stringify(objectiveCard));
+
   check('every fixed crew member has canonical anatomy plus real heist overlays',
     state.presentation.crew.length === Object.keys(canonicalCrewPhysical).length
       && state.presentation.crew.every((actor) => physicalPresentationMatches(

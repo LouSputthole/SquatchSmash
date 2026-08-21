@@ -32,10 +32,12 @@
     <div id="bladder" class="hidden"><span class="cap">bladder</span><div class="bar"><i></i></div></div>
     <div id="toast-stack"></div>
 
+    <!-- What is left of the mission card is the evidence count. The kicker,
+         the objective and its detail line are the shared card now, built into
+         this `#hud` by `src/core/objective-panel.js` and driven from
+         `src/cartel-palace/main.js`. A page-local copy of that widget is how
+         the game came to have one per scene. -->
     <section id="mission-card">
-      <small id="objective-kicker">THE CARTEL PALACE</small>
-      <strong id="objective">Reach the service gate</strong>
-      <span id="objective-detail">Stay quiet · Sauce is supposed to be a rescue</span>
       <div id="evidence-count"><i></i><span>Evidence 0 / 3</span></div>
     </section>
 

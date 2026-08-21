@@ -592,6 +592,41 @@ try {
   });
   await page.waitForTimeout(180);
 
+  /* THE OBJECTIVE CARD, WHICH NOTHING HERE HAS EVER LOOKED AT.
+   *
+   * The Palace drew its own objective box in `cartel-palace.html` and no gate
+   * read it, so it could have said anything for the length of the raid. It is
+   * the shared card from `src/core/objective-panel.js` now, driven from the
+   * beat table in `src/cartel-palace/mission.js`, and this is the gate that
+   * says the beat reaches the screen -- kicker, order and direction. A gate
+   * pointed at the deleted id would go green on an empty string, which is
+   * docs/ENGINE-TRAPS.md section 5. */
+  const objectiveCard = await page.evaluate(() => {
+    const panel = document.getElementById('objectives');
+    const visible = Boolean(panel)
+      && !panel.classList.contains('hidden')
+      && getComputedStyle(panel).display !== 'none'
+      && Number(getComputedStyle(panel).opacity) > 0;
+    return {
+      legacy: Boolean(document.getElementById('objective')),
+      shared: Boolean(panel) && panel.classList.contains('op-panel'),
+      parent: panel?.parentElement?.id ?? null,
+      visible,
+      title: panel?.querySelector('.otitle')?.textContent?.trim() ?? '',
+      order: panel?.querySelector('.olist li')?.textContent?.trim() ?? '',
+      hint: panel?.querySelector('.ohint')?.textContent?.trim() ?? '',
+      beat: window.CARTEL_PALACE?.objective ?? null,
+    };
+  });
+  check('the beat objective reaches the shared card, and the Palace-only box is gone',
+    objectiveCard.shared && !objectiveCard.legacy
+      && objectiveCard.parent === 'hud'
+      && objectiveCard.visible
+      && objectiveCard.title.length > 0
+      && objectiveCard.order === objectiveCard.beat
+      && objectiveCard.hint.length > 0,
+    JSON.stringify(objectiveCard));
+
   const armorHud = await page.evaluate(() => {
     const runtime = window.CARTEL_PALACE;
     const snapshot = runtime.combatSnapshot();

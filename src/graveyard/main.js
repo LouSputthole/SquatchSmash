@@ -18,6 +18,7 @@ import { PostFX } from '../core/postfx.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
+import { settleStart } from '../core/start-gate.js';
 import { StreamSystem } from '../world/stream.js';
 import { graveyardAudioLoadOptions } from './audio.js';
 import { createPrimaryGraveControl } from './controls.js';
@@ -540,6 +541,24 @@ startButton.addEventListener('click', async () => {
       ? 'HotDog is already buried in this save. Continue to the Motel.'
       : 'The body is not loaded. Finish the Bada Bing cleanup before coming here.';
     startButton.textContent = entry.reason === 'already_complete' ? 'GO TO MOTEL' : 'SCENE UNAVAILABLE';
+    /* GO TO MOTEL WAS A DEAD BUTTON, AND THIS IS WHY.
+     *
+     * `src/core/start-gate.js` is a capture-phase adapter: the first click on
+     * a start control marks it `pending` and SWALLOWS every click after that
+     * until something settles it. It settles itself in a microtask if the
+     * button has disabled itself or swapped its handler -- but microtasks run
+     * between listeners, so that check happens BEFORE this listener has done
+     * either. Its other escape is the MutationObserver, which waits for the
+     * overlay to hide; on a refusal the overlay stays up by design.
+     *
+     * So on a save where HotDog is already buried, the player was left on a
+     * card offering GO TO MOTEL and a button that could not be pressed --
+     * exactly the silent-failure class docs/ENGINE-TRAPS.md keeps warning
+     * about, and the reason tools/verify-graveyard.mjs could not get past its
+     * second gate. The start HAS resolved here; it resolved into a refusal.
+     * Saying so through the gate's own API is the fix, rather than a
+     * scene-local copy of the same bookkeeping. */
+    settleStart(startButton, { ok: true });
     if (entry.reason === 'already_complete') {
       startButton.onclick = () => story.continueAfterCompletion({ location });
     } else {

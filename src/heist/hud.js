@@ -1,10 +1,23 @@
 import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 
 export class HeistHud {
   constructor() {
     this.root = document.getElementById('heist-hud');
     this.phase = document.getElementById('phase-label');
-    this.objective = document.querySelector('#objective span');
+    /* THE STANDING ORDER GOES ON THE SHARED CARD.
+     *
+     * THE TAKE drew its own `#objective` box -- its own amber cap, its own
+     * border, its own place on the screen -- for the job
+     * `src/core/objective-panel.js` already does for the mansion, the Bing
+     * and the apartment. The owner's standing note: *"We keep reinventing and
+     * using different systems instead of using what we already have...
+     * objectives change presentation."* `./orders.js` still owns every word
+     * of the sentence; only the box it lands in changed.
+     *
+     * Parented to `#heist-hud` so it is hidden with the rest of the HUD until
+     * BEGIN, exactly as the box it replaces was. */
+    this.objectivePanel = createObjectivePanel({ parent: this.root });
     this.threat = document.getElementById('guard-threat');
     this.threatTime = this.threat.querySelector('span');
     this.threatBar = this.threat.querySelector('i');
@@ -47,13 +60,15 @@ export class HeistHud {
    * Idempotent on purpose: THE TAKE recomputes the objective from the mission
    * state every frame (see `src/heist/orders.js`), which is what stops it
    * going stale, and a DOM write per frame for a sentence that has not changed
-   * is a layout the scene does not need.
+   * is a layout the scene does not need. The shared card guards its own
+   * signature the same way; the local compare stays because this returns
+   * whether the sentence actually moved.
    */
   setObjective(value) {
     const text = String(value ?? '');
     if (text === this._objectiveText) return false;
     this._objectiveText = text;
-    this.objective.textContent = text;
+    this.objectivePanel.setLine(text);
     return true;
   }
   setThreat(active, remaining = 0, total = 1) {

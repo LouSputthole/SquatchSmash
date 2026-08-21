@@ -28,6 +28,7 @@ import {
 import { createCartelPalaceCampaignStory } from '../core/final-arc-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
 import { translateKey, shakeScale } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
@@ -73,9 +74,6 @@ const loading = document.getElementById('loading');
 
 const ui = {
   crosshair: document.getElementById('crosshair'),
-  objective: document.getElementById('objective'),
-  objectiveKicker: document.getElementById('objective-kicker'),
-  objectiveDetail: document.getElementById('objective-detail'),
   evidence: document.getElementById('evidence-count'),
   evidenceText: document.querySelector('#evidence-count span'),
   stealth: document.getElementById('stealth'),
@@ -805,12 +803,26 @@ function syncLoadout() {
   inventoryBar.set(loadout.items, loadout.selected);
 }
 
+/**
+ * THE OBJECTIVE CARD IS THE SHARED ONE.
+ *
+ * The Palace drew its own -- `#mission-card`'s brass kicker, a 20px uppercase
+ * headline and a grey detail line -- for the job `src/core/objective-panel.js`
+ * already does for the mansion, the Bing and the apartment. The owner's
+ * standing note: *"We keep reinventing and using different systems instead of
+ * using what we already have... objectives change presentation."*
+ *
+ * `mission.js` still owns every word. The kicker becomes the card's title,
+ * the objective its one standing item, the hint the line underneath; nothing
+ * in `OBJECTIVES` changed. Parented to `#hud` so it lives and dies with the
+ * rest of the furniture, as the card it replaces did.
+ */
+const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
+
 function updateObjective(objective) {
   if (!objective) return;
   state.objective = objective.text;
-  ui.objectiveKicker.textContent = objective.kicker;
-  ui.objective.textContent = objective.text;
-  ui.objectiveDetail.textContent = objective.hint;
+  objectivePanel.setLine(objective.text, { title: objective.kicker, hint: objective.hint });
 }
 
 function repaintEvidence() {
@@ -1802,6 +1814,9 @@ window.CARTEL_PALACE = {
   renderer,
   postfx,
   get phase() { return state.phase; },
+  /* The standing order as the mission set it, so a gate can hold the shared
+   * objective card to the beat table rather than to itself. */
+  get objective() { return state.objective; },
   get campaignState() { return campaign.state; },
   get checkpoint() { return state.lastCheckpoint; },
   snapshot: () => mission.snapshot(),
