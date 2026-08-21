@@ -58,23 +58,57 @@ export function settleStart(button, { ok = true, message } = {}) {
   return true;
 }
 
+/**
+ * How long a start may sit pending before the button is given back.
+ *
+ * THE DEAD BUTTON. This gate swallows every click while the first one is
+ * still running, and it had exactly three ways out: the scene changes
+ * `onclick`, the start card goes away, or a promise rejects unhandled. A
+ * scene whose start REFUSES -- says why, keeps its card up on purpose, and
+ * neither rejects nor rebinds -- matched none of them, so the button stayed
+ * pending forever and every later click was eaten. On a save where HotDog was
+ * already buried, GO TO MOTEL could not be pressed at all.
+ *
+ * The microtask escape cannot be relied on either: a microtask queued from a
+ * capture-phase listener drains at the next checkpoint, which can be BEFORE
+ * the scene's own bubble-phase listener has run, so it asks whether the scene
+ * reacted before the scene has had the chance.
+ *
+ * So the gate now time-boxes itself. Its job is to drop the second and third
+ * click of an impatient double-tap, not to take a control away permanently,
+ * and the worst case of giving it back too early is one duplicate start --
+ * against a button that never works again.
+ */
+export const START_PENDING_TIMEOUT_MS = 6000;
+
 export function installStartGate({
   doc = globalThis.document,
   win = globalThis.window,
+  pendingTimeoutMs = START_PENDING_TIMEOUT_MS,
 } = {}) {
   if (!doc?.addEventListener || !win) return { destroy() {} };
   const current = installs.get(doc);
   if (current) return current;
 
   const pending = new Set();
+  /** Backstop timers, so settling early does not leave one armed. */
+  const timers = new Map();
+  function clearTimer(button) {
+    const timer = timers.get(button);
+    if (timer === undefined) return;
+    timers.delete(button);
+    win.clearTimeout?.(timer);
+  }
   function sync(button) {
     if (!button?.isConnected) {
+      clearTimer(button);
       pending.delete(button);
       return;
     }
     const container = startContainer(button);
     if (doc.body?.classList?.contains('playing') || (container && hidden(container))) {
       settleStart(button, { ok: true });
+      clearTimer(button);
       pending.delete(button);
     }
   }
@@ -92,6 +126,18 @@ export function installStartGate({
     const priorHandler = button.onclick;
     if (!beginStart(button, doc)) return;
     pending.add(button);
+    /* The backstop. Whatever the scene did or did not do, the player gets his
+     * button back. Cleared by `sync`/`settleStart` on the happy path. */
+    const timer = win.setTimeout?.(() => {
+      timers.delete(button);
+      if (!pending.has(button)) return;
+      if (button.dataset?.systemicStartState !== 'pending') return;
+      button.dataset.systemicStartState = 'ready';
+      button.removeAttribute?.('aria-busy');
+      button.parentElement?.querySelector?.('[data-systemic-start-status]')?.remove?.();
+      pending.delete(button);
+    }, pendingTimeoutMs);
+    if (timer !== undefined) timers.set(button, timer);
     queueMicrotask(() => {
       if (!pending.has(button) || button.dataset?.systemicStartState !== 'pending') return;
       const container = startContainer(button);
@@ -100,13 +146,17 @@ export function installStartGate({
         button.dataset.systemicStartState = 'ready';
         button.removeAttribute?.('aria-busy');
         button.parentElement?.querySelector?.('[data-systemic-start-status]')?.remove?.();
+        clearTimer(button);
         pending.delete(button);
       }
     });
   }
 
   function onUnhandled() {
-    for (const button of pending) settleStart(button, { ok: false });
+    for (const button of pending) {
+      settleStart(button, { ok: false });
+      clearTimer(button);
+    }
     pending.clear();
   }
 
@@ -125,6 +175,7 @@ export function installStartGate({
 
   const api = {
     destroy() {
+      for (const button of [...timers.keys()]) clearTimer(button);
       observer?.disconnect?.();
       doc.removeEventListener('click', onClick, true);
       win.removeEventListener?.('unhandledrejection', onUnhandled);
