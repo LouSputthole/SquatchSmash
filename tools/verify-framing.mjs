@@ -64,7 +64,13 @@ const wantCoverage = args.includes('--coverage');
 const beatsFlag = args.indexOf('--beats');
 const beatsPath = beatsFlag === -1 ? null : args[beatsFlag + 1];
 const filters = args
-  .filter((arg, index) => !arg.startsWith('--') && index !== beatsFlag + 1);
+  /* `beatsFlag + 1` is 0 when there is no --beats, so this dropped the FIRST
+   * positional argument on every ordinary run: `verify-framing initiation`
+   * silently swept all 98 states and reported them as though the filter had
+   * been honoured. A gate that lies about what it looked at is worse than one
+   * that looks at nothing, because the output is convincing. */
+  .filter((arg, index) => !arg.startsWith('--')
+    && !(beatsFlag !== -1 && index === beatsFlag + 1));
 
 /* A missing or malformed beats file THROWS rather than quietly checking
  * nothing. Every other silent pass in this project's history started as a

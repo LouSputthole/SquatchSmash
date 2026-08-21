@@ -293,7 +293,24 @@ export function framingFindings({
      * the thing it names actually is. */
     if (subject?.point && shot.lookAt) {
       const miss = norm(sub(shot.lookAt, subject.point));
-      if (miss > aimToleranceM) {
+      /* A BEAT MAY WIDEN ITS OWN TOLERANCE, and only widen it.
+       *
+       * One metre is right for a close-up: the ritual shot aimed 2.3 m off the
+       * player's hand and that had to fail. It is wrong for a wide. The cabin's
+       * `room` shot deliberately looks at the middle of the table with Lou at
+       * the head of it, which measures 1.061 m off his chest -- and he is
+       * plainly in frame, because SPEAKER_OFF_CAMERA does not fire on any of
+       * those three beats. Making the whole gate looser to accommodate that
+       * would have blinded it to the fault it was built for, so the shot that
+       * knows it is wide says so, in one field, next to the shot.
+       *
+       * Only wider: a beat cannot tighten below the default and quietly become
+       * the strictest check in the file. */
+      const tolerance = Math.max(
+        aimToleranceM,
+        Number.isFinite(beat.aimToleranceM) && beat.aimToleranceM > 0 ? beat.aimToleranceM : 0,
+      );
+      if (miss > tolerance) {
         findings.push(finding('CAMERA_AIM_MISS', beat, {
           subject: subject.id,
           missM: round3(miss),

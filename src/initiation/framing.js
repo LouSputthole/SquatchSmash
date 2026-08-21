@@ -673,6 +673,14 @@ function cabinBeats() {
     camera: INITIATION_SHOTS.room(),
     speaker: { id: 'lou', point: seatedHead(LOU_SEAT, FIGURE_SCALE.founder) },
     subject: { id: 'lou-body', point: seatedTorso(LOU_SEAT, FIGURE_SCALE.founder) },
+    /* A WIDE, and it says so. `room()` deliberately looks at the middle of the
+     * table with Lou at the head of it, which measures 1.061 m off his chest.
+     * He is plainly in frame -- SPEAKER_OFF_CAMERA does not fire on any of
+     * these three beats -- so this is a centring question, not a "he is off
+     * screen" one, and the shot declares the width rather than the gate being
+     * loosened for everybody. The default metre has to stay tight enough to
+     * catch the ritual shot's 2.3 m. */
+    aimToleranceM: 1.5,
   });
 
   /* The two men at his shoulders, who both speak during the ceremony. Same
@@ -689,6 +697,8 @@ function cabinBeats() {
       camera: INITIATION_SHOTS.room(),
       speaker: { id: key.toLowerCase(), point: standingHead(slot, scale) },
       subject: { id: 'lou-body', point: seatedTorso(LOU_SEAT, FIGURE_SCALE.founder) },
+      /* Same wide as `ceremony` above, and the same reason. */
+      aimToleranceM: 1.5,
     });
   }
 

@@ -207,3 +207,45 @@ FIND  initiation:cabin — 1 beat, 0 cameras, 0 in the cast, 1 finding
 
 2.408 metres. The first time, finding that took a playtest — and the scene had
 been shipping the shot for as long as it had existed.
+
+## The ten findings on Initiation, and why they stand
+
+`npm run verify:framing initiation` reports nine `SPEAKER_OCCLUDED` and one
+`CAMERA_INSIDE_SOLID`. All ten are **one artifact, not ten faults**, and the
+artifact is in how that site authors its solids rather than in the shots.
+
+Initiation builds every collider as a height-less `{x, z, r}` circle, so
+`normalizeSceneColliders` gives each of them the standing band **−0.5 m to
+4 m**. The cabin table is **0.78 m** tall. The parked cars top out at
+**2.26 m**. So every sightline that passes comfortably OVER one reads as
+blocked, and `speech-start`'s camera — 3.6 m up, well clear of a car — reads
+as inside it.
+
+This was not reasoned, it was cast: every published speaker sightline was
+raycast against the **rendered** geometry of both states, 99 solid meshes in
+the clearing and 349 in the cabin. **Not one hits anything.**
+
+The root fix is to author real heights on those colliders — `rawBounds`
+already honours `y0`/`y1` — but that changes collider ids and therefore the
+geometry gate's recorded inputs, so it is a deliberate separate job and not a
+thing to slip into a framing pass. The speakers stay named rather than the
+checks being deleted, because the day those colliders gain heights, these ten
+should evaluate properly rather than having been quietly removed.
+
+## A beat may widen its own aim tolerance
+
+`CAMERA_AIM_MISS` defaults to one metre, which is right for a close-up and
+wrong for a wide. The cabin's `room` shot deliberately looks at the middle of
+the table with Lou at the head of it: 1.061 m off his chest, and he is plainly
+in frame, because `SPEAKER_OFF_CAMERA` does not fire on any of those beats.
+
+Loosening the gate for everybody to accommodate that would have blinded it to
+the fault it exists for — the ritual shot missed by 2.3 m. So a beat that knows
+it is wide says so, in one field, beside the shot:
+
+```js
+aimToleranceM: 1.5,
+```
+
+**Only wider.** A beat cannot tighten below the default and quietly become the
+strictest check in the file.

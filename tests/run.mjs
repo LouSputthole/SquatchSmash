@@ -260,6 +260,7 @@ const TEST_MODULES = [
   './initiation-cabin-staging.test.mjs',
   './initiation-cabin-geometry.test.mjs',
   './initiation-cabin-ceremony.test.mjs',
+  './initiation-framing.test.mjs',
   './specialmeeting-block.test.mjs',
   './specialmeeting-arrival.test.mjs',
   './specialmeeting-ambience.test.mjs',
