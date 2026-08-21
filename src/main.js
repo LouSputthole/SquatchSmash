@@ -54,6 +54,8 @@ import {
 } from './core/campaign-finale.js';
 import { createCampaignFinaleView } from './core/campaign-finale-view.js';
 import { createCampaignCreditsView } from './core/campaign-credits-view.js';
+import { BEAT_S, ColdOpen, monitorFillDistance } from './core/cold-open.js';
+import { isPreviewMode } from './core/preview-mode.js';
 import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
@@ -116,6 +118,27 @@ const campaignFinaleView = createCampaignFinaleView();
  * screen to black first, and can always be left with Escape. */
 const campaignCreditsView = createCampaignCreditsView();
 campaignFinaleView.setRollCreditsHandler(() => campaignCreditsView.roll());
+
+/* ------------------------------------------------------------------ */
+/* THE COLD OPEN                                                       */
+/*                                                                     */
+/* See src/core/cold-open.js. The short version: on a brand new         */
+/* campaign the game opens INSIDE Squatch Smash, full screen, with the  */
+/* apartment already built and running behind it and the camera parked  */
+/* against the monitor. Quitting Squatch Smash pulls the camera off the */
+/* screen, and that is the first thing the player learns about this     */
+/* game.                                                               */
+/* ------------------------------------------------------------------ */
+const coldOpen = new ColdOpen();
+/** True from boot until the pull-back has landed him in the chair. */
+let coldOpenActive = false;
+/** Scratch, so the dolly does not allocate sixty vectors a second. */
+const _coldOpenEye = new THREE.Vector3();
+const _coldOpenLook = new THREE.Vector3();
+const _coldOpenUp = new THREE.Vector3();
+const _coldOpenNormal = new THREE.Vector3();
+const _coldOpenCentre = new THREE.Vector3();
+const _coldOpenMonitor = new THREE.Vector3();
 const viewCareerRecapBtn = document.getElementById('view-career-recap-btn');
 const restartCampaignBtn = document.getElementById('restart-campaign-btn');
 const restartCampaignConfirm = document.getElementById('restart-campaign-confirm');
@@ -917,7 +940,13 @@ async function boot() {
   };
 }
 
-boot().catch((err) => {
+boot().then(() => {
+  /* THE COLD OPEN, and it has to be here rather than inside `boot()`: the
+   * apartment must be fully built, lit and mounted before the camera is put
+   * against the monitor, because the reveal is a camera move across a room
+   * that has to already exist behind the game. */
+  if (coldOpenEligible()) enterColdOpen();
+}).catch((err) => {
   console.error(err);
   window.__squatchFail?.('Could not build the apartment', err?.message || String(err));
 });
@@ -983,6 +1012,97 @@ function apartmentStartupCueNames() {
   }
   return [...names];
 }
+
+/**
+ * Is this the very first time anybody has opened this game?
+ *
+ * The cold open is for a player who does not yet know SQUATCH LIFE exists. It
+ * is emphatically not for somebody reloading mid-campaign, coming home from a
+ * scene, running a preview, or recovering a broken save -- all of whom know
+ * exactly what they downloaded and would just be confused by a full-screen
+ * arcade game.
+ */
+function coldOpenEligible() {
+  return !isPreviewMode()
+    && !returningToApartment
+    && !recoveryNotice
+    && !campaignFinaleRecapAtLoad
+    && campaign.state.story.chapter === 'day_one'
+    && apartmentStory.pendingCall()?.eventId === EVENT_IDS.LOU_FIRST_CALL;
+}
+
+/**
+ * Open the game inside Squatch Smash.
+ *
+ * The apartment is built, lit and running behind this the whole time -- it has
+ * to be, because the reveal is a camera move across a room that must already
+ * exist. What the player gets is the desk chair, the machine on, Squatch Smash
+ * launched and focused, and the camera hard against the monitor.
+ */
+function enterColdOpen() {
+  coldOpenActive = true;
+  coldOpen.reset();
+  overlay.classList.add('hidden');
+  document.body.classList.add('playing');
+  game.started = true;
+
+  /* Seated, but silently: no chair sounds, no "get up from the desk" prompt,
+   * and no hint in the HUD. As far as the player is concerned there is no
+   * room and no chair. `sitAtPC` would announce all three. */
+  game.seated = true;
+  player.clearKeys();
+  interaction.setPaused(true);
+  hud.setMode('seated');
+  hud.setPosture(null);
+  /* The seat tween runs, and is invisible: the cold-open camera override
+   * below owns the view until the pull-back lands, by which point he is
+   * genuinely sitting in the chair the room thinks he is in. */
+  player.sitAt(seatedPose(apartment.deskPose), () => {});
+  apartment.setPcOn(true);
+  arcade.boot();
+  /* Straight past the boot log. A player who sees SquatchOS start up has been
+   * told there is a computer, which is the one thing this opening withholds. */
+  arcade.skipBoot();
+  arcade.launchById('smash');
+  arcade.setSeated(true);
+}
+
+/**
+ * The camera has started to come off the monitor.
+ *
+ * The radio goes on HERE, at the first frame of movement, because the owner
+ * asked for it there: the room announcing itself with sound at the same
+ * instant it announces itself with picture is what makes it read as a place
+ * rather than as a menu. Everything else stays quiet.
+ */
+function runColdOpenReveal() {
+  audio.init().then(() => {
+    audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
+    if (!radio.on) radio.turnOn({ remember: false });
+  }).catch(() => { /* no audio yet; the reveal is not held up for it */ });
+}
+
+/**
+ * He is in the chair, and the game lets go.
+ *
+ * No narrator, no toast, no "WELCOME TO SQUATCH LIFE". One prompt telling him
+ * Q gets him out of the chair, and then forty seconds of nothing at all --
+ * which is `beginMorning`'s existing ring delay, not a second timer, so there
+ * is exactly one clock deciding when Lou rings.
+ */
+function endColdOpen() {
+  coldOpenActive = false;
+  hud.setPosture('get up from the desk');
+  apartmentStory.beginMorning({ delay: BEAT_S });
+}
+
+/** What the embedded Squatch Smash calls when the player confirms quitting. */
+window.__SQUATCH_SMASH_HOST = {
+  quitSquatchSmash() {
+    if (!coldOpenActive) return false;
+    return coldOpen.quit();
+  },
+};
 
 startBtn.addEventListener('click', async () => {
   if (game.left) return;          // the ending card owns the button now
@@ -1552,6 +1672,65 @@ function yawNear(angle, near) {
 function seatedPose(pose) {
   player.yaw = yawNear(player.yaw, pose.yaw);
   return pose;
+}
+
+/**
+ * Where the camera goes so the monitor IS the screen.
+ *
+ * Measured off the screen mesh rather than typed in: take its world-space
+ * centre, its normal and its size, then stand back along that normal by
+ * exactly the distance at which it covers the frustum. A hand-tuned position
+ * would be wrong the first time the desk moved, and wrong on every aspect
+ * ratio but the author's.
+ */
+function monitorCameraPose(out) {
+  const screen = apartment.screen;
+  if (!screen) return null;
+  screen.updateWorldMatrix(true, false);
+  const geo = screen.geometry;
+  if (!geo.boundingBox) geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+
+  /* The plane's own axes, in the world. Scale is baked into the matrix, so
+   * the lengths of the transformed edges are the real metres. */
+  const e = screen.matrixWorld.elements;
+  const right = _coldOpenUp.set(e[0], e[1], e[2]).length();
+  const up = _coldOpenLook.set(e[4], e[5], e[6]).length();
+  const width = (bb.max.x - bb.min.x) * right;
+  const height = (bb.max.y - bb.min.y) * up;
+
+  _coldOpenCentre.set((bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, 0)
+    .applyMatrix4(screen.matrixWorld);
+  _coldOpenNormal.set(e[8], e[9], e[10]).normalize();
+
+  const distance = monitorFillDistance({
+    screenW: width,
+    screenH: height,
+    fovDeg: camera.fov,
+    aspect: camera.aspect,
+  });
+  /* Out along whichever face the seat is on, so this cannot end up behind the
+   * monitor on a desk that gets mirrored. */
+  const seated = apartment.deskPose.position;
+  const sign = Math.sign(_coldOpenNormal.dot(_coldOpenEye.copy(seated).sub(_coldOpenCentre))) || 1;
+  return out.copy(_coldOpenCentre).addScaledVector(_coldOpenNormal, distance * sign);
+}
+
+/**
+ * Drive the camera for the cold open.
+ *
+ * `k` is 0 at the monitor and 1 in the chair. Everything between is the
+ * reveal: the edges of the screen appear, then the desk, then the room.
+ */
+function driveColdOpenCamera(k) {
+  const monitor = monitorCameraPose(_coldOpenMonitor);
+  if (!monitor) return;
+  const seat = apartment.deskPose;
+  camera.position.copy(monitor).lerp(seat.position, k);
+  /* Looking at the middle of the screen the whole way, so the monitor stays
+   * the centre of frame as the room grows around it -- which is what makes
+   * the moment land rather than feeling like a camera wandering off. */
+  camera.lookAt(_coldOpenCentre);
 }
 
 function sitAtPC() {
@@ -5532,6 +5711,21 @@ function frame() {
        * himself. `narrator.enabled` is switched off at boot on this night --
        * see the Act One section -- so exactly one of these two ever speaks. */
       updateActOne(dt, { busy: idleBusy, moving: idleMoving });
+
+      /* THE COLD OPEN owns the camera from boot until the pull-back lands.
+       *
+       * It runs here, after the player has been updated, because it OVERRIDES
+       * the player's camera rather than replacing the player: he is genuinely
+       * sitting in that chair the whole time, and when the dolly finishes the
+       * view is already exactly where his head is, so there is nothing to
+       * hand back and nothing to snap. */
+      if (coldOpenActive) {
+        for (const event of coldOpen.update(dt)) {
+          if (event === 'reveal') runColdOpenReveal();
+          else if (event === 'land') endColdOpen();
+        }
+        if (coldOpen.owningCamera) driveColdOpenCamera(coldOpen.pullbackK);
+      }
 
       if (game.seated) {
         arcade.update(hdt);

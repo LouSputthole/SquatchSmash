@@ -93,6 +93,21 @@ export function createArcade(opts = {}) {
     }
     if (!seated) os.setInputMode('relative');
   };
+  /**
+   * Put one app on the monitor by name, as though it had been double-clicked.
+   *
+   * `setSeated` is what shows a framed page, and it only shows the app that is
+   * ALREADY in focus -- so launching has to happen before seating, and this
+   * exists so the cold open can do that in one call without knowing which
+   * index Squatch Smash was registered at.
+   */
+  os.launchById = (id) => {
+    const app = os.appById(id);
+    if (!app) return false;
+    os.launch(app);
+    return true;
+  };
+
   /** Whatever is on the monitor should stop when the tower does. */
   const powerOff = os.powerOff.bind(os);
   os.powerOff = () => {

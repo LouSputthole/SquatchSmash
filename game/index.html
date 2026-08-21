@@ -532,6 +532,24 @@
     <div id="pauseStats"></div>
     <button id="resumeBtn" class="btn">RESUME</button>
     <button id="giveUpBtn" class="btn">GIVE UP</button>
+    <button id="quitBtn" class="btn">QUIT</button>
+  </div>
+
+  <!-- QUIT SQUATCH SMASH?
+       It looks and behaves exactly like a game asking whether you really want
+       to close it, because for the length of this screen that is what the
+       player believes he is doing. What actually happens on YES is in
+       src/core/cold-open.js. -->
+  <div id="quitConfirm" class="overlay hidden">
+    <div class="title">QUIT SQUATCH SMASH?</div>
+    <div id="quitBlurb">Your run will not be saved.</div>
+    <button id="quitYes" class="btn">YES</button>
+    <button id="quitNo" class="btn">NO</button>
+  </div>
+
+  <!-- The half second where it looks like it is closing. -->
+  <div id="shutdown" class="overlay hidden">
+    <div id="shutdownLine">Closing Squatch Smash…</div>
   </div>
 
   <div id="end" class="overlay hidden">

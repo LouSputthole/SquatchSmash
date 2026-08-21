@@ -258,6 +258,55 @@ window.addEventListener('blur', () => keys.clear());
 $('startBtn').addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
 $('restartBtn').addEventListener('click', () => location.reload());
 $('resumeBtn').addEventListener('click', () => togglePause());
+
+/* ------------------------------------------------------------------ */
+/* QUITTING                                                            */
+/*                                                                     */
+/* Standalone, this is an ordinary quit: confirm, and go back to the    */
+/* menu. Embedded on the apartment's desk monitor it is the opening of  */
+/* SQUATCH LIFE -- the player believes he is closing the game he        */
+/* downloaded, and instead the camera comes off the monitor. See        */
+/* src/core/cold-open.js. Nothing here knows which of those is          */
+/* happening beyond "is there a parent that wants to be told".          */
+/* ------------------------------------------------------------------ */
+
+/** The apartment, if this page is running on its monitor. Same-origin. */
+function apartmentHost() {
+  try {
+    return window.top !== window ? window.parent?.__SQUATCH_SMASH_HOST ?? null : null;
+  } catch {
+    /* Cross-origin: it is not our apartment, so it is a standalone run. */
+    return null;
+  }
+}
+
+function askToQuit() {
+  if (state === 'playing') togglePause();
+  $('pause').classList.add('hidden');
+  $('quitConfirm').classList.remove('hidden');
+}
+
+function cancelQuit() {
+  $('quitConfirm').classList.add('hidden');
+  $('pause').classList.remove('hidden');
+}
+
+function confirmQuit() {
+  $('quitConfirm').classList.add('hidden');
+  /* It looks like it is closing. Half a second of that, and then either the
+   * menu (standalone) or the reveal (on the desk). */
+  $('shutdown').classList.remove('hidden');
+  sfx.stopMusic?.();
+  const host = apartmentHost();
+  window.setTimeout(() => {
+    if (host?.quitSquatchSmash) host.quitSquatchSmash();
+    else location.reload();
+  }, 520);
+}
+
+$('quitBtn').addEventListener('click', askToQuit);
+$('quitYes').addEventListener('click', confirmQuit);
+$('quitNo').addEventListener('click', cancelQuit);
 $('giveUpBtn').addEventListener('click', () => {
   if (state !== 'paused') return;
   $('pause').classList.add('hidden');

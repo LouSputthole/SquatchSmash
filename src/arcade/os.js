@@ -95,6 +95,32 @@ export class SquatchOS {
     return null;
   }
 
+  /**
+   * Find an installed app by its id.
+   *
+   * The cold open needs to put Squatch Smash on the monitor before the player
+   * has ever seen a desktop, and reaching into `os.apps` by index from
+   * main.js would break the first time somebody installed a fourth thing.
+   */
+  appById(id) {
+    return this.apps.find((app) => app?.id === id) ?? null;
+  }
+
+  /**
+   * Skip the three and a half seconds of SquatchOS booting.
+   *
+   * There is exactly one caller and it is the cold open, where the player is
+   * not supposed to know a computer is involved: a boot log scrolling past
+   * before Squatch Smash appears would answer the question the whole opening
+   * is built to leave open.
+   */
+  skipBoot() {
+    if (this.mode !== 'boot') return false;
+    this.mode = 'desktop';
+    this.modeT = 0;
+    return true;
+  }
+
   launch(app) {
     if (!app) return;
     this.audio?.play('ui.select', { volume: 0.5 });
