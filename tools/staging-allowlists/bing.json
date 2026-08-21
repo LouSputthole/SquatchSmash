@@ -1,0 +1,1066 @@
+{
+  "$schema": "squatchsmash.staging-allowlist.v1",
+  "scene": "bing",
+  "entries": [
+    {
+      "id": "bing-attack-ape-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Ape",
+      "solid": "cast.ape",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.ape IS Ape: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-aubbie-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Aubbie",
+      "solid": "cast.aubbie",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.aubbie IS Aubbie: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-big-uncle-lou-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Big Uncle Lou",
+      "solid": "cast.lou",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.lou IS Big Uncle Lou: measured, a 0.45 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-billy-hotdog-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Billy HotDog",
+      "solid": "cast.billy_hotdog",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.billy_hotdog IS Billy HotDog: measured, a 0.47 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-booskibro-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Booskibro",
+      "solid": "cast.booski",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.booski IS Booskibro: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-captain-lou-sasole-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Captain Lou Sasole",
+      "solid": "cast.captain_lou_sasole",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.captain_lou_sasole IS Captain Lou Sasole: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-deathmegatron-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "DeathMegatron",
+      "solid": "cast.deathmegatron",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.deathmegatron IS DeathMegatron: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-eric-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Eric",
+      "solid": "cast.eric",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.eric IS Eric: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-gratin-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Gratin",
+      "solid": "cast.gratin",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.gratin IS Gratin: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-hog-mama-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Hog Mama",
+      "solid": "cast.hogmama",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.hogmama IS Hog Mama: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-irish-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Irish",
+      "solid": "cast.irish",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.irish IS Irish: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-lag-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Lag",
+      "solid": "cast.lag",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.lag IS Lag: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-numbskull-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Numbskull",
+      "solid": "cast.numbskull",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.numbskull IS Numbskull: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-old-stove-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Old Stove",
+      "solid": "cast.old_stove",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.old_stove IS Old Stove: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-rippinflow-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Rippinflow",
+      "solid": "cast.rippinflow",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.rippinflow IS Rippinflow: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-sauce-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Sauce",
+      "solid": "cast.sauce",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.sauce IS Sauce: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-security-2-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Security-2",
+      "solid": "cast.staff.security_room",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.staff.security_room IS Security-2: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-security-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Security",
+      "solid": "cast.staff.security_door",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.staff.security_door IS Security: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-seff-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Seff",
+      "solid": "cast.seff",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.seff IS Seff: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-snow-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Snow",
+      "solid": "cast.snow",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.snow IS Snow: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-the-shubenator-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "The Shubenator",
+      "solid": "cast.shubenator",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.shubenator IS The Shubenator: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-attack-willy-own-body-box",
+      "state": "attack",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Willy",
+      "solid": "cast.willy",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.willy IS Willy: measured, a 0.54 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-ape-east-booth",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Ape",
+      "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
+      "reason": "Ape is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.20 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-cleanup-aubbie-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Aubbie",
+      "solid": "cast.aubbie",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.aubbie IS Aubbie: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-big-uncle-lou-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Big Uncle Lou",
+      "solid": "cast.lou",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.lou IS Big Uncle Lou: measured, a 0.45 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-booskibro-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Booskibro",
+      "solid": "cast.booski",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.booski IS Booskibro: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-captain-lou-sasole-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Captain Lou Sasole",
+      "solid": "cast.captain_lou_sasole",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.captain_lou_sasole IS Captain Lou Sasole: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-deathmegatron-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "DeathMegatron",
+      "solid": "cast.deathmegatron",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.deathmegatron IS DeathMegatron: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-gratin-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Gratin",
+      "solid": "cast.gratin",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.gratin IS Gratin: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-hog-mama-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Hog Mama",
+      "solid": "cast.hogmama",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.hogmama IS Hog Mama: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-irish-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Irish",
+      "solid": "cast.irish",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.irish IS Irish: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-lag-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Lag",
+      "solid": "cast.lag",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.lag IS Lag: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-numbskull-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Numbskull",
+      "solid": "cast.numbskull",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.numbskull IS Numbskull: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-old-stove-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Old Stove",
+      "solid": "cast.old_stove",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.old_stove IS Old Stove: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-rippinflow-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Rippinflow",
+      "solid": "cast.rippinflow",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.rippinflow IS Rippinflow: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-sauce-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Sauce",
+      "solid": "cast.sauce",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.sauce IS Sauce: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-security-2-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Security-2",
+      "solid": "cast.staff.security_room",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.staff.security_room IS Security-2: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-security-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Security",
+      "solid": "cast.staff.security_door",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.staff.security_door IS Security: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-seff-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Seff",
+      "solid": "cast.seff",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.seff IS Seff: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-snow-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Snow",
+      "solid": "cast.snow",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.snow IS Snow: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-the-shubenator-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "The Shubenator",
+      "solid": "cast.shubenator",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.shubenator IS The Shubenator: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-cleanup-willy-own-body-box",
+      "state": "cleanup",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Willy",
+      "solid": "cast.willy",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.willy IS Willy: measured, a 0.54 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-ape-east-booth",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Ape",
+      "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
+      "reason": "Ape is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.20 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-graveyard-aubbie-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Aubbie",
+      "solid": "cast.aubbie",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.aubbie IS Aubbie: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-big-uncle-lou-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Big Uncle Lou",
+      "solid": "cast.lou",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.lou IS Big Uncle Lou: measured, a 0.45 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-booskibro-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Booskibro",
+      "solid": "cast.booski",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.booski IS Booskibro: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-captain-lou-sasole-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Captain Lou Sasole",
+      "solid": "cast.captain_lou_sasole",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.captain_lou_sasole IS Captain Lou Sasole: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-deathmegatron-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "DeathMegatron",
+      "solid": "cast.deathmegatron",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.deathmegatron IS DeathMegatron: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-gratin-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Gratin",
+      "solid": "cast.gratin",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.gratin IS Gratin: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-hog-mama-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Hog Mama",
+      "solid": "cast.hogmama",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.hogmama IS Hog Mama: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-irish-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Irish",
+      "solid": "cast.irish",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.irish IS Irish: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-lag-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Lag",
+      "solid": "cast.lag",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.lag IS Lag: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-numbskull-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Numbskull",
+      "solid": "cast.numbskull",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.numbskull IS Numbskull: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-old-stove-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Old Stove",
+      "solid": "cast.old_stove",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.old_stove IS Old Stove: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-rippinflow-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Rippinflow",
+      "solid": "cast.rippinflow",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.rippinflow IS Rippinflow: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-sauce-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Sauce",
+      "solid": "cast.sauce",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.sauce IS Sauce: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-security-2-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Security-2",
+      "solid": "cast.staff.security_room",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.staff.security_room IS Security-2: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-security-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Security",
+      "solid": "cast.staff.security_door",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.staff.security_door IS Security: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-seff-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Seff",
+      "solid": "cast.seff",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.seff IS Seff: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-snow-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Snow",
+      "solid": "cast.snow",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.snow IS Snow: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-the-shubenator-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "The Shubenator",
+      "solid": "cast.shubenator",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.shubenator IS The Shubenator: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-graveyard-willy-own-body-box",
+      "state": "graveyard",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Willy",
+      "solid": "cast.willy",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.willy IS Willy: measured, a 0.54 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-ape-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Ape",
+      "solid": "cast.ape",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.ape IS Ape: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-aubbie-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Aubbie",
+      "solid": "cast.aubbie",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.aubbie IS Aubbie: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-big-uncle-lou-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Big Uncle Lou",
+      "solid": "cast.lou",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.lou IS Big Uncle Lou: measured, a 0.45 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-billy-hotdog-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Billy HotDog",
+      "solid": "cast.billy_hotdog",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.billy_hotdog IS Billy HotDog: measured, a 0.47 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-booskibro-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Booskibro",
+      "solid": "cast.booski",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.booski IS Booskibro: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-captain-lou-sasole-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Captain Lou Sasole",
+      "solid": "cast.captain_lou_sasole",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.captain_lou_sasole IS Captain Lou Sasole: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-deathmegatron-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "DeathMegatron",
+      "solid": "cast.deathmegatron",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.deathmegatron IS DeathMegatron: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-eric-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Eric",
+      "solid": "cast.eric",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.eric IS Eric: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-gratin-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Gratin",
+      "solid": "cast.gratin",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.gratin IS Gratin: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-hog-mama-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Hog Mama",
+      "solid": "cast.hogmama",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.hogmama IS Hog Mama: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-irish-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Irish",
+      "solid": "cast.irish",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.irish IS Irish: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-lag-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Lag",
+      "solid": "cast.lag",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.lag IS Lag: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-numbskull-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Numbskull",
+      "solid": "cast.numbskull",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.numbskull IS Numbskull: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-old-stove-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Old Stove",
+      "solid": "cast.old_stove",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.old_stove IS Old Stove: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-rippinflow-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Rippinflow",
+      "solid": "cast.rippinflow",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.rippinflow IS Rippinflow: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-sauce-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Sauce",
+      "solid": "cast.sauce",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.sauce IS Sauce: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-security-2-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Security-2",
+      "solid": "cast.staff.security_room",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.staff.security_room IS Security-2: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-security-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Security",
+      "solid": "cast.staff.security_door",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.staff.security_door IS Security: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-seff-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Seff",
+      "solid": "cast.seff",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.seff IS Seff: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-snow-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Snow",
+      "solid": "cast.snow",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.snow IS Snow: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-the-shubenator-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "The Shubenator",
+      "solid": "cast.shubenator",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.shubenator IS The Shubenator: measured, a 0.38 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-party-willy-own-body-box",
+      "state": "party",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Willy",
+      "solid": "cast.willy",
+      "reason": "The party gives everybody the player can walk into a body box of their own, and cast.willy IS Willy: measured, a 0.54 m square column centred on them to the millimetre and as tall as they stand. Being inside your own body is not a staging fault. The club's own walls and furniture come first in the collider list, so anybody genuinely stood in a wall would still be reported against the wall.",
+      "source": "src/bing/hotdog-party.js:466",
+      "sourceAnchor": "id: `cast.${slug}`"
+    },
+    {
+      "id": "bing-performer-bathroom-a-regular-2-east-booth",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular-2",
+      "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
+      "reason": "a regular-2 is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.23 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-performer-bathroom-a-regular-3-east-booth",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular-3",
+      "solid": "aabb-4p03-0-m0p17-5p42-1p5-2p37",
+      "reason": "a regular-3 is sitting in the east-run booth bing-booth:east:3, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.23 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-performer-bathroom-a-regular-4-north-bench",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular-4",
+      "solid": "aabb-m20p27-0-9p83-m17p73-1p5-10p37",
+      "reason": "a regular-4 is sitting on the north bench bing-booth:north:0, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.22 m above the cushion top -- sat down, not stood in the furniture.",
+      "source": "src/bing/club.js:1321",
+      "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-performer-bathroom-a-regular-5-north-bench",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular-5",
+      "solid": "aabb-m16p87-0-9p83-m14p33-1p5-10p37",
+      "reason": "a regular-5 is sitting on the north bench bing-booth:north:1, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.21 m above the cushion top -- sat down, not stood in the furniture.",
+      "source": "src/bing/club.js:1321",
+      "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-performer-bathroom-a-regular-6-north-bench",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular-6",
+      "solid": "aabb-m13p47-0-9p83-m10p93-1p5-10p37",
+      "reason": "a regular-6 is sitting on the north bench bing-booth:north:2, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.22 m above the cushion top -- sat down, not stood in the furniture.",
+      "source": "src/bing/club.js:1321",
+      "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-performer-bathroom-a-regular-east-booth",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular",
+      "solid": "aabb-4p03-0-m9p77-5p42-1p5-m7p23",
+      "reason": "a regular is sitting in the east-run booth bing-booth:east:0, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.23 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-performer-bathroom-eric-north-bench",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Eric",
+      "solid": "aabb-m10p07-0-9p83-m7p53-1p5-10p37",
+      "reason": "Eric is sitting on the north bench bing-booth:north:3, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.22 m above the cushion top -- sat down, not stood in the furniture.",
+      "source": "src/bing/club.js:1321",
+      "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-performer-bathroom-gratin-east-booth",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Gratin",
+      "solid": "aabb-4p03-0-m3p37-5p42-1p5-m0p83",
+      "reason": "Gratin is sitting in the east-run booth bing-booth:east:2, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.22 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-performer-bathroom-irish-east-booth",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Irish",
+      "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
+      "reason": "Irish is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.22 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-performer-bathroom-lag-north-bench",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Lag",
+      "solid": "aabb-m10p07-0-9p83-m7p53-1p5-10p37",
+      "reason": "Lag is sitting on the north bench bing-booth:north:3, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.23 m above the cushion top -- sat down, not stood in the furniture.",
+      "source": "src/bing/club.js:1321",
+      "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-performer-bathroom-old-stove-east-booth",
+      "state": "performer-bathroom",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Old Stove",
+      "solid": "aabb-4p03-0-4p43-5p42-1p5-6p37",
+      "reason": "Old Stove is sitting in the east-run booth bing-booth:east:4, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.23 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1298",
+      "sourceAnchor": "solid(4.05, bz - 0.95, 5.4, bz + 0.95, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-a-regular-2-east-booth",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular-2",
+      "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
+      "reason": "a regular-2 is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.25 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-a-regular-3-east-booth",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular-3",
+      "solid": "aabb-4p03-0-m0p17-5p42-1p5-2p37",
+      "reason": "a regular-3 is sitting in the east-run booth bing-booth:east:3, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.24 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-a-regular-4-north-bench",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular-4",
+      "solid": "aabb-m20p27-0-9p83-m17p73-1p5-10p37",
+      "reason": "a regular-4 is sitting on the north bench bing-booth:north:0, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.23 m above the cushion top -- sat down, not stood in the furniture.",
+      "source": "src/bing/club.js:1321",
+      "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-a-regular-5-north-bench",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular-5",
+      "solid": "aabb-m16p87-0-9p83-m14p33-1p5-10p37",
+      "reason": "a regular-5 is sitting on the north bench bing-booth:north:1, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.21 m above the cushion top -- sat down, not stood in the furniture.",
+      "source": "src/bing/club.js:1321",
+      "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-a-regular-6-north-bench",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular-6",
+      "solid": "aabb-m13p47-0-9p83-m10p93-1p5-10p37",
+      "reason": "a regular-6 is sitting on the north bench bing-booth:north:2, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.22 m above the cushion top -- sat down, not stood in the furniture.",
+      "source": "src/bing/club.js:1321",
+      "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-a-regular-east-booth",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "a regular",
+      "solid": "aabb-4p03-0-m9p77-5p42-1p5-m7p23",
+      "reason": "a regular is sitting in the east-run booth bing-booth:east:0, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.21 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-eric-north-bench",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Eric",
+      "solid": "aabb-m10p07-0-9p83-m7p53-1p5-10p37",
+      "reason": "Eric is sitting on the north bench bing-booth:north:3, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.22 m above the cushion top -- sat down, not stood in the furniture.",
+      "source": "src/bing/club.js:1321",
+      "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-gratin-east-booth",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Gratin",
+      "solid": "aabb-4p03-0-m3p37-5p42-1p5-m0p83",
+      "reason": "Gratin is sitting in the east-run booth bing-booth:east:2, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.22 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-irish-east-booth",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Irish",
+      "solid": "aabb-4p03-0-m6p57-5p42-1p5-m4p03",
+      "reason": "Irish is sitting in the east-run booth bing-booth:east:1, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.22 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1290",
+      "sourceAnchor": "solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-lag-north-bench",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Lag",
+      "solid": "aabb-m10p07-0-9p83-m7p53-1p5-10p37",
+      "reason": "Lag is sitting on the north bench bing-booth:north:3, whose collider is the run itself: 2.54 m along the front wall by 0.54 m deep and 1.5 m to the top of the back panel. A sitter is authored 0.05 m in front of the bench centre, which is inside it of necessity. Measured, the hips are 0.23 m above the cushion top -- sat down, not stood in the furniture.",
+      "source": "src/bing/club.js:1321",
+      "sourceAnchor": "solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5, assemblyId)"
+    },
+    {
+      "id": "bing-visit-one-old-stove-east-booth",
+      "state": "visit-one",
+      "kind": "ACTOR_INSIDE_SOLID",
+      "actor": "Old Stove",
+      "solid": "aabb-4p03-0-4p43-5p42-1p5-6p37",
+      "reason": "Old Stove is sitting in the east-run booth bing-booth:east:4, and the run's collider is the whole bench -- 1.39 m out into the club, 1.5 m tall so that it takes in the back panel -- which puts the cushion inside it by construction. Measured, the hips are 0.23 m above the cushion top, so this is a sitter and not somebody stood in the upholstery. You cannot sit in a booth without being inside the booth.",
+      "source": "src/bing/club.js:1298",
+      "sourceAnchor": "solid(4.05, bz - 0.95, 5.4, bz + 0.95, 0, 1.5, assemblyId)"
+    }
+  ]
+}

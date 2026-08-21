@@ -3835,11 +3835,21 @@ export function populate(scene, club, { includeMargo = true } = {}) {
    * of the house, the one the whole room faces -- comes last. The owner's
    * ruling is that the blonde works the front, so she holds the last slot. */
   const PERFORMERS = BADA_BING_PERFORMERS;
+  /* Which way each woman is squared up before her routine starts.
+   *
+   * They were all on yaw 0, and three women on three poles pointed at the
+   * same spot to nine decimal places is a chorus line, not a floor show --
+   * the staging gate calls it FACING_UNIFORM and it is right to. These are
+   * AUTHORED CONSTANTS and not a roll: a random yaw would move the geometry
+   * gate's recorded buckets on every build, which trades one gate for
+   * another. Small, because each of them still works the room in front of
+   * her; the runway takes the last slot, as it does everywhere else here. */
+  const STAGE_FACING = [0.17, -0.11, 0.28, -0.05];
   [...a.poles, a.runway].forEach((p, i) => {
     const look = PERFORMERS[i % PERFORMERS.length];
     add(`performer${i}`, new Npc(scene, {
       name: 'a dancer', tier: i === 3 ? 'ambient' : 'background', job: 'dance',
-      x: p.x, z: p.z, y: p.y, yaw: 0, look: false,
+      x: p.x, z: p.z, y: p.y, yaw: STAGE_FACING[i] ?? 0, look: false,
       routine: i, pole: i < a.poles.length,
       model: {
         role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
@@ -3872,6 +3882,17 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     [a.booths[0], 0.6], [a.booths[1], -0.4], [a.booths[3], 0.2],
     [a.booths[5], 0.1], [a.booths[6], -0.2], [a.booths[7], 0.4],
   ];
+  /* How far off square each of them has settled, in radians, in the order of
+   * the spots above -- three down the east run, three along the north bench.
+   *
+   * Nobody sits square to a booth back. Every one of these men was on the
+   * exact same yaw as the men either side of him, which the staging gate
+   * reports as FACING_UNIFORM: six strangers agreeing to nine decimal places
+   * about where the room is. Authored constants, not Math.random, because a
+   * yaw that moves every build moves the geometry gate's recorded buckets
+   * with it. Nothing here is more than about twelve degrees, so every man is
+   * still turned out of his booth at the floor he came to watch. */
+  const SEATED_SETTLE = [0.13, -0.09, 0.19, 0.12, -0.14, 0.08];
   seatedSpots.forEach(([spot, off], i) => {
     const eastRun = spot.x > 0;
     add(`patron${i}`, new Npc(scene, {
@@ -3883,7 +3904,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
        * bench they are sitting on had gone. The anchor is 0.6 in front of the
        * bench centre; a sitter is 0.05 in front of it. */
       z: eastRun ? spot.z + off : spot.z + 0.55,
-      yaw: eastRun ? -Math.PI / 2 : Math.PI,
+      yaw: (eastRun ? -Math.PI / 2 : Math.PI) + SEATED_SETTLE[i],
       model: {
         height: rand(1.66, 1.9), build: rand(0.95, 1.3),
         dress: pick(['shirt', 'tracksuit', 'suit']),
@@ -3892,10 +3913,14 @@ export function populate(scene, club, { includeMargo = true } = {}) {
       },
     }));
   });
+  /* Same argument as the benches: three men at three separate tables were on
+   * yaw 1.2 to the last decimal, which reads as a firing squad rather than
+   * three strangers watching the same stage. Authored offsets. */
+  const TABLE_LEAN = [0.09, -0.13, 0.2];
   a.tables.slice(0, 3).forEach((t, i) => {
     add(`tabler${i}`, new Npc(scene, {
       name: 'a regular', tier: 'background', job: 'drink',
-      x: t.x - 0.85, z: t.z + 0.2, yaw: 1.2,
+      x: t.x - 0.85, z: t.z + 0.2, yaw: 1.2 + TABLE_LEAN[i],
       model: { height: rand(1.66, 1.84), dress: pick(['shirt', 'tracksuit']), hair: pick(['short', 'crop', 'tied']) },
     }));
   });
@@ -3903,10 +3928,21 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   // Keep the middle leaner between stools 5 and 6. At z=4.4 their lowered
   // hand clipped stool 5 even though the performer was visibly standing.
   const standing = [[-18.4, 0.6], [-18.4, 4.6], [-17.6, 7.4]];
+  /* A man leaning on a bar leans his own way. These three plus the four
+   * Family on the stools were all dead on -PI/2, seven people down one wall
+   * agreeing exactly; the offsets here and the ones in family.js are picked
+   * together so no two people within six metres of each other come within
+   * the gate's two degrees. Authored, for the reason given at STAGE_FACING.
+   *
+   * The SIGNS are measured, not decorative: the middle leaner stands 0.6 m
+   * off Seff's stool, and when the two of them were turned towards each
+   * other their forearms overlapped by 7 cm and the geometry gate said so.
+   * Where two people are within arm's length down this bar they lean APART. */
+  const BAR_LEAN = [-0.05, -0.19, 0.24];
   standing.forEach(([sx, sz], i) => {
     add(`stander${i}`, new Npc(scene, {
       name: 'a regular', tier: i === 0 ? 'ambient' : 'background', job: 'lean',
-      x: sx, z: sz, yaw: -Math.PI / 2,
+      x: sx, z: sz, yaw: -Math.PI / 2 + BAR_LEAN[i],
       model: {
         height: rand(1.68, 1.88), build: rand(1, 1.3),
         dress: pick(['shirt', 'tracksuit']), hair: pick(['short', 'crop', 'bald']),
@@ -3986,13 +4022,25 @@ export function populate(scene, club, { includeMargo = true } = {}) {
 }
 
 /**
+ * Which way the associate is stood while he is parked at the hall mouth.
+ *
+ * He used to be on yaw 0, which is +z, which from (6.7, 3.6) is the blind
+ * end wall of the back hallway 0.79 m from his nose -- the staging gate's
+ * FACING_INTO_SOLID, and the first thing the player sees of him when the
+ * mission reveals him on this spot. -PI/2 turns him -x, out through the
+ * archway the east booth run stops short of, which is the way he then walks
+ * and the way the man he has come to fetch is sitting.
+ */
+const HALL_MOUTH_FACING = -Math.PI / 2;
+
+/**
  * Lou's associate: sent out to fetch the prospect when he has been playing
  * cards too long. He is not in the room until he is needed.
  */
 export function makeAssociate(scene, from, colliders = null, navBlockers = null) {
   const npc = new Npc(scene, {
     name: "Lou's associate", tier: 'hero', job: 'patrol',
-    x: from.x, z: from.z, yaw: 0,
+    x: from.x, z: from.z, yaw: HALL_MOUTH_FACING,
     colliders, navBlockers,
     model: { height: 1.84, build: 1.22, dress: 'tracksuit', shirt: 0x1c2f4a, hair: 'crop', bandana: true },
   });

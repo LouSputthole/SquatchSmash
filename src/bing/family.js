@@ -39,13 +39,26 @@ import { applyBingVoiceCues } from './script.js';
  * the names are the ledger's. `slug` is the member's vo.bing.hang.* cue slug.
  * Spots are authored against the club's real furniture: benches, stools,
  * two-top chairs, the blackjack rail. Nobody patrols; they are patrons.
+ *
+ * THE ODD DECIMALS ON THE YAWS ARE THE POINT. Four of them sat down the bar
+ * on exactly -PI/2, three sat in the east booths on exactly -PI/2, two more
+ * on exactly PI along the north bench and four at the stage two-tops on
+ * exactly -1.34 -- and a room where everybody within six metres of everybody
+ * else agrees about where forward is to nine decimal places reads as a
+ * formation, which is what the staging gate's FACING_UNIFORM says. The
+ * offsets are AUTHORED CONSTANTS, never Math.random: a yaw that changes on
+ * every build moves the geometry gate's recorded buckets underneath it. They
+ * are picked alongside the floor's own regulars in src/bing/cast.js so that
+ * no two people standing near each other land within the gate's two degrees,
+ * and none of them is big enough to turn anybody away from what he came to
+ * look at.
  */
 export const FAMILY = [
   {
     id: CHARACTER_IDS.BOOSKI, name: 'Booskibro', slug: 'booski', photo: 'booski.png',
     /* AT THE BAR, by the service station — his shot beat happens here. On
      * the stool, not in it: see STOOL_SIT. */
-    spot: { x: -18.3, z: 1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: -18.3, z: 1.3, y: STOOL_SIT, yaw: -Math.PI / 2 + 0.17, job: 'drink' },
     /* Patriarch money, not crew uniform: a midnight-blue open knit with
      * restrained gold ribs, a layered founder chain and a real watch. */
     model: WARDROBE.booski,
@@ -53,7 +66,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.DEATHMEGATRON, name: 'DeathMegatron', slug: 'deathmegatron', photo: 'deathmegatron.png',
     // Two stools down from Booski, with the spritz the world owed her.
-    spot: { x: -18.3, z: -1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: -18.3, z: -1.3, y: STOOL_SIT, yaw: -Math.PI / 2 + 0.1, job: 'drink' },
     /* She is a woman and one of the FIVE, and the figure said neither: she was
      * carrying the roster's default unspecified frame in an off-the-peg grey
      * suit, which is what everybody at the back of the Silver Room wears.
@@ -74,7 +87,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.SEFF, name: 'Seff', slug: 'seff', photo: 'seff.png',
     // The far end of the bar, where a man waits for his situation to clear.
-    spot: { x: -18.3, z: 5.2, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'sit' },
+    spot: { x: -18.3, z: 5.2, y: STOOL_SIT, yaw: -Math.PI / 2 + 0.03, job: 'sit' },
     model: {
       height: 1.76, build: 1.0, dress: 'suit', shirt: 0x3a2a2a,
       hair: 'short', hairColour: 0x14100e, skin: 0xe8c39c,
@@ -84,19 +97,19 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.IRISH, name: 'Irish', slug: 'irish', photo: 'irish.png',
     // East booth run, mid-story, sharing a booth with a regular.
-    spot: { x: 4.55, z: -4.55, yaw: -Math.PI / 2, job: 'sit' },
+    spot: { x: 4.55, z: -4.55, yaw: -Math.PI / 2 + 0.06, job: 'sit' },
     model: WARDROBE.irish,
   },
   {
     id: CHARACTER_IDS.GRATIN, name: 'Gratin', slug: 'gratin', photo: 'gratin.png',
     // His own east booth, near the kitchen door, loyal to the wrong shrimp.
-    spot: { x: 4.55, z: -2.1, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: 4.55, z: -2.1, yaw: -Math.PI / 2 - 0.15, job: 'drink' },
     model: WARDROBE.gratin,
   },
   {
     id: CHARACTER_IDS.OLD_STOVE, name: 'Old Stove', slug: 'stove', photo: 'stove.png',
     // The short booth by the slot alcove, complaining about the ice in it.
-    spot: { x: 4.55, z: 5.65, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: 4.55, z: 5.65, yaw: -Math.PI / 2 + 0.1, job: 'drink' },
     model: {
       height: 1.72, build: 1.1, dress: 'shirt', shirt: 0x24303a,
       hair: 'receding', hairColour: 0x9a9a9a, beard: true, skin: 0xc08a5e,
@@ -108,7 +121,7 @@ export const FAMILY = [
     /* North booth with Eric, watching the lights flicker like packet loss.
      * Moved south with the bench: the run used to stand at z 11.0, which is
      * inside the front wall, and the two of them sat in the brick with it. */
-    spot: { x: -8.35, z: 10.25, yaw: Math.PI, job: 'sit' },
+    spot: { x: -8.35, z: 10.25, yaw: Math.PI + 0.15, job: 'sit' },
     model: {
       height: 1.74, build: 0.9, dress: 'tracksuit', shirt: 0x1f3a2a,
       hair: 'crop', hairColour: 0x2a1c14, glasses: true, skin: 0xe8c39c,
@@ -117,7 +130,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.ERIC, name: 'Eric', slug: 'eric', photo: 'erican.png',
     // Same booth as Lag, current on everything overseas, same move south.
-    spot: { x: -9.35, z: 10.25, yaw: Math.PI, job: 'sit' },
+    spot: { x: -9.35, z: 10.25, yaw: Math.PI - 0.06, job: 'sit' },
     model: WARDROBE.eric,
   },
   {
@@ -137,7 +150,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.HOG_MAMA, name: 'Hog Mama', slug: 'hogmama', photo: 'hogmama.png',
     // A two-top near the stage, working the floor for a bit.
-    spot: { x: -6.35, z: 1.6, yaw: -1.34, job: 'sit' },
+    spot: { x: -6.35, z: 1.6, yaw: -1.34 + 0.11, job: 'sit' },
     model: WARDROBE.hogmama,
   },
   {
@@ -148,7 +161,7 @@ export const FAMILY = [
     id: CHARACTER_IDS.SHUBENATOR, name: 'The Shubenator', slug: 'shubenator', photo: 'shubenator.png',
     photoFallback: 'shubes.png',
     // Another stage two-top, nine hundred push-ups deep.
-    spot: { x: -8.15, z: 3.2, yaw: -1.34, job: 'drink' },
+    spot: { x: -8.15, z: 3.2, yaw: -1.34 - 0.07, job: 'drink' },
     model: WARDROBE.shubenator,
   },
   {
@@ -162,7 +175,7 @@ export const FAMILY = [
      * is canonically at Whispering Pines with his aeroplane, and one person
      * cannot be in two scenes. Same id as the cockpit, same face. */
     id: CHARACTER_IDS.CAPTAIN_LOU_SASOLE, name: 'Captain Lou Sasole', slug: 'sasole', photo: 'sasole.png',
-    spot: { x: -12.55, z: 0.85, yaw: -1.34, job: 'drink' },
+    spot: { x: -12.55, z: 0.85, yaw: -1.34 - 0.16, job: 'drink' },
     /* He flies for a living, so the good thing he owns is the jacket. */
     model: WARDROBE.captain_lou_sasole,
   },
@@ -193,7 +206,7 @@ export const FAMILY = [
     /* The south end of the bar -- stool zero, the quiet one, furthest from
      * the service station and from anybody who wants a conversation. A man
      * who has come out for one drink and has not taken his coat off. */
-    spot: { x: -18.3, z: -2.6, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: -18.3, z: -2.6, y: STOOL_SIT, yaw: -Math.PI / 2 - 0.12, job: 'drink' },
     model: WARDROBE.aubbie,
   },
   {
@@ -204,7 +217,7 @@ export const FAMILY = [
      * chairs per two-top at (+-0.85, -+0.2) and the floor's own regular has
      * the west one. This is the seat with the runway in front of it, which is
      * the only reason he sits in it. */
-    spot: { x: -8.75, z: -1.8, yaw: -1.34, job: 'drink' },
+    spot: { x: -8.75, z: -1.8, yaw: -1.34 + 0.21, job: 'drink' },
     model: WARDROBE.sauce,
   },
 ];
