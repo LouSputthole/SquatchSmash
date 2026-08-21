@@ -32,6 +32,25 @@ export const FACING_WALL_DISTANCE_M = 0.8;
 /** How far above a seat's cushion hips may sit before they are standing on it. */
 export const SEAT_HIP_TOLERANCE_M = 0.35;
 
+/**
+ * How close a person-sized solid has to be centred on an actor to BE him.
+ *
+ * Several scenes register a body collider per guest so the player can walk
+ * into people rather than through them -- the Bing does it for all 22 party
+ * guests. Those boxes are centred on their own actor at a measured 0.000 m,
+ * so every one of those actors was reported as standing inside a solid, and
+ * the solid was himself. That was 82 of the Bing's 106 findings: one fact,
+ * written out 82 times in an allowlist.
+ *
+ * A man is not scenery. The rule is deliberately two-part -- centred on him
+ * AND person-sized -- because a wall that happens to have its centre near
+ * somebody is still a wall, and being inside THAT is still a finding. A box
+ * centred on a DIFFERENT actor also still reports, which is the fault where
+ * two people are standing in the same place.
+ */
+export const OWN_BODY_CENTRE_M = 0.15;
+export const OWN_BODY_MAX_SPAN_M = 1.5;
+
 /** Half-angle of the arc in front of the player that a wave may arrive in. */
 export const SPAWN_FORWARD_ARC_RAD = Math.PI / 2;
 
@@ -74,6 +93,16 @@ export function rayBoxDistance(origin, dir, box) {
     if (near > far) return Infinity;
   }
   return far < 0 ? Infinity : near;
+}
+
+/** Is this solid the actor's own body collider? See OWN_BODY_CENTRE_M. */
+export function isOwnBody(box, actor) {
+  const spanX = box.max[0] - box.min[0];
+  const spanZ = box.max[2] - box.min[2];
+  if (spanX > OWN_BODY_MAX_SPAN_M || spanZ > OWN_BODY_MAX_SPAN_M) return false;
+  const centreX = (box.min[0] + box.max[0]) / 2;
+  const centreZ = (box.min[2] + box.max[2]) / 2;
+  return Math.hypot(centreX - actor.position[0], centreZ - actor.position[2]) <= OWN_BODY_CENTRE_M;
 }
 
 const finding = (kind, actor, detail) => ({
@@ -142,6 +171,9 @@ export function stagingFindings({
     let nearest = Infinity;
     let hit = null;
     for (const box of boxes) {
+      /* His own body box is centred on his eye, so the ray starts inside it
+       * and every actor would read as facing a wall at zero metres. */
+      if (isOwnBody(box, actor)) continue;
       const distance = rayBoxDistance(actor.eye, actor.forward, box);
       if (distance < nearest) { nearest = distance; hit = box; }
     }
@@ -166,7 +198,7 @@ export function stagingFindings({
     //
     // `sit` is NOT exempt: a man inside a sofa is still a bug. Only `ride`.
     if (!riding) {
-      const swallowed = boxes.find((box) => inside(box, actor.hip));
+      const swallowed = boxes.find((box) => inside(box, actor.hip) && !isOwnBody(box, actor));
       if (swallowed) {
         findings.push(finding('ACTOR_INSIDE_SOLID', actor, { solid: swallowed.name ?? null }));
       }

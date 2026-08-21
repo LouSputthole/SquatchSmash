@@ -240,3 +240,44 @@ test('the marker does not name the node it marks', () => {
   const named = markActor({ userData: {}, name: 'kept' }, { id: 'other', role: 'crew' });
   assert.equal(named.name, 'kept');
 });
+
+test('a man is not scenery: his own body collider is not a solid he is inside', () => {
+  /* Several scenes register a body box per guest so the player can walk into
+   * people. Those boxes are centred on their own actor, so every one of them
+   * reported as standing inside a solid -- 82 of the Bing's 106 findings, one
+   * fact written out 82 times in an allowlist. */
+  const own = box([-0.36, 0, -0.36], [0.36, 1.9, 0.36], 'cast.willy');
+  const { findings } = stagingFindings({
+    id: 'fixture', actors: [actor('willy', { x: 0, z: 0 })], boxes: [own],
+  });
+  assert.deepEqual(findings.filter(({ kind }) => kind === 'ACTOR_INSIDE_SOLID'), []);
+  assert.deepEqual(findings.filter(({ kind }) => kind === 'FACING_INTO_SOLID'), [],
+    'nor does his own chest count as a wall in front of his face');
+});
+
+test('but a wall centred near him is still a wall', () => {
+  /* Two-part rule on purpose: centred on him AND person-sized. */
+  const wall = box([-4, 0, -0.3], [4, 3, 0.3], 'long-wall');
+  const { findings } = stagingFindings({
+    id: 'fixture', actors: [actor('a', { x: 0, z: 0 })], boxes: [wall],
+  });
+  assert.equal(findings.filter(({ kind }) => kind === 'ACTOR_INSIDE_SOLID').length, 1);
+});
+
+test('and standing inside SOMEBODY ELSE still reports', () => {
+  /* This is the fault where two people occupy one spot -- Lag and Numbskull
+   * were one body in the Special Meeting until a gate measured it. */
+  const other = box([1.64, 0, -0.36], [2.36, 1.9, 0.36], 'cast.numbskull');
+  const { findings } = stagingFindings({
+    id: 'fixture', actors: [actor('lag', { x: 2, z: 0 })], boxes: [other],
+  });
+  assert.equal(findings.filter(({ kind }) => kind === 'ACTOR_INSIDE_SOLID').length, 0,
+    'centred on him, so it is his own');
+  /* 0.30 m off centre, which is twice OWN_BODY_CENTRE_M. The first draft of
+   * this test used 0.10 and failed, because 0.10 is INSIDE the threshold --
+   * the test was wrong, not the rule. */
+  const displaced = stagingFindings({
+    id: 'fixture', actors: [actor('lag', { x: 2.3, z: 0 })], boxes: [other] });
+  assert.equal(displaced.findings.filter(({ kind }) => kind === 'ACTOR_INSIDE_SOLID').length, 1,
+    'a hand-width off centre is another man\'s box, and that is a real finding');
+});
