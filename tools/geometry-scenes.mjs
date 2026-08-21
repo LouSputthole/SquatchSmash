@@ -3100,15 +3100,28 @@ async function buildInitiation(descriptor, THREE) {
 /**
  * The Special Meeting's four bodies, stamped so both gates can see them.
  *
- * The staging gate needs nothing here -- `Npc` already carries the shared
- * actor marker (docs/STAGING-GATE.md), which is the whole reason mounting the
- * cast is enough to make these three states checkable at all. The geometry
- * gate does: it buckets by assembly, and four unassigned person rigs would be
- * audited limb against limb and limb against car. Same treatment the Bing's
- * crowd and the mansion's cast get, keyed on the campaign character id so a
- * body cannot be renumbered by gaining a neighbour.
+ * The staging gate needs nothing here -- `Npc` already carries the shared actor
+ * marker (docs/STAGING-GATE.md), which is the whole reason mounting the cast is
+ * enough to make these three states checkable at all. The geometry gate needs
+ * two things, and both of them are the same two the mansion's cast needed:
+ *
+ * A MAN IN A CAR IS PART OF THE CAR. The gate reports overlaps BETWEEN
+ * assemblies, and a rig folded into a seat is inside one by construction:
+ * measured on the built kerb, Seff's thighs are 0.124 m into the driver's
+ * cushion, Numbskull's shoulder 0.110 m into the rear glass, and Kittenboss
+ * 0.090 m into the boot tail. None of those is a defect anybody can fix by
+ * moving somebody -- they are what a two-metre Sasquatch in a 1970s Lincoln
+ * looks like -- and none of them is a fact about the SCENE. So a rider joins
+ * the car's own assembly, exactly as `mountMansionGeometryCast` puts a man in
+ * a theatre recliner into that recliner's, and the check that still matters --
+ * the car against the street -- is untouched.
+ *
+ * AND HE IS NOT HELD UP BY THE FLOOR. Same reason: his weight is on the seat
+ * this build does not model as support. Everybody on their FEET keeps the
+ * support check, because that is the check that caught the cast standing 32 m
+ * under the clearing floor in the first place.
  */
-function annotateSpecialMeetingCast(cast, descriptor) {
+function annotateSpecialMeetingCast(cast, descriptor, { carAssemblyId = null } = {}) {
   const bodies = cast.all.filter((npc) => npc.group.visible);
   if (bodies.length !== cast.all.length) {
     throw new Error(
@@ -3117,7 +3130,24 @@ function annotateSpecialMeetingCast(cast, descriptor) {
   }
   for (const npc of bodies) {
     if (!npc.group?.traverse) throw new Error(`Special Meeting cast member has no body in ${descriptor.id}`);
-    setGeometryAssembly(npc.group, `specialmeeting-cast:${npc.characterId}`);
+    const riding = npc.seated === true;
+    if (riding && !carAssemblyId) {
+      throw new Error(`Special Meeting Adapter has a rider and no car assembly in ${descriptor.id}`);
+    }
+    setGeometryAssembly(npc.group, riding ? carAssemblyId : `specialmeeting-cast:${npc.characterId}`);
+    npc.group.traverse((object) => {
+      /* A FOREARM IS CARRIED BY AN ARM, NOT BY THE FLOOR. The gate splits an
+       * assembly into connected components before working out what holds each
+       * one up, and a bent elbow separates the forearm's boxes from the upper
+       * arm's, leaving a component with nothing under it at all -- reported as
+       * an "elbow support envelope" floating an unbounded distance. Same
+       * finding, same one-line answer as `annotatePalaceCast`, whose comment
+       * has the long version and the reason it is done in the Adapter rather
+       * than in the shared rig. */
+      if (object.isGroup && object.name === 'forearm') {
+        setGeometryGateMetadata(object, { fixedSupportAnchor: true });
+      }
+    });
   }
   return bodies.length;
 }
@@ -3159,7 +3189,19 @@ async function buildSpecialMeetingKerb(descriptor, THREE) {
      * `arrived` is SM-110, the state the player spends the whole hub in: Seff
      * at the wheel leaning across, Lag out of the front and stepped clear of
      * it, Numbskull holding that door open, and Kittenboss still in the boot
-     * because nobody has mentioned her yet. */
+     * because nobody has mentioned her yet.
+     *
+     * EXPECTED, AND NOT A DEFECT: `npm run verify:staging` reports every rider
+     * as ACTOR_INSIDE_SOLID, and the ones whose eyes are under the roofline as
+     * FACING_INTO_SOLID at zero metres. The solid is the car. Its world
+     * collider is one box from the road to 2.28 m with the cabin inside it --
+     * as it has to be, because it is the wall the player walks round -- and a
+     * man in the driver's seat has his hips 1.04 m up, inside it by
+     * construction. The only way to silence those four findings is to take the
+     * car's collider out of the audited set, which would stop the geometry
+     * gate seeing the one moving wall in the scene. Nobody standing on the
+     * pavement reports either finding, which is the half that means
+     * something. */
     people.boardForArrival();
     if (blockState === 'arrived') {
       people.disembarkForPickup();
@@ -3168,7 +3210,12 @@ async function buildSpecialMeetingKerb(descriptor, THREE) {
     return { runtime: built, cast: people };
   });
   const { block, sedan } = runtime;
-  const castCount = annotateSpecialMeetingCast(cast, descriptor);
+  /* Read off the car rather than restated here: a rider joins whatever
+   * assembly the sedan declares, so renaming the car cannot silently split a
+   * man from the seat he is sitting in. */
+  const castCount = annotateSpecialMeetingCast(cast, descriptor, {
+    carAssemblyId: sedan.group.userData?.geometryGate?.assemblyId ?? null,
+  });
   for (const [label, root] of [['block', block.group], ['sedan', sedan.group]]) {
     if (root?.parent !== scene) {
       throw new Error(`Special Meeting kerb Adapter did not mount the ${label} in ${descriptor.id}`);
@@ -3227,15 +3274,42 @@ async function buildSpecialMeetingKerb(descriptor, THREE) {
  * because the geometry does not care how long Lag took to unhook it, and the
  * arrival is the state being built and so is left standing.
  */
+/**
+ * The block's door names to the forest's, and a boot anchor for a car with no
+ * boot.
+ *
+ * `src/specialmeeting/forest/sedan-adapter.js` owns this mapping in the other
+ * direction, for the campaign, where the car at the spur IS the block's Lincoln
+ * and the cast reads its own anchors off it. This harness drives the forest's
+ * fallback car -- which the adapter's header calls the right one for a headless
+ * build and the wrong one for the campaign -- so the four bodies it stands
+ * round that car need the same anchors under the forest's spelling.
+ */
+const SPUR_DOOR_NAMES = Object.freeze({
+  driver: 'driver',
+  front_passenger: 'frontPassenger',
+  rear_left: 'rearLeft',
+  rear_right: 'rearRight',
+});
+
+/** How far behind the bumper somebody stands to open the boot, in metres. */
+const SPUR_BOOT_STANDOFF_M = 0.75;
+
 async function buildSpecialMeetingSpur(descriptor, THREE) {
-  const { createNightForestRoad } = await import('../src/specialmeeting/forest/index.js');
+  const [{ createNightForestRoad }, { buildSpecialMeetingCast }] = await Promise.all([
+    import('../src/specialmeeting/forest/index.js'),
+    import('../src/specialmeeting/cast.js'),
+  ]);
   const scene = new THREE.Scene();
   const colliders = [];
   const reached = [];
 
-  /* One seeded boundary around the build AND the drive: the terrain streams
-   * new chunks the whole way down the road, so the trees that exist at the
-   * spur are decided by draws taken during the drive, not at construction. */
+  let cast = null;
+
+  /* One seeded boundary around the build AND the drive AND the cast: the
+   * terrain streams new chunks the whole way down the road, so the trees that
+   * exist at the spur are decided by draws taken during the drive rather than
+   * at construction, and `Npc` takes a draw per body for its idle phase. */
   const forest = withSeededGeometryRandom(descriptor.id, () => {
     const built = createNightForestRoad({
       scene,
@@ -3255,8 +3329,39 @@ async function buildSpecialMeetingSpur(descriptor, THREE) {
     built.killEngine();
     built.killLights();
     built.update(STEP);
+
+    /* THE ARRANGEMENT THIS STATE ACTUALLY HAS: SM-400 onwards. The engine is
+     * off, the three of them have got out at their own doors, and Kittenboss
+     * has climbed out of the boot under her own power and is standing behind
+     * the car. That is the whole of Act Four and it is the only part of this
+     * scene the player watches from outside a vehicle.
+     *
+     * Placed on the CLEARING FLOOR rather than at y = 0: measured on this
+     * build, the floor here is 32.6 m above datum. */
+    const carGroup = built.car.group;
+    const standIn = {
+      group: carGroup,
+      facingYaw: () => carGroup.rotation.y - Math.PI / 2,
+      doorWorld(id) {
+        if (id === 'trunk') {
+          return carGroup.localToWorld(
+            new THREE.Vector3(-(built.car.length / 2 + SPUR_BOOT_STANDOFF_M), 0, 0),
+          );
+        }
+        return built.car.exitWorld(SPUR_DOOR_NAMES[id] ?? id, new THREE.Vector3());
+      },
+      release() {},
+    };
+    cast = buildSpecialMeetingCast(scene, {
+      sedan: standIn,
+      colliders,
+      groundAt: (x, z) => built.heightAt(x, z),
+    });
+    cast.getOut();
+    cast.kittenbossOut();
     return built;
   });
+  const castCount = annotateSpecialMeetingCast(cast, descriptor);
 
   if (!forest.drive.arrived) {
     throw new Error(
@@ -3297,6 +3402,7 @@ async function buildSpecialMeetingSpur(descriptor, THREE) {
     producerCounts: {
       forests: 1,
       sedans: 1,
+      cast: castCount,
       trees: stats.trees,
       terrainChunks: stats.chunks,
       colliders: colliders.length,

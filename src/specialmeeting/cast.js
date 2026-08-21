@@ -166,6 +166,26 @@ const STANDING_YAW_OFFSET = Object.freeze({
  */
 const STEP_CLEAR_M = 1.7;
 
+/**
+ * How far back from a door anchor a man stands once he is just WAITING.
+ *
+ * A door anchor is where you stand to open a door -- close enough to reach the
+ * handle -- and until this constant existed it was also where everybody stood
+ * for the whole of Act Four. Measured on the built spur, in the car's own
+ * frame: that leaves a shoulder 0.20 m off the wheel arch, and four people
+ * standing about at twenty centimetres from the paint is not what standing
+ * about looks like.
+ *
+ * It is also what the geometry gate was reporting. That gate compares WORLD
+ * axis-aligned boxes, and the car at the spur is parked 28 degrees off the
+ * world axes, so the box round its two-and-a-half-metre sill reaches about
+ * 0.4 m past its own flank: 109 findings, every one of them a man standing
+ * beside a car he was measurably not touching. Half a metre of step-back
+ * clears the real gap and the reported one at the same time -- measured at
+ * 0.40 m, authored at 0.55 for margin.
+ */
+const WAITING_STANDOFF_M = 0.55;
+
 function modelFor(key) {
   if (key === 'numbskull') return { ...WARDROBE.numbskull };
   if (key === 'kittenboss') return { ...WARDROBE.kittenboss };
@@ -273,10 +293,13 @@ export function buildSpecialMeetingCast(scene, {
    * looking out of it at Tony, and the one who has just climbed out of the boot
    * is not looking back into it.
    */
-  function placeBeside(key, spot, { away = false } = {}) {
+  function placeBeside(key, spot, { away = false, standoff = 0 } = {}) {
     const centre = sedan.group.position;
-    const look = yawToward(spot.x, spot.z, centre.x, centre.z) + (away ? Math.PI : 0);
-    return place(key, spot.x, floorAt(spot.x, spot.z), spot.z, look + STANDING_YAW_OFFSET[key]);
+    const out = Math.hypot(spot.x - centre.x, spot.z - centre.z) || 1;
+    const x = spot.x + ((spot.x - centre.x) / out) * standoff;
+    const z = spot.z + ((spot.z - centre.z) / out) * standoff;
+    const look = yawToward(x, z, centre.x, centre.z) + (away ? Math.PI : 0);
+    return place(key, x, floorAt(x, z), z, look + STANDING_YAW_OFFSET[key]);
   }
 
   /** A rider, turned the way the car is going, off his own authored offset. */
@@ -424,7 +447,7 @@ export function buildSpecialMeetingCast(scene, {
       if (!sedan) return this;
       for (const key of ['seff', 'lag', 'numbskull']) {
         standUp(key);
-        placeBeside(key, sedan.doorWorld(CAST_SPEC[key].seat));
+        placeBeside(key, sedan.doorWorld(CAST_SPEC[key].seat), { standoff: WAITING_STANDOFF_M });
       }
       return this;
     },
@@ -433,7 +456,9 @@ export function buildSpecialMeetingCast(scene, {
     kittenbossOut() {
       if (!sedan) return this;
       standUp('kittenboss');
-      placeBeside('kittenboss', sedan.doorWorld('trunk'), { away: true });
+      placeBeside('kittenboss', sedan.doorWorld('trunk'), {
+        away: true, standoff: WAITING_STANDOFF_M,
+      });
       return this;
     },
 
