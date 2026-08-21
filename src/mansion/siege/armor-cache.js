@@ -32,6 +32,7 @@
  */
 import * as THREE from 'three';
 import { box, cylinder, mat } from '../../world/build.js';
+import { BASEMENT_Y } from './nav.js';
 
 const M_FRAME = mat({ color: 0x4a4f55, roughness: 0.55, metalness: 0.5 });
 const M_PLACARD = mat({ color: 0xb99a4e, roughness: 0.42, metalness: 0.55 });
@@ -39,9 +40,24 @@ const M_PLATE = mat({ color: 0x30363d, roughness: 0.82, metalness: 0.1 });
 const M_STRAP = mat({ color: 0x1c1e22, roughness: 0.9 });
 const M_BUCKLE = mat({ color: 0x8a8f99, roughness: 0.4, metalness: 0.75 });
 
-/** Where the stand goes: south wall of the basement armory room, clear of
- * every weapon rack and the stair shaft on both sides. See the file header. */
-export const ARMOR_STAND_SPOT = Object.freeze({ x: 2.6, y: 0, z: 50.45, rotY: 0 });
+/**
+ * Where the stand goes: south wall of the basement armory room, clear of
+ * every weapon rack and the stair shaft on both sides. See the file header.
+ *
+ * `y` IS THE BASEMENT FLOOR, and it was `0`, which is neither floor in this
+ * building: the basement is at -2.8 and the ground floor at +1.2. The stand
+ * was therefore standing in the slab between the two storeys -- 2.8 m above
+ * the armory floor, over the head of the man sent down to take it, with the
+ * top 35 cm of it poking up through the foyer floorboards as an unnamed
+ * 60 x 56 cm stub.
+ *
+ * It cost two siege checks, and they read as two unrelated faults: a nav leg
+ * (`foyer_under -> foyer_arch_east`) walking through furniture that was not
+ * there, and the basement-exit walk reporting a floor of 1.55 instead of 1.20
+ * because the player was standing on the invisible top of it. One box, no
+ * name, two symptoms, neither of them near the armory.
+ */
+export const ARMOR_STAND_SPOT = Object.freeze({ x: 2.6, y: BASEMENT_Y, z: 50.45, rotY: 0 });
 
 /**
  * @param {object} o
@@ -119,10 +135,15 @@ export function buildSiegeArmorCache({
   }
 
   if (addCollider) {
+    /* Named, because an anonymous box is a box no report can point at. This
+     * one spent its whole life in the wrong storey and the two checks it broke
+     * both named somewhere else; finding it meant building the scene and
+     * ray-testing every collider by hand. */
     addCollider(
       spot.x - 0.3, spot.x + 0.3,
       spot.y, spot.y + 1.55,
       spot.z - 0.28, spot.z + 0.28,
+      'siege.armor-cache.stand',
     );
   }
 

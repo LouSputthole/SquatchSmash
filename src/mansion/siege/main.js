@@ -997,11 +997,15 @@ const armorCache = buildSiegeArmorCache({
   parent: scene,
   interaction,
   enabled: () => running,
-  addCollider: (x0, x1, y0, y1, z0, z1) => {
-    colliders.push(new THREE.Box3(
+  addCollider: (x0, x1, y0, y1, z0, z1, name = null) => {
+    const solid = new THREE.Box3(
       new THREE.Vector3(Math.min(x0, x1), y0, Math.min(z0, z1)),
       new THREE.Vector3(Math.max(x0, x1), y1, Math.max(z0, z1)),
-    ));
+    );
+    /* Optional, and used: the armor stand names its box so a collider report
+     * can say which object it is instead of printing bare coordinates. */
+    if (name) solid.name = name;
+    colliders.push(solid);
   },
   armor: Math.round(playerActor.maxArmor),
   onTake: () => {
