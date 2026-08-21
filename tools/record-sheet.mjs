@@ -54,7 +54,18 @@ const SCENES = [
   ['Radio', (n) => n.startsWith('radio.')],
   ['Mansion', (n) => n.startsWith('vo.mansion.')],
   ['Bada Bing', (n) => n.startsWith('bing.')],
-  ['The Enola Squatch', (n) => n.includes('.enola') || n.startsWith('plane.')],
+  ['The Enola Squatch', (n) => n.includes('.enola') || n.startsWith('enolasquatch.') || n.startsWith('plane.')],
+  /* THE CATCH-ALL WAS HIDING THE ONE THAT MATTERED. Two hundred and seven
+   * Special Meeting lines -- the whole scene, and the largest block of silence
+   * in the game -- were filed under 'Apartment and shared', so the scene table
+   * above reported the apartment as the biggest job and the Special Meeting as
+   * nothing at all. Same for the siege's A-Team, the HotDog stabbing and
+   * Silent Night. A default that quietly absorbs a third of the game is the
+   * same fault as a gate that goes quiet: see docs/ENGINE-TRAPS.md 10. */
+  ['The Special Meeting', (n) => n.startsWith('vo.specialmeeting.')],
+  ['MANSION UNDER SIEGE', (n) => n.startsWith('vo.ateam.')],
+  ['PROJECT SILENT SQUATCH', (n) => n.startsWith('vo.silentnight.') || n.startsWith('vo.silentsquatch.')],
+  ['The HotDog Incident', (n) => n.startsWith('hotdog.')],
 ];
 const sceneOf = (name) => SCENES.find(([, owns]) => owns(name))?.[0] || 'Apartment and shared';
 const fileOf = (cue) => (cue.file ? `${cue.file}.mp3` : `${cue.name}.mp3`);
@@ -176,6 +187,44 @@ function main() {
     md.push('this file is ready to generate today.');
     md.push('');
   }
+  /* WHICH SCENE IS MUTE, AND BY HOW MUCH.
+   *
+   * The sections below group by CHARACTER, which is the right shape for a
+   * recording session -- one voice, one id, one sitting. It is the wrong shape
+   * for deciding what to record FIRST, and the two questions have different
+   * answers: a playtest is blocked by whichever scene the player reaches with
+   * nothing coming out of it, and on the day this was written that was the
+   * Special Meeting with a hundred and ninety-two silent lines while the
+   * Initiation, a longer scene, was complete. */
+  const byScene = new Map();
+  for (const r of rows) {
+    const at = byScene.get(r.scene) ?? { voice: 0, effect: 0, seconds: 0 };
+    at[r.kind === 'effect' ? 'effect' : 'voice'] += 1;
+    /* Spoken rows carry no duration -- only five of five hundred and ninety
+     * three have one, because the length is whatever the take turns out to be.
+     * Estimated off the words at a steady 2.5 a second, which is what these
+     * lines read at, so the column is a session estimate rather than a sum of
+     * five effects pretending to cover the whole scene. */
+    at.seconds += r.kind === 'effect'
+      ? (Number(r.seconds) || 0)
+      : (String(r.text ?? '').trim().split(/\s+/).filter(Boolean).length / 2.5);
+    byScene.set(r.scene, at);
+  }
+  const scenes = [...byScene].sort((a, b) => (b[1].voice + b[1].effect) - (a[1].voice + a[1].effect));
+  if (scenes.length) {
+    md.push('## What each scene is waiting on');
+    md.push('');
+    md.push('Record top-down and the game comes up scene by scene.');
+    md.push('');
+    md.push('| Scene | Lines | Effects | Total | Est. minutes |');
+    md.push('|---|---:|---:|---:|---:|');
+    for (const [scene, at] of scenes) {
+      md.push(`| ${scene || '(unscoped)'} | ${at.voice} | ${at.effect} | ${at.voice + at.effect} `
+        + `| ${(at.seconds / 60).toFixed(1)} |`);
+    }
+    md.push('');
+  }
+
   md.push('## Do NOT record the legacy queue');
   md.push('');
   md.push('`VOICE-LINES-TODO.md` lists 83 sound effects and 13 ambience/music briefs under a legacy');
