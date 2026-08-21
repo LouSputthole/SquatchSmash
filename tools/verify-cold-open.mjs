@@ -151,14 +151,22 @@ try {
   check('the radio comes on the moment the camera starts to move',
     moving.radioOn, `radio ${moving.radioOn}`);
 
-  await settle(1.2);
+  /* WAIT ON THE DOLLY, NOT ON THE CLOCK. The first draft slept 1.2 seconds
+   * and asserted the room was visible; under swiftshader this page renders at
+   * about ten frames a second, so 1.2 s of wall time is 11% of a five-second
+   * pull-back -- the camera had barely left the monitor and the monitor still
+   * filled the screen. The check was measuring too early and calling the
+   * sequence broken. Wait for the move to be half done and then look. */
+  await page.waitForFunction(() => window.__squatch.coldOpenState.pullbackK > 0.5,
+    null, { timeout: 60000 });
   const midway = await state();
   check('the room appears around the monitor as the camera comes off it',
-    midway.pullbackK > 0 && midway.cameraToMonitor > startedAt && !midway.covers,
+    midway.cameraToMonitor > startedAt && !midway.covers,
     JSON.stringify({ k: midway.pullbackK.toFixed(2), covers: midway.covers }));
 
+  /* Ten frames a second against a 5.2 s dolly is a minute of patience. */
   await page.waitForFunction(() => window.__squatch.coldOpenState.phase === 'beat',
-    null, { timeout: 30000 });
+    null, { timeout: 120000 });
   const landed = await state();
   check('it lands him in his own chair, at the desk',
     landed.cameraToSeat < 0.2 && landed.seated,

@@ -61,14 +61,9 @@ body.graveyard {
  * stylesheets, below.
  *
  * src/style.css owns `#objectives` for the apartment, where it sits top RIGHT
- * under the clock and is right-aligned. This page links that sheet for the
- * shared HUD furniture, so the panel's own box wins on everything it declares
- * and inherits the two declarations it does not: the alignment and the flex
- * list. Put back here rather than in core, because core is not mine to edit --
- * though `text-align: left` inside the panel's own `#objectives.op-panel`
- * rule would delete this block from three scenes at once. */
-#objectives.op-panel { text-align: left; }
-#objectives.op-panel .olist { display: block; }
+ * Nothing here any more: the panel declares its own alignment and list
+ * display, so the graveyard takes it as it comes. See
+ * src/core/objective-panel.js. */
 
 .graveyard #pee-hint {
   position: fixed; right: 26px; bottom: 42px; z-index: 9; display: flex; align-items: center; gap: 9px;

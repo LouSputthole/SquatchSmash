@@ -27,7 +27,13 @@ export const SHARED_SYSTEMS = Object.freeze([
   Object.freeze({
     id: 'objectives',
     module: 'src/core/objective-panel.js',
-    what: 'The upper-left objective card, its wording, and its update chime.',
+    /* It has no chime. This said "and its update chime" until the four scenes
+     * that adopted it went looking for one and found nothing -- a description
+     * of a shared system that lists a feature the system does not have is the
+     * same species of lie as a gate that reports green without looking. Either
+     * the panel owes a chime or this line does; for now the line tells the
+     * truth and the chime is a thing somebody can decide to build. */
+    what: 'The upper-left objective card and its wording. No chime yet.',
   }),
   Object.freeze({
     id: 'dialogue',
@@ -83,19 +89,19 @@ export const SCENE_SYSTEM_ADOPTION = Object.freeze({
   arcade: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, notes: "The in-world cabinets. It hosts other games; it is not one." },
   beefrun: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
   bing: { objectives: 0, dialogue: 0, interaction: 2, player: 2, hud: 2, pause: 2, inventory: 1, blood: 2, staging: 1 },
-  'cartel-palace': { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 1, staging: 0 },
+  'cartel-palace': { objectives: 1, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 1, staging: 0 },
   combatlab: { objectives: 0, dialogue: 0, interaction: 0, player: 1, hud: 0, pause: 1, inventory: 0, blood: 0, staging: 0, notes: "A test harness for the combat systems, not a campaign scene." },
   enolasquatch: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 0 },
-  golf: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
-  graveyard: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
-  heist: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1 },
+  golf: { objectives: 1, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
+  graveyard: { objectives: 1, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
+  heist: { objectives: 1, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1 },
   initiation: { objectives: 0, dialogue: 2, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 0, notes: "Frozen pending the owner playtest; see GEOMETRY_FROZEN_WAIVERS." },
-  mansion: { objectives: 1, dialogue: 1, interaction: 2, player: 2, hud: 0, pause: 2, inventory: 2, blood: 4, staging: 0 },
-  motel: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 0 },
-  nowake: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
+  mansion: { objectives: 1, dialogue: 1, interaction: 2, player: 2, hud: 0, pause: 2, inventory: 2, blood: 4, staging: 1 },
+  motel: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1 },
+  nowake: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 1 },
   silver: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 0 },
-  silvercase: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 0 },
-  specialmeeting: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 0 },
+  silvercase: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1 },
+  specialmeeting: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 1 },
   squatchfather: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 0 },
   wardrobe: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, notes: "The fitting room tool, reached from the wardrobe page rather than the campaign." },
 });

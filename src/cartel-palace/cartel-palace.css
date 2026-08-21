@@ -116,13 +116,11 @@ body.alarm #alarm-wash { opacity: 1; animation: alarmPulse 1.15s ease-in-out inf
 
 /* Where the shared card sits on this HUD, and nothing else about it.
  *
- * src/style.css owns `#objectives` for the apartment -- top RIGHT, under the
- * clock, right-aligned -- and this page links that sheet for the shared
- * furniture, so the two declarations the panel does not set for itself are
- * put back here. A `text-align: left` in the panel's own `#objectives.op-panel`
- * rule would remove this from the Palace, the golf and the graveyard at once. */
-#objectives.op-panel { top: 70px; left: 22px; text-align: left; }
-#objectives.op-panel .olist { display: block; }
+ * The Palace only needs to move it: the evidence strip is already in that
+ * corner. */
+/* Position only -- the evidence strip owns the top-left corner. Alignment and
+ * list display are the panel's own; see src/core/objective-panel.js. */
+#objectives.op-panel { top: 70px; left: 22px; }
 #evidence-count i { width: 74px; height: 3px; background: linear-gradient(90deg, var(--brass) var(--evidence, 0%), rgba(255,255,255,.13) var(--evidence, 0%)); }
 
 #stealth, #health {

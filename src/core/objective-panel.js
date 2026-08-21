@@ -56,6 +56,15 @@ const STYLE = `
   z-index: 6;
   pointer-events: none;
   transition: opacity 0.35s;
+  /* DECLARED, not inherited. src/style.css styles a bare #objectives for the
+   * apartment -- top RIGHT, right-aligned, a flex list -- and golf, the
+   * graveyard and the Palace all link that sheet for shared HUD furniture. The
+   * panel wins on every property it sets and quietly lost these two, so each
+   * of those three grew an identical override in its own stylesheet. Setting
+   * them here deletes all three. The selector #objectives.op-panel only ever
+   * matches a panel this module built, so the apartment's own list is
+   * untouched. (No back-ticks in here: this block is a template literal.) */
+  text-align: left;
 }
 #objectives.op-panel.hidden { opacity: 0; }
 #objectives.op-panel .otitle {
@@ -65,7 +74,7 @@ const STYLE = `
   text-transform: uppercase;
   margin-bottom: 6px;
 }
-#objectives.op-panel .olist { margin: 0; padding: 0; list-style: none; }
+#objectives.op-panel .olist { display: block; margin: 0; padding: 0; list-style: none; }
 #objectives.op-panel .olist li {
   color: #f2eee1;
   padding-left: 15px;

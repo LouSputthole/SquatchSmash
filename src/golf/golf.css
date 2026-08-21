@@ -58,16 +58,11 @@ body.golf #hud { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; }
  * sits: under the scorecard rather than on top of it, since this HUD had the
  * top-left corner spoken for before the panel arrived.
  *
- * `text-align` and the flex list come from src/style.css, which owns
- * `#objectives` for the apartment -- top RIGHT, right-aligned, under the
- * clock. This page links that sheet for the shared furniture, so the two are
- * put back by hand. One `text-align: left` inside the panel's own
- * `#objectives.op-panel` rule would delete these two lines here, in the
- * graveyard and in the Palace at once. */
-#objectives.op-panel {
-  top: 106px; left: 22px; text-align: left;
-}
-#objectives.op-panel .olist { display: block; }
+ * Only the position is this page's business: the scorecard already owns the
+ * top-left corner, so the panel moves down under it. */
+/* Position only. The alignment and the list display are the panel's own now
+ * -- see the note in src/core/objective-panel.js. */
+#objectives.op-panel { top: 106px; left: 22px; }
 
 #golf-waypoint {
   position: fixed; left: 50%; top: 50%; z-index: 7;
