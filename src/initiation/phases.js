@@ -273,11 +273,22 @@ export const PHASES = Object.freeze({
   card: phase('card', {
     camera: 'ritual', advance: 'timer', timeout: 2.6, beat: 'IN-420', exits: ['oath_1'],
   }),
+  /* THE OATH IS A CHOICE NOW, and the wrong one is an ending.
+   *
+   * These used to be a single press with a comment saying nothing in this act
+   * could fail. Lou says a line, the room stops, and three go up: his words
+   * exactly, and two men who heard the sense and not the words. `choice: true`
+   * is the same flag the founders question carries, and `failed_oath` is the
+   * same exit the refusal at IN-370 takes -- one round off the shoulder.
+   *
+   * The keys are 1/2/3 now rather than Space, so the objective says so. */
   oath_1: phase('oath_1', {
-    objective: OBJ_REPEAT, keys: KEYS_PRESS, camera: 'ritual', advance: 'event', timeout: 22, beat: 'IN-430', exits: ['oath_2'],
+    objective: OBJ_REPEAT, keys: KEYS_THREE, camera: 'ritual', advance: 'input',
+    choice: true, timeout: 22, beat: 'IN-430', exits: ['oath_2', 'failed_oath'],
   }),
   oath_2: phase('oath_2', {
-    objective: OBJ_REPEAT, keys: KEYS_PRESS, camera: 'ritual', advance: 'event', timeout: 20, beat: 'IN-435', exits: ['burn'],
+    objective: OBJ_REPEAT, keys: KEYS_THREE, camera: 'ritual', advance: 'input',
+    choice: true, timeout: 20, beat: 'IN-435', exits: ['burn', 'failed_oath'],
   }),
   /* Lou's hand closing over the player's IS the fallback. A player who cannot
    * or will not hold the button is held. */

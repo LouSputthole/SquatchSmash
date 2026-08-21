@@ -93,6 +93,55 @@ export const QUIZ_OPTIONS = Object.freeze([
   correct,
 })));
 
+/**
+ * REPEAT AFTER ME — and the two ways to get it wrong.
+ *
+ * Lou says a line. Everything stops. Three options go up and one of them is
+ * what he actually said, word for word; the other two are a man who was
+ * listening to the sense of it instead of the words. Getting it wrong is
+ * fatal, which is the point: this is the moment the ceremony stops being a
+ * party and the reason the whole room is standing behind him.
+ *
+ * The wrong ones are PARAPHRASES, never nonsense. A player who was listening
+ * can hear the difference, which makes it a test of attention rather than of
+ * luck, and a player who was not gets what the Circle gives people who were
+ * not listening. Nothing here is subtle-by-a-word: "the family" against "this
+ * family" would be a coin toss with a bullet on it.
+ *
+ * Keyed by the beat whose PROSPECT line they stand in for, so the correct
+ * answer cannot drift away from the words Lou is recorded saying -- it is
+ * read back out of the script rather than typed twice.
+ */
+const OATH_FUMBLE_TEXT = Object.freeze({
+  'IN-430': Object.freeze([
+    'I pledge my allegiance to this family.',
+    'I swear my loyalty to this family, and to the Bing.',
+  ]),
+  'IN-435': Object.freeze([
+    'My flesh must burn in hell like this saint if I ever break my oath.',
+    'May my flesh burn like this saint if I betray the family.',
+  ]),
+});
+
+/**
+ * The three things he can say back, for one oath beat.
+ *
+ * @param {string} beatId 'IN-430' or 'IN-435'
+ * @param {string} correctText the PROSPECT line out of that beat, verbatim
+ */
+export function oathChoices(beatId, correctText) {
+  const fumbles = OATH_FUMBLE_TEXT[beatId] ?? [];
+  return Object.freeze([[correctText, true], ...fumbles.map((text) => [text, false])]
+    .map(([text, correct]) => initiationVoiceLine({
+      scope: 'cabin',
+      speaker: 'prospect-oath',
+      voice: 'player',
+      who: 'PROSPECT',
+      text,
+      correct,
+    })));
+}
+
 export function allCeremonyVoiceLines() {
   return uniqueInitiationVoiceLines(...Object.values(CEREMONY_BEATS), QUIZ_OPTIONS);
 }

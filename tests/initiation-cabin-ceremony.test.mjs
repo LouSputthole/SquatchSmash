@@ -36,6 +36,7 @@ const THREE = await import('three');
 const site = await import('../src/initiation/cabin/site.js');
 const staging = await import('../src/initiation/cabin/staging.js');
 const script = await import('../src/initiation/script.js');
+const { oathChoices } = await import('../src/initiation/dialogue.js');
 const phases = await import('../src/initiation/phases.js');
 const executions = await import('../src/initiation/executions.js');
 const { Person } = await import('../src/core/person.js');
@@ -398,9 +399,14 @@ test('the wrong answer fails the mission, and the failure comes back', () => {
   assert.deepEqual(PHASES.failed.exits, ['q2_choice'],
     'the Circle, inexplicably, lets him have another go');
 
-  /* FAIL-B — the oath. "No. I don't." is the owner's line and it is the only
-   * other way to fail this scene. */
+  /* FAIL-B — the oath. "No. I don't." is the owner's line, and fumbling the
+   * words he is asked to repeat is now the third way to die in this room. */
   assert.deepEqual(PHASES.oath_question.exits, ['oath_yes', 'oath_no']);
+  for (const id of ['oath_1', 'oath_2']) {
+    assert.equal(PHASES[id].choice, true, `${id} must put the words up as a choice`);
+    assert.ok(PHASES[id].exits.includes('failed_oath'),
+      `${id} must be able to end the night`);
+  }
   assert.deepEqual(PHASES.oath_no.exits, ['failed_oath']);
   assert.deepEqual(PHASES.failed_oath.exits, ['oath_question'],
     'FAIL-B must resume on Lou standing, not at the top of the ceremony');
@@ -416,9 +422,15 @@ test('the wrong answer fails the mission, and the failure comes back', () => {
 
   /* And the card the player is actually shown. */
   assert.match(MAIN, /failTitleEl\.textContent = 'MISSION FAILED'/);
-  assert.match(MAIN, /failReasonEl\.innerHTML = 'WRONG ANSWER'/);
+  /* The REASON is now the caller's, because there are two ways to be shot in
+   * this chair and they are not the same mistake: refusing outright is WRONG
+   * ANSWER, and getting Lou's words back wrong is WRONG WORDS. The default
+   * keeps the refusal's card exactly as it shipped. */
+  assert.match(MAIN, /function fireTheOathShot\(reason = 'WRONG ANSWER'\)/);
+  assert.match(MAIN, /failReasonEl\.innerHTML = reason;/);
+  assert.match(MAIN, /fireTheOathShot\('WRONG WORDS'\)/);
   /* The shot is a real, positional weapon cue and never a raw one. */
-  assert.match(MAIN, /function fireTheOathShot\(\)[\s\S]{0,400}playWeaponCue\(audio, 'pistol9', 'fire', \{[\s\S]{0,200}position:/);
+  assert.match(MAIN, /function fireTheOathShot\([\s\S]{0,60}\)[\s\S]{0,400}playWeaponCue\(audio, 'pistol9', 'fire', \{[\s\S]{0,200}position:/);
   /* Nothing from before the question replays. */
   assert.doesNotMatch(
     MAIN.slice(MAIN.indexOf("if (failFrom === 'oath')"), MAIN.indexOf("/* FAIL-A, entirely unchanged")),
@@ -826,4 +838,43 @@ test('the site is built once, by the cabin module, and main.js scatters nothing'
   assert.match(MAIN, /const PROSPECT_XS = \[-4\.4, 0, 2\.2, 4\.4\];/);
   assert.deepEqual([...site.PROSPECT_XS], [-4.4, 0, 2.2, 4.4]);
   assert.equal(site.LINE_Z, -8);
+});
+
+test('repeat after me is three lines, one of them his, and the other two get you shot', () => {
+  /* THE OWNER'S ASK. Lou says a line, the room stops, and the prospect picks
+   * what he says back. Wrong words and the man behind him fires.
+   *
+   * The correct option is read out of the beat, never typed again, so it can
+   * never drift from the line Lou is recorded saying — which is the whole
+   * mechanic: repeat what you just heard, word for word. */
+  for (const beatId of ['IN-430', 'IN-435']) {
+    const beat = script.beatById(beatId);
+    const mine = beat.lines.filter((line) => line.who === 'PROSPECT');
+    assert.equal(mine.length, 1, `${beatId} must have exactly one line to say back`);
+
+    const options = oathChoices(beatId, mine[0].text);
+    assert.equal(options.length, 3, `${beatId} offers three`);
+
+    const right = options.filter((option) => option.correct);
+    assert.equal(right.length, 1, `${beatId} has exactly one right answer`);
+    assert.equal(right[0].text, mine[0].text,
+      `${beatId}'s right answer must be the scripted line verbatim`);
+
+    /* The wrong two are PARAPHRASES, not nonsense and not near-identical. A
+     * player who listened can tell; one who did not cannot guess. Distinct
+     * from the real line and from each other, and none of them a single word
+     * away from it — "the family" against "this family" would be a coin toss
+     * with a bullet on it. */
+    const wrong = options.filter((option) => !option.correct);
+    assert.equal(wrong.length, 2);
+    assert.equal(new Set(options.map((o) => o.text)).size, 3, 'no two options read the same');
+    for (const option of wrong) {
+      assert.ok(option.text.length > 20, 'a wrong line is a real sentence');
+      assert.notEqual(option.text, mine[0].text);
+    }
+    for (const option of options) {
+      assert.equal(option.who, 'PROSPECT');
+      assert.ok(option.cue, 'every option is a real cue, so it can be recorded');
+    }
+  }
 });

@@ -21,6 +21,7 @@ import {
   CORRECT_LINES,
   WRONG_LINES,
   QUIZ_OPTIONS,
+  oathChoices,
 } from './dialogue.js';
 import {
   HUB,
@@ -2061,7 +2062,7 @@ function answerNo() {
   });
 }
 
-function fireTheOathShot() {
+function fireTheOathShot(reason = 'WRONG ANSWER') {
   playWeaponCue(audio, 'pistol9', 'fire', {
     volume: 1,
     position: { x: player.position.x, y: PLAYER_EYE_Y, z: player.position.z - 0.9 },
@@ -2070,7 +2071,7 @@ function fireTheOathShot() {
   fadeEl.style.opacity = 1;
   shake = Math.max(shake, 0.5);
   failTitleEl.textContent = 'MISSION FAILED';
-  failReasonEl.innerHTML = 'WRONG ANSWER';
+  failReasonEl.innerHTML = reason;
   failEl.classList.remove('hidden');
   setPhase('failed_oath');
 }
@@ -2171,7 +2172,59 @@ function runOathLine(which) {
    * never presses, Tony says it anyway, quietly, and the scene continues —
    * nothing in this act can fail. */
   const louLines = beat.lines.filter((line) => line.who !== 'PROSPECT');
-  say(louLines, () => setPhaseObjective(PHASES[which === 1 ? 'oath_1' : 'oath_2']));
+  say(louLines, () => offerOathLine(which));
+}
+
+/**
+ * REPEAT AFTER ME, and mean it exactly.
+ *
+ * Lou finishes, the room stops, and three lines go up: what he just said, and
+ * two men who were listening to the sense of it instead of the words. This
+ * used to be a single press -- "nothing in this act can fail" -- and the owner
+ * asked for the version with a consequence, which is what the whole room
+ * standing behind him has been for.
+ *
+ * `showChoice` is the scene's own founders-quiz machinery, unchanged: it
+ * already takes options with a `correct` flag and hands the picked one back.
+ * The correct text is read out of the beat rather than typed again, so it
+ * cannot drift from the line Lou is recorded saying.
+ */
+function offerOathLine(which) {
+  const beat = beatById(which === 1 ? 'IN-430' : 'IN-435');
+  const mine = beat.lines.filter((line) => line.who === 'PROSPECT');
+  const correctText = mine[0]?.text ?? '';
+  setPhaseObjective(PHASES[which === 1 ? 'oath_1' : 'oath_2']);
+  /* Authored order, shuffled per playthrough so the right answer is not
+   * always button one. `Math.random` is fine HERE and nowhere near geometry:
+   * it moves a button, not a recorded bucket. */
+  const options = [...oathChoices(beat.id, correctText)].sort(() => Math.random() - 0.5);
+  showChoice({
+    prompt: 'Say it back.',
+    hint: 'Word for word.',
+    options,
+    onPick: (option) => {
+      if (option.correct) {
+        repeatOathLine(which, option);
+        return;
+      }
+      fumbleOath();
+    },
+  });
+}
+
+/**
+ * He got the words wrong, and the man behind him was always going to be there.
+ *
+ * The same shot the refusal at IN-370 fires -- one round, off the shoulder,
+ * black before the report finishes. Reusing it rather than writing a second
+ * death keeps the two ways of failing this room identical, which is the
+ * honest reading: the Circle does not care WHY you could not say it.
+ */
+function fumbleOath() {
+  hideChoice();
+  setObjective('');
+  failFrom = 'oath';
+  fireTheOathShot('WRONG WORDS');
 }
 
 function repeatOathLine(which) {
