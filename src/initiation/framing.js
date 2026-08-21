@@ -400,7 +400,9 @@ export const CLEARING_STANCES = Object.freeze({
   BOOSKIBRO: Object.freeze({ x: -6.4, z: -3.6, scale: FIGURE_SCALE.booskibro }),
   LOU: Object.freeze({ x: -7.8, z: -4.4, scale: FIGURE_SCALE.founder }),
   GRATIN: Object.freeze({ x: 1.6, z: -10.2, scale: FIGURE_SCALE.member }),
-  SEFF: Object.freeze({ x: 3.4, z: -10.4, scale: FIGURE_SCALE.member }),
+  /* Moved 0.7 m: his old mark was inside the treeline footprint. See
+   * `cast.js`, which is now the one place the Circle's marks live. */
+  SEFF: Object.freeze({ x: 2.77, z: -10.1, scale: FIGURE_SCALE.member }),
 });
 
 /**

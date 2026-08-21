@@ -5,7 +5,10 @@ import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
 import { lambert } from '../../game/src/world.js';
-import { MEMBER_PALETTE, Person } from '../core/person.js';
+import { Person } from '../core/person.js';
+import {
+  CIRCLE, INDUCTED_PALETTE, LINE_CENTER, PROSPECT_PALETTE, buildInitiationCircle,
+} from './cast.js';
 import { DebrisSystem } from '../../game/src/debris.js';
 import { Effects } from '../../game/src/effects.js';
 import { AudioEngine } from '../core/audio.js';
@@ -148,7 +151,6 @@ function recordInitiationComplete() {
 const LINE_Z = -8;
 const PLAYER_SLOT = { x: -2.2, z: LINE_Z };
 const PROSPECT_XS = [-4.4, 0, 2.2, 4.4];
-const LINE_CENTER = { x: 0, z: LINE_Z };
 
 /* The line-up in `executions.js` carries the same four numbers plus Kittenboss
  * on the end. If the two ever disagree, somebody has moved a prospect in one
@@ -167,25 +169,6 @@ const ARRIVE_R = 17;
 
 // Everyone here is human. The prospects came straight from their apartments —
 // no bandana yet, that has to be earned.
-const PROSPECT_PALETTE = {
-  shirt: 0x6b7a4a, shirtDark: 0x53603a, pants: 0x33383f,
-  skin: 0xe8b88a, bandana: null, hair: 0x3a2a1a,
-};
-const INDUCTED_PALETTE = {
-  ...MEMBER_PALETTE,
-  skin: PROSPECT_PALETTE.skin,
-  hair: PROSPECT_PALETTE.hair,
-  bandana: 0xd92e2e,
-};
-const BOOSKI_PALETTE = {
-  shirt: 0x3c414c, shirtDark: 0x2c313a, pants: 0x23272e,
-  skin: 0xd9a878, bandana: 0x7b4fd9, hair: null,
-  face: 'assets/faces/booski.png',
-};
-const LOU_PALETTE = {
-  shirt: 0x6f7fa8, shirtDark: 0x56637f, pants: 0x2e3e55,
-  bandana: 0xd92e2e, face: 'assets/faces/lou.png',
-};
 
 /**
  * KITTENBOSS.
@@ -215,23 +198,6 @@ const KITTENBOSS_PALETTE = {
  * `key` is the script speaker this body belongs to, so a line always comes out
  * of the right man rather than out of the middle of the clearing.
  */
-const CIRCLE = [
-  { key: 'BOOSKIBRO', name: 'BOOSKIBRO', x: -6.4, z: -3.6, founder: true },
-  { key: 'LOU', name: 'BIG UNCLE LOU SPUTTHOLE', x: -7.8, z: -4.4, founder: true },
-  { key: 'GRATIN', name: 'GRATIN', face: 'assets/faces/gratin.png', shirt: 0x5a4a6e, x: 1.6, z: -10.2 },
-  { key: 'SEFF', name: 'SEFF', shirt: 0x46505f, x: 3.4, z: -10.4 },
-  { key: 'DEATHMEGATRON', name: 'DEATHMEGATRON', face: 'assets/faces/deathmegatron.png', shirt: 0x9aa0ab, x: -2.2, z: -9.9 },
-  { key: 'RIPPINFLOW', name: 'RIPPINFLOW', face: 'assets/faces/rippinflow.png', shirt: 0x2f62d9, x: -5.0, z: -9.9 },
-  { key: 'SHUBENATOR', name: 'THE SHUBENATOR', face: 'assets/faces/shubenator.png', shirt: 0x8a8f9c, x: -6.6, z: -10.3 },
-  { key: 'NUMBSKULL', name: 'NUMBSKULL', shirt: 0x3f4a3a, x: -0.2, z: -10.1 },
-  { key: 'APE', name: 'APE', face: 'assets/faces/ape.png', shirt: 0x2a2e38, x: 5.2, z: -10.2 },
-  { key: 'SNOW', name: 'SNOW', face: 'assets/faces/snow.png', shirt: 0xf0f0ec, x: -3.9, z: -10.6 },
-  { key: 'IRISH', name: 'IRISH', face: 'assets/faces/irish.png', shirt: 0x3d6b4a, x: 6.9, z: -9.8 },
-  { key: 'HOGMAMA', name: 'HOG MAMA', face: 'assets/faces/hogmama.png', shirt: 0x3a3a44, x: 8.2, z: -9.4 },
-  { key: 'LAG', name: 'LAG', shirt: 0x584a3c, x: 0.9, z: -11.3 },
-  { key: 'ERIC', name: 'ERIC', face: 'assets/faces/erican.png', shirt: 0xe8e4d4, x: -1.4, z: -11.2 },
-  { key: 'SASOLE', name: 'CAPTAIN LOU SASOLE', face: 'assets/faces/sasole.png', shirt: 0x2e3a5e, x: 1.4, z: -12.2 },
-];
 
 /**
  * Where each of them stands inside the cabin.
@@ -488,33 +454,16 @@ const debris = new DebrisSystem(scene);
 const effects = new Effects(scene);
 
 /** Every body in the Circle, keyed by the script speaker it belongs to. */
-const members = [];
-const memberByKey = new Map();
-for (const spec of CIRCLE) {
-  const palette = spec.key === 'BOOSKIBRO' ? BOOSKI_PALETTE
-    : spec.key === 'LOU' ? LOU_PALETTE
-      : { shirt: spec.shirt, face: spec.face ?? null };
-  const sq = new Person(palette);
-  const scale = spec.founder ? (spec.key === 'BOOSKIBRO' ? 1.22 : 1.12) : 0.96 + Math.random() * 0.12;
-  sq.group.scale.setScalar(scale);
-  sq.group.position.set(spec.x, 0, spec.z);
-  sq.heading = headingToward(spec, LINE_CENTER);
-  sq.group.rotation.y = sq.heading;
+/* The bodies and their marks come from `cast.js`, which the headless geometry
+ * adapter mounts as well; the nameplate and the scene are this page's. */
+const { members, memberByKey } = buildInitiationCircle();
+for (const entry of members) {
+  const { sq } = entry;
+  const founder = CIRCLE.find((spec) => spec.key === entry.key)?.founder;
   sq.walkT = Math.random() * 10;
   sq.breatheT = Math.random() * 10;
-  sq.group.add(makeNameplate(spec.name, spec.founder ? '#ff8a8a' : '#cfd4e0'));
+  sq.group.add(makeNameplate(entry.name, founder ? '#ff8a8a' : '#cfd4e0'));
   scene.add(sq.group);
-  const entry = {
-    key: spec.key, name: spec.name, sq, scale,
-    home: { x: spec.x, z: spec.z },
-    /** Where he walks to next, or null. Used on the trail and in the yard. */
-    stepTo: null,
-    /** Fraction of the trail he keeps ahead of (or behind) the player. */
-    trailOffset: 0,
-    poseT: 0,
-  };
-  members.push(entry);
-  memberByKey.set(spec.key, entry);
 }
 
 const boosk = memberByKey.get('BOOSKIBRO').sq;

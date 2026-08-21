@@ -49,6 +49,7 @@ const { framingFindings } = await import('../tools/framing-gate.mjs');
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MAIN = fs.readFileSync(path.join(HERE, '..', 'src/initiation/main.js'), 'utf8');
+const CAST = fs.readFileSync(path.join(HERE, '..', 'src/initiation/cast.js'), 'utf8');
 
 const {
   CABIN_STANCES, CLEARING_STANCES, FIGURE_SCALE, INITIATION_SHOTS, RIG,
@@ -150,15 +151,20 @@ test('every camera mode is implemented once, in the shared table, and main.js ca
 
 test('the stances the shot list copies still match the tables main.js builds bodies from', () => {
   /* Same contract as `cabin/site.js`'s copy of the line-up: this module has to
-   * be readable headless and main.js cannot be imported without a canvas, so
-   * the handful of positions it needs are copied and pinned HERE. A body moved
-   * in one file and not the other fails this rather than leaving a beat
-   * filming an empty patch of mud. */
+   * be readable headless, so the handful of positions it needs are copied and
+   * pinned HERE. A body moved in one file and not the other fails this rather
+   * than leaving a beat filming an empty patch of mud -- which is what it just
+   * did when SEFF came out of the treeline.
+   *
+   * Read out of `cast.js` rather than out of main.js. The roster used to live
+   * at module scope inside two thousand nine hundred lines that also boot a
+   * page, so this had to scrape it with a regular expression; now the Circle
+   * has one home and the geometry adapter mounts the same one. */
   const circle = new Map();
-  for (const match of MAIN.matchAll(/\{ key: '(\w+)',[^}]*?x: (-?[\d.]+), z: (-?[\d.]+)/g)) {
+  for (const match of CAST.matchAll(/\{ key: '(\w+)',[^}]*?x: (-?[\d.]+), z: (-?[\d.]+)/g)) {
     circle.set(match[1], { x: Number(match[2]), z: Number(match[3]) });
   }
-  assert.ok(circle.size >= 15, `parsed only ${circle.size} of main.js's CIRCLE`);
+  assert.ok(circle.size >= 15, `parsed only ${circle.size} of cast.js's CIRCLE`);
   for (const [key, stance] of Object.entries(CLEARING_STANCES)) {
     assert.deepEqual({ x: stance.x, z: stance.z }, circle.get(key), `${key} has moved in main.js`);
   }

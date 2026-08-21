@@ -173,6 +173,57 @@ needed no new number.
 **A gate going quiet is not the same as a fault going away.** When an entry
 goes stale, measure the thing it described before deleting it.
 
+## Twenty-eight states with nobody in them
+
+The gate skipped any state whose cast came back empty, so twenty-eight of the
+ninety-eight built states were reported clean by having nobody to look at.
+
+Thirteen of them really are empty and stay that way: the twelve apartment
+states are Prospect's flat with only Prospect in it, and `motel:drive` is a
+car and two headlight cones. The other fifteen are now marked, and coverage
+runs **85 of 98**.
+
+- **Beef Run and the Enola** share one rig, so the marker went on
+  `makeFigure` rather than on eleven call sites. Heights measured off the rig
+  and verified against the rendered heads afterwards: every Beef Run delta
+  0.000.
+- **A pose changes a body's height, and nothing was telling the marker.** All
+  four Enola crew declared an eye 0.340 m above where their heads actually
+  were, for the whole flight — `sit` drops those hips from 0.86 to 0.52.
+  `setActorHeights` now lives beside `setActorPosture` and `setActorSeat`, and
+  `setPose` keeps all three true, because `setPose` is the one place the
+  height changes.
+- **The Initiation had no cast in the audited build at all.** Its fifteen
+  bodies were built at module scope inside a file that also boots a page, so
+  the adapter mounted the site and stopped. `src/initiation/cast.js` is now
+  the one home for the roster, `main.js` decorates and adds, the adapter
+  mounts the same builder — and the first run found **SEFF and APE standing
+  inside the treeline**. Nobody had ever seen it.
+
+Worth knowing rather than counting as coverage: the Enola has 42 colliders
+and **none within twelve metres of its crew**, who are at six hundred metres
+while the solids are on the ground. The solid checks are vacuous there; what
+the gate buys in that scene is uniform facing and duplicate ids.
+
+## A scene that collides in plan cannot answer a question about height
+
+The Squatchfather and the Initiation block the player with 2D footprints —
+`block(x, z, w, d)`, no y — because everything in them happens on one floor.
+The collider reader has to give a footprint some height and gives it
+-0.5 to 4, so every table, chair and fence post becomes a four-and-a-half
+metre column. Both of the restaurant's seated diners reported facing a wall
+at 0.4 m, and the wall was the table they were eating off.
+
+Measured, this is exactly two scenes: **36 of 36** in the Squatchfather,
+**189 of 189** in Initiation, **0** of every collider in the other fifteen.
+It is also the root of the ten findings in `docs/FRAMING-GATE.md`.
+
+So the gate raises `SIGHTLINES_NOT_EVIDENCE` once for the state rather than
+emitting per-actor findings that name the wrong fault — and raises it out
+loud, allowlisted with a reason, rather than dropping the findings silently.
+The hip check still runs against the same footprints, and it earns its keep:
+it is what caught SEFF and APE in the trees.
+
 ## What it still needs: an allowlist
 
 `ACTOR_INSIDE_SOLID` currently reports 106 findings in the Bing and 70 in the

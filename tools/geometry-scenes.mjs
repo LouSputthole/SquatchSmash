@@ -3097,6 +3097,24 @@ async function buildInitiation(descriptor, THREE) {
     cabin,
     audio: null,
   }));
+  /* THE CAST, which this adapter mounted for nobody until now.
+   *
+   * It built the site and stopped, so both gates read the two Initiation
+   * states as a clean pass with an empty cast -- fifteen men in a clearing
+   * that no check had ever looked at, in the scene whose fifth act shipped
+   * broken because nothing outside the page could reach it. `cast.js` is the
+   * same builder `src/initiation/main.js` uses, so what is measured here is
+   * the Circle the player walks into and not a description of it. */
+  const { buildInitiationCircle } = await import('../src/initiation/cast.js');
+  const circle = withSeededGeometryRandom(`${descriptor.id}:cast`, () => buildInitiationCircle());
+  for (const member of circle.members) {
+    /* One assembly per body, the same way the Enola names its crew. Without
+     * it every arm inside its own shoulder is an interpenetration and fifteen
+     * blocky men produce seven hundred of them -- the gate auditing a rig
+     * against itself rather than the man against the room. */
+    setGeometryGateMetadata(member.sq.group, { assemblyId: `initiation-circle:${member.key}` });
+    built.root.add(member.sq.group);
+  }
   built.root.updateMatrixWorld(true);
   if (!built.colliders.length) {
     throw new Error(`Initiation Adapter mounted no colliders for ${descriptor.id}`);

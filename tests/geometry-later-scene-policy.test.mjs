@@ -907,7 +907,7 @@ test('Squatchfather policy limits opt-outs to five cloth skirts and two wall-set
     left: 'root:squatchfather-runtime/name=squatchfather-diner2#0/name=sf.root#0/name=sf.pelvis#0/name=sf.torso#0/name=sf.arm.left.shoulder#0/name=sf.arm.left.elbow#0/name=sf.arm.left.hand#0',
     right: 'root:squatchfather-runtime/name=squatchfather.table.30#0/name=squatchfather.table.top#0',
     maxDepthM: 0.045,
-    source: 'src/squatchfather/scenes/SquatchfatherScene.js:1370',
+    source: 'src/squatchfather/scenes/SquatchfatherScene.js:1397',
     sourceAnchor: 'const diner2Fig = makeFigure(5.71, 1.77',
   }]);
   assert.deepEqual(allowlist.suppressionPolicy, [{
