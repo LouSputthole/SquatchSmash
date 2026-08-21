@@ -108,7 +108,17 @@ player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(stage.footstepSurface ?? FOOTSTEP_SURFACE, intensity);
 const interaction = new InteractionSystem(camera, hud);
 
-const cast = buildSpecialMeetingCast(scene, { sedan: stage.sedan, colliders: stage.world.colliders });
+/* `groundAt` matters as much as the sedan does: the cast is placed by door
+ * anchor, and a door anchor is a pair of coordinates with no opinion about how
+ * high the ground under it is. On the block that is the difference between
+ * standing ON the pavement and standing 0.15 m into it; in the woods, where
+ * this is swapped for the forest's own field at the cut to black, it is the
+ * difference between the clearing floor and thirty-two metres under it. */
+const cast = buildSpecialMeetingCast(scene, {
+  sedan: stage.sedan,
+  colliders: stage.world.colliders,
+  groundAt: stage.world.groundAt,
+});
 cast.boardForArrival();
 
 let forest = null;
@@ -290,6 +300,10 @@ function beginTheDrive() {
       if (gatedOn === id) gatedOn = null;
     },
   });
+  /* The block's flat ground goes with the block. Everything the cast is stood
+   * on from here is the forest's terrain field, which is the same one the
+   * trees, the trailhead and the car are placed against. */
+  cast.setGround((x, z) => forest.heightAt(x, z));
   stage.block.group.visible = false;
   /* The wet street, the alley and the distant passes belong to the block, and
    * the block is behind us now. The forest brings its own bed. */

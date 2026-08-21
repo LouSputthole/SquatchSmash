@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = Number(process.env.PORT) || 5215;
+const PORT = Number(process.env.PORT) || 5240;
 const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',

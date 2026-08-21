@@ -31,6 +31,18 @@
  * the seat he left, and the car ends up exactly as it was. `swapRearSeats()`
  * is that, and it is deliberately the only thing in this file that can change
  * who is behind whom.
+ *
+ * ## Which way they are pointed, and what they are standing on
+ *
+ * Both of those were wrong in the same way until the staging gate was pointed
+ * at this scene: they were nobody's job. A rider took the PLAYER's yaw for the
+ * car and so faced the back of it; a man who got out was turned along the car
+ * rather than at it, and four of them agreed on that heading to nine decimal
+ * places; and everybody was placed at y = 0, including on a clearing floor
+ * thirty-two metres up. The three constants at the top of this file and
+ * `placeBeside()` are the fix, and every number in them is authored --
+ * `Math.random` here would move the geometry gate's buckets on every build.
+ * See docs/STAGING-GATE.md.
  */
 import { Npc } from '../bing/cast.js';
 import { FAMILY } from '../bing/family.js';
@@ -104,6 +116,56 @@ export const SEATING = Object.freeze({
   rear_right: CHARACTER_IDS.NUMBSKULL,
 });
 
+/**
+ * Which way each of them is turned, in radians, off whatever they are looking
+ * at.
+ *
+ * The staging gate's first pass over this scene (docs/STAGING-GATE.md) found
+ * the whole car agreeing on one heading to nine decimal places: three men in
+ * the seats at exactly the car's yaw, and at the spur four of them standing
+ * round it on exactly the same one. That is FACING_UNIFORM, and it is the
+ * owner's note about the van -- "they are all looking forward at the same
+ * spot". They still watch the road and they still stand at the car; no two of
+ * them now agree to the degree about where either of those is.
+ *
+ * AUTHORED CONSTANTS, NEVER `Math.random`. A jittered yaw would move the
+ * geometry gate's recorded buckets on every build, which is a gate reporting
+ * its own noise as a change to the scene.
+ */
+const RIDER_YAW_OFFSET = Object.freeze({
+  seff: 0.05,       // squared up on the wheel, watching the road
+  lag: -0.14,       // turned into the door card, on his phone
+  numbskull: 0.19,  // looking out of his own window at nothing
+});
+
+/**
+ * How she is wedged in the boot: facing the lid, and not square to it.
+ *
+ * Half a turn off the car's nose, because the one thing a person in a boot is
+ * looking at is the way out of it.
+ */
+const BOOT_YAW_OFFSET = Math.PI + 0.24;
+
+/** The same variance, for the ones who are out of the car and on their feet. */
+const STANDING_YAW_OFFSET = Object.freeze({
+  seff: -0.09,
+  lag: 0.22,
+  numbskull: -0.16,
+  kittenboss: 0.31,
+});
+
+/**
+ * How far Lag steps up the pavement when Numbskull comes for the door.
+ *
+ * SM-100's stage direction is explicit: "Numbskull arrives at the front
+ * passenger door, WAITS FOR LAG TO STEP CLEAR OF IT, and opens it." Nobody
+ * stepped anywhere until this constant existed -- `holdTheFrontDoor()` put
+ * Numbskull on the door anchor Lag was already standing on, and both of them
+ * measured (-3.200, -6.210) on the built kerb: one body, from SM-110 until Lag
+ * got in the back.
+ */
+const STEP_CLEAR_M = 1.7;
+
 function modelFor(key) {
   if (key === 'numbskull') return { ...WARDROBE.numbskull };
   if (key === 'kittenboss') return { ...WARDROBE.kittenboss };
@@ -117,7 +179,9 @@ function modelFor(key) {
  * campaign id, and parked. Where they stand is the sequence's business, and
  * the sequence moves them by seat name, never by coordinate.
  */
-export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null } = {}) {
+export function buildSpecialMeetingCast(scene, {
+  sedan = null, colliders = null, groundAt = null,
+} = {}) {
   const people = {};
   for (const key of Object.keys(CAST_SPEC)) {
     const spec = CAST_SPEC[key];
@@ -146,6 +210,43 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
    * about and it has to be readable without unpicking a transform. */
   const seated = new Map();
 
+  /**
+   * WHAT THEY ARE STANDING ON.
+   *
+   * Everything here used to be placed at y = 0, which is true of the road
+   * outside the flat and of nowhere else this scene goes. Measured on the
+   * built spur: the clearing floor is 32.605 under a car parked at 32.622, so
+   * `getOut()` put all three of them thirty-two metres under the ground they
+   * had just driven onto. The block had the smaller version of the same bug --
+   * the front passenger door anchor is at z -6.21, which is the PAVEMENT, and
+   * the pavement is a kerb-height 0.15 above the road, so whoever was holding
+   * that door was buried to the ankle in it.
+   *
+   * So the scene tells the cast what the ground does: `layout.groundAt` on the
+   * block, `forest.heightAt` in the woods (`setGround` swaps it at the cut to
+   * black), and a flat zero for a test that has neither.
+   */
+  let ground = typeof groundAt === 'function' ? groundAt : null;
+  const floorAt = (x, z) => {
+    const y = ground?.(x, z);
+    return Number.isFinite(y) ? y : 0;
+  };
+
+  /**
+   * The way the car's nose points, in the rig's own convention.
+   *
+   * `sedan.facingYaw()` is the PLAYER's yaw -- his forward is (-sin, -cos) --
+   * and a `makePerson` rig's forward is +Z, (sin, cos). The two are half a turn
+   * apart, and `update()` used to write the player's number straight onto the
+   * riders: measured on the built kerb, Seff's face pointed 180.0 degrees off
+   * the car's nose. That is the driver watching the back seat for the whole of
+   * a two-minute drive, and it was in front of the player the entire time.
+   */
+  const carFacing = () => (sedan ? sedan.facingYaw() + Math.PI : 0);
+
+  /** The yaw that turns a rig standing at (x, z) to look at (tx, tz). */
+  const yawToward = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
+
   function place(key, x, y, z, yaw) {
     const npc = people[key];
     npc.group.visible = true;
@@ -154,7 +255,49 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
     npc.homeX = x;
     npc.homeZ = z;
     npc.homeYaw = yaw;
+    /* AND the rig's own datum, not just this frame's position. `Npc.update()`
+     * writes `baseY + bob` on every idle frame, so a man placed on a clearing
+     * floor 32 m up without this line stood there for exactly one frame and
+     * then dropped to the y he was constructed at. */
+    npc.baseY = y;
     return npc;
+  }
+
+  /**
+   * Put a man on the ground beside the car, looking at it.
+   *
+   * At it, rather than along it: everybody who got out used to be turned to
+   * `facingYaw() + PI`, which is where the car's NOSE points, so a man standing
+   * at an open door with the Prospect beside it was looking down the street
+   * past the wing. `away` is the exception -- the one holding the front door is
+   * looking out of it at Tony, and the one who has just climbed out of the boot
+   * is not looking back into it.
+   */
+  function placeBeside(key, spot, { away = false } = {}) {
+    const centre = sedan.group.position;
+    const look = yawToward(spot.x, spot.z, centre.x, centre.z) + (away ? Math.PI : 0);
+    return place(key, spot.x, floorAt(spot.x, spot.z), spot.z, look + STANDING_YAW_OFFSET[key]);
+  }
+
+  /** A rider, turned the way the car is going, off his own authored offset. */
+  function faceRider(key) {
+    if (!sedan) return;
+    people[key].group.rotation.y = carFacing() + (RIDER_YAW_OFFSET[key] ?? 0);
+  }
+
+  /**
+   * The boot, and the woman riding in it.
+   *
+   * She is not in a seat and there is no ride-along for the boot, so she is
+   * moved onto the anchor here -- from `boardForArrival` once, and from
+   * `update` every frame while the car is moving.
+   */
+  function rideInTheBoot() {
+    if (!sedan) return;
+    const boot = sedan.trunkWorld();
+    const kb = people.kittenboss;
+    kb.group.position.set(boot.x, boot.y - 0.62, boot.z);
+    kb.group.rotation.y = carFacing() + BOOT_YAW_OFFSET;
   }
 
   function sit(key, seatId) {
@@ -169,6 +312,7 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
      * reapplied every frame in `update` because the car turns. */
     sedan.occupy(seatId, npc.group, { yaw: false });
     seated.set(seatId, key);
+    faceRider(key);
     return npc;
   }
 
@@ -203,9 +347,11 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
         sedan.occupy('rear_left', kb.group, { yaw: false });
         seated.delete('rear_left');
         /* She is not in that seat. She is in the boot, and the boot has no
-         * ride-along of its own, so she borrows the nearest one and is moved
-         * onto the boot anchor every frame by `update` below. */
+         * ride-along of its own, so she borrows the nearest one to be folded
+         * and dropped, and is then put on the boot anchor -- here, and again
+         * every frame by `update` below. */
         sedan.release('rear_left');
+        rideInTheBoot();
       }
       return this;
     },
@@ -213,12 +359,12 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
     /** Lag out of the front, Numbskull out of the back and round to the door. */
     disembarkForPickup() {
       if (!sedan) return this;
-      const lagDoor = sedan.doorWorld('front_passenger');
       standUp('lag');
-      place('lag', lagDoor.x, 0, lagDoor.z, sedan.facingYaw() + Math.PI);
-      const rearDoor = sedan.doorWorld('rear_right');
+      /* "Lag gets out of the FRONT and stands with the door open behind him,
+       * on his phone" -- SM-100. Behind him, so he is turned out of the car. */
+      placeBeside('lag', sedan.doorWorld('front_passenger'), { away: true });
       standUp('numbskull');
-      place('numbskull', rearDoor.x, 0, rearDoor.z, sedan.facingYaw() + Math.PI);
+      placeBeside('numbskull', sedan.doorWorld('rear_right'));
       return this;
     },
 
@@ -226,7 +372,14 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
     holdTheFrontDoor() {
       if (!sedan) return this;
       const door = sedan.doorWorld('front_passenger');
-      place('numbskull', door.x, 0, door.z, sedan.facingYaw() + Math.PI);
+      /* Lag steps clear first, up the pavement past the wing, because SM-100
+       * says he does and because the alternative is two men in one body. */
+      const nose = carFacing();
+      placeBeside('lag', {
+        x: door.x + Math.sin(nose) * STEP_CLEAR_M,
+        z: door.z + Math.cos(nose) * STEP_CLEAR_M,
+      }, { away: true });
+      placeBeside('numbskull', door, { away: true });
       return this;
     },
 
@@ -270,10 +423,8 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
     getOut() {
       if (!sedan) return this;
       for (const key of ['seff', 'lag', 'numbskull']) {
-        const seatId = CAST_SPEC[key].seat;
-        const door = sedan.doorWorld(seatId);
         standUp(key);
-        place(key, door.x, 0, door.z, sedan.facingYaw() + Math.PI);
+        placeBeside(key, sedan.doorWorld(CAST_SPEC[key].seat));
       }
       return this;
     },
@@ -281,29 +432,38 @@ export function buildSpecialMeetingCast(scene, { sedan = null, colliders = null 
     /** The boot, and the woman in it, who climbs out under her own power. */
     kittenbossOut() {
       if (!sedan) return this;
-      const boot = sedan.doorWorld('trunk');
       standUp('kittenboss');
-      place('kittenboss', boot.x, 0, boot.z, sedan.facingYaw() + Math.PI);
+      placeBeside('kittenboss', sedan.doorWorld('trunk'), { away: true });
       return this;
     },
 
     place,
+    placeBeside,
     sit,
     standUp,
 
+    /**
+     * Change what the ground is doing under them.
+     *
+     * One call, at the cut to black: the block is flat and the woods are not,
+     * and `main.js` is the only thing that knows which of the two the scene is
+     * standing in at any moment.
+     */
+    setGround(fn) {
+      ground = typeof fn === 'function' ? fn : null;
+      return this;
+    },
+
     update(dt, focus = null) {
-      const carYaw = sedan ? sedan.facingYaw() : 0;
       for (const npc of Object.values(people)) {
         if (!npc.group.visible) continue;
         npc.update(dt, focus);
       }
-      for (const key of seated.values()) people[key].group.rotation.y = carYaw;
-      if (sedan && !seated.has('rear_left') && people.kittenboss.seated) {
-        /* The boot. She rides where she is, and where she is is not a seat. */
-        const boot = sedan.trunkWorld();
-        people.kittenboss.group.position.set(boot.x, boot.y - 0.62, boot.z);
-        people.kittenboss.group.rotation.y = carYaw;
-      }
+      /* Reapplied every frame because the car turns, and because an idling rig
+       * drifts its own yaw towards whatever it is looking at. */
+      for (const key of seated.values()) faceRider(key);
+      /* The boot. She rides where she is, and where she is is not a seat. */
+      if (sedan && !seated.has('rear_left') && people.kittenboss.seated) rideInTheBoot();
       return this;
     },
 

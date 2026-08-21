@@ -46,7 +46,7 @@
 import fs from 'node:fs';
 import process from 'node:process';
 import { ensureDomShim, ensureThreeShim } from './three-shim.mjs';
-import { withDescriptorGeometryRandom } from './verify-geometry-worker.mjs';
+import { normalizeSceneColliders, withDescriptorGeometryRandom } from './verify-geometry-worker.mjs';
 import { buildGeometrySceneState, GEOMETRY_SCENE_STATES } from './geometry-scenes.mjs';
 import { collectActors } from '../src/core/staging.js';
 import { framingFindings } from './framing-gate.mjs';
@@ -82,13 +82,26 @@ const matchedFileKeys = new Set();
 /** How far ahead of a derived camera its look point is planted. Metres. */
 const DERIVED_LOOK_RANGE_M = 10;
 
+/**
+ * Every solid in the scene, in the one spelling the gate reads.
+ *
+ * This normalises through `normalizeSceneColliders` rather than filtering for
+ * `isBox3` the way tools/verify-staging.mjs does, and the difference is not
+ * academic: the scenes author collision four different ways -- Box3s, XZ
+ * bands, {x,z,w,d} slabs, and upright {x,z,r} cylinders -- and Initiation
+ * Night, the scene whose camera bug bought this gate, authors ALL 249 of its
+ * cabin solids as cylinders. A Box3 filter sees none of them, and a gate that
+ * sees no walls cheerfully reports that nothing is behind a wall. The geometry
+ * worker already knows how to read all four; asking it is both less code and
+ * one fewer opinion about what a collider is.
+ */
 function colliderBoxes(built) {
-  return built.colliders
-    .filter((collider) => collider?.isBox3 && !collider.isEmpty?.())
-    .map((collider) => ({
-      name: collider.name ?? null,
-      min: [collider.min.x, collider.min.y, collider.min.z],
-      max: [collider.max.x, collider.max.y, collider.max.z],
+  return normalizeSceneColliders(built)
+    .filter((record) => !record.invalid && record.min && record.max)
+    .map((record) => ({
+      name: record.id ?? null,
+      min: [record.min.x, record.min.y, record.min.z],
+      max: [record.max.x, record.max.y, record.max.z],
     }));
 }
 

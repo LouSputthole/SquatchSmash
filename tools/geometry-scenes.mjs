@@ -3097,13 +3097,40 @@ async function buildInitiation(descriptor, THREE) {
     built.colliders, { state: descriptor.state, lights: built.lights.length });
 }
 
+/**
+ * The Special Meeting's four bodies, stamped so both gates can see them.
+ *
+ * The staging gate needs nothing here -- `Npc` already carries the shared
+ * actor marker (docs/STAGING-GATE.md), which is the whole reason mounting the
+ * cast is enough to make these three states checkable at all. The geometry
+ * gate does: it buckets by assembly, and four unassigned person rigs would be
+ * audited limb against limb and limb against car. Same treatment the Bing's
+ * crowd and the mansion's cast get, keyed on the campaign character id so a
+ * body cannot be renumbered by gaining a neighbour.
+ */
+function annotateSpecialMeetingCast(cast, descriptor) {
+  const bodies = cast.all.filter((npc) => npc.group.visible);
+  if (bodies.length !== cast.all.length) {
+    throw new Error(
+      `Special Meeting Adapter left ${cast.all.length - bodies.length} of the cast unplaced in ${descriptor.id}`,
+    );
+  }
+  for (const npc of bodies) {
+    if (!npc.group?.traverse) throw new Error(`Special Meeting cast member has no body in ${descriptor.id}`);
+    setGeometryAssembly(npc.group, `specialmeeting-cast:${npc.characterId}`);
+  }
+  return bodies.length;
+}
+
 async function buildSpecialMeetingKerb(descriptor, THREE) {
   const [
     { SPECIAL_MEETING_GEOMETRY_STATES, buildSpecialMeetingRuntimeGeometry },
-    { SEDAN_STAGING, SEDAN_STOP },
+    { SEDAN_STAGING, SEDAN_STOP, groundAt },
+    { buildSpecialMeetingCast },
   ] = await Promise.all([
     import('../src/specialmeeting/runtime-geometry.js'),
     import('../src/specialmeeting/layout.js'),
+    import('../src/specialmeeting/cast.js'),
   ]);
   const blockState = descriptor.blockState;
   if (!SPECIAL_MEETING_GEOMETRY_STATES.includes(blockState)) {
@@ -3113,11 +3140,35 @@ async function buildSpecialMeetingKerb(descriptor, THREE) {
   }
 
   const scene = new THREE.Scene();
-  const runtime = withSeededGeometryRandom(
-    descriptor.id,
-    () => buildSpecialMeetingRuntimeGeometry(scene, { renderer: null, state: blockState }),
-  );
+  /* One seeded boundary around the geometry AND the cast: `Npc` takes a draw
+   * per body for its idle phase, so a cast built outside the boundary would
+   * pose four rigs differently on every run and report it as scene drift. */
+  const { runtime, cast } = withSeededGeometryRandom(descriptor.id, () => {
+    const built = buildSpecialMeetingRuntimeGeometry(scene, { renderer: null, state: blockState });
+    const people = buildSpecialMeetingCast(scene, {
+      sedan: built.sedan,
+      colliders: [...built.colliders],
+      groundAt,
+    });
+    /* THE ARRANGEMENT EACH STATE ACTUALLY HAS.
+     *
+     * `waiting` is the ten seconds before anything happens: the car is a
+     * hundred metres away up the cross street with all four of them in it, one
+     * of them in the boot, which is exactly what `main.js` does at boot.
+     *
+     * `arrived` is SM-110, the state the player spends the whole hub in: Seff
+     * at the wheel leaning across, Lag out of the front and stepped clear of
+     * it, Numbskull holding that door open, and Kittenboss still in the boot
+     * because nobody has mentioned her yet. */
+    people.boardForArrival();
+    if (blockState === 'arrived') {
+      people.disembarkForPickup();
+      people.holdTheFrontDoor();
+    }
+    return { runtime: built, cast: people };
+  });
   const { block, sedan } = runtime;
+  const castCount = annotateSpecialMeetingCast(cast, descriptor);
   for (const [label, root] of [['block', block.group], ['sedan', sedan.group]]) {
     if (root?.parent !== scene) {
       throw new Error(`Special Meeting kerb Adapter did not mount the ${label} in ${descriptor.id}`);
@@ -3144,7 +3195,10 @@ async function buildSpecialMeetingKerb(descriptor, THREE) {
 
   return result(descriptor, [{ label: `specialmeeting-${descriptor.state}`, root: scene }], runtime.colliders, {
     blockState,
-    producerCounts: { blocks: 1, sedans: 1, colliders: runtime.colliders.length },
+    producerCounts: {
+      blocks: 1, sedans: 1, cast: castCount, colliders: runtime.colliders.length,
+    },
+    seating: cast.seatedAs(),
     sedan: { ...objectPose(sedan.group), trunkOpen: blockState === 'arrived' },
     anchorIds: Object.keys(block.anchors ?? {}).toSorted(),
   });

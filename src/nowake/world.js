@@ -3,6 +3,7 @@ import { BIG_UNCLE_LOU } from '../core/wardrobe.js';
 import { Npc } from '../bing/cast.js';
 import { FAMILY } from '../bing/family.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { coarseActorRole, markActor } from '../core/staging.js';
 import {
   beamBetween, box, cylinder, lineCurve, mat, mesh, proxy, textPlate,
 } from './build.js';

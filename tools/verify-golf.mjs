@@ -188,13 +188,16 @@ const openingGuide = await page.evaluate(() => {
     0,
     g.LAYOUT.lot.bag.z - g.camera.position.z,
   ).normalize();
-  const guide = document.getElementById('golf-guide');
+  /* The shared objective card (src/core/objective-panel.js). The course used
+     to draw `#golf-guide`; a gate still reading that id would pass on an
+     empty string for the rest of the round -- docs/ENGINE-TRAPS.md section 5. */
+  const guide = document.getElementById('objectives');
   const waypoint = document.getElementById('golf-waypoint');
   return {
     hudOpacity: Number(getComputedStyle(document.getElementById('hud')).opacity),
     guideVisible: !!guide && !guide.classList.contains('hidden'),
-    task: guide?.querySelector('.task')?.textContent?.trim() || '',
-    detail: guide?.querySelector('.detail')?.textContent?.trim() || '',
+    task: guide?.querySelector('.olist li')?.textContent?.trim() || '',
+    detail: guide?.querySelector('.ohint')?.textContent?.trim() || '',
     waypointVisible: !!waypoint && !waypoint.classList.contains('hidden'),
     waypointLabel: waypoint?.querySelector('.label')?.textContent?.trim() || '',
     facingBag: forward.dot(toBag),
@@ -401,11 +404,12 @@ check('4a. the shared inventory stays five slots wide',
 
 await page.waitForTimeout(100);
 const teeGuide = await page.evaluate(() => {
-  const guide = document.getElementById('golf-guide');
+  /* The shared objective card, as above. */
+  const guide = document.getElementById('objectives');
   const waypoint = document.getElementById('golf-waypoint');
   return {
-    task: guide?.querySelector('.task')?.textContent?.trim() || '',
-    detail: guide?.querySelector('.detail')?.textContent?.trim() || '',
+    task: guide?.querySelector('.olist li')?.textContent?.trim() || '',
+    detail: guide?.querySelector('.ohint')?.textContent?.trim() || '',
     waypointLabel: waypoint?.querySelector('.label')?.textContent?.trim() || '',
   };
 });
@@ -918,7 +922,8 @@ check('4d. club number keys and the shared inventory selection stay in sync',
 
 await page.waitForTimeout(100);
 const playerTurnGuide = await page.evaluate(() => {
-  const guide = document.getElementById('golf-guide');
+  /* The shared objective card, as above. */
+  const guide = document.getElementById('objectives');
   const waypoint = document.getElementById('golf-waypoint');
   return {
     text: guide?.textContent?.trim() || '',
@@ -1066,7 +1071,7 @@ check('5a2. the first tee recommends the safe middle instead of the water-side p
   JSON.stringify(playerClubView.plan));
 
 await page.waitForTimeout(100);
-const addressGuide = await page.evaluate(() => document.getElementById('golf-guide')?.textContent?.trim() || '');
+const addressGuide = await page.evaluate(() => document.getElementById('objectives')?.textContent?.trim() || '');
 check('5b. addressing the ball teaches the first swing click',
   /aim/i.test(addressGuide) && /click once/i.test(addressGuide), addressGuide);
 
@@ -1075,7 +1080,7 @@ await page.waitForTimeout(100);
 const powerHud = await page.evaluate(() => {
   const meter = document.getElementById('meter');
   return {
-    guide: document.getElementById('golf-guide')?.textContent?.trim() || '',
+    guide: document.getElementById('objectives')?.textContent?.trim() || '',
     visible: !meter?.classList.contains('hidden'),
     ideal: meter?.querySelector('.ideal')?.textContent?.trim() || '',
     risk: meter?.querySelector('.risk-copy')?.textContent?.trim() || '',
@@ -1105,7 +1110,7 @@ if (CAPTURE_SCREENSHOTS) {
 await page.evaluate(() => window.__golf.swing.click());
 await page.waitForTimeout(100);
 const strikeHud = await page.evaluate(() => ({
-  guide: document.getElementById('golf-guide')?.textContent?.trim() || '',
+  guide: document.getElementById('objectives')?.textContent?.trim() || '',
   left: document.querySelector('#meter .ideal')?.textContent?.trim() || '',
   right: document.querySelector('#meter .risk-copy')?.textContent?.trim() || '',
 }));
@@ -1471,7 +1476,7 @@ check('20a1. the driver looks forward and can see the physical cart radio',
 const cartGuide = await page.evaluate(() => ({
   exit: window.__golf.round.cartExitState(),
   distance: window.__golf.round.cartDistanceToBall(),
-  text: document.getElementById('golf-guide')?.textContent?.trim() || '',
+  text: document.getElementById('objectives')?.textContent?.trim() || '',
 }));
 check('20a2. the driving HUD keeps pointing to a distant ball instead of telling the player to park',
   cartGuide.distance > 12 && /drive/i.test(cartGuide.text) && !/park beside/i.test(cartGuide.text),

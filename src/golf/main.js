@@ -18,6 +18,7 @@ import { AudioEngine } from '../core/audio.js';
 import { AuthoredClock } from '../core/authored-clock.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
 import { translateKey, lookSensitivity } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
@@ -94,9 +95,6 @@ const ui = {
   carry: document.querySelector('#shot .carry'),
   lie: document.querySelector('#shot .lie'),
   wind: document.querySelector('#shot .wind'),
-  guide: document.getElementById('golf-guide'),
-  guideTask: document.querySelector('#golf-guide .task'),
-  guideDetail: document.querySelector('#golf-guide .detail'),
   waypoint: document.getElementById('golf-waypoint'),
   waypointLabel: document.querySelector('#golf-waypoint .label'),
   waypointDistance: document.querySelector('#golf-waypoint .distance'),
@@ -1162,23 +1160,33 @@ function layoutSubtitle() {
 const _guideWorld = new THREE.Vector3();
 const _guideProjected = new THREE.Vector3();
 const _guideCamera = new THREE.Vector3();
-let _guideCopy = '';
+
+/**
+ * WHAT TO DO, ON THE SHARED CARD.
+ *
+ * The round used to draw `#golf-guide` -- its own centred box, its own font
+ * size, its own hide rule -- for a job `src/core/objective-panel.js` already
+ * does for the mansion, the Bing and the apartment. The owner's note is the
+ * standing one: *"We keep reinventing and using different systems instead of
+ * using what we already have."* The cap, the task and the detail map onto the
+ * panel's title, item and hint without a word of the round's copy changing.
+ *
+ * Parented to `#hud` so it fades in on `body.playing` with the rest of the
+ * furniture, which is what the guide box did.
+ */
+const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
 
 function paintGuide() {
   if (!running || ended) {
-    ui.guide.classList.add('hidden');
+    objectivePanel.clear();
     ui.waypoint.classList.add('hidden');
     return;
   }
 
   const state = guideState();
-  const copy = `${state.task}\n${state.detail}`;
-  if (copy !== _guideCopy) {
-    ui.guideTask.textContent = state.task;
-    ui.guideDetail.textContent = state.detail;
-    _guideCopy = copy;
-  }
-  ui.guide.classList.remove('hidden');
+  /* The panel is idempotent on its own signature, so this is a string
+     compare per frame rather than a layout. */
+  objectivePanel.setLine(state.task, { title: 'WHAT TO DO', hint: state.detail });
 
   if (!state.target || camMode !== CAM.WALK) {
     ui.waypoint.classList.add('hidden');

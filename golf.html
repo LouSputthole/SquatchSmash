@@ -65,13 +65,10 @@
   </div>
 
   <!-- The round is intentionally conversational, but its verbs cannot be.
-       This remains visible while the player has control and changes at every
-       mission handoff: bag, tee, ball, swing and recovery. -->
-  <div id="golf-guide" class="hidden" role="status" aria-live="polite">
-    <div class="cap">WHAT TO DO</div>
-    <div class="task"></div>
-    <div class="detail"></div>
-  </div>
+       WHAT TO DO is on the shared objective card now -- built by
+       `src/core/objective-panel.js` into this `#hud` and driven from
+       `paintGuide()`. It was a page-local box here, which is how the game
+       ended up with an objective widget per scene. -->
 
   <!-- Projected from the live target in main.js. It clamps to the screen edge
        when the target is off camera, so turning the wrong way never removes
