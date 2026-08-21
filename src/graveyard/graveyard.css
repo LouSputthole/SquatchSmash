@@ -53,22 +53,22 @@ body.graveyard {
 .graveyard kbd { border: 1px solid rgba(238, 224, 185, .34); background: rgba(255, 255, 255, .07); color: #f3e7c5; border-radius: 3px; padding: 2px 6px; font: 800 10px/1.3 inherit; }
 .graveyard .fine { color: #6f746d; font-size: 10px; line-height: 1.5; }
 
-.graveyard #mission-card {
-  position: fixed; left: 26px; top: 38px; z-index: 9; width: min(360px, calc(100vw - 52px));
-  padding: 14px 16px; box-sizing: border-box; border-left: 3px solid var(--grave-gold);
-  background: linear-gradient(90deg, rgba(3, 7, 5, .88), rgba(3, 7, 5, .46));
-  text-shadow: 0 2px 6px #000;
-}
-.graveyard #mission-card small { display: block; color: var(--grave-gold); letter-spacing: .14em; font-size: 9px; }
-.graveyard #mission-card strong { display: block; margin-top: 5px; color: #f1ead8; font-size: 17px; }
-.graveyard #mission-card > span { display: block; margin-top: 3px; color: #989b92; font-size: 11px; }
-.graveyard #grave-objectives { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
-.graveyard #grave-objectives li { color: #bbb8aa; font-size: 10px; }
-.graveyard #grave-objectives li.optional { opacity: .7; }
-.graveyard #grave-objectives li::before { content: '○'; display: inline-block; width: 18px; color: #8c8677; }
-.graveyard #grave-objectives li.done { color: #687069; text-decoration: line-through; }
-.graveyard #grave-objectives li.done::before { content: '●'; color: #b49754; }
-.graveyard #grave-objectives li.optional::after { content: ' OPTIONAL'; color: #6f746d; font-size: 8px; letter-spacing: .1em; }
+/* THE OBJECTIVE CARD LIVES IN src/core/objective-panel.js NOW.
+ *
+ * Sixteen lines of bespoke card -- gold rule, hand-drawn tick glyphs, an
+ * OPTIONAL suffix -- deleted in favour of the one panel the mansion and the
+ * Bing already drive. All that is left is the collision between two
+ * stylesheets, below.
+ *
+ * src/style.css owns `#objectives` for the apartment, where it sits top RIGHT
+ * under the clock and is right-aligned. This page links that sheet for the
+ * shared HUD furniture, so the panel's own box wins on everything it declares
+ * and inherits the two declarations it does not: the alignment and the flex
+ * list. Put back here rather than in core, because core is not mine to edit --
+ * though `text-align: left` inside the panel's own `#objectives.op-panel`
+ * rule would delete this block from three scenes at once. */
+#objectives.op-panel { text-align: left; }
+#objectives.op-panel .olist { display: block; }
 
 .graveyard #pee-hint {
   position: fixed; right: 26px; bottom: 42px; z-index: 9; display: flex; align-items: center; gap: 9px;
@@ -93,7 +93,7 @@ body.graveyard {
 
 @media (max-width: 650px) {
   .graveyard .panel { padding: 28px 24px; }
-  .graveyard #mission-card { top: 24px; left: 16px; }
+  #objectives.op-panel { top: 24px; left: 16px; max-width: calc(100vw - 32px); }
   .graveyard #clock { display: none; }
   .graveyard #pee-hint { right: 14px; bottom: 28px; }
 }

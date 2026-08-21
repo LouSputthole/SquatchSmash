@@ -922,6 +922,78 @@ async function boot() {
     startMargoComeHome, finishMargoComeHome, offerMargoDressHelp,
     margoDress, startMargoDressHelp, updateMargoDressHelp, abandonMargoDressHelp,
     readChat,
+    /**
+     * THE COLD OPEN, for the verifier.
+     *
+     * Everything the opening claims has to be checkable from outside: that the
+     * monitor really does cover the viewport (a black band round the edge of
+     * "the game" is the one tell that gives the whole thing away), that the
+     * camera does not move until he quits, and that the phone does not ring
+     * during the beat.
+     */
+    coldOpen,
+    get coldOpenState() {
+      const monitor = monitorCameraPose(_coldOpenMonitor);
+      const rect = renderer.domElement.getBoundingClientRect();
+      /* Where the monitor's four corners land in viewport space right now.
+       * If the opening is doing its job these are all outside 0..1. */
+      const screen = apartment.screen;
+      const cover = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+      if (screen) {
+        screen.updateWorldMatrix(true, false);
+        const geo = screen.geometry;
+        if (!geo.boundingBox) geo.computeBoundingBox();
+        const bb = geo.boundingBox;
+        for (const [lx, ly] of [
+          [bb.min.x, bb.min.y], [bb.max.x, bb.min.y],
+          [bb.max.x, bb.max.y], [bb.min.x, bb.max.y],
+        ]) {
+          const v = _coldOpenEye.set(lx, ly, 0).applyMatrix4(screen.matrixWorld).project(camera);
+          cover.minX = Math.min(cover.minX, v.x);
+          cover.maxX = Math.max(cover.maxX, v.x);
+          cover.minY = Math.min(cover.minY, v.y);
+          cover.maxY = Math.max(cover.maxY, v.y);
+        }
+      }
+      return {
+        active: coldOpenActive,
+        /* Diagnostics. The first run of verify:cold-open reported the dolly
+         * stuck at k=0, and the machine was under four concurrent agents at
+         * the time -- a starved frame loop and a stalled sequence look
+         * identical from outside, so the clock and the pause flag are
+         * reported rather than inferred. */
+        paused: game.paused === true,
+        t: coldOpen.t,
+        phase: coldOpen.phase,
+        pullbackK: coldOpen.pullbackK,
+        seated: game.seated,
+        app: arcade.app?.id ?? null,
+        osMode: arcade.mode,
+        overlayHidden: overlay.classList.contains('hidden'),
+        radioOn: radio.on === true,
+        /* The element's text, not the element: `hud.posture` is a DOM node
+         * and a node does not survive the trip out of page.evaluate. */
+        /* Whether the prompt is SHOWN, not what text it is carrying:
+         * `setPosture(null)` hides the element and leaves its wording in
+         * place, so reading textContent alone reports a prompt that is not on
+         * screen -- which is what it did on the first run of this verifier. */
+        posture: (() => {
+          const el = document.getElementById('posture');
+          if (!el || el.classList.contains('hidden')) return null;
+          return el.textContent?.replace(/\s+/g, ' ').trim() || null;
+        })(),
+        /* Normalised device coordinates run -1..1, so covering the viewport
+         * means the quad reaches past -1 and +1 on both axes. */
+        covers: cover.minX <= -1 && cover.maxX >= 1 && cover.minY <= -1 && cover.maxY >= 1,
+        cover,
+        cameraToMonitor: monitor ? camera.position.distanceTo(monitor) : null,
+        cameraToSeat: camera.position.distanceTo(apartment.deskPose.position),
+        ringsIn: apartmentStory.started
+          ? Math.max(0, apartmentStory.nextRingAt - apartmentStory.elapsed) : null,
+      };
+    },
+    /** As though the player had clicked YES in Squatch Smash's quit box. */
+    quitSquatchSmash: () => window.__SQUATCH_SMASH_HOST.quitSquatchSmash(),
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
       // Skipping the wake-up also skips the point where interaction resumes.
@@ -1294,7 +1366,13 @@ document.addEventListener('pointerlockchange', () => {
   if (locked) dragLook = false;
   player.enabled = locked || computerDomInput || dragLook;
   document.body.classList.toggle('unlocked', !locked && !computerDomInput && !dragLook);
-  if (!locked && game.started && !computerDomInput && !dragLook && !pauseMenu.isPaused()) pauseGame();
+  /* NOT DURING THE COLD OPEN. Confirming the quit inside Squatch Smash hands
+   * the keyboard back from the iframe, so `computerDomInput` goes false with
+   * nothing pointer-locked, and this fired -- pausing the game half a second
+   * into the reveal and freezing the camera on the monitor forever. The whole
+   * sequence is on rails and has no controls to pause. */
+  if (!locked && game.started && !computerDomInput && !dragLook
+    && !pauseMenu.isPaused() && !coldOpenActive) pauseGame();
 });
 
 function pauseGame() {

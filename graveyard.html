@@ -27,12 +27,10 @@
     <div id="toast-stack"></div>
     <div id="posture" class="hidden"><kbd>Q</kbd><span>stop</span></div>
 
-    <section id="mission-card">
-      <small>THE HOTDOG INCIDENT · DISPOSAL</small>
-      <strong id="objective">Bury Billy HotDog</strong>
-      <span id="objective-detail">Family graveyard · the Motel comes after</span>
-      <ol id="grave-objectives"></ol>
-    </section>
+    <!-- The objective card is not markup here any more. `src/graveyard/main.js`
+         drives the shared one from `src/core/objective-panel.js`, which builds
+         its own element inside this `#hud`. A page-local copy is how four
+         scenes ended up with four objective widgets. -->
     <div id="speaker" class="hidden"><small></small><span></span></div>
     <div id="pee-hint" class="hidden"><kbd>E</kbd><span>hold to disrespect traitor</span></div>
   </div>

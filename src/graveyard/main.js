@@ -10,6 +10,7 @@ import {
 import { createGraveyardStory } from '../core/graveyard-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
 import { translateKey } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
@@ -41,9 +42,6 @@ const ending = document.getElementById('ending');
 const loading = document.getElementById('loading');
 const startButton = document.getElementById('start-btn');
 const motelButton = document.getElementById('motel-btn');
-const objectiveEl = document.getElementById('objective');
-const objectiveDetailEl = document.getElementById('objective-detail');
-const objectivesEl = document.getElementById('grave-objectives');
 const speakerEl = document.getElementById('speaker');
 const peeHint = document.getElementById('pee-hint');
 
@@ -153,26 +151,50 @@ if (previewCheckpoint) {
   startButton.textContent = `Start ${label.toLowerCase()}`;
 }
 
-function repaintObjectives() {
-  objectivesEl.replaceChildren(...mission.objectives.map((objective) => {
-    const li = document.createElement('li');
-    li.className = `${objective.done ? 'done' : ''}${objective.optional ? ' optional' : ''}`;
-    li.textContent = objective.text;
-    return li;
+/**
+ * THE SHARED OBJECTIVE CARD, NOT A FOURTH ONE.
+ *
+ * This scene drew its own `#mission-card`: its own kicker, its own `<ol>`,
+ * its own tick glyphs, its own gold. That is the duplication the owner named
+ * -- *"objectives change presentation"* -- and `tools/shared-systems.mjs` now
+ * records per scene which of us actually reuse the one implementation in
+ * `src/core/objective-panel.js`. This is that reuse.
+ *
+ * It hangs off `#hud` rather than `<body>` so it fades up with the rest of
+ * the furniture on `body.playing`, exactly as the card it replaces did.
+ */
+const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
+
+/** The line under the list that answers "which way", per body state. */
+function objectiveHint() {
+  if (mission.bodyBuried) return 'The Motel is next · Snow is still not explaining it';
+  if (mission.bodyPlaced) return 'Use the shovel beside the fresh plot';
+  if (mission.bodyCarried) return 'Past GeeWiz · head toward the marker';
+  return 'Carry him to the fresh plot before you bury him';
+}
+
+/**
+ * The card's contents.
+ *
+ * The old card said the burial beat TWICE -- a headline it worded itself and
+ * a list row the mission owns -- and the two wordings drifted ("Fill HotDog's
+ * grave" against "Fill Billy HotDog's grave"). `GraveyardMission.objectives`
+ * is the one that restores, saves and is asserted on, so it wins. The car is
+ * the only beat the headline had that the list never did, so it is appended
+ * once the grave is filled.
+ */
+function objectivePlan() {
+  const items = mission.objectives.map((objective) => ({
+    label: objective.text,
+    done: objective.done,
+    required: !objective.optional,
   }));
-  if (mission.bodyBuried) {
-    objectiveEl.textContent = 'Return to Snow\'s car';
-    objectiveDetailEl.textContent = 'The Motel is next · Snow is still not explaining it';
-  } else if (mission.bodyPlaced) {
-    objectiveEl.textContent = 'Fill HotDog\'s grave';
-    objectiveDetailEl.textContent = 'Use the shovel beside the fresh plot';
-  } else if (mission.bodyCarried) {
-    objectiveEl.textContent = 'Carry HotDog to the fresh plot';
-    objectiveDetailEl.textContent = 'Past GeeWiz · head toward the marker';
-  } else {
-    objectiveEl.textContent = 'Lift HotDog out of Snow\'s trunk';
-    objectiveDetailEl.textContent = 'Carry him to the fresh plot before you bury him';
-  }
+  if (mission.bodyBuried) items.push({ label: 'Return to Snow\'s car', done: false, required: true });
+  return { title: 'THE HOTDOG INCIDENT · DISPOSAL', items, hint: objectiveHint() };
+}
+
+function repaintObjectives() {
+  objectivePanel.set(objectivePlan());
 }
 repaintObjectives();
 
@@ -561,8 +583,12 @@ startButton.addEventListener('click', async () => {
 const pauseMenu = createPauseMenu({
   title: 'The Squatch Graveyard',
   canPause: () => state.phase === 'active' && !state.endingShown,
-  getObjective: () => [objectiveEl.textContent, objectiveDetailEl.textContent]
-    .filter(Boolean).join(' — ') || 'Carry Billy to the open grave and bury him.',
+  getObjective: () => {
+    const plan = objectivePlan();
+    const step = plan.items.find((item) => item.required && !item.done)?.label ?? '';
+    return [step, plan.hint].filter(Boolean).join(' — ')
+      || 'Carry Billy to the open grave and bury him.';
+  },
   instructions: [
     'W A S D — move. Shift — hurry. Space — jump unless carrying Billy.',
     'E or Click — interact; hold E for carrying, placement, burial, and grave actions.',

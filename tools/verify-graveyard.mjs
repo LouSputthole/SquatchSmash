@@ -328,7 +328,7 @@ try {
       echoHeard: window.GRAVEYARD.mission.echoHeard,
       inspected: [...window.GRAVEYARD.mission.inspected].sort(),
       tributes: [...window.GRAVEYARD.mission.tributes.keys()].sort(),
-      objectives: [...document.querySelectorAll('#grave-objectives li')].map((li) => li.textContent),
+      objectives: [...document.querySelectorAll('#objectives .olist li')].map((li) => li.textContent),
       bodyPhase: window.GRAVEYARD.bodyPresentation().phase,
     }));
     check('mid-scene progress restores: markers, tributes and Echo survive a reload',
@@ -612,7 +612,7 @@ try {
   }
 
   const tributeBoard = await page.evaluate(() => ({
-    objectives: [...document.querySelectorAll('#grave-objectives li')].map((li) => ({
+    objectives: [...document.querySelectorAll('#objectives .olist li')].map((li) => ({
       text: li.textContent,
       done: li.classList.contains('done'),
     })),
@@ -660,7 +660,12 @@ try {
       },
       motel: window.GRAVEYARD.campaignState.missions.jerky_motel.status,
       story: window.GRAVEYARD.campaignState.story,
-      headline: document.getElementById('objective')?.textContent,
+      /* The shared panel from src/core/objective-panel.js, which this scene
+         now drives instead of its own `#mission-card`. A gate still reading
+         the deleted widget would go green on an empty string -- ENGINE-TRAPS
+         section 5, the gate that lies. */
+      headline: [...document.querySelectorAll('#objectives .olist li')]
+        .map((li) => li.textContent).join(' · '),
     };
   });
   check('the burial hides the body and raises the mound and the temporary marker',
