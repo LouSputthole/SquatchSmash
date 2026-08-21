@@ -14,6 +14,7 @@
     "verify:scene-recovery": "node tools/verify-scene-recovery.mjs",
     "verify:settings": "node tools/verify-settings.mjs",
     "verify:staging": "node tools/verify-staging.mjs",
+    "verify:framing": "node tools/verify-framing.mjs",
     "verify:geometry": "node tools/verify-geometry.mjs",
     "sfx": "node tools/generate-sfx.mjs",
     "sfx:dry": "node tools/generate-sfx.mjs --dry-run",

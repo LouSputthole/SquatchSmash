@@ -14,7 +14,7 @@
  */
 import process from 'node:process';
 import { ensureDomShim, ensureThreeShim } from './three-shim.mjs';
-import { withDescriptorGeometryRandom } from './verify-geometry-worker.mjs';
+import { normalizeSceneColliders, withDescriptorGeometryRandom } from './verify-geometry-worker.mjs';
 import { buildGeometrySceneState, GEOMETRY_SCENE_STATES } from './geometry-scenes.mjs';
 import { collectActors, readActor } from '../src/core/staging.js';
 import { stagingFindings } from './staging-gate.mjs';
@@ -65,13 +65,28 @@ function resolveSeats(roots, actors) {
   return seats;
 }
 
+/**
+ * Every solid in the scene, whatever shape it was authored as.
+ *
+ * THIS USED TO FILTER FOR `isBox3`, AND THAT MADE THE GATE LIE. Initiation
+ * authors all two hundred and forty-nine of its cabin solids as upright
+ * `{x, z, r}` cylinders, so a Box3 filter saw NONE of them -- and a gate that
+ * can see no walls reports, cheerfully and in green, that nobody is facing
+ * one. FACING_INTO_SOLID and ACTOR_INSIDE_SOLID were both silently dead in
+ * every scene that builds its world out of cylinders.
+ *
+ * `normalizeSceneColliders` is the geometry worker's own reader and already
+ * understands every collider shape this project authors, which is exactly why
+ * it is borrowed rather than re-derived here. Found by the beat-framing gate,
+ * which hit the same wall one file over.
+ */
 function colliderBoxes(built) {
-  return built.colliders
-    .filter((collider) => collider?.isBox3 && !collider.isEmpty?.())
-    .map((collider) => ({
-      name: collider.name ?? null,
-      min: [collider.min.x, collider.min.y, collider.min.z],
-      max: [collider.max.x, collider.max.y, collider.max.z],
+  return normalizeSceneColliders(built)
+    .filter((record) => !record.invalid && record.min && record.max)
+    .map((record) => ({
+      name: record.id ?? null,
+      min: [record.min.x, record.min.y, record.min.z],
+      max: [record.max.x, record.max.y, record.max.z],
     }));
 }
 
