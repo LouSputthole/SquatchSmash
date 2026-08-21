@@ -12,12 +12,45 @@
  * same build.  A second, parallel way to build the same scenes is a second
  * thing to keep true.
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 import { ensureDomShim, ensureThreeShim } from './three-shim.mjs';
 import { normalizeSceneColliders, withDescriptorGeometryRandom } from './verify-geometry-worker.mjs';
 import { buildGeometrySceneState, GEOMETRY_SCENE_STATES } from './geometry-scenes.mjs';
 import { collectActors, readActor } from '../src/core/staging.js';
 import { stagingFindings } from './staging-gate.mjs';
+import {
+  applyStagingAllowlist, unusedEntries, validateStagingAllowlist,
+} from './staging-allowlist.mjs';
+
+/**
+ * Per-scene allowlists, keyed by scene, loaded once.
+ *
+ * Same instrument the geometry gate carries and deliberately the same shape:
+ * one entry per finding per state, a reason somebody wrote, a line of source
+ * to check it against, sorted, no wildcards. A file that does not validate
+ * stops the run rather than half-applying -- an allowlist nobody can trust is
+ * worse than none.
+ */
+const ALLOWLIST_DIR = path.join(ROOT, 'tools', 'staging-allowlists');
+const allowlists = new Map();
+if (fs.existsSync(ALLOWLIST_DIR)) {
+  for (const file of fs.readdirSync(ALLOWLIST_DIR).filter((n) => n.endsWith('.json'))) {
+    const scene = file.replace(/\.json$/, '');
+    const parsed = JSON.parse(fs.readFileSync(path.join(ALLOWLIST_DIR, file), 'utf8'));
+    const { entries, issues } = validateStagingAllowlist(parsed, { scene });
+    if (issues.length) {
+      console.error(`staging allowlist ${file} is not usable:`);
+      for (const issue of issues) console.error(`  ${issue}`);
+      process.exit(1);
+    }
+    allowlists.set(scene, entries);
+  }
+}
 
 /* The same two shims the geometry worker installs, for the same reason: half
  * these scenes paint a texture on a canvas while they build, and a scene that
@@ -106,6 +139,9 @@ let totalFindings = 0;
 let withCast = 0;
 const unmarked = [];
 const byKind = new Map();
+const usedEntryIds = new Set();
+const statesByScene = new Map();
+let totalSuppressed = 0;
 
 for (const state of states) {
   let built;
@@ -128,13 +164,20 @@ for (const state of states) {
   if (actors.length === 0) continue;
   withCast += 1;
 
-  const { findings } = stagingFindings({
+  const { findings: raw } = stagingFindings({
     id: state.id,
     actors,
     boxes: colliderBoxes(built),
     seats: resolveSeats(built.roots, actors),
     player: playerStance(built),
   });
+
+  const entries = allowlists.get(state.scene) ?? [];
+  const { kept: findings, suppressed, used } = applyStagingAllowlist(raw, entries, state.state);
+  for (const id of used) usedEntryIds.add(id);
+  if (!statesByScene.has(state.scene)) statesByScene.set(state.scene, []);
+  statesByScene.get(state.scene).push(state.state);
+  totalSuppressed += suppressed.length;
 
   for (const item of findings) byKind.set(item.kind, (byKind.get(item.kind) ?? 0) + 1);
   totalFindings += findings.length;
@@ -166,4 +209,21 @@ if (byKind.size) {
     console.log(`  ${kind}: ${count}`);
   }
 }
+if (totalSuppressed) console.log(`Allowlisted: ${totalSuppressed}`);
+
+/* THE RATCHET. An entry that excused nothing this run is permission nobody
+ * re-examined: the defect it covered has been fixed and the entry has to go
+ * with it. Only judged against states this run actually built. */
+const stale = [];
+for (const [scene, entries] of allowlists) {
+  const states = statesByScene.get(scene) ?? [];
+  if (states.length === 0) continue;
+  stale.push(...unusedEntries(entries, states, usedEntryIds).map((id) => `${scene}: ${id}`));
+}
+if (stale.length) {
+  console.log('Stale allowlist entries (the fault they excused is gone — delete them):');
+  for (const id of stale) console.log(`  ${id}`);
+}
+
 console.log(totalFindings === 0 ? 'Staging gate clean.' : `${totalFindings} staging findings.`);
+if (totalFindings > 0 || stale.length > 0) process.exitCode = 1;
