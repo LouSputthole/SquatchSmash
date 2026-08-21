@@ -65,6 +65,7 @@ import {
   poseSeated,
   standOn,
 } from './cabin/staging.js';
+import { INITIATION_SHOTS } from './framing.js';
 import { CardBurn } from './cabin/card-burn.js';
 import { playFootstep } from './cabin/ambience.js';
 import { SPEECH_MIX, speak } from '../core/dialogue.js';
@@ -1543,6 +1544,22 @@ function trailProgress(point) {
  * orbit — which, on the frame Kittenboss is shot, is a catastrophe nobody
  * would find until playtest. Every entry in `CAMERA_MODES` has a case here and
  * a test asserts it.
+ *
+ * AND EVERY ONE OF THEM IS ARITHMETIC THAT LIVES SOMEWHERE ELSE. The entries
+ * below gather the live state a shot depends on — where the player is, which
+ * mark is in use, how far through a move it is — and hand it to
+ * `INITIATION_SHOTS` in src/initiation/framing.js, which does the geometry and
+ * gives back a position and a look point.
+ *
+ * That indirection is the whole reason the beat framing gate can see this
+ * scene at all. A shot written as a closure over live rig nodes inside this
+ * file is unreadable from outside a running page, and act five of this scene
+ * — the hand, the cut, the card, both oath lines and the burning — therefore
+ * played OFF SCREEN for the entire life of the scene with nothing able to
+ * notice. `tools/geometry-scenes.mjs` now publishes this shot list as
+ * `metadata.framingBeats` off those same functions, so what the gate checks is
+ * the camera the player looks through and not a description of it that goes
+ * stale the first time somebody moves a shot. docs/FRAMING-GATE.md.
  * ------------------------------------------------------------------ */
 let camYaw = 0;
 let orbitA = 0;
@@ -1555,77 +1572,65 @@ const _facing = new THREE.Vector3();
 camera.position.set(6, 4.5, SPAWN.z - 12);
 camera.lookAt(LINE_CENTER.x, 2.4, LINE_CENTER.z);
 
+/**
+ * Take a shot's two points and put them where the rest of this file expects.
+ *
+ * `_desiredLook` is written rather than returned because `updateCamera` lerps
+ * position and look point separately, and that has to stay true: the camera
+ * flies rather than cuts.
+ */
+function place({ position, lookAt }) {
+  _desiredLook.fromArray(lookAt);
+  return _camTarget.fromArray(position);
+}
+
 const CAMERA_SHOTS = {
   follow(dt) {
     const diff = Math.atan2(Math.sin(player.heading - camYaw), Math.cos(player.heading - camYaw));
     camYaw += diff * Math.min(1, 3.2 * dt);
     _camForward.set(Math.sin(camYaw), 0, Math.cos(camYaw));
-    const pos = _camTarget.copy(player.position).addScaledVector(_camForward, -8.5);
-    pos.y += 4.8;
-    _desiredLook.copy(player.position).addScaledVector(_camForward, 3);
-    _desiredLook.y += 1.8;
-    return pos;
+    return place(INITIATION_SHOTS.follow({
+      player: player.position.toArray(), forward: _camForward.toArray(),
+    }));
   },
   line() {
     /* Down the line from its west end, so the six of them read as a row and
      * the headlights are behind every one of them. */
-    const pos = _camTarget.set(PLAYER_SLOT.x - 6.4, 2.2, LINE_Z - 3.4);
-    _desiredLook.set(1.6, 1.7, LINE_Z + 0.4);
-    return pos;
+    return place(INITIATION_SHOTS.line());
   },
   speech() {
     /* A slow creep in from off the west end. Clear of the west car, which is
      * parked at (-9.8, -12.8) with its lights on. */
-    const k = Math.min(1, phaseT / 20);
-    const pos = _camTarget.set(-8.2 + k * 2.0, 3.6 - k * 0.7, -11.6 + k * 1.6);
-    _desiredLook.set(-2.4, 2.2, -6.2);
-    return pos;
+    return place(INITIATION_SHOTS.speech({ k: Math.min(1, phaseT / 20) }));
   },
   stand_exec() {
     const p1 = prospectByName.get('PROSPECT ONE').sq.position;
-    const pos = _camTarget.set(p1.x - 4.8, 2.0, p1.z - 3.6);
-    _desiredLook.set(p1.x + 0.4, 1.4, p1.z);
-    return pos;
+    return place(INITIATION_SHOTS.stand_exec({ victim: p1.toArray() }));
   },
   q2() {
     player.facing(_facing);
-    const pos = _camTarget.copy(player.position).addScaledVector(_facing, 5.2).add(_camForward.set(1.2, 0, 0));
-    pos.y = 2.1;
-    _desiredLook.copy(player.position);
-    _desiredLook.y += 1.4;
-    return pos;
+    return place(INITIATION_SHOTS.q2({
+      player: player.position.toArray(), facing: _facing.toArray(),
+    }));
   },
   clearing() {
     /* Behind and above the line, looking out over the working ground. The
      * player is in frame, in the row, and never gets to look away. */
-    const pos = _camTarget.set(PLAYER_SLOT.x - 1.2, 3.5, LINE_Z - 5.6);
-    _desiredLook.set(1.2, 1.2, -5.0);
-    return pos;
+    return place(INITIATION_SHOTS.clearing());
   },
   kneel_exec() {
     /* Over the line's shoulder at the mark in use. The camera stands where the
      * player stands, a little to one side, because the whole point of the
-     * staging is that he is watching it from inside the row. */
+     * staging is that he is watching it from inside the row. Everybody in the
+     * Circle is south of z = -9.8, so nobody is between it and the mud. */
     const step = currentStep ?? KNEELING_EXECUTIONS[0];
-    const mark = markForStep(step);
-    /* Behind the west end of the row, at head height, with the player's
-     * shoulder half a metre off the sightline: the whole point of the staging
-     * is that he is watching it from inside the line, so he is in the frame
-     * and never in front of the mark. Everybody in the Circle is south of
-     * z = -9.8 and this stands at -9.5, so nobody is between it and the mud. */
-    const pos = _camTarget.set(PLAYER_SLOT.x - 1.9, 2.5, LINE_Z - 1.5);
-    _desiredLook.set(mark.x, 1.25, mark.z);
-    return pos;
+    return place(INITIATION_SHOTS.kneel_exec({ mark: markForStep(step) }));
   },
   room() {
-    const pos = _camTarget.set(CEREMONY_CENTRE.x - 2.4, 1.9, CEREMONY_CENTRE.z - 1.1);
-    _desiredLook.set(TABLE.x, 1.5, TABLE.z + 0.6);
-    return pos;
+    return place(INITIATION_SHOTS.room());
   },
   oath() {
-    const pos = _camTarget.set(CEREMONY_CENTRE.x + 1.5, 1.75, CEREMONY_CENTRE.z - 0.2);
-    _desiredLook.set(LOU_SEAT.x, 1.65, LOU_SEAT.z - 0.4);
-    return pos;
+    return place(INITIATION_SHOTS.oath());
   },
   ritual() {
     /* Close and low on THE HAND, and the hand is a moving node on a rig.
@@ -1641,45 +1646,32 @@ const CAMERA_SHOTS = {
      *
      * It follows the hand now. The offsets are relative to where the hand
      * actually is, so it stays framed whatever the rig does. */
-    const hand = ritualHandWorld(_ritualHand);
-    _desiredLook.copy(hand);
-    return _camTarget.set(hand.x - 0.62, hand.y + 0.28, hand.z - 0.54);
+    return place(INITIATION_SHOTS.ritual({ hand: ritualHandWorld(_ritualHand).toArray() }));
   },
   room_wide() {
     orbitA += dtLast * 0.16;
-    const pos = _camTarget.set(
-      CEREMONY_CENTRE.x + Math.cos(orbitA) * 2.6,
-      1.85,
-      CEREMONY_CENTRE.z + Math.sin(orbitA) * 1.4 - 0.6,
-    );
-    _desiredLook.copy(player.position);
-    _desiredLook.y += 1.55;
-    return pos;
+    return place(INITIATION_SHOTS.room_wide({
+      angle: orbitA, player: player.position.toArray(),
+    }));
   },
   pullback() {
     /* Off him, through the room, out of the window, back into the trees, until
      * the cabin is one lit window a long way off between black trunks. Slow,
-     * continuous, no cuts. */
-    const k = Math.min(1, phaseT / 13);
-    const eased = k * k * (3 - 2 * k);
-    const pos = _camTarget.set(
-      CEREMONY_CENTRE.x - 1.4 + eased * 2.0,
-      1.85 + eased * 7.5,
-      CEREMONY_CENTRE.z - 2.2 - eased * 26,
-    );
-    /* It rises as it goes, so the last frame is over the tops of the trees
-     * looking back at one lit window, and not a camera bulldozing trunks. */
-    _desiredLook.set(CABIN.x, 1.6 + eased * 0.9, CABIN.z);
-    return pos;
+     * continuous, no cuts. It rises as it goes, so the last frame is over the
+     * tops of the trees looking back at one lit window, and not a camera
+     * bulldozing trunks. */
+    return place(INITIATION_SHOTS.pullback({ k: Math.min(1, phaseT / 13) }));
   },
   black() {
     /* The screen is already black. Hold exactly where the shot was fired. */
-    _desiredLook.copy(_lookTarget);
-    return _camTarget.copy(camera.position);
+    return place(INITIATION_SHOTS.black({
+      camera: camera.position.toArray(), look: _lookTarget.toArray(),
+    }));
   },
   hold() {
-    _desiredLook.copy(_lookTarget);
-    return _camTarget.copy(camera.position);
+    return place(INITIATION_SHOTS.hold({
+      camera: camera.position.toArray(), look: _lookTarget.toArray(),
+    }));
   },
 };
 

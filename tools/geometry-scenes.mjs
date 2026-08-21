@@ -3082,6 +3082,14 @@ async function buildMansionSiege(descriptor, THREE) {
  */
 async function buildInitiation(descriptor, THREE) {
   const { buildInitiationCabinSite } = await import('../src/initiation/cabin/index.js');
+  /* THE SHOT LIST, published so the beat framing gate has something to check.
+   * `src/initiation/framing.js` holds the arithmetic of every camera mode in
+   * this scene and `main.js`'s CAMERA_SHOTS calls straight through to it, so
+   * what the gate reads here is the same camera the player looks through
+   * rather than a description of it that can go stale. See
+   * docs/FRAMING-GATE.md: act five of this scene played off screen for its
+   * whole life because nothing outside the running page could read a shot. */
+  const { initiationFramingBeats } = await import('../src/initiation/framing.js');
   const cabin = descriptor.state === 'cabin';
   const built = withSeededGeometryRandom(descriptor.id, () => buildInitiationCabinSite({
     woods: true,
@@ -3094,7 +3102,11 @@ async function buildInitiation(descriptor, THREE) {
     throw new Error(`Initiation Adapter mounted no colliders for ${descriptor.id}`);
   }
   return result(descriptor, [{ label: `initiation-${descriptor.state}`, root: built.root }],
-    built.colliders, { state: descriptor.state, lights: built.lights.length });
+    built.colliders, {
+      state: descriptor.state,
+      lights: built.lights.length,
+      framingBeats: initiationFramingBeats(descriptor.state),
+    });
 }
 
 /**
