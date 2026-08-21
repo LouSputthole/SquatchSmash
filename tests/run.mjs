@@ -129,6 +129,7 @@ const TEST_MODULES = [
   './shared-system-adoption.test.mjs',
   './initiation-card-burn.test.mjs',
   './campaign-credits.test.mjs',
+  './cold-open.test.mjs',
   './apartment-voice-coverage.test.mjs',
   './phone.test.mjs',
   './squatchfather-story.test.mjs',
