@@ -1,6 +1,7 @@
 # Squatch Life
 
-Twelve playable or preserved experiences live in this repo.
+Eighteen playable or preserved story experiences live in this repo, plus
+three internal tools (below the table) that aren't story scenes.
 
 | | |
 |---|---|
@@ -15,7 +16,21 @@ Twelve playable or preserved experiences live in this repo.
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house and connected to Day Three campaign state. |
 | **A Morning at Silver Pines** ([`golf.html`](./golf.html)) | Day Four's three-hole round with Big Uncle Lou, Rippinflow, and Eric: a quiet status reward before THE TAKE. |
 | **THE TAKE** ([`heist.html`](./heist.html)) | Day Four’s complete bank-job climax: briefing, bank and vault, street withdrawal, garage, vehicle swap, escape, and safehouse settlement. |
-| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved terminal scene, routed from the apartment after THE TAKE and its cleanup. Its authored ceremony and outcome remain frozen pending the owner's playtest; it uses the shared inventory bar. |
+| **The Silver Case** ([`silvercase.html`](./silvercase.html)) | Opens the final chapter: a car ride over, a knock, and a retrieval that turns violent, carrying the Squatchanium case out to Lou's mansion. |
+| **Lou's Mansion / PROJECT SILENT SQUATCH** ([`mansion.html`](./mansion.html)) | The mansion, staffed and walkable. The ordinary campaign visit hosts PROJECT SILENT SQUATCH — the case reaches the hidden lab, the weapon gets finished, the lab gets cleaned up — and the same file later serves the repaired-mansion return briefing after the siege. |
+| **Mansion Under Siege** ([`mansion-siege.html`](./mansion-siege.html)) | A damage-state overlay on that same mansion, not a second copy of it: he wakes to a cartel attack already in progress, arms up in the basement, and fights up through the house alongside everyone he's met there. |
+| **The Enola Squatch** ([`enolasquatch.html`](./enolasquatch.html)) | Captain Lou Sasole's retaliation bombing run: an on-foot boarding walkaround, then flight to the target, a gunner defending against interceptors, and the drop. |
+| **Cartel Palace** ([`cartel-palace.html`](./cartel-palace.html)) | The last combat mission — a quiet, deliberate infiltration of Mark's estate to "rescue" Sauce, and the discovery on site that it isn't a rescue at all. |
+| **The Special Meeting** ([`specialmeeting.html`](./specialmeeting.html)) | The bridge to Initiation: three Squatches collect the Prospect in a car and drive him to the woods, playing the whole ten minutes completely straight. |
+| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved terminal scene, reached through The Special Meeting after Cartel Palace. Its authored ceremony and outcome remain frozen pending the owner's playtest; it uses the shared inventory bar. |
+
+### Internal tools — not story scenes
+
+| | |
+|---|---|
+| **Combat Lab** ([`combatlab.html`](./combatlab.html)) | A small proving range around the shared `Player`/`WeaponSystem`/`CombatActor` stack — verifies the combat systems, doesn't add rules of its own. |
+| **Roster** ([`roster.html`](./roster.html)) | Browsable cast, voice and sound reference for the whole campaign. |
+| **The Fitting Room** ([`wardrobe.html`](./wardrobe.html)) | Wardrobe workshop: preview any character in any outfit the shared catalog knows about. |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
@@ -30,17 +45,31 @@ npm start        # the apartment -> http://localhost:5173
                  # Silver Pines  -> http://localhost:5173/golf.html
                  # THE TAKE      -> http://localhost:5173/heist.html
                  # the game      -> http://localhost:5173/game/
+                 # Silver Case   -> http://localhost:5173/silvercase.html
+                 # the Mansion   -> http://localhost:5173/mansion.html
+                 # Mansion Siege -> http://localhost:5173/mansion-siege.html
+                 # Enola Squatch -> http://localhost:5173/enolasquatch.html
+                 # Cartel Palace -> http://localhost:5173/cartel-palace.html
+                 # Special Meeting -> http://localhost:5173/specialmeeting.html
                  # Initiation    -> http://localhost:5173/initiation.html
+                 # Combat Lab    -> http://localhost:5173/combatlab.html
+                 # Roster        -> http://localhost:5173/roster.html
+                 # Fitting Room  -> http://localhost:5173/wardrobe.html
 ```
 
-All twelve are static ES-module sites with no build step, served by the same
-`npm start`. The campground game keeps its own Three.js runtime, its own
+All of these are static ES-module sites with no build step, served by the
+same `npm start`. The campground game keeps its own Three.js runtime, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
-completely self-contained; the apartment and the Bing share
-`vendor/three.module.min.js` and everything in `src/core`. The campground stays
-isolated; the apartment, Bing, Squatchfather, Beef Run, graveyard, Motel,
-  NO WAKE, Silver Room, Silver Pines, THE TAKE, and Initiation share campaign identities and reusable story-scene
-foundations.
+completely self-contained; every other page shares `vendor/three.module.min.js`
+and everything in `src/core`. The campground stays isolated; the apartment,
+Bing, Squatchfather, Beef Run, graveyard, Motel, NO WAKE, Silver Room, Silver
+Pines, THE TAKE, Silver Case, the Mansion (and its Siege and return visits),
+Enola Squatch, Cartel Palace, The Special Meeting, and Initiation share
+campaign identities and reusable story-scene foundations — see
+[`docs/SHARED-SYSTEMS-BANK.md`](./docs/SHARED-SYSTEMS-BANK.md) for the
+catalog of what's actually shared and
+[`docs/SHARED-SYSTEMS-AUDIT.md`](./docs/SHARED-SYSTEMS-AUDIT.md) for which
+scene has which.
 
 The campaign spine connects every story location through
 `src/core/campaign.js`. On Day One, Lou’s one-shot call rings through the
@@ -73,7 +102,31 @@ holes at Silver Pines. The completed round returns him home; Lou then calls with
 THE TAKE, and seven physical loadout pickups gate the apartment door. The heist persists
 its briefing, bank, vault, street, garage, vehicle-swap, driving, injury, loot,
 and settlement state. It returns Tony home for three physical cleanup tasks;
-only then does the door open onto the Initiation.
+only then does the door open onto the final chapter.
+
+Completing the apartment cleanup opens [Silver Case](./silvercase.html): a car
+ride over, a knock, and a retrieval from Chester's men that turns violent —
+the Squatchanium case comes out in Tony and Ape's hands and goes straight to
+[Lou's mansion](./mansion.html). The ordinary mansion visit hosts PROJECT
+SILENT SQUATCH: the case reaches the hidden lab, the weapon gets finished, and
+the lab gets cleaned up. Sleeping in the guest room is the load seam into
+[Mansion Under Siege](./mansion-siege.html) — the same mansion geometry with a
+damage-state overlay (`clean`, `alert`, `under_attack`, `damaged`,
+`post_battle`, `repaired`) rather than a second copy of the house. He wakes to
+a cartel attack already underway, arms up in the basement, and fights back
+through four checkpoints alongside everyone he's met in that house for an
+evening. Regrouping afterward routes to [The Enola Squatch](./enolasquatch.html)
+— Captain Lou Sasole's retaliation bombing run — and completing it returns to
+the mansion in its `repaired` state for Lou's briefing: they hit the wrong
+city, Sauce was taken during the operation, and the cartel is holding him at
+Mark's estate. That sends the crew to [Cartel Palace](./cartel-palace.html),
+the campaign's last combat mission and a deliberate tonal contrast to the
+siege — quiet, controlled infiltration instead of a loud defensive fight —
+where the "rescue" turns out to be the discovery that Sauce set the whole
+attack up and Mark is the cartel boss. Extraction from the Palace routes home,
+and a later call sends him to [The Special Meeting](./specialmeeting.html):
+three Squatches collect the Prospect in a car and drive him out to the woods.
+Only then does the door open onto the Initiation.
 
 The Initiation branch history, face art, NPC writing, post-processing modules,
 and playable ceremony are preserved while the shared inventory bar is added. Tony
@@ -413,19 +466,46 @@ preview.html            save-isolated later-scene playtest launcher
 src/main.js             renderer, state machine, input
 src/core/               player controller, interaction raycasting, audio, radio
                         and its station schedules, day/night, campaign state,
-                        scene transitions, intoxication, the narrator, HUD
+                        scene transitions, intoxication, the narrator, HUD,
+                        pause menu/settings/scene recovery, shared combat and
+                        weapons systems, dialogue mixing, mouth/lip-sync,
+                        actor staging, wardrobe and cast identity
 src/world/              apartment shell, furniture builders, procedural textures,
-                        materials, particle systems, and the wall-art loader
+                        materials, particle systems, blood/decals, and the
+                        wall-art loader
 src/arcade/             SquatchOS, its six apps, and the mount/input boundary
 src/bing/               the Bada Bing: the club, its people, the script, the
                         mission, and two ways to lose money
 src/squatchfather/      restaurant scene, timeline, dialogue, and controller
+src/beefrun/            Beef Run flight mission: aircraft, airfield, detection
+src/graveyard/          burial mission and the optional memorial museum
 src/motel/              first-person Motel mission, human cast, level, and audio
+src/nowake/             NO WAKE harbor betrayal
+src/silver/             Front and Center — the Silver Room date
+src/golf/               A Morning at Silver Pines — the three-hole round
+src/heist/               THE TAKE — bank, vault, street, garage, escape
+src/silvercase/         Silver Case retrieval mission
+src/mansion/             Lou's mansion (base visit + PROJECT SILENT SQUATCH);
+                        `src/mansion/siege/` is the Under Siege damage-state
+                        overlay on the same builders
+src/enolasquatch/       the retaliation bombing run
+src/cartel-palace/      the final infiltration mission
+src/specialmeeting/     the bridge scene into Initiation
 src/initiation/         preserved ceremony reference and NPC system
+src/combatlab/          internal combat-system proving range, not a scene
+src/roster/             cast/voice/sound reference tool
+src/wardrobe/           the Fitting Room outfit-preview workshop
 tools/                  static server, ElevenLabs generator, static check,
                         runtime art-placement check, single-file bundler
 vendor/                 three.js (vendored so there is no install step)
 ```
+
+Every scene's shared-system consumption — pause menu, dialogue, combat,
+wardrobe, and the rest — is catalogued and audited in
+[`docs/SHARED-SYSTEMS-BANK.md`](./docs/SHARED-SYSTEMS-BANK.md) and
+[`docs/SHARED-SYSTEMS-AUDIT.md`](./docs/SHARED-SYSTEMS-AUDIT.md). Before
+building a new gameplay system for a scene, check there first — see
+[`docs/REUSE-FIRST.md`](./docs/REUSE-FIRST.md) above.
 
 The apartment is laid out on a fixed grid: x runs −5 (west) to +5 (east), z runs
 −4.5 (north) to +4.5 (south), the ceiling is at 2.75m, and yaw 0 looks north.
@@ -682,3 +762,147 @@ club's cues and four ambience beds.
 
 In the console, `__bing` exposes the scene, the club, the cast, the mission and
 `__bing.teleport(x, z, yaw)`.
+
+---
+
+## The Silver Case
+
+> `npm start`, then <http://localhost:5173/silvercase.html>
+
+Opens the final chapter. A car ride over, a hallway, a knock, and entering an
+apartment that belongs to Chester, Deke, Winston and Pruitt. What starts as
+retrieval turns into establishing control, the case getting revealed, and a
+shooting on the couch. Tony and Ape carry the case — silver-cornered, two
+mechanical locks, a faint hum, purple light leaking through the seams — out to
+Lou's mansion. It's the same case PROJECT SILENT SQUATCH picks up next.
+
+The mission runs on its own small state machine (`MENU → CAR_RIDE →
+ARRIVE_HALLWAY → KNOCK → ENTER_APARTMENT → ESTABLISH_CONTROL → CASE_REVEAL →
+COUCH_SHOOTING → …`) and its own reaction-window shooting model — the older
+implementation this scene hasn't yet moved onto the shared ground-combat
+stack (see [`docs/SHARED-SYSTEMS-AUDIT.md`](./docs/SHARED-SYSTEMS-AUDIT.md)).
+Every line carries a `vo.silvercase.*` cue name for a future voice pass; none
+are recorded yet, so the scene plays entirely on subtitles.
+
+---
+
+## Lou's Mansion & PROJECT SILENT SQUATCH
+
+> `npm start`, then <http://localhost:5173/mansion.html>
+
+The mansion, staffed and walkable: the man on the door, guards on their posts,
+a bartender, family hanging around the pool, a home theatre, a billiard bay,
+and a basement. The ordinary campaign visit hosts PROJECT SILENT SQUATCH —
+the case from the previous mission reaches the hidden lab, Booski has the
+lab's scientists gassed once the weapon (**Fat Squatch**, the completed
+deployable payload) is finished, and the tone escalates in five authored
+stages: luxurious intrigue, dark comedy, uneasy underground exploration,
+cold-blooded execution, full horror behind laboratory glass. See
+[`docs/MISSION-SILENT-SQUATCH.md`](./docs/MISSION-SILENT-SQUATCH.md) for the
+naming (**Squatchanium**, **Silent Squatch**, **Silent Night**) and the full
+tone brief.
+
+Sleeping in the guest room is the load seam into the siege. The same file
+later serves the **repaired-mansion return briefing** after Enola Squatch,
+using the identical geometry with a story flag rather than a rebuilt house —
+this is the same technical decision the siege overlay makes, applied once
+more.
+
+---
+
+## Mansion Under Siege
+
+> `npm start`, then <http://localhost:5173/mansion-siege.html>
+
+The same house, on the worst night it has. `mansion-siege.html` calls the
+identical `buildMansionGrounds()`/`buildMansionInterior()` the base mansion
+visit calls, then hangs a damage-state overlay on the result — there is no
+forked siege copy of the building. Six named states carry it:
+`clean`, `alert`, `under_attack`, `damaged`, `post_battle`, `repaired`.
+
+He wakes in the basement with a pistol. The armory is at the far end of the
+cellar corridor — the first move is sideways, not up — and the only route out
+puts him in the rear hall with the gallery rail above the foyer as the one
+position that covers both staircases at once. Everyone met in that house for
+an evening — the guards, the bartender, Snow, Gratin, the family — is the
+cast of this fight, run on the same canonical `core/combat/` stack as Cartel
+Palace (see [`docs/REUSABLE-GAMEPLAY-SYSTEMS.md`](./docs/REUSABLE-GAMEPLAY-SYSTEMS.md)).
+The beat chain, its objectives, and four checkpoints live in
+`src/mansion/siege/mission.js`. Full direction:
+[`docs/MANSION-SIEGE-NIGHT.md`](./docs/MANSION-SIEGE-NIGHT.md).
+
+---
+
+## The Enola Squatch
+
+> `npm start`, then <http://localhost:5173/enolasquatch.html>
+
+Captain Lou Sasole's retaliation raid, expedited the moment the cartel hits
+the mansion. The scene opens on foot — a boarding walkaround on the apron,
+using the same `Player`/`InteractionSystem` pairing as Beef Run — then hands
+off to a standalone flight model sibling to `beefrun.html`'s: aircraft
+physics, engine systems, a camera manager, weather, and a gunner station that
+defends the run against interceptors on the way to the target. The payload
+is **Fat Squatch**, the weapon PROJECT SILENT SQUATCH finished. What comes
+back at the mansion afterward is the news that it landed on the wrong city.
+
+---
+
+## Cartel Palace
+
+> `npm start`, then <http://localhost:5173/cartel-palace.html>
+
+The campaign's last combat mission, and its own map — `Cartel_Palace_Final`,
+not the mansion in a different colorway. Presented as a rescue of Sauce from
+Mark's estate; the truth the player uncovers on site, staged through
+documents, radio chatter, and guard conversation rather than announced at the
+gate, is that Sauce was never a prisoner — he helped plan the mansion attack
+— and Mark is the cartel boss. Both become targets.
+
+Deliberately the tonal opposite of the siege: quiet, controlled infiltration
+instead of a loud defensive fight. It runs the same production ground-combat
+Adapter (`core/combat/`, `core/weapons/`) with scene-authored patrol and
+cover posts, blackout sight tuning, stealth/alarm escalation, and takedown
+permission layered on top — see the Cartel Palace row in
+[`docs/SHARED-SYSTEMS-BANK.md`](./docs/SHARED-SYSTEMS-BANK.md).
+
+---
+
+## The Special Meeting
+
+> `npm start`, then <http://localhost:5173/specialmeeting.html>
+
+The bridge from Cartel Palace to Initiation. Tony comes home, the phone
+rings, and three Squatches he knows — Seff driving, Lag and Numbskull in the
+back, Numbskull directly behind him — collect him in a car and drive him out
+of the city. Two clocks run the scene: dialogue holds for as long as a line
+takes to say, and the drive runs on a 992-metre road that doesn't care how
+talkative anyone is. They're pinned together at exactly three gates and run
+free between them.
+
+The scene plays completely straight — nobody in the car is doing a bit, and
+per the owner's rule, no character may ever say any version of "don't worry,
+we're not killing you," not even softened or as a joke. Read
+[`docs/SPECIAL-MEETING-SCRIPT.md`](./docs/SPECIAL-MEETING-SCRIPT.md) before
+touching a line of it. It ends where the trees open onto the Initiation.
+
+---
+
+## Internal tools
+
+Three pages exist to develop and verify the campaign rather than to be played
+as story:
+
+**Combat Lab** (`combatlab.html`) is a small proving range around the shared
+`Player`/`WeaponSystem`/`CombatActor`/ballistics stack — it demonstrates and
+regression-tests the combat systems every combat scene consumes, and is not
+itself a parallel combat implementation.
+
+**Roster** (`roster.html`) is a browsable cast, voice and sound reference for
+the whole campaign — who's who, and which voice profile they speak in.
+
+**The Fitting Room** (`wardrobe.html`) previews any character in any outfit
+the shared wardrobe catalog knows, backed by `core/appearances.js`'s ledger of
+who wears what where, so the preview and the real game can't silently
+disagree. See [`docs/THE-FITTING-ROOM.md`](./docs/THE-FITTING-ROOM.md) and
+[`docs/DRESSING-THE-CAST.md`](./docs/DRESSING-THE-CAST.md).
