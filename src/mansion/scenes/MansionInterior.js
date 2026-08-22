@@ -606,6 +606,25 @@ function inRect(r, x, z) {
 /* ================================================================== */
 /* GEOMETRY_GATE_MANSION_INTERIOR_FINISH_JOIN: exact room finish, millwork, railing, furniture and compound-prop parts intentionally lap only their fitted mating faces. */
 /* GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN: exact room-shell and fixture collider solids intentionally key into adjoining cases, jambs, slabs and wall runs. */
+/* THE POOL TABLE'S AUTHORED DATA, IMPORTED DOWN HERE ON PURPOSE.
+ *
+ * The rack, the ball catalogue and the cushion and pocket numbers live in
+ * ../pool.js and the billiard table below builds its meshes at exactly those
+ * positions -- one source for where a ball is, so the frame that moves it and
+ * the gate that measures it cannot drift apart. ../pool.js imports nothing
+ * itself (no THREE, no DOM), so it costs this build nothing.
+ *
+ * It is NOT up with the other imports because the two comment lines directly
+ * above are cited BY LINE NUMBER, with these exact anchor strings, by 13,495
+ * reviewed entries in tools/geometry-allowlists/mansion.json. Eight lines
+ * added at the top of this file moves both anchors and fails every one of
+ * them. An `import` declaration is legal anywhere at a module's top level and
+ * is hoisted regardless, so the cheap answer is to put it below the citation
+ * rather than to rewrite thirteen thousand lines of reviewed policy for a
+ * billiard table. If you add lines above this point, run
+ * `npm run verify:geometry -- --scene mansion` and expect to fix the
+ * citations. */
+import { POOL_TABLE, POOL_BALLS, POOL_RULES, rackLayout } from '../pool.js';
 export function buildMansionInterior(shell = null) {
   const GY = shell?.GROUND_Y ?? GROUND_Y;
   const UY = shell?.UPPER_Y ?? UPPER_Y;
@@ -3104,38 +3123,155 @@ export function buildMansionInterior(shell = null) {
     // ---- Billiard table. Moved 3 m south now the room has a front half:
     // it sits centred between the three bay arches rather than crowded up
     // against the kitchen end of the room.
+    //
+    // IT IS PLAYABLE NOW (owner: "make pool playable against Rippinflow in the
+    // mansion"). The bed, the cushion faces and the ball radius were already
+    // these numbers; ../pool.js reads them back out of POOL_TABLE and this
+    // block builds the rack at the authored layout rather than at the ring of
+    // `Math.sin(i * 1.9)` that used to stand in for one. That scatter was
+    // decoration and could be: nine balls, five materials, no numbers, no
+    // pockets and nowhere for a ball to go.
     const bx = 12.4;
     const bz = 48.6;
     const billiardAssemblyId = 'mansion-lounge-billiard-table';
     const billiardStart = root.children.length;
-    root.add(box({ size: [2.4, 0.08, 4.4], pos: [bx, GY + 0.78, bz], mat: M_FELT_GREEN, name: 'billiard-bed' }));
-    for (const [ox, oz, sx, sz] of [
-      [-1.28, 0, 0.16, 4.7], [1.28, 0, 0.16, 4.7], [0, -2.27, 2.72, 0.16], [0, 2.27, 2.72, 0.16],
-    ]) {
-      root.add(box({
-        size: [sx, 0.2, sz], pos: [bx + ox, GY + 0.83, bz + oz], mat: M_WOOD_DK, name: 'billiard-rail',
-      }));
+    /** The playing surface. Every ball centre sits one radius above this. */
+    const feltY = GY + 0.82;
+    const billiardBed = box({
+      size: [2.4, 0.08, 4.4], pos: [bx, GY + 0.78, bz], mat: M_FELT_GREEN, name: 'billiard-bed',
+    });
+    root.add(billiardBed);
+    /* THE RAILS NOW HAVE GAPS IN THEM, because the table now has pockets and a
+     * pocket a ball drops into behind an unbroken rail is a hole in a wall.
+     * Each run is authored as segments in cushion-face coordinates: the long
+     * rails break either side of the middle pocket and stop short of the
+     * corners, the short rails stop short of the corners only. The outer face
+     * (x +-1.36, z +-2.35) and the height are exactly what they were. */
+    const JAW = 0.115;
+    const railRuns = [
+      ['x', -1.28, [[-POOL_TABLE.halfZ + JAW, -JAW], [JAW, POOL_TABLE.halfZ - JAW]]],
+      ['x', 1.28, [[-POOL_TABLE.halfZ + JAW, -JAW], [JAW, POOL_TABLE.halfZ - JAW]]],
+      ['z', -2.27, [[-POOL_TABLE.halfX + JAW, POOL_TABLE.halfX - JAW]]],
+      ['z', 2.27, [[-POOL_TABLE.halfX + JAW, POOL_TABLE.halfX - JAW]]],
+    ];
+    for (const [axis, offset, spans] of railRuns) {
+      for (const [from, to] of spans) {
+        const mid = (from + to) / 2;
+        const span = to - from;
+        root.add(box({
+          size: axis === 'x' ? [0.16, 0.2, span] : [span, 0.2, 0.16],
+          pos: axis === 'x' ? [bx + offset, GY + 0.83, bz + mid] : [bx + mid, GY + 0.83, bz + offset],
+          mat: M_WOOD_DK,
+          name: 'billiard-rail',
+        }));
+      }
+    }
+    /* Six pockets, as the dark mouths they are. Sunk 4 mm into the bed so a
+     * disc lying exactly on the felt plane cannot z-fight with it. */
+    const M_POCKET = mat({ color: 0x08090a, roughness: 0.95 });
+    for (const pocket of POOL_TABLE.pockets) {
+      root.add(named(cylinder({
+        r: 0.092, h: 0.02, pos: [bx + pocket.x, feltY - 0.004, bz + pocket.z], mat: M_POCKET, cast: false,
+      }), `billiard-pocket-${pocket.id}`));
     }
     for (const [lx, lz] of [[-1.0, -1.9], [1.0, -1.9], [-1.0, 1.9], [1.0, 1.9]]) {
       root.add(box({ size: [0.28, 0.74, 0.28], pos: [bx + lx, GY + 0.37, bz + lz], mat: M_WOOD_DK }));
     }
     const billiardCollider = solid(bx - 1.4, bx + 1.4, GY, GY + 0.9, bz - 2.4, bz + 2.4);
-    const ballMats = [
-      mat({ color: 0xf4f0e6, roughness: 0.2 }), mat({ color: 0xd8b23a, roughness: 0.2 }),
-      mat({ color: 0x1c3d7a, roughness: 0.2 }), mat({ color: 0x8a1a1a, roughness: 0.2 }),
-      mat({ color: 0x14141a, roughness: 0.2 }),
-    ];
-    for (let i = 0; i < 9; i++) {
-      const a = i * 1.9;
-      root.add(sphere({
-        r: 0.055,
-        pos: [bx + Math.sin(a) * 0.8, GY + 0.875, bz + Math.cos(a * 1.3) * 1.6],
-        mat: ballMats[i % ballMats.length],
-      }));
+
+    /* THE RACK. Sixteen numbered balls at the authored layout, resting on the
+     * felt: centre height is feltY + radius exactly, which is the same
+     * GY + 0.875 the old scatter used and is what keeps the geometry gate's
+     * float and support checks where they were.
+     *
+     * A stripe is a white ball with a coloured band round its equator rather
+     * than a second colour of solid, because "which of these is mine" is a
+     * question the game asks the player every shot and a list in a panel is
+     * not an answer you can see from the end of the table. The balls never
+     * spin (see the no-english note in ../pool.js), so the band stays
+     * horizontal and stays readable -- the one good thing about not modelling
+     * spin.
+     *
+     * NINE OF THEM ARE BARE MESHES AND SEVEN ARE GROUPS, AND THAT IS NOT AN
+     * ACCIDENT. tools/geometry-collect.mjs identifies an unnamed mesh by its
+     * ordinal among its unnamed siblings (`type=Mesh#1810`), and
+     * tools/geometry-allowlists/mansion.json holds ~8,800 reviewed entries
+     * that cite those ordinals. Change the number of ANONYMOUS meshes this
+     * block adds to the interior root and every anonymous mesh built after it
+     * -- the whole east half of the house -- renumbers, and thousands of
+     * reviewed allowlist entries silently start naming the wrong object. The
+     * old table added exactly fourteen (nine balls, four legs, one cue), so
+     * this one adds exactly fourteen: the cue ball, the seven solids and the
+     * eight are bare spheres exactly as they were, the four legs and the cue
+     * stick are untouched, and everything genuinely new -- the seven striped
+     * balls, the six pocket mouths, the aim line -- carries a NAME and is
+     * therefore outside that sequence entirely. A named mesh cannot disturb
+     * an ordinal it does not share. */
+    const ballY = feltY + POOL_TABLE.ballRadius;
+    const billiardBalls = new Map();
+    const M_BALL_WHITE = mat({ color: 0xf4f0e6, roughness: 0.18 });
+    for (const seat of rackLayout(POOL_RULES.id)) {
+      const spec = POOL_BALLS.find((ball) => ball.id === seat.id);
+      const at = [bx + seat.x, ballY, bz + seat.z];
+      if (spec.group !== 'stripe') {
+        const ball = sphere({
+          r: POOL_TABLE.ballRadius, pos: at, mat: mat({ color: spec.colour, roughness: 0.18 }),
+        });
+        root.add(ball);
+        billiardBalls.set(seat.id, ball);
+        continue;
+      }
+      const node = group(`billiard-ball-${seat.id}`);
+      node.position.set(at[0], at[1], at[2]);
+      node.add(named(sphere({
+        r: POOL_TABLE.ballRadius, pos: [0, 0, 0], mat: M_BALL_WHITE,
+      }), `billiard-ball-${seat.id}-body`));
+      node.add(named(cylinder({
+        r: POOL_TABLE.ballRadius * 1.004,
+        h: POOL_TABLE.ballRadius * 0.78,
+        pos: [0, 0, 0],
+        mat: mat({ color: spec.colour, roughness: 0.18 }),
+      }), `billiard-ball-${seat.id}-stripe`));
+      root.add(node);
+      billiardBalls.set(seat.id, node);
     }
-    root.add(cylinder({
-      r: 0.02, h: 1.5, pos: [bx + 0.5, GY + 0.9, bz - 0.6], mat: M_WOOD, rotX: Math.PI / 2, rotZ: 0.1,
-    }));
+
+    /* The aim line. A sliver of lit wood laid on the felt from the cue ball
+     * down the line of the shot, switched on only while the player is
+     * actually holding the cue. Without it a shot is guesswork: this scene
+     * renders at about 1.3 fps under the software rasteriser and there is no
+     * smooth crosshair sweep to aim along. Named, so it stays out of the
+     * anonymous ordinal sequence -- see the note on the rack. */
+    const billiardAim = box({
+      size: [0.012, 0.004, 1.1],
+      pos: [bx, feltY + 0.002, bz],
+      mat: mat({ color: 0xf6efd2, emissive: new THREE.Color(0xf6efd2), emissiveIntensity: 0.5, roughness: 0.6 }),
+      cast: false,
+      name: 'billiard-aim-line',
+    });
+    billiardAim.visible = false;
+    root.add(billiardAim);
+
+    /* The cue. THE SAME BARE CYLINDER IN THE SAME REST POSE it has always
+     * been -- not wrapped in a rig, for the ordinal reason above. The game
+     * aims it by switching its Euler order to YXZ, which applies the yaw
+     * OUTSIDE the 90-degree lay-flat rotation and so swings a horizontal cue
+     * about the vertical; the default XYZ order would tip it out of the
+     * plane instead. Rest is XYZ with the authored 0.1 tilt, exactly as
+     * before. */
+    const billiardCueRest = {
+      x: bx + 0.5, y: GY + 0.9, z: bz - 0.6, rotX: Math.PI / 2, rotZ: 0.1,
+    };
+    const billiardCue = cylinder({
+      r: 0.02,
+      h: 1.5,
+      pos: [billiardCueRest.x, billiardCueRest.y, billiardCueRest.z],
+      mat: M_WOOD,
+      rotX: billiardCueRest.rotX,
+      rotZ: billiardCueRest.rotZ,
+    });
+    root.add(billiardCue);
+
     for (const object of root.children.slice(billiardStart)) {
       geometryIntent(object, { assemblyId: billiardAssemblyId });
     }
@@ -3605,6 +3741,22 @@ export function buildMansionInterior(shell = null) {
       cases,
       banner,
       bayShield,
+      /* Everything the pool game needs and nothing it does not: where the
+       * table is, how high the felt is, the meshes it moves, and the ONE mesh
+       * an [E] press is registered on. `target` is the bed, because "press E
+       * on the table" means the green part. */
+      billiard: {
+        assemblyId: billiardAssemblyId,
+        centre: { x: bx, z: bz },
+        feltY,
+        ballY,
+        target: billiardBed,
+        balls: billiardBalls,
+        aimLine: billiardAim,
+        aimLength: 1.1,
+        cue: billiardCue,
+        cueRest: billiardCueRest,
+      },
       cowboy: loungeCowboy,
       clubApex: loungeClubApex,
       jackDaniels,

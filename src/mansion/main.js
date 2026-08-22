@@ -82,7 +82,13 @@ import {
   playGuestBedSleep,
   playTheatreSit,
   playTheatreStand,
+  playBallClick,
+  playCueStrike,
+  playCushion,
+  playPocket,
 } from './interaction-audio.js';
+import { PoolFrame, POOL_RULES } from './pool.js';
+import { createPoolHud } from './pool-hud.js';
 import { StreamSystem } from '../world/stream.js';
 import { SmokeSystem } from '../world/smoke.js';
 import { createBongBehavior, registerInteractiveBong } from '../world/bong.js';
@@ -1571,6 +1577,239 @@ function registerTvInteraction({ tv, prop }) {
 for (const { tv, prop } of interactiveTvs) registerTvInteraction({ tv, prop });
 
 /* ================================================================== */
+/* THE BILLIARD TABLE                                                   */
+/*                                                                       */
+/* Owner: "make pool playable against Rippinflow in the mansion -- press  */
+/* E on the table and play a full game of pool against him."             */
+/*                                                                        */
+/* BUILT THE WAY THE BING BUILT BLACKJACK, and that is the whole design    */
+/* argument. src/bing/blackjack.js: "played at the table rather than on a  */
+/* screen... the cards and chips are real objects on the felt in front of  */
+/* you. Nothing takes the game over: standing up is one key, and the       */
+/* mission carries on around the table whether or not you are winning."    */
+/* Every clause of that is true here. There is no overlay mode: Squatch    */
+/* Smash is full-screen because it is diegetically a PC game, and a        */
+/* billiard table is furniture. The camera drops to the shot, the balls    */
+/* are the balls MansionInterior.js built, [Q] gets you out on any frame,  */
+/* and the house -- the mission, the guards, the radio, Rippinflow's own   */
+/* speech gate -- goes on running underneath.                              */
+/*                                                                          */
+/* THE RULES AND THE PHYSICS ARE IN ./pool.js and are free of THREE and of  */
+/* the DOM on purpose, so a full frame can be played under `node --test`.   */
+/* This file is the camera, the keys, the noises and Rippinflow's mouth.    */
+/*                                                                          */
+/* ONE SIMPLIFICATION, FLAGGED RATHER THAN BURIED: ball-in-hand after a     */
+/* foul places the cue ball on the head spot instead of letting you carry   */
+/* it. The rule table (`afterFoul`) already has the field, so giving the    */
+/* player the walk is a later job and not a rewrite. An owner decision.     */
+/* ================================================================== */
+const billiard = interior.props.lounge?.billiard ?? null;
+const poolPanel = billiard ? createPoolHud() : null;
+/** Where he was standing when he picked the cue up, so putting it back is a
+ * step back to his own feet rather than to a spot this file guessed at. */
+let poolReturn = null;
+let atPool = false;
+/** Real-world milliseconds the [E] key went down on. The power meter is timed
+ * off the CLOCK and not off accumulated `dt`: this scene runs at about 1.3
+ * frames a second under the software rasteriser, and a charge that advances
+ * per frame would make a soft roll physically impossible on a slow machine
+ * and a break impossible on a fast one. */
+let poolCharge = 0;
+/** Which of his two takeover lines is next. */
+let poolHandover = false;
+const poolKeys = new Set();
+
+const poolWorld = (x, z) => new THREE.Vector3(
+  (billiard?.centre.x ?? 0) + x,
+  (billiard?.feltY ?? 0) + 0.05,
+  (billiard?.centre.z ?? 0) + z,
+);
+
+/* The mansion's cast is mounted further down this file, so every one of these
+ * hooks reaches it lazily. A bark only lands when the shared controller is
+ * free -- Rippinflow talking over Booski is the two-controllers-one-bar fault
+ * cast.js already documents at length. */
+function rippinSays(sequence, { always = false } = {}) {
+  const dialogue = cast?.dialogue;
+  if (!dialogue || !sequence) return;
+  if (!always && dialogue.busy) return;
+  dialogue.interject(sequence);
+}
+
+const pool = billiard
+  ? new PoolFrame({
+    rules: POOL_RULES,
+    hooks: {
+      onEvent: (event) => {
+        const where = poolWorld(event.x, event.z);
+        if (event.type === 'strike') playCueStrike(audio, where, event.speed / 5.4);
+        else if (event.type === 'ball') playBallClick(audio, where, event.speed);
+        else if (event.type === 'rail') playCushion(audio, where, 1);
+        else if (event.type === 'pocket') playPocket(audio, where);
+      },
+      onShot: (seat, outcome) => {
+        if (outcome.frameOver) return;
+        if (seat === 'player') {
+          if (outcome.foul) rippinSays(SEQUENCES.poolPlayerFouls, { always: true });
+          else if (outcome.turn === 'player') rippinSays(SEQUENCES.poolPlayerPots);
+          else {
+            /* Two things to say about taking the table off you, alternating,
+             * because the same sentence every miss is a man with one sentence.
+             * `say()` in the Bing refuses a repeat for the same reason. */
+            poolHandover = !poolHandover;
+            rippinSays(poolHandover ? SEQUENCES.poolPlayerMisses : SEQUENCES.poolHisTurn);
+          }
+          return;
+        }
+        if (outcome.turn === 'rippin') rippinSays(SEQUENCES.poolHePots);
+        else rippinSays(SEQUENCES.poolHeMisses);
+      },
+      onFrameOver: (winner) => {
+        rippinSays(winner === 'rippin' ? SEQUENCES.poolHeWins : SEQUENCES.poolHeLoses,
+          { always: true });
+      },
+    },
+  })
+  : null;
+if (pool) pool.attach(billiard);
+
+/** The camera pose for the shot he is lining up: behind the cue ball, down
+ * the line, at the height of a man leaning over the cushion. */
+function poolShotPose() {
+  const cue = pool.balls.find((ball) => ball.id === 0);
+  const dirX = Math.sin(pool.aimAngle);
+  const dirZ = Math.cos(pool.aimAngle);
+  return {
+    x: billiard.centre.x + cue.x - dirX * 0.98,
+    z: billiard.centre.z + cue.z - dirZ * 0.98,
+    y: billiard.feltY + 0.66,
+    /* The player's forward is (-sin yaw, -cos yaw); the table's aim is
+     * (sin a, cos a). They are the same direction half a turn apart, and that
+     * identity is the whole binding between the mouse and the cue. */
+    yaw: pool.aimAngle - Math.PI,
+  };
+}
+
+function poolTakeCue() {
+  if (!pool || atPool || player.mode !== 'walk') return false;
+  const resumed = pool.state !== 'idle' || pool.shots > 0;
+  if (!pool.takeCue()) return false;
+  atPool = true;
+  poolCharge = 0;
+  poolKeys.clear();
+  poolReturn = {
+    x: player.position.x,
+    y: player.position.y - player.eyeHeight,
+    z: player.position.z,
+    yaw: THREE.MathUtils.radToDeg(player.yaw),
+  };
+  /* The [E] that started this is still down, and it opened a hold on the
+   * look-prompt. Close it before the prompt goes to sleep, or the arc is
+   * still running when he puts the cue back. */
+  interaction.release();
+  interaction.setPaused(true);
+  const pose = poolShotPose();
+  /* This scene's look-prompt reaches 18 m, so [E] can be pressed on the felt
+   * from the far end of the lounge. The walk to the table is therefore the
+   * tween, and it is timed off the real distance -- a fixed 0.7 s is a step
+   * from beside the cushion and a teleport from the bar. */
+  const walk = Math.hypot(pose.x - player.position.x, pose.z - player.position.z);
+  player.sitAt({
+    position: new THREE.Vector3(pose.x, pose.y, pose.z),
+    yaw: pose.yaw,
+    pitch: -0.52,
+    /* Half a turn either way is a full circle of aim, which is what a table
+     * you can walk round means when the camera is standing still. */
+    yawRange: Math.PI,
+    pitchMin: -0.95,
+    pitchMax: 0.2,
+    dur: Math.min(1.8, 0.6 + walk * 0.16),
+  }, () => {
+    rippinSays(resumed ? SEQUENCES.poolResumed : SEQUENCES.poolRacked, { always: true });
+  });
+  poolPanel?.set(pool.view);
+  return true;
+}
+
+function poolPutCueBack() {
+  if (!atPool) return false;
+  const midFrame = pool.state !== 'over' && pool.shots > 0;
+  atPool = false;
+  poolCharge = 0;
+  poolKeys.clear();
+  pool.putCueBack();
+  poolPanel?.set(null);
+  if (poolReturn) teleport(poolReturn.x, poolReturn.y, poolReturn.z, poolReturn.yaw);
+  poolReturn = null;
+  interaction.setPaused(false);
+  if (midFrame) rippinSays(SEQUENCES.poolWalksOff, { always: true });
+  return true;
+}
+
+/** [E], at the table. Charging on the way down, striking on the way up. */
+function poolPressE() {
+  if (pool.state === 'over') {
+    pool.takeCue();
+    poolPanel?.set(pool.view);
+    return;
+  }
+  if (pool.state !== 'aim') return;
+  poolCharge = performance.now();
+}
+
+function poolReleaseE() {
+  if (!poolCharge || pool.state !== 'aim') {
+    poolCharge = 0;
+    return;
+  }
+  const held = (performance.now() - poolCharge) / 1000;
+  poolCharge = 0;
+  pool.setPower(Math.max(0.06, Math.min(1, held)));
+  pool.shoot();
+  poolPanel?.set(pool.view);
+}
+
+function updatePool(dt) {
+  if (!pool) return;
+  if (!atPool) {
+    pool.update(dt);
+    return;
+  }
+  if (pool.state === 'aim' && player.mode === 'seated') {
+    /* [A]/[D] are dead keys in a seated pose, so they become the fine aim --
+     * a mouse at this scene's frame rate cannot resolve half a degree, and
+     * half a degree is the difference between a pot and a safety. */
+    const trim = (poolKeys.has('KeyA') ? 1 : 0) - (poolKeys.has('KeyD') ? 1 : 0);
+    if (trim) player.yaw += trim * dt * 0.35;
+    pool.aim(player.yaw + Math.PI);
+    if (poolCharge) pool.setPower(Math.max(0.06, Math.min(1, (performance.now() - poolCharge) / 1000)));
+    const pose = poolShotPose();
+    player.position.set(pose.x, pose.y, pose.z);
+  }
+  pool.update(dt);
+  /* He is a man at a table, so he looks at the table. */
+  if (pool.turn === 'rippin' && cast?.people?.rippin) {
+    const cue = pool.balls.find((ball) => ball.id === 0);
+    cast.people.rippin.faceToward(billiard.centre.x + cue.x, billiard.centre.z + cue.z);
+  }
+  poolPanel?.set(pool.view);
+}
+
+if (billiard) {
+  interaction.register(billiard.target, {
+    label: () => {
+      if (pool.state === 'over') return 'Rack them up <b>again</b>';
+      return pool.shots > 0
+        ? 'Back to the <b>frame</b> against Rippinflow'
+        : 'Take a cue &mdash; <b>play Rippinflow</b>';
+    },
+    enabled: () => running && !atPool && player.mode === 'walk',
+    onUse: () => poolTakeCue(),
+  });
+}
+
+
+/* ================================================================== */
 /* THE BASEMENT ARMORY                                                  */
 /*                                                                       */
 /* Owner, 2026-08-04: "I want them fully usable with bullet tracers,     */
@@ -2248,6 +2487,8 @@ const sharedPauseMenu = createPauseMenu({
       + ' R reloads, Q stows it; E at its rack returns it.',
     'On a job: E works the thing you are looking at. At a keypad, type the'
       + ' number and press ENTER.',
+    'At the billiard table: mouse or A/D aims, HOLD E for power and let go to'
+      + ' strike, Q puts the cue back.',
     'Tab pauses and resumes. Escape releases the mouse, which also pauses.',
   ],
   recovery: createCampaignSceneRecovery({
@@ -2281,10 +2522,19 @@ const sharedPauseMenu = createPauseMenu({
     mansionPee.stop();
     weaponSystem.setTrigger(false);
     player.clearKeys();
+    /* A half-charged pool shot must not survive the pause. The [E] that was
+     * down when the overlay came up will never deliver its keyup, so without
+     * this the meter keeps filling behind the menu and the next release --
+     * possibly minutes later -- fires at maximum. */
+    poolKeys.clear();
+    poolCharge = 0;
     if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
   },
   onResume: () => {
-    interaction.setPaused(false);
+    /* Still paused if he is holding a cue: the look-prompt stands down for
+     * the whole time he is at the table, and coming back from the menu is not
+     * leaving the table. */
+    interaction.setPaused(atPool);
     if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
     clock.getDelta();
     lockPointer();
@@ -2430,6 +2680,15 @@ window.addEventListener('keydown', (e) => {
     }
   }
   if (e.code === 'Space') e.preventDefault();
+  /* At the table, [E] is the game's own button and [Q] is the way out --
+   * the same division src/bing/main.js draws at the blackjack seat. The
+   * look-prompt is paused while he is holding a cue, so nothing else is
+   * competing for either key. */
+  if (atPool) {
+    poolKeys.add(e.code);
+    if (e.code === 'KeyE' && !e.repeat) { poolPressE(); e.preventDefault(); return; }
+    if (e.code === 'KeyQ' && !e.repeat) { poolPutCueBack(); e.preventDefault(); return; }
+  }
   player.setKey(translateKey(e.code), true);
   if (e.code === 'KeyE' && !e.repeat) interaction.press();
   /* R and Q only mean anything with a gun in your hands, and neither is a
@@ -2457,6 +2716,11 @@ window.addEventListener('wheel', (e) => {
 }, { passive: true });
 window.addEventListener('keyup', (e) => {
   player.setKey(translateKey(e.code), false);
+  poolKeys.delete(e.code);
+  if (atPool && e.code === 'KeyE') {
+    poolReleaseE();
+    return;
+  }
   if (e.code === 'KeyE') {
     interaction.release();
     mansionPee.stop();
@@ -2464,6 +2728,10 @@ window.addEventListener('keyup', (e) => {
 });
 window.addEventListener('blur', () => {
   player.clearKeys();
+  /* A shot half-charged when the window went away must not fire itself when
+   * it comes back, and must not sit at full power either. */
+  poolKeys.clear();
+  poolCharge = 0;
   interaction.release();
   mansionPee.stop();
   weaponSystem.setTrigger(false);
@@ -2526,6 +2794,13 @@ function updateGame(dt) {
   player.sway.roll = mansionHighs.sway.roll * felt;
   player.moveScale = mansionHighs.moveScale;
   player.lookDrag = mansionHighs.lookDrag;
+  /* BEFORE `player.update`, not after. The shot camera is an orbit around the
+   * cue ball driven by the head's own yaw, and `Player.update` ends by
+   * applying the camera from `player.position` -- so writing the orbit after
+   * it renders last frame's pose. At 60 fps that is a soft lag; at the 1.3 fps
+   * the software rasteriser manages it is three-quarters of a second of the
+   * cue pointing somewhere the player is not looking. */
+  updatePool(dt);
   player.update(dt);
   /* The explore ledger and the panel that reads it. Both cheap and both
    * rate-limited internally -- `updateExplored` tests eleven rectangles once
@@ -2904,6 +3179,30 @@ window.mansion = {
     heard: (id) => npcSpeech.debug.heard(id),
     remaining: (id) => npcSpeech.debug.remaining(id),
   },
+  /**
+   * The billiard table, for a browser check that wants to prove a frame
+   * without a mouse. `take`/`shoot`/`leave` are the three real verbs, and
+   * `view` is the same object the panel paints from -- so a verifier asserts
+   * what the player can see rather than a parallel truth.
+   */
+  pool: pool ? {
+    get view() { return pool.view; },
+    get at() { return atPool; },
+    get balls() {
+      return pool.balls.map((ball) => ({
+        id: ball.id,
+        potted: ball.potted,
+        x: Number(ball.x.toFixed(4)),
+        z: Number(ball.z.toFixed(4)),
+      }));
+    },
+    rules: { id: POOL_RULES.id, name: POOL_RULES.name },
+    take: () => poolTakeCue(),
+    leave: () => poolPutCueBack(),
+    aim: (angle) => pool.aim(angle),
+    shoot: (options) => pool.shoot(options),
+    frame: pool,
+  } : null,
   grounds,
   interior,
   doors,

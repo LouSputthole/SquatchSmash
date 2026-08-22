@@ -6,6 +6,7 @@ import { ensureDomShim } from '../tools/three-shim.mjs';
 import {
   GUEST_SLEEP_AUDIO_SECONDS,
   MANSION_INTERACTION_CUE_NAMES,
+  POOL_CUE_NAMES,
   playGuestBedSleep,
   playTheatreSit,
   playTheatreStand,
@@ -60,7 +61,13 @@ test('Mansion furniture events request the four assigned staged cues', () => {
   assert.equal(audio.calls[3].options.delay, 0.18);
   assert.ok(settle >= 0.4, 'navigation would replace the AudioContext before both bed beats');
   assert.equal(settle, GUEST_SLEEP_AUDIO_SECONDS);
-  assert.deepEqual(MANSION_INTERACTION_CUE_NAMES, audio.calls.map(({ name }) => name));
+  /* The furniture's four, plus the billiard table's five. The list is still
+   * exact in both directions -- a cue in the residency list that no placement
+   * plays is the orphan half of the same bug this file guards -- it is simply
+   * that the lounge grew a playable table and five sounds with it. The pool
+   * cues have their own end-to-end coverage in tests/mansion-pool.test.mjs. */
+  assert.deepEqual(MANSION_INTERACTION_CUE_NAMES,
+    [...audio.calls.map(({ name }) => name), ...POOL_CUE_NAMES]);
 });
 
 test('the Mansion composition root wires and preloads all four furniture placements', () => {

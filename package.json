@@ -109,6 +109,8 @@
     "vo:mansion": "node tools/mansion-vo.mjs",
     "sfx:mansion": "node tools/mansion-sfx.mjs",
     "check:mansion-sfx": "node tools/mansion-sfx.mjs --check",
+    "sfx:pool": "node tools/pool-sfx.mjs",
+    "check:pool-sfx": "node tools/pool-sfx.mjs --check",
     "vo:siege": "node tools/siege-vo.mjs",
     "check:siege-vo": "node tools/siege-vo.mjs --check",
     "vo:apartment": "node tools/apartment-vo.mjs",

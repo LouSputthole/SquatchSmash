@@ -491,6 +491,20 @@ try {
     }
   }
 
+  /* The billiard table's five, for the same reason and with one extra: they
+   * are played through helper functions in src/mansion/interaction-audio.js,
+   * so the `audio.play('literal')` scan further up cannot see a single one of
+   * them either. A pool table with no cue in the manifest makes exactly the
+   * noise `synth()` invents for an unknown name, which is a noise. */
+  {
+    const { checkPoolSfxManifest } = await import('./pool-sfx.mjs');
+    const drift = checkPoolSfxManifest(sfxManifest);
+    if (drift.length) {
+      fail(`Pool table sound catalog drift: ${drift.length} problem(s) `
+        + `(first: ${drift[0]}). Run \`npm run sfx:pool\`.`);
+    }
+  }
+
   /* The inbox names its group in data rather than at the call site, so the
    * scan above cannot see it. Same failure either way: a renamed bank is a
    * reply he never gives, and nothing anywhere says so. */

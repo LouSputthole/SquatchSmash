@@ -22645,6 +22645,36 @@
       "say": "First one. I moved when Snow said move and I did not make anything worse."
     },
     {
+      "name": "billiards.cue.strike",
+      "duration": 0.5,
+      "promptInfluence": 0.6,
+      "prompt": "a leather cue tip striking a phenolic resin ball at moderate speed on a slate billiard table, a short dry chalky knock with a woody body behind it and no ring, close mic, no room reverb, no voice, no music"
+    },
+    {
+      "name": "billiards.break",
+      "duration": 2.4,
+      "promptInfluence": 0.6,
+      "prompt": "a hard break shot on a slate pool table, one heavy cue strike immediately followed by fifteen resin balls scattering, a dense burst of hard clicks spreading out over a second and a half with balls running over cloth and into cushions, close interior, no voice, no music"
+    },
+    {
+      "name": "billiards.click",
+      "duration": 0.4,
+      "promptInfluence": 0.6,
+      "prompt": "one resin billiard ball striking another squarely, a bright hard high-pitched click with a very short tail, recorded close over a slate bed, no room, no voice, no music"
+    },
+    {
+      "name": "billiards.rail",
+      "duration": 0.45,
+      "promptInfluence": 0.6,
+      "prompt": "a billiard ball hitting a rubber cushion on a slate table, a dull woody thump with almost no click in it and a faint rubber squeak as the ball comes off, close interior, no voice, no music"
+    },
+    {
+      "name": "billiards.pocket",
+      "duration": 1.3,
+      "promptInfluence": 0.6,
+      "prompt": "a billiard ball dropping into a pocket, a ball leaving the cloth and falling into a net and wooden channel, one soft leathery thud then a short low wooden roll away underneath the table, close interior, no voice, no music"
+    },
+    {
       "name": "vo.silentsquatch.arrival.prospect.humming",
       "voice": "player",
       "say": "Whatever’s in here has been humming since the car."
@@ -23805,6 +23835,76 @@
       "name": "vo.silentsquatch.house.hogmama.leftapanon",
       "voice": "hogmama",
       "say": "Gratin left a pan on and went downstairs. Again."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.finally",
+      "voice": "rippinflow",
+      "say": "Finally. Rack’s been sitting there so long it’s got a lease."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.youbreak",
+      "voice": "rippinflow",
+      "say": "You break. And don’t be gentle with it, this isn’t church."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.remembered",
+      "voice": "rippinflow",
+      "say": "Look who remembered where he left the table."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.onpurpose",
+      "voice": "rippinflow",
+      "say": "Alright. That one went in on purpose, I’ll allow it."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.nothing",
+      "voice": "rippinflow",
+      "say": "Nothing. Twenty minutes I waited for that."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.ballinhand",
+      "voice": "rippinflow",
+      "say": "Foul. Ball in my hand, and now we’re playing my game."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.movestanding",
+      "voice": "rippinflow",
+      "say": "Move. You’re standing in the shot."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.thewrist",
+      "voice": "rippinflow",
+      "say": "That’s the wrist. You can’t teach the wrist."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.crookedtable",
+      "voice": "rippinflow",
+      "say": "Table’s crooked. Lou paid nine grand for a crooked table."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.thatstheframe",
+      "voice": "rippinflow",
+      "say": "And that’s the frame. Don’t look at me like that, you were there the whole time."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.rackemagain",
+      "voice": "rippinflow",
+      "say": "Rack ’em again, prospect. I’ve got all night and you’ve got nowhere to be."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.doesntcount",
+      "voice": "rippinflow",
+      "say": "Okay. Okay. That was one frame and it doesn’t count."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.nobodyhears",
+      "voice": "rippinflow",
+      "say": "Nobody in this house hears about this. Nobody."
+    },
+    {
+      "name": "vo.silentsquatch.house.rippin.pool.leaveitthere",
+      "voice": "rippinflow",
+      "say": "Sure. Leave it there. I’ll just keep standing here, it’s what I do."
     }
   ]
 }

@@ -118,7 +118,16 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
    * out on 2026-08-05: he is executed on the boat in NO WAKE, which is Day 3,
    * and the mansion arc is after it. Neither line had a recorded take, so
    * nothing delivered was thrown away. */
-  house: 6, // Sasole at the bar, Numbskull on the terrace, Hog Mama
+  /* 2026-08-22: 6 became 20. The billiard table in the lounge is playable
+   * against Rippinflow now (src/mansion/pool.js), and a man who has stood at
+   * that table since the day the cast was posted -- his look string has said
+   * "who has not taken a shot in twenty minutes" the whole time -- needed
+   * something to say about racking, potting, missing, fouling, winning and
+   * losing. They are `house` rather than a new scope because `house` is
+   * already in the START bank and the table is reachable from the first
+   * frame. */
+  house: 20, // Sasole at the bar, Numbskull on the terrace, Hog Mama,
+  // and Rippinflow's fourteen at the pool table
 });
 
 const TOTAL_AWAITING = Object.values(CUES_AWAITING_VO_SYNC)

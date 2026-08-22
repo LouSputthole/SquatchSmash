@@ -98,6 +98,7 @@ const TEST_MODULES = [
   './mansion-performer-motion.test.mjs',
   './mansion-dress-focus.test.mjs',
   './mansion-interior-qa-spatial.test.mjs',
+  './mansion-pool.test.mjs',
   './mansion-grounds-qa.test.mjs',
   './enolasquatch-campaign-runtime.test.mjs',
   './daynight.test.mjs',

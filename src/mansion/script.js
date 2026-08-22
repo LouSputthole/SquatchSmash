@@ -1126,6 +1126,72 @@ export const SEQUENCES = Object.freeze({
 
   /* The conference room, in a chair he was not invited into, at a table
    * nobody is sitting at. */
+
+  /* =================================================================== */
+  /* THE BILLIARD TABLE                                                   */
+  /*                                                                       */
+  /* Rippinflow's look string has said "who has not taken a shot in twenty */
+  /* minutes" since the day the cast was posted, and until now that was a  */
+  /* joke with nothing behind it -- there was no game, so there was no      */
+  /* shot he could have taken. These are the lines that make the joke true: */
+  /* he racks, he plays, he is smug when he pots and he is worse when he    */
+  /* loses, and he says something about it either way.                      */
+  /*                                                                        */
+  /* SCOPE `house`, NOT A NEW ONE. src/mansion/audio-banks.js banks the      */
+  /* scopes and `house` is in the START bank, so a man who is standing at    */
+  /* that table from the first frame can speak from the first frame. A new   */
+  /* scope would have needed banking, and an unbanked scope is a scene that  */
+  /* talks over a synth. The table is reachable during the mission and long  */
+  /* after it, which is exactly the ground the start bank covers.             */
+  /* =================================================================== */
+
+  /* He has been waiting for somebody to pick the other cue up. */
+  poolRacked: Object.freeze([
+    { speaker: 'RIPPIN', text: 'Finally. Rack’s been sitting there so long it’s got a lease.', cue: cue('house', 'rippin.pool.finally'), hold: 4.0 },
+    { speaker: 'RIPPIN', text: 'You break. And don’t be gentle with it, this isn’t church.', cue: cue('house', 'rippin.pool.youbreak'), hold: 4.2 },
+  ]),
+  /* Back to a frame he walked out on. */
+  poolResumed: Object.freeze([
+    { speaker: 'RIPPIN', text: 'Look who remembered where he left the table.', cue: cue('house', 'rippin.pool.remembered'), hold: 3.4 },
+  ]),
+  /* The player pots one of his own. */
+  poolPlayerPots: Object.freeze([
+    { speaker: 'RIPPIN', text: 'Alright. That one went in on purpose, I’ll allow it.', cue: cue('house', 'rippin.pool.onpurpose'), hold: 4.0 },
+  ]),
+  /* The player misses and hands the table over. */
+  poolPlayerMisses: Object.freeze([
+    { speaker: 'RIPPIN', text: 'Nothing. Twenty minutes I waited for that.', cue: cue('house', 'rippin.pool.nothing'), hold: 3.6 },
+  ]),
+  /* The player fouls. Ball in hand, and he enjoys it. */
+  poolPlayerFouls: Object.freeze([
+    { speaker: 'RIPPIN', text: 'Foul. Ball in my hand, and now we’re playing my game.', cue: cue('house', 'rippin.pool.ballinhand'), hold: 4.4 },
+  ]),
+  /* He steps up to the table. */
+  poolHisTurn: Object.freeze([
+    { speaker: 'RIPPIN', text: 'Move. You’re standing in the shot.', cue: cue('house', 'rippin.pool.movestanding'), hold: 3.0 },
+  ]),
+  /* He pots one. */
+  poolHePots: Object.freeze([
+    { speaker: 'RIPPIN', text: 'That’s the wrist. You can’t teach the wrist.', cue: cue('house', 'rippin.pool.thewrist'), hold: 3.6 },
+  ]),
+  /* He misses, which is somebody else's fault. */
+  poolHeMisses: Object.freeze([
+    { speaker: 'RIPPIN', text: 'Table’s crooked. Lou paid nine grand for a crooked table.', cue: cue('house', 'rippin.pool.crookedtable'), hold: 4.4 },
+  ]),
+  /* He wins the frame. */
+  poolHeWins: Object.freeze([
+    { speaker: 'RIPPIN', text: 'And that’s the frame. Don’t look at me like that, you were there the whole time.', cue: cue('house', 'rippin.pool.thatstheframe'), hold: 5.2 },
+    { speaker: 'RIPPIN', text: 'Rack ’em again, prospect. I’ve got all night and you’ve got nowhere to be.', cue: cue('house', 'rippin.pool.rackemagain'), hold: 5.0 },
+  ]),
+  /* He loses the frame, and it is important that he take it badly. */
+  poolHeLoses: Object.freeze([
+    { speaker: 'RIPPIN', text: 'Okay. Okay. That was one frame and it doesn’t count.', cue: cue('house', 'rippin.pool.doesntcount'), hold: 4.4 },
+    { speaker: 'RIPPIN', text: 'Nobody in this house hears about this. Nobody.', cue: cue('house', 'rippin.pool.nobodyhears'), hold: 4.0 },
+  ]),
+  /* The player puts the cue back down with the frame still on. */
+  poolWalksOff: Object.freeze([
+    { speaker: 'RIPPIN', text: 'Sure. Leave it there. I’ll just keep standing here, it’s what I do.', cue: cue('house', 'rippin.pool.leaveitthere'), hold: 4.8 },
+  ]),
 });
 
 /**
