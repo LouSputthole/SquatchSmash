@@ -1,0 +1,77 @@
+{
+  "$schema": "squatchsmash.line-reachability-allowlist.v1",
+  "entries": [
+    {
+      "id": "beefrun-engine-cooling",
+      "scene": "beefrun",
+      "beat": "BEATS['engine.cooling']",
+      "reason": "The middle of the three left-engine lines. updateReturn() scripts the overheat and plays 'engine.hot', nags the objective while the temperature is over 250 and the split throttle is still forward, then plays 'engine.recovered' under 215 -- so the state this take belongs to, throttle already back and the needle still coming down, is measured every frame and speaks to nobody. Not a deliberate silence and not this change's to fix: wiring it is a beefrun pass, and this entry is here so the line cannot go quiet again unnoticed.",
+      "source": "src/beefrun/script.js:382",
+      "sourceAnchor": "'engine.cooling': [L('Let it sulk. Fly the other one.', 2.8)],"
+    },
+    {
+      "id": "beefrun-load-strap",
+      "scene": "beefrun",
+      "beat": "BEATS['load.strap']",
+      "reason": "Strapping is a real mechanic -- cargo.js has strap(zone), allStrapped and slip physics that treat a loose crate as weight with a vote, and hud.js puts the strapped count on the glass -- and OBJECTIVES.strap tells the player to do it. Nothing plays Lou's line about it. loading.js dispatches load.done, load.tail and load.nose and stops there. Same class of gap as the three this change wires, left alone because choosing whether Lou speaks on the first strap or the last is direction rather than repair.",
+      "source": "src/beefrun/script.js:311",
+      "sourceAnchor": "'load.strap': [L('Strap them. Loose cargo is just weight that gets a vote.', 4.0)],"
+    },
+    {
+      "id": "beefrun-patrol-close",
+      "scene": "beefrun",
+      "beat": "BARKS['patrolClose']",
+      "reason": "Three barks for a patrol getting close -- go lower, keep the ridge between us, take the cloud or the canyon. detection.js owns proximity and it speaks through onRadio, which only ever passes the four caib.* radio beats; no code path anywhere asks the bark system for this pool. The nearest thing on the return leg is 'caib.boundary', which is the opposite beat: the moment the search gives up. Three recorded takes with no caller, recorded here so that stays visible.",
+      "source": "src/beefrun/script.js:484",
+      "sourceAnchor": "patrolClose: ['Lower. Trees are free cover and nobody bills you for them.', ...]"
+    },
+    {
+      "id": "beefrun-takeoff-trees",
+      "scene": "beefrun",
+      "beat": "BEATS['takeoff.trees']",
+      "reason": "The comment over the takeoff-roll block says 'Rotation call, and the trees at the end' and only the rotation call was ever written: the branch under it plays 'takeoff.rotate' at 58 knots and the next thing that speaks is the climbout at 130 feet. Nothing in the departure measures the treeline off runway 18 at all, so there is no state this take could hang on without one being invented. The comment is the evidence that the second half was intended and forgotten.",
+      "source": "src/beefrun/script.js:194",
+      "sourceAnchor": "'takeoff.trees': [L('Trees. Trees are the last part of the runway nobody paves.', 3.6)],"
+    },
+    {
+      "id": "enolasquatch-call-opening",
+      "scene": "enolasquatch",
+      "beat": "BEATS['call.opening']",
+      "reason": "Big Uncle Lou's telephone call setting the mission up, three lines, and tools/check-line-presence.mjs exempts its cues on the written grounds that it is 'played before the hangar scene opens'. It is not played anywhere: the scene's first phase is walkaround, on the apron, at the aeroplane. The exemption describes a scene that does not exist, which is why a cue-presence checker could sign this off while nobody could ever hear it. Where the call belongs -- a phone in the apartment, a cold open -- is the owner's to say.",
+      "source": "src/enolasquatch/dialogue/script.js:41",
+      "sourceAnchor": "'call.opening': [U('Remember that little delivery flight?', 2.4), ...]"
+    },
+    {
+      "id": "enolasquatch-hangar-reveal",
+      "scene": "enolasquatch",
+      "beat": "BEATS['hangar.reveal']",
+      "reason": "Five lines for first sight of the aeroplane -- 'There she is. The Enola Squatch.' -- written for an arrival the mission never got. MissionController opens straight into the walkaround with the checklist up and the Enola already in front of you, so there is no reveal to speak over. The only thing in the repo that plays it is tests/scene-audio-residency.test.mjs, which is a test asking whether the bank is resident, not a player hearing it. Staging a reveal is a scene decision, not wiring.",
+      "source": "src/enolasquatch/dialogue/script.js:49",
+      "sourceAnchor": "'hangar.reveal': [L('There she is. The Enola Squatch.', 2.6), ...]"
+    },
+    {
+      "id": "initiation-ceremony-anoint",
+      "scene": "initiation",
+      "beat": "CEREMONY_BEATS.anoint",
+      "reason": "Three lines that end the old gauntlet ceremony on the anointing -- 'You walked into this clearing a prospect. Walk out a SQUATCH.' Whether the cabin ceremony ends on the anointing is the owner's authorial call and nobody else's, so this pass deliberately does not wire it. It is not a wiring bug being excused; it is a question about how the scene finishes that only the owner gets to answer. If the answer is yes, delete this entry in the same commit that hangs the beat off the cabin's final phase.",
+      "source": "src/initiation/dialogue.js:61",
+      "sourceAnchor": "anoint: beat('anoint', [['BOOSKIBRO', 'You took the Circle's fists. ...']])"
+    },
+    {
+      "id": "initiation-ceremony-retry",
+      "scene": "initiation",
+      "beat": "CEREMONY_BEATS.retry",
+      "reason": "The gauntlet's forgiveness line, 'The Circle forgives once. Arms DOWN this time, prospect.' The cabin rewrite retired it on purpose and says so twice in src/initiation/script.js: RETIRED_CEREMONY_LINES names this exact sentence, and the block above it explains that the retired beats stay in dialogue.js until the manifest handoff lands, because deleting them now turns every one of their manifest rows stale and npm run check red. Deliberately unreachable, and deliberately still written down.",
+      "source": "src/initiation/dialogue.js:66",
+      "sourceAnchor": "retry: beat('retry', [['BOOSKIBRO', 'The Circle forgives once. Arms DOWN this time, prospect.']])"
+    },
+    {
+      "id": "mansion-irish-afterwards",
+      "scene": "mansion",
+      "beat": "SEQUENCES.irishAfterwards",
+      "reason": "Irish's one line about xXx: 'He's been at that all night, God love him. Same three lines.' The obvious hook is the INTERROGATION state, which already concatenates queues the way OBSERVATION concatenates booskiShouts with observationArrival, so it could be appended to xxxHanging in an afternoon. It is not being appended here because the take is about a man heard MORE THAN ONCE and the corridor plays xXx exactly once, so hanging it off the first hearing puts a joke about repetition over a line nobody has heard twice. That is direction, and it wants the mansion's owner.",
+      "source": "src/mansion/script.js:379",
+      "sourceAnchor": "irishAfterwards: Object.freeze([{ speaker: 'IRISH', text: 'He's been at that all night, God love him. Same three lines.' }])"
+    }
+  ]
+}

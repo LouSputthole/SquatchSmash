@@ -1661,6 +1661,53 @@ reg(club.office.ledger, {
   onUse: () => hud.say('Columns of numbers in a hand that presses too hard. One of them is circled twice.', 4200),
 });
 
+/* ---- the two lines of Lou's that had no handle ----
+ *
+ * `lou.candy` and `lou.sat` sit in the script's "things he says without being
+ * spoken to" block. Every other node in that block has a `reg()` above --
+ * liquor on the cabinet, photos on the frames, monitor on the screen,
+ * inspecting on the parcel -- and these two had none, so two cast, cued and
+ * recorded takes could not be reached from anywhere in the building. The
+ * writing tells you what the handles are: one is a bowl of sweets on his desk,
+ * and the other is a man finally sitting down. Both guard on the same mission
+ * states as their siblings, because these are remarks made across a desk by a
+ * man who is in the room. */
+reg(club.office.candy, {
+  label: 'The <b>bowl of sweets</b>',
+  onUse: () => {
+    hud.say('Wrapped strawberry things, gone slightly soft. The bowl has been filled more often than it has been emptied.', 4200);
+    if (mission.state === 'office' || mission.state === 'package') {
+      dialogue.start(scripts.lou, 'candy', cast.byName.lou);
+    }
+  },
+});
+
+/* The chair on the visitor's side of the desk. `club.anchors.visitorSeat` --
+ * spot and facing both -- has been published by the office builder since it
+ * was written and read by nothing, which is why nobody could sit down in the
+ * one room in the club where you are kept waiting. It reuses the floor's own
+ * seat machinery unchanged, so [Q] and the posture chip behave exactly as they
+ * do in a booth. */
+{
+  const seat = club.anchors.visitorSeat;
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.8), new THREE.MeshBasicMaterial({ visible: false }));
+  pad.position.set(seat.x, 0.6, seat.z);
+  scene.add(pad);
+  reg(pad, {
+    label: () => (game.seatedIn === 'seat' ? 'Get up' : 'Sit in the <b>chair</b>'),
+    onUse: () => {
+      if (game.seatedIn === 'seat') {
+        standFromSeat();
+        return;
+      }
+      sitOn(seat, seat.yaw);
+      if (mission.state === 'office' || mission.state === 'package') {
+        dialogue.start(scripts.lou, 'sat', cast.byName.lou);
+      }
+    },
+  });
+}
+
 /* ---- the bar, the machine, the table ---- */
 
 /* ---- the slot machine ----

@@ -891,6 +891,23 @@ export function mountMansionCast(scene, world = {}, {
    * QA correction: the old +1.15 offset buried 30 cm of his back in the
    * glazing. +0.75 retains the top-tread position with clear air behind him. */
   const gateAt = { x: doorPost.x + 2.4, y: doorPost.y ?? GROUND_Y, z: doorPost.z + 0.75 };
+  /**
+   * Has he already given the case speech to this Prospect?
+   *
+   * `SEQUENCES.gateWarning` — "Do that again and you leave the property a
+   * different way than you came onto it" — is a SECOND-time line. It was
+   * written, cast, recorded and shipped with no state to fire from: the door
+   * man had a bark, an idle and a one-branch `onUse`, so the only two things
+   * he could ever say were the case speech and the wave-through, and the man
+   * who ignored the case speech and came straight back got the case speech
+   * again as if nothing had happened. The "that" the take refers to is walking
+   * the case back up to the one man on this driveway who has been told not to
+   * take it off you, and this is the flag that remembers you did.
+   *
+   * Per mount rather than per module: the flag belongs to this night, and a
+   * scene rebuild is a new night.
+   */
+  let gateCaseSaid = false;
   post('gateMan', {
     role: 'guard',
     name: 'the man on the door',
@@ -908,7 +925,12 @@ export function mountMansionCast(scene, world = {}, {
       /* What he says when you actually speak to him depends on whether your
        * hands are full. The case is the mission's; if there is no mission in
        * this house he simply sends you in. */
-      dialogue.interject(carryingCase() ? SEQUENCES.gateCase : SEQUENCES.gateInside);
+      if (!carryingCase()) {
+        dialogue.interject(SEQUENCES.gateInside);
+        return true;
+      }
+      dialogue.interject(gateCaseSaid ? SEQUENCES.gateWarning : SEQUENCES.gateCase);
+      gateCaseSaid = true;
       return true;
     },
   });

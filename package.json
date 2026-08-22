@@ -22,6 +22,7 @@
     "lint": "eslint .",
     "check:flight": "node tools/flight-test.mjs",
     "check:line-presence": "node tools/check-line-presence.mjs",
+    "check:reachability": "node tools/line-reachability.mjs",
     "verify:art": "node tools/verify-art.mjs",
     "verify:cold-open": "node tools/verify-cold-open.mjs",
     "verify:day-one": "node tools/verify-day-one.mjs",

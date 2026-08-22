@@ -2235,6 +2235,17 @@ export function buildClub(scene, { renderer } = {}) {
       add(sphere({ r: 0.022, pos: [dx - 0.85 + Math.cos(angle) * 0.065, 0.9, dz - 0.05 + Math.sin(angle) * 0.055], mat: mat({ color: pick([0xd92e2e, 0xe8c04a, 0x3a7bd9]), roughness: 0.4 }) }));
     }
     anchors.candy = new THREE.Vector3(dx - 0.85, 0.9, dz - 0.05);
+    /* The bowl itself, not just a point in the air. `anchors.candy` has been
+     * published since the office was built and nothing has ever read it, so
+     * Lou's "Take one. Everybody takes one. Nobody eats one." -- a recorded
+     * take, in the manifest, on disk -- had no object to hang off. Every one
+     * of its siblings in that block of the script (`liquor`, `photos`,
+     * `monitor`, `inspecting`) is fired by a `reg(club.office.…)` hook in
+     * main.js, and this was one of the two nobody finished. The sweets sit
+     * ABOVE the bowl and are deliberately left out of the handle: the
+     * interaction ray only tests registered targets and occluders, so seven
+     * unregistered spheres cannot steal the hit. */
+    office.candy = bowl;
     add(group('deskphone',
       box({ size: [0.26, 0.06, 0.19], pos: [dx + 0.88, 0.85, dz + 0.1], mat: mat({ color: 0x1a1a20, roughness: 0.6 }) }),
       box({ size: [0.28, 0.055, 0.07], pos: [dx + 0.88, 0.91, dz + 0.02], mat: mat({ color: 0x1a1a20, roughness: 0.6 }) }),

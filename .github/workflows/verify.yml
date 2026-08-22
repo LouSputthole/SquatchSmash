@@ -143,6 +143,14 @@ jobs:
       - name: Line presence
         run: npm run check:line-presence
 
+      # Line presence asks whether a cue has a recording. This asks the other
+      # half, which nothing asked until now: can the player ever hear it? Every
+      # per-scene ledger enumerates AUTHORED lines, so fourteen takes were
+      # written, cast, cued, recorded, shipped and unreachable, and every gate
+      # in this job was green the whole time. See tools/line-reachability.mjs.
+      - name: Line reachability
+        run: npm run check:reachability
+
       - name: Re-record queue
         run: npm run check:rerecord
 

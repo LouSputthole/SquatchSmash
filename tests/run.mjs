@@ -259,6 +259,7 @@ const TEST_MODULES = [
   './collider-broadphase.test.mjs',
   './pixel-ratio.test.mjs',
   './check-line-presence.test.mjs',
+  './line-reachability.test.mjs',
   './enolasquatch-interceptor-profiles.test.mjs',
   './heist-combat-adapter.test.mjs',
   './bing-rig-sockets.test.mjs',

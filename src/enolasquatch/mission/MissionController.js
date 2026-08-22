@@ -159,6 +159,31 @@ export function evaluateClimbTurnProgress({
 const RETURN_HEADING = (TURN_POINT.newHeading + 180) % 360;   // 270 — back the way we came
 
 /**
+ * The climbout call, by the heading it is calling.
+ *
+ * Both takes name their heading OUT LOUD — "come right onto zero-nine-zero",
+ * "come left onto two-seven-zero" — so which one plays is not decoration, it
+ * is whether the crew agree with the compass bug. `callNewHeading()` took a
+ * `deg` argument, used it for the banner, the objective and the nav marker,
+ * and then played 'climb.turn.east' from a string typed into the call. The
+ * west take has therefore never been played by anything since it was written,
+ * recorded and shipped, and the day anybody acts on the design note at the
+ * foot of config.js — which says in as many words that the brief left "east or
+ * west" open and this mission closes it to east — Irish would have called
+ * zero-nine-zero over a bug pointing the other way.
+ *
+ * Keyed by heading rather than by a boolean so the map is the thing that has
+ * to be extended if a third heading is ever written, instead of a condition
+ * quietly picking the nearest lie. A heading with no line gets none: the
+ * banner, the objective and the compass bug are all built from `deg` and say
+ * it correctly, and silence beats a recorded voice contradicting them.
+ */
+const CLIMB_TURN_BEAT_BY_HEADING = Object.freeze({
+  90: 'climb.turn.east',
+  270: 'climb.turn.west',
+});
+
+/**
  * THE RUN HOME.
  *
  * Owner, 2026-08-19: *"Script several distinct waves of fighters attacking from
@@ -1829,7 +1854,8 @@ export class MissionController {
     this.navHeading = deg;
     this._headingBannerT = CLIMB_TURN_GATE.bannerSeconds;
     this._headingNagT = CLIMB_TURN_GATE.nagAfter;
-    this.dialogue.play('climb.turn.east', { once: true });
+    const turnBeat = CLIMB_TURN_BEAT_BY_HEADING[((Math.round(deg) % 360) + 360) % 360];
+    if (turnBeat) this.dialogue.play(turnBeat, { once: true });
     /* NEW HEADING goes on the glass through `armCombatInstruction()`, NOT
      * through `hud.say()` directly — `DialogueSystem` subtitles the crew
      * through that same `hud.say`, so a banner raised while Irish is mid-line
