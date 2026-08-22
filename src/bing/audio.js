@@ -94,6 +94,28 @@ export function isBingPreloadCue(cue) {
   const name = typeof cue === 'string' ? cue : cue?.name;
   return !!name && (
     name.startsWith('vo.bing.')
+    /* `vo.bing2.` IS NOT `vo.bing.` PLUS A DIGIT, AND THE DOT IS WHY.
+     *
+     * The line above stops at its own dot, so every take authored for the
+     * second visit fell outside this filter -- the enola.blast one-character
+     * trap again, and the fourth time this project has shipped a recording
+     * nothing decodes. It matters here because src/bing/main.js still has a
+     * whole second-visit mode: `isSecondVisit` is true whenever the SAVE says
+     * BADA_BING_TWO, with or without `?visit=2`, and `buildSecondVisitLouScript`
+     * then plays `vo.bing2.lou.lockdown` off a bank this page never asked for.
+     * The campaign itself always routes visit two to bing.html?visit=2, which
+     * src/bing/router.js sends to hotdog-main.js and a scope that does cover
+     * `vo.bing2.` -- but the apartment's own next-scene link and any bookmark
+     * of bare bing.html do not carry the query, and a save parked on the
+     * second night walks straight into this file with it.
+     *
+     * Widened rather than amputated: deleting the second-visit mode from
+     * main.js is forty branches deep and would hand that save a FIRST visit
+     * instead -- Margo on the floor, the package handed over again, a night
+     * that has already happened. Seven point nine MiB of decodes on visit one
+     * that visit one cannot play is the cheaper of the two mistakes, and it
+     * is the one that cannot make the game silent. */
+    || name.startsWith('vo.bing2.')
     || name.startsWith('vo.bj.')
     || name.startsWith('vo.slots.')
     || name.startsWith('vo.call.')

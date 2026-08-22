@@ -77,4 +77,12 @@ All voice profiles in use have ids in the `voices` block of
   list is `tools/sfx-orphan-allowlist.json`). They are scheduled for pruning.
   Do not re-record them, and do not delete them by hand — the prune wave owns
   that.
-- **Nothing needs re-recording.** Every delivered take stays delivered.
+- **The three mansion bookcase takes** — `mansion.bookcase.latch`, `.swing`
+  and `.seat`. Delivered, indexed, and named by no source file in the game:
+  three takes for a piece of furniture that has one E press and two states,
+  and the pair actually wired to it (`mansion.suite.bookcase.open` / `.shut`)
+  already has the latch inside the open take. Retired on 2026-08-22 —
+  manifest rows dropped, files deleted, `index.json` regenerated, provenance
+  in `assets/sfx/rerecord.json`'s `retired` list. **Do not re-deliver them.**
+- **Nothing else needs re-recording.** Every other delivered take stays
+  delivered.

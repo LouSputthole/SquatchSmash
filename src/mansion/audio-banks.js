@@ -51,6 +51,15 @@ export const MANSION_NEXT_BEAT_SCOPES = Object.freeze([
 export const MANSION_BACKGROUND_SCOPES = Object.freeze(['evening']);
 
 /**
+ * The working sets in the house: `core/tv.js`'s one cue.
+ *
+ * `Tv` plays exactly `tv.click`, and only from `toggle()` and `next()` --
+ * both of which are an E press on a set. It rides the background bank with
+ * the receiver below for the same reason.
+ */
+export const MANSION_HOUSE_SET_CUE_NAMES = Object.freeze(['tv.click']);
+
+/**
  * The master suite's four own recordings.
  *
  * These are the only `mansion.*` cues in the manifest that this scene plays,
@@ -74,6 +83,24 @@ export const MANSION_SUITE_CUE_NAMES = Object.freeze([
   'mansion.suite.bookcase.shut',
 ]);
 
+/* THE THREE BOOKCASE TAKES THAT ARE NOT HERE, AND MUST NOT COME BACK.
+ *
+ * `mansion.bookcase.latch`, `.swing` and `.seat` were delivered in the same
+ * batch as the four above and are the mirror image of the bug this file was
+ * written for: recorded, indexed, and named by no source file in the repo.
+ * They are a three-part brief for one piece of furniture -- the catch behind
+ * the book, the case swinging out, the case seating home -- and the door they
+ * describe has two states and one E press (`secretStair.toggle`, an eased 1.1
+ * s swing either way, no separate book-pull verb; the closet secret that had
+ * one was removed, see the closing note in ./main.js). The take already wired
+ * to that press, `mansion.suite.bookcase.open`, is itself briefed as "a latch
+ * releasing, THEN a deep slow wooden groan" -- the latch is inside it. So
+ * layering all five is one event played three times over, and swapping the
+ * pair out for the trio only moves the orphan onto the pair, which is also
+ * the pair `core/audio.js` carries synth fallbacks for. Retired instead, in
+ * `assets/sfx/rerecord.json`'s retired list. Do not re-add them here.
+ */
+
 const prefixesOf = (scopes) => scopes.map((scope) => `vo.silentsquatch.${scope}.`);
 
 /**
@@ -94,8 +121,23 @@ export const MANSION_NEXT_BEAT_ZONES = Object.freeze(new Set([
  * @param {'first'|'return'} visit — the return briefing has no basement run
  *   and its cast opens on the aftermath, so the mission scopes fold into the
  *   start bank rather than being gated behind zones the visit never crosses.
+ * @param {string[]} radioCueNames — `Radio.preloadCueNames()` off the house
+ *   receiver (./main.js). Every other Radio-hosting page in the game hands
+ *   its exact bank to its own loader this way — the flat, the Bing, the cart,
+ *   the cockpit and NO WAKE — and until this argument existed the mansion was
+ *   the one that did not, so `radio.click`, `radio.tune`, `radio.static`,
+ *   `radio.talk` and the station's whole `vo.radio.*` DJ and advert bank all
+ *   came out of `synth()` in Lou's house while the real takes sat in
+ *   assets/sfx. Sixty-seven delivered recordings, the same trap as
+ *   `enola.blast.*`. THE BACKGROUND BANK IS WHERE THEY BELONG: the receiver
+ *   is built switched off (`houseRadio.on = false`) and the sets only ever
+ *   speak from `toggle()`/`next()`, so every one of these cues is behind a
+ *   deliberate E press somewhere inside a house the player has to walk into —
+ *   no beat boundary and no first line waits on any of it. Sixty-seven extra
+ *   decodes in front of the start button would be sixty-seven reasons the
+ *   walk to Lou's office opens late; behind it they cost nothing at all.
  */
-export function mansionAudioBanks(visit = 'first') {
+export function mansionAudioBanks(visit = 'first', radioCueNames = []) {
   if (visit === 'return') {
     return {
       start: {
@@ -114,7 +156,12 @@ export function mansionAudioBanks(visit = 'first') {
       },
       nextBeat: null,
       background: {
-        names: [...PEE_CUE_NAMES, 'bing.line.snort'],
+        names: [
+          ...PEE_CUE_NAMES,
+          'bing.line.snort',
+          ...MANSION_HOUSE_SET_CUE_NAMES,
+          ...radioCueNames,
+        ],
         prefixes: [],
       },
     };
@@ -135,7 +182,12 @@ export function mansionAudioBanks(visit = 'first') {
       prefixes: prefixesOf(MANSION_NEXT_BEAT_SCOPES),
     },
     background: {
-      names: [...PEE_CUE_NAMES, 'bing.line.snort'],
+      names: [
+        ...PEE_CUE_NAMES,
+        'bing.line.snort',
+        ...MANSION_HOUSE_SET_CUE_NAMES,
+        ...radioCueNames,
+      ],
       prefixes: prefixesOf(MANSION_BACKGROUND_SCOPES),
     },
   };

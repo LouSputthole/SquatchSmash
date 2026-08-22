@@ -510,8 +510,12 @@ function delivered(name) {
 }
 
 const { isSilverPreloadCue } = await import('../src/silver/audio.js');
-const { MANSION_SUITE_CUE_NAMES } = await import('../src/mansion/audio-banks.js');
+const {
+  MANSION_HOUSE_SET_CUE_NAMES, MANSION_SUITE_CUE_NAMES,
+} = await import('../src/mansion/audio-banks.js');
 const { AMBIENCE_CUES: SPECIAL_MEETING_AMBIENCE_CUES } = await import('../src/specialmeeting/ambience.js');
+const { isBingPreloadCue } = await import('../src/bing/audio.js');
+const rerecordQueue = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/rerecord.json'), 'utf8'));
 
 test('Silver: every crowd reaction the violinist\'s set plays is one this page decodes', () => {
   const performSource = fs.readFileSync(path.join(ROOT, 'src/silver/perform.js'), 'utf8');
@@ -561,4 +565,130 @@ test('THE SPECIAL MEETING: the block asks for its whole cue catalogue by name', 
     .filter((cue) => !prefixes.some((prefix) => cue.startsWith(prefix)));
   assert.deepEqual(missedByPrefixAlone.sort(), ['ambience.alley', 'traffic.pass']);
   for (const cue of missedByPrefixAlone) assert.ok(delivered(cue), cue);
+});
+
+test('Mansion: the house receiver and the sets decode, and they do it in the background bank', () => {
+  /* THE SIXTH RADIO-HOSTING PAGE, AND THE ONLY ONE THAT NEVER ASKED.
+   *
+   * The flat, the Bing, Silver Pines' cart, the Beef Run cockpit and NO WAKE
+   * all feed `Radio.preloadCueNames()` into their own loader. Lou's house ran
+   * a real `core/radio.js` receiver on two physical sets and six `core/tv.js`
+   * sets and fed it into nothing, so the four handling cues, the jingle, the
+   * cut, `tv.click` and 97.8 THE SQUATCH's whole recorded DJ and advert bank
+   * played out of `synth()` on a page where every one of them is on disk and
+   * in index.json. Same trap as `enola.blast.*`, at sixty-seven takes.
+   *
+   * The receiver below is built exactly as ./main.js builds it -- one fixed
+   * hour, the mansion venue, no campaign news adapter -- because the bank is
+   * only exact if the arguments are. */
+  const houseRadio = new Radio(
+    { ready: false },
+    { setRadio() {}, toast() {} },
+    { hour: 21 },
+    { venue: 'mansion' },
+  );
+  const radioCueNames = houseRadio.preloadCueNames({ hours: [21] });
+  assert.ok(radioCueNames.length > 40, `expected the station's bank, saw ${radioCueNames.length}`);
+
+  for (const visit of ['first', 'return']) {
+    const banks = mansionAudioBanks(visit, radioCueNames);
+    for (const cue of [...radioCueNames, ...MANSION_HOUSE_SET_CUE_NAMES]) {
+      if (!delivered(cue)) continue;   // an unrecorded name costs nothing to bank
+      assert.ok(coveredBy(cue, banks.background),
+        `${cue} is a delivered recording this house plays and the ${visit} background bank does not name it`);
+      /* And it must be in THAT bank, not in front of the start click. The
+       * whole reason ninety-odd decodes are affordable here is that the
+       * receiver is built switched off and a set only ever speaks from an E
+       * press, so nothing about the walk to Lou's office waits on any of it. */
+      assert.ok(!coveredBy(cue, banks.start), `${cue} must not block the start button`);
+      if (banks.nextBeat) {
+        assert.ok(!coveredBy(cue, banks.nextBeat), `${cue} must not sit in the basement bank`);
+      }
+    }
+  }
+
+  /* The wiring, not just the shape: the page has to hand its own receiver's
+   * bank to the bank builder, or the default empty argument silently restores
+   * the bug with every assertion above still green. */
+  const mainSource = fs.readFileSync(path.join(ROOT, 'src/mansion/main.js'), 'utf8');
+  assert.match(mainSource, /mansionAudioBanks\(\n\s+mansionVisit,\n\s+houseRadio\.preloadCueNames\(\{ hours: \[HOUSE_RADIO_HOUR\] \}\),\n\)/);
+  /* One hour, read twice from one constant -- the receiver's clock and the
+   * preload window cannot drift apart into a bank that decodes the wrong show. */
+  assert.match(mainSource, /\{ hour: HOUSE_RADIO_HOUR \}, \{ venue: 'mansion' \}/);
+  /* And it is still built switched off, which is the affordability argument. */
+  assert.match(mainSource, /houseRadio\.on = false;\n\s*houseRadio\.preferredOn = false;/);
+});
+
+test('Mansion: every recorded mansion.* take is one the house actually plays', () => {
+  /* THE MIRROR IMAGE OF THE TRAP ABOVE: a delivered batch nothing plays.
+   *
+   * `mansion.bookcase.latch`, `.swing` and `.seat` were three takes for the
+   * office bookcase that no source file in the repo ever named -- a door with
+   * one E press and two states, whose wired pair carries the latch inside the
+   * open take. They were retired on 2026-08-22 (manifest rows dropped, files
+   * deleted, index regenerated, provenance in rerecord.json) rather than
+   * wired, because wiring them plays one event three times over.
+   *
+   * This assertion is the standing half. `mansion.*` is a small, hand-authored
+   * corner of the manifest that belongs entirely to this one scene, so the
+   * invariant can be exact: a recorded `mansion.*` cue is either one of the
+   * suite's four or it is a recording nobody asked for. */
+  const recorded = soundManifest.sfx
+    .filter((cue) => cue.name.startsWith('mansion.') && delivered(cue.name))
+    .map((cue) => cue.name);
+  assert.deepEqual(recorded.sort(), [...MANSION_SUITE_CUE_NAMES].sort());
+
+  /* The retirement itself: gone from the manifest, gone from the index, and
+   * on the ledger. All three halves, because any one alone is either a red
+   * CHECK_SFX_ORPHANS=1 or a silent re-delivery. */
+  const retiredCues = rerecordQueue.retired.map((entry) => entry.cue);
+  for (const cue of ['mansion.bookcase.latch', 'mansion.bookcase.swing', 'mansion.bookcase.seat']) {
+    assert.ok(retiredCues.includes(cue), `${cue} is not on the retired ledger`);
+    assert.equal(manifestByName.has(cue), false, `${cue} is back in the manifest`);
+    assert.equal(deliveredFiles.has(`${cue}.mp3`), false, `${cue}.mp3 is back in the index`);
+  }
+});
+
+test('Bada Bing: the first-visit page decodes the second visit\'s lines, because it can still play them', () => {
+  /* ONE DOT, THE ENOLA BOMB AGAIN.
+   *
+   * `isBingPreloadCue` opened with `vo.bing.` and that prefix stops at its own
+   * dot, so nothing under `vo.bing2.` was ever selected by it. That was
+   * harmless only as long as src/bing/main.js could not run as the second
+   * visit -- and it can: `isSecondVisit` is true whenever the SAVE says
+   * BADA_BING_TWO, with or without `?visit=2`, and the second-visit Lou script
+   * then plays `vo.bing2.lou.lockdown` off a bank this page never decoded.
+   * The campaign always routes visit two through `bing.html?visit=2`, which
+   * src/bing/router.js hands to hotdog-main.js, but the apartment's own
+   * next-scene link is bare `bing.html` and a bookmark carries no query.
+   *
+   * Both halves are pinned, because the bug needs both to come back: the
+   * filter must cover the prefix, AND the branch that reaches it is still
+   * there. If somebody genuinely removes the second-visit mode from this
+   * page, this test should be deleted with it -- not weakened. */
+  const secondVisitSource = fs.readFileSync(path.join(ROOT, 'src/bing/second-visit.js'), 'utf8');
+  const louScript = secondVisitSource.slice(secondVisitSource.indexOf('export function buildSecondVisitLouScript'));
+  const louCues = [...louScript.matchAll(/cue: '([^']+)'/g)].map((match) => match[1]);
+  assert.ok(louCues.includes('vo.bing2.lou.lockdown'), 'the lockdown line moved; re-point this test');
+  for (const cue of louCues) {
+    assert.ok(delivered(cue), `${cue} is not a delivered recording any more`);
+    assert.equal(isBingPreloadCue(cue), true,
+      `${cue} is recorded and indexed and outside this page's residency filter, `
+      + 'so Lou locks the room down on a synthesised noise');
+  }
+
+  /* The whole namespace, not just the one line that was noticed: every
+   * delivered `vo.bing2.` take is reachable from the same mode. */
+  for (const cue of soundManifest.sfx) {
+    if (!cue.name.startsWith('vo.bing2.') || !delivered(cue.name)) continue;
+    assert.equal(isBingPreloadCue(cue.name), true, cue.name);
+  }
+  /* Widening `vo.bing.` to a bare `vo.bing` would swallow neighbours; it did
+   * not, and must not. */
+  assert.equal(isBingPreloadCue('vo.bingo.caller.1'), false);
+  assert.equal(isBingPreloadCue('vo.graveyard.snow.done'), false);
+
+  const bingSource = fs.readFileSync(path.join(ROOT, 'src/bing/main.js'), 'utf8');
+  assert.match(bingSource, /const isSecondVisit = requestedVisit === '2'\n\s+\|\| campaign\.state\.scene\.id === SCENE_IDS\.BADA_BING_TWO;/);
+  assert.match(bingSource, /if \(isSecondVisit\) scripts\.lou = buildSecondVisitLouScript\(/);
 });

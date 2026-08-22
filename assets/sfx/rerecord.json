@@ -14,7 +14,26 @@
     "surfaces in VOICE-LINES-NEEDED.md on its own. They are listed for provenance,",
     "and because their old takes were deleted as orphans.",
     "",
-    "Remove a line from `lines` once its replacement take is indexed."
+    "Remove a line from `lines` once its replacement take is indexed.",
+    "",
+    "`retired` also carries EFFECTS now, on the same provenance grounds. The",
+    "three mansion bookcase takes below are the mirror image of the",
+    "delivered-but-never-decoded trap: recorded, indexed, and named by no source",
+    "file in the repo. They brief the catch behind the book, the case swinging",
+    "out and the case seating home -- but the door is Lou's office bookcase,",
+    "which has one E press and two states (`secretStair.toggle`,",
+    "src/mansion/scenes/MansionInterior.js), and the pair already wired to that",
+    "press -- `mansion.suite.bookcase.open` and `.shut` -- is briefed with the",
+    "latch inside the open take. The book-pull verb the latch was cut for",
+    "belonged to the same-floor closet secret the private stair replaced, whose",
+    "removal src/mansion/main.js records. Retired rather than wired: wiring them",
+    "would either play one event three times over or orphan the pair",
+    "src/core/audio.js carries the synth fallbacks for.",
+    "",
+    "Their files were deleted and index.json regenerated in the same commit, and",
+    "both halves are needed to keep CHECK_SFX_ORPHANS=1 green -- a manifest row",
+    "removed on its own leaves an unclaimed recording, a file removed on its own",
+    "leaves a stale index."
   ],
   "lines": [
     {
@@ -229,6 +248,21 @@
     }
   ],
   "retired": [
+    {
+      "cue": "mansion.bookcase.latch",
+      "replacedBy": "mansion.suite.bookcase.open",
+      "reason": "named by no source file; the office bookcase has one press and two states, and the open take is briefed as the latch releasing then the groan"
+    },
+    {
+      "cue": "mansion.bookcase.swing",
+      "replacedBy": "mansion.suite.bookcase.open",
+      "reason": "named by no source file; a second take of the swing the wired open take already plays"
+    },
+    {
+      "cue": "mansion.bookcase.seat",
+      "replacedBy": "mansion.suite.bookcase.shut",
+      "reason": "named by no source file; a second take of the close the wired shut take already plays"
+    },
     {
       "cue": "vo.bing.full.bartender.open.tony.1mgwzff",
       "replacedBy": "vo.bing.full.bartender.open.tony.1d6a7tv",

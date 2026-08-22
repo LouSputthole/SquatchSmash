@@ -455,22 +455,9 @@ function updateLightRig(dt) {
 /* ================================================================== */
 const audio = new AudioEngine();
 
-/**
- * The house's three residency banks (src/mansion/audio-banks.js): the walk
- * to Lou's office blocks the start button, the basement decodes behind it
- * and is awaited at the cellar boundary, the evening dressing rides along
- * whenever the pipe is free. `loadManifest` is the engine's one immutable
- * first slice; the other two go through `loadAdditional`, which skips
- * anything the first slice already decoded.
- */
-const mansionBankSelections = mansionAudioBanks(mansionVisit);
-const mansionBanks = createResidencyBanks({
-  start: () => audio.loadManifest(mansionBankSelections.start),
-  nextBeat: mansionBankSelections.nextBeat
-    ? () => audio.loadAdditional(mansionBankSelections.nextBeat)
-    : null,
-  background: () => audio.loadAdditional(mansionBankSelections.background),
-});
+/* The three residency banks are built further down this file, under THE
+ * HOUSE RADIO AND THE SETS: their background slice now carries the receiver's
+ * own bank and the receiver does not exist yet. */
 
 /**
  * Every cue named below is an existing procedural fallback already built
@@ -810,10 +797,16 @@ const radioSets = [
   interior.props.lounge.radio,
   grounds.props.poolPatio.radio,
 ].filter(Boolean);
+/* Nine in the evening, and it never moves: this house has no clock that
+ * advances, so one hour is the entire window this receiver can ever air --
+ * which is what makes an exact preload set possible at all. Read twice below,
+ * from here, so the set the station plays and the set the bank decodes cannot
+ * drift apart. */
+const HOUSE_RADIO_HOUR = 21;
 const houseRadio = new Radio(audio, {
   setRadio: () => {},
   toast: () => {},
-}, { hour: 21 }, { venue: 'mansion' });
+}, { hour: HOUSE_RADIO_HOUR }, { venue: 'mansion' });
 let activeRadioSet = radioSets[0] ?? null;
 if (activeRadioSet) houseRadio.setPosition(activeRadioSet.speakerPos);
 houseRadio.on = false;
@@ -833,6 +826,51 @@ function useRadioSet(set) {
   if (!houseRadio.on) houseRadio.turnOn();
   set.setLit(true);
 }
+
+/**
+ * The house's three residency banks (src/mansion/audio-banks.js): the walk
+ * to Lou's office blocks the start button, the basement decodes behind it
+ * and is awaited at the cellar boundary, the evening dressing rides along
+ * whenever the pipe is free. `loadManifest` is the engine's one immutable
+ * first slice; the other two go through `loadAdditional`, which skips
+ * anything the first slice already decoded.
+ *
+ * BUILT HERE, UNDER THE RECEIVER, RATHER THAN UP WITH `new AudioEngine()`.
+ *
+ * Owner call, 2026-08-22, closing the last gap the residency audit left open
+ * (2db61a0's own note: "wants an owner's call on where in the three banks it
+ * belongs"). Both sets above and the tuner beside them are REAL -- a
+ * `core/radio.js` receiver and six `core/tv.js` sets -- and nothing in this
+ * file had ever fed `preloadCueNames()` into any bank, so the whole of what
+ * they play came out of the procedural synth: the four handling cues, the
+ * jingle, the cut, `tv.click`, and 97.8 THE SQUATCH's entire recorded DJ and
+ * advert bank. Sixty-seven takes, every one of them on disk and in
+ * index.json, in a house whose billiard room has a radio in it precisely so
+ * the player switches it on. Every other Radio-hosting page in the game --
+ * the flat, the Bing, Silver Pines' cart, the Beef Run cockpit and NO WAKE --
+ * already hands its own receiver's exact bank to its own loader; this was the
+ * sixth and the only one that did not.
+ *
+ * The BACKGROUND bank, because none of it can sound until somebody presses E
+ * on a set: `houseRadio.on` is set false above and `Tv` only speaks from
+ * `toggle()` and `next()`. (Most sets are built switched ON -- `mountTv`'s
+ * default -- but a set that is already on plays nothing by itself, so that
+ * changes nothing here.) No beat boundary and no first line waits on this
+ * bank, which is exactly the affordability argument the start bank cannot
+ * make: sixty-seven decodes in front of the start click would be sixty-seven
+ * reasons the walk to Lou's office opens late.
+ */
+const mansionBankSelections = mansionAudioBanks(
+  mansionVisit,
+  houseRadio.preloadCueNames({ hours: [HOUSE_RADIO_HOUR] }),
+);
+const mansionBanks = createResidencyBanks({
+  start: () => audio.loadManifest(mansionBankSelections.start),
+  nextBeat: mansionBankSelections.nextBeat
+    ? () => audio.loadAdditional(mansionBankSelections.nextBeat)
+    : null,
+  background: () => audio.loadAdditional(mansionBankSelections.background),
+});
 
 /* ================================================================== */
 /* Player + world                                                       */
