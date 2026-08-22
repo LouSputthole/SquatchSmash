@@ -9,7 +9,7 @@ most of these are lines waiting on a recording session, and
 `VOICE-LINES-TODO.md` is the queue for them. This file answers the other
 question: **which scene is silent, at which beat.**
 
-**290 silent cues across 7 scenes.**
+**309 silent cues across 7 scenes.**
 
 ## bing — 31
 
@@ -72,8 +72,13 @@ question: **which scene is silent, at which beat.**
 - `enolasquatch.gun.rear.crack` (0.25s) — src/enolasquatch/audio.js, src/enolasquatch/mission/MissionController.js
 - `enolasquatch.gun.rear.tail` (1.6s) — src/enolasquatch/audio.js, src/enolasquatch/mission/MissionController.js
 
-## mansion — 31
+## mansion — 50
 
+- `billiards.break` (2.4s) — src/mansion/interaction-audio.js
+- `billiards.click` (0.4s) — src/mansion/interaction-audio.js
+- `billiards.cue.strike` (0.5s) — src/mansion/interaction-audio.js
+- `billiards.pocket` (1.3s) — src/mansion/interaction-audio.js
+- `billiards.rail` (0.45s) — src/mansion/interaction-audio.js
 - `silent.body.crumple` (2s) — src/mansion/scenes/SilentSquatch.js
 - `silent.choke.last` (2.6s) — src/mansion/scenes/SilentSquatch.js
 - `silent.core.spin` (12s) — src/mansion/scenes/SilentSquatch.js
@@ -105,6 +110,20 @@ question: **which scene is silent, at which beat.**
 - `vo.silentsquatch.evening.shubes.sleptgreat` (unknown length) — src/mansion/script.js
 - `vo.silentsquatch.evening.stove.lettingthemovieout` (unknown length) — src/mansion/script.js
 - `vo.silentsquatch.evening.stove.standthereallnight` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.ballinhand` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.crookedtable` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.doesntcount` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.finally` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.leaveitthere` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.movestanding` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.nobodyhears` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.nothing` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.onpurpose` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.rackemagain` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.remembered` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.thatstheframe` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.thewrist` (unknown length) — src/mansion/script.js
+- `vo.silentsquatch.house.rippin.pool.youbreak` (unknown length) — src/mansion/script.js
 
 ## specialmeeting — 205
 
