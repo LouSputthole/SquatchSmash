@@ -1339,7 +1339,23 @@ try {
       firedWeapon: window.MOTEL.S.firedWeapon,
       noshotFailed: window.MOTEL.objectives.failed.includes('noshot'),
       subtitle: document.getElementById('subtitle').textContent,
+      /* The subtitle is whatever won the floor at the instant this ran; the
+       * log is what was said. See `spokenLog` in src/motel/main.js. */
+      spoken: window.MOTEL.spoken.slice(-8),
     }));
+    /* THE SPEECH FLOOR QUEUES. `say()` returns once it has reserved a slot,
+     * and the words arrive when the floor gets to them, so sampling right
+     * after the trigger pull reads whoever was already talking -- Snow, in
+     * the run that exposed this. Wait for the refusal to actually be said. */
+    const refusalLines = [
+      'I should work the deal before resorting to that.',
+      'Not yet. Let us see how this plays out.',
+      'Lou sent me here to buy meat. Not to redecorate a motel.',
+    ];
+    const refusalSaid = await qPage.waitForFunction((lines) => window.MOTEL.spoken
+      .some((said) => lines.some((line) => said.includes(line))), refusalLines,
+    { timeout: 30000 }).then(() => true, () => false);
+    afterFire.spoken = await qPage.evaluate(() => window.MOTEL.spoken.slice(-8));
     check('the sealed deal refuses the trigger before a round, a cue or a shot is spent',
       beforeFire.viewmodel.kind === null
         && !beforeFire.viewmodel.visible
@@ -1350,11 +1366,7 @@ try {
         && !afterFire.firedWeapon
         && !afterFire.noshotFailed
         && afterFire.refusals === beforeFire.refusals + 1
-        && [
-          'I should work the deal before resorting to that.',
-          'Not yet. Let us see how this plays out.',
-          'Lou sent me here to buy meat. Not to redecorate a motel.',
-        ].some((line) => afterFire.subtitle.includes(line)),
+        && refusalSaid,
       JSON.stringify({ beforeFire, afterFire }));
 
     await qPage.evaluate(() => window.MOTEL.reload());
@@ -1501,16 +1513,25 @@ try {
     const ndc = box.getCenter(new THREE.Vector3()).project(motel.camera);
     return {
       ...view,
+      weapon: motel.S.weapon,
+      holstered: motel.S.holstered,
       ndc: [Number(ndc.x.toFixed(2)), Number(ndc.y.toFixed(2))],
       onScreen: Math.abs(ndc.x) < 1 && Math.abs(ndc.y) < 1 && ndc.z > -1 && ndc.z < 1,
     };
   });
-  check('an equipped weapon is visible in first person',
-    armed.visible
-      && armed.inCamera
-      && armed.children > 0
-      && armed.kind === 'crowbar'
-      && armed.onScreen,
+  /* NOBODY SELLS MEAT TO A MAN WITH HIS HAND FULL, which the Prospect says
+   * out loud when he picks one up: taking a weapon out of the trunk during
+   * the deal HOLSTERS it. This check demanded it drawn at the lens, which was
+   * true before the sealed-deal holster existed and has not been since --
+   * `heldKind()` returns null while `S.holstered`, so there is no viewmodel
+   * to see and there should not be. What must be true here is that the room
+   * knows he is carrying it. The gun at the lens is the betrayal's business,
+   * and it is proved at `releaseWeapon()` further down. */
+  check('a weapon taken during the deal is carried, and deliberately not drawn',
+    armed.weapon === 'crowbar'
+      && armed.holstered === true
+      && armed.kind === null
+      && !armed.visible,
     JSON.stringify(armed));
 
   await previewPage.evaluate(() => { window.MOTEL.S.weapon = 'fists'; });
@@ -2150,11 +2171,51 @@ try {
    * genuinely in his hands and STAYS there -- no three-second draw window to
    * race, on any machine. Every assertion below is the one the glovebox
    * block used to make. */
+  /* HE HAS TO HAVE THE GUN FOR THE GUN TO APPEAR. This block asserts the .45
+   * at the lens the frame the deal dies, and on this page nothing had ever put
+   * one in his hands -- `S.weapon` was `fists`, so `heldKind()` was null and
+   * `releaseWeapon()` correctly toasted "Nothing in your hands. Take something
+   * off somebody". The glovebox is where the revolver comes from; it is
+   * anonymous and it is the scene's own answer to this -- but its interaction
+   * is `enabled: () => phase === 'car'`, so a page that jumped into the room
+   * can never reach it. `MOTEL.equip` is the same call the drive makes. */
+  const armedForBetrayal = await previewPage.evaluate(() => ({
+    weapon: window.MOTEL.equip('revolver'),
+    holstered: window.MOTEL.S.holstered,
+  }));
+  check('the glovebox revolver is his before the deal turns, and stays put away',
+    armedForBetrayal.weapon === 'revolver' && armedForBetrayal.holstered === true,
+    JSON.stringify(armedForBetrayal));
+
   await previewPage.evaluate(() => window.MOTEL.betray());
-  await previewPage.waitForFunction(() => {
-    const model = window.MOTEL.heldModel;
-    return model && model.position.y > -0.27;
-  }, null, { timeout: SCENE_WAIT_MS, polling: 80 });
+  /* `releaseWeapon()` is synchronous inside `maybeBetray`, so the holster is
+   * already off; only the viewmodel needs a frame to be built. A SHORT fuse on
+   * purpose -- the old SCENE_WAIT_MS poll let the entire betrayal, the
+   * gunfight and the recovery play out underneath it, and then read `fists`
+   * in phase `recover`, where the weapon has been disposed of as evidence and
+   * is SUPPOSED to be gone. Sample the hinge, not the aftermath. */
+  try {
+    await previewPage.waitForFunction(() => {
+      const model = window.MOTEL.heldModel;
+      return model && model.position.y > -0.27;
+    }, null, { timeout: 20000, polling: 80 });
+  } catch (error) {
+    /* "no held model" and "held model still on its way up" want opposite
+     * fixes and read identically as a timeout. Say which. */
+    const why = await previewPage.evaluate(() => {
+      const motel = window.MOTEL;
+      return {
+        weapon: motel.S.weapon,
+        holstered: motel.S.holstered,
+        heldModel: motel.heldModel ? motel.heldModel.position.toArray() : null,
+        viewmodelKind: motel.viewmodel?.kind ?? null,
+        weaponsModel: !!motel.weapons?.model,
+        weaponsRigVisible: motel.weapons?.rig?.visible ?? null,
+        phase: motel.phase,
+      };
+    }).catch((e) => ({ evaluateFailed: e.message }));
+    throw new Error(`${error.message}\nafter betray(): ${JSON.stringify(why)}`);
+  }
   const revolverPresentation = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const THREE = motel.three;

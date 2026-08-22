@@ -691,6 +691,9 @@ function toast(text, cls = '', sub = '') {
  */
 const authoredMotelVoice = motelVoiceCueSet();
 
+/** Every line this scene has put on screen, oldest first. See `begin` below. */
+const spokenLog = [];
+
 function say(who, line, seconds = 3.4, cue = null) {
   if (phase === 'end') return 0;
   const cls = who === 'Prospect' ? 'who prospect' : who === '*' ? 'stage' : 'who';
@@ -711,6 +714,18 @@ function say(who, line, seconds = 3.4, cue = null) {
   const slot = speechFloor.reserve(hold);
   const begin = () => {
     show();
+    /* WHAT WAS ACTUALLY SAID, in order, as it reaches the screen.
+     *
+     * The speech floor QUEUES lines: `say()` returns the moment it has
+     * reserved a slot, and the words appear whenever the floor gets round to
+     * them. So reading `#subtitle` to find out whether a particular line was
+     * spoken is a race with every other speaker in the room, and a browser
+     * check that lost it read Snow's ambient line where the Prospect's
+     * trigger refusal should have been -- and reported the refusal broken
+     * when the refusal had worked perfectly. This is the record to assert
+     * against instead. Bounded, because the drive alone is chatty. */
+    spokenLog.push({ who, line });
+    if (spokenLog.length > 200) spokenLog.shift();
     subtitleT = slot.holdSeconds;
     const spoken = prepared.play();
     if (spoken <= 0) sfx.blip();
@@ -4872,6 +4887,8 @@ tick();
 
 // Debug / test handle
 window.MOTEL = {
+  /** What has actually been said, in order. Race-free; the subtitle is not. */
+  get spoken() { return spokenLog.map((entry) => `${entry.who} — ${entry.line}`); },
   S, level, refs, actors, shipment, inspection, freshness, campaign, story: motelStory, player,
   get phase() { return phase; },
   get arrival() {
@@ -5025,6 +5042,15 @@ window.MOTEL = {
   activeInteract: () => (activeInteract ? activeInteract.id : null),
   forceInteract: (id) => { const i = ix(id); if (i && (!i.enabled || i.enabled())) i.act(); return !!i; },
   betray: () => maybeBetray('debug'),
+  /* Put a weapon in his hands, the way the drive does.
+   *
+   * The revolver is picked up in the arrival sequence and out of the glovebox,
+   * and the glovebox interaction is `enabled: () => phase === 'car'` -- so a
+   * page that jumps straight into the room has no way to be armed and no way
+   * to say so. A browser check of the betrayal hinge needs the gun he would
+   * really be carrying; without this it can only prove that a man with empty
+   * hands still has empty hands. */
+  equip: (kind) => { equipWeapon(kind); return S.weapon; },
   /* Open a wheel by name, so a verifier can reproduce the soft-lock this
    * scene used to have: a conversation the player walked away from. */
   talk: (nodeId) => openDialogue(nodeId),
