@@ -1,0 +1,225 @@
+# The browser gates, on a schedule they can actually afford.
+#
+# WHY THIS IS A SECOND WORKFLOW. The 2026-08-14 checks-that-lie pass wired
+# every HEADLESS gate into verify.yml and stopped there, with a note saying the
+# rest "stay local/manual for now". Forty of them then ran nowhere, which is
+# the same condition that let verify:campaign-marathon sit broken at step 25
+# for weeks. But they cannot simply be appended to that job either: each one
+# boots real scenes in a real browser on a runner with no GPU, and a scene's
+# frame delta is clamped at 0.05 s, so an authored duration costs a FIXED
+# NUMBER OF RENDERED FRAMES and takes whatever wall time those frames take
+# (docs/ENGINE-TRAPS.md entry 2). The Jerky Motel's 4.4 s arrival drive is 88
+# frames; this repo has measured it at 40 s on a quiet box and 256 s on a
+# contended one. Thirty of those in series is a working day.
+#
+# So they run here instead: one job per gate, on its own runner, in parallel,
+# on a clock. Nothing in this file touches verify.yml, and nothing here runs on
+# an ordinary pull request, so the per-PR wait is exactly what it was.
+#
+# WHAT RUNS WHEN
+#   weeknights   the smoke and scene tiers      (29 gates, minutes each)
+#   Saturday     everything, campaign included  (40 gates, up to ~2 h each)
+#   on demand    any tier, or a named list, from the Actions tab
+#   pull request only when the PR carries the `scene-gates` label
+#
+# WHY THE LABEL RATHER THAN EVERY PR. None of these forty has ever run in CI.
+# Making them blocking on day one would stop every pull request on whatever
+# they find first, which — going by the marathon, the preview build and the
+# Squatch Smash bundle — will not be nothing. Let a week of nightlies say what
+# is already red, fix that, then promote the smoke tier by deleting the label
+# condition in the `plan` step below. That promotion is one line and it is
+# named here so the next person does not have to work out where it lives.
+#
+# The tier of every gate, and the boots and simulated seconds each tier was
+# derived from, live in tools/scene-gate-tiers.mjs. This file deliberately
+# holds no copy of that list: tests/scene-gate-tiers.test.mjs fails if a
+# browser verifier exists that nothing here would run.
+name: Scene gates
+
+on:
+  schedule:
+    # 03:17 UTC rather than on the hour: the hour is when everyone else's cron
+    # fires and hosted runners queue.
+    - cron: '17 3 * * 1-5'
+    - cron: '17 3 * * 6'
+  workflow_dispatch:
+    inputs:
+      tiers:
+        description: 'Which cost tiers to run'
+        type: choice
+        default: smoke
+        options:
+          - smoke
+          - scene
+          - campaign
+          - smoke scene
+          - all
+      gates:
+        description: 'Or name gates directly, space separated (e.g. "verify:no-wake golf"). Overrides the tier.'
+        type: string
+        default: ''
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+
+# Deliberately NOT cancel-in-progress. A campaign gate that has been rendering
+# for ninety minutes is the most expensive thing in this repository to throw
+# away, and the second push of the evening should not do it.
+concurrency:
+  group: scene-gates-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Resolve the trigger into a list of gates. Cheap, no install, and it is the
+  # only place the schedule is interpreted.
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      count: ${{ steps.select.outputs.count }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - id: select
+        # Inputs arrive through the environment, never interpolated into the
+        # script body: `gates` is free text from whoever pressed the button.
+        env:
+          EVENT: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+          DISPATCH_TIERS: ${{ inputs.tiers }}
+          DISPATCH_GATES: ${{ inputs.gates }}
+          PR_LABELLED: ${{ github.event_name == 'pull_request'
+            && contains(github.event.pull_request.labels.*.name, 'scene-gates') }}
+        run: |
+          set -euo pipefail
+          TIERS=''
+          GATES=''
+          case "$EVENT" in
+            workflow_dispatch)
+              TIERS="$DISPATCH_TIERS"
+              GATES="$DISPATCH_GATES"
+              ;;
+            schedule)
+              # Saturday takes the campaign tier as well; the weeknights do not.
+              if [ "$CRON" = '17 3 * * 6' ]; then TIERS='all'; else TIERS='smoke scene'; fi
+              ;;
+            pull_request)
+              # Delete this condition and leave TIERS='smoke' to promote the
+              # cheap tier to every pull request. See the header.
+              if [ "$PR_LABELLED" = 'true' ]; then TIERS='smoke'; fi
+              ;;
+          esac
+
+          if [ -z "$TIERS" ] && [ -z "$GATES" ]; then
+            echo 'matrix=[]' >> "$GITHUB_OUTPUT"
+            echo 'count=0' >> "$GITHUB_OUTPUT"
+            echo 'Nothing selected for this trigger.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          MATRIX=$(node tools/scene-gate-tiers.mjs --matrix --tiers "$TIERS" --gates "$GATES")
+          COUNT=$(printf '%s' "$MATRIX" | node -e \
+            'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).length))')
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Scene gates"
+            echo
+            echo "$COUNT gates selected — tiers \`${TIERS:-(none)}\`, gates \`${GATES:-(none)}\`."
+            echo
+            echo 'Each runs on its own runner. Wall times are printed by each job so the'
+            echo 'tiers in `tools/scene-gate-tiers.mjs` can be corrected from measurements'
+            echo 'rather than re-derived from source.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  gate:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    name: ${{ matrix.gate.tier }} · ${{ matrix.gate.script }}
+    runs-on: ubuntu-latest
+    # The tier's budget, from tools/scene-gate-tiers.mjs. It is a guard against
+    # a hang, not a performance assertion: a scene that never reaches its state
+    # still fails the run, just later. Do not tighten one to tidy a schedule.
+    timeout-minutes: ${{ matrix.gate.minutes }}
+    strategy:
+      # One red gate must not hide the other thirty-nine. The whole point of
+      # this run is the list of what is broken.
+      fail-fast: false
+      # Enough parallelism to finish a Saturday inside the campaign tier's own
+      # budget, low enough not to swallow the whole runner allowance.
+      max-parallel: 8
+      matrix:
+        gate: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: ${{ matrix.gate.script }}
+        env:
+          GATE: ${{ matrix.gate.script }}
+        run: |
+          set -euo pipefail
+          started=$SECONDS
+          # tee, so the log survives into the failure artefact. A gate that
+          # dies forty minutes into a campaign scene is not worth re-running
+          # locally to find out where.
+          set +e
+          npm run "$GATE" 2>&1 | tee gate.log
+          status=${PIPESTATUS[0]}
+          set -e
+          elapsed=$(( SECONDS - started ))
+          printf '%s took %d min %d s\n' "$GATE" $(( elapsed / 60 )) $(( elapsed % 60 ))
+          {
+            printf '`%s` (%s tier): **%s** in %d min %d s\n' \
+              "$GATE" "${{ matrix.gate.tier }}" \
+              "$( [ $status -eq 0 ] && echo passed || echo FAILED )" \
+              $(( elapsed / 60 )) $(( elapsed % 60 ))
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      # THE SCREENSHOTS ARE THE POINT. These gates write their evidence under
+      # docs/validation/ and artifacts/, and a red scheduled run that a person
+      # has to reproduce on their own machine before they can look at it is
+      # most of the way back to a gate nobody runs. docs/validation is 169 MB
+      # of committed evidence, so only what THIS run wrote or changed is
+      # collected — git already knows which files those are.
+      - name: Collect evidence
+        if: failure()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cp gate.log evidence/ 2>/dev/null || true
+          git ls-files --others --modified --exclude-standard -z -- docs/validation \
+            | while IFS= read -r -d '' file; do
+                mkdir -p "evidence/$(dirname "$file")"
+                cp "$file" "evidence/$file"
+              done
+          if [ -d artifacts ]; then cp -r artifacts evidence/artifacts; fi
+          echo 'Collected:'
+          find evidence -type f | head -50
+
+      - name: Upload evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-${{ matrix.gate.slug }}
+          path: evidence
+          if-no-files-found: warn
+          retention-days: 14

@@ -15,6 +15,7 @@ const TEST_MODULES = [
   './campaign-finale.test.mjs',
   './campaign-finale-wiring.test.mjs',
   './campaign-marathon.test.mjs',
+  './scene-gate-tiers.test.mjs',
   './systemic-polish.test.mjs',
   './campaign-audio-feedback.test.mjs',
   './campaign-audio-feedback-wiring.test.mjs',

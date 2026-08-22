@@ -514,3 +514,93 @@ Forty were already queued. The other two were Enola flight lines rewritten in
 six others and missed these. One of them named a different engine in the audio
 from the one in the subtitle, in a scene where the player acts on which engine
 is overheating. Six days, one gate away from the playtest.
+
+---
+
+## 12. A gate nobody can afford to run is not a gate either
+
+**Symptom.** Forty browser verifiers, every one green the last time a person
+ran it by hand, and not one of them run by anything since. Between them they
+are most of what proves this game works: the mansion walked room by room, the
+whole Beef Run flown, the siege held, the palace shot through.
+
+**Mechanism.** Entry 5 above says a gate that runs nowhere is not a gate. The
+2026-08-14 pass that acted on it wired every HEADLESS gate into
+`.github/workflows/verify.yml` and left a note on the rest — *"they each boot
+full scenes under swiftshader for minutes apiece; they stay local/manual for
+now."* The note was true. It was also the same failure one level up: "for now"
+has no expiry date, nobody was measuring whether it still applied, and the
+gates behind it went the way the marathon did.
+
+The cost is real, though, and it is not the cost people assume. **It is frames,
+not seconds.** Every scene clamps its step at 0.05 s (entry 2), so an authored
+duration costs a FIXED NUMBER OF RENDERED FRAMES and takes whatever wall time
+those frames take. What this repo has measured on a GPU-less box:
+
+| Measured | Where |
+|---|---|
+| the Jerky Motel's 4.4 s pull-in is 88 frames — 40 s quiet, **256 s** contended at 1280×720 | `tools/verify-motel.mjs`, which gave up on wall-clock budgets over it |
+| Initiation's phase clock reached 10.9 s in **420 s** of wall clock; 2.9 fps in the clearing, 1.5 in the cabin, 1.3 at the pull-back | `tools/verify-initiation.mjs`, `tools/probe-initiation-fps.mjs` |
+| the Cartel Palace boots in **45 s**; its aim-in blend, a per-frame lerp, took 51.4 s in and 76.5 s out at 960×600 | `tools/verify-cartel-palace.mjs` |
+
+So the arithmetic that prices any browser gate is two terms:
+
+    wall time  ≈  (scene boots × 20–45 s)  +  (simulated seconds ÷ 0.05) × frame time
+
+**In-page stepping does not count against the second term.** A
+`for (i < 50000) player.update(1/60)` sweep inside one `page.evaluate` never
+paints, which is why `verify:golf`'s fifty-thousand-step walkable sweep is
+cheaper than `verify:motel`'s single 4.4 s drive. Neither does `page.clock`:
+`verify:no-wake` fast-forwards its ninety simulated seconds of helm work, which
+removes the *waiting* and not one of the ~1,800 frames underneath it. That gate
+also forbids `skipDrive` and writing `physics.speed` in its own route contract,
+on purpose — there is no cheaper path through it and there is not meant to be.
+
+**Where each gate runs now.** Three tiers, split by whether the gate makes the
+render loop do work over simulated time — not by how important the scene is:
+
+| Tier | What it is | Runs |
+|---|---|---|
+| `smoke` (12) | boots a page or two and reads state back out; nothing driven | weeknights, and on a pull request labelled `scene-gates` |
+| `scene` (17) | several boots, or one short driven stretch | weeknights |
+| `campaign` (11) | a whole mission driven through rendered frames, or the biggest scenes booted repeatedly | Saturdays |
+
+Plus `workflow_dispatch` for any tier or a named list, from the Actions tab.
+The per-gate assignment, and the boots and driven seconds each was counted
+from, live in `tools/scene-gate-tiers.mjs` — deliberately not duplicated here,
+because a hand-written table in a document is stale the day after it is written
+and this one would be forty rows of it. `tests/scene-gate-tiers.test.mjs` fails
+if a browser verifier exists that the schedule would not run.
+
+**The runner assumption is written down rather than assumed.** A GitHub-hosted
+runner has more CPU than the box those measurements came off and, more to the
+point, is not contended — nothing else on it is rendering. The tiers assume it
+lands at the quiet end, roughly 2–3 fps and boots near 20–30 s. That is a guess
+until a nightly has run, so every job prints its own wall time into the run
+summary: correct the tiers from those numbers rather than re-deriving them from
+source. Nothing here needs the guess to be right — the timeouts are guards
+against a hang, and a gate that finishes in a quarter of its budget just moves
+down a tier.
+
+**A red scheduled run has to be readable without re-running it.** These gates
+write screenshots under `docs/validation/` and `artifacts/`; the workflow
+uploads the ones this run wrote, plus the gate's own log, as an artefact on
+failure. `docs/validation/` is 169 MB of committed evidence, so it collects
+what `git` reports as changed or untracked rather than the tree. Note that
+GitHub sends scheduled-run failures to whoever last edited the workflow file —
+if that is not the person who should be reading them, that is the thing to fix
+first.
+
+**Deliberately not scheduled.** `verify:webgl-native` is `verify:webgl-health`
+with `--native-gpu`, and it *requires* a real GPU: on a hosted runner it would
+go red for the one reason that is not a defect. `verify:boot-errors` and
+`verify:campaign-marathon` are already per-PR in `verify.yml` and belong there,
+because neither boots a scene. And `tools/verify-mansion-rooms.mjs` and
+`tools/verify-mansion-walkthrough.mjs` have no npm script at all — nothing
+names them, so nothing can schedule them; that is a smaller version of the same
+trap, waiting for someone to give them a name.
+
+**The rule.** A gate too expensive for the pull-request job gets a schedule and
+a stated price, not a note saying "for now". Price it from the source — count
+the boots, count the simulated seconds, divide by 0.05 — and put the count
+where the next person can argue with it.

@@ -28,9 +28,12 @@
 # pages. verify:campaign-marathon stubs every scene runtime out and walks the
 # whole public route — 27 handoffs, apartment day one to the finale — through
 # the real skip adapters and a durable reload at each landing. The other
-# verify:* gates each boot full scenes under swiftshader for minutes apiece;
-# they stay local/manual for now. Promote more here one at a time if they
-# prove fast enough.
+# verify:* gates each boot full scenes under swiftshader for minutes apiece,
+# and as of the scene-gate pass they are no longer "local/manual for now":
+# .github/workflows/verify-scenes.yml runs all forty on a schedule, one runner
+# each, priced per gate in tools/scene-gate-tiers.mjs. Promote one up here only
+# when a run of THAT workflow has measured it cheap enough to say so — the
+# sentence this replaced said "for now" and meant "never".
 #
 # THE MARATHON IS HERE BECAUSE IT WAS BROKEN AND NOBODY KNEW. Its transition
 # table said the Cartel Palace handed straight to Initiation; the route had
