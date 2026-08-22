@@ -95,7 +95,7 @@ export const SCENE_SYSTEM_ADOPTION = Object.freeze({
   golf: { objectives: 1, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
   graveyard: { objectives: 1, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
   heist: { objectives: 1, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1 },
-  initiation: { objectives: 1, dialogue: 2, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1 },
+  initiation: { objectives: 1, dialogue: 2, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1 },
   mansion: { objectives: 1, dialogue: 1, interaction: 2, player: 2, hud: 0, pause: 2, inventory: 2, blood: 4, staging: 1 },
   motel: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1 },
   nowake: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 1 },

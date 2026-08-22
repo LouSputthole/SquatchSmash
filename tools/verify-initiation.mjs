@@ -102,7 +102,15 @@ async function driveTo(page, phase, { timeout = 90000 } = {}) {
     if (await page.evaluate((want) => window.INITIATION.phase === want, phase)) return true;
     if (Date.now() > deadline) {
       const seen = await page.evaluate(() => window.INITIATION.phase);
-      throw new Error(`Initiation never reached '${phase}' — stuck in '${seen}'`);
+      /* WITH WHAT THE PAGE SAID. A stall is almost always an exception in the
+       * frame loop, and a bare "never reached X" sends you reading phase
+       * tables for an hour. Two runs went that way. */
+      const said = problems.length ? ` — page said: ${problems.slice(0, 2).join(' ;; ')}` : '';
+      const at = await page.evaluate(() => ({
+        t: window.INITIATION.phaseT, paused: window.INITIATION.paused,
+      })).catch(() => null);
+      throw new Error(`Initiation never reached '${phase}' — stuck in '${seen}' `
+        + `(phaseT ${at?.t?.toFixed?.(1) ?? '?'}s, paused ${at?.paused})${said}`);
     }
     await page.evaluate(() => window.INITIATION.smashAction());
     await page.waitForTimeout(400);
@@ -379,10 +387,19 @@ try {
   /* ---------------------------------------------------------------- */
 
   /* Act six is the room, Lou's aside, and the pull-back out of the window:
-   * about 76 authored seconds, several of which wait on a press. Driven the
-   * way a player drives it, and given the room a slow software renderer needs
-   * to render all of it. */
-  await driveTo(page, 'complete', { timeout: 420000 });
+   * about 76 authored seconds, several of which wait on a press.
+   *
+   * THE BUDGET IS ARITHMETIC, NOT A NUDGE. `main.js` clamps its frame delta to
+   * 0.05 s, so a phase timer advances at (fps / 20) of real time and never
+   * faster. Measured here at the stall: phaseT reached 10.9 s in 420 s of wall
+   * clock -- about 2.6% of real time, which is half a frame a second. At that
+   * rate `pullback`'s 14 s timer alone needs nine minutes, so 420 s was never
+   * enough and the runs that passed inside it were lucky rather than fast.
+   *
+   * A real player at 60 fps sees no clamp at all and act six takes act six.
+   * The half-a-frame-a-second is the software renderer and is worth its own
+   * look; it is not what this check is for. */
+  await driveTo(page, 'complete', { timeout: 900000 });
   const inducted = await page.evaluate(() => ({
     constructor: window.INITIATION.player?.constructor?.name,
     bandana: window.INITIATION.player?.palette?.bandana,

@@ -10,6 +10,7 @@ import {
   CIRCLE, INDUCTED_PALETTE, LINE_CENTER, PROSPECT_PALETTE, buildInitiationCircle,
 } from './cast.js';
 import { DebrisSystem } from '../../game/src/debris.js';
+import { DeathBloodPool } from '../world/blood.js';
 import { Effects } from '../../game/src/effects.js';
 import { AudioEngine } from '../core/audio.js';
 import { playWeaponCue, weaponCueNames } from '../core/weapons/audio.js';
@@ -455,6 +456,8 @@ scene.add(player.group);
 
 const debris = new DebrisSystem(scene);
 const effects = new Effects(scene);
+/* Four of them, plus the player if he gets it wrong. */
+const deathPools = new DeathBloodPool(scene, { capacity: 6 });
 
 /** Every body in the Circle, keyed by the script speaker it belongs to. */
 /* The bodies and their marks come from `cast.js`, which the headless geometry
@@ -694,21 +697,12 @@ function setPhaseObjective(spec) {
  * being shot on their knees is the scene talking over its own cast. `#banner`
  * stays in initiation.html, unused. */
 
-// Floating popups
-const _proj = new THREE.Vector3();
-function popText(worldPos, text, cls = '') {
-  _proj.copy(worldPos);
-  _proj.y += 2.3;
-  _proj.project(camera);
-  if (_proj.z > 1) return;
-  const el = document.createElement('div');
-  el.className = cls ? `popup ${cls}` : 'popup';
-  el.textContent = text;
-  el.style.left = `${(_proj.x * 0.5 + 0.5) * window.innerWidth}px`;
-  el.style.top = `${(-_proj.y * 0.5 + 0.5) * window.innerHeight}px`;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 900);
-}
+/* NO FLOATING POPUPS. There was one caller left, and it threw the word
+ * EXECUTED over a man being shot in the back of the head on his knees --
+ * a damage number, from the gauntlet build this scene replaced. It is the
+ * same fault the banners were removed for and the note two comments up says
+ * so: a card reading anything at all over four people being shot is the
+ * scene talking over its own cast. The helper goes with its last caller. */
 
 /* ------------------------------------------------------------------
  * DIALOGUE
@@ -756,6 +750,29 @@ const dialogActive = () => sayQueue.length > 0;
  * player: he has no rig to follow and putting his voice anywhere else in the
  * clearing is worse than putting it on the camera.
  */
+/**
+ * A man goes down, and the mud keeps it.
+ *
+ * The scene used to call `game/src/effects.js`'s `bloodSplat`, which drops
+ * three or four flat circles at random offsets AND FADES THEM OUT AFTER
+ * TWENTY SECONDS. By the time the player has walked the trail to the cabin
+ * the clearing was clean, which quietly un-does the whole point of the walk:
+ * he is supposed to arrive with it still behind him.
+ *
+ * `src/world/blood.js` is the stack the siege and the Palace already use. The
+ * pool GROWS, and it stays. The seed is the victim's index rather than a
+ * roll, so the four marks are the same four marks every playthrough and the
+ * geometry gate's recorded buckets do not move underneath it.
+ */
+function bleedOut(point, seed) {
+  deathPools.spill(point, {
+    floorY: 0,
+    size: 1.05,
+    opacity: 0.9,
+    seed,
+  });
+}
+
 function speakLine(line) {
   if (!line?.cue) return 0;
   /* SILENCE THE MAN BEFORE HIM.
@@ -1412,8 +1429,7 @@ function executeStanding(onFinished) {
       p.dead = true;
       p.fallT = 0;
       p.fallMark = null; // he topples BACKWARD, about his feet
-      effects.bloodSplat(p.sq.position);
-      popText(p.sq.position, 'EXECUTED', 'pain');
+      bleedOut(p.sq.position, 0);
     },
     onFinished: () => {
       holsterPistol();
@@ -1446,7 +1462,7 @@ function executeKneeling(step, onFinished) {
       p.dead = true;
       p.fallT = 0;
       p.fallMark = mark;
-      effects.bloodSplat(new THREE.Vector3(mark.fall.x, 0.1, mark.fall.z));
+      bleedOut({ x: mark.fall.x, y: 0, z: mark.fall.z }, runCursor + 1);
     },
     onFinished,
   });
@@ -2808,6 +2824,8 @@ function tick() {
   site.update(dt);
   debris.update(dt);
   effects.update(dt);
+  /* The pools grow on their own clock, so they have to be ticked. */
+  deathPools.update(dt);
   updateCamera(dt);
   composer.render();
 }
@@ -2832,6 +2850,12 @@ window.INITIATION = {
   PLAYER_SLOT,
   KITTENBOSS_SLOT,
   get phase() { return phase; },
+  /* Diagnostics for a stall. A phase that advances on its own timer can only
+   * fail to advance for two reasons -- the clock is not running, or nobody is
+   * asking it -- and telling those apart from outside the page is otherwise
+   * guesswork. See tools/verify-initiation.mjs. */
+  get phaseT() { return phaseT; },
+  get paused() { return paused; },
   get inducted() { return inducted; },
   get spokeAtTheKilling() { return spokeAtTheKilling; },
   get quizOpen() { return quizEl.classList.contains('show'); },
