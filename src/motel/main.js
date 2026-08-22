@@ -5005,6 +5005,13 @@ window.MOTEL = {
       hud: weapons.hud(),
       stats: { ...weapons.stats },
       cues: [...weapons.cueLog],
+      /* Cues that did NOT play this gun's own recording. Empty is the claim. */
+      standIns: [...weapons.standInCues],
+      /* Which of this gun's own recordings this page has actually decoded.
+       * `playWeaponCue` falls through to a stand-in for the ones it has not,
+       * and a check that cannot see the difference cannot tell a .45 from a
+       * generic gunshot -- see `_cue` in src/core/weapons/WeaponSystem.js. */
+      hasSample: (name) => motelWeaponAudio.hasSample(name) === true,
       rigInCamera: weapons.rig.parent === camera,
       reserve: weapons.firearm(WEAPON_IDS.REVOLVER).reserve,
       reloading: weapons.equipped ? weapons.firearm(weapons.equipped).reloading : false,

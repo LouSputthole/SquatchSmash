@@ -293,6 +293,8 @@ export class WeaponSystem {
      * `weapon.saw.fire` and that a decoded recording exists to answer with —
      * which together is the whole claim "the sound is wired". */
     this.cueLog = [];
+    /** Cues that fell through to a stand-in recording. See `_cue`. */
+    this.standInCues = [];
   }
 
   /* ---------------------------------------------------------------- */
@@ -924,8 +926,26 @@ export class WeaponSystem {
 
   _cue(slot, opts) {
     if (!this.current) return;
-    this.cueLog.push(weaponCue(this.current, slot));
+    const wanted = weaponCue(this.current, slot);
+    this.cueLog.push(wanted);
     if (this.cueLog.length > 120) this.cueLog.splice(0, this.cueLog.length - 120);
+    /* AND SEPARATELY, WHETHER THAT IS WHAT CAME OUT OF THE SPEAKER.
+     *
+     * `playWeaponCue` prefers the weapon's own recording and falls through to
+     * a verified stand-in when the page has not decoded it -- so a gun that
+     * sounds right and a gun whose five recordings were never in this scene's
+     * preload scope leave IDENTICAL cue logs. That is not hypothetical: four
+     * owner-delivered Enola bomb clips sat on disk, in the manifest and in the
+     * index, outside the bank the page loaded, and nothing said so.
+     *
+     * A SECOND list rather than a marker inside the first, because `cueLog`
+     * means "cues this gun asked for" to everything that already reads it, and
+     * a log that quietly changes meaning is the same species of problem. Same
+     * predicate `playWeaponCue` uses, so the two cannot disagree. */
+    if (this.audio?.hasSample?.(wanted) !== true) {
+      this.standInCues.push(wanted);
+      if (this.standInCues.length > 120) this.standInCues.splice(0, this.standInCues.length - 120);
+    }
     playWeaponCue(this.audio, this.current, slot, opts);
   }
 

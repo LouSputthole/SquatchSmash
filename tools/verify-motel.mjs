@@ -2395,6 +2395,98 @@ try {
     JSON.stringify({ before: allyCombatBefore, after: allyCombatAfter }));
 
   /* ---- the getaway, from the driver's eye ---- */
+  /* THE .45's OWN VOICE, tested here rather than the moment it is drawn.
+   *
+   * Emptying a cylinder costs simulated seconds, and the room this gun is
+   * drawn in is a live gunfight -- Lou, Booskibro and Snow are all shooting
+   * while it runs. Spending that time right after the betrayal let the fight
+   * resolve and took Rico with it, and the mattress, capture and ally checks
+   * above all need Rico standing. So the gun is heard last, after the room
+   * has stopped mattering and before the car pulls away, where time is free
+   * and nobody left alive is anybody's dependency.
+   */
+  const revolverVoice = await previewPage.evaluate(async () => {
+    const motel = window.MOTEL;
+    const aliveBefore = motel.actors.filter((a) => a.alive).length;
+    /* Fired into the room as it stands. Every check that needed a particular
+     * man upright has already run, so this does not have to pick a heading
+     * with nobody down it -- an earlier draft did, and in a room with hostiles
+     * on every side it could not find one and fired nothing at all. */
+    /* WAIT ON THE GUN, NOT ON THE CLOCK.
+     *
+     * The .45 runs at 2.4 rps out of the shared catalog and `Firearm` drains
+     * that cooldown on the scene's own `update(dt)` -- simulated seconds, not
+     * wall seconds. Under swiftshader this page draws about one and a third
+     * frames a second with dt clamped to 0.05, so one wall second buys roughly
+     * a fifteenth of a simulated one (ENGINE-TRAPS entry 2) and a 700 ms pause
+     * between pulls is nowhere near the gun's 420 ms. Six pulls on a timer
+     * produced two shots and an empty dry-click log, which reads exactly like
+     * a dead audio bank and is nothing of the sort. The round count is the
+     * gun's own answer to "are you ready", and it cannot be outrun. */
+    const emptyTheCylinder = async (attempts = 400) => {
+      for (let i = 0; i < attempts; i += 1) {
+        if (motel.weapons.hud.rounds === 0) return true;
+        motel.fire();
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+      return motel.weapons.hud.rounds === 0;
+    };
+    const before = motel.weapons.cues.length;
+    const emptied = await emptyTheCylinder();
+    const afterSix = motel.weapons.cues.slice(before);
+    /* One more on a spent chamber: the hammer falls and nothing else does.
+     * Same clock problem as the shots -- a pull inside the cadence comes back
+     * refused rather than empty, and never reaches the dry click -- so keep
+     * pulling until the gun actually clicks. */
+    const dryBefore = motel.weapons.stats.dryClicks;
+    for (let i = 0; i < 60 && motel.weapons.stats.dryClicks === dryBefore; i += 1) {
+      motel.fire();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+    const onEmpty = motel.weapons.cues.slice(before + afterSix.length);
+    motel.reload();
+    /* reloadOut 0.85 s then reloadIn 1.55 s of SIMULATED time, same clock. */
+    for (let i = 0; i < 80 && motel.weapons.hud.rounds < 6; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    const onReload = motel.weapons.cues.slice(before + afterSix.length + onEmpty.length);
+    /* WHO MATTERS IS RICO, not the body count. This is a live gunfight -- Lou,
+     * Booskibro and Snow are all shooting while this block empties a cylinder
+     * -- so "nobody died" is a claim about the scene's crossfire and not about
+     * these six rounds, and it fails on a room that is behaving correctly.
+     * What the six rounds must not do is take out the man the mattress and
+     * grapple checks below still need, which is what the first draft did. */
+    const aliveAfter = motel.actors.filter((a) => a.alive).length;
+    return {
+      aliveBefore,
+      aliveAfter,
+      emptied,
+      rounds: motel.weapons.hud.rounds,
+      fired: afterSix,
+      onEmpty,
+      onReload,
+      standIns: motel.weapons.standIns,
+      hasRealFire: motel.weapons.hasSample('weapon.revolver.fire'),
+      hasRealEmpty: motel.weapons.hasSample('weapon.revolver.empty'),
+    };
+  }).catch((error) => ({ evaluateFailed: error.message }));
+  check('the .45 plays its own five recordings, not the stand-ins',
+    revolverVoice.emptied === true
+      && revolverVoice.rounds === 6
+      && revolverVoice.hasRealFire === true
+      && revolverVoice.hasRealEmpty === true
+      && revolverVoice.fired.filter((cue) => cue === 'weapon.revolver.fire').length === 6
+      && revolverVoice.onEmpty.includes('weapon.revolver.empty')
+      && revolverVoice.onReload.includes('weapon.revolver.reload.out')
+      /* THE LOAD-BEARING CLAUSE. `cueLog` records what the gun ASKED for, and
+       * `playWeaponCue` falls through to a verified stand-in for anything this
+       * page has not decoded -- so a log full of the right names proves
+       * nothing on its own. `standInCues` is the other half: empty means every
+       * one of those names was the .45's own recording. */
+      && revolverVoice.standIns.length === 0,
+    JSON.stringify(revolverVoice));
+
+
   await previewPage.evaluate(() => window.MOTEL.drive());
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'drive', null, { timeout: SCENE_WAIT_MS });
   await previewPage.waitForTimeout(900);
