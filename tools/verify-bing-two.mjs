@@ -885,6 +885,17 @@ try {
       swept: incident.state.finalSwept,
     };
   });
+  /* THE SWEEP IS NOT LOU'S ANY MORE, AND THIS FILE STILL THOUGHT IT WAS.
+   * Pressing Lou with the floor clean gets the WRAP order out of him -- "Wrap
+   * him. Snow gets the keys." -- and nothing else. The evidence sweep moved
+   * onto the blood itself ("Hold to sweep the floor with Aubbie's kit") and
+   * moved to the END of the mission, after Billy is in the boot, because
+   * having Lou order a sweep and Lou perform it made cleaning the room two men
+   * talking. `SecondVisitMission.completeCleanup` refuses `final_sweep` in any
+   * state but `sweep`, and only `debriefLou()` reaches that state.
+   *
+   * So this check asserted `swept` on a press that cannot sweep, and the whole
+   * tail of the file was running the old order. The game is right. */
   check('Lou says "Wrap him" out loud instead of the HUD narrating him',
     louSweep.cleanupActive
       && louSweep.who === 'Big Uncle Lou'
@@ -892,19 +903,46 @@ try {
       && /Wrap him\. Snow gets the keys\./.test(louSweep.subtitle)
       && !/checks the room/i.test(louSweep.subtitle)
       && louSweep.louSpeaking
-      && louSweep.swept,
+      && louSweep.swept === false,
     JSON.stringify(louSweep));
 
+  /* The authored order, end to end, each step through the interaction the
+   * player actually holds: floor -> wrap -> PICK BILLY UP -> load -> report to
+   * Lou -> sweep the boards. Carrying is a step in its own right and cannot be
+   * skipped -- `assign()` refuses without `flags.bodyCarried`, which is why
+   * the old script's jump from wrap straight to the loading pad reported
+   * `assigned: false`.
+   *
+   * `party.cleanup.wrap` is unregistered from the interaction list the instant
+   * it is picked up (a body parented to the camera sits between the crosshair
+   * and every prompt in the building), so its handler is taken BEFORE the
+   * lift, not looked up after it. */
   const cleanup = await page.evaluate((tasks) => {
     const incident = window.HOTDOG_INCIDENT;
     const completed = tasks.map((task) => [task, incident.completeCleanupTask(task)]);
+    /* The sweep must be REFUSED here: the floor is clean but Billy is still on
+     * it, and `completeCleanup` only accepts `final_sweep` in state `sweep`.
+     * A `true` from this call would mean the room could be signed off over an
+     * unfinished club. */
+    const sweptTooEarly = incident.completeCleanupTask('final_sweep');
     incident.party.extra.hotdog.group.userData.interact.onUse();
     const wrapped = incident.mission.flags.bodyWrapped && incident.state.wrapped;
     const guideAfterWrap = incident.party.cleanup.serviceGuide.visible;
     const loadObjective = incident.mission.objectives.find((objective) => objective.id === 'load')?.text;
+    const lift = incident.party.cleanup.wrap.userData.interact;
+    lift.onUse();
+    const carried = incident.mission.flags.bodyCarried && incident.state.carrying;
     incident.party.cleanup.loadPad.userData.interact.onUse();
     const assigned = incident.mission.assignment === 'reserve_pickup';
     const guideAfterLoad = incident.party.cleanup.serviceGuide.visible;
+
+    /* Report to Lou. THE SWEEP IS BORN HERE, not on the frame Billy fell. */
+    incident.party.extra.lou.group.userData.interact.onUse();
+    const debriefed = incident.mission.state === 'sweep' && incident.state.debriefed;
+    const sweepObjective = incident.mission.objectives
+      .find((objective) => objective.id === 'cleanup.final_sweep')?.text;
+    incident.party.cleanup.blood.userData.interact.onUse();
+    const swept = incident.mission.cleanup.has('final_sweep') && incident.state.finalSwept;
     const banked = incident.campaignState.missions.bada_bing_two.checkpoint === 'body_loaded';
 
     // The authored handoff remains the thing that exposes the route button.
@@ -918,18 +956,28 @@ try {
       incident.state.director.remaining = 0;
       if (incident.game.phase === 'complete') clearInterval(window.__fastHotDogHandoff);
     }, 12);
-    return { completed, wrapped, assigned, banked, guideAfterWrap, guideAfterLoad, loadObjective };
-  }, CLEANUP_TASKS);
-  check('the compact cleanup banks all four jobs, wrapping, and loading',
+    return {
+      completed, sweptTooEarly, wrapped, carried, assigned, debriefed, swept, banked,
+      guideAfterWrap, guideAfterLoad, loadObjective, sweepObjective,
+    };
+  }, CLEANUP_TASKS.filter((task) => task !== 'final_sweep'));
+  check('the cleanup runs floor, wrap, carry, load, report and sweep in that order',
+    /* The three floor jobs only. `completeCleanupTask` refuses `final_sweep`
+     * outside state `sweep`, so a green here also proves the refusal held. */
     cleanup.completed.every(([, ok]) => ok)
+      && cleanup.sweptTooEarly === false
       && cleanup.wrapped
+      && cleanup.carried
       && cleanup.assigned
+      && cleanup.debriefed
+      && cleanup.swept
       && cleanup.banked
       && cleanup.guideAfterWrap
       && !cleanup.guideAfterLoad
       // The route is named by the rooms it passes through. The floor arrows
       // it used to name pointed through the main room's south wall.
-      && /store room/i.test(cleanup.loadObjective),
+      && /store room/i.test(cleanup.loadObjective)
+      && /sweep/i.test(cleanup.sweepObjective || ''),
     JSON.stringify(cleanup));
 
   await page.waitForFunction(

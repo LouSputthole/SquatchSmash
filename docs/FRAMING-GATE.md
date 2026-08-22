@@ -208,29 +208,43 @@ FIND  initiation:cabin — 1 beat, 0 cameras, 0 in the cast, 1 finding
 2.408 metres. The first time, finding that took a playtest — and the scene had
 been shipping the shot for as long as it had existed.
 
-## The ten findings on Initiation, and why they stand
+## The findings on Initiation: ten, then five
 
-`npm run verify:framing initiation` reports nine `SPEAKER_OCCLUDED` and one
-`CAMERA_INSIDE_SOLID`. All ten are **one artifact, not ten faults**, and the
-artifact is in how that site authors its solids rather than in the shots.
+`npm run verify:framing` reported nine `SPEAKER_OCCLUDED` and one
+`CAMERA_INSIDE_SOLID` across the two Initiation states. All ten were **one
+artifact, not ten faults**, and the artifact was in how that site authors its
+solids rather than in the shots.
 
-Initiation builds every collider as a height-less `{x, z, r}` circle, so
-`normalizeSceneColliders` gives each of them the standing band **−0.5 m to
+Initiation built every collider as a height-less `{x, z, r}` circle, so
+`normalizeSceneColliders` gave each of them the standing band **−0.5 m to
 4 m**. The cabin table is **0.78 m** tall. The parked cars top out at
-**2.26 m**. So every sightline that passes comfortably OVER one reads as
-blocked, and `speech-start`'s camera — 3.6 m up, well clear of a car — reads
-as inside it.
+**2.26 m**. So every sightline that passed comfortably OVER one read as
+blocked, and `speech-start`'s camera — 3.6 m up, well clear of a car — read as
+inside it.
 
 This was not reasoned, it was cast: every published speaker sightline was
 raycast against the **rendered** geometry of both states, 99 solid meshes in
-the clearing and 349 in the cabin. **Not one hits anything.**
+the clearing and 349 in the cabin. **Not one hit anything.**
 
-The root fix is to author real heights on those colliders — `rawBounds`
-already honours `y0`/`y1` — but that changes collider ids and therefore the
-geometry gate's recorded inputs, so it is a deliberate separate job and not a
-thing to slip into a framing pass. The speakers stay named rather than the
-checks being deleted, because the day those colliders gain heights, these ten
-should evaluate properly rather than having been quietly removed.
+**Half of it is now fixed at the source.** `FURNITURE` in
+`src/initiation/cabin/site.js` carries `minY`/`maxY`, measured off the built
+assemblies, and the interior's collider loop passes them through as `y0`/`y1`,
+which `rawBounds` honours in preference to its own invented band. The runtime
+never reads them — `pushOut` takes x, z and r and nothing else — so the change
+is inert to play and decisive to the gates. The cabin went from six findings
+to one, and `initiation-cabin-plan-only-collision` came off the staging
+allowlist, which had said in as many words that authoring real heights would
+lift it.
+
+**The five that remain are the same artifact, in the woods and the car park.**
+Four in the clearing (Kittenboss behind a treeline box, `speech-start`'s camera
+inside a car) and one in the cabin (the player at the door, behind a trunk on
+the trail). Heights alone will not finish these, because a trunk really is
+tall. What is wrong for a trunk is the SHAPE: the AABB of an upright cylinder
+is its circumscribing square, which is wider than the trunk at the diagonals.
+Over-approximating a blocking volume is the correct conservative reading for
+walking into it and the wrong one for seeing past it. Lifting the last five
+means testing the ray against the cylinder the author actually wrote.
 
 ## A beat may widen its own aim tolerance
 

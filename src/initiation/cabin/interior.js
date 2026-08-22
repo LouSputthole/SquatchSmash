@@ -605,6 +605,13 @@ export function buildCabinInterior() {
         x: centreX + (halfX > halfZ ? t * (halfX - 0.3) : 0),
         z: centreZ + (halfZ >= halfX ? t * (halfZ - 0.3) : 0),
         r: Math.min(halfX, halfZ) + 0.3,
+        /* The walk-around margin above inflates the RADIUS and must never
+         * inflate the height: a table you can see over at 0.78 m is not one
+         * you can see over at 1.08 m. See the note on FURNITURE for why an
+         * unheighted circle made the framing gate call the ceremony
+         * unwatchable. */
+        y0: box.minY,
+        y1: box.maxY,
         /* One piece of furniture, laid out as a row of circles along its long
          * axis, and consecutive circles in that row share ground on purpose --
          * a table approximated by three circles that merely touched would have

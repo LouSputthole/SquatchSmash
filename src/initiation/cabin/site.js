@@ -684,19 +684,67 @@ export const POURED_DRINKS = Object.freeze([
  * Everything on the floor with a footprint, so the blocking can be checked
  * against it instead of eyeballed. `minX/maxX/minZ/maxZ` are world-space.
  */
+/**
+ * HOW TALL EACH OF THESE ACTUALLY IS, because nothing else in the pipeline
+ * knows.
+ *
+ * The room's colliders are upright `{x, z, r}` circles -- the runtime only
+ * ever reads x, z and r out of them (`pushOut` in src/initiation/main.js), so
+ * a circle says "you cannot walk here" and says nothing whatsoever about
+ * height. Every gate downstream has to invent one: the geometry Adapter gives
+ * an unheighted collider the standing interaction band, -0.5 m to 4 m, and is
+ * explicit that this is the Adapter being conservative rather than the builder
+ * having written anything.
+ *
+ * Conservative is right for walking into a thing. It is WRONG for looking over
+ * one. The framing gate reported six SPEAKER_OCCLUDED findings in this cabin
+ * -- Lou, Booskibro and Rippinflow unseeable through the whole ceremony and
+ * both oath beats -- and the solid doing the blocking was THE TABLE, standing
+ * 4.5 m tall because nobody had ever told anyone it was 0.78 m tall. The men
+ * are behind the table on purpose. That is the shot.
+ *
+ * So the heights are authored here and passed through as `y0`/`y1`, which the
+ * Adapter honours in preference to its own band. Every number below was
+ * MEASURED off the built assemblies rather than read off a builder, because
+ * the builder's slab is not always the tallest thing in the group.
+ */
 export const FURNITURE = Object.freeze([
   Object.freeze({
     id: 'table',
     minX: TABLE.x - TABLE.width / 2, maxX: TABLE.x + TABLE.width / 2,
     minZ: TABLE.z - TABLE.depth / 2, maxZ: TABLE.z + TABLE.depth / 2,
+    minY: 0, maxY: TABLE.topY,
   }),
-  Object.freeze({ id: 'chimney-breast', minX: 18.45, maxX: 19.95, minZ: 29.55, maxZ: ROOM.maxZ }),
-  Object.freeze({ id: 'stove', minX: 18.45, maxX: 19.95, minZ: 28.25, maxZ: 29.55 }),
-  Object.freeze({ id: 'sideboard', minX: ROOM.minX + 0.06, maxX: ROOM.minX + 0.62, minZ: 24.40, maxZ: 26.40 }),
-  Object.freeze({ id: 'firewood', minX: 29.16, maxX: 29.74, minZ: 27.60, maxZ: 29.60 }),
-  Object.freeze({ id: 'bench-east', minX: 29.06, maxX: 29.66, minZ: 23.20, maxZ: 25.60 }),
-  Object.freeze({ id: 'chair-west-a', minX: 18.34, maxX: 18.94, minZ: 22.60, maxZ: 23.20 }),
-  Object.freeze({ id: 'chair-west-b', minX: 18.34, maxX: 18.94, minZ: 23.50, maxZ: 24.10 }),
+  /* Masonry to the ceiling. It is in this list for the record only -- the
+   * collider loop skips it, because the exterior owns that wall. */
+  Object.freeze({
+    id: 'chimney-breast', minX: 18.45, maxX: 19.95, minZ: 29.55, maxZ: ROOM.maxZ,
+    minY: 0, maxY: ROOM.ceilingY,
+  }),
+  Object.freeze({
+    id: 'stove', minX: 18.45, maxX: 19.95, minZ: 28.25, maxZ: 29.55,
+    minY: 0, maxY: 1.68,
+  }),
+  Object.freeze({
+    id: 'sideboard', minX: ROOM.minX + 0.06, maxX: ROOM.minX + 0.62, minZ: 24.40, maxZ: 26.40,
+    minY: 0, maxY: 1.28,
+  }),
+  Object.freeze({
+    id: 'firewood', minX: 29.16, maxX: 29.74, minZ: 27.60, maxZ: 29.60,
+    minY: 0, maxY: 0.75,
+  }),
+  Object.freeze({
+    id: 'bench-east', minX: 29.06, maxX: 29.66, minZ: 23.20, maxZ: 25.60,
+    minY: 0, maxY: 0.53,
+  }),
+  Object.freeze({
+    id: 'chair-west-a', minX: 18.34, maxX: 18.94, minZ: 22.60, maxZ: 23.20,
+    minY: 0, maxY: 0.99,
+  }),
+  Object.freeze({
+    id: 'chair-west-b', minX: 18.34, maxX: 18.94, minZ: 23.50, maxZ: 24.10,
+    minY: 0, maxY: 0.99,
+  }),
   /**
    * THE ONLY CHAIR ANYBODY IS SITTING IN.
    *
@@ -709,7 +757,10 @@ export const FURNITURE = Object.freeze([
    * wall face, and no blocking slot is within 1.8 m of it — the nearest are
    * Booskibro at 22.20 and Rippinflow at 25.90, who stand at his shoulders.
    */
-  Object.freeze({ id: 'chair-head', minX: 23.69, maxX: 24.31, minZ: 29.14, maxZ: 29.70 }),
+  Object.freeze({
+    id: 'chair-head', minX: 23.69, maxX: 24.31, minZ: 29.14, maxZ: 29.70,
+    minY: 0, maxY: 0.99,
+  }),
 ]);
 
 

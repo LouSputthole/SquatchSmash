@@ -838,10 +838,41 @@ try {
       && golfAnswered.initiation === 'locked'
       && golfAnswered.timeMinutes === 7 * 60 + 3,
     JSON.stringify(golfAnswered));
-  check('the apartment door now routes to Silver Pines',
-    golfAnswered.door?.kind === 'go'
-      && golfAnswered.door?.destination === 'silver_pines',
+  /* THE MORNING HAS A THING HE HAS TO DO FIRST, AND THIS FILE DID NOT KNOW.
+   * `CHAPTER_ACTIVITIES.golf_morning` in src/core/apartment-story.js requires
+   * `playedSquatchShoot` before the door will let him leave -- Lou is putting
+   * a club in his hand in front of people and the eye wants warming up. It is
+   * authored: it has a label, a refusal line, a recorded refusal cue and a
+   * hint. This verifier asserted the door routed straight to Silver Pines the
+   * instant Lou hung up, which was true before the pastimes existed and has
+   * not been true since. The game is right; the expectation was stale.
+   *
+   * So check the refusal first -- that is new coverage nothing else had -- and
+   * then satisfy it the way the room does. `pastimeWatch` reads
+   * `apartment.state.shootScore` every frame and completes the activity at
+   * SHOOT_TARGET_SCORE, so putting the score on the machine and giving it a
+   * frame is the played path with the arcade left out of it. */
+  check('the door holds him back for the morning pastime, by name',
+    golfAnswered.door?.kind === 'activity'
+      && golfAnswered.door?.id === 'playedSquatchShoot'
+      && typeof golfAnswered.door?.vo === 'string'
+      && typeof golfAnswered.door?.hint === 'string',
     JSON.stringify(golfAnswered.door));
+
+  const warmedUp = await page.evaluate(async () => {
+    const game = window.__squatch;
+    game.apartment.state.shootScore = 2000;
+    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    return {
+      played: game.campaign.state.activities.playedSquatchShoot,
+      door: game.apartmentStory.tryLeave({}),
+    };
+  });
+  check('warming the eye up on Squatch Shoot opens the door to Silver Pines',
+    warmedUp.played === true
+      && warmedUp.door?.kind === 'go'
+      && warmedUp.door?.destination === 'silver_pines',
+    JSON.stringify(warmedUp));
 
   const golfDeparted = await page.evaluate(() => {
     window.__squatch.tryLeave();

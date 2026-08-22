@@ -3,18 +3,10 @@
   "scene": "initiation",
   "entries": [
     {
-      "id": "initiation-cabin-plan-only-collision",
-      "state": "cabin",
-      "kind": "SIGHTLINES_NOT_EVIDENCE",
-      "reason": "Initiation collides in plan and nothing else: all 249 of the cabin's solids are upright {x, z, r} footprints with no authored y, so the collider reader gives each one the -0.5 to 4 band it invents for a height-less collider. That turns every stool, table leg and fence post into a four-and-a-half-metre column standing in front of whoever is near it, which is also the root of the ten framing findings recorded in docs/FRAMING-GATE.md. Hips are still checked against the same footprints, and that check has already earned its keep here -- it is what caught SEFF and APE standing inside the treeline. Authoring real heights lifts this.",
-      "source": "src/initiation/cabin/site.js:121",
-      "sourceAnchor": "export const LINE_Z = -8;"
-    },
-    {
       "id": "initiation-clearing-plan-only-collision",
       "state": "clearing",
       "kind": "SIGHTLINES_NOT_EVIDENCE",
-      "reason": "The same fault as the cabin state, measured separately: all 189 of the clearing's solids are height-less {x, z, r} footprints and get the reader's invented -0.5 to 4 band, so a sightline in the woods is not evidence about anything. Measured across the whole game, exactly two scenes collide this way -- 189 of 189 here, 36 of 36 in the Squatchfather, and 0 of every collider in the other fifteen. The hip check still runs against these footprints and still means something.",
+      "reason": "All 189 of the clearing's solids are height-less {x, z, r} footprints and get the collider reader's invented -0.5 to 4 band, so a sightline out here is not evidence about anything: every trunk and fence post reads as a four-and-a-half-metre column. The hip check still runs against these footprints and still means something -- it is what caught SEFF and APE standing inside the treeline. THE CABIN USED TO BE ON THIS LIST AND IS NOT ANY MORE: its furniture now carries authored y0/y1 (see the note on FURNITURE in src/initiation/cabin/site.js), which took the framing gate's cabin findings from six to one and lifted the twin of this entry. The woods are the remaining case, and lifting this one means giving the trees their real trunk heights.",
       "source": "src/initiation/cabin/site.js:121",
       "sourceAnchor": "export const LINE_Z = -8;"
     }
