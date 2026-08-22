@@ -133,6 +133,35 @@ export function mat(params = {}) {
   return m;
 }
 
+/**
+ * A memoised MeshLambertMaterial, through the same cache `mat()` uses.
+ *
+ * MOVED HERE FROM `game/src/world.js`, the tree this project is leaving. Ten
+ * files across six scenes import it, so it was never a legacy helper -- it is
+ * a shared one that happened to live in the old house, and the old module now
+ * re-exports this so there is still one implementation and ONE cache.
+ *
+ * NOT routed through `mat()`, which builds MeshStandardMaterial. Lambert is a
+ * different and markedly cheaper shading model, and the scenes that ask for it
+ * are asking for that: quietly upgrading sixteen Initiation materials to
+ * Standard would change how the cabin looks AND what it costs to draw, in a
+ * scene already measured at about half a frame a second headless.
+ *
+ * The key carries its own prefix so it can never collide with a `mat()` entry
+ * that happens to share a colour -- the two would be different classes of
+ * object under one key, which is the kind of bug that shows up as one prop
+ * mysteriously matte.
+ */
+export function lambert(color, extra = null) {
+  const key = `lambert|${color}|${extra ? JSON.stringify(extra) : ''}`;
+  const hit = _matCache.get(key);
+  if (hit) { matStats.shared++; return hit; }
+  matStats.made++;
+  const m = new THREE.MeshLambertMaterial({ color, ...(extra || {}) });
+  _matCache.set(key, m);
+  return m;
+}
+
 /** Drop the shared materials, for a rebuild. */
 export function disposeMaterialCache() {
   for (const m of _matCache.values()) m.dispose?.();

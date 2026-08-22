@@ -31,7 +31,7 @@
  */
 
 import * as THREE from 'three';
-import { lambert } from '../../../game/src/world.js';
+import { lambert } from '../../world/build.js';
 
 import {
   assembly, bakedTexture, between, namedGroup, part, pickOne, rng, speckle, structural,

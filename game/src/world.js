@@ -6,15 +6,14 @@ export const BOUNDS = 85;
 // Props are built from a small set of primitives, so instances share
 // geometry and materials instead of allocating their own.
 
-const matCache = new Map();
-
-export function lambert(color, extra = null) {
-  const key = extra ? `${color}|${JSON.stringify(extra)}` : String(color);
-  if (!matCache.has(key)) {
-    matCache.set(key, new THREE.MeshLambertMaterial({ color, ...(extra || {}) }));
-  }
-  return matCache.get(key);
-}
+/* `lambert` now lives in src/world/build.js and is re-exported here.
+ *
+ * It was always shared -- ten files across six scenes import it -- and this
+ * module is the old tree. Re-exported rather than copied so there stays one
+ * implementation and ONE CACHE: a second cache would hand out a second
+ * MeshLambertMaterial for the same colour and quietly double the draw calls
+ * for anything that imported from both sides during the migration. */
+export { lambert } from '../../src/world/build.js';
 
 const geoCache = new Map();
 

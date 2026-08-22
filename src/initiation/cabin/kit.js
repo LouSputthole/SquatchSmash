@@ -19,7 +19,7 @@
  */
 
 import * as THREE from 'three';
-import { lambert } from '../../../game/src/world.js';
+import { lambert } from '../../world/build.js';
 
 /* ------------------------------------------------------------------ */
 /* Determinism                                                         */

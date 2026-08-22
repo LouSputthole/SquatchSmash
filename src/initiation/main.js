@@ -4,14 +4,12 @@ import { EffectComposer } from '../../lib/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
-import { lambert } from '../../game/src/world.js';
+import { lambert } from '../world/build.js';
 import { Person } from '../core/person.js';
 import {
   CIRCLE, INDUCTED_PALETTE, LINE_CENTER, PROSPECT_PALETTE, buildInitiationCircle,
 } from './cast.js';
-import { DebrisSystem } from '../../game/src/debris.js';
-import { DeathBloodPool } from '../world/blood.js';
-import { Effects } from '../../game/src/effects.js';
+import { BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import { AudioEngine } from '../core/audio.js';
 import { playWeaponCue, weaponCueNames } from '../core/weapons/audio.js';
 import * as sfx from './audio.js';
@@ -454,10 +452,11 @@ player.heading = 0;
 player.group.rotation.y = 0;
 scene.add(player.group);
 
-const debris = new DebrisSystem(scene);
-const effects = new Effects(scene);
 /* Four of them, plus the player if he gets it wrong. */
 const deathPools = new DeathBloodPool(scene, { capacity: 6 });
+/* The mist off each round. Seven droplets a shot, and the act fires plenty. */
+const spurts = new BloodSpurtSystem(scene);
+const _spray = new THREE.Vector3();
 
 /** Every body in the Circle, keyed by the script speaker it belongs to. */
 /* The bodies and their marks come from `cast.js`, which the headless geometry
@@ -1329,9 +1328,19 @@ function fireShotAt(tp, y) {
   exec.flashT = 0.07;
   muzzleLight.position.copy(_impact);
   muzzleLight.intensity = 150;
-  debris.puff(new THREE.Vector3(
-    tp.x + (Math.random() - 0.5) * 0.3, y, tp.z + (Math.random() - 0.5) * 0.3
-  ), 0x8a1414, 5);
+  /* The mist off the shot, thrown along the round rather than puffed in
+   * place. `debris.puff` -- from the legacy tree -- dropped five dark-red
+   * sprites at the target and let them hang; `BloodSpurtSystem` launches
+   * droplets away from the muzzle, on the line the bullet took, and they
+   * fall. `onLand` is what puts a mark where each one comes down, so the
+   * mud ends up telling the same story the pool does. */
+  _spray.set(tp.x - _impact.x, 0, tp.z - _impact.z);
+  if (_spray.lengthSq() < 1e-6) _spray.set(0, 0, 1);
+  spurts.burst({ x: tp.x, y, z: tp.z }, _spray.normalize(), {
+    count: 7,
+    speed: 3.1,
+    floorY: 0,
+  });
   shake = Math.max(shake, 0.3);
 }
 
@@ -2822,10 +2831,9 @@ function tick() {
   }
 
   site.update(dt);
-  debris.update(dt);
-  effects.update(dt);
   /* The pools grow on their own clock, so they have to be ticked. */
   deathPools.update(dt);
+  spurts.update(dt);
   updateCamera(dt);
   composer.render();
 }
