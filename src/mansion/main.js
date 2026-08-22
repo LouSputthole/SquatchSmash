@@ -64,7 +64,8 @@ import {
 import { MANSION_NEXT_BEAT_ZONES, mansionAudioBanks } from './audio-banks.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
 import {
-  MANSION_EVENING_BEAT_IDS, MISSION_IDS, SCENE_IDS, createCampaign,
+  MANSION_EVENING_BEAT_IDS, MISSION_IDS, POOL_FRAME_RESPECT, SCENE_IDS,
+  awardPoolFrameRespect, createCampaign,
 } from '../core/campaign.js';
 import { createFinalArcRuntimeSession } from '../core/final-arc-runtime.js';
 import {
@@ -1667,6 +1668,23 @@ const pool = billiard
       onFrameOver: (winner) => {
         rippinSays(winner === 'rippin' ? SEQUENCES.poolHeWins : SEQUENCES.poolHeLoses,
           { always: true });
+        if (winner !== 'player') return;
+        /* THE STAKE. Owner ruling: a frame of pool moves `story.familyRespect`.
+         *
+         * Not scene-local state and not a second respect system -- the field is
+         * the campaign's own 0-100 scale (see POOL_FRAME_RESPECT) and the write
+         * goes through the campaign, so it is on the disk before the balls have
+         * stopped rattling in the pocket and it is still there after a reload.
+         *
+         * `awardPoolFrameRespect` is keyed on the exact-once time-event ledger,
+         * so this is safe to call on EVERY won frame: the first one banks two
+         * points and every one after it is refused. That refusal is the whole
+         * anti-grind, and it is why the banner is only raised when the call
+         * actually says it banked -- a man who racks and wins again is told
+         * nothing, because nothing happened. Preview boots carry no campaign
+         * and it returns false there too. */
+        if (!awardPoolFrameRespect(mansionCampaign.campaign)) return;
+        announceCheckpoint(`FAMILY RESPECT +${POOL_FRAME_RESPECT} — YOU TOOK A FRAME OFF RIPPINFLOW`);
       },
     },
   })
@@ -3197,6 +3215,11 @@ window.mansion = {
       }));
     },
     rules: { id: POOL_RULES.id, name: POOL_RULES.name },
+    /* The stake, as the save actually holds it, so a browser check reads the
+     * campaign rather than a number this page happens to be showing. */
+    respect: () => mansionCampaign.campaign?.state?.story?.familyRespect ?? null,
+    banked: () => mansionCampaign.campaign?.state?.story?.timeEvents
+      ?.includes('game.pool_rippinflow') ?? false,
     take: () => poolTakeCue(),
     leave: () => poolPutCueBack(),
     aim: (angle) => pool.aim(angle),

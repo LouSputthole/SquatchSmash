@@ -294,6 +294,14 @@ export const TIME_EVENT_IDS = Object.freeze({
    * hours it takes to hand it over, watch it get built, and clean up after. */
   DEPART_MANSION: 'travel.mansion',
   COMPLETE_SILENT_SQUATCH: 'mission.silent_squatch',
+  /* Beating Rippinflow at the billiard table in the lounge. A marker, not an
+   * errand -- see its zero in TIME_EVENTS below, and POOL_FRAME_RESPECT for
+   * what it is worth. It is in this ledger rather than on a counter of its
+   * own because this ledger is the repo's exact-once mechanism: an id can be
+   * consumed once, ever, and it is written and reloaded with the save. A game
+   * about respect in which respect can be farmed by racking again is funnier
+   * than it is acceptable. */
+  BEAT_RIPPINFLOW_AT_POOL: 'game.pool_rippinflow',
   REST_AT_MANSION: 'sleep.mansion',
   COMPLETE_MANSION_SIEGE: 'mission.mansion_siege',
   DEPART_ENOLA_SQUATCH: 'travel.enola_squatch',
@@ -463,6 +471,14 @@ const TIME_EVENTS = Object.freeze({
    * Day 5, just as HotDog's Day 2 night already crosses calendar midnight. */
   [TIME_EVENT_IDS.DEPART_MANSION]: Object.freeze({ minutes: 25 }),
   [TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH]: Object.freeze({ minutes: 135 }),
+  /* Zero minutes, on purpose and with precedent (the phone read markers,
+   * MARGO_WAKE, the Special Meeting call). A frame of pool plainly takes a
+   * quarter of an hour, but nothing in Lou's house is scheduled off the world
+   * clock and everything downstream of it is: putting fifteen minutes on the
+   * campaign clock for a game of pool would move the quiet evening, the guest
+   * bed's wind-down and Lou's briefing, for no story reason at all. The id is
+   * here for its exactly-once property, which is the whole point of it. */
+  [TIME_EVENT_IDS.BEAT_RIPPINFLOW_AT_POOL]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.REST_AT_MANSION]: Object.freeze({ minutes: 8 * 60 }),
   // Guest-room wake through the Sasole handoff at the end of the assault.
   [TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE]: Object.freeze({ minutes: 120 }),
@@ -510,6 +526,67 @@ export const CAMPAIGN_VERSION = 19;
  * of it -- a real step, not a promotion.
  */
 export const SILENT_SQUATCH_RESPECT = 15;
+
+/**
+ * What beating Rippinflow at pool is worth, on the same 0-100 scale.
+ *
+ * Two. Deliberately almost nothing next to the fifteen above, and deliberately
+ * not zero: the scale is a stranger at 0 and a made man at 100, and taking a
+ * frame off a Family member at his own table in Lou's lounge is a story the
+ * room tells for a day. It is a nod, not a step.
+ *
+ * NOTHING IS TAKEN FOR LOSING, and that is a decision rather than an
+ * oversight. Rippinflow has been standing at that table for twenty minutes
+ * looking for anybody at all to pick up the other cue -- his own look string
+ * says so -- so what the house would think less of is a prospect who walks
+ * past him, not one who sits down and gets beaten. A permanent penalty on the
+ * first frame a player ever racks would also be a punishment for touching new
+ * content while still learning which key is the cue, and it is permanent:
+ * TIME_EVENT_IDS.BEAT_RIPPINFLOW_AT_POOL can only be consumed once.
+ *
+ * The other half of the asymmetry is what makes the exactly-once rule humane.
+ * A loss does NOT consume the marker, so a man who loses can rack again and
+ * try; a win consumes it, so the second win pays nothing. The ceiling is two
+ * points however many frames are played, and there is never a reason to avoid
+ * the table.
+ */
+export const POOL_FRAME_RESPECT = 2;
+
+/**
+ * Bank a won frame of pool against Rippinflow, once, for good.
+ *
+ * Written through `advanceTime` with `{ required: true }` -- the repo's own
+ * exact-once idiom -- rather than through a flag on a mission record: the
+ * table is playable on the first visit, after the mission is over, and on the
+ * return visit, and only one of those has a Silent Squatch mission record to
+ * hang a flag on.
+ *
+ * `required` means the save must actually commit: `updateRequired` throws
+ * rather than let the campaign quietly hold a number that was never written
+ * to storage. That throw is caught HERE and reported as `false`, because the
+ * one thing a billiard table must never do is take the mansion down -- and a
+ * caller told `false` has not been told it earned anything, which is the
+ * honest answer when the disk refused.
+ *
+ * @param {object|null} campaign a live Campaign, or null in preview.
+ * @returns {boolean} true only if this call is what banked it.
+ */
+export function awardPoolFrameRespect(campaign) {
+  if (!campaign?.advanceTime) return false;
+  try {
+    return campaign.advanceTime(
+      TIME_EVENT_IDS.BEAT_RIPPINFLOW_AT_POOL,
+      (state) => {
+        state.story.familyRespect = Math.min(
+          100, state.story.familyRespect + POOL_FRAME_RESPECT,
+        );
+      },
+      { required: true },
+    ).applied === true;
+  } catch {
+    return false;
+  }
+}
 
 /** Which beat of the night a Silent Squatch save resumes at. */
 export const SILENT_SQUATCH_CHECKPOINT_IDS = Object.freeze([

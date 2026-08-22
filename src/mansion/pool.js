@@ -16,14 +16,15 @@
  * physics below is the part that breaks silently in a browser (see the
  * sub-stepping note) and the part a headless test can actually pin down.
  *
- * THE RULES ARE A TABLE, NOT CODE. The owner has not chosen between 8-ball
- * and 9-ball. Everything that differs between the two -- what you are allowed
- * to hit, what ends the frame, what counts as a foul, whether the incoming
- * player gets the cue ball in his hand -- is a field in POOL_RULE_SETS below,
- * and `resolveShot` is one generic resolver reading those fields. Switching
- * the house game is the one line marked THE SWITCH; it is written that way
- * because the answer is genuinely still open and a rewrite later is how the
- * answer ends up being "whatever we built first".
+ * THE RULES ARE A TABLE, NOT CODE. 8-BALL IS THE HOUSE GAME -- owner ruling,
+ * confirmed rather than provisional. The table stays anyway, and so does the
+ * one-line switch, because he wants to be able to FEEL both at the playtest
+ * and a rules engine that can only be re-decided by a rewrite is a rules
+ * engine that never gets re-decided. Everything that differs between the two
+ * -- what you are allowed to hit, what ends the frame, what counts as a foul,
+ * whether the incoming player gets the cue ball in his hand -- is a field in
+ * POOL_RULE_SETS below, and `resolveShot` is one generic resolver reading
+ * those fields.
  *
  * NO SPIN, NO ENGLISH, ON PURPOSE. Every ball is a point mass sliding on a
  * plane with rolling friction. There is no side, no draw, no follow and no
@@ -213,9 +214,12 @@ export const POOL_RULE_SETS = Object.freeze({
   }),
 });
 
-/** THE SWITCH. One line. 8-ball is the default because it is the game people
- * mean when they say "fancy a game of pool"; `POOL_RULE_SETS['nine-ball']`
- * is the entire change if the owner decides otherwise. */
+/** THE SWITCH. One line, and it is the only line.
+ *
+ * 8-ball SHIPS -- the owner ruled on it and it is not provisional. This stays
+ * a switch so the other game can be felt at a playtest without a rewrite:
+ * `POOL_RULE_SETS['nine-ball']` and nothing else moves. Rippinflow, the
+ * physics, the rack, the referee and the panel all read the table. */
 export const POOL_RULES = POOL_RULE_SETS['eight-ball'];
 
 /* ================================================================== */

@@ -34,11 +34,36 @@ const {
 const { mansionAudioBanks } = await import('../src/mansion/audio-banks.js');
 const { allSilentSquatchLines, SEQUENCES } = await import('../src/mansion/script.js');
 const { poolPanelText } = await import('../src/mansion/pool-hud.js');
+const {
+  POOL_FRAME_RESPECT,
+  SCENE_IDS,
+  TIME_EVENT_IDS,
+  awardPoolFrameRespect,
+  createCampaign,
+} = await import('../src/core/campaign.js');
 const { buildMansionGrounds } = await import('../src/mansion/scenes/MansionGrounds.js');
 const { buildMansionInterior } = await import('../src/mansion/scenes/MansionInterior.js');
 
 const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
 const manifestNames = new Set(manifest.sfx.map((cue) => cue.name));
+
+/** The save, in memory, so a reload is a real second `createCampaign`. */
+class MemoryStorage {
+  constructor() { this.values = new Map(); }
+
+  getItem(key) { return this.values.get(key) ?? null; }
+
+  setItem(key, value) { this.values.set(key, String(value)); }
+
+  removeItem(key) { this.values.delete(key); }
+}
+
+/** A campaign standing in Lou's house, which is where the table is. */
+function atTheMansion(storage = new MemoryStorage()) {
+  const campaign = createCampaign({ storage });
+  campaign.enter(SCENE_IDS.MANSION, { spawn: 'gate' });
+  return { campaign, storage };
+}
 
 /** A steady hand, so a test asserts the rules rather than a seed. */
 const steady = () => 0.5;
@@ -475,4 +500,122 @@ test('pool: the ball catalogue is seven solids, seven stripes, an eight and a cu
   assert.deepEqual(byGroup, {
     cue: 1, solid: 7, eight: 1, stripe: 7,
   });
+});
+
+/* ================================================================== */
+/* THE STAKE                                                            */
+/* ================================================================== */
+
+test('pool: taking a frame off Rippinflow moves familyRespect, once, for good', () => {
+  const { campaign } = atTheMansion();
+  assert.equal(campaign.state.story.familyRespect, 0);
+
+  assert.equal(awardPoolFrameRespect(campaign), true);
+  assert.equal(campaign.state.story.familyRespect, POOL_FRAME_RESPECT);
+  assert.equal(
+    campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.BEAT_RIPPINFLOW_AT_POOL), true,
+  );
+});
+
+test('pool: racking again and winning again is worth nothing — the grind is shut', () => {
+  /* A game about respect in which respect can be farmed by pressing E on the
+   * felt eleven times is the exact failure this is here to hold shut. The
+   * award is on the exact-once time-event ledger, so every call after the
+   * first is refused and refuses SILENTLY -- the caller is told false and the
+   * scene therefore raises no banner. */
+  const { campaign } = atTheMansion();
+  assert.equal(awardPoolFrameRespect(campaign), true);
+  for (let frame = 0; frame < 10; frame++) {
+    assert.equal(awardPoolFrameRespect(campaign), false, `frame ${frame + 2} paid twice`);
+  }
+  assert.equal(campaign.state.story.familyRespect, POOL_FRAME_RESPECT);
+  /* And it did not creep the clock either: a marker, not an errand. */
+  assert.equal(campaign.state.story.timeMinutes, atTheMansion().campaign.state.story.timeMinutes);
+});
+
+test('pool: the respect survives a reload, and cannot be earned a second time after one', () => {
+  const storage = new MemoryStorage();
+  const first = atTheMansion(storage).campaign;
+  assert.equal(awardPoolFrameRespect(first), true);
+
+  /* A genuinely new Campaign over the same storage — the reload. */
+  const reloaded = createCampaign({ storage });
+  assert.equal(reloaded.state.story.familyRespect, POOL_FRAME_RESPECT,
+    'the frame he won was never written to the save');
+  assert.equal(
+    reloaded.state.story.timeEvents.includes(TIME_EVENT_IDS.BEAT_RIPPINFLOW_AT_POOL), true,
+  );
+  assert.equal(awardPoolFrameRespect(reloaded), false,
+    'reloading is a way to play the same frame for pay twice');
+  assert.equal(reloaded.state.story.familyRespect, POOL_FRAME_RESPECT);
+});
+
+test('pool: losing costs nothing and leaves the marker unspent, so he can play again', () => {
+  /* The asymmetry, as a property rather than as a comment. Rippinflow has been
+   * waiting twenty minutes for anybody to pick up the other cue; the house
+   * does not think less of a man who sits down and gets beaten. A loss writes
+   * nothing at all, which is why the scene calls the writer ONLY on a win --
+   * and because the marker is still unspent, the frame he eventually takes off
+   * Rippinflow still pays. */
+  const { campaign } = atTheMansion();
+  const frame = new PoolFrame({ rng: steady });
+  frame.takeCue();
+  frame.groups = { player: 'solid', rippin: 'stripe' };
+  /* Throw it away the way 8-ball is famous for: the eight, early, for real.
+   * One of his solids is still on the table, so the eight is not his ball; the
+   * cue ball, the eight and a corner pocket are lined up dead straight and he
+   * hits it. No poking at the frame's internals -- the referee does this. */
+  for (const ball of frame.balls) {
+    if (![0, 1, 8].includes(ball.id)) ball.potted = true;
+  }
+  const solid = frame.balls.find((ball) => ball.id === 1);
+  solid.x = 0.9;
+  solid.z = 1.8;
+  const eight = frame.balls.find((ball) => ball.id === 8);
+  eight.x = -0.6;
+  eight.z = -1.4;
+  const corner = POOL_TABLE.pockets.find((pocket) => pocket.id === 'corner-foot-left');
+  const dx = corner.x - eight.x;
+  const dz = corner.z - eight.z;
+  const reach = Math.hypot(dx, dz);
+  const cueBall = frame.balls.find((ball) => ball.id === 0);
+  cueBall.x = eight.x - (dx / reach);
+  cueBall.z = eight.z - (dz / reach);
+  frame.shoot({ angle: Math.atan2(dx, dz), power: 0.55 });
+  let guard = 0;
+  while (frame.state !== 'over' && guard++ < 6000) frame.update(0.05);
+  assert.equal(frame.state, 'over');
+  assert.equal(frame.winner, 'rippin', 'the eight went early and he did not lose the frame');
+
+  assert.equal(campaign.state.story.familyRespect, 0);
+  assert.equal(
+    campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.BEAT_RIPPINFLOW_AT_POOL), false,
+  );
+  /* And the win that comes later still pays. */
+  assert.equal(awardPoolFrameRespect(campaign), true);
+  assert.equal(campaign.state.story.familyRespect, POOL_FRAME_RESPECT);
+});
+
+test('pool: a preview boot has no campaign, and the table quietly pays nothing', () => {
+  assert.equal(awardPoolFrameRespect(null), false);
+  assert.equal(awardPoolFrameRespect(undefined), false);
+  assert.equal(awardPoolFrameRespect({}), false);
+});
+
+test('pool: the scene banks the win through the campaign and only announces a real one', () => {
+  const source = fs.readFileSync(path.join(ROOT, 'src/mansion/main.js'), 'utf8');
+  /* Only on a win. */
+  assert.match(source, /if \(winner !== 'player'\) return;/);
+  /* Through the campaign, not into scene-local state. */
+  assert.match(source, /if \(!awardPoolFrameRespect\(mansionCampaign\.campaign\)\) return;/);
+  /* And the banner is downstream of the bank, so a refused second win is
+   * silent rather than a lie on the screen. */
+  const hook = source.slice(source.indexOf('onFrameOver:'), source.indexOf('function poolShotPose'));
+  const bank = hook.indexOf('awardPoolFrameRespect');
+  const banner = hook.indexOf('announceCheckpoint');
+  assert.ok(bank > 0 && banner > bank, 'the banner is raised before the save agrees');
+  /* No second respect field and no money on the felt. */
+  const poolSection = source.slice(source.indexOf('/* THE BILLIARD TABLE'), source.indexOf('/* ================================================================== */\n/* THE BASEMENT ARMORY'));
+  assert.equal(/poolRespect|respectEarned|\bmoney\b|payout|wager/.test(poolSection), false,
+    'the pool table has grown a second economy');
 });
