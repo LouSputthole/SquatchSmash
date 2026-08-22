@@ -55,7 +55,7 @@ jobs:
              graveyard.html nowake.html silver.html golf.html heist.html initiation.html \
              silvercase.html mansion.html mansion-siege.html enolasquatch.html \
              cartel-palace.html specialmeeting.html preview.html roster.html \
-             wardrobe.html combatlab.html _site/
+             wardrobe.html combatlab.html trophyroom.html _site/
           cp -r src vendor assets game lib _site/
           test -f _site/nowake.html
           test -f _site/graveyard.html
