@@ -103,6 +103,7 @@ export const SCENE_SYSTEM_ADOPTION = Object.freeze({
   silvercase: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1 },
   specialmeeting: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 1 },
   squatchfather: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 0 },
+  trophyroom: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 0, blood: 0, staging: 0, notes: "A dev-only review gallery for promised-vs-built campaign trophies, not a campaign scene. Uses the tiny showPrompt/hidePrompt/setHold contract (see src/silvercase/main.js) instead of core/hud.js." },
   wardrobe: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, notes: "The fitting room tool, reached from the wardrobe page rather than the campaign." },
 });
 
