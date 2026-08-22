@@ -20,6 +20,7 @@
 #   - the sixteen per-scene cue ledgers (check:*-vo, check:mansion-sfx)
 #   - npm run verify:boot-errors      cheap browser gate, all 20 staged pages
 #   - npm run verify:campaign-marathon the whole public route, scenes stubbed
+#   - node tools/bundle-preview.mjs  the shareable single-file build
 #
 # Why only these two from the browser set: both are cheap per page covered
 # because neither one boots a scene. verify:boot-errors aborts each staged
@@ -112,6 +113,16 @@ jobs:
 
       - name: Whole-campaign marathon
         run: npm run verify:campaign-marathon
+
+      # THE SHAREABLE BUILD, BUILT. Not booted -- verify:bundle's browser half
+      # loads a 16 MB single file and is too slow for every pull request --
+      # but produced, which is the half that broke. bundle-preview.mjs could
+      # not handle `export { X } from './y.js'` and src/core/final-arc-loadout.js
+      # has carried one for weeks, so the build has been dead the whole time
+      # and nothing said so. Same trap as the in-world Squatch Smash bundle in
+      # 23df84b: a re-export reads as an export and rewrites as nothing.
+      - name: Single-file preview build
+        run: node tools/bundle-preview.mjs
 
       - name: Staging gate
         run: npm run verify:staging

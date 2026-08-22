@@ -396,13 +396,37 @@ try {
       door: game.apartmentStory.tryLeave({}),
     };
   });
-  check('answering Lou unlocks Golf, not THE TAKE, and points the door to Silver Pines',
+  /* THE MORNING HAS A THING HE HAS TO DO FIRST, and this file did not know
+   * either -- the same stale expectation tools/verify-big-night.mjs carried.
+   * `CHAPTER_ACTIVITIES.golf_morning` in src/core/apartment-story.js requires
+   * `playedSquatchShoot` before the door opens: Lou is putting a club in his
+   * hand in front of people and the eye wants warming up. Authored, with a
+   * label, a refusal line, a recorded cue and a hint. */
+  check('answering Lou unlocks Golf, not THE TAKE, and the door holds for the pastime',
     golfUnlocked.call === 'answered'
       && golfUnlocked.golf === 'available'
       && golfUnlocked.heistCall === 'pending'
-      && golfUnlocked.door?.kind === 'go'
-      && golfUnlocked.door?.destination === 'silver_pines',
+      && golfUnlocked.door?.kind === 'activity'
+      && golfUnlocked.door?.id === 'playedSquatchShoot',
     JSON.stringify(golfUnlocked));
+
+  /* `pastimeWatch` reads apartment.state.shootScore every frame and completes
+   * the activity at SHOOT_TARGET_SCORE, so putting the score on the machine
+   * and giving it a frame is the played path with the arcade left out. */
+  const warmedUp = await page.evaluate(async () => {
+    const game = window.__squatch;
+    game.apartment.state.shootScore = 2000;
+    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    return {
+      played: game.campaign.state.activities.playedSquatchShoot,
+      door: game.apartmentStory.tryLeave({}),
+    };
+  });
+  check('warming the eye up on Squatch Shoot points the door at Silver Pines',
+    warmedUp.played === true
+      && warmedUp.door?.kind === 'go'
+      && warmedUp.door?.destination === 'silver_pines',
+    JSON.stringify(warmedUp));
 
   const golfDeparture = await page.evaluate(() => {
     const game = window.__squatch;

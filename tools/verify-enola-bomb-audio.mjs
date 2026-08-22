@@ -207,6 +207,20 @@ try {
     if (settled.kind === 'rejected') {
       return diagnostics(`audio manifest load rejected: ${settled.error}`);
     }
+    /* THE BOMB IS NOT ON THE APRON. `loadManifest()` decodes the START bank
+     * -- the 108 cues a man standing next to a plane can hear -- and the
+     * later banks follow through `loadBank()`, which is the whole point of
+     * the banking: a page that waits for a 44-second blast layer before it
+     * will let you walk is a page nobody waits for. `enolaCueBank` puts every
+     * `enola.*` cue in `background`, and this file was written before that
+     * split existed, so it demanded the four clips be resident at a moment
+     * when nothing had asked for them yet. The game is right.
+     *
+     * Await the bank that actually owns them. A rejection is left to the
+     * residency report below rather than thrown here: "the background bank
+     * failed" and "the clips are missing" are the same finding, and the
+     * second one names the clips. */
+    await engine.loadBank('background').catch(() => null);
     const state = diagnostics();
     state.loadResult = settled.value ?? null;
     if (state.missing.length) {

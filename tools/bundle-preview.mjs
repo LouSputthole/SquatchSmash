@@ -482,6 +482,44 @@ function toFactory({ src, rel }) {
   out = out.replace(/^export\s+(async\s+function|function|class|const|let|var)\s+([\w$]+)/gm,
     (_, kind, name) => { names.add(name); return `${kind} ${name}`; });
 
+  /* export { A, B as C } from './x.js';  -- a RE-EXPORT, which is not an
+   * import statement and not a local declaration, and was handled as neither.
+   *
+   * src/core/final-arc-loadout.js has carried one of these for weeks and
+   * `npm run verify:bundle` has been dead on it the whole time, because
+   * nothing runs that script. It is the same trap that took out the in-world
+   * Squatch Smash bundle in 23df84b: a re-export looks like an export to a
+   * reader and like nothing at all to a line-oriented rewriter.
+   *
+   * The name may or may not also be bound locally -- in that file it is, via
+   * an ordinary import two lines above -- so binding it again with a `const`
+   * would be a duplicate declaration. Take the whole target table into a fresh
+   * temporary instead and alias through it, which is correct either way.
+   *
+   * `export * from` is deliberately NOT handled: it would need the target's
+   * export list, which this bundler never computes, and guessing at it is how
+   * you ship a build that is missing one name. It falls through to the
+   * unhandled-form error below, by name. */
+  let reExportSeq = 0;
+  out = out.replace(
+    /^export\s*\{([^}]*)\}\s*from\s*['"](\.[^'"]+)['"]\s*;?$/gm,
+    (_, list, spec) => {
+      const target = path.posix.normalize(path.posix.join(path.posix.dirname(rel), spec));
+      const mod = modules.get(target);
+      if (!mod) throw new Error(`${rel}: cannot resolve ${spec}`);
+      const temp = `__re${reExportSeq}`;
+      reExportSeq += 1;
+      for (const part of list.split(',')) {
+        const t = part.trim();
+        if (!t) continue;
+        const as = /^([\w$]+)\s+as\s+([\w$]+)$/.exec(t);
+        if (as) aliases.set(as[2], `${temp}.${as[1]}`);
+        else aliases.set(t, `${temp}.${t}`);
+      }
+      return `const ${temp} = __x[${JSON.stringify(mod.id)}];`;
+    },
+  );
+
   /* export { A, B as C };  -- declared above, exported in a block at the end.
    *
    * Every three.js addon is written this way, so vendoring one broke the whole
