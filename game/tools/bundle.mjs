@@ -59,6 +59,45 @@ const parts = [
      'bindLookSensitivity', 'bindAudioVolume', 'getKeymap', 'bindKey', 'resetKeys',
      'translateKey', 'keyLabel'],
     'settings'),
+  /* WHAT PAUSE-MENU ASKS FOR THAT THIS BUNDLE DOES NOT HAVE.
+   *
+   * `stripImports` deletes import lines and defines nothing in their place, so
+   * every binding a carried module imports and this bundle does not provide is
+   * an undeclared global at runtime. `settings.js` above is provided. The other
+   * four were not, and the single-file build threw
+   * "installSystemicPolish is not defined" the moment `createPauseMenu` ran --
+   * a dead build that `node tools/bundle.mjs` reported as a success, because
+   * writing the file and running it are different questions.
+   *
+   * Carrying them instead of stubbing them is not an option worth having: the
+   * transitive closure of src/core/pause-menu.js is FOURTEEN modules and 7,190
+   * lines, and 3,982 of those are src/core/campaign.js. The entire Squatch Life
+   * campaign -- missions, the clock, the save format -- would ride inside a
+   * ninety-second campground smasher so that a pause overlay could offer to
+   * export a save that does not exist here.
+   *
+   * So: exact stubs, shaped to the call sites in pause-menu.js.
+   *   - export/importCampaignSave (473, 536) back the save-transfer box.
+   *     There is no campaign in the arcade build and no save to move.
+   *   - setSceneLifecyclePaused (695, 714, 745, 754, 777) tells Squatch Life's
+   *     scene pages to hold. This bundle is one page and pauses itself.
+   *   - installSystemicPolish (651) returns three installers whose `destroy`
+   *     is called on teardown (779-781); the shapes are what those lines need.
+   *
+   * tests/game-bundle.test.mjs holds this honest: it walks what each carried
+   * module imports and fails on any binding that is neither carried nor named
+   * here, so the next import added to pause-menu.js is a red test rather than
+   * a dead build.
+   */
+  `const { exportCampaignSave, importCampaignSave } = {
+  exportCampaignSave: () => ({ text: '' }),
+  importCampaignSave: () => ({ ok: false, reason: 'no campaign in the arcade build' }),
+};
+const setSceneLifecyclePaused = () => {};
+const installSystemicPolish = () => {
+  const inert = { destroy() {} };
+  return { presentation: inert, start: inert, keys: inert };
+};`,
   moduleIIFE('../src/core/pause-menu.js', ['createPauseMenu'], '{ createPauseMenu }'),
   moduleIIFE('src/audio.js',
     ['init', 'setMuted', 'isMuted', 'smash', 'crack', 'whiff', 'clang', 'step', 'scream', 'chime',

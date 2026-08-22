@@ -74,7 +74,22 @@ for (const [label, csp] of POLICIES) {
   });
   page.on('pageerror', (e) => errors.add(e.message.slice(0, 120)));
 
-  await page.goto(url);
+  /* Playwright's default navigation timeout is 30 s, and this page is a
+   * sixteen-megabyte single file: the whole apartment, the art, and four
+   * megabytes of voice, all inline as data URIs, parsed before `load` fires.
+   * Thirty seconds is not a statement about the build, it is a statement
+   * about the box -- the boot wait below already allows sixty for the same
+   * reason. Give the navigation the same room. */
+  /* `domcontentloaded`, not `load`, and a long fuse.
+   *
+   * This page is a sixteen-megabyte single file -- the whole apartment, the
+   * art, and four megabytes of voice, all inline as data URIs behind a strict
+   * CSP. Waiting for `load` waits for every last subresource to settle, and
+   * one that the policy refuses never settles at all, so the navigation hung
+   * past three minutes with the page perfectly alive behind it. The real
+   * readiness signal is the one the bundle publishes for exactly this
+   * purpose, and it is already awaited below: `window.__squatch`. */
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 180_000 });
   // The bundle publishes __squatch when it is ready; the watchdog fires at 30s.
   const booted = await page
     .waitForFunction(() => !!window.__squatch, { timeout: 60000 })

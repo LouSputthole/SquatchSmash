@@ -175,7 +175,23 @@ try {
     JSON.stringify(state));
 
   await page.goto(`http://localhost:${PORT}/__squatchsmash-bundle.html`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.SQUATCH?.goals, null, { timeout: 60000 });
+  /* Say what it was doing when it did not come up, rather than "timeout".
+   * A single-file build that throws on the way to `window.SQUATCH` looks
+   * exactly like one that is merely slow, and the two want opposite fixes. */
+  try {
+    await page.waitForFunction(() => window.SQUATCH?.goals, null, { timeout: 60000 });
+  } catch (error) {
+    const why = await page.evaluate(() => ({
+      hasSquatch: typeof window.SQUATCH,
+      readyState: document.readyState,
+      canvas: !!document.getElementById('game'),
+      menuText: document.querySelector('.title')?.textContent ?? null,
+      scripts: document.scripts.length,
+      bodyLength: document.body?.innerHTML?.length ?? 0,
+    })).catch((e) => ({ evaluateFailed: e.message }));
+    throw new Error(`${error.message}\nbundle state ${JSON.stringify(why)}`
+      + `\npage errors: ${JSON.stringify(problems.slice(0, 5))}`);
+  }
   state = await page.evaluate(() => ({
     state: window.SQUATCH.state,
     goals: window.SQUATCH.goals.total,

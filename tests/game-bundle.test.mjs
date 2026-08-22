@@ -64,6 +64,72 @@ test('game/src reaches outside game/ only where the bundler knows to follow', ()
     'game/ borrows from src/ only through modules its bundler carries; these do not');
 });
 
+test('every binding a carried module imports is carried or stubbed', () => {
+  /* The build succeeding says nothing about the build RUNNING.
+   *
+   * `stripImports` deletes import lines and defines nothing in their place, so
+   * a binding a carried module imports and the bundle does not provide is an
+   * undeclared global — fine at concatenation time, fatal the moment the code
+   * runs. src/core/pause-menu.js gained an import of `installSystemicPolish`
+   * and the single-file build died on it with the bundler still reporting
+   * "wrote squatchsmash.html". Nothing noticed, because the test above only
+   * asked whether the file appeared.
+   *
+   * The bundler carries two modules out of src/core/ and stubs what those
+   * modules ask for and cannot have. This holds both halves honest: an import
+   * added to either carried module must be answered, by a moduleIIFE that
+   * provides the name or by a stub the bundler declares.
+   */
+  const bundler = fs.readFileSync(path.join(GAME, 'tools', 'bundle.mjs'), 'utf8');
+  const carried = [...bundler.matchAll(/moduleIIFE\('([^']+)'/g)]
+    .map((m) => path.resolve(GAME, m[1]))
+    .filter((file) => !file.startsWith(GAME));
+
+  /* Names the bundle defines for itself: every moduleIIFE return list, plus
+   * any bare `const`/`function` the bundler emits in its own template strings
+   * (the stub block). Loose on purpose — a false "provided" here can only be
+   * caused by a name that really is written into the bundle. */
+  const provided = new Set();
+  for (const m of bundler.matchAll(/moduleIIFE\('[^']+',\s*\[([^\]]*)\]/g)) {
+    for (const part of m[1].split(',')) {
+      const name = part.trim().replace(/^['"]|['"]$/g, '');
+      if (name) provided.add(name);
+    }
+  }
+  for (const m of bundler.matchAll(/moduleIIFE\('[^']+',[\s\S]*?,\s*'([^']+)'\)/g)) {
+    for (const name of m[1].replace(/[{}]/g, '').split(',')) {
+      if (name.trim()) provided.add(name.trim());
+    }
+  }
+  for (const m of bundler.matchAll(/\b(?:const|function|let|var)\s+([\w$]+)/g)) provided.add(m[1]);
+  for (const m of bundler.matchAll(/\bconst\s*\{([^}]*)\}/g)) {
+    for (const name of m[1].split(',')) {
+      const bound = name.trim().split(':').pop().trim();
+      if (bound) provided.add(bound);
+    }
+  }
+
+  const missing = [];
+  for (const file of carried) {
+    const body = fs.readFileSync(file, 'utf8');
+    const rel = path.relative(ROOT, file);
+    for (const line of body.split('\n')) {
+      const named = line.match(/^\s*import\s*\{([^}]*)\}\s*from\s*['"](\.[^'"]+)['"]/);
+      const star = line.match(/^\s*import\s*\*\s*as\s+([\w$]+)\s*from\s*['"](\.[^'"]+)['"]/);
+      if (star && !provided.has(star[1])) missing.push(`${rel}: ${star[1]}`);
+      if (!named) continue;
+      for (const part of named[1].split(',')) {
+        const bound = part.trim().split(/\s+as\s+/).pop().trim();
+        if (bound && !provided.has(bound)) missing.push(`${rel}: ${bound}`);
+      }
+    }
+  }
+  assert.deepEqual(missing, [],
+    'these bindings are imported by a module the arcade bundle carries and are '
+    + 'defined nowhere in the bundle; carry them with a moduleIIFE or stub them '
+    + 'in game/tools/bundle.mjs beside the pause-menu entry');
+});
+
 test('the in-world game bundles into one file', () => {
   /* The real thing, because the check above cannot see every way a module can
    * be un-bundleable. It writes game/dist/, which is a build artefact. */
