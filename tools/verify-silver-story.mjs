@@ -217,7 +217,7 @@ try {
       call: state.events.margo_date_call.status,
       silver: state.missions.silver_room.status,
       timeMinutes: state.story.timeMinutes,
-      door: game.apartmentStory.tryLeave({}),
+      door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
   check('answering her unlocks the Silver Room on the authored clock',
@@ -324,7 +324,7 @@ try {
       tag: document.querySelector('#overlay .tag')?.textContent ?? '',
       scene: game.campaign.state.scene,
       day: game.time.day,
-      door: game.apartmentStory.tryLeave({}),
+      door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
   check('coming home is recognised as coming home from the date',
@@ -393,7 +393,7 @@ try {
       call: state.events.lou_golf_call.status,
       golf: state.missions.silver_pines.status,
       heistCall: state.events.lou_heist_call.status,
-      door: game.apartmentStory.tryLeave({}),
+      door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
   /* THE MORNING HAS A THING HE HAS TO DO FIRST, and this file did not know
@@ -419,7 +419,7 @@ try {
     await new Promise((resolve) => requestAnimationFrame(() => resolve()));
     return {
       played: game.campaign.state.activities.playedSquatchShoot,
-      door: game.apartmentStory.tryLeave({}),
+      door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
   check('warming the eye up on Squatch Shoot points the door at Silver Pines',

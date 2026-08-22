@@ -1501,6 +1501,17 @@ function beginDeparture() {
     'Out through the store room and the service door. Snow is already in the car.',
     5200,
   );
+  /* AND IF HE IS ALREADY OUT THERE, THE SCENE IS ALREADY OVER.
+   *
+   * `updateRoom` ends the party on the frame the room CHANGES to yard or
+   * alley. That is the right test for a man walking out of a door and the
+   * wrong one for a man who was standing in the alley when Lou finally said
+   * go: the room does not change again, so nothing ever fires and the scene
+   * sits there with one objective and no way to satisfy it. Found by
+   * tools/verify-bing-two.mjs putting the player in the yard a beat early --
+   * a real order a player can reach, because the alley is outside the club
+   * and nothing stops him standing in it through the whole handoff. */
+  if (['yard', 'alley'].includes(state.room)) finishParty();
 }
 
 function finishParty() {

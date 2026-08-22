@@ -204,31 +204,33 @@ async function monitorGeometry() {
 }
 
 try {
-  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+  /* PREVIEW, NOT A FRESH SAVE, and the reason is the cold open.
+   *
+   * A brand new day-one player is booted straight into full-screen Squatch
+   * Smash (`coldOpenEligible` in src/main.js): the title overlay is hidden,
+   * the game is already started, and the arcade iframe sits over #start-btn,
+   * which is why this file used to hang for thirty seconds on a click that
+   * could never land. Driving out through the arcade instead gets past the
+   * click and then leaves the wrong room behind it -- the player still in the
+   * chair with SQUATCH SMASH.exe still open on the monitor, which is exactly
+   * the state the cold open is SUPPOSED to end in and not the state the other
+   * thirty-eight checks here were written against.
+   *
+   * `isPreviewMode()` is the first thing `coldOpenEligible` asks about, so
+   * `?preview=1` is the supported way to say "boot this page for inspection,
+   * not as somebody's first night". That is what this file is about: the desk
+   * PC, on an ordinary visit. The opening itself has a whole verifier of its
+   * own in tools/verify-cold-open.mjs. */
+  await page.goto(`http://localhost:${PORT}/index.html?preview=1`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.arcade, null, { timeout: 60000 });
   await page.evaluate(() => window.__squatch.postfx.disable?.());
 
-  /* A BRAND NEW SAVE NEVER SEES "WAKE UP" ANY MORE. The cold open boots a
-   * day-one player straight into full-screen Squatch Smash (see
-   * `coldOpenEligible` in src/main.js), which hides the overlay and starts the
-   * game itself. This verifier still clicked #start-btn, which by then is a
-   * hidden button behind the arcade iframe -- Playwright retried the click for
-   * thirty seconds and gave up with "iframe intercepts pointer events". The
-   * game was right; the verifier was describing a boot that no longer happens.
-   *
-   * So take whichever door the build actually opens: click the button when
-   * there is a title card, and otherwise leave through the arcade the way the
-   * player does. Driving the quit here is not a detour -- it proves the cold
-   * open hands the room back in a state the rest of this file can use. */
-  if (await page.evaluate(() => !window.__squatch.game.started)) {
-    await page.click('#start-btn');
-  } else if (await page.evaluate(() => window.__squatch.coldOpenState?.active === true)) {
-    await page.evaluate(() => window.__squatch.quitSquatchSmash());
-    /* Ten frames a second against a five-second dolly. Wait on the sequence,
-     * never on the clock -- the same trap tools/verify-cold-open.mjs records. */
-    await page.waitForFunction(() => window.__squatch.coldOpenState.active === false,
-      null, { timeout: 180000 });
-  }
+  /* Preview keeps the title card, so the button is a button again. Assert
+   * that rather than branching on it: a build where the cold open leaks into
+   * preview mode should fail here, loudly, not quietly take the other door. */
+  await page.waitForFunction(() => window.__squatch.coldOpenState?.active === false,
+    null, { timeout: 30000 });
+  await page.click('#start-btn');
   /* A DOM click settles when the event has been dispatched, not when an async
    * listener has finished. First start intentionally keeps the title overlay
    * above the room while its recorded Apartment bank is decoded; driving the

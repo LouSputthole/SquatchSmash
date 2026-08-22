@@ -750,7 +750,7 @@ try {
       paused: game.interaction.paused,
       yawCentre: game.player.yawCenter,
       pitchFloor: Math.round(game.player.pitchMin * 100) / 100,
-      door: game.apartmentStory.tryLeave({}),
+      door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
   check('Margo gets dressed, leaves, and hands the room back',
@@ -826,7 +826,7 @@ try {
       heist: game.campaign.state.missions.bank_heist.status,
       initiation: game.campaign.state.missions.initiation.status,
       timeMinutes: story.timeMinutes,
-      door: game.apartmentStory.tryLeave({}),
+      door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
   check('answering Lou unlocks only Silver Pines at 7:03',
@@ -859,13 +859,17 @@ try {
       && typeof golfAnswered.door?.hint === 'string',
     JSON.stringify(golfAnswered.door));
 
+  /* `activityContext()`, not `{}`. The door reads what the flat and the
+   * campaign know between them; an empty context says every activity is
+   * undone, which was harmless only while this chapter required none of them.
+   * It is exposed on window.__squatch for exactly this. */
   const warmedUp = await page.evaluate(async () => {
     const game = window.__squatch;
     game.apartment.state.shootScore = 2000;
     await new Promise((resolve) => requestAnimationFrame(() => resolve()));
     return {
       played: game.campaign.state.activities.playedSquatchShoot,
-      door: game.apartmentStory.tryLeave({}),
+      door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
   check('warming the eye up on Squatch Shoot opens the door to Silver Pines',
@@ -981,7 +985,7 @@ try {
       scene: game.campaign.state.scene,
       golf: game.campaign.state.missions.silver_pines,
       shown,
-      door: game.apartmentStory.tryLeave({}),
+      door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
   check('the Silver Pines Home control returns to the heist-day apartment',
@@ -1045,7 +1049,7 @@ try {
       initiation: game.campaign.state.missions.initiation.status,
       preparation: game.campaign.state.missions.bank_heist.preparation,
       timeMinutes: story.timeMinutes,
-      door: game.apartmentStory.tryLeave({}),
+      door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
   check('answering Lou unlocks THE TAKE but keeps the completed round and Initiation locked',
@@ -1108,7 +1112,7 @@ try {
       answered: state.events.lou_heist_call.status,
       timeMinutes: state.story.timeMinutes,
       heist: state.missions.bank_heist.status,
-      door: game.apartmentStory.tryLeave({}),
+      door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
   check('coming back home does not replay Lou or lose the interrupted heist',

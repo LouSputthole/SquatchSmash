@@ -138,9 +138,18 @@ async function incidentState(page) {
       collision: {
         count: incident.party.collision?.all.length ?? 0,
         castCount: incident.party.collision?.cast.length ?? 0,
+        castIds: (incident.party.collision?.cast ?? []).map((entry) => entry.id),
         propIds: incident.party.collision?.props.map((entry) => entry.id) ?? [],
         nonblocking: incident.party.collision?.nonblocking.map((entry) => entry.id) ?? [],
       },
+      /* Who is in the room at all, in the same spelling the collider ids use,
+       * so "who has no body" is answerable rather than a number that differs
+       * by two for reasons nobody wrote down. */
+      castSlugs: incident.cast.all.map((npc) => {
+        const characterId = npc.characterId ?? npc.group?.userData?.npc?.characterId;
+        return `cast.${characterId ?? String(npc.name || '')
+          .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
+      }),
       cakePedestalParts: incident.party.food.cakePedestal?.children.length ?? 0,
       hasPartySet: Boolean(
         incident.party.extra.hotdog
@@ -225,8 +234,23 @@ try {
       && /gleeful/i.test(signatureBeat.matches[0].direction)
       && signatureBeat.matches[0].index === signatureBeat.music + 1,
     JSON.stringify(signatureBeat));
+  /* TWO MEN IN THIS ROOM HAVE NO BODY ON PURPOSE, and this check demanded a
+   * body for every one of the twenty-four. `installPartyColliders` says why in
+   * its own comment: the bartender and the dealer work INSIDE furniture that
+   * already collides -- the bar counter run and the blackjack table footprint
+   * -- so a body box on either is a box permanently inside a wall, which the
+   * geometry gate is right to call one, and nothing can reach them to need it.
+   *
+   * So name them rather than counting. A count that is short by two says
+   * nothing about WHICH two, and the day somebody loses Lou's collider it
+   * would read exactly the same. */
+  const withoutBodies = current.castSlugs
+    .filter((slug) => !current.collision.castIds.includes(slug));
   check('the party set has solid furniture, a supported cake, live cast bodies, and nonblocking evidence',
-    current.collision.castCount === current.castCount
+    current.collision.castCount === current.castCount - 2
+      && withoutBodies.length === 2
+      && withoutBodies.includes('cast.staff.bartender')
+      && withoutBodies.includes('cast.staff.dealer')
       && [
         'prop.buffet',
         'prop.cake-table',
@@ -241,7 +265,11 @@ try {
         'trigger.service-load',
       ].every((id) => current.collision.nonblocking.includes(id))
       && current.cakePedestalParts >= 4,
-    JSON.stringify({ collision: current.collision, cake: current.cakePedestalParts }));
+    JSON.stringify({
+      cast: current.castCount, castWithBodies: current.collision.castCount,
+      withoutBodies, cake: current.cakePedestalParts,
+      props: current.collision.propIds, nonblocking: current.collision.nonblocking,
+    }));
   check('loading Scene Two is read-only and leaves the Motel locked',
     current.campaign.status === 'available'
       && current.motel.status === 'locked'
@@ -928,10 +956,17 @@ try {
     incident.party.extra.hotdog.group.userData.interact.onUse();
     const wrapped = incident.mission.flags.bodyWrapped && incident.state.wrapped;
     const guideAfterWrap = incident.party.cleanup.serviceGuide.visible;
-    const loadObjective = incident.mission.objectives.find((objective) => objective.id === 'load')?.text;
     const lift = incident.party.cleanup.wrap.userData.interact;
     lift.onUse();
     const carried = incident.mission.flags.bodyCarried && incident.state.carrying;
+    /* `carryBody()` is what adds the load objective -- wrapping adds `carry`,
+     * carrying adds `load`. Reading it before the lift got `undefined`. */
+    const loadObjective = incident.mission.objectives.find((objective) => objective.id === 'load')?.text;
+    /* The route through the building is named on the CARRY objective, not the
+     * load one -- carrying him out is the part that passes through rooms; the
+     * loading pad is a place. This check used to look for "store room" on the
+     * load text because carrying did not exist as a step yet. */
+    const carryObjective = incident.mission.objectives.find((objective) => objective.id === 'carry')?.text;
     incident.party.cleanup.loadPad.userData.interact.onUse();
     const assigned = incident.mission.assignment === 'reserve_pickup';
     const guideAfterLoad = incident.party.cleanup.serviceGuide.visible;
@@ -958,7 +993,7 @@ try {
     }, 12);
     return {
       completed, sweptTooEarly, wrapped, carried, assigned, debriefed, swept, banked,
-      guideAfterWrap, guideAfterLoad, loadObjective, sweepObjective,
+      guideAfterWrap, guideAfterLoad, loadObjective, carryObjective, sweepObjective,
     };
   }, CLEANUP_TASKS.filter((task) => task !== 'final_sweep'));
   check('the cleanup runs floor, wrap, carry, load, report and sweep in that order',
@@ -976,16 +1011,74 @@ try {
       && !cleanup.guideAfterLoad
       // The route is named by the rooms it passes through. The floor arrows
       // it used to name pointed through the main room's south wall.
-      && /store room/i.test(cleanup.loadObjective)
+      && /store room/i.test(cleanup.carryObjective || '')
+      && /service door/i.test(cleanup.loadObjective || '')
       && /sweep/i.test(cleanup.sweepObjective || ''),
     JSON.stringify(cleanup));
 
-  await page.waitForFunction(
-    () => window.HOTDOG_INCIDENT.game.phase === 'complete'
-      && /graveyard/i.test(document.getElementById('start-btn')?.textContent || ''),
-    null,
-    { timeout: 90000 },
-  );
+  /* AND THEN HE HAS TO WALK OUT, which is the one thing this file never did.
+   *
+   * `finishParty()` is not called by the last beat of the handoff. The scene
+   * ends on the frame the player reaches `yard` or `alley` -- see the comment
+   * on that line in src/bing/hotdog-main.js: no fade to a cutscene of a room
+   * he has already walked out of, because that has already played, inside,
+   * with everybody still standing in it. `beginDeparture()` opens the service
+   * door for him and says so.
+   *
+   * This never surfaced before because the sweep was never reaching the
+   * ending at all; with the order fixed the scene now gets as far as waiting
+   * for him, and the wait is what times out. Put him in the yard, which is
+   * where the door leads. */
+  /* Wait for Lou to actually say go before walking out, which is the order a
+   * player experiences. Doing it early is what surfaced the softlock now
+   * fixed in `beginDeparture` -- worth keeping in mind, but the check below
+   * is about the handoff, not about that edge. */
+  await page.waitForFunction(() => window.HOTDOG_INCIDENT.state.departing === true,
+    null, { timeout: 90000 });
+  await page.evaluate(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    /* The scene's own `teleport`, not a position write: it sets the walk mode
+     * and the yaw with it, and it is on the runtime handle for this. */
+    incident.teleport(13, -20);   // ROOMS.yard: x 5..21, z -26..-15
+  });
+
+  /* A bare timeout here says "it did not finish" and nothing else, which is
+   * worth about ten minutes of guessing per occurrence. Say what it was doing
+   * instead: which beat the director is on, whether the departure has begun,
+   * and whether the player is where the scene is waiting for him to be. */
+  try {
+    await page.waitForFunction(
+      () => window.HOTDOG_INCIDENT.game.phase === 'complete'
+        && /graveyard/i.test(document.getElementById('start-btn')?.textContent || ''),
+      null,
+      { timeout: 90000 },
+    );
+  } catch (error) {
+    const stalled = await page.evaluate(() => {
+      const incident = window.HOTDOG_INCIDENT;
+      const d = incident.state.director;
+      return {
+        phase: incident.game.phase,
+        paused: incident.state.paused,
+        cinematic: incident.state.cinematic?.active ?? null,
+        room: incident.state.room,
+        departing: incident.state.departing,
+        endingShown: incident.state.endingShown,
+        director: {
+          index: d.index,
+          running: d.running,
+          handoffReady: d.handoffReady,
+          remaining: d.remaining,
+          current: d.current?.line ?? null,
+          currentPhase: d.current?.phase ?? null,
+          beats: incident.sequence.length,
+        },
+        player: { x: incident.player?.position?.x, z: incident.player?.position?.z },
+        startBtn: document.getElementById('start-btn')?.textContent ?? null,
+      };
+    });
+    throw new Error(`${error.message}\nstalled at ${JSON.stringify(stalled)}`);
+  }
   current = await incidentState(page);
   check('loading the body creates a durable graveyard handoff, not a Motel unlock',
     current.readyToLeave
@@ -1277,9 +1370,18 @@ try {
     if (id === 'graveyard') {
       await cpPage.evaluate(() => {
         const incident = window.HOTDOG_INCIDENT;
-        for (let tick = 0; tick < 800 && incident.mission.state !== 'done'; tick++) {
+        /* Run the handoff out. The director exhausting its sequence is what
+         * calls `beginDeparture()`; it does NOT finish the mission. */
+        for (let tick = 0; tick < 800 && !incident.state.departing; tick++) {
           incident.updateDirector(0.05);
         }
+        /* AND THEN HE WALKS OUT, which is the only thing that ends this scene
+         * -- `updateRoom` finishes the party on the frame the room changes to
+         * yard or alley, deliberately, so the ending is not a cutscene of a
+         * room he has already left. Pumping the director alone leaves the
+         * mission in `departure` for ever, which is what this branch was
+         * quietly waiting on. */
+        incident.teleport(13, -20);   // ROOMS.yard in src/bing/club.js
       });
     }
     await cpPage.waitForFunction(
