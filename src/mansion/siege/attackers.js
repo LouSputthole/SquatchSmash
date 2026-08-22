@@ -1216,11 +1216,21 @@ export function createAttackerPool({
     onWeaponEvent: null,
   };
 
+  /* THE CURSOR MOVES ONLY ON A LINE THAT WAS ACTUALLY TAKEN -- see the twin of
+   * this function in ensemble.js for the full argument. Short version:
+   * `renderCombatBark` in siege/main.js refuses a bark while a scripted
+   * dialogue line still holds the subtitle and returns false, and the siege
+   * refuses in bursts because the briefing and guidance sequences run through
+   * the fighting. Advancing before asking spent those entries unheard, which
+   * on a three-line tactical pool hands the player the same sentence twice,
+   * and on `identity` throws away one of the forty-two A-Team lines -- each
+   * cast and carried in the manifest under its own `vo.ateam.*` cue, so the
+   * day those takes land the burn costs a recording rather than a caption.
+   * Same rule as `refuseWeapon` in src/motel/main.js. */
   function bark(entry, key) {
     const lines = BARKS[key];
     if (!lines?.length) return null;
     const index = (barkCursor.get(key) ?? 0) % lines.length;
-    barkCursor.set(key, index + 1);
     const raw = lines[index];
     /* Every other bark pool is bare strings. BARKS.identity is the one pool
      * that also carries a manifest cue and a named speaker (see its own
@@ -1244,10 +1254,14 @@ export function createAttackerPool({
      * tag, a mixer slot, a future one-voice-at-a-time gate. Null for every
      * tactical pool, which stays captions. */
     const voice = spoken ? null : (raw.voice ?? null);
-    entry.lastBark = line;
-    context.onBark?.({
+    const taken = context.onBark?.({
       id: entry.id, key, line, cue, voice, role: entry.role.id,
     });
+    /* A consumer that returns nothing -- a headless pool, a test listener --
+     * has not refused anything, so only an explicit false holds the cursor. */
+    if (taken === false) return null;
+    barkCursor.set(key, index + 1);
+    entry.lastBark = line;
     return line;
   }
 

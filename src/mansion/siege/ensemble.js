@@ -1216,14 +1216,33 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
     return pool;
   }
 
+  /* THE CURSOR MOVES ONLY ON A LINE THAT WAS ACTUALLY TAKEN.
+   *
+   * `renderCombatBark` in siege/main.js drops a bark outright while a scripted
+   * dialogue line still holds the subtitle, and returns false when it does.
+   * This advanced BEFORE asking, so every refusal spent an entry that was
+   * never heard -- and the siege refuses in bursts, because the briefing and
+   * the guidance sequences run straight through the fighting. `reload`, `hit`
+   * and `kill` are three lines each, so three refusals spend the whole pool
+   * and the next man audibly repeats the sentence the player just heard.
+   * Measured on wave two, 70 s of contact, with a listener that refuses
+   * everything: six authored lines consumed and none of them said.
+   *
+   * Same rule and the same reasoning as `refuseWeapon` in src/motel/main.js
+   * and `bark()` in src/beefrun/dialogue.js, which both settle whether the
+   * line got said before they touch the rotation. A consumer that returns
+   * nothing -- a headless pool, a test listener -- has not refused anything,
+   * so only an explicit false holds the cursor.
+   */
   function bark(member, key) {
     const lines = BARKS[key];
     if (!lines?.length) return null;
     const index = (barkCursor.get(key) ?? 0) % lines.length;
-    barkCursor.set(key, index + 1);
     const line = lines[index];
+    const taken = context.onBark?.({ id: member.id, name: member.name, key, line });
+    if (taken === false) return null;
+    barkCursor.set(key, index + 1);
     member.lastBark = line;
-    context.onBark?.({ id: member.id, name: member.name, key, line });
     return line;
   }
 
