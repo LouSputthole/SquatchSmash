@@ -42,14 +42,37 @@
  * a stand-in camera at the origin to hang held props off -- that camera is the
  * harness's, not the scene's, and its findings are worth less than an
  * authored beat's.
+ *
+ * IT BLOCKS NOW, and it did not always. It reported five findings and exited
+ * zero while they were all one artifact -- Initiation authoring its collision
+ * as height-less circles -- and a gate that exits zero is a gate whose next
+ * finding arrives in a log nobody reads. Three of the five went when the ray
+ * started being tested against the circle the author wrote rather than its
+ * circumscribing square; the last two are the parked cars, whose roofs are at
+ * 2.26 m under a collider band invented up to 4 m, and they are written down
+ * in tools/framing-allowlist.json with a reason apiece. So an AUTHORED finding
+ * that is not on that list fails the build, and so does a list entry that
+ * excused nothing -- docs/ENGINE-TRAPS.md entry 10, because a stale entry is
+ * as likely to mean the gate went blind as that somebody fixed something.
+ *
+ * A DERIVED camera never fails a build and is never allowlisted. It is the
+ * harness's own stand-in as often as it is the scene's, so it has nothing to
+ * excuse: it is reported, counted separately, and left for a person.
  */
 import fs from 'node:fs';
+import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 import { ensureDomShim, ensureThreeShim } from './three-shim.mjs';
 import { normalizeSceneColliders, withDescriptorGeometryRandom } from './verify-geometry-worker.mjs';
 import { buildGeometrySceneState, GEOMETRY_SCENE_STATES } from './geometry-scenes.mjs';
 import { collectActors } from '../src/core/staging.js';
 import { framingFindings } from './framing-gate.mjs';
+import {
+  applyFramingAllowlist, unusedEntries, validateFramingAllowlist,
+} from './framing-allowlist.mjs';
 
 /* The same two shims the geometry worker installs, for the same reason: half
  * these scenes paint a texture on a canvas while they build, and a scene that
@@ -80,6 +103,70 @@ if (beatsPath && (typeof fileBeats !== 'object' || Array.isArray(fileBeats))) {
   throw new TypeError(`${beatsPath} must be an object keyed by scene state id`);
 }
 
+/**
+ * Hold every entry's citation to the file it actually cites.
+ *
+ * THE GEOMETRY AND STAGING GATES BOTH DO THIS, and it is the reason they can
+ * be trusted: an entry whose cited line has moved is caught the moment the
+ * source shifts, and the siege's allowlist was found pointing three lines off
+ * for weeks with 480 entries quietly wrong. The pure validators cannot do it
+ * -- they have no filesystem, deliberately -- so it lives here beside the
+ * reading, as it does in tools/verify-staging.mjs. It is a third copy of
+ * twenty lines rather than a shared module because lifting it means editing
+ * two other gates' readers, and this change does not own them; the day a
+ * fourth allowlist wants it, that is the change to make.
+ */
+function citationIssues(entries) {
+  const found = [];
+  const cache = new Map();
+  entries.forEach((entry, index) => {
+    const at = `entries[${index}]`;
+    const match = /^(.+):(\d+)$/.exec(entry.source ?? '');
+    if (!match) {
+      found.push(`${at}.source must be "path/to/file.js:line"`);
+      return;
+    }
+    const [, relative, rawLine] = match;
+    const file = path.join(ROOT, relative);
+    if (!cache.has(file)) {
+      cache.set(file, fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\n') : null);
+    }
+    const lines = cache.get(file);
+    if (!lines) {
+      found.push(`${at}.source cites ${relative}, which does not exist`);
+      return;
+    }
+    const lineNumber = Number(rawLine);
+    if (!(lineNumber >= 1 && lineNumber <= lines.length)) {
+      found.push(`${at}.source cites ${relative}:${lineNumber}, past the end of a ${lines.length}-line file`);
+      return;
+    }
+    const cited = lines[lineNumber - 1];
+    if (!cited.trim()) {
+      found.push(`${at}.source cites ${relative}:${lineNumber}, which is blank`);
+      return;
+    }
+    if (entry.sourceAnchor !== undefined && !cited.includes(entry.sourceAnchor)) {
+      found.push(`${at}.sourceAnchor ${JSON.stringify(entry.sourceAnchor)} is not on ${relative}:${lineNumber}`);
+    }
+  });
+  return found;
+}
+
+/* Read and check the allowlist BEFORE building a single scene. A file that
+ * does not validate stops the run rather than half-applying: an allowlist
+ * nobody can trust turns every green run after it into a claim nobody made. */
+const ALLOWLIST_PATH = path.join(ROOT, 'tools', 'framing-allowlist.json');
+const allowlist = validateFramingAllowlist(
+  JSON.parse(fs.readFileSync(ALLOWLIST_PATH, 'utf8')),
+);
+allowlist.issues.push(...citationIssues(allowlist.entries));
+if (allowlist.issues.length) {
+  console.error(`${path.relative(ROOT, ALLOWLIST_PATH)} is not usable:`);
+  for (const issue of allowlist.issues) console.error(`  ${issue}`);
+  process.exit(1);
+}
+
 const THREE = await import('three');
 
 /** Which keys of a `--beats` file actually named a state that was built. */
@@ -100,6 +187,14 @@ const DERIVED_LOOK_RANGE_M = 10;
  * sees no walls cheerfully reports that nothing is behind a wall. The geometry
  * worker already knows how to read all four; asking it is both less code and
  * one fewer opinion about what a collider is.
+ *
+ * AND IT HANDS OVER THE SHAPE, not only the bounds. The box of an upright
+ * cylinder is its circumscribing square, which is the conservative reading for
+ * walking into a trunk and the wrong one for seeing past it -- five findings
+ * across the two Initiation states were sightlines clearing a parked car at
+ * the diagonal by centimetres. `record.shape` is present only where the author
+ * wrote a circle, so a scene that builds its walls out of boxes is tested
+ * exactly as it always was.
  */
 function colliderBoxes(built) {
   return normalizeSceneColliders(built)
@@ -108,6 +203,7 @@ function colliderBoxes(built) {
       name: record.id ?? null,
       min: [record.min.x, record.min.y, record.min.z],
       max: [record.max.x, record.max.y, record.max.z],
+      ...(record.shape ? { shape: record.shape } : {}),
     }));
 }
 
@@ -202,8 +298,11 @@ const states = GEOMETRY_SCENE_STATES
 let authoredFindings = 0;
 let derivedFindings = 0;
 let withBeats = 0;
+let suppressedCount = 0;
 const dark = [];
 const byKind = new Map();
+const builtStateIds = [];
+const usedEntryIds = new Set();
 
 for (const state of states) {
   let built;
@@ -222,11 +321,27 @@ for (const state of states) {
   if (authored.length === 0 && derived.length === 0) continue;
   if (authored.length) withBeats += 1;
 
-  const { findings } = framingFindings({
+  const { findings: raw } = framingFindings({
     id: state.id, beats: [...authored, ...derived], actors, boxes,
   });
+  builtStateIds.push(state.id);
 
+  /* Split before excusing anything. The allowlist is for AUTHORED beats only:
+   * a derived camera is as often the harness's stand-in at the origin as it
+   * is the scene's, it can never fail a build, and so it has nothing to be
+   * excused from. Letting it be allowlisted would put entries in the file that
+   * the ratchet could never usefully call stale. */
   const derivedIds = new Set(derived.map((beat) => beat.id));
+  const rawDerived = raw.filter((item) => derivedIds.has(item.beat));
+  const { kept, suppressed, used } = applyFramingAllowlist(
+    raw.filter((item) => !derivedIds.has(item.beat)),
+    allowlist.entries,
+    state.id,
+  );
+  for (const id of used) usedEntryIds.add(id);
+  suppressedCount += suppressed.length;
+
+  const findings = [...kept, ...rawDerived];
   for (const item of findings) {
     byKind.set(item.kind, (byKind.get(item.kind) ?? 0) + 1);
     if (derivedIds.has(item.beat)) derivedFindings += 1; else authoredFindings += 1;
@@ -271,6 +386,21 @@ if (byKind.size) {
     console.log(`  ${kind}: ${count}`);
   }
 }
+if (suppressedCount) console.log(`Allowlisted: ${suppressedCount}`);
+
+/* THE RATCHET. An entry that excused nothing this run is permission nobody
+ * re-examined -- and per docs/ENGINE-TRAPS.md entry 10 it is as likely to mean
+ * the gate stopped seeing the fault as that somebody fixed it, so go and
+ * measure the thing it describes before deleting it. Judged only against
+ * states this run actually built, so a filtered run does not condemn the rest
+ * of the file on the strength of never having looked. */
+const stale = unusedEntries(allowlist.entries, builtStateIds, usedEntryIds);
+if (stale.length) {
+  console.log('Stale allowlist entries (measure what they describe before deleting):');
+  for (const id of stale) console.log(`  ${id}`);
+}
+
 console.log(authoredFindings === 0
   ? `Framing gate clean on published beats (${derivedFindings} on derived cameras).`
   : `${authoredFindings} framing findings (${derivedFindings} more on derived cameras).`);
+if (authoredFindings > 0 || stale.length > 0) process.exitCode = 1;

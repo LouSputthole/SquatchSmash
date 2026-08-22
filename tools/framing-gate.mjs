@@ -63,6 +63,17 @@ import { rayBoxDistance } from './staging-gate.mjs';
 
 export { rayBoxDistance };
 
+/* AND WHY THE CYLINDER TEST BELOW IS NOT THE THIRD GATE.
+ *
+ * The note above says the day a THIRD gate wants the slab test, lift it into
+ * a shared `tools/gate-math.mjs`. That day has not arrived and this is not it:
+ * `rayBoxDistance` still has exactly two callers, the staging gate that owns
+ * it and this one. What arrived is a second SHAPE inside this gate, wanted by
+ * nobody else -- the staging gate asks "is he facing a wall", which the
+ * over-wide box answers conservatively and correctly. Moving the box test out
+ * to keep it company with a routine only this file calls would be churn in
+ * `staging-gate.mjs` bought with nothing. */
+
 /**
  * The lens the scenes actually build with.
  *
@@ -134,9 +145,88 @@ function unit(v) {
   return [v[0] / length, v[1] / length, v[2] / length];
 }
 
-const inside = (box, [x, y, z]) => x >= box.min[0] && x <= box.max[0]
-  && y >= box.min[1] && y <= box.max[1]
-  && z >= box.min[2] && z <= box.max[2];
+/**
+ * Distance from `origin` along unit `dir` to the first hit on an UPRIGHT
+ * cylinder, or Infinity. Same contract as `rayBoxDistance` in every respect,
+ * including the zero it returns for an origin already inside the solid.
+ *
+ * THE FINDINGS THIS EXISTS TO SETTLE. Initiation authors its woods and its car
+ * park as `{x, z, r}` circles, and the collider reader gives each of them its
+ * circumscribing axis-aligned box, which is right for walking into a trunk and
+ * wrong for seeing past one: a square is wider than the circle it contains at
+ * the diagonals, by up to 41 per cent of the radius. Five sightlines read as
+ * blocked on that margin -- Kittenboss behind a parked Lincoln three times
+ * over, the player at the cabin door behind another, and `speech-start`'s
+ * camera declared to be standing inside a third -- and every one of them was
+ * cast against the RENDERED geometry of both states and hit nothing.
+ *
+ * The y band is the box's, untouched: a trunk really is tall, and this changes
+ * the SHAPE and nothing else. The slab half is written the same way the box
+ * test writes it, degenerate branch and all, so the two agree on a ray that
+ * runs parallel to the cap.
+ */
+export function rayCylinderDistance(origin, dir, cylinder) {
+  let near = 0;
+  let far = Infinity;
+  if (Math.abs(dir[1]) < 1e-9) {
+    if (origin[1] < cylinder.minY || origin[1] > cylinder.maxY) return Infinity;
+  } else {
+    let t0 = (cylinder.minY - origin[1]) / dir[1];
+    let t1 = (cylinder.maxY - origin[1]) / dir[1];
+    if (t0 > t1) [t0, t1] = [t1, t0];
+    if (t0 > near) near = t0;
+    if (t1 < far) far = t1;
+    if (near > far) return Infinity;
+  }
+  const ox = origin[0] - cylinder.x;
+  const oz = origin[2] - cylinder.z;
+  const a = dir[0] * dir[0] + dir[2] * dir[2];
+  const c = ox * ox + oz * oz - cylinder.r * cylinder.r;
+  if (a < 1e-12) {
+    /* Straight up or straight down the axis. There is no quadratic to solve:
+     * the ray is either inside the circle for its whole length or never
+     * enters it, and the caps are the only thing left to hit -- which the y
+     * slab above has already worked out. */
+    if (c > 0) return Infinity;
+  } else {
+    const b = 2 * (ox * dir[0] + oz * dir[2]);
+    const discriminant = b * b - 4 * a * c;
+    if (discriminant < 0) return Infinity;
+    const root = Math.sqrt(discriminant);
+    const t0 = (-b - root) / (2 * a);
+    const t1 = (-b + root) / (2 * a);
+    if (t0 > near) near = t0;
+    if (t1 < far) far = t1;
+    if (near > far) return Infinity;
+  }
+  return far < 0 ? Infinity : near;
+}
+
+/**
+ * The first hit on a solid, tested as the shape its author actually wrote.
+ *
+ * A solid that carries no `shape` was authored as a box and is one; only a
+ * collider the scene wrote as a circle gets the circle.
+ */
+export function solidDistance(origin, dir, solid) {
+  if (solid.shape?.kind !== 'cylinder') return rayBoxDistance(origin, dir, solid);
+  return rayCylinderDistance(origin, dir, {
+    x: solid.shape.x,
+    z: solid.shape.z,
+    r: solid.shape.r,
+    minY: solid.min[1],
+    maxY: solid.max[1],
+  });
+}
+
+/** Is this point in the masonry? Same shape rule as `solidDistance`. */
+export function insideSolid(solid, [x, y, z]) {
+  if (y < solid.min[1] || y > solid.max[1]) return false;
+  if (solid.shape?.kind === 'cylinder') {
+    return Math.hypot(x - solid.shape.x, z - solid.shape.z) <= solid.shape.r;
+  }
+  return x >= solid.min[0] && x <= solid.max[0] && z >= solid.min[2] && z <= solid.max[2];
+}
 
 /**
  * The camera's own three axes, from a position and a point it is looking at.
@@ -267,7 +357,7 @@ export function framingFindings({
 
     /* The camera in the masonry, first, because it makes everything after it
      * meaningless: a camera inside a wall sees the inside of a wall. */
-    const swallowed = boxes.find((box) => inside(box, shot.position));
+    const swallowed = boxes.find((box) => insideSolid(box, shot.position));
     if (swallowed) {
       findings.push(finding('CAMERA_INSIDE_SOLID', beat, { solid: swallowed.name ?? null }));
     }
@@ -363,7 +453,7 @@ export function framingFindings({
     let nearest = Infinity;
     let blocker = null;
     for (const box of boxes) {
-      const distance = rayBoxDistance(shot.position, dir, box);
+      const distance = solidDistance(shot.position, dir, box);
       if (distance < nearest) { nearest = distance; blocker = box; }
     }
     if (nearest < range - OCCLUSION_SKIN_M) {

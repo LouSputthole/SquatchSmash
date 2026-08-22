@@ -102,6 +102,31 @@ function rawBounds(collider) {
     return {
       min: { x: collider.x - collider.r, y: number(collider.y0) ?? -0.5, z: collider.z - collider.r },
       max: { x: collider.x + collider.r, y: number(collider.y1) ?? 4, z: collider.z + collider.r },
+      /* AND THE CIRCLE ITSELF, ALONGSIDE THE BOX, because over-approximating
+       * is only conservative for one of the two questions asked of a solid.
+       *
+       * Walking into a trunk and seeing past one are not the same test. The
+       * box above is right for the first -- a walker stopped a hand's breadth
+       * early has been stopped -- and wrong for the second, because the
+       * circumscribing square is wider than the trunk at the diagonals and a
+       * sightline that clears the wood by a few centimetres reads as blocked.
+       * That cost the framing gate four findings in the clearing and one at
+       * the cabin door, all of them sightlines that a raycast against the
+       * RENDERED geometry of both states -- 99 solid meshes and 349 -- proved
+       * hit nothing at all.
+       *
+       * So the shape the author actually wrote rides along beside the bounds.
+       * Nothing in the geometry pipeline reads it: the collector builds its
+       * records from a fixed key list and the gate's RECORD_KEYS is a
+       * deliberately narrow geometric contract, so this is inert there by
+       * construction and the record and violation counts are unchanged. It
+       * exists for the one consumer that has to ask the second question. */
+      shape: {
+        kind: 'cylinder',
+        x: number(collider.x),
+        z: number(collider.z),
+        r: number(collider.r),
+      },
     };
   }
   return null;
@@ -182,6 +207,10 @@ export function normalizeSceneColliders(built) {
       id,
       min: candidate.bounds.min,
       max: candidate.bounds.max,
+      /* Only when there is one to carry: an authored box has no shape beyond
+       * its bounds, and a `shape: undefined` on every record in the game would
+       * be a key nobody reads pretending to be information. */
+      ...(candidate.bounds.shape ? { shape: candidate.bounds.shape } : {}),
       rootLabel: built.roots.length === 1 ? built.roots[0].label : built.scene,
       assemblyId,
       role: source.role ?? source.tag ?? null,

@@ -24,7 +24,9 @@ import {
   cameraBasis,
   framePlacement,
   framingFindings,
+  insideSolid,
   rayBoxDistance,
+  rayCylinderDistance,
 } from '../tools/framing-gate.mjs';
 
 /** A body where `collectActors` would have put one: head at the eye height. */
@@ -38,6 +40,18 @@ const actor = (id, [x, y, z], { role = 'principal', eyeHeight = 2.3 } = {}) => (
 });
 
 const box = (min, max, name = null) => ({ name, min, max });
+
+/**
+ * A solid the way Initiation authors one: an upright circle, and the box the
+ * collider reader wraps round it. `r` is the radius the AUTHOR wrote; the
+ * bounds are the circumscribing square, which is what the gate used to test.
+ */
+const cylinder = (x, z, r, [minY, maxY] = [-0.5, 4], name = null) => ({
+  name,
+  min: [x - r, minY, z - r],
+  max: [x + r, maxY, z + r],
+  shape: { kind: 'cylinder', x, z, r },
+});
 
 /** A shot: where it stands, where it looks, on the house lens. */
 const shot = (position, lookAt, extra = {}) => ({
@@ -331,6 +345,108 @@ test('two beats sharing an id is a finding, because ids end up in allowlists', (
     actors: [actor('lou', [0, 0, 0], { eyeHeight: 1.7 })],
   });
   assert.deepEqual(kinds(result), ['BEAT_ID_DUPLICATE']);
+});
+
+/* ------------------------------------------------------------------ */
+/* Cylinders: the shape the author actually wrote                     */
+/* ------------------------------------------------------------------ */
+
+test('a ray through the corner of the box misses the trunk inside it', () => {
+  // THE FIVE FINDINGS. A circumscribing square is wider than its circle at the
+  // diagonals by up to 41 per cent of the radius, and Initiation authors its
+  // woods and its car park as circles. A sightline that clears a parked car by
+  // centimetres read as blocked on that margin, four times in the clearing and
+  // once at the cabin door -- and every one of them was cast against the
+  // rendered geometry of both states and hit nothing.
+  const trunk = cylinder(0, 0, 1);
+  const corner = [-4, 1, -4];
+  const towards = [1 / Math.SQRT2, 0, 1 / Math.SQRT2];
+  // The box catches it at the corner; the circle it contains does not.
+  assert.ok(rayBoxDistance(corner, towards, trunk) < Infinity);
+  const past = [-4 + 0.8, 1, -4 - 0.8];
+  assert.equal(rayCylinderDistance(past, towards, {
+    x: 0, z: 0, r: 1, minY: -0.5, maxY: 4,
+  }), Infinity);
+});
+
+test('a ray straight at a trunk still stops at its face', () => {
+  // The point is not that cylinders stop blocking. A trunk between the camera
+  // and the man talking is a real framing problem and must survive.
+  const distance = rayCylinderDistance([-5, 1, 0], [1, 0, 0], {
+    x: 0, z: 0, r: 1.2, minY: -0.5, maxY: 4,
+  });
+  assert.ok(Math.abs(distance - 3.8) < 1e-9, `entered at ${distance}`);
+});
+
+test('a sightline over the top of a trunk is not blocked by it', () => {
+  // The y band is the box's, untouched, and it still bounds the solid: this is
+  // a change of SHAPE and nothing else.
+  assert.equal(rayCylinderDistance([-5, 5, 0], [1, 0, 0], {
+    x: 0, z: 0, r: 1.2, minY: -0.5, maxY: 4,
+  }), Infinity);
+});
+
+test('a ray straight down the axis hits the cap, and one beside it does not', () => {
+  // No quadratic to solve when the ray is vertical, and the degenerate branch
+  // is the difference between a cap hit and a NaN that compares false against
+  // everything -- the silent wrongness this family of gates exists to end.
+  assert.equal(rayCylinderDistance([0, 9, 0], [0, -1, 0], {
+    x: 0, z: 0, r: 1, minY: 0, maxY: 4,
+  }), 5);
+  assert.equal(rayCylinderDistance([2, 9, 0], [0, -1, 0], {
+    x: 0, z: 0, r: 1, minY: 0, maxY: 4,
+  }), Infinity);
+});
+
+test('a camera already inside a trunk is zero away from it, as the box test says', () => {
+  assert.equal(rayCylinderDistance([0, 1, 0], [1, 0, 0], {
+    x: 0, z: 0, r: 1, minY: -0.5, maxY: 4,
+  }), 0);
+});
+
+test('a solid behind the camera is not in front of it', () => {
+  assert.equal(rayCylinderDistance([5, 1, 0], [1, 0, 0], {
+    x: 0, z: 0, r: 1, minY: -0.5, maxY: 4,
+  }), Infinity);
+});
+
+test('the corner of a cylinder\'s box is outside the cylinder', () => {
+  const trunk = cylinder(0, 0, 1);
+  assert.equal(insideSolid(trunk, [0.9, 1, 0.9]), false);
+  assert.equal(insideSolid(trunk, [0.5, 1, 0.5]), true);
+  // And the band still bounds it: a camera over the roof is over the roof.
+  assert.equal(insideSolid(trunk, [0, 9, 0]), false);
+});
+
+test('a speaker behind a trunk at the diagonal is in the clear', () => {
+  // The clearing, in miniature: Kittenboss at fifteen metres, and one of the
+  // three circles down a parked Lincoln, which the sightline passes outside
+  // and whose bounding square it passes through.
+  const camera = shot([-6, 1.7, -6], [6, 1.7, 6]);
+  const fixture = (solids) => framingFindings({
+    id: 'fixture',
+    beats: [beat('line-chat', camera, { speaker: 'kittenboss' })],
+    actors: [actor('kittenboss', [6, 0, 6], { eyeHeight: 1.7 })],
+    boxes: solids,
+  });
+  const log = cylinder(0.9, -0.9, 1.1, [-0.5, 4], 'log');
+  assert.deepEqual(kinds(fixture([log])), []);
+  // Strip the shape and the same solid blocks: the box is the thing that was
+  // wrong, not the collider and not the shot.
+  assert.deepEqual(kinds(fixture([{ ...log, shape: undefined }])), ['SPEAKER_OCCLUDED']);
+});
+
+test('a solid with no shape is still tested as the box it was authored as', () => {
+  // Only cylinders change. A scene that builds its walls out of Box3s is
+  // measured exactly as it always was.
+  const camera = shot([0, 1.7, -6], [0, 1.7, 0]);
+  const result = framingFindings({
+    id: 'fixture',
+    beats: [beat('oath', camera, { speaker: 'lou' })],
+    actors: [actor('lou', [0, 0, 0], { eyeHeight: 1.7 })],
+    boxes: [box([-4, 0, -3], [4, 3, -2.8], 'wall')],
+  });
+  assert.deepEqual(kinds(result), ['SPEAKER_OCCLUDED']);
 });
 
 test('the slab test is the staging gate\'s, re-exported rather than rewritten', () => {

@@ -117,6 +117,14 @@ The day a third gate wants the same test, lift it into a shared
 `tools/gate-math.mjs` and have both import from there. That is a change to
 `staging-gate.mjs`, which is the only reason it was not done now.
 
+**And the cylinder test beside it is not that third gate.** `rayCylinderDistance`
+lives in `framing-gate.mjs` because this is the only gate that wants it: the
+staging gate asks *"is he facing a wall"*, which the over-wide box answers
+conservatively and correctly. `rayBoxDistance` still has exactly two callers.
+What arrived was a second **shape** inside one gate, not a third consumer of the
+slab test, and moving the box test out to keep a routine only this file calls
+company would be churn in `staging-gate.mjs` bought with nothing.
+
 ## A beat
 
 A beat is data, and every field but the camera is optional:
@@ -189,7 +197,7 @@ Two things work with no author input at all:
 ## Running it
 
 ```
-npm run verify:framing                          # every state
+npm run verify:framing                          # every state; non-zero on a finding
 node tools/verify-framing.mjs initiation        # one scene
 node tools/verify-framing.mjs --coverage        # states with a cast and no beats
 node tools/verify-framing.mjs --beats shots.json
@@ -245,6 +253,88 @@ is its circumscribing square, which is wider than the trunk at the diagonals.
 Over-approximating a blocking volume is the correct conservative reading for
 walking into it and the wrong one for seeing past it. Lifting the last five
 means testing the ray against the cylinder the author actually wrote.
+
+## Five, then two: the shape now survives normalisation
+
+`rawBounds` hands the circle over alongside the box. The `{x, z, r}` branch
+returns a third field, `shape: { kind: 'cylinder', x, z, r }`, and
+`normalizeSceneColliders` copies it onto the wrapper **only when there is one
+to carry** — an authored box has no shape beyond its bounds, and a
+`shape: undefined` on every record in the game would be a key nobody reads
+pretending to be information.
+
+**Nothing in the geometry pipeline reads it, and that was checked rather than
+assumed.** `geometry-collect.mjs` builds its collider records from a fixed list
+of keys and never spreads the input; `geometry-gate.mjs`'s `RECORD_KEYS` is a
+deliberately narrow, purely geometric contract that refuses an unknown key
+outright. So the collider ids, the bounds, and the buckets the geometry gate
+compares on are untouched by construction — and `npm run verify:geometry`
+before and after the change produced **byte-identical output**, same md5, all
+98 states, 662,278 records, 184,040 suppressions, 0 violations.
+
+`tools/framing-gate.mjs` gained `rayCylinderDistance` beside the imported
+`rayBoxDistance`, `insideSolid` beside the old box-only `inside`, and one
+`solidDistance` that picks between them on `solid.shape?.kind`. A solid that
+carries no shape is tested exactly as it always was. The y band is the box's,
+untouched: **a trunk really is tall, and this changes the shape and nothing
+else.**
+
+**Three of the five went.** All three were sightlines clearing a parked car at
+the diagonal — the three `SPEAKER_OCCLUDED` findings on Kittenboss in the
+clearing, `line-chat`, `after-one` and `exec-gap`, all naming one collider at
+(4.436, −9.708) with r = 1.2. That is the boot end of a Lincoln whose highest
+part there is the boot lid at 2.48 m; the ray passes **outside** that circle
+and **through** the corner of its bounding square. Measured, not reasoned: the
+meshes inside that footprint are `car.boot.lid`, `car.cabin`, `car.glass` and
+`car.body`, and the sightline misses all four.
+
+**Two survived, and both are the parked cars.** They are the same artifact one
+step further on: not the shape, the missing height.
+
+| The finding | What it actually is |
+|---|---|
+| `initiation:clearing` `speech-start` `CAMERA_INSIDE_SOLID` | A circle of r = 1.175 at (−8.625, −11.908), one of the three down a Lincoln. The camera at (−8.2, **3.6**, −11.6) is 0.525 m from its axis — inside it in plan, honestly — and **1.34 m above the car's roof at 2.26 m**. |
+| `initiation:cabin` `cabin-door` `SPEAKER_OCCLUDED` | The same, in the yard: r = 1.175 at (20.110, 14.584). The ray runs from the camera 4.8 m up to the player's head at 2.3 m, and the reported entry at 2.835 m of an 8.860 m ray is the moment it crosses **y = 4.0** — the top cap of the invented band, 1.74 m over the roof. |
+
+Both are **collider problems, not shot problems**, and the shape fix cannot
+reach them: a camera over a car is inside its column whatever the column's
+cross-section. Only a measured `y1` lifts them, and that is a change to how
+`buildCar` authors its three circles
+(`src/initiation/cabin/execution-ground.js:251`, `r: car.width / 2 + 0.2`) —
+the same move `FURNITURE` in `src/initiation/cabin/site.js` already made for
+the table and the chairs. Until somebody measures the Lincolns, the two are
+written down in `tools/framing-allowlist.json` with a reason apiece.
+
+## It gates now
+
+`npm run verify:framing` **exits non-zero** on any authored finding that is not
+on the allowlist, and on any allowlist entry that excused nothing.
+
+A gate that exits zero with findings is a gate whose next finding arrives in a
+log nobody reads, which is `docs/ENGINE-TRAPS.md` §5 with better manners. The
+five findings were one artifact and are now two entries, so there is nothing
+left for the exit code to be polite about.
+
+**`tools/framing-allowlist.json`** is deliberately the instrument the geometry
+and staging gates already carry, down to the sorted ids and the minimum reason
+length. An entry names one finding on one beat in one state — `id`, `state`,
+`beat`, `kind`, whatever that kind must name (`speaker`, `solid`, `subject`,
+`actor`), a `reason` in prose, and a `source` line checked against the file it
+cites. No wildcards. `tools/framing-allowlist.mjs` is the pure validator;
+`verify-framing.mjs` reads the file and holds the citations, exactly as
+`verify-staging.mjs` does, because the pure validators have no filesystem.
+
+**A stale entry fails the run** — `docs/ENGINE-TRAPS.md` entry 10. It is a
+claim about the world, not a chore: forty-two mansion recliner entries went
+stale at once because `isOwnBody` had started eating the chairs, and deleting
+them as tidy-up would have destroyed the only written record of a live defect.
+Go and measure the thing an entry describes before deleting it.
+
+**Derived camera findings never fail a build and are never allowlisted.** A
+derived camera is as often the harness's stand-in parked at the origin as it is
+the scene's, so it has nothing to be excused from: it is reported, counted
+separately, and left for a person. `squatchfather:default`'s unnamed camera
+inside `frontDoor` is still the one such finding in the tree.
 
 ## A beat may widen its own aim tolerance
 
