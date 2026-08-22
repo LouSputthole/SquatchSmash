@@ -1790,6 +1790,27 @@ function resumeCheckpoint() {
       prepareNoWakeWeightedBodyGeometry(boat, bodyRig);
       beginCarry();
     } else {
+      /* THE PHASE FIRST, BECAUSE `dropWilly()` REFUSES TO RUN WITHOUT IT.
+       *
+       * `dropWilly()` opens with `if (state.phase !== 'execution') return;`
+       * and this branch had left the phase at the `startup` set forty lines
+       * up, so the whole collapse -- the pose, the four-second hold and the
+       * `beginWrap()` behind it -- was skipped in silence. What the player
+       * got was the shut cabin with the phase still reading `startup`: every
+       * switch on that checklist is already flipped and is up on deck
+       * anyway, the companionway back up needs phase `weights`, the bag needs
+       * a `wrapStage` nothing had set, and the radio needs phase `cabin`. Not
+       * one prompt in the boat, and the mission's own restart-from-checkpoint
+       * reloads straight back into it.
+       *
+       * The order a player reaches it is ordinary: fire at Willy -- which is
+       * what banks `execution` (`fireExecution()`) -- and then leave before
+       * clipping the ballast on, which is minutes of wrapping and a trip to
+       * the bow locker later. Same shape as the Hot Dog alley: a progression
+       * function called from a state it guards against, doing nothing and
+       * saying nothing. The branch above sets `phase('drive')` before
+       * `reachInlet()` for exactly this reason; this one never did. */
+      phase('execution');
       dropWilly();
     }
   }, 0);
