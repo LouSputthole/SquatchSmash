@@ -12,14 +12,35 @@
 #   - npm run check:flight  the Brushrunner flight-model bench, node-only
 #   - npm run verify:campaign-route   fresh-save campaign topology, node-only
 #   - npm run verify:geometry repo-wide headless mesh/collider geometry, node-only
-#   - npm run verify:boot-errors      the ONE curated browser gate
+#   - npm run verify:staging  actor staging across every recorded scene state
+#   - npm run verify:framing  camera framing findings, advisory
+#   - npm run verify:dialogue:check / check:line-presence / check:rerecord
+#   - the sixteen per-scene cue ledgers (check:*-vo, check:mansion-sfx)
+#   - npm run verify:boot-errors      cheap browser gate, all 20 staged pages
+#   - npm run verify:campaign-marathon the whole public route, scenes stubbed
 #
-# Why only boot-errors from the browser set: it is the cheapest verifier per
-# page covered — it aborts each staged page's entry module and asserts the
-# recovery surface, so no scene ever actually boots, and it still touches all
-# 20 staged pages. The other verify:* gates each boot full scenes under
-# swiftshader for minutes apiece; they stay local/manual for now. Promote more
-# here one at a time if they prove fast enough.
+# Why only these two from the browser set: both are cheap per page covered
+# because neither one boots a scene. verify:boot-errors aborts each staged
+# page's entry module and asserts the recovery surface, touching all 20 staged
+# pages. verify:campaign-marathon stubs every scene runtime out and walks the
+# whole public route — 27 handoffs, apartment day one to the finale — through
+# the real skip adapters and a durable reload at each landing. The other
+# verify:* gates each boot full scenes under swiftshader for minutes apiece;
+# they stay local/manual for now. Promote more here one at a time if they
+# prove fast enough.
+#
+# THE MARATHON IS HERE BECAUSE IT WAS BROKEN AND NOBODY KNEW. Its transition
+# table said the Cartel Palace handed straight to Initiation; the route had
+# gone through the Special Meeting since the day that scene was written. It
+# failed at step 25 for weeks, silently, because nothing ran it. A gate that
+# runs nowhere is not a gate. Of the 65 verify:*/check:* scripts in
+# package.json, everything that runs headless is now wired in below —
+# verify:staging and verify:framing included, both of which were built, made
+# green, and then left running nowhere at all.
+#
+# verify:systemic-polish and verify:ground-combat are deliberately absent:
+# they are convenience aliases that re-run suites `npm test` already runs, and
+# their --test-isolation=none flag only parses on Node 23+.
 #
 # `npm run lint` is wired in as of the campaign/robustness pass: the two real
 # ReferenceErrors it was blocked on (src/mansion/cast.js `marks`,
@@ -86,3 +107,46 @@ jobs:
 
       - name: Boot-failure recovery on every staged page
         run: npm run verify:boot-errors
+
+      - name: Whole-campaign marathon
+        run: npm run verify:campaign-marathon
+
+      - name: Staging gate
+        run: npm run verify:staging
+
+      # Reports rather than gates: it exits 0 with findings on purpose while
+      # the backlog is worked down. It is here so the findings are visible in
+      # every build log instead of only on the one machine that remembers to
+      # run it.
+      - name: Framing gate
+        run: npm run verify:framing
+
+      - name: Dialogue manifest
+        run: npm run verify:dialogue:check
+
+      - name: Line presence
+        run: npm run check:line-presence
+
+      - name: Re-record queue
+        run: npm run check:rerecord
+
+      # One step for all sixteen cue ledgers. bash -e stops at the first
+      # failure, and the step name that goes red names the scene.
+      - name: Scene cue ledgers
+        run: |
+          npm run check:radio-vo
+          npm run check:apartment-vo
+          npm run check:beefrun-vo
+          npm run check:bing-vo
+          npm run check:enolasquatch-vo
+          npm run check:golf-vo
+          npm run check:heist-vo
+          npm run check:hotdog-vo
+          npm run check:initiation-vo
+          npm run check:mansion-sfx
+          npm run check:mansion-vo
+          npm run check:motel-vo
+          npm run check:nowake-vo
+          npm run check:siege-vo
+          npm run check:silver-vo
+          npm run check:silvercase-vo

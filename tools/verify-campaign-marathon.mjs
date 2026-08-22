@@ -54,6 +54,7 @@ export const PUBLIC_RUNTIME_ENTRY_PATHS = Object.freeze([
   '/src/mansion/siege/main.js',
   '/src/enolasquatch/main.js',
   '/src/cartel-palace/main.js',
+  '/src/specialmeeting/main.js',
   '/src/initiation/main.js',
   '/src/core/boot-guard.js',
   '/src/core/preview-entry.js',
@@ -127,10 +128,25 @@ export const MARATHON_TRANSITIONS = Object.freeze([
     '/cartel-palace.html', 'approach', 'skip', [
       TIME_EVENT_IDS.RETURN_TO_MANSION, TIME_EVENT_IDS.COMPLETE_MANSION_RETURN,
     ]),
-  transition('palace-to-initiation', SCENE_IDS.CARTEL_PALACE, SCENE_IDS.INITIATION,
-    '/initiation.html', 'gathering', 'skip', [
+  /* THE PALACE HAS NOT GONE STRAIGHT TO THE CABIN SINCE THE SPECIAL MEETING
+   * WAS WRITTEN. This table said it did, and said so for as long as the
+   * Special Meeting has existed: the marathon died at step 25 waiting for
+   * initiation.html while the browser sat on specialmeeting.html. Nothing
+   * caught it because nothing runs this gate -- it is not in CI, and the unit
+   * test beside it only checks that the table is internally consistent, which
+   * a wrong table can be. The route of record is SCENES[CARTEL_PALACE].next
+   * in src/core/campaign.js; read it there, not from here.
+   *
+   * DEPART_SPECIAL_MEETING is deliberately NOT required below. The played
+   * scene writes it on boot (src/specialmeeting/main.js), and this gate stubs
+   * every scene runtime out -- so the only Special Meeting fact that reaches
+   * the save here is the exact-once COMPLETE the skip adapter commits. */
+  transition('palace-to-special-meeting', SCENE_IDS.CARTEL_PALACE, SCENE_IDS.SPECIAL_MEETING,
+    '/specialmeeting.html', 'kerb', 'skip', [
       TIME_EVENT_IDS.DEPART_CARTEL_PALACE, TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE,
     ]),
+  transition('special-meeting-to-initiation', SCENE_IDS.SPECIAL_MEETING, SCENE_IDS.INITIATION,
+    '/initiation.html', 'gathering', 'skip', [TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING]),
   transition('initiation-to-finale', SCENE_IDS.INITIATION, SCENE_IDS.APARTMENT,
     '/index.html', 'front_door', 'initiation:complete', [
       TIME_EVENT_IDS.DEPART_INITIATION, TIME_EVENT_IDS.COMPLETE_INITIATION,
@@ -138,7 +154,7 @@ export const MARATHON_TRANSITIONS = Object.freeze([
 ]);
 
 export function validateMarathonPlan(plan = MARATHON_TRANSITIONS) {
-  assert.equal(plan.length, 26, 'the canonical marathon must have 26 transitions');
+  assert.equal(plan.length, 27, 'the canonical marathon must have 27 transitions');
   assert.equal(plan[0]?.from, SCENE_IDS.APARTMENT);
   assert.equal(plan.at(-1)?.to, SCENE_IDS.APARTMENT);
   assert.equal(plan.at(-1)?.action, 'initiation:complete');
@@ -169,6 +185,7 @@ export function validateMarathonPlan(plan = MARATHON_TRANSITIONS) {
     SCENE_IDS.ENOLA_SQUATCH,
     SCENE_IDS.MANSION_RETURN,
     SCENE_IDS.CARTEL_PALACE,
+    SCENE_IDS.SPECIAL_MEETING,
   ], 'every recoverable mission must use the production skip handoff exactly once');
   return true;
 }
@@ -570,11 +587,23 @@ function assertLandingFacts(step, state) {
       });
       assertMission(state, MISSION_IDS.CARTEL_PALACE, { status: 'available' });
       break;
-    case 'palace-to-initiation':
+    case 'palace-to-special-meeting':
       assertMission(state, MISSION_IDS.CARTEL_PALACE, {
         status: 'complete', checkpoint: 'clear', sauceBetrayalConfirmed: true,
         markEliminated: true, sauceEliminated: true, outcome: 'clean',
       });
+      assertMission(state, MISSION_IDS.INITIATION, { status: 'available' });
+      assert.equal(state.finale.status, 'locked');
+      break;
+    /* The one campaign scene with no mission record -- there is no
+     * MISSION_IDS.SPECIAL_MEETING, because nothing in the drive can be done
+     * well or badly (see RECOVERABLE_CAMPAIGN_SCENES in campaign-scene-skip.js).
+     * So the durable fact this landing has to prove is the exact-once time
+     * event, and that it did not disturb the Initiation it opens onto. */
+    case 'special-meeting-to-initiation':
+      assert.equal(state.story.timeEvents.filter(
+        (eventId) => eventId === TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING,
+      ).length, 1, 'Special Meeting completion must be exact-once');
       assertMission(state, MISSION_IDS.INITIATION, { status: 'available' });
       assert.equal(state.finale.status, 'locked');
       break;
