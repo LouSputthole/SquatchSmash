@@ -116,7 +116,10 @@
     "vo:initiation": "node tools/initiation-vo.mjs",
     "vo:rerecord": "node tools/rerecord-queue.mjs",
     "check:rerecord": "node tools/rerecord-queue.mjs --check",
-    "vo:sync": "npm run vo:beefrun && npm run vo:nowake && npm run vo:hotdog && npm run vo:heist && npm run vo:bing && npm run vo:motel && npm run vo:silver && npm run vo:silvercase && npm run vo:enolasquatch && npm run vo:golf && npm run vo:mansion && npm run vo:siege && npm run vo:apartment && npm run vo:initiation && npm run radio:cues && npm run vo:rerecord",
+    "vo:takes": "node tools/take-ledger.mjs",
+    "check:takes": "node tools/take-ledger.mjs --check",
+    "check:take-history": "node tools/take-history.mjs",
+    "vo:sync": "npm run vo:beefrun && npm run vo:nowake && npm run vo:hotdog && npm run vo:heist && npm run vo:bing && npm run vo:motel && npm run vo:silver && npm run vo:silvercase && npm run vo:enolasquatch && npm run vo:golf && npm run vo:mansion && npm run vo:siege && npm run vo:apartment && npm run vo:initiation && npm run radio:cues && npm run vo:rerecord && npm run vo:takes",
     "vo:initiation:check": "node tools/initiation-vo.mjs --check",
     "check:initiation-vo": "node tools/initiation-vo.mjs --check",
     "verify:silver-story": "node tools/verify-silver-story.mjs"

@@ -216,6 +216,16 @@
       "cue": "vo.bing2.lou.briefing",
       "retiredText": "Prospect. Both bathrooms, Aubbie's kit, and every piece of him that came off. Then me.",
       "reason": "rewritten in the 2026-08-20 HotDog pass; the indexed take says the retired wording"
+    },
+    {
+      "cue": "vo.enolasquatch.numbskull.preflight-payload-tap-1.1",
+      "retiredText": "You have to actually pull on the strap. Tapping a strap tells you nothing.",
+      "reason": "the payload check moved from a strap tug to holding the arming key down in the 2026-08-20 flight pass; the indexed take teaches the wrong action. Found by tools/take-history.mjs on 2026-08-22, six days after the rewrite -- the same commit queued six other lines and missed this one"
+    },
+    {
+      "cue": "vo.enolasquatch.sasole.emergency-overheat-1.1",
+      "retiredText": "Number two’s running hot. Your call — babied throttle and a long way home, or push it and hope.",
+      "reason": "the overheat moved to engine three with a temperature readout in the 2026-08-20 flight pass; the indexed take names a DIFFERENT ENGINE from the subtitle in a scene where the player acts on which one is hot. Found by tools/take-history.mjs on 2026-08-22"
     }
   ],
   "retired": [

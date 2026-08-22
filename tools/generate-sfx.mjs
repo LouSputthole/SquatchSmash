@@ -42,9 +42,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isFutureInitiationCue } from './audio-scope.mjs';
 import { writeIndex } from './sfx-index-json.mjs';
+import { recordTake } from './take-ledger.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SFX_DIR = path.join(ROOT, 'assets', 'sfx');
+const TAKE_LEDGER = path.join(SFX_DIR, 'takes.json');
 const MANIFEST = path.join(SFX_DIR, 'manifest.json');
 const ENDPOINT = 'https://api.elevenlabs.io/v1/sound-generation';
 const TTS = (voiceId) => `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
@@ -184,6 +186,13 @@ async function main() {
     try {
       const bytes = isSpoken(cue) ? await speak(cue, voices) : await generate(cue);
       await fs.writeFile(dest, bytes);
+      /* Stamp the WORDS this file was made from, here, where they are known to
+       * agree. A rewritten line keeps its cue id and its filename, so without
+       * this record nothing on disk ever changes when the script does and the
+       * game ships the retired wording under the new subtitle -- exactly the
+       * "old lines are still playing" the owner reported on the Silent
+       * Squatch. See tools/take-ledger.mjs. */
+      if (isSpoken(cue)) recordTake(TAKE_LEDGER, cue.name, cue.say);
       console.log(`ok  (${(bytes.length / 1024).toFixed(0)} KB → assets/sfx/${file})`);
       ok++;
     } catch (err) {

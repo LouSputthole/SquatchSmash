@@ -107,6 +107,7 @@ const TEST_MODULES = [
   './dress-help-sequence.test.mjs',
   './mouth.test.mjs',
   './audio-variant-bank.test.mjs',
+  './take-ledger.test.mjs',
   './signature-audio.test.mjs',
   './characters.test.mjs',
   './initiation-canon.test.mjs',

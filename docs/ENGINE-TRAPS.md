@@ -459,3 +459,58 @@ which is the same lie with fewer words.
 there was no finding. It surfaced because the verifier exits non-zero on stale
 entries and somebody went and measured instead of tidying. A gate that quietly
 drops stale entries would never have shown it at all.
+
+## 11. A file whose name does not carry its content cannot go stale visibly
+
+**Two of them, same week, same shape.**
+
+The campaign marathon — the gate that walks the whole public route from the
+first morning to the finale — had been failing at step 25 of 26 for as long as
+the Special Meeting had existed. Its transition table said the Cartel Palace
+handed straight to Initiation. It has not since the Special Meeting was
+written. The verifier waited thirty seconds for `initiation.html` while the
+browser sat on `specialmeeting.html`, then timed out. Nobody saw, because the
+gate is not in CI and nothing else runs it. The unit test beside it passed
+throughout: it only checks that the table is internally consistent, which a
+wrong table can be.
+
+The owner reported that "the old lines are still playing during the Silent
+Squatch" and there was no way to check it. A cue id does not carry its text —
+only the hashed families (`vo.bing.full.*`, `vo.silver.*`) do — so rewriting a
+line leaves the id, the filename and the bytes on disk exactly as they were.
+Every audio gate agreed: the cue exists, the file exists, nothing is orphaned,
+the manifest matches the scene source. The mp3 said the retired wording under
+the new subtitle and the whole static suite stayed green. The only defence was
+`assets/sfx/rerecord.json`, a list somebody has to remember to append to at
+the moment they rewrite a line.
+
+**The common cause.** In both cases the artefact's *identity* — a route table,
+a filename — is stable while the *thing it describes* moves. Nothing in the
+system is obliged to notice, so the only mechanism left is a person
+remembering, and the failure is silent for exactly as long as everyone does
+remember to look elsewhere.
+
+**The rule.** If an artefact's name does not change when its content does,
+something must record the content it was built from, and something must run
+that comparison on a schedule you do not control. Both halves are load-bearing.
+`tools/take-ledger.mjs` stamps the words each take was rendered from at the
+moment the generator sends them, and `check:takes` runs in CI. The route table
+now runs in CI too.
+
+**What made it visible.** Deciding to run every gate that nothing runs. Of the
+65 `verify:*`/`check:*` scripts in `package.json`, CI ran eight — including
+neither the staging gate nor the framing gate, both built this month, made
+green, and then left running nowhere at all. A gate that runs nowhere is not a
+gate; it is a file that once expressed an intention.
+
+**The backward half.** `tools/take-ledger.mjs` cannot see the 3,328 takes that
+predate it, because nothing recorded what they were rendered from. Git did:
+the words and the recording live in the same repository, so for every recorded
+line there is a commit that last changed the `say` and a commit that last
+changed the mp3, and if the file's comes first it was never re-rendered.
+`tools/take-history.mjs` compares them by topological order. It found 42.
+Forty were already queued. The other two were Enola flight lines rewritten in
+"Motel, Siege and Palace: three scene passes" — the same commit that queued
+six others and missed these. One of them named a different engine in the audio
+from the one in the subtitle, in a scene where the player acts on which engine
+is overheating. Six days, one gate away from the playtest.
