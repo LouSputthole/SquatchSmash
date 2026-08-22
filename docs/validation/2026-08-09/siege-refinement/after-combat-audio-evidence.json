@@ -102,5 +102,26 @@
     "weapon.shotgun.reload.in",
     "weapon.shotgun.reload.out"
   ],
-  "combatPending": []
+  "combatPending": [
+    {
+      "name": "combat.pain.cry",
+      "file": "combat.pain.cry.mp3"
+    },
+    {
+      "name": "combat.pain.death",
+      "file": "combat.pain.death.mp3"
+    },
+    {
+      "name": "combat.pain.grunt.a",
+      "file": "combat.pain.grunt.a.mp3"
+    },
+    {
+      "name": "combat.pain.grunt.b",
+      "file": "combat.pain.grunt.b.mp3"
+    },
+    {
+      "name": "combat.player.pain",
+      "file": "combat.player.pain.mp3"
+    }
+  ]
 }

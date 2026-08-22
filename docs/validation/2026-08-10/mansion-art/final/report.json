@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-11T14:24:28.298Z",
+  "generatedAt": "2026-08-22T05:32:23.906Z",
   "entry": "mansion.html?preview=1",
   "mode": "all",
   "provenance": {
@@ -9,542 +9,627 @@
       "schema": 1,
       "entry": "mansion.html?preview=1",
       "runtime": {
-        "sha256": "72b2d8536ff43d946b2495d4350b596673a2e3b38612b7769685e0eca2379eac",
+        "sha256": "c9d3d03f20f0de64ae2b69d66d43f95c2c42d4f50c05788e40e5f64802800265",
         "entries": [
           {
             "path": "game/src/player.js",
-            "bytes": 10876,
-            "sha256": "bfef972240da2d9b3c31a55f76cd6feed0dc1514635f40c9e61b6f0ec2a6e5ae"
+            "bytes": 10563,
+            "sha256": "c59c256a2d64bbb51c509f337ba106e11f12a4ff428e921056e0aba7ce7f2cb1"
           },
           {
             "path": "mansion.html",
-            "bytes": 10150,
-            "sha256": "7ed5138d03b11a19e9b836b15effcc4d8d704745a7d67a72139bb9b53d9404f3"
+            "bytes": 9936,
+            "sha256": "e02dca0382ba13644642a29959edb078716c26f6460ae30f84a8494ebe4eab07"
           },
           {
             "path": "src/bing/cast.js",
-            "bytes": 172584,
-            "sha256": "3d8b868017a96ccb295c308a3ab0490023145c6da82c4ca7018acde1ec70d3f2"
+            "bytes": 185709,
+            "sha256": "5dcad753c405b94ffa1a0a563aa39daf1852b4180d8043ea4c30ac607af31fa6"
           },
           {
             "path": "src/bing/family-ape.js",
-            "bytes": 966,
-            "sha256": "49272499c70a99bbe58e23dc1c6860c389be8aa447afa5d12ff97dc0785a723d"
+            "bytes": 2321,
+            "sha256": "9fd1e4cc6c9cae376b54e4c90d67dae7cdae72901b78197e97103994ece87c97"
           },
           {
             "path": "src/bing/family.js",
-            "bytes": 36523,
-            "sha256": "44fbb4756925d81afba2f97aa1fc42976b77bea62851ab2d3022ae89da9ce34c"
+            "bytes": 38119,
+            "sha256": "1ec8a54362c192a75083c6abdae31ad6536a9b3f9fc6674e43c87ff1386f88fa"
           },
           {
             "path": "src/bing/kit.js",
-            "bytes": 18155,
-            "sha256": "92f4f58d10b576b6b85589b4d6af81dd5e264d3b70267f1b4d75dde68c81c0c1"
+            "bytes": 17651,
+            "sha256": "dc1d62b296411bfd2835b18cb00239fdeeb7cef18ffc80dd88d4da8d540312b4"
           },
           {
             "path": "src/bing/license-to-grill-runtime.js",
-            "bytes": 81090,
-            "sha256": "33c521e118156a18b0946f6b9152451572ca76519325816f929d03e27116850c"
+            "bytes": 94268,
+            "sha256": "0020bee982cf69bf149a3e2e9f5c45d298702f7b8338a73b4000e9898f43244a"
           },
           {
             "path": "src/bing/license-to-grill.js",
-            "bytes": 49014,
-            "sha256": "bb65e9ad24572cdabf66c472dd4f124faa01c810af20e78ade1dcfa9d5d8528a"
+            "bytes": 50398,
+            "sha256": "c5aac4cfff1304fb82718422ceb4cfbbeaf6a60d5a2056612623e42fd338c7a6"
           },
           {
             "path": "src/bing/script.js",
-            "bytes": 31213,
-            "sha256": "61c1ba7a8a6bb4178f2400146bb58b7407b858c91ad0140c32ec902ac4df9c1f"
+            "bytes": 30472,
+            "sha256": "4269d209657b5d347116584da7ab537c828770792ab0974c1e0de2edd1b968d0"
           },
           {
             "path": "src/bing/vehicles.js",
-            "bytes": 29117,
-            "sha256": "48fcfcd6dc877d1ae9d756d957fd951590e17ac632267a526c00633a34aeadb2"
+            "bytes": 28505,
+            "sha256": "e9802426512c1a9d0e107dc1b8398f111264cd53b0944a43449c56ee7c62be4f"
           },
           {
             "path": "src/core/airstrip-story.js",
-            "bytes": 7415,
-            "sha256": "fd5b1cab8b21b827faa8028fd2cdba62328764c8a3298fa5c2dd1d71748dfb53"
+            "bytes": 7232,
+            "sha256": "54e27f678b7b2a7113f0b005687c0210bc3fa74ea1c4ec898ce8569aa289fdf6"
           },
           {
             "path": "src/core/assets.js",
-            "bytes": 1568,
-            "sha256": "cf2b192efd96ddc0c589861f1178cb7e07d9bd5c3c0d5dc696f52aaf287e34cb"
+            "bytes": 1523,
+            "sha256": "b07b70784df43e60a620f7fe21723be13dad48cbf1ea1c5d166960f17372e520"
           },
           {
             "path": "src/core/audio.js",
-            "bytes": 128662,
-            "sha256": "bfceb0cba8e4350f5b967491f9ff4adc6f9f5de2adcdc01d53a5a331876d9df6"
+            "bytes": 154707,
+            "sha256": "a4ec30c27fe0f5a4a5f9c33d8f1831c8e04aac674a42b7db79e2446a604f16e7"
           },
           {
             "path": "src/core/bada-bing-two-story.js",
-            "bytes": 3920,
-            "sha256": "292c05959cf7283c264ac9418fd34f3ef05bf0ddf060517494a91047aaf26cae"
+            "bytes": 3811,
+            "sha256": "690f79dd15887beec3fc4638cbc023787f3ceb8febb2161a90468b12b5496622"
           },
           {
             "path": "src/core/bank-heist-story.js",
-            "bytes": 7772,
-            "sha256": "ad2e66c4aa5437d01a4e4612a166af4a951f155771fe45670f1f1480a1c77c33"
+            "bytes": 7588,
+            "sha256": "3111c4e74a5a4223e49a4e9196f0847510a5d67cfc7ce5ab1e743e28512e10e2"
           },
           {
             "path": "src/core/boot-guard.js",
-            "bytes": 1666,
-            "sha256": "9b461f1bc7c7371603febea4bab584a951ee6f5c3ae2180d36b0408c496702f2"
+            "bytes": 1621,
+            "sha256": "bfa399278ebace0de8266fed9e063aaedf59c6fedaf41f267e24dab5a02f9320"
           },
           {
             "path": "src/core/campaign-scene-skip.js",
-            "bytes": 30779,
-            "sha256": "639792d3004fae3e08b0f436c508ad71093ba4c0a81ef076028c84fd44c8e75b"
+            "bytes": 34507,
+            "sha256": "13c33366a9cf7ed4f931848069b603fb7e7b2f9d77b28b8a31388ea72ef36655"
           },
           {
             "path": "src/core/campaign.js",
-            "bytes": 127407,
-            "sha256": "96a5dceeaebbebbfe9a001237cd56a9edee758aa4e5b07f8345cbd850be61e35"
+            "bytes": 161566,
+            "sha256": "5391d1f456bad88a507aa3587f1c511455539aef91e35e72b58833a7d51c0024"
           },
           {
             "path": "src/core/characters.js",
-            "bytes": 9520,
-            "sha256": "b17e992eb9b6acd112bb6a6de4c43e75c668beedfd15aaaaa265f34f5e7845c0"
+            "bytes": 11038,
+            "sha256": "334f756e746f70512ed3bad44166bc3d777d8f89dd222ea1f852299044f03dbd"
+          },
+          {
+            "path": "src/core/collider-broadphase.js",
+            "bytes": 7276,
+            "sha256": "92f4b0a74bced81cf3bd2fcc92a7c27e8e5a6399a0c71f74af8670917cbea1c3"
+          },
+          {
+            "path": "src/core/combat/aim-proxy.js",
+            "bytes": 6674,
+            "sha256": "61ec0ba9310f5628f2495db35c438c22d8f2943b0b74df6becb92798abb90520"
+          },
+          {
+            "path": "src/core/combat/ballistics.js",
+            "bytes": 5061,
+            "sha256": "cc3da77cbe29c4d1b437f3f3f13edc613dfcd25ab909af77f50728c6fe0e445a"
+          },
+          {
+            "path": "src/core/combat/projectile-pattern.js",
+            "bytes": 2762,
+            "sha256": "7e0072b16ecc143de9198119835da0355ad0e0bfeb4b2996c71d5a89c3f5ad04"
           },
           {
             "path": "src/core/combat/tracers.js",
-            "bytes": 5894,
-            "sha256": "e1f87725061247a3588ef4525e73c863c945747b0664d402f69105f8f9dd0d90"
+            "bytes": 5742,
+            "sha256": "777add16ff232f72c8381dd5833e9685dbe72c9a4bcf116596646c66ff910bfd"
           },
           {
             "path": "src/core/final-arc-loadout-storage.js",
-            "bytes": 308,
-            "sha256": "327dd4646b5e3bef84929267a5834254b5b4630a5d0eeb61fb1c24bf54ed923e"
+            "bytes": 302,
+            "sha256": "79aab7525edcf9314beacbf10a23ab6efab073bb8cab54b8899db2088d4c71d5"
           },
           {
             "path": "src/core/final-arc-loadout.js",
-            "bytes": 6959,
-            "sha256": "d6fa4a275b82e7bb65e2d59bd561e4abbca482943ee22d9ba14e5b985e5e8951"
+            "bytes": 6908,
+            "sha256": "eb2bfd34e38b01352647187ad8cb398c4d75e19f2de085c4867bf3c962e99934"
           },
           {
             "path": "src/core/final-arc-runtime.js",
-            "bytes": 2959,
-            "sha256": "43fdb7a6d4c2ef922a8534f64e9f45ffb120582a63604ae299ffbced50deaca9"
+            "bytes": 2869,
+            "sha256": "1c929722c90426d4001c035a3d564d8becf9a28df361a08c305e6c4def816760"
           },
           {
             "path": "src/core/final-arc-story.js",
-            "bytes": 13784,
-            "sha256": "26c4043f438e10d96dd66f56499fc0fe618281c98fadb8f9a88279b35466cffd"
+            "bytes": 14628,
+            "sha256": "5b4a52925c0f60098ec30076d897a8fa83a62f13c712a379c49f5164eb0ed012"
           },
           {
             "path": "src/core/focus-rush.js",
-            "bytes": 1419,
-            "sha256": "7219bc231a71eb482d4200b6e390aa66fea58cfe08a3ad10cc11adce9da246c2"
+            "bytes": 1372,
+            "sha256": "960b4243e4478eadb23a678c8640dbe32717c4c9240a28937d3ee5ed47c31746"
+          },
+          {
+            "path": "src/core/gameplay-key-adapter.js",
+            "bytes": 7137,
+            "sha256": "149340116f2c313a8e722a803b78af252968414008047fcfdd363af5a754b862"
           },
           {
             "path": "src/core/golf-story.js",
-            "bytes": 6070,
-            "sha256": "8f08b58fb7934981e7ab84a7201e255ed892eb96d3b8726a8fb12b5e80c2894d"
+            "bytes": 5920,
+            "sha256": "a494733ee152009760749550cf1774d5f5df78ecabf542c3b266733820187867"
           },
           {
             "path": "src/core/graveyard-story.js",
-            "bytes": 4621,
-            "sha256": "fc1d08594d927829f99bbe6ef2a9a9e803aebd1532bb8c49eb4033e45dcf627d"
+            "bytes": 4506,
+            "sha256": "15ffb3b0158a80ad56400372a3b22e408e2ca64cbc4b3e0ad663f1aa171dd129"
           },
           {
             "path": "src/core/highs.js",
-            "bytes": 6816,
-            "sha256": "4ed3828d5f1248b3a0ec8f50ee04938054313e36a94066e942182e7fdde2157a"
+            "bytes": 6642,
+            "sha256": "0b9527bda38186e5ad355fbfad44ac49b37578520a5c2f55a994a3942226fcd5"
           },
           {
             "path": "src/core/interaction.js",
-            "bytes": 6045,
-            "sha256": "c0f5bc026a938494101658949faeb764db55149e44417af06431e48b8849a5f0"
+            "bytes": 6500,
+            "sha256": "a58a61af0fe1c379c319f1d55edd67f86bc5a8ef8c3fcde38f1a6924209bd2e3"
           },
           {
             "path": "src/core/inventory-view.js",
-            "bytes": 949,
-            "sha256": "21b0ff19fbd84409eca162cf00d27bdd3cb3d6540e45cd32d75c26fb22a2b6aa"
+            "bytes": 926,
+            "sha256": "f180d1123eb76040451815a3211966b00c1b8ede880d502eb6f69b21260222a4"
           },
           {
             "path": "src/core/inventory.js",
-            "bytes": 5933,
-            "sha256": "164a1faa9ba37db6811bffc813898fa653fa44f07943bfaabe603001c46758f2"
+            "bytes": 5777,
+            "sha256": "62b63a023425120cc1bde226089da579084ef758cc30b61fcabb0e4bb8c30560"
           },
           {
             "path": "src/core/load-queue.js",
-            "bytes": 938,
-            "sha256": "db38f790829316b25c3b57a9781538602eca90f82188ab1f6fa76e4c16e64d02"
+            "bytes": 907,
+            "sha256": "3bf7e749df493490db3af677fe52656a833a1d5f50212406687ca74475e2f930"
+          },
+          {
+            "path": "src/core/mission-results.js",
+            "bytes": 9084,
+            "sha256": "1e494e62a5619dba876ae818d1cab29899d964d5eb61ffde57df62c15612d6a4"
           },
           {
             "path": "src/core/motel-story.js",
-            "bytes": 1684,
-            "sha256": "29031da5f48756beccb01b63d793584af88b680b0287be110895e443bc92b5d7"
+            "bytes": 1636,
+            "sha256": "822ba76ec5dc2858379f186aa6abd7f33c77d71ad4a7fe8dd410af6c5982bd02"
           },
           {
             "path": "src/core/mouth.js",
-            "bytes": 18746,
-            "sha256": "4a8e5f6b4c5e21b950f8095b4bc7a1f73ce442715153ec7e7a6da676b0937e21"
+            "bytes": 18326,
+            "sha256": "d9f9315755c9677e5a8645b2714191413b62afaa5486d7134c5dd19389a8eab7"
           },
           {
             "path": "src/core/no-wake-story.js",
-            "bytes": 3751,
-            "sha256": "efff9877f29a032db00998c39895443976680419e445d64dc3243e4e3a1b6e7f"
+            "bytes": 3653,
+            "sha256": "93bda8d5e0cf7353136e8d6a9103916940863537425e4f4503043b7d77e85a89"
+          },
+          {
+            "path": "src/core/objective-panel.js",
+            "bytes": 7948,
+            "sha256": "115fad2792c38dc36694fd2c68d2c321842c5b9d86c9820ea477469151852c0a"
           },
           {
             "path": "src/core/pause-menu.js",
-            "bytes": 11058,
-            "sha256": "82c0c2ec41b2a9b75e0697011acdfe8dff4f643107d8882ee092132d8021b23d"
+            "bytes": 28895,
+            "sha256": "6bd28c8b75726ddf65535520a0cb4d7f9f0666b9bb3647db8134376f6138c5fd"
           },
           {
             "path": "src/core/pee-system.js",
-            "bytes": 3854,
-            "sha256": "d6afd8be6f6176b93750ee7d0049d334fcba29ffa1f98f5e8d58bdc3563b05a1"
+            "bytes": 3742,
+            "sha256": "006509d4dcb85fe4f1d0b8e7a60862471070f80ba9ceed7bb24c5ec70238e59d"
+          },
+          {
+            "path": "src/core/pixel-ratio.js",
+            "bytes": 12227,
+            "sha256": "d22a8f11f50fd169204be80bc636cb353870425d30f9be688da833dc41d82474"
           },
           {
             "path": "src/core/player.js",
-            "bytes": 15901,
-            "sha256": "f36620af7e59a6d1fae5ee8f5079a3dbeebaec62050410bc2f8b44ddd328d500"
+            "bytes": 23863,
+            "sha256": "171a16997b101c8faab818d9567ae303306e086e95a60db118d27d81e958b3f4"
           },
           {
             "path": "src/core/postfx.js",
-            "bytes": 6775,
-            "sha256": "9162060c6a5be772b1570385055a0e5043aef6572421f484ff477073118a0789"
+            "bytes": 7002,
+            "sha256": "0251fc3311e9c5d31b10dc1eeccfd40ce853d0bd06a4eb01f1a2711b091fda75"
           },
           {
             "path": "src/core/preview-mode.js",
-            "bytes": 10770,
-            "sha256": "5feee16842fbd56ac793b6f4f10f0232d92e3ed45f9a87780fcee5a9bece7b6d"
+            "bytes": 10885,
+            "sha256": "a2397e0053a1b529eaf8c9051c5aba934785db0c457738f3a76efcbcab2d8b39"
           },
           {
             "path": "src/core/radio.js",
-            "bytes": 34452,
-            "sha256": "a41120f9583ebcffb56118fd264c1d70a8291a39b47643bf1821194b0f8ff852"
+            "bytes": 38331,
+            "sha256": "9dc2359a673039669b863cefbfd9b9e240b1c4255bbc85fa5ab72c7b666c0f52"
+          },
+          {
+            "path": "src/core/residency-banks.js",
+            "bytes": 5274,
+            "sha256": "40d3081f7705e4b9dd7e2123271a78c640ff7dc8fad23e8505df619cbd80fbe2"
           },
           {
             "path": "src/core/scene-inventory.js",
-            "bytes": 2558,
-            "sha256": "1655dee5e5f426ea21fa4347a42b287ec261fd77dee4ffaccc543da10a72d1fe"
+            "bytes": 2475,
+            "sha256": "60a0654e85e8f5d0e3e5103c5bfbe6a8b0704ca93b1987eb30b0dea59a3c1b44"
+          },
+          {
+            "path": "src/core/scene-lifecycle.js",
+            "bytes": 3982,
+            "sha256": "67b35a1f734b1b219881b148757062a585232adb1daa340116e565f9133122dc"
           },
           {
             "path": "src/core/scene-recovery-storage.js",
-            "bytes": 77,
-            "sha256": "6987b87b461b0e0bb39fb8ab309185c14c247853d7f09a589fd657d06c5d155a"
+            "bytes": 76,
+            "sha256": "ec004381f8fad75327cc35886ab0dcd97205683c2688732901cbc833c26d5b39"
           },
           {
             "path": "src/core/scene-recovery.js",
-            "bytes": 5406,
-            "sha256": "7aa38f80c567c35034fb9502504e510a56f4dff42bdd46c834cd9e39aed1f9cc"
+            "bytes": 5252,
+            "sha256": "539f4a4cb02005feba351f1981d6240ad7691d656074d80e19cd866287c08bd2"
+          },
+          {
+            "path": "src/core/settings.js",
+            "bytes": 16291,
+            "sha256": "dda5e7f7dfb5dd1327a0bfc5f3d39bd0898dc7d46be472bc18c3c667e54f938c"
           },
           {
             "path": "src/core/shubenator-signature.js",
-            "bytes": 4766,
-            "sha256": "3c5e04e55c5d39551e8e51b078fe88d622e870bd365d4c66f3482e66472e49b6"
+            "bytes": 4642,
+            "sha256": "99f5fefbb0c0a3ec5aee82ef9a59df06194948475222d94da4730f3ac2d407f3"
           },
           {
             "path": "src/core/signature-music.js",
-            "bytes": 10550,
-            "sha256": "8fe4ea3fdddd333453d493cbca1a156f60c85a161af557a87732ec813c0ad683"
+            "bytes": 10319,
+            "sha256": "ae5438db94939bbf6eb0bcb7309875ec63ef20f836a3cf278aab766f74daada8"
           },
           {
             "path": "src/core/silent-squatch-story.js",
-            "bytes": 7823,
-            "sha256": "053ebc562bae33f548aa30d5bb873fca487629f05ee17dda2164d2014c6b2ea1"
+            "bytes": 9324,
+            "sha256": "d3cf18ac93c41c6599772206494c504708fd2d00a68d4425e77da485f215e774"
           },
           {
             "path": "src/core/silver-story.js",
-            "bytes": 4992,
-            "sha256": "28c2e19692d3f2be88589138bed4b62146c204c29e4157aebf2d16b3ffc4331d"
+            "bytes": 4877,
+            "sha256": "1f9fc8b9521cd29cbdc09f6196fefbf9a6847a3ebd7968f1a064136507396f96"
           },
           {
             "path": "src/core/squatchfather-story.js",
-            "bytes": 1882,
-            "sha256": "54c2b53cc9ac9e0d88f3d4917963a398f8872066cba5cf84c13b02a894412b7a"
+            "bytes": 1825,
+            "sha256": "6ab61bb2762a5c2323be01113feab1882fe893ede7ffa4e893a968cb584d3ea9"
+          },
+          {
+            "path": "src/core/staging.js",
+            "bytes": 12168,
+            "sha256": "51230e7ac123a22e5fa2ea02d41d94a059d0bcbd2d3ad6d7c9dad1e1a887a615"
+          },
+          {
+            "path": "src/core/start-gate.js",
+            "bytes": 7132,
+            "sha256": "ce6b797038a5b81fa1782be9ea4fac89040797c921fb17364dea603d5c9b2d26"
           },
           {
             "path": "src/core/stations.js",
-            "bytes": 32198,
-            "sha256": "330a0687989ae14e79aba84e38a62e861cb93df0127cad81ac3d97b3e5ae0a23"
+            "bytes": 44646,
+            "sha256": "919c2d5790d30915c518a416438ead327ad3601c7b0d4468be8fa5302b49dcb0"
+          },
+          {
+            "path": "src/core/systemic-polish.js",
+            "bytes": 2116,
+            "sha256": "495bad07e46aaa251d794e08eb4a5492c79292d362ec305bc54aea9598c26050"
+          },
+          {
+            "path": "src/core/systemic-presentation.js",
+            "bytes": 8835,
+            "sha256": "afe2f9b9e7054fd49122cbd5baa856c9f571f2ab098198801456f49aaa97035f"
           },
           {
             "path": "src/core/timingbar.js",
-            "bytes": 3919,
-            "sha256": "92c2af6390c2a4bc18e36110a0176102587555c6346baf0c956b01eff65a2ed3"
+            "bytes": 3791,
+            "sha256": "2b3b0f6e67061c9d0ec78d8439e297aa9878e998455598558af279260505f898"
           },
           {
             "path": "src/core/tv.js",
-            "bytes": 25934,
-            "sha256": "d12d39b0219a5bb015a62e82c315201626454b14e5c83a5f2cc017be69a2913d"
+            "bytes": 26430,
+            "sha256": "86cfb880558b28093ae5cbf39c6ac8bedcdb97cdd4faa47e67db764979821a4f"
           },
           {
             "path": "src/core/wardrobe.js",
-            "bytes": 16506,
-            "sha256": "db8d28a305ad7c529fbdfb52f80abb037abbbf60791787751e28c968ed9f593f"
+            "bytes": 22147,
+            "sha256": "04abf5fb92a1691ae83dde558800e7cdcce19d46da3677b1df5157eef1c4a214"
           },
           {
             "path": "src/core/weapons/Armory.js",
-            "bytes": 16385,
-            "sha256": "a8c0211bd8e15008e1afbc533322447a68a50be38d66f7583a63a86f7485c6e2"
+            "bytes": 15994,
+            "sha256": "f17eb1b277598a4740b7a7a62193550f50ee3b79c2a2313e5bcd42fcac69513c"
           },
           {
             "path": "src/core/weapons/Ejecta.js",
-            "bytes": 5887,
-            "sha256": "ce2e09f9bb6fbbd9ab83f92001d75833bdb7e3aafa8e627f2052fe76d4855db2"
+            "bytes": 5725,
+            "sha256": "8022ba09fe20ce646f7474a4dc06bb40f123f3163a6963a9552742816ee5f78b"
           },
           {
             "path": "src/core/weapons/Firearm.js",
-            "bytes": 9685,
-            "sha256": "e707e07e170dc390e279aad70cb32ce0a7154e999f487dc4de46a46c99559ca8"
+            "bytes": 11706,
+            "sha256": "5cba375b4ae5fbe9cb22d43229777439c6defb7a39a524241d3dd9be523545a0"
           },
           {
             "path": "src/core/weapons/WeaponSystem.js",
-            "bytes": 19784,
-            "sha256": "000f37ba629d50346a785b52388c7879afc18d312b377b519ad43456fb5918f8"
+            "bytes": 37036,
+            "sha256": "37ed50ea4893ef6a273d54464d0f06d1ae72f5022ee79fee40094d925659e32d"
           },
           {
             "path": "src/core/weapons/audio.js",
-            "bytes": 8566,
-            "sha256": "061a237f022cb883109c9e673d936a8cd5714300e1748b6d93c4588662177f3d"
+            "bytes": 11730,
+            "sha256": "da11e3dfda0d4bed0b993a061c4b56b788eedc982a458f5cfc8ef0a1d427ae34"
           },
           {
             "path": "src/core/weapons/build.js",
-            "bytes": 4825,
-            "sha256": "d79a37cf0159bc14cc54e721aad5123383832459c2d9095fae7f1d0c8794b181"
+            "bytes": 4696,
+            "sha256": "1d0571432099a4ab7c0476974ac2c9341f48333c7e011c581ebabd0552f53269"
           },
           {
             "path": "src/core/weapons/catalog.js",
-            "bytes": 8175,
-            "sha256": "7d86d2edb1cdb34dee39b0226ad4383d069cb577105859f2c5a0ee64ac6c4332"
+            "bytes": 14182,
+            "sha256": "8bd80e2599878944572cd594b329eeba1354595d1742bd8aa4740c4e498e3b42"
           },
           {
             "path": "src/core/weapons/models.js",
-            "bytes": 47706,
-            "sha256": "0dcf4b66dd89702828d151bf3ef9da8a40d51ea2249508bb01cc5f7888d99435"
+            "bytes": 50887,
+            "sha256": "0f0e6e1d7bd390bf243fee21ca57ab192dc3c83b2031e56a19f589fce0980df0"
+          },
+          {
+            "path": "src/mansion/audio-banks.js",
+            "bytes": 4818,
+            "sha256": "c64156dae41004e59bc129ee91bcd8a2e1465c706faf53bf496596744f382dee"
           },
           {
             "path": "src/mansion/campaign.js",
-            "bytes": 652,
-            "sha256": "921e40191aaba8b05c23ebc1022df57fb295a71fde677eb446d2725e6e7c9fa5"
+            "bytes": 630,
+            "sha256": "06ee4ab387efa068e58ec83191e7bfb4d2ec9ab8dcc4ffa10b5fa6fe85897e07"
           },
           {
             "path": "src/mansion/cast.js",
-            "bytes": 148985,
-            "sha256": "de1ecf7a068dcaeae2cad1865323573c5894ffd22cd68a9c59b63e4f8ae73bd8"
+            "bytes": 164770,
+            "sha256": "b29661d0baf878a20e9076dcfc83fc0e05c2d1778e8e8ae6e752c82f2822120c"
           },
           {
             "path": "src/mansion/dog.js",
-            "bytes": 34669,
-            "sha256": "1d416b1fac34c932e3e59cbc4a6232a1e981b4cefd465f92edd9db23315a0d3c"
+            "bytes": 38676,
+            "sha256": "2151bdf3e24435cf409dcb5bcee97ae2114e1005a0491b0587e08c9f67c5d904"
+          },
+          {
+            "path": "src/mansion/interaction-audio.js",
+            "bytes": 1206,
+            "sha256": "957d37c60314e989cd8144c23221fd988661012f61922a68ade03278cf333264"
           },
           {
             "path": "src/mansion/loadout.js",
-            "bytes": 9302,
-            "sha256": "b397c1c95628555f0f23d584a340a410fc54ef2683532a7caea4dfa929489c40"
+            "bytes": 9056,
+            "sha256": "434567de903d7d1ee6c5536e3221a174da9b89d45561f024927e0baaff21ce6c"
           },
           {
             "path": "src/mansion/main.js",
-            "bytes": 133125,
-            "sha256": "a27511a00e8c5088c9c9d634fdc919797e6cc35ce31c6ba22a688c9c197bab23"
+            "bytes": 160418,
+            "sha256": "85f3530739c8a3379cff54e64e8ec8587d2c603ab9367a555b551058c41c453b"
           },
           {
             "path": "src/mansion/mission/DialogueController.js",
-            "bytes": 4718,
-            "sha256": "415bb840734897b2415e2c921446238ec3864a37f08ffdab17bb91f913067b95"
+            "bytes": 7727,
+            "sha256": "c8d471cbdb99b8e6eb04a6d55d28a3e621238f7dd6b71631fa28e7b00ea92fab"
           },
           {
             "path": "src/mansion/mission/SilentSquatchMission.js",
-            "bytes": 48855,
-            "sha256": "365a79d9187b2908b3509aa1746ec2cca5264294b9e00d55815ae433b74654c2"
+            "bytes": 55483,
+            "sha256": "ed1ca09d76cf611b2b7c178fa19a59949184d491cf6390c8df0e4a7d79f621c6"
           },
           {
             "path": "src/mansion/mission/SilentSquatchStateMachine.js",
-            "bytes": 5823,
-            "sha256": "7b055297ff064c7ffce604bddd6d32ca92aadae2328ebe8064c8609a1d34d3eb"
+            "bytes": 5667,
+            "sha256": "21de70c48a929fa4f6f1bda51a45b4674dbc819555c4a14a6a6f92bec954b3a8"
           },
           {
             "path": "src/mansion/mission/hud.js",
-            "bytes": 8912,
-            "sha256": "ed4a7f5de5d1e0e2428095ef0f37c5fcdf7fac9741a47e8c0fb7eed74f3ca0bc"
+            "bytes": 8723,
+            "sha256": "3dd55f878ccf03e0bbf44f7aae7332be9f85817ce13a294f52c4e670a666edda"
           },
           {
             "path": "src/mansion/mission/mount.js",
-            "bytes": 35485,
-            "sha256": "10f59106f78a7e0a0e1ef0fe38d3e4f9bea02942785602877ed35b745cd74e33"
+            "bytes": 35997,
+            "sha256": "53393d80ed3745920ae1c7136426a97175b33cc023356daca07ecd05ca4a79f9"
           },
           {
             "path": "src/mansion/npc-speech-gate.js",
-            "bytes": 6396,
-            "sha256": "8fe31d321f0c722c2e2be80f7dba79adc596eeb3467342a42be194cc9cde9f52"
+            "bytes": 6221,
+            "sha256": "ed554e5f5f1580243125b4957487107275bbcbad9ca4839f6cd0dee44ddf5667"
           },
           {
             "path": "src/mansion/perf.js",
-            "bytes": 7157,
-            "sha256": "25cd4b977e321b3c90b2491ca721f3904728f82b5a8f4ffea1dc8390ff9cf058"
+            "bytes": 6995,
+            "sha256": "ef5a99be2703e0e79e204f2a8bc6cb59fd7511b9ac4bb453511054f2598db8cb"
           },
           {
             "path": "src/mansion/performer-motion.js",
-            "bytes": 5039,
-            "sha256": "665691d7f5d8bea66145d0c2ec20c19d7402f293cb6ab00f69376c855dffc030"
+            "bytes": 7310,
+            "sha256": "889976c5548174b487cc286dfc291f715cce45b583aaa510fd0daa54a1c33526"
           },
           {
             "path": "src/mansion/scenes/MansionGrounds.js",
-            "bytes": 237128,
-            "sha256": "5acd483dd2831e68a2ba2024df40a1cf8eb110884632966a49d8b04d72fceb98"
+            "bytes": 261009,
+            "sha256": "fa4e58277cc6aa56761f2e9d513e2e0eb5f12cc78d6569c299772500e9888401"
           },
           {
             "path": "src/mansion/scenes/MansionInterior.js",
-            "bytes": 593508,
-            "sha256": "a899b2fed47a4c4ae4a647f10368700b2c0bfb8997567750e0d11be733899514"
+            "bytes": 684199,
+            "sha256": "0e93dbd4e14f752054609c82da36b58feba2aba1a008ddd2885f64c01a96d3d0"
           },
           {
             "path": "src/mansion/scenes/SilentSquatch.js",
-            "bytes": 279499,
-            "sha256": "e8d796a8d2c853eeb28b44766eee1bd059edb6132debbbf57adb80bdd8647cc6"
+            "bytes": 316073,
+            "sha256": "a1cf8cc19d38dac95a0a24248294c40503a9d9cce1b99dba3f6a223f0d3d96ce"
           },
           {
             "path": "src/mansion/script.js",
-            "bytes": 74946,
-            "sha256": "53c797fb465e14f728c7bba5ff3a43212365cdc17825877385eb550f899c844f"
+            "bytes": 79490,
+            "sha256": "16df559e795a1a282a989cb5795aad90ffb5b2363e0f322a4b57f6a7f322418a"
           },
           {
             "path": "src/silver/margo.js",
-            "bytes": 8670,
-            "sha256": "9bc5eded56ed513130760335028d0aa958b3af5fd6c3886091a87e56fd09e220"
+            "bytes": 8479,
+            "sha256": "8132e50746e05f79be29b5534827bd72bbe0ae8b2d3892a3c19803b931155f5e"
           },
           {
             "path": "src/silvercase/props/case.js",
-            "bytes": 7166,
-            "sha256": "289f3f82bfbaebe8760a1fc2bb86488dd707bbaeb13de6536ca7165cd4a25b5e"
+            "bytes": 6987,
+            "sha256": "654bd730b97f2baef643f2d08462ec92f6191bebebf2ca728b32259584a03836"
           },
           {
             "path": "src/squatchfather/characters/Figure.js",
-            "bytes": 23044,
-            "sha256": "1e7ddfdddc2be6b10e883c95afae89c28bfa6984365573b6d223493c86b6937b"
+            "bytes": 31477,
+            "sha256": "2087b40dde537911c8db6f2a544a58262252e6fbcb5072bc1f527f9d16198c61"
           },
           {
             "path": "src/world/blood.js",
-            "bytes": 10757,
-            "sha256": "4ada793030c8404827a6ae41ae352d25b6570d8f1b848518c3d5ddd4d11c1c26"
+            "bytes": 15552,
+            "sha256": "355a239d83bdeb6fff7a1ac97a213ce903b9a2345e9528f66f9d775390a50d55"
           },
           {
             "path": "src/world/bong.js",
-            "bytes": 3198,
-            "sha256": "e1b1d30a1241cd202f48ed61f5e09d3b04be5a66f242e06c1c873319cdeae849"
+            "bytes": 3098,
+            "sha256": "f2a9e87b28203068833cdbbc16a9ba33df8f13e5d458548adfba7582e9a69fe3"
           },
           {
             "path": "src/world/build.js",
-            "bytes": 6277,
-            "sha256": "4e364e775bf8d40e6b8fe3c4dfc03c258fa86c869eb1c51b7a824a1a0f3e627c"
+            "bytes": 6106,
+            "sha256": "8b1066716c642b09f1d5522cfdb665cf6f965ad783d61f63d009544575d116c2"
           },
           {
             "path": "src/world/bullets.js",
-            "bytes": 7394,
-            "sha256": "c13bc50fb4cc9bb72a4fddefc1db45ab981d3a7b4327713dd6c01d4422051e81"
+            "bytes": 7188,
+            "sha256": "ebccee06cb0be516dbf89057f531c07546851b07aa223865b2421592f0106687"
           },
           {
             "path": "src/world/dress-help-focus.js",
-            "bytes": 4971,
-            "sha256": "60a79f92e85a2bbe3870252185f4e10d141ddc4ea948aefa6308679e029f9328"
+            "bytes": 4827,
+            "sha256": "81519d21f1a02f329824d93d300ca2d6a67d5ebaafd9f9f38685c4aea5527cd6"
           },
           {
             "path": "src/world/dress-help-staging.js",
-            "bytes": 4641,
-            "sha256": "32dc2cc8f736ace308cefccd7ab9693f60e2781e2d94e5113dedc1912cb8c566"
+            "bytes": 4497,
+            "sha256": "abe5a8580662449471f62c2bcdd9a775d7cc74ea6bd125caa7f51b3e2d0ae449"
           },
           {
             "path": "src/world/dress-help.js",
-            "bytes": 4637,
-            "sha256": "063cb2cd2bed5a98ff03263825094eaa9261624677a4e05e45da84e4d4d8bfa5"
+            "bytes": 4475,
+            "sha256": "8752a63b441cfefe58196d80ea1961c70e9eaa8fcb21cf3646ce43423fe33924"
           },
           {
             "path": "src/world/gear.js",
-            "bytes": 9964,
-            "sha256": "d3e87a774d3b73e2a5ef348703df5789a943619660cecb16b398f40f0ff62818"
+            "bytes": 9785,
+            "sha256": "75f54deac5c4cb4e65b9548246152ed82d6dd0a661991a2425e51a11a9fc965d"
           },
           {
             "path": "src/world/materials.js",
-            "bytes": 3333,
-            "sha256": "dd05c1d4cb14da6e1bac82d3a31e6e959be256c67928313472f9119a5f68dfde"
+            "bytes": 3255,
+            "sha256": "7f9fde62f802753fee4890a0119010c609a5ab03470911e45881c3f6b258d7d0"
           },
           {
             "path": "src/world/props.js",
-            "bytes": 146037,
-            "sha256": "ca6423ea9c188c025adfb4d098145469d73b00ffc8311c6cad77419a66d1427a"
+            "bytes": 144912,
+            "sha256": "d976004fdaa2c0bfe1a1445c5a03a1017b22fb57719bb9671fc4be6eeb073a04"
           },
           {
             "path": "src/world/smoke.js",
-            "bytes": 6473,
-            "sha256": "3d27e14c51553b888aeabb74d671ee66322a4ad7281894dbb93b93e5c1de9a22"
+            "bytes": 6274,
+            "sha256": "846b44c2cfa3d5b4c15e5baee27164b3d6b09bc9c83f99a96a9f0b5cdda6fdd0"
           },
           {
             "path": "src/world/stream.js",
-            "bytes": 10310,
-            "sha256": "076689aff0a0b3b48a2317441509e5422f811740b5bd7fe41da57b43c5e8fac1"
+            "bytes": 10006,
+            "sha256": "23ea3e163917a90c63219cac3478ca7e4789f020bbca37868ff55f26803d540c"
           },
           {
             "path": "src/world/textures.js",
-            "bytes": 20124,
-            "sha256": "4d859b348510f7ec81b837fdc8c0917f146593ce6a17987a136a7303cb30bd63"
+            "bytes": 19529,
+            "sha256": "9ab906f7ece3c1e24430c317d5b8c0617018f8e254362c83ed96c59240b57ed0"
           },
           {
             "path": "vendor/addons/postprocessing/EffectComposer.js",
-            "bytes": 4882,
-            "sha256": "0dbb9c044721be861e8b7f17a273475c47388cee6fd16474c56d715df2fe65b2"
+            "bytes": 4651,
+            "sha256": "d234e578618fa816955ebdc059c049c577e203e650e33cf22bde3f232c29e669"
           },
           {
             "path": "vendor/addons/postprocessing/MaskPass.js",
-            "bytes": 2335,
-            "sha256": "b0360737a0fa5a3416f062915a16b0448a93f26e01d0e559d9c9cfac8b9cf46d"
+            "bytes": 2231,
+            "sha256": "328cf7db0da5d9be83ffe39d54b01d5ac1fddf108cc98182ddbb056f5c8b537f"
           },
           {
             "path": "vendor/addons/postprocessing/OutputPass.js",
-            "bytes": 2621,
-            "sha256": "e040260fd6c8c26f155432e181b407b35c43e44314b9aad1c56222a2655aa51c"
+            "bytes": 2524,
+            "sha256": "32f879d2179087676631c799857a885586b3cdd13b9731bd3b13f06428bd58b7"
           },
           {
             "path": "vendor/addons/postprocessing/Pass.js",
-            "bytes": 1801,
-            "sha256": "e142845fdd6a19d979c6f064dd71e5f5b7a4d35bd6eb4f5af46edf2eabff9da9"
+            "bytes": 1706,
+            "sha256": "b3c6128340eaa37e40a6a2f1b738e894c855239417d50959759b34a2b5e89f92"
           },
           {
             "path": "vendor/addons/postprocessing/RenderPass.js",
-            "bytes": 2040,
-            "sha256": "d57f1aa0e21be0f0969547006560ecf1678fdf2de18251b5a70b76a62390de7d"
+            "bytes": 1941,
+            "sha256": "6c9b8a539ea16e898f65e4760f14937ef9ea94043bd9842c141e0301f41903e8"
           },
           {
             "path": "vendor/addons/postprocessing/ShaderPass.js",
-            "bytes": 1653,
-            "sha256": "84d3854fd7e42a4a0aeddd6c58c902ad0b3aea82bf7d5e7cb76c24248acfb0b7"
+            "bytes": 1576,
+            "sha256": "3b28a1ee27e0eb96c0eab137a1f442ccf127a926904eced2d51e125ec44af781"
           },
           {
             "path": "vendor/addons/postprocessing/UnrealBloomPass.js",
-            "bytes": 12825,
-            "sha256": "9cfd2ff389368709af19c0f55171bf80aa8126c9215611ee608a902a0846813b"
+            "bytes": 12410,
+            "sha256": "3bd23a1097af75c7002d0ffc21a6c14f45c4dd701dbaf737030dfc61fb7c64d9"
           },
           {
             "path": "vendor/addons/shaders/CopyShader.js",
-            "bytes": 616,
-            "sha256": "5827504ed05e7ae252e75f53b3fb10caa96ec21e70a78143e9ef90d430f1107e"
+            "bytes": 571,
+            "sha256": "4e3346db194db56a596cd074e9bdb39fb5eb52040c333e0d29dc4eb1324d3b1d"
           },
           {
             "path": "vendor/addons/shaders/LuminosityHighPassShader.js",
-            "bytes": 1211,
-            "sha256": "58830498f7c6eafbfa2874319cfc79aa8d1ccf68b46fd5ab1c0d409ebef2eb62"
+            "bytes": 1147,
+            "sha256": "9f4866f9abb2d96fd83eec46ba4bf2165b22155a7a37ff425c0f60eba18007cb"
           },
           {
             "path": "vendor/addons/shaders/OutputShader.js",
-            "bytes": 1575,
-            "sha256": "b20bb58821aa527f80a052f36e18c188f9202c6edaabf895c665594cd54c8320"
+            "bytes": 1490,
+            "sha256": "4944cecd49c0d4d1520a4d927bde8a590fd43f041ee913252b9451855a01d0f0"
           },
           {
             "path": "vendor/three.module.min.js",
-            "bytes": 687464,
-            "sha256": "6acdfc5e7d095fb6b1c54a45e70fe277ddc863a99b56d1f0d48b900114ae51ab"
+            "bytes": 687458,
+            "sha256": "f7cee3c7533449a1505cc12cb5128b89e3d4fd3d7ea62b05f9f5464a217472ee"
           }
         ]
       },
       "manifest": {
         "path": "assets/art/manifest.json",
-        "bytes": 27260,
-        "sha256": "a9048f9fbf7ee68be13f6d6d584a1a4725190c3d5a543df4890bff69e0d7b51a"
+        "bytes": 33109,
+        "sha256": "2b87938ec3db23028da83e6654ed5059df3dc66e66c228aa8d7cb802f1d1184d"
       },
       "shots": {
-        "sha256": "8c1f5f72e06052d94fdb233675ab9a2c9f0eeb3cba29f13082eeccc72c68e3a1",
+        "sha256": "f8434236314e030b94e51adeb21e4e8b4dbf5ae1ce01084c6671573fa7db1094",
         "entries": [
           {
             "name": "01-gallery-roster",
@@ -552,7 +637,7 @@
             "slot": "mansion.gallery.roster",
             "file": "austin-major-2025-roster.jpg",
             "position": [
-              11.4,
+              11,
               6,
               51.6
             ],
@@ -565,9 +650,9 @@
             "slot": "mansion.ballroom.major",
             "file": "austin-major-cowboy-banner.jpg",
             "position": [
-              -4.6,
+              5,
               1.2,
-              72.9
+              62
             ],
             "railProof": false,
             "allowPerimeterOcclusion": false
@@ -593,7 +678,7 @@
             "position": [
               4.7,
               6,
-              59.9
+              59.8
             ],
             "railProof": false,
             "allowPerimeterOcclusion": false
@@ -692,14 +777,14 @@
         ]
       },
       "art": {
-        "sha256": "4ef227048460467abb91368afc6e7214a528b99cab9adfaf318c53a3b0418f88",
+        "sha256": "fb28c074bb253572b5e7167ca702931e0b9829d01af593567fcfaa276ae11817",
         "entries": [
           {
             "slot": "mansion.gallery.roster",
             "file": "austin-major-2025-roster.jpg",
             "path": "assets/art/austin-major-2025-roster.jpg",
-            "bytes": 464494,
-            "sha256": "849ef9ac9f8ff8904d526dd5108ead0ad5bfda10746c513603c3635c09b7e6eb"
+            "bytes": 266206,
+            "sha256": "ba01809ce98c091610916c0a99ed51b5efeb93505ed1cd45c2afea595571d678"
           },
           {
             "slot": "mansion.ballroom.major",
@@ -733,8 +818,8 @@
             "slot": "mansion.winter.almighty",
             "file": "squatch-almighty.jpg",
             "path": "assets/art/squatch-almighty.jpg",
-            "bytes": 501616,
-            "sha256": "282b14232ba942ba7e4a299430ea3de53eee2c1ef81bfa63ba9db6abafbafd74"
+            "bytes": 299758,
+            "sha256": "ba8947636c0e705e06c867161a04c1b46e947a8285c0e52bb118251c945927ee"
           },
           {
             "slot": "mansion.cellar.bus",
@@ -774,17 +859,17 @@
         ]
       },
       "tools": {
-        "sha256": "1f459bd68b471c71e320b280631ab1ef3711c361de3f6fccc65f87cd4d0fbb65",
+        "sha256": "89eee1edb1ead71147122db1bef3d1c27a7a9707f7599414233f5c6539bc42e7",
         "entries": [
           {
             "path": "tools/verify-mansion-art.mjs",
-            "bytes": 19481,
-            "sha256": "e5fbbfd035f232418f949395d4193f4711ef7c2e19467175bd3f33ffc76604e2"
+            "bytes": 22855,
+            "sha256": "d855bc4c32653972ef2e2fd136dd398fef2e9f69b9b5cc8aa25baee5e51775e8"
           },
           {
             "path": "tools/mansion-art-evidence-contract.mjs",
-            "bytes": 3222,
-            "sha256": "b6c0ddb2161aa646da2bf0243f864ff4505fa9b04f31a7e5236a487c3f86bb80"
+            "bytes": 5203,
+            "sha256": "286825ddf88f764ac8c74caeaa06af8e703016c6f4410b95d0ce926231f74135"
           },
           {
             "path": "tools/mansion-art-evidence-provenance.mjs",
@@ -793,104 +878,104 @@
           }
         ]
       },
-      "fingerprint": "0d78ffacc69b3e186b93c79ce4d5c54bf206cee1bcd9556150d59b5a705ec813"
+      "fingerprint": "8c29f4c20d76139b31bdbcbb210b5cc7453a240716d0b8193f03ae7ef988dece"
     },
     "evidence": [
       {
         "name": "01-gallery-roster",
         "file": "01-gallery-roster.png",
-        "bytes": 292067,
+        "bytes": 315465,
         "width": 1280,
         "height": 720,
-        "sha256": "7b4f34ea4c7fe36d1a9ab24872d9985b1d21d022ae5923fa9dc966c9ee639f98"
+        "sha256": "99061778abcb3d42376716f47b002a7baff8d0b362fb490acf3d18a223ed56c1"
       },
       {
         "name": "02-ballroom-major",
         "file": "02-ballroom-major.png",
-        "bytes": 222532,
+        "bytes": 223864,
         "width": 1280,
         "height": 720,
-        "sha256": "573d123dca753267d8c0768518fef3b4b8d5d9ee7607f2d6a7931078d4eb464a"
+        "sha256": "0986b3da2b9e92c720bfea2b6465d3d60ae9903f3c437f2a5651ff58d4a16eec"
       },
       {
         "name": "03-lounge-cowboy",
         "file": "03-lounge-cowboy.png",
-        "bytes": 373079,
+        "bytes": 441502,
         "width": 1280,
         "height": 720,
-        "sha256": "744e41894f5806116ef4470368a1f7138c32079ef68e8cda098cc88504c2acbe"
+        "sha256": "904ddd16d6d6b4ab0994beab1b6474b4283fab38b954e3c3e3dfa6122d03f39d"
       },
       {
         "name": "04-conference-stacks",
         "file": "04-conference-stacks.png",
-        "bytes": 216182,
+        "bytes": 259792,
         "width": 1280,
         "height": 720,
-        "sha256": "904ced7588313428ca77cdb3d9da20cbe6c437187bbd437314de4da42d3602db"
+        "sha256": "5f73f1365ed7d215113d6775dcdc490efcdb8e97fdae53fe5b9a3d73f7e70d25"
       },
       {
         "name": "05-office-boss",
         "file": "05-office-boss.png",
-        "bytes": 118912,
+        "bytes": 205482,
         "width": 1280,
         "height": 720,
-        "sha256": "4966f2c26864bf41f4aaf45f8adf567142dbed82592ea10cbbb39964764347d5"
+        "sha256": "610af0504ea77806406dac2887525d317113f0b8c9e7317e0d8ef2fd2e1ac5f1"
       },
       {
         "name": "06-winter-almighty",
         "file": "06-winter-almighty.png",
-        "bytes": 360906,
+        "bytes": 369392,
         "width": 1280,
         "height": 720,
-        "sha256": "b5770eaaa0269cffbe4ed5d551201f79f13ae508a579eec070b39e0aa5b4aeba"
+        "sha256": "91b45f535e526c29370135efcd285a55ba6df1678e01a64a399548f6eb35b1ff"
       },
       {
         "name": "07-cellar-party-bus",
         "file": "07-cellar-party-bus.png",
-        "bytes": 228654,
+        "bytes": 233011,
         "width": 1280,
         "height": 720,
-        "sha256": "93efa9b646b59f02f39541d3c7a2748e425db231523dbea93c4cfe766fcd1d0d"
+        "sha256": "22c2069869f8e551067bb73748c97a9050c76c60196c88b058b9c382d685516f"
       },
       {
         "name": "08-guest-dog",
         "file": "08-guest-dog.png",
-        "bytes": 193780,
+        "bytes": 196695,
         "width": 1280,
         "height": 720,
-        "sha256": "2d5cf1974e228b6309d128e4f525f1170b8a4bc6182cdf119ecf8c26f82c6bd7"
+        "sha256": "dbd0595cb5689b8cbf76270f973c4a0bb9087ed2ef91693ef37f96ea35120ead"
       },
       {
         "name": "09-theatre-lockup",
         "file": "09-theatre-lockup.png",
-        "bytes": 478042,
+        "bytes": 479948,
         "width": 1280,
         "height": 720,
-        "sha256": "e48f0882cb18444f0cf77bb7a4ed36462f50e67d4b4ead4fbe42d75352eb5305"
+        "sha256": "bfed9425177a3ec4751f5b0051835c1c65a66d581de49533d17b7b5b133b0cc3"
       },
       {
         "name": "10-lan-denver",
         "file": "10-lan-denver.png",
-        "bytes": 253530,
+        "bytes": 288971,
         "width": 1280,
         "height": 720,
-        "sha256": "1b9c818c0cf8ff40cf67ded8fdf586e1b1738bdf3d219df5e339b10d4a4f763a"
+        "sha256": "3e39481b82d5c14b2e48a13c0ec40ee1647b494658ab2ef459aa2357a5ce86d5"
       },
       {
         "name": "11-vault-facing-casa-bonita",
         "file": "11-vault-facing-casa-bonita.png",
-        "bytes": 321298,
+        "bytes": 323200,
         "width": 1280,
         "height": 720,
-        "sha256": "7766cc1d22bec78ce1f6f894ef65bc8da85b98cc41f7510e2086dfe2b5e45ff4"
+        "sha256": "2541f21c8fdea58386b8b0a918824f227147dec4581b894fc813bc3ca311386a"
       }
     ],
-    "evidenceFingerprint": "eaed8e045f50cac3ac610f44a46c05650159996bea1d03b1b8377dbee229c0ce"
+    "evidenceFingerprint": "31ca49ff8ddb27c542ebfc155afb0362a250a6485cd064ecb277b4e483414c6d"
   },
   "pictures": [
     {
       "name": "01-gallery-roster",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\01-gallery-roster.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/01-gallery-roster.png",
       "allowPerimeterOcclusion": false,
       "room": "Upper gallery",
       "slot": "mansion.gallery.roster",
@@ -900,27 +985,27 @@
       "mapped": true,
       "decoded": true,
       "image": [
-        2600,
-        1040
+        2048,
+        819
       ],
       "shown": true,
       "player": [
-        11.4,
-        7.66,
+        11,
+        7.6819999999999995,
         51.6
       ],
       "target": [
-        11.4,
+        11,
         8.05,
-        48.18
+        48.189499999999995
       ],
       "screen": {
-        "width": 506.85055904550694,
-        "height": 197.27885005155434,
+        "width": 508.05645309733166,
+        "height": 198.03760315963785,
         "centre": [
-          -4.303617006558788e-16,
-          0,
-          0.9541188938345395
+          -4.318507101516564e-16,
+          -7.677345958251669e-16,
+          0.9539580198575641
         ]
       },
       "grid": {
@@ -936,7 +1021,7 @@
     },
     {
       "name": "02-ballroom-major",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\02-ballroom-major.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/02-ballroom-major.png",
       "allowPerimeterOcclusion": false,
       "room": "Ballroom",
       "slot": "mansion.ballroom.major",
@@ -951,22 +1036,22 @@
       ],
       "shown": true,
       "player": [
-        -6.02,
-        2.86,
-        72.9
+        5,
+        2.88,
+        62
       ],
       "target": [
-        -8.69,
+        5,
         4.5,
-        72.9
+        58.189499999999995
       ],
       "screen": {
-        "width": 639.6057129737251,
-        "height": 166.01357226685496,
+        "width": 463.06954790207385,
+        "height": 134.89468924999534,
         "centre": [
-          -0.0001291150628567848,
-          0.00032878617157451286,
-          0.9495448638058003
+          0,
+          0,
+          0.9619616468867979
         ]
       },
       "grid": {
@@ -982,7 +1067,7 @@
     },
     {
       "name": "03-lounge-cowboy",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\03-lounge-cowboy.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/03-lounge-cowboy.png",
       "allowPerimeterOcclusion": false,
       "room": "Billiards lounge",
       "slot": "mansion.lounge.cowboy",
@@ -998,21 +1083,21 @@
       "shown": true,
       "player": [
         13.668366761120517,
-        2.86,
+        2.8819999999999997,
         39.999365738412365
       ],
       "target": [
-        9.184,
+        9.1895,
         3.5999999999999996,
         40
       ],
       "screen": {
-        "width": 143.99500275311053,
-        "height": 139.06423081650166,
+        "width": 144.2369609913089,
+        "height": 139.5145857876218,
         "centre": [
-          -0.000553496161977242,
-          0.0009450243258183443,
-          0.9654062920316037
+          -0.0007339292871886351,
+          -0.0014926658910474888,
+          0.9653272507834677
         ]
       },
       "grid": {
@@ -1028,7 +1113,7 @@
     },
     {
       "name": "04-conference-stacks",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\04-conference-stacks.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/04-conference-stacks.png",
       "allowPerimeterOcclusion": false,
       "room": "Conference room",
       "slot": "mansion.conference.stacks",
@@ -1044,21 +1129,21 @@
       "shown": true,
       "player": [
         4.7,
-        7.66,
-        59.9
+        7.6819999999999995,
+        59.8
       ],
       "target": [
-        8.706,
-        8.4,
-        59.9
+        8.750499999999999,
+        8,
+        59.8
       ],
       "screen": {
-        "width": 154.6308589319322,
-        "height": 148.2571060827563,
+        "width": 152.7591929725352,
+        "height": 150.62220070507354,
         "centre": [
-          -2.827827726851148e-8,
-          6.461464125501147e-8,
-          0.9613278673661744
+          -8.040663108112426e-7,
+          -0.0000013068248752844075,
+          0.9612233303955103
         ]
       },
       "grid": {
@@ -1074,7 +1159,7 @@
     },
     {
       "name": "05-office-boss",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\05-office-boss.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/05-office-boss.png",
       "allowPerimeterOcclusion": false,
       "room": "Lou's office",
       "slot": "mansion.office.boss",
@@ -1090,21 +1175,21 @@
       "shown": true,
       "player": [
         -6,
-        7.66,
+        7.68,
         66.6
       ],
       "target": [
         -6,
         8.4,
-        63.354
+        63.189499999999995
       ],
       "screen": {
-        "width": 142.76140852945662,
-        "height": 160.68922559576137,
+        "width": 135.8144473808298,
+        "height": 153.98411896419574,
         "centre": [
-          -1.386920516493942e-12,
-          3.1419660166193634e-12,
-          0.9525423663613083
+          -9.44452636884632e-9,
+          -1.5065083736949286e-8,
+          0.9546992514449153
         ]
       },
       "grid": {
@@ -1120,7 +1205,7 @@
     },
     {
       "name": "06-winter-almighty",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\06-winter-almighty.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/06-winter-almighty.png",
       "allowPerimeterOcclusion": false,
       "room": "Winter garden",
       "slot": "mansion.winter.almighty",
@@ -1136,21 +1221,21 @@
       "shown": true,
       "player": [
         -20.308021868713688,
-        2.86,
+        2.8819999999999997,
         65.92014701827371
       ],
       "target": [
-        -16.484,
+        -16.4395,
         3.9000000000000004,
         66.2
       ],
       "screen": {
-        "width": 161.8048420727139,
-        "height": 189.8116378522488,
+        "width": 159.94947264767904,
+        "height": 188.23926217685832,
         "centre": [
-          -0.0008428153057357879,
-          -0.0007303609518154377,
-          0.9603238321513581
+          0.00016300081852906777,
+          0.0004660209084120923,
+          0.9607063406102861
         ]
       },
       "grid": {
@@ -1166,7 +1251,7 @@
     },
     {
       "name": "07-cellar-party-bus",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\07-cellar-party-bus.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/07-cellar-party-bus.png",
       "allowPerimeterOcclusion": false,
       "room": "Cellar hall",
       "slot": "mansion.cellar.bus",
@@ -1182,21 +1267,21 @@
       "shown": true,
       "player": [
         -10.5,
-        -1.14,
+        -1.1159999999999999,
         66.4
       ],
       "target": [
         -10.5,
         -1.0499999999999998,
-        64.384
+        64.3395
       ],
       "screen": {
-        "width": 192.4670388629895,
-        "height": 253.67633664345297,
+        "width": 187.80262947448455,
+        "height": 248.42335910419416,
         "centre": [
-          -2.1092233975450423e-7,
-          -1.89195473711636e-7,
-          0.9213050596470707
+          2.9389016613408517e-7,
+          8.682482873970392e-7,
+          0.9229804361066022
         ]
       },
       "grid": {
@@ -1212,7 +1297,7 @@
     },
     {
       "name": "08-guest-dog",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\08-guest-dog.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/08-guest-dog.png",
       "allowPerimeterOcclusion": false,
       "room": "Lower guest room",
       "slot": "mansion.guest.dog",
@@ -1228,21 +1313,21 @@
       "shown": true,
       "player": [
         -10,
-        -1.14,
+        -1.1060000000000005,
         72.6
       ],
       "target": [
-        -8.044,
+        -7.9395,
         -1.0999999999999999,
         72.6
       ],
       "screen": {
-        "width": 169.8740907657865,
-        "height": 225.4774692990581,
+        "width": 160.68896384746682,
+        "height": 214.12596285290107,
         "centre": [
-          -1.7294251046276513e-11,
-          -1.5526125049056492e-11,
-          0.9188079102947095
+          1.651772160157924e-10,
+          4.882451415649786e-10,
+          0.9229409477779441
         ]
       },
       "grid": {
@@ -1258,7 +1343,7 @@
     },
     {
       "name": "09-theatre-lockup",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\09-theatre-lockup.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/09-theatre-lockup.png",
       "allowPerimeterOcclusion": false,
       "room": "Theatre",
       "slot": "mansion.theatre.lockup",
@@ -1274,21 +1359,21 @@
       "shown": true,
       "player": [
         -0.5,
-        -1.14,
+        -1.118,
         73.5
       ],
       "target": [
-        1.7599999999999998,
-        -1.0999999999999999,
+        1.7704999999999997,
+        -1.1099999999999999,
         73.5
       ],
       "screen": {
-        "width": 225.1543116205987,
-        "height": 224.28498721423512,
+        "width": 223.47796282361742,
+        "height": 223.311969049664,
         "centre": [
-          0,
-          -1.3107469185384474e-15,
-          0.9298084132251067
+          3.152593857576737e-12,
+          9.31627441650344e-12,
+          0.9301252624404341
         ]
       },
       "grid": {
@@ -1304,7 +1389,7 @@
     },
     {
       "name": "10-lan-denver",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\10-lan-denver.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/10-lan-denver.png",
       "allowPerimeterOcclusion": true,
       "room": "LAN room",
       "slot": "mansion.lan.denver",
@@ -1320,21 +1405,21 @@
       "shown": true,
       "player": [
         8.02,
-        -1.14,
+        -1.118,
         73.2
       ],
       "target": [
-        10.76,
+        10.820500000000001,
         -1.2999999999999998,
         73.2
       ],
       "screen": {
-        "width": 176.69752125496743,
-        "height": 174.72381882427388,
+        "width": 172.9629208335133,
+        "height": 170.82495473407295,
         "centre": [
-          -0.000434414153075253,
-          -0.00047310377684191463,
-          0.942303862249089
+          0.00011519751192241735,
+          0.00033462456213079124,
+          0.9435848037416746
         ]
       },
       "grid": {
@@ -1353,6 +1438,7 @@
               "name": "(unnamed mesh)",
               "ancestry": [
                 "desk",
+                "roomVisibility:lanRoom",
                 "MansionInterior"
               ],
               "artSlot": null,
@@ -1390,7 +1476,7 @@
     },
     {
       "name": "11-vault-facing-casa-bonita",
-      "screenshot": "docs\\validation\\2026-08-10\\mansion-art\\final\\11-vault-facing-casa-bonita.png",
+      "screenshot": "docs/validation/2026-08-10/mansion-art/final/11-vault-facing-casa-bonita.png",
       "allowPerimeterOcclusion": false,
       "room": "Cellar hall, across from vault",
       "slot": "mansion.cellar.crest",
@@ -1406,21 +1492,21 @@
       "shown": true,
       "player": [
         10.5,
-        -1.14,
+        -1.1159999999999999,
         66.4
       ],
       "target": [
         10.5,
-        -0.9899999999999998,
-        64.38
+        -0.9549999999999998,
+        64.3395
       ],
       "screen": {
-        "width": 256.25199638077027,
-        "height": 333.0203297057009,
+        "width": 251.32571007248586,
+        "height": 326.2936042252279,
         "centre": [
-          -2.409071928693051e-7,
-          -2.6208810286952764e-7,
-          0.9216008237272906
+          0.000002457495874277959,
+          0.000007131830051328489,
+          0.9231766815135838
         ]
       },
       "grid": {
@@ -1434,18 +1520,80 @@
       },
       "rail": {
         "intersections": [],
-        "clearance": 0.05166667461395269,
+        "clearance": 0.05166666666666675,
         "pictureBox": {
           "min": [
             10.025000005960464,
-            -1.6233333253860471,
-            64.38
+            -1.5883333253860472,
+            64.3395
           ],
           "max": [
             10.974999994039536,
-            -0.3566666746139524,
-            64.38
+            -0.3216666746139525,
+            64.3395
           ]
+        },
+        "frame": {
+          "min": [
+            9.99,
+            -1.623333333333333,
+            64.3
+          ],
+          "max": [
+            11.01,
+            -0.2866666666666665,
+            64.35549999999999
+          ]
+        },
+        "bezel": {
+          "min": [
+            9.99,
+            -1.623333333333333,
+            64.3
+          ],
+          "max": [
+            11.01,
+            -0.2866666666666665,
+            64.335
+          ]
+        },
+        "board": {
+          "min": [
+            10.019,
+            -1.5943333333333332,
+            64.3345
+          ],
+          "max": [
+            10.981,
+            -0.31566666666666654,
+            64.3385
+          ]
+        },
+        "containment": {
+          "boardLeft": 0.00600000596046435,
+          "boardRight": 0.00600000596046435,
+          "boardBottom": 0.006000007947285946,
+          "boardTop": 0.006000007947285946,
+          "bezelLeft": 0.035000005960464264,
+          "bezelRight": 0.035000005960464264,
+          "bezelBottom": 0.03500000794728586,
+          "bezelTop": 0.03500000794728597
+        },
+        "nearestStructuralWall": {
+          "name": "cellar-wing-south",
+          "frameRearGap": -1.4210854715202004e-14,
+          "box": {
+            "min": [
+              9,
+              -2.8,
+              64
+            ],
+            "max": [
+              15.899999999999999,
+              0,
+              64.30000000000001
+            ]
+          }
         }
       }
     }
@@ -1457,12 +1605,12 @@
       "payload": {
         "file": "austin-major-2025-roster.jpg",
         "image": [
-          2600,
-          1040
+          2048,
+          819
         ],
         "screen": [
-          507,
-          197
+          508,
+          198
         ],
         "clearSamples": "25/25",
         "coreSamples": "9/9",
@@ -1480,8 +1628,8 @@
           683
         ],
         "screen": [
-          640,
-          166
+          463,
+          135
         ],
         "clearSamples": "25/25",
         "coreSamples": "9/9",
@@ -1500,7 +1648,7 @@
         ],
         "screen": [
           144,
-          139
+          140
         ],
         "clearSamples": "25/25",
         "coreSamples": "9/9",
@@ -1518,8 +1666,8 @@
           1400
         ],
         "screen": [
-          155,
-          148
+          153,
+          151
         ],
         "clearSamples": "25/25",
         "coreSamples": "9/9",
@@ -1537,8 +1685,8 @@
           1200
         ],
         "screen": [
-          143,
-          161
+          136,
+          154
         ],
         "clearSamples": "25/25",
         "coreSamples": "9/9",
@@ -1556,8 +1704,8 @@
           1400
         ],
         "screen": [
-          162,
-          190
+          160,
+          188
         ],
         "clearSamples": "25/25",
         "coreSamples": "9/9",
@@ -1575,8 +1723,8 @@
           1400
         ],
         "screen": [
-          192,
-          254
+          188,
+          248
         ],
         "clearSamples": "25/25",
         "coreSamples": "9/9",
@@ -1594,8 +1742,8 @@
           1200
         ],
         "screen": [
-          170,
-          225
+          161,
+          214
         ],
         "clearSamples": "25/25",
         "coreSamples": "9/9",
@@ -1613,8 +1761,8 @@
           1400
         ],
         "screen": [
-          225,
-          224
+          223,
+          223
         ],
         "clearSamples": "25/25",
         "coreSamples": "9/9",
@@ -1632,8 +1780,8 @@
           1400
         ],
         "screen": [
-          177,
-          175
+          173,
+          171
         ],
         "clearSamples": "24/25",
         "coreSamples": "9/9",
@@ -1647,6 +1795,7 @@
               "name": "(unnamed mesh)",
               "ancestry": [
                 "desk",
+                "roomVisibility:lanRoom",
                 "MansionInterior"
               ],
               "artSlot": null,
@@ -1696,22 +1845,278 @@
       }
     },
     {
-      "label": "Casa Bonita clears the actual white cellar chair rail by at least 40 mm",
+      "label": "Casa Bonita has a complete, symmetric frame containing the resolved art",
       "ok": true,
       "payload": {
-        "intersections": [],
-        "clearance": 0.05166667461395269,
-        "pictureBox": {
-          "min": [
-            10.025000005960464,
-            -1.6233333253860471,
-            64.38
-          ],
-          "max": [
-            10.974999994039536,
-            -0.3566666746139524,
-            64.38
-          ]
+        "contract": {
+          "frameComplete": true,
+          "artContained": true,
+          "symmetric": true,
+          "railClear": true,
+          "wallMounted": true,
+          "ok": true
+        },
+        "proof": {
+          "intersections": [],
+          "clearance": 0.05166666666666675,
+          "pictureBox": {
+            "min": [
+              10.025000005960464,
+              -1.5883333253860472,
+              64.3395
+            ],
+            "max": [
+              10.974999994039536,
+              -0.3216666746139525,
+              64.3395
+            ]
+          },
+          "frame": {
+            "min": [
+              9.99,
+              -1.623333333333333,
+              64.3
+            ],
+            "max": [
+              11.01,
+              -0.2866666666666665,
+              64.35549999999999
+            ]
+          },
+          "bezel": {
+            "min": [
+              9.99,
+              -1.623333333333333,
+              64.3
+            ],
+            "max": [
+              11.01,
+              -0.2866666666666665,
+              64.335
+            ]
+          },
+          "board": {
+            "min": [
+              10.019,
+              -1.5943333333333332,
+              64.3345
+            ],
+            "max": [
+              10.981,
+              -0.31566666666666654,
+              64.3385
+            ]
+          },
+          "containment": {
+            "boardLeft": 0.00600000596046435,
+            "boardRight": 0.00600000596046435,
+            "boardBottom": 0.006000007947285946,
+            "boardTop": 0.006000007947285946,
+            "bezelLeft": 0.035000005960464264,
+            "bezelRight": 0.035000005960464264,
+            "bezelBottom": 0.03500000794728586,
+            "bezelTop": 0.03500000794728597
+          },
+          "nearestStructuralWall": {
+            "name": "cellar-wing-south",
+            "frameRearGap": -1.4210854715202004e-14,
+            "box": {
+              "min": [
+                9,
+                -2.8,
+                64
+              ],
+              "max": [
+                15.899999999999999,
+                0,
+                64.30000000000001
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "Casa Bonita full frame clears the actual white cellar chair rail by at least 50 mm",
+      "ok": true,
+      "payload": {
+        "contract": {
+          "frameComplete": true,
+          "artContained": true,
+          "symmetric": true,
+          "railClear": true,
+          "wallMounted": true,
+          "ok": true
+        },
+        "proof": {
+          "intersections": [],
+          "clearance": 0.05166666666666675,
+          "pictureBox": {
+            "min": [
+              10.025000005960464,
+              -1.5883333253860472,
+              64.3395
+            ],
+            "max": [
+              10.974999994039536,
+              -0.3216666746139525,
+              64.3395
+            ]
+          },
+          "frame": {
+            "min": [
+              9.99,
+              -1.623333333333333,
+              64.3
+            ],
+            "max": [
+              11.01,
+              -0.2866666666666665,
+              64.35549999999999
+            ]
+          },
+          "bezel": {
+            "min": [
+              9.99,
+              -1.623333333333333,
+              64.3
+            ],
+            "max": [
+              11.01,
+              -0.2866666666666665,
+              64.335
+            ]
+          },
+          "board": {
+            "min": [
+              10.019,
+              -1.5943333333333332,
+              64.3345
+            ],
+            "max": [
+              10.981,
+              -0.31566666666666654,
+              64.3385
+            ]
+          },
+          "containment": {
+            "boardLeft": 0.00600000596046435,
+            "boardRight": 0.00600000596046435,
+            "boardBottom": 0.006000007947285946,
+            "boardTop": 0.006000007947285946,
+            "bezelLeft": 0.035000005960464264,
+            "bezelRight": 0.035000005960464264,
+            "bezelBottom": 0.03500000794728586,
+            "bezelTop": 0.03500000794728597
+          },
+          "nearestStructuralWall": {
+            "name": "cellar-wing-south",
+            "frameRearGap": -1.4210854715202004e-14,
+            "box": {
+              "min": [
+                9,
+                -2.8,
+                64
+              ],
+              "max": [
+                15.899999999999999,
+                0,
+                64.30000000000001
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "Casa Bonita real bezel rear is mounted within 5 mm of the cellar wall",
+      "ok": true,
+      "payload": {
+        "contract": {
+          "frameComplete": true,
+          "artContained": true,
+          "symmetric": true,
+          "railClear": true,
+          "wallMounted": true,
+          "ok": true
+        },
+        "proof": {
+          "intersections": [],
+          "clearance": 0.05166666666666675,
+          "pictureBox": {
+            "min": [
+              10.025000005960464,
+              -1.5883333253860472,
+              64.3395
+            ],
+            "max": [
+              10.974999994039536,
+              -0.3216666746139525,
+              64.3395
+            ]
+          },
+          "frame": {
+            "min": [
+              9.99,
+              -1.623333333333333,
+              64.3
+            ],
+            "max": [
+              11.01,
+              -0.2866666666666665,
+              64.35549999999999
+            ]
+          },
+          "bezel": {
+            "min": [
+              9.99,
+              -1.623333333333333,
+              64.3
+            ],
+            "max": [
+              11.01,
+              -0.2866666666666665,
+              64.335
+            ]
+          },
+          "board": {
+            "min": [
+              10.019,
+              -1.5943333333333332,
+              64.3345
+            ],
+            "max": [
+              10.981,
+              -0.31566666666666654,
+              64.3385
+            ]
+          },
+          "containment": {
+            "boardLeft": 0.00600000596046435,
+            "boardRight": 0.00600000596046435,
+            "boardBottom": 0.006000007947285946,
+            "boardTop": 0.006000007947285946,
+            "bezelLeft": 0.035000005960464264,
+            "bezelRight": 0.035000005960464264,
+            "bezelBottom": 0.03500000794728586,
+            "bezelTop": 0.03500000794728597
+          },
+          "nearestStructuralWall": {
+            "name": "cellar-wing-south",
+            "frameRearGap": -1.4210854715202004e-14,
+            "box": {
+              "min": [
+                9,
+                -2.8,
+                64
+              ],
+              "max": [
+                15.899999999999999,
+                0,
+                64.30000000000001
+              ]
+            }
+          }
         }
       }
     },
