@@ -1881,16 +1881,31 @@ try {
 
   await page.mouse.click(640, 360);
   await page.waitForFunction(() => window.NO_WAKE.phase === 'body');
-  const executed = await page.evaluate(() => {
+  const executed = await page.evaluate(async () => {
     const game = window.NO_WAKE;
+    const THREE = await import('three');
     return {
       phase: game.phase,
       shots: game.state.executionShots,
       checkpoint: game.campaignState.missions.no_wake.checkpoint,
-      fell: Math.abs(game.boat.cast.willy.group.rotation.z) > 1,
+      /* HE FALLS FORE-AND-AFT, NOT SIDEWAYS, and this file was still
+       * measuring the roll. `poseNoWakeExecutedBodyGeometry` lays the standing
+       * rig down the clear aisle -- `rotation.set(-1.42, 0, 0)` -- and says
+       * why in its own comment: rotating it sideways put Willy's head through
+       * the galley and his torso through a fixed stool. `rotation.z` is zero
+       * and correctly so, so `fell` was false on a man who was flat on the
+       * floor, with the collapse camera already cut to and the shot glass
+       * already rolling in the same snapshot. Measure the tip he actually
+       * takes. */
+      fell: Math.abs(game.boat.cast.willy.group.rotation.x) > 1,
       shot: game.cameraDirector.shot?.id ?? null,
       sawCollapseShot: game.cameraDirector.seenShots.has('execution-collapse-profile'),
-      onSole: game.boat.cast.willy.group.position.y <= game.boat.cabinDeck.height + .05,
+      /* And ON THE SOLE means the BODY is on the sole, not the group origin.
+       * The rig's pivot sits 8.8 cm up because that is where a standing man's
+       * pivot is; the same comment records that the visible body ends up
+       * bedded two centimetres into the boards. Ask the geometry. */
+      onSole: new THREE.Box3().setFromObject(game.boat.cast.willy.group)
+        .min.y <= game.boat.cabinDeck.height + 0.05,
       glassRolling: Boolean(game.state.glassRoll),
     };
   });
@@ -2320,9 +2335,24 @@ try {
 
   await page.waitForFunction(() => sessionStorage.getItem('__verify.no-wake.completion') !== null,
     null, { timeout: 300000 });
-  const completed = await page.evaluate(() => JSON.parse(
+  /* THE SCENE ENDS BY LEAVING. Completing NO WAKE navigates the page back to
+   * the flat, and that navigation can land between `waitForFunction` returning
+   * and this read, destroying the execution context underneath it -- which is
+   * how a run that had passed all 73 preceding checks died with "Execution
+   * context was destroyed, most likely because of a navigation" and reported
+   * nothing at all about the completion it had just achieved.
+   *
+   * The record survives: `sessionStorage` is per-origin and per-tab, and the
+   * page it navigates to is the same origin. So read it again on the other
+   * side rather than treating the navigation as a failure. */
+  const readCompletion = () => page.evaluate(() => JSON.parse(
     sessionStorage.getItem('__verify.no-wake.completion'),
   ));
+  const completed = await readCompletion().catch(async (error) => {
+    if (!/Execution context was destroyed/i.test(error?.message ?? '')) throw error;
+    await page.waitForLoadState('domcontentloaded');
+    return readCompletion();
+  });
   check('completion records every irreversible beat and opens Front and Center',
     completed.mission.status === 'complete' && completed.mission.betrayalConfirmed
       && completed.mission.playerFired && completed.mission.bodyDisposed
