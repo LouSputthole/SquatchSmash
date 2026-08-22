@@ -598,16 +598,28 @@ function startAmbience() {
   audio.startLoop('distantMusic', {
     name: 'ambience.club', volume: 0.022, ambience: true, fade: 3,
   });
-  /* The third floor. Two beds, both positional, both quiet:
-   *   - a room tone, so the suite is not the one silent room in a house that
-   *     hums everywhere else;
-   *   - the tub, which is the only thing up there making a noise.
-   * Neither has a recording yet. `AudioEngine.startLoop` falls through to
-   * `synthLoop` when the manifest cue has no sample, and both cues have a
-   * case there -- filtered noise for the room, and a bubbling bed built from
-   * two bandpassed noise sources and a slow LFO for the water. They are in
-   * the manifest so `npm run sfx` can render them the day somebody records
-   * them, and they cost nothing at runtime until then. */
+}
+
+/**
+ * The third floor's two beds, started AFTER the start bank has decoded.
+ *
+ * Two positional beds, both quiet: a room tone so the suite is not the one
+ * silent room in a house that hums everywhere else, and the tub, which is the
+ * only thing up there making a noise.
+ *
+ * WHY THEY ARE NOT IN `startAmbience()` WITH EVERYTHING ELSE. Every bed above
+ * is a name borrowed for a texture it is not -- `ambience.rain` as leaves,
+ * `tap.run` as a pool -- and those deliberately want the synth, which is why
+ * `startAmbience()` runs before a single cue has decoded. These two are the
+ * opposite case: `mansion.suite.tone` and `mansion.suite.hottub` are the
+ * house's OWN recordings, made for this room, and they arrived after the
+ * comment here said "neither has a recording yet". `AudioEngine.startLoop`
+ * picks its buffer once, at the moment it starts, so a bed started before its
+ * bank has settled keeps the synth stand-in for the whole night no matter
+ * what lands afterwards -- the palace learned the same thing about its rain
+ * (src/cartel-palace/audio-banks.js). So these two wait for the bank.
+ */
+function startSuiteBeds() {
   const suiteMid = interior.rooms.masterSuite.anchor;
   audio.startLoop('suiteTone', {
     name: 'mansion.suite.tone',
@@ -2322,6 +2334,9 @@ async function beginTour() {
    * `kickoff()` is fire-and-forget by design — the ONLY thing allowed to
    * wait on the later banks is a boundary whose beat needs them. */
   await mansionBanks.loadStart();
+  /* The suite's own two recordings, now that they are decoded. See
+   * `startSuiteBeds` for why these two beds are the only ones that wait. */
+  startSuiteBeds();
   mansionBanks.kickoff();
   /* PROJECT SILENT SQUATCH begins NOW, with its voice bank decoded -- the
    * mount no longer autostarts it at module load (see `autoStart: false`

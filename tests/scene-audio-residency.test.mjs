@@ -481,3 +481,84 @@ test('Palace acoustics: room transitions crossfade gains monotonically and never
   const mainSource = fs.readFileSync(path.join(ROOT, 'src/cartel-palace/main.js'), 'utf8');
   assert.match(mainSource, /restoreCombatCheckpoint\(snapshot\);\n\s+\/\* Gains re-asserted[^]*?acoustics\.refresh\(player\.position\);/);
 });
+
+/* ================================================================== */
+/* THE DELIVERED-BUT-NEVER-DECODED TRAP                                 */
+/*                                                                       */
+/* A recording is on disk, in assets/sfx/manifest.json AND in            */
+/* assets/sfx/index.json, and the scene that plays it never decodes it   */
+/* because the scene's own preload scope does not name it. Every static  */
+/* gate stays green and the game plays a synth stand-in for good.        */
+/*                                                                       */
+/* It has now happened four times: `enola.blast.*` (one dot -- see       */
+/* isEnolaPreloadCue), the mansion's entire recorded voice bank (see the */
+/* loadManifest comment in src/mansion/main.js), the Silver Room's two   */
+/* crowd reactions, and the mansion suite's own four takes. The checks   */
+/* below are the standing guard for the last two plus THE SPECIAL        */
+/* MEETING's street: for each, prove the take is really delivered, then  */
+/* prove the page that plays it really asks for it.                      */
+/* ================================================================== */
+
+const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/index.json'), 'utf8'));
+const deliveredFiles = new Set(soundIndex.files || []);
+const manifestByName = new Map(soundManifest.sfx.map((cue) => [cue.name, cue]));
+
+/** A take somebody actually recorded: named in the manifest and in the index. */
+function delivered(name) {
+  const cue = manifestByName.get(name);
+  return !!cue && deliveredFiles.has(cue.file || `${name}.mp3`);
+}
+
+const { isSilverPreloadCue } = await import('../src/silver/audio.js');
+const { MANSION_SUITE_CUE_NAMES } = await import('../src/mansion/audio-banks.js');
+const { AMBIENCE_CUES: SPECIAL_MEETING_AMBIENCE_CUES } = await import('../src/specialmeeting/ambience.js');
+
+test('Silver: every crowd reaction the violinist\'s set plays is one this page decodes', () => {
+  const performSource = fs.readFileSync(path.join(ROOT, 'src/silver/perform.js'), 'utf8');
+  const reactions = new Set();
+  for (const match of performSource.matchAll(/sfx:\s*\[([^\]]+)\]/g)) {
+    for (const literal of match[1].matchAll(/'([^']+)'/g)) reactions.add(literal[1]);
+  }
+  assert.ok(reactions.size >= 4, `expected the bits table, saw ${reactions.size} cues`);
+  for (const cue of reactions) {
+    assert.ok(delivered(cue), `${cue} is not a delivered recording any more`);
+    assert.equal(isSilverPreloadCue(cue), true,
+      `${cue} is recorded and indexed but outside this page's residency filter, `
+      + 'so the room reacts on the synth stand-in in core/audio.js');
+  }
+});
+
+test('Mansion: the suite\'s four own takes are delivered, banked, and their beds wait for the bank', () => {
+  for (const cue of MANSION_SUITE_CUE_NAMES) assert.ok(delivered(cue), cue);
+  for (const visit of ['first', 'return']) {
+    const banks = mansionAudioBanks(visit);
+    for (const cue of MANSION_SUITE_CUE_NAMES) {
+      assert.ok(coveredBy(cue, banks.start), `${cue} missing from the ${visit} start bank`);
+    }
+  }
+  /* startLoop picks its buffer once, at the moment it starts. The suite's two
+   * beds therefore cannot come up with the house's deliberately-synth beds. */
+  const mainSource = fs.readFileSync(path.join(ROOT, 'src/mansion/main.js'), 'utf8');
+  const ambienceAt = mainSource.indexOf('function startAmbience()');
+  const suiteAt = mainSource.indexOf('function startSuiteBeds()');
+  assert.ok(ambienceAt > 0 && suiteAt > ambienceAt);
+  const ambienceBody = mainSource.slice(ambienceAt, mainSource.indexOf('\n}\n', ambienceAt));
+  assert.doesNotMatch(ambienceBody, /mansion\.suite\./,
+    'the suite beds must not start before a single cue has decoded');
+  assert.match(mainSource, /await mansionBanks\.loadStart\(\);[^]*?startSuiteBeds\(\);/);
+});
+
+test('THE SPECIAL MEETING: the block asks for its whole cue catalogue by name', () => {
+  const mainSource = fs.readFileSync(path.join(ROOT, 'src/specialmeeting/main.js'), 'utf8');
+  const call = mainSource.match(/loadAdditional\(\{([^]*?)\}\);/);
+  assert.ok(call, 'the page still preloads through loadAdditional');
+  assert.match(call[1], /names: \[\.\.\.AMBIENCE_CUES\]/);
+  const prefixes = [...call[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  /* Why the names list is not redundant: two of the nine cues share no prefix
+   * with the other seven, and both are recorded. `ambience.alley` is the
+   * worse of the two -- it is a loop, so a miss lasts the whole scene. */
+  const missedByPrefixAlone = SPECIAL_MEETING_AMBIENCE_CUES
+    .filter((cue) => !prefixes.some((prefix) => cue.startsWith(prefix)));
+  assert.deepEqual(missedByPrefixAlone.sort(), ['ambience.alley', 'traffic.pass']);
+  for (const cue of missedByPrefixAlone) assert.ok(delivered(cue), cue);
+});

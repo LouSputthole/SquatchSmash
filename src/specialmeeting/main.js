@@ -41,6 +41,7 @@ import { Player } from '../core/player.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { registerSceneRenderer } from '../core/scene-lifecycle.js';
+import { AMBIENCE_CUES } from './ambience.js';
 import { buildSpecialMeetingCast } from './cast.js';
 import { createNightForestRoad, adaptMeetingSedan } from './forest/index.js';
 import { createRideSequence } from './ride.js';
@@ -412,7 +413,19 @@ async function wakeTheSound() {
   removeEventListener('pointerdown', wakeTheSound);
   removeEventListener('keydown', wakeTheSound);
   await audio.init();
-  await audio.loadAdditional({ prefixes: ['vo.specialmeeting.', 'car.', 'footstep.', 'street.'] });
+  /* `AMBIENCE_CUES` by name, not by prefix. The four prefixes below cover
+   * seven of the block's nine cues and miss `ambience.alley` and
+   * `traffic.pass` -- both recorded, both indexed, both on disk, and neither
+   * of them starting with `car.`, `footstep.` or `street.`. The alley one is
+   * the worse of the two because it is a LOOP: `stage.begin()` on the next
+   * line starts it, and a loop started with no decoded buffer keeps its synth
+   * stand-in for the whole scene. `ambience.js` already publishes the
+   * complete list precisely so nobody has to keep a second copy of it in
+   * their head; asking for it by name is what that export is for. */
+  await audio.loadAdditional({
+    names: [...AMBIENCE_CUES],
+    prefixes: ['vo.specialmeeting.', 'car.', 'footstep.', 'street.'],
+  });
   stage.begin();
 }
 addEventListener('pointerdown', wakeTheSound);

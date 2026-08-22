@@ -50,6 +50,30 @@ export const MANSION_NEXT_BEAT_SCOPES = Object.freeze([
 /** Post-mission dressing; nothing beat-gated ever asks for these. */
 export const MANSION_BACKGROUND_SCOPES = Object.freeze(['evening']);
 
+/**
+ * The master suite's four own recordings.
+ *
+ * These are the only `mansion.*` cues in the manifest that this scene plays,
+ * and until this list existed the house decoded none of them: the start bank
+ * named the weapons, the script, the cast and the furniture foley, and four
+ * takes cut specifically for the third floor sat in `assets/sfx` and in
+ * `index.json` with nothing on this page ever asking for them. The bookcase
+ * swung on `synth()`'s generic tick and the two beds hummed on `synthLoop()`.
+ * That is the `enola.blast.*` failure again -- delivered, indexed, and
+ * outside the one filter that decides what this page decodes.
+ *
+ * They ride the START bank because all four are reachable on the ground the
+ * start bank covers: the beds come up as soon as it settles (see
+ * `startSuiteBeds` in ./main.js) and the bookcase is an ordinary interaction
+ * with no beat gate in front of it.
+ */
+export const MANSION_SUITE_CUE_NAMES = Object.freeze([
+  'mansion.suite.tone',
+  'mansion.suite.hottub',
+  'mansion.suite.bookcase.open',
+  'mansion.suite.bookcase.shut',
+]);
+
 const prefixesOf = (scopes) => scopes.map((scope) => `vo.silentsquatch.${scope}.`);
 
 /**
@@ -80,6 +104,7 @@ export function mansionAudioBanks(visit = 'first') {
           ...silentSquatchCueNames(),
           ...MANSION_CAST_CUE_NAMES,
           ...MANSION_INTERACTION_CUE_NAMES,
+          ...MANSION_SUITE_CUE_NAMES,
         ],
         prefixes: prefixesOf([
           ...MANSION_START_SCOPES,
@@ -101,6 +126,7 @@ export function mansionAudioBanks(visit = 'first') {
         ...silentSquatchCueNames(),
         ...MANSION_CAST_CUE_NAMES,
         ...MANSION_INTERACTION_CUE_NAMES,
+        ...MANSION_SUITE_CUE_NAMES,
       ],
       prefixes: prefixesOf(MANSION_START_SCOPES),
     },

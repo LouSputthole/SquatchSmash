@@ -52,6 +52,20 @@ const SILVER_SHARED_CUES = new Set([
   'chair.sit',
   'cloth.snap',
   'cork.pop',
+  /* The room reacting to the violinist's set (`src/silver/perform.js`, the
+   * `bits` table: a whistle over the opening applause, then the laugh on the
+   * wife joke). `applause` and `band.rimshot` are the other two cues in that
+   * table and both were already resident -- `applause` by name here, the
+   * rimshot on the `band.` prefix -- so the beat half-worked and nobody
+   * heard the half that did not. Both recordings have been in the manifest,
+   * in `index.json` and on disk the whole time; `core/audio.js` also carries
+   * a hand-built synth stand-in for each (`case 'crowd.whistle'` /
+   * `case 'crowd.laughter'`), written for this very beat before the takes
+   * landed, so the page went on playing the stand-in with nothing anywhere
+   * saying the real one existed. Same one-line-of-scope failure as
+   * `enola.blast.*` and the mansion's own voice bank. */
+  'crowd.laughter',
+  'crowd.whistle',
   'curtain.draw',
   'cutlery.set',
   'door.creak',
