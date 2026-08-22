@@ -38,7 +38,7 @@ import { Golfer, makeBag, makeBall, makeBallMarker } from './cast.js';
 import { CartPair } from './carts.js';
 import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
-import { Swing, SWING_PHASE, controlWindow } from './swing.js';
+import { Swing, SWING_PHASE, STRIKE_FLOOR, controlWindow } from './swing.js';
 import {
   CLUB_IDS, getClub, estimateCarry, estimateTotal, landingPreviewFor,
   powerForDistance,
@@ -1476,7 +1476,10 @@ function paintLandingPreview() {
  * that onto a bar that starts at zero clamps it — so the marker parked at the
  * left edge and being *late* looked identical to being perfect. The whole
  * point of the third click is that you can see yourself miss it. */
-const METER_FLOOR = -0.30;
+/* The bar's left-hand end, which is where the strike sweep bottoms out. One
+ * number, owned by swing.js, rather than this file's own -0.30 and the pool
+ * panel's -- see STRIKE_FLOOR there. */
+const METER_FLOOR = STRIKE_FLOOR;
 const meterValue = (v) => Math.max(0, Math.min(100,
   ((v - METER_FLOOR) / (1 - METER_FLOOR)) * 100));
 const meterPct = (v) => `${meterValue(v)}%`;

@@ -1610,12 +1610,26 @@ const poolPanel = billiard ? createPoolHud() : null;
  * step back to his own feet rather than to a spot this file guessed at. */
 let poolReturn = null;
 let atPool = false;
-/** Real-world milliseconds the [E] key went down on. The power meter is timed
- * off the CLOCK and not off accumulated `dt`: this scene runs at about 1.3
- * frames a second under the software rasteriser, and a charge that advances
- * per frame would make a soft roll physically impossible on a slow machine
- * and a break impossible on a fast one. */
-let poolCharge = 0;
+/* THE POWER METER USED TO BE A HOLD ON [E], TIMED OFF `performance.now()`.
+ *
+ * It was right for what it was: with a hold-to-fill bar the power IS the
+ * elapsed time, so charging per frame would have made a soft roll impossible
+ * on a slow machine and a break impossible on a fast one, and the clock was
+ * the only thing that behaved the same on both.
+ *
+ * Owner: "a power bar similar to golf", so it is now the click-stop-click
+ * meter out of src/golf/swing.js, and that flips the argument exactly over.
+ * On a click meter the player is not measuring a duration, he is stopping a
+ * marker where he can SEE it -- so what has to be stable is the distance the
+ * marker moves between two PAINTS, not between two milliseconds. This scene
+ * renders at about 1.3 frames a second under the software rasteriser: a
+ * wall-clock sweep crosses the entire bar between paints and cannot be
+ * stopped anywhere at all, while a dt-driven one moves 5% of the bar per
+ * drawn frame here and 1.6% at 60 fps, which is playable on both. The clock
+ * is therefore gone, the meter lives in `PoolFrame` (so a headless test can
+ * play a whole frame through it), and this file is left doing what it says
+ * it does: the camera, the keys and the noises.
+ */
 /** Which of his two takeover lines is next. */
 let poolHandover = false;
 const poolKeys = new Set();
@@ -1643,7 +1657,7 @@ const pool = billiard
     hooks: {
       onEvent: (event) => {
         const where = poolWorld(event.x, event.z);
-        if (event.type === 'strike') playCueStrike(audio, where, event.speed / 5.4);
+        if (event.type === 'strike') playCueStrike(audio, where, event.speed / 5.4, event.accuracy);
         else if (event.type === 'ball') playBallClick(audio, where, event.speed);
         else if (event.type === 'rail') playCushion(audio, where, 1);
         else if (event.type === 'pocket') playPocket(audio, where);
@@ -1713,7 +1727,6 @@ function poolTakeCue() {
   const resumed = pool.state !== 'idle' || pool.shots > 0;
   if (!pool.takeCue()) return false;
   atPool = true;
-  poolCharge = 0;
   poolKeys.clear();
   poolReturn = {
     x: player.position.x,
@@ -1753,7 +1766,6 @@ function poolPutCueBack() {
   if (!atPool) return false;
   const midFrame = pool.state !== 'over' && pool.shots > 0;
   atPool = false;
-  poolCharge = 0;
   poolKeys.clear();
   pool.putCueBack();
   poolPanel?.set(null);
@@ -1764,26 +1776,15 @@ function poolPutCueBack() {
   return true;
 }
 
-/** [E], at the table. Charging on the way down, striking on the way up. */
+/** [E], at the table: one press starts the meter, one sets the power, one
+ * takes the shot. The frame owns all three -- see `PoolFrame.cueClick`. */
 function poolPressE() {
   if (pool.state === 'over') {
     pool.takeCue();
     poolPanel?.set(pool.view);
     return;
   }
-  if (pool.state !== 'aim') return;
-  poolCharge = performance.now();
-}
-
-function poolReleaseE() {
-  if (!poolCharge || pool.state !== 'aim') {
-    poolCharge = 0;
-    return;
-  }
-  const held = (performance.now() - poolCharge) / 1000;
-  poolCharge = 0;
-  pool.setPower(Math.max(0.06, Math.min(1, held)));
-  pool.shoot();
+  pool.cueClick();
   poolPanel?.set(pool.view);
 }
 
@@ -1800,7 +1801,6 @@ function updatePool(dt) {
     const trim = (poolKeys.has('KeyA') ? 1 : 0) - (poolKeys.has('KeyD') ? 1 : 0);
     if (trim) player.yaw += trim * dt * 0.35;
     pool.aim(player.yaw + Math.PI);
-    if (poolCharge) pool.setPower(Math.max(0.06, Math.min(1, (performance.now() - poolCharge) / 1000)));
     const pose = poolShotPose();
     player.position.set(pose.x, pose.y, pose.z);
   }
@@ -2540,12 +2540,12 @@ const sharedPauseMenu = createPauseMenu({
     mansionPee.stop();
     weaponSystem.setTrigger(false);
     player.clearKeys();
-    /* A half-charged pool shot must not survive the pause. The [E] that was
-     * down when the overlay came up will never deliver its keyup, so without
-     * this the meter keeps filling behind the menu and the next release --
-     * possibly minutes later -- fires at maximum. */
+    /* A pool meter must not survive the pause mid-sweep. The click meter
+     * cannot run away behind the overlay the way the old hold-to-fill bar
+     * could -- `PoolFrame.update` stops being called -- but the [E] that was
+     * down when the menu came up will never deliver its keyup, so the held
+     * keys still have to go. */
     poolKeys.clear();
-    poolCharge = 0;
     if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
   },
   onResume: () => {
@@ -2735,10 +2735,10 @@ window.addEventListener('wheel', (e) => {
 window.addEventListener('keyup', (e) => {
   player.setKey(translateKey(e.code), false);
   poolKeys.delete(e.code);
-  if (atPool && e.code === 'KeyE') {
-    poolReleaseE();
-    return;
-  }
+  /* [E] at the table is a click, not a hold, so the key coming back up is
+   * nothing -- and it must not fall through to `interaction.release()`, which
+   * belongs to a look-prompt that is paused while he has the cue. */
+  if (atPool && e.code === 'KeyE') return;
   if (e.code === 'KeyE') {
     interaction.release();
     mansionPee.stop();
@@ -2746,10 +2746,11 @@ window.addEventListener('keyup', (e) => {
 });
 window.addEventListener('blur', () => {
   player.clearKeys();
-  /* A shot half-charged when the window went away must not fire itself when
-   * it comes back, and must not sit at full power either. */
+  /* A meter left sweeping when the window went away must not resolve itself
+   * against a marker nobody was watching. `PoolFrame.update` only advances
+   * the swing while the frame is being played, so clearing the held keys is
+   * enough here -- the bar simply sits where the last drawn frame left it. */
   poolKeys.clear();
-  poolCharge = 0;
   interaction.release();
   mansionPee.stop();
   weaponSystem.setTrigger(false);

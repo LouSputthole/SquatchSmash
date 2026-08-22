@@ -11,6 +11,9 @@ ensureDomShim();
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const {
+  CUE_STROKE,
+  CUE_STROKE_SECONDS,
+  MISCUE_RAD,
   POOL_BALLS,
   POOL_RULES,
   POOL_RULE_SETS,
@@ -27,13 +30,16 @@ const {
   tableStill,
 } = await import('../src/mansion/pool.js');
 const {
+  SWING_CONTROL, SWING_PHASE, npcSwing, resolveStrike,
+} = await import('../src/golf/swing.js');
+const {
   MANSION_INTERACTION_CUE_NAMES,
   POOL_CUE_NAMES,
   POOL_SFX_CUES,
 } = await import('../src/mansion/interaction-audio.js');
 const { mansionAudioBanks } = await import('../src/mansion/audio-banks.js');
 const { allSilentSquatchLines, SEQUENCES } = await import('../src/mansion/script.js');
-const { poolPanelText } = await import('../src/mansion/pool-hud.js');
+const { poolMeterState, poolPanelText } = await import('../src/mansion/pool-hud.js');
 const {
   POOL_FRAME_RESPECT,
   SCENE_IDS,
@@ -399,8 +405,12 @@ test('pool: the built table rests its rack on the felt and publishes what the ga
 /* AUDIO: MINTED, AND ACTUALLY DECODED                                  */
 /* ================================================================== */
 
-test('pool: the five table sounds are in the manifest with a prompt to record from', () => {
-  assert.equal(POOL_SFX_CUES.length, 5);
+test('pool: the table sounds are in the manifest with a prompt to record from', () => {
+  /* Six now, not five. The sixth is `billiards.miscue`, and it exists because
+   * the golf meter created a shot the table had no sound for -- see the note
+   * on it in src/mansion/interaction-audio.js. */
+  assert.equal(POOL_SFX_CUES.length, 6);
+  assert.ok(POOL_CUE_NAMES.includes('billiards.miscue'));
   for (const [name, prompt, seconds] of POOL_SFX_CUES) {
     const cue = manifest.sfx.find((entry) => entry.name === name);
     assert.ok(cue, `${name} is not in assets/sfx/manifest.json — run npm run sfx:pool`);
@@ -462,8 +472,25 @@ test('pool: the mansion registers the felt, keeps E for the game and Q for the d
   /* The camera goes to the shot through the shared seated pose, not through a
    * second camera rig this scene invented. */
   assert.match(source, /player\.sitAt\(\{\n\s+position: new THREE\.Vector3\(pose\.x, pose\.y, pose\.z\)/);
-  /* And the power meter is timed off the clock, not off accumulated dt. */
-  assert.match(source, /poolCharge = performance\.now\(\);/);
+  /* AND THE POWER METER IS NOW TIMED OFF ACCUMULATED dt, WHICH IS THE EXACT
+   * OPPOSITE OF WHAT THIS TEST USED TO ASSERT, ON PURPOSE.
+   *
+   * It used to demand `poolCharge = performance.now()`, and that was right
+   * for a HOLD-to-fill bar: there the power IS the elapsed time, so charging
+   * per frame makes a soft roll impossible on a slow machine. The bar is now
+   * golf's click-stop-click meter, where the player is not measuring a
+   * duration but stopping a marker where he can SEE it -- so the thing that
+   * has to be stable is how far the marker moves between two PAINTS. At the
+   * 1.3 fps this scene renders at under the software rasteriser a wall-clock
+   * sweep crosses the whole bar between paints and cannot be stopped at all.
+   * So: no clock at the table, and the meter lives in the frame. */
+  const poolSection = source.slice(
+    source.indexOf('const billiard = interior.props.lounge'),
+    source.indexOf('interaction.register(billiard.target'),
+  ).replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.equal(/performance\.now\(\)/.test(poolSection), false,
+    'the pool section is timing something off the wall clock again');
+  assert.match(source, /pool\.cueClick\(\);/);
 });
 
 test('pool: the panel says whose shot it is without the player doing arithmetic', () => {
@@ -618,4 +645,305 @@ test('pool: the scene banks the win through the campaign and only announces a re
   const poolSection = source.slice(source.indexOf('/* THE BILLIARD TABLE'), source.indexOf('/* ================================================================== */\n/* THE BASEMENT ARMORY'));
   assert.equal(/poolRespect|respectEarned|\bmoney\b|payout|wager/.test(poolSection), false,
     'the pool table has grown a second economy');
+});
+
+/* ================================================================== */
+/* THE CUE IS A CUE                                                     */
+/* ================================================================== */
+
+test('pool: the cue is built like a cue and there is only one of it in the room', () => {
+  /* IT WAS A BROOM HANDLE. r 0.02, h 1.5, one wood, parallel end to end --
+   * and the one silhouette a cue has is its taper, so from the shooting
+   * camera it read as a stick lying on the felt. The real article is about
+   * 1.45 m, roughly 13 mm at the tip and 30 mm at the butt. */
+  const grounds = buildMansionGrounds(null);
+  const interior = buildMansionInterior({ grounds });
+  const table = interior.props.lounge.billiard;
+  const cue = table.cue;
+  assert.ok(cue?.isMesh, 'the cue is not a mesh any more');
+  assert.equal(table.cueLength, 1.45, 'the table does not publish the cue it built');
+
+  /* The shaft itself is the taper, and the taper is the whole read. THREE's
+   * CylinderGeometry takes (radiusTop, radiusBottom, height); local +Y is the
+   * TIP end, because the game lays the cue flat with rotX and that maps +Y
+   * down the line of the shot. */
+  const shaft = cue.geometry.parameters;
+  assert.equal(Number(shaft.height.toFixed(3)), 1.45);
+  assert.equal(Number((shaft.radiusTop * 2000).toFixed(1)), 13.2, 'the tip is not 13 mm');
+  assert.equal(Number((shaft.radiusBottom * 2000).toFixed(1)), 30.4, 'the butt is not 30 mm');
+  assert.ok(shaft.radiusBottom > shaft.radiusTop * 2, 'the cue does not taper');
+
+  /* Every piece the owner asked for, present and in the right place along the
+   * stick. Measured from the butt at -0.725, because that is how a cue is
+   * described and how these can be checked against a real one. */
+  const fromButt = (name) => {
+    const part = cue.getObjectByName(`billiard-cue-${name}`);
+    assert.ok(part, `the cue has no ${name}`);
+    return Number((part.position.y + 1.45 / 2).toFixed(3));
+  };
+  assert.ok(fromButt('bumper') < 0.03, 'the bumper is not on the butt');
+  assert.ok(fromButt('butt') < fromButt('wrap'), 'the wrap is below the butt sleeve');
+  assert.ok(fromButt('wrap') > 0.12 && fromButt('wrap') < 0.42,
+    'the wrap is not where a hand goes');
+  assert.ok(fromButt('forearm') > fromButt('wrap'));
+  assert.ok(fromButt('collar') > 0.7 && fromButt('collar') < 0.79,
+    'the joint is not at the middle of the cue');
+  assert.ok(fromButt('ferrule') > 1.39, 'the ferrule is not at the business end');
+  assert.ok(fromButt('tip') > fromButt('ferrule'), 'the tip is behind the ferrule');
+
+  /* THE SPARES IN THE WALL RACK ARE THE SAME OBJECT, not five more cylinders
+   * that happen to look similar. A room whose spare cues are a different
+   * build from the one in your hands is a room that will drift. */
+  const racked = interior.root.children.filter((child) => (
+    child.isMesh && child.getObjectByName('lounge-rack-cue-0-tip')
+      ? true
+      : child.isMesh && /lounge-rack-cue-\d+-tip/.test(child.children[6]?.name ?? '')
+  ));
+  assert.equal(racked.length, 5, 'the wall rack is not holding five built cues');
+  for (const spare of racked) {
+    assert.deepEqual(
+      { ...spare.geometry.parameters, radialSegments: undefined },
+      { ...cue.geometry.parameters, radialSegments: undefined },
+      'a rack cue is a different stick from the one on the table',
+    );
+    assert.equal(spare.children.length, cue.children.length);
+  }
+});
+
+test('pool: the detailed cue fits inside the bare cylinder it replaced', () => {
+  /* THE ARGUMENT THAT THIS CANNOT HAVE BROKEN THE GEOMETRY GATE. The old cue
+   * was a cylinder of radius 0.02 and length 1.5 and the old rack cues were
+   * radius 0.018 by 1.45. Every piece of the new one is inside those bounds,
+   * so it cannot be through anything the cylinder was not already through --
+   * which is worth asserting rather than asserting once by hand, because the
+   * mansion allowlist is 19 MB of reviewed entries and nobody re-reads it. */
+  const grounds = buildMansionGrounds(null);
+  const interior = buildMansionInterior({ grounds });
+  const cue = interior.props.lounge.billiard.cue;
+  const widest = [cue, ...cue.children].reduce((worst, part) => {
+    const p = part.geometry.parameters;
+    /* Uniform-radius pieces come back as a scaled unit cylinder; tapered ones
+     * carry their real radii. Both, in metres. */
+    const radius = part === cue || p.radiusTop !== p.radiusBottom
+      ? Math.max(p.radiusTop, p.radiusBottom)
+      : part.scale.x;
+    return Math.max(worst, radius);
+  }, 0);
+  assert.ok(widest <= 0.018, `the new cue is ${widest} m across, wider than the rack cylinder`);
+  assert.ok(widest <= 0.02, 'the new cue is wider than the table cylinder it replaced');
+});
+
+/* ================================================================== */
+/* THE FORWARD STROKE                                                   */
+/* ================================================================== */
+
+test('pool: the cue accelerates through the ball, follows through and settles', () => {
+  /* HALF AN ANIMATION IS WHAT THIS REPLACES. The cue was drawn BACK in
+   * proportion to power and then the strike was instantaneous, so the stick
+   * never travelled and read as a prop lying on the felt while the balls
+   * moved by themselves. */
+  const frame = new PoolFrame({ rng: steady });
+  frame.takeCue();
+  const address = frame.cueBack(1.45);
+  frame.shoot({ angle: Math.PI, power: 1 });
+  const contact = 1.45 / 2 + POOL_TABLE.ballRadius;
+
+  const poses = [];
+  for (let i = 0; i < 40 && frame.state === 'rolling'; i++) {
+    poses.push(frame.cueBack(1.45));
+    frame.update(0.05);
+  }
+
+  /* Drawn back further for a full-power shot than for the 0.6 it was resting
+   * at, and the first pose is the address it was drawn to. */
+  assert.ok(poses[0] > address, 'a harder shot is not drawn back further');
+
+  /* THE PROOF THAT A 0.05 s STEP DOES NOT SKIP IT. src/mansion/main.js clamps
+   * dt to 0.05 and this scene renders at about 1.3 frames a second, so one
+   * rendered frame advances the stroke by exactly this much. CUE_STROKE.draw
+   * is 0.16 s, which is why there are three drawn poses between the address
+   * and the ball rather than none. Anything at or under the clamp would be
+   * resolved inside a single update and the cue would teleport. */
+  assert.ok(CUE_STROKE.draw > 0.05,
+    'the approach is shorter than one clamped frame — the stroke is invisible');
+  const deepestAt = poses.indexOf(Math.min(...poses));
+  const approach = poses.slice(0, deepestAt).filter((back) => back > contact);
+  assert.ok(approach.length >= 3,
+    `only ${approach.length} drawn poses between the address and the ball`);
+  /* And it is accelerating, not sliding: each step covers more ground than
+   * the one before it, which is what a cue does between the last pause of the
+   * address and the ball. */
+  for (let i = 2; i < approach.length; i++) {
+    const step = approach[i - 1] - approach[i];
+    const before = approach[i - 2] - approach[i - 1];
+    assert.ok(step > before, 'the approach is linear, not an acceleration');
+  }
+
+  /* It goes THROUGH the ball. A cue that stops on contact is a poke. */
+  const deepest = Math.min(...poses);
+  assert.ok(deepest < contact - 0.05, `the follow-through only reached ${deepest}`);
+
+  /* And it comes back, rather than being left lying where it finished. */
+  const settled = poses[poses.length - 1];
+  assert.ok(settled > deepest, 'the cue never straightened up again');
+  assert.ok(CUE_STROKE_SECONDS < 1, 'the stroke outlasts most shots');
+});
+
+test('pool: nothing on the table moves until the tip actually gets there', () => {
+  /* The cue ball used to leave on the same line that started the animation,
+   * which is a ball moving before it is hit. The state is 'rolling' from the
+   * instant he commits -- nothing outside pool.js has to learn a new one --
+   * but the table is held still for CUE_STROKE.draw of simulated seconds. */
+  const frame = new PoolFrame({ rng: steady });
+  frame.takeCue();
+  const strikes = [];
+  frame.hooks.onEvent = (event) => { if (event.type === 'strike') strikes.push(event); };
+  frame.shoot({ angle: Math.PI, power: 1 });
+  assert.equal(frame.state, 'rolling');
+  assert.equal(strikes.length, 0, 'the strike rang before the cue arrived');
+  const cue = frame.balls.find((ball) => ball.id === 0);
+  const startZ = cue.z;
+
+  frame.update(0.05);
+  assert.equal(cue.z, startZ, 'the cue ball moved while the cue was still coming');
+  assert.equal(strikes.length, 0);
+
+  let guard = 0;
+  while (strikes.length === 0 && guard++ < 40) frame.update(0.05);
+  assert.ok(guard <= 4, `the tip took ${guard} frames to land`);
+  assert.ok(cue.z !== startZ, 'the tip landed and nothing happened');
+  assert.equal(strikes[0].speed, strikeSpeed(1));
+});
+
+test('pool: walking away between the address and the ball still plays the shot', () => {
+  /* THE HOLE THE DELAY OPENS, SHUT. `_shot` is on the referee's book from the
+   * moment he commits, so running the table out from a stroke that has not
+   * landed would settle a shot in which nothing was ever hit and rule it a
+   * foul for no contact — a man penalised for a shot the game had not let him
+   * play yet. `putCueBack` lands the tip first. */
+  const frame = new PoolFrame({ rng: steady });
+  frame.takeCue();
+  frame.shoot({ angle: Math.PI, power: 0.8 });
+  frame.update(0.05);
+  assert.equal(frame.state, 'rolling');
+  frame.putCueBack();
+  assert.equal(tableStill(frame.balls), true);
+  assert.ok(frame.lastShot, 'the referee never saw it');
+  assert.notEqual(frame.lastShot.foul, 'no contact');
+  assert.ok(frame.lastShot.firstContact !== null, 'the break never touched the pack');
+});
+
+/* ================================================================== */
+/* THE POWER METER IS GOLF'S                                            */
+/* ================================================================== */
+
+test('pool: the meter is the golf swing, not a third power bar', () => {
+  /* Owner, standing complaint: "we keep reinventing and using different
+   * systems instead of using what we already have." src/golf/swing.js is a
+   * click-stop-click meter with a dead zone, an overswing band and an
+   * accuracy model, and this is that meter -- imported, not copied. */
+  for (const file of ['src/mansion/pool.js', 'src/mansion/pool-hud.js']) {
+    const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    assert.match(source, /from '\.\.\/golf\/swing\.js'/, `${file} does not use the golf swing`);
+  }
+  const pool = fs.readFileSync(path.join(ROOT, 'src/mansion/pool.js'), 'utf8');
+  assert.equal(/POWER_TIME|STRIKE_START_FLOOR|deadZone\s*[:=]\s*0\./.test(pool), false,
+    'pool.js has started re-deciding the swing timing for itself');
+  /* The cue's own row lives in the shared table, so there is one place the
+   * numbers for every meter in the game can be read side by side. */
+  assert.ok(SWING_CONTROL.cue, 'the cue has no tuning in SWING_CONTROL');
+  assert.ok(SWING_CONTROL.cue.strikeSpeed < 0.952,
+    'the cue strike sweep is faster than the power sweep');
+});
+
+test('pool: three clicks take a shot, and the bar draws the rule it is judged by', () => {
+  const frame = new PoolFrame({ rng: steady });
+  frame.takeCue();
+  assert.equal(frame.swing.phase, SWING_PHASE.IDLE);
+  assert.equal(frame.cueClick(), SWING_PHASE.POWER);
+
+  /* Eight clamped frames of the sweep. The meter is driven by ACCUMULATED
+   * SIMULATED TIME, so this is 0.4 s of a 1.05 s bar wherever it is run --
+   * and the marker is where the last drawn frame put it, which is the whole
+   * requirement for a bar you stop by eye. */
+  for (let i = 0; i < 8; i++) frame.update(0.05);
+  assert.ok(Math.abs(frame.swing.marker - 0.4 / 1.05) < 1e-9);
+  /* The cue on the table is drawn back to the marker, not to a power nobody
+   * has chosen yet -- the same read golf's arms take. */
+  assert.ok(Math.abs(frame.drawPower - frame.swing.marker) < 1e-9);
+
+  const meter = poolMeterState(frame.view);
+  assert.equal(meter.phase, SWING_PHASE.POWER);
+  assert.ok(meter.mark > 0 && meter.mark < 100);
+  /* The orange band starts at the swing's own control point, and the pale
+   * middle is the swing's own dead zone -- there is no second set of numbers
+   * on the panel that could agree with the physics today and not tomorrow. */
+  assert.ok(Math.abs(meter.riskLeft - ((SWING_CONTROL.cue.safePower + 0.3) / 1.3) * 100) < 1e-9);
+  assert.ok(meter.zoneWidth > 0);
+
+  assert.equal(frame.cueClick(), SWING_PHASE.STRIKE);
+  const striking = poolMeterState(frame.view);
+  assert.equal(striking.striking, true);
+  assert.match(striking.hint, /STRIKE|SWEET SPOT/);
+
+  assert.equal(frame.cueClick(), SWING_PHASE.DONE);
+  assert.equal(frame.state, 'rolling', 'the third click did not take the shot');
+  assert.equal(frame.shots, 1);
+  assert.ok(frame.lastSwing, 'the frame kept no record of how it was struck');
+});
+
+test('pool: a botched meter and an overswing both push the cue off line', () => {
+  /* THE POINT OF HAVING A METER AT ALL. Accuracy has to reach the felt, or
+   * the bar is decoration -- exactly as an early third click pushes a golf
+   * shot right rather than merely printing SLICED. */
+  const straight = new PoolFrame({ rng: steady });
+  straight.takeCue();
+  straight.shoot({ angle: 1, power: 0.5, accuracy: 0 });
+  assert.equal(straight.aimAngle, 1);
+
+  const duffed = new PoolFrame({ rng: steady });
+  duffed.takeCue();
+  duffed.shoot({ angle: 1, power: 0.5, accuracy: 1 });
+  assert.equal(Number((duffed.aimAngle - 1).toFixed(6)), MISCUE_RAD);
+  /* Wide enough to cost a pot at the length of the table, and not so wide the
+   * cue ball goes somewhere he did not point it: about a hand's width at a
+   * metre and a half. */
+  const missAt = Math.tan(MISCUE_RAD) * 1.5;
+  assert.ok(missAt > 0.06 && missAt < 0.12, `a full miss-time is ${missAt} m off at 1.5 m`);
+
+  /* And an overswing leans it over even when the timing was clean: `risk`
+   * comes out of the shared window, `fadeBias` turns it into a bias, and the
+   * bias is a real angle here rather than a curve in flight. */
+  const held = resolveStrike({ club: 'cue', power: SWING_CONTROL.cue.safePower, strike: 0 });
+  const forced = resolveStrike({ club: 'cue', power: 1, strike: 0 });
+  assert.equal(held.accuracy, 0, 'a controlled stroke is not straight');
+  assert.ok(forced.accuracy > 0.15, 'a full overswing costs nothing');
+  assert.ok(forced.deadZone < held.deadZone, 'an overswing is not a smaller sweet spot');
+});
+
+test('pool: Rippinflow keeps his authored hand and reports it in golf\'s shape', () => {
+  /* His skill is data (RIPPINFLOW.aimError, in radians, because that is the
+   * unit a shaking hand is measured in) and `npcSwing` is golf's NPC result
+   * -- a clamped {power, accuracy} pair that was exported and used by nobody.
+   * Expressing his shake through it is exact arithmetic, not a re-tune. */
+  const source = fs.readFileSync(path.join(ROOT, 'src/mansion/pool.js'), 'utf8');
+  assert.match(source, /npcSwing\(/, 'Rippinflow is not going through the shared NPC shape');
+  const shake = 0.026;
+  assert.equal(
+    Number((npcSwing(0.5, shake / MISCUE_RAD).accuracy * MISCUE_RAD).toFixed(12)),
+    Number(shake.toFixed(12)),
+    'routing his hand through npcSwing changed how much it shakes',
+  );
+
+  /* And he still misses sometimes and still wins sometimes -- the same claim
+   * the frame-playing tests above make, restated here as the reason his hand
+   * is allowed to be random at all. */
+  const frame = new PoolFrame({ rng: wobble(3) });
+  frame.takeCue();
+  frame.turn = 'rippin';
+  frame.state = 'think';
+  let guard = 0;
+  while (frame.state === 'think' && guard++ < 200) frame.update(0.05);
+  assert.equal(frame.state, 'rolling', 'he never took the shot');
+  assert.equal(frame.lastSwing, null, 'the player meter recorded his shot');
 });

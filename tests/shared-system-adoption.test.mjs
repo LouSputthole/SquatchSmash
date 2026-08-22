@@ -46,10 +46,26 @@ const sceneDirectories = readdirSync(SRC, { withFileTypes: true })
 /** Files under one scene that import a given shared module, by its filename. */
 function importers(scene, modulePath) {
   const specifier = modulePath.replace(/^src\//, '').replace(/\.js$/, '');
+  const patterns = [new RegExp(`from\\s+['"][^'"]*${specifier.replace('/', '\\/')}\\.js['"]`)];
+  /* A SHARED SYSTEM THAT LIVES INSIDE A SCENE DIRECTORY IMPORTS ITSELF
+   * RELATIVELY, and the path form above cannot see that.
+   *
+   * `src/golf/swing.js` is the meter every power bar in the game now uses,
+   * and golf reaches it as `from './swing.js'` while the mansion reaches it
+   * as `from '../golf/swing.js'`. Without this the record would say golf does
+   * not use the golf swing, which is a lie of exactly the kind this file
+   * exists to stop -- a table that reads as "the home of the system opted
+   * out" is worse than no table. Only the OWNING scene gets the relative
+   * form, so nothing else can be counted by accident. */
+  const owner = specifier.includes('/') ? specifier.slice(0, specifier.indexOf('/')) : null;
+  if (owner === scene) {
+    const local = specifier.slice(specifier.lastIndexOf('/') + 1);
+    patterns.push(new RegExp(`from\\s+['"]\\.[^'"]*${local}\\.js['"]`));
+  }
   return sourceFiles(join(SRC, scene))
     .filter((file) => {
       const text = readFileSync(file, 'utf8');
-      return new RegExp(`from\\s+['"][^'"]*${specifier.replace('/', '\\/')}\\.js['"]`).test(text);
+      return patterns.some((pattern) => pattern.test(text));
     });
 }
 

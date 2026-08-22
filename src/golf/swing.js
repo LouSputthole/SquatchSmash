@@ -24,8 +24,15 @@ export const SWING_PHASE = {
 /* Seconds for the marker to sweep the full power bar. Slow enough to aim at,
  * fast enough that a full swing is a decision rather than a wait. */
 const POWER_TIME = 1.05;
-/* The strike sweep runs past zero so that being late is a real miss. */
-const STRIKE_FLOOR = -0.30;
+/* The strike sweep runs past zero so that being late is a real miss.
+ *
+ * Exported because it is also the LEFT-HAND END OF THE BAR: anything drawing
+ * this meter has to map [STRIKE_FLOOR, 1] onto its track, and golf/main.js
+ * kept its own `METER_FLOOR = -0.30` copy of that number for a year. The
+ * mansion's pool panel now draws the same meter, and a third copy of a
+ * constant three files have to agree on is exactly the drift
+ * docs/REUSE-FIRST.md is about. */
+export const STRIKE_FLOOR = -0.30;
 
 /**
  * Where the third click's marker starts from, at the very least.
@@ -77,6 +84,34 @@ export const SWING_CONTROL = Object.freeze({
   putter: Object.freeze({
     safePower: 0.97, deadZone: 0.115, missScale: 0.44,
     strikeSpeed: 0.66, fadeBias: 0.025,
+  }),
+  /* A POOL CUE IS NOT A GOLF CLUB, AND IT IS IN HERE ANYWAY.
+   *
+   * Owner: "a power bar similar to golf" for the mansion billiard table, and
+   * the standing complaint behind docs/REUSE-FIRST.md is that we keep writing
+   * a third of something we already have twice. Everything this meter is --
+   * the two clicks, the dead zone, the overswing band past `safePower`, the
+   * signed timing error that `resolveStrike` turns into a number the physics
+   * can use -- is exactly what a pool stroke wants, so src/mansion/pool.js
+   * asks for `club: 'cue'` and gets the whole meter rather than a fork of it.
+   *
+   * What does NOT carry over is named where it is used, not here: a golf
+   * swing has a backswing ARC and a face angle that bends the ball in flight,
+   * and a cue has neither -- it slides down a bridge hand in a straight line
+   * and the cue ball leaves in a straight line too. So `accuracy` is read in
+   * pool.js as radians off the aimed line rather than as shape, and
+   * `strikeLabel()`'s FADED/SLICED vocabulary is left to golf.
+   *
+   * The numbers: `safePower` 0.82 is the point past which a man is hitting it
+   * harder than he can keep the butt straight (break power is above it on
+   * purpose -- a break is meant to be a risk); `deadZone` 0.1 is wider than an
+   * iron's because a straight stroke is the easiest thing on this list;
+   * `strikeSpeed` 0.72 stays under the power sweep's 0.952 like every other
+   * row, per the note above; `fadeBias` 0.3 is the squirt a hard stroke puts
+   * on the cue ball even when the timing was clean. */
+  cue: Object.freeze({
+    safePower: 0.82, deadZone: 0.1, missScale: 0.3,
+    strikeSpeed: 0.72, fadeBias: 0.3,
   }),
 });
 

@@ -75,6 +75,16 @@ export const SHARED_SYSTEMS = Object.freeze([
     module: 'src/core/staging.js',
     what: 'The actor marker the staging gate reads. docs/STAGING-GATE.md.',
   }),
+  Object.freeze({
+    id: 'swing',
+    module: 'src/golf/swing.js',
+    /* It is in src/golf/ rather than src/core/ because golf built it and golf
+     * is still where it is tuned; the mansion's billiard table asks it for
+     * `club: 'cue'` and gets the whole meter. Moving the file is a job for
+     * whoever adds the third caller -- what matters now is that there IS no
+     * second implementation of a power bar in the game. */
+    what: 'The click-stop-click power meter: phases, dead zone, overswing band, accuracy.',
+  }),
 ]);
 
 /**
@@ -85,25 +95,25 @@ export const SHARED_SYSTEMS = Object.freeze([
  * and then stops importing it in four has changed something worth seeing.
  */
 export const SCENE_SYSTEM_ADOPTION = Object.freeze({
-  airstrip: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, notes: "A story table, not a playable set: src/core/airstrip-story.js holds the scene." },
-  arcade: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, notes: "The in-world cabinets. It hosts other games; it is not one." },
-  beefrun: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 1 },
-  bing: { objectives: 0, dialogue: 1, interaction: 2, player: 2, hud: 2, pause: 2, inventory: 1, blood: 2, staging: 2 },
-  'cartel-palace': { objectives: 1, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 1, staging: 0 },
-  combatlab: { objectives: 0, dialogue: 0, interaction: 0, player: 1, hud: 0, pause: 1, inventory: 0, blood: 0, staging: 0, notes: "A test harness for the combat systems, not a campaign scene." },
-  enolasquatch: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 0 },
-  golf: { objectives: 1, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
-  graveyard: { objectives: 1, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0 },
-  heist: { objectives: 1, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1 },
-  initiation: { objectives: 1, dialogue: 2, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1 },
-  mansion: { objectives: 1, dialogue: 1, interaction: 2, player: 2, hud: 0, pause: 2, inventory: 2, blood: 4, staging: 1 },
-  motel: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1 },
-  nowake: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 1 },
-  silver: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 0 },
-  silvercase: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1 },
-  specialmeeting: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 1 },
-  squatchfather: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1 },
-  wardrobe: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, notes: "The fitting room tool, reached from the wardrobe page rather than the campaign." },
+  airstrip: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, swing: 0, notes: "A story table, not a playable set: src/core/airstrip-story.js holds the scene." },
+  arcade: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, swing: 0, notes: "The in-world cabinets. It hosts other games; it is not one." },
+  beefrun: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
+  bing: { objectives: 0, dialogue: 1, interaction: 2, player: 2, hud: 2, pause: 2, inventory: 1, blood: 2, staging: 2, swing: 0 },
+  'cartel-palace': { objectives: 1, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 1, staging: 0, swing: 0 },
+  combatlab: { objectives: 0, dialogue: 0, interaction: 0, player: 1, hud: 0, pause: 1, inventory: 0, blood: 0, staging: 0, swing: 0, notes: "A test harness for the combat systems, not a campaign scene." },
+  enolasquatch: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 0, swing: 0 },
+  golf: { objectives: 1, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0, swing: 1 },
+  graveyard: { objectives: 1, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0, swing: 0 },
+  heist: { objectives: 1, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1, swing: 0 },
+  initiation: { objectives: 1, dialogue: 2, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1, swing: 0 },
+  mansion: { objectives: 1, dialogue: 1, interaction: 2, player: 2, hud: 0, pause: 2, inventory: 2, blood: 4, staging: 1, swing: 2 },
+  motel: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
+  nowake: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
+  silver: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 0, swing: 0 },
+  silvercase: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
+  specialmeeting: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 1, swing: 0 },
+  squatchfather: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
+  wardrobe: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, swing: 0, notes: "The fitting room tool, reached from the wardrobe page rather than the campaign." },
 });
 
 /** Directories under src/ that are shared code rather than scenes. */

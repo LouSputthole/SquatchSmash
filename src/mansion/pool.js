@@ -31,7 +31,22 @@
  * throw, and the balls do not even rotate about their own centres. This is
  * said out loud rather than left as an absence: a pool player WILL look for
  * screw-back, and the honest answer is that it is not in this version.
+ *
+ * THE POWER METER IS GOLF'S, NOT A THIRD ONE. Owner: "a power bar similar to
+ * golf", and the standing note behind docs/REUSE-FIRST.md is that we keep
+ * building a third of something the game already has twice. So the meter is
+ * `Swing` out of ../golf/swing.js, unforked: two clicks, a dead zone, an
+ * overswing band past `safePower`, and a signed timing error resolved into an
+ * `accuracy` in [-1, 1]. What a cue could not take from a golf club is the
+ * ARC -- a swing goes round a man and bends the ball in flight, a stroke
+ * slides down a bridge hand in a straight line and the cue ball leaves in a
+ * straight line -- so `accuracy` is read here as RADIANS OFF THE AIMED LINE
+ * (MISCUE_RAD) rather than as shape, and golf's FADED/SLICED vocabulary
+ * (`strikeLabel`) is left in golf where it means something. The rest is
+ * shared, `SWING_CONTROL.cue` included.
  */
+
+import { SWING_PHASE, Swing, npcSwing } from '../golf/swing.js';
 
 /* ================================================================== */
 /* THE TABLE, IN THE NUMBERS THE HOUSE WAS BUILT WITH                   */
@@ -258,7 +273,70 @@ const MAX_STRIKE_SPEED = 5.4;
 export const strikeSpeed = (power) => MIN_STRIKE_SPEED
   + Math.max(0, Math.min(1, power)) * (MAX_STRIKE_SPEED - MIN_STRIKE_SPEED);
 
+/**
+ * How far off the aimed line a completely botched stroke throws the cue ball.
+ *
+ * `accuracy` comes back from ../golf/swing.js in [-1, 1] and this is the only
+ * place it becomes an angle. 0.05 rad is 2.9 degrees, which at a metre and a
+ * half is an eight-centimetre miss -- comfortably wider than a pocket jaw, so
+ * a full miss-time genuinely costs a pot, and comfortably short of nonsense,
+ * so the cue ball still goes broadly where he pointed it. For scale it is
+ * about twice RIPPINFLOW.aimError below, which is the intended reading: a
+ * player who abuses the meter is worse than a decent opponent's shaking hand.
+ */
+export const MISCUE_RAD = 0.05;
+
+/**
+ * THE FORWARD STROKE, IN SIMULATED SECONDS.
+ *
+ * The cue used to be drawn BACK proportional to power and then teleport --
+ * the impulse was instantaneous and the stick never travelled, which reads as
+ * a cue lying on the table while the balls move by themselves. This is the
+ * other half: accelerate through the ball, follow through, settle.
+ *
+ * EVERY NUMBER HERE IS SIMULATED TIME, NOT FRAMES, AND `draw` IS BIGGER THAN
+ * THE SCENE'S dt CLAMP ON PURPOSE. src/mansion/main.js clamps dt to 0.05 s and
+ * this scene renders at about 1.3 frames a second under the software
+ * rasteriser, so one rendered frame advances the stroke by 0.05 s and no more.
+ * A 0.16 s approach is therefore at least three drawn poses between the
+ * address and the ball on the slowest box in the building; anything at or
+ * under 0.05 s would be resolved inside a single update and the player would
+ * never see the cue move at all. A frame counter would have the opposite
+ * property -- correct on this box and a blur on a fast one -- which is why the
+ * whole timeline is accumulated dt.
+ *
+ * `contactBack` is not authored: it is half the cue's own length plus a ball
+ * radius, read off `meshes.cueLength`, so the tip arrives ON the ball rather
+ * than at a number that agreed with the mesh on the day it was typed.
+ */
+export const CUE_STROKE = Object.freeze({
+  /** Address to contact: the accelerating half of the stroke. */
+  draw: 0.16,
+  /** Contact to the deepest point of the follow-through. */
+  follow: 0.14,
+  /** And back to the address pose, unhurried, the way a man straightens up. */
+  settle: 0.42,
+  /** Cue-centre to ball-centre at the address, before the draw-back. */
+  addressGap: 0.86,
+  /** How much further back a full-power backswing pulls it. */
+  drawSpan: 0.22,
+  /** Follow-through past the ball: a floor, plus what the power adds. */
+  followDepth: 0.05,
+  followPower: 0.1,
+  /** The cue this animation was proportioned against, if the scene is silent
+   * about its own. MansionInterior.js publishes the real number. */
+  fallbackCueLength: 1.45,
+});
+
+/** The whole timeline, for the settle test and for anything that has to wait
+ * out a stroke without knowing its shape. */
+export const CUE_STROKE_SECONDS = CUE_STROKE.draw + CUE_STROKE.follow + CUE_STROKE.settle;
+
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+
+/** Cue-centre to ball-centre while he is stood over it, drawn back by power. */
+const addressBack = (power) => CUE_STROKE.addressGap
+  + clamp(power, 0, 1) * CUE_STROKE.drawSpan;
 
 /**
  * One sub-step of the whole table. Mutates `balls`; appends to `events`.
@@ -658,6 +736,13 @@ export class PoolFrame {
     this._think = 0;
     this._shot = null;
     this._carry = 0;
+    /* The meter and the stroke are per-frame state, not per-shot: racking
+     * again with a half-swept bar left over would hand the next break a power
+     * nobody chose. */
+    this.swing = this.swing ?? new Swing({ club: 'cue' });
+    this.swing.reset();
+    this.lastSwing = null;
+    this._stroke = null;
     this.syncMeshes();
   }
 
@@ -669,6 +754,7 @@ export class PoolFrame {
      * pool, not for a monument to the last one. */
     if (this.state === 'over') this.rack();
     if (this.state !== 'idle') return false;
+    this.swing.reset();
     this.state = this.turn === 'player' ? 'aim' : 'think';
     if (this.turn === 'rippin') this._think = RIPPINFLOW.thinkSeconds;
     this.hooks.onTurn?.(this.turn, this.view);
@@ -686,6 +772,12 @@ export class PoolFrame {
      * Bounded, because a bug that leaves one ball with a velocity that never
      * decays must not become a hang on the way out of the room. */
     if (this.state === 'rolling') {
+      /* HE WALKED OFF BETWEEN THE ADDRESS AND THE BALL. The shot is already
+       * on the referee's book by then (`_shot` is open and `shots` has gone
+       * up), but the cue ball has no velocity yet, so running the table out
+       * from here would settle a shot in which nothing was ever hit and rule
+       * it a foul for no contact. Land the tip first, then run it out. */
+      this._contact();
       const events = [];
       for (let i = 0; i < 20000 && !tableStill(this.balls); i++) {
         stepTable(this.balls, SUB_DT, events);
@@ -694,6 +786,8 @@ export class PoolFrame {
       this._settle();
     }
     if (this.state !== 'over') this.state = 'idle';
+    this.swing.reset();
+    this._stroke = null;
     this.syncMeshes();
     this.hooks.onTurn?.(this.turn, this.view);
   }
@@ -710,20 +804,63 @@ export class PoolFrame {
     this.power = clamp(power, 0.04, 1);
   }
 
-  /** Hit it. `power` and `angle` override the held aim so a headless driver
-   * can play a whole frame without a mouse. */
-  shoot({ power = this.power, angle = this.aimAngle } = {}) {
+  /* ---------------------------------------------------------------- */
+  /* THE METER                                                          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * One click of the golf meter, at the table.
+   *
+   * First sets it sweeping, second sets the power, third sets the strike --
+   * and the third one is the shot, which is why this fires it rather than
+   * leaving the caller to notice. Returns the phase it moved into, the same
+   * contract `Swing.click()` gives golf's `onClick`, or null if he is not on.
+   */
+  cueClick() {
+    if (this.state !== 'aim' || this.turn !== 'player') return null;
+    const phase = this.swing.click();
+    if (phase === SWING_PHASE.DONE) this._fireSwing();
+    else this.syncMeshes();
+    return phase;
+  }
+
+  /** The power the cue is DRAWN BACK to right now. While the bar is still
+   * sweeping that is the live marker rather than a power nobody has chosen
+   * yet -- the same read golf's arms take (`swing.marker` in golf/main.js), so
+   * the stick on the table and the bar on the panel are one thing. */
+  get drawPower() {
+    if (this.swing.phase === SWING_PHASE.POWER) return clamp(this.swing.marker, 0, 1);
+    if (this.swing.phase === SWING_PHASE.STRIKE) return this.swing.power;
+    return this.power;
+  }
+
+  _fireSwing() {
+    const result = this.swing.result;
+    this.lastSwing = {
+      power: result.power,
+      accuracy: result.accuracy,
+      strike: result.strike,
+      risk: result.risk,
+      deadZone: result.deadZone,
+    };
+    this.swing.reset();
+    /* The floor is the meter's, not the physics': letting the whole bar run
+     * by is a tap, and a tap with no speed at all is a shot that cannot foul
+     * and cannot end. */
+    this.shoot({ power: Math.max(0.06, result.power), accuracy: result.accuracy });
+  }
+
+  /** Hit it. `power`, `angle` and `accuracy` override the held aim so a
+   * headless driver can play a whole frame without a mouse. */
+  shoot({ power = this.power, angle = this.aimAngle, accuracy = 0 } = {}) {
     if (this.state !== 'aim' || this.turn !== 'player') return false;
-    this._strike(angle, power, 'player');
+    this._strike(angle + accuracy * MISCUE_RAD, power, 'player', accuracy);
     return true;
   }
 
-  _strike(angle, power, seat) {
+  _strike(angle, power, seat, accuracy = 0) {
     const cue = this.balls.find((ball) => ball.id === 0);
     if (cue.potted) this._placeCueBall();
-    const speed = strikeSpeed(power);
-    cue.vx = Math.sin(angle) * speed;
-    cue.vz = Math.cos(angle) * speed;
     this.aimAngle = angle;
     this.power = power;
     this.ballInHand = false;
@@ -733,8 +870,36 @@ export class PoolFrame {
       seat, firstContact: null, railAfterContact: false, potted: [], cueBallPotted: false,
     };
     this._carry = 0;
-    this.hooks.onEvent?.({ type: 'strike', seat, speed, x: cue.x, z: cue.z });
+    /* THE BALL DOES NOT MOVE ON THIS LINE ANY MORE, and that is the whole of
+     * the forward stroke. `_contact()` below sets the velocity and rings the
+     * `strike` cue when the tip actually arrives, CUE_STROKE.draw of simulated
+     * seconds from now; until then `update()` holds the table still. The state
+     * is already 'rolling' so nothing outside this file has to learn a new
+     * one -- a shot is in progress from the instant he commits to it, which is
+     * also true of a real one. */
+    this._stroke = {
+      t: 0, power, seat, accuracy, struck: false, addressBack: addressBack(this.drawPower),
+    };
     this.hooks.onTurn?.(seat, this.view);
+  }
+
+  /** The tip lands. Idempotent, because `putCueBack()` can force it early. */
+  _contact() {
+    const stroke = this._stroke;
+    if (!stroke || stroke.struck) return;
+    stroke.struck = true;
+    const cue = this.balls.find((ball) => ball.id === 0);
+    const speed = strikeSpeed(stroke.power);
+    cue.vx = Math.sin(this.aimAngle) * speed;
+    cue.vz = Math.cos(this.aimAngle) * speed;
+    this.hooks.onEvent?.({
+      type: 'strike',
+      seat: stroke.seat,
+      speed,
+      accuracy: stroke.accuracy,
+      x: cue.x,
+      z: cue.z,
+    });
   }
 
   /** The cue ball goes back on the head spot, or the first clear place behind
@@ -777,16 +942,64 @@ export class PoolFrame {
         this._strike(Math.PI, 0.3, 'rippin');
         return;
       }
-      const angle = shot.angle + (this.rng() - 0.5) * 2 * RIPPINFLOW.aimError;
-      const power = clamp(shot.power * (1 + (this.rng() - 0.5) * 2 * RIPPINFLOW.powerError), 0.15, 1);
-      this._strike(angle, power, 'rippin');
+      /* HIS SKILL IS STILL AUTHORED; ONLY THE SHAPE IS SHARED. `npcSwing` is
+       * golf's own NPC result -- a clamped {power, accuracy} pair -- and it
+       * was exported and used by nobody, which is the reuse complaint in
+       * miniature. RIPPINFLOW.aimError stays in radians because that is the
+       * unit a shaking hand is measured in, and dividing it by MISCUE_RAD
+       * here is exact arithmetic, not a re-tune: `swung.accuracy *
+       * MISCUE_RAD` below is the same shake to the last bit. The rng is
+       * called angle-first, power-second, exactly as it was, so a seeded test
+       * plays the same frame it played yesterday. */
+      const shake = (this.rng() - 0.5) * 2 * RIPPINFLOW.aimError;
+      const swung = npcSwing(
+        clamp(shot.power * (1 + (this.rng() - 0.5) * 2 * RIPPINFLOW.powerError), 0.15, 1),
+        shake / MISCUE_RAD,
+      );
+      this._strike(
+        shot.angle + swung.accuracy * MISCUE_RAD, swung.power, 'rippin', swung.accuracy,
+      );
+      return;
+    }
+    if (this.state === 'aim') {
+      /* The meter runs on the frame's own clock, like everything else in
+       * here. It is deliberately NOT wall-clock: a click-stop-click bar is
+       * only playable if the marker is where the last drawn frame showed it,
+       * and at 1.3 fps a real-time sweep crosses the whole bar between two
+       * paints. (The old hold-to-fill bar wanted the opposite and got it --
+       * see the note this replaced in src/mansion/main.js.) */
+      if (this.swing.active) {
+        this.swing.update(dt);
+        if (this.swing.phase === SWING_PHASE.DONE) this._fireSwing();
+        else this.syncMeshes();
+      }
       return;
     }
     if (this.state !== 'rolling') return;
 
+    /* THE FORWARD STROKE OWES ITS TIME BEFORE THE TABLE DOES. Until the tip
+     * lands there is nothing on the cloth to integrate, and settling here
+     * would have the referee rule on a shot that has not been played yet. */
+    const stroke = this._stroke;
+    let budget = dt;
+    if (stroke) {
+      stroke.t += dt;
+      if (!stroke.struck) {
+        if (stroke.t < CUE_STROKE.draw) {
+          this.syncMeshes();
+          return;
+        }
+        /* Whatever of this frame's simulated time was left after the tip
+         * arrived belongs to the balls, so contact inside a step is not a
+         * step the table loses. */
+        budget = stroke.t - CUE_STROKE.draw;
+        this._contact();
+      }
+    }
+
     /* Whole sub-steps only, with the remainder carried into the next frame.
      * Dropping it would make the table quietly slower on a slow machine. */
-    this._carry += dt;
+    this._carry += budget;
     let steps = Math.floor(this._carry / SUB_DT);
     this._carry -= steps * SUB_DT;
     /* One frame can never owe more than this many. At the scene's dt clamp of
@@ -824,6 +1037,12 @@ export class PoolFrame {
   _settle() {
     const shot = this._shot;
     this._shot = null;
+    /* The stroke is over by now in every shot that took longer than
+     * CUE_STROKE_SECONDS to run out, which is nearly all of them; dropping it
+     * here rather than letting it hang means the cue is back at the address
+     * for whoever is on next instead of frozen mid-follow-through. */
+    this._stroke = null;
+    this.swing.reset();
     const outcome = resolveShot(this.rules, this, shot.seat, shot);
     this.groups = outcome.groups;
     this.lastShot = { ...shot, ...outcome };
@@ -879,6 +1098,39 @@ export class PoolFrame {
     this.syncMeshes();
   }
 
+  /**
+   * How far behind the cue ball the cue's CENTRE sits this instant, in metres.
+   *
+   * Public because it is the whole of the stroke and the only honest way to
+   * test it: the mesh position is this number times the aim vector, so a test
+   * can watch the stroke without building a renderer.
+   *
+   * Address, then accelerate, then follow through, then settle. The approach
+   * is u-squared because that is constant acceleration and a cue really does
+   * arrive at the ball faster than it left the address; the follow-through is
+   * its mirror, decelerating into the deepest point; the settle is a
+   * smoothstep because a man straightening up does not stop dead.
+   */
+  cueBack(cueLength = CUE_STROKE.fallbackCueLength) {
+    /* The tip on the ball, not a number that agreed with the mesh in 2026. */
+    const contact = cueLength / 2 + POOL_TABLE.ballRadius;
+    const address = addressBack(this.state === 'aim' ? this.drawPower : 0);
+    const stroke = this._stroke;
+    if (!stroke) return address;
+    const { draw, follow, settle } = CUE_STROKE;
+    const deepest = contact - (CUE_STROKE.followDepth + stroke.power * CUE_STROKE.followPower);
+    if (stroke.t < draw) {
+      const u = stroke.t / draw;
+      return stroke.addressBack + (contact - stroke.addressBack) * u * u;
+    }
+    if (stroke.t < draw + follow) {
+      const u = (stroke.t - draw) / follow;
+      return contact + (deepest - contact) * (1 - (1 - u) * (1 - u));
+    }
+    const u = clamp((stroke.t - draw - follow) / settle, 0, 1);
+    return deepest + (address - deepest) * u * u * (3 - 2 * u);
+  }
+
   syncMeshes() {
     const meshes = this.meshes;
     if (!meshes) return;
@@ -907,10 +1159,7 @@ export class PoolFrame {
       const playing = this.state === 'aim' || this.state === 'think' || this.state === 'rolling';
       const rest = meshes.cueRest;
       if (playing && !cue.potted) {
-        /* Drawn back further the harder he is about to hit it, which is the
-         * only cue action there is: the strike itself is instantaneous, and a
-         * cue that never moves reads as a stick lying on the table. */
-        const back = 0.86 + (this.state === 'aim' ? this.power * 0.22 : 0);
+        const back = this.cueBack(meshes.cueLength ?? CUE_STROKE.fallbackCueLength);
         meshes.cue.position.set(
           centre.x + cue.x - Math.sin(this.aimAngle) * back,
           ballY + 0.03,
@@ -941,7 +1190,20 @@ export class PoolFrame {
       onTable: live,
       targets: legalTargets(this.rules, this, this.turn),
       aim: this.aimAngle,
-      power: this.power,
+      power: this.state === 'aim' ? this.drawPower : this.power,
+      /* Everything the panel needs to draw the exact rule the shot will be
+       * judged by -- the dead zone and the overswing band come out of the
+       * swing itself rather than being a second set of numbers that agree
+       * with it today. */
+      swing: {
+        phase: this.swing.phase,
+        marker: this.swing.marker,
+        power: this.swing.power,
+        deadZone: this.swing.deadZone,
+        safePower: this.swing.safePower,
+        risk: this.swing.risk,
+      },
+      lastSwing: this.lastSwing,
       ballInHand: this.ballInHand,
       foul: this.lastShot?.foul ?? null,
       shots: this.shots,

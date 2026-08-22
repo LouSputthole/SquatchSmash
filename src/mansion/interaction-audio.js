@@ -56,6 +56,28 @@ export const POOL_SFX_CUES = Object.freeze([
     + 'click in it and a faint rubber squeak as the ball comes off, close interior, no voice, no music',
     0.45,
   ]),
+  /* THE ONE CUE THE NEW STROKE ACTUALLY NEEDED.
+   *
+   * The golf meter (src/golf/swing.js, via ../mansion/pool.js) created a class
+   * of shot the table had no sound for: a stroke stopped well outside the dead
+   * zone is the tip skidding off the side of the ball, and that is not a
+   * quieter `billiards.cue.strike`, it is a different noise -- no chalk bite,
+   * a squeak, and a ball that leaves wrong. Without it a duffed shot sounds
+   * identical to a pured one, which throws away the feedback the whole meter
+   * exists to give.
+   *
+   * CONSIDERED AND NOT MINTED: a chalk scuff and a rack. Nothing in the frame
+   * chalks -- there is no action, no hook and nowhere to play it from -- and
+   * `PoolFrame.rack()` fires no event either. A cue in the manifest that
+   * nothing ever calls is the exact failure this file's header is about, only
+   * from the other end: it would be recorded, paid for, and silent. */
+  Object.freeze([
+    'billiards.miscue',
+    'a miscue on a pool table, the leather tip skidding off the side of the cue ball, a scratchy '
+    + 'muffled scuff with a faint squeak and a dull off-centre knock instead of a clean click, '
+    + 'close mic on slate, no room reverb, no voice, no music',
+    0.55,
+  ]),
   Object.freeze([
     'billiards.pocket',
     'a billiard ball dropping into a pocket, a ball leaving the cloth and falling into a net and '
@@ -73,7 +95,19 @@ export const POOL_CUE_NAMES = Object.freeze(POOL_SFX_CUES.map(([name]) => name))
  * loudest object in the lounge and a flat volume makes every shot read as a
  * break, which is how a room stops having dynamics.
  */
-export function playCueStrike(audio, position = null, power = 0.6) {
+export function playCueStrike(audio, position = null, power = 0.6, accuracy = 0) {
+  /* Past this the meter was stopped a long way outside its dead zone and the
+   * tip did not take the ball cleanly. 0.55 rather than golf's 0.42
+   * slice/hook line because a pool stroke is the easiest swing in the game to
+   * keep straight -- a fade is still a hit, and only a real duff should sound
+   * like one. */
+  if (Math.abs(accuracy) > 0.55) {
+    return audio?.play?.('billiards.miscue', {
+      volume: 0.36 + power * 0.24,
+      rate: 0.97 + power * 0.06,
+      ...at(position),
+    }) ?? null;
+  }
   return audio?.play?.(power >= 0.86 ? 'billiards.break' : 'billiards.cue.strike', {
     volume: 0.34 + power * 0.4,
     rate: 0.96 + power * 0.08,

@@ -32,6 +32,7 @@ That is exactly right, and the four bugs below are what it cost.
 | Inventory / package interactions | `src/core/scene-inventory.js` |
 | Cutscene transitions | `src/core/campaign.js`'s scene graph |
 | Pause menu, settings, keybinds | `src/core/pause-menu.js`, `src/core/settings.js` |
+| Power / timing meters | `src/golf/swing.js` |
 
 ## The four that paid for this page
 
@@ -57,6 +58,18 @@ in `src/core/combat/aim-proxy.js`.
 ways, in three stylesheets, at three positions. The mansion had none on screen
 at all — its objective text existed and was visible only in the pause menu,
 which is the one place a player is not playing.
+
+**A fifth, caught before it happened.** The mansion billiard table needed "a
+power bar similar to golf" and golf already had one — `src/golf/swing.js`, a
+click-stop-click meter with a dead zone, an overswing band and an accuracy
+model, plus an `npcSwing` that had been exported and used by nobody. The table
+imports it and asks for `club: 'cue'`; the one thing that genuinely did not
+carry over is named at the fork, in as many words: a golf swing has a
+backswing ARC and a face angle that bends the ball in flight, a pool stroke has
+neither, so `accuracy` is read in `src/mansion/pool.js` as radians off the
+aimed line rather than as shape, and golf's FADED/SLICED vocabulary stays in
+golf. Everything else — the phases, the dead zone, the orange band, the
+resolution — is the same code, and there is no second power bar to drift.
 
 ## How to follow it
 

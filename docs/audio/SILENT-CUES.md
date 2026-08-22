@@ -9,7 +9,7 @@ most of these are lines waiting on a recording session, and
 `VOICE-LINES-TODO.md` is the queue for them. This file answers the other
 question: **which scene is silent, at which beat.**
 
-**309 silent cues across 7 scenes.**
+**310 silent cues across 7 scenes.**
 
 ## bing — 31
 
@@ -72,11 +72,12 @@ question: **which scene is silent, at which beat.**
 - `enolasquatch.gun.rear.crack` (0.25s) — src/enolasquatch/audio.js, src/enolasquatch/mission/MissionController.js
 - `enolasquatch.gun.rear.tail` (1.6s) — src/enolasquatch/audio.js, src/enolasquatch/mission/MissionController.js
 
-## mansion — 50
+## mansion — 51
 
 - `billiards.break` (2.4s) — src/mansion/interaction-audio.js
 - `billiards.click` (0.4s) — src/mansion/interaction-audio.js
 - `billiards.cue.strike` (0.5s) — src/mansion/interaction-audio.js
+- `billiards.miscue` (0.55s) — src/mansion/interaction-audio.js
 - `billiards.pocket` (1.3s) — src/mansion/interaction-audio.js
 - `billiards.rail` (0.45s) — src/mansion/interaction-audio.js
 - `silent.body.crumple` (2s) — src/mansion/scenes/SilentSquatch.js

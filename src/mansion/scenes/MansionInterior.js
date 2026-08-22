@@ -3114,6 +3114,69 @@ export function buildMansionInterior(shell = null) {
   /* cases, banner and jersey all moved down here rather than being       */
   /* thrown away, and got a billiard table and a bar for company.         */
   /* ================================================================== */
+  /**
+   * ONE POOL CUE, PROPORTIONED OFF A REAL ONE.
+   *
+   * A cue is about 1.45 m long, roughly 30 mm across the butt and 13 mm across
+   * the tip, and the taper between those two numbers is the entire silhouette
+   * -- it is what tells you at a glance that the thing on the table is a cue
+   * and not a broom handle, which is what the old parallel cylinder was.
+   *
+   * Everything below is measured in metres FROM THE BUTT, because that is how
+   * a cue is described and how these numbers can be checked against one:
+   *
+   *   0.000-0.020  rubber bumper, 31.6 mm, proud of the wood as a bumper is
+   *   0.020-0.120  butt sleeve, dark
+   *   0.120-0.420  the wrap -- Irish linen, the part a hand is actually on
+   *   0.420-0.720  the forearm, dark timber up to the joint
+   *   0.720-0.760  the joint collar, brass, proud of both halves
+   *   0.760-1.412  the shaft, pale maple, the mesh the game moves
+   *   1.412-1.442  the ferrule
+   *   1.442-1.450  the leather tip, 13.6 mm
+   *
+   * The SHAFT is the unnamed mesh handed back, and it runs the whole length
+   * as one continuous taper from 15.2 mm of radius at the butt to 6.6 mm at
+   * the tip; the seven named pieces are the things that are a different
+   * colour or stand proud of that wood. Building it this way is not a style
+   * choice -- see the long note at the call site about unnamed-mesh ordinals
+   * and the 8,800 reviewed allowlist entries that cite them.
+   */
+  const BILLIARD_CUE_LENGTH = 1.45;
+  const M_CUE_SHAFT = mat({ color: 0xd9b585, roughness: 0.4 });
+  const M_CUE_DARK = mat({ color: 0x2c1a12, roughness: 0.48 });
+  const M_CUE_WRAP = mat({ color: 0x14181a, roughness: 0.96 });
+  const M_CUE_BUMPER = mat({ color: 0x0d0d0f, roughness: 0.98 });
+  const M_CUE_COLLAR = mat({ color: 0xc7ab6a, roughness: 0.28, metalness: 0.75 });
+  const M_CUE_FERRULE = mat({ color: 0xefe8d4, roughness: 0.34 });
+  const M_CUE_TIP = mat({ color: 0x4b6a86, roughness: 0.92 });
+
+  function billiardCue3D(id, { pos, rotX = 0, rotY = 0, rotZ = 0 }) {
+    const half = BILLIARD_CUE_LENGTH / 2;
+    /* Local y of the middle of a run that starts `from` metres up the butt. */
+    const mid = (from, to) => -half + (from + to) / 2;
+    const shaft = cylinder({
+      rTop: 0.0066, rBottom: 0.0152, h: BILLIARD_CUE_LENGTH, seg: 12,
+      pos, mat: M_CUE_SHAFT, rotX, rotY, rotZ,
+    });
+    /* [name, from, to, radius at the butt end, radius at the tip end, mat] */
+    const pieces = [
+      ['bumper', 0, 0.02, 0.0158, 0.0158, M_CUE_BUMPER],
+      ['butt', 0.02, 0.12, 0.0153, 0.01475, M_CUE_DARK],
+      ['wrap', 0.12, 0.42, 0.015, 0.0133, M_CUE_WRAP],
+      ['forearm', 0.42, 0.72, 0.013, 0.0112, M_CUE_DARK],
+      ['collar', 0.72, 0.76, 0.0114, 0.0114, M_CUE_COLLAR],
+      ['ferrule', 1.412, 1.442, 0.007, 0.007, M_CUE_FERRULE],
+      ['tip', 1.442, 1.45, 0.0068, 0.0068, M_CUE_TIP],
+    ];
+    for (const [part, from, to, rButt, rTip, material] of pieces) {
+      shaft.add(named(cylinder({
+        rBottom: rButt, rTop: rTip, h: to - from, seg: 12,
+        pos: [0, mid(from, to), 0], mat: material,
+      }), `${id}-${part}`));
+    }
+    return shaft;
+  }
+
   function buildLounge() {
     const r = LOUNGE;
     trimRoom(r, GY, UY - 0.3);
@@ -3252,21 +3315,45 @@ export function buildMansionInterior(shell = null) {
     billiardAim.visible = false;
     root.add(billiardAim);
 
-    /* The cue. THE SAME BARE CYLINDER IN THE SAME REST POSE it has always
-     * been -- not wrapped in a rig, for the ordinal reason above. The game
-     * aims it by switching its Euler order to YXZ, which applies the yaw
-     * OUTSIDE the 90-degree lay-flat rotation and so swings a horizontal cue
-     * about the vertical; the default XYZ order would tip it out of the
-     * plane instead. Rest is XYZ with the authored 0.1 tilt, exactly as
-     * before. */
+    /* THE CUE, AND THE SIX OF THEM IN THIS ROOM ARE ONE OBJECT BUILT ONCE.
+     *
+     * It was a bare cylinder -- r 0.02, h 1.5, one wood -- which is a broom
+     * handle, and it read as one from the shooting camera because the ONE
+     * silhouette a cue has is its taper: about 30 mm at the butt and 13 mm at
+     * the tip over roughly 1.45 m. So `billiardCue` below builds the real
+     * article off those measurements, and the five sticks in the wall rack
+     * are the same function rather than five more cylinders that happen to
+     * look similar. A room whose spare cues are a different object from the
+     * one in your hands is a room that will drift.
+     *
+     * WHY THE THING ADDED TO `root` IS STILL ONE UNNAMED MESH. Read the note
+     * on the rack above: tools/geometry-collect.mjs identifies an unnamed mesh
+     * by its ordinal among its unnamed siblings, and ~8,800 reviewed entries
+     * in tools/geometry-allowlists/mansion.json cite those ordinals. Wrapping
+     * the cue in a group -- the obvious way to build it -- would delete an
+     * unnamed mesh from this position in root's child list and renumber every
+     * anonymous mesh in the east half of the house. So the SHAFT stays the
+     * unnamed mesh it always was (a tapered cylinder now rather than a
+     * parallel one) and every new piece is a NAMED CHILD OF IT: named meshes
+     * are outside that sequence, and children are outside root's sequence
+     * twice over. `attach()` in ../pool.js still gets one object to move and
+     * the whole cue rides on it.
+     *
+     * The new bounds are strictly INSIDE the old ones -- 15.8 mm at the widest
+     * against the old 20 mm, 1.45 m against the old 1.5 m -- so this cannot
+     * put the cue through anything the cylinder was not already through.
+     *
+     * The game aims it by switching its Euler order to YXZ, which applies the
+     * yaw OUTSIDE the 90-degree lay-flat rotation and so swings a horizontal
+     * cue about the vertical; the default XYZ order would tip it out of the
+     * plane instead. That makes LOCAL +Y THE TIP END, which is why everything
+     * below is measured from the butt at -0.725. Rest is XYZ with the
+     * authored 0.1 tilt, exactly as before. */
     const billiardCueRest = {
       x: bx + 0.5, y: GY + 0.9, z: bz - 0.6, rotX: Math.PI / 2, rotZ: 0.1,
     };
-    const billiardCue = cylinder({
-      r: 0.02,
-      h: 1.5,
+    const billiardCue = billiardCue3D('billiard-cue', {
       pos: [billiardCueRest.x, billiardCueRest.y, billiardCueRest.z],
-      mat: M_WOOD,
       rotX: billiardCueRest.rotX,
       rotZ: billiardCueRest.rotZ,
     });
@@ -3280,9 +3367,17 @@ export function buildMansionInterior(shell = null) {
     // Cue rack on the pier between the middle and north arches, plus a
     // scoreboard and a chalk shelf -- all clear of the three openings.
     root.add(box({ size: [0.12, 1.5, 0.9], pos: [r.x1 - 0.14, GY + 1.4, 49.9], mat: M_WOOD_DK }));
+    /* The spares, butt-down and tip-up the way a rack holds them, and the
+     * SAME OBJECT as the one on the table -- `billiardCue3D`, not a second
+     * stick that looks like it. These were five bare cylinders at r 0.018,
+     * so the detailed cue fits inside the space each already occupied and the
+     * unnamed-mesh ordinals under `root` are untouched (one per cue, exactly
+     * as before). No assembly id: these five sit outside the table's, in the
+     * lounge's own connected support component, and giving them one would
+     * cut them out of it and float them off the wall. */
     for (let i = 0; i < 5; i++) {
-      root.add(cylinder({
-        r: 0.018, h: 1.45, pos: [r.x1 - 0.26, GY + 1.4, 49.55 + i * 0.18], mat: M_WOOD,
+      root.add(billiardCue3D(`lounge-rack-cue-${i}`, {
+        pos: [r.x1 - 0.26, GY + 1.4, 49.55 + i * 0.18],
       }));
     }
     solid(r.x1 - 0.34, r.x1, GY, GY + 2.2, 49.45, 50.35);
@@ -3756,6 +3851,10 @@ export function buildMansionInterior(shell = null) {
         aimLength: 1.1,
         cue: billiardCue,
         cueRest: billiardCueRest,
+        /* The stroke in ../pool.js works out where the TIP is from this, so
+         * the animation is bound to the cue that was actually built rather
+         * than to a length somebody typed into the physics once. */
+        cueLength: BILLIARD_CUE_LENGTH,
       },
       cowboy: loungeCowboy,
       clubApex: loungeClubApex,
