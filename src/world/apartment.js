@@ -1208,6 +1208,11 @@ export async function buildApartment(ctx) {
        * of the mat; this is the clear corner past both, with the handle turned
        * out toward the room where a handle goes. */
       tammyDashboardMug: { x: 2.90, y: desk.top, z: -3.83, rotY: -0.52 },
+      /* FIRST-PASS PLACEMENT, not yet run through `verify:art`. Same desk
+       * surface as the mug, 18cm further along the same edge so the two
+       * earned-trophy props start reading as a shelf rather than one prop
+       * plus an ornament; nudge if the real clearance check finds otherwise. */
+      golfTrophy: { x: 2.90, y: desk.top, z: -4.01, rotY: -0.52 },
       /* Was at x -3.24 / z 0.48, which is 5cm inside the bong and 3cm inside
        * the mushroom tray. This is the one clear pocket left on that table --
        * between the matchbook and the pizza box, 41cm by 14cm. */

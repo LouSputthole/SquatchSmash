@@ -295,8 +295,8 @@ async function buildApartment(descriptor, THREE, collaborators) {
   apartment.root.traverse((object) => { if (object.isMesh) totalMeshCount += 1; });
   const dressingProducerCount = apartment.dressing?.size ?? 0;
   const margoProducerCount = apartment.root.children.filter(({ name }) => name === 'margo').length;
-  if (totalMeshCount !== 1722) {
-    throw new Error(`Apartment Adapter expected 1722 procedural meshes; found ${totalMeshCount}`);
+  if (totalMeshCount !== 1729) {
+    throw new Error(`Apartment Adapter expected 1729 procedural meshes; found ${totalMeshCount}`);
   }
   const whiteLine = apartment.whiteLine;
   if (whiteLine?.group?.name !== 'apartment-counter-powder'
@@ -306,7 +306,7 @@ async function buildApartment(descriptor, THREE, collaborators) {
     || whiteLine.consumed !== false) {
     throw new Error('Apartment Adapter is missing the intact countertop white-line producer');
   }
-  if (apartment.colliders.length !== 29 || dressingProducerCount !== 28 || margoProducerCount !== 1) {
+  if (apartment.colliders.length !== 29 || dressingProducerCount !== 29 || margoProducerCount !== 1) {
     throw new Error(
       `Apartment Adapter producer drift: colliders=${apartment.colliders.length}, `
       + `dressing=${dressingProducerCount}, margo=${margoProducerCount}`,

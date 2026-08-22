@@ -179,6 +179,14 @@ export function allDressingIds() {
 export function persistentDressingForCampaign(state = {}) {
   const shown = new Set();
   if (state.missions?.airstrip_smuggling?.status === 'complete') shown.add('tammyDashboardMug');
+  /* Earned, not attended: even par or better across the three holes, off the
+   * same `toPar` the scorecard already persists (src/golf/scorecard.js via
+   * src/core/campaign.js). Finishing the round over par is a fine morning
+   * with Lou; it just doesn't get a trophy. */
+  const golf = state.missions?.silver_pines;
+  if (golf?.status === 'complete' && Number.isFinite(golf?.toPar) && golf.toPar <= 0) {
+    shown.add('golfTrophy');
+  }
   return shown;
 }
 
@@ -470,7 +478,7 @@ function motelKey(M, { x, y, z, rotY = 0 }) {
  * and stuck on things, not the word "TAMMY" drawn into a canvas. Printed
  * lettering is only the fallback for a build with no art in it.
  */
-function tammyDashboardMug(M, { x, y, z, rotY = 0, sticker = null }) {
+export function tammyDashboardMug(M, { x, y, z, rotY = 0, sticker = null }) {
   const g = group('dress:tammyDashboardMug');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
@@ -563,6 +571,73 @@ function tammyDashboardMug(M, { x, y, z, rotY = 0, sticker = null }) {
   g.userData.label = 'Tammy’s Dashboard Mug';
   g.userData.continuityName = 'tammy-mug';
   g.userData.stickerSlot = 'sticker.fridge';
+  return g;
+}
+
+/**
+ * The Silver Pines trophy. Earned, not chapter-dressing -- see
+ * `persistentDressingForCampaign()`: it only shows once
+ * `state.missions.silver_pines.toPar` is even or better, the same
+ * already-persisted number the round's own scorecard produces
+ * (`src/golf/scorecard.js`, `src/core/campaign.js`). A small brass cup on a
+ * dark wood base, sized to sit beside `tammyDashboardMug` without crowding
+ * it -- the two are meant to read as a matched pair starting a shelf, per
+ * the campaign's own "the shelf the trophy stands on" note.
+ */
+export function golfTrophy(M, { x, y, z, rotY = 0 }) {
+  const g = group('dress:golfTrophy');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const wood = mat({ color: 0x2c1c10, roughness: 0.55 });
+  const brass = mat({ color: 0xc9a24a, roughness: 0.32, metalness: 0.85 });
+  const plaqueMat = mat({ color: 0x1c140c, roughness: 0.5 });
+
+  const BASE_R = 0.034;
+  const base = cylinder({ r: BASE_R, h: 0.014, pos: [0, 0.007, 0], mat: wood });
+  base.name = 'golf-trophy-base';
+  g.add(base);
+
+  const plaque = box({
+    size: [0.05, 0.014, 0.002], pos: [0, 0.014, BASE_R + 0.001], mat: plaqueMat,
+  });
+  plaque.name = 'golf-trophy-plaque';
+  g.add(plaque);
+
+  const stem = cylinder({ r: 0.006, h: 0.03, pos: [0, 0.029, 0], mat: brass });
+  stem.name = 'golf-trophy-stem';
+  g.add(stem);
+
+  const collar = cylinder({ r: 0.017, h: 0.006, pos: [0, 0.047, 0], mat: brass });
+  collar.name = 'golf-trophy-collar';
+  g.add(collar);
+
+  /* The cup: narrow at the collar, flaring out, same "reuse the unit
+   * cylinder and scale it" shape build.js's cylinder() already optimizes
+   * for, just with distinct top/bottom radii so it actually flares. */
+  const cup = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.026, 0.015, 0.05, 16), brass,
+  );
+  cup.name = 'golf-trophy-cup';
+  cup.position.set(0, 0.075, 0);
+  cup.castShadow = true;
+  g.add(cup);
+
+  const CUP_R = 0.026;
+  const HANDLE_R = 0.014;
+  const HANDLE_TUBE = 0.0032;
+  for (const side of [-1, 1]) {
+    const handle = new THREE.Mesh(
+      new THREE.TorusGeometry(HANDLE_R, HANDLE_TUBE, 6, 16, Math.PI), brass,
+    );
+    handle.name = `golf-trophy-handle-${side < 0 ? 'left' : 'right'}`;
+    handle.position.set(side * (CUP_R - 0.004), 0.072, 0);
+    handle.rotation.y = side < 0 ? -Math.PI / 2 : Math.PI / 2;
+    handle.rotation.z = Math.PI / 2;
+    g.add(handle);
+  }
+
+  g.userData.label = 'Silver Pines Trophy';
+  g.userData.continuityName = 'golf-trophy';
   return g;
 }
 
@@ -2160,6 +2235,7 @@ export function buildDressing(M, { root, fridgeDoor, at, stickers = {} }) {
   add('tammyDashboardMug', tammyDashboardMug(M, {
     ...at.tammyDashboardMug, sticker: stickers.tammy || null,
   }));
+  add('golfTrophy', golfTrophy(M, at.golfTrophy));
 
   addCash('cashStacks', {
     ...at.cashStacks, n: CASH_PILES.cashStacks.base, max: CASH_PILES.cashStacks.max, wide: true,

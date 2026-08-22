@@ -238,13 +238,13 @@ test('Apartment geometry remains complete and clean across every public campaign
     const built = await buildGeometrySceneState(descriptor.id);
     const root = built.roots[0].root;
     assert.deepEqual(built.metadata.producerCounts, {
-      proceduralMeshes: 1722,
+      proceduralMeshes: 1729,
       colliders: 29,
-      dressing: 28,
+      dressing: 29,
       margo: 1,
       whiteLine: 1,
     }, `${descriptor.id} producer inventory`);
-    assert.equal(root.children.filter(({ name }) => name.startsWith('dress:')).length, 22);
+    assert.equal(root.children.filter(({ name }) => name.startsWith('dress:')).length, 23);
     assert.deepEqual(built.metadata.apartmentPreview, {
       spawn: expected.spawn,
       chapter: expected.chapter,
