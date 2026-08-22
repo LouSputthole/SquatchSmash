@@ -243,6 +243,11 @@ async function installSampler() {
       start() { samples.length = 0; began = performance.now(); recording = true; },
       stop() { recording = false; },
       take() { return samples.slice(); },
+      /* How many frames have actually been drawn into this trace. A window
+       * measured in wall time is a window measured in swiftshader: 2.5 s buys
+       * three frames on this box, and a check that wants a dozen has to wait
+       * for the frames, not for the clock. */
+      count() { return samples.length; },
     };
   });
 }
@@ -279,10 +284,20 @@ async function pictureResolution() {
 }
 
 /** A trace of rendered frames over `ms` of WALL clock — for the audio cases. */
-async function trace(ms) {
+async function trace(ms, { minFrames = 0 } = {}) {
   await measuringResolution();
   await page.evaluate(() => window.mouthTrace.start());
   await page.waitForTimeout(ms);
+  /* AND THEN WAIT FOR THE FRAMES. The window above is a floor in wall time;
+   * this is the floor in the unit the samples are actually counted in. A
+   * check asserting "more than three frames were drawn" against a 2.5 s
+   * window was asserting something about the rasteriser, and on this box the
+   * answer is three. Capped, so a genuinely stalled page still fails rather
+   * than hanging. */
+  if (minFrames > 0) {
+    await page.waitForFunction((want) => window.mouthTrace.count() >= want,
+      minFrames, { timeout: 120000, polling: 100 }).catch(() => {});
+  }
   return page.evaluate(() => {
     window.mouthTrace.stop();
     return window.mouthTrace.take();
@@ -425,7 +440,7 @@ const settled = await settle();
 
 /* ---------------- (b) nobody is speaking ---------------- */
 {
-  const samples = await trace(2500);
+  const samples = await trace(2500, { minFrames: 12 });
   const bodies = ['ape', 'deke', 'chester', 'winston', 'pruitt'];
   const moved = bodies.filter((b) => stats(samples, b).max > 0.001);
   const modes = bodies.filter((b) => stats(samples, b).modes.some((m) => m !== null));
@@ -510,6 +525,15 @@ const TAKE = await page.evaluate(
 {
   await settle();
   await measuringResolution();
+  /* EIGHT SECONDS OF PICKUP, NOT 2.4, and the reason is the rasteriser
+   * rather than the take. The sampler below is a 40 ms interval, and a
+   * swiftshader frame of this apartment blocks the main thread for the best
+   * part of a second -- so a 2.4 s silent window fired that interval ONCE,
+   * and a check needing at least three samples to mean anything failed on a
+   * mouth that was behaving perfectly. Lengthening the delay does not weaken
+   * the claim: the longer the take is inaudible, the more chances a timer
+   * has to give itself away. */
+  const PICKUP_S = 8;
   const pickup = await page.evaluate(([body, cue, delay]) => new Promise((resolve) => {
     const sc = window.silvercase;
     const source = sc.audio.play(cue, { volume: 0.9, delay });
@@ -520,12 +544,17 @@ const TAKE = await page.evaluate(
     const id = setInterval(() => {
       const t = performance.now() - t0;
       samples.push({ t: +t.toFixed(0), ...sc.mouths()[body] });
-      if (t > delay * 1000 + 2400) { clearInterval(id); resolve({ started: Boolean(source), samples }); }
+      /* Six seconds of AUDIBLE take, not 2.4: the speaking window needs its
+       * own three samples, and at one interval tick per rendered frame that
+       * is six seconds of wall clock on this box. */
+      if (t > delay * 1000 + 6000) { clearInterval(id); resolve({ started: Boolean(source), samples }); }
     }, 40);
-  }), [RECORDED.body, RECORDED.cue, 2.4]);
+  }), [RECORDED.body, RECORDED.cue, PICKUP_S]);
 
-  const silent = pickup.samples.filter((x) => x.t < 2200);
-  const speaking = pickup.samples.filter((x) => x.t > 2700);
+  /* Both windows stand clear of the moment the take becomes audible, so a
+   * sample that straddles it belongs to neither. */
+  const silent = pickup.samples.filter((x) => x.t < (PICKUP_S - 0.2) * 1000);
+  const speaking = pickup.samples.filter((x) => x.t > (PICKUP_S + 0.3) * 1000);
   const openInSilence = silent.filter((x) => x.open > 0.02);
   const openInSpeech = speaking.filter((x) => x.open > 0.25);
   check(
@@ -534,7 +563,7 @@ const TAKE = await page.evaluate(
       && silent.length >= 3 && silent.every((x) => x.mode === 'audio')
       && openInSilence.length === 0
       && speaking.length >= 3 && openInSpeech.length > 0,
-    `over a 2.4 s pickup with the line already under way: ${silent.length} samples, `
+    `over a ${PICKUP_S} s pickup with the line already under way: ${silent.length} samples, `
       + `all in 'audio' mode, ${openInSilence.length} of them with the mouth open `
       + `(a timer would have flapped through every one); once the take is audible, `
       + `${openInSpeech.length} of ${speaking.length} samples past 0.25`,
@@ -547,7 +576,11 @@ const TAKE = await page.evaluate(
   await settle();
   const has = await page.evaluate((cue) => window.silvercase.audio.hasSample(cue), PHOTO.cue);
   await speak({ ...PHOTO, hold: 0.5 });
-  const samples = await trace(2200);
+  /* Twenty frames. `max` is a maximum over the window, so a longer window
+   * can only ever help it find the peak -- and at three frames it was
+   * finding whatever the envelope happened to be doing at the moment the
+   * rasteriser came round, which is a coin toss and not a measurement. */
+  const samples = await trace(2200, { minFrames: 20 });
   const s = stats(samples, PHOTO.body);
   const now = await page.evaluate((b) => window.silvercase.mouths()[b], PHOTO.body);
   const headPitch = await page.evaluate((b) => {
@@ -570,7 +603,10 @@ const TAKE = await page.evaluate(
   /* Sample a window rather than one instant: a mouth that is genuinely working
    * is SHUT for a good part of any second, which is the whole point, so "is it
    * open right now" is the wrong question to ask of it. */
-  const before = stats(await trace(1200), RECORDED.body);
+  /* A mouth that is genuinely working is SHUT for much of any second, so this
+   * window has to be long enough in FRAMES to catch a syllable. Twelve of
+   * them, not 1.2 seconds -- 1.2 seconds is three frames here. */
+  const before = stats(await trace(1200, { minFrames: 12 }), RECORDED.body);
   const wasPlaying = await page.evaluate(() => window.silvercase.voice().playing);
   // The cut a player really causes: a new sequence replacing the old one,
   // which is what `DialogueController.play()` does and what `stopVoice` is for.

@@ -4168,12 +4168,23 @@ try {
       otherPulls.push(M.cast.useSecondPoolGirl());
     }
     advance(3.2);
+    /* THREE PRESSES, because the back row is a rotation and not a line.
+     * `THEATRE_REPLIES` in src/mansion/cast.js gives the standing-in-the-
+     * doorway exchange, then the one about the projector, and only then what
+     * Old Stove thinks of what is on -- which with nothing in the projector is
+     * "Put something on, kid". One press reaches the first of those, so a
+     * check demanding the third cue could never pass, and the conversation
+     * this whole beat was written for went untested. */
     const stove = M.cast.useOldStove();
     advance(4.5);
+    const stoveSecond = M.cast.useOldStove();
+    advance(4.5);
+    const stoveThird = M.cast.useOldStove();
+    advance(5.5);
     const state = M.cast.evening;
     const poolHeadsAfter = [0, 1].map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
     return {
-      first, second, third, stove,
+      first, second, third, stove, stoveSecond, stoveThird,
       otherHello, otherFlirt, otherStart, otherMiss, otherPulls, timingShown,
       secondHeadBefore,
       secondHeadAfter: state.poolComposition.find(({ id }) => id === 'poolPerformer1')?.headX,
@@ -4236,9 +4247,14 @@ try {
     ]),
     JSON.stringify(evening.state?.poolComposition));
   check('Old Stove is present in the theatre and encourages the player to put on a picture',
-    evening.stove && evening.state?.oldStovePresent === true
+    evening.stove && evening.stoveSecond && evening.stoveThird
+      && evening.state?.oldStovePresent === true
       && evening.said.includes('vo.silentsquatch.evening.stove.putsomethingon'),
-    JSON.stringify(evening));
+    JSON.stringify({
+      presses: [evening.stove, evening.stoveSecond, evening.stoveThird],
+      present: evening.state?.oldStovePresent,
+      stoveSaid: evening.said.filter((cue) => cue.includes('.stove.')),
+    }));
   check('the quiet-evening theatre seats Old Stove with Seff and Lag in real back-row recliners',
     evening.state?.theatreStaged === true
       && JSON.stringify(evening.state.theatreComposition) === JSON.stringify([
