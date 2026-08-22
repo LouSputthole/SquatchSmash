@@ -4,7 +4,7 @@ import { EffectComposer } from '../../lib/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
-import { lambert } from '../world/build.js';
+import { lambert } from '../../game/src/world.js';
 import { Person } from '../core/person.js';
 import {
   CIRCLE, INDUCTED_PALETTE, LINE_CENTER, PROSPECT_PALETTE, buildInitiationCircle,

@@ -397,8 +397,14 @@ try {
    * enough and the runs that passed inside it were lucky rather than fast.
    *
    * A real player at 60 fps sees no clamp at all and act six takes act six.
-   * The half-a-frame-a-second is the software renderer and is worth its own
-   * look; it is not what this check is for. */
+   *
+   * AND IT IS NOT ACT SIX. `tools/probe-initiation-fps.mjs` samples the same
+   * phase clock across the scene and measured 2.9 fps in the clearing, 1.5 in
+   * the cabin and 1.3 at the pull-back: uniformly slow, declining gently with
+   * how much is dressed in front of the camera. That is the headless software
+   * renderer, not a beat doing something expensive, and there is nothing here
+   * to fix. Act six only LOOKED singular because it is the one act gated on a
+   * long unattended timer rather than on a keypress. */
   await driveTo(page, 'complete', { timeout: 900000 });
   const inducted = await page.evaluate(() => ({
     constructor: window.INITIATION.player?.constructor?.name,

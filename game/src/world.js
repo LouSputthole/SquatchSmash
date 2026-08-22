@@ -6,14 +6,30 @@ export const BOUNDS = 85;
 // Props are built from a small set of primitives, so instances share
 // geometry and materials instead of allocating their own.
 
-/* `lambert` now lives in src/world/build.js and is re-exported here.
+/* THIS LIVES HERE, AND AN EARLIER PASS OF MINE WAS WRONG TO MOVE IT.
  *
- * It was always shared -- ten files across six scenes import it -- and this
- * module is the old tree. Re-exported rather than copied so there stays one
- * implementation and ONE CACHE: a second cache would hand out a second
- * MeshLambertMaterial for the same colour and quietly double the draw calls
- * for anything that imported from both sides during the migration. */
-export { lambert } from '../../src/world/build.js';
+ * It looked like shared code stranded in a legacy tree -- ten files under
+ * src/ import it -- so it was moved to src/world/build.js and re-exported
+ * from here. Both halves of that reading were wrong. `game/` is not legacy:
+ * it is Squatch Smash, the PC game the campaign opens inside, and it has
+ * EIGHTY-SIX lambert call sites of its own. And it does not merely run from
+ * source -- `game/tools/bundle.mjs` flattens it into one file, stripping the
+ * import lines as it goes, and line 71 of that bundler expects THIS module to
+ * define `lambert`. A re-export is not an import statement, so it survived
+ * the strip and the bundle refused to build.
+ *
+ * The dependency runs one way: src/ scenes may borrow from game/, and game/
+ * borrows nothing back. MansionGrounds.js says the same over its Sasquatch
+ * import. */
+const matCache = new Map();
+
+export function lambert(color, extra = null) {
+  const key = extra ? `${color}|${JSON.stringify(extra)}` : String(color);
+  if (!matCache.has(key)) {
+    matCache.set(key, new THREE.MeshLambertMaterial({ color, ...(extra || {}) }));
+  }
+  return matCache.get(key);
+}
 
 const geoCache = new Map();
 

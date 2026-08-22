@@ -125,6 +125,7 @@ const TEST_MODULES = [
   './apartment-pastimes.test.mjs',
   './core-dialogue.test.mjs',
   './core-aim-proxy.test.mjs',
+  './game-bundle.test.mjs',
   './staging-gate.test.mjs',
   './voice-overlap.test.mjs',
   './staging-allowlist.test.mjs',
