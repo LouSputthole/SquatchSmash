@@ -61,7 +61,19 @@ const objectivesRoot = document.getElementById('objectives');
 const objectiveList = objectivesRoot.querySelector('ul');
 const dialogueRoot = document.getElementById('dialogue');
 
-objectivesRoot.querySelector('.head').textContent = 'THE HOTDOG INCIDENT';
+/* `.otitle`, not `.head`, and THIS PAGE SHARES bing.html WITH THE CLUB.
+ *
+ * The Bing adopted src/core/objective-panel.js, whose markup contract is
+ * `.otitle` + `ul.olist`, so bing.html's card was renamed to match -- and this
+ * file, a different page built on the same markup, kept asking for the old
+ * name. querySelector returned null, the assignment threw before anything else
+ * ran, and the WHOLE PAGE died on "Could not load the game code": not a
+ * degraded objective card, no party at all.
+ *
+ * The rename was grepped for, in main.js and in the HTML, and not in the
+ * sibling that shares the file. verify:webgl-health is what caught it, on its
+ * first run in this repository's life. */
+objectivesRoot.querySelector('.otitle').textContent = 'THE HOTDOG INCIDENT';
 
 overlay.querySelector('h1').innerHTML = 'THE <span>HOTDOG INCIDENT</span>';
 overlay.querySelector('.tag').textContent = 'The Bada Bing is closed for Billy HotDog\'s welcome-home party. Family only. Hog Mama is waiting on the stage controls.';
