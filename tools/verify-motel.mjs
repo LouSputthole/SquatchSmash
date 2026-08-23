@@ -1887,18 +1887,32 @@ try {
    * mouth" is a fact a sampler cannot miss -- unlike an instantaneous scale,
    * which is what two runs of this check disagreed about.
    *
-   * The stronger claim the name makes -- that he VISIBLY mouths it -- wants a
-   * real fraction of full open, and `_fallbackOpen` says what full is: it
-   * returns `syllable * gate * tail * 0.9`, so a working fallback mouth peaks
-   * near 0.9 and reads about 2.3 on this rig's 1.45 openScale. `maxOpen` is
-   * reported for exactly that reason. The number is deliberately NOT being
-   * chosen from the reading that fails; it goes in once a run with the mouth
-   * actually driven has said what a healthy one reaches here. */
+   * AND ON A QUARTER OPEN, which is the claim the name actually makes. Both
+   * ends of this were measured on this check, in this scene, on this renderer,
+   * rather than argued:
+   *
+   *   driven, mouth told to speak   maxOpen 0.866   scale 2.255
+   *   undriven, previous line's tail maxOpen 0.004   scale 1.005
+   *
+   * A factor of two hundred, so 0.25 sits three and a half times under what a
+   * working mouth reached and sixty times over the residue that used to sneak
+   * this check green. It agrees with the driver's own design as a
+   * cross-check -- `_fallbackOpen` returns `syllable * gate * tail * 0.9`, so
+   * 0.9 is the ceiling -- but it is not taken FROM the design, because what
+   * matters is what the mouth reaches at two frames a second with samples
+   * landing at random syllable phase, and only a run can say that.
+   *
+   * `maxLevel: 0` alongside `modes: ['fallback']` is correct and not a fault
+   * to be fixed later: this harness plays no recording, so there is no
+   * analyser to read and the synthetic syllable rhythm is the right driver.
+   * An 'audio' mode here would mean something had started playing that the
+   * check never asked for. */
   check('Rico keeps his own face identity and visibly mouths his lines',
     ricoPresentation.identity === 'rico'
       && ricoPresentation.face === 'actor.face.rico'
       && ricoPresentation.mouth === 'actor.mouth'
       && ricoPresentation.modes.length > 0
+      && ricoPresentation.maxOpen > 0.25
       && ricoPresentation.mouthOpened,
     JSON.stringify(ricoPresentation));
   await previewPage.evaluate(() => {
