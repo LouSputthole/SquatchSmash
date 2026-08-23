@@ -18,12 +18,12 @@
 #   - npm run check:takes   recorded mp3s still say what the script says
 #   - npm run voice:needed:check / audio:todo:check  booth sheets in step
 #   - the sixteen per-scene cue ledgers (check:*-vo, check:mansion-sfx)
-#   - npm run verify:boot-errors      cheap browser gate, all 20 staged pages
+#   - npm run verify:boot-failure-surfaces      cheap browser gate, all 20 staged pages
 #   - npm run verify:campaign-marathon the whole public route, scenes stubbed
 #   - node tools/bundle-preview.mjs  the shareable single-file build
 #
 # Why only these two from the browser set: both are cheap per page covered
-# because neither one boots a scene. verify:boot-errors aborts each staged
+# because neither one boots a scene. verify:boot-failure-surfaces aborts each staged
 # page's entry module and asserts the recovery surface, touching all 20 staged
 # pages. verify:campaign-marathon stubs every scene runtime out and walks the
 # whole public route — 27 handoffs, apartment day one to the finale — through
@@ -112,7 +112,7 @@ jobs:
         run: npm run verify:campaign-route
 
       - name: Boot-failure recovery on every staged page
-        run: npm run verify:boot-errors
+        run: npm run verify:boot-failure-surfaces
 
       - name: Whole-campaign marathon
         run: npm run verify:campaign-marathon

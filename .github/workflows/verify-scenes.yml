@@ -18,17 +18,16 @@
 #
 # WHAT RUNS WHEN
 #   weeknights   the smoke and scene tiers      (29 gates, minutes each)
+#   Sunday       the smoke and scene tiers      (the weekend hole, closed)
 #   Saturday     everything, campaign included  (40 gates, up to ~2 h each)
 #   on demand    any tier, or a named list, from the Actions tab
-#   pull request only when the PR carries the `scene-gates` label
+#   pull request the smoke tier, every PR       (12 cheap gates)
 #
-# WHY THE LABEL RATHER THAN EVERY PR. None of these forty has ever run in CI.
-# Making them blocking on day one would stop every pull request on whatever
-# they find first, which — going by the marathon, the preview build and the
-# Squatch Smash bundle — will not be nothing. Let a week of nightlies say what
-# is already red, fix that, then promote the smoke tier by deleting the label
-# condition in the `plan` step below. That promotion is one line and it is
-# named here so the next person does not have to work out where it lives.
+# THE SMOKE TIER RUNS ON EVERY PR, SINCE 2026-08-23. It started life behind a
+# `scene-gates` label because none of these forty had ever run in CI, and
+# making them blocking on day one would have stopped every pull request on
+# whatever they found first. The nightlies have since had their say; the
+# twelve cheap gates now run unconditionally, and the label is retired.
 #
 # The tier of every gate, and the boots and simulated seconds each tier was
 # derived from, live in tools/scene-gate-tiers.mjs. This file deliberately
@@ -42,6 +41,7 @@ on:
     # fires and hosted runners queue.
     - cron: '17 3 * * 1-5'
     - cron: '17 3 * * 6'
+    - cron: '17 3 * * 0'
   workflow_dispatch:
     inputs:
       tiers:
@@ -95,8 +95,6 @@ jobs:
           CRON: ${{ github.event.schedule }}
           DISPATCH_TIERS: ${{ inputs.tiers }}
           DISPATCH_GATES: ${{ inputs.gates }}
-          PR_LABELLED: ${{ github.event_name == 'pull_request'
-            && contains(github.event.pull_request.labels.*.name, 'scene-gates') }}
         run: |
           set -euo pipefail
           TIERS=''
@@ -111,9 +109,9 @@ jobs:
               if [ "$CRON" = '17 3 * * 6' ]; then TIERS='all'; else TIERS='smoke scene'; fi
               ;;
             pull_request)
-              # Delete this condition and leave TIERS='smoke' to promote the
-              # cheap tier to every pull request. See the header.
-              if [ "$PR_LABELLED" = 'true' ]; then TIERS='smoke'; fi
+              # Promoted 2026-08-23 after the nightlies had had their say:
+              # the cheap tier runs on every pull request. See the header.
+              TIERS='smoke'
               ;;
           esac
 

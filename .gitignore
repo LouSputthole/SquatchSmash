@@ -28,3 +28,10 @@ assets/sfx/_listen.html
 # builds one scene and measures it; those are working notes, not deliverables,
 # and they should never reach a commit.
 .tmp/
+
+# Verifier evidence output. Every browser gate rewrites its captures --
+# PNGs and report.json alike -- on every run, so a full sweep dirties the
+# tree just by looking at it. New run output stays out of the index; the
+# evidence already committed stays tracked (gitignore never hides tracked
+# files) because the evidence-contract tests read it.
+docs/validation/

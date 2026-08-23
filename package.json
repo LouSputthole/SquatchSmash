@@ -30,7 +30,7 @@
     "verify:big-night": "node tools/verify-big-night.mjs",
     "verify:computer": "node tools/verify-computer.mjs",
     "verify:squatch-smash": "node tools/verify-squatch-smash.mjs",
-    "verify:boot-errors": "node tools/verify-boot-errors.mjs",
+    "verify:boot-failure-surfaces": "node tools/verify-boot-failure-surfaces.mjs",
     "verify:webgl-health": "node tools/verify-webgl-runtime-health.mjs",
     "verify:webgl-native": "node tools/verify-webgl-runtime-health.mjs --native-gpu",
     "verify:direct-entry": "node tools/verify-direct-entry.mjs",

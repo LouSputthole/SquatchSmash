@@ -426,7 +426,7 @@ function state() {
 
 /* Chrome returns a promise from requestPointerLock and REJECTS it inside its
  * re-lock throttle — which is exactly what a resume from the pause menu hits.
- * An unhandled rejection here is a console error the boot-errors gate reads,
+ * An unhandled rejection here is a console error the boot-failure-surfaces gate reads,
  * so it is caught, the way src/main.js's requestLock() catches it. */
 function lockPointer() {
   const p = renderer.domElement.requestPointerLock?.();

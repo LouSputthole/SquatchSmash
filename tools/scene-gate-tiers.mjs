@@ -187,6 +187,13 @@ export const SCENE_GATES = Object.freeze([
     why: 'One playthrough boot plus five checkpoint boots; the FSM is stepped in-page.',
   },
   {
+    script: 'verify:specialmeeting',
+    tier: 'scene',
+    why: 'One boot. It waits out the 220-cue decode gate, proves SM-100 cannot start '
+      + 'before it, and walks the player a few metres — it deliberately stops during '
+      + 'SM-100 rather than driving the meeting.',
+  },
+  {
     script: 'verify:squatchfather',
     tier: 'scene',
     why: 'Two boots and the restaurant beat driven on real frames.',
@@ -332,7 +339,7 @@ export const SCENE_GATES = Object.freeze([
  * world, not a chore.
  */
 export const EXCLUDED_GATES = Object.freeze({
-  'verify:boot-errors': 'Already runs on every pull request in verify.yml — it aborts each '
+  'verify:boot-failure-surfaces': 'Already runs on every pull request in verify.yml — it aborts each '
     + 'staged page\'s entry module rather than booting a scene, which is why it could go there.',
   'verify:campaign-marathon': 'Already runs on every pull request in verify.yml — it stubs '
     + 'every scene runtime out, so the whole 27-handoff route costs less than one real boot.',
