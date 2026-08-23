@@ -74,6 +74,7 @@ import {
   AMBIENT,
   NOTES,
 } from './script.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { Mission, ENDINGS } from './mission.js';
 import {
   SecondVisitMission,
@@ -140,7 +141,6 @@ const fxDrunk = document.getElementById('fx-drunk');
 
 const ui = {
   objectives: document.getElementById('objectives'),
-  objectiveList: document.querySelector('#objectives ul'),
   wallet: document.getElementById('wallet'),
   cash: document.querySelector('#wallet .cash'),
   gamble: document.getElementById('gamble'),
@@ -162,6 +162,11 @@ const ui = {
     options: document.querySelector('#dialogue .options'),
   },
 };
+
+/* Adopts the card already in bing.html -- the panel drives whatever
+ * #objectives it finds and touches no styling, so the magenta rule and the
+ * upper-left placement are still the Bing's own. */
+const objectivePanel = createObjectivePanel();
 
 /* ------------------------------------------------------------------ */
 /* Renderer                                                            */
@@ -907,31 +912,32 @@ function addMoney(delta) {
  * tally (`3/15 squatches`) rather than a tick. Order is authored, not
  * insertion: an objective that completes does not jump about.
  */
+/**
+ * The card, through the shared panel (src/core/objective-panel.js).
+ *
+ * This scene drew its own rows for a year: its own `<li>`, its own tally
+ * span, its own WHILE YOU ARE HERE divider. The panel now does all three --
+ * the tally and the divider were added to it FOR this scene rather than the
+ * scene being flattened to fit, which is docs/REUSE-FIRST.md rule 2. The
+ * markup is identical, so bing.css is untouched and the card looks the same.
+ */
+/* Which night it is. The panel writes the caption on EVERY repaint, so the
+ * second visit's title cannot be a one-off assignment to the element at boot
+ * the way it used to be -- the first objective change would put the first
+ * visit's words back. */
+const OBJECTIVE_TITLE = isSecondVisit ? 'BACK TO THE BING' : 'A QUICK STOP AT THE BING';
+
 function paintObjectives(list) {
-  ui.objectives.classList.remove('hidden');
-  const rows = [];
-  const row = (o) => {
-    const li = document.createElement('li');
-    li.className = [o.optional ? 'optional' : '', o.done ? 'done' : ''].filter(Boolean).join(' ');
-    if (o.total) {
-      const tally = document.createElement('span');
-      tally.className = 'tally';
-      tally.textContent = `${o.count ?? 0}/${o.total}`;
-      li.appendChild(tally);
-    }
-    li.appendChild(document.createTextNode(o.text));
-    return li;
-  };
-  for (const o of list) if (!o.optional) rows.push(row(o));
+  const item = (o) => ({
+    label: o.text,
+    done: Boolean(o.done),
+    required: !o.optional,
+    ...(o.total ? { tally: { count: o.count ?? 0, total: o.total } } : {}),
+  });
+  const items = list.filter((o) => !o.optional).map(item);
   const optional = list.filter((o) => o.optional);
-  if (optional.length) {
-    const rule = document.createElement('li');
-    rule.className = 'rule';
-    rule.textContent = 'WHILE YOU ARE HERE';
-    rows.push(rule);
-    for (const o of optional) rows.push(row(o));
-  }
-  ui.objectiveList.replaceChildren(...rows);
+  if (optional.length) items.push({ rule: 'WHILE YOU ARE HERE' }, ...optional.map(item));
+  objectivePanel.set({ title: OBJECTIVE_TITLE, items });
 }
 
 /* ------------------------------------------------------------------ *
@@ -3415,7 +3421,6 @@ function frame() {
 assetStatus.innerHTML = 'Everything in here is drawn and synthesised at load time — '
   + 'no models, no textures, no audio files.';
 if (isSecondVisit) {
-  document.querySelector('#objectives .head').textContent = 'BACK TO THE BING';
   overlay.querySelector('.tag').textContent =
     'Day Two. Lou is waiting in the back office with the next assignment.';
 }

@@ -37,6 +37,7 @@ import {
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -219,10 +220,26 @@ addEventListener('keydown', (event) => {
 /* The sequence                                                        */
 /* ------------------------------------------------------------------ */
 
+/* specialmeeting.html has no #objectives of its own, so this is the panel's
+ * own upper-left card -- injected, styled by the panel, out of the way of a
+ * crosshair. */
+const objectivePanel = createObjectivePanel();
+
 const ride = createRideSequence({
   onLine: (line) => say(line),
   onChoice: (options) => showChoices(options),
   onBeat: (b) => {
+    /* ON THE SCREEN, not only in the pause menu. `objectiveFor` is captioned
+     * "What the HUD says he is doing" and had never reached a HUD in its life:
+     * the only reader was `getObjective` on the pause menu, which is the one
+     * place a player is not playing. That is the exact fault
+     * src/core/objective-panel.js was built for and names the mansion for.
+     *
+     * It does not break the scene's rule. docs/SPECIAL-MEETING-SCRIPT.md
+     * forbids anything that tells the player he is SAFE, and these four lines
+     * say where he is and nothing about what happens next -- which is what
+     * their own author wrote directly above them. */
+    objectivePanel.setLine(objectiveFor(b));
     if (GATES[b.id] && !reachedNodes.has(GATES[b.id])) gatedOn = GATES[b.id];
     if (RELEASES[b.id]) forest?.resume();
     if (b.id === 'SM-100') cast.disembarkForPickup();

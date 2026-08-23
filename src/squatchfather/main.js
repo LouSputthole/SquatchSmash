@@ -35,6 +35,7 @@ import { createPauseMenu } from '../core/pause-menu.js';
 import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
 import { lookSensitivity, bindAudioVolume, translateKey } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { buildSquatchfatherRuntimeGeometry } from './runtime-geometry.js';
 
 // ---------------------------------------------------------------- boot
@@ -66,8 +67,7 @@ const ui = {
   vig: $('vig'),
   ringFlash: $('ringFlash'),
   letterbox: $('letterbox'),
-  objective: $('objective'),
-  objectiveText: $('objective').querySelector('.text'),
+  objective: $('objectives'),
   subs: $('subs'),
   subsWho: $('subs').querySelector('.who'),
   subsLine: $('subs').querySelector('.line'),
@@ -88,6 +88,10 @@ const ui = {
   deathTitle: $('deathTitle'),
   endCard: $('endCard'),
 };
+
+/* Adopts the caption already in the page rather than injecting the shared
+ * upper-left card: the panel drives whatever #objectives it finds. */
+const objectivePanel = createObjectivePanel();
 
 const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 
@@ -186,7 +190,7 @@ function lockPointer() {
 sharedPauseMenu = createPauseMenu({
   title: 'The Squatchfather',
   canPause: () => running,
-  getObjective: () => ui.objectiveText.textContent?.trim()
+  getObjective: () => ui.objective.querySelector('.olist li')?.textContent?.trim()
     || 'Enter the restaurant and follow Sal’s instructions.',
   instructions: [
     'W A S D or arrows — move. Mouse — look.',
@@ -226,13 +230,14 @@ document.addEventListener('pointerlockchange', () => {
 
 // ---------------------------------------------------------------- ui helpers
 
+/* The shared panel writes it (src/core/objective-panel.js), and it ADOPTS the
+ * caption already in squatchfather.html rather than injecting one of its own:
+ * the card stays centred at the top of the screen, which is where the
+ * restaurant wants it. Only the code filling it is now the code the mansion,
+ * the heist and the Bing use. The upper-casing is this scene's own house style
+ * and stays this scene's, applied before the text is handed over. */
 function setObjective(text) {
-  if (!text) {
-    ui.objective.classList.remove('show');
-    return;
-  }
-  ui.objectiveText.textContent = text.toUpperCase();
-  ui.objective.classList.add('show');
+  objectivePanel.setLine(text ? text.toUpperCase() : '', { title: 'OBJECTIVE' });
 }
 
 function showChoice(on) {

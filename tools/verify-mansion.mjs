@@ -1840,8 +1840,33 @@ try {
     ...mansionCueLists.interactionCueNames,
     ...mansionFixtureCueNames,
   ]);
+  /* ASK THE HOUSE, don't rebuild its answer beside it.
+   *
+   * What used to be here was the union of five sublists imported one at a
+   * time, and it was a COPY of the thing it was checking: `audio-banks.js`
+   * grew a suite bank (bookcase, hot tub, the two bed tones) and a house-radio
+   * bank, both legitimately scoped and both resident, and this check called
+   * all five of those cues unscoped. It had been red since the day the radio
+   * went in and nobody saw it, because verify:mansion runs on a schedule that
+   * had not fired yet.
+   *
+   * `window.mansion.audioBankSelections` is the very object main.js hands to
+   * the residency banks, so the question is now the right one: did anything
+   * decode that THIS HOUSE'S OWN BANK LIST does not name. The five sublists
+   * stay imported below only as a floor -- if the page ever stops publishing
+   * its selections the check falls back rather than passing vacuously. */
+  const publishedBankNames = await page.evaluate(() => {
+    const banks = window.mansion?.audioBankSelections;
+    if (!banks) return null;
+    return [...new Set([
+      ...(banks.start ?? []), ...(banks.nextBeat ?? []), ...(banks.background ?? []),
+    ])];
+  });
+  const scopedNames = publishedBankNames
+    ? new Set(publishedBankNames)
+    : mansionSelectedNames;
   const mansionSelectedCues = soundManifest.sfx.filter((cue) => (
-    mansionSelectedNames.has(cue.name) || cue.name.startsWith('vo.silentsquatch.')
+    scopedNames.has(cue.name) || cue.name.startsWith('vo.silentsquatch.')
   ));
   const expectedMansionResident = mansionSelectedCues
     .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))

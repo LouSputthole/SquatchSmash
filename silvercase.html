@@ -87,20 +87,24 @@
   #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none; }
   #hud.visible { display: block; }
 
-  #objective {
+  /* The shared panel's `hidden` idiom rather than this scene's old `show`,
+     because the panel is what adds and removes the class now. Same fade. */
+  #objectives {
     position: absolute; top: 34px; left: 50%; transform: translateX(-50%);
-    text-align: center; opacity: 0; transition: opacity .45s ease;
+    text-align: center; opacity: 1; transition: opacity .45s ease;
   }
-  #objective.show { opacity: 1; }
-  #objective .label {
+  #objectives.hidden { opacity: 0; }
+  #objectives .otitle {
     font-size: 12px; letter-spacing: 6px; color: var(--silver); font-weight: 800;
     text-shadow: 0 2px 6px #000;
   }
-  #objectiveText {
+  #objectives .olist { margin: 0; padding: 0; list-style: none; }
+  #objectives .olist li {
     display: block; font-size: 21px; font-weight: 800; letter-spacing: 1px;
     color: var(--silver-bright); text-shadow: 0 2px 8px #000; margin-top: 3px;
   }
-  #objective.urgent #objectiveText { color: var(--red); animation: throb .5s infinite alternate; }
+  #objectives .ohint { display: none; }
+  #objectives.urgent .olist li { color: var(--red); animation: throb .5s infinite alternate; }
   @keyframes throb { from { transform: scale(1); } to { transform: scale(1.06); } }
 
   #subs {
@@ -203,7 +207,12 @@
   <div id="reticle"></div>
 
   <div id="hud">
-    <div id="objective"><span class="label">OBJECTIVE</span><span id="objectiveText"></span></div>
+    <!-- The shared objective panel (src/core/objective-panel.js) drives an
+         existing #objectives element and touches no styling, so this card
+         keeps its own centred-caption composition and stops writing itself.
+         `.otitle` and `.olist` are the contract's class names; the CSS below
+         is the same rules under the new selectors. -->
+    <div id="objectives" class="hidden"><div class="otitle">OBJECTIVE</div><ul class="olist"></ul></div>
     <div id="instruction"></div>
     <div id="targetTag"></div>
     <div id="subs"><div id="subsWho"></div><div id="subsLine"></div></div>

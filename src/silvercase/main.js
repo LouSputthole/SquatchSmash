@@ -19,6 +19,7 @@ import { SilverCaseStateMachine, S, CHECKPOINT } from './state/SilverCaseStateMa
 import { Player } from '../core/player.js';
 import { translateKey } from '../core/settings.js';
 import { createPromptHud } from '../core/hud.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
@@ -140,8 +141,7 @@ const ui = {
 
   hud: $('hud'),
   reticle: $('reticle'),
-  objective: $('objective'),
-  objectiveText: $('objectiveText'),
+  objective: $('objectives'),
   instruction: $('instruction'),
   targetTag: $('targetTag'),
   subs: $('subs'),
@@ -165,10 +165,19 @@ const ui = {
   playAgainBtn: $('playAgainBtn'),
 };
 
+/* It ADOPTS the card that is already in silvercase.html rather than injecting
+ * one of its own, which is the difference between using the shared system and
+ * being moved by it: the caption stays centred at the top of the screen where
+ * this scene wants it. */
+const objectivePanel = createObjectivePanel();
+
+/* The shared panel writes it (src/core/objective-panel.js). This scene used to
+ * write its own two spans, which is the presentation drift the owner named:
+ * "objectives change presentation". The card has not moved -- the panel drives
+ * whatever #objectives it finds and leaves the styling alone -- only the code
+ * that fills it is now the same code the mansion, the heist and the Bing use. */
 function setObjective(text) {
-  if (!text) { ui.objective.classList.remove('show'); return; }
-  ui.objectiveText.textContent = text;
-  ui.objective.classList.add('show');
+  objectivePanel.setLine(text, { title: 'OBJECTIVE' });
 }
 
 /* ------------------------------------------------------------------ */
@@ -565,7 +574,7 @@ const pauseMenu = createPauseMenu({
   title: 'The Silver Case',
   assist: true,
   canPause: () => running,
-  getObjective: () => ui.objectiveText.textContent?.trim() || 'Follow Ape.',
+  getObjective: () => ui.objective.querySelector('.olist li')?.textContent?.trim() || 'Follow Ape.',
   instructions: [
     'W A S D / arrows — move. Mouse — look.',
     'E — interact.',

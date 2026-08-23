@@ -3158,6 +3158,20 @@ window.mansion = {
   /** The three-bank residency ledger — which slice of the soundscape has
    * settled, for the verifier and the console. */
   audioBanks: mansionBanks,
+  /**
+   * WHAT THIS HOUSE SAYS IT WILL DECODE, so a check can ask the house instead
+   * of rebuilding the answer beside it.
+   *
+   * verify-mansion.mjs's residency check used to assemble its own expected set
+   * out of five sublists it imported one at a time -- weapons, Silent Squatch,
+   * cast, furniture interactions, and a two-name literal. That is a copy, and
+   * it went stale the moment two more banks were added: the suite's four
+   * (bookcase, hot tub, bed tone) and the house radio's whole station. Both
+   * were legitimately scoped and resident, and the check called all five
+   * unscoped. Nobody saw it, because verify:mansion runs on a schedule that
+   * had not fired yet.
+   */
+  audioBankSelections: mansionBankSelections,
   campaign: {
     visit: mansionVisit,
     preview: mansionPreview,

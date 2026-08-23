@@ -180,18 +180,48 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
     const key = [
       plan.title ?? '',
       plan.hint ?? '',
-      ...plan.items.map((item) => `${item.label}|${item.done ? 1 : 0}|${item.required === false ? 0 : 1}`),
-    ].join('');
+      ...plan.items.map((item) => (item.rule
+        ? `rule:${item.rule}`
+        : `${item.label}|${item.done ? 1 : 0}|${item.required === false ? 0 : 1}`
+          + `|${item.current ? 1 : 0}|${item.tally ? `${item.tally.count ?? 0}/${item.tally.total}` : ''}`)),
+    ].join('');
     if (key === signature) return;
     signature = key;
     title.textContent = plan.title ?? 'Objective';
     list.replaceChildren(...plan.items.map((item) => {
       const li = document_.createElement('li');
+      /* A HEADING INSIDE THE LIST, because two scenes had one before this
+       * panel existed and neither should have to keep a whole renderer alive
+       * for it: the Bing and the Silver Room both break their optional work
+       * out under "WHILE YOU ARE HERE". A list item rather than a nested list,
+       * so the CSS both scenes already wrote keeps working. */
+      if (item.rule) {
+        li.className = 'rule';
+        li.textContent = item.rule;
+        return li;
+      }
       const classes = [];
       if (item.done) classes.push('done');
-      if (item.required !== false) classes.push('required');
+      /* `required` and `optional` are the same fact under two names, and both
+       * ship: the mansion and the heist style `.required`, the Bing and the
+       * Silver Room style `.optional`. Emitting one and not the other would
+       * silently unstyle two scenes the day they adopted this. */
+      if (item.required === false) classes.push('optional');
+      else classes.push('required');
+      /* THE ONE HE IS DOING NOW. The Silver Room marks it; nobody else does
+       * yet, and it costs a class. */
+      if (item.current) classes.push('now');
       li.className = classes.join(' ');
-      li.textContent = item.label;
+      /* A COUNT IN FRONT OF THE WORDS -- "3/5 talk to the family". The Bing
+       * has four of these, and it was the only panel feature in the game
+       * keeping a second renderer alive. */
+      if (item.tally?.total) {
+        const tally = document_.createElement('span');
+        tally.className = 'tally';
+        tally.textContent = `${item.tally.count ?? 0}/${item.tally.total}`;
+        li.append(tally);
+      }
+      li.append(document_.createTextNode(item.label));
       return li;
     }));
     hint.textContent = plan.hint ?? '';

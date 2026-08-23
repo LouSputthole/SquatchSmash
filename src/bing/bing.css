@@ -34,13 +34,14 @@ body.bing #overlay .tag { color: #a3919b; }
   transition: opacity 0.35s;
 }
 #objectives.hidden { opacity: 0; }
-#objectives .head {
+#objectives .otitle {
   color: var(--bing);
   font-size: 10px;
   letter-spacing: 2.4px;
   margin-bottom: 6px;
 }
-#objectives ul { margin: 0; padding: 0; list-style: none; }
+#objectives .olist { margin: 0; padding: 0; list-style: none; }
+#objectives .ohint { display: none; }
 #objectives li {
   color: var(--paper);
   padding-left: 15px;

@@ -70,19 +70,23 @@
   #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none; }
   #hud.visible { display: block; }
 
-  #objective {
+  /* The shared panel's `hidden` idiom rather than this scene's old `show`,
+     because the panel is what adds and removes the class now. Same fade. */
+  #objectives {
     position: absolute; top: calc(8vh + 22px); left: 50%; transform: translateX(-50%);
-    text-align: center; opacity: 0; transition: opacity .45s ease;
+    text-align: center; opacity: 1; transition: opacity .45s ease;
   }
-  #objective.show { opacity: 1; }
-  #objective .label {
+  #objectives.hidden { opacity: 0; }
+  #objectives .otitle {
     font-size: 12px; letter-spacing: 6px; color: var(--purple-bright); font-weight: 800;
     text-shadow: 0 2px 6px #000;
   }
-  #objective .text {
+  #objectives .olist { margin: 0; padding: 0; list-style: none; }
+  #objectives .olist li {
     font-size: 22px; font-weight: 800; letter-spacing: 2px; color: var(--silver-bright);
     text-shadow: 0 2px 8px #000; margin-top: 3px;
   }
+  #objectives .ohint { display: none; }
 
   #subs {
     position: absolute; left: 50%; bottom: calc(8vh + 34px); transform: translateX(-50%);
@@ -213,7 +217,10 @@
 
   <div id="hud">
     <div id="reticle"></div>
-    <div id="objective"><div class="label">OBJECTIVE</div><div class="text"></div></div>
+    <!-- Adopted by src/core/objective-panel.js, which drives whatever
+         #objectives it finds and touches no styling: the caption stays where
+         the restaurant wants it and stops being written by hand. -->
+    <div id="objectives" class="hidden"><div class="otitle">OBJECTIVE</div><ul class="olist"></ul></div>
     <div id="drawPrompt">DRAW WEAPON</div>
     <div id="prompt"><span class="key">E</span><span class="txt"></span>
       <div id="holdBar"><div id="holdFill"></div></div>

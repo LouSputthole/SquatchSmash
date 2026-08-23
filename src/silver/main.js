@@ -39,6 +39,7 @@ import { Performance, Sway, SET } from './perform.js';
 import { enqueueVoiceFloor } from './voice-floor.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createSilverStory } from '../core/silver-story.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { getPreviewRuntime } from '../core/preview-mode.js';
 import * as prefs from '../core/settings.js';
 import {
@@ -73,7 +74,6 @@ const fxDrunk = document.getElementById('fx-drunk');
 
 const ui = {
   objectives: document.getElementById('objectives'),
-  objectiveList: document.querySelector('#objectives ul'),
   wallet: document.getElementById('wallet'),
   cash: document.querySelector('#wallet .cash'),
   woo: document.getElementById('woo'),
@@ -88,6 +88,11 @@ const ui = {
     options: document.querySelector('#dialogue .options'),
   },
 };
+
+/* Adopts the card already in silver.html: the panel drives whatever
+ * #objectives it finds and touches no styling, so the silver rule and the
+ * cutscene fade stay this room's own. */
+const objectivePanel = createObjectivePanel();
 
 /* ------------------------------------------------------------------ */
 /* Renderer                                                            */
@@ -656,26 +661,24 @@ function paintTips() {
  * something out is most of what a list is for, and this one is also the
  * record of an evening the player is being scored on.
  */
+/**
+ * The card, through the shared panel (src/core/objective-panel.js).
+ *
+ * The Silver Room drew its own rows: its own `<li>`, its own IF YOU LIKE
+ * divider, its own `now` class on the line the player is actually on. All
+ * three are the panel's now -- `now` and the divider were added to it FOR
+ * this scene rather than the scene being flattened to fit, which is
+ * docs/REUSE-FIRST.md rule 2. Identical markup, so silver.css is untouched.
+ */
 function paintObjectives(list) {
-  ui.objectives.classList.remove('hidden');
   const now = list.find((o) => !o.done && !o.optional);
-  const row = (o) => {
-    const li = document.createElement('li');
-    li.className = [o.done ? 'done' : '', o.optional ? 'optional' : '', o === now ? 'now' : '']
-      .filter(Boolean).join(' ');
-    li.textContent = o.text;
-    return li;
-  };
-  const main = list.filter((o) => !o.optional);
+  const item = (o) => ({
+    label: o.text, done: Boolean(o.done), required: !o.optional, current: o === now,
+  });
+  const items = list.filter((o) => !o.optional).map(item);
   const extra = list.filter((o) => o.optional);
-  const rows = main.map(row);
-  if (extra.length) {
-    const rule = document.createElement('li');
-    rule.className = 'rule';
-    rule.textContent = 'IF YOU LIKE';
-    rows.push(rule, ...extra.map(row));
-  }
-  ui.objectiveList.replaceChildren(...rows);
+  if (extra.length) items.push({ rule: 'IF YOU LIKE' }, ...extra.map(item));
+  objectivePanel.set({ title: 'FRONT AND CENTER', items });
 }
 
 /* ------------------------------------------------------------------ */
