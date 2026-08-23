@@ -88,6 +88,33 @@ resolution — is the same code, and there is no second power bar to drift.
 5. **When you fix something in a scene copy, hoist it.** The heist's proxy
    resolver was right for a year and helped nobody else.
 
+## What is still duplicated, measured
+
+`tools/shared-systems.mjs` is the ledger and
+`tests/shared-system-adoption.test.mjs` is the ratchet. Adoption stands at
+**103 of 190**, and every remaining zero is either a written note or a named
+debt. Two of the debts are big enough to be their own jobs, and both are
+things the owner named directly.
+
+**`dialogue` — seven scenes, three of them with a whole module of their own.**
+`src/core/dialogue.js` is 390 lines and owns one playback path: one gain, one
+duck, one subtitle, no legacy cue. Beside it sit `src/beefrun/dialogue.js`
+(128), `src/nowake/dialogue.js` (192) and `src/motel/dialogue-timing.js` (59),
+plus a `DialogueController` apiece in the squatchfather and silvercase and a
+whole `dialogue/` directory in the Enola. That is the owner's *"new dialogue
+has different volume/timing"* with line counts on it.
+
+**`blood` — nine scenes, and there are two decal systems, not one.**
+`src/world/blood.js` has `BloodImpactSystem`, `BloodSpurtSystem` and
+`DeathBloodPool`, and marks it leaves are named `blood.impact` /
+`blood.spatter`. `src/world/bullets.js` has a pooled `BulletHoles` sized to a
+revolver's cylinder, and silvercase runs three of those pools — holes, wounds,
+spatter — under its own `silvercase.mark`. Both are shared modules; they are
+just not the SAME shared module, and a mark that answers to a different name
+is a mark no cross-scene check can find. That is *"decals behave
+differently"*, and it is a design decision before it is a refactor: the two
+systems are not the same shape, and merging them is not a rename.
+
 ## Where the exceptions are written down
 
 `docs/ENGINE-TRAPS.md` carries the ones that are load-bearing — the cue-naming
