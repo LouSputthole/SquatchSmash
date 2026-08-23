@@ -43,7 +43,7 @@ import { PostFX } from '../../core/postfx.js';
 import { attachPixelRatio } from '../../core/pixel-ratio.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
 import { translateKey, shakeScale } from '../../core/settings.js';
-import { writeGameplayPromptKey } from '../../core/gameplay-key-adapter.js';
+import { createPromptHud } from '../../core/hud.js';
 import { createCampaignSceneRecovery } from '../../core/campaign-scene-skip.js';
 import { prewarmAudio, prewarmScene } from '../../core/prewarm.js';
 import { WeaponSystem } from '../../core/weapons/WeaponSystem.js';
@@ -130,25 +130,26 @@ const helpingBarEl = $('helpingBar');
 /**
  * The InteractionSystem's HUD contract: showPrompt / hidePrompt / setHold.
  *
- * THE LABEL IS MARKUP, NOT TEXT. Every descriptor in this repo writes its
- * prompt as a small fragment of HTML -- `Use <b>triage</b> &mdash; 2 dressings
- * left` -- and `src/core/interaction.js` documents it that way at the top of
- * the file. `src/core/hud.js` and `src/heist/hud.js` both assign it to
- * `innerHTML`. This one assigned it to `textContent`, so the player standing at
- * the medical case read the tag and the entity literally off his own HUD:
- * owner, verbatim, *"Healing crate shows a bunch of underneath coding instead
- * of it"*. It was never the crate; it was the sentence in front of it.
+ * THE LABEL IS MARKUP, NOT TEXT, and that is why this is now an import. Every
+ * descriptor in this repo writes its prompt as a small fragment of HTML --
+ * `Use <b>triage</b> &mdash; 2 dressings left` -- and `src/core/interaction.js`
+ * documents it that way at the top of the file. This scene once assigned it to
+ * `textContent`, so the player standing at the medical case read the tag and
+ * the entity literally off his own HUD: owner, verbatim, *"Healing crate shows
+ * a bunch of underneath coding instead of it"*. It was never the crate; it was
+ * the sentence in front of it. Fixing it here fixed it here, and silvercase
+ * went on carrying the same bug in its own copy for weeks.
+ *
+ * The hold bar also had no null branch: `setHold(null)` -- the call that means
+ * "stop holding" -- wrote `0%` because `null * 100` is 0, which is the right
+ * answer by arithmetic accident.
  */
-const tinyHud = {
-  showPrompt(label, key = 'E') {
-    if (!promptEl) return;
-    writeGameplayPromptKey(promptKeyEl, key);
-    promptLabelEl.innerHTML = label;
-    promptEl.classList.remove('hidden');
-  },
-  hidePrompt() { promptEl?.classList.add('hidden'); },
-  setHold(t) { if (promptHoldEl) promptHoldEl.style.width = `${Math.round(t * 100)}%`; },
-};
+const tinyHud = createPromptHud({
+  prompt: promptEl,
+  label: promptLabelEl,
+  key: promptKeyEl,
+  holdFill: promptHoldEl,
+});
 
 /* ================================================================== */
 /* Renderer                                                              */

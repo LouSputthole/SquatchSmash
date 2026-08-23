@@ -1,6 +1,107 @@
 import { renderInventorySlots } from './scene-inventory.js';
 import { writeGameplayPromptKey } from './gameplay-key-adapter.js';
 
+/**
+ * THE PROMPT, ONCE, FOR SCENES THAT CANNOT HAVE THE WHOLE HUD.
+ *
+ * `InteractionSystem` (src/core/interaction.js) wants exactly three methods --
+ * showPrompt, hidePrompt, setHold -- and `Hud` below has them. But `Hud` is
+ * the APARTMENT'S furniture: its constructor reaches for #crosshair, #subtitle,
+ * #hand-item, #radio-osd, #clock, #bladder and #toast-stack, and throws in any
+ * page that has none of them. So four scenes wrote their own three methods
+ * instead, and called the object `tinyHud` in all four, which is the tell.
+ *
+ * They drifted, as four copies of anything do:
+ *
+ *   - silvercase wrote the label to `textContent`. Every descriptor in this
+ *     repo writes its prompt as MARKUP -- `Use <b>triage</b> &mdash; 2
+ *     dressings left` -- and interaction.js says so at the top of the file.
+ *     The siege had the identical bug and the owner reported it as scenery:
+ *     *"Healing crate shows a bunch of underneath coding instead of it"*. It
+ *     was never the crate; it was the sentence in front of it.
+ *   - the siege's `setHold` had no null branch, so the one call that means
+ *     "stop holding" wrote `0%` by arithmetic accident rather than on purpose.
+ *   - only heist cleared the hold bar when the prompt went away.
+ *   - only the mansion suppressed the key cap on a passive `LOOK` prompt,
+ *     which is a thing worth having everywhere and existed in one place.
+ *
+ * So the LOGIC lives here and the four pass their own elements in. The two
+ * visibility idioms in the tree are both first-class rather than normalised:
+ * most of the game hides with a `hidden` class, silvercase shows with a `show`
+ * class, and rewriting one scene's CSS to unify them would be a bigger change,
+ * to a thing that works, for a smaller reason.
+ *
+ * @param {object} elements
+ * @param {Element} elements.prompt         the box that appears and disappears
+ * @param {Element} elements.label          takes the descriptor's MARKUP
+ * @param {Element} [elements.key]          the key cap
+ * @param {Element} [elements.holdFill]     the bar whose width is the progress
+ * @param {Element} [elements.holdContainer] shown only while holding
+ * @param {Element} [elements.crosshair]    gets `active` while a prompt is up
+ * @param {'hidden'|'show'} [elements.visibility] which class means what
+ * @param {string} [elements.holdClass]     class on holdContainer while holding
+ * @param {string[]} [elements.passiveKeys] keys that mean "no button to press"
+ */
+export function createPromptHud({
+  prompt, label, key = null, holdFill = null, holdContainer = null,
+  crosshair = null, visibility = 'hidden', holdClass = null,
+  passiveKeys = ['LOOK'],
+} = {}) {
+  /* `toggle(el, on)` in one place, so the two idioms cannot disagree about
+   * what "on" means anywhere below. */
+  const showing = visibility === 'show';
+  const setVisible = (element, on) => {
+    if (!element) return;
+    element.classList.toggle(showing ? 'show' : 'hidden', showing ? on : !on);
+  };
+  const setHoldVisible = (on) => {
+    if (!holdContainer || !holdClass) return;
+    holdContainer.classList.toggle(holdClass, on);
+  };
+
+  const setHold = (progress) => {
+    if (progress === null || progress === undefined) {
+      setHoldVisible(false);
+      if (holdFill) holdFill.style.width = '0%';
+      return;
+    }
+    setHoldVisible(true);
+    if (holdFill) holdFill.style.width = `${Math.round(progress * 100)}%`;
+  };
+
+  return {
+    showPrompt(text, cap = 'E') {
+      if (!prompt) return;
+      /* interaction.js resolves a callable label before it calls this, but
+       * scenes call showPrompt directly too and two of them passed functions. */
+      const markup = typeof text === 'function' ? text() : text;
+      /* MARKUP, NOT TEXT -- see the note above. The inequality guard is not
+       * tidiness: showPrompt runs every frame the crosshair is on a thing, and
+       * assigning innerHTML reparses the fragment each time. */
+      if (label && label.innerHTML !== markup) label.innerHTML = markup ?? '';
+      /* A passive prompt has no button to press. `LOOK` is the mansion's, and
+       * writing the cap out AND hiding it is deliberate: a cap that still says
+       * LOOK when the CSS is overridden is better than an empty box. */
+      const passive = passiveKeys.includes(cap);
+      if (key) {
+        writeGameplayPromptKey(key, passive ? '' : cap);
+        key.classList.toggle('hidden', passive);
+      }
+      setVisible(prompt, true);
+      crosshair?.classList.add('active');
+    },
+    hidePrompt() {
+      setVisible(prompt, false);
+      /* Always. Only one of the four copies did this, and a hold bar left at
+       * 80 per cent behind a hidden prompt reappears full on the next one. */
+      setHold(null);
+      crosshair?.classList.remove('active');
+    },
+    /** progress 0..1, or null to put the hold bar away. */
+    setHold,
+  };
+}
+
 /** Thin wrapper over the DOM overlay so game code never touches elements directly. */
 export class Hud {
   constructor() {
@@ -27,30 +128,27 @@ export class Hud {
     this.toasts = document.getElementById('toast-stack');
     this._bladderShown = -1;
     this._subTimer = null;
+    this._prompt = createPromptHud({
+      prompt: this.prompt,
+      label: this.promptLabel,
+      key: this.promptKey,
+      holdFill: this.promptBar,
+      holdContainer: this.prompt,
+      holdClass: 'holding',
+      crosshair: this.crosshair,
+    });
   }
 
-  showPrompt(label, key = 'E') {
-    this.prompt.classList.remove('hidden');
-    this.crosshair.classList.add('active');
-    if (this.promptLabel.innerHTML !== label) this.promptLabel.innerHTML = label;
-    writeGameplayPromptKey(this.promptKey, key);
-  }
+  /* The apartment's own prompt is the shared one with the apartment's
+   * elements in it -- `holding` on the prompt box itself is this scene's hold
+   * idiom, and the crosshair lighting up is nobody else's. Written this way
+   * round so there is one implementation rather than a fifth. */
+  showPrompt(label, key = 'E') { this._prompt.showPrompt(label, key); }
 
-  hidePrompt() {
-    this.prompt.classList.add('hidden');
-    this.prompt.classList.remove('holding');
-    this.crosshair.classList.remove('active');
-  }
+  hidePrompt() { this._prompt.hidePrompt(); }
 
   /** progress 0..1, or null to hide the hold bar. */
-  setHold(progress) {
-    if (progress === null) {
-      this.prompt.classList.remove('holding');
-      return;
-    }
-    this.prompt.classList.add('holding');
-    this.promptBar.style.width = `${Math.round(progress * 100)}%`;
-  }
+  setHold(progress) { this._prompt.setHold(progress); }
 
   /** Narration line at the bottom of the screen. `<em>` renders in amber. */
   say(text, ms = 4200) {

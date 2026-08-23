@@ -1,6 +1,6 @@
 import * as Foley from '../audio/Foley.js';
 import { weaponDrop } from '../audio/GunshotAudio.js';
-import { writeGameplayPromptKey } from '../../core/gameplay-key-adapter.js';
+import { createPromptHud } from '../../core/hud.js';
 
 // Letting go of it has to be the player's doing. He will not walk out of the
 // restaurant with it in his hand — if the player tries, he stops and looks at
@@ -10,15 +10,20 @@ export class WeaponDropInteraction {
   constructor({ prospect, ui, onDropped }) {
     this.prospect = prospect;
     this.ui = ui;
+    /* The same shared prompt the restaurant's InteractionSystem builds, from
+     * the same three elements -- this one just drives it directly, because a
+     * weapon in the hand is not something you look at to be prompted about. */
+    this.hud = createPromptHud({
+      prompt: ui.prompt, label: ui.promptText, key: ui.promptKey, visibility: 'show',
+    });
     this.onDropped = onDropped;
     this.dropped = false;
     this.nagT = 0;
   }
 
   prompt(show, text = 'Drop the weapon') {
-    writeGameplayPromptKey(this.ui.promptKey, 'E');
-    this.ui.promptText.textContent = text;
-    this.ui.prompt.classList.toggle('show', show);
+    if (show) this.hud.showPrompt(text, 'E');
+    else this.hud.hidePrompt();
   }
 
   drop() {

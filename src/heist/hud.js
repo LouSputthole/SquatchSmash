@@ -1,4 +1,4 @@
-import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
+import { createPromptHud } from '../core/hud.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 
 export class HeistHud {
@@ -26,6 +26,12 @@ export class HeistHud {
     this.promptLabel = this.prompt.querySelector('span');
     this.promptKey = this.prompt.querySelector('kbd');
     this.promptBar = this.prompt.querySelector('i');
+    this._prompt = createPromptHud({
+      prompt: this.prompt,
+      label: this.promptLabel,
+      key: this.promptKey,
+      holdFill: this.promptBar,
+    });
     this.ammo = document.querySelector('#ammo b');
     this.reserve = document.querySelector('#ammo span');
     this.weapon = document.querySelector('#ammo small');
@@ -94,13 +100,14 @@ export class HeistHud {
     this.lobby.classList.toggle('losing', state.controlled / Math.max(1, state.total) < 0.4);
   }
 
-  showPrompt(label, key = 'E') {
-    this.promptLabel.innerHTML = label;
-    writeGameplayPromptKey(this.promptKey, key);
-    this.prompt.classList.remove('hidden');
-  }
-  hidePrompt() { this.prompt.classList.add('hidden'); this.setHold(null); }
-  setHold(value) { this.promptBar.style.width = value == null ? '0%' : `${Math.round(value * 100)}%`; }
+  /* The bank's prompt is `core/hud.js`'s prompt with the bank's elements in
+   * it. This copy was the CORRECT one of the four -- markup into innerHTML,
+   * a null branch on the hold, and the only one that put the bar away when
+   * the prompt went -- which is exactly why it should not have been a copy:
+   * the other three each got a different subset of that right. */
+  showPrompt(label, key = 'E') { this._prompt.showPrompt(label, key); }
+  hidePrompt() { this._prompt.hidePrompt(); }
+  setHold(value) { this._prompt.setHold(value); }
   say(line, duration = 4) {
     clearTimeout(this.subtitleTimer);
     this.subtitle.innerHTML = `<b>${line.subtitleName}:</b> ${line.text}`;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { writeGameplayPromptKey } from '../../core/gameplay-key-adapter.js';
+import { createPromptHud } from '../../core/hud.js';
 
 // Look-at-it-and-press-E. A short ray from the centre of the view finds the
 // nearest allowed interaction volume and drives the on-screen prompt; holds
@@ -13,6 +13,26 @@ export class InteractionSystem {
     this.camera = camera;
     this.interactables = interactables;
     this.ui = ui; // { prompt, promptKey, promptText, holdBar, holdFill }
+    /* THE PROMPT IS THE SHARED ONE. Everything else in this file is still this
+     * restaurant's own -- its own ray, its own allow-list, its own hold clock
+     * -- and that fork is a bigger argument for another day. But the three
+     * lines that write the prompt were the sixth hand-written copy of the same
+     * three lines in the game, and one of the things they disagreed about was
+     * whether a label is markup or text. This one said text. See
+     * `createPromptHud` in src/core/hud.js for what the other five got wrong.
+     *
+     * `show` is this scene's visibility idiom, and the hold bar is a separate
+     * element that carries the same class. Both are passed rather than
+     * normalised. */
+    this.prompt = createPromptHud({
+      prompt: ui.prompt,
+      label: ui.promptText,
+      key: ui.promptKey,
+      holdContainer: ui.holdBar,
+      holdFill: ui.holdFill,
+      visibility: 'show',
+      holdClass: 'show',
+    });
     this.ray = new THREE.Raycaster();
     this.ray.far = MAX_DIST;
     this.allowed = new Set();
@@ -42,8 +62,7 @@ export class InteractionSystem {
   #reset() {
     this.held = 0;
     this.focus = null;
-    this.ui.prompt.classList.remove('show');
-    this.ui.holdBar.classList.remove('show');
+    this.prompt.hidePrompt();
   }
 
   #pick() {
@@ -62,14 +81,8 @@ export class InteractionSystem {
     const hit = this.#pick();
     const info = hit ? hit.userData.interact : null;
 
-    if (info) {
-      writeGameplayPromptKey(this.ui.promptKey, info.hold ? 'HOLD E' : 'E');
-      this.ui.promptText.textContent = info.label;
-      this.ui.prompt.classList.add('show');
-    } else {
-      this.ui.prompt.classList.remove('show');
-      this.ui.holdBar.classList.remove('show');
-    }
+    if (info) this.prompt.showPrompt(info.label, info.hold ? 'HOLD E' : 'E');
+    else this.prompt.hidePrompt();
 
     // Losing the target cancels a hold in progress
     if (this.focus && (!info || info.id !== this.focus)) {
@@ -86,13 +99,12 @@ export class InteractionSystem {
     if (info && down) {
       if (info.hold) {
         this.held += dt;
-        this.ui.holdBar.classList.add('show');
         const p = Math.min(1, this.held / info.hold);
-        this.ui.holdFill.style.width = `${p * 100}%`;
+        this.prompt.setHold(p);
         if (this.onHoldProgress) this.onHoldProgress(info.id, p);
         if (this.held >= info.hold) {
           this.held = 0;
-          this.ui.holdBar.classList.remove('show');
+          this.prompt.setHold(null);
           if (this.onHoldComplete) this.onHoldComplete(info.id);
         }
       } else if (!this.wasDown) {
@@ -101,8 +113,7 @@ export class InteractionSystem {
     } else {
       if (this.held > 0 && this.onHoldCancel) this.onHoldCancel(this.focus);
       this.held = 0;
-      this.ui.holdFill.style.width = '0%';
-      this.ui.holdBar.classList.remove('show');
+      this.prompt.setHold(null);
     }
 
     this.wasDown = down;

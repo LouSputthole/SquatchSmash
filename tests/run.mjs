@@ -136,6 +136,7 @@ const TEST_MODULES = [
   './scene-cast-marking.test.mjs',
   './framing-gate.test.mjs',
   './framing-allowlist.test.mjs',
+  './prompt-hud.test.mjs',
   './framing-beats.test.mjs',
   './shared-system-adoption.test.mjs',
   './initiation-card-burn.test.mjs',

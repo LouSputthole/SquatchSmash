@@ -139,7 +139,11 @@
     padding: 7px 16px; font-size: 16px; font-weight: 700; opacity: 0; transition: opacity .12s;
   }
   #prompt.show { opacity: 1; }
-  #prompt b { color: var(--yellow); }
+  /* Reads as the old inline `<b>[E]</b>`: same colour, same brackets, except
+     the letter between them is now whatever the player actually bound. */
+  #prompt .key { color: var(--yellow); font: inherit; }
+  #prompt .key::before { content: '['; }
+  #prompt .key::after { content: '] '; }
 
   #subtitle {
     position: absolute; bottom: 62px; left: 50%; transform: translateX(-50%);
@@ -398,7 +402,12 @@
       <div id="carryLine"></div>
     </div>
 
-    <div id="prompt" class="card"></div>
+    <!-- THE KEY CAP IS ITS OWN ELEMENT, and a <kbd>, so the keymap can reach
+         it. This used to be an empty div that the scene filled with
+         `<b>[E]</b> label`, which meant a player who rebound Use still read
+         "[E]" off his own HUD: writeGameplayPromptKey never saw it, and
+         projectGameplayKeyPrompts only sweeps <kbd>. -->
+    <div id="prompt" class="card"><kbd class="key"></kbd><span class="txt"></span></div>
     <div id="subtitle"></div>
     <div id="toasts"></div>
     <button id="muteBtn">🔊</button>

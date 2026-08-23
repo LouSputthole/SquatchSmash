@@ -882,6 +882,14 @@ class SilentSquatchMission {
         /* Arrival only puts Lou within reach. The mission completes when the
          * player presses E on Lou's body, not on this invisible volume. */
         if (!this.fsm.is(S.BACK_TO_LOU)) this.zonesEntered.delete('officeReturn');
+        /* AND THIS IS WHERE "PRESS E ON LOU" BECOMES TRUE. It used to be
+         * raised the moment the wall shut behind him at the top of the cellar
+         * stairs, which is two floors and a boardroom away from Lou -- the
+         * exact contradiction the three legs of this walk were written to
+         * end. INSTRUCTIONS.RETURN_TO_OFFICE was authored for the middle leg
+         * and never raised anywhere; it is raised in S.BACK_TO_LOU now, and
+         * hands over here, when the player is actually in the room. */
+        else this.#instruct(INSTRUCTIONS.TALK_TO_LOU);
         break;
       case 'cellar':
         this.#bark('cellar', SEQUENCES.cellarArrival);
@@ -1224,8 +1232,18 @@ class SilentSquatchMission {
       [S.BACK_TO_LOU]: {
         enter: () => {
           this.#objective(OBJECTIVES.LOU_IS_WAITING);
-          this.#instruct(INSTRUCTIONS.TALK_TO_LOU);
+          /* THE MIDDLE LEG, which nothing had ever raised. The walk out is
+           * three legs -- the stairwell, the main stairs, and the man -- and
+           * the instruction for the second one sat in script.js with exactly
+           * one reference in the whole tree: its own definition. What was
+           * raised here instead was TALK_TO_LOU, at the top of the cellar
+           * stairs, telling a player two floors below to press E on a man he
+           * cannot see. It hands over in `arrive('officeReturn')`. */
+          this.#instruct(INSTRUCTIONS.RETURN_TO_OFFICE);
           if (!this.zones.officeReturn) {
+            /* No office volume -- contract-lab, and any harness driving the
+             * mission on its own. There is no room to walk into, so the leg
+             * that ends in one does not exist and the night finishes here. */
             go(S.COMPLETE);
             return;
           }

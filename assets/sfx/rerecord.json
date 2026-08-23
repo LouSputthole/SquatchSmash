@@ -245,6 +245,11 @@
       "cue": "vo.enolasquatch.sasole.emergency-overheat-1.1",
       "retiredText": "Number two’s running hot. Your call — babied throttle and a long way home, or push it and hope.",
       "reason": "the overheat moved to engine three with a temperature readout in the 2026-08-20 flight pass; the indexed take names a DIFFERENT ENGINE from the subtitle in a scene where the player acts on which one is hot. Found by tools/take-history.mjs on 2026-08-22"
+    },
+    {
+      "cue": "vo.bing.margo.5",
+      "retiredText": "You ate at mine. Four in the morning, corner two. You tipped Hector. Nobody tips Hector — he is behind a wall, you would have had to go and find him.",
+      "reason": "the tree opens this line on an ellipsis -- Margo picking the thought back up -- and the manifest row had never carried it, so the indexed take comes in flat on 'You ate at mine'. Found by the drift check tools/bing-vo.mjs gained for HAND-NAMED tree cues: the generator only ever minted, and only ever compared, the vo.bing.full. prefix, so ninety-nine rows had never been compared against the tree by anybody"
     }
   ],
   "retired": [

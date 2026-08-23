@@ -18,7 +18,7 @@ import {
 import { SilverCaseStateMachine, S, CHECKPOINT } from './state/SilverCaseStateMachine.js';
 import { Player } from '../core/player.js';
 import { translateKey } from '../core/settings.js';
-import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
+import { createPromptHud } from '../core/hud.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
@@ -251,27 +251,30 @@ function setInstruction(text, { urgent = false } = {}) {
   ui.instruction.classList.toggle('urgent', urgent);
 }
 
-/** The tiny HUD contract InteractionSystem (core/interaction.js) needs —
- * exactly showPrompt/hidePrompt/setHold, nothing from core/hud.js. */
-const tinyHud = {
-  showPrompt(label, key) {
-    writeGameplayPromptKey(ui.promptKey, key || 'E');
-    ui.promptText.textContent = typeof label === 'function' ? label() : label;
-    ui.prompt.classList.add('show');
-  },
-  hidePrompt() {
-    ui.prompt.classList.remove('show');
-  },
-  setHold(progress) {
-    if (progress == null) {
-      ui.holdBar.classList.remove('show');
-      ui.holdFill.style.width = '0%';
-      return;
-    }
-    ui.holdBar.classList.add('show');
-    ui.holdFill.style.width = `${Math.round(progress * 100)}%`;
-  },
-};
+/**
+ * The HUD contract InteractionSystem (core/interaction.js) needs — exactly
+ * showPrompt/hidePrompt/setHold. It is `core/hud.js`'s prompt now, with this
+ * scene's own elements and this scene's own `show` idiom passed in; what it
+ * used to be was a fourth hand-written copy, and it carried the bug the siege
+ * had already found and fixed in its own: the label went in as `textContent`,
+ * so a descriptor written as MARKUP -- which is how interaction.js says to
+ * write one -- would have put its tags on screen. Only four labels in this
+ * scene, none of them with a tag in it yet, so nobody ever saw it. That is
+ * worse than seeing it.
+ *
+ * The `show` class stays. Unifying this scene's CSS onto the `hidden` idiom
+ * the rest of the game uses would be a bigger change, to a thing that works,
+ * for a smaller reason; the shared prompt takes either.
+ */
+const tinyHud = createPromptHud({
+  prompt: ui.prompt,
+  label: ui.promptText,
+  key: ui.promptKey,
+  holdContainer: ui.holdBar,
+  holdFill: ui.holdFill,
+  visibility: 'show',
+  holdClass: 'show',
+});
 
 /** Builds the 1-4 option rows (louQuestion/aftermath) or the single
  * hold-to-confirm row (prayerFinish) inside #choiceOptions. */

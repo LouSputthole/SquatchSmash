@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
+import { createPromptHud } from '../core/hud.js';
 import {
   buildMotel, makeJerkyCase, BOUNDS, MOTEL_DOOR_OPEN_ANGLE,
   MOTEL_YOUR_CASE, MOTEL_YOUR_CASE_PAID,
@@ -152,6 +153,16 @@ const weaponNameEl = $('weaponName');
 const weaponSubEl = $('weaponSub');
 const carryLineEl = $('carryLine');
 const promptEl = $('prompt');
+/* The shared prompt (src/core/hud.js), with the motel's own `show` idiom.
+ * What was here before wrote `<b>[E]</b> ${label}` straight into the div, so
+ * the key cap was a literal E in a string and a rebound Use key never reached
+ * the screen. There is no hold in this scene, so no hold bar is passed. */
+const motelPrompt = createPromptHud({
+  prompt: promptEl,
+  label: promptEl.querySelector('.txt'),
+  key: promptEl.querySelector('.key'),
+  visibility: 'show',
+});
 const subtitleEl = $('subtitle');
 const toastsEl = $('toasts');
 const wheelEl = $('wheel');
@@ -1243,7 +1254,7 @@ function finishScene(kind) {
   endGrapple();
   closeInspection();
   closeDialogue();
-  promptEl.classList.remove('show');
+  motelPrompt.hidePrompt();
   subtitleEl.classList.remove('show');
   hudEl.classList.remove('visible');
   document.exitPointerLock?.();
@@ -3906,7 +3917,7 @@ let activeInteract = null;
 function updateInteract() {
   activeInteract = null;
   if (phase === 'menu' || phase === 'arrival' || phase === 'end' || phase === 'drive' || phase === 'boarding' || grapple) {
-    promptEl.classList.remove('show');
+    motelPrompt.hidePrompt();
     return;
   }
   const facing = {
@@ -3959,12 +3970,8 @@ function updateInteract() {
     targets: candidates,
   })?.interact ?? null;
   activeInteract = best;
-  if (best) {
-    promptEl.innerHTML = `<b>[E]</b> ${best.label()}`;
-    promptEl.classList.add('show');
-  } else {
-    promptEl.classList.remove('show');
-  }
+  if (best) motelPrompt.showPrompt(best.label(), 'E');
+  else motelPrompt.hidePrompt();
 }
 
 function onUse() {
@@ -4410,10 +4417,9 @@ function updateDrive(dt) {
   const alongside = drive.hostiles.find((c) => Math.abs(c.position.z) < 12 && Math.abs(c.position.x - drive.x) < 5.5);
   drive.ramTarget = alongside || null;
   if (alongside) {
-    promptEl.innerHTML = `<b>[E]</b> ${S.snowInjured ? 'Put them into the guardrail' : 'Tell Snow to ram them'}`;
-    promptEl.classList.add('show');
+    motelPrompt.showPrompt(S.snowInjured ? 'Put them into the guardrail' : 'Tell Snow to ram them', 'E');
   } else {
-    promptEl.classList.remove('show');
+    motelPrompt.hidePrompt();
   }
 
   // Snow helps himself to the evidence

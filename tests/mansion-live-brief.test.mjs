@@ -13,6 +13,7 @@ const html = readFileSync(new URL('../mansion.html', import.meta.url), 'utf8');
 const mainSource = readFileSync(new URL('../src/mansion/main.js', import.meta.url), 'utf8');
 const castSource = readFileSync(new URL('../src/mansion/cast.js', import.meta.url), 'utf8');
 const labSource = readFileSync(new URL('../src/mansion/scenes/SilentSquatch.js', import.meta.url), 'utf8');
+const hudSource = readFileSync(new URL('../src/core/hud.js', import.meta.url), 'utf8');
 
 const { buildMansionGrounds } = await import('../src/mansion/scenes/MansionGrounds.js');
 const { buildMansionInterior } = await import('../src/mansion/scenes/MansionInterior.js');
@@ -31,7 +32,14 @@ test('the normal Mansion start overlay cannot escape the linear campaign to Apar
 });
 
 test('passive descriptions use LOOK while usable bodies retain E', () => {
-  assert.match(mainSource, /const passive = key === 'LOOK'/);
+  /* The rule -- a prompt with nothing to press shows no key cap -- moved out
+   * of this scene and into `createPromptHud` in src/core/hud.js, where the
+   * other three scenes that were missing it get it too. It is the same rule
+   * and the same word; what changed is that the mansion no longer owns it. */
+  assert.match(mainSource, /createPromptHud\(/,
+    'the house stopped using the shared prompt, so nothing suppresses its key cap');
+  assert.match(hudSource, /passiveKeys = \['LOOK'\]/);
+  assert.match(hudSource, /passiveKeys\.includes\(cap\)/);
   assert.match(mainSource, /interaction\.register\(mesh, \{ label, key: 'LOOK'/);
   assert.match(castSource, /key: onUse \? 'E' : 'LOOK'/);
   assert.match(labSource, /interaction\.register\(mesh, \{ label: text, key: 'LOOK', enabled: live \}\)/);

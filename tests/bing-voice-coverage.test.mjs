@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 import { buildFamilyScripts } from '../src/bing/family.js';
 import {
@@ -12,6 +17,8 @@ import {
 } from '../src/bing/script.js';
 import { buildSecondVisitLouScript, SecondVisitMission } from '../src/bing/second-visit.js';
 import {
+  bingTreeLines,
+  checkBingTreeDrift,
   checkBingVoiceManifest,
   collectBingVoiceCues,
   syncBingVoiceManifest,
@@ -204,4 +211,64 @@ test('Bing voice check reports missing, drifted, stale and duplicate generated c
   assert.match(failures, /drifted cue /);
   assert.match(failures, /stale cue vo\.bing\.full\.stale\.line\.dead/);
   assert.match(failures, /duplicate cue /);
+});
+
+/**
+ * THE NINETY-NINE ROWS NOBODY HAD EVER COMPARED WITH ANYTHING.
+ *
+ * `checkBingVoiceManifest` compares text against tree for every cue the
+ * generator MINTS, and the generator mints only `vo.bing.full.`. Every
+ * hand-named tree cue -- `vo.bing.bar.*`, `vo.bing.hang.*`, `vo.bing.margo.*`
+ * -- had a manifest row written by hand and checked by nobody, so rewriting
+ * one of those lines left the booth recording the old wording with nothing
+ * anywhere saying so. That is `docs/ENGINE-TRAPS.md` entry 3's shape exactly.
+ */
+test('a hand-named Bing line that no longer matches its recording is reported', () => {
+  const tree = bingTreeLines();
+  const [name, wordings] = [...tree].find(([cue]) => !cue.startsWith('vo.bing.full.')) ?? [];
+  assert.ok(name, 'the Bing has no hand-named tree cues left to check');
+  const said = [...wordings][0];
+
+  assert.deepEqual(checkBingTreeDrift({ sfx: [{ name, voice: 'lou', say: said }] }), []);
+
+  const drifted = checkBingTreeDrift({ sfx: [{ name, voice: 'lou', say: `${said} and one more thing` }] });
+  assert.equal(drifted.length, 1);
+  assert.match(drifted[0], new RegExp(name.replaceAll('.', '\\.')));
+});
+
+/**
+ * AND IT DOES NOT REPORT A GLYPH. The first run of the check found thirty-one
+ * rows and thirty of them were one character: the trees carry a curly
+ * apostrophe and the hand-written rows a straight one. Nobody reads those
+ * differently in a booth, and "fixing" them would have re-hashed thirty takes
+ * and queued thirty good recordings for re-recording. It borrows the take
+ * ledger's own `normaliseSay`, so this repo has one answer to "has this
+ * recording gone stale" rather than two.
+ */
+test('curly quotes, dashes and case are not drift; a dropped ellipsis is', () => {
+  const tree = bingTreeLines();
+  const [name] = [...tree].find(([cue, words]) => !cue.startsWith('vo.bing.full.')
+    && [...words][0].length > 12) ?? [];
+  assert.ok(name, 'no hand-named cue long enough to retype');
+  const said = [...tree.get(name)][0];
+
+  const typography = said.replace(/[\u2019]/g, "'").replace(/[\u2014\u2013]/g, '-').toUpperCase();
+  assert.deepEqual(
+    checkBingTreeDrift({ sfx: [{ name, voice: 'lou', say: typography }] }), [],
+    'a straight apostrophe is not a rewrite',
+  );
+
+  /* An ellipsis IS a direction about how the performer comes in, and
+   * `vo.bing.margo.5` is the line that proved it: recorded flat, written on a
+   * beat. Same words, different take. */
+  const dropped = checkBingTreeDrift({ sfx: [{ name, voice: 'lou', say: `\u2026${said}` }] });
+  assert.equal(dropped.length, 1);
+});
+
+/** The shipped manifest agrees with the shipped trees, which is the point. */
+test('every hand-named Bing cue in the shipped manifest still says what the tree says', () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'),
+  );
+  assert.deepEqual(checkBingTreeDrift(manifest), []);
 });

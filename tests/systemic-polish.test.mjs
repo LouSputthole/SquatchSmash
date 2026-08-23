@@ -189,6 +189,16 @@ test('live prompt writers project span and kbd labels once without per-frame chu
   assert.equal(writeGameplayPromptKey(prompt, 'HOLD E', map), 'HOLD W');
   assert.equal(writes, 2, 'compound hold prompts must also remain idempotent');
 
+  /* NO PROMPT WRITER BYPASSES LIVE KEY PROJECTION -- which is the point, and
+   * is now satisfied two ways. Four of these files used to call
+   * `writeGameplayPromptKey` themselves and now hand their elements to
+   * `createPromptHud` in src/core/hud.js, which calls it once for all of
+   * them; that is the fix this list was asking for rather than a way round
+   * it. The literal-grep form stays for the writers that are still their own,
+   * and `core/hud.js` is checked for the real call so the delegation cannot
+   * quietly become a delegation to nothing. */
+  assert.match(await source('src/core/hud.js'), /writeGameplayPromptKey/,
+    'the shared prompt stopped projecting keys, so everything delegating to it did too');
   for (const entry of [
     'src/core/hud.js',
     'src/heist/hud.js',
@@ -199,7 +209,8 @@ test('live prompt writers project span and kbd labels once without per-frame chu
     'src/squatchfather/interaction/InteractionSystem.js',
     'src/squatchfather/interaction/WeaponDropInteraction.js',
   ]) {
-    assert.match(await source(entry), /writeGameplayPromptKey/, `${entry} bypasses live key projection`);
+    assert.match(await source(entry), /writeGameplayPromptKey|createPromptHud/,
+      `${entry} bypasses live key projection`);
   }
 });
 

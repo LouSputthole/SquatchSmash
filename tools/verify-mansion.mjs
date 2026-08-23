@@ -4514,6 +4514,12 @@ try {
      * then up to the man who sent him. This harness passes no zones, so the
      * second leg completes on its own — see `S.BACK_TO_LOU`. */
     until(() => run.fsm.name === machine.S.BACK_TO_LOU, 30);
+    /* READ, don't assume. What this used to report was the CONSTANT
+     * INSTRUCTIONS.TALK_TO_LOU copied into the payload, which is a check that
+     * cannot fail and did not: the mission was raising "Press E on Lou in his
+     * office" the instant the cellar wall shut, two floors below Lou. This is
+     * what the mission actually says at the top of those stairs. */
+    const backToLouInstruction = run.instruction;
     snap('backToLou');
     until(() => run.fsm.name === machine.S.COMPLETE, 30);
 
@@ -4555,7 +4561,11 @@ try {
         exitObjective: OBJECTIVES.REPORT_TO_LOU,
         exitInstruction: INSTRUCTIONS.RETURN_UPSTAIRS,
         officeObjective: OBJECTIVES.LOU_IS_WAITING,
-        officeInstruction: INSTRUCTIONS.TALK_TO_LOU,
+        /* Measured off the running mission. The constant rides alongside it so
+         * the node side can compare the two -- what the payload used to carry
+         * was the constant ALONE, which is a check that cannot fail. */
+        backToLouInstruction,
+        returnToOfficeText: INSTRUCTIONS.RETURN_TO_OFFICE,
       },
       labBuilt: Boolean(built),
       missionMounted: Boolean(window.mansion.mission),
@@ -4641,6 +4651,14 @@ try {
   if (!/stairwell/i.test(exitScreen?.instruction || '')) flowFails.push(`leg one instruction: "${exitScreen?.instruction}"`);
   if (!/office/i.test(officeScreen2?.objective || '')) flowFails.push(`leg two objective: "${officeScreen2?.objective}"`);
   if (!/office/i.test(officeScreen2?.instruction || '')) flowFails.push(`leg two instruction: "${officeScreen2?.instruction}"`);
+  /* AND IT NAMES THE STAIR HE IS STANDING AT THE BOTTOM OF, not the man two
+   * floors above him. `/office/i` alone passed for years while this said
+   * "Press E on Lou in his office" from the moment the cellar wall shut --
+   * both strings contain the word. Leg two is the walk; leg three is Lou, and
+   * `arrive('officeReturn')` is what hands over between them. */
+  if (night.flow.backToLouInstruction !== night.flow.returnToOfficeText) {
+    flowFails.push(`leg two told him to press E, not to walk: "${night.flow.backToLouInstruction}"`);
+  }
   if (exitScreen?.objective === officeScreen2?.objective) flowFails.push('the objective never changed');
   /* And the mission genuinely has two legs to it now, in the spec's beat 11. */
   if (!night.report.history.includes('BACK_TO_LOU')) flowFails.push('there is no second leg');

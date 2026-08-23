@@ -8029,8 +8029,10 @@
     {
       "name": "vo.bing.margo.5",
       "voice": "margo",
-      "say": "You ate at mine. Four in the morning, corner two. You tipped Hector. Nobody tips Hector — he is behind a wall, you would have had to go and find him.",
-      "duration": 12
+      "say": "…You ate at mine. Four in the morning, corner two. You tipped Hector. Nobody tips Hector — he is behind a wall, you would have had to go and find him.",
+      "duration": 12,
+      "needsRerecord": true,
+      "rerecordReason": "the tree opens this line on an ellipsis -- Margo picking the thought back up -- and the manifest row had never carried it, so the indexed take comes in flat on 'You ate at mine'. Found by the drift check tools/bing-vo.mjs gained for HAND-NAMED tree cues: the generator only ever minted, and only ever compared, the vo.bing.full. prefix, so ninety-nine rows had never been compared against the tree by anybody"
     },
     {
       "name": "vo.bing.margo.6",

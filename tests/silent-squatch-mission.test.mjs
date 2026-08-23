@@ -220,18 +220,24 @@ test('the exit says one thing: the objective, the line and the place the night e
   assert.match(mission.instruction, /stairwell/i);
 
   /* Leg two. He is out of the basement and the objective has MOVED ON rather
-   * than repeating itself — the owner's "make it update as I progress". */
+   * than repeating itself — the owner's "make it update as I progress". The
+   * instruction is the STAIR, not the man: he is two floors and a boardroom
+   * short of Lou, and this used to say "Press E on Lou in his office" from
+   * the moment the wall shut behind him. */
   assert.equal(mission.leave(), true);
   assert.ok(atState(S.BACK_TO_LOU, 30), 'the wall never closed behind him');
   assert.equal(mission.objective, OBJECTIVES.LOU_IS_WAITING);
   assert.match(mission.objective, /office/i);
-  assert.match(mission.instruction, /office/i);
+  assert.equal(mission.instruction, INSTRUCTIONS.RETURN_TO_OFFICE);
+  assert.match(mission.instruction, /main stairs/i);
 
   /* And the night ends WHERE IT SAYS IT DOES: in Lou's office, after the
-   * player actually talks to Lou -- entering the room is not a conversation. */
+   * player actually talks to Lou -- entering the room is not a conversation.
+   * Leg three, and walking in is what raises it. */
   assert.equal(mission.report().complete, false);
   assert.equal(mission.arrive('officeReturn'), true);
   assert.equal(mission.fsm.name, S.BACK_TO_LOU);
+  assert.equal(mission.instruction, INSTRUCTIONS.TALK_TO_LOU);
   assert.equal(mission.reportToLou(), true);
   assert.equal(mission.reportToLou(), false, 'Lou cannot be triggered twice while he is talking');
   assert.ok(until(() => mission.fsm.name === S.COMPLETE, 30));

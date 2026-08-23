@@ -53,7 +53,16 @@ export const SHARED_SYSTEMS = Object.freeze([
   Object.freeze({
     id: 'hud',
     module: 'src/core/hud.js',
-    what: 'The health, hand and clock furniture.',
+    /* TWO THINGS LIVE IN THAT FILE, and the second is why this column moved
+     * off zero in three scenes at once. `Hud` is the apartment's furniture --
+     * health, hand, clock, bladder, toasts -- and it cannot be built anywhere
+     * that lacks those ids, which is most of the game. `createPromptHud` is
+     * the InteractionSystem contract on its own: three methods, elements
+     * passed in, no assumptions about the page. Four scenes had written that
+     * object by hand and every one of them called it `tinyHud`, which is the
+     * tell; they disagreed about markup, about the null hold and about the
+     * passive key cap, and each one got a different subset of it right. */
+    what: 'The health, hand and clock furniture, and the prompt on its own.',
   }),
   Object.freeze({
     id: 'pause',
@@ -104,15 +113,15 @@ export const SCENE_SYSTEM_ADOPTION = Object.freeze({
   enolasquatch: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 0, swing: 0 },
   golf: { objectives: 1, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0, swing: 1 },
   graveyard: { objectives: 1, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 0, swing: 0 },
-  heist: { objectives: 1, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1, swing: 0 },
-  initiation: { objectives: 1, dialogue: 2, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1, swing: 0 },
-  mansion: { objectives: 1, dialogue: 1, interaction: 2, player: 2, hud: 0, pause: 2, inventory: 2, blood: 4, staging: 1, swing: 2 },
-  motel: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
+  heist: { objectives: 1, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 1, staging: 1, swing: 0 },
+  initiation: { objectives: 1, dialogue: 2, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 1, staging: 1, swing: 0, notes: "THREE HONEST ZEROS, AND ONE OF THEM IS A DEBT. `hud` and `interaction` are the scene: initiation.html has no #prompt element and the night has nothing to press E on -- the choice panel is the whole of its input, and a shared prompt with nothing to prompt about would be furniture. `player` is the debt: computeMove() in main.js is this scene's own WASD, which is exactly the fault the owner named ('initiation has different movement'), and moving it onto core/player.js means re-choreographing a ceremony that twenty-eight browser checks stand on. Written down rather than quietly left at zero." },
+  mansion: { objectives: 1, dialogue: 1, interaction: 2, player: 2, hud: 2, pause: 2, inventory: 2, blood: 4, staging: 1, swing: 2 },
+  motel: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
   nowake: { objectives: 0, dialogue: 0, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
   silver: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 0, swing: 0 },
-  silvercase: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
+  silvercase: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
   specialmeeting: { objectives: 0, dialogue: 1, interaction: 1, player: 1, hud: 1, pause: 1, inventory: 0, blood: 0, staging: 1, swing: 0 },
-  squatchfather: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
+  squatchfather: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 2, pause: 1, inventory: 1, blood: 0, staging: 1, swing: 0 },
   wardrobe: { objectives: 0, dialogue: 0, interaction: 0, player: 0, hud: 0, pause: 0, inventory: 0, blood: 0, staging: 0, swing: 0, notes: "The fitting room tool, reached from the wardrobe page rather than the campaign." },
 });
 

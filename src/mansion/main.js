@@ -36,7 +36,7 @@ import { buildMansionInterior } from './scenes/MansionInterior.js';
 import { buildSilentSquatch } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
 import { translateKey, shakeScale } from '../core/settings.js';
-import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
+import { createPromptHud } from '../core/hud.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
@@ -144,27 +144,22 @@ if (mansionVisit === 'return') {
 /**
  * The InteractionSystem contract wants exactly `showPrompt`/`hidePrompt`/
  * `setHold` (see `core/interaction.js`'s docstring and its calls into
- * `this.hud`). This is deliberately NOT `core/hud.js`'s `Hud` class -- that
- * one is hardwired to the apartment scene's own DOM ids (crosshair, subtitle,
+ * `this.hud`). It is still NOT `core/hud.js`'s `Hud` class -- that one is
+ * hardwired to the apartment scene's own DOM ids (crosshair, subtitle,
  * hand-item, radio-osd, clock, bladder...), none of which exist here.
+ *
+ * It IS `core/hud.js`'s prompt, though, which is the same three methods with
+ * this house's elements passed in. Four scenes had written this object by
+ * hand and every one of them called it `tinyHud`; the passive-`LOOK` rule
+ * below existed only here, and the bug where the label goes in as text rather
+ * than markup existed twice. See `createPromptHud`.
  */
-const tinyHud = {
-  showPrompt(label, key = 'E') {
-    promptLabelEl.innerHTML = label;
-    const passive = key === 'LOOK';
-    writeGameplayPromptKey(promptKeyEl, passive ? '' : key);
-    promptKeyEl.classList.toggle('hidden', passive);
-    promptEl.classList.remove('hidden');
-  },
-  hidePrompt() {
-    promptEl.classList.add('hidden');
-    promptHoldEl.style.width = '0%';
-  },
-  /** progress 0..1, or null to hide/reset the hold bar. */
-  setHold(progress) {
-    promptHoldEl.style.width = progress === null ? '0%' : `${Math.round(progress * 100)}%`;
-  },
-};
+const tinyHud = createPromptHud({
+  prompt: promptEl,
+  label: promptLabelEl,
+  key: promptKeyEl,
+  holdFill: promptHoldEl,
+});
 
 /* ================================================================== */
 /* Renderer / camera / scene                                            */

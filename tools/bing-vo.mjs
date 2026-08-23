@@ -8,6 +8,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+/* The take ledger's normaliser, not a second one. See `checkBingTreeDrift`. */
+import { normaliseSay } from './take-ledger.mjs';
 import { buildFamilyScripts } from '../src/bing/family.js';
 import { buildLicenseToGrillScript } from '../src/bing/license-to-grill.js';
 import {
@@ -239,25 +241,35 @@ export function checkBingTreeCoverage(manifest) {
 }
 
 /**
- * Every cue name any Bing dialogue tree can ask for, regardless of prefix.
+ * Every cue any Bing dialogue tree can ask for, and every WORDING it can ask
+ * for it with, regardless of prefix.
  *
  * Deliberately unfiltered, and deliberately separate from
  * `collectBingVoiceCues()`: that one is the ledger of what this tool OWNS,
  * this one is the list of what the runtime PLAYS. The gap between them is the
  * thing worth reporting.
+ *
+ * A SET of wordings per cue rather than one string, because a Bing line is
+ * allowed to vary with context and several do -- the same cue reached drunk
+ * and sober is one recording of one of them. The question a drift check can
+ * honestly ask of that is "does the recording match SOMETHING the runtime can
+ * say", not "does it match the last variant this loop happened to walk".
  */
-export function allBingTreeCues() {
-  const names = new Set();
+export function bingTreeLines() {
+  const said = new Map();
+  const note = (name, text) => {
+    if (!name) return;
+    if (!said.has(name)) said.set(name, new Set());
+    said.get(name).add(text);
+  };
   const walk = (scripts) => {
     for (const [scope, tree] of Object.entries(scripts)) {
       if (!tree || scope.startsWith('__')) continue;
       for (const node of Object.values(tree)) {
         if (!node?.line) continue;
-        const cue = valueOf(node.cue);
-        if (cue) names.add(cue);
+        note(valueOf(node.cue), plainWords(valueOf(node.line)));
         for (const option of valueOf(node.options) || []) {
-          const optionCue = valueOf(option?.cue);
-          if (optionCue) names.add(optionCue);
+          note(valueOf(option?.cue), plainWords(valueOf(option?.text)));
         }
       }
     }
@@ -267,7 +279,73 @@ export function allBingTreeCues() {
     walk(buildScripts(makeContext(variant)));
   }
   for (const shotDone of [false, true]) walk(buildFamilyScripts({ shotDone: () => shotDone }));
-  return names;
+  return said;
+}
+
+/** Every cue name any Bing dialogue tree can ask for. Names only. */
+export function allBingTreeCues() {
+  return new Set(bingTreeLines().keys());
+}
+
+/**
+ * A hand-named cue whose RECORDING no longer says what the tree says.
+ *
+ * THE HOLE THIS CLOSES, and it is the other half of `checkBingTreeCoverage`.
+ * That one asks whether a row exists. This one asks whether the row is still
+ * TRUE. `checkBingVoiceManifest` already compares text against tree for every
+ * cue the generator mints -- and the generator mints only `vo.bing.full.`, so
+ * ninety-nine rows on `vo.bing.bar.*`, `vo.bing.hang.*`, `vo.bing.margo.*` and
+ * the rest were never compared with anything by anybody. Rewrite one of those
+ * lines and the manifest keeps the old wording, the recording sheet keeps the
+ * old wording, and the booth records a line the game does not have. That is
+ * `docs/ENGINE-TRAPS.md` entry 3 with the serial numbers filed off.
+ *
+ * Widening the MINTER is still the wrong fix -- it would overwrite the
+ * hand-authored rows with tree text, and those rows carry direction and
+ * casting the tree does not. Widening the CHECK is the right one: the author
+ * is told, where they wrote it, that a recording has gone stale.
+ *
+ * `text` on a row is the recording sheet's copy; `say` is what the generator
+ * writes. A hand-authored row may carry either, so both are accepted and the
+ * one that is present is the one compared.
+ *
+ * COMPARED THROUGH `normaliseSay`, WHICH IS THE TAKE LEDGER'S OWN. The first
+ * run of this check reported thirty-one drifted rows and thirty of them were
+ * ONE GLYPH: the trees are typed with a curly apostrophe and the hand-authored
+ * rows with a straight one. Nobody in a booth reads those differently, and
+ * "fixing" the manifest to match would have re-hashed thirty rows in the take
+ * ledger and queued thirty perfectly good recordings for re-recording over a
+ * character nobody can hear. So the comparison borrows the exact normaliser
+ * that decides whether a TAKE has gone stale -- curly quotes, dashes,
+ * whitespace, case -- because "has this recording gone stale" is one question
+ * and it should not have two answers in one repo.
+ *
+ * It deliberately does NOT normalise an ellipsis, and the thirty-first finding
+ * is why: `vo.bing.margo.5` is recorded without the leading "…" the tree has,
+ * and that ellipsis is a direction about how she comes in. Same words, and not
+ * the same take.
+ */
+export function checkBingTreeDrift(manifest) {
+  const rows = new Map((manifest.sfx || []).map((cue) => [cue.name, cue]));
+  const failures = [];
+  for (const [name, wordings] of [...bingTreeLines()].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    /* The generated block is `checkBingVoiceManifest`'s to police, and it
+     * already compares every one of them exactly. */
+    if (name.startsWith('vo.bing.full.')) continue;
+    const row = rows.get(name);
+    /* No row at all is `checkBingTreeCoverage`'s finding, not this one, and
+     * reporting it twice would train somebody to read past both. */
+    if (!row) continue;
+    const recorded = plainWords(row.say ?? row.text ?? '');
+    if (!recorded) continue;
+    const heard = normaliseSay(recorded);
+    if ([...wordings].some((wording) => normaliseSay(wording) === heard)) continue;
+    const spoken = [...wordings].filter(Boolean);
+    failures.push(`${name} is recorded as ${JSON.stringify(recorded)}`
+      + ` but the tree says ${spoken.map((w) => JSON.stringify(w)).join(' / ')}`
+      + ' -- update the manifest row and re-record, or put the wording back');
+  }
+  return failures;
 }
 
 function main() {
@@ -276,6 +354,7 @@ function main() {
     const failures = [
       ...checkBingVoiceManifest(manifest),
       ...checkBingTreeCoverage(manifest),
+      ...checkBingTreeDrift(manifest),
     ];
     if (failures.length) {
       for (const failure of failures) console.error(`FAIL ${failure}`);
