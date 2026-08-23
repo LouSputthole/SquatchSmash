@@ -11,129 +11,97 @@
  * The pool is small on purpose. He has six rounds and there is nothing to
  * reload with, so there is a hard ceiling on how much of this can ever exist,
  * and holes are cheaper to keep than to recycle.
+ *
+ * THE RING, THE PROJECTION AND THE RECYCLING RULE NOW LIVE IN `decals.js`,
+ * which is where blood.js takes them from as well. What is left here is what
+ * is actually about being shot at: the plaster skin, the revolver-sized
+ * ceiling above, and the muzzle flash -- which is not a decal at all and is
+ * only in this class because the thing that punches a hole is the thing that
+ * lights the room while it does it.
  */
 import * as THREE from 'three';
+import { DecalPool, decalTexture, woundDecalOptions } from './decals.js';
 
 /** Six in the cylinder, and a couple spare in case something splits a shot. */
 const MAX = 8;
-/** How far off the surface the decal floats, to beat z-fighting. */
-const LIFT = 0.004;
-
-let _tex = null;
 
 /** Dark pit, bright lip, and the plaster cracking away from it. */
 function holeTexture() {
-  if (_tex) return _tex;
-  const S = 128;
-  const c = document.createElement('canvas');
-  c.width = S; c.height = S;
-  const g = c.getContext('2d');
+  return decalTexture('bullets.hole', (g, S) => {
+    // Dust halo first, so everything else sits on top of it.
+    const halo = g.createRadialGradient(S / 2, S / 2, S * 0.10, S / 2, S / 2, S * 0.48);
+    halo.addColorStop(0, 'rgba(60,54,48,0.55)');
+    halo.addColorStop(0.55, 'rgba(90,84,76,0.20)');
+    halo.addColorStop(1, 'rgba(120,114,104,0)');
+    g.fillStyle = halo;
+    g.fillRect(0, 0, S, S);
 
-  // Dust halo first, so everything else sits on top of it.
-  const halo = g.createRadialGradient(S / 2, S / 2, S * 0.10, S / 2, S / 2, S * 0.48);
-  halo.addColorStop(0, 'rgba(60,54,48,0.55)');
-  halo.addColorStop(0.55, 'rgba(90,84,76,0.20)');
-  halo.addColorStop(1, 'rgba(120,114,104,0)');
-  g.fillStyle = halo;
-  g.fillRect(0, 0, S, S);
+    // Cracks, before the hole, so they appear to run out from under it.
+    g.strokeStyle = 'rgba(48,42,38,0.5)';
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + (i % 3) * 0.4;
+      const len = S * (0.16 + ((i * 7) % 5) / 26);
+      g.lineWidth = 1.6 - (i % 3) * 0.4;
+      g.beginPath();
+      g.moveTo(S / 2 + Math.cos(a) * S * 0.10, S / 2 + Math.sin(a) * S * 0.10);
+      g.lineTo(S / 2 + Math.cos(a + 0.12) * len, S / 2 + Math.sin(a + 0.12) * len);
+      g.stroke();
+    }
 
-  // Cracks, before the hole, so they appear to run out from under it.
-  g.strokeStyle = 'rgba(48,42,38,0.5)';
-  for (let i = 0; i < 9; i++) {
-    const a = (i / 9) * Math.PI * 2 + (i % 3) * 0.4;
-    const len = S * (0.16 + ((i * 7) % 5) / 26);
-    g.lineWidth = 1.6 - (i % 3) * 0.4;
+    // The lip: brighter than the wall, because the paint has blown off it.
+    g.fillStyle = 'rgba(226,220,208,0.85)';
     g.beginPath();
-    g.moveTo(S / 2 + Math.cos(a) * S * 0.10, S / 2 + Math.sin(a) * S * 0.10);
-    g.lineTo(S / 2 + Math.cos(a + 0.12) * len, S / 2 + Math.sin(a + 0.12) * len);
-    g.stroke();
-  }
-
-  // The lip: brighter than the wall, because the paint has blown off it.
-  g.fillStyle = 'rgba(226,220,208,0.85)';
-  g.beginPath();
-  g.arc(S / 2, S / 2, S * 0.165, 0, 7);
-  g.fill();
-
-  // The hole.
-  const pit = g.createRadialGradient(S / 2, S / 2, 1, S / 2, S / 2, S * 0.135);
-  pit.addColorStop(0, 'rgba(6,5,5,1)');
-  pit.addColorStop(0.7, 'rgba(16,13,12,1)');
-  pit.addColorStop(1, 'rgba(40,34,30,0.9)');
-  g.fillStyle = pit;
-  g.beginPath();
-  g.arc(S / 2, S / 2, S * 0.135, 0, 7);
-  g.fill();
-
-  _tex = new THREE.CanvasTexture(c);
-  _tex.colorSpace = THREE.SRGBColorSpace;
-  return _tex;
-}
-
-let _bloodTex = null;
-
-/** Dark centre, bright arterial edge, and a scatter of droplets. */
-function bloodTexture() {
-  if (_bloodTex) return _bloodTex;
-  const S = 128;
-  const c = document.createElement('canvas');
-  c.width = S; c.height = S;
-  const g = c.getContext('2d');
-
-  const core = g.createRadialGradient(S / 2, S / 2, 2, S / 2, S / 2, S * 0.30);
-  /* These sit on dark suits in a dim restaurant. The old near-black centre
-   * and five-centimetre visible core read as no wound at all during the fall. */
-  core.addColorStop(0, 'rgba(105,0,6,1)');
-  core.addColorStop(0.52, 'rgba(188,10,18,0.96)');
-  core.addColorStop(1, 'rgba(224,24,28,0)');
-  g.fillStyle = core;
-  g.fillRect(0, 0, S, S);
-
-  // Droplets thrown out from the centre, heavier on one side.
-  for (let i = 0; i < 22; i++) {
-    const a = (i / 22) * Math.PI * 2 + (i % 5) * 0.21;
-    const d = S * (0.18 + ((i * 11) % 7) / 24);
-    const r = 1.2 + ((i * 5) % 4);
-    g.fillStyle = `rgba(${146 + (i % 3) * 22},8,12,${0.62 + (i % 3) * 0.14})`;
-    g.beginPath();
-    g.arc(S / 2 + Math.cos(a) * d * (i % 2 ? 1 : 0.6), S / 2 + Math.sin(a) * d, r, 0, 7);
+    g.arc(S / 2, S / 2, S * 0.165, 0, 7);
     g.fill();
-  }
 
-  _bloodTex = new THREE.CanvasTexture(c);
-  _bloodTex.colorSpace = THREE.SRGBColorSpace;
-  return _bloodTex;
+    // The hole.
+    const pit = g.createRadialGradient(S / 2, S / 2, 1, S / 2, S / 2, S * 0.135);
+    pit.addColorStop(0, 'rgba(6,5,5,1)');
+    pit.addColorStop(0.7, 'rgba(16,13,12,1)');
+    pit.addColorStop(1, 'rgba(40,34,30,0.9)');
+    g.fillStyle = pit;
+    g.beginPath();
+    g.arc(S / 2, S / 2, S * 0.135, 0, 7);
+    g.fill();
+  });
 }
 
-export class BulletHoles {
-  constructor(scene, kind = 'hole') {
-    this.scene = scene;
-    this.pool = [];
-    this.next = 0;
-
-    const isBlood = kind === 'blood';
-    const size = isBlood ? 0.31 : 0.09;
-    const mat = new THREE.MeshBasicMaterial({
-      map: isBlood ? bloodTexture() : holeTexture(),
+/** A hole in a room: small, single-sided, and lifted off the plaster. */
+function holeDecalOptions() {
+  return {
+    size: 0.09,
+    renderOrder: 3,
+    material: new THREE.MeshBasicMaterial({
+      map: holeTexture(),
       transparent: true,
       depthWrite: false,
-      /* A wound starts facing Tony, then the actor falls and may roll the
-       * plane through its back face. Blood must survive that movement. */
-      side: isBlood ? THREE.DoubleSide : THREE.FrontSide,
+      /* Plaster is not a body: a hole is only ever seen from the side the
+       * round arrived on, so it pays for one face rather than two. */
+      side: THREE.FrontSide,
       /* Sits in front of whatever it is on, and must not fight it. The lift
        * handles most of that; polygonOffset covers surfaces at a glancing
        * angle, where a fixed lift is not enough. */
       polygonOffset: true,
       polygonOffsetFactor: -4,
       polygonOffsetUnits: -4,
+    }),
+  };
+}
+
+/**
+ * A revolver's worth of holes, in one of two flavours.
+ *
+ * `kind` is 'hole' for a room and 'blood' for a person; the wound skin comes
+ * from decals.js so the marks this leaves on a man and the ones
+ * BloodImpactSystem leaves on him are the same marks.
+ */
+export class BulletHoles extends DecalPool {
+  constructor(scene, kind = 'hole', { capacity = MAX, random = Math.random } = {}) {
+    super(scene, {
+      capacity,
+      random,
+      ...(kind === 'blood' ? woundDecalOptions() : holeDecalOptions()),
     });
-    for (let i = 0; i < MAX; i++) {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
-      m.visible = false;
-      m.renderOrder = isBlood ? 4 : 3;
-      scene.add(m);
-      this.pool.push(m);
-    }
 
     /* The flash. One light, reused -- six of them would be six shadow-casting
      * lights in a room that only has two, for a total of about 50ms of visible
@@ -150,29 +118,12 @@ export class BulletHoles {
    * @param {THREE.Vector3} normal  surface normal, world space
    */
   punch(point, normal) {
-    const m = this.pool[this.next % this.pool.length];
-    this.next++;
-    // A pooled wound may have been attached to a falling character on its
-    // previous use. Put it back in world space before writing world-space
-    // coordinates again.
-    if (m.parent !== this.scene) this.scene.attach(m);
-    m.position.copy(point).addScaledVector(normal, LIFT);
-    /* Face along the normal. lookAt orients -Z at the target, and a plane's
-     * face is +Z, so aim it at a point OUT from the surface rather than at the
-     * surface itself -- otherwise every hole is drawn facing into the wall. */
-    m.lookAt(point.clone().addScaledVector(normal, 1));
-    m.rotateZ(Math.random() * Math.PI * 2);
-    const s = 0.85 + Math.random() * 0.4;
-    m.scale.set(s, s, 1);
-    m.visible = true;
-    return m;
+    return this.place(point, normal);
   }
 
   /** Put a wound on a moving actor so it follows their fall, not the room. */
   punchAttached(parent, point, normal) {
-    const m = this.punch(point, normal);
-    parent.attach(m);
-    return m;
+    return this.placeOn(parent, point, normal);
   }
 
   /** Light the room for an instant from `at`. */
@@ -184,6 +135,7 @@ export class BulletHoles {
   }
 
   update(dt) {
+    super.update(dt);
     if (this._flashT <= 0) return;
     this._flashT -= dt;
     // Falls off fast and unevenly, the way a powder flash does.
@@ -193,14 +145,5 @@ export class BulletHoles {
       this.flash.intensity = 0;
       this._flashT = 0;
     }
-  }
-
-  /** Wipe the holes, for a fresh run. */
-  reset() {
-    for (const m of this.pool) {
-      if (m.parent !== this.scene) this.scene.attach(m);
-      m.visible = false;
-    }
-    this.next = 0;
   }
 }
