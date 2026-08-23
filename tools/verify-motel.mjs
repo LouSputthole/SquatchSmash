@@ -1819,12 +1819,27 @@ try {
     let opened = false;
     let frames = 0;
     let maxScaleY = 0;
+    let maxOpen = 0;
+    let maxLevel = 0;
+    const modes = new Set();
     while (rico.talkT > 0 && performance.now() < deadline) {
       await frame();
       frames += 1;
       const scaleY = rico.rig.mouth?.scale.y ?? 0;
       if (scaleY > maxScaleY) maxScaleY = scaleY;
       if (scaleY > 1) opened = true;
+      /* THE ENVELOPE ITSELF, not only what it did to a scale. `Mouth` exposes
+       * `open` (0 shut, 1 wide), `mode` (null | 'audio' | 'fallback') and the
+       * raw analyser `level`, and those three separate the two things a small
+       * scale can mean: nobody driving the mouth, or somebody driving it badly.
+       * See the note on `maxScaleY` below for why that distinction is the
+       * whole question here. */
+      const driver = rico.voiceMouth;
+      if (driver) {
+        if (driver.open > maxOpen) maxOpen = driver.open;
+        if (driver.level > maxLevel) maxLevel = driver.level;
+        if (driver.mode) modes.add(driver.mode);
+      }
     }
     return {
       identity: rico.identity,
@@ -1832,8 +1847,24 @@ try {
       mouth: rico.rig.mouth?.name || null,
       mouthOpened: opened,
       /* What the threshold was actually compared against, so a failure says
-       * how close it got instead of only that it did not get there. */
+       * how close it got instead of only that it did not get there.
+       *
+       * AND IT SAID SOMETHING NOBODY EXPECTED. src/core/mouth.js computes
+       * `scale.y = rest.y * (1 + open * openScale)` and this scene builds Rico
+       * with openScale 1.45, so a wide-open mouth reads 2.45. The first run
+       * with this line in it measured 1.005 across twenty-six samples -- an
+       * envelope of about 0.003, which is shut. So `scale.y > 1` is not the
+       * check its own name claims: it asks whether the mouth is off its rest
+       * value AT ALL, which any non-zero envelope satisfies, and that is also
+       * why sampling for it was a coin toss. There was never much to catch. */
       maxScaleY: Math.round(maxScaleY * 1000) / 1000,
+      /* Which of the two things a shut mouth means. No mode at all is nobody
+       * driving it -- worth knowing, because this harness sets `talkT` by hand
+       * with no audio behind it and may be posing a question the game never
+       * asks. A mode with a tiny `open` is a real animation defect. */
+      maxOpen: Math.round(maxOpen * 1000) / 1000,
+      maxLevel: Math.round(maxLevel * 1000) / 1000,
+      modes: [...modes],
       framesWatched: frames,
       talkRemaining: rico.talkT,
     };
