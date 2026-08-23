@@ -584,64 +584,35 @@ function clearingBeats() {
     });
   }
 
-  /* The working ground, from behind the line. Booskibro clears the row from
-   * his own stance; Gratin and Seff are walking while they talk, and a beat
-   * cannot honestly name a position for a man mid-stride, so those two are
-   * published with the ground as the subject and nobody as the speaker. */
+  /* The working ground, from behind the line. The conspiracy reveal is
+   * spoken over it -- Lou and Booskibro trading IN-100 while the row stands
+   * -- and Gratin and Seff are walking while they talk, so the beat is
+   * published with the ground as the subject rather than a man mid-stride.
+   * (This shot carried the old clear_line phase before the systems pass
+   * folded that walk into the mass kneel.) */
   beats.push({
     id: 'clear-line',
-    phase: 'clear_line',
+    phase: 'conspiracy_reveal',
     mode: 'clearing',
     camera: INITIATION_SHOTS.clearing(),
     speaker: { id: 'booskibro', point: standingHead(CLEARING_STANCES.BOOSKIBRO, FIGURE_SCALE.booskibro) },
     subject: { id: 'the-mud', point: vec(1.2, RIG.torsoY, -5.0) },
   });
-  for (const [id, phase] of [['exec-setup', 'exec_setup'], ['exec-done', 'exec_done']]) {
-    beats.push({
-      id,
-      phase,
-      mode: 'clearing',
-      camera: INITIATION_SHOTS.clearing(),
-      subject: { id: 'the-mud', point: vec(1.2, RIG.torsoY, -5.0) },
-    });
-  }
-
-  /* THE FOUR. One beat per mark, because the shot follows the mark in use and
-   * the marks run 5 m across the mud — a shot that frames the first one and
-   * misses the last one is exactly the kind of thing that survives a playtest
-   * of the first one. The subject is the victim's head where `site.js` says it
-   * is when he is on his knees. */
+  /* THE SWEEP, ONE BEAT PER MARK. The systems pass runs the mass executions
+   * as one looping phase, but the loop moves across four marks that run 5 m
+   * over the mud — a shot that frames the first one and misses the last one
+   * is exactly the kind of thing that survives a playtest of the first one.
+   * The subject is the victim's head where `site.js` says it is when he is on
+   * his knees. */
   for (const step of KNEELING_EXECUTIONS) {
     const mark = KNEEL_MARKS.find((entry) => entry.id === step.markId);
     beats.push({
-      id: `exec-${step.markId}`,
-      phase: 'exec_prospect',
+      id: `sweep-${step.markId}`,
+      phase: 'execution_sweep',
       mode: 'kneel_exec',
-    camera: INITIATION_SHOTS.kneel_exec({ mark }),
+      camera: INITIATION_SHOTS.kneel_exec({ mark }),
       speaker: { id: `${step.markId}-shooter`, point: standingHead(mark.shooter) },
       subject: { id: `${step.markId}-head`, point: vec(mark.head.x, mark.head.y, mark.head.z) },
-    });
-  }
-  /* The reload, on the mark that is next. Seff and Gratin swap the pistol over
-   * the mud, standing where the mark says the shooter and the second stand. */
-  const reloadMark = KNEEL_MARKS.find((entry) => entry.id === 'kneel-3');
-  beats.push({
-    id: 'exec-reload',
-    phase: 'exec_reload',
-    mode: 'kneel_exec',
-    camera: INITIATION_SHOTS.kneel_exec({ mark: reloadMark }),
-    speaker: { id: 'reload-shooter', point: standingHead(reloadMark.shooter) },
-    subject: { id: 'kneel-3-head', point: vec(reloadMark.head.x, reloadMark.head.y, reloadMark.head.z) },
-  });
-
-  /* The gap between two of them, back on the line. The player answers or says
-   * nothing; either way the shot is the row. */
-  for (const [id, phase, who] of [
-    ['exec-gap', 'exec_gap', kittenboss],
-    ['exec-gap-reply', 'exec_gap_reply', player],
-  ]) {
-    beats.push({
-      id, phase, mode: 'line', camera: INITIATION_SHOTS.line(), speaker: who, subject: theLine,
     });
   }
 

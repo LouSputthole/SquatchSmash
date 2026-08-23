@@ -221,6 +221,9 @@ const UNPUBLISHED = new Map([
   ['oath_no', 'FAIL-B — the screen is already black'],
   ['failed_oath', 'the FAIL-B card; the camera holds where it was'],
   ['trail_choice', 'the same over-the-shoulder as the trail, published twice already'],
+  ['mass_kneel', 'the same clearing wide as the reveal, published as clear-line'],
+  ['player_aim', 'the same clearing wide again, on the beat the gun reaches Tony'],
+  ['lou_interrupt', 'the same clearing wide, held while Lou crosses to stop it'],
   ['complete', 'the last frame of the pullback, published as pullback-end'],
 ]);
 

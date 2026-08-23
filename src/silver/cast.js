@@ -380,13 +380,29 @@ export function populate(scene, room) {
    */
   const dinerTarget = 27;
   let diner = 0;
-  dinerTables: for (const t of room.anchors.tableSeats) {
+  /* The empty chairs are DEALT, not rolled. This loop used to skip each seat
+   * on `Math.random() < 0.28`, under a guard that demands exactly
+   * `dinerTarget` seated -- so a cold run of the dice spent the seat pool
+   * before the target was met and the whole room build threw. Measured at
+   * 22/27 on a full-suite run, twice. The pool is collected first, the
+   * spares are spread on a fixed wheel for the same scattered-empties read,
+   * and once the pool is only just enough nobody else stands empty. */
+  const seatPool = [];
+  for (const t of room.anchors.tableSeats) {
     if (!t.seats.length) continue;
     const near = t.z > -2 && t.x > -20;
     const opposite = t.seats[Math.floor(t.seats.length / 2)];
     for (const seat of t.seats.length > 1 ? [t.seats[0], opposite] : [t.seats[0]]) {
-      if (diner >= dinerTarget) break dinerTables;
-      if (Math.random() < 0.28) continue;
+      seatPool.push({ seat, near });
+    }
+  }
+  const spareSeats = Math.max(0, seatPool.length - dinerTarget);
+  const emptyEvery = spareSeats > 0 ? Math.floor(seatPool.length / spareSeats) : Infinity;
+  for (let seatI = 0; seatI < seatPool.length && diner < dinerTarget; seatI++) {
+    {
+      const { seat, near } = seatPool[seatI];
+      const seatsLeft = seatPool.length - seatI;
+      if (seatsLeft > dinerTarget - diner && (seatI + 1) % emptyEvery === 0) continue;
       /* One roll, not three. The dress, the colour and the frame have to agree
        * or the room fills up with gowns in undertaker grey on men's shoulders. */
       const inGown = Math.random() < 0.42;
