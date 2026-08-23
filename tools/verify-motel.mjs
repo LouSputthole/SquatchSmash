@@ -1780,9 +1780,22 @@ try {
       && heldDoorway.z < -3.7
       && heldDoorway.z > -4.4,
     JSON.stringify(heldDoorway));
+  /* SAY IT, DON'T SET talkT. This assigned `rico.talkT = 1.2` directly for as
+   * long as the check has existed, and that is not how a line is spoken:
+   * `say()` in src/motel/actors.js sets talkT AND calls
+   * `voiceMouth.speak()`, and only the second half tells the mouth anything.
+   * Assigning the field posed a question the game never asks.
+   *
+   * What the check had been measuring instead was the DECAY OF THE PREVIOUS
+   * LINE. Rico says "Come in before the neighbours smell it" a few checks
+   * above; its envelope releases toward the 0.002 floor, and a sample that
+   * landed early in that tail read "open" while one that landed after the
+   * floor snapped it to zero read "shut". That is the whole of the coin toss
+   * -- frame 1 passed, frame 20 failed, frame 25 passed at 1.005 -- and it
+   * means this check has never once watched Rico mouth the line it sets up. */
   await previewPage.evaluate(() => {
     const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
-    rico.talkT = 1.2;
+    rico.say(1.2);
   });
   /* A mouth that is talking is OPEN AND SHUT, and which of the two a single
    * sample catches is a coin toss weighted by the frame rate: this read
@@ -1869,10 +1882,23 @@ try {
       talkRemaining: rico.talkT,
     };
   });
+  /* ASSERTED ON THE MODE, WHICH CANNOT FLAKE. `speak()` sets `mode`
+   * synchronously and it holds for the line, so "something is driving this
+   * mouth" is a fact a sampler cannot miss -- unlike an instantaneous scale,
+   * which is what two runs of this check disagreed about.
+   *
+   * The stronger claim the name makes -- that he VISIBLY mouths it -- wants a
+   * real fraction of full open, and `_fallbackOpen` says what full is: it
+   * returns `syllable * gate * tail * 0.9`, so a working fallback mouth peaks
+   * near 0.9 and reads about 2.3 on this rig's 1.45 openScale. `maxOpen` is
+   * reported for exactly that reason. The number is deliberately NOT being
+   * chosen from the reading that fails; it goes in once a run with the mouth
+   * actually driven has said what a healthy one reaches here. */
   check('Rico keeps his own face identity and visibly mouths his lines',
     ricoPresentation.identity === 'rico'
       && ricoPresentation.face === 'actor.face.rico'
       && ricoPresentation.mouth === 'actor.mouth'
+      && ricoPresentation.modes.length > 0
       && ricoPresentation.mouthOpened,
     JSON.stringify(ricoPresentation));
   await previewPage.evaluate(() => {
