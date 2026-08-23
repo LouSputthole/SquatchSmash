@@ -936,6 +936,12 @@
       "file": "lou-vacation-florence.jpg",
       "title": "Florence",
       "caption": "The whole city at sunset, over somebody else's crowd. By the wardrobes, where a suitcase gets packed."
+    },
+    {
+      "slot": "initiation.ceremony.saint-card",
+      "file": "initiation-st-silver-sasquatch-card.png",
+      "title": "St. Silver Sasquatch",
+      "caption": "The saint card burned into the new Squatch's hand."
     }
   ]
 }

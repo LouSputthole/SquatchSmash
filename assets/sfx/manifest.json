@@ -12859,6 +12859,495 @@
       "say": "Humor me."
     },
     {
+      "name": "vo.initiation.cabin.in-030-kittenboss.1ba2x2c.1",
+      "voice": "kittenboss",
+      "say": "Do you know any of this?",
+      "direction": "Conversational, sideways, not lowered. She is making small talk in a queue."
+    },
+    {
+      "name": "vo.initiation.cabin.in-031-prospect.0mtgzbw.1",
+      "voice": "player",
+      "say": "No."
+    },
+    {
+      "name": "vo.initiation.cabin.in-031-kittenboss.0gimm6v.1",
+      "voice": "kittenboss",
+      "say": "No, me neither.",
+      "direction": "Cheerful. Completely unbothered."
+    },
+    {
+      "name": "vo.initiation.cabin.in-032-prospect.17hckpf.1",
+      "voice": "player",
+      "say": "Some of it."
+    },
+    {
+      "name": "vo.initiation.cabin.in-032-kittenboss.0x0xloq.1",
+      "voice": "kittenboss",
+      "say": "Which bit?"
+    },
+    {
+      "name": "vo.initiation.cabin.in-032-kittenboss.1psklkh.1",
+      "voice": "kittenboss",
+      "say": "Right.",
+      "direction": "Not a challenge. She has simply accepted it."
+    },
+    {
+      "name": "vo.initiation.cabin.in-033-kittenboss.0h033a9.1",
+      "voice": "kittenboss",
+      "say": "Fair enough."
+    },
+    {
+      "name": "vo.initiation.cabin.in-060-prospect-one.00sjbgg.1",
+      "voice": "doorman",
+      "say": "Can I have another go?",
+      "direction": "Bright. He thinks he has been marked wrong on a quiz. He does not understand what is happening until the moment it does."
+    },
+    {
+      "name": "vo.initiation.cabin.in-060-prospect-one.0jcr2ck.1",
+      "voice": "doorman",
+      "say": "Oh.",
+      "direction": "Small. Two letters and it is the last thing he says. He is not frightened yet — he has only this second understood, and there is no time left to be anything about it."
+    },
+    {
+      "name": "vo.initiation.cabin.in-075-kittenboss.1lqau7w.1",
+      "voice": "kittenboss",
+      "say": "That’s not— that’s not standard, is it?",
+      "direction": "Quiet, after far too long. She is asking whether the paperwork is normal. She is wrong, and she will not find out."
+    },
+    {
+      "name": "vo.initiation.cabin.in-100-lou.1rpa646.1",
+      "voice": "lou",
+      "say": "Willy wasn’t the rat.",
+      "direction": "Plain fact. No absolution and no attempt to soften what the family did."
+    },
+    {
+      "name": "vo.initiation.cabin.in-100-lou.0ri6bou.1",
+      "voice": "lou",
+      "say": "We killed the wrong man."
+    },
+    {
+      "name": "vo.initiation.cabin.in-100-booskibro.01zs931.1",
+      "voice": "booski",
+      "say": "Sauce was the rat. The palace proved that."
+    },
+    {
+      "name": "vo.initiation.cabin.in-100-booskibro.0s37hma.1",
+      "voice": "booski",
+      "say": "It also proved he had help on the inside."
+    },
+    {
+      "name": "vo.initiation.cabin.in-100-lou.07nti9k.1",
+      "voice": "lou",
+      "say": "There is one place left. We are at quota."
+    },
+    {
+      "name": "vo.initiation.cabin.in-100-booskibro.0jpbifj.1",
+      "voice": "booski",
+      "say": "We don’t put a question inside this family."
+    },
+    {
+      "name": "vo.initiation.cabin.in-100-booskibro.00zrt0g.1",
+      "voice": "booski",
+      "say": "Nuclear option.",
+      "direction": "A standing order, not a joke or a movie reference."
+    },
+    {
+      "name": "vo.initiation.cabin.in-100-gratin.1wuj4z6.1",
+      "voice": "gratin",
+      "say": "Kittenboss too?",
+      "direction": "A practical clarification before anybody moves."
+    },
+    {
+      "name": "vo.initiation.cabin.in-100-lou.1rt2hrp.1",
+      "voice": "lou",
+      "say": "We'll see.",
+      "direction": "Hesitant filler. He has not made an exception."
+    },
+    {
+      "name": "vo.initiation.cabin.in-100-booskibro.19d4ob8.1",
+      "voice": "booski",
+      "say": "She has to go too.",
+      "direction": "Cuts across Lou. Definitive."
+    },
+    {
+      "name": "vo.initiation.cabin.in-110-booskibro.100apah.1",
+      "voice": "booski",
+      "say": "All prospects. On your knees.",
+      "direction": "Level and immediate. The order includes Tony and Kittenboss."
+    },
+    {
+      "name": "vo.initiation.cabin.in-110-gratin.1e0lw2d.1",
+      "voice": "gratin",
+      "say": "Face forward."
+    },
+    {
+      "name": "vo.initiation.cabin.in-120-prospect-three.018unbp.1",
+      "voice": "npc-reserve-1",
+      "say": "Nobody asked me a question."
+    },
+    {
+      "name": "vo.initiation.cabin.in-120-prospect-three.0mk6sxt.1",
+      "voice": "npc-reserve-1",
+      "say": "Ask me the question.",
+      "direction": "To Tony, cut off by the shot."
+    },
+    {
+      "name": "vo.initiation.cabin.in-145-prospect-five.0xrahxk.1",
+      "voice": "npc-reserve-2",
+      "say": "Is Booski watching?"
+    },
+    {
+      "name": "vo.initiation.cabin.in-145-gratin.146zxg7.1",
+      "voice": "gratin",
+      "say": "He’s watching.",
+      "direction": "Kindly, and it is true."
+    },
+    {
+      "name": "vo.initiation.cabin.in-170-lou.15qwm4k.1",
+      "voice": "lou",
+      "say": "Stop. This one is good.",
+      "direction": "Immediate. It lands before Gratin can fire."
+    },
+    {
+      "name": "vo.initiation.cabin.in-170-booskibro.1ktte4c.1",
+      "voice": "booski",
+      "say": "Get Tony up."
+    },
+    {
+      "name": "vo.initiation.cabin.in-200-booskibro.17cff6h.1",
+      "voice": "booski",
+      "say": "Come on, then.",
+      "direction": "He does not say where."
+    },
+    {
+      "name": "vo.initiation.cabin.in-210-seff.0nkza49.1",
+      "voice": "seff",
+      "say": "Colder than it was.",
+      "direction": "THE MOST IMPORTANT EXCHANGE IN THE ACT. Two men who have just done what they did, discussing the temperature accurately, because it is genuinely colder than it was."
+    },
+    {
+      "name": "vo.initiation.cabin.in-210-lag.0oz6emn.1",
+      "voice": "lag",
+      "say": "It’s the wet."
+    },
+    {
+      "name": "vo.initiation.cabin.in-210-seff.1u7hwnn.1",
+      "voice": "seff",
+      "say": "Mm."
+    },
+    {
+      "name": "vo.initiation.cabin.in-220-irish.1snxq1h.1",
+      "voice": "irish",
+      "say": "Are we doing the thing with the card?"
+    },
+    {
+      "name": "vo.initiation.cabin.in-220-hogmama.1ssev5m.1",
+      "voice": "hogmama",
+      "say": "Yes."
+    },
+    {
+      "name": "vo.initiation.cabin.in-220-irish.037klvh.1",
+      "voice": "irish",
+      "say": "Right. Only last time nobody brought a card."
+    },
+    {
+      "name": "vo.initiation.cabin.in-220-hogmama.116rlrr.1",
+      "voice": "hogmama",
+      "say": "Somebody brought a card."
+    },
+    {
+      "name": "vo.initiation.cabin.in-220-irish.1khl87n.1",
+      "voice": "irish",
+      "say": "Somebody brought a receipt."
+    },
+    {
+      "name": "vo.initiation.cabin.in-230-shubenator.1nrrfvw.1",
+      "voice": "shubenator",
+      "say": "It’s the smoke.",
+      "direction": "THERE IS NO SMOKE. He is crying and he has blamed smoke that does not exist, which is what he does at every family occasion. Tonight it is not funny and nothing in the scene may indicate that it is not funny. Play it as a man clearing his throat."
+    },
+    {
+      "name": "vo.initiation.cabin.in-240-numbskull.0nyjs1k.1",
+      "voice": "numbskull",
+      "say": "Watch your feet through here."
+    },
+    {
+      "name": "vo.initiation.cabin.in-240-prospect.0sljbim.1",
+      "voice": "player",
+      "say": "…Thanks."
+    },
+    {
+      "name": "vo.initiation.cabin.in-240-numbskull.1y02bwa.1",
+      "voice": "numbskull",
+      "say": "It gets you every time, that bit.",
+      "direction": "He is being helpful. He has been being helpful all night. He is still the most frightening man in the woods and he is still being nice."
+    },
+    {
+      "name": "vo.initiation.cabin.in-246-prospect.0ncowzt.1",
+      "voice": "player",
+      "say": "Where are we going?"
+    },
+    {
+      "name": "vo.initiation.cabin.in-246-booskibro.1mkgx7u.1",
+      "voice": "booski",
+      "say": "Up.",
+      "direction": "Without turning."
+    },
+    {
+      "name": "vo.initiation.cabin.in-247-prospect.0tjyt2w.1",
+      "voice": "player",
+      "say": "Is somebody going to tell me what that was?"
+    },
+    {
+      "name": "vo.initiation.cabin.in-247-lag.0ilit57.1",
+      "voice": "lag",
+      "say": "Probably not.",
+      "direction": "Thrown away completely. Do not put a beat around it."
+    },
+    {
+      "name": "vo.initiation.cabin.in-260-booskibro.1gudewg.1",
+      "voice": "booski",
+      "say": "In."
+    },
+    {
+      "name": "vo.initiation.cabin.in-310-lou.1t6766a.1",
+      "voice": "lou",
+      "say": "Come forward."
+    },
+    {
+      "name": "vo.initiation.cabin.in-320-lou.0p69cz0.1",
+      "voice": "lou",
+      "say": "All of the men in this room are bound by blood. This is a family. And in this thing of ours, we follow a code of honor. There’s a way of life... a brotherhood.",
+      "direction": "THE FIRST TIME IN THE ENTIRE CAMPAIGN THAT LOU IS COMPLETELY SERIOUS. No warmth, no gravel-voiced charm, no joke waiting at the end of the sentence. The man who was worried about raccoons at the fire pit is gone."
+    },
+    {
+      "name": "vo.initiation.cabin.in-330-booskibro.09hb3ch.1",
+      "voice": "booski",
+      "say": "You are here because of your deeds and the assertions of those who stand at your side.",
+      "direction": "QUIET. He has boomed through the entire game; in here he does not, and the change is the point."
+    },
+    {
+      "name": "vo.initiation.cabin.in-340-booskibro.08uea1h.1",
+      "voice": "booski",
+      "say": "You did what was asked. You kept your mouth shut. You handled yourself at the Bing. You flew the beef run. When it came time to stand up, you stood up.",
+      "direction": "A list being confirmed, not a compliment being paid."
+    },
+    {
+      "name": "vo.initiation.cabin.in-350-rippinflow.1hyk744.1",
+      "voice": "rippinflow",
+      "say": "This life is one of secrecy. If you make a friend, meet a woman, live out there among regular people... they must not know about our thing."
+    },
+    {
+      "name": "vo.initiation.cabin.in-360-lou.1cj0ypn.1",
+      "voice": "lou",
+      "say": "It is binding. It is not forgiving. To betray one is to betray all."
+    },
+    {
+      "name": "vo.initiation.cabin.in-365-silent-lou.06zmzt5.1",
+      "voice": "lou",
+      "say": "You didn’t say anything out there.",
+      "direction": "Quiet, private, meant for Tony and nobody else — and the room hears it anyway because the room is four metres wide. He is not asking and he does not wait for an answer."
+    },
+    {
+      "name": "vo.initiation.cabin.in-365-silent-lou.1hlgrfm.1",
+      "voice": "lou",
+      "say": "Good."
+    },
+    {
+      "name": "vo.initiation.cabin.in-370-lou.1o1uo7u.1",
+      "voice": "lou",
+      "say": "Do you wish to commit yourself... your life... to this family?"
+    },
+    {
+      "name": "vo.initiation.cabin.in-371-prospect.0v3lnxo.1",
+      "voice": "player",
+      "say": "Yes. I do."
+    },
+    {
+      "name": "vo.initiation.cabin.fail-b-prospect.0wv20kn.1",
+      "voice": "player",
+      "say": "No. I don’t."
+    },
+    {
+      "name": "vo.initiation.cabin.in-380-lou.1bwulo9.1",
+      "voice": "lou",
+      "say": "Then before the eyes of all here present... join me."
+    },
+    {
+      "name": "vo.initiation.cabin.in-410-lou.0zn68ys.1",
+      "voice": "lou",
+      "say": "Give me your hand.",
+      "direction": "Not verbatim — connective tissue, and the shortest possible bridge into the input."
+    },
+    {
+      "name": "vo.initiation.cabin.in-430-lou.17nhb4i.1",
+      "voice": "lou",
+      "say": "To become a man of honor... repeat these words."
+    },
+    {
+      "name": "vo.initiation.cabin.in-430-lou.1800mnn.1",
+      "voice": "lou",
+      "say": "I swear my loyalty to this family."
+    },
+    {
+      "name": "vo.initiation.cabin.in-430-prospect.1800mnn.1",
+      "voice": "player",
+      "say": "I swear my loyalty to this family.",
+      "direction": "FLAT AND CAREFUL. He is not moved and he is not performing — he is a man repeating words correctly because he has understood that getting them wrong is a category of thing that has consequences here."
+    },
+    {
+      "name": "vo.initiation.cabin.in-435-lou.0aarlpi.1",
+      "voice": "lou",
+      "say": "My flesh must burn in hell like this saint if I do not keep my oath."
+    },
+    {
+      "name": "vo.initiation.cabin.in-435-prospect.0aarlpi.1",
+      "voice": "player",
+      "say": "My flesh must burn in hell like this saint if I do not keep my oath.",
+      "direction": "He says \"like this saint\" while holding the saint, and the game does not help him notice."
+    },
+    {
+      "name": "vo.initiation.cabin.in-450-lou.0qt3496.1",
+      "voice": "lou",
+      "say": "From this day forward, your word is the word of this family. Your enemies are our enemies. Your loyalty is no longer yours alone — it belongs to all of us."
+    },
+    {
+      "name": "vo.initiation.cabin.in-460-lou.08jlcav.1",
+      "voice": "lou",
+      "say": "Welcome.",
+      "direction": "IN UNISON WITH BOOSKIBRO, QUIETLY. Two takes mixed to land on the same frame — it is not a line and a response, and if it queues one after the other the beat dies."
+    },
+    {
+      "name": "vo.initiation.cabin.in-460-booskibro.08jlcav.1",
+      "voice": "booski",
+      "say": "Welcome.",
+      "direction": "IN UNISON WITH LOU, QUIETLY. Same frame as his."
+    },
+    {
+      "name": "vo.initiation.cabin.in-500-ape.0juxi7h.1",
+      "voice": "ape",
+      "say": "SALUD!"
+    },
+    {
+      "name": "vo.initiation.cabin.in-500-hogmama.0juxi7h.1",
+      "voice": "hogmama",
+      "say": "SALUD!"
+    },
+    {
+      "name": "vo.initiation.cabin.in-500-sasole.0juxi7h.1",
+      "voice": "lou2",
+      "say": "SALUD!"
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-eric.0gfm3yw.1",
+      "voice": "eric",
+      "say": "Salud, kid."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-snow.0k2r3sk.1",
+      "voice": "snow",
+      "say": "You’re family now."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-irish.046pkld.1",
+      "voice": "irish",
+      "say": "That’s it, brother."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-numbskull.1u7dsrm.1",
+      "voice": "numbskull",
+      "say": "He made it."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-seff.02uoq5p.1",
+      "voice": "seff",
+      "say": "Salud!"
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-hogmama.1nr42bj.1",
+      "voice": "hogmama",
+      "say": "Come here. Come here, baby."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-ape.0xst0zj.1",
+      "voice": "ape",
+      "say": "Look at his face. Look at it."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-ape.0zlwnzq.1",
+      "voice": "ape",
+      "say": "He’s gone grey. He’s actually gone grey."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-sasole.0fiu2nk.1",
+      "voice": "lou2",
+      "say": "Still top five, this one."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-lag.1aak3yu.1",
+      "voice": "lag",
+      "say": "Congrats. Genuinely."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-rippinflow.1k732ys.1",
+      "voice": "rippinflow",
+      "say": "Good. Now sit down."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-shubenator.1kfql4w.1",
+      "voice": "shubenator",
+      "say": "It’s the stove.",
+      "direction": "Still going, and now there is a stove to blame."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-gratin.09pdb6x.1",
+      "voice": "gratin",
+      "say": "There’s food. Nobody’s eating it.",
+      "direction": "THE LINE TO PROTECT. An hour ago he shot three people on their knees and now he is quietly upset that his food is going cold, and he is not doing a bit — he cooked and nobody is eating. Exactly as flat as everything else he has said tonight."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-numbskull.1cws2gf.1",
+      "voice": "numbskull",
+      "say": "I said I liked him. I said that before."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-irish.1puj0x9.1",
+      "voice": "irish",
+      "say": "The card was fine, by the way. That was a proper card."
+    },
+    {
+      "name": "vo.initiation.cabin.in-510-booskibro.1ny7ol1.1",
+      "voice": "booski",
+      "say": "SIT HIM DOWN. Somebody sit him down."
+    },
+    {
+      "name": "vo.initiation.cabin.in-520-lou.13css28.1",
+      "voice": "lou",
+      "say": "Tonight, you became one of us. That means something."
+    },
+    {
+      "name": "vo.initiation.cabin.in-520-lou.1yrqj63.1",
+      "voice": "lou",
+      "say": "It also means every move you make reflects on me... and on this family. So don’t embarrass us."
+    },
+    {
+      "name": "vo.initiation.cabin.in-520-lou.0p8y88k.1",
+      "voice": "lou",
+      "say": "And don’t think this means you get to relax. You still got work to do.",
+      "direction": "A faint smirk under this one — the first since IN-090, and very small. Lou is back, not all the way, and not tonight."
+    },
+    {
+      "name": "vo.initiation.cabin.in-530-booskibro.106nqi3.1",
+      "voice": "booski",
+      "say": "Drink. Tonight you earned it."
+    },
+    {
+      "name": "vo.initiation.cabin.in-530-prospect.1dbsrar.1",
+      "voice": "player",
+      "say": "…Cheers.",
+      "direction": "Optional, one only, and only if the player waits."
+    },
+    {
       "name": "heist.snow_friendly_fire_two",
       "voice": "snow",
       "say": "That is twice you have put that barrel across me. Pick a direction."

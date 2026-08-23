@@ -155,6 +155,7 @@ const VALID_SLOTS = (() => {
     'src/bing/club.js',
     'src/graveyard/world.js',
     'src/squatchfather/scenes/SquatchfatherScene.js',
+    'src/initiation/cabin/props.js',
     'src/mansion/scenes/MansionGrounds.js',
     'src/mansion/scenes/MansionInterior.js',
     /* 2026-08-14 checks-that-lie pass: the Enola Squatch was the one scene

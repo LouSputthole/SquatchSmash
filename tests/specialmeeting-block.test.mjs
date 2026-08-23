@@ -26,6 +26,7 @@ ensureDomShim();
 
 const THREE = await import('three');
 const { buildSpecialMeetingBlock } = await import('../src/specialmeeting/block.js');
+const { FEATURED_PICKUP_SIZE } = await import('../src/specialmeeting/featured-vehicle.js');
 const {
   SPECIAL_MEETING_GEOMETRY_STATES,
   buildSpecialMeetingRuntimeGeometry,
@@ -191,6 +192,44 @@ test('the parked cars are in the parking lane, not the travel lane', () => {
   ));
   assert.deepEqual(inTravelLane.map((box) => box.min.z.toFixed(2)), []);
   assert.ok(NORTH_PARKING_Z < EASTBOUND_LANE_Z, 'the parking lane is outside the travel lane');
+});
+
+test('the bench clears the telephone pole and the featured pickup reads as a real vehicle', () => {
+  const { block } = build();
+  const bench = named(block.group, 'block.bench')[0];
+  const poles = named(block.group, 'block.utility-pole');
+  assert.ok(bench);
+  const benchBounds = new THREE.Box3().setFromObject(bench).expandByScalar(0.08);
+  for (const pole of poles) {
+    const poleBounds = new THREE.Box3().setFromObject(pole);
+    assert.equal(benchBounds.intersectsBox(poleBounds), false, 'bench must clear every utility pole');
+  }
+  for (const wire of [
+    ...named(block.group, 'block.wire'),
+    ...named(block.group, 'block.service-drop'),
+  ]) {
+    assert.equal(benchBounds.intersectsBox(new THREE.Box3().setFromObject(wire)), false,
+      'bench must clear every telephone wire and service drop');
+  }
+
+  const pickup = named(block.group, 'featured-pickup')[0];
+  assert.ok(pickup, 'the pale south-kerb vehicle is the detailed pickup');
+  assert.deepEqual(pickup.userData.vehicle, { kind: 'pickup', ...FEATURED_PICKUP_SIZE, detailed: true });
+  assert.equal(named(pickup, 'pickup.wheel').length, 4);
+  assert.equal(named(pickup, 'pickup.headlight.left').length, 1);
+  assert.equal(named(pickup, 'pickup.headlight.right').length, 1);
+  assert.equal(named(pickup, 'pickup.taillight.left').length, 1);
+  assert.equal(named(pickup, 'pickup.taillight.right').length, 1);
+  assert.equal(named(pickup, 'pickup.grille').length, 1);
+  assert.equal(anyNameMatching(pickup, /^pickup\.door-seam\./).length, 2);
+  assert.equal(anyNameMatching(pickup, /^pickup\.handle\./).length, 2);
+  assert.equal(anyNameMatching(pickup, /^pickup\.mirror\./).filter((o) => o.isGroup).length, 2);
+  assert.equal(anyNameMatching(pickup, /^pickup\.seat\./).filter((o) => o.isGroup).length, 2);
+  for (const pane of anyNameMatching(pickup, /^pickup\.(window|windscreen|rear-window)/)) {
+    assert.equal(pane.material.transparent, true);
+    assert.equal(pane.material.depthWrite, false);
+  }
+  assert.ok(FEATURED_PICKUP_SIZE.height < 1.9, 'the former 3.7m van is back at pickup scale');
 });
 
 test('the block has no hole in it: every direction off the pavement is closed', () => {

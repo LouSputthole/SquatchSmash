@@ -43,12 +43,8 @@
  *   2. THE GROUND PLANE. Ours is a slab with a top at y = 0 rather than a
  *      zero-thickness plane, which is what lets the gate see everything on
  *      this site as resting on something. Keeping both z-fights.
- *   3. THE BONFIRE AND THE STAGE, with its purple banner and its two torches.
- *      The ceremony has moved indoors; a lit stage with a banner on it, forty
- *      feet from four people being executed in the mud, is the old scene's
- *      staging and it fights this one. `KEEP_OUT` still fences both of their
- *      footprints off from the trees, so leaving them in place is survivable
- *      while the rewrite lands — but they are not part of this night.
+ *   3. THE OLD BANNER STAGE. This site owns one bonfire beside the clearing;
+ *      keeping the legacy stage or its old fire would duplicate the anchor.
  *
  * And what it should ADD:
  *
@@ -76,7 +72,13 @@ import { buildGroundSlab, buildWoods } from './woods.js';
 export * from './site.js';
 export * from './staging.js';
 export { createCabinAmbience, footingAt, playFootstep, sayFrom } from './ambience.js';
-export { buildCeremonyProps, placeOnTable, restOn } from './props.js';
+export {
+  INITIATION_ART_SLOTS,
+  INITIATION_CARD_SLOT,
+  buildCeremonyProps,
+  placeOnTable,
+  restOn,
+} from './props.js';
 
 /**
  * Build the site.
@@ -118,6 +120,7 @@ export function buildInitiationCabinSite({
     root.add(built.group);
     colliders.push(...built.colliders);
     lights.push(...built.lights);
+    updaters.push(built.update);
   }
 
   if (cabin) {

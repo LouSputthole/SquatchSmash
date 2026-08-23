@@ -1,11 +1,16 @@
 /** Shared, side-effect-free construction for the three NO WAKE execution guns. */
 import * as THREE from 'three';
 
-import { makeNineMillimeterPistol, makeRevolver } from '../world/props.js';
+import { WEAPON_IDS } from '../core/weapons/catalog.js';
+import {
+  CHARACTER_WEAPON_MOUNT_ROTATION,
+  mountCharacterWeapon,
+} from '../core/weapons/character-mount.js';
+import { buildWeaponModel } from '../core/weapons/models.js';
 
-export const NO_WAKE_GUN_MOUNT_ROTATION = new THREE.Euler(-Math.PI / 2, 0, Math.PI);
-const NINE_MM_GRIP = new THREE.Vector3(0, -0.0377123373, 0.0557002539);
-const HAND_IN_FOREARM = new THREE.Vector3(0, -0.30, 0.005);
+/* Kept as a compatibility view for diagnostics; the immutable source is the
+ * core character mount shared by every scene. */
+export const NO_WAKE_GUN_MOUNT_ROTATION = new THREE.Euler(...CHARACTER_WEAPON_MOUNT_ROTATION);
 export const NO_WAKE_MUZZLE_FLASH_SECONDS = 0.10;
 export const NO_WAKE_TRACER_SECONDS = 0.12;
 
@@ -36,12 +41,11 @@ function buildMuzzleFlash(gun) {
   return flash;
 }
 
-function executionGun(model, name, calibre, scale = 1) {
-  const gun = model.group;
+function executionGun(weaponId, name, calibre, scale = 1) {
+  const gun = buildWeaponModel(weaponId);
   gun.name = name;
   gun.scale.setScalar(scale);
   gun.userData.weaponModel = calibre;
-  gun.userData.muzzle = model.muzzle.clone();
   buildMuzzleFlash(gun);
   return gun;
 }
@@ -52,31 +56,26 @@ export function mountNoWakeExecutionGuns({ boat, camera }) {
     throw new Error('NO WAKE execution geometry requires Lou, Booski and a camera parent');
   }
   const louGun = executionGun(
-    makeNineMillimeterPistol(null, { x: 0, y: 0, z: 0 }),
+    WEAPON_IDS.PISTOL9,
     'Lou 9mm pistol',
     '9mm semi-automatic',
     1.15,
   );
   const booskiGun = executionGun(
-    makeNineMillimeterPistol(null, { x: 0, y: 0, z: 0 }),
+    WEAPON_IDS.PISTOL9,
     'Booski 9mm pistol',
     '9mm semi-automatic',
     1.15,
   );
-  boat.cast.lou.parts.foreR.add(louGun);
-  boat.cast.booski.parts.foreR.add(booskiGun);
+  mountCharacterWeapon(boat.cast.lou, WEAPON_IDS.PISTOL9, louGun, { scale: 1.15 });
+  mountCharacterWeapon(boat.cast.booski, WEAPON_IDS.PISTOL9, booskiGun, { scale: 1.15 });
   for (const gun of [louGun, booskiGun]) {
-    gun.rotation.copy(NO_WAKE_GUN_MOUNT_ROTATION);
-    const grip = NINE_MM_GRIP.clone()
-      .multiplyScalar(gun.scale.x)
-      .applyEuler(NO_WAKE_GUN_MOUNT_ROTATION);
-    gun.position.copy(HAND_IN_FOREARM).sub(grip);
     gun.userData.basePosition = gun.position.clone();
     gun.userData.baseRotation = gun.rotation.clone();
     gun.userData.recoil = 0;
   }
   const playerGun = executionGun(
-    makeRevolver(null, { x: 0, y: 0, z: 0 }),
+    WEAPON_IDS.REVOLVER,
     'Tony revolver',
     'six-shot revolver',
     1.35,

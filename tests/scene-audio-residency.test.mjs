@@ -29,12 +29,16 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+function readSource(relativeFile) {
+  return fs.readFileSync(path.join(ROOT, relativeFile), 'utf8').replace(/\r\n/g, '\n');
+}
+
 /**
  * Recorded cue names requested with literal play/startLoop calls in a scene.
  * Dynamic dialogue calls are covered separately from the authored catalog.
  */
 function staticAudioCueNames(relativeFile) {
-  const source = fs.readFileSync(path.join(ROOT, relativeFile), 'utf8');
+  const source = readSource(relativeFile);
   const names = new Set();
   const call = /audio\.(play|startLoop)\(([^;]*?)\);/gs;
   for (const match of source.matchAll(call)) {
@@ -196,7 +200,7 @@ test('residency banks: a failed bank still settles, so a beat boundary can never
 /* ---------------- the Mansion ---------------- */
 
 test('Mansion: every script scope is banked, and no scope is banked twice', () => {
-  const scriptSource = fs.readFileSync(path.join(ROOT, 'src/mansion/script.js'), 'utf8');
+  const scriptSource = readSource('src/mansion/script.js');
   const minted = new Set([...scriptSource.matchAll(/cue\('([a-z]+)'/g)].map((match) => match[1]));
   assert.ok(minted.size >= 20, `expected the whole script, saw ${minted.size} scopes`);
   const banked = [...MANSION_START_SCOPES, ...MANSION_NEXT_BEAT_SCOPES, ...MANSION_BACKGROUND_SCOPES];
@@ -243,8 +247,8 @@ test('Mansion: the opening walk is start-bank, the basement is nextBeat, the eve
 });
 
 test('Mansion: the cellar boundary awaits by construction — zones held, resume paths awaited', () => {
-  const mainSource = fs.readFileSync(path.join(ROOT, 'src/mansion/main.js'), 'utf8');
-  const mountSource = fs.readFileSync(path.join(ROOT, 'src/mansion/mission/mount.js'), 'utf8');
+  const mainSource = readSource('src/mansion/main.js');
+  const mountSource = readSource('src/mansion/mission/mount.js');
 
   /* Every zone that begins a basement beat is in the held set. */
   for (const id of ['cellar', 'bust', 'corridor', 'xxx', 'observation', 'stairs', 'cellarTop', 'officeReturn']) {
@@ -327,7 +331,7 @@ test('Enola Squatch: the dispatch gate holds a beat\'s first line until its bank
   assert.ok(dialogue.current, 'the beat begins on the first tick after the bank settles');
   assert.equal(said.length, 1);
   /* And the wiring in main.js actually is this gate. */
-  const mainSource = fs.readFileSync(path.join(ROOT, 'src/enolasquatch/main.js'), 'utf8');
+  const mainSource = readSource('src/enolasquatch/main.js');
   assert.match(mainSource, /canSpeak: \(line\) => !audioBanks\.pending\(enolaBankOfCue\(line\.cue\)\)/);
   assert.match(mainSource, /audioBanks\.kickoff\(\)/);
 });
@@ -376,7 +380,7 @@ test('Palace: every static scene sound is start-bank; the finale speech is the d
   }
   assert.ok(coveredBy('ambience.city.night', PALACE_BACKGROUND_BANK));
 
-  const mainSource = fs.readFileSync(path.join(ROOT, 'src/cartel-palace/main.js'), 'utf8');
+  const mainSource = readSource('src/cartel-palace/main.js');
   /* Await-at-the-boundary: the dining door owes the finale bank its await
    * BEFORE the door swings and the beat begins. */
   const awaitAt = mainSource.indexOf('await audioBanks.whenNextBeat();');
@@ -478,6 +482,6 @@ test('Palace acoustics: room transitions crossfade gains monotonically and never
   assert.ok(volumeOps[volumeOps.length - 1].ramp <= 0.1,
     'a restore re-asserts, it does not replay a doorway crossfade');
   /* And the retry path in main.js actually calls it after the restore. */
-  const mainSource = fs.readFileSync(path.join(ROOT, 'src/cartel-palace/main.js'), 'utf8');
+  const mainSource = readSource('src/cartel-palace/main.js');
   assert.match(mainSource, /restoreCombatCheckpoint\(snapshot\);\n\s+\/\* Gains re-asserted[^]*?acoustics\.refresh\(player\.position\);/);
 });

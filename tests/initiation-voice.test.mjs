@@ -14,6 +14,7 @@ import {
   voicedAmbientLine,
 } from '../src/initiation/npc.js';
 import * as initiationAudio from '../src/initiation/audio.js';
+import { scriptCues } from '../src/initiation/script.js';
 import {
   initiationManifestCues,
   initiationManifestDrift,
@@ -86,13 +87,16 @@ test('party greetings and ambient exchanges expose their exact delivery cues', (
   );
 });
 
-test('the Initiation manifest catalog contains every ceremony and party delivery exactly once', () => {
+test('the Initiation manifest catalog contains ceremony, party, and active cabin delivery exactly once', () => {
   const cues = initiationManifestCues();
+  const cabin = scriptCues();
 
-  assert.equal(cues.length, 148);
+  assert.equal(cues.length, 148 + cabin.length);
   assert.equal(new Set(cues.map((cue) => cue.name)).size, cues.length);
   assert.equal(cues.every((cue) => cue.name.startsWith('vo.initiation.')), true);
   assert.equal(cues.every((cue) => cue.voice && cue.say), true);
+  const byName = new Map(cues.map((cue) => [cue.name, cue]));
+  for (const cue of cabin) assert.deepEqual(byName.get(cue.name), cue);
 });
 
 test('Initiation manifest drift separates missing, stale, text and voice changes', () => {

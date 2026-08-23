@@ -253,7 +253,7 @@ test('documented focused state command succeeds with a multi-state scene allowli
   const run = spawnSync(process.execPath, [
     'tools/verify-geometry.mjs',
     '--state',
-    'cartel-palace:approach',
+    'graveyard:arrival',
   ], {
     cwd: ROOT,
     encoding: 'utf8',

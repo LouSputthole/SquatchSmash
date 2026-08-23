@@ -98,11 +98,12 @@ unusually vague, and **Willy gone from his contacts and messages**. The player
 should know something is wrong before knowing what.
 
 **NO WAKE — built and connected.** The boat: dock, board with Lou Sputthole,
-Booski, Willy and the Prospect, open water, conversation souring, Willy's
-betrayal revealed, the others prepare, they shoot him, body disposal, and a
-silent ride back. The emotional low point — the restaurant's dead were
-enemies; Willy was one of them. Willy's permanent large-belly model is shared
-with his earlier appearance so his body does not change between scenes.
+Booski, Willy and the Prospect, open water, conversation souring, the family
+presenting Willy as the traitor, the others preparing, shooting him, disposing
+of the body, and riding back in silence. At this point Tony and the family
+believe they killed an enemy. The Palace evidence later proves they killed the
+wrong man and clears Willy posthumously. Willy's permanent large-belly model is
+shared with his earlier appearance so his body does not change between scenes.
 
 **Front and Center.** The Copacabana date with Margo, deliberately placed
 after the hit for the tonal whiplash: that afternoon he killed a friend; that
@@ -351,8 +352,11 @@ Presented as a rescue. It is not one.
 
 **The truth the player discovers on site:** Sauce was never a prisoner. He
 moves freely, he is armed, he is treated as a guest, and he helped set the
-whole thing up — the attack, the story, the operation. The rescue becomes an
-elimination. **Mark is the cartel boss.** Both of them are targets by the end.
+whole thing up — the attack, the story, the operation. The complete evidence
+trail also proves the inside leak continued after Willy's death: Willy was not
+the rat, Sauce was, and Sauce had help inside the organization. The rescue
+becomes an elimination. **Mark is the cartel boss.** Both of them are targets
+by the end.
 
 Staged, not announced: documents, radio chatter, photographs, guard
 conversation, his own belongings, security footage, and finally Sauce sitting
@@ -380,8 +384,12 @@ Full direction: `docs/MANSION-SIEGE-NIGHT.md` PARTS X–XIII.
 
 **Initiation is the ending scene, not the final mission.** The cartel palace
 is the last thing the player fights through; Initiation is what the campaign
-resolves into afterwards. It is already built and it is not to be altered
-before the owner's playtest.
+resolves into afterwards. The clearing now makes the Palace finding explicit:
+Willy is cleared, Sauce's unidentified inside help forces the nuclear option,
+and every remaining prospect kneels. Prospect Three, Four, Five, and Kittenboss
+are executed in Tony's view. Gratin then aims at Tony; Big Uncle Lou stops him
+with "Stop. This one is good." Tony alone is taken to the cabin because the
+family is at quota and only one place remains.
 
 ### What already exists and can be reused
 

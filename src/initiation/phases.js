@@ -41,6 +41,23 @@
 export const ADVANCE_KINDS = Object.freeze(['player', 'timer', 'event', 'input']);
 
 /**
+ * Which side of the camera/control Seam owns the frame.
+ *
+ * `playable` and `look-only` are both first person through the shared Player;
+ * only `cutscene` hands the camera to main.js's authored shot table.
+ */
+export const CONTROL_MODES = Object.freeze({
+  PLAYABLE: 'playable',
+  LOOK_ONLY: 'look-only',
+  CUTSCENE: 'cutscene',
+});
+
+export const PLAYER_POSES = Object.freeze({
+  STANDING: 'standing',
+  KNEELING: 'kneeling',
+});
+
+/**
  * Every camera mode `main.js` implements.
  *
  * The test asserts each of these appears in `main.js`'s camera table, which is
@@ -74,8 +91,17 @@ const OBJ_PRESS = 'Press <span class="key">(Space / Click)</span>';
 const OBJ_REPEAT = 'Repeat the words <span class="key">(Space / Click)</span>';
 const OBJ_HOLD = 'HOLD <span class="key">(Space / Click)</span>';
 
+const CABIN_CUTSCENE_CAMERAS = new Set([
+  'room', 'oath', 'ritual', 'room_wide', 'pullback', 'black', 'hold',
+]);
+
 function phase(id, spec) {
   const exits = Object.freeze([...(spec.exits ?? [])]);
+  const control = spec.control ?? (spec.canMove
+    ? CONTROL_MODES.PLAYABLE
+    : CABIN_CUTSCENE_CAMERAS.has(spec.camera)
+      ? CONTROL_MODES.CUTSCENE
+      : CONTROL_MODES.LOOK_ONLY);
   return Object.freeze({
     id,
     /** HUD string, or '' for the scene's watch-this convention. */
@@ -85,6 +111,8 @@ function phase(id, spec) {
     /** Seconds. `null` only where `advance` is 'player' or 'input'. */
     timeout: spec.timeout ?? null,
     canMove: spec.canMove === true,
+    control,
+    playerPose: spec.playerPose ?? PLAYER_POSES.STANDING,
     terminal: spec.terminal === true,
     /** True while the scene is showing a choice on `#quiz`. */
     choice: spec.choice === true,
@@ -144,7 +172,7 @@ export const PHASES = Object.freeze({
     camera: 'q2', advance: 'event', timeout: 40, exits: ['q2_correct', 'exec_player'],
   }),
   q2_correct: phase('q2_correct', {
-    camera: 'q2', advance: 'event', timeout: 40, beat: 'IN-090', exits: ['clear_line'],
+    camera: 'q2', advance: 'event', timeout: 40, beat: 'IN-090', exits: ['conspiracy_reveal'],
   }),
 
   /* ---- FAIL-A, entirely unchanged ---- */
@@ -155,40 +183,30 @@ export const PHASES = Object.freeze({
     camera: 'hold', advance: 'input', card: true, exits: ['q2_choice'],
   }),
 
-  /* ---- ACT TWO ---- */
-  clear_line: phase('clear_line', {
-    camera: 'clearing', advance: 'timer', timeout: 2.2, beat: 'IN-100', exits: ['exec_setup'],
+  /* ---- ACT TWO: the nuclear option ---- */
+  conspiracy_reveal: phase('conspiracy_reveal', {
+    camera: 'clearing', advance: 'event', timeout: 45,
+    beat: 'IN-100', exits: ['mass_kneel'],
   }),
-  exec_setup: phase('exec_setup', {
-    camera: 'clearing', advance: 'event', timeout: 30, beat: 'IN-110', exits: ['exec_prospect'],
+  mass_kneel: phase('mass_kneel', {
+    camera: 'clearing', advance: 'event', timeout: 30,
+    playerPose: PLAYER_POSES.KNEELING,
+    beat: 'IN-110', exits: ['execution_sweep'],
   }),
-  /**
-   * One phase for all four. The victim, the mark, the man behind them and the
-   * man beside them all come from executions.js.
-   *
-   * SIXTY SECONDS is a watchdog and not a pace. The longest of the four —
-   * Prospect Three, who argues the whole way out — is about forty seconds of
-   * walking and talking, and the beat is meant to be unbearable rather than
-   * brisk. This number exists so that a lost callback ends the night instead of
-   * leaving a man on his knees and the objective bar empty.
-   */
-  exec_prospect: phase('exec_prospect', {
-    camera: 'kneel_exec', advance: 'event', timeout: 60,
-    exits: ['exec_gap', 'exec_reload', 'exec_done'],
+  execution_sweep: phase('execution_sweep', {
+    camera: 'kneel_exec', advance: 'event', timeout: 30,
+    playerPose: PLAYER_POSES.KNEELING,
+    exits: ['execution_sweep', 'player_aim'],
   }),
-  exec_gap: phase('exec_gap', {
-    camera: 'line', advance: 'input', timeout: 5, choice: true,
-    beat: 'IN-180', exits: ['exec_gap_reply'],
+  player_aim: phase('player_aim', {
+    camera: 'clearing', advance: 'event', timeout: 30,
+    playerPose: PLAYER_POSES.KNEELING,
+    beat: 'IN-160', exits: ['lou_interrupt'],
   }),
-  exec_gap_reply: phase('exec_gap_reply', {
-    camera: 'line', advance: 'event', timeout: 14,
-    exits: ['exec_prospect', 'exec_reload'],
-  }),
-  exec_reload: phase('exec_reload', {
-    camera: 'kneel_exec', advance: 'event', timeout: 24, beat: 'IN-140', exits: ['exec_prospect'],
-  }),
-  exec_done: phase('exec_done', {
-    camera: 'clearing', advance: 'event', timeout: 30, beat: 'IN-170', exits: ['walk_out'],
+  lou_interrupt: phase('lou_interrupt', {
+    camera: 'clearing', advance: 'event', timeout: 30,
+    playerPose: PLAYER_POSES.KNEELING,
+    beat: 'IN-170', exits: ['walk_out'],
   }),
 
   /* ---- ACT THREE ---- */
@@ -341,12 +359,7 @@ export function stallablePhases() {
   });
 }
 
-/** The order the four kneeling executions run in, as phase transitions. */
+/** The nuclear-option execution phases in their authored order. */
 export function executionCycle(count) {
-  const cycle = [];
-  for (let i = 0; i < count; i++) {
-    cycle.push('exec_prospect');
-    if (i < count - 1) cycle.push('exec_gap', 'exec_gap_reply');
-  }
-  return cycle;
+  return ['mass_kneel', ...Array(count).fill('execution_sweep'), 'player_aim', 'lou_interrupt'];
 }

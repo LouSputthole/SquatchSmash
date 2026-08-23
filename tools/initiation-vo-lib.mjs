@@ -1,11 +1,26 @@
 import { allCeremonyVoiceLines } from '../src/initiation/dialogue.js';
 import { allNpcVoiceLines } from '../src/initiation/npc.js';
+import { allCabinVoiceLines } from '../src/initiation/script.js';
 import { uniqueInitiationVoiceLines } from '../src/initiation/voice.js';
+
+function manifestRecord(line) {
+  const cue = { name: line.cue, voice: line.voice, say: line.say };
+  if (line.direction) cue.direction = line.direction;
+  return cue;
+}
+
+/** Active cabin-only records used by the recording handoff. */
+export function initiationCabinManifestCues() {
+  return uniqueInitiationVoiceLines(allCabinVoiceLines()).map(manifestRecord);
+}
 
 /** Exact manifest records for every actor-readable Initiation subtitle. */
 export function initiationManifestCues() {
-  return uniqueInitiationVoiceLines(allCeremonyVoiceLines(), allNpcVoiceLines())
-    .map((line) => ({ name: line.cue, voice: line.voice, say: line.say }));
+  return uniqueInitiationVoiceLines(
+    allCeremonyVoiceLines(),
+    allNpcVoiceLines(),
+    allCabinVoiceLines(),
+  ).map(manifestRecord);
 }
 
 export function initiationVoiceProfileGaps(manifest, expected = initiationManifestCues()) {

@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { makePerson } from '../bing/cast.js';
 import { Mouth } from '../core/mouth.js';
+import { WEAPON_IDS } from '../core/weapons/catalog.js';
+import { mountCharacterWeapon } from '../core/weapons/character-mount.js';
+import { buildWeaponModel } from '../core/weapons/models.js';
 import { makePlateCarrier } from './weapons.js';
 
 /**
@@ -619,22 +622,9 @@ export function makeBankGuardFigure({ name, x, z, yaw, height = HEIST_HEIGHTS.gu
   holster.name = `${name}-holster`;
   figure.parts.body.add(holster);
 
-  const gun = new THREE.Group();
-  gun.name = `${name}-gun`;
-  const steel = new THREE.MeshStandardMaterial({ color: 0x2e3338, metalness: 0.7, roughness: 0.36 });
-  const slide = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.034, 0.15), steel);
-  gun.add(slide);
-  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.085, 0.036), dark);
-  grip.position.set(0, -0.055, 0.042);
-  grip.rotation.x = -0.22;
-  gun.add(grip);
+  const gun = buildWeaponModel(WEAPON_IDS.PISTOL9);
   gun.visible = false;
-  /* In the hand, and rotated so the muzzle runs down the forearm: -Z is the
-   * project's muzzle axis, rotation.x = -PI/2 maps it to -Y, and raising the
-   * arm then points it where the man is looking. */
-  gun.position.set(0, -0.32, 0.03);
-  gun.rotation.x = -Math.PI / 2;
-  figure.parts.foreR.add(gun);
+  mountCharacterWeapon(figure, WEAPON_IDS.PISTOL9, gun, { name: `${name}-gun` });
 
   const root = figure.root;
   root.userData.setThreatProgress = (progress) => {
@@ -731,21 +721,11 @@ export function makePoliceFigure({ name, x, z, yaw, index = 0 }) {
   stripe.position.set(0, 1.14, 0.16);
   figure.parts.body.add(stripe);
 
-  const gun = new THREE.Group();
-  gun.name = `${name}-weapon`;
-  const steel = new THREE.MeshStandardMaterial({ color: 0x2b3035, metalness: 0.68, roughness: 0.4 });
-  gun.add(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 0.24), steel));
-  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.09, 0.034), vestMat);
-  grip.position.set(0, -0.055, 0.075);
-  gun.add(grip);
-  gun.position.set(0, -0.32, 0.03);
-  gun.rotation.x = -Math.PI / 2;
-  /* The muzzle end of the 0.24 m slide, on the project's -Z bore axis. The
-   * shared `CombatWeaponAim` samples this to steer the visible gun and to give
-   * `CombatFireControl` the true origin of every round — an officer's shot now
-   * leaves his weapon, not an invented point 1.35 m over his feet. */
-  gun.userData.muzzle = new THREE.Vector3(0, 0, -0.12);
-  figure.parts.foreR.add(gun);
+  const gun = buildWeaponModel(WEAPON_IDS.PISTOL9);
+  /* Shared catalog geometry, muzzle contract and hand mount. CombatWeaponAim
+   * still owns the live bore; it now begins from the same right-side-up rest
+   * quaternion as every other character weapon. */
+  mountCharacterWeapon(figure, WEAPON_IDS.PISTOL9, gun, { name: `${name}-weapon` });
 
   figure.aiming();
   figure.root.userData.weapon = gun;

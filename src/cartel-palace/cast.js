@@ -4,6 +4,7 @@ import { CombatActor } from '../core/combat/actors.js';
 import { FACTIONS } from '../core/combat/factions.js';
 import { SAUCE } from '../core/wardrobe.js';
 import { WEAPON_IDS } from '../core/weapons/catalog.js';
+import { mountCharacterWeapon } from '../core/weapons/character-mount.js';
 import { buildWeaponModel } from '../core/weapons/models.js';
 import { HeistFigure } from '../heist/people.js';
 import { CombatArmorPresentation } from '../world/combat-armor.js';
@@ -171,20 +172,15 @@ const MARK_LOOK = Object.freeze({
  *   model -Z (bore)   -> forearm -Y   (unchanged: aiming still starts right)
  *   model +Y (sights) -> forearm +Z   (which is world UP in the armed pose)
  *
- * Three.js's default Euler order is XYZ, i.e. R = Rx * Ry * Rz, so
- * `set(-PI/2, 0, PI)` is exactly Rx(-90) . Rz(180). `restGunQuaternion` is
- * cloned off this model in PalaceSecurity's constructor, so the rest pose it
- * restores after a reload or a flinch picks the correction up for free.
+ * The rotation and per-model grip anchor now live in the shared character
+ * mount. `restGunQuaternion` is cloned off this model in PalaceSecurity's
+ * constructor, so the rest pose it restores after a reload or a flinch keeps
+ * the correction for free.
  */
 function attachWeapon(figure, weaponId, name) {
   let model = null;
   try { model = buildWeaponModel(weaponId); } catch { return null; }
-  model.name = name;
-  model.position.set(0, -0.3, 0.05);
-  model.rotation.set(-Math.PI / 2, 0, Math.PI);
-  model.scale.setScalar(0.84);
-  figure.parts.foreR.add(model);
-  return model;
+  return mountCharacterWeapon(figure, weaponId, model, { name, scale: 0.84 });
 }
 
 function armedPose(figure) {

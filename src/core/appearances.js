@@ -68,6 +68,7 @@
  */
 
 import { CHARACTER_IDS, SCENE_IDS } from './campaign.js';
+import { formalMeetingModel } from './formal-appearance.js';
 import { BILLY_HOTDOG_MODEL } from './hotdog-model.js';
 import { APE_FAMILY_MEMBER } from '../bing/family-ape.js';
 import { BING_BLACKJACK_DEALER } from '../bing/cast.js';
@@ -257,10 +258,10 @@ export const SCENES = Object.freeze({
     short: 'Meeting',
     rig: 'bing',
     modules: Object.freeze(['src/specialmeeting/cast.js']),
-    note: 'Four bodies, and not one of them is dressed for the occasion. '
-      + 'Numbskull and Kittenboss are canonical wardrobe models; Seff and Lag '
-      + 'come through the Bing roster the way the Mansion takes them, because '
-      + 'the ledger has already decided their clothes live there. The rig is '
+    note: 'Four canonical bodies in restrained scene-variant formal suits. '
+      + 'Numbskull and Kittenboss keep their wardrobe identities; Seff and Lag '
+      + 'keep the bodies defined by the Bing roster. The formalMeetingModel '
+      + 'adapter changes garments for this night without changing canon. The rig is '
       + "the Bing's because this is a night street under two sodium lamps and "
       + 'a dome light, which is the nearest of the three to what it is played '
       + 'in. Kittenboss is creased, and creases are not a garment flag: the '
@@ -331,7 +332,7 @@ export const CAMPAIGN_SCENE_COVERAGE = Object.freeze({
     ['src/cartel-palace/cast.js'], 'Four guard variants, Mark and Sauce are catalogued from the final mission cast.'),
   [SCENE_IDS.SPECIAL_MEETING]: coverage(SCENE_IDS.SPECIAL_MEETING, 'appearance-ledger', ['special_meeting'],
     ['src/specialmeeting/cast.js'],
-    'Four bodies on one block: Numbskull and Kittenboss from the canonical wardrobe, Seff and Lag pulled through the Bing roster exactly as the Mansion takes them. Kittenboss is the scene\'s new identity and her row is her first.',
+    'Four canonical bodies on one block, each passed through the shared restrained-formal scene adapter. Kittenboss is the scene\'s new identity and her row is her first.',
     [{ scene: 'special_meeting', character: CHARACTER_IDS.KITTENBOSS }]),
   [SCENE_IDS.INITIATION]: coverage(SCENE_IDS.INITIATION, 'frozen', [],
     ['src/initiation/main.js'], 'Initiation is classified but unavailable: its runtime is frozen pending owner playtest and is neither imported nor reconstructed.'),
@@ -779,6 +780,10 @@ const BING_LAG = Object.freeze({
   height: 1.74, build: 0.9, dress: 'tracksuit', shirt: 0x1f3a2a,
   hair: 'crop', hairColour: 0x2a1c14, glasses: true, skin: 0xe8c39c,
 });
+const SPECIAL_MEETING_SEFF = formalMeetingModel(CHARACTER_IDS.SEFF, BING_SEFF);
+const SPECIAL_MEETING_LAG = formalMeetingModel(CHARACTER_IDS.LAG, BING_LAG);
+const SPECIAL_MEETING_NUMBSKULL = formalMeetingModel(CHARACTER_IDS.NUMBSKULL, NUMBSKULL);
+const SPECIAL_MEETING_KITTENBOSS = formalMeetingModel(CHARACTER_IDS.KITTENBOSS, KITTENBOSS);
 
 /* ---- Lou's fixed Mansion performer variants -------------------------
  *
@@ -2075,10 +2080,10 @@ export const APPEARANCES = Object.freeze([
    * The bridge between the Palace and the fire. Three established Squatches
    * and one other prospect, in and around one sedan on one wet block.
    *
-   * Seff and Lag are the ledger's standing exception: their clothes are typed
+   * Seff and Lag are the ledger's standing exception: their bodies are typed
    * inline on the Bing roster rather than promoted into the wardrobe, and
-   * `src/specialmeeting/cast.js` pulls them straight out of `FAMILY` rather
-   * than restating anything, exactly as `src/mansion/cast.js` does. This is
+   * `src/specialmeeting/cast.js` pulls them straight out of `FAMILY` before
+   * passing them through the same formal adapter as the wardrobe bodies. This is
    * now their third building, so the case for promoting both men into
    * `src/core/wardrobe.js` is stronger than it was — but that is a ledger-wide
    * change (every Bing, party and mansion row flips its `from` shape with it)
@@ -2090,8 +2095,8 @@ export const APPEARANCES = Object.freeze([
     name: 'Seff',
     scene: 'special_meeting',
     where: 'the driver\'s seat, leaning across to say hello, and never once getting out until the woods',
-    model: BING_SEFF,
-    from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.SEFF, 'model'] },
+    model: SPECIAL_MEETING_SEFF,
+    from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.SEFF, 'model'], adapter: 'formalMeetingModel' },
     module: 'src/specialmeeting/cast.js',
     evidence: 'characterId: CHARACTER_IDS.SEFF,',
   }),
@@ -2100,8 +2105,8 @@ export const APPEARANCES = Object.freeze([
     name: 'Lag',
     scene: 'special_meeting',
     where: 'the front passenger seat when the car arrives, and the seat behind the driver by the time it leaves',
-    model: BING_LAG,
-    from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.LAG, 'model'] },
+    model: SPECIAL_MEETING_LAG,
+    from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.LAG, 'model'], adapter: 'formalMeetingModel' },
     module: 'src/specialmeeting/cast.js',
     evidence: 'characterId: CHARACTER_IDS.LAG,',
   }),
@@ -2110,8 +2115,8 @@ export const APPEARANCES = Object.freeze([
     name: 'Numbskull',
     scene: 'special_meeting',
     where: 'holding the front passenger door open, then directly behind the Prospect for the whole drive',
-    model: NUMBSKULL,
-    from: { wardrobe: 'NUMBSKULL' },
+    model: SPECIAL_MEETING_NUMBSKULL,
+    from: { wardrobe: 'NUMBSKULL', adapter: 'formalMeetingModel' },
     module: 'src/specialmeeting/cast.js',
     evidence: "if (key === 'numbskull') return { ...WARDROBE.numbskull };",
   }),
@@ -2120,14 +2125,14 @@ export const APPEARANCES = Object.freeze([
     name: 'Kittenboss',
     scene: 'special_meeting',
     where: 'the boot of the car, and afterwards on the trail beside the other prospect',
-    model: KITTENBOSS,
-    from: { wardrobe: 'KITTENBOSS' },
+    model: SPECIAL_MEETING_KITTENBOSS,
+    from: { wardrobe: 'KITTENBOSS', adapter: 'formalMeetingModel' },
     module: 'src/specialmeeting/cast.js',
     evidence: "if (key === 'kittenboss') return { ...WARDROBE.kittenboss };",
     /* She was told to put on something decent and she did. The scene's own
      * direction is that it is extremely creased, which is a note for the
      * animator and the writer and not a field on a model — so the ledger
-     * carries the shirt and says so here rather than inventing a flag.
+     * carries the formal variant and says so here rather than inventing a flag.
      *
      * This row said "he" until 2026-08-20, and so did the model it points at.
      * Kittenboss is a woman: `WARDROBE.kittenboss` now carries

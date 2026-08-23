@@ -71,7 +71,7 @@ files under `src/initiation/` are changed by this gate.
 
 ```powershell
 npm run verify:geometry -- --scene mansion-siege
-npm run verify:geometry -- --state cartel-palace:open
+npm run verify:geometry -- --state graveyard:arrival
 node tools/verify-geometry.mjs --scene golf --json
 ```
 

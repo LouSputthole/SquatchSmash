@@ -24,6 +24,7 @@ import {
   CHARACTER_IDS, SCENE_IDS, TIME_EVENT_IDS, createCampaign,
 } from '../src/core/campaign.js';
 import { CHARACTER_REGISTRY } from '../src/core/characters.js';
+import { formalMeetingModel } from '../src/core/formal-appearance.js';
 import { WARDROBE, KITTENBOSS } from '../src/core/wardrobe.js';
 import { APPEARANCES, CAMPAIGN_SCENE_COVERAGE, SCENES } from '../src/core/appearances.js';
 import {
@@ -388,7 +389,8 @@ test('Kittenboss has canonical clothes and a wardrobe-ledger row', () => {
   const rows = APPEARANCES.filter((row) => row.character === CHARACTER_IDS.KITTENBOSS);
   assert.equal(rows.length, 1, 'exactly one appearance, and it is this scene');
   assert.equal(rows[0].scene, 'special_meeting');
-  assert.equal(rows[0].model, KITTENBOSS, 'the ledger points at the frozen model itself');
+  assert.deepEqual(rows[0].model, formalMeetingModel(CHARACTER_IDS.KITTENBOSS, KITTENBOSS),
+    'the ledger points at her canonical body in the shared formal scene variant');
   assert.match(rows[0].where, /boot|trunk/i, 'and says where she is');
 
   /* SHE. The scene was authored with Kittenboss written as a man and the body

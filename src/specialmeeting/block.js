@@ -42,6 +42,7 @@ import * as THREE from 'three';
 import { asphalt, brick, lit, neonText, printed, tiled } from '../bing/kit.js';
 import { makeCar, makeVehicleCollider } from '../bing/vehicles.js';
 import { box, boxFrom, collider, cylinder, group, mat } from '../world/build.js';
+import { buildFeaturedPickup } from './featured-vehicle.js';
 import {
   ALLEY,
   APARTMENT,
@@ -959,7 +960,9 @@ export function buildSpecialMeetingBlock(scene, { registerLight = null } = {}) {
   /* ---------------------------------------------------------------- */
   const kerbRnd = seeded(0x71c4d9);
   for (const spot of PARKED_AT_KERB) {
-    const car = makeCar(spot.kind, spot.colour, { dented: !!spot.dented });
+    const car = spot.featured
+      ? buildFeaturedPickup({ colour: spot.colour })
+      : makeCar(spot.kind, spot.colour, { dented: !!spot.dented });
     const z = spot.side === 'north' ? NORTH_PARKING_Z : SOUTH_PARKING_Z;
     car.group.position.set(spot.x, 0, z);
     car.group.rotation.y = (spot.side === 'north' ? 0 : Math.PI) + (kerbRnd() - 0.5) * 0.05;
@@ -1006,11 +1009,14 @@ export function buildSpecialMeetingBlock(scene, { registerLight = null } = {}) {
   }
   bench.add(box({ name: 'bench.seat', size: [2.6, 0.09, 0.54], pos: [0, 0.48, 0], mat: MAT.wood }));
   bench.add(box({ name: 'bench.back', size: [2.6, 0.42, 0.08], pos: [0, 0.72, -0.23], mat: MAT.wood }));
-  bench.position.set(-3.4, ROAD.kerbHeight, kerbLineSouth + 0.5);
+  /* The old bay centred on x=-3.4 and physically wrapped round the x=-4
+   * telephone pole. Move the whole fixture west, still outside the
+   * laundromat, and keep its collider on the exact same authored footprint. */
+  bench.position.set(-7.2, ROAD.kerbHeight, kerbLineSouth + 0.5);
   bench.rotation.y = Math.PI;
   own(bench, 'bench', { checkSupport: false });
   add(bench);
-  solid(-4.8, kerbLineSouth + 0.2, -2, kerbLineSouth + 0.8, 0, 1.0);
+  solid(-8.6, kerbLineSouth + 0.2, -5.8, kerbLineSouth + 0.8, 0, 1.0);
 
   for (const [nx, colour] of [[-11.4, 0x2a4a3a], [-10.7, 0x5a3a20]]) {
     const stand = group('block.newspaper-box');

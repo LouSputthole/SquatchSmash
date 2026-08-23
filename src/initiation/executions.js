@@ -1,17 +1,13 @@
 /**
- * INITIATION NIGHT — who is walked out, by whom, onto which mark, and who is
- * standing behind them when it happens.
+ * INITIATION NIGHT — who kneels, who is executed, and who walks away.
  *
  * ═══════════════════════════════════════════════════════════════════════
  * ONE KILLING PATH
  *
- * `main.js`'s `startExecution()` is the only thing in this scene that kills
- * anybody, and it stays that way. What it gained for the rewrite is two
- * optional fields — a named `shooter` instead of "whichever member happens to
- * be nearest", and a `stance` to walk him to instead of "two point two metres
- * away, facing the target". Prospect One goes through it with neither, exactly
- * as he does today: standing, frontal, eight rounds. The four that follow go
- * through it with both: kneeling, from behind, one round.
+ * `main.js`'s execution primitive is the only thing in this scene that kills
+ * anybody. Prospect One still receives the deliberately excessive frontal
+ * barrage. The three doomed prospects then receive one round each. Tony's
+ * threat carries zero rounds and Kittenboss never enters the fatal array.
  *
  * That contrast is the horror and it is deliberate. The first one is temper.
  * The rest is work.
@@ -57,6 +53,9 @@ export const LINE_UP = Object.freeze([
   }),
 ]);
 
+/** Lou stops the revolver on Tony. He is the only surviving prospect. */
+export const SURVIVORS = Object.freeze(['PROSPECT TWO']);
+
 /**
  * Prospect One.
  *
@@ -70,91 +69,76 @@ export const STANDING_EXECUTION = Object.freeze({
   victim: 'PROSPECT ONE',
   mark: STAND_MARK,
   shooter: 'SEFF',
+  weapon: 'revolver',
   kneeling: false,
   rounds: 8,
 });
 
 /**
- * The four, IN THE ORDER THEY ARE USED.
+ * The four fatal kneeling shots, IN THE ORDER THEY ARE USED.
  *
- * ONE ROUND EACH. Eight rounds apiece is twenty-five seconds of shooting and
- * it turns four murders into a montage; one round each is the owner's "one at
- * a time" and it is also what leaves room for the silence between them, which
- * is where the whole act lives.
- *
- * `walker` is who goes down the line and brings them out, and it is Gratin
- * every time. `shooter` is who is standing behind them, and it changes hands
- * once, at IN-140, when the pistol is empty — Seff takes the first two, Gratin
- * takes the last two. `second` is whoever is not shooting; he stands on the
- * mark's escort stance, out of the player's line of sight.
+ * Everyone is already kneeling before the first entry runs. `shooter` and
+ * `second` are explicit so presentation never chooses an executioner by
+ * proximity. Tony's later aim is deliberately separate.
  */
 export const KNEELING_EXECUTIONS = Object.freeze([
   Object.freeze({
     index: 0, beat: 'IN-120', victim: 'PROSPECT THREE', markId: 'kneel-1',
-    walker: 'GRATIN', shooter: 'SEFF', second: 'GRATIN', rounds: 1, kneeling: true,
-    /* He does not move. Gratin has to come and stand in front of him and wait,
-     * and waiting wins — which is the only reason his argument gets to run. */
-    stepsOutEarly: false,
-    gapAfter: true, reloadAfter: false,
+    shooter: 'GRATIN', second: 'SEFF', weapon: 'revolver', rounds: 1, kneeling: true,
   }),
   Object.freeze({
     index: 1, beat: 'IN-130', victim: 'PROSPECT FOUR', markId: 'kneel-2',
-    walker: 'GRATIN', shooter: 'SEFF', second: 'GRATIN', rounds: 1, kneeling: true,
-    /* He steps out before Gratin reaches him. He understood three minutes ago
-     * and he has had three minutes with it. */
-    stepsOutEarly: true,
-    /* The pistol is empty after this one. The gap comes first, then IN-140. */
-    gapAfter: true, reloadAfter: true,
+    shooter: 'GRATIN', second: 'SEFF', weapon: 'revolver', rounds: 1, kneeling: true,
   }),
   Object.freeze({
     index: 2, beat: 'IN-145', victim: 'PROSPECT FIVE', markId: 'kneel-3',
-    walker: 'GRATIN', shooter: 'GRATIN', second: 'SEFF', rounds: 1, kneeling: true,
-    /* He comes out before he is called, because being liked is the only skill
-     * he has ever had. In practice he is already on the mark: he is brought
-     * out at the reload and kneels through all of it. */
-    stepsOutEarly: true,
-    gapAfter: true, reloadAfter: false,
+    shooter: 'GRATIN', second: 'SEFF', weapon: 'revolver', rounds: 1, kneeling: true,
   }),
   Object.freeze({
-    index: 3, beat: 'IN-160', victim: 'KITTENBOSS', markId: 'kneel-4',
-    walker: 'GRATIN', shooter: 'GRATIN', second: 'SEFF', rounds: 1, kneeling: true,
-    /* She sees him coming and steps out before he arrives, the way you do when
-     * somebody is obviously heading for you. It is the longest walk of the
-     * night and she does it herself. */
-    stepsOutEarly: true,
-    /* Nothing follows her. IN-170 is two men counting. */
-    gapAfter: false, reloadAfter: false,
+    index: 3, beat: 'IN-150', victim: 'KITTENBOSS', markId: 'kneel-4',
+    shooter: 'GRATIN', second: 'SEFF', weapon: 'revolver', rounds: 1, kneeling: true,
+    besidePlayer: true, she: true,
   }),
 ]);
+
+/** Everyone ordered down at once. Only Tony is absent from the fatal array. */
+export const MASS_KNEEL = Object.freeze([
+  ...KNEELING_EXECUTIONS.map((step) => Object.freeze({
+    victim: step.victim, markId: step.markId, doomed: true,
+    ...(step.she ? { she: true } : {}),
+  })),
+  Object.freeze({ victim: 'PROSPECT TWO', player: true, survivor: true }),
+]);
+
+/** The muzzle reaches Tony, but Lou's interruption wins before a shot. */
+export const PLAYER_THREAT = Object.freeze({
+  beat: 'IN-160', victim: 'PROSPECT TWO', shooter: 'GRATIN',
+  weapon: 'revolver', player: true, rounds: 0, fires: false,
+});
+
+/** The authored interruption and its explicit survival result. */
+export const LOU_INTERRUPTION = Object.freeze({
+  beat: 'IN-170', speaker: 'LOU', beforeShot: true, survivors: SURVIVORS,
+});
 
 /**
  * THE ORDER OF THE ACT, as data.
  *
- * `main.js` walks this list with a cursor rather than carrying the ordering
- * rules in its own control flow, so the sequence a test checks is the sequence
- * the scene runs. Three gaps, one reload, four people:
- *
- *   kneel THREE · gap · kneel FOUR · gap · reload · kneel FIVE · gap · kneel KITTENBOSS
- *
- * The reload sits AFTER the second gap and BEFORE the third victim is shot,
- * which is what puts Prospect Five on his knees listening to a man load a
- * pistol behind him. That is the longest silence in the act.
+ * `main.js` walks this list with a cursor rather than carrying story truth in
+ * ad-hoc branches: kneel everyone, execute four, aim at Tony, let Lou stop it,
+ * release Tony, the only survivor.
  */
 export function executionRunOrder() {
-  const out = [];
-  let gap = 0;
-  KNEELING_EXECUTIONS.forEach((step, index) => {
-    const next = KNEELING_EXECUTIONS[index + 1] ?? null;
-    out.push(Object.freeze({ kind: 'kneel', step }));
-    if (step.gapAfter) out.push(Object.freeze({ kind: 'gap', gap: ++gap }));
-    if (step.reloadAfter) {
-      out.push(Object.freeze({ kind: 'reload', next, to: next ? next.shooter : step.shooter }));
-    }
-  });
-  return Object.freeze(out);
+  return Object.freeze([
+    Object.freeze({ kind: 'mass_kneel', lineup: MASS_KNEEL, beat: 'IN-110' }),
+    ...KNEELING_EXECUTIONS.map((step) => Object.freeze({ kind: 'shot', step })),
+    Object.freeze({ kind: 'aim', threat: PLAYER_THREAT }),
+    Object.freeze({ kind: 'interrupt', interruption: LOU_INTERRUPTION }),
+    Object.freeze({ kind: 'release', survivors: SURVIVORS }),
+  ]);
 }
 
-/** Everybody in the line who does not walk out of the clearing. */
+/** Everybody killed in the clearing. */
 export const DOOMED = Object.freeze([
   STANDING_EXECUTION.victim,
   ...KNEELING_EXECUTIONS.map((step) => step.victim),
@@ -287,9 +271,21 @@ export function verifyExecutionStaging() {
       findings.push(`${step.beat}: ${step.victim} is not facing away from ${step.shooter} `
         + `(awayDot ${geometry.awayDot.toFixed(3)} < ${limits.MIN_AWAY_DOT})`);
     }
-    if (geometry.towardPlayerDot < limits.MIN_TOWARD_PLAYER_DOT) {
+    if (!step.besidePlayer && geometry.towardPlayerDot < limits.MIN_TOWARD_PLAYER_DOT) {
       findings.push(`${step.beat}: ${step.victim} is turned away from the line — `
         + `the player never gets their face (towardPlayerDot ${geometry.towardPlayerDot.toFixed(3)})`);
+    }
+    if (step.besidePlayer) {
+      const lateral = Math.abs(mark.x - PLAYER_EYE.x);
+      const foreAft = Math.abs(mark.z - PLAYER_EYE.z);
+      if (lateral < 1.2 || lateral > 1.5 || foreAft > 0.5) {
+        findings.push(`${step.beat}: ${step.victim} is not beside the player `
+          + `(lateral ${lateral.toFixed(2)} m, fore/aft ${foreAft.toFixed(2)} m)`);
+      }
+      const playerToFall = Math.hypot(mark.fall.x - PLAYER_EYE.x, mark.fall.z - PLAYER_EYE.z);
+      if (playerToFall < 0.9) {
+        findings.push(`${step.beat}: ${step.victim} falls into the player (${playerToFall.toFixed(2)} m)`);
+      }
     }
     if (geometry.shooterGap < limits.MIN_SHOOTER_GAP) {
       findings.push(`${step.beat}: ${step.shooter} is not further from the player than `
@@ -308,9 +304,8 @@ export function verifyExecutionStaging() {
     }
   }
 
-  /* They walk toward him. Each mark is closer than the last, and the last one
-   * is Kittenboss. The escalation is the staging doing work no line is
-   * allowed to do. */
+  /* The four doomed prospects close on Tony. The last one is beside Tony, so
+   * its visibility and body-clearance checks are deliberately local. */
   const distances = KNEELING_EXECUTIONS.map((step) => executionGeometry(step).playerDistance);
   for (let i = 1; i < distances.length; i++) {
     if (distances[i] >= distances[i - 1]) {
@@ -332,24 +327,16 @@ export function verifyExecutionStaging() {
     }
   }
 
-  /* The pistol changes hands exactly once, and only when it is empty. */
-  const handovers = KNEELING_EXECUTIONS.filter(
-    (step, i) => i > 0 && step.shooter !== KNEELING_EXECUTIONS[i - 1].shooter,
-  );
-  if (handovers.length !== 1) {
-    findings.push(`the pistol changes hands ${handovers.length} time(s); IN-140 is the only handover`);
-  } else if (!KNEELING_EXECUTIONS[handovers[0].index - 1].reloadAfter) {
-    findings.push('the pistol changes hands somewhere other than the reload at IN-140');
+  for (const survivor of SURVIVORS) {
+    if (DOOMED.includes(survivor)) {
+      findings.push(`${survivor} is both a survivor and among the dead`);
+    }
   }
-
-  /* Kittenboss is last and is not skipped. This is the assertion the whole
-   * scene exists for and it is worth stating twice. */
-  const last = KNEELING_EXECUTIONS[KNEELING_EXECUTIONS.length - 1];
-  if (last.victim !== 'KITTENBOSS') {
-    findings.push('KITTENBOSS is not the last one walked out');
+  if (PLAYER_THREAT.rounds !== 0 || PLAYER_THREAT.fires !== false) {
+    findings.push('the player threat can fire before Lou interrupts');
   }
-  if (!DOOMED.includes('KITTENBOSS')) {
-    findings.push('KITTENBOSS is not among the dead');
+  if (LOU_INTERRUPTION.beforeShot !== true) {
+    findings.push('Lou is not guaranteed to interrupt before the player shot');
   }
 
   return findings;
