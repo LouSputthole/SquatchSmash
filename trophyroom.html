@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Trophy Room — Squatch Life</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#127942;</text></svg>">
+<style>
+  :root { color-scheme: dark; --lime:#c9ff79; --amber:#ffc85a; --red:#ff6a5a; --ink:#f5f7ef; --panel:rgba(8,13,12,.86); }
+  * { box-sizing:border-box; }
+  html, body { width:100%; height:100%; margin:0; overflow:hidden; background:#0a0b0e; color:var(--ink); }
+  body { font-family:"Trebuchet MS","Segoe UI",sans-serif; user-select:none; }
+  canvas { display:block; width:100%; height:100%; }
+  .hidden { display:none !important; }
+  #crosshair { position:fixed; inset:50% auto auto 50%; translate:-50% -50%; z-index:5; width:16px; height:16px; pointer-events:none; }
+  #crosshair::before, #crosshair::after { content:""; position:absolute; background:rgba(239,255,229,.9); box-shadow:0 0 4px #000; }
+  #crosshair::before { width:16px; height:2px; top:7px; }
+  #crosshair::after { width:2px; height:16px; left:7px; }
+  #hud { position:fixed; inset:0; z-index:6; pointer-events:none; }
+  #prompt { position:fixed; left:50%; bottom:14%; translate:-50% 0; display:flex; align-items:center; gap:9px;
+    padding:9px 14px; border:1px solid rgba(201,255,121,.4); border-radius:8px; background:var(--panel); }
+  #promptKey { display:grid; place-items:center; min-width:24px; height:24px; padding:0 5px; border-radius:5px;
+    background:var(--lime); color:#10160d; font-weight:900; font-size:13px; }
+  #promptLabel { font-size:14px; font-weight:700; }
+  #legend { position:fixed; top:16px; left:16px; z-index:6; padding:11px 14px; border:1px solid rgba(201,255,121,.28);
+    border-radius:9px; background:var(--panel); font-size:12px; line-height:1.7; pointer-events:none; }
+  #legend b { display:block; letter-spacing:.18em; color:var(--lime); font-size:10px; margin-bottom:4px; }
+  .legend-row { display:flex; align-items:center; gap:7px; }
+  .legend-dot { width:9px; height:9px; border-radius:50%; }
+  #trophyCard { position:fixed; inset:0; z-index:15; display:grid; place-items:center; padding:24px;
+    background:rgba(4,6,5,.72); }
+  #trophyCard.hidden { display:none; }
+  .trophy-card-inner { width:min(560px,100%); padding:26px; border:1px solid rgba(201,255,121,.34); border-radius:14px;
+    background:rgba(9,13,11,.96); box-shadow:0 24px 70px #000; }
+  #trophyCardTitle { margin:0 0 6px; font-size:26px; color:var(--lime); }
+  #trophyCardBadge { display:inline-block; margin-bottom:14px; padding:4px 10px; border:1px solid; border-radius:6px;
+    font-size:11px; font-weight:900; letter-spacing:.14em; }
+  #trophyCardBody p { margin:0 0 10px; color:#dbe1d8; font-size:14px; line-height:1.55; }
+  #trophyCardBody b { color:#f0f3ec; }
+  #trophyCardClose { margin-top:6px; }
+  button, .button { border:1px solid rgba(201,255,121,.5); border-radius:7px; padding:9px 13px; color:var(--ink);
+    background:rgba(8,13,12,.9); font:700 12px inherit; text-decoration:none; cursor:pointer; }
+  button:hover, .button:hover { border-color:var(--lime); color:var(--lime); }
+  #menu { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:24px; text-align:center;
+    background:radial-gradient(circle at 50% 30%,#2a2416 0,#0a0b0e 68%); }
+  .menu-card { width:min(680px,100%); padding:28px; border:1px solid rgba(201,255,121,.32); border-radius:16px;
+    background:rgba(5,10,8,.8); box-shadow:0 24px 70px #000; }
+  h1 { margin:4px 0 8px; color:var(--lime); font-size:clamp(36px,7vw,64px); line-height:.95; letter-spacing:-.05em; }
+  .lede { max-width:600px; margin:0 auto 20px; color:#b9c2b8; line-height:1.5; }
+  #startBtn { padding:13px 28px; border:0; color:#10160d; background:var(--lime); box-shadow:0 5px 0 #66883c; font-size:17px; }
+  .boot-failure { position:fixed; inset:0; z-index:100; display:grid; place-content:center; gap:14px; padding:32px; text-align:center; background:#050908; }
+  .boot-failure[hidden] { display:none; }
+  .boot-failure strong { color:var(--lime); font-size:30px; }
+</style>
+</head>
+<body>
+  <div id="crosshair" class="hidden" aria-hidden="true"></div>
+  <div id="hud" class="hidden" aria-live="polite">
+    <div id="prompt" class="hidden"><span id="promptKey">E</span><span id="promptLabel"></span></div>
+  </div>
+  <div id="legend">
+    <b>STATUS KEY</b>
+    <div class="legend-row"><span class="legend-dot" style="background:#c9ff79"></span> Built — real prop in the game today</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#ff6a5a"></span> Promised — campaign code claims it, nothing renders it</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#ffc85a"></span> Proposed — design stage, not yet earnable</div>
+  </div>
+
+  <div id="trophyCard" class="hidden">
+    <div class="trophy-card-inner">
+      <h2 id="trophyCardTitle"></h2>
+      <span id="trophyCardBadge"></span>
+      <div id="trophyCardBody"></div>
+      <button id="trophyCardClose" type="button">CLOSE</button>
+    </div>
+  </div>
+
+  <section id="menu">
+    <div class="menu-card">
+      <div class="lede" style="color:var(--lime); font-size:11px; letter-spacing:.2em; font-weight:900;">SQUATCH LIFE · DEV TOOL, NOT A CAMPAIGN SCENE</div>
+      <h1>TROPHY ROOM</h1>
+      <p class="lede">Every trophy the campaign's own code claims a mission can earn, laid out on pedestals: what's a real modeled object today, what's promised and unbuilt, and what's a proposed reward waiting on a design call. See <code>docs/TROPHY-AUDIT-2026-08-22.md</code> for how this list was produced.</p>
+      <p class="lede"><b>WASD</b> move · <b>Mouse</b> look · <b>E</b> read a pedestal · <b>Tab</b> pause</p>
+      <button id="startBtn" type="button">ENTER THE ROOM</button>
+    </div>
+  </section>
+
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong>
+    <span data-boot-detail></span>
+    <div><button type="button" data-boot-reload>RELOAD</button> <a class="button" href="preview.html">PREVIEW MENU</a></div>
+  </div>
+
+  <script src="./src/core/boot-guard.js" data-target="bootFailure" data-ready="trophyRoom" data-scene="Trophy Room"></script>
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+  <script type="module" src="./src/trophyroom/main.js" onerror="window.__squatchSceneFail('Could not load Trophy Room','src/trophyroom/main.js failed to load.')"></script>
+</body>
+</html>

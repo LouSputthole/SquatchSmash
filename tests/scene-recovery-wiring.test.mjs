@@ -64,6 +64,7 @@ const NON_CAMPAIGN_ROOT_HTML = Object.freeze([
   'combatlab.html',
   'preview.html',
   'roster.html',
+  'trophyroom.html',
   'wardrobe.html',
 ]);
 
