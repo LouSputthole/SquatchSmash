@@ -1793,22 +1793,47 @@ try {
    * Watched across frames instead, from inside the page so no round trip can
    * land between them: the claim is that the mouth MOVES while he speaks, and
    * that is what "opened at least once before the line ran out" says. It is
-   * the stronger reading as well -- one lucky open frame never proved motion. */
+   * the stronger reading as well -- one lucky open frame never proved motion.
+   *
+   * AND WATCHED FOR THE WHOLE LINE, NOT FOR TWENTY FRAMES. The cap was the
+   * same coin toss one storey up: twenty requestAnimationFrames is a tenth of
+   * a second on a real GPU and the best part of ten seconds on the software
+   * rasteriser this runs on, and a line has quiet in it between words. Two
+   * runs an hour apart, same commit, same scene: one caught the mouth open on
+   * frame 1, the other watched twenty frames, saw it shut every time, and
+   * exited with 0.83 s of the line still to go. That is a sampling race
+   * reporting itself as a broken mouth -- docs/ENGINE-TRAPS.md entry 2, the dt
+   * clamp, wearing a different hat.
+   *
+   * So the loop ends when the LINE ends, bounded by a wall clock rather than a
+   * frame count, and it reports the widest the mouth ever got. The threshold
+   * is deliberately untouched: a check tuned until it passes is a check that
+   * has stopped asking. If `maxScaleY` comes back at 1.4 this was bad luck; if
+   * it comes back at exactly the rest value, the mouth genuinely never opens
+   * and there is a real defect under it, which is the answer this could not
+   * give before. */
   const ricoPresentation = await previewPage.evaluate(async () => {
     const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
     const frame = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
+    const deadline = performance.now() + 12000;
     let opened = false;
     let frames = 0;
-    while (frames < 20 && rico.talkT > 0 && !opened) {
+    let maxScaleY = 0;
+    while (rico.talkT > 0 && performance.now() < deadline) {
       await frame();
       frames += 1;
-      if (rico.rig.mouth?.scale.y > 1) opened = true;
+      const scaleY = rico.rig.mouth?.scale.y ?? 0;
+      if (scaleY > maxScaleY) maxScaleY = scaleY;
+      if (scaleY > 1) opened = true;
     }
     return {
       identity: rico.identity,
       face: rico.rig.faceMesh?.name || null,
       mouth: rico.rig.mouth?.name || null,
       mouthOpened: opened,
+      /* What the threshold was actually compared against, so a failure says
+       * how close it got instead of only that it did not get there. */
+      maxScaleY: Math.round(maxScaleY * 1000) / 1000,
       framesWatched: frames,
       talkRemaining: rico.talkT,
     };
