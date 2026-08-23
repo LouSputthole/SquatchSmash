@@ -56,162 +56,86 @@
     "direction": "Quiet, after far too long. She is asking whether the paperwork is normal. She is wrong, and she will not find out."
   },
   {
-    "name": "vo.initiation.cabin.in-100-booskibro.1fm1wsx.1",
+    "name": "vo.initiation.cabin.in-100-lou.1rpa646.1",
+    "voice": "lou",
+    "say": "Willy wasn’t the rat.",
+    "direction": "Plain fact. No absolution and no attempt to soften what the family did."
+  },
+  {
+    "name": "vo.initiation.cabin.in-100-lou.0ri6bou.1",
+    "voice": "lou",
+    "say": "We killed the wrong man."
+  },
+  {
+    "name": "vo.initiation.cabin.in-100-booskibro.01zs931.1",
     "voice": "booski",
-    "say": "Clear the line.",
-    "direction": "Flat and ordinary. An instruction to two men at the back, not an announcement to the line. Do not perform it."
+    "say": "Sauce was the rat. The palace proved that."
   },
   {
-    "name": "vo.initiation.cabin.in-110-gratin.07ttgph.1",
+    "name": "vo.initiation.cabin.in-100-booskibro.0s37hma.1",
+    "voice": "booski",
+    "say": "It also proved he had help on the inside."
+  },
+  {
+    "name": "vo.initiation.cabin.in-100-lou.07nti9k.1",
+    "voice": "lou",
+    "say": "There is one place left. We are at quota."
+  },
+  {
+    "name": "vo.initiation.cabin.in-100-booskibro.0jpbifj.1",
+    "voice": "booski",
+    "say": "We don’t put a question inside this family."
+  },
+  {
+    "name": "vo.initiation.cabin.in-100-booskibro.00zrt0g.1",
+    "voice": "booski",
+    "say": "Nuclear option.",
+    "direction": "A standing order, not a joke or a movie reference."
+  },
+  {
+    "name": "vo.initiation.cabin.in-100-gratin.1wuj4z6.1",
     "voice": "gratin",
-    "say": "Are we doing all of them here?",
-    "direction": "A genuine question about a genuine problem. Two colleagues on a wet job. No subtext, no relish, no weight."
+    "say": "Kittenboss too?",
+    "direction": "A practical clarification before anybody moves."
   },
   {
-    "name": "vo.initiation.cabin.in-110-seff.066z2ek.1",
-    "voice": "seff",
-    "say": "Yeah."
+    "name": "vo.initiation.cabin.in-100-lou.1rt2hrp.1",
+    "voice": "lou",
+    "say": "We'll see.",
+    "direction": "Hesitant filler. He has not made an exception."
   },
   {
-    "name": "vo.initiation.cabin.in-110-gratin.179nf49.1",
+    "name": "vo.initiation.cabin.in-100-booskibro.19d4ob8.1",
+    "voice": "booski",
+    "say": "She has to go too.",
+    "direction": "Cuts across Lou. Definitive."
+  },
+  {
+    "name": "vo.initiation.cabin.in-110-booskibro.100apah.1",
+    "voice": "booski",
+    "say": "All prospects. On your knees.",
+    "direction": "Level and immediate. The order includes Tony and Kittenboss."
+  },
+  {
+    "name": "vo.initiation.cabin.in-110-gratin.1e0lw2d.1",
     "voice": "gratin",
-    "say": "Only the ground’s better up by the stump."
+    "say": "Face forward."
   },
   {
-    "name": "vo.initiation.cabin.in-110-seff.1jkt1dt.1",
-    "voice": "seff",
-    "say": "Here’s fine."
-  },
-  {
-    "name": "vo.initiation.cabin.in-110-gratin.1psklkh.1",
-    "voice": "gratin",
-    "say": "Right."
-  },
-  {
-    "name": "vo.initiation.cabin.in-120-gratin.0ldvxd8.1",
-    "voice": "gratin",
-    "say": "This way."
-  },
-  {
-    "name": "vo.initiation.cabin.in-120-prospect-three.0w78uvi.1",
+    "name": "vo.initiation.cabin.in-120-prospect-three.018unbp.1",
     "voice": "npc-reserve-1",
-    "say": "No — hold on. Hold on."
-  },
-  {
-    "name": "vo.initiation.cabin.in-120-prospect-three.0lryntd.1",
-    "voice": "npc-reserve-1",
-    "say": "I wasn’t even asked. He got asked. He got a question.",
-    "direction": "He means Tony. He is right."
-  },
-  {
-    "name": "vo.initiation.cabin.in-120-prospect-three.1wqfw5p.1",
-    "voice": "npc-reserve-1",
-    "say": "Nobody asked me a question. That’s — that’s not right, that. That’s not right."
-  },
-  {
-    "name": "vo.initiation.cabin.in-120-gratin.0kgpnxc.1",
-    "voice": "gratin",
-    "say": "Come on."
-  },
-  {
-    "name": "vo.initiation.cabin.in-120-prospect-three.0ykoca3.1",
-    "voice": "npc-reserve-1",
-    "say": "I’m not — I’ll do the question. Ask me the question."
-  },
-  {
-    "name": "vo.initiation.cabin.in-120-gratin.03ckr67.1",
-    "voice": "gratin",
-    "say": "Knees."
+    "say": "Nobody asked me a question."
   },
   {
     "name": "vo.initiation.cabin.in-120-prospect-three.0mk6sxt.1",
     "voice": "npc-reserve-1",
-    "say": "Ask me the question."
+    "say": "Ask me the question.",
+    "direction": "To Tony, cut off by the shot."
   },
   {
-    "name": "vo.initiation.cabin.in-120-gratin.00cty5r.1",
-    "voice": "gratin",
-    "say": "Knees. Sorry — it’s wet. It’s been wet all week.",
-    "direction": "The apology is manners, not mockery. He means it about the mud and he means nothing else by it."
-  },
-  {
-    "name": "vo.initiation.cabin.in-120-gratin.0vfcc84.1",
-    "voice": "gratin",
-    "say": "Other way round."
-  },
-  {
-    "name": "vo.initiation.cabin.in-120-prospect-three.1q1do95.1",
-    "voice": "npc-reserve-1",
-    "say": "Are you seeing this? Are you—",
-    "direction": "To the line. To Tony. He is cut off mid-word and must be: he does not finish the sentence and he does not get a last look."
-  },
-  {
-    "name": "vo.initiation.cabin.in-130-gratin.03g3w3y.1",
-    "voice": "gratin",
-    "say": "...Thanks.",
-    "direction": "Automatic. The politeness of a man handed a thing."
-  },
-  {
-    "name": "vo.initiation.cabin.in-130-gratin.00u7x8o.1",
-    "voice": "gratin",
-    "say": "That’s it. Good."
-  },
-  {
-    "name": "vo.initiation.cabin.in-140-seff.0p1e0x8.1",
-    "voice": "seff",
-    "say": "You want it?"
-  },
-  {
-    "name": "vo.initiation.cabin.in-140-gratin.0ivgcs9.1",
-    "voice": "gratin",
-    "say": "I’ll take the last two."
-  },
-  {
-    "name": "vo.initiation.cabin.in-140-seff.1psklkh.1",
-    "voice": "seff",
-    "say": "Right."
-  },
-  {
-    "name": "vo.initiation.cabin.in-145-prospect-five.1mpc153.1",
+    "name": "vo.initiation.cabin.in-145-prospect-five.0xrahxk.1",
     "voice": "npc-reserve-2",
-    "say": "Yeah — no, absolutely."
-  },
-  {
-    "name": "vo.initiation.cabin.in-145-prospect-five.0yo0uhl.1",
-    "voice": "npc-reserve-2",
-    "say": "Sorry — here? Is here good?",
-    "direction": "At the mark, before anybody has said anything to him."
-  },
-  {
-    "name": "vo.initiation.cabin.in-145-gratin.1sr5j7u.1",
-    "voice": "gratin",
-    "say": "Here’s good."
-  },
-  {
-    "name": "vo.initiation.cabin.in-145-prospect-five.1cv4nly.1",
-    "voice": "npc-reserve-2",
-    "say": "I can do it myself, honestly."
-  },
-  {
-    "name": "vo.initiation.cabin.in-145-prospect-five.18z3swe.1",
-    "voice": "npc-reserve-2",
-    "say": "D’you want me to—",
-    "direction": "During the reload."
-  },
-  {
-    "name": "vo.initiation.cabin.in-145-gratin.1m54bhf.1",
-    "voice": "gratin",
-    "say": "No. Stay there."
-  },
-  {
-    "name": "vo.initiation.cabin.in-145-prospect-five.1rqli5e.1",
-    "voice": "npc-reserve-2",
-    "say": "Course. Yeah. Sorry."
-  },
-  {
-    "name": "vo.initiation.cabin.in-145-prospect-five.1ese0yw.1",
-    "voice": "npc-reserve-2",
-    "say": "Is Booski watching? I’d just like him to know I did it right."
+    "say": "Is Booski watching?"
   },
   {
     "name": "vo.initiation.cabin.in-145-gratin.146zxg7.1",
@@ -220,109 +144,15 @@
     "direction": "Kindly, and it is true."
   },
   {
-    "name": "vo.initiation.cabin.in-145-prospect-five.1pdqoj8.1",
-    "voice": "npc-reserve-2",
-    "say": "Right. Good."
+    "name": "vo.initiation.cabin.in-170-lou.15qwm4k.1",
+    "voice": "lou",
+    "say": "Stop. This one is good.",
+    "direction": "Immediate. It lands before Gratin can fire."
   },
   {
-    "name": "vo.initiation.cabin.in-160-kittenboss.0kiquq5.1",
-    "voice": "kittenboss",
-    "say": "Oh — is it me? Sorry, I thought there was another one.",
-    "direction": "There is not. She had lost count. That is all that line is. Light, apologetic, mildly embarrassed at the admin."
-  },
-  {
-    "name": "vo.initiation.cabin.in-160-kittenboss.0wwxyqd.1",
-    "voice": "kittenboss",
-    "say": "It’s absolutely soaked down there."
-  },
-  {
-    "name": "vo.initiation.cabin.in-160-gratin.1oe337c.1",
-    "voice": "gratin",
-    "say": "I know. Sorry."
-  },
-  {
-    "name": "vo.initiation.cabin.in-160-kittenboss.1wei4o5.1",
-    "voice": "kittenboss",
-    "say": "No, it’s not you."
-  },
-  {
-    "name": "vo.initiation.cabin.in-160-kittenboss.03f1mzw.1",
-    "voice": "kittenboss",
-    "say": "Hang on. Right."
-  },
-  {
-    "name": "vo.initiation.cabin.in-160-seff.0vfcc84.1",
-    "voice": "seff",
-    "say": "Other way round."
-  },
-  {
-    "name": "vo.initiation.cabin.in-160-kittenboss.0327vzz.1",
-    "voice": "kittenboss",
-    "say": "Oh — sorry."
-  },
-  {
-    "name": "vo.initiation.cabin.in-160-kittenboss.1y290h5.1",
-    "voice": "kittenboss",
-    "say": "Hey.",
-    "direction": "ONE SYLLABLE, WARM, ORDINARY. It is the same word she says to Lag at the boot and it is the last word she says in the campaign. Nobody in the scene knows that. No music, no slow motion, no hold on Tony’s face — the shot arrives on the same clock as the other three."
-  },
-  {
-    "name": "vo.initiation.cabin.in-170-seff.0ngfeup.1",
-    "voice": "seff",
-    "say": "Four."
-  },
-  {
-    "name": "vo.initiation.cabin.in-170-gratin.1voah8y.1",
-    "voice": "gratin",
-    "say": "Five, with the first one."
-  },
-  {
-    "name": "vo.initiation.cabin.in-170-seff.0my6jre.1",
-    "voice": "seff",
-    "say": "I’m counting these."
-  },
-  {
-    "name": "vo.initiation.cabin.in-170-gratin.1psklkh.1",
-    "voice": "gratin",
-    "say": "Right."
-  },
-  {
-    "name": "vo.initiation.cabin.in-170-gratin.06hem31.1",
-    "voice": "gratin",
-    "say": "It’ll be wet all week.",
-    "direction": "He has looked at the mud on his hands and then at the sky. He is thinking about the weather and about nothing else."
-  },
-  {
-    "name": "vo.initiation.cabin.in-181-prospect.0h30pa2.1",
-    "voice": "player",
-    "say": "What did they do?"
-  },
-  {
-    "name": "vo.initiation.cabin.in-182-prospect.1jeyq01.1",
-    "voice": "player",
-    "say": "Kittenboss—"
-  },
-  {
-    "name": "vo.initiation.cabin.in-182-gratin.1g4e3dz.1",
-    "voice": "gratin",
-    "say": "Face front.",
-    "direction": "Not a threat. A request to mind the step."
-  },
-  {
-    "name": "vo.initiation.cabin.in-183-prospect.0kspip6.1",
-    "voice": "player",
-    "say": "Am I next?"
-  },
-  {
-    "name": "vo.initiation.cabin.in-183-booskibro.0mtgzbw.1",
+    "name": "vo.initiation.cabin.in-170-booskibro.1ktte4c.1",
     "voice": "booski",
-    "say": "No.",
-    "direction": "Immediate, level, and completely without reassurance. No explanation follows and none may be added."
-  },
-  {
-    "name": "vo.initiation.cabin.in-184-prospect.01aj73l.1",
-    "voice": "player",
-    "say": "Stop."
+    "say": "Get Tony up."
   },
   {
     "name": "vo.initiation.cabin.in-200-booskibro.17cff6h.1",
@@ -463,17 +293,6 @@
     "name": "vo.initiation.cabin.in-365-silent-lou.1hlgrfm.1",
     "voice": "lou",
     "say": "Good."
-  },
-  {
-    "name": "vo.initiation.cabin.in-365-spoke-lou.17q3rfb.1",
-    "voice": "lou",
-    "say": "You said something out there."
-  },
-  {
-    "name": "vo.initiation.cabin.in-365-spoke-lou.16gy8fb.1",
-    "voice": "lou",
-    "say": "Don’t.",
-    "direction": "A correction, delivered by a man who likes him. Not a threat and not a rebuke. One word, then stop."
   },
   {
     "name": "vo.initiation.cabin.in-370-lou.1o1uo7u.1",
@@ -625,7 +444,7 @@
     "name": "vo.initiation.cabin.in-510-gratin.09pdb6x.1",
     "voice": "gratin",
     "say": "There’s food. Nobody’s eating it.",
-    "direction": "THE LINE TO PROTECT. An hour ago he shot four people on their knees and now he is quietly upset that his food is going cold, and he is not doing a bit — he cooked and nobody is eating. Exactly as flat as everything else he has said tonight."
+    "direction": "THE LINE TO PROTECT. An hour ago he shot three people on their knees and now he is quietly upset that his food is going cold, and he is not doing a bit — he cooked and nobody is eating. Exactly as flat as everything else he has said tonight."
   },
   {
     "name": "vo.initiation.cabin.in-510-numbskull.1cws2gf.1",

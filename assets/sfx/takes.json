@@ -327,7 +327,7 @@
       "source": "assumed"
     },
     "heist.prospect_order_down": {
-      "text": "882c174e29b1",
+      "text": "a63abcecb086",
       "source": "assumed"
     },
     "heist.prospect_order_five": {
@@ -582,6 +582,22 @@
       "text": "707956c4c8ee",
       "source": "assumed"
     },
+    "hotdog.stab.grunt.1": {
+      "text": "c8112cfff750",
+      "source": "assumed"
+    },
+    "hotdog.stab.grunt.2": {
+      "text": "3849dfde4639",
+      "source": "assumed"
+    },
+    "hotdog.stab.grunt.3": {
+      "text": "ecbc631e0151",
+      "source": "assumed"
+    },
+    "hotdog.stab.grunt.4": {
+      "text": "d432608f6665",
+      "source": "assumed"
+    },
     "radio.ident.ksqch": {
       "text": "77b13fea0f6f",
       "source": "assumed"
@@ -591,7 +607,11 @@
       "source": "assumed"
     },
     "radio.ident.uncle": {
-      "text": "4319758db7e6",
+      "text": "35c4ebc0a4c4",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.00eb7vf": {
+      "text": "a4b58e08fad0",
       "source": "assumed"
     },
     "radio.vo.announcer.0177le3": {
@@ -614,12 +634,28 @@
       "text": "816df2be02c3",
       "source": "assumed"
     },
+    "radio.vo.announcer.03x8fj5": {
+      "text": "5253bbea8c4e",
+      "source": "assumed"
+    },
     "radio.vo.announcer.04ofbcl": {
       "text": "0550bcdeb148",
       "source": "assumed"
     },
+    "radio.vo.announcer.054iw8l": {
+      "text": "117b8e9d3c0f",
+      "source": "assumed"
+    },
     "radio.vo.announcer.05i3ov7": {
       "text": "f97575b69716",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.06cunix": {
+      "text": "f65b1db7dab3",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.06vu9sz": {
+      "text": "62d4c93931ac",
       "source": "assumed"
     },
     "radio.vo.announcer.08ovzxi": {
@@ -630,12 +666,28 @@
       "text": "4eb5c3943261",
       "source": "assumed"
     },
+    "radio.vo.announcer.09jz70p": {
+      "text": "33f1e284fbc0",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.09x693c": {
+      "text": "29b1f1c02ae2",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0abcdkw": {
+      "text": "89fc6fa84c51",
+      "source": "assumed"
+    },
     "radio.vo.announcer.0bdknc0": {
       "text": "592afa68934e",
       "source": "assumed"
     },
     "radio.vo.announcer.0bwdtn9": {
       "text": "b3ca5bc10d8a",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0c5i559": {
+      "text": "076b7bde6e9d",
       "source": "assumed"
     },
     "radio.vo.announcer.0calrbi": {
@@ -650,12 +702,32 @@
       "text": "6534c3026149",
       "source": "assumed"
     },
+    "radio.vo.announcer.0d1vxsw": {
+      "text": "c9a75767a305",
+      "source": "assumed"
+    },
     "radio.vo.announcer.0f5l8z4": {
       "text": "80b983f0d344",
       "source": "assumed"
     },
+    "radio.vo.announcer.0g9ycag": {
+      "text": "9220a1b01e81",
+      "source": "assumed"
+    },
     "radio.vo.announcer.0gen8dz": {
       "text": "139ab9fba031",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0hk4r6y": {
+      "text": "a643656ecd3c",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0j0s8av": {
+      "text": "c761cde6d061",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0jx3pgo": {
+      "text": "98901689e9cd",
       "source": "assumed"
     },
     "radio.vo.announcer.0l9km5t": {
@@ -674,16 +746,36 @@
       "text": "55d923a89af1",
       "source": "assumed"
     },
+    "radio.vo.announcer.0n8zivc": {
+      "text": "78a06843ce7a",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0npqmix": {
+      "text": "9755b770910e",
+      "source": "assumed"
+    },
     "radio.vo.announcer.0o3o1tt": {
       "text": "20d70ee64b59",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0oa8zlv": {
+      "text": "80ef330d851d",
       "source": "assumed"
     },
     "radio.vo.announcer.0onxfz6": {
       "text": "ff168aa00fb5",
       "source": "assumed"
     },
+    "radio.vo.announcer.0pl2nhg": {
+      "text": "e61852e95d7c",
+      "source": "assumed"
+    },
     "radio.vo.announcer.0qdc8ax": {
       "text": "0512936ecea4",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0qgoe7f": {
+      "text": "d6f9dea77793",
       "source": "assumed"
     },
     "radio.vo.announcer.0qx6b0o": {
@@ -698,12 +790,24 @@
       "text": "89e6a3f99a40",
       "source": "assumed"
     },
+    "radio.vo.announcer.0rp9kjo": {
+      "text": "00fdc1678733",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0tgxpfd": {
+      "text": "6256ffc180ac",
+      "source": "assumed"
+    },
     "radio.vo.announcer.0ttl6xr": {
       "text": "99b78f56caa7",
       "source": "assumed"
     },
     "radio.vo.announcer.0twfsvf": {
       "text": "e0beee0f06eb",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0twgwum": {
+      "text": "781d1ce00700",
       "source": "assumed"
     },
     "radio.vo.announcer.0u9v7ne": {
@@ -718,8 +822,32 @@
       "text": "6e5634176aa0",
       "source": "assumed"
     },
+    "radio.vo.announcer.0xg2y3x": {
+      "text": "cc1a5003be80",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0xnsees": {
+      "text": "7063498cff62",
+      "source": "assumed"
+    },
     "radio.vo.announcer.0y68wik": {
       "text": "e03609cd41d9",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0yk006u": {
+      "text": "f4712679a994",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0ymg6a2": {
+      "text": "34d786e4ff9d",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0ysnvxe": {
+      "text": "e51969c06e05",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.0z1j2c4": {
+      "text": "ad4a4fe98d18",
       "source": "assumed"
     },
     "radio.vo.announcer.0zspw0m": {
@@ -738,12 +866,40 @@
       "text": "29db217f9f79",
       "source": "assumed"
     },
+    "radio.vo.announcer.10wwqon": {
+      "text": "d9f3016d316e",
+      "source": "assumed"
+    },
     "radio.vo.announcer.11ryahr": {
       "text": "630594cbc54b",
       "source": "assumed"
     },
+    "radio.vo.announcer.11yz7vl": {
+      "text": "42311839cd4f",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.12bwuzg": {
+      "text": "975b2d5860d5",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.12vwbcl": {
+      "text": "5b0d88b294b4",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.13i20ak": {
+      "text": "1ce60afbe0c3",
+      "source": "assumed"
+    },
     "radio.vo.announcer.147epyh": {
       "text": "08f992adb89e",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.14wolqi": {
+      "text": "f6b6b2c9c265",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.154eda9": {
+      "text": "194c16b88f68",
       "source": "assumed"
     },
     "radio.vo.announcer.157erj5": {
@@ -766,12 +922,32 @@
       "text": "6c6c3925860e",
       "source": "assumed"
     },
+    "radio.vo.announcer.1aq9dos": {
+      "text": "d297c26a84b3",
+      "source": "assumed"
+    },
     "radio.vo.announcer.1bd9dp7": {
       "text": "095eb1228df9",
       "source": "assumed"
     },
     "radio.vo.announcer.1bqqwwg": {
       "text": "32874fe20983",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1bsyh44": {
+      "text": "adac8359fa52",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1dsn9l5": {
+      "text": "26ffacf8cbd9",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1dts2dr": {
+      "text": "c738a2e2ad11",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1ehexkx": {
+      "text": "d5e4ddf1b420",
       "source": "assumed"
     },
     "radio.vo.announcer.1fd40j6": {
@@ -786,24 +962,64 @@
       "text": "f3f2074bd93b",
       "source": "assumed"
     },
+    "radio.vo.announcer.1hwcfyz": {
+      "text": "aeb7cdc20441",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1i92quw": {
+      "text": "8aa4e0d3843f",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1i9iq1a": {
+      "text": "4c039efe5ef2",
+      "source": "assumed"
+    },
     "radio.vo.announcer.1keapkw": {
       "text": "da1c3b90e899",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1l8loyg": {
+      "text": "d217a1eab648",
       "source": "assumed"
     },
     "radio.vo.announcer.1m7fq8e": {
       "text": "918514b4f847",
       "source": "assumed"
     },
+    "radio.vo.announcer.1mw08bf": {
+      "text": "b91f4ab3382c",
+      "source": "assumed"
+    },
     "radio.vo.announcer.1mxeyam": {
       "text": "519a4b9d8f15",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1o1ovzn": {
+      "text": "19f1f685ea26",
       "source": "assumed"
     },
     "radio.vo.announcer.1ob7c1m": {
       "text": "266d1c086c2c",
       "source": "assumed"
     },
+    "radio.vo.announcer.1p4rsex": {
+      "text": "ac232ed8ab22",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1px0vn6": {
+      "text": "56db217179cc",
+      "source": "assumed"
+    },
     "radio.vo.announcer.1pykcsl": {
       "text": "1cea34a68e62",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1qmracr": {
+      "text": "108ab3c3c6f1",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1r4nlag": {
+      "text": "b4e17554cb4f",
       "source": "assumed"
     },
     "radio.vo.announcer.1rj3emp": {
@@ -826,8 +1042,16 @@
       "text": "fbceaeb2e84b",
       "source": "assumed"
     },
+    "radio.vo.announcer.1tbxjjr": {
+      "text": "118485f6ccf8",
+      "source": "assumed"
+    },
     "radio.vo.announcer.1u2ak1b": {
       "text": "7fd1d30a0a14",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1u90o1i": {
+      "text": "4087123d1fa8",
       "source": "assumed"
     },
     "radio.vo.announcer.1v05271": {
@@ -844,6 +1068,10 @@
     },
     "radio.vo.announcer.1wvrx46": {
       "text": "a781cc92b692",
+      "source": "assumed"
+    },
+    "radio.vo.announcer.1xb04qh": {
+      "text": "ea40ba03e1d1",
       "source": "assumed"
     },
     "radio.vo.announcer.1yuhyw6": {
@@ -1492,6 +1720,174 @@
     },
     "vo.ammo.3": {
       "text": "cf360638d562",
+      "source": "assumed"
+    },
+    "vo.ateam.ask-anybody": {
+      "text": "8c1029aad5a5",
+      "source": "assumed"
+    },
+    "vo.ateam.best-crew": {
+      "text": "c267f905f9bb",
+      "source": "assumed"
+    },
+    "vo.ateam.cannot-buy": {
+      "text": "cbb0bedcaeb9",
+      "source": "assumed"
+    },
+    "vo.ateam.check-the-tape": {
+      "text": "2b27e3236530",
+      "source": "assumed"
+    },
+    "vo.ateam.collect": {
+      "text": "f0acd8b789d0",
+      "source": "assumed"
+    },
+    "vo.ateam.deepest-bench": {
+      "text": "fcd1f6a177e8",
+      "source": "assumed"
+    },
+    "vo.ateam.do-not-say-it": {
+      "text": "1266d558ba67",
+      "source": "assumed"
+    },
+    "vo.ateam.earned-his-spot": {
+      "text": "a0aa27bcdc46",
+      "source": "assumed"
+    },
+    "vo.ateam.every-yard": {
+      "text": "19039000a20b",
+      "source": "assumed"
+    },
+    "vo.ateam.finished": {
+      "text": "a207e2520d34",
+      "source": "assumed"
+    },
+    "vo.ateam.for-the-a-team": {
+      "text": "58076b9cd1b8",
+      "source": "assumed"
+    },
+    "vo.ateam.for-the-a-team-two": {
+      "text": "58076b9cd1b8",
+      "source": "assumed"
+    },
+    "vo.ateam.franchise": {
+      "text": "99b65034c6cf",
+      "source": "assumed"
+    },
+    "vo.ateam.greetings": {
+      "text": "16094316cc6a",
+      "source": "assumed"
+    },
+    "vo.ateam.house": {
+      "text": "34f62aa4e849",
+      "source": "assumed"
+    },
+    "vo.ateam.knock": {
+      "text": "671404b444ee",
+      "source": "assumed"
+    },
+    "vo.ateam.look-at-us": {
+      "text": "d97df83b8001",
+      "source": "assumed"
+    },
+    "vo.ateam.never-be-on-it": {
+      "text": "f15b29d0a658",
+      "source": "assumed"
+    },
+    "vo.ateam.never-made-playoffs": {
+      "text": "572604474751",
+      "source": "assumed"
+    },
+    "vo.ateam.next-man-up": {
+      "text": "84f8fdd628b6",
+      "source": "assumed"
+    },
+    "vo.ateam.nine-seasons": {
+      "text": "e163a796970b",
+      "source": "assumed"
+    },
+    "vo.ateam.nobody-asked": {
+      "text": "c1befcb46861",
+      "source": "assumed"
+    },
+    "vo.ateam.nobody-plays": {
+      "text": "c18ce1822aff",
+      "source": "assumed"
+    },
+    "vo.ateam.nobody-walks": {
+      "text": "6e807a004a93",
+      "source": "assumed"
+    },
+    "vo.ateam.not-qualified": {
+      "text": "a306751883d3",
+      "source": "assumed"
+    },
+    "vo.ateam.not-the-measure": {
+      "text": "814bcc22d64f",
+      "source": "assumed"
+    },
+    "vo.ateam.on-three": {
+      "text": "b1d983960c3b",
+      "source": "assumed"
+    },
+    "vo.ateam.played-hurt": {
+      "text": "ce929d346ae1",
+      "source": "assumed"
+    },
+    "vo.ateam.regards": {
+      "text": "313f182d6a7c",
+      "source": "assumed"
+    },
+    "vo.ateam.reload-not-rebuild": {
+      "text": "a7520864c592",
+      "source": "assumed"
+    },
+    "vo.ateam.rules": {
+      "text": "34843392f95b",
+      "source": "assumed"
+    },
+    "vo.ateam.say-it": {
+      "text": "43cc7c005bae",
+      "source": "assumed"
+    },
+    "vo.ateam.say-it-back": {
+      "text": "ba98aaf030a4",
+      "source": "assumed"
+    },
+    "vo.ateam.schedule": {
+      "text": "f992e7dedfb9",
+      "source": "assumed"
+    },
+    "vo.ateam.seeding": {
+      "text": "e0fe25fa5c59",
+      "source": "assumed"
+    },
+    "vo.ateam.standings-lie": {
+      "text": "8d2d9dbe92af",
+      "source": "assumed"
+    },
+    "vo.ateam.still-standing": {
+      "text": "9c286447d81a",
+      "source": "assumed"
+    },
+    "vo.ateam.street": {
+      "text": "c50c8ee9020f",
+      "source": "assumed"
+    },
+    "vo.ateam.team-record": {
+      "text": "8c598fc4a907",
+      "source": "assumed"
+    },
+    "vo.ateam.the-record": {
+      "text": "b48404fc97f0",
+      "source": "assumed"
+    },
+    "vo.ateam.this-is-what": {
+      "text": "d364245e1c86",
+      "source": "assumed"
+    },
+    "vo.ateam.undefeated-here": {
+      "text": "ff2358c9619e",
       "source": "assumed"
     },
     "vo.beefrun.associate.end.crew-1.1": {
@@ -2670,6 +3066,10 @@
       "text": "0b96aacb52d2",
       "source": "assumed"
     },
+    "vo.bing.full.ape.open.tony.1ms948l": {
+      "text": "42d7c2fc3d01",
+      "source": "assumed"
+    },
     "vo.bing.full.ape.open.tony.kay3u1": {
       "text": "aedd90fa2e34",
       "source": "assumed"
@@ -2744,6 +3144,10 @@
     },
     "vo.bing.full.bartender.open.tony.1573ecz": {
       "text": "8eb6fbb5e457",
+      "source": "assumed"
+    },
+    "vo.bing.full.bartender.open.tony.1d6a7tv": {
+      "text": "9c13c3ad0b8b",
       "source": "assumed"
     },
     "vo.bing.full.bartender.open.tony.1h534md": {
@@ -2852,6 +3256,10 @@
     },
     "vo.bing.full.bouncer.through.line.1rtn1fd": {
       "text": "31132c87db74",
+      "source": "assumed"
+    },
+    "vo.bing.full.captain_lou_sasole.open.tony.1n6r1j9": {
+      "text": "96dad6793516",
       "source": "assumed"
     },
     "vo.bing.full.captain_lou_sasole.open.tony.kay3u1": {
@@ -3030,6 +3438,10 @@
       "text": "1b74fd1d483b",
       "source": "assumed"
     },
+    "vo.bing.full.james_blond.afterTheName.tony.knrqmb": {
+      "text": "dde87bd31d9e",
+      "source": "assumed"
+    },
     "vo.bing.full.james_blond.breaks.line.1ny5y3j": {
       "text": "fcb52fe5bb92",
       "source": "assumed"
@@ -3134,12 +3546,28 @@
       "text": "8f954aa615e7",
       "source": "assumed"
     },
+    "vo.bing.full.james_blond.endSnowAnswer.line.1lmpqhy": {
+      "text": "d99fd8049482",
+      "source": "assumed"
+    },
+    "vo.bing.full.james_blond.endSnowDone.line.f5ed3v": {
+      "text": "179b141c872c",
+      "source": "assumed"
+    },
+    "vo.bing.full.james_blond.endSnowShout.line.bznutd": {
+      "text": "d4e18f348a9d",
+      "source": "assumed"
+    },
     "vo.bing.full.james_blond.endings.line.zqtjnp": {
       "text": "1a281bc9d87a",
       "source": "assumed"
     },
     "vo.bing.full.james_blond.endings.tony.astkvk": {
       "text": "e0941cf0a3c3",
+      "source": "assumed"
+    },
+    "vo.bing.full.james_blond.firstQuestion.line.cf4bx8": {
+      "text": "d74f156f25d2",
       "source": "assumed"
     },
     "vo.bing.full.james_blond.floor.line.14lf3a1": {
@@ -3176,6 +3604,18 @@
     },
     "vo.bing.full.james_blond.floor.tony.jotwam": {
       "text": "37b727c5b6be",
+      "source": "assumed"
+    },
+    "vo.bing.full.james_blond.frogBlond.line.15on3v8": {
+      "text": "925f68b529f9",
+      "source": "assumed"
+    },
+    "vo.bing.full.james_blond.frogGratin.line.10vlvfn": {
+      "text": "9d94540f2587",
+      "source": "assumed"
+    },
+    "vo.bing.full.james_blond.frogProspect.line.bjghya": {
+      "text": "d46991d3885c",
       "source": "assumed"
     },
     "vo.bing.full.james_blond.gratinAdmits.line.kdt4b8": {
@@ -3216,6 +3656,10 @@
     },
     "vo.bing.full.james_blond.nameDemanded.line.amwd14": {
       "text": "f8f47e4731f6",
+      "source": "assumed"
+    },
+    "vo.bing.full.james_blond.numbskullFrogIdea.line.12h8hyk": {
+      "text": "78755b85241d",
       "source": "assumed"
     },
     "vo.bing.full.james_blond.numbskullWeighsIn.line.hqn8ez": {
@@ -3554,12 +3998,20 @@
       "text": "1b2d71652e32",
       "source": "assumed"
     },
+    "vo.bing.full.licenseToGrillNumbskull.open.tony.1ef5x4a": {
+      "text": "53fa55bc3f4f",
+      "source": "assumed"
+    },
     "vo.bing.full.licenseToGrillNumbskull.open.tony.1h534md": {
       "text": "b36828d08414",
       "source": "assumed"
     },
     "vo.bing.full.licenseToGrillNumbskull.open.tony.1mi8jml": {
       "text": "f58e250786db",
+      "source": "assumed"
+    },
+    "vo.bing.full.licenseToGrillNumbskull.open.tony.1ygn69": {
+      "text": "2fc90f060cb9",
       "source": "assumed"
     },
     "vo.bing.full.licenseToGrillNumbskull.theBox.line.niep5o": {
@@ -4322,6 +4774,10 @@
       "text": "231e7eb5e95b",
       "source": "assumed"
     },
+    "vo.bing2.attack.sauce": {
+      "text": "7fb14d31a9eb",
+      "source": "assumed"
+    },
     "vo.bing2.attack.seff": {
       "text": "634c123c6227",
       "source": "assumed"
@@ -4352,6 +4808,10 @@
     },
     "vo.bing2.booski.evidence.2": {
       "text": "fdffdb7905f4",
+      "source": "assumed"
+    },
+    "vo.bing2.booski.shot_offer": {
+      "text": "2f77f1700220",
       "source": "assumed"
     },
     "vo.bing2.cleanup.battery.eric": {
@@ -4400,6 +4860,10 @@
     },
     "vo.bing2.cleanup.suspicious.irish": {
       "text": "c4c990670ba7",
+      "source": "assumed"
+    },
+    "vo.bing2.cleanup.the-van.sauce": {
+      "text": "22238e63393b",
       "source": "assumed"
     },
     "vo.bing2.cleanup.thirty-years.hogmama": {
@@ -4455,7 +4919,7 @@
       "source": "assumed"
     },
     "vo.bing2.lou.briefing": {
-      "text": "f227194d1f80",
+      "text": "30f0d0ac8c32",
       "source": "assumed"
     },
     "vo.bing2.lou.closed_not_clean": {
@@ -4470,6 +4934,10 @@
       "text": "cd687bb5ab8a",
       "source": "assumed"
     },
+    "vo.bing2.lou.leave_now": {
+      "text": "e624e8b0a831",
+      "source": "assumed"
+    },
     "vo.bing2.lou.lockdown": {
       "text": "074e698c95ca",
       "source": "assumed"
@@ -4480,6 +4948,10 @@
     },
     "vo.bing2.lou.redirect": {
       "text": "bceeb9b32754",
+      "source": "assumed"
+    },
+    "vo.bing2.lou.sweep_order": {
+      "text": "efd64399d160",
       "source": "assumed"
     },
     "vo.bing2.lou.wrap_him": {
@@ -4532,6 +5004,30 @@
     },
     "vo.bing2.party.eight-months.ape": {
       "text": "a6580debf21a",
+      "source": "assumed"
+    },
+    "vo.bing2.party.eleven-years.irish": {
+      "text": "8d527741769c",
+      "source": "assumed"
+    },
+    "vo.bing2.party.eleven-years.sauce.1": {
+      "text": "7a7020fa19b2",
+      "source": "assumed"
+    },
+    "vo.bing2.party.eleven-years.sauce.2": {
+      "text": "d39c0210f712",
+      "source": "assumed"
+    },
+    "vo.bing2.party.fixed-it.gratin": {
+      "text": "8d2b8729a754",
+      "source": "assumed"
+    },
+    "vo.bing2.party.fixed-it.sauce.1": {
+      "text": "93070fa12943",
+      "source": "assumed"
+    },
+    "vo.bing2.party.fixed-it.sauce.2": {
+      "text": "e3f6b58b52bc",
       "source": "assumed"
     },
     "vo.bing2.party.frame-drops.lag.1": {
@@ -4658,6 +5154,18 @@
       "text": "ff3e46e31c1b",
       "source": "assumed"
     },
+    "vo.bing2.party.the-corn.numbskull": {
+      "text": "30f026ad4d4a",
+      "source": "assumed"
+    },
+    "vo.bing2.party.the-corn.sauce.1": {
+      "text": "b68a7ad680e1",
+      "source": "assumed"
+    },
+    "vo.bing2.party.the-corn.sauce.2": {
+      "text": "9ac89663433d",
+      "source": "assumed"
+    },
     "vo.bing2.party.till.booski.1": {
       "text": "e6fc2573fe66",
       "source": "assumed"
@@ -4672,6 +5180,10 @@
     },
     "vo.bing2.party.utensils.gratin": {
       "text": "725aea30987a",
+      "source": "assumed"
+    },
+    "vo.bing2.party.warm-not-hot.sauce": {
+      "text": "ed4683c53d62",
       "source": "assumed"
     },
     "vo.bing2.prospect.motel": {
@@ -4706,6 +5218,10 @@
       "text": "af310a8df852",
       "source": "assumed"
     },
+    "vo.bing2.sauce.plate": {
+      "text": "95af5a175762",
+      "source": "assumed"
+    },
     "vo.bing2.shubenator.intro": {
       "text": "2c85b54d9dd9",
       "source": "assumed"
@@ -4722,6 +5238,10 @@
       "text": "54d83a15d2d2",
       "source": "assumed"
     },
+    "vo.bing2.snow.carry": {
+      "text": "7093b18629df",
+      "source": "assumed"
+    },
     "vo.bing2.snow.not-here": {
       "text": "2a57a66dba92",
       "source": "assumed"
@@ -4735,11 +5255,19 @@
       "source": "assumed"
     },
     "vo.bing2.walkup.cleanup.aubbie": {
-      "text": "49c73abaf7c2",
+      "text": "f947012cfcda",
+      "source": "assumed"
+    },
+    "vo.bing2.walkup.cleanup.bartender": {
+      "text": "a1847807424a",
       "source": "assumed"
     },
     "vo.bing2.walkup.cleanup.booski": {
       "text": "89749481795f",
+      "source": "assumed"
+    },
+    "vo.bing2.walkup.cleanup.dealer": {
+      "text": "4192f2eea492",
       "source": "assumed"
     },
     "vo.bing2.walkup.cleanup.deathmegatron": {
@@ -4774,6 +5302,14 @@
       "text": "e6526a72cb92",
       "source": "assumed"
     },
+    "vo.bing2.walkup.cleanup.sauce": {
+      "text": "0b2128afb3f6",
+      "source": "assumed"
+    },
+    "vo.bing2.walkup.cleanup.security": {
+      "text": "33bc0313b189",
+      "source": "assumed"
+    },
     "vo.bing2.walkup.cleanup.seff": {
       "text": "072a6ec39bb1",
       "source": "assumed"
@@ -4803,7 +5339,11 @@
       "source": "assumed"
     },
     "vo.bing2.walkup.party.aubbie": {
-      "text": "f07b0cafeb3a",
+      "text": "5c370859f698",
+      "source": "assumed"
+    },
+    "vo.bing2.walkup.party.bartender": {
+      "text": "a1e7f277944c",
       "source": "assumed"
     },
     "vo.bing2.walkup.party.booski.1": {
@@ -4812,6 +5352,10 @@
     },
     "vo.bing2.walkup.party.booski.2": {
       "text": "ad3c77fd0508",
+      "source": "assumed"
+    },
+    "vo.bing2.walkup.party.dealer": {
+      "text": "1e78d8ab9e7f",
       "source": "assumed"
     },
     "vo.bing2.walkup.party.deathmegatron": {
@@ -4848,6 +5392,22 @@
     },
     "vo.bing2.walkup.party.sasole": {
       "text": "73627f842815",
+      "source": "assumed"
+    },
+    "vo.bing2.walkup.party.sauce.1": {
+      "text": "480c4a7912f7",
+      "source": "assumed"
+    },
+    "vo.bing2.walkup.party.sauce.2": {
+      "text": "43980073ad86",
+      "source": "assumed"
+    },
+    "vo.bing2.walkup.party.security.1": {
+      "text": "e8f80a5a5bea",
+      "source": "assumed"
+    },
+    "vo.bing2.walkup.party.security.2": {
+      "text": "ba6658d4d248",
       "source": "assumed"
     },
     "vo.bing2.walkup.party.seff": {
@@ -4927,7 +5487,7 @@
       "source": "assumed"
     },
     "vo.bj.dealer.bust.3": {
-      "text": "68dc6bf4b19c",
+      "text": "1be83689ec04",
       "source": "assumed"
     },
     "vo.bj.dealer.deal.1": {
@@ -5134,6 +5694,58 @@
       "text": "3e4112078907",
       "source": "assumed"
     },
+    "vo.call.booski.special_meeting.1": {
+      "text": "789c0621dab6",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.2": {
+      "text": "5acfe95cfef0",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.3": {
+      "text": "775a5186a1a4",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.4": {
+      "text": "98b31c0d1193",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.5": {
+      "text": "cca7d3584d90",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.6": {
+      "text": "3691d704b058",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.7": {
+      "text": "640cce3cf7bb",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.tony.1": {
+      "text": "eed4a6094a2e",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.tony.2": {
+      "text": "8be0c7ff7d42",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.tony.3": {
+      "text": "d8023f9b3f6a",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.tony.4": {
+      "text": "b3ff3281c935",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.tony.5": {
+      "text": "1d8176d17935",
+      "source": "assumed"
+    },
+    "vo.call.booski.special_meeting.tony.6": {
+      "text": "6ebadd8a440c",
+      "source": "assumed"
+    },
     "vo.call.hr.1": {
       "text": "f2793db498ff",
       "source": "assumed"
@@ -5175,7 +5787,7 @@
       "source": "assumed"
     },
     "vo.call.lou.attaboy.3": {
-      "text": "05862073293e",
+      "text": "12932fa6677d",
       "source": "assumed"
     },
     "vo.call.lou.attaboy.4": {
@@ -5207,7 +5819,7 @@
       "source": "assumed"
     },
     "vo.call.lou.bada_bing.3": {
-      "text": "b305a02639c7",
+      "text": "22230c8e94f8",
       "source": "assumed"
     },
     "vo.call.lou.bada_bing.4": {
@@ -5607,7 +6219,7 @@
       "source": "assumed"
     },
     "vo.door.hint.dressed.1": {
-      "text": "e796d76b8b22",
+      "text": "fb3d9b083164",
       "source": "assumed"
     },
     "vo.door.hint.eat.1": {
@@ -5619,7 +6231,7 @@
       "source": "assumed"
     },
     "vo.door.hint.piss.1": {
-      "text": "08a0ec7d5c66",
+      "text": "fe5cc158bbbb",
       "source": "assumed"
     },
     "vo.door.hint.piss.2": {
@@ -5639,7 +6251,7 @@
       "source": "assumed"
     },
     "vo.door.hint.shower.1": {
-      "text": "aaeb88577b63",
+      "text": "515082747bfd",
       "source": "assumed"
     },
     "vo.door.hr.1": {
@@ -5698,6 +6310,10 @@
       "text": "622ee953f7de",
       "source": "assumed"
     },
+    "vo.door.refusal.counter_squatch.1": {
+      "text": "fb314a6029c1",
+      "source": "assumed"
+    },
     "vo.door.refusal.date_call.1": {
       "text": "24ef8c629b4c",
       "source": "assumed"
@@ -5707,7 +6323,7 @@
       "source": "assumed"
     },
     "vo.door.refusal.final_arc_locked.1": {
-      "text": "6450f77d948b",
+      "text": "6084f078e05f",
       "source": "assumed"
     },
     "vo.door.refusal.first_call.1": {
@@ -5750,6 +6366,10 @@
       "text": "c12cabf740c5",
       "source": "assumed"
     },
+    "vo.door.refusal.shrooms_before.1": {
+      "text": "654643e5d13d",
+      "source": "assumed"
+    },
     "vo.door.refusal.sleep_after_date.1": {
       "text": "48835292f7a6",
       "source": "assumed"
@@ -5760,6 +6380,18 @@
     },
     "vo.door.refusal.sleep_after_squatchfather.1": {
       "text": "54ec6003ee1c",
+      "source": "assumed"
+    },
+    "vo.door.refusal.squatch_shoot.1": {
+      "text": "703780f6b7e4",
+      "source": "assumed"
+    },
+    "vo.door.refusal.squatch_smash.1": {
+      "text": "200ae1f21387",
+      "source": "assumed"
+    },
+    "vo.door.refusal.watch_tv.1": {
+      "text": "abd4849ac2dc",
       "source": "assumed"
     },
     "vo.door.refusal.whiskey.1": {
@@ -5962,6 +6594,10 @@
       "text": "f40d44860c05",
       "source": "assumed"
     },
+    "vo.enolasquatch.irish.nav-nag-irish-1.1": {
+      "text": "110e548ace58",
+      "source": "assumed"
+    },
     "vo.enolasquatch.irish.nav-right5-1.1": {
       "text": "20d16f49c2ee",
       "source": "assumed"
@@ -5982,12 +6618,20 @@
       "text": "1698fa0a9102",
       "source": "assumed"
     },
+    "vo.enolasquatch.irish.preflight-loadSquatch-3.1": {
+      "text": "600314e86b15",
+      "source": "assumed"
+    },
     "vo.enolasquatch.irish.preflight-payload-look-1.1": {
       "text": "1585d9777f30",
       "source": "assumed"
     },
     "vo.enolasquatch.irish.preflight-restraints-1.1": {
       "text": "547f832554f2",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.irish.preflight-shubes-aboard-4.1": {
+      "text": "e746107419e9",
       "source": "assumed"
     },
     "vo.enolasquatch.irish.preflight-shubes-first-4.1": {
@@ -6070,6 +6714,10 @@
       "text": "38991fb32d2f",
       "source": "assumed"
     },
+    "vo.enolasquatch.numbskull.emergency-cooled-1.1": {
+      "text": "783e41dfbf13",
+      "source": "assumed"
+    },
     "vo.enolasquatch.numbskull.explosion-column-1.1": {
       "text": "f5ff1b60584f",
       "source": "assumed"
@@ -6092,6 +6740,14 @@
     },
     "vo.enolasquatch.numbskull.preflight-bombbay-tap-1.1": {
       "text": "bb15f958fe35",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.numbskull.preflight-loadSquatch-2.1": {
+      "text": "5d634e2f6c97",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.numbskull.preflight-loadSquatch-4.1": {
+      "text": "1d256bcde42f",
       "source": "assumed"
     },
     "vo.enolasquatch.numbskull.preflight-numbskull-2.1": {
@@ -6155,7 +6811,7 @@
       "source": "assumed"
     },
     "vo.enolasquatch.prospect.release-1.1": {
-      "text": "7097c9abddc6",
+      "text": "a5ed6afc6457",
       "source": "assumed"
     },
     "vo.enolasquatch.prospect.release-2.1": {
@@ -6163,7 +6819,7 @@
       "source": "assumed"
     },
     "vo.enolasquatch.prospect.release-3.1": {
-      "text": "ef6769fe53e1",
+      "text": "e5856161694e",
       "source": "assumed"
     },
     "vo.enolasquatch.prospect.release-4.1": {
@@ -6290,8 +6946,16 @@
       "text": "49b9519bbe93",
       "source": "assumed"
     },
+    "vo.enolasquatch.sasole.emergency-cooled-2.1": {
+      "text": "db1617f47b75",
+      "source": "assumed"
+    },
     "vo.enolasquatch.sasole.emergency-overheat-1.1": {
       "text": "7d2c530239c5",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.sasole.emergency-overheat-2.1": {
+      "text": "cb984e45bb5d",
       "source": "assumed"
     },
     "vo.enolasquatch.sasole.emergency-pushedIt-1.1": {
@@ -6300,6 +6964,14 @@
     },
     "vo.enolasquatch.sasole.emergency-shutdown-1.1": {
       "text": "761ff9981575",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.sasole.emergency-stabilised-1.1": {
+      "text": "bbcd1010762f",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.sasole.emergency-throttleBack-1.1": {
+      "text": "bbf802e040fe",
       "source": "assumed"
     },
     "vo.enolasquatch.sasole.escape-clear-1.1": {
@@ -6342,6 +7014,18 @@
       "text": "cfa1dee959a8",
       "source": "assumed"
     },
+    "vo.enolasquatch.sasole.fighters-sasoleTakesIt-1.1": {
+      "text": "0d46f55a604b",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.sasole.fighters-sasoleTakesIt-2.1": {
+      "text": "95fbfaceb8ff",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.sasole.fighters-sasoleTakesIt-4.1": {
+      "text": "935b19d20bf7",
+      "source": "assumed"
+    },
     "vo.enolasquatch.sasole.gun-take-2.1": {
       "text": "4edde3b1053f",
       "source": "assumed"
@@ -6364,6 +7048,14 @@
     },
     "vo.enolasquatch.sasole.landing-perfect-1.1": {
       "text": "2d9a8ae0fc54",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.sasole.nav-nag-sasole-1.1": {
+      "text": "47de4b4fbb35",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.sasole.nav-nag-sasoleAgain-1.1": {
+      "text": "89275a000370",
       "source": "assumed"
     },
     "vo.enolasquatch.sasole.nightfall-hatch-1.1": {
@@ -6422,6 +7114,10 @@
       "text": "f73f21a30bfc",
       "source": "assumed"
     },
+    "vo.enolasquatch.sasole.preflight-loadSquatch-1.1": {
+      "text": "0b8199c4266f",
+      "source": "assumed"
+    },
     "vo.enolasquatch.sasole.preflight-props-1.1": {
       "text": "5369388fd99c",
       "source": "assumed"
@@ -6476,6 +7172,10 @@
     },
     "vo.enolasquatch.sasole.preflight-sasole-tailDone-1.1": {
       "text": "0d541fd66dea",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.sasole.preflight-shubes-aboard-2.1": {
+      "text": "389ddd55ccb1",
       "source": "assumed"
     },
     "vo.enolasquatch.sasole.preflight-shubes-first-2.1": {
@@ -6582,6 +7282,10 @@
       "text": "715bd54b2d82",
       "source": "assumed"
     },
+    "vo.enolasquatch.shubes.fighters-sasoleTakesIt-3.1": {
+      "text": "c5b05aadeece",
+      "source": "assumed"
+    },
     "vo.enolasquatch.shubes.gun-dry-2.1": {
       "text": "661d1f04b0a9",
       "source": "assumed"
@@ -6596,6 +7300,14 @@
     },
     "vo.enolasquatch.shubes.nightfall-hatch-2.1": {
       "text": "10e0821c9ad1",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.shubes.preflight-shubes-aboard-1.1": {
+      "text": "54d83a15d2d2",
+      "source": "assumed"
+    },
+    "vo.enolasquatch.shubes.preflight-shubes-aboard-3.1": {
+      "text": "4129611a2216",
       "source": "assumed"
     },
     "vo.enolasquatch.shubes.preflight-shubes-first-1.1": {
@@ -6899,7 +7611,7 @@
       "source": "assumed"
     },
     "vo.golf.h1.eric.you_have_clubs": {
-      "text": "3ba0418d39d2",
+      "text": "36ed32c38a30",
       "source": "assumed"
     },
     "vo.golf.h1.eric.you_watched_it": {
@@ -7223,7 +7935,7 @@
       "source": "assumed"
     },
     "vo.golf.h1.prospect.another_test": {
-      "text": "ac6044ea9132",
+      "text": "ce18af8cfc88",
       "source": "assumed"
     },
     "vo.golf.h1.prospect.arrival_better_shoes": {
@@ -7239,7 +7951,7 @@
       "source": "assumed"
     },
     "vo.golf.h1.prospect.did_what_you_asked": {
-      "text": "954c443b6586",
+      "text": "2ae12e1450a1",
       "source": "assumed"
     },
     "vo.golf.h1.prospect.earned_morning_off": {
@@ -8207,7 +8919,7 @@
       "source": "assumed"
     },
     "vo.graveyard.snow.done": {
-      "text": "f517886e256b",
+      "text": "f70c9f3c4763",
       "source": "assumed"
     },
     "vo.graveyard.snow.lower": {
@@ -8508,6 +9220,370 @@
     },
     "vo.initiation.ambient.shubes.1lxqviq.1": {
       "text": "8d69a17c0ecc",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.fail-b-prospect.0wv20kn.1": {
+      "text": "e89ec8c6e6bf",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-030-kittenboss.1ba2x2c.1": {
+      "text": "dedccbb6e186",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-031-kittenboss.0gimm6v.1": {
+      "text": "acaa02945449",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-031-prospect.0mtgzbw.1": {
+      "text": "3b20ece829b0",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-032-kittenboss.0x0xloq.1": {
+      "text": "66e6f9e46b87",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-032-kittenboss.1psklkh.1": {
+      "text": "af5ed736db16",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-032-prospect.17hckpf.1": {
+      "text": "08ca6b469252",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-033-kittenboss.0h033a9.1": {
+      "text": "722fdc8ba95d",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-060-prospect-one.00sjbgg.1": {
+      "text": "4aae0d4e940f",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-060-prospect-one.0jcr2ck.1": {
+      "text": "384f98e223bb",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-075-kittenboss.1lqau7w.1": {
+      "text": "a2dcb1913242",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-100-booskibro.00zrt0g.1": {
+      "text": "f77e7a3e8e30",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-100-booskibro.01zs931.1": {
+      "text": "491fa7397043",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-100-booskibro.0jpbifj.1": {
+      "text": "16c0f02274e0",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-100-booskibro.0s37hma.1": {
+      "text": "7e390b197d8f",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-100-booskibro.19d4ob8.1": {
+      "text": "20978b96d564",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-100-gratin.1wuj4z6.1": {
+      "text": "7af44d37818a",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-100-lou.07nti9k.1": {
+      "text": "2e5127f5fc02",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-100-lou.0ri6bou.1": {
+      "text": "2d0924faeafc",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-100-lou.1rpa646.1": {
+      "text": "cbe0b36991cd",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-100-lou.1rt2hrp.1": {
+      "text": "14dd706cda3a",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-110-booskibro.100apah.1": {
+      "text": "84cfbb94ef9b",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-110-gratin.1e0lw2d.1": {
+      "text": "6a932431c49f",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-120-prospect-three.018unbp.1": {
+      "text": "0463b6530d44",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-120-prospect-three.0mk6sxt.1": {
+      "text": "99a22f4c1199",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-145-gratin.146zxg7.1": {
+      "text": "0b09c64f585f",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-145-prospect-five.0xrahxk.1": {
+      "text": "758ab12dfcc1",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-170-booskibro.1ktte4c.1": {
+      "text": "693ce3ac0bb4",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-170-lou.15qwm4k.1": {
+      "text": "17dbc56c7b07",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-200-booskibro.17cff6h.1": {
+      "text": "2016fa8146a6",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-210-lag.0oz6emn.1": {
+      "text": "c1f67450f357",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-210-seff.0nkza49.1": {
+      "text": "8084d936a62e",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-210-seff.1u7hwnn.1": {
+      "text": "04d72f93b801",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-220-hogmama.116rlrr.1": {
+      "text": "3538d15c92ca",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-220-hogmama.1ssev5m.1": {
+      "text": "78cca5adebe0",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-220-irish.037klvh.1": {
+      "text": "808c504af455",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-220-irish.1khl87n.1": {
+      "text": "009dfaa08537",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-220-irish.1snxq1h.1": {
+      "text": "f59eb1bb6cf8",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-230-shubenator.1nrrfvw.1": {
+      "text": "8d69a17c0ecc",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-240-numbskull.0nyjs1k.1": {
+      "text": "05055b323a52",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-240-numbskull.1y02bwa.1": {
+      "text": "ee32b285d38d",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-240-prospect.0sljbim.1": {
+      "text": "f18f483fbde8",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-246-booskibro.1mkgx7u.1": {
+      "text": "6df8f94eeddf",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-246-prospect.0ncowzt.1": {
+      "text": "8fbe7cff68c2",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-247-lag.0ilit57.1": {
+      "text": "6dc6bea718ff",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-247-prospect.0tjyt2w.1": {
+      "text": "722c4b45e6d2",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-260-booskibro.1gudewg.1": {
+      "text": "48055612944b",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-310-lou.1t6766a.1": {
+      "text": "4905fb702e2b",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-320-lou.0p69cz0.1": {
+      "text": "2716120c6588",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-330-booskibro.09hb3ch.1": {
+      "text": "401d841818d1",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-340-booskibro.08uea1h.1": {
+      "text": "22df028b954e",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-350-rippinflow.1hyk744.1": {
+      "text": "a629a811d117",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-360-lou.1cj0ypn.1": {
+      "text": "27a4448f615a",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-365-silent-lou.06zmzt5.1": {
+      "text": "cd6d9cefbb3b",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-365-silent-lou.1hlgrfm.1": {
+      "text": "f5ff9b4a9f49",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-370-lou.1o1uo7u.1": {
+      "text": "5963e78f3ebe",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-371-prospect.0v3lnxo.1": {
+      "text": "7bd94467e904",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-380-lou.1bwulo9.1": {
+      "text": "e3f7ac107d88",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-410-lou.0zn68ys.1": {
+      "text": "044e232bec28",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-430-lou.17nhb4i.1": {
+      "text": "4b9b3b618cac",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-430-lou.1800mnn.1": {
+      "text": "4af752ab53f3",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-430-prospect.1800mnn.1": {
+      "text": "4af752ab53f3",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-435-lou.0aarlpi.1": {
+      "text": "787cf82bf120",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-435-prospect.0aarlpi.1": {
+      "text": "787cf82bf120",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-450-lou.0qt3496.1": {
+      "text": "2f142c8c0bbb",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-460-booskibro.08jlcav.1": {
+      "text": "9de3d7bff9f9",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-460-lou.08jlcav.1": {
+      "text": "9de3d7bff9f9",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-500-ape.0juxi7h.1": {
+      "text": "c29d50056771",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-500-hogmama.0juxi7h.1": {
+      "text": "c29d50056771",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-500-sasole.0juxi7h.1": {
+      "text": "c29d50056771",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-ape.0xst0zj.1": {
+      "text": "d6549c7fb2d5",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-ape.0zlwnzq.1": {
+      "text": "8fe6642cb3d9",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-booskibro.1ny7ol1.1": {
+      "text": "304d479f2c80",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-eric.0gfm3yw.1": {
+      "text": "637580d833e7",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-gratin.09pdb6x.1": {
+      "text": "ccd31ee8dc07",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-hogmama.1nr42bj.1": {
+      "text": "c865288a88d5",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-irish.046pkld.1": {
+      "text": "4bce599d8ff4",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-irish.1puj0x9.1": {
+      "text": "a0a6b75456d1",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-lag.1aak3yu.1": {
+      "text": "8f5a735c14ed",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-numbskull.1cws2gf.1": {
+      "text": "2ccc809c9fb0",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-numbskull.1u7dsrm.1": {
+      "text": "29f1333874ff",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-rippinflow.1k732ys.1": {
+      "text": "cc186dfea37c",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-sasole.0fiu2nk.1": {
+      "text": "d1afd46dfe67",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-seff.02uoq5p.1": {
+      "text": "c29d50056771",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-shubenator.1kfql4w.1": {
+      "text": "af84cd8d45c5",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-510-snow.0k2r3sk.1": {
+      "text": "58fec5849f7f",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-520-lou.0p8y88k.1": {
+      "text": "e4cd6a76ed9d",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-520-lou.13css28.1": {
+      "text": "82e2af226251",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-520-lou.1yrqj63.1": {
+      "text": "9125ff6febee",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-530-booskibro.106nqi3.1": {
+      "text": "c81edee0ba0a",
+      "source": "assumed"
+    },
+    "vo.initiation.cabin.in-530-prospect.1dbsrar.1": {
+      "text": "b7d1cb7ebaad",
       "source": "assumed"
     },
     "vo.initiation.ceremony.anoint-booskibro.008ri98.1": {
@@ -9159,7 +10235,7 @@
       "source": "assumed"
     },
     "vo.margo.comehome.dress.1": {
-      "text": "06a85db5d47a",
+      "text": "9c47fbf71145",
       "source": "assumed"
     },
     "vo.margo.comehome.tony.1": {
@@ -9294,6 +10370,10 @@
       "text": "b98df37ce94a",
       "source": "assumed"
     },
+    "vo.motel.prospect.11geb9i.1": {
+      "text": "37f5ba9a2f4d",
+      "source": "assumed"
+    },
     "vo.motel.prospect.11o17zs.1": {
       "text": "d84a62185393",
       "source": "assumed"
@@ -9332,6 +10412,10 @@
     },
     "vo.motel.prospect.15ikvju.1": {
       "text": "ab7a51339edc",
+      "source": "assumed"
+    },
+    "vo.motel.prospect.17a2qey.1": {
+      "text": "19d5c2b32dc7",
       "source": "assumed"
     },
     "vo.motel.prospect.18hjn3n.1": {
@@ -9526,6 +10610,10 @@
       "text": "90b6f26603c9",
       "source": "assumed"
     },
+    "vo.motel.prospect.8yh8qr.1": {
+      "text": "999350b9e07b",
+      "source": "assumed"
+    },
     "vo.motel.prospect.9a7rkv.1": {
       "text": "3893c4f8599c",
       "source": "assumed"
@@ -9574,6 +10662,10 @@
       "text": "5428d77b1aab",
       "source": "assumed"
     },
+    "vo.motel.prospect.k4q2t7.1": {
+      "text": "0485968e542a",
+      "source": "assumed"
+    },
     "vo.motel.prospect.k9e4m.1": {
       "text": "3b5067e5eac7",
       "source": "assumed"
@@ -9592,6 +10684,14 @@
     },
     "vo.motel.prospect.nj4caa.1": {
       "text": "f29e42de78be",
+      "source": "assumed"
+    },
+    "vo.motel.prospect.nlnc9n.1": {
+      "text": "1d20b63ab4b4",
+      "source": "assumed"
+    },
+    "vo.motel.prospect.ohgctx.1": {
+      "text": "a75656d6a94d",
       "source": "assumed"
     },
     "vo.motel.prospect.owqgsl.1": {
@@ -9656,6 +10756,10 @@
     },
     "vo.motel.rico.1d756mb.1": {
       "text": "9073d49417e0",
+      "source": "assumed"
+    },
+    "vo.motel.rico.1eg090q.1": {
+      "text": "43a9314e1a9c",
       "source": "assumed"
     },
     "vo.motel.rico.1g6gshq.1": {
@@ -9816,6 +10920,10 @@
     },
     "vo.motel.snow.1hkt3n0.1": {
       "text": "5c244529a2f4",
+      "source": "assumed"
+    },
+    "vo.motel.snow.1igo4tf.1": {
+      "text": "22b6bc5c2ced",
       "source": "assumed"
     },
     "vo.motel.snow.1k5xr8m.1": {
@@ -10118,6 +11226,478 @@
       "text": "9362d3903241",
       "source": "assumed"
     },
+    "vo.palace.cleaner.cower.one.1": {
+      "text": "8d69c4beeaec",
+      "source": "assumed"
+    },
+    "vo.palace.cleaner.cower.two.1": {
+      "text": "6609a185f5e1",
+      "source": "assumed"
+    },
+    "vo.palace.cleaner.panic.one.1": {
+      "text": "2450b3269c11",
+      "source": "assumed"
+    },
+    "vo.palace.cleaner.panic.two.1": {
+      "text": "b6ffe1b1f220",
+      "source": "assumed"
+    },
+    "vo.palace.cleaner.plead.1": {
+      "text": "9a8605321f57",
+      "source": "assumed"
+    },
+    "vo.palace.cleaner.spotted.1": {
+      "text": "24e9999c0c21",
+      "source": "assumed"
+    },
+    "vo.palace.finale.mark.admission.cornered-2.1": {
+      "text": "0a6cf15b46a7",
+      "source": "assumed"
+    },
+    "vo.palace.finale.mark.arrival.loud-1.1": {
+      "text": "ecb749fb42bd",
+      "source": "assumed"
+    },
+    "vo.palace.finale.mark.arrival.quiet-1.1": {
+      "text": "54c9cbb57fe7",
+      "source": "assumed"
+    },
+    "vo.palace.finale.mark.go-1.1": {
+      "text": "9ff70b3f7023",
+      "source": "assumed"
+    },
+    "vo.palace.finale.mark.mark.cornered-1.1": {
+      "text": "42f3cc57bfba",
+      "source": "assumed"
+    },
+    "vo.palace.finale.mark.mark.denial-1.1": {
+      "text": "0b273d381179",
+      "source": "assumed"
+    },
+    "vo.palace.finale.mark.mark.pressed-1.1": {
+      "text": "699bbd01efc7",
+      "source": "assumed"
+    },
+    "vo.palace.finale.sauce.admission.cornered-1.1": {
+      "text": "4d899fc90340",
+      "source": "assumed"
+    },
+    "vo.palace.finale.sauce.admission.cornered-3.1": {
+      "text": "7d32dffae1f5",
+      "source": "assumed"
+    },
+    "vo.palace.finale.sauce.admission.denial-1.1": {
+      "text": "7b9dce8a9a68",
+      "source": "assumed"
+    },
+    "vo.palace.finale.sauce.admission.pressed-1.1": {
+      "text": "b572d54957d5",
+      "source": "assumed"
+    },
+    "vo.palace.finale.sauce.begging.wife-3.1": {
+      "text": "d827e9f36b78",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-one.begging.shorts-1.1": {
+      "text": "f67d62459a93",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-one.begging.shorts-3.1": {
+      "text": "837e43726f6f",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-one.begging.shorts-5.1": {
+      "text": "aa6a14e70dbd",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-one.react.all-down-2.1": {
+      "text": "748ea28ec060",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-one.react.dive-landed-1.1": {
+      "text": "a8e460ed6322",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-one.react.mark-first-2.1": {
+      "text": "0c98b74a99c8",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-one.react.sauce-first-3.1": {
+      "text": "cea3aa5a10e7",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-one.react.short-two-down-1.1": {
+      "text": "4aeb83ab35c9",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-one.react.wife-down-1.1": {
+      "text": "9163613e89be",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-two.begging.shorts-2.1": {
+      "text": "b5589cb50931",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-two.begging.shorts-4.1": {
+      "text": "1e3e7da21d32",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-two.react.all-down-3.1": {
+      "text": "f7d45475d10c",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-two.react.dive-landed-2.1": {
+      "text": "645a91a59bca",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-two.react.mark-first-3.1": {
+      "text": "283873cd7b6d",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-two.react.sauce-first-2.1": {
+      "text": "e065cc83a5c4",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-two.react.short-one-down-1.1": {
+      "text": "fbb47a141720",
+      "source": "assumed"
+    },
+    "vo.palace.finale.short-two.react.wife-down-2.1": {
+      "text": "04064f97f864",
+      "source": "assumed"
+    },
+    "vo.palace.finale.tony.accuse-1.1": {
+      "text": "bb54ab6ee54a",
+      "source": "assumed"
+    },
+    "vo.palace.finale.tony.accuse.belongings-1.1": {
+      "text": "295eecf07949",
+      "source": "assumed"
+    },
+    "vo.palace.finale.tony.accuse.ledger-1.1": {
+      "text": "18e182f80482",
+      "source": "assumed"
+    },
+    "vo.palace.finale.tony.accuse.still-1.1": {
+      "text": "95a9b8cff1ad",
+      "source": "assumed"
+    },
+    "vo.palace.finale.tony.go-2.1": {
+      "text": "e7381e79f6e6",
+      "source": "assumed"
+    },
+    "vo.palace.finale.wife.begging.wife-1.1": {
+      "text": "e9346cc7957d",
+      "source": "assumed"
+    },
+    "vo.palace.finale.wife.begging.wife-2.1": {
+      "text": "6deb82f2de2b",
+      "source": "assumed"
+    },
+    "vo.palace.finale.wife.begging.wife-4.1": {
+      "text": "3f518d203dc7",
+      "source": "assumed"
+    },
+    "vo.palace.finale.wife.react.all-down-1.1": {
+      "text": "a1137aec7aed",
+      "source": "assumed"
+    },
+    "vo.palace.finale.wife.react.mark-first-1.1": {
+      "text": "d283807474b4",
+      "source": "assumed"
+    },
+    "vo.palace.finale.wife.react.sauce-first-1.1": {
+      "text": "aa3d13acac2f",
+      "source": "assumed"
+    },
+    "vo.palace.guard.ally-down.one.1": {
+      "text": "71db1a2554a6",
+      "source": "assumed"
+    },
+    "vo.palace.guard.ally-down.two.1": {
+      "text": "87f5c32bb87d",
+      "source": "assumed"
+    },
+    "vo.palace.guard.contact.one.1": {
+      "text": "604741596787",
+      "source": "assumed"
+    },
+    "vo.palace.guard.contact.three.1": {
+      "text": "1fce0aecc36a",
+      "source": "assumed"
+    },
+    "vo.palace.guard.contact.two.1": {
+      "text": "f72459242e3f",
+      "source": "assumed"
+    },
+    "vo.palace.guard.search.one.1": {
+      "text": "a09c3c300bca",
+      "source": "assumed"
+    },
+    "vo.palace.guard.search.two.1": {
+      "text": "a1475e22d562",
+      "source": "assumed"
+    },
+    "vo.palace.guard.watch.greet.1": {
+      "text": "c3e492d731e4",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.01.1": {
+      "text": "a04bead444c3",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.02.1": {
+      "text": "660d35d96514",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.03.1": {
+      "text": "93ec986022db",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.04.1": {
+      "text": "fd505fcfdfea",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.05.1": {
+      "text": "980b3e7e8f8a",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.06.1": {
+      "text": "b611cad5814a",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.07.1": {
+      "text": "6f05f34b56d4",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.08.1": {
+      "text": "79a296b75b75",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.09.1": {
+      "text": "6bd8de5c1077",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.10.1": {
+      "text": "5622711fc899",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.11.1": {
+      "text": "73c8bb39914a",
+      "source": "assumed"
+    },
+    "vo.palace.shift.door.12.1": {
+      "text": "9b9f834d3db8",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.01.1": {
+      "text": "dac0ed9cc529",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.02.1": {
+      "text": "f4df9f12acdb",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.03.1": {
+      "text": "62e3325eaa6a",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.04.1": {
+      "text": "9418e5c3aa43",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.05.1": {
+      "text": "bd93908bb2bd",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.06.1": {
+      "text": "0a5b294576fe",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.07.1": {
+      "text": "a28ddea6e2e5",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.08.1": {
+      "text": "245da26505c4",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.09.1": {
+      "text": "9e032a007f62",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.10.1": {
+      "text": "d9cf0120162b",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.11.1": {
+      "text": "640e9b492c6d",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.12.1": {
+      "text": "41ab146b23af",
+      "source": "assumed"
+    },
+    "vo.palace.shift.kitchen.13.1": {
+      "text": "536ec83446a3",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.01.1": {
+      "text": "b8b8f8fe1d9e",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.02.1": {
+      "text": "a85dce05290f",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.03.1": {
+      "text": "eed0ccdd109d",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.04.1": {
+      "text": "bb8b09864d62",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.05.1": {
+      "text": "a04aa7b62487",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.06.1": {
+      "text": "6aab5a4d23fa",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.07.1": {
+      "text": "0568e724d8dd",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.08.1": {
+      "text": "12cab84f0086",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.09.1": {
+      "text": "88e7c857cfa9",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.10.1": {
+      "text": "bd441825b782",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.11.1": {
+      "text": "c269f996446a",
+      "source": "assumed"
+    },
+    "vo.palace.shift.overtime.12.1": {
+      "text": "24d193372107",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.01.1": {
+      "text": "8d883f59d534",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.02.1": {
+      "text": "44cf3b9500fb",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.03.1": {
+      "text": "474af3b8e1f1",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.04.1": {
+      "text": "73c0b432fe01",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.05.1": {
+      "text": "8cee26a3ee3e",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.06.1": {
+      "text": "1127ac9c86ca",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.07.1": {
+      "text": "941b16f2ddf3",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.08.1": {
+      "text": "652f23879816",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.09.1": {
+      "text": "336ae8124bdf",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.10.1": {
+      "text": "339feb335962",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.11.1": {
+      "text": "95fc28405256",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.12.1": {
+      "text": "b8ace5287daf",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.13.1": {
+      "text": "0b1bbbdaae97",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.14.1": {
+      "text": "a795311dda59",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.15.1": {
+      "text": "34b0c6953a24",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.16.1": {
+      "text": "bd94369b5489",
+      "source": "assumed"
+    },
+    "vo.palace.shift.record.17.1": {
+      "text": "65d725b7ebd8",
+      "source": "assumed"
+    },
+    "vo.palace.tony.cleared.entry.1": {
+      "text": "588a2c29af9a",
+      "source": "assumed"
+    },
+    "vo.palace.tony.cleared.estate.1": {
+      "text": "b92b86d45d03",
+      "source": "assumed"
+    },
+    "vo.palace.tony.cleared.halls.1": {
+      "text": "ba724aba44bd",
+      "source": "assumed"
+    },
+    "vo.palace.tony.evidence.complete.1": {
+      "text": "b44ba47d9fcd",
+      "source": "assumed"
+    },
+    "vo.palace.tony.evidence.ledger.log.1": {
+      "text": "d7951d801c40",
+      "source": "assumed"
+    },
+    "vo.palace.tony.evidence.ledger.spot.1": {
+      "text": "c6a977628217",
+      "source": "assumed"
+    },
+    "vo.palace.tony.evidence.still.log.1": {
+      "text": "1d2f9427168d",
+      "source": "assumed"
+    },
+    "vo.palace.tony.evidence.still.spot.1": {
+      "text": "5ac4e890a7d2",
+      "source": "assumed"
+    },
+    "vo.palace.tony.evidence.uniform.log.1": {
+      "text": "b09fbdac9126",
+      "source": "assumed"
+    },
+    "vo.palace.tony.evidence.uniform.spot.1": {
+      "text": "e465805325fd",
+      "source": "assumed"
+    },
     "vo.pc.sit.1": {
       "text": "8d91c78cecea",
       "source": "assumed"
@@ -10159,7 +11739,7 @@
       "source": "assumed"
     },
     "vo.photo.1": {
-      "text": "5d4a381114c8",
+      "text": "85a405ea6f7d",
       "source": "assumed"
     },
     "vo.photo.10": {
@@ -10307,7 +11887,7 @@
       "source": "assumed"
     },
     "vo.sf.excuse.1": {
-      "text": "0e9b41b490a2",
+      "text": "234507a1abac",
       "source": "assumed"
     },
     "vo.sf.excuse.2": {
@@ -10315,11 +11895,11 @@
       "source": "assumed"
     },
     "vo.sf.final.1": {
-      "text": "6a3bb00ca1ae",
+      "text": "7cde32a46b45",
       "source": "assumed"
     },
     "vo.sf.final.2": {
-      "text": "a87ed45f6dac",
+      "text": "4ce43b767b20",
       "source": "assumed"
     },
     "vo.sf.final.3": {
@@ -10335,11 +11915,11 @@
       "source": "assumed"
     },
     "vo.sf.final.6": {
-      "text": "9543fd6f29c3",
+      "text": "0b65d270cbe4",
       "source": "assumed"
     },
     "vo.sf.greeting.1": {
-      "text": "a3c568974859",
+      "text": "d00dc730d4b9",
       "source": "assumed"
     },
     "vo.sf.opening.1": {
@@ -10351,15 +11931,15 @@
       "source": "assumed"
     },
     "vo.sf.opening.11": {
-      "text": "aa877fd0ac62",
+      "text": "afd7d3275a38",
       "source": "assumed"
     },
     "vo.sf.opening.12": {
-      "text": "5af63f0eee4d",
+      "text": "df220f1f8e89",
       "source": "assumed"
     },
     "vo.sf.opening.13": {
-      "text": "eaf856175295",
+      "text": "8f19fbe5c576",
       "source": "assumed"
     },
     "vo.sf.opening.14": {
@@ -10367,7 +11947,7 @@
       "source": "assumed"
     },
     "vo.sf.opening.2": {
-      "text": "a5d1e85b0d67",
+      "text": "0c767fe49996",
       "source": "assumed"
     },
     "vo.sf.opening.3": {
@@ -10375,7 +11955,7 @@
       "source": "assumed"
     },
     "vo.sf.opening.4": {
-      "text": "6875107e656b",
+      "text": "ef4511ee7e31",
       "source": "assumed"
     },
     "vo.sf.opening.5": {
@@ -10383,11 +11963,11 @@
       "source": "assumed"
     },
     "vo.sf.opening.6": {
-      "text": "5e4f4d790a2a",
+      "text": "f3a6bb855ed4",
       "source": "assumed"
     },
     "vo.sf.opening.7": {
-      "text": "a4e434e1a4e0",
+      "text": "009d15261221",
       "source": "assumed"
     },
     "vo.sf.opening.8": {
@@ -10407,7 +11987,7 @@
       "source": "assumed"
     },
     "vo.sf.sitdown.1": {
-      "text": "8117a864d9c3",
+      "text": "1ab3ac10b12f",
       "source": "assumed"
     },
     "vo.sf.wrongsearch.1": {
@@ -10538,12 +12118,44 @@
       "text": "290ffea0cf90",
       "source": "assumed"
     },
+    "vo.siege.sasole.sasole.tonight": {
+      "text": "00271b410936",
+      "source": "assumed"
+    },
     "vo.siege.wake.guard.inside": {
       "text": "b124a8f95353",
       "source": "assumed"
     },
     "vo.siege.wake.prospect.awake": {
       "text": "048d6c3ecf34",
+      "source": "assumed"
+    },
+    "vo.silentnight.dmt.adorable": {
+      "text": "b5ed946b213b",
+      "source": "assumed"
+    },
+    "vo.silentnight.dmt.embarrassing": {
+      "text": "b3a4de03beb7",
+      "source": "assumed"
+    },
+    "vo.silentnight.dmt.exercise": {
+      "text": "15b89a10e237",
+      "source": "assumed"
+    },
+    "vo.silentnight.dmt.labrats": {
+      "text": "47301277746f",
+      "source": "assumed"
+    },
+    "vo.silentnight.dmt.littlecoats": {
+      "text": "9725296c30a3",
+      "source": "assumed"
+    },
+    "vo.silentnight.dmt.pencilnecks": {
+      "text": "8e8993b015c0",
+      "source": "assumed"
+    },
+    "vo.silentnight.dmt.silentnight": {
+      "text": "b26819c2bdd0",
       "source": "assumed"
     },
     "vo.silentsquatch.aftermath.booski.efficient": {
@@ -10910,6 +12522,22 @@
       "text": "92274a269449",
       "source": "assumed"
     },
+    "vo.silentsquatch.evening.shubes.fortytwomillion": {
+      "text": "b3c57ac501e5",
+      "source": "assumed"
+    },
+    "vo.silentsquatch.evening.shubes.himproblem": {
+      "text": "50c4e03bf438",
+      "source": "assumed"
+    },
+    "vo.silentsquatch.evening.shubes.oldschool": {
+      "text": "361d337f7ac3",
+      "source": "assumed"
+    },
+    "vo.silentsquatch.evening.shubes.sleptgreat": {
+      "text": "32183172188a",
+      "source": "assumed"
+    },
     "vo.silentsquatch.evening.stove.blow": {
       "text": "8dc2ddf5b5dd",
       "source": "assumed"
@@ -10955,7 +12583,7 @@
       "source": "assumed"
     },
     "vo.silentsquatch.execution.booski.isaidhandleit": {
-      "text": "bea60c518355",
+      "text": "2e958cb09f29",
       "source": "assumed"
     },
     "vo.silentsquatch.execution.booski.thatwasaconsole": {
@@ -11111,7 +12739,7 @@
       "source": "assumed"
     },
     "vo.silentsquatch.guards.basement.keepwalking": {
-      "text": "0efbe7df81b2",
+      "text": "eb69076b3a74",
       "source": "assumed"
     },
     "vo.silentsquatch.guards.basement.nothingyours": {
@@ -11143,7 +12771,7 @@
       "source": "assumed"
     },
     "vo.silentsquatch.guards.vault.backup": {
-      "text": "01f24fa25eb1",
+      "text": "b95881b1a0bf",
       "source": "assumed"
     },
     "vo.silentsquatch.house.hogmama.leftapanon": {
@@ -11203,7 +12831,7 @@
       "source": "assumed"
     },
     "vo.silentsquatch.lock.booski.usefulnessexpired": {
-      "text": "1c9db2e9d467",
+      "text": "41cde1a86234",
       "source": "assumed"
     },
     "vo.silentsquatch.lock.dmt.againslower": {
@@ -11251,7 +12879,7 @@
       "source": "assumed"
     },
     "vo.silentsquatch.office.lou.soonenough": {
-      "text": "d2b9f06b8bab",
+      "text": "39010a447c40",
       "source": "assumed"
     },
     "vo.silentsquatch.office.prospect.whatsinside": {
@@ -11295,7 +12923,7 @@
       "source": "assumed"
     },
     "vo.silentsquatch.reaction.vetrov.canworkforyou": {
-      "text": "3502d85c1fb1",
+      "text": "c5103efe8313",
       "source": "assumed"
     },
     "vo.silentsquatch.reaction.vetrov.openthedoor": {
@@ -11867,7 +13495,7 @@
       "source": "assumed"
     },
     "vo.silver.margo.invitation.polite": {
-      "text": "8365b7835791",
+      "text": "cd1fc69da21e",
       "source": "assumed"
     },
     "vo.silver.margo.invitation.strong": {
@@ -12282,12 +13910,20 @@
       "text": "9543fd6f29c3",
       "source": "assumed"
     },
+    "vo.silver.player.invitation.open.10h4bhr": {
+      "text": "335ed351bc25",
+      "source": "assumed"
+    },
     "vo.silver.player.invitation.open.14fik0x": {
       "text": "92f1b9c94336",
       "source": "assumed"
     },
     "vo.silver.player.invitation.open.187q3m5": {
       "text": "28858a6cdb66",
+      "source": "assumed"
+    },
+    "vo.silver.player.invitation.open.1eak4x9": {
+      "text": "29ce18032202",
       "source": "assumed"
     },
     "vo.silver.player.invitation.open.1p4sox7": {
@@ -12528,6 +14164,14 @@
     },
     "vo.silver.player.waiter.open.1t5lera": {
       "text": "cd3c5d7e4b37",
+      "source": "assumed"
+    },
+    "vo.silver.player.waiter.open.20a7ar": {
+      "text": "85d63c2e1a2a",
+      "source": "assumed"
+    },
+    "vo.silver.player.waiter.open.c4no5p": {
+      "text": "25b7b767eedc",
       "source": "assumed"
     },
     "vo.silver.player.waiter.open.da95ti": {
@@ -13168,6 +14812,834 @@
     },
     "vo.smash.6": {
       "text": "0cac81b5b502",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_collar.1": {
+      "text": "8b9f42bc1b0f",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_collar.2": {
+      "text": "6ee3d349f09d",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_nice.1": {
+      "text": "0e139a2ccf11",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_nice.2": {
+      "text": "2aa2d4026a04",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_ok.1": {
+      "text": "e7956dfff71e",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_prospect.1": {
+      "text": "60c0011927ad",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_prospect.2": {
+      "text": "bf322dcc79eb",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_prospect.3": {
+      "text": "af5ed736db16",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_trunk.1": {
+      "text": "b5ceb2bf6216",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_trunk.2": {
+      "text": "6d970bd6d917",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_trunk.3": {
+      "text": "42756e5e6339",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_what.1": {
+      "text": "56914e70e6fb",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_what.2": {
+      "text": "ab3d0e029112",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_what.3": {
+      "text": "ff51195e695e",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kb_what.4": {
+      "text": "dc59550a8351",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kittenboss.1": {
+      "text": "e7889afb2de3",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kittenboss.2": {
+      "text": "af9e238d8bd2",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kittenboss.3": {
+      "text": "f5e350b88da1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kittenboss_more.1": {
+      "text": "6f00b2447138",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kittenboss_more.2": {
+      "text": "484ae30f5524",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kittenboss_more.3": {
+      "text": "887c0378dcd5",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.kittenboss_more.4": {
+      "text": "b8f0aaea23ec",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.tb_kittenboss.1": {
+      "text": "e68875012f60",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.tb_kittenboss.2": {
+      "text": "134d6f8985ef",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.trail_comfort.1": {
+      "text": "8fa9ea3b9565",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.trail_comfort.2": {
+      "text": "0c1db8742597",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.trail_talk.1": {
+      "text": "06ac648ba7ee",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.kittenboss.trail_talk.2": {
+      "text": "af5ed736db16",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.arrival.1": {
+      "text": "a67393707230",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.arrival.2": {
+      "text": "ed90746a1dd2",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.chain_locked.1": {
+      "text": "be1a8de828ca",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.dirt_one.1": {
+      "text": "2e82a5300d21",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.dirt_three.1": {
+      "text": "4c8fc7c0981c",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.dirt_three.2": {
+      "text": "3a9d9024fec0",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.in_the_back.1": {
+      "text": "f12e0189e9c0",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.in_the_back.2": {
+      "text": "955878338e2d",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.kittenboss.1": {
+      "text": "87690d756d5e",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.lag_seat.1": {
+      "text": "2e11a8e9c185",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.lag_seat.2": {
+      "text": "3286dbc8dde3",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.own_car.1": {
+      "text": "8ef541fdf864",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.own_car.2": {
+      "text": "f681c5a12636",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.silence_anything.1": {
+      "text": "f286bffe943e",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.swap.1": {
+      "text": "6e211ccfbdef",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.tb_kittenboss.1": {
+      "text": "1e0ede49a516",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.tb_you_first.1": {
+      "text": "d3346f7aa1d9",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.trail_mattress.1": {
+      "text": "3d88f5c0a5c6",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.trail_mattress.2": {
+      "text": "04d72f93b801",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.trail_voices.1": {
+      "text": "556addfd1aa1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.why_front.1": {
+      "text": "0553d9897a5f",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.lag.you_first.1": {
+      "text": "f75ad9acfc12",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.arrival.1": {
+      "text": "35b698aee316",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.back_seat.1": {
+      "text": "8d09c91c33be",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.back_seat.2": {
+      "text": "d7469364117b",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.dirt_two.1": {
+      "text": "f42073b3af12",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.dont_like.1": {
+      "text": "513e4676cb26",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.dont_like.2": {
+      "text": "3f18d4ffec7d",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.kittenboss.1": {
+      "text": "5ea68902c4ad",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.move_seats.1": {
+      "text": "ebac8100ed03",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.move_seats.2": {
+      "text": "f10a2727fd94",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.no_answer.1": {
+      "text": "302f7ebf368c",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.pop_trunk.1": {
+      "text": "9ca32a2adadd",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.sandwich.1": {
+      "text": "70983f72a2a6",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.sandwich_no.1": {
+      "text": "b7d02e5c2ea8",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.sandwich_what.1": {
+      "text": "b53f0355ade0",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.sandwich_what.2": {
+      "text": "b2fefc16073d",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.sandwich_yes.1": {
+      "text": "922df1628bdf",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.silence_hold.1": {
+      "text": "dadd863621e0",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.silence_known.1": {
+      "text": "903e3e216820",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.stay.1": {
+      "text": "955878338e2d",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.swap.1": {
+      "text": "955878338e2d",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.tb_walk_with_me.1": {
+      "text": "41bc7b0a9de2",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.tb_walk_with_me.2": {
+      "text": "556addfd1aa1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.tb_you_first.1": {
+      "text": "b2c49a077fbb",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.trail_record.1": {
+      "text": "2e5d4c5b102b",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.trail_record.2": {
+      "text": "a6dc7cf8b1df",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.valve.1": {
+      "text": "3e3862a439ce",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.valve.2": {
+      "text": "2624365537d2",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.window.1": {
+      "text": "649c74f7aa2b",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.window.2": {
+      "text": "955878338e2d",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.numbskull.you_first.1": {
+      "text": "c04a85df32ec",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.arrival.1": {
+      "text": "6e2c739ed735",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.arrival.2": {
+      "text": "2d600c189d61",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.arrival.3": {
+      "text": "faec2cf99423",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.dirt_four.1": {
+      "text": "b75126b04678",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.dirt_four.2": {
+      "text": "22eb726dd924",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.dirt_one.1": {
+      "text": "ccd273fa00b3",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.dirt_one.2": {
+      "text": "c320861e967f",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.handoff.1": {
+      "text": "bcce0c72ef6f",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.in_the_back.1": {
+      "text": "d8394b494bee",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.in_the_back.2": {
+      "text": "d8394b494bee",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.in_trouble.1": {
+      "text": "4db1c6f88139",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.in_trouble.2": {
+      "text": "afb37c3f39fa",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.kittenboss_more.1": {
+      "text": "2d01787ddd21",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.kittenboss_more.2": {
+      "text": "dfb31653b354",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.not_what_i_asked.1": {
+      "text": "85844f9ec616",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.off_we_go.1": {
+      "text": "b699b05342b2",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.say_nothing.1": {
+      "text": "5b9dddcdd5c2",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.seat.1": {
+      "text": "641b93143d6e",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.silence_known.1": {
+      "text": "3165dce5fda3",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.silence_known.2": {
+      "text": "39d700ccc4b1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.tb_how_far.1": {
+      "text": "1d6033b39df1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.tb_how_far.2": {
+      "text": "12091c9cc81a",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.tb_you_first.1": {
+      "text": "fcfe44e98583",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.trail_keep_going.1": {
+      "text": "fc9854d1580e",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.trail_mattress.1": {
+      "text": "cee5aaa1fd8d",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.trail_mattress.2": {
+      "text": "90caa1b14514",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.trail_mattress.3": {
+      "text": "454e7b21c4e9",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.why_front.1": {
+      "text": "9cf0f2af0bc4",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.you_first.1": {
+      "text": "4349b4a95b10",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.seff.you_first.2": {
+      "text": "9bacbfb6dab6",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.back_seat.1": {
+      "text": "831653d71959",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.back_seat.2": {
+      "text": "9461ab46d829",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.call_back.1": {
+      "text": "fe28a3cc5842",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.call_back.2": {
+      "text": "0e4be653f922",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.call_back.3": {
+      "text": "d7be09e00b16",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.chain.opt1": {
+      "text": "28b47c904f30",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dead_line.1": {
+      "text": "07537c35b975",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dirt_four.1": {
+      "text": "d090adc886e0",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dirt_four.2": {
+      "text": "af3a0f8958a1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dirt_one.1": {
+      "text": "e97f8ad68f0e",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dirt_one.2": {
+      "text": "d905874a0e27",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dirt_one.3": {
+      "text": "752b46764c59",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dirt_one.4": {
+      "text": "808dd64fb336",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dirt_one.5": {
+      "text": "5a1b015400fc",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dirt_three.1": {
+      "text": "b9fe1e1e1f17",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dirt_three.2": {
+      "text": "556addfd1aa1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dirt_two.1": {
+      "text": "168cce489350",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.dont_like.1": {
+      "text": "35a2b52c7e08",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.door_refusal.1": {
+      "text": "ba3588a22bf1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.door_refusal.2": {
+      "text": "955909133715",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.door_refusal.3": {
+      "text": "85d6c0dc3816",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.getting_ready.1": {
+      "text": "b2802b0ea453",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.getting_ready.2": {
+      "text": "747ba154fa8b",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.getting_ready.3": {
+      "text": "017f52c095ca",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.getting_ready.4": {
+      "text": "25260ccfad06",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.headlights.1": {
+      "text": "c36b2dd1b3fb",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.headlights.2": {
+      "text": "f12e5aae9280",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.headlights.3": {
+      "text": "bfcb3292e594",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_after.1": {
+      "text": "945c44841014",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_after.2": {
+      "text": "4abc1de7f18b",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_after.3": {
+      "text": "7e5c3823d9f2",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_after.4": {
+      "text": "0f5ed2b43a9b",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_after.5": {
+      "text": "1399341f93fb",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_after.6": {
+      "text": "338630dcddec",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_after.7": {
+      "text": "7abd714d4c94",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_after.8": {
+      "text": "7ce42f9ad9c9",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_before.1": {
+      "text": "2c528ebaed67",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_before.2": {
+      "text": "c4061eb9b990",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_before.3": {
+      "text": "921c6a61298a",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_before.4": {
+      "text": "5ca272bda48c",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_before.5": {
+      "text": "19f5520b2b7d",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_before.6": {
+      "text": "6c6029cbea23",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_before.7": {
+      "text": "b4784bb69d4e",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.idle_before.8": {
+      "text": "a18bb87f6387",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.in_the_back.1": {
+      "text": "e5918bde42d1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.in_the_back.opt1": {
+      "text": "e19c95a75bb9",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.in_trouble.1": {
+      "text": "48d7a8215cbe",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.in_trouble.2": {
+      "text": "b5a8d851eed8",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kb_collar.1": {
+      "text": "82108cf90f68",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kb_prospect.1": {
+      "text": "6ddbb2b4134c",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kb_trunk.1": {
+      "text": "20d05a19f604",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kb_trunk.2": {
+      "text": "5ea68902c4ad",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kb_what.1": {
+      "text": "3b20ece829b0",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kb_what.2": {
+      "text": "2aed021ddf7b",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kb_what.3": {
+      "text": "75dc9248ccd9",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kittenboss.1": {
+      "text": "0370aaab8a27",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kittenboss.2": {
+      "text": "e6dd8a0fd1fb",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kittenboss_hub.opt1": {
+      "text": "cdfaabf57808",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kittenboss_hub.opt2": {
+      "text": "4e9914e56378",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kittenboss_hub.opt3": {
+      "text": "bce57af64030",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kittenboss_hub.opt4": {
+      "text": "56914e70e6fb",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.kittenboss_hub.opt5": {
+      "text": "18c3a14d2159",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.lag_seat.1": {
+      "text": "e7e3bc91628d",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.lag_seat.2": {
+      "text": "af5ed736db16",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.move_seats.1": {
+      "text": "804a44d69ea1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.move_seats.opt1": {
+      "text": "bc632f15bcd4",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.move_seats.opt2": {
+      "text": "fdc1abb48f6b",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.own_car.1": {
+      "text": "2c14a74db719",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.own_car.2": {
+      "text": "291a9d8515c3",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.sandwich.opt1": {
+      "text": "cbc7c968a2c0",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.sandwich.opt2": {
+      "text": "16665bdac6db",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.sandwich.opt3": {
+      "text": "a192afb8cc0e",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.sandwich_what.1": {
+      "text": "e19c95a75bb9",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.sandwich_yes.1": {
+      "text": "95c1da065822",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.seat.1": {
+      "text": "e18026e61536",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.seat.2": {
+      "text": "af5ed736db16",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.silence.opt1": {
+      "text": "b2ab0149fdf4",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.silence.opt2": {
+      "text": "1db617d9b64a",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.tb_how_far.1": {
+      "text": "27ca9f6bb67f",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.tb_how_far.2": {
+      "text": "e36863d85ee7",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.tb_kittenboss.1": {
+      "text": "5683be6e0684",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.tb_kittenboss.2": {
+      "text": "da62369611c3",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.tb_walk_with_me.1": {
+      "text": "692197fb4737",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.tb_walk_with_me.2": {
+      "text": "fe3ef0a4063f",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.tb_you_first.1": {
+      "text": "94eb29f598be",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.tb_you_first.2": {
+      "text": "48410712aacd",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.trail_comfort.1": {
+      "text": "8be0c7ff7d42",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.trail_light.opt1": {
+      "text": "93f2952fadf1",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.trail_record.1": {
+      "text": "8016d1162a05",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.trail_record.2": {
+      "text": "1635bfb431e0",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.trail_talk.1": {
+      "text": "7e19a9617ba0",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.trail_voices.1": {
+      "text": "4bd793361204",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.valve.1": {
+      "text": "7fbd3c7ae968",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.why_front.1": {
+      "text": "bb7a4c7d5e49",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.why_front.2": {
+      "text": "813a0ab5c0ce",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.window.1": {
+      "text": "3b20ece829b0",
+      "source": "assumed"
+    },
+    "vo.specialmeeting.tony.you_first.1": {
+      "text": "75c46daf1892",
       "source": "assumed"
     },
     "vo.spooky.1": {

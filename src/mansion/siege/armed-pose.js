@@ -11,6 +11,12 @@
  * hand loose or add the full authoring cost to every frame.
  */
 import * as THREE from 'three';
+import {
+  CHARACTER_WEAPON_MOUNTS,
+  CHARACTER_WEAPON_MOUNT_ROLL,
+  alignCharacterWeaponGrip,
+  mountCharacterWeapon,
+} from '../../core/weapons/character-mount.js';
 
 /**
  * WHICH WAY UP A MOUNTED GUN GOES.
@@ -38,57 +44,11 @@ import * as THREE from 'three';
  * they are negated here to keep each support hand on the side of the gun it
  * was tuned for. Every grip is on x = 0 and is unaffected.
  */
-const RX = -Math.PI / 2;
-const RZ = Math.PI;
-const MOUNT_ROTATION = Object.freeze([RX, 0, RZ]);
-
-export const SIEGE_WEAPON_MOUNTS = Object.freeze({
-  revolver: Object.freeze({
-    scale: 0.85,
-    rotation: MOUNT_ROTATION,
-    grip: Object.freeze([0, -0.0153926682, 0.0662709406]),
-    support: null,
-  }),
-  shotgun: Object.freeze({
-    scale: 0.80,
-    rotation: MOUNT_ROTATION,
-    grip: Object.freeze([0, -0.05, 0.09]),
-    support: Object.freeze([0, -0.002, -0.31]),
-  }),
-  pistol9: Object.freeze({
-    scale: 0.85,
-    rotation: MOUNT_ROTATION,
-    grip: Object.freeze([0, -0.0377123373, 0.0557002539]),
-    support: null,
-  }),
-  carbine: Object.freeze({
-    scale: 0.85,
-    rotation: MOUNT_ROTATION,
-    grip: Object.freeze([0, -0.0818282691, 0.0815725017]),
-    support: Object.freeze([0.02, -0.01, 0.04]),
-  }),
-  saw: Object.freeze({
-    scale: 0.80,
-    rotation: MOUNT_ROTATION,
-    grip: Object.freeze([0, -0.0638515066, 0.0783417901]),
-    support: Object.freeze([0.03, 0.025, 0.05]),
-  }),
-  barrett: Object.freeze({
-    scale: 0.72,
-    rotation: MOUNT_ROTATION,
-    grip: Object.freeze([0, -0.1005384285, 0.1830228086]),
-    support: Object.freeze([0.02, 0.03, 0.10]),
-  }),
-  ak47: Object.freeze({
-    scale: 0.85,
-    rotation: MOUNT_ROTATION,
-    grip: Object.freeze([0, -0.0756661815, 0.0777549423]),
-    support: Object.freeze([0.02, 0.012, 0.05]),
-  }),
-});
-
-/** The mount's roll, for the two live-aim adapters that re-set it by hand. */
-export const SIEGE_WEAPON_MOUNT_ROLL = RZ;
+/* Compatibility exports for the Siege's live-aim and IK adapters. The values
+ * themselves now have one owner in core; keeping these names avoids widening
+ * this no-visual-drift migration through attackers.js and ensemble.js. */
+export const SIEGE_WEAPON_MOUNTS = CHARACTER_WEAPON_MOUNTS;
+export const SIEGE_WEAPON_MOUNT_ROLL = CHARACTER_WEAPON_MOUNT_ROLL;
 
 const _grip = new THREE.Vector3();
 const _target = new THREE.Vector3();
@@ -121,10 +81,9 @@ function alignPrimaryGrip(figure, weaponId, gun) {
   const config = configFor(weaponId);
   const hand = handMesh(figure.parts.foreR);
   if (!hand) throw new Error(`${figure.root.name} has no right-hand mesh`);
-  gun.rotation.set(...config.rotation);
-  gun.scale.setScalar(config.scale);
-  _grip.fromArray(config.grip).multiplyScalar(config.scale).applyEuler(gun.rotation);
-  gun.position.copy(hand.position).sub(_grip);
+  if (!alignCharacterWeaponGrip(figure, weaponId, gun, { hand })) {
+    throw new Error(`${figure.root.name} cannot align ${weaponId} to its right hand`);
+  }
   gun.userData.siegeWeaponId = weaponId;
   gun.userData.siegeMount = {
     grip: [...config.grip],
@@ -182,8 +141,7 @@ function solveSupportHand(figure, gun, support, {
 /** Attach a newly built catalog model and align its primary grip. */
 export function mountSiegeWeapon(figure, weaponId, gun, { name = null } = {}) {
   if (!figure?.parts?.foreR || !gun?.isObject3D) return null;
-  if (name) gun.name = name;
-  figure.parts.foreR.add(gun);
+  if (!mountCharacterWeapon(figure, weaponId, gun, { name })) return null;
   return alignPrimaryGrip(figure, weaponId, gun);
 }
 

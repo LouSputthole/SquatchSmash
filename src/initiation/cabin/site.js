@@ -224,28 +224,32 @@ export const ESCORT_CLEARANCE = 1.75;
 export const KNEEL_AIM_INSET = 0.9;
 
 /**
- * The four kneel marks, IN THE ORDER THEY ARE USED.
+ * The four execution marks, in the order the revolver reaches them.
  *
- * They walk WESTWARD, toward the player, so each one is closer than the last:
- * seven metres away, then five and a half, then four, then under three. The
- * escalation is the staging doing the work that no line of dialogue is
- * allowed to do — by the time the last one is walked out, she is being put
- * down close enough for him to reach.
+ * The doomed prospects close on the player: seven metres away, then five and
+ * a half, then four. Kittenboss is fourth and different. She kneels on Tony's
+ * right, close enough to read as beside him, and is executed there immediately
+ * before the revolver moves the last metre to Tony.
  *
- * The last one is KITTENBOSS, and she is last on purpose. She was alive in the
- * boot of the Lincoln parked three metres off the end of the line, with the
- * lid still standing open — which was the only evidence the player has had all
- * night that he is not the one who was driven out here to be shot.
+ * Kittenboss was alive in the boot of the Lincoln parked three metres off the
+ * end of the line, with the lid still standing open. `besidePlayer` makes her
+ * last mark obey a different visibility rule: Tony can free-look right to see
+ * her, while her shooter and forward fall stay out of Tony's body and camera.
  *
  * `victim` is the default casting, and it is data rather than doctrine: the
  * ceremony code owns who is walked out. What this file owns is that wherever
  * they are put, the man behind them is behind them and the player can see it.
  */
 const KNEEL_MARK_SOURCE = Object.freeze([
-  Object.freeze({ id: 'kneel-1', victim: 'PROSPECT THREE', x: 4.30, z: -4.60, splay: 0.17 }),
-  Object.freeze({ id: 'kneel-2', victim: 'PROSPECT FOUR', x: 2.55, z: -4.95, splay: -0.13 }),
-  Object.freeze({ id: 'kneel-3', victim: 'PROSPECT FIVE', x: 0.80, z: -5.25, splay: 0.21 }),
-  Object.freeze({ id: 'kneel-4', victim: 'KITTENBOSS', x: -0.95, z: -5.55, splay: -0.15 }),
+  Object.freeze({ id: 'kneel-1', victim: 'PROSPECT THREE', role: 'execution', x: 4.30, z: -4.60, splay: 0.17 }),
+  Object.freeze({ id: 'kneel-2', victim: 'PROSPECT FOUR', role: 'execution', x: 2.55, z: -4.95, splay: -0.13 }),
+  Object.freeze({ id: 'kneel-3', victim: 'PROSPECT FIVE', role: 'execution', x: 0.80, z: -5.25, splay: 0.21 }),
+  /* 1.35 m right and 0.20 m forward from Tony: genuinely beside him. Facing
+   * north keeps the shooter southeast of Tony and the fall safely forward. */
+  Object.freeze({
+    id: 'kneel-4', victim: 'KITTENBOSS', role: 'execution', besidePlayer: true,
+    x: -0.85, z: -7.80, heading: 0, shooterReach: 1.10,
+  }),
 ]);
 
 /** Where the head of a kneeling figure is. See KNEEL_POSE in staging.js. */
@@ -279,15 +283,15 @@ export const MUZZLE_Y = 1.24;
  * Hard-coding a side is how you end up with the last execution of the night
  * happening behind the victim's own skull.
  */
-function chooseShooterSide(mark, heading) {
+function chooseShooterSide(mark, heading, reach = SHOOTER_REACH) {
   const facing = facingOf(heading);
   const right = rightOf(heading);
   const head = { x: mark.x, z: mark.z };
   let best = null;
   for (const side of [1, -1]) {
     const stance = {
-      x: mark.x - facing.x * SHOOTER_REACH + right.x * SHOOTER_OFFSET * side,
-      z: mark.z - facing.z * SHOOTER_REACH + right.z * SHOOTER_OFFSET * side,
+      x: mark.x - facing.x * reach + right.x * SHOOTER_OFFSET * side,
+      z: mark.z - facing.z * reach + right.z * SHOOTER_OFFSET * side,
     };
     const muzzle = {
       x: mark.x - facing.x * 0.16 + right.x * SHOOTER_OFFSET * side,
@@ -301,13 +305,16 @@ function chooseShooterSide(mark, heading) {
 
 function buildMark(source) {
   /* Turned to the line, angled in toward its centre, then nudged off square. */
-  const heading = headingToward(source, { x: source.x - KNEEL_AIM_INSET, z: LINE_Z })
-    + source.splay;
+  const heading = Number.isFinite(source.heading)
+    ? source.heading
+    : headingToward(source, { x: source.x - KNEEL_AIM_INSET, z: LINE_Z }) + source.splay;
   const facing = facingOf(heading);
-  const chosen = chooseShooterSide(source, heading);
+  const chosen = chooseShooterSide(source, heading, source.shooterReach);
   return Object.freeze({
     id: source.id,
     victim: source.victim,
+    role: source.role,
+    besidePlayer: source.besidePlayer === true,
     x: source.x,
     z: source.z,
     /** Person heading for the KNEELING figure. */
@@ -482,15 +489,13 @@ export function carYaw(car) {
 }
 
 /**
- * The burn barrel.
- *
- * There is no ceremonial bonfire on this site and there is no stage. A rusted
- * drum with a fire in it is what is actually burning in a clearing where men
- * have been waiting in the cold for an hour, and it reads backwoods rather
- * than pagan — which is the difference the owner asked for between this and a
- * conference room with cigarettes.
+ * The clearing's visual anchor. It stays west of the execution row and the
+ * ceremonial aisle, so it lights every face without becoming another hairy
+ * roadblock between the track and Tony's mark.
  */
-export const BURN_BARREL = Object.freeze({ x: -8.4, z: -3.2, radius: 0.34, height: 0.88 });
+export const BONFIRE = Object.freeze({ x: -6.9, z: -1.2, radius: 1.25, height: 1.55 });
+/** Compatibility alias while the top-level scene migrates its ember emitter. */
+export const BURN_BARREL = BONFIRE;
 
 /* ------------------------------------------------------------------ */
 /* THE APPROACH                                                         */
@@ -954,7 +959,8 @@ export const SPEAKERS = Object.freeze({
   cabinMusic: Object.freeze({ x: CABIN.x - 1.4, y: 1.5, z: CABIN.z + 0.6 }),
   stove: Object.freeze({ x: STOVE.x, y: 0.7, z: STOVE.z }),
   porch: Object.freeze({ x: CABIN_DOOR.x, y: 2.3, z: PORCH.minZ + 0.4 }),
-  burnBarrel: Object.freeze({ x: BURN_BARREL.x, y: 1.0, z: BURN_BARREL.z }),
+  bonfire: Object.freeze({ x: BONFIRE.x, y: 1.0, z: BONFIRE.z }),
+  burnBarrel: Object.freeze({ x: BONFIRE.x, y: 1.0, z: BONFIRE.z }),
   clearingWest: Object.freeze({ x: CLEARING_CARS[0].x, y: 0.7, z: CLEARING_CARS[0].z }),
   clearingEast: Object.freeze({ x: CLEARING_CARS[1].x, y: 0.7, z: CLEARING_CARS[1].z }),
 });

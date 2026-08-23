@@ -33,6 +33,9 @@ import { TABLE, TABLE_SOCKETS } from './site.js';
 
 const _bounds = new THREE.Box3();
 
+export const INITIATION_CARD_SLOT = 'initiation.ceremony.saint-card';
+export const INITIATION_ART_SLOTS = ['initiation.ceremony.saint-card'];
+
 /**
  * Put an object down on a surface.
  *
@@ -145,15 +148,159 @@ function saintCardTexture() {
  */
 export function makeSaintCard() {
   const group = assembly('prop.card', 'initiation.prop.card');
-  const card = part(
-    new THREE.BoxGeometry(0.062, 0.098, 0.0016),
-    new THREE.MeshLambertMaterial({ map: saintCardTexture() }),
-    0, 0, 0, 'card.face',
+  const width = 0.098 * (2 / 3);
+  const height = 0.098;
+  const backing = part(
+    new THREE.BoxGeometry(width, height, 0.0016),
+    new THREE.MeshLambertMaterial({ color: 0xcbb783 }),
+    0, 0, 0, 'card.backing',
   );
-  group.add(card);
+  group.add(backing);
+
+  const frontMaterial = new THREE.MeshLambertMaterial({
+    map: saintCardTexture(),
+    transparent: true,
+  });
+  const front = part(
+    new THREE.PlaneGeometry(width - 0.0018, height - 0.0018),
+    frontMaterial,
+    0, 0, 0.00086, 'card.face',
+  );
+  group.add(front);
+
+  // A rising char front makes the burn legible without destroying or
+  // modifying the supplied artwork. At completion the physical card vanishes
+  // and every effect goes dark, leaving no light or particle leak in the hand.
+  const charMaterial = new THREE.MeshBasicMaterial({
+    color: 0x170805,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  });
+  const char = part(
+    new THREE.PlaneGeometry(width - 0.0014, height - 0.0014),
+    charMaterial,
+    0, -height / 2, 0.00102, 'card.char',
+  );
+  char.scale.y = 0.001;
+  char.visible = false;
+  group.add(char);
+
+  const flame = effect(new THREE.Mesh(
+    new THREE.ConeGeometry(0.0085, 0.026, 7),
+    glowMaterial(0xffa044, 3.1),
+  ));
+  flame.name = 'card.burn-flame';
+  flame.visible = false;
+  group.add(flame);
+
+  const light = new THREE.PointLight(0xff8f3d, 0, 0.8, 2);
+  light.name = 'card.burn-light';
+  group.add(light);
+
+  const emberGeometry = new THREE.BufferGeometry();
+  emberGeometry.setAttribute('position', new THREE.Float32BufferAttribute([
+    -0.012, 0.002, 0.003, 0.009, 0.008, 0.004,
+    -0.004, 0.016, 0.004, 0.014, 0.022, 0.003,
+  ], 3));
+  const embers = effect(new THREE.Points(
+    emberGeometry,
+    new THREE.PointsMaterial({
+      color: 0xffa24a,
+      size: 0.005,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }),
+  ));
+  embers.name = 'card.burn-embers';
+  embers.visible = false;
+  group.add(embers);
+
+  let burnProgress = 0;
+  let burnClock = 0;
+  const setTexture = (texture) => {
+    if (!texture) return false;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    frontMaterial.map = texture;
+    frontMaterial.needsUpdate = true;
+    return true;
+  };
+  const resetBurn = () => {
+    burnProgress = 0;
+    burnClock = 0;
+    backing.visible = true;
+    front.visible = true;
+    char.visible = false;
+    char.scale.y = 0.001;
+    char.position.y = -height / 2;
+    charMaterial.opacity = 0;
+    flame.visible = false;
+    light.intensity = 0;
+    embers.visible = false;
+    embers.material.opacity = 0;
+  };
+  const setBurnProgress = (next) => {
+    burnProgress = Math.max(burnProgress, THREE.MathUtils.clamp(Number(next) || 0, 0, 1));
+    if (burnProgress >= 1) {
+      backing.visible = false;
+      front.visible = false;
+      char.visible = false;
+      flame.visible = false;
+      light.intensity = 0;
+      embers.visible = false;
+      embers.material.opacity = 0;
+      return burnProgress;
+    }
+    if (burnProgress <= 0) {
+      resetBurn();
+      return burnProgress;
+    }
+    const charHeight = Math.max(0.001, burnProgress);
+    char.visible = true;
+    char.scale.y = charHeight;
+    char.position.y = -height / 2 + (height * charHeight) / 2;
+    charMaterial.opacity = 0.35 + burnProgress * 0.58;
+    const edgeY = -height / 2 + height * burnProgress;
+    flame.visible = true;
+    flame.position.set(0.004 * Math.sin(burnProgress * 19), edgeY, 0.006);
+    light.position.copy(flame.position);
+    light.intensity = 0.35 + 0.25 * Math.sin(burnProgress * 23) ** 2;
+    embers.visible = true;
+    embers.position.set(0, edgeY, 0.006);
+    embers.material.opacity = 0.45 + burnProgress * 0.35;
+    return burnProgress;
+  };
+  const updateBurn = (dt) => {
+    if (burnProgress <= 0 || burnProgress >= 1) return;
+    burnClock += Math.max(0, Number(dt) || 0);
+    flame.scale.set(
+      0.88 + Math.sin(burnClock * 19) * 0.12,
+      0.92 + Math.sin(burnClock * 23 + 0.7) * 0.16,
+      0.88,
+    );
+    flame.rotation.z = Math.sin(burnClock * 13) * 0.18;
+    light.intensity = 0.42 + 0.18 * Math.sin(burnClock * 29) ** 2;
+    embers.rotation.z += Math.max(0, Number(dt) || 0) * 1.7;
+  };
+  resetBurn();
   return {
     group,
-    card,
+    card: backing,
+    backing,
+    front,
+    char,
+    flame,
+    light,
+    embers,
+    setTexture,
+    setBurnProgress,
+    resetBurn,
+    updateBurn,
+    get burnProgress() { return burnProgress; },
     /* Face up on the table. */
     rest: { x: -Math.PI / 2, y: 0.22, z: 0 },
     grip: { rotation: { x: -0.5, y: 0, z: 0 } },

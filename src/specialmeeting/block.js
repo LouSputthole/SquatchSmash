@@ -42,6 +42,7 @@ import * as THREE from 'three';
 import { asphalt, brick, lit, neonText, printed, tiled } from '../bing/kit.js';
 import { makeCar, makeVehicleCollider } from '../bing/vehicles.js';
 import { box, boxFrom, collider, cylinder, group, mat } from '../world/build.js';
+import { buildFeaturedPickup } from './featured-vehicle.js';
 import {
   ALLEY,
   APARTMENT,
@@ -973,7 +974,9 @@ export function buildSpecialMeetingBlock(scene, { registerLight = null } = {}) {
   /* ---------------------------------------------------------------- */
   const kerbRnd = seeded(0x71c4d9);
   for (const spot of PARKED_AT_KERB) {
-    const car = makeCar(spot.kind, spot.colour, { dented: !!spot.dented });
+    const car = spot.featured
+      ? buildFeaturedPickup({ colour: spot.colour })
+      : makeCar(spot.kind, spot.colour, { dented: !!spot.dented });
     const z = spot.side === 'north' ? NORTH_PARKING_Z : SOUTH_PARKING_Z;
     car.group.position.set(spot.x, 0, z);
     car.group.rotation.y = (spot.side === 'north' ? 0 : Math.PI) + (kerbRnd() - 0.5) * 0.05;

@@ -1,9 +1,16 @@
 # INITIATION NIGHT — the cabin ceremony
 
-The rewrite of Initiation Night. The line-up and the question trial stay in the
-clearing. Everything after them is new: every other prospect is executed in
-front of the player, one at a time, and then the player alone is walked through
-the woods to an old country cabin and made.
+The rewrite of Initiation Night. The line-up and wrong-answer execution stay in
+the clearing. Palace evidence then clears Willy, confirms Sauce as the rat with
+inside help, and triggers the nuclear option: all five remaining prospects
+kneel at once. Prospect Three, Four, Five, and Kittenboss are executed in
+Tony's view. Lou stops Tony's execution, and Tony alone is walked through the
+woods to an old country cabin and made.
+
+> **2026-08-20 story override:** the section titled **ARCHIVED ACT TWO** remains
+> below only as production history. It is not executable canon. The current
+> contract is the **NUCLEAR OPTION** section and `src/initiation/script.js` /
+> `src/initiation/executions.js`.
 
 > **Read `docs/TONE-AND-PARODY.md` first, and obey it.** The owner's words for
 > this ceremony: **sacred, ominous, old-world, mob ritual.** The comedy of this
@@ -35,8 +42,9 @@ coats still on.
 |---|---|---|
 | 1 | The line-up and the question trial, **exactly as they ship today** | the clearing |
 | 2 | Prospect One answers wrong and is shot, **kept** | the clearing |
-| 3 | Gratin and Seff execute **every remaining prospect, including Kittenboss**, in front of the player — each on their knees, shot in the back of the head, one at a time | the clearing |
-| 4 | The player **alone** is walked through the woods to the cabin, and is made | the trail, then the cabin |
+| 3 | Palace evidence clears Willy and reveals that Sauce had inside help; all five remaining prospects kneel simultaneously | the clearing |
+| 4 | Prospect Three, Four, Five, and Kittenboss are executed in view; Lou stops Tony's execution | the clearing |
+| 5 | Tony, the only surviving prospect, is walked through the woods to the cabin and made | the trail, then the cabin |
 
 ---
 
@@ -44,9 +52,9 @@ coats still on.
 
 These are not style notes. Break one and the scene stops working.
 
-**1. Nobody explains anything, ever.** Not why the others died, not why the
-player did not. Nobody says "you were always the one." Nobody says "they
-failed." The player leaves the clearing without an answer and never gets one.
+**1. The family states only the facts that cause the nuclear option.** Willy was
+not the rat. Sauce was, Palace evidence proves he had inside help, and there is
+one place because the family is at quota. Nobody identifies the helper.
 
 **2. Gratin and Seff are gentle, well-liked men, and they play it completely
 straight.** They are unhurried, polite, matter-of-fact. They give
@@ -68,18 +76,11 @@ carried out on 2026-08-20, so `docs/SPECIAL-MEETING-SCRIPT.md`,
 the manifest's booth note now agree with this document. **Anything new must
 match them.**
 
-**5. Kittenboss stays ordinary right to the end.** She was comic relief in a car
-boot an hour ago and she is exactly the same woman here — still cheerful, still
-slightly put out, still not reading the room. **No pleading. No brave speech. No
-heroic exit. No knowing wink. No last-second reprieve.** She goes down with the
-rest and **nobody remarks on it afterwards.** Not on the walk, not in the cabin,
-not ever. That silence is the joke landing.
+**5. Kittenboss dies explicitly.** She kneels beside Tony and is the fourth
+fatal sweep target. Tony sees it and remains free to look.
 
-**6. Lou says nothing during the executions.** Not one word, from "Clear the
-line" until the cabin. He is the warm one, the translator, the man who was
-making jokes about the reading ninety seconds ago. His silence is a character
-beat and it must be protected — no ad-libs, no comfort, no reaction shot with a
-line on it.
+**6. Lou owns the interruption.** He lets all four executions happen, then
+stops Gratin before Tony's shot: **"Stop. This one is good."**
 
 **7. The clearing is never mentioned again.** Once the walk begins, the bodies
 do not exist. No callback, no dialogue, no final camera pass over them. The
@@ -92,12 +93,12 @@ scene's discipline about this is what makes the last shot mean anything.
 | Who | Voice profile | Register in this scene |
 |---|---|---|
 | **PROSPECT** (Tony Squatchtana) | `player` | Dry, understated, British-inflected. He is in the line and he cannot leave it. He has a handful of things he may say and none of them work. His strongest option is silence, and the scene knows it. |
-| **BOOSKIBRO** | `booski` | Patriarch. Ceremonial, enormous, sincere. He runs the trial, says three words that start the killing, and does not raise his voice once during it. |
-| **BIG UNCLE LOU SPUTTHOLE** | `lou` | Lieutenant. Warm, funny, the translator — **until "Clear the line", after which he is silent until the cabin.** In the cabin he is the celebrant, and he is completely serious for the first time in the campaign. |
+| **BOOSKIBRO** | `booski` | Patriarch. Ceremonial, enormous, sincere. He orders the nuclear option, includes Kittenboss, and does not raise his voice once during it. |
+| **BIG UNCLE LOU SPUTTHOLE** | `lou` | Lieutenant. Delivers the evidence, hesitates over Kittenboss, permits the sweep, then stops only Tony's execution. In the cabin he is the celebrant. |
 | **RIPPINFLOW** | `rippinflow` | The quiet founder. Four words a night. He carries the blade. The owner's draft calls him **RIPPIN**; canonical display is **RIPPINFLOW**. |
-| **GRATIN** | `gratin` | Executioner, and the family's torture guy. Domestic, unhurried, mildly bored, kind out of habit. Talks the way a man talks in his own kitchen. Kneels them, and shoots the last two. |
-| **SEFF** | `seff` | Executioner. Transactional, flat, accurate, always mid-errand. Answers with the smallest true thing. Shoots Prospect One and the first two. |
-| **KITTENBOSS** | `kittenboss` *(cast — `2bk7ULW9HfwvcIbMWod0`)* | **She.** Prospect. Aggrieved, deadpan, weirdly chipper. Treats a mass execution the way she treated a car boot: as a logistics failure. Never explains, never pleads, never reads the room. |
+| **GRATIN** | `gratin` | Executioner. Covers Prospect Three, Four, Five, and Kittenboss, then aims at Tony and lowers the revolver on Lou's word. |
+| **SEFF** | `seff` | Executioner. Performs Prospect One's deliberately excessive barrage and covers Gratin during the sweep. |
+| **KITTENBOSS** | `kittenboss` *(cast — `2bk7ULW9HfwvcIbMWod0`)* | **She.** Prospect. Kneels beside Tony and is the fourth fatal sweep target. |
 | **PROSPECT ONE** | `doorman` | The one who does not understand what is happening until the moment it does. Cheerful. Guessing. Existing character, existing lines. |
 | **PROSPECT THREE** | *needs casting* | The one who argues. Not brave — **indignant.** He thinks there has been an administrative error and he wants it looked at. |
 | **PROSPECT FOUR** | *none — he never speaks* | The one who says nothing. Not one word in the whole scene. He understood first. |
@@ -138,15 +139,17 @@ Three places, in order.
 
 ### The clearing
 
-**There is no bonfire and there is no stage.** A track through black woods opens
-into nineteen metres by eight of churned, rutted, standing-water mud. **Two cars
-sit nose-in at the south edge with their engines running and their headlights
-left on**, crossing at the working ground; a rusted **burn barrel** is going off
-to the west; and the old fire ring is cold stones nobody has been near.
+**There is one large bonfire and there is no stage.** A track through black woods
+opens into nineteen metres by eight of churned, rutted, standing-water mud.
+**Two cars sit nose-in at the south edge with their engines running and their
+headlights left on**, crossing at the working ground. West of the ceremonial
+aisle, the bonfire burns inside its stone ring without blocking the player's
+route to the line.
 
-That is the difference the owner asked for. *"More buried family tradition, less
-conference room with cigarettes."* A drum with a fire in it is what is actually
-burning in a clearing where men have been standing in the cold for an hour.
+The bonfire is the clearing's major visual anchor: crossed logs, active flame, smoke, rising embers, warm
+flicker across the formal suits and moving shadows against the woods. That is the
+difference the owner asked for: *"More buried family tradition, less conference
+room with cigarettes."*
 
 **What the light does, and it does three jobs at once:**
 
@@ -164,10 +167,9 @@ thing the player's eye finds when he is marched in, and it is **still standing
 open, empty, behind everything that happens next.** Nobody shuts it.
 
 ```
-        the old fire ring (cold)              +Z, downrange
+        large bonfire (lit)                   +Z, downrange
                     |                              ^
-   burn barrel      |                              |
-        o           |
+       ((fire))     |                              |
                     |         kneel marks, IN THE ORDER THEY ARE USED
                     |    4 <--- 3 <--- 2 <--- 1     (they walk WESTWARD,
                     |   Kitten  FIVE  FOUR  THREE    toward the player)
@@ -268,11 +270,11 @@ off at the treeline with Seff saying "Go on." — this scene picks him up walkin
 from behind. **It must not replay the hand-off.**]*
 
 *[The track wanders, because a forest track that runs straight for sixty metres
-is a runway. What is at the end of it is not a fire: it is **two sets of
-headlights across mud**, and a drum burning off to one side.]*
+is a runway. At the end of it, the **bonfire is the visual anchor**, backed by two
+sets of headlights crossing the mud. Smoke and embers rise above the fire before
+the player can make out the people around it.]*
 
-**Objective:** `Follow the lights` *(today's string is `Follow the firelight`;
-there is no fire on this site any more. HUD text, no recording attached.)*
+**Objective:** `Follow the firelight` *(HUD text; no recording attached.)*
 
 ## IN-020 — the line *(as shipped, re-spaced)*
 
@@ -421,7 +423,67 @@ laugh** — the smile does not so much go as get put away.]*
 
 ---
 
-# ACT TWO — CLEAR THE LINE
+# ACT TWO — THE NUCLEAR OPTION (CURRENT)
+
+## IN-100 — what the Palace proved
+
+**BIG UNCLE LOU:** "Willy wasn't the rat."
+
+**BIG UNCLE LOU:** "We killed the wrong man."
+
+**BOOSKIBRO:** "Sauce was the rat. The palace proved that."
+
+**BOOSKIBRO:** "It also proved he had help on the inside."
+
+**BIG UNCLE LOU:** "There is one place left. We are at quota."
+
+**BOOSKIBRO:** "We don't put a question inside this family."
+
+**BOOSKIBRO:** "Nuclear option."
+
+**GRATIN:** "Kittenboss too?"
+
+**BIG UNCLE LOU:** "We'll see."
+
+**BOOSKIBRO:** "She has to go too."
+
+## IN-110 — all prospects kneel
+
+**BOOSKIBRO:** "All prospects. On your knees."
+
+*[Prospect Three, Four, and Five kneel in front of Tony. Tony kneels with
+Kittenboss at his side. Movement is locked; first-person yaw and pitch remain
+free throughout the sweep.]*
+
+**GRATIN:** "Face forward."
+
+## IN-120 / IN-130 / IN-145 / IN-150 — the sweep
+
+Gratin executes Prospect Three, Four, Five, and Kittenboss, one round each, in
+that order. All four were already kneeling before the first shot. Kittenboss
+falls beside Tony. No individual walkout, gap hub, or reload phase remains.
+
+## IN-160 — Tony
+
+*[Gratin steps behind Tony and raises the revolver. Kittenboss lies dead beside
+him. This beat has no legal shot event.]*
+
+## IN-170 — Lou stops it
+
+**BIG UNCLE LOU:** **"Stop. This one is good."** [VERBATIM]
+
+*[Gratin lowers the revolver before firing.]*
+
+**BOOSKIBRO:** "Get Tony up."
+
+Tony is the only surviving prospect and continues to the cabin.
+
+---
+
+# ARCHIVED ACT TWO — CLEAR THE LINE (SUPERSEDED 2026-08-20)
+
+> Historical production draft only. It kills Kittenboss and uses individual
+> walkouts, gap choices, and a reload. None of those beats are active canon.
 
 **The turn of the scene.** The player has just been told he passed. He is
 standing in a line, relieved, next to a corpse, and he is about to find out that
@@ -834,12 +896,11 @@ explain it.]*
 
 **THE SHUBENATOR:** "It's the smoke."
 
-*[**There is no smoke.** The burn barrel is back down a trail
-that has bent twice since, and the wind is the other way. Nobody says anything
-to him. Nobody looks at him.
-He is crying and he has blamed smoke that does not exist, which is exactly what
-he does at every family occasion, and tonight it is not funny and **nothing in
-the scene may indicate that it is not funny.**]*
+*[**There is no smoke at this point on the trail.** The bonfire is back around
+two bends, and the wind is the other way. Nobody says anything to him. Nobody
+looks at him. He is crying and has blamed smoke that cannot have reached him,
+which is exactly what he does at every family occasion, and tonight it is not
+funny and **nothing in the scene may indicate that it is not funny.**]*
 
 ## IN-240 — Numbskull
 
@@ -1200,9 +1261,9 @@ let him wipe it** — not here, not in the room, not in the last shot.]*
 
 **BIG UNCLE LOU SPUTTHOLE & BOOSKIBRO:** "Welcome." **[VERBATIM]**
 
-*[**One word from two men, in unison, quietly.** It has to be recorded as two
-takes and mixed to land on the same frame — it is not a line and a response, and
-if it queues one after the other the beat dies. See the production appendix.]*
+*[**One word from two men, in unison, quietly.** It was delivered as two takes
+and must be mixed to land on the same frame — it is not a line and a response,
+and if it queues one after the other the beat dies. See the production appendix.]*
 
 ## IN-465 — the bandana
 
@@ -1377,11 +1438,11 @@ nothing on screen telling him why.
 | IN-080 | `q2_intro` | *(blank)* | dialogue queue drains | **yes — queue watchdog** |
 | IN-085 | `q2_choice` | `Answer` | player picks | **none — must wait for input** |
 | IN-090 | `q2_correct` | *(blank)* | dialogue queue drains | **yes — queue watchdog** |
-| IN-100 | `clear_line` | *(blank)* | 2.2 s | **is a timeout** |
-| IN-110 | `exec_setup` | *(blank)* | Gratin and Seff arrive at the working ground **or** 7 s | **yes, 7 s** |
-| IN-120/130/145/160 | `exec_prospect` *(index 0-3)* | *(blank)* | `onFinished` of that execution | **yes, 14 s per victim** |
-| IN-125/135/150 | `exec_gap` | *(blank)* | choice or **5 s → IN-185** | **yes, 5 s** |
-| IN-170 | `exec_done` | *(blank)* | dialogue queue drains **or** 8 s | **yes, 8 s** |
+| IN-100 | `conspiracy_reveal` | *(blank)* | dialogue queue drains | **yes — queue watchdog** |
+| IN-110 | `mass_kneel` | *(blank)* | all five prospects reach their kneeling poses | **yes — pose watchdog** |
+| IN-120/130/145/150 | `execution_sweep` *(index 0-3)* | *(blank)* | `onFinished` of each fatal execution | **yes, hard cap per victim** |
+| IN-160 | `player_aim` | *(blank)* | Gratin reaches Tony's non-firing aim pose | **yes — aim watchdog** |
+| IN-170 | `lou_interrupt` | *(blank)* | Lou's queue drains and Tony is released | **yes — queue watchdog** |
 | IN-200 | `walk_out` | `Follow Booskibro into the trees` | player leaves the clearing radius | none needed — player-driven |
 | IN-210…IN-247 | `trail` | `Follow Booskibro into the trees` | distance travelled; beats fire on markers | none needed — player-driven |
 | IN-250 | `cabin_arrive` | `Follow Booskibro into the trees` | player within 6 m of the porch | none needed — player-driven |
@@ -1488,21 +1549,16 @@ forearms. Every prop in this scene goes in a **hand**:
 
 | Prop | Beat | Socket |
 |---|---|---|
-| The pistol | IN-060 → IN-160 | `handR` of the **active shooter**, and it **moves**: Seff for IN-070/120/130, then **removed from Seff's hand and added to Gratin's** at IN-140, for IN-145/160 |
-| Prospect Four's watch | IN-130 | `handR` of Prospect Four → `handL` of Gratin → gone (pocketed; despawn on the frame it goes in) |
+| The revolver | IN-060 → IN-170 | `handR` of the active shooter: Seff for Prospect One's barrage, Gratin for the four-shot sweep and Tony's non-firing aim |
 | The blade | IN-400 | `handR` of Rippinflow → **`handR` of Lou** |
 | The saint card | IN-400 → IN-440 | `handR` of Booskibro → the **player's palm** → back to Lou's `handR` on a drop |
 | The candle | IN-440 | `handR` of Lou, taken off the table and put back |
 | The bandana | IN-465 | `handR`/`handL` of Lou, off the table |
 | Whiskey glasses | IN-500 → IN-540 | `handR` of **everybody** in the room, including the player's burned one |
 
-**The pistol hand-off at IN-140 is the one that will break.** There is exactly
-one gun group in the scene today — one `THREE.Group`, one muzzle, one
-`muzzleLight`, parented with `armR.add(gun)` and removed with `armR.remove(gun)`.
-Two shooters means the transfer must be explicit: remove from Seff's `handR`,
-add to Gratin's `handR`, in one frame, in the beat. **Do not build a second
-gun** — the whole point of IN-140 is that there is one and they share it. And
-move the parent from `armR` to `handR` while you are in there.
+The shared character mount owns the revolver's hand socket and rotation. Any
+handoff from Seff to Gratin must move that one mounted prop; IN-140 no longer
+exists and must not be recreated as a reload phase.
 
 ## 3. SEATING — the right base height, or he sinks through the furniture
 
@@ -1528,11 +1584,9 @@ freezes at the speaker's position at the first syllable.**
 **Every line spoken by anyone who is walking needs `follow`.** In this scene
 that is a lot of them:
 
-- **IN-105 → IN-160**: Gratin and Seff are walking for almost everything they
-  say. "Come on." is said while walking a man across a clearing. `follow` on the
-  speaker's `Object3D`, every line.
-- **IN-120**: Prospect Three is being walked out **while talking**, and his last
-  line is delivered from his knees at a different position than his first.
+- **IN-100 → IN-170**: the speakers are stationary or making short blocking
+  moves, but every line still follows its speaker. Never pin a line to the
+  clearing centre.
 - **The whole of ACT THREE.** Everyone is walking, for minutes. Seff's "Colder
   than it was", Lag's "It's the wet", Irish and Hog Mama at the front of the
   line, Shubes behind the player's shoulder, Numbskull's "Watch your feet through
@@ -1552,20 +1606,19 @@ out with two engines idling behind the player's head. Reserve 1.4 for the world.
 `playWeaponCue(audio, id, slot, opts)` in `src/core/weapons/audio.js`, which
 applies the per-weapon mix from the catalog and sensible positional defaults.
 
-**A pistol fired outdoors at night behind a kneeling man is the loudest thing in
-this scene and every one of them must be positional**, at the muzzle, with
+**A revolver fired outdoors at night behind a kneeling man is the loudest thing
+in this scene and every shot must be positional**, at the muzzle, with
 `follow` on the shooter.
 
 | Beat | Call |
 |---|---|
-| IN-070, IN-120, IN-130 | `playWeaponCue(audio, 'pistol9', 'fire', { follow: seff.parts.handR })` |
-| IN-140 | `'pistol9', 'reload.out'` then `'pistol9', 'reload.in'`, on Seff, in the gap — **unhurried, audible, and the reason IN-145's silence works** |
-| IN-145, IN-160 | `playWeaponCue(audio, 'pistol9', 'fire', { follow: gratin.parts.handR })` |
-| FAIL-B | `'pistol9', 'fire'` — **positional, behind the player**, on the frame the screen goes black |
+| IN-070 | `playWeaponCue(audio, 'revolver', 'fire', { follow: seff.parts.handR })` for each intentional barrage round |
+| IN-120, IN-130, IN-145 | `playWeaponCue(audio, 'revolver', 'fire', { follow: gratin.parts.handR })` |
+| IN-160 | **No fire call.** Lou's IN-170 interruption wins first |
+| FAIL-B | `'revolver', 'fire'` — **positional, behind the player**, on the frame the screen goes black |
 
-**Use `pistol9`, not `revolver`.** Seff counts spent rounds at IN-170 and a
-revolver retains its brass. The 9mm is also the right tool for the job these two
-are doing.
+Use the shared `revolver` event. `weapon.revolver.fire` is already delivered
+with the heavier mix; do not mint a scene-local replacement.
 
 **FAIL-B's shot is the hardest mix in the game**: it is behind the player's head,
 indoors, in a small timber room, and the screen goes black **before the report
@@ -1601,11 +1654,12 @@ each other:**
 - Assert every settled body is clear of every kneel mark, of `STAND_MARK`, and of
   the line at z = -8.
 - The mud decal sits at `MUD.y` = 2 cm, **under the gate's 4 cm float gap**, and
-  stops at z = -1.8 because the old fire ring's stones start at -2.6 — a mud
+  stops at z = -1.8 because the bonfire ring's stones start at -2.6 — a mud
   sheet drawn through a boulder is the kind of thing nobody notices until the
   screenshot.
-- The three cars, the burn barrel and the **open boot lid** are all props on this
-  ground and all of them are on the gate.
+- The three cars, the bonfire's stone ring and logs, and the **open boot lid** are
+  all props on this ground and all of them are on the gate. Flame, smoke and
+  embers are effects, not load-bearing geometry.
 
 **The cabin** — everything new, everything on the gate:
 - The blade, the saint card, the candle, the bottle, the glasses and the folded
@@ -1710,35 +1764,33 @@ the whole `q1` beat (5), the whole `q2` beat (3), `correct` lines 1–2, both
 `wrong` lines, and all three `QUIZ_OPTIONS`. **Do not let the wording of any of
 those drift by a comma** — a stray edit silently orphans a good take.
 
-**Everything in Acts Two through Six is new and unrecorded.** That is roughly
-110 new lines across 19 speakers.
+**The active cabin pickup is recorded and indexed.** The manifest-backed
+production run delivered all 91 active cues across 19 voice profiles on
+2026-08-20. `VOICE-LINES-NEEDED.md` now reports zero outstanding lines; the
+Initiation authored catalog contains 239 cues in total.
 
 ---
 
 # RISKS AND OPEN DECISIONS
 
-## 0. This script is not the only thing in flight — `site.js` already exists
+## 0. `site.js` is the landed source of truth
 
-`src/initiation/cabin/site.js` is **already written** (untracked, in progress at
-the time of writing) and it is a better-specified site than any prose could be:
+`src/initiation/cabin/site.js` is **landed and tracked** and is a better-specified
+site than any prose could be:
 the mud, the four kneel marks and their derived shooter and escort stances, the
-car lighting, the burn barrel, the track, the 36 m trail and the cabin, all as
-plain data with no `THREE` import so the tests can read it headless.
+car lighting, the bonfire, the track, the 36 m trail and the cabin, all as plain
+data with no `THREE` import so the tests can read it headless.
 
 **This script has been reconciled to it and defers to it on every measurement.**
 Where the two ever disagree, `site.js` is right and this document is stale.
 
-**One thing it does not yet cover: where Kittenboss stands.** `PROSPECT_XS` is a
-deliberate copy of `main.js`'s four numbers with a test asserting the match, so
-it cannot grow to hold her. She needs her own constant —
-`KITTENBOSS_SLOT = { x: 6.6, z: LINE_Z }` — which keeps the asserted copy intact,
-keeps the row's 2.2 m spacing, and puts her **standing in front of the open boot
-she climbed out of.** `kneel-4` already names her as its victim, so the walk from
-that slot to that mark is the full width of the working ground, past everyone,
-past the player, to the nearest mark of the night. That is the escalation the
-mark order was built for.
+**Kittenboss keeps a separate opening-line slot.** `PROSPECT_XS` remains a
+deliberate copy of `main.js`'s four numbered positions, while
+`KITTENBOSS_SLOT = { x: 6.6, z: LINE_Z }` preserves the six-person row. During
+`mass_kneel` she moves beside Tony onto `kneel-4`, which is her fatal execution
+mark.
 
-## 1. Kittenboss has no voice, and she is the payload — CLOSED
+## 1. Kittenboss's voice and active takes — CLOSED
 
 **This risk is closed.** `kittenboss` now carries `2bk7ULW9HfwvcIbMWod0` on
 `voices.kittenboss` in `assets/sfx/manifest.json`, supplied by the owner, and it
@@ -1746,17 +1798,16 @@ is a woman's voice.
 
 What it said before, and why it mattered: `kittenboss` had **no ElevenLabs id.**
 In THE SPECIAL MEETING that was acceptable — that doc said so explicitly, her
-lines played as subtitles over silence, and it read as deadpan. Here it was a
-real risk, because "Hey." is the last word of the best beat in the scene and
-delivered as silent text it is a caption rather than a performance.
+lines played as subtitles over silence, and it read as deadpan. Here her
+opening line-up exchange now uses the delivered takes in that same voice; the
+superseded "Hey." death beat is not in the active cue catalog.
 
-**What is still owed is the booth direction, not the id.** The `_note` on that
-profile is what the voice director reads, and it describes her exactly: she
-treats forty-two minutes in a boot as a logistics failure rather than a crime,
-she is the same age and the same rank as Tony, she is never comic relief and
-**never** frightened. Every line she has in THIS scene has to be recorded off
-that same read — she does not discover a new register because the night gets
-worse.
+**The booth direction is encoded in the delivered cue catalog.** The `_note` on
+that profile describes her exactly: she treats forty-two minutes in a boot as a
+logistics failure rather than a crime, she is the same age and the same rank as
+Tony, she is never comic relief and **never** frightened. All of her active lines
+were recorded from that same read — she does not discover a new register because
+the night gets worse.
 
 ## 2. Kittenboss's pronoun is wrong in the existing doc — CLOSED
 
@@ -1879,26 +1930,20 @@ and this scene must never appear to want anything.
 | IN-080 | The second question *(as shipped)* |
 | IN-085 | **The quiz — FAIL-A lives here** |
 | IN-090 | Correct — and Lou stops talking |
-| **ACT TWO** | **CLEAR THE LINE** |
-| **IN-100** | **"Clear the line."** |
-| IN-105 | Gratin and Seff |
-| IN-110 | The footing — the coldest conversation in the game |
-| IN-120 | **PROSPECT THREE — the one who argues.** Shot mid-word |
-| IN-125 | Gap → player hub |
-| IN-130 | **PROSPECT FOUR — the one who says nothing.** The watch |
-| IN-135 | Gap → player hub |
-| IN-140 | **The reload, with Prospect Five kneeling through it** |
-| IN-145 | **PROSPECT FIVE — the one still trying to be liked.** *"I did it right."* |
-| IN-150 | Gap → player hub |
-| **IN-160** | **KITTENBOSS. "Hey."** |
-| IN-170 | After — "Four." / "Five, with the first one." |
-| **IN-180** | **The player's options, and the one that is silence** |
-| IN-190 | If he tries to leave the line |
+| **ACT TWO** | **THE NUCLEAR OPTION** |
+| **IN-100** | Willy cleared; Sauce confirmed as the rat with inside help; one place, at quota |
+| IN-110 | **All five remaining prospects kneel simultaneously** |
+| IN-120 | Prospect Three executed in view |
+| IN-130 | Prospect Four executed in view |
+| IN-145 | Prospect Five executed in view |
+| IN-150 | Kittenboss executed beside Tony |
+| **IN-160** | Gratin aims at Tony; no legal shot event |
+| **IN-170** | **Lou: "Stop. This one is good." Tony alone is spared** |
 | **ACT THREE** | **THE WALK** |
 | IN-200 | Leaving the clearing |
 | IN-210 | **The cold** |
 | IN-220 | Irish, and the card |
-| IN-230 | The Shubenator, and the smoke that is not there |
+| IN-230 | The Shubenator, and the bonfire smoke that cannot reach him here |
 | IN-240 | Numbskull, being helpful |
 | IN-245 | Optional — *"Probably not."* |
 | IN-250 | **The cabin** |

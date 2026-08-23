@@ -1,5 +1,11 @@
 import * as THREE from 'three';
-import { makeRevolver } from '../../world/props.js';
+import { WEAPON_IDS } from '../../core/weapons/catalog.js';
+import {
+  CHARACTER_WEAPON_MOUNT_PITCH,
+  CHARACTER_WEAPON_MOUNT_ROLL,
+  mountCharacterWeapon,
+} from '../../core/weapons/character-mount.js';
+import { buildWeaponModel } from '../../core/weapons/models.js';
 import {
   SILVERCASE_PROSPECT_PRESENTATION,
   makeSilverCaseProspectViewArm,
@@ -10,19 +16,17 @@ import {
  *
  * Two of them, and they are deliberately the same gun: the one in Tony's
  * hands and the one the man in the bathroom is holding when he comes through
- * the door. Both are built from `world/props.js`'s `makeRevolver` — the
- * campaign's canonical sidearm, the one the Squatchfather's prospect carries
- * and the one lying on the flat's coffee table — scaled up into the long
+ * the door. Both are the core catalog revolver, scaled up into the long
  * heavy-frame version this job calls for. Nothing here models a new weapon;
- * it re-uses the modelled one at a different size so the two read as a pair.
+ * it re-uses the same model and mount contract as every other campaign scene.
  *
- * `makeRevolver` points down local -z, which is the convention every hand,
+ * The catalog revolver points down local -z, which is the convention every hand,
  * view-model and muzzle effect in this project already shares.
  */
 
 /**
  * How much bigger the heavy-frame gun is than the coffee-table revolver.
- * `makeRevolver` is about 30 cm end to end, which is a service four-inch;
+ * The catalog revolver is about 30 cm end to end, which is a service four-inch;
  * this is the eight-and-three-eighths, and it is meant to be recognisable
  * across a room as the reason nobody in it is arguing.
  */
@@ -35,8 +39,7 @@ export const BIG_REVOLVER_SCALE = 1.35;
  * @param {number} [o.scale] multiplier on BIG_REVOLVER_SCALE
  */
 export function makeBigRevolver({ scale = 1 } = {}) {
-  const built = makeRevolver(null, { x: 0, y: 0, z: 0 });
-  const g = built.group;
+  const g = buildWeaponModel(WEAPON_IDS.REVOLVER);
   g.name = 'big-revolver';
   g.scale.setScalar(BIG_REVOLVER_SCALE * scale);
   g.traverse((o) => {
@@ -45,7 +48,6 @@ export function makeBigRevolver({ scale = 1 } = {}) {
       o.receiveShadow = false;
     }
   });
-  g.userData.muzzle = built.muzzle.clone().multiplyScalar(BIG_REVOLVER_SCALE * scale);
   return g;
 }
 
@@ -59,18 +61,24 @@ export function makeBigRevolver({ scale = 1 } = {}) {
  * `makePerson` puts the hand slab, y=-0.30 inside that group), so it tracks
  * every pose and the collapse afterwards with no extra bookkeeping.
  *
- * The -90° about x lays the barrel (local -z, `makeRevolver`'s convention) down
- * the forearm's own -y, i.e. pointing wherever the arm is pointing.
+ * The shared mount lays the barrel down the forearm's own -y and rolls its
+ * sights onto the back-of-hand side. The mission keeps its slight +0.12 pitch
+ * and oversized scale, but no longer keeps a private copy of the missing roll.
  *
  * @param {THREE.Object3D} forearm an `Npc` figure's `parts.foreR`
  * @returns {THREE.Group} the gun, carrying `userData.muzzle` in its own space
  */
 export function mountHandRevolver(forearm) {
   const gun = makeBigRevolver();
-  gun.rotation.set(-Math.PI / 2 + 0.12, 0, 0);
-  gun.position.set(0.005, -0.33, 0.03);
-  forearm.add(gun);
-  return gun;
+  return mountCharacterWeapon(
+    { parts: { foreR: forearm } },
+    WEAPON_IDS.REVOLVER,
+    gun,
+    {
+      scale: BIG_REVOLVER_SCALE,
+      rotation: [CHARACTER_WEAPON_MOUNT_PITCH + 0.12, 0, CHARACTER_WEAPON_MOUNT_ROLL],
+    },
+  );
 }
 
 /** Where a mounted gun's flash happens, in world space. */

@@ -9,27 +9,18 @@
  * ═══════════════════════════════════════════════════════════════════════
  * WHY THIS IS NOT IN `dialogue.js`
  *
- * `dialogue.js`'s `CEREMONY_BEATS` feeds `tools/initiation-vo-lib.mjs`, which
- * `npm run check` diffs against `assets/sfx/manifest.json` in BOTH directions:
- * a line added there with no manifest row fails the build as `missing`, and a
- * line removed fails it as `stale`. This pass does not own the manifest — the
- * new cues are handed off in `docs/audio/pending-initiation-cues.json` for the
- * orchestrator to merge — so the thirty-two shipped ceremony cues are left
- * exactly as they are and the rewrite's ninety-odd live here instead.
- *
- * Once the handoff is merged, `allCeremonyVoiceLines()` should be widened to
- * include `allCabinVoiceLines()` and `RETIRED_CEREMONY_CUES` should be dropped
- * from `CEREMONY_BEATS` and added to `assets/sfx/rerecord.json`'s retired
- * array — in that order, in one commit, because either half on its own is a
- * red `npm run check`.
+ * `dialogue.js` still owns the delivered ceremony bank. This file owns the
+ * active clearing, trail, and cabin rewrite; `tools/initiation-vo-lib.mjs`
+ * combines both catalogs and diffs them against `assets/sfx/manifest.json` in
+ * both directions. `docs/audio/pending-initiation-cues.json` remains the
+ * human-readable recording handoff for this cabin scope.
  *
  * ═══════════════════════════════════════════════════════════════════════
  * THE RULES THIS FILE EXISTS TO HOLD
  *
  *   1. KITTENBOSS IS "SHE", everywhere — subtitle, comment, stage direction.
- *      She is in the line, she is walked out last, and she is shot. Nobody in
- *      this scene or any later one remarks on it. `FORBIDDEN_PHRASES` below
- *      is the machine-readable half of that.
+ *      She kneels beside Tony and is the fourth victim in the sweep. Only
+ *      Tony survives the nuclear option.
  *   2. GRATIN AND SEFF NEVER ENJOY IT. Every line either of them has is about
  *      logistics, footing or the weather. Not one is a threat and not one is a
  *      joke they are in on.
@@ -242,178 +233,84 @@ const IN_075 = beat('IN-075', 1, 'after_one', [
 ]);
 
 /* ====================================================================== *
- * ACT TWO — CLEAR THE LINE
+ * ACT TWO — THE NUCLEAR OPTION
  *
- * The turn of the scene. He has just been told he passed. He is standing in a
- * line, relieved, next to a corpse, and he is about to find out that passing
- * had nothing to do with anything.
- *
- * NOBODY IN THIS ACT EXPLAINS A SINGLE THING. Not to the prospects, not to
- * the player, not to each other.
+ * The first killing was a failed answer. What follows is policy: post-Palace
+ * evidence has cleared Willy, confirmed Sauce as the rat, and proved that
+ * Sauce had inside help. With one place left and the family at quota, every
+ * remaining prospect is ordered down until Lou makes the only exception.
  * ====================================================================== */
 
-const IN_100 = beat('IN-100', 2, 'clear_line', [
-  sd('Booskibro does not raise his voice. He has been booming all night; this '
-    + 'is the first thing he has said at a normal volume, and it is the reason '
-    + 'the line notices. He is standing in the mud with everybody else.'),
-  l('BOOSKIBRO', 'Clear the line.', {
-    direction: 'Flat and ordinary. An instruction to two men at the back, not '
-      + 'an announcement to the line. Do not perform it.',
+const IN_100 = beat('IN-100', 2, 'conspiracy_reveal', [
+  l('LOU', 'Willy wasn’t the rat.', {
+    direction: 'Plain fact. No absolution and no attempt to soften what the family did.',
   }),
-  sd('Nobody in the line knows what it means and two men at the back do. The '
-    + 'only thing that happens is that two people start walking.'),
+  l('LOU', 'We killed the wrong man.'),
+  l('BOOSKIBRO', 'Sauce was the rat. The palace proved that.'),
+  l('BOOSKIBRO', 'It also proved he had help on the inside.'),
+  l('LOU', 'There is one place left. We are at quota.'),
+  l('BOOSKIBRO', 'We don’t put a question inside this family.'),
+  l('BOOSKIBRO', 'Nuclear option.', {
+    direction: 'A standing order, not a joke or a movie reference.',
+  }),
+  l('GRATIN', 'Kittenboss too?', {
+    direction: 'A practical clarification before anybody moves.',
+  }),
+  l('LOU', "We'll see.", {
+    direction: 'Hesitant filler. He has not made an exception.',
+  }),
+  l('BOOSKIBRO', 'She has to go too.', {
+    direction: 'Cuts across Lou. Definitive.',
+  }),
 ]);
 
-const IN_110 = beat('IN-110', 2, 'exec_setup', [
-  sd('They come out of the Circle together, from behind the line, and walk '
-    + 'past the prospects without looking at them. Gratin is carrying nothing. '
-    + 'Seff has the pistol down at his side, the way you carry a tool across a '
-    + 'yard. Neither of them hurries at any point in this act.'),
-  l('GRATIN', 'Are we doing all of them here?', {
-    direction: 'A genuine question about a genuine problem. Two colleagues on '
-      + 'a wet job. No subtext, no relish, no weight.',
+const IN_110 = beat('IN-110', 2, 'mass_kneel', [
+  l('BOOSKIBRO', 'All prospects. On your knees.', {
+    direction: 'Level and immediate. The order includes Tony and Kittenboss.',
   }),
-  l('SEFF', 'Yeah.'),
-  l('GRATIN', 'Only the ground’s better up by the stump.'),
-  l('SEFF', 'Here’s fine.'),
-  l('GRATIN', 'Right.'),
-  sd('Nothing comes of it. It just stops, the way that conversation stops.'),
+  sd('Every remaining prospect goes down at once. Three are staged in front of '
+    + 'Tony. Kittenboss kneels beside Tony. Tony cannot walk, but the '
+    + 'camera remains his: he can look at every face and every muzzle.'),
+  l('GRATIN', 'Face forward.'),
 ]);
 
-const IN_120 = beat('IN-120', 2, 'exec_prospect', [
-  sd('Gratin walks down the line and stops in front of him. He does not take '
-    + 'hold of him. He just stands there, and waits, and waiting wins.'),
-  l('GRATIN', 'This way.'),
-  l('PROSPECT_THREE', 'No — hold on. Hold on.'),
-  sd('He does not move. Gratin does not repeat himself.'),
-  l('PROSPECT_THREE', 'I wasn’t even asked. He got asked. He got a question.', {
-    direction: 'He means Tony. He is right.',
+const IN_120 = beat('IN-120', 2, 'execution_sweep', [
+  l('PROSPECT_THREE', 'Nobody asked me a question.'),
+  l('PROSPECT_THREE', 'Ask me the question.', {
+    direction: 'To Tony, cut off by the shot.',
   }),
-  l('PROSPECT_THREE', 'Nobody asked me a question. That’s — that’s not right, that. That’s not right.'),
-  sd('Nobody answers him. Not Booskibro, not Lou, not Gratin. The Circle does '
-    + 'not even look up.'),
-  l('GRATIN', 'Come on.'),
-  l('PROSPECT_THREE', 'I’m not — I’ll do the question. Ask me the question.'),
-  l('GRATIN', 'Knees.'),
-  l('PROSPECT_THREE', 'Ask me the question.'),
-  l('GRATIN', 'Knees. Sorry — it’s wet. It’s been wet all week.', {
-    direction: 'The apology is manners, not mockery. He means it about the mud '
-      + 'and he means nothing else by it.',
-  }),
-  sd('He goes down. Gratin turns him by the shoulder, gently, the way you’d '
-    + 'move somebody in a doorway.'),
-  l('GRATIN', 'Other way round.'),
-  sd('Now he is facing the line, square-ish to it, turned a little in toward '
-    + 'its centre. He is looking straight at the three people who are next, '
-    + 'and at Tony.'),
-  l('PROSPECT_THREE', 'Are you seeing this? Are you—', {
-    direction: 'To the line. To Tony. He is cut off mid-word and must be: he '
-      + 'does not finish the sentence and he does not get a last look.',
-  }),
-  sd('SEFF fires. He goes forward, face down, at the foot of the mark.'),
-], { victim: 'PROSPECT THREE', mark: 'kneel-1', shooter: 'SEFF' });
+  sd('GRATIN fires once. Prospect Three falls forward while Tony remains free to look.'),
+], { victim: 'PROSPECT THREE', mark: 'kneel-1', shooter: 'GRATIN' });
 
-const IN_130 = beat('IN-130', 2, 'exec_prospect', [
-  sd('He steps out before Gratin reaches him. He does not speak in this scene '
-    + 'at all — not one word, not one sound. He understood at IN-070 and he '
-    + 'has had three minutes with it.'),
-  sd('Halfway to the mark he stops, unbuckles his watch, and holds it out. He '
-    + 'does not say who it is for. There is nobody it could be for. Gratin '
-    + 'takes it, because a man has handed him something and refusing would be '
-    + 'rude.'),
-  l('GRATIN', '...Thanks.', { direction: 'Automatic. The politeness of a man handed a thing.' }),
-  sd('Prospect Four kneels on the mark before he is asked, and turns himself '
-    + 'to face the line without being told. Gratin has nothing to do.'),
-  l('GRATIN', 'That’s it. Good.'),
-  sd('SEFF fires. Gratin puts the watch in his own jacket pocket without '
-    + 'looking at it. It is never mentioned again, in this scene or in any '
-    + 'other.'),
-], { victim: 'PROSPECT FOUR', mark: 'kneel-2', shooter: 'SEFF' });
+const IN_130 = beat('IN-130', 2, 'execution_sweep', [
+  sd('Prospect Four says nothing. GRATIN fires once. He falls forward in Tony’s view.'),
+], { victim: 'PROSPECT FOUR', mark: 'kneel-2', shooter: 'GRATIN' });
 
-const IN_140 = beat('IN-140', 2, 'exec_reload', [
-  sd('Seff breaks off and works on the pistol. Unhurried. It is empty and he '
-    + 'is filling it. Prospect Five has to stand there and wait for this — he '
-    + 'is already on the mark, on his knees, facing the line, and the man '
-    + 'behind him is loading.'),
-  l('SEFF', 'You want it?'),
-  l('GRATIN', 'I’ll take the last two.'),
-  l('SEFF', 'Right.'),
-  sd('He hands the pistol across. There is one pistol in this scene and this '
-    + 'is where it changes hands. Gratin checks it the way you check something '
-    + 'somebody has handed you — not suspicion, manners.'),
-]);
-
-const IN_145 = beat('IN-145', 2, 'exec_prospect', [
-  sd('He has been agreeing with everything since IN-100. He agreed with '
-    + '"Clear the line". He comes out before he is called.'),
-  l('PROSPECT_FIVE', 'Yeah — no, absolutely.'),
-  l('PROSPECT_FIVE', 'Sorry — here? Is here good?', { direction: 'At the mark, before anybody has said anything to him.' }),
-  l('GRATIN', 'Here’s good.'),
-  l('PROSPECT_FIVE', 'I can do it myself, honestly.'),
-  sd('He kneels. He turns himself around. He is being helpful, because being '
-    + 'liked is the only skill he has ever had and he is going to use it right '
-    + 'up until it stops working.'),
-  l('PROSPECT_FIVE', 'D’you want me to—', { direction: 'During the reload.' }),
-  l('GRATIN', 'No. Stay there.'),
-  l('PROSPECT_FIVE', 'Course. Yeah. Sorry.'),
-  sd('A long beat. Then, and this is the one:'),
-  l('PROSPECT_FIVE', 'Is Booski watching? I’d just like him to know I did it right.'),
+const IN_145 = beat('IN-145', 2, 'execution_sweep', [
+  l('PROSPECT_FIVE', 'Is Booski watching?'),
   l('GRATIN', 'He’s watching.', { direction: 'Kindly, and it is true.' }),
-  l('PROSPECT_FIVE', 'Right. Good.'),
-  sd('GRATIN fires. Booskibro is watching. He does not react. He has not moved '
-    + 'since IN-100.'),
+  sd('GRATIN fires once. Prospect Five falls forward. Booskibro does not react.'),
 ], { victim: 'PROSPECT FIVE', mark: 'kneel-3', shooter: 'GRATIN' });
-
-const IN_160 = beat('IN-160', 2, 'exec_prospect', [
-  sd('THE BEAT THE WHOLE SCENE EXISTS FOR. Play it completely ordinary. '
-    + 'Gratin walks down to the end of the line. She sees him coming and steps '
-    + 'out before he arrives, the way you do when somebody is obviously '
-    + 'heading for you.'),
-  l('KITTENBOSS', 'Oh — is it me? Sorry, I thought there was another one.', {
-    direction: 'There is not. She had lost count. That is all that line is. '
-      + 'Light, apologetic, mildly embarrassed at the admin.',
-  }),
-  sd('It is the longest walk of the night and she does it herself. Her mark is '
-    + 'the western one, the nearest one to the player, so she crosses the '
-    + 'entire working ground at her own pace, past the three already down, '
-    + 'past Tony, and Gratin walks a step behind her the whole way without a '
-    + 'hand on her. She is looking at the ground the whole time — not out of '
-    + 'fear. She is looking at the mud.'),
-  l('KITTENBOSS', 'It’s absolutely soaked down there.'),
-  l('GRATIN', 'I know. Sorry.'),
-  l('KITTENBOSS', 'No, it’s not you.'),
-  sd('She kneels. She takes a moment to sort her knees out, shifting her '
-    + 'weight, the way you do on a bad surface.'),
-  l('KITTENBOSS', 'Hang on. Right.'),
-  l('SEFF', 'Other way round.'),
-  l('KITTENBOSS', 'Oh — sorry.'),
-  sd('She turns herself around. This is the nearest mark, under three metres '
-    + 'out. She is close enough for him to reach. And there is only one person '
-    + 'left standing in the line. She sees him.'),
-  l('KITTENBOSS', 'Hey.', {
-    direction: 'ONE SYLLABLE, WARM, ORDINARY. It is the same word she says to '
-      + 'Lag at the boot and it is the last word she says in the campaign. '
-      + 'Nobody in the scene knows that. No music, no slow motion, no hold on '
-      + 'Tony’s face — the shot arrives on the same clock as the other three.',
-  }),
-  sd('GRATIN fires.'),
+const IN_150 = beat('IN-150', 2, 'execution_sweep', [
+  sd('GRATIN fires once. Kittenboss falls forward beside Tony while he remains '
+    + 'free to look at her. Nobody comments and the sweep continues.'),
 ], { victim: 'KITTENBOSS', mark: 'kneel-4', shooter: 'GRATIN' });
 
-const IN_170 = beat('IN-170', 2, 'exec_done', [
-  sd('Nothing happens for a moment. Then two men start tidying up, because '
-    + 'that is what is next.'),
-  l('SEFF', 'Four.'),
-  l('GRATIN', 'Five, with the first one.'),
-  l('SEFF', 'I’m counting these.'),
-  l('GRATIN', 'Right.'),
-  sd('Flat. Neither of them is scoring a point. It is a disagreement about '
-    + 'scope, and it resolves.'),
-  l('GRATIN', 'It’ll be wet all week.', {
-    direction: 'He has looked at the mud on his hands and then at the sky. He '
-      + 'is thinking about the weather and about nothing else.',
+
+const IN_160 = beat('IN-160', 2, 'player_aim', [
+  sd('Gratin steps behind Tony and raises the revolver. Kittenboss lies dead '
+    + 'beside him. Tony can look, but he cannot leave the mark. '
+    + 'No shot event is permitted in this beat.'),
+], { victim: 'PROSPECT TWO', shooter: 'GRATIN', fires: false });
+
+const IN_170 = beat('IN-170', 2, 'lou_interrupt', [
+  l('LOU', 'Stop. This one is good.', {
+    direction: 'Immediate. It lands before Gratin can fire.',
+    verbatim: true,
   }),
-  sd('NOBODY SAYS ANYTHING ABOUT KITTENBOSS. Nobody says anything about any of '
-    + 'them. This is a hard rule and it holds for the rest of the game.'),
+  sd('Gratin lowers the revolver. Tony is the only surviving prospect.'),
+  l('BOOSKIBRO', 'Get Tony up.'),
+  sd('Tony alone is taken to the cabin.'),
 ]);
 
 /* --- IN-180, the hub the player gets in each gap ---------------------- *
@@ -898,7 +795,7 @@ const IN_510 = beat('IN-510', 6, 'room', [
     direction: 'Still going, and now there is a stove to blame.',
   }),
   over('GRATIN', 'There’s food. Nobody’s eating it.', 11.7, {
-    direction: 'THE LINE TO PROTECT. An hour ago he shot four people on their '
+    direction: 'THE LINE TO PROTECT. An hour ago he shot three people on their '
       + 'knees and now he is quietly upset that his food is going cold, and he '
       + 'is not doing a bit — he cooked and nobody is eating. Exactly as flat '
       + 'as everything else he has said tonight.',
@@ -947,11 +844,10 @@ const IN_540 = beat('IN-540', 6, 'pullback', [
 
 export const BEATS = Object.freeze([
   IN_030, IN_031, IN_032, IN_033, IN_060, IN_075,
-  IN_100, IN_110, IN_120, IN_130, IN_140, IN_145, IN_160, IN_170,
-  IN_181, IN_182, IN_183, IN_184, IN_185,
+  IN_100, IN_110, IN_120, IN_130, IN_145, IN_150, IN_160, IN_170,
   IN_200, IN_210, IN_220, IN_230, IN_240, IN_245, IN_246, IN_247, IN_248, IN_250, IN_260,
   IN_300, IN_310, IN_320, IN_330, IN_340, IN_350, IN_360,
-  IN_365_SILENT, IN_365_SPOKE, IN_370, IN_371, FAIL_B, IN_380,
+  IN_365_SILENT, IN_370, IN_371, FAIL_B, IN_380,
   IN_400, IN_410, IN_415, IN_420, IN_430, IN_435, IN_440,
   IN_450, IN_460, IN_465,
   IN_500, IN_510, IN_520, IN_530, IN_540,
@@ -971,14 +867,14 @@ export function beatsInAct(act) {
   return BEATS.filter((entry) => entry.act === act);
 }
 
-/** The beats that put somebody on their knees, in the order they are used. */
+/** The four fatal sweep beats, in the order they are used. */
 export const EXECUTION_BEATS = Object.freeze(
-  BEATS.filter((entry) => entry.phase === 'exec_prospect'),
+  BEATS.filter((entry) => entry.phase === 'execution_sweep'),
 );
 
-/** The two variants of Lou's aside, keyed by whether the player spoke. */
-export function asideFor(spokeAtTheKilling) {
-  return spokeAtTheKilling ? IN_365_SPOKE : IN_365_SILENT;
+/** The clearing is look-only; Lou's quiet aside therefore has one live form. */
+export function asideFor() {
+  return IN_365_SILENT;
 }
 
 /** Every spoken line in the rewrite, deduplicated by cue. */
@@ -990,9 +886,8 @@ export function allCabinVoiceLines() {
  * Manifest-shaped records for the recording handoff.
  *
  * `docs/audio/pending-initiation-cues.json` is written from exactly this, and
- * `tests/initiation-cabin-ceremony.test.mjs` fails if the file and this
- * function ever disagree in either direction. THIS PASS DOES NOT WRITE TO
- * `assets/sfx/manifest.json`.
+ * the Initiation VO synchronizer also includes these records in the manifest.
+ * Tests enforce both relationships in both directions.
  */
 export function scriptCues() {
   return allCabinVoiceLines().map((line) => {

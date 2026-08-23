@@ -27,6 +27,8 @@ A shared-system adoption is complete only when all four are present:
 | Smoke and cigarette exhale | `src/world/smoke.js` | Canonical | Apartment, Silver Pines, Enola Squatch, Mansion bong behavior |
 | Functioning bong | `src/world/bong.js` | Canonical | Apartment and Mansion LAN room |
 | Weapon operation | `src/core/weapons/index.js` | Canonical; `Firearm` is the state authority | Cartel Palace, Mansion and Mansion Siege; CombatLab verifies; Heist runs catalog `Firearm` behind the `HeistFirearm` compatibility Adapter in `src/heist/combat.js` |
+| Character weapon mounting | `src/core/weapons/character-mount.js` | Canonical catalog grip, bore-roll and firing-hand Interface | Mansion Siege, Cartel Palace, Silver Case, NO WAKE, Heist and Initiation presentation |
+| Formal meeting appearance | `src/core/formal-appearance.js` | Canonical scene-variant garment Adapter; canonical bodies remain unchanged | Special Meeting and Initiation |
 | Ground-combat truth | `src/core/combat/` | Canonical Modules behind scene Adapters | Mansion Siege and Cartel Palace are green production Adapters; Mansion's ensemble also proves friendly perception/aim/fire reuse; CombatLab is verification only |
 | Player inventory | `src/core/inventory.js` | Canonical | Apartment, Bing, Silver, Silver Pines and Mansion final-arc loadout |
 | Look/hold interactions | `src/core/interaction.js` | Canonical | All first-person scenes that use world-object prompts |
@@ -357,6 +359,40 @@ AabbCombatSpace supplies the same blocker truth to movement, sight and shots.
 required export is available there. Direct constituent imports remain valid
 for existing Adapters, but they are not permission to create scene-local
 copies.
+
+### Character weapon mount Interface
+
+`src/core/weapons/character-mount.js` owns the high-Leverage character-to-
+catalog Seam that scene-local forearm offsets previously duplicated. Catalog
+models fire down local `-Z` and carry their sights on local `+Y`; the shared
+mount applies the canonical forearm pitch and the equally important
+`Rz(PI)` bore roll, then aligns the catalog weapon's measured grip with the
+visible hand socket.
+
+```js
+const row = characterWeaponMount(weaponId);
+const gun = mountCharacterWeapon(figure, weaponId, model, {
+  side: 'R',
+  parent,       // optional legacy-rig Adapter
+  hand,         // optional explicit socket
+  handPosition, // optional legacy local socket
+});
+```
+
+Scenes retain Locality over pose, recoil, support-hand IK, shot timing and
+story consequences. They must not copy catalog grip anchors or omit only the
+bore roll. `tests/character-weapon-mount.test.mjs` is the reusable contract.
+
+### Formal meeting appearance Adapter
+
+`formalMeetingModel(characterId, canonicalModel)` changes only garment fields
+for a formal scene. It preserves the established height, build, face, hair,
+skin, gender/body shape and personal identity while selecting a stable
+charcoal/navy/brown suit, ordinary tie and creased trousers. It deliberately
+disables tuxedo, bow tie, pinstripe, three-piece and luxury flags: these are
+nice suits, not a costume gala. The result is frozen scene data; it never
+mutates the ordinary wardrobe model. `tests/formal-meeting-presentation.test.mjs`
+proves identity preservation, restrained styling and cast variation.
 
 ### WeaponSystem and Firearm Interface
 

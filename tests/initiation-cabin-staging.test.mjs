@@ -2,8 +2,8 @@
  * INITIATION NIGHT — the staging, held still.
  *
  * The owner's brief for this scene is a piece of blocking: every remaining
- * prospect is put on their knees and shot in the back of the head, ONE AT A
- * TIME, IN FRONT OF THE PLAYER. Almost everything that can go wrong with that
+ * prospect is put on their knees; four are shot in the back of the head, ONE
+ * AT A TIME, before the revolver stops on Tony. Almost everything that can go wrong with that
  * is invisible in a screenshot of a dark clearing and obvious in world-space
  * vectors, so this file checks it in world-space vectors:
  *
@@ -249,11 +249,21 @@ test('a kneeling prospect is on the ground, not in it or over it', () => {
       facing.dot(toShooter) < -0.88,
       `${mark.id}: the kneeling figure is not facing away from its executioner`,
     );
-    /* …and it is facing the line the player is standing in. */
-    const toPlayer = new THREE.Vector3(
-      site.PLAYER_SLOT.x - mark.x, 0, site.PLAYER_SLOT.z - mark.z,
-    ).normalize();
-    assert.ok(facing.dot(toPlayer) > 0.55, `${mark.id}: the player cannot see the face`);
+    if (mark.besidePlayer) {
+      /* Kittenboss is shoulder-to-shoulder with Tony, looking forward at the
+       * same killing ground. Free look, not an impossible neck turn, reveals
+       * her execution at his right edge. */
+      const toWork = new THREE.Vector3(
+        site.KNEEL_MARKS[2].x - mark.x, 0, site.KNEEL_MARKS[2].z - mark.z,
+      ).normalize();
+      assert.ok(facing.dot(toWork) > 0.7, `${mark.id}: Kittenboss is not facing the killing ground`);
+    } else {
+      /* The three prospects in front face the line Tony is standing in. */
+      const toPlayer = new THREE.Vector3(
+        site.PLAYER_SLOT.x - mark.x, 0, site.PLAYER_SLOT.z - mark.z,
+      ).normalize();
+      assert.ok(facing.dot(toPlayer) > 0.55, `${mark.id}: the player cannot see the face`);
+    }
   }
 });
 

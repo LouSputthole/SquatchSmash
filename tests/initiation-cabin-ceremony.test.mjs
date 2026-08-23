@@ -5,9 +5,9 @@
  * everything that can go wrong with either is invisible in a screenshot of a
  * dark clearing. So this file checks them the only way they can be checked:
  *
- *   - THE EXECUTIONS. Every remaining prospect, including Kittenboss, is
- *     walked out, put on their knees FACING AWAY, and shot from BEHIND, one at
- *     a time, WHERE THE PLAYER CAN SEE IT — asserted in world-space vectors on
+ *   - THE EXECUTIONS. Every remaining prospect kneels at once. Four are shot
+ *     from behind WHERE THE PLAYER CAN SEE IT; Kittenboss is fourth at Tony's
+ *     side, then Lou stops Tony's execution — asserted in world-space vectors on
  *     the real `core/person.js` rig, after `Person.update()` has had a go at
  *     the pose, not by eye.
  *   - THE CHOICE. Yes commits, no gets the gunshot and MISSION FAILED: WRONG
@@ -39,6 +39,7 @@ const script = await import('../src/initiation/script.js');
 const { oathChoices } = await import('../src/initiation/dialogue.js');
 const phases = await import('../src/initiation/phases.js');
 const executions = await import('../src/initiation/executions.js');
+const { OUTDOOR_MEMBER_STATIONS } = await import('../src/initiation/ceremony-layout.js');
 const { Person } = await import('../src/core/person.js');
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -52,7 +53,16 @@ const MANIFEST = JSON.parse(read('assets/sfx/manifest.json'));
 
 const ZERO = new THREE.Vector3();
 const { PHASES, PHASE_IDS, START_PHASE } = phases;
-const { KNEELING_EXECUTIONS, STANDING_EXECUTION, LINE_UP, DOOMED } = executions;
+const {
+  KNEELING_EXECUTIONS,
+  STANDING_EXECUTION,
+  LINE_UP,
+  DOOMED,
+  SURVIVORS,
+  MASS_KNEEL,
+  PLAYER_THREAT,
+  LOU_INTERRUPTION,
+} = executions;
 
 /** Unit facing of a Person heading, in world space. */
 function facingOf(heading) {
@@ -73,18 +83,16 @@ function segmentDistance(a, b, point) {
  * THE SHAPE OF THE NIGHT
  * ══════════════════════════════════════════════════════════════════════ */
 
-test('the line-up is six people and only one of them walks out of the clearing', () => {
+test('the line-up is six people; Tony alone survives the clearing', () => {
   assert.equal(LINE_UP.length, 6);
   const player = LINE_UP.filter((slot) => slot.player);
   assert.equal(player.length, 1, 'exactly one of them is the man holding the controller');
   assert.equal(player[0].name, 'PROSPECT TWO');
 
-  /* Every other body in the line is on the list of the dead. The player is
-   * never touched: he is in the line for the whole act and nothing in it is
-   * pointed at him. */
-  const others = LINE_UP.filter((slot) => !slot.player).map((slot) => slot.name);
-  assert.deepEqual([...others].sort(), [...DOOMED].sort());
-  assert.equal(DOOMED.includes('PROSPECT TWO'), false, 'the player is never shot in Act Two');
+  assert.deepEqual([...DOOMED].sort(),
+    ['PROSPECT ONE', 'PROSPECT THREE', 'PROSPECT FOUR', 'PROSPECT FIVE', 'KITTENBOSS'].sort());
+  assert.deepEqual(SURVIVORS, ['PROSPECT TWO']);
+  assert.equal(SURVIVORS.every((name) => !DOOMED.includes(name)), true);
 
   /* Left to right, 2.2 m apart, with Kittenboss on the end in front of the
    * boot she came out of. */
@@ -93,21 +101,63 @@ test('the line-up is six people and only one of them walks out of the clearing',
   assert.equal(LINE_UP[LINE_UP.length - 1].name, 'KITTENBOSS');
 });
 
-test('KITTENBOSS is in the line, is walked out last, and is among the dead', () => {
-  assert.equal(DOOMED.includes('KITTENBOSS'), true);
-  const last = KNEELING_EXECUTIONS[KNEELING_EXECUTIONS.length - 1];
-  assert.equal(last.victim, 'KITTENBOSS');
-  assert.equal(last.markId, 'kneel-4');
-  /* Her mark is the nearest one to the player — close enough for him to reach,
-   * which is the staging doing the work no line is allowed to do. */
-  assert.ok(executions.executionGeometry(last).playerDistance < 3.0);
+test('the spawn-to-slot ceremonial aisle clears every family and prospect body disc', () => {
+  const spawn = { x: 0, z: -78 };
+  const playerRadius = 0.30;
+  const bodyRadius = 0.48;
+  const safety = 0.10;
+  const discs = [
+    ...OUTDOOR_MEMBER_STATIONS.map((station) => ({ name: station.name, ...station })),
+    ...LINE_UP.filter((slot) => !slot.player)
+      .map((slot) => ({ name: slot.name, x: slot.x, z: site.LINE_Z })),
+  ];
 
-  /* She has a body, a voice and lines of her own, and the last of them is the
-   * same syllable as the first thing she says in the campaign. */
-  const hers = script.BEATS.flatMap((beat) => beat.lines).filter((line) => line.who === 'KITTENBOSS');
-  assert.ok(hers.length >= 8, 'she is not a walk-on');
-  assert.equal(hers.every((line) => line.voice === 'kittenboss'), true);
-  assert.equal(hers[hers.length - 1].say, 'Hey.');
+  for (const disc of discs) {
+    const clearance = segmentDistance(spawn, site.PLAYER_SLOT, disc)
+      - playerRadius - bodyRadius;
+    assert.ok(clearance >= safety,
+      `${disc.name} pinches the arrival aisle to ${clearance.toFixed(2)} m`);
+  }
+
+  const kittenboss = site.kneelMark('kneel-4');
+  const routeClearance = segmentDistance(spawn, site.PLAYER_SLOT, kittenboss)
+    - playerRadius - bodyRadius;
+  assert.ok(routeClearance >= safety,
+    `Kittenboss's beside-Tony mark blocks the approach by ${(-routeClearance).toFixed(2)} m`);
+});
+
+test('KITTENBOSS kneels beside Tony and is the fourth fatal execution', () => {
+  assert.equal(DOOMED.includes('KITTENBOSS'), true);
+  const hers = MASS_KNEEL.find((entry) => entry.victim === 'KITTENBOSS');
+  assert.ok(hers);
+  assert.equal(hers.doomed, true);
+  assert.equal(hers.she, true);
+  assert.equal(hers.markId, 'kneel-4');
+
+  const witness = site.kneelMark(hers.markId);
+  const lateral = Math.abs(witness.x - site.PLAYER_SLOT.x);
+  const foreAft = Math.abs(witness.z - site.PLAYER_SLOT.z);
+  assert.equal(witness.role, 'execution');
+  assert.ok(lateral >= 1.2 && lateral <= 1.5,
+    `Kittenboss is ${lateral.toFixed(2)} m lateral from Tony, not beside him`);
+  assert.ok(foreAft <= 0.5,
+    `Kittenboss is ${foreAft.toFixed(2)} m in front of Tony, not beside him`);
+
+  const fatalMarks = KNEELING_EXECUTIONS.map((step) => site.kneelMark(step.markId));
+  assert.equal(fatalMarks.every((mark) => mark.role === 'execution'), true);
+  assert.equal(KNEELING_EXECUTIONS.at(-1).victim, 'KITTENBOSS');
+  assert.equal(KNEELING_EXECUTIONS.at(-1).beat, 'IN-150');
+  assert.equal(KNEELING_EXECUTIONS.at(-1).besidePlayer, true);
+  assert.equal(fatalMarks.slice(0, -1).every((mark) => mark.z > witness.z + 2), true,
+    'the first three executions must remain clearly in front of Tony and Kittenboss');
+
+  const herLines = script.BEATS.flatMap((beat) => beat.lines)
+    .filter((line) => line.who === 'KITTENBOSS');
+  assert.ok(herLines.length >= 5, 'she is not a walk-on');
+  assert.equal(herLines.every((line) => line.voice === 'kittenboss'), true);
+  assert.equal(script.beatById('IN-170').lines.some(
+    (line) => /spare her/i.test(line.say),
+  ), false);
 
   /* And nobody remarks on it, ever. */
   const everything = script.BEATS
@@ -129,33 +179,37 @@ test('KITTENBOSS is she in every file this pass owns', () => {
   for (const file of files) {
     for (const line of read(file).split('\n')) {
       if (!/kittenboss/i.test(line)) continue;
-      assert.equal(/\b(he|him|his)\b/i.test(line), false,
+      /* A male pronoun later on the same line may refer to Tony. Catch only
+       * one grammatically attached to Kittenboss's name. "Beside him" is the
+       * authored spatial relationship to Tony, so name that antecedent before
+       * applying the deliberately broad local-context guard. */
+      const pronounContext = line.replace(/\bbeside him\b/gi, 'beside Tony');
+      assert.equal(/\bkittenboss(?:'s)?(?:\W+\w+){0,3}\W+\b(he|him|his)\b/i.test(pronounContext), false,
         `${file}: Kittenboss is a woman — "${line.trim()}"`);
     }
   }
 });
 
-test('the pistol changes hands once, when it is empty, and there is only one', () => {
+test('the run order kneels everyone, executes four, then interrupts Tony before release', () => {
   const findings = executions.verifyExecutionStaging();
   assert.deepEqual(findings, [], findings.join('\n'));
-
-  /* One gun group and one muzzle light in the whole scene. IN-140 is the beat
-   * that is about the pistol being empty; building a second would delete it. */
-  assert.equal((MAIN.match(/new THREE\.Group\(\);\n\{\n  const dark = lambert/g) ?? []).length, 1);
-  assert.equal((MAIN.match(/const muzzleLight = new THREE\.PointLight/g) ?? []).length, 1);
 
   const order = executions.executionRunOrder();
   assert.deepEqual(
     order.map((entry) => entry.kind),
-    ['kneel', 'gap', 'kneel', 'gap', 'reload', 'kneel', 'gap', 'kneel'],
+    ['mass_kneel', 'shot', 'shot', 'shot', 'shot', 'aim', 'interrupt', 'release'],
   );
   assert.deepEqual(
-    order.filter((entry) => entry.kind === 'kneel').map((entry) => entry.step.victim),
+    order.filter((entry) => entry.kind === 'shot').map((entry) => entry.step.victim),
     ['PROSPECT THREE', 'PROSPECT FOUR', 'PROSPECT FIVE', 'KITTENBOSS'],
   );
-  /* One at a time. One round each: eight apiece is twenty-five seconds of
-   * shooting and turns four murders into a montage. */
   assert.equal(KNEELING_EXECUTIONS.every((step) => step.rounds === 1), true);
+  assert.equal([STANDING_EXECUTION, ...KNEELING_EXECUTIONS, PLAYER_THREAT]
+    .every((entry) => entry.weapon === 'revolver'), true);
+  assert.equal(PLAYER_THREAT.fires, false);
+  assert.equal(PLAYER_THREAT.rounds, 0);
+  assert.equal(LOU_INTERRUPTION.beforeShot, true);
+  assert.deepEqual(LOU_INTERRUPTION.survivors, SURVIVORS);
   /* Prospect One keeps the staging that ships: standing, frontal, eight. */
   assert.equal(STANDING_EXECUTION.rounds, 8);
   assert.equal(STANDING_EXECUTION.kneeling, false);
@@ -203,13 +257,19 @@ test('every kneeling prospect is on their knees, on the mud, facing the line', (
     victim.legL.children[0].getWorldPosition(boot);
     assert.ok(boot.y > -0.02 && boot.y < 0.45, `${step.victim} is ${boot.y.toFixed(2)} m off the mud`);
 
-    /* And they are turned toward the row the player is standing in, so he gets
-     * their face. That is the entire point of doing it in front of him. */
     const facing = facingOf(victim.heading);
-    const toPlayer = new THREE.Vector3(
-      site.PLAYER_EYE.x - head.x, 0, site.PLAYER_EYE.z - head.z,
-    ).normalize();
-    assert.ok(facing.dot(toPlayer) > 0.35, `${step.victim} is not facing the line`);
+    if (step.besidePlayer) {
+      const toWork = new THREE.Vector3(
+        site.KNEEL_MARKS[2].x - head.x, 0, site.KNEEL_MARKS[2].z - head.z,
+      ).normalize();
+      assert.ok(facing.dot(toWork) > 0.7, `${step.victim} is not facing forward beside Tony`);
+    } else {
+      /* The three in front turn toward Tony's row, so he gets their faces. */
+      const toPlayer = new THREE.Vector3(
+        site.PLAYER_EYE.x - head.x, 0, site.PLAYER_EYE.z - head.z,
+      ).normalize();
+      assert.ok(facing.dot(toPlayer) > 0.35, `${step.victim} is not facing the line`);
+    }
   }
 });
 
@@ -430,7 +490,7 @@ test('the wrong answer fails the mission, and the failure comes back', () => {
   assert.match(MAIN, /failReasonEl\.innerHTML = reason;/);
   assert.match(MAIN, /fireTheOathShot\('WRONG WORDS'\)/);
   /* The shot is a real, positional weapon cue and never a raw one. */
-  assert.match(MAIN, /function fireTheOathShot\([\s\S]{0,60}\)[\s\S]{0,400}playWeaponCue\(audio, 'pistol9', 'fire', \{[\s\S]{0,200}position:/);
+  assert.match(MAIN, /function fireTheOathShot\([\s\S]{0,60}\)[\s\S]{0,400}playWeaponCue\(audio, 'revolver', 'fire', \{[\s\S]{0,200}position:/);
   /* Nothing from before the question replays. */
   assert.doesNotMatch(
     MAIN.slice(MAIN.indexOf("if (failFrom === 'oath')"), MAIN.indexOf("/* FAIL-A, entirely unchanged")),
@@ -462,31 +522,16 @@ test('the right answer completes the mission, and the path never touches a fail 
   assert.match(MAIN, /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT/);
 });
 
-test('every prospect except the player is dead before the walk to the cabin', () => {
-  /* Structural, not incidental: `walk_out` is entered from exactly one place,
-   * and that place is only reached when the run order is exhausted. */
-  const walkOut = MAIN.match(/setPhase\('walk_out'\)/g) ?? [];
-  assert.equal(walkOut.length, 1, 'the walk to the cabin has more than one entrance');
-  const start = MAIN.indexOf('function finishExecutions()');
-  assert.ok(start > 0, 'finishExecutions is gone');
-  const body = MAIN.slice(start, MAIN.indexOf('\nfunction ', start + 1));
-  assert.ok(body.includes("setPhase('walk_out')"),
-    'walk_out is entered from somewhere other than finishExecutions');
-  assert.match(MAIN, /const entry = RUN_ORDER\[runCursor\+\+\];\n  if \(!entry\) \{ finishExecutions\(\); return; \}/);
-
-  /* And the run order really does account for all four. */
-  const killed = executions.executionRunOrder()
-    .filter((entry) => entry.kind === 'kneel')
+test('only Tony survives before the walk to the cabin', () => {
+  const order = executions.executionRunOrder();
+  const killed = order.filter((entry) => entry.kind === 'shot')
     .map((entry) => entry.step.victim);
-  assert.deepEqual(
-    [STANDING_EXECUTION.victim, ...killed].sort(),
-    LINE_UP.filter((slot) => !slot.player).map((slot) => slot.name).sort(),
-  );
-
-  /* The player is in the line and is never touched. Nothing in Act Two aims at
-   * him: `exec_player` belongs to the founders question and to nothing else. */
-  const actTwo = MAIN.slice(MAIN.indexOf('function advanceRun()'), MAIN.indexOf('function startTheWalk()'));
-  assert.doesNotMatch(actTwo, /exec_player|player\.position\s*\}\s*\)/);
+  assert.deepEqual([STANDING_EXECUTION.victim, ...killed], DOOMED);
+  assert.deepEqual(order.at(-1), { kind: 'release', survivors: SURVIVORS });
+  assert.equal(order.findIndex((entry) => entry.kind === 'interrupt')
+    < order.findIndex((entry) => entry.kind === 'release'), true);
+  assert.equal(order.some((entry) => entry.kind === 'shot'
+    && SURVIVORS.includes(entry.step.victim)), false);
 });
 
 /* ══════════════════════════════════════════════════════════════════════ *
@@ -495,7 +540,7 @@ test('every prospect except the player is dead before the walk to the cabin', ()
 
 test('every scripted line has a cue in the recording handoff, in both directions', () => {
   const wanted = script.scriptCues();
-  assert.ok(wanted.length > 100, 'the rewrite has lost most of its lines');
+  assert.ok(wanted.length > 70, 'the rewrite has lost most of its lines');
 
   const byName = new Map(HANDOFF.map((cue) => [cue.name, cue]));
   assert.equal(byName.size, HANDOFF.length, `${HANDOFF_PATH} has duplicate cue names`);
@@ -522,6 +567,12 @@ test('every scripted line has a cue in the recording handoff, in both directions
     assert.ok(cue.name.startsWith('vo.initiation.cabin.'), `${cue.name} is on the wrong prefix`);
     assert.ok(MANIFEST.voices?.[cue.voice]?.id, `no voice profile "${cue.voice}" for ${cue.name}`);
   }
+
+  const manifestCabin = MANIFEST.sfx.filter(
+    (cue) => cue.name.startsWith('vo.initiation.cabin.'),
+  );
+  assert.deepEqual(manifestCabin, wanted,
+    'the active cabin script and manifest differ in one or both directions');
 });
 
 test('the rewrite does not disturb the thirty-two shipped ceremony cues', () => {
@@ -556,6 +607,7 @@ test("the owner's own lines are pinned to the words he wrote", () => {
    * them back, so the text alone names two different recordings. */
   const find = (who, text) => every.find((line) => line.speakerKey === who && line.say === text);
   const OWNED = [
+    ['LOU', 'Stop. This one is good.'],
     ['LOU', 'Come forward.'],
     ['LOU', 'All of the men in this room are bound by blood. This is a family. And in this thing of ours, we follow a code of honor. There’s a way of life... a brotherhood.'],
     ['BOOSKIBRO', 'You are here because of your deeds and the assertions of those who stand at your side.'],
@@ -600,28 +652,26 @@ test("the owner's own lines are pinned to the words he wrote", () => {
   assert.equal(welcomes[0].cue === welcomes[1].cue, false, 'it has to be two takes');
 });
 
-test('the hub offers all five answers across the three gaps, and silence is always one', () => {
-  const gaps = [1, 2, 3].map((gap) => script.HUB.optionsFor(gap));
-  for (const options of gaps) {
-    assert.ok(options.length <= 3, '#quiz has three buttons and this pass does not own the HTML');
-    assert.equal(options.some((option) => option.silent), true, 'silence is always available');
+test('the reveal establishes the post-Palace canon before the nuclear option', () => {
+  assert.deepEqual(script.beatById('IN-100').lines.map((line) => line.say), [
+    'Willy wasn’t the rat.',
+    'We killed the wrong man.',
+    'Sauce was the rat. The palace proved that.',
+    'It also proved he had help on the inside.',
+    'There is one place left. We are at quota.',
+    'We don’t put a question inside this family.',
+    'Nuclear option.',
+    'Kittenboss too?',
+    "We'll see.",
+    'She has to go too.',
+  ]);
+  assert.deepEqual(script.beatById('IN-110').lines.map((line) => line.say), [
+    'All prospects. On your knees.',
+    'Face forward.',
+  ]);
+  for (const retired of ['IN-140', 'IN-181', 'IN-182', 'IN-183', 'IN-184', 'IN-185']) {
+    assert.equal(script.hasBeat(retired), false, `${retired} is still active`);
   }
-  const destinations = new Set(gaps.flat().map((option) => option.to));
-  assert.deepEqual([...destinations].sort(),
-    ['IN-181', 'IN-182', 'IN-183', 'IN-184', 'IN-185']);
-  for (const id of destinations) assert.ok(script.hasBeat(id), `${id} has no beat`);
-
-  /* "Kittenboss—" is only offered in the gap before she is walked out, and it
-   * does not reach her: Gratin asks him to face front and she does not hear
-   * her name. */
-  assert.equal(gaps[0].some((option) => option.to === 'IN-182'), false);
-  assert.equal(gaps[2].some((option) => option.to === 'IN-182'), true);
-
-  /* Trying must be possible and must do nothing. */
-  assert.deepEqual(script.beatById('IN-184').lines.map((line) => line.say), ['Stop.']);
-  /* And the timeout takes the silence. */
-  assert.equal(script.HUB.fallback, 'IN-185');
-  assert.equal(script.beatById('IN-185').lines.length, 0);
 });
 
 test('every choice in the script leads somewhere that exists', () => {
@@ -645,21 +695,14 @@ test('every choice in the script leads somewhere that exists', () => {
         `${beat.id}'s timeout goes somewhere the player was never offered`);
     }
   }
-  /* And the hub's own timeout, which is not on a beat. */
-  assert.ok(script.hasBeat(script.HUB.fallback));
 });
 
-test('speaking at the killing is remembered, and Lou has both halves of it', () => {
+test('the clearing is look-only and Lou has one live aside', () => {
   assert.equal(script.asideFor(false).id, 'IN-365-silent');
-  assert.equal(script.asideFor(true).id, 'IN-365-spoke');
+  assert.equal(script.asideFor(true).id, 'IN-365-silent');
   assert.deepEqual(script.asideFor(false).lines.map((line) => line.say),
     ['You didn’t say anything out there.', 'Good.']);
-  assert.deepEqual(script.asideFor(true).lines.map((line) => line.say),
-    ['You said something out there.', 'Don’t.']);
-  /* Set by any hub answer that is not silence, and by nothing else. */
-  assert.match(MAIN, /if \(!option\.silent\) spokeAtTheKilling = true;/);
-  assert.equal((MAIN.match(/spokeAtTheKilling = true/g) ?? []).length, 1);
-  assert.match(MAIN, /asideFor\(spokeAtTheKilling\)/);
+  assert.equal(script.hasBeat('IN-365-spoke'), false);
 });
 
 /* ══════════════════════════════════════════════════════════════════════ *
@@ -671,9 +714,9 @@ test('the scene plays its shots through the weapon layer and its lines through t
    * weapon mix and a gunshot's falloff, and a pistol fired outdoors at night
    * behind a kneeling man is the loudest thing in this scene. */
   assert.equal(MAIN.includes('sfx.gunshot'), false, 'a raw synthesised gunshot is back');
-  const shots = MAIN.match(/playWeaponCue\(audio, 'pistol9', 'fire'/g) ?? [];
+  const shots = MAIN.match(/playWeaponCue\(audio, 'revolver', 'fire'/g) ?? [];
   assert.equal(shots.length, 2, 'the clearing and the cabin, and both positional');
-  for (const call of MAIN.matchAll(/playWeaponCue\(audio, 'pistol9', 'fire', \{([\s\S]{0,220}?)\}\);/g)) {
+  for (const call of MAIN.matchAll(/playWeaponCue\(audio, 'revolver', 'fire', \{([\s\S]{0,220}?)\}\);/g)) {
     assert.match(call[1], /position:/, 'a gunshot in this scene is always positional');
   }
 
@@ -700,7 +743,7 @@ test('the scene plays its shots through the weapon layer and its lines through t
    * HAND, never on a forearm with a magic offset. */
   assert.equal(/^[^*/\n]*\.arm[LR]\.add\(/m.test(MAIN), false,
     'something is hung on a forearm again');
-  assert.match(MAIN, /attachToHand\(holder\.sq, 'R', gun\)/);
+  assert.match(MAIN, /mountInitiationExecutionRevolver\(holder\.sq, gun\)/);
   assert.match(MAIN, /TABLE_SOCKETS\.knife\.hand/);
   assert.match(MAIN, /TABLE_SOCKETS\.card\.hand/);
 
@@ -715,46 +758,24 @@ test('the scene plays its shots through the weapon layer and its lines through t
   assert.match(MAIN, /const AIM_PITCH_NAPE = -\d/);
 });
 
-test('the shot lands on the last word, not five seconds into the walk', () => {
-  /* They are walked out and put on their knees WHILE the beat is spoken, and
-   * the round arrives ON the last line. Prospect Three is cut off mid-word and
-   * must be; Kittenboss is shot on "Hey." Firing on arrival instead would put
-   * the shot seven seconds in, over the top of Gratin apologising for the mud. */
-  assert.match(MAIN, /sayBeat\(step\.beat, null, \(\) => \{ pendingShot = true; tryFire\(\); \}\);/);
-  assert.match(MAIN, /if \(sayQueue\.length === 1 && sayOnLast\)/);
-  /* And it waits for the knees: the words can run out before the walk does. */
-  assert.match(MAIN, /if \(p\.kneelMark !== markForStep\(currentStep\)\) return;/);
-  /* The last line of each beat is the one the shot cuts. */
-  const cut = {
-    'IN-120': 'Are you seeing this? Are you—',
-    'IN-130': 'That’s it. Good.',
-    'IN-145': 'Right. Good.',
-    'IN-160': 'Hey.',
-  };
-  for (const [id, text] of Object.entries(cut)) {
-    const lines = script.beatById(id).lines;
-    assert.equal(lines[lines.length - 1].say, text, `${id} does not end on the line the shot cuts`);
-  }
+test('only the four sweep beats are allowed to fire', () => {
+  assert.deepEqual(script.EXECUTION_BEATS.map((beat) => beat.id),
+    ['IN-120', 'IN-130', 'IN-145', 'IN-150']);
+  assert.equal(script.beatById('IN-160').fires, false);
+  assert.deepEqual(script.beatById('IN-170').lines.map((line) => line.say), [
+    'Stop. This one is good.',
+    'Get Tony up.',
+  ]);
+  assert.equal(script.beatById('IN-170').lines[0].verbatim, true);
 });
 
-test('only the one who argues has to be fetched', () => {
-  /* Three of them go on their own. The staging says so and so does the script:
-   * Prospect Four steps out before Gratin reaches him, Prospect Five comes out
-   * before he is called, and Kittenboss sees him coming and goes. Prospect
-   * Three does not move, which is the only reason his argument gets to run. */
-  assert.deepEqual(
-    KNEELING_EXECUTIONS.map((step) => [step.victim, step.stepsOutEarly === true]),
-    [
-      ['PROSPECT THREE', false],
-      ['PROSPECT FOUR', true],
-      ['PROSPECT FIVE', true],
-      ['KITTENBOSS', true],
-    ],
-  );
-  assert.match(MAIN, /if \(step\.stepsOutEarly\) \{/);
-  /* And whoever fetches them walks a step behind, without a hand on them. */
-  assert.match(MAIN, /A step behind them, the whole way, without a hand on them/);
-  assert.equal(KNEELING_EXECUTIONS.every((step) => step.walker === 'GRATIN'), true);
+test('all five remaining prospects kneel before the first sweep shot', () => {
+  assert.deepEqual(MASS_KNEEL.map((entry) => entry.victim), [
+    'PROSPECT THREE', 'PROSPECT FOUR', 'PROSPECT FIVE', 'KITTENBOSS', 'PROSPECT TWO',
+  ]);
+  assert.equal(new Set(MASS_KNEEL.map((entry) => entry.victim)).size, 5);
+  assert.equal(executions.executionRunOrder()[0].kind, 'mass_kneel');
+  assert.equal(KNEELING_EXECUTIONS.some((step) => 'walker' in step || 'stepsOutEarly' in step), false);
 });
 
 test('every phase names a beat that exists somewhere', () => {
@@ -765,16 +786,13 @@ test('every phase names a beat that exists somewhere', () => {
   for (const id of PHASE_IDS) {
     const beat = PHASES[id].beat;
     if (!beat) continue;
-    /* IN-180 is the hub rather than a beat: it is a table of options that lead
-     * to five beats, and it lives on `HUB`. */
-    if (beat === script.HUB.id) continue;
     assert.ok(script.hasBeat(beat) || SHIPPED.has(beat), `${id} names beat "${beat}", which is nowhere`);
   }
   /* And the phases that carry the executions' own beats agree with the run
    * order, so the words and the blocking are describing one night. */
   for (const step of KNEELING_EXECUTIONS) {
     assert.ok(script.hasBeat(step.beat), `${step.victim} has no beat`);
-    assert.equal(script.beatById(step.beat).phase, 'exec_prospect');
+    assert.equal(script.beatById(step.beat).phase, 'execution_sweep');
   }
 });
 
@@ -786,7 +804,7 @@ test('Gratin and Seff are never cruel, and never enjoy any of it', () => {
   const theirs = script.BEATS
     .flatMap((beat) => beat.lines)
     .filter((line) => line.speakerKey === 'GRATIN' || line.speakerKey === 'SEFF');
-  assert.ok(theirs.length >= 20, 'they have lost most of their lines');
+  assert.ok(theirs.length >= 6, 'the executioners have lost their authored register');
   const BANNED = [
     'shut up', 'beg', 'please', 'scream', 'deserve', 'enjoy', 'fun',
     'kill', 'shoot', 'die', 'dead', 'body', 'blood', 'orders', 'nothing personal',

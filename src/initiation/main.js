@@ -5,10 +5,6 @@ import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
 import { lambert } from '../../game/src/world.js';
-import { Person } from '../core/person.js';
-import {
-  CIRCLE, INDUCTED_PALETTE, LINE_CENTER, PROSPECT_PALETTE, buildInitiationCircle,
-} from './cast.js';
 import { BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import { AudioEngine } from '../core/audio.js';
 import { playWeaponCue, weaponCueNames } from '../core/weapons/audio.js';
@@ -23,12 +19,36 @@ import {
   oathChoices,
 } from './dialogue.js';
 import {
-  HUB,
   SPEAKERS as SCRIPT_SPEAKERS,
   asideFor,
+  allCabinVoiceLines,
   beatById,
 } from './script.js';
-import { CAMERA_MODES, PHASES } from './phases.js';
+import { CAMERA_MODES, CONTROL_MODES, PHASES } from './phases.js';
+import { OUTDOOR_MEMBER_STATIONS } from './ceremony-layout.js';
+import {
+  InitiationPlayerAdapter,
+  PLAYER_POSES as ADAPTER_PLAYER_POSES,
+  createInitiationActorCircle,
+  syncInitiationActorCircle,
+} from './player-adapter.js';
+import {
+  clearPose,
+  isPosed,
+  makeInitiationCeremonyFigure,
+  poseFallen,
+  poseKneeling,
+  poseSeated,
+} from './ceremony-figure.js';
+import {
+  INITIATION_BARRAGE_SHOTS,
+  InitiationBarrageClock,
+  buildInitiationExecutionRevolver,
+  fireInitiationExecutionRevolver,
+  initiationRevolverMuzzleWorld,
+  mountInitiationExecutionRevolver,
+  updateInitiationExecutionRevolver,
+} from './presentation.js';
 import {
   KITTENBOSS_SLOT,
   KNEELING_EXECUTIONS,
@@ -38,7 +58,10 @@ import {
   markForStep,
   verifyExecutionStaging,
 } from './executions.js';
-import { buildInitiationCabinSite } from './cabin/index.js';
+import {
+  INITIATION_CARD_SLOT,
+  buildInitiationCabinSite,
+} from './cabin/index.js';
 import {
   BURN_BARREL,
   CABIN,
@@ -46,6 +69,7 @@ import {
   CEREMONY_CENTRE,
   CLEARING,
   KNEEL_HEAD_Y,
+  LINE_CENTER,
   LOU_SEAT,
   PLAYER_EYE_Y,
   ROOM,
@@ -59,17 +83,13 @@ import {
 } from './cabin/site.js';
 import {
   attachToHand,
-  clearPose,
   faceAt,
   handSocket,
-  isPosed,
-  poseFallen,
-  poseKneeling,
-  poseSeated,
   standOn,
 } from './cabin/staging.js';
 import { INITIATION_SHOTS } from './framing.js';
 import { CardBurn } from './cabin/card-burn.js';
+import { resolveGear } from '../world/gear.js';
 import { playFootstep } from './cabin/ambience.js';
 import { SPEECH_MIX, speak } from '../core/dialogue.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
@@ -88,16 +108,11 @@ import {
 // ============================================================
 // INITIATION NIGHT — the cabin ceremony.
 //
-// Tony is driven out to a clearing in black woods with two sets of headlights
-// across some mud. Six prospects stand in a line; one answers wrong and is
-// shot where he stands; then Gratin and Seff walk the rest of them out, ONE
-// AT A TIME, put them on their knees in the crossed beams and shoot them in
-// the back of the head — every one, including Kittenboss, who was alive in
-// the boot of the car parked behind the line and who is the only evidence he
-// has had all night that he is not the one who was driven out here to die.
-//
-// Then he alone is walked thirty-six metres up a trail to a cabin with the
-// light on, and made.
+// Tony walks through black woods to a firelit clearing. One prospect answers
+// wrong and is shot where he stands. When the family admits Sauce had help,
+// every remaining prospect is put on their knees in front of Tony. Four are
+// executed. Kittenboss is killed last beside Tony. The gun then reaches Tony
+// before Lou stops it. Tony alone is walked up the trail and made.
 //
 // THE SCENE NEVER WINKS. docs/TONE-AND-PARODY.md is the doctrine and this
 // file obeys it: nobody remarks that any of this resembles anything, nobody
@@ -114,8 +129,6 @@ import {
 // ============================================================
 
 const BOUNDS = 88;
-const BASE_SPEED = 10;
-const SPRINT_SPEED = 15;
 const BASE_FOV = 55;
 
 // The rites start with empty hands, but the same five pockets remain visible
@@ -132,6 +145,12 @@ const campaign = createCampaign();
 if (campaign.state.scene.id !== SCENE_IDS.INITIATION) {
   campaign.enter(SCENE_IDS.INITIATION, { spawn: 'gathering' });
 }
+
+const ACTIVE_INITIATION_VOICE_CUES = Object.freeze([...new Set([
+  ...allCabinVoiceLines(),
+  ...SPEECH, ...Q1_LINES, ...Q2_LINES, ...CORRECT_LINES, ...WRONG_LINES,
+  ...QUIZ_OPTIONS,
+].map((line) => line?.cue).filter(Boolean))]);
 
 let initiationRecorded = false;
 function recordInitiationComplete() {
@@ -171,23 +190,6 @@ const ARRIVE_R = 17;
 
 // Everyone here is human. The prospects came straight from their apartments —
 // no bandana yet, that has to be earned.
-
-/**
- * KITTENBOSS.
- *
- * SHE. The colours are lifted from `WARDROBE.kittenboss` in
- * `src/core/wardrobe.js`, which is the canonical model and which this scene
- * cannot use directly: `core/person.js`'s rig has no `gender`, no `bodyShape`
- * and no `hair` style, so the shoulder frame and the tied hair that identify
- * her in the Special Meeting do not exist here. She reads by her shirt, her
- * nameplate and her place on the end of the line. Widening `Person` to take a
- * wardrobe model is real work in `src/core/` and is written up in the handoff.
- */
-const KITTENBOSS_PALETTE = {
-  shirt: 0x8d94a4, shirtDark: 0x6f7686, pants: 0x2e3238,
-  skin: 0xdcae86, bandana: null, hair: 0x241a12,
-};
-
 /**
  * THE CIRCLE, standing in the clearing.
  *
@@ -200,6 +202,7 @@ const KITTENBOSS_PALETTE = {
  * `key` is the script speaker this body belongs to, so a line always comes out
  * of the right man rather than out of the middle of the clearing.
  */
+const CIRCLE = OUTDOOR_MEMBER_STATIONS;
 
 /**
  * Where each of them stands inside the cabin.
@@ -338,12 +341,12 @@ for (let i = 0; i < 10; i++) {
 /* ------------------------------------------------------------------
  * THE SITE.
  *
- * The woods, the ground, the mud, the burn barrel, the cars and their
+ * The woods, the ground, the mud, the bonfire, the cars and their
  * headlights, the track in, the trail up, and the cabin inside and out —
  * built by `./cabin/`, deterministically, from one seed.
  *
  * This file no longer scatters its own forest, lays its own ground plane, or
- * builds a bonfire and a banner stage. All four are gone on purpose: two
+ * builds a second bonfire or a banner stage. Those duplicates are gone: two
  * forests interleave and half of one moves on every reload, two ground planes
  * z-fight, and a lit stage with a purple banner on it forty feet from four
  * people being executed in the mud is the old scene's staging fighting this
@@ -378,8 +381,8 @@ function makeParticles({ count, color, size, blending, opacity, attenuate = true
   return { geo, positions, points };
 }
 
-/* Embers off the burn barrel, not off a ceremonial bonfire. Fewer, smaller,
- * and coming out of a rusted drum eight metres west of the line. */
+/* Supplemental embers rise from the cabin site's single owned bonfire.
+ * `BURN_BARREL` remains only a compatibility alias for that same anchor. */
 const EMBER_N = 44;
 const embers = makeParticles({
   count: EMBER_N, color: 0xffa040, size: 0.3,
@@ -444,13 +447,23 @@ function makeNameplate(name, color) {
   return spr;
 }
 
-// `player` is reassigned once at the bandana so Tony can receive the Circle's
-// colours while staying on the shared human rig.
-let player = new Person(PROSPECT_PALETTE);
-player.group.position.set(SPAWN.x, 0, SPAWN.z);
-player.heading = 0;
-player.group.rotation.y = 0;
-scene.add(player.group);
+const playerController = new InitiationPlayerAdapter(camera, {
+  circles: colliders,
+  bounds: BOUNDS,
+  canvas: renderer.domElement,
+  documentRef: document,
+  onFootstep: onStep,
+});
+playerController.teleport(SPAWN, { heading: 0 });
+const player = playerController.player;
+
+// Tony's ceremony body is presentation only. The shared Player owns movement,
+// collision and camera; this rig appears only when an authored cabin shot
+// deliberately leaves first person.
+let playerFigure = makeInitiationCeremonyFigure('TONY');
+playerController.syncFigure(playerFigure);
+playerFigure.group.visible = false;
+scene.add(playerFigure.group);
 
 /* Four of them, plus the player if he gets it wrong. */
 const deathPools = new DeathBloodPool(scene, { capacity: 6 });
@@ -458,34 +471,48 @@ const deathPools = new DeathBloodPool(scene, { capacity: 6 });
 const spurts = new BloodSpurtSystem(scene);
 const _spray = new THREE.Vector3();
 
+const actorColliders = [];
+function bindActorCollider(owner, kind) {
+  const circle = createInitiationActorCircle(owner.sq);
+  const binding = { circle, owner, kind };
+  actorColliders.push(binding);
+  colliders.push(circle);
+  return binding;
+}
+
 /** Every body in the Circle, keyed by the script speaker it belongs to. */
-/* The bodies and their marks come from `cast.js`, which the headless geometry
- * adapter mounts as well; the nameplate and the scene are this page's. */
-const { members, memberByKey } = buildInitiationCircle();
-for (const entry of members) {
-  const { sq } = entry;
-  const founder = CIRCLE.find((spec) => spec.key === entry.key)?.founder;
+const members = [];
+const memberByKey = new Map();
+for (const spec of CIRCLE) {
+  const sq = makeInitiationCeremonyFigure(spec.key, { face: spec.face ?? null });
+  sq.group.position.set(spec.x, 0, spec.z);
+  sq.heading = headingToward(spec, LINE_CENTER);
+  sq.group.rotation.y = sq.heading;
   sq.walkT = Math.random() * 10;
   sq.breatheT = Math.random() * 10;
-  sq.group.add(makeNameplate(entry.name, founder ? '#ff8a8a' : '#cfd4e0'));
+  const plate = makeNameplate(spec.name, spec.founder ? '#ff8a8a' : '#cfd4e0');
+  plate.position.y = sq.model.height + 0.35;
+  sq.group.add(plate);
   scene.add(sq.group);
+  const entry = {
+    key: spec.key, name: spec.name, sq,
+    home: { x: spec.x, z: spec.z },
+    /** Where he walks to next, or null. Used on the trail and in the yard. */
+    stepTo: null,
+    /** Fraction of the trail he keeps ahead of (or behind) the player. */
+    trailOffset: 0,
+    poseT: 0,
+  };
+  members.push(entry);
+  bindActorCollider(entry, 'member');
+  memberByKey.set(spec.key, entry);
 }
 
 const boosk = memberByKey.get('BOOSKIBRO').sq;
 const lou = memberByKey.get('LOU').sq;
 
-/* Booskibro's old silver pelt and staff. He is standing in mud tonight, not on
- * a stage, and the pelt is the only thing left that says founder. */
+/* Booskibro carries the founder's staff with his formal suit unobscured. */
 {
-  const fur = lambert(0x6e747f);
-  const furLight = lambert(0xc3c8d4);
-  boosk.body.add(mesh(new THREE.BoxGeometry(1.15, 0.26, 0.56), fur, 0, 2.18, -0.04));
-  boosk.body.add(mesh(new THREE.BoxGeometry(0.95, 1.15, 0.14), fur, 0, 1.62, -0.3));
-  for (const [x, y, s] of [[-0.45, 2.3, 0.2], [0.45, 2.3, 0.2], [0, 2.34, 0.24]]) {
-    const tuft = mesh(new THREE.BoxGeometry(s, s * 1.3, s), furLight, x, y, -0.05);
-    tuft.rotation.z = (Math.random() - 0.5) * 0.5;
-    boosk.body.add(tuft);
-  }
   /* IN A HAND. This used to be the staff parented straight onto the forearm
    * pivot with a hand-tuned -0.9 offset, which is the same fault that put beer
    * cans on golfers' forearms. */
@@ -494,15 +521,6 @@ const lou = memberByKey.get('LOU').sq;
   staff.add(mesh(new THREE.DodecahedronGeometry(0.16, 0), lambert(0xcfd4e0), 0, 1.17, 0));
   attachToHand(memberByKey.get('BOOSKIBRO').sq, 'R', staff, { offset: { y: -0.18 } });
 }
-
-// ---------- The prospect line ----------
-const PROSPECT_LOOKS = {
-  'PROSPECT ONE': { shirt: 0xb0533a, shirtDark: 0x8a3f2c, pants: 0x3a3f47, skin: 0xc98d5f, bandana: null, hair: 0x11100c },
-  'PROSPECT THREE': { shirt: 0x4a7a72, shirtDark: 0x38605a, pants: 0x2e3238, skin: 0xf0d0b0, bandana: null, hair: 0x4a331c },
-  'PROSPECT FOUR': { shirt: 0x8a7a4a, shirtDark: 0x6a5c36, pants: 0x33383f, skin: 0x8d5a3b, bandana: null, hair: 0x1e1c22 },
-  'PROSPECT FIVE': { shirt: 0x6a5a7a, shirtDark: 0x504460, pants: 0x2a2e35, skin: 0xe8b88a, bandana: null, hair: 0x6e6659 },
-  KITTENBOSS: KITTENBOSS_PALETTE,
-};
 
 /**
  * Five bodies in the line beside the player.
@@ -516,7 +534,7 @@ const prospects = [];
 const prospectByName = new Map();
 for (const slot of LINE_UP) {
   if (slot.player) continue;
-  const sq = new Person(PROSPECT_LOOKS[slot.name]);
+  const sq = makeInitiationCeremonyFigure(slot.name);
   sq.group.position.set(slot.x, 0, LINE_Z);
   sq.heading = headingToward({ x: slot.x, z: LINE_Z }, { x: boosk.position.x, z: boosk.position.z });
   sq.group.rotation.y = sq.heading;
@@ -524,7 +542,7 @@ for (const slot of LINE_UP) {
   sq.breatheT = Math.random() * 10;
   const plate = makeNameplate(slot.name, slot.name === 'KITTENBOSS' ? '#e5b7d8' : '#8a92ab');
   plate.scale.set(2.2, 0.42, 1);
-  plate.position.y = 2.85;
+  plate.position.y = sq.model.height + 0.35;
   sq.group.add(plate);
   scene.add(sq.group);
   const entry = {
@@ -539,6 +557,7 @@ for (const slot of LINE_UP) {
     jerkT: 0,
   };
   prospects.push(entry);
+  bindActorCollider(entry, 'prospect');
   prospectByName.set(slot.name, entry);
 }
 
@@ -573,53 +592,30 @@ const spotMark = new THREE.Group();
  * furniture at the Bing. */
 let louSeated = false;
 
-// ---------- The pistol ----------
+// ---------- The execution revolver ----------
 /**
- * ONE pistol, built with its GRIP AT THE ORIGIN so it can go in a hand.
- *
- * It used to be a group hung on `armR` with its parts pushed 1.14 m down the
- * forearm, which is the beer-can-on-the-golfer fault, and the arm pitch it was
- * driven with (`+1.58`) points a Person's arm BACKWARD — R_x(+θ) sends local
- * -y to local -z, and a Person faces +z. The executioner has been aiming over
- * his own shoulder. Both are fixed here: the grip is the origin, the gun goes
- * in `handR`, and the aim pitches are negative.
- *
- * There is exactly one of these on purpose. IN-140 is the beat where it
- * changes hands because it is empty, and building a second would delete the
- * scene's quietest minute.
+ * One shared catalog revolver. The presentation Adapter owns its hand mount,
+ * muzzle and deterministic 2/3/3 barrage; this director owns only story timing
+ * and victim reactions.
  */
-let gunMuzzle;
-const gun = new THREE.Group();
-{
-  const dark = lambert(0x22242a);
-  gun.add(mesh(new THREE.BoxGeometry(0.055, 0.19, 0.065), dark, 0, -0.09, 0));
-  gun.add(mesh(new THREE.BoxGeometry(0.05, 0.14, 0.17), dark, 0, -0.2, 0.07));
-  gun.add(mesh(new THREE.BoxGeometry(0.05, 0.30, 0.06), dark, 0, -0.36, 0));
-  const flashMat = new THREE.MeshBasicMaterial({
-    color: 0xffd75e, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
-  });
-  flashMat.color.multiplyScalar(3);
-  gunMuzzle = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.5, 6), flashMat);
-  gunMuzzle.rotation.x = Math.PI;
-  gunMuzzle.position.y = -0.76;
-  gunMuzzle.visible = false;
-  gun.add(gunMuzzle);
-}
+const gun = buildInitiationExecutionRevolver();
+const barrageClock = new InitiationBarrageClock();
 const muzzleLight = new THREE.PointLight(0xffc86a, 0, 0, 2);
 scene.add(muzzleLight);
 
-/** Whose hand the pistol is in right now, by script speaker key. */
+/** Whose hand the revolver is in right now, by script speaker key. */
 let gunHolder = null;
 function handPistolTo(key) {
   const holder = memberByKey.get(key);
   if (!holder) return;
   gun.parent?.remove(gun);
-  attachToHand(holder.sq, 'R', gun);
+  mountInitiationExecutionRevolver(holder.sq, gun);
   gunHolder = key;
 }
 function holsterPistol() {
   gun.parent?.remove(gun);
-  gunMuzzle.visible = false;
+  barrageClock.reset();
+  if (gun.userData.initiationFlash) gun.userData.initiationFlash.visible = false;
   if (gunHolder) {
     const holder = memberByKey.get(gunHolder);
     if (holder) holder.sq.armR.rotation.x = 0;
@@ -632,8 +628,15 @@ const AIM_PITCH_FRONTAL = -1.42;
 /** Arm pitch for a muzzle at the back of a kneeling head. Angled down. */
 const AIM_PITCH_NAPE = -1.05;
 
-// ---------- The ceremony props ----------
 const props = site.props ?? {};
+
+// ---------- The ceremony props ----------
+resolveGear([INITIATION_CARD_SLOT])
+  .then((gear) => {
+    const card = gear.get(INITIATION_CARD_SLOT);
+    if (card?.texture) props.card?.setTexture?.(card.texture);
+  })
+  .catch((error) => console.error('[initiation] saint card art could not load', error));
 
 // ---------- HUD ----------
 const $ = (id) => document.getElementById(id);
@@ -730,6 +733,7 @@ function bodyFor(line) {
   return null;
 }
 
+let blockedVoiceCue = null;
 let sayQueue = [];
 let sayDone = null;
 let sayOnLast = null;
@@ -774,6 +778,13 @@ function bleedOut(point, seed) {
 
 function speakLine(line) {
   if (!line?.cue) return 0;
+  if (!audioReady || !audio.hasSample?.(line.cue)) {
+    blockedVoiceCue = line.cue;
+    if (!missingVoiceCues.includes(line.cue)) missingVoiceCues.push(line.cue);
+    console.error(`[initiation] refusing to consume unloaded voice cue ${line.cue}`);
+    return null;
+  }
+  blockedVoiceCue = null;
   /* SILENCE THE MAN BEFORE HIM.
    *
    * `sayAutoT` below is only the AUTO advance. A player can press on at any
@@ -811,6 +822,11 @@ function showCurrentLine() {
   speakerEl.textContent = line.who;
   lineEl.textContent = line.text;
   const voiced = speakLine(line);
+  if (voiced === null) {
+    sayAutoT = Infinity;
+    setObjective(`VOICE AUDIO NOT READY: ${line.cue}`);
+    return;
+  }
   sayAutoT = Math.max(2.6 + line.text.length * 0.028, voiced > 0 ? voiced + 0.35 : 0);
   if (line.gesture === 'slam') {
     /* `gesture` is `dialogue.js`'s and only Booskibro and Lou carry one. It
@@ -863,6 +879,7 @@ function drainSay() {
 }
 
 function advanceSay() {
+  if (blockedVoiceCue) return;
   if (!dialogActive()) return;
   sayQueue.shift();
   if (sayQueue.length === 0) {
@@ -936,6 +953,7 @@ function showChoice({ prompt, options, hint, onPick }) {
     btn.dataset.correct = option.correct ? '1' : '0';
   });
   quizEl.classList.add('show');
+  playerController.releasePointerLock();
 }
 
 function hideChoice() {
@@ -954,6 +972,9 @@ function pickChoice(index) {
   const { onPick } = openChoice;
   hideChoice();
   onPick(option);
+  if (currentPhase().control !== CONTROL_MODES.CUTSCENE) {
+    playerController.requestPointerLock();
+  }
 }
 
 for (const btn of quizButtons) {
@@ -974,15 +995,12 @@ let inducted = false;
 let playerFallT = -1;
 let exec = null;
 let failFrom = 'question';
-/** Did he say anything while the four were being shot? Paid off at IN-365. */
-let spokeAtTheKilling = false;
 /**
  * The act, as a list, walked with a cursor.
  *
- * The ORDER lives in `executions.js` — four victims, three gaps, one reload,
- * and the reload between the second gap and the third shot. Carrying those
- * rules here instead would mean the sequence a test can check and the sequence
- * the scene runs are two different things.
+ * The ORDER lives in `executions.js`: everybody kneels together, four doomed
+ * prospects are shot, Tony is threatened, Lou interrupts and Tony alone is
+ * released. Carrying those rules here would let runtime and data drift.
  */
 const RUN_ORDER = executionRunOrder();
 let runCursor = 0;
@@ -1000,7 +1018,6 @@ let ritualPressed = false;
  */
 const cardBurn = new CardBurn();
 /** The flame on the corner of the card, made the first time it is needed. */
-let cardFlame = null;
 /** The cut, on the palm it was made in rather than on the floorboards. */
 let palmBlood = null;
 /** Throttle on the ember tick, so a burning card is not a machine gun. */
@@ -1010,6 +1027,17 @@ let trailK = 0;
 
 function currentPhase() {
   return PHASES[phase] ?? PHASES.approach;
+}
+
+function applyPhaseControl(spec = currentPhase()) {
+  const pose = spec.playerPose === ADAPTER_PLAYER_POSES.KNEELING
+    ? ADAPTER_PLAYER_POSES.KNEELING
+    : ADAPTER_PLAYER_POSES.STANDING;
+  playerController.setControl(spec.control, { pose });
+
+  const authoredCamera = spec.control === CONTROL_MODES.CUTSCENE;
+  if (authoredCamera) playerController.syncFigure(playerFigure);
+  playerFigure.group.visible = authoredCamera;
 }
 
 function setPhase(next) {
@@ -1022,27 +1050,21 @@ function setPhase(next) {
   phase = next;
   phaseT = 0;
   setPhaseObjective(PHASES[next]);
+  applyPhaseControl(PHASES[next]);
 }
 
-const canMove = () => currentPhase().canMove && playerFallT < 0;
+const canMove = () => currentPhase().control === CONTROL_MODES.PLAYABLE && playerFallT < 0;
+
+applyPhaseControl();
 
 /* ------------------------------------------------------------------
  * INPUT
  * ------------------------------------------------------------------ */
-const keys = new Set();
-const KEYMAP = {
-  KeyW: 'up', ArrowUp: 'up',
-  KeyS: 'down', ArrowDown: 'down',
-  KeyA: 'left', ArrowLeft: 'left',
-  KeyD: 'right', ArrowRight: 'right',
-  ShiftLeft: 'sprint', ShiftRight: 'sprint',
-};
 
 /** The one action button. Advances dialogue, and is the ritual's only input. */
 function actionPress() {
   if (dialogActive()) { advanceSay(); return; }
   ritualPressed = true;
-  if (canMove()) player.startSmash();
 }
 
 function actionRelease() {
@@ -1052,9 +1074,11 @@ let holdHeld = false;
 
 window.addEventListener('keydown', (e) => {
   if (paused) return;
-  const bound = KEYMAP[translateKey(e.code)];
-  if (bound) { keys.add(bound); e.preventDefault(); }
-  if (e.code === 'Space') {
+  const code = translateKey(e.code);
+  const movement = playerController.setKey(code, true);
+  if (movement) e.preventDefault();
+
+  if (code === 'Space' && !canMove()) {
     e.preventDefault();
     if (!e.repeat) actionPress();
     holdHeld = true;
@@ -1065,16 +1089,34 @@ window.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('keyup', (e) => {
-  const bound = KEYMAP[translateKey(e.code)];
-  if (bound) keys.delete(bound);
+  playerController.setKey(translateKey(e.code), false);
   if (e.code === 'Space') actionRelease();
 });
+window.addEventListener('mousemove', (e) => {
+  if (document.pointerLockElement === renderer.domElement) {
+    playerController.handleMouseMove(e.movementX, e.movementY);
+  }
+});
+document.addEventListener('pointerlockchange', () => {
+  playerController.setInputActive(document.pointerLockElement === renderer.domElement);
+});
 window.addEventListener('mousedown', (e) => {
-  if (paused || e.target.closest('button, a, .touch-btn')) return;
-  if (e.button === 0) { actionPress(); holdHeld = true; }
+  if (paused || e.target.closest('button, a, .touch-btn') || e.button !== 0) return;
+  const locked = document.pointerLockElement === renderer.domElement;
+  if (!locked) {
+    playerController.requestPointerLock();
+    return;
+  }
+  if (!canMove()) {
+    actionPress();
+    holdHeld = true;
+  }
 });
 window.addEventListener('mouseup', () => actionRelease());
-window.addEventListener('blur', () => { keys.clear(); holdHeld = false; });
+window.addEventListener('blur', () => {
+  playerController.clearInput();
+  holdHeld = false;
+});
 
 let paused = false;
 createPauseMenu({
@@ -1089,7 +1131,7 @@ createPauseMenu({
   ],
   onPause: () => {
     paused = true;
-    keys.clear();
+    playerController.setPaused(true);
     holdHeld = false;
     sfx.suspend();
     audio.ctx?.suspend?.();
@@ -1097,6 +1139,10 @@ createPauseMenu({
   onResume: () => {
     paused = false;
     sfx.resume();
+    playerController.setPaused(false);
+    if (currentPhase().control !== CONTROL_MODES.CUTSCENE && !openChoice) {
+      playerController.requestPointerLock();
+    }
     audio.ctx?.resume?.();
   },
   /* RESTART CHECKPOINT AND RESTART SCENE, like every other campaign scene.
@@ -1146,6 +1192,8 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     touch.x = 0;
     touch.y = 0;
     zone.setPointerCapture(e.pointerId);
+    playerController.setInputActive(true);
+    playerController.setTouchVector(0, 0);
   });
   zone.addEventListener('pointermove', (e) => {
     if (e.pointerId !== stickId) return;
@@ -1156,6 +1204,9 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
     touch.x = dx / RANGE;
     touch.y = dy / RANGE;
+    playerController.setTouchVector(touch.x, touch.y, {
+      sprint: Math.hypot(touch.x, touch.y) > 0.92,
+    });
   });
   const endStick = (e) => {
     if (e.pointerId !== stickId) return;
@@ -1164,6 +1215,7 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     touch.x = 0;
     touch.y = 0;
     base.style.display = 'none';
+    playerController.setTouchVector(0, 0);
     knob.style.transform = 'translate(-50%, -50%)';
   };
   zone.addEventListener('pointerup', endStick);
@@ -1173,13 +1225,19 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
   /* One button, and mostly it means "go on". When the ceremony wants a hold
    * the objective bar says HOLD; the button never contradicts it. */
   smashBtn.textContent = '▸';
-  smashBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); actionPress(); holdHeld = true; });
-  smashBtn.addEventListener('pointerup', (e) => { e.preventDefault(); actionRelease(); });
+  smashBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    playerController.setInputActive(true);
+    if (canMove()) playerController.setKey('Space', true);
+    else { actionPress(); holdHeld = true; }
+  });
+  smashBtn.addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    playerController.setKey('Space', false);
+    actionRelease();
+  });
 }
 
-function isSprinting() {
-  return keys.has('sprint') || (touch.active && Math.hypot(touch.x, touch.y) > 0.92);
-}
 
 // ---------- Buttons / flow ----------
 $('retryBtn').addEventListener('click', retry);
@@ -1198,22 +1256,43 @@ $('goHomeBtn').addEventListener('click', () => {
  * shared AudioEngine for every recorded line, every footstep and every shot —
  * the second is the one that can be positional at all. */
 let audioArmed = false;
+let audioReady = false;
+let audioReadyPromise = null;
+let audioLoadError = null;
+const missingVoiceCues = [];
 function ensureAudio() {
-  if (audioArmed) return;
+  if (audioReadyPromise) return audioReadyPromise;
   audioArmed = true;
   sfx.init();
   bindAudioVolume(sfx);
   bindAudioVolume({ setUserVolume: (value) => audio.setMasterVolume?.(value) });
-  audio.init()
-    .then(() => audio.loadManifest({
-      prefixes: ['vo.initiation.', 'footstep.', 'car.', 'door.'],
-      names: weaponCueNames(),
-    }))
-    .then(() => site.ambience.start())
-    .catch((error) => console.error('[initiation] audio could not start', error));
+  audioReadyPromise = (async () => {
+    await audio.init();
+    await audio.loadManifest({
+      names: [...ACTIVE_INITIATION_VOICE_CUES, ...weaponCueNames()],
+      prefixes: ['footstep.', 'car.', 'door.'],
+    });
+    missingVoiceCues.splice(0, missingVoiceCues.length,
+      ...ACTIVE_INITIATION_VOICE_CUES.filter((cue) => !audio.hasSample?.(cue)));
+    audioReady = missingVoiceCues.length === 0;
+    if (!audioReady) {
+      audioLoadError = new Error(`${missingVoiceCues.length} active Initiation voice cues did not decode`);
+      console.error('[initiation] active voice bank incomplete', missingVoiceCues);
+      return false;
+    }
+    site.ambience.start();
+    return true;
+  })().catch((error) => {
+    audioReady = false;
+    audioLoadError = error;
+    console.error('[initiation] audio could not start', error);
+    return false;
+  });
+  return audioReadyPromise;
 }
-window.addEventListener('keydown', ensureAudio, { once: true });
-window.addEventListener('pointerdown', ensureAudio, { once: true });
+const armAudio = () => { void ensureAudio(); };
+window.addEventListener('keydown', armAudio, { once: true });
+window.addEventListener('pointerdown', armAudio, { once: true });
 
 hudEl.classList.add('visible');
 setPhaseObjective(PHASES.approach);
@@ -1242,7 +1321,11 @@ function answerQuiz(selected) {
        * It stays in `dialogue.js` until the recording handoff is merged; see
        * RETIRED_CEREMONY_LINES. */
       setPhase('q2_correct');
-      say(CORRECT_LINES.slice(0, 2), () => setPhase('clear_line'));
+      say(CORRECT_LINES.slice(0, 2), () => {
+        runCursor = 0;
+        setPhase('conspiracy_reveal');
+        sayBeat('IN-100', advanceRun);
+      });
     } else {
       say(WRONG_LINES, () => {
         setPhase('exec_player');
@@ -1279,8 +1362,8 @@ function answerQuiz(selected) {
  *     rounds?:  how many, default eight,
  *     nape?:    true for the down-angled muzzle at the back of a head }
  *
- * Prospect One goes through it with none of the optional fields, exactly as
- * he does today. The four that follow go through it with all of them.
+ * Prospect One goes through it standing with eight rounds. The sweep uses
+ * the same mechanism for each single kneeling shot and Tony's non-firing aim.
  * ------------------------------------------------------------------ */
 function startExecution(target) {
   const tp = target.getPos();
@@ -1303,9 +1386,13 @@ function startExecution(target) {
     stance: target.stance ?? null,
     nape: target.nape === true,
     stay: target.stay === true,
+    holdFire: target.holdFire === true,
+    barrage: (target.rounds ?? 8) === INITIATION_BARRAGE_SHOTS.length && target.nape !== true,
+    aimed: false,
     state: 'walk',
-    t: 0, shots: 0, next: 0, aim: 0, recoil: 0, flashT: 0,
+    t: 0, shots: 0, next: 0, aim: 0, recoil: 0,
   };
+  barrageClock.reset();
 }
 
 const _impact = new THREE.Vector3();
@@ -1313,19 +1400,19 @@ const _impact = new THREE.Vector3();
 /**
  * One round.
  *
- * THROUGH `playWeaponCue`, POSITIONAL. A pistol fired outdoors at night behind
+ * THROUGH `playWeaponCue`, POSITIONAL. A revolver fired outdoors at night behind
  * a kneeling man is the loudest thing in this scene, and a raw `audio.play`
  * with a bare cue name skips the catalog's per-weapon mix and the gunshot
  * falloff — which is exactly how the palace's guards ended up inaudible past
  * eighteen metres in an open compound.
  */
-function fireShotAt(tp, y) {
-  gunMuzzle.getWorldPosition(_impact);
-  playWeaponCue(audio, 'pistol9', 'fire', {
+function fireShotAt(tp, y, shotIndex = 0) {
+  const muzzle = initiationRevolverMuzzleWorld(gun, _impact);
+  if (!muzzle) return;
+  playWeaponCue(audio, 'revolver', 'fire', {
     volume: 1, position: { x: _impact.x, y: _impact.y, z: _impact.z },
   });
-  gunMuzzle.visible = true;
-  exec.flashT = 0.07;
+  fireInitiationExecutionRevolver(gun, shotIndex);
   muzzleLight.position.copy(_impact);
   muzzleLight.intensity = 150;
   /* The mist off the shot, thrown along the round rather than puffed in
@@ -1344,14 +1431,25 @@ function fireShotAt(tp, y) {
   shake = Math.max(shake, 0.3);
 }
 
+function fireExecutionRound(tp, target, shotIndex = exec?.shots ?? 0) {
+  if (!exec || exec.state !== 'fire') return;
+  exec.shots++;
+  exec.recoil = 0.12;
+  fireShotAt(tp, target.y, shotIndex);
+  target.onHit?.();
+  if (exec.shots >= exec.rounds) {
+    exec.state = 'done';
+    exec.t = 0;
+    target.onDead?.();
+  }
+}
+
 function updateExecution(dt) {
   if (!exec) return;
   const m = exec.m;
   const t = exec.target;
   const tp = t.getPos();
   const aimPitch = exec.nape ? AIM_PITCH_NAPE : AIM_PITCH_FRONTAL;
-  exec.flashT = Math.max(0, exec.flashT - dt);
-  gunMuzzle.visible = exec.flashT > 0;
 
   if (exec.state === 'walk') {
     const goal = exec.stance ?? tp;
@@ -1380,22 +1478,29 @@ function updateExecution(dt) {
     faceAt(m.sq, tp);
     exec.aim = Math.min(1, exec.aim + dt * 3);
     exec.t += dt;
-    if (exec.state === 'aim' && exec.t > (exec.nape ? 1.1 : 0.8)) {
+    if (exec.holdFire && exec.aim >= 1) {
+      m.sq.armR.rotation.x = aimPitch;
+      if (!exec.aimed) {
+        exec.aimed = true;
+        t.onAim?.();
+      }
+      return;
+    } else if (exec.state === 'aim' && exec.t > (exec.nape ? 1.1 : 0.8)) {
       exec.state = 'fire';
-      exec.next = exec.nape ? 0.55 : 0.3;
+      if (exec.barrage) barrageClock.start();
+      else exec.next = exec.nape ? 0.55 : 0.3;
     }
     if (exec.state === 'fire') {
-      exec.next -= dt;
-      if (exec.next <= 0 && exec.shots < exec.rounds) {
-        exec.shots++;
-        exec.next = 0.26 + Math.random() * 0.12;
-        exec.recoil = 0.12;
-        fireShotAt(tp, t.y);
-        if (t.onHit) t.onHit();
-        if (exec.shots >= exec.rounds) {
-          exec.state = 'done';
-          exec.t = 0;
-          if (t.onDead) t.onDead();
+      if (exec.barrage) {
+        for (const shot of barrageClock.update(dt)) {
+          fireExecutionRound(tp, t, shot.index);
+          if (!exec || exec.state !== 'fire') break;
+        }
+      } else {
+        exec.next -= dt;
+        if (exec.next <= 0 && exec.shots < exec.rounds) {
+          exec.next = 0.34;
+          fireExecutionRound(tp, t);
         }
       }
     }
@@ -1413,7 +1518,7 @@ function updateExecution(dt) {
       if (t.onFinished) t.onFinished();
     }
   } else if (exec.state === 'return') {
-    /* Between the four he does not go anywhere: there is another one coming
+    /* During the sweep he does not go anywhere: there is another one coming
      * and he knows it. Only Prospect One's shooter walks back to the ring, and
      * that is the script — "Seff lowers the pistol, turns, and walks back to
      * his place. Nobody says anything." */
@@ -1480,12 +1585,8 @@ function executeKneeling(step, onFinished) {
 /* ------------------------------------------------------------------
  * NPC HELPERS
  * ------------------------------------------------------------------ */
-const _moveVec = new THREE.Vector3();
-const _fwd = new THREE.Vector3();
-const _right = new THREE.Vector3();
 const _dir = new THREE.Vector3();
 const _zero = new THREE.Vector3();
-const UP = new THREE.Vector3(0, 1, 0);
 
 /** Walk an NPC toward (x, z); returns true once arrived. */
 function walkNpc(sq, x, z, dt, speed = 3.4, arriveDist = 0.35) {
@@ -1499,47 +1600,6 @@ function walkNpc(sq, x, z, dt, speed = 3.4, arriveDist = 0.35) {
   _dir.set(dx / d, 0, dz / d);
   sq.update(dt, _dir, Math.min(speed, d * 4));
   return false;
-}
-
-/* ------------------------------------------------------------------
- * MOVEMENT
- * ------------------------------------------------------------------ */
-function computeMove() {
-  let f = (keys.has('up') ? 1 : 0) - (keys.has('down') ? 1 : 0);
-  let r = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
-  if (touch.active) {
-    f += -touch.y;
-    r += touch.x;
-  }
-  _moveVec.set(0, 0, 0);
-  if (f === 0 && r === 0) return _moveVec;
-  _fwd.set(Math.sin(camYaw), 0, Math.cos(camYaw));
-  _right.crossVectors(_fwd, UP);
-  _moveVec.addScaledVector(_fwd, f).addScaledVector(_right, r);
-  if (_moveVec.lengthSq() > 1) _moveVec.normalize();
-  return _moveVec;
-}
-
-function collide() {
-  const p = player.position;
-  const pushOut = (x, z, r) => {
-    const dx = p.x - x;
-    const dz = p.z - z;
-    const dist = Math.hypot(dx, dz);
-    const minD = r + 0.55;
-    if (dist < minD && dist > 0.001) {
-      const push = (minD - dist) / dist;
-      p.x += dx * push;
-      p.z += dz * push;
-    }
-  };
-  for (const c of colliders) pushOut(c.x, c.z, c.r);
-  for (const m of members) pushOut(m.sq.position.x, m.sq.position.z, 0.6 * m.scale);
-  for (const q of prospects) {
-    if (!q.dead) pushOut(q.sq.position.x, q.sq.position.z, 0.55);
-  }
-  p.x = THREE.MathUtils.clamp(p.x, -BOUNDS, BOUNDS);
-  p.z = THREE.MathUtils.clamp(p.z, -BOUNDS, BOUNDS);
 }
 
 /**
@@ -1603,8 +1663,6 @@ const _lookTarget = new THREE.Vector3(LINE_CENTER.x, 2.4, LINE_CENTER.z);
 const _desiredLook = new THREE.Vector3();
 const _facing = new THREE.Vector3();
 
-camera.position.set(6, 4.5, SPAWN.z - 12);
-camera.lookAt(LINE_CENTER.x, 2.4, LINE_CENTER.z);
 
 /**
  * Take a shot's two points and put them where the rest of this file expects.
@@ -1620,7 +1678,7 @@ function place({ position, lookAt }) {
 
 const CAMERA_SHOTS = {
   follow(dt) {
-    const diff = Math.atan2(Math.sin(player.heading - camYaw), Math.cos(player.heading - camYaw));
+    const diff = Math.atan2(Math.sin(playerFigure.heading - camYaw), Math.cos(playerFigure.heading - camYaw));
     camYaw += diff * Math.min(1, 3.2 * dt);
     _camForward.set(Math.sin(camYaw), 0, Math.cos(camYaw));
     return place(INITIATION_SHOTS.follow({
@@ -1642,7 +1700,7 @@ const CAMERA_SHOTS = {
     return place(INITIATION_SHOTS.stand_exec({ victim: p1.toArray() }));
   },
   q2() {
-    player.facing(_facing);
+    playerFigure.facing(_facing);
     return place(INITIATION_SHOTS.q2({
       player: player.position.toArray(), facing: _facing.toArray(),
     }));
@@ -1720,7 +1778,7 @@ const _ritualHand = new THREE.Vector3();
  * arm gives a dull shot rather than a crash in the middle of the ceremony.
  */
 function ritualHandWorld(out) {
-  const socket = handSocket(player, TABLE_SOCKETS.card.hand ?? 'L');
+  const socket = handSocket(playerFigure, TABLE_SOCKETS.card.hand ?? 'L');
   if (socket) return socket.getWorldPosition(out);
   return out.set(TABLE_SOCKETS.card.x, TABLE.topY + 0.1, TABLE.z - 0.5);
 }
@@ -1747,13 +1805,15 @@ function snapCamera() {
 }
 
 function updateCamera(dt) {
-  dtLast = dt;
-  const shot = CAMERA_SHOTS[currentPhase().camera] ?? CAMERA_SHOTS.follow;
-  const desiredPos = shot(dt);
-
-  const k = 1 - Math.exp(-3.2 * dt);
-  camera.position.lerp(desiredPos, k);
-  _lookTarget.lerp(_desiredLook, k);
+  if (currentPhase().control === CONTROL_MODES.CUTSCENE) {
+    dtLast = dt;
+    const shot = CAMERA_SHOTS[currentPhase().camera] ?? CAMERA_SHOTS.hold;
+    const desiredPos = shot(dt);
+    const k = 1 - Math.exp(-3.2 * dt);
+    camera.position.lerp(desiredPos, k);
+    _lookTarget.lerp(_desiredLook, k);
+    camera.lookAt(_lookTarget);
+  }
 
   if (shake > 0) {
     shake = Math.max(0, shake - dt * 1.4);
@@ -1762,7 +1822,6 @@ function updateCamera(dt) {
     camera.position.y += (Math.random() - 0.5) * felt;
     camera.position.z += (Math.random() - 0.5) * felt;
   }
-  camera.lookAt(_lookTarget);
 
   fovPunch = Math.max(0, fovPunch - dt * 14);
   const targetFov = BASE_FOV + fovPunch;
@@ -1777,141 +1836,103 @@ function updateCamera(dt) {
 }
 
 /* ------------------------------------------------------------------
- * ACT TWO — the four
+ * ACT TWO — the execution line
  * ------------------------------------------------------------------ */
 
-/** Take the next thing on the list: a victim, a gap, a reload, or the end. */
+/** Take the next authored event: kneel, four shots, aim, interruption, release. */
 function advanceRun() {
   const entry = RUN_ORDER[runCursor++];
-  if (!entry) { finishExecutions(); return; }
-  if (entry.kind === 'kneel') runExecutionStep(entry.step);
-  else if (entry.kind === 'gap') openGap(entry.gap);
-  else if (entry.kind === 'reload') runReload(entry);
-  else finishExecutions();
+  if (!entry) return;
+  if (entry.kind === 'mass_kneel') runMassKneel(entry);
+  else if (entry.kind === 'shot') runExecutionStep(entry.step);
+  else if (entry.kind === 'aim') runPlayerAim(entry);
+  else if (entry.kind === 'interrupt') runLouInterrupt(entry);
+  else if (entry.kind === 'release') releaseTony(entry);
 }
 
-/**
- * Walk one of them out, put them down, and shoot them.
- *
- * THE ORDER MATTERS. They are walked out and put on their knees WHILE the beat
- * is being spoken, and the shot arrives on the LAST LINE — not after it and
- * not five seconds into the walk. Prospect Three is cut off mid-word, Prospect
- * Five is shot on "Right. Good.", and Kittenboss is shot on "Hey."
- */
-let pendingShot = false;
-
-function runExecutionStep(step) {
-  currentStep = step;
-  pendingShot = false;
-  setPhase('exec_prospect');
-  const p = prospectByName.get(step.victim);
-  const mark = markForStep(step);
-  const walker = memberByKey.get(step.walker);
-  if (p.kneelMark !== mark) {
-    /* Gratin goes and gets them FIRST. He does not take hold of them: he walks
-     * down the line, stops in front of them, and waits, and waiting wins. The
-     * victim only starts walking when he arrives — see the member loop.
-     *
-     * (Prospect Five is the exception: he is ALREADY down, brought out before
-     * the reload and kneeling through all of it. Walking him out again would
-     * stand him back up, and `isPosed()` would then swallow the arrival that
-     * fires the shot — a beat entered and not left, with a blank objective on
-     * it, which is the one thing this scene may not do.) */
-    walker.stepTo = { x: p.home.x, z: LINE_Z + 0.95, then: 'collect', victim: p, mark };
-    /* Three of them do not wait to be fetched. Prospect Four steps out before
-     * Gratin reaches him; Prospect Five comes out before he is called; and she
-     * sees him coming and goes, the way you do when somebody is obviously
-     * heading for you. Only Prospect Three makes him stand there. */
-    if (step.stepsOutEarly) {
-      p.stepTo = { x: mark.x, z: mark.z, then: 'kneel', mark };
-    }
-  }
-  sayBeat(step.beat, null, () => { pendingShot = true; tryFire(); });
-}
-
-/** Fire once the words have run out AND they are actually on their knees. */
-function tryFire() {
-  if (!pendingShot || exec || phase !== 'exec_prospect' || !currentStep) return;
-  const p = prospectByName.get(currentStep.victim);
-  if (p.kneelMark !== markForStep(currentStep)) return;
-  pendingShot = false;
-  executeKneeling(currentStep, advanceRun);
-}
-
-/** Called the frame a prospect reaches their mark. */
 function kneelOnMark(p, mark) {
+  p.stepTo = null;
   p.kneelMark = mark;
   poseKneeling(p.sq, mark);
-  tryFire();
 }
 
-/**
- * The player's one chance to speak, and it is free.
- *
- * Silence is the default, it is the strongest thing available, and the game
- * never tells him that. It tells him once, later, in the cabin, at IN-365.
- */
-function openGap(gapNumber) {
-  setPhase('exec_gap');
-  showChoice({
-    prompt: HUB.prompt,
-    hint: '',
-    options: HUB.optionsFor(gapNumber),
-    onPick: (option) => {
-      if (!option.silent) spokeAtTheKilling = true;
-      setPhase('exec_gap_reply');
-      sayBeat(option.to, advanceRun);
-    },
-  });
-}
-
-/**
- * IN-140. The pistol is empty and it changes hands.
- *
- * Prospect Five is brought out FIRST and then waits — on the mark, on his
- * knees, facing the line, while the man behind him loads. There is exactly one
- * pistol in this scene and this is the beat that is about it.
- */
-function runReload(entry) {
-  setPhase('exec_reload');
-  if (entry.next) {
-    /* The camera and the Circle follow the mark being made ready, not the one
-     * that has just been used. */
-    currentStep = entry.next;
-    const p = prospectByName.get(entry.next.victim);
-    const mark = markForStep(entry.next);
-    memberByKey.get(entry.next.walker).stepTo = {
-      x: p.home.x, z: LINE_Z + 0.95, then: 'collect', victim: p, mark,
-    };
-  }
-  sayBeat('IN-140', () => {
-    handPistolTo(entry.to);
-    advanceRun();
-  });
-}
-
-function finishExecutions() {
+/** All remaining prospects go down together; Tony's shared camera drops with them. */
+function runMassKneel(entry) {
+  setPhase('mass_kneel');
   currentStep = null;
-  setPhase('exec_done');
-  holsterPistol();
-  for (const m of members) m.stepTo = null;
-  sayBeat('IN-170', () => {
-    setPhase('walk_out');
-    site.ambience.hushClearing();
-    /* The headlights go out, one after the other, and the working ground with
-     * them. Nobody looks back at it. BY POSITION, not by every light on the
-     * site: `site.lights` also holds the porch light and everything burning
-     * inside the cabin, and killing those would walk him thirty-six metres up
-     * a trail to a dark building. */
-    for (const light of site.lights) {
-      if (typeof light.intensity !== 'number') continue;
-      if (light.getWorldPosition ? light.getWorldPosition(_impact).z < 0 : light.position.z < 0) {
-        light.intensity = 0;
-      }
-    }
-    sayBeat('IN-200');
-    startTheWalk();
+  for (const ordered of entry.lineup) {
+    if (ordered.player) continue;
+    const prospect = prospectByName.get(ordered.victim);
+    const mark = markForStep(ordered);
+    if (prospect && mark) kneelOnMark(prospect, mark);
+  }
+  const first = markForStep(KNEELING_EXECUTIONS[0]);
+  if (first) playerController.face(first);
+  sayBeat(entry.beat, advanceRun);
+}
+
+/** Four single rounds, ending with Kittenboss beside Tony on the fourth mark. */
+function runExecutionStep(step) {
+  currentStep = step;
+  setPhase('execution_sweep');
+  const prospect = prospectByName.get(step.victim);
+  const mark = markForStep(step);
+  if (prospect && mark && prospect.kneelMark !== mark) kneelOnMark(prospect, mark);
+  sayBeat(step.beat, () => executeKneeling(step, advanceRun));
+}
+
+function runPlayerAim(entry) {
+  currentStep = null;
+  setPhase('player_aim');
+  let lineDone = false;
+  let aimed = false;
+  const continueWhenReady = () => {
+    if (lineDone && aimed && phase === 'player_aim') advanceRun();
+  };
+  const stance = { x: PLAYER_SLOT.x + 0.45, z: PLAYER_SLOT.z - 1.25 };
+  startExecution({
+    getPos: () => player.position,
+    y: KNEEL_HEAD_Y,
+    shooter: entry.threat.shooter,
+    stance: { ...stance, heading: headingToward(stance, PLAYER_SLOT) },
+    rounds: 0,
+    nape: true,
+    holdFire: true,
+    onAim: () => { aimed = true; continueWhenReady(); },
   });
+  sayBeat(entry.threat.beat, () => { lineDone = true; continueWhenReady(); });
+}
+
+function cancelExecutionAim() {
+  if (!exec) return;
+  exec.m.sq.armR.rotation.x = 0;
+  exec = null;
+}
+
+/** Lou's first word wins: no timer and no zero-round fire state can survive it. */
+function runLouInterrupt(entry) {
+  cancelExecutionAim();
+  setPhase('lou_interrupt');
+  sayBeat(entry.interruption.beat, advanceRun);
+}
+
+function releaseTony(entry) {
+  cancelExecutionAim();
+  holsterPistol();
+  for (const member of members) member.stepTo = null;
+  if (!entry.survivors?.includes('PROSPECT TWO')) {
+    throw new Error('Lou must release Tony after interrupting the player shot');
+  }
+  setPhase('walk_out');
+  site.ambience.hushClearing();
+  for (const light of site.lights) {
+    if (typeof light.intensity !== 'number') continue;
+    if (light.getWorldPosition ? light.getWorldPosition(_impact).z < 0 : light.position.z < 0) {
+      light.intensity = 0;
+    }
+  }
+  sayBeat('IN-200');
+  startTheWalk();
 }
 
 /* ------------------------------------------------------------------
@@ -2011,14 +2032,14 @@ function runCeremonyBeat() {
     /* IN-365, and which of its two variants he earns. The game has never told
      * him silence was the strongest thing available; this is the once it does,
      * and then it goes straight back into the ritual with no transition. */
-    sayBeat(asideFor(spokeAtTheKilling).id, askTheQuestion);
+    sayBeat(asideFor(false).id, askTheQuestion);
     return;
   }
   const id = CEREMONY_BEATS_IN_ORDER[ceremonyIndex++];
   if (id === 'IN-310') {
     sayBeat(id, () => {
       /* He walks the length of the table and the room closes up behind him. */
-      player.stepTo = { x: CEREMONY_CENTRE.x, z: CEREMONY_CENTRE.z };
+      playerFigure.stepTo = { x: CEREMONY_CENTRE.x, z: CEREMONY_CENTRE.z };
       runCeremonyBeat();
     });
     return;
@@ -2088,7 +2109,7 @@ function answerNo() {
 }
 
 function fireTheOathShot(reason = 'WRONG ANSWER') {
-  playWeaponCue(audio, 'pistol9', 'fire', {
+  playWeaponCue(audio, 'revolver', 'fire', {
     volume: 1,
     position: { x: player.position.x, y: PLAYER_EYE_Y, z: player.position.z - 0.9 },
   });
@@ -2157,7 +2178,7 @@ function runCut() {
  * owner found on Triple X one scene over.
  */
 function markThePalm() {
-  const socket = handSocket(player, TABLE_SOCKETS.card.hand ?? 'L');
+  const socket = handSocket(playerFigure, TABLE_SOCKETS.card.hand ?? 'L');
   if (!socket || palmBlood) return;
   palmBlood = new THREE.Mesh(
     new THREE.CircleGeometry(0.013, 10),
@@ -2180,7 +2201,7 @@ function doTheCut() {
    * meant he said "My flesh must burn in hell LIKE THIS SAINT" while Booskibro
    * was still holding the saint. */
   if (props.card) {
-    attachToHand(player, TABLE_SOCKETS.card.hand ?? 'L', props.card.group, {
+    attachToHand(playerFigure, TABLE_SOCKETS.card.hand ?? 'L', props.card.group, {
       rotation: props.card.grip?.rotation ?? null,
     });
   }
@@ -2264,56 +2285,24 @@ function runBurn() {
   ritualPressed = false;
   /* The card is already in his palm -- it went in at IN-420. Lou takes the
    * candle off the table and lights ONE CORNER of it, then folds the card into
-   * the hand and puts his own over the top. */
+   * the hand and puts his own over the top. The prop draws its own char
+   * front, flame and embers; `cardBurn` owns the timing and the rules. */
+  if (props.card) {
+    props.card.resetBurn?.();
+    attachToHand(playerFigure, 'L', props.card.group);
+  }
   cardBurn.reset().ignite();
   emberT = 0;
   sayBeat('IN-440', () => setPhaseObjective(PHASES.burn));
 }
 
-/**
- * What a burning card looks like.
- *
- * The card darkens and shrinks from the lit corner as the char front crosses
- * it, a small flame sits on that corner while there is anything left to burn,
- * and flakes of it go now and then. `cardBurn` decides all of the timing; this
- * only draws it.
- */
-function drawCardBurn() {
-  const card = props.card?.card;
-  if (!card) return;
-  const { char } = cardBurn;
-  card.visible = char < 1;
-  /* It goes from the lit corner, so it loses its length faster than its width
-   * and does not simply deflate. */
-  card.scale.set(1 - char * 0.55, 1 - char * 0.88, 1);
-  card.material.color.setScalar(1 - char * 0.86);
-
-  if (!cardFlame) {
-    cardFlame = new THREE.Mesh(
-      new THREE.ConeGeometry(0.016, 0.05, 6),
-      new THREE.MeshBasicMaterial({ color: 0xffa640, transparent: true, opacity: 0.9 }),
-    );
-    cardFlame.name = 'initiation.card.flame';
-    props.card.group.add(cardFlame);
-  }
-  cardFlame.visible = cardBurn.flame;
-  if (cardBurn.flame) {
-    /* On the edge that is currently going, which travels up the card. */
-    cardFlame.position.set(0.018, 0.045 - char * 0.09, 0.002);
-    const flicker = 0.8 + Math.sin(flameT * 21) * 0.16 + Math.sin(flameT * 37) * 0.08;
-    cardFlame.scale.set(flicker, 0.7 + flicker * 0.5, flicker);
-  }
-}
-
 function runMade() {
   setPhase('made');
+  props.card?.setBurnProgress?.(1);
   setObjective('');
   /* Ash, and a burn, and blood. He opens his hand and does not wipe it -- so
    * the cut stays on the palm, and only the card itself is gone. */
-  if (props.card) {
-    props.card.card.visible = false;
-    if (cardFlame) cardFlame.visible = false;
-  }
+  if (props.card) props.card.card.visible = false;
   releaseHeldProp();
   sayBeat('IN-450', () => sayBeat('IN-460', () => sayBeat('IN-465', tieTheBandana)));
 }
@@ -2321,21 +2310,20 @@ function runMade() {
 /**
  * The bandana, on Lou's hands, in one continuous shot.
  *
- * No white flash, no rig-swap cut, no transformation effect: he was one thing
- * and now he is wearing a bandana. The rig is swapped because `Person` bakes
- * its palette at construction, and the swap is hidden by the fact that the
- * camera is on the hands and Lou's arms are between it and the head.
+ * No white flash or transformation effect: he was one thing and now he is
+ * wearing a bandana. The articulated formal figure is rebuilt with that one
+ * earned appearance detail while the camera stays on Lou's hands.
  */
 function tieTheBandana() {
   if (!inducted) {
     inducted = true;
-    const member = new Person(INDUCTED_PALETTE);
-    member.group.position.copy(player.group.position);
-    member.heading = player.heading;
-    member.group.rotation.y = player.heading;
-    scene.remove(player.group);
+    const member = makeInitiationCeremonyFigure('TONY', { appearance: { bandana: true } });
+    member.group.position.copy(playerFigure.group.position);
+    member.heading = playerFigure.heading;
+    member.group.rotation.y = playerFigure.heading;
+    scene.remove(playerFigure.group);
     scene.add(member.group);
-    player = member;
+    playerFigure = member;
   }
   setPhase('room');
   sayOverlapping('IN-500');
@@ -2356,7 +2344,7 @@ function retry() {
   muzzleLight.intensity = 0;
   exec = null;
   playerFallT = -1;
-  player.group.rotation.x = 0;
+  playerFigure.group.rotation.x = 0;
 
   if (failFrom === 'oath') {
     /* FAIL-B resumes on Lou standing with the question re-asked, and NOTHING
@@ -2381,7 +2369,8 @@ function retry() {
     m.sq.heading = headingToward(m.home, LINE_CENTER);
     m.sq.group.rotation.y = m.sq.heading;
   }
-  player.group.position.set(PLAYER_SLOT.x, 0, PLAYER_SLOT.z);
+  playerController.teleport(PLAYER_SLOT, { heading: playerFigure.heading });
+  playerController.syncFigure(playerFigure);
   setPhase('q2_choice');
   showQuiz();
 }
@@ -2392,7 +2381,7 @@ function retry() {
 /**
  * Kill whatever the current execution is doing and take its exit.
  *
- * The hard cap behind `exec_one`, `exec_player` and `exec_prospect`. It fires
+ * The hard cap behind the standing barrage, player fail, and execution sweep. It fires
  * the exit ONCE and never twice: a `return`-state execution has already run
  * its `onFinished` and only needs clearing, and a `done`-state one has already
  * run its `onDead`.
@@ -2434,23 +2423,7 @@ function updatePhase(dt) {
     if (distance2D(player.position, LINE_CENTER) < ARRIVE_R) setPhase('line_up');
   } else if (phase === 'line_up') {
     if (distance2D(player.position, PLAYER_SLOT) < 1.05) {
-      spotMark.visible = false;
-      player.group.position.set(PLAYER_SLOT.x, 0, PLAYER_SLOT.z);
-      player.heading = headingToward(PLAYER_SLOT, { x: boosk.position.x, z: boosk.position.z });
-      player.group.rotation.y = player.heading;
-      setPhase('line_chat');
-      const beat = beatById('IN-030');
-      say(beat.lines, () => {
-        showChoice({
-          prompt: beat.choice.prompt,
-          hint: '',
-          options: beat.choice.options,
-          onPick: (option) => {
-            setPhase('line_chat_reply');
-            sayBeat(option.to, openTheSpeech);
-          },
-        });
-      });
+      beginLineChat();
     }
   } else if (phase === 'line_chat') {
     /* Six seconds and she takes the silence for an answer. It is the first
@@ -2460,40 +2433,31 @@ function updatePhase(dt) {
       setPhase('line_chat_reply');
       sayBeat(beatById('IN-030').choice.fallback, openTheSpeech);
     }
-  } else if (phase === 'clear_line') {
-    if (phaseT > spec.timeout) {
-      setPhase('exec_setup');
-      /* Gratin and Seff come out of the Circle together and walk past the
-       * prospects without looking at them. Neither of them hurries. */
-      handPistolTo('SEFF');
-      const first = markForStep(KNEELING_EXECUTIONS[0]);
-      memberByKey.get('GRATIN').stepTo = { x: first.escort.x + 1.4, z: first.escort.z, face: first };
-      memberByKey.get('SEFF').stepTo = { x: first.shooter.x + 1.9, z: first.shooter.z - 0.5, face: first };
-      sayBeat('IN-110', advanceRun);
-    }
-  } else if (phase === 'exec_one' || phase === 'exec_player' || phase === 'exec_prospect') {
-    /* A hard cap per victim. If an execution stops mid-way — or never starts,
-     * because a prospect never reached their mark — the scene takes its exit
-     * rather than standing in the mud forever with an empty objective bar. */
+  } else if (phase === 'exec_one' || phase === 'exec_player') {
+    if (phaseT > spec.timeout && exec) forceExec();
+  } else if (phase === 'execution_sweep') {
     if (phaseT > spec.timeout) {
       if (exec) forceExec();
-      else if (phase === 'exec_prospect' && currentStep) {
-        const p = prospectByName.get(currentStep.victim);
-        if (!p.dead) {
-          p.dead = true;
-          p.fallT = 0;
-          p.fallMark = markForStep(currentStep);
+      else if (currentStep) {
+        const prospect = prospectByName.get(currentStep.victim);
+        if (prospect && !prospect.dead) {
+          prospect.dead = true;
+          prospect.fallT = 0;
+          prospect.fallMark = markForStep(currentStep);
         }
-        pendingShot = false;
         advanceRun();
       }
     }
-  } else if (phase === 'exec_gap') {
-    if (openChoice && choiceT > spec.timeout) {
-      hideChoice();
-      setPhase('exec_gap_reply');
-      sayBeat(HUB.fallback, advanceRun);
+  } else if (phase === 'player_aim') {
+    if (phaseT > spec.timeout) {
+      cancelExecutionAim();
+      advanceRun();
     }
+  } else if (
+    (phase === 'conspiracy_reveal' || phase === 'mass_kneel' || phase === 'lou_interrupt')
+    && phaseT > spec.timeout && !dialogActive()
+  ) {
+    advanceRun();
   } else if (phase === 'walk_out') {
     /* Either gate: he reaches the trail head, or he has already started up it
      * cross-country. One route out of a clearing with no signs in it is one
@@ -2558,7 +2522,8 @@ function updatePhase(dt) {
       /* The rules -- the real second and a half, the drop, Lou relighting it
        * and putting it back as many times as it takes, and the commit after
        * which a player who cannot or will not hold the button is held -- all
-       * live in `cardBurn`. This reacts to them. */
+       * live in `cardBurn`. The card prop draws its own char front, flame and
+       * embers; this feeds it the simulation's state. */
       for (const event of cardBurn.update(dt, holdHeld)) {
         if (event === 'catch') {
           /* He winces as it catches. One sound, involuntary, not a scream. */
@@ -2571,6 +2536,8 @@ function updatePhase(dt) {
           runMade();
         }
       }
+      props.card?.setBurnProgress?.(cardBurn.char);
+      props.card?.updateBurn?.(dt);
       emberT += dt;
       if (cardBurn.flame && emberT > 0.28) {
         emberT = 0;
@@ -2579,7 +2546,6 @@ function updatePhase(dt) {
       /* The watchdog stays, for a burn that somehow never reports itself. */
       if (phaseT > spec.timeout) runMade();
     }
-    drawCardBurn();
   } else if (phase === 'room') {
     if (phaseT > spec.timeout) {
       setPhase('room_aside');
@@ -2599,6 +2565,39 @@ function updatePhase(dt) {
       setPhase('complete');
     }
   }
+}
+
+let lineChatStarting = false;
+function beginLineChat() {
+  if (lineChatStarting || phase !== 'line_up') return;
+  lineChatStarting = true;
+  spotMark.visible = false;
+  const heading = headingToward(PLAYER_SLOT, { x: boosk.position.x, z: boosk.position.z });
+  playerController.teleport(PLAYER_SLOT, { heading });
+  playerController.syncFigure(playerFigure);
+  setPhase('line_chat');
+  setObjective('Loading the voices at the fire…');
+  void ensureAudio().then((ready) => {
+    lineChatStarting = false;
+    if (phase !== 'line_chat') return;
+    if (!ready) {
+      setObjective('Initiation voice audio failed to load.');
+      return;
+    }
+    setObjective(PHASES.line_chat.objective);
+    const beat = beatById('IN-030');
+    say(beat.lines, () => {
+      showChoice({
+        prompt: beat.choice.prompt,
+        hint: '',
+        options: beat.choice.options,
+        onPick: (option) => {
+          setPhase('line_chat_reply');
+          sayBeat(option.to, openTheSpeech);
+        },
+      });
+    });
+  });
 }
 
 function openTheSpeech() {
@@ -2638,6 +2637,21 @@ function onStep() {
   playFootstep(audio, player.position.x, player.position.z, { volume: 0.45 });
 }
 
+function syncActorColliders() {
+  const scriptedTrail = phase === 'walk_out' || phase === 'trail' || phase === 'trail_choice'
+    || phase === 'trail_reply' || phase === 'cabin_arrive';
+  for (const binding of actorColliders) {
+    const { owner, kind, circle } = binding;
+    const moving = Boolean(owner.stepTo)
+      || (kind === 'member' && scriptedTrail && owner.trailOffset !== 0);
+    const fallen = kind === 'prospect' && (owner.dead || owner.fallT >= 0);
+    const authoredPose = isPosed(owner.sq);
+    syncInitiationActorCircle(circle, owner.sq, {
+      active: !moving && !fallen && !authoredPose,
+    });
+  }
+}
+
 function tick() {
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -2651,29 +2665,33 @@ function tick() {
 
   updatePhase(dt);
 
-  // --- Player ---
-  if (canMove()) {
-    const sprinting = isSprinting();
-    const speed = sprinting ? SPRINT_SPEED : BASE_SPEED;
-    player.update(dt, computeMove(), speed, sprinting, onStep);
-    collide();
-  } else if (player.stepTo) {
-    /* The one scripted walk he does not drive: the length of the table. */
-    if (walkNpc(player, player.stepTo.x, player.stepTo.z, dt, 1.6, 0.2)) {
-      player.stepTo = null;
-      player.heading = CEREMONY_CENTRE.heading;
-      player.group.rotation.y = player.heading;
+  // --- Shared first-person Player / ceremony presentation body ---
+  syncActorColliders();
+  playerController.update(dt);
+  const authoredCamera = currentPhase().control === CONTROL_MODES.CUTSCENE;
+  if (authoredCamera) {
+    if (playerFigure.stepTo) {
+      /* The one scripted walk he does not drive: the length of the table. */
+      if (walkNpc(playerFigure, playerFigure.stepTo.x, playerFigure.stepTo.z, dt, 1.6, 0.2)) {
+        playerFigure.stepTo = null;
+        playerFigure.heading = CEREMONY_CENTRE.heading;
+        playerFigure.group.rotation.y = playerFigure.heading;
+      }
+      footT -= dt;
+      if (footT <= 0) {
+        footT = 0.42;
+        playFootstep(audio, playerFigure.position.x, playerFigure.position.z, { volume: 0.35 });
+      }
+    } else {
+      playerFigure.update(dt, _zero, 0);
     }
-    footT -= dt;
-    if (footT <= 0) { footT = 0.42; playFootstep(audio, player.position.x, player.position.z, { volume: 0.35 }); }
   } else {
-    player.update(dt, _zero, 0);
+    playerController.syncFigure(playerFigure);
   }
-  player.consumeImpact();
 
   if (playerFallT >= 0) {
     playerFallT += dt;
-    player.group.rotation.x = -Math.min(1.5, playerFallT * 3.2);
+    playerFigure.group.rotation.x = -Math.min(1.5, playerFallT * 3.2);
   }
 
   if (spotMark.visible) {
@@ -2685,6 +2703,7 @@ function tick() {
     muzzleLight.intensity = muzzleLight.intensity > 1 ? muzzleLight.intensity * Math.exp(-22 * dt) : 0;
   }
 
+  updateInitiationExecutionRevolver(gun, dt);
   updateExecution(dt);
 
   // --- Prospects ---
@@ -2714,16 +2733,6 @@ function tick() {
     }
     if (p.stepTo) {
       const speed = p.stepTo.then === 'kneel' ? 1.5 : 2.6;
-      if (p.stepTo.then === 'kneel' && currentStep && currentStep.victim === p.name && !exec) {
-        /* A step behind them, the whole way, without a hand on them. */
-        const walker = memberByKey.get(currentStep.walker);
-        if (walker) {
-          walker.stepTo = {
-            x: p.sq.position.x - Math.sin(p.sq.heading) * 1.1,
-            z: p.sq.position.z - Math.cos(p.sq.heading) * 1.1,
-          };
-        }
-      }
       if (walkNpc(p.sq, p.stepTo.x, p.stepTo.z, dt, speed, 0.22)) {
         const step = p.stepTo;
         p.stepTo = null;
@@ -2787,7 +2796,7 @@ function tick() {
       /* Inside, in their place, all facing the same way — which is the reason
        * a room big enough for sixteen does not feel it. */
       faceAt(m.sq, CEREMONY_CENTRE);
-    } else if ((phase === 'exec_prospect' || phase === 'exec_reload') && currentStep) {
+    } else if (phase === 'execution_sweep' && currentStep) {
       faceAt(m.sq, markForStep(currentStep));
     } else if (phase === 'exec_one' || phase === 'q1' || phase === 'q1_again') {
       faceAt(m.sq, prospectByName.get('PROSPECT ONE').sq.position);
@@ -2854,6 +2863,12 @@ window.INITIATION = {
   members,
   prospects,
   boosk,
+  get actorColliders() {
+    return actorColliders.map(({ circle, owner, kind }) => ({
+      x: circle.x, z: circle.z, r: circle.r, active: circle.active,
+      name: owner.name ?? owner.key ?? '', kind,
+    }));
+  },
   louStage: lou,
   PLAYER_SLOT,
   KITTENBOSS_SLOT,
@@ -2865,7 +2880,6 @@ window.INITIATION = {
   get phaseT() { return phaseT; },
   get paused() { return paused; },
   get inducted() { return inducted; },
-  get spokeAtTheKilling() { return spokeAtTheKilling; },
   get quizOpen() { return quizEl.classList.contains('show'); },
   get correctChoice() {
     return quizButtons.findIndex((btn) => btn.dataset.correct === '1');
@@ -2873,25 +2887,43 @@ window.INITIATION = {
   get deadProspects() { return prospects.filter((p) => p.dead).map((p) => p.name); },
   get inductionK() { return inductionK; },
   chooseAnswer: pickChoice,
+  get playerFigure() { return playerFigure; },
+  get control() { return playerController.control; },
+  get playerPose() { return playerController.pose; },
+  get audioReady() { return audioReady; },
+  get audioArmed() { return audioArmed; },
+  get audioLoadError() { return audioLoadError?.message ?? null; },
+  get missingVoiceCues() { return [...missingVoiceCues]; },
+  get failedCues() { return [...audio.failedCues]; },
   smashAction: actionPress,
   advanceSay,
   stagingFindings: verifyExecutionStaging,
   /** Exercise the real subtitle/audio path without moving the scene. */
   speakVoiceProbe() {
+    const before = audio.playbacks.length;
     const beat = beatById('IN-100');
     say(beat.lines);
     return {
       speaker: speakerEl.textContent,
       line: lineEl.textContent,
       cue: beat.lines[0].cue,
+      loaded: audio.hasSample?.(beat.lines[0].cue) ?? false,
+      duration: audio.sampleDuration?.(beat.lines[0].cue) ?? 0,
+      played: audio.playbacks.slice(before).some((entry) => entry.name === beat.lines[0].cue),
+      blocked: blockedVoiceCue,
     };
   },
   speakQuizVoiceProbe() {
+    const before = audio.playbacks.length;
     say([QUIZ_OPTIONS[0]]);
     return {
       speaker: speakerEl.textContent,
       line: lineEl.textContent,
       cue: QUIZ_OPTIONS[0].cue,
+      loaded: audio.hasSample?.(QUIZ_OPTIONS[0].cue) ?? false,
+      duration: audio.sampleDuration?.(QUIZ_OPTIONS[0].cue) ?? 0,
+      played: audio.playbacks.slice(before).some((entry) => entry.name === QUIZ_OPTIONS[0].cue),
+      blocked: blockedVoiceCue,
     };
   },
   /** Lay the four out where they would be lying. Used by the skips below. */
@@ -2920,12 +2952,32 @@ window.INITIATION = {
     sayDone = null;
     dialogEl.classList.remove('show');
     spotMark.visible = false;
-    player.group.position.set(PLAYER_SLOT.x, 0, PLAYER_SLOT.z);
+    playerController.teleport(PLAYER_SLOT, { heading: headingToward(PLAYER_SLOT, boosk.position) });
+    playerController.syncFigure(playerFigure);
     const one = prospectByName.get('PROSPECT ONE');
     one.dead = true;
     one.fallT = 1.2;
     runCursor = 0;
-    setPhase('clear_line');
+    setPhase('conspiracy_reveal');
+    sayBeat('IN-100', advanceRun);
+  },
+  /** Browser-verifier seam: prove kneeling/free-look even when VO assets are pending. */
+  skipToMassKneel() {
+    hideChoice();
+    sayQueue = [];
+    sayDone = null;
+    dialogEl.classList.remove('show');
+    spotMark.visible = false;
+    playerController.teleport(PLAYER_SLOT, { heading: headingToward(PLAYER_SLOT, boosk.position) });
+    playerController.syncFigure(playerFigure);
+    const one = prospectByName.get('PROSPECT ONE');
+    one.dead = true;
+    one.fallT = 1.2;
+    const massIndex = RUN_ORDER.findIndex((entry) => entry.kind === 'mass_kneel');
+    const entry = RUN_ORDER[massIndex];
+    if (!entry) throw new Error('Initiation run order is missing mass_kneel');
+    runCursor = massIndex + 1;
+    runMassKneel(entry);
   },
   skipToCabin() {
     hideChoice();
@@ -2933,7 +2985,8 @@ window.INITIATION = {
     sayDone = null;
     dialogEl.classList.remove('show');
     this._layThemOut();
-    player.group.position.set(CABIN_DOOR.inside.x, 0, CABIN_DOOR.inside.z);
+    playerController.teleport(CABIN_DOOR.inside, { heading: headingToward(CABIN_DOOR.inside, CEREMONY_CENTRE) });
+    playerController.syncFigure(playerFigure);
     fillTheRoom();
     setPhase('ceremony');
     ceremonyIndex = 0;
@@ -2949,7 +3002,7 @@ window.INITIATION = {
    * front of where the player stands.
    */
   get ritual() {
-    const socket = handSocket(player, TABLE_SOCKETS.card.hand ?? 'L');
+    const socket = handSocket(playerFigure, TABLE_SOCKETS.card.hand ?? 'L');
     const cardGroup = props.card?.group ?? null;
     const hand = ritualHandWorld(new THREE.Vector3());
     return {
@@ -3002,9 +3055,27 @@ window.INITIATION = {
     sayDone = null;
     dialogEl.classList.remove('show');
     this._layThemOut();
-    player.group.position.set(CEREMONY_CENTRE.x, 0, CEREMONY_CENTRE.z);
+    playerController.teleport(CEREMONY_CENTRE, { heading: CEREMONY_CENTRE.heading });
+    playerController.syncFigure(playerFigure);
     fillTheRoom();
     askTheQuestion();
+  },
+  skipToInduction() {
+    hideChoice();
+    sayQueue = [];
+    sayDone = null;
+    blockedVoiceCue = null;
+    dialogEl.classList.remove('show');
+    this._layThemOut();
+    playerController.teleport(CEREMONY_CENTRE, { heading: CEREMONY_CENTRE.heading });
+    playerController.syncFigure(playerFigure);
+    fillTheRoom();
+    props.card?.setBurnProgress?.(1);
+    tieTheBandana();
+    sayQueue = [];
+    dialogEl.classList.remove('show');
+    setPhase('pullback');
+    phaseT = PHASES.pullback.timeout + 0.1;
   },
 };
 

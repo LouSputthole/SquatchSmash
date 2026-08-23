@@ -24,6 +24,10 @@
  * So this walks the real phase graph: approach, the line, the clearing, the
  * trail, the cabin, the ritual, the room. It is deliberately blunt about act
  * five, because act five is the one that was never checked.
+ *
+ * The 2026-08-23 systems pass folded in the first-person rework: the formal
+ * articulated cast, voice readiness (loaded/decoded/played, never a synth
+ * stand-in), execution free-look, and the mass-kneel staging checks below.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -204,7 +208,13 @@ try {
     members: window.INITIATION.members.length,
     memberNames: window.INITIATION.members.map((member) => member.name).filter(Boolean),
     prospects: window.INITIATION.prospects.length,
-    hasHumanPlayer: window.INITIATION.player?.constructor?.name === 'Person',
+    playerController: window.INITIATION.player?.constructor?.name,
+    presentationFigure: window.INITIATION.playerFigure?.constructor?.name,
+    control: window.INITIATION.control,
+    pose: window.INITIATION.playerPose,
+    formalMembers: window.INITIATION.members.every((member) => member.sq?.model?.dress === 'suit'),
+    formalProspects: window.INITIATION.prospects.every((prospect) => prospect.sq?.model?.dress === 'suit'),
+    actorColliders: window.INITIATION.actorColliders,
     objective: document.querySelector('#objective')?.textContent,
     /* WHAT THE PLAYER ACTUALLY READS, which is now the shared upper-left
      * panel every other scene uses rather than this scene's own div. The keys
@@ -218,16 +228,25 @@ try {
   }));
 
   check('the namespaced Initiation scene reaches its interactive approach phase',
-    initial.phase === 'approach' && initial.canvasCount >= 1,
+    initial.phase === 'approach' && initial.control === 'playable' && initial.canvasCount >= 1,
     JSON.stringify(initial));
   /* The ceremony's cast, not the gauntlet's: fifteen of the Circle in the
    * clearing and five prospects in the line, Kittenboss among them. */
   check('the ceremony cast and prospect line are preserved',
     initial.members === 15 && initial.prospects === 5,
     `${initial.members} members, ${initial.prospects} NPC prospects`);
-  check('Tony starts Initiation human',
-    initial.hasHumanPlayer,
+  check('Tony uses the shared first-person Player with a separate articulated ceremony body',
+    initial.playerController === 'Player'
+      && initial.presentationFigure === 'InitiationCeremonyFigure'
+      && initial.pose === 'standing',
     JSON.stringify(initial));
+  check('every attendee keeps their canonical body in a formal suit',
+    initial.formalMembers && initial.formalProspects,
+    JSON.stringify({ members: initial.formalMembers, prospects: initial.formalProspects }));
+  check('soft actor collision is live but smaller than a roadblock',
+    initial.actorColliders.length === 20
+      && initial.actorColliders.every((circle) => circle.active && circle.r >= 0.32 && circle.r <= 0.45),
+    JSON.stringify(initial.actorColliders));
   check('Captain Lou Sasole appears under his canonical identity',
     initial.memberNames.includes('CAPTAIN LOU SASOLE'),
     initial.memberNames.join(' | '));
@@ -237,23 +256,42 @@ try {
   check('Initiation keeps the shared five-slot inventory visible',
     initial.inventoryVisible && initial.inventorySlots === 5,
     JSON.stringify({ visible: initial.inventoryVisible, slots: initial.inventorySlots }));
-  check('all scene modules and face textures load', missing.length === 0, missing.join(' | '));
+
+  await page.locator('canvas').first().click({ position: { x: 320, y: 180 } });
+  await page.waitForFunction(() => window.INITIATION.audioReady || window.INITIATION.audioLoadError,
+    null, { timeout: 120000 });
+  const audioState = await page.evaluate(() => ({
+    ready: window.INITIATION.audioReady,
+    error: window.INITIATION.audioLoadError,
+    missing: window.INITIATION.missingVoiceCues,
+    failed: window.INITIATION.failedCues,
+  }));
+  check('the first gesture decodes the active Initiation voice bank before ceremony dialogue',
+    audioState.ready && !audioState.error && audioState.missing.length === 0 && audioState.failed.length === 0,
+    JSON.stringify(audioState));
+  check('all scene modules, art and face textures load', missing.length === 0, missing.join(' | '));
 
   /* ---------------------------------------------------------------- */
   /* ACT ONE — the clearing                                             */
   /* ---------------------------------------------------------------- */
 
   const voiceProbe = await page.evaluate(() => window.INITIATION.speakVoiceProbe());
-  check('ceremony subtitles ask the Initiation audio receiver for their exact cue',
-    voiceProbe.speaker === 'BOOSKIBRO'
-      && typeof voiceProbe.line === 'string' && voiceProbe.line.length > 0
+  check('the conspiracy reveal uses the authored Lou cue',
+    voiceProbe.speaker === 'BIG UNCLE LOU SPUTTHOLE'
+      && voiceProbe.line.includes('Willy wasn’t the rat')
       && voiceProbe.cue.startsWith('vo.initiation.cabin.'),
+    JSON.stringify(voiceProbe));
+  check('the conspiracy reveal cue actually entered the audible buffer graph',
+    voiceProbe.loaded && voiceProbe.duration > 0 && voiceProbe.played && !voiceProbe.blocked,
     JSON.stringify(voiceProbe));
 
   const quizVoiceProbe = await page.evaluate(() => window.INITIATION.speakQuizVoiceProbe());
-  check('the founders answers play through the same cabin voice bank',
-    typeof quizVoiceProbe.speaker === 'string' && quizVoiceProbe.speaker.length > 0
-      && quizVoiceProbe.cue.startsWith('vo.initiation.'),
+  check('Tony reads the selected founders answer through a decoded voice take',
+    quizVoiceProbe.speaker === 'PROSPECT TWO'
+      && quizVoiceProbe.line.includes('Deathmegatron')
+      && quizVoiceProbe.cue.startsWith('vo.initiation.ceremony.prospect-two.')
+      && quizVoiceProbe.loaded && quizVoiceProbe.duration > 0
+      && quizVoiceProbe.played && !quizVoiceProbe.blocked,
     JSON.stringify(quizVoiceProbe));
 
   /* ---------------------------------------------------------------- */
@@ -314,6 +352,26 @@ try {
   /* ---------------------------------------------------------------- */
   /* ACT FIVE — the blade, the hand, the cut, the card, the burning    */
   /* ---------------------------------------------------------------- */
+
+  await page.evaluate(() => window.INITIATION.skipToMassKneel());
+  const kneel = await page.evaluate(() => ({
+    phase: window.INITIATION.phase,
+    control: window.INITIATION.control,
+    pose: window.INITIATION.playerPose,
+    eyeY: window.INITIATION.player.position.y,
+    kneeling: window.INITIATION.prospects
+      .filter((prospect) => prospect.name !== 'PROSPECT ONE')
+      .map((prospect) => ({ name: prospect.name, pose: prospect.sq.pose, rootY: prospect.sq.position.y })),
+  }));
+  check('mass execution staging keeps Tony kneeling in first-person free-look',
+    kneel.phase === 'mass_kneel' && kneel.control === 'look-only'
+      && kneel.pose === 'kneeling' && kneel.eyeY < 1.1,
+    JSON.stringify(kneel));
+  check('all four remaining prospects kneel on articulated legs without buried roots',
+    kneel.kneeling.length === 4
+      && kneel.kneeling.every((entry) => entry.pose === 'kneeling' && entry.rootY >= -0.01),
+    JSON.stringify(kneel.kneeling));
+
 
   await page.evaluate(() => window.INITIATION.skipToRitual());
   await page.waitForFunction(() => window.INITIATION.phase === 'blade', null, { timeout: 30000 });
@@ -407,15 +465,24 @@ try {
    * long unattended timer rather than on a keypress. */
   await driveTo(page, 'complete', { timeout: 900000 });
   const inducted = await page.evaluate(() => ({
-    constructor: window.INITIATION.player?.constructor?.name,
-    bandana: window.INITIATION.player?.palette?.bandana,
+    controller: window.INITIATION.player?.constructor?.name,
+    figure: window.INITIATION.playerFigure?.constructor?.name,
+    bandana: window.INITIATION.playerFigure?.model?.bandana,
+    dead: window.INITIATION.deadProspects,
     title: document.querySelector('#complete .title')?.textContent?.trim(),
     subtitle: document.querySelector('#complete .subtitle')?.textContent?.replace(/\s+/g, ' ').trim(),
     visible: !document.querySelector('#complete')?.classList.contains('hidden'),
   }));
-  check('induction keeps Tony human and awards the red member bandana',
-    inducted.constructor === 'Person' && inducted.bandana === 0xd92e2e,
+  check('induction keeps shared first-person control and awards Tony the member bandana',
+    inducted.controller === 'Player'
+      && inducted.figure === 'InitiationCeremonyFigure'
+      && inducted.bandana === true,
     JSON.stringify(inducted));
+  check('Kittenboss dies beside Tony and Tony is the only surviving prospect',
+    ['PROSPECT ONE', 'PROSPECT THREE', 'PROSPECT FOUR', 'PROSPECT FIVE', 'KITTENBOSS']
+      .every((name) => inducted.dead.includes(name))
+      && !inducted.dead.includes('PROSPECT TWO'),
+    JSON.stringify(inducted.dead));
   check('completion describes family membership rather than a species change',
     inducted.visible
       && inducted.title === 'SILVER SASQUATCH'
@@ -423,6 +490,11 @@ try {
       && !inducted.subtitle?.includes('squatch feet'),
     JSON.stringify(inducted));
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
+} catch (error) {
+  console.error('Initiation verifier aborted before checks completed.');
+  console.error('Runtime errors:', problems);
+  console.error('Missing responses:', missing);
+  throw error;
 } finally {
   await browser.close();
   await new Promise((resolve) => server.close(resolve));

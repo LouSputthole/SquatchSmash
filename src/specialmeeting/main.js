@@ -43,10 +43,11 @@ import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { registerSceneRenderer } from '../core/scene-lifecycle.js';
 import { AMBIENCE_CUES } from './ambience.js';
+import { translateKey } from '../core/settings.js';
 import { buildSpecialMeetingCast } from './cast.js';
 import { createNightForestRoad, adaptMeetingSedan } from './forest/index.js';
 import { createRideSequence } from './ride.js';
-import { SPEAKERS } from './script.js';
+import { SPEAKERS, scriptCues } from './script.js';
 import { EYE_HEIGHT, FOOTSTEP_SURFACE, stageSpecialMeeting } from './stage.js';
 
 /* ------------------------------------------------------------------ */
@@ -99,6 +100,13 @@ scene.add(camera);
 
 const hud = new Hud();
 const audio = new AudioEngine();
+const SPECIAL_MEETING_VOICE_CUES = Object.freeze([
+  ...new Set(scriptCues().map((cue) => cue.name)),
+]);
+let voiceReady = false;
+let missingVoiceCues = [];
+let failedVoiceCues = [];
+let voiceLoadError = null;
 
 window.__squatchStage?.('A car, already running…');
 const stage = stageSpecialMeeting(scene, { renderer, audio });
@@ -128,6 +136,8 @@ let gatedOn = null;
 const reachedNodes = new Set();
 let paused = false;
 let handedOff = false;
+let started = false;
+let startPromise = null;
 
 /* ------------------------------------------------------------------ */
 /* Voice                                                               */
@@ -194,6 +204,7 @@ function say(line) {
 
 function showChoices(options) {
   if (!choicesEl) return;
+  if (options?.length && document.pointerLockElement === canvas) document.exitPointerLock?.();
   if (!options || !options.length) {
     choicesEl.classList.add('hidden');
     choicesEl.innerHTML = '';
@@ -204,16 +215,50 @@ function showChoices(options) {
     .map((o, i) => `<button type="button" data-choice="${o.index}"><b>${i + 1}</b> ${o.text}</button>`)
     .join('');
   for (const button of choicesEl.querySelectorAll('button')) {
-    button.addEventListener('click', () => ride.choose(Number(button.dataset.choice)));
+    button.addEventListener('click', () => {
+      ride.choose(Number(button.dataset.choice));
+      requestGamePointerLock();
+    });
   }
 }
 
+const PLAYER_INPUT_CODES = new Set([
+  'KeyW', 'KeyA', 'KeyS', 'KeyD',
+  'ShiftLeft', 'ShiftRight', 'KeyC', 'Space',
+]);
+
 addEventListener('keydown', (event) => {
-  if (!ride.options || paused) return;
+  if (paused) return;
+  const code = translateKey(event.code);
+  if (PLAYER_INPUT_CODES.has(code)) {
+    player.setKey(code, true);
+    event.preventDefault();
+  }
+  if (!ride.options) return;
   const n = Number(event.key);
   if (!Number.isInteger(n) || n < 1 || n > ride.options.length) return;
   event.preventDefault();
   ride.choose(ride.options[n - 1].index);
+});
+addEventListener('keyup', (event) => player.setKey(translateKey(event.code), false));
+addEventListener('blur', () => player.clearKeys());
+addEventListener('mousemove', (event) => {
+  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
+});
+document.addEventListener('pointerlockchange', () => {
+  player.enabled = !paused && document.pointerLockElement === canvas;
+  if (!player.enabled) player.clearKeys();
+});
+
+function requestGamePointerLock() {
+  if (paused || document.pointerLockElement === canvas) return;
+  const pending = canvas.requestPointerLock?.();
+  pending?.catch?.(() => {});
+}
+
+canvas.addEventListener('mousedown', (event) => {
+  if (event.button !== 0 || event.target.closest?.('button, a')) return;
+  requestGamePointerLock();
 });
 
 /* ------------------------------------------------------------------ */
@@ -307,12 +352,13 @@ function beginTheDrive() {
   if (forest) return;
   window.__squatchStage?.('The road out…');
   const sedan = adaptMeetingSedan(stage.sedan);
+  const forestColliders = [];
   forest = createNightForestRoad({
     scene,
     renderer,
     player,
     car: sedan,
-    colliders: stage.world.colliders,
+    colliders: forestColliders,
     onNode: (id) => {
       reachedNodes.add(id);
       if (gatedOn === id) gatedOn = null;
@@ -322,6 +368,9 @@ function beginTheDrive() {
    * on from here is the forest's terrain field, which is the same one the
    * trees, the trailhead and the car are placed against. */
   cast.setGround((x, z) => forest.heightAt(x, z));
+  player.world = forest.world;
+  player.clearKeys();
+  player.velocity.set(0, 0, 0);
   stage.block.group.visible = false;
   /* The wet street, the alley and the distant passes belong to the block, and
    * the block is behind us now. The forest brings its own bed. */
@@ -387,8 +436,16 @@ const pauseMenu = createPauseMenu({
   ],
   getObjective: () => objectiveFor(ride.beat ?? { act: 2 }),
   canPause: () => !handedOff,
-  onPause: () => { paused = true; },
-  onResume: () => { paused = false; },
+  onPause: () => {
+    paused = true;
+    player.enabled = false;
+    player.clearKeys();
+    if (document.pointerLockElement === canvas) document.exitPointerLock?.();
+  },
+  onResume: () => {
+    paused = false;
+    player.enabled = document.pointerLockElement === canvas;
+  },
   recovery,
 });
 
@@ -406,6 +463,7 @@ function frame() {
    * while the rail is driving it. */
   if (forest) forest.update(dt);
   else stage.update(dt, player.position);
+  if (!started) { renderer.render(scene, camera); return; }
   cast.update(dt, player.position);
   interaction.update(dt);
   if (!gatedOn) ride.update(dt);
@@ -425,30 +483,52 @@ addEventListener('resize', () => {
 
 /* A browser will not start an AudioContext until the player has done
  * something, so the street comes up on the first click or key rather than on
- * a start button. This scene has no menu: it opens on a car already running. */
+ * a start button. The first dialogue beat begins only after its voice bank is
+ * loaded, so SM-100 cannot race `hasSample()` and silently disappear. */
 async function wakeTheSound() {
-  removeEventListener('pointerdown', wakeTheSound);
-  removeEventListener('keydown', wakeTheSound);
-  await audio.init();
-  /* `AMBIENCE_CUES` by name, not by prefix. The four prefixes below cover
-   * seven of the block's nine cues and miss `ambience.alley` and
-   * `traffic.pass` -- both recorded, both indexed, both on disk, and neither
-   * of them starting with `car.`, `footstep.` or `street.`. The alley one is
-   * the worse of the two because it is a LOOP: `stage.begin()` on the next
-   * line starts it, and a loop started with no decoded buffer keeps its synth
-   * stand-in for the whole scene. `ambience.js` already publishes the
-   * complete list precisely so nobody has to keep a second copy of it in
-   * their head; asking for it by name is what that export is for. */
-  await audio.loadAdditional({
-    names: [...AMBIENCE_CUES],
-    prefixes: ['vo.specialmeeting.', 'car.', 'footstep.', 'street.'],
-  });
-  stage.begin();
+  if (started || startPromise) return startPromise;
+  startPromise = (async () => {
+    voiceLoadError = null;
+    await audio.init();
+    /* `AMBIENCE_CUES` by name, not by prefix. The prefixes below miss
+     * `ambience.alley` and `traffic.pass` -- both recorded, both indexed, both
+     * on disk. The alley one is the worse of the two because it is a LOOP:
+     * the stage's begin call starts it, and a loop started with no decoded
+     * buffer keeps its synth stand-in for the whole scene. `ambience.js` publishes
+     * the complete list precisely so nobody keeps a second copy of it. */
+    await audio.loadAdditional({
+      names: [...SPECIAL_MEETING_VOICE_CUES, ...AMBIENCE_CUES],
+      prefixes: ['car.', 'footstep.', 'street.'],
+    });
+    missingVoiceCues = SPECIAL_MEETING_VOICE_CUES.filter((cue) => !audio.hasSample?.(cue));
+    const active = new Set(SPECIAL_MEETING_VOICE_CUES);
+    failedVoiceCues = audio.failedCues.filter((failure) => active.has(failure.name));
+    voiceReady = missingVoiceCues.length === 0 && failedVoiceCues.length === 0;
+    if (!voiceReady) {
+      throw new Error(
+        `${missingVoiceCues.length} Special Meeting voice cues missing; `
+        + `${failedVoiceCues.length} failed to decode`,
+      );
+    }
+    stage.begin();
+    ride.begin('SM-100');
+    started = true;
+    removeEventListener('pointerdown', wakeTheSound);
+    removeEventListener('keydown', wakeTheSound);
+  })();
+  try {
+    await startPromise;
+  } catch (error) {
+    voiceReady = false;
+    voiceLoadError = error?.message || String(error);
+    console.error('[specialmeeting] initial audio bank could not load', error);
+    startPromise = null;
+  }
+  return startPromise;
 }
 addEventListener('pointerdown', wakeTheSound);
 addEventListener('keydown', wakeTheSound);
 
-ride.begin('SM-100');
 frame();
 
 document.getElementById('loading')?.classList.add('hidden');
@@ -456,9 +536,22 @@ document.getElementById('loading')?.classList.add('hidden');
  * specialmeeting.html). Published last, once the first frame has actually
  * gone out, so a scene that threw on the way up still reports as failed. */
 window.SPECIAL_MEETING = {
-  campaign, ride, cast, stage, get forest() { return forest; },
+  campaign, ride, cast, stage, player,
   /* The scene root, published for the repo-wide mesh sweep in
    * tools/scene-audit-scenes.mjs, which finds a page's geometry by walking a
    * declared path to a THREE.Scene rather than by guessing. */
   scene,
+  get forest() { return forest; },
+  get started() { return started; },
+  get voiceReady() { return voiceReady; },
+  get missingVoiceCues() { return [...missingVoiceCues]; },
+  get failedCues() { return failedVoiceCues.map((failure) => ({ ...failure })); },
+  get voiceLoadError() { return voiceLoadError; },
+  get expectedVoiceCueCount() { return SPECIAL_MEETING_VOICE_CUES.length; },
+  get decodedVoiceCueCount() {
+    return SPECIAL_MEETING_VOICE_CUES.reduce(
+      (count, cue) => count + Number(audio.hasSample?.(cue) === true),
+      0,
+    );
+  },
 };

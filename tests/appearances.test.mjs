@@ -73,6 +73,7 @@ ensureThreeShim();
 ensureDomShim();
 
 import { CHARACTER_IDS, SCENE_IDS } from '../src/core/campaign.js';
+import { formalMeetingModel } from '../src/core/formal-appearance.js';
 import * as WARDROBE_MODULE from '../src/core/wardrobe.js';
 import {
   APPEARANCES, CAMPAIGN_SCENE_COVERAGE, EXTRAS, PHOTOS,
@@ -587,6 +588,11 @@ test('rows that name a wardrobe export ARE that export, by identity', () => {
     if (!a.from.wardrobe) continue;
     const model = WARDROBE_MODELS.get(a.from.wardrobe);
     assert.ok(model, `${a.from.wardrobe} is not exported by src/core/wardrobe.js`);
+    if (a.from.adapter === 'formalMeetingModel') {
+      assert.deepEqual(a.model, formalMeetingModel(a.character, model),
+        `${a.name} in ${a.scene} drifted from the shared formal scene adapter`);
+      continue;
+    }
     assert.equal(a.model, model,
       `${a.name} in ${a.scene} claims to wear ${a.from.wardrobe} but carries a `
       + 'COPY of it rather than the object itself. A copy is a second ledger '
@@ -630,16 +636,19 @@ test('rows proved against another module match what that module exports', async 
       assert.ok(value !== undefined,
         `${a.from.export}[${a.from.at.join('][')}] is gone from ${a.from.module}`);
     }
+    const expected = a.from.adapter === 'formalMeetingModel'
+      ? formalMeetingModel(a.character, value)
+      : { ...value };
     const adds = new Set(a.from.adds ?? []);
     const mine = Object.fromEntries(
       Object.entries(a.model).filter(([k]) => !adds.has(k)),
     );
-    assert.deepEqual(mine, { ...value },
+    assert.deepEqual(mine, expected,
       `${a.name} in ${a.scene} disagrees with ${a.from.module}. THE MODULE IS `
       + 'RIGHT — bring the ledger forward, do not push the scene back.');
     for (const key of Object.keys(a.model)) {
       if (adds.has(key)) continue;
-      assert.ok(Object.hasOwn(value, key),
+      assert.ok(Object.hasOwn(expected, key),
         `${a.name} in ${a.scene} carries "${key}", which ${a.from.module} does `
         + 'not, and which is not declared in `from.adds`');
     }

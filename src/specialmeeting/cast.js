@@ -1,9 +1,10 @@
 /**
  * THE SPECIAL MEETING — the four of them, and where they stand.
  *
- * Three established Squatches and one other prospect. Nobody here is dressed
- * for the occasion except Kittenboss, who was told to put on something decent
- * and did, and has since been lying on a spare wheel.
+ * Three established Squatches and one other prospect. All four wear restrained
+ * formal suits for the meeting: well fitted, individual, and deliberately not
+ * tuxedos or a row of matching security uniforms. Kittenboss's has since been
+ * lying on a spare wheel with her.
  *
  * This file's header said "the four men" until 2026-08-20. Three of them are
  * men; Kittenboss is a woman, and every pronoun in this file that pointed at
@@ -48,6 +49,7 @@ import { Npc } from '../bing/cast.js';
 import { markActor, readActor, setActorPosture } from '../core/staging.js';
 import { FAMILY } from '../bing/family.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { formalMeetingModel } from '../core/formal-appearance.js';
 import { WARDROBE } from '../core/wardrobe.js';
 
 /** Seff and Lag live on the Bing roster, by the ledger's own decision. */
@@ -232,10 +234,24 @@ function markWithRealProportions(npc) {
   return npc;
 }
 
-function modelFor(key) {
+function canonicalModelFor(key) {
   if (key === 'numbskull') return { ...WARDROBE.numbskull };
   if (key === 'kittenboss') return { ...WARDROBE.kittenboss };
   return { ...familyModel(CAST_SPEC[key].characterId) };
+}
+
+/** Scene variants over canonical bodies; ordinary-scene outfits stay intact. */
+export const SPECIAL_MEETING_MODELS = Object.freeze(Object.fromEntries(
+  Object.keys(CAST_SPEC).map((key) => [
+    key,
+    formalMeetingModel(CAST_SPEC[key].characterId, canonicalModelFor(key)),
+  ]),
+));
+
+function modelFor(key) {
+  const model = SPECIAL_MEETING_MODELS[key];
+  if (!model) throw new Error(`${key} has no Special Meeting formal appearance`);
+  return model;
 }
 
 /**

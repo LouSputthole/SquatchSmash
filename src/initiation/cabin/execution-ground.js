@@ -34,7 +34,7 @@ import {
   assembly, bakedTexture, between, boxPart, cylinderPart, effect, glowMaterial,
   namedGroup, part, rng, speckle,
 } from './kit.js';
-import { BURN_BARREL, CLEARING_CARS, MUD, carYaw } from './site.js';
+import { BONFIRE, CLEARING_CARS, MUD, carYaw } from './site.js';
 
 /* ------------------------------------------------------------------ */
 /* Ground                                                              */
@@ -113,47 +113,117 @@ function buildMud(random) {
 }
 
 /* ------------------------------------------------------------------ */
-/* The barrel                                                          */
+/* The bonfire                                                         */
 /* ------------------------------------------------------------------ */
 
-/**
- * A drum with a fire in it.
- *
- * The one warm light on the whole clearing, and the reason it is a rusted
- * barrel rather than a bonfire is the difference between backwoods and pagan.
- * Men who have been standing in the cold for an hour burn a pallet in a drum.
- * They do not lay a ceremonial fire and then shoot four people next to it.
- */
-function buildBurnBarrel() {
-  const group = assembly('clearing.barrel', 'initiation.barrel');
-  const body = cylinderPart('barrel.body', BURN_BARREL.radius, BURN_BARREL.radius * 0.96,
-    BURN_BARREL.height, 12, 0x4a3a28, [0, BURN_BARREL.height / 2, 0]);
-  body.castShadow = true;
-  group.add(body);
-  for (const ring of [0.28, 0.62]) {
-    group.add(cylinderPart('barrel.rib', BURN_BARREL.radius + 0.02, BURN_BARREL.radius + 0.02,
-      0.05, 12, 0x35291b, [0, BURN_BARREL.height * ring, 0]));
+/** A large but grounded wood fire: stone ring, crossed logs, flames and smoke. */
+function buildBonfire(random) {
+  const group = assembly('clearing.bonfire', 'initiation.bonfire');
+  const stones = [];
+  for (let i = 0; i < 14; i++) {
+    const angle = (i / 14) * Math.PI * 2;
+    const stone = boxPart(
+      'bonfire.ring.stone',
+      [0.55, 0.25, 0.38],
+      [Math.cos(angle) * 1.04, 0.125, Math.sin(angle) * 1.04],
+      i % 2 ? 0x5a5145 : 0x6b6051,
+    );
+    stone.rotation.y = -angle;
+    stone.castShadow = true;
+    stones.push(stone);
+    group.add(stone);
+  }
+  const logs = [];
+  for (const [y, angle, offset] of [
+    [0.13, Math.PI / 4, -0.22],
+    [0.13, Math.PI / 4, 0.22],
+    [0.34, -Math.PI / 4, -0.18],
+    [0.34, -Math.PI / 4, 0.18],
+  ]) {
+    const log = boxPart('bonfire.log', [1.75, 0.26, 0.28], [0, y, offset], 0x3a2111);
+    log.rotation.y = angle;
+    log.castShadow = true;
+    logs.push(log);
+    group.add(log);
   }
   const flames = [];
-  for (const [radius, height, lift, colour, boost] of [
-    [0.3, 1.05, 0.95, 0xff4a12, 2.2],
-    [0.2, 0.78, 0.88, 0xffa02a, 2.6],
-    [0.11, 0.5, 0.82, 0xffe07a, 3.0],
+  for (const [radius, height, x, z, colour, boost] of [
+    [0.72, 1.65, 0, 0, 0xff4214, 2.4],
+    [0.48, 1.42, -0.24, 0.14, 0xff8a22, 2.8],
+    [0.32, 1.12, 0.28, -0.10, 0xffd067, 3.2],
+    [0.20, 0.82, 0.06, 0.26, 0xfff2a2, 3.6],
   ]) {
     const flame = effect(new THREE.Mesh(
       new THREE.ConeGeometry(radius, height, 6),
       glowMaterial(colour, boost),
     ));
-    flame.name = 'barrel.fire.flame';
-    flame.position.y = BURN_BARREL.height + lift * 0.42;
+    flame.name = 'bonfire.flame';
+    flame.position.set(x, 0.55 + height / 2, z);
+    flame.userData.baseScale = 0.88 + random() * 0.2;
+    flame.userData.phase = random() * Math.PI * 2;
     flames.push(flame);
     group.add(flame);
   }
-  const light = new THREE.PointLight(0xff8c3a, 46, 22, 2);
-  light.position.set(0, BURN_BARREL.height + 0.5, 0);
+
+  const smokeCount = 22;
+  const smokePositions = new Float32Array(smokeCount * 3);
+  const smokePhase = [];
+  for (let i = 0; i < smokeCount; i++) {
+    const angle = random() * Math.PI * 2;
+    const radius = random() * 0.42;
+    smokePositions[i * 3] = Math.cos(angle) * radius;
+    smokePositions[i * 3 + 1] = 1.05 + random() * 3.4;
+    smokePositions[i * 3 + 2] = Math.sin(angle) * radius;
+    smokePhase.push(random() * Math.PI * 2);
+  }
+  const smokeGeometry = new THREE.BufferGeometry();
+  smokeGeometry.setAttribute('position', new THREE.BufferAttribute(smokePositions, 3));
+  const smoke = effect(new THREE.Points(
+    smokeGeometry,
+    new THREE.PointsMaterial({
+      color: 0x776f65,
+      size: 0.72,
+      transparent: true,
+      opacity: 0.2,
+      depthWrite: false,
+      sizeAttenuation: true,
+    }),
+  ));
+  smoke.name = 'bonfire.smoke';
+  group.add(smoke);
+
+  const light = new THREE.PointLight(0xff873c, 68, 25, 2);
+  light.name = 'bonfire.light';
+  light.position.set(0, BONFIRE.height + 0.42, 0);
+  light.castShadow = true;
+  light.shadow.mapSize.set(512, 512);
+  light.shadow.bias = -0.001;
   group.add(light);
-  group.position.set(BURN_BARREL.x, 0, BURN_BARREL.z);
-  return { group, flames, light };
+  group.position.set(BONFIRE.x, 0, BONFIRE.z);
+
+  let time = 0;
+  const update = (dt) => {
+    time += Math.max(0, Number(dt) || 0);
+    for (const flame of flames) {
+      const wave = Math.sin(time * 8.7 + flame.userData.phase);
+      const lean = Math.sin(time * 5.3 + flame.userData.phase * 1.7);
+      const scale = flame.userData.baseScale;
+      flame.scale.set(scale * (1 + wave * 0.08), scale * (1 + wave * 0.16), scale);
+      flame.rotation.z = lean * 0.09;
+    }
+    light.intensity = 58 + Math.sin(time * 11.3) * 7 + Math.sin(time * 4.1 + 0.8) * 4;
+    const positions = smoke.geometry.attributes.position.array;
+    for (let i = 0; i < smokeCount; i++) {
+      const base = i * 3;
+      positions[base] += Math.sin(time * 0.75 + smokePhase[i]) * dt * 0.045;
+      positions[base + 1] += dt * (0.22 + (i % 5) * 0.025);
+      positions[base + 2] += Math.cos(time * 0.62 + smokePhase[i]) * dt * 0.04;
+      if (positions[base + 1] > 4.8) positions[base + 1] = 1.05;
+    }
+    smoke.geometry.attributes.position.needsUpdate = true;
+    smoke.material.opacity = 0.16 + Math.sin(time * 0.9) * 0.035;
+  };
+  return { group, flames, light, smoke, stones, logs, update };
 }
 
 /* ------------------------------------------------------------------ */
@@ -325,21 +395,29 @@ function buildCar(spec) {
  * `cars` defaults to the clearing's three. Pass a different list to build the
  * cabin yard with the same code, which is what index.js does.
  */
-export function buildExecutionGround({ seed = 0x9e1d, cars = CLEARING_CARS, mud = true, barrel = true } = {}) {
+export function buildExecutionGround({
+  seed = 0x9e1d,
+  cars = CLEARING_CARS,
+  mud = true,
+  barrel = true,
+  bonfire = barrel,
+} = {}) {
   const random = rng(seed);
   const group = namedGroup('initiation.execution-ground');
   const colliders = [];
   const flames = [];
   const lights = [];
+  let update = () => {};
 
   if (mud) group.add(buildMud(random));
 
-  if (barrel) {
-    const built = buildBurnBarrel();
+  if (bonfire) {
+    const built = buildBonfire(random);
     group.add(built.group);
     flames.push(...built.flames);
     lights.push(built.light);
-    colliders.push({ x: BURN_BARREL.x, z: BURN_BARREL.z, r: BURN_BARREL.radius + 0.3 });
+    colliders.push({ x: BONFIRE.x, z: BONFIRE.z, r: BONFIRE.radius + 0.35 });
+    update = built.update;
   }
 
   const parked = [];
@@ -351,5 +429,5 @@ export function buildExecutionGround({ seed = 0x9e1d, cars = CLEARING_CARS, mud 
     parked.push({ id: spec.id, ...built.car });
   }
 
-  return { group, colliders, flames, lights, cars: parked };
+  return { group, colliders, flames, lights, cars: parked, update };
 }

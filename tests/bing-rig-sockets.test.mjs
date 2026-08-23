@@ -35,6 +35,10 @@ const { Npc, STOOL_SIT, makePerson } = await import('../src/bing/cast.js');
 
 const SUIT = { height: 1.78, build: 1.0, dress: 'suit' };
 
+function readSource(relativeFile) {
+  return fs.readFileSync(new URL(relativeFile, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+}
+
 /** Shortest signed distance between two headings, so ±π does not read as 2π. */
 function yawGap(a, b) {
   return Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
@@ -89,7 +93,7 @@ test('the smooth facing path still eases a figure round over time', () => {
 });
 
 test('authored staging drops the smooth target it is overriding', () => {
-  const source = fs.readFileSync(new URL('../src/bing/preview.js', import.meta.url), 'utf8');
+  const source = readSource('../src/bing/preview.js');
   const start = source.indexOf('function pose(npc,');
   assert.ok(start >= 0, 'the shared staging helper is missing');
   const body = source.slice(start, source.indexOf('\n}\n', start));
@@ -153,7 +157,7 @@ for (const [label, model] of [
 }
 
 test('the golf gallery holds its beer in the hand rather than off a forearm constant', () => {
-  const source = fs.readFileSync(new URL('../src/golf/terrain.js', import.meta.url), 'utf8');
+  const source = readSource('../src/golf/terrain.js');
   const start = source.indexOf('function dressWaitingMan(');
   assert.ok(start >= 0, 'the gallery dressing call site is missing');
   const body = source.slice(start, source.indexOf('\n}\n', start));
@@ -216,7 +220,7 @@ test('STOOL_SIT seats a man on a bar stool, and a chair base does not', () => {
 });
 
 test('the closed party seats Booski and Willy on their stools, not in them', () => {
-  const source = fs.readFileSync(new URL('../src/bing/hotdog-party.js', import.meta.url), 'utf8');
+  const source = readSource('../src/bing/hotdog-party.js');
   assert.match(source, /import \{[^}]*STOOL_SIT[^}]*\} from '\.\/cast\.js'/);
   assert.match(
     source,

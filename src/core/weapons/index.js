@@ -39,4 +39,14 @@ export {
   buildNineMillimeter, buildRevolver, buildSaw, buildShotgun, buildSpeedloader,
   buildWeaponModel,
 } from './models.js';
+export {
+  CHARACTER_WEAPON_MOUNTS,
+  CHARACTER_WEAPON_MOUNT_PITCH,
+  CHARACTER_WEAPON_MOUNT_ROLL,
+  CHARACTER_WEAPON_MOUNT_ROTATION,
+  alignCharacterWeaponGrip,
+  characterWeaponHand,
+  characterWeaponMount,
+  mountCharacterWeapon,
+} from './character-mount.js';
 export { TracerPool } from '../combat/tracers.js';

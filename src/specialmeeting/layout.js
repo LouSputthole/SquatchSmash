@@ -170,7 +170,7 @@ export const PARKED_AT_KERB = Object.freeze([
   Object.freeze({ x: -24.5, side: 'north', kind: 'lincoln', colour: 0x14161c }),
   Object.freeze({ x: 12.5, side: 'north', kind: 'sedan', colour: 0x2c2f38, dented: true }),
   Object.freeze({ x: -13.5, side: 'south', kind: 'compact', colour: 0x3a2f45 }),
-  Object.freeze({ x: 2.5, side: 'south', kind: 'van', colour: 0xb9b4a6 }),
+  Object.freeze({ x: 2.5, side: 'south', kind: 'pickup', colour: 0xb9b4a6, featured: true }),
   Object.freeze({ x: 24, side: 'south', kind: 'sedan', colour: 0x232a22 }),
 ]);
 

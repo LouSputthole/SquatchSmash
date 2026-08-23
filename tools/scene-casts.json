@@ -444,7 +444,9 @@
       "sourceFiles": [
         "src/initiation/npc.js",
         "src/initiation/main.js",
-        "src/initiation/dialogue.js"
+        "src/initiation/dialogue.js",
+        "src/initiation/script.js",
+        "src/initiation/executions.js"
       ],
       "staged": [
         "booski",
@@ -459,10 +461,16 @@
         "eric",
         "gratin",
         "lou2",
-        "doorman"
+        "doorman",
+        "kittenboss",
+        "numbskull",
+        "seff",
+        "lag",
+        "npc-reserve-1",
+        "npc-reserve-2"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "npc.js's ROSTER seats the whole circle by voice; main.js's PROSPECT_NAMES line builds 'PROSPECT ONE' (voice 'doorman' per dialogue.js's VOICE_OF) as a standing figure with a nameplate, first in the initiation line."
+      "notes": "npc.js's ROSTER seats the whole circle by voice; main.js stages Kittenboss and the prospect line plus the family witnesses. script.js and executions.js own the revised nuclear-option reveal, mass kneel, three executions, and Lou's explicit Tony/Kittenboss reprieve. PROSPECT ONE uses voice 'doorman'; Prospect Three/Five use npc-reserve-1/2."
     },
     {
       "id": "apartment",
