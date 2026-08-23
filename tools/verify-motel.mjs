@@ -1894,13 +1894,17 @@ try {
    *   driven, mouth told to speak   maxOpen 0.866   scale 2.255
    *   undriven, previous line's tail maxOpen 0.004   scale 1.005
    *
-   * A factor of two hundred, so 0.25 sits three and a half times under what a
-   * working mouth reached and sixty times over the residue that used to sneak
-   * this check green. It agrees with the driver's own design as a
-   * cross-check -- `_fallbackOpen` returns `syllable * gate * tail * 0.9`, so
-   * 0.9 is the ceiling -- but it is not taken FROM the design, because what
-   * matters is what the mouth reaches at two frames a second with samples
-   * landing at random syllable phase, and only a run can say that.
+   * A factor of two hundred. THE NUMBER ITSELF IS THE HOUSE'S, NOT MINE:
+   * tools/verify-mouths.mjs -- the gate that owns src/core/mouth.js and asks
+   * this question properly for the Silver Case -- asserts `inTake.max > 0.4`,
+   * and one repo should have one answer to "is this mouth open enough to see".
+   * A threshold derived independently here was 0.25, which is looser than the
+   * standard already set next door; the measurement clears 0.4 by 2.2x, so
+   * there is no reason to run slack.
+   *
+   * That gate does NOT cover this scene -- it drives `window.silvercase
+   * .mouths()` and never touches Rico -- so this check earns its place. What
+   * it should not do is invent its own idea of "open enough".
    *
    * `maxLevel: 0` alongside `modes: ['fallback']` is correct and not a fault
    * to be fixed later: this harness plays no recording, so there is no
@@ -1912,7 +1916,7 @@ try {
       && ricoPresentation.face === 'actor.face.rico'
       && ricoPresentation.mouth === 'actor.mouth'
       && ricoPresentation.modes.length > 0
-      && ricoPresentation.maxOpen > 0.25
+      && ricoPresentation.maxOpen > 0.4
       && ricoPresentation.mouthOpened,
     JSON.stringify(ricoPresentation));
   await previewPage.evaluate(() => {
