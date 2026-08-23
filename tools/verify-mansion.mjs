@@ -1855,15 +1855,26 @@ try {
    * decode that THIS HOUSE'S OWN BANK LIST does not name. The five sublists
    * stay imported below only as a floor -- if the page ever stops publishing
    * its selections the check falls back rather than passing vacuously. */
-  const publishedBankNames = await page.evaluate(() => {
+  const publishedBanks = await page.evaluate(() => {
     const banks = window.mansion?.audioBankSelections;
     if (!banks) return null;
-    return [...new Set([
-      ...(banks.start ?? []), ...(banks.nextBeat ?? []), ...(banks.background ?? []),
-    ])];
+    /* A bank is `{ names, prefixes }`, not a list -- the same shape
+     * `AudioEngine.loadManifest` takes, because it IS what main.js hands it. */
+    return [banks.start, banks.nextBeat, banks.background]
+      .filter(Boolean)
+      .map((bank) => ({ names: [...(bank.names ?? [])], prefixes: [...(bank.prefixes ?? [])] }));
   });
-  const scopedNames = publishedBankNames
-    ? new Set(publishedBankNames)
+  /* The selection rule, applied exactly as `_loadManifestOnce` applies it: a
+   * cue is in if it is NAMED or if its name starts with one of the prefixes.
+   * Reimplemented rather than imported because the engine's copy takes a
+   * manifest and does the fetching too; this is the one line of it that
+   * decides membership, and it is asserted against reality either way -- if
+   * the two ever disagree, the residency check is what goes red. */
+  const scopedNames = publishedBanks
+    ? new Set(soundManifest.sfx
+      .filter((cue) => publishedBanks.some((bank) => bank.names.includes(cue.name)
+        || bank.prefixes.some((prefix) => cue.name.startsWith(prefix))))
+      .map((cue) => cue.name))
     : mansionSelectedNames;
   const mansionSelectedCues = soundManifest.sfx.filter((cue) => (
     scopedNames.has(cue.name) || cue.name.startsWith('vo.silentsquatch.')
