@@ -130,15 +130,16 @@ jobs:
       - name: Staging gate
         run: npm run verify:staging
 
-      # IT GATES NOW. It used to exit 0 with five findings on purpose while the
-      # backlog was worked down — and all five were one artifact, Initiation
-      # authoring its collision as height-less circles. Three went when the ray
-      # started being tested against the circle the author wrote rather than
-      # its circumscribing square; the other two are the parked cars, roofs at
-      # 2.26 m under a collider band invented up to 4 m, and they are written
-      # down in tools/framing-allowlist.json with a reason apiece. So an
-      # authored finding that is not on that list fails this step, and so does
-      # a list entry that excused nothing. Derived cameras still only report.
+      # IT GATES NOW, AND THE ALLOWLIST IS EMPTY TO THE POINT OF BEING GONE.
+      # It used to exit 0 with five findings on purpose while the backlog was
+      # worked down — and all five were one artifact, Initiation authoring its
+      # collision as height-less circles. Three went when the ray started being
+      # tested against the circle the author wrote rather than its
+      # circumscribing square; the other two were the parked cars, roofs at
+      # 2.26 m under a collider band invented up to 4 m, and they went when
+      # buildCar started measuring the car and passing y0/y1 through. So an
+      # authored finding fails this step outright, and so would a list entry
+      # that excused nothing. Derived cameras still only report.
       - name: Framing gate
         run: npm run verify:framing
 

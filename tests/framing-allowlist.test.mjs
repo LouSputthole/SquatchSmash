@@ -4,9 +4,14 @@
  * The gate reported five findings and exited zero, which is a gate whose next
  * finding lands in a log nobody reads. Three of the five went when the ray
  * started being tested against the circle the author wrote instead of its
- * circumscribing square; the last two are the parked cars, whose roofs sit at
- * 2.26 m under a collider band invented up to 4 m. Writing those two down is
- * what lets everything else fail the build.
+ * circumscribing square; the last two were the parked cars, whose roofs sit at
+ * 2.26 m under a collider band invented up to 4 m, and they went when buildCar
+ * started measuring the car and passing the band through as y0/y1. Writing
+ * those two down is what let everything else fail the build in the meantime,
+ * and the file has since been deleted rather than left shipping an empty list.
+ *
+ * THE VALIDATOR IS STILL TESTED, because the list is an instrument the tree
+ * will need again and an instrument nobody checks between uses is a prop.
  *
  * These hold the properties that make the instrument worth carrying, and they
  * are the staging allowlist's properties because it is deliberately the same
@@ -176,11 +181,35 @@ test('a filtered run does not condemn the states it never built', () => {
 /* The file that actually ships                                       */
 /* ------------------------------------------------------------------ */
 
-test('the shipped allowlist validates', () => {
-  const shipped = JSON.parse(
-    fs.readFileSync(path.join(ROOT, 'tools', 'framing-allowlist.json'), 'utf8'),
+/**
+ * THERE IS NO SHIPPED ALLOWLIST, and that is the passing case.
+ *
+ * There was one: two entries, both a parked car in the Initiation whose
+ * collider carried no height and so claimed four metres of air over a 2.26 m
+ * roof. Measuring the cars where they are built and passing the band through
+ * as y0/y1 lifted both findings, and this file has been deleted rather than
+ * left shipping `entries: []` -- an empty list still reads like somewhere to
+ * put the next one, and the whole point of the instrument is that putting one
+ * there costs an argument.
+ *
+ * So the assertion is two-sided rather than "the file is gone". If somebody
+ * writes it again, the thing that ships must still validate and must still
+ * say something; if nobody has, its absence is the clean state and the gate
+ * reads it as an empty list. Deleting this test when the file went would have
+ * left the NEXT allowlist unchecked.
+ */
+test('the shipped allowlist, if there is one, validates and says something', () => {
+  const shippedPath = path.join(ROOT, 'tools', 'framing-allowlist.json');
+  if (!fs.existsSync(shippedPath)) {
+    /* Absence is only meaningful if the gate agrees it means "no excuses". */
+    const gate = fs.readFileSync(path.join(ROOT, 'tools', 'verify-framing.mjs'), 'utf8');
+    assert.match(gate, /existsSync\(ALLOWLIST_PATH\)/,
+      'no allowlist file, and the gate would throw rather than run without one');
+    return;
+  }
+  const { entries, issues: found } = validateFramingAllowlist(
+    JSON.parse(fs.readFileSync(shippedPath, 'utf8')),
   );
-  const { entries, issues: found } = validateFramingAllowlist(shipped);
   assert.deepEqual(found, []);
   assert.ok(entries.length > 0, 'an empty allowlist should be deleted, not shipped');
 });

@@ -44,35 +44,28 @@
  * same time, and then it agrees with itself.
  */
 
-/* THE ONE FORK, AND WHY IT IS NOT ONE. docs/REUSE-FIRST.md rule 2 is "extend,
- * don't fork", and rule 4 is "when you do fork, say why, at the fork". The
- * slab test this gate needs -- distance from a point along a ray to an
- * axis-aligned box -- already exists, correct and under test, in the staging
- * gate. Writing a second one here would be the exact duplication the geometry
- * and staging gates were built to stop, and two copies of a numerical routine
- * drift the moment one of them learns something.
+/* THE DAY ARRIVED, AND THE MATHS MOVED OUT. docs/REUSE-FIRST.md rule 2 is
+ * "extend, don't fork", and rule 4 is "when you do fork, say why, at the
+ * fork". The slab test this gate needs already existed, correct and under
+ * test, in the staging gate, so this gate imported it rather than writing a
+ * second one -- and the note here said that the day a THIRD caller wanted it,
+ * the right move was to lift it into a shared module and have everyone import
+ * from there.
  *
- * So it is imported. The coupling is one exported function with no scene
- * semantics in it: give it three numbers and a box and it returns a distance.
- * Both gates stay pure -- the staging gate imports nothing at all, so pulling
- * it in adds no dependency beyond arithmetic. The day a third gate wants the
- * same test, the right move is to lift it into a shared `tools/gate-math.mjs`
- * and have both import from there; that is a change to staging-gate.mjs, which
- * is why it has not been made here. */
-import { rayBoxDistance } from './staging-gate.mjs';
+ * That is what ./ray-solids.mjs is. The third caller is the staging gate
+ * asking its facing question against the SHAPE the author wrote rather than
+ * the square around it -- it had been answering conservatively and, on APE and
+ * a parked Lincoln, wrongly. The box test, the circle test and the one
+ * function that picks between them now live together, with nothing that knows
+ * what a scene is; both gates import, both stay pure. */
+import {
+  insideSolid, rayBoxDistance, rayCylinderDistance, solidDistance,
+} from './ray-solids.mjs';
 
-export { rayBoxDistance };
-
-/* AND WHY THE CYLINDER TEST BELOW IS NOT THE THIRD GATE.
- *
- * The note above says the day a THIRD gate wants the slab test, lift it into
- * a shared `tools/gate-math.mjs`. That day has not arrived and this is not it:
- * `rayBoxDistance` still has exactly two callers, the staging gate that owns
- * it and this one. What arrived is a second SHAPE inside this gate, wanted by
- * nobody else -- the staging gate asks "is he facing a wall", which the
- * over-wide box answers conservatively and correctly. Moving the box test out
- * to keep it company with a routine only this file calls would be churn in
- * `staging-gate.mjs` bought with nothing. */
+/* Re-exported because this gate's own tests import them from it. */
+export {
+  insideSolid, rayBoxDistance, rayCylinderDistance, solidDistance,
+};
 
 /**
  * The lens the scenes actually build with.
@@ -143,89 +136,6 @@ function unit(v) {
   const length = norm(v);
   if (!(length > 1e-9)) return null;
   return [v[0] / length, v[1] / length, v[2] / length];
-}
-
-/**
- * Distance from `origin` along unit `dir` to the first hit on an UPRIGHT
- * cylinder, or Infinity. Same contract as `rayBoxDistance` in every respect,
- * including the zero it returns for an origin already inside the solid.
- *
- * THE FINDINGS THIS EXISTS TO SETTLE. Initiation authors its woods and its car
- * park as `{x, z, r}` circles, and the collider reader gives each of them its
- * circumscribing axis-aligned box, which is right for walking into a trunk and
- * wrong for seeing past one: a square is wider than the circle it contains at
- * the diagonals, by up to 41 per cent of the radius. Five sightlines read as
- * blocked on that margin -- Kittenboss behind a parked Lincoln three times
- * over, the player at the cabin door behind another, and `speech-start`'s
- * camera declared to be standing inside a third -- and every one of them was
- * cast against the RENDERED geometry of both states and hit nothing.
- *
- * The y band is the box's, untouched: a trunk really is tall, and this changes
- * the SHAPE and nothing else. The slab half is written the same way the box
- * test writes it, degenerate branch and all, so the two agree on a ray that
- * runs parallel to the cap.
- */
-export function rayCylinderDistance(origin, dir, cylinder) {
-  let near = 0;
-  let far = Infinity;
-  if (Math.abs(dir[1]) < 1e-9) {
-    if (origin[1] < cylinder.minY || origin[1] > cylinder.maxY) return Infinity;
-  } else {
-    let t0 = (cylinder.minY - origin[1]) / dir[1];
-    let t1 = (cylinder.maxY - origin[1]) / dir[1];
-    if (t0 > t1) [t0, t1] = [t1, t0];
-    if (t0 > near) near = t0;
-    if (t1 < far) far = t1;
-    if (near > far) return Infinity;
-  }
-  const ox = origin[0] - cylinder.x;
-  const oz = origin[2] - cylinder.z;
-  const a = dir[0] * dir[0] + dir[2] * dir[2];
-  const c = ox * ox + oz * oz - cylinder.r * cylinder.r;
-  if (a < 1e-12) {
-    /* Straight up or straight down the axis. There is no quadratic to solve:
-     * the ray is either inside the circle for its whole length or never
-     * enters it, and the caps are the only thing left to hit -- which the y
-     * slab above has already worked out. */
-    if (c > 0) return Infinity;
-  } else {
-    const b = 2 * (ox * dir[0] + oz * dir[2]);
-    const discriminant = b * b - 4 * a * c;
-    if (discriminant < 0) return Infinity;
-    const root = Math.sqrt(discriminant);
-    const t0 = (-b - root) / (2 * a);
-    const t1 = (-b + root) / (2 * a);
-    if (t0 > near) near = t0;
-    if (t1 < far) far = t1;
-    if (near > far) return Infinity;
-  }
-  return far < 0 ? Infinity : near;
-}
-
-/**
- * The first hit on a solid, tested as the shape its author actually wrote.
- *
- * A solid that carries no `shape` was authored as a box and is one; only a
- * collider the scene wrote as a circle gets the circle.
- */
-export function solidDistance(origin, dir, solid) {
-  if (solid.shape?.kind !== 'cylinder') return rayBoxDistance(origin, dir, solid);
-  return rayCylinderDistance(origin, dir, {
-    x: solid.shape.x,
-    z: solid.shape.z,
-    r: solid.shape.r,
-    minY: solid.min[1],
-    maxY: solid.max[1],
-  });
-}
-
-/** Is this point in the masonry? Same shape rule as `solidDistance`. */
-export function insideSolid(solid, [x, y, z]) {
-  if (y < solid.min[1] || y > solid.max[1]) return false;
-  if (solid.shape?.kind === 'cylinder') {
-    return Math.hypot(x - solid.shape.x, z - solid.shape.z) <= solid.shape.r;
-  }
-  return x >= solid.min[0] && x <= solid.max[0] && z >= solid.min[2] && z <= solid.max[2];
 }
 
 /**

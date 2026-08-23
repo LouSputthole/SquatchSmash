@@ -174,6 +174,31 @@ function buildBurnBarrel() {
  * that turns another scene's headlights on because they happened to share a
  * cache entry is not a bug anybody finds quickly.
  */
+/**
+ * The world box of everything SOLID under a group.
+ *
+ * `Box3.setFromObject` would do this in one line and get the wrong answer: it
+ * counts every mesh, and a lit car carries two headlight fog cones sixteen
+ * metres long. Those are marked `sceneAuditIgnore` where they are built, which
+ * is the same flag the scene audit reads, so this walks the tree and honours
+ * it. Returns null for a group with nothing solid in it, which no car is.
+ */
+function solidBounds(root) {
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  let found = false;
+  const walk = (object, ignored) => {
+    const skip = ignored || object.userData?.sceneAuditIgnore === true;
+    if (!skip && object.isMesh) {
+      box.union(new THREE.Box3().setFromObject(object));
+      found = true;
+    }
+    for (const child of object.children) walk(child, skip);
+  };
+  walk(root, false);
+  return found ? box : null;
+}
+
 function buildCar(spec) {
   const car = makeCar(spec.kind, spec.colour, { dented: spec.dented ?? false });
   const yaw = carYaw(spec);
@@ -241,7 +266,32 @@ function buildCar(spec) {
    * Three of them down the car's length rather than one big one: a single
    * circle round a 5.4 m Lincoln is a 2.7 m no-go bubble that stops the player
    * walking past its wing, and the walk past these cars is the walk in.
+   *
+   * AND THEY CARRY THEIR HEIGHT, because a car is a thing you look OVER.
+   *
+   * The runtime only ever reads x, z and r -- `pushOut` in
+   * src/initiation/main.js -- so a bare circle says "you cannot walk here" and
+   * says nothing at all about how tall the thing is. Every gate downstream has
+   * to invent a band, and the Adapter's is the standing interaction band,
+   * -0.5 m to 4 m. Conservative is right for walking into a car. It is WRONG
+   * for looking past one: the framing gate reported the ceremony camera at
+   * y = 3.6 as CAMERA_INSIDE_SOLID and the walk to the cabin door as
+   * SPEAKER_OCCLUDED, and in both cases the blocking solid was a parked
+   * Lincoln whose roof is 2.26 m off the mud. The camera was a metre and a
+   * third clear of it; the door sightline crossed y = 4.0, the top cap of a
+   * band nobody had ever authored, 1.74 m over the paint.
+   *
+   * So the band is MEASURED off the built car rather than read off SHAPES.
+   * The shape table is not the tallest thing on every car -- the boot car's
+   * open lid stands 0.20 m proud of its own roof -- and a measurement cannot
+   * go stale when somebody edits a slab, which an authored copy of it can.
+   * Effects are skipped: the headlight fog cone is a 16 m mesh and it is not
+   * steel. One band for all three circles, taken from the whole car, because
+   * the world-aligned box of a cabin on an angled car already overlaps all
+   * three footprints and splitting it would claim a precision the circles
+   * themselves do not have.
    */
+  const bounds = solidBounds(car.group);
   const colliders = [];
   const half = car.length / 2 - car.width / 2;
   for (const along of [-half, 0, half]) {
@@ -249,6 +299,11 @@ function buildCar(spec) {
       x: spec.x + Math.cos(yaw) * along,
       z: spec.z - Math.sin(yaw) * along,
       r: car.width / 2 + 0.2,
+      /* `=== 0` catches the negative zero a rotated wheel cylinder measures
+       * out at and nothing else, because -0 === 0. It keeps the sign out of
+       * the solid ids the gates build their allowlist keys from. */
+      y0: bounds.min.y === 0 ? 0 : bounds.min.y,
+      y1: bounds.max.y,
       /* Three circles down ONE car, so of course they share ground -- they
        * are spaced by the car's length and sized by its width, and a spacing
        * wide enough to keep them apart would leave two gaps in the middle of

@@ -43,17 +43,19 @@
  * harness's, not the scene's, and its findings are worth less than an
  * authored beat's.
  *
- * IT BLOCKS NOW, and it did not always. It reported five findings and exited
- * zero while they were all one artifact -- Initiation authoring its collision
- * as height-less circles -- and a gate that exits zero is a gate whose next
- * finding arrives in a log nobody reads. Three of the five went when the ray
- * started being tested against the circle the author wrote rather than its
- * circumscribing square; the last two are the parked cars, whose roofs are at
- * 2.26 m under a collider band invented up to 4 m, and they are written down
- * in tools/framing-allowlist.json with a reason apiece. So an AUTHORED finding
- * that is not on that list fails the build, and so does a list entry that
- * excused nothing -- docs/ENGINE-TRAPS.md entry 10, because a stale entry is
- * as likely to mean the gate went blind as that somebody fixed something.
+ * IT BLOCKS NOW, WITH NOTHING ON THE LIST, and it did not always. It reported
+ * five findings and exited zero while they were all one artifact -- Initiation
+ * authoring its collision as height-less circles -- and a gate that exits zero
+ * is a gate whose next finding arrives in a log nobody reads. Three of the
+ * five went when the ray started being tested against the circle the author
+ * wrote rather than its circumscribing square. The last two were the parked
+ * cars, roofs at 2.26 m under a collider band invented up to 4 m; those went
+ * when buildCar started MEASURING the car it had just built and passing the
+ * band through as y0/y1. So an AUTHORED finding fails the build outright, and
+ * so does an allowlist entry that excused nothing -- docs/ENGINE-TRAPS.md
+ * entry 10, because a stale entry is as likely to mean the gate went blind as
+ * that somebody fixed something. There is currently no allowlist file at all,
+ * which is the state to hold: see where it is read, below.
  *
  * A DERIVED camera never fails a build and is never allowlisted. It is the
  * harness's own stand-in as often as it is the scene's, so it has nothing to
@@ -156,10 +158,17 @@ function citationIssues(entries) {
 /* Read and check the allowlist BEFORE building a single scene. A file that
  * does not validate stops the run rather than half-applying: an allowlist
  * nobody can trust turns every green run after it into a claim nobody made. */
+/* NO FILE MEANS NOTHING TO EXCUSE, and that is the state to aim at rather
+ * than an edge case to tolerate. The list existed to carry the two parked-car
+ * findings; measuring the cars in src/initiation/cabin/execution-ground.js and
+ * passing the band through as y0/y1 lifted both, and an allowlist with an
+ * empty `entries` array still reads like a place to put the next one. So it
+ * was deleted, and the gate now says what the file used to: these are the
+ * excuses, and there are none. Write the file again when there is one. */
 const ALLOWLIST_PATH = path.join(ROOT, 'tools', 'framing-allowlist.json');
-const allowlist = validateFramingAllowlist(
-  JSON.parse(fs.readFileSync(ALLOWLIST_PATH, 'utf8')),
-);
+const allowlist = fs.existsSync(ALLOWLIST_PATH)
+  ? validateFramingAllowlist(JSON.parse(fs.readFileSync(ALLOWLIST_PATH, 'utf8')))
+  : { entries: [], issues: [] };
 allowlist.issues.push(...citationIssues(allowlist.entries));
 if (allowlist.issues.length) {
   console.error(`${path.relative(ROOT, ALLOWLIST_PATH)} is not usable:`);

@@ -422,10 +422,32 @@ export const CLEARING_CARS = Object.freeze([
    * the mud so the open lid is the first thing the player's eye finds when he
    * is marched in — and so it is still standing open, empty, behind everything
    * that happens next.
+   *
+   * IT USED TO BE TWO METRES FURTHER UP, AND IT BLINDED THE EAST OF THE RING.
+   *
+   * Parked at (4.6, −11.4) it stood level with the men rather than behind
+   * them, and the one staging requirement this whole site exists to serve —
+   * each prospect shot WHERE HE CAN BE SEEN — failed for three of the fifteen.
+   * Measured, against the built colliders, sightline from each man's own eye
+   * height to the line: APE blocked at 0.554 m, IRISH at 1.306 m, HOG MAMA at
+   * 2.601 m, all three by the same Lincoln, whose roof is 2.484 m with the lid
+   * up and whose tallest blocker beat APE's 2.438 m eye by four and a half
+   * centimetres. Nobody had ever seen it because every collider in this
+   * clearing was height-less until the cars were measured, and the staging
+   * gate does not take a sightline as evidence against a solid that cannot say
+   * how tall it is.
+   *
+   * Two metres straight back on the same axis — the aim moves with it, so the
+   * car keeps its heading — and all fifteen clear. The cost is that Kittenboss
+   * now stands 4.29 m in front of the open boot rather than 2.76 m, which is
+   * still plainly in front of it in every wide the scene owns, and is the
+   * cheapest legal mark of the 1,514 searched: nothing nearer clears all
+   * fifteen while keeping three metres off the other two cars and the boot end
+   * pointed at the mud.
    */
   Object.freeze({
     id: 'boot-car', kind: 'lincoln', colour: 0x101216,
-    x: 4.6, z: -11.4, aim: { x: 5.2, z: -17.6 }, lights: false, engine: false,
+    x: 4.6, z: -13.4, aim: { x: 5.2, z: -19.6 }, lights: false, engine: false,
     bootOpen: true,
   }),
 ]);

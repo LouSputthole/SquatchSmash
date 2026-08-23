@@ -296,14 +296,49 @@ step further on: not the shape, the missing height.
 | `initiation:clearing` `speech-start` `CAMERA_INSIDE_SOLID` | A circle of r = 1.175 at (−8.625, −11.908), one of the three down a Lincoln. The camera at (−8.2, **3.6**, −11.6) is 0.525 m from its axis — inside it in plan, honestly — and **1.34 m above the car's roof at 2.26 m**. |
 | `initiation:cabin` `cabin-door` `SPEAKER_OCCLUDED` | The same, in the yard: r = 1.175 at (20.110, 14.584). The ray runs from the camera 4.8 m up to the player's head at 2.3 m, and the reported entry at 2.835 m of an 8.860 m ray is the moment it crosses **y = 4.0** — the top cap of the invented band, 1.74 m over the roof. |
 
-Both are **collider problems, not shot problems**, and the shape fix cannot
-reach them: a camera over a car is inside its column whatever the column's
-cross-section. Only a measured `y1` lifts them, and that is a change to how
-`buildCar` authors its three circles
-(`src/initiation/cabin/execution-ground.js:251`, `r: car.width / 2 + 0.2`) —
-the same move `FURNITURE` in `src/initiation/cabin/site.js` already made for
-the table and the chairs. Until somebody measures the Lincolns, the two are
-written down in `tools/framing-allowlist.json` with a reason apiece.
+Both were **collider problems, not shot problems**, and the shape fix could
+not reach them: a camera over a car is inside its column whatever the column's
+cross-section. Only a measured `y1` lifts them.
+
+### And then somebody measured the Lincolns
+
+`buildCar` now measures the car it has just built and hands the band to all
+three circles as `y0`/`y1` — the same move `FURNITURE` in
+`src/initiation/cabin/site.js` already made for the table and the chairs, and
+the Adapter has honoured `y0`/`y1` on a circle in preference to its own
+standing band all along.
+
+It is a **measurement, not a table**. `solidBounds` walks the car's group,
+skips anything flagged `sceneAuditIgnore` — the headlight fog cone is a 16 m
+mesh and is not steel — and unions what is left:
+
+| Car | Band | The tallest thing in it |
+|---|---|---|
+| sedan (`clearing-west`, `yard-west`) | 0 → **2.260** | `car.cabin` |
+| suv (`clearing-east`) | 0 → **2.970** | `car.cabin` |
+| lincoln (`boot-car`) | 0 → **2.484** | `car.boot.lid`, standing 0.204 m proud of its own roof |
+| van (`yard-east`) | 0 → **3.700** | `car.cabin` |
+
+Reading those off `SHAPES` in `src/bing/vehicles.js` would have got the boot
+car wrong by 20 cm and would go stale the day somebody edits a slab, which is
+`docs/ENGINE-TRAPS.md` entry 11 wearing a different hat. One band per car
+rather than one per circle: the world-aligned box of a cabin on an angled car
+already overlaps all three footprints, and splitting it would claim a
+precision the circles do not have.
+
+Both findings went. `npm run verify:geometry` after the change: **98/98 states,
+662,278 records, 0 violations** — the same record count, because a collider
+that gained two keys is still one collider.
+
+**`tools/framing-allowlist.json` has been deleted**, not emptied. An allowlist
+shipping `entries: []` still reads like somewhere to put the next one, and the
+whole value of the instrument is that putting one there costs an argument. The
+gate treats an absent file as an empty list and says so where it reads it;
+`tests/framing-allowlist.test.mjs` still checks the validator, and still
+checks the shipped file **if there is one**, so the next allowlist is not
+born unchecked. Proof it still blocks: back the `y0`/`y1` out of `buildCar`
+and `npm run verify:framing` exits 1 with exactly these two findings and no
+file to excuse them.
 
 ## It gates now
 
@@ -312,12 +347,12 @@ on the allowlist, and on any allowlist entry that excused nothing.
 
 A gate that exits zero with findings is a gate whose next finding arrives in a
 log nobody reads, which is `docs/ENGINE-TRAPS.md` §5 with better manners. The
-five findings were one artifact and are now two entries, so there is nothing
-left for the exit code to be polite about.
+five findings were one artifact and are now none, so there is nothing left for
+the exit code to be polite about.
 
-**`tools/framing-allowlist.json`** is deliberately the instrument the geometry
-and staging gates already carry, down to the sorted ids and the minimum reason
-length. An entry names one finding on one beat in one state — `id`, `state`,
+**`tools/framing-allowlist.json`** — when there is one; there is not, today —
+is deliberately the instrument the geometry and staging gates already carry,
+down to the sorted ids and the minimum reason length. An entry names one finding on one beat in one state — `id`, `state`,
 `beat`, `kind`, whatever that kind must name (`speaker`, `solid`, `subject`,
 `actor`), a `reason` in prose, and a `source` line checked against the file it
 cites. No wildcards. `tools/framing-allowlist.mjs` is the pure validator;

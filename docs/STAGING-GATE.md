@@ -198,7 +198,13 @@ runs **85 of 98**.
   the adapter mounted the site and stopped. `src/initiation/cast.js` is now
   the one home for the roster, `main.js` decorates and adds, the adapter
   mounts the same builder — and the first run found **SEFF and APE standing
-  inside the treeline**. Nobody had ever seen it.
+  inside a car**. Nobody had ever seen it. It was written up at the time as
+  the treeline, on the strength of a fir, a hardwood, a rock and a stump
+  rendered in the same patch; the collider both men were actually inside was
+  a square 2.4 m on a side, which is the box around a circle of r = 1.2, which
+  is `car.width / 2 + 0.2` for a Lincoln. Moving the boot car two metres put
+  both old marks inside zero colliders, which is not something moving a car
+  does to a tree.
 
 Worth knowing rather than counting as coverage: the Enola has 42 colliders
 and **none within twelve metres of its crew**, who are at six hundred metres
@@ -222,7 +228,49 @@ So the gate raises `SIGHTLINES_NOT_EVIDENCE` once for the state rather than
 emitting per-actor findings that name the wrong fault — and raises it out
 loud, allowlisted with a reason, rather than dropping the findings silently.
 The hip check still runs against the same footprints, and it earns its keep:
-it is what caught SEFF and APE in the trees.
+it is what caught SEFF and APE standing inside the boot car.
+
+### It is a property of each solid, not of the scene
+
+The whole-scene test was **all or nothing**, and that held only while a scene
+was pure. The moment `buildCar` started measuring the Initiation's parked cars
+and handing them a real `y0`/`y1`, the clearing went from 189 of 189 plan-only
+to 180 of 189 — the test flipped to false and the gate began trusting
+sightlines against 180 solids that still claim four and a half metres of
+column apiece. A scene half-honest about height is not a scene you can ask
+about height.
+
+So the facing ray now **skips a plan-only solid and tests the rest**, decided
+per solid on the reader's own `-0.5 / 4` signature. The scene-level note
+survives for exactly the case it was written for — every solid plan-only,
+therefore no sightline evidence in this state at all — so the Squatchfather
+and the Bing are unchanged, entries and all. The hip check is deliberately not
+filtered: a footprint is honest about where you cannot stand even when it is
+silent about how tall it is.
+
+The first thing the sharpened instrument said was true and unwelcome. **Three
+of the fifteen men in the Initiation's ring could not see the executions.** The
+boot car was parked at (4.6, −11.4), level with the ring rather than behind it,
+and blocked APE at 0.554 m, IRISH at 1.306 m and HOG MAMA at 2.601 m — one
+Lincoln, roof at 2.484 m with the lid up, beating APE's 2.438 m eye by four and
+a half centimetres. The one staging requirement that whole site exists to serve
+is that each prospect is shot where he can be seen. The car moved two metres
+straight back, the aim moved with it, and all fifteen clear.
+
+### And the facing ray tests the shape the author wrote
+
+Moving the car did not clear APE, and the last 0.739 m of it was the same
+artifact `docs/FRAMING-GATE.md` had already chased down one file over: the
+collider is a **circle** of r = 1.2 and the ray was being tested against the
+**square** around it, which is up to 41 per cent of the radius too wide at the
+diagonals. His eyeline passes 0.4 m outside the paint and through the corner
+of the box.
+
+`tools/ray-solids.mjs` now holds the box test, the circle test, and the one
+function that picks between them on what the builder wrote. It exists because
+there are three callers and not two — the note in `framing-gate.mjs` had said
+for months that a third caller was the day to lift it, and this was the day.
+Both gates import it; both stay pure; neither owns arithmetic the other needs.
 
 ## What it still needs: an allowlist
 

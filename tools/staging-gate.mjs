@@ -51,6 +51,8 @@ export const SEAT_HIP_TOLERANCE_M = 0.35;
 export const OWN_BODY_CENTRE_M = 0.15;
 export const OWN_BODY_MAX_SPAN_M = 1.5;
 
+import { rayBoxDistance, solidDistance } from './ray-solids.mjs';
+
 /** Half-angle of the arc in front of the player that a wave may arrive in. */
 export const SPAWN_FORWARD_ARC_RAD = Math.PI / 2;
 
@@ -68,32 +70,9 @@ const inside = (box, [x, y, z]) => x >= box.min[0] && x <= box.max[0]
   && y >= box.min[1] && y <= box.max[1]
   && z >= box.min[2] && z <= box.max[2];
 
-/**
- * Distance from `origin` along unit `dir` to the first hit on an axis-aligned
- * box, or Infinity.  The standard slab test; `Infinity` for a parallel miss is
- * the whole reason the degenerate branch is written out rather than divided.
- */
-export function rayBoxDistance(origin, dir, box) {
-  let near = 0;
-  let far = Infinity;
-  for (let axis = 0; axis < 3; axis += 1) {
-    const d = dir[axis];
-    const o = origin[axis];
-    const lo = box.min[axis];
-    const hi = box.max[axis];
-    if (Math.abs(d) < 1e-9) {
-      if (o < lo || o > hi) return Infinity;
-      continue;
-    }
-    let t0 = (lo - o) / d;
-    let t1 = (hi - o) / d;
-    if (t0 > t1) [t0, t1] = [t1, t0];
-    if (t0 > near) near = t0;
-    if (t1 < far) far = t1;
-    if (near > far) return Infinity;
-  }
-  return far < 0 ? Infinity : near;
-}
+/* Re-exported because this module was where the box test lived and both the
+ * framing gate and the tests import it from here. */
+export { rayBoxDistance, solidDistance };
 
 /** Is this solid the actor's own body collider? See OWN_BODY_CENTRE_M. */
 export function isOwnBody(box, actor) {
@@ -166,6 +145,20 @@ function uniformFacing(actors, { radius = 6 }) {
   return findings;
 }
 
+/**
+ * Is this solid still wearing the collider reader's invented height band?
+ *
+ * -0.5 to 4 is what `normalizeSceneColliders` gives a footprint that carries
+ * no y of its own, and it says so in its own comment rather than pretending
+ * the numbers came from a builder. Matching on them exactly is therefore
+ * reading the reader's own signal, not sniffing a coincidence: a builder that
+ * authored those two numbers would be authoring the standing band on purpose,
+ * and would be telling the truth by doing so.
+ */
+export function planOnlyBox(box) {
+  return box?.min?.[1] === -0.5 && box?.max?.[1] === 4;
+}
+
 /** Everything the gate can say about one built scene state. */
 export function stagingFindings({
   id, actors = [], boxes = [], seats = {}, player = null, uniformRadius = 6,
@@ -173,7 +166,7 @@ export function stagingFindings({
 } = {}) {
   const findings = [];
 
-  /* A SCENE THAT COLLIDES IN PLAN CANNOT ANSWER A QUESTION ABOUT HEIGHT.
+  /* A SOLID THAT COLLIDES IN PLAN CANNOT ANSWER A QUESTION ABOUT HEIGHT.
    *
    * The Squatchfather and Initiation block the player with 2D footprints --
    * `block(x, z, w, d)`, no y at all -- because everything in them happens on
@@ -187,9 +180,21 @@ export function stagingFindings({
    * Reported once, as its own thing, rather than either emitting the per-actor
    * findings (which name the wrong fault, and would train somebody to
    * allowlist a real one) or dropping them silently (which is how a gate goes
-   * quiet -- see the theatre recliners). The measurement that decides this is
-   * the input's, not a guess: 36 of 36 and 189 of 189 in those two scenes,
-   * 0 of every collider in the other fifteen. */
+   * quiet -- see the theatre recliners).
+   *
+   * IT IS NOW A PROPERTY OF EACH SOLID RATHER THAN OF THE SCENE, and that
+   * matters the moment a scene is MIXED. The Initiation's clearing was 189 of
+   * 189 plan-only until buildCar started measuring the parked cars; nine
+   * solids gained a real band and the whole-scene test flipped to false, which
+   * would have made the gate trust a sightline against any of the other 180 --
+   * the trees, which still claim four and a half metres of column apiece. So
+   * the facing ray now SKIPS a plan-only solid and tests the rest. The
+   * scene-level note survives for the case it was written for: every solid
+   * plan-only, therefore no sightline evidence in this state at all.
+   *
+   * The hip check below is deliberately NOT filtered. A footprint is honest
+   * about where you cannot stand even when it is silent about height, and it
+   * is what caught SEFF and APE standing inside the treeline. */
   if (planOnlySolids && actors.length) {
     findings.push({
       kind: 'SIGHTLINES_NOT_EVIDENCE', id: null, role: null, posture: null,
@@ -236,6 +241,10 @@ export function stagingFindings({
        * a man standing INSIDE another man is still a bug, even though a man
        * LOOKING AT another man is not. */
       if (bodyBoxes.has(box)) continue;
+      /* A solid still wearing the reader's invented band, per the note above:
+       * it can say where, never how high, so it is not evidence about a
+       * sightline. */
+      if (planOnlyBox(box)) continue;
       /* The seat he is sitting in.
        *
        * A booth is authored as one box from the floor to the top of its back
@@ -251,10 +260,16 @@ export function stagingFindings({
        * reason. A seat that gets renamed out from under the marker raises
        * SEAT_MISSING rather than quietly excusing nothing. */
       if (seatAssembly && box.assembly === seatAssembly) continue;
-      const distance = rayBoxDistance(actor.eye, actor.forward, box);
+      /* THE SHAPE THE AUTHOR WROTE, not the square around it. A circle's
+       * circumscribing box is up to 41 per cent of the radius too wide at the
+       * diagonals, and APE reported facing a Lincoln at 0.739 m on exactly
+       * that margin -- his eyeline passes 0.4 m outside the paint and through
+       * the corner of the box. Same call the framing gate makes, same module.
+       * A solid with no `shape` was authored as a box and is tested as one. */
+      const distance = solidDistance(actor.eye, actor.forward, box);
       if (distance < nearest) { nearest = distance; hit = box; }
     }
-    if (nearest < FACING_WALL_DISTANCE_M && !riding && !planOnlySolids) {
+    if (nearest < FACING_WALL_DISTANCE_M && !riding) {
       findings.push(finding('FACING_INTO_SOLID', actor, {
         distanceM: Math.round(nearest * 1000) / 1000,
         solid: hit?.name ?? null,

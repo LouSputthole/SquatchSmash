@@ -211,6 +211,12 @@ function colliderBoxes(built) {
       assembly: record.assemblyId ?? null,
       min: [record.min.x, record.min.y, record.min.z],
       max: [record.max.x, record.max.y, record.max.z],
+      /* The circle the scene actually wrote, when it wrote one, so the facing
+       * ray can be tested against it rather than against the square the reader
+       * builds round it. `normalizeSceneColliders` carries it alongside the
+       * bounds for exactly this; the bounds stay the conservative reading and
+       * are what the walk-into tests still use. */
+      shape: record.shape ?? null,
     }));
 }
 

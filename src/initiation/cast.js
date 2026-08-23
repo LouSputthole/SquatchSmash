@@ -54,11 +54,23 @@ export const LOU_PALETTE = Object.freeze({
  * moves its own bucket every build. Authored, in the same range the roll
  * covered, so the room still reads as a room full of different men.
  */
-/* SEFF and APE were standing IN A TREE.
+/* SEFF and APE WERE STANDING IN THE BOOT CAR. It was written up here as a
+ * tree and it never was one.
  *
- * Their old marks -- (3.4, -10.4) and (5.2, -10.2) -- both sit inside the
- * treeline footprint running x 3.24 to 5.64, z -10.91 to -8.51, which carries
- * a fir trunk, a hardwood, a rock and a stump. Nobody had ever seen it,
+ * Their old marks -- (3.4, -10.4) and (5.2, -10.2) -- both sat inside a
+ * footprint running x 3.24 to 5.64, z -10.91 to -8.51, and there are certainly
+ * a fir, a hardwood, a rock and a stump rendered in that patch, which is how
+ * it got written down as the treeline. It is not the treeline. It is a square
+ * 2.4 m on a side, which is the circumscribing box of a circle of r = 1.2,
+ * which is `car.width / 2 + 0.2` for a Lincoln: the north circle of the boot
+ * car when it was parked at (4.6, -11.4). MEASURED, not argued -- the car has
+ * since moved two metres back and those two old marks now sit inside exactly
+ * ZERO colliders, which no amount of moving a car would do if a tree had been
+ * the thing holding them.
+ *
+ * Worth the paragraph because it is the second time this one box has been read
+ * as woodland by somebody working from its coordinates, and the first time
+ * cost the framing gate a day. Nobody had ever seen the original fault at all,
  * because until this file existed the adapter mounted the clearing and left
  * the Circle out of it, so both Initiation states reported clean with an
  * empty cast.

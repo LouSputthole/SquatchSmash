@@ -604,3 +604,43 @@ trap, waiting for someone to give them a name.
 a stated price, not a note saying "for now". Price it from the source — count
 the boots, count the simulated seconds, divide by 0.05 — and put the count
 where the next person can argue with it.
+
+## 13. A whole-scene claim about data quality dies the day the scene goes mixed
+
+The staging gate cannot ask whether a man is facing a wall in a scene whose
+walls are 2D footprints: the collider reader gives a footprint the standing
+band, −0.5 to 4 m, and every table in the room becomes a four-and-a-half-metre
+column. So it did the right thing — it measured, found the condition was
+exactly two scenes (36 of 36 in the Squatchfather, 189 of 189 in the
+Initiation, 0 of every collider in the other fifteen), and raised one
+`SIGHTLINES_NOT_EVIDENCE` per state instead of a shower of per-actor findings
+naming the wrong fault.
+
+The predicate was `boxes.every(planOnly)`. Read it as an assertion and it says
+"nothing in this scene knows its own height", which was true. Read it as a
+switch and it says "trust every sightline the moment ANY solid knows its own
+height", which is not the same statement at all and is the one that shipped.
+
+`buildCar` then measured the Initiation's parked cars and gave nine colliders a
+real band. 189 of 189 became 180 of 189, `every` went false, and the gate
+started taking sightlines as evidence against 180 solids still claiming four
+and a half metres of column apiece. It went from correctly silent to confidently
+wrong on a change that only ever added information — and the first finding out
+of it happened to be TRUE, against one of the nine measured cars, which is the
+worst possible luck: a gate that gets its first mixed-scene answer right teaches
+you to trust the next one.
+
+**The rule.** When a check suppresses itself because the input is not good
+enough to answer with, hang the suppression on **each datum**, not on a
+quantifier over all of them. `boxes.every(bad)` is a scene-level claim; what the
+ray actually needs is `if (bad(box)) continue`. The scene-level form is still
+worth keeping where it means something — every solid plan-only really does mean
+there is no sightline evidence here at all — but it belongs beside the per-datum
+filter as a note to a person, not in front of it as a gate on the arithmetic.
+
+Corollary, and it is entry 10 wearing a hat: the allowlist entry excusing that
+scene-level finding went stale in the same commit. It was not tidy-up. It was
+the gate telling the truth about having changed its mind, and the reason
+written on it — "lifting this one means giving the trees their real trunk
+heights" — was still true about 180 solids and had to be carried into the code
+before the entry could go.
