@@ -309,6 +309,19 @@ try {
   }));
   await page.keyboard.up('Space');
   const walked = Math.hypot(afterWalk.x - beforeInput.x, afterWalk.z - beforeInput.z);
+  /* The two getters the input incident added: `pointerlockchange` is the one
+   * thing that enables him, and he opens the scene on his feet at the kerb --
+   * not already seated in the car. */
+  const gateProbe = await page.evaluate(() => ({
+    lockedToCanvas: document.pointerLockElement?.tagName === 'CANVAS',
+    enabled: window.SPECIAL_MEETING.playerEnabled,
+    mode: window.SPECIAL_MEETING.playerMode,
+  }));
+  check('clicking the canvas takes pointer lock and enables the player',
+    gateProbe.lockedToCanvas && gateProbe.enabled === true, JSON.stringify(gateProbe));
+  check('he starts the scene on his feet at the kerb, not already in the car',
+    gateProbe.mode === 'walk', JSON.stringify(gateProbe));
+
   check('pointer-locked mouse input changes the shared first-person camera',
     Math.abs(afterLook.yaw - beforeInput.yaw) > 0.01
       && Math.abs(afterLook.pitch - beforeInput.pitch) > 0.01,

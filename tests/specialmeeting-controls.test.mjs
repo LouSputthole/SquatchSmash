@@ -28,7 +28,7 @@ test('Special Meeting provides the complete shared Hud DOM contract before boot'
 test('Special Meeting forwards configured WASD, sprint, crouch, jump, and mouse look to Player', () => {
   assert.match(MAIN, /import \{ translateKey \} from '\.\.\/core\/settings\.js';/);
   assert.match(MAIN, /player\.setKey\(code, true\)/);
-  assert.match(MAIN, /player\.setKey\(translateKey\(event\.code\), false\)/);
+  assert.match(MAIN, /const code = translateKey\(event\.code\);\n  player\.setKey\(code, false\)/);
   assert.match(MAIN, /'KeyW'.*'KeyA'.*'KeyS'.*'KeyD'/s);
   assert.match(MAIN, /'ShiftLeft'.*'ShiftRight'.*'KeyC'.*'Space'/s);
   assert.match(MAIN, /player\.handleMouseMove\(event\.movementX, event\.movementY\)/);
@@ -74,7 +74,8 @@ test('the road cut replaces block collision with the forest world before boardin
 
 test('the browser debug surface exposes shared Player start and forest-world evidence', () => {
   assert.match(MAIN, /window\.SPECIAL_MEETING = \{/);
-  assert.match(MAIN, /campaign, ride, cast, stage, player,/);
+  assert.match(MAIN, /campaign, ride, cast, stage,/);
+  assert.match(MAIN, /^  player,$/m);
   assert.match(MAIN, /get started\(\) \{ return started; \}/);
   assert.match(MAIN, /get forest\(\) \{ return forest; \}/);
   assert.match(MAIN, /get voiceReady\(\) \{ return voiceReady; \}/);

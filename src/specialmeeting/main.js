@@ -41,9 +41,9 @@ import { createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { translateKey } from '../core/settings.js';
 import { registerSceneRenderer } from '../core/scene-lifecycle.js';
 import { AMBIENCE_CUES } from './ambience.js';
-import { translateKey } from '../core/settings.js';
 import { buildSpecialMeetingCast } from './cast.js';
 import { createNightForestRoad, adaptMeetingSedan } from './forest/index.js';
 import { createRideSequence } from './ride.js';
@@ -217,7 +217,7 @@ function showChoices(options) {
   for (const button of choicesEl.querySelectorAll('button')) {
     button.addEventListener('click', () => {
       ride.choose(Number(button.dataset.choice));
-      requestGamePointerLock();
+      requestScenePointerLock();
     });
   }
 }
@@ -227,39 +227,87 @@ const PLAYER_INPUT_CODES = new Set([
   'ShiftLeft', 'ShiftRight', 'KeyC', 'Space',
 ]);
 
+/* ------------------------------------------------------------------ */
+/* INPUT, WHICH THIS SCENE DID NOT HAVE                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * THE PLAYER COULD NOT MOVE, LOOK, OR PRESS ANYTHING. Owner, verbatim: "I
+ * spawn in and I cant move. Theres nothing to do. I cant move and I cant move
+ * my camera."
+ *
+ * `core/player.js` listens to NOTHING. It exposes `setKey(code, down)` and
+ * `handleMouseMove(dx, dy)` and expects the scene to feed them, which the
+ * other ten first-person scenes all do. This one built a Player, put it in
+ * `walk`, and called `player.update(dt)` sixty times a second against an
+ * input set that was permanently empty. It also never set `player.enabled`,
+ * which defaults to FALSE -- so even a wired key would have moved nobody,
+ * because `_updateWalk` is gated on it.
+ *
+ * Nothing caught it, and that is the part worth writing down. The campaign
+ * marathon walks in and out of this scene through handoff CALLS; the WebGL
+ * health check reads the renderer; boot-failure-surfaces checks the failure
+ * screen; geometry, staging and framing all analyse a built scene. Not one of
+ * them presses a key. A scene can be structurally perfect and completely
+ * unplayable and every gate in this repository will call it green.
+ *
+ * The mode transitions were already right and are untouched: `walk` at the
+ * kerb (the owner's "a brief few moments" before he gets in), `seated` for the
+ * ride -- which locks him to the spot and LEAVES HIM HIS EYES, see the note in
+ * src/nowake/main.js -- and `walk` again at the trailhead.
+ */
+function requestScenePointerLock() {
+  if (paused || handedOff || document.pointerLockElement === canvas) return;
+  try {
+    const pending = canvas.requestPointerLock?.();
+    pending?.catch?.(() => {});
+  } catch {
+    /* An embedded preview can deny pointer lock without invalidating the
+     * scene, exactly as the graveyard's own note says. */
+  }
+}
+
+canvas.addEventListener('mousedown', (event) => {
+  if (event.button !== 0 || event.target.closest?.('button, a')) return;
+  requestScenePointerLock();
+});
+
+document.addEventListener('pointerlockchange', () => {
+  player.enabled = !paused && document.pointerLockElement === canvas;
+  if (!player.enabled) player.clearKeys();
+});
+
+addEventListener('mousemove', (event) => {
+  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
+});
+
 addEventListener('keydown', (event) => {
   if (paused) return;
+  /* The TRANSLATED key, so a rebound Move or Sprint reaches the player -- the
+   * same call every other scene makes. Movement codes preventDefault so Space
+   * does not scroll an embedding page; Use stays outside the movement set. */
   const code = translateKey(event.code);
   if (PLAYER_INPUT_CODES.has(code)) {
     player.setKey(code, true);
     event.preventDefault();
   }
+  /* Autorepeat must not open a second hold whose release reads as a tap. */
+  if (code === 'KeyE' && !event.repeat) interaction.press();
   if (!ride.options) return;
   const n = Number(event.key);
   if (!Number.isInteger(n) || n < 1 || n > ride.options.length) return;
   event.preventDefault();
   ride.choose(ride.options[n - 1].index);
 });
-addEventListener('keyup', (event) => player.setKey(translateKey(event.code), false));
+
+addEventListener('keyup', (event) => {
+  const code = translateKey(event.code);
+  player.setKey(code, false);
+  if (code === 'KeyE') interaction.release();
+});
+
+/* A key held when the window loses focus is a key that never comes up. */
 addEventListener('blur', () => player.clearKeys());
-addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
-});
-document.addEventListener('pointerlockchange', () => {
-  player.enabled = !paused && document.pointerLockElement === canvas;
-  if (!player.enabled) player.clearKeys();
-});
-
-function requestGamePointerLock() {
-  if (paused || document.pointerLockElement === canvas) return;
-  const pending = canvas.requestPointerLock?.();
-  pending?.catch?.(() => {});
-}
-
-canvas.addEventListener('mousedown', (event) => {
-  if (event.button !== 0 || event.target.closest?.('button, a')) return;
-  requestGamePointerLock();
-});
 
 /* ------------------------------------------------------------------ */
 /* The sequence                                                        */
@@ -444,7 +492,8 @@ const pauseMenu = createPauseMenu({
   },
   onResume: () => {
     paused = false;
-    player.enabled = document.pointerLockElement === canvas;
+    /* Taking the lock back is what re-enables him; see `pointerlockchange`. */
+    requestScenePointerLock();
   },
   recovery,
 });
@@ -536,7 +585,18 @@ document.getElementById('loading')?.classList.add('hidden');
  * specialmeeting.html). Published last, once the first frame has actually
  * gone out, so a scene that threw on the way up still reports as failed. */
 window.SPECIAL_MEETING = {
-  campaign, ride, cast, stage, player,
+  campaign, ride, cast, stage,
+  /* THE PLAYER, so a check can ask whether he can actually move.
+   *
+   * Published because nothing in this repository could answer that question
+   * about this scene: the marathon drives it through handoff calls, the WebGL
+   * check reads the renderer, and geometry/staging/framing analyse a built
+   * scene. None of them presses a key, so the scene shipped for weeks with no
+   * input wiring at all and every gate green. See the INPUT block above. */
+  player,
+  /** What `pointerlockchange` last decided. False means he is a passenger. */
+  get playerEnabled() { return player.enabled; },
+  get playerMode() { return player.mode; },
   /* The scene root, published for the repo-wide mesh sweep in
    * tools/scene-audit-scenes.mjs, which finds a page's geometry by walking a
    * declared path to a THREE.Scene rather than by guessing. */

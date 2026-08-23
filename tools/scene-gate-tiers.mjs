@@ -95,6 +95,27 @@ export const SCENE_GATES = Object.freeze([
     why: 'One boot of a generated harness page. No scene, no mission, 60 s default timeout.',
   },
   {
+    script: 'verify:specialmeeting',
+    tier: 'smoke',
+    /* One boot, one click, and 2.0 s of held W plus a mouse sweep -- about
+     * forty driven frames on the software rasteriser. It is here rather than
+     * in `scene` because it deliberately stops at the kerb: it asks whether
+     * the player can move AT ALL and never rides out, so it costs a boot and
+     * two wall seconds rather than a night's drive.
+     *
+     * SMOKE ON PURPOSE, TOO. This is the check that found the Special Meeting
+     * shipped with no input wiring whatsoever -- no keys, no mouse, no pointer
+     * lock, `player.enabled` never set -- which every other gate in the
+     * repository called green because none of them presses a key. A question
+     * that basic belongs in the cheapest tier, where it runs most often.
+     *
+     * The systems-pass merge folded the voice-readiness checks in as well, so
+     * the boot now also waits out the 220-cue decode gate and proves SM-100
+     * cannot start before it -- tens of seconds of decode, not driven frames,
+     * and still smoke money. */
+    why: 'One specialmeeting boot, a click for pointer lock, 2 s of held input. Stops at the kerb.',
+  },
+  {
     script: 'verify:pixel-ratio',
     tier: 'smoke',
     why: 'Two combatlab boots; reads renderer state straight after each.',
@@ -185,13 +206,6 @@ export const SCENE_GATES = Object.freeze([
     script: 'verify:silvercase',
     tier: 'scene',
     why: 'One playthrough boot plus five checkpoint boots; the FSM is stepped in-page.',
-  },
-  {
-    script: 'verify:specialmeeting',
-    tier: 'scene',
-    why: 'One boot. It waits out the 220-cue decode gate, proves SM-100 cannot start '
-      + 'before it, and walks the player a few metres — it deliberately stops during '
-      + 'SM-100 rather than driving the meeting.',
   },
   {
     script: 'verify:squatchfather',
