@@ -649,20 +649,32 @@ function pointBlocked(x, y, z, r = 0.3) {
   return false;
 }
 
+/**
+ * IS THERE A MOTEL BETWEEN THESE TWO POINTS?
+ *
+ * Owner: "Also you start getting shot thro walls I think as well." He was.
+ *
+ * This used to march ten points down the segment and ask whether any of them
+ * had landed inside a blocker. Motel walls are 0.3 m thick and a shot from
+ * the lot into room twelve is twelve to thirty metres long, which put the
+ * samples 1.2-3 m apart, so the front of the building routinely fell between
+ * two of them and `damagePlayer` ran anyway -- measured on the built level,
+ * from 22 of 144 sampled firing positions in the lot. Raising the sample count
+ * would only have made the player walk further back before finding the same
+ * hole. The whole march is gone; `level.js` now answers this with the
+ * shared slab test in `src/core/combat/spatial.js`, against the real box, at
+ * any thickness and any range. The long version of why -- including the two
+ * furniture tags that still do not block, and the measurement behind that --
+ * is the comment over `motelSegmentBlocked` in `src/motel/level.js`.
+ *
+ * The signature and the return value are deliberately unchanged. Callers pass
+ * (x, z, y) triples in that order and compare the result against 0.95, reading
+ * a contact in the last five percent of the line as the target itself rather
+ * than cover in front of it -- which is what lets an interaction prompt sit on
+ * the door it belongs to. 1 means nothing is in the way.
+ */
 function segmentBlocked(x0, z0, y0, x1, z1, y1) {
-  const steps = 10;
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps;
-    const x = THREE.MathUtils.lerp(x0, x1, t);
-    const z = THREE.MathUtils.lerp(z0, z1, t);
-    const y = THREE.MathUtils.lerp(y0, y1, t);
-    for (const c of colliders) {
-      if (!c.enabled || c.tag === 'bed' || c.tag === 'table') continue;
-      if (y <= c.y0 || y >= c.y1) continue;
-      if (x > c.x0 - 0.25 && x < c.x1 + 0.25 && z > c.z0 - 0.25 && z < c.z1 + 0.25) return t;
-    }
-  }
-  return 1;
+  return level.segmentBlocked({ x: x0, y: y0, z: z0 }, { x: x1, y: y1, z: z1 });
 }
 
 const actorCtx = {
