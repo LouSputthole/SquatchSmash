@@ -3,11 +3,12 @@
  *
  * `src/core/wardrobe.js` answers "what does Big Uncle Lou wear". It cannot
  * answer "what is Big Uncle Lou wearing at the Bing", because that is not its
- * decision: the club spreads `BIG_UNCLE_LOU_BING`, the mansion spreads
- * `BIG_UNCLE_LOU_MANSION`, the boat spreads plain `BIG_UNCLE_LOU`, and the golf
- * course composes his canonical body under its exported argyle outfit. One
- * man, four outfits, four files, and until this ledger existed there was
- * nowhere to see the four of them next to each other.
+ * decision: the club spreads `BIG_UNCLE_LOU_BING`, the mansion and the boat
+ * both spread `BIG_UNCLE_LOU_MANSION` -- the boat wore the plain suit until the
+ * owner ruled on 2026-08-24 that a man on a boat at dawn is dressed the way he
+ * is dressed at home -- and the golf course composes his canonical body under
+ * its exported argyle outfit. One man, four outfits, four files, and until this
+ * ledger existed there was nowhere to see the four of them next to each other.
  *
  * So this is the second half of the wardrobe: a row per person per scene,
  * naming where in the scene they are and which model that scene actually
@@ -1035,10 +1036,12 @@ export const APPEARANCES = Object.freeze([
     name: 'Big Uncle Lou',
     scene: 'no_wake',
     where: 'the foredeck, standing, facing aft at Willy',
-    model: BIG_UNCLE_LOU,
-    from: { wardrobe: 'BIG_UNCLE_LOU' },
+    /* The camp shirt, on the owner's ruling of 2026-08-24: the same outfit he
+     * wears at his own house, not the suit he wears to be seen in. */
+    model: BIG_UNCLE_LOU_MANSION,
+    from: { wardrobe: 'BIG_UNCLE_LOU_MANSION' },
     module: 'src/nowake/world.js',
-    evidence: 'model: { ...BIG_UNCLE_LOU, face: \'assets/faces/lou.png\' },',
+    evidence: 'model: { ...BIG_UNCLE_LOU_MANSION, face: \'assets/faces/lou.png\' },',
   }),
   row({
     character: CHARACTER_IDS.LOU,
