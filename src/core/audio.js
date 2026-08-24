@@ -17,6 +17,7 @@ import { loadJson, assetUrl, isBundled } from './assets.js';
 import { loadOnceRetriable, runWorkerPool } from './load-queue.js';
 import { bindAudioVolume } from './settings.js';
 import { registerSceneAudioContext } from './scene-lifecycle.js';
+import { DIALOGUE_ACCEPTANCE, speakVariant } from './dialogue.js';
 
 /** Scratch for readWorldPosition, which runs per follower per frame. */
 const _follow = new THREE.Vector3();
@@ -256,6 +257,13 @@ export class AudioEngine {
       scheduledAt: facts.scheduledAt ?? null,
       voice,
       speakerId: opts.speakerId ?? null,
+      /* Subtitle text is evidence, not presentation. The dialogue Module
+       * still leaves drawing and clearing the HUD to the scene Adapter, but
+       * certification can now prove that the words on screen belonged to the
+       * exact requested take instead of merely observing two nearby events.
+       * Omit it for legacy calls so the long-standing receipt Interface does
+       * not gain a meaningless null field on every sound in the game. */
+      ...(opts.subtitle == null ? {} : { subtitle: String(opts.subtitle) }),
       ambient: opts.ambientVoice === true,
       positional: receiptPositioning(opts, facts),
     });
@@ -1055,33 +1063,28 @@ export class AudioEngine {
   }
 
   /**
-   * Say one of the character's lines.
+   * Select one decoded take from a character's interchangeable voice bank.
    *
-   * Cues are named `vo.<moment>.<n>`; this picks among whichever ones exist,
-   * never the same one twice running, and does nothing at all if none of them
-   * have been generated yet. There is no procedural fallback on purpose --
-   * a synthesised voice would be worse than silence.
+   * Selection is deliberately separate from playback. `speakVariant()` in
+   * core/dialogue.js owns the dialogue Interface (voice bus, spatial mix,
+   * analyser, timing, receipt), while this engine owns which decoded samples
+   * are resident and which take was used last. Keeping that knowledge local
+   * prevents every scene from scanning `buffers` and inventing its own repeat
+   * rule.
    *
-   * @param {string} group e.g. 'beer.open'
-   * @param {object} opts  { chance, volume, delay }
+   * @param {string} group e.g. 'beer.open' for `vo.beer.open.<n>`
+   * @param {object} [options]
+   * @param {number} [options.chance] probability that this optional bark fires
+   * @returns {string|null} the exact decoded cue selected for playback
    */
-  say(group, opts = {}) {
-    if (!this.ready) return false;
-    const { chance = 1, volume = 0.85, delay = 0 } = opts;
-    if (chance < 1 && Math.random() > chance) return false;
+  selectVoiceVariant(group, { chance = 1 } = {}) {
+    if (chance < 1 && Math.random() > chance) return null;
 
     /* Cached per group, but only for as long as the library has not moved.
      *
-     * This used to cache unconditionally, and an EMPTY bank is a perfectly
-     * good cache entry, so any group asked for before its takes had decoded
-     * was cached silent and stayed silent for the whole session. Most banks
-     * get away with it because they are asked for late; the ones that do not
-     * are exactly the ones that fire in the first minute -- the front door
-     * being the worst of them, since a player who tries the handle while the
-     * background bank is still filling in never hears the door again.
-     *
-     * `loadedCount` only ever increases, so comparing it is a cheap way of
-     * asking "has anything arrived since I last looked". */
+     * An EMPTY bank is a perfectly good cache entry, so any group asked for
+     * before its takes decoded used to stay silent for the whole session.
+     * `loadedCount` only increases; a change means the bank must be rebuilt. */
     if (this._voBanksAt !== this.loadedCount) {
       this._voBanks = new Map();
       this._voBanksAt = this.loadedCount;
@@ -1090,12 +1093,12 @@ export class AudioEngine {
     if (!bank) {
       bank = [];
       for (const name of this.buffers.keys()) {
-        if (name.startsWith(`vo.${group}.`)) bank.push(name);
+        if (name.startsWith(`vo.${group}.`) && this.hasSample(name)) bank.push(name);
       }
       bank.sort();
       (this._voBanks ??= new Map()).set(group, bank);
     }
-    if (!bank.length) return false;
+    if (!bank.length) return null;
 
     // Never the same line twice running -- that is what makes VO feel canned.
     this._voLast ??= new Map();
@@ -1107,14 +1110,45 @@ export class AudioEngine {
       }
     }
     this._voLast.set(group, pick);
+    return pick;
+  }
 
-    // One voice at a time. He is not a chorus.
+  /**
+   * Say one of the character's lines.
+   *
+   * Cues are named `vo.<moment>.<n>`; this picks among whichever ones exist,
+   * never the same one twice running, and does nothing at all if none of them
+   * have been generated yet. There is no procedural fallback on purpose --
+   * a synthesised voice would be worse than silence.
+   *
+   * Legacy boolean Adapter for `speakVariant()`. New callers should use that
+   * function directly when they need the selected cue, measured duration,
+   * subtitle metadata, acceptance result, or playback receipt.
+   *
+   * @param {string} group e.g. 'beer.open'
+   * @param {object} opts  dialogue options plus { chance, volume, delay }
+   */
+  say(group, opts = {}) {
+    if (!this.ready) return false;
+    /* Select before cutting the current bark. A refused chance or empty bank
+     * must not silence the line that is already playing. Once a take has been
+     * selected, preserve the legacy one-bark channel and stop it BEFORE the
+     * replacement is routed; besides being audible truth, that ordering keeps
+     * the overlap ledger from observing two scheduled voices in one tick. */
+    const selectedCue = this.selectVoiceVariant(group, { chance: opts.chance ?? 1 });
+    if (!selectedCue) return false;
     this._vo?.stop?.();
-    this._vo = this.play(pick, { volume, delay });
+    this._vo = null;
+    const spoken = speakVariant(this, group, { ...opts, selectedCue });
+    if (!spoken || spoken.acceptance.status !== DIALOGUE_ACCEPTANCE.ACCEPTED
+      || !spoken.source) return false;
+
+    this._vo = spoken.source;
     /* Note how long he will be talking for, so anything that can afford to
      * wait -- a fart, mostly -- can hold off rather than land on the line. */
-    const secs = this._vo?.buffer ? this._vo.buffer.duration : 1.6;
-    this._busyUntil = Math.max(this._busyUntil || 0, this.ctx.currentTime + delay + secs + 0.25);
+    const delay = Number(opts.delay) || 0;
+    this._busyUntil = Math.max(this._busyUntil || 0,
+      this.ctx.currentTime + delay + spoken.seconds + 0.25);
     return true;
   }
 

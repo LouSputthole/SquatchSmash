@@ -29,10 +29,11 @@
  *     right character say the right line in the right order" without hearing
  *     anything.
  *
- * WHAT THIS IS NOT. It is not a replacement for `AudioEngine.say()`, which
- * picks a random take from a bank of interchangeable barks and is the right
- * tool for a grunt. This is for AUTHORED lines: a specific cue, from a
- * specific character, in a specific order.
+ * Authored lines use `speak()` with an exact cue. Interchangeable barks use
+ * `speakVariant()`, which asks the AudioEngine to select a decoded take and
+ * then crosses this same Interface. `AudioEngine.say()` remains only the
+ * legacy boolean Adapter for callers that do not need the selected cue,
+ * acceptance result, duration, subtitle metadata, or playback receipt.
  */
 
 /**
@@ -194,12 +195,17 @@ export function hasSpeech(audio, cue) {
  *        Object3D, a {x,y,z}, or a function returning one. A line from a
  *        speaker FOLLOWS him, so a man walking away gets quieter as he walks.
  * @param {*} [options.position]  a fixed point, for a speaker who cannot move.
+ * @param {*} [options.follow]    an explicit moving source; `speaker` is the
+ *        usual shorthand. Ignored by SPEECH_MIX_CLOSE.
  * @param {object} [options.mix]  SPEECH_MIX (default), _INDOORS, or _CLOSE.
  * @param {number} [options.gain] one of SPEECH_GAIN, or a number with a reason.
  * @param {number} [options.muffle] a SPEECH_MUFFLE_HZ corner, for through-a-wall.
  * @param {number} [options.delay]
+ * @param {string} [options.subtitle] words associated with the take for
+ *        receipts/certification; the scene Adapter still owns rendering.
  * @param {boolean} [options.requiredRecorded] strict-QA recording policy; true by default
  * @returns {{cue: string, seconds: number, source: *, silent: boolean,
+ *   subtitle:string|null,
  *   receipt: object|null, acceptance: {status:'accepted'|'retry'|'drop', reason:string|null,
  *   receipt:object|null}}}
  */
@@ -207,10 +213,12 @@ export function speak(audio, cue, options = {}) {
   const {
     speaker = null,
     position = null,
+    follow = speaker,
     mix = SPEECH_MIX,
     gain = SPEECH_GAIN.normal,
     muffle = 0,
     delay = 0,
+    subtitle = null,
     requiredRecorded = true,
     ...rest
   } = options;
@@ -245,6 +253,7 @@ export function speak(audio, cue, options = {}) {
     requiredRecorded,
   };
   if (muffle) opts.muffle = muffle;
+  if (subtitle != null) opts.subtitle = subtitle;
   if (mix?.ref != null) {
     opts.ref = mix.ref;
     opts.maxDist = mix.maxDist;
@@ -255,7 +264,7 @@ export function speak(audio, cue, options = {}) {
      * stays with a walking man and one pinned to where he was when he opened
      * his mouth. A caller with only a rig gets the seed read off it. */
     if (position) opts.position = position;
-    if (speaker) opts.follow = speaker;
+    if (follow) opts.follow = follow;
   }
 
   let source;
@@ -271,7 +280,40 @@ export function speak(audio, cue, options = {}) {
   if (acceptance.status === DIALOGUE_ACCEPTANCE.ACCEPTED) {
     audio.hold?.(delay + seconds + SPEECH_GAP_S);
   }
-  return { cue, seconds, source, silent, receipt, acceptance };
+  return { cue, seconds, source, silent, subtitle, receipt, acceptance };
+}
+
+/**
+ * Say one randomly selected decoded take from an interchangeable voice bank.
+ *
+ * This is the canonical seam for variant barks. The AudioEngine owns bank
+ * residency, invalidation, and no-immediate-repeat selection; `speak()` owns
+ * everything the player can observe after selection. A scene therefore gets
+ * positional audio, the voice bus, measured timing, mouth analysis, subtitle
+ * evidence, and acceptance receipts without rebuilding any of them.
+ *
+ * `volume` is retained as the legacy bark spelling for `gain`, and defaults
+ * to the old `AudioEngine.say()` level. Explicit `gain` wins for new callers.
+ *
+ * @param {object} audio an AudioEngine or compatible Adapter
+ * @param {string} group e.g. 'beer.open' for `vo.beer.open.<n>`
+ * @param {object} [options] `speak()` options plus chance/volume
+ * @param {string} [options.selectedCue] an exact result already returned by
+ *        `selectVoiceVariant`, for a compatibility Adapter that must stop its
+ *        previous source between selection and playback
+ * @returns {ReturnType<typeof speak>|null} null when chance or the decoded bank refuses
+ */
+export function speakVariant(audio, group, options = {}) {
+  const {
+    chance = 1,
+    volume = 0.85,
+    gain = volume,
+    selectedCue = null,
+    ...speechOptions
+  } = options;
+  const cue = selectedCue ?? audio?.selectVoiceVariant?.(group, { chance }) ?? null;
+  if (!cue) return null;
+  return speak(audio, cue, { ...speechOptions, gain });
 }
 
 /**
