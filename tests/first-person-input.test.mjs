@@ -8,11 +8,12 @@ import {
 } from '../src/core/first-person-input.js';
 
 class FakeTarget {
-  constructor() { this.listeners = new Map(); }
-  addEventListener(type, listener) {
+  constructor() { this.listeners = new Map(); this.options = new Map(); }
+  addEventListener(type, listener, options = false) {
     const entries = this.listeners.get(type) ?? new Set();
     entries.add(listener);
     this.listeners.set(type, entries);
+    this.options.set(type, options);
   }
   removeEventListener(type, listener) { this.listeners.get(type)?.delete(listener); }
   listenerCount(type) { return this.listeners.get(type)?.size ?? 0; }
@@ -60,6 +61,13 @@ test('the shared Adapter owns the complete first-person movement vocabulary', ()
   assert.deepEqual(FIRST_PERSON_MOVEMENT_CODES, [
     'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight', 'KeyC', 'Space',
   ]);
+});
+
+test('keyboard capture is an explicit Adapter option for focused flight UI', () => {
+  const f = fixture({ keyboardCapture: true });
+  assert.equal(f.windowTarget.options.get('keydown'), true);
+  assert.equal(f.windowTarget.options.get('keyup'), true);
+  f.input.destroy();
 });
 
 test('pointer lock is the single enable seam for translated movement and look', () => {

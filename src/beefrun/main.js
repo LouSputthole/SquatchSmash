@@ -11,8 +11,8 @@ import * as THREE from 'three';
 
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
-import { translateKey } from '../core/settings.js';
 import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import {
   SCENE_IDS,
@@ -43,6 +43,7 @@ import { buildLandmarks } from './landmarks.js';
 import { FlightHud } from './hud.js';
 import { CameraManager } from './cameras.js';
 import { FlightInput, isBrowserReservedChord } from './input.js';
+import { createFlightFirstPersonPolicy } from './first-person-controls.js';
 import { BeefAudioEngine, MissionAudio } from './audio.js';
 import { DialogueSystem } from './dialogue.js';
 import { Preflight } from './preflight.js';
@@ -246,6 +247,7 @@ window.__beefrun = {
   THREE, scene, camera, renderer,
   mission, physics, engines, cargo, detection, weather, aircraft, terrain,
   player, cameras, dialogue, interaction, input, audio: missionAudio, hud, flightHud,
+  get browserInput() { return browserInput; },
 
   radio, radioClock, radioAudioPlan,
   sceneInventory,
@@ -411,9 +413,8 @@ document.getElementById('br-home')?.addEventListener('click', () => {
   navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
 });
 
-let dragLook = false;
-let dragging = false;
 let dragLookHinted = false;
+let captureArmed = false;
 
 function requestLock() {
   /* Never over the report card. The card has buttons and a locked pointer
@@ -427,62 +428,12 @@ function requestLock() {
    * that rejects or delays the lock can leave Shift apparently dead for the
    * first part of a cockpit run. */
   input.enabled = true;
-  if (document.pointerLockElement === canvas) { enableInput(); return; }
-  /* Drag-look is a FALLBACK, never a life sentence — the same rule the Bada
-   * Bing settled on. This used to read `if (dragLook) { enableInput(); return; }`,
-   * so one refusal latched the mode permanently and no later click ever asked
-   * the browser again. Every attempt asks for the real thing; `pointerlockchange`
-   * retires the fallback the moment one is granted. */
-  if (dragLook) enableInput();
-  const p = canvas.requestPointerLock?.();
-  if (p && p.catch) p.catch(() => fallBackToDragLook());
-  setTimeout(() => {
-    if (document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
-  }, 600);
-}
-
-function fallBackToDragLook() {
-  if (document.pointerLockElement === canvas) return;
-  if (!dragLook && !dragLookHinted) {
-    dragLookHinted = true;
-    hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
-      + 'Any click keeps retrying the real thing.', 7000);
-  }
-  dragLook = true;
-  enableInput();
-}
-
-function enableInput() {
-  player.enabled = !mission.flags.inCockpit;
-  input.enabled = true;
+  captureArmed = true;
   game.paused = false;
   mission.paused = false;
-  document.body.classList.remove('unlocked');
-  /* Only once the mission is actually running. Drag-look can be settled on
-   * while the sample bank is still loading behind the title card, and taking
-   * the card down from here would say "playing" fifteen seconds before there
-   * is anything to play. */
-  if (game.started) overlay.classList.add('hidden');
+  browserInput.refresh('request-lock');
+  browserInput.requestPointerLock();
 }
-
-document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === canvas;
-  if (locked) dragLook = false;          // the real thing won; retire the fallback
-  player.enabled = (locked || dragLook) && !mission.flags.inCockpit;
-  input.enabled = locked || dragLook;
-  document.body.classList.toggle('unlocked', !locked && !dragLook);
-  // Once the end card is up, losing the lock is the point, not a pause.
-  if (!locked && !dragLook && game.started && !mission.finished) pauseGame();
-});
-
-/* Every canvas click while unlocked re-attempts REAL pointer lock. The browser
- * may grant it now that this is a fresh user gesture — which is the only way
- * back from a first request that was refused because the sample bank was still
- * loading when it was made. */
-canvas.addEventListener('click', () => {
-  if (!game.started || game.paused || mission.finished) return;
-  if (document.pointerLockElement !== canvas) requestLock();
-});
 
 function pauseGame() {
   pauseMenu.pause();
@@ -508,23 +459,20 @@ const pauseMenu = createPauseMenu({
   onPause: () => {
     game.paused = true;
     mission.paused = true;
-    player.enabled = false;
     input.enabled = false;
-    player.clearKeys();
     input.clear();
-    interaction.release();
+    browserInput.suspend();
     radio.pause();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     game.paused = false;
     mission.paused = false;
-    player.enabled = !mission.flags.inCockpit;
     input.enabled = true;
     audio.ctx?.resume?.();
     radio.resume();
     last = performance.now();
-    requestLock();
+    browserInput.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -539,29 +487,6 @@ const pauseMenu = createPauseMenu({
 /* Input                                                              */
 /* ------------------------------------------------------------------ */
 
-document.addEventListener('mousemove', (e) => {
-  if (game.paused) return;
-  if (dragLook && !dragging) return;
-  if (mission.flags.inCockpit) cameras.look(e.movementX, e.movementY);
-  else if (player.enabled) player.handleMouseMove(e.movementX, e.movementY);
-});
-
-document.addEventListener('mousedown', (e) => {
-  if (e.button !== 0) return;
-  dragging = true;
-  if (game.paused) return;
-  if (!mission.flags.inCockpit) interaction.press();
-});
-
-document.addEventListener('mouseup', (e) => {
-  if (e.button !== 0) return;
-  dragging = false;
-  if (!mission.flags.inCockpit) interaction.release();
-});
-
-/* Capture at document rather than the window. It still wins over focused UI
- * controls, while matching the real keyboard dispatch path Chrome uses for
- * the game canvas and accessibility-focused document. */
 /* Reaching for the throttle lever that is not there any more.
  *
  * Ctrl used to lower the throttle, so muscle memory and every stale guide send
@@ -578,32 +503,47 @@ function nudgeAwayFromBrowserChord() {
   hud.toast('THROTTLE DOWN IS Z — CTRL IS THE BROWSER’S', 'bad', 4200);
 }
 
-document.addEventListener('keydown', (e) => {
-  if (!game.started) return;
-  if (e.code === 'Escape') return;             // pointer lock handles this
-  if (game.paused) return;
-  if (isBrowserReservedChord(e)) nudgeAwayFromBrowserChord();
-  if (e.repeat) return;
-  const code = input.keyEvent(e, true);
-  // keyEvent keeps the physical ShiftLeft/ShiftRight code for the keymap, so
-  // the modifier is recognised here by its logical name.
-  if (code === 'Space' || e.key === 'Shift') e.preventDefault();
-  player.setKey(translateKey(e.code), true);
-  if (!mission.flags.inCockpit && e.code === 'KeyE') interaction.press();
-}, true);
+function syncFlightCapture({ captured }) {
+  input.enabled = captureArmed && !game.paused && !flightHud.completeUp;
+  document.body.classList.toggle('unlocked', !captured);
+  if (captured && game.started) overlay.classList.add('hidden');
+  // Once the end card is up, losing capture is intentional, not a pause.
+  if (!captured && game.started && !game.paused && !mission.finished) pauseGame();
+}
 
-document.addEventListener('keyup', (e) => {
-  const code = input.keyEvent(e, false);
-  player.setKey(translateKey(e.code), false);
-  if (!mission.flags.inCockpit && e.code === 'KeyE') interaction.release();
-}, true);
-
-/* Do not keep a modifier pressed if Chrome moves focus to its UI or another
- * tab while the player is holding it. */
-window.addEventListener('blur', () => {
-  dragging = false;
-  player.clearKeys();
-  input.clear();
+const flightInputPolicy = createFlightFirstPersonPolicy({
+  isActive: () => game.started && !game.paused && !flightHud.completeUp,
+  canCapture: () => captureArmed && !game.paused && !flightHud.completeUp,
+  isOnFoot: () => !mission.flags.inCockpit,
+  flightInput: input,
+  lookAircraft: (dx, dy) => cameras.look(dx, dy),
+  pressPrimary: () => {
+    if (!mission.flags.inCockpit) interaction.press();
+  },
+  releasePrimary: () => {
+    if (!mission.flags.inCockpit) interaction.release();
+  },
+  keyPrelude: (event) => {
+    if (isBrowserReservedChord(event)) nudgeAwayFromBrowserChord();
+  },
+  beforeKeyDown: (event) => event.code === 'Escape',
+});
+const browserInput = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  keyboardCapture: true,
+  ...flightInputPolicy,
+  onClear: () => input.clear(),
+  onCaptureChange: (_event, context) => syncFlightCapture(context),
+  onCaptureError: (_error, context) => {
+    if (context.recovered && !dragLookHinted) {
+      dragLookHinted = true;
+      hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
+        + 'Any click keeps retrying the real thing.', 7000);
+    }
+    syncFlightCapture(context);
+  },
 });
 
 input.onAction = (name) => {
@@ -693,6 +633,7 @@ input.onAction = (name) => {
 /* ------------------------------------------------------------------ */
 
 let last = performance.now();
+let lastBrowserInputMode = null;
 loading?.classList.add('hidden');
 
 function frame() {
@@ -705,6 +646,11 @@ function frame() {
   // report card is up; then the whole simulation freezes rather than stepping
   // physics, weather and streaming behind an opaque card forever.
   if (game.started && !game.paused && !flightHud.completeUp) {
+    const browserInputMode = mission.flags.inCockpit ? 'cockpit' : 'on-foot';
+    if (browserInputMode !== lastBrowserInputMode) {
+      lastBrowserInputMode = browserInputMode;
+      browserInput.refresh(`mode:${browserInputMode}`);
+    }
     input.update(dt);
 
     const inCockpit = mission.flags.inCockpit;
@@ -714,7 +660,7 @@ function frame() {
       engines.setThrottle(1, physics.controls.throttleR);
       engines.update(dt, physics.tas);
       physics.advance(dt);
-      if (!dragging && !document.pointerLockElement) cameras.recentre(dt);
+      if (!browserInput.dragging && !browserInput.locked) cameras.recentre(dt);
     } else {
       // On foot. The aeroplane still needs its engines ticked over so a running
       // aeroplane on the strip keeps making noise while you walk around it.

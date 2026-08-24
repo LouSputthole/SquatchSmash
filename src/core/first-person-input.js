@@ -71,6 +71,7 @@ export class FirstPersonInputAdapter {
     routes = null,
     captureMode = FIRST_PERSON_CAPTURE_MODES.POINTER_LOCK,
     dragFallbackDelayMs = 600,
+    keyboardCapture = false,
     onKeyDown = null,
     onClear = null,
     onCaptureChange = null,
@@ -89,6 +90,9 @@ export class FirstPersonInputAdapter {
     if (!Number.isFinite(dragFallbackDelayMs) || dragFallbackDelayMs < 0) {
       throw new TypeError('dragFallbackDelayMs must be a non-negative number');
     }
+    if (typeof keyboardCapture !== 'boolean') {
+      throw new TypeError('keyboardCapture must be a boolean');
+    }
 
     this.player = player;
     this.canvas = eventTarget(canvas, 'canvas');
@@ -102,6 +106,7 @@ export class FirstPersonInputAdapter {
     this.routes = validateRoutes(routes);
     this.captureMode = captureMode;
     this.dragFallbackDelayMs = dragFallbackDelayMs;
+    this.keyboardCapture = keyboardCapture;
     this.onKeyDown = optionalFunction(onKeyDown, 'onKeyDown');
     this.onClear = optionalFunction(onClear, 'onClear');
     this.onCaptureChange = optionalFunction(onCaptureChange, 'onCaptureChange');
@@ -257,8 +262,8 @@ export class FirstPersonInputAdapter {
     this.document.addEventListener('pointerlockerror', this._pointerLockError);
     this.window.addEventListener('mousemove', this._mousemove);
     this.window.addEventListener('mouseup', this._mouseup);
-    this.window.addEventListener('keydown', this._keydown);
-    this.window.addEventListener('keyup', this._keyup);
+    this.window.addEventListener('keydown', this._keydown, this.keyboardCapture);
+    this.window.addEventListener('keyup', this._keyup, this.keyboardCapture);
     this.window.addEventListener('blur', this._blur);
     this.refresh('initial');
   }
@@ -494,8 +499,8 @@ export class FirstPersonInputAdapter {
     this.document.removeEventListener('pointerlockerror', this._pointerLockError);
     this.window.removeEventListener('mousemove', this._mousemove);
     this.window.removeEventListener('mouseup', this._mouseup);
-    this.window.removeEventListener('keydown', this._keydown);
-    this.window.removeEventListener('keyup', this._keyup);
+    this.window.removeEventListener('keydown', this._keydown, this.keyboardCapture);
+    this.window.removeEventListener('keyup', this._keyup, this.keyboardCapture);
     this.window.removeEventListener('blur', this._blur);
     return true;
   }

@@ -27,6 +27,7 @@ const beefAircraft = read('../src/beefrun/aircraft.js');
 const beefAirfield = read('../src/beefrun/airfield.js');
 const beefMission = read('../src/beefrun/mission.js');
 const beefDetection = read('../src/beefrun/detection.js');
+const firstPersonInput = read('../src/core/first-person-input.js');
 
 test('the whole river is one connected ribbon instead of rotated rectangular patches or course seams', () => {
   const scene = new THREE.Scene();
@@ -197,17 +198,16 @@ test('the pointer is requested inside the click, before the sample bank loads', 
 });
 
 test('a refused lock is retryable rather than a life sentence', () => {
-  /* `fallBackToDragLook` used to latch a flag that BOTH it and the
-   * pointerlockchange listener early-returned on, and nothing else ever asked
-   * again — so one refusal meant no pointer for the rest of the session. */
-  assert.match(beefMain, /canvas\.addEventListener\('click'/,
-    'a canvas click has to be able to retry the real thing');
-  const change = beefMain.slice(beefMain.indexOf("document.addEventListener('pointerlockchange'"));
-  assert.match(change.slice(0, 400), /if \(locked\) dragLook = false;/,
+  /* This lifecycle moved into the canonical Adapter. Keep the owner playtest
+   * invariant, but assert the actual owner instead of demanding stale local
+   * event plumbing in Beef Run. */
+  assert.match(beefMain, /createFlightFirstPersonPolicy/);
+  assert.match(firstPersonInput, /this\.canvas\.addEventListener\('mousedown', this\._mousedown\)/,
+    'a canvas press has to be able to retry the real thing');
+  assert.match(firstPersonInput, /this\.requestPointerLock\(\)/,
+    'the canonical press route must retry pointer lock');
+  assert.match(firstPersonInput, /if \(this\.locked\) \{\s*this\.dragFallback = false;/,
     'winning the real lock must retire the fallback');
-  const fallback = beefMain.slice(beefMain.indexOf('function fallBackToDragLook'));
-  assert.doesNotMatch(fallback.slice(0, 200), /^\s*if \(dragLook\) return;/m,
-    'the fallback must not latch itself permanently');
 });
 
 test('nothing takes the pointer back over the report card', () => {
