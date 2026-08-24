@@ -5,6 +5,7 @@ import { listSceneEntrypoints } from '../src/core/scene-contracts.js';
 import {
   SEMANTIC_SMOKE_BROWSER_ADAPTERS,
   buildSemanticSmokeCases,
+  evaluateSemanticSmokeObligation,
   executeSemanticSmokeCase,
 } from '../tools/semantic-smoke-browser.mjs';
 
@@ -95,6 +96,7 @@ test('an entry without an observable debug surface boots but can only report UNK
     page,
     smokeCase,
     baseUrl: 'http://127.0.0.1:8123/',
+    exerciseJourneys: false,
   });
 
   assert.equal(result.status, 'UNKNOWN');
@@ -191,6 +193,7 @@ test('the Special Meeting Adapter drives real Playwright click, mouse, and keybo
     page,
     smokeCase,
     baseUrl: 'http://127.0.0.1:8123/',
+    exerciseJourneys: false,
   });
 
   assert.deepEqual(page.calls.filter(([kind]) => kind === 'locator.click').map(([kind]) => kind),
@@ -238,6 +241,7 @@ test('an entrypoint route passes only with exact runtime variant and exit eviden
     page,
     smokeCase,
     baseUrl: 'http://127.0.0.1:8123/',
+    exerciseJourneys: false,
   });
   assert.equal(
     result.obligations.find(({ assertion }) => assertion.kind === 'entrypoint-route').status,
@@ -259,6 +263,7 @@ test('page errors are captured as FAIL receipts even for an otherwise UNKNOWN Ad
     page,
     smokeCase,
     baseUrl: 'http://127.0.0.1:8123/',
+    exerciseJourneys: false,
   });
 
   assert.equal(result.status, 'FAIL');
@@ -288,6 +293,7 @@ test('caught required-recording fallbacks still fail browser certification', asy
     page,
     smokeCase,
     baseUrl: 'http://127.0.0.1:8123/',
+    exerciseJourneys: false,
   });
 
   assert.equal(result.status, 'FAIL');
@@ -321,6 +327,7 @@ test('an observable scene cannot pass audio policy with zero registered engines'
     page,
     smokeCase,
     baseUrl: 'http://127.0.0.1:8123/',
+    exerciseJourneys: false,
   });
 
   assert.equal(result.status, 'FAIL');
@@ -360,9 +367,53 @@ test('an observable scene must schedule an expected required recording', async (
     page,
     smokeCase,
     baseUrl: 'http://127.0.0.1:8123/',
+    exerciseJourneys: false,
   });
 
   assert.equal(result.status, 'FAIL');
   assert.match(result.errors.action.join('\n'), /scheduled required recording/i);
   assert.match(result.errors.action.join('\n'), /vo\.specialmeeting\./i);
+});
+
+test('spawn and checkpoint obligations require exact live-state and legal-action evidence', () => {
+  const obligations = buildSemanticSmokeCases()
+    .find(({ entrypointId }) => entrypointId === 'special_meeting_canonical').obligations;
+  const evidence = {
+    after: {
+      spawnEvidence: {
+        kerb: { requested: 'kerb', effective: 'kerb', live: true, legalActionCount: 2 },
+        spur: { requested: 'spur', effective: 'kerb', live: true, legalActionCount: 1 },
+      },
+      checkpointEvidence: {
+        kerb: { requested: 'kerb', effective: 'kerb', live: true, legalActionCount: 2 },
+        spur: { requested: 'spur', effective: 'spur', live: true, legalActionCount: 0 },
+      },
+    },
+  };
+
+  const result = Object.fromEntries(obligations
+    .filter(({ assertion }) => ['entry-spawn-liveness', 'checkpoint-liveness'].includes(assertion.kind))
+    .map((obligation) => [obligation.id, evaluateSemanticSmokeObligation(obligation, evidence).status]));
+
+  assert.equal(result['special_meeting:special_meeting_canonical:spawn:kerb'], 'PASS');
+  assert.equal(result['special_meeting:special_meeting_canonical:spawn:spur'], 'FAIL');
+  assert.equal(result['special_meeting:special_meeting_canonical:checkpoint:kerb'], 'PASS');
+  assert.equal(result['special_meeting:special_meeting_canonical:checkpoint:spur'], 'FAIL');
+});
+
+test('camera return certification requires observed ownership and restored real-input view', () => {
+  const obligations = buildSemanticSmokeCases()
+    .find(({ entrypointId }) => entrypointId === 'special_meeting_canonical').obligations;
+  const owner = obligations.find(({ assertion }) => assertion.behavior === 'owner_matches_phase');
+  const returned = obligations.find(({ assertion }) => assertion.behavior === 'returns_to_playable_view');
+
+  assert.equal(evaluateSemanticSmokeObligation(owner, {
+    after: { camera: { ownerMatchesPhase: true } },
+  }).status, 'PASS');
+  assert.equal(evaluateSemanticSmokeObligation(returned, {
+    after: { camera: { returnedToPlayableView: true } },
+  }).status, 'PASS');
+  assert.equal(evaluateSemanticSmokeObligation(returned, {
+    after: { camera: { returnedToPlayableView: false } },
+  }).status, 'FAIL');
 });

@@ -59,6 +59,22 @@ export function semanticFingerprint(value) {
     .slice(0, 20);
 }
 
+/** Fingerprint exactly what the live browser claims to have executed. */
+export function semanticObligationFingerprint(obligation) {
+  if (!obligation || typeof obligation !== 'object' || Array.isArray(obligation)) {
+    throw new TypeError('semantic obligation must be an object');
+  }
+  return semanticFingerprint({
+    id: obligation.id,
+    sceneId: obligation.sceneId,
+    entrypointId: obligation.entrypointId,
+    area: obligation.area,
+    disposition: obligation.disposition,
+    description: obligation.description,
+    assertion: obligation.assertion,
+  });
+}
+
 function debtEntry({ id, status, count = 1, proofId = id, proofKind, meaning }) {
   return Object.freeze({
     id,
@@ -228,11 +244,14 @@ export function collectSpatialDebtReport({
   return report;
 }
 
-export function collectCertificationDebtSnapshot({ spatialReport = null } = {}) {
+export function collectCertificationDebtSnapshot({
+  spatialReport = null,
+  semanticReport = null,
+} = {}) {
   const resolvedSpatial = spatialReport ?? collectSpatialDebtReport();
   return certificationDebtSnapshot({
     architectureReport: buildSceneArchitectureReport(),
-    semanticReport: buildSemanticSmokeReport(),
+    semanticReport: semanticReport ?? buildSemanticSmokeReport(),
     livenessEntries: buildSceneLivenessCatalog(),
     spatialReport: resolvedSpatial,
   });
@@ -406,14 +425,238 @@ export function compareCertificationDebt(baseline, current) {
   return { errors, violations, improvements };
 }
 
+function semanticProofIndex(proofs, obligations) {
+  const violations = [];
+  const obligationById = new Map();
+  for (const obligation of obligations ?? []) {
+    if (!obligation?.id) {
+      violations.push({ kind: 'SEMANTIC_OBLIGATION_INVALID', id: null });
+      continue;
+    }
+    if (obligationById.has(obligation.id)) {
+      violations.push({ kind: 'SEMANTIC_OBLIGATION_DUPLICATE', id: obligation.id });
+      continue;
+    }
+    obligationById.set(obligation.id, obligation);
+  }
+
+  const proofById = new Map();
+  for (const proof of proofs ?? []) {
+    const id = proof?.id ?? null;
+    if (proofById.has(id)) {
+      violations.push({ kind: 'SEMANTIC_BROWSER_PROOF_DUPLICATE', id });
+      continue;
+    }
+    const obligation = obligationById.get(id);
+    if (!obligation) {
+      violations.push({ kind: 'SEMANTIC_BROWSER_PROOF_UNKNOWN', id });
+      continue;
+    }
+    const expectedFingerprint = semanticObligationFingerprint(obligation);
+    if (proof.status !== 'pass' || proof.source !== 'browser') {
+      violations.push({ kind: 'SEMANTIC_BROWSER_PROOF_NOT_PASS', id });
+      continue;
+    }
+    if (proof.entrypointId !== obligation.entrypointId) {
+      violations.push({ kind: 'SEMANTIC_BROWSER_PROOF_WRONG_ENTRYPOINT', id });
+      continue;
+    }
+    if (proof.fingerprint !== expectedFingerprint) {
+      violations.push({ kind: 'SEMANTIC_BROWSER_PROOF_STALE', id });
+      continue;
+    }
+    proofById.set(id, proof);
+  }
+  return { proofById, violations };
+}
+
+function browserDiagnosticsAreClean(errors) {
+  const fields = ['page', 'console', 'requests', 'responses', 'action'];
+  return errors && typeof errors === 'object'
+    && fields.every((field) => Array.isArray(errors[field]) && errors[field].length === 0);
+}
+
+function assertUniqueById(items, label) {
+  const seen = new Set();
+  for (const item of items) {
+    if (typeof item?.id !== 'string' || !item.id.trim()) {
+      throw new Error(`${label} contains an item without an id`);
+    }
+    if (seen.has(item.id)) throw new Error(`${label} contains duplicate id ${item.id}`);
+    seen.add(item.id);
+  }
+}
+
+/**
+ * Convert a same-run browser report into transient exact-obligation proofs.
+ * The report may remain UNKNOWN overall; an exact PASS is still useful when
+ * every diagnostic channel is clean. Any overall FAIL contaminates all PASS
+ * rows from that page and is rejected.
+ */
+export function extractSemanticBrowserProofs(report, { targetIds, obligations } = {}) {
+  if (report?.schema !== 'squatchsmash.semantic-smoke-browser-run.v1'
+    || !Array.isArray(report.results)) {
+    throw new Error('semantic browser report has an unsupported run schema');
+  }
+  if (report.status === 'FAIL') throw new Error('semantic browser report has overall FAIL status');
+  if (!['PASS', 'UNKNOWN'].includes(report.status)) {
+    throw new Error(`semantic browser report has invalid status ${report.status}`);
+  }
+
+  const targets = [...new Set(targetIds ?? [])].sort(compareStableText);
+  if (targets.length !== (targetIds ?? []).length) {
+    throw new Error('semantic browser target list contains duplicate ids');
+  }
+  assertUniqueById(obligations ?? [], 'current semantic obligations');
+  const obligationById = new Map((obligations ?? []).map((item) => [item.id, item]));
+  const targetObligations = targets.map((id) => {
+    const obligation = obligationById.get(id);
+    if (!obligation) throw new Error(`current semantic obligation ${id} is missing`);
+    return obligation;
+  });
+  const entrypointIds = [...new Set(targetObligations.map((item) => item.entrypointId))];
+  if (entrypointIds.length !== 1) {
+    throw new Error('one semantic browser report must target exactly one entrypoint');
+  }
+  const [entrypointId] = entrypointIds;
+  const matching = report.results.filter((item) => item?.entrypointId === entrypointId);
+  if (matching.length !== 1 || report.results.length !== 1) {
+    throw new Error(`semantic browser report did not contain exactly entrypoint ${entrypointId}`);
+  }
+  const [result] = matching;
+  if (result.schema !== 'squatchsmash.semantic-smoke-browser.v1') {
+    throw new Error(`semantic browser result for ${entrypointId} has an unsupported schema`);
+  }
+  if (result.status === 'FAIL') {
+    throw new Error(`semantic browser result for ${entrypointId} has overall FAIL status`);
+  }
+  if (!browserDiagnosticsAreClean(result.errors)) {
+    throw new Error(`semantic browser result for ${entrypointId} has diagnostic contamination`);
+  }
+  if (result.transport?.navigated !== true
+    || !Number.isFinite(result.transport?.httpStatus)
+    || result.transport.httpStatus < 200
+    || result.transport.httpStatus >= 400) {
+    throw new Error(`semantic browser result for ${entrypointId} lacks successful transport evidence`);
+  }
+  if (!Array.isArray(result.obligations)) {
+    throw new Error(`semantic browser result for ${entrypointId} has no obligation receipts`);
+  }
+  assertUniqueById(result.obligations, `semantic browser result ${entrypointId}`);
+
+  const expected = (obligations ?? []).filter((item) => item.entrypointId === entrypointId);
+  const expectedIds = expected.map((item) => item.id).sort(compareStableText);
+  const observedIds = result.obligations.map((item) => item.id).sort(compareStableText);
+  if (JSON.stringify(expectedIds) !== JSON.stringify(observedIds)) {
+    throw new Error(`semantic browser result for ${entrypointId} has missing or extra obligations`);
+  }
+  const resultById = new Map(result.obligations.map((item) => [item.id, item]));
+  for (const obligation of expected) {
+    const observed = resultById.get(obligation.id);
+    if (semanticObligationFingerprint(observed)
+      !== semanticObligationFingerprint(obligation)) {
+      throw new Error(`semantic browser obligation ${obligation.id} fingerprint is stale`);
+    }
+    if (observed.sceneId !== obligation.sceneId
+      || observed.entrypointId !== obligation.entrypointId) {
+      throw new Error(`semantic browser obligation ${obligation.id} has wrong scene or entrypoint`);
+    }
+  }
+
+  return targets.flatMap((id) => {
+    const observed = resultById.get(id);
+    if (observed.status !== 'PASS') return [];
+    const obligation = obligationById.get(id);
+    return [{
+      id,
+      status: 'pass',
+      source: 'browser',
+      entrypointId,
+      fingerprint: semanticObligationFingerprint(obligation),
+    }];
+  });
+}
+
+function parseSemanticBrowserReport(stdout) {
+  try {
+    return JSON.parse(stdout);
+  } catch (error) {
+    throw new Error(`semantic browser report was not valid JSON: ${error.message}`);
+  }
+}
+
+/** Run only entrypoints whose semantic debt is being removed in this change. */
+export function collectLiveSemanticBrowserProofs({
+  targetIds,
+  obligations,
+  repositoryRoot = REPOSITORY_ROOT,
+  spawn = spawnSync,
+} = {}) {
+  const targets = [...new Set(targetIds ?? [])].sort(compareStableText);
+  if (targets.length !== (targetIds ?? []).length) {
+    throw new Error('semantic browser target list contains duplicate ids');
+  }
+  if (targets.length === 0) return [];
+  const obligationById = new Map((obligations ?? []).map((item) => [item.id, item]));
+  const byEntrypoint = new Map();
+  for (const id of targets) {
+    const obligation = obligationById.get(id);
+    if (!obligation) throw new Error(`current semantic obligation ${id} is missing`);
+    if (!byEntrypoint.has(obligation.entrypointId)) byEntrypoint.set(obligation.entrypointId, []);
+    byEntrypoint.get(obligation.entrypointId).push(id);
+  }
+
+  const proofs = [];
+  for (const [entrypointId, ids] of [...byEntrypoint.entries()]
+    .sort(([left], [right]) => compareStableText(left, right))) {
+    const result = spawn(process.execPath, [
+      'tools/semantic-smoke-browser.mjs',
+      '--entrypoint',
+      entrypointId,
+      '--json',
+    ], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
+    });
+    if (result.error) throw result.error;
+    if (result.signal) {
+      throw new Error(`semantic browser ${entrypointId} ended on signal ${result.signal}`);
+    }
+    const report = parseSemanticBrowserReport(result.stdout?.trim() ?? '');
+    /* UNKNOWN is exit 2 and may contain exact clean PASS receipts. */
+    if (result.status !== 0 && result.status !== 2) {
+      if (report.status === 'FAIL') {
+        throw new Error(`semantic browser ${entrypointId} reported overall FAIL`);
+      }
+      throw new Error(
+        `semantic browser ${entrypointId} exited ${result.status}: ${(result.stderr ?? '').trim()}`,
+      );
+    }
+    proofs.push(...extractSemanticBrowserProofs(report, {
+      targetIds: ids,
+      obligations,
+    }));
+  }
+  return proofs;
+}
+
 /**
  * The checked-in candidate must match current debt exactly so an improvement
  * immediately lowers the ceiling. The candidate must itself be a subtractive
  * change from the base-branch ceiling so a PR cannot approve its own new debt.
  */
-export function evaluateCertificationDebtGate({ trusted = null, candidate, current }) {
+export function evaluateCertificationDebtGate({
+  trusted = null,
+  candidate,
+  current,
+  semanticObligations = [],
+  semanticBrowserProofs = [],
+}) {
   const trustedComparison = trusted ? compareCertificationDebt(trusted, candidate) : null;
   const currentComparison = compareCertificationDebt(candidate, current);
+  const semanticProofs = semanticProofIndex(semanticBrowserProofs, semanticObligations);
   const proofMismatches = [];
   for (const domainName of CERTIFICATION_DEBT_DOMAINS) {
     if (JSON.stringify(canonicalValue(candidate.domains?.[domainName]?.proofs))
@@ -422,14 +665,19 @@ export function evaluateCertificationDebtGate({ trusted = null, candidate, curre
     }
   }
   const unprovedTrustedImprovements = trustedComparison
-    ? trustedComparison.improvements.filter((item) => !hasRemovalProof(item, current))
+    ? trustedComparison.improvements.filter((item) => !hasRemovalProof(
+      item,
+      current,
+      semanticProofs.proofById,
+    ))
     : [];
   const proofCoverageViolations = trusted
     ? compareTrustedProofCoverage(trusted, candidate, current)
     : [];
   const trustedFailed = Boolean(trustedComparison
     && (trustedComparison.errors.length || trustedComparison.violations.length
-      || unprovedTrustedImprovements.length || proofCoverageViolations.length));
+      || unprovedTrustedImprovements.length || proofCoverageViolations.length
+      || semanticProofs.violations.length));
   const currentFailed = currentComparison.errors.length
     || currentComparison.violations.length
     || currentComparison.improvements.length;
@@ -441,6 +689,50 @@ export function evaluateCertificationDebtGate({ trusted = null, candidate, curre
     unprovedTrustedImprovements,
     proofCoverageViolations,
     proofMismatches,
+    semanticProofViolations: semanticProofs.violations,
+  };
+}
+
+/**
+ * Browser work is demand-driven: no trusted semantic subtraction means no
+ * browser launch. This keeps ordinary CI changes cheap while making every
+ * promotion pay for fresh, exact behavioral evidence.
+ */
+export function evaluateCertificationDebtGateWithLiveSemanticProofs({
+  trusted = null,
+  candidate,
+  current,
+  semanticObligations = [],
+  collectProofs = collectLiveSemanticBrowserProofs,
+} = {}) {
+  const trustedComparison = trusted ? compareCertificationDebt(trusted, candidate) : null;
+  const currentComparison = compareCertificationDebt(candidate, current);
+  const comparisonsUsable = trustedComparison
+    && trustedComparison.errors.length === 0
+    && trustedComparison.violations.length === 0
+    && currentComparison.errors.length === 0
+    && currentComparison.violations.length === 0
+    && currentComparison.improvements.length === 0;
+  const targetIds = comparisonsUsable
+    ? trustedComparison.improvements
+      .filter((item) => item.domain === 'semantic_contract')
+      .map((item) => item.id)
+      .sort(compareStableText)
+    : [];
+  const semanticBrowserProofs = targetIds.length > 0
+    ? collectProofs({ targetIds, obligations: semanticObligations })
+    : [];
+  const gate = evaluateCertificationDebtGate({
+    trusted,
+    candidate,
+    current,
+    semanticObligations,
+    semanticBrowserProofs,
+  });
+  return {
+    ...gate,
+    semanticBrowserTargets: targetIds,
+    semanticBrowserProofs,
   };
 }
 
@@ -491,13 +783,13 @@ function proofFor(snapshot, domainName, id) {
   return snapshot.domains[domainName].proofs.find((item) => item.id === id) ?? null;
 }
 
-function hasRemovalProof(improvement, current) {
+function hasRemovalProof(improvement, current, semanticBrowserProofs = new Map()) {
   const entry = improvement.current ?? improvement.baseline;
   const proof = proofFor(current, improvement.domain, entry.proofId);
   if (!proof) return false;
   if (improvement.domain === 'architecture') return proof.status === 'pass';
   if (improvement.domain === 'semantic_contract') {
-    return proof.status === 'pass' && proof.evidence?.source === 'browser';
+    return semanticBrowserProofs.has(entry.proofId);
   }
   if (improvement.domain === 'liveness') return proof.status === 'pass';
   if (improvement.domain !== 'spatial') return false;
@@ -674,6 +966,18 @@ function printHuman(candidate, current, gate, trustedState) {
     console.error('PROOF_BASELINE: checked-in proof inventory is stale:');
     for (const message of gate.proofMismatches) console.error(`  ${message}`);
   }
+  if (gate.semanticProofViolations.length) {
+    console.error('SEMANTIC_BROWSER_PROOF: transient live proof was invalid:');
+    for (const item of gate.semanticProofViolations) {
+      console.error(`  ${item.kind} ${item.id ?? '(missing id)'}`);
+    }
+  }
+  if (gate.semanticBrowserTargets?.length) {
+    console.log(
+      `Live semantic browser evidence: ${gate.semanticBrowserProofs.length}/`
+      + `${gate.semanticBrowserTargets.length} exact obligation(s) passed.`,
+    );
+  }
   if (gate.pass) {
     console.log('Candidate matches current debt and does not raise the trusted ceiling.');
   }
@@ -681,7 +985,8 @@ function printHuman(candidate, current, gate, trustedState) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const current = collectCertificationDebtSnapshot();
+  const semanticReport = buildSemanticSmokeReport();
+  const current = collectCertificationDebtSnapshot({ semanticReport });
   if (options.printCurrent) {
     console.log(JSON.stringify(current, null, 2));
     return;
@@ -697,10 +1002,11 @@ async function main() {
       allowMissing: options.allowMissingTrustedBaseline,
     })
     : null;
-  const gate = evaluateCertificationDebtGate({
+  const gate = evaluateCertificationDebtGateWithLiveSemanticProofs({
     trusted: trustedState?.baseline ?? null,
     candidate,
     current,
+    semanticObligations: semanticReport.obligations,
   });
   if (options.json) console.log(JSON.stringify({ trustedState, candidate, current, gate }, null, 2));
   else printHuman(candidate, current, gate, trustedState);

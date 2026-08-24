@@ -882,10 +882,10 @@
     },
     "semantic_contract": {
       "summary": {
-        "records": 143,
-        "units": 143,
+        "records": 140,
+        "units": 140,
         "byStatus": {
-          "debt": 136,
+          "debt": 133,
           "known_failure": 5,
           "unknown": 2
         }
@@ -1898,30 +1898,6 @@
           "proofId": "silver_room:silver_room_canonical:input:pointer_lock",
           "proofKind": "browser_obligation",
           "fingerprint": "dac9d248be0078885039"
-        },
-        {
-          "id": "special_meeting:special_meeting_canonical:camera:look_changes_view",
-          "status": "debt",
-          "count": 1,
-          "proofId": "special_meeting:special_meeting_canonical:camera:look_changes_view",
-          "proofKind": "browser_obligation",
-          "fingerprint": "42a13730c9d14cd1cf36"
-        },
-        {
-          "id": "special_meeting:special_meeting_canonical:camera:owner_matches_phase",
-          "status": "debt",
-          "count": 1,
-          "proofId": "special_meeting:special_meeting_canonical:camera:owner_matches_phase",
-          "proofKind": "browser_obligation",
-          "fingerprint": "5b48351d4b5ea873f598"
-        },
-        {
-          "id": "special_meeting:special_meeting_canonical:camera:returns_to_playable_view",
-          "status": "debt",
-          "count": 1,
-          "proofId": "special_meeting:special_meeting_canonical:camera:returns_to_playable_view",
-          "proofKind": "browser_obligation",
-          "fingerprint": "79a3e59884ca6915ac3d"
         },
         {
           "id": "squatch_graveyard:squatch_graveyard_canonical:checkpoint:arrival",
@@ -5066,7 +5042,7 @@
           "status": "declaration_only",
           "evidence": {
             "area": "camera",
-            "disposition": "debt"
+            "disposition": "required"
           }
         },
         {
@@ -5074,7 +5050,7 @@
           "status": "declaration_only",
           "evidence": {
             "area": "camera",
-            "disposition": "debt"
+            "disposition": "required"
           }
         },
         {
@@ -5082,7 +5058,7 @@
           "status": "declaration_only",
           "evidence": {
             "area": "camera",
-            "disposition": "debt"
+            "disposition": "required"
           }
         },
         {

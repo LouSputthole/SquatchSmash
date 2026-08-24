@@ -3,12 +3,16 @@ import test from 'node:test';
 
 import {
   certificationDebtSnapshot,
+  collectLiveSemanticBrowserProofs,
   collectSpatialDebtReport,
   compareStableText,
   compareCertificationDebt,
   compareTrustedProofCoverage,
   evaluateCertificationDebtGate,
+  evaluateCertificationDebtGateWithLiveSemanticProofs,
+  extractSemanticBrowserProofs,
   readCertificationDebtBaseline,
+  semanticObligationFingerprint,
   semanticFingerprint,
   validateCertificationDebtSnapshot,
 } from '../tools/certification-debt-ratchet.mjs';
@@ -27,11 +31,39 @@ function architectureFinding(id, message = 'local wiring remains', status = 'deb
 function semanticBlocker(id, description = 'real browser evidence is missing') {
   return {
     id,
+    sceneId: 'scene',
+    entrypointId: 'entry',
     disposition: 'debt',
     area: 'input',
     description,
     assertion: { kind: 'real-input', action: 'move' },
   };
+}
+
+function cleanBrowserResult(obligations, {
+  status = 'UNKNOWN',
+  entrypointId = 'entry',
+  sceneId = 'scene',
+  errors = { page: [], console: [], requests: [], responses: [], action: [] },
+} = {}) {
+  return {
+    schema: 'squatchsmash.semantic-smoke-browser-run.v1',
+    status,
+    total: 1,
+    results: [{
+      schema: 'squatchsmash.semantic-smoke-browser.v1',
+      sceneId,
+      entrypointId,
+      status,
+      transport: { navigated: true, httpStatus: 200 },
+      errors,
+      obligations,
+    }],
+  };
+}
+
+function browserObligation(obligation, status = 'PASS') {
+  return { ...obligation, status, reason: `${status} fixture` };
 }
 
 function livenessEntry(id) {
@@ -247,6 +279,224 @@ test('semantic debt cannot disappear through required relabeling without browser
   assert.equal(gate.trustedComparison.improvements[0].id, id);
   assert.equal(gate.unprovedTrustedImprovements[0].domain, 'semantic_contract');
   assert.equal(gate.pass, false);
+});
+
+test('exact clean live PASS authorizes only its matching semantic debt removal', () => {
+  const id = 'scene:entry:input:move';
+  const trusted = makeSnapshot();
+  const declaration = { ...semanticBlocker(id), disposition: 'required' };
+  const promoted = makeSnapshot({ semantic: [], semanticObligations: [declaration] });
+  const proof = {
+    id,
+    status: 'pass',
+    source: 'browser',
+    entrypointId: 'entry',
+    fingerprint: semanticObligationFingerprint(declaration),
+  };
+  const gate = evaluateCertificationDebtGate({
+    trusted,
+    candidate: promoted,
+    current: promoted,
+    semanticObligations: [declaration],
+    semanticBrowserProofs: [proof],
+  });
+  assert.deepEqual(gate.semanticProofViolations, []);
+  assert.deepEqual(gate.unprovedTrustedImprovements, []);
+  assert.equal(gate.pass, true);
+});
+
+test('sibling, duplicate, stale, and wrong-entrypoint semantic proofs fail closed', () => {
+  const id = 'scene:entry:input:move';
+  const declaration = { ...semanticBlocker(id), disposition: 'required' };
+  const sibling = {
+    ...declaration,
+    id: 'scene:entry:input:pointer_lock',
+  };
+  const trusted = makeSnapshot();
+  const promoted = makeSnapshot({ semantic: [], semanticObligations: [declaration] });
+  const exact = {
+    id,
+    status: 'pass',
+    source: 'browser',
+    entrypointId: 'entry',
+    fingerprint: semanticObligationFingerprint(declaration),
+  };
+  const variants = [
+    [{
+      id: sibling.id,
+      status: 'pass',
+      source: 'browser',
+      entrypointId: 'entry',
+      fingerprint: semanticObligationFingerprint(sibling),
+    }],
+    [exact, exact],
+    [{ ...exact, fingerprint: semanticFingerprint({ stale: true }) }],
+    [{ ...exact, entrypointId: 'wrong_entrypoint' }],
+  ];
+  for (const semanticBrowserProofs of variants) {
+    const gate = evaluateCertificationDebtGate({
+      trusted,
+      candidate: promoted,
+      current: promoted,
+      semanticObligations: [declaration],
+      semanticBrowserProofs,
+    });
+    assert.equal(gate.pass, false);
+  }
+});
+
+test('browser extractor accepts exact PASS from an otherwise clean UNKNOWN run', () => {
+  const obligation = { ...semanticBlocker('scene:entry:input:move'), disposition: 'required' };
+  const sibling = {
+    ...obligation,
+    id: 'scene:entry:camera:owner',
+    area: 'camera',
+    assertion: { kind: 'camera-behavior', behavior: 'owner_matches_phase' },
+  };
+  const report = cleanBrowserResult([
+    browserObligation(obligation, 'PASS'),
+    browserObligation(sibling, 'UNKNOWN'),
+  ]);
+  const proofs = extractSemanticBrowserProofs(report, {
+    targetIds: [obligation.id],
+    obligations: [obligation, sibling],
+  });
+  assert.deepEqual(proofs, [{
+    id: obligation.id,
+    status: 'pass',
+    source: 'browser',
+    entrypointId: obligation.entrypointId,
+    fingerprint: semanticObligationFingerprint(obligation),
+  }]);
+});
+
+test('browser extractor rejects UNKNOWN target, overall FAIL, and contaminated diagnostics', () => {
+  const obligation = { ...semanticBlocker('scene:entry:input:move'), disposition: 'required' };
+  assert.deepEqual(extractSemanticBrowserProofs(
+    cleanBrowserResult([browserObligation(obligation, 'UNKNOWN')]),
+    { targetIds: [obligation.id], obligations: [obligation] },
+  ), []);
+  assert.throws(() => extractSemanticBrowserProofs(
+    cleanBrowserResult([browserObligation(obligation, 'PASS')], { status: 'FAIL' }),
+    { targetIds: [obligation.id], obligations: [obligation] },
+  ), /overall FAIL/i);
+  assert.throws(() => extractSemanticBrowserProofs(
+    cleanBrowserResult([browserObligation(obligation, 'PASS')], {
+      errors: { page: ['boom'], console: [], requests: [], responses: [], action: [] },
+    }),
+    { targetIds: [obligation.id], obligations: [obligation] },
+  ), /diagnostic/i);
+});
+
+test('browser extractor rejects duplicate, stale, missing, and wrong-entrypoint receipts', () => {
+  const obligation = { ...semanticBlocker('scene:entry:input:move'), disposition: 'required' };
+  const changed = { ...obligation, description: 'stale definition from another run' };
+  assert.throws(() => extractSemanticBrowserProofs(
+    cleanBrowserResult([browserObligation(obligation), browserObligation(obligation)]),
+    { targetIds: [obligation.id], obligations: [obligation] },
+  ), /duplicate/i);
+  assert.throws(() => extractSemanticBrowserProofs(
+    cleanBrowserResult([browserObligation(changed)]),
+    { targetIds: [obligation.id], obligations: [obligation] },
+  ), /fingerprint/i);
+  assert.throws(() => extractSemanticBrowserProofs(
+    cleanBrowserResult([]),
+    { targetIds: [obligation.id], obligations: [obligation] },
+  ), /missing/i);
+  assert.throws(() => extractSemanticBrowserProofs(
+    cleanBrowserResult([browserObligation(obligation)], { entrypointId: 'other' }),
+    { targetIds: [obligation.id], obligations: [obligation] },
+  ), /entrypoint/i);
+});
+
+test('live collector accepts exit 2 only for a clean exact PASS inside UNKNOWN', () => {
+  const obligation = { ...semanticBlocker('scene:entry:input:move'), disposition: 'required' };
+  const report = cleanBrowserResult([browserObligation(obligation, 'PASS')]);
+  const calls = [];
+  const proofs = collectLiveSemanticBrowserProofs({
+    targetIds: [obligation.id],
+    obligations: [obligation],
+    repositoryRoot: '.',
+    spawn(command, args) {
+      calls.push({ command, args });
+      return {
+        status: 2,
+        signal: null,
+        error: null,
+        stderr: '',
+        stdout: JSON.stringify(report),
+      };
+    },
+  });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].args.slice(-3), ['--entrypoint', 'entry', '--json']);
+  assert.equal(proofs[0].id, obligation.id);
+  assert.throws(() => collectLiveSemanticBrowserProofs({
+    targetIds: [obligation.id],
+    obligations: [obligation],
+    repositoryRoot: '.',
+    spawn: () => ({
+      status: 1,
+      signal: null,
+      error: null,
+      stderr: '',
+      stdout: JSON.stringify(cleanBrowserResult(
+        [browserObligation(obligation, 'PASS')],
+        { status: 'FAIL' },
+      )),
+    }),
+  }), /overall FAIL/i);
+});
+
+test('live semantic browser is not launched when trusted semantic debt did not shrink', () => {
+  let launches = 0;
+  const snapshot = makeSnapshot();
+  const result = evaluateCertificationDebtGateWithLiveSemanticProofs({
+    trusted: snapshot,
+    candidate: snapshot,
+    current: snapshot,
+    semanticObligations: [semanticBlocker('scene:entry:input:move')],
+    collectProofs() {
+      launches += 1;
+      return [];
+    },
+  });
+  assert.equal(launches, 0);
+  assert.equal(result.pass, true);
+});
+
+test('live semantic orchestration launches for removals and requires exact returned proof', () => {
+  const id = 'scene:entry:input:move';
+  const declaration = { ...semanticBlocker(id), disposition: 'required' };
+  const trusted = makeSnapshot();
+  const promoted = makeSnapshot({ semantic: [], semanticObligations: [declaration] });
+  let requested = null;
+  const result = evaluateCertificationDebtGateWithLiveSemanticProofs({
+    trusted,
+    candidate: promoted,
+    current: promoted,
+    semanticObligations: [declaration],
+    collectProofs(options) {
+      requested = options;
+      return [{
+        id,
+        status: 'pass',
+        source: 'browser',
+        entrypointId: 'entry',
+        fingerprint: semanticObligationFingerprint(declaration),
+      }];
+    },
+  });
+  assert.deepEqual(requested.targetIds, [id]);
+  assert.equal(result.pass, true);
+  assert.equal(result.semanticBrowserProofs.length, 1);
+});
+
+test('browser receipts are transient and never serialized into baseline snapshots', () => {
+  const snapshot = makeSnapshot();
+  assert.ok(snapshot.domains.semantic_contract.proofs.every((proof) => (
+    proof.status === 'declaration_only' && proof.evidence?.source !== 'browser'
+  )));
 });
 
 test('trusted proof inventory is a floor for obligations, states, and checkpoints', () => {

@@ -64,6 +64,7 @@ function readSeconds(text) {
  *   onPhase(phase)           the scene has moved
  *   onSeated()               he is in the front seat and the door is shut
  *   onBlackout() / onFadeIn(seconds)
+ *   canHandoff()             whether the player has actually walked the trail
  *   onHandoff()              the trees have opened; leave for the Initiation
  */
 export function createRideSequence({
@@ -75,6 +76,7 @@ export function createRideSequence({
   onSeated = null,
   onBlackout = null,
   onFadeIn = null,
+  canHandoff = () => true,
   onHandoff = null,
   takeSeconds = null,
 } = {}) {
@@ -183,6 +185,10 @@ export function createRideSequence({
     }
     if (b.options.length) { openChoice(b); return; }
     if (b.kind === 'handoff') {
+      /* The lines can finish while the player is still standing beside the
+       * Lincoln. Keep the authored beat live until the world reports that he
+       * has actually walked the trail; a timer is not evidence of movement. */
+      if (!canHandoff()) return;
       finished = true;
       setPhase('handoff');
       onHandoff?.();
@@ -203,9 +209,18 @@ export function createRideSequence({
   }
 
   const seq = {
-    /** Start at the kerb, or anywhere else — a resume point, or a test. */
-    begin(id = 'SM-100') {
+    /** Start at the kerb, or reconstruct an explicit persisted scene phase. */
+    begin(id = 'SM-100', { phase: restoredPhase = null } = {}) {
       finished = false;
+      if (restoredPhase !== null) {
+        if (!PHASES.includes(restoredPhase)) {
+          throw new Error(`Unknown Special Meeting phase: ${restoredPhase}`);
+        }
+        /* `seated` records that the mandatory front-seat event occurred; it
+         * remains true after he gets out and is part of the sequence proof. */
+        if (restoredPhase !== 'kerb') seated = true;
+        setPhase(restoredPhase);
+      }
       enter(id);
       advance();
       return seq;

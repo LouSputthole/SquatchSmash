@@ -26,9 +26,17 @@ ensureDomShim();
 
 const THREE = await import('three');
 const { buildMeetingSedan, SEATS, SEAT_IDS } = await import('../src/specialmeeting/sedan.js');
+const {
+  createFrontPassengerDoorTarget,
+  FRONT_PASSENGER_DOOR_AFFORDANCE,
+} = await import('../src/specialmeeting/door-interaction.js');
 const { buildSpecialMeetingBlock } = await import('../src/specialmeeting/block.js');
 const { createArrivalSequence } = await import('../src/specialmeeting/arrival.js');
 const { RouteDriver, bearingTo, wrapAngle } = await import('../src/specialmeeting/drive.js');
+const { ForestDrive } = await import('../src/specialmeeting/forest/driver.js');
+const { ROAD_EVENTS, roadAt } = await import('../src/specialmeeting/forest/road.js');
+const { createNightForestRoad } = await import('../src/specialmeeting/forest/index.js');
+const { adaptMeetingSedan } = await import('../src/specialmeeting/forest/sedan-adapter.js');
 const {
   ARRIVAL_ROUTE,
   ROAD,
@@ -90,6 +98,31 @@ test('the door the player walks to is the front one, and it is on the pavement',
   assert.ok(door.z > SIDEWALK.north.z1, 'and not inside the building');
   const walk = Math.hypot(door.x - SPAWN.x, door.z - SPAWN.z);
   assert.ok(walk < 3, `it is two steps from where he is standing, not ${walk.toFixed(2)}m`);
+});
+
+test('the passenger-door interaction target follows the real door at person height', () => {
+  const sedan = buildMeetingSedan();
+  sedan.placeAt(SEDAN_STOP.x, SEDAN_STOP.z, SEDAN_STOP.heading);
+  const target = createFrontPassengerDoorTarget(sedan);
+  const door = sedan.doorWorld('front_passenger');
+  const world = target.getWorldPosition(new THREE.Vector3());
+
+  assert.equal(target.parent, sedan.group, 'the affordance must follow the moving car');
+  assert.equal(target.userData.anchor, 'front_passenger_door');
+  assert.ok(Math.abs(world.x - door.x) < 1e-9);
+  assert.ok(Math.abs(world.z - door.z) < 1e-9);
+  assert.ok(Math.abs(world.y - (door.y + FRONT_PASSENGER_DOOR_AFFORDANCE.centreHeight)) < 1e-9);
+
+  const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.04, 100);
+  camera.position.set(SPAWN.x, SPAWN.groundY + 1.66, SPAWN.z);
+  camera.rotation.set(0, SPAWN.yaw, 0, 'YXZ');
+  camera.updateMatrixWorld(true);
+  target.updateMatrixWorld(true);
+  const ray = new THREE.Raycaster();
+  ray.far = 2.7;
+  ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+  assert.ok(ray.intersectObject(target, false).length > 0,
+    'the authored spawn crosshair can discover the passenger door at eye height');
 });
 
 test('the boot is a hole with a lid, not a slab', () => {
@@ -293,6 +326,58 @@ test('the beat can be skipped or snapped to for a restart', () => {
   assert.equal(sequence.settled, true);
   assert.equal(sedan.headlightsOn, true);
   assert.ok(Math.hypot(sedan.vehicle.x - SEDAN_STOP.x, sedan.vehicle.z - SEDAN_STOP.z) < 0.01);
+});
+
+test('a forest checkpoint restores the authored road node without replaying it', () => {
+  const callbacks = [];
+  const car = {
+    group: new THREE.Group(),
+    length: 5.4,
+    width: 2,
+    setBrakeLights() {},
+    steer() {},
+    rollWheels() {},
+  };
+  const drive = new ForestDrive(car, { onNode: (id) => callbacks.push(id) });
+  const arrival = ROAD_EVENTS.find((event) => event.id === 'arrival');
+
+  drive.restoreAtEvent('arrival');
+
+  assert.equal(drive.distance, arrival.s);
+  assert.equal(drive.speed, 0);
+  assert.equal(drive.running, false);
+  assert.equal(drive.waitingAt, 'arrival');
+  assert.equal(drive.arrived, true);
+  assert.equal(callbacks.length, 0, 'a reload does not replay story callbacks');
+  assert.ok(
+    Math.hypot(car.group.position.x - roadAt(arrival.s).x, car.group.position.z - roadAt(arrival.s).z) < 2,
+    'the restored car is physically at the authored spur',
+  );
+
+  drive.update(STEP);
+  assert.deepEqual(callbacks, [], 'already-crossed road events stay crossed after restore');
+});
+
+test('the forest owns the borrowed sedan lights and reconstructs the spur', () => {
+  const scene = new THREE.Scene();
+  const sedan = buildMeetingSedan();
+  const car = adaptMeetingSedan(sedan, { shadows: false });
+  const forest = createNightForestRoad({ scene, car, shadows: false });
+
+  assert.equal(car.headlightsOn, false, 'the adapter starts dark until the forest takes ownership');
+  forest.start();
+  assert.equal(car.headlightsOn, true, 'starting the forest drive lights the borrowed car');
+
+  forest.restoreAtNode('arrival');
+  assert.equal(forest.drive.arrived, true);
+  assert.equal(car.mainBeamOn, true, 'crossing the turn-off is reflected in restored lamp state');
+  assert.equal(car.headlightsOn, true, 'the authored SM-330 light hold is reconstructed before shutdown');
+
+  forest.killEngine();
+  forest.killLights();
+  assert.equal(forest.drive.running, false);
+  assert.equal(car.headlightsOn, false);
+  forest.dispose();
 });
 
 test('the route driver steers by the vehicle frame, not by a guess at it', () => {

@@ -23,28 +23,6 @@
     <div id="clock" class="hidden"><span class="day"></span><span class="time"></span><span class="spent"></span></div>
     <div id="bladder" class="hidden"><span class="cap">bladder</span><div class="bar"><i></i></div></div>
     <div id="toast-stack"></div>
-    <!--
-      THE HUD'S OWN FURNITURE. `core/hud.js` reads every one of these in its
-      CONSTRUCTOR and dereferences them immediately (`this.handItem.querySelector`),
-      so a page that leaves one out does not degrade — it throws on `new Hud()`
-      before a single frame is drawn, and the scene never boots at all.
-
-      That is what happened here. The Special Meeting shipped with its own page,
-      its own runtime, its own campaign route and twenty-two passing tests, and
-      it had never once been opened in a browser: `#hand-item` was missing, the
-      Hud threw on construction, and the page died on "Could not start". Every
-      one of those tests was headless and none of them builds a Hud.
-
-      This scene shows none of them — there is nothing in his hands, no radio,
-      no clock on a night that is deliberately outside the campaign's, and
-      nobody's bladder is the point of a drive to the woods. They are here
-      because the constructor requires them, hidden because the scene does not
-      want them, and they cost nothing.
-    -->
-    <div id="hand-item" class="hidden"><div class="icon"></div><div class="meta"><span class="name"></span><span class="hint"></span></div></div>
-    <div id="radio-osd" class="hidden"><div class="rtitle"><span></span></div><div class="rtrack"></div></div>
-    <div id="clock" class="hidden"><span class="day"></span><span class="time"></span><span class="spent"></span></div>
-    <div id="bladder" class="hidden"><span class="cap">bladder</span><div class="bar"><i></i></div></div>
   </div>
 
   <!-- The replies. Numbered, unhurried, and never on a clock. -->

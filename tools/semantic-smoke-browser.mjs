@@ -99,6 +99,7 @@ function observeSpecialMeeting() {
   const game = window.SPECIAL_MEETING;
   const canvas = document.querySelector('#scene');
   const player = game?.player;
+  const certification = game?.certification;
   const panel = document.getElementById('objectives');
   const objectiveItems = [...(panel?.querySelectorAll('.olist li') ?? [])]
     .map((item) => item.textContent?.trim() ?? '')
@@ -120,8 +121,31 @@ function observeSpecialMeeting() {
       pitch: player.pitch,
       keys: [...(player.keys ?? [])],
     } : null,
-    camera: player ? { yaw: player.yaw, pitch: player.pitch, owner: null } : null,
+    camera: player ? {
+      yaw: player.yaw,
+      pitch: player.pitch,
+      owner: certification?.cameraOwner ?? null,
+      expectedOwner: 'core/player',
+      poseAdapter: certification?.poseAdapter ?? null,
+      identity: certification?.cameraIdentity ?? null,
+      playerCameraIdentity: certification?.playerCameraIdentity ?? null,
+    } : null,
     input: game?.inputReceipt ?? null,
+    route: certification?.route ?? null,
+    spawn: certification ? {
+      requested: certification.requestedSpawn ?? null,
+      effective: certification.effectiveSpawn ?? null,
+      campaign: certification.campaignScene ?? null,
+      legalActions: [...(certification.legalActions ?? [])],
+    } : null,
+    mission: certification ? {
+      rideBeat: certification.rideBeat ?? null,
+      ridePhase: certification.ridePhase ?? null,
+      arrival: certification.arrival ?? null,
+      handoff: certification.handoff ?? null,
+      trailDistance: certification.trailDistance ?? null,
+      trailRequiredDistance: certification.trailRequiredDistance ?? null,
+    } : null,
     objective: {
       visible: Boolean(panel && !panel.classList.contains('hidden')
         && panelStyle?.display !== 'none'
@@ -129,23 +153,70 @@ function observeSpecialMeeting() {
       count: objectiveItems.length,
       text: objectiveItems,
       changeObserved: null,
+      revision: certification?.objectiveRevision ?? null,
+      runtimeText: certification?.objectiveText ?? null,
     },
     renderEvidence: {
       canvasWidth: canvas?.width ?? 0,
       canvasHeight: canvas?.height ?? 0,
       sceneChildren: game?.scene?.children?.length ?? null,
-      renderedFrameCount: null,
+      renderedFrameCount: certification?.renderedFrameCount ?? null,
     },
     subjectCounts: {
-      meaningful_frame: null,
+      meaningful_frame: (certification?.renderedFrameCount ?? 0) > 0 ? 1 : 0,
       player: player ? 1 : 0,
       objective_item: objectiveItems.length,
-      interactable: null,
+      interactable: certification?.interactionTargetCount ?? null,
       authored_actor: Array.isArray(game?.cast?.all) ? game.cast.all.length : null,
     },
     progressionChanged: null,
-    interactionInvoked: null,
+    interactionInvoked: certification
+      ? certification.interactionUseCount > 0
+      : null,
+    interaction: certification ? {
+      currentId: certification.interactionCurrentId ?? null,
+      targetCount: certification.interactionTargetCount ?? null,
+      useCount: certification.interactionUseCount ?? null,
+      lastUse: certification.lastInteractionUse ?? null,
+    } : null,
   };
+}
+
+function specialMeetingAtCarDoor() {
+  const game = window.SPECIAL_MEETING;
+  const evidence = game?.certification;
+  return Boolean(game?.started
+    && evidence?.rideBeat === 'SM-110'
+    && evidence?.interactionCurrentId === 'specialmeeting.front_passenger_door');
+}
+
+function specialMeetingCarDoorAvailable() {
+  const game = window.SPECIAL_MEETING;
+  const evidence = game?.certification;
+  return Boolean(game?.started
+    && evidence?.rideBeat === 'SM-110'
+    && evidence?.interactionTargetCount >= 1);
+}
+
+function specialMeetingUsedCarDoor(previousUseCount) {
+  const evidence = window.SPECIAL_MEETING?.certification;
+  return Boolean(evidence
+    && evidence.interactionUseCount > previousUseCount
+    && evidence.poseAdapter === 'passenger_rig');
+}
+
+function specialMeetingObjectiveAdvanced(previousRevision) {
+  const evidence = window.SPECIAL_MEETING?.certification;
+  return Boolean(evidence
+    && evidence.objectiveRevision > previousRevision
+    && evidence.objectiveText === 'Ride out to the meeting.');
+}
+
+function selectSpecialMeetingSpurCheckpoint() {
+  const game = window.SPECIAL_MEETING;
+  if (!game?.campaign) throw new Error('Special Meeting campaign surface is unavailable');
+  game.campaign.enter('special_meeting', { spawn: 'spur' });
+  return { ...game.campaign.state.scene };
 }
 
 /**
@@ -176,6 +247,7 @@ export const SEMANTIC_SMOKE_BROWSER_ADAPTERS = Object.freeze({
     surface: 'window.SPECIAL_MEETING',
     canvas: '#scene',
     reason: 'Special Meeting publishes player, input receipt, startup, and camera state.',
+    journey: 'special_meeting_v1',
     click: Object.freeze({ position: Object.freeze({ x: 320, y: 180 }) }),
     mouse: Object.freeze({
       from: Object.freeze({ x: 320, y: 180 }),
@@ -333,7 +405,7 @@ function sameStringSet(left, right) {
   return [...new Set(left)].sort().join('\0') === [...new Set(right)].sort().join('\0');
 }
 
-function evaluateObligation(obligation, evidence, transport) {
+export function evaluateSemanticSmokeObligation(obligation, evidence, transport = {}) {
   const assertion = obligation.assertion;
   if (assertion.kind === 'entrypoint-route') {
     /* HTTP 200 proves only that a file server answered. It cannot prove which
@@ -374,11 +446,23 @@ function evaluateObligation(obligation, evidence, transport) {
       `Mouse input did not materially change both yaw and pitch.`);
   }
   if (assertion.kind === 'camera-behavior' && assertion.behavior === 'owner_matches_phase') {
+    const ownerMatchesPhase = evidence.after?.camera?.ownerMatchesPhase;
+    if (typeof ownerMatchesPhase === 'boolean') {
+      return verdict(true, ownerMatchesPhase,
+        'The canonical camera owner matched every observed authored phase.',
+        'At least one authored phase displaced the canonical camera owner.');
+    }
     const owner = evidence.after?.camera?.owner;
     const expectedOwner = evidence.after?.camera?.expectedOwner;
     return verdict(Boolean(owner && expectedOwner), owner === expectedOwner,
       `Camera owner ${owner} matches the active phase.`,
       `Camera owner ${owner} does not match ${expectedOwner}.`);
+  }
+  if (assertion.kind === 'camera-behavior' && assertion.behavior === 'returns_to_playable_view') {
+    const returned = evidence.after?.camera?.returnedToPlayableView;
+    return verdict(typeof returned === 'boolean', returned,
+      'The authored passenger pose returned to a real-input playable view.',
+      'The authored passenger pose did not return to a real-input playable view.');
   }
   if (assertion.kind === 'objective-behavior') {
     const objective = evidence.after?.objective;
@@ -410,6 +494,38 @@ function evaluateObligation(obligation, evidence, transport) {
     return verdict(typeof changed === 'boolean', changed,
       'A real player action advanced mission state.',
       'Real player input did not advance mission state.');
+  }
+  if (assertion.kind === 'entry-spawn-liveness') {
+    const spawn = evidence.after?.spawnEvidence?.[assertion.spawnId];
+    const known = spawn
+      && typeof spawn.requested === 'string'
+      && typeof spawn.effective === 'string'
+      && typeof spawn.live === 'boolean'
+      && finite(spawn.legalActionCount);
+    const passed = known
+      && spawn.requested === assertion.spawnId
+      && spawn.effective === assertion.spawnId
+      && spawn.live
+      && (!assertion.mustExposeLegalProgression || spawn.legalActionCount >= 1);
+    return verdict(Boolean(known), Boolean(passed),
+      `Spawn ${assertion.spawnId} booted live with ${spawn?.legalActionCount} legal action(s).`,
+      `Spawn ${assertion.spawnId} did not boot as the requested live state with legal progression.`);
+  }
+  if (assertion.kind === 'checkpoint-liveness') {
+    const checkpoint = evidence.after?.checkpointEvidence?.[assertion.checkpointId];
+    const known = checkpoint
+      && typeof checkpoint.requested === 'string'
+      && typeof checkpoint.effective === 'string'
+      && typeof checkpoint.live === 'boolean'
+      && finite(checkpoint.legalActionCount);
+    const passed = known
+      && checkpoint.requested === assertion.checkpointId
+      && checkpoint.effective === assertion.checkpointId
+      && checkpoint.live
+      && (!assertion.mustExposeLegalProgression || checkpoint.legalActionCount >= 1);
+    return verdict(Boolean(known), Boolean(passed),
+      `Checkpoint ${assertion.checkpointId} restored live with ${checkpoint?.legalActionCount} legal action(s).`,
+      `Checkpoint ${assertion.checkpointId} did not restore the requested live state with legal progression.`);
   }
   return {
     status: SEMANTIC_SMOKE_STATUS.UNKNOWN,
@@ -477,11 +593,217 @@ async function exerciseObservableAdapter(page, adapter, errors) {
   };
 }
 
+function progressionActionCount(observation) {
+  const actions = observation?.spawn?.legalActions;
+  if (!Array.isArray(actions)) return null;
+  return actions.filter((action) => (
+    action === 'player.move'
+      || action === 'gesture.audio_wake'
+      || action.startsWith('interaction.')
+      || action.startsWith('choice.')
+      || action.startsWith('timeline.')
+  )).length;
+}
+
+function liveSpawnEvidence(observation, expectedSpawn, inputEvidence = null) {
+  const requested = observation?.spawn?.requested ?? null;
+  const effective = observation?.spawn?.effective ?? null;
+  const legalActionCount = progressionActionCount(observation);
+  const frameCount = observation?.renderEvidence?.renderedFrameCount;
+  const playableInput = inputEvidence == null
+    || inputEvidence.move === true
+    || inputEvidence.pointer_lock === true;
+  return {
+    requested,
+    effective,
+    legalActionCount,
+    live: requested === expectedSpawn
+      && effective === expectedSpawn
+      && finite(frameCount)
+      && frameCount > 0
+      && finite(legalActionCount)
+      && legalActionCount > 0
+      && playableInput,
+  };
+}
+
+/**
+ * Short, real-input Special Meeting journey.
+ *
+ * Kerb proves movement/look, the physical car-door interaction, passenger
+ * pose, dialogue-backed objective progression, and recorded speech. Reloading
+ * a publicly persisted `spur` scene entry then proves the alternate spawn is
+ * reconstructed live and the same Player owns a restored walk view. No debug
+ * skip or mission-advance hook is used.
+ */
+async function exerciseSpecialMeetingJourney(page, adapter, errors) {
+  const kerb = await exerciseObservableAdapter(page, adapter, errors);
+  const actions = [...kerb.actions];
+
+  /* Undo the look probe with another real mouse move so the authored spawn aim
+   * is restored before asking whether the car door is discoverable. */
+  await page.mouse.move(adapter.mouse.from.x, adapter.mouse.from.y, { steps: adapter.mouse.steps });
+  actions.push({ kind: 'mouse', ...adapter.mouse.from, steps: adapter.mouse.steps });
+  try {
+    await page.waitForFunction(specialMeetingCarDoorAvailable, null, {
+      polling: 'raf',
+      timeout: 45_000,
+    });
+  } catch (error) {
+    errors.action.push(`Car-door action never became available: ${messageOf(error)}`);
+  }
+
+  /* The movement probe is a real strafe, so the car is no longer guaranteed
+   * to remain under the untouched spawn crosshair. Sweep toward its visible
+   * kerb-side door with real mouse input. The test may search like a player;
+   * it may not read a world transform or set camera state through the debug
+   * surface. */
+  let foundCarDoor = false;
+  for (const x of [240, 160, 80, 20]) {
+    await page.mouse.move(x, adapter.mouse.from.y, { steps: 2 });
+    actions.push({ kind: 'mouse', x, y: adapter.mouse.from.y, steps: 2, purpose: 'find car door' });
+    try {
+      await page.waitForFunction(specialMeetingAtCarDoor, null, {
+        polling: 'raf',
+        timeout: 1_500,
+      });
+      foundCarDoor = true;
+      break;
+    } catch {
+      // Continue the bounded, player-visible sweep.
+    }
+  }
+  if (!foundCarDoor) {
+    errors.action.push('Car-door discovery failed after a bounded real-mouse sweep.');
+  }
+
+  const beforeInteraction = await page.evaluate(adapter.observe);
+  const previousUseCount = beforeInteraction?.interaction?.useCount ?? 0;
+  await page.keyboard.down('e');
+  actions.push({ kind: 'key-down', key: 'e', purpose: 'car-door interaction' });
+  await page.keyboard.up('e');
+  actions.push({ kind: 'key-up', key: 'e', purpose: 'car-door interaction' });
+  try {
+    await page.waitForFunction(specialMeetingUsedCarDoor, previousUseCount, {
+      polling: 'raf',
+      timeout: 30_000,
+    });
+  } catch (error) {
+    errors.action.push(`Car-door use failed: ${messageOf(error)}`);
+  }
+  try {
+    await page.waitForFunction(
+      specialMeetingObjectiveAdvanced,
+      kerb.evidence.before?.objective?.revision ?? 0,
+      { polling: 'raf', timeout: 60_000 },
+    );
+  } catch (error) {
+    errors.action.push(`Objective progression failed: ${messageOf(error)}`);
+  }
+  const afterInteraction = await page.evaluate(adapter.observe);
+  const kerbAudio = await page.evaluate(observeQaAudioPolicy);
+
+  const seeded = await page.evaluate(selectSpecialMeetingSpurCheckpoint);
+  actions.push({ kind: 'checkpoint-seed', sceneId: seeded?.id ?? null, spawn: seeded?.spawn ?? null });
+  await page.reload({ waitUntil: 'load', timeout: adapter.readyTimeoutMs });
+  actions.push({ kind: 'reload', purpose: 'persisted spur checkpoint' });
+  const spur = await exerciseObservableAdapter(page, adapter, errors);
+  actions.push(...spur.actions.map((action) => ({ ...action, scenario: 'spur' })));
+
+  const kerbFinal = afterInteraction ?? kerb.evidence.after;
+  const spurFinal = spur.evidence.after;
+  const kerbSpawn = liveSpawnEvidence(kerb.evidence.before, 'kerb', kerb.evidence.input);
+  const spurSpawn = liveSpawnEvidence(spurFinal, 'spur', spur.evidence.input);
+  const cameraOwnerSnapshots = [
+    kerb.evidence.before,
+    afterInteraction,
+    spur.evidence.before,
+    spurFinal,
+  ].filter(Boolean);
+  const ownerMatchesPhase = cameraOwnerSnapshots.every((observation) => (
+    observation.camera?.owner === 'core/player'
+      && observation.camera?.identity
+      && observation.camera.identity === observation.camera.playerCameraIdentity
+  ));
+  const returnedToPlayableView = afterInteraction?.camera?.poseAdapter === 'passenger_rig'
+    && spurFinal?.camera?.poseAdapter === 'walk'
+    && spur.evidence.input.move === true
+    && finite(spur.evidence.yawDelta)
+    && Math.abs(spur.evidence.yawDelta) > 0.01;
+  const interactionInvoked = (afterInteraction?.interaction?.useCount ?? 0) > previousUseCount;
+  const objectiveChanged = finite(kerb.evidence.before?.objective?.revision)
+    && finite(afterInteraction?.objective?.revision)
+    && afterInteraction.objective.revision > kerb.evidence.before.objective.revision
+    && afterInteraction.objective.runtimeText !== kerb.evidence.before.objective.runtimeText;
+  const renderedFrameCount = Math.max(
+    kerbFinal?.renderEvidence?.renderedFrameCount ?? 0,
+    spurFinal?.renderEvidence?.renderedFrameCount ?? 0,
+  );
+  const compositeAfter = {
+    ...spurFinal,
+    route: kerbFinal?.route ?? spurFinal?.route ?? null,
+    camera: {
+      ...spurFinal?.camera,
+      ownerMatchesPhase,
+      returnedToPlayableView,
+    },
+    objective: {
+      ...afterInteraction?.objective,
+      changeObserved: objectiveChanged,
+    },
+    renderEvidence: {
+      ...spurFinal?.renderEvidence,
+      renderedFrameCount,
+    },
+    subjectCounts: {
+      meaningful_frame: renderedFrameCount > 0 ? 1 : 0,
+      player: Math.max(kerbFinal?.subjectCounts?.player ?? 0, spurFinal?.subjectCounts?.player ?? 0),
+      objective_item: Math.max(
+        afterInteraction?.subjectCounts?.objective_item ?? 0,
+        spurFinal?.subjectCounts?.objective_item ?? 0,
+      ),
+      interactable: Math.max(
+        kerbFinal?.subjectCounts?.interactable ?? 0,
+        spurFinal?.subjectCounts?.interactable ?? 0,
+      ),
+      authored_actor: Math.max(
+        kerbFinal?.subjectCounts?.authored_actor ?? 0,
+        spurFinal?.subjectCounts?.authored_actor ?? 0,
+      ),
+    },
+    interactionInvoked,
+    progressionChanged: interactionInvoked
+      && beforeInteraction?.mission?.rideBeat !== afterInteraction?.mission?.rideBeat,
+    spawnEvidence: { kerb: kerbSpawn, spur: spurSpawn },
+    checkpointEvidence: { kerb: kerbSpawn, spur: spurSpawn },
+  };
+
+  return {
+    actions,
+    observations: {
+      before: kerb.observations.before,
+      afterLook: kerb.observations.afterLook,
+      held: kerb.observations.held,
+      after: compositeAfter,
+      beforeInteraction,
+      afterInteraction,
+      spur: spur.observations,
+    },
+    evidence: {
+      ...kerb.evidence,
+      after: compositeAfter,
+      audio: kerbAudio,
+      scenarios: { kerb: kerb.evidence, afterInteraction, spur: spur.evidence },
+    },
+  };
+}
+
 export async function executeSemanticSmokeCase({
   page,
   smokeCase,
   baseUrl,
   navigationTimeoutMs = 30_000,
+  exerciseJourneys = true,
 } = {}) {
   if (!page) throw new TypeError('executeSemanticSmokeCase requires a Playwright page');
   if (!smokeCase) throw new TypeError('executeSemanticSmokeCase requires a smokeCase');
@@ -519,19 +841,20 @@ export async function executeSemanticSmokeCase({
   };
   if (smokeCase.adapter.observable && !navigationError) {
     try {
-      ({ actions, observations, evidence } = await exerciseObservableAdapter(
-        page,
-        smokeCase.adapter,
-        diagnostics.errors,
+      const exercise = exerciseJourneys && smokeCase.adapter.journey === 'special_meeting_v1'
+        ? exerciseSpecialMeetingJourney
+        : exerciseObservableAdapter;
+      ({ actions, observations, evidence } = await exercise(
+        page, smokeCase.adapter, diagnostics.errors,
       ));
     } catch (error) {
       diagnostics.errors.action.push(messageOf(error));
     }
   }
-  let audio = null;
+  let audio = evidence.audio ?? null;
   if (!navigationError) {
     try {
-      audio = await page.evaluate(observeQaAudioPolicy);
+      audio ??= await page.evaluate(observeQaAudioPolicy);
       if (!audio?.installed || !audio.strictRequiredRecordings) {
         diagnostics.errors.action.push('Strict required-recording QA policy was not installed.');
       } else if (audio.engineCount !== audio.strictEngineCount) {
@@ -582,7 +905,7 @@ export async function executeSemanticSmokeCase({
   let obligations = smokeCase.adapter.observable
     ? smokeCase.obligations.map((obligation) => ({
       ...obligation,
-      ...evaluateObligation(obligation, evidence, transport),
+      ...evaluateSemanticSmokeObligation(obligation, evidence, transport),
     }))
     : unknownObligations(smokeCase, reason);
   if (errorCount(diagnostics.errors) > 0) {

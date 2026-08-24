@@ -23,6 +23,10 @@ test('Special Meeting provides the complete shared Hud DOM contract before boot'
   assert.match(HTML, /id="clock"[\s\S]*class="day"[\s\S]*class="time"[\s\S]*class="spent"/);
   assert.match(HTML, /id="bladder"[\s\S]*class="cap"[\s\S]*class="bar"><i>/);
   assert.match(HTML, /id="toast-stack"/);
+  for (const id of ['hand-item', 'radio-osd', 'clock', 'bladder']) {
+    assert.equal((HTML.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1,
+      `#${id} must be unique or the HUD writes to an arbitrary duplicate`);
+  }
 });
 
 test('Special Meeting delegates movement, look, interaction, rebinding, and focus cleanup to the canonical Adapter', () => {
@@ -44,23 +48,48 @@ test('pointer lock is the only normal-play input enable seam and pause clears he
     'number-key dialogue choices do not restore pointer lock');
 });
 
-test('SM-100 cannot begin until the first-gesture audio bank has finished loading', () => {
+test('SM-100 cannot begin until voice is ready and the car is settled at the kerb', () => {
   const wake = bodyOf('wakeTheSound');
+  const start = bodyOf('tryStartRide');
   const load = wake.indexOf('await audio.loadAdditional');
   const validate = wake.indexOf('missingVoiceCues = SPECIAL_MEETING_VOICE_CUES.filter');
   const failClosed = wake.indexOf('if (!voiceReady)');
-  const stageBegin = wake.indexOf('stage.begin()');
-  const begin = wake.indexOf("ride.begin('SM-100')");
   assert.match(MAIN, /import \{ SPEAKERS, scriptCues \} from '\.\/script\.js';/);
   assert.match(MAIN, /scriptCues\(\)\.map\(\(cue\) => cue\.name\)/);
   assert.ok(load >= 0 && validate > load, 'the active cue set is not checked after decoding');
-  assert.ok(failClosed > validate && stageBegin > failClosed,
-    'stage.begin is reachable before exact voice validation fails closed');
-  assert.ok(begin > stageBegin, 'SM-100 begins before the validated scene start');
+  assert.ok(failClosed > validate, 'voice validation does not fail closed');
+  assert.match(start, /if \(!voiceReady \|\| started\) return false;/);
+  assert.match(start, /if \(!stage\.arrival\?\.settled\) return false;/);
+  assert.match(start, /stage\.begin\(\);[\s\S]*ride\.begin\('SM-100'\)/);
   assert.equal((MAIN.match(/ride\.begin\('SM-100'\)/g) ?? []).length, 1,
     'a second ungated SM-100 start remains');
-  assert.match(MAIN, /if \(!started\) \{ renderer\.render\(scene, camera\); return; \}/,
-    'the scene clocks run before the audio-gated start');
+  assert.match(wake, /tryStartRide\(\)/);
+});
+
+test('campaign spawn, shared door interaction and movement-gated handoff are runtime facts', () => {
+  assert.match(MAIN, /const requestedSpawn = campaign\.state\.scene\.spawn;/);
+  assert.match(MAIN, /beginTheDrive\(\{ restoreNode: 'arrival' \}\)/);
+  assert.match(MAIN, /ride\.begin\('SM-400', \{ phase: 'spur' \}\)/);
+  assert.match(MAIN, /createFrontPassengerDoorTarget\(stage\.sedan\)/);
+  assert.match(MAIN, /interaction\.register\(frontPassengerDoorTarget, \{/);
+  assert.match(MAIN, /soft: true/);
+  assert.match(MAIN, /canHandoff: \(\) => trailDistanceTravelled >= TRAIL_HANDOFF_DISTANCE_M/);
+  assert.doesNotMatch(MAIN, /pauseMenu\.hold\(/);
+});
+
+test('the browser certification surface exposes observations, not progression hooks', () => {
+  assert.match(MAIN, /const certification = \{/);
+  for (const getter of [
+    'requestedSpawn', 'effectiveSpawn', 'renderedFrameCount', 'objectiveRevision',
+    'objectiveText', 'interactionTargetCount', 'interactionUseCount', 'legalActions',
+    'rideBeat', 'ridePhase', 'arrival', 'handoff',
+  ]) assert.match(MAIN, new RegExp(`get ${getter}\\(\\)`), `${getter} observation is missing`);
+  assert.match(MAIN, /certification,/);
+  assert.match(MAIN, /player\.camera === camera \? 'core\/player' : 'unknown'/,
+    'camera ownership must be derived from object identity');
+  assert.match(MAIN, /player\.mode === 'seated' \|\| forest\?\.passenger\?\.seated/,
+    'the stage-seat interval must not be reported as a walking pose');
+  assert.doesNotMatch(MAIN, /certification[\s\S]{0,1000}(skip|advanceBeat|forcePass)\s*[:(]/i);
 });
 
 test('the road cut replaces block collision with the forest world before boarding', () => {

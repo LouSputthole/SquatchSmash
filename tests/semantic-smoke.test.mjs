@@ -59,6 +59,16 @@ test('input obligations require real pointer-lock, movement, and held-input clea
   }
 });
 
+test('Special Meeting camera handoffs are required behavior after live certification', () => {
+  const camera = generateSemanticSmokeObligations(getSceneContract(SCENE_IDS.SPECIAL_MEETING))
+    .filter((item) => item.area === 'camera');
+  assert.deepEqual(camera.map((item) => item.assertion.behavior), [
+    'look_changes_view', 'owner_matches_phase', 'returns_to_playable_view',
+  ]);
+  assert.ok(camera.every((item) => item.disposition === CONTRACT_DISPOSITION.REQUIRED));
+  assert.ok(camera.every((item) => item.assertion.mode === 'first_person_and_scripted_ride'));
+});
+
 test('minimum-subject obligations cannot pass vacuously', () => {
   const obligations = generateSemanticSmokeRegistry(SCENE_CONTRACTS)
     .filter((item) => item.area === 'minimum_subjects');

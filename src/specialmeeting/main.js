@@ -32,7 +32,7 @@ import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
 import {
-  SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
+  SCENES, SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
 } from '../core/campaign.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
@@ -45,6 +45,7 @@ import { createPauseMenu } from '../core/pause-menu.js';
 import { registerSceneRenderer } from '../core/scene-lifecycle.js';
 import { AMBIENCE_CUES } from './ambience.js';
 import { buildSpecialMeetingCast } from './cast.js';
+import { createFrontPassengerDoorTarget } from './door-interaction.js';
 import { createNightForestRoad, adaptMeetingSedan } from './forest/index.js';
 import { createRideSequence } from './ride.js';
 import { SPEAKERS, scriptCues } from './script.js';
@@ -69,6 +70,8 @@ const GATES = Object.freeze({
 
 /** The one beat that lets the car move again: Lag has hooked the chain back up. */
 const RELEASES = Object.freeze({ 'SM-270': true });
+const TRAIL_HANDOFF_DISTANCE_M = 8;
+const CAR_DOOR_INTERACTION_ID = 'specialmeeting.front_passenger_door';
 
 /* ------------------------------------------------------------------ */
 /* Boot                                                                */
@@ -82,6 +85,10 @@ const campaign = createCampaign();
 if (campaign.state.scene.id !== SCENE_IDS.SPECIAL_MEETING) {
   campaign.enter(SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb' });
 }
+/* The campaign save is the authority. A persisted spur may never be silently
+ * replaced by this page's historical hard-coded kerb start. */
+const requestedSpawn = campaign.state.scene.spawn;
+let effectiveSpawn = requestedSpawn === 'spur' ? null : 'kerb';
 campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -117,6 +124,7 @@ player.yaw = stage.spawn.yaw ?? 0;
 player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(stage.footstepSurface ?? FOOTSTEP_SURFACE, intensity);
 const interaction = new InteractionSystem(camera, hud);
+const frontPassengerDoorTarget = createFrontPassengerDoorTarget(stage.sedan);
 
 /* `groundAt` matters as much as the sedan does: the cast is placed by door
  * anchor, and a door anchor is a pair of coordinates with no opinion about how
@@ -138,6 +146,22 @@ let paused = false;
 let handedOff = false;
 let started = false;
 let startPromise = null;
+let renderedFrameCount = 0;
+let objectiveRevision = 0;
+let objectiveText = '';
+let interactionUseCount = 0;
+let lastInteractionUse = null;
+let trailDistanceTravelled = 0;
+let trailStartProgress = 0;
+let spurLightsOffIn = null;
+const observedExits = [...SCENES[SCENE_IDS.SPECIAL_MEETING].next];
+const entryHref = location.href;
+const handoffReceipt = {
+  attempted: 0,
+  completed: 0,
+  destination: null,
+  error: null,
+};
 
 /* ------------------------------------------------------------------ */
 /* Voice                                                               */
@@ -204,7 +228,14 @@ function say(line) {
 
 function showChoices(options) {
   if (!choicesEl) return;
-  if (options?.length && document.pointerLockElement === canvas) document.exitPointerLock?.();
+  /* SM-110 is also a physical shared-system interaction: keep world control
+   * so looking at the passenger door and pressing E remains possible. The
+   * numbered replies remain available; later dialogue choices release the
+   * pointer for their clickable buttons as before. */
+  const carDoorChoice = ride?.beatId === 'SM-110';
+  if (options?.length && !carDoorChoice && document.pointerLockElement === canvas) {
+    document.exitPointerLock?.();
+  }
   if (!options || !options.length) {
     choicesEl.classList.add('hidden');
     choicesEl.innerHTML = '';
@@ -282,6 +313,13 @@ function requestScenePointerLock() {
  * crosshair. */
 const objectivePanel = createObjectivePanel();
 
+function setObjective(text) {
+  if (!text || text === objectiveText) return;
+  objectiveText = text;
+  objectiveRevision += 1;
+  objectivePanel.setLine(text);
+}
+
 const ride = createRideSequence({
   onLine: (line) => say(line),
   onChoice: (options) => showChoices(options),
@@ -296,7 +334,7 @@ const ride = createRideSequence({
      * forbids anything that tells the player he is SAFE, and these four lines
      * say where he is and nothing about what happens next -- which is what
      * their own author wrote directly above them. */
-    objectivePanel.setLine(objectiveFor(b));
+    setObjective(objectiveFor(b));
     if (GATES[b.id] && !reachedNodes.has(GATES[b.id])) gatedOn = GATES[b.id];
     if (RELEASES[b.id]) forest?.resume();
     if (b.id === 'SM-100') cast.disembarkForPickup();
@@ -310,6 +348,10 @@ const ride = createRideSequence({
     }
     if (b.id === 'SM-120') cast.lagTakesTheBack();
     if (b.id === 'SM-322') cast.swapRearSeats();
+    if (b.id === 'SM-330') {
+      forest?.killEngine();
+      spurLightsOffIn = 4;
+    }
     if (b.id === 'SM-400') { cast.getOut(); forest?.leave(); }
     /* The boot. Kittenboss stands herself up and climbs out under her own
      * power — `cast.js` owns the move, and it is a stand rather than a lift
@@ -342,9 +384,35 @@ const ride = createRideSequence({
     blackout.style.transitionDuration = `${seconds}s`;
     blackout.classList.remove('on');
   },
+  canHandoff: () => trailDistanceTravelled >= TRAIL_HANDOFF_DISTANCE_M,
   onHandoff: () => handOff(),
   onPhase: (phase) => {
     if (phase === 'trail') startTheWalk();
+  },
+});
+
+/* A real InteractionSystem target on the car the player is looking at. The
+ * descriptor is live only for the front-seat hub; its action selects the
+ * script's authored accepting option rather than bypassing the sequence. */
+interaction.register(frontPassengerDoorTarget, {
+  id: CAR_DOOR_INTERACTION_ID,
+  label: 'Get in the front passenger seat',
+  key: 'E',
+  soft: true,
+  enabled: () => started
+    && stage.arrival?.settled === true
+    && ride.beatId === 'SM-110'
+    && Boolean(ride.options?.some((option) => option.accepts)),
+  onUse: () => {
+    const option = ride.options?.find((candidate) => candidate.accepts);
+    if (!option) return;
+    interactionUseCount += 1;
+    lastInteractionUse = {
+      id: CAR_DOOR_INTERACTION_ID,
+      beat: ride.beatId,
+      frame: renderedFrameCount,
+    };
+    ride.choose(option.index);
   },
 });
 
@@ -360,7 +428,7 @@ function objectiveFor(b) {
 /* The drive, which happens behind the black                           */
 /* ------------------------------------------------------------------ */
 
-function beginTheDrive() {
+function beginTheDrive({ restoreNode = null } = {}) {
   if (forest) return;
   window.__squatchStage?.('The road out…');
   const sedan = adaptMeetingSedan(stage.sedan);
@@ -374,6 +442,9 @@ function beginTheDrive() {
     onNode: (id) => {
       reachedNodes.add(id);
       if (gatedOn === id) gatedOn = null;
+      if (id === 'arrival' && campaign.state.scene.spawn !== 'spur') {
+        campaign.enter(SCENE_IDS.SPECIAL_MEETING, { spawn: 'spur' });
+      }
     },
   });
   /* The block's flat ground goes with the block. Everything the cast is stood
@@ -388,7 +459,22 @@ function beginTheDrive() {
    * the block is behind us now. The forest brings its own bed. */
   stage.ambience.stop();
   forest.board();
-  forest.start();
+  if (restoreNode) {
+    forest.restoreAtNode(restoreNode);
+    forest.killEngine();
+    forest.killLights();
+    reachedNodes.add(restoreNode);
+    effectiveSpawn = 'spur';
+  } else {
+    forest.start();
+  }
+}
+
+if (requestedSpawn === 'spur') {
+  beginTheDrive({ restoreNode: 'arrival' });
+  setObjective('Wait by the car.');
+} else {
+  setObjective('Wait outside for the car.');
 }
 
 function startTheWalk() {
@@ -404,6 +490,31 @@ function startTheWalk() {
    * miss it."* The forest surveyed the path; `trailYaw` is its first segment,
    * and it is read from there rather than written down again here. */
   if (Number.isFinite(forest.trailYaw)) player.yaw = forest.trailYaw;
+  trailStartProgress = trailProgressAt(player.position);
+  trailDistanceTravelled = 0;
+}
+
+/** Distance along the surveyed trail nearest the player's actual position. */
+function trailProgressAt(position) {
+  const path = forest?.trail ?? [];
+  let walked = 0;
+  let best = { distance: Infinity, progress: 0 };
+  for (let i = 1; i < path.length; i += 1) {
+    const a = path[i - 1];
+    const b = path[i];
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const length = Math.hypot(dx, dz);
+    if (length <= 0) continue;
+    const t = Math.max(0, Math.min(1,
+      ((position.x - a.x) * dx + (position.z - a.z) * dz) / (length * length)));
+    const x = a.x + dx * t;
+    const z = a.z + dz * t;
+    const distance = Math.hypot(position.x - x, position.z - z);
+    if (distance < best.distance) best = { distance, progress: walked + length * t };
+    walked += length;
+  }
+  return best.progress;
 }
 
 /* ------------------------------------------------------------------ */
@@ -420,13 +531,25 @@ function startTheWalk() {
 function handOff() {
   if (handedOff) return;
   handedOff = true;
+  handoffReceipt.attempted += 1;
+  handoffReceipt.destination = { sceneId: SCENE_IDS.INITIATION, spawn: 'gathering' };
+  handoffReceipt.error = null;
   input.suspend();
   campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
   blackout?.classList.remove('cut');
   if (blackout) blackout.style.transitionDuration = '1.4s';
   blackout?.classList.add('on');
   setTimeout(() => {
-    navigateCampaign(campaign, SCENE_IDS.INITIATION, { spawn: 'gathering', location });
+    try {
+      navigateCampaign(campaign, SCENE_IDS.INITIATION, { spawn: 'gathering', location });
+      handoffReceipt.completed += 1;
+    } catch (error) {
+      handoffReceipt.error = error?.message || String(error);
+      handedOff = false;
+      blackout?.classList.remove('on');
+      input.resume();
+      console.error('[specialmeeting] campaign handoff failed', error);
+    }
   }, 1400);
 }
 
@@ -452,9 +575,11 @@ const pauseMenu = createPauseMenu({
   onPause: () => {
     paused = true;
     input.suspend();
+    interaction.setPaused(true);
   },
   onResume: () => {
     paused = false;
+    interaction.setPaused(false);
     input.resume();
   },
   recovery,
@@ -462,10 +587,30 @@ const pauseMenu = createPauseMenu({
 
 const clock = new THREE.Clock();
 
+function renderScene() {
+  renderer.render(scene, camera);
+  renderedFrameCount += 1;
+}
+
+function tryStartRide() {
+  if (!voiceReady || started) return false;
+  if (requestedSpawn === 'spur') {
+    if (!forest?.drive.arrived) return false;
+    started = true;
+    ride.begin('SM-400', { phase: 'spur' });
+    return true;
+  }
+  if (!stage.arrival?.settled) return false;
+  stage.begin();
+  started = true;
+  ride.begin('SM-100');
+  return true;
+}
+
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.05);
-  if (paused) { renderer.render(scene, camera); return; }
+  if (paused) { renderScene(); return; }
 
   player.update(dt);
   /* One of the two, never both. The block owns the car, the night and the
@@ -474,17 +619,27 @@ function frame() {
    * while the rail is driving it. */
   if (forest) forest.update(dt);
   else stage.update(dt, player.position);
-  if (!started) { renderer.render(scene, camera); return; }
+  tryStartRide();
+  if (!started) { renderScene(); return; }
   cast.update(dt, player.position);
   interaction.update(dt);
+  if (ride.phase === 'trail' || ride.phase === 'handoff') {
+    trailDistanceTravelled = Math.max(
+      trailDistanceTravelled,
+      trailProgressAt(player.position) - trailStartProgress,
+    );
+  }
+  if (spurLightsOffIn !== null) {
+    spurLightsOffIn -= dt;
+    if (spurLightsOffIn <= 0) {
+      forest?.killLights();
+      spurLightsOffIn = null;
+    }
+  }
   if (!gatedOn) ride.update(dt);
 
-  renderer.render(scene, camera);
+  renderScene();
 }
-
-addEventListener('visibilitychange', () => {
-  if (document.hidden) pauseMenu.hold();
-});
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -521,9 +676,7 @@ async function wakeTheSound() {
         + `${failedVoiceCues.length} failed to decode`,
       );
     }
-    stage.begin();
-    ride.begin('SM-100');
-    started = true;
+    tryStartRide();
     removeEventListener('pointerdown', wakeTheSound);
     removeEventListener('keydown', wakeTheSound);
   })();
@@ -546,6 +699,89 @@ document.getElementById('loading')?.classList.add('hidden');
 /* The boot guard watches for this global by name (`data-ready` on
  * specialmeeting.html). Published last, once the first frame has actually
  * gone out, so a scene that threw on the way up still reports as failed. */
+function currentInteractionId() {
+  const current = interaction.current;
+  return current?.userData?.interact?.id ?? current?.name ?? null;
+}
+
+function currentLegalActions() {
+  const actions = [];
+  if (!voiceReady) actions.push('gesture.audio_wake');
+  if (!handedOff && player.enabled && player.mode === 'walk') {
+    actions.push('player.move', 'player.look');
+  }
+  if (currentInteractionId()) actions.push(`interaction.${currentInteractionId()}`);
+  for (const option of ride.options ?? []) actions.push(`choice.${option.index}`);
+  if (!started && voiceReady && requestedSpawn === 'kerb' && !stage.arrival?.settled) {
+    actions.push('timeline.wait_for_arrival');
+  } else if (started && !ride.options && !ride.finished) {
+    actions.push(gatedOn ? `timeline.wait_for_${gatedOn}` : 'timeline.dialogue');
+  }
+  if (!handedOff) actions.push('menu.pause');
+  return actions;
+}
+
+function arrivalEvidence() {
+  if (forest) {
+    return {
+      system: 'forest_drive',
+      phase: forest.drive.waitingAt ?? forest.drive.stage,
+      settled: forest.drive.arrived,
+      distance: forest.drive.distance,
+      speed: forest.drive.speed,
+      headlightsOn: forest.car.headlightsOn,
+    };
+  }
+  return {
+    system: 'block_arrival',
+    phase: stage.arrival?.phase ?? null,
+    settled: stage.arrival?.settled ?? false,
+    speed: stage.sedan?.vehicle?.speed ?? null,
+    headlightsOn: stage.sedan?.headlightsOn ?? null,
+  };
+}
+
+const certification = {
+  route: Object.freeze({
+    entrypointId: 'special_meeting_canonical',
+    href: SCENES[SCENE_IDS.SPECIAL_MEETING].href,
+    root: 'src/specialmeeting/main.js',
+    observedExits: Object.freeze([...observedExits]),
+    entryHref,
+  }),
+  get requestedSpawn() { return requestedSpawn; },
+  get effectiveSpawn() { return effectiveSpawn; },
+  get renderedFrameCount() { return renderedFrameCount; },
+  get cameraOwner() { return player.camera === camera ? 'core/player' : 'unknown'; },
+  get poseAdapter() {
+    return player.mode === 'seated' || forest?.passenger?.seated ? 'passenger_rig' : 'walk';
+  },
+  get cameraIdentity() { return camera.uuid; },
+  get playerCameraIdentity() { return player.camera?.uuid ?? null; },
+  get playerPosition() {
+    return { x: player.position.x, y: player.position.y, z: player.position.z };
+  },
+  get objectiveRevision() { return objectiveRevision; },
+  get objectiveText() { return objectiveText; },
+  get interactionTargetCount() { return interaction.targets.length; },
+  get interactionCurrentId() { return currentInteractionId(); },
+  get interactionUseCount() { return interactionUseCount; },
+  get lastInteractionUse() { return lastInteractionUse ? { ...lastInteractionUse } : null; },
+  get legalActions() { return currentLegalActions(); },
+  get handoff() {
+    return {
+      ...handoffReceipt,
+      destination: handoffReceipt.destination ? { ...handoffReceipt.destination } : null,
+    };
+  },
+  get rideBeat() { return ride.beatId; },
+  get ridePhase() { return ride.phase; },
+  get arrival() { return arrivalEvidence(); },
+  get trailDistance() { return trailDistanceTravelled; },
+  get trailRequiredDistance() { return TRAIL_HANDOFF_DISTANCE_M; },
+  get campaignScene() { return { ...campaign.state.scene }; },
+};
+
 window.SPECIAL_MEETING = {
   campaign, ride, cast, stage,
   /* THE PLAYER, so a check can ask whether he can actually move.
@@ -578,4 +814,5 @@ window.SPECIAL_MEETING = {
       0,
     );
   },
+  certification,
 };

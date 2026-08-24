@@ -61,6 +61,11 @@ const firstPersonCamera = (mode = 'first_person') => required(
   { mode, assertions: ['look_changes_view', 'owner_matches_phase'] },
 );
 
+const scriptedFirstPersonCamera = (mode) => required(
+  'Real input and authored pose transitions must retain one camera identity and restore a playable view.',
+  { mode, assertions: ['look_changes_view', 'owner_matches_phase', 'returns_to_playable_view'] },
+);
+
 const localCamera = (reason, mode) => debt(
   reason,
   'Real input and authored transitions must leave exactly one camera owner and restore the playable view.',
@@ -490,7 +495,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     entrypoints: [canonicalEntry(SCENE_IDS.SPECIAL_MEETING, 'src/specialmeeting/main.js')],
     capabilities: {
       input: canonicalBrowserInput('first_person_and_scripted_ride'),
-      camera: localCamera('Ride and forest stages own authored camera phases around on-foot control.', 'scripted_ride'),
+      camera: scriptedFirstPersonCamera('first_person_and_scripted_ride'),
       objective: sharedObjective,
       interaction: sharedInteraction,
       checkpoints: sceneEntryCheckpoints(['kerb', 'spur']),
