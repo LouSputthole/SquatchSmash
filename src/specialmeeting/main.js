@@ -43,6 +43,7 @@ import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { translateKey } from '../core/settings.js';
 import { registerSceneRenderer } from '../core/scene-lifecycle.js';
+import { loadFaceIndex } from '../bing/family.js';
 import { AMBIENCE_CUES } from './ambience.js';
 import { buildSpecialMeetingCast } from './cast.js';
 import { createNightForestRoad, adaptMeetingSedan } from './forest/index.js';
@@ -99,6 +100,24 @@ camera.name = 'specialmeeting.camera';
 scene.add(camera);
 
 const hud = new Hud();
+/* THE HUD IS INVISIBLE UNTIL A SCENE SAYS IT IS PLAYING.
+ *
+ * `src/style.css` holds `#hud { opacity: 0 }` and turns it on with exactly one
+ * rule: `body.playing #hud { opacity: 1 }`. Eight other scene roots add the
+ * class; this one never did. So every subtitle this file writes, the crosshair
+ * and the interaction prompt have all been rendering at opacity zero -- all 220
+ * authored voice lines played into a scene with no text on the screen, which is
+ * the owner's "no subtitles" and a good part of his "nothing happens".
+ *
+ * Nothing could catch it: every test in this scene is headless, and the one
+ * live verifier never read a computed opacity. `src/golf/main.js` has the same
+ * two lines with a comment naming this exact failure -- "logic tests pass while
+ * a human sees nothing".
+ *
+ * The fix is to satisfy the shared rule, never to override it: do not add a
+ * `#hud` rule to `specialmeeting.css` and do not touch `src/style.css`. */
+document.body.classList.add('playing');
+document.getElementById('hud')?.setAttribute('aria-hidden', 'false');
 const audio = new AudioEngine();
 const SPECIAL_MEETING_VOICE_CUES = Object.freeze([
   ...new Set(scriptCues().map((cue) => cue.name)),
@@ -124,10 +143,23 @@ const interaction = new InteractionSystem(camera, hud);
  * standing ON the pavement and standing 0.15 m into it; in the woods, where
  * this is swapped for the forest's own field at the cut to black, it is the
  * difference between the clearing floor and thirty-two metres under it. */
+/* `faces` is the other half of the owner's "missing faces" report. This is
+ * the only scene in the campaign that stages named Circle members and never
+ * passed one, so Seff, Lag, Numbskull and Kittenboss were built on the
+ * procedural drawn head while the same four people wear the owner's
+ * photographs in the Bing, the Mansion and the Initiation. `loadFaceIndex()`
+ * is the club's own loader and it never throws or 404s — a missing index just
+ * comes back empty and everybody keeps the authored head — so awaiting it
+ * here costs one small local fetch before the car is populated and can only
+ * ever add faces, never remove one. This is `src/bing/main.js`'s pattern
+ * verbatim: load the index once at the top, hand the set to the thing that
+ * builds people. */
+const faceIndex = await loadFaceIndex();
 const cast = buildSpecialMeetingCast(scene, {
   sedan: stage.sedan,
   colliders: stage.world.colliders,
   groundAt: stage.world.groundAt,
+  faces: faceIndex,
 });
 cast.boardForArrival();
 
@@ -512,6 +544,25 @@ function frame() {
    * while the rail is driving it. */
   if (forest) forest.update(dt);
   else stage.update(dt, player.position);
+  /* THE EARS, WHICH HAVE BEEN AT THE WORLD ORIGIN THIS WHOLE TIME.
+   *
+   * `AudioEngine.init()` parks the WebAudio listener at (0,0,0) facing -Z, and
+   * every other first-person scene in the campaign pumps it once a frame. This
+   * one never did -- while every line IS positional, built with a real HRTF
+   * panner at the speaker's world position. So the entire scene was heard from
+   * the origin by a head that never turned.
+   *
+   * That is the owner's "voices sound like they are coming from arbitrary
+   * directions", and it explains the strangest half of his report exactly:
+   * with forward -Z and up +Y the listener's right is world +X, and the forest
+   * road runs from the origin out to x = +244. His own voice follows the
+   * camera, so it was panned hundreds of metres onto the +X side -- "even the
+   * Prospect's own voice sounds far right and low". It was, literally.
+   *
+   * After the world update, because `player.update` writes the camera and the
+   * forest rail writes the seat; before the `started` return, so the listener
+   * is already where the ears are on the first frame of sound. */
+  audio.updateListener(camera);
   if (!started) { renderer.render(scene, camera); return; }
   cast.update(dt, player.position);
   interaction.update(dt);

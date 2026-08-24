@@ -172,6 +172,46 @@ try {
         && person.attached
         && person.meshes > 10),
     JSON.stringify(initial.people));
+
+  /* THE FACES.
+   *
+   * The owner reported the Special Meeting cast as "missing faces". Half of
+   * that was the cabin light rig; the other half was this scene never passing
+   * `face` to the shared builder at all, so four people who wear the owner's
+   * photographs in the Bing, the Mansion and the Initiation were built here on
+   * the procedural drawn head. Nothing could have caught it: the check above
+   * counts meshes and reads garments, and a head with no photograph on it has
+   * exactly the same meshes and exactly the same suit.
+   *
+   * The index is fetched here rather than read off the scene, so this proves
+   * the built cast against what is genuinely on the server instead of against
+   * the scene's own copy of that answer. A photograph that has NOT landed must
+   * come back null -- asking for a file that is not there is a 404 in every
+   * player's console, which is the whole reason the index exists -- and a
+   * photograph that HAS landed must be on the model. Today no seff.png,
+   * lag.png, numbskull.png or kittenboss.png exists, so the first half is what
+   * runs and the second half is what starts proving something the moment the
+   * art is dropped in and `node tools/faces-index.mjs` re-runs. */
+  const faces = await page.evaluate(async () => {
+    const index = await fetch('assets/faces/index.json')
+      .then((response) => response.json())
+      .catch(() => ({ files: [] }));
+    const landed = new Set(Array.isArray(index.files) ? index.files : []);
+    const { cast } = window.SPECIAL_MEETING;
+    return Object.entries(cast.facePhotos).map(([key, named]) => ({
+      key,
+      photo: named.photo,
+      landed: landed.has(named.photo)
+        || Boolean(named.photoFallback && landed.has(named.photoFallback)),
+      face: cast.models[key]?.face ?? null,
+    }));
+  });
+  check('every attendee whose photograph has landed is wearing it, and nobody else asks for one',
+    faces.length === 4 && faces.every((person) => (person.landed
+      ? typeof person.face === 'string' && person.face.startsWith('assets/faces/')
+      : person.face === null)),
+    JSON.stringify(faces));
+
   check('the featured pickup is believable scale and has its complete exterior and cabin',
     initial.pickup?.vehicle?.kind === 'pickup'
       && initial.pickup.vehicle.detailed === true
