@@ -66,6 +66,7 @@ const RETRY_GAP = 10;
  */
 export const DEPARTURE_REFUSALS = Object.freeze({
   heist_cleanup: 'Not walking into the Bing wearing the bank. Clean up first.',
+  cabin_message: 'Lou sent somewhere to disappear. Read it before driving into the dark.',
   final_arc_locked: 'Bank’s done. Nobody’s called. And when nobody calls, you sit down.',
   initiation_locked: 'Lou said seven. The invitation still has to land.',
   golf_call: 'Lou said he would call about this morning. I am not guessing where.',
@@ -387,6 +388,7 @@ const SCENE_LABELS = Object.freeze({
   [SCENE_IDS.SILVER_ROOM]: 'the Silver Room',
   [SCENE_IDS.SILVER_PINES]: 'Silver Pines',
   [SCENE_IDS.BANK_HEIST]: 'THE TAKE',
+  [SCENE_IDS.COUNTRYSIDE_CABIN]: 'the countryside cabin',
   [SCENE_IDS.SILVER_CASE]: 'the Silver Case pickup',
   /* Not "the Special Meeting". Nothing in Act One is allowed to name what he
    * is going to, because nobody has named it to him -- see the forbidden-line
@@ -1521,6 +1523,12 @@ class ApartmentStory {
           required: true,
         });
       }
+      items.push({
+        id: TIME_EVENT_IDS.PHONE_READ_CABIN,
+        label: 'Read Lou’s lay-low instructions',
+        done: state.story.timeEvents.includes(TIME_EVENT_IDS.PHONE_READ_CABIN),
+        required: true,
+      });
     }
 
     /* The first morning's optional half. Only the first morning: by Day Two
@@ -1672,6 +1680,15 @@ class ApartmentStory {
       }
       const silverCase = state.missions[MISSION_IDS.SILVER_CASE];
       if (silverCase.status !== 'complete') {
+        if (!state.story.timeEvents.includes(TIME_EVENT_IDS.PHONE_READ_CABIN)) {
+          return {
+            kind: 'activity',
+            id: TIME_EVENT_IDS.PHONE_READ_CABIN,
+            label: 'Read Lou’s lay-low instructions',
+            hint: 'Take out the phone and open UNCLE LOU · LAY LOW.',
+            ...refusal('cabin_message'),
+          };
+        }
         if (silverCase.status === 'locked') {
           return {
             kind: 'stay',
@@ -1679,7 +1696,7 @@ class ApartmentStory {
             ...refusal('final_arc_locked'),
           };
         }
-        return { kind: 'go', destination: SCENE_IDS.SILVER_CASE };
+        return { kind: 'go', destination: SCENE_IDS.COUNTRYSIDE_CABIN };
       }
       if (state.missions[MISSION_IDS.INITIATION].status === 'locked') {
         return {

@@ -1,0 +1,114 @@
+:root {
+  --cabin-amber: #d8a55f;
+  --cabin-moss: #77866b;
+  --cabin-ink: #0a0d0b;
+}
+
+body.cabin {
+  background: #080c09;
+}
+
+body.cabin #scene {
+  filter: saturate(.9) contrast(1.03);
+}
+
+#cabin-grade,
+#cabin-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+#cabin-rest {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  background: #050706;
+  color: #9d907a;
+  font: 800 11px/1.2 ui-monospace, monospace;
+  letter-spacing: .32em;
+  transition: opacity .75s ease;
+}
+
+#cabin-rest.active { opacity: 1; }
+
+#cabin-grade {
+  background:
+    linear-gradient(180deg, rgba(28, 43, 39, .11), transparent 44%, rgba(45, 27, 14, .09)),
+    radial-gradient(circle at 68% 15%, rgba(203, 164, 103, .08), transparent 38%);
+  mix-blend-mode: screen;
+}
+
+#cabin-vignette {
+  background: radial-gradient(ellipse at center, transparent 47%, rgba(4, 7, 5, .36) 100%);
+}
+
+body.cabin #overlay {
+  background:
+    linear-gradient(90deg, rgba(5, 8, 6, .93), rgba(5, 8, 6, .55) 58%, rgba(5, 8, 6, .83)),
+    radial-gradient(circle at 71% 31%, rgba(199, 151, 83, .15), transparent 31%),
+    #080d09;
+}
+
+body.cabin #overlay .panel {
+  max-width: 650px;
+  border: 1px solid rgba(216, 165, 95, .18);
+  background: linear-gradient(155deg, rgba(12, 17, 13, .92), rgba(17, 14, 10, .82));
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .56), inset 0 1px rgba(255, 231, 187, .04);
+}
+
+body.cabin #overlay h1 span,
+body.cabin #overlay .eyebrow,
+body.cabin #clock .time,
+body.cabin #objectives .otitle {
+  color: var(--cabin-amber);
+}
+
+body.cabin #overlay .tag {
+  color: #bab09e;
+  line-height: 1.65;
+}
+
+body.cabin #overlay button {
+  border-color: #bd8d4d;
+  background: linear-gradient(#bd8d4d, #936431);
+  color: #17120c;
+}
+
+body.cabin #overlay .controls {
+  border-top-color: rgba(216, 165, 95, .14);
+  color: #8f9388;
+}
+
+body.cabin #overlay .fine {
+  color: #72786e;
+}
+
+body.cabin #objectives {
+  border-color: rgba(216, 165, 95, .24);
+  background: rgba(8, 12, 9, .82);
+  backdrop-filter: blur(8px);
+}
+
+body.cabin #prompt {
+  border-color: rgba(216, 165, 95, .3);
+  background: rgba(7, 10, 8, .86);
+}
+
+body.cabin #loading {
+  background: #080d09;
+}
+
+body.cabin #loading .bar i {
+  background: linear-gradient(90deg, #55624d, var(--cabin-amber));
+}
+
+@media (max-width: 680px) {
+  body.cabin #overlay .panel { padding: 22px 18px; }
+  body.cabin #overlay .controls li { align-items: flex-start; flex-wrap: wrap; }
+}

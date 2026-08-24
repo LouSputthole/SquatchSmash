@@ -75,6 +75,11 @@ export const SCENE_IDS = Object.freeze({
   SILVER_ROOM: 'silver_room',
   SILVER_PINES: 'silver_pines',
   BANK_HEIST: 'bank_heist',
+  /* Tony's second home base. Lou sends him out of the city after THE TAKE to
+   * wait out the heat in a furnished cabin, with the surrounding property
+   * left open for exploration. It is a scene rather than a mission: nothing
+   * here can be failed and the existing Silver Case remains the next job. */
+  COUNTRYSIDE_CABIN: 'countryside_cabin',
   SILVER_CASE: 'silver_case',
   MANSION_SIEGE: 'mansion_siege',
   ENOLA_SQUATCH: 'enola_squatch',
@@ -239,6 +244,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   PHONE_READ_FAMILY: 'phone.read.family',
   PHONE_READ_LOU: 'phone.read.lou',
   PHONE_READ_MUM: 'phone.read.mum',
+  PHONE_READ_CABIN: 'phone.read.cabin_lay_low',
   /** Margo waking up beside him on the fourth morning, and leaving. */
   MARGO_WAKE: 'scene.margo_wake',
   /** Margo coming home with him the night of the Silver Room, and staying. */
@@ -279,6 +285,14 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_SILVER_PINES: 'mission.silver_pines',
   DEPART_BANK_HEIST: 'travel.bank_heist',
   COMPLETE_BANK_HEIST: 'mission.bank_heist',
+  /* The post-heist drive north. The exploration markers deliberately reuse
+   * the exact-once clock ledger instead of adding a parallel cabin save. */
+  DEPART_COUNTRYSIDE_CABIN: 'travel.countryside_cabin',
+  CABIN_REST: 'sleep.countryside_cabin',
+  CABIN_EXPLORE_CREEK: 'explore.countryside_cabin.creek',
+  CABIN_EXPLORE_OVERLOOK: 'explore.countryside_cabin.overlook',
+  CABIN_EXPLORE_SHED: 'explore.countryside_cabin.shed',
+  CABIN_EXPLORE_FIREPIT: 'explore.countryside_cabin.firepit',
   /* The final chapter has no apartment hub between scenes, so its travel and
    * runtime spans live in this same exact-once ledger.  These markers make the
    * calendar agree with the authored Day 5 / Day 6 sequence without letting a
@@ -344,6 +358,7 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.PHONE_READ_FAMILY]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.PHONE_READ_LOU]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.PHONE_READ_MUM]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.PHONE_READ_CABIN]: Object.freeze({ minutes: 0 }),
   /* Costs nothing on the clock. This is a one-shot cutscene marker rather than
    * an errand: Day 4 already opens at the authored seven-o'clock checkpoint,
    * and Margo leaving should not move the Golf call or either departure. */
@@ -448,6 +463,21 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_BANK_HEIST]: Object.freeze({
     atLeast: Object.freeze({ day: 4, timeMinutes: 17 * 60 + 20 }),
   }),
+  /* Clean clothes, a packed car and the county road put him at the cabin as
+   * dusk comes in. The individual property stops then spend honest, bounded
+   * amounts of time without ever gating the next story scene. */
+  [TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN]: Object.freeze({ minutes: 95 }),
+  /* Tony reaches the property around dusk, then genuinely disappears for the
+   * night and most of the following day. The Silver Case departure already
+   * owns the 4 PM appointment; this wake-up leaves a little playable daylight
+   * at the cabin before that hard scene clock takes over. */
+  [TIME_EVENT_IDS.CABIN_REST]: Object.freeze({
+    atLeast: Object.freeze({ day: 5, timeMinutes: 14 * 60 + 30 }),
+  }),
+  [TIME_EVENT_IDS.CABIN_EXPLORE_CREEK]: Object.freeze({ minutes: 20 }),
+  [TIME_EVENT_IDS.CABIN_EXPLORE_OVERLOOK]: Object.freeze({ minutes: 30 }),
+  [TIME_EVENT_IDS.CABIN_EXPLORE_SHED]: Object.freeze({ minutes: 15 }),
+  [TIME_EVENT_IDS.CABIN_EXPLORE_FIREPIT]: Object.freeze({ minutes: 10 }),
   /* THE TAKE ends at 5:20 PM on Day 4.  The final chapter opens on the next
    * afternoon, without adding another playable apartment detour: Ape's pickup
    * and the off-screen rendezvous land The Silver Case at 4 PM on Day 5. */
@@ -1066,7 +1096,7 @@ export const SCENES = Object.freeze({
       SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
-      SCENE_IDS.SILVER_CASE,
+      SCENE_IDS.COUNTRYSIDE_CABIN,
       /* THE SPECIAL MEETING. Act One (SM-010 to SM-090) is played in this
        * flat -- the call, the getting ready, the door refusing him and the
        * headlights -- and the front door is what ends it. The kerb is the
@@ -1152,6 +1182,12 @@ export const SCENES = Object.freeze({
       'safehouse_debrief',
     ]),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  [SCENE_IDS.COUNTRYSIDE_CABIN]: Object.freeze({
+    href: 'cabin.html',
+    defaultSpawn: 'arrival',
+    spawns: Object.freeze(['arrival', 'wake', 'porch']),
+    next: Object.freeze([SCENE_IDS.SILVER_CASE]),
   }),
   [SCENE_IDS.SILVER_CASE]: Object.freeze({
     href: 'silvercase.html',
@@ -3467,6 +3503,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     const cartelPalace = state.missions[MISSION_IDS.CARTEL_PALACE];
     const initiation = state.missions[MISSION_IDS.INITIATION];
     const finalArcPrelude = [
+      SCENE_IDS.COUNTRYSIDE_CABIN,
       SCENE_IDS.SILVER_CASE,
       SCENE_IDS.MANSION_SIEGE,
       SCENE_IDS.ENOLA_SQUATCH,
@@ -3745,6 +3782,25 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       bankHeist.crewInjuries[CHARACTER_IDS.RIPPINFLOW] = 'moderate';
       bankHeist.outcome = 'professional';
       state.story.timeMinutes = 19 * 60;
+
+      if (sceneId === SCENE_IDS.COUNTRYSIDE_CABIN) {
+        /* The standalone cabin preview begins at the same dusk arrival as a
+         * played route. It owns a page-local save, carries the already-taken
+         * phone, and leaves the Silver Case merely available: the hideout is
+         * the connective hub, never a completed final-arc mission. */
+        state.story.chapter = 'post_heist';
+        state.story.day = 4;
+        state.story.timeMinutes = 18 * 60 + 55;
+        state.story.timeEvents = uniqueStrings([
+          ...state.story.timeEvents,
+          TIME_EVENT_IDS.COMPLETE_BANK_HEIST,
+          TIME_EVENT_IDS.PHONE_READ_CABIN,
+          TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN,
+        ]);
+        silverCase.status = 'available';
+        previewCarry(state, ITEM_IDS.PHONE);
+        return;
+      }
 
       if (sceneId === SCENE_IDS.SILVER_CASE) {
         state.story.chapter = 'silver_case';

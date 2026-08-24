@@ -152,6 +152,9 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   if (pathname.endsWith('/heist.html') || pathname.endsWith('heist.html')) {
     return 'bank_heist';
   }
+  if (pathname.endsWith('/cabin.html') || pathname.endsWith('cabin.html')) {
+    return 'countryside_cabin';
+  }
   if (pathname.endsWith('/nowake.html') || pathname.endsWith('nowake.html')) {
     return 'no_wake';
   }

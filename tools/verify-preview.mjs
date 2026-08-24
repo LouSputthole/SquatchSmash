@@ -33,6 +33,8 @@ const EXPECTED_SCENE_LINKS = Object.freeze({
   silver: 'silver.html?preview=1',
   golf: 'golf.html?preview=1',
   heist: 'heist.html?preview=1&checkpoint=safehouse',
+  cabin: 'cabin.html?preview=1',
+  'luxury-apartment': 'luxury-apartment.html?preview=1',
   initiation: 'initiation.html?preview=1',
   /* The three scenes merged on 2026-08-03. They were deployed and playable by
    * direct URL for a day before anybody noticed they were missing from the

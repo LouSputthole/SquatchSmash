@@ -3512,6 +3512,13 @@ function leaveForMission(destination) {
     }, { required: true });
     syncClockFromCampaign();
   }
+  if (destination === SCENE_IDS.COUNTRYSIDE_CABIN) {
+    /* Lou's text is the instruction; this is the drive that follows it. The
+     * cabin is a second hub, not a mission, so only the exact-once clock moves
+     * here. Silver Case remains available while Tony waits out the heat. */
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN);
+    syncClockFromCampaign();
+  }
   if (destination === SCENE_IDS.INITIATION) {
     /* The Initiation build is deliberately untouched and does not report its
      * own progress, so leaving for it is the only thing the campaign can

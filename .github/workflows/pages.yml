@@ -51,7 +51,7 @@ jobs:
       - name: Stage the site
         run: |
           mkdir -p _site
-          cp index.html bing.html squatchfather.html motel.html beefrun.html \
+          cp index.html bing.html squatchfather.html motel.html beefrun.html cabin.html luxury-apartment.html \
              graveyard.html nowake.html silver.html golf.html heist.html initiation.html \
              silvercase.html mansion.html mansion-siege.html enolasquatch.html \
              cartel-palace.html specialmeeting.html preview.html roster.html \
@@ -61,6 +61,8 @@ jobs:
           test -f _site/graveyard.html
           test -f _site/heist.html
           test -f _site/golf.html
+          test -f _site/cabin.html
+          test -f _site/luxury-apartment.html
           test -f _site/silvercase.html
           test -f _site/mansion.html
           test -f _site/mansion-siege.html
@@ -72,6 +74,8 @@ jobs:
           test -f _site/src/graveyard/main.js
           test -f _site/src/heist/main.js
           test -f _site/src/golf/main.js
+          test -f _site/src/cabin/main.js
+          test -f _site/src/luxury-apartment/main.js
           test -f _site/src/silvercase/main.js
           test -f _site/src/mansion/main.js
           test -f _site/src/mansion/siege/main.js
@@ -83,6 +87,8 @@ jobs:
           test -f _site/lib/jsm/postprocessing/UnrealBloomPass.js
           grep -q 'src/nowake/main.js' _site/nowake.html
           grep -q 'src/golf/main.js' _site/golf.html
+          grep -q 'src/cabin/main.js' _site/cabin.html
+          grep -q 'src/luxury-apartment/main.js' _site/luxury-apartment.html
           grep -q 'src/mansion/siege/main.js' _site/mansion-siege.html
           grep -q 'src/cartel-palace/main.js' _site/cartel-palace.html
           grep -q 'src/combatlab/main.js' _site/combatlab.html

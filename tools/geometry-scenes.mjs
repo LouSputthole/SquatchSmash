@@ -85,6 +85,8 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
   ...HEIST_PREVIEW_CHECKPOINTS.map((checkpoint) => entry(
     'heist', checkpoint.replaceAll('_', '-'), 'heist', ['heist'], { checkpoint },
   )),
+  entry('cabin', 'property', 'cabin', ['cabin']),
+  entry('luxury-apartment', 'property', 'luxury-apartment', ['luxury-apartment']),
   entry('motel', 'property', 'motel', ['motel'], { geometryStage: 'startup' }),
   entry('motel', 'late-cast', 'motel', [], { geometryStage: 'late' }),
   entry('motel', 'drive', 'motel', [], { geometryStage: 'drive' }),
@@ -332,6 +334,44 @@ async function buildApartment(descriptor, THREE, collaborators) {
         whiteLine: 1,
       },
     },
+  );
+}
+
+async function buildCabin(descriptor, THREE, collaborators) {
+  const { buildCountrysideCabin } = await import('../src/cabin/world.js');
+  const scene = new THREE.Scene();
+  const cabin = await buildCountrysideCabin({
+    scene,
+    ...collaborators,
+    externalLighting: true,
+  });
+  await cabin.models;
+  return result(
+    descriptor,
+    [{ label: 'countryside-cabin-property', root: cabin.root }],
+    cabin.colliders,
+    {
+      landmarkCount: Object.keys(cabin.interactionTargets ?? {})
+        .filter((id) => ['creek', 'overlook', 'shed', 'firepit'].includes(id)).length,
+      utilityCount: Object.keys(cabin.utilityTargets ?? {}).length,
+      artCount: cabin.frames?.length ?? 0,
+      landscape: cabin.landscape?.counts ?? {},
+    },
+  );
+}
+
+async function buildLuxuryApartment(descriptor, THREE, collaborators) {
+  const { buildLuxuryApartment: build } = await import('../src/luxury-apartment/world.js');
+  const scene = new THREE.Scene();
+  const apartment = await build({
+    scene,
+    ...collaborators,
+  });
+  return result(
+    descriptor,
+    [{ label: 'luxury-apartment-property', root: apartment.root }],
+    apartment.colliders,
+    { metrics: apartment.metrics },
   );
 }
 
@@ -3459,6 +3499,8 @@ async function buildSpecialMeetingSpur(descriptor, THREE) {
 
 const BUILDERS = Object.freeze({
   apartment: buildApartment,
+  cabin: buildCabin,
+  'luxury-apartment': buildLuxuryApartment,
   bing: (descriptor, THREE) => buildBing(descriptor, THREE, false),
   'bing-party': (descriptor, THREE) => buildBing(descriptor, THREE, true),
   mansion: buildMansion,
