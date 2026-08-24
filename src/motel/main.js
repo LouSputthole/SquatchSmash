@@ -1552,13 +1552,6 @@ addInteract({
   act: () => knockOnTwelve(),
 });
 
-addInteract({
-  id: 'enterRoom', x: 0, y: 1.2, z: -5.4, r: 3.0,
-  label: () => 'Step inside',
-  enabled: () => phase === 'door' && S.doorOpened,
-  act: () => enterRoom(),
-});
-
 /* And the way back out of it.
  *
  * The door shuts behind you and its blocker comes back on, which is right —
@@ -2203,8 +2196,8 @@ function moveRicoAsideForEntry() {
 /** Make the invitation actionable on the same beat that Rico says it. */
 function inviteIntoRoomTwelve() {
   if (phase !== 'door') return;
-  setObjective('reach', 'Step inside room twelve. [E] at the doorway.');
-  toast('DOOR OPEN', '', 'Go in when you are ready — nobody is pushing you');
+  setObjective('reach', 'Walk into room twelve. The door is open.');
+  toast('DOOR OPEN', '', 'Walk in when you are ready — nobody is pushing you');
   updateInteract();
 }
 
@@ -2250,8 +2243,9 @@ const CASE_DOWN_BEATS = Object.freeze([
 ]);
 
 function enterRoom() {
-  /* Two callers now — the [E] prompt and the doorway itself — so this has to
-   * be safe to run twice on the same frame. It spawns three actors. */
+  /* Three callers — the doorway volume, the room rectangle behind it, and the
+   * seatbelt — so this has to be safe to run twice on the same frame. It
+   * spawns three actors. */
   if (S.enteredRoom || phase === 'room') return;
   phase = 'room';
   S.enteredRoom = true;
@@ -2465,8 +2459,9 @@ function pickDialogue(style) {
   }
   const afterReply = () => {
     if (phase === 'end') return;
-    /* The invitation and its [E] prompt are the same beat. Rico has already
-     * spent Tony's answer and his own reply walking clear of the threshold. */
+    /* The invitation and a walkable doorway are the same beat. Rico has
+     * already spent Tony's answer and his own reply walking clear of the
+     * threshold, so the opening he was filling is open as he says it. */
     if (nodeId === 'atDoor') {
       inviteIntoRoomTwelve();
       say('Rico', 'Come in before the neighbours smell it.', 3);
@@ -3649,13 +3644,42 @@ function updateDoors(dt) {
  *      wheel Rico is standing in the opening, and `refs.roomTwelveThreshold`
  *      is his body — actors do not collide with the player in this scene, so
  *      without it the doorstep conversation is walkable-past.
- *   3. Crossing the threshold IS stepping inside. Once he has moved, walking
- *      through the door runs `enterRoom()` — the same function [E] runs.
- *      There is no path into that room that does not go through the state
- *      machine.
+ *   3. Crossing the threshold IS stepping inside, and is the only way in.
+ *      Once he has moved, walking through the door runs `enterRoom()`. There
+ *      is no path into that room that does not go through the state machine,
+ *      and no key that opens a second one.
  */
 function doorwayIsHeld() {
   return phase === 'door' && !S.doorOpened && !S.doorBroken;
+}
+
+/**
+ * THE DOORWAY IS THE PROMPT.
+ *
+ * Owner: "The E to walk in the hotel room thing is weird -- how about you just
+ * walk into it and it starts that scene? It's easy to miss and will be a scene
+ * breaker for a lot of people." He is right about the failure, and the reason
+ * it bites is that the scene spends the previous minute teaching the opposite:
+ * the leaf is solid until the knock is answered, and Rico's body
+ * (`roomTwelveThreshold`, `level.js`) fills the opening after it, so a player
+ * who tries the obvious thing bounces off twice before the prompt ever lights.
+ * By the time walking in is allowed, they have learned it is not.
+ *
+ * So the opening itself is the trigger. `x` is room twelve's authored doorway
+ * -- `level.js` builds the gap at -1.1..1.0 -- with a shoulder of slack either
+ * side. `z` starts just under the header: the front wall band is -4.5..-4.2,
+ * so -4.3 fires as they pass beneath it rather than after their centre has
+ * cleared the wall, and -5.4 is the spot `enterRoom()` already puts them.
+ *
+ * It cannot fire early. The gate below is `S.doorOpened`, the same flag the
+ * departed [E] prompt used, and Rico is still standing in this rectangle until
+ * the doorstep wheel is answered.
+ */
+const ROOM12_DOORWAY = Object.freeze({ x0: -1.25, x1: 1.15, z0: -5.4, z1: -4.3 });
+
+function inRoomTwelveDoorway(x, z) {
+  return x >= ROOM12_DOORWAY.x0 && x <= ROOM12_DOORWAY.x1
+    && z >= ROOM12_DOORWAY.z0 && z <= ROOM12_DOORWAY.z1;
 }
 
 function updateRoomTwelveThreshold() {
@@ -3671,13 +3695,20 @@ function beforeTheDeal() {
 /**
  * Walking in is entering; being in without entering is impossible.
  *
- * The first half is the feature — the doorway is a doorway, and [E] on it is
- * a convenience rather than the only key. The second half is the seatbelt: if
- * a collider is ever disabled at the wrong moment, or a future prop opens a
- * hole in that wall, the player is put back on the walkway instead of
- * standing in a room whose script has not started.
+ * The first half is the feature — the doorway is a doorway, and walking
+ * through it is now the only way in; there is no key to press and none is
+ * offered. The second half is the seatbelt: if a collider is ever disabled at
+ * the wrong moment, or a future prop opens a hole in that wall, the player is
+ * put back on the walkway instead of standing in a room whose script has not
+ * started.
  */
 function enforceRoomTwelveEntry(prevX, prevZ) {
+  /* Walking into the opening IS stepping inside -- tested before the room
+   * rectangle, not after it, so the scene starts on the door line. */
+  if (phase === 'door' && S.doorOpened && inRoomTwelveDoorway(pos.x, pos.z)) {
+    enterRoom();
+    return;
+  }
   if (!insideRoom()) return;
   if (phase === 'door' && S.doorOpened) { enterRoom(); return; }
   if (!beforeTheDeal() && phase !== 'door') return;
