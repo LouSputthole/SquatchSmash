@@ -25,22 +25,23 @@ test('Special Meeting provides the complete shared Hud DOM contract before boot'
   assert.match(HTML, /id="toast-stack"/);
 });
 
-test('Special Meeting forwards configured WASD, sprint, crouch, jump, and mouse look to Player', () => {
-  assert.match(MAIN, /import \{ translateKey \} from '\.\.\/core\/settings\.js';/);
-  assert.match(MAIN, /player\.setKey\(code, true\)/);
-  assert.match(MAIN, /const code = translateKey\(event\.code\);\n  player\.setKey\(code, false\)/);
-  assert.match(MAIN, /'KeyW'.*'KeyA'.*'KeyS'.*'KeyD'/s);
-  assert.match(MAIN, /'ShiftLeft'.*'ShiftRight'.*'KeyC'.*'Space'/s);
-  assert.match(MAIN, /player\.handleMouseMove\(event\.movementX, event\.movementY\)/);
+test('Special Meeting delegates movement, look, interaction, rebinding, and focus cleanup to the canonical Adapter', () => {
+  assert.match(MAIN, /import \{ createFirstPersonInput \} from '\.\.\/core\/first-person-input\.js';/);
+  assert.match(MAIN, /const input = createFirstPersonInput\(\{/);
+  assert.match(MAIN, /player,\n  canvas,\n  interaction,/);
+  assert.doesNotMatch(MAIN, /player\.setKey\(/);
+  assert.doesNotMatch(MAIN, /player\.handleMouseMove\(/);
+  assert.doesNotMatch(MAIN, /addEventListener\('pointerlockchange'/);
 });
 
 test('pointer lock is the only normal-play input enable seam and pause clears held movement', () => {
-  assert.match(MAIN, /document\.addEventListener\('pointerlockchange'/);
-  assert.match(MAIN, /player\.enabled = !paused && document\.pointerLockElement === canvas/);
-  assert.match(MAIN, /canvas\.requestPointerLock\?\.\(\)/);
+  assert.match(MAIN, /canEnable: \(\) => !paused && !handedOff/);
+  assert.match(MAIN, /return input\.requestPointerLock\(\)/);
   const pause = MAIN.slice(MAIN.indexOf('onPause:'), MAIN.indexOf('recovery,', MAIN.indexOf('onPause:')));
-  assert.match(pause, /player\.enabled = false/);
-  assert.match(pause, /player\.clearKeys\(\)/);
+  assert.match(pause, /input\.suspend\(\)/);
+  assert.match(pause, /input\.resume\(\)/);
+  assert.match(MAIN, /ride\.choose\(ride\.options\[n - 1\]\.index\);\s+requestScenePointerLock\(\);/,
+    'number-key dialogue choices do not restore pointer lock');
 });
 
 test('SM-100 cannot begin until the first-gesture audio bank has finished loading', () => {
@@ -76,6 +77,8 @@ test('the browser debug surface exposes shared Player start and forest-world evi
   assert.match(MAIN, /window\.SPECIAL_MEETING = \{/);
   assert.match(MAIN, /campaign, ride, cast, stage,/);
   assert.match(MAIN, /^  player,$/m);
+  assert.match(MAIN, /^  input,$/m);
+  assert.match(MAIN, /get inputReceipt\(\) \{ return input\.snapshot\(\); \}/);
   assert.match(MAIN, /get started\(\) \{ return started; \}/);
   assert.match(MAIN, /get forest\(\) \{ return forest; \}/);
   assert.match(MAIN, /get voiceReady\(\) \{ return voiceReady; \}/);

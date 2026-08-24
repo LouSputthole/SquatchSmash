@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
 
 const HIDDEN_PARTY_COLLIDER = 100_000;
 
@@ -26,6 +27,7 @@ export function createPartyCollider({
   minY = 0,
   maxY = 1,
   kind = 'prop',
+  ownerActorId = null,
   bounds = null,
 }) {
   if (!target?.isObject3D) throw new TypeError('Party collider requires an Object3D target');
@@ -64,6 +66,11 @@ export function createPartyCollider({
     get min() { resolve(); return min; },
     get max() { resolve(); return max; },
   };
+  markSpatialPrimitive(box3Like, {
+    id,
+    kind: kind === 'cast' ? 'actor-body' : kind,
+    ...(kind === 'cast' ? { ownerActorId } : {}),
+  });
   const rounded = (value) => Number(value.toFixed(6));
   return {
     id,

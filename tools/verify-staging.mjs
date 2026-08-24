@@ -12,6 +12,7 @@
  * same build.  A second, parallel way to build the same scenes is a second
  * thing to keep true.
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -126,7 +127,15 @@ ensureDomShim();
 
 const args = process.argv.slice(2);
 const wantCoverage = args.includes('--coverage');
+const strictSpatial = args.includes('--strict-spatial');
+const jsonOutput = args.includes('--json');
 const filters = args.filter((arg) => !arg.startsWith('--'));
+/* Scene builders occasionally log while they assemble a headless state. A
+ * machine report must remain parseable even when one of them does, so JSON
+ * mode owns stdout until it emits the final document. Human diagnostics and
+ * fatal errors still use stderr. */
+const stdout = console.log.bind(console);
+if (jsonOutput) console.log = () => {};
 
 const THREE = await import('three');
 
@@ -217,6 +226,15 @@ function colliderBoxes(built) {
        * bounds for exactly this; the bounds stay the conservative reading and
        * are what the walk-into tests still use. */
       shape: record.shape ?? null,
+      /* Semantic meaning survives the geometry Adapter.  Staging can now
+       * distinguish an actor body, seat and world solid without re-deriving
+       * their roles from dimensions or names. */
+      typed: record.spatial?.typed === true,
+      spatialId: record.spatialId ?? null,
+      spatialKind: record.spatialKind ?? null,
+      ownerActorId: record.ownerActorId ?? null,
+      blocks: record.blocks ?? null,
+      intentionalOverlapWith: record.intentionalOverlapWith ?? null,
     }));
 }
 
@@ -239,13 +257,86 @@ const byKind = new Map();
 const usedEntryIds = new Set();
 const statesByScene = new Map();
 let totalSuppressed = 0;
+let typedSpatialBoxes = 0;
+let untypedSpatialBoxes = 0;
+let unresolvedSpatialStates = 0;
+const buildFailures = [];
+const zeroActorStates = [];
+const debtRecords = [];
+const stateProofs = [];
+let unmarkedRigCount = 0;
+
+function compareStableText(left, right) {
+  const a = String(left);
+  const b = String(right);
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function stableSubject(item) {
+  return item.id ?? item.spatialId ?? item.ownerActorId ?? item.solid ?? 'scene';
+}
+
+function debtId(stateId, category, subject) {
+  return `spatial:${stateId}:${category}:${encodeURIComponent(String(subject))}`;
+}
+
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value)
+    .sort(([left], [right]) => compareStableText(left, right))
+    .map(([key, child]) => [key, canonicalValue(child)]));
+}
+
+function addGroupedFindings(stateId, findings) {
+  const groups = new Map();
+  for (const item of findings) {
+    const subject = stableSubject(item);
+    const finding = canonicalValue(item);
+    const variant = crypto.createHash('sha256')
+      .update(JSON.stringify(finding))
+      .digest('hex')
+      .slice(0, 12);
+    const key = debtId(stateId, `finding:${item.kind}:${variant}`, subject);
+    const group = groups.get(key) ?? {
+      id: key,
+      status: 'finding',
+      count: 0,
+      proofId: stateId,
+      proofKind: 'finding',
+      detail: {
+        stateId,
+        kind: item.kind,
+        subject: String(subject),
+        finding,
+      },
+    };
+    group.count += 1;
+    groups.set(key, group);
+  }
+  debtRecords.push(...groups.values());
+}
 
 for (const state of states) {
   let built;
   try {
     built = await withDescriptorGeometryRandom(state.id, () => buildGeometrySceneState(state.id));
   } catch (error) {
-    console.log(`SKIP  ${state.id} — build failed: ${error.message}`);
+    buildFailures.push({ id: state.id, error: error.message });
+    debtRecords.push({
+      id: debtId(state.id, 'build', 'failure'),
+      status: 'unknown',
+      count: 1,
+      proofId: state.id,
+      proofKind: 'build',
+      detail: { stateId: state.id, error: error.message },
+    });
+    stateProofs.push({
+      id: state.id,
+      status: 'build_failed',
+      evidence: { built: false, actorsObserved: null, findingsScanned: false },
+    });
+    console.log(`UNKNOWN ${state.id} — build failed: ${error.message}`);
     continue;
   }
   const actors = built.roots.flatMap(({ root }) => collectActors(root, THREE));
@@ -256,9 +347,42 @@ for (const state of states) {
       if (object.userData?.rig === 'person' && !readActor(object)) rigs += 1;
     });
   }
-  if (rigs) unmarked.push({ id: state.id, rigs });
+  if (rigs) {
+    unmarked.push({ id: state.id, rigs });
+    unmarkedRigCount += rigs;
+    debtRecords.push({
+      id: debtId(state.id, 'actors', 'unmarked-shared-rigs'),
+      status: 'finding',
+      count: rigs,
+      proofId: state.id,
+      proofKind: 'unmarked_rigs',
+      detail: { stateId: state.id, subject: 'unmarked-shared-rigs' },
+    });
+  }
 
-  if (actors.length === 0) continue;
+  if (actors.length === 0) {
+    zeroActorStates.push(state.id);
+    debtRecords.push({
+      id: debtId(state.id, 'actors', 'zero-observed'),
+      status: 'unknown',
+      count: 1,
+      proofId: state.id,
+      proofKind: 'zero_actors',
+      detail: { stateId: state.id, subject: 'actors' },
+    });
+    stateProofs.push({
+      id: state.id,
+      status: 'zero_actors',
+      evidence: {
+        built: true,
+        actorsObserved: 0,
+        unmarkedRigs: rigs,
+        findingsScanned: false,
+      },
+    });
+    console.log(`UNKNOWN ${state.id} — no actors were observed`);
+    continue;
+  }
   withCast += 1;
 
   const boxes = colliderBoxes(built);
@@ -267,7 +391,7 @@ for (const state of states) {
    * invents for a footprint that carries no y. */
   const planOnlySolids = boxes.length > 0
     && boxes.every((box) => box.min[1] === -0.5 && box.max[1] === 4);
-  const { findings: raw } = stagingFindings({
+  const { findings: raw, spatialCoverage } = stagingFindings({
     id: state.id,
     actors,
     boxes,
@@ -275,9 +399,37 @@ for (const state of states) {
     seats: resolveSeats(built.roots, actors, boxes),
     player: playerStance(built),
   });
+  typedSpatialBoxes += spatialCoverage.typed;
+  untypedSpatialBoxes += spatialCoverage.untyped;
+  if (spatialCoverage.status === 'UNKNOWN') {
+    unresolvedSpatialStates += 1;
+    debtRecords.push({
+      id: debtId(state.id, 'coverage', 'untyped-solids'),
+      status: 'unknown',
+      count: Math.max(1, spatialCoverage.untyped),
+      proofId: state.id,
+      proofKind: 'coverage',
+      detail: { stateId: state.id, subject: 'untyped-solids' },
+    });
+  }
 
   const entries = allowlistFor(state.scene);
   const { kept: findings, suppressed, used } = applyStagingAllowlist(raw, entries, state.state);
+  addGroupedFindings(state.id, findings);
+  stateProofs.push({
+    id: state.id,
+    status: findings.length === 0 && spatialCoverage.status === 'PASS' ? 'pass' : 'observed',
+    evidence: {
+      built: true,
+      actorsObserved: actors.length,
+      unmarkedRigs: rigs,
+      findingsScanned: true,
+      spatialCoverageStatus: spatialCoverage.status,
+      typed: spatialCoverage.typed,
+      untyped: spatialCoverage.untyped,
+      findings: findings.length,
+    },
+  });
   for (const id of used) usedEntryIds.add(id);
   if (!statesByScene.has(state.scene)) statesByScene.set(state.scene, []);
   statesByScene.get(state.scene).push(state.state);
@@ -288,7 +440,9 @@ for (const state of states) {
 
   const label = `${state.id} — ${actors.length} actor${actors.length === 1 ? '' : 's'}`;
   if (findings.length === 0) {
-    console.log(`ok    ${label}`);
+    console.log(spatialCoverage.status === 'UNKNOWN'
+      ? `UNKNOWN ${label} — spatial semantics incomplete`
+      : `ok    ${label}`);
     continue;
   }
   console.log(`FIND  ${label}, ${findings.length} finding${findings.length === 1 ? '' : 's'}`);
@@ -317,6 +471,18 @@ if (byKind.size) {
   }
 }
 if (totalSuppressed) console.log(`Allowlisted: ${totalSuppressed}`);
+console.log(
+  `Spatial semantic coverage: typed=${typedSpatialBoxes} untyped=${untypedSpatialBoxes} `
+  + `UNKNOWN states=${unresolvedSpatialStates}`,
+);
+if (buildFailures.length) {
+  console.log(`Build failures: ${buildFailures.length}`);
+  for (const failure of buildFailures) console.log(`  ${failure.id}: ${failure.error}`);
+}
+if (zeroActorStates.length) {
+  console.log(`States with zero observed actors: ${zeroActorStates.length}`);
+  for (const id of zeroActorStates) console.log(`  ${id}`);
+}
 
 /* THE RATCHET. An entry that excused nothing this run is permission nobody
  * re-examined: the defect it covered has been fixed and the entry has to go
@@ -332,5 +498,60 @@ if (stale.length) {
   for (const id of stale) console.log(`  ${id}`);
 }
 
-console.log(totalFindings === 0 ? 'Staging gate clean.' : `${totalFindings} staging findings.`);
-if (totalFindings > 0 || stale.length > 0) process.exitCode = 1;
+for (const entry of stale) {
+  debtRecords.push({
+    id: `spatial:allowlist:stale:${encodeURIComponent(entry)}`,
+    status: 'stale_allowlist',
+    count: 1,
+    proofId: `allowlist:${entry}`,
+    proofKind: 'stale_allowlist',
+    detail: { entry },
+  });
+  stateProofs.push({
+    id: `allowlist:${entry}`,
+    status: 'stale_allowlist',
+    evidence: { entry, stale: true },
+  });
+}
+
+const unresolvedCertificationStates = unresolvedSpatialStates
+  + buildFailures.length + zeroActorStates.length + unmarkedRigCount;
+if (totalFindings > 0) {
+  console.log(`${totalFindings} staging findings.`);
+} else if (stale.length > 0) {
+  console.log('Staging findings clean; stale allowlist entries remain.');
+} else if (unresolvedCertificationStates > 0) {
+  console.log(
+    `Staging findings clean; spatial certification unresolved in `
+    + `${unresolvedCertificationStates} state(s).`,
+  );
+} else {
+  console.log('Staging gate clean.');
+}
+if (jsonOutput) {
+  const sortedDebt = debtRecords.sort((left, right) => compareStableText(left.id, right.id));
+  stdout(JSON.stringify({
+    schemaVersion: 1,
+    statesSelected: states.length,
+    summary: {
+      statesWithCast: withCast,
+      findings: totalFindings,
+      suppressed: totalSuppressed,
+      typedSpatialBoxes,
+      untypedSpatialBoxes,
+      unresolvedSpatialStates,
+      buildFailures: buildFailures.length,
+      zeroActorStates: zeroActorStates.length,
+      unmarkedRigs: unmarkedRigCount,
+      staleAllowlistEntries: stale.length,
+      debtRecords: sortedDebt.length,
+      debtUnits: sortedDebt.reduce((total, item) => total + item.count, 0),
+    },
+    debt: sortedDebt,
+    proofs: stateProofs.sort((left, right) => compareStableText(left.id, right.id)),
+  }, null, 2));
+}
+if (totalFindings > 0 || stale.length > 0
+  || (strictSpatial && unresolvedCertificationStates > 0)) {
+  process.exitCode = 1;
+}

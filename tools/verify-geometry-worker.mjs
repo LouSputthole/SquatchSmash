@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 import { compareGeometryText } from './geometry-order.mjs';
 import { ensureDomShim, ensureThreeShim } from './three-shim.mjs';
+import { spatialMetadata } from '../src/core/spatial-contract.js';
 
 const RESULT_MARKER = '@@SQUATCH_GEOMETRY_RESULT@@';
 
@@ -195,6 +196,7 @@ export function normalizeSceneColliders(built) {
     counts.set(candidate.baseId, occurrence);
     const id = occurrence === 1 ? candidate.baseId : `${candidate.baseId}-${occurrence}`;
     const source = candidate.collider;
+    const spatial = spatialMetadata(source);
     const explicitAssemblyId = [
       source?.userData?.geometryGate?.assemblyId,
       source?.userData?.geometryGateAssemblyId,
@@ -215,6 +217,19 @@ export function normalizeSceneColliders(built) {
       assemblyId,
       role: source.role ?? source.tag ?? null,
       tags: [source.tag, source.name].filter((value) => typeof value === 'string'),
+      /* Preserve authored meaning alongside the bounds.  Legacy colliders
+       * stay explicitly untyped; the Adapter never guesses that a person is
+       * a wall from the size of their box. */
+      spatial,
+      ...(spatial.typed ? {
+        spatialId: spatial.spatialId,
+        spatialKind: spatial.spatialKind,
+        blocks: spatial.blocks,
+        ...(spatial.ownerActorId ? { ownerActorId: spatial.ownerActorId } : {}),
+        ...(spatial.intentionalOverlapWith
+          ? { intentionalOverlapWith: spatial.intentionalOverlapWith }
+          : {}),
+      } : {}),
       supports: true,
       fixedSupportAnchor: true,
       // Preserve authored collider metadata so the collector can distinguish
@@ -716,4 +731,3 @@ if (isMain) {
     process.exitCode = 1;
   });
 }
-

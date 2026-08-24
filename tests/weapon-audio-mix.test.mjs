@@ -120,6 +120,11 @@ test('the mix reaches the stand-in path as well as the delivered recording', () 
   assert.ok(Math.abs(standIn.volume - 0.6 * weaponMix('shotgun', 'fire')) < 1e-12);
   // The stand-in's deliberate pitch shift survives the mix.
   assert.ok(standIn.rate < 1, 'the 12-gauge stand-in lost its pitch shift');
+  assert.equal(standIn.requestedCue, 'weapon.shotgun.fire');
+  assert.equal(standIn.receiptSource, 'stand-in');
+  assert.equal(standIn.fallbackReason, 'requested-recording-not-decoded');
+  assert.equal(standIn.requiredRecorded, true,
+    'strict QA cannot fail a weapon-specific fallback that is not marked required');
 });
 
 test('every weapon and every slot arrives mixed, by whichever path', () => {

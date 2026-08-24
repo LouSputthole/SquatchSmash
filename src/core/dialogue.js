@@ -97,6 +97,50 @@ export const SPEECH_GAP_S = 0.28;
 export const SPEECH_FALLBACK_S = 1.8;
 
 /**
+ * Discriminants for a queue deciding what to do with one authored line.
+ *
+ * Existing `speak()` callers keep their legacy result shape. DialogueSequence
+ * consumes this status itself: RETRY leaves the line at the head of the queue,
+ * while DROP records the permanent routing failure and advances deliberately.
+ */
+export const DIALOGUE_ACCEPTANCE = Object.freeze({
+  ACCEPTED: 'accepted',
+  RETRY: 'retry',
+  DROP: 'drop',
+});
+
+const RETRYABLE_PLAYBACK_REASONS = new Set([
+  'engine-not-ready',
+  'context-suspended',
+  'autoplay-blocked',
+]);
+
+/** @returns {{status:'accepted'|'retry'|'drop', reason:string|null, receipt:object|null}} */
+function acceptanceResult({ routed, receipt }) {
+  if (!routed) {
+    return Object.freeze({
+      status: DIALOGUE_ACCEPTANCE.DROP,
+      reason: 'audio-unavailable',
+      receipt: null,
+    });
+  }
+  if (!receipt || receipt.started) {
+    return Object.freeze({
+      status: DIALOGUE_ACCEPTANCE.ACCEPTED,
+      reason: null,
+      receipt: receipt ?? null,
+    });
+  }
+  const reason = receipt.fallbackReason ?? 'playback-not-started';
+  return Object.freeze({
+    status: RETRYABLE_PLAYBACK_REASONS.has(reason)
+      ? DIALOGUE_ACCEPTANCE.RETRY : DIALOGUE_ACCEPTANCE.DROP,
+    reason,
+    receipt,
+  });
+}
+
+/**
  * How long a cue actually runs.
  *
  * The decoded buffer if there is one, the manifest's authored duration if the
@@ -154,7 +198,10 @@ export function hasSpeech(audio, cue) {
  * @param {number} [options.gain] one of SPEECH_GAIN, or a number with a reason.
  * @param {number} [options.muffle] a SPEECH_MUFFLE_HZ corner, for through-a-wall.
  * @param {number} [options.delay]
- * @returns {{cue: string, seconds: number, source: *, silent: boolean}}
+ * @param {boolean} [options.requiredRecorded] strict-QA recording policy; true by default
+ * @returns {{cue: string, seconds: number, source: *, silent: boolean,
+ *   receipt: object|null, acceptance: {status:'accepted'|'retry'|'drop', reason:string|null,
+ *   receipt:object|null}}}
  */
 export function speak(audio, cue, options = {}) {
   const {
@@ -164,6 +211,7 @@ export function speak(audio, cue, options = {}) {
     gain = SPEECH_GAIN.normal,
     muffle = 0,
     delay = 0,
+    requiredRecorded = true,
     ...rest
   } = options;
 
@@ -174,7 +222,12 @@ export function speak(audio, cue, options = {}) {
    * behaviour rather than guarding it: every scene test double implements
    * `play` and none of them implements `ready`, so a guard here silently
    * skipped playback the doubles were written to observe. A router routes. */
-  if (typeof audio?.play !== 'function') return { cue, seconds, source: null, silent: true };
+  const canPlayWithReceipt = typeof audio?.playWithReceipt === 'function';
+  const canPlayLegacy = typeof audio?.play === 'function';
+  if (!canPlayWithReceipt && !canPlayLegacy) {
+    const acceptance = acceptanceResult({ routed: false, receipt: null });
+    return { cue, seconds, source: null, silent: true, receipt: null, acceptance };
+  }
 
   const opts = {
     ...rest,
@@ -189,6 +242,7 @@ export function speak(audio, cue, options = {}) {
     /* The mouth system reads the analyser this puts inline, so a character's
      * jaw moves on the amplitude that is really reaching the speakers. */
     analyse: true,
+    requiredRecorded,
   };
   if (muffle) opts.muffle = muffle;
   if (mix?.ref != null) {
@@ -204,11 +258,20 @@ export function speak(audio, cue, options = {}) {
     if (speaker) opts.follow = speaker;
   }
 
-  const source = audio.play(cue, opts);
+  let source;
+  let receipt = null;
+  if (canPlayWithReceipt) {
+    ({ source, receipt } = audio.playWithReceipt(cue, opts));
+  } else {
+    source = audio.play(cue, opts);
+  }
+  const acceptance = acceptanceResult({ routed: true, receipt });
   /* Claim the floor for the length of the line, so the things that hold off
    * under speech -- a fart, a bark, an idle grunt -- actually hold off. */
-  audio.hold?.(delay + seconds + SPEECH_GAP_S);
-  return { cue, seconds, source, silent };
+  if (acceptance.status === DIALOGUE_ACCEPTANCE.ACCEPTED) {
+    audio.hold?.(delay + seconds + SPEECH_GAP_S);
+  }
+  return { cue, seconds, source, silent, receipt, acceptance };
 }
 
 /**
@@ -234,9 +297,15 @@ export class DialogueSequence {
    *        line and its measured duration -- the seam for subtitles.
    * @param {Function} [options.onDone]
    */
-  constructor(audio, { gap = SPEECH_GAP_S, onLine = null, onDone = null } = {}) {
+  constructor(audio, {
+    gap = SPEECH_GAP_S,
+    retryDelay = 0.1,
+    onLine = null,
+    onDone = null,
+  } = {}) {
     this.audio = audio;
     this.gap = gap;
+    this.retryDelay = Math.max(0.01, Number(retryDelay) || 0.1);
     this.onLine = onLine;
     this.onDone = onDone;
     this.lines = [];
@@ -245,6 +314,8 @@ export class DialogueSequence {
     this.running = false;
     /** What was said, in order, with when and for how long. For verifiers. */
     this.spoken = [];
+    /** Refused starts remain visible without being misreported as spoken. */
+    this.attempts = [];
   }
 
   /**
@@ -257,6 +328,7 @@ export class DialogueSequence {
     this.wait = 0;
     this.running = this.lines.length > 0;
     this.spoken = [];
+    this.attempts = [];
     return this;
   }
 
@@ -279,14 +351,28 @@ export class DialogueSequence {
     if (!this.running) return;
     this.wait -= dt;
     if (this.wait > 0) return;
-    this.index += 1;
-    if (this.index >= this.lines.length) {
+    const candidateIndex = this.index + 1;
+    if (candidateIndex >= this.lines.length) {
       this.running = false;
       this.onDone?.();
       return;
     }
-    const line = this.lines[this.index];
+    const line = this.lines[candidateIndex];
     const spoken = speak(this.audio, line.cue, line);
+    this.attempts.push({
+      cue: line.cue,
+      index: candidateIndex,
+      acceptance: spoken.acceptance.status,
+      reason: spoken.acceptance.reason,
+      receipt: spoken.receipt,
+    });
+    if (spoken.acceptance.status === DIALOGUE_ACCEPTANCE.RETRY) {
+      /* Do not consume a line merely because its engine was temporarily
+       * unavailable. The same authored line owns the next attempt. */
+      this.wait = this.retryDelay;
+      return;
+    }
+    this.index = candidateIndex;
     /* The NEXT line waits for this one plus a beat plus whatever pause it
      * asked for itself. A line with no recording still takes its authored
      * duration, so an unrecorded scene plays at the right pace with subtitles
@@ -298,7 +384,9 @@ export class DialogueSequence {
       speaker: line.speakerId ?? null,
       seconds: spoken.seconds,
       silent: spoken.silent,
-      index: this.index,
+      acceptance: spoken.acceptance.status,
+      receipt: spoken.receipt,
+      index: candidateIndex,
     });
     this.onLine?.(line, spoken);
   }

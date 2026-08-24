@@ -267,7 +267,9 @@ export function framingFindings({
 
     /* The camera in the masonry, first, because it makes everything after it
      * meaningless: a camera inside a wall sees the inside of a wall. */
-    const swallowed = boxes.find((box) => insideSolid(box, shot.position));
+    const swallowed = boxes.find((box) => (
+      box.blocks?.vision !== false && insideSolid(box, shot.position)
+    ));
     if (swallowed) {
       findings.push(finding('CAMERA_INSIDE_SOLID', beat, { solid: swallowed.name ?? null }));
     }
@@ -363,6 +365,8 @@ export function framingFindings({
     let nearest = Infinity;
     let blocker = null;
     for (const box of boxes) {
+      if (box.blocks?.vision === false) continue;
+      if (box.spatialKind === 'actor-body' && box.ownerActorId === speaker.id) continue;
       const distance = solidDistance(shot.position, dir, box);
       if (distance < nearest) { nearest = distance; blocker = box; }
     }

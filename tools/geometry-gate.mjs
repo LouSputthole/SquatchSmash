@@ -1180,6 +1180,7 @@ export function geometryRecordsFromSnapshot(snapshot) {
     }
     const wall = record.wall === true;
     const structural = record.structural === true;
+    const nonPhysical = record.spatial?.typed === true && record.blocks?.collision === false;
     const ownerId = record.assemblyId ?? record.ownerId ?? record.id;
     const supportOwnerId = record.supportOwnerId ?? ownerId;
     const adapted = {
@@ -1193,9 +1194,15 @@ export function geometryRecordsFromSnapshot(snapshot) {
       maxX: boundsCoordinate(record, 'max', 'x', label),
       maxY: boundsCoordinate(record, 'max', 'y', label),
       maxZ: boundsCoordinate(record, 'max', 'z', label),
-      overlap: record.overlap ?? true,
-      supports: record.supports ?? structural,
-      fixedSupportAnchor: record.fixedSupportAnchor ?? (collider || structural || wall),
+      /* Semantic collision truth outranks legacy overlap policy. A trigger
+       * may occupy the same bounds as a wall without being physical. */
+      overlap: nonPhysical ? false : record.overlap ?? true,
+      /* A typed trigger is not a secret shelf. Collision semantics govern
+       * both penetration and physical support or a trigger under a floating
+       * prop can make the FLOATING finding disappear. */
+      supports: nonPhysical ? false : record.supports ?? structural,
+      fixedSupportAnchor: nonPhysical
+        ? false : record.fixedSupportAnchor ?? (collider || structural || wall),
       checkSupport: record.checkSupport ?? (!collider && !structural && !wall),
       wall,
       checkWallEmbed: record.checkWallEmbed ?? !wall,

@@ -35,13 +35,13 @@ import {
   SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
 } from '../core/campaign.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
-import { translateKey } from '../core/settings.js';
 import { registerSceneRenderer } from '../core/scene-lifecycle.js';
 import { AMBIENCE_CUES } from './ambience.js';
 import { buildSpecialMeetingCast } from './cast.js';
@@ -222,13 +222,8 @@ function showChoices(options) {
   }
 }
 
-const PLAYER_INPUT_CODES = new Set([
-  'KeyW', 'KeyA', 'KeyS', 'KeyD',
-  'ShiftLeft', 'ShiftRight', 'KeyC', 'Space',
-]);
-
 /* ------------------------------------------------------------------ */
-/* INPUT, WHICH THIS SCENE DID NOT HAVE                                */
+/* Canonical first-person input Adapter                                */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -256,58 +251,27 @@ const PLAYER_INPUT_CODES = new Set([
  * ride -- which locks him to the spot and LEAVES HIM HIS EYES, see the note in
  * src/nowake/main.js -- and `walk` again at the trailhead.
  */
-function requestScenePointerLock() {
-  if (paused || handedOff || document.pointerLockElement === canvas) return;
-  try {
-    const pending = canvas.requestPointerLock?.();
-    pending?.catch?.(() => {});
-  } catch {
-    /* An embedded preview can deny pointer lock without invalidating the
-     * scene, exactly as the graveyard's own note says. */
-  }
-}
-
-canvas.addEventListener('mousedown', (event) => {
-  if (event.button !== 0 || event.target.closest?.('button, a')) return;
-  requestScenePointerLock();
-});
-
-document.addEventListener('pointerlockchange', () => {
-  player.enabled = !paused && document.pointerLockElement === canvas;
-  if (!player.enabled) player.clearKeys();
-});
-
-addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
-});
-
-addEventListener('keydown', (event) => {
-  if (paused) return;
-  /* The TRANSLATED key, so a rebound Move or Sprint reaches the player -- the
-   * same call every other scene makes. Movement codes preventDefault so Space
-   * does not scroll an embedding page; Use stays outside the movement set. */
-  const code = translateKey(event.code);
-  if (PLAYER_INPUT_CODES.has(code)) {
-    player.setKey(code, true);
+const input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  canEnable: () => !paused && !handedOff,
+  canHandleInput: () => !paused && !handedOff,
+  /* Choices are scene policy. Movement, look, pointer lock, rebinding,
+   * interaction and focus-loss cleanup stay inside the shared Adapter. */
+  onKeyDown: (event) => {
+    if (!ride.options) return;
+    const n = Number(event.key);
+    if (!Number.isInteger(n) || n < 1 || n > ride.options.length) return;
     event.preventDefault();
-  }
-  /* Autorepeat must not open a second hold whose release reads as a tap. */
-  if (code === 'KeyE' && !event.repeat) interaction.press();
-  if (!ride.options) return;
-  const n = Number(event.key);
-  if (!Number.isInteger(n) || n < 1 || n > ride.options.length) return;
-  event.preventDefault();
-  ride.choose(ride.options[n - 1].index);
+    ride.choose(ride.options[n - 1].index);
+    requestScenePointerLock();
+  },
 });
 
-addEventListener('keyup', (event) => {
-  const code = translateKey(event.code);
-  player.setKey(code, false);
-  if (code === 'KeyE') interaction.release();
-});
-
-/* A key held when the window loses focus is a key that never comes up. */
-addEventListener('blur', () => player.clearKeys());
+function requestScenePointerLock() {
+  return input.requestPointerLock();
+}
 
 /* ------------------------------------------------------------------ */
 /* The sequence                                                        */
@@ -417,7 +381,7 @@ function beginTheDrive() {
    * trees, the trailhead and the car are placed against. */
   cast.setGround((x, z) => forest.heightAt(x, z));
   player.world = forest.world;
-  player.clearKeys();
+  input.clear();
   player.velocity.set(0, 0, 0);
   stage.block.group.visible = false;
   /* The wet street, the alley and the distant passes belong to the block, and
@@ -456,6 +420,7 @@ function startTheWalk() {
 function handOff() {
   if (handedOff) return;
   handedOff = true;
+  input.suspend();
   campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
   blackout?.classList.remove('cut');
   if (blackout) blackout.style.transitionDuration = '1.4s';
@@ -486,14 +451,11 @@ const pauseMenu = createPauseMenu({
   canPause: () => !handedOff,
   onPause: () => {
     paused = true;
-    player.enabled = false;
-    player.clearKeys();
-    if (document.pointerLockElement === canvas) document.exitPointerLock?.();
+    input.suspend();
   },
   onResume: () => {
     paused = false;
-    /* Taking the lock back is what re-enables him; see `pointerlockchange`. */
-    requestScenePointerLock();
+    input.resume();
   },
   recovery,
 });
@@ -594,9 +556,11 @@ window.SPECIAL_MEETING = {
    * scene. None of them presses a key, so the scene shipped for weeks with no
    * input wiring at all and every gate green. See the INPUT block above. */
   player,
+  input,
   /** What `pointerlockchange` last decided. False means he is a passenger. */
   get playerEnabled() { return player.enabled; },
   get playerMode() { return player.mode; },
+  get inputReceipt() { return input.snapshot(); },
   /* The scene root, published for the repo-wide mesh sweep in
    * tools/scene-audit-scenes.mjs, which finds a page's geometry by walking a
    * declared path to a THREE.Scene rather than by guessing. */

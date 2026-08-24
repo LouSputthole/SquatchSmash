@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { mat, box, group, collider } from '../world/build.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { lit, rand, pick } from './kit.js';
 
 const BODY_COLOURS = [0x16161c, 0x24242e, 0x4a1418, 0x2e2e36, 0x5a4a2a, 0x18242e, 0x7a7a82, 0x3a2a1e];
@@ -209,11 +210,15 @@ export function makeVehicleCollider(vehicle, pad = 0.08) {
   const halfX = c * halfLength + s * halfWidth;
   const halfZ = s * halfLength + c * halfWidth;
   const { x, z } = vehicle.group.position;
-  return collider(
+  const volume = collider(
     [x - halfX, 0, z - halfZ],
     [x + halfX, Math.max(1.6, vehicle.height), z + halfZ],
     0,
   );
+  return markSpatialPrimitive(volume, {
+    id: vehicle.group.userData.spatialId ?? vehicle.group.name ?? 'vehicle',
+    kind: 'vehicle',
+  });
 }
 
 /** Two silhouettes in a car with the engine off. They do not get out. */

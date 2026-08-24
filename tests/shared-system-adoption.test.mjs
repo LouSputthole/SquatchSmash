@@ -16,6 +16,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   NON_SCENE_DIRECTORIES,
@@ -23,7 +24,7 @@ import {
   SHARED_SYSTEMS,
 } from '../tools/shared-systems.mjs';
 
-const SRC = new URL('../src/', import.meta.url).pathname;
+const SRC = fileURLToPath(new URL('../src/', import.meta.url));
 
 function sourceFiles(directory) {
   const found = [];

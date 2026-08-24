@@ -4,6 +4,7 @@ import { CHARACTER_IDS } from '../core/campaign.js';
 import { AUBBIE, BIG_UNCLE_LOU_BING, SAUCE } from '../core/wardrobe.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { buildWrappedBody } from '../core/props/wrapped-body.js';
+import { readActor } from '../core/staging.js';
 import { box, cylinder, emissive, group, mat, sphere } from '../world/build.js';
 import { Npc, STOOL_SIT } from './cast.js';
 import { STAGE_H } from './club.js';
@@ -465,6 +466,7 @@ function installPartyColliders(club, {
     const entry = add({
       id: `cast.${slug}`,
       kind: 'cast',
+      ownerActorId: readActor(npc.group)?.id,
       target: npc.group,
       halfX: characterId === CHARACTER_IDS.LOU ? 0.25 : 0.2,
       halfZ: characterId === CHARACTER_IDS.LOU ? 0.25 : 0.2,

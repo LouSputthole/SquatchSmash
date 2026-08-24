@@ -213,6 +213,11 @@ function colliderBoxes(built) {
       min: [record.min.x, record.min.y, record.min.z],
       max: [record.max.x, record.max.y, record.max.z],
       ...(record.shape ? { shape: record.shape } : {}),
+      typed: record.spatial?.typed === true,
+      spatialId: record.spatialId ?? null,
+      spatialKind: record.spatialKind ?? null,
+      ownerActorId: record.ownerActorId ?? null,
+      blocks: record.blocks ?? null,
     }));
 }
 
