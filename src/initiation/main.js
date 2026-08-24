@@ -270,9 +270,34 @@ window.addEventListener('resize', () => {
 scene.background = new THREE.Color(0x05080f);
 scene.fog = new THREE.Fog(0x05080f, 24, 130);
 
-scene.add(new THREE.HemisphereLight(0x1a2440, 0x080c09, 0.42));
+/* THERE IS A MOON OUT, AND YOU ARE SUPPOSED TO BE ABLE TO SEE BY IT.
+ *
+ * Owner, 2026-08-24: *"In initationscene there needs to be some more moonlight
+ * to see... you should walk up a poorly lit wooded trail."*
+ *
+ * POORLY LIT IS NOT UNLIT. The trail, the trunks and the forest floor were all
+ * authored -- a dirt ribbon at 0x2f2820, bark at 0x2b2016, needles at 0x1b3122
+ * -- and then rendered under a 0.42 sky and a 0.42 moon, which puts every one
+ * of them within a few values of the 0x05080f background. Screenshots of the
+ * yard and the trail came back as black rectangles with a bonfire in them: the
+ * player was walking through geometry he had no way of knowing was there, and
+ * the only navigable light in the scene was the fire he was walking away from.
+ *
+ * The numbers look large next to the ones they replace, and the reason is the
+ * colour space rather than the art direction: the floor texture's base is
+ * #14221a, and sRGB-to-linear takes 0.078 down to about 0.007 before a single
+ * light touches it. Multiplying a near-zero by a small number leaves a near
+ * zero, which is why the first attempt at this -- 0.42 up to 1.05 -- came back
+ * from the screenshot pass looking identical.
+ *
+ * The fire and the headlights are still far and away the brightest things in
+ * the scene, which is the whole look and is untouched: the bonfire is a point
+ * light at 56 and each headlight is a spot at 140. What has changed is that
+ * the ground between them now has a value.
+ */
+scene.add(new THREE.HemisphereLight(0x24314f, 0x11160f, 1.6));
 
-const moonLight = new THREE.DirectionalLight(0x9db4e6, 0.42);
+const moonLight = new THREE.DirectionalLight(0x9db4e6, 3.2);
 moonLight.castShadow = true;
 moonLight.shadow.mapSize.set(2048, 2048);
 moonLight.shadow.camera.left = -45;
@@ -285,6 +310,8 @@ moonLight.shadow.bias = -0.0005;
 scene.add(moonLight);
 scene.add(moonLight.target);
 const _moonOffset = new THREE.Vector3(-35, 60, 45);
+/** The same bearing, unit length, for anything that wants to point at the moon. */
+const _moonDirection = _moonOffset.clone().normalize();
 
 function makeDotTexture(size = 64, stops = [[0, 'rgba(255,255,255,1)'], [0.35, 'rgba(255,255,255,.7)'], [1, 'rgba(255,255,255,0)']]) {
   const c = document.createElement('canvas');
@@ -325,6 +352,47 @@ const dotTex = makeDotTexture();
   });
   mat.color.setScalar(2.2);
   scene.add(new THREE.Points(geo, mat));
+}
+
+/* AND THE LIGHT HAS A SOURCE.
+ *
+ * `moonLight` is a DirectionalLight coming out of `_moonOffset`, and there was
+ * nothing up there. A scene lit by a moon nobody can find reads as a scene
+ * with the brightness turned up, which is the note this is answering rather
+ * than the fix for it. So: a disc and a halo, in the direction the light comes
+ * from, parked far enough out to sit behind everything and marked `fog: false`
+ * so the night air does not eat it at 130 metres.
+ *
+ * It rides the player the way the light does (see `updateCamera`) -- a moon
+ * that parallaxes across a thirty-metre walk is a moon a hundred metres away,
+ * which is worse than no moon at all.
+ */
+const MOON_DISTANCE = 340;
+const moonDisc = new THREE.Group();
+moonDisc.name = 'initiation.moon';
+{
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(9.5, 32),
+    new THREE.MeshBasicMaterial({ color: 0xe8eeff, fog: false, depthWrite: false }),
+  );
+  face.name = 'initiation.moon.disc';
+  const halo = new THREE.Mesh(
+    new THREE.CircleGeometry(34, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0x8ea6d8, map: dotTex, transparent: true, opacity: 0.42,
+      fog: false, depthWrite: false, blending: THREE.AdditiveBlending,
+    }),
+  );
+  halo.name = 'initiation.moon.halo';
+  halo.position.z = -0.5;
+  moonDisc.add(halo, face);
+  moonDisc.renderOrder = -1;
+  /* It is three hundred metres up and it is meant to be. The site's float and
+   * support gates exist to catch a tree hovering off the forest floor, and a
+   * moon is the one object in this scene that is allowed to have nothing under
+   * it -- so it says so, rather than being argued about in an allowlist. */
+  for (const node of [moonDisc, face, halo]) node.userData.sceneAuditIgnore = true;
+  scene.add(moonDisc);
 }
 
 // Distant ridge silhouettes
@@ -1832,6 +1900,10 @@ function updateCamera(dt) {
 
   moonLight.position.copy(player.position).add(_moonOffset);
   moonLight.target.position.copy(player.position);
+  /* The disc sits on the same bearing, far out, facing the camera. */
+  moonDisc.position.copy(player.position)
+    .addScaledVector(_moonDirection, MOON_DISTANCE);
+  moonDisc.lookAt(camera.position);
   audio.updateListener(camera);
 }
 

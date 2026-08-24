@@ -44,6 +44,7 @@ const TEST_MODULES = [
   './smoke-system.test.mjs',
   './blood-effects.test.mjs',
   './audio-listener-coverage.test.mjs',
+  './initiation-moonlight.test.mjs',
   './weapon-sight-line.test.mjs',
   './weapons-core.test.mjs',
   './character-weapon-mount.test.mjs',
