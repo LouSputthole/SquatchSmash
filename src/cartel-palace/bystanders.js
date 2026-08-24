@@ -40,6 +40,8 @@ const FEAR = Object.freeze({
 
 /* Lines she repeats from the floor, in order, on a slow clock. She never
  * stops being frightened; she only runs out of new ways to say it. */
+import { PRONE_MOUTH_Y } from './voice.js';
+
 const COWER_LINES = Object.freeze(['cleaner.cower.one', 'cleaner.cower.two']);
 
 /**
@@ -140,7 +142,7 @@ export class PalaceBystanders {
           record.cowerClock = 2.6;
           entry.figure.setState?.('prone', { blend: true });
           this.voice?.say?.('cleaner.panic.two', {
-            position: entry.root.position, radius: 16,
+            position: entry.root.position, radius: 16, mouthY: PRONE_MOUTH_Y,
           });
         }
         continue;
@@ -152,7 +154,12 @@ export class PalaceBystanders {
         record.cowerClock = 9 + record.cowerIndex * 3;
         const id = COWER_LINES[record.cowerIndex % COWER_LINES.length];
         record.cowerIndex++;
-        this.voice?.say?.(id, { position: entry.root.position, radius: 11 });
+        /* From the floor, behind whatever she is behind. If he cannot see
+         * her, he does not hear her -- which is the whole of the owner's
+         * "disembodied cleaner" note. */
+        this.voice?.say?.(id, {
+          position: entry.root.position, radius: 11, mouthY: PRONE_MOUTH_Y,
+        });
       }
       /* Standing over her. She stops repeating and asks him directly — once,
        * and only once, in the whole mission. */
@@ -160,6 +167,7 @@ export class PalaceBystanders {
         && this.player.position.distanceTo(entry.root.position) <= 3.4) {
         record.pleaded = this.voice?.say?.('cleaner.plead', {
           position: entry.root.position, radius: 5, urgent: true,
+          mouthY: PRONE_MOUTH_Y,
         }) === true;
       }
     }

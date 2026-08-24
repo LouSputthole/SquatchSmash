@@ -325,6 +325,19 @@ export function palaceRecastLines() {
 }
 
 /** Colours for the subtitle, by voice, so a shout reads as somebody. */
+/**
+ * Where a mouth is, above the ground the speaker is standing on.
+ *
+ * `audible()` traces eye to mouth, so this is not decoration: it decides
+ * whether a body behind a bench, a desk or a low wall can be heard. The three
+ * values are the three postures anybody in this building actually holds.
+ */
+const STANDING_MOUTH_Y = 1.45;
+/** On one knee, or crouched behind cover. */
+export const KNEELING_MOUTH_Y = 0.95;
+/** Face down on the floor, which is where a frightened civilian ends up. */
+export const PRONE_MOUTH_Y = 0.35;
+
 const VOICE_COLOUR = Object.freeze({
   player: '#cfd4e0',
   cleaner: '#c8d8b0',
@@ -391,7 +404,7 @@ export class PalaceVoice {
   }
 
   /** Is the speaker close enough, and can the player actually see them? */
-  audible(position, radius) {
+  audible(position, radius, mouthY = STANDING_MOUTH_Y) {
     if (!position) return true;
     const at = this.player?.position;
     if (!at) return true;
@@ -399,9 +412,21 @@ export class PalaceVoice {
     if (!this.trace || !this.vector) return true;
     /* Eye to mouth. A speaker behind a wall is a speaker the player has not
      * met yet, and the owner's note is explicit that they must not be heard
-     * through it. */
+     * through it.
+     *
+     * AND THE MOUTH IS WHERE THE POSE PUTS IT. This used to be a flat 1.45 --
+     * a standing man's mouth -- for every speaker in the building, including
+     * ones lying face down on the floor. The cleaner is the case that found
+     * it: she runs behind the entry bench when the shooting starts, goes
+     * prone, and then repeats a line every nine seconds. The ray was testing a
+     * point nearly a metre and a half ABOVE her, in clear air over the bench,
+     * so she read as audible from anywhere in the hall while being completely
+     * invisible behind it. Owner: *"Rosa apparently delivers her lines, but
+     * the player cannot see her... it feels like enemies die and then a
+     * disembodied cleaner starts talking."* She was not disembodied. She was
+     * being heard through the furniture she was hiding behind. */
     const from = this.vector(at.x, at.y + 0.1, at.z);
-    const to = this.vector(position.x, position.y + 1.45, position.z);
+    const to = this.vector(position.x, position.y + mouthY, position.z);
     return this.trace(from, to) == null;
   }
 
@@ -468,6 +493,7 @@ export class PalaceVoice {
    */
   say(id, {
     position = null, radius = 14, once = true, urgent = false, speaker = null,
+    mouthY = STANDING_MOUTH_Y,
   } = {}) {
     const line = PALACE_VOICE_LINES[id];
     if (!line) return false;
@@ -476,7 +502,7 @@ export class PalaceVoice {
     /* A `speaker` is a live body, so the line comes from wherever he is
      * standing THIS frame rather than from a point copied at the call site. */
     const at = speaker?.root?.position ?? position;
-    if (!this.audible(at, radius)) return false;
+    if (!this.audible(at, radius, mouthY)) return false;
 
     const cue = palaceVoiceCue(id);
     let recorded = 0;

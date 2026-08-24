@@ -238,6 +238,7 @@ const TEST_MODULES = [
   './cartel-palace-mission.test.mjs',
   './cartel-palace-combat.test.mjs',
   './cartel-palace-a-team-art.test.mjs',
+  './cartel-palace-cleaner-audibility.test.mjs',
   './cartel-palace-openings.test.mjs',
   './cartel-palace-finale.test.mjs',
   './cartel-palace-retry.test.mjs',
