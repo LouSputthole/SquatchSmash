@@ -29,6 +29,11 @@ import { CHARACTER_IDS } from '../core/campaign.js';
 import { BADA_BING_BARTENDER, BIG_UNCLE_LOU_BING } from '../core/wardrobe.js';
 import { mat, box, sphere, cylinder, group } from '../world/build.js';
 import { rand, pick } from './kit.js';
+import {
+  BADA_BING_CORE_STAGE_COUNT, BADA_BING_PERFORMERS,
+} from './performers.js';
+
+export { BADA_BING_CORE_STAGE_COUNT, BADA_BING_PERFORMERS } from './performers.js';
 
 /* Photo faces, the way the Initiation does them: one image on the front of a
  * box skull, the other five faces plain. Cached because Lou turns up in more
@@ -353,7 +358,7 @@ export function makePerson(o = {}) {
      * Rippinflow wears a thin silver line and nothing hanging off it, which
      * is a different man saying a different thing with his neck. */
     pendant = true, chainStyle = 'single', pendantStyle = 'disc',
-    neckline = false, luxury = false, shirtAccent = null, tieColour = 0x6a1a24,
+    neckline = false, luxury = false, shirtAccent = null, tie = true, tieColour = 0x6a1a24,
     pocketSquare = 0xb8a05a, watch = false,
     bracelet = false,
     /* Dinner-jacket details, all of them small and all of them the whole read
@@ -367,6 +372,8 @@ export function makePerson(o = {}) {
      *             buttons, a pocket square and a real knotted tie on a suit
      *   belt      false | 'leather' | 'gold' -- a waistband and a buckle
      *   trouserFit 'plain' | 'creased' -- a front crease and turn-ups
+     *   tie       false removes the business tie while retaining a tailored
+     *             shirt front and collar (an open-collar dinner jacket)
      *   tieColour straight business-tie colour; pocketSquare may be a colour
      *              or false when the scene calls for plain, severe tailoring
      *   jacketColour override the garment colour independently of `shirt`,
@@ -398,6 +405,10 @@ export function makePerson(o = {}) {
     hat = false, hatColour = null, pinstripe = false, threePiece = false,
     argyle = null, knickers = false, pattern = false, shoeStyle = 'plain',
     trouserColour = null, gownStrapWidth = 0.03,
+    /* Adult performer resort/stage presentation. `curveScale` is deliberately
+     * bounded below; it changes costume-covered curves only, never joints,
+     * collision roots or the generic heavy-body path. */
+    curveScale = 1, swimStyle = 'classic', swimAccent = null,
   } = o;
 
   /* Matte almost everywhere. The Squatchfather's cast is lit with Lambert and
@@ -504,6 +515,18 @@ export function makePerson(o = {}) {
    * -- keep their own proportions. The character bible is explicit that this
    * presentation belongs to the stage roles and must not leak. */
   const showgirl = female && curvy && performanceWear && adult;
+  const requestedCurveScale = Number(curveScale);
+  const performerCurveScale = showgirl
+    ? THREE.MathUtils.clamp(Number.isFinite(requestedCurveScale) ? requestedCurveScale : 1, 1, 1.18)
+    : 1;
+  const normalizedSwimStyle = ['classic', 'halter', 'highwaist', 'onepiece'].includes(swimStyle)
+    ? swimStyle
+    : 'classic';
+  const swimTrim = mat({
+    color: swimAccent ?? shirt,
+    roughness: 0.48,
+    metalness: swimAccent === null ? 0.18 : 0.12,
+  });
   /* Every structural slab on a stage figure gets its edges chamfered. It is
    * the same shape, the same size and the same style -- the owner's note was
    * "less blocky", not "not blocky" -- but nothing on the runway ends in a
@@ -1329,7 +1352,9 @@ export function makePerson(o = {}) {
        * one, which is what the first pass looked like. Sat close together so
        * they meet in the middle and make a single shape. */
       const cup = sphere({
-        r: 0.112 * t, ry: 0.108, rz: 0.098,
+        r: 0.112 * t * performerCurveScale,
+        ry: 0.108 * performerCurveScale,
+        rz: 0.098 * performerCurveScale,
         pos: [sx * 0.078 * t, 1.383, D * 0.98],
         mat: cloth,
       });
@@ -1340,7 +1365,9 @@ export function makePerson(o = {}) {
       // Behind her, not beside her: pushed out at the hip these read as
       // saddlebags from the front instead of as a rear from the side.
       const rear = sphere({
-        r: 0.132 * t, ry: 0.128, rz: 0.122,
+        r: 0.132 * t * performerCurveScale,
+        ry: 0.128 * performerCurveScale,
+        rz: 0.122 * performerCurveScale,
         pos: [sx * 0.086 * t, 1.008, -D * 1.16],
         mat: cloth,
       });
@@ -1350,7 +1377,9 @@ export function makePerson(o = {}) {
 
       // A hip flare, so the waist has something to be narrow against
       const flare = sphere({
-        r: 0.088 * t, ry: 0.115, rz: 0.10,
+        r: 0.088 * t * performerCurveScale,
+        ry: 0.115 * performerCurveScale,
+        rz: 0.10 * performerCurveScale,
         pos: [sx * hipHalf * 0.94, 1.03, 0],
         mat: cloth,
       });
@@ -1360,13 +1389,15 @@ export function makePerson(o = {}) {
 
       // Over the shoulder, not past it: a strap that overshoots the shoulder
       // slab stands up beside the neck like an aerial.
+      const halter = normalizedSwimStyle === 'halter';
       const strap = box({
         name: `performer.bikini-top.strap.${sx < 0 ? 'left' : 'right'}`,
         size: [0.026, 0.17, 0.02],
-        pos: [sx * 0.112, 1.445, D * 1.02],
+        pos: [sx * (halter ? 0.082 : 0.112), 1.445, D * 1.02],
         mat: cloth,
       });
-      strap.rotation.z = sx * -0.16;
+      strap.rotation.z = sx * (halter ? -0.43 : -0.16);
+      strap.userData.swimStyle = normalizedSwimStyle;
       wearOnTorso(strap);
     }
     const topBand = box({
@@ -1380,14 +1411,53 @@ export function makePerson(o = {}) {
      * pelvis block on a wide-hipped figure and vanished inside her, which is
      * a costume failure and a canon one. Derive it from the hips instead so
      * it can never be swallowed again. */
+    const highWaist = normalizedSwimStyle === 'highwaist';
     const bottomBand = box({
       name: 'performer.bikini-bottom.band',
-      size: [hipHalf * 2.08, 0.19, D * 2.27],
-      pos: [0, 1.02, 0],
+      size: [hipHalf * 2.08, highWaist ? 0.29 : 0.19, D * 2.27],
+      pos: [0, highWaist ? 1.07 : 1.02, 0],
       mat: cloth,
     });
     wearOnTorso(topBand);
     body.add(bottomBand);
+    if (normalizedSwimStyle === 'onepiece') {
+      const front = box({
+        name: 'performer.swimwear.onepiece.front',
+        size: [0.255 * t, 0.315, 0.034],
+        pos: [0, 1.17, D * 1.105],
+        mat: cloth,
+      });
+      wearOnTorso(front);
+      for (const sx of [-1, 1]) {
+        const sidePanel = box({
+          name: `performer.swimwear.onepiece.side.${sx < 0 ? 'left' : 'right'}`,
+          size: [0.026, 0.27, 0.008],
+          pos: [sx * 0.116 * t, 1.17, D * 1.13],
+          mat: swimTrim,
+        });
+        sidePanel.rotation.z = sx * -0.08;
+        wearOnTorso(sidePanel);
+      }
+      curves.onePieceFront = front;
+    }
+    if (swimAccent !== null) {
+      const topPiping = box({
+        name: 'performer.swimwear.trim.top',
+        size: [0.345 * t, 0.014, 0.034],
+        pos: [0, 1.326, D * 1.095],
+        mat: swimTrim,
+      });
+      const waistPiping = box({
+        name: 'performer.swimwear.trim.waist',
+        size: [hipHalf * 2.09, 0.018, D * 2.29],
+        pos: [0, highWaist ? 1.205 : 1.11, 0],
+        mat: swimTrim,
+      });
+      wearOnTorso(topPiping);
+      body.add(waistPiping);
+      curves.topPiping = topPiping;
+      curves.waistPiping = waistPiping;
+    }
     curves.topBand = topBand;
     curves.bottomBand = bottomBand;
   }
@@ -1521,33 +1591,37 @@ export function makePerson(o = {}) {
           });
         if (!threePiece) wearOnTorso(lap);
       }
-      wearOnTorso(box({
-        name: 'suit.tie',
-        /* Stops AT the waistcoat rather than in front of it: on a three-piece
-         * the tie disappears at the top button and everything below that is
-         * waistcoat. This is also what leaves the sternum free for the chain. */
-        size: [0.038, threePiece ? 0.115 : 0.2, 0.018],
-        pos: [0, threePiece ? (vestTop + 0.062) : 1.35, D * 1.075],
-        mat: mat({ color: tieColour, roughness: 0.7 }),
-      }));
+      if (tie) {
+        wearOnTorso(box({
+          name: 'suit.tie',
+          /* Stops AT the waistcoat rather than in front of it: on a three-piece
+           * the tie disappears at the top button and everything below that is
+           * waistcoat. This is also what leaves the sternum free for the chain. */
+          size: [0.038, threePiece ? 0.115 : 0.2, 0.018],
+          pos: [0, threePiece ? (vestTop + 0.062) : 1.35, D * 1.075],
+          mat: mat({ color: tieColour, roughness: 0.7 }),
+        }));
+      }
       if (trim) {
         /* What separates a suit from a dark rectangle: a knot at the top of the
          * tie, two buttons where a jacket actually closes, an optional pocket
          * square, and a collar with points. All of it in front of the chest,
          * none of it cutting into the figure. */
-        const tieMat = mat({ color: tieColour, roughness: 0.7 });
-        const knot = box({
-          name: 'suit.tie.knot',
-          size: [0.044, 0.042, 0.024], pos: [0, 1.462, D * 1.10], mat: tieMat,
-        });
-        wearOnTorso(knot);
-        // The tip, wider than the neck of the tie, hanging below the last
-        // button -- unless a waistcoat has already swallowed it.
-        if (!threePiece) {
-          wearOnTorso(box({
-            name: 'suit.tie.tip',
-            size: [0.046, 0.05, 0.017], pos: [0, 1.238, D * 1.09], mat: tieMat,
-          }));
+        if (tie) {
+          const tieMat = mat({ color: tieColour, roughness: 0.7 });
+          const knot = box({
+            name: 'suit.tie.knot',
+            size: [0.044, 0.042, 0.024], pos: [0, 1.462, D * 1.10], mat: tieMat,
+          });
+          wearOnTorso(knot);
+          // The tip, wider than the neck of the tie, hanging below the last
+          // button -- unless a waistcoat has already swallowed it.
+          if (!threePiece) {
+            wearOnTorso(box({
+              name: 'suit.tie.tip',
+              size: [0.046, 0.05, 0.017], pos: [0, 1.238, D * 1.09], mat: tieMat,
+            }));
+          }
         }
         const shirtMat = mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.86 });
         for (const side of [-1, 1]) {
@@ -2902,8 +2976,13 @@ export function makePerson(o = {}) {
     bodyShape,
     outfit: dress,
     height,
+    build,
     gut: gutOn,
+    curveScale: performerCurveScale,
+    swimStyle: showgirl ? normalizedSwimStyle : false,
+    swimAccent: showgirl ? swimAccent : null,
     neckline: neckline || 'crew',
+    tie: !!tie,
     tuxedo: !!tuxedo,
     bowtie: !!bowtie,
     barefoot: !!barefoot,
@@ -2963,7 +3042,7 @@ const CURVY_REST_ARM_SPLAY = 0.18;
 const CURVY_DANCE_ARM_SPLAY = 0.32;
 
 /**
- * THE BADA BING'S FOUR PERFORMERS, AS FIGURES.
+ * THE BADA BING'S ADULT PERFORMER ROSTER.
  *
  * Authored rather than rolled -- "four random dancers" gave the stage four of
  * the same woman in different colours. Three are fair and the fourth is not;
@@ -2971,23 +3050,11 @@ const CURVY_DANCE_ARM_SPLAY = 0.32;
  * same from the floor. The blonde holds the last slot because the last slot is
  * the runway, and the owner's ruling is that the blonde works the front.
  *
- * EXPORTED because these four are cast members rather than set dressing, and
- * two of them are in Lou's hot tub on the third floor of the mansion (see
- * `src/mansion/cast.js`). Spreading this list is what makes the woman in the
- * tub the same woman who was on the pole -- the alternative is a second set of
- * literals in a second file, which is how a character quietly becomes two
- * characters. The GARMENT is not in here: `dress: 'bikini'` is passed at each
- * call site, because a stage costume and a swimsuit are the same cut on this
- * rig and the room decides which one it is.
+ * The renderer-free identities live in `performers.js`. The first four work
+ * this story night's three poles and runway; the remaining roster is off shift
+ * here and can still appear at the Mansion without turning one woman into two
+ * simultaneous bodies. The garment remains a scene decision.
  */
-export const BADA_BING_PERFORMERS = Object.freeze([
-  Object.freeze({ skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f }),  // platinum
-  // The middle of the back line. She wore the tied style, which from the
-  // floor is a crown and a bun and reads as cropped; hers falls.
-  Object.freeze({ skin: 0xe8c39c, hairColour: 0x5a3a20, hair: 'long', shirt: 0x9a4fd9 }),  // brunette
-  Object.freeze({ skin: 0xf2d3b4, hairColour: 0x14100e, hair: 'long', shirt: 0x4fd9c0 }),  // black
-  Object.freeze({ skin: 0xf0cba6, hairColour: 0xdcb04a, hair: 'long', shirt: 0xd94f9a }),  // blonde
-]);
 
 /** A `job` says what somebody is doing; the marker wants to know who they are. */
 const ACTOR_ROLE_FOR_JOB = Object.freeze({
@@ -3703,8 +3770,14 @@ export class Npc {
      * passing through the wearer's own hip or shirt. This is a pose limit,
      * not a body-shape change: the skeleton, socket and limb dimensions stay
      * exactly where the wardrobe authored them. */
-    if (this.job === 'dance') this._splayCurvyArms(CURVY_DANCE_ARM_SPLAY);
-    else if (this.job === 'stand' || this.job === 'sit' || this.job === 'drink'
+    if (this.job === 'dance') {
+      /* The costume-covered forms can grow by at most eighteen percent. Add
+       * only the clearance that identity needs: baseline choreography stays
+       * exactly where it was, while the fullest roster body gets roughly six
+       * extra degrees between forearm and costume. */
+      const curveExtra = Math.max(0, (this.parts.profile.curveScale ?? 1) - 1) * 0.56;
+      this._splayCurvyArms(CURVY_DANCE_ARM_SPLAY + curveExtra);
+    } else if (this.job === 'stand' || this.job === 'sit' || this.job === 'drink'
       || this.job === 'lean' || this.job === 'work') {
       this._splayCurvyArms();
     }
@@ -3901,7 +3974,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
    * Order matters: the list is dealt poles-first and the RUNWAY -- the front
    * of the house, the one the whole room faces -- comes last. The owner's
    * ruling is that the blonde works the front, so she holds the last slot. */
-  const PERFORMERS = BADA_BING_PERFORMERS;
+  const PERFORMERS = BADA_BING_PERFORMERS.slice(0, BADA_BING_CORE_STAGE_COUNT);
   /* Which way each woman is squared up before her routine starts.
    *
    * They were all on yaw 0, and three women on three poles pointed at the
@@ -3920,8 +3993,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
       routine: i, pole: i < a.poles.length,
       model: {
         role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-        height: rand(1.70, 1.76), build: rand(1.04, 1.12), dress: 'bikini',
-        ...look,
+        ...look, dress: 'bikini', swimStyle: 'classic',
       },
     }));
   });

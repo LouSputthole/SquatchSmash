@@ -329,9 +329,9 @@ export class HeistFigure {
      * secant steps against a 0.45 m thigh converge to under 4 mm. */
     for (let i = 0; i < 4; i++) {
       this.root.updateMatrixWorld(true);
-      /* The SHOES, not the whole rig: DeathMegatron wears a floor-length gown
-       * whose hem is the lowest thing on him by 14 cm, and no amount of knee
-       * would ever have satisfied a rig-box measurement. */
+      /* The SHOES, not the whole rig: a floor-length outfit can put its hem
+       * below the sole, and no amount of knee adjustment would ever satisfy
+       * a full-rig box measurement. */
       const error = this._soleHeight() - this.baseY;
       if (!Number.isFinite(error) || Math.abs(error) < 0.004) break;
       const step = Math.max(-0.24, Math.min(0.24, error / 0.45));

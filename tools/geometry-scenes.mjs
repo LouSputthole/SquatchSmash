@@ -1129,6 +1129,16 @@ async function mountMansionGeometryCast(base, descriptor, { lab = null } = {}) {
       'second pool performer lounger',
       'mansion-pool-lounger-6',
     )],
+    ['poolPerformer3', fixtureOwner(
+      base.grounds.props?.poolPatio?.chairs?.[1],
+      'third pool performer lounger',
+      'mansion-pool-lounger-1',
+    )],
+    ['poolPerformer4', fixtureOwner(
+      base.grounds.props?.poolPatio?.chairs?.[3],
+      'fourth pool performer lounger',
+      'mansion-pool-lounger-3',
+    )],
   ]);
   const hotTubOwner = base.interior.props?.masterSuite?.tub?.assemblyId;
   if (hotTubOwner !== 'mansion-suite-hot-tub') {

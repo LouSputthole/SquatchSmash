@@ -101,13 +101,14 @@
  * Every bark below is one flat sentence from somebody who is at work.
  */
 import * as THREE from 'three';
-import { Npc, BADA_BING_PERFORMERS } from '../bing/cast.js';
+import { Npc } from '../bing/cast.js';
 import { FAMILY, buildFamilyScripts } from '../bing/family.js';
 import {
   SWING_LANDS_AT, SWING_SECONDS, makeCord, poseCord,
 } from '../bing/license-to-grill-runtime.js';
 import {
-  BADA_BING_BARTENDER, BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON,
+  BADA_BING_BARTENDER, BIG_UNCLE_LOU_MANSION, BIG_UNCLE_LOU_MANSION_RETURN,
+  BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON,
   ERIC, GRATIN, HOG_MAMA, IRISH, MANSION_BOOTH_MAN, MANSION_DOOR_MAN,
   MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
 } from '../core/wardrobe.js';
@@ -122,6 +123,10 @@ import { mountLilTomCruze } from './dog.js';
 import {
   createLanGamerMotion, createPoolTreadingMotion, createSeatedPerformerMotion,
 } from './performer-motion.js';
+import {
+  MANSION_PERFORMER_VARIANTS, MANSION_POOL_PERFORMER_POSTS,
+  MANSION_POOL_RECLINER_CHAIRS, MANSION_SUITE_PERFORMER_POSTS,
+} from './performer-wardrobe.js';
 import { DialogueController } from './mission/DialogueController.js';
 import { createMissionHud } from './mission/hud.js';
 
@@ -1374,13 +1379,19 @@ export function mountMansionCast(scene, world = {}, {
    * is at home and not working" — and the mansion was posting him in the BASE
    * suit, so the one entry written for this room had never been worn in it.
    * Same man, same face photo, same jewellery; the camp shirt instead of the
-   * armour, which is the entire reason a second dressing exists. */
+   * armour, which is the entire reason a second dressing exists.
+   *
+   * The return briefing is deliberately the exception: after the Enola, home
+   * is business again. `visit` selects the dark oxblood-charcoal return suit,
+   * cream shirt and black tie for that morning only. The first visit and the
+   * same-night Siege both keep this camp-shirt continuity. */
   const desk = at('officeDesk', { x: 0, y: UPPER_Y, z: 70.2 });
   const louAt = { x: desk.x + 1.05, y: desk.y, z: desk.z + 2.55 };
+  const louModel = visit === 'return' ? BIG_UNCLE_LOU_MANSION_RETURN : BIG_UNCLE_LOU_MANSION;
   post('lou', {
     role: 'boss',
     name: 'Big Uncle Lou',
-    model: withFace(BIG_UNCLE_LOU_MANSION, FACES.lou),
+    model: withFace(louModel, FACES.lou),
     x: louAt.x,
     y: louAt.y,
     z: louAt.z,
@@ -1893,9 +1904,9 @@ export function mountMansionCast(scene, world = {}, {
   /* Owner, on the master suite: "hot tub with girls, the dog, and      */
   /* everything."                                                       */
   /*                                                                     */
-  /* THE TWO IN THE TUB ARE BADA BING CAST, NOT NEW PEOPLE. Their looks   */
-  /* are spread straight off `BADA_BING_PERFORMERS` in `src/bing/cast.js` */
-  /* -- the same four figures who work the club's poles -- so the woman   */
+  /* THE TWO IN THE TUB ARE BADA BING CAST, NOT NEW PEOPLE. Their stable  */
+  /* bodies come from the renderer-free performer roster and their exact   */
+  /* Mansion clothes from `performer-wardrobe.js`, so the woman            */
   /* in Lou's tub is a woman the player has already met, which is the      */
   /* whole point of the family owning the club. The GARMENT is the only    */
   /* thing decided here, and it is the same `dress: 'bikini'` the stage     */
@@ -1910,10 +1921,11 @@ export function mountMansionCast(scene, world = {}, {
   const tubSeats = suite?.tubSeats ?? [];
   const suitePerformers = [];
   tubSeats.slice(0, 2).forEach((seat, i) => {
-    const look = BADA_BING_PERFORMERS[i === 0 ? 3 : 1];
-    const npc = post(`suitePerformer${i}`, {
+    const postId = MANSION_SUITE_PERFORMER_POSTS[i];
+    const spec = MANSION_PERFORMER_VARIANTS[postId];
+    const npc = post(postId, {
       role: 'performer',
-      name: 'a dancer',
+      name: spec.name,
       tier: 'ambient',
       job: 'sit',
       x: seat.x,
@@ -1922,10 +1934,7 @@ export function mountMansionCast(scene, world = {}, {
       y: seat.y,
       z: seat.z,
       yaw: seat.yaw,
-      model: {
-        role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-        height: i === 0 ? 1.74 : 1.71, build: 1.08, dress: 'bikini', ...look,
-      },
+      model: spec.model,
       look: 'One of the girls from the club, up here where the water is warmer.',
     });
     /* SHE IS SUPPOSED TO BE INSIDE THE FURNITURE. `verify:mansion` asserts
@@ -1936,12 +1945,13 @@ export function mountMansionCast(scene, world = {}, {
      * mean it rather than being loosened for everybody. */
     npc.inFixture = 'the hot tub';
     npc.performerMotion = 'seated-social';
+    npc.performerIdentity = spec.identity;
     suitePerformers.push(npc);
   });
 
   /* ---- The pool-deck evening -----------------------------------------
-   * Three women, composed against the actual pool build: two reclining on
-   * the empty east-side loungers and one standing shoulder-deep in the
+   * Five women, composed against the actual pool build: four reclining on
+   * the four towel-free loungers and one standing shoulder-deep in the
    * water. The first keeps the existing three-press flirt -> strap-help path;
    * moving her onto furniture must not replace that interaction. */
   const poolAt = at('poolPatio', { x: 0, y: GROUND_Y, z: 85 });
@@ -1955,20 +1965,25 @@ export function mountMansionCast(scene, world = {}, {
     );
     return { x: position.x, y: position.y, z: position.z, yaw: rotation.y };
   }
-  /* Towel-free chairs. The towel alternates across the row; 4 and 6 are the
-   * two unoccupied surfaces built for bodies rather than folded linen. */
+  /* Towel-free chairs. The east pair keep the interactions; the matching
+   * west pair carry two additional off-shift performers without narrowing
+   * the coping route or putting a body through folded linen. */
   const firstLounger = poolChair(4, {
     x: poolAt.x + 10.6, y: poolAt.y, z: poolAt.z - 5.6, yaw: -Math.PI / 2,
   });
   const secondLounger = poolChair(6, {
     x: poolAt.x + 10.6, y: poolAt.y, z: poolAt.z + 0.8, yaw: -Math.PI / 2,
   });
-  const poolRecliners = [];
-  const POOL_PERFORMER_IDENTITIES = Object.freeze({
-    poolPerformer0: Object.freeze({ source: 'BADA_BING_PERFORMERS', index: 0, look: 'platinum tied hair' }),
-    poolPerformer1: Object.freeze({ source: 'BADA_BING_PERFORMERS', index: 2, look: 'black long hair' }),
-    poolPerformer2: Object.freeze({ source: 'BADA_BING_PERFORMERS', index: 1, look: 'brunette long hair' }),
+  const thirdLounger = poolChair(1, {
+    x: poolAt.x - 10.6, y: poolAt.y, z: poolAt.z - 2.4, yaw: Math.PI / 2,
   });
+  const fourthLounger = poolChair(3, {
+    x: poolAt.x - 10.6, y: poolAt.y, z: poolAt.z + 4.0, yaw: Math.PI / 2,
+  });
+  const poolRecliners = [];
+  const POOL_PERFORMER_IDENTITIES = Object.freeze(Object.fromEntries(
+    MANSION_POOL_PERFORMER_POSTS.map((id) => [id, MANSION_PERFORMER_VARIANTS[id].identity]),
+  ));
   function posePoolRecliner(npc) {
     if (!npc?.parts) return;
     /* A dining-chair sit folds the shin vertical at the knee. On a sun
@@ -1992,19 +2007,35 @@ export function mountMansionCast(scene, world = {}, {
     secondPhase: 'hello', secondDressHelped: false,
   };
   let dressStrap = null;
+  function looseStrapFor(npc, { name, color }) {
+    const bust = npc?.parts?.curves?.bustR;
+    if (!bust) return null;
+    npc.group.updateMatrixWorld(true);
+    npc.parts.body.updateMatrixWorld(true);
+    /* Follow the real outside/front surface of the fuller costume cup. A
+     * fixed x/z lived inside the 1.18 silhouette and made the interaction
+     * strap disappear before the player could fix it. */
+    const surface = bust.localToWorld(new THREE.Vector3(0.94, -0.28, 0.22));
+    npc.parts.body.worldToLocal(surface);
+    return box({
+      size: [0.045, 0.42, 0.025],
+      pos: [surface.x + 0.012, surface.y - 0.01, surface.z + 0.012],
+      mat: mat({ color, roughness: 0.7 }),
+      rotZ: -0.68,
+      cast: false,
+      name,
+    });
+  }
   const primaryPoolGirl = post('poolPerformer0', {
     role: 'performer',
-    name: 'the Bada Bing platinum performer',
+    name: MANSION_PERFORMER_VARIANTS.poolPerformer0.name,
     tier: 'ambient',
     job: 'sit',
     x: firstLounger.x,
     y: seatBase(firstLounger.y, 0.47),
     z: firstLounger.z,
     yaw: firstLounger.yaw,
-    model: {
-      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-      height: 1.73, build: 1.08, dress: 'bikini', ...BADA_BING_PERFORMERS[0],
-    },
+    model: MANSION_PERFORMER_VARIANTS.poolPerformer0.model,
     look: () => {
       if (poolEvening.phase === 'hello') return 'Say hello to the dancer by the pool';
       if (poolEvening.phase === 'flirt') return 'Try flirting with her';
@@ -2043,29 +2074,22 @@ export function mountMansionCast(scene, world = {}, {
   primaryPoolGirl.performerIdentity = POOL_PERFORMER_IDENTITIES.poolPerformer0;
   poolRecliners.push(primaryPoolGirl);
   posePoolRecliner(primaryPoolGirl);
-  dressStrap = box({
-    size: [0.045, 0.42, 0.025],
-    pos: [0.2, 1.34, 0.13],
-    mat: mat({ color: 0x6e1834, roughness: 0.7 }),
-    rotZ: -0.68,
-    cast: false,
+  dressStrap = looseStrapFor(primaryPoolGirl, {
     name: 'pool-performer-dress-strap',
+    color: MANSION_PERFORMER_VARIANTS.poolPerformer0.model.swimAccent,
   });
-  primaryPoolGirl.parts.body.add(dressStrap);
+  if (dressStrap) primaryPoolGirl.parts.body.add(dressStrap);
 
   const secondPoolGirl = post('poolPerformer1', {
     role: 'performer',
-    name: 'the Bada Bing black-haired performer',
+    name: MANSION_PERFORMER_VARIANTS.poolPerformer1.name,
     tier: 'ambient',
     job: 'sit',
     x: secondLounger.x,
     y: seatBase(secondLounger.y, 0.47),
     z: secondLounger.z,
     yaw: secondLounger.yaw,
-    model: {
-      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-      height: 1.71, build: 1.06, dress: 'bikini', ...BADA_BING_PERFORMERS[2],
-    },
+    model: MANSION_PERFORMER_VARIANTS.poolPerformer1.model,
     look: () => {
       if (poolEvening.secondPhase === 'hello') return 'Say hello to the other dancer';
       if (poolEvening.secondPhase === 'flirt') return 'Try flirting with her';
@@ -2098,12 +2122,11 @@ export function mountMansionCast(scene, world = {}, {
   poolRecliners.push(secondPoolGirl);
   posePoolRecliner(secondPoolGirl);
 
-  const secondDressStrap = box({
-    size: [0.045, 0.42, 0.025], pos: [0.2, 1.34, 0.13],
-    mat: mat({ color: 0x351125, roughness: 0.7 }), rotZ: -0.68,
-    cast: false, name: 'pool-performer-2-dress-strap',
+  const secondDressStrap = looseStrapFor(secondPoolGirl, {
+    name: 'pool-performer-2-dress-strap',
+    color: MANSION_PERFORMER_VARIANTS.poolPerformer1.model.swimAccent,
   });
-  secondPoolGirl.parts.body.add(secondDressStrap);
+  if (secondDressStrap) secondPoolGirl.parts.body.add(secondDressStrap);
   const secondDressStart = {
     y: secondDressStrap.position.y,
     rotation: secondDressStrap.rotation.z,
@@ -2218,11 +2241,36 @@ export function mountMansionCast(scene, world = {}, {
     return true;
   }
 
+  function mountAmbientPoolRecliner(id, chair) {
+    const spec = MANSION_PERFORMER_VARIANTS[id];
+    const npc = post(id, {
+      role: 'performer',
+      name: spec.name,
+      tier: 'background',
+      job: 'sit',
+      x: chair.x,
+      y: seatBase(chair.y, 0.47),
+      z: chair.z,
+      yaw: chair.yaw,
+      model: spec.model,
+      look: 'One of the off-shift Bada Bing performers is relaxing by the pool.',
+    });
+    npc.inFixture = 'pool lounger';
+    npc.poolPose = 'reclined';
+    npc.performerMotion = 'reclined-rest';
+    npc.performerIdentity = POOL_PERFORMER_IDENTITIES[id];
+    poolRecliners.push(npc);
+    posePoolRecliner(npc);
+    return npc;
+  }
+  mountAmbientPoolRecliner('poolPerformer3', thirdLounger);
+  mountAmbientPoolRecliner('poolPerformer4', fourthLounger);
+
   const water = pool?.pool ?? { x0: -7, x1: 7, z0: 81, z1: 89 };
   const waterY = pool?.waterY ?? poolAt.y - 0.2;
   const poolGirlInWater = post('poolPerformer2', {
     role: 'performer',
-    name: 'the Bada Bing brunette performer',
+    name: MANSION_PERFORMER_VARIANTS.poolPerformer2.name,
     tier: 'ambient',
     x: (water.x0 + water.x1) / 2 + 2.2,
     /* The basin's finished floor is waterY-1.1. At -1.15 the standing rig's
@@ -2233,10 +2281,7 @@ export function mountMansionCast(scene, world = {}, {
     z: (water.z0 + water.z1) / 2 + 0.4,
     yaw: yawToward((water.x0 + water.x1) / 2 + 2.2, (water.z0 + water.z1) / 2 + 0.4,
       firstLounger.x, firstLounger.z),
-    model: {
-      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-      height: 1.7, build: 1.04, dress: 'bikini', ...BADA_BING_PERFORMERS[1],
-    },
+    model: MANSION_PERFORMER_VARIANTS.poolPerformer2.model,
     look: 'One of the girls from the club is cooling off in the pool.',
   });
   poolGirlInWater.inFixture = 'the pool';
@@ -3016,7 +3061,8 @@ export function mountMansionCast(scene, world = {}, {
       });
       return parts;
     };
-    const chairIndex = index === 0 ? 4 : index === 1 ? 6 : null;
+    const id = `poolPerformer${index}`;
+    const chairIndex = MANSION_POOL_RECLINER_CHAIRS[id] ?? null;
     return {
       target: npc.group,
       strap: npc.parts?.body?.getObjectByName?.(
@@ -3315,7 +3361,7 @@ export function mountMansionCast(scene, world = {}, {
             focus: secondDressFocus.debug,
             actorStaging: secondDressActorStaging.debug,
           },
-          poolComposition: ['poolPerformer0', 'poolPerformer1', 'poolPerformer2']
+          poolComposition: MANSION_POOL_PERFORMER_POSTS
             .map((id) => ({
               id,
               name: people[id]?.name ?? '',
@@ -3331,6 +3377,8 @@ export function mountMansionCast(scene, world = {}, {
             .filter((id) => people[id])
             .map((id) => ({
               id,
+              name: people[id]?.name ?? '',
+              identity: people[id]?.performerIdentity ?? null,
               motion: people[id]?.performerMotion ?? '',
               y: Number(people[id]?.group?.position?.y?.toFixed?.(3) ?? 0),
               bodyZ: Number(people[id]?.parts?.body?.rotation?.z?.toFixed?.(4) ?? 0),

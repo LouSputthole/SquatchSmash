@@ -658,10 +658,10 @@ test('the crew ride the van sat on the benches, facing each other', () => {
     // Square across the aisle: +90 degrees on the left bench, -90 on the right.
     assert.ok(Math.abs(actor.group.rotation.y - side * -Math.PI / 2) < 1e-6,
       `${actor.id} is not facing across the van`);
-    /* Boots on the van floor. Measured on the SHOES, because the rig's
-     * lowest mesh is DeathMegatron's gown hem and this is a claim about
-     * where a man's feet are. Five heights, one 50 cm bench: the knee is
-     * what takes up the difference, which is what a knee is for. */
+    /* Boots on the van floor. Measured on the SHOES so this remains a claim
+     * about foot placement as mission wardrobe changes. Five heights, one
+     * 50 cm bench: the knee takes up the difference, which is what a knee is
+     * for. */
     const soles = [];
     for (const shin of [actor.figure.parts.shinL, actor.figure.parts.shinR]) {
       for (const child of shin.children) {

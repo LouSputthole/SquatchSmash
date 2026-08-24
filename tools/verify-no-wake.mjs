@@ -400,11 +400,57 @@ try {
       waterline: game.boat.root.userData.waterline,
       detailMeshes: game.boat.root.userData.detailMeshes,
       cabinMeshes: game.cabin.group.userData.detailMeshes,
-      cast: Object.fromEntries(Object.entries(game.boat.cast).map(([id, npc]) => [id, {
-        characterId: npc.group.userData.characterId,
-        gut: npc.parts.profile.gut ?? 0,
-        local: game.world.toBoatLocal(npc.group.getWorldPosition(new game.player.position.constructor())).toArray(),
-      }])),
+      cast: Object.fromEntries(Object.entries(game.boat.cast).map(([id, npc]) => {
+        let luxuryRibs = 0;
+        let patternTiles = 0;
+        npc.group.traverse((object) => {
+          if (object.name === 'shirt.luxury.rib') luxuryRibs++;
+          if (object.name === 'camp.pattern.tile') patternTiles++;
+        });
+        const campParts = [
+          'camp.undershirt', 'camp.front.left', 'camp.front.right',
+          'camp.collar.left', 'camp.collar.right', 'camp.sleeve.hem',
+        ].filter((name) => npc.group.getObjectByName(name)).length;
+        const workVestParts = [
+          'workvest.front.left', 'workvest.front.right',
+          'workvest.strap.left', 'workvest.strap.right',
+          'workvest.pocket', 'workvest.pocket.flap',
+        ].filter((name) => npc.group.getObjectByName(name)).length;
+        const binoculars = npc.parts.foreR.getObjectByName('Irish binoculars');
+        return [id, {
+          characterId: npc.group.userData.characterId,
+          gut: npc.parts.profile.gut ?? 0,
+          outfit: npc.parts.profile.outfit,
+          height: npc.parts.profile.height,
+          build: npc.parts.profile.build,
+          neckline: npc.parts.profile.neckline,
+          luxury: npc.parts.profile.luxury,
+          watch: npc.parts.profile.watch,
+          chain: npc.parts.profile.chainStyle,
+          pendant: npc.parts.profile.pendantStyle,
+          photoFace: Boolean(npc.group.getObjectByName('person.face.photo-skull')),
+          campParts,
+          workVestParts,
+          shirtPlacket: Boolean(npc.group.getObjectByName('shirt.placket')),
+          vNeck: Boolean(npc.group.getObjectByName('shirt.neckline.v')),
+          luxuryRibs,
+          patternTiles,
+          shirtColour: npc.group.getObjectByName('camp.front.left.cloth')
+            ?.material?.color?.getHex?.()
+            ?? npc.group.getObjectByName('ribcage')?.material?.color?.getHex?.()
+            ?? null,
+          vestColour: npc.group.getObjectByName('workvest.front.left.cloth')
+            ?.material?.color?.getHex?.() ?? null,
+          trouserColour: npc.group.getObjectByName('thigh')?.material?.color?.getHex?.() ?? null,
+          binoculars: binoculars ? {
+            attachedToForearm: binoculars.parent === npc.parts.foreR,
+            local: binoculars.position.toArray(),
+          } : null,
+          local: game.world.toBoatLocal(
+            npc.group.getWorldPosition(new game.player.position.constructor()),
+          ).toArray(),
+        }];
+      })),
       controls: Object.fromEntries(Object.entries(game.boat.controls)
         .filter(([, value]) => value?.root)
         .map(([id, value]) => [id, value.root.name])),
@@ -605,13 +651,45 @@ try {
       && boot.cast.willy.characterId === 'willy' && boot.cast.irish.characterId === 'irish'
       && boot.cast.willy.gut >= 1,
     JSON.stringify(Object.fromEntries(Object.entries(boot.cast).map(([k, v]) => [k, v.characterId]))));
+  check('Booskibro wears his relaxed NO WAKE camp outfit without losing his face or founder jewellery',
+    boot.cast.booski.outfit === 'camp'
+      && boot.cast.booski.height === 1.8
+      && boot.cast.booski.neckline === 'crew'
+      && boot.cast.booski.luxury === false
+      && boot.cast.booski.watch === 'gold'
+      && boot.cast.booski.chain === 'layered'
+      && boot.cast.booski.pendant === 'crest'
+      && boot.cast.booski.photoFace
+      && boot.cast.booski.campParts === 6
+      && boot.cast.booski.vNeck === false
+      && boot.cast.booski.luxuryRibs === 0
+      && boot.cast.booski.patternTiles === 0
+      && boot.cast.booski.shirtColour === 0x315b63
+      && boot.cast.booski.trouserColour === 0x8b8068,
+    JSON.stringify(boot.cast.booski));
+  check('NO WAKE keeps canonical Irish in the navy open vest, green shirt, and dark trousers',
+    boot.cast.irish.characterId === 'irish'
+      && boot.cast.irish.outfit === 'shirt'
+      && boot.cast.irish.height === 1.78
+      && boot.cast.irish.build === 1.15
+      && boot.cast.irish.photoFace
+      && boot.cast.irish.workVestParts === 6
+      && boot.cast.irish.shirtPlacket
+      && boot.cast.irish.vestColour === 0x1b304c
+      && boot.cast.irish.shirtColour === 0x29402f
+      && boot.cast.irish.trouserColour === 0x20242a,
+    JSON.stringify(boot.cast.irish));
   /* "Irish already aboard with binoculars." He is on the bow at the dock and he
    * is still on the bow when the body goes over the side. */
   check('Irish is already on the bow with his binoculars before anybody boards',
-    boot.cast.irish.local[2] < -3 && boot.cast.irish.local[1] > DECK.height + .5
-      && await page.evaluate(() => Boolean(window.NO_WAKE.boat.cast.irish.parts.foreR
-        .getObjectByName('Irish binoculars'))),
-    JSON.stringify({ irish: boot.cast.irish.local }));
+    Math.abs(boot.cast.irish.local[0] - 1.75) < 1e-6
+      && Math.abs(boot.cast.irish.local[1] - DECK.foredeckHeight) < 1e-6
+      && Math.abs(boot.cast.irish.local[2] + 4.55) < 1e-6
+      && boot.cast.irish.binoculars?.attachedToForearm
+      && Math.abs(boot.cast.irish.binoculars.local[0]) < 1e-6
+      && Math.abs(boot.cast.irish.binoculars.local[1] + .30) < 1e-6
+      && Math.abs(boot.cast.irish.binoculars.local[2] + .10) < 1e-6,
+    JSON.stringify(boot.cast.irish));
   await capture('no-wake-gate-c.png');
 
   const marina = await page.evaluate(() => {

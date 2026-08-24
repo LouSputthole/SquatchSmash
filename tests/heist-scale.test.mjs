@@ -5,8 +5,10 @@ import * as THREE from 'three';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
 import {
   DEATHMEGATRON,
+  DEATHMEGATRON_HEIST,
   NUMBSKULL,
   RIPPINFLOW,
+  RIPPINFLOW_HEIST,
   SHUBENATOR,
   SNOW,
 } from '../src/core/wardrobe.js';
@@ -37,6 +39,25 @@ const CANONICAL_HEIST_CREW = Object.freeze({
   [CHARACTER_IDS.NUMBSKULL]: NUMBSKULL,
 });
 
+const EXPECTED_HEIST_PRESENTATION = Object.freeze({
+  ...CANONICAL_HEIST_CREW,
+  [CHARACTER_IDS.RIPPINFLOW]: RIPPINFLOW_HEIST,
+  [CHARACTER_IDS.DEATHMEGATRON]: DEATHMEGATRON_HEIST,
+});
+
+const IDENTITY_FIELDS = Object.freeze([
+  'height',
+  'build',
+  'gut',
+  'gender',
+  'bodyShape',
+  'curveScale',
+  'hair',
+  'hairColour',
+  'beard',
+  'skin',
+]);
+
 function topOfHead(figure) {
   const box = new THREE.Box3().setFromObject(figure.root);
   return box.max.y;
@@ -60,9 +81,15 @@ test('named heist crew keep their canonical bodies underneath the job gear', () 
   for (const [id, canonical] of Object.entries(CANONICAL_HEIST_CREW)) {
     const presentation = HEIST_CREW_PRESENTATION[id];
     const actor = crew.get(id);
-    assert.strictEqual(presentation.model, canonical, `${id} copied or restated its body`);
+    assert.strictEqual(presentation.model, EXPECTED_HEIST_PRESENTATION[id],
+      `${id} copied or restated its heist presentation`);
+    for (const field of IDENTITY_FIELDS) {
+      assert.equal(EXPECTED_HEIST_PRESENTATION[id][field], canonical[field],
+        `${id} changed canonical ${field} in its heist presentation`);
+    }
     assert.equal(actor.figure.height, canonical.height, `${id} changed height for the heist`);
-    assert.equal(actor.figure.parts.profile.outfit, canonical.dress, `${id} changed clothes for the heist`);
+    assert.equal(actor.figure.parts.profile.outfit, EXPECTED_HEIST_PRESENTATION[id].dress,
+      `${id} lost its authored heist clothes`);
     assert.equal(actor.figure.parts.profile.gender, canonical.gender ?? 'unspecified', `${id} changed gender`);
     assert.equal(actor.figure.parts.profile.bodyShape, canonical.bodyShape ?? 'average', `${id} changed body shape`);
     assert.equal(

@@ -189,6 +189,26 @@ test('Numbskull has an explicit named procedural face treatment', () => {
   });
 });
 
+test('the named heist wardrobe reads through the crew mission overlays', () => {
+  const crew = buildHeistCrew(new THREE.Group());
+  const death = crew.get(CHARACTER_IDS.DEATHMEGATRON).figure.parts;
+  const rippin = crew.get(CHARACTER_IDS.RIPPINFLOW).figure.parts;
+
+  assert.equal(death.profile.outfit, 'shirt');
+  assert.ok(death.group.getObjectByName('shirt.placket'),
+    'DeathMegatron lost the utility-shirt front beneath her carrier');
+  assert.ok(death.group.getObjectByName('shirt.collar.point'),
+    'DeathMegatron lost the collared utility-shirt silhouette');
+  assert.equal(death.group.getObjectByName('gown.skirt'), undefined,
+    'DeathMegatron still has her evening-gown skirt under the plate carrier');
+
+  assert.ok(rippin.group.getObjectByName('necklace.chain.silver'),
+    'Rippinflow lost his thin silver chain on the job');
+  assert.ok(rippin.group.getObjectByName('person.watch.band.silver'),
+    'Rippinflow lost his silver watch on the job');
+  assert.equal(rippin.profile.watch, 'silver');
+});
+
 /**
  * THE HOOD IS CUT FOR THE HEAD IT GOES ON.
  *

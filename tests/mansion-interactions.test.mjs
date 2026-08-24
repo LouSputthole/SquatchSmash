@@ -35,6 +35,48 @@ const bingMainSource = readFileSync(new URL('../src/bing/main.js', import.meta.u
 const mansionVerifierSource = readFileSync(new URL('../tools/verify-mansion.mjs', import.meta.url), 'utf8');
 const artManifest = JSON.parse(readFileSync(new URL('../assets/art/manifest.json', import.meta.url), 'utf8'));
 
+test('Mansion Return redresses Lou for the briefing without changing the mission or siege look', () => {
+  const buildLou = (visit) => {
+    const scene = new THREE.Scene();
+    const grounds = buildMansionGrounds(null);
+    scene.add(grounds.root);
+    const cast = mountMansionCast(scene, { colliders: grounds.colliders }, {
+      anchors: grounds.anchors,
+      pool: grounds.props.poolPatio,
+      visit,
+      hud: { showLine() {}, hideLine() {}, setInstruction() {}, text: () => ({}) },
+    });
+    return cast.people.lou;
+  };
+
+  const mission = buildLou('mission');
+  assert.equal(mission.parts.profile.outfit, 'camp');
+  assert.ok(mission.group.getObjectByName('camp.front.left'));
+  assert.equal(mission.group.getObjectByName('suit.jacket.chest'), undefined,
+    'the ordinary Mansion visit was silently redressed for the return');
+
+  const returned = buildLou('return');
+  assert.equal(returned.parts.profile.outfit, 'suit');
+  assert.equal(returned.parts.profile.tie, true);
+  assert.equal(returned.parts.profile.pinstripe, false);
+  assert.equal(returned.parts.profile.threePiece, false);
+  assert.equal(returned.parts.profile.hat, false);
+  assert.equal(returned.parts.profile.watch, 'gold');
+  assert.equal(returned.parts.profile.chainStyle, 'layered');
+  const jacket = returned.group.getObjectByName('suit.jacket.chest');
+  const shirt = returned.group.getObjectByName('suit.shirt.front');
+  const tie = returned.group.getObjectByName('suit.tie');
+  assert.ok(jacket && shirt && tie, 'return Lou is missing the briefing suit front');
+  assert.equal(jacket.material.color.getHex(), 0x32252a);
+  assert.equal(shirt.material.color.getHex(), 0xeadfc8);
+  assert.equal(tie.material.color.getHex(), 0x0c0b0e);
+  assert.ok(returned.group.getObjectByName('suit.tie.knot'));
+  assert.ok(returned.group.getObjectByName('necklace.pendant.horn'));
+  assert.equal(returned.group.getObjectByName('camp.front.left'), undefined);
+  assert.equal(returned.group.getObjectByName('suit.pinstripe.front'), undefined);
+  assert.equal(returned.group.getObjectByName('suit.waistcoat'), undefined);
+});
+
 test('the canonical Mansion verifier accepts the grounds-owned front guard routes anchor', () => {
   const grounds = buildMansionGrounds(null);
   assert.equal(grounds.anchors.frontGuardRoutes, grounds.props.frontGuardRoutes,
@@ -1052,7 +1094,7 @@ test('the Mansion audio verifier owns the five newly scoped toilet and suite cue
     /new Set\(\[[\s\S]*\.\.\.PEE_CUE_NAMES,[\s\S]*'bing\.line\.snort'/);
 });
 
-test('the pool evening is two women reclining on loungers and one woman in the water', () => {
+test('the pool evening is four unique women reclining and one unique woman in the water', () => {
   const scene = new THREE.Scene();
   const grounds = buildMansionGrounds(null);
   scene.add(grounds.root);
@@ -1072,22 +1114,30 @@ test('the pool evening is two women reclining on loungers and one woman in the w
   const composition = cast.debug.evening.poolComposition;
 
   assert.deepEqual(composition.map(({ id }) => id), [
-    'poolPerformer0', 'poolPerformer1', 'poolPerformer2',
+    'poolPerformer0', 'poolPerformer1', 'poolPerformer2', 'poolPerformer3', 'poolPerformer4',
   ]);
-  assert.deepEqual(composition.map(({ pose }) => pose), ['reclined', 'reclined', 'in-water']);
+  assert.deepEqual(composition.map(({ pose }) => pose), [
+    'reclined', 'reclined', 'in-water', 'reclined', 'reclined',
+  ]);
   assert.deepEqual(composition.map(({ name }) => name), [
     'the Bada Bing platinum performer',
     'the Bada Bing black-haired performer',
-    'the Bada Bing brunette performer',
+    'the Bada Bing auburn performer',
+    'the Bada Bing raven-haired performer',
+    'the Bada Bing silver-haired performer',
   ]);
   assert.deepEqual(composition.map(({ identity }) => identity), [
     { source: 'BADA_BING_PERFORMERS', index: 0, look: 'platinum tied hair' },
     { source: 'BADA_BING_PERFORMERS', index: 2, look: 'black long hair' },
-    { source: 'BADA_BING_PERFORMERS', index: 1, look: 'brunette long hair' },
+    { source: 'BADA_BING_PERFORMERS', index: 4, look: 'auburn long hair' },
+    { source: 'BADA_BING_PERFORMERS', index: 5, look: 'raven tied hair' },
+    { source: 'BADA_BING_PERFORMERS', index: 6, look: 'silver long hair' },
   ]);
   assert.equal(cast.people.poolPerformer0.inFixture, 'pool lounger');
   assert.equal(cast.people.poolPerformer1.inFixture, 'pool lounger');
   assert.equal(cast.people.poolPerformer2.inFixture, 'the pool');
+  assert.equal(cast.people.poolPerformer3.inFixture, 'pool lounger');
+  assert.equal(cast.people.poolPerformer4.inFixture, 'pool lounger');
   assert.ok(cast.people.poolPerformer2.group.position.y < grounds.props.poolPatio.waterY);
   assert.equal(typeof cast.people.poolPerformer0.group.userData.interact?.onUse, 'function',
     'moving the first performer removed the existing flirt/dress interaction');
