@@ -96,6 +96,81 @@ const _seatedLegPose = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.45
 const SEATED_NECK_SWEEP = 1.35;
 const SEATED_TORSO_TWIST = 0.5;
 
+/**
+ * How far this rig's neck pitches, in radians of `neck.rotation.x`.
+ *
+ * SIGN FIRST, because it is the whole reason these are here. `rotation.x` is a
+ * right-handed rotation about +X and an authored figure faces +Z, so a
+ * POSITIVE `neck.rotation.x` tips the face DOWN and a negative one tips it UP.
+ * The names below are the anatomy, not the sign: `NECK_PITCH_MAX_DOWN` is the
+ * positive stop and `NECK_PITCH_MAX_UP` is the negative one.
+ *
+ * The numbers are clinical cervical range of motion, the same source the
+ * seated sweep above comes from: about 50 degrees of flexion (chin toward
+ * chest, 0.87 rad) and about 60 degrees of extension (looking up, 1.05 rad).
+ * They are deliberately the FULL range rather than a comfortable one, because
+ * this is a backstop and not a style control — anything short of the real
+ * anatomy would start silently shaving honest looks.
+ *
+ * `updateFigure()`'s own two writes — a 0.045 rad talk bob and a damp toward
+ * zero — never come near these. They exist for callers that LAYER a pitch on
+ * top of the rig, which is what `src/enolasquatch/crew.js` does for its seated
+ * gaze, and which on 2026-08-24 produced a neck pitched 253 degrees at 60 fps
+ * and past a full revolution at 144 with nothing in the rig to stop it. A head
+ * that has left its own anatomy is not a pose that needs tuning, it is a bug
+ * that has already happened; the clamp makes it look like a stiff neck instead
+ * of a spinning one, which is the difference between a report the owner can
+ * describe and a report he cannot.
+ */
+export const NECK_PITCH_MAX_DOWN = 0.87;
+export const NECK_PITCH_MAX_UP = -1.05;
+
+/**
+ * Fold any angle, however many turns from zero, into (-PI, PI].
+ *
+ * THIS EXISTS BECAUSE THE OLD ONE-LINER WAS NOT A WRAP.
+ *
+ * Owner playtest, 2026-08-24: *"Capt Sasole and Irish heads are rolling around
+ * in circles when I look at them"* — and, in the same aeroplane, the
+ * Shubenator sat in the tail with his head welded hard over one shoulder and
+ * his torso wrung round after it.
+ *
+ * The look-at block below used to reduce its bearing with
+ * `((want + Math.PI) % (Math.PI * 2)) - Math.PI`. That is the textbook wrap
+ * from a language whose `%` is a modulo. JavaScript's `%` is a REMAINDER: it
+ * keeps the sign of the DIVIDEND. So for any `want` at or below -PI the
+ * remainder is just `want + PI` unchanged, the `- Math.PI` puts it back where
+ * it started, and the expression returns a number still below -PI, which the
+ * clamp immediately pins at `-sweep`.
+ *
+ * That matters because `want = atan2(dx, dz) - f.group.rotation.y`, and
+ * `atan2` already spans (-PI, PI]. Any figure seated or stood at a positive
+ * yaw therefore drives `want` down toward -2PI for a whole half of the circle
+ * around him. The Shubenator sits at `rotation.y = PI`
+ * (src/enolasquatch/crew.js), so his `want` lives in (-2PI, 0] and everything
+ * below -PI — which includes the case where the player is directly in front of
+ * him, `want` = -2PI, true answer ZERO — came out hard against the stop.
+ * Cecilio, stood at yaw 1.3 on the El Hueso strip, had the same fault over a
+ * narrower rear sector: he turned to the wrong shoulder rather than the near
+ * one. Nothing anywhere wanted the old behaviour; it was pinned-at-a-limit in
+ * every case it fired, so a true wrap can only ever move a head toward its
+ * target and never away from one.
+ *
+ * The positive side of the old expression happened to be correct — remainders
+ * of positive dividends already come out positive — which is why this hid for
+ * so long behind figures posed at or near yaw zero.
+ *
+ * Half-open at +PI rather than -PI is arbitrary but must be stated: exactly
+ * behind resolves to the LEFT shoulder, consistently, instead of chattering
+ * between the two stops on floating-point noise.
+ */
+export function wrapAngle(a) {
+  const t = a % (Math.PI * 2);
+  if (t > Math.PI) return t - Math.PI * 2;
+  if (t <= -Math.PI) return t + Math.PI * 2;
+  return t;
+}
+
 /* Photo faces, the way the Bing's cast and the Initiation do them: the picture
  * on the front of a box skull and plain colour on the other five sides.
  *
@@ -673,8 +748,11 @@ export function updateFigure(f, dt, camPos = null) {
       f.group.position.z += (dz / d) * step;
       // Face the direction of travel, turning rather than snapping.
       const want = Math.atan2(dx, dz);
-      const turn = ((want - f.group.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2)
-        % (Math.PI * 2) - Math.PI;
+      /* This one was always written the long way round — `(x % 2PI + 2PI) % 2PI`
+       * — and was therefore always correct. It now goes through `wrapAngle()`
+       * so the file has exactly one answer to "fold this angle", and the next
+       * person copying a wrap out of here copies the working one. */
+      const turn = wrapAngle(want - f.group.rotation.y);
       f.group.rotation.y += clamp(turn, -3.4 * dt, 3.4 * dt);
       // Legs scissor, knees lift on the trailing beat, arms swing opposite,
       // and the whole man bobs on every stride.
@@ -767,14 +845,13 @@ export function updateFigure(f, dt, camPos = null) {
     const dz = tz - f.group.position.z;
     const want = Math.atan2(dx, dz) - f.group.rotation.y;
     const sweep = f.pose === 'sit' ? SEATED_NECK_SWEEP : 1.1;
-    const clamped = clamp(((want + Math.PI) % (Math.PI * 2)) - Math.PI, -sweep, sweep);
+    const wanted = wrapAngle(want);
+    const clamped = clamp(wanted, -sweep, sweep);
     f.neck.rotation.y = damp(f.neck.rotation.y, clamped, 4, dt);
     /* Over the shoulder, a seated man leans his upper body round too — a neck
      * alone cannot get a face to somebody sitting behind and beside him. */
     if (f.pose === 'sit') {
-      const spill = clamp(
-        ((want + Math.PI) % (Math.PI * 2)) - Math.PI - clamped, -SEATED_TORSO_TWIST, SEATED_TORSO_TWIST,
-      );
+      const spill = clamp(wanted - clamped, -SEATED_TORSO_TWIST, SEATED_TORSO_TWIST);
       f.hips.rotation.y = damp(f.hips.rotation.y, spill, 3, dt);
     }
   }

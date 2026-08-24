@@ -33,8 +33,9 @@
 import * as THREE from 'three';
 import {
   fromWardrobe, makeFigure, setPose, nameTag, updateFigure, speak, walkTo,
+  NECK_PITCH_MAX_DOWN, NECK_PITCH_MAX_UP,
 } from '../beefrun/npc.js';
-import { solid, boxGeo, cylGeo, mesh, group } from '../beefrun/util.js';
+import { solid, boxGeo, cylGeo, mesh, group, clamp } from '../beefrun/util.js';
 import { CAPTAIN_LOU_SASOLE } from '../core/wardrobe.js';
 
 /* Subtitle colours, kept identical to `dialogue/script.js`'s SPEAKERS so the
@@ -61,6 +62,13 @@ const COLOUR = {
  */
 const SEAT_DROP = 0.45;
 const SEAT_FORWARD = -0.1;
+
+/* Scratch for the gaze frame conversion in `aimGaze()`. Module-scope and
+ * reused, because this runs four times a frame for the whole flight and a
+ * per-frame Vector3/Matrix4 pair is exactly the allocation that shows up as a
+ * sawtooth in the heap trace of a scene that is otherwise steady. */
+const _gazeInverse = new THREE.Matrix4();
+const _gazeTarget = new THREE.Vector3();
 
 /**
  * WHERE A SEATED MAN IS LOOKING.
@@ -109,7 +117,26 @@ const GAZE = Object.freeze({
   glanceMax: 2.6,
   /** Neck pitch limits — a man in a seat does not crane. */
   pitchDown: -0.34,
-  pitchUp: 0.42,
+  /* THIS NUMBER IS MEASURED OFF THE AEROPLANE, not chosen for feel.
+   *
+   * It was 0.42 rad (24.1 deg) and it was clipping the one look this whole
+   * system exists to get right. Captain Sasole's neck joint sits at aeroplane
+   * y 0.78: his seat group is at y 0.05 (`buildSeat` in scenes/EnolaSquatch.js),
+   * the figure hangs `SEAT_DROP` 0.45 below it, `setPose(f,'sit')` puts the
+   * hips at +0.52 and `makeFigure` hangs the neck +0.66 above those —
+   * 0.05 - 0.45 + 0.52 + 0.66 = 0.78. The player's eye is the aeroplane's own
+   * `pilotEye` at (0.55, 1.42, FUSE_LEN/2 - 0.15) and Sasole's neck is at
+   * (-0.51, 0.78, FUSE_LEN/2 - 0.45), so the rise is 0.64 m over a horizontal
+   * separation of 1.10 m: atan2(0.64, 1.10) = 0.526 rad, or 30.1 degrees.
+   *
+   * The old ceiling was six degrees under that, which is why he still read as
+   * looking at the player's collar from the seat beside him. 0.55 clears the
+   * measured requirement with a little margin for the seat-height and eye-height
+   * tuning that has already moved twice, and is still well inside the shared
+   * rig's `NECK_PITCH_MAX_UP` (60 deg) — this is a seated glance, not a craning
+   * one. Irish, further aft at 2.75 m, only ever needs 0.227 rad and is
+   * untouched by the change. */
+  pitchUp: 0.55,
 });
 
 /**
@@ -170,11 +197,46 @@ function aimGaze(f, dt, playerEye, airframe) {
   /* Vertical. Measured from the neck joint the rotation actually happens at,
    * not from the hips: the player's eye sits about half a metre above a seated
    * man's, and a look-at with no pitch in it is the other half of "staring
-   * past your shoulder". */
+   * past your shoulder".
+   *
+   * MEASURED IN THE PARENT'S FRAME, NOT THE WORLD'S. Owner playtest,
+   * 2026-08-24: the heads nod hard through every turn. This used to take the
+   * neck's WORLD position and the target's WORLD y and subtract them, then
+   * hand the difference to `neck.rotation.x`, which is a LOCAL rotation inside
+   * an aeroplane that banks to 60 degrees and pitches through 30.
+   *
+   * Those are not the same quantity. The player's eye and the crewman's neck
+   * are both bolted to the airframe: in AEROPLANE space their separation is a
+   * fixed 0.64 m of rise over 1.10 m of reach and never changes for the whole
+   * flight. Only the projection onto world Y changes — and at 90 degrees of
+   * bank it is zero, and past that it INVERTS, so the same unmoved head is
+   * asked for a full up-look, then nothing, then a full down-look, purely as a
+   * function of how hard the aeroplane is turning.
+   *
+   * `updateFigure`'s yaw block already solved exactly this for the horizontal
+   * half of the same look (src/beefrun/npc.js: it inverse-transforms the target
+   * by `parent.matrixWorld` before taking a bearing). Both halves of one look
+   * have to live in one frame or the head is aimed at two different places, so
+   * this does the same conversion, off the same `f.group.parent` the yaw block
+   * uses — the seat group, which is rigid in the airframe.
+   *
+   * The neck's own position comes back through the same inverse rather than
+   * being recomputed from the pose, because `hips.rotation` carries the seated
+   * torso spill and the sick lean and would have to be replayed by hand
+   * otherwise. `getWorldPosition` refreshes the ancestor matrices itself. */
   if (!g.eye) g.eye = new THREE.Vector3();
   f.neck.getWorldPosition(g.eye);
-  const dy = g.world.y - g.eye.y;
-  const flat = Math.hypot(g.world.x - g.eye.x, g.world.z - g.eye.z);
+  const frame = f.group.parent;
+  if (frame && frame.matrixWorld) {
+    frame.updateWorldMatrix(true, false);
+    _gazeInverse.copy(frame.matrixWorld).invert();
+    g.eye.applyMatrix4(_gazeInverse);
+    _gazeTarget.copy(g.world).applyMatrix4(_gazeInverse);
+  } else {
+    _gazeTarget.copy(g.world);
+  }
+  const dy = _gazeTarget.y - g.eye.y;
+  const flat = Math.hypot(_gazeTarget.x - g.eye.x, _gazeTarget.z - g.eye.z);
   const want = Math.max(GAZE.pitchDown, Math.min(GAZE.pitchUp, Math.atan2(dy, Math.max(flat, 0.2))));
   g.pitch += (want - g.pitch) * Math.min(1, dt * 4);
 }
@@ -302,6 +364,34 @@ export function createCrew() {
 
   const sit = (f, parent, x, y, z, facing = 0) => {
     setPose(f, 'sit');
+    /* YAW FIRST, THEN PITCH — the third thing that stopped these heads aiming.
+     *
+     * A neck here is two Euler angles: `rotation.y` from the shared rig's
+     * look-at and `rotation.x` from the seated gaze below. three.js composes
+     * the default 'XYZ' order as Rx·Ry·Rz — the head turns FIRST, and the
+     * already-turned head is then tipped about the TORSO's fixed side-to-side
+     * axis. For a head turned ninety degrees that axis runs straight out
+     * through the nose, so the "pitch" is a head TILT and lifts the eyeline not
+     * at all. In general the forward vector's height comes out as
+     * -sin(pitch)·cos(yaw): at Sasole's 1.135 rad of yaw the cos factor throws
+     * away 58 per cent of every degree of pitch he has. With the pitch itself
+     * measured correctly at 0.526 rad he was still 18.1 degrees under the
+     * player's eye, and no value of pitch — not even a physically impossible
+     * one — could have closed it.
+     *
+     * 'YXZ' composes as Ry·Rx·Rz, so the nod happens about the head's own
+     * side-to-side axis and the turn is then taken about the TORSO's vertical.
+     * That is a neck: the joint under the skull nods, the joint below it
+     * rotates about the spine. The forward height becomes -sin(pitch) flat,
+     * independent of how far he has turned, and the aim lands on the eye.
+     *
+     * Set here rather than in `makeFigure()` on purpose. Every other scene's
+     * figures are yawed within about a radian of their target and the
+     * difference is a degree or two, but their geometry gates measure rendered
+     * bounding boxes and would all have to be re-baselined for a change that
+     * only this cockpit — where the player sits inside arm's reach of a man
+     * turned two-thirds of a right angle toward him — can actually see. */
+    f.neck.rotation.order = 'YXZ';
     f.walk = null;
     f.lookAt = null;
     parent.add(f.group);
@@ -329,6 +419,11 @@ export function createCrew() {
       onPlayer: true,
       hold: GAZE.glanceMax,
       pitch: 0,
+      /* The shared rig's OWN `neck.rotation.x` from the previous frame, kept
+       * apart from the gaze pitch layered on top of it in `crew.update`. Two
+       * writers sharing one field with no separation between them is the whole
+       * of the 2026-08-24 rolling-heads defect; this is the separation. */
+      rigPitch: 0,
     };
   };
 
@@ -540,6 +635,12 @@ export function createCrew() {
        * before anybody else does. */
       const riding = !!f.gaze;
       if (riding && camPos) aimGaze(f, dt, camPos, crew.aircraft?.group ?? null);
+      /* Hand the shared rig back the value IT last wrote, before the seated
+       * gaze below layered a pitch on top of it. See the long note at that
+       * write: `updateFigure` damps `neck.rotation.x` RELATIVE to whatever it
+       * finds there, so leaving last frame's composed angle in place is what
+       * fed the gaze pitch back into itself and rolled the heads. */
+      if (riding) f.neck.rotation.x = f.gaze.rigPitch;
       updateFigure(f, dt, riding ? null : camPos);
       /* Breathing belongs above the waist in a strapped-in aeroplane. The
        * shared block rig lifts the hips ±12 mm, which makes every boot and pan
@@ -547,18 +648,56 @@ export function createCrew() {
        * 0.52 m datum; neck/talk/face life continues independently. */
       if (riding && f.pose === 'sit') f.hips.position.y = 0.52;
       /* The vertical half of the look, which the shared rig does not carry:
-       * `updateFigure` only ever writes `neck.rotation.y` from a look-at and
-       * damps `neck.rotation.x` back to its talking idle. Applied AFTER it, so
-       * the talk bob still reads on top of a head that is aimed at the right
-       * height — the player's eye sits half a metre above Sasole's. */
-      /* MINUS, not plus. `rotation.x` is a right-handed rotation about +X, so a
+       * `updateFigure` only ever writes `neck.rotation.y` from a look-at, and
+       * writes `neck.rotation.x` itself. Applied AFTER it, so the talk bob
+       * still reads on top of a head that is aimed at the right height — the
+       * player's eye sits half a metre above Sasole's.
+       *
+       * MINUS, not plus. `rotation.x` is a right-handed rotation about +X, so a
        * POSITIVE angle carries the figure's own +Z face toward -Y — i.e. a
        * positive `rotation.x` looks DOWN. `gaze.pitch` is measured the human
        * way (positive means the target is above the eye), so it is subtracted.
        * Getting this backwards is worth 48 degrees on a man sitting next to a
        * player whose eye is half a metre above his own, which is most of the
-       * "staring past your shoulder" read all by itself. */
-      if (riding) f.neck.rotation.x -= f.gaze.pitch;
+       * "staring past your shoulder" read all by itself.
+       *
+       * THIS IS AN ASSIGNMENT AND NOT A `-=`, AND THAT IS THE BUG FIX.
+       *
+       * Owner playtest, 2026-08-24: *"Capt Sasole and Irish heads are rolling
+       * around in circles when I look at them."* The line here used to read
+       * `f.neck.rotation.x -= f.gaze.pitch`, on the assumption stated in the
+       * comment above it — that `updateFigure` writes `neck.rotation.x`
+       * absolutely, so each frame started from a clean base. It only does that
+       * on the TALKING branch, where the angle is a sine bob written outright.
+       * On the SILENT branch, which is nearly always, it damps toward zero
+       * RELATIVE to whatever it finds: `damp(x, 0, 6, dt)` is
+       * `lerp(x, 0, 1 - e^(-6dt))`, so it removes a FRACTION of the value and
+       * leaves the rest.
+       *
+       * Subtracting a fresh `gaze.pitch` on top of that residue every frame is
+       * a geometric series. It converges on a gain of 1/(1 - e^(-6dt)) — about
+       * 5.5x at 30 fps, 10.5x at 60, 20.5x at 144 — so with a held pitch of
+       * 0.55 rad the neck settles at 5.8 rad at 60 fps and past a full
+       * revolution at 144. That the magnitude depends on frame rate is the
+       * reason it read as continuous rolling rather than as a fixed bad pose,
+       * and it is why the fix has to be an absolute write: composed once from
+       * the rig's own base (restored above `updateFigure`) plus this frame's
+       * pitch, assigned, so no residue of a previous frame can survive into the
+       * next one.
+       *
+       * The clamp is the second half of the same lesson. Nothing bounded this
+       * angle, which is how one sign error was able to produce a 250-degree
+       * neck instead of a stiff one. `NECK_PITCH_MAX_UP`/`MAX_DOWN` are the
+       * shared rig's own anatomy (see src/beefrun/npc.js) — clinical cervical
+       * range of motion, 60 degrees of extension and 50 of flexion — so a
+       * future arithmetic mistake in here shows up as a man with a crick in his
+       * neck rather than as a man whose head is spinning. */
+      if (riding) {
+        f.gaze.rigPitch = f.neck.rotation.x;
+        f.neck.rotation.x = clamp(
+          f.gaze.rigPitch - f.gaze.pitch, NECK_PITCH_MAX_UP, NECK_PITCH_MAX_DOWN,
+        );
+      }
     }
     if (shubes.gaze && crew.aircraft?.parts?.rearGunYoke) {
       /* Shubes keeps hold of the reachable spade arc. These three measured
