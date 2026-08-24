@@ -30,6 +30,7 @@ const TEST_MODULES = [
   './mission-liveness.test.mjs',
   './mission-liveness-verifier.test.mjs',
   './mission-liveness-catalog.test.mjs',
+  './persisted-checkpoint-liveness.test.mjs',
   './campaign-scene-skip.test.mjs',
   './apartment-recovery.test.mjs',
   './scene-recovery-wiring.test.mjs',

@@ -17,6 +17,7 @@
     "certify:specialmeeting:semantic-smoke": "node tools/semantic-smoke-browser.mjs --entrypoint special_meeting_canonical",
     "audit:scene-liveness": "node tools/scene-liveness-catalog.mjs",
     "certify:scene-liveness": "node tools/scene-liveness-catalog.mjs --strict",
+    "certify:persisted-liveness": "node tools/verify-persisted-checkpoint-liveness.mjs",
     "certify:spatial-semantics": "node tools/verify-staging.mjs --strict-spatial",
     "audit:certification-debt": "node tools/certification-debt-ratchet.mjs --print-current",
     "certify:debt-ratchet": "node tools/certification-debt-ratchet.mjs",
