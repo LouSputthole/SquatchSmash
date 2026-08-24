@@ -78,16 +78,31 @@ export const SEATS = Object.freeze({
 export const SEAT_IDS = Object.freeze(['driver', 'front_passenger', 'rear_left', 'rear_right']);
 
 /** A seated eye, above the cushion. */
-export const SEATED_EYE = 0.72;
+export const SEATED_EYE = 1.0;
 
 /**
  * A seated FIGURE's origin, below the cushion.
  *
  * `Npc.sit()` folds the hips and knees but the rig's origin stays at the
  * floor, so a body placed at seat height is standing on the seat. Golf found
- * the number and it is the same rig: drop it 0.92.
+ * the number and it is the same rig.
+ *
+ * IT MOVES WITH `SEATED_EYE`, and that is why it is 0.64 and not golf's 0.92.
+ * These two constants describe the same head from opposite ends: the player's
+ * eye is measured UP from the cushion, an NPC's body DOWN from it, and the
+ * pair only agrees when a man sitting beside you has his eyes level with
+ * yours. At golf's 0.92 against the old 0.72 eye they did agree, at 1.52 each.
+ * Raising the eye to 1.80 to clear this car's window line left the riders
+ * where they were, and the camera then sat eight to twenty-six centimetres
+ * above every eye in the car -- the player looking DOWN at three men for the
+ * length of the drive, their heads under the window line his was raised to
+ * clear. Measured in a real frame from the front passenger seat: the driver's
+ * head was below the centre of shot.
+ *
+ * So it comes down by the same 0.28 the eye went up. If `SEATED_EYE` ever
+ * changes again, change this by the same amount in the opposite direction.
  */
-export const SEATED_FIGURE_DROP = 0.92;
+export const SEATED_FIGURE_DROP = 0.64;
 
 /** The boot: where a second prospect is, and nobody mentions it. */
 export const TRUNK_ANCHOR = Object.freeze({ x: -2.18, y: 0.62, z: 0 });

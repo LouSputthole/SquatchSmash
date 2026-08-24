@@ -306,7 +306,15 @@ export class ForestDrive {
         this.waitingAt = event.id;
       }
       event.fired = true;
-      this.onNode?.(event.id, this);
+      /* An event is marked spent before it is announced, and it is never
+       * retried -- so one listener that throws would silently delete a beat
+       * for the rest of the drive. The rail is not the place to find that out.
+       * See the note on ordering in `./index.js`'s own onNode. */
+      try {
+        this.onNode?.(event.id, this);
+      } catch (error) {
+        console.error(`a listener threw on the '${event.id}' road node`, error);
+      }
     }
 
     return this;
