@@ -942,6 +942,37 @@
       "file": "initiation-st-silver-sasquatch-card.png",
       "title": "St. Silver Sasquatch",
       "caption": "The saint card burned into the new Squatch's hand."
+    },
+    {
+      "_comment": "THE CARTEL PALACE'S SIX A-TEAM PIECES. Slots with no file: the drawings exist, but they were pasted into a chat and none of them was ever written into this folder, so each row waits with its title and caption and src/world/gear.js hangs its drawn placeholder in the meantime. To land one: drop the file in assets/art/ and add its \"file\" line to the row below. That is the whole job -- no code changes. The filenames each row is waiting for are in README.md.",
+      "slot": "cartel-palace.entry.the-a-team",
+      "title": "The A Team",
+      "caption": "Photographed on this drive, by this fountain, the week before anyone regretted it."
+    },
+    {
+      "slot": "cartel-palace.entry.we-dont-miss",
+      "title": "We don't miss",
+      "caption": "Five men and four rifles making a claim. The bullet holes are in the wall behind them."
+    },
+    {
+      "slot": "cartel-palace.security.assault",
+      "title": "A Team Assault",
+      "caption": "Four men, two doors, one plan. The one on the floor is tripping over the plan."
+    },
+    {
+      "slot": "cartel-palace.dining.el-jefe",
+      "title": "El Jefe",
+      "caption": "Commissioned by the subject, hung by the subject, paid for by somebody else."
+    },
+    {
+      "slot": "cartel-palace.ops.champions",
+      "title": "A Team Champions",
+      "caption": "Three kills, forty-seven losses, five trophies. The trophies are for the losses."
+    },
+    {
+      "slot": "cartel-palace.ops.strat",
+      "title": "A Team Strat",
+      "caption": "Operation Dumb Luck. Step one is shoot stuff. Step two is blame someone else."
     }
   ]
 }

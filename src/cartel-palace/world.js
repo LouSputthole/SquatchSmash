@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 
+import { resolveGear } from '../world/gear.js';
 import { EVIDENCE_IDS } from './mission.js';
 
 /* THE SECURITY ROOM'S RACK COLUMN, in one place.
@@ -105,6 +106,152 @@ const ART_TONES = Object.freeze([
   new THREE.MeshStandardMaterial({ color: 0x24402f, roughness: 0.97 }),
   new THREE.MeshStandardMaterial({ color: 0x54401c, roughness: 0.97 }),
   new THREE.MeshStandardMaterial({ color: 0x3a2440, roughness: 0.97 }),
+]);
+
+/* ------------------------------------------------------------------ *
+ * THE A-TEAM ART, AND WHY THE PALACE FINALLY READS THE ART MANIFEST.
+ *
+ * Owner punch list: *"Add substantial A-Team themed wall art throughout the
+ * palace. The building needs more visual personality and parody flavour."*
+ * Six finished pieces followed, with *"All this is Art for the Cartel Palace
+ * only"* written across them.
+ *
+ * The pieces are NOT in the repository. They were pasted into a chat and
+ * nothing was ever written to assets/art/. What is in the repository is the
+ * system that has been hanging owner art since the apartment: a slot is
+ * named in assets/art/manifest.json, src/world/gear.js `resolveGear` turns
+ * that slot into the owner's file if the manifest names one and into a drawn
+ * placeholder from its own FALLBACKS table if it does not, and the scene
+ * never has to know which of the two it got. The mansion hangs its pictures
+ * that way (`MANSION_ART_SLOTS`), so does the Bing (`artSticker`), so does
+ * the Squatchfather. The palace read the manifest not at all -- which is
+ * precisely the empty-walled building the owner reported.
+ *
+ * So every row below is a SLOT, not a file. Three things about the shape of
+ * this table are load-bearing and none of them is taste:
+ *
+ *   The frames are authored at the DELIVERED shape. All six drawings are
+ *   1456 x 1092, a 4:3 landscape, so `width` is authored and the height is
+ *   derived from `A_TEAM_ART_ASPECT`. The frame then never resizes when the
+ *   file lands. That is the whole point of the doorway proof in
+ *   tests/cartel-palace-a-team-art.test.mjs: a frame that grew at load time
+ *   could grow across a doorway, and no static measurement of the authored
+ *   scene would ever have seen it happen.
+ *
+ *   `(x, y, z)` is a point ON the wall face, as `wallArt` above demands, and
+ *   every one of them is a few millimetres proud of a face that was measured
+ *   out of the geometry rather than guessed -- the same 2026-08-20 rule that
+ *   pulled the gallery's frames back onto their panels.
+ *
+ *   The placeholder lettering lives in src/world/gear.js FALLBACKS, not
+ *   here. It has to: this file is built headless by tests/cartel-palace-*,
+ *   and every procedural texture in the project goes through a real 2D
+ *   canvas, which Node has not got. `resolveGear` is therefore asked for
+ *   these slots ASYNCHRONOUSLY and its failure is not an error -- in Node it
+ *   fails on the first `document.createElement` and the frames keep the
+ *   painted canvas they were built with, which is exactly what a test wants
+ *   to measure anyway.
+ *
+ * Which picture hangs where, and why that wall:
+ *
+ *   THE A TEAM -- the crew posed in front of this building, cream stucco,
+ *   red tile, the fountain, the flag -- hangs in the entry hall, on the west
+ *   partition, in the first ten seconds of being inside. It is the only one
+ *   of the six that is a picture OF the room the player is standing in.
+ *
+ *   A TEAM / WE DON'T MISS goes on the entry hall's east wall beside the
+ *   watch desk, because that is where a guard actually sits (see cast.js,
+ *   post `entry-watch`) and this is guardroom taste.
+ *
+ *   A TEAM ASSAULT -- four men coming through a set of double doors -- goes
+ *   in the intelligence room the `service-hall` patrol works, on the one
+ *   solid stretch of its west partition, below the doorway and clear of it.
+ *
+ *   EL JEFE goes on the dining room's rear wall at x -6.6, mirroring the
+ *   family portrait already hung at x +6.6, so the wall Mark holds court
+ *   against has a boss on each side of the extraction opening.
+ *
+ *   A TEAM CHAMPIONS (the 0-47 trophy wall) and A TEAM STRAT (Operation
+ *   Dumb Luck, drawn on a table) go in the long room west of the gallery
+ *   wall -- the empty room the owner asked to have turned into an
+ *   operations gallery. It is still sealed today: the gallery's west wall
+ *   runs z -33.9..-15.3 and the partitions either end close everything but
+ *   about twelve centimetres, so cutting its door belongs to that separate
+ *   pass. These two are hung on its west wall now, either side of the
+ *   portrait that has hung at z -24 since the estate was built, so the pass
+ *   that opens the door finds the room already saying what it is for -- and
+ *   the room's whole east wall, eighteen metres of it, is deliberately left
+ *   bare for the rest of that gallery.
+ * ------------------------------------------------------------------ */
+const A_TEAM_ART_ASPECT = 4 / 3;
+
+const A_TEAM_ART = Object.freeze([
+  Object.freeze({
+    slot: 'cartel-palace.entry.the-a-team',
+    room: 'entry',
+    /* Entry hall, west partition. Inner face x 10.675 (`guest-service-
+     * partition`, 0.35 thick at 10.5, solid z -8..12), which is the number
+     * the four canvases already on this wall hang off. The run between the
+     * canvas at z 4.4 and the one at z 9.0 is clear from 5.0 to 8.52, so a
+     * 1.9 m picture centred at 6.75 leaves 80 cm of plaster on both sides.
+     * Its foot at y 1.588 clears the dado rail (top 1.29); the cleaner's
+     * cart and the wet-floor sign are floor furniture out at x 11.6+. */
+    x: 10.68, y: 2.3, z: 6.75, yaw: Math.PI / 2, width: 1.9, tone: 4,
+  }),
+  Object.freeze({
+    slot: 'cartel-palace.entry.we-dont-miss',
+    room: 'entry',
+    /* Entry hall, east wall. Inner face x 17.75 and no opening anywhere in
+     * it -- the estate's east wall is solid z -50..12. The three canvases
+     * here sit at z 10.0, -2.4 and -6.6, so z 5.0 is the middle of the only
+     * long gap, and it is the piece of wall the seated watch guard at
+     * (15.6, 5.35) has over his shoulder. Clear of the bin at z 3.5 and the
+     * console table at z -1.6, both of which are under a metre tall. */
+    x: 17.74, y: 2.2, z: 5.0, yaw: -Math.PI / 2, width: 1.5, tone: 1,
+  }),
+  Object.freeze({
+    slot: 'cartel-palace.security.assault',
+    room: 'security',
+    /* Intelligence room, west partition. `security-service-partition` is
+     * solid from z -22 to -14.5 and the doorway through to the guest suite
+     * is the gap NORTH of it (z -14.5..-8), so a 1.6 m picture centred at
+     * -16.3 stands a full metre clear of the opening -- which is the fault
+     * this building has already been caught with once (the gallery's east
+     * row, hung straight across the service doorway) and the Bing's back
+     * office once. The east wall is not available at all:
+     * the rack column occupies x 16.675..17.725 the length of the room. The
+     * mop leaning against the sink tops out at y 1.65 but stands at x 11.1,
+     * a third of a metre off the frame's front face. */
+    x: 10.68, y: 2.25, z: -16.3, yaw: Math.PI / 2, width: 1.6, tone: 0,
+  }),
+  Object.freeze({
+    slot: 'cartel-palace.dining.el-jefe',
+    room: 'dining',
+    /* Dining room, rear wall, on the panel at x -6.6. The panelled inset's
+     * front face is z -49.6025 and this hangs 2.5 mm proud of it; the panel
+     * is 3.1 wide and 2.6 tall about y 1.58, and a 2.2 x 1.65 picture at
+     * y 1.8 sits inside the inset on all four sides. The rear wall segments
+     * stop at |x| 3.2 -- the extraction opening -- and this is 2.3 m clear
+     * of that edge, on the opposite side from Mark's family portrait. */
+    x: -6.6, y: 1.8, z: -49.6, yaw: 0, width: 2.2, tone: 3,
+  }),
+  Object.freeze({
+    slot: 'cartel-palace.ops.champions',
+    room: 'operations',
+    /* Operations room, west wall: the estate's own west wall, inner face
+     * x -17.75, solid its whole length. North of the portrait that hangs at
+     * z -24 (which spans -24.9..-23.1), leaving 2.1 m between them, and
+     * 4.2 m south of the room's north partition at z -15. */
+    x: -17.74, y: 2.3, z: -20.0, yaw: Math.PI / 2, width: 2.0, tone: 2,
+  }),
+  Object.freeze({
+    slot: 'cartel-palace.ops.strat',
+    room: 'operations',
+    /* Operations room, same wall, south of the portrait by the same 2.1 m,
+     * and 5 m clear of the dining partition at z -34.2. The plan of the job
+     * belongs opposite the trophies for failing at it. */
+    x: -17.74, y: 2.3, z: -28.0, yaw: Math.PI / 2, width: 2.0, tone: 0,
+  }),
 ]);
 
 function combatMaterialFor(material) {
@@ -526,22 +673,43 @@ function framedPortrait(parent, x, y, z, { scale = 1, facing = 'z' } = {}) {
  * surface the picture hangs on and `yaw` is the direction that surface
  * looks. Everything is built forward of local z = 0, which puts the back of
  * the frame exactly on the plaster whatever the wall is doing.
+ *
+ * `slot` turns one of these into a piece of OWNER art rather than a coloured
+ * field: it names an `assets/art/manifest.json` slot, the canvas gets a
+ * material of its own so a texture can be swapped onto it without repainting
+ * every other frame in the building (`ART_TONES` entries are shared), and the
+ * group's names change so the geometry allowlist's `wall-art-frame#n` paths
+ * keep counting the frames they were written for. See `A_TEAM_ART` below.
  */
-function wallArt(parent, { x, y, z, yaw = 0, width = 0.9, height = 1.15, tone = 0 }) {
+function wallArt(parent, {
+  x, y, z, yaw = 0, width = 0.9, height = 1.15, tone = 0, slot = null,
+}) {
   const art = new THREE.Group();
-  art.name = 'palace-wall-art';
+  art.name = slot ? 'palace-a-team-art' : 'palace-wall-art';
   art.position.set(x, y, z);
   art.rotation.y = yaw;
-  const frame = box([width, height, 0.07], [0, 0, 0.035], M.brass, 'wall-art-frame');
+  const toneMaterial = ART_TONES[Math.abs(Math.trunc(tone)) % ART_TONES.length];
+  const frame = box(
+    [width, height, 0.07], [0, 0, 0.035], M.brass,
+    slot ? 'a-team-art-frame' : 'wall-art-frame',
+  );
   const field = box(
     [width - 0.14, height - 0.14, 0.075],
     [0, 0, 0.042],
-    ART_TONES[Math.abs(Math.trunc(tone)) % ART_TONES.length],
-    'wall-art-field',
+    slot ? toneMaterial.clone() : toneMaterial,
+    slot ? 'a-team-art-field' : 'wall-art-field',
     { cast: false },
   );
-  const mount = box([0.07, 0.07, 0.02], [0, height / 2 - 0.06, 0.01], M.iron, 'wall-art-mount', { cast: false });
+  const mount = box(
+    [0.07, 0.07, 0.02], [0, height / 2 - 0.06, 0.01], M.iron,
+    slot ? 'a-team-art-mount' : 'wall-art-mount',
+    { cast: false },
+  );
   art.add(frame, field, mount);
+  if (slot) {
+    art.userData.artSlot = slot;
+    art.userData.artField = field;
+  }
   parent.add(art);
   return art;
 }
@@ -2855,6 +3023,77 @@ export function buildCartelPalace(scene) {
     return true;
   }
 
+  /* ---------------------------------------------------------------- *
+   * Hanging the six. See `A_TEAM_ART` at the top of this file for which
+   * picture goes on which wall and what proves each position.
+   *
+   * They go in a group of their own, added to `estate` LAST, for a reason
+   * that is not tidiness: tools/geometry-allowlists/cartel-palace.json
+   * addresses objects by traversal path -- `name=wall-art-frame#6` and the
+   * like -- so anything inserted ahead of the existing frames renumbers
+   * entries that describe geometry nobody touched. Added last, and named
+   * `a-team-art-*` rather than `wall-art-*` by `wallArt`, these six cannot
+   * renumber anything at all.
+   * ---------------------------------------------------------------- */
+  const aTeamWall = new THREE.Group();
+  aTeamWall.name = 'a-team-wall-art';
+  estate.add(aTeamWall);
+  const aTeamPieces = A_TEAM_ART.map((piece) => {
+    const height = piece.width / A_TEAM_ART_ASPECT;
+    const hung = wallArt(aTeamWall, {
+      x: piece.x,
+      y: piece.y,
+      z: piece.z,
+      yaw: piece.yaw,
+      width: piece.width,
+      height,
+      tone: piece.tone,
+      slot: piece.slot,
+    });
+    return { ...piece, height, group: hung, field: hung.userData.artField };
+  });
+
+  /**
+   * Swap the resolved image onto each canvas.
+   *
+   * Deliberately applied whether or not the slot resolved to a real FILE:
+   * `resolveGear` hands back the drawn placeholder for a slot the manifest
+   * has no file for, and that placeholder -- cheap hand-lettered A-TEAM
+   * parody, drawn by src/world/gear.js FALLBACKS -- is the point. A flat
+   * coloured field is what these walls looked like before, and it is what
+   * they look like for the few milliseconds between the room being built
+   * and the manifest arriving.
+   *
+   * The frame is NOT resized from the file's aspect ratio the way the Bing
+   * resizes its stickers, and that is the deliberate half: these frames were
+   * authored at the delivered 4:3 and the doorway proof measures them there.
+   * A frame that resized itself at load time would be a frame no static
+   * check had ever measured.
+   */
+  function dressATeamArt(gear) {
+    const dressed = [];
+    for (const piece of aTeamPieces) {
+      const resolved = gear.get(piece.slot);
+      if (!resolved?.texture) continue;
+      piece.field.material.dispose();
+      piece.field.material = new THREE.MeshStandardMaterial({
+        map: resolved.texture, roughness: 0.95,
+      });
+      piece.field.userData.art = {
+        slot: piece.slot, real: resolved.real, file: resolved.file,
+      };
+      dressed.push(piece.slot);
+    }
+    return dressed;
+  }
+
+  /* Nothing waits on this. A failed manifest, a missing file, or a Node test
+   * with no canvas to draw a placeholder into all land in the same place:
+   * the frames keep what they were built with and the palace still stands. */
+  const artReady = resolveGear(A_TEAM_ART.map((piece) => piece.slot))
+    .then((gear) => dressATeamArt(gear))
+    .catch(() => []);
+
   const environmentZones = Object.freeze({
     ceilings,
     courtyard: courtyardDetails,
@@ -2935,6 +3174,25 @@ export function buildCartelPalace(scene) {
     groundAt: () => 0,
     materialLanguage: 'stucco-stone-clay-tile-courtyard',
     anchors: PALACE_ANCHORS,
+    /* The owner art, measured off the built scene rather than restated: the
+     * boxes below come from the frames the player sees, so a picture that
+     * moves in `A_TEAM_ART` moves here too and the doorway proof in
+     * tests/cartel-palace-a-team-art.test.mjs moves with it. */
+    art: {
+      slots: A_TEAM_ART.map((piece) => piece.slot),
+      ready: artReady,
+      pieces: aTeamPieces.map((piece) => ({
+        slot: piece.slot,
+        room: piece.room,
+        x: piece.x,
+        y: piece.y,
+        z: piece.z,
+        yaw: piece.yaw,
+        width: piece.width,
+        height: piece.height,
+        box: new THREE.Box3().setFromObject(piece.group),
+      })),
+    },
     evidence,
     targets: { powerBox: cabinet, estateDoor, diningDoor: diningDoors, extractionGate },
     doors: { openServiceGate, openEstateDoor, openDiningRoom, openExtraction },

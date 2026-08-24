@@ -62,6 +62,12 @@ Images dropped here hang on the apartment walls. List them in `manifest.json`:
 | `squatchfather.portrait.eric` | Squatchfather, Family portrait replacing dining-room filler art |
 | `squatchfather.portrait.irish` | Squatchfather, Family portrait replacing dining-room filler art |
 | `squatchfather.portrait.seff` | Squatchfather, Family portrait replacing dining-room filler art |
+| `cartel-palace.entry.the-a-team` | Cartel Palace, entry hall — west partition, between the two canvases already on it, first thing inside the front door |
+| `cartel-palace.entry.we-dont-miss` | Cartel Palace, entry hall — east wall, over the shoulder of the guard seated at the watch desk |
+| `cartel-palace.security.assault` | Cartel Palace, intelligence room — west partition, on the solid stretch south of the guest-suite doorway |
+| `cartel-palace.dining.el-jefe` | Cartel Palace, dining room — rear wall panel at x -6.6, facing the doors Mark holds court behind, opposite his family portrait |
+| `cartel-palace.ops.champions` | Cartel Palace, operations room — west wall, north of the estate portrait |
+| `cartel-palace.ops.strat` | Cartel Palace, operations room — west wall, south of the estate portrait |
 
 Frames size themselves to each image's aspect ratio, so portrait and landscape
 both hang correctly; `scale` (default `1`) nudges one bigger or smaller.
@@ -128,3 +134,55 @@ shape.
 | `mansion.suite.lou-is-back` | UNCLE LOU IS BACK poster, again | `uncle-lou-is-back.png` | 0.80 m wide, suite south wall, bay -7.75 |
 | `mansion.office.vacation-vienna` | Her, at the palace funfair | `lou-vacation-vienna.jpg` | 0.66 m wide, over the office safe |
 | `mansion.suite.vacation-florence` | Florence at sunset, over the crowd | `lou-vacation-florence.jpg` | 0.60 m wide, suite south wall, bay 7.73 |
+
+
+## The Cartel Palace's six A-Team pieces — still owed
+
+The owner's punch list asked for *"substantial A-Team themed wall art
+throughout the palace"* and then supplied six finished drawings: crude on
+purpose, flat colour, hand lettered, all six 4:3 landscape at roughly
+1456 x 1092. **None of them is in this folder.** They were pasted into a chat
+and nothing was written to disk, so what is wired up is the six SLOTS.
+
+Nothing is missing in the meantime. Each frame hangs in
+`src/cartel-palace/world.js` (`A_TEAM_ART`) with drawn lettering in it, and
+because `resolveGear` only fetches a file the manifest actually names, an
+undelivered picture requests nothing at all — no 404, no console error, just
+the lettering on the wall until the day the file lands.
+
+**To land one: drop the image in this folder and add its `"file"` line to the
+row already waiting for it in `manifest.json`.** That is the whole job; no
+code changes, and the frame is already the delivered 4:3 shape so nothing
+moves or resizes when the picture arrives.
+
+| Slot | The drawing | Filename to drop in | Frame | Where it hangs |
+|---|---|---|---|---|
+| `cartel-palace.entry.the-a-team` | THE A TEAM — the four of them posed in front of this palace: cream stucco, red tile, arched entrance, blue fountain, the big A over the door, the black flag, the palm and the yellow sports car | `a-team-palace-portrait.png` | 1.90 m wide | Entry hall, west partition, z 6.75 |
+| `cartel-palace.entry.we-dont-miss` | A TEAM — "WE DON'T MISS", "A IS FOR AMIGOS". Five men in black tactical vests and camo, AKs and the white/orange sniper rifle, gold chains, sunglasses, brick wall, money bag, the yellow BOMB PLANS A crate | `a-team-we-dont-miss.png` | 1.50 m wide | Entry hall, east wall, z 5.0, beside the watch desk |
+| `cartel-palace.security.assault` | A TEAM ASSAULT — four men through the double doors, the cigar and the machine gun, the one tripping over, "I PITY THE FOOLS!" | `a-team-assault.png` | 1.60 m wide | Intelligence room, west partition, z -16.3 |
+| `cartel-palace.dining.el-jefe` | EL JEFE - A TEAM — white suit, gold medallion, the throne with the red-jewelled A, four men with pistols, red curtains, money bags | `a-team-el-jefe.png` | 2.20 m wide | Dining room, rear wall, x -6.6 |
+| `cartel-palace.ops.champions` | A TEAM CHAMPIONS — the couch, the cash, the blackboard reading KILLS: 3 / WINS: 0 / LOSSES: 47 / LAST PLACE, and the five trophies for it | `a-team-champions.png` | 2.00 m wide | Operations room, west wall, z -20.0 |
+| `cartel-palace.ops.strat` | A TEAM STRAT — OPERATION: DUMB LUCK on the war-room table, GUARDS R DUM, WATER HAZARD LOL, IF PLAN A FAILS: BLAME SOMEONE ELSE, VICTORY CERVEZA | `a-team-strat.png` | 2.00 m wide | Operations room, west wall, z -28.0 |
+
+```json
+{ "slot": "cartel-palace.ops.champions",
+  "file": "a-team-champions.png",
+  "title": "A Team Champions",
+  "caption": "Three kills, forty-seven losses, five trophies. The trophies are for the losses." }
+```
+
+The filenames are a suggestion in the same sense the Bing's are: the SLOT is
+what matters and the `"file"` line is what points it at a real image, so a
+`.jpg` or a `.webp` is fine as long as the manifest row says so. The frames
+are authored at the delivered 4:3 and deliberately do NOT resize themselves
+from the file's own aspect — a picture that resized itself on load could grow
+across a doorway, and `tests/cartel-palace-a-team-art.test.mjs` measures the
+authored frames precisely so that cannot happen. The consequence is worth
+saying plainly rather than discovering: a delivered file that is not 4:3 gets
+STRETCHED onto a 4:3 canvas, because the canvas is not going to move. Send a
+4:3 crop.
+
+The operations room is the long room west of the portrait gallery's own west
+wall. It is sealed today — the owner asked separately for it to be turned
+into an operations gallery, and cutting its doorway and dressing the rest of
+it is that pass, not this one. Its whole east wall is left bare for it.
