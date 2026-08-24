@@ -38,7 +38,10 @@ export const PALACE_START_BANK = Object.freeze({
      * their recordings must be resident before `startLoop` picks a buffer —
      * a loop started before its decode is a synth stand-in for the night. */
     'ambience.rain', 'ambience.palace.interior', 'ambience.palace.dining',
-    'alarm.chirp',
+    /* The estate's own security klaxon, reused from Lou's mansion -- see the
+     * note on `soundTheEstateAlarm` in ./main.js. `alarm.chirp` stays for the
+     * door panel it was recorded for. */
+    'alarm.chirp', 'siege.alarm.tone',
     'door.creak', 'door.locked', 'heist.bullet.impact',
     'ui.select', 'woo.streak', 'chat.ping', 'switch.click', 'light.dip',
   ]),

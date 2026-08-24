@@ -43,6 +43,7 @@ const TEST_MODULES = [
   './combatlab-tool.test.mjs',
   './smoke-system.test.mjs',
   './blood-effects.test.mjs',
+  './audio-listener-coverage.test.mjs',
   './weapon-sight-line.test.mjs',
   './weapons-core.test.mjs',
   './character-weapon-mount.test.mjs',

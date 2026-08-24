@@ -116,9 +116,22 @@ test('the header and both reveals carry the combat material they are drawn as', 
   for (const reveal of reveals) {
     assert.equal(reveal.combatMaterial, 'stone', 'a reveal is the stone jamb it is drawn as');
   }
-  /* The leaf itself stays untagged on purpose: untagged is a stopper, which is
-   * what a shut door should be. See `addCollider`'s note in world.js. */
+  /* THE LEAF STAYS UNTAGGED, AND IT IS LOAD-BEARING THAT IT DOES.
+   *
+   * This was tried the other way on 2026-08-24, reasoning that a round into a
+   * shut oak door should sound like wood rather than concrete. It should --
+   * and the tag that buys it is `wood_thin`, because that is what
+   * `combatMaterialFor` maps every wood in the scene to; `wood_thin` is in the
+   * shared ballistics' PENETRABLE set; and this collider is 0.30 m deep
+   * against a 0.35 m ceiling. The nicer impact sound comes with rifle rounds
+   * going through the shut door again, which is the owner's original report.
+   *
+   * So: untagged, which the shared stack reads as a stopper. If the sound is
+   * ever worth having, it needs a material token that presents as wood without
+   * joining PENETRABLE -- not a tag on this collider. */
   const leaf = colliders.find((c) => c.name === 'estate-service-door');
   assert.ok(leaf, 'the service door leaf still has a collider');
-  assert.equal(leaf.combatMaterial, undefined);
+  assert.equal(leaf.combatMaterial, undefined,
+    'the shut service door has been given a penetrable material and rounds can '
+    + 'come through it again');
 });

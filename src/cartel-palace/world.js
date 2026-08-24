@@ -518,6 +518,15 @@ function entrancePortal(parent, colliders) {
     door.add(box([0.1, 0.24, 0.05], [half - 1.46, hy, 0.06], M.iron, 'estate-service-door-hinge', { cast: false }));
   }
   portal.add(door);
+  /* THE LEAF STAYS UNTAGGED, AND THAT IS THE POINT.
+   *
+   * It is tempting to tag it `M.wood` so a round into it sounds like a round
+   * into a door. Do not: `combatMaterialFor` maps every wood in this scene to
+   * `wood_thin`, `wood_thin` is in the shared ballistics' PENETRABLE set, and
+   * the leaf's collider is 0.30 m deep against a 0.35 m penetration ceiling --
+   * so the tag that buys a nicer impact sound also puts rifle rounds straight
+   * back through the shut door, which is the owner's original report. Untagged
+   * is a stopper (see `addCollider`), and a shut door is a stopper. */
   const collider = addCollider(colliders, [x, height / 2, wallZ], [width, height, 0.3], 'estate-service-door');
   return { portal, door, collider };
 }

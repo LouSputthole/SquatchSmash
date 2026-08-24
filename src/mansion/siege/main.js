@@ -911,6 +911,11 @@ function presentActorImpact(resolved, impact) {
     caliber: combatCaliber(impact?.weapon ?? resolved?.weapon),
     position: contact.point,
     result,
+    /* A plate carrier cracks and drops ceramic; a light vest does neither.
+     * The pool has carried the tier since it was built -- see
+     * `CombatAudio.impact`, and the Palace, where the owner heard it. */
+    armorTier: (resolved?.entry ?? resolved?.combatant)?.armorPresentation?.tier === 'heavy'
+      ? 'heavy' : 'light',
   });
 }
 
@@ -3266,6 +3271,11 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
   if (running && !pauseMenu.isPaused()) updateGame(dt);
+  /* Where the player's ears are. Without this the WebAudio listener sits at
+   * the world origin facing -Z for the whole scene and every positioned cue is
+   * panned as heard from there -- see the long note in
+   * src/cartel-palace/main.js, where the owner caught it. */
+  audio.updateListener(camera);
   if (renderEnabled) { postfx.render(); postfx.sample(dt); framesRendered++; }
 }
 requestAnimationFrame(frame);
