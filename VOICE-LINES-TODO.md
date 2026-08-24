@@ -188,7 +188,7 @@ Johnny, the shorter half of the Palace finale's double act -- RENAMED 2026-08-25
 
 Voice profile: `lola`.
 
-Lola, the taller half of the Palace finale's short double act -- RENAMED 2026-08-25 from `short-one` (Big Paco) on the owner's instruction. Fast, sincere, professional about murder logistics; finishes her partner's sentences. THE ID IS STILL THE ONE CAST FOR BIG PACO AND IT IS A MAN'S: the rename came with a reading of the character as a woman, which is an inference from the name rather than an instruction, and nobody has supplied a replacement id. Either give her one or say she is not a woman -- both are one line. Her takes are unrecorded either way: the rename changed every cue id under this speaker.
+Lola, the taller half of the Palace finale's short double act -- RENAMED 2026-08-25 from `short-one` on the owner's instruction, and RECAST the same day with the owner's own id. She reads as a woman, so she is not Big Paco's throat any more (`S7IsvAvEoDfui6GSZK3A`, retired from this speaker). Fast, sincere, professional about murder logistics; finishes her partner's sentences. Unrecorded: the rename changed every cue id under this speaker, so every take is owed fresh.
 
 - `vo.palace.finale.lola.begging.after-sauce-1.1.mp3` — "We do not cook. We never cooked. We carried things for a man who is now on the tablecloth." **Performance:** From the floor, fast and reasonable, laying out a position rather than begging. She thinks this is going to work.
 - `vo.palace.finale.lola.begging.after-sauce-3.1.mp3` — "That is the whole offer. It is not a big offer." **Performance:** Quiet. She knows exactly how small it is and puts it on the table anyway.
