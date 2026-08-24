@@ -7,7 +7,7 @@ import { ensureDomShim, ensureThreeShim } from '../tools/three-shim.mjs';
 ensureThreeShim();
 ensureDomShim();
 
-const [{ buildGeometrySceneState }, THREE, { PALACE_GUARD_POSTS }] = await Promise.all([
+const [{ buildGeometrySceneState }, THREE, { PALACE_GUARD_POSTS, PALACE_WAVE_POSTS }] = await Promise.all([
   import('../tools/geometry-scenes.mjs'),
   import('three'),
   import('../src/cartel-palace/cast.js'),
@@ -624,7 +624,10 @@ test('Cartel Palace approach checkpoint composes exact palm and cast assemblies'
    * this file went stale at once. The roster is the pin now, so a post added
    * or retired in cast.js moves the expectation with it, while a body that
    * fails to build, or two bodies sharing one assembly id, still fails. */
-  const castSize = PALACE_GUARD_POSTS.length + 2;
+  /* The guard roster, the two named targets, and the reprisal wave Mark calls
+   * when his plates come off -- all built at boot, because the combat runtimes
+   * are constructed once from `all`. See PALACE_WAVE_POSTS in cast.js. */
+  const castSize = PALACE_GUARD_POSTS.length + 2 + PALACE_WAVE_POSTS.length;
   assert.equal(castRoots.length, castSize);
   assert.equal(new Set(castRoots.map((object) => gate(object).assemblyId)).size, castSize);
   assert.equal(built.metadata.castCount, castSize);

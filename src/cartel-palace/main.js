@@ -50,7 +50,9 @@ import {
 } from './audio-banks.js';
 import { buildPalaceCast } from './cast.js';
 import { PalaceFinaleDirector } from './finale.js';
-import { EVIDENCE_IDS, PALACE_BEATS, CartelPalaceMission } from './mission.js';
+import {
+  EVIDENCE_IDS, PALACE_BEATS, PALACE_DINING_OBJECTIVES, CartelPalaceMission,
+} from './mission.js';
 import {
   previewPalaceCheckpointForLocation,
   previewSnapshotForCheckpoint,
@@ -91,6 +93,7 @@ const ui = {
   boss: document.getElementById('boss'),
   bossArmor: document.querySelector('#boss .armor i'),
   bossLife: document.querySelector('#boss .life i'),
+  bossName: document.getElementById('boss-name'),
   bossState: document.querySelector('#boss > span'),
   damageDirection: document.getElementById('damage-direction'),
   armorBreak: document.getElementById('armor-break'),
@@ -334,8 +337,62 @@ const finale = new PalaceFinaleDirector({
   /* The live collider list, so the short men's dive can prove its landing is
    * clear of the table and the chairs before the animation starts. */
   colliders: palace.colliders,
+  /* THE THREE STAGES, AND WHO OWNS WHICH HALF.
+   *
+   * The director owns the words and the pacing; the cast owns the bodies; and
+   * these five callbacks are the whole seam between them. Nothing in
+   * `finale.js` touches a Combatant, which is the rule it was written under
+   * and the reason a fight with three stages did not need a second AI.
+   */
   onEngage: () => security.activateFinalEncounter(),
+  onScramble: () => {
+    cast.markScramblesAway();
+    hud.toast('Mark is gone', 'warn', 2600);
+  },
+  onMarkReturn: ({ armored, enraged }) => {
+    cast.activateMark({ armored, at: armored ? MARK_RETURN : MARK_LAST_STAND });
+    if (!armored) restoreMarkForLastStand({ enraged });
+    hud.say(enraged
+      ? '<em>MARK IS COMING BACK.</em> You should not have shot the help.'
+      : '<em>MARK IS COMING BACK.</em>', 2600);
+  },
+  onMarkRetreat: () => {
+    cast.markScramblesAway();
+    hud.toast('He is calling everybody', 'bad', 3000);
+  },
+  onWave: () => {
+    const released = cast.releaseWave();
+    if (released > 0) hud.toast(`A-Team · ${released} in the room`, 'bad', 3200);
+  },
 });
+
+/* Where he comes back in, and where he makes his last stand.
+ *
+ * Both are in the room's own openings rather than out of thin air: the double
+ * doors the player came through, and the extraction gap behind the table. */
+const MARK_RETURN = Object.freeze({ x: 0, z: -36.4, faceZ: -42 });
+const MARK_LAST_STAND = Object.freeze({ x: 0, z: -47.8, faceZ: -40 });
+
+/**
+ * Stage three, on the body rather than in the script.
+ *
+ * He comes back out with no plates and a fresh will to be there. His armour
+ * is spent by definition -- that is what ended stage one -- and his health is
+ * whatever the player left it at, so without this the last stand is however
+ * much of stage one was still in him, which could be a great deal or almost
+ * nothing. It is set, not topped up: the number is the fight's, not a
+ * remainder of the previous one.
+ */
+const MARK_LAST_STAND_HEALTH = 260;
+function restoreMarkForLastStand({ enraged = false } = {}) {
+  const actor = cast.mark.actor;
+  if (!actor) return false;
+  actor.armor = 0;
+  actor.health = enraged ? MARK_LAST_STAND_HEALTH + 60 : MARK_LAST_STAND_HEALTH;
+  actor.incapacitated = false;
+  cast.mark.armorPresentation?.applyResult?.({ applied: true, armorBroken: true });
+  return true;
+}
 
 /* The estate's working civilians -- today, the cleaner in the entry hall.
  * PalaceSecurity never ticks them (they are not combatants), so this owns
@@ -1089,7 +1146,11 @@ security = new PalaceSecurity({
     finale.onTargetDown(entry.id);
   },
   onBossPhase: (phase) => {
-    if (phase === 'exposed') hud.say('<em>MARK\'S ARMOR IS GONE.</em>', 2200);
+    if (phase !== 'exposed') return;
+    hud.say('<em>MARK\'S ARMOR IS GONE.</em>', 2200);
+    /* And that is the end of stage one. He does not stand there and finish the
+     * fight without his plates -- he goes and gets everybody. */
+    finale.onArmorBroken();
   },
 });
 
@@ -1357,6 +1418,11 @@ function restoreCombatCheckpoint(snapshot) {
   updatePlayerStatus();
   updateAmmo();
   updateStealth();
+  /* A restore lands in whatever stage the checkpoint says, and the beat's own
+   * objective has just been pushed over the top of the stage card. Forget the
+   * last stage so the next frame writes the right one. */
+  bossStage = null;
+  updateDiningObjective();
   updateBoss();
   updateCombatFeedback(0);
   return security;
@@ -1712,12 +1778,51 @@ function updateAmmo() {
   ui.ammoState.textContent = shot.state === 'ready' ? '' : shot.state.toUpperCase();
 }
 
+/**
+ * THE BAR AT THE TOP OF THE ROOM, and who it is actually about.
+ *
+ * It was Mark's, permanently, printed into the markup: `MARK · CARTEL BOSS`,
+ * armour bar, health bar. That was honest while the doors opened on Mark. It
+ * has not been since the 2026-08-25 rewire -- the doors open on the CHEF, and
+ * for the whole of that stage the bar tracked a man standing in another wing
+ * of the house, at full health, reading ARMORED. So it follows the stage now:
+ * the chef while the chef is the room, Mark when Mark is in it, and nothing
+ * at all across the wave, where the room is four ordinary men and a boss bar
+ * would be a lie about all five of them.
+ */
+const BOSS_SUBJECTS = Object.freeze({
+  sauce: { entry: () => cast.sauce, name: 'SAUCE · THE CHEF' },
+  'reprisal-one': { entry: () => cast.mark, name: 'MARK · CARTEL BOSS' },
+  'reprisal-final': { entry: () => cast.mark, name: 'MARK · CARTEL BOSS' },
+  done: { entry: () => cast.mark, name: 'MARK · CARTEL BOSS' },
+});
 function updateBoss() {
   if (ui.boss.classList.contains('hidden')) return;
-  const mark = cast.mark.actor;
-  ui.bossArmor.style.width = `${Math.round(mark.armor / 170 * 100)}%`;
-  ui.bossLife.style.width = `${Math.round(mark.health / mark.maxHealth * 100)}%`;
-  ui.bossState.textContent = mark.incapacitated ? 'DOWN' : mark.armor > 0 ? 'ARMORED' : 'EXPOSED';
+  const subject = BOSS_SUBJECTS[finale.report().stage] ?? BOSS_SUBJECTS['reprisal-one'];
+  const actor = subject.entry()?.actor;
+  if (!actor) return;
+  if (ui.bossName && ui.bossName.textContent !== subject.name) ui.bossName.textContent = subject.name;
+  ui.bossArmor.style.width = `${Math.round(actor.armor / 170 * 100)}%`;
+  ui.bossLife.style.width = `${Math.round(actor.health / actor.maxHealth * 100)}%`;
+  ui.bossState.textContent = actor.incapacitated ? 'DOWN' : actor.armor > 0 ? 'ARMORED' : 'EXPOSED';
+}
+
+/**
+ * The objective card follows the same stage, for the same reason: a card that
+ * says *"Mark is armored, break his protection"* while Mark is two rooms away
+ * sends the player looking for a fight that is not in the room. Cheap enough
+ * to poll -- the stage is a string on an object the frame already holds, and
+ * nothing is written until it changes.
+ */
+let bossStage = null;
+function updateDiningObjective() {
+  if (mission.beat !== PALACE_BEATS.DINING_ROOM) return;
+  const stage = finale.report().stage;
+  if (stage === bossStage) return;
+  bossStage = stage;
+  /* The wave is the one stage with nobody to put a bar on. */
+  ui.boss.classList.toggle('hidden', stage === 'wave');
+  updateObjective(PALACE_DINING_OBJECTIVES[stage]);
 }
 
 /**
@@ -1841,6 +1946,7 @@ function animate(now) {
     deathBloodPools.update(dt);
     updateStealth();
     updateAmmo();
+    updateDiningObjective();
     updateBoss();
   } else {
     player.update(dt);

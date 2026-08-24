@@ -485,7 +485,17 @@ try {
 
   const played = await page.evaluate(() => {
     const runtime = window.CARTEL_PALACE;
-    for (let step = 0; step < 1200 && !runtime.finale.report().engaged; step++) {
+    /* Far enough in to see the room empty, not one frame past it.
+     *
+     * The verdict carries `engage` and Mark's delegation is the line after
+     * it, so stopping on `engaged` used to stop with the scramble still
+     * queued -- the fight had not actually started yet. Run until the stage
+     * turns, which is the same thing a player standing still would see. */
+    const done = () => {
+      const report = runtime.finale.report();
+      return report.engaged && report.stage === 'sauce';
+    };
+    for (let step = 0; step < 1200 && !done(); step++) {
       runtime.finale.update(0.1);
     }
     return {
@@ -499,10 +509,14 @@ try {
   check('dining_room: the wife and the double act deliver the begging beats, then the verdict engages',
     played.report.engaged
       && played.report.phase === 'combat'
-      && played.alarm && played.markActive && played.sauceActive
+      /* Since the 2026-08-25 rewire the doors open on the CHEF: Mark delegates
+       * the intruder to Sauce and walks out, and comes back for stage one when
+       * the chef is down. So `markActive` is deliberately false here. */
+      && played.alarm && !played.markActive && played.sauceActive
+      && played.report.stage === 'sauce'
       && played.report.spoken.some((cue) => cue.startsWith('palace.finale.wife.begging.wife-'))
-      && played.report.spoken.some((cue) => cue.startsWith('palace.finale.short-one.begging.shorts-'))
-      && played.report.spoken.some((cue) => cue.startsWith('palace.finale.short-two.begging.shorts-'))
+      && played.report.spoken.some((cue) => cue.startsWith('palace.finale.lola.begging.shorts-'))
+      && played.report.spoken.some((cue) => cue.startsWith('palace.finale.johnny.begging.shorts-'))
       && playedBeats.indexOf('begging.wife') < playedBeats.indexOf('begging.shorts')
       && playedBeats.indexOf('begging.shorts') < playedBeats.indexOf('go'),
     JSON.stringify(played));
@@ -531,19 +545,55 @@ try {
       });
       return { applied: result.applied, fatal: result.fatal };
     };
-    const markKill = kill(runtime.cast.mark);
+    /* THE FIGHT, IN THE ORDER THE PLAYER MEETS IT.
+     *
+     * The chef first, because Mark is not in the room; then his armour, which
+     * is what sends him back out for the wave; then the four men he calls;
+     * then Mark himself with nothing left. Each step is drained before the
+     * next, because the stages are paced by the dialogue rather than by a
+     * timer -- a kill on top of a queued line is a stage that never turns. */
+    const settle = (steps = 900) => {
+      for (let step = 0; step < steps; step++) runtime.finale.update(0.1);
+    };
     const sauceKill = kill(runtime.cast.sauce);
-    for (let step = 0; step < 900; step++) runtime.finale.update(0.1);
+    settle();
+    const afterChef = { stage: runtime.finale.report().stage, markActive: runtime.cast.mark.active };
+
+    /* His plates, spent the way a player spends them. */
+    runtime.cast.mark.actor.armor = 0;
+    runtime.finale.onArmorBroken();
+    settle();
+    const afterArmor = {
+      stage: runtime.finale.report().stage,
+      markActive: runtime.cast.mark.active,
+      waveStanding: runtime.cast.waveStanding(),
+      waveVisible: runtime.cast.wave.every((entry) => entry.root.visible),
+    };
+
+    const waveKills = runtime.cast.wave.map((entry) => kill(entry));
+    settle();
+    const afterWave = {
+      stage: runtime.finale.report().stage,
+      markActive: runtime.cast.mark.active,
+      markArmor: runtime.cast.mark.actor.armor,
+    };
+
+    const markKill = kill(runtime.cast.mark);
+    settle();
     const snapshot = runtime.snapshot();
     return {
       markKill,
       sauceKill,
+      afterChef,
+      afterArmor,
+      waveKills,
+      afterWave,
       beat: snapshot.beat,
       markEliminated: snapshot.markEliminated,
       sauceEliminated: snapshot.sauceEliminated,
       report: runtime.finale.report(),
       shorts: runtime.cast.civilians
-        .filter((entry) => entry.id.startsWith('short-'))
+        .filter((entry) => ['lola', 'johnny'].includes(entry.id))
         .map((entry) => ({
           id: entry.id,
           pose: entry.figure.pose,
@@ -553,6 +603,32 @@ try {
       wifeDown: runtime.cast.civilians.find((entry) => entry.id === 'wife').down,
     };
   });
+  /* THE THREE STAGES, AS STAGES.
+   *
+   * Owner, 2026-08-25: *"a two phase fight. Maybe you fight him and knock down
+   * his amour then he retreats and then sends a wave of A team members who you
+   * blast and then he comes out again enraged for the third and final fight."*
+   * The unit tests drive the director in isolation; this is the only gate that
+   * proves the real room turns over, with the real Combatants: Mark is in the
+   * room after the chef, OUT of it with four A-Team men standing after his
+   * plates go, and back in with nothing on him once they are down. */
+  check('dining_room: the chef, the armour and the wave turn the fight over three real stages',
+    outcome.afterChef.stage === 'reprisal-one' && outcome.afterChef.markActive
+      && outcome.afterArmor.stage === 'wave'
+      && !outcome.afterArmor.markActive
+      && outcome.afterArmor.waveStanding === 4
+      && outcome.afterArmor.waveVisible
+      && outcome.waveKills.length === 4
+      && outcome.waveKills.every((entry) => entry.applied && entry.fatal)
+      && outcome.afterWave.stage === 'reprisal-final'
+      && outcome.afterWave.markActive
+      && outcome.afterWave.markArmor === 0,
+    JSON.stringify({
+      afterChef: outcome.afterChef,
+      afterArmor: outcome.afterArmor,
+      waveKills: outcome.waveKills,
+      afterWave: outcome.afterWave,
+    }));
   check('dining_room: the player-driven kills still clear the mission over the begging trio',
     outcome.markKill.applied && outcome.markKill.fatal
       && outcome.sauceKill.applied && outcome.sauceKill.fatal
@@ -562,7 +638,7 @@ try {
   check('dining_room: the kills trigger the unison dive, the screams and the cursing-out',
     outcome.report.dived
       && outcome.report.phase === 'aftermath'
-      && outcome.report.spoken.some((cue) => cue.includes('react.mark-first'))
+      && outcome.report.spoken.some((cue) => cue.includes('react.sauce-down'))
       && outcome.report.spoken.some((cue) => cue.includes('react.all-down'))
       && !outcome.wifeDown
       && outcome.shorts.length === 2

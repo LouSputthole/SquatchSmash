@@ -2811,7 +2811,14 @@ function annotateCartelPalaceGeometry(root, colliders) {
  * an unlisted body into `all` still fails.
  */
 function annotatePalaceCast(cast) {
-  const roster = [...(cast?.guards ?? []), cast?.mark, cast?.sauce];
+  /* Since 2026-08-25 the roster is the guards, the two named targets, AND the
+   * wave Mark calls when his plates come off -- four men who exist from the
+   * first frame, parked inactive and invisible behind the dining room's two
+   * openings. They are in `all` because everything that makes a Combatant
+   * work (the perception runtimes, the impact registrations, the checkpoint
+   * snapshot, the separation pass) is built once from `all` at construction,
+   * so a man spawned later would be a man none of that knows about. */
+  const roster = [...(cast?.guards ?? []), cast?.mark, cast?.sauce, ...(cast?.wave ?? [])];
   if (!Array.isArray(cast?.guards) || cast.guards.length === 0 || !cast?.mark || !cast?.sauce) {
     throw new Error('Cartel Palace Adapter expected a guard roster plus Mark and Sauce');
   }
@@ -2819,7 +2826,8 @@ function annotatePalaceCast(cast) {
     || cast.all.length !== roster.length
     || !roster.every((member) => cast.all.includes(member))) {
     throw new Error(`Cartel Palace Adapter expected ${roster.length} cast members `
-      + `(${cast.guards.length} guards, Mark and Sauce); found ${cast?.all?.length ?? 'none'}`);
+      + `(${cast.guards.length} guards, Mark, Sauce and ${cast?.wave?.length ?? 0} reprisal); `
+      + `found ${cast?.all?.length ?? 'none'}`);
   }
   const ids = new Set();
   for (const member of cast.all) {

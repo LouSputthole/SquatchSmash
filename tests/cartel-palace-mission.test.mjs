@@ -7,6 +7,7 @@ import {
   CartelPalaceMission,
   EVIDENCE_IDS,
   PALACE_BEATS,
+  PALACE_DINING_OBJECTIVES,
 } from '../src/cartel-palace/mission.js';
 import { buildCartelPalace, PALACE_ANCHORS } from '../src/cartel-palace/world.js';
 import { buildPalaceCast, PALACE_GUARD_POSTS } from '../src/cartel-palace/cast.js';
@@ -64,6 +65,31 @@ function reachDiningRoom(mission) {
   for (const id of Object.values(EVIDENCE_IDS)) mission.collectEvidence(id);
   assert.equal(mission.enterDiningRoom(), true);
 }
+
+test('every stage of the dining room has its own objective card, and none of them is the old one', () => {
+  /* The beat's card said *"Eliminate Mark and Sauce. Mark is armored. Break
+   * his protection before closing the distance."* for the whole of the final
+   * room. Since the 2026-08-25 rewire that room is four fights, and for the
+   * first of them Mark is not in the house -- so a card naming him and his
+   * plates sends the player looking for a target that is two rooms away.
+   * `confrontation` is deliberately absent: nothing to do at the table but
+   * listen, and the beat's own line still covers it. */
+  const stages = ['sauce', 'reprisal-one', 'wave', 'reprisal-final'];
+  assert.deepEqual(Object.keys(PALACE_DINING_OBJECTIVES).sort(), [...stages].sort());
+  assert.equal(PALACE_DINING_OBJECTIVES.confrontation, undefined);
+  for (const stage of stages) {
+    const card = PALACE_DINING_OBJECTIVES[stage];
+    assert.equal(typeof card.kicker, 'string');
+    assert.ok(card.text.length > 8 && card.hint.length > 12, `${stage} is a stub`);
+    assert.equal(Object.isFrozen(card), true, `${stage} is mutable`);
+  }
+  /* The chef's stage may not promise Mark, and the wave's may not promise a
+   * man who is behind a door until it is cleared. */
+  assert.equal(/mark/i.test(PALACE_DINING_OBJECTIVES.sauce.text), false,
+    'the chef stage still tells the player to shoot Mark');
+  assert.match(PALACE_DINING_OBJECTIVES.wave.text, /a-team/i);
+  assert.match(PALACE_DINING_OBJECTIVES['reprisal-one'].text, /armor/i);
+});
 
 test('the final room is a two-target boss encounter and cannot clear early', () => {
   const completions = [];
@@ -286,6 +312,40 @@ test('every playable estate zone has a finished ceiling below the exterior roof'
       }
     }
   }
+});
+
+test('Sauce\'s bedroom is closed on its west side, and the suite is still reachable', () => {
+  /* Owner, 2026-08-25: *"that's the small door in the wall on the left side of
+   * the bedroom (sauces bedroom) maybe we just close that gap so we don't have
+   * to deal with it."* The sleeping end used to run out of room at x 0 and open
+   * onto the unlit strip between the suite and Mark's office -- a bedroom with
+   * one wall missing, and an empty corridor on the other side of the hole.
+   *
+   * Two halves to this, and the second is the one that matters: the gap is
+   * shut, AND the dressing end north of the media wall is still open, because
+   * that opening is what keeps the suite connected to the rest of the estate.
+   * Close the whole run and the route through the house changes. */
+  const world = buildCartelPalace(new THREE.Scene());
+  const wall = world.root.getObjectByName('guest-west-partition');
+  assert.ok(wall, 'the bedroom has no west wall again');
+  const bounds = new THREE.Box3().setFromObject(wall);
+  assert.ok(bounds.min.z <= -14.82, `the west wall does not reach the south partition (${bounds.min.z})`);
+  assert.ok(bounds.max.z >= -8.9 && bounds.max.z <= -8.2,
+    `the west wall does not stop at the media-wall line (${bounds.max.z})`);
+  assert.ok(bounds.max.y >= 4.5, 'the west wall stops short of the ceiling slab');
+
+  /* Nothing solid across the dressing end's doorway: sampled along x -1.5 from
+   * the media wall's north face up to the suite's north partition. */
+  const solids = [];
+  world.root.traverse((node) => {
+    if (!node.isMesh || node.name === 'guest-west-partition') return;
+    const box = new THREE.Box3().setFromObject(node);
+    if (box.max.y < 1.4 || box.min.y > 1.4) return;
+    if (box.min.x > -1.2 || box.max.x < -1.8) return;
+    if (box.max.z < -8.2 || box.min.z > 1.0) return;
+    solids.push(node.name);
+  });
+  assert.deepEqual(solids, [], `the dressing end's doorway was walled up too: ${solids.join(', ')}`);
 });
 
 test('the final dining room is a furnished combat stage with two clear flanking lanes', () => {

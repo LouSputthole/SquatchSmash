@@ -14,7 +14,7 @@
         "cartel-one_1B_2"
       ],
       "reason": "This checkpoint IS the lull: wave one has been cleared and despawnAll has hidden every body in the attacker pool, so all four of these men are visible=false and nobody is standing on the drive at all. The gate reads transforms and not visibility, and a despawned attacker keeps the transform he was last spawned with -- the court_north staging root at x 0, z 20.2 (waves.js:82), which is one mark by design because a staging zone is somewhere men walk OUT of rather than stand in, and 1A and 1B never occupy it at the same time. Their headings already differ by up to two degrees, each man facing the first mark of his own route; they agree only because all four were sent up the same drive at the same door.",
-      "source": "src/mansion/siege/attackers.js:2892",
+      "source": "src/mansion/siege/attackers.js:2966",
       "sourceAnchor": "entry.root.visible = false;"
     }
   ]

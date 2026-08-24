@@ -518,9 +518,12 @@ test('the dining room is dressed without becoming a furniture showroom', () => {
 
 /* ---------------- Characters ---------------- */
 
-test('the two short men are plain-clothed, clean-shaven and told apart by build and hair', () => {
+test('Lola and Johnny are plain-clothed, clean-shaven and told apart by build and hair', () => {
   const cast = buildPalaceCast(new THREE.Group());
-  const shorts = cast.civilians.filter((entry) => entry.id.startsWith('short-'));
+  /* Renamed from short-one/short-two 2026-08-25 on the owner's instruction.
+   * Everything this test holds them to is unchanged: the pair is read by
+   * silhouette, not by faces. */
+  const shorts = cast.civilians.filter((entry) => ['lola', 'johnny'].includes(entry.id));
   assert.equal(shorts.length, 2);
   for (const entry of shorts) {
     const beards = [];
@@ -565,7 +568,13 @@ test('Mark still aims correctly once his encounter activates', () => {
   );
   assert.equal(cast.mark.active, false, 'Mark must stay passive until the finale');
   assert.equal(cast.mark.phase, 'armored');
+  /* `activateFinalEncounter` is the CHEF now -- since the 2026-08-25 rewire the
+   * doors opening leave Mark walking out of the room, and he comes back on the
+   * director's own cue. What this test is about is his aim once he is live, so
+   * it activates him the way the finale does. */
   security.activateFinalEncounter();
+  assert.equal(cast.mark.active, false, 'the doors opening still activates the boss');
+  cast.activateMark({ armored: true });
   assert.equal(cast.mark.active, true);
   for (let index = 0; index < 240; index++) {
     security.update(1 / 60, { playerPosition: target, finalEncounter: true });

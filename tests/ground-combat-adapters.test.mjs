@@ -40,7 +40,15 @@ const IMPACT_FIELDS = Object.freeze([
 
 function combatImports(source) {
   const imports = new Map();
-  const matcher = /import\s*\{([\s\S]*?)\}\s*from\s*(['"])([^'"]*\/core\/combat\/[^'"]+\.js)\2\s*;/g;
+  /* `[^{}]` and not `[\s\S]`, and the difference is a whole class of false
+   * failure. With a non-greedy `[\s\S]*?` the engine will happily backtrack
+   * ACROSS an intervening import to find a core/combat path -- so a single
+   * `import { somethingElse } from '../../world/x.js';` sitting immediately
+   * above the combat block swallowed the first combat import into its
+   * specifier list, and this file reported the Siege as no longer composing
+   * `CombatWeaponAim`. It was composing it; the regex had eaten it. Caught
+   * 2026-08-25 when the A-Team wardrobe moved to a shared module. */
+  const matcher = /import\s*\{([^{}]*?)\}\s*from\s*(['"])([^'"]*\/core\/combat\/[^'"]+\.js)\2\s*;/g;
   for (const match of source.matchAll(matcher)) {
     const specifiers = match[1].replace(/\/\*[\s\S]*?\*\//g, '').split(',');
     for (const raw of specifiers) {

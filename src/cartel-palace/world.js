@@ -1782,6 +1782,32 @@ export function buildCartelPalace(scene) {
   partition([18.4, 0, 0.35], [1.3, 0, 1.5], 'guest-north-partition');
   partition([7.8, 0, 0.35], [-14.1, 0, -15], 'office-south-partition');
   partition([18.2, 0, 0.35], [1.4, 0, -15], 'guest-south-partition');
+  /* SAUCE'S BEDROOM HAD NO WEST WALL.
+   *
+   * The media wall's own note already calls the suite's entrance *"the
+   * corridor doorway at x 10.5, z -14.5..-8"* -- but nothing ever closed the
+   * other side, so the sleeping end simply ran out of room at x 0 and opened
+   * onto the unlit strip between here and Mark's office. Owner, 2026-08-25:
+   * *"that's the small door in the wall on the left side of the bedroom
+   * (sauces bedroom) maybe we just close that gap so we don't have to deal
+   * with it."*
+   *
+   * So it is closed, and closed at the SLEEPING end only: z -14.85 to -8.30,
+   * which stops level with the media wall. The dressing end north of that
+   * line stays open exactly as it was, which is what keeps every existing
+   * route through the estate intact -- the suite still reaches the office
+   * strip, the office still reaches the gallery, and nothing had to be
+   * re-planned to lose a hole.
+   *
+   * The 25 mm key into the south partition (whose inner face is -14.825) is
+   * deliberately UNDER the geometry gate's 30 mm overlap threshold: enough to
+   * close the corner against a glancing-angle hairline, not enough to be a
+   * structural interpenetration that has to be argued for in an allowlist.
+   *
+   * x -1.5 rather than 0: the suite's own west picture hangs at x -0.6 on
+   * the south partition, so a wall on the rug's edge would have left one of
+   * the room's two paintings out in the corridor. */
+  partition([0.35, 0, 6.55], [-1.5, 0, -11.575], 'guest-west-partition');
   // Gallery to dining partition, with a locked double door in the middle.
   partition([14.7, 0, 0.42], [-10.65, 0, -34.2], 'dining-partition-west');
   partition([14.7, 0, 0.42], [10.65, 0, -34.2], 'dining-partition-east');
@@ -2221,6 +2247,20 @@ export function buildCartelPalace(scene) {
   for (const x of [2.6, 4.7, 6.8]) {
     guestWall.add(box([1.65, 1.35, 0.08], [x, 2.78, -14.785], M.woodLight, 'guest-suite-wall-panel'));
   }
+  /* The bedroom's new west wall gets the same panelling and the same dado as
+   * the wall it meets -- a partition put in to close a hole still has to look
+   * like it was built with the house. Its face is x -1.325; these stand 4 cm
+   * proud of it, the way the south wall's do. */
+  for (const z of [-13.5, -10.6]) {
+    guestWall.add(box([0.08, 1.35, 1.65], [-1.285, 2.78, z], M.woodLight, 'guest-suite-wall-panel'));
+  }
+  guestWall.add(
+    box([0.09, 0.22, 6.35], [-1.28, 0.11, -11.575], M.woodLight, 'guest-suite-detail.west-skirting', { cast: false }),
+    /* And the open end of it is a doorway, so the end grain gets an architrave
+     * across it rather than being left a sawn-off slab of plaster. Flush on
+     * the wall's own end face at z -8.30, standing proud on both sides. */
+    box([0.52, 3.1, 0.06], [-1.5, 1.55, -8.27], M.wood, 'guest-suite-detail.west-door-architrave'),
+  );
   guestDetails.add(guestWall);
   for (const [index, x] of [-0.6, 10.0].entries()) {
     wallArt(guestDetails, {

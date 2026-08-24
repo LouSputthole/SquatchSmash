@@ -138,7 +138,12 @@ function installShotRandom(security, values, fallback = values.at(-1) ?? 0.5) {
 
 test('a full world-space head impact kills armored Mark and preserves its Located point', () => {
   const { scene, cast, security, targetDown } = harness();
+  /* `activateFinalEncounter` is the CHEF since the 2026-08-25 rewire -- the
+   * doors opening leave Mark walking out of the room, and the finale director
+   * brings him back for stage one. This test is about what a round does to him
+   * when he IS live, so it puts him there the way the director does. */
   security.activateFinalEncounter();
+  cast.activateMark({ armored: true });
   assert.equal(cast.mark.active, true);
   assert.ok(cast.mark.actor.armor > 0, 'the test did not exercise armored Mark');
 

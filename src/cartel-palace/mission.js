@@ -70,6 +70,43 @@ const OBJECTIVES = Object.freeze({
 });
 
 /**
+ * THE DINING ROOM IS FIVE ROOMS NOW, AND THE CARD HAS TO KEEP UP.
+ *
+ * `OBJECTIVES[DINING_ROOM]` is one line for the whole beat, which was true
+ * while the beat was one fight. Since the 2026-08-25 rewire it is four --
+ * Sauce alone, Mark in his plates, the A-Team he calls, and Mark with nothing
+ * -- and a card reading *"Mark is armored. Break his protection"* while Mark
+ * is not even in the building is worse than no card at all.
+ *
+ * Keyed by `CartelPalaceFinale.stage`. The runtime pushes the matching entry
+ * whenever the stage turns; `confrontation` deliberately has no entry, because
+ * there is nothing to do at the table yet but listen, and the beat's own line
+ * still covers it.
+ */
+export const PALACE_DINING_OBJECTIVES = Object.freeze({
+  sauce: Object.freeze({
+    kicker: 'MARK\'S TABLE',
+    text: 'Sauce is holding the room by himself.',
+    hint: 'Mark walked out and left his chef to entertain you.',
+  }),
+  'reprisal-one': Object.freeze({
+    kicker: 'MARK CAME BACK',
+    text: 'Break Mark\'s armor.',
+    hint: 'The plates are what is keeping him in the room. Take them off him.',
+  }),
+  wave: Object.freeze({
+    kicker: 'HE CALLED EVERYBODY',
+    text: 'Clear the A-Team out of the dining room.',
+    hint: 'Mark is behind the doors until the last of them is down.',
+  }),
+  'reprisal-final': Object.freeze({
+    kicker: 'NOTHING LEFT ON HIM',
+    text: 'Finish Mark.',
+    hint: 'No plates, no crew, no chef. Just the man who sold your family.',
+  }),
+});
+
+/**
  * Pure mission authority for the final infiltration. The browser runtime owns
  * rendering and combat; this class owns only player-visible progression.
  */
