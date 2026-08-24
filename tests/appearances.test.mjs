@@ -398,7 +398,19 @@ test('NO WAKE scene variants change clothes without replacing canonical bodies',
   assert.equal(boat.model.dress, 'camp');
   assert.notEqual(boat.model.dress, WARDROBE_MODULE.BOOSKI.dress);
   const source = read(boat.module);
-  assert.ok(source.includes("import { BIG_UNCLE_LOU, BOOSKI_NO_WAKE, IRISH_NO_WAKE } from '../core/wardrobe.js';"));
+  /* The NAMES, not one exact import line. Pinning the line meant the wardrobe
+   * pass and the owner's 2026-08-24 ruling on Lou -- the mansion camp shirt on
+   * the boat, not the suit -- could not both be true at once, and the ruling
+   * is the one that has to win. What matters is that all three looks come from
+   * the shared wardrobe rather than being dressed by hand in the scene. */
+  const wardrobeImport = source.match(/import \{([^}]*)\} from '\.\.\/core\/wardrobe\.js';/);
+  assert.ok(wardrobeImport, 'NO WAKE stopped importing the shared wardrobe');
+  const imported = wardrobeImport[1].split(',').map((name) => name.trim());
+  for (const name of ['BIG_UNCLE_LOU_MANSION', 'BOOSKI_NO_WAKE', 'IRISH_NO_WAKE']) {
+    assert.ok(imported.includes(name), `NO WAKE no longer imports ${name}`);
+  }
+  assert.equal(imported.includes('BIG_UNCLE_LOU'), false,
+    'Lou is back in the suit on the boat; the owner ruled that scene onto the mansion outfit');
   assert.ok(source.includes("model: { ...BOOSKI_NO_WAKE, face: 'assets/faces/booski.png' }"));
 
   const irish = appearancesOf(CHARACTER_IDS.IRISH)

@@ -53,9 +53,22 @@ const BING_STATE_IDS = Object.freeze([
  *   graveyard  4249 -> 4548   same, with Billy already gone.
  *
  * The three party states all move by the same +299 as `party`, which is the
- * check that the delta is content and not staging. */
+ * check that the delta is content and not staging.
+ *
+ * MOVED AGAIN 2026-08-25, on the same protocol, when the wardrobe pass landed:
+ *
+ *   visit-one  6027 -> 6017   `makePerson` gained an optional `tie` and the
+ *                             performer curve/swim options, and the Bing's
+ *                             performers moved out to src/bing/performers.js.
+ *                             ONLY this state moved -- the four staged ones are
+ *                             unchanged at 4696/4696/4619/4548 -- which is the
+ *                             signature of a reshuffled random crowd rather
+ *                             than lost content: nothing placed by hand
+ *                             changed, and the health assertions below (20
+ *                             findings, 19/1/0 by kind, 17 suppressions) are
+ *                             identical in all five states before and after. */
 const EXPECTED_RECORDS = Object.freeze({
-  'bing:visit-one': 6027,
+  'bing:visit-one': 6017,
   'bing:party': 4696,
   'bing:attack': 4696,
   'bing:cleanup': 4619,
