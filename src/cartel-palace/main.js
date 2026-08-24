@@ -69,7 +69,7 @@ const startButton = document.getElementById('start-btn');
 const death = document.getElementById('death');
 const retryButton = document.getElementById('retry-btn');
 const ending = document.getElementById('ending');
-const initiationButton = document.getElementById('initiation-btn');
+const departButton = document.getElementById('depart-btn');
 const loading = document.getElementById('loading');
 
 const ui = {
@@ -1227,7 +1227,9 @@ interaction.register(palace.targets.diningDoor, {
 });
 
 interaction.register(palace.targets.extractionGate, {
-  label: 'Leave for the <b>Initiation</b>',
+  /* He is leaving a house, not going to a ceremony. See the note on
+   * PALACE_BEATS.CLEAR in ./mission.js. */
+  label: 'Leave through the <b>terrace</b>',
   hold: 0.82,
   enabled: () => state.phase === 'active' && mission.beat === PALACE_BEATS.CLEAR,
   onUse: () => {
@@ -1612,7 +1614,7 @@ retryButton.addEventListener('click', () => {
 });
 addEventListener('pagehide', () => loadout.capture(weapons));
 
-initiationButton.addEventListener('click', () => {
+departButton.addEventListener('click', () => {
   if (campaign.state.missions[MISSION_IDS.CARTEL_PALACE].status !== 'complete') return;
   campaign.update((next) => {
     next.missions[MISSION_IDS.INITIATION].status = 'in_progress';
@@ -1624,7 +1626,14 @@ initiationButton.addEventListener('click', () => {
    * is going to be a special one, and three men come and collect him — see
    * `src/specialmeeting/`. That scene hands off to the Initiation at the
    * treeline on its own, so this is a repoint rather than an insertion, and
-   * `SCENES[CARTEL_PALACE].next` is one edge again because of it. */
+   * `SCENES[CARTEL_PALACE].next` is one edge again because of it.
+   *
+   * The DESTINATION has been right since that repoint; what was wrong until
+   * 2026-08-24 was everything the player could read. This button said "Go to
+   * the Initiation", the terrace prompt said "Leave for the Initiation", the
+   * objective hint said "This ends at the Initiation" and the card called the
+   * Palace the final mission. Four promises the graph does not keep, on the
+   * scene's last screen. The id is `depart-btn` now for the same reason. */
   navigateCampaign(campaign, SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb', location });
 });
 

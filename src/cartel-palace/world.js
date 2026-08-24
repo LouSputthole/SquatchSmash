@@ -1280,13 +1280,32 @@ function evidenceLedger(parent, colliders) {
     cylinder(0.12, 0.035, [0, 0.018, 0], M.iron, 'clue-lamp-base', 12),
     cylinder(0.02, 0.5, [0, 0.27, 0], M.iron, 'clue-lamp-stem', 8),
   );
-  const neck = cylinder(0.018, 0.46, [0.2, 0.52, 0.06], M.iron, 'clue-lamp-neck', 8);
+  /* THE SHADE HANGS OFF THE END OF THE ARM, and it is derived rather than
+   * typed. It used to be placed at (0.42, 0.46, 0.14) by eye against an arm
+   * whose far end is at (0.405, 0.624, 0.06) -- 16 cm low and 8 cm off to the
+   * side, which reads at desk distance as a lampshade floating beside a
+   * gooseneck that is pointing at nothing. Owner: floating lamp on the first
+   * evidence desk.
+   *
+   * The arm is a cylinder of `NECK_LENGTH` centred at `NECK_AT` and rotated on
+   * two axes, so where its end actually is depends on both rotations; working
+   * that out by hand once and pasting the number is exactly how the two came
+   * apart. Three.js is asked instead. */
+  const NECK_LENGTH = 0.46;
+  const NECK_AT = [0.2, 0.52, 0.06];
+  const neck = cylinder(0.018, NECK_LENGTH, NECK_AT, M.iron, 'clue-lamp-neck', 8);
   neck.rotation.z = -1.1;
   neck.rotation.x = -0.25;
   lamp.add(neck);
+  neck.updateMatrix();
+  /* The far end of the arm, in the lamp's own space: the cylinder's local +Y
+   * tip carried through its rotation. */
+  const neckTip = new THREE.Vector3(0, NECK_LENGTH / 2, 0).applyMatrix4(neck.matrix);
   const shade = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.18, 12, 1, true), M.lampWarm);
   shade.name = 'clue-lamp-shade';
-  shade.position.set(0.42, 0.46, 0.14);
+  /* A cone's own origin is its middle, so drop it half its height down the
+   * arm's heading -- the shade hangs FROM the tip, it does not straddle it. */
+  shade.position.copy(neckTip).add(new THREE.Vector3(0.02, -0.06, 0.02));
   shade.rotation.x = 1.05;
   shade.rotation.z = 0.62;
   lamp.add(shade);
@@ -1727,18 +1746,45 @@ export function buildCartelPalace(scene) {
   const estateDoor = entrance.door;
   const estateDoorCollider = entrance.collider;
 
+  /* THE PARTITIONS REACH THE CEILING, AND UNTIL 2026-08-24 THEY DID NOT.
+   *
+   * Owner: floating beige rectangles in the estate. They are these walls, seen
+   * from the next room over.
+   *
+   * Every interior partition was 4.2 m tall, standing on the floor, and the
+   * ceiling slabs above start at 4.48 — a 28 cm slot running unbroken around
+   * the top of every wall in the building. Stand in Mark's office and look up
+   * and you see over the office's south partition, over the guest suite's, and
+   * into rooms two doors away; what reads at that angle is a lit beige panel
+   * hanging in the dark with no floor under it and no ceiling over it. Traced
+   * from a screenshot: two of them, `office-south-partition` at 11.1 m and
+   * `guest-south-partition` at 12.9 m, both from a camera standing at the
+   * office desk.
+   *
+   * 4.6 puts their tops 12 cm INTO the 4.48–4.60 slab rather than merely
+   * touching it, which is the same half-thickness key the facade segments use
+   * on each other — a butt joint at exactly 4.48 is a hairline the depth
+   * buffer can open at a glancing angle, which is the same bug back again in a
+   * form that is harder to see.
+   */
+  const PARTITION_TOP = 4.6;
+  const partition = (size, at, name) => solid(
+    estate, colliders,
+    [size[0], PARTITION_TOP, size[2]], [at[0], PARTITION_TOP / 2, at[2]],
+    M.plaster, name,
+  );
   // Rooms and a continuous service corridor along the east edge.
-  solid(estate, colliders, [0.35, 4.2, 20], [10.5, 2.1, 2], M.plaster, 'guest-service-partition');
-  solid(estate, colliders, [0.35, 4.2, 7.5], [10.5, 2.1, -18.25], M.plaster, 'security-service-partition');
-  solid(estate, colliders, [0.35, 4.2, 8.5], [10.5, 2.1, -30.75], M.plaster, 'gallery-service-partition');
+  partition([0.35, 0, 20], [10.5, 0, 2], 'guest-service-partition');
+  partition([0.35, 0, 7.5], [10.5, 0, -18.25], 'security-service-partition');
+  partition([0.35, 0, 8.5], [10.5, 0, -30.75], 'gallery-service-partition');
   // West office / guest split with wide door gaps.
-  solid(estate, colliders, [8.2, 4.2, 0.35], [-13.9, 2.1, 1.5], M.plaster, 'office-north-partition');
-  solid(estate, colliders, [18.4, 4.2, 0.35], [1.3, 2.1, 1.5], M.plaster, 'guest-north-partition');
-  solid(estate, colliders, [7.8, 4.2, 0.35], [-14.1, 2.1, -15], M.plaster, 'office-south-partition');
-  solid(estate, colliders, [18.2, 4.2, 0.35], [1.4, 2.1, -15], M.plaster, 'guest-south-partition');
+  partition([8.2, 0, 0.35], [-13.9, 0, 1.5], 'office-north-partition');
+  partition([18.4, 0, 0.35], [1.3, 0, 1.5], 'guest-north-partition');
+  partition([7.8, 0, 0.35], [-14.1, 0, -15], 'office-south-partition');
+  partition([18.2, 0, 0.35], [1.4, 0, -15], 'guest-south-partition');
   // Gallery to dining partition, with a locked double door in the middle.
-  solid(estate, colliders, [14.7, 4.3, 0.42], [-10.65, 2.15, -34.2], M.plaster, 'dining-partition-west');
-  solid(estate, colliders, [14.7, 4.3, 0.42], [10.65, 2.15, -34.2], M.plaster, 'dining-partition-east');
+  partition([14.7, 0, 0.42], [-10.65, 0, -34.2], 'dining-partition-west');
+  partition([14.7, 0, 0.42], [10.65, 0, -34.2], 'dining-partition-east');
   const diningDoors = new THREE.Group();
   diningDoors.name = 'dining-room-double-doors';
   diningDoors.position.set(0, 0, -34.15);
@@ -2215,8 +2261,26 @@ export function buildCartelPalace(scene) {
     box([0.12, 0.16, 0.12], [-1.1, 0.08, 0.2], M.wood, 'dresser-foot', { cast: false }),
     box([0.12, 0.16, 0.12], [1.1, 0.08, 0.2], M.wood, 'dresser-foot', { cast: false }),
   );
+  /* THREE SHUT DRAWERS AND ONE OPEN ONE, and the open one is a DRAWER rather
+   * than a slab parked in front of a shut drawer face.
+   *
+   * Owner: misaligned dresser drawer. Two things were wrong and they compound.
+   * The top-right slot carried a closed face at z -0.29 AND an open drawer
+   * box at z -0.48..-0.32, so the player saw a shut drawer front with a second
+   * drawer hovering in front of it. And the open box's BACK was at -0.32 while
+   * the cabinet's front face is at -0.28, leaving 4 cm of daylight between the
+   * drawer and the furniture it is supposed to be sliding out of.
+   *
+   * Now the loop skips the open slot, and the open drawer is a carcass whose
+   * back is INSIDE the body with its own face and pull on the front of it --
+   * one drawer, pulled out 12 cm, still in its runners. */
+  const OPEN_DRAWER = Object.freeze({ dx: 0.6, dy: 0.62 });
+  /* The cabinet's front face: `dresser-body` is 0.56 deep about z 0. */
+  const DRESSER_FRONT = -0.28;
+  const OPEN_BY = 0.12;
   for (const dy of [0.28, 0.62]) {
     for (const dx of [-0.6, 0.6]) {
+      if (dx === OPEN_DRAWER.dx && dy === OPEN_DRAWER.dy) continue;
       dresser.add(
         box([1.1, 0.28, 0.03], [dx, dy, -0.29], M.woodLight, 'dresser-drawer-face', { cast: false }),
         box([0.26, 0.035, 0.03], [dx, dy, -0.32], M.brass, 'dresser-drawer-pull', { cast: false }),
@@ -2225,9 +2289,21 @@ export function buildCartelPalace(scene) {
   }
   // Half open, with a sleeve hanging out of it. Somebody packed in a hurry
   // exactly once in this house, and it was not this room.
+  const drawerDepth = 0.16;
+  const drawerFrontZ = DRESSER_FRONT - OPEN_BY;
   dresser.add(
-    box([1.1, 0.28, 0.16], [0.6, 0.62, -0.4], M.woodLight, 'dresser-open-drawer'),
-    box([0.16, 0.06, 0.24], [0.72, 0.55, -0.52], M.chefWhite, 'dresser-spilled-sleeve', { cast: false }),
+    box(
+      [1.1, 0.28, drawerDepth],
+      [OPEN_DRAWER.dx, OPEN_DRAWER.dy, drawerFrontZ + drawerDepth / 2],
+      M.woodLight, 'dresser-open-drawer',
+    ),
+    box([1.1, 0.28, 0.03], [OPEN_DRAWER.dx, OPEN_DRAWER.dy, drawerFrontZ - 0.015],
+      M.woodLight, 'dresser-drawer-face', { cast: false }),
+    box([0.26, 0.035, 0.03], [OPEN_DRAWER.dx, OPEN_DRAWER.dy, drawerFrontZ - 0.045],
+      M.brass, 'dresser-drawer-pull', { cast: false }),
+    /* Caught in the drawer front rather than hanging in the air beside it. */
+    box([0.16, 0.06, 0.24], [OPEN_DRAWER.dx + 0.12, OPEN_DRAWER.dy - 0.07, drawerFrontZ - 0.1],
+      M.chefWhite, 'dresser-spilled-sleeve', { cast: false }),
     cylinder(0.09, 0.24, [-0.9, 1.08, -0.06], M.bottleAmber, 'dresser-decanter', 10),
     cylinder(0.04, 0.09, [-0.66, 1.005, -0.1], M.glass, 'dresser-tumbler', 10),
   );
