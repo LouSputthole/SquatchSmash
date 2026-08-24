@@ -34,7 +34,8 @@ test('campaign marathon pins every canonical public handoff in one continuous ch
       [SCENE_IDS.SILVER_PINES, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
       [SCENE_IDS.APARTMENT, SCENE_IDS.BANK_HEIST, '/heist.html', 'safehouse'],
       [SCENE_IDS.BANK_HEIST, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
-      [SCENE_IDS.APARTMENT, SCENE_IDS.SILVER_CASE, '/silvercase.html', 'car_ride'],
+      [SCENE_IDS.APARTMENT, SCENE_IDS.COUNTRYSIDE_CABIN, '/cabin.html', 'arrival'],
+      [SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.SILVER_CASE, '/silvercase.html', 'car_ride'],
       [SCENE_IDS.SILVER_CASE, SCENE_IDS.MANSION, '/mansion.html', 'gate'],
       [SCENE_IDS.MANSION, SCENE_IDS.MANSION_SIEGE, '/mansion-siege.html', 'guest_suite'],
       [SCENE_IDS.MANSION_SIEGE, SCENE_IDS.ENOLA_SQUATCH, '/enolasquatch.html', 'airfield'],
@@ -62,6 +63,8 @@ test('campaign marathon is fail-closed around one browser context, one page, and
   assert.match(source, /page\.reload/);
   assert.match(source, /localStorage\.getItem\(storageKey\)/);
   assert.doesNotMatch(source, /[?&]preview=1/);
+  assert.equal(PUBLIC_RUNTIME_ENTRY_PATHS.includes('/src/cabin/main.js'), true,
+    'the cabin rendering runtime must be stubbed while its story contract remains live');
   assert.equal(PUBLIC_RUNTIME_ENTRY_PATHS.includes('/src/initiation/main.js'), true,
     'the frozen Initiation runtime must be stubbed, not exercised or modified');
   assert.doesNotMatch(source, /import\(['"]\/src\/initiation\/main\.js['"]\)/);

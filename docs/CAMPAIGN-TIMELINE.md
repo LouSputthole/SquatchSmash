@@ -1,8 +1,9 @@
-# Campaign timeline — current production flow (updated 2026-08-11)
+# Campaign timeline — current production flow (updated 2026-08-24)
 
-The owner's connected campaign route implemented by campaign schema v16. The
-original four-day apartment spine remains intact; the final chapter now starts
-after THE TAKE cleanup and connects The Silver Case, PROJECT SILENT SQUATCH,
+The owner's connected campaign route implemented by campaign schema v19. The
+original four-day apartment spine remains intact. After THE TAKE cleanup, Lou
+sends Tony to a separate furnished cabin in the countryside to lay low. That
+second home base then connects The Silver Case, PROJECT SILENT SQUATCH,
 Mansion Under Siege, Enola Squatch, the repaired-mansion briefing, and Cartel
 Palace. Initiation remains a protected terminal WIP until the owner has
 playtested and approved changes to that scene.
@@ -32,14 +33,16 @@ by `npm run verify:campaign-route`:
 | 1 | Eat, shower, poop, change clothes, answer Big Uncle Lou | Bada Bing one → apartment whiskey nerve-settle → Squatchfather | Return home and sleep |
 | 2 | Wake 7:00 AM, answer Booskibro | Beef Run → apartment, answer Big Uncle Lou → Bada Bing two / HotDog incident → Squatch Graveyard → Jerky Motel | Return home 4:30 AM and sleep |
 | 3 | Wake noon, answer Big Uncle Lou's vague harbor call | NO WAKE → apartment, answer Margo → Front and Center | Return home and sleep |
-| 4 | Margo's morning-after beat, answer Big Uncle Lou's Silver Pines call | Silver Pines → apartment, answer Lou's heist call and collect seven loadout pieces → THE TAKE → apartment cleanup | The cleaned apartment opens the final chapter |
+| 4 | Margo's morning-after beat, answer Big Uncle Lou's Silver Pines call | Silver Pines → apartment, answer Lou's heist call and collect seven loadout pieces → THE TAKE → apartment cleanup | Read Lou's lay-low message and drive north; the apartment remains the original hub |
+| Lay low | Countryside cabin: a second home base with the apartment's domestic utility | Sleep one night at the cabin; optionally explore the creek, ridge overlook, forestry shed, and firepit | Take the parked car to The Silver Case after the required rest |
 | Final chapter | No additional apartment detour | The Silver Case → Lou's Mansion / PROJECT SILENT SQUATCH → quiet mansion evening and guest-room sleep → Mansion Under Siege → Enola Squatch → repaired Mansion return → Cartel Palace | Cartel Palace opens Initiation; Initiation is entered `in_progress` and remains frozen |
 
 Every external mission owns a registered scene/spawn and either returns to the
-apartment or hands directly to the next mission. The save survives reloads at
-each seam. The connected topology is complete through entry to Initiation; the
-remaining campaign-ending decision is the protected Initiation scene itself,
-not a missing route into the final chapter.
+apartment, passes through the later cabin hub, or hands directly to the next
+mission. The save survives reloads at each seam. The connected topology is
+complete through entry to Initiation; the remaining campaign-ending decision
+is the protected Initiation scene itself, not a missing route into the final
+chapter.
 
 ## Day 1 — Welcome to the Life
 
@@ -143,8 +146,17 @@ bank, vault, street, garage, vehicle-swap, driving, loot, injuries, settlement,
 and retry checkpoints persist. The safehouse returns Tony home, where washing,
 changing, and hiding the gear are physical door requirements.
 
-**The final chapter — built and connected.** Completing the apartment cleanup
-opens The Silver Case, then hands directly through PROJECT SILENT SQUATCH,
+**The countryside cabin — built and connected.** Completing the apartment
+cleanup does not replace or retire the apartment. Tony reads Lou's lay-low
+instructions, packs light, and drives north to a separate second hub. The
+cabin imports the apartment's familiar domestic utility and collected art into
+a rural home base, while its detailed property opens onto a trail, creek,
+ridge overlook, forestry shed, firepit, porch, and surrounding woods. Sleeping
+one night is the only required cabin beat. Exploring the property is optional,
+durable, and advances the clock once per landmark.
+
+**The final chapter — built and connected.** After the cabin rest, the parked
+car opens The Silver Case, then hands directly through PROJECT SILENT SQUATCH,
 the quiet mansion evening and guest-room sleep, Mansion Under Siege, Enola
 Squatch, the repaired-mansion briefing, and Cartel Palace. Cartel Palace is the
 last combat mission. Its successful extraction exposes Initiation.
@@ -155,6 +167,8 @@ second time, and preview campaigns keep these events in page-local storage.
 
 | Beat | Campaign clock after the authored event |
 |---|---|
+| Arrive at the countryside cabin | Day 4, 6:55 PM |
+| Wake after laying low | Day 5, 2:30 PM |
 | Leave for The Silver Case | Day 5, 4:00 PM |
 | Complete The Silver Case | Day 5, 5:30 PM |
 | Arrive at Lou's Mansion | Day 5, 5:55 PM |
@@ -167,6 +181,10 @@ second time, and preview campaigns keep these events in page-local storage.
 | Complete the return briefing | Day 6, 7:15 PM |
 | Leave for Cartel Palace | Day 6, 8:30 PM |
 | Extract from Cartel Palace | Day 6, 11:00 PM |
+
+The cabin rows show the required route with no optional detours. Creek, ridge,
+shed, and firepit exploration add their own exact-once time without gating the
+car or rewriting the final-arc schedule backwards.
 
 The workbook's **Day 5 night** label for Mansion Under Siege is a narrative
 label for the overnight begun on Day 5. The guest-room sleep crosses midnight,

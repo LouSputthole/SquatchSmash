@@ -63,6 +63,7 @@ test('preview query and route resolution preserve existing query parameters', ()
     pathname: '/game/golf.html', search: '?preview=1',
   }), SCENE_IDS.SILVER_PINES);
   for (const [pathname, scene] of [
+    ['/game/cabin.html', SCENE_IDS.COUNTRYSIDE_CABIN],
     ['/game/silvercase.html', SCENE_IDS.SILVER_CASE],
     ['/game/mansion-siege.html', SCENE_IDS.MANSION_SIEGE],
     ['/game/enolasquatch.html', SCENE_IDS.ENOLA_SQUATCH],
@@ -137,6 +138,7 @@ test('the preview launcher exposes the Beef Run preflight alongside its flight s
 
 test('final-arc launcher links preserve preview isolation and expose Cartel Palace skips', () => {
   const html = fs.readFileSync(new URL('../preview.html', import.meta.url), 'utf8');
+  assert.match(html, /data-preview-scene="cabin"[^>]+href="cabin\.html\?preview=1"/i);
   assert.match(html, /silvercase\.html\?preview=1&amp;checkpoint=car[^>]*>Car</i);
   assert.match(html, /mansion-siege\.html\?preview=1&amp;checkpoint=wake[^>]*>Wake</i);
   assert.match(html, /data-preview-scene="mansion-siege"[^>]+href="mansion-siege\.html\?preview=1"/i);
@@ -148,7 +150,7 @@ test('final-arc launcher links preserve preview isolation and expose Cartel Pala
   const sceneOrder = [...html.matchAll(/data-preview-scene="([^"]+)"/g)]
     .map((match) => match[1]);
   const finalOrder = [
-    'silvercase', 'mansion', 'mansion-siege', 'enolasquatch',
+    'heist', 'cabin', 'silvercase', 'mansion', 'mansion-siege', 'enolasquatch',
     'mansion-return', 'cartel-palace', 'initiation',
   ];
   assert.deepEqual(
@@ -474,6 +476,25 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'available');
         assert.equal(state.story.chapter, 'heist_day');
         assert.equal(state.story.day, 4);
+      },
+    },
+    {
+      location: { pathname: '/cabin.html', search: '?preview=1' },
+      scene: SCENE_IDS.COUNTRYSIDE_CABIN,
+      verify(state) {
+        const heist = state.missions[MISSION_IDS.BANK_HEIST];
+        assert.equal(heist.status, 'complete');
+        assert.equal(heist.cleanupComplete, true);
+        assert.equal(state.missions[MISSION_IDS.SILVER_CASE].status, 'available');
+        assert.equal(state.story.chapter, 'post_heist');
+        assert.equal(state.story.day, 4);
+        assert.equal(state.story.timeMinutes, 18 * 60 + 55);
+        assert.equal(state.story.timeEvents.includes(TIME_EVENT_IDS.PHONE_READ_CABIN), true);
+        assert.equal(
+          state.story.timeEvents.includes(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN),
+          true,
+        );
+        assert.equal(state.inventory.carried.includes(ITEM_IDS.PHONE), true);
       },
     },
     {

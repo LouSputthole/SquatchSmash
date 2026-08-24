@@ -403,6 +403,7 @@ test('every registered scene has a deterministic default spawn', () => {
     [SCENE_IDS.JERKY_MOTEL, 'passenger_seat'],
     [SCENE_IDS.NO_WAKE, 'gate_c'],
     [SCENE_IDS.SILVER_ROOM, 'kerb'],
+    [SCENE_IDS.COUNTRYSIDE_CABIN, 'arrival'],
     [SCENE_IDS.INITIATION, 'gathering'],
   ]);
 

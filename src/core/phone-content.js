@@ -13,6 +13,7 @@ const READ_EVENTS = Object.freeze({
   family: TIME_EVENT_IDS.PHONE_READ_FAMILY,
   lou: TIME_EVENT_IDS.PHONE_READ_LOU,
   mum: TIME_EVENT_IDS.PHONE_READ_MUM,
+  cabin: TIME_EVENT_IDS.PHONE_READ_CABIN,
 });
 
 export function phoneReadEventForThread(id) {
@@ -76,13 +77,23 @@ export function phoneThreadsForCampaign(state) {
     lou.push(message('UNCLE LOU', 'Bing. Closed party. Front room.'));
   }
 
+  const cabin = missions[MISSION_IDS.BANK_HEIST]?.status === 'complete'
+    ? thread('cabin', 'UNCLE LOU · LAY LOW', [
+      message('UNCLE LOU', 'Clean the apartment. Pack light. Take the county road north.'),
+      message('UNCLE LOU', 'There is a cabin past the old forestry gate. The key is under the porch rail.'),
+      message('UNCLE LOU', 'Stay there. Walk the property if you get restless. Nobody sees you until I say.'),
+      message('UNCLE LOU', 'Keep this phone on. Ape will collect you when the next thing is ready.'),
+    ], state)
+    : null;
+
   return [
     thread('family', 'THE FAMILY', family, state),
     thread('lou', 'UNCLE LOU', lou, state),
+    cabin,
     thread('mum', 'MUM', [
       message('MUM', 'Is tomorrow the thing'),
       message('MUM', 'You never tell me anything'),
       message('MUM', 'Love you'),
     ], state),
-  ];
+  ].filter(Boolean);
 }

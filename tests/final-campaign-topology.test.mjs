@@ -5,7 +5,9 @@ import {
   CAMPAIGN_STORAGE_KEY,
   CAMPAIGN_VERSION,
   MISSION_IDS,
+  SCENES,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
   navigateCampaign,
   normalizeCartelPalaceCheckpointSnapshot,
@@ -15,6 +17,7 @@ import {
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createBankHeistStory } from '../src/core/bank-heist-story.js';
+import { createCountrysideCabinStory } from '../src/core/countryside-cabin-story.js';
 import { createSilentSquatchStory } from '../src/core/silent-squatch-story.js';
 import {
   createCartelPalaceCampaignStory,
@@ -40,14 +43,22 @@ function follow(campaign, sceneId, href) {
 }
 
 test('the final arc has stable scene ids, URLs, spawns, and one ending edge home', () => {
+  assert.equal(SCENE_IDS.COUNTRYSIDE_CABIN, 'countryside_cabin');
   assert.equal(SCENE_IDS.SILVER_CASE, 'silver_case');
   assert.equal(SCENE_IDS.MANSION, 'mansion');
   assert.equal(SCENE_IDS.MANSION_SIEGE, 'mansion_siege');
   assert.equal(SCENE_IDS.ENOLA_SQUATCH, 'enola_squatch');
   assert.equal(SCENE_IDS.MANSION_RETURN, 'mansion_return');
   assert.equal(SCENE_IDS.CARTEL_PALACE, 'cartel_palace');
+  assert.equal(SCENES[SCENE_IDS.APARTMENT].next.includes(SCENE_IDS.SILVER_CASE), false);
+  assert.deepEqual(SCENES[SCENE_IDS.COUNTRYSIDE_CABIN].next, [SCENE_IDS.SILVER_CASE]);
 
   const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.enter(SCENE_IDS.COUNTRYSIDE_CABIN);
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.COUNTRYSIDE_CABIN,
+    spawn: 'arrival',
+  });
   campaign.enter(SCENE_IDS.SILVER_CASE);
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.SILVER_CASE, spawn: 'car_ride' });
   follow(campaign, SCENE_IDS.MANSION, 'mansion.html');
@@ -329,7 +340,7 @@ test('a v12 save already standing in Initiation cannot migrate back to locked', 
   assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'in_progress');
 });
 
-test('v12 saves before the old invitation open the final arc at The Silver Case', () => {
+test('v12 saves before the old invitation retain The Silver Case behind the cabin hub', () => {
   const storage = new MemoryStorage();
   const legacy = legacyV12();
   legacy.story.chapter = 'post_heist';
@@ -344,7 +355,7 @@ test('v12 saves before the old invitation open the final arc at The Silver Case'
   assert.equal(state.scene.id, SCENE_IDS.APARTMENT);
 });
 
-test('THE TAKE cleanup opens The Silver Case instead of skipping to Initiation', () => {
+test('THE TAKE cleanup routes through a cabin rest before The Silver Case', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
     const heist = state.missions[MISSION_IDS.BANK_HEIST];
@@ -363,7 +374,21 @@ test('THE TAKE cleanup opens The Silver Case instead of skipping to Initiation',
   for (const item of HEIST_CLEANUP_ITEMS) {
     assert.equal(apartment.completeHeistCleanup(item.id), true);
   }
+  assert.equal(
+    apartment.tryLeave(campaign.state.activities).id,
+    TIME_EVENT_IDS.PHONE_READ_CABIN,
+  );
+  campaign.advanceTime(TIME_EVENT_IDS.PHONE_READ_CABIN);
   assert.deepEqual(apartment.tryLeave(campaign.state.activities), {
+    kind: 'go', destination: SCENE_IDS.COUNTRYSIDE_CABIN,
+  });
+
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN);
+  campaign.enter(SCENE_IDS.COUNTRYSIDE_CABIN, { spawn: 'arrival' });
+  const cabin = createCountrysideCabinStory({ campaign });
+  assert.equal(cabin.tryLeave().id, 'cabin_rest_first');
+  assert.equal(cabin.rest().ok, true);
+  assert.deepEqual(cabin.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });
 });

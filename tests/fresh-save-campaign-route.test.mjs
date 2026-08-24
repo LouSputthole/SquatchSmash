@@ -24,6 +24,7 @@ import {
 } from '../src/core/apartment-story.js';
 import { createAirstripStory } from '../src/core/airstrip-story.js';
 import { createBankHeistStory } from '../src/core/bank-heist-story.js';
+import { createCountrysideCabinStory } from '../src/core/countryside-cabin-story.js';
 import {
   BADA_BING_TWO_CLEANUP_TASKS,
   createBadaBingTwoStory,
@@ -332,7 +333,22 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   for (const item of HEIST_CLEANUP_ITEMS) {
     assert.equal(apartment.completeHeistCleanup(item.id), true);
   }
+  assert.equal(
+    apartmentExit(apartment, campaign).id,
+    TIME_EVENT_IDS.PHONE_READ_CABIN,
+  );
+  campaign.advanceTime(TIME_EVENT_IDS.PHONE_READ_CABIN);
   assert.deepEqual(apartmentExit(apartment, campaign), {
+    kind: 'go', destination: SCENE_IDS.COUNTRYSIDE_CABIN,
+  });
+
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN);
+  route(campaign, SCENE_IDS.COUNTRYSIDE_CABIN, 'arrival', 'cabin.html');
+  campaign = reload(storage);
+  const cabin = createCountrysideCabinStory({ campaign });
+  assert.equal(cabin.tryLeave().id, 'cabin_rest_first');
+  assert.equal(cabin.rest().ok, true);
+  assert.deepEqual(cabin.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });
 
@@ -461,6 +477,9 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   assert.equal(campaign.state.story.day, 7);
   assert.equal(campaign.state.story.timeMinutes, 40);
   for (const eventId of [
+    TIME_EVENT_IDS.PHONE_READ_CABIN,
+    TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN,
+    TIME_EVENT_IDS.CABIN_REST,
     TIME_EVENT_IDS.DEPART_SILVER_CASE,
     TIME_EVENT_IDS.COMPLETE_SILVER_CASE,
     TIME_EVENT_IDS.DEPART_MANSION,

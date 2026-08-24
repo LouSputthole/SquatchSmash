@@ -31,6 +31,7 @@ const EXPECTED_ADAPTERS = Object.freeze([
   'beefrun',
   'bing',
   'bing-party',
+  'cabin',
   'cartel-palace',
   'enolasquatch',
   'golf',

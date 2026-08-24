@@ -56,6 +56,27 @@ test('Lou uses the phone to stage the Bing, never the removed Day One email', ()
   assert.match(answeredLou.messages.at(-1).text, /Bing tonight/i);
 });
 
+test('Lou sends a separate durable lay-low thread after THE TAKE', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  assert.equal(phoneThreadsForCampaign(campaign.state).some(({ id }) => id === 'cabin'), false);
+
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
+  });
+  const cabin = phoneThreadsForCampaign(campaign.state).find(({ id }) => id === 'cabin');
+  assert.equal(cabin.who, 'UNCLE LOU · LAY LOW');
+  assert.equal(cabin.readEventId, TIME_EVENT_IDS.PHONE_READ_CABIN);
+  assert.equal(cabin.unread, true);
+  assert.match(cabin.messages.map(({ text }) => text).join(' '), /cabin.*forestry gate/i);
+  assert.match(cabin.messages.map(({ text }) => text).join(' '), /walk the property/i);
+
+  campaign.advanceTime(phoneReadEventForThread('cabin'));
+  const restored = phoneThreadsForCampaign(createCampaign({ storage }).state)
+    .find(({ id }) => id === 'cabin');
+  assert.equal(restored.unread, false);
+});
+
 test('reading the selected phone thread marks it through the shared campaign callback', () => {
   const read = [];
   const phone = new Phone({

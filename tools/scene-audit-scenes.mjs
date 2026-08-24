@@ -32,6 +32,9 @@ export const SCENE_AUDIT_SCENES = Object.freeze([
   entry('heist', 'heist.html?preview=1&checkpoint=safehouse', '#start', [
     ['__heistDebug', 'scene'],
   ]),
+  entry('cabin', 'cabin.html?preview=1', '#start-btn, #startBtn', [
+    ['COUNTRYSIDE_CABIN', 'scene'],
+  ]),
   entry('motel', 'motel.html?preview=1', '#start-btn, #startBtn'),
   entry('graveyard', 'graveyard.html?preview=1', '#start-btn, #startBtn', [
     ['GRAVEYARD', 'player', 'camera', 'parent'],

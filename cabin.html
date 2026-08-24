@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>The Hideout · Squatch Life</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#127794;</text></svg>" />
+  <link rel="stylesheet" href="src/style.css" />
+  <link rel="stylesheet" href="src/cabin/cabin.css" />
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body class="cabin">
+  <canvas id="scene"></canvas>
+  <div id="cabin-grade" aria-hidden="true"></div>
+  <div id="cabin-vignette" aria-hidden="true"></div>
+  <div id="cabin-rest" aria-hidden="true"><span>KEEP YOUR HEAD DOWN</span></div>
+
+  <div id="hud" aria-hidden="true">
+    <div id="crosshair"><span></span></div>
+    <div id="prompt" class="hidden"><kbd class="key">E</kbd><span class="label">Interact</span><div class="holdbar"><i></i></div></div>
+    <div id="subtitle" class="hidden"></div>
+    <div id="hands"><div id="hotbar" class="hidden"></div><div id="hand-item" class="hidden"><div class="icon"></div><div class="meta"><span class="name"></span><span class="hint"></span></div></div></div>
+    <div id="radio-osd" class="hidden"><div class="rtitle"><span></span></div><div class="rtrack"></div></div>
+    <div id="clock"><span class="day"></span><span class="time"></span><span class="spent"></span></div>
+    <div id="bladder" class="hidden"><span class="cap">bladder</span><div class="bar"><i></i></div></div>
+    <div id="toast-stack"></div>
+    <div id="posture" class="hidden"><kbd class="key">Q</kbd><span>stand up</span></div>
+  </div>
+
+  <div id="overlay">
+    <div class="panel">
+      <p class="eyebrow">SQUATCH LIFE · COUNTY ROAD NORTH</p>
+      <h1>THE <span>HIDEOUT</span></h1>
+      <p class="tag">Lou said disappear. The apartment is still home; this is where nobody thinks to look.</p>
+      <button id="start-btn" data-scene-start>Step onto the porch</button>
+      <ul class="controls">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · mouse look</li>
+        <li><kbd>E</kbd> use · hold for the second action · <kbd>F</kbd> consume · <kbd>Q</kbd> stand / pocket</li>
+        <li><kbd>R</kbd> skip the radio · <kbd>Esc</kbd> pause · follow the trail markers to explore the property</li>
+        <li>The bed moves the story on. The creek, ridge, shed and fire ring are optional.</li>
+      </ul>
+      <p class="fine">Everything Tony relies on at the apartment came with him: phone, computer, television, radio, clothes, kitchen and the walls full of Squatch gear.</p>
+    </div>
+  </div>
+
+  <div id="loading"><div class="bar"><i></i></div><span>Finding the forestry gate…</span></div>
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong><span data-boot-detail></span>
+    <div class="actions"><button type="button" data-boot-reload>RELOAD</button><a href="./index.html">APARTMENT</a></div>
+  </div>
+  <script src="./src/core/boot-guard.js" data-target="bootFailure" data-ready="CABIN" data-scene="THE HIDEOUT"></script>
+  <script>window.__squatchStage=function(t){var s=document.querySelector('#loading span');if(s)s.textContent=t;};</script>
+  <script type="module" src="src/cabin/main.js" onerror="window.__squatchSceneFail('Could not load the cabin','src/cabin/main.js failed to load.')"></script>
+</body>
+</html>

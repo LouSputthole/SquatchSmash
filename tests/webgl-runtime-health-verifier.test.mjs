@@ -26,7 +26,7 @@ test('the WebGL health gate covers every playable launcher runtime except frozen
    * launcher agree, and this catches the other direction: a runtime quietly
    * dropped from the gate AND from the launcher in the same change, which
    * would leave the two agreeing about a scene neither covers. */
-  assert.equal(NON_INITIATION_RUNTIME_CASES.length, 31);
+  assert.equal(NON_INITIATION_RUNTIME_CASES.length, 32);
   assert.doesNotMatch(
     NON_INITIATION_RUNTIME_CASES.map(({ id, url }) => `${id} ${url}`).join('\n'),
     /initiation/i,

@@ -16,6 +16,7 @@ import {
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { computeHeistSettlement, createBankHeistStory } from '../src/core/bank-heist-story.js';
+import { createCountrysideCabinStory } from '../src/core/countryside-cabin-story.js';
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
@@ -140,7 +141,18 @@ test('THE TAKE records authored checkpoints exactly once and folds its result in
     assert.equal(apartment.completeHeistCleanup(item.id), true);
   }
   assert.equal(campaign.state.missions[MISSION_IDS.BANK_HEIST].cleanupComplete, true);
+  assert.equal(apartment.tryLeave().id, TIME_EVENT_IDS.PHONE_READ_CABIN);
+  campaign.advanceTime(TIME_EVENT_IDS.PHONE_READ_CABIN);
   assert.deepEqual(apartment.tryLeave(), {
+    kind: 'go', destination: SCENE_IDS.COUNTRYSIDE_CABIN,
+  });
+
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN);
+  campaign.enter(SCENE_IDS.COUNTRYSIDE_CABIN, { spawn: 'arrival' });
+  const cabin = createCountrysideCabinStory({ campaign });
+  assert.equal(cabin.tryLeave().id, 'cabin_rest_first');
+  assert.equal(cabin.rest().ok, true);
+  assert.deepEqual(cabin.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });
 });

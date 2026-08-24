@@ -107,6 +107,12 @@ const CASES = [
     scene: 'Silver Pines',
   },
   {
+    page: 'cabin.html',
+    module: 'src/cabin/main.js',
+    scene: 'The Hideout',
+    title: 'Could not load the cabin',
+  },
+  {
     page: 'silvercase.html',
     module: 'src/silvercase/main.js',
     scene: 'The Silver Case',

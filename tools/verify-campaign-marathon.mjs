@@ -49,6 +49,7 @@ export const PUBLIC_RUNTIME_ENTRY_PATHS = Object.freeze([
   '/src/silver/main.js',
   '/src/golf/main.js',
   '/src/heist/main.js',
+  '/src/cabin/main.js',
   '/src/silvercase/main.js',
   '/src/mansion/main.js',
   '/src/mansion/siege/main.js',
@@ -106,8 +107,12 @@ export const MARATHON_TRANSITIONS = Object.freeze([
     '/heist.html', 'safehouse', 'apartment:heist', [TIME_EVENT_IDS.DEPART_BANK_HEIST]),
   transition('heist-home', SCENE_IDS.BANK_HEIST, SCENE_IDS.APARTMENT,
     '/index.html', 'front_door', 'skip', [TIME_EVENT_IDS.COMPLETE_BANK_HEIST]),
-  transition('home-to-silver-case', SCENE_IDS.APARTMENT, SCENE_IDS.SILVER_CASE,
-    '/silvercase.html', 'car_ride', 'apartment:silver-case'),
+  transition('home-to-cabin', SCENE_IDS.APARTMENT, SCENE_IDS.COUNTRYSIDE_CABIN,
+    '/cabin.html', 'arrival', 'apartment:cabin', [
+      TIME_EVENT_IDS.PHONE_READ_CABIN, TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN,
+    ]),
+  transition('cabin-to-silver-case', SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.SILVER_CASE,
+    '/silvercase.html', 'car_ride', 'cabin:rest', [TIME_EVENT_IDS.CABIN_REST]),
   transition('silver-case-to-mansion', SCENE_IDS.SILVER_CASE, SCENE_IDS.MANSION,
     '/mansion.html', 'gate', 'skip', [
       TIME_EVENT_IDS.DEPART_SILVER_CASE, TIME_EVENT_IDS.COMPLETE_SILVER_CASE,
@@ -154,7 +159,7 @@ export const MARATHON_TRANSITIONS = Object.freeze([
 ]);
 
 export function validateMarathonPlan(plan = MARATHON_TRANSITIONS) {
-  assert.equal(plan.length, 27, 'the canonical marathon must have 27 transitions');
+  assert.equal(plan.length, 28, 'the canonical marathon must have 28 transitions');
   assert.equal(plan[0]?.from, SCENE_IDS.APARTMENT);
   assert.equal(plan.at(-1)?.to, SCENE_IDS.APARTMENT);
   assert.equal(plan.at(-1)?.action, 'initiation:complete');
@@ -389,15 +394,41 @@ async function executeBrowserAction(page, step) {
         leaveFor(S.BANK_HEIST);
         ensure(campaign.advanceTime(T.DEPART_BANK_HEIST).applied === true,
           'Heist departure was not recorded');
-      } else if (currentStep.action === 'apartment:silver-case') {
+      } else if (currentStep.action === 'apartment:cabin') {
         for (const item of apartmentModule.HEIST_CLEANUP_ITEMS) {
           ensure(story.completeHeistCleanup(item.id) === true,
             `Heist cleanup ${item.id} failed`);
         }
-        leaveFor(S.SILVER_CASE);
+        const unread = story.tryLeave(campaign.state.activities);
+        ensure(unread?.id === T.PHONE_READ_CABIN,
+          `Cabin message did not gate departure: ${JSON.stringify(unread)}`);
+        ensure(campaign.advanceTime(T.PHONE_READ_CABIN).applied === true,
+          'Lou cabin message was not recorded');
+        leaveFor(S.COUNTRYSIDE_CABIN);
+        ensure(campaign.advanceTime(T.DEPART_COUNTRYSIDE_CABIN).applied === true,
+          'Cabin departure was not recorded');
       } else {
         throw new Error(`${currentStep.id}: unknown Apartment action ${currentStep.action}`);
       }
+      navigate();
+      return { ok: true, action: currentStep.action };
+    }
+
+    if (currentStep.action === 'cabin:rest') {
+      const { createCountrysideCabinStory } = await import(
+        '/src/core/countryside-cabin-story.js'
+      );
+      const story = createCountrysideCabinStory({ campaign });
+      const refused = story.tryLeave();
+      ensure(refused?.kind === 'stay' && refused.id === 'cabin_rest_first',
+        `Cabin car did not require the lay-low rest: ${JSON.stringify(refused)}`);
+      ensure(story.rest()?.ok === true, 'Cabin lay-low rest failed');
+      const repeat = story.rest();
+      ensure(repeat?.ok === false && repeat.reason === 'already_rested',
+        `Cabin rest was not exact-once: ${JSON.stringify(repeat)}`);
+      const departure = story.tryLeave();
+      ensure(departure?.kind === 'go' && departure.destination === S.SILVER_CASE,
+        `Cabin refused The Silver Case: ${JSON.stringify(departure)}`);
       navigate();
       return { ok: true, action: currentStep.action };
     }
@@ -553,8 +584,14 @@ function assertLandingFacts(step, state) {
       assertMission(state, MISSION_IDS.BANK_HEIST,
         { status: 'complete', checkpoint: 'vehicle_swap', outcome: 'professional' });
       break;
-    case 'home-to-silver-case':
+    case 'home-to-cabin':
       assertMission(state, MISSION_IDS.BANK_HEIST, { cleanupComplete: true });
+      assertMission(state, MISSION_IDS.SILVER_CASE, { status: 'available' });
+      break;
+    case 'cabin-to-silver-case':
+      assert.equal(state.story.timeEvents.filter(
+        (eventId) => eventId === TIME_EVENT_IDS.CABIN_REST,
+      ).length, 1, 'Cabin rest must be exact-once');
       assertMission(state, MISSION_IDS.SILVER_CASE, { status: 'available' });
       break;
     case 'silver-case-to-mansion':
@@ -744,7 +781,8 @@ export async function verifyCampaignMarathon() {
     assert.equal(previous.finale.status, 'ready');
     console.log(
       `Campaign marathon passed: ${MARATHON_TRANSITIONS.length}/${MARATHON_TRANSITIONS.length}`
-      + ' handoffs, 27 durable landings, 27 reload proofs, finale ready.',
+      + ` handoffs, ${MARATHON_TRANSITIONS.length} durable landings,`
+      + ` ${MARATHON_TRANSITIONS.length} reload proofs, finale ready.`,
     );
     return previous;
   } finally {
