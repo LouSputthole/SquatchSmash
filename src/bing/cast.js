@@ -558,26 +558,21 @@ export function makePerson(o = {}) {
    * Booski -0.009. Lou has the same defect and hides it behind a wider frame.
    *
    * So it is derived once, here, and both the cap and the socket use it. */
-  /* AND IT IS CLAMPED TO THE BELLY IT EXISTS TO CLEAR.
+  /* AND IT IS NOT CLAMPED DOWN TO THE BELLY, WHICH WAS THE FIRST ATTEMPT.
    *
-   * The raw figure is a curve in `gut` and `build` and knows nothing about how
-   * wide the belly actually came out, so a big gut on a narrow frame -- which
-   * is precisely Willy -- buys a socket further out than the man is. Measured
-   * on him: belly half-width 0.287, arm inner face 0.341. The arm was not
-   * merely un-capped, it had cleared his whole silhouette and was reaching for
-   * nothing.
+   * The first fix capped the spread so the arm's inner face overlapped the
+   * belly by a centimetre, on the theory that a socket outboard of the widest
+   * body surface is a socket reaching for nothing. That is wrong twice over.
+   * It is wrong about anatomy -- an arm hangs BESIDE a belly, it does not
+   * embed in one, and `tests/gut-presentation.test.mjs` has required exactly
+   * that separation since the belly was authored. And it is wrong about what
+   * was broken: the arm was never attached to the belly. It attaches at the
+   * shoulder, to the deltoid and the shoulders slab, and both of those now
+   * read `armSocketX` too. Move the socket and the whole joint moves with it.
    *
-   * The ceiling is the same seam `SH` is derived with a few lines up: the arm's
-   * inner face overlaps the widest body surface by about a centimetre, so the
-   * joint reads as a joint. Below that ceiling the original curve is untouched,
-   * which is every figure whose belly genuinely is that wide. */
-  const gutHalf = gutOn > 0 ? (0.30 + gutOn * 0.25) * t * 0.5 : 0;
-  const armSeam = female ? 0.022 : 0.012;
-  const gutArmSpread = Math.max(0, Math.min(
-    gutOn > 0 ? (0.075 + gutOn * 0.075) * t : 0,
-    gutHalf + armHalf - armSeam - SH,
-  ));
-  const armSocketX = SH + gutArmSpread;
+   * So the original curve stands, and the seam is closed where the seam
+   * actually is. */
+  const armSocketX = SH + (gutOn > 0 ? (0.075 + gutOn * 0.075) * t : 0);
   const lean = gutOn > 0 ? -(0.014 + gutOn * 0.02) * t : 0;
   const gownOcclusion = dress === 'gown'
     ? { always: [], seated: [], visibleBelowHem: [] }

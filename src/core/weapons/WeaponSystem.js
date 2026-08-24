@@ -468,15 +468,36 @@ export class WeaponSystem {
     const model = this.model;
     const triggerId = this.stats.shots;
 
-    // Muzzle, in world space, off the model's own userData.
+    /* Muzzle, in world space, off the model's own userData. This is where the
+     * TRACER leaves from and where the flash is drawn. It is deliberately not
+     * where the round starts: see below. */
     const muzzleLocal = model?.userData?.muzzle ?? _v.set(0, 0, -0.3);
-    const from = model ? model.localToWorld(_v.copy(muzzleLocal)) : this.camera.getWorldPosition(_v);
-    const origin = from.clone();
+    const muzzle = (model
+      ? model.localToWorld(_v.copy(muzzleLocal))
+      : this.camera.getWorldPosition(_v)).clone();
 
-    /* The round goes where the camera is looking, not where the held model
-     * is pointing — the model sits low and right of the eye so it does not
-     * cover the screen, and a player who aims at a light switch expects to
-     * hit the light switch. Spread is applied about that ray. */
+    /* THE ROUND STARTS AT THE EYE, NOT AT THE BARREL.
+     *
+     * The direction has always been the camera's, because a player who aims
+     * at a light switch expects to hit the light switch. The ORIGIN used to
+     * be the muzzle, and those two together are a parallel offset: the held
+     * model sits 0.2 m right and 0.2 m below the eye so it does not cover the
+     * screen, so the shot travelled down a line 0.2 m right and 0.2 m below
+     * the one the crosshair is on -- and stayed there, at every range,
+     * because the two lines never converge.
+     *
+     * Owner, 2026-08-24, on the Siege: *"there is also room for the decals to
+     * be more accurate on the target where you hit it."* That is this. Aim at
+     * a man's head at five metres and the hole appears on his shoulder; aim
+     * at the edge of a doorway and the round goes through the frame. It was
+     * never the decal system, which places a mark exactly where it is told --
+     * it was being told a point on the wrong line.
+     *
+     * So the ballistic ray is the SIGHT ray, eye to crosshair, and the muzzle
+     * is demoted to what it always should have been: the visual start of the
+     * tracer, which converges on the impact the way a real barrel does.
+     * Spread is applied about the sight ray. */
+    const origin = this.camera.getWorldPosition(new THREE.Vector3());
     this.camera.getWorldDirection(_dir).normalize();
     _right.set(1, 0, 0).applyQuaternion(this.camera.getWorldQuaternion(_q));
     _up.set(0, 1, 0).applyQuaternion(_q);
@@ -596,8 +617,14 @@ export class WeaponSystem {
         for (const planned of impactPlan) this._impact(planned.hit, def, planned.ray, planned);
       } : null;
       if (shot.tracer) {
+        /* The streak leaves the barrel and converges on the impact. Where the
+         * contact is nearer than the muzzle is far forward -- a man at arm's
+         * length, a wall the player is pressed against -- the muzzle is past
+         * the end of the round's travel, and a streak drawn from there would
+         * run backwards. Start those at the eye. */
+        const muzzleAhead = _v2.copy(muzzle).sub(origin).dot(direction);
         this.tracers.fire({
-          from: origin,
+          from: origin.distanceTo(end) > muzzleAhead ? muzzle : origin,
           to: end,
           speed: def.tracer.speed,
           colour: def.tracer.colour,

@@ -738,9 +738,42 @@ test('every fixed and procedural Silver gown explicitly occludes its internal hi
             shoes.push(node);
           }
         });
-        assert.ok(shoes.length > 0, `${label} ${side} keeps a visible foot below the hem`);
-        assert.ok(shoes.every((shoe) => shoe.visible),
-          `${label} ${side} shoes remain rendered when internal legs are occluded`);
+        assert.ok(shoes.length > 0, `${label} ${side} keeps a foot below the hem`);
+        /* THE FEET GO WHERE THE SHIN GOES, AND SEATED THE SHIN IS NOT THERE.
+         *
+         * This used to require the shoes visible in every pose, which is right
+         * on her feet and was the "detached legs" report seated. Owner,
+         * 2026-08-24, on the mansion: *"the girls sitting in the chairs their
+         * legs were detached."* They were: `gown.skirt` is a rigid eight-sided
+         * cone that does not fold, so seated it stays a cone from waist to
+         * floor and the pose throws the feet clear out in front of it: the
+         * skirt's leading face is at z 0.21-0.27 and the shoes begin at z
+         * 0.31-0.34, which is 67-97 mm of daylight. Thigh and knee are hidden
+         * (they are outside the cone too), the shin is hidden by the seated
+         * contract above -- and the shoes were pinned visible, which left a
+         * pair of them standing in front of a dress with nothing joining the
+         * two.
+         *
+         * So the shoes follow the shin. Seated, the cone reaches the floor and
+         * reads as a skirt pooled around her, which is what a floor-length
+         * gown does in a chair. The measurement is asserted rather than
+         * described, so the day the skirt learns to fold this test says so. */
+        const shoeBounds = shoes.reduce(
+          (box, shoe) => box.union(new THREE.Box3().setFromObject(shoe)),
+          new THREE.Box3(),
+        );
+        if (npc.seated) {
+          assert.ok(shoes.every((shoe) => !shoe.visible),
+            `${label} ${side} leaves shoes rendered in a pose whose shin is not`);
+          const skirtFront = new THREE.Box3().setFromObject(skirt).max.z;
+          assert.ok(shoeBounds.min.z > skirtFront + 0.05,
+            `${label} ${side} seated feet are inside the skirt after all, so `
+            + 'hiding them is now costing a visible foot rather than saving a '
+            + 'detached one');
+        } else {
+          assert.ok(shoes.every((shoe) => shoe.visible),
+            `${label} ${side} shoes remain rendered when internal legs are occluded`);
+        }
       }
       assert.equal(skirt.geometry.parameters.radialSegments, 8,
         `${label} keeps the authored eight-sided gown silhouette`);
@@ -791,8 +824,11 @@ test('every fixed and procedural Silver gown explicitly occludes its internal hi
         if (node.isMesh && node.name.startsWith('shoe.')) shoes.push(node);
       });
     }
-    assert.ok(shoes.length > 0 && shoes.every((shoe) => shoe.visible),
-      `same gown Npc ${job} keeps both shoes visible`);
+    /* The feet are part of the leg, so they come and go with the shin -- see
+     * the seated-gown reasoning above. What matters here is that it REVERSES:
+     * she stands back up and gets her shoes back. */
+    assert.ok(shoes.length > 0 && shoes.every((shoe) => shoe.visible === visible),
+      `same gown Npc ${job} ${visible ? 'does not restore' : 'still renders'} both shoes`);
   };
   assertReversibleShins(false, 'sit');
   for (const [job, visible] of [
