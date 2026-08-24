@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { lambert } from '../../game/src/world.js';
+import { AabbCombatSpace } from '../core/combat/spatial.js';
 import { makeMotelArrivalCar } from './vehicle.js';
 
 // ---------------------------------------------------------------------------
@@ -93,6 +94,105 @@ function boxMesh(w, h, d, color, x, y, z, extra = null) {
   return mesh(new THREE.BoxGeometry(w, h, d), lambert(color, extra), x, y, z);
 }
 
+/* ===========================================================================
+ * SHOT LINES AND SIGHT LINES THROUGH THE MOTEL'S OWN WALLS
+ *
+ * Owner, on the Jerky Motel: "Also you start getting shot thro walls I think
+ * as well." He was right, and the reason was not the enemies -- it was this
+ * question being asked the wrong way.
+ *
+ * The Motel is not on the shared ground-combat stack (docs/SHARED-SYSTEMS-
+ * AUDIT.md, migration order #2), so it answered "is there anything between
+ * these two points" with its own test, and that test marched TEN evenly
+ * spaced points down the segment and asked whether each one happened to be
+ * standing inside a blocker. Every wall panel in this scene is 0.3 m thick --
+ * `wall()` builds them that way, and the room-twelve shell below is a wall of
+ * `wall(..., R.z1, R.z1 + 0.3, ...)` calls. Over a 12-15 m engagement, which
+ * is what shooting from the lot into room twelve actually is, ten samples sit
+ * 1.2-1.5 m apart. A 0.3 m wall between two of them is not hit; it is stepped
+ * over. Measured on the built level, twenty-two of a hundred and forty-four
+ * lot positions had a "clear" line to a man lying behind the mattress in the
+ * back corner of room twelve, straight through the front of the building, and
+ * `damagePlayer` ran on every one of them.
+ *
+ * Raising the sample count is not the fix and never was. Sampling narrows the
+ * tunnel in proportion to the step; it never closes it, because the wall that
+ * fits between two samples is only ever a question of how far apart they are,
+ * and the range is the player's to choose. The old code had also inflated
+ * every box by 0.25 m in x and z trying to buy the march a bigger target,
+ * which is its own bug in the other direction: it blocked shots across the
+ * open floor of room twelve on colliders the round would have missed.
+ *
+ * So the march is gone and the question is answered geometrically instead: a
+ * slab test against the real box, which either is on the line or is not, at
+ * any thickness and any range. We do not implement that here. `AabbCombatSpace`
+ * in `src/core/combat/spatial.js` is the one slab test in this game -- Mansion
+ * Siege's `segmentBlocked` is already a four-line wrapper over the same call --
+ * and the Motel's blockers can present the Box3-shaped view it wants for the
+ * price of two Vector3s at build time (see `block()`), so it gets used
+ * directly rather than copied. That is reuse of one geometry query, not a
+ * migration: `S.weapon`, `S.ammo`, the Actor roster and everything else the
+ * audit lists as this scene's gaps are deliberately untouched, because a
+ * half-migrated Motel would be worse than either end of that trip.
+ *
+ * WHAT STILL DOES NOT BLOCK, and why:
+ *
+ *   `bed` and `table` were skipped outright by the old test, with no reason
+ *   written down. Keeping them skipped is the honest answer, but for a
+ *   measured reason rather than a habit. Both are 0.9 m boxes -- the beds are
+ *   `block(..., 0, 0.9, 'bed')` and the deal table is `block(..., 0, 0.9,
+ *   'table')` -- and every ballistic line in this scene is drawn eye to eye at
+ *   about 1.5 m, so promoting either to a blocker would not change one shot in
+ *   the mission; the slab test would simply never reach them. What it would
+ *   change is the three deal prompts, which rest ON the table's own surface
+ *   and must not be occluded by the thing holding them up. A motel mattress is
+ *   not ballistic cover either, and the scene already says so out loud in the
+ *   only place it matters: `S.mattressCover` prices it as a damage multiplier
+ *   in `enemyShoot`, not as a wall.
+ *
+ * The fraction is preserved on purpose. Callers compare against 0.95 and read
+ * a hit in the last five percent of the segment as the target itself -- the
+ * door leaf under a door prompt, the crate under a crate prompt -- so this
+ * returns where along the line the first blocker was met rather than a bare
+ * boolean. 1 means the line is clear.
+ * ======================================================================== */
+
+const MOTEL_SIGHT_SPACE = new AabbCombatSpace();
+
+/* Furniture the round goes through. See the note above: measured, not assumed. */
+const SHOT_TRANSPARENT_TAGS = new Set(['bed', 'table']);
+
+/* `enabled === false` rather than `!enabled`, so a blocker that somehow
+ * reached this list without the flag still stops a bullet. The failure this
+ * whole file is about was geometry quietly not being there. */
+function ignoredBySightLine(collider) {
+  return collider.enabled === false || SHOT_TRANSPARENT_TAGS.has(collider.tag);
+}
+
+/**
+ * The first Motel blocker on the segment `from` -> `to`, or null for a clear
+ * line. `from` and `to` are `{ x, y, z }` in world space.
+ *
+ * A blocker containing the origin is skipped by the shared space, which is
+ * what lets a man standing in his own doorway shoot out of it: the threshold
+ * box that fills the opening is his body, not cover from himself.
+ */
+export function motelSightContact(colliders, from, to) {
+  return MOTEL_SIGHT_SPACE.trace(from, to, {
+    boxes: colliders,
+    ignore: ignoredBySightLine,
+  });
+}
+
+/**
+ * How far along `from` -> `to` the line survives: the entry fraction of the
+ * first blocker, or 1 when nothing is in the way.
+ */
+export function motelSegmentBlocked(colliders, from, to) {
+  const contact = motelSightContact(colliders, from, to);
+  return contact ? contact.t : 1;
+}
+
 export function buildMotel(scene, renderer) {
   const colliders = [];
   const flicker = [];
@@ -109,7 +209,20 @@ export function buildMotel(scene, renderer) {
     return object;
   }
 
-  // Add an axis-aligned blocker. Returns the collider so callers can disable it.
+  /* Add an axis-aligned blocker. Returns the collider so callers can disable it.
+   *
+   * The record carries the same box twice. `x0..y1` are the flat scalars this
+   * scene has always walked and stood against; `min`/`max` are the identical
+   * numbers in the Box3 shape every shared ground-combat query speaks, so the
+   * record can be handed straight to `AabbCombatSpace` (see
+   * `motelSegmentBlocked` below) without wrapping 109 colliders in throwaway
+   * objects on every sight-line question. They are built together and nothing
+   * mutates a blocker's bounds after construction -- only `enabled` ever
+   * changes -- so the two views cannot drift apart.
+   *
+   * `tools/verify-geometry-worker.mjs` already preferred `min`/`max` over the
+   * `x0/x1/z0/z1` fallback it was reading for this scene, and both branches
+   * produce the same numbers, so the geometry gate sees no change. */
   function block(x0, x1, z0, z1, y0, y1, tag = '', assemblyId = null) {
     const ordinal = colliders.length + 1;
     const c = {
@@ -119,6 +232,8 @@ export function buildMotel(scene, renderer) {
       z1: Math.max(z0, z1),
       y0,
       y1,
+      min: new THREE.Vector3(Math.min(x0, x1), Math.min(y0, y1), Math.min(z0, z1)),
+      max: new THREE.Vector3(Math.max(x0, x1), Math.max(y0, y1), Math.max(z0, z1)),
       tag,
       name: `motel.collider.${tag || 'untagged'}.${ordinal}`,
       enabled: true,
@@ -470,6 +585,33 @@ export function buildMotel(scene, renderer) {
   roomFloor.position.set((R.x0 + R.x1) / 2, 0.02, (R.z0 + R.z1) / 2);
   roomFloor.receiveShadow = true;
   scene.add(roomFloor);
+  /* THE CEILINGS ARE MESHES WITH NO BLOCKER, AND THAT IS CORRECT HERE.
+   *
+   * When the shot-line test was rebuilt (see `motelSegmentBlocked` above) the
+   * obvious next worry was the floor above: a ceiling nobody can shoot through
+   * is only a ceiling if something stops the round, and this slab does not.
+   * Measured on the built level before adding one, though, the upper floor
+   * cannot reach into either modelled room, and the reason is that this motel
+   * has no modelled second-floor interior at all. `wall(BUILDING.x0,
+   * BUILDING.x1, BUILDING.z0, WALKWAY.z0, DECK_Y, ROOF_Y, ...)` fills the
+   * entire storey above these rooms with one solid `motel-upper` blocker, and
+   * the room's own walls run 0..DECK_Y underneath it, so the room is a sealed
+   * box from y=0 to y=8 with the ceiling slab floating harmlessly inside it.
+   *
+   * Both halves of that check are worth stating, because either one failing
+   * puts the blocker back:
+   *   - Nobody can stand over the room. `blocked()` at (0, DECK_Y, -6),
+   *     (0, DECK_Y, -10) and (-3, DECK_Y, -14) all return the `motel-upper`
+   *     box. The only reachable second-floor ground is the walkway deck at
+   *     z -4..-1.1, which is in FRONT of the room, not above it.
+   *   - From every position on that deck the line into the room is stopped:
+   *     by the room's own front wall for a target near the door, and by
+   *     `motel-upper` for anything deeper in.
+   *
+   * `tests/motel-shot-lines.test.mjs` asserts both of those, so if anyone ever
+   * opens the upstairs rooms up and makes a vertical engagement possible, the
+   * test that says a ceiling is unnecessary is the test that fails. Adding a
+   * redundant blocker today would only have hidden that. */
   const ceil = boxMesh(R.x1 - R.x0, 0.2, R.z1 - R.z0, 0xbfb9a4, (R.x0 + R.x1) / 2, ROOM_H + 0.1, (R.z0 + R.z1) / 2);
   ceil.name = 'motel.shell.room12-ceiling';
   ownGeometry(ceil, 'motel.shell', { supports: true, fixedSupportAnchor: true });
@@ -1361,6 +1503,11 @@ export function buildMotel(scene, renderer) {
     refs,
     breakables,
     floorAt,
+    /* Bound to this build's blockers so the runtime never has to remember to
+     * pass them, and so a headless test can ask the same question of the same
+     * level the browser gets. */
+    segmentBlocked: (from, to) => motelSegmentBlocked(colliders, from, to),
+    sightContact: (from, to) => motelSightContact(colliders, from, to),
     insideRoom12,
     rects: { BUILDING, WALKWAY, ROOM12, ROOM11, BATH, OFFICE, POOL, POOL_STEPS, STAIRS_E, STAIRS_W },
     DECK_Y,

@@ -1938,18 +1938,28 @@ try {
    * Sampled from inside the page instead, on the frame where both halves hold
    * together, so nothing can land between them. The claim is unchanged and
    * the proof is now exact: while the invitation is still being spoken, the
-   * doorway already offers its [E]. */
+   * doorway is already walkable.
+   *
+   * It used to read `activeInteract() === 'enterRoom'`. That prompt is gone --
+   * the owner's note was that pressing a key to walk through an open door is
+   * easy to miss and breaks the scene for anyone who does -- so what this
+   * samples now is the thing the prompt used to stand for: both blockers in
+   * that opening are off while Rico is saying come in. */
   const invitation = await previewPage.evaluate(() => new Promise((resolve, reject) => {
     const motel = window.MOTEL;
     const deadline = performance.now() + 180000;
     const tick = () => {
       const subtitle = document.getElementById('subtitle').textContent;
+      const doorSolid = motel.refs.frontDoor?.collider?.enabled === true;
+      const thresholdHeld = motel.refs.roomTwelveThreshold?.enabled === true;
       if (subtitle.includes('Come in before') && motel.voice.busy()
-        && motel.activeInteract() === 'enterRoom') {
+        && !doorSolid && !thresholdHeld) {
         const rico = motel.actors.find((actor) => actor.name === 'Rico');
         resolve({
           objective: motel.objective,
           active: motel.activeInteract(),
+          doorSolid,
+          thresholdHeld,
           voiceBusy: motel.voice.busy(),
           subtitle,
           rico: rico ? { x: rico.position.x, z: rico.position.z, state: rico.state } : null,
@@ -1957,32 +1967,43 @@ try {
         return;
       }
       if (performance.now() > deadline) {
-        reject(new Error(`the doorway [E] never went live during the invitation: ${subtitle}`));
+        reject(new Error(`the doorway never became walkable during the invitation: ${subtitle}`));
         return;
       }
       requestAnimationFrame(tick);
     };
     tick();
   }));
-  check('Rico steps aside and the [E] doorway prompt is live while he says come in',
+  check('Rico steps aside and the doorway is walkable while he says come in',
     invitation.voiceBusy
-      && invitation.objective.sub.includes('[E]')
-      && invitation.active === 'enterRoom'
+      && !invitation.doorSolid
+      && !invitation.thresholdHeld
       && Math.abs(invitation.rico?.x || 0) >= 0.8,
     JSON.stringify(invitation));
   await previewPage.waitForFunction(
-    () => window.MOTEL.S.doorOpened && window.MOTEL.objective.sub.includes('Step inside'),
+    () => window.MOTEL.S.doorOpened && window.MOTEL.objective.sub.includes('Walk in'),
     null,
     { timeout: SCENE_WAIT_MS },
   );
   const doorObjective = await previewPage.evaluate(() => window.MOTEL.objective);
-  check('answering at the door opens it and says, in words, to go in',
-    doorObjective.sub.includes('Step inside') && doorObjective.sub.includes('[E]'),
+  /* In words, and in the player's words: walk in. The `[E]` half of this
+   * assertion is a negative now so the old prompt cannot creep back into the
+   * objective line without failing here. */
+  check('answering at the door opens it and says, in words, to walk in',
+    doorObjective.sub.includes('Walk in') && !doorObjective.sub.includes('[E]'),
     JSON.stringify(doorObjective));
+  const noKeypress = await previewPage.evaluate(() => {
+    window.MOTEL.teleport(0, -3.0);
+    window.MOTEL.face(0, -12);
+    return { active: window.MOTEL.activeInteract() };
+  });
+  check('the doorway no longer offers a keypress',
+    noKeypress.active !== 'enterRoom',
+    JSON.stringify(noKeypress));
 
-  /* Step in by WALKING in. Crossing the threshold runs the same `enterRoom()`
-   * the [E] prompt runs — there is no way to be inside room twelve that did
-   * not go through the state machine, and this proves the doorway really is
+  /* Step in by WALKING in, which is now the only way. Crossing the opening
+   * runs `enterRoom()` — there is no way to be inside room twelve that did not
+   * go through the state machine — and this proves the doorway really is
    * passable once Rico has been answered. */
   await previewPage.evaluate(() => {
     window.MOTEL.teleport(0, -2.6);

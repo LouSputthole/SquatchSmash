@@ -78,16 +78,49 @@ export const SEATS = Object.freeze({
 export const SEAT_IDS = Object.freeze(['driver', 'front_passenger', 'rear_left', 'rear_right']);
 
 /** A seated eye, above the cushion. */
-export const SEATED_EYE = 0.72;
+export const SEATED_EYE = 1.0;
+
+/**
+ * A seated MOUTH, above the cushion — where a voice comes out of.
+ *
+ * Slightly under the eye, which is where a mouth is. It exists because a voice
+ * in this scene used to be emitted from `npc.group`, and that group's origin is
+ * the character's FEET: for a seated rider `occupy()` drops it
+ * `SEATED_FIGURE_DROP` below the cushion, putting the emitter under the floor
+ * pan and roughly a metre and a half BELOW the listener's ear, at a horizontal
+ * separation of under one metre. The dominant component of that direction
+ * vector is straight down, which is exactly what the owner reported: voices
+ * coming from the floor of the car.
+ *
+ * The anchors these place are children of the car, so they ride with it for
+ * free and are correct on any frame the car has been moved on — including the
+ * frames the rail moves it and the block's own ride-along does not run.
+ */
+export const SEATED_MOUTH = 0.60;
 
 /**
  * A seated FIGURE's origin, below the cushion.
  *
  * `Npc.sit()` folds the hips and knees but the rig's origin stays at the
  * floor, so a body placed at seat height is standing on the seat. Golf found
- * the number and it is the same rig: drop it 0.92.
+ * the number and it is the same rig.
+ *
+ * IT MOVES WITH `SEATED_EYE`, and that is why it is 0.64 and not golf's 0.92.
+ * These two constants describe the same head from opposite ends: the player's
+ * eye is measured UP from the cushion, an NPC's body DOWN from it, and the
+ * pair only agrees when a man sitting beside you has his eyes level with
+ * yours. At golf's 0.92 against the old 0.72 eye they did agree, at 1.52 each.
+ * Raising the eye to 1.80 to clear this car's window line left the riders
+ * where they were, and the camera then sat eight to twenty-six centimetres
+ * above every eye in the car -- the player looking DOWN at three men for the
+ * length of the drive, their heads under the window line his was raised to
+ * clear. Measured in a real frame from the front passenger seat: the driver's
+ * head was below the centre of shot.
+ *
+ * So it comes down by the same 0.28 the eye went up. If `SEATED_EYE` ever
+ * changes again, change this by the same amount in the opposite direction.
  */
-export const SEATED_FIGURE_DROP = 0.92;
+export const SEATED_FIGURE_DROP = 0.64;
 
 /** The boot: where a second prospect is, and nobody mentions it. */
 export const TRUNK_ANCHOR = Object.freeze({ x: -2.18, y: 0.62, z: 0 });
@@ -143,6 +176,30 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
   /* ---------------------------------------------------------------- */
   const interior = buildInterior(car, cabin);
   root.add(interior.group);
+
+  /* ---------------------------------------------------------------- */
+  /* Where each seat's voice comes out of                              */
+  /*                                                                    */
+  /* Empty Object3Ds, one per seat, parented to the car. Nothing is     */
+  /* drawn: they exist to be handed to `speak()` as the emitter, so a   */
+  /* line is positioned by the SEAT somebody is in rather than by the   */
+  /* transform of the rig that happens to be sitting in it. The owner's */
+  /* rule for this scene was explicit -- "do not let character          */
+  /* transforms or unused spawn locations determine dialogue audio      */
+  /* positioning" -- and this is what makes that possible.              */
+  /*                                                                    */
+  /* Children of the car, so they follow it on any frame it is moved,   */
+  /* including the frames the forest rail moves it directly.            */
+  /* ---------------------------------------------------------------- */
+  const voiceAnchors = {};
+  for (const id of SEAT_IDS) {
+    const seat = SEATS[id];
+    const anchor = new THREE.Object3D();
+    anchor.name = `sedan.voice.${id}`;
+    anchor.position.set(seat.x, seat.y + SEATED_MOUTH, seat.z);
+    root.add(anchor);
+    voiceAnchors[id] = anchor;
+  }
 
   /* ---------------------------------------------------------------- */
   /* Lights                                                            */
@@ -243,6 +300,8 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
 
     /** Seat, door and boot anchors, in car-local metres. */
     seatLocal(id) { return SEATS[id] ?? null; },
+    /** The car-owned emitter for a seat, at mouth height. See SEATED_MOUTH. */
+    seatVoice(id) { return voiceAnchors[id] ?? null; },
     seatWorld(id, out) { return worldPoint(SEATS[id] ?? SEATS.driver, out); },
     eyeWorld(id, out) {
       const seat = SEATS[id] ?? SEATS.driver;

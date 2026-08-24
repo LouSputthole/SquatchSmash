@@ -649,20 +649,32 @@ function pointBlocked(x, y, z, r = 0.3) {
   return false;
 }
 
+/**
+ * IS THERE A MOTEL BETWEEN THESE TWO POINTS?
+ *
+ * Owner: "Also you start getting shot thro walls I think as well." He was.
+ *
+ * This used to march ten points down the segment and ask whether any of them
+ * had landed inside a blocker. Motel walls are 0.3 m thick and a shot from
+ * the lot into room twelve is twelve to thirty metres long, which put the
+ * samples 1.2-3 m apart, so the front of the building routinely fell between
+ * two of them and `damagePlayer` ran anyway -- measured on the built level,
+ * from 22 of 144 sampled firing positions in the lot. Raising the sample count
+ * would only have made the player walk further back before finding the same
+ * hole. The whole march is gone; `level.js` now answers this with the
+ * shared slab test in `src/core/combat/spatial.js`, against the real box, at
+ * any thickness and any range. The long version of why -- including the two
+ * furniture tags that still do not block, and the measurement behind that --
+ * is the comment over `motelSegmentBlocked` in `src/motel/level.js`.
+ *
+ * The signature and the return value are deliberately unchanged. Callers pass
+ * (x, z, y) triples in that order and compare the result against 0.95, reading
+ * a contact in the last five percent of the line as the target itself rather
+ * than cover in front of it -- which is what lets an interaction prompt sit on
+ * the door it belongs to. 1 means nothing is in the way.
+ */
 function segmentBlocked(x0, z0, y0, x1, z1, y1) {
-  const steps = 10;
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps;
-    const x = THREE.MathUtils.lerp(x0, x1, t);
-    const z = THREE.MathUtils.lerp(z0, z1, t);
-    const y = THREE.MathUtils.lerp(y0, y1, t);
-    for (const c of colliders) {
-      if (!c.enabled || c.tag === 'bed' || c.tag === 'table') continue;
-      if (y <= c.y0 || y >= c.y1) continue;
-      if (x > c.x0 - 0.25 && x < c.x1 + 0.25 && z > c.z0 - 0.25 && z < c.z1 + 0.25) return t;
-    }
-  }
-  return 1;
+  return level.segmentBlocked({ x: x0, y: y0, z: z0 }, { x: x1, y: y1, z: z1 });
 }
 
 const actorCtx = {
@@ -1552,13 +1564,6 @@ addInteract({
   act: () => knockOnTwelve(),
 });
 
-addInteract({
-  id: 'enterRoom', x: 0, y: 1.2, z: -5.4, r: 3.0,
-  label: () => 'Step inside',
-  enabled: () => phase === 'door' && S.doorOpened,
-  act: () => enterRoom(),
-});
-
 /* And the way back out of it.
  *
  * The door shuts behind you and its blocker comes back on, which is right —
@@ -2203,8 +2208,8 @@ function moveRicoAsideForEntry() {
 /** Make the invitation actionable on the same beat that Rico says it. */
 function inviteIntoRoomTwelve() {
   if (phase !== 'door') return;
-  setObjective('reach', 'Step inside room twelve. [E] at the doorway.');
-  toast('DOOR OPEN', '', 'Go in when you are ready — nobody is pushing you');
+  setObjective('reach', 'Walk into room twelve. The door is open.');
+  toast('DOOR OPEN', '', 'Walk in when you are ready — nobody is pushing you');
   updateInteract();
 }
 
@@ -2250,8 +2255,9 @@ const CASE_DOWN_BEATS = Object.freeze([
 ]);
 
 function enterRoom() {
-  /* Two callers now — the [E] prompt and the doorway itself — so this has to
-   * be safe to run twice on the same frame. It spawns three actors. */
+  /* Three callers — the doorway volume, the room rectangle behind it, and the
+   * seatbelt — so this has to be safe to run twice on the same frame. It
+   * spawns three actors. */
   if (S.enteredRoom || phase === 'room') return;
   phase = 'room';
   S.enteredRoom = true;
@@ -2465,8 +2471,9 @@ function pickDialogue(style) {
   }
   const afterReply = () => {
     if (phase === 'end') return;
-    /* The invitation and its [E] prompt are the same beat. Rico has already
-     * spent Tony's answer and his own reply walking clear of the threshold. */
+    /* The invitation and a walkable doorway are the same beat. Rico has
+     * already spent Tony's answer and his own reply walking clear of the
+     * threshold, so the opening he was filling is open as he says it. */
     if (nodeId === 'atDoor') {
       inviteIntoRoomTwelve();
       say('Rico', 'Come in before the neighbours smell it.', 3);
@@ -2759,21 +2766,64 @@ function drawSilverback() {
   }
 }
 
+/**
+ * HE SAYS IT WHEN HE GETS HERE.
+ *
+ * Owner, 2026-08-24: *"Snow arrives long before his voiceline."* He did, and
+ * both halves of why were in this function.
+ *
+ * `snow.state = 'follow'` starts him walking from the LOT, which is fifteen
+ * metres and a doorway away. `say()` does not speak — it reserves a slot on
+ * `speechFloor` and returns immediately — and the moment the room turns is
+ * the chattiest second in the mission: the Prospect's challenge, Rico's
+ * answer, Chino, the toasts. So Snow's entrance line went to the back of a
+ * queue while Snow himself went in a straight line, and he was standing next
+ * to the player with a crowbar several seconds before the room heard him
+ * announce himself.
+ *
+ * The fix is not a delay guessed at the call site; that is the same bug with a
+ * number in it. He is HANDED the line and says it when he arrives. Distance to
+ * the player decides, because whichever way he comes in — the front door, the
+ * window he has just put through — being next to the man he is helping is what
+ * arriving means.
+ */
+const SNOW_ARRIVAL_RANGE = 3.4;
+/** And if the room is a maze tonight, he still gets to say his piece. */
+const SNOW_ARRIVAL_PATIENCE = 9;
+let snowEntrance = null;
+
 function snowJoins(reason) {
   if (S.snowInside || !snow || phase === 'end' || phase === 'drive') return;
   S.snowInside = true;
   snow.state = 'follow';
   snow.hp = Math.max(60, snow.hp);
-  const barkIdx = Math.floor(Math.random() * SNOW_FIGHT_BARKS.length);
-  const entranceHold = say(ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`));
+  snowEntrance = {
+    barkIdx: Math.floor(Math.random() * SNOW_FIGHT_BARKS.length),
+    waited: 0,
+  };
   toast('SNOW IS IN', '', `He heard ${reason}`);
   /* He lets himself in through the window only when the room has actually
    * turned. The front door starts closed now, so without the `betrayed` test
    * a warning shot in the LOT would blow the window out of a room nobody has
    * entered yet — glass first, deal second. */
   if (S.betrayed && !S.windowBroken && !refs.frontDoor.open) breakWindow(true);
-  // He brings the crowbar from the trunk — thrown to you if you're
-  // empty-handed, kept and visibly wielded if you're not.
+}
+
+/** Every frame while he is on his way in; silent until he is. */
+function updateSnowEntrance(dt) {
+  if (!snowEntrance || !snow || !snow.alive || phase === 'end') return;
+  snowEntrance.waited += Math.max(0, Number(dt) || 0);
+  const reach = Math.hypot(snow.position.x - pos.x, snow.position.z - pos.z);
+  if (reach > SNOW_ARRIVAL_RANGE && snowEntrance.waited < SNOW_ARRIVAL_PATIENCE) return;
+  const { barkIdx } = snowEntrance;
+  snowEntrance = null;
+  const entranceHold = say(
+    ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`),
+  );
+  /* The crowbar comes with him — thrown to you if you are empty-handed, kept
+   * and visibly wielded if you are not. It waits for him too: a crowbar
+   * landing at your feet from a man still in the car park was the same fault
+   * in a second place. */
   if (S.weapon === 'fists') {
     dropWeaponPickup('crowbar', pos.x + 1.4, pos.z + 0.6);
     afterLine(entranceHold, () => say(ALLY, 'Crowbar. Catch it.', 3, cueFor(ALLY, 'crowbar')));
@@ -3537,10 +3587,13 @@ function actorReachedTarget(a) {
     S.moneyRecovered = false;
     a.carryingCase = true;
     a.afterGoto = null;
-    a.state = 'flee';
-    a.target = pickRicoExit();
+    ricoBreaksFor(a);
     say('Rico', 'Nothing personal. Everything financial.', 3.2);
-  } else if (a === rico && a.state === 'flee') {
+    toast('RICO IS RUNNING', 'warn', `He is going for ${a.target.via}`);
+  } else if (a === rico && a.afterGoto === 'ricoThrough') {
+    /* He is at the opening. The second leg takes him out of it. */
+    ricoRunsOut(a);
+  } else if (a === rico && (a.afterGoto === 'ricoGone' || a.state === 'flee')) {
     ricoEscapes(a);
   } else if (a === chino && a.carryingCase) {
     throwCaseInPool(a);
@@ -3550,16 +3603,76 @@ function actorReachedTarget(a) {
   }
 }
 
-function pickRicoExit() {
-  if (refs.frontDoor.open || S.doorBroken) return { x: 0, z: 8, via: 'the front walkway' };
-  if (S.windowBroken) return { x: 3.0, z: -5.2, via: 'the smashed front window' };
-  return { x: 3.3, z: -14.4, via: 'the bathroom window' }; // over the tub and out
+/**
+ * WHERE HE IS RUNNING, AND HOW MANY WAYS HE HAS LEFT.
+ *
+ * `skip` is the routes he has already failed to reach. A seller who cannot get
+ * through the front door tries the window before he tries evaporating.
+ */
+function pickRicoExit(skip = new Set()) {
+  const routes = [];
+  if (refs.frontDoor.open || S.doorBroken) routes.push({ x: 0, z: 8, via: 'the front walkway' });
+  if (S.windowBroken) routes.push({ x: 3.0, z: -5.2, via: 'the smashed front window' });
+  routes.push({ x: 3.3, z: -14.4, via: 'the bathroom window' }); // over the tub and out
+  return routes.find((route) => !skip.has(route.via)) ?? routes[0];
+}
+
+/**
+ * HE HAS TO BE SEEN LEAVING.
+ *
+ * Owner, 2026-08-24, on the Motel: *"Rico slips out real quick."* He did, and
+ * not because he was fast. There were two ways for him to simply cease to
+ * exist. `actorReachedTarget` deleted him the frame he touched the exit point,
+ * which for the bathroom window is a spot INSIDE the bathroom -- so he
+ * vanished on the tub rather than going over it. And `actorStuck` deleted him
+ * outright: one blocked step behind a chair and the man with the forty
+ * thousand was gone, from the middle of the room, in front of the player.
+ *
+ * So an exit is two legs now. The first is the opening itself, which is the
+ * part the player can contest -- he is in the room, he is running, and he can
+ * be stopped. The second is a point out in the dark beyond it, and only
+ * reaching THAT ends him. Being stuck costs him a route rather than the scene:
+ * he picks another way and runs again, and he is only gone when he has run out
+ * of ways, which is the honest version of giving up.
+ */
+const RICO_EXIT_RUN = 5.5;
+
+function ricoBreaksFor(a, { skip = a.exitsTried ?? new Set() } = {}) {
+  const exit = pickRicoExit(skip);
+  a.exitsTried = skip;
+  a.state = 'flee';
+  a.afterGoto = 'ricoThrough';
+  a.target = { ...exit };
+  return exit;
+}
+
+/** Past the opening and into the dark. This leg is the one that ends him. */
+function ricoRunsOut(a) {
+  const from = a.target ?? { x: a.position.x, z: a.position.z, via: 'a gap you did not cover' };
+  const away = Math.hypot(from.x - pos.x, from.z - pos.z) || 1;
+  a.state = 'flee';
+  a.afterGoto = 'ricoGone';
+  a.target = {
+    x: from.x + ((from.x - pos.x) / away) * RICO_EXIT_RUN,
+    z: from.z + ((from.z - pos.z) / away) * RICO_EXIT_RUN,
+    via: from.via,
+  };
 }
 
 // A seller who cannot reach where they were running gives up on the idea.
 function actorStuck(a) {
+  if (a === rico && a.state === 'flee') {
+    /* A blocked step is not an exit. He loses the route and tries another;
+     * only a man out of routes is a man who got away. See `ricoBreaksFor`. */
+    const tried = a.exitsTried ?? new Set();
+    tried.add(a.target?.via ?? '');
+    const next = ricoBreaksFor(a, { skip: tried });
+    if (tried.has(next.via)) ricoEscapes(a);
+    return;
+  }
   if (a === rico) {
-    ricoEscapes(a);
+    a.state = 'chase';
+    a.target = null;
     return;
   }
   if (a.carryingCase) {
@@ -3649,13 +3762,42 @@ function updateDoors(dt) {
  *      wheel Rico is standing in the opening, and `refs.roomTwelveThreshold`
  *      is his body — actors do not collide with the player in this scene, so
  *      without it the doorstep conversation is walkable-past.
- *   3. Crossing the threshold IS stepping inside. Once he has moved, walking
- *      through the door runs `enterRoom()` — the same function [E] runs.
- *      There is no path into that room that does not go through the state
- *      machine.
+ *   3. Crossing the threshold IS stepping inside, and is the only way in.
+ *      Once he has moved, walking through the door runs `enterRoom()`. There
+ *      is no path into that room that does not go through the state machine,
+ *      and no key that opens a second one.
  */
 function doorwayIsHeld() {
   return phase === 'door' && !S.doorOpened && !S.doorBroken;
+}
+
+/**
+ * THE DOORWAY IS THE PROMPT.
+ *
+ * Owner: "The E to walk in the hotel room thing is weird -- how about you just
+ * walk into it and it starts that scene? It's easy to miss and will be a scene
+ * breaker for a lot of people." He is right about the failure, and the reason
+ * it bites is that the scene spends the previous minute teaching the opposite:
+ * the leaf is solid until the knock is answered, and Rico's body
+ * (`roomTwelveThreshold`, `level.js`) fills the opening after it, so a player
+ * who tries the obvious thing bounces off twice before the prompt ever lights.
+ * By the time walking in is allowed, they have learned it is not.
+ *
+ * So the opening itself is the trigger. `x` is room twelve's authored doorway
+ * -- `level.js` builds the gap at -1.1..1.0 -- with a shoulder of slack either
+ * side. `z` starts just under the header: the front wall band is -4.5..-4.2,
+ * so -4.3 fires as they pass beneath it rather than after their centre has
+ * cleared the wall, and -5.4 is the spot `enterRoom()` already puts them.
+ *
+ * It cannot fire early. The gate below is `S.doorOpened`, the same flag the
+ * departed [E] prompt used, and Rico is still standing in this rectangle until
+ * the doorstep wheel is answered.
+ */
+const ROOM12_DOORWAY = Object.freeze({ x0: -1.25, x1: 1.15, z0: -5.4, z1: -4.3 });
+
+function inRoomTwelveDoorway(x, z) {
+  return x >= ROOM12_DOORWAY.x0 && x <= ROOM12_DOORWAY.x1
+    && z >= ROOM12_DOORWAY.z0 && z <= ROOM12_DOORWAY.z1;
 }
 
 function updateRoomTwelveThreshold() {
@@ -3671,13 +3813,20 @@ function beforeTheDeal() {
 /**
  * Walking in is entering; being in without entering is impossible.
  *
- * The first half is the feature — the doorway is a doorway, and [E] on it is
- * a convenience rather than the only key. The second half is the seatbelt: if
- * a collider is ever disabled at the wrong moment, or a future prop opens a
- * hole in that wall, the player is put back on the walkway instead of
- * standing in a room whose script has not started.
+ * The first half is the feature — the doorway is a doorway, and walking
+ * through it is now the only way in; there is no key to press and none is
+ * offered. The second half is the seatbelt: if a collider is ever disabled at
+ * the wrong moment, or a future prop opens a hole in that wall, the player is
+ * put back on the walkway instead of standing in a room whose script has not
+ * started.
  */
 function enforceRoomTwelveEntry(prevX, prevZ) {
+  /* Walking into the opening IS stepping inside -- tested before the room
+   * rectangle, not after it, so the scene starts on the door line. */
+  if (phase === 'door' && S.doorOpened && inRoomTwelveDoorway(pos.x, pos.z)) {
+    enterRoom();
+    return;
+  }
   if (!insideRoom()) return;
   if (phase === 'door' && S.doorOpened) { enterRoom(); return; }
   if (!beforeTheDeal() && phase !== 'door') return;
@@ -4728,9 +4877,9 @@ function updateFightLogic(dt) {
     }
   }
   if (rico && rico.alive && rico.hp < rico.maxHp * 0.35 && rico.state !== 'flee') {
-    rico.state = 'flee';
-    rico.target = pickRicoExit();
+    ricoBreaksFor(rico);
     say('Rico', 'Not worth it, not worth it!', 2.6);
+    toast('RICO IS RUNNING', 'warn', `He is going for ${rico.target.via}`);
   }
   // The clerk has a button under the counter and an opinion about all this
   if (clerk && clerk.alive && !S.clerkCowed && !S.alarmPulled && level.rects.OFFICE
@@ -4820,6 +4969,7 @@ function tick() {
     syncSharedAmmo();
     updateRoomBeats(dt);
     updateFightLogic(dt);
+    updateSnowEntrance(dt);
 
     // Grapple timer
     if (grapple) {

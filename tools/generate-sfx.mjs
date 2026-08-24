@@ -92,6 +92,16 @@ const CAST = valueOf('--cast')?.split(',').map((s) => s.trim()).filter(Boolean) 
 
 const isSpoken = (cue) => typeof cue.say === 'string';
 
+/* Which profile speaks a cue, in ONE place.
+ *
+ * `player` is the default because Tony carries every unattributed line, and
+ * that default used to be written out at each of the four sites that needed
+ * it -- the --cast filter, the unset-id check, `speak()`, and now the take
+ * ledger's voice stamp. Four copies of a default is three chances for the
+ * ledger to record a different answer than the request actually used, which
+ * would make the provenance stamp worse than no stamp at all. */
+const voiceOf = (cue) => cue.voice || 'player';
+
 const API_KEY = process.env.ELEVENLABS_API_KEY || process.env.XI_API_KEY;
 
 async function main() {
@@ -102,7 +112,7 @@ async function main() {
 
   let cues = manifest.sfx || [];
   if (ONLY) cues = cues.filter((c) => ONLY.includes(c.name));
-  if (CAST) cues = cues.filter((c) => isSpoken(c) && CAST.includes(c.voice || 'player'));
+  if (CAST) cues = cues.filter((c) => isSpoken(c) && CAST.includes(voiceOf(c)));
   if (VOICE_ONLY) cues = cues.filter(isSpoken);
   if (SFX_ONLY) cues = cues.filter((c) => !isSpoken(c));
   /* Future dialogue is opt-in even for a hand-built --only list. This guards
@@ -115,8 +125,8 @@ async function main() {
   const unset = new Set();
   for (const cue of cues) {
     if (!isSpoken(cue)) continue;
-    const v = voices[cue.voice || 'player'];
-    if (!v?.id || /^<.*>$/.test(v.id)) unset.add(cue.voice || 'player');
+    const v = voices[voiceOf(cue)];
+    if (!v?.id || /^<.*>$/.test(v.id)) unset.add(voiceOf(cue));
   }
   if (unset.size && !DRY) {
     console.error(
@@ -186,13 +196,25 @@ async function main() {
     try {
       const bytes = isSpoken(cue) ? await speak(cue, voices) : await generate(cue);
       await fs.writeFile(dest, bytes);
-      /* Stamp the WORDS this file was made from, here, where they are known to
-       * agree. A rewritten line keeps its cue id and its filename, so without
-       * this record nothing on disk ever changes when the script does and the
-       * game ships the retired wording under the new subtitle -- exactly the
-       * "old lines are still playing" the owner reported on the Silent
-       * Squatch. See tools/take-ledger.mjs. */
-      if (isSpoken(cue)) recordTake(TAKE_LEDGER, cue.name, cue.say);
+      /* Stamp the WORDS and the PERFORMER this file was made from, here, where
+       * all three are known to agree. A rewritten line keeps its cue id and
+       * its filename, so without this record nothing on disk ever changes when
+       * the script does and the game ships the retired wording under the new
+       * subtitle -- exactly the "old lines are still playing" the owner
+       * reported on the Silent Squatch.
+       *
+       * The voice half is the same failure one column over, and it went
+       * unrecorded until 2026-08-24: recasting a profile in the manifest
+       * changes nothing on disk, so every mp3 rendered before the recast keeps
+       * playing in the old performer's voice and no gate can tell. The id was
+       * always right here -- `voices[voiceOf(cue)].id` is what `speak()` just
+       * posted to -- and it was being thrown away four lines later. Stamping
+       * it is what lets `npm run check:takes` say STALE VOICE.
+       * See tools/take-ledger.mjs. */
+      if (isSpoken(cue)) {
+        const profile = voiceOf(cue);
+        recordTake(TAKE_LEDGER, cue.name, cue.say, { name: profile, id: voices[profile]?.id });
+      }
       console.log(`ok  (${(bytes.length / 1024).toFixed(0)} KB → assets/sfx/${file})`);
       ok++;
     } catch (err) {
@@ -213,8 +235,8 @@ async function main() {
  * tuned in one place rather than per line.
  */
 async function speak(cue, voices) {
-  const v = voices[cue.voice || 'player'];
-  if (!v?.id) throw new Error(`no voice id for "${cue.voice || 'player'}"`);
+  const v = voices[voiceOf(cue)];
+  if (!v?.id) throw new Error(`no voice id for "${voiceOf(cue)}"`);
 
   const res = await fetchWithRetry(TTS(v.id) + '?output_format=mp3_44100_128', {
     method: 'POST',

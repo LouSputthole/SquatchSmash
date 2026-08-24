@@ -27,7 +27,7 @@
  * text below says where he is and nothing about what happens next, because
  * nobody in the car knows either — and two of them are prospects.
  */
-import { SPEECH_MIX, speak } from '../core/dialogue.js';
+import { SPEECH_MIX, SPEECH_MIX_CLOSE, SPEECH_MIX_INDOORS, speak } from '../core/dialogue.js';
 import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
@@ -43,6 +43,7 @@ import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { translateKey } from '../core/settings.js';
 import { registerSceneRenderer } from '../core/scene-lifecycle.js';
+import { loadFaceIndex } from '../bing/family.js';
 import { AMBIENCE_CUES } from './ambience.js';
 import { buildSpecialMeetingCast } from './cast.js';
 import { createNightForestRoad, adaptMeetingSedan } from './forest/index.js';
@@ -99,6 +100,24 @@ camera.name = 'specialmeeting.camera';
 scene.add(camera);
 
 const hud = new Hud();
+/* THE HUD IS INVISIBLE UNTIL A SCENE SAYS IT IS PLAYING.
+ *
+ * `src/style.css` holds `#hud { opacity: 0 }` and turns it on with exactly one
+ * rule: `body.playing #hud { opacity: 1 }`. Eight other scene roots add the
+ * class; this one never did. So every subtitle this file writes, the crosshair
+ * and the interaction prompt have all been rendering at opacity zero -- all 220
+ * authored voice lines played into a scene with no text on the screen, which is
+ * the owner's "no subtitles" and a good part of his "nothing happens".
+ *
+ * Nothing could catch it: every test in this scene is headless, and the one
+ * live verifier never read a computed opacity. `src/golf/main.js` has the same
+ * two lines with a comment naming this exact failure -- "logic tests pass while
+ * a human sees nothing".
+ *
+ * The fix is to satisfy the shared rule, never to override it: do not add a
+ * `#hud` rule to `specialmeeting.css` and do not touch `src/style.css`. */
+document.body.classList.add('playing');
+document.getElementById('hud')?.setAttribute('aria-hidden', 'false');
 const audio = new AudioEngine();
 const SPECIAL_MEETING_VOICE_CUES = Object.freeze([
   ...new Set(scriptCues().map((cue) => cue.name)),
@@ -109,7 +128,7 @@ let failedVoiceCues = [];
 let voiceLoadError = null;
 
 window.__squatchStage?.('A car, already running…');
-const stage = stageSpecialMeeting(scene, { renderer, audio });
+const stage = stageSpecialMeeting(scene, { renderer, audio, onPhase: onArrivalPhase });
 
 const player = new Player(camera, stage.world);
 player.position.copy(stage.spawn.position ?? new THREE.Vector3(0, EYE_HEIGHT, 0));
@@ -124,15 +143,31 @@ const interaction = new InteractionSystem(camera, hud);
  * standing ON the pavement and standing 0.15 m into it; in the woods, where
  * this is swapped for the forest's own field at the cut to black, it is the
  * difference between the clearing floor and thirty-two metres under it. */
+/* `faces` is the other half of the owner's "missing faces" report. This is
+ * the only scene in the campaign that stages named Circle members and never
+ * passed one, so Seff, Lag, Numbskull and Kittenboss were built on the
+ * procedural drawn head while the same four people wear the owner's
+ * photographs in the Bing, the Mansion and the Initiation. `loadFaceIndex()`
+ * is the club's own loader and it never throws or 404s — a missing index just
+ * comes back empty and everybody keeps the authored head — so awaiting it
+ * here costs one small local fetch before the car is populated and can only
+ * ever add faces, never remove one. This is `src/bing/main.js`'s pattern
+ * verbatim: load the index once at the top, hand the set to the thing that
+ * builds people. */
+const faceIndex = await loadFaceIndex();
 const cast = buildSpecialMeetingCast(scene, {
   sedan: stage.sedan,
   colliders: stage.world.colliders,
   groundAt: stage.world.groundAt,
+  faces: faceIndex,
 });
 cast.boardForArrival();
 
 let forest = null;
 let gatedOn = null;
+/* Whether the car has actually arrived and stopped. The script used to start
+ * on the player's first click instead; see `onArrivalPhase`. */
+let arrived = false;
 const reachedNodes = new Set();
 let paused = false;
 let handedOff = false;
@@ -174,10 +209,31 @@ function say(line) {
    *
    * A speaker with no rig is on the phone or in the player's own head, so the
    * line rides the camera. */
-  const spoken = speak(audio, line.cue, {
-    speaker: body ? body.group : camera,
-    mix: SPEECH_MIX,
-  });
+  /* WHERE THE VOICE ACTUALLY COMES FROM.
+   *
+   * Three cases, and the scene used to get all three wrong.
+   *
+   * NOT IN THE WORLD -- the Prospect, who is the player, and Booskibro, who is
+   * on a telephone. `bodyFor` returns null for both, and the old code then
+   * fell back to `speaker: camera` while still asking for a panner. A panner
+   * sitting on the listener has no defined direction; `core/dialogue.js` says
+   * so in as many words -- "giving a phone call a position is how a phone call
+   * ends up quieter when the player turns his head". No panner at all now.
+   *
+   * IN A SEAT -- emit from the CAR's own anchor for that seat, at mouth
+   * height, not from the rig. A seated rig's origin is its feet, which
+   * `occupy()` drops below the floor pan, so the line arrived from roughly a
+   * metre and a half beneath the listener: the owner's voices-from-the-floor.
+   * The indoors mix is the right profile for a 2.5 m cabin -- everyone is
+   * inside its reference distance, so nobody in the car is attenuated, and a
+   * man who has stepped out onto the spur stops carrying thirty metres.
+   *
+   * ON HIS FEET -- the rig, as before, on the open street mix. */
+  const seat = body ? cast.seatOf(SPEAKERS[line.who]?.character) : null;
+  const emitter = seat ? stage.sedan.seatVoice(seat) : body?.group;
+  const spoken = speak(audio, line.cue, emitter
+    ? { speaker: emitter, mix: seat ? SPEECH_MIX_INDOORS : SPEECH_MIX }
+    : { mix: SPEECH_MIX_CLOSE });
   /* THE SUBTITLE LASTS AS LONG AS THE LINE.
    *
    * It used to be on screen for a flat 4.2 seconds whatever was said, so a
@@ -335,7 +391,8 @@ const ride = createRideSequence({
     objectivePanel.setLine(objectiveFor(b));
     if (GATES[b.id] && !reachedNodes.has(GATES[b.id])) gatedOn = GATES[b.id];
     if (RELEASES[b.id]) forest?.resume();
-    if (b.id === 'SM-100') cast.disembarkForPickup();
+    /* `disembarkForPickup()` is NOT here any more: it runs in
+     * `onArrivalPhase` a beat before this, against a car that has stopped. */
     if (b.id === 'SM-110') {
       cast.holdTheFrontDoor();
       /* The dome light, because a door is open. The sedan has no swinging
@@ -345,6 +402,13 @@ const ride = createRideSequence({
       stage.sedan.setCabinLight(true);
     }
     if (b.id === 'SM-120') cast.lagTakesTheBack();
+    /* SM-195 is authored as "They pull away. Nobody speaks." over five held
+     * seconds -- and for those five seconds the car did not move. `driveAway()`
+     * builds a route driver onto the departure route and has existed, tested,
+     * and been called by nothing but its own unit test. The cut to black at
+     * SM-196 happens over real motion now instead of over a parked car, which
+     * is the difference between a cut and a freeze. */
+    if (b.id === 'SM-195') stage.arrival?.driveAway?.();
     if (b.id === 'SM-322') cast.swapRearSeats();
     if (b.id === 'SM-400') { cast.getOut(); forest?.leave(); }
     /* The boot. Kittenboss stands herself up and climbs out under her own
@@ -358,9 +422,18 @@ const ride = createRideSequence({
   onSeated: () => {
     /* The door shuts, Numbskull walks round the back of the car, and the seat
      * behind the Prospect fills. The central locking goes and nobody remarks
-     * on it — do not add a line here. */
+     * on it — do not add a line here.
+     *
+     * You can HEAR the door now. `ambience.doorShut()` has existed since the
+     * scene was written and was never called from anywhere, so the beat the
+     * owner asked to be able to feel -- "doors close, ride begins" -- happened
+     * in silence on a wet street. */
+    stage.ambience?.doorShut?.(stage.sedan.doorWorld('front_passenger'));
     cast.takeSeats();
     stage.sedan.setCabinLight(false);
+    /* Idempotent, and no longer load-bearing: with the ride gated on the
+     * arrival's own `settled` phase the car is already at the kerb by the time
+     * anybody sits in it. It stays as the seatbelt it was always meant to be. */
     stage.arrival?.snapToKerb?.();
     player.mode = 'seated';
     stage.sedan.eyeWorld('front_passenger', player.position);
@@ -371,8 +444,10 @@ const ride = createRideSequence({
     blackout?.classList.add('cut');
     blackout?.classList.add('on');
     beginTheDrive();
+    armTheBlackWatchdog();
   },
   onFadeIn: (seconds) => {
+    clearTheBlackWatchdog();
     if (!blackout) return;
     blackout.classList.remove('cut');
     blackout.style.transitionDuration = `${seconds}s`;
@@ -384,12 +459,98 @@ const ride = createRideSequence({
   },
 });
 
+/**
+ * THE SCRIPT WAITS FOR THE CAR. IT DID NOT USED TO.
+ *
+ * Two clocks run this scene and until now they had two different origins and
+ * nothing pinning them together at the front. `stage.arrival` starts from the
+ * first rendered frame; the script started on the player's first click, and
+ * `begin()` plays the first line in that same frame. Measured
+ * headless, the arrival takes 27.8 s to settle -- waiting 10.0, headlights
+ * 11.4, approach to 24.1, stopped 26.2 -- while SM-100's seven entries run
+ * about 19 s. So on any normal click Seff leaned across and started talking
+ * while the car was still driving down the block, and the hub opened before it
+ * had parked. That is the owner's *"voices begin before the vehicle even
+ * arrives"*, and it is also why the two men were on the pavement early: their
+ * placement is car-relative, so `disembarkForPickup()` on SM-100 entry put
+ * them beside a car that then drove off and left them standing in the road.
+ *
+ * `GATES` already pins three later beats to the road; this is the same idea at
+ * the front of the scene, using the phase callback `arrival.js` has always
+ * published and `main.js` never passed. The men get out of a car that has
+ * stopped, and then somebody speaks.
+ *
+ * @param {string} phase one of arrival.js's phases; 'settled' is the one.
+ */
+function onArrivalPhase(phase) {
+  if (phase !== 'settled' || !started || arrived) return;
+  arrived = true;
+  cast.disembarkForPickup();
+  ride.begin('SM-100');
+}
+
 /** What the HUD says he is doing. Never what is about to happen to him. */
 function objectiveFor(b) {
   if (b.act <= 2) return 'A car is waiting with the engine running.';
   if (b.act === 3) return 'Ride out to the meeting.';
   if (b.act === 4) return 'Wait by the car.';
   return 'Walk up the trail.';
+}
+
+/* ------------------------------------------------------------------ */
+/* A BLACK SCREEN WITH NO SCHEDULED WAY OUT                             */
+/*                                                                      */
+/* Owner: "after entering the car, screen turns black after a few       */
+/* seconds and nothing happens. This is a blocker."                     */
+/*                                                                      */
+/* It was not a crash. `onBlackout` paints the picture out and the ONLY  */
+/* thing that ever takes it off again is `onFadeIn`, which fires on one  */
+/* beat -- SM-197 -- reachable only through SM-220. SM-220 is in `GATES`,*/
+/* waiting on the road event `turn_off`, and `frame()` stops stepping    */
+/* the ride entirely while a gate is set. So the end of the black was    */
+/* never a clock at all: it was "the simulated car has covered 501 of    */
+/* 992 metres", which at the authored cruise speeds is 38 to 41 seconds  */
+/* -- and longer in proportion on a machine that drops frames, because   */
+/* the same dt drives both. Behind it, silence: the two beats written to */
+/* play under the black are stage directions, and stage directions hold  */
+/* zero seconds.                                                         */
+/*                                                                      */
+/* The gating is deliberate and worth keeping; a picture that cannot     */
+/* come back is not. This is the floor under it. If the road has not     */
+/* produced its node by the time a player would reasonably conclude the  */
+/* game has died, the fade happens anyway and the gate is released --    */
+/* the drive carries on underneath and the scene rejoins itself. A       */
+/* slightly early cut back to the dirt road is a worse SHOT than the one */
+/* the author wrote. It is not a worse GAME than a black screen.         */
+/* ------------------------------------------------------------------ */
+
+/** How long a deliberate black may last before it is treated as a fault. */
+const BLACK_CEILING_MS = 9000;
+let blackWatchdog = null;
+
+function clearTheBlackWatchdog() {
+  if (blackWatchdog === null) return;
+  clearTimeout(blackWatchdog);
+  blackWatchdog = null;
+}
+
+function armTheBlackWatchdog() {
+  clearTheBlackWatchdog();
+  blackWatchdog = setTimeout(() => {
+    blackWatchdog = null;
+    if (!blackout?.classList.contains('on')) return;
+    console.warn(
+      `the Special Meeting held a black screen for ${BLACK_CEILING_MS} ms `
+      + `without reaching its fade beat (gated on ${gatedOn ?? 'nothing'}); `
+      + 'fading in anyway',
+    );
+    /* Release the gate as well as the picture. Fading in on a ride that is
+     * still frozen would trade a black screen for a still one. */
+    gatedOn = null;
+    blackout.classList.remove('cut');
+    blackout.style.transitionDuration = '1.2s';
+    blackout.classList.remove('on');
+  }, BLACK_CEILING_MS);
 }
 
 /* ------------------------------------------------------------------ */
@@ -512,6 +673,25 @@ function frame() {
    * while the rail is driving it. */
   if (forest) forest.update(dt);
   else stage.update(dt, player.position);
+  /* THE EARS, WHICH HAVE BEEN AT THE WORLD ORIGIN THIS WHOLE TIME.
+   *
+   * `AudioEngine.init()` parks the WebAudio listener at (0,0,0) facing -Z, and
+   * every other first-person scene in the campaign pumps it once a frame. This
+   * one never did -- while every line IS positional, built with a real HRTF
+   * panner at the speaker's world position. So the entire scene was heard from
+   * the origin by a head that never turned.
+   *
+   * That is the owner's "voices sound like they are coming from arbitrary
+   * directions", and it explains the strangest half of his report exactly:
+   * with forward -Z and up +Y the listener's right is world +X, and the forest
+   * road runs from the origin out to x = +244. His own voice follows the
+   * camera, so it was panned hundreds of metres onto the +X side -- "even the
+   * Prospect's own voice sounds far right and low". It was, literally.
+   *
+   * After the world update, because `player.update` writes the camera and the
+   * forest rail writes the seat; before the `started` return, so the listener
+   * is already where the ears are on the first frame of sound. */
+  audio.updateListener(camera);
   if (!started) { renderer.render(scene, camera); return; }
   cast.update(dt, player.position);
   interaction.update(dt);
@@ -560,8 +740,18 @@ async function wakeTheSound() {
       );
     }
     stage.begin();
-    ride.begin('SM-100');
+    /* THE STREET IS QUIET FIRST, AND THE CLOCK STARTS HERE.
+     *
+     * `stage.arrival` is stepped from `frame()`, which runs from the first
+     * RENDERED frame -- so its ten seconds of empty street were being spent
+     * while the page was still loading a voice bank, and by the time the
+     * player clicked, the car was already most of the way down the block.
+     * Resetting on the click re-parks it dark up the cross street and rewinds
+     * the clock, so the ten seconds are ten seconds the player is there for. */
+    stage.arrival.reset();
     started = true;
+    /* The script does NOT start here any more. It starts in `onArrivalPhase`,
+     * when the car has actually stopped. See the note there. */
     removeEventListener('pointerdown', wakeTheSound);
     removeEventListener('keydown', wakeTheSound);
   })();

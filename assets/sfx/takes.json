@@ -11,6 +11,14 @@
     "manifest at its word -- see the header of tools/take-ledger.mjs for what",
     "that does and does not prove.",
     "",
+    "A \"rendered\" entry also carries \"voice\" and \"voiceId\": the profile it was",
+    "spoken in and the ElevenLabs id that profile resolved to AT RENDER TIME.",
+    "Recasting a profile in assets/sfx/manifest.json does not touch the mp3s",
+    "already on disk, so without that stamp the game keeps shipping the old",
+    "performer with every check green. \"assumed\" entries carry no voice on",
+    "purpose: nothing recorded who spoke them, and guessing from today's",
+    "manifest would be the same false confidence in a different column.",
+    "",
     "Run `npm run check:takes` to report drift; `npm run vo:takes` to reseed."
   ],
   "takes": {

@@ -933,6 +933,85 @@ export function buildMansionGrounds(scene = null) {
     return c;
   }
 
+  /* ================================================================== */
+  /* THE HOUSE HAD NO FLOORS AS FAR AS COMBAT WAS CONCERNED              */
+  /*                                                                      */
+  /* Owner playtest, verbatim: "In the siege I'm getting killed in the     */
+  /* cellar before I even go up, no one is down there, so I don't know if  */
+  /* the combat system through walls and floors is working as intended."   */
+  /*                                                                       */
+  /* It was not. Simulated against this very builder's output: an attacker */
+  /* standing in the foyer on the GROUND floor acquired a player in the    */
+  /* BASEMENT armory with targetVisible=true, put his first round into him */
+  /* at t=6.97 s and killed him at t=10.93 s, never once coming down the    */
+  /* stairs, and the player never had a frame in which he could see the     */
+  /* man who was killing him. A second man in the rear hall shot the player */
+  /* at his own spawn point four metres below him at t=0.78 s. A ray fired  */
+  /* from the player's head straight up sixteen metres crossed ZERO         */
+  /* colliders: floor, ceiling, upper slab, roof, all of it, nothing.       */
+  /*                                                                        */
+  /* The cause is directly above this comment. `solid()` is the MOVEMENT     */
+  /* list, and a floor slab must never go in it -- `core/player.js` reads    */
+  /* every box in that array as something to be pushed out of horizontally,  */
+  /* so a slab in there ejects anyone standing on it sideways off his own    */
+  /* footprint. So every slab in this house was poured as a bare mesh with   */
+  /* no collider at all, and said so ("Neither carries a collider -- these   */
+  /* are floors, walked ON, not into"). Correct for movement. But the siege  */
+  /* hands that same movement array to the shared combat Modules as its      */
+  /* line-of-sight and Ballistic-path model, and a storey that is not in it  */
+  /* is a storey a bullet and a pair of eyes travel through as if it were    */
+  /* open air.                                                               */
+  /*                                                                          */
+  /* docs/CONTEXT.md already had the word for the way out. "Combat material:  */
+  /* an explicit geometry tag that defines ballistic resistance INDEPENDENTLY */
+  /* FROM whether the same surface blocks vision" -- and, by the same         */
+  /* reasoning, independently from whether it blocks movement. So there are   */
+  /* two arrays out of this builder now and they answer two different         */
+  /* questions:                                                               */
+  /*                                                                           */
+  /*   colliders       what a body may not walk into.   (unchanged, byte for   */
+  /*                   byte -- `verify:mansion` counts it and asserts that no  */
+  /*                   member of it tops out on a floor datum)                 */
+  /*   combatBlockers  what stops a round and a line of sight and is NOT in    */
+  /*                   the movement list: every floor slab, ceiling soffit and */
+  /*                   roof slab in the building, each tagged with its real    */
+  /*                   Combat material.                                        */
+  /*                                                                            */
+  /* The second is ADDITIVE. It is not a complete combat model on its own and   */
+  /* is not meant to be: the walls are already in `colliders` and are already   */
+  /* tagged, so a composition root builds its sight/ballistics list by          */
+  /* concatenating the two and keeps handing `colliders` alone to the player    */
+  /* controller. MansionInterior.js returns an array of the same name, built to */
+  /* the same contract, for the same reason.                                    */
+  /*                                                                             */
+  /* Everything poured here is reinforced concrete -- podium, upper slab, roof   */
+  /* slab, basement raft, cellar soffits -- and `concrete` is not in             */
+  /* `PENETRABLE` in core/combat/ballistics.js, so one contact with any of them  */
+  /* is the truthful terminal point of the shot. That is the whole intent: you   */
+  /* cannot shoot a man through the floor of a poured-concrete mansion.          */
+  /* ================================================================== */
+  const combatBlockers = [];
+
+  /**
+   * Register one horizontal structural surface with the combat model only.
+   *
+   * Deliberately NOT a mesh builder. Every slab this is called for already
+   * exists as geometry a few lines away; duplicating the mesh here would put
+   * two of everything in the house. This registers the BOX, beside the mesh,
+   * at the same numbers, so the two can never drift apart in a diff.
+   */
+  function structural(x0, x1, y0, y1, z0, z1, name, combatMaterial = 'concrete') {
+    const c = collider(
+      [Math.min(x0, x1), Math.min(y0, y1), Math.min(z0, z1)],
+      [Math.max(x0, x1), Math.max(y0, y1), Math.max(z0, z1)],
+    );
+    c.name = name;
+    c.combatMaterial = combatMaterial;
+    c.userData = { ...(c.userData ?? {}), combatMaterial };
+    combatBlockers.push(c);
+    return c;
+  }
+
   function geometryIntent(object, policy) {
     object.userData ??= {};
     object.userData.geometryGate = { ...(object.userData.geometryGate ?? {}), ...policy };
@@ -3058,6 +3137,9 @@ export function buildMansionGrounds(scene = null) {
       mat: M_PODIUM,
       name: 'bay-podium',
     }), { assemblyId: 'mansion-billiard-bay-podium', checkWallEmbed: false }));
+    structural(
+      LOUNGE_BAY.x0, bayXOuter, 0, GROUND_Y, bayZ0, bayZ1, 'bay-podium-combat',
+    );
     buildSiegeBreachEntry({
       id: 'east', direction: -1, outerEdge: 23.8, thresholdInner: 19.0,
       z0: 42.7, z1: 44.3, exteriorY: 0.05,
@@ -3071,6 +3153,10 @@ export function buildMansionGrounds(scene = null) {
       mat: M_ROOF,
       name: 'bay-roof',
     }), { assemblyId: bayRoofAssemblyId, checkWallEmbed: false }));
+    structural(
+      LOUNGE_BAY.x0 - 0.35, bayXOuter + 0.35, BAY_ROOF_Y0, BAY_ROOF_Y1,
+      bayZ0 - 0.35, bayZ1 + 0.35, 'bay-roof-combat',
+    );
     for (const [tx0, tx1, tz0, tz1] of [
       [LOUNGE_BAY.x0, bayXOuter + 0.35, bayZ0 - 0.35, bayZ0 - 0.18],
       [LOUNGE_BAY.x0, bayXOuter + 0.35, bayZ1 + 0.18, bayZ1 + 0.35],
@@ -3159,6 +3245,9 @@ export function buildMansionGrounds(scene = null) {
       mat: M_PODIUM,
       name: 'wing-podium',
     }), { assemblyId: 'mansion-west-wing-podium', checkWallEmbed: false }));
+    structural(
+      wingOuterX, wingInnerX, 0, GROUND_Y, WEST_WING.z0, WEST_WING.z1, 'wing-podium-combat',
+    );
     buildSiegeBreachEntry({
       id: 'west', direction: 1, outerEdge: -27.4, thresholdInner: -22.3,
       z0: 43.2, z1: 45.6, exteriorY: 0,
@@ -3177,6 +3266,15 @@ export function buildMansionGrounds(scene = null) {
       mat: M_ROOF,
       name: 'wing-roof',
     }), { assemblyId: wingRoofAssemblyId, checkWallEmbed: false }));
+    /* The west wing is one storey, so this slab is the trophy hall's and the
+     * winter garden's ceiling and nothing stands on it. It still belongs in
+     * the combat model: it is what a round fired up through either room
+     * stops in, and what stops a man on the upper floor seeing down into
+     * them past the main block's west wall. */
+    structural(
+      wingOuterX - 0.45, wingInnerX, WING_ROOF_Y0, WING_ROOF_Y1,
+      WEST_WING.z0 - 0.45, WEST_WING.z1 + 0.45, 'wing-roof-combat',
+    );
     for (const [tx0, tx1, tz0, tz1] of [
       [wingOuterX - 0.45, wingInnerX, WEST_WING.z0 - 0.45, WEST_WING.z0 - 0.25],
       [wingOuterX - 0.45, wingInnerX, WEST_WING.z1 + 0.25, WEST_WING.z1 + 0.45],
@@ -3387,6 +3485,10 @@ export function buildMansionGrounds(scene = null) {
         mat: M_ROOF,
         name: 'suite-roof-slab',
       }), { assemblyId: suiteRoofAssemblyId, checkWallEmbed: false }));
+      structural(
+        sx0 - 0.35, sx1 + 0.35, SUITE_ROOF_Y0, SUITE_ROOF_Y1,
+        sz0 - 0.35, sz1 + 0.35, 'suite-roof-slab-combat',
+      );
       for (const [x0, x1, z0, z1] of [
         [sx0 - 0.32, sx1 + 0.32, sz0 - 0.32, sz0 - 0.2],
         [sx0 - 0.32, sx1 + 0.32, sz1 + 0.2, sz1 + 0.32],
@@ -3493,6 +3595,10 @@ export function buildMansionGrounds(scene = null) {
         mat: M_ROOF,
         name: 'roof-slab',
       }), { assemblyId: `mansion-main-roof-segment-${roofSegmentIndex}`, checkWallEmbed: false }));
+      /* This slab is two things at once and the combat model needs both: the
+       * upper storey's ceiling and the master suite's floor. One box does
+       * both jobs, notched round the concealed stair exactly as the mesh is. */
+      structural(s.x0, s.x1, y0, y1, s.z0, s.z1, `main-roof-segment-${roofSegmentIndex}-combat`);
     }
     for (const [trimIndex, [x0, x1, z0, z1]] of [
       [BUILDING.x0 - 0.4, BUILDING.x1 + 0.4, zS0 - 0.05, zS0 + 0.1],
@@ -3528,6 +3634,15 @@ export function buildMansionGrounds(scene = null) {
       geometryIntent(m, { assemblyId: `mansion-main-podium-segment-${podiumSegmentIndex}`, checkWallEmbed: false });
       root.add(m);
       occluders.push(m);
+      /* The ground floor, for the combat model only. Notched round the
+       * basement stairwell exactly as the mesh is: the shaft is the one
+       * place in this footprint where a man upstairs is genuinely allowed
+       * to see and shoot a man downstairs, and sealing it would be as
+       * wrong in the other direction as leaving the whole storey open. */
+      structural(
+        s.x0, s.x1, 0, GROUND_Y, s.z0, s.z1,
+        `main-podium-segment-${podiumSegmentIndex}-combat`,
+      );
     }
     const upperSegs = [
       { x0: BUILDING.x0, x1: FOYER_VOID.x0, z0: BUILDING.z0, z1: BUILDING.z1 },
@@ -3544,6 +3659,13 @@ export function buildMansionGrounds(scene = null) {
       geometryIntent(m, { assemblyId: `mansion-upper-floor-segment-${upperSegmentIndex}`, checkWallEmbed: false });
       root.add(m);
       occluders.push(m);
+      /* The upper floor, holed over the double-height foyer -- which is the
+       * one storey-to-storey sight line the siege is actually fought on
+       * (the gallery rail over the foyer). The notch is the mesh's own. */
+      structural(
+        s.x0, s.x1, UPPER_Y - 0.28, UPPER_Y, s.z0, s.z1,
+        `upper-floor-segment-${upperSegmentIndex}-combat`,
+      );
     }
 
     /* -- Basement shell, under the rear half of the house. ---------------
@@ -3563,6 +3685,10 @@ export function buildMansionGrounds(scene = null) {
       ],
       mat: M_MARBLE_DK,
     }));
+    structural(
+      BASEMENT_ROOM.x0, BASEMENT_ROOM.x1, BASEMENT_Y - 0.3, BASEMENT_Y,
+      BASEMENT_ROOM.z0, BASEMENT_ROOM.z1, 'armory-raft-combat',
+    );
     ext(BASEMENT_ROOM.x0, BASEMENT_ROOM.x1, BASEMENT_Y, 0, BASEMENT_ROOM.z0 - 0.3, BASEMENT_ROOM.z0, 'basement-wall-south', M_PODIUM);
     /* The armory's north wall, with ONE doorway punched through it into the
      * lower level's spine corridor.
@@ -3583,16 +3709,23 @@ export function buildMansionGrounds(scene = null) {
     ext(BASEMENT_ROOM.x1, BASEMENT_ROOM.x1 + 0.3, BASEMENT_Y, 0, BASEMENT_ROOM.z0, BASEMENT_ROOM.z1, 'basement-wall-east', M_PODIUM);
     // Soffit ceiling, notched around the stair shaft so the shaft reads as an
     // open hole in the floor above rather than a lit ceiling with a gap in it.
-    for (const s of [
+    for (const [armorySoffitIndex, s] of [
       { x0: BASEMENT_ROOM.x0, x1: BASEMENT_SHAFT.x0, z0: BASEMENT_ROOM.z0, z1: BASEMENT_ROOM.z1 },
       { x0: BASEMENT_SHAFT.x0, x1: BASEMENT_ROOM.x1, z0: BASEMENT_ROOM.z0, z1: BASEMENT_SHAFT.z0 },
       { x0: BASEMENT_SHAFT.x0, x1: BASEMENT_ROOM.x1, z0: BASEMENT_SHAFT.z1, z1: BASEMENT_ROOM.z1 },
-    ]) {
+    ].entries()) {
       root.add(box({
         size: [s.x1 - s.x0, 0.12, s.z1 - s.z0],
         pos: [(s.x0 + s.x1) / 2, -0.16, (s.z0 + s.z1) / 2],
         mat: M_BASEMENT_CEIL,
       }));
+      /* THE ARMORY'S CEILING, and the single surface the owner's report is
+       * about: the man in the foyer was shooting the player in this room
+       * straight down through this soffit and the podium above it, both of
+       * which existed only as pictures of concrete. */
+      structural(
+        s.x0, s.x1, -0.22, -0.10, s.z0, s.z1, `armory-soffit-${armorySoffitIndex}-combat`,
+      );
     }
 
     /* -- THE LOWER LEVEL, north of the armory. ---------------------------
@@ -3612,6 +3745,10 @@ export function buildMansionGrounds(scene = null) {
       mat: M_MARBLE_DK,
       name: 'cellar-wing-slab',
     }));
+    structural(
+      BW.x0 - 0.3, BW.x1 + 0.3, BASEMENT_Y - 0.3, BASEMENT_Y,
+      BW.z0 - 0.3, BW.z1 + 0.3, 'cellar-wing-slab-combat',
+    );
     /* The west shell wall, in three pieces round SECRET_DOOR -- see the note
      * on that constant. The lintel over the opening stops at y=0, the
      * underside of the podium, exactly like the cellar stair's head wall and
@@ -3631,6 +3768,12 @@ export function buildMansionGrounds(scene = null) {
       mat: M_BASEMENT_CEIL,
       name: 'cellar-wing-soffit',
     }));
+    /* The lower level's ceiling. The guest room the player spawns in is under
+     * this, and the rear hall four metres above it is where the man who shot
+     * him at t=0.78 s was standing. */
+    structural(
+      BW.x0, BW.x1, -0.22, -0.10, BW.z0, BW.z1, 'cellar-wing-soffit-combat',
+    );
 
     // Warm light spilling from the glazed rooms, seen from outside.
     const livingSpill = new THREE.PointLight(0xffc98a, 7, 14, 2);
@@ -5579,6 +5722,19 @@ export function buildMansionGrounds(scene = null) {
   root.traverse((o) => { if (o.isPointLight) lights.push(o); });
 
   return {
-    root, colliders, doors, props, anchors, shell, lights, occluders, update,
+    root,
+    colliders,
+    /** Every storey-separating surface on the property, for the combat model
+     * only -- see the long note beside `structural()` above. Additive to
+     * `colliders`, never a replacement for it, and never handed to
+     * `core/player.js`. */
+    combatBlockers,
+    doors,
+    props,
+    anchors,
+    shell,
+    lights,
+    occluders,
+    update,
   };
 }

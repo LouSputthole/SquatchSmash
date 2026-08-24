@@ -4032,6 +4032,81 @@ test('all eight cartel roles wear readable silhouettes and keep the red headband
     `only ${silhouettes.size} built cartel outfit silhouettes for eight roles`);
 });
 
+test('every attacker wears the A-Team\'s colours, and the letter is an A', () => {
+  /* Owner, 2026-08-24: *"I also want to give them more identifiable A team
+   * outfits."* The role kits above answer what each man DOES. Nothing said
+   * whose he was, which is a problem for a crew whose whole bark pool is them
+   * naming themselves. They wear a pinnie now -- a scrimmage vest in the same
+   * red as the headband, letter front and back, over whatever the role gave
+   * him.
+   *
+   * The letter is three boxes, and the first pass of it rendered as an H:
+   * the legs were leaning OUT, so the crossbar closed a rectangle instead of
+   * a triangle. That is the assertion below with teeth in it -- the two legs
+   * have to be closer together at the top than at the bottom. */
+  const { scene, pool } = harness();
+  for (const role of Object.keys(ROLES)) {
+    pool.spawn({ id: `colours_${role}`, role, staging: 'front_steps' });
+  }
+  scene.updateMatrixWorld(true);
+
+  const counts = new Set();
+  for (const entry of pool.all()) {
+    const team = [];
+    let body = null;
+    entry.root.traverse((object) => {
+      if (!body && object.userData?.hitPart === 'chest') body = object;
+      if (object.isMesh && object.userData.ateamTeamPiece) team.push(object);
+    });
+    assert.ok(body, `${entry.role.id} has no torso to hang colours on`);
+    counts.add(team.length);
+    assert.ok(team.length >= 7, `${entry.role.id} is out of uniform`);
+
+    /* A team kit is not a role kit, and the silhouette test above measures
+     * role kits. Tagging the pinnie into that set would collapse eight
+     * distinct outfits into one. */
+    for (const mesh of team) {
+      assert.notEqual(mesh.userData.cartelOutfitPiece, true,
+        `${entry.role.id}'s colours are being counted as his role kit`);
+      assert.match(mesh.name, /^ateam\.colours\./);
+    }
+
+    const local = new THREE.Matrix4().copy(body.matrixWorld).invert();
+    const boxOf = (mesh) => {
+      mesh.geometry.computeBoundingBox();
+      return new THREE.Box3().copy(mesh.geometry.boundingBox)
+        .applyMatrix4(new THREE.Matrix4().multiplyMatrices(local, mesh.matrixWorld));
+    };
+    const panels = team.filter((mesh) => {
+      const size = boxOf(mesh).getSize(new THREE.Vector3());
+      return size.x > 0.2 && size.y > 0.3;
+    });
+    assert.equal(panels.length, 2,
+      `${entry.role.id} has ${panels.length} readable panel(s); a pinnie is front and back`);
+    const zs = panels.map((mesh) => boxOf(mesh).getCenter(new THREE.Vector3()).z);
+    assert.ok(Math.min(...zs) < -0.2 && Math.max(...zs) > 0.2,
+      `${entry.role.id}'s panels are on the same side of him`);
+
+    /* The letter. Two leaning bars per face; take the front pair. */
+    const bars = team
+      .filter((mesh) => !panels.includes(mesh))
+      .map((mesh) => ({ mesh, box: boxOf(mesh) }))
+      .filter(({ box }) => box.getCenter(new THREE.Vector3()).z > 0.2)
+      .filter(({ box }) => box.getSize(new THREE.Vector3()).y > 0.1);
+    assert.equal(bars.length, 2, `${entry.role.id}'s chest letter is not two legs`);
+    const [left, right] = bars.sort(
+      (a, b) => a.box.getCenter(new THREE.Vector3()).x - b.box.getCenter(new THREE.Vector3()).x,
+    );
+    const apexGap = right.box.min.x - left.box.max.x;
+    const footGap = (right.box.min.x + right.box.max.x) / 2
+      - (left.box.min.x + left.box.max.x) / 2;
+    assert.ok(apexGap < footGap,
+      `${entry.role.id} is wearing an H: the legs of the letter lean apart `
+      + `(${apexGap.toFixed(3)} m at the top, ${footGap.toFixed(3)} m between centres)`);
+  }
+  assert.equal(counts.size, 1, 'the crew are not all in the same kit');
+});
+
 test('every visible siege gun is held at its grip and long guns are supported', () => {
   const { scene, damage, matrix, pool } = harness();
   const ensemble = buildSiegeEnsemble({ scene, damage, matrix });

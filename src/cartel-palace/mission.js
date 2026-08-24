@@ -52,10 +52,20 @@ const OBJECTIVES = Object.freeze({
     text: 'Eliminate Mark and Sauce.',
     hint: 'Mark is armored. Break his protection before closing the distance.',
   }),
+  /* THE PROSPECT IS NOT LEAVING FOR THE INITIATION HERE.
+   *
+   * Owner, 2026-08-24. Four separate places -- this hint, the terrace prompt,
+   * the ending card and its button -- told him he was, and the campaign graph
+   * has not agreed with any of them since the Palace was repointed: the edge
+   * out of `SCENES[CARTEL_PALACE]` goes to the SPECIAL MEETING, and it is that
+   * scene which hands off to the Initiation at the treeline. What happens
+   * after the terrace is that Tony goes home not knowing whether killing Sauce
+   * was the right call, and waits for a phone call. Nothing in the Palace
+   * should promise him a ceremony he has not been invited to yet. */
   [PALACE_BEATS.CLEAR]: Object.freeze({
     kicker: 'PALACE CLEAR',
     text: 'Leave through the dining terrace.',
-    hint: 'The family is waiting. This ends at the Initiation.',
+    hint: 'Nobody left in this house is going to tell you whether that was right.',
   }),
 });
 

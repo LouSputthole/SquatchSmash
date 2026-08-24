@@ -366,7 +366,92 @@ export const CARTEL_ROLE_KITS = Object.freeze({
   }),
 });
 
+
+/* ================================================================== */
+/* THE A-TEAM'S COLOURS                                                 */
+/*                                                                      */
+/* Owner, 2026-08-24: *"I also want to give them more identifiable A     */
+/* team outfits."*                                                      */
+/*                                                                      */
+/* The role kits above answer WHAT EACH MAN DOES -- webbing, a plate, a  */
+/* radio -- and they do that job. What none of them says is WHO THEY     */
+/* ARE. Eight different silhouettes in eight shades of olive is eight    */
+/* men, not one crew, and the crew is the entire point of the barks:     */
+/* these people are a TEAM and they will tell you so while they shoot    */
+/* at you.                                                              */
+/*                                                                      */
+/* So: a scrimmage vest. A pinnie in team colours with the letter on the */
+/* chest, worn OVER whatever the man's role gave him. That is the honest */
+/* shape for this problem as well as the readable one -- a panel pushed  */
+/* in among the webbing has to fight it for depth, and a panel worn on   */
+/* top of it does not, because that is what a pinnie is. It goes on all  */
+/* eight roles identically, including over the armoured man's plate,     */
+/* which is exactly what a team does with a man in a plate carrier.      */
+/*                                                                      */
+/* THE HEADBAND STAYS RED AND STAYS AS IT WAS. It is the friend-or-foe   */
+/* read at forty metres on a dark landing and there is a test on it.     */
+/* The vest is the same red, so the two agree instead of competing.      */
+/*                                                                      */
+/* Tagged `ateamTeamPiece`, not `cartelOutfitPiece`: a role kit says what */
+/* a man does and a team kit says whose he is. The silhouette test reads  */
+/* the former and would collapse eight distinct kits into one if the same */
+/* seven panels were counted into all of them.                           */
+/* ================================================================== */
+
+/** Local Z of the vest's outer faces, clear of every role kit underneath. */
+const TEAM_VEST_Z = 0.252;
+/** The letter, printed proud of the panel it is on. */
+const TEAM_MARK_Z = TEAM_VEST_Z + 0.012;
+
+/**
+ * The pinnie, in one place, so the letter cannot drift off the panel.
+ *
+ * The `A` is three bars rather than a texture: it has to read as a shape at
+ * forty metres in the dark, where a 128px canvas is four pixels of mush, and
+ * three boxes cost less than the texture upload would. The legs LEAN IN --
+ * rotated so each one's top travels toward the centre line -- because two
+ * parallel bars and a crossbar is an H, which is what the first pass of this
+ * rendered as.
+ *
+ * The panel is 0.27 by 0.36 rather than the full width of a chest on purpose:
+ * a bib that covers a man from collar to belt hides the role kit underneath
+ * it, and the role kit is how the player tells a suppressor from a gunner
+ * before either of them fires. This leaves the outer edges of the webbing and
+ * the bottom of every bandolier showing.
+ */
+const teamLetterA = (z) => [
+  kitBox([0.032, 0.200, 0.010], [-0.048, 1.34, z], 'teamMark', [0, 0, -0.42]),
+  kitBox([0.032, 0.200, 0.010], [0.048, 1.34, z], 'teamMark', [0, 0, 0.42]),
+  kitBox([0.105, 0.028, 0.010], [0, 1.30, z], 'teamMark'),
+];
+
+export const ATEAM_TEAM_KIT = Object.freeze({
+  label: 'A-Team colours',
+  pieces: Object.freeze([
+    /* The panels. Front and back, hung off the shoulders. */
+    kitBox([0.27, 0.36, 0.018], [0, 1.31, TEAM_VEST_Z], 'team'),
+    kitBox([0.27, 0.36, 0.018], [0, 1.31, -TEAM_VEST_Z], 'team'),
+    /* What holds them on, and what stops the front panel reading as a sign
+     * floating in front of a man: the strap runs over the shoulder and joins
+     * the two, so the eye has the whole garment. */
+    kitBox([0.085, 0.020, 0.54], [-0.125, 1.545, 0], 'team'),
+    kitBox([0.085, 0.020, 0.54], [0.125, 1.545, 0], 'team'),
+    /* The letter, on both sides, because they are advancing at him half the
+     * time and away from him the other half. */
+    ...teamLetterA(TEAM_MARK_Z),
+    ...teamLetterA(-TEAM_MARK_Z),
+  ]),
+});
+
+
 const CARTEL_KIT_MATERIALS = Object.freeze({
+  /* The A-Team's own two colours. Jersey red rather than the headband's
+   * brighter 0xd92e2e -- the band is a strip of dyed cotton catching a light,
+   * the pinnie is a whole panel of it, and the same hex on both reads as one
+   * plastic object worn twice. Bone for the letter, not white: white blows out
+   * under the emergency lights and stops being a shape. */
+  team: new THREE.MeshStandardMaterial({ color: 0xa8202a, roughness: 0.93 }),
+  teamMark: new THREE.MeshStandardMaterial({ color: 0xf2ede0, roughness: 0.88 }),
   web: new THREE.MeshStandardMaterial({ color: 0x4a3a26, roughness: 0.96 }),
   pouch: new THREE.MeshStandardMaterial({ color: 0x32372a, roughness: 0.94 }),
   black: new THREE.MeshStandardMaterial({ color: 0x15191a, roughness: 0.92 }),
@@ -899,6 +984,27 @@ export const ATEAM_IDENTITY_BARKS = Object.freeze([
   ateam('ateam3', 'next-man-up', 'Next man up!'),
 ]);
 
+/**
+ * The A-Team's recorded takes, for whoever is decoding the scene's audio.
+ *
+ * Owner, 2026-08-24: *"I also didnt hear the A team voice lines during the
+ * siege."* He would not have. Every other part of this was wired -- the table
+ * carries the cue, `bark()` hands it up through `onBark`, and the scene's
+ * `renderCombatBark` calls `speak()` with it -- but nothing ever LOADED the
+ * bank. `AudioEngine.play` on a cue with no decoded buffer does not fail; it
+ * falls through to the synth stand-in, so forty-two recorded lines were being
+ * answered by a blip while the subtitle said the words.
+ *
+ * The list belongs here, beside the table, for the same reason the `vo.ateam.`
+ * prefix does: a bark pool that names its own cues and then leaves somebody
+ * else to remember them is a pool that goes quiet the next time a line is
+ * added. One and a half megabytes for the crew, decoded with the rest of the
+ * mission's voices.
+ */
+export function ateamBarkCueNames() {
+  return [...new Set(ATEAM_IDENTITY_BARKS.map((entry) => entry.cue))];
+}
+
 const BARKS = Object.freeze({
   contact: Object.freeze([
     'Contact, the stairs!',
@@ -1361,25 +1467,49 @@ export function createAttackerPool({
     }
   }
 
-  function dressCartelRole(figure, roleId) {
-    const kit = CARTEL_ROLE_KITS[roleId];
-    if (!kit) throw new Error(`No cartel outfit kit for ${roleId}`);
-    for (let index = 0; index < kit.pieces.length; index++) {
-      const piece = kit.pieces[index];
-      const geometry = piece.shape === 'round'
+  /* One geometry per authored piece rather than per man. Twenty-two attackers
+   * wearing the same seven-panel vest was twenty-two uploads of seven shapes
+   * before this cache; the transform is on the mesh, which is where it was
+   * already. */
+  const kitGeometries = new Map();
+  function kitGeometry(piece) {
+    const key = piece.shape === 'round'
+      ? `r:${piece.radius}:${piece.height}`
+      : `b:${piece.size.join(':')}`;
+    let geometry = kitGeometries.get(key);
+    if (!geometry) {
+      geometry = piece.shape === 'round'
         ? new THREE.CylinderGeometry(piece.radius, piece.radius, piece.height, 8)
         : new THREE.BoxGeometry(...piece.size);
-      const mesh = new THREE.Mesh(geometry, CARTEL_KIT_MATERIALS[piece.material]);
-      mesh.name = `cartel.outfit.${roleId}.${index}`;
+      kitGeometries.set(key, geometry);
+    }
+    return geometry;
+  }
+
+  function wearKit(figure, kit, { name, tag, roleId = null }) {
+    for (let index = 0; index < kit.pieces.length; index++) {
+      const piece = kit.pieces[index];
+      const mesh = new THREE.Mesh(kitGeometry(piece), CARTEL_KIT_MATERIALS[piece.material]);
+      mesh.name = `${name}.${index}`;
       mesh.position.set(...piece.pos);
       if (piece.rotation) mesh.rotation.set(...piece.rotation);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      mesh.userData.cartelOutfitPiece = true;
-      mesh.userData.cartelRole = roleId;
+      mesh.userData[tag] = true;
+      if (roleId) mesh.userData.cartelRole = roleId;
       mesh.userData.cartelKit = kit.label;
       figure.parts.body.add(mesh);
     }
+  }
+
+  function dressCartelRole(figure, roleId) {
+    const kit = CARTEL_ROLE_KITS[roleId];
+    if (!kit) throw new Error(`No cartel outfit kit for ${roleId}`);
+    wearKit(figure, kit, {
+      name: `cartel.outfit.${roleId}`, tag: 'cartelOutfitPiece', roleId,
+    });
+    /* And over the top of it, whoever he is, the crew's own colours. */
+    wearKit(figure, ATEAM_TEAM_KIT, { name: 'ateam.colours', tag: 'ateamTeamPiece', roleId });
   }
 
   function buildFigure(order, index) {

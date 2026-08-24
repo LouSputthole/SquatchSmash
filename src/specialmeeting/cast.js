@@ -53,12 +53,16 @@ import { formalMeetingModel } from '../core/formal-appearance.js';
 import { WARDROBE } from '../core/wardrobe.js';
 
 /** Seff and Lag live on the Bing roster, by the ledger's own decision. */
-const FAMILY_MODELS = new Map(FAMILY.map((member) => [member.id, member.model]));
+const FAMILY_ROWS = new Map(FAMILY.map((member) => [member.id, member]));
+
+function familyRow(id) {
+  const row = FAMILY_ROWS.get(id);
+  if (!row) throw new Error(`${id} is not on the Bing roster; nothing here may invent him a body`);
+  return row;
+}
 
 function familyModel(id) {
-  const model = FAMILY_MODELS.get(id);
-  if (!model) throw new Error(`${id} is not on the Bing roster; nothing here may invent him a body`);
-  return model;
+  return familyRow(id).model;
 }
 
 /**
@@ -240,16 +244,107 @@ function canonicalModelFor(key) {
   return { ...familyModel(CAST_SPEC[key].characterId) };
 }
 
-/** Scene variants over canonical bodies; ordinary-scene outfits stay intact. */
-export const SPECIAL_MEETING_MODELS = Object.freeze(Object.fromEntries(
-  Object.keys(CAST_SPEC).map((key) => [
-    key,
-    formalMeetingModel(CAST_SPEC[key].characterId, canonicalModelFor(key)),
-  ]),
-));
+/** One roster row's photograph, and the fallback it authorises for it. */
+const rosterPhoto = (id) => {
+  const row = familyRow(id);
+  return Object.freeze({ photo: row.photo, photoFallback: row.photoFallback ?? null });
+};
 
-function modelFor(key) {
-  const model = SPECIAL_MEETING_MODELS[key];
+/**
+ * WHOSE PHOTOGRAPH GOES ON WHOSE HEAD.
+ *
+ * This scene is the only one in the campaign that stages named Circle members
+ * and never passed `face` to the shared builder, so all four of them fell
+ * through to `makePerson`'s drawn head while the Bing, the Mansion and the
+ * Initiation were putting the owner's real photographs on the same people.
+ * That is the second half of the owner's "missing faces" report — the first
+ * half was the Special Meeting's cabin being lit by nothing, fixed separately
+ * in `src/specialmeeting/forest/sedan-adapter.js` — and it is why a man who
+ * has a face everywhere else arrived here without one.
+ *
+ * The three names come out of `FAMILY` rather than being typed here. The Bing
+ * roster is already the place that decides which photograph belongs to which
+ * member (it is the only place carrying `photoFallback` as well), and a second
+ * copy of "Seff wears seff.png" in a scene file is precisely the drift the
+ * ledger exists to stop — the same argument that keeps the clothes in the
+ * roster and not in this file. Kittenboss is the one attendee with no roster
+ * row: she is never in the club, so she is on nobody's roster, and her
+ * photograph therefore has to be named somewhere. It is named here, once, and
+ * the moment she gains a `FAMILY`-style row this should read it off that row
+ * with the other three.
+ *
+ * NONE of these four files exist yet — `assets/faces/index.json` lists neither
+ * seff.png, lag.png, numbskull.png nor kittenboss.png — so every one of them
+ * resolves to `null` today and all four keep the authored head they already
+ * have. That is the intended behaviour and not a bug: the index is the ledger
+ * of which photographs have LANDED, and asking for one that has not is a 404
+ * in the console for every player. When the art is dropped into `assets/faces/`
+ * and `node tools/faces-index.mjs` re-runs, these four wake up on their own
+ * with nothing else changing.
+ */
+const FACE_PHOTOS = Object.freeze({
+  seff: rosterPhoto(CHARACTER_IDS.SEFF),
+  lag: rosterPhoto(CHARACTER_IDS.LAG),
+  numbskull: rosterPhoto(CHARACTER_IDS.NUMBSKULL),
+  kittenboss: Object.freeze({ photo: 'kittenboss.png', photoFallback: null }),
+});
+
+/**
+ * Resolve one attendee's photograph against the index of what is on disk.
+ *
+ * Deliberately the same three lines as `populateFamily` in
+ * `src/bing/family.js`: the named photo if it has landed, then the roster's
+ * `photoFallback` if that has, then nothing. `null` is spread onto the model
+ * rather than left off it so the field is always present and always readable —
+ * the check in `tools/verify-specialmeeting.mjs` asks each built attendee what
+ * it is wearing, and "the key is missing" and "the photo has not landed" are
+ * not the same answer.
+ */
+function faceFor(key, faces) {
+  const named = FACE_PHOTOS[key];
+  if (!named) return null;
+  const photo = faces.has(named.photo) ? named.photo
+    : (named.photoFallback && faces.has(named.photoFallback) ? named.photoFallback : null);
+  return photo ? `assets/faces/${photo}` : null;
+}
+
+/**
+ * Scene variants over canonical bodies; ordinary-scene outfits stay intact.
+ *
+ * A function of the face index rather than a frozen module-scope table,
+ * because which photograph a person can wear is a fact about the filesystem
+ * and this module is imported long before anything has asked the server about
+ * it. `face` is spread onto the canonical body BEFORE the formal adapter runs,
+ * exactly as `initiationFormalModel` does it in
+ * `src/initiation/ceremony-figure.js`: `formalMeetingModel` strips garments
+ * and keeps identity, and a face is identity, so it survives untouched. That
+ * is also why this does not add a `face` option to the adapter — it would be a
+ * second copy of the Initiation's helper for no gain.
+ */
+export function specialMeetingModels(faces = new Set()) {
+  return Object.freeze(Object.fromEntries(
+    Object.keys(CAST_SPEC).map((key) => [
+      key,
+      formalMeetingModel(CAST_SPEC[key].characterId, {
+        ...canonicalModelFor(key),
+        face: faceFor(key, faces),
+      }),
+    ]),
+  ));
+}
+
+/**
+ * The four of them with no index to go on: the drawn heads, every face null.
+ *
+ * Kept as an export because the headless gates and the tests build this cast
+ * with no server to fetch an index from — `tools/geometry-scenes.mjs` calls
+ * `buildSpecialMeetingCast(scene)` bare, and a photo texture it could not load
+ * would be noise in a geometry bucket either way.
+ */
+export const SPECIAL_MEETING_MODELS = specialMeetingModels();
+
+function modelFor(models, key) {
+  const model = models[key];
   if (!model) throw new Error(`${key} has no Special Meeting formal appearance`);
   return model;
 }
@@ -260,10 +355,20 @@ function modelFor(key) {
  * Nobody is placed meaningfully here: they are made, stamped with their
  * campaign id, and parked. Where they stand is the sequence's business, and
  * the sequence moves them by seat name, never by coordinate.
+ *
+ * `faces` is the resolved `assets/faces/index.json` — the set of photographs
+ * that have actually landed — and it arrives from the caller for the same
+ * reason `populateFamily` takes it rather than fetching it: a scene module
+ * that reaches for the network on import cannot be built by a headless gate,
+ * a test or the geometry sweep, all three of which call this with no options
+ * at all and get the authored heads. `src/specialmeeting/main.js` awaits
+ * `loadFaceIndex()` once at the top and hands the result down, exactly as
+ * `src/bing/main.js` does for the club.
  */
 export function buildSpecialMeetingCast(scene, {
-  sedan = null, colliders = null, groundAt = null,
+  sedan = null, colliders = null, groundAt = null, faces = new Set(),
 } = {}) {
+  const models = specialMeetingModels(faces);
   const people = {};
   for (const key of Object.keys(CAST_SPEC)) {
     const spec = CAST_SPEC[key];
@@ -273,7 +378,7 @@ export function buildSpecialMeetingCast(scene, {
       job: 'stand',
       x: 0, y: 0, z: 0, yaw: 0,
       colliders,
-      model: modelFor(key),
+      model: modelFor(models, key),
     });
     npc.characterId = spec.characterId;
     npc.group.userData.characterId = spec.characterId;
@@ -292,6 +397,9 @@ export function buildSpecialMeetingCast(scene, {
    * holds the arrangement, because the arrangement is the thing the scene is
    * about and it has to be readable without unpicking a transform. */
   const seated = new Map();
+  /* Whether Kittenboss is riding in the boot. Her own state, because the seat
+   * she used to be keyed off belongs to Lag from the moment the drive starts. */
+  let bootRider = false;
 
   /**
    * WHAT THEY ARE STANDING ON.
@@ -427,6 +535,16 @@ export function buildSpecialMeetingCast(scene, {
     spec: CAST_SPEC,
     seating: SEATING,
 
+    /* What each of them was actually built wearing, including the photograph
+     * that resolved for them or the `null` that did not. `makePerson` folds a
+     * face into a head material and keeps no record of where it came from, and
+     * `parts.profile` carries garments and body only, so without this the only
+     * way for a live check to ask "did Seff get his photograph?" would be to
+     * dig a texture out of a material and try to recognise its URL. The
+     * browser check in tools/verify-specialmeeting.mjs reads this. */
+    models,
+    facePhotos: FACE_PHOTOS,
+
     person(characterId) { return byCharacterId.get(characterId) ?? null; },
     byKey(key) { return people[key] ?? null; },
 
@@ -447,6 +565,7 @@ export function buildSpecialMeetingCast(scene, {
          * every frame by `update` below. */
         sedan.release('rear_left');
         rideInTheBoot();
+        bootRider = true;
       }
       return this;
     },
@@ -527,11 +646,29 @@ export function buildSpecialMeetingCast(scene, {
     /** The boot, and the woman in it, who climbs out under her own power. */
     kittenbossOut() {
       if (!sedan) return this;
+      bootRider = false;
       standUp('kittenboss');
       placeBeside('kittenboss', sedan.doorWorld('trunk'), {
         away: true, standoff: WAITING_STANDOFF_M,
       });
       return this;
+    },
+
+    /**
+     * Which seat a person is in, or null if they are on their feet.
+     *
+     * Published so `main.js` can emit a line from the CAR's own seat anchor
+     * rather than from the rig -- a seated rig's origin is at its feet, under
+     * the floor pan. Takes a cast key or a character id, because callers have
+     * one or the other.
+     */
+    seatOf(who) {
+      const key = people[who]
+        ? who
+        : (Object.values(CAST_SPEC).find((spec) => spec.characterId === who)?.key ?? null);
+      if (!key) return null;
+      for (const [seat, occupant] of seated) if (occupant === key) return seat;
+      return null;
     },
 
     place,
@@ -552,6 +689,25 @@ export function buildSpecialMeetingCast(scene, {
     },
 
     update(dt, focus = null) {
+      /* KEEP THE RIDERS IN THE CAR.
+       *
+       * `sedan.rideAlong()` is what holds a seated body on its cushion as the
+       * car moves, and it was called from exactly one place: the last line of
+       * `sedan.update()`, which is reached only through `arrival.update()`,
+       * which is reached only through `stage.update()`. And `main.js`'s frame
+       * loop is an either/or -- the forest replaces the stage the moment the
+       * drive begins. So from the cut to black onward nothing called it, and
+       * Seff, Lag and Numbskull stayed frozen at the kerb for the whole
+       * two-minute drive while the camera rode away in the car. Their voices
+       * stayed with them: positional audio emitted from a street the player
+       * had left. That is the owner's "voices sound like they are coming from
+       * arbitrary directions", from the other end.
+       *
+       * It belongs here rather than in the rail, because this module is the one
+       * that knows who is riding. `cast.update` is called unconditionally every
+       * frame in both phases, `rideAlong` early-returns with no occupants, and
+       * it is idempotent against the block-phase call it already had. */
+      sedan?.rideAlong?.();
       for (const npc of Object.values(people)) {
         if (!npc.group.visible) continue;
         npc.update(dt, focus);
@@ -559,8 +715,15 @@ export function buildSpecialMeetingCast(scene, {
       /* Reapplied every frame because the car turns, and because an idling rig
        * drifts its own yaw towards whatever it is looking at. */
       for (const key of seated.values()) faceRider(key);
-      /* The boot. She rides where she is, and where she is is not a seat. */
-      if (sedan && !seated.has('rear_left') && people.kittenboss.seated) rideInTheBoot();
+      /* The boot. She rides where she is, and where she is is not a seat.
+       *
+       * Gated on her own state, not on somebody else's seat. It used to read
+       * `!seated.has('rear_left')` as a proxy for "she is still borrowing that
+       * ride-along" -- true through Acts One and Two, and false forever after
+       * `takeSeats()` puts Lag in the back. She then stopped travelling with
+       * the car at the exact moment the drive began, and was found at the spur
+       * having never left the kerb. */
+      if (sedan && bootRider && people.kittenboss.seated) rideInTheBoot();
       return this;
     },
 

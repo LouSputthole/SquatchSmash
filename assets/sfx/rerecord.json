@@ -14,6 +14,17 @@
     "surfaces in VOICE-LINES-NEEDED.md on its own. They are listed for provenance,",
     "and because their old takes were deleted as orphans.",
     "",
+    "",
+    "`recast` is the third half: a PROFILE whose ElevenLabs id changed, rather than",
+    "a line whose words did. Nothing else in this repository can see one. The take",
+    "ledger stamps a voiceId only on takes it rendered itself, so a character whose",
+    "takes all predate it -- stamped \"assumed\", carrying no voice on purpose -- can",
+    "be recast in the manifest and keep shipping the old performer with every gate",
+    "green. That is not hypothetical: it is what happened to Rico, and it is the",
+    "case tests/motel-voice.test.mjs now refuses to let pass silently.",
+    "",
+    "Remove an entry once `npm run sfx -- --force --cast <profile>` has re-rendered",
+    "the takes and `npm run vo:takes` has stamped them.",
     "Remove a line from `lines` once its replacement take is indexed."
   ],
   "lines": [
@@ -114,6 +125,16 @@
       "cue": "mansion.bookcase.seat",
       "replacedBy": "mansion.suite.bookcase.shut",
       "reason": "named by no source file; a second take of the close the wired shut take already plays"
+    }
+  ],
+  "recast": [
+    {
+      "profile": "motel-rico",
+      "from": "UZvBfqEdvCFLqsBOo9Zr",
+      "to": "5sPGxVw5vqj7a08c5Xbw",
+      "cuePrefix": "vo.motel.rico.",
+      "reason": "Owner, on the Jerky Motel playthrough: 'Does Rico use the same voice as Capt Lou Sasole? I thought I heard his voice from one of the mansion gaurds as well.' The audit found no shared id -- the old casting was provisional, from the owner's Boston side-character pool, and simply read as the wrong man. The owner supplied the replacement id on 2026-08-24.",
+      "regenerate": "npm run sfx -- --force --cast motel-rico && npm run sfx:listen && npm run vo:takes"
     }
   ]
 }

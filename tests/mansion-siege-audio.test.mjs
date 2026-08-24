@@ -180,9 +180,28 @@ test('the playable Siege and its verifier use the observable mission-audio bound
   assert.match(siegeMainSource,
     /await audio\.loadManifest\(\{ names: siegeEffectCueNames\(\) \}\)/,
     'required effects must decode before the wake checkpoint requests them');
-  assert.match(siegeMainSource,
-    /names: \[\.\.\.weaponCueNames\(\), \.\.\.siegeVoiceCueNames\(\), \.\.\.siegeCombatCueNames\(\)\]/,
-    'the playable weapon, voice and combat-feedback bank must finish before combat begins');
+  /* The bank itself rather than one exact line of it. The four lists are what
+   * has to be decoded before combat; how they are laid out in the argument is
+   * formatting, and pinning the formatting is how a fourth list gets left out
+   * of the assertion when somebody wraps the line to add it. */
+  const preload = siegeMainSource.slice(
+    siegeMainSource.indexOf('await audio.loadAdditional('),
+  );
+  const preloadCall = preload.slice(0, preload.indexOf('});'));
+  for (const [list, why] of [
+    ['weaponCueNames', 'the guns'],
+    ['siegeVoiceCueNames', 'the mission script'],
+    ['siegeCombatCueNames', 'combat feedback'],
+    /* Owner, 2026-08-24: *"I also didnt hear the A team voice lines during
+     * the siege."* They are barks, not script, so they were in neither of the
+     * lists above and nothing decoded them -- and an undecoded cue plays the
+     * synth stand-in rather than failing, so the fight went quiet with the
+     * subtitles still running. */
+    ['ateamBarkCueNames', 'the A-Team naming themselves'],
+  ]) {
+    assert.match(preloadCall, new RegExp(`\\.\\.\\.${list}\\(\\)`),
+      `${why} must finish decoding before combat begins: ${list}() is not in the preload`);
+  }
   assert.match(siegeMainSource, /export function siegeCombatCueNames\(\)/);
   assert.match(siegeMainSource, /withCheckpointReconstruction\(\(\) => \{/,
     'checkpoint reconstruction must not replay every intermediate chime and wave cue');

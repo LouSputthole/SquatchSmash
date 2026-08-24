@@ -206,14 +206,28 @@ function worldCue(material) {
 
 function bodyFallCue(surface) {
   switch (token(surface, 'concrete')) {
+    /* `heist.body.marble` is recorded as a body landing "onto polished marble
+     * ... with short LOBBY REVERB". That is the bank in the Heist and the hall
+     * of Lou's mansion, and it is not a terracotta floor in a stucco villa.
+     * The Palace was the only caller passing `tile` and it was getting a
+     * marble lobby; a hard floor without the ring is the concrete take. */
     case 'marble':
     case 'stone':
-    case 'tile':
       return 'heist.body.marble';
+    case 'tile':
+    case 'ceramic':
+      return 'silent.body.concrete';
     case 'wood':
     case 'wood_thin':
     case 'hardwood':
     case 'timber':
+      return 'drunk.collapse';
+    /* A man going down on a rug is the softest fall in the game, and the
+     * softest recording is the one made on floorboards -- `silent.body.concrete`
+     * carries "the flat knock of a skull following a fraction later", which is
+     * the one thing a rug is there to stop. */
+    case 'rug':
+    case 'carpet':
       return 'drunk.collapse';
     case 'gravel':
       return 'combat.body.fall.gravel';
@@ -300,7 +314,7 @@ export class CombatAudio {
    */
   impact({
     target = 'enemy', zone = 'body', caliber = 'rifle', position = null,
-    result = {}, id = null, vocal = true,
+    result = {}, id = null, vocal = true, armorTier = 'heavy',
   } = {}) {
     if (result?.applied !== true) return [];
     const cues = [];
@@ -321,7 +335,28 @@ export class CombatAudio {
         : 'combat.bullet.impact.flesh');
     }
 
-    if (result.armorBroken === true) {
+    /* WHAT BREAKING ARMOUR SOUNDS LIKE DEPENDS ON WHAT THE ARMOUR IS.
+     *
+     * Both of these cues are ceramic: `combat.armor.break` is "a final ceramic
+     * ballistic plate fracture" and `combat.armor.plate.drop` is "a broken
+     * armor plate and several ceramic fragments dropping from a carrier onto a
+     * hard floor". They are right for a man in a plate carrier and wrong for a
+     * man in a light vest, who has no plate to shatter or drop.
+     *
+     * Owner, 2026-08-24, on the Palace: metallic scraping death sounds. Every
+     * guard on that estate carries armour, so every guard's armour broke
+     * during the burst that killed him, so a ceramic crack and a handful of
+     * fragments settling played over almost every kill in the mission -- and a
+     * clack followed by grit is exactly "metallic scraping".
+     *
+     * `CombatArmorPresentation` has known the tier since it was written. It is
+     * passed in now, and light armour gets NEITHER -- not a substitute cue,
+     * because there is no recording of a soft vest giving out and inventing
+     * one out of the nearest sample is how the ceramic pair ended up here in
+     * the first place. The read is still there without them: the next round
+     * into that man stops sounding like armour and starts sounding like
+     * flesh, which is the thing that actually changed. */
+    if (result.armorBroken === true && token(armorTier) === 'heavy') {
       cues.push('combat.armor.break', 'combat.armor.plate.drop');
     }
     for (const cue of cues) this._play(cue, { position });

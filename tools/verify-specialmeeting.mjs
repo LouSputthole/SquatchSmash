@@ -172,6 +172,46 @@ try {
         && person.attached
         && person.meshes > 10),
     JSON.stringify(initial.people));
+
+  /* THE FACES.
+   *
+   * The owner reported the Special Meeting cast as "missing faces". Half of
+   * that was the cabin light rig; the other half was this scene never passing
+   * `face` to the shared builder at all, so four people who wear the owner's
+   * photographs in the Bing, the Mansion and the Initiation were built here on
+   * the procedural drawn head. Nothing could have caught it: the check above
+   * counts meshes and reads garments, and a head with no photograph on it has
+   * exactly the same meshes and exactly the same suit.
+   *
+   * The index is fetched here rather than read off the scene, so this proves
+   * the built cast against what is genuinely on the server instead of against
+   * the scene's own copy of that answer. A photograph that has NOT landed must
+   * come back null -- asking for a file that is not there is a 404 in every
+   * player's console, which is the whole reason the index exists -- and a
+   * photograph that HAS landed must be on the model. Today no seff.png,
+   * lag.png, numbskull.png or kittenboss.png exists, so the first half is what
+   * runs and the second half is what starts proving something the moment the
+   * art is dropped in and `node tools/faces-index.mjs` re-runs. */
+  const faces = await page.evaluate(async () => {
+    const index = await fetch('assets/faces/index.json')
+      .then((response) => response.json())
+      .catch(() => ({ files: [] }));
+    const landed = new Set(Array.isArray(index.files) ? index.files : []);
+    const { cast } = window.SPECIAL_MEETING;
+    return Object.entries(cast.facePhotos).map(([key, named]) => ({
+      key,
+      photo: named.photo,
+      landed: landed.has(named.photo)
+        || Boolean(named.photoFallback && landed.has(named.photoFallback)),
+      face: cast.models[key]?.face ?? null,
+    }));
+  });
+  check('every attendee whose photograph has landed is wearing it, and nobody else asks for one',
+    faces.length === 4 && faces.every((person) => (person.landed
+      ? typeof person.face === 'string' && person.face.startsWith('assets/faces/')
+      : person.face === null)),
+    JSON.stringify(faces));
+
   check('the featured pickup is believable scale and has its complete exterior and cabin',
     initial.pickup?.vehicle?.kind === 'pickup'
       && initial.pickup.vehicle.detailed === true
@@ -336,6 +376,51 @@ try {
   check('the shared Player performs a real grounded jump',
     duringJump.jumpHeight > 0.03 && !duringJump.grounded,
     JSON.stringify(duringJump));
+  /* ================================================================== *
+   * THE TWO THINGS THIS FILE COULD NOT SEE
+   *
+   * The scene shipped for weeks with its HUD at opacity zero -- all 220 voice
+   * lines playing with no subtitle on screen -- and with the script starting
+   * on the player's click rather than on the car's arrival, so Seff spoke
+   * while the car was still driving down the block. Every check above was
+   * green throughout both. Neither is visible to a headless test and neither
+   * was visible to this one: it never read a computed style, and it stopped
+   * before the car had finished arriving.
+   * ================================================================== */
+  const hudVisible = await page.evaluate(() => {
+    const hud = document.getElementById('hud');
+    return {
+      opacity: hud ? getComputedStyle(hud).opacity : null,
+      playing: document.body.classList.contains('playing'),
+    };
+  });
+  check('the HUD the subtitles are drawn in is actually visible',
+    hudVisible.playing && Number(hudVisible.opacity) > 0.9,
+    JSON.stringify(hudVisible));
+
+  /* The arrival settles about 28 s after the gesture. Waiting for it is the
+   * only way to prove the script is pinned to the car rather than the click. */
+  const arrival = await page.evaluate(() => new Promise((resolve) => {
+    const deadline = performance.now() + 75000;
+    const tick = () => {
+      const sm = window.SPECIAL_MEETING;
+      const beat = sm?.ride?.beatId ?? null;
+      const car = sm?.stage?.sedan?.group?.position;
+      if (beat) {
+        resolve({ beat, settled: sm.stage.arrival?.settled ?? null,
+          car: car ? { x: +car.x.toFixed(2), z: +car.z.toFixed(2) } : null,
+          subtitle: document.getElementById('subtitle')?.textContent ?? '' });
+        return;
+      }
+      if (performance.now() > deadline) { resolve({ beat: null, timedOut: true }); return; }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  }));
+  check('the script does not start until the car has arrived and stopped',
+    arrival.beat === 'SM-100' && arrival.settled === true,
+    JSON.stringify(arrival));
+
   check('all page modules, voice files, face textures and scene assets load',
     missing.length === 0,
     missing.join(' | '));

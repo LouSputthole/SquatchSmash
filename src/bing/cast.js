@@ -538,6 +538,41 @@ export function makePerson(o = {}) {
    * by a couple of centimetres survives that reset because nothing there is
    * ever touched again after this function returns. */
   const gutOn = Math.max(0, gut);
+  /* HOW FAR OUT THE SHOULDER SOCKET SITS, AND IT IS ONE NUMBER FOR A REASON.
+   *
+   * A real belly widens the whole resting silhouette, so a gutted figure's arm
+   * socket moves outboard or his upper arm begins inside his own side. That is
+   * right and it stays. What was wrong is that only the ARM knew about it: this
+   * spread was computed down inside `arm()`, while the deltoid -- the shoulder
+   * cap whose entire job is to close the seam between torso and arm -- was
+   * placed at the bare `SH` a thousand lines earlier, under a comment saying
+   * deltoids "remain at the fixed arm sockets". True when it was written, and
+   * false from the moment the spread was added.
+   *
+   * Owner, 2026-08-24: *"Willys arms are detached from his body."* They were.
+   * Willy carries the maximum gut on a comparatively narrow frame, which buys
+   * the largest spread in the cast -- measured at 0.157 -- so his upper arms
+   * hung that far outboard of the cap that was supposed to meet them, with
+   * daylight between. Measured across the roster, his arms were the only ones
+   * with a POSITIVE gap from the body: +0.051 a side, where Lou is -0.132 and
+   * Booski -0.009. Lou has the same defect and hides it behind a wider frame.
+   *
+   * So it is derived once, here, and both the cap and the socket use it. */
+  /* AND IT IS NOT CLAMPED DOWN TO THE BELLY, WHICH WAS THE FIRST ATTEMPT.
+   *
+   * The first fix capped the spread so the arm's inner face overlapped the
+   * belly by a centimetre, on the theory that a socket outboard of the widest
+   * body surface is a socket reaching for nothing. That is wrong twice over.
+   * It is wrong about anatomy -- an arm hangs BESIDE a belly, it does not
+   * embed in one, and `tests/gut-presentation.test.mjs` has required exactly
+   * that separation since the belly was authored. And it is wrong about what
+   * was broken: the arm was never attached to the belly. It attaches at the
+   * shoulder, to the deltoid and the shoulders slab, and both of those now
+   * read `armSocketX` too. Move the socket and the whole joint moves with it.
+   *
+   * So the original curve stands, and the seam is closed where the seam
+   * actually is. */
+  const armSocketX = SH + (gutOn > 0 ? (0.075 + gutOn * 0.075) * t : 0);
   const lean = gutOn > 0 ? -(0.014 + gutOn * 0.02) * t : 0;
   const gownOcclusion = dress === 'gown'
     ? { always: [], seated: [], visibleBelowHem: [] }
@@ -985,14 +1020,15 @@ export function makePerson(o = {}) {
     torsoGarmentRig.add(part);
     return part;
   };
-  // Shoulders: the central slab is a fitted trunk surface; deltoids remain at
-  // the fixed arm sockets so breathing cannot pull the shoulder/arm seam.
-  torsoStructureRig.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: outerwear ? jacket : cloth }));
+  /* Shoulders: the central slab is a fitted trunk surface; deltoids sit on the
+   * arm sockets -- `armSocketX`, not `SH` -- so breathing cannot pull the
+   * shoulder/arm seam and a belly cannot open one. See `armSocketX`. */
+  torsoStructureRig.add(slab({ name: 'shoulders', size: [armSocketX * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: outerwear ? jacket : cloth }));
   for (const sx of [-1, 1]) {
     body.add(slab({
       name: 'deltoid',
       size: [0.118 * t, 0.11, 0.128 * t],
-      pos: [sx * SH, 1.45, lean],
+      pos: [sx * armSocketX, 1.45, lean],
       mat: sleeve === skinMat ? skinMat : (outerwear ? jacket : cloth),
     }));
   }
@@ -2552,11 +2588,9 @@ export function makePerson(o = {}) {
    */
   function arm(side) {
     const pivot = group('arm');
-    // A real belly widens the whole resting silhouette. Move the shoulder
-    // socket out with it so a gutted figure's upper arm does not begin inside
-    // his side before the seated/folded pose has a chance to splay it.
-    const gutArmSpread = gutOn > 0 ? (0.075 + gutOn * 0.075) * t : 0;
-    pivot.position.set(side * (SH + gutArmSpread), 1.44, lean);
+    /* The socket is `armSocketX`, derived once beside `SH` so the deltoid that
+     * caps this joint is placed from the same number. See the note there. */
+    pivot.position.set(side * armSocketX, 1.44, lean);
     pivot.add(slab({ name: 'upperarm', size: [0.115 * t, 0.30, 0.125 * t], pos: [0, -0.15, 0], mat: sleeve }));
     if (shortSleeve) {
       /* A short sleeve is not a shorter arm. The upper arm keeps the shirt and
@@ -3135,9 +3169,26 @@ export class Npc {
   _syncGownOcclusion(seated) {
     const occlusion = this.parts.gownOcclusion;
     if (!occlusion) return;
+    /* A dining chair drops the skirt to the floor: the hem below picks
+     * `diningHem` whenever the figure is seated at floor level, which is the
+     * same condition that hides the shin. The shoes have to go with it.
+     *
+     * Owner, 2026-08-24: *"on the mansion playthrough, the girls sitting in
+     * the chairs their legs were detached."* They were, and this is how: the
+     * thigh and knee are always hidden under a gown, the shin is hidden when
+     * seated so it cannot poke through a floor-length skirt -- and the shoes
+     * were pinned visible in every pose. Seated, that leaves a pair of shoes
+     * under the hem with nothing above them and nothing joining them to her.
+     * Standing, the shin is back and the leg reads skirt to shin to shoe, so
+     * the fault only ever appeared in a chair.
+     *
+     * A raised stool keeps its shoes, because there the skirt breaks over the
+     * knees and the feet are genuinely below the hem on a brass rail -- which
+     * is the case `visibleBelowHem` was named for. */
+    const perched = seated && this.baseY > 0.1;
     for (const mesh of occlusion.always) mesh.visible = false;
     for (const mesh of occlusion.seated) mesh.visible = !seated;
-    for (const mesh of occlusion.visibleBelowHem) mesh.visible = true;
+    for (const mesh of occlusion.visibleBelowHem) mesh.visible = !seated || perched;
     /* Sitting lowers the entire figure by 0.42 model metres. A standing
      * skirt left at its 0.23 local hem therefore entered a dining-room floor
      * by roughly 18cm even while both shoes remained correctly planted. On a

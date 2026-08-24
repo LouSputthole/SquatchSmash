@@ -903,7 +903,15 @@ export class AudioEngine {
    */
   say(group, opts = {}) {
     if (!this.ready) return false;
-    const { chance = 1, volume = 0.85, delay = 0 } = opts;
+    /* `position` and `muffle` used to be accepted here and thrown away -- the
+     * play call below took `volume` and `delay` and nothing else. A caller who
+     * passed a position got a line dead centre at full level with no panner on
+     * it, which is what a disembodied voice sounds like, and no error to say
+     * so. Found through the Palace's cleaner, who is the only caller in the
+     * game that was passing one. */
+    const {
+      chance = 1, volume = 0.85, delay = 0, position = null, muffle = 0,
+    } = opts;
     if (chance < 1 && Math.random() > chance) return false;
 
     /* Cached per group, but only for as long as the library has not moved.
@@ -946,7 +954,7 @@ export class AudioEngine {
 
     // One voice at a time. He is not a chorus.
     this._vo?.stop?.();
-    this._vo = this.play(pick, { volume, delay });
+    this._vo = this.play(pick, { volume, delay, position, muffle });
     /* Note how long he will be talking for, so anything that can afford to
      * wait -- a fart, mostly -- can hold off rather than land on the line. */
     const secs = this._vo?.buffer ? this._vo.buffer.duration : 1.6;

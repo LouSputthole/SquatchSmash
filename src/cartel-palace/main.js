@@ -69,7 +69,7 @@ const startButton = document.getElementById('start-btn');
 const death = document.getElementById('death');
 const retryButton = document.getElementById('retry-btn');
 const ending = document.getElementById('ending');
-const initiationButton = document.getElementById('initiation-btn');
+const departButton = document.getElementById('depart-btn');
 const loading = document.getElementById('loading');
 
 const ui = {
@@ -448,6 +448,69 @@ function syncSuppressor() {
   if (security) security.gunshotHearingRadius = suppressor.hearingRadius;
 }
 
+/**
+ * Which kind of armour the man was wearing, for the sound of it failing.
+ *
+ * `CombatArmorPresentation` has carried the tier since it was built, and the
+ * combat audio layer now asks for it: a plate carrier cracks and drops
+ * ceramic, a light vest does neither. See `CombatAudio.impact`.
+ */
+function armorTierOf(entry) {
+  return entry?.armorPresentation?.tier === 'heavy' ? 'heavy' : 'light';
+}
+
+/* THE HOUSE'S ALARM, AND IT IS IN THE HOUSE.
+ *
+ * Owner, 2026-08-24, on the Palace: a stray ringing/phone sound after the
+ * first kill.
+ *
+ * It was this alarm, and three things were wrong with it.
+ *
+ * THE SAMPLE. `alarm.chirp` is recorded as "a small door alarm box chirping
+ * twice, two short high electronic beeps ... close". That is a notification
+ * tone. It belongs on the panel by a door, which is where the rest of the game
+ * uses it, and it is not what a cartel estate does when it finds a body.
+ * `siege.alarm.tone` already exists and is recorded as "one complete pulse of a
+ * large private-house security alarm ... a slow two-tone electronic klaxon" --
+ * written for Lou's mansion, and the same object on a different rich man's
+ * house. Reused rather than re-recorded (docs/REUSE-FIRST.md).
+ *
+ * THE PLACE. It was played with no `position`, so `AudioEngine.play` gave it no
+ * panner at all and it arrived dead centre in both ears at full level -- which
+ * is what a phone in your pocket sounds like, not a bell on a building. It
+ * rings from the two places an estate alarm lives now: the security office
+ * inside and the head of the perimeter gate. Where the player is standing
+ * decides what he hears, which is only true now that this scene moves the
+ * listener at all (see `animate`).
+ *
+ * THE SHAPE. One strike is a chime. An alarm is a thing that keeps going, so
+ * this is a run of pulses -- long enough to say the night has changed, short
+ * enough that the player is not still listening to it during the dining room.
+ */
+const ALARM_BELLS = Object.freeze([
+  PALACE_ANCHORS.securityStill,
+  Object.freeze(new THREE.Vector3(14, 4.4, 51)),
+]);
+const ALARM_PULSES = 6;
+const ALARM_PULSE_GAP = 2.4;
+
+function soundTheEstateAlarm() {
+  for (let pulse = 0; pulse < ALARM_PULSES; pulse += 1) {
+    for (const bell of ALARM_BELLS) {
+      audio.play('siege.alarm.tone', {
+        volume: 0.30,
+        position: bell,
+        delay: pulse * ALARM_PULSE_GAP,
+        /* An estate, not a room: audible from the fence to the dining room,
+         * losing level slowly enough that it stays a klaxon the whole way. */
+        ref: 7,
+        maxDist: 110,
+        rolloff: 0.85,
+      });
+    }
+  }
+}
+
 function palaceSurfaceAt(position) {
   if (position?.z < -35 && Math.abs(position.x) < 8) return 'rug';
   if (position?.z < 12 && Math.abs(position.x) < 19) return 'tile';
@@ -576,6 +639,7 @@ const weapons = new WeaponSystem({
           caliber: weaponCaliber(impact.weapon),
           position: located.point ?? impact.point,
           result: located.result,
+          armorTier: armorTierOf(located.combatant),
         });
       }
       budget?.audioActors.add(combatant.id);
@@ -892,7 +956,7 @@ security = new PalaceSecurity({
   audio: combatAudio,
   onAlarm: (reason) => {
     document.body.classList.add('alarm');
-    audio.play('alarm.chirp', { volume: 0.58 });
+    soundTheEstateAlarm();
     if (reason !== 'dining_room') mission.raiseAlarm(reason);
     if (reason === 'guard_contact') hud.say('<em>CONTACT.</em> The quiet route is gone.', 3000);
     if (reason === 'dining_room') return;
@@ -1163,7 +1227,9 @@ interaction.register(palace.targets.diningDoor, {
 });
 
 interaction.register(palace.targets.extractionGate, {
-  label: 'Leave for the <b>Initiation</b>',
+  /* He is leaving a house, not going to a ceremony. See the note on
+   * PALACE_BEATS.CLEAR in ./mission.js. */
+  label: 'Leave through the <b>terrace</b>',
   hold: 0.82,
   enabled: () => state.phase === 'active' && mission.beat === PALACE_BEATS.CLEAR,
   onUse: () => {
@@ -1548,7 +1614,7 @@ retryButton.addEventListener('click', () => {
 });
 addEventListener('pagehide', () => loadout.capture(weapons));
 
-initiationButton.addEventListener('click', () => {
+departButton.addEventListener('click', () => {
   if (campaign.state.missions[MISSION_IDS.CARTEL_PALACE].status !== 'complete') return;
   campaign.update((next) => {
     next.missions[MISSION_IDS.INITIATION].status = 'in_progress';
@@ -1560,7 +1626,14 @@ initiationButton.addEventListener('click', () => {
    * is going to be a special one, and three men come and collect him — see
    * `src/specialmeeting/`. That scene hands off to the Initiation at the
    * treeline on its own, so this is a repoint rather than an insertion, and
-   * `SCENES[CARTEL_PALACE].next` is one edge again because of it. */
+   * `SCENES[CARTEL_PALACE].next` is one edge again because of it.
+   *
+   * The DESTINATION has been right since that repoint; what was wrong until
+   * 2026-08-24 was everything the player could read. This button said "Go to
+   * the Initiation", the terrace prompt said "Leave for the Initiation", the
+   * objective hint said "This ends at the Initiation" and the card called the
+   * Palace the final mission. Four promises the graph does not keep, on the
+   * scene's last screen. The id is `depart-btn` now for the same reason. */
   navigateCampaign(campaign, SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb', location });
 });
 
@@ -1778,6 +1851,30 @@ function animate(now) {
   ballisticImpacts.update(dt);
   hostileMuzzleFlashes.update(dt);
   updateCombatFeedback(dt);
+  /* WHERE THE PLAYER'S EARS ARE.
+   *
+   * Owner, 2026-08-24, on the Palace: enemy death audio is spatially wrong --
+   * a man dying in front of him reads as behind him.
+   *
+   * It was not the death sound. `AudioEngine._makePanner` puts every
+   * positioned cue at its real world coordinates and lets an HRTF panner work
+   * out the bearing, which is correct -- but a bearing is between two points,
+   * and the other one is the LISTENER. Nothing in this scene ever moved it.
+   * It sat at (0, 0, 0) facing -Z from the first frame to the last, so every
+   * shot, body, footstep and voice in the palace was panned as heard by
+   * somebody standing at the world origin rather than by the player. The
+   * estate runs from about z +40 at the fence to z -50 at the dining room, so
+   * the player crosses that origin partway through: sounds that are genuinely
+   * ahead of him read as behind from the moment he does.
+   *
+   * One call per frame, and it must be the CAMERA rather than the player
+   * body -- the camera carries the head's yaw and pitch, and a listener with
+   * position but no orientation is a listener that cannot tell front from
+   * back. `updateListener` also re-samples the followers, which is idempotent
+   * with the engine's own rAF pump.
+   *
+   * Seven other scenes had the same gap and are fixed alongside this one. */
+  audio.updateListener(camera);
   postfx.render();
   postfx.sample(dt);
 }
@@ -1836,6 +1933,7 @@ window.CARTEL_PALACE = {
         caliber: weaponCaliber(impact.weapon),
         position: located.point ?? impact.point,
         result: located.result,
+        armorTier: armorTierOf(located.entry ?? located.combatant),
       });
       confirmCombatHit(located.zone === 'head' ? 'headshot'
         : located.fatal ? 'kill'

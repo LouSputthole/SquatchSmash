@@ -167,6 +167,11 @@ const VALID_SLOTS = (() => {
      * there and register the art without touching this tool again. */
     'src/enolasquatch/livery.js',
     'src/enolasquatch/main.js',
+    /* 2026-08-24 A-Team art pass: the Cartel Palace grew six `cartel-palace.*`
+     * slots (`A_TEAM_ART` in world.js, each row a literal `slot: '...'`) and
+     * the manifest rows for them failed this gate as "unknown slot" for the
+     * one reason this list exists -- nobody had ever read the palace. */
+    'src/cartel-palace/world.js',
   ].map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8'));
   for (const src of sceneSources) {
     for (const m of src.matchAll(/slot:\s*'([^']+)'/g)) slots.add(m[1]);

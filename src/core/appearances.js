@@ -3,11 +3,12 @@
  *
  * `src/core/wardrobe.js` answers "what does Big Uncle Lou wear". It cannot
  * answer "what is Big Uncle Lou wearing at the Bing", because that is not its
- * decision: the club spreads `BIG_UNCLE_LOU_BING`, the mansion spreads
- * `BIG_UNCLE_LOU_MANSION`, the boat spreads plain `BIG_UNCLE_LOU`, and the golf
- * course composes his canonical body under its exported argyle outfit. One
- * man, four outfits, four files, and until this ledger existed there was
- * nowhere to see the four of them next to each other.
+ * decision: the club spreads `BIG_UNCLE_LOU_BING`, the mansion and the boat
+ * both spread `BIG_UNCLE_LOU_MANSION` -- the boat wore the plain suit until the
+ * owner ruled on 2026-08-24 that a man on a boat at dawn is dressed the way he
+ * is dressed at home -- and the golf course composes his canonical body under
+ * its exported argyle outfit. One man, four outfits, four files, and until this
+ * ledger existed there was nowhere to see the four of them next to each other.
  *
  * So this is the second half of the wardrobe: a row per person per scene,
  * naming where in the scene they are and which model that scene actually
@@ -667,6 +668,17 @@ export const PHOTOS = Object.freeze({
   [CHARACTER_IDS.SEFF]: 'seff.png',
   [CHARACTER_IDS.LAG]: 'lag.png',
   [CHARACTER_IDS.BILLY_HOTDOG]: 'billy.png',
+  /* Kittenboss was the one person in this table's blind spot, and it went
+   * unnoticed because nothing had ever asked for her photograph: she is the
+   * only Special Meeting attendee who is not on the Bing roster (she is never
+   * in the club), so no `FAMILY` row named a file for her, and this ledger did
+   * not either. The Special Meeting now resolves all four attendees' faces
+   * through `assets/faces/index.json` -- see FACE_PHOTOS in
+   * src/specialmeeting/cast.js, which names hers because there is no roster
+   * row to read it off -- so the name belongs here too, or the fitting room
+   * would go on previewing her with an authored head after the scene had
+   * stopped doing that. Not landed either; see the note above. */
+  [CHARACTER_IDS.KITTENBOSS]: 'kittenboss.png',
 });
 
 /* ====================================================================== *
@@ -1024,10 +1036,12 @@ export const APPEARANCES = Object.freeze([
     name: 'Big Uncle Lou',
     scene: 'no_wake',
     where: 'the foredeck, standing, facing aft at Willy',
-    model: BIG_UNCLE_LOU,
-    from: { wardrobe: 'BIG_UNCLE_LOU' },
+    /* The camp shirt, on the owner's ruling of 2026-08-24: the same outfit he
+     * wears at his own house, not the suit he wears to be seen in. */
+    model: BIG_UNCLE_LOU_MANSION,
+    from: { wardrobe: 'BIG_UNCLE_LOU_MANSION' },
     module: 'src/nowake/world.js',
-    evidence: 'model: { ...BIG_UNCLE_LOU, face: \'assets/faces/lou.png\' },',
+    evidence: 'model: { ...BIG_UNCLE_LOU_MANSION, face: \'assets/faces/lou.png\' },',
   }),
   row({
     character: CHARACTER_IDS.LOU,
@@ -2089,6 +2103,25 @@ export const APPEARANCES = Object.freeze([
    * change (every Bing, party and mansion row flips its `from` shape with it)
    * and it should be somebody's deliberate decision, not this scene's
    * side effect.
+   *
+   * FACES. None of the four models below carries a `face`, and that is not the
+   * omission it looks like — it is this ledger's rule. A face is not a garment:
+   * `PHOTOS` above is the record of whose photograph is whose, and every
+   * consumer (each scene, and the fitting room in src/wardrobe/) composes the
+   * model with that photograph only after checking `assets/faces/index.json`
+   * for whether the file has actually landed. Big Uncle Lou's party row is the
+   * same shape and says so in its evidence: the runtime spreads a
+   * conditionally-resolved face onto `BIG_UNCLE_LOU_BING`, and the row still
+   * mirrors the bare wardrobe object.
+   *
+   * Until 2026-08-24 this scene was the one place in the campaign that staged
+   * named Circle members and passed no face at all, so all four attendees were
+   * built on the procedural drawn head — the second cause behind the owner's
+   * "missing faces" report, the first being the unlit cabin. The scene now
+   * resolves all four through the index the way `populateFamily` does, taking
+   * the three roster names out of `FAMILY` and naming Kittenboss's in the
+   * scene because she has no roster row. Kittenboss's entry in `PHOTOS` was
+   * added in the same change, for the same reason.
    * ================================================================== */
   row({
     character: CHARACTER_IDS.SEFF,
