@@ -81,6 +81,24 @@ export const SEAT_IDS = Object.freeze(['driver', 'front_passenger', 'rear_left',
 export const SEATED_EYE = 1.0;
 
 /**
+ * A seated MOUTH, above the cushion — where a voice comes out of.
+ *
+ * Slightly under the eye, which is where a mouth is. It exists because a voice
+ * in this scene used to be emitted from `npc.group`, and that group's origin is
+ * the character's FEET: for a seated rider `occupy()` drops it
+ * `SEATED_FIGURE_DROP` below the cushion, putting the emitter under the floor
+ * pan and roughly a metre and a half BELOW the listener's ear, at a horizontal
+ * separation of under one metre. The dominant component of that direction
+ * vector is straight down, which is exactly what the owner reported: voices
+ * coming from the floor of the car.
+ *
+ * The anchors these place are children of the car, so they ride with it for
+ * free and are correct on any frame the car has been moved on — including the
+ * frames the rail moves it and the block's own ride-along does not run.
+ */
+export const SEATED_MOUTH = 0.60;
+
+/**
  * A seated FIGURE's origin, below the cushion.
  *
  * `Npc.sit()` folds the hips and knees but the rig's origin stays at the
@@ -158,6 +176,30 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
   /* ---------------------------------------------------------------- */
   const interior = buildInterior(car, cabin);
   root.add(interior.group);
+
+  /* ---------------------------------------------------------------- */
+  /* Where each seat's voice comes out of                              */
+  /*                                                                    */
+  /* Empty Object3Ds, one per seat, parented to the car. Nothing is     */
+  /* drawn: they exist to be handed to `speak()` as the emitter, so a   */
+  /* line is positioned by the SEAT somebody is in rather than by the   */
+  /* transform of the rig that happens to be sitting in it. The owner's */
+  /* rule for this scene was explicit -- "do not let character          */
+  /* transforms or unused spawn locations determine dialogue audio      */
+  /* positioning" -- and this is what makes that possible.              */
+  /*                                                                    */
+  /* Children of the car, so they follow it on any frame it is moved,   */
+  /* including the frames the forest rail moves it directly.            */
+  /* ---------------------------------------------------------------- */
+  const voiceAnchors = {};
+  for (const id of SEAT_IDS) {
+    const seat = SEATS[id];
+    const anchor = new THREE.Object3D();
+    anchor.name = `sedan.voice.${id}`;
+    anchor.position.set(seat.x, seat.y + SEATED_MOUTH, seat.z);
+    root.add(anchor);
+    voiceAnchors[id] = anchor;
+  }
 
   /* ---------------------------------------------------------------- */
   /* Lights                                                            */
@@ -258,6 +300,8 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
 
     /** Seat, door and boot anchors, in car-local metres. */
     seatLocal(id) { return SEATS[id] ?? null; },
+    /** The car-owned emitter for a seat, at mouth height. See SEATED_MOUTH. */
+    seatVoice(id) { return voiceAnchors[id] ?? null; },
     seatWorld(id, out) { return worldPoint(SEATS[id] ?? SEATS.driver, out); },
     eyeWorld(id, out) {
       const seat = SEATS[id] ?? SEATS.driver;

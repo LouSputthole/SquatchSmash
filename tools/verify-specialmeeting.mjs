@@ -376,6 +376,51 @@ try {
   check('the shared Player performs a real grounded jump',
     duringJump.jumpHeight > 0.03 && !duringJump.grounded,
     JSON.stringify(duringJump));
+  /* ================================================================== *
+   * THE TWO THINGS THIS FILE COULD NOT SEE
+   *
+   * The scene shipped for weeks with its HUD at opacity zero -- all 220 voice
+   * lines playing with no subtitle on screen -- and with the script starting
+   * on the player's click rather than on the car's arrival, so Seff spoke
+   * while the car was still driving down the block. Every check above was
+   * green throughout both. Neither is visible to a headless test and neither
+   * was visible to this one: it never read a computed style, and it stopped
+   * before the car had finished arriving.
+   * ================================================================== */
+  const hudVisible = await page.evaluate(() => {
+    const hud = document.getElementById('hud');
+    return {
+      opacity: hud ? getComputedStyle(hud).opacity : null,
+      playing: document.body.classList.contains('playing'),
+    };
+  });
+  check('the HUD the subtitles are drawn in is actually visible',
+    hudVisible.playing && Number(hudVisible.opacity) > 0.9,
+    JSON.stringify(hudVisible));
+
+  /* The arrival settles about 28 s after the gesture. Waiting for it is the
+   * only way to prove the script is pinned to the car rather than the click. */
+  const arrival = await page.evaluate(() => new Promise((resolve) => {
+    const deadline = performance.now() + 75000;
+    const tick = () => {
+      const sm = window.SPECIAL_MEETING;
+      const beat = sm?.ride?.beatId ?? null;
+      const car = sm?.stage?.sedan?.group?.position;
+      if (beat) {
+        resolve({ beat, settled: sm.stage.arrival?.settled ?? null,
+          car: car ? { x: +car.x.toFixed(2), z: +car.z.toFixed(2) } : null,
+          subtitle: document.getElementById('subtitle')?.textContent ?? '' });
+        return;
+      }
+      if (performance.now() > deadline) { resolve({ beat: null, timedOut: true }); return; }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  }));
+  check('the script does not start until the car has arrived and stopped',
+    arrival.beat === 'SM-100' && arrival.settled === true,
+    JSON.stringify(arrival));
+
   check('all page modules, voice files, face textures and scene assets load',
     missing.length === 0,
     missing.join(' | '));

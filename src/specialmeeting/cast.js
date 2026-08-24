@@ -397,6 +397,9 @@ export function buildSpecialMeetingCast(scene, {
    * holds the arrangement, because the arrangement is the thing the scene is
    * about and it has to be readable without unpicking a transform. */
   const seated = new Map();
+  /* Whether Kittenboss is riding in the boot. Her own state, because the seat
+   * she used to be keyed off belongs to Lag from the moment the drive starts. */
+  let bootRider = false;
 
   /**
    * WHAT THEY ARE STANDING ON.
@@ -562,6 +565,7 @@ export function buildSpecialMeetingCast(scene, {
          * every frame by `update` below. */
         sedan.release('rear_left');
         rideInTheBoot();
+        bootRider = true;
       }
       return this;
     },
@@ -642,11 +646,29 @@ export function buildSpecialMeetingCast(scene, {
     /** The boot, and the woman in it, who climbs out under her own power. */
     kittenbossOut() {
       if (!sedan) return this;
+      bootRider = false;
       standUp('kittenboss');
       placeBeside('kittenboss', sedan.doorWorld('trunk'), {
         away: true, standoff: WAITING_STANDOFF_M,
       });
       return this;
+    },
+
+    /**
+     * Which seat a person is in, or null if they are on their feet.
+     *
+     * Published so `main.js` can emit a line from the CAR's own seat anchor
+     * rather than from the rig -- a seated rig's origin is at its feet, under
+     * the floor pan. Takes a cast key or a character id, because callers have
+     * one or the other.
+     */
+    seatOf(who) {
+      const key = people[who]
+        ? who
+        : (Object.values(CAST_SPEC).find((spec) => spec.characterId === who)?.key ?? null);
+      if (!key) return null;
+      for (const [seat, occupant] of seated) if (occupant === key) return seat;
+      return null;
     },
 
     place,
@@ -667,6 +689,25 @@ export function buildSpecialMeetingCast(scene, {
     },
 
     update(dt, focus = null) {
+      /* KEEP THE RIDERS IN THE CAR.
+       *
+       * `sedan.rideAlong()` is what holds a seated body on its cushion as the
+       * car moves, and it was called from exactly one place: the last line of
+       * `sedan.update()`, which is reached only through `arrival.update()`,
+       * which is reached only through `stage.update()`. And `main.js`'s frame
+       * loop is an either/or -- the forest replaces the stage the moment the
+       * drive begins. So from the cut to black onward nothing called it, and
+       * Seff, Lag and Numbskull stayed frozen at the kerb for the whole
+       * two-minute drive while the camera rode away in the car. Their voices
+       * stayed with them: positional audio emitted from a street the player
+       * had left. That is the owner's "voices sound like they are coming from
+       * arbitrary directions", from the other end.
+       *
+       * It belongs here rather than in the rail, because this module is the one
+       * that knows who is riding. `cast.update` is called unconditionally every
+       * frame in both phases, `rideAlong` early-returns with no occupants, and
+       * it is idempotent against the block-phase call it already had. */
+      sedan?.rideAlong?.();
       for (const npc of Object.values(people)) {
         if (!npc.group.visible) continue;
         npc.update(dt, focus);
@@ -674,8 +715,15 @@ export function buildSpecialMeetingCast(scene, {
       /* Reapplied every frame because the car turns, and because an idling rig
        * drifts its own yaw towards whatever it is looking at. */
       for (const key of seated.values()) faceRider(key);
-      /* The boot. She rides where she is, and where she is is not a seat. */
-      if (sedan && !seated.has('rear_left') && people.kittenboss.seated) rideInTheBoot();
+      /* The boot. She rides where she is, and where she is is not a seat.
+       *
+       * Gated on her own state, not on somebody else's seat. It used to read
+       * `!seated.has('rear_left')` as a proxy for "she is still borrowing that
+       * ride-along" -- true through Acts One and Two, and false forever after
+       * `takeSeats()` puts Lag in the back. She then stopped travelling with
+       * the car at the exact moment the drive began, and was found at the spur
+       * having never left the kerb. */
+      if (sedan && bootRider && people.kittenboss.seated) rideInTheBoot();
       return this;
     },
 

@@ -43,23 +43,56 @@ test('pointer lock is the only normal-play input enable seam and pause clears he
   assert.match(pause, /player\.clearKeys\(\)/);
 });
 
-test('SM-100 cannot begin until the first-gesture audio bank has finished loading', () => {
+test('the first gesture validates the voice bank and starts the street, and nothing else', () => {
+  /* The audio gate is unchanged and still fails closed. What moved out of this
+   * function is the SCRIPT: see the next test. */
   const wake = bodyOf('wakeTheSound');
   const load = wake.indexOf('await audio.loadAdditional');
   const validate = wake.indexOf('missingVoiceCues = SPECIAL_MEETING_VOICE_CUES.filter');
   const failClosed = wake.indexOf('if (!voiceReady)');
   const stageBegin = wake.indexOf('stage.begin()');
-  const begin = wake.indexOf("ride.begin('SM-100')");
+  const reset = wake.indexOf('stage.arrival.reset()');
+  const started = wake.indexOf('started = true');
   assert.match(MAIN, /import \{ SPEAKERS, scriptCues \} from '\.\/script\.js';/);
   assert.match(MAIN, /scriptCues\(\)\.map\(\(cue\) => cue\.name\)/);
   assert.ok(load >= 0 && validate > load, 'the active cue set is not checked after decoding');
   assert.ok(failClosed > validate && stageBegin > failClosed,
     'stage.begin is reachable before exact voice validation fails closed');
-  assert.ok(begin > stageBegin, 'SM-100 begins before the validated scene start');
-  assert.equal((MAIN.match(/ride\.begin\('SM-100'\)/g) ?? []).length, 1,
-    'a second ungated SM-100 start remains');
+  assert.ok(reset > stageBegin,
+    'the arrival clock is not rewound on the gesture, so the quiet street is '
+    + 'spent while the page is still loading');
+  assert.ok(started > failClosed, '`started` is set before the voice bank validates');
+  assert.doesNotMatch(wake, /ride\.begin\('SM-100'\)/,
+    'SM-100 begins on the click again, which starts the dialogue while the car '
+    + 'is still driving down the block');
   assert.match(MAIN, /if \(!started\) \{ renderer\.render\(scene, camera\); return; \}/,
     'the scene clocks run before the audio-gated start');
+});
+
+test('SM-100 begins when the car has stopped, and only then', () => {
+  /* The owner's report was that voices begin before the vehicle arrives. The
+   * arrival takes ~27.8 s to settle and SM-100 runs ~19 s, so a click-started
+   * script always finished the first beat while the car was still moving --
+   * and the cast placement is car-relative, so the men got out beside a car
+   * that then drove off. Both halves are pinned here. */
+  assert.equal((MAIN.match(/ride\.begin\('SM-100'\)/g) ?? []).length, 1,
+    'a second ungated SM-100 start remains');
+  const gate = bodyOf('onArrivalPhase');
+  assert.match(gate, /phase !== 'settled'/, 'the gate does not wait for the car to settle');
+  assert.match(gate, /!started/, 'the gate can fire before the voice bank has validated');
+  assert.match(gate, /arrived/, 'the gate has no latch and can fire twice');
+  const disembark = gate.indexOf('cast.disembarkForPickup()');
+  const begin = gate.indexOf("ride.begin('SM-100')");
+  assert.ok(disembark >= 0 && begin > disembark,
+    'the men are not on the pavement before the first line');
+  assert.match(MAIN, /stageSpecialMeeting\(scene, \{[^}]*onPhase: onArrivalPhase/,
+    'the stage is built without the arrival callback, so nothing observes the car');
+  /* `onBeat` is a property on the ride's option object, not a declaration, so
+   * it is sliced by hand rather than through `bodyOf`. */
+  const onBeat = MAIN.slice(MAIN.indexOf('onBeat: (b) => {'), MAIN.indexOf('onSeated:'));
+  assert.ok(onBeat.length > 0, 'the beat table is gone');
+  assert.doesNotMatch(onBeat, /cast\.disembarkForPickup\(\)/,
+    'the beat table still places the cast against whatever the car is doing');
 });
 
 test('the road cut replaces block collision with the forest world before boarding', () => {
