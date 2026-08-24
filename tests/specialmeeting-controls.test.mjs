@@ -23,50 +23,93 @@ test('Special Meeting provides the complete shared Hud DOM contract before boot'
   assert.match(HTML, /id="clock"[\s\S]*class="day"[\s\S]*class="time"[\s\S]*class="spent"/);
   assert.match(HTML, /id="bladder"[\s\S]*class="cap"[\s\S]*class="bar"><i>/);
   assert.match(HTML, /id="toast-stack"/);
+  for (const id of ['hand-item', 'radio-osd', 'clock', 'bladder']) {
+    assert.equal((HTML.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1,
+      `#${id} must be unique or the HUD writes to an arbitrary duplicate`);
+  }
 });
 
-test('Special Meeting forwards configured WASD, sprint, crouch, jump, and mouse look to Player', () => {
-  assert.match(MAIN, /import \{ translateKey \} from '\.\.\/core\/settings\.js';/);
-  assert.match(MAIN, /player\.setKey\(code, true\)/);
-  assert.match(MAIN, /const code = translateKey\(event\.code\);\n  player\.setKey\(code, false\)/);
-  assert.match(MAIN, /'KeyW'.*'KeyA'.*'KeyS'.*'KeyD'/s);
-  assert.match(MAIN, /'ShiftLeft'.*'ShiftRight'.*'KeyC'.*'Space'/s);
-  assert.match(MAIN, /player\.handleMouseMove\(event\.movementX, event\.movementY\)/);
+test('Special Meeting delegates movement, look, interaction, rebinding, and focus cleanup to the canonical Adapter', () => {
+  assert.match(MAIN, /import \{ createFirstPersonInput \} from '\.\.\/core\/first-person-input\.js';/);
+  assert.match(MAIN, /const input = createFirstPersonInput\(\{/);
+  assert.match(MAIN, /player,\n  canvas,\n  interaction,/);
+  assert.doesNotMatch(MAIN, /player\.setKey\(/);
+  assert.doesNotMatch(MAIN, /player\.handleMouseMove\(/);
+  assert.doesNotMatch(MAIN, /addEventListener\('pointerlockchange'/);
 });
 
 test('pointer lock is the only normal-play input enable seam and pause clears held movement', () => {
-  assert.match(MAIN, /document\.addEventListener\('pointerlockchange'/);
-  assert.match(MAIN, /player\.enabled = !paused && document\.pointerLockElement === canvas/);
-  assert.match(MAIN, /canvas\.requestPointerLock\?\.\(\)/);
+  assert.match(MAIN, /canEnable: \(\) => !paused && !handedOff/);
+  assert.match(MAIN, /return input\.requestPointerLock\(\)/);
   const pause = MAIN.slice(MAIN.indexOf('onPause:'), MAIN.indexOf('recovery,', MAIN.indexOf('onPause:')));
-  assert.match(pause, /player\.enabled = false/);
-  assert.match(pause, /player\.clearKeys\(\)/);
+  assert.match(pause, /input\.suspend\(\)/);
+  assert.match(pause, /input\.resume\(\)/);
+  assert.match(MAIN, /ride\.choose\(ride\.options\[n - 1\]\.index\);\s+requestScenePointerLock\(\);/,
+    'number-key dialogue choices do not restore pointer lock');
 });
 
-test('the first gesture validates the voice bank and starts the street, and nothing else', () => {
-  /* The audio gate is unchanged and still fails closed. What moved out of this
-   * function is the SCRIPT: see the next test. */
+test('SM-100 cannot begin until voice is ready and the car is settled at the kerb', () => {
   const wake = bodyOf('wakeTheSound');
+  const start = bodyOf('tryStartRide');
   const load = wake.indexOf('await audio.loadAdditional');
   const validate = wake.indexOf('missingVoiceCues = SPECIAL_MEETING_VOICE_CUES.filter');
   const failClosed = wake.indexOf('if (!voiceReady)');
   const stageBegin = wake.indexOf('stage.begin()');
   const reset = wake.indexOf('stage.arrival.reset()');
-  const started = wake.indexOf('started = true');
   assert.match(MAIN, /import \{ SPEAKERS, scriptCues \} from '\.\/script\.js';/);
   assert.match(MAIN, /scriptCues\(\)\.map\(\(cue\) => cue\.name\)/);
   assert.ok(load >= 0 && validate > load, 'the active cue set is not checked after decoding');
-  assert.ok(failClosed > validate && stageBegin > failClosed,
+  assert.ok(failClosed > validate, 'voice validation does not fail closed');
+  /* AMBIENCE ON THE GESTURE, THE SCRIPT ON THE KERB. These are two different
+   * gates and the scene needs both: a browser will not start an AudioContext
+   * without a click, so the street can only come alive there -- and the car
+   * takes ~28 s to arrive, so the dialogue must not. Asserting only the second
+   * let the first regress into `tryStartRide`, which buys 28 seconds of a
+   * silent street for nothing. */
+  assert.ok(stageBegin > failClosed,
     'stage.begin is reachable before exact voice validation fails closed');
   assert.ok(reset > stageBegin,
     'the arrival clock is not rewound on the gesture, so the quiet street is '
     + 'spent while the page is still loading');
-  assert.ok(started > failClosed, '`started` is set before the voice bank validates');
+  assert.doesNotMatch(start, /stage\.begin\(\)/,
+    'ambience waits for the car again; it belongs on the player gesture');
+  assert.match(start, /if \(!voiceReady \|\| started\) return false;/);
+  assert.match(start, /if \(!stage\.arrival\?\.settled\) return false;/);
+  assert.match(start, /started = true;[\s\S]*ride\.begin\('SM-100'\)/);
+  assert.equal((MAIN.match(/ride\.begin\('SM-100'\)/g) ?? []).length, 1,
+    'a second ungated SM-100 start remains');
   assert.doesNotMatch(wake, /ride\.begin\('SM-100'\)/,
     'SM-100 begins on the click again, which starts the dialogue while the car '
     + 'is still driving down the block');
-  assert.match(MAIN, /if \(!started\) \{ renderer\.render\(scene, camera\); return; \}/,
+  assert.match(wake, /tryStartRide\(\)/);
+  assert.match(MAIN, /if \(!started\) \{ renderScene\(\); return; \}/,
     'the scene clocks run before the audio-gated start');
+});
+
+test('campaign spawn, shared door interaction and movement-gated handoff are runtime facts', () => {
+  assert.match(MAIN, /const requestedSpawn = campaign\.state\.scene\.spawn;/);
+  assert.match(MAIN, /beginTheDrive\(\{ restoreNode: 'arrival' \}\)/);
+  assert.match(MAIN, /ride\.begin\('SM-400', \{ phase: 'spur' \}\)/);
+  assert.match(MAIN, /createFrontPassengerDoorTarget\(stage\.sedan\)/);
+  assert.match(MAIN, /interaction\.register\(frontPassengerDoorTarget, \{/);
+  assert.match(MAIN, /soft: true/);
+  assert.match(MAIN, /canHandoff: \(\) => trailDistanceTravelled >= TRAIL_HANDOFF_DISTANCE_M/);
+  assert.doesNotMatch(MAIN, /pauseMenu\.hold\(/);
+});
+
+test('the browser certification surface exposes observations, not progression hooks', () => {
+  assert.match(MAIN, /const certification = \{/);
+  for (const getter of [
+    'requestedSpawn', 'effectiveSpawn', 'renderedFrameCount', 'objectiveRevision',
+    'objectiveText', 'interactionTargetCount', 'interactionUseCount', 'legalActions',
+    'rideBeat', 'ridePhase', 'arrival', 'handoff',
+  ]) assert.match(MAIN, new RegExp(`get ${getter}\\(\\)`), `${getter} observation is missing`);
+  assert.match(MAIN, /certification,/);
+  assert.match(MAIN, /player\.camera === camera \? 'core\/player' : 'unknown'/,
+    'camera ownership must be derived from object identity');
+  assert.match(MAIN, /player\.mode === 'seated' \|\| forest\?\.passenger\?\.seated/,
+    'the stage-seat interval must not be reported as a walking pose');
+  assert.doesNotMatch(MAIN, /certification[\s\S]{0,1000}(skip|advanceBeat|forcePass)\s*[:(]/i);
 });
 
 test('SM-100 begins when the car has stopped, and only then', () => {
@@ -77,14 +120,24 @@ test('SM-100 begins when the car has stopped, and only then', () => {
    * that then drove off. Both halves are pinned here. */
   assert.equal((MAIN.match(/ride\.begin\('SM-100'\)/g) ?? []).length, 1,
     'a second ungated SM-100 start remains');
+  /* TWO GATES ON THE SAME SETTLE, in a deliberate order.
+   *
+   * `onArrivalPhase` runs inside `stage.update()`, which `frame()` steps
+   * before it polls `tryStartRide()` -- so the men are out of the car on the
+   * frame the car stops, and the first line lands on the frame after it.
+   * The voice bank is `tryStartRide`'s gate, not this one's: staging two
+   * bodies against a parked car is correct whether or not a cue decoded. */
   const gate = bodyOf('onArrivalPhase');
   assert.match(gate, /phase !== 'settled'/, 'the gate does not wait for the car to settle');
-  assert.match(gate, /!started/, 'the gate can fire before the voice bank has validated');
   assert.match(gate, /arrived/, 'the gate has no latch and can fire twice');
-  const disembark = gate.indexOf('cast.disembarkForPickup()');
-  const begin = gate.indexOf("ride.begin('SM-100')");
-  assert.ok(disembark >= 0 && begin > disembark,
-    'the men are not on the pavement before the first line');
+  assert.match(gate, /cast\.disembarkForPickup\(\)/,
+    'the men are not put on the pavement when the car stops');
+  assert.doesNotMatch(gate, /ride\.begin/,
+    'the script starts from the phase callback again, ahead of the voice gate');
+  const start = bodyOf('tryStartRide');
+  assert.match(start, /if \(!voiceReady \|\| started\) return false;/,
+    'the script can begin before the voice bank has validated');
+  assert.match(start, /stage\.arrival\?\.settled/, 'the script does not wait for the car');
   assert.match(MAIN, /stageSpecialMeeting\(scene, \{[^}]*onPhase: onArrivalPhase/,
     'the stage is built without the arrival callback, so nothing observes the car');
   /* `onBeat` is a property on the ride's option object, not a declaration, so
@@ -109,6 +162,8 @@ test('the browser debug surface exposes shared Player start and forest-world evi
   assert.match(MAIN, /window\.SPECIAL_MEETING = \{/);
   assert.match(MAIN, /campaign, ride, cast, stage,/);
   assert.match(MAIN, /^  player,$/m);
+  assert.match(MAIN, /^  input,$/m);
+  assert.match(MAIN, /get inputReceipt\(\) \{ return input\.snapshot\(\); \}/);
   assert.match(MAIN, /get started\(\) \{ return started; \}/);
   assert.match(MAIN, /get forest\(\) \{ return forest; \}/);
   assert.match(MAIN, /get voiceReady\(\) \{ return voiceReady; \}/);

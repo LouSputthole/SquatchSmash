@@ -292,6 +292,50 @@ try {
       && started.radio.tracks > 0,
     JSON.stringify(started.radio));
 
+  /* The old verifier exercised FlightInput directly but never crossed the
+   * browser-to-Player Seam. Earn capture with a real click, then prove that
+   * mouse look, a held W, and release all reach the live on-foot Player. */
+  await page.locator('#scene').click({ position: { x: 480, y: 300 } });
+  await page.waitForFunction(() => window.__beefrun.browserInput.snapshot().captured, null, {
+    timeout: 5000,
+  });
+  const beforeRealInput = await page.evaluate(() => {
+    const player = window.__beefrun.player;
+    return { x: player.position.x, z: player.position.z, yaw: player.yaw };
+  });
+  await page.mouse.move(480, 300);
+  await page.mouse.move(550, 265, { steps: 2 });
+  await page.keyboard.down('w');
+  await page.waitForFunction(({ x, z }) => {
+    const player = window.__beefrun.player;
+    return Math.hypot(player.position.x - x, player.position.z - z) > 0.35;
+  }, beforeRealInput, { polling: 'raf', timeout: 5000 });
+  const heldRealInput = await page.evaluate(() => ({
+    keys: [...window.__beefrun.player.keys],
+    yaw: window.__beefrun.player.yaw,
+  }));
+  await page.keyboard.up('w');
+  const afterRealInput = await page.evaluate(() => {
+    const b = window.__beefrun;
+    return {
+      x: b.player.position.x,
+      z: b.player.position.z,
+      yaw: b.player.yaw,
+      keys: [...b.player.keys],
+      input: b.browserInput.snapshot(),
+    };
+  });
+  check('real click, mouse, and W input capture, look, move, and release on the airstrip',
+    afterRealInput.input.captured
+      && heldRealInput.keys.includes('KeyW')
+      && !afterRealInput.keys.includes('KeyW')
+      && Math.hypot(
+        afterRealInput.x - beforeRealInput.x,
+        afterRealInput.z - beforeRealInput.z,
+      ) > 0.35
+      && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > 0.01,
+    JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
+
   const knockingIntro = await page.evaluate(async () => {
     const b = window.__beefrun;
     const handle = await b.mission.playTakeoffRecord();

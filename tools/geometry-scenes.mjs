@@ -14,6 +14,31 @@ import { APARTMENT_PREVIEW_VARIANTS } from '../src/core/preview-mode.js';
 import { HOTDOG_PREVIEW_CHECKPOINTS } from '../src/bing/preview.js';
 import { HEIST_PREVIEW_CHECKPOINTS } from '../src/heist/config.js';
 
+export const GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS = Object.freeze({
+  REQUIRED: 'REQUIRED',
+  INTENTIONAL_NA: 'INTENTIONAL_NA',
+});
+
+const requiredActors = (reason) => Object.freeze({
+  disposition: GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS.REQUIRED,
+  minimum: 1,
+  reason,
+});
+
+const intentionalNoActors = (reason) => Object.freeze({
+  disposition: GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS.INTENTIONAL_NA,
+  minimum: 0,
+  reason,
+});
+
+const APARTMENT_VISIBLE_MARGO_VARIANTS = new Set(['after-silver-room', 'day-four-wake']);
+
+function apartmentActorExpectation(variant) {
+  return APARTMENT_VISIBLE_MARGO_VARIANTS.has(variant)
+    ? requiredActors(`Apartment ${variant} visibly stages Margo.`)
+    : intentionalNoActors(`Apartment ${variant} intentionally hides Margo and has no other cast.`);
+}
+
 const APARTMENT_CHAPTER = Object.freeze({
   'day-one-wake': 'day_one',
   'after-bing-one': 'day_one',
@@ -38,14 +63,34 @@ const MANSION_SIEGE_PREVIEW_CHECKPOINTS = Object.freeze([
   'wake', 'armed', 'briefed', 'wave_one',
 ]);
 
-const entry = (scene, state, adapter, launcherIds, options = {}) => Object.freeze({
-  id: `${scene}:${state}`,
-  scene,
-  state,
-  adapter,
-  launcherIds: Object.freeze([...launcherIds]),
-  ...options,
+const MANSION_SIEGE_NO_CAST_DAMAGE_STATES = Object.freeze({
+  clean: 'The clean pre-siege house intentionally mounts no battle or aftermath ensemble.',
+  alert: 'The alert damage preview is environment-only; the battle ensemble is not active yet.',
+  repaired: 'The repaired post-siege house intentionally removes the battle and aftermath ensemble.',
 });
+
+function mansionSiegeActorExpectation(damageState) {
+  const reason = MANSION_SIEGE_NO_CAST_DAMAGE_STATES[damageState];
+  return reason ? intentionalNoActors(reason) : requiredActors(
+    `Mansion Siege ${damageState} visibly stages the siege ensemble.`,
+  );
+}
+
+const entry = (scene, state, adapter, launcherIds, options = {}) => {
+  const {
+    actorExpectation = requiredActors(`${scene}:${state} must expose its visible staged cast.`),
+    ...metadata
+  } = options;
+  return Object.freeze({
+    id: `${scene}:${state}`,
+    scene,
+    state,
+    adapter,
+    launcherIds: Object.freeze([...launcherIds]),
+    actorExpectation,
+    ...metadata,
+  });
+};
 
 /**
  * Every independently authored geometry state exercised by the blocking gate.
@@ -55,7 +100,10 @@ const entry = (scene, state, adapter, launcherIds, options = {}) => Object.freez
 export const GEOMETRY_SCENE_STATES = Object.freeze([
   ...APARTMENT_PREVIEW_VARIANTS.map((variant) => entry(
     'apartment', variant, 'apartment', [`apartment:${variant}`],
-    { chapter: APARTMENT_CHAPTER[variant] },
+    {
+      chapter: APARTMENT_CHAPTER[variant],
+      actorExpectation: apartmentActorExpectation(variant),
+    },
   )),
   entry('bing', 'visit-one', 'bing', ['bing']),
   entry('bing', 'performer-bathroom', 'bing', [], { geometryStage: 'performer-bathroom' }),
@@ -89,7 +137,12 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
   entry('luxury-apartment', 'property', 'luxury-apartment', ['luxury-apartment']),
   entry('motel', 'property', 'motel', ['motel'], { geometryStage: 'startup' }),
   entry('motel', 'late-cast', 'motel', [], { geometryStage: 'late' }),
-  entry('motel', 'drive', 'motel', [], { geometryStage: 'drive' }),
+  entry('motel', 'drive', 'motel', [], {
+    geometryStage: 'drive',
+    actorExpectation: intentionalNoActors(
+      'The Motel drive snapshot is vehicle-only; its cast is outside this authored world state.',
+    ),
+  }),
   ...['arrival', 'carried', 'placed', 'buried'].map((checkpoint) => entry(
     'graveyard', checkpoint, 'graveyard', ['graveyard'], { checkpoint },
   )),
@@ -106,7 +159,7 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
   )),
   ...['clean', 'alert', 'under_attack', 'damaged', 'post_battle', 'repaired'].map((damageState) => entry(
     'mansion-siege', damageState.replaceAll('_', '-'), 'mansion-siege', ['mansion-siege'],
-    { damageState },
+    { damageState, actorExpectation: mansionSiegeActorExpectation(damageState) },
   )),
   ...MANSION_SIEGE_PREVIEW_CHECKPOINTS.map((checkpoint) => entry(
     'mansion-siege', `checkpoint-${checkpoint.replaceAll('_', '-')}`, 'mansion-siege', ['mansion-siege'],

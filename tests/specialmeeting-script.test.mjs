@@ -160,6 +160,40 @@ test('taking the seat is the only thing that seats him', () => {
     'and the only thing still on the list is the seat');
 });
 
+test('the treeline handoff waits for actual player travel', () => {
+  let trailDistance = 0;
+  let handoffs = 0;
+  const seq = createRideSequence({
+    onLine: () => 0.01,
+    canHandoff: () => trailDistance >= 8,
+    onHandoff: () => { handoffs += 1; },
+  });
+
+  seq.begin('SM-540');
+  for (let i = 0; i < 30; i += 1) seq.update(0.5);
+  assert.equal(seq.finished, false, 'standing still cannot complete the mission');
+  assert.equal(seq.beatId, 'SM-540', 'the handoff beat remains live while walking is owed');
+  assert.equal(handoffs, 0);
+
+  trailDistance = 8;
+  seq.update(0.5);
+  assert.equal(seq.finished, true, 'the authored handoff resumes after meaningful travel');
+  assert.equal(seq.phase, 'handoff');
+  assert.equal(handoffs, 1);
+});
+
+test('a persisted spur resumes in the authored phase without replaying the drive', () => {
+  const phases = [];
+  const seq = createRideSequence({ onLine: () => 0.01, onPhase: (phase) => phases.push(phase) });
+
+  seq.begin('SM-400', { phase: 'spur' });
+
+  assert.equal(seq.beatId, 'SM-400');
+  assert.equal(seq.phase, 'spur');
+  assert.deepEqual(phases, ['spur']);
+  assert.equal(seq.seated, true, 'a spur checkpoint preserves the seat reached on the drive');
+});
+
 /* ====================================================================== *
  * 2. NOBODY RELEASES THE TENSION
  * ====================================================================== */

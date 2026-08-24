@@ -12,14 +12,16 @@ import { ApartmentAudioEngine, closedNightCuePrefixes } from './core/apartment-a
 import { chooseNoImmediateRepeat } from './core/audio-variant-bank.js';
 import { Hud } from './core/hud.js';
 import { InteractionSystem } from './core/interaction.js';
+import { createFirstPersonInput } from './core/first-person-input.js';
 import { Player } from './core/player.js';
-import { translateKey, shakeScale } from './core/settings.js';
+import { shakeScale } from './core/settings.js';
 import { attachPixelRatio } from './core/pixel-ratio.js';
 import { Radio } from './core/radio.js';
 import { SPOOKY_RADIO_LINES, newsSegmentsFor, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
 import {
+  APARTMENT_MARGO_ENTRY_DOOR_YAW,
   APARTMENT_MARGO_GEOMETRY_STAGES,
   stageApartmentMargoGeometry,
 } from './world/apartment-preview-geometry.js';
@@ -94,6 +96,7 @@ import {
 } from './world/props.js';
 import { makeMaterials } from './world/materials.js';
 import { roomEnvironment } from './world/textures.js';
+import { createApartmentInputPolicy } from './apartment-controls.js';
 
 const DRINK_TIME = 2.4;
 const SWIG_TIME = 1.7;   // whiskey goes down faster, for better or worse
@@ -619,12 +622,15 @@ const game = {
   fartQueued: false,    // deliberate one waiting for him to stop talking
 };
 
+let browserInput = null;
+
 /* Canvas-native desktop apps use relative pointer motion while framed apps
  * (DOOM and Squatch Smash) need an ordinary DOM mouse. Leaving pointer
  * lock for those apps is intentional and must not pause the apartment. */
 const arcade = createArcade({
   audio,
   onInputModeChange(mode) {
+    browserInput?.refresh(`arcade-input-${mode}`);
     if (mode === 'dom') document.exitPointerLock?.();
     else if (game.seated && game.started && !game.paused) requestLock();
   },
@@ -902,6 +908,8 @@ async function boot() {
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction, hud, campaign,
+    get input() { return browserInput; },
+    get inputOwner() { return apartmentInputPolicy.owner(); },
     apartmentStory, apartmentReturnSource: returnSource,
     drunk, highs, focusRush, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
     hitBong, eatShrooms,
@@ -1122,7 +1130,7 @@ function enterColdOpen() {
    * and no hint in the HUD. As far as the player is concerned there is no
    * room and no chair. `sitAtPC` would announce all three. */
   game.seated = true;
-  player.clearKeys();
+  browserInput?.clear('cold-open-seat');
   interaction.setPaused(true);
   hud.setMode('seated');
   hud.setPosture(null);
@@ -1164,6 +1172,7 @@ function runColdOpenReveal() {
  */
 function endColdOpen() {
   coldOpenActive = false;
+  browserInput?.refresh('cold-open-end');
   hud.setPosture('get up from the desk');
   apartmentStory.beginMorning({ delay: BEAT_S });
 }
@@ -1310,43 +1319,25 @@ startBtn.addEventListener('click', async () => {
       .catch((error) => console.warn('[sfx] Apartment background load failed', error));
   }
   game.paused = false;
+  browserInput?.refresh('start-ready');
   radio.resume();
 });
 
-/* Pointer lock is how this is meant to be played, but some embeddings refuse
- * it -- a sandboxed frame without allow-pointer-lock, for one. Rather than
- * leave the game unplayable there, fall back to hold-the-left-button-and-drag
- * to look. The fallback is not permanent: later user gestures, including
- * standing up from a framed PC app, still retry native pointer lock. */
-let dragLook = false;
-let dragging = false;
-
 function requestLock() {
-  const p = canvas.requestPointerLock?.();
-  // Chrome returns a promise from requestPointerLock; older builds throw or
-  // simply never fire pointerlockchange, so both paths are covered.
-  if (p && p.catch) p.catch(() => fallBackToDragLook());
-  setTimeout(() => {
-    if (document.pointerLockElement !== canvas && !game.paused) {
-      fallBackToDragLook();
-    }
-  }, 600);
-}
-
-function fallBackToDragLook() {
-  if (document.pointerLockElement === canvas) return;
-  if (dragLook) return;
-  dragLook = true;
-  enableInput();
-  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
+  return browserInput?.requestPointerLock() ?? false;
 }
 
 function enableInput() {
-  player.enabled = true;
   game.paused = false;
   document.body.classList.remove('unlocked');
   overlay.classList.add('hidden');
   hideCampaignRestart();
+  browserInput?.refresh('enable-input');
+}
+
+function paintInputCapture({ captured = false } = {}) {
+  const computerDomInput = game.seated && arcade.inputMode === 'dom';
+  document.body.classList.toggle('unlocked', !captured && !computerDomInput);
 }
 
 /* The wheel picks the next thing he is carrying. Only while the pointer is
@@ -1360,26 +1351,10 @@ window.addEventListener('wheel', (e) => {
   apartment?.inventory?.cycle(e.deltaY > 0 ? 1 : -1);
 }, { passive: true });
 
-document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === canvas;
-  const computerDomInput = game.seated && arcade.inputMode === 'dom';
-  if (locked) dragLook = false;
-  player.enabled = locked || computerDomInput || dragLook;
-  document.body.classList.toggle('unlocked', !locked && !computerDomInput && !dragLook);
-  /* NOT DURING THE COLD OPEN. Confirming the quit inside Squatch Smash hands
-   * the keyboard back from the iframe, so `computerDomInput` goes false with
-   * nothing pointer-locked, and this fired -- pausing the game half a second
-   * into the reveal and freezing the camera on the monitor forever. The whole
-   * sequence is on rails and has no controls to pause. */
-  if (!locked && game.started && !computerDomInput && !dragLook
-    && !pauseMenu.isPaused() && !coldOpenActive) pauseGame();
-});
-
 function pauseGame() {
   game.paused = true;
   radio.pause();
-  player.clearKeys();
-  interaction.release();
+  browserInput?.refresh('manual-pause');
   overlay.classList.remove('hidden');
   overlay.querySelector('h1').innerHTML = 'PAUSED<span>SQUATCH LIFE</span>';
   overlay.querySelector('.tag').textContent = game.seated
@@ -1485,10 +1460,8 @@ const pauseMenu = createPauseMenu({
   }),
   onPause: () => {
     game.paused = true;
-    player.enabled = false;
-    player.clearKeys();
-    interaction.release();
     interaction.setPaused(true);
+    browserInput?.refresh('pause-menu');
     radio.pause();
     audio.ctx?.suspend?.();
   },
@@ -1498,6 +1471,7 @@ const pauseMenu = createPauseMenu({
     audio.ctx?.resume?.();
     radio.resume();
     clock.getDelta();
+    browserInput?.refresh('pause-menu-resume');
     requestLock();
   },
 });
@@ -1506,21 +1480,20 @@ const pauseMenu = createPauseMenu({
 /* Input                                                               */
 /* ------------------------------------------------------------------ */
 
-document.addEventListener('mousemove', (e) => {
-  if (!player.enabled || game.paused) return;
-  if (dragLook && !dragging) return;      // look only while the button is held
-  if (game.seated) {
-    arcade.onPointer(e.movementX, e.movementY);
-    // Let the head drift very slightly so the pose is not rigid.
-    player.handleMouseMove(e.movementX * 0.06, e.movementY * 0.06);
-  } else {
-    player.handleMouseMove(e.movementX, e.movementY);
-  }
-});
+function routeApartmentMouseMove(e, controls) {
+  if (!controls.playerEnabled || game.paused) return true;
+  // Pointer-lock fallback is deliberately hold-and-drag, including while the
+  // relative SquatchOS cursor owns the scene route instead of default look.
+  if (!controls.locked && !(controls.dragFallback && controls.dragging)) return true;
+  if (!game.seated) return false;
+  arcade.onPointer(e.movementX, e.movementY);
+  // Let the head drift very slightly so the pose is not rigid.
+  controls.adapter.applyLook(e.movementX * 0.06, e.movementY * 0.06);
+  return true;
+}
 
-document.addEventListener('mousedown', (e) => {
-  if (!player.enabled || game.paused || e.button !== 0) return;
-  dragging = true;
+function routeApartmentMouseDown(e, controls) {
+  if (!controls.playerEnabled || game.paused || e.button !== 0) return false;
   if (game.seated) arcade.onClick(true);
   else if (apartment.state.heldItem === 'gun') fireGun();
   /* Same posture guards as [E] below: a click while he is on the toilet or
@@ -1529,23 +1502,26 @@ document.addEventListener('mousedown', (e) => {
   else if (game.onToilet) standFromToilet();
   else if (game.peeing) stopPee();
   else interaction.press();
-});
+  // The canonical Adapter still owns drag-button truth and retries native
+  // pointer lock from a fallback click after this authored action runs.
+  return false;
+}
 
-document.addEventListener('mouseup', (e) => {
-  if (e.button !== 0) return;
-  dragging = false;
+function routeApartmentMouseUp(e) {
+  if (e.button !== 0) return false;
   if (game.seated) arcade.onClick(false);
   else interaction.release();
-});
+  return false;
+}
 
-document.addEventListener('keydown', (e) => {
+function routeApartmentKeyDown(e, { code }) {
   /* Do not rely on a pointer-lock change to surface pause. Some embedded
    * previews consume Escape without sending that event, which made the pause
    * menu disappear exactly when it was most needed. */
   if (e.code === 'Escape' && !e.repeat) {
-    if (!game.started || game.left) return;
+    if (!game.started || game.left) return false;
     // The seated DOM arcade deliberately owns its keyboard, including Escape.
-    if (game.seated && arcade.inputMode === 'dom') return;
+    if (game.seated && arcade.inputMode === 'dom') return false;
     e.preventDefault();
     if (game.paused) {
       startBtn.click();
@@ -1553,27 +1529,27 @@ document.addEventListener('keydown', (e) => {
       pauseGame();
       if (document.pointerLockElement) document.exitPointerLock?.();
     }
-    return;
+    return true;
   }
   if (e.repeat) {
     // Still needs to reach the hold-to-drink accumulator.
-    if (e.code === 'KeyF') return;
-    return;
+    if (code === 'KeyF') return true;
+    return true;
   }
-  if (!game.started || game.paused) return;
+  if (!game.started || game.paused) return false;
 
   /* Sat on the toilet, WASD is the push game rather than movement -- you are
    * not going anywhere, and the keys are already under your fingers. */
-  if (game.onToilet && tryPush(e.code)) {
+  if (game.onToilet && tryPush(code)) {
     e.preventDefault();
-    return;
+    return true;
   }
 
   // In the shower, F is the other thing you are doing in there.
-  if (game.showering !== null && e.code === 'KeyF') {
+  if (game.showering !== null && code === 'KeyF') {
     if (game.peeing) stopPee(); else startPee();
     e.preventDefault();
-    return;
+    return true;
   }
 
   /* The dress bar runs while he is still flat on his back, so it has to take
@@ -1582,20 +1558,20 @@ document.addEventListener('keydown', (e) => {
    * cancelling it -- nothing in this morning is allowed to leave him in the
    * bed with no key that does anything. */
   if (margoDress.active) {
-    if (e.code === 'KeyE') { margoDress.press(); e.preventDefault(); return; }
-    if (e.code === 'KeyQ') { abandonMargoDressHelp(); e.preventDefault(); return; }
+    if (code === 'KeyE') { margoDress.press(); e.preventDefault(); return true; }
+    if (code === 'KeyQ') { abandonMargoDressHelp(); e.preventDefault(); return true; }
   }
 
   if (glue.bar.active) {
-    if (e.code === 'KeyE') { glue.bar.press(); e.preventDefault(); return; }
-    if (e.code === 'KeyQ') {
+    if (code === 'KeyE') { glue.bar.press(); e.preventDefault(); return true; }
+    if (code === 'KeyQ') {
       glue.bar.stop();
       hud.setTiming(null);
       hud.setPosture(null);
       interaction.setPaused(false);
       hud.say('Right. That can stay crooked.', 3400);
       e.preventDefault();
-      return;
+      return true;
     }
   }
 
@@ -1605,18 +1581,18 @@ document.addEventListener('keydown', (e) => {
    * desk. [Q] is the one exception: the stand-up key works everywhere. */
   if (game.seated) {
     // Escape is left to the browser -- it releases the pointer and pauses.
-    if (e.code === 'KeyQ') {
+    if (code === 'KeyQ') {
       standFromPC();
-      return;
+      return true;
     }
+    // Computer apps receive the physical keyboard, not the Apartment's
+    // remapped gameplay vocabulary.
     if (arcade.onKey(e.code, true)) e.preventDefault();
     if (e.code === 'Space') e.preventDefault();
-    return;
+    return true;
   }
 
-  player.setKey(translateKey(e.code), true);
-
-  switch (e.code) {
+  switch (code) {
     case 'KeyE':
       /* The Margo wake/come-home scenes used to special-case [E] here so the
        * dress bar could take it over the ordinary get-up action -- and that
@@ -1634,30 +1610,30 @@ document.addEventListener('keydown', (e) => {
        * cannot open a fridge and answer a call with the same key, and the
        * call wins -- it is the one thing in this flat that is not waiting
        * for you to get round to it. */
-      if (apartment.state.heldItem === 'phone') { phone.press(); break; }
+      if (apartment.state.heldItem === 'phone') { phone.press(); return true; }
       // Lying down on purpose is the one case where E means sleep, not stand.
       if (game.inBed) sleepInBed();
       else if (player.mode === 'bed') getUp();
       else if (game.onToilet) standFromToilet();
       else if (game.peeing) stopPee();
       else interaction.press();
-      break;
+      return true;
     case 'KeyG':
       fart({ voluntary: true });
-      break;
+      return true;
     case 'KeyT':
       game.flashlightOn = !game.flashlightOn;
       audio.play('switch.click', { volume: 0.5 });
-      break;
+      return true;
     /* Bloom off, for a machine that is struggling. There is no options menu to
      * put this in and it is the first thing worth dropping. */
     /* Slots. Digit1..Digit5 pick one directly; the wheel cycles (below). */
     case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5':
-      apartment.inventory.select(Number(e.code.slice(5)) - 1);
-      break;
+      apartment.inventory.select(Number(code.slice(5)) - 1);
+      return true;
     case 'KeyB':
       hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
-      break;
+      return true;
     case 'KeyR':
       /* Reload takes priority over skipping the radio, but only while the gun
        * is the thing in his hand -- otherwise standing at the sideboard with a
@@ -1671,7 +1647,7 @@ document.addEventListener('keydown', (e) => {
       else if (actOne.ringingOut > 0) endRingBooskiBack();
       else if (canRingBooskiBack()) ringBooskiBack();
       else if (interaction.current && interaction.current.name === 'radio') radio.next();
-      break;
+      return true;
     case 'KeyQ':
       /* [Q] while she is merely OFFERING no longer does anything special --
        * he is free to walk off and come back, so there is nothing here to
@@ -1681,7 +1657,7 @@ document.addEventListener('keydown', (e) => {
        * keyboard while it runs, the same way the glue bar does. */
       if (apartment.state.heldItem === 'phone' && phone.call) {
         phone.hangUp();
-        break;
+        return true;
       }
       if (apartment.state.lipPacked) {
         apartment.dropZyn();
@@ -1693,16 +1669,68 @@ document.addEventListener('keydown', (e) => {
       else if (game.sitting) standFromSeat();
       else if (game.inBed || player.mode === 'bed') getUp();
       else dropHeld();
-      break;
+      return true;
+    case 'KeyF':
+      // The Adapter owns this scene-declared held Player key and its release.
+      return false;
     default:
-      break;
+      return false;
   }
+}
+
+function routeApartmentKeyUp(_e, { code }) {
+  if (code === 'KeyE' && !game.seated) interaction.release();
+  return code === 'KeyE';
+}
+
+const apartmentInputPolicy = createApartmentInputPolicy({
+  readState: () => ({
+    started: game.started,
+    paused: game.paused,
+    left: game.left,
+    seated: game.seated,
+    domArcade: arcade.inputMode === 'dom',
+    coldOpen: coldOpenActive,
+  }),
+  keyDown: routeApartmentKeyDown,
+  keyUp: routeApartmentKeyUp,
+  mouseMove: routeApartmentMouseMove,
+  mouseDown: routeApartmentMouseDown,
+  mouseUp: routeApartmentMouseUp,
+  clear: () => arcade.onClick(false),
 });
 
-document.addEventListener('keyup', (e) => {
-  player.setKey(translateKey(e.code), false);
-  if (e.code === 'KeyE' && !game.seated) interaction.release();
+let fallbackHints = 0;
+browserInput = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  playerKeyCodes: ['KeyF'],
+  ...apartmentInputPolicy.adapterOptions,
+  onCaptureChange: (_event, controls) => {
+    paintInputCapture(controls);
+    const computerDomInput = game.seated && arcade.inputMode === 'dom';
+    /* NOT DURING THE COLD OPEN. Confirming quit inside Squatch Smash hands
+     * the keyboard back from the iframe with no pointer lock. Pausing there
+     * freezes the reveal against the monitor forever. */
+    if (!controls.locked && game.started && !game.paused && !computerDomInput
+      && !controls.dragFallback && !pauseMenu.isPaused() && !coldOpenActive) {
+      pauseGame();
+    }
+  },
+  onCaptureError: (_error, controls) => {
+    paintInputCapture(controls);
+    if (!controls.recovered) return;
+    enableInput();
+    const activations = controls.adapter.snapshot().dragFallbackActivations;
+    if (activations <= fallbackHints) return;
+    fallbackHints = activations;
+    if (!coldOpenActive) {
+      hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
+    }
+  },
 });
+paintInputCapture(browserInput.snapshot());
 
 /* ------------------------------------------------------------------ */
 /* Bed / desk transitions                                              */
@@ -1815,7 +1843,8 @@ function sitAtPC() {
   if (game.seated) return;
   game.seated = true;
   // Anything held on the walk up dies here; while seated no key reaches him.
-  player.clearKeys();
+  browserInput?.clear('sit-at-pc');
+  browserInput?.refresh('sit-at-pc');
   interaction.setPaused(true);
   hud.setMode('seated');
   audio.play('chair.roll', { volume: 0.4 });
@@ -1849,6 +1878,7 @@ function standFromPC() {
   const leavingDomApp = arcade.inputMode === 'dom';
   game.seated = false;
   arcade.setSeated?.(false);
+  browserInput?.refresh('stand-from-pc');
   if (leavingDomApp && game.started && !game.paused) requestLock();
   hud.setMode('walk');
   audio.setMuffle(false);
@@ -3476,6 +3506,7 @@ function tryLeave() {
 /** Out of the apartment and into whichever campaign mission is ready. */
 function leaveForMission(destination) {
   game.left = true;
+  browserInput?.refresh('leave-apartment');
   saveApartmentProgress();
   if (destination === SCENE_IDS.BADA_BING_ONE) {
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_ONE, (state) => {
@@ -3553,7 +3584,7 @@ function leaveForMission(destination) {
 
   interaction.setPaused(true);
   hud.hidePrompt();
-  player.clearKeys();
+  browserInput?.clear('leave-apartment');
   player.mode = 'frozen';
   audio.say('door.leave', { delay: 0.2 });
   audio.play('door.knob', { volume: 0.8 });
@@ -3579,7 +3610,7 @@ function missedIt() {
 function showEnding(kind) {
   const e = ENDINGS[kind] || ENDINGS.clean;
   game.paused = true;
-  player.enabled = false;
+  browserInput?.refresh('ending');
   // The blackout sits above the overlay, so it has to come off or the card
   // is delivered to a black rectangle.
   blackout.classList.remove('on');
@@ -5336,8 +5367,8 @@ function updateMargoWake(dt) {
   /* The door swings for her near whichever end of the walk she is passing it
    * at -- the start, coming in, or the end, going out. */
   apartment.frontDoorPivot.rotation.y = scene.entry
-    ? (w < 0.20 ? -1.0 * Math.min(1, (0.20 - w) / 0.12) : 0)
-    : (w > 0.80 ? -1.0 * Math.min(1, (w - 0.80) / 0.12) : 0);
+    ? (w < 0.20 ? APARTMENT_MARGO_ENTRY_DOOR_YAW * Math.min(1, (0.20 - w) / 0.12) : 0)
+    : (w > 0.80 ? APARTMENT_MARGO_ENTRY_DOOR_YAW * Math.min(1, (w - 0.80) / 0.12) : 0);
   if (w < 1) return;
   if (scene.entry) {
     scene.walk = null;
@@ -5417,7 +5448,7 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
   if (game.passingOut) return;
   game.passingOut = true;
 
-  player.clearKeys();
+  browserInput?.clear('pass-out');
   interaction.setPaused(true);
   hud.hidePrompt();
   hud.setHold(null);

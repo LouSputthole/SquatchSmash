@@ -4788,6 +4788,14 @@ try {
   const hall = route.cellarHall;
   const hallMid = (hall.z0 + hall.z1) / 2;
   await teleport(hall.x0 + 1.5, BASEMENT_Y, hallMid, 270);
+  /* The completion card correctly handed the mouse back. A verifier-only
+   * teleport restarts the simulation, but it must not bypass the Adapter by
+   * setting Player.enabled directly; earn browser capture again exactly as a
+   * player would before using real W input. */
+  await page.locator('canvas').click({ position: { x: 240, y: 150 } });
+  await page.waitForFunction(() => window.mansionSiege.input.snapshot().captured, null, {
+    timeout: 10000,
+  });
   await settle(0.3);
   const navStart = await at();
   await walk(10);

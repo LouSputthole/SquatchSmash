@@ -40,6 +40,14 @@ const FACE_AXES = Object.freeze({
   '-z': Object.freeze([0, 0, -1]),
 });
 
+/*
+ * Some rigs cannot describe their eyes and hips as two vertical offsets from
+ * the actor root. A standing Person can; Margo's apartment rig cannot once
+ * the same hip-pivoted body lies on its side. Keep those Object3D references
+ * out of userData (Three serializes userData) and beside the marker instead.
+ */
+const ACTOR_LANDMARKS = new WeakMap();
+
 /** Postures the gate knows how to check. */
 export const ACTOR_POSTURES = Object.freeze(['stand', 'sit', 'kneel', 'lie', 'ride']);
 
@@ -226,6 +234,24 @@ export function setActorHeights(object, { eyeHeight, hipHeight } = {}) {
   return object;
 }
 
+/**
+ * Bind an actor marker to the rig's actual eye and hip transforms.
+ *
+ * This is the precise alternative to height offsets for articulated or
+ * rotated bodies. The gate reads each anchor's already-updated matrixWorld;
+ * it does not ask Three to mutate the scene while evidence is collected.
+ */
+export function setActorLandmarks(object, { eye, hip } = {}) {
+  if (!readActor(object)) throw new Error('Cannot set landmarks on an unmarked object');
+  for (const [name, anchor] of Object.entries({ eye, hip })) {
+    if (!anchor?.matrixWorld?.elements) {
+      throw new TypeError(`Actor ${name} landmark must be an Object3D`);
+    }
+  }
+  ACTOR_LANDMARKS.set(object, Object.freeze({ eye, hip }));
+  return object;
+}
+
 export function readActor(object) {
   const actor = object?.userData?.actor;
   return actor && typeof actor.id === 'string' ? actor : null;
@@ -242,16 +268,35 @@ export function faceAxisVector(actor) {
  * The caller is responsible for having updated world matrices -- this reads
  * `matrixWorld` and does not touch the scene graph, because the geometry
  * adapters hand their roots over already updated and a second update there
- * would be the tool mutating what it is measuring.
+ * would be the tool mutating what it is measuring. Hidden actors are excluded
+ * from player-facing staging by default. `includeHidden` exists only for the
+ * certification inventory floor: it proves a visibility correction did not
+ * delete the actor marker that older scans counted.
  */
-export function collectActors(root, THREE) {
+export function collectActors(root, THREE, { includeHidden = false } = {}) {
   if (!root?.traverse) return [];
   const found = [];
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scale = new THREE.Vector3();
   const forward = new THREE.Vector3();
+  const eyePosition = new THREE.Vector3();
+  const hipPosition = new THREE.Vector3();
   root.traverse((object) => {
+    /* Object3D.traverse deliberately visits hidden descendants. That is useful
+     * for editing and exactly wrong for certification: a hidden actor is not
+     * staged in the rendered state. Check the whole chain because a visible
+     * marker under an invisible cast group is still invisible. */
+    let visible = true;
+    for (let cursor = object; cursor; cursor = cursor.parent) {
+      if (cursor.visible === false) {
+        visible = false;
+        break;
+      }
+      if (cursor === root) break;
+    }
+    if (!visible && !includeHidden) return;
+
     const actor = readActor(object);
     if (!actor) return;
     const posture = object.userData.actorPosture ?? actor.posture;
@@ -265,6 +310,14 @@ export function collectActors(root, THREE) {
     forward.set(axis[0], axis[1], axis[2]).applyQuaternion(quaternion);
     // Yaw about +Y, measured the way atan2(x, z) reads for a THREE heading.
     const yaw = Math.atan2(forward.x, forward.z);
+    const landmarks = ACTOR_LANDMARKS.get(object);
+    if (landmarks) {
+      eyePosition.setFromMatrixPosition(landmarks.eye.matrixWorld);
+      hipPosition.setFromMatrixPosition(landmarks.hip.matrixWorld);
+    } else {
+      eyePosition.set(position.x, position.y + eyeHeight, position.z);
+      hipPosition.set(position.x, position.y + hipHeight, position.z);
+    }
     found.push({
       object,
       actor,
@@ -275,8 +328,8 @@ export function collectActors(root, THREE) {
       position: [position.x, position.y, position.z],
       forward: [forward.x, forward.y, forward.z],
       yaw,
-      eye: [position.x, position.y + eyeHeight, position.z],
-      hip: [position.x, position.y + hipHeight, position.z],
+      eye: [eyePosition.x, eyePosition.y, eyePosition.z],
+      hip: [hipPosition.x, hipPosition.y, hipPosition.z],
     });
   });
   return found;

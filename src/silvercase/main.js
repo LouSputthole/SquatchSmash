@@ -17,7 +17,7 @@ import {
 } from './preview.js';
 import { SilverCaseStateMachine, S, CHECKPOINT } from './state/SilverCaseStateMachine.js';
 import { Player } from '../core/player.js';
-import { translateKey } from '../core/settings.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { createPromptHud } from '../core/hud.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
@@ -589,11 +589,13 @@ const pauseMenu = createPauseMenu({
      * across a rebind stays down forever: the keyup translates to the NEW
      * binding and deletes that, leaving the old code in player.keys walking
      * the player into a wall until the window loses focus. */
-    player.clearKeys();
+    input.clear('pause');
+    input.refresh('pause');
     if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
   },
   onResume: () => {
     paused = false;
+    input.refresh('resume');
     if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
     clock.getDelta();
     lockPointer();
@@ -636,7 +638,6 @@ let missedShots = 0;
 
 let running = false;
 let paused = false;
-let pointerLocked = false;
 let firePressed = false;
 let drawPressed = false;
 let earlyDrawCount = 0;
@@ -906,7 +907,7 @@ function restoreCheckpoint() {
   player.pitch = 0;
   player.velocity.set(0, 0, 0);
   /* A key held across the death card must not walk the restored player. */
-  player.clearKeys();
+  input.clear('checkpoint-restore');
 
   interactions.setPaused(false);
   ui.hud.classList.add('visible');
@@ -1674,7 +1675,7 @@ function showSilverCaseCompletion({ campaignComplete = silverCaseCampaignComplet
   }
   running = false;
   document.exitPointerLock?.();
-  player.clearKeys?.();
+  input.clear('scene-complete');
   ui.menu?.classList.add('hidden');
   ui.hud.classList.remove('visible');
   sceneInventory.hide();
@@ -1714,29 +1715,51 @@ const fsm = new SilverCaseStateMachine(buildStates(), reportSilverCaseBeat);
 // ---------------------------------------------------------------- input
 
 function lockPointer() {
-  const p = renderer.domElement.requestPointerLock();
-  if (p && typeof p.catch === 'function') p.catch(() => {});
+  return input.requestPointerLock();
 }
 
 const DIGIT_KEY = {
   Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4',
 };
 
-window.addEventListener('keydown', (e) => {
-  // Escape is the key that resumes, so it is read whether paused or not.
-  if (e.code === 'Escape') { pauseMenu.toggle(); return; }
-  if (paused) return;
-  player.setKey(translateKey(e.code), true);
-  if (e.code === 'KeyE') interactions.press();
-  if (DIGIT_KEY[e.code] && dialogue.choice) dialogue.chooseKey(DIGIT_KEY[e.code]);
-  if (e.code === 'KeyM') toggleMute();
-});
-window.addEventListener('keyup', (e) => {
-  player.setKey(translateKey(e.code), false);
-  if (e.code === 'KeyE') interactions.release();
-});
-window.addEventListener('blur', () => {
-  player.clearKeys();
+const input = createFirstPersonInput({
+  player,
+  canvas: renderer.domElement,
+  interaction: interactions,
+  /* Capture may be requested by the start gesture before the scene's audio
+   * bank finishes loading. Pause is the only state that refuses it. */
+  canEnable: () => !paused,
+  canHandleInput: () => true,
+  controlState: () => ({
+    defaultLookEnabled: running && !paused,
+  }),
+  routes: {
+    keyDown(e) {
+      // Escape is the key that resumes, so it is read whether paused or not.
+      if (e.code === 'Escape') { pauseMenu.toggle(); return true; }
+      if (paused) return true;
+      if (DIGIT_KEY[e.code] && dialogue.choice) {
+        dialogue.chooseKey(DIGIT_KEY[e.code]);
+        return true;
+      }
+      if (e.code === 'KeyM') { toggleMute(); return true; }
+      return false;
+    },
+    mouseDown(e, controls) {
+      if (!running) return true;
+      /* An unlocked click belongs to capture, not the gun. Returning false
+       * lets the Adapter make the request from this same user gesture. */
+      if (!controls.locked) return false;
+      if (e.button === 0) firePressed = true;
+      if (e.button === 2 && fsm.is(S.ESTABLISH_CONTROL, S.LOU_QUESTION, S.SQUATCH_PRAYER)) {
+        drawPressed = true;
+      }
+      return true;
+    },
+  },
+  onCaptureChange: (_event, controls) => {
+    if (!controls.locked && running && !paused) pauseMenu.pause();
+  },
 });
 /* A hidden tab must not keep simulating the mission and talking to nobody:
  * route through the pause menu, whose onPause already suspends the audio
@@ -1746,23 +1769,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseMenu.pause();
 });
 
-document.addEventListener('mousemove', (e) => {
-  if (!pointerLocked || paused || !running) return;
-  player.handleMouseMove(e.movementX, e.movementY);
-});
-
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (!running) return;
-  if (!pointerLocked) { lockPointer(); return; }
-  if (e.button === 0) firePressed = true;
-  if (e.button === 2 && fsm.is(S.ESTABLISH_CONTROL, S.LOU_QUESTION, S.SQUATCH_PRAYER)) drawPressed = true;
-});
-document.addEventListener('pointerlockchange', () => {
-  pointerLocked = document.pointerLockElement === renderer.domElement;
-  player.enabled = pointerLocked;
-  if (!pointerLocked && running && !paused) pauseMenu.pause();
-});
 
 let muted = false;
 function toggleMute() {
@@ -2054,6 +2061,7 @@ window.silvercase = {
   apartment,
   car,
   player,
+  input,
   interactions,
   audio,
   reactionWindow,

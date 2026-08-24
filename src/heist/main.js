@@ -15,7 +15,8 @@ import {
   SPEECH_GAIN, SPEECH_MIX_CLOSE, SPEECH_MIX_INDOORS, speak, speechDuration,
 } from '../core/dialogue.js';
 import { Player } from '../core/player.js';
-import { translateKey, shakeScale } from '../core/settings.js';
+import { shakeScale } from '../core/settings.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -31,6 +32,7 @@ import {
 } from '../core/preview-mode.js';
 import { FixedStepRunner } from '../core/vehicles/fixed-step.js';
 import { GroundVehicle } from '../core/vehicles/ground-vehicle.js';
+import { createHeistControlPolicy } from './controls.js';
 import {
   buildHeistCrew, crewHeadingForPhase, HEIST_CREW_IDS, setCrewMasked, updateCrew,
 } from './cast.js';
@@ -838,6 +840,7 @@ window.__heistDebug = {
   inputState: () => ({
     keys: [...player.keys], driving, selected: loadout.selected,
     selectedItem: loadout.selectedItem, paused: simulationPaused,
+    adapter: input?.snapshot?.() ?? null,
   }),
   /**
    * Step the driving simulation for a fixed number of simulated seconds.
@@ -2356,6 +2359,7 @@ function beginDriving() {
   audio.startLoop('heist.vehicle.engine.load', { volume: 0.14, ambience: true, fade: 0.2 });
   audio.startLoop('heist.vehicle.tires.road', { volume: 0.08, ambience: true, fade: 0.25 });
   say('rippin_drive');
+  input?.refresh('driving-start');
 }
 
 function reachSwap() {
@@ -2378,6 +2382,7 @@ function reachSwap() {
   refreshObjective();
   say('shubes_swap');
   refreshInteractions();
+  input?.refresh('driving-complete');
 }
 
 function returnSafehouse() {
@@ -3723,7 +3728,7 @@ checkpoints.register('player', {
     position: player.position.toArray(), yaw: player.yaw, pitch: player.pitch,
     actor: playerActor.snapshot(),
   }),
-  reset: () => { player.clearKeys(); player.velocity.set(0, 0, 0); },
+  reset: () => { input?.clear('checkpoint-reset'); player.velocity.set(0, 0, 0); },
   restore: (s) => {
     player.position.fromArray(s.position);
     player.yaw = s.yaw;
@@ -4112,7 +4117,7 @@ async function begin() {
     document.querySelector('#start-card .lede').textContent = `THE TAKE is unavailable: ${opening.reason.replaceAll('_', ' ')}.`;
     return;
   }
-  if (!isPreviewMode()) canvas.requestPointerLock?.();
+  if (!isPreviewMode()) input.requestPointerLock();
   const checkpoint = isPreviewMode() ? previewCheckpointForLocation() : null;
   if (checkpoint && checkpoint !== 'safehouse') {
     primePreview(checkpoint);
@@ -4143,12 +4148,14 @@ function setSimulationPaused(value, { force = false } = {}) {
   if (isPreviewMode() && !force) return;
   simulationPaused = value === true;
   if (simulationPaused) {
-    player.clearKeys();
+    input?.clear('simulation-pause');
     vehicle.setInput();
   }
   interaction.setPaused(simulationPaused || driving);
+  input?.refresh('simulation-pause');
 }
 
+let input = null;
 const pauseMenu = createPauseMenu({
   title: 'The Take',
   assist: true,
@@ -4164,15 +4171,14 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     setSimulationPaused(true, { force: true });
-    player.enabled = false;
-    interaction.release();
+    input?.suspend();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     setSimulationPaused(false, { force: true });
     audio.ctx?.resume?.();
     clock.getDelta();
-    if (!driving && !isPreviewMode()) canvas.requestPointerLock?.();
+    input?.resume({ requestPointerLock: !driving && !isPreviewMode() });
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -4183,62 +4189,50 @@ const pauseMenu = createPauseMenu({
   }),
 });
 
-canvas.addEventListener('click', () => {
-  if (!started || pauseMenu.isPaused()) return;
-  setSimulationPaused(false);
-  if (!driving) canvas.requestPointerLock?.();
+const heistControls = createHeistControlPolicy({
+  state: () => ({
+    started,
+    paused: simulationPaused,
+    driving,
+    completed: missionCompleted,
+  }),
+  player,
+  interaction,
+  isPreview: isPreviewMode,
+  selectSlot,
+  cycleSlot,
+  hostageVerb: hostageVerbUnderCrosshair,
+  reload: () => {
+    if (!loadout.activeWeapon?.beginReload()) return false;
+    playWeaponCue(audio,
+      loadout.selectedItem === 'sidearm' ? WEAPON_IDS.PISTOL9 : WEAPON_IDS.CARBINE,
+      'reload.out');
+    return true;
+  },
+  dropBag: dropCarriedBag,
+  failPreview: () => failMission('preview_failure_test'),
+  fireWeapon,
+  setAimed: (aimed) => {
+    for (const gun of Object.values(loadout.weapons)) gun.setAimed(aimed);
+  },
+  pause: () => pauseMenu.pause(),
+  resumeSimulation: () => setSimulationPaused(false),
+  pauseMenuOpen: () => pauseMenu.isPaused(),
 });
-document.addEventListener('pointerlockchange', () => {
-  player.enabled = document.pointerLockElement === canvas && !driving;
-  if (started && !driving && !isPreviewMode()) {
-    if (document.pointerLockElement !== canvas) pauseMenu.pause();
-    else if (!pauseMenu.isPaused()) setSimulationPaused(false);
-  }
-});
-addEventListener('blur', () => { if (started) pauseMenu.pause(); });
-document.addEventListener('visibilitychange', () => {
-  if (started && document.hidden) pauseMenu.pause();
-});
-document.addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement === canvas && !driving) player.handleMouseMove(event.movementX, event.movementY);
-});
-const SLOT_KEYS = Object.freeze({
-  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
-  Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3, Numpad5: 4,
+input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  ...heistControls,
 });
 
-document.addEventListener('keydown', (event) => {
-  if (simulationPaused) return;
-  if (event.repeat && ['KeyE', 'KeyR', 'KeyQ', 'KeyF', 'KeyG'].includes(event.code)) return;
-  player.setKey(translateKey(event.code), true);
-  if (event.code in SLOT_KEYS) { selectSlot(SLOT_KEYS[event.code]); return; }
-  if (event.code === 'BracketLeft') { cycleSlot(-1); return; }
-  if (event.code === 'BracketRight') { cycleSlot(1); return; }
-  if (event.code === 'KeyE') interaction.press();
-  if (event.code === 'KeyF') hostageVerbUnderCrosshair('reassure');
-  if (event.code === 'KeyG') hostageVerbUnderCrosshair('demand');
-  if (event.code === 'KeyR' && loadout.activeWeapon?.beginReload()) {
-    playWeaponCue(audio,
-      loadout.selectedItem === 'sidearm' ? WEAPON_IDS.PISTOL9 : WEAPON_IDS.CARBINE, 'reload.out');
-  }
-  if (event.code === 'KeyQ') dropCarriedBag();
-  if (event.code === 'F9' && isPreviewMode()) failMission('preview_failure_test');
-});
-document.addEventListener('keyup', (event) => {
-  player.setKey(translateKey(event.code), false);
-  if (event.code === 'KeyE') interaction.release();
+document.addEventListener('visibilitychange', () => {
+  if (started && document.hidden) pauseMenu.pause();
 });
 addEventListener('wheel', (event) => {
   if (!started || driving) return;
   cycleSlot(event.deltaY > 0 ? 1 : -1);
 }, { passive: true });
-document.addEventListener('mousedown', (event) => {
-  if (event.button === 0 && (document.pointerLockElement === canvas || isPreviewMode())) fireWeapon();
-  if (event.button === 2) loadout.activeWeapon?.setAimed(true);
-});
-document.addEventListener('mouseup', (event) => {
-  if (event.button === 2) for (const gun of Object.values(loadout.weapons)) gun.setAimed(false);
-});
 document.addEventListener('contextmenu', (event) => event.preventDefault());
 
 /**
@@ -4272,7 +4266,7 @@ function recoverDrivingRoute(reason) {
   vehicle.setInput();
   driveInvalidFor = 0;
   driveStuckFor = 0;
-  player.clearKeys();
+  input?.clear('drive-recovery');
   drivePhase.car.position.set(vehicle.x, 0, vehicle.z);
   const fade = document.getElementById('fade');
   fade.querySelector('span').textContent = reason === 'route'

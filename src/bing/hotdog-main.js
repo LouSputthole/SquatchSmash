@@ -15,8 +15,9 @@ import {
 import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
-import { translateKey, shakeScale } from '../core/settings.js';
+import { shakeScale } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
@@ -29,6 +30,7 @@ import {
 } from './hotdog-attack.js';
 import { hotDogAudioLoadOptions } from './hotdog-audio.js';
 import { createHotDogChatter } from './hotdog-chatter.js';
+import { createHotDogInputPolicy } from './hotdog-controls.js';
 import { restoreHotDogCleanupPresentation } from './hotdog-cleanup-presentation.js';
 import { buildHotDogParty } from './hotdog-party.js';
 import {
@@ -346,7 +348,7 @@ function setCinematicShot(name, eye, look) {
   // the last one should not carry over into a different framing.
   state.cinematic.anchorYaw = player.yaw;
   state.cinematic.anchorPitch = player.pitch;
-  player.clearKeys();
+  input.clear('cinematic-shot');
   interaction.setPaused(true);
 }
 
@@ -1249,7 +1251,7 @@ interaction.register(party.cleanup.wrap, {
     camera.attach(party.cleanup.wrap);
     party.cleanup.wrap.position.copy(CARRY_POSITION);
     party.cleanup.wrap.quaternion.copy(CARRY_QUATERNION);
-    player.clearKeys();
+    input.clear('body-carry');
     audio.play('cloth.suit.movement', { volume: 0.75, position: player.position });
     repaintObjectives();
     hud.toast('Billy HotDog · carrying', 'good');
@@ -1531,8 +1533,7 @@ function finishParty() {
   state.endingShown = true;
   mission.finish();
   state.phase = 'complete';
-  player.enabled = false;
-  player.clearKeys();
+  input.suspend();
   interaction.setPaused(true);
   document.exitPointerLock?.();
   blackout.classList.add('on');
@@ -1614,9 +1615,12 @@ const runtime = {
   party,
   cast,
   club,
+  scene,
   camera,
   three: THREE,
   player,
+  get input() { return input; },
+  get renderedFrameCount() { return renderedFrameCount; },
   interaction,
   audio,
   postfx,
@@ -1644,14 +1648,24 @@ window.__bing = runtime;
 window.HOTDOG_INCIDENT = runtime;
 
 function requestGamePointerLock() {
-  try {
-    const pending = canvas.requestPointerLock?.();
-    pending?.catch?.(() => {});
-  } catch {
-    // Embedded previews can deny pointer lock. The scene remains playable
-    // through its debug/verification surface and a later canvas click retries.
-  }
+  return input.requestPointerLock();
 }
+
+const hotDogInputPolicy = createHotDogInputPolicy({
+  isActive: () => state.phase === 'active' && !state.paused,
+  isCarrying: () => state.carrying,
+  drinkShot: () => shotBeat.drink(),
+  primaryControl: interaction,
+  notifyCarryRefusal: () => hud.say('Not with Billy in both arms.', 2200),
+  toggleBloom: () => postfx.toggle(),
+  showBloom: (enabled) => hud.toast(enabled ? 'Bloom on' : 'Bloom off', 'good'),
+});
+const input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  ...hotDogInputPolicy,
+});
 
 startButton.addEventListener('click', async () => {
   if (state.phase === 'complete') return;
@@ -1696,13 +1710,13 @@ startButton.addEventListener('click', async () => {
   document.body.classList.add('playing', 'hotdog-party');
   sceneInventory.set([]);
   sceneInventory.show();
-  player.enabled = true;
   // Start just inside the closed club. The exterior arrival was dead walking
   // before the scene's actual premise; this gets the player to the packed room
   // and stage controls immediately.
   teleport(club.anchors.frontDoor.x, club.anchors.frontDoor.z - 7.1, 0);
   restoreFromCampaign();
   if (previewCheckpoint) jumpToPreviewCheckpoint(previewCheckpoint);
+  input.refresh('mission-start');
   requestGamePointerLock();
   // The opening line narrates a party that has not happened yet; a jump past
   // it has nothing for this line to introduce.
@@ -1724,9 +1738,7 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     state.paused = true;
-    player.enabled = false;
-    player.clearKeys();
-    interaction.release();
+    input.suspend();
     interaction.setPaused(true);
     audio.ctx?.suspend?.();
   },
@@ -1735,7 +1747,7 @@ const pauseMenu = createPauseMenu({
     interaction.setPaused(state.cinematic.active);
     audio.ctx?.resume?.();
     lastTime = performance.now();
-    requestGamePointerLock();
+    input.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -1744,59 +1756,12 @@ const pauseMenu = createPauseMenu({
   }),
 });
 
-document.addEventListener('pointerlockchange', () => {
-  if (state.phase === 'active' && !state.paused) {
-    player.enabled = document.pointerLockElement === canvas;
-  }
-});
-document.addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
-});
-document.addEventListener('keydown', (event) => {
-  if (event.code === 'Space') event.preventDefault();
-  if (state.phase !== 'active' || state.paused) return;
-  /* Carrying Billy takes both arms. Same restriction the graveyard puts on
-   * the same body: no jumping and no hurrying with a man on your shoulder. */
-  const key = translateKey(event.code);
-  if (state.carrying && ['Space', 'ShiftLeft', 'ShiftRight'].includes(key)) {
-    player.setKey(key, false);
-    if (key === 'Space' && !event.repeat) hud.say('Not with Billy in both arms.', 2200);
-    return;
-  }
-  player.setKey(key, true);
-  // The shot beat owns [E] while the glass is in his hand.
-  if (event.code === 'KeyE' && shotBeat.drink()) return;
-  if (event.code === 'KeyE') interaction.press();
-  if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
-});
-document.addEventListener('keyup', (event) => {
-  player.setKey(translateKey(event.code), false);
-  if (event.code === 'KeyE') interaction.release();
-});
-document.addEventListener('mousedown', (event) => {
-  if (event.button === 0 && document.pointerLockElement === canvas) interaction.press();
-});
-document.addEventListener('mouseup', (event) => {
-  if (event.button === 0) interaction.release();
-});
-/* Alt-tab safety. A window that loses focus never gets the keyup, so without
- * this the last held key walks the player into the club wall for as long as
- * the tab is away (the pattern in src/silver/main.js and src/bing/main.js). */
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  interaction.release();
-});
 /* And a hidden tab should not keep simulating the party at nobody: route
  * through the pause menu, whose onPause already clears keys, suspends the
  * audio context, and freezes the sim. pause() refuses politely outside the
  * active phase. */
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseMenu.pause();
-});
-canvas.addEventListener('click', () => {
-  if (state.phase === 'active' && !state.paused && document.pointerLockElement !== canvas) {
-    requestGamePointerLock();
-  }
 });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -1805,6 +1770,7 @@ addEventListener('resize', () => {
   postfx.setSize(innerWidth, innerHeight);
 });
 
+let renderedFrameCount = 0;
 let lastTime = performance.now();
 function animate(now) {
   requestAnimationFrame(animate);
@@ -1853,6 +1819,7 @@ function animate(now) {
    * src/cartel-palace/main.js, where the owner caught it. */
   audio.updateListener(camera);
   postfx.render();
+  renderedFrameCount += 1;
   postfx.sample(dt);
 }
 requestAnimationFrame(animate);

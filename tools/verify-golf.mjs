@@ -31,6 +31,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5219;
+const INPUT_ONLY = process.argv.includes('--input-only');
+const INPUT_ONLY_TIMEOUT_MS = 240000;
 const CAPTURE_SCREENSHOTS = process.argv.includes('--screenshots')
   || process.env.GOLF_SCREENSHOTS === '1';
 
@@ -64,13 +66,32 @@ const server = http.createServer(async (req, res) => {
 });
 await new Promise((r) => server.listen(PORT, r));
 
-const browser = await chromium.launch({
+let browser = null;
+let inputOnlyPhase = 'browser-launch';
+const markInputOnlyPhase = (phase) => {
+  if (!INPUT_ONLY) return;
+  inputOnlyPhase = phase;
+  console.log(`[Silver Pines input] ${phase}`);
+};
+const inputOnlyDeadline = INPUT_ONLY ? setTimeout(async () => {
+  console.error(`[Silver Pines input] HARD TIMEOUT after ${INPUT_ONLY_TIMEOUT_MS}ms during ${inputOnlyPhase}`);
+  const forceExit = setTimeout(() => process.exit(124), 5000);
+  forceExit.unref?.();
+  server.closeAllConnections?.();
+  server.close?.();
+  await browser?.close?.().catch(() => {});
+  process.exit(124);
+}, INPUT_ONLY_TIMEOUT_MS) : null;
+inputOnlyDeadline?.unref?.();
+markInputOnlyPhase('browser-launch');
+browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required'],
 });
+markInputOnlyPhase('page-create');
 const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
 
 const problems = [];
@@ -87,10 +108,13 @@ console.log('\nSilver Pines — Full Round\n');
 
 const GOLF_URL = `http://localhost:${PORT}/golf.html?preview=1`;
 const GOLF_CANONICAL_URL = `http://localhost:${PORT}/golf.html`;
+markInputOnlyPhase('page-load');
 await page.goto(GOLF_URL, { waitUntil: 'load' });
+markInputOnlyPhase('runtime-ready');
 await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
 let startError = '';
 try {
+  markInputOnlyPhase('start-click');
   await page.locator('#start-btn').click({ timeout: 2000 });
   await page.waitForFunction(
     'document.getElementById("overlay").classList.contains("hidden")',
@@ -143,6 +167,98 @@ check('1v. every recorded Hole 1 voice take is decoded and resident before play'
 check('1w. not one requested recording failed to decode (failedCues is empty)',
   voResidency.failed.length === 0,
   voResidency.failed.slice(0, 5).join(' | ') || 'failedCues empty');
+
+/* Cross the browser-to-Player Seam before this verifier teleports or steps any
+ * mission state. The canvas click is trusted browser input; mouse and W must
+ * move the real Player; release must clear the held key; and the canonical
+ * Adapter's receipts must independently describe the same input journey. */
+markInputOnlyPhase('real-input');
+const beforeRealInput = await page.evaluate(() => {
+  const golf = window.__golf;
+  return {
+    x: golf.player.position.x,
+    y: golf.player.position.y,
+    z: golf.player.position.z,
+    yaw: golf.player.yaw,
+    pitch: golf.player.pitch,
+    input: golf.input.snapshot(),
+  };
+});
+await page.locator('#scene').click({ position: { x: 240, y: 150 } });
+await page.waitForFunction(
+  () => window.__golf.input.snapshot().captured === true,
+  null,
+  { timeout: 10000 },
+);
+/* Golf deliberately supports pointer-lock-or-drag. If Chromium rejects the
+ * lock, hold the same real canvas gesture while moving so the Adapter's
+ * authored drag fallback—not a synthetic flag—owns mouse look. */
+const dragLook = await page.evaluate(() => window.__golf.input.snapshot().dragFallback);
+if (dragLook) await page.mouse.down();
+for (const [x, y] of [[300, 125], [170, 185], [330, 115]]) {
+  await page.mouse.move(x, y, { steps: 3 });
+}
+if (dragLook) await page.mouse.up();
+await page.keyboard.down('w');
+await page.waitForFunction(({ x, z }) => {
+  const player = window.__golf.player;
+  return Math.hypot(player.position.x - x, player.position.z - z) > 0.12;
+}, beforeRealInput, { polling: 'raf', timeout: 30000 });
+const heldRealInput = await page.evaluate(() => ({
+  keys: [...window.__golf.player.keys],
+  input: window.__golf.input.snapshot(),
+}));
+await page.keyboard.up('w');
+await page.waitForFunction(
+  () => !window.__golf.player.keys.has('KeyW'),
+  null,
+  { polling: 'raf', timeout: 5000 },
+);
+const afterRealInput = await page.evaluate(() => {
+  const golf = window.__golf;
+  return {
+    x: golf.player.position.x,
+    z: golf.player.position.z,
+    yaw: golf.player.yaw,
+    keys: [...golf.player.keys],
+    input: golf.input.snapshot(),
+  };
+});
+check('1x. real canvas click, mouse, and W input capture, look, move, and release in the car park',
+  afterRealInput.input.captured
+    && afterRealInput.input.mouseDownEvents > beforeRealInput.input.mouseDownEvents
+    && afterRealInput.input.lookEvents > beforeRealInput.input.lookEvents
+    && afterRealInput.input.movementPresses > beforeRealInput.input.movementPresses
+    && afterRealInput.input.lastMovementCode === 'KeyW'
+    && heldRealInput.keys.includes('KeyW')
+    && !afterRealInput.keys.includes('KeyW')
+    && Math.hypot(
+      afterRealInput.x - beforeRealInput.x,
+      afterRealInput.z - beforeRealInput.z,
+    ) > 0.12
+    && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > 0.001,
+  JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
+/* The receipt is already captured. Restore the authored car-park pose only
+ * for deterministic framing and navigation in the rest of the full round. */
+await page.evaluate((origin) => {
+  const golf = window.__golf;
+  golf.input.clear('verifier-real-input-cleanup');
+  golf.player.position.set(origin.x, origin.y, origin.z);
+  golf.player.yaw = origin.yaw;
+  golf.player.pitch = origin.pitch;
+  golf.player.velocity.set(0, 0, 0);
+}, beforeRealInput);
+if (INPUT_ONLY) {
+  check('focused input receipt emitted no page or console errors',
+    problems.length === 0, problems.join(' | ').slice(0, 600));
+  markInputOnlyPhase('complete');
+  if (inputOnlyDeadline) clearTimeout(inputOnlyDeadline);
+  await browser.close();
+  await new Promise((resolve) => server.close(resolve));
+  const failedInput = results.filter((result) => !result.ok);
+  console.log(`\n${results.length - failedInput.length}/${results.length} focused checks passed.\n`);
+  process.exit(failedInput.length ? 1 : 0);
+}
 
 const beforePause = await page.evaluate(() => ({
   beat: window.__golf.round.beat,

@@ -29,10 +29,11 @@
  *     right character say the right line in the right order" without hearing
  *     anything.
  *
- * WHAT THIS IS NOT. It is not a replacement for `AudioEngine.say()`, which
- * picks a random take from a bank of interchangeable barks and is the right
- * tool for a grunt. This is for AUTHORED lines: a specific cue, from a
- * specific character, in a specific order.
+ * Authored lines use `speak()` with an exact cue. Interchangeable barks use
+ * `speakVariant()`, which asks the AudioEngine to select a decoded take and
+ * then crosses this same Interface. `AudioEngine.say()` remains only the
+ * legacy boolean Adapter for callers that do not need the selected cue,
+ * acceptance result, duration, subtitle metadata, or playback receipt.
  */
 
 /**
@@ -97,6 +98,50 @@ export const SPEECH_GAP_S = 0.28;
 export const SPEECH_FALLBACK_S = 1.8;
 
 /**
+ * Discriminants for a queue deciding what to do with one authored line.
+ *
+ * Existing `speak()` callers keep their legacy result shape. DialogueSequence
+ * consumes this status itself: RETRY leaves the line at the head of the queue,
+ * while DROP records the permanent routing failure and advances deliberately.
+ */
+export const DIALOGUE_ACCEPTANCE = Object.freeze({
+  ACCEPTED: 'accepted',
+  RETRY: 'retry',
+  DROP: 'drop',
+});
+
+const RETRYABLE_PLAYBACK_REASONS = new Set([
+  'engine-not-ready',
+  'context-suspended',
+  'autoplay-blocked',
+]);
+
+/** @returns {{status:'accepted'|'retry'|'drop', reason:string|null, receipt:object|null}} */
+function acceptanceResult({ routed, receipt }) {
+  if (!routed) {
+    return Object.freeze({
+      status: DIALOGUE_ACCEPTANCE.DROP,
+      reason: 'audio-unavailable',
+      receipt: null,
+    });
+  }
+  if (!receipt || receipt.started) {
+    return Object.freeze({
+      status: DIALOGUE_ACCEPTANCE.ACCEPTED,
+      reason: null,
+      receipt: receipt ?? null,
+    });
+  }
+  const reason = receipt.fallbackReason ?? 'playback-not-started';
+  return Object.freeze({
+    status: RETRYABLE_PLAYBACK_REASONS.has(reason)
+      ? DIALOGUE_ACCEPTANCE.RETRY : DIALOGUE_ACCEPTANCE.DROP,
+    reason,
+    receipt,
+  });
+}
+
+/**
  * How long a cue actually runs.
  *
  * The decoded buffer if there is one, the manifest's authored duration if the
@@ -150,20 +195,31 @@ export function hasSpeech(audio, cue) {
  *        Object3D, a {x,y,z}, or a function returning one. A line from a
  *        speaker FOLLOWS him, so a man walking away gets quieter as he walks.
  * @param {*} [options.position]  a fixed point, for a speaker who cannot move.
+ * @param {*} [options.follow]    an explicit moving source; `speaker` is the
+ *        usual shorthand. Ignored by SPEECH_MIX_CLOSE.
  * @param {object} [options.mix]  SPEECH_MIX (default), _INDOORS, or _CLOSE.
  * @param {number} [options.gain] one of SPEECH_GAIN, or a number with a reason.
  * @param {number} [options.muffle] a SPEECH_MUFFLE_HZ corner, for through-a-wall.
  * @param {number} [options.delay]
- * @returns {{cue: string, seconds: number, source: *, silent: boolean}}
+ * @param {string} [options.subtitle] words associated with the take for
+ *        receipts/certification; the scene Adapter still owns rendering.
+ * @param {boolean} [options.requiredRecorded] strict-QA recording policy; true by default
+ * @returns {{cue: string, seconds: number, source: *, silent: boolean,
+ *   subtitle:string|null,
+ *   receipt: object|null, acceptance: {status:'accepted'|'retry'|'drop', reason:string|null,
+ *   receipt:object|null}}}
  */
 export function speak(audio, cue, options = {}) {
   const {
     speaker = null,
     position = null,
+    follow = speaker,
     mix = SPEECH_MIX,
     gain = SPEECH_GAIN.normal,
     muffle = 0,
     delay = 0,
+    subtitle = null,
+    requiredRecorded = true,
     ...rest
   } = options;
 
@@ -174,7 +230,12 @@ export function speak(audio, cue, options = {}) {
    * behaviour rather than guarding it: every scene test double implements
    * `play` and none of them implements `ready`, so a guard here silently
    * skipped playback the doubles were written to observe. A router routes. */
-  if (typeof audio?.play !== 'function') return { cue, seconds, source: null, silent: true };
+  const canPlayWithReceipt = typeof audio?.playWithReceipt === 'function';
+  const canPlayLegacy = typeof audio?.play === 'function';
+  if (!canPlayWithReceipt && !canPlayLegacy) {
+    const acceptance = acceptanceResult({ routed: false, receipt: null });
+    return { cue, seconds, source: null, silent: true, receipt: null, acceptance };
+  }
 
   const opts = {
     ...rest,
@@ -189,8 +250,10 @@ export function speak(audio, cue, options = {}) {
     /* The mouth system reads the analyser this puts inline, so a character's
      * jaw moves on the amplitude that is really reaching the speakers. */
     analyse: true,
+    requiredRecorded,
   };
   if (muffle) opts.muffle = muffle;
+  if (subtitle != null) opts.subtitle = subtitle;
   if (mix?.ref != null) {
     opts.ref = mix.ref;
     opts.maxDist = mix.maxDist;
@@ -201,14 +264,56 @@ export function speak(audio, cue, options = {}) {
      * stays with a walking man and one pinned to where he was when he opened
      * his mouth. A caller with only a rig gets the seed read off it. */
     if (position) opts.position = position;
-    if (speaker) opts.follow = speaker;
+    if (follow) opts.follow = follow;
   }
 
-  const source = audio.play(cue, opts);
+  let source;
+  let receipt = null;
+  if (canPlayWithReceipt) {
+    ({ source, receipt } = audio.playWithReceipt(cue, opts));
+  } else {
+    source = audio.play(cue, opts);
+  }
+  const acceptance = acceptanceResult({ routed: true, receipt });
   /* Claim the floor for the length of the line, so the things that hold off
    * under speech -- a fart, a bark, an idle grunt -- actually hold off. */
-  audio.hold?.(delay + seconds + SPEECH_GAP_S);
-  return { cue, seconds, source, silent };
+  if (acceptance.status === DIALOGUE_ACCEPTANCE.ACCEPTED) {
+    audio.hold?.(delay + seconds + SPEECH_GAP_S);
+  }
+  return { cue, seconds, source, silent, subtitle, receipt, acceptance };
+}
+
+/**
+ * Say one randomly selected decoded take from an interchangeable voice bank.
+ *
+ * This is the canonical seam for variant barks. The AudioEngine owns bank
+ * residency, invalidation, and no-immediate-repeat selection; `speak()` owns
+ * everything the player can observe after selection. A scene therefore gets
+ * positional audio, the voice bus, measured timing, mouth analysis, subtitle
+ * evidence, and acceptance receipts without rebuilding any of them.
+ *
+ * `volume` is retained as the legacy bark spelling for `gain`, and defaults
+ * to the old `AudioEngine.say()` level. Explicit `gain` wins for new callers.
+ *
+ * @param {object} audio an AudioEngine or compatible Adapter
+ * @param {string} group e.g. 'beer.open' for `vo.beer.open.<n>`
+ * @param {object} [options] `speak()` options plus chance/volume
+ * @param {string} [options.selectedCue] an exact result already returned by
+ *        `selectVoiceVariant`, for a compatibility Adapter that must stop its
+ *        previous source between selection and playback
+ * @returns {ReturnType<typeof speak>|null} null when chance or the decoded bank refuses
+ */
+export function speakVariant(audio, group, options = {}) {
+  const {
+    chance = 1,
+    volume = 0.85,
+    gain = volume,
+    selectedCue = null,
+    ...speechOptions
+  } = options;
+  const cue = selectedCue ?? audio?.selectVoiceVariant?.(group, { chance }) ?? null;
+  if (!cue) return null;
+  return speak(audio, cue, { ...speechOptions, gain });
 }
 
 /**
@@ -234,9 +339,15 @@ export class DialogueSequence {
    *        line and its measured duration -- the seam for subtitles.
    * @param {Function} [options.onDone]
    */
-  constructor(audio, { gap = SPEECH_GAP_S, onLine = null, onDone = null } = {}) {
+  constructor(audio, {
+    gap = SPEECH_GAP_S,
+    retryDelay = 0.1,
+    onLine = null,
+    onDone = null,
+  } = {}) {
     this.audio = audio;
     this.gap = gap;
+    this.retryDelay = Math.max(0.01, Number(retryDelay) || 0.1);
     this.onLine = onLine;
     this.onDone = onDone;
     this.lines = [];
@@ -245,6 +356,8 @@ export class DialogueSequence {
     this.running = false;
     /** What was said, in order, with when and for how long. For verifiers. */
     this.spoken = [];
+    /** Refused starts remain visible without being misreported as spoken. */
+    this.attempts = [];
   }
 
   /**
@@ -257,6 +370,7 @@ export class DialogueSequence {
     this.wait = 0;
     this.running = this.lines.length > 0;
     this.spoken = [];
+    this.attempts = [];
     return this;
   }
 
@@ -279,14 +393,28 @@ export class DialogueSequence {
     if (!this.running) return;
     this.wait -= dt;
     if (this.wait > 0) return;
-    this.index += 1;
-    if (this.index >= this.lines.length) {
+    const candidateIndex = this.index + 1;
+    if (candidateIndex >= this.lines.length) {
       this.running = false;
       this.onDone?.();
       return;
     }
-    const line = this.lines[this.index];
+    const line = this.lines[candidateIndex];
     const spoken = speak(this.audio, line.cue, line);
+    this.attempts.push({
+      cue: line.cue,
+      index: candidateIndex,
+      acceptance: spoken.acceptance.status,
+      reason: spoken.acceptance.reason,
+      receipt: spoken.receipt,
+    });
+    if (spoken.acceptance.status === DIALOGUE_ACCEPTANCE.RETRY) {
+      /* Do not consume a line merely because its engine was temporarily
+       * unavailable. The same authored line owns the next attempt. */
+      this.wait = this.retryDelay;
+      return;
+    }
+    this.index = candidateIndex;
     /* The NEXT line waits for this one plus a beat plus whatever pause it
      * asked for itself. A line with no recording still takes its authored
      * duration, so an unrecorded scene plays at the right pace with subtitles
@@ -298,7 +426,9 @@ export class DialogueSequence {
       speaker: line.speakerId ?? null,
       seconds: spoken.seconds,
       silent: spoken.silent,
-      index: this.index,
+      acceptance: spoken.acceptance.status,
+      receipt: spoken.receipt,
+      index: candidateIndex,
     });
     this.onLine?.(line, spoken);
   }

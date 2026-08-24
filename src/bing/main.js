@@ -13,8 +13,9 @@
 import * as THREE from 'three';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
-import { translateKey, shakeScale, get as getSetting } from '../core/settings.js';
+import { shakeScale, get as getSetting } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
@@ -52,6 +53,7 @@ import { createShubenatorSignature } from '../core/shubenator-signature.js';
 import { createLicenseToGrill } from './license-to-grill-runtime.js';
 import { QUEST as LICENSE_TO_GRILL_QUEST } from './license-to-grill.js';
 import { BingAudioEngine } from './audio.js';
+import { createBingInputPolicy } from './controls.js';
 import { populate, makeAssociate } from './cast.js';
 import {
   BING_PERFORMER_BATHROOM_ACTOR_MARKER,
@@ -464,7 +466,7 @@ const dialogue = new Dialogue(ui.dialogue, {
        * away from. Keep the camera where it is, clear held movement, and
        * return to the exact prior posture once the authored thread ends. */
       game.dialogueModeBeforeLock = player.mode;
-      player.clearKeys();
+      input.clear('dialogue-lock');
       /* `briefing` disables locomotion while leaving the mouse-look path
        * live. The old `frozen` state made Lou's required conversation feel
        * like the camera had been taken away in the office doorway. */
@@ -473,7 +475,7 @@ const dialogue = new Dialogue(ui.dialogue, {
     }
     if (game.dialogueModeBeforeLock === 'walk' && player.mode === 'briefing') {
       player.mode = 'walk';
-      player.clearKeys();
+      input.clear('dialogue-unlock');
     }
     game.dialogueModeBeforeLock = null;
   },
@@ -1063,7 +1065,7 @@ function drinkTick(dt) {
    * The shot beat uses it: Booski says drink, so Tony drinks, and it goes
    * through the same pose, the same units and the same swallow as [F]. */
   if (game.autoDrink > 0) game.autoDrink = Math.max(0, game.autoDrink - dt);
-  if (!keys.has('KeyF') && game.autoDrink <= 0) {
+  if (!bingInputPolicy.isDown('KeyF') && game.autoDrink <= 0) {
     if (game.drinking > 0) {
       game.drinking = 0;
       poseDrink(null, 0);
@@ -2780,41 +2782,25 @@ function paintMachine() {
 /* Input                                                               */
 /* ------------------------------------------------------------------ */
 
-const keys = new Set();
-let dragLook = false;
-let dragging = false;
-
-function enableInput() {
-  player.enabled = true;
-  document.body.classList.remove('unlocked');
-}
-
-/* Drag-look is a FALLBACK, never a life sentence: every attempt asks the
- * browser for real pointer lock again, and the moment one succeeds the drag
- * mode retires itself. Losing lock once (an alt-tab, an overlay, a denied
- * request) used to latch dragLook forever and no click could undo it. */
 let dragLookHinted = false;
+let input;
 
-function requestLock() {
-  const p = canvas.requestPointerLock?.();
-  if (p && p.catch) p.catch(() => fallBackToDragLook());
-  setTimeout(() => {
-    if (document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
-  }, 600);
+const primaryControl = Object.freeze({
+  press() {
+    // The violent cord action owns mouse one, never the ordinary E action.
+    if (licenseToGrill.press()) return true;
+    interaction.press();
+    return false;
+  },
+  release: () => interaction.release(),
+  cancel: () => interaction.cancel(),
+});
+
+function paintInputCapture({ captured = false } = {}) {
+  document.body.classList.toggle('unlocked', !captured);
 }
 
-function fallBackToDragLook() {
-  if (document.pointerLockElement === canvas) return;
-  if (!dragLook && !dragLookHinted) {
-    dragLookHinted = true;
-    hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
-      + 'Any click keeps retrying the real thing.', 7000);
-  }
-  dragLook = true;
-  enableInput();
-}
-
-const pauseMenu = createPauseMenu({
+const _pauseMenu = createPauseMenu({
   title: isSecondVisit ? 'Back to the Bada Bing' : 'A Quick Stop at the Bada Bing',
   canPause: () => game.started && !game.over,
   getObjective: () => mission.objectives.find((objective) => !objective.done)?.text
@@ -2830,10 +2816,7 @@ const pauseMenu = createPauseMenu({
   onPause: () => {
     if (performerBathroom.active) performerBathroom.abandon();
     game.paused = true;
-    player.enabled = false;
-    keys.clear();
-    player.clearKeys();
-    interaction.release();
+    input.suspend();
     interaction.setPaused(true);
     audio.ctx?.suspend?.();
   },
@@ -2842,7 +2825,7 @@ const pauseMenu = createPauseMenu({
     interaction.setPaused(false);
     audio.ctx?.resume?.();
     clock.getDelta();
-    requestLock();
+    input.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -2851,44 +2834,13 @@ const pauseMenu = createPauseMenu({
   }),
 });
 
-document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === canvas;
-  if (locked) dragLook = false;   // the real thing won; retire the fallback
-  player.enabled = locked || dragLook;
-  document.body.classList.toggle('unlocked', !locked && !dragLook);
-  if (!locked && !dragLook) player.clearKeys();
-});
-
-document.addEventListener('mousemove', (e) => {
-  if (dragLook && !dragging) return;
-  if (!dragLook && document.pointerLockElement !== canvas) return;
-  player.handleMouseMove(e.movementX, e.movementY);
-});
-
-canvas.addEventListener('mousedown', (e) => {
-  if (game.paused) return;
-  if (dragLook) dragging = true;
-  // The cord's timing bar owns the click while it is sweeping.
-  if (e.button === 0 && licenseToGrill.press()) return;
-  if (e.button === 0) interaction.press();
-});
-window.addEventListener('mouseup', (e) => {
-  dragging = false;
-  if (e.button === 0) interaction.release();
-});
-
-window.addEventListener('keydown', (e) => {
-  if (e.repeat) return;
-  if (e.code === 'Space') e.preventDefault();
-  keys.add(e.code);
-  player.setKey(translateKey(e.code), true);
-
+function handleBingKeyDown(e, code) {
   if (performerBathroom.active) {
-    if (e.code === 'KeyE') { performerBathroom.press(); e.preventDefault(); return; }
-    if (e.code === 'KeyQ') { performerBathroom.abandon(); e.preventDefault(); return; }
+    if (code === 'KeyE') { performerBathroom.press(); e.preventDefault(); return true; }
+    if (code === 'KeyQ') { performerBathroom.abandon(); e.preventDefault(); return true; }
   }
 
-  if (e.code === 'KeyE') {
+  if (code === 'KeyE') {
     /* The phone takes [E] first while it is out. Same rule as the flat: a
      * ringing phone is the most interactive thing in the room. */
     if (game.phoneUp) {
@@ -2896,9 +2848,9 @@ window.addEventListener('keydown', (e) => {
       else phone.press();
       paintPhone();
       paintKit();
-      return;
+      return true;
     }
-    if (startBooskiShotDrink()) return;
+    if (startBooskiShotDrink()) return true;
     // At the table and the machine, E is the game's own button
     if (game.seatedIn === 'table' && blackjack.state !== 'off' && !interaction.current) {
       if (blackjack.state === 'bet') {
@@ -2924,7 +2876,7 @@ window.addEventListener('keydown', (e) => {
          * which is the one worth hearing. */
         if (blackjack.state === 'player') tableSay('bj.dealer.hit', { chance: 0.3, gap: 6 });
       }
-      return;
+      return true;
     }
     /* [E] deliberately does NOT swing the cord.
      *
@@ -2944,16 +2896,17 @@ window.addEventListener('keydown', (e) => {
     if (game.atMachine) {
       slots.spin();
       paintMachine();
-      return;
+      return true;
     }
     interaction.press();
+    return true;
   }
-  if (e.code === 'KeyQ') {
+  if (code === 'KeyQ') {
     if (game.phoneUp) {
       if (phone.call) phone.hangUp();
       else showPhone(false);
       paintPhone();
-      return;
+      return true;
     }
     /* In the store room, [Q] is "put his thing back on the table" before it is
      * anything else — same shape as pocketing the phone or standing up. */
@@ -2963,17 +2916,25 @@ window.addEventListener('keydown', (e) => {
     else if (game.seatedIn === 'car') getOutOfCar();
     else if (game.atMachine) leaveMachine();
     else recoverIfStuck();
+    return true;
   }
   if (game.seatedIn === 'table' && blackjack.state === 'player') {
-    if (e.code === 'KeyF') {
+    if (code === 'KeyF') {
       blackjack.stand();
       tableSay('bj.dealer.stand', { chance: 0.35, gap: 6 });
+      return true;
     }
     /* Nothing from the dealer on a double -- the prospect has his own line for
      * how that one turns out, and the croupier calling it first would step on it. */
-    if (e.code === 'KeyR') blackjack.double();
+    if (code === 'KeyR') {
+      blackjack.double();
+      return true;
+    }
   }
-  if (e.code === 'KeyR' && game.seatedIn === 'car' && carRadio.on) carRadio.next();
+  if (code === 'KeyR' && game.seatedIn === 'car' && carRadio.on) {
+    carRadio.next();
+    return true;
+  }
   /* One through nine, not one through four.
    *
    * The club's own menus never went past four options, so this was written to
@@ -2985,8 +2946,8 @@ window.addEventListener('keydown', (e) => {
    *
    * The branches below take a raw index, so each now checks its own range
    * rather than relying on the key filter to have done it. */
-  if (/^Digit[1-9]$/.test(e.code)) {
-    const n = Number(e.code.slice(-1)) - 1;
+  if (/^Digit[1-9]$/.test(code)) {
+    const n = Number(code.slice(-1)) - 1;
     if (dialogue.active && dialogue.options.length) {
       if (n < dialogue.options.length) dialogue.choose(n);
     } else if (game.seatedIn === 'table' && blackjack.state === 'bet') {
@@ -2996,39 +2957,52 @@ window.addEventListener('keydown', (e) => {
       if (n === 1) slots.changeWager(1);
       paintMachine();
     }
+    return true;
   }
-  if (e.code === 'KeyI') showKit(!game.kitOpen);
-  if (e.code === 'KeyP') showPhone(!game.phoneUp);
-  if (e.code === 'Escape') document.exitPointerLock?.();
-  if (e.code === 'Tab') {
-    e.preventDefault();
-    pauseMenu.toggle();
+  if (code === 'KeyI') {
+    showKit(!game.kitOpen);
+    return true;
   }
+  if (code === 'KeyP') {
+    showPhone(!game.phoneUp);
+    return true;
+  }
+  if (code === 'Escape') {
+    document.exitPointerLock?.();
+    return true;
+  }
+  return false;
+}
+
+const bingInputPolicy = createBingInputPolicy({
+  isActive: () => game.started && !game.paused && !game.over,
+  primaryControl,
+  routeKeyDown: handleBingKeyDown,
+});
+input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction: primaryControl,
+  ...bingInputPolicy.adapterOptions,
+  onCaptureChange: (_event, state) => paintInputCapture(state),
+  onCaptureError: (_error, state) => {
+    paintInputCapture(state);
+    if (!state.recovered || dragLookHinted) return;
+    dragLookHinted = true;
+    hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
+      + 'Any click keeps retrying the real thing.', 7000);
+  },
 });
 
-window.addEventListener('keyup', (e) => {
-  keys.delete(e.code);
-  player.setKey(translateKey(e.code), false);
-  if (e.code === 'KeyE') interaction.release();
-});
 window.addEventListener('wheel', (e) => {
   if (!game.phoneUp || (phone.screen !== 'messages' && phone.screen !== 'thread')) return;
   e.preventDefault();
   phone.cycle(e.deltaY > 0 ? 1 : -1);
   paintPhone();
 }, { passive: false });
-window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) carRadio.pause();
   else if (!game.paused && game.seatedIn === 'car' && game.radioOn) carRadio.resume();
-});
-
-canvas.addEventListener('click', () => {
-  if (!game.started || game.paused) return;
-  // Every canvas click while unlocked re-attempts REAL pointer lock, even
-  // from drag-look -- the browser may grant it now that this is a fresh
-  // user gesture, and pointerlockchange retires the fallback when it does.
-  if (document.pointerLockElement !== canvas) requestLock();
 });
 
 startBtn.addEventListener('click', async () => {
@@ -3061,7 +3035,6 @@ startBtn.addEventListener('click', async () => {
 
   overlay.classList.add('hidden');
   document.body.classList.add('playing');
-  requestLock();
 
   if (!game.started) {
     game.started = true;
@@ -3106,6 +3079,8 @@ startBtn.addEventListener('click', async () => {
     setTimeout(() => hud.say('<em>[Q]</em> to get out of the car.', 4200), 6400);
   }
   game.paused = false;
+  input.refresh('scene-start');
+  input.requestPointerLock();
   carRadio.resume();
 });
 
@@ -3322,6 +3297,7 @@ function ambientChatter(dt) {
 /* ------------------------------------------------------------------ */
 
 const clock = new THREE.Clock();
+let renderedFrameCount = 0;
 
 /**
  * The clock, everywhere at once.
@@ -3352,6 +3328,7 @@ function frame() {
   paintCampaignClock();
   if (!game.started || game.paused) {
     renderer.render(scene, camera);
+    renderedFrameCount += 1;
     return;
   }
   const dt = raw * highs.timeScale;
@@ -3411,6 +3388,7 @@ function frame() {
   audio.updateListener(camera);
 
   postfx.render(dt);
+  renderedFrameCount += 1;
   postfx.sample(raw);
 }
 
@@ -3427,7 +3405,7 @@ if (isSecondVisit) {
 loading.classList.add('hidden');
 window.__bing = {
   THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
-  interaction, drunk, highs, focusRush, inventory, campaign, car, carRadio, carRadioReady, lot, associate, scripts,
+  interaction, input, drunk, highs, focusRush, inventory, campaign, car, carRadio, carRadioReady, lot, associate, scripts,
   family, familyScripts, faceIndex,
   licenseToGrill, shubenatorSignature, performerBathroom,
   isSecondVisit, secondVisitStory,
@@ -3437,6 +3415,7 @@ window.__bing = {
   startFocus, focusTick, moneyBurst, noteSpokeTo,
   giveShot, startBooskiShotDrink, shotDrinkTick,
   switchClubRecord,
+  get renderedFrameCount() { return renderedFrameCount; },
   teleport(x, z, yaw = 0) {
     player.mode = 'walk';
     player.position.set(x, 1.66, z);

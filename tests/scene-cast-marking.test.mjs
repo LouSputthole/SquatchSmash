@@ -50,7 +50,13 @@ const built = new Map();
 async function actorsOf(id) {
   if (!built.has(id)) {
     const state = await buildGeometrySceneState(id);
-    built.set(id, state.roots.flatMap(({ root }) => collectActors(root, THREE)));
+    /* This suite inventories authored marker coverage, including mutually
+     * exclusive rigs hidden in the selected rendered state. Player-facing
+     * staging uses collectActors' rendered-only default; the marker floor is
+     * deliberately the explicit includeHidden audit surface. */
+    built.set(id, state.roots.flatMap(({ root }) => (
+      collectActors(root, THREE, { includeHidden: true })
+    )));
   }
   return built.get(id);
 }

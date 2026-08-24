@@ -80,6 +80,11 @@ export const MIN_REASON_CHARS = 60;
 const REQUIRED_KEYS = Object.freeze(['id', 'scene', 'beat', 'reason', 'source']);
 const OPTIONAL_KEYS = Object.freeze(['sourceAnchor']);
 
+/** Repository provenance is data, not a host-native filesystem path. */
+export const portableSourcePath = (value) => String(value).replaceAll('\\', '/');
+
+const projectRelativePath = (file) => portableSourcePath(path.relative(ROOT, file));
+
 /* ------------------------------------------------------------------ */
 /* Source scanning                                                     */
 /* ------------------------------------------------------------------ */
@@ -179,7 +184,7 @@ export function scanRuntime(dir, exclude = []) {
     for (const value of memberReferences(text)) members.add(value);
     for (const value of identifiers(text)) idents.add(value);
     for (const prefix of dispatchTemplatePrefixes(text)) {
-      templates.push({ prefix, source: `${path.relative(ROOT, file)}:${lineOf(text, `\`${prefix}\${`)}` });
+      templates.push({ prefix, source: `${projectRelativePath(file)}:${lineOf(text, `\`${prefix}\${`)}` });
     }
   }
   return { literals, members, idents, templates };
@@ -550,7 +555,7 @@ async function main() {
   const doc = JSON.parse(fs.readFileSync(ALLOWLIST_PATH, 'utf8'));
   const { entries, issues } = validateReachabilityAllowlist(doc);
   if (issues.length) {
-    console.error(`${path.relative(ROOT, ALLOWLIST_PATH)} is not usable:`);
+    console.error(`${projectRelativePath(ALLOWLIST_PATH)} is not usable:`);
     for (const issue of issues) console.error(`  - ${issue}`);
     process.exitCode = 1;
     return;

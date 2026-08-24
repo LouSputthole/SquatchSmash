@@ -17,6 +17,7 @@ import { SilverAudioEngine } from './audio.js';
 import { SPEECH_MIX_INDOORS, hasSpeech, speak } from '../core/dialogue.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
 import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -45,6 +46,7 @@ import * as prefs from '../core/settings.js';
 import {
   buildSilverRuntimeDate, buildSilverRuntimeRoom, populateSilverRuntimeEnvironment,
 } from './runtime-geometry.js';
+import { createSilverInputPolicy } from './controls.js';
 
 /* The campaign owns the save. Loading this page claims the scene; the story
  * class gates the evening on the Motel being finished and on Margo having
@@ -814,7 +816,7 @@ function serveTable() {
 
 function drinkTick(dt) {
   if (!game.heldDrink) return;
-  if (!keys.has('KeyF')) {
+  if (!silverInputPolicy.isDown('KeyF')) {
     if (game.drinking > 0) { game.drinking = 0; poseDrink(null, 0); }
     return;
   }
@@ -1309,7 +1311,7 @@ class Cutscene {
     this.from = { pos: player.position.clone(), yaw: player.yaw, pitch: player.pitch };
     this.dur = Math.max(...this.beats.map((b) => b.at + (b.hold ?? 3)), 1);
     player.mode = 'frozen';
-    player.clearKeys();
+    input.clear('cutscene-start');
     interaction.setPaused(true);
     date.takeOver();
     document.body.classList.add('cutscene');
@@ -3044,29 +3046,17 @@ function evening(dt) {
 /* Input                                                               */
 /* ------------------------------------------------------------------ */
 
-const keys = new Set();
-let dragLook = false;
-let dragging = false;
+let dragLookHinted = false;
+let input;
 
-function enableInput() {
-  player.enabled = true;
-  document.body.classList.remove('unlocked');
-}
+const primaryControl = Object.freeze({
+  press: () => pressInteract(),
+  release: () => interaction.release(),
+  cancel: () => interaction.cancel(),
+});
 
-function requestLock() {
-  if (dragLook) { enableInput(); return; }
-  const p = canvas.requestPointerLock?.();
-  if (p && p.catch) p.catch(() => fallBackToDragLook());
-  setTimeout(() => {
-    if (!dragLook && document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
-  }, 600);
-}
-
-function fallBackToDragLook() {
-  if (dragLook) return;
-  dragLook = true;
-  enableInput();
-  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
+function paintInputCapture({ captured = false } = {}) {
+  document.body.classList.toggle('unlocked', !captured);
 }
 
 const pauseMenu = createPauseMenu({
@@ -3087,10 +3077,7 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     game.paused = true;
-    player.enabled = false;
-    keys.clear();
-    player.clearKeys();
-    interaction.release();
+    input.suspend();
     interaction.setPaused(true);
     performance_.pause();
     audio.ctx?.suspend?.();
@@ -3101,36 +3088,13 @@ const pauseMenu = createPauseMenu({
     audio.ctx?.resume?.();
     performance_.resume();
     clock.getDelta();
-    requestLock();
+    input.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
     sceneId: SCENE_IDS.SILVER_ROOM,
     location,
   }),
-});
-
-document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === canvas;
-  player.enabled = locked || dragLook;
-  document.body.classList.toggle('unlocked', !locked && !dragLook);
-  if (!locked && !dragLook) player.clearKeys();
-});
-
-document.addEventListener('mousemove', (e) => {
-  if (dragLook && !dragging) return;
-  if (!dragLook && document.pointerLockElement !== canvas) return;
-  player.handleMouseMove(e.movementX, e.movementY);
-});
-
-canvas.addEventListener('mousedown', (e) => {
-  if (game.paused) return;
-  if (dragLook) dragging = true;
-  if (e.button === 0) pressInteract();
-});
-window.addEventListener('mouseup', (e) => {
-  dragging = false;
-  if (e.button === 0) interaction.release();
 });
 
 function pressInteract() {
@@ -3146,17 +3110,16 @@ function swayPress() {
   if (!sway.active) finishSway();
 }
 
-window.addEventListener('keydown', (e) => {
-  if (e.repeat) return;
-  if (e.code === 'Space') e.preventDefault();
-  keys.add(e.code);
-  player.setKey(prefs.translateKey(e.code), true);
-
-  if (e.code === 'KeyE') pressInteract();
-  if (e.code === 'KeyQ') {
-    if (game.seated && !sway.active) standFromTable();
+function handleSilverKeyDown(e, code) {
+  if (code === 'KeyE') {
+    pressInteract();
+    return true;
   }
-  if (e.code === 'KeyR' && !dialogue.active && game.seated) {
+  if (code === 'KeyQ') {
+    if (game.seated && !sway.active) standFromTable();
+    return true;
+  }
+  if (code === 'KeyR' && !dialogue.active && game.seated) {
     /* One key for "say the thing you have been working up to". What that is
      * depends on where the evening has got to, which is the same logic the
      * player is using. */
@@ -3173,35 +3136,46 @@ window.addEventListener('keydown', (e) => {
     else if (mission.flags.champagneSent && !mission.flags.champagneThanked) saludThePillar();
     else if (mission.flags.swayed === 'refused' && !mission.flags.toast) askAgain();
     else if (mission.flags.showStarted && !mission.flags.toast) raiseAGlass();
+    return true;
   }
-  if (/^Digit[1-7]$/.test(e.code)) {
-    const n = Number(e.code.slice(-1)) - 1;
+  if (/^Digit[1-7]$/.test(code)) {
+    const n = Number(code.slice(-1)) - 1;
     if (dialogue.active && dialogue.options.length) dialogue.choose(n);
     else if (n < inventory.slots) inventory.select(n);
+    return true;
   }
-  if (e.code === 'Escape') document.exitPointerLock?.();
-  if (e.code === 'Tab') {
-    e.preventDefault();
-    pauseMenu.toggle();
+  if (code === 'Escape') {
+    document.exitPointerLock?.();
+    return true;
   }
+  return false;
+}
+
+const silverInputPolicy = createSilverInputPolicy({
+  isActive: () => game.started && !game.paused && !game.over,
+  primaryControl,
+  routeKeyDown: handleSilverKeyDown,
+});
+input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction: primaryControl,
+  ...silverInputPolicy.adapterOptions,
+  onCaptureChange: (_event, state) => paintInputCapture(state),
+  onCaptureError: (_error, state) => {
+    paintInputCapture(state);
+    if (!state.recovered || dragLookHinted) return;
+    dragLookHinted = true;
+    hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
+      + 'Any click keeps retrying the real thing.', 7000);
+  },
 });
 
-window.addEventListener('keyup', (e) => {
-  keys.delete(e.code);
-  player.setKey(prefs.translateKey(e.code), false);
-  if (e.code === 'KeyE') interaction.release();
-});
-window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
 /* A hidden tab must not keep playing the evening at nobody: route through the
  * pause menu, whose onPause already clears keys, pauses the performance, and
  * suspends the audio context. pause() refuses politely outside the show. */
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseMenu.pause();
-});
-
-canvas.addEventListener('click', () => {
-  if (!game.started || game.paused) return;
-  if (document.pointerLockElement !== canvas && !dragLook) requestLock();
 });
 
 /* ------------------------------------------------------------------ */
@@ -3390,7 +3364,6 @@ startBtn.addEventListener('click', async () => {
 
   overlay.classList.add('hidden');
   document.body.classList.add('playing');
-  requestLock();
 
   if (!game.started) {
     game.started = true;
@@ -3421,6 +3394,8 @@ startBtn.addEventListener('click', async () => {
       + 'stand in that queue.</em>', 6400);
   }
   game.paused = false;
+  input.refresh('scene-start');
+  input.requestPointerLock();
 });
 
 /* ------------------------------------------------------------------ */
@@ -3428,11 +3403,16 @@ startBtn.addEventListener('click', async () => {
 /* ------------------------------------------------------------------ */
 
 const clock = new THREE.Clock();
+let renderedFrameCount = 0;
 
 function frame() {
   requestAnimationFrame(frame);
   const raw = Math.min(clock.getDelta(), 0.05);
-  if (!game.started || game.paused) { renderer.render(scene, camera); return; }
+  if (!game.started || game.paused) {
+    renderer.render(scene, camera);
+    renderedFrameCount += 1;
+    return;
+  }
   const dt = raw * highs.timeScale;
   game.elapsed += raw;
 
@@ -3491,6 +3471,7 @@ function frame() {
   hud.setClock(2, `${hour > 12 ? hour - 12 : hour}:${String(mins % 60).padStart(2, '0')} PM`, game.elapsed);
 
   postfx.render(dt);
+  renderedFrameCount += 1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -3501,7 +3482,7 @@ loading.classList.add('hidden');
 
 window.__silver = {
   THREE, scene, camera, renderer, postfx, player, room, cast, band, date, taxi,
-  mission, woo, dialogue, hud, audio, game, interaction, drunk, inventory,
+  mission, woo, dialogue, hud, audio, game, interaction, input, drunk, inventory,
   scripts, performance: performance_, sway, settings, ROOMS, SET, EVENTS, ENDINGS,
   /* The number the back of house is built to, so the verifier holds it to
    * the same one rather than to a copy of it. */
@@ -3520,6 +3501,7 @@ window.__silver = {
    * to both. */
   VOICE_OF, PROFILE_OF,
   campaign, story,
+  get renderedFrameCount() { return renderedFrameCount; },
   get campaignState() { return campaign.state; },
   /* The pieces the headless driver has to be able to step by hand, because it
    * runs the update path directly rather than waiting on frames. */
@@ -3532,7 +3514,12 @@ window.__silver = {
     prompt: !document.getElementById('ask')?.classList.contains('hidden'),
   }),
   __host: () => checkHostStation(),
-  __barks: (dt) => { barks(dt); flushVoice(); },
+  /* `flush: false` isolates the bark scheduler for certification. The live
+   * frame path never passes it; the verifier does so because flushing an
+   * unrelated queued narration after the first probe legitimately occupies
+   * the subtitle floor and used to turn calls two and three into `-1` timing
+   * artifacts instead of testing bark cadence or one-shot retirement. */
+  __barks: (dt, { flush = true } = {}) => { barks(dt); if (flush) flushVoice(); },
   /* The one-mouth-at-a-time gate, so the harness can prove a recorded line
    * is not being cut off by the next thing that wants to talk. */
   __voice: () => ({ speaking: voiceSpeaking(), deferred: waiting.length > 0, queued: waiting.length }),

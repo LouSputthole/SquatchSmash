@@ -120,14 +120,62 @@ try {
       phase: h.mission.phase,
       inCockpit: h.mission.inCockpit,
       playerEnabled: h.player.enabled,
+      browserInput: h.browserInput.snapshot(),
       onGround: Math.abs(h.player.position.y - (h.groundHeight(h.player.position.x, h.player.position.z) + 1.66)) < 0.2,
     };
   });
-  check('the Start button hides the title card and puts Tony on the apron on foot, not in the seat',
+  check('the Start button arms canonical on-foot input without faking capture from a synthetic click',
     booted.overlayHidden && !booted.hudUp && booted.checklistUp
       && booted.phase === 'walkaround' && booted.inCockpit === false
-      && booted.playerEnabled && booted.onGround,
+      && !booted.playerEnabled && booted.onGround
+      && booted.browserInput.captureMode === 'pointer-lock-or-drag'
+      && booted.browserInput.inputEnabled
+      && !booted.browserInput.captured,
     JSON.stringify(booted));
+
+  /* Semantic smoke: this is the browser path the old verifier skipped. The
+   * Adapter must earn Player authority from a real canvas click, then a real
+   * mouse move and held W must change the live view and position. */
+  await page.locator('#scene').click({ position: { x: 420, y: 280 } });
+  await page.waitForFunction(() => window.__enolaSquatch.browserInput.snapshot().captured, null, {
+    timeout: 5000,
+  });
+  const beforeRealInput = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    return { x: h.player.position.x, z: h.player.position.z, yaw: h.player.yaw };
+  });
+  await page.mouse.move(420, 280);
+  await page.mouse.move(490, 245, { steps: 2 });
+  await page.keyboard.down('w');
+  await page.waitForFunction(({ x, z }) => {
+    const player = window.__enolaSquatch.player;
+    return Math.hypot(player.position.x - x, player.position.z - z) > 0.35;
+  }, beforeRealInput, { polling: 'raf', timeout: 5000 });
+  const heldRealInput = await page.evaluate(() => ({
+    keys: [...window.__enolaSquatch.player.keys],
+    yaw: window.__enolaSquatch.player.yaw,
+  }));
+  await page.keyboard.up('w');
+  const afterRealInput = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    return {
+      x: h.player.position.x,
+      z: h.player.position.z,
+      yaw: h.player.yaw,
+      keys: [...h.player.keys],
+      input: h.browserInput.snapshot(),
+    };
+  });
+  check('real click, mouse, and W input capture, look, move, and release on the apron',
+    afterRealInput.input.captured
+      && heldRealInput.keys.includes('KeyW')
+      && !afterRealInput.keys.includes('KeyW')
+      && Math.hypot(
+        afterRealInput.x - beforeRealInput.x,
+        afterRealInput.z - beforeRealInput.z,
+      ) > 0.35
+      && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > 0.01,
+    JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
 
   /* ---- Bloom mounts at NO WAKE's own tuning (this is the same class of
    * scene — open-air, night, distant lights — see main.js's own comment on

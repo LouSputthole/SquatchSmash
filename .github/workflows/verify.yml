@@ -12,7 +12,7 @@
 #   - npm run check:flight  the Brushrunner flight-model bench, node-only
 #   - npm run verify:campaign-route   fresh-save campaign topology, node-only
 #   - npm run verify:geometry repo-wide headless mesh/collider geometry, node-only
-#   - npm run verify:staging  actor staging across every recorded scene state
+#   - npm run certify:debt-ratchet  no-new architecture/semantic/liveness/spatial debt
 #   - npm run verify:framing  camera framing, blocking, allowlisted exceptions
 #   - npm run verify:dialogue:check / check:line-presence / check:rerecord
 #   - npm run check:takes   recorded mp3s still say what the script says
@@ -41,8 +41,9 @@
 # failed at step 25 for weeks, silently, because nothing ran it. A gate that
 # runs nowhere is not a gate. Of the 65 verify:*/check:* scripts in
 # package.json, everything that runs headless is now wired in below —
-# verify:staging and verify:framing included, both of which were built, made
-# green, and then left running nowhere at all.
+# framing included. Staging now feeds the certification-debt ratchet: strict
+# zero-debt audits remain red and actionable without making existing migration
+# debt an excuse for CI to admit one more finding.
 #
 # verify:systemic-polish and verify:ground-combat are deliberately absent:
 # they are convenience aliases that re-run suites `npm test` already runs, and
@@ -76,6 +77,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The debt ceiling comes from the immutable base commit, never from
+          # the PR's editable baseline. Missing/shallow history must fail.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -127,8 +132,28 @@ jobs:
       - name: Single-file preview build
         run: node tools/bundle-preview.mjs
 
-      - name: Staging gate
-        run: npm run verify:staging
+      # Strict architecture, semantic, liveness, and spatial certification is
+      # intentionally red while the migration ledger is non-empty. CI applies
+      # the subtractive baseline instead: every current record is pinned by a
+      # stable ID, status, semantic fingerprint, and count. Removing debt is
+      # green; adding, disguising, substituting, or growing it is red.
+      - name: No-new certification debt
+        env:
+          EVENT_TRUSTED_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          trusted_ref="$EVENT_TRUSTED_REF"
+          if [ -z "$trusted_ref" ] || printf '%s' "$trusted_ref" | grep -Eq '^0+$'; then
+            trusted_ref=$(git rev-parse HEAD^)
+          fi
+          args=(--trusted-ref "$trusted_ref")
+          if ! git cat-file -e "$trusted_ref:tools/certification-debt-baseline.json" 2>/dev/null; then
+            # Only the initial landing can take this branch. The tool still
+            # resolves the commit and uses ls-tree to prove PATH absence;
+            # shallow history, bad refs, and unreadable existing files fail.
+            args+=(--allow-missing-trusted-baseline)
+          fi
+          npm run certify:debt-ratchet -- "${args[@]}"
 
       # IT GATES NOW, AND THE ALLOWLIST IS EMPTY TO THE POINT OF BEING GONE.
       # It used to exit 0 with five findings on purpose while the backlog was

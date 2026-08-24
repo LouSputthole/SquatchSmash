@@ -91,6 +91,23 @@ test('HotDog must be secured and loaded before the graveyard, and burial alone u
     .filter((eventId) => eventId === TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO).length, 1);
 });
 
+test('replaying attack presentation cannot downgrade a durable HotDog cleanup checkpoint', () => {
+  const campaign = readyCampaign();
+  const club = createBadaBingTwoStory({ campaign });
+
+  assert.equal(club.begin().ok, true);
+  assert.equal(club.recordAttack({ attackResolved: true }), true);
+  assert.equal(club.recordCleanup('bathrooms'), true);
+  const beforeReplay = campaign.state;
+  assert.equal(beforeReplay.missions[MISSION_IDS.BADA_BING_TWO].checkpoint, 'cleanup');
+
+  assert.equal(club.recordAttack({ attackResolved: true }), true);
+  const afterReplay = campaign.state;
+  assert.equal(afterReplay.missions[MISSION_IDS.BADA_BING_TWO].checkpoint, 'cleanup');
+  assert.equal(afterReplay.revision, beforeReplay.revision,
+    'idempotent runtime presentation should not rewrite the persisted campaign');
+});
+
 test('current saves carry a durable HotDog incident shape', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   const incident = campaign.state.missions[MISSION_IDS.BADA_BING_TWO];

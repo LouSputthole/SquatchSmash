@@ -76,6 +76,13 @@ export { rayBoxDistance, solidDistance };
 
 /** Is this solid the actor's own body collider? See OWN_BODY_CENTRE_M. */
 export function isOwnBody(box, actor) {
+  /* Typed meaning wins over every dimensional heuristic below.  A collider
+   * authored as furniture stays furniture even when it is person-sized and
+   * centred on a sitter; an actor-body stays its owner even after a prone pose
+   * makes it wide and short. */
+  if (box?.spatialKind === 'actor-body') return box.ownerActorId === actor.id;
+  if (box?.typed === true) return false;
+
   const spanX = box.max[0] - box.min[0];
   const spanZ = box.max[2] - box.min[2];
   if (spanX > OWN_BODY_MAX_SPAN_M || spanZ > OWN_BODY_MAX_SPAN_M) return false;
@@ -165,6 +172,14 @@ export function stagingFindings({
   planOnlySolids = false,
 } = {}) {
   const findings = [];
+  const typedBoxCount = boxes.filter((box) => box?.typed === true).length;
+  const spatialCoverage = Object.freeze({
+    status: boxes.length === 0 ? (actors.length === 0 ? 'NOT_APPLICABLE' : 'UNKNOWN')
+      : typedBoxCount === boxes.length ? 'PASS' : 'UNKNOWN',
+    total: boxes.length,
+    typed: typedBoxCount,
+    untyped: boxes.length - typedBoxCount,
+  });
 
   /* A SOLID THAT COLLIDES IN PLAN CANNOT ANSWER A QUESTION ABOUT HEIGHT.
    *
@@ -208,12 +223,45 @@ export function stagingFindings({
     ids.add(actor.id);
   }
 
+  const spatialIds = new Set();
+  for (const box of boxes) {
+    if (box.typed !== true) continue;
+    if (box.spatialId != null) {
+      if (spatialIds.has(box.spatialId)) {
+        findings.push({
+          kind: 'SPATIAL_ID_DUPLICATE', id: null, role: null, posture: null,
+          spatialId: box.spatialId,
+        });
+      }
+      spatialIds.add(box.spatialId);
+    }
+    if (box.spatialKind === 'actor-body' && !ids.has(box.ownerActorId)) {
+      findings.push({
+        kind: 'SPATIAL_OWNER_MISSING', id: null, role: null, posture: null,
+        solid: box.name ?? null,
+        ownerActorId: box.ownerActorId ?? null,
+      });
+    }
+  }
+
   findings.push(...uniformFacing(actors, { radius: uniformRadius }));
+
+  for (const box of boxes) {
+    if (box.typed !== true) continue;
+    if (typeof box.spatialKind !== 'string' || !box.blocks || typeof box.blocks !== 'object') {
+      findings.push({
+        kind: 'SPATIAL_SEMANTICS_UNKNOWN', id: null, role: null, posture: null,
+        solid: box.name ?? null,
+      });
+    }
+  }
 
   /* Which solids are somebody's body, computed once rather than per ray.
    * Bing state: 51 actors against 147 boxes, and the facing loop below would
    * otherwise ask the question 51 times per box. */
-  const bodyBoxes = new Set(boxes.filter((box) => actors.some((a) => isOwnBody(box, a))));
+  const bodyBoxes = new Set(boxes.filter((box) => (
+    box.spatialKind === 'actor-body' || actors.some((a) => isOwnBody(box, a))
+  )));
 
   for (const actor of actors) {
     /* In a vehicle, the two "he is in the masonry" checks are meaningless:
@@ -241,6 +289,10 @@ export function stagingFindings({
        * a man standing INSIDE another man is still a bug, even though a man
        * LOOKING AT another man is not. */
       if (bodyBoxes.has(box)) continue;
+      /* A trigger, interaction envelope or deliberately non-occluding
+       * collider can block some other channel without becoming a wall to the
+       * staging sightline. */
+      if (box.blocks?.vision === false) continue;
       /* A solid still wearing the reader's invented band, per the note above:
        * it can say where, never how high, so it is not evidence about a
        * sightline. */
@@ -290,7 +342,12 @@ export function stagingFindings({
     //
     // `sit` is NOT exempt: a man inside a sofa is still a bug. Only `ride`.
     if (!riding) {
-      const swallowed = boxes.find((box) => inside(box, actor.hip) && !isOwnBody(box, actor));
+      const swallowed = boxes.find((box) => (
+        box.blocks?.collision !== false
+        && inside(box, actor.hip)
+        && !isOwnBody(box, actor)
+        && !box.intentionalOverlapWith?.includes(actor.id)
+      ));
       if (swallowed) {
         findings.push(finding('ACTOR_INSIDE_SOLID', actor, { solid: swallowed.name ?? null }));
       }
@@ -327,5 +384,5 @@ export function stagingFindings({
     }
   }
 
-  return { id, findings };
+  return { id, findings, spatialCoverage };
 }

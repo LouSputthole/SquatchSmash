@@ -86,6 +86,7 @@ export function makeMotelArrivalCar(scene) {
     x: PARK.x,
     z: PARK.z,
     yaw: -Math.PI / 2,
+    spatialId: 'motel.arrival-car',
   });
   paintMaroon(car);
   removeConvertibleRoof(car);

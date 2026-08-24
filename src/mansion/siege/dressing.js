@@ -738,7 +738,10 @@ export function buildSiegeDressing({
 
   const wrecks = {};
   for (const spot of WRECK_SPOTS) {
-    const car = makeCar(spot.kind, spot.colour, { dented: true });
+    const car = makeCar(spot.kind, spot.colour, {
+      dented: true,
+      spatialId: `mansion-siege.wreck.${spot.id}`,
+    });
     car.group.name = `siege.wreck.${spot.id}`;
     car.group.position.set(spot.x, DRIVEWAY_SURFACE_Y, spot.z);
     car.group.rotation.y = spot.yaw;

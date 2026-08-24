@@ -327,6 +327,50 @@ try {
       JSON.stringify({ previewNotice: state.previewNotice, bootFailed: state.bootFailed }));
 
     if (checkpoint === 'approach') {
+      /* Cross the browser Adapter Seam before any verifier-only teleport or
+       * mission call. A scene that imports Player but never wires real input
+       * must fail here, even if every later state probe is green. */
+      await page.locator('canvas').click({ position: { x: 480, y: 300 } });
+      await page.waitForFunction(() => window.CARTEL_PALACE.input.snapshot().captured, null, {
+        timeout: 5000,
+      });
+      const beforeRealInput = await page.evaluate(() => {
+        const { player } = window.CARTEL_PALACE;
+        return { x: player.position.x, z: player.position.z, yaw: player.yaw };
+      });
+      await page.mouse.move(480, 300);
+      await page.mouse.move(550, 265, { steps: 2 });
+      await page.keyboard.down('w');
+      await page.waitForFunction(({ x, z }) => {
+        const { player } = window.CARTEL_PALACE;
+        return Math.hypot(player.position.x - x, player.position.z - z) > 0.35;
+      }, beforeRealInput, { polling: 'raf', timeout: 5000 });
+      const heldRealInput = await page.evaluate(() => ({
+        keys: [...window.CARTEL_PALACE.player.keys],
+        yaw: window.CARTEL_PALACE.player.yaw,
+      }));
+      await page.keyboard.up('w');
+      const afterRealInput = await page.evaluate(() => {
+        const runtime = window.CARTEL_PALACE;
+        return {
+          x: runtime.player.position.x,
+          z: runtime.player.position.z,
+          yaw: runtime.player.yaw,
+          keys: [...runtime.player.keys],
+          input: runtime.input.snapshot(),
+        };
+      });
+      check('real click, mouse, and W input capture, look, move, and release at the Palace',
+        afterRealInput.input.captured
+          && heldRealInput.keys.includes('KeyW')
+          && !afterRealInput.keys.includes('KeyW')
+          && Math.hypot(
+            afterRealInput.x - beforeRealInput.x,
+            afterRealInput.z - beforeRealInput.z,
+          ) > 0.35
+          && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > 0.01,
+        JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
+
       await page.evaluate(() => {
         const runtime = window.CARTEL_PALACE;
         runtime.player.position.set(19.2, 1.66, 63.1);

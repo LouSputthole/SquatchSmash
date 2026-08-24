@@ -1737,9 +1737,10 @@ export function buildMansionGrounds(scene = null) {
    * The current 15.2 m court adds a metre of paved outer shoulder without
    * pushing the parked pair back into either walking corridor.
    */
-  function courtSpot(deg, r, kind, color) {
+  function courtSpot(id, deg, r, kind, color) {
     const t = THREE.MathUtils.degToRad(deg);
     return {
+      id,
       x: COURT_CENTRE.x + Math.cos(t) * r,
       z: COURT_CENTRE.z + Math.sin(t) * r,
       yaw: -(Math.PI / 2 + t),
@@ -1775,16 +1776,16 @@ export function buildMansionGrounds(scene = null) {
       yaw: -Math.PI / 2,
       note: 'Bada Bing grey sedan, inside gate',
     },
-    courtSpot(180, 12.4, 'lincoln', 0x101014),
-    courtSpot(0, 12.4, 'suv', 0x2a2a30),
+    courtSpot('mansion.motor-court.west', 180, 12.4, 'lincoln', 0x101014),
+    courtSpot('mansion.motor-court.east', 0, 12.4, 'suv', 0x2a2a30),
     {
-      x: SPUR_X, z: 22.5, kind: 'suv', color: 0x151519, yaw: Math.PI, note: 'side lot bay 1',
+      id: 'mansion.side-lot.01', x: SPUR_X, z: 22.5, kind: 'suv', color: 0x151519, yaw: Math.PI, note: 'side lot bay 1',
     },
     {
-      x: SPUR_X, z: 25.9, kind: 'sedan', color: 0x1a1a20, yaw: Math.PI, note: 'side lot bay 2',
+      id: 'mansion.side-lot.02', x: SPUR_X, z: 25.9, kind: 'sedan', color: 0x1a1a20, yaw: Math.PI, note: 'side lot bay 2',
     },
     {
-      x: SPUR_X, z: 29.3, kind: 'lincoln', color: 0x2e2e36, yaw: Math.PI, note: 'side lot bay 3',
+      id: 'mansion.side-lot.03', x: SPUR_X, z: 29.3, kind: 'lincoln', color: 0x2e2e36, yaw: Math.PI, note: 'side lot bay 3',
     },
   ];
   // Painted bay lines under the side lot, so the row reads as a car park.
@@ -1795,7 +1796,7 @@ export function buildMansionGrounds(scene = null) {
     }));
   }
   const vehicles = CAR_SPOTS.map((spot) => {
-    const car = makeCar(spot.kind, spot.color);
+    const car = makeCar(spot.kind, spot.color, { spatialId: spot.id });
     if (spot.id) car.group.name = spot.id;
     if (spot.storyThread) car.group.userData.storyThread = spot.storyThread;
     car.group.position.set(spot.x, 0, spot.z);

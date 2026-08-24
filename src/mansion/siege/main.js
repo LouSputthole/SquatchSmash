@@ -37,12 +37,13 @@ import {
 } from '../scenes/MansionGrounds.js';
 import { buildMansionInterior, FOYER, OFFICE, GALLERY } from '../scenes/MansionInterior.js';
 import { Player } from '../../core/player.js';
+import { createFirstPersonInput } from '../../core/first-person-input.js';
 import { InteractionSystem } from '../../core/interaction.js';
 import { AudioEngine } from '../../core/audio.js';
 import { PostFX } from '../../core/postfx.js';
 import { attachPixelRatio } from '../../core/pixel-ratio.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
-import { translateKey, shakeScale } from '../../core/settings.js';
+import { shakeScale } from '../../core/settings.js';
 import { createPromptHud } from '../../core/hud.js';
 import { createCampaignSceneRecovery } from '../../core/campaign-scene-skip.js';
 import { prewarmAudio, prewarmScene } from '../../core/prewarm.js';
@@ -804,6 +805,8 @@ let hitConfirmKind = null;
 let playerHitCount = 0;
 let playerDamageEvents = 0;
 let pointerLockRejected = false;
+let explainPointerLockFailure = false;
+let input = null;
 let lastPlayerSuppression = null;
 const playerTriggerDamage = new Map();
 const playerTriggerPresentation = new Map();
@@ -2128,7 +2131,7 @@ function onPlayerDown() {
   weaponSystem.setTrigger(false);
   weaponSystem.setAimed(false);
   weaponSystem.cancelPendingImpacts();
-  player.clearKeys?.();
+  input?.clear('player-down');
   /* Let the mouse go. A card with two buttons on it behind a locked pointer
    * is a card nobody can press. */
   try { document.exitPointerLock?.(); } catch { /* not locked */ }
@@ -2277,47 +2280,10 @@ function holdTheLine() {
 /* ================================================================== */
 /* Input                                                                 */
 /*                                                                       */
-/* `Player` DOES NOT LISTEN FOR ITS OWN KEYS. It exposes setKey/clearKeys */
-/* and every scene wires its own handlers -- see the identical block in    */
-/* src/mansion/main.js and src/heist/main.js. Leaving this out is a scene  */
-/* that boots, renders, locks the pointer and simply never moves, with no  */
-/* error anywhere to say why. It cost this file one verifier run.          */
+/* The shared Adapter owns browser capture, Player input, held-state cleanup */
+/* and the rejected-capture lifecycle. Scene routes below retain weapon,    */
+/* dialogue and loadout policy without rebuilding that plumbing.            */
 /* ================================================================== */
-window.addEventListener('keydown', (e) => {
-  /* Tab never gets here — the pause menu's own capture-phase listener owns it
-   * (src/core/pause-menu.js). Everything below mutates the live mission, so it
-   * must go dark while the overlay is up, same as the mousedown handler. */
-  if (!running || pauseMenu.isPaused()) return;
-  if (e.code === 'Space') e.preventDefault();
-  player.setKey(translateKey(e.code), true);
-  if (e.code === 'KeyE' && !e.repeat) interaction.press();
-  if (e.code === 'KeyR' && !e.repeat) { weaponSystem.reload(); ammoDirty = true; }
-  if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) {
-    weaponSystem.setAimed(false);
-    finalArcLoadout.stow(weaponSystem);
-    loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
-    ammoDirty = true;
-  }
-  if (!e.repeat && /^Digit[1-5]$/.test(e.code)) {
-    weaponSystem.setAimed(false);
-    finalArcLoadout.select(Number(e.code.slice(5)) - 1, weaponSystem);
-    loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
-    ammoDirty = true;
-    e.preventDefault();
-  }
-  /* The line. Once, ever, with any catalog gun up on the landing. */
-  if (e.code === 'KeyF' && !e.repeat) tryTheLine();
-  /* Skip the rest of whoever is talking. Enter, deliberately: Space is jump,
-   * and putting "skip the briefing" on the jump key means a first-time player
-   * who hops on the spot in Lou's office never hears the mission explained.
-   *
-   * NOT a cancel -- `finish()` runs the sequence's `onDone`, so skipping the
-   * briefing still ENDS the briefing. A skip that quietly left the mission in
-   * the beat it was skipping is the softlock this whole pass removed. */
-  if (e.code === 'Enter' && !e.repeat && dialogue.active) dialogue.finish();
-  // B — the same bloom toggle every PostFX-mounted scene answers to.
-  if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
-});
 window.addEventListener('wheel', (e) => {
   if (!running || pauseMenu.isPaused()) return;
   const occupied = finalArcLoadout.items;
@@ -2333,21 +2299,7 @@ window.addEventListener('wheel', (e) => {
     break;
   }
 }, { passive: true });
-window.addEventListener('keyup', (e) => {
-  player.setKey(translateKey(e.code), false);
-  if (e.code === 'KeyE') interaction.release();
-});
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  interaction.release();
-  weaponSystem.setTrigger(false);
-  weaponSystem.setAimed(false);
-});
 window.addEventListener('pagehide', () => captureSiegeLoadout());
-window.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== renderer.domElement) return;
-  player.handleMouseMove(e.movementX, e.movementY);
-});
 
 /**
  * Ask for mouse capture without leaving a rejected promise or a silent dead
@@ -2356,75 +2308,10 @@ window.addEventListener('mousemove', (e) => {
  * a later canvas click is the reliable recovery gesture.
  */
 function requestSiegePointerLock({ explain = false } = {}) {
-  if (document.pointerLockElement === renderer.domElement) return true;
-  if (typeof renderer.domElement.requestPointerLock !== 'function') {
-    pointerLockRejected = true;
-    if (explain) nudge('Mouse capture is unavailable. Open this page directly, or allow pointer lock.');
-    return false;
-  }
-  try {
-    const pending = renderer.domElement.requestPointerLock();
-    pending?.catch?.(() => {
-      pointerLockRejected = true;
-      if (explain) nudge('Mouse capture was blocked. Click the game again or allow pointer lock.');
-    });
-    return true;
-  } catch {
-    pointerLockRejected = true;
-    if (explain) nudge('Mouse capture was blocked. Click the game again or allow pointer lock.');
-    return false;
-  }
+  if (input?.locked) return true;
+  explainPointerLockFailure ||= explain;
+  return input?.requestPointerLock() ?? false;
 }
-
-document.addEventListener('pointerlockchange', () => {
-  if (document.pointerLockElement === renderer.domElement) {
-    pointerLockRejected = false;
-    return;
-  }
-  weaponSystem.setTrigger(false);
-  weaponSystem.setAimed(false);
-});
-document.addEventListener('pointerlockerror', () => {
-  pointerLockRejected = true;
-  weaponSystem.setTrigger(false);
-  weaponSystem.setAimed(false);
-  if (running && !pauseMenu.isPaused()) {
-    nudge('Mouse capture was blocked. Click the game again or allow pointer lock.');
-  }
-});
-
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (!running || pauseMenu.isPaused()) return;
-  if (e.button === 2) {
-    e.preventDefault();
-    if (weaponSystem.equipped) weaponSystem.setAimed(true);
-    return;
-  }
-  if (e.button !== 0) return;
-  if (document.pointerLockElement !== renderer.domElement) {
-    /* After an explicit browser rejection, do not turn every later click into
-     * another invisible no-op. A deliberate click still fires one round; the
-     * HUD explains why mouse-look is unavailable, while the same fresh user
-     * gesture retries capture in case the browser permission has changed. */
-    if (pointerLockRejected) {
-      requestSiegePointerLock({ explain: true });
-      if (weaponSystem.equipped) weaponSystem.triggerPress();
-      else nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
-      return;
-    }
-    requestSiegePointerLock({ explain: true });
-    return;
-  }
-  if (!weaponSystem.equipped) {
-    nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
-    return;
-  }
-  weaponSystem.setTrigger(true);
-});
-window.addEventListener('mouseup', (e) => {
-  if (e.button === 0) weaponSystem.setTrigger(false);
-  if (e.button === 2) weaponSystem.setAimed(false);
-});
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
 /* ================================================================== */
@@ -2687,7 +2574,7 @@ function showMissionCard({ attackersDown = mission.attackersDown } = {}) {
    * a card nobody can click, which is how a "clean ending" becomes a
    * softlock with better typography. */
   document.exitPointerLock?.();
-  player.clearKeys?.();
+  input?.clear('mission-complete');
   weaponSystem.setTrigger(false);
   running = false;
 }
@@ -2772,16 +2659,121 @@ const pauseMenu = createPauseMenu({
   }),
   onPause: () => {
     interaction.setPaused(true);
-    weaponSystem.setTrigger(false);
-    weaponSystem.setAimed(false);
-    player.clearKeys();
+    input?.refresh('pause');
     if (audio.ctx?.state === 'running') audio.ctx.suspend();
   },
   onResume: () => {
     interaction.setPaused(false);
+    input?.refresh('resume');
     if (audio.ctx?.state === 'suspended') audio.ctx.resume();
     clock.getDelta();
     requestSiegePointerLock({ explain: true });
+  },
+});
+
+input = createFirstPersonInput({
+  player,
+  canvas: renderer.domElement,
+  interaction,
+  canEnable: () => running && !pauseMenu.isPaused(),
+  canHandleInput: () => running && !pauseMenu.isPaused(),
+  controlState: () => ({
+    /* The 1.6-second wake animation owns the camera and body even if capture
+     * arrives immediately from the start gesture. */
+    playerEnabled: waking <= 0,
+    movementEnabled: waking <= 0,
+    defaultLookEnabled: waking <= 0,
+    interactionEnabled: waking <= 0,
+  }),
+  routes: {
+    keyDown(e) {
+      if (e.code === 'KeyR' && !e.repeat) {
+        weaponSystem.reload();
+        ammoDirty = true;
+        return true;
+      }
+      if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) {
+        weaponSystem.setAimed(false);
+        finalArcLoadout.stow(weaponSystem);
+        loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+        ammoDirty = true;
+        return true;
+      }
+      if (!e.repeat && /^Digit[1-5]$/.test(e.code)) {
+        weaponSystem.setAimed(false);
+        finalArcLoadout.select(Number(e.code.slice(5)) - 1, weaponSystem);
+        loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+        ammoDirty = true;
+        e.preventDefault();
+        return true;
+      }
+      /* The line. Once, ever, with any catalog gun up on the landing. */
+      if (e.code === 'KeyF' && !e.repeat) { tryTheLine(); return true; }
+      /* Enter deliberately skips the active line. Space remains jump. */
+      if (e.code === 'Enter' && !e.repeat && dialogue.active) {
+        dialogue.finish();
+        return true;
+      }
+      if (e.code === 'KeyB' && !e.repeat) { postfx.toggle(); return true; }
+      return false;
+    },
+    mouseDown(e, controls) {
+      if (e.button === 2) {
+        e.preventDefault();
+        if (weaponSystem.equipped) weaponSystem.setAimed(true);
+        return true;
+      }
+      if (e.button !== 0) return true;
+      if (!controls.locked) {
+        /* After an explicit rejection, the next deliberate click retries
+         * capture and fires one fallback round. The rejected click itself
+         * never fires; verify:mansion-siege depends on that distinction. */
+        const fallbackShot = pointerLockRejected;
+        requestSiegePointerLock({ explain: true });
+        if (fallbackShot) {
+          if (weaponSystem.equipped) weaponSystem.triggerPress();
+          else nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
+        }
+        return true;
+      }
+      if (!weaponSystem.equipped) {
+        nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
+        return true;
+      }
+      weaponSystem.setTrigger(true);
+      return true;
+    },
+    mouseUp(e) {
+      if (e.button === 0) weaponSystem.setTrigger(false);
+      if (e.button === 2) weaponSystem.setAimed(false);
+      return e.button === 0 || e.button === 2;
+    },
+  },
+  onClear: () => {
+    interaction.release();
+    weaponSystem.setTrigger(false);
+    weaponSystem.setAimed(false);
+  },
+  onCaptureChange: (_event, controls) => {
+    if (controls.locked) {
+      pointerLockRejected = false;
+      explainPointerLockFailure = false;
+    }
+    weaponSystem.setTrigger(false);
+    weaponSystem.setAimed(false);
+  },
+  onCaptureError: (_error, controls) => {
+    pointerLockRejected = true;
+    weaponSystem.setTrigger(false);
+    weaponSystem.setAimed(false);
+    const explain = explainPointerLockFailure || controls.reason === 'pointer-lock-error';
+    explainPointerLockFailure = false;
+    if (explain && running && !pauseMenu.isPaused()) {
+      const message = controls.reason === 'pointer-lock-unavailable'
+        ? 'Mouse capture is unavailable. Open this page directly, or allow pointer lock.'
+        : 'Mouse capture was blocked. Click the game again or allow pointer lock.';
+      nudge(message);
+    }
   },
 });
 
@@ -3315,6 +3307,7 @@ window.mansionSiege = {
   postfx,
   lightStatus,
   player,
+  input,
   playerActor,
   audio,
   missionAudio,

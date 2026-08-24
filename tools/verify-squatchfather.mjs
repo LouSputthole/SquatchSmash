@@ -156,15 +156,44 @@ async function openingSnapshot(target) {
 }
 
 async function verifyOpeningMovement(target, label) {
-  const before = await openingSnapshot(target);
+  const initial = await openingSnapshot(target);
   check(`${label} starts Tony outside every active collider`,
-    before.beat === 'START_EXTERIOR'
-      && before.canMove
-      && before.canLook
-      && !before.seated
-      && !before.scripted
-      && !before.blocked,
-    JSON.stringify(before));
+    initial.beat === 'START_EXTERIOR'
+      && initial.canMove
+      && initial.canLook
+      && !initial.seated
+      && !initial.scripted
+      && !initial.blocked,
+    JSON.stringify(initial));
+
+  await target.waitForFunction(
+    () => window.squatchfather.input.snapshot().locked,
+    null,
+    { timeout: 10000 },
+  ).catch(() => {});
+  const beforeLook = await target.evaluate(() => ({
+    yaw: window.squatchfather.prospect.yaw,
+    pitch: window.squatchfather.prospect.pitch,
+    input: window.squatchfather.input.snapshot(),
+  }));
+  await target.mouse.move(240, 150);
+  await target.mouse.move(306, 116, { steps: 2 });
+  await target.waitForTimeout(80);
+  const afterLook = await target.evaluate(() => ({
+    yaw: window.squatchfather.prospect.yaw,
+    pitch: window.squatchfather.prospect.pitch,
+    input: window.squatchfather.input.snapshot(),
+  }));
+  check(`${label} captures the canonical first-person input Adapter`,
+    afterLook.input.locked && afterLook.input.pointerLockChanges > 0,
+    JSON.stringify(afterLook.input));
+  check(`${label} accepts real mouse-look through the canonical Adapter`,
+    afterLook.input.lookEvents > beforeLook.input.lookEvents
+      && (Math.abs(afterLook.yaw - beforeLook.yaw) > 0.01
+        || Math.abs(afterLook.pitch - beforeLook.pitch) > 0.01),
+    JSON.stringify({ before: beforeLook, after: afterLook }));
+
+  const before = await openingSnapshot(target);
 
   // Real keyboard input drives the real listeners, but the simulation time
   // comes from the scene's own tick so the distance is deterministic even
@@ -176,12 +205,17 @@ async function verifyOpeningMovement(target, label) {
   await target.waitForTimeout(80);
 
   const after = await openingSnapshot(target);
+  const released = await target.evaluate(() => ({
+    input: window.squatchfather.input.snapshot(),
+    held: window.squatchfather.heldInput,
+  }));
   const dx = after.position.x - before.position.x;
   const dz = after.position.z - before.position.z;
   const distance = Math.hypot(dx, dz);
   const forwardProgress = dx * before.forward.x + dz * before.forward.z;
   check(`${label} accepts W movement in the camera-facing direction`,
-    distance > 0.35 && forwardProgress > 0.3 && !after.blocked,
+    distance > 0.35 && forwardProgress > 0.3 && !after.blocked
+      && !released.held.forward,
     JSON.stringify({
       before: before.position,
       after: after.position,
@@ -189,6 +223,7 @@ async function verifyOpeningMovement(target, label) {
       forwardProgress: Number(forwardProgress.toFixed(3)),
       beat: after.beat,
       blocked: after.blocked,
+      input: released,
     }));
 }
 

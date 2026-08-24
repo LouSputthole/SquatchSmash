@@ -17,6 +17,7 @@ import { loadJson, assetUrl, isBundled } from './assets.js';
 import { loadOnceRetriable, runWorkerPool } from './load-queue.js';
 import { bindAudioVolume } from './settings.js';
 import { registerSceneAudioContext } from './scene-lifecycle.js';
+import { DIALOGUE_ACCEPTANCE, speakVariant } from './dialogue.js';
 
 /** Scratch for readWorldPosition, which runs per follower per frame. */
 const _follow = new THREE.Vector3();
@@ -82,6 +83,23 @@ export const VOICE_DUCK_RELEASE_S = 0.55;
 /** How long after the last line ends before the bed comes back up. */
 export const VOICE_DUCK_HOLD_S = 0.35;
 
+/** The exhaustive delivery kinds written to `playbackReceipts`. */
+export const AUDIO_PLAYBACK_SOURCE = Object.freeze({
+  BUFFER: 'buffer',
+  SYNTH: 'synth',
+  STAND_IN: 'stand-in',
+  SILENT: 'silent',
+});
+
+/** A required authored recording reached anything other than its own buffer. */
+export class RequiredRecordedAudioError extends Error {
+  constructor(receipt) {
+    super(`Required recorded audio ${receipt.requested} used ${receipt.source}`);
+    this.name = 'RequiredRecordedAudioError';
+    this.receipt = receipt;
+  }
+}
+
 /**
  * Cue namespaces that ARE dialogue.
  *
@@ -101,8 +119,47 @@ export function isVoiceCue(name, opts = {}) {
   return VOICE_CUE_PREFIXES.some((prefix) => cue.startsWith(prefix));
 }
 
+function receiptPosition(target) {
+  try {
+    const at = readWorldPosition(target);
+    return at ? Object.freeze({ x: at.x, y: at.y, z: at.z }) : null;
+  } catch {
+    /* Evidence must never make a previously ignored not-ready request throw
+     * because a deferred scene object cannot be resolved yet. */
+    return null;
+  }
+}
+
+function receiptPositioning(opts = {}, facts = {}) {
+  /* Evidence collection must be inert. A deferred `follow` callback was
+   * already resolved by play() when a source was routed; invoking it again
+   * here can advance scene-owned state, and invoking it on an early return can
+   * touch a cast that does not exist yet. Static requested positions remain
+   * useful on silent receipts. */
+  const target = Object.hasOwn(facts, 'positionalSeed')
+    ? facts.positionalSeed
+    : (typeof opts.position === 'function' ? null : (opts.position ?? null));
+  const position = receiptPosition(target);
+  return Object.freeze({
+    enabled: position !== null,
+    position,
+    follows: opts.follow != null,
+    ref: opts.ref ?? 1.4,
+    maxDist: opts.maxDist ?? 18,
+    rolloff: opts.rolloff ?? 1.4,
+    distanceModel: opts.distanceModel ?? 'inverse',
+  });
+}
+
 export class AudioEngine {
-  constructor() {
+  constructor(options = {}) {
+    /* Browser certification installs this policy before scene modules load.
+     * Runtime remains opt-in; QA no longer needs every scene root to expose
+     * its private AudioEngine merely to make required-recording fallback
+     * fail closed. */
+    const qaPolicy = globalThis.__SQUATCH_QA_AUDIO__ ?? null;
+    const strictQa = options?.strictQa ?? qaPolicy?.strictRequiredRecordings ?? false;
+    const onQaViolation = options?.onQaViolation ?? qaPolicy?.onViolation ?? null;
     this.ctx = null;
     this.ready = false;
     this.buffers = new Map();
@@ -143,6 +200,14 @@ export class AudioEngine {
      * both for the browser verifier and for finding a future accidental
      * interruption without pretending a headless browser can hear speakers. */
     this.playbacks = [];
+    /** Every request, including fallback and silence, in call order. */
+    this.playbackReceipts = [];
+    this._playbackReceiptId = 0;
+    /** Strict-QA failures remain inspectable even when the caller catches. */
+    this.qaViolations = [];
+    this.strictQa = strictQa === true;
+    this.onQaViolation = typeof onQaViolation === 'function' ? onQaViolation : null;
+    if (Array.isArray(qaPolicy?.engines)) qaPolicy.engines.push(this);
     /* Two numbers multiply into the master gain: the scene's own level (its
      * mute toggles call setMasterVolume) and the player's volume setting
      * (src/core/settings.js), so an unmute puts the level back to what the
@@ -155,6 +220,74 @@ export class AudioEngine {
      * them at once in the test runner, each answering a volume change on a
      * context it never opened. */
     this._unbindVolume = null;
+  }
+
+  get lastPlaybackReceipt() {
+    return this.playbackReceipts.at(-1) ?? null;
+  }
+
+  /** Receipt-aware companion to `play()`; `play()` itself keeps returning its legacy handle. */
+  playWithReceipt(name, opts = {}) {
+    const before = this._playbackReceiptId;
+    const source = this.play(name, opts);
+    const receipt = this.lastPlaybackReceipt;
+    return {
+      source,
+      receipt: receipt?.id > before ? receipt : null,
+    };
+  }
+
+  _recordPlaybackReceipt(name, opts, facts) {
+    const requested = String(opts.requestedCue ?? name);
+    const voice = isVoiceCue(name, opts);
+    const receiptSource = opts.receiptSource === AUDIO_PLAYBACK_SOURCE.STAND_IN
+      ? AUDIO_PLAYBACK_SOURCE.STAND_IN : facts.source;
+    const receipt = Object.freeze({
+      id: ++this._playbackReceiptId,
+      requested,
+      actual: facts.actual ?? null,
+      source: receiptSource,
+      /* Direct VO calls are still required in strict QA. That makes bypassing
+       * `speak()` observable instead of turning a local dialogue fork into an
+       * escape hatch from recording validation. Callers may explicitly mark
+       * a deliberately procedural voice with requiredRecorded:false. */
+      requiredRecorded: opts.requiredRecorded ?? voice,
+      started: facts.started === true,
+      fallbackReason: opts.fallbackReason ?? facts.fallbackReason ?? null,
+      scheduledAt: facts.scheduledAt ?? null,
+      voice,
+      speakerId: opts.speakerId ?? null,
+      /* Subtitle text is evidence, not presentation. The dialogue Module
+       * still leaves drawing and clearing the HUD to the scene Adapter, but
+       * certification can now prove that the words on screen belonged to the
+       * exact requested take instead of merely observing two nearby events.
+       * Omit it for legacy calls so the long-standing receipt Interface does
+       * not gain a meaningless null field on every sound in the game. */
+      ...(opts.subtitle == null ? {} : { subtitle: String(opts.subtitle) }),
+      ambient: opts.ambientVoice === true,
+      positional: receiptPositioning(opts, facts),
+    });
+    this.playbackReceipts.push(receipt);
+    if (this.playbackReceipts.length > 256) this.playbackReceipts.shift();
+    const deliveredRequestedRecording = receipt.source === AUDIO_PLAYBACK_SOURCE.BUFFER
+      && receipt.actual === receipt.requested;
+    if (this.strictQa && receipt.requiredRecorded && !deliveredRequestedRecording) {
+      this.qaViolations.push(receipt);
+      if (this.qaViolations.length > 256) this.qaViolations.shift();
+      let reportError = null;
+      try { this.onQaViolation?.(receipt); } catch (error) { reportError = error; }
+      const failure = new RequiredRecordedAudioError(receipt);
+      if (reportError) failure.reportError = reportError;
+      throw failure;
+    }
+    return receipt;
+  }
+
+  /** Opt into or out of fail-closed required-recording checks at runtime. */
+  setStrictQa(enabled = true, { onViolation = this.onQaViolation } = {}) {
+    this.strictQa = enabled === true;
+    this.onQaViolation = typeof onViolation === 'function' ? onViolation : null;
+    return this.strictQa;
   }
 
   /** Must be called from a user gesture (browsers block autoplay otherwise). */
@@ -438,7 +571,8 @@ export class AudioEngine {
   /**
    * @param {string} name  cue name, e.g. "fridge.open"
    * @param {object} opts  { volume, rate, position: THREE.Vector3, ref, delay,
-   *                         analyse }
+   *                         analyse, requiredRecorded, requestedCue,
+   *                         receiptSource, fallbackReason }
    *
    * `analyse` puts an AnalyserNode inline in this playback's own chain so
    * something can read how loud it is, frame by frame — which is how a
@@ -450,7 +584,28 @@ export class AudioEngine {
    * what it measures is what the player hears.
    */
   play(name, opts = {}) {
-    if (!this.ready) return null;
+    if (!this.ready) {
+      this._recordPlaybackReceipt(name, opts, {
+        source: 'silent', started: false, fallbackReason: 'engine-not-ready',
+      });
+      return null;
+    }
+    const bank = this.buffers.get(name);
+    const requested = String(opts.requestedCue ?? name);
+    const requiredRecorded = opts.requiredRecorded ?? isVoiceCue(name, opts);
+    const standIn = opts.receiptSource === AUDIO_PLAYBACK_SOURCE.STAND_IN
+      || requested !== String(name);
+    /* Strict certification is genuinely fail-closed: do not connect or start
+     * a substitute and only then announce that it was forbidden. */
+    if (this.strictQa && requiredRecorded && (standIn || !bank?.length)) {
+      this._recordPlaybackReceipt(name, opts, {
+        actual: name,
+        source: standIn ? AUDIO_PLAYBACK_SOURCE.STAND_IN : AUDIO_PLAYBACK_SOURCE.SYNTH,
+        started: false,
+        fallbackReason: opts.fallbackReason
+          ?? (standIn ? 'requested-recording-not-decoded' : 'recording-not-decoded'),
+      });
+    }
     const {
       volume = 1, rate = 1, position = null, delay = 0, muffle = 0,
       analyse = String(name).startsWith('vo.'),
@@ -505,7 +660,6 @@ export class AudioEngine {
     }
 
     const when = this.ctx.currentTime + delay;
-    const bank = this.buffers.get(name);
     if (bank && bank.length) {
       const src = this.ctx.createBufferSource();
       src.buffer = bank[(Math.random() * bank.length) | 0];
@@ -596,9 +750,21 @@ export class AudioEngine {
         playback.naturalEnd = endedAt >= when + expected - 0.06;
       };
       src.start(when);
+      this._recordPlaybackReceipt(name, opts, {
+        actual: name, source: 'buffer', started: true, scheduledAt: when,
+        positionalSeed: seed,
+      });
       return src;
     }
     synth(this, name, out, when, rate);
+    this._recordPlaybackReceipt(name, opts, {
+      actual: name,
+      source: 'synth',
+      started: true,
+      fallbackReason: 'recording-not-decoded',
+      scheduledAt: when,
+      positionalSeed: seed,
+    });
     return null;
   }
 
@@ -878,6 +1044,12 @@ export class AudioEngine {
   /** Clear only transient playback evidence; never samples or active sound. */
   clearPlaybackLog() {
     this.playbacks.length = 0;
+    this.playbackReceipts.length = 0;
+  }
+
+  /** Start a deliberately new certification window. Ordinary log rotation cannot erase failures. */
+  clearQaViolations() {
+    this.qaViolations.length = 0;
   }
 
   /** Whether a cue has a decoded recording ready for immediate playback. */
@@ -891,41 +1063,28 @@ export class AudioEngine {
   }
 
   /**
-   * Say one of the character's lines.
+   * Select one decoded take from a character's interchangeable voice bank.
    *
-   * Cues are named `vo.<moment>.<n>`; this picks among whichever ones exist,
-   * never the same one twice running, and does nothing at all if none of them
-   * have been generated yet. There is no procedural fallback on purpose --
-   * a synthesised voice would be worse than silence.
+   * Selection is deliberately separate from playback. `speakVariant()` in
+   * core/dialogue.js owns the dialogue Interface (voice bus, spatial mix,
+   * analyser, timing, receipt), while this engine owns which decoded samples
+   * are resident and which take was used last. Keeping that knowledge local
+   * prevents every scene from scanning `buffers` and inventing its own repeat
+   * rule.
    *
-   * @param {string} group e.g. 'beer.open'
-   * @param {object} opts  { chance, volume, delay }
+   * @param {string} group e.g. 'beer.open' for `vo.beer.open.<n>`
+   * @param {object} [options]
+   * @param {number} [options.chance] probability that this optional bark fires
+   * @returns {string|null} the exact decoded cue selected for playback
    */
-  say(group, opts = {}) {
-    if (!this.ready) return false;
-    /* `position` and `muffle` used to be accepted here and thrown away -- the
-     * play call below took `volume` and `delay` and nothing else. A caller who
-     * passed a position got a line dead centre at full level with no panner on
-     * it, which is what a disembodied voice sounds like, and no error to say
-     * so. Found through the Palace's cleaner, who is the only caller in the
-     * game that was passing one. */
-    const {
-      chance = 1, volume = 0.85, delay = 0, position = null, muffle = 0,
-    } = opts;
-    if (chance < 1 && Math.random() > chance) return false;
+  selectVoiceVariant(group, { chance = 1 } = {}) {
+    if (chance < 1 && Math.random() > chance) return null;
 
     /* Cached per group, but only for as long as the library has not moved.
      *
-     * This used to cache unconditionally, and an EMPTY bank is a perfectly
-     * good cache entry, so any group asked for before its takes had decoded
-     * was cached silent and stayed silent for the whole session. Most banks
-     * get away with it because they are asked for late; the ones that do not
-     * are exactly the ones that fire in the first minute -- the front door
-     * being the worst of them, since a player who tries the handle while the
-     * background bank is still filling in never hears the door again.
-     *
-     * `loadedCount` only ever increases, so comparing it is a cheap way of
-     * asking "has anything arrived since I last looked". */
+     * An EMPTY bank is a perfectly good cache entry, so any group asked for
+     * before its takes decoded used to stay silent for the whole session.
+     * `loadedCount` only increases; a change means the bank must be rebuilt. */
     if (this._voBanksAt !== this.loadedCount) {
       this._voBanks = new Map();
       this._voBanksAt = this.loadedCount;
@@ -934,12 +1093,12 @@ export class AudioEngine {
     if (!bank) {
       bank = [];
       for (const name of this.buffers.keys()) {
-        if (name.startsWith(`vo.${group}.`)) bank.push(name);
+        if (name.startsWith(`vo.${group}.`) && this.hasSample(name)) bank.push(name);
       }
       bank.sort();
       (this._voBanks ??= new Map()).set(group, bank);
     }
-    if (!bank.length) return false;
+    if (!bank.length) return null;
 
     // Never the same line twice running -- that is what makes VO feel canned.
     this._voLast ??= new Map();
@@ -951,14 +1110,49 @@ export class AudioEngine {
       }
     }
     this._voLast.set(group, pick);
+    return pick;
+  }
 
-    // One voice at a time. He is not a chorus.
+  /**
+   * Say one of the character's lines.
+   *
+   * Cues are named `vo.<moment>.<n>`; this picks among whichever ones exist,
+   * never the same one twice running, and does nothing at all if none of them
+   * have been generated yet. There is no procedural fallback on purpose --
+   * a synthesised voice would be worse than silence.
+   *
+   * Legacy boolean Adapter for `speakVariant()`. New callers should use that
+   * function directly when they need the selected cue, measured duration,
+   * subtitle metadata, acceptance result, or playback receipt.
+   *
+   * @param {string} group e.g. 'beer.open'
+   * @param {object} opts  dialogue options plus { chance, volume, delay }
+   */
+  say(group, opts = {}) {
+    if (!this.ready) return false;
+    /* Select before cutting the current bark. A refused chance or empty bank
+     * must not silence the line that is already playing. Once a take has been
+     * selected, preserve the legacy one-bark channel and stop it BEFORE the
+     * replacement is routed; besides being audible truth, that ordering keeps
+     * the overlap ledger from observing two scheduled voices in one tick. */
+    const selectedCue = this.selectVoiceVariant(group, { chance: opts.chance ?? 1 });
+    if (!selectedCue) return false;
     this._vo?.stop?.();
-    this._vo = this.play(pick, { volume, delay, position, muffle });
+    this._vo = null;
+    /* `...opts` is not a convenience: `position` and `muffle` used to be
+     * accepted by `say()` and thrown away, so a caller who passed a position
+     * got a line dead centre at full level with no panner on it. They reach
+     * the spatial mix through `speak()` now, which is where they belonged. */
+    const spoken = speakVariant(this, group, { ...opts, selectedCue });
+    if (!spoken || spoken.acceptance.status !== DIALOGUE_ACCEPTANCE.ACCEPTED
+      || !spoken.source) return false;
+
+    this._vo = spoken.source;
     /* Note how long he will be talking for, so anything that can afford to
      * wait -- a fart, mostly -- can hold off rather than land on the line. */
-    const secs = this._vo?.buffer ? this._vo.buffer.duration : 1.6;
-    this._busyUntil = Math.max(this._busyUntil || 0, this.ctx.currentTime + delay + secs + 0.25);
+    const delay = Number(opts.delay) || 0;
+    this._busyUntil = Math.max(this._busyUntil || 0,
+      this.ctx.currentTime + delay + spoken.seconds + 0.25);
     return true;
   }
 

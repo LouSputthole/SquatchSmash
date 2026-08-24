@@ -68,8 +68,8 @@ import * as THREE from 'three';
 
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
-import { translateKey } from '../core/settings.js';
 import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
@@ -86,6 +86,7 @@ import { DetectionSystem } from '../beefrun/detection.js';
 import { FlightHud } from '../beefrun/hud.js';
 import { CameraManager } from '../beefrun/cameras.js';
 import { FlightInput } from '../beefrun/input.js';
+import { createFlightFirstPersonPolicy } from '../beefrun/first-person-controls.js';
 import { clamp, lerp, smoothstep } from '../beefrun/util.js';
 
 import {
@@ -1414,6 +1415,7 @@ window.__enolaSquatch = {
   mission, physics, engines, aircraft, payload, dialogue, weather, detection,
   cameras, input, hud, flightHud, scene, camera, renderer, airfield, postfx,
   player, interaction, preflight, crew, city, eastGround, audio: missionAudio,
+  get browserInput() { return browserInput; },
   /** The three-bank residency ledger; the verifier awaits `whenAllSettled`. */
   audioBanks,
   get defense() { return mission.defense; },
@@ -1788,43 +1790,15 @@ startBtn.addEventListener('click', () => {
   mission.paused = false;
 });
 
-let dragLook = false;
-let dragging = false;
+let dragLookHinted = false;
 
 function requestLock() {
   input.enabled = true;
-  if (dragLook) { enableInput(); return; }
-  const p = canvas.requestPointerLock?.();
-  if (p && p.catch) p.catch(() => fallBackToDragLook());
-  setTimeout(() => {
-    if (!dragLook && document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
-  }, 600);
-}
-
-function fallBackToDragLook() {
-  if (dragLook) return;
-  dragLook = true;
-  enableInput();
-  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
-}
-
-function enableInput() {
-  input.enabled = true;
-  player.enabled = !mission.inCockpit;
   game.paused = false;
   mission.paused = false;
-  document.body.classList.remove('unlocked');
-  overlay.classList.add('hidden');
+  browserInput.refresh('request-lock');
+  browserInput.requestPointerLock();
 }
-
-document.addEventListener('pointerlockchange', () => {
-  if (dragLook) return;
-  const locked = document.pointerLockElement === canvas;
-  input.enabled = locked;
-  player.enabled = locked && !mission.inCockpit;
-  document.body.classList.toggle('unlocked', !locked);
-  if (!locked && game.started && !mission.finished) pauseGame();
-});
 
 function pauseGame() {
   pauseMenu.pause();
@@ -1852,20 +1826,17 @@ const pauseMenu = createPauseMenu({
     game.paused = true;
     mission.paused = true;
     input.enabled = false;
-    player.enabled = false;
-    player.clearKeys();
     input.clear();
-    interaction.release();
+    browserInput.suspend();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     game.paused = false;
     mission.paused = false;
     input.enabled = true;
-    player.enabled = !mission.inCockpit;
     audio.ctx?.resume?.();
     last = performance.now();
-    requestLock();
+    browserInput.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign: enolaRecoveryCampaign,
@@ -1888,34 +1859,8 @@ $('es-again')?.addEventListener('click', () => {
 /* Input                                                              */
 /* ------------------------------------------------------------------ */
 
-document.addEventListener('mousemove', (e) => {
-  if (game.paused) return;
-  if (dragLook && !dragging) return;
-  if (mission.gunner.manned) mission.gunner.look(e.movementX, e.movementY);
-  else if (mission.inCockpit) cameras.look(e.movementX, e.movementY);
-  else if (player.enabled) player.handleMouseMove(e.movementX, e.movementY);
-});
-
-document.addEventListener('mousedown', (e) => {
-  if (e.button !== 0) return;
-  dragging = true;
-  if (game.paused) return;
-  if (mission.gunner.manned) mission.gunner.setFiring(true);
-  else if (!mission.inCockpit) interaction.press();
-});
-
-document.addEventListener('mouseup', (e) => {
-  if (e.button !== 0) return;
-  dragging = false;
-  if (mission.gunner.manned) mission.gunner.setFiring(false);
-  if (!mission.inCockpit) interaction.release();
-});
-
-document.addEventListener('keydown', (e) => {
-  if (!game.started) return;
-  if (e.code === 'Escape') return;
-  if (game.paused) return;
-  if (e.repeat) return;
+function handleEnolaBeforeKeyDown(e) {
+  if (e.code === 'Escape') return true;
   /* On foot these are the same durable five slots as Mansion and Siege.
    * Once aboard, 1/2 return to engine start and the authored 1–5 dialogue
    * choices keep priority; the tail gun remains station equipment and never
@@ -1926,21 +1871,19 @@ document.addEventListener('keydown', (e) => {
     const id = finalArcLoadout.items[finalArcLoadout.selected];
     hud.toast(id ? FINAL_ARC_WEAPON_CATALOG[id].name.toUpperCase() : 'EMPTY SLOT');
     e.preventDefault();
-    return;
+    return true;
   }
   if (!mission.inCockpit && e.code === 'KeyQ') {
     finalArcLoadout.stow();
     paintDurableCarry();
     hud.toast('WEAPON STOWED');
     e.preventDefault();
-    return;
+    return true;
   }
-  const code = input.keyEvent(e, true);
-  // keyEvent keeps the physical ShiftLeft/ShiftRight code for the keymap, so
-  // the modifiers are recognised here by their logical names.
-  if (code === 'Space' || e.key === 'Shift' || e.key === 'Control') e.preventDefault();
-  player.setKey(translateKey(e.code), true);
-  if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
+  return false;
+}
+
+function handleEnolaAfterKeyDown(e) {
   // The flashing camera hint goes away the first time the player uses the key
   // it is pointing at. `KeyC` itself is `FlightInput`'s own 'camera' action,
   // handled through `input.onAction` — this only dismisses the tip.
@@ -1982,18 +1925,53 @@ document.addEventListener('keydown', (e) => {
     mission.skipCutscene();
   }
   handleMissionChoiceKey(e.code);
-}, true);
+  return false;
+}
 
-document.addEventListener('keyup', (e) => {
-  input.keyEvent(e, false);
-  player.setKey(translateKey(e.code), false);
-  if (!mission.inCockpit && e.code === 'KeyE') interaction.release();
-}, true);
+function syncFlightCapture({ captured }) {
+  input.enabled = game.started && !game.paused && !flightHud.completeUp;
+  document.body.classList.toggle('unlocked', !captured);
+  if (captured && game.started) overlay.classList.add('hidden');
+  if (!captured && game.started && !game.paused && !mission.finished) pauseGame();
+}
 
-window.addEventListener('blur', () => {
-  dragging = false;
-  player.clearKeys();
-  input.clear();
+const flightInputPolicy = createFlightFirstPersonPolicy({
+  isActive: () => game.started && !game.paused && !flightHud.completeUp,
+  isOnFoot: () => !mission.inCockpit,
+  flightInput: input,
+  lookAircraft: (dx, dy) => {
+    if (mission.gunner.manned) mission.gunner.look(dx, dy);
+    else cameras.look(dx, dy);
+  },
+  pressPrimary: () => {
+    if (mission.gunner.manned) mission.gunner.setFiring(true);
+    else if (!mission.inCockpit) interaction.press();
+  },
+  releasePrimary: () => {
+    if (mission.gunner.manned) mission.gunner.setFiring(false);
+    if (!mission.inCockpit) interaction.release();
+  },
+  beforeKeyDown: handleEnolaBeforeKeyDown,
+  afterKeyDown: handleEnolaAfterKeyDown,
+});
+const browserInput = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  keyboardCapture: true,
+  ...flightInputPolicy,
+  onClear: () => {
+    input.clear();
+    mission.gunner.setFiring(false);
+  },
+  onCaptureChange: (_event, context) => syncFlightCapture(context),
+  onCaptureError: (_error, context) => {
+    if (context.recovered && !dragLookHinted) {
+      dragLookHinted = true;
+      hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
+    }
+    syncFlightCapture(context);
+  },
 });
 
 input.onAction = (name) => {
@@ -2052,6 +2030,7 @@ input.onAction = (name) => {
 /* ------------------------------------------------------------------ */
 
 let last = performance.now();
+let lastBrowserInputMode = null;
 loading?.classList.add('hidden');
 
 function frame() {
@@ -2061,6 +2040,11 @@ function frame() {
   last = now;
 
   if (game.started && !game.paused && !flightHud.completeUp) {
+    const browserInputMode = mission.inCockpit ? 'cockpit' : 'on-foot';
+    if (browserInputMode !== lastBrowserInputMode) {
+      lastBrowserInputMode = browserInputMode;
+      browserInput.refresh(`mode:${browserInputMode}`);
+    }
     simulateFrame(dt);
   }
 

@@ -56,7 +56,7 @@
 import * as THREE from 'three';
 import {
   cruiseSpeedAt, driveSeconds, minimumLegSeparation, roadAt, roadLength,
-  ROAD_EVENTS, roadNodes, stageAt, STAGES,
+  ROAD_EVENTS, roadNodes, stageAt, STAGES, TURN_OFF_S,
 } from './road.js';
 import { groundAt, heightAt, surfaceAt, surfaceProps } from './field.js';
 import { buildNightSedan, SEATS } from './car.js';
@@ -269,7 +269,29 @@ export function createNightForestRoad({
 
     /** Pull away. */
     start() {
+      /* The block car is borrowed through an adapter whose long-throw forest
+       * lamps start dark. Taking ownership of the drive includes taking
+       * ownership of those lamps; relying on the street-light state leaves
+       * an injected car dark for the entire road. */
+      car.setHeadlights(true);
       drive.start();
+      return api;
+    },
+
+    /**
+     * Reconstruct a persisted forest checkpoint without replaying road beats.
+     * Lamp/phone state is derived from the named place, then the surrounding
+     * terrain is primed at the restored transform before the first frame.
+     */
+    restoreAtNode(id) {
+      drive.restoreAtEvent(id);
+      car.setHeadlights(true);
+      car.setMainBeam(drive.distance >= TURN_OFF_S);
+      if (id === 'arrival') {
+        car.setPhone(false);
+        publishSpurShots();
+      }
+      terrain.prime(car.group.position);
       return api;
     },
 

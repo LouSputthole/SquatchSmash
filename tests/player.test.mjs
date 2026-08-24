@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { Player } from '../src/core/player.js';
+import { markSpatialPrimitive } from '../src/core/spatial-contract.js';
 
 test('layInBed supersedes an unfinished posture tween and its stale callback', () => {
   const player = new Player(new THREE.PerspectiveCamera(), {
@@ -59,4 +60,19 @@ test('exact authored-floor mode follows a discrete support without changing the 
   exact.update(1 / 60);
   assert.equal(exact.ground, 0,
     'exact-floor player floats after stepping down');
+});
+
+test('typed triggers can share the spatial inventory without becoming runtime walls', () => {
+  const trigger = new THREE.Box3(
+    new THREE.Vector3(-1, 0, -1),
+    new THREE.Vector3(1, 3, 1),
+  );
+  markSpatialPrimitive(trigger, { id: 'mission.start', kind: 'trigger' });
+  const player = new Player(new THREE.PerspectiveCamera(), {
+    colliders: [trigger], floorZones: [],
+  });
+  player.position.set(0, player.eyeHeight, 0);
+  player._resolve('x');
+  player._resolve('z');
+  assert.deepEqual(player.position.toArray(), [0, player.eyeHeight, 0]);
 });

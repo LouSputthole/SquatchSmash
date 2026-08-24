@@ -35,7 +35,8 @@ import {
 import { buildMansionInterior } from './scenes/MansionInterior.js';
 import { buildSilentSquatch } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
-import { translateKey, shakeScale } from '../core/settings.js';
+import { shakeScale } from '../core/settings.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { createPromptHud } from '../core/hud.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
@@ -74,6 +75,7 @@ import {
 import { createMansionReturnCampaignStory } from '../core/final-arc-story.js';
 import { isPreviewMode } from '../core/preview-mode.js';
 import { createSilentSquatchStory } from '../core/silent-squatch-story.js';
+import { createMansionControlPolicy } from './controls.js';
 import {
   MANSION_RETURN_REPORT, mansionReturnObjective, mansionVisitMode,
 } from './campaign.js';
@@ -2477,11 +2479,8 @@ const shadowCap = capShadowCasters({
 /* ================================================================== */
 const clock = new THREE.Clock();
 let running = false;
-
-function lockPointer() {
-  const pending = renderer.domElement.requestPointerLock?.();
-  if (pending && typeof pending.catch === 'function') pending.catch(() => {});
-}
+let tourBegun = false;
+let input = null;
 
 const sharedPauseMenu = createPauseMenu({
   title: "Lou's Mansion",
@@ -2532,15 +2531,7 @@ const sharedPauseMenu = createPauseMenu({
   }),
   onPause: () => {
     interaction.setPaused(true);
-    mansionPee.stop();
-    weaponSystem.setTrigger(false);
-    player.clearKeys();
-    /* A pool meter must not survive the pause mid-sweep. The click meter
-     * cannot run away behind the overlay the way the old hold-to-fill bar
-     * could -- `PoolFrame.update` stops being called -- but the [E] that was
-     * down when the menu came up will never deliver its keyup, so the held
-     * keys still have to go. */
-    poolKeys.clear();
+    input?.suspend();
     if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
   },
   onResume: () => {
@@ -2550,14 +2541,73 @@ const sharedPauseMenu = createPauseMenu({
     interaction.setPaused(atPool);
     if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
     clock.getDelta();
-    lockPointer();
+    input?.resume();
   },
+});
+
+function handleMansionCommand(code, event) {
+  if (code === 'KeyE') {
+    if (!event.repeat) interaction.press();
+    return true;
+  }
+  if (code === 'KeyR') {
+    if (!event.repeat) weaponSystem.reload();
+    return true;
+  }
+  if (code === 'KeyQ') {
+    if (!event.repeat) {
+      if (activeTheatreSeat) standFromTheatre();
+      else if (weaponSystem.equipped) loadout.stow();
+    }
+    return true;
+  }
+  if (/^Digit[1-5]$/.test(code)) {
+    if (!event.repeat) {
+      loadout.select(Number(code.slice(5)) - 1);
+      event.preventDefault?.();
+    }
+    return true;
+  }
+  if (code === 'KeyB') {
+    if (!event.repeat) postfx.toggle();
+    return true;
+  }
+  return false;
+}
+
+const mansionControls = createMansionControlPolicy({
+  state: () => ({
+    running,
+    tourBegun,
+    paused: sharedPauseMenu.isPaused(),
+    atPool,
+    weaponEquipped: Boolean(weaponSystem.equipped),
+  }),
+  player,
+  interaction,
+  poolKeys,
+  silentKeydown: (event) => silentSquatch?.keydown(event) === true,
+  dressHelpActive: () => cast?.dressHelpActive === true,
+  pressDressHelp: () => cast?.pressDressHelp(),
+  abandonDressHelp: () => cast?.abandonDressHelp(),
+  poolPressE,
+  poolPutCueBack,
+  command: handleMansionCommand,
+  peeStop: () => mansionPee.stop(),
+  setTrigger: (pressed) => weaponSystem.setTrigger(pressed),
+  fireMissionWeapon: () => silentSquatch?.fire(),
+  pause: () => sharedPauseMenu.pause(),
+});
+input = createFirstPersonInput({
+  player,
+  canvas: renderer.domElement,
+  interaction,
+  ...mansionControls,
 });
 
 /* ================================================================== */
 /* Boot gate: AudioContext and pointer lock both need a user gesture      */
 /* ================================================================== */
-let tourBegun = false;
 async function beginTour() {
   if (running || tourBegun) return;
   if (!mansionCampaignEntry.ok && mansionCampaignEntry.reason !== 'already_complete') {
@@ -2574,7 +2624,7 @@ async function beginTour() {
    * rule (src/silvercase/main.js): a pointer lock asked for after an awaited
    * init plus an awaited three-hundred-cue decode is a pointer lock the
    * browser is free to refuse. */
-  lockPointer();
+  input.requestPointerLock();
   await audio.init();
   startAmbience();
   /* The station's own record list. It is loaded but the set stays OFF: this
@@ -2647,7 +2697,7 @@ async function beginTour() {
    * before the first playable frame. */
   silentSquatch?.mission.start();
   running = true;
-  player.enabled = true;
+  input.refresh('tour-started');
   clock.getDelta();
   if (mansionVisit !== 'return'
     && mansionCampaignEntry.resumed
@@ -2666,90 +2716,10 @@ startBtn.addEventListener('click', beginTour);
 /* ================================================================== */
 /* Input                                                                 */
 /* ================================================================== */
-window.addEventListener('keydown', (e) => {
-  /* Tab never gets here — the pause menu's own capture-phase listener owns it
-   * (src/core/pause-menu.js). Everything below mutates the live tour, so it
-   * must go dark while the overlay is up. */
-  if (!running || sharedPauseMenu.isPaused()) return;
-  /* The laboratory keypad gets first refusal on a keystroke: while it is up,
-   * the digits he types are a code rather than a walk. */
-  if (silentSquatch?.keydown(e)) {
-    e.preventDefault();
-    return;
-  }
-  /* The other pool performer uses Margo's direct timing-bar controls while
-   * ordinary look-at interaction is intentionally paused. Keep E on the bar
-   * and let either Q or Escape abandon without leaking a movement key. */
-  if (cast?.dressHelpActive && !e.repeat) {
-    if (e.code === 'KeyE') {
-      cast.pressDressHelp();
-      e.preventDefault();
-      return;
-    }
-    if (e.code === 'KeyQ' || e.code === 'Escape') {
-      cast.abandonDressHelp();
-      e.preventDefault();
-      return;
-    }
-  }
-  if (e.code === 'Space') e.preventDefault();
-  /* At the table, [E] is the game's own button and [Q] is the way out --
-   * the same division src/bing/main.js draws at the blackjack seat. The
-   * look-prompt is paused while he is holding a cue, so nothing else is
-   * competing for either key. */
-  if (atPool) {
-    poolKeys.add(e.code);
-    if (e.code === 'KeyE' && !e.repeat) { poolPressE(); e.preventDefault(); return; }
-    if (e.code === 'KeyQ' && !e.repeat) { poolPutCueBack(); e.preventDefault(); return; }
-  }
-  player.setKey(translateKey(e.code), true);
-  if (e.code === 'KeyE' && !e.repeat) interaction.press();
-  /* R and Q only mean anything with a gun in your hands, and neither is a
-   * browser accelerator on its own — the Beef Run's Ctrl lesson applies to
-   * modifiers, not to plain letters. */
-  if (e.code === 'KeyR' && !e.repeat) weaponSystem.reload();
-  if (e.code === 'KeyQ' && !e.repeat) {
-    if (activeTheatreSeat) standFromTheatre();
-    else if (weaponSystem.equipped) loadout.stow();
-  }
-  /* Slots, the same keys as the flat: Digit1..Digit5 pick one directly, the
-   * wheel cycles. Selecting the case's slot puts it back in his hands and
-   * selecting anything else puts it away -- that IS the stow, so there is no
-   * separate "holster the case" verb to learn. */
-  if (!e.repeat && /^Digit[1-5]$/.test(e.code)) {
-    loadout.select(Number(e.code.slice(5)) - 1);
-    e.preventDefault();
-  }
-  // B — the same bloom toggle every PostFX-mounted scene answers to.
-  if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
-});
 window.addEventListener('wheel', (e) => {
   if (!running || sharedPauseMenu.isPaused()) return;
   loadout.cycle(e.deltaY > 0 ? 1 : -1);
 }, { passive: true });
-window.addEventListener('keyup', (e) => {
-  player.setKey(translateKey(e.code), false);
-  poolKeys.delete(e.code);
-  /* [E] at the table is a click, not a hold, so the key coming back up is
-   * nothing -- and it must not fall through to `interaction.release()`, which
-   * belongs to a look-prompt that is paused while he has the cue. */
-  if (atPool && e.code === 'KeyE') return;
-  if (e.code === 'KeyE') {
-    interaction.release();
-    mansionPee.stop();
-  }
-});
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  /* A meter left sweeping when the window went away must not resolve itself
-   * against a marker nobody was watching. `PoolFrame.update` only advances
-   * the swing while the frame is being played, so clearing the held keys is
-   * enough here -- the bar simply sits where the last drawn frame left it. */
-  poolKeys.clear();
-  interaction.release();
-  mansionPee.stop();
-  weaponSystem.setTrigger(false);
-});
 /* A hidden tab must not keep simulating the house and playing its audio at
  * nobody: route through the pause menu, whose onPause already clears keys,
  * stows the trigger, and suspends the audio context. pause() refuses politely
@@ -2758,39 +2728,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) sharedPauseMenu.pause();
 });
 window.addEventListener('pagehide', () => captureMansionLoadout());
-window.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== renderer.domElement) return;
-  player.handleMouseMove(e.movementX, e.movementY);
-});
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (!running) return;
-  if (document.pointerLockElement !== renderer.domElement) {
-    lockPointer();
-    return;
-  }
-  if (e.button !== 0) return;
-  /* Armed, the left button is the trigger; empty-handed it is the second
-   * interact key it has always been. E stays interact either way, so a man
-   * holding a SAW can still take it off and put it back without shooting the
-   * rack. */
-  if (weaponSystem.equipped) weaponSystem.setTrigger(true);
-  else interaction.press();
-  /* And at the execution beat it is the execution. The mission resolves the
-   * shot against what the crosshair is actually on -- it does not decide that
-   * a trigger pull found him. */
-  silentSquatch?.fire();
-});
-window.addEventListener('mouseup', (e) => {
-  if (e.button !== 0) return;
-  weaponSystem.setTrigger(false);
-  interaction.release();
-});
 window.addEventListener('contextmenu', (e) => e.preventDefault());
-document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === renderer.domElement;
-  player.enabled = running && locked;
-  if (!locked && running) sharedPauseMenu.pause();
-});
 
 /* ================================================================== */
 /* Render / update loop                                                  */
@@ -2933,8 +2871,9 @@ function teleport(x, y, z, yawDeg = 0) {
   player.yawCenter = null;
   player.yaw = THREE.MathUtils.degToRad(yawDeg);
   player.pitch = 0;
-  player.enabled = true;
+  tourBegun = true;
   running = true;
+  input.refresh('debug-teleport');
   menuEl.classList.add('hidden');
   player.update(1 / 60);
   /* A teleport is followed by whatever the caller does next -- often a
@@ -3193,6 +3132,7 @@ window.mansion = {
   postfx,
   player,
   interaction,
+  input,
   audio,
   /** Public evidence for the shared real-body hearing policy. */
   npcSpeech: {

@@ -466,9 +466,14 @@ test('pool: Rippinflow\'s table lines are catalogued and reachable from the star
 
 test('pool: the mansion registers the felt, keeps E for the game and Q for the door', () => {
   const source = fs.readFileSync(path.join(ROOT, 'src/mansion/main.js'), 'utf8');
+  const controls = fs.readFileSync(path.join(ROOT, 'src/mansion/controls.js'), 'utf8');
   assert.match(source, /interaction\.register\(billiard\.target/);
-  assert.match(source, /if \(atPool\) \{\n\s+poolKeys\.add\(e\.code\);/);
-  assert.match(source, /if \(e\.code === 'KeyQ' && !e\.repeat\) \{ poolPutCueBack\(\); /);
+  /* Browser lifecycle moved to the canonical Adapter; the pool policy stays
+   * explicit in its own thin seam rather than disappearing into main.js. */
+  assert.match(source, /createMansionControlPolicy\(\{/);
+  assert.match(controls, /if \(state\(\)\.atPool\) \{\n\s+poolKeys\.add\(event\.code\);/);
+  assert.match(controls,
+    /event\.code === 'KeyQ' && !event\.repeat[\s\S]*poolPutCueBack\(\);/);
   /* The camera goes to the shot through the shared seated pose, not through a
    * second camera rig this scene invented. */
   assert.match(source, /player\.sitAt\(\{\n\s+position: new THREE\.Vector3\(pose\.x, pose\.y, pose\.z\)/);

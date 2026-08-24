@@ -49,30 +49,30 @@ const BING_STATE_IDS = Object.freeze([
  *                             the tool pouch and keys, the MEN plate, less the
  *                             brass posts and the floating TABLE CLOSED sign.
  *   attack     4397 -> 4696   same content as `party`.
- *   cleanup    4320 -> 4619   same, at the cleanup pose.
- *   graveyard  4249 -> 4548   same, with Billy already gone.
+ *   cleanup    4320 -> 4618   same, at the cleanup pose; Eric's hidden body
+ *                             collider is disabled with him.
+ *   graveyard  4249 -> 4546   same, with Billy and Eric gone and neither
+ *                             hidden body publishing an active collider.
  *
- * The three party states all move by the same +299 as `party`, which is the
- * check that the delta is content and not staging.
+ * Party and attack move by the same +299. Cleanup/graveyard deliberately
+ * subtract the one/two hidden actor bodies from that content fingerprint.
  *
  * MOVED AGAIN 2026-08-25, on the same protocol, when the wardrobe pass landed:
  *
  *   visit-one  6027 -> 6017   `makePerson` gained an optional `tie` and the
  *                             performer curve/swim options, and the Bing's
- *                             performers moved out to src/bing/performers.js.
- *                             ONLY this state moved -- the four staged ones are
- *                             unchanged at 4696/4696/4619/4548 -- which is the
- *                             signature of a reshuffled random crowd rather
- *                             than lost content: nothing placed by hand
- *                             changed, and the health assertions below (20
- *                             findings, 19/1/0 by kind, 17 suppressions) are
- *                             identical in all five states before and after. */
+ *                             performers moved to src/bing/performers.js. ONLY
+ *                             this state moved, which is the signature of a
+ *                             reshuffled random crowd rather than lost content:
+ *                             nothing placed by hand changed, and every health
+ *                             assertion below is identical in all five states
+ *                             before and after. */
 const EXPECTED_RECORDS = Object.freeze({
   'bing:visit-one': 6017,
   'bing:party': 4696,
   'bing:attack': 4696,
-  'bing:cleanup': 4619,
-  'bing:graveyard': 4548,
+  'bing:cleanup': 4618,
+  'bing:graveyard': 4546,
 });
 
 function snapshotFor(built) {
@@ -237,6 +237,20 @@ test('Bing shared checkpoint staging delivers the attack, cleanup, and handoff p
     assert.equal(namedVisibility(root, 'broken.bar-stool'), expected[checkpoint].stool);
     assert.equal(namedVisibility(root, 'hotdog.wrap'), false);
     assert.equal(namedVisibility(root, 'service-exit-guide'), false);
+
+    const visibleActorIds = new Set();
+    root.traverse((object) => {
+      const actorId = object.userData?.actor?.id;
+      if (actorId && visibleInHierarchy(object)) visibleActorIds.add(actorId);
+    });
+    const orphanedBodies = normalizeSceneColliders(built)
+      .filter(({ ownerActorId }) => ownerActorId && !visibleActorIds.has(ownerActorId))
+      .map(({ spatialId, ownerActorId }) => ({ spatialId, ownerActorId }));
+    assert.deepEqual(
+      orphanedBodies,
+      [],
+      `${checkpoint} publishes actor-body ownership for hidden cast`,
+    );
   }
 });
 

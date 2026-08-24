@@ -160,65 +160,80 @@ export function playWeaponCue(audio, id, slot, opts = {}) {
    * The literal cue names stay literal so `tools/check.mjs` can still read
    * them out of the source; only the options are computed. */
   opts = weaponCueOptions(id, slot, opts);
+  opts = {
+    ...opts,
+    requestedCue: wanted,
+    requiredRecorded: opts.requiredRecorded ?? true,
+  };
   if (audio.hasSample?.(wanted)) { audio.play(wanted, opts); return true; }
+
+  /* A substitute must say WHAT it substituted for. AudioEngine receipts and
+   * strict QA can now distinguish "something made a noise" from "the
+   * weapon-specific recording actually played" without changing runtime
+   * fallback compatibility. */
+  const standInOpts = {
+    ...opts,
+    receiptSource: 'stand-in',
+    fallbackReason: 'requested-recording-not-decoded',
+  };
 
   switch (`${id}.${slot}`) {
     /* ---- the .45. `gun.shot` IS a revolver fired indoors and `gun.dry` IS
      * its hammer on a spent chamber, so two of these five are already the
      * right event; the other three are the nearest handling noises. ---- */
-    case 'revolver.fire': audio.play('gun.shot', opts); return true;
-    case 'revolver.reload.out': audio.play('gun.reload', opts); return true;
-    case 'revolver.reload.in': audio.play('heist.weapon.check', opts); return true;
-    case 'revolver.empty': audio.play('gun.dry', opts); return true;
+    case 'revolver.fire': audio.play('gun.shot', standInOpts); return true;
+    case 'revolver.reload.out': audio.play('gun.reload', standInOpts); return true;
+    case 'revolver.reload.in': audio.play('heist.weapon.check', standInOpts); return true;
+    case 'revolver.empty': audio.play('gun.dry', standInOpts); return true;
     // Brass on concrete, standing in as a bright small metallic clink.
-    case 'revolver.mag.floor': audio.play('ice.drop', { ...opts, rate: 1.5 }); return true;
+    case 'revolver.mag.floor': audio.play('ice.drop', { ...standInOpts, rate: 1.5 }); return true;
 
     /* ---- the 12-gauge pump: one action sound in addition to the common five ---- */
-    case 'shotgun.fire': audio.play('gun.shot', { ...opts, rate: 0.76 }); return true;
-    case 'shotgun.reload.out': audio.play('heist.weapon.reload', { ...opts, rate: 0.9 }); return true;
-    case 'shotgun.reload.in': audio.play('heist.weapon.check', { ...opts, rate: 0.82 }); return true;
-    case 'shotgun.empty': audio.play('gun.dry', { ...opts, rate: 0.85 }); return true;
-    case 'shotgun.mag.floor': audio.play('ice.drop', { ...opts, rate: 0.75 }); return true;
-    case 'shotgun.cycle': audio.play('heist.weapon.check', { ...opts, rate: 0.72 }); return true;
+    case 'shotgun.fire': audio.play('gun.shot', { ...standInOpts, rate: 0.76 }); return true;
+    case 'shotgun.reload.out': audio.play('heist.weapon.reload', { ...standInOpts, rate: 0.9 }); return true;
+    case 'shotgun.reload.in': audio.play('heist.weapon.check', { ...standInOpts, rate: 0.82 }); return true;
+    case 'shotgun.empty': audio.play('gun.dry', { ...standInOpts, rate: 0.85 }); return true;
+    case 'shotgun.mag.floor': audio.play('ice.drop', { ...standInOpts, rate: 0.75 }); return true;
+    case 'shotgun.cycle': audio.play('heist.weapon.check', { ...standInOpts, rate: 0.72 }); return true;
 
     /* ---- the 9mm ---- */
-    case 'pistol9.fire': audio.play('boat.gunshot.deck', opts); return true;
-    case 'pistol9.reload.out': audio.play('heist.swap.weapons', opts); return true;
-    case 'pistol9.reload.in': audio.play('heist.weapon.check', opts); return true;
-    case 'pistol9.empty': audio.play('heist.weapon.empty', opts); return true;
+    case 'pistol9.fire': audio.play('boat.gunshot.deck', standInOpts); return true;
+    case 'pistol9.reload.out': audio.play('heist.swap.weapons', standInOpts); return true;
+    case 'pistol9.reload.in': audio.play('heist.weapon.check', standInOpts); return true;
+    case 'pistol9.empty': audio.play('heist.weapon.empty', standInOpts); return true;
     // A steel pistol magazine on a hard floor is exactly this recording.
-    case 'pistol9.mag.floor': audio.play('heist.guard.weapon.drop', opts); return true;
+    case 'pistol9.mag.floor': audio.play('heist.guard.weapon.drop', standInOpts); return true;
 
     /* ---- the carbine: THE TAKE recorded all five of these for itself ---- */
-    case 'carbine.fire': audio.play('heist.weapon.carbine.indoor', opts); return true;
-    case 'carbine.reload.out': audio.play('heist.weapon.reload', opts); return true;
-    case 'carbine.reload.in': audio.play('heist.weapon.check', opts); return true;
-    case 'carbine.empty': audio.play('heist.weapon.empty', opts); return true;
-    case 'carbine.mag.floor': audio.play('heist.guard.weapon.drop', opts); return true;
+    case 'carbine.fire': audio.play('heist.weapon.carbine.indoor', standInOpts); return true;
+    case 'carbine.reload.out': audio.play('heist.weapon.reload', standInOpts); return true;
+    case 'carbine.reload.in': audio.play('heist.weapon.check', standInOpts); return true;
+    case 'carbine.empty': audio.play('heist.weapon.empty', standInOpts); return true;
+    case 'carbine.mag.floor': audio.play('heist.guard.weapon.drop', standInOpts); return true;
 
     /* ---- the AK: same family, pitched down, because a 7.62 is not a 5.56 --- */
-    case 'ak47.fire': audio.play('heist.weapon.carbine', { ...opts, rate: 0.86 }); return true;
-    case 'ak47.reload.out': audio.play('heist.weapon.reload', { ...opts, rate: 0.9 }); return true;
-    case 'ak47.reload.in': audio.play('heist.weapon.down', opts); return true;
-    case 'ak47.empty': audio.play('heist.weapon.empty', { ...opts, rate: 0.88 }); return true;
+    case 'ak47.fire': audio.play('heist.weapon.carbine', { ...standInOpts, rate: 0.86 }); return true;
+    case 'ak47.reload.out': audio.play('heist.weapon.reload', { ...standInOpts, rate: 0.9 }); return true;
+    case 'ak47.reload.in': audio.play('heist.weapon.down', standInOpts); return true;
+    case 'ak47.empty': audio.play('heist.weapon.empty', { ...standInOpts, rate: 0.88 }); return true;
     // Stamped steel on concrete: a boot on fire-escape grating has the ring.
-    case 'ak47.mag.floor': audio.play('footstep.metal', { ...opts, rate: 0.8 }); return true;
+    case 'ak47.mag.floor': audio.play('footstep.metal', { ...standInOpts, rate: 0.8 }); return true;
 
     /* ---- the SAW ---- */
-    case 'saw.fire': audio.play('heist.police.gunshot', { ...opts, rate: 1.08 }); return true;
-    case 'saw.reload.out': audio.play('heist.swap.weapons', opts); return true;
-    case 'saw.reload.in': audio.play('heist.weapon.down', opts); return true;
-    case 'saw.empty': audio.play('heist.weapon.empty', { ...opts, rate: 0.8 }); return true;
+    case 'saw.fire': audio.play('heist.police.gunshot', { ...standInOpts, rate: 1.08 }); return true;
+    case 'saw.reload.out': audio.play('heist.swap.weapons', standInOpts); return true;
+    case 'saw.reload.in': audio.play('heist.weapon.down', standInOpts); return true;
+    case 'saw.empty': audio.play('heist.weapon.empty', { ...standInOpts, rate: 0.8 }); return true;
     // A loaded plastic box hitting a floor: a dense padded thump.
-    case 'saw.mag.floor': audio.play('heist.cash.drop', opts); return true;
+    case 'saw.mag.floor': audio.play('heist.cash.drop', standInOpts); return true;
 
     /* ---- the Barrett. The heaviest thing in the building, played down a
      * major third so it is not the revolver again. ---- */
-    case 'barrett.fire': audio.play('gun.shot', { ...opts, rate: 0.7 }); return true;
-    case 'barrett.reload.out': audio.play('heist.weapon.reload', { ...opts, rate: 0.78 }); return true;
-    case 'barrett.reload.in': audio.play('heist.weapon.down', { ...opts, rate: 0.8 }); return true;
-    case 'barrett.empty': audio.play('gun.dry', { ...opts, rate: 0.72 }); return true;
-    case 'barrett.mag.floor': audio.play('heist.guard.weapon.drop', { ...opts, rate: 0.75 }); return true;
+    case 'barrett.fire': audio.play('gun.shot', { ...standInOpts, rate: 0.7 }); return true;
+    case 'barrett.reload.out': audio.play('heist.weapon.reload', { ...standInOpts, rate: 0.78 }); return true;
+    case 'barrett.reload.in': audio.play('heist.weapon.down', { ...standInOpts, rate: 0.8 }); return true;
+    case 'barrett.empty': audio.play('gun.dry', { ...standInOpts, rate: 0.72 }); return true;
+    case 'barrett.mag.floor': audio.play('heist.guard.weapon.drop', { ...standInOpts, rate: 0.75 }); return true;
 
     default: return false;
   }

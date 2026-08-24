@@ -16,6 +16,7 @@ import * as P from './props.js';
 import { buildInteractiveBong, registerInteractiveBong } from './bong.js';
 import { resolveGear } from './gear.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { loadModels } from './models.js';
 import {
   buildDressing, dressingFor, makeAnswerMachine, makeMorningGuest,
@@ -268,16 +269,31 @@ export async function buildApartment(ctx) {
   const colliders = [];
   const floorZones = [];
   const ticks = [];        // per-frame updaters
-  const addCollider = (bounds, { name = '', assemblyId = null } = {}) => {
+  const addCollider = (bounds, {
+    name, assemblyId = null, kind, intentionalOverlapWith = [],
+  } = {}) => {
+    if (typeof name !== 'string' || !name.trim()) {
+      throw new TypeError('Apartment collider requires a stable semantic name');
+    }
+    if (typeof kind !== 'string' || !kind.trim()) {
+      throw new TypeError(`Apartment collider ${name} requires a spatial kind`);
+    }
     const volume = collider(bounds[0], bounds[1]);
-    if (name) volume.name = name;
+    volume.name = name;
     if (assemblyId) volume.userData = { geometryGate: { assemblyId } };
+    markSpatialPrimitive(volume, {
+      id: name,
+      kind,
+      ...(assemblyId ? { assemblyId } : {}),
+      ...(intentionalOverlapWith.length ? { intentionalOverlapWith } : {}),
+    });
     colliders.push(volume);
     return volume;
   };
   const SHELL_COLLISION_ASSEMBLY = 'apartment-shell-collision';
   const addShellCollider = (name, bounds) => addCollider(bounds, {
     name,
+    kind: 'world',
     assemblyId: SHELL_COLLISION_ASSEMBLY,
   });
   /* Wall meshes for `interaction.setOccluders` -- the ray reaches 2.7 m, which
@@ -439,7 +455,12 @@ export async function buildApartment(ctx) {
   /* Doors                                                             */
   /* ================================================================ */
 
-  const frontDoor = makeDoor(M, { x: 2.80, z: z1 - 0.02, w: 1.0, rotY: Math.PI });
+  /* The entrance leaf pivots on the west jamb. It used to omit `hinge`, so
+   * makeDoor rotated a metre-wide slab around its centre and swept it through
+   * Margo's authored entry pose. */
+  const frontDoor = makeDoor(M, {
+    x: 2.80, z: z1 - 0.02, w: 1.0, rotY: Math.PI, hinge: 1,
+  });
   root.add(frontDoor.group);
   const bathDoor = makeDoor(M, { x: -1.40, z: z0 - wall / 2, w: 1.0, rotY: 0, hinge: -1 });
   root.add(bathDoor.group);
@@ -451,6 +472,7 @@ export async function buildApartment(ctx) {
   // edge, so the final volume exactly fills rather than enters the jamb.
   addCollider([[-1.88, 0, z0 - wall], [-0.92, 2.05, z0]], {
     name: 'apartment-bathroom-door-leaf',
+    kind: 'door',
   });
   const bathDoorCollider = colliders[colliders.length - 1];
 
@@ -514,16 +536,16 @@ export async function buildApartment(ctx) {
   const tub = P.makeTub(M, { x0: BATH.x0 + 0.02, z0: BATH.z0 + 0.02, x1: -1.90, z1: -5.50 });
   tub.group.userData.geometryGate = { assemblyId: BATH_TUB_ASSEMBLY };
   bath.add(tub.group);
-  addCollider(tub.bounds);
+  addCollider(tub.bounds, { name: 'apartment-bath-tub', kind: 'prop' });
 
   const toilet = P.makeToilet(M, { x: -1.32, z: -6.62, rotY: 0 });
   bath.add(toilet.group);
-  addCollider(toilet.bounds);
+  addCollider(toilet.bounds, { name: 'apartment-toilet', kind: 'seat' });
   const toiletCollider = colliders[colliders.length - 1];
 
   const bathSink = P.makeBathSink(M, { x: -0.62, z: -5.55, rotY: -Math.PI / 2 });
   bath.add(bathSink.group);
-  addCollider(bathSink.bounds);
+  addCollider(bathSink.bounds, { name: 'apartment-bath-sink', kind: 'prop' });
 
   // Bath mat, and the fluorescent tube that buzzes.
   bath.add(boxFrom(-1.85, 0.001, -5.95, -1.05, 0.016, -5.35, M.rug, { cast: false }));
@@ -551,11 +573,11 @@ export async function buildApartment(ctx) {
 
   const bed = P.makeBed(M, { x: -4.15, z: -3.40 });
   root.add(bed.group);
-  addCollider(bed.bounds);
+  addCollider(bed.bounds, { name: 'apartment-bed', kind: 'prop' });
 
   const nightstand = P.makeNightstand(M, { x: -3.15, z: -4.12 });
   root.add(nightstand.group);
-  addCollider(nightstand.bounds);
+  addCollider(nightstand.bounds, { name: 'apartment-nightstand', kind: 'prop' });
   /* Drawer height is knee height. Without a taller proxy you have to stare
    * at your own feet to open it -- same fix as the couch and the bed.
    *
@@ -579,7 +601,7 @@ export async function buildApartment(ctx) {
 
   const desk = P.makeDesk(M, { x: 1.90, z: -4.07, towerSticker: propTex('sticker.tower') });
   root.add(desk.group);
-  addCollider(desk.bounds);
+  addCollider(desk.bounds, { name: 'apartment-desk', kind: 'prop' });
 
   /* Turned to face the desk. makeChair puts its backrest at local z -0.20, so
    * at rotY ~0 the back lands at world z -3.42 -- between the seated camera at
@@ -614,7 +636,7 @@ export async function buildApartment(ctx) {
 
   const fridge = P.makeFridge(M, { x: 4.64, z: 1.95 });
   root.add(fridge.group);
-  addCollider(fridge.bounds);
+  addCollider(fridge.bounds, { name: 'apartment-fridge', kind: 'prop' });
 
   // A dozen pasture-raised, on the shelf above the beer. The radio has
   // opinions about these.
@@ -667,7 +689,7 @@ export async function buildApartment(ctx) {
 
   const kitchen = P.makeKitchen(M, { z0: -1.90, z1: 1.45, wallX: x1 });
   root.add(kitchen.group);
-  addCollider(kitchen.bounds);
+  addCollider(kitchen.bounds, { name: 'apartment-kitchen', kind: 'prop' });
 
   /* The same unlabelled line and card as the Bada Bing urinal, on the clear
    * strip of worktop just south of the sink. The effect remains the shared
@@ -778,7 +800,7 @@ export async function buildApartment(ctx) {
 
   const couch = P.makeCouch(M, { x: -4.55, z: 0.70 });
   root.add(couch.group);
-  addCollider(couch.bounds);
+  addCollider(couch.bounds, { name: 'apartment-couch', kind: 'seat' });
 
   const coffeeCenter = new THREE.Vector3(-3.30, 0, 0.70);
   const coffeeRotation = Math.PI / 2;
@@ -789,7 +811,7 @@ export async function buildApartment(ctx) {
     x: coffeeCenter.x, z: coffeeCenter.z, rotY: coffeeRotation,
   });
   root.add(table.group);
-  addCollider(table.bounds);
+  addCollider(table.bounds, { name: 'apartment-coffee-table', kind: 'prop' });
 
   const pizzaPos = coffeeAt(-0.18, 0.04, table.top);
   const pizza = P.makePizzaBox(M, {
@@ -856,7 +878,7 @@ export async function buildApartment(ctx) {
 
   const sideboard = P.makeSideboard(M, { x: -1.00, z: 4.22 });
   root.add(sideboard.group);
-  addCollider(sideboard.bounds);
+  addCollider(sideboard.bounds, { name: 'apartment-sideboard', kind: 'prop' });
 
   /*
    * The radio, against the BACK of the sideboard rather than the middle of it.
@@ -899,11 +921,11 @@ export async function buildApartment(ctx) {
 
   const plant = P.makePlant(M, { x: 3.95, z: 3.75 });
   root.add(plant.group);
-  addCollider(plant.bounds);
+  addCollider(plant.bounds, { name: 'apartment-plant', kind: 'prop' });
 
   const lamp = P.makeFloorLamp(M, { x: -4.60, z: -1.30 });
   root.add(lamp.group);
-  addCollider(lamp.bounds);
+  addCollider(lamp.bounds, { name: 'apartment-floor-lamp', kind: 'prop' });
 
   const ceilLight = P.makeCeilingLight(M, { x: -0.40, z: 0.20 });
   root.add(ceilLight.group);
@@ -1051,7 +1073,7 @@ export async function buildApartment(ctx) {
    */
   const tv = P.makeTv(M, { x: -2.16, z: 0.72, rotY: -Math.PI / 2, w: 1.12 });
   root.add(tv.group);
-  addCollider(tv.bounds);
+  addCollider(tv.bounds, { name: 'apartment-tv', kind: 'prop' });
   const tvGlow = new THREE.PointLight(0x9fb4cc, 0, 4.4, 2.0);
   tvGlow.position.copy(tv.screenPos).add(new THREE.Vector3(0.28, 0, 0));
   root.add(tvGlow);
