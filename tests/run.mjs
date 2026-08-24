@@ -271,6 +271,7 @@ const TEST_MODULES = [
   './inventory-view.test.mjs',
   './player.test.mjs',
   './first-person-input.test.mjs',
+  './hotdog-controls.test.mjs',
   './settings.test.mjs',
   './mansion-dialogue-hush.test.mjs',
   './collider-broadphase.test.mjs',

@@ -10,9 +10,9 @@ import {
 import { createGraveyardStory } from '../core/graveyard-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
-import { translateKey } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
@@ -21,7 +21,7 @@ import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { settleStart } from '../core/start-gate.js';
 import { StreamSystem } from '../world/stream.js';
 import { graveyardAudioLoadOptions } from './audio.js';
-import { createPrimaryGraveControl } from './controls.js';
+import { createGraveyardInputPolicy, createPrimaryGraveControl } from './controls.js';
 import {
   GRAVEYARD_ARRIVAL_LINES,
   GRAVEYARD_SNOW_BARKS,
@@ -292,7 +292,7 @@ function pickUpHotDog() {
     console.error('[graveyard] visual body picked up outside mission state');
     return false;
   }
-  player.clearKeys();
+  input.clear('body-pickup');
   audio.play('cloth.suit.movement', { volume: 0.75, position: player.position });
   repaintObjectives();
   hud.toast('Billy HotDog · carrying', 'good');
@@ -303,7 +303,7 @@ function placeHotDog() {
   if (mission.state !== 'carried' || state.bodyMoving) return false;
   state.bodyMoving = true;
   interaction.setPaused(true);
-  player.clearKeys();
+  input.clear('body-placement');
   audio.play('cloth.suit.movement', { volume: 0.75, position: graveyard.freshPosition });
   if (!graveyard.placeBody(() => {
     if (!mission.placeBody()) {
@@ -492,8 +492,7 @@ function finishScene() {
   mission.finish();
   state.endingShown = true;
   state.phase = 'complete';
-  player.enabled = false;
-  player.clearKeys();
+  input.suspend();
   interaction.setPaused(true);
   audio.play('car.engine.start', { volume: 0.82, position: graveyard.car.position });
   audio.startLoop('car.engine.idle', { volume: 0.2 });
@@ -505,7 +504,11 @@ function finishScene() {
 const runtime = {
   story,
   mission,
+  scene,
   player,
+  get input() { return input; },
+  get renderedFrameCount() { return renderedFrameCount; },
+  interaction,
   get campaignState() { return campaign.state; },
   get phase() { return state.phase; },
   get displayClock() { return { day: clock.day, timeMinutes: clock.minutes }; },
@@ -525,13 +528,25 @@ const runtime = {
 window.GRAVEYARD = runtime;
 
 function requestGamePointerLock() {
-  try {
-    const pending = canvas.requestPointerLock?.();
-    pending?.catch?.(() => {});
-  } catch {
-    // Embedded previews can deny pointer lock without invalidating the scene.
-  }
+  return input.requestPointerLock();
 }
+
+const graveyardInputPolicy = createGraveyardInputPolicy({
+  isActive: () => state.phase === 'active' && !state.paused,
+  isCarrying: () => mission.state === 'carried',
+  isDisrespecting: () => state.pee.active,
+  primaryControl,
+  stopDisrespect: stopPee,
+  notifyCarryRefusal: () => hud.say('Not with HotDog in both arms.', 2200),
+  toggleBloom: () => postfx.toggle(),
+  showBloom: (enabled) => hud.toast(enabled ? 'Bloom on' : 'Bloom off', 'good'),
+});
+const input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction: primaryControl,
+  ...graveyardInputPolicy,
+});
 window.__squatchSceneReady?.('GRAVEYARD ready');
 
 startButton.addEventListener('click', async () => {
@@ -588,11 +603,11 @@ startButton.addEventListener('click', async () => {
   audio.startLoop('car.engine.idle', { volume: 0.12, ambience: true, fade: 1.2 });
   state.phase = 'active';
   startButton.disabled = false;
-  player.enabled = true;
   document.body.classList.add('playing');
   sceneInventory.set([]);
   sceneInventory.show();
   overlay.classList.add('hidden');
+  input.refresh('mission-start');
   requestGamePointerLock();
   for (const line of GRAVEYARD_ARRIVAL_LINES) {
     queueLine(line.text, { cue: line.cue, who: line.who, seconds: line.seconds });
@@ -616,10 +631,7 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     state.paused = true;
-    player.enabled = false;
-    player.clearKeys();
-    primaryControl.release();
-    interaction.release();
+    input.suspend();
     interaction.setPaused(true);
     audio.ctx?.suspend?.();
   },
@@ -628,7 +640,7 @@ const pauseMenu = createPauseMenu({
     interaction.setPaused(false);
     audio.ctx?.resume?.();
     lastTime = performance.now();
-    requestGamePointerLock();
+    input.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -641,65 +653,12 @@ motelButton.addEventListener('click', () => {
   story.continueAfterCompletion({ location });
 });
 
-document.addEventListener('pointerlockchange', () => {
-  if (state.phase === 'active' && !state.paused) {
-    player.enabled = document.pointerLockElement === canvas;
-  }
-});
-document.addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
-});
-document.addEventListener('keydown', (event) => {
-  if (state.phase !== 'active' || state.paused) return;
-  if (event.code === 'Space') event.preventDefault();
-  /* The carry restriction is about the ACTIONS, so it tests the translated
-   * key: jump rebound to KeyJ has to be refused too, and physical Space that
-   * is no longer jump must not print a refusal for a key that does nothing. */
-  const key = translateKey(event.code);
-  if (mission.state === 'carried'
-    && ['Space', 'ShiftLeft', 'ShiftRight'].includes(key)) {
-    player.setKey(key, false);
-    if (key === 'Space' && !event.repeat) {
-      hud.say('Not with HotDog in both arms.', 2200);
-    }
-    return;
-  }
-  player.setKey(key, true);
-  // A completed hold resets InteractionSystem.holding before the physical key
-  // comes up. Ignore OS autorepeat so it cannot begin a second hold whose
-  // eventual release would also be misread as a fresh tap.
-  if (event.code === 'KeyE' && !event.repeat) primaryControl.press();
-  if (event.code === 'KeyQ' && state.pee.active) stopPee();
-  if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
-});
-document.addEventListener('keyup', (event) => {
-  player.setKey(translateKey(event.code), false);
-  if (event.code === 'KeyE') primaryControl.release();
-});
-document.addEventListener('mousedown', (event) => {
-  if (event.button === 0 && document.pointerLockElement === canvas) primaryControl.press();
-});
-document.addEventListener('mouseup', (event) => {
-  if (event.button === 0) primaryControl.release();
-});
-/* Alt-tab safety. A window that loses focus never gets the keyup, so without
- * this the last held key walks the player into a fence for as long as the tab
- * is away (the pattern in src/silver/main.js and src/bing/main.js). */
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  primaryControl.release();
-});
 /* And a hidden tab should not keep simulating and playing the graveyard at
  * itself: route through the pause menu, whose onPause already clears keys,
  * suspends the audio context, and freezes the sim. pause() refuses politely
  * outside the active phase. */
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseMenu.pause();
-});
-canvas.addEventListener('click', () => {
-  if (state.phase === 'active' && !state.paused && document.pointerLockElement !== canvas) {
-    requestGamePointerLock();
-  }
 });
 
 addEventListener('resize', () => {
@@ -709,6 +668,7 @@ addEventListener('resize', () => {
   postfx.setSize(innerWidth, innerHeight);
 });
 
+let renderedFrameCount = 0;
 let lastTime = performance.now();
 function animate(now) {
   requestAnimationFrame(animate);
@@ -733,6 +693,7 @@ function animate(now) {
   }
   hud.setClock(clock.day, clock.clock12, clock.elapsedReal);
   postfx.render();
+  renderedFrameCount += 1;
   postfx.sample(dt);
 }
 requestAnimationFrame(animate);

@@ -20,14 +20,23 @@ test('the browser Adapter registry explicitly covers every runtime entry variant
   assert.ok(cases.every(({ obligations }) => obligations.length > 0));
   assert.ok(cases.every(({ adapter }) => typeof adapter.observable === 'boolean'));
   const observable = cases.filter(({ adapter }) => adapter.observable);
-  assert.ok(observable.every(({ adapter }) => adapter.minimumAudioEngines >= 1));
-  assert.ok(observable.every(({ adapter }) => adapter.minimumRequiredAudioReceipts >= 1));
-  assert.ok(observable.every(({ adapter }) => adapter.requiredAudioCuePrefixes.length > 0));
+  assert.deepEqual(observable.map(({ entrypointId }) => entrypointId).sort(), [
+    'bada_bing_two_hotdog', 'special_meeting_canonical', 'squatch_graveyard_canonical',
+  ]);
+  const audioEvidence = observable.filter(({ adapter }) => adapter.audio);
+  assert.deepEqual(audioEvidence.map(({ entrypointId }) => entrypointId), [
+    'special_meeting_canonical',
+  ]);
+  assert.ok(audioEvidence.every(({ adapter }) => adapter.audio.minimumEngines >= 1));
+  assert.ok(audioEvidence.every(({ adapter }) => adapter.audio.minimumRequiredReceipts >= 1));
+  assert.ok(audioEvidence.every(({ adapter }) => adapter.audio.requiredCuePrefixes.length > 0));
 });
 
-test('an observable Adapter cannot omit non-vacuous audio expectations', () => {
-  const adapter = { ...SEMANTIC_SMOKE_BROWSER_ADAPTERS.special_meeting_canonical };
-  delete adapter.minimumAudioEngines;
+test('a declared audio evidence contract cannot be vacuous', () => {
+  const original = SEMANTIC_SMOKE_BROWSER_ADAPTERS.special_meeting_canonical;
+  const audio = { ...original.audio };
+  delete audio.minimumEngines;
+  const adapter = { ...original, audio };
   const adapters = {
     ...SEMANTIC_SMOKE_BROWSER_ADAPTERS,
     special_meeting_canonical: adapter,

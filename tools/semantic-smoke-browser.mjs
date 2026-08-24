@@ -8,6 +8,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { generateSemanticSmokeRegistry } from '../src/core/scene-contract.js';
 import { SCENE_CONTRACTS } from '../src/core/scene-contracts.js';
+import {
+  CAMPAIGN_STORAGE_KEY,
+  EVENT_IDS,
+  MISSION_IDS,
+  SCENE_IDS,
+  TIME_EVENT_IDS,
+  createCampaign,
+} from '../src/core/campaign.js';
 import { closeEvidenceLifecycle, listenEvidenceServer } from './evidence-lifecycle.mjs';
 import { launchChromium } from './launch-chromium.mjs';
 
@@ -32,6 +40,57 @@ export const SEMANTIC_SMOKE_STATUS = Object.freeze({
   FAIL: 'FAIL',
   UNKNOWN: 'UNKNOWN',
 });
+
+class MemoryStorage {
+  constructor() { this.values = new Map(); }
+  getItem(key) { return this.values.get(String(key)) ?? null; }
+  setItem(key, value) { this.values.set(String(key), String(value)); }
+  removeItem(key) { this.values.delete(String(key)); }
+}
+
+function establishDayTwo(campaign) {
+  campaign.update((state) => {
+    state.story.chapter = 'day_two';
+    state.story.day = 2;
+    state.story.timeMinutes = 20 * 60 + 15;
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+    state.missions[MISSION_IDS.BADA_BING_ONE].packageReceived = true;
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
+    state.missions[MISSION_IDS.SQUATCHFATHER].weaponStaged = true;
+    state.missions[MISSION_IDS.SQUATCHFATHER].weaponDropped = true;
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'complete';
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].checkpoint = 'landed_home';
+  });
+}
+
+function hotDogInputSeed() {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  establishDayTwo(campaign);
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.BADA_BING_TWO].status = 'available';
+    state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+  });
+  campaign.enter(SCENE_IDS.BADA_BING_TWO, { spawn: 'driver_seat' });
+  return JSON.stringify(campaign.state);
+}
+
+function graveyardInputSeed() {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  establishDayTwo(campaign);
+  campaign.update((state) => {
+    const incident = state.missions[MISSION_IDS.BADA_BING_TWO];
+    incident.status = 'in_progress';
+    incident.checkpoint = 'body_loaded';
+    incident.assignment = 'reserve_pickup';
+    incident.attackResolved = true;
+    incident.cleanupTasks = ['bathrooms', 'cleaning_kit', 'missing_evidence', 'final_sweep'];
+    incident.bodyWrapped = true;
+    incident.bodyLoaded = true;
+  });
+  campaign.enter(SCENE_IDS.SQUATCH_GRAVEYARD, { spawn: 'headlights' });
+  campaign.advanceTime(TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD);
+  return JSON.stringify(campaign.state);
+}
 
 function unobservable(reason) {
   return Object.freeze({ observable: false, reason });
@@ -219,6 +278,148 @@ function selectSpecialMeetingSpurCheckpoint() {
   return { ...game.campaign.state.scene };
 }
 
+function hotDogBootReady() {
+  return window.HOTDOG_INCIDENT?.game?.phase === 'active';
+}
+
+function hotDogReady() {
+  const runtime = window.HOTDOG_INCIDENT;
+  return Boolean(runtime?.game?.phase === 'active'
+    && runtime?.input?.snapshot?.().enabled
+    && document.pointerLockElement === document.querySelector('#scene'));
+}
+
+function hotDogMoved({ x, z, minimum, code }) {
+  const player = window.HOTDOG_INCIDENT?.player;
+  return Boolean(player?.enabled
+    && player.mode === 'walk'
+    && player.keys?.has(code)
+    && Math.hypot(player.position.x - x, player.position.z - z) > minimum);
+}
+
+function observeHotDogInput() {
+  const runtime = window.HOTDOG_INCIDENT;
+  const player = runtime?.player;
+  const panel = document.getElementById('objectives');
+  const objectiveItems = [...(panel?.querySelectorAll('li') ?? [])]
+    .map((item) => item.textContent?.trim() ?? '')
+    .filter(Boolean);
+  const style = panel ? getComputedStyle(panel) : null;
+  return {
+    surfacePresent: Boolean(player && runtime?.input?.snapshot),
+    startupError: null,
+    pointerLocked: document.pointerLockElement === document.querySelector('#scene'),
+    player: player ? {
+      enabled: player.enabled,
+      mode: player.mode,
+      position: { x: player.position.x, y: player.position.y, z: player.position.z },
+      yaw: player.yaw,
+      pitch: player.pitch,
+      keys: [...player.keys],
+    } : null,
+    camera: player ? { yaw: player.yaw, pitch: player.pitch } : null,
+    input: runtime?.input?.snapshot?.() ?? null,
+    route: {
+      entrypointId: 'bada_bing_two_hotdog',
+      href: 'bing.html?visit=2',
+      root: 'src/bing/hotdog-main.js',
+      observedExits: ['squatch_graveyard'],
+    },
+    objective: {
+      visible: Boolean(panel && style?.display !== 'none' && style?.visibility !== 'hidden'),
+      count: objectiveItems.length,
+      text: objectiveItems,
+      changeObserved: null,
+    },
+    renderEvidence: {
+      canvasWidth: document.querySelector('#scene')?.width ?? 0,
+      canvasHeight: document.querySelector('#scene')?.height ?? 0,
+      sceneChildren: runtime?.scene?.children?.length ?? 0,
+      renderedFrameCount: runtime?.renderedFrameCount ?? 0,
+    },
+    subjectCounts: {
+      meaningful_frame: (runtime?.renderedFrameCount ?? 0) > 0 ? 1 : 0,
+      player: player ? 1 : 0,
+      objective_item: objectiveItems.length,
+      interactable: runtime?.interaction?.targets?.length ?? null,
+      authored_actor: runtime?.party?.all?.length ?? null,
+    },
+    progressionChanged: null,
+    interactionInvoked: null,
+  };
+}
+
+function graveyardBootReady() {
+  return window.GRAVEYARD?.phase === 'active';
+}
+
+function graveyardReady() {
+  const runtime = window.GRAVEYARD;
+  return Boolean(runtime?.phase === 'active'
+    && runtime?.input?.snapshot?.().enabled
+    && document.pointerLockElement === document.querySelector('#scene'));
+}
+
+function graveyardMoved({ x, z, minimum, code }) {
+  const player = window.GRAVEYARD?.player;
+  return Boolean(player?.enabled
+    && player.mode === 'walk'
+    && player.keys?.has(code)
+    && Math.hypot(player.position.x - x, player.position.z - z) > minimum);
+}
+
+function observeGraveyardInput() {
+  const runtime = window.GRAVEYARD;
+  const player = runtime?.player;
+  const panel = document.getElementById('objectives');
+  const objectiveItems = [...(panel?.querySelectorAll('li') ?? [])]
+    .map((item) => item.textContent?.trim() ?? '')
+    .filter(Boolean);
+  const style = panel ? getComputedStyle(panel) : null;
+  return {
+    surfacePresent: Boolean(player && runtime?.input?.snapshot),
+    startupError: null,
+    pointerLocked: document.pointerLockElement === document.querySelector('#scene'),
+    player: player ? {
+      enabled: player.enabled,
+      mode: player.mode,
+      position: { x: player.position.x, y: player.position.y, z: player.position.z },
+      yaw: player.yaw,
+      pitch: player.pitch,
+      keys: [...player.keys],
+    } : null,
+    camera: player ? { yaw: player.yaw, pitch: player.pitch } : null,
+    input: runtime?.input?.snapshot?.() ?? null,
+    route: {
+      entrypointId: 'squatch_graveyard_canonical',
+      href: 'graveyard.html',
+      root: 'src/graveyard/main.js',
+      observedExits: ['jerky_motel'],
+    },
+    objective: {
+      visible: Boolean(panel && style?.display !== 'none' && style?.visibility !== 'hidden'),
+      count: objectiveItems.length,
+      text: objectiveItems,
+      changeObserved: null,
+    },
+    renderEvidence: {
+      canvasWidth: document.querySelector('#scene')?.width ?? 0,
+      canvasHeight: document.querySelector('#scene')?.height ?? 0,
+      sceneChildren: runtime?.scene?.children?.length ?? 0,
+      renderedFrameCount: runtime?.renderedFrameCount ?? 0,
+    },
+    subjectCounts: {
+      meaningful_frame: (runtime?.renderedFrameCount ?? 0) > 0 ? 1 : 0,
+      player: player ? 1 : 0,
+      objective_item: objectiveItems.length,
+      interactable: runtime?.interaction?.targets?.length ?? null,
+      authored_actor: null,
+    },
+    progressionChanged: null,
+    interactionInvoked: null,
+  };
+}
+
 /**
  * An Adapter is deliberately registered per runtime entry variant. A route is
  * not evidence of player behavior: until an entrypoint publishes a stable
@@ -229,9 +430,53 @@ export const SEMANTIC_SMOKE_BROWSER_ADAPTERS = Object.freeze({
   bada_bing_one_canonical: unobservable('Bada Bing visit one has no declared semantic-smoke observation surface yet.'),
   squatchfather_canonical: unobservable('Squatchfather has no declared semantic-smoke observation surface yet.'),
   airstrip_smuggling_canonical: unobservable('Airstrip Smuggling has no declared semantic-smoke observation surface yet.'),
-  bada_bing_two_hotdog: unobservable('The HotDog query variant has no declared semantic-smoke observation surface yet.'),
+  bada_bing_two_hotdog: Object.freeze({
+    observable: true,
+    surface: 'window.HOTDOG_INCIDENT',
+    reason: 'HotDog publishes canonical input and Player observations behind a valid campaign seed.',
+    storageSeed: Object.freeze({ key: CAMPAIGN_STORAGE_KEY, value: hotDogInputSeed() }),
+    start: '#start-btn',
+    bootReady: hotDogBootReady,
+    canvas: '#scene',
+    click: Object.freeze({ position: Object.freeze({ x: 320, y: 180 }) }),
+    mouse: Object.freeze({
+      from: Object.freeze({ x: 320, y: 180 }),
+      to: Object.freeze({ x: 390, y: 145 }),
+      steps: 2,
+    }),
+    keyboard: Object.freeze({ key: 'w', code: 'KeyW' }),
+    movementMinimum: 0.35,
+    readyTimeoutMs: 120_000,
+    movementTimeoutMs: 8_000,
+    lookSettleMs: 50,
+    observe: observeHotDogInput,
+    ready: hotDogReady,
+    moved: hotDogMoved,
+  }),
   bada_bing_two_legacy_main: unobservable('The legacy Bing-two variant requires durable campaign activation that a route alone cannot prove.'),
-  squatch_graveyard_canonical: unobservable('Squatch Graveyard has no declared semantic-smoke observation surface yet.'),
+  squatch_graveyard_canonical: Object.freeze({
+    observable: true,
+    surface: 'window.GRAVEYARD',
+    reason: 'Graveyard publishes canonical input and Player observations behind a body-loaded seed.',
+    storageSeed: Object.freeze({ key: CAMPAIGN_STORAGE_KEY, value: graveyardInputSeed() }),
+    start: '#start-btn',
+    bootReady: graveyardBootReady,
+    canvas: '#scene',
+    click: Object.freeze({ position: Object.freeze({ x: 320, y: 180 }) }),
+    mouse: Object.freeze({
+      from: Object.freeze({ x: 320, y: 180 }),
+      to: Object.freeze({ x: 390, y: 145 }),
+      steps: 2,
+    }),
+    keyboard: Object.freeze({ key: 'w', code: 'KeyW' }),
+    movementMinimum: 0.35,
+    readyTimeoutMs: 120_000,
+    movementTimeoutMs: 8_000,
+    lookSettleMs: 50,
+    observe: observeGraveyardInput,
+    ready: graveyardReady,
+    moved: graveyardMoved,
+  }),
   jerky_motel_canonical: unobservable('Jerky Motel has no declared semantic-smoke observation surface yet.'),
   no_wake_canonical: unobservable('NO WAKE has no declared semantic-smoke observation surface yet.'),
   silver_room_canonical: unobservable('Silver Room has no declared semantic-smoke observation surface yet.'),
@@ -256,9 +501,11 @@ export const SEMANTIC_SMOKE_BROWSER_ADAPTERS = Object.freeze({
     }),
     keyboard: Object.freeze({ key: 'd', code: 'KeyD' }),
     movementMinimum: 0.35,
-    minimumAudioEngines: 1,
-    minimumRequiredAudioReceipts: 1,
-    requiredAudioCuePrefixes: Object.freeze(['vo.specialmeeting.']),
+    audio: Object.freeze({
+      minimumEngines: 1,
+      minimumRequiredReceipts: 1,
+      requiredCuePrefixes: Object.freeze(['vo.specialmeeting.']),
+    }),
     readyTimeoutMs: 120_000,
     movementTimeoutMs: 5_000,
     lookSettleMs: 50,
@@ -296,23 +543,31 @@ export function buildSemanticSmokeCases({
       }
       continue;
     }
-    if (!Number.isInteger(adapter.minimumAudioEngines) || adapter.minimumAudioEngines < 1) {
-      throw new TypeError(`Observable Adapter ${entrypointId} must require at least one AudioEngine`);
-    }
-    if (!Number.isInteger(adapter.minimumRequiredAudioReceipts)
-      || adapter.minimumRequiredAudioReceipts < 1) {
-      throw new TypeError(
-        `Observable Adapter ${entrypointId} must require recorded-audio receipt evidence`,
-      );
-    }
-    if (!Array.isArray(adapter.requiredAudioCuePrefixes)
-      || adapter.requiredAudioCuePrefixes.length === 0
-      || adapter.requiredAudioCuePrefixes.some((prefix) => (
-        typeof prefix !== 'string' || !prefix.trim()
-      ))) {
-      throw new TypeError(
-        `Observable Adapter ${entrypointId} must name expected recorded-audio cue prefixes`,
-      );
+    /* Input certification must not become hostage to incidental speech timing.
+     * Scenes declare an audio evidence contract only when this journey is also
+     * intended to certify recorded playback (Special Meeting is). */
+    if (adapter.audio !== undefined) {
+      if (!adapter.audio || typeof adapter.audio !== 'object' || Array.isArray(adapter.audio)) {
+        throw new TypeError(`Observable Adapter ${entrypointId} audio contract must be an object`);
+      }
+      if (!Number.isInteger(adapter.audio.minimumEngines) || adapter.audio.minimumEngines < 1) {
+        throw new TypeError(`Observable Adapter ${entrypointId} must require at least one AudioEngine`);
+      }
+      if (!Number.isInteger(adapter.audio.minimumRequiredReceipts)
+        || adapter.audio.minimumRequiredReceipts < 1) {
+        throw new TypeError(
+          `Observable Adapter ${entrypointId} must require recorded-audio receipt evidence`,
+        );
+      }
+      if (!Array.isArray(adapter.audio.requiredCuePrefixes)
+        || adapter.audio.requiredCuePrefixes.length === 0
+        || adapter.audio.requiredCuePrefixes.some((prefix) => (
+          typeof prefix !== 'string' || !prefix.trim()
+        ))) {
+        throw new TypeError(
+          `Observable Adapter ${entrypointId} must name expected recorded-audio cue prefixes`,
+        );
+      }
     }
   }
   return entries.map(({ contract, entrypoint }) => Object.freeze({
@@ -340,7 +595,14 @@ function installPageDiagnostics(page) {
     action: [],
   };
   const handlers = {
-    pageerror: (error) => errors.page.push(messageOf(error)),
+    pageerror: (error) => {
+      if (process.env.SEMANTIC_SMOKE_TRACE_ERRORS === '1') {
+        console.error(error?.stack ?? messageOf(error));
+        errors.page.push(error?.stack ?? messageOf(error));
+        return;
+      }
+      errors.page.push(messageOf(error));
+    },
     console: (message) => {
       if (message.type?.() === 'error') errors.console.push(message.text?.() ?? String(message));
     },
@@ -535,6 +797,11 @@ export function evaluateSemanticSmokeObligation(obligation, evidence, transport 
 
 async function exerciseObservableAdapter(page, adapter, errors) {
   const actions = [];
+  if (adapter.start) {
+    await page.locator(adapter.start).click();
+    actions.push({ kind: 'click', selector: adapter.start, purpose: 'start scene' });
+    await page.waitForFunction(adapter.bootReady, null, { timeout: adapter.readyTimeoutMs });
+  }
   await page.locator(adapter.canvas).click(adapter.click);
   actions.push({ kind: 'click', selector: adapter.canvas, options: adapter.click });
   await page.waitForFunction(adapter.ready, null, { timeout: adapter.readyTimeoutMs });
@@ -813,6 +1080,11 @@ export async function executeSemanticSmokeCase({
     throw new TypeError('executeSemanticSmokeCase requires page.addInitScript for strict QA policy');
   }
   await page.addInitScript(installQaAudioPolicy);
+  if (smokeCase.adapter.storageSeed) {
+    await page.addInitScript(({ key, value }) => {
+      if (!localStorage.getItem(key)) localStorage.setItem(key, value);
+    }, smokeCase.adapter.storageSeed);
+  }
   const diagnostics = installPageDiagnostics(page);
   const url = new URL(smokeCase.href, baseUrl).href;
   const transport = { url, navigated: false, httpStatus: null };
@@ -862,23 +1134,23 @@ export async function executeSemanticSmokeCase({
           `${audio.engineCount - audio.strictEngineCount} AudioEngine instance(s) bypassed strict QA.`,
         );
       }
-      const minimumAudioEngines = smokeCase.adapter.observable
-        ? smokeCase.adapter.minimumAudioEngines : 0;
+      const audioContract = smokeCase.adapter.audio ?? null;
+      const minimumAudioEngines = audioContract?.minimumEngines ?? 0;
       if (audio?.engineCount < minimumAudioEngines) {
         diagnostics.errors.action.push(
           `Observed ${audio.engineCount} AudioEngine instance(s); expected at least `
           + `${minimumAudioEngines}.`,
         );
       }
-      if (smokeCase.adapter.observable) {
-        const minimumReceipts = smokeCase.adapter.minimumRequiredAudioReceipts;
+      if (audioContract) {
+        const minimumReceipts = audioContract.minimumRequiredReceipts;
         if (audio?.scheduledRequiredRecordingCount < minimumReceipts) {
           diagnostics.errors.action.push(
             `Observed ${audio?.scheduledRequiredRecordingCount ?? 0} scheduled required recording(s); `
             + `expected at least ${minimumReceipts}.`,
           );
         }
-        for (const prefix of smokeCase.adapter.requiredAudioCuePrefixes) {
+        for (const prefix of audioContract.requiredCuePrefixes) {
           const scheduled = audio?.receipts?.some((receipt) => (
             receipt.requiredRecorded
               && receipt.started
@@ -941,9 +1213,7 @@ export async function executeSemanticSmokeCase({
     adapter: {
       observable: smokeCase.adapter.observable,
       surface: smokeCase.adapter.surface ?? null,
-      minimumAudioEngines: smokeCase.adapter.minimumAudioEngines ?? 0,
-      minimumRequiredAudioReceipts: smokeCase.adapter.minimumRequiredAudioReceipts ?? 0,
-      requiredAudioCuePrefixes: smokeCase.adapter.requiredAudioCuePrefixes ?? [],
+      audio: smokeCase.adapter.audio ?? null,
     },
     transport,
     errors: diagnostics.errors,
