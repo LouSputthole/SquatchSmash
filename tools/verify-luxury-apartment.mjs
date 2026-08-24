@@ -57,6 +57,30 @@ const EXPECTED_PC_APPS = Object.freeze([
   'doom',
 ]);
 
+const EXPECTED_EXTRA_ART = Object.freeze([
+  'luxury.night-watch',
+  'luxury.ascension',
+  'luxury.foyer.statement',
+  'luxury.city.night',
+  'luxury.loft.triptych.a',
+  'luxury.loft.triptych.b',
+  'luxury.loft.triptych.c',
+  'luxury.stair.memory.a',
+  'luxury.stair.memory.b',
+  'luxury.bedroom.private',
+  'luxury.office.victory',
+  'luxury.arcade.marquee',
+  'luxury.poker.champions',
+  'luxury.bath.monochrome',
+]);
+
+const EXPECTED_PROP_ART = Object.freeze([
+  'closet.back', 'closet.shirt.a', 'closet.shirt.b',
+  'fridge.magnet', 'fridge.photo.a', 'fridge.photo.b',
+  'sticker.tower', 'sticker.fridge', 'sticker.fridge.b',
+  'zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'cereal.box',
+]);
+
 const EXPECTED_UTILITIES = Object.freeze([
   'frontDoor', 'elevator', 'bed', 'couch', 'desk', 'tv', 'radio', 'phone',
   'fridge', 'kitchen', 'shower', 'wardrobe', 'toilet',
@@ -136,7 +160,7 @@ try {
   });
   await page.waitForFunction(() => Boolean(window.LUXURY_APARTMENT?.home));
 
-  const authored = await page.evaluate(({ expectedUtilities, expectedApps }) => {
+  const authored = await page.evaluate(({ expectedUtilities, expectedApps, expectedExtraArt, expectedPropArt }) => {
     const runtime = window.LUXURY_APARTMENT;
     const home = runtime.home;
     home.root.updateMatrixWorld(true);
@@ -146,6 +170,10 @@ try {
     const windowPanes = [];
     const skylineMasses = [];
     const skylineWindows = [];
+    const skylineWindowsSouth = [];
+    const skylineWindowsEast = [];
+    const skylineRoofFeatures = [];
+    const skylineDepthBands = new Set();
     home.root.traverse((object) => {
       if (object.isMesh) meshes.push(object);
       if (object.name.startsWith('luxury-stair-tread-')) {
@@ -157,7 +185,15 @@ try {
       if (/^luxury-city-building-(south|east)-\d+(-mass)?$/.test(object.name)) {
         skylineMasses.push(object.name);
       }
-      if (object.name.startsWith('luxury-city-window-')) skylineWindows.push(object.name);
+      if (object.isMesh && /^luxury-city-window-[se]-\d+-\d+-\d+$/.test(object.name)) {
+        skylineWindows.push(object.name);
+        if (object.name.startsWith('luxury-city-window-s-')) skylineWindowsSouth.push(object.name);
+        if (object.name.startsWith('luxury-city-window-e-')) skylineWindowsEast.push(object.name);
+      }
+      if (/^luxury-city-building-(south|east)-\d+-(roof|antenna)$/.test(object.name)) {
+        skylineRoofFeatures.push(object.name);
+      }
+      if (object.userData?.depthBand) skylineDepthBands.add(object.userData.depthBand);
     });
     stairTops.sort((a, b) => a - b);
     const stairRises = stairTops.slice(1).map((top, index) => top - stairTops[index]);
@@ -171,16 +207,85 @@ try {
     const overlapZ = Math.min(mainZone.box.max.z, loftZone.box.max.z)
       - Math.max(mainZone.box.min.z, loftZone.box.min.z);
 
-    const art = [...home.resolvedArt.entries()].map(([slot, record]) => ({
-      slot,
-      real: record.real,
-      file: record.file,
-      width: record.texture?.image?.width ?? 0,
-      height: record.texture?.image?.height ?? 0,
-      source: home.artTargets[slot]?.userData?.artSource ?? null,
-    }));
+    const art = [...home.resolvedArt.entries()].map(([slot, record]) => {
+      const placement = home.artTargets[slot] ?? home.propArtPlacements[slot];
+      return {
+        slot,
+        real: record.real,
+        file: record.file,
+        width: record.texture?.image?.width ?? 0,
+        height: record.texture?.image?.height ?? 0,
+        source: placement?.userData?.artSource ?? null,
+        zone: placement?.userData?.artZone ?? null,
+        kind: placement?.userData?.artDisplayKind ?? null,
+      };
+    });
     const apartmentArt = art.filter(({ source }) => source === 'apartment');
     const luxuryArt = art.filter(({ source }) => source === 'luxury');
+    const displayArt = Object.entries(home.artTargets).map(([slot, target]) => ({
+      slot,
+      zone: target.userData.artZone,
+      kind: target.userData.artDisplayKind,
+      source: target.userData.artSource,
+    }));
+    const propArt = Object.entries(home.propArtPlacements).map(([slot, target]) => ({
+      slot,
+      zone: target.userData.artZone,
+      kind: target.userData.artDisplayKind,
+      source: target.userData.artSource,
+      textureAttached: target.userData.artTextureAttached === true,
+    }));
+    const visibleArtSlots = [...new Set([...displayArt, ...propArt].map(({ slot }) => slot))];
+    const extraArtZones = expectedExtraArt.map((slot) => home.artTargets[slot]?.userData?.artZone ?? null);
+    const expectedPropPlaced = expectedPropArt.map((slot) => Boolean(home.propArtPlacements[slot]));
+
+    const bodyClearance = (point, box) => {
+      const dx = Math.max(box.min.x - point.x, 0, point.x - box.max.x);
+      const dz = Math.max(box.min.z - point.z, 0, point.z - box.max.z);
+      return Math.hypot(dx, dz);
+    };
+    const poseExitClearances = Object.entries(home.poses).map(([id, stationPose]) => {
+      const low = stationPose.exit.y + 0.05;
+      const high = stationPose.exit.y + 1.68;
+      const relevant = home.colliders.filter((entry) => entry.max.y > low && entry.min.y < high);
+      return {
+        id,
+        clearance: Math.min(...relevant.map((entry) => bodyClearance(stationPose.exit, entry))),
+      };
+    });
+
+    const colliderNamed = (name) => home.colliders.find((entry) => entry.name === name);
+    const primaryCouch = colliderNamed('luxury-lounge-sectional-collider');
+    const returnCouch = colliderNamed('luxury-lounge-return-collider');
+    const returnGroup = home.root.getObjectByName('luxury-lounge-return');
+    const officeSlats = home.colliders.filter(
+      (entry) => /^luxury-office-slat-divider-slat-\d-collider$/.test(entry.name),
+    );
+    const officeCirculation = { x: 2.18, z: -3.12 };
+    const officeCirculationClearance = Math.min(
+      ...officeSlats.map((entry) => bodyClearance(officeCirculation, entry)),
+    );
+
+    const southSky = home.root.getObjectByName('luxury-city-panorama-south');
+    const eastSky = home.root.getObjectByName('luxury-city-panorama-east');
+    const originalMinutes = home.state.cityMinutes;
+    home.setCityTime(8 * 60);
+    const morningSky = {
+      southColor: southSky.material.color.getHex(),
+      eastColor: eastSky.material.color.getHex(),
+      southOpacity: southSky.material.opacity,
+      eastOpacity: eastSky.material.opacity,
+      phase: southSky.material.userData.citySkyPhase,
+    };
+    home.setCityTime(20 * 60 + 30);
+    const nightSky = {
+      southColor: southSky.material.color.getHex(),
+      eastColor: eastSky.material.color.getHex(),
+      southOpacity: southSky.material.opacity,
+      eastOpacity: eastSky.material.opacity,
+      phase: southSky.material.userData.citySkyPhase,
+    };
+    home.setCityTime(originalMinutes);
 
     const utilities = expectedUtilities.map((id) => {
       const target = home.utilityTargets[id];
@@ -211,10 +316,50 @@ try {
       windowPanes,
       skylineMasses,
       skylineWindows: skylineWindows.length,
+      skylineWindowsSouth: skylineWindowsSouth.length,
+      skylineWindowsEast: skylineWindowsEast.length,
+      skylineRoofFeatures: skylineRoofFeatures.length,
+      skylineDepthBands: [...skylineDepthBands],
+      skyMaterialShared: southSky.material === eastSky.material,
+      skyCornerOverlap: Math.min(
+        southSky.geometry.parameters.width / 2 - eastSky.position.x,
+        eastSky.geometry.parameters.width / 2 - southSky.position.z,
+      ),
+      morningSky,
+      nightSky,
       art,
       apartmentArt: apartmentArt.length,
       luxuryArt: luxuryArt.length,
       artTargetCount: Object.keys(home.artTargets).length,
+      displayArt,
+      propArt,
+      visibleArtSlots,
+      extraArtZones,
+      expectedPropPlaced,
+      poseExitClearances,
+      chandelier: {
+        pointLight: Boolean(home.lights.chandelierLight?.isPointLight),
+        intensity: home.lights.chandelierLight?.intensity ?? 0,
+      },
+      artLightIntensities: home.artLights.map(({ light }) => light.intensity),
+      sectional: {
+        returnYaw: returnGroup?.rotation.y ?? null,
+        primaryExists: Boolean(primaryCouch),
+        returnExists: Boolean(returnCouch),
+        returnWidth: returnCouch ? returnCouch.max.x - returnCouch.min.x - 0.04 : null,
+        returnDepth: returnCouch ? returnCouch.max.z - returnCouch.min.z - 0.04 : null,
+        joined: Boolean(primaryCouch?.intersectsBox(returnCouch)),
+      },
+      seating: {
+        arcade: home.gameStations.arcade?.seat?.name ?? null,
+        arcadeCollider: Boolean(colliderNamed('luxury-arcade-stool-collider')),
+        poker: home.gameStations.poker?.seats?.map(({ name }) => name) ?? [],
+        pokerColliders: home.gameStations.poker?.seats?.map(({ name }) => Boolean(colliderNamed(`${name}-collider`))) ?? [],
+      },
+      officeDivider: {
+        colliders: officeSlats.length,
+        circulationClearance: officeCirculationClearance,
+      },
       utilities,
       utilityKeys: Object.keys(home.utilityTargets),
       gameStations: Object.keys(home.gameStations),
@@ -227,7 +372,12 @@ try {
       darts: Boolean(runtime.darts && home.gameStations.darts),
       campaignAssigned: Boolean(runtime.campaign),
     };
-  }, { expectedUtilities: EXPECTED_UTILITIES, expectedApps: EXPECTED_PC_APPS });
+  }, {
+    expectedUtilities: EXPECTED_UTILITIES,
+    expectedApps: EXPECTED_PC_APPS,
+    expectedExtraArt: EXPECTED_EXTRA_ART,
+    expectedPropArt: EXPECTED_PROP_ART,
+  });
 
   check('the real luxury-apartment page reaches a clean WebGL-ready runtime',
     authored.ready && !authored.bootFailure && !authored.contextLost && authored.rootAttached,
@@ -279,29 +429,107 @@ try {
       windowArea: authored.metrics.panoramicWindowArea,
       mainFloorArea: authored.metrics.mainFloorArea,
     }));
-  check('the skyline is authored as buildings with illuminated facade detail',
+  check('the skyline is a setback, multi-depth two-facade city with roof detail',
     authored.metrics.cityBuildings >= 14
       && authored.skylineMasses.length >= authored.metrics.cityBuildings
-      && authored.skylineWindows >= authored.metrics.cityBuildings * 10,
+      && authored.skylineWindows >= authored.metrics.cityBuildings * 10
+      && authored.skylineWindows === authored.metrics.cityWindows
+      && authored.skylineWindowsSouth === authored.metrics.cityWindowsSouth
+      && authored.skylineWindowsEast === authored.metrics.cityWindowsEast
+      && authored.skylineWindowsSouth >= 100
+      && authored.skylineWindowsEast >= 100
+      && authored.skylineDepthBands.length >= 3
+      && authored.metrics.cityMinimumSetback >= 12
+      && authored.skylineRoofFeatures >= authored.metrics.cityBuildings,
     JSON.stringify({
       buildings: authored.metrics.cityBuildings,
       masses: authored.skylineMasses.length,
       litWindows: authored.skylineWindows,
+      southWindows: authored.skylineWindowsSouth,
+      eastWindows: authored.skylineWindowsEast,
+      depthBands: authored.skylineDepthBands,
+      setback: authored.metrics.cityMinimumSetback,
+      roofs: authored.skylineRoofFeatures,
     }));
-  check('all 61 inherited apartment art slots and all 14 additions resolve real files',
+  check('both panorama skies respond together to morning and authored 8:30 PM grading',
+    authored.skyMaterialShared
+      && authored.skyCornerOverlap >= 5
+      && authored.morningSky.southColor === authored.morningSky.eastColor
+      && authored.nightSky.southColor === authored.nightSky.eastColor
+      && authored.morningSky.southOpacity === authored.morningSky.eastOpacity
+      && authored.nightSky.southOpacity === authored.nightSky.eastOpacity
+      && authored.morningSky.southOpacity > authored.nightSky.southOpacity
+      && authored.morningSky.phase === 'day'
+      && authored.nightSky.phase === 'night',
+    JSON.stringify({
+      cornerOverlap: authored.skyCornerOverlap,
+      morning: authored.morningSky,
+      night: authored.nightSky,
+    }));
+  check('all 61 inherited apartment art assets and all 14 additions resolve real files',
     authored.metrics.originalArtSlots === 61
       && authored.metrics.extraArtSlots === 14
       && authored.apartmentArt === 61
       && authored.luxuryArt === 14
       && authored.art.length === 75
-      && authored.artTargetCount === 75
-      && authored.art.every(({ real, file, width, height }) => real && file && width > 0 && height > 0),
+      && authored.art.every(({ real, file, width, height, zone, kind }) => (
+        real && file && width > 0 && height > 0 && zone && kind
+      )),
     JSON.stringify({
       original: authored.apartmentArt,
       extra: authored.luxuryArt,
-      targets: authored.artTargetCount,
       unresolved: authored.art.filter(({ real }) => !real).map(({ slot }) => slot),
     }));
+  check('art taxonomy proves 55 hung, 6 standing/under-bed, and 14 prop-only placements',
+    authored.metrics.hungArtSlots === 55
+      && authored.metrics.standingArtSlots === 6
+      && authored.metrics.displayArtSlots === 61
+      && authored.metrics.propTextureSlots === 14
+      && authored.artTargetCount === 61
+      && authored.displayArt.length === 61
+      && authored.propArt.length === 14
+      && authored.propArt.every(({ textureAttached }) => textureAttached)
+      && authored.visibleArtSlots.length === 75
+      && authored.expectedPropPlaced.every(Boolean)
+      && authored.extraArtZones.length === 14
+      && authored.extraArtZones.every(Boolean),
+    JSON.stringify({
+      hung: authored.metrics.hungArtSlots,
+      standing: authored.metrics.standingArtSlots,
+      displays: authored.displayArt.length,
+      propOnly: authored.propArt.length,
+      missingPropTextures: authored.propArt.filter(({ textureAttached }) => !textureAttached).map(({ slot }) => slot),
+      visible: authored.visibleArtSlots.length,
+      extraZones: authored.extraArtZones,
+    }));
+  check('every station pose exit has at least 0.30m clear of collision',
+    authored.poseExitClearances.length === 12
+      && authored.poseExitClearances.every(({ clearance }) => clearance >= 0.30 - 1e-6),
+    JSON.stringify(authored.poseExitClearances));
+  check('the 8:30 PM interior has a live chandelier and controlled museum hero-art washes',
+    authored.chandelier.pointLight
+      && authored.chandelier.intensity >= 100
+      && authored.artLightIntensities.length === 2
+      && authored.artLightIntensities.every((intensity) => intensity >= 35 && intensity <= 45),
+    JSON.stringify({ chandelier: authored.chandelier, art: authored.artLightIntensities }));
+  check('the lounge return is a joined 90-degree sectional with rotated collision',
+    authored.sectional.primaryExists
+      && authored.sectional.returnExists
+      && Math.abs(authored.sectional.returnYaw - Math.PI / 2) < 1e-9
+      && Math.abs(authored.sectional.returnWidth - 2.18) < 1e-9
+      && Math.abs(authored.sectional.returnDepth - 0.94) < 1e-9
+      && authored.sectional.joined,
+    JSON.stringify(authored.sectional));
+  check('arcade and poker seating are aligned physical fixtures with collision',
+    authored.seating.arcade === 'luxury-arcade-stool'
+      && authored.seating.arcadeCollider
+      && authored.seating.poker.length === 4
+      && authored.seating.pokerColliders.every(Boolean),
+    JSON.stringify(authored.seating));
+  check('the office slat divider collides without closing its circulation end',
+    authored.officeDivider.colliders === 7
+      && authored.officeDivider.circulationClearance >= 0.30,
+    JSON.stringify(authored.officeDivider));
   check('the complete domestic utility set is present and interactive',
     authored.utilities.length === EXPECTED_UTILITIES.length
       && authored.utilities.every(({ exists, interactive }) => exists && interactive),

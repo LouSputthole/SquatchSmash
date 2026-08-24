@@ -23,6 +23,7 @@ import {
   PROPERTY,
   CABIN,
   LANDMARKS,
+  LANDMARK_VIEWPOINTS,
   TRAIL_LOOP,
   OVERLOOK_TRAIL,
   CREEK_PATH,
@@ -299,18 +300,83 @@ export async function buildCountrysideCabin(ctx) {
     },
   };
 
+  const viewpoints = Object.fromEntries(Object.entries(LANDMARK_VIEWPOINTS).map(([id, authored]) => {
+    const position = new THREE.Vector3(
+      authored.x,
+      groundAt(authored.x, authored.z) + 1.68,
+      authored.z,
+    );
+    const lookAt = new THREE.Vector3(
+      authored.lookX,
+      groundAt(authored.lookX, authored.lookZ) + 0.85,
+      authored.lookZ,
+    );
+    return [id, Object.freeze({
+      id,
+      position,
+      lookAt,
+      yaw: yawToward(position, lookAt),
+      pitch: authored.pitch,
+    })];
+  }));
+  root.updateMatrixWorld(true);
+  const interactionViewpoints = Object.fromEntries(Object.entries(viewpoints).map(([id, viewpoint]) => {
+    const target = interactionTargets[id];
+    if (!target?.geometry) return [id, viewpoint];
+    target.geometry.computeBoundingBox();
+    target.updateWorldMatrix(true, false);
+    const bounds = target.geometry.boundingBox.clone().applyMatrix4(target.matrixWorld);
+    const centre = bounds.getCenter(new THREE.Vector3());
+    const size = bounds.getSize(new THREE.Vector3());
+    const approach = viewpoint.position.clone().sub(centre).setY(0);
+    if (approach.lengthSq() < 1e-6) approach.set(0, 0, 1);
+    approach.normalize();
+    const edgeDistance = Math.min(
+      Math.abs(approach.x) > 1e-6 ? size.x / 2 / Math.abs(approach.x) : Infinity,
+      Math.abs(approach.z) > 1e-6 ? size.z / 2 / Math.abs(approach.z) : Infinity,
+    );
+    const standDistance = edgeDistance + 1.20;
+    const position = new THREE.Vector3(
+      centre.x + approach.x * standDistance,
+      0,
+      centre.z + approach.z * standDistance,
+    );
+    position.y = groundAt(position.x, position.z) + 1.68;
+    // Aim just inside the nearest target face. Aiming at its centre can miss a
+    // broad, low proxy because the 2.7m ray expires before descending enough;
+    // starting inside a proxy is equally unreliable because only the far exit
+    // face raycasts. This stance remains outside with a generous 1.2m gap.
+    const lookAt = bounds.clampPoint(position, new THREE.Vector3()).lerp(centre, 0.08);
+    const horizontal = Math.hypot(lookAt.x - position.x, lookAt.z - position.z);
+    return [id, Object.freeze({
+      id,
+      position,
+      lookAt,
+      yaw: yawToward(position, lookAt),
+      pitch: Math.atan2(lookAt.y - position.y, Math.max(0.001, horizontal)),
+    })];
+  }));
+
   const landscape = Object.freeze({
     bounds: PROPERTY,
     trail: Object.freeze({ loop: TRAIL_LOOP, overlook: OVERLOOK_TRAIL }),
     creek: CREEK_PATH,
     bridgeY: exterior.bridgeY,
     counts: Object.freeze({ ...exterior.counts }),
+    footings: Object.freeze(exterior.footings.map((entry) => Object.freeze({ ...entry }))),
     lod: Object.freeze({ near: 66, undergrowth: 52, far: 158, chunk: 32 }),
   });
 
   const landmarkMetadata = Object.fromEntries(Object.entries(LANDMARKS).map(([id, landmark]) => {
     const point = new THREE.Vector3(landmark.x, groundAt(landmark.x, landmark.z), landmark.z);
-    return [id, { ...landmark, id, point, position: point }];
+    return [id, {
+      ...landmark,
+      id,
+      point,
+      position: point,
+      viewpoint: viewpoints[id] ?? null,
+      interactionViewpoint: interactionViewpoints[id] ?? null,
+    }];
   }));
 
   return {
@@ -332,6 +398,9 @@ export async function buildCountrysideCabin(ctx) {
     landmarks: landmarkMetadata,
     interactionTargets,
     landmarkTargets: interactionTargets,
+    viewpoints,
+    observationViewpoints: viewpoints,
+    interactionViewpoints,
     utilityTargets,
     carTarget: interactionTargets.car,
     setFireLit: exterior.setFireLit,
@@ -600,6 +669,7 @@ function buildProperty({
   audio,
   disposables,
 }) {
+  const footings = [];
   const terrain = buildTerrain(disposables);
   root.add(terrain);
 
@@ -615,9 +685,11 @@ function buildProperty({
   const porch = buildPorch(root, M, colliders);
   const bridge = buildBridge(root, M, colliders);
   const shed = buildShed(root, M, colliders);
-  const firepit = buildFirepit(root, M);
+  const firepit = buildFirepit(root, M, colliders, footings);
   const woodpile = buildWoodpile(root, M);
   const car = buildParkedCar(root, M, colliders);
+  const overlook = buildOverlook(root, M, colliders, footings);
+  const wayfinding = buildTrailWayfinding(root, M, footings);
   const forest = buildForest(root, M, colliders, disposables);
   const groundScatter = buildGroundScatter(root, M, colliders, disposables, forest.trees);
   buildPropertyBoundary(root, M, colliders);
@@ -654,7 +726,7 @@ function buildProperty({
   registerLandmark('bridge', bridge.target, 'The old <b>footbridge</b>', () => {
     hud.say?.('Hand-cut cedar, silvered by rain. It holds.', 3000);
   });
-  registerLandmark('overlook', makeLandmarkProxy(root, 'overlook', LANDMARKS.overlook, 3.2, 2.0), 'Look out from the <b>ridge</b>');
+  registerLandmark('overlook', overlook.target, 'Look out from the <b>ridge</b>');
   registerLandmark('shed', shed.target, 'Check the <b>forestry shed</b>');
   registerLandmark('firepit', firepit.target, 'Sit by the <b>firepit</b>', () => {
     hud.say?.('Dry cedar, old smoke, and nobody close enough to ask questions.', 3800);
@@ -674,13 +746,20 @@ function buildProperty({
       undergrowth: forest.counts.undergrowth,
       rocks: groundScatter.rocks,
       deadfall: groundScatter.logs,
+      trailBlazes: wayfinding.blazes,
+      duskBeacons: wayfinding.beacons,
+      firepitSeats: firepit.seatCount,
+      overlookSeats: overlook.seatCount,
+      exteriorFootings: footings.length,
       trailMetres: Math.round(polylineLength(TRAIL_LOOP) + polylineLength(OVERLOOK_TRAIL)),
       creekMetres: Math.round(polylineLength(CREEK_PATH)),
     },
+    footings,
     setFireLit: firepit.setLit,
     update(dt, elapsed, playerPosition) {
       creek.update(elapsed);
       firepit.update(elapsed);
+      wayfinding.update(elapsed);
       forest.update(dt, playerPosition);
     },
   };
@@ -961,7 +1040,7 @@ function buildShed(root, M, colliders) {
   return { group: g, target, y };
 }
 
-function buildFirepit(root, M) {
+function buildFirepit(root, M, colliders, footings) {
   const p = LANDMARKS.firepit;
   const y = heightAt(p.x, p.z);
   const g = group('cabin-firepit');
@@ -981,16 +1060,49 @@ function buildFirepit(root, M) {
   for (const a of [-0.58, 0.58]) {
     g.add(cylinder({ r: 0.14, h: 1.65, pos: [p.x, y + 0.19, p.z], rotZ: Math.PI / 2, rotY: a, mat: M.cabinLogDark }));
   }
-  const flameMat = new THREE.MeshBasicMaterial({ color: 0xff7a2d, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false });
-  const flames = [];
-  for (const rotY of [0, Math.PI / 2]) {
-    const flame = plane(0.72, 1.12, flameMat);
-    flame.position.set(p.x, y + 0.70, p.z);
-    flame.rotation.y = rotY;
-    g.add(flame);
-    flames.push(flame);
+  const seatAngles = [0.15, 2.25, 4.35];
+  for (let i = 0; i < seatAngles.length; i++) {
+    const angle = seatAngles[i];
+    const x = p.x + Math.cos(angle) * 3.15;
+    const z = p.z + Math.sin(angle) * 3.15;
+    const seatY = heightAt(x, z);
+    const bench = group(`cabin-firepit-bench-${i}`);
+    bench.position.set(x, seatY, z);
+    bench.rotation.y = Math.PI / 2 - angle;
+    ownGeometry(bench, `cabin-firepit-seat:${i}`, { checkSupport: false });
+    bench.add(box({ size: [1.90, 0.16, 0.48], pos: [0, 0.52, 0], mat: M.cabinLog }));
+    bench.add(box({ size: [1.90, 0.15, 0.20], pos: [0, 0.91, 0.30], mat: M.cabinLogDark }));
+    for (const lx of [-0.64, 0.64]) {
+      bench.add(box({ size: [0.18, 0.52, 0.24], pos: [lx, 0.26, 0], mat: M.cabinLogDark }));
+      bench.add(box({ size: [0.14, 0.48, 0.14], pos: [lx, 0.72, 0.30], mat: M.cabinLogDark }));
+    }
+    g.add(bench);
+    addBounds(colliders, [[x - 1.02, seatY, z - 1.02], [x + 1.02, seatY + 1.02, z + 1.02]], `cabin-firepit-bench-${i}`);
+    noteFooting(footings, `firepit-bench-${i}`, x, z, seatY, 'firepit-seat');
   }
-  const glow = new THREE.PointLight(0xff6a28, 1.45, 12, 2);
+  // Layered low-poly tongues read as a fire from every approach. Flat crossed
+  // cards showed their rectangular silhouette whenever the player faced one
+  // head-on, which made the otherwise grounded fire ring look unfinished.
+  const flameOuter = new THREE.MeshBasicMaterial({ color: 0xff6424, transparent: true, opacity: 0.82, depthWrite: false });
+  const flameInner = new THREE.MeshBasicMaterial({ color: 0xffc04a, transparent: true, opacity: 0.92, depthWrite: false });
+  const flamePlans = [
+    { x: 0, z: 0, radius: 0.36, height: 1.08, material: flameOuter, tilt: 0 },
+    { x: -0.22, z: 0.08, radius: 0.20, height: 0.72, material: flameOuter, tilt: -0.24 },
+    { x: 0.23, z: -0.06, radius: 0.18, height: 0.66, material: flameOuter, tilt: 0.27 },
+    { x: 0.02, z: 0.02, radius: 0.19, height: 0.74, material: flameInner, tilt: 0.04 },
+  ];
+  const flames = flamePlans.map((plan, index) => {
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(plan.radius, plan.height, 7), plan.material);
+    flame.name = `cabin-fire-tongue-${index}`;
+    flame.position.set(p.x + plan.x, y + 0.18 + plan.height / 2, p.z + plan.z);
+    flame.rotation.z = plan.tilt;
+    flame.userData.baseY = flame.position.y;
+    flame.userData.height = plan.height;
+    flame.renderOrder = 2;
+    g.add(flame);
+    return flame;
+  });
+  const glow = new THREE.PointLight(0xff6a28, 3.2, 14, 1.7);
   glow.position.set(p.x, y + 1.0, p.z);
   g.add(glow);
   const target = targetBox('cabin-firepit-target', [2.7, 1.5, 2.7], [p.x, y + 0.75, p.z]);
@@ -1000,20 +1112,26 @@ function buildFirepit(root, M) {
   const setLit = (on) => {
     lit = Boolean(on);
     for (const flame of flames) flame.visible = lit;
-    glow.intensity = lit ? 1.45 : 0;
+    glow.intensity = lit ? 3.2 : 0;
     return lit;
   };
   setLit(false);
   return {
     group: g,
     target,
+    seatCount: seatAngles.length,
     get lit() { return lit; },
     setLit,
     update(elapsed) {
       if (!lit) return;
       const flicker = 0.90 + Math.sin(elapsed * 12.3) * 0.08 + Math.sin(elapsed * 19.7) * 0.04;
-      glow.intensity = 1.45 * flicker;
-      for (let i = 0; i < flames.length; i++) flames[i].scale.y = flicker + i * 0.025;
+      glow.intensity = 3.2 * flicker;
+      for (let i = 0; i < flames.length; i++) {
+        const scaleY = flicker + Math.sin(elapsed * (8.7 + i) + i * 1.8) * 0.055;
+        flames[i].scale.set(1 / Math.sqrt(scaleY), scaleY, 1 / Math.sqrt(scaleY));
+        flames[i].position.y = flames[i].userData.baseY
+          + (scaleY - 1) * flames[i].userData.height / 2;
+      }
     },
   };
 }
@@ -1086,6 +1204,149 @@ function polylineLength(path) {
   let total = 0;
   for (let i = 0; i < path.length - 1; i++) total += Math.hypot(path[i + 1].x - path[i].x, path[i + 1].z - path[i].z);
   return total;
+}
+
+function noteFooting(footings, id, x, z, bottom, kind) {
+  footings.push({
+    id,
+    kind,
+    x,
+    z,
+    bottom,
+    ground: heightAt(x, z),
+  });
+}
+
+function buildTrailWayfinding(root, M, footings) {
+  const g = group('cabin-trail-wayfinding');
+  root.add(g);
+  const postMaterial = M.cabinLogDark;
+  const blazeMaterial = M.ledAmber;
+  const seen = new Set();
+  let blazes = 0;
+
+  for (const path of [TRAIL_LOOP, OVERLOOK_TRAIL]) {
+    const points = samplePolyline(path, 14.5);
+    for (let i = 1; i < points.length - 1; i++) {
+      const point = points[i];
+      const key = `${Math.round(point.x)}:${Math.round(point.z)}`;
+      if (seen.has(key) || creekFrame(point.x, point.z).distance < 6.2) continue;
+      seen.add(key);
+      const prev = points[i - 1];
+      const next = points[i + 1];
+      const dx = next.x - prev.x;
+      const dz = next.z - prev.z;
+      const length = Math.hypot(dx, dz) || 1;
+      const side = i % 2 ? -1 : 1;
+      const x = point.x + (-dz / length) * 1.62 * side;
+      const z = point.z + (dx / length) * 1.62 * side;
+      const y = heightAt(x, z);
+      const marker = group(`cabin-trail-blaze-${blazes}`);
+      ownGeometry(marker, `cabin-wayfinding:blaze:${blazes}`, { checkSupport: false });
+      marker.add(box({ size: [0.11, 1.28, 0.11], pos: [x, y + 0.64, z], mat: postMaterial }));
+      marker.add(box({ size: [0.19, 0.20, 0.19], pos: [x, y + 1.10, z], mat: blazeMaterial }));
+      marker.add(box({ size: [0.15, 0.05, 0.15], pos: [x, y + 1.305, z], mat: M.roof }));
+      g.add(marker);
+      noteFooting(footings, `trail-blaze-${blazes}`, x, z, y, 'trail-blaze');
+      blazes++;
+    }
+  }
+
+  const beaconPlans = [
+    { id: 'trailhead', x: 7.45, z: 11.75 },
+    { id: 'creek', x: 6.05, z: -31.45 },
+    { id: 'shed', x: -24.45, z: 21.65 },
+    { id: 'firepit', x: -18.25, z: 16.75 },
+    { id: 'overlook', x: 67.1, z: -64.8 },
+  ];
+  const lights = [];
+  for (const plan of beaconPlans) {
+    const y = heightAt(plan.x, plan.z);
+    const beacon = group(`cabin-dusk-beacon-${plan.id}`);
+    ownGeometry(beacon, `cabin-wayfinding:beacon:${plan.id}`, { checkSupport: false });
+    beacon.add(box({ size: [0.13, 1.55, 0.13], pos: [plan.x, y + 0.775, plan.z], mat: postMaterial }));
+    beacon.add(box({ size: [0.34, 0.38, 0.30], pos: [plan.x, y + 1.55, plan.z], mat: M.ledAmber }));
+    beacon.add(box({ size: [0.42, 0.07, 0.38], pos: [plan.x, y + 1.78, plan.z], mat: M.roof }));
+    const light = new THREE.PointLight(0xffa13c, 0.72, 9.5, 1.8);
+    light.position.set(plan.x, y + 1.58, plan.z);
+    beacon.add(light);
+    lights.push(light);
+    g.add(beacon);
+    noteFooting(footings, `dusk-beacon-${plan.id}`, plan.x, plan.z, y, 'dusk-beacon');
+  }
+
+  return {
+    blazes,
+    beacons: beaconPlans.length,
+    update(elapsed) {
+      for (let i = 0; i < lights.length; i++) {
+        lights[i].intensity = 0.68 + Math.sin(elapsed * 1.7 + i * 1.3) * 0.04;
+      }
+    },
+  };
+}
+
+function buildOverlook(root, M, colliders, footings) {
+  const p = LANDMARKS.overlook;
+  const y = heightAt(p.x, p.z);
+  const g = group('cabin-ridge-overlook');
+  ownGeometry(g, 'cabin-overlook-focal', { checkSupport: false });
+
+  const yaw = yawToward(
+    new THREE.Vector3(p.x, y, p.z),
+    new THREE.Vector3(LANDMARKS.cabin.x, y, LANDMARKS.cabin.z),
+  );
+  const bench = group('cabin-overlook-bench');
+  bench.position.set(p.x, y, p.z);
+  bench.rotation.y = yaw;
+  bench.add(box({ size: [2.15, 0.16, 0.55], pos: [0, 0.56, 0], mat: M.cabinLog }));
+  bench.add(box({ size: [2.15, 0.16, 0.22], pos: [0, 1.02, 0.31], mat: M.cabinLog }));
+  for (const x of [-0.78, 0.78]) {
+    bench.add(box({ size: [0.18, 0.56, 0.28], pos: [x, 0.28, 0.02], mat: M.cabinLogDark }));
+    bench.add(box({ size: [0.16, 0.58, 0.16], pos: [x, 0.79, 0.31], mat: M.cabinLogDark }));
+  }
+  g.add(bench);
+
+  // A small USGS-style cairn makes the destination read before the player
+  // reaches the bench without blocking the opened view corridor.
+  for (let i = 0; i < 4; i++) {
+    const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.34 - i * 0.045, 0), M.stone);
+    stone.position.set(p.x + 2.45, y + 0.16 + i * 0.28, p.z + 0.85);
+    stone.scale.y = 0.56;
+    stone.rotation.set(0.18 * i, 0.73 * i, -0.09 * i);
+    stone.castShadow = true;
+    g.add(stone);
+  }
+  root.add(g);
+  addBounds(colliders, [[p.x - 1.25, y, p.z - 1.05], [p.x + 1.25, y + 1.15, p.z + 1.05]], 'cabin-overlook-bench');
+  noteFooting(footings, 'overlook-bench', p.x, p.z, y, 'overlook-seat');
+  noteFooting(footings, 'overlook-cairn', p.x + 2.45, p.z + 0.85, y, 'overlook-focal');
+  const target = makeLandmarkProxy(root, 'overlook', p, 3.2, 2.0);
+  return { group: g, target, seatCount: 1 };
+}
+
+function makeUndergrowthGeometry() {
+  const positions = [];
+  for (let i = 0; i < 7; i++) {
+    const angle = i / 7 * Math.PI * 2;
+    const dx = Math.cos(angle);
+    const dz = Math.sin(angle);
+    const sx = -dz;
+    const sz = dx;
+    const reach = i % 2 ? 0.62 : 0.76;
+    const tipY = i % 3 === 0 ? 0.48 : 0.34;
+    const base = [sx * -0.045, 0.015, sz * -0.045];
+    const left = [dx * reach * 0.48 + sx * 0.14, 0.16, dz * reach * 0.48 + sz * 0.14];
+    const tip = [dx * reach, tipY, dz * reach];
+    const right = [dx * reach * 0.48 - sx * 0.14, 0.16, dz * reach * 0.48 - sz * 0.14];
+    positions.push(...base, ...left, ...tip, ...base, ...tip, ...right);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return geometry;
 }
 
 function buildForest(root, M, colliders, disposables) {
@@ -1162,7 +1423,7 @@ function buildForest(root, M, colliders, disposables) {
   const trunkGeometry = new THREE.CylinderGeometry(1, 1, 1, 7);
   const crownGeometry = new THREE.ConeGeometry(1, 1, 8);
   const farCrownGeometry = new THREE.ConeGeometry(1, 1, 6);
-  const brushGeometry = new THREE.PlaneGeometry(1, 1);
+  const brushGeometry = makeUndergrowthGeometry();
   const trunkMaterial = mat({ color: 0x3b281a, roughness: 1 });
   const crownMaterial = mat({ color: 0x183321, roughness: 1, side: THREE.DoubleSide });
   const farCrownMaterial = mat({ color: 0x142a1c, roughness: 1 });
@@ -1170,7 +1431,6 @@ function buildForest(root, M, colliders, disposables) {
     color: 0x31502d,
     roughness: 1,
     side: THREE.DoubleSide,
-    alphaTest: 0.05,
   });
   disposables.push(trunkGeometry, crownGeometry, farCrownGeometry, brushGeometry, brushMaterial);
 
@@ -1239,35 +1499,29 @@ function buildForest(root, M, colliders, disposables) {
     }
 
     if (chunk.brush.length) {
-      const brushA = new THREE.InstancedMesh(brushGeometry, brushMaterial, chunk.brush.length);
-      const brushB = new THREE.InstancedMesh(brushGeometry, brushMaterial, chunk.brush.length);
-      brushA.name = 'cabin-fern-undergrowth-a';
-      brushB.name = 'cabin-fern-undergrowth-b';
-      // The crossed planes intentionally occupy the same plant and are
-      // planted directly from the deterministic heightfield.
-      proceduralSurface(brushA);
-      proceduralSurface(brushB);
+      const brush = new THREE.InstancedMesh(brushGeometry, brushMaterial, chunk.brush.length);
+      brush.name = 'cabin-fern-undergrowth';
+      // Each plant is one tapered low-poly frond cluster, not two rectangular
+      // cards. Its origin is the exact deterministic heightfield footing.
+      proceduralSurface(brush);
       for (let i = 0; i < chunk.brush.length; i++) {
         const plant = chunk.brush[i];
-        for (const [mesh, extraYaw] of [[brushA, 0], [brushB, Math.PI / 2]]) {
-          dummy.position.set(plant.x, plant.y + plant.scale * 0.48, plant.z);
-          dummy.rotation.set(0, plant.yaw + extraYaw, 0);
-          dummy.scale.set(plant.scale, plant.scale, plant.scale);
-          dummy.updateMatrix();
-          mesh.setMatrixAt(i, dummy.matrix);
-        }
+        dummy.position.set(plant.x, plant.y, plant.z);
+        dummy.rotation.set(0, plant.yaw, 0);
+        dummy.scale.set(plant.scale, plant.scale, plant.scale);
+        dummy.updateMatrix();
+        brush.setMatrixAt(i, dummy.matrix);
       }
-      brushA.instanceMatrix.needsUpdate = true;
-      brushB.instanceMatrix.needsUpdate = true;
-      brushA.castShadow = false;
-      brushB.castShadow = false;
-      brushGroup.add(brushA, brushB);
+      brush.instanceMatrix.needsUpdate = true;
+      brush.castShadow = false;
+      brush.receiveShadow = true;
+      brushGroup.add(brush);
       undergrowth += chunk.brush.length;
     }
 
     const d0 = Math.hypot(chunk.x, chunk.z);
-    near.visible = d0 < 70;
-    far.visible = !near.visible;
+    near.visible = d0 < 66;
+    far.visible = d0 >= 66;
     brushGroup.visible = d0 < 54;
     root.add(chunkGroup);
     built.push({ root: chunkGroup, near, far, brush: brushGroup, x: chunk.x, z: chunk.z });
@@ -1293,7 +1547,7 @@ function buildForest(root, M, colliders, disposables) {
         const d = Math.hypot(px - chunk.x, pz - chunk.z);
         chunk.root.visible = d < 158;
         chunk.near.visible = d < 66;
-        chunk.far.visible = d >= 58;
+        chunk.far.visible = d >= 66;
         chunk.brush.visible = d < 52;
       }
     },
@@ -1310,7 +1564,7 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
       const x = gx + (hashAt(gx, gz, 151) - 0.5) * 7.0;
       const z = gz + (hashAt(gx, gz, 152) - 0.5) * 7.0;
       if (insideRect(x, z, CABIN.pad, 4) || trailFrame(x, z).distance < 2.5) continue;
-      if (hashAt(x, z, 153) > 0.34) continue;
+      if (hashAt(x, z, 153) > 0.36) continue;
       const radius = 0.30 + hashAt(x, z, 154) * 0.80;
       if (hitsTree(x, z, radius * 1.02)) continue;
       rockPlans.push({ x, z, y: heightAt(x, z), radius, yaw: hashAt(x, z, 155) * Math.PI * 2 });
@@ -1552,6 +1806,27 @@ function buildDomesticHub({
   ownGeometry(wallClock.group, 'cabin-fixture:wall-clock', { checkSupport: false });
   interior.add(wallClock.group);
 
+  // A modest breakfast/game table gives the broad one-room cabin a centre
+  // without blocking the front-door, kitchen, bathroom or sleeping aisles.
+  const centralCluster = group('cabin-central-table-cluster');
+  ownGeometry(centralCluster, 'cabin-prop:central-table-cluster');
+  const rugMaterial = mat({ color: 0x6f3f2d, roughness: 1 });
+  const rug = new THREE.Mesh(new THREE.CylinderGeometry(1.78, 1.78, 0.022, 32), rugMaterial);
+  rug.name = 'cabin-central-braided-rug';
+  rug.position.set(0.72, 0.016, 0.62);
+  rug.scale.z = 0.68;
+  rug.receiveShadow = true;
+  centralCluster.add(rug);
+  centralCluster.add(cylinder({ r: 0.72, h: 0.10, pos: [0.72, 0.76, 0.62], mat: M.darkWood }));
+  centralCluster.add(cylinder({ r: 0.14, h: 0.70, pos: [0.72, 0.36, 0.62], mat: M.cabinLogDark }));
+  centralCluster.add(cylinder({ r: 0.43, h: 0.07, pos: [0.72, 0.045, 0.62], mat: M.cabinLogDark }));
+  centralCluster.add(cylinder({ r: 0.055, h: 0.12, pos: [0.48, 0.87, 0.52], mat: M.paper }));
+  centralCluster.add(box({ size: [0.34, 0.055, 0.24], pos: [0.92, 0.84, 0.72], mat: M.paper, rotY: -0.24 }));
+  interior.add(centralCluster);
+  addBounds(colliders, [[0.0, 0, -0.10], [1.44, 0.84, 1.34]], 'cabin-central-table');
+  addProp(P.makeChair(M, { x: -0.38, z: 0.62, rotY: -Math.PI / 2 }), 'cabin-central-chair-west');
+  addProp(P.makeChair(M, { x: 1.82, z: 0.62, rotY: Math.PI / 2 }), 'cabin-central-chair-east');
+
   const kitchen = addProp(P.makeKitchen(M, { x: 5.8, wallX: 5.8, z0: -1.78, z1: 1.62 }), 'cabin-kitchen');
   const fridge = addProp(P.makeFridge(M, { x: 5.42, z: 2.62 }), 'cabin-fridge');
   const fridgePos = new THREE.Vector3(5.38, 1.0, 2.62);
@@ -1679,13 +1954,14 @@ function buildDomesticHub({
   /* ---------------------------------------------------------------- */
 
   const ceilingFixtures = [
-    P.makeCeilingLight(M, { x: -2.0, z: 0.5, y: 2.78 }),
-    P.makeCeilingLight(M, { x: 2.7, z: -1.7, y: 2.78 }),
+    P.makeCeilingLight(M, { x: -2.7, z: 0.8, y: 2.78 }),
+    P.makeCeilingLight(M, { x: 0.5, z: -1.6, y: 2.78 }),
+    P.makeCeilingLight(M, { x: 3.55, z: 1.15, y: 2.78 }),
   ];
   const ceilingLights = ceilingFixtures.map((fixture) => {
     ownGeometry(fixture.group, `cabin-fixture:ceiling-light:${fixture.pos.x}`, { checkSupport: false });
     interior.add(fixture.group);
-    const light = new THREE.PointLight(0xffd6a0, 0, 7.5, 1.9);
+    const light = new THREE.PointLight(0xffd6a0, 0, 8.8, 1.75);
     light.position.copy(fixture.pos);
     interior.add(light);
     return { fixture, light };
@@ -1698,6 +1974,9 @@ function buildDomesticHub({
   const bathLight = new THREE.PointLight(0xdfefff, 0, 5.2, 1.8);
   bathLight.position.set(-1.5, 2.55, -6.7);
   bathroom.add(bathLight);
+  const interiorFill = new THREE.PointLight(0xffdfbd, 0, 12.5, 2);
+  interiorFill.position.set(0.35, 1.72, 0.15);
+  interior.add(interiorFill);
 
   const inventory = new Inventory(5);
   const state = {
@@ -1743,15 +2022,16 @@ function buildDomesticHub({
     state.lightsOn = Boolean(on);
     for (const { fixture, light } of ceilingLights) {
       fixture.bulb.material = state.lightsOn ? M.bulbOn : M.bulbOff;
-      light.intensity = state.lightsOn ? 1.05 : 0;
+      light.intensity = state.lightsOn ? 1.30 : 0;
     }
+    interiorFill.intensity = state.lightsOn ? 0.46 : 0;
     return state.lightsOn;
   };
   const setLamp = (on, { automatic = false } = {}) => {
     if (automatic && state.lampManual) return state.lampOn;
     state.lampOn = Boolean(on);
     lamp.bulb.material = state.lampOn ? M.bulbOn : M.bulbOff;
-    lampLight.intensity = state.lampOn ? 0.92 : 0;
+    lampLight.intensity = state.lampOn ? 1.08 : 0;
     return state.lampOn;
   };
   const setBathLight = (on) => {
@@ -2206,6 +2486,7 @@ function dressFridgeDoor(fridge, M, gear) {
 function hangCabinArt({ root, M, gear, interaction, ctx, sideboard, nightstand, desk }) {
   const frames = [];
   const anchors = [];
+  const heroSlots = new Set(['bed.poster', 'couch.left', 'south.wide', 'poster.pinup', 'feature.denver']);
   const westZ = [-4.42, -3.72, -3.02, -2.30, 1.66, 2.34, 3.04, 3.74, 4.42];
   const eastZ = [-4.36, -3.66, -2.96, -2.24, 2.15, 2.88, 3.60, 4.32];
   for (const y of [1.48, 2.14]) {
@@ -2235,7 +2516,7 @@ function hangCabinArt({ root, M, gear, interaction, ctx, sideboard, nightstand, 
     const at = anchors[i];
     if (!info || !at) return;
     const feature = slot.startsWith('feature.');
-    const h = feature ? 0.50 : 0.27 + (i % 3) * 0.025;
+    const h = feature ? 0.56 : heroSlots.has(slot) ? 0.38 : 0.25 + (i % 3) * 0.025;
     const w = h * THREE.MathUtils.clamp(info.aspect || 0.8, 0.55, feature ? 1.65 : 1.45);
     const frame = P.makeFrame(M, { ...at, w, h, texture: info.texture });
     root.add(frame.group);

@@ -35,21 +35,36 @@ export const LANDMARKS = Object.freeze({
   overlook: Object.freeze({ x: 64, z: -67, radius: 6.0, label: 'Ridge overlook' }),
 });
 
+/** Safe, authored approach poses used by debug travel and visual proof. */
+export const LANDMARK_VIEWPOINTS = Object.freeze({
+  creek: Object.freeze({ x: 4, z: -31.45, lookX: 4, lookZ: -37, pitch: -0.12 }),
+  overlook: Object.freeze({ x: 61.6, z: -64.0, lookX: 23, lookZ: -25, pitch: -0.035 }),
+  shed: Object.freeze({ x: -27, z: 22.35, lookX: -27, lookZ: 18, pitch: -0.045 }),
+  // Close enough for the real 2.7m interaction ray to reach the ring's
+  // authored target, while remaining behind the northwest bench collider.
+  firepit: Object.freeze({ x: -14, z: 17.45, lookX: -14, lookZ: 14, pitch: -0.12 }),
+});
+
 /** A closed walking loop. The repeated first point is intentional. */
 export const TRAIL_LOOP = Object.freeze([
   Object.freeze({ x: 5.5, z: 10.5 }),
   Object.freeze({ x: 16, z: 17 }),
-  Object.freeze({ x: 23, z: 30 }),
+  Object.freeze({ x: 29, z: 19 }),
+  Object.freeze({ x: 34, z: 30 }),
   Object.freeze({ x: 39, z: 34 }),
   Object.freeze({ x: 55, z: 22 }),
   Object.freeze({ x: 61, z: 4 }),
   Object.freeze({ x: 53, z: -14 }),
   Object.freeze({ x: 36, z: -22 }),
   Object.freeze({ x: 18, z: -18 }),
-  Object.freeze({ x: 8, z: -7 }),
-  Object.freeze({ x: -8, z: -6 }),
+  Object.freeze({ x: 9, z: -14 }),
+  Object.freeze({ x: 1, z: -12.5 }),
+  Object.freeze({ x: -9, z: -12 }),
+  Object.freeze({ x: -18, z: -6 }),
   Object.freeze({ x: -21, z: 1 }),
-  Object.freeze({ x: -31, z: 17 }),
+  Object.freeze({ x: -35, z: 8 }),
+  Object.freeze({ x: -35, z: 20 }),
+  Object.freeze({ x: -31, z: 24 }),
   Object.freeze({ x: -24, z: 29 }),
   Object.freeze({ x: -8, z: 28 }),
   Object.freeze({ x: 3, z: 20 }),
@@ -60,12 +75,14 @@ export const TRAIL_LOOP = Object.freeze([
 export const OVERLOOK_TRAIL = Object.freeze([
   Object.freeze({ x: 36, z: -22 }),
   Object.freeze({ x: 24, z: -28 }),
-  Object.freeze({ x: 13, z: -33 }),
+  Object.freeze({ x: 12, z: -30.5 }),
+  Object.freeze({ x: 4, z: -29.5 }),
   Object.freeze({ x: 4, z: -37 }),
-  Object.freeze({ x: 11, z: -45 }),
+  Object.freeze({ x: 4, z: -44.5 }),
+  Object.freeze({ x: 12, z: -46 }),
   Object.freeze({ x: 28, z: -53 }),
   Object.freeze({ x: 46, z: -62 }),
-  Object.freeze({ x: 64, z: -67 }),
+  Object.freeze({ x: LANDMARK_VIEWPOINTS.overlook.x, z: LANDMARK_VIEWPOINTS.overlook.z }),
 ]);
 
 /** West-to-east watercourse, sampled again at a finer interval by world.js. */
@@ -234,6 +251,25 @@ export function baseHeightAt(x, z) {
   return h;
 }
 
+/**
+ * Keep the ridge payoff legible from its authored approach. The corridor is
+ * deliberately narrow beside the overlook and opens toward the home valley.
+ */
+export function insideOverlookViewCorridor(x, z, pad = 0) {
+  const origin = LANDMARKS.overlook;
+  const vx = LANDMARKS.cabin.x - origin.x;
+  const vz = LANDMARKS.cabin.z - origin.z;
+  const length = Math.hypot(vx, vz);
+  const tx = vx / length;
+  const tz = vz / length;
+  const dx = x - origin.x;
+  const dz = z - origin.z;
+  const along = dx * tx + dz * tz;
+  if (along < 5 || along > 78) return false;
+  const across = Math.abs(dx * -tz + dz * tx);
+  return across < lerp(4.2, 10.5, along / 78) + pad;
+}
+
 /** The water drops gently eastward; all creek geometry reads this line. */
 export function creekWaterAt(x, z) {
   const f = creekFrame(x, z);
@@ -245,7 +281,7 @@ export function creekWaterAt(x, z) {
  * Feature order is deliberate: creek carves the country, trails grade over
  * that land, and the cabin pad is the one unequivocally level place.
  */
-export function heightAt(x, z) {
+function developedHeightAt(x, z) {
   let h = baseHeightAt(x, z);
 
   const creek = creekFrame(x, z);
@@ -257,19 +293,6 @@ export function heightAt(x, z) {
     h = lerp(h, bed, channelWeight);
   }
 
-  const trail = trailFrame(x, z);
-  if (trail.distance < 3.2) {
-    const centre = baseHeightAt(trail.x, trail.z);
-    const creekAtCentre = creekFrame(trail.x, trail.z);
-    let grade = centre;
-    if (creekAtCentre.distance < 9.5) {
-      const water = creekWaterAt(trail.x, trail.z);
-      const bed = water - 0.34;
-      grade = lerp(centre, bed, 1 - ramp(creekAtCentre.distance, 2.1, 9.5));
-    }
-    h = lerp(h, grade, 1 - ramp(trail.distance, 1.15, 3.2));
-  }
-
   // The gravel approach is flatter than the meadow but still drains away.
   const carD = Math.hypot((x - LANDMARKS.car.x) / 9.0, (z - LANDMARKS.car.z) / 7.0);
   if (carD < 1.35) h = lerp(h, 0.24, 1 - ramp(carD, 0.62, 1.35));
@@ -277,6 +300,13 @@ export function heightAt(x, z) {
   // A worked yard transitions gently into the native rolls.
   const yardD = Math.hypot(x / 18, (z - 2) / 16);
   if (yardD < 1.5) h = lerp(h, 0, 1 - ramp(yardD, 0.72, 1.5));
+
+  // The fire ring and its benches occupy a worked, level gravel clearing.
+  const fireD = Math.hypot(x - LANDMARKS.firepit.x, z - LANDMARKS.firepit.z);
+  if (fireD < 6.4) {
+    const clearing = baseHeightAt(LANDMARKS.firepit.x, LANDMARKS.firepit.z);
+    h = lerp(h, clearing, 1 - ramp(fireD, 3.5, 6.4));
+  }
 
   const padD = rectOutsideDistance(x, z, CABIN.pad);
   if (padD < 3.2) h = lerp(h, CABIN.floorY, 1 - ramp(padD, 0, 3.2));
@@ -286,6 +316,27 @@ export function heightAt(x, z) {
   if (overlookD < 8) {
     const shelf = baseHeightAt(LANDMARKS.overlook.x, LANDMARKS.overlook.z);
     h = lerp(h, shelf, 1 - ramp(overlookD, 3.8, 8));
+  }
+
+  return h;
+}
+
+export function heightAt(x, z) {
+  let h = developedHeightAt(x, z);
+
+  // Interpolate between authored route nodes before blending across the path.
+  // This removes small-noise/car-pad spikes without ironing out the property.
+  const trail = trailFrame(x, z);
+  if (trail.distance < 3.2) {
+    const path = trail.branch === 'loop' ? TRAIL_LOOP : OVERLOOK_TRAIL;
+    const a = path[trail.segment];
+    const b = path[Math.min(path.length - 1, trail.segment + 1)];
+    const grade = lerp(
+      developedHeightAt(a.x, a.z),
+      developedHeightAt(b.x, b.z),
+      trail.t,
+    );
+    h = lerp(h, grade, 1 - ramp(trail.distance, 1.15, 3.2));
   }
 
   return h;
@@ -352,6 +403,7 @@ export function canPlantTree(x, z, radius = 0) {
     Math.abs(x - bridge.x) < 3.4 + radius
     && Math.abs(z - bridge.z) < 9.0 + radius
   ) return false;
+  if (insideOverlookViewCorridor(x, z, radius)) return false;
   for (const key of ['firepit', 'woodpile', 'shed', 'car', 'overlook']) {
     const p = LANDMARKS[key];
     if (Math.hypot(x - p.x, z - p.z) < p.radius + 2 + radius) return false;

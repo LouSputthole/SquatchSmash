@@ -147,17 +147,18 @@ function syncTime() {
 }
 
 function applyTimeOfDay() {
+  const twilightLift = time.isDark ? 1.65 : time.hour >= 18 ? 1.32 : 1.08;
   sun.position.copy(time.sunPos).multiplyScalar(4.2);
   sun.color.copy(time.sunColour);
   sun.intensity = time.sunIntensity * 0.92;
   hemi.color.copy(time.hemiSky);
   hemi.groundColor.copy(time.hemiGround);
-  hemi.intensity = time.hemiIntensity * 1.05;
+  hemi.intensity = time.hemiIntensity * (time.isDark ? 1.32 : 1.08);
   ambient.color.copy(time.ambColour);
-  ambient.intensity = time.ambIntensity * 0.95;
+  ambient.intensity = time.ambIntensity * twilightLift;
   scene.background.copy(time.fogColour).lerp(new THREE.Color(0x31453b), 0.32);
   scene.fog.color.copy(scene.background);
-  renderer.toneMappingExposure = time.exposure * 1.08;
+  renderer.toneMappingExposure = time.exposure * (time.isDark ? 1.30 : time.hour >= 18 ? 1.20 : 1.14);
   const cabinLightsOn = time.isDark || time.hour >= 18;
   cabin?.setCeiling?.(cabinLightsOn, { automatic: true });
   cabin?.setLamp?.(cabinLightsOn, { automatic: true });
@@ -897,20 +898,42 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   campaign,
   story,
   cabin,
+  interaction,
   player,
+  time,
   state,
   visit: visitLandmark,
   rest: restAtCabin,
   leave: leaveCabin,
   get objectives() { return story.objectives(); },
-  teleport(id) {
+  teleport(id, mode = 'observe') {
+    const viewpoint = mode === 'interact'
+      ? cabin.interactionViewpoints?.[id]
+      : cabin.viewpoints?.[id] ?? cabin.observationViewpoints?.[id];
+    if (viewpoint?.position) {
+      player.position.copy(viewpoint.position);
+      player.ground = cabin.groundAt?.(viewpoint.position.x, viewpoint.position.z)
+        ?? viewpoint.position.y - 1.68;
+      player.jumpHeight = 0;
+      player.grounded = true;
+      player.velocity?.set?.(0, 0, 0);
+      player.yaw = viewpoint.yaw ?? player.yaw;
+      player.pitch = viewpoint.pitch ?? player.pitch;
+      return true;
+    }
     const target = cabin.landmarks?.find?.((entry) => entry.id === id)
       ?? cabin.landmarks?.[id]
       ?? cabin.spawns?.[id];
     const position = target?.position ?? target?.point;
     if (!position) return false;
     player.position.copy(position);
-    player.position.y = (cabin.groundAt?.(position.x, position.z) ?? position.y ?? 0) + 1.66;
+    player.ground = cabin.groundAt?.(position.x, position.z) ?? position.y ?? 0;
+    player.position.y = player.ground + 1.68;
+    player.jumpHeight = 0;
+    player.grounded = true;
+    player.velocity?.set?.(0, 0, 0);
+    player.yaw = target?.yaw ?? player.yaw;
+    player.pitch = target?.pitch ?? player.pitch;
     return true;
   },
 };

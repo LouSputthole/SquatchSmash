@@ -3,6 +3,13 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { ensureDomShim, ensureThreeShim } from '../tools/three-shim.mjs';
+import {
+  LANDMARKS,
+  OVERLOOK_TRAIL,
+  TRAIL_LOOP,
+  insideProperty,
+  samplePolyline,
+} from '../src/cabin/field.js';
 
 ensureDomShim();
 ensureThreeShim();
@@ -93,6 +100,11 @@ test('the runtime cabin property keeps a dense explorable landscape and complete
   assert.ok(landscape.undergrowth >= 1500, 'the forest floor must remain dressed');
   assert.ok(landscape.rocks >= 100, 'the property needs terrain detail beyond trees');
   assert.ok(landscape.deadfall >= 25, 'the woods need fallen timber and deadfall');
+  assert.ok(landscape.trailBlazes >= 30, 'the full trail needs frequent visible blazes');
+  assert.ok(landscape.duskBeacons >= 5, 'major approaches need dusk-visible beacons');
+  assert.equal(landscape.firepitSeats, 3, 'the fire ring label needs real seating');
+  assert.equal(landscape.overlookSeats, 1, 'the ridge needs an anchored focal seat');
+  assert.ok(landscape.exteriorFootings >= 40, 'new exterior dressing needs audited footings');
   assert.ok(landscape.trailMetres >= 350, 'the player needs a substantial trail loop');
   assert.ok(landscape.creekMetres >= 225, 'the creek must cross a meaningful part of the property');
 });
@@ -168,6 +180,71 @@ test('cabin callbacks own hub toggles and only authored landmarks reach story pr
     assert.ok(Number.isFinite(spawn.yaw));
     assert.ok(Number.isFinite(spawn.pitch));
   }
+
+  for (const [id, viewpoint] of Object.entries(cabin.viewpoints)) {
+    assert.equal(viewpoint.position.isVector3, true, id);
+    assert.ok(Number.isFinite(viewpoint.yaw) && Number.isFinite(viewpoint.pitch), `${id} facing`);
+    assert.ok(Math.abs(viewpoint.position.y - (cabin.groundAt(viewpoint.position.x, viewpoint.position.z) + 1.68)) < 1e-9, `${id} footing`);
+    assert.ok(Math.hypot(
+      viewpoint.position.x - LANDMARKS[id].x,
+      viewpoint.position.z - LANDMARKS[id].z,
+    ) < 7, `${id} approach reach`);
+    const interactionViewpoint = cabin.interactionViewpoints[id];
+    assert.equal(interactionViewpoint.position.isVector3, true, `${id} interaction position`);
+    assert.ok(Number.isFinite(interactionViewpoint.yaw) && Number.isFinite(interactionViewpoint.pitch), `${id} interaction facing`);
+    const target = cabin.interactionTargets[id];
+    target.geometry.computeBoundingBox();
+    target.updateWorldMatrix(true, false);
+    const bounds = target.geometry.boundingBox.clone().applyMatrix4(target.matrixWorld);
+    const closest = bounds.clampPoint(interactionViewpoint.position, new THREE.Vector3());
+    assert.ok(interactionViewpoint.position.distanceTo(closest) <= 2.7, `${id} live interaction reach`);
+    const ray = new THREE.Raycaster(
+      interactionViewpoint.position,
+      interactionViewpoint.lookAt.clone().sub(interactionViewpoint.position).normalize(),
+      0,
+      2.7,
+    );
+    assert.ok(ray.intersectObject(target, true).length > 0, `${id} interaction ray`);
+  }
+
+  for (const footing of cabin.landscape.footings) {
+    assert.equal(insideProperty(footing.x, footing.z), true, footing.id);
+    assert.ok(Math.abs(footing.bottom - footing.ground) < 1e-6, `${footing.id} support`);
+  }
+
+  for (const [route, path] of [['loop', TRAIL_LOOP], ['overlook', OVERLOOK_TRAIL]]) {
+    for (const point of samplePolyline(path, 0.75)) {
+      const ground = cabin.groundAt(point.x, point.z);
+      const blocker = cabin.colliders.find((bounds) => (
+        point.x >= bounds.min.x - 0.34
+        && point.x <= bounds.max.x + 0.34
+        && point.z >= bounds.min.z - 0.34
+        && point.z <= bounds.max.z + 0.34
+        && bounds.max.y > ground + 0.16
+        && bounds.min.y < ground + 1.62
+      ));
+      assert.equal(blocker, undefined, `${route} blocked by ${blocker?.name ?? 'unknown'} at ${point.x},${point.z}`);
+    }
+  }
+
+  cabin.update(1, 1, new THREE.Vector3(0, 0, 0));
+  const chunks = [];
+  const undergrowth = [];
+  const authoredPolish = new Set();
+  cabin.root.traverse((object) => {
+    if (object.name.startsWith('cabin-forest-chunk-')) chunks.push(object);
+    if (object.name === 'cabin-fern-undergrowth') undergrowth.push(object);
+    if (['cabin-central-table-cluster', 'cabin-ridge-overlook'].includes(object.name)) authoredPolish.add(object.name);
+  });
+  assert.ok(chunks.length >= 40);
+  for (const chunk of chunks) {
+    const near = chunk.children.find((child) => child.name === 'forest-near-lod');
+    const far = chunk.children.find((child) => child.name === 'forest-far-lod');
+    assert.equal(Boolean(near?.visible && far?.visible), false, `${chunk.name} LODs must be exclusive`);
+  }
+  assert.ok(undergrowth.length > 0);
+  assert.ok(undergrowth.every((mesh) => mesh.geometry.type !== 'PlaneGeometry'), 'undergrowth uses shaped low-poly fronds');
+  assert.deepEqual([...authoredPolish].sort(), ['cabin-central-table-cluster', 'cabin-ridge-overlook']);
 
   const forbiddenExternalLights = [];
   cabin.root.traverse((object) => {

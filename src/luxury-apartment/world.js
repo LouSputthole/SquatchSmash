@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { box, boxFrom, cylinder, plane, mat, collider, group, yawToward } from '../world/build.js';
 import { makeMaterials } from '../world/materials.js';
+import * as T from '../world/textures.js';
 import * as P from '../world/props.js';
 import { resolveGear } from '../world/gear.js';
 import { WALL_SLOTS, BATH_SLOTS } from '../world/apartment.js';
@@ -34,14 +35,33 @@ const STAIR_STEPS = LUXURY_LAYOUT.stair.steps;
  * to reverse-engineer them from meshes. */
 export const LUXURY_APARTMENT = LUXURY_LAYOUT;
 
-/** Non-wall art the original apartment also resolves through the manifest. */
-const APARTMENT_AUX_ART_SLOTS = Object.freeze([
+/** Apartment art that is authored as cloth or a wall crest rather than a
+ * conventional framed print. It is still visibly hung in this scene. */
+const APARTMENT_HUNG_AUX_ART_SLOTS = Object.freeze([
   'banner.main', 'banner.twitch', 'crest.round',
-  'shelf.photo', 'sideboard.photo', 'desk.photo', 'night.photo',
-  'closet.back', 'closet.shirt.a', 'closet.shirt.b', 'shrine.b', 'bed.under',
+]);
+
+/** Personal photographs that remain physical display objects: four standing
+ * frames, the closet shrine, and the photograph tucked under the bed. */
+export const LUXURY_STANDING_ART_SLOTS = Object.freeze([
+  'shelf.photo', 'sideboard.photo', 'desk.photo', 'night.photo', 'shrine.b', 'bed.under',
+]);
+
+/** Textures whose semantic home is the imported prop itself, never a salon
+ * frame. Keeping this explicit prevents a beer label or egg carton from being
+ * promoted to wall art merely to make a count pass. */
+export const LUXURY_PROP_ART_SLOTS = Object.freeze([
+  'closet.back', 'closet.shirt.a', 'closet.shirt.b',
   'fridge.magnet', 'fridge.photo.a', 'fridge.photo.b',
   'sticker.tower', 'sticker.fridge', 'sticker.fridge.b',
   'zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'cereal.box',
+]);
+
+/** Non-wall art the original apartment resolves through the manifest. */
+const APARTMENT_AUX_ART_SLOTS = Object.freeze([
+  ...APARTMENT_HUNG_AUX_ART_SLOTS,
+  ...LUXURY_STANDING_ART_SLOTS,
+  ...LUXURY_PROP_ART_SLOTS,
 ]);
 
 /** Empty manifest hooks reserved for later-game memories. Adding the real art
@@ -69,6 +89,22 @@ export const LUXURY_ART_SLOTS = Object.freeze([...new Set([
   ...BATH_SLOTS.map(({ slot }) => slot),
   ...APARTMENT_AUX_ART_SLOTS,
   ...LUXURY_EXTRA_ART_SLOTS,
+])]);
+
+/** Art physically hung on a wall: inherited frames, the two banners and
+ * crest, and the fourteen authored late-game works. */
+export const LUXURY_HUNG_ART_SLOTS = Object.freeze([...new Set([
+  ...WALL_SLOTS.map(({ slot }) => slot),
+  ...BATH_SLOTS.map(({ slot }) => slot),
+  ...APARTMENT_HUNG_AUX_ART_SLOTS,
+  ...LUXURY_EXTRA_ART_SLOTS,
+])]);
+
+/** Every genuine piece shown as art, including the six standing/hidden-photo
+ * displays. Prop graphics are tracked separately by LUXURY_PROP_ART_SLOTS. */
+export const LUXURY_DISPLAY_ART_SLOTS = Object.freeze([...new Set([
+  ...LUXURY_HUNG_ART_SLOTS,
+  ...LUXURY_STANDING_ART_SLOTS,
 ])]);
 
 const noopAudio = Object.freeze({ play() {}, startLoop() { return null; }, stopLoop() {} });
@@ -223,6 +259,7 @@ export async function buildLuxuryApartment(ctx = {}) {
     architecture,
     M,
     gear,
+    domestic,
     interaction,
     ctx,
     artTargets,
@@ -236,18 +273,18 @@ export async function buildLuxuryApartment(ctx = {}) {
   });
 
   const poses = Object.freeze({
-    bed: pose([7.02, LOFT_Y + 1.05, -6.20], [7.02, LOFT_Y + 0.8, -7.10], -0.08, [5.70, LOFT_Y, -5.70]),
-    couch: pose([3.15, 1.12, 3.25], [7.55, 1.0, 3.25], -0.03, [2.15, MAIN_Y, 3.25]),
+    bed: pose([7.02, LOFT_Y + 1.05, -6.20], [7.02, LOFT_Y + 0.8, -7.10], -0.08, [5.55, LOFT_Y, -5.70]),
+    couch: pose([3.15, 1.12, 3.25], [7.55, 1.0, 3.25], -0.03, [1.85, MAIN_Y, 3.25]),
     desk: pose([0.12, LOFT_Y + 1.24, -5.68], [0.12, LOFT_Y + 0.88, -6.55], -0.05, [-0.75, LOFT_Y, -4.90]),
-    tv: pose([3.18, 1.12, 3.25], [7.72, 0.92, 3.25], -0.03, [2.15, MAIN_Y, 3.25]),
+    tv: pose([3.18, 1.12, 3.25], [7.72, 0.92, 3.25], -0.03, [1.85, MAIN_Y, 3.25]),
     radio: pose([1.70, 1.10, 5.95], [1.70, 0.85, 6.70], -0.12, [1.70, MAIN_Y, 5.05]),
-    kitchen: pose([8.90, 1.62, -0.20], [10.35, 0.92, -0.20], -0.25, [8.70, MAIN_Y, 0.80]),
+    kitchen: pose([8.90, 1.62, -0.20], [10.35, 0.92, -0.20], -0.25, [8.15, MAIN_Y, 0.80]),
     shower: pose([-5.85, LOFT_Y + 1.64, -6.05], [-5.85, LOFT_Y + 1.85, -6.75], -0.05, [-4.85, LOFT_Y, -5.65]),
     wardrobe: pose([9.02, LOFT_Y + 1.10, -3.65], [9.65, LOFT_Y + 1.2, -4.25], -0.02, [8.12, LOFT_Y, -3.15]),
     arcade: pose([-5.42, 1.30, 2.10], [-5.42, 1.18, 1.18], -0.04, [-4.55, MAIN_Y, 2.72]),
-    poker: pose([-2.45, 1.12, 4.65], [-2.45, 0.76, 3.80], -0.15, [-1.45, MAIN_Y, 5.08]),
-    darts: pose([-8.85, 1.55, 3.95], [-10.72, 1.72, 3.95], -0.02, [-8.10, MAIN_Y, 3.95]),
-    console: pose([3.18, 1.12, 3.25], [7.72, 0.92, 3.25], -0.03, [2.15, MAIN_Y, 3.25]),
+    poker: pose([-2.45, 1.12, 4.82], [-2.45, 0.76, 3.80], -0.15, [-1.45, MAIN_Y, 5.08]),
+    darts: pose([-8.85, 1.55, 3.95], [-10.72, 1.72, 3.95], -0.02, [-8.20, MAIN_Y, 3.95]),
+    console: pose([3.18, 1.12, 3.25], [7.72, 0.92, 3.25], -0.03, [1.85, MAIN_Y, 3.25]),
   });
 
   const spawns = Object.freeze({
@@ -289,10 +326,26 @@ export async function buildLuxuryApartment(ctx = {}) {
     const day = ((Number(minutes) || 0) % 1440 + 1440) % 1440;
     state.cityMinutes = day;
     const daylight = THREE.MathUtils.smoothstep(Math.sin((day - 360) / 720 * Math.PI), -0.2, 0.7);
-    shell.citySky.material.color.set(daylight > 0.45 ? 0xffffff : 0x5d6a92);
+    const skyPhase = day < 5 * 60 ? 'night'
+      : day < 7 * 60 ? 'dawn'
+        : day < 17 * 60 ? 'day'
+          : day < 20 * 60 ? 'dusk'
+            : 'night';
+    if (shell.citySky.material.userData.citySkyPhase !== skyPhase) {
+      shell.citySky.material.map = T.citySkyline(skyPhase);
+      shell.citySky.material.userData.citySkyPhase = skyPhase;
+      shell.citySky.material.needsUpdate = true;
+    }
+    shell.citySky.material.color.set(0xffffff);
     shell.citySky.material.opacity = 0.72 + daylight * 0.28;
-    shell.cityLights.material.opacity = 1 - daylight * 0.78;
-    lights.ambient.intensity = 0.22 + daylight * 0.55;
+    shell.cityLights.material.opacity = 1 - daylight * 0.94;
+    M.cityDark.color.set(0x101722).lerp(new THREE.Color(0x748295), daylight);
+    M.cityMid.color.set(0x162131).lerp(new THREE.Color(0x8d9aaa), daylight);
+    M.cityBlue.color.set(0x0d1b2b).lerp(new THREE.Color(0x667b92), daylight);
+    M.cityRoof.color.set(0x25354a).lerp(new THREE.Color(0x52667a), daylight);
+    // Keep the premium interior legible after dark without flattening the
+    // daylight contrast from the glass walls.
+    lights.ambient.intensity = 0.36 + daylight * 0.48;
     lights.sun.intensity = daylight * 1.15;
     lights.sun.color.set(day < 600 || day > 1020 ? 0xffb26e : 0xdfeaff);
     return day;
@@ -488,21 +541,21 @@ export async function buildLuxuryApartment(ctx = {}) {
   }
   utilityTargets.art = gallery.root;
 
-  function station(id, target, stationPose, screen = null) {
+  function station(id, target, stationPose, screen = null, fixtures = {}) {
     const anchor = group(`luxury-minigame-${id}`);
     anchor.position.copy(stationPose.position);
     anchor.rotation.y = stationPose.yaw;
     anchor.userData.station = { id, floor: anchor.position.y >= LOFT_Y ? 'loft' : 'main' };
     root.add(anchor);
-    const value = Object.freeze({ id, anchor, target, pose: stationPose, screen });
+    const value = Object.freeze({ id, anchor, target, pose: stationPose, screen, ...fixtures });
     minigameAnchors[id] = anchor;
     gameStations[id] = value;
     return value;
   }
 
   station('pc', domestic.desk.panel, poses.desk, screens.pc);
-  station('arcade', games.arcade.target, poses.arcade, screens.arcade);
-  station('poker', games.poker.target, poses.poker);
+  station('arcade', games.arcade.target, poses.arcade, screens.arcade, { seat: games.arcade.seat });
+  station('poker', games.poker.target, poses.poker, null, { seats: games.poker.seats });
   station('darts', games.darts.target, poses.darts);
   station('console', domestic.tv.group, poses.console, screens.console);
 
@@ -536,10 +589,27 @@ export async function buildLuxuryApartment(ctx = {}) {
     artSlots: LUXURY_ART_SLOTS.length,
     originalArtSlots: LUXURY_ART_SLOTS.length - LUXURY_EXTRA_ART_SLOTS.length,
     extraArtSlots: LUXURY_EXTRA_ART_SLOTS.length,
+    resolvedArtAssets: gear.size,
+    resolvedRealArtAssets: [...gear.values()].filter(({ real }) => real).length,
+    displayArtSlots: LUXURY_DISPLAY_ART_SLOTS.length,
+    displayOriginalArtSlots: LUXURY_DISPLAY_ART_SLOTS.length - LUXURY_EXTRA_ART_SLOTS.length,
+    hungArtSlots: LUXURY_HUNG_ART_SLOTS.length,
+    hungOriginalArtSlots: LUXURY_HUNG_ART_SLOTS.length - LUXURY_EXTRA_ART_SLOTS.length,
+    hungExtraArtSlots: LUXURY_EXTRA_ART_SLOTS.length,
+    standingArtSlots: LUXURY_STANDING_ART_SLOTS.length,
+    propTextureSlots: LUXURY_PROP_ART_SLOTS.length,
     artTargets: Object.keys(artTargets).length,
+    propArtPlacements: Object.keys(domestic.propArtPlacements).length,
+    visibleArtAssets: Object.keys(artTargets).length + Object.keys(domestic.propArtPlacements).length,
     utilityCount: Object.keys(utilityTargets).length,
     minigameCount: Object.keys(gameStations).length,
     cityBuildings: shell.cityBuildingCount,
+    cityWindows: shell.cityWindowCounts.total,
+    cityWindowsSouth: shell.cityWindowCounts.south,
+    cityWindowsEast: shell.cityWindowCounts.east,
+    cityDepthBands: shell.cityDepthBands,
+    cityMinimumSetback: shell.cityMinimumSetback,
+    cityRoofFeatures: shell.cityRoofFeatures,
   });
 
   let elapsedLocal = 0;
@@ -585,11 +655,13 @@ export async function buildLuxuryApartment(ctx = {}) {
     minigameAnchors,
     gameStations,
     artTargets,
+    propArtPlacements: domestic.propArtPlacements,
     artSlots: LUXURY_ART_SLOTS,
     resolvedArt: gear,
     screens,
     doors,
     lights,
+    artLights: gallery.artLights,
     state,
     inventory,
     metrics,
@@ -665,6 +737,9 @@ function makeLuxuryMaterials(M) {
     toneMapped: false,
   });
   M.cityDark = new THREE.MeshBasicMaterial({ color: 0x101722, toneMapped: false });
+  M.cityMid = new THREE.MeshBasicMaterial({ color: 0x162131, toneMapped: false });
+  M.cityBlue = new THREE.MeshBasicMaterial({ color: 0x0d1b2b, toneMapped: false });
+  M.cityRoof = new THREE.MeshBasicMaterial({ color: 0x25354a, toneMapped: false });
   return M;
 }
 
@@ -847,6 +922,10 @@ function buildShell({ root, city, M, colliders, occluders, floorZones }) {
     citySky: cityView.sky,
     cityLights: cityView.lights,
     cityBuildingCount: cityView.buildings,
+    cityWindowCounts: cityView.windowCounts,
+    cityDepthBands: cityView.depthBands,
+    cityMinimumSetback: cityView.minimumSetback,
+    cityRoofFeatures: cityView.roofFeatures,
     windowArea: southWindows.area + eastWindows.area,
   };
 }
@@ -931,6 +1010,10 @@ function buildWindowWall({ root, M, side, start, end, fixed, segments }) {
 }
 
 function buildCityView({ root, M }) {
+  // Both backdrops sit 72m from the apartment. Their half-span must pass that
+  // coordinate so the southeast diagonal is covered where the planes meet;
+  // the former 100m planes stopped at +/-50m and left a visible dark wedge.
+  const backdropSpan = 160;
   const skyMaterial = new THREE.MeshBasicMaterial({
     map: M.sky.map,
     color: 0xffffff,
@@ -939,59 +1022,155 @@ function buildCityView({ root, M }) {
     toneMapped: false,
     side: THREE.DoubleSide,
   });
-  const sky = plane(31, 12, skyMaterial);
+  const sky = plane(backdropSpan, 48, skyMaterial);
   sky.name = 'luxury-city-panorama-south';
-  sky.position.set(0, 4.8, 14.5);
+  sky.position.set(0, 18, 72);
   sky.rotation.y = Math.PI;
   root.add(own(sky, 'luxury-city-backdrop', { checkSupport: false }));
-  const eastSky = plane(25, 12, skyMaterial.clone());
+  // Share one material so the east and south horizons grade together as the
+  // clock moves; the previous clone left the east view stuck at full daylight.
+  const eastSky = plane(backdropSpan, 48, skyMaterial);
   eastSky.name = 'luxury-city-panorama-east';
-  eastSky.position.set(16.5, 4.8, -0.5);
+  eastSky.position.set(72, 18, 0);
   eastSky.rotation.y = -Math.PI / 2;
   root.add(own(eastSky, 'luxury-city-backdrop', { checkSupport: false }));
 
   const cityLightsMaterial = M.cityWindow;
-  const buildingPlans = [
-    [-12.0, 11.9, 3.2, 10.0, 2.7], [-8.5, 12.6, 2.7, 7.8, 2.2],
-    [-5.3, 11.5, 3.0, 12.8, 2.6], [-1.9, 12.4, 2.9, 8.9, 2.4],
-    [1.4, 11.6, 3.1, 13.6, 2.8], [5.0, 12.8, 3.3, 9.8, 2.6],
-    [8.8, 11.7, 3.0, 11.7, 2.5], [12.1, 12.9, 2.8, 7.4, 2.2],
+  // Three genuine depth bands leave breathing room outside the glass and
+  // preserve parallax from both storeys. Width is the visible facade span;
+  // depth runs away from the corresponding window wall.
+  const southPlans = [
+    { x: -17.0, z: 28.0, width: 6.0, height: 18, depth: 4.8, band: 'near' },
+    { x: -9.2, z: 36.0, width: 7.2, height: 28, depth: 5.8, band: 'mid' },
+    { x: -2.4, z: 27.5, width: 5.2, height: 21, depth: 4.5, band: 'near' },
+    { x: 4.2, z: 39.0, width: 8.0, height: 31, depth: 6.2, band: 'mid' },
+    { x: 11.3, z: 30.0, width: 5.8, height: 19, depth: 4.8, band: 'near' },
+    { x: 18.1, z: 44.0, width: 8.2, height: 27, depth: 6.8, band: 'mid' },
+    { x: -20.5, z: 55.0, width: 10.0, height: 34, depth: 8.0, band: 'far' },
+    { x: 1.0, z: 60.0, width: 9.0, height: 38, depth: 7.5, band: 'far' },
   ];
+  const eastPlans = [
+    { x: 28.0, z: -14.0, width: 5.8, height: 18, depth: 4.8, band: 'near' },
+    { x: 36.0, z: -8.0, width: 7.0, height: 29, depth: 6.0, band: 'mid' },
+    { x: 29.0, z: -1.2, width: 5.2, height: 21, depth: 4.5, band: 'near' },
+    { x: 42.0, z: 5.2, width: 8.0, height: 34, depth: 7.0, band: 'mid' },
+    { x: 31.0, z: 11.4, width: 5.6, height: 22, depth: 4.8, band: 'near' },
+    { x: 55.0, z: 18.0, width: 9.0, height: 38, depth: 8.0, band: 'far' },
+  ];
+
   let buildings = 0;
-  for (let i = 0; i < buildingPlans.length; i++) {
-    const [x, z, w, h, d] = buildingPlans[i];
-    const g = group(`luxury-city-building-south-${i}`);
-    const mass = box({ name: `luxury-city-building-south-${i}-mass`, size: [w, h, d], pos: [x, h / 2 - 0.2, z], mat: M.cityDark, cast: false });
-    g.add(own(mass, `luxury-city-building-mass:south:${i}`, { checkSupport: false }));
-    const columns = Math.max(2, Math.floor(w / 0.55));
-    const rows = Math.max(3, Math.floor(h / 0.75));
+  let roofFeatures = 0;
+  const windowCounts = { south: 0, east: 0, total: 0 };
+  const massMaterials = [M.cityDark, M.cityMid, M.cityBlue];
+
+  const addFacadeWindows = (building, plan, side, index) => {
+    const columns = Math.max(3, Math.floor(plan.width / 1.28));
+    const rows = Math.max(5, Math.floor((plan.height - 1.2) / 1.35));
+    const batches = new Map();
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < columns; col++) {
-        if ((row * 7 + col * 11 + i * 3) % 5 === 0) continue;
-        const window = plane(0.24, 0.30, cityLightsMaterial);
-        window.name = `luxury-city-window-s-${i}-${row}-${col}`;
-        window.position.set(x - w * 0.42 + col * (w * 0.84 / Math.max(1, columns - 1)), 0.45 + row * 0.69, z - d / 2 - 0.012);
-        window.rotation.y = Math.PI;
-        g.add(own(window, `luxury-city-building-window:south:${i}`, { checkSupport: false }));
+        if ((row * 7 + col * 11 + index * 3) % 4 === 0) continue;
+        const along = -plan.width * 0.42
+          + col * (plan.width * 0.84 / Math.max(1, columns - 1));
+        const y = 0.65 + row * ((plan.height - 1.55) / Math.max(1, rows - 1));
+        const window = plane(0.48, 0.62, cityLightsMaterial);
+        const sideCode = side === 'south' ? 's' : 'e';
+        window.name = `luxury-city-window-${sideCode}-${index}-${row}-${col}`;
+        if (side === 'south') {
+          window.position.set(plan.x + along, y, plan.z - plan.depth / 2 - 0.012);
+          window.rotation.y = Math.PI;
+        } else {
+          window.position.set(plan.x - plan.depth / 2 - 0.012, y, plan.z + along);
+          window.rotation.y = -Math.PI / 2;
+        }
+        // Geometry policy intentionally limits inherited opt-outs to small
+        // physical regions. Four-by-four window batches stay below that cap
+        // while avoiding a separate suppression source for every lit pane.
+        const batchRow = Math.floor(row / 4);
+        const batchColumn = Math.floor(col / 4);
+        const batchKey = `${batchRow}:${batchColumn}`;
+        let batch = batches.get(batchKey);
+        if (!batch) {
+          batch = group(`luxury-city-window-batch-${side}-${index}-${batchRow}-${batchColumn}`);
+          own(batch, `luxury-city-window-batch:${side}:${index}:${batchRow}:${batchColumn}`, {
+            checkSupport: false,
+          });
+          building.add(batch);
+          batches.set(batchKey, batch);
+        }
+        batch.add(own(window, `luxury-city-building-window:${side}:${index}`));
+        windowCounts[side]++;
+        windowCounts.total++;
       }
     }
-    root.add(own(g, `luxury-city-building:south:${i}`));
-    buildings++;
-  }
+  };
 
-  const eastPlans = [
-    [13.6, -10.0, 2.5, 8.6, 2.8], [14.2, -6.4, 2.7, 12.0, 2.5],
-    [13.5, -2.6, 2.4, 7.8, 2.8], [14.4, 1.0, 2.8, 13.2, 2.5],
-    [13.7, 4.8, 2.6, 9.5, 2.7], [14.3, 8.5, 2.9, 11.0, 2.4],
-  ];
-  for (let i = 0; i < eastPlans.length; i++) {
-    const [x, z, d, h, w] = eastPlans[i];
-    const mass = box({ name: `luxury-city-building-east-${i}`, size: [d, h, w], pos: [x, h / 2 - 0.2, z], mat: M.cityDark, cast: false });
-    root.add(own(mass, `luxury-city-building:east:${i}`, { checkSupport: false }));
-    buildings++;
-  }
+  const addRoof = (building, plan, side, index) => {
+    const roofHeight = 0.34 + (index % 3) * 0.18;
+    const size = side === 'south'
+      ? [plan.width * (0.48 + (index % 2) * 0.10), roofHeight, plan.depth * 0.58]
+      : [plan.depth * 0.58, roofHeight, plan.width * (0.48 + (index % 2) * 0.10)];
+    const roof = box({
+      name: `luxury-city-building-${side}-${index}-roof`,
+      size,
+      pos: [plan.x, plan.height - 0.2 + roofHeight / 2, plan.z],
+      mat: M.cityRoof,
+      cast: false,
+    });
+    building.add(own(roof, `luxury-city-building-roof:${side}:${index}`, { checkSupport: false }));
+    roofFeatures++;
+    if (index % 2 === 1) {
+      const antennaHeight = 1.45 + (index % 3) * 0.55;
+      const antenna = cylinder({
+        name: `luxury-city-building-${side}-${index}-antenna`,
+        r: 0.045,
+        h: antennaHeight,
+        pos: [plan.x, plan.height + roofHeight + antennaHeight / 2 - 0.2, plan.z],
+        mat: M.cityRoof,
+      });
+      building.add(own(antenna, `luxury-city-building-roof:${side}:${index}`, { checkSupport: false }));
+      roofFeatures++;
+    }
+  };
 
-  return { sky, lights: { material: cityLightsMaterial }, buildings };
+  const addBuilding = (plan, side, index) => {
+    const building = group(`luxury-city-building-${side}-${index}`);
+    const size = side === 'south'
+      ? [plan.width, plan.height, plan.depth]
+      : [plan.depth, plan.height, plan.width];
+    const mass = box({
+      name: `luxury-city-building-${side}-${index}-mass`,
+      size,
+      pos: [plan.x, plan.height / 2 - 0.2, plan.z],
+      mat: massMaterials[index % massMaterials.length],
+      cast: false,
+    });
+    building.userData.depthBand = plan.band;
+    building.add(own(mass, `luxury-city-building-mass:${side}:${index}`, { checkSupport: false }));
+    addFacadeWindows(building, plan, side, index);
+    addRoof(building, plan, side, index);
+    root.add(own(building, `luxury-city-building:${side}:${index}`));
+    buildings++;
+  };
+
+  southPlans.forEach((plan, index) => addBuilding(plan, 'south', index));
+  eastPlans.forEach((plan, index) => addBuilding(plan, 'east', index));
+
+  const minimumSetback = Math.min(
+    ...southPlans.map(({ z, depth }) => z - depth / 2 - LUXURY_APARTMENT.z1),
+    ...eastPlans.map(({ x, depth }) => x - depth / 2 - LUXURY_APARTMENT.x1),
+  );
+  const depthBands = new Set([...southPlans, ...eastPlans].map(({ band }) => band)).size;
+
+  return {
+    sky,
+    lights: { material: cityLightsMaterial },
+    buildings,
+    windowCounts: Object.freeze(windowCounts),
+    depthBands,
+    minimumSetback,
+    roofFeatures,
+  };
 }
 
 function buildDoors({ root, M, colliders }) {
@@ -1244,24 +1423,40 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
 
   // Open-plan dividers define private zones without turning the upper floor
   // into a corridor of ordinary closed rooms.
-  const divider = (name, x, z, width, rotY = 0) => {
+  const divider = (name, x, z, width, rotY = 0, collide = false) => {
     const d = group(name);
     d.position.set(x, LOFT_Y, z);
     d.rotation.y = rotY;
     for (let i = -3; i <= 3; i++) {
+      const localX = i * width / 7;
       d.add(box({
         name: `${name}-slat-${i + 3}`,
         size: [0.07, 2.72, 0.10],
-        pos: [i * width / 7, 1.36, 0],
+        pos: [localX, 1.36, 0],
         mat: i % 2 ? M.darkWood : M.trim,
       }));
+      if (collide) {
+        const c = Math.cos(rotY);
+        const s = Math.sin(rotY);
+        const worldX = x + localX * c;
+        const worldZ = z - localX * s;
+        const halfX = Math.abs(0.07 * c) / 2 + Math.abs(0.10 * s) / 2;
+        const halfZ = Math.abs(0.07 * s) / 2 + Math.abs(0.10 * c) / 2;
+        addBounds(
+          colliders,
+          [[worldX - halfX, 0, worldZ - halfZ], [worldX + halfX, 2.72, worldZ + halfZ]],
+          `${name}-slat-${i + 3}-collider`,
+          LOFT_Y,
+          `luxury-loft-divider-collision:${name}`,
+        );
+      }
     }
     d.add(box({ name: `${name}-header`, size: [width, 0.08, 0.12], pos: [0, 2.70, 0], mat: M.darkWood }));
     g.add(own(d, `luxury-loft-divider:${name}`));
     return d;
   };
   divider('luxury-bedroom-slat-divider', 6.35, -3.22, 7.5, 0);
-  divider('luxury-office-slat-divider', 2.18, -5.25, 3.8, Math.PI / 2);
+  divider('luxury-office-slat-divider', 2.18, -5.25, 3.8, Math.PI / 2, true);
 
   // A continuous bronze fascia makes the loft read as a deliberate volume
   // from the main lounge, rather than a slab left hanging in space.
@@ -1321,17 +1516,17 @@ function buildLighting({ root, architecture, loftContents, M }) {
   };
 
   const main = [
-    makeFixture('main-lounge-a', 2.2, 5.12, 2.2, 1.20, 9.5),
-    makeFixture('main-lounge-b', 5.1, 4.72, 4.7, 1.05, 8.5),
-    makeFixture('main-kitchen', 8.8, 4.92, 2.3, 1.20, 8.2),
-    makeFixture('main-games', -4.1, 4.85, 3.2, 1.05, 8.8),
-    makeFixture('main-entry', -8.4, 4.60, 6.0, 0.95, 7.5),
+    makeFixture('main-lounge-a', 2.2, 5.12, 2.2, 82, 9.5),
+    makeFixture('main-lounge-b', 5.1, 4.72, 4.7, 72, 8.5),
+    makeFixture('main-kitchen', 8.8, 4.92, 2.3, 84, 8.2),
+    makeFixture('main-games', -4.1, 4.85, 3.2, 76, 8.8),
+    makeFixture('main-entry', -8.4, 4.60, 6.0, 64, 7.5),
   ];
   const loft = [
-    makeFixture('loft-office', 0.0, 6.36, -5.25, 0.90, 6.0),
-    makeFixture('loft-bedroom', 6.5, 6.28, -5.45, 0.92, 6.5),
-    makeFixture('loft-bath', -4.8, 6.28, -5.95, 1.02, 5.6, 0xe9f2ff),
-    makeFixture('loft-gallery', -7.5, 6.34, -2.25, 0.82, 5.8),
+    makeFixture('loft-office', 0.0, 6.36, -5.25, 62, 6.0),
+    makeFixture('loft-bedroom', 6.5, 6.28, -5.45, 68, 6.5),
+    makeFixture('loft-bath', -4.8, 6.28, -5.95, 74, 5.6, 0xe9f2ff),
+    makeFixture('loft-gallery', -7.5, 6.34, -2.25, 66, 5.8),
   ];
 
   // Three staggered rings make the double-height lounge chandelier a focal
@@ -1357,12 +1552,75 @@ function buildLighting({ root, architecture, loftContents, M }) {
       chandelier.add(crystal);
     }
   }
+  const chandelierBulb = new THREE.Mesh(new THREE.SphereGeometry(0.105, 18, 12), M.bulbOff);
+  chandelierBulb.name = 'luxury-chandelier-bulb';
+  chandelierBulb.position.set(3.75, 3.92, 3.2);
+  chandelier.add(chandelierBulb);
+  const chandelierLight = new THREE.PointLight(0xffd2a0, 0, 11.5, 1.85);
+  chandelierLight.name = 'luxury-chandelier-point';
+  chandelierLight.position.set(3.75, 3.88, 3.2);
+  chandelierLight.castShadow = false;
+  chandelier.add(chandelierLight);
   lightRoot.add(own(chandelier, 'luxury-chandelier', { checkSupport: false }));
+  const chandelierIntensity = 118;
+  main.push({
+    fixture: chandelier,
+    bulb: chandelierBulb,
+    light: chandelierLight,
+    intensity: chandelierIntensity,
+  });
 
-  return { root: lightRoot, main, loft, ambient, sun, chandelier };
+  return {
+    root: lightRoot,
+    main,
+    loft,
+    ambient,
+    sun,
+    chandelier,
+    chandelierLight,
+    chandelierBulb,
+    chandelierIntensity,
+  };
 }
 
 function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, colliders, floorZones }) {
+  const propArtPlacements = {};
+  const hasAttachedTexture = (target, texture) => {
+    if (!target?.traverse || !texture) return false;
+    const matches = (candidate) => (
+      candidate === texture
+      || candidate?.userData?.derivedFromTextureUuid === texture.uuid
+      || candidate?.userData?.compositedFromTextureUuid === texture.uuid
+    );
+    let attached = false;
+    target.traverse((object) => {
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      if (materials.some((material) => (
+        matches(material?.map)
+        || matches(material?.alphaMap)
+        || matches(material?.emissiveMap)
+      ))) attached = true;
+    });
+    return attached;
+  };
+  const placePropArt = (slot, target, zone) => {
+    if (!target) return null;
+    const record = gear.get(slot);
+    target.userData ??= {};
+    target.userData.artSlot = slot;
+    target.userData.artZone = zone;
+    target.userData.artDisplayKind = 'prop';
+    target.userData.artSource = 'apartment';
+    // Headless unit builds intentionally return non-real fallback textures and
+    // prop builders omit those placeholders. Live/browser builds must attach
+    // the exact resolved file, so null means "not applicable in this harness"
+    // while false remains a genuine production wiring failure.
+    target.userData.artTextureAttached = record?.real
+      ? hasAttachedTexture(target, record.texture)
+      : null;
+    propArtPlacements[slot] = target;
+    return target;
+  };
   const addProp = (parent, built, name, yOffset = 0, bounds = built.bounds) => {
     built.group.name = name;
     own(built.group, `luxury-prop:${name}`);
@@ -1376,6 +1634,21 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     );
     return built;
   };
+  const makeOrientedCouch = ({ x, z, len, depth, rotY }) => {
+    // props.makeCouch is deliberately fixed east-facing. Build it at the
+    // origin, then transform the complete local assembly so this scene can
+    // author a true sectional without changing every existing apartment.
+    const built = P.makeCouch(M, { x: 0, z: 0, len, depth });
+    built.group.position.set(x, 0, z);
+    built.group.rotation.y = rotY;
+    built.group.userData.orientation = rotY;
+    const c = Math.abs(Math.cos(rotY));
+    const s = Math.abs(Math.sin(rotY));
+    const halfX = depth * c / 2 + len * s / 2;
+    const halfZ = depth * s / 2 + len * c / 2;
+    built.bounds = [[x - halfX, 0, z - halfZ], [x + halfX, 0.66, z + halfZ]];
+    return built;
+  };
 
   /* Main floor: one double-height entertaining room. All uses stay south of
    * the sealed loft plinth, so the shared ground resolver has one answer. */
@@ -1383,7 +1656,14 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     name: 'luxury-lounge-rug', cast: false,
   }), 'luxury-lounge'));
   const couch = addProp(furnishings, P.makeCouch(M, { x: 2.88, z: 3.27, len: 3.22, depth: 1.04 }), 'luxury-lounge-sectional');
-  const couchReturn = addProp(furnishings, P.makeCouch(M, { x: 4.28, z: 5.18, len: 2.18, depth: 0.94 }), 'luxury-lounge-return');
+  const couchReturn = addProp(furnishings, makeOrientedCouch({
+    x: 4.50,
+    z: 4.40,
+    len: 2.18,
+    depth: 0.94,
+    rotY: Math.PI / 2,
+  }), 'luxury-lounge-return');
+  couchReturn.group.userData.sectionalReturn = true;
   void couchReturn;
   const table = addProp(furnishings, P.makeCoffeeTable(M, { x: 4.55, z: 3.26, w: 1.48, d: 0.78 }), 'luxury-lounge-coffee-table');
   const pizza = P.makePizzaBox(M, { x: 4.42, y: table.top, z: 3.22, rotY: -0.18 });
@@ -1475,7 +1755,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   for (const key of Object.keys(kitchen.spots)) kitchen.spots[key] = shiftZ(kitchen.spots[key]);
 
   const fridge = addProp(furnishings, P.makeFridge(M, { x: 10.37, z: 6.92, w: 0.92, d: 0.80, h: 2.12 }), 'luxury-panelled-fridge');
-  dressLuxuryFridge(fridge, M, gear);
+  const fridgeArt = dressLuxuryFridge(fridge, M, gear);
   const pan = P.makePan(M, { x: kitchen.hob.x, y: kitchen.hob.y, z: kitchen.hob.z, rotY: -1.05 });
   pan.group.name = 'luxury-kitchen-pan';
   furnishings.add(own(pan.group, 'luxury-prop:kitchen-pan'));
@@ -1487,7 +1767,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     y: kitchen.spots.bottle.y,
     z: kitchen.spots.bottle.z,
     rotY: -Math.PI / 2 + 0.12,
-    labelImage: propTexture('label.whiskey')?.image || null,
+    labelTexture: propTexture('label.whiskey'),
   });
   const ashtray = P.makeAshtray(M, {
     x: kitchen.spots.ashtray.x, y: kitchen.top, z: kitchen.spots.ashtray.z, rotY: 0.3,
@@ -1539,6 +1819,15 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     d: 0.78,
     towerSticker: propTexture('sticker.tower'),
   }), 'luxury-loft-desk', LOFT_Y);
+  const zyn = P.makeZynCan(M, {
+    x: 1.34,
+    y: desk.top + 0.01,
+    z: -6.76,
+    rotY: 0.34,
+    lidTexture: propTexture('zyn.lid'),
+  });
+  zyn.group.name = 'luxury-desk-zyn';
+  loftContents.add(own(zyn.group, 'luxury-prop:zyn'));
   const chair = addProp(loftContents, P.makeChair(M, { x: 0.15, z: -5.56, rotY: Math.PI }), 'luxury-loft-chair', LOFT_Y);
   void chair;
   const bedroomPhone = P.makePhone(M, { x: 5.66, y: nightLeft.top + 0.01, z: -6.93, rotY: -0.35 });
@@ -1565,6 +1854,22 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   });
   addProp(loftContents, closet, 'luxury-walk-in-wardrobe', LOFT_Y,
     [[8.60, 0, -5.05], [10.50, 2.72, -3.18]]);
+
+  // Every non-gallery texture has one concrete, semantically named home.
+  // The returned map is deliberately public so tests can prove placement
+  // without treating a resolved manifest record as evidence of visibility.
+  placePropArt('closet.back', closet.picture, 'loft-wardrobe-back');
+  placePropArt('closet.shirt.a', closet.hangers[0]?.mesh, 'loft-wardrobe-rail');
+  placePropArt('closet.shirt.b', closet.hangers[1]?.mesh, 'loft-wardrobe-rail');
+  for (const [slot, target] of Object.entries(fridgeArt)) {
+    placePropArt(slot, target, 'main-kitchen-fridge-door');
+  }
+  placePropArt('sticker.tower', desk.group, 'loft-office-pc-tower');
+  placePropArt('zyn.lid', zyn.lid, 'loft-office-desktop');
+  placePropArt('label.beer', fridge.beerSlots[0], 'main-kitchen-fridge-interior');
+  placePropArt('label.whiskey', whiskey.group, 'main-kitchen-counter');
+  placePropArt('eggs.carton', eggs.group, 'main-kitchen-fridge-interior');
+  placePropArt('cereal.box', cereal.group, 'main-kitchen-fridge-top');
 
   const bath = LUXURY_APARTMENT.bathroom;
   const bathShell = group('luxury-loft-bathroom');
@@ -1634,7 +1939,11 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     cigs,
     whiskey,
     desk,
+    zyn,
     closet,
+    nightLeft,
+    nightRight,
+    propArtPlacements: Object.freeze(propArtPlacements),
     tub,
     toilet,
     sink,
@@ -1654,6 +1963,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
 }
 
 function dressLuxuryFridge(fridge, M, gear) {
+  const placements = {};
   const items = [
     { slot: 'fridge.magnet', y: 1.55, z: -0.28, w: 0.27, tilt: -0.07, magnet: true },
     { slot: 'fridge.photo.a', y: 1.22, z: -0.51, w: 0.23, tilt: 0.08, magnet: true },
@@ -1677,7 +1987,9 @@ function dressLuxuryFridge(fridge, M, gear) {
     decal.group.rotation.set(0, -Math.PI / 2, item.tilt);
     decal.group.userData.artSlot = item.slot;
     fridge.door.add(own(decal.group, `luxury-fridge-art:${item.slot}`, { checkSupport: false }));
+    placements[item.slot] = decal.group;
   }
+  return placements;
 }
 
 function buildGameZone({ root, M, colliders }) {
@@ -1740,6 +2052,26 @@ function buildGameZone({ root, M, colliders }) {
   addBounds(colliders, [[ax - 0.53, 0, az - 0.42], [ax + 0.53, 2.40, az + 0.45]],
     'luxury-arcade-cabinet-collider', 0, 'luxury-minigame-collision:arcade');
   const arcadeTarget = proxy('luxury-arcade-target', [1.15, 2.20, 0.54], [ax, 1.25, az + 0.50], gameRoot);
+  const arcadeSeatZ = az + 0.95;
+  const arcadeSeat = group('luxury-arcade-stool');
+  arcadeSeat.add(
+    cylinder({ name: 'luxury-arcade-stool-base', r: 0.23, h: 0.045, pos: [ax, 0.023, arcadeSeatZ], mat: M.darkSteel }),
+    cylinder({ name: 'luxury-arcade-stool-stem', r: 0.045, h: 0.43, pos: [ax, 0.24, arcadeSeatZ], mat: M.trim }),
+    cylinder({ name: 'luxury-arcade-stool-seat', r: 0.29, h: 0.10, pos: [ax, 0.50, arcadeSeatZ], mat: M.velvet }),
+  );
+  const stoolRing = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.018, 8, 24), M.trim);
+  stoolRing.name = 'luxury-arcade-stool-foot-ring';
+  stoolRing.rotation.x = Math.PI / 2;
+  stoolRing.position.set(ax, 0.22, arcadeSeatZ);
+  arcadeSeat.add(stoolRing);
+  gameRoot.add(own(arcadeSeat, 'luxury-minigame:arcade-seat'));
+  addBounds(
+    colliders,
+    [[ax - 0.29, 0, arcadeSeatZ - 0.29], [ax + 0.29, 0.56, arcadeSeatZ + 0.29]],
+    'luxury-arcade-stool-collider',
+    0,
+    'luxury-minigame-collision:arcade-seat',
+  );
 
   const pokerGroup = group('luxury-poker-table');
   const px = -2.45;
@@ -1776,6 +2108,49 @@ function buildGameZone({ root, M, colliders }) {
     'luxury-poker-table-collider', 0, 'luxury-minigame-collision:poker');
   const pokerTarget = proxy('luxury-poker-target', [2.40, 0.90, 1.85], [px, 0.72, pz], gameRoot);
 
+  const makePokerSeat = (name, x, z, rotY) => {
+    const seat = group(name);
+    seat.position.set(x, 0, z);
+    seat.rotation.y = rotY;
+    seat.add(
+      box({ name: `${name}-seat`, size: [0.54, 0.12, 0.50], pos: [0, 0.50, 0], mat: M.velvet }),
+      box({ name: `${name}-back`, size: [0.54, 0.62, 0.11], pos: [0, 0.82, -0.22], mat: M.velvet, rotX: 0.08 }),
+      box({ name: `${name}-apron`, size: [0.46, 0.12, 0.42], pos: [0, 0.38, 0], mat: M.darkWood }),
+    );
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        seat.add(cylinder({
+          name: `${name}-leg-${sx}-${sz}`,
+          r: 0.025,
+          h: 0.38,
+          pos: [sx * 0.22, 0.19, sz * 0.18],
+          mat: M.trim,
+        }));
+      }
+      seat.add(box({
+        name: `${name}-arm-${sx}`,
+        size: [0.07, 0.10, 0.44],
+        pos: [sx * 0.29, 0.69, -0.01],
+        mat: M.darkWood,
+      }));
+    }
+    gameRoot.add(own(seat, 'luxury-minigame:poker-seating'));
+    addBounds(
+      colliders,
+      [[x - 0.32, 0, z - 0.32], [x + 0.32, 1.14, z + 0.32]],
+      `${name}-collider`,
+      0,
+      'luxury-minigame-collision:poker-seat',
+    );
+    return seat;
+  };
+  const pokerSeats = [
+    makePokerSeat('luxury-poker-seat-player', px, pz + 1.23, Math.PI),
+    makePokerSeat('luxury-poker-seat-north', px, pz - 1.23, 0),
+    makePokerSeat('luxury-poker-seat-west', px - 1.57, pz, Math.PI / 2),
+    makePokerSeat('luxury-poker-seat-east', px + 1.57, pz, -Math.PI / 2),
+  ];
+
   const dartsGroup = group('luxury-darts-station');
   const dartX = LUXURY_APARTMENT.x0 + 0.26;
   const dartZ = 3.95;
@@ -1807,8 +2182,8 @@ function buildGameZone({ root, M, colliders }) {
 
   return {
     root: gameRoot,
-    arcade: { group: arcadeGroup, target: arcadeTarget, screen: arcadeScreen, marquee },
-    poker: { group: pokerGroup, target: pokerTarget, chips },
+    arcade: { group: arcadeGroup, target: arcadeTarget, screen: arcadeScreen, marquee, seat: arcadeSeat },
+    poker: { group: pokerGroup, target: pokerTarget, chips, seats: pokerSeats },
     darts: { group: dartsGroup, target: dartsTarget, board },
     update(_dt, elapsed) {
       arcadeMarqueeMaterial.emissiveIntensity = 1.08 + Math.sin(elapsed * 2.1) * 0.20;
@@ -1817,54 +2192,69 @@ function buildGameZone({ root, M, colliders }) {
   };
 }
 
-function buildGallery({ root, architecture, M, gear, interaction, ctx, artTargets }) {
+function buildGallery({ root, architecture, M, gear, domestic, interaction, ctx, artTargets }) {
   const galleryRoot = group('luxury-art-collection');
   root.add(own(galleryRoot, 'luxury-art-collection'));
 
-  const priority = [
-    'luxury.night-watch',
-    'luxury.ascension',
-    'feature.stacks',
-    'feature.denver',
-    'luxury.foyer.statement',
-    'luxury.city.night',
-  ];
-  const ordered = [...priority, ...LUXURY_ART_SLOTS.filter((slot) => !priority.includes(slot))];
-  const placements = makeGalleryPlacements(ordered.length);
+  const semanticPlacements = makeSemanticArtPlacements(domestic);
+  const inherited = LUXURY_DISPLAY_ART_SLOTS.filter((slot) => !LUXURY_EXTRA_ART_SLOTS.includes(slot));
+  const ordered = [...LUXURY_EXTRA_ART_SLOTS, ...inherited];
+  const inheritedPlacements = makeGalleryPlacements(
+    inherited.filter((slot) => !semanticPlacements.has(slot)).length,
+  );
+  let inheritedPlacementIndex = 0;
   const frames = [];
 
   for (let index = 0; index < ordered.length; index++) {
     const slot = ordered[index];
     const record = gear.get(slot);
     if (!record) continue;
-    const placement = placements[index];
-    const forcedAspect = slot === 'luxury.night-watch' ? 1.5
-      : slot === 'luxury.ascension' ? 2 / 3
-        : null;
+    const placement = semanticPlacements.get(slot) ?? inheritedPlacements[inheritedPlacementIndex++];
+    const forcedAspect = placement.aspect ?? null;
     const aspect = forcedAspect ?? Math.max(0.42, Math.min(1.85, record.aspect || 0.8));
-    const height = slot === 'luxury.night-watch' ? 1.02
-      : slot === 'luxury.ascension' ? 1.18
-        : placement.height;
+    const height = placement.height;
     const width = Math.min(1.48, height * aspect * (record.scale ?? 1));
     const isCrooked = slot === 'cork.above';
-    const frame = P.makeFrame(M, {
+    const common = {
       x: placement.x,
       y: placement.y,
       z: placement.z,
       rotY: placement.rotY,
-      w: width,
-      h: height,
       texture: record.texture,
-      tint: index % 4 === 0 ? 0xa58149 : index % 3 === 0 ? 0x15191e : 0x2a211a,
-      roll: isCrooked ? -0.055 : 0,
-      lean: isCrooked ? -0.085 : 0,
-      artRoll: isCrooked ? 0.055 : 0,
-      artInset: isCrooked ? 0.955 : 1,
-    });
+    };
+    let frame;
+    if (placement.kind === 'banner') {
+      frame = P.makeBanner(M, { ...common, w: placement.width ?? width, h: height });
+      frame.art = frame.cloth ?? frame.group;
+    } else if (placement.kind === 'crest') {
+      frame = P.makeRoundCrest(M, { ...common, r: placement.radius ?? height / 2 });
+      frame.art = frame.face;
+    } else if (placement.kind === 'standing' || placement.kind === 'under-bed') {
+      frame = P.makeStandingFrame(M, { ...common, w: width, h: height });
+      frame.panel = frame.art.parent;
+      if (placement.kind === 'under-bed') {
+        frame.leg.removeFromParent();
+        frame.panel.rotation.x = 0;
+        frame.group.rotation.set(-Math.PI / 2, 0, placement.spin ?? Math.PI / 2 + 0.14);
+      }
+    } else {
+      frame = P.makeFrame(M, {
+        ...common,
+        w: width,
+        h: height,
+        tint: index % 4 === 0 ? 0xa58149 : index % 3 === 0 ? 0x15191e : 0x2a211a,
+        roll: isCrooked ? -0.055 : 0,
+        lean: isCrooked ? -0.085 : 0,
+        artRoll: isCrooked ? 0.055 : 0,
+        artInset: isCrooked ? 0.955 : 1,
+      });
+    }
     frame.group.name = `luxury-art-${safeName(slot)}`;
     frame.group.userData.artSlot = slot;
     frame.group.userData.artSource = LUXURY_EXTRA_ART_SLOTS.includes(slot) ? 'luxury' : 'apartment';
     frame.group.userData.artAspect = forcedAspect ?? record.aspect;
+    frame.group.userData.artZone = placement.zone;
+    frame.group.userData.artDisplayKind = placement.kind ?? 'framed';
     own(frame.group, `luxury-art:${slot}`, { checkSupport: false });
     galleryRoot.add(frame.group);
     artTargets[slot] = frame.group;
@@ -1877,13 +2267,13 @@ function buildGallery({ root, architecture, M, gear, interaction, ctx, artTarget
 
   // Dedicated museum washes for the two new hero pieces.
   const artLights = [
-    { slot: 'luxury.night-watch', color: 0x9ec5ff, intensity: 0.60 },
-    { slot: 'luxury.ascension', color: 0xffd4aa, intensity: 0.55 },
+    { slot: 'luxury.night-watch', color: 0x9ec5ff, intensity: 42 },
+    { slot: 'luxury.ascension', color: 0xffd4aa, intensity: 38 },
   ].map(({ slot, color, intensity }) => {
     const frame = artTargets[slot];
-    const light = new THREE.SpotLight(color, intensity, 5.5, Math.PI / 5, 0.6, 1.4);
+    const light = new THREE.SpotLight(color, intensity, 5.5, Math.PI / 8.5, 0.72, 1.55);
     light.name = `luxury-art-light-${safeName(slot)}`;
-    light.position.copy(frame.position).add(new THREE.Vector3(0, 1.15, 1.45));
+    light.position.copy(frame.position).add(new THREE.Vector3(0, 0.92, 1.18));
     light.target = frame;
     light.castShadow = false;
     architecture.add(light);
@@ -1910,26 +2300,92 @@ function buildGallery({ root, architecture, M, gear, interaction, ctx, artTarget
   return {
     root: galleryRoot,
     frames,
+    artLights,
     crookedArt,
     update(_dt, elapsed) {
       for (let i = 0; i < artLights.length; i++) {
-        artLights[i].light.intensity = artLights[i].intensity + Math.sin(elapsed * 0.22 + i) * 0.035;
+        artLights[i].light.intensity = artLights[i].intensity + Math.sin(elapsed * 0.22 + i) * 1.2;
       }
     },
   };
 }
 
+function makeLuxuryExtraPlacements() {
+  const plinthZ = LUXURY_APARTMENT.loft.z1 + 0.035;
+  const northZ = LUXURY_APARTMENT.z0 + 0.045;
+  const westX = LUXURY_APARTMENT.x0 + 0.045;
+  return new Map([
+    ['luxury.night-watch', { x: 2.85, y: 1.88, z: plinthZ, rotY: 0, height: 1.02, aspect: 1.5, zone: 'main-hero' }],
+    ['luxury.ascension', { x: 4.48, y: 1.82, z: plinthZ, rotY: 0, height: 1.18, aspect: 2 / 3, zone: 'main-hero' }],
+    ['luxury.foyer.statement', { x: 9.62, y: 1.72, z: plinthZ, rotY: 0, height: 1.02, aspect: 0.78, zone: 'foyer-elevator' }],
+    ['luxury.city.night', { x: -0.75, y: 1.72, z: plinthZ, rotY: 0, height: 0.72, aspect: 1.65, zone: 'city-lounge' }],
+    ['luxury.loft.triptych.a', { x: -10.00, y: LOFT_Y + 1.55, z: northZ, rotY: 0, height: 0.68, aspect: 1.2, zone: 'loft-triptych' }],
+    ['luxury.loft.triptych.b', { x: -8.85, y: LOFT_Y + 1.55, z: northZ, rotY: 0, height: 0.68, aspect: 1.2, zone: 'loft-triptych' }],
+    ['luxury.loft.triptych.c', { x: -7.70, y: LOFT_Y + 1.55, z: northZ, rotY: 0, height: 0.68, aspect: 1.2, zone: 'loft-triptych' }],
+    ['luxury.stair.memory.a', { x: westX, y: 1.58, z: 0.78, rotY: Math.PI / 2, height: 0.62, aspect: 1.45, zone: 'stair-gallery' }],
+    ['luxury.stair.memory.b', { x: westX, y: 2.42, z: 2.22, rotY: Math.PI / 2, height: 0.62, aspect: 1.45, zone: 'stair-gallery' }],
+    ['luxury.bedroom.private', { x: 7.05, y: LOFT_Y + 1.56, z: northZ, rotY: 0, height: 0.78, aspect: 1.45, zone: 'bedroom' }],
+    ['luxury.office.victory', { x: 0.15, y: LOFT_Y + 1.56, z: northZ, rotY: 0, height: 0.72, aspect: 1.65, zone: 'office' }],
+    ['luxury.arcade.marquee', { x: -5.55, y: 1.72, z: plinthZ, rotY: 0, height: 0.58, aspect: 1.65, zone: 'arcade' }],
+    ['luxury.poker.champions', { x: -3.35, y: 1.72, z: plinthZ, rotY: 0, height: 0.68, aspect: 1.50, zone: 'poker' }],
+    ['luxury.bath.monochrome', { x: -4.70, y: LOFT_Y + 1.52, z: LUXURY_APARTMENT.bathroom.z0 + 0.125, rotY: 0, height: 0.70, aspect: 1.0, zone: 'bathroom' }],
+  ]);
+}
+
+function makeSemanticArtPlacements(domestic) {
+  const placements = makeLuxuryExtraPlacements();
+  const plinthZ = LUXURY_APARTMENT.loft.z1 + 0.035;
+
+  // Preserve the original apartment's display grammar instead of turning
+  // every imported texture into an anonymous salon frame.
+  for (const [slot, placement] of [
+    ['banner.main', {
+      kind: 'banner', x: -9.12, y: 1.72, z: plinthZ, rotY: 0,
+      width: 1.28, height: 0.72, zone: 'main-entry-banner',
+    }],
+    ['banner.twitch', {
+      kind: 'banner', x: -7.60, y: 1.72, z: plinthZ, rotY: 0,
+      width: 1.05, height: 0.54, zone: 'main-games-banner',
+    }],
+    ['crest.round', {
+      kind: 'crest', x: -6.40, y: 1.72, z: plinthZ, rotY: 0,
+      radius: 0.29, height: 0.58, aspect: 1, zone: 'main-games-crest',
+    }],
+    ['shelf.photo', {
+      kind: 'standing', x: 0.74, y: domestic.sideboard.top + 0.01, z: 6.61,
+      rotY: Math.PI - 0.24, height: 0.18, zone: 'main-sideboard-display',
+    }],
+    ['sideboard.photo', {
+      kind: 'standing', x: 2.71, y: domestic.sideboard.top + 0.01, z: 6.61,
+      rotY: Math.PI + 0.20, height: 0.17, zone: 'main-sideboard-display',
+    }],
+    ['desk.photo', {
+      kind: 'standing', x: 1.34, y: LOFT_Y + domestic.desk.top + 0.01, z: -6.58,
+      rotY: 0.20, height: 0.13, zone: 'loft-office-desktop',
+    }],
+    ['night.photo', {
+      kind: 'standing', x: 8.42, y: LOFT_Y + domestic.nightRight.top + 0.01, z: -6.92,
+      rotY: -0.82, height: 0.15, zone: 'loft-bedroom-nightstand',
+    }],
+    ['shrine.b', {
+      kind: 'standing', x: 9.46, y: LOFT_Y + 0.035, z: -4.69,
+      rotY: Math.PI - 0.24, height: 0.15, zone: 'loft-wardrobe-shrine',
+    }],
+    ['bed.under', {
+      kind: 'under-bed', x: 6.62, y: LOFT_Y + 0.018, z: -6.17,
+      rotY: 0, spin: Math.PI / 2 + 0.14, height: 0.20, zone: 'loft-bedroom-under-bed',
+    }],
+  ]) placements.set(slot, placement);
+
+  return placements;
+}
+
 function makeGalleryPlacements(count) {
   const placements = [];
-  // Hero pair on the paneled plinth face beside the elevator.
-  placements.push({ x: 2.85, y: 1.88, z: LUXURY_APARTMENT.loft.z1 + 0.035, rotY: 0, height: 1.02 });
-  placements.push({ x: 4.48, y: 1.82, z: LUXURY_APARTMENT.loft.z1 + 0.035, rotY: 0, height: 1.18 });
-
-  // A broad three-row salon wall upstairs. The fixed pitch is conservative
-  // even for portrait source images, so changing a manifest file cannot make
-  // neighboring frames overlap.
+  // Two salon rows preserve a clear middle register for the named luxury
+  // triptych, office, bedroom, and bathroom works.
   const northXs = Array.from({ length: 18 }, (_, i) => -9.35 + i * 1.10);
-  const northYs = [LOFT_Y + 0.62, LOFT_Y + 1.55, LOFT_Y + 2.47];
+  const northYs = [LOFT_Y + 0.62, LOFT_Y + 2.47];
   for (let row = 0; row < northYs.length; row++) {
     for (let col = 0; col < northXs.length; col++) {
       placements.push({
@@ -1938,6 +2394,7 @@ function makeGalleryPlacements(count) {
         z: LUXURY_APARTMENT.z0 + 0.045,
         rotY: 0,
         height: 0.42 + ((col * 5 + row * 3) % 4) * 0.045,
+        zone: 'loft-north-salon',
       });
     }
   }
@@ -1952,6 +2409,7 @@ function makeGalleryPlacements(count) {
         z: westZs[col],
         rotY: Math.PI / 2,
         height: 0.42 + ((col + row) % 3) * 0.06,
+        zone: row ? 'loft-west-gallery' : 'main-west-gallery',
       });
     }
   }

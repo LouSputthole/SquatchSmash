@@ -640,6 +640,10 @@ let _beerLabelMat = null;
 export function beerLabelMaterial(texture) {
   if (!texture) return null;
   const tex = texture.clone();
+  tex.userData = {
+    ...tex.userData,
+    derivedFromTextureUuid: texture.uuid,
+  };
   tex.needsUpdate = true;
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
@@ -2165,7 +2169,9 @@ export function makeCigarettePack(M, { x, y, z, rotY = 0 }) {
  * The label is a parody of the obvious one -- same silhouette and black-label
  * look, different name.
  */
-export function makeWhiskeyBottle(M, { x, y, z, rotY = 0, labelImage = null }) {
+export function makeWhiskeyBottle(M, {
+  x, y, z, rotY = 0, labelImage = null, labelTexture = null,
+}) {
   const g = group('whiskey');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
@@ -2211,6 +2217,7 @@ export function makeWhiskeyBottle(M, { x, y, z, rotY = 0, labelImage = null }) {
   d.fillStyle = '#0d0d0d';
   d.fillRect(0, 0, LW, LH);
 
+  labelImage ??= labelTexture?.image ?? null;
   if (labelImage) {
     // Fill the width with the crest; the leftover black above and below is
     // where the small print goes, the way it does on the real thing.
@@ -2269,6 +2276,10 @@ export function makeWhiskeyBottle(M, { x, y, z, rotY = 0, labelImage = null }) {
 
   function finishBottle() {
     const labelTex = new THREE.CanvasTexture(c);
+    labelTex.userData = {
+      ...labelTex.userData,
+      compositedFromTextureUuid: labelTexture?.uuid ?? null,
+    };
     labelTex.colorSpace = THREE.SRGBColorSpace;
     labelTex.anisotropy = 8;
     // A touch of emissive keyed to the label itself keeps the white text

@@ -6,7 +6,7 @@
     {
       "state": "property",
       "overlap": 0,
-      "checkSupport": 819,
+      "checkSupport": 1457,
       "sources": [
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-architecture#0/name=luxury-elevator#0",
@@ -150,13 +150,13 @@
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-banner-main#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 4
+          "checkSupport": 2
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-banner-twitch#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 4
+          "checkSupport": 2
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-bath-far#0",
@@ -219,30 +219,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-cereal-box#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-closet-back#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-closet-shirt-a#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-closet-shirt-b#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-cork-above#0",
           "scope": "inherited",
           "overlap": 0,
@@ -264,7 +240,7 @@
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-crest-round#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 4
+          "checkSupport": 2
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-desk-high#0",
@@ -282,7 +258,7 @@
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-desk-photo#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 4
+          "checkSupport": 5
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-desk-right#0",
@@ -321,12 +297,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-eggs-carton#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-feature-denver#0",
           "scope": "inherited",
           "overlap": 0,
@@ -334,24 +304,6 @@
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-feature-stacks#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-fridge-magnet#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-fridge-photo-a#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-fridge-photo-b#0",
           "scope": "inherited",
           "overlap": 0,
           "checkSupport": 4
@@ -370,18 +322,6 @@
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-gap-mid#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-label-beer#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-label-whiskey#0",
           "scope": "inherited",
           "overlap": 0,
           "checkSupport": 4
@@ -474,7 +414,7 @@
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-night-photo#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 4
+          "checkSupport": 5
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-north-corner#0",
@@ -504,19 +444,19 @@
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-shelf-photo#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 4
+          "checkSupport": 5
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-shrine-b#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 4
+          "checkSupport": 5
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-sideboard-photo#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 4
+          "checkSupport": 5
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-south-a#0",
@@ -555,24 +495,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-sticker-fridge#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-sticker-fridge-b#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-sticker-tower#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-west-corner#0",
           "scope": "inherited",
           "overlap": 0,
@@ -591,46 +513,376 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-art-collection#0/name=luxury-art-zyn-lid#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-0#0/name=luxury-city-building-east-0-mass#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-0#0/name=luxury-city-building-east-0-roof#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-0#0/name=luxury-city-window-batch-east-0-0-0#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 4
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-0#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-0#0/name=luxury-city-window-batch-east-0-1-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-0#0/name=luxury-city-window-batch-east-0-2-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-building-east-1-antenna#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-building-east-1-mass#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-2#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-building-east-1-roof#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-window-batch-east-1-0-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-window-batch-east-1-0-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-window-batch-east-1-1-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-window-batch-east-1-1-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-window-batch-east-1-2-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-window-batch-east-1-2-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-window-batch-east-1-3-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-window-batch-east-1-3-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-window-batch-east-1-4-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-1#0/name=luxury-city-window-batch-east-1-4-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-2#0/name=luxury-city-building-east-2-mass#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-4#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-2#0/name=luxury-city-building-east-2-roof#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-2#0/name=luxury-city-window-batch-east-2-0-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-2#0/name=luxury-city-window-batch-east-2-1-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-2#0/name=luxury-city-window-batch-east-2-2-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-2#0/name=luxury-city-window-batch-east-2-3-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-building-east-3-antenna#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-building-east-3-mass#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-building-east-3-roof#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-0-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-0-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-1-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-1-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-2-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-2-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-3-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-3-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-4-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-4-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-5-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-3#0/name=luxury-city-window-batch-east-3-5-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-4#0/name=luxury-city-building-east-4-mass#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-4#0/name=luxury-city-building-east-4-roof#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-4#0/name=luxury-city-window-batch-east-4-0-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-4#0/name=luxury-city-window-batch-east-4-1-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-4#0/name=luxury-city-window-batch-east-4-2-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-4#0/name=luxury-city-window-batch-east-4-3-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 9
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-building-east-5-antenna#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-building-east-5-mass#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-building-east-5-roof#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-0-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-0-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 9
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-1-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-1-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 9
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-2-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-2-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 9
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-3-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-3-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 9
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-4-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-4-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 9
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-5-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 12
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-5-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 9
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-6-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 9
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-east-5#0/name=luxury-city-window-batch-east-5-6-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 7
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-building-south-0-mass#0",
@@ -639,313 +891,31 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-0-1#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-building-south-0-roof#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-0-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-batch-south-0-0-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-0-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-batch-south-0-1-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-0-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-batch-south-0-2-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-1-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-1-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-1-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-1-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-10-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-10-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-10-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-10-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-11-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-11-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-11-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-11-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-12-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-12-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-12-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-12-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-2-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-2-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-2-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-2-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-3-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-3-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-3-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-3-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-4-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-4-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-4-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-4-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-5-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-5-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-5-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-5-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-6-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-6-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-6-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-6-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-7-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-7-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-7-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-7-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-8-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-8-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-8-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-8-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-9-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-9-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-9-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-0#0/name=luxury-city-window-s-0-9-4#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-building-south-1-antenna#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
@@ -957,196 +927,70 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-0-0#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-building-south-1-roof#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-0-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-batch-south-1-0-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-0-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-batch-south-1-0-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 3
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-1-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-batch-south-1-1-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-1-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-batch-south-1-1-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 3
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-1-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-batch-south-1-2-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-2-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-batch-south-1-2-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 3
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-2-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-batch-south-1-3-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-2-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-batch-south-1-3-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 3
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-3-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-batch-south-1-4-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-3-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-batch-south-1-4-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-3-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-4-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-4-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-4-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-4-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-5-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-5-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-5-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-6-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-6-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-6-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-7-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-7-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-7-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-8-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-8-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-8-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-9-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-9-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-9-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-1#0/name=luxury-city-window-s-1-9-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 3
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-building-south-2-mass#0",
@@ -1155,409 +999,37 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-0-0#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-building-south-2-roof#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-0-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-0-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-0-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-1-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-1-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-1-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-1-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-10-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-10-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-10-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-10-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-11-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-11-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-11-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-11-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-12-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-12-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-12-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-12-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-13-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-13-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-13-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-13-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-14-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-14-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-14-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-14-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-15-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-15-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-15-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-15-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-16-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-16-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-16-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-16-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-2-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-2-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-2-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-2-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-3-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-3-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-3-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-3-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-4-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-4-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-4-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-4-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-5-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-5-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-5-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-5-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-6-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-6-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-6-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-6-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-7-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-7-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-7-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-7-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-8-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-8-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-8-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-8-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-batch-south-2-0-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-9-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-batch-south-2-1-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-9-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-batch-south-2-2-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-9-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-batch-south-2-3-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-2#0/name=luxury-city-window-s-2-9-4#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-building-south-3-antenna#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
@@ -1569,268 +1041,82 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-0-0#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-building-south-3-roof#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-0-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-0-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-0-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-0-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-0-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-1-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-1-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-1-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-1-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-2-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-1-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-2-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-1-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-3-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-10-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-3-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-10-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-4-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-10-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-4-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-10-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-5-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-2-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-batch-south-3-5-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-2-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-2-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-2-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-3-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-3-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-3-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-3-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-4-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-4-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-4-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-4-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-5-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-5-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-5-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-5-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-6-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-6-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-6-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-6-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-7-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-7-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-7-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-7-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-8-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-8-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-8-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-8-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-9-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-9-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-9-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-3#0/name=luxury-city-window-s-3-9-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 2
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-building-south-4-mass#0",
@@ -1839,433 +1125,37 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-0-0#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-building-south-4-roof#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-0-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-0-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-0-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-1-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-1-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-1-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-1-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-10-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-10-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-10-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-10-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-11-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-11-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-11-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-11-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-12-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-12-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-12-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-12-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-13-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-13-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-13-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-13-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-14-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-14-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-14-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-14-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-15-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-15-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-15-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-15-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-16-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-16-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-16-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-16-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-17-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-17-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-17-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-17-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-2-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-2-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-2-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-2-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-3-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-3-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-3-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-3-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-4-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-4-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-4-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-4-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-5-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-5-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-5-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-5-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-6-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-6-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-6-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-6-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-7-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-7-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-7-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-7-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-8-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-batch-south-4-0-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-8-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-8-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-8-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-9-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-batch-south-4-1-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-9-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-batch-south-4-2-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-9-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-batch-south-4-3-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 3
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-4#0/name=luxury-city-window-s-4-9-4#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-building-south-5-antenna#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
@@ -2277,316 +1167,70 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-0-1#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-building-south-5-roof#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-0-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-batch-south-5-0-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-0-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-batch-south-5-0-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-0-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-batch-south-5-1-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-1-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-batch-south-5-1-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-1-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-batch-south-5-2-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-1-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-batch-south-5-2-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-1-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-batch-south-5-3-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-10-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-batch-south-5-3-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 6
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-10-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-batch-south-5-4-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-10-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-batch-south-5-4-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-10-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-11-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-11-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-11-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-11-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-12-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-12-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-12-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-12-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-2-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-2-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-2-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-2-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-3-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-3-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-3-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-3-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-4-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-4-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-4-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-4-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-5-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-5-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-5-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-5-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-6-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-6-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-6-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-6-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-7-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-7-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-7-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-7-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-8-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-8-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-8-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-8-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-9-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-9-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-9-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-5#0/name=luxury-city-window-s-5-9-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 5
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-building-south-6-mass#0",
@@ -2595,361 +1239,85 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-0-0#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-building-south-6-roof#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-0-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-0-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-0-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-0-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-0-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-1-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-1-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-1-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-1-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-2-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-1-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-2-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-1-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-3-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-10-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-3-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-10-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-4-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-10-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-4-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-10-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-5-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-11-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-batch-south-6-5-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-11-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-11-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-11-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-12-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-12-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-12-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-12-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-13-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-13-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-13-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-13-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-14-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-14-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-14-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-14-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-2-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-2-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-2-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-2-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-3-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-3-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-3-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-3-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-4-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-4-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-4-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-4-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-5-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-5-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-5-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-5-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-6-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-6-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-6-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-6-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-7-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-7-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-7-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-7-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-8-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-8-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-8-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-8-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-9-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-9-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-9-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-6#0/name=luxury-city-window-s-6-9-3#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-building-south-7-antenna#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
@@ -2961,220 +1329,94 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-0-0#0",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-building-south-7-roof#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-0-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-0-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-0-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-0-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-0-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-1-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-1-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-1-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-1-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-2-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-1-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-2-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-1-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-3-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-2-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-3-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-2-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-4-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-2-3#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-4-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-2-4#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-5-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 12
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-3-0#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-5-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-3-1#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-6-0#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-3-2#0",
-          "scope": "direct",
+          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-batch-south-7-6-1#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-3-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-4-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-4-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-4-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-4-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-5-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-5-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-5-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-5-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-6-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-6-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-6-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-6-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-7-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-7-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-7-3#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-7-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-8-0#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-8-1#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-8-2#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-building-south-7#0/name=luxury-city-window-s-7-8-4#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 7
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-city-view#0/name=luxury-city-panorama-east#0",
@@ -3222,7 +1464,7 @@
           "sourceId": "root:luxury-apartment-property/name=luxury-lighting#0/name=luxury-chandelier#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 27
+          "checkSupport": 28
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-lighting#0/name=luxury-light-loft-bath#0",

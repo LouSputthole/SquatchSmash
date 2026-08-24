@@ -146,6 +146,19 @@ try {
       && boot.landscape?.trailMetres >= 300
       && boot.landscape?.creekMetres >= 200,
     JSON.stringify(boot.landscape));
+  check('trail approaches carry grounded wayfinding and real destination seating',
+    boot.landscape?.trailBlazes >= 30
+      && boot.landscape?.duskBeacons >= 5
+      && boot.landscape?.firepitSeats >= 3
+      && boot.landscape?.overlookSeats >= 1
+      && boot.landscape?.exteriorFootings >= 40,
+    JSON.stringify({
+      blazes: boot.landscape?.trailBlazes,
+      beacons: boot.landscape?.duskBeacons,
+      firepitSeats: boot.landscape?.firepitSeats,
+      overlookSeats: boot.landscape?.overlookSeats,
+      footings: boot.landscape?.exteriorFootings,
+    }));
   check('the world renders as real meshes plus instanced forest detail',
     boot.meshes >= 500 && boot.instances >= 2000,
     JSON.stringify({ meshes: boot.meshes, instances: boot.instances }));
@@ -153,10 +166,11 @@ try {
     !boot.rested && boot.leaveBeforeRest?.id === 'cabin_rest_first',
     JSON.stringify(boot.leaveBeforeRest));
 
-  await capture(page, 'cabin-arrival');
+  await capture(page, 'cabin-title');
   await page.evaluate(() => document.getElementById('start-btn').click());
   await page.waitForFunction(() => window.COUNTRYSIDE_CABIN?.state?.phase === 'active');
   await page.waitForTimeout(500);
+  await capture(page, 'cabin-arrival');
 
   const playing = await page.evaluate(() => ({
     phase: window.COUNTRYSIDE_CABIN.state.phase,
@@ -212,52 +226,116 @@ try {
   await page.waitForTimeout(350);
   await capture(page, 'cabin-interior');
 
-  const exploration = await page.evaluate(() => {
+  const visits = [];
+  for (const id of ['creek', 'overlook', 'shed', 'firepit']) {
+    const approach = await page.evaluate((landmarkId) => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      const before = runtime.story.explored().some((entry) => entry.id === landmarkId);
+      const viewpoint = runtime.cabin.interactionViewpoints[landmarkId];
+      const teleported = runtime.teleport(landmarkId, 'interact');
+      const descriptor = runtime.cabin.interactionTargets[landmarkId]?.userData?.interact;
+      return {
+        id: landmarkId,
+        before,
+        teleported,
+        callback: Boolean(descriptor?.onUse),
+        poseMatches: Boolean(viewpoint)
+          && runtime.player.position.distanceTo(viewpoint.position) < 1e-6
+          && Math.abs(runtime.player.ground - runtime.cabin.groundAt(
+            viewpoint.position.x,
+            viewpoint.position.z,
+          )) < 1e-6
+          && Math.abs(runtime.player.yaw - viewpoint.yaw) < 1e-6
+          && Math.abs(runtime.player.pitch - viewpoint.pitch) < 1e-6,
+      };
+    }, id);
+    // Let the real camera and InteractionSystem update from the authored pose,
+    // then use the same keyboard path as the player. This fails if the target
+    // is out of range, behind the camera, or intercepted by another target.
+    await page.waitForTimeout(120);
+    const aim = await page.evaluate((landmarkId) => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      runtime.player.update(0.001);
+      // Interaction raycasts precede renderer.render() in the game loop, so a
+      // verifier teleport must refresh the camera matrix explicitly instead
+      // of relying on a later render frame to publish the new pose.
+      runtime.player.camera.updateMatrixWorld(true);
+      runtime.interaction.update(0);
+      return {
+        aimed: runtime.interaction.current === runtime.cabin.interactionTargets[landmarkId],
+        current: runtime.interaction.current?.name ?? null,
+        paused: runtime.interaction.paused,
+      };
+    }, id);
+    await page.keyboard.press('e');
+    await page.waitForTimeout(80);
+    const after = await page.evaluate((landmarkId) => (
+      window.COUNTRYSIDE_CABIN.story.explored().some((entry) => entry.id === landmarkId)
+    ), id);
+    visits.push({ ...approach, ...aim, firstVisit: !approach.before && after });
+  }
+  const exploration = {
+    visits,
+    explored: await page.evaluate(() => window.COUNTRYSIDE_CABIN.story.explored().map(({ id }) => id)),
+  };
+  check('safe landmark viewpoints are reachable through live interaction input',
+    exploration.visits.every(({ teleported, callback, aimed, firstVisit, poseMatches }) => (
+      teleported && callback && aimed && firstVisit && poseMatches
+    ))
+      && exploration.explored.length === 4,
+    JSON.stringify({ visits: exploration.visits, explored: exploration.explored }));
+
+  if (SCREENSHOT_DIR) {
+    await page.evaluate(() => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      if (!runtime.state.fireLit) {
+        runtime.cabin.interactionTargets.woodpile?.userData?.interact?.onUse?.();
+      }
+      runtime.teleport('firepit');
+    });
+    await page.waitForTimeout(150);
+    await capture(page, 'cabin-firepit-lit');
+    await page.evaluate(() => window.COUNTRYSIDE_CABIN.teleport('overlook'));
+    await page.waitForTimeout(150);
+    await capture(page, 'cabin-overlook');
+  }
+
+  await page.evaluate(() => window.COUNTRYSIDE_CABIN.rest());
+  await page.waitForFunction(() => (
+    window.COUNTRYSIDE_CABIN.story.rested()
+      && !window.COUNTRYSIDE_CABIN.state.resting
+  ));
+  const afterRest = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
-    const visits = ['creek', 'overlook', 'shed', 'firepit'].map((id) => ({
-      id,
-      teleported: runtime.teleport(id),
-      visit: runtime.story.visit(id),
-    }));
-    const explored = runtime.story.explored().map(({ id }) => id);
-    const rest = runtime.story.rest();
     return {
-      visits,
-      explored,
-      rest,
       rested: runtime.story.rested(),
       leaveAfterRest: runtime.story.tryLeave(),
       scene: runtime.campaign.state.scene,
       day: runtime.campaign.state.story.day,
       timeMinutes: runtime.campaign.state.story.timeMinutes,
+      presentedDay: runtime.time.day,
+      presentedMinutes: runtime.time.minutes,
     };
   });
-  check('all four property walks are reachable and durable but optional',
-    exploration.visits.every(({ teleported, visit }) => teleported && visit.ok && visit.firstVisit)
-      && exploration.explored.length === 4,
-    JSON.stringify({ visits: exploration.visits, explored: exploration.explored }));
   check('one rest advances the hideout to Day Five and unlocks the next job',
-    exploration.rest.ok
-      && exploration.rested
-      && exploration.day === 5
-      && exploration.timeMinutes === 14 * 60 + 30
-      && exploration.leaveAfterRest?.kind === 'go'
-      && exploration.leaveAfterRest?.destination === 'silver_case'
-      && exploration.scene?.id === 'countryside_cabin',
+    afterRest.rested
+      && afterRest.day === 5
+      && afterRest.timeMinutes === 14 * 60 + 30
+      && afterRest.presentedDay === 5
+      && afterRest.presentedMinutes === 14 * 60 + 30
+      && afterRest.leaveAfterRest?.kind === 'go'
+      && afterRest.leaveAfterRest?.destination === 'silver_case'
+      && afterRest.scene?.id === 'countryside_cabin',
     JSON.stringify({
-      rest: exploration.rest,
-      leave: exploration.leaveAfterRest,
-      scene: exploration.scene,
-      clock: [exploration.day, exploration.timeMinutes],
+      leave: afterRest.leaveAfterRest,
+      scene: afterRest.scene,
+      clock: [afterRest.day, afterRest.timeMinutes],
+      presentation: [afterRest.presentedDay, afterRest.presentedMinutes],
     }));
-
   if (SCREENSHOT_DIR) {
-    await page.evaluate(() => window.COUNTRYSIDE_CABIN.teleport('firepit'));
-    await page.waitForTimeout(150);
-    await capture(page, 'cabin-firepit');
     await page.evaluate(() => window.COUNTRYSIDE_CABIN.teleport('overlook'));
-    await page.waitForTimeout(150);
-    await capture(page, 'cabin-overlook');
+    await page.waitForTimeout(220);
+    await capture(page, 'cabin-overlook-daylight');
   }
   check('the cabin browser run has no page, console, or request failures',
     problems.length === 0,

@@ -5,6 +5,7 @@ import {
   CABIN,
   CREEK_PATH,
   LANDMARKS,
+  LANDMARK_VIEWPOINTS,
   OVERLOOK_TRAIL,
   PROPERTY,
   SURFACE,
@@ -13,8 +14,10 @@ import {
   groundAt,
   hashAt,
   insideProperty,
+  insideOverlookViewCorridor,
   normalAt,
   samplePolyline,
+  slopeAt,
   surfaceAt,
   trailFrame,
   treeDensityAt,
@@ -71,6 +74,43 @@ test('authored property routes and landmarks remain inside the playable boundary
   );
 });
 
+test('trail centre grades stay walkable and preserve a tree-free route corridor', () => {
+  const maximumGrade = 0.28;
+  for (const [name, path] of [['loop', TRAIL_LOOP], ['overlook', OVERLOOK_TRAIL]]) {
+    const sampled = samplePolyline(path, 0.5);
+    for (let i = 0; i < sampled.length; i++) {
+      const point = sampled[i];
+      assert.equal(insideProperty(point.x, point.z, 0.35), true, `${name} boundary at ${i}`);
+      assert.equal(canPlantTree(point.x, point.z, 0.35), false, `${name} clearance at ${i}`);
+      if (!i) continue;
+      const previous = sampled[i - 1];
+      const distance = Math.hypot(point.x - previous.x, point.z - previous.z);
+      const grade = Math.abs(groundAt(point.x, point.z) - groundAt(previous.x, previous.z)) / distance;
+      assert.ok(grade <= maximumGrade, `${name} grade ${grade.toFixed(3)} at ${i}`);
+    }
+  }
+});
+
+test('landmark observation viewpoints are safe, grounded approaches with an open ridge view', () => {
+  for (const [id, viewpoint] of Object.entries(LANDMARK_VIEWPOINTS)) {
+    assert.equal(insideProperty(viewpoint.x, viewpoint.z, 2), true, id);
+    assert.ok(Number.isFinite(viewpoint.lookX) && Number.isFinite(viewpoint.lookZ), `${id} look target`);
+    assert.ok(slopeAt(viewpoint.x, viewpoint.z, 0.75) < 0.20, `${id} footing slope`);
+    assert.ok(
+      Math.hypot(viewpoint.x - LANDMARKS[id].x, viewpoint.z - LANDMARKS[id].z) < 7,
+      `${id} remains a practical interaction approach`,
+    );
+  }
+
+  const origin = LANDMARKS.overlook;
+  const midpoint = {
+    x: origin.x + (LANDMARKS.cabin.x - origin.x) * 0.48,
+    z: origin.z + (LANDMARKS.cabin.z - origin.z) * 0.48,
+  };
+  assert.equal(insideOverlookViewCorridor(midpoint.x, midpoint.z), true);
+  assert.equal(canPlantTree(midpoint.x, midpoint.z, 0.4), false, 'the overlook sightline stays open');
+});
+
 test('footstep surfaces distinguish the cabin, trail, creek, bridge, firepit, and drive', () => {
   assert.equal(surfaceAt(0, 0), SURFACE.WOOD);
   assert.equal(surfaceAt(LANDMARKS.porch.x, LANDMARKS.porch.z), SURFACE.WOOD);
@@ -84,5 +124,9 @@ test('footstep surfaces distinguish the cabin, trail, creek, bridge, firepit, an
   assert.equal(canPlantTree(LANDMARKS.creek.x, LANDMARKS.creek.z), false);
   assert.equal(canPlantTree(LANDMARKS.overlook.x, LANDMARKS.overlook.z), false);
   assert.equal(treeDensityAt(0, 0), 0);
-  assert.ok(trailFrame(LANDMARKS.overlook.x, LANDMARKS.overlook.z).distance < 1e-9);
+  assert.ok(trailFrame(
+    LANDMARK_VIEWPOINTS.overlook.x,
+    LANDMARK_VIEWPOINTS.overlook.z,
+  ).distance < 1e-9);
+  assert.ok(trailFrame(LANDMARKS.overlook.x, LANDMARKS.overlook.z).distance < 4.5);
 });

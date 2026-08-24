@@ -5,8 +5,8 @@
   "suppressionPolicy": [
     {
       "state": "property",
-      "overlap": 1310,
-      "checkSupport": 1722,
+      "overlap": 1014,
+      "checkSupport": 1579,
       "sources": [
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=cabin-art%3Abanner.main#0",
@@ -303,6 +303,12 @@
           "checkSupport": 3
         },
         {
+          "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=ceilinglight#2",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
           "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=closet#0/name=closet-rail#0",
           "scope": "direct",
           "overlap": 0,
@@ -342,13 +348,31 @@
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-field-rocks#0",
           "scope": "direct",
           "overlap": 0,
-          "checkSupport": 100
+          "checkSupport": 102
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-firepit#0",
           "scope": "inherited",
           "overlap": 0,
           "checkSupport": 20
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-firepit#0/name=cabin-firepit-bench-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-firepit#0/name=cabin-firepit-bench-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-firepit#0/name=cabin-firepit-bench-2#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 6
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-0-0#0/name=forest-far-lod#0/name=cabin-pine-crowns-far#0",
@@ -453,13 +477,7 @@
           "checkSupport": 18
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-2#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-a#0",
-          "scope": "direct",
-          "overlap": 23,
-          "checkSupport": 23
-        },
-        {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-2#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-b#0",
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-2#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth#0",
           "scope": "direct",
           "overlap": 23,
           "checkSupport": 23
@@ -467,38 +485,26 @@
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-3#0/name=forest-near-lod#0/name=cabin-pine-crowns-near#0",
           "scope": "direct",
-          "overlap": 39,
-          "checkSupport": 39
+          "overlap": 36,
+          "checkSupport": 36
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-3#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-a#0",
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-3#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth#0",
           "scope": "direct",
-          "overlap": 40,
-          "checkSupport": 40
-        },
-        {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-3#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-b#0",
-          "scope": "direct",
-          "overlap": 40,
-          "checkSupport": 40
+          "overlap": 34,
+          "checkSupport": 34
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-4#0/name=forest-near-lod#0/name=cabin-pine-crowns-near#0",
           "scope": "direct",
-          "overlap": 42,
-          "checkSupport": 42
+          "overlap": 39,
+          "checkSupport": 39
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-4#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-a#0",
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-4#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth#0",
           "scope": "direct",
-          "overlap": 41,
-          "checkSupport": 41
-        },
-        {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-4#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-b#0",
-          "scope": "direct",
-          "overlap": 41,
-          "checkSupport": 41
+          "overlap": 39,
+          "checkSupport": 39
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-2-5#0/name=forest-far-lod#0/name=cabin-pine-crowns-far#0",
@@ -527,32 +533,20 @@
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-2#0/name=forest-near-lod#0/name=cabin-pine-crowns-near#0",
           "scope": "direct",
-          "overlap": 18,
-          "checkSupport": 18
+          "overlap": 15,
+          "checkSupport": 15
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-2#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-a#0",
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-2#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth#0",
           "scope": "direct",
-          "overlap": 21,
-          "checkSupport": 21
+          "overlap": 17,
+          "checkSupport": 17
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-2#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-b#0",
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-3#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth#0",
           "scope": "direct",
-          "overlap": 21,
-          "checkSupport": 21
-        },
-        {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-3#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-a#0",
-          "scope": "direct",
-          "overlap": 7,
-          "checkSupport": 7
-        },
-        {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-3#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-b#0",
-          "scope": "direct",
-          "overlap": 7,
-          "checkSupport": 7
+          "overlap": 5,
+          "checkSupport": 5
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-4#0/name=forest-near-lod#0/name=cabin-pine-crowns-near#0",
@@ -561,13 +555,7 @@
           "checkSupport": 15
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-4#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-a#0",
-          "scope": "direct",
-          "overlap": 35,
-          "checkSupport": 35
-        },
-        {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-4#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-b#0",
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-3-4#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth#0",
           "scope": "direct",
           "overlap": 35,
           "checkSupport": 35
@@ -599,20 +587,14 @@
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-2#0/name=forest-near-lod#0/name=cabin-pine-crowns-near#0",
           "scope": "direct",
-          "overlap": 12,
-          "checkSupport": 12
+          "overlap": 9,
+          "checkSupport": 9
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-2#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-a#0",
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-2#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth#0",
           "scope": "direct",
-          "overlap": 21,
-          "checkSupport": 21
-        },
-        {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-2#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-b#0",
-          "scope": "direct",
-          "overlap": 21,
-          "checkSupport": 21
+          "overlap": 14,
+          "checkSupport": 14
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-3#0/name=forest-near-lod#0/name=cabin-pine-crowns-near#0",
@@ -621,34 +603,22 @@
           "checkSupport": 24
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-3#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-a#0",
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-3#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth#0",
           "scope": "direct",
-          "overlap": 36,
-          "checkSupport": 36
-        },
-        {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-3#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-b#0",
-          "scope": "direct",
-          "overlap": 36,
-          "checkSupport": 36
+          "overlap": 31,
+          "checkSupport": 31
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-4#0/name=forest-near-lod#0/name=cabin-pine-crowns-near#0",
           "scope": "direct",
-          "overlap": 33,
-          "checkSupport": 33
+          "overlap": 30,
+          "checkSupport": 30
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-4#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-a#0",
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-4#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth#0",
           "scope": "direct",
-          "overlap": 28,
-          "checkSupport": 28
-        },
-        {
-          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-4#0/name=forest-undergrowth-lod#0/name=cabin-fern-undergrowth-b#0",
-          "scope": "direct",
-          "overlap": 28,
-          "checkSupport": 28
+          "overlap": 27,
+          "checkSupport": 27
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-4-5#0/name=forest-far-lod#0/name=cabin-pine-crowns-far#0",
@@ -671,8 +641,8 @@
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-5-1#0/name=forest-far-lod#0/name=cabin-pine-crowns-far#0",
           "scope": "direct",
-          "overlap": 8,
-          "checkSupport": 8
+          "overlap": 6,
+          "checkSupport": 6
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-5-2#0/name=forest-far-lod#0/name=cabin-pine-crowns-far#0",
@@ -759,10 +729,256 @@
           "checkSupport": 1
         },
         {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-ridge-overlook#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 10
+        },
+        {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-loop#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-dusk-beacon-creek#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-dusk-beacon-firepit#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-dusk-beacon-overlook#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-dusk-beacon-shed#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-dusk-beacon-trailhead#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-0#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-1#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-10#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-11#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-12#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-13#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-14#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-15#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-16#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-17#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-18#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-19#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-2#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-20#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-21#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-22#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-23#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-24#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-25#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-26#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-27#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-28#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-29#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-3#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-30#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-31#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-32#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-33#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-34#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-4#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-5#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-6#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-7#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-8#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-wayfinding#0/name=cabin-trail-blaze-9#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-woodpile#0",
