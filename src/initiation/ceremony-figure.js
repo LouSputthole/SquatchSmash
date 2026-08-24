@@ -156,6 +156,13 @@ function applyMark(figure, mark, { floor = true } = {}) {
  * also exposed for modern consumers: `attachToHand` uses `parts.handL/R`, and
  * the shared character weapon mount uses `parts.foreL/R` plus those sockets.
  */
+/* The slam's three marks, in seconds on the figure's own clock. The values
+ * are core/person.js's (WINDUP_END / IMPACT_T / SMASH_END) verbatim, so the
+ * two rigs throw the same punch. */
+const SMASH_WINDUP_END = 0.18;
+const SMASH_IMPACT_T = 0.26;
+const SMASH_END = 0.5;
+
 export class InitiationCeremonyFigure {
   constructor({
     identity,
@@ -197,6 +204,13 @@ export class InitiationCeremonyFigure {
     this.lastStepSign = 0;
     this.stepSide = 1;
     this._pose = 'standing';
+    /* The slam clock, mirrored from core/person.js so a scene can hand a
+     * ceremony figure the same gesture it hands Tony: -1 is idle, and the
+     * clock runs windup, impact, recover on the same three marks. Booskibro's
+     * speech opens on one -- `line.gesture === 'slam'` in the scene -- and
+     * asking a figure that cannot swing crashed the whole first act. */
+    this.smashT = -1;
+    this.impactFired = false;
     this._rest = new Map(poseNodes(this).map((node) => [node, copyTransform(node)]));
   }
 
@@ -242,6 +256,26 @@ export class InitiationCeremonyFigure {
    * Legacy update Interface: dt, floor-space move vector, speed, sprint flag,
    * optional footstep callback. Scripted poses remain intact when ticked.
    */
+  startSmash() {
+    if (this.smashT >= 0) return false;
+    this.smashT = 0;
+    this.impactFired = false;
+    return true;
+  }
+
+  /** True exactly once per swing, the moment the fist lands. */
+  consumeImpact() {
+    if (this.smashT >= SMASH_IMPACT_T && !this.impactFired) {
+      this.impactFired = true;
+      return true;
+    }
+    return false;
+  }
+
+  get smashing() {
+    return this.smashT >= 0;
+  }
+
   update(dt, moveVec = ZERO, speed = 0, sprinting = false, onStep = null) {
     const delta = Math.max(0, Number(dt) || 0);
     this.breatheT += delta;
@@ -270,6 +304,35 @@ export class InitiationCeremonyFigure {
     this.legR.rotation.x = -gait;
     this.armL.rotation.x = gait * 0.7;
     this.armR.rotation.x = -gait * 0.7;
+
+    /* The haymaker rides over the gait arms: wind the right arm back, swing
+     * it through, recover -- the same keys and marks as core/person.js, so
+     * the slam reads identically whoever throws it. */
+    if (this.smashT >= 0) {
+      this.smashT += delta;
+      let armR;
+      let armL;
+      if (this.smashT < SMASH_WINDUP_END) {
+        const k = this.smashT / SMASH_WINDUP_END;
+        armR = THREE.MathUtils.lerp(0, -2.0, k);
+        armL = THREE.MathUtils.lerp(0, 0.5, k);
+      } else if (this.smashT < SMASH_IMPACT_T) {
+        const k = (this.smashT - SMASH_WINDUP_END) / (SMASH_IMPACT_T - SMASH_WINDUP_END);
+        armR = THREE.MathUtils.lerp(-2.0, 1.35, k);
+        armL = THREE.MathUtils.lerp(0.5, -0.4, k);
+      } else if (this.smashT < SMASH_END) {
+        const k = (this.smashT - SMASH_IMPACT_T) / (SMASH_END - SMASH_IMPACT_T);
+        armR = THREE.MathUtils.lerp(1.35, 0, k);
+        armL = THREE.MathUtils.lerp(-0.4, 0, k);
+      } else {
+        armR = 0;
+        armL = 0;
+        this.smashT = -1;
+      }
+      this.armR.rotation.x = armR;
+      this.armL.rotation.x = armL;
+      this.head.rotation.x = armR * 0.08;
+    }
     this.rig.position.y = this._rest.get(this.rig).position.y
       + Math.abs(Math.sin(this.walkT)) * 0.045 * this.swing;
     this.body.rotation.x = sprinting && moving ? 0.12 : 0;

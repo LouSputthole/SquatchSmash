@@ -182,3 +182,32 @@ test('Lou keeps the shared articulated chair pose without moving the scene root 
   assert.equal(lou.shinL.rotation.x, 1.4);
   assert.ok(boxOf(lou.hips).min.y > 0.35, 'Lou is buried below his chair cushion');
 });
+
+test('a ceremony figure throws the shared slam and lands it exactly once', () => {
+  /* The regression: Booskibro's speech opens on `line.gesture === 'slam'` and
+   * the scene calls `owner.startSmash()` on whoever carries it. The night
+   * crashed at that line because the ceremony rig had no swing at all. */
+  const boosk = makeInitiationCeremonyFigure('BOOSKIBRO');
+  assert.equal(typeof boosk.startSmash, 'function');
+  assert.equal(boosk.smashing, false);
+
+  assert.equal(boosk.startSmash(), true);
+  assert.equal(boosk.startSmash(), false, 'a swing in flight refuses a second one');
+  assert.equal(boosk.smashing, true);
+
+  /* Wind up: the right arm goes back, not through. */
+  boosk.update(0.1);
+  assert.ok(boosk.armR.rotation.x < -0.5, `wound back, got ${boosk.armR.rotation.x}`);
+  assert.equal(boosk.consumeImpact(), false, 'no impact during the windup');
+
+  /* Through the impact mark: the fist lands once, and only once. */
+  boosk.update(0.2);
+  assert.equal(boosk.consumeImpact(), true, 'the fist lands at the impact mark');
+  assert.equal(boosk.consumeImpact(), false, 'and it lands once');
+
+  /* Recovery: the clock expires and the arm comes back to the gait's rest. */
+  boosk.update(0.4);
+  assert.equal(boosk.smashing, false, 'the swing recovers to idle');
+  assert.equal(boosk.armR.rotation.x, 0);
+  assert.equal(boosk.startSmash(), true, 'and a new one can start');
+});
