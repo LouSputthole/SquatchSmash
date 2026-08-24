@@ -79,11 +79,14 @@ const PASS_LEAN = Object.freeze({
  * Every chair in the room was laid on one of two headings, so twenty-seven
  * diners sat on exactly two yaws and six separate cohorts of neighbouring
  * tables read as a formation. Nobody sits square to the chair he was shown to.
- * Four values, cycled: measured to hold whatever phase the night's seating
- * lands on, so a table gained or lost does not put three of them back in
- * agreement.
+ * Keyed off the CHAIR, not the count of people seated so far: the dealt
+ * seating (see the diner loop) walks chairs in a fixed order, and a
+ * four-value cycle indexed by the diner count beat in phase with it -- three
+ * neighbours on one yaw again, the exact fault this table exists to prevent.
+ * Seven values over two-seat tables shares a value only seven chairs apart,
+ * which is the other side of the room.
  */
-const DINER_SETTLE = [0.03, -0.13, -0.03, 0.08];
+const DINER_SETTLE = [0.03, -0.13, -0.03, 0.08, 0.15, -0.07, 0.11];
 
 /**
  * A patroller's stance at the instant the room is built.
@@ -416,7 +419,7 @@ export function populate(scene, room) {
          * date. A room full of people watching one table is a horror beat,
          * not a restaurant — they face the way they were seated and get on
          * with their own evening. */
-        x: seat.x, z: seat.z, yaw: seat.yaw + DINER_SETTLE[diner % DINER_SETTLE.length], look: false,
+        x: seat.x, z: seat.z, yaw: seat.yaw + DINER_SETTLE[seatI % DINER_SETTLE.length], look: false,
         model: {
           height: inGown ? rand(1.6, 1.78) : rand(1.68, 1.9),
           build: rand(0.92, 1.3),
