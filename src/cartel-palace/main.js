@@ -30,7 +30,8 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
-import { translateKey, shakeScale } from '../core/settings.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
+import { shakeScale } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -682,8 +683,7 @@ function resetCombatFeedback() {
  * froze (input, trigger, ADS, pointer lock) has a matching un-freeze. */
 function presentPlayerDeath() {
   state.phase = 'dead';
-  player.enabled = false;
-  player.clearKeys();
+  input.refresh('player-death');
   interaction.setPaused(true);
   weapons.setTrigger(false);
   weapons.setAimed(false);
@@ -870,8 +870,7 @@ const mission = new CartelPalaceMission({
     state.completeReport = report;
     loadout.capture(weapons);
     state.phase = 'complete';
-    player.enabled = false;
-    player.clearKeys();
+    input.refresh('mission-complete');
     interaction.setPaused(true);
     weapons.setTrigger(false);
     weapons.setAimed(false);
@@ -1214,10 +1213,7 @@ function placeAtCheckpoint(id) {
 }
 
 function clearCombatInput() {
-  player.clearKeys();
-  interaction.cancel();
-  weapons.setTrigger(false);
-  weapons.setAimed(false);
+  input?.clear('combat-reset');
 }
 
 function clearCombatTransients() {
@@ -1378,12 +1374,7 @@ function restoreMissionProgress() {
 /* ------------------------------------------------------------------ */
 
 function requestGamePointerLock() {
-  try {
-    const pending = canvas.requestPointerLock?.();
-    pending?.catch?.(() => {});
-  } catch {
-    // Embedded preview surfaces can deny pointer lock and still run the scene.
-  }
+  return input.requestPointerLock();
 }
 
 const pauseMenu = createPauseMenu({
@@ -1398,15 +1389,13 @@ const pauseMenu = createPauseMenu({
   canPause: () => state.phase === 'active',
   onPause: () => {
     state.paused = true;
-    player.enabled = false;
-    player.clearKeys();
-    weapons.setTrigger(false);
     interaction.setPaused(true);
+    input.refresh('pause');
   },
   onResume: () => {
     state.paused = false;
     interaction.setPaused(false);
-    player.enabled = true;
+    input.refresh('resume');
     requestGamePointerLock();
   },
   recovery: createCampaignSceneRecovery({
@@ -1420,6 +1409,60 @@ const pauseMenu = createPauseMenu({
     restartCheckpoint: () => location.reload(),
     canRestartCheckpoint: () => Boolean(campaignStory.mission.checkpoint),
   }),
+});
+
+const input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  canEnable: () => state.phase === 'active' && !state.paused,
+  canHandleInput: () => state.phase === 'active' && !state.paused,
+  /* Keyboard interaction remains available when an embedded browser refuses
+   * mouse capture. Movement and look still require capture; the authored
+   * power-box/door actions historically did not. */
+  interactionRequiresCapture: false,
+  routes: {
+    keyDown(event) {
+      if (event.code === 'KeyR' && !event.repeat) {
+        weapons.reload();
+        return true;
+      }
+      if (event.code === 'KeyQ' && !event.repeat) {
+        loadout.stow(weapons);
+        syncLoadout();
+        return true;
+      }
+      if (event.code === 'KeyB' && !event.repeat) {
+        hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
+        return true;
+      }
+      if (/^Digit[1-5]$/.test(event.code) && !event.repeat) {
+        loadout.select(Number(event.code.slice(-1)) - 1, weapons);
+        syncLoadout();
+        return true;
+      }
+      return false;
+    },
+    mouseDown(event, controls) {
+      if (!controls.locked) return false;
+      if (event.button === 0) weapons.setTrigger(true);
+      if (event.button === 2) weapons.setAimed(true);
+      return event.button === 0 || event.button === 2;
+    },
+    mouseUp(event) {
+      if (event.button === 0) weapons.setTrigger(false);
+      if (event.button === 2) weapons.setAimed(false);
+      return event.button === 0 || event.button === 2;
+    },
+  },
+  onClear: (reason) => {
+    weapons.setTrigger(false);
+    weapons.setAimed(false);
+  },
+  onCaptureError: () => {
+    weapons.setTrigger(false);
+    weapons.setAimed(false);
+  },
 });
 
 startButton.addEventListener('click', async () => {
@@ -1469,7 +1512,7 @@ startButton.addEventListener('click', async () => {
   }
   state.phase = 'active';
   interaction.setPaused(false);
-  player.enabled = true;
+  input.refresh('scene-start');
   inventoryBar.show();
   loadout.apply(weapons);
   syncSuppressor();
@@ -1536,7 +1579,7 @@ function retryFromCheckpoint() {
   document.body.classList.toggle('alarm', security.alarm);
   state.phase = 'active';
   interaction.setPaused(false);
-  player.enabled = true;
+  input.refresh('checkpoint-retry');
   requestGamePointerLock();
   return true;
 }
@@ -1564,55 +1607,7 @@ initiationButton.addEventListener('click', () => {
   navigateCampaign(campaign, SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb', location });
 });
 
-document.addEventListener('pointerlockchange', () => {
-  if (state.phase === 'active' && !state.paused) {
-    player.enabled = document.pointerLockElement === canvas;
-  }
-  if (document.pointerLockElement !== canvas) clearCombatInput();
-});
-document.addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
-});
-document.addEventListener('keydown', (event) => {
-  if (state.phase !== 'active' || state.paused) return;
-  if (event.code === 'Space') event.preventDefault();
-  player.setKey(translateKey(event.code), true);
-  if (event.code === 'KeyE' && !event.repeat) interaction.press();
-  if (event.code === 'KeyR' && !event.repeat) weapons.reload();
-  if (event.code === 'KeyQ' && !event.repeat) {
-    loadout.stow(weapons);
-    syncLoadout();
-  }
-  if (event.code === 'KeyB' && !event.repeat) hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
-  if (/^Digit[1-5]$/.test(event.code) && !event.repeat) {
-    loadout.select(Number(event.code.slice(-1)) - 1, weapons);
-    syncLoadout();
-  }
-});
-document.addEventListener('keyup', (event) => {
-  player.setKey(translateKey(event.code), false);
-  if (event.code === 'KeyE') interaction.release();
-});
-document.addEventListener('mousedown', (event) => {
-  if (event.button === 0 && state.phase === 'active' && !state.paused
-    && document.pointerLockElement === canvas) weapons.setTrigger(true);
-  if (event.button === 2 && state.phase === 'active' && !state.paused
-    && document.pointerLockElement === canvas) weapons.setAimed(true);
-});
-document.addEventListener('mouseup', (event) => {
-  if (event.button === 0) weapons.setTrigger(false);
-  if (event.button === 2) weapons.setAimed(false);
-});
-addEventListener('blur', () => {
-  if (state.phase === 'active' && !state.paused) player.enabled = false;
-  clearCombatInput();
-});
 canvas.addEventListener('contextmenu', (event) => event.preventDefault());
-canvas.addEventListener('click', () => {
-  if (state.phase === 'active' && !state.paused && document.pointerLockElement !== canvas) {
-    requestGamePointerLock();
-  }
-});
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -1790,6 +1785,7 @@ window.CARTEL_PALACE = {
   acoustics,
   mission,
   player,
+  input,
   interaction,
   palace,
   cast,

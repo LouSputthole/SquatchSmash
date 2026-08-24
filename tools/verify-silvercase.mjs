@@ -702,29 +702,46 @@ try {
     establish.beat === 'ESTABLISH_CONTROL' && caseOcclusionVisible === true,
     JSON.stringify({ establish, caseOcclusionVisible }));
 
-  // ---- Movement during ESTABLISH_CONTROL: real WASD, driven the same way
-  // every other core/player.js scene's verify script proves it (heist,
-  // squatchfather) — `player.enabled` is normally flipped by a real
-  // pointerlockchange event, which headless automation cannot reliably hold,
-  // so it is set directly here exactly like tools/verify-heist.mjs does.
+  // ---- Movement during ESTABLISH_CONTROL: cross the real browser Adapter
+  // Seam. Directly setting `player.enabled` used to let a scene with no DOM
+  // input wiring pass this check.
+  await page.locator('canvas').click({ position: { x: 480, y: 300 } });
+  await page.waitForFunction(() => window.silvercase.input.snapshot().captured, null, {
+    timeout: 5000,
+  });
   const beforeMove = await page.evaluate(() => {
     const p = window.silvercase.player;
-    p.enabled = true;
-    return { x: p.position.x, z: p.position.z };
+    return { x: p.position.x, z: p.position.z, yaw: p.yaw };
   });
-  await page.keyboard.down('KeyW');
+  await page.mouse.move(480, 300);
+  await page.mouse.move(550, 265, { steps: 2 });
+  await page.keyboard.down('w');
   await page.waitForTimeout(100);
   await page.evaluate(() => window.silvercase.tick(0.6));
-  await page.keyboard.up('KeyW');
+  const heldKeys = await page.evaluate(() => [...window.silvercase.player.keys]);
+  await page.keyboard.up('w');
   await page.waitForTimeout(60);
   const afterMove = await page.evaluate(() => {
     const p = window.silvercase.player;
-    return { x: p.position.x, z: p.position.z, beat: window.silvercase.state().beat };
+    return {
+      x: p.position.x,
+      z: p.position.z,
+      yaw: p.yaw,
+      keys: [...p.keys],
+      beat: window.silvercase.state().beat,
+      input: window.silvercase.input.snapshot(),
+    };
   });
   const moved = Math.hypot(afterMove.x - beforeMove.x, afterMove.z - beforeMove.z);
-  check('WASD moves the player forward during ESTABLISH_CONTROL',
-    afterMove.beat === 'ESTABLISH_CONTROL' && moved > 0.2 && Number.isFinite(afterMove.x),
-    JSON.stringify({ beforeMove, afterMove, moved: +moved.toFixed(3) }));
+  check('real click, mouse and W input capture, look, move and release during ESTABLISH_CONTROL',
+    afterMove.beat === 'ESTABLISH_CONTROL'
+      && afterMove.input.captured
+      && heldKeys.includes('KeyW')
+      && !afterMove.keys.includes('KeyW')
+      && moved > 0.2
+      && Math.abs(afterMove.yaw - beforeMove.yaw) > 0.01
+      && Number.isFinite(afterMove.x),
+    JSON.stringify({ beforeMove, heldKeys, afterMove, moved: +moved.toFixed(3) }));
 
   // ---- Early weapon draw (right-click reach), gated to arm only during the
   // three states the mission cares about — pressDraw() stands in for that

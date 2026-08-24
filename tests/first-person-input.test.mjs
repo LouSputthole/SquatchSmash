@@ -70,6 +70,17 @@ test('keyboard capture is an explicit Adapter option for focused flight UI', () 
   f.input.destroy();
 });
 
+test('a scene can keep canonical interaction available when pointer capture is unavailable', () => {
+  const f = fixture({ interactionRequiresCapture: false });
+
+  f.windowTarget.emit('keydown', { code: 'KeyE', repeat: false });
+  assert.equal(f.calls.presses, 1);
+  assert.equal(f.player.enabled, false, 'movement remains capture-gated');
+
+  f.windowTarget.emit('keyup', { code: 'KeyE' });
+  assert.equal(f.calls.releases, 1);
+});
+
 test('pointer lock is the single enable seam for translated movement and look', () => {
   const f = fixture();
   assert.equal(f.player.enabled, false);

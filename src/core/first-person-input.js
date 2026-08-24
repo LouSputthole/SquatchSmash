@@ -72,6 +72,7 @@ export class FirstPersonInputAdapter {
     captureMode = FIRST_PERSON_CAPTURE_MODES.POINTER_LOCK,
     dragFallbackDelayMs = 600,
     keyboardCapture = false,
+    interactionRequiresCapture = true,
     onKeyDown = null,
     onClear = null,
     onCaptureChange = null,
@@ -93,6 +94,9 @@ export class FirstPersonInputAdapter {
     if (typeof keyboardCapture !== 'boolean') {
       throw new TypeError('keyboardCapture must be a boolean');
     }
+    if (typeof interactionRequiresCapture !== 'boolean') {
+      throw new TypeError('interactionRequiresCapture must be a boolean');
+    }
 
     this.player = player;
     this.canvas = eventTarget(canvas, 'canvas');
@@ -107,6 +111,7 @@ export class FirstPersonInputAdapter {
     this.captureMode = captureMode;
     this.dragFallbackDelayMs = dragFallbackDelayMs;
     this.keyboardCapture = keyboardCapture;
+    this.interactionRequiresCapture = interactionRequiresCapture;
     this.onKeyDown = optionalFunction(onKeyDown, 'onKeyDown');
     this.onClear = optionalFunction(onClear, 'onClear');
     this.onCaptureChange = optionalFunction(onCaptureChange, 'onCaptureChange');
@@ -306,7 +311,9 @@ export class FirstPersonInputAdapter {
       playerEnabled: lifecycleEnabled && (policy.playerEnabled ?? true) === true,
       movementEnabled: defaultsEnabled && (policy.movementEnabled ?? true) === true,
       defaultLookEnabled: defaultsEnabled && (requestedLook ?? true) === true,
-      interactionEnabled: defaultsEnabled && (policy.interactionEnabled ?? true) === true,
+      interactionEnabled: inputEnabled
+        && (!this.interactionRequiresCapture || lifecycleEnabled)
+        && (policy.interactionEnabled ?? true) === true,
       lifecycleEnabled,
       inputEnabled,
       defaultsEnabled,
