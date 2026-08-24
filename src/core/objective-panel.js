@@ -119,7 +119,25 @@ function ensureStyle(doc) {
   const style = doc.createElement('style');
   style.id = STYLE_ID;
   style.textContent = STYLE;
-  doc.head.append(style);
+  /* FIRST in the head, not last, and that is the whole reason a scene can
+   * place this panel at all.
+   *
+   * Every rule above is written `#objectives.op-panel`, and so is every scene
+   * override of it -- `src/cartel-palace/cartel-palace.css:123`,
+   * `src/golf/golf.css:65`, `src/heist/heist.css:23`. Equal specificity, so
+   * the cascade decides on source order, and a stylesheet the page LINKS is
+   * parsed long before a module gets to run. Appending put this block last and
+   * it silently beat all three: the Palace asked for `top: 70px` to clear its
+   * evidence strip, golf for `top: 106px`, the heist for `top: 84px`, and all
+   * three panels sat at this file's own `top: 18px` -- in the Palace's case
+   * directly on top of the evidence count, which is what the owner reported as
+   * "Rescue ... covers Evidence 3/3".
+   *
+   * Prepending makes these the defaults they are documented to be. Nothing is
+   * lost against `src/style.css`'s bare `#objectives`: that selector is one id
+   * to this one's id-plus-class, so specificity keeps this winning wherever no
+   * scene has an opinion. */
+  doc.head.prepend(style);
 }
 
 /**

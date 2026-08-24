@@ -36,6 +36,7 @@ function fakeDoc() {
       },
       classes,
       append: (...kids) => node.children.push(...kids),
+      prepend: (...kids) => node.children.unshift(...kids),
       replaceChildren: (...kids) => { node.children = kids; },
       remove: () => {},
       querySelector: (selector) => {
@@ -92,6 +93,28 @@ test('a page with no panel gets one, and one with a panel keeps it', () => {
   const adopted = createObjectivePanel({ doc: withCard });
   assert.equal(adopted.adopted, true);
   assert.equal(adopted.element, existing);
+});
+
+test('the injected sheet goes FIRST, so a scene stylesheet can still place the panel', () => {
+  /* The Palace, golf and the heist all write `#objectives.op-panel { top: ... }`
+   * in their own linked stylesheet -- exactly the specificity this module's own
+   * block uses. Equal specificity means source order decides, and a link in the
+   * head is parsed long before a module runs, so appending this sheet beat all
+   * three of them: measured in Chromium, the Palace's panel sat at the module's
+   * `top: 18px` instead of its authored `top: 70px`, on top of the evidence
+   * strip at `top: 24px`. That is the owner's "Rescue ... covers Evidence 3/3".
+   *
+   * The scene stylesheet is a LINK the page owns, so nothing here can reorder
+   * it. What this module owes it is to arrive first and be a default. */
+  const doc = fakeDoc();
+  const linked = doc.createElement('link');
+  linked.id = 'a-scene-stylesheet';
+  doc.head.append(linked);
+
+  createObjectivePanel({ doc });
+
+  const ids = doc.head.children.map((node) => node.id);
+  assert.deepEqual(ids, ['objective-panel-style', 'a-scene-stylesheet']);
 });
 
 test('a headless scene runs and the panel does nothing', () => {
