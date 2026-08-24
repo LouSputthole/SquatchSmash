@@ -425,15 +425,15 @@
         "mark",
         "sauce",
         "mark-wife",
-        "short-one",
-        "short-two",
+        "lola",
+        "johnny",
         "cleaner",
         "cartel-guard1",
         "cartel-guard2",
         "cartel-guard3"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "cast.js builds Mark (makeCombatant 'mark', voice 'mark') and Sauce ('sauce') at the dining-room anchors plus the three begging civilians (PALACE_CIVILIAN_POSTS: 'wife' -> voice 'mark-wife', 'short-one', 'short-two'); finale.js's PalaceFinaleDirector plays every vo.palace.finale.* line through those bodies. Added 2026-08-20 with the owner playtest pass: PALACE_BYSTANDER_POSTS builds the entry-hall cleaner (voice 'cleaner', spoken through bystanders.js's PalaceBystanders) and PALACE_GUARD_POSTS builds nine guards through voice.js's PalaceVoice, which gates every line on radius AND line of sight to a specific live body. The single 'cartel-guard' profile was split three ways on 2026-08-20 with the owner's ids: voice.js's PALACE_GUARD_VOICE_CAST gives each of the nine posted men one of cartel-guard1/2/3 so every idle two-hander in conversations.js is two different throats, and PALACE_GUARD_BARK_CAST spreads the eight contact/search/ally-down barks across all three. Tony's lines are voice 'player', globally exempt."
+      "notes": "cast.js builds Mark (makeCombatant 'mark', voice 'mark') and Sauce ('sauce') at the dining-room anchors plus the three begging civilians (PALACE_CIVILIAN_POSTS: 'wife' -> voice 'mark-wife', 'lola', 'johnny' -- renamed 2026-08-25 from 'short-one'/'short-two' on the owner's instruction); finale.js's PalaceFinaleDirector plays every vo.palace.finale.* line through those bodies. Added 2026-08-20 with the owner playtest pass: PALACE_BYSTANDER_POSTS builds the entry-hall cleaner (voice 'cleaner', spoken through bystanders.js's PalaceBystanders) and PALACE_GUARD_POSTS builds nine guards through voice.js's PalaceVoice, which gates every line on radius AND line of sight to a specific live body. The single 'cartel-guard' profile was split three ways on 2026-08-20 with the owner's ids: voice.js's PALACE_GUARD_VOICE_CAST gives each of the nine posted men one of cartel-guard1/2/3 so every idle two-hander in conversations.js is two different throats, and PALACE_GUARD_BARK_CAST spreads the eight contact/search/ally-down barks across all three. Tony's lines are voice 'player', globally exempt."
     },
     {
       "id": "initiation",

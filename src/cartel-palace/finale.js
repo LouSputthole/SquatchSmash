@@ -29,16 +29,20 @@ export const FINALE_SPEAKERS = Object.freeze({
   MARK: Object.freeze({ name: 'MARK', colour: '#e0b25c', voice: 'mark', slug: 'mark', combatant: 'mark' }),
   SAUCE: Object.freeze({ name: 'SAUCE', colour: '#d98a5a', voice: 'sauce', slug: 'sauce', combatant: 'sauce' }),
   WIFE: Object.freeze({ name: 'MRS. MARK', colour: '#d96a9a', voice: 'mark-wife', slug: 'wife', civilian: 'wife' }),
-  SHORT_ONE: Object.freeze({ name: 'BIG PACO', colour: '#8fc4a8', voice: 'short-one', slug: 'short-one', civilian: 'short-one' }),
-  SHORT_TWO: Object.freeze({ name: 'LITTLE PACO', colour: '#8ab4d9', voice: 'short-two', slug: 'short-two', civilian: 'short-two' }),
+  /* Owner, 2026-08-25: *"Rename them Lola and Johnny."* Big Paco and Little
+   * Paco are gone from the ids, the slugs and the words. That retires their
+   * seventeen recorded takes and there was no way around it -- their names
+   * were IN the lines. */
+  LOLA: Object.freeze({ name: 'LOLA', colour: '#8fc4a8', voice: 'lola', slug: 'lola', civilian: 'lola' }),
+  JOHNNY: Object.freeze({ name: 'JOHNNY', colour: '#8ab4d9', voice: 'johnny', slug: 'johnny', civilian: 'johnny' }),
 });
 
 const T = (text, hold, extra = null) => ({ who: 'TONY', text, hold, ...extra });
 const M = (text, hold, extra = null) => ({ who: 'MARK', text, hold, ...extra });
 const S = (text, hold, extra = null) => ({ who: 'SAUCE', text, hold, ...extra });
 const W = (text, hold, extra = null) => ({ who: 'WIFE', text, hold, ...extra });
-const SO = (text, hold, extra = null) => ({ who: 'SHORT_ONE', text, hold, ...extra });
-const ST = (text, hold, extra = null) => ({ who: 'SHORT_TWO', text, hold, ...extra });
+const L = (text, hold, extra = null) => ({ who: 'LOLA', text, hold, ...extra });
+const J = (text, hold, extra = null) => ({ who: 'JOHNNY', text, hold, ...extra });
 
 /*
  * Beat vocabulary:
@@ -124,65 +128,171 @@ export const FINALE_BEATS = Object.freeze({
       { direction: 'Pleading for lives and upholstery in the same breath, and she means both equally.' }),
   ],
   'begging.shorts': [
-    SO('Boss man, listen. Me and him, we have personally witnessed maybe four hundred murders—', 4.2,
+    L('Boss man, listen. Me and him, we have personally witnessed maybe four hundred murders—', 4.2,
       { pose: 'pleading', direction: 'A short, urgent professional opening a negotiation. Fast, sincere, hands out.' }),
-    ST('—five hundred—', 1.3,
+    J('—five hundred—', 1.3,
       { pose: 'pleading', direction: 'Correcting his partner instantly, like they keep a shared spreadsheet.' }),
-    SO('—five hundred murders, and not one of them improved the evening.', 3.6,
+    L('—five hundred murders, and not one of them improved the evening.', 3.6,
       { direction: 'Accepting the correction without pause and finishing the shared sentence.' }),
-    ST('Kill nobody, and we validate parking. Kill somebody, and we scream, we dive under the table, it becomes a whole thing.', 5.8,
+    J('Kill nobody, and we validate parking. Kill somebody, and we scream, we dive under the table, it becomes a whole thing.', 5.8,
       { direction: 'Laying out both packages like a waiter reciting specials. Deadly serious about the logistics.' }),
-    SO('It is rehearsed, but it is a whole thing.', 2.8,
-      { direction: 'Quiet, confidential postscript. He is not proud that it is rehearsed. He is a little proud.' }),
+    L('It is rehearsed, but it is a whole thing.', 2.8,
+      { direction: 'Quiet, confidential postscript. She is not proud that it is rehearsed. She is a little proud.' }),
   ],
+
+  /* ---------------------------------------------------------------- *
+   * THE TABLE BREAKS UP.
+   *
+   * Owner, 2026-08-25: *"You go into the back room and confront Sauce. Mark
+   * scrambles away. You then kill sauce and chose to kill his two short
+   * people."*
+   *
+   * So `go` no longer starts a two-man fight. Tony's verdict still carries
+   * `engage`, and it still means the shooting may start -- but the only man
+   * it activates is the chef. Mark's exit is the same beat, on the line
+   * carrying `scramble`, and it is the ONE thing in this script that changes
+   * who is in the room.
+   * ---------------------------------------------------------------- */
   go: [
     M('Enough. He did not climb my wall to hear the help negotiate.', 3.8,
-      { direction: 'The boss ends the begging. Chair pushed back, evening over, gun within reach.' }),
+      { direction: 'The boss ends the begging. Chair pushed back, evening over.' }),
     T('The ledger says you bought him. The footage says he sold us. I say dinner’s over.', 4.6,
       { engage: true, direction: 'Verdict. Ice-flat, no rise at the end. The safety comes off on the last word.' }),
+    M('It is. Sauce — you brought him into my house. You entertain him.', 4.4,
+      { scramble: true, direction: 'Not a threat and not a retreat, in his own mind: a delegation. He is already standing, already turning, and does not raise his voice once.' }),
   ],
+  'mark.scramble': [
+    S('Mark. Mark! MARK.', 2.6,
+      { direction: 'Three attempts at the same word, each one smaller than the last.' }),
+    W('He is very fast for a big man. He has always been very fast.', 3.6,
+      { direction: 'Flat, admiring, entirely unhelpful. She is watching her husband leave and appraising his gait.' }),
+  ],
+  'sauce.alone': [
+    S('Twenty years. Twenty years I cooked for that man, and he is going to leave me at the table.', 5.4,
+      { direction: 'The realisation arriving in real time, out loud, to nobody. Not frightened yet — insulted.' }),
+    S('Fine. FINE. You want to know what I am, Tony? I am the only one in this house who ever finished anything.', 5.6,
+      { direction: 'A chef losing his temper, which is a specific and dangerous kind of temper. He goes for the gun on the last word.' }),
+  ],
+
+  /* ---------------------------------------------------------------- *
+   * THE CHEF IS DOWN, AND THE TWO PEOPLE WHO WORKED FOR HIM ARE NOT.
+   *
+   * `begging.after-sauce` is the choice the owner asked for, in words: they
+   * are Sauce's staff, they are unarmed, the mission does not count them, and
+   * the player decides. What happens next is the only thing in the Palace
+   * that changes how the boss fight goes.
+   * ---------------------------------------------------------------- */
+  'react.sauce-down': [
+    W('The CHEF?! Who garnishes the branzino now, you son of a bitch?!', 4.2,
+      { direction: 'Screamed fury. The catering implications hit her before the mortality does.' }),
+    J('He still owed me forty bucks—', 1.9,
+      { direction: 'Genuine dismay, already crouching.' }),
+    L('—forty bucks, gone. AWAY from the table. AWAY from the table!', 2.8,
+      { dive: true, direction: 'Finishes the accounting, then the bark, then the dive. All three at full commitment.' }),
+  ],
+  'begging.after-sauce': [
+    /* NO `pose` ON THESE TWO, and that is load-bearing. They are talking from
+     * the floor -- `react.sauce-down` sent them there on the line before --
+     * and a `pose: 'pleading'` here stands them straight back up to beg, which
+     * is what the first pass did and what the dive test caught. */
+    L('We do not cook. We never cooked. We carried things for a man who is now on the tablecloth.', 5.4,
+      { direction: 'From the floor, fast and reasonable, laying out a position rather than begging. She thinks this is going to work.' }),
+    J('We can carry things for you. We are very good at carrying things.', 3.6,
+      { direction: 'Helpfully, and flat on his face. He is applying for a job over a corpse and he means it sincerely.' }),
+    L('That is the whole offer. It is not a big offer.', 3.0,
+      { direction: 'Quiet. She knows exactly how small it is and puts it on the table anyway.' }),
+  ],
+
+  /* ---------------------------------------------------------------- *
+   * THE REPRISAL, IN THREE.
+   *
+   * Owner, 2026-08-25: *"Maybe you fight him and knock down his amour then he
+   * retreats and then sends a wave of A team members who you blast and then he
+   * comes out again enraged for the third and final fight of the scene."*
+   *
+   * `enter` is stage one, `armor-broken` ends it, `wave` is stage two, and
+   * `final` is stage three. Each has a COLD and an ENRAGED variant, and which
+   * one plays is decided by whether Lola and Johnny are still breathing --
+   * the enrage is the consequence of the choice above, not a difficulty
+   * setting.
+   * ---------------------------------------------------------------- */
+  'reprisal.enter.cold': [
+    M('You shot my chef in my dining room. On a Tuesday.', 3.8,
+      { direction: 'Back through the door, unhurried, genuinely aggrieved about the day of the week.' }),
+    M('I was going to let you leave here with a theory. Now I have to do the leaving-you-here part myself.', 5.4,
+      { engage: true, direction: 'Reasonable to the last syllable. The rifle comes up on "myself" and nothing in his voice changes.' }),
+  ],
+  'reprisal.enter.enraged': [
+    M('They CARRIED things. That is the whole of what they did in this house. They carried things.', 5.2,
+      { direction: 'Not shouted. Said slowly, twice, because he cannot get past it.' }),
+    M('Nothing in your ledger said to do that. You read my books and then you did that anyway.', 4.8,
+      { direction: 'The one moment in the mission where the man is not performing. It should be uncomfortable.' }),
+    M('Come here.', 1.6,
+      { engage: true, direction: 'Two words, quiet, and he is already moving.' }),
+  ],
+  'reprisal.armor-broken': [
+    M('All right. All right — that is a good rifle.', 3.2,
+      { direction: 'Winded, plates gone, and complimenting the weapon. Buying the four seconds it takes to get through the door.' }),
+    M('BOYS. Dining room. Bring everybody.', 3.0,
+      { wave: true, direction: 'Bellowed down a corridor, the first time all night he has raised his voice.' }),
+  ],
+  'reprisal.wave': [
+    W('That is the good crew. He keeps the good crew for weddings.', 4.0,
+      { direction: 'From behind the sideboard, appalled at the expense.' }),
+  ],
+  'reprisal.wave-cleared': [
+    J('They are all on the rug.', 2.4,
+      { direction: 'Muffled, from under the table, doing an inventory.' }),
+    W('They are ALL on the rug.', 2.6,
+      { direction: 'The same four words, entirely different grief.' }),
+  ],
+  'reprisal.final.cold': [
+    M('No vest. No boys. No chef.', 3.0,
+      { direction: 'Counting what is gone, in a tone that suggests he has done this arithmetic before.' }),
+    M('Just the man who came to my house on a Tuesday, and me.', 4.2,
+      { engage: true, direction: 'Almost hospitable. He walks out into the open on purpose.' }),
+  ],
+  'reprisal.final.enraged': [
+    M('They carried things.', 2.0,
+      { direction: 'Still on it. He has been standing behind that wall thinking about it.' }),
+    M('Say one word to me about the ledger. Say one word, and I will put you through the wall my wife chose.', 5.8,
+      { engage: true, direction: 'The full thing, finally uncapped. No performance left in it at all.' }),
+  ],
+
   'react.mark-first': [
     W('MARCO! You shot him in the FACE — the deposit, you ANIMAL, the DEPOSIT!', 4.6,
       { direction: 'Screamed over a fresh corpse. Grief and cosmetic-surgery accounting at equal volume.' }),
-    SO('NOT the table! AWAY from the table!', 1.6,
+    L('NOT the table! AWAY from the table!', 1.6,
       { dive: true, direction: 'One barked correction, already moving. Twenty years of the wrong drill, unlearned mid-air.' }),
-    ST('AWAY FROM THE TABLE!', 1.3,
+    J('AWAY FROM THE TABLE!', 1.3,
       { dive: true, direction: 'The identical bark a half-beat later. It is rehearsed. It is finally rehearsed correctly.' }),
   ],
-  'react.sauce-first': [
-    W('The CHEF?! Who garnishes the branzino now, you son of a bitch?!', 4.2,
-      { direction: 'Screamed fury. The catering implications hit her before the mortality does.' }),
-    ST('He still owed me forty bucks—', 1.9,
-      { direction: 'Genuine dismay, already crouching.' }),
-    SO('—forty bucks, gone. AWAY FROM THE TABLE!', 2.2,
-      { dive: true, direction: 'Finishes the accounting, then the bark, then the dive. All three at full commitment.' }),
-  ],
   'react.dive-landed': [
-    SO('Wall. The WALL is cover. A table is a table.', 3.4,
-      { direction: 'Winded, flat on the floor, delivering the correction like a man who has just lost an argument with physics.' }),
-    ST('I am updating the procedure.', 2.2,
+    L('Wall. The WALL is cover. A table is a table.', 3.4,
+      { direction: 'Winded, flat on the floor, delivering the correction like somebody who has just lost an argument with physics.' }),
+    J('I am updating the procedure.', 2.2,
       { direction: 'Muffled and absolutely serious. Somewhere there is a laminated card and he intends to reprint it.' }),
   ],
   'react.all-down': [
     W('FINE! Fine. I hope every rug you ever love betrays you. Now get out of my house, you gorgeous psychopath!', 5.8,
       { direction: 'The full aria: cursing Tony out, vicious and operatic, with one involuntary compliment in the middle.' }),
-    SO('We saw nothing.', 1.7,
+    L('We saw nothing.', 1.7,
       { direction: 'Muffled, from under the table, instantly cooperative.' }),
-    ST('We are continuing to see nothing.', 2.4,
+    J('We are continuing to see nothing.', 2.4,
       { direction: 'Also from under the table, providing ongoing legal coverage.' }),
   ],
   'react.wife-down': [
-    SO('He shot the missus! The missus is DOWN!', 2.8,
+    L('He shot the missus! The missus is DOWN!', 2.8,
       { dive: true, direction: 'Genuine panic, announced like a ring judge, already moving.' }),
-    ST('On the RUG! She is ON the rug!', 2.6,
+    J('On the RUG! She is ON the rug!', 2.6,
       { dive: true, direction: 'Horrified — for her, and on her behalf about the rug, which she loved.' }),
   ],
-  'react.short-one-down': [
-    ST('BIG PACO! He had two centimetres on me, you bastard. Two whole centimetres!', 3.8,
+  'react.lola-down': [
+    J('LOLA. You had two centimetres on me. Two whole centimetres, and you never once let me forget it.', 5.2,
       { dive: true, direction: 'Grief measured in the only unit that ever mattered between them.' }),
   ],
-  'react.short-two-down': [
-    SO('LITTLE PACO! You magnificent half-portion — I am not covering your shifts!', 3.8,
+  'react.johnny-down': [
+    L('JOHNNY! You magnificent half-portion — I am not covering your shifts!', 3.8,
       { dive: true, direction: 'Bereft and furious about the rota in the same scream.' }),
   ],
 });
@@ -263,8 +373,8 @@ export function composeConfrontation({ evidenceFound = [], alarmRaised = false }
  * dive time rather than trusting these numbers to stay true.
  */
 const DIVE_POINTS = Object.freeze({
-  'short-one': Object.freeze(new THREE.Vector3(8.0, 0, -46.0)),
-  'short-two': Object.freeze(new THREE.Vector3(9.6, 0, -44.4)),
+  lola: Object.freeze(new THREE.Vector3(8.0, 0, -46.0)),
+  johnny: Object.freeze(new THREE.Vector3(9.6, 0, -44.4)),
 });
 
 /** Half-width of the box a prone rig needs to land in without clipping. */
@@ -289,7 +399,12 @@ const FEAR = Object.freeze({
  */
 export class PalaceFinaleDirector {
   constructor({
-    cast, hud, audio = null, colliders = [], onEngage = () => {},
+    cast, hud, audio = null, colliders = [],
+    onEngage = () => {},
+    onScramble = () => {},
+    onMarkReturn = () => {},
+    onMarkRetreat = () => {},
+    onWave = () => {},
   } = {}) {
     if (!cast?.civilians) throw new TypeError('PalaceFinaleDirector requires a cast with civilians');
     this.cast = cast;
@@ -299,7 +414,32 @@ export class PalaceFinaleDirector {
     this.hud = hud;
     this.audio = audio;
     this.onEngage = onEngage;
+    this.onScramble = onScramble;
+    this.onMarkReturn = onMarkReturn;
+    this.onMarkRetreat = onMarkRetreat;
+    this.onWave = onWave;
     this.phase = 'idle';
+    /**
+     * WHICH OF THE THREE STAGES THE ROOM IS IN.
+     *
+     * `phase` stayed what it always was -- idle / confrontation / combat /
+     * aftermath -- because the civilians' fear term and every checkpoint path
+     * read it. `stage` is the new axis, and it is the fight:
+     *
+     *   confrontation  the table, the words, Mark still in the room
+     *   sauce          Mark has gone; the chef is on his own
+     *   reprisal-one   Mark is back, in his plates
+     *   wave           his plates are off and the A-Team is in the room
+     *   reprisal-final he is back out with nothing left
+     *   done           the room is his wife's problem now
+     */
+    this.stage = 'confrontation';
+    /** Lola or Johnny died. Decides which half of every reprisal beat plays. */
+    this.enraged = false;
+    /** Fired once when the line queue next runs dry. The stages are paced by
+     * the dialogue rather than by a timer, so a slow take never gets talked
+     * over by the next man coming through the door. */
+    this._after = null;
     this.engaged = false;
     this.dived = false;
     this.queue = [];
@@ -356,11 +496,70 @@ export class PalaceFinaleDirector {
     return true;
   }
 
+  /**
+   * A line carrying `engage` has started, and what that MEANS depends on which
+   * stage the room is in.
+   *
+   * It used to mean one thing -- activate Mark and Sauce -- because there was
+   * one fight. There are three now, and each opens on its own line: Tony's
+   * verdict opens the chef, Mark's return opens stage one, and his last walk
+   * out of the doorway opens the end of it. Same flag, same contract (the
+   * shooting may start on this line), three different rooms.
+   */
   _engage() {
+    this.phase = 'combat';
+    if (this.stage === 'reprisal-one') {
+      this.onMarkReturn({ armored: true, enraged: this.enraged });
+      return;
+    }
+    if (this.stage === 'reprisal-final') {
+      this.onMarkReturn({ armored: false, enraged: this.enraged });
+      return;
+    }
     if (this.engaged) return;
     this.engaged = true;
-    this.phase = 'combat';
     this.onEngage();
+  }
+
+  /**
+   * Mark leaves the table.
+   *
+   * Owner, 2026-08-25: *"You go into the back room and confront Sauce. Mark
+   * scrambles away."* The line carrying `scramble` is where he goes, and it is
+   * the only thing in the confrontation that changes who is in the room.
+   */
+  _scramble() {
+    if (this.stage !== 'confrontation') return false;
+    this.stage = 'sauce';
+    this.onScramble();
+    this.play('mark.scramble');
+    this.play('sauce.alone');
+    return true;
+  }
+
+  /** His plates are gone. He buys four seconds and spends them on a door. */
+  onArmorBroken() {
+    if (this.stage !== 'reprisal-one') return false;
+    this.stage = 'wave';
+    this.onMarkRetreat();
+    this.play('reprisal.armor-broken', { urgent: true });
+    return true;
+  }
+
+  /** Stage one: he comes back for the chef nobody else was going to answer for. */
+  _beginReprisal() {
+    if (this.stage !== 'sauce' || this.cast.mark.down) return false;
+    this.stage = 'reprisal-one';
+    this.play(this.enraged ? 'reprisal.enter.enraged' : 'reprisal.enter.cold');
+    return true;
+  }
+
+  /** Stage three: no vest, no boys, no chef. */
+  _beginFinalStage() {
+    if (this.stage !== 'wave' || this.cast.mark.down) return false;
+    this.stage = 'reprisal-final';
+    this.play(this.enraged ? 'reprisal.final.enraged' : 'reprisal.final.cold');
+    return true;
   }
 
   /**
@@ -372,6 +571,10 @@ export class PalaceFinaleDirector {
     if (this.engaged) return false;
     this.engaged = true;
     this.phase = 'combat';
+    /* A checkpoint that resumes into a live dining room resumes into the
+     * CHEF's half of it: `dining_room` is saved the moment the doors open, and
+     * what the doors open on since the rewire is Sauce alone. */
+    this.stage = 'sauce';
     for (const entry of this.cast.civilians) {
       if (!entry.down) entry.figure.setState?.('startled', { blend: false });
     }
@@ -382,6 +585,8 @@ export class PalaceFinaleDirector {
   stageAftermath() {
     this.skipConfrontation();
     this.phase = 'aftermath';
+    this.stage = 'done';
+    this._after = null;
     this._reacted.add('mark').add('sauce').add('all');
     this.dived = true;
     for (const entry of this.cast.civilians) {
@@ -397,31 +602,93 @@ export class PalaceFinaleDirector {
     return true;
   }
 
-  /** A kill landed on Mark or Sauce (the mission has already counted it). */
+  /**
+   * A kill landed (the mission has already counted it). This is where the
+   * three stages actually turn over.
+   *
+   * The chef going down starts the reprisal; the wave running out of men ends
+   * stage two; Mark going down ends the mission whenever it happens. Each
+   * transition is queued BEHIND its own reaction lines rather than fired on
+   * the same frame -- see `_after` -- so nobody comes through a door on top of
+   * somebody else's sentence.
+   */
   onTargetDown(id) {
-    if (!['mark', 'sauce'].includes(id) || this._reacted.has(id)) return false;
+    if (this._reacted.has(id)) return false;
+    const waveMember = this.cast.wave?.some((entry) => entry.id === id);
+
+    if (waveMember) {
+      this._reacted.add(id);
+      if (this.stage !== 'wave') return true;
+      if ((this.cast.waveStanding?.() ?? 0) > 0) return true;
+      this.play('reprisal.wave-cleared', { urgent: true });
+      this._after = () => this._beginFinalStage();
+      return true;
+    }
+
+    if (!['mark', 'sauce'].includes(id)) return false;
     this._reacted.add(id);
-    this._engage();
-    const bothDown = this.cast.mark.down && this.cast.sauce.down;
+
+    if (id === 'sauce') {
+      /* HE MAY NEVER HAVE GOT HIS LINE OUT.
+       *
+       * The verdict carries `engage`, and the delegation that carries
+       * `scramble` is the line AFTER it -- so a player who fires the moment
+       * the safety comes off kills the chef with Mark still mid-sentence, and
+       * the urgent reaction below clears the floor and takes that line with
+       * it. The room still has to turn over: without the scramble the stage
+       * never leaves `confrontation`, `_beginReprisal` refuses, and the fight
+       * has no stage one at all. Idempotent, so the ordinary path where he
+       * finished the sentence pays nothing. */
+      this._scramble();
+      this._engage();
+      if (!this._reacted.has('first')) {
+        this._reacted.add('first');
+        this.play('react.sauce-down', { urgent: true });
+        this._dive();
+        this.play('begging.after-sauce');
+      }
+      /* And whatever the player does about the two people on the floor, Mark
+       * is coming back. Killing them changes which Mark. */
+      this._after = () => this._beginReprisal();
+      return true;
+    }
+
+    /* Mark. Whenever and however it lands, that is the room finished. */
     if (!this._reacted.has('first')) {
       this._reacted.add('first');
-      this.play(id === 'mark' ? 'react.mark-first' : 'react.sauce-first', { urgent: true });
+      this.play('react.mark-first', { urgent: true });
       this._dive();
     }
-    if (bothDown && !this._reacted.has('all')) {
+    if (!this._reacted.has('all')) {
       this._reacted.add('all');
       this.play('react.all-down');
       this.phase = 'aftermath';
+      this.stage = 'done';
+      this._after = null;
     }
     return true;
   }
 
-  /** The player put one of the begging trio down. The mission does not care; the room does. */
+  /**
+   * The player put one of the unarmed people down. The mission does not care.
+   *
+   * The ROOM does, and since 2026-08-25 so does Mark: Lola and Johnny are
+   * Sauce's staff, and shooting them is what turns the man who was going to
+   * kill Tony professionally into the man who is going to enjoy it. Owner:
+   * *"chose to kill his two short people... Once you do this it enrages him
+   * for the final boss fight."*
+   *
+   * It is a modifier, never a gate. Leave them alive and Mark still comes
+   * back -- he is not going to let the chef go unanswered either way -- he
+   * just comes back cold. A fight the player can lock himself out of by being
+   * merciful is not a choice, it is a trap.
+   */
   onCivilianDown(entry) {
     if (!entry?.id || this._reacted.has(`civilian-${entry.id}`)) return false;
     this._reacted.add(`civilian-${entry.id}`);
+    if (entry.id === 'lola' || entry.id === 'johnny') this.enraged = true;
     const beat = entry.id === 'wife' ? 'react.wife-down'
-      : entry.id === 'short-one' ? 'react.short-one-down' : 'react.short-two-down';
+      : entry.id === 'lola' ? 'react.lola-down' : 'react.johnny-down';
     this.play(beat);
     return true;
   }
@@ -524,6 +791,17 @@ export class PalaceFinaleDirector {
     }
     if (!this.queue.length) {
       this.current = null;
+      /* THE STAGES ARE PACED BY THE DIALOGUE, NOT BY A TIMER.
+       *
+       * A stage change fired on the frame the kill lands puts Mark through the
+       * door on top of somebody else's sentence, and a stage change on a
+       * guessed delay is the same bug with a number in it. `_after` runs when
+       * the floor is genuinely clear -- so a slow take simply delays the door,
+       * which is what a director would do. Taken before it is called, because
+       * what it schedules is usually more speech. */
+      const next = this._after;
+      this._after = null;
+      next?.();
       return;
     }
     const line = this.queue.shift();
@@ -533,11 +811,18 @@ export class PalaceFinaleDirector {
      * down-but-scripted is impossible for them (their lines all precede the
      * engagement), so the same rule covers everyone. */
     if (speakerEntry?.down) {
+      /* The dead do not deliver, but the ROOM still has to turn over: a
+       * scramble or a wave call skipped because its speaker was shot is a
+       * mission that cannot continue. */
       if (line.engage) this._engage();
+      if (line.scramble) this._scramble();
+      if (line.wave) this.onWave();
       return;
     }
     this.current = line;
     if (line.engage) this._engage();
+    if (line.scramble) this._scramble();
+    if (line.wave) this.onWave();
     if (line.dive) this._dive();
     if (line.pose && speakerEntry && !speakerEntry.down) {
       speakerEntry.figure.setState?.(line.pose, { blend: true });
@@ -563,6 +848,8 @@ export class PalaceFinaleDirector {
   report() {
     return Object.freeze({
       phase: this.phase,
+      stage: this.stage,
+      enraged: this.enraged,
       engaged: this.engaged,
       dived: this.dived,
       spoken: [...this.spoken],

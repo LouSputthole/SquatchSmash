@@ -60,8 +60,13 @@ test('a snapshot captured before activateFinalEncounter needs the re-assert to w
   assert.equal(cast.mark.active, false);
   assert.equal(cast.sauce.active, false);
 
+  /* Since the 2026-08-25 rewire the doors opening activate the CHEF, not both
+   * targets: Mark walks out of the room and the finale director brings him
+   * back for stage one. The checkpoint contract this test is about is
+   * unchanged -- a raw snapshot restores the pre-activation staging, and the
+   * beat has to re-assert -- so it is the same assertions about Sauce. */
   security.activateFinalEncounter();
-  assert.equal(cast.mark.active, true);
+  assert.equal(cast.sauce.active, true);
   shootDown(security, cast.sauce);
 
   security.restore(snapshot);
@@ -71,9 +76,9 @@ test('a snapshot captured before activateFinalEncounter needs the re-assert to w
   assert.equal(security.alarm, false);
 
   /* …so restoreCombatCheckpoint must re-assert the encounter for the
-   * dining-room beat, or both targets come back passive. */
+   * dining-room beat, or the chef comes back passive. */
   security.activateFinalEncounter();
-  assert.equal(cast.mark.active, true);
+  assert.equal(cast.mark.active, false, 'a restore woke the boss the doors no longer wake');
   assert.equal(cast.sauce.active, true);
   assert.equal(security.alarm, true, 'the dining-room alarm comes back with the encounter');
 });

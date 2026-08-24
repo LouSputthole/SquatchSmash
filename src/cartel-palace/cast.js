@@ -8,6 +8,7 @@ import { mountCharacterWeapon } from '../core/weapons/character-mount.js';
 import { buildWeaponModel } from '../core/weapons/models.js';
 import { HeistFigure } from '../heist/people.js';
 import { CombatArmorPresentation } from '../world/combat-armor.js';
+import { dressInATeamColours } from '../world/ateam.js';
 import { palaceGuardVoice } from './voice.js';
 import { PALACE_ANCHORS } from './world.js';
 
@@ -66,32 +67,94 @@ const PALACE_CIVILIAN_POSTS = Object.freeze([
       luxury: true, trim: true, belt: 'gold', watch: 'gold', chain: 'gold',
     }),
   }),
-  /* The double act: visibly short (~1.5 m against a 1.9 m boss), matching
-   * midnight suits so they read as one unit finishing each other's
-   * sentences. Big Paco has two centimetres on Little Paco, and it matters. */
-  /* Owner, 2026-08-20 playtest: *"both should be white, no beard, plain
-   * civilian clothes (not expensive suits). Keep them visually distinct
-   * through hair, shirt colour and build rather than ethnicity or facial
-   * hair."* They were matching midnight three-pieces with a beard on one.
+  /* LOLA AND JOHNNY.
    *
-   * They now read as two men who work here rather than two men who own the
-   * place: work shirts, no trim, no waistcoats. Big Paco is heavier with a
-   * dark mop; Little Paco is slighter, fair and receding. Two centimetres
-   * still separate them, and it still matters. */
+   * Owner, 2026-08-25: *"chose to kill his two short people. Rename them Lola
+   * and Johnny."* They were Big Paco and Little Paco, and the names are gone
+   * from the ids, the slugs, the subtitles and every line that used them --
+   * which retires seventeen recorded takes, unavoidably: the words themselves
+   * had their names in them.
+   *
+   * They are still the double act. Visibly short -- about 1.5 m against a
+   * 1.9 m boss -- so they read as a unit from across the room, and still
+   * distinguished by hair, build and shirt rather than by anything else,
+   * which was the owner's earlier direction about this pair. Two centimetres
+   * separate them and it still matters to them.
+   *
+   * LOLA IS A WOMAN, which is an inference from the name rather than an
+   * instruction: they were authored as two men, and the earlier direction on
+   * this pair was about clothes and hair, not gender. One line here reverses
+   * it if that reading is wrong.
+   *
+   * They work for Sauce -- the owner calls them "his two short people" -- and
+   * that is the whole reason the new fight turns on them: Mark does not care
+   * about the chef's staff until somebody shoots them in his dining room. */
   Object.freeze({
-    id: 'short-one', x: 5.9, z: -44.8, yaw: -0.28,
+    id: 'lola', x: 5.9, z: -44.8, yaw: -0.28,
     look: Object.freeze({
-      height: 1.5, build: 1.24, dress: 'work', shirt: 0x4b5a6b,
-      hair: 'crop', hairColour: 0x2b2119, skin: 0xe3bfa0,
+      height: 1.5, build: 1.16, gender: 'female', bodyShape: 'curvy',
+      dress: 'work', shirt: 0x4b5a6b,
+      hair: 'tied', hairColour: 0x2b2119, skin: 0xe3bfa0,
     }),
   }),
   Object.freeze({
-    id: 'short-two', x: 7.3, z: -44.4, yaw: -0.42,
+    id: 'johnny', x: 7.3, z: -44.4, yaw: -0.42,
     look: Object.freeze({
       height: 1.48, build: 0.96, dress: 'work', shirt: 0x7c6a4a,
       hair: 'short', hairColour: 0xa8813f, skin: 0xeed0b4,
     }),
   }),
+]);
+
+/*
+ * THE WAVE MARK SENDS WHEN HIS ARMOUR GOES.
+ *
+ * Owner, 2026-08-25: *"you fight him and knock down his amour then he retreats
+ * and then sends a wave of A team members who you blast and then he comes out
+ * again enraged."*
+ *
+ * These are the same organisation that comes over the wall at Lou's mansion --
+ * they wear the crew's own colours, out of `src/world/ateam.js`, which is why
+ * that garment stopped living inside the Siege. Four of them, because the
+ * dining room is one room with two ways into it and a wave the player cannot
+ * see the end of is a war of attrition rather than a beat.
+ *
+ * They are built at BOOT and parked inactive and invisible, not spawned. The
+ * whole of `PalaceSecurity` -- perception runtimes, the impact resolver's
+ * registrations, the checkpoint snapshot, the separation pass -- walks
+ * `cast.all` once at construction, so a man who exists from the first frame
+ * needs none of that wired twice. Invisible is also unhittable: WeaponSystem
+ * filters its raycast on world visibility, so nobody can shoot a man who has
+ * not arrived through the wall he is standing behind.
+ *
+ * They come in through the two openings the room actually has: the double
+ * doors the player used, and the extraction gate behind Mark's table.
+ */
+export const PALACE_WAVE_POSTS = Object.freeze([
+  Object.freeze({
+    id: 'wave-doors-west', x: -2.2, z: -35.4, yaw: Math.PI,
+    weapon: WEAPON_IDS.CARBINE, health: 96, armor: 12,
+  }),
+  Object.freeze({
+    id: 'wave-doors-east', x: 2.4, z: -35.4, yaw: Math.PI,
+    weapon: WEAPON_IDS.PISTOL9, health: 82, armor: 0,
+  }),
+  Object.freeze({
+    id: 'wave-back-west', x: -2.6, z: -48.6, yaw: 0,
+    weapon: WEAPON_IDS.CARBINE, health: 96, armor: 12,
+  }),
+  Object.freeze({
+    id: 'wave-back-east', x: 2.6, z: -48.6, yaw: 0,
+    weapon: WEAPON_IDS.SHOTGUN, health: 110, armor: 8,
+  }),
+]);
+
+/** Four different men, not one man four times. */
+const WAVE_LOOKS = Object.freeze([
+  Object.freeze({ height: 1.84, build: 1.18, dress: 'work', shirt: 0x2f342a, hair: 'crop', hairColour: 0x1a1310, skin: 0xb87a4e, bandana: true }),
+  Object.freeze({ height: 1.75, build: 1.04, dress: 'tee', shirt: 0x33302a, hair: 'bald', skin: 0x8d5a3a, beard: true, bandana: true }),
+  Object.freeze({ height: 1.88, build: 1.3, dress: 'work', shirt: 0x2a3026, hair: 'short', hairColour: 0x241913, skin: 0xc08a5e, bandana: true }),
+  Object.freeze({ height: 1.72, build: 1.1, dress: 'tracksuit', shirt: 0x262b26, hair: 'tied', hairColour: 0x14100e, skin: 0x9c6c4d, bandana: true }),
 ]);
 
 /*
@@ -367,13 +430,83 @@ export function buildPalaceCast(parent) {
    * Mark's table. */
   const bystanders = PALACE_BYSTANDER_POSTS.map((post) => makeCivilian(post));
 
-  const all = [...guards, mark, sauce];
+  /* Mark's reprisal, standing behind two walls with the lights off. */
+  const wave = PALACE_WAVE_POSTS.map((post, index) => {
+    const entry = makeCombatant({
+      ...post,
+      role: 'wave',
+      voice: palaceGuardVoice(post.id),
+      model: WAVE_LOOKS[index % WAVE_LOOKS.length],
+    });
+    /* The crew's own colours, off the shared garment. */
+    dressInATeamColours(entry.figure.parts.body, { extra: { palaceWave: true } });
+    entry.active = false;
+    /* Invisible AND unhittable: WeaponSystem filters its raycast on world
+     * visibility, so a man who has not arrived cannot be shot through the
+     * wall he is waiting behind. */
+    entry.root.visible = false;
+    return entry;
+  });
+
+  const all = [...guards, mark, sauce, ...wave];
   for (const entry of [...all, ...civilians]) parent.add(entry.root);
 
+  /**
+   * Sauce alone.
+   *
+   * Owner, 2026-08-25: *"You go into the back room and confront Sauce. Mark
+   * scrambles away."* So the doors opening no longer activates the boss --
+   * only the chef, who has nobody left to hide behind. Mark's own return is
+   * `activateMark` below, and the finale director owns when.
+   */
   function activateFinalEncounter() {
-    mark.active = !mark.down;
     sauce.active = !sauce.down;
     return true;
+  }
+
+  /** Mark leaves the table. Inactive and gone, not merely un-targeted. */
+  function markScramblesAway() {
+    if (mark.down) return false;
+    mark.active = false;
+    mark.root.visible = false;
+    mark.phase = 'away';
+    return true;
+  }
+
+  /** And comes back, for a stage of the fight. */
+  function activateMark({ armored = true, at = null } = {}) {
+    if (mark.down) return false;
+    if (at) {
+      mark.root.position.set(at.x, mark.root.position.y, at.z);
+      /* Pointed at the room rather than at whatever heading he happened to
+       * leave on. `HeistFigure` has no facing helper -- the security layer
+       * turns these people by writing the root's yaw, and so does this. */
+      const dx = (at.faceX ?? at.x) - at.x;
+      const dz = (at.faceZ ?? at.z + 1) - at.z;
+      if (Math.hypot(dx, dz) > 1e-6) mark.root.rotation.y = Math.atan2(dx, dz);
+    }
+    mark.root.visible = true;
+    mark.active = true;
+    mark.phase = armored ? 'armored' : 'exposed';
+    return true;
+  }
+
+  /** The wave arrives: visible, active, and looking for the player. */
+  function releaseWave() {
+    let released = 0;
+    for (const entry of wave) {
+      if (entry.down) continue;
+      entry.root.visible = true;
+      entry.active = true;
+      entry.awareness = 1;
+      released += 1;
+    }
+    return released;
+  }
+
+  /** How much of the reprisal is still standing. */
+  function waveStanding() {
+    return wave.filter((entry) => !entry.down).length;
   }
 
   /**
@@ -422,6 +555,10 @@ export function buildPalaceCast(parent) {
     guards,
     mark,
     sauce,
+    /* Mark's reprisal. Not in `guards`: the estate's payroll is a patrol
+     * roster the security layer reasons about, and these four are a scripted
+     * wave that does not exist until the finale calls them. */
+    wave,
     civilians,
     bystanders,
     /* Everything the player's rounds can find: combatants, the begging trio
@@ -430,6 +567,10 @@ export function buildPalaceCast(parent) {
      * entry in it would be a fourth person in Mark's dining room. */
     hitTargets: [...all, ...civilians, ...bystanders].map((entry) => entry.root),
     activateFinalEncounter,
+    markScramblesAway,
+    activateMark,
+    releaseWave,
+    waveStanding,
     standUp,
     markDown,
     civilianDown,

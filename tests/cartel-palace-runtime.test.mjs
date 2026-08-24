@@ -24,7 +24,10 @@ test('Cartel Palace is a first-class runtime built on the shared game systems', 
    * one from src/core/objective-panel.js now, which builds its own element at
    * runtime -- so the pin for it is in the shared-module list below, where a
    * scene quietly dropping it fails the same way. */
-  for (const id of ['scene', 'overlay', 'start-btn', 'prompt', 'crosshair', 'hotbar', 'ammo', 'boss']) {
+  for (const id of ['scene', 'overlay', 'start-btn', 'prompt', 'crosshair', 'hotbar', 'ammo', 'boss',
+    /* The boss bar names its subject at runtime now -- the chef for his stage,
+     * Mark for his -- so the element it writes into has to exist. */
+    'boss-name']) {
     assert.match(html, new RegExp(`id=["']${id}["']`), `missing #${id}`);
   }
   for (const shared of [
