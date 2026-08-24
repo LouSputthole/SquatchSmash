@@ -93,6 +93,68 @@ function measuredPenetrations(npc, chair) {
   return hits.sort((a, b) => b.penetration - a.penetration);
 }
 
+const BODY_RAY = new THREE.Raycaster();
+const BODY_RAY_DIRECTION = new THREE.Vector3(1, 0.371, 0.217).normalize();
+
+function dressedBodyPenetration(parts) {
+  parts.group.updateMatrixWorld(true);
+  const excluded = new Set();
+  for (const subtree of [parts.armL, parts.armR, parts.head]) {
+    subtree.traverse((node) => excluded.add(node));
+  }
+  const colliders = [];
+  parts.body.traverse((mesh) => {
+    if (!mesh.isMesh || excluded.has(mesh) || !mesh.visible) return;
+    mesh.geometry.computeBoundingBox();
+    const size = mesh.geometry.boundingBox.getSize(new THREE.Vector3());
+    if (Math.min(size.x, size.y, size.z) <= 1e-6) return;
+    colliders.push({ mesh, bounds: new THREE.Box3().setFromObject(mesh) });
+  });
+  const materialSides = new Map();
+  for (const { mesh } of colliders) {
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const material of materials) {
+      if (!materialSides.has(material)) materialSides.set(material, material.side);
+      material.side = THREE.DoubleSide;
+    }
+  }
+  const inside = (point, collider) => {
+    if (!collider.bounds.containsPoint(point)) return false;
+    BODY_RAY.set(point, BODY_RAY_DIRECTION);
+    const hits = BODY_RAY.intersectObject(collider.mesh, false)
+      .filter((hit) => hit.distance > 1e-6);
+    let crossings = 0;
+    let previous = -Infinity;
+    for (const hit of hits) {
+      if (hit.distance - previous > 1e-5) {
+        crossings++;
+        previous = hit.distance;
+      }
+    }
+    return crossings % 2 === 1;
+  };
+  const counts = {};
+  try {
+    for (const [side, fore] of [['left', parts.foreL], ['right', parts.foreR]]) {
+      for (const kind of ['forearm', 'hand']) {
+        const mesh = fore.children.find((node) => node.isMesh && node.name.endsWith(`.${kind}`));
+        assert.ok(mesh, `${side} ${kind} mesh is not reusable by semantic name`);
+        const positions = mesh.geometry.getAttribute('position');
+        let count = 0;
+        for (let i = 0; i < positions.count; i++) {
+          const point = new THREE.Vector3().fromBufferAttribute(positions, i)
+            .applyMatrix4(mesh.matrixWorld);
+          if (colliders.some((collider) => inside(point, collider))) count++;
+        }
+        counts[`${side}.${kind}`] = count;
+      }
+    }
+  } finally {
+    for (const [material, side] of materialSides) material.side = side;
+  }
+  return counts;
+}
+
 test('the in-water performer visibly treads and drifts without leaving the pool', () => {
   const { cast, grounds } = mountHouseCast();
   const swimmer = cast.people.poolPerformer2;
@@ -136,12 +198,15 @@ test('seated performers have bounded authored social motion without losing their
   const recliner = cast.people.poolPerformer1;
   const tubY = tub.group.position.y;
   const reclinerY = recliner.group.position.y;
-  const poolHeads = [cast.poolPerformerRig(0).head, cast.poolPerformerRig(1).head];
+  const reclinerIndices = [0, 1, 3, 4];
+  const poolHeads = reclinerIndices.map((index) => cast.poolPerformerRig(index).head);
   assert.ok(poolHeads.every(Boolean));
   const poolHeadIds = poolHeads.map(({ uuid }) => uuid);
   assert.ok(poolHeadIds.every(Boolean));
-  assert.notEqual(poolHeadIds[0], poolHeadIds[1], 'both pool performers publish one head identity');
-  assert.notEqual(poolHeads[0], poolHeads[1], 'both pool performers share one head object');
+  assert.equal(new Set(poolHeadIds).size, poolHeadIds.length,
+    'the pool recliners publish duplicate head identities');
+  assert.equal(new Set(poolHeads).size, poolHeads.length,
+    'the pool recliners share a head object');
   const tubBody = [];
   const reclinerHead = [];
 
@@ -160,9 +225,8 @@ test('seated performers have bounded authored social motion without losing their
   assert.ok(Math.min(...reclinerHead) >= 0.178 - 1e-9
       && Math.max(...reclinerHead) <= 0.222 + 1e-9,
   'the pool recliner head escaped its authored bounded motion');
-  assert.equal(cast.poolPerformerRig(0).head, poolHeads[0]);
-  assert.equal(cast.poolPerformerRig(1).head, poolHeads[1]);
-  assert.deepEqual([cast.poolPerformerRig(0).head.uuid, cast.poolPerformerRig(1).head.uuid], poolHeadIds,
+  assert.deepEqual(reclinerIndices.map((index) => cast.poolPerformerRig(index).head), poolHeads);
+  assert.deepEqual(reclinerIndices.map((index) => cast.poolPerformerRig(index).head.uuid), poolHeadIds,
     'pool performer head identities changed while their authored pose animated');
   assert.ok(Math.abs(tub.group.position.y - tubY) < 1e-6, 'tub motion lifted her off the measured seat');
   assert.ok(Math.abs(recliner.group.position.y - reclinerY) < 1e-6,
@@ -170,10 +234,10 @@ test('seated performers have bounded authored social motion without losing their
   assert.equal(cast.debug.evening.suiteComposition[0].motion, 'seated-social');
 });
 
-test('both pool recliners keep visible legs out of the real lounger geometry', () => {
+test('all four pool recliners keep visible legs out of the real lounger geometry', () => {
   const { cast, grounds } = mountHouseCast();
   cast.update(1 / 60);
-  for (const [index, chairIndex] of [[0, 4], [1, 6]]) {
+  for (const [index, chairIndex] of [[0, 4], [1, 6], [3, 1], [4, 3]]) {
     const rig = cast.poolPerformerRig(index);
     assert.equal(rig.chair, grounds.props.poolPatio.chairs[chairIndex],
       `pool performer ${index} did not publish her actual occupied chair`);
@@ -187,6 +251,8 @@ test('both pool recliners keep visible legs out of the real lounger geometry', (
   const samples = [
     ['poolPerformer0', grounds.props.poolPatio.chairs[4]],
     ['poolPerformer1', grounds.props.poolPatio.chairs[6]],
+    ['poolPerformer3', grounds.props.poolPatio.chairs[1]],
+    ['poolPerformer4', grounds.props.poolPatio.chairs[3]],
   ].map(([id, chair]) => ({ id, hits: measuredPenetrations(cast.people[id], chair) }));
 
   const failures = samples.map((sample) => ({
@@ -195,4 +261,35 @@ test('both pool recliners keep visible legs out of the real lounger geometry', (
   })).filter(({ hits }) => hits.length > 0);
   assert.deepEqual(failures, [], 'pool performers have visible leg geometry through their loungers:\n'
     + JSON.stringify(samples.map(({ id, hits }) => ({ id, hits: hits.slice(0, 12) })), null, 2));
+});
+
+test('all seven fuller Mansion performer motions keep hands and forearms outside their dressed bodies', () => {
+  const { cast } = mountHouseCast();
+  const ids = [
+    'suitePerformer0', 'suitePerformer1',
+    'poolPerformer0', 'poolPerformer1', 'poolPerformer2',
+    'poolPerformer3', 'poolPerformer4',
+  ];
+  const maxima = Object.fromEntries(ids.map((id) => [id, {
+    'left.forearm': 0,
+    'left.hand': 0,
+    'right.forearm': 0,
+    'right.hand': 0,
+  }]));
+  for (let frame = 0; frame < 60 * 8; frame++) {
+    cast.update(1 / 60);
+    if (frame % 12 !== 0) continue;
+    for (const id of ids) {
+      const counts = dressedBodyPenetration(cast.people[id].parts);
+      for (const key of Object.keys(counts)) {
+        maxima[id][key] = Math.max(maxima[id][key], counts[key]);
+      }
+    }
+  }
+  assert.deepEqual(maxima, Object.fromEntries(ids.map((id) => [id, {
+    'left.forearm': 0,
+    'left.hand': 0,
+    'right.forearm': 0,
+    'right.hand': 0,
+  }])), 'a Mansion fixture motion cuts through its fuller resort outfit');
 });

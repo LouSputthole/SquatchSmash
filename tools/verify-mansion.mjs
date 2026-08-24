@@ -4178,7 +4178,9 @@ try {
     const advance = (seconds) => {
       for (let t = 0; t < seconds; t += 1 / 30) M.tick(1 / 30);
     };
-    const poolHeadsBefore = [0, 1].map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
+    const reclinerIndices = [0, 1, 3, 4];
+    const poolHeadsBefore = reclinerIndices
+      .map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
     advance(12);
     const secondHeadBefore = M.cast.evening.poolComposition
       .find(({ id }) => id === 'poolPerformer1')?.headX;
@@ -4218,7 +4220,8 @@ try {
     const stoveThird = M.cast.useOldStove();
     advance(5.5);
     const state = M.cast.evening;
-    const poolHeadsAfter = [0, 1].map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
+    const poolHeadsAfter = reclinerIndices
+      .map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
     return {
       first, second, third, stove, stoveSecond, stoveThird,
       otherHello, otherFlirt, otherStart, otherMiss, otherPulls, timingShown,
@@ -4258,10 +4261,10 @@ try {
       miss: evening.otherMiss, pulls: evening.otherPulls, timing: evening.timingShown,
       dress: evening.state?.secondDress,
     }));
-  check('the two pool performers keep distinct stable heads across the full interaction',
-    evening.poolHeadsBefore?.length === 2
+  check('all four pool recliners keep distinct stable heads across the full interaction',
+    evening.poolHeadsBefore?.length === 4
       && evening.poolHeadsBefore.every(Boolean)
-      && evening.poolHeadsBefore[0] !== evening.poolHeadsBefore[1]
+      && new Set(evening.poolHeadsBefore).size === 4
       && JSON.stringify(evening.poolHeadsAfter) === JSON.stringify(evening.poolHeadsBefore)
       && Number.isFinite(evening.secondHeadBefore) && Number.isFinite(evening.secondHeadAfter)
       && Math.abs(evening.secondHeadBefore - 0.2) <= 0.023
@@ -4270,16 +4273,18 @@ try {
       idsBefore: evening.poolHeadsBefore, idsAfter: evening.poolHeadsAfter,
       angleBefore: evening.secondHeadBefore, angleAfter: evening.secondHeadAfter,
     }));
-  check('the pool scene keeps two women reclined on loungers and a third in the water',
-    evening.state?.poolComposition?.length === 3
-      && evening.state.poolComposition.filter(({ pose }) => pose === 'reclined').length === 2
+  check('the pool scene keeps four women reclined on loungers and a fifth in the water',
+    evening.state?.poolComposition?.length === 5
+      && evening.state.poolComposition.filter(({ pose }) => pose === 'reclined').length === 4
       && evening.state.poolComposition.filter(({ pose }) => pose === 'in-water').length === 1,
     JSON.stringify(evening.state?.poolComposition));
-  check('the three pool women resolve to the existing Bada Bing performer looks, not invented cast',
+  check('the five pool women resolve to unique Bada Bing performer identities, not invented cast',
     JSON.stringify(evening.state?.poolComposition?.map(({ identity }) => identity)) === JSON.stringify([
       { source: 'BADA_BING_PERFORMERS', index: 0, look: 'platinum tied hair' },
       { source: 'BADA_BING_PERFORMERS', index: 2, look: 'black long hair' },
-      { source: 'BADA_BING_PERFORMERS', index: 1, look: 'brunette long hair' },
+      { source: 'BADA_BING_PERFORMERS', index: 4, look: 'auburn long hair' },
+      { source: 'BADA_BING_PERFORMERS', index: 5, look: 'raven tied hair' },
+      { source: 'BADA_BING_PERFORMERS', index: 6, look: 'silver long hair' },
     ]),
     JSON.stringify(evening.state?.poolComposition));
   check('Old Stove is present in the theatre and encourages the player to put on a picture',

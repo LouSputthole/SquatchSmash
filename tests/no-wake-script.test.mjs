@@ -34,6 +34,7 @@ import {
   buildNoWakeCruise,
 } from '../src/nowake/dialogue.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
+import { IRISH, IRISH_NO_WAKE } from '../src/core/wardrobe.js';
 import { FAMILY } from '../src/bing/family.js';
 import { HOTDOG_PARTY_CHATTER } from '../src/bing/hotdog-room-voices.js';
 
@@ -161,8 +162,25 @@ test('the man on the boat is the man from the Bing floor, not a second Irish', (
   const onTheFloor = FAMILY.find((member) => member.id === CHARACTER_IDS.IRISH);
   assert.ok(onTheFloor, 'Irish is not in the Bing Family roster');
   assert.equal(onTheFloor.photo, 'irish.png');
+  assert.notStrictEqual(IRISH_NO_WAKE, IRISH, 'NO WAKE must use a scene wardrobe, not mutate Irish');
+  for (const field of ['height', 'build', 'hair', 'hairColour', 'beard', 'skin']) {
+    assert.equal(IRISH_NO_WAKE[field], IRISH[field], `NO WAKE changed Irish's canonical ${field}`);
+  }
+  assert.deepEqual({
+    dress: IRISH_NO_WAKE.dress,
+    shirt: IRISH_NO_WAKE.shirt,
+    trousers: IRISH_NO_WAKE.trouserColour,
+    workVest: IRISH_NO_WAKE.workVest,
+    workVestColour: IRISH_NO_WAKE.workVestColour,
+  }, {
+    dress: 'shirt',
+    shirt: 0x29402f,
+    trousers: 0x20242a,
+    workVest: true,
+    workVestColour: 0x1b304c,
+  });
   assert.match(world, /irish: new Npc\(/);
-  assert.match(world, /source\[CHARACTER_IDS\.IRISH\]\.model/);
+  assert.match(world, /model:\s*\{\s*\.\.\.IRISH_NO_WAKE,\s*face:\s*'assets\/faces\/irish\.png'\s*\}/);
   assert.match(world, /cast\.irish\.group\.userData\.characterId = CHARACTER_IDS\.IRISH/);
 });
 

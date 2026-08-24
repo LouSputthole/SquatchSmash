@@ -40,7 +40,8 @@ const EXPECTED = Object.freeze({
     'ape', 'bartender', 'basement', 'booski', 'booth', 'deathmegatron', 'eric',
     'gateMan', 'gratin', 'hogmama', 'irish', 'lag', 'lou', 'numbskull', 'oldStove',
     'patrol0', 'patrol1', 'patrol2', 'poolPerformer0', 'poolPerformer1',
-    'poolPerformer2', 'rippin', 'sasole', 'sauce', 'seff', 'shubes', 'snow',
+    'poolPerformer2', 'poolPerformer3', 'poolPerformer4',
+    'rippin', 'sasole', 'sauce', 'seff', 'shubes', 'snow',
     'stairs', 'suitePerformer0', 'suitePerformer1', 'vault',
   ],
 });
@@ -90,6 +91,6 @@ test('the mansion tells a guard from the family from the floor show', async () =
    * FACING_UNIFORM — which groups BY ROLE, so that a rank of guards facing one
    * way reads differently from a party facing one way — had nothing to group. */
   assert.deepEqual([...byRole.entries()].sort(), [
-    ['bystander', 6], ['crew', 16], ['guard', 8], ['principal', 1],
+    ['bystander', 8], ['crew', 16], ['guard', 8], ['principal', 1],
   ]);
 });

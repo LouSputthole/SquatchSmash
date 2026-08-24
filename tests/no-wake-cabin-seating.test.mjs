@@ -8,12 +8,14 @@ ensureDomShim();
 
 const THREE = await import('three');
 const { buildNoWakeWorld } = await import('../src/nowake/world.js');
+const { BOOSKI_NO_WAKE, IRISH, IRISH_NO_WAKE } = await import('../src/core/wardrobe.js');
 const {
   CABIN,
   CABIN_COLLIDERS,
   CABIN_CONCAVE_FIXTURE_CHANNELS,
   CABIN_CAST_STAGING,
   CAPSULE_RADIUS,
+  DECK,
   cabinColliderBoxes,
   deckPenetration,
   narrowChannels,
@@ -156,6 +158,86 @@ test('Booski stands beside the galley instead of passing visible triangles throu
     'moving Booski clear of the galley put him into Uncle Lou');
   assert.deepEqual(positiveVolumeContacts(boat.cast.booski.group, boat.cast.willy.group), [],
     'moving Booski clear of the galley put him into standing Willy');
+});
+
+test('NO WAKE builds Booski in the relaxed boat variant without changing his identity', () => {
+  const world = buildNoWakeWorld(new THREE.Scene());
+  const booski = world.boat.cast.booski;
+  assert.equal(booski.group.userData.characterId, 'booski');
+  assert.deepEqual({
+    outfit: booski.parts.profile.outfit,
+    height: booski.parts.profile.height,
+    neckline: booski.parts.profile.neckline,
+    luxury: booski.parts.profile.luxury,
+    watch: booski.parts.profile.watch,
+    chain: booski.parts.profile.chainStyle,
+    pendant: booski.parts.profile.pendantStyle,
+  }, {
+    outfit: BOOSKI_NO_WAKE.dress,
+    height: BOOSKI_NO_WAKE.height,
+    neckline: 'crew',
+    luxury: false,
+    watch: 'gold',
+    chain: 'layered',
+    pendant: 'crest',
+  });
+  for (const part of [
+    'person.face.photo-skull', 'camp.undershirt', 'camp.front.left',
+    'camp.front.right', 'camp.collar.left', 'camp.collar.right',
+  ]) assert.ok(booski.group.getObjectByName(part), `runtime Booski has no ${part}`);
+  for (const part of ['shirt.neckline.v', 'shirt.luxury.rib', 'camp.pattern.tile']) {
+    assert.equal(booski.group.getObjectByName(part), undefined, `runtime Booski leaked ${part}`);
+  }
+});
+
+test('NO WAKE keeps canonical Irish on the bow in his lookout wardrobe', () => {
+  const world = buildNoWakeWorld(new THREE.Scene());
+  const irish = world.boat.cast.irish;
+
+  assert.equal(irish.group.userData.characterId, 'irish');
+  assert.notStrictEqual(IRISH_NO_WAKE, IRISH, 'the scene wardrobe must not replace canonical Irish');
+  for (const field of ['height', 'build', 'hair', 'hairColour', 'beard', 'skin']) {
+    assert.equal(IRISH_NO_WAKE[field], IRISH[field], `NO WAKE changed Irish's canonical ${field}`);
+  }
+  assert.deepEqual({
+    outfit: irish.parts.profile.outfit,
+    height: irish.parts.profile.height,
+    build: irish.parts.profile.build,
+  }, {
+    outfit: 'shirt',
+    height: IRISH.height,
+    build: IRISH.build,
+  });
+  assert.ok(irish.group.getObjectByName('person.face.photo-skull'), 'runtime Irish lost his photo face');
+
+  for (const part of [
+    'workvest.front.left', 'workvest.front.right',
+    'workvest.strap.left', 'workvest.strap.right',
+    'workvest.pocket', 'workvest.pocket.flap', 'shirt.placket',
+  ]) assert.ok(irish.group.getObjectByName(part), `runtime Irish has no ${part}`);
+  assert.equal(
+    irish.group.getObjectByName('workvest.front.left.cloth').material.color.getHex(),
+    0x1b304c,
+    'Irish no longer has the navy open vest',
+  );
+  assert.equal(
+    irish.group.getObjectByName('ribcage').material.color.getHex(),
+    0x29402f,
+    'Irish no longer has the green shirt under the vest',
+  );
+  assert.equal(
+    irish.group.getObjectByName('thigh').material.color.getHex(),
+    0x20242a,
+    'Irish no longer has dark trousers',
+  );
+
+  assert.deepEqual(irish.group.position.toArray(), [1.75, DECK.foredeckHeight, -4.55],
+    'Irish moved off his established starboard bow lookout mark');
+  const binoculars = irish.parts.foreR.getObjectByName('Irish binoculars');
+  assert.ok(binoculars, 'Irish lost his binoculars');
+  assert.equal(binoculars.parent, irish.parts.foreR, 'the binoculars moved off Irish\'s right forearm');
+  assert.deepEqual(binoculars.position.toArray(), [0, -0.3, -0.1],
+    'the binocular socket offset changed');
 });
 
 test('the notched visible dinette and its player colliders are the same layout', () => {

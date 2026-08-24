@@ -15,7 +15,7 @@
  */
 import * as THREE from 'three';
 import { Npc } from '../bing/cast.js';
-import { APE_FACE_URL, APE_FAMILY_MEMBER } from '../bing/family-ape.js';
+import { APE_FACE_URL, APE_FAMILY_MEMBER, APE_SILVER_ROOM } from '../bing/family-ape.js';
 import { rand, pick } from '../bing/kit.js';
 import { TIP_POINTS } from './woo.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
@@ -110,13 +110,14 @@ function facingRound(options) {
 
 /**
  * The Silver Room owns Ape's seat and visit choreography, but not a second
- * version of the man. This is the Bing FAMILY model plus its supplied face.
+ * version of the man. This is the named Silver Room outfit on the Bing FAMILY
+ * body, plus the same supplied face.
  */
 export const SILVER_APE_PRESENTATION = Object.freeze({
   characterId: APE_FAMILY_MEMBER.id,
   photo: APE_FAMILY_MEMBER.photo,
   face: APE_FACE_URL,
-  model: Object.freeze({ ...APE_FAMILY_MEMBER.model, face: APE_FACE_URL }),
+  model: APE_SILVER_ROOM,
 });
 
 /** Stamp the stable story identity onto the scene-local NPC wrapper. */
@@ -443,8 +444,8 @@ export function populate(scene, room) {
   }
 
   /* ---- the table by the pillar, who send the champagne ---- */
-  /* Ape is the exact Bing FAMILY figure and face, not a Silver Room
-   * approximation. Only his seat and behaviour belong to this room. */
+  /* Ape is the exact Bing FAMILY body and face in his named Silver Room
+   * dinner jacket. Only his seat and behaviour belong to this room. */
   const APE = getCharacter(CHARACTER_IDS.APE);
   const pillar = new THREE.Vector3(-8.6, 0, 1.6);
   const crew = [

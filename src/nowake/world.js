@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BIG_UNCLE_LOU } from '../core/wardrobe.js';
+import { BIG_UNCLE_LOU, BOOSKI_NO_WAKE, IRISH_NO_WAKE } from '../core/wardrobe.js';
 import { Npc } from '../bing/cast.js';
 import { FAMILY } from '../bing/family.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
@@ -1496,7 +1496,7 @@ function buildBoat(scene, marina) {
     }),
     booski: new Npc(root, {
       name: 'Booskibro', tier: 'hero', x: -1.10, y: DECK.height, z: 3.30, yaw: Math.PI,
-      job: 'stand', model: { ...source[CHARACTER_IDS.BOOSKI].model, face: 'assets/faces/booski.png' },
+      job: 'stand', model: { ...BOOSKI_NO_WAKE, face: 'assets/faces/booski.png' },
     }),
     willy: new Npc(root, {
       name: 'Willy', tier: 'hero', x: -.20, y: DECK.height + .045, z: 2.20, yaw: Math.PI,
@@ -1509,9 +1509,7 @@ function buildBoat(scene, marina) {
       // Stand in the clear starboard strip, not across the anchor and ballast
       // locker lids in the centre of the foredeck.
       name: 'Irish', tier: 'hero', x: 1.75, y: DECK.foredeckHeight, z: -4.55, yaw: Math.PI,
-      job: 'stand', model: {
-        ...source[CHARACTER_IDS.IRISH].model, face: 'assets/faces/irish.png',
-      },
+      job: 'stand', model: { ...IRISH_NO_WAKE, face: 'assets/faces/irish.png' },
     }),
   };
   markCrew(cast);

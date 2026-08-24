@@ -25,8 +25,10 @@ import { ensureDomShim } from '../tools/three-shim.mjs';
  * reaches for `document.createElementNS`. See `ensureDomShim`. */
 ensureDomShim();
 
-import { BADA_BING_PERFORMERS, makePerson, Npc } from '../src/bing/cast.js';
-import { APE_FAMILY_MEMBER } from '../src/bing/family-ape.js';
+import {
+  BADA_BING_CORE_STAGE_COUNT, BADA_BING_PERFORMERS, makePerson, Npc,
+} from '../src/bing/cast.js';
+import { APE_FAMILY_MEMBER, APE_SILVER_ROOM } from '../src/bing/family-ape.js';
 import { SILVERCASE_APE_OUTFIT } from '../src/silvercase/cast/ape.js';
 import {
   appearancesOf,
@@ -34,7 +36,9 @@ import {
 } from '../src/core/appearances.js';
 import {
   BIG_UNCLE_LOU, BIG_UNCLE_LOU_BING, BIG_UNCLE_LOU_MANSION,
-  DEATHMEGATRON, HOG_MAMA,
+  BIG_UNCLE_LOU_MANSION_RETURN, BOOSKI, BOOSKI_NO_WAKE,
+  DEATHMEGATRON, DEATHMEGATRON_HEIST, HOG_MAMA, IRISH, IRISH_NO_WAKE,
+  RIPPINFLOW, RIPPINFLOW_HEIST,
 } from '../src/core/wardrobe.js';
 
 function boxOf(root, name) {
@@ -962,7 +966,81 @@ for (const job of ['lean', 'work']) {
   });
 }
 
-for (let routine = 0; routine < BADA_BING_PERFORMERS.length; routine++) {
+test('the adult performer roster has seven stable bodies and only the core four work this club shift', () => {
+  assert.equal(BADA_BING_CORE_STAGE_COUNT, 4);
+  assert.equal(BADA_BING_PERFORMERS.length, 7);
+  assert.equal(new Set(BADA_BING_PERFORMERS.map((look) => [
+    look.skin, look.hairColour, look.hair, look.height, look.build,
+  ].join(':'))).size, 7);
+  for (const look of BADA_BING_PERFORMERS) {
+    assert.ok(look.build <= 1.15, 'a performer accidentally entered the generic heavy-torso path');
+    assert.ok(look.curveScale >= 1 && look.curveScale <= 1.18);
+    assert.ok(Object.isFrozen(look));
+  }
+});
+
+test('performer curveScale is bounded and changes only the adult costume-covered curves', () => {
+  const model = {
+    role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
+    height: 1.73, build: 1.1, dress: 'bikini',
+  };
+  const baseline = makePerson({ ...model, curveScale: 1 });
+  const fullest = makePerson({ ...model, curveScale: 99 });
+  assert.equal(baseline.profile.curveScale, 1);
+  assert.equal(fullest.profile.curveScale, 1.18);
+  for (const part of ['bustL', 'rearL', 'hipL']) {
+    assert.ok(fullest.curves[part].scale.x > baseline.curves[part].scale.x * 1.17,
+      `${part} did not follow the bounded performer curve scale`);
+  }
+  assert.deepEqual(fullest.armL.position.toArray(), baseline.armL.position.toArray(),
+    'curveScale moved the shoulder skeleton');
+  assert.deepEqual(fullest.legL.position.toArray(), baseline.legL.position.toArray(),
+    'curveScale moved the leg root');
+  assert.equal(fullest.group.getObjectByName('torso.heavy.front'), undefined,
+    'the fuller performer acquired the generic heavy-body slab');
+
+  const nonPerformer = makePerson({
+    ...model, dress: 'gown', curveScale: 1.18,
+  });
+  assert.equal(nonPerformer.profile.curveScale, 1);
+  assert.deepEqual(nonPerformer.curves, {},
+    'performer-only curves leaked into a non-performance garment');
+});
+
+test('the Mansion swim wardrobe exposes four visibly distinct opaque cuts', () => {
+  const made = new Map();
+  for (const swimStyle of ['classic', 'halter', 'highwaist', 'onepiece']) {
+    const person = makePerson({
+      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
+      height: 1.73, build: 1.1, curveScale: 1.18, dress: 'bikini',
+      swimStyle, swimAccent: 0xd8b85a,
+    });
+    made.set(swimStyle, person);
+    assert.equal(person.profile.swimStyle, swimStyle);
+    assert.equal(person.profile.swimAccent, 0xd8b85a);
+    assert.ok(person.group.getObjectByName('performer.bikini-top.band'));
+    assert.ok(person.group.getObjectByName('performer.bikini-bottom.band'));
+    assert.ok(person.group.getObjectByName('performer.swimwear.trim.top'));
+    assert.ok(person.group.getObjectByName('performer.swimwear.trim.waist'));
+  }
+  const classicStrap = made.get('classic').group
+    .getObjectByName('performer.bikini-top.strap.right');
+  const halterStrap = made.get('halter').group
+    .getObjectByName('performer.bikini-top.strap.right');
+  assert.ok(Math.abs(halterStrap.rotation.z) > Math.abs(classicStrap.rotation.z) + 0.2,
+    'the halter cut does not pull toward the neck');
+  const classicBottom = made.get('classic').group
+    .getObjectByName('performer.bikini-bottom.band');
+  const highWaistBottom = made.get('highwaist').group
+    .getObjectByName('performer.bikini-bottom.band');
+  assert.ok(highWaistBottom.scale.y > classicBottom.scale.y * 1.45,
+    'the high-waist cut has the same rise as the classic bottom');
+  assert.ok(made.get('onepiece').group.getObjectByName('performer.swimwear.onepiece.front'),
+    'the one-piece has no opaque connecting front');
+  assert.equal(made.get('classic').group.getObjectByName('performer.swimwear.onepiece.front'), undefined);
+});
+
+for (let routine = 0; routine < BADA_BING_CORE_STAGE_COUNT; routine++) {
   test(`dancer routine ${routine} keeps hands and forearms outside her trunk for all four bars`, () => {
     const npc = new Npc(new THREE.Scene(), {
       name: `dancer ${routine}`, tier: 'hero', job: 'dance', routine,
@@ -1077,6 +1155,188 @@ test('the camp shirt hangs open over a tee and keeps its short sleeves', () => {
   assert.ok(tiles.length >= 16, `the shirt has a pattern on it (${tiles.length} tiles)`);
   const tile = new THREE.Box3().setFromObject(tiles[0]).getSize(new THREE.Vector3());
   assert.ok(tile.x > 0.02 && tile.z > 0.002, `a tile is ${JSON.stringify(tile.toArray())}`);
+});
+
+test('NO WAKE keeps Booski himself while relaxing only his boat clothes', () => {
+  assert.notStrictEqual(BOOSKI_NO_WAKE, BOOSKI, 'the boat look is a named scene variant');
+  for (const field of [
+    'height', 'build', 'hairColour', 'skin', 'watch', 'chain', 'chainStyle',
+    'pendant', 'pendantStyle',
+  ]) {
+    assert.equal(BOOSKI_NO_WAKE[field], BOOSKI[field], `Booski changed ${field} on the boat`);
+  }
+  assert.deepEqual({
+    dress: BOOSKI_NO_WAKE.dress,
+    shirt: BOOSKI_NO_WAKE.shirt,
+    trousers: BOOSKI_NO_WAKE.trouserColour,
+    neckline: BOOSKI_NO_WAKE.neckline,
+    luxury: BOOSKI_NO_WAKE.luxury,
+    belt: BOOSKI_NO_WAKE.belt,
+    trouserFit: BOOSKI_NO_WAKE.trouserFit,
+    pattern: BOOSKI_NO_WAKE.pattern,
+    shoes: BOOSKI_NO_WAKE.shoeStyle,
+  }, {
+    dress: 'camp',
+    shirt: 0x315b63,
+    trousers: 0x8b8068,
+    neckline: false,
+    luxury: false,
+    belt: 'leather',
+    trouserFit: 'plain',
+    pattern: false,
+    shoes: 'plain',
+  });
+
+  const { group, profile } = makePerson(BOOSKI_NO_WAKE);
+  assert.deepEqual({
+    outfit: profile.outfit,
+    height: profile.height,
+    neckline: profile.neckline,
+    luxury: profile.luxury,
+    watch: profile.watch,
+    chain: profile.chainStyle,
+    pendant: profile.pendantStyle,
+  }, {
+    outfit: 'camp',
+    height: BOOSKI.height,
+    neckline: 'crew',
+    luxury: false,
+    watch: 'gold',
+    chain: 'layered',
+    pendant: 'crest',
+  });
+  for (const part of [
+    'camp.undershirt', 'camp.front.left', 'camp.front.right',
+    'camp.collar.left', 'camp.collar.right', 'camp.sleeve.hem',
+    'necklace.chain', 'necklace.chain.layered', 'necklace.pendant',
+    'necklace.pendant.crest', 'person.watch.dial',
+  ]) {
+    assert.ok(group.getObjectByName(part), `NO WAKE Booski has no ${part}`);
+  }
+  for (const part of ['shirt.neckline.v', 'shirt.luxury.rib', 'camp.pattern.tile']) {
+    assert.equal(group.getObjectByName(part), undefined, `club geometry leaked into ${part}`);
+  }
+  assert.deepEqual(
+    intersecting(group, 'necklace.pendant', {
+      ignore: ['necklace.chain', 'necklace.clasp', 'necklace.pendant.'],
+    }),
+    [],
+    'the crest is drawn through Booski or his open shirt',
+  );
+});
+
+test('the five promised scene variants preserve each character underneath the clothes', () => {
+  const same = (label, variant, canonical, fields) => {
+    assert.notStrictEqual(variant, canonical, `${label} is not a named scene variant`);
+    for (const field of fields) {
+      assert.deepEqual(variant[field], canonical[field], `${label} changed ${field}`);
+    }
+  };
+  const body = ['height', 'build', 'gut', 'gender', 'bodyShape', 'hair', 'hairColour', 'beard', 'skin'];
+
+  same('DeathMegatron in THE TAKE', DEATHMEGATRON_HEIST, DEATHMEGATRON, body);
+  assert.deepEqual({
+    dress: DEATHMEGATRON_HEIST.dress,
+    shirt: DEATHMEGATRON_HEIST.shirt,
+    trousers: DEATHMEGATRON_HEIST.trouserColour,
+    trim: DEATHMEGATRON_HEIST.trim,
+    luxury: DEATHMEGATRON_HEIST.luxury,
+  }, {
+    dress: 'shirt', shirt: 0x18273d, trousers: 0x292c32, trim: true, luxury: false,
+  });
+
+  same('Rippinflow in THE TAKE', RIPPINFLOW_HEIST, RIPPINFLOW,
+    [...body, 'chain', 'pendant', 'watch']);
+  assert.deepEqual({
+    dress: RIPPINFLOW_HEIST.dress,
+    shirt: RIPPINFLOW_HEIST.shirt,
+    trousers: RIPPINFLOW_HEIST.trouserColour,
+    trim: RIPPINFLOW_HEIST.trim,
+  }, {
+    dress: 'shirt', shirt: 0x43263d, trousers: 0x292a2f, trim: true,
+  });
+
+  same('Irish in NO WAKE', IRISH_NO_WAKE, IRISH, body);
+  assert.deepEqual({
+    dress: IRISH_NO_WAKE.dress,
+    shirt: IRISH_NO_WAKE.shirt,
+    vest: IRISH_NO_WAKE.workVest,
+    vestColour: IRISH_NO_WAKE.workVestColour,
+    trousers: IRISH_NO_WAKE.trouserColour,
+  }, {
+    dress: 'shirt', shirt: 0x29402f, vest: true,
+    vestColour: 0x1b304c, trousers: 0x20242a,
+  });
+
+  same('Big Uncle Lou at the Mansion return', BIG_UNCLE_LOU_MANSION_RETURN,
+    BIG_UNCLE_LOU, [...body, 'watch', 'chain', 'chainStyle', 'pendant', 'pendantStyle']);
+  assert.deepEqual({
+    dress: BIG_UNCLE_LOU_MANSION_RETURN.dress,
+    jacket: BIG_UNCLE_LOU_MANSION_RETURN.jacketColour,
+    shirt: BIG_UNCLE_LOU_MANSION_RETURN.shirtAccent,
+    trousers: BIG_UNCLE_LOU_MANSION_RETURN.trouserColour,
+    tie: BIG_UNCLE_LOU_MANSION_RETURN.tieColour,
+    square: BIG_UNCLE_LOU_MANSION_RETURN.pocketSquare,
+    hat: BIG_UNCLE_LOU_MANSION_RETURN.hat,
+    stripe: BIG_UNCLE_LOU_MANSION_RETURN.pinstripe,
+  }, {
+    dress: 'suit', jacket: 0x32252a, shirt: 0xeadfc8, trousers: 0x242329,
+    tie: 0x0c0b0e, square: false, hat: false, stripe: false,
+  });
+
+  same('Ape in the Silver Room', APE_SILVER_ROOM, APE_FAMILY_MEMBER.model,
+    [...body, 'chain', 'pendant', 'watch']);
+  assert.deepEqual({
+    dress: APE_SILVER_ROOM.dress,
+    shirt: APE_SILVER_ROOM.shirtAccent,
+    jacket: APE_SILVER_ROOM.jacketColour,
+    trousers: APE_SILVER_ROOM.trouserColour,
+    tie: APE_SILVER_ROOM.tie,
+    vest: APE_SILVER_ROOM.workVest,
+  }, {
+    dress: 'suit', shirt: 0x111317, jacket: 0x30352d,
+    trousers: 0x111214, tie: false, vest: false,
+  });
+});
+
+test('the five promised scene variants build the intended garment geometry', () => {
+  const death = makePerson(DEATHMEGATRON_HEIST);
+  assert.equal(death.profile.outfit, 'shirt');
+  assert.ok(death.group.getObjectByName('shirt.placket'));
+  assert.ok(death.group.getObjectByName('shirt.collar.point'));
+  assert.equal(death.group.getObjectByName('gown.skirt'), undefined,
+    'DeathMegatron still has a gown under the plate carrier');
+
+  const rippin = makePerson(RIPPINFLOW_HEIST);
+  assert.ok(rippin.group.getObjectByName('shirt.placket'));
+  assert.ok(rippin.group.getObjectByName('necklace.chain.silver'));
+  assert.ok(rippin.group.getObjectByName('person.watch.dial'));
+  assert.equal(rippin.profile.watch, 'silver');
+
+  const irish = makePerson(IRISH_NO_WAKE);
+  for (const part of [
+    'shirt.placket', 'workvest.front.left', 'workvest.front.right',
+    'workvest.pocket', 'workvest.strap.left', 'workvest.strap.right',
+  ]) assert.ok(irish.group.getObjectByName(part), `NO WAKE Irish has no ${part}`);
+
+  const lou = makePerson(BIG_UNCLE_LOU_MANSION_RETURN);
+  for (const part of ['suit.jacket.chest', 'suit.shirt.front', 'suit.tie', 'suit.tie.knot']) {
+    assert.ok(lou.group.getObjectByName(part), `return Lou has no ${part}`);
+  }
+  assert.equal(lou.group.getObjectByName('suit.pinstripe.front'), undefined);
+  assert.equal(lou.group.getObjectByName('suit.waistcoat'), undefined);
+  assert.equal(lou.profile.tie, true);
+
+  const ape = makePerson(APE_SILVER_ROOM);
+  assert.equal(ape.profile.outfit, 'suit');
+  assert.equal(ape.profile.tie, false);
+  assert.ok(ape.group.getObjectByName('suit.jacket.chest'));
+  assert.ok(ape.group.getObjectByName('suit.collar.point'));
+  assert.equal(ape.group.getObjectByName('suit.tie'), undefined,
+    'Ape is still wearing a tie in the Silver Room');
+  assert.equal(ape.group.getObjectByName('suit.tie.knot'), undefined);
+  assert.equal(ape.group.getObjectByName('workvest.front.left'), undefined,
+    'Ape kept the canvas work vest over his dinner jacket');
 });
 
 /* ------------------------------------------------------------------ */

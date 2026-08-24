@@ -19,7 +19,11 @@ import test from 'node:test';
 import * as THREE from 'three';
 
 import { makePerson } from '../src/bing/cast.js';
-import { APE_FACE_URL, APE_FAMILY_MEMBER } from '../src/bing/family-ape.js';
+import {
+  APE_FACE_URL,
+  APE_FAMILY_MEMBER,
+  APE_SILVER_ROOM,
+} from '../src/bing/family-ape.js';
 import { FAMILY } from '../src/bing/family.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
 import { getCharacter } from '../src/core/characters.js';
@@ -47,7 +51,7 @@ test('The Silver Case builds the canonical Bing FAMILY Ape, not a local lookalik
   }
 });
 
-test('the Silver Case Ape keeps the Silver Room Ape body and face under his mission suit', async () => {
+test('Silver Room Ape has his exact formal look while Silver Case keeps his body and face', async () => {
   /* Imported lazily so a failure here reads as "the two scenes disagree"
    * rather than as a missing module in an unrelated suite. Clothes are the
    * intentional scene-local difference: this is the Pulp Fiction job. */
@@ -55,10 +59,22 @@ test('the Silver Case Ape keeps the Silver Room Ape body and face under his miss
   assert.equal(SILVERCASE_APE_PRESENTATION.characterId, SILVER_APE_PRESENTATION.characterId);
   assert.equal(SILVERCASE_APE_PRESENTATION.photo, SILVER_APE_PRESENTATION.photo);
   assert.equal(SILVERCASE_APE_PRESENTATION.face, SILVER_APE_PRESENTATION.face);
+  assert.equal(SILVER_APE_PRESENTATION.model, APE_SILVER_ROOM);
+  assert.equal(APE_SILVER_ROOM.face, APE_FACE_URL);
   for (const field of ['height', 'build', 'hair', 'hairColour', 'beard', 'skin']) {
-    assert.equal(SILVERCASE_APE_PRESENTATION.model[field], SILVER_APE_PRESENTATION.model[field], field);
+    assert.equal(APE_SILVER_ROOM[field], APE_FAMILY_MEMBER.model[field], `Silver Room ${field}`);
+    assert.equal(SILVERCASE_APE_PRESENTATION.model[field], APE_SILVER_ROOM[field], `Silver Case ${field}`);
   }
-  assert.equal(SILVER_APE_PRESENTATION.model.dress, 'tee');
+
+  assert.equal(APE_SILVER_ROOM.dress, 'suit');
+  assert.equal(APE_SILVER_ROOM.shirt, 0x111317, 'black open-collar shirt');
+  assert.equal(APE_SILVER_ROOM.shirtAccent, 0x111317, 'black shirt accent');
+  assert.equal(APE_SILVER_ROOM.jacketColour, 0x30352d, 'charcoal-olive jacket');
+  assert.equal(APE_SILVER_ROOM.trouserColour, 0x111214, 'black trousers');
+  assert.equal(APE_SILVER_ROOM.tie, false);
+  assert.equal(APE_SILVER_ROOM.workVest, false);
+  assert.equal(APE_SILVER_ROOM.chain, 'silver');
+  assert.equal(APE_SILVER_ROOM.watch, 'silver');
   assert.equal(SILVERCASE_APE_PRESENTATION.model.dress, 'suit');
 });
 
