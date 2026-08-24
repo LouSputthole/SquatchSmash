@@ -175,11 +175,27 @@ function instanced(parent, geometry, material, placements, name, { cast = false,
   return mesh;
 }
 
-function addCollider(colliders, center, size, name = '') {
+/**
+ * A collider with no mesh of its own, for geometry drawn somewhere else.
+ *
+ * `material` is optional and is the THREE material the visible geometry uses,
+ * not a string -- it is passed through `combatMaterialFor` exactly as `solid`
+ * does, so a block authored here and a block authored there stop a round the
+ * same way. Leave it off and the collider is untagged, which the shared stack
+ * reads as a stopper (docs/CONTEXT.md: appearance never implies penetration);
+ * that is right for a door leaf and wrong for a stone reveal, which should
+ * behave like the stone either side of it.
+ */
+function addCollider(colliders, center, size, name = '', material = null) {
   const c = new THREE.Vector3(...center);
   const half = new THREE.Vector3(...size).multiplyScalar(0.5);
   const collider = new THREE.Box3(c.clone().sub(half), c.clone().add(half));
   collider.name = name;
+  const combatMaterial = material ? combatMaterialFor(material) : null;
+  if (combatMaterial) {
+    collider.combatMaterial = combatMaterial;
+    collider.userData = { ...(collider.userData ?? {}), combatMaterial };
+  }
   colliders.push(collider);
   return collider;
 }
@@ -259,10 +275,37 @@ function entrancePortal(parent, colliders) {
   const { radius, tube, springY, faceZ } = PORTAL.ring;
 
   /* The header. The opening is 4.0 m wide and 4.8 m tall and the door is
-   * 2.6 m; this is the 2.2 m of wall that was simply missing above it. */
+   * 2.6 m; this is the 2.2 m of wall that was simply missing above it.
+   *
+   * IT ALSO HAD TO STOP A ROUND, and for a long time it did not. The tag on
+   * the mesh below is real and was always right; what was missing is that the
+   * mesh had no collider, and the collider array is the only thing the shared
+   * ballistics and perception ever trace against. `estate-front-west` ends at
+   * x 11.5 and `estate-front-east` starts at 15.5, while the door leaf covers
+   * 11.99..15.01 up to y 2.6 -- so this 2.2 m band and a ~0.49 m slot down
+   * each side were a hole in a wall the player sees as solid stucco and stone.
+   * A guard in the entry hall could put rounds through it into a player who
+   * had not opened the door yet, which is the owner's report that he "can be
+   * shot through the service-wing door before entering".
+   *
+   * The reveals are tagged as the stone they are drawn as (the jamb boxes
+   * below), the header as the stucco of the wall it continues. */
   const header = box([4.0, 4.8 - height, 0.5], [x, (4.8 + height) / 2, wallZ], M.stucco, 'estate-entry-header');
   header.userData.combatMaterial = 'concrete';
   portal.add(header);
+  addCollider(colliders, [x, (4.8 + height) / 2, wallZ], [4.0, 4.8 - height, 0.5],
+    'estate-entry-header', M.stucco);
+  /* The two slots either side of the leaf, from the ground to the header. */
+  const revealWidth = (4.0 - width) / 2;
+  for (const side of [-1, 1]) {
+    addCollider(
+      colliders,
+      [x + side * (width + revealWidth) / 2, height / 2, wallZ],
+      [revealWidth, height, 0.5],
+      'estate-entry-reveal',
+      M.stoneLight,
+    );
+  }
 
   // Step and threshold, so the door meets the ground on something.
   portal.add(
