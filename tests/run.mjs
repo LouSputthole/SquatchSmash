@@ -45,6 +45,7 @@ const TEST_MODULES = [
   './blood-effects.test.mjs',
   './audio-listener-coverage.test.mjs',
   './initiation-moonlight.test.mjs',
+  './motel-exit-pacing.test.mjs',
   './weapon-sight-line.test.mjs',
   './weapons-core.test.mjs',
   './character-weapon-mount.test.mjs',

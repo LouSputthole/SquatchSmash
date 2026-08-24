@@ -2766,21 +2766,64 @@ function drawSilverback() {
   }
 }
 
+/**
+ * HE SAYS IT WHEN HE GETS HERE.
+ *
+ * Owner, 2026-08-24: *"Snow arrives long before his voiceline."* He did, and
+ * both halves of why were in this function.
+ *
+ * `snow.state = 'follow'` starts him walking from the LOT, which is fifteen
+ * metres and a doorway away. `say()` does not speak — it reserves a slot on
+ * `speechFloor` and returns immediately — and the moment the room turns is
+ * the chattiest second in the mission: the Prospect's challenge, Rico's
+ * answer, Chino, the toasts. So Snow's entrance line went to the back of a
+ * queue while Snow himself went in a straight line, and he was standing next
+ * to the player with a crowbar several seconds before the room heard him
+ * announce himself.
+ *
+ * The fix is not a delay guessed at the call site; that is the same bug with a
+ * number in it. He is HANDED the line and says it when he arrives. Distance to
+ * the player decides, because whichever way he comes in — the front door, the
+ * window he has just put through — being next to the man he is helping is what
+ * arriving means.
+ */
+const SNOW_ARRIVAL_RANGE = 3.4;
+/** And if the room is a maze tonight, he still gets to say his piece. */
+const SNOW_ARRIVAL_PATIENCE = 9;
+let snowEntrance = null;
+
 function snowJoins(reason) {
   if (S.snowInside || !snow || phase === 'end' || phase === 'drive') return;
   S.snowInside = true;
   snow.state = 'follow';
   snow.hp = Math.max(60, snow.hp);
-  const barkIdx = Math.floor(Math.random() * SNOW_FIGHT_BARKS.length);
-  const entranceHold = say(ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`));
+  snowEntrance = {
+    barkIdx: Math.floor(Math.random() * SNOW_FIGHT_BARKS.length),
+    waited: 0,
+  };
   toast('SNOW IS IN', '', `He heard ${reason}`);
   /* He lets himself in through the window only when the room has actually
    * turned. The front door starts closed now, so without the `betrayed` test
    * a warning shot in the LOT would blow the window out of a room nobody has
    * entered yet — glass first, deal second. */
   if (S.betrayed && !S.windowBroken && !refs.frontDoor.open) breakWindow(true);
-  // He brings the crowbar from the trunk — thrown to you if you're
-  // empty-handed, kept and visibly wielded if you're not.
+}
+
+/** Every frame while he is on his way in; silent until he is. */
+function updateSnowEntrance(dt) {
+  if (!snowEntrance || !snow || !snow.alive || phase === 'end') return;
+  snowEntrance.waited += Math.max(0, Number(dt) || 0);
+  const reach = Math.hypot(snow.position.x - pos.x, snow.position.z - pos.z);
+  if (reach > SNOW_ARRIVAL_RANGE && snowEntrance.waited < SNOW_ARRIVAL_PATIENCE) return;
+  const { barkIdx } = snowEntrance;
+  snowEntrance = null;
+  const entranceHold = say(
+    ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`),
+  );
+  /* The crowbar comes with him — thrown to you if you are empty-handed, kept
+   * and visibly wielded if you are not. It waits for him too: a crowbar
+   * landing at your feet from a man still in the car park was the same fault
+   * in a second place. */
   if (S.weapon === 'fists') {
     dropWeaponPickup('crowbar', pos.x + 1.4, pos.z + 0.6);
     afterLine(entranceHold, () => say(ALLY, 'Crowbar. Catch it.', 3, cueFor(ALLY, 'crowbar')));
@@ -3544,10 +3587,13 @@ function actorReachedTarget(a) {
     S.moneyRecovered = false;
     a.carryingCase = true;
     a.afterGoto = null;
-    a.state = 'flee';
-    a.target = pickRicoExit();
+    ricoBreaksFor(a);
     say('Rico', 'Nothing personal. Everything financial.', 3.2);
-  } else if (a === rico && a.state === 'flee') {
+    toast('RICO IS RUNNING', 'warn', `He is going for ${a.target.via}`);
+  } else if (a === rico && a.afterGoto === 'ricoThrough') {
+    /* He is at the opening. The second leg takes him out of it. */
+    ricoRunsOut(a);
+  } else if (a === rico && (a.afterGoto === 'ricoGone' || a.state === 'flee')) {
     ricoEscapes(a);
   } else if (a === chino && a.carryingCase) {
     throwCaseInPool(a);
@@ -3557,16 +3603,76 @@ function actorReachedTarget(a) {
   }
 }
 
-function pickRicoExit() {
-  if (refs.frontDoor.open || S.doorBroken) return { x: 0, z: 8, via: 'the front walkway' };
-  if (S.windowBroken) return { x: 3.0, z: -5.2, via: 'the smashed front window' };
-  return { x: 3.3, z: -14.4, via: 'the bathroom window' }; // over the tub and out
+/**
+ * WHERE HE IS RUNNING, AND HOW MANY WAYS HE HAS LEFT.
+ *
+ * `skip` is the routes he has already failed to reach. A seller who cannot get
+ * through the front door tries the window before he tries evaporating.
+ */
+function pickRicoExit(skip = new Set()) {
+  const routes = [];
+  if (refs.frontDoor.open || S.doorBroken) routes.push({ x: 0, z: 8, via: 'the front walkway' });
+  if (S.windowBroken) routes.push({ x: 3.0, z: -5.2, via: 'the smashed front window' });
+  routes.push({ x: 3.3, z: -14.4, via: 'the bathroom window' }); // over the tub and out
+  return routes.find((route) => !skip.has(route.via)) ?? routes[0];
+}
+
+/**
+ * HE HAS TO BE SEEN LEAVING.
+ *
+ * Owner, 2026-08-24, on the Motel: *"Rico slips out real quick."* He did, and
+ * not because he was fast. There were two ways for him to simply cease to
+ * exist. `actorReachedTarget` deleted him the frame he touched the exit point,
+ * which for the bathroom window is a spot INSIDE the bathroom -- so he
+ * vanished on the tub rather than going over it. And `actorStuck` deleted him
+ * outright: one blocked step behind a chair and the man with the forty
+ * thousand was gone, from the middle of the room, in front of the player.
+ *
+ * So an exit is two legs now. The first is the opening itself, which is the
+ * part the player can contest -- he is in the room, he is running, and he can
+ * be stopped. The second is a point out in the dark beyond it, and only
+ * reaching THAT ends him. Being stuck costs him a route rather than the scene:
+ * he picks another way and runs again, and he is only gone when he has run out
+ * of ways, which is the honest version of giving up.
+ */
+const RICO_EXIT_RUN = 5.5;
+
+function ricoBreaksFor(a, { skip = a.exitsTried ?? new Set() } = {}) {
+  const exit = pickRicoExit(skip);
+  a.exitsTried = skip;
+  a.state = 'flee';
+  a.afterGoto = 'ricoThrough';
+  a.target = { ...exit };
+  return exit;
+}
+
+/** Past the opening and into the dark. This leg is the one that ends him. */
+function ricoRunsOut(a) {
+  const from = a.target ?? { x: a.position.x, z: a.position.z, via: 'a gap you did not cover' };
+  const away = Math.hypot(from.x - pos.x, from.z - pos.z) || 1;
+  a.state = 'flee';
+  a.afterGoto = 'ricoGone';
+  a.target = {
+    x: from.x + ((from.x - pos.x) / away) * RICO_EXIT_RUN,
+    z: from.z + ((from.z - pos.z) / away) * RICO_EXIT_RUN,
+    via: from.via,
+  };
 }
 
 // A seller who cannot reach where they were running gives up on the idea.
 function actorStuck(a) {
+  if (a === rico && a.state === 'flee') {
+    /* A blocked step is not an exit. He loses the route and tries another;
+     * only a man out of routes is a man who got away. See `ricoBreaksFor`. */
+    const tried = a.exitsTried ?? new Set();
+    tried.add(a.target?.via ?? '');
+    const next = ricoBreaksFor(a, { skip: tried });
+    if (tried.has(next.via)) ricoEscapes(a);
+    return;
+  }
   if (a === rico) {
-    ricoEscapes(a);
+    a.state = 'chase';
+    a.target = null;
     return;
   }
   if (a.carryingCase) {
@@ -4771,9 +4877,9 @@ function updateFightLogic(dt) {
     }
   }
   if (rico && rico.alive && rico.hp < rico.maxHp * 0.35 && rico.state !== 'flee') {
-    rico.state = 'flee';
-    rico.target = pickRicoExit();
+    ricoBreaksFor(rico);
     say('Rico', 'Not worth it, not worth it!', 2.6);
+    toast('RICO IS RUNNING', 'warn', `He is going for ${rico.target.via}`);
   }
   // The clerk has a button under the counter and an opinion about all this
   if (clerk && clerk.alive && !S.clerkCowed && !S.alarmPulled && level.rects.OFFICE
@@ -4863,6 +4969,7 @@ function tick() {
     syncSharedAmmo();
     updateRoomBeats(dt);
     updateFightLogic(dt);
+    updateSnowEntrance(dt);
 
     // Grapple timer
     if (grapple) {
