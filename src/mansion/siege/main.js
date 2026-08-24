@@ -92,7 +92,7 @@ import { buildSiegeNight, scoreSiegeLight } from './night.js';
 import { buildSiegeDressing, tippedRestY } from './dressing.js';
 import { buildSiegeArmorCache } from './armor-cache.js';
 import { buildSiegeGlass } from './glass.js';
-import { createAttackerPool } from './attackers.js';
+import { ateamBarkCueNames, createAttackerPool } from './attackers.js';
 import { buildSiegeEnsemble } from './ensemble.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from '../perf.js';
 
@@ -2925,7 +2925,13 @@ async function beginSiege() {
      * real recording is never replaced by a one-shot synth fallback. */
     await audio.loadManifest({ names: siegeEffectCueNames() }).catch(() => {});
     await audio.loadAdditional({
-      names: [...weaponCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames()],
+      names: [
+        ...weaponCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames(),
+        /* The crew's own forty-two lines. They are barks rather than script,
+         * so they were never in `siegeVoiceCueNames()`, and a bark whose bank
+         * is not decoded plays the synth stand-in rather than the take. */
+        ...ateamBarkCueNames(),
+      ],
     }).catch(() => {});
     /* The banks above were awaited, so this normally resolves at once. It
      * exists to pin the exact cues the first trigger pull reaches for as
@@ -3017,7 +3023,10 @@ export function siegeCombatCueNames() {
 }
 
 export function siegeCueNames() {
-  return [...siegeEffectCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames()];
+  return [
+    ...siegeEffectCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames(),
+    ...ateamBarkCueNames(),
+  ];
 }
 
 function presentCombatStep(event = {}, dt = 0) {

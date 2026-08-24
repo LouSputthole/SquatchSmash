@@ -28,6 +28,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { ensureThreeShim, ensureDomShim } from '../tools/three-shim.mjs';
 
@@ -40,7 +41,7 @@ const { FACTIONS, FactionMatrix } = await import('../src/core/combat/factions.js
 const { MansionDamageState } = await import('../src/mansion/siege/state.js');
 const { WaveDirector } = await import('../src/mansion/siege/waves.js');
 const {
-  createAttackerPool, ATEAM_VOICES, ATEAM_IDENTITY_BARKS,
+  createAttackerPool, ateamBarkCueNames, ATEAM_VOICES, ATEAM_IDENTITY_BARKS,
 } = await import('../src/mansion/siege/attackers.js');
 
 /* ================================================================== */
@@ -224,5 +225,58 @@ test('a firefight sounds like a crew, not one man on a loop', () => {
     assert.notEqual(identity[i].voice, identity[i - 1].voice,
       `${identity[i].voice} said "${identity[i - 1].line}" and then "${identity[i].line}"`);
     assert.notEqual(identity[i].cue, identity[i - 1].cue, 'a line repeated immediately');
+  }
+});
+
+/* ================================================================== */
+/* AND SOMETHING HAS TO DECODE THEM                                     */
+/* ================================================================== */
+
+test('every A-Team cue is in the bank the scene actually loads', () => {
+  /* Owner, 2026-08-24: *"I also didnt hear the A team voice lines during the
+   * siege."* Every test above this one passed while that was true. The table
+   * named its cues, the pool handed them up, and `renderCombatBark` called
+   * `speak()` with them -- and the scene never loaded the bank, so
+   * `AudioEngine.play` fell through to the synth stand-in for all forty-two.
+   * It does not throw and it does not warn: the subtitle says the words and a
+   * blip comes out.
+   *
+   * A source read rather than a boot, because starting the siege needs a
+   * browser. What is being pinned is the wiring: the mission's preload list
+   * and its exported cue inventory both reach the bark table, so a line added
+   * to the pool is a line that arrives decoded. */
+  const main = readFileSync(new URL('../src/mansion/siege/main.js', import.meta.url), 'utf8');
+  assert.match(main, /import \{[^}]*ateamBarkCueNames[^}]*\} from '\.\/attackers\.js';/,
+    'the siege no longer knows the crew has recorded lines');
+  const preload = main.slice(main.indexOf('await audio.loadAdditional('));
+  const preloadEnd = preload.indexOf('});');
+  assert.ok(preloadEnd > 0, 'the mission preload call has moved or gone');
+  assert.match(preload.slice(0, preloadEnd), /ateamBarkCueNames\(\)/,
+    'the A-Team bank is not decoded before the siege starts, so every identity '
+    + 'bark plays its synth stand-in while the subtitle shows the line');
+  const inventory = main.slice(main.indexOf('export function siegeCueNames()'));
+  assert.match(inventory.slice(0, inventory.indexOf('}')), /ateamBarkCueNames\(\)/,
+    'the scene\'s own cue inventory omits the crew, so the verifier that checks '
+    + 'the page decoded what it asked for cannot see them either');
+
+  /* And the list is the table, not a second copy of it. */
+  assert.deepEqual(
+    [...ateamBarkCueNames()].sort(),
+    [...new Set(ATEAM_IDENTITY_BARKS.map((entry) => entry.cue))].sort(),
+    'the exported cue list has drifted from the bark table it is drawn from',
+  );
+});
+
+test('every A-Team cue has a recording behind it', () => {
+  /* The load is only worth having if there is something to load.
+   * `assets/sfx/index.json` is the shipped-asset ledger the engine decodes
+   * from, so it is what a preload can actually find. */
+  const index = JSON.parse(readFileSync(
+    new URL('../assets/sfx/index.json', import.meta.url), 'utf8',
+  ));
+  const shipped = new Set(index.files ?? []);
+  for (const cue of ateamBarkCueNames()) {
+    assert.ok(shipped.has(`${cue}.mp3`),
+      `${cue} is shouted in the siege and has no recording in assets/sfx`);
   }
 });
