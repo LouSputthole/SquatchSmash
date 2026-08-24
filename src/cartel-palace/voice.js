@@ -405,11 +405,40 @@ export class PalaceVoice {
 
   /** Is the speaker close enough, and can the player actually see them? */
   audible(position, radius, mouthY = STANDING_MOUTH_Y) {
-    if (!position) return true;
+    return this.audibility(position, radius, mouthY) !== 'blocked';
+  }
+
+  /**
+   * A WALL AND A BENCH ARE NOT THE SAME OBJECT.
+   *
+   * `audible()` used to be a yes/no on one ray, and both answers were wrong
+   * for the cleaner. Heard through the bench she is hiding behind, she is the
+   * owner's "disembodied cleaner". Silenced by it, she is a woman the player
+   * is meant to find who gives him nothing to find her by -- he only hears her
+   * once he can already see her, which is too late to be a cue.
+   *
+   * The rule that separates them costs no new data and no material taxonomy:
+   * trace to the speaker's REAL mouth, and if that is blocked, trace again to
+   * where their mouth would be if they stood up.
+   *
+   *   clear     nothing in the way. Play it.
+   *   occluded  blocked low, clear high -- the speaker is in the same open
+   *             volume as the player, behind something he can see over. Play
+   *             it muffled and quiet: sound goes round furniture.
+   *   blocked   blocked at both heights. That is a wall, and the owner's rule
+   *             stands: nothing is heard through it.
+   *
+   * It scopes itself. A standing speaker's two rays are the same ray, so a
+   * guard can never be `occluded` and the payroll's barks behave exactly as
+   * they did. Only somebody kneeling or prone can be in the middle case, which
+   * is the only place the middle case makes sense.
+   */
+  audibility(position, radius, mouthY = STANDING_MOUTH_Y) {
+    if (!position) return 'clear';
     const at = this.player?.position;
-    if (!at) return true;
-    if (at.distanceTo(position) > radius) return false;
-    if (!this.trace || !this.vector) return true;
+    if (!at) return 'clear';
+    if (at.distanceTo(position) > radius) return 'blocked';
+    if (!this.trace || !this.vector) return 'clear';
     /* Eye to mouth. A speaker behind a wall is a speaker the player has not
      * met yet, and the owner's note is explicit that they must not be heard
      * through it.
@@ -427,7 +456,10 @@ export class PalaceVoice {
      * being heard through the furniture she was hiding behind. */
     const from = this.vector(at.x, at.y + 0.1, at.z);
     const to = this.vector(position.x, position.y + mouthY, position.z);
-    return this.trace(from, to) == null;
+    if (this.trace(from, to) == null) return 'clear';
+    if (mouthY >= STANDING_MOUTH_Y) return 'blocked';
+    const standing = this.vector(position.x, position.y + STANDING_MOUTH_Y, position.z);
+    return this.trace(from, standing) == null ? 'occluded' : 'blocked';
   }
 
   /** Subtitle colour for a voice profile, so a two-hander changes hands. */
@@ -451,6 +483,7 @@ export class PalaceVoice {
    */
   playCue(cue, {
     follow = null, position = null, gain = SPEECH_GAIN.normal, radius = 22,
+    muffle = 0,
   } = {}) {
     const empty = { source: null, duration: 0, name: null };
     if (!this.audio?.play || !this.audio.buffers) return empty;
@@ -474,6 +507,7 @@ export class PalaceVoice {
       speaker: follow,
       position,
       gain,
+      muffle,
       mix: { ref: 2.4, maxDist: radius, rolloff: 1.6 },
     });
     return { source: spoken.source ?? null, duration: spoken.seconds, name };
@@ -502,29 +536,42 @@ export class PalaceVoice {
     /* A `speaker` is a live body, so the line comes from wherever he is
      * standing THIS frame rather than from a point copied at the call site. */
     const at = speaker?.root?.position ?? position;
-    if (!this.audible(at, radius, mouthY)) return false;
+    const heard = this.audibility(at, radius, mouthY);
+    if (heard === 'blocked') return false;
+    /* Round the bench rather than through it. A lowpass at 900 Hz and a third
+     * off the level is what a voice from behind low cover in the same room
+     * sounds like -- present enough to walk toward, dull enough that the
+     * player knows he cannot see her yet. See `audibility`. */
+    const occluded = heard === 'occluded';
+    const muffle = occluded ? 900 : 0;
+    const gain = SPEECH_GAIN.normal * (occluded ? 0.66 : 1);
 
     const cue = palaceVoiceCue(id);
-    let recorded = 0;
-    if (speaker?.root && this.audio?.play) {
-      /* Off the body, and glued to it: a guard who shouts "contact" and then
-       * runs for cover takes the shout with him. */
-      const take = this.playCue(cue, {
-        follow: speaker.root, position: at, radius: Math.max(radius, 18),
-      });
-      recorded = take.duration;
-      speaker.figure?.say?.(
-        Math.max(line.hold ?? 2.4, recorded),
-        { audio: this.audio, source: take.source },
-      );
-    } else if (this.audio?.say) {
-      const prefix = `vo.${cue}.`;
-      for (const [name, bank] of this.audio.buffers?.entries?.() ?? []) {
-        if (!name.startsWith(prefix)) continue;
-        for (const buffer of bank) recorded = Math.max(recorded, buffer?.duration || 0);
-      }
-      if (!this.audio.say(cue, { chance: 1, volume: 1, position: at })) recorded = 0;
-    }
+    /* ONE PATH, AND IT IS THE POSITIONED ONE.
+     *
+     * This used to fork: a line with a `speaker` body went through `playCue`
+     * -- the shared dialogue path, with the voice bus, the duck and this
+     * scene's own tight mix -- and a line with only a `position` went through
+     * `AudioEngine.say`, which took the position and threw it away (fixed
+     * there too). So every line in the Palace that is not shouted by a live
+     * guard was played dead centre at full level with no panner on it. The
+     * cleaner is the whole of that set, and "a disembodied cleaner starts
+     * talking" is a precise description of the result.
+     *
+     * `follow` is the body where there is one and null where there is not;
+     * `position` carries the rest. */
+    const take = this.playCue(cue, {
+      follow: speaker?.root ?? null,
+      position: at,
+      radius: Math.max(radius, 18),
+      gain,
+      muffle,
+    });
+    const recorded = take.duration;
+    speaker?.figure?.say?.(
+      Math.max(line.hold ?? 2.4, recorded),
+      { audio: this.audio, source: take.source },
+    );
     this.said.add(id);
     this.spoken.push(cue);
     this.current = id;
