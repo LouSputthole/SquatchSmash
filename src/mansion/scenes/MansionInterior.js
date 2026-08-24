@@ -695,6 +695,54 @@ export function buildMansionInterior(shell = null) {
   }
 
   /* ================================================================== */
+  /* THE SECOND ARRAY: WHAT STOPS A ROUND, AS OPPOSED TO A BODY          */
+  /*                                                                      */
+  /* `colliders` above is the MOVEMENT list and nothing else. It cannot    */
+  /* carry a floor -- see the note directly below this one, which is the   */
+  /* scar from the invisible wall across the upper gallery -- and it       */
+  /* cannot carry these walls at their real height either, for the same    */
+  /* reason and by the same 0.3 m.                                         */
+  /*                                                                        */
+  /* But the siege hands `colliders` to the shared combat Modules as its     */
+  /* line-of-sight and Ballistic-path model, so everything the movement      */
+  /* list is forced to leave out is a hole a bullet goes through. The owner  */
+  /* found the big one: killed in the cellar by a man on the ground floor    */
+  /* who never came downstairs. `combatBlockers` is where those surfaces go, */
+  /* tagged with their real Combat material, exactly as docs/CONTEXT.md      */
+  /* defines it -- "ballistic resistance INDEPENDENTLY from whether the same */
+  /* surface blocks vision," and, here, independently from whether it blocks */
+  /* movement.                                                               */
+  /*                                                                          */
+  /* MansionGrounds.js returns an array of the same name holding the poured    */
+  /* structure -- podium, upper slab, roof, basement raft, cellar soffits.     */
+  /* This one holds what the fit-out owns: one slab per enterable room at its  */
+  /* own floor datum, the authored ceiling soffits, and the 0.3 m of wall      */
+  /* `wallColliderTop` has to give up under every floor above. Both are        */
+  /* ADDITIVE to their own `colliders`, never a replacement for it.            */
+  /* ================================================================== */
+  const combatBlockers = [];
+
+  /**
+   * Register one surface with the combat model and with nothing else.
+   *
+   * No mesh: every one of these already exists as geometry (a slab in
+   * MansionGrounds, a `topping()` a few lines away, a wall whose full height
+   * is drawn and only whose collider is trimmed). This is the box beside it.
+   */
+  function structural(x0, x1, y0, y1, z0, z1, name, combatMaterial = 'concrete') {
+    if (x1 - x0 < 1e-4 || y1 - y0 < 1e-4 || z1 - z0 < 1e-4) return null;
+    const c = collider(
+      [Math.min(x0, x1), Math.min(y0, y1), Math.min(z0, z1)],
+      [Math.max(x0, x1), Math.max(y0, y1), Math.max(z0, z1)],
+    );
+    c.name = name;
+    c.combatMaterial = combatMaterial;
+    c.userData = { ...(c.userData ?? {}), combatMaterial };
+    combatBlockers.push(c);
+    return c;
+  }
+
+  /* ================================================================== */
   /* THE FLOOR-LEVEL COLLIDER TRAP                                       */
   /*                                                                      */
   /* Owner playtest, third pass, verbatim: "Theres like an invisible wall  */
@@ -757,7 +805,36 @@ export function buildMansionInterior(shell = null) {
     /* Mesh full height, collider clear of the floor above. See the note above
      * `wallColliderTop` -- this one line is the whole fix for the invisible
      * wall across the upper floor. */
-    const contact = solid(x0, x1, y0, wallColliderTop(y1), z0, z1);
+    const colliderTop = wallColliderTop(y1);
+    const contact = solid(x0, x1, y0, colliderTop, z0, z1);
+    /* AND THE 0.3 M THAT FIX GIVES AWAY.
+     *
+     * `wallColliderTop` cures a MOVEMENT bug by making thirteen wall
+     * colliders stop 0.3 m under the floor above them. That is right for
+     * feet and wrong for everything else: the mesh still reaches the slab,
+     * so the player sees an unbroken wall, while the combat model -- which
+     * reads the same collider array -- sees a 300 mm letterbox running the
+     * full length of every one of those walls at ceiling level. Two men on
+     * the same storey, one either side of the conference partition, can
+     * trade rounds through a slot neither of them can see.
+     *
+     * So the slot is registered here as the wall's own material, and the
+     * combat model gets the wall at its true height: trimmed collider plus
+     * this piece, meeting edge to edge at `colliderTop`, is exactly y0..y1.
+     *
+     * IT IS THE SLOT AND NOT A FULL-HEIGHT DUPLICATE, DELIBERATELY. A second
+     * box spanning the whole wall would OVERLAP the one already in
+     * `colliders`, and a consumer that concatenates the two arrays (which is
+     * the documented way to use this one) would then find two drywall
+     * contacts for one wall on every shot. `WALL_T` here is 0.3 m and
+     * core/combat/ballistics.js penetrates up to 0.35 m of drywall, so
+     * charging a round for the same partition twice does not make the model
+     * stricter -- it stops every round in the first wall it meets and makes
+     * a plasterboard house bulletproof, which is a different bug wearing
+     * this one's clothes. Edge to edge, each surface paid for once. */
+    if (colliderTop < y1 - 1e-6) {
+      structural(x0, x1, colliderTop, y1, z0, z1, `${tag}-ceiling-slot-${segmentIndex}`, combatMaterial);
+    }
     contact.combatMaterial = combatMaterial;
     contact.name = `${tag}-collider-${segmentIndex}`;
     contact.userData = {
@@ -888,7 +965,16 @@ export function buildMansionInterior(shell = null) {
     }
   }
 
-  /** Thin decorative floor topping over an already-solid slab. No collider. */
+  /** Thin decorative floor topping over an already-solid slab. No collider.
+   *
+   * `walkable: false` is this file's word for "this one is a CEILING" -- the
+   * bay's flat plaster, the conference room's coffered soffit, the office's
+   * tray and the suite's cove tray are the four, and each of them is built
+   * with exactly this call. A ceiling belongs in the combat model even
+   * though nothing stands on it, so the flag now does that job too rather
+   * than making a future ceiling remember a second call it might not make.
+   * A walkable topping gets nothing here: its storey's slab is registered
+   * whole from `rooms` further down, once, instead of once per rug border. */
   function topping(x0, x1, y, z0, z1, material, tag = 'floor', walkable = true) {
     const surface = box({
       size: [x1 - x0, 0.02, z1 - z0],
@@ -898,6 +984,12 @@ export function buildMansionInterior(shell = null) {
       cast: false,
     });
     root.add(walkable ? siegeWalkable(surface) : surface);
+    if (!walkable) {
+      structural(
+        x0, x1, y - 0.01, y + 0.01, z0, z1, `${tag}-combat`,
+        combatMaterialFor(material) ?? 'concrete',
+      );
+    }
     return surface;
   }
 
@@ -13584,6 +13676,81 @@ const M_GOLD_BAR = mat({
     masterSuite: { rect: MASTER_SUITE, floor: SUITE_Y, anchor: anchors.masterSuiteCenter },
   };
 
+  /* ================================================================== */
+  /* ONE FLOOR SLAB PER ROOM, FOR THE COMBAT MODEL                       */
+  /*                                                                      */
+  /* Synthesised from the table directly above rather than hand-listed,   */
+  /* because a hand-list of floors is a second description of the house   */
+  /* and the whole reason `floorAt` reads the poured slabs instead of a   */
+  /* room list is that the two drift. Every room already declares its own */
+  /* rect and its own floor datum here; a storey is those rects at that   */
+  /* datum, so that is what this is.                                      */
+  /*                                                                       */
+  /* MansionGrounds pours the structure and registers it, so most of these */
+  /* sit directly on a slab already in that array. They are not redundant  */
+  /* padding: the grounds' slabs are the FOOTPRINT (podium, upper slab,    */
+  /* roof, raft), which is the right model for the main block and says     */
+  /* nothing about a room the fit-out adds outside it. Registering the     */
+  /* rooms themselves means a new room downstairs gets a floor the day it  */
+  /* gets a rect, rather than the day somebody remembers to pour one. They */
+  /* are also free at trace time: concrete is not in `PENETRABLE`, so the  */
+  /* first of any stack of them terminates the shot and the rest are never */
+  /* examined.                                                             */
+  /*                                                                        */
+  /* THE THREE HOLES ARE SUBTRACTED, AND THEY MATTER MORE THAN THE SLABS.   */
+  /* This house has exactly three places where a storey is deliberately     */
+  /* open to the one above it, and each of them is a sight line the siege   */
+  /* is fought on:                                                          */
+  /*   - BASEMENT_STAIR, the shaft cut through the podium inside the        */
+  /*     foyer's own rect, which is how you see and shoot down the cellar   */
+  /*     stairs (`FOYER`'s topping is already split round it, above);       */
+  /*   - FOYER_VOID, the double-height foyer, which is the whole point of   */
+  /*     the gallery rail -- "hold the rail" is the mission;                */
+  /*   - SUITE_STAIR_WELL, the concealed stair out of Lou's office.         */
+  /* Sealing any of them would be the same class of lie as leaving the      */
+  /* storeys open, pointed the other way: a man shot through a floor that   */
+  /* is not there is exactly as wrong as a man shot through one that is.    */
+  /* The grounds' own slabs are already notched round all three; these are  */
+  /* cut to match, so the two arrays agree about where the holes are.       */
+  /* ================================================================== */
+  const FLOOR_VOIDS = [
+    { y: GY, rect: BASEMENT_STAIR },
+    { y: UY, rect: FOYER_VOID },
+    { y: shell?.SUITE_Y ?? SUITE_Y, rect: shell?.suiteStairWell ?? SUITE_STAIR_WELL },
+  ];
+  /** A slab is 0.3 m of concrete hanging under the surface you walk on. */
+  const ROOM_SLAB_T = 0.3;
+
+  /** `rect` minus `hole`, as up to four rects. Returns [rect] if they miss. */
+  function rectMinus(rect, hole) {
+    if (hole.x1 <= rect.x0 || hole.x0 >= rect.x1
+      || hole.z1 <= rect.z0 || hole.z0 >= rect.z1) return [rect];
+    const pieces = [];
+    const zLo = Math.max(rect.z0, hole.z0);
+    const zHi = Math.min(rect.z1, hole.z1);
+    if (hole.z0 > rect.z0) pieces.push({ x0: rect.x0, x1: rect.x1, z0: rect.z0, z1: hole.z0 });
+    if (hole.z1 < rect.z1) pieces.push({ x0: rect.x0, x1: rect.x1, z0: hole.z1, z1: rect.z1 });
+    if (hole.x0 > rect.x0) pieces.push({ x0: rect.x0, x1: hole.x0, z0: zLo, z1: zHi });
+    if (hole.x1 < rect.x1) pieces.push({ x0: hole.x1, x1: rect.x1, z0: zLo, z1: zHi });
+    return pieces;
+  }
+
+  for (const [name, room] of Object.entries(rooms)) {
+    let pieces = [{
+      x0: room.rect.x0, x1: room.rect.x1, z0: room.rect.z0, z1: room.rect.z1,
+    }];
+    for (const void_ of FLOOR_VOIDS) {
+      if (Math.abs(void_.y - room.floor) > 0.05) continue;
+      pieces = pieces.flatMap((piece) => rectMinus(piece, void_.rect));
+    }
+    for (const [index, piece] of pieces.entries()) {
+      structural(
+        piece.x0, piece.x1, room.floor - ROOM_SLAB_T, room.floor, piece.z0, piece.z1,
+        `${name}-floor-slab-${index}-combat`,
+      );
+    }
+  }
+
   const props = {
     masterSuite: { ...suiteProps, secretStair },
     foyer: foyerProps,
@@ -14293,6 +14460,13 @@ const M_GOLD_BAR = mat({
   return {
     root,
     colliders,
+    /** What stops a round and a line of sight but is not in the movement
+     * list: one slab per room at its own floor datum (holed at the three
+     * authored voids), the authored ceiling soffits, and the ceiling slot
+     * `wallColliderTop` takes out of thirteen walls. See the long note
+     * beside `structural()`. Additive to `colliders`; never handed to
+     * `core/player.js`. */
+    combatBlockers,
     doors,
     props,
     anchors,
