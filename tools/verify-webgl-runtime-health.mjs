@@ -121,6 +121,7 @@ export const NON_INITIATION_RUNTIME_CASES = Object.freeze([
   runtime('golf', 'golf.html?preview=1', '#start-btn', ['__golfReady']),
   runtime('heist', 'heist.html?preview=1&checkpoint=safehouse', '#start', ['__heistDebug', 'start']),
   runtime('cabin', 'cabin.html?preview=1', '#start-btn', ['COUNTRYSIDE_CABIN', 'story']),
+  runtime('luxury-apartment', 'luxury-apartment.html?preview=1', '#start-btn', ['LUXURY_APARTMENT', 'world']),
   runtime('silvercase', 'silvercase.html?preview=1', '#beginBtn', ['silvercase', 'fsm']),
   runtime('mansion', 'mansion.html?preview=1', '#startBtn', ['mansion', 'player']),
   runtime('mansion-siege', 'mansion-siege.html?preview=1', '#startBtn', ['mansionSiege', 'scene']),

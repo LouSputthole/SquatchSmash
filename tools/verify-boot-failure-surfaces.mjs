@@ -113,6 +113,13 @@ const CASES = [
     title: 'Could not load the cabin',
   },
   {
+    page: 'luxury-apartment.html',
+    module: 'src/luxury-apartment/main.js',
+    scene: 'THE HIGH LIFE',
+    title: 'Could not load the luxury apartment',
+    recovery: './preview.html',
+  },
+  {
     page: 'silvercase.html',
     module: 'src/silvercase/main.js',
     scene: 'The Silver Case',

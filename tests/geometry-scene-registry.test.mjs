@@ -38,6 +38,7 @@ const EXPECTED_ADAPTERS = Object.freeze([
   'graveyard',
   'heist',
   'initiation',
+  'luxury-apartment',
   'mansion',
   'mansion-siege',
   'motel',
@@ -245,6 +246,19 @@ test('multi-state scenes enumerate every authored geometry state', () => {
 test('every registered Adapter name is known', () => {
   const adapters = [...new Set(GEOMETRY_SCENE_STATES.map(({ adapter }) => adapter))].sort();
   assert.deepEqual(adapters, [...EXPECTED_ADAPTERS]);
+});
+
+test('luxury apartment Adapter publishes the complete property and authored metrics', async () => {
+  const built = await buildGeometrySceneState('luxury-apartment:property');
+  assert.equal(built.roots.length, 1);
+  assert.equal(built.roots[0].label, 'luxury-apartment-property');
+  assert.equal(built.roots[0].root.name, 'luxury-apartment');
+  assert.ok(built.colliders.length > 0, 'luxury apartment Adapter publishes no collision layer');
+  assert.equal(built.metadata.metrics.floors, 2);
+  assert.equal(built.metadata.metrics.stairSteps, 18);
+  assert.ok(built.metadata.metrics.panoramicWindowArea > 0);
+  assert.ok(built.metadata.metrics.artSlots > built.metadata.metrics.originalArtSlots);
+  assertPlainData(built.metadata, 'luxury-apartment:property.metadata');
 });
 
 

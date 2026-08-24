@@ -35,6 +35,9 @@ export const SCENE_AUDIT_SCENES = Object.freeze([
   entry('cabin', 'cabin.html?preview=1', '#start-btn, #startBtn', [
     ['COUNTRYSIDE_CABIN', 'scene'],
   ]),
+  entry('luxury-apartment', 'luxury-apartment.html?preview=1', '#start-btn, #startBtn', [
+    ['LUXURY_APARTMENT', 'scene'],
+  ]),
   entry('motel', 'motel.html?preview=1', '#start-btn, #startBtn'),
   entry('graveyard', 'graveyard.html?preview=1', '#start-btn, #startBtn', [
     ['GRAVEYARD', 'player', 'camera', 'parent'],

@@ -68,6 +68,7 @@ const CAMPAIGN_PAGES = Object.freeze([
 
 const NON_CAMPAIGN_ROOT_HTML = Object.freeze([
   'combatlab.html',
+  'luxury-apartment.html',
   'preview.html',
   'roster.html',
   'trophyroom.html',

@@ -159,6 +159,15 @@ test('final-arc launcher links preserve preview isolation and expose Cartel Pala
   );
 });
 
+test('the unplaced luxury apartment is available as a standalone future-hub preview', () => {
+  const html = fs.readFileSync(new URL('../preview.html', import.meta.url), 'utf8');
+  assert.match(
+    html,
+    /data-preview-scene="luxury-apartment"[^>]+href="luxury-apartment\.html\?preview=1"/i,
+  );
+  assert.match(html, /FUTURE HUB · UNPLACED/i);
+});
+
 test('the preview launcher exposes the wardrobe and combat development tools', () => {
   const html = fs.readFileSync(new URL('../preview.html', import.meta.url), 'utf8');
   assert.match(html, /data-preview-tool="wardrobe"[^>]+href="wardrobe\.html"/i);

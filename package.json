@@ -12,6 +12,8 @@
     "verify:campaign-marathon": "node tools/verify-campaign-marathon.mjs",
     "verify:cabin": "node --test --test-isolation=none tests/countryside-cabin-story.test.mjs tests/countryside-cabin-field.test.mjs tests/countryside-cabin-world.test.mjs",
     "verify:cabin-browser": "node tools/verify-cabin.mjs",
+    "verify:luxury-apartment": "node --test --test-isolation=none tests/luxury-apartment-layout.test.mjs tests/luxury-apartment-runtime.test.mjs tests/luxury-apartment-world.test.mjs",
+    "verify:luxury-apartment-browser": "node tools/verify-luxury-apartment.mjs",
     "verify:systemic-polish": "node --test --test-isolation=none tests/systemic-polish.test.mjs",
     "verify:scene-recovery": "node tools/verify-scene-recovery.mjs",
     "verify:settings": "node tools/verify-settings.mjs",

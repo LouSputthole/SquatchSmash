@@ -8,6 +8,16 @@ Mansion Under Siege, Enola Squatch, the repaired-mansion briefing, and Cartel
 Palace. Initiation remains a protected terminal WIP until the owner has
 playtested and approved changes to that scene.
 
+## Built but deliberately unplaced: the luxury apartment
+
+`luxury-apartment.html` is a standalone late-game home hub with a two-level
+loft plan, panoramic city windows, the original apartment's activities and art
+collection, and additional gallery and game-space dressing. It does not
+replace the original apartment, alter the route table below, or claim a story
+checkpoint yet. Its eventual unlock, move-in beat, and return routing stay an
+owner story decision; until then it is available only from the preview gallery
+as a future-hub scene.
+
 ## Campaign premise
 
 The Silver Sasquatches are a gaming organization whose mascot is a silver

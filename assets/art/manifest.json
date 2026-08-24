@@ -938,6 +938,90 @@
       "caption": "The whole city at sunset, over somebody else's crowd. By the wardrobes, where a suitcase gets packed."
     },
     {
+      "slot": "luxury.night-watch",
+      "file": "luxury-night-watch.webp",
+      "title": "Night Watch",
+      "caption": "The city bought the view. Something older is still watching it."
+    },
+    {
+      "slot": "luxury.ascension",
+      "file": "luxury-ascension.webp",
+      "title": "Ascension",
+      "caption": "Forest below, skyline above. Tony calls that upward mobility."
+    },
+    {
+      "slot": "luxury.foyer.statement",
+      "file": "mansion/dynasty-abstract-peak.jpg",
+      "title": "The Peak",
+      "caption": "The first wall after the private elevator. Subtle was never discussed."
+    },
+    {
+      "slot": "luxury.city.night",
+      "file": "iem-dallas-2024-night.jpg",
+      "title": "City After Midnight",
+      "caption": "An old road-night memory, now hung above the road itself."
+    },
+    {
+      "slot": "luxury.loft.triptych.a",
+      "file": "mansion/dynasty-council.jpg",
+      "title": "The Council",
+      "caption": "Panel one: everybody had an opinion."
+    },
+    {
+      "slot": "luxury.loft.triptych.b",
+      "file": "mansion/dynasty-club-apex.jpg",
+      "title": "The Apex",
+      "caption": "Panel two: the view from the top is mostly other roofs."
+    },
+    {
+      "slot": "luxury.loft.triptych.c",
+      "file": "mansion/dynasty-estate-sunset.jpg",
+      "title": "The Estate",
+      "caption": "Panel three: another kind of home, before this one."
+    },
+    {
+      "slot": "luxury.stair.memory.a",
+      "file": "major-austin-stands.jpg",
+      "title": "Austin in the Stands",
+      "caption": "Halfway up the stairs, where the noise still follows."
+    },
+    {
+      "slot": "luxury.stair.memory.b",
+      "file": "denver-golf-trip.webp",
+      "title": "The Golf Trip",
+      "caption": "The expensive apartment did not improve anybody's swing."
+    },
+    {
+      "slot": "luxury.bedroom.private",
+      "file": "lou-vacation-florence.jpg",
+      "title": "Florence at Sunset",
+      "caption": "A borrowed memory for the quiet side of the loft."
+    },
+    {
+      "slot": "luxury.office.victory",
+      "file": "austin-major-2025-roster.jpg",
+      "title": "The Major Roster",
+      "caption": "The photograph that makes the office feel earned."
+    },
+    {
+      "slot": "luxury.arcade.marquee",
+      "file": "osrs-screen.png",
+      "title": "Still Logged In",
+      "caption": "A museum-quality reminder that the grind never moved out."
+    },
+    {
+      "slot": "luxury.poker.champions",
+      "file": "team-lan-center.jpg",
+      "title": "House Champions",
+      "caption": "The same roster, now over a table with worse odds."
+    },
+    {
+      "slot": "luxury.bath.monochrome",
+      "file": "mansion/dynasty-noir.jpg",
+      "title": "Noir Family",
+      "caption": "Black marble, black frame, everybody pretending that was restraint."
+    },
+    {
       "slot": "initiation.ceremony.saint-card",
       "file": "initiation-st-silver-sasquatch-card.png",
       "title": "St. Silver Sasquatch",
