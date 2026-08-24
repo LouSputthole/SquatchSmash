@@ -46,6 +46,22 @@ const TYPES = {
   '.woff2': 'font/woff2',
 };
 
+/**
+ * SEVEN, NOT EIGHT. DOOM IS DELIBERATELY NOT INSTALLED.
+ *
+ * This flat was authored on a branch cut before the owner's 2026-08-24 ruling
+ * on the opening -- *"the player can accidentally enter Doom, Doom is
+ * difficult to exit... Squatch Smash is the joke. Doom is currently stepping
+ * on the punchline with steel-toed boots."* `src/arcade/doom.js` is still in
+ * the tree and still correct; `mount.js` simply no longer registers it, and
+ * its header explains at length why the exit problem cannot be fixed from
+ * this side of a cross-origin frame.
+ *
+ * So a luxury PC carrying eight apps would mean Doom had come back, in a
+ * second place, for nobody's reason. This list is the seven the shared arcade
+ * OS actually installs -- and because it is asserted as an EXACT set, it is
+ * also the gate that catches Doom being quietly re-registered here.
+ */
 const EXPECTED_PC_APPS = Object.freeze([
   'mail',
   'smash',
@@ -54,7 +70,6 @@ const EXPECTED_PC_APPS = Object.freeze([
   'counter-guide',
   'match-result',
   'yuka',
-  'doom',
 ]);
 
 const EXPECTED_EXTRA_ART = Object.freeze([
@@ -537,7 +552,7 @@ try {
       utilities: authored.utilities.length,
       missing: authored.utilities.filter(({ exists, interactive }) => !exists || !interactive),
     }));
-  check('the loft PC carries exactly the original eight Squatch OS applications',
+  check('the loft PC carries exactly the seven installed Squatch OS applications',
     JSON.stringify(sorted(authored.pcApps)) === JSON.stringify(sorted(EXPECTED_PC_APPS))
       && authored.appLookup.every(Boolean)
       && authored.pcLaunchById,

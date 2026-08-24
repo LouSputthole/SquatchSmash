@@ -16,6 +16,8 @@ import { launchChromium } from './launch-chromium.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5247;
+/** Budget for the waits that advance on rendered frames; see the note below. */
+const FRAME_BOUND_WAIT_MS = 600000;
 const SCREENSHOT_DIR = process.env.CABIN_SCREENSHOT_DIR
   ? path.resolve(process.env.CABIN_SCREENSHOT_DIR)
   : process.argv.includes('--screenshots')
@@ -80,6 +82,18 @@ try {
   });
   const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
   page.setDefaultTimeout(180000);
+  /* THE TWO WAITS THAT ARE FRAME-BOUND, NOT NETWORK-BOUND.
+   *
+   * A held interaction and the rest fade both advance on `dt` accumulated in
+   * rendered frames -- and the cabin is 1776 meshes over 4661 instanced forest
+   * repeats, rasterised in SOFTWARE. Measured on 2026-08-25 at this page's own
+   * 960x600: the 2.4-second smoke took 74 s of wall clock, because the scene
+   * renders at roughly two frames a second under ANGLE/SwiftShader, and the
+   * same wait had already timed out once at 180 s on a busier box.
+   *
+   * So these two get a budget for SLOWNESS rather than the file's default.
+   * It is not a licence for a hang: a state the scene never reaches still
+   * fails the run, it just fails it later. Nothing asserted moved. */
   page.setDefaultNavigationTimeout(180000);
   page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
   page.on('console', (message) => {
@@ -202,7 +216,8 @@ try {
     return { held: world.inventory.held, left: world.state.cigsLeft };
   });
   await page.keyboard.down('f');
-  await page.waitForFunction(() => window.COUNTRYSIDE_CABIN.cabin.state.cigsLeft === 16);
+  await page.waitForFunction(() => window.COUNTRYSIDE_CABIN.cabin.state.cigsLeft === 16,
+    null, { timeout: FRAME_BOUND_WAIT_MS });
   await page.keyboard.up('f');
   await page.keyboard.press('q');
   const smokeUsed = await page.evaluate(() => ({
@@ -304,7 +319,7 @@ try {
   await page.waitForFunction(() => (
     window.COUNTRYSIDE_CABIN.story.rested()
       && !window.COUNTRYSIDE_CABIN.state.resting
-  ));
+  ), null, { timeout: FRAME_BOUND_WAIT_MS });
   const afterRest = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
     return {
