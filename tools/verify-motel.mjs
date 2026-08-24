@@ -1019,7 +1019,15 @@ try {
    * says it "appears at the lens". */
   await aimPublicInteract(previewPage, 'glovebox');
   await previewPage.keyboard.press('KeyE');
-  await previewPage.waitForTimeout(240);
+  /* The answer shares the real dialogue floor. Snow's decoded opening take
+   * may still own it here, so a fixed 240 ms sampled the previous subtitle
+   * and falsely called the correctly queued reply missing. Observe the line
+   * this press owes instead of racing the recording already in progress. */
+  await previewPage.waitForFunction(
+    () => /still six/i.test(document.getElementById('subtitle')?.textContent || ''),
+    null,
+    { timeout: SCENE_WAIT_MS, polling: 120 },
+  );
   const gloveboxAgain = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const item = motel.inventory.find((entry) => entry.id === 'weapon:revolver');
@@ -1236,10 +1244,43 @@ try {
       && previewState.cameraDistance < 0.08
       && !previewState.playerBlocked,
     JSON.stringify(previewState));
+  await previewPage.locator('canvas').click({ position: { x: 240, y: 150 } });
+  await previewPage.waitForFunction(
+    () => window.MOTEL.input.snapshot().locked,
+    null,
+    { timeout: 10000 },
+  ).catch(() => {});
+  const beforeLook = await previewPage.evaluate(() => ({
+    facing: window.MOTEL.facing,
+    input: window.MOTEL.input.snapshot(),
+  }));
+  await previewPage.mouse.move(240, 150);
+  await previewPage.mouse.move(312, 112, { steps: 2 });
+  await previewPage.waitForTimeout(80);
+  const afterLook = await previewPage.evaluate(() => ({
+    facing: window.MOTEL.facing,
+    input: window.MOTEL.input.snapshot(),
+  }));
+  check('the Motel captures the canonical first-person input Adapter',
+    afterLook.input.locked && afterLook.input.pointerLockChanges > 0,
+    JSON.stringify(afterLook.input));
+  check('real mouse input turns the Motel first-person camera',
+    afterLook.input.lookEvents > beforeLook.input.lookEvents
+      && Math.hypot(
+        afterLook.facing.x - beforeLook.facing.x,
+        afterLook.facing.y - beforeLook.facing.y,
+        afterLook.facing.z - beforeLook.facing.z,
+      ) > 0.01,
+    JSON.stringify({ before: beforeLook, after: afterLook }));
   const motion = await moveForward(previewPage);
+  const releasedInput = await previewPage.evaluate(() => ({
+    input: window.MOTEL.input.snapshot(),
+    held: window.MOTEL.heldInput,
+  }));
   check('real WASD input moves Tony forward without a collider trap',
-    motion.distance > 0.4 && motion.forwardProgress > 0.35 && !motion.blocked,
-    JSON.stringify(motion));
+    motion.distance > 0.4 && motion.forwardProgress > 0.35 && !motion.blocked
+      && !releasedInput.held.includes('up'),
+    JSON.stringify({ ...motion, input: releasedInput }));
 
   /* Independent public Q path, from a clean campaign and a genuinely seated
    * player. Reusing the E page after it reached the lot would only prove that

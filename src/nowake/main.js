@@ -33,7 +33,7 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createNoWakeStory } from '../core/no-wake-story.js';
 import { Player } from '../core/player.js';
-import { translateKey } from '../core/settings.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { Radio } from '../core/radio.js';
@@ -72,6 +72,7 @@ import {
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
+import { createNoWakeInputPolicy } from './controls.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -235,6 +236,7 @@ const state = {
   nextCreakAt: 5,
   leaving: false,
 };
+let inputCaptureAllowed = false;
 
 const radioClock = new AuthoredClock(12.75);
 radioClock.setTime(3, 12 * 60 + 45);
@@ -410,7 +412,7 @@ function refreshStartupObjective() {
 function beginBoarding() {
   if (state.boarded || state.boarding) return false;
   state.boarding = true;
-  player.clearKeys();
+  input.clear('begin-boarding');
   interaction.setPaused(true);
   const deck = world.fromBoatLocal(new THREE.Vector3(-.60, DECK_H + 1.66, 3.10));
   const yaw = boat.root.rotation.y + Math.PI;
@@ -423,7 +425,7 @@ function beginBoarding() {
     boat.gangway.visible = false;
     boat.targets.board.visible = false;
     player.mode = 'walk';
-    player.enabled = document.pointerLockElement === canvas;
+    input.refresh('boarding-complete');
     player.ground = boat.root.position.y + DECK_H;
     player.eyeHeight = 1.66;
     player.targetEye = 1.66;
@@ -630,7 +632,7 @@ function enterHelm() {
     setObjective('RUN THE NO WAKE CHANNEL', 'Idle out past the marker · keep the red to starboard');
   }
   player.mode = 'seated';
-  player.enabled = true;
+  input.refresh('enter-helm');
   player.yawCenter = null;
   player.yawRange = Math.PI;
   player.pitchMin = -.65;
@@ -658,7 +660,7 @@ function leaveHelm({ force = false } = {}) {
   physics.helmAttended = false;
   boat.controls.throttle.setValue(0);
   boat.wheel.rotation.z = 0;
-  player.clearKeys();
+  input.clear('leave-helm');
   player.mode = 'walk';
   player.eyeHeight = 1.66;
   player.targetEye = 1.66;
@@ -669,6 +671,7 @@ function leaveHelm({ force = false } = {}) {
   player.pitchMin = -Math.PI / 2 + .05;
   player.pitchMax = Math.PI / 2 - .05;
   helmHud.classList.add('hidden');
+  input.refresh('leave-helm');
   return true;
 }
 
@@ -742,7 +745,7 @@ function goBelow() {
   if (state.below || state.moving) return false;
   state.moving = true;
   const resumePhase = state.phase;
-  player.clearKeys();
+  input.clear('go-below');
   interaction.setPaused(true);
   const mark = world.fromBoatLocal(new THREE.Vector3(-.25, CABIN_H + 1.66, -2.55));
   /* Facing forward, into the room. `Player` walks along -Z at yaw 0, so the
@@ -755,7 +758,7 @@ function goBelow() {
     state.below = true;
     world.setBelow(true);
     player.mode = 'walk';
-    player.enabled = document.pointerLockElement === canvas;
+    input.refresh('entered-cabin');
     player.ground = boat.root.position.y + CABIN_H;
     player.eyeHeight = 1.66;
     player.targetEye = 1.66;
@@ -775,7 +778,7 @@ function goBelow() {
 function comeUp() {
   if (!state.below || state.moving) return false;
   state.moving = true;
-  player.clearKeys();
+  input.clear('come-up');
   interaction.setPaused(true);
   const mark = world.fromBoatLocal(new THREE.Vector3(-1.465, DECK_H + 1.66, .40));
   player.sitAt({
@@ -785,7 +788,7 @@ function comeUp() {
     state.below = false;
     world.setBelow(false);
     player.mode = 'walk';
-    player.enabled = document.pointerLockElement === canvas;
+    input.refresh('returned-to-deck');
     player.ground = boat.root.position.y + DECK_H;
     player.eyeHeight = 1.66;
     player.targetEye = 1.66;
@@ -999,7 +1002,7 @@ function readyToFire() {
   state.stagingLocked = true;
   state.playerGun.visible = true;
   player.mode = 'walk';
-  player.clearKeys();
+  input.clear('ready-to-fire');
   player.moveScale = 0;
   interaction.setPaused(true);
   executionPrompt.classList.remove('hidden');
@@ -1179,7 +1182,7 @@ function dropWilly() {
     cameraDirector.clear();
     player.mode = 'walk';
     player.moveScale = 1;
-    player.enabled = document.pointerLockElement === canvas;
+    input.refresh('execution-collapse-complete');
     interaction.setPaused(false);
     beginWrap();
   }, 4200);
@@ -1268,7 +1271,7 @@ function takeBallast() {
   setTimeout(() => {
     cameraDirector.clear();
     player.mode = 'walk';
-    player.enabled = document.pointerLockElement === canvas;
+    input.refresh('ballast-taken');
     boat.ballast.visible = false;
     phase('weights_returning');
     /* Irish does not turn round and does not ask. He heard it. */
@@ -1408,7 +1411,7 @@ function reachPlatform() {
       player.pitchMin = -1.15;
       player.pitchMax = .25;
       player.pitch = -.46;
-      player.enabled = document.pointerLockElement === canvas;
+      input.refresh('disposal-platform-ready');
       player.update(.016);
       cameraDirector.clear();
     }, 2200);
@@ -1460,7 +1463,7 @@ function beginExit() {
   document.body.classList.remove('cinematic');
   cameraDirector.clear();
   player.mode = 'walk';
-  player.enabled = document.pointerLockElement === canvas;
+  input.refresh('exit-begun');
   player.ground = boat.root.position.y + DECK_H;
   player.position.copy(world.fromBoatLocal(local.set(1.20, DECK_H + 1.66, 2.80)));
   /* The disposal mark clamped his look so he could not turn round on the swim
@@ -1540,6 +1543,7 @@ function updateExit() {
 function completeMission() {
   if (state.leaving) return;
   state.leaving = true;
+  input.refresh('mission-complete');
   audio.stopLoop('underway', .9);
   audio.stopLoop('wake', .9);
   audio.stopLoop('engine-idle', .9);
@@ -1852,7 +1856,7 @@ function jumpToPreviewCheckpoint(id) {
   boat.gangway.visible = false;
   boat.targets.board.visible = false;
   player.mode = 'walk';
-  player.enabled = true;
+  input.refresh('preview-deck-pose');
   player.ground = boat.root.position.y + DECK_H;
   player.eyeHeight = 1.66;
   player.targetEye = 1.66;
@@ -1900,7 +1904,7 @@ function jumpToPreviewCheckpoint(id) {
   world.setBelow(true);
   state.below = true;
   player.mode = 'walk';
-  player.enabled = true;
+  input.refresh('preview-cabin-pose');
   player.ground = boat.root.position.y + CABIN_H;
   player.eyeHeight = 1.66;
   player.targetEye = 1.66;
@@ -1982,6 +1986,29 @@ player.update(.016);
 hud.setClock(3, '12:45 PM', 0);
 showEntryAvailability();
 
+const noWakeInputPolicy = createNoWakeInputPolicy({
+  canCapture: () => inputCaptureAllowed && !state.paused && !state.leaving,
+  isActive: () => document.body.classList.contains('playing')
+    && !state.paused && !state.leaving,
+  isAtHelm: () => state.atHelm,
+  helmInput: player,
+  primaryControl: interaction,
+  isReadyToFire: () => state.phase === 'ready_to_fire',
+  fireExecution,
+  advanceRadio: () => { if (radio.on) radio.next(); },
+  toggleBloom: () => postfx.toggle(),
+  showBloom: (enabled) => hud.toast(enabled ? 'Bloom on' : 'Bloom off', 'good'),
+  leaveHelm: () => leaveHelm(),
+  hasInteractionTarget: () => Boolean(interaction.current),
+  explainMissingInteraction: sayWhyNothingHappened,
+});
+const input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  ...noWakeInputPolicy,
+});
+
 const runtime = {
   get phase() { return state.phase; }, set phase(v) { state.phase = v; },
   get campaignState() { return campaign.state; },
@@ -1990,7 +2017,7 @@ const runtime = {
    * NO WAKE was never audited at all. */
   scene,
   state, physics, world, boat, cabin, bodyRig, player, interaction, story, postfx,
-  audio, radio, radioReady, cameraDirector, blood, engineAudio,
+  audio, radio, radioReady, cameraDirector, blood, engineAudio, input,
   dialogueLog: state.dialogueLog,
   cueLog: state.cueLog,
   startupSteps: STARTUP_STEPS.map((step) => step.key),
@@ -2059,7 +2086,11 @@ startButton.addEventListener('click', async () => {
   if (campaign.state.scene.id !== SCENE_IDS.NO_WAKE) {
     campaign.enter(SCENE_IDS.NO_WAKE, { spawn: 'gate_c' });
   }
-  canvas.requestPointerLock?.();
+  // Capture must be requested in this trusted click turn, before audio awaits.
+  // The policy keeps Player defaults disabled until gameplay is actually live.
+  inputCaptureAllowed = true;
+  input.refresh('mission-authorized');
+  input.requestPointerLock();
   const motel = campaign.state.missions[MISSION_IDS.JERKY_MOTEL];
   const beef = campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
   state.cruiseLines = buildNoWakeCruise({
@@ -2101,7 +2132,7 @@ startButton.addEventListener('click', async () => {
   document.body.classList.add('playing');
   sceneInventory.show();
   overlay.classList.add('out');
-  player.enabled = true;
+  input.refresh('mission-start');
   /* Willy's opener, and then nothing. Nobody answers him, and the silence is
    * the first thing in the mission that is wrong. A staged checkpoint skips
    * it -- the jump already posed the mission past the dock. */
@@ -2127,9 +2158,7 @@ const pauseMenu = createPauseMenu({
   onPause: () => {
     state.paused = true;
     interactionPausedBeforeMenu = interaction.paused;
-    player.enabled = false;
-    player.clearKeys();
-    interaction.release();
+    input.suspend();
     interaction.setPaused(true);
     radio.pause();
     audio.ctx?.suspend?.();
@@ -2140,12 +2169,7 @@ const pauseMenu = createPauseMenu({
     audio.ctx?.resume?.();
     radio.resume();
     lastTime = performance.now();
-    if (!state.atHelm) {
-      const pending = canvas.requestPointerLock?.();
-      pending?.catch?.(() => {});
-    } else {
-      player.enabled = true;
-    }
+    input.resume({ requestPointerLock: !state.atHelm });
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -2158,25 +2182,9 @@ const pauseMenu = createPauseMenu({
     },
   }),
 });
-
-canvas.addEventListener('click', () => {
-  if (!document.body.classList.contains('playing') || state.paused) return;
-  if (document.pointerLockElement === canvas || state.phase === 'ready_to_fire') return;
-  const pending = canvas.requestPointerLock?.();
-  pending?.catch?.(() => {});
-});
-
-document.addEventListener('pointerlockchange', () => {
-  if (!state.paused) player.enabled = document.pointerLockElement === canvas || state.atHelm;
-});
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) radio.pause();
   else if (!state.paused) radio.resume();
-});
-document.addEventListener('mousemove', (event) => {
-  if (!state.paused && document.pointerLockElement === canvas) {
-    player.handleMouseMove(event.movementX, event.movementY);
-  }
 });
 /**
  * E pressed with nothing under the crosshair, during a beat that is waiting for
@@ -2194,39 +2202,6 @@ function sayWhyNothingHappened() {
   }
 }
 
-document.addEventListener('keydown', (event) => {
-  if (event.code === 'Space') event.preventDefault();
-  if (state.paused) return;
-  player.setKey(translateKey(event.code), true);
-  if (event.code === 'KeyE') {
-    const onSomething = Boolean(interaction.current);
-    interaction.press();
-    if (!onSomething) sayWhyNothingHappened();
-  }
-  if (event.code === 'KeyR' && radio.on) radio.next();
-  if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
-  if (event.code === 'KeyQ' && state.atHelm) leaveHelm();
-});
-document.addEventListener('keyup', (event) => {
-  player.setKey(translateKey(event.code), false);
-  if (event.code === 'KeyE') interaction.release();
-});
-document.addEventListener('mousedown', (event) => {
-  if (event.button !== 0) return;
-  if (state.phase === 'ready_to_fire') fireExecution();
-  else if (document.pointerLockElement === canvas) interaction.press();
-});
-document.addEventListener('mouseup', (event) => {
-  if (event.button === 0) interaction.release();
-});
-/* Alt-tab safety. The visibilitychange handler above only minds the radio; a
- * window that loses focus never gets the keyup, so without this the last held
- * key steers the boat for as long as the tab is away (the pattern in
- * src/silver/main.js and src/bing/main.js). */
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  interaction.release();
-});
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;

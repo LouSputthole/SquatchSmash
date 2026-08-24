@@ -21,12 +21,32 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 import { ensureDomShim, ensureThreeShim } from './three-shim.mjs';
 import { normalizeSceneColliders, withDescriptorGeometryRandom } from './verify-geometry-worker.mjs';
-import { buildGeometrySceneState, GEOMETRY_SCENE_STATES } from './geometry-scenes.mjs';
+import {
+  buildGeometrySceneState,
+  GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS,
+  GEOMETRY_SCENE_STATES,
+} from './geometry-scenes.mjs';
 import { collectActors, readActor } from '../src/core/staging.js';
 import { stagingFindings } from './staging-gate.mjs';
 import {
   applyStagingAllowlist, unusedEntries, validateStagingAllowlist,
 } from './staging-allowlist.mjs';
+
+function stableActorIds(actors) {
+  return actors.map(({ id }) => id).sort((left, right) => (
+    left < right ? -1 : left > right ? 1 : 0
+  ));
+}
+
+function actorInventoryEvidence(actors, discoveredActors) {
+  const visibleObjects = new Set(actors.map(({ object }) => object));
+  const visibilityFiltered = discoveredActors.filter(({ object }) => !visibleObjects.has(object));
+  return {
+    actorObservedIds: stableActorIds(actors),
+    actorDiscoveredIds: stableActorIds(discoveredActors),
+    visibilityFilteredActorIds: stableActorIds(visibilityFiltered),
+  };
+}
 
 /**
  * Per-scene allowlists, keyed by scene, loaded once.
@@ -262,6 +282,7 @@ let untypedSpatialBoxes = 0;
 let unresolvedSpatialStates = 0;
 const buildFailures = [];
 const zeroActorStates = [];
+const intentionalNoActorStates = [];
 const debtRecords = [];
 const stateProofs = [];
 let unmarkedRigCount = 0;
@@ -340,10 +361,17 @@ for (const state of states) {
     continue;
   }
   const actors = built.roots.flatMap(({ root }) => collectActors(root, THREE));
+  const discoveredActors = built.roots.flatMap(({ root }) => (
+    collectActors(root, THREE, { includeHidden: true })
+  ));
+  const actorInventory = actorInventoryEvidence(actors, discoveredActors);
 
   let rigs = 0;
   for (const { root } of built.roots) {
-    root.traverse((object) => {
+    const traverseVisible = typeof root.traverseVisible === 'function'
+      ? root.traverseVisible.bind(root)
+      : root.traverse.bind(root);
+    traverseVisible((object) => {
       if (object.userData?.rig === 'person' && !readActor(object)) rigs += 1;
     });
   }
@@ -360,7 +388,13 @@ for (const state of states) {
     });
   }
 
-  if (actors.length === 0) {
+  const actorExpectation = state.actorExpectation;
+  const intentionalNoActors = actorExpectation.disposition
+    === GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS.INTENTIONAL_NA;
+
+  if (actors.length === 0 && intentionalNoActors) intentionalNoActorStates.push(state.id);
+
+  if (actors.length < actorExpectation.minimum) {
     zeroActorStates.push(state.id);
     debtRecords.push({
       id: debtId(state.id, 'actors', 'zero-observed'),
@@ -368,22 +402,33 @@ for (const state of states) {
       count: 1,
       proofId: state.id,
       proofKind: 'zero_actors',
-      detail: { stateId: state.id, subject: 'actors' },
+      detail: {
+        stateId: state.id,
+        subject: 'actors',
+        actorExpectation,
+      },
     });
     stateProofs.push({
       id: state.id,
       status: 'zero_actors',
       evidence: {
         built: true,
-        actorsObserved: 0,
+        actorsObserved: actors.length,
+        actorsDiscovered: discoveredActors.length,
+        visibilityFilteredActors: discoveredActors.length - actors.length,
+        ...actorInventory,
+        actorVisibilityPolicy: 'rendered_only',
         unmarkedRigs: rigs,
         findingsScanned: false,
+        actorExpectation,
       },
     });
-    console.log(`UNKNOWN ${state.id} — no actors were observed`);
+    console.log(
+      `UNKNOWN ${state.id} — observed ${actors.length}; requires at least ${actorExpectation.minimum}`,
+    );
     continue;
   }
-  withCast += 1;
+  if (actors.length > 0) withCast += 1;
 
   const boxes = colliderBoxes(built);
   /* Does this scene author any collider heights at all? See the gate's
@@ -414,16 +459,41 @@ for (const state of states) {
   }
 
   const entries = allowlistFor(state.scene);
-  const { kept: findings, suppressed, used } = applyStagingAllowlist(raw, entries, state.state);
+  const { kept: stagingFindingsKept, suppressed, used } = applyStagingAllowlist(
+    raw,
+    entries,
+    state.state,
+  );
+  /* INTENTIONAL_NA is a contract, not a waiver. If a later change puts cast
+   * into the vehicle-only snapshot, the registry must be reviewed instead of
+   * silently skipping the new actors. Keep this outside the allowlist path so
+   * a scene-level exception cannot suppress the architecture mismatch. */
+  const expectationFindings = intentionalNoActors && actors.length > 0 ? [{
+    kind: 'ACTOR_EXPECTATION_MISMATCH',
+    id: null,
+    role: null,
+    posture: null,
+    expected: actorExpectation.disposition,
+    observed: actors.length,
+    reason: actorExpectation.reason,
+  }] : [];
+  const findings = [...expectationFindings, ...stagingFindingsKept];
   addGroupedFindings(state.id, findings);
   stateProofs.push({
     id: state.id,
-    status: findings.length === 0 && spatialCoverage.status === 'PASS' ? 'pass' : 'observed',
+    status: intentionalNoActors && actors.length === 0
+      ? 'intentional_na'
+      : (findings.length === 0 && spatialCoverage.status === 'PASS' ? 'pass' : 'observed'),
     evidence: {
       built: true,
       actorsObserved: actors.length,
+      actorsDiscovered: discoveredActors.length,
+      visibilityFilteredActors: discoveredActors.length - actors.length,
+      ...actorInventory,
+      actorVisibilityPolicy: 'rendered_only',
       unmarkedRigs: rigs,
       findingsScanned: true,
+      actorExpectation,
       spatialCoverageStatus: spatialCoverage.status,
       typed: spatialCoverage.typed,
       untyped: spatialCoverage.untyped,
@@ -440,9 +510,13 @@ for (const state of states) {
 
   const label = `${state.id} — ${actors.length} actor${actors.length === 1 ? '' : 's'}`;
   if (findings.length === 0) {
-    console.log(spatialCoverage.status === 'UNKNOWN'
-      ? `UNKNOWN ${label} — spatial semantics incomplete`
-      : `ok    ${label}`);
+    if (intentionalNoActors && actors.length === 0 && spatialCoverage.status === 'PASS') {
+      console.log(`N/A   ${state.id} — ${actorExpectation.reason}`);
+    } else {
+      console.log(spatialCoverage.status === 'UNKNOWN'
+        ? `UNKNOWN ${label} — spatial semantics incomplete`
+        : `ok    ${label}`);
+    }
     continue;
   }
   console.log(`FIND  ${label}, ${findings.length} finding${findings.length === 1 ? '' : 's'}`);
@@ -480,8 +554,12 @@ if (buildFailures.length) {
   for (const failure of buildFailures) console.log(`  ${failure.id}: ${failure.error}`);
 }
 if (zeroActorStates.length) {
-  console.log(`States with zero observed actors: ${zeroActorStates.length}`);
+  console.log(`States missing required actors: ${zeroActorStates.length}`);
   for (const id of zeroActorStates) console.log(`  ${id}`);
+}
+if (intentionalNoActorStates.length) {
+  console.log(`Intentional no-cast states: ${intentionalNoActorStates.length}`);
+  for (const id of intentionalNoActorStates) console.log(`  ${id}`);
 }
 
 /* THE RATCHET. An entry that excused nothing this run is permission nobody
@@ -542,6 +620,7 @@ if (jsonOutput) {
       unresolvedSpatialStates,
       buildFailures: buildFailures.length,
       zeroActorStates: zeroActorStates.length,
+      intentionalNoActorStates: intentionalNoActorStates.length,
       unmarkedRigs: unmarkedRigCount,
       staleAllowlistEntries: stale.length,
       debtRecords: sortedDebt.length,

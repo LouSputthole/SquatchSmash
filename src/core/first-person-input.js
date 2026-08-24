@@ -65,11 +65,13 @@ export class FirstPersonInputAdapter {
     documentTarget = globalThis.document,
     windowTarget = globalThis,
     translateKey = translateConfiguredKey,
+    playerKeyCodes = [],
     canEnable = () => true,
     canHandleInput = () => true,
     controlState = null,
     routes = null,
     captureMode = FIRST_PERSON_CAPTURE_MODES.POINTER_LOCK,
+    captureButtons = [0],
     dragFallbackDelayMs = 600,
     keyboardCapture = false,
     interactionRequiresCapture = true,
@@ -82,11 +84,19 @@ export class FirstPersonInputAdapter {
       throw new TypeError('FirstPersonInputAdapter requires a Player-compatible object');
     }
     if (typeof translateKey !== 'function') throw new TypeError('translateKey must be a function');
+    if (!Array.isArray(playerKeyCodes)
+      || playerKeyCodes.some((code) => typeof code !== 'string' || !code.trim())) {
+      throw new TypeError('playerKeyCodes must be an array of non-empty key codes');
+    }
     if (typeof canEnable !== 'function' || typeof canHandleInput !== 'function') {
       throw new TypeError('Input policy must be functions');
     }
     if (!CAPTURE_MODES.has(captureMode)) {
       throw new TypeError(`Unknown first-person capture mode: ${captureMode}`);
+    }
+    if (!Array.isArray(captureButtons) || captureButtons.length === 0
+      || captureButtons.some((button) => !Number.isInteger(button) || button < 0)) {
+      throw new TypeError('captureButtons must be a non-empty array of non-negative integers');
     }
     if (!Number.isFinite(dragFallbackDelayMs) || dragFallbackDelayMs < 0) {
       throw new TypeError('dragFallbackDelayMs must be a non-negative number');
@@ -104,11 +114,13 @@ export class FirstPersonInputAdapter {
     this.document = eventTarget(documentTarget, 'documentTarget');
     this.window = eventTarget(windowTarget, 'windowTarget');
     this.translateKey = translateKey;
+    this.playerKeyCodes = new Set([...MOVEMENT_CODES, ...playerKeyCodes]);
     this.canEnable = canEnable;
     this.canHandleInput = canHandleInput;
     this.controlState = optionalFunction(controlState, 'controlState');
     this.routes = validateRoutes(routes);
     this.captureMode = captureMode;
+    this.captureButtons = new Set(captureButtons);
     this.dragFallbackDelayMs = dragFallbackDelayMs;
     this.keyboardCapture = keyboardCapture;
     this.interactionRequiresCapture = interactionRequiresCapture;
@@ -152,8 +164,8 @@ export class FirstPersonInputAdapter {
         ? this.routes.mouseDown?.(event, context)
         : undefined;
       if (!allowsDefault(routeResult)) return;
-      if (event.button !== 0 || event.target?.closest?.('button, a')) return;
-      if (this.dragFallback && controls.inputEnabled) {
+      if (!this.captureButtons.has(event.button) || event.target?.closest?.('button, a')) return;
+      if (event.button === 0 && this.dragFallback && controls.inputEnabled) {
         this.dragging = true;
         this.refresh('drag-start');
       }
@@ -196,8 +208,7 @@ export class FirstPersonInputAdapter {
       const routeResult = this.routes.mouseMove?.(event, this._eventContext({ controls }));
       if (!allowsDefault(routeResult) || !controls.defaultLookEnabled) return;
       if (!this.locked && !(this.dragFallback && this.dragging)) return;
-      this.receipts.lookEvents += 1;
-      this.player.handleMouseMove(event.movementX ?? 0, event.movementY ?? 0);
+      this.applyLook(event.movementX ?? 0, event.movementY ?? 0);
     };
     this._keydown = (event) => {
       if (this.destroyed) return;
@@ -219,11 +230,13 @@ export class FirstPersonInputAdapter {
       const routeResult = this.routes.keyDown?.(event, context);
       let handled = routeResult === true;
       if (allowsDefault(routeResult)) {
-        if (MOVEMENT_CODES.has(key.code) && controls.movementEnabled) {
+        if (this.playerKeyCodes.has(key.code) && controls.movementEnabled) {
           this.player.setKey(key.code, true);
           key.movement = true;
-          this.receipts.movementPresses += 1;
-          this.receipts.lastMovementCode = key.code;
+          if (MOVEMENT_CODES.has(key.code)) {
+            this.receipts.movementPresses += 1;
+            this.receipts.lastMovementCode = key.code;
+          }
           event.preventDefault?.();
           handled = true;
         }
@@ -361,6 +374,14 @@ export class FirstPersonInputAdapter {
   /** Compatibility alias retained for the first migrated scene. */
   syncEnabled() {
     return this.refresh('sync-enabled').playerEnabled;
+  }
+
+  /** Apply scene-policy look through the canonical Player ownership seam. */
+  applyLook(movementX = 0, movementY = 0) {
+    if (this.destroyed || !Number.isFinite(movementX) || !Number.isFinite(movementY)) return false;
+    this.receipts.lookEvents += 1;
+    this.player.handleMouseMove(movementX, movementY);
+    return true;
   }
 
   clear(reason = 'manual') {

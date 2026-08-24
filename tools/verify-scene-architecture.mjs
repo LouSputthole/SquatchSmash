@@ -3,9 +3,10 @@
 /**
  * Static enforcement for the campaign Scene Contract registry.
  *
- * This Module deliberately proves only facts visible at each declared
- * composition root. It does not follow wrapper imports or infer that a local
- * event listener is harmless. Missing or ambiguous evidence is UNKNOWN.
+ * This Module proves facts visible at each declared composition root and its
+ * directly imported `*controls.js` policy seams. It does not follow arbitrary
+ * wrappers or infer that a local event listener is harmless. Missing or
+ * ambiguous evidence is UNKNOWN.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,6 +28,10 @@ export const INLINE_FIRST_PERSON_EVENTS = Object.freeze([
   'keydown',
   'keyup',
   'blur',
+]);
+const CANONICAL_BROWSER_LIFECYCLE_EVENTS = Object.freeze([
+  'pointerlockchange', 'pointerlockerror', 'mousemove', 'mousedown', 'mouseup',
+  'keydown', 'keyup', 'blur',
 ]);
 
 const STATUS_VALUES = Object.freeze(Object.values(ARCHITECTURE_STATUS));
@@ -156,6 +161,17 @@ function importsNamedPlayer(imports) {
     && /(?:^|[,{\s])Player(?:\s+as\s+[A-Za-z_$][\w$]*)?(?:$|[,}\s])/u.test(item.clause));
 }
 
+function registeredInputEvents(source, eventNames) {
+  const masked = maskJavaScriptComments(source);
+  return eventNames.filter((eventName) => {
+    const pattern = new RegExp(
+      `(?:\\b(?:window|document|globalThis)\\s*\\.\\s*)?\\baddEventListener\\s*\\(\\s*['"]${eventName}['"]`,
+      'u',
+    );
+    return pattern.test(masked);
+  });
+}
+
 function namedImportBindings(imports, resolvedModule, exportedNames) {
   const wanted = new Set(exportedNames);
   const bindings = [];
@@ -177,13 +193,7 @@ function namedImportBindings(imports, resolvedModule, exportedNames) {
 export function inlineFirstPersonEvidence(source, root) {
   const masked = maskJavaScriptComments(source);
   const imports = staticImports(source, root);
-  const events = INLINE_FIRST_PERSON_EVENTS.filter((eventName) => {
-    const pattern = new RegExp(
-      `(?:\\b(?:window|document|globalThis)\\s*\\.\\s*)?\\baddEventListener\\s*\\(\\s*['\"]${eventName}['\"]`,
-      'u',
-    );
-    return pattern.test(masked);
-  });
+  const events = registeredInputEvents(source, INLINE_FIRST_PERSON_EVENTS);
   const playerImport = importsNamedPlayer(imports);
   const directPlayerCalls = Object.freeze(
     ['setKey', 'handleMouseMove', 'clearKeys']
@@ -210,6 +220,39 @@ export function inlineFirstPersonEvidence(source, root) {
     adapterConstructions: Object.freeze(adapterConstructions),
     complete: playerImport && events.length === INLINE_FIRST_PERSON_EVENTS.length,
   });
+}
+
+function inputPolicyEvidence(sourceState, repository) {
+  if (sourceState.status !== 'read') return Object.freeze([]);
+  const policyPaths = [...new Set(staticImports(sourceState.source, sourceState.root)
+    .map(({ resolved }) => resolved)
+    .filter((resolved) => /(?:^|\/)[^/]*controls\.js$/u.test(resolved ?? '')))]
+    .sort();
+  return Object.freeze(policyPaths.map((repoPath) => {
+    let source;
+    try {
+      if (repository.exists(repoPath) !== true) {
+        return Object.freeze({ repoPath, status: 'missing', events: [], pointerLockApis: [] });
+      }
+      source = repository.readText(repoPath);
+    } catch (error) {
+      return Object.freeze({
+        repoPath, status: 'error', error: error.message, events: [], pointerLockApis: [],
+      });
+    }
+    if (typeof source !== 'string') {
+      return Object.freeze({ repoPath, status: 'ambiguous', events: [], pointerLockApis: [] });
+    }
+    const masked = maskJavaScriptComments(source);
+    return Object.freeze({
+      repoPath,
+      status: 'read',
+      events: registeredInputEvents(source, CANONICAL_BROWSER_LIFECYCLE_EVENTS),
+      pointerLockApis: Object.freeze([
+        'requestPointerLock', 'exitPointerLock', 'pointerLockElement',
+      ].filter((name) => new RegExp(`\\b${name}\\b`, 'u').test(masked))),
+    });
+  }));
 }
 
 function finding({ contract, entrypoint, kind, subject, status, message, evidence = {} }) {
@@ -274,8 +317,15 @@ function inspectExistence({ contract, entrypoint, kind, subject, repoPath, repos
 
 function requiredAdapters(contract) {
   return Object.entries(contract.capabilities)
-    .filter(([, capability]) => capability.disposition === CONTRACT_DISPOSITION.REQUIRED
-      && typeof capability.adapter === 'string' && capability.adapter.trim())
+    // Architecture adoption and behavioral certification are independent.
+    // Input debt may already declare the canonical Adapter while its
+    // real-browser obligations remain honestly uncertified. Other debt
+    // `adapter` labels document local implementations, not canonical Modules.
+    .filter(([name, capability]) => (
+      capability.disposition === CONTRACT_DISPOSITION.REQUIRED
+      || (name === 'input'
+        && canonicalAdapterPath(capability.adapter) === 'src/core/first-person-input.js')
+    ) && typeof capability.adapter === 'string' && capability.adapter.trim())
     .map(([name, capability]) => ({ name, adapter: capability.adapter }));
 }
 
@@ -357,7 +407,7 @@ function adapterFinding({ contract, entrypoint, capability, sourceState, reposit
   });
 }
 
-function inputFinding({ contract, entrypoint, sourceState, adapterFindings }) {
+function inputFinding({ contract, entrypoint, sourceState, adapterFindings, repository }) {
   if (sourceState.status !== 'read') {
     return finding({
       contract,
@@ -370,28 +420,75 @@ function inputFinding({ contract, entrypoint, sourceState, adapterFindings }) {
     });
   }
 
-  const evidence = inlineFirstPersonEvidence(sourceState.source, sourceState.root);
+  const rootEvidence = inlineFirstPersonEvidence(sourceState.source, sourceState.root);
+  const policyModules = inputPolicyEvidence(sourceState, repository);
+  /* Preserve the established finding fingerprint for roots with no policy
+   * Module. The extra evidence exists only where the new audit surface exists. */
+  const evidence = policyModules.length > 0
+    ? Object.freeze({ ...rootEvidence, policyModules })
+    : rootEvidence;
   const input = contract.capabilities.input;
-  const canonicalRequired = input.disposition === CONTRACT_DISPOSITION.REQUIRED
-    && canonicalAdapterPath(input.adapter) === 'src/core/first-person-input.js';
+  const canonicalDeclared = canonicalAdapterPath(input.adapter) === 'src/core/first-person-input.js';
   const canonicalFinding = adapterFindings.find((item) => item.subject === 'input');
 
-  if (evidence.complete) {
+  const unavailablePolicy = policyModules.find(({ status }) => status !== 'read');
+  if (unavailablePolicy) {
     return finding({
       contract,
       entrypoint,
       kind: 'inline_first_person_input',
       subject: 'input',
-      status: canonicalRequired ? ARCHITECTURE_STATUS.FAIL : ARCHITECTURE_STATUS.DEBT,
-      message: canonicalRequired
+      status: ARCHITECTURE_STATUS.FAIL,
+      message: `Imported input policy Module ${unavailablePolicy.repoPath} is unavailable.`,
+      evidence,
+    });
+  }
+  const browserOwningPolicy = policyModules.find((item) => (
+    item.events.length > 0 || item.pointerLockApis.length > 0
+  ));
+  if (browserOwningPolicy) {
+    return finding({
+      contract,
+      entrypoint,
+      kind: 'inline_first_person_input',
+      subject: 'input',
+      status: canonicalDeclared ? ARCHITECTURE_STATUS.FAIL : ARCHITECTURE_STATUS.DEBT,
+      message: `${browserOwningPolicy.repoPath} owns browser input lifecycle instead of remaining a pure Adapter policy.`,
+      evidence,
+    });
+  }
+
+  if (rootEvidence.complete) {
+    return finding({
+      contract,
+      entrypoint,
+      kind: 'inline_first_person_input',
+      subject: 'input',
+      status: canonicalDeclared ? ARCHITECTURE_STATUS.FAIL : ARCHITECTURE_STATUS.DEBT,
+      message: canonicalDeclared
         ? 'The canonical input Adapter is required, but the root also duplicates the full DOM/Player wiring stack.'
         : 'The root owns the full pointer-lock, mouse, keyboard, blur, and Player wiring stack.',
       evidence,
     });
   }
 
-  if (canonicalRequired && canonicalFinding?.status === ARCHITECTURE_STATUS.PASS) {
-    if (evidence.adapterConstructions.length === 0) {
+  if (canonicalDeclared && canonicalFinding?.status === ARCHITECTURE_STATUS.PASS) {
+    const forbiddenRootEvents = registeredInputEvents(
+      sourceState.source,
+      CANONICAL_BROWSER_LIFECYCLE_EVENTS,
+    ).filter((eventName) => eventName !== 'keydown');
+    if (forbiddenRootEvents.length > 0) {
+      return finding({
+        contract,
+        entrypoint,
+        kind: 'inline_first_person_input',
+        subject: 'input',
+        status: ARCHITECTURE_STATUS.FAIL,
+        message: 'The canonical Adapter is active, but the root still owns browser input lifecycle listeners.',
+        evidence: { ...evidence, forbiddenRootEvents },
+      });
+    }
+    if (rootEvidence.adapterConstructions.length === 0) {
       return finding({
         contract,
         entrypoint,
@@ -402,7 +499,7 @@ function inputFinding({ contract, entrypoint, sourceState, adapterFindings }) {
         evidence,
       });
     }
-    if (evidence.directPlayerCalls.length > 0) {
+    if (rootEvidence.directPlayerCalls.length > 0) {
       return finding({
         contract,
         entrypoint,
@@ -430,7 +527,7 @@ function inputFinding({ contract, entrypoint, sourceState, adapterFindings }) {
     kind: 'inline_first_person_input',
     subject: 'input',
     status: ARCHITECTURE_STATUS.UNKNOWN,
-    message: evidence.events.length || evidence.playerImport
+    message: rootEvidence.events.length || rootEvidence.playerImport
       ? 'Only part of the local first-person wiring signature is visible at this root.'
       : 'No complete local first-person wiring signature is visible at this root; ownership may be delegated.',
     evidence,
@@ -492,7 +589,9 @@ export function verifySceneArchitecture({ contracts = SCENE_CONTRACTS, repositor
         repository,
       }));
       findings.push(...adapterFindings);
-      findings.push(inputFinding({ contract, entrypoint, sourceState, adapterFindings }));
+      findings.push(inputFinding({
+        contract, entrypoint, sourceState, adapterFindings, repository,
+      }));
     }
   }
   return Object.freeze(findings);

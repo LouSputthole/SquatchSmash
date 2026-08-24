@@ -39,11 +39,20 @@ Player input. It owns translated movement keys, mouse look, pointer lock,
 interaction press/release, focus-loss cleanup, pause, resume, and observable
 input receipts. Scene policy such as numbered dialogue choices remains local.
 
-The Special Meeting is the first migrated scene and the reference smoke:
+The Special Meeting remains the reference smoke:
 `tools/verify-specialmeeting.mjs` clicks the canvas, acquires pointer lock,
 moves the mouse, holds a real movement key, and measures Player displacement.
-New first-person scenes should compose this Adapter rather than add DOM input
-listeners.
+The canonical Adapter is now constructed by every non-frozen playable
+first-person root. Scene-local policy lives in small `controls.js` seams rather
+than duplicate DOM event stacks. Initiation is deliberately still reported as
+`UNKNOWN` while its human-playtest freeze remains in force.
+
+Focused `--input-only` verifier modes make the real-input obligation cheap and
+bounded enough to run while changing a scene. A migration is not promoted only
+because the architecture lint passes: the browser must still prove click,
+pointer lock, look, movement, key release, and a clean error channel. A renderer
+diagnostic, a shared-HTML sibling failure, or an unbounded verifier remains
+`UNKNOWN`/debt even when the input measurements themselves succeed.
 
 Generated obligations cover every registered runtime entrypoint. An entrypoint
 without an executable browser Adapter remains `UNKNOWN`/debt until its real
@@ -67,10 +76,18 @@ probe `REFUSED` by its Adapter. `tools/verify-scene-liveness.mjs` fails both
 dead and unresolved states. Checkpoint and restore paths must be supplied as
 their own labeled observations; an empty observation file is `UNKNOWN`.
 
-The current catalog enumerates exported NO WAKE and Hot Dog state models. It
-does not boot either page or execute a persisted restore, so runtime-owned
-timers, interactions, and reachability remain `UNKNOWN` rather than being
-reported as checkpoint certification.
+The deterministic catalog still enumerates exported NO WAKE and Hot Dog state
+models. `tools/verify-persisted-checkpoint-liveness.mjs` adds the separate live
+Seam: it writes checkpoints through public Campaign APIs, proves the exact
+serialized bytes survive a browser reload, boots the canonical non-preview
+runtime, and requires one enabled production action to advance. Its owned
+inventory is five NO WAKE checkpoints and four Hot Dog/Graveyard checkpoints.
+Removing a path or replacing the action with a debug-only skip is a failure.
+
+This live verifier does not replace full traversal. It proves durable restore
+to a live production action; semantic smoke owns the physical player path to
+that action. Long browser runners must also publish bounded phase progress.
+Silence from an unbounded runner is an infrastructure `UNKNOWN`, never a pass.
 
 ### 4. Typed spatial meaning
 
@@ -80,13 +97,21 @@ prop, door, trigger, interaction, and spawn. Collision, vision, navigation,
 and ballistics are independent channels.
 
 The geometry Adapter preserves these facts. Staging and framing use them before
-legacy heuristics, and Player ignores typed non-collision volumes. Bing party
-actor bodies and shared Bing vehicle colliders are the first adopted sources.
-Legacy untyped volumes remain explicitly `UNKNOWN` in staging coverage even
-while compatibility heuristics keep old scenes analyzable. Strict spatial
-certification also refuses build failures, actorless states, and actor states
-with no spatial inventory; it fails until those sources are migrated or given
-an explicit future N/A contract.
+legacy heuristics, and Player ignores typed non-collision volumes. Vehicle and
+Apartment collider producers now publish stable spatial IDs and semantic
+types; required actor landmarks publish exact rendered eye/hip points instead
+of relying on model origins.
+
+Player-facing staging observes only actors that are actually rendered through
+their ancestor visibility chain. Certification separately records the full
+marker inventory, visible actors, and visibility-filtered actors, so hiding or
+deleting cast cannot make debt disappear. The ratchet pins sorted actor IDs as
+well as counts, preventing one hidden actor from being silently substituted for
+another. Every geometry state declares either a minimum required cast or a
+reviewed `intentional_na` reason. An intentional no-cast state must still
+complete its staging and spatial scan; it does not erase untyped-volume debt.
+Legacy untyped volumes therefore remain explicit
+`UNKNOWN` coverage while compatibility heuristics keep old scenes analyzable.
 
 ### 5. Dialogue and audio truth
 
@@ -108,12 +133,20 @@ Strict QA throws when a required recording is silent, synthesized, or replaced
 by a stand-in. Ordinary runtime fallback remains compatible until strict QA is
 enabled. Shared weapon fallbacks publish their requested canonical cue so a
 generic gunshot can no longer look like proof that the shotgun take played.
+Variant barks now use `speakVariant()` and `AudioEngine.selectVoiceVariant()`;
+legacy `AudioEngine.say()` delegates through that same pipeline rather than
+maintaining a second speech engine. The Adapter preserves speaker/follower,
+position, mix, subtitles, duration, analyser, bus, acceptance, and receipt
+truth while selecting a decoded take exactly once.
+
 Every observable browser Adapter must require an AudioEngine, a nonzero number
 of required-recording receipts, and the expected scene-local cue prefix. A
 receipt proves that the requested buffer was scheduled; it does not yet prove
 physical audibility through the listener, gain graph, or output device.
-Only canonical `AudioEngine` instances currently register with this policy;
-Motel, Squatchfather, and Initiation remain explicit audio-fork migration debt.
+Only canonical `AudioEngine` instances currently register with this policy.
+Fully custom scene dialogue engines remain explicit future consolidation debt;
+this pass removes the shared voice-variant fork without pretending every
+scene-specific dialogue controller has already disappeared.
 
 ## Adoption rule
 

@@ -21,6 +21,7 @@ import * as THREE from 'three';
 import { box, cylinder, group, mat, plane, sphere } from './build.js';
 import { restyleMargoHead } from '../silver/margo.js';
 import { Mouth } from '../core/mouth.js';
+import { markActor, setActorLandmarks, setActorPosture } from '../core/staging.js';
 import { BLOB_HEAD_Y, createGlueBlobMaterial } from './splat.js';
 import { placeDressHelpActor } from './dress-help-staging.js';
 
@@ -1781,6 +1782,12 @@ export function makeMorningGuest(M) {
   head.position.y = 0.56;
   upper.add(head);
   const faceParts = restyleMargoHead({ head }, { skin: 0xd8a878, hairColour: 0x2a1c14 });
+  /* The midpoint of the two authored irises: 0.56 m of head placement plus
+   * 0.181 m inside the face. This anchor rotates with the real head, unlike a
+   * guessed human-height scalar on the hip-pivoted root. */
+  const actorEyeAnchor = group('margo.staging.eye');
+  actorEyeAnchor.position.set(0, 0.181, 0.108);
+  head.add(actorEyeAnchor);
 
   const arms = [];
   for (const s of [-1, 1]) {
@@ -1807,6 +1814,18 @@ export function makeMorningGuest(M) {
     name: 'margo.silhouette.hips', size: [0.36, 0.16, 0.23], pos: [0, 0, -0.01], mat: jeans,
   });
   g.add(hips);
+  /* Margo's actor origin is her articulated upper-body pivot. In a standing
+   * pose the rendered eye is 0.741 m above it; the 0.075 m hip fallback is
+   * the centre of the authored waistband. Her real landmarks below supersede
+   * both offsets, including when the whole body lies on its side. */
+  markActor(upper, {
+    id: 'margo',
+    role: 'principal',
+    posture: 'lie',
+    eyeHeight: 0.741,
+    hipHeight: 0.075,
+  });
+  setActorLandmarks(upper, { eye: actorEyeAnchor, hip: hips });
   for (const s of [-1, 1]) {
     const seat = sphere({ r: 0.14, ry: 0.155, rz: 0.17, pos: [s * 0.075, -0.015, -0.075], mat: jeans });
     seat.name = `margo.silhouette.seat.${s < 0 ? 'right' : 'left'}`;
@@ -1921,6 +1940,9 @@ export function makeMorningGuest(M) {
     dressClosure,
     dressGlueGroup: dressGlue,
     faceParts,
+    actorMarker: upper,
+    actorEyeAnchor,
+    actorHipAnchor: hips,
     identity: 'margo',
     outfit: 'morning_blouse_and_jeans',
     pose: 'lying',
@@ -2050,6 +2072,7 @@ export function makeMorningGuest(M) {
         arm.rotation.x = -0.30 + i * 0.16;
         arm.rotation.z = (i ? -1 : 1) * -0.14;
       });
+      setActorPosture(upper, 'lie');
       return;
     }
     if (pose === 'sitting') {
@@ -2063,6 +2086,7 @@ export function makeMorningGuest(M) {
       thighs.forEach((thigh) => { thigh.rotation.x = -1.20; });
       knees.forEach((knee) => { knee.rotation.x = 1.18; });
       upper.rotation.x = 0.04;
+      setActorPosture(upper, 'sit');
       return;
     }
     if (pose === 'kneeling') {
@@ -2129,6 +2153,7 @@ export function makeMorningGuest(M) {
         arm.rotation.x = -KNEEL_TORSO - 0.05;
         arm.rotation.z = (i ? -1 : 1) * 0.13;
       });
+      setActorPosture(upper, 'kneel');
       return;
     }
     /* Standing, and standing ON the floor: her leg is 0.81 from hip to ankle
@@ -2141,6 +2166,7 @@ export function makeMorningGuest(M) {
      * 40cm sidestep, and MARGO_PATH starts from the same number. */
     g.position.set(-2.80, 0.87, -3.00);
     g.rotation.set(0, 1.90, 0);
+    setActorPosture(upper, 'stand');
   };
 
   const setDressHelpProgress = (progress) => {

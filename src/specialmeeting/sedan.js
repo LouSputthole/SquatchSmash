@@ -114,7 +114,7 @@ const _local = new THREE.Vector3();
  * geometry snapshot.
  */
 export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
-  const car = makeCar('lincoln', colour);
+  const car = makeCar('lincoln', colour, { spatialId: 'specialmeeting.arrival-sedan' });
   const root = car.group;
   root.name = 'specialmeeting.sedan';
   root.userData.geometryGate = { assemblyId: 'specialmeeting.sedan' };

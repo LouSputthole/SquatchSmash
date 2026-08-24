@@ -47,10 +47,12 @@ import {
 } from './dialogue-timing.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { WEAPON_IDS } from '../core/weapons/catalog.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { createPauseMenu } from '../core/pause-menu.js';
-import { shakeScale, lookSensitivity, bindAudioVolume, translateKey } from '../core/settings.js';
+import { shakeScale, lookSensitivity, bindAudioVolume } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { selectPointInteraction } from './point-interaction.js';
+import { createMotelInputPolicy } from './controls.js';
 import {
   MOTEL_REINFORCEMENT_STAGES,
   MOTEL_ROAD_Z,
@@ -193,6 +195,7 @@ let sharedPauseMenu = null;
 let arrivalT = 0;
 let arrivalCameraMode = 'passenger';
 let openingVoiceReady = false;
+let browserInput = null;
 
 const S = {
   hp: 100,
@@ -415,19 +418,9 @@ const carriedCases = { money: null, jerky: null };
 
 // ---------- Input ----------
 const keys = new Set();
-const KEYMAP = {
-  KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right',
-  ShiftLeft: 'sprint', ShiftRight: 'sprint',
-  ArrowLeft: 'turnL', ArrowRight: 'turnR', ArrowUp: 'lookU', ArrowDown: 'lookD',
-};
 const touch = { active: false, x: 0, y: 0 };
 
-/* Keys whose default the page always eats, repeat or not. */
-const SWALLOWED_CODES = new Set(['Space', 'KeyE', 'Tab']);
-
-window.addEventListener('keydown', (e) => {
-  const bound = KEYMAP[translateKey(e.code)];
-  if (bound) { keys.add(bound); e.preventDefault(); }
+function routeMotelKeyDown(e, code) {
   /* AUTO-REPEAT IS ONE HELD KEY, NOT A STREAM OF PRESSES.
    *
    * Nothing below wants it. Held [E] re-ran the focused interaction at the
@@ -436,70 +429,68 @@ window.addEventListener('keydown', (e) => {
    * every prompt in the scene, not only the glovebox. Held SPACE likewise beat
    * a grapple on its own. Movement, above, is the one thing that reads the
    * key's STATE rather than its edges, so it is handled before this returns. */
-  if (e.repeat) {
-    if (SWALLOWED_CODES.has(e.code)) e.preventDefault();
-    return;
-  }
-  switch (e.code) {
+  switch (code) {
     case 'Space':
       e.preventDefault();
       if (grapple) mashGrapple();
       else if (phase !== 'menu') tryJump();
-      break;
-    case 'KeyE': e.preventDefault(); onUse(); break;
+      return true;
+    case 'KeyE': e.preventDefault(); onUse(); return true;
     case 'KeyQ':
       if (phase === 'car') { e.preventDefault(); exitCar(); }
-      break;
-    case 'KeyF': onAttack(); break;
+      return true;
+    case 'KeyF': onAttack(); return true;
     /* [R] is reload, the way it is in the siege, the Palace and the combat
      * lab. It used to be a third way to fire — behind left click and behind
      * [F], which already routes a ranged weapon — on a scene whose only gun
      * could not be reloaded at all. */
-    case 'KeyR': onReload(); break;
-    case 'KeyX': drawSilverback(); break;
-    case 'KeyG': dropWeapon(); break;
-    case 'Tab': e.preventDefault(); togglePause(); break;
-    case 'KeyM': toggleMute(); break;
-    case 'KeyP': togglePause(); break;
+    case 'KeyR': onReload(); return true;
+    case 'KeyX': drawSilverback(); return true;
+    case 'KeyG': dropWeapon(); return true;
+    case 'Tab': e.preventDefault(); togglePause(); return true;
+    case 'KeyM': toggleMute(); return true;
+    case 'KeyP': togglePause(); return true;
     case 'Escape':
       if (inspecting) closeInspection();
       else if (dialogue) { /* the wheel is never modal — ignore */ }
       else togglePause();
-      break;
+      return true;
     case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4':
     case 'Digit5': case 'Digit6': case 'Digit7': case 'Digit8': {
-      const n = Number(e.code.slice(5));
+      const n = Number(code.slice(5));
       if (dialogue && n <= 4) pickDialogue(STYLES[n - 1]);
       else if (inspecting) runInspectionByKey(n);
-      break;
+      return true;
     }
     case 'Enter':
       if (phase === 'menu') startScene();
-      break;
-    default: break;
+      return true;
+    default: return false;
   }
-});
-window.addEventListener('keyup', (e) => {
-  const bound = KEYMAP[translateKey(e.code)];
-  if (bound) keys.delete(bound);
-});
-window.addEventListener('blur', () => keys.clear());
-window.addEventListener('contextmenu', (e) => e.preventDefault());
+}
 
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (phase === 'menu' || phase === 'end') return;
-  if (document.pointerLockElement !== renderer.domElement) {
-    renderer.domElement.requestPointerLock?.();
-    return;
-  }
-  if (e.button === 0) onAttack();
-  else if (e.button === 2) onRanged();
+const motelInputPolicy = createMotelInputPolicy({
+  held: keys,
+  isGameplayEnabled: () => phase !== 'menu' && phase !== 'end' && !paused,
+  look(dx, dy) {
+    camYaw -= dx * lookSensitivity(0.0022);
+    camPitch = THREE.MathUtils.clamp(
+      camPitch - dy * lookSensitivity(0.0018),
+      -0.85,
+      0.5,
+    );
+  },
+  routeKeyDown: routeMotelKeyDown,
+  attack: onAttack,
+  ranged: onRanged,
 });
-window.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== renderer.domElement) return;
-  camYaw -= e.movementX * lookSensitivity(0.0022);
-  camPitch = THREE.MathUtils.clamp(camPitch - e.movementY * lookSensitivity(0.0018), -0.85, 0.5);
+browserInput = createFirstPersonInput({
+  player: motelInputPolicy.player,
+  canvas: renderer.domElement,
+  ...motelInputPolicy.adapterOptions,
 });
+
+window.addEventListener('contextmenu', (e) => e.preventDefault());
 
 $('startBtn').addEventListener('click', () => startScene());
 $('resumeBtn').addEventListener('click', () => togglePause());
@@ -554,15 +545,15 @@ sharedPauseMenu = createPauseMenu({
   ],
   onPause: () => {
     paused = true;
-    keys.clear();
+    browserInput.clear('pause');
     sfx.stopMusic();
   },
   onResume: () => {
     paused = false;
     sfx.setMusic(phase === 'fight' || phase === 'recover' || phase === 'escape' ? 'fight' : phase === 'drive' ? 'chase' : 'tense');
     clock.getDelta();
-    const pending = renderer.domElement.requestPointerLock?.();
-    pending?.catch?.(() => {});
+    browserInput.refresh('pause-resume');
+    browserInput.requestPointerLock();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -4896,6 +4887,11 @@ window.MOTEL = {
   /** What has actually been said, in order. Race-free; the subtitle is not. */
   get spoken() { return spokenLog.map((entry) => `${entry.who} — ${entry.line}`); },
   S, level, refs, actors, shipment, inspection, freshness, campaign, story: motelStory, player,
+  input: browserInput,
+  get heldInput() {
+    return ['up', 'down', 'left', 'right', 'sprint', 'turnL', 'turnR', 'lookU', 'lookD']
+      .filter((action) => motelInputPolicy.isDown(action));
+  },
   get phase() { return phase; },
   get arrival() {
     const driver = refs.manCar.driverActorPosition();

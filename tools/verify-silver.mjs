@@ -150,6 +150,50 @@ await page.waitForFunction(() => window.__scenePause?.isPaused() === false);
 silverPause = await page.evaluate(() => ({ paused: window.__silver.game.paused }));
 check('a second Tab returns control to Front and Center',
   !silverPause.paused, JSON.stringify(silverPause));
+
+/* Cross the actual browser-to-Player Seam before the long mission driver
+ * begins using verifier-only position helpers. */
+await page.locator('#scene').click({ position: { x: 160, y: 100 } });
+await page.waitForFunction(() => window.__silver.input.snapshot().captured, null, {
+  timeout: 5000,
+});
+const beforeRealInput = await page.evaluate(() => {
+  const { player } = window.__silver;
+  return { x: player.position.x, z: player.position.z, yaw: player.yaw };
+});
+/* Headless Chromium may consume the first relative mouse packet while it
+ * settles a newly acquired pointer lock. Send several real pointer sweeps;
+ * the assertion below still requires the Player's actual yaw to change. */
+for (const [x, y] of [[225, 70], [90, 130], [245, 60]]) {
+  await page.mouse.move(x, y, { steps: 3 });
+}
+await page.keyboard.down('w');
+await tick(1.2, 0.1);
+const heldRealInput = await page.evaluate(() => ({
+  keys: [...window.__silver.player.keys],
+  yaw: window.__silver.player.yaw,
+}));
+await page.keyboard.up('w');
+const afterRealInput = await page.evaluate(() => {
+  const b = window.__silver;
+  return {
+    x: b.player.position.x,
+    z: b.player.position.z,
+    yaw: b.player.yaw,
+    keys: [...b.player.keys],
+    input: b.input.snapshot(),
+  };
+});
+check('real click, mouse, and W input capture, look, move, and release outside Front and Center',
+  afterRealInput.input.captured
+    && heldRealInput.keys.includes('KeyW')
+    && !afterRealInput.keys.includes('KeyW')
+    && Math.hypot(
+      afterRealInput.x - beforeRealInput.x,
+      afterRealInput.z - beforeRealInput.z,
+    ) > 0.35
+    && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > 0.01,
+  JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
 const silverLoad = await page.evaluate(() => {
   const audio = window.__silver.audio;
   const feature = window.__silver.SET.find((number) => number.theOne);
@@ -310,8 +354,9 @@ const state = () => page.evaluate(() => {
 });
 
 const choose = async (i) => {
-  await page.evaluate((n) => window.__silver.dialogue.choose(n), i);
+  const accepted = await page.evaluate((n) => window.__silver.dialogue.choose(n), i);
   await tick(3);
+  return accepted;
 };
 
 /* ---- the building, before anybody walks it ----
@@ -633,7 +678,11 @@ check('both stairwells read open from the top — nothing across the sight line 
   dressing.stairs.every((s) => s.hit === null),
   dressing.stairs.map((s) => `${s.name}: ${s.hit === null ? 'clear' : `hit at ${s.hit}m of ${s.len}`}`).join('; '));
 check('the front queue is an actual line along the rope, facing the door',
-  dressing.queue.n >= 8 && dressing.queue.offRope < 0.35
+  /* The evidence is rounded to hundredths before this assertion. The authored
+   * centre range legitimately reaches 0.35 m, so `< 0.35` randomly rejected
+   * values that rounded up from 0.346 while accepting the same layout on the
+   * next build. Hold the displayed contract to its inclusive authored edge. */
+  dressing.queue.n >= 8 && dressing.queue.offRope <= 0.35
     && dressing.queue.gapMin > 0.7 && dressing.queue.gapMax < 1.5
     && dressing.queue.facingLine && dressing.queue.headFacesDoor,
   JSON.stringify(dressing.queue));
@@ -1862,7 +1911,7 @@ for (let attempt = 0; attempt < 20 && floorChatter.lines.length === 0; attempt++
   Math.random = () => floorPick;
   for (let i = 0; i < 3; i++) {
     b.game.barkAt = 0;
-    b.__barks(1);
+    b.__barks(1, { flush: false });
     delays.push(b.game.barkAt);
   }
   Math.random = was.random;
@@ -2987,8 +3036,15 @@ check('but asking four seconds after the curtain is rushing it',
   JSON.stringify(rushing));
 check('and deciding not to ask is never rushing it', rushing.declined === false, '');
 
-await choose(0);                               // the plain one, and let it play out
-await tick(2);
+const invitationAccepted = await choose(0);   // the plain one, and let it play out
+/* The recorded answer owns the timing. A fixed two-second wait raced longer
+ * delivered takes, reported outcome:null, and then watched the correct ending
+ * arrive in the very next assertion. The verifier already owns the complete
+ * simulated update path, so advance the exact remaining dialogue hold rather
+ * than hoping enough capped real-time frames arrive inside a wall-clock
+ * timeout on SwiftShader. */
+const invitationRemaining = await page.evaluate(() => window.__silver.dialogue.timer);
+await tick(Math.max(1, invitationRemaining + 1), 0.1);
 const judged = await page.evaluate(() => {
   const b = window.__silver;
   return {
@@ -2998,10 +3054,13 @@ const judged = await page.evaluate(() => {
   };
 });
 check('so the rush penalty stays in its box on a careful evening',
-  !judged.rushed && !!judged.outcome, JSON.stringify(judged));
+  invitationAccepted && !judged.rushed && !!judged.outcome,
+  JSON.stringify({ invitationAccepted, invitationRemaining, ...judged }));
 
 /* ---- and it ends ---- */
-await page.waitForFunction(() => window.__silver.game.over, null, { timeout: 20000 });
+if (judged.outcome) {
+  await page.waitForFunction(() => window.__silver.game.over, null, { timeout: 20000 });
+}
 /* The evening is written into the campaign now, not into a private key only
  * this page ever read. `saved` is the mission's own persist() payload; `folded`
  * is what the campaign kept of it, which is what a later scene can ask. */

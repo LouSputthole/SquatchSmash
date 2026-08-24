@@ -88,6 +88,20 @@ test('known failures, debt, intentional N/A, and UNKNOWN are explicit registry f
   );
 });
 
+test('canonical input adoption does not mutate unresolved browser behavior', () => {
+  const unresolvedInput = SCENE_CONTRACTS
+    .map(({ id, capabilities }) => ({ id, input: capabilities.input }))
+    .filter(({ input }) => input.disposition === CONTRACT_DISPOSITION.DEBT
+      && input.actions?.includes('pointer_lock'));
+  const canonical = unresolvedInput.filter(({ input }) => (
+    input.adapter === 'core/first-person-input'
+  ));
+
+  assert.ok(canonical.length > 0, 'fixture lost canonical-but-uncertified input debt');
+  assert.equal(new Set(unresolvedInput.map(({ input }) => input.description)).size, 1,
+    'architecture metadata changed the player-facing browser obligation');
+});
+
 test('the validator rejects shallow or ambiguous contract records', () => {
   const broken = structuredClone(SCENE_CONTRACTS[0]);
   broken.entrypoints.push(structuredClone(broken.entrypoints[0]));

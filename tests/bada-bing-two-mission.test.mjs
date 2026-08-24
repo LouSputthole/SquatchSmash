@@ -18,7 +18,7 @@ import {
   SHUBENATOR_SIGNATURE_TEXT,
 } from '../src/core/shubenator-signature.js';
 
-test('party colliders follow moving props and park themselves when hidden', () => {
+test('party actor colliders follow moving rigs, park, and disable when hidden', () => {
   const scene = new THREE.Scene();
   const parent = new THREE.Group();
   const target = new THREE.Group();
@@ -28,9 +28,17 @@ test('party colliders follow moving props and park themselves when hidden', () =
   target.position.set(1, 0.5, 2);
 
   const collision = createPartyCollider({
-    id: 'test.mover', target, halfX: 0.3, halfZ: 0.2, minY: -0.1, maxY: 1.1,
+    id: 'test.mover',
+    target,
+    halfX: 0.3,
+    halfZ: 0.2,
+    minY: -0.1,
+    maxY: 1.1,
+    kind: 'cast',
+    ownerActorId: 'test-actor',
   });
   assert.equal(collision.active, true);
+  assert.equal(collision.box.enabled, true);
   assert.deepEqual(collision.snapshot(), {
     active: true,
     min: [2.7, 0.65, -1.2],
@@ -42,6 +50,7 @@ test('party colliders follow moving props and park themselves when hidden', () =
 
   parent.visible = false;
   assert.equal(collision.active, false);
+  assert.equal(collision.box.enabled, false, 'hidden party bodies do not publish active collision');
   assert.ok(collision.box.min.x > 10_000);
 });
 

@@ -31,12 +31,14 @@ import {
 import { createSquatchfatherStory } from '../core/squatchfather-story.js';
 import { prewarmScene } from '../core/prewarm.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
-import { lookSensitivity, bindAudioVolume, translateKey } from '../core/settings.js';
+import { lookSensitivity, bindAudioVolume } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { buildSquatchfatherRuntimeGeometry } from './runtime-geometry.js';
+import { createSquatchfatherInputPolicy } from './controls.js';
 
 // ---------------------------------------------------------------- boot
 
@@ -137,31 +139,8 @@ let ePressed = false;
 let firePressed = false;
 let paused = false;
 let running = false;
-let pointerLocked = false;
 let sharedPauseMenu = null;
-
-const KEYMAP = {
-  KeyW: 'forward', ArrowUp: 'forward',
-  KeyS: 'back', ArrowDown: 'back',
-  KeyA: 'left', ArrowLeft: 'left',
-  KeyD: 'right', ArrowRight: 'right',
-};
-
-window.addEventListener('keydown', (e) => {
-  const bound = KEYMAP[translateKey(e.code)];
-  if (bound) { keys[bound] = true; e.preventDefault(); }
-  if (e.code === 'KeyE') { if (!keys.e) ePressed = true; keys.e = true; }
-  if (e.code === 'Escape') togglePause();
-  if (e.code === 'KeyM') { audio.setMuted(!audio.isMuted()); }
-});
-window.addEventListener('keyup', (e) => {
-  const bound = KEYMAP[translateKey(e.code)];
-  if (bound) keys[bound] = false;
-  if (e.code === 'KeyE') keys.e = false;
-});
-window.addEventListener('blur', () => {
-  for (const k of Object.keys(keys)) keys[k] = false;
-});
+let browserInput = null;
 /* A hidden tab must not keep simulating the restaurant and playing its audio
  * at nobody: route through the pause menu, whose onPause already clears the
  * keys and suspends the audio. pause() refuses politely before the scene is
@@ -170,21 +149,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) sharedPauseMenu?.pause();
 });
 
-const SENS = 0.0022; // × the player's sensitivity setting, read per move
-document.addEventListener('mousemove', (e) => {
-  if (!pointerLocked || paused || !running) return;
-  const dx = e.movementX * lookSensitivity(SENS);
-  const dy = e.movementY * lookSensitivity(SENS);
-  if (Math.abs(dx) + Math.abs(dy) > 0.001) seated.playerMoved();
-  prospect.look(dx, dy, seated.clamp);
-});
-
-// Chrome rejects the request during its post-Escape cooldown and returns a
-// promise; swallow it so a denied lock isn't reported as a page error. The
-// player can always click the canvas to try again.
 function lockPointer() {
-  const p = renderer.domElement.requestPointerLock();
-  if (p && typeof p.catch === 'function') p.catch(() => {});
+  return browserInput?.requestPointerLock() ?? false;
 }
 
 sharedPauseMenu = createPauseMenu({
@@ -201,13 +167,14 @@ sharedPauseMenu = createPauseMenu({
   ],
   onPause: () => {
     paused = true;
-    for (const key of Object.keys(keys)) keys[key] = false;
+    browserInput?.clear('pause');
     audio.suspend();
   },
   onResume: () => {
     paused = false;
     audio.resume();
     clock.getDelta();
+    browserInput?.refresh('pause-resume');
     lockPointer();
   },
   recovery: createCampaignSceneRecovery({
@@ -217,15 +184,42 @@ sharedPauseMenu = createPauseMenu({
   }),
 });
 
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (!running) return;
-  if (!pointerLocked) { lockPointer(); return; }
-  if (e.button === 0) firePressed = true;
+const primaryControl = Object.freeze({
+  press() {
+    if (!keys.e) ePressed = true;
+    keys.e = true;
+  },
+  release() {
+    keys.e = false;
+  },
+  cancel() {
+    keys.e = false;
+  },
 });
 
-document.addEventListener('pointerlockchange', () => {
-  pointerLocked = document.pointerLockElement === renderer.domElement;
-  if (!pointerLocked && running && !paused) togglePause();
+const SENS = 0.0022; // × the player's sensitivity setting, read per move
+const squatchfatherInputPolicy = createSquatchfatherInputPolicy({
+  keys,
+  isGameplayEnabled: () => running && !paused,
+  look(dx, dy) {
+    const scaledX = dx * lookSensitivity(SENS);
+    const scaledY = dy * lookSensitivity(SENS);
+    if (Math.abs(scaledX) + Math.abs(scaledY) > 0.001) seated.playerMoved();
+    prospect.look(scaledX, scaledY, seated.clamp);
+  },
+  primaryControl,
+  fire: () => { firePressed = true; },
+  togglePause,
+  toggleMute: () => audio.setMuted(!audio.isMuted()),
+});
+browserInput = createFirstPersonInput({
+  player: squatchfatherInputPolicy.player,
+  canvas: renderer.domElement,
+  interaction: primaryControl,
+  ...squatchfatherInputPolicy.adapterOptions,
+  onCaptureChange: (_event, controls) => {
+    if (!controls.locked && running && !paused) togglePause();
+  },
 });
 
 // ---------------------------------------------------------------- ui helpers
@@ -1163,6 +1157,8 @@ function wire(data, voCues) {
     // The renderer and the two decal pools are on the handle so the frame-cost
     // verifier can read renderer.info.programs across a shot.
     renderer, scene, camera, impacts, blood, ringing,
+    input: browserInput,
+    get heldInput() { return { ...keys }; },
     go: (name) => fsm.go(name),
     pressE: () => { ePressed = true; },
     pressFire: () => { firePressed = true; },

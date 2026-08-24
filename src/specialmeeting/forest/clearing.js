@@ -40,10 +40,10 @@ import { softCardTexture } from './textures.js';
  * arriving separately over half an hour.
  */
 const PARKED = Object.freeze([
-  Object.freeze({ kind: 'suv', colour: 0x14171b, offset: [-8.5, -5.0], yaw: 0.44 }),
-  Object.freeze({ kind: 'sedan', colour: 0x1d1a1e, offset: [-7.0, 1.0], yaw: 0.12 }),
-  Object.freeze({ kind: 'lincoln', colour: 0x101216, offset: [-3.5, 6.5], yaw: -0.22 }),
-  Object.freeze({ kind: 'van', colour: 0x2b2a26, offset: [2.5, 8.0], yaw: -0.58, dented: true }),
+  Object.freeze({ id: 'specialmeeting.forest.parked-01', kind: 'suv', colour: 0x14171b, offset: [-8.5, -5.0], yaw: 0.44 }),
+  Object.freeze({ id: 'specialmeeting.forest.parked-02', kind: 'sedan', colour: 0x1d1a1e, offset: [-7.0, 1.0], yaw: 0.12 }),
+  Object.freeze({ id: 'specialmeeting.forest.parked-03', kind: 'lincoln', colour: 0x101216, offset: [-3.5, 6.5], yaw: -0.22 }),
+  Object.freeze({ id: 'specialmeeting.forest.parked-04', kind: 'van', colour: 0x2b2a26, offset: [2.5, 8.0], yaw: -0.58, dented: true }),
 ]);
 
 /**
@@ -189,7 +189,7 @@ export function buildClearing(parent, { colliders = null } = {}) {
   const cars = [];
 
   for (const spec of PARKED) {
-    const car = makeCar(spec.kind, spec.colour, { dented: !!spec.dented });
+    const car = makeCar(spec.kind, spec.colour, { dented: !!spec.dented, spatialId: spec.id });
     const x = CLEARING.x + spec.offset[0];
     const z = CLEARING.z + spec.offset[1];
     /* Checked here rather than trusted: an offset nudged by a metre to make a

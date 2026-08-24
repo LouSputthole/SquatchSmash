@@ -98,6 +98,12 @@ function makeSnapshot({
     evidence: {
       built: true,
       actorsObserved: 1,
+      actorsDiscovered: 1,
+      visibilityFilteredActors: 0,
+      actorObservedIds: ['actor'],
+      actorDiscoveredIds: ['actor'],
+      visibilityFilteredActorIds: [],
+      actorVisibilityPolicy: 'rendered_only',
       unmarkedRigs: 0,
       findingsScanned: true,
       spatialCoverageStatus: 'UNKNOWN',
@@ -214,6 +220,69 @@ test('trusted ceiling permits a spatial count reduction with the same fingerprin
   assert.equal(gate.trustedComparison.violations.length, 0);
   assert.equal(gate.trustedComparison.improvements[0].kind, 'DEBT_SHRANK');
   assert.equal(gate.pass, true);
+});
+
+test('a reasoned intentional no-cast contract proves removal of vacuous zero-actor debt', () => {
+  const zeroActors = {
+    id: 'spatial:scene:state:actors:zero-observed',
+    status: 'unknown',
+    count: 1,
+    proofId: 'scene:state',
+    proofKind: 'zero_actors',
+    detail: { stateId: 'scene:state', subject: 'actors' },
+  };
+  const trusted = makeSnapshot({
+    spatial: [zeroActors],
+    spatialProofs: [{
+      id: 'scene:state',
+      status: 'zero_actors',
+      evidence: {
+        built: true, actorsObserved: 0, unmarkedRigs: 0, findingsScanned: false,
+      },
+    }],
+  });
+  const certified = makeSnapshot({
+    spatial: [],
+    spatialProofs: [{
+      id: 'scene:state',
+      status: 'intentional_na',
+      evidence: {
+        built: true,
+        actorsObserved: 0,
+        actorsDiscovered: 1,
+        visibilityFilteredActors: 1,
+        actorObservedIds: [],
+        actorDiscoveredIds: ['hidden-actor'],
+        visibilityFilteredActorIds: ['hidden-actor'],
+        actorVisibilityPolicy: 'rendered_only',
+        unmarkedRigs: 0,
+        findingsScanned: true,
+        spatialCoverageStatus: 'UNKNOWN',
+        actorExpectation: {
+          disposition: 'INTENTIONAL_NA',
+          minimum: 0,
+          reason: 'This authored state contains no cast.',
+        },
+      },
+    }],
+  });
+  const gate = evaluateCertificationDebtGate({
+    trusted,
+    candidate: certified,
+    current: certified,
+  });
+  assert.deepEqual(gate.unprovedTrustedImprovements, []);
+  assert.equal(gate.pass, true);
+
+  const unscanned = structuredClone(certified);
+  unscanned.domains.spatial.proofs[0].evidence.findingsScanned = false;
+  const refused = evaluateCertificationDebtGate({
+    trusted,
+    candidate: unscanned,
+    current: unscanned,
+  });
+  assert.equal(refused.unprovedTrustedImprovements.length, 1);
+  assert.equal(refused.pass, false);
 });
 
 test('ratchet rejects new stable IDs even when total debt does not grow', () => {
@@ -542,6 +611,12 @@ test('removing an actor cannot masquerade as fixing that actor finding', () => {
       evidence: {
         built: true,
         actorsObserved: 2,
+        actorsDiscovered: 2,
+        visibilityFilteredActors: 0,
+        actorObservedIds: ['actor-a', 'actor-b'],
+        actorDiscoveredIds: ['actor-a', 'actor-b'],
+        visibilityFilteredActorIds: [],
+        actorVisibilityPolicy: 'rendered_only',
         unmarkedRigs: 0,
         findingsScanned: true,
         spatialCoverageStatus: 'PASS',
@@ -556,6 +631,12 @@ test('removing an actor cannot masquerade as fixing that actor finding', () => {
       evidence: {
         built: true,
         actorsObserved: 1,
+        actorsDiscovered: 1,
+        visibilityFilteredActors: 0,
+        actorObservedIds: ['actor-a'],
+        actorDiscoveredIds: ['actor-a'],
+        visibilityFilteredActorIds: [],
+        actorVisibilityPolicy: 'rendered_only',
         unmarkedRigs: 0,
         findingsScanned: true,
         spatialCoverageStatus: 'PASS',
@@ -571,6 +652,87 @@ test('removing an actor cannot masquerade as fixing that actor finding', () => {
     item.kind === 'ACTOR_COVERAGE_SHRANK'
   )));
   assert.equal(gate.pass, false);
+});
+
+test('rendered-only staging may filter hidden cast without shrinking marker inventory', () => {
+  const finding = {
+    id: 'spatial:scene:state:finding:inside-solid:abc123:hidden-actor',
+    status: 'finding',
+    count: 1,
+    proofId: 'scene:state',
+    proofKind: 'finding',
+    detail: { stateId: 'scene:state', kind: 'inside-solid', subject: 'hidden-actor' },
+  };
+  const trusted = makeSnapshot({
+    spatial: [finding],
+    spatialProofs: [{
+      id: 'scene:state',
+      status: 'observed',
+      evidence: {
+        built: true,
+        actorsObserved: 2,
+        actorsDiscovered: 2,
+        visibilityFilteredActors: 0,
+        actorObservedIds: ['hidden-actor', 'visible-actor'],
+        actorDiscoveredIds: ['hidden-actor', 'visible-actor'],
+        visibilityFilteredActorIds: [],
+        actorVisibilityPolicy: 'legacy_all_descendants',
+        findingsScanned: true,
+        spatialCoverageStatus: 'PASS',
+      },
+    }],
+  });
+  const visibilityCorrected = makeSnapshot({
+    spatial: [],
+    spatialProofs: [{
+      id: 'scene:state',
+      status: 'pass',
+      evidence: {
+        built: true,
+        actorsObserved: 1,
+        actorsDiscovered: 2,
+        visibilityFilteredActors: 1,
+        actorObservedIds: ['visible-actor'],
+        actorDiscoveredIds: ['hidden-actor', 'visible-actor'],
+        visibilityFilteredActorIds: ['hidden-actor'],
+        actorVisibilityPolicy: 'rendered_only',
+        findingsScanned: true,
+        spatialCoverageStatus: 'PASS',
+      },
+    }],
+  });
+  const gate = evaluateCertificationDebtGate({
+    trusted,
+    candidate: visibilityCorrected,
+    current: visibilityCorrected,
+  });
+  assert.deepEqual(gate.proofCoverageViolations, []);
+  assert.equal(gate.pass, true);
+
+  const dishonest = structuredClone(visibilityCorrected);
+  dishonest.domains.spatial.proofs[0].evidence.visibilityFilteredActors = 0;
+  assert.ok(compareTrustedProofCoverage(trusted, dishonest, dishonest).some((item) => (
+    item.kind === 'ACTOR_COVERAGE_SHRANK'
+  )));
+
+  const actorDeleted = structuredClone(visibilityCorrected);
+  const deletedEvidence = actorDeleted.domains.spatial.proofs[0].evidence;
+  deletedEvidence.actorsDiscovered = 1;
+  deletedEvidence.visibilityFilteredActors = 0;
+  deletedEvidence.actorDiscoveredIds = ['visible-actor'];
+  deletedEvidence.visibilityFilteredActorIds = [];
+  const deletionViolations = compareTrustedProofCoverage(
+    visibilityCorrected,
+    actorDeleted,
+    actorDeleted,
+  );
+  assert.ok(deletionViolations.some((item) => (
+    item.kind === 'ACTOR_DISCOVERED_COVERAGE_SHRANK'
+  )));
+  assert.ok(deletionViolations.some((item) => (
+    item.kind === 'ACTOR_ID_COVERAGE_SHRANK'
+      && item.missing.includes('hidden-actor')
+  )));
 });
 
 test('losing a staging actor marker creates new unmarked-rig debt', () => {

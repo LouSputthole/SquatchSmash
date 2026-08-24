@@ -119,9 +119,9 @@ export const PARKING = Object.freeze({
   bays: 4,
   /** Bay centres, west to east, filled from the data below. */
   parked: Object.freeze([
-    Object.freeze({ bay: 0, kind: 'sedan', colour: 0x232630 }),
-    Object.freeze({ bay: 1, kind: 'compact', colour: 0x4a3b22, dented: true }),
-    Object.freeze({ bay: 3, kind: 'suv', colour: 0x1b1f26 }),
+    Object.freeze({ id: 'specialmeeting.tenant-lot.01', bay: 0, kind: 'sedan', colour: 0x232630 }),
+    Object.freeze({ id: 'specialmeeting.tenant-lot.02', bay: 1, kind: 'compact', colour: 0x4a3b22, dented: true }),
+    Object.freeze({ id: 'specialmeeting.tenant-lot.04', bay: 3, kind: 'suv', colour: 0x1b1f26 }),
   ]),
 });
 
@@ -166,12 +166,12 @@ export const UTILITY_POLES = Object.freeze([
 
 /** Cars already at the kerb before anybody turns up. */
 export const PARKED_AT_KERB = Object.freeze([
-  Object.freeze({ x: -30, side: 'north', kind: 'sedan', colour: 0x1d2028 }),
-  Object.freeze({ x: -24.5, side: 'north', kind: 'lincoln', colour: 0x14161c }),
-  Object.freeze({ x: 12.5, side: 'north', kind: 'sedan', colour: 0x2c2f38, dented: true }),
-  Object.freeze({ x: -13.5, side: 'south', kind: 'compact', colour: 0x3a2f45 }),
-  Object.freeze({ x: 2.5, side: 'south', kind: 'pickup', colour: 0xb9b4a6, featured: true }),
-  Object.freeze({ x: 24, side: 'south', kind: 'sedan', colour: 0x232a22 }),
+  Object.freeze({ id: 'specialmeeting.kerb.north-01', x: -30, side: 'north', kind: 'sedan', colour: 0x1d2028 }),
+  Object.freeze({ id: 'specialmeeting.kerb.north-02', x: -24.5, side: 'north', kind: 'lincoln', colour: 0x14161c }),
+  Object.freeze({ id: 'specialmeeting.kerb.north-03', x: 12.5, side: 'north', kind: 'sedan', colour: 0x2c2f38, dented: true }),
+  Object.freeze({ id: 'specialmeeting.kerb.south-01', x: -13.5, side: 'south', kind: 'compact', colour: 0x3a2f45 }),
+  Object.freeze({ id: 'specialmeeting.kerb.south-02', x: 2.5, side: 'south', kind: 'pickup', colour: 0xb9b4a6, featured: true }),
+  Object.freeze({ id: 'specialmeeting.kerb.south-03', x: 24, side: 'south', kind: 'sedan', colour: 0x232a22 }),
 ]);
 
 /** The cross street the sedan comes down, and the one at the far end. */

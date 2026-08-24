@@ -741,6 +741,41 @@ function proofMap(snapshot, domainName) {
   return new Map(Array.isArray(proofs) ? proofs.map((item) => [item.id, item]) : []);
 }
 
+function validActorIdInventory(value) {
+  return Array.isArray(value)
+    && value.every((id) => typeof id === 'string' && id.trim().length > 0)
+    && value.every((id, index) => index === 0 || value[index - 1] <= id);
+}
+
+function missingActorIds(priorIds, currentIds) {
+  const available = new Map();
+  for (const id of currentIds) available.set(id, (available.get(id) ?? 0) + 1);
+  const missing = [];
+  for (const id of priorIds) {
+    const count = available.get(id) ?? 0;
+    if (count === 0) missing.push(id);
+    else available.set(id, count - 1);
+  }
+  return missing;
+}
+
+function actorInventoryIsConsistent(evidence) {
+  const observedIds = evidence.actorObservedIds;
+  const discoveredIds = evidence.actorDiscoveredIds;
+  const filteredIds = evidence.visibilityFilteredActorIds;
+  if (!validActorIdInventory(observedIds)
+    || !validActorIdInventory(discoveredIds)
+    || !validActorIdInventory(filteredIds)) return false;
+  if (observedIds.length !== evidence.actorsObserved
+    || discoveredIds.length !== evidence.actorsDiscovered
+    || filteredIds.length !== evidence.visibilityFilteredActors
+    || evidence.visibilityFilteredActors !== evidence.actorsDiscovered - evidence.actorsObserved) {
+    return false;
+  }
+  const recomposed = [...observedIds, ...filteredIds].sort(compareStableText);
+  return JSON.stringify(recomposed) === JSON.stringify(discoveredIds);
+}
+
 /**
  * Debt may disappear only while the subject inventory remains observable.
  * Otherwise deleting a scene, obligation, checkpoint, state, or actor could
@@ -764,14 +799,66 @@ export function compareTrustedProofCoverage(trusted, candidate, current) {
       if (domainName !== 'spatial') continue;
       const priorActors = prior.evidence?.actorsObserved;
       const currentActors = observed.evidence?.actorsObserved;
+      const priorDiscoveredActors = prior.evidence?.actorsDiscovered;
+      const currentDiscoveredActors = observed.evidence?.actorsDiscovered;
+      if (Number.isInteger(priorDiscoveredActors)
+        && (!Number.isInteger(currentDiscoveredActors)
+          || currentDiscoveredActors < priorDiscoveredActors)) {
+        violations.push({
+          domain: domainName,
+          id,
+          kind: 'ACTOR_DISCOVERED_COVERAGE_SHRANK',
+          baseline: priorDiscoveredActors,
+          current: Number.isInteger(currentDiscoveredActors) ? currentDiscoveredActors : null,
+        });
+      }
+      const priorActorIds = prior.evidence?.actorDiscoveredIds;
+      if (priorActorIds !== undefined) {
+        const currentActorIds = observed.evidence?.actorDiscoveredIds;
+        if (!validActorIdInventory(priorActorIds)
+          || !validActorIdInventory(currentActorIds)) {
+          violations.push({
+            domain: domainName,
+            id,
+            kind: 'ACTOR_ID_INVENTORY_INVALID',
+          });
+        } else {
+          const missing = missingActorIds(priorActorIds, currentActorIds);
+          if (missing.length > 0) {
+            violations.push({
+              domain: domainName,
+              id,
+              kind: 'ACTOR_ID_COVERAGE_SHRANK',
+              missing,
+            });
+          }
+        }
+      }
       if (Number.isInteger(priorActors) && Number.isInteger(currentActors)
         && currentActors < priorActors) {
+        const discoveredActors = observed.evidence?.actorsDiscovered;
+        const filteredActors = observed.evidence?.visibilityFilteredActors;
+        /* The old collector counted hidden descendants as staged cast. A
+         * reviewed rendered-only correction may lower the visible count, but
+         * only while the same proof still discovers at least the complete
+         * historical marker inventory and accounts for the difference
+         * exactly. Deleting or unmarking one actor still fails the floor. */
+        const visibilityCorrectionProvesInventory = (
+          observed.evidence?.actorVisibilityPolicy === 'rendered_only'
+          && Number.isInteger(discoveredActors)
+          && Number.isInteger(filteredActors)
+          && discoveredActors >= priorActors
+          && discoveredActors >= currentActors
+          && filteredActors === discoveredActors - currentActors
+        );
+        if (visibilityCorrectionProvesInventory) continue;
         violations.push({
           domain: domainName,
           id,
           kind: 'ACTOR_COVERAGE_SHRANK',
           baseline: priorActors,
           current: currentActors,
+          discovered: Number.isInteger(discoveredActors) ? discoveredActors : null,
         });
       }
     }
@@ -796,7 +883,31 @@ function hasRemovalProof(improvement, current, semanticBrowserProofs = new Map()
 
   const evidence = proof.evidence ?? {};
   if (entry.proofKind === 'build') return evidence.built === true;
-  if (entry.proofKind === 'zero_actors') return evidence.actorsObserved > 0;
+  if (entry.proofKind === 'zero_actors') {
+    /* A zero-actor UNKNOWN can be resolved either by observing the missing
+     * cast or by replacing the vacuous assumption with an explicit, reasoned
+     * no-cast contract. The latter still has executable evidence: the state
+     * built, observed zero visible actors, and the registry says that exact
+     * result is intentional. */
+    return (
+      evidence.built === true
+      && evidence.actorsObserved > 0
+      && evidence.findingsScanned === true
+    ) || (
+      proof.status === 'intentional_na'
+      && evidence.built === true
+      && evidence.actorsObserved === 0
+      && actorInventoryIsConsistent(evidence)
+      && evidence.actorVisibilityPolicy === 'rendered_only'
+      && evidence.unmarkedRigs === 0
+      && evidence.findingsScanned === true
+      && ['PASS', 'UNKNOWN', 'NOT_APPLICABLE'].includes(evidence.spatialCoverageStatus)
+      && evidence.actorExpectation?.disposition === 'INTENTIONAL_NA'
+      && evidence.actorExpectation?.minimum === 0
+      && typeof evidence.actorExpectation?.reason === 'string'
+      && evidence.actorExpectation.reason.trim().length > 0
+    );
+  }
   if (entry.proofKind === 'unmarked_rigs') return evidence.unmarkedRigs === 0;
   if (entry.proofKind === 'coverage') {
     /* Count reduction means fewer legacy solids and is safe while the state is

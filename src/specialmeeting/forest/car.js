@@ -101,7 +101,7 @@ const MAIN = Object.freeze({
  *        never two — see the note on the lamps.
  */
 export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = {}) {
-  const car = makeCar('lincoln', colour);
+  const car = makeCar('lincoln', colour, { spatialId: 'specialmeeting.forest.lincoln' });
   const group = car.group;
   group.name = 'specialmeeting.lincoln';
   /* The shell comes out of `src/bing/vehicles.js` and everything below is

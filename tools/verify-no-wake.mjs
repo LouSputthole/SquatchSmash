@@ -41,6 +41,10 @@ const CABIN_BOW = CABIN.bow;
 const CABIN_STERN = CABIN.stern;
 const PORT = Number(process.env.PORT) || 5215;
 const WRITE_SCREENSHOTS = !process.argv.includes('--no-screenshots');
+const INPUT_ONLY = process.argv.includes('--input-only');
+const INPUT_ONLY_STAGE_TIMEOUT_MS = 90000;
+const INPUT_ONLY_WHOLE_TIMEOUT_MS = 240000;
+const INPUT_ONLY_COMPLETE = Symbol('NO_WAKE_INPUT_ONLY_COMPLETE');
 const SENTINEL = '{"version":999,"canonical":"NO WAKE preview must not touch this"}';
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -63,9 +67,34 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
   res.end(await fsp.readFile(file));
 });
+let browser = null;
+let inputOnlyPhase = 'server-listen';
+let inputOnlyDeadline = null;
+function markInputOnlyPhase(phase) {
+  if (!INPUT_ONLY) return;
+  inputOnlyPhase = phase;
+  console.log(`[NO WAKE input] ${phase}`);
+}
+if (INPUT_ONLY) {
+  inputOnlyDeadline = setTimeout(async () => {
+    console.error(
+      `[NO WAKE input] HARD TIMEOUT after ${INPUT_ONLY_WHOLE_TIMEOUT_MS}ms during ${inputOnlyPhase}`,
+    );
+    // The second timer is deliberately forceful: a wedged browser transport
+    // must not turn graceful cleanup into another unbounded wait.
+    const forceExit = setTimeout(() => process.exit(124), 5000);
+    forceExit.unref?.();
+    server.closeAllConnections?.();
+    server.close?.();
+    await browser?.close?.().catch(() => {});
+    process.exit(124);
+  }, INPUT_ONLY_WHOLE_TIMEOUT_MS);
+  inputOnlyDeadline.unref?.();
+}
 await new Promise((resolve) => server.listen(PORT, resolve));
+markInputOnlyPhase('browser-launch');
 
-const browser = await chromium.launch({
+browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
@@ -76,6 +105,7 @@ const browser = await chromium.launch({
     '--autoplay-policy=no-user-gesture-required',
   ],
 });
+markInputOnlyPhase('page-create');
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
 /* Every wait in this file is wall clock waiting on SIMULATED time. The scene
  * clamps its step at 0.05 s and advances once per drawn frame, and this page on
@@ -85,7 +115,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, dev
  * real Player steps inside one evaluate, and the authored tweens are measured
  * in simulated seconds, so the ceiling is ten minutes: it is a guard against a
  * hang, not a performance assertion. */
-page.setDefaultTimeout(600000);
+page.setDefaultTimeout(INPUT_ONLY ? INPUT_ONLY_STAGE_TIMEOUT_MS : 600000);
 await page.addInitScript((sentinel) => localStorage.setItem('squatchlife.campaign', sentinel), SENTINEL);
 const problems = [];
 page.on('pageerror', (error) => problems.push(error.message));
@@ -173,8 +203,12 @@ try {
    * ninety-second wait. It continues normally until the focused drive slice
    * below calls `runFor`, and is resumed immediately afterwards. */
   await page.clock.install({ time: Date.now() });
+  markInputOnlyPhase('page-load');
   await page.goto(`http://localhost:${PORT}/nowake.html?preview=1`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 180000 });
+  markInputOnlyPhase('runtime-ready');
+  await page.waitForFunction(() => window.NO_WAKE?.story, null, {
+    timeout: INPUT_ONLY ? INPUT_ONLY_STAGE_TIMEOUT_MS : 180000,
+  });
   /* One helper the whole file aims with: put the crosshair on a boat-local
    * point from where the player is really standing, step the real interaction
    * system, and report what it found. Every "the player uses X" check below
@@ -321,8 +355,12 @@ try {
     const r = document.getElementById('start-btn').getBoundingClientRect();
     return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
   });
+  markInputOnlyPhase('start-click');
   await page.mouse.click(startBox.x, startBox.y);
-  await page.waitForFunction(() => !document.getElementById('overlay'), null, { timeout: 300000 });
+  markInputOnlyPhase('gameplay-ready');
+  await page.waitForFunction(() => !document.getElementById('overlay'), null, {
+    timeout: INPUT_ONLY ? INPUT_ONLY_STAGE_TIMEOUT_MS : 300000,
+  });
   await page.waitForTimeout(250);
 
   const initialPointerLock = await page.evaluate(() => (
@@ -338,6 +376,64 @@ try {
     initialPointerLock && await page.evaluate(() => (
       document.pointerLockElement === document.querySelector('canvas')
     )));
+
+  /* Cross the browser-to-Player Seam rather than treating pointer lock itself
+   * as proof of control. These are trusted page mouse/key events; the check
+   * observes the real Player and canonical Adapter receipts, and never calls a
+   * debug movement method. */
+  const beforeRealInput = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    return {
+      x: game.player.position.x,
+      z: game.player.position.z,
+      yaw: game.player.yaw,
+      input: game.input.snapshot(),
+    };
+  });
+  markInputOnlyPhase('real-input');
+  await page.mouse.move(640, 360);
+  await page.mouse.move(710, 325, { steps: 2 });
+  await page.keyboard.down('w');
+  await page.waitForFunction(({ x, z }) => {
+    const game = window.NO_WAKE;
+    return Math.hypot(game.player.position.x - x, game.player.position.z - z) > .25;
+  }, beforeRealInput, { polling: 'raf', timeout: 30000 });
+  const heldRealInput = await page.evaluate(() => [...window.NO_WAKE.player.keys]);
+  await page.keyboard.up('w');
+  const afterRealInput = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    return {
+      x: game.player.position.x,
+      z: game.player.position.z,
+      yaw: game.player.yaw,
+      keys: [...game.player.keys],
+      input: game.input.snapshot(),
+    };
+  });
+  check('real click, mouse and W input capture, look, move and release before boarding',
+    afterRealInput.input.captured
+      && afterRealInput.input.lookEvents > beforeRealInput.input.lookEvents
+      && afterRealInput.input.movementPresses > beforeRealInput.input.movementPresses
+      && heldRealInput.includes('KeyW')
+      && !afterRealInput.keys.includes('KeyW')
+      && Math.hypot(
+        afterRealInput.x - beforeRealInput.x,
+        afterRealInput.z - beforeRealInput.z,
+      ) > .25
+      && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > .01,
+    JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
+
+  /* This is an intentionally narrow certification boundary, not a shortcut in
+   * the full mission verifier. It reaches the normal authored start button,
+   * waits for the real audio-backed startup to enable gameplay, and crosses
+   * the browser -> canonical Adapter -> Player seam above. The default command
+   * continues through every existing NO WAKE assertion exactly as before. */
+  if (INPUT_ONLY) {
+    check('the focused input receipt emitted no uncaught browser errors',
+      problems.length === 0, problems.join(' | '));
+    markInputOnlyPhase('complete');
+    throw INPUT_ONLY_COMPLETE;
+  }
 
   const residency = await page.evaluate((expected) => {
     const audio = window.NO_WAKE.audio;
@@ -2446,7 +2542,10 @@ try {
   }
 
   check('the browser emitted no uncaught errors', problems.length === 0, problems.join(' | '));
+} catch (error) {
+  if (error !== INPUT_ONLY_COMPLETE) throw error;
 } finally {
+  if (inputOnlyDeadline) clearTimeout(inputOnlyDeadline);
   await browser.close();
   server.close();
 }

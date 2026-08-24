@@ -41,14 +41,30 @@ const unknown = (reason, description, extra = {}) => ({
   ...extra,
 });
 
+const BROWSER_INPUT_BEHAVIOR =
+  'Use real browser input; pointer lock must activate, movement must change position, and held input must clear.';
+
 const browserInput = (mode = 'first_person_free') => debt(
   'Keyboard, mouse, pointer-lock, blur, pause, and rebinding are still wired in the scene root.',
-  'Use real browser input; pointer lock must activate, movement must change position, and held input must clear.',
+  BROWSER_INPUT_BEHAVIOR,
   { mode, actions: ['pointer_lock', 'move', 'clear_held_input'] },
 );
 
 const canonicalBrowserInput = (mode = 'first_person_free') => required(
   'Use real browser input through the canonical FirstPersonInputAdapter; pointer lock must activate, movement must change position, and held input must clear.',
+  {
+    adapter: 'core/first-person-input',
+    mode,
+    actions: ['pointer_lock', 'move', 'clear_held_input'],
+  },
+);
+
+const canonicalBrowserInputDebt = (mode = 'first_person_free') => debt(
+  'The canonical FirstPersonInputAdapter is adopted, but this entrypoint does not yet have a complete live browser receipt for pointer lock, movement, and held-input cleanup.',
+  // Architecture adoption is separate evidence. Until the browser receipt
+  // exists, this is the same player-facing obligation as the legacy debt; a
+  // migration must not mutate known debt behind its stable semantic ID.
+  BROWSER_INPUT_BEHAVIOR,
   {
     adapter: 'core/first-person-input',
     mode,
@@ -174,7 +190,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Campaign hub, chapter mornings and returns, Special Meeting Act One, finale, credits, and freeplay handoff.',
     entrypoints: [canonicalEntry(SCENE_IDS.APARTMENT, 'src/main.js')],
     capabilities: {
-      input: browserInput('first_person_with_seated_modes'),
+      input: canonicalBrowserInputDebt('first_person_with_seated_modes'),
       camera: localCamera('Cold open, bed, desk, seat, Margo, and finale code can take camera ownership.', 'authored_handoffs'),
       objective: localObjective('core/goals + core/apartment-story'),
       interaction: sharedInteraction,
@@ -197,7 +213,7 @@ export const SCENE_CONTRACTS = deepFreeze([
       router: 'src/bing/router.js',
     })],
     capabilities: {
-      input: browserInput(),
+      input: canonicalBrowserInputDebt(),
       camera: firstPersonCamera(),
       objective: sharedObjective,
       interaction: sharedInteraction,
@@ -214,7 +230,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Restaurant and development meeting with authored seated camera, dialogue, and violence beats.',
     entrypoints: [canonicalEntry(SCENE_IDS.SQUATCHFATHER, 'src/squatchfather/main.js')],
     capabilities: {
-      input: browserInput('custom_first_person'),
+      input: canonicalBrowserInputDebt('custom_first_person'),
       camera: localCamera('The scene owns CameraDirector and SeatedCamera rather than the shared player view.', 'scene_director'),
       objective: sharedObjective,
       interaction: localInteraction('squatchfather/interaction/InteractionSystem'),
@@ -231,14 +247,17 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Airstrip preflight, outbound smuggling flight, second load, and return landing.',
     entrypoints: [canonicalEntry(SCENE_IDS.AIRSTRIP_SMUGGLING, 'src/beefrun/main.js')],
     capabilities: {
-      input: browserInput('first_person_and_aircraft'),
+      input: canonicalBrowserInputDebt('first_person_and_aircraft'),
       camera: localCamera('CameraManager arbitrates on-foot, cockpit, and external flight views.', 'flight_camera_manager'),
       objective: localObjective('beefrun/FlightHud'),
       interaction: sharedInteraction,
       checkpoints: runtimeCheckpoints(['takeoff', 'approach', 'departure', 'return']),
     },
     goldenPath: 'Complete preflight, take off, load and unload cargo, return, land, shut down, and reach Apartment.',
-    debt: [{ id: 'flight_input_adapter', summary: 'FlightInput and page browser wiring are scene-owned.' }],
+    debt: [{
+      id: 'flight_input_adapter',
+      summary: 'FlightInput and aircraft command policy remain scene-owned behind the canonical browser Adapter.',
+    }],
     evidence: ['src/beefrun/main.js:12-49', 'src/beefrun/main.js:116-227', 'src/beefrun/mission.js:31-37'],
   }),
 
@@ -265,7 +284,7 @@ export const SCENE_CONTRACTS = deepFreeze([
       },
     ],
     capabilities: {
-      input: browserInput(),
+      input: canonicalBrowserInputDebt(),
       camera: firstPersonCamera(),
       objective: localObjective('bing/hotdog DOM objective list'),
       interaction: sharedInteraction,
@@ -283,7 +302,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Carry, place, and bury HotDog, with optional memorial and tribute interactions.',
     entrypoints: [canonicalEntry(SCENE_IDS.SQUATCH_GRAVEYARD, 'src/graveyard/main.js')],
     capabilities: {
-      input: browserInput(),
+      input: canonicalBrowserInputDebt(),
       camera: firstPersonCamera(),
       objective: sharedObjective,
       interaction: sharedInteraction,
@@ -300,7 +319,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Continuous arrival, deal, betrayal, fight, recovery, escape, and driving sequence.',
     entrypoints: [canonicalEntry(SCENE_IDS.JERKY_MOTEL, 'src/motel/main.js')],
     capabilities: {
-      input: browserInput('custom_first_person_and_vehicle'),
+      input: canonicalBrowserInputDebt('custom_first_person_and_vehicle'),
       camera: localCamera('The scene owns its player camera and arrival/drive camera modes.', 'motel_camera'),
       objective: localObjective('motel/OBJECTIVES'),
       interaction: localInteraction('motel point interaction'),
@@ -324,7 +343,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Boat startup and travel, cabin execution, body weighting/disposal, and departure.',
     entrypoints: [canonicalEntry(SCENE_IDS.NO_WAKE, 'src/nowake/main.js')],
     capabilities: {
-      input: browserInput('first_person_and_boat'),
+      input: canonicalBrowserInputDebt('first_person_and_boat'),
       camera: localCamera('NoWakeCameraDirector owns boat and authored sequence views.', 'boat_camera_director'),
       objective: localObjective('nowake DOM objective'),
       interaction: sharedInteraction,
@@ -342,7 +361,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Continuous service-route date, table rounds, performance, invitation, and return home.',
     entrypoints: [canonicalEntry(SCENE_IDS.SILVER_ROOM, 'src/silver/main.js')],
     capabilities: {
-      input: browserInput(),
+      input: canonicalBrowserInputDebt(),
       camera: localCamera('Two authored camera handoffs temporarily take the view.', 'first_person_with_two_handoffs'),
       objective: sharedObjective,
       interaction: sharedInteraction,
@@ -359,7 +378,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Three-hole golf round with walking, carts, conversations, swing, ball flight, and scoring.',
     entrypoints: [canonicalEntry(SCENE_IDS.SILVER_PINES, 'src/golf/main.js')],
     capabilities: {
-      input: browserInput('first_person_golf_and_cart'),
+      input: canonicalBrowserInputDebt('first_person_golf_and_cart'),
       camera: localCamera('Ball follow and cart seating temporarily alter the ordinary first-person view.', 'golf_camera'),
       objective: sharedObjective,
       interaction: sharedInteraction,
@@ -376,7 +395,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Safehouse preparation, bank/vault robbery, street and garage combat, vehicle escape, and debrief.',
     entrypoints: [canonicalEntry(SCENE_IDS.BANK_HEIST, 'src/heist/main.js')],
     capabilities: {
-      input: browserInput('first_person_combat_and_vehicle'),
+      input: canonicalBrowserInputDebt('first_person_combat_and_vehicle'),
       camera: localCamera('Walking, combat, van, and player-driven escape phases change camera policy.', 'heist_camera'),
       objective: localObjective('heist/HeistObjectiveLedger'),
       interaction: sharedInteraction,
@@ -393,7 +412,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Apartment control, authored shootings, prayer, bathroom ambush, case recovery, and Mansion handoff.',
     entrypoints: [canonicalEntry(SCENE_IDS.SILVER_CASE, 'src/silvercase/main.js')],
     capabilities: {
-      input: browserInput(),
+      input: canonicalBrowserInputDebt(),
       camera: localCamera('Car, soft-look, and authored apartment beats temporarily direct the view.', 'silver_case_camera'),
       objective: sharedObjective,
       interaction: sharedInteraction,
@@ -410,7 +429,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Wake, armory and office briefing, defensive waves, aftermath, and Enola handoff.',
     entrypoints: [canonicalEntry(SCENE_IDS.MANSION_SIEGE, 'src/mansion/siege/main.js')],
     capabilities: {
-      input: browserInput('first_person_combat'),
+      input: canonicalBrowserInputDebt('first_person_combat'),
       camera: firstPersonCamera('first_person_combat'),
       objective: localObjective('mansion/siege DOM objective'),
       interaction: sharedInteraction,
@@ -427,7 +446,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'On-foot preflight, heavy-aircraft mission, bomb run, detonation, emergency return, and landing.',
     entrypoints: [canonicalEntry(SCENE_IDS.ENOLA_SQUATCH, 'src/enolasquatch/main.js')],
     capabilities: {
-      input: browserInput('first_person_and_aircraft'),
+      input: canonicalBrowserInputDebt('first_person_and_aircraft'),
       camera: localCamera('CameraManager owns on-foot, cockpit, external, bomb-run, and return views.', 'flight_camera_manager'),
       objective: localObjective('beefrun/FlightHud'),
       interaction: sharedInteraction,
@@ -450,7 +469,7 @@ export const SCENE_CONTRACTS = deepFreeze([
       activation: '?visit=return',
     })],
     capabilities: {
-      input: browserInput(),
+      input: canonicalBrowserInputDebt(),
       camera: firstPersonCamera(),
       objective: sharedObjective,
       interaction: sharedInteraction,
@@ -476,7 +495,7 @@ export const SCENE_CONTRACTS = deepFreeze([
       observedExits: [SCENE_IDS.SPECIAL_MEETING],
     })],
     capabilities: {
-      input: browserInput('first_person_combat'),
+      input: canonicalBrowserInputDebt('first_person_combat'),
       camera: firstPersonCamera('first_person_combat'),
       objective: sharedObjective,
       interaction: sharedInteraction,
@@ -533,7 +552,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Estate exploration, hidden-lab mission, quiet evening, and transition into the siege.',
     entrypoints: [canonicalEntry(SCENE_IDS.MANSION, 'src/mansion/main.js')],
     capabilities: {
-      input: browserInput('first_person_with_house_modes'),
+      input: canonicalBrowserInputDebt('first_person_with_house_modes'),
       camera: localCamera('House, laboratory mission, pool, seating, and sleep handoffs share camera ownership.', 'mansion_camera'),
       objective: sharedObjective,
       interaction: sharedInteraction,

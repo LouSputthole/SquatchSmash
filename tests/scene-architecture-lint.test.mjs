@@ -57,7 +57,7 @@ test('all declared campaign hrefs and composition roots exist', () => {
   assert.equal(entryFiles.filter((item) => item.status === STATUS.PASS).length, 40);
 });
 
-test('required capability Adapters are proven only by exact root imports', () => {
+test('declared capability Adapters are proven only by exact root imports', () => {
   const files = {
     ...canonicalFiles,
     'src/fixture.js': [
@@ -82,11 +82,42 @@ test('required capability Adapters are proven only by exact root imports', () =>
   );
 });
 
+test('canonical adoption can pass architecture while live behavior remains explicit debt', () => {
+  const input = {
+    disposition: D.DEBT,
+    adapter: 'core/first-person-input',
+  };
+  const files = {
+    ...canonicalFiles,
+    'src/fixture.js': [
+      "import { createFirstPersonInput } from './core/first-person-input.js';",
+      "import { createObjectivePanel } from './core/objective-panel.js';",
+      "import { InteractionSystem } from './core/interaction.js';",
+      'const inputAdapter = createFirstPersonInput({ player });',
+    ].join('\n'),
+  };
+  const findings = verifySceneArchitecture({
+    contracts: [contract({ input })],
+    repository: repository(files),
+  });
+  assert.equal(
+    findings.find((item) => item.kind === 'canonical_adapter_import' && item.subject === 'input').status,
+    STATUS.PASS,
+  );
+  assert.equal(
+    findings.find((item) => item.kind === 'inline_first_person_input').status,
+    STATUS.PASS,
+  );
+});
+
 test('the full Player and five-event signature is classified as local-input debt', () => {
   const source = [
     "import { Player } from './core/player.js';",
     "document.addEventListener('pointerlockchange', onLock);",
+    "document.addEventListener('pointerlockerror', onLockError);",
     "window.addEventListener('mousemove', onMove);",
+    "window.addEventListener('mousedown', onMouseDown);",
+    "window.addEventListener('mouseup', onMouseUp);",
     "window.addEventListener('keydown', onDown);",
     "window.addEventListener('keyup', onUp);",
     "window.addEventListener('blur', clear);",
@@ -137,6 +168,38 @@ test('canonical input plus duplicated inline wiring is a hard failure', () => {
     STATUS.PASS,
   );
   assert.equal(findings.find((item) => item.kind === 'inline_first_person_input').status, STATUS.FAIL);
+});
+
+test('canonical input policy Modules cannot hide a second browser lifecycle', () => {
+  const input = {
+    disposition: D.REQUIRED,
+    adapter: 'core/first-person-input',
+  };
+  const files = {
+    ...canonicalFiles,
+    'src/fixture.js': [
+      "import { createFirstPersonInput } from './core/first-person-input.js';",
+      "import { createObjectivePanel } from './core/objective-panel.js';",
+      "import { InteractionSystem } from './core/interaction.js';",
+      "import { createFixtureControls } from './fixture-controls.js';",
+      'const inputAdapter = createFirstPersonInput({ player, ...createFixtureControls() });',
+    ].join('\n'),
+    'src/fixture-controls.js': [
+      "window.addEventListener('keydown', onDown);",
+      "window.addEventListener('keyup', onUp);",
+      'canvas.requestPointerLock();',
+      'export function createFixtureControls() { return {}; }',
+    ].join('\n'),
+  };
+  const findings = verifySceneArchitecture({
+    contracts: [contract({ input })],
+    repository: repository(files),
+  });
+  const ownership = findings.find((item) => item.kind === 'inline_first_person_input');
+  assert.equal(ownership.status, STATUS.FAIL);
+  assert.equal(ownership.evidence.policyModules[0].repoPath, 'src/fixture-controls.js');
+  assert.deepEqual(ownership.evidence.policyModules[0].events, ['keydown', 'keyup']);
+  assert.deepEqual(ownership.evidence.policyModules[0].pointerLockApis, ['requestPointerLock']);
 });
 
 test('canonical input permits policy listeners but rejects direct Player input bypasses', () => {

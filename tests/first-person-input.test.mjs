@@ -70,6 +70,56 @@ test('keyboard capture is an explicit Adapter option for focused flight UI', () 
   f.input.destroy();
 });
 
+test('scene-declared held Player keys and policy look stay behind the Adapter Interface', () => {
+  const f = fixture({ playerKeyCodes: ['KeyF'] });
+  f.documentTarget.pointerLockElement = f.canvas;
+  f.documentTarget.emit('pointerlockchange');
+
+  f.windowTarget.emit('keydown', { code: 'KeyF', preventDefault() {} });
+  f.windowTarget.emit('keyup', { code: 'KeyF' });
+  assert.deepEqual(f.calls.keys, [['KeyF', true], ['KeyF', false]]);
+  assert.equal(f.input.snapshot().movementPresses, 0,
+    'a held utility key must not masquerade as movement evidence');
+
+  assert.equal(f.input.applyLook(1.5, -0.5), true);
+  assert.deepEqual(f.calls.looks, [[1.5, -0.5]]);
+  assert.equal(f.input.snapshot().lookEvents, 1);
+  assert.equal(f.input.applyLook(Number.NaN, 0), false);
+});
+
+test('invalid scene-held key declarations fail at the Adapter boundary', () => {
+  assert.throws(() => fixture({ playerKeyCodes: 'KeyF' }), /playerKeyCodes/);
+  assert.throws(() => fixture({ playerKeyCodes: [''] }), /playerKeyCodes/);
+});
+
+test('scene-declared mouse buttons can reacquire capture without firing while unlocked', () => {
+  let ranged = 0;
+  const f = fixture({
+    captureButtons: [0, 2],
+    routes: {
+      mouseDown(event, { locked }) {
+        if (event.button === 2 && locked) {
+          ranged += 1;
+          return true;
+        }
+        return false;
+      },
+    },
+  });
+  f.canvas.emit('mousedown', { button: 2, target: f.canvas });
+  assert.equal(f.canvas.lockRequests, 1);
+  assert.equal(ranged, 0);
+
+  f.documentTarget.pointerLockElement = f.canvas;
+  f.documentTarget.emit('pointerlockchange');
+  f.canvas.emit('mousedown', { button: 2, target: f.canvas });
+  assert.equal(ranged, 1);
+  assert.equal(f.canvas.lockRequests, 1);
+
+  assert.throws(() => fixture({ captureButtons: [] }), /captureButtons/);
+  assert.throws(() => fixture({ captureButtons: [-1] }), /captureButtons/);
+});
+
 test('a scene can keep canonical interaction available when pointer capture is unavailable', () => {
   const f = fixture({ interactionRequiresCapture: false });
 

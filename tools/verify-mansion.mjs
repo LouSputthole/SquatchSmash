@@ -305,11 +305,66 @@ try {
   /* ================================================================ */
   /* Boot gate                                                         */
   /* ================================================================ */
-  await page.evaluate(() => document.getElementById('startBtn').click());
+  /* A trusted click, not HTMLElement.click(): pointer lock is a user-gesture
+   * contract and the whole point of this gate is to prove that contract. */
+  await page.locator('#startBtn').click();
+  await page.waitForFunction(
+    () => document.pointerLockElement === window.mansion.renderer.domElement,
+    null,
+    { timeout: 30000 },
+  );
   await page.waitForFunction(() => window.mansion.running === true, null, { timeout: 120000 });
   check('clicking start begins the tour and hides the menu',
     await page.evaluate(() => window.mansion.running === true
       && document.getElementById('menu').classList.contains('hidden')));
+
+  const realInput = await (async () => {
+    const before = await page.evaluate(() => {
+      const M = window.mansion;
+      return {
+        x: M.player.position.x,
+        y: M.player.position.y,
+        z: M.player.position.z,
+        ground: M.player.ground,
+        yaw: M.player.yaw,
+      };
+    });
+    await page.mouse.move(240, 150);
+    await page.mouse.move(285, 150, { steps: 2 });
+    await page.keyboard.down('KeyW');
+    await settle(0.45);
+    await page.keyboard.up('KeyW');
+    await settle(0.05);
+    const after = await page.evaluate(() => {
+      const M = window.mansion;
+      return {
+        x: M.player.position.x,
+        z: M.player.position.z,
+        yaw: M.player.yaw,
+        input: M.input.snapshot(),
+      };
+    });
+    await page.evaluate((origin) => {
+      window.mansion.teleport(
+        origin.x,
+        origin.ground,
+        origin.z,
+        (origin.yaw * 180) / Math.PI,
+      );
+    }, before);
+    return {
+      moved: Math.hypot(after.x - before.x, after.z - before.z),
+      looked: Math.abs(after.yaw - before.yaw),
+      ...after.input,
+    };
+  })();
+  check('real pointer lock, W, and mouse input move and turn the live player',
+    realInput.locked === true
+      && realInput.movementPresses >= 1
+      && realInput.lookEvents >= 1
+      && realInput.moved > 0.05
+      && realInput.looked > 0.001,
+    JSON.stringify(realInput));
 
   // Render real frames before the tour, so a shader or WebGL failure in the
   // new geometry surfaces here rather than never being exercised.
@@ -5180,6 +5235,18 @@ try {
        * actual cast body, Player movement keys, the actual crosshair owner and
        * InteractionSystem.press(). */
       if (want.louReport && !bad.length) {
+        /* The canonical input Adapter deliberately leaves Player disabled
+         * until the page owns pointer capture. This checkpoint page cold-loads
+         * itself without a start-button gesture, so acquire capture the same
+         * way a player does before asking Player movement to prove the walk.
+         * A direct `player.enabled = true` here would make this gate green by
+         * bypassing the exact scene/input contract it is meant to protect. */
+        await cpPage.locator('canvas').click({ position: { x: 320, y: 200 } });
+        await cpPage.waitForFunction(
+          () => window.mansion?.input?.snapshot?.().captured === true,
+          null,
+          { timeout: 10000 },
+        );
         const lou = await cpPage.evaluate(() => {
           const T = window.mansion.THREE;
           const m = window.mansion;

@@ -546,7 +546,14 @@ check('every visible car is contained by its matching collider',
   vehicles.contained && vehicles.playerColliderLive);
 check('the ordinary parked cars sit on the painted bay centres', vehicles.bayCentred);
 
-await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' })));
+/* Earn real browser capture before leaving the car. This crosses the DOM
+ * Adapter Seam; a synthetic event dispatched inside page.evaluate can prove
+ * scene policy while still missing a completely unwired keyboard. */
+await page.locator('#scene').click({ position: { x: 160, y: 100 } });
+await page.waitForFunction(() => window.__bing.input.snapshot().captured, null, {
+  timeout: 5000,
+});
+await page.keyboard.press('q');
 await tick(1.2, 0.1);
 const carExit = await page.evaluate(() => {
   const b = window.__bing;
@@ -562,6 +569,40 @@ const carExit = await page.evaluate(() => {
 check('getting out of the car lands on validated clear ground',
   carExit.seated === null && carExit.mode === 'walk' && carExit.safe && carExit.room === 'lot',
   JSON.stringify(carExit));
+
+const beforeRealInput = await page.evaluate(() => {
+  const { player } = window.__bing;
+  return { x: player.position.x, z: player.position.z, yaw: player.yaw };
+});
+await page.mouse.move(160, 100);
+await page.mouse.move(225, 70, { steps: 2 });
+await page.keyboard.down('w');
+await tick(1.2, 0.1);
+const heldRealInput = await page.evaluate(() => ({
+  keys: [...window.__bing.player.keys],
+  yaw: window.__bing.player.yaw,
+}));
+await page.keyboard.up('w');
+const afterRealInput = await page.evaluate(() => {
+  const b = window.__bing;
+  return {
+    x: b.player.position.x,
+    z: b.player.position.z,
+    yaw: b.player.yaw,
+    keys: [...b.player.keys],
+    input: b.input.snapshot(),
+  };
+});
+check('real click, Q, mouse, and W input exit the car, look, move, and release at the Bing',
+  afterRealInput.input.captured
+    && heldRealInput.keys.includes('KeyW')
+    && !afterRealInput.keys.includes('KeyW')
+    && Math.hypot(
+      afterRealInput.x - beforeRealInput.x,
+      afterRealInput.z - beforeRealInput.z,
+    ) > 0.35
+    && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > 0.01,
+  JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
 
 /* The open portal must be visually clear as well as collider-clear. */
 const frontPortal = await page.evaluate(() => {

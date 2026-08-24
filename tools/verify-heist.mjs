@@ -27,6 +27,9 @@ import { launchChromium } from './launch-chromium.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5221;
 const SHOTS = path.join(ROOT, 'artifacts', 'heist');
+const INPUT_ONLY = process.argv.includes('--input-only');
+const INPUT_ONLY_TIMEOUT_MS = 240000;
+const INPUT_ONLY_COMPLETE = Symbol('HEIST_INPUT_ONLY_COMPLETE');
 const SENTINEL = '{"canonical":"THE TAKE preview must not mutate this"}';
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -47,9 +50,28 @@ const server = http.createServer(async (req, res) => {
 await new Promise((resolve) => server.listen(PORT, resolve));
 await fsp.mkdir(SHOTS, { recursive: true });
 
-const browser = await launchChromium({
+let browser = null;
+let inputOnlyPhase = 'browser-launch';
+const markInputOnlyPhase = (phase) => {
+  if (!INPUT_ONLY) return;
+  inputOnlyPhase = phase;
+  console.log(`[THE TAKE input] ${phase}`);
+};
+const inputOnlyDeadline = INPUT_ONLY ? setTimeout(async () => {
+  console.error(`[THE TAKE input] HARD TIMEOUT after ${INPUT_ONLY_TIMEOUT_MS}ms during ${inputOnlyPhase}`);
+  const forceExit = setTimeout(() => process.exit(124), 5000);
+  forceExit.unref?.();
+  server.closeAllConnections?.();
+  server.close?.();
+  await browser?.close?.().catch(() => {});
+  process.exit(124);
+}, INPUT_ONLY_TIMEOUT_MS) : null;
+inputOnlyDeadline?.unref?.();
+markInputOnlyPhase('browser-launch');
+browser = await launchChromium({
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
 });
+markInputOnlyPhase('page-create');
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 await page.addInitScript((value) => {
   const marker = 'squatchlife.verify.heist.seeded';
@@ -366,11 +388,88 @@ try {
   } else if (process.env.HEIST_POLICE_ONLY === '1') {
     await verifyPoliceCombatAndRecycle();
   } else {
+  markInputOnlyPhase('page-load');
   await page.goto(`http://localhost:${PORT}/heist.html?preview=1&checkpoint=safehouse`, { waitUntil: 'load' });
+  markInputOnlyPhase('runtime-ready');
   await page.waitForFunction(() => window.__heistDebug?.start, null, { timeout: 120000 });
+  markInputOnlyPhase('start-click');
   await page.evaluate(() => document.getElementById('start').click());
   await page.waitForFunction(() => window.__heistDebug.state === 'CREW_INTRO', null, { timeout: 120000 });
+  markInputOnlyPhase('real-input');
   let state = await snapshot();
+
+  /* Cross the browser-to-Player Seam before any verifier pose or interaction
+   * helper can make this mission look playable. The click is trusted browser
+   * input, the frame loop moves the real Player, and the Adapter's own
+   * receipts must agree with the observed look/movement/key lifecycle. */
+  const beforeRealInput = await page.evaluate(() => {
+    const heist = window.__heistDebug;
+    const inputState = heist.inputState();
+    const probe = heist.probeCrosshair();
+    return {
+      x: probe.eye[0],
+      z: probe.eye[2],
+      yaw: probe.yaw,
+      input: inputState.adapter,
+    };
+  });
+  await page.locator('#scene').click({ position: { x: 640, y: 360 } });
+  await page.waitForFunction(
+    () => window.__heistDebug.inputState().adapter?.captured === true,
+    null,
+    { timeout: 10000 },
+  );
+  /* Headless Chromium can consume the first relative packet while settling a
+   * new pointer lock. Several trusted sweeps still have to change Player.yaw. */
+  for (const [x, y] of [[700, 330], [560, 390], [740, 320]]) {
+    await page.mouse.move(x, y, { steps: 3 });
+  }
+  await page.keyboard.down('w');
+  await page.waitForFunction(({ x, z }) => {
+    const eye = window.__heistDebug.probeCrosshair().eye;
+    return Math.hypot(eye[0] - x, eye[2] - z) > 0.12;
+  }, beforeRealInput, { polling: 'raf', timeout: 30000 });
+  const heldRealInput = await page.evaluate(() => ({
+    keys: window.__heistDebug.inputState().keys,
+    input: window.__heistDebug.inputState().adapter,
+  }));
+  await page.keyboard.up('w');
+  await page.waitForFunction(
+    () => !window.__heistDebug.inputState().keys.includes('KeyW'),
+    null,
+    { polling: 'raf', timeout: 5000 },
+  );
+  const afterRealInput = await page.evaluate(() => {
+    const heist = window.__heistDebug;
+    const probe = heist.probeCrosshair();
+    return {
+      x: probe.eye[0],
+      z: probe.eye[2],
+      yaw: probe.yaw,
+      keys: heist.inputState().keys,
+      input: heist.inputState().adapter,
+    };
+  });
+  check('real canvas click, mouse, and W input capture, look, move, and release in the safehouse',
+    afterRealInput.input.captured
+      && afterRealInput.input.mouseDownEvents > beforeRealInput.input.mouseDownEvents
+      && afterRealInput.input.lookEvents > beforeRealInput.input.lookEvents
+      && afterRealInput.input.movementPresses > beforeRealInput.input.movementPresses
+      && afterRealInput.input.lastMovementCode === 'KeyW'
+      && heldRealInput.keys.includes('KeyW')
+      && !afterRealInput.keys.includes('KeyW')
+      && Math.hypot(
+        afterRealInput.x - beforeRealInput.x,
+        afterRealInput.z - beforeRealInput.z,
+      ) > 0.12
+      && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > 0.001,
+    JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
+  if (INPUT_ONLY) {
+    check('focused input receipt emitted no page, console, or request failures',
+      problems.length === 0, problems.join(' | ').slice(0, 600));
+    markInputOnlyPhase('complete');
+    throw INPUT_ONLY_COMPLETE;
+  }
   const canonicalCrewPhysical = Object.freeze({
     snow: Object.freeze({
       height: 1.70, outfit: 'work', gender: 'unspecified', bodyShape: 'average',
@@ -1272,7 +1371,10 @@ try {
   check('browser completed without page, console, or request failures', problems.length === 0,
     problems.join(' | ').slice(0, 600));
   }
+} catch (error) {
+  if (error !== INPUT_ONLY_COMPLETE) throw error;
 } finally {
+  if (inputOnlyDeadline) clearTimeout(inputOnlyDeadline);
   await browser.close();
   server.close();
 }

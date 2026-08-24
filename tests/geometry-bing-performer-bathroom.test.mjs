@@ -21,6 +21,11 @@ test('Bing registers and scans the optional performer bathroom pose', async () =
     state: 'performer-bathroom',
     adapter: 'bing',
     launcherIds: [],
+    actorExpectation: {
+      disposition: 'REQUIRED',
+      minimum: 1,
+      reason: 'bing:performer-bathroom must expose its visible staged cast.',
+    },
     geometryStage: 'performer-bathroom',
   });
 

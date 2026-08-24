@@ -116,12 +116,22 @@ test('geometry Adapter preserves authored spatial meaning without guessing legac
 test('the shared Bing vehicle collider publishes vehicle meaning at its source', () => {
   const group = new THREE.Group();
   group.name = 'car.audit';
+  group.userData.spatialId = 'audit.vehicle';
   group.position.set(4, 0, -8);
   group.rotation.y = Math.PI / 2;
   const volume = makeVehicleCollider({ group, length: 4.8, width: 1.9, height: 1.7 });
   assert.equal(readSpatialPrimitive(volume).kind, 'vehicle');
   assert.equal(spatialBlocks(volume, 'collision'), true);
   assert.equal(spatialBlocks(volume, 'vision'), true);
+});
+
+test('vehicle colliders fail closed when an instance has no authored spatial identity', () => {
+  const group = new THREE.Group();
+  group.name = 'car.sedan';
+  assert.throws(
+    () => makeVehicleCollider({ group, length: 4.8, width: 1.9, height: 1.7 }),
+    /authored .*spatialId/i,
+  );
 });
 
 test('typed actor ownership detects two bodies in the exact same position', () => {

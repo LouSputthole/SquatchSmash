@@ -19,6 +19,20 @@ export const APARTMENT_MARGO_ENTRY_POSITION = Object.freeze({
   z: 4.28,
 });
 
+/* The next authored point on MARGO_ENTRY_PATH is (0.90, 3.30). Face that
+ * first step at the moment she appears, rather than spending the first
+ * rendered frame looking 9 cm into the south wall before the walk updater
+ * corrects her heading. */
+export const APARTMENT_MARGO_ENTRY_HEADING = Math.atan2(
+  0.90 - APARTMENT_MARGO_ENTRY_POSITION.x,
+  3.30 - APARTMENT_MARGO_ENTRY_POSITION.z,
+);
+/* The entry leaf is hinged on the west jamb and opens outward to a right
+ * angle. At the old one-radian angle the leaf still occupied Margo's exact
+ * authored doorway pose; this is the first clear physical state. Runtime
+ * imports the same value for both directions of her walk. */
+export const APARTMENT_MARGO_ENTRY_DOOR_YAW = -Math.PI / 2;
+
 const MARGO_ASSEMBLY = 'apartment-margo';
 const MARGO_BED_ASSEMBLY = 'apartment-margo-bed-occupancy';
 
@@ -72,8 +86,15 @@ export function stageApartmentMargoGeometry(apartment, stage) {
       APARTMENT_MARGO_ENTRY_POSITION.y,
       APARTMENT_MARGO_ENTRY_POSITION.z,
     );
-    margo.group.rotation.set(0, 0, 0);
+    margo.group.rotation.set(0, APARTMENT_MARGO_ENTRY_HEADING, 0);
     margo.group.visible = true;
+    /* Runtime opens this leaf on the first walk frame. Stage it open before
+     * that frame too: with her body correctly facing the path, the closed
+     * leaf cuts through her hips and left arm. */
+    if (!apartment.frontDoorPivot?.rotation) {
+      throw new TypeError('Apartment Margo entry requires the front-door pivot');
+    }
+    apartment.frontDoorPivot.rotation.y = APARTMENT_MARGO_ENTRY_DOOR_YAW;
   } else if (stage === APARTMENT_MARGO_GEOMETRY_STAGES.WAKE_LYING) {
     const bed = exactDirectChild(apartment.root, 'bed');
     // Her body deliberately occupies compressible bedding. Keep that fitted
@@ -98,6 +119,7 @@ export function stageApartmentMargoGeometry(apartment, stage) {
       z: margo.group.position.z,
     }),
     yaw: margo.group.rotation.y,
+    frontDoorYaw: apartment.frontDoorPivot?.rotation?.y ?? null,
   });
 }
 

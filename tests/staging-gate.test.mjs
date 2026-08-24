@@ -31,6 +31,7 @@ import {
   collectActors,
   markActor,
   readActor,
+  setActorLandmarks,
   setActorPosture,
   setActorSeat,
 } from '../src/core/staging.js';
@@ -225,6 +226,62 @@ test('collectActors reads the live posture, not the authored one', async () => {
   // Face axis is local +Z, so a quarter turn about Y points him down +X.
   assert.ok(Math.abs(collected.forward[0] - 1) < 1e-6);
   assert.ok(Math.abs(collected.yaw - Math.PI / 2) < 1e-6);
+});
+
+test('collectActors excludes actors hidden directly or by an ancestor', async () => {
+  const THREE = await import('three');
+  const root = new THREE.Group();
+  const visible = new THREE.Group();
+  const hiddenParent = new THREE.Group();
+  const hiddenChild = new THREE.Group();
+  markActor(visible, { id: 'visible', role: 'civilian' });
+  markActor(hiddenChild, { id: 'hidden-child', role: 'civilian' });
+  hiddenParent.visible = false;
+  hiddenParent.add(hiddenChild);
+  root.add(visible, hiddenParent);
+  root.updateMatrixWorld(true);
+
+  assert.deepEqual(collectActors(root, THREE).map(({ id }) => id), ['visible']);
+  assert.deepEqual(
+    collectActors(root, THREE, { includeHidden: true }).map(({ id }) => id),
+    ['visible', 'hidden-child'],
+    'the audit inventory can prove a hidden marker was filtered rather than deleted',
+  );
+
+  root.visible = false;
+  root.updateMatrixWorld(true);
+  assert.deepEqual(collectActors(root, THREE), [], 'a hidden scene root has no rendered cast');
+  assert.equal(collectActors(root, THREE, { includeHidden: true }).length, 2);
+});
+
+test('articulated actors can expose exact eye and hip transforms', async () => {
+  const THREE = await import('three');
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  const eye = new THREE.Group();
+  const hip = new THREE.Group();
+  body.position.set(2, 0.9, -3);
+  body.rotation.set(-Math.PI / 2, -0.6, 0);
+  eye.position.set(0.1, 0.74, 0.11);
+  hip.position.set(-0.02, 0, -0.01);
+  body.add(eye, hip);
+  root.add(body);
+  markActor(body, {
+    id: 'articulated', role: 'principal', posture: 'lie', eyeHeight: 1.6, hipHeight: 0.9,
+  });
+  setActorLandmarks(body, { eye, hip });
+  root.updateMatrixWorld(true);
+
+  const expectedEye = new THREE.Vector3().setFromMatrixPosition(eye.matrixWorld).toArray();
+  const expectedHip = new THREE.Vector3().setFromMatrixPosition(hip.matrixWorld).toArray();
+  const [found] = collectActors(root, THREE);
+  assert.deepEqual(found.eye, expectedEye);
+  assert.deepEqual(found.hip, expectedHip);
+  assert.notEqual(found.eye[1], body.position.y + 1.6, 'landmarks supersede scalar fallbacks');
+  assert.throws(
+    () => setActorLandmarks(new THREE.Group(), { eye, hip }),
+    /unmarked object/,
+  );
 });
 
 test("a scene's own role word never stops the scene from building", () => {
