@@ -137,14 +137,25 @@ async function driveTo(page, phase, { timeout = 90000 } = {}) {
  * advance.
  */
 async function walkTo(page, phase, { timeout = 120000 } = {}) {
-  /* Where he is, which way he is pointed, and how far off the mark. */
+  /* Where he is, which way he is pointed, and how far off the mark.
+   *
+   * `window.INITIATION.player` is the SHARED `Player` (see
+   * src/initiation/player-adapter.js), which carries `position` and `yaw`
+   * directly. This used to read `player.group.position`, which is a figure's
+   * shape and not a controller's -- so every call threw
+   * "Cannot read properties of undefined", the walk never took a step, and the
+   * four phases downstream of it timed out one after another. Five red checks
+   * from one stale property name, and none of them said so. The fallbacks keep
+   * it working either way. */
   const state = () => page.evaluate(() => {
-    const p = window.INITIATION.player.group.position;
+    const player = window.INITIATION.player;
+    const p = player.position ?? player.group.position;
     const c = window.INITIATION.PLAYER_SLOT;
     return {
       dx: c.x - p.x,
       dz: c.z - p.z,
-      yaw: window.INITIATION.player.group.rotation.y,
+      yaw: player.yaw ?? player.group.rotation.y,
+      enabled: player.enabled === true,
       phase: window.INITIATION.phase,
     };
   });
@@ -161,24 +172,52 @@ async function walkTo(page, phase, { timeout = 120000 } = {}) {
    * the wrong direction looks exactly like a scene that cannot advance, which
    * is how the first version of this reported four phases broken. */
   let rightIsD = true;
+  /* AND SO IS WHICH WAY IS FORWARD, for the same reason and with more at
+   * stake. The shared Player's yaw is `Math.atan2(-dx, -dz)` -- a heading
+   * whose forward vector is (-sin, -cos) -- and the arithmetic below was
+   * written for the opposite convention. A walker that strafes the wrong way
+   * wanders; a walker that walks BACKWARDS never arrives, and looks from the
+   * outside exactly like a scene that cannot advance. So the forward sign is
+   * measured against the closing distance too. */
+  let forwardSign = -1;
   let best = Infinity;
   let stale = 0;
+  let flippedStrafe = false;
   try {
     for (;;) {
       const at = await state();
       if (at.phase === phase) return true;
       const gap = Math.hypot(at.dx, at.dz);
       if (Date.now() > deadline) {
-        throw new Error(`Initiation never walked to '${phase}' — in '${at.phase}', ${gap.toFixed(1)} m out`);
+        /* SAY WHICH OF THE TWO IT WAS.
+         *
+         * A walker that never moves has two completely different causes and
+         * one symptom. Either the scene will not take input -- `Player.enabled`
+         * is gated on `inputActive`, which the adapter drives off pointer lock,
+         * and a headless Chromium that refuses the lock leaves the keys inert
+         * -- or input is arriving and the walk is genuinely going nowhere.
+         * Reporting the distance alone sent the first of those to be
+         * investigated as the second. */
+        throw new Error(at.enabled
+          ? `Initiation never walked to '${phase}' — in '${at.phase}', ${gap.toFixed(1)} m out `
+            + 'with input live, so the keys are reaching the scene and the walk itself is stuck'
+          : `Initiation never walked to '${phase}': the scene never enabled input `
+            + `(Player.enabled false in '${at.phase}'). The adapter gates that on pointer `
+            + 'lock, which this browser did not grant — the walk was never driveable.');
       }
-      if (gap < best - 0.1) { best = gap; stale = 0; } else { stale += 1; }
-      if (stale === 4) { rightIsD = !rightIsD; stale = 0; }
+      if (gap < best - 0.1) { best = gap; stale = 0; flippedStrafe = false; } else { stale += 1; }
+      if (stale === 4) {
+        /* Strafe first, because it is the cheaper mistake; forward next. */
+        if (!flippedStrafe) { rightIsD = !rightIsD; flippedStrafe = true; }
+        else { forwardSign = -forwardSign; flippedStrafe = false; }
+        stale = 0;
+      }
 
       /* The heading-relative move. Forward is +Z rotated by the yaw, which is
        * the convention `Math.atan2(x, z)` reads for everywhere else here. */
       const sin = Math.sin(at.yaw);
       const cos = Math.cos(at.yaw);
-      const forward = at.dx * sin + at.dz * cos;
+      const forward = (at.dx * sin + at.dz * cos) * forwardSign;
       const right = at.dx * cos - at.dz * sin;
       const keys = new Set();
       if (forward > 0.4) keys.add('KeyW');

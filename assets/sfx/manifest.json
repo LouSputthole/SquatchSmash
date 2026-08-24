@@ -139,8 +139,8 @@
       "style": 0.4
     },
     "motel-rico": {
-      "id": "UZvBfqEdvCFLqsBOo9Zr",
-      "_note": "Rico, the Jerky Motel antagonist. PROVISIONAL audition casting from the owner's Boston side-character pool; voice lead must approve or replace this id before locking the final cast.",
+      "id": "5sPGxVw5vqj7a08c5Xbw",
+      "_note": "Rico, the Jerky Motel antagonist. RECAST 2026-08-24 by the owner, from UZvBfqEdvCFLqsBOo9Zr to 5sPGxVw5vqj7a08c5Xbw. The old id was provisional audition casting from the owner's Boston side-character pool and it read as somebody else -- owner, on the playthrough: 'Does Rico use the same voice as Capt Lou Sasole? I thought I heard his voice from one of the mansion gaurds as well.' THE THIRTY-NINE vo.motel.rico.* TAKES ON DISK ARE STILL THE OLD PERFORMER: an id here is an instruction to the generator, not to the mp3s. Every one of Rico's takes predates the take ledger, so all thirty-nine are stamped 'assumed' and carry no voiceId for `npm run check:takes` to measure this drift against -- which is exactly the hole the ledger's own header warns about, in the one case it cannot see. The recast is therefore also recorded in assets/sfx/rerecord.json, where a human reading the queue will find it. Regenerate with `npm run sfx -- --force --cast motel-rico`, then `npm run sfx:listen` and `npm run vo:takes`.",
       "model": "eleven_multilingual_v2",
       "stability": 0.45,
       "similarity": 0.82,
