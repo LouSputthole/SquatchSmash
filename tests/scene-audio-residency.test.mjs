@@ -142,6 +142,7 @@ const {
   MANSION_BACKGROUND_SCOPES,
   MANSION_NEXT_BEAT_SCOPES,
   MANSION_NEXT_BEAT_ZONES,
+  MANSION_RETURN_SCOPES,
   MANSION_START_SCOPES,
   mansionAudioBanks,
 } = await import('../src/mansion/audio-banks.js');
@@ -203,7 +204,10 @@ test('Mansion: every script scope is banked, and no scope is banked twice', () =
   const scriptSource = readSource('src/mansion/script.js');
   const minted = new Set([...scriptSource.matchAll(/cue\('([a-z]+)'/g)].map((match) => match[1]));
   assert.ok(minted.size >= 20, `expected the whole script, saw ${minted.size} scopes`);
-  const banked = [...MANSION_START_SCOPES, ...MANSION_NEXT_BEAT_SCOPES, ...MANSION_BACKGROUND_SCOPES];
+  const banked = [
+    ...MANSION_START_SCOPES, ...MANSION_NEXT_BEAT_SCOPES,
+    ...MANSION_BACKGROUND_SCOPES, ...MANSION_RETURN_SCOPES,
+  ];
   assert.equal(new Set(banked).size, banked.length, 'a scope in two banks decodes twice');
   for (const scope of minted) {
     assert.ok(banked.includes(scope), `scope "${scope}" fell out of every bank`);
@@ -232,18 +236,30 @@ test('Mansion: the opening walk is start-bank, the basement is nextBeat, the eve
   assert.ok(coveredBy('vo.silentsquatch.evening.stove.godfather', banks.background));
 
   /* Every recorded mansion take lands in exactly one bank. */
+  const returnBanks = mansionAudioBanks('return');
   for (const cue of soundManifest.sfx) {
     if (!cue.name.startsWith('vo.silentsquatch.')) continue;
     const homes = [banks.start, banks.nextBeat, banks.background]
       .filter((bank) => coveredBy(cue.name, bank)).length;
+    /* THE ONE SCOPE THE MISSION VISIT MUST NOT CARRY. `return` is the morning
+     * after -- the guards acknowledging the siege, Snow quoting six weeks for
+     * the foyer -- and none of it is reachable on the night of the mission, so
+     * a take of it in the mission's start bank is a decode in front of the
+     * start button for a line nobody can hear. It belongs to the return visit
+     * and to nothing else. */
+    if (cue.name.startsWith('vo.silentsquatch.return.')) {
+      assert.equal(homes, 0, `${cue.name} is a return-visit line, banked on the mission night`);
+      assert.ok(coveredBy(cue.name, returnBanks.start), `${cue.name} is in no return bank`);
+      continue;
+    }
     assert.equal(homes, 1, `${cue.name} is in ${homes} banks`);
   }
 
   /* The return briefing folds the mission scopes into its start bank. */
-  const returnBanks = mansionAudioBanks('return');
   assert.equal(returnBanks.nextBeat, null);
   assert.ok(returnBanks.start.prefixes.includes('vo.silentsquatch.aftermath.'));
   assert.ok(returnBanks.start.prefixes.includes('vo.silentsquatch.evening.'));
+  assert.ok(returnBanks.start.prefixes.includes('vo.silentsquatch.return.'));
 });
 
 test('Mansion: the cellar boundary awaits by construction — zones held, resume paths awaited', () => {

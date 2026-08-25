@@ -85,8 +85,13 @@ export const STOOL_SIT = 0.315;
 // The dress-shoe sole extends 2.2 cm below the old 0.90 leg root. Folding the
 // same rig onto a chair needs another 3.8 cm of lower-leg lift to keep both
 // soles on the floor without moving the hips off the authored cushion height.
-const STANDING_LEG_ROOT_Y = 0.922;
-const SEATED_LEG_ROOT_Y = 0.960;
+/* Exported because a fixture pose that moves the leg root has to be able to
+ * put it back: `sit()` raises it 38 mm so the thigh stays in the hip through a
+ * seated rotation, and a pose that writes `STANDING` and then hands the figure
+ * back leaves her sitting 38 mm wrong with nothing in the shared rig to
+ * correct it -- `_neutralPose()` does not touch the leg root. */
+export const STANDING_LEG_ROOT_Y = 0.922;
+export const SEATED_LEG_ROOT_Y = 0.960;
 
 /**
  * One person.

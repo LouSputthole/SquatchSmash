@@ -571,7 +571,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "heist.prospect_order_five": {
       "text": "605299c71c9b",
@@ -1152,7 +1152,7 @@
       "source": "inferred",
       "voice": "uncle",
       "voiceId": "nPczCjzI2devNBz1zQrb",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "radio.vo.announcer.00eb7vf": {
       "text": "a4b58e08fad0",
@@ -8694,7 +8694,7 @@
       "source": "inferred",
       "voice": "lou1",
       "voiceId": "M9UAxraM2w5tCjpOaIB0",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.bing2.lou.closed_not_clean": {
       "text": "4974e802e373",
@@ -9282,7 +9282,7 @@
       "source": "inferred",
       "voice": "aubbie",
       "voiceId": "3Qc2SrJq4us6etYTOtzn",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.bing2.walkup.cleanup.bartender": {
       "text": "a1847807424a",
@@ -9429,7 +9429,7 @@
       "source": "inferred",
       "voice": "aubbie",
       "voiceId": "3Qc2SrJq4us6etYTOtzn",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.bing2.walkup.party.bartender": {
       "text": "a1e7f277944c",
@@ -9688,7 +9688,7 @@
       "source": "inferred",
       "voice": "uncle",
       "voiceId": "nPczCjzI2devNBz1zQrb",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.bj.dealer.deal.1": {
       "text": "007e85ec5e58",
@@ -10213,7 +10213,7 @@
       "source": "inferred",
       "voice": "lou",
       "voiceId": "M9UAxraM2w5tCjpOaIB0",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.call.lou.attaboy.4": {
       "text": "0f235a1d37ca",
@@ -10269,7 +10269,7 @@
       "source": "inferred",
       "voice": "lou1",
       "voiceId": "M9UAxraM2w5tCjpOaIB0",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.call.lou.bada_bing.4": {
       "text": "2ded36411d3d",
@@ -10969,7 +10969,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.door.hint.eat.1": {
       "text": "ab1c3f9ae262",
@@ -10990,7 +10990,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.door.hint.piss.2": {
       "text": "d2bd6e418a18",
@@ -11025,7 +11025,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.door.hr.1": {
       "text": "c6778510890c",
@@ -11125,6 +11125,12 @@
       "voiceId": "iP95p4xoKVk53GoZ742B",
       "commit": "f94fe8fd47f49796efcb819c9860893f2e0f64b5"
     },
+    "vo.door.refusal.cabin_message.1": {
+      "text": "d1f83daa95f0",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
+    },
     "vo.door.refusal.counter_squatch.1": {
       "text": "fb314a6029c1",
       "source": "inferred",
@@ -11151,7 +11157,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.door.refusal.first_call.1": {
       "text": "1bd5ec3217ff",
@@ -12004,7 +12010,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.enolasquatch.prospect.release-2.1": {
       "text": "d9c0145085e9",
@@ -12018,7 +12024,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.enolasquatch.prospect.release-4.1": {
       "text": "e93b6499a198",
@@ -13403,7 +13409,7 @@
       "source": "inferred",
       "voice": "eric",
       "voiceId": "A7AUsa1uITCDpK29MG3m",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.golf.h1.eric.you_watched_it": {
       "text": "8d7e68df4e82",
@@ -13970,7 +13976,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.golf.h1.prospect.arrival_better_shoes": {
       "text": "748271958175",
@@ -13998,7 +14004,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.golf.h1.prospect.earned_morning_off": {
       "text": "31d3889438e3",
@@ -15692,7 +15698,7 @@
       "source": "inferred",
       "voice": "snow",
       "voiceId": "OhisAd2u8Q6qSA4xXAAT",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.graveyard.snow.lower": {
       "text": "f98ae7e0cbfc",
@@ -17995,7 +18001,7 @@
       "source": "inferred",
       "voice": "margo",
       "voiceId": "XlDdozLmuTofIxK4BjPD",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.margo.comehome.tony.1": {
       "text": "de74e6d40fbf",
@@ -20701,7 +20707,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.photo.10": {
       "text": "c6a1de9ae260",
@@ -20960,7 +20966,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.excuse.2": {
       "text": "a2012bf44a75",
@@ -20974,14 +20980,14 @@
       "source": "inferred",
       "voice": "sal",
       "voiceId": "q3pCVYOxlOb5G3l2O13o",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.final.2": {
       "text": "4ce43b767b20",
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.final.3": {
       "text": "85380442d4ef",
@@ -21009,14 +21015,14 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.greeting.1": {
       "text": "d00dc730d4b9",
       "source": "inferred",
       "voice": "mcclawsky",
       "voiceId": "yowh82B72eMNrxcxHgBh",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.opening.1": {
       "text": "b055f660e82d",
@@ -21037,21 +21043,21 @@
       "source": "inferred",
       "voice": "sal",
       "voiceId": "q3pCVYOxlOb5G3l2O13o",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.opening.12": {
       "text": "df220f1f8e89",
       "source": "inferred",
       "voice": "sal",
       "voiceId": "q3pCVYOxlOb5G3l2O13o",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.opening.13": {
       "text": "8f19fbe5c576",
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.opening.14": {
       "text": "69317e87ed8b",
@@ -21065,7 +21071,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.opening.3": {
       "text": "7881a6f48d88",
@@ -21079,7 +21085,7 @@
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.opening.5": {
       "text": "2d23a840acd3",
@@ -21093,14 +21099,14 @@
       "source": "inferred",
       "voice": "mcclawsky",
       "voiceId": "yowh82B72eMNrxcxHgBh",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.opening.7": {
       "text": "009d15261221",
       "source": "inferred",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.opening.8": {
       "text": "2367ec118f68",
@@ -21135,7 +21141,7 @@
       "source": "inferred",
       "voice": "mcclawsky",
       "voiceId": "yowh82B72eMNrxcxHgBh",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.sf.wrongsearch.1": {
       "text": "f18278e5edec",
@@ -22269,7 +22275,7 @@
       "source": "inferred",
       "voice": "booski",
       "voiceId": "s2wvuS7SwITYg8dqsJdn",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.silentsquatch.execution.booski.thatwasaconsole": {
       "text": "7e48ff9c2567",
@@ -22542,7 +22548,7 @@
       "source": "inferred",
       "voice": "mansion-guard-basement",
       "voiceId": "KTPVrSVAEUSJRClDzBw7",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.silentsquatch.guards.basement.nothingyours": {
       "text": "a1cba76d9d08",
@@ -22598,7 +22604,7 @@
       "source": "inferred",
       "voice": "mansion-guard-vault",
       "voiceId": "AocjYzHzWRalprWmBG9m",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.silentsquatch.house.hogmama.leftapanon": {
       "text": "1189031f727e",
@@ -22801,7 +22807,7 @@
       "source": "inferred",
       "voice": "booski",
       "voiceId": "s2wvuS7SwITYg8dqsJdn",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.silentsquatch.lock.dmt.againslower": {
       "text": "bfc843978715",
@@ -22885,7 +22891,7 @@
       "source": "inferred",
       "voice": "lou1",
       "voiceId": "M9UAxraM2w5tCjpOaIB0",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.silentsquatch.office.prospect.whatsinside": {
       "text": "8084bfdf79cf",
@@ -22962,7 +22968,7 @@
       "source": "inferred",
       "voice": "vetrov",
       "voiceId": "v0eRobr4pSbFT9FKocdw",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.silentsquatch.reaction.vetrov.openthedoor": {
       "text": "3616d08b1000",
@@ -22977,6 +22983,84 @@
       "voice": "vetrov",
       "voiceId": "v0eRobr4pSbFT9FKocdw",
       "commit": "f94fe8fd47f49796efcb819c9860893f2e0f64b5"
+    },
+    "vo.silentsquatch.return.basement.gottwo": {
+      "text": "92e2b075a678",
+      "source": "rendered",
+      "voice": "mansion-guard-basement",
+      "voiceId": "KTPVrSVAEUSJRClDzBw7"
+    },
+    "vo.silentsquatch.return.basement.runofit": {
+      "text": "8adb8c208537",
+      "source": "rendered",
+      "voice": "mansion-guard-basement",
+      "voiceId": "KTPVrSVAEUSJRClDzBw7"
+    },
+    "vo.silentsquatch.return.perimeter.camerasback": {
+      "text": "4859c659f9dc",
+      "source": "rendered",
+      "voice": "mansion-guard",
+      "voiceId": "lAqElvydqyTzitpwAdj6"
+    },
+    "vo.silentsquatch.return.perimeter.missedit": {
+      "text": "3bd7e8f9efe8",
+      "source": "rendered",
+      "voice": "mansion-guard-perimeter",
+      "voiceId": "ICwKbPHDHAM3eal5tHEZ"
+    },
+    "vo.silentsquatch.return.perimeter.wherever": {
+      "text": "b06a340437b3",
+      "source": "rendered",
+      "voice": "mansion-guard",
+      "voiceId": "lAqElvydqyTzitpwAdj6"
+    },
+    "vo.silentsquatch.return.snow.askmeatchristmas": {
+      "text": "52f9f7575479",
+      "source": "rendered",
+      "voice": "snow",
+      "voiceId": "OhisAd2u8Q6qSA4xXAAT"
+    },
+    "vo.silentsquatch.return.snow.marblecomesout": {
+      "text": "abf91340068a",
+      "source": "rendered",
+      "voice": "snow",
+      "voiceId": "OhisAd2u8Q6qSA4xXAAT"
+    },
+    "vo.silentsquatch.return.snow.nobodylistens": {
+      "text": "ac3448fedbb6",
+      "source": "rendered",
+      "voice": "snow",
+      "voiceId": "OhisAd2u8Q6qSA4xXAAT"
+    },
+    "vo.silentsquatch.return.snow.sixweeks": {
+      "text": "53beb7d5b862",
+      "source": "rendered",
+      "voice": "snow",
+      "voiceId": "OhisAd2u8Q6qSA4xXAAT"
+    },
+    "vo.silentsquatch.return.stairs.nicework": {
+      "text": "735dce45189d",
+      "source": "rendered",
+      "voice": "mansion-guard-stairs",
+      "voiceId": "bwCXcoVxWNYMlC6Esa8u"
+    },
+    "vo.silentsquatch.return.stairs.welcomeback": {
+      "text": "3bd1a97ceb3e",
+      "source": "rendered",
+      "voice": "mansion-guard-stairs",
+      "voiceId": "bwCXcoVxWNYMlC6Esa8u"
+    },
+    "vo.silentsquatch.return.vault.differentreason": {
+      "text": "7eb898f03b5e",
+      "source": "rendered",
+      "voice": "mansion-guard-vault",
+      "voiceId": "AocjYzHzWRalprWmBG9m"
+    },
+    "vo.silentsquatch.return.vault.nobodygotpast": {
+      "text": "e62576bec450",
+      "source": "rendered",
+      "voice": "mansion-guard-vault",
+      "voiceId": "AocjYzHzWRalprWmBG9m"
     },
     "vo.silentsquatch.silentnight.booski.finishit": {
       "text": "5db86aa9b8d1",
@@ -23963,7 +24047,7 @@
       "source": "inferred",
       "voice": "margo",
       "voiceId": "XlDdozLmuTofIxK4BjPD",
-      "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+      "commit": "d6e6efafc7924db2785ff1ca1c58cd0f27a60e23"
     },
     "vo.silver.margo.invitation.strong": {
       "text": "fd0ebbee7852",

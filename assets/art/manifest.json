@@ -393,9 +393,9 @@
     },
     {
       "slot": "bing.office.nephews",
-      "file": "lou-office-nephews.jpg",
-      "title": "The Nephews",
-      "caption": "Framed on the door wall of Lou's office. Top secret -- ask before you stare."
+      "file": "silver-sasquatches/silver-sasquatches-mansion-arrival.webp",
+      "title": "Arriving at the house",
+      "caption": "Cars on the gravel, lights on in every window. The night the family stopped being small."
     },
     {
       "slot": "bing.office.noir_print",
@@ -405,9 +405,9 @@
     },
     {
       "slot": "bing.office.the_boys",
-      "file": "silver-sasquatches-austin.jpg",
-      "title": "BLAST Austin Major \u2014 Silver Sasquatches",
-      "caption": "Top row of the door wall in Lou's office. The whole squad in Austin, back when everybody still had their original knees."
+      "file": "silver-sasquatches/silver-sasquatches-formal-family-portrait.webp",
+      "title": "The family, formally",
+      "caption": "Everybody in a suit, nobody smiling. It hung in the club before it hung anywhere else."
     },
     {
       "slot": "bing.office.shore",
@@ -417,15 +417,15 @@
     },
     {
       "slot": "bing.office.first_truck",
-      "file": "silver-sasquatches-5-years.jpg",
-      "title": "5 Years of Stacks",
-      "caption": "Top row of the door wall. Five years, one crest, and nobody has ever produced a receipt."
+      "file": "silver-sasquatches/silver-sasquatches-poker-room.webp",
+      "title": "THE POKER ROOM",
+      "caption": "The back room, painted from memory by somebody who was in it."
     },
     {
       "slot": "bing.office.old_place",
-      "file": "silver-sasquatches-denver-2026.jpg",
-      "title": "Silver Sasquatches \u2014 Denver 2026",
-      "caption": "Door wall of Lou's office. The Denver badge went up before anybody had actually been to Denver."
+      "file": "silver-sasquatches/silver-sasquatches-the-lounge.webp",
+      "title": "THE LOUNGE",
+      "caption": "The old place, before the refit. Lou keeps it where he can point at it."
     },
     {
       "slot": "bing.office.bing_1979",
@@ -621,33 +621,33 @@
     },
     {
       "slot": "mansion.foyer.crest",
-      "file": "logo-crest.png",
-      "title": "The crest, over the foyer",
-      "caption": "Hung on the balcony front where it faces the front door across the void."
+      "file": "silver-sasquatches/silver-sasquatches-emblem.webp",
+      "title": "The Silver Sasquatches emblem",
+      "caption": "The real one, cut in silver. The flat badge that used to hang here is the one on the gate, and a house does not put its gate sign over its own stairs."
     },
     {
       "slot": "mansion.lounge.banner",
-      "file": "golf-foursome.jpg",
-      "title": "The foursome, in the billiard room",
-      "caption": "On the pier between the bay arches, where the trophy cases can see it. Portrait, because the pier is 0.8 m wide and a wide photo on it measures 0.48 m tall."
+      "file": "silver-sasquatches/mountain-lake-sunrise.webp",
+      "title": "The lake, at first light",
+      "caption": "The lounge’s long wall, which wanted something to look at rather than something to read."
     },
     {
       "slot": "mansion.bay.shield",
-      "file": "bar-americana.jpg",
-      "title": "Americana, over the bar",
-      "caption": "Behind the Jack And Daniels, which is where bar art belongs."
+      "file": "silver-sasquatches/lakeside-dock.webp",
+      "title": "The dock",
+      "caption": "Over the billiard bay’s bar. Somebody’s summer, and nobody in this room will say whose."
     },
     {
       "slot": "mansion.conference.crest",
-      "file": "lan-jerseys-group.jpg",
-      "title": "The jerseys, in the conference room",
-      "caption": "Over the coffee service, facing the long table. The people the meeting is about."
+      "file": "silver-sasquatches/silver-sasquatches-inner-circle.webp",
+      "title": "INNER CIRCLE",
+      "caption": "The boardroom. Everybody in the frame has sat at this table."
     },
     {
       "slot": "mansion.gallery.pride",
-      "file": "dreamhack-crowd.jpg",
-      "title": "The crowd, on the gallery",
-      "caption": "At the west end of the run, between the founders' portraits and the bedrooms."
+      "file": "silver-sasquatches/silver-sasquatches-omerta.webp",
+      "title": "OMERTA",
+      "caption": "One word, in the gallery, where every guest walks past it on the way in."
     },
     {
       "slot": "mansion.gallery.campfire",
@@ -717,15 +717,15 @@
     },
     {
       "slot": "mansion.ballroom.backdrop",
-      "file": "iem-dallas-2024-arena.jpg",
-      "title": "The arena, behind the stage",
-      "caption": "Hung on the swag behind the drum riser. The band plays under a full house."
+      "file": "silver-sasquatches/desert-canyon-sunset.webp",
+      "title": "The canyon",
+      "caption": "The full width of the ballroom’s end wall, lit from below."
     },
     {
       "slot": "mansion.office.shield",
-      "file": "logo-shield.jpg",
-      "title": "The shield, in Lou's office",
-      "caption": "On the wall behind the desk, east of his own door. A man's badge goes over his own chair."
+      "file": "silver-sasquatches/silver-sasquatches-the-estate.webp",
+      "title": "THE ESTATE",
+      "caption": "The house, drawn the way its owner sees it, on the wall of the room he runs it from."
     },
     {
       "slot": "mansion.office.hogmama",
@@ -735,45 +735,45 @@
     },
     {
       "slot": "mansion.basement.shield",
-      "file": "basement-squad.jpg",
-      "title": "The squad, in the armory",
-      "caption": "Over the noticeboard in the alcove behind the cellar stair."
+      "file": "silver-sasquatches/forest-waterfall.webp",
+      "title": "The falls",
+      "caption": "At the foot of the cellar stairs. The last daylight anybody sees on the way down."
     },
     {
       "slot": "mansion.trophy.crest",
-      "file": "shrine-booski-podium.jpg",
-      "title": "The podium, over the Great Includer",
-      "caption": "High on the apse wall in the west wing, above the trophy itself."
+      "file": "silver-sasquatches/silver-sasquatches-blood-oath.webp",
+      "title": "BLOOD OATH",
+      "caption": "The trophy room. Not one of the trophies, and the only thing in here nobody won."
     },
     {
       "slot": "mansion.winter.shield",
-      "file": "cave-selfie.jpg",
-      "title": "The cave, in the winter garden",
-      "caption": "On the inner wall at the far end, facing the lily pool."
+      "file": "silver-sasquatches/mountain-valley-sunset.webp",
+      "title": "The valley, at sunset",
+      "caption": "The country the family came down out of, in a gold frame, in a warm room."
     },
     {
       "slot": "mansion.cellar.crest",
       "file": "casabonita.webp",
-      "title": "Casa Bonita, on the lower level",
-      "caption": "Beside the armory door, at the head of the cellar corridor."
+      "title": "Casa Bonita",
+      "caption": "Down in the cellar. Nobody remembers who framed it and nobody will take it down."
     },
     {
       "slot": "mansion.theatre.banner",
-      "file": "major-austin-stands.jpg",
-      "title": "The stands, in the screening room",
-      "caption": "On the side wall between the sconces, where the house lights catch it."
+      "file": "silver-sasquatches/coastal-lighthouse.webp",
+      "title": "The lighthouse",
+      "caption": "Outside the theatre door, lit low, so it reads on the way past and not during."
     },
     {
       "slot": "mansion.lan.banner",
-      "file": "team-lan-center.jpg",
-      "title": "The team, in the LAN room",
-      "caption": "Over the five stations, next to the house ladder."
+      "file": "silver-sasquatches/silver-sasquatches-house-rules.webp",
+      "title": "HOUSE RULES",
+      "caption": "Over the LAN room, where they are read out loud about once a month."
     },
     {
       "slot": "mansion.lan.chairs",
-      "file": "logo-crest.png",
-      "title": "The crest, on the gamer chairs",
-      "caption": "On the back of every chair in the LAN room -- one slot dresses all five. A crest is what you print on a chair."
+      "file": "silver-sasquatches/silver-sasquatches-family-enterprise.webp",
+      "title": "FAMILY ENTERPRISE",
+      "caption": "Behind the chairs in the LAN room, where the family that does not play still gets to watch."
     },
     {
       "slot": "mansion.guest.art",
@@ -784,8 +784,8 @@
     {
       "slot": "mansion.guest.crest",
       "file": "logo-crest.png",
-      "title": "The crest, over the guest bed",
-      "caption": "Centred over the bed in the lower-level guest room, where the family photograph used to hang."
+      "title": "The crest, over the bed",
+      "caption": "Centred on the headboard wall, clear of the headboard itself. A guest sleeps under the badge."
     },
     {
       "slot": "mansion.gate.crests",
@@ -802,8 +802,8 @@
     {
       "slot": "mansion.bedroom.booski-death.crest",
       "file": "logo-crest.png",
-      "title": "The crest, over Booski and DeathMegatron's bed",
-      "caption": "The shared room's house badge, centred above the modern platform bed."
+      "title": "The crest, over the shrine",
+      "caption": "The same badge as every other room, which is the point: he was one of theirs."
     },
     {
       "slot": "mansion.bedroom.booski-death.booski",
@@ -819,21 +819,21 @@
     },
     {
       "slot": "mansion.vault.mark",
-      "file": "stacks-5-years.jpg",
-      "title": "Five years of stacks, in the vault",
-      "caption": "On the steel beside the vault door, where the count is written up."
+      "file": "silver-sasquatches/silver-sasquatches-estate-architectural-study.webp",
+      "title": "The estate, in section",
+      "caption": "An architect’s study of the house, hung outside the vault. Every room on it except this one."
     },
     {
       "slot": "mansion.suite.crest",
-      "file": "logo-crest.png",
-      "title": "The crest, over the suite's bar",
-      "caption": "Third floor, behind the bottles in Lou's own bar. The only badge hung up there; the other one is set in the marble at the head of the stair."
+      "file": "silver-sasquatches/silver-sasquatches-the-patriarch.webp",
+      "title": "THE PATRIARCH",
+      "caption": "Lou, seated, holding a glass, behind his own bottles. He commissioned it and he hung it where he would see it every night."
     },
     {
       "slot": "mansion.gallery.roster",
       "file": "austin-major-2025-roster.jpg",
-      "title": "The roster, on the gallery",
-      "caption": "Austin Major 2025, every name on it. Hung opposite the founders' portraits."
+      "title": "The roster",
+      "caption": "BLAST Austin Major. Beside the east stair, under its own lamp."
     },
     {
       "slot": "mansion.ballroom.major",
@@ -844,8 +844,8 @@
     {
       "slot": "mansion.lounge.cowboy",
       "file": "austin-major-cowboy.jpg",
-      "title": "Austin, framed",
-      "caption": "In the billiard room, first thing you see coming through from the front hall."
+      "title": "Austin",
+      "caption": "The cowboy shot from the Major, in the lounge where the stories get told."
     },
     {
       "slot": "mansion.conference.stacks",
@@ -1017,9 +1017,9 @@
     },
     {
       "slot": "luxury.bath.monochrome",
-      "file": "mansion/dynasty-noir.jpg",
-      "title": "Noir Family",
-      "caption": "Black marble, black frame, everybody pretending that was restraint."
+      "file": "silver-sasquatches/tropical-beach-sunset.webp",
+      "title": "The beach, at sunset",
+      "caption": "The one room in the apartment with no city in it."
     },
     {
       "slot": "initiation.ceremony.saint-card",

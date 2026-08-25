@@ -51,6 +51,23 @@ export const MANSION_NEXT_BEAT_SCOPES = Object.freeze([
 export const MANSION_BACKGROUND_SCOPES = Object.freeze(['evening']);
 
 /**
+ * THE MORNING AFTER, AND ONLY THEN.
+ *
+ * The `return` scope is the guards acknowledging the siege, and Snow in a work
+ * vest quoting six weeks for the foyer. Every line in it is written for a
+ * house the player has already fought through, so it CANNOT ride the mission
+ * visit's banks: on the night of PROJECT SILENT SQUATCH not one of these cues
+ * can be reached, and putting them in the start bank would put a dozen decodes
+ * of unreachable dialogue in front of the start button.
+ *
+ * It is its own list rather than a fourth entry in `MANSION_START_SCOPES`
+ * precisely so `mansionAudioBanks('first')` can leave it out and
+ * `mansionAudioBanks('return')` can pick it up, and so the residency test can
+ * say which of the two it expects each take to land in.
+ */
+export const MANSION_RETURN_SCOPES = Object.freeze(['return']);
+
+/**
  * The working sets in the house: `core/tv.js`'s one cue.
  *
  * `Tv` plays exactly `tv.click`, and only from `toggle()` and `next()` --
@@ -152,6 +169,7 @@ export function mansionAudioBanks(visit = 'first', radioCueNames = []) {
           ...MANSION_START_SCOPES,
           ...MANSION_NEXT_BEAT_SCOPES,
           ...MANSION_BACKGROUND_SCOPES,
+          ...MANSION_RETURN_SCOPES,
         ]),
       },
       nextBeat: null,

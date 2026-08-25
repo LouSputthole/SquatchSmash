@@ -13,6 +13,135 @@
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+/**
+ * Height of the pelvis in the figure's own body-local frame.
+ *
+ * `src/bing/cast.js` builds the hip slab at `pos: [0, 1.0, 0]` inside the
+ * `body` group, and `g.scale` carries height, so this is 1.0 for everybody on
+ * the roster. Named here because the recline below is arithmetic about it, and
+ * a magic 1.0 in that arithmetic is a number nobody could check.
+ */
+const BODY_HIP_Y = 1.0;
+
+/**
+ * Lean the torso back about the HIP rather than about the feet.
+ *
+ * OWNER PLAYTEST, TWICE: *"Girls on chairs legs are detached from body."*
+ *
+ * They were, and by 44 centimetres. The `body` group's origin is the figure's
+ * own base -- the floor between her feet -- so `body.rotation.x = -0.46` does
+ * not lean her back in a chair, it rotates her whole torso about her ANKLES.
+ * The pelvis rides at body-local y 1.0, so 0.46 rad takes it 1.0 * sin(0.46) =
+ * 0.444 m backwards and 1.0 * (1 - cos 0.46) = 0.104 m down. The legs are
+ * SIBLINGS of `body`, not children of it, and they stayed exactly where they
+ * were. Half a metre of daylight between her hips and her thighs.
+ *
+ * Rotating about the hip instead is one translation: put the body back where
+ * the rotation took the hip from. After a rotation of `pitch` about X, the
+ * point (0, HIP, 0) lands at (0, HIP*cos, HIP*sin), so adding
+ * (0, HIP*(1-cos), -HIP*sin) returns it. Exact at every angle, so the pose
+ * cannot drift as the rest cycle breathes.
+ *
+ * `_neutralPose()` in the shared Npc rig zeroes `body.position.x` and `.z`
+ * every frame but NOT `.y`, which is why this writes all three rather than
+ * only the two that move: an unwritten `.y` would accumulate.
+ */
+export function reclineTorsoAboutHip(npc, pitch, roll = 0) {
+  const body = npc?.parts?.body;
+  if (!body) return;
+  body.rotation.x = pitch;
+  body.rotation.z = roll;
+  body.position.x = 0;
+  body.position.y = BODY_HIP_Y * (1 - Math.cos(pitch));
+  body.position.z = -BODY_HIP_Y * Math.sin(pitch);
+}
+
+/* ---------------------------------------------------------------------- */
+/* THE DRESS BEAT'S POSE                                                    */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Measured off `src/bing/cast.js`'s rig, not guessed, because every number
+ * below is an arithmetic consequence of one of them:
+ *
+ *   hip pivot        y 0.922   `STANDING_LEG_ROOT_Y`
+ *   thigh            0.44      `leg()`'s slab, and the knee group at -0.44
+ *   knee cap slab    0.11 tall, 0.188 deep -- once the shin folds back the
+ *                              DEEP dimension is the vertical one
+ *   shin             0.42
+ *   shoulder pivot   y 1.44    `arm()`
+ *   upper arm 0.30 + forearm 0.27 = 0.57 of reach from the shoulder
+ */
+/* MEASURED ON THE BUILT FIGURE, by sweeping the fold and reading the lowest
+ * mesh back, because the rig has no ankle: the shoe is a child of the shin, so
+ * how far the shin folds decides where the foot ends up and there is nothing to
+ * correct it with. At 1.55 the shin lies flat and the shoe hangs 110 mm THROUGH
+ * the deck; the knee is only 6 mm under at the same drop, so the sole is the
+ * whole problem. At 1.80 the fold carries the foot clear and the knee becomes
+ * the lowest thing on her, 15 mm under -- which the drop below takes out.
+ * Everything then lands within 2 mm of the deck: knees on it, hands on it,
+ * nothing through it. */
+const KNEE_DROP = 0.375;
+const SHIN_FOLD = 1.80;
+const TORSO_PITCH = 1.50;
+
+/**
+ * Hands and knees.
+ *
+ * OWNER PLAYTEST, verbatim: *"Need to fix the dress fix scene, they need to
+ * get on all fours."*
+ *
+ * The beat used to play with the performer in her sun-lounger recline, which
+ * is a pose for lying back on a chair and reads as nothing else. This is the
+ * pose the beat is actually about, built from the rig it has rather than from
+ * a new one:
+ *
+ *   - The figure DROPS 0.375 m, and the shins fold 1.80 rather than the 1.55
+ *     that lays them flat -- both numbers measured on the built body rather
+ *     than derived, for the reason at KNEE_DROP: this rig has no ankle joint.
+ *   - Thighs vertical (hip 0), shins folded back along the floor.
+ *   - The torso pitches 1.50 forward ABOUT THE HIP -- see
+ *     `reclineTorsoAboutHip`, and note that doing this with a bare
+ *     `body.rotation.x` would swing her pelvis a metre through the deck,
+ *     since that group's origin is the floor between her feet.
+ *   - Arms counter-rotate the torso exactly, so they hang vertically from a
+ *     shoulder the pitch has brought down to 0.61 + 0.44*cos(1.50) = 0.64.
+ *     0.57 of arm plus the hand slab reaches the deck from there.
+ *   - The head counter-rotates most of the pitch back off, so she is looking
+ *     along the deck rather than straight down at it.
+ *
+ * Every value is written, none accumulated, so this is safe to call once a
+ * frame for as long as the beat runs.
+ *
+ * @param {object} npc     an Npc from src/bing/cast.js
+ * @param {number} floorY  the deck she is on, in the npc's parent frame
+ */
+export function poseAllFours(npc, floorY) {
+  const parts = npc?.parts;
+  if (!parts || !Number.isFinite(floorY)) return;
+  const scale = parts.heightScale ?? 1;
+  npc.group.position.y = floorY - KNEE_DROP * scale;
+
+  parts.legL.position.y = 0.922;
+  parts.legR.position.y = 0.922;
+  parts.legL.rotation.x = 0;
+  parts.legR.rotation.x = 0;
+  parts.shinL.rotation.x = SHIN_FOLD;
+  parts.shinR.rotation.x = SHIN_FOLD;
+
+  reclineTorsoAboutHip(npc, TORSO_PITCH);
+
+  /* Straight down, and a little outboard so the hands land wider than the
+   * shoulders -- which is where a person puts them. */
+  parts.armL.rotation.set(-TORSO_PITCH, 0, -0.14);
+  parts.armR.rotation.set(-TORSO_PITCH, 0, 0.14);
+  parts.foreL.rotation.set(0.06, 0, 0);
+  parts.foreR.rotation.set(0.06, 0, 0);
+
+  parts.head.rotation.x = -TORSO_PITCH + 0.35;
+  parts.head.rotation.z = 0;
+}
+
 export function createPoolTreadingMotion(npc, {
   water,
   waterY,
@@ -152,8 +281,10 @@ export function createSeatedPerformerMotion(npc, {
       npc.group.position.y = seatY;
       if (kind === 'tub') {
         const gesture = Math.sin(t * 0.78);
-        npc.parts.body.rotation.x = -0.035 + Math.sin(t * 0.54) * 0.02;
-        npc.parts.body.rotation.z = gesture * 0.038;
+        /* The same hip-anchored lean. It is only 0.035 rad here, so it costs
+         * her 35 mm rather than 440 -- but a torso that pivots at the ankles
+         * is wrong at every angle, not only the big ones. */
+        reclineTorsoAboutHip(npc, -0.035 + Math.sin(t * 0.54) * 0.02, gesture * 0.038);
         npc.parts.head.rotation.x = 0.035 + Math.sin(t * 0.66 + 0.8) * 0.025;
         npc.parts.head.rotation.z = -gesture * 0.7;
         npc.parts.armL.rotation.set(-0.44 + gesture * 0.05, 0, -0.28);
@@ -167,8 +298,7 @@ export function createSeatedPerformerMotion(npc, {
        * ten seconds apart, so they still prove the pose does not accumulate
        * while intermediate samples prove she is alive. */
       const rest = Math.sin(t * ((Math.PI * 2) / 5));
-      npc.parts.body.rotation.x = -0.46 + rest * 0.012;
-      npc.parts.body.rotation.z = rest * 0.018;
+      reclineTorsoAboutHip(npc, -0.46 + rest * 0.012, rest * 0.018);
       npc.parts.head.rotation.x = 0.2 + rest * 0.022;
       npc.parts.head.rotation.z = -rest * 0.014;
       npc.parts.armL.rotation.set(-0.28 + rest * 0.025, 0, -0.28);

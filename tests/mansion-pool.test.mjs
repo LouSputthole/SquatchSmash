@@ -149,6 +149,81 @@ test('pool: the 8-ball rack is a legal rack', () => {
 /* THE SUB-STEP                                                         */
 /* ================================================================== */
 
+test('pool: once the stroke is finished the cue stands still while the ball runs', () => {
+  /* Owner, twice: *"Still need to fix pool (stick follows ball all the way
+   * through shot)"*. `syncMeshes` placed the cue relative to the cue ball's
+   * LIVE position for the whole of `rolling`, so the instant the ball left the
+   * tip the cue set off after it and travelled the length of the table behind
+   * it. A cue stays where the man holding it is standing.
+   *
+   * The assertion is deliberately NOT "the cue barely moves". It moves a great
+   * deal, and it should: a full-power break draws it back most of half a metre
+   * and follows through, all authored in CUE_STROKE. What must be true is that
+   * once that stroke has run, the cue is STATIONARY -- while the ball is still
+   * going. Measuring it from the moment of commit would have measured the
+   * stroke and called it the bug.
+   *
+   * A fake mesh set is enough: `attach()` only ever writes position/rotation/
+   * visible, so this reads the exact numbers the scene would apply. */
+  const node = () => ({
+    position: { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
+    rotation: { x: 0, y: 0, z: 0, order: 'XYZ', set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
+    visible: true,
+  });
+  const cueMesh = node();
+  const frame = new PoolFrame({ rng: steady });
+  frame.attach({
+    centre: { x: 0, z: 0 }, ballY: 0.8, balls: new Map(), cue: cueMesh, cueLength: 1.45,
+  });
+
+  frame.takeCue();
+  frame.shoot({ angle: 0, power: 1 });   // straight up the table, hard
+
+  const cueBall = frame.balls.find((ball) => ball.id === 0);
+  /* "The stroke has finished" is read off the cue itself -- two consecutive
+   * frames in the same place -- rather than off a duration constant. A time
+   * threshold has to agree with CUE_STROKE's internals to be right, and if it
+   * is wrong the snapshot lands mid-follow-through and the test measures the
+   * stroke instead of the bug. The cue coming to a stop is the thing that
+   * actually matters, and it is observable. */
+  let previous = { x: cueMesh.position.x, z: cueMesh.position.z };
+  let settled = null;
+  let ballTravelAfterSettle = 0;
+  let guard = 0;
+  while (frame.state === 'rolling' && guard++ < 6000) {
+    frame.update(0.05);
+    /* `update` can end the shot inside this very iteration. Once it has, the
+     * cue going back to the address for whoever is on next is correct and has
+     * nothing to do with following a ball -- so the window closes here. */
+    if (frame.state !== 'rolling') break;
+    frame.syncMeshes();
+    const here = { x: cueMesh.position.x, z: cueMesh.position.z };
+    if (!settled) {
+      const moved = Math.hypot(here.x - previous.x, here.z - previous.z);
+      previous = here;
+      if (moved > 1e-9) continue;              // still stroking
+      settled = { ...here, ballZ: cueBall.z };
+      continue;
+    }
+    const drift = Math.hypot(cueMesh.position.x - settled.x, cueMesh.position.z - settled.z);
+    ballTravelAfterSettle = Math.max(ballTravelAfterSettle, Math.abs(cueBall.z - settled.ballZ));
+    assert.ok(
+      drift < 1e-9,
+      `the cue moved ${drift.toFixed(4)} m after its stroke had finished; the ball has `
+      + `travelled ${ballTravelAfterSettle.toFixed(3)} m since. The cue is following the ball.`,
+    );
+  }
+  assert.ok(guard < 6000, 'the shot never came to rest');
+  assert.ok(settled, 'the shot ended before the stroke had even finished');
+  /* And the proof is only worth anything if the ball went somewhere while the
+   * cue was standing still. */
+  assert.ok(
+    ballTravelAfterSettle > 0.5,
+    `the cue ball only moved ${ballTravelAfterSettle.toFixed(3)} m after the stroke; `
+    + 'this proves nothing about a cue that follows it',
+  );
+});
+
 test('pool: a break at the scene dt clamp does not tunnel a single ball', () => {
   /* THE CONDITION THAT BREAKS THE NAIVE VERSION. src/mansion/main.js clamps
    * dt to 0.05 s and the software rasteriser these gates run under renders at

@@ -101,7 +101,7 @@
  * Every bark below is one flat sentence from somebody who is at work.
  */
 import * as THREE from 'three';
-import { Npc } from '../bing/cast.js';
+import { Npc, SEATED_LEG_ROOT_Y } from '../bing/cast.js';
 import { FAMILY, buildFamilyScripts } from '../bing/family.js';
 import {
   SWING_LANDS_AT, SWING_SECONDS, makeCord, poseCord,
@@ -110,7 +110,7 @@ import {
   BADA_BING_BARTENDER, BIG_UNCLE_LOU_MANSION, BIG_UNCLE_LOU_MANSION_RETURN,
   BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON,
   ERIC, GRATIN, HOG_MAMA, IRISH, MANSION_BOOTH_MAN, MANSION_DOOR_MAN,
-  MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
+  MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW, SNOW_MAINTENANCE,
 } from '../core/wardrobe.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { coarseActorRole, markActor } from '../core/staging.js';
@@ -122,6 +122,7 @@ import { createDressHelpActorStaging } from '../world/dress-help-staging.js';
 import { mountLilTomCruze } from './dog.js';
 import {
   createLanGamerMotion, createPoolTreadingMotion, createSeatedPerformerMotion,
+  poseAllFours, reclineTorsoAboutHip,
 } from './performer-motion.js';
 import {
   MANSION_PERFORMER_VARIANTS, MANSION_POOL_PERFORMER_POSTS,
@@ -986,8 +987,26 @@ export function mountMansionCast(scene, world = {}, {
    * Three men, one voice, on three loops. The grounds publish each loop's
    * walking height: lawns are y 0, while the centre drive follows its 5 cm
    * paver top instead of burying the guards' shoes in it. */
+  /* THE MORNING AFTER, EVERY ONE OF THEM SAYS SOMETHING ELSE.
+   *
+   * Owner playtest: *"Repaired mansion is really just the same thing as the
+   * original mansion. The guards should have some voicelines acknowledging
+   * your actions."* The return visit re-mounts this module verbatim, so until
+   * now the five men who had watched the player fight the siege through this
+   * house greeted him the next morning with the mission night's lines -- "Keep
+   * on the path", "Nothing down here belongs to you". The house had not
+   * noticed what happened in it.
+   *
+   * One helper, so the choice is made in exactly one place and a post that
+   * gains a line cannot pick up a return variant by accident: pass the pair,
+   * get the one this visit wants. `script.js` holds both. */
+  const forVisit = (missionLine, returnLine) => (
+    visit === 'return' && returnLine ? returnLine : missionLine
+  );
   const PERIMETER_BARKS = [
-    SEQUENCES.guardPathBark, SEQUENCES.guardCameraBark, SEQUENCES.guardLapBark,
+    forVisit(SEQUENCES.guardPathBark, SEQUENCES.guardPathReturn),
+    forVisit(SEQUENCES.guardCameraBark, SEQUENCES.guardCameraReturn),
+    forVisit(SEQUENCES.guardLapBark, SEQUENCES.guardLapReturn),
   ];
   /* The grounds publish the live routes beside the geometry they avoid. The
    * legacy constant remains only as a fallback for isolated cast fixtures
@@ -1029,8 +1048,8 @@ export function mountMansionCast(scene, world = {}, {
     z: balcony.z,
     yaw: yawToward(balcony.x + 1.2, balcony.z, balcony.x, balcony.z - 10),
     folded: true,
-    bark: SEQUENCES.guardStairsBark,
-    idle: SEQUENCES.guardStairsIdle,
+    bark: forVisit(SEQUENCES.guardStairsBark, SEQUENCES.guardStairsReturn),
+    idle: forVisit(SEQUENCES.guardStairsIdle, SEQUENCES.guardStairsReturnIdle),
     look: 'He is watching the front doors, not you.',
   });
 
@@ -1078,8 +1097,8 @@ export function mountMansionCast(scene, world = {}, {
     /* At the set, not past it. */
     yaw: yawToward(basementAt.x, basementAt.z, cellarTvAt.x, cellarTvAt.z),
     folded: true,
-    bark: SEQUENCES.guardBasementBark,
-    idle: SEQUENCES.guardBasementIdle,
+    bark: forVisit(SEQUENCES.guardBasementBark, SEQUENCES.guardBasementReturn),
+    idle: forVisit(SEQUENCES.guardBasementIdle, SEQUENCES.guardBasementReturnIdle),
     look: 'Down here watching a television with the sound off.',
   });
 
@@ -1100,8 +1119,8 @@ export function mountMansionCast(scene, world = {}, {
     z: vaultPost,
     yaw: yawToward(vault.x, vaultPost, vault.x, vault.z),
     folded: true,
-    bark: SEQUENCES.guardVaultBark,
-    idle: SEQUENCES.guardVaultIdle,
+    bark: forVisit(SEQUENCES.guardVaultBark, SEQUENCES.guardVaultReturn),
+    idle: forVisit(SEQUENCES.guardVaultIdle, SEQUENCES.guardVaultReturnIdle),
     look: 'He is standing between you and a door nobody closed.',
   });
 
@@ -1155,17 +1174,63 @@ export function mountMansionCast(scene, world = {}, {
    * the centreline -- the cart's offset from Snow is untouched, so it still
    * clears him the same way the note below describes -- and the bucket now
    * sits at x -2.551..-1.749, 349 mm clear of the table's western edge. */
-  const snowAt = { x: foyer.x - 3.6, y: foyer.y, z: foyer.z - 1.2 };
+  /* THE MORNING AFTER HE IS NOT MOPPING, HE IS REBUILDING THE ROOM.
+   *
+   * Owner playtest: *"Maybe Snow is working on it as a maintenance man -- lets
+   * give him a maintenance outfit and a voice line about how long its going to
+   * take to get everything fixed up."*
+   *
+   * ./repairs.js lifts a patch of the compass inlay on the return visit and
+   * publishes the spot a man kneeling over it stands on, through the anchor
+   * table like every other post in this house -- so this reads the anchor
+   * rather than repeating its arithmetic, and the two cannot drift apart if
+   * the work site moves. `foyerCenter` is the fallback for a cast mounted
+   * without the return dressing (a fixture, a preview) and it puts him back
+   * where the mission night has always had him. */
+  const repairing = visit === 'return';
+  const repairSpot = at('foyerRepairSpot', { x: foyer.x - 3.6, y: foyer.y, z: foyer.z - 1.2 });
+  const snowAt = repairing
+    ? repairSpot
+    : { x: foyer.x - 3.6, y: foyer.y, z: foyer.z - 1.2 };
   post('snow', {
     role: 'family_member',
     name: 'Snow',
-    model: withFace(SNOW, FACES.snow),
+    model: withFace(repairing ? SNOW_MAINTENANCE : SNOW, FACES.snow),
     job: 'work',
     x: snowAt.x,
     y: snowAt.y,
     z: snowAt.z,
-    yaw: yawToward(snowAt.x, snowAt.z, foyer.x, foyer.z - 6),
-    look: 'Gloves, a cart and a bucket, in a house where nothing has happened yet.',
+    /* Facing the hole in the floor on the return visit, and the front doors
+     * on the mission night. */
+    yaw: repairing
+      ? yawToward(snowAt.x, snowAt.z, snowAt.x + 0.30, snowAt.z + 1.55)
+      : yawToward(snowAt.x, snowAt.z, foyer.x, foyer.z - 6),
+    /* His foyer bark belongs to the MISSION, which owns the `snow` zone and
+     * fires `SEQUENCES.snowFoyer` from it. The return visit has no mission
+     * running, so nothing else in the game would ever give him a line -- and
+     * a maintenance man standing silently over a hole he is not talking about
+     * is the same shape of miss as the guards saying "keep on the path". */
+    bark: repairing ? SEQUENCES.snowRepairFoyer : null,
+    idle: repairing ? SEQUENCES.snowRepairIdle : null,
+    look: repairing
+      ? 'Snow, in a work vest, kneeling over a hole where the marble used to be.'
+      : 'Gloves, a cart and a bucket, in a house where nothing has happened yet.',
+    /* Walking past him gets the quote for the foyer; ASKING him gets why. He
+     * is the only man in the house who can say what is actually wrong with
+     * the floor, and "marble you can't patch" is the sentence that makes the
+     * bare grey rectangle beside him read as work rather than as damage.
+     *
+     * NOT gated behind `interactEnabled`. On the mission night he has a `look`
+     * and no `onUse`, and `post()` registers a LOOK prompt for exactly that
+     * case -- gating the registration on the visit would take his mission-night
+     * look-at away to add a return-visit E press. */
+    onUse: repairing
+      ? () => {
+        if (dialogue.busy) return false;
+        dialogue.interject(SEQUENCES.snowRepairSecond);
+        return true;
+      }
+      : null,
   });
   const cart = makeJanitorCart();
   /* Far enough forward that the cart's own rear — the push bar and the mop
@@ -1986,6 +2051,12 @@ export function mountMansionCast(scene, world = {}, {
   ));
   function posePoolRecliner(npc) {
     if (!npc?.parts) return;
+    /* The seated leg root, written rather than assumed. `sit()` raises it 38 mm
+     * and `_neutralPose()` never touches it again, so a fixture pose that moves
+     * it -- the dress beat's hands-and-knees does -- would otherwise hand her
+     * back 38 mm out of her own hip for the rest of the evening. */
+    npc.parts.legL.position.y = SEATED_LEG_ROOT_Y;
+    npc.parts.legR.position.y = SEATED_LEG_ROOT_Y;
     /* A dining-chair sit folds the shin vertical at the knee. On a sun
      * lounger that vertical shin went through the deck slats by their full
      * 45 mm thickness. Extend both legs down the cushion instead: the thigh
@@ -1995,7 +2066,10 @@ export function mountMansionCast(scene, world = {}, {
     npc.parts.legR.rotation.x = -1.75;
     npc.parts.shinL.rotation.x = 0.25;
     npc.parts.shinR.rotation.x = 0.25;
-    npc.parts.body.rotation.x = -0.46;
+    /* ABOUT THE HIP. `body.rotation.x = -0.46` on its own pivots the torso at
+     * her ankles and takes the pelvis 0.44 m off the top of her own thighs --
+     * see reclineTorsoAboutHip, which is the arithmetic that puts it back. */
+    reclineTorsoAboutHip(npc, -0.46);
     /* Npc.update resets the shared pose first, but this assignment is still
      * deliberate: a fixture pose must never accumulate if that reset changes. */
     npc.parts.head.rotation.x = 0.2;
@@ -2007,6 +2081,12 @@ export function mountMansionCast(scene, world = {}, {
     secondPhase: 'hello', secondDressHelped: false,
   };
   let dressStrap = null;
+  /** Fallen 0.42, seated 0.06. The pull runs between these two. */
+  const STRAP_FALLEN_TILT = 0.42;
+  const STRAP_SEATED_TILT = 0.06;
+  /** How far up the strap travels over a completed pull. */
+  const STRAP_PULL_RISE = 0.06;
+
   function looseStrapFor(npc, { name, color }) {
     const bust = npc?.parts?.curves?.bustR;
     if (!bust) return null;
@@ -2017,11 +2097,28 @@ export function mountMansionCast(scene, world = {}, {
      * strap disappear before the player could fix it. */
     const surface = bust.localToWorld(new THREE.Vector3(0.94, -0.28, 0.22));
     npc.parts.body.worldToLocal(surface);
+    /* A STRAP, NOT A BAR. Owner playtest, verbatim: *"they also have a red or
+     * black bar just in their shoulder. Not sure what the deal is with that."*
+     *
+     * The deal was this piece. It was 0.42 m long and 45 mm wide -- longer
+     * than a forearm and half again the width of a real strap -- CENTRED on
+     * the outer face of the costume cup and tilted -0.68 rad. Worked through:
+     * a 0.21 half-length at that tilt puts its top end 0.13 m outboard and
+     * 0.16 m above the anchor, which is out past the shoulder line entirely.
+     * So it did not read as a strap that had slipped; it read as a coloured
+     * rod sticking out of her shoulder into the air, in whichever accent
+     * colour her costume happened to be.
+     *
+     * A slipped strap is short, thin, and hangs DOWN THE OUTSIDE of the arm:
+     * 0.20 long and 32 mm wide, tilted the other way (+0.42) so its top leans
+     * INBOARD under the shoulder and its bottom rests outboard over the cup.
+     * Measured on the built figure, both ends now sit inside her own
+     * silhouette. */
     return box({
-      size: [0.045, 0.42, 0.025],
-      pos: [surface.x + 0.012, surface.y - 0.01, surface.z + 0.012],
+      size: [0.032, 0.20, 0.012],
+      pos: [surface.x + 0.010, surface.y + 0.030, surface.z + 0.012],
       mat: mat({ color, roughness: 0.7 }),
-      rotZ: -0.68,
+      rotZ: STRAP_FALLEN_TILT,
       cast: false,
       name,
     });
@@ -2058,8 +2155,8 @@ export function mountMansionCast(scene, world = {}, {
         poolEvening.phase = 'done';
         poolEvening.dressHelped = true;
         if (dressStrap) {
-          dressStrap.rotation.z = 0.18;
-          dressStrap.position.y += 0.08;
+          dressStrap.rotation.z = STRAP_SEATED_TILT;
+          dressStrap.position.y += STRAP_PULL_RISE;
         }
         dialogue.play(SEQUENCES.poolGirlDressHelp);
         /* The exchange lands as a settling-in beat only once it is done. */
@@ -2147,10 +2244,18 @@ export function mountMansionCast(scene, world = {}, {
    * ambient loop happened to be. Twelve centimetres down the real lounger and
    * a small three-quarter turn are still fully supported by its cushion, but
    * visibly compose her fastening toward the authored player-side aisle. */
+  /* SHE GETS OFF THE CHAIR. Owner playtest: *"Need to fix the dress fix scene,
+   * they need to get on all fours."* A pose on hands and knees does not
+   * happen on a sun lounger, so the mark comes off it: 0.62 m along the same
+   * clear north-side aisle the player's own mark uses, and at the DECK's
+   * height rather than the seated figure's -- `poseAllFours` drops her the
+   * measured 0.39 m from there to put her knees on it. The lounger's half
+   * width is 0.39 m, so 0.62 clears the chair by 0.23 m and still leaves the
+   * player's mark at 1.14 half a metre further out. */
   const secondDressActorMarker = Object.freeze({
-    x: secondPoolGirl.group.position.x + Math.sin(secondLounger.yaw) * 0.12,
-    y: secondPoolGirl.group.position.y,
-    z: secondPoolGirl.group.position.z + Math.cos(secondLounger.yaw) * 0.12,
+    x: secondLounger.x - Math.cos(secondLounger.yaw) * 0.62,
+    y: secondLounger.y,
+    z: secondLounger.z + Math.sin(secondLounger.yaw) * 0.62,
     yaw: secondLounger.yaw + 0.18,
   });
   const secondDressActorStaging = createDressHelpActorStaging({
@@ -2193,11 +2298,18 @@ export function mountMansionCast(scene, world = {}, {
       },
       onHit({ index, total }) {
         const progress = index / total;
-        secondDressStrap.rotation.z = THREE.MathUtils.lerp(secondDressStart.rotation, 0.18, progress);
-        secondDressStrap.position.y = secondDressStart.y + progress * 0.08;
+        secondDressStrap.rotation.z = THREE.MathUtils.lerp(
+          secondDressStart.rotation, STRAP_SEATED_TILT, progress,
+        );
+        secondDressStrap.position.y = secondDressStart.y + progress * STRAP_PULL_RISE;
       },
+      /* A miss lets it slip back OUT, toward fallen. It used to run toward
+       * 0.28 -- which, from a start of -0.68, moved the strap the same way a
+       * hit did, so missing every pull still finished the job. */
       onMiss() {
-        secondDressStrap.rotation.z = Math.min(0.28, secondDressStrap.rotation.z + 0.04);
+        secondDressStrap.rotation.z = Math.min(
+          STRAP_FALLEN_TILT + 0.10, secondDressStrap.rotation.z + 0.04,
+        );
       },
       finish() {
         secondDressActorStaging.end();
@@ -3259,14 +3371,29 @@ export function mountMansionCast(scene, world = {}, {
       /* Npc.update deliberately restores the neutral torso pose every frame;
        * the loungers are a fixture-specific rest pose, so apply it after the
        * shared animation has done its work. */
-      for (const npc of poolRecliners) posePoolRecliner(npc);
+      for (const npc of poolRecliners) {
+        /* The dress beat owns her pose while it is running; re-posing her into
+         * the lounger recline first and out of it again in the same frame is
+         * work nobody sees, and it is the kind of double-write that survives
+         * as a one-frame flicker the moment the ordering below changes. */
+        if (secondDressSequence.active && npc === secondPoolGirl) continue;
+        posePoolRecliner(npc);
+      }
       for (const motion of seatedPerformerMotions) motion.update(dt);
       poolTreadingMotion?.update(dt);
       /* Shubes' mouse hand, applied after Npc.update's shared pose reset,
        * the same ordering every fixture motion above relies on. */
       lanGamerMotion?.update(dt);
       const dressTiming = secondDressSequence.update(dt);
-      if (secondDressSequence.active) secondDressActorStaging.apply();
+      if (secondDressSequence.active) {
+        secondDressActorStaging.apply();
+        /* AFTER the staging and after `posePoolRecliner` above, because both
+         * of those write the same joints every frame and the last writer wins.
+         * The pose is fully authored rather than accumulated, so running it
+         * once a frame for the length of the beat is the same as running it
+         * once. */
+        poseAllFours(secondPoolGirl, secondLounger.y);
+      }
       /* TimingBar deliberately retains its last view after stop so a caller
        * can inspect the seven landed hits. That snapshot is not an active HUD:
        * republishing it every cast frame resurrected PULL 7 / 7 after

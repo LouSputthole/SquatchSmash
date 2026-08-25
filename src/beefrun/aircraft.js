@@ -815,6 +815,41 @@ export class Brushrunner {
     for (const [n, fz] of [[0, 3.1], [1, 1.9], [2, 0.7], [3, -0.5], [4, -1.7], [5, -2.7]]) {
       const frame = group(`fuselage-frame-${n}`);
       for (const [part, y] of [['bottom', -0.925], ['top', 0.925]]) {
+        /* STATION 1 IS THE FLIGHT DECK, AND ITS TOP RUN IS OPEN.
+         *
+         * Owner playtest, verbatim: *"Bar in the Cockpit of The plane going
+         * through Capt Sasoles Head."*
+         *
+         * Measured rather than eyeballed. Sasole's seated head sits at
+         * x -0.54..-0.30, y 0.76..1.04, z 1.54..1.78; the pilot's eye is at
+         * (0.42, 1.07, 2.22). Ray the eye at a 5x5x5 grid over that head and
+         * 45 of the 125 lines cross `fuselage-frame-1-top` -- more than a
+         * third of him, at 0.454 m. Nothing is INTERSECTING: the frame is at
+         * z 1.877..1.923 and his head ends at 1.78. It is a sightline, and it
+         * is one because the two men are on opposite sides of a ring station.
+         * The pilot's eye is 0.5 m aft of his own seat cushion (z 1.72) while
+         * Sasole is on his, so the bulkhead at 1.90 falls between them.
+         *
+         * The frame stations either side of it already do exactly this where
+         * they have to: 3 and 4 break their starboard run round the cargo
+         * cutout rather than "drawing a bar straight through the doorway".
+         * The flight deck is the same case. A cabin ring stops at the
+         * flight-deck opening; it does not run across the pilots' faces. The
+         * sightline crosses this station between x -0.19 and +0.02, but the
+         * rays to the OUTBOARD edge of his head (x -0.54) reach further, so an
+         * opening at +/-0.30 still caught four of them on the starboard end
+         * cap. +/-0.45 clears all 125. The runs are capped where they stop. */
+        if (n === 1 && part === 'top') {
+          for (const [side, sx] of [['starboard', -1], ['port', 1]]) {
+            const run = mesh(boxGeo(0.465, 0.05, 0.045), rivet, sx * 0.6825, y, fz);
+            run.name = `${frame.name}-${part}-${side}`;
+            frame.add(run);
+            const cap = mesh(boxGeo(0.05, 0.07, 0.055), rivet, sx * 0.45, y, fz);
+            cap.name = `${frame.name}-${part}-${side}-cap`;
+            frame.add(cap);
+          }
+          continue;
+        }
         const rail = mesh(boxGeo(1.83, 0.05, 0.045), rivet, 0, y, fz);
         rail.name = `${frame.name}-${part}`;
         frame.add(rail);

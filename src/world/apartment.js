@@ -103,10 +103,17 @@ export const WALL_SLOTS = [
    * which leaves it looking hung rather than wedged. */
   { slot: 'south.stands', x: -2.72, y: 1.62, z: 4.43, rotY: Math.PI, h: 0.62 },
   { slot: 'south.portrait', x: -4.42, y: 1.72, z: 4.43, rotY: Math.PI, h: 0.54 },
-  // Between the door and the Denver piece, which was the last empty stretch of
-  // wall in the flat. Not a tournament photo.
-  // Was at x 2.34, which is across the front door and its swing.
-  { slot: 'poster.pinup', x: 1.72, y: 1.66, z: 4.43, rotY: Math.PI, h: 0.56 },
+  /* Between the door and the Denver piece, which was the last empty stretch of
+   * wall in the flat. Not a tournament photo.
+   *
+   * Was at x 2.34, which is across the front door and its swing. 1.72 was the
+   * first correction and it did not go far enough -- MEASURED with
+   * `VERIFY_ART_DEBUG=1 npm run verify:art`, the door sweeps x 1.989..3.280
+   * through z 4.503, and at 1.72 the poster's own box ran 1.405..2.035. Forty-
+   * six millimetres of it stood in the door's travel, which is a poster the
+   * door hits every time somebody comes home. At 1.60 it ends at 1.915 and
+   * clears the swing by 74 mm. */
+  { slot: 'poster.pinup', x: 1.60, y: 1.66, z: 4.43, rotY: Math.PI, h: 0.56 },
   // The other big one, facing you as you come away from the desk.
   { slot: 'feature.denver', x: 3.88, y: 1.82, z: 4.43, rotY: Math.PI, h: 0.86 },
 ];
