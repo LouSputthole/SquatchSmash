@@ -248,8 +248,8 @@ gate. Everything else on that list got a real picture:
 | `mansion.office.shield` | THE ESTATE |
 | `mansion.conference.crest` | INNER CIRCLE |
 | `mansion.gallery.pride` | OMERTA |
-| `mansion.gallery.roster` | BLOOD OATH |
-| `mansion.lounge.cowboy` | HOUSE RULES |
+| `mansion.trophy.crest` | BLOOD OATH |
+| `mansion.lan.banner` | HOUSE RULES |
 | `mansion.vault.mark` | Estate Architectural Study |
 | `mansion.winter.shield` | Mountain Valley Sunset |
 | `mansion.ballroom.backdrop` | Desert Canyon Sunset |
@@ -264,6 +264,20 @@ gate. Everything else on that list got a real picture:
 | `luxury.bath.monochrome` | Tropical Beach Sunset |
 
 All twenty are hung; none of the library is sitting unused.
+
+**Twenty-six slots are OFF LIMITS, and the list is worth knowing before the
+next drop.** A file is pinned when a test or a capture tool asserts it by name:
+the owner's own ten recovered photographs
+(`tests/mansion-interactions.test.mjs`), the dynasty set the art-capture tool
+shoots (`tools/capture-mansion-dynasty-art.mjs`), and the slots the
+art-provenance contract fingerprints against the screenshots they were
+captured with. Re-pointing one of those does not improve a wall, it invalidates
+evidence -- and it is easy to do by accident, because nothing about the
+manifest row says so. To list them:
+
+```
+grep -rn "\['mansion\." tests/*.mjs tools/*.mjs | grep -o "\['[a-z.]*', '[^']*'\]"
+```
 
 **Five walls kept `logo-crest.png` on purpose.** A slot named `.crest` on a bed
 wall IS the house crest, and a house repeating its own badge is design rather

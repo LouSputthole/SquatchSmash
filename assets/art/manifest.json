@@ -741,9 +741,9 @@
     },
     {
       "slot": "mansion.trophy.crest",
-      "file": "shrine-booski-podium.jpg",
-      "title": "The podium, over the Great Includer",
-      "caption": "High on the apse wall in the west wing, above the trophy itself."
+      "file": "silver-sasquatches/silver-sasquatches-blood-oath.webp",
+      "title": "BLOOD OATH",
+      "caption": "The trophy room. Not one of the trophies, and the only thing in here nobody won."
     },
     {
       "slot": "mansion.winter.shield",
@@ -765,9 +765,9 @@
     },
     {
       "slot": "mansion.lan.banner",
-      "file": "team-lan-center.jpg",
-      "title": "The team, in the LAN room",
-      "caption": "Over the five stations, next to the house ladder."
+      "file": "silver-sasquatches/silver-sasquatches-house-rules.webp",
+      "title": "HOUSE RULES",
+      "caption": "Over the LAN room, where they are read out loud about once a month."
     },
     {
       "slot": "mansion.lan.chairs",
@@ -831,9 +831,9 @@
     },
     {
       "slot": "mansion.gallery.roster",
-      "file": "silver-sasquatches/silver-sasquatches-blood-oath.webp",
-      "title": "BLOOD OATH",
-      "caption": "The gallery. Every guest walks the length of it on the way in."
+      "file": "austin-major-2025-roster.jpg",
+      "title": "The roster",
+      "caption": "BLAST Austin Major. Beside the east stair, under its own lamp."
     },
     {
       "slot": "mansion.ballroom.major",
@@ -843,9 +843,9 @@
     },
     {
       "slot": "mansion.lounge.cowboy",
-      "file": "silver-sasquatches/silver-sasquatches-house-rules.webp",
-      "title": "HOUSE RULES",
-      "caption": "In the lounge, where the rules are most likely to come up."
+      "file": "austin-major-cowboy.jpg",
+      "title": "Austin",
+      "caption": "The cowboy shot from the Major, in the lounge where the stories get told."
     },
     {
       "slot": "mansion.conference.stacks",

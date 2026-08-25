@@ -1120,18 +1120,64 @@ export function makeGuard(i) {
   return f;
 }
 
+/**
+ * The four men who empty the hold at Whispering Pines.
+ *
+ * OWNER PLAYTEST, verbatim: *"The ending scene is nice. Could have slightly
+ * more detailed characters unloading it."*
+ *
+ * They were four copies of one man. Every one of them took the same 0.6 build,
+ * the same near-black shirt, the same near-black trousers, the same black
+ * boots; the only thing that varied was a skin index and a parity check that
+ * gave the odd two a purple jacket and a purple cap. From the chase camera at
+ * the end of the scene that is four small dark silhouettes doing the same job,
+ * and the eye reads them as one asset repeated -- which is what he is saying.
+ *
+ * So they are four men now. Each row below is one of them, and the differences
+ * are the ones that read at thirty metres in the dark: BUILD first (0.34 to
+ * 0.86 is the difference between a wiry one and a big one), then the
+ * silhouette off the head -- a cowboy hat, a cap, a bare head, a hood of hair
+ * -- then colour. Nobody is in black on black any more: a work jacket, a
+ * bomber, a shirt in oxblood and one in faded olive, and three different
+ * trousers. The two who supervise (indices 2 and 3, see the mission's ending)
+ * get the gold watch and the belt, because the men who stand and point are
+ * always the ones wearing them.
+ *
+ * `SKIN[i % SKIN.length]` stays: it was the one thing already varying.
+ */
+const ASSOCIATE_LOOKS = Object.freeze([
+  /* 0 -- the big one. Carries. Bare-headed, sleeves off, oxblood shirt. */
+  Object.freeze({
+    build: 0.86, shirt: 0x5e2b2b, trousers: 0x2f3138, boots: 0x241c14,
+    hair: 0x2a1d13, sleeves: false, belt: 'leather',
+  }),
+  /* 1 -- the wiry one. Carries. Cap, work jacket, jeans. */
+  Object.freeze({
+    build: 0.34, shirt: 0x8a8f7a, trousers: 0x3d4a63, boots: 0x1a1a1a,
+    jacket: 0x4a4a3a, patches: true, hat: 'cap', hatColor: 0x7a2f2f,
+  }),
+  /* 2 -- supervises. The cowboy hat is the whole silhouette. */
+  Object.freeze({
+    build: 0.62, shirt: 0x6d6a58, trousers: 0x4a4038, boots: 0x33291f,
+    hat: 'cowboy', hatColor: 0x5a4632, belt: 'gold', watch: 'gold',
+    trouserFit: 'creased',
+  }),
+  /* 3 -- supervises. The purple bomber the old four all half-wore, on the one
+   * man it belongs to. */
+  Object.freeze({
+    build: 0.7, shirt: 0x22222a, trousers: 0x22222a, boots: 0x1a1a1a,
+    jacket: 0x3a2f5f, dress: 'bomber', shades: true, watch: 'gold',
+    hair: 0x14100e,
+  }),
+]);
+
 export function makeAssociate(i) {
+  const look = ASSOCIATE_LOOKS[i % ASSOCIATE_LOOKS.length];
   const f = makeFigure({
     name: `associate${i}`,
     actorRole: 'crew',
     skin: SKIN[i % SKIN.length],
-    shirt: 0x2a2a30,
-    jacket: i % 2 ? 0x3a2f5f : null,
-    trousers: 0x22222a,
-    boots: 0x1a1a1a,
-    hat: i % 2 ? 'cap' : null,
-    hatColor: 0x4a2f8f,
-    build: 0.6,
+    ...look,
   });
   setPose(f, 'idle');
   return f;
