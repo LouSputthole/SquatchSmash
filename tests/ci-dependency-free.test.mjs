@@ -29,8 +29,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../', import.meta.url).pathname;
+/* `.pathname` on a file: URL is `/C:/…` on Windows, and `resolve()` then builds
+ * `C:\C:\…` and throws ENOENT before a single assertion runs. */
+const ROOT = fileURLToPath(new URL('../', import.meta.url));
 
 /** Everything package.json admits it does not install for the deploy. */
 const OPTIONAL_PACKAGES = Object.freeze(

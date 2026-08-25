@@ -1,23 +1,42 @@
 # SOUND GUY — READ THIS FIRST
 
-**There is nothing to record.** All 3,895 spoken cues and all 558 generated
-effects have takes on disk, and `npm run voice:needed` returns zero lines
-across zero voices. The re-record queue is empty too.
+**There is nothing to record.** All 4,008 spoken cues and all 558 generated
+effects have takes on disk, `npm run voice:needed` returns zero lines across
+zero voices, and the re-record queue is empty.
 
-*(Updated 2026-08-25, after the Motel and Campground sound promotion. The
-generated ledgers are the source of truth; this page is only the doorman. If it
-disagrees with `npm run voice:needed`, believe the command.)*
+*(Updated 2026-08-25, on `voicelines-20260825`, cut from `origin/main` at
+`8ea8c699`. The generated ledgers are the source of truth; this page is only the
+doorman. If it disagrees with `npm run voice:needed`, believe the command.)*
+
+## What landed in this pass
+
+- **The Cartel Palace finale** — 40 lines for the three-stage Mark fight:
+  `lola`, `johnny`, `mark`, `mark-wife` and `sauce`. Lola and Johnny are the
+  recast of the old `short-one`, so that character's eighteen previous takes are
+  dead weight under a retired name and are deliberately **not** in this branch.
+- **Three re-records** — `vo.bing.margo.5`,
+  `vo.enolasquatch.numbskull.preflight-payload-tap-1.1` and
+  `vo.enolasquatch.sasole.emergency-overheat-1.1`. Queue cleared, manifest
+  re-stamped.
+- **Ninety-nine takes** that existed only on a local checkout and had never been
+  pushed — the pool hall among them, which is why `billiards.*` needed no
+  generating.
+- **Fifty-three Motel and Campground effects**, promoted out of
+  `assets/audio/sound-queue.json` into the manifest for the first time. See
+  "When an effect is missing rather than a line".
+
+Everything in that list is machine-generated and **unauditioned**. Open
+`assets/sfx/_listen.html` and listen before you trust the count.
 
 ## The one thing still waiting on a human
 
 Three 97.8 THE SQUATCH ad breaks — `jerky`, `attorney` and `dealership` — are
 written, recorded and indexed, and still carry `live: false` in
-`src/core/stations.js`. The comment above that list names the condition for
-flipping them:
+`src/core/stations.js`. The comment above that list names the condition:
 
 > Flip `live` to true once the lines are in `assets/sfx/index.json`.
 
-They are in `index.json`. Every cue of all three. So the flip is unblocked and
+They are in `index.json`, every cue of all three. So the flip is unblocked and
 is the last step of a job that is otherwise finished — until somebody does it,
 the ad slot keeps playing the one break that was already on air, and twenty
 delivered lines sit in the game where nobody hears them.
@@ -28,15 +47,19 @@ call, not a production one.
 ## Prove it to yourself
 
 ```
-git checkout main
-git pull
+git fetch
+git status -sb           # if this says "behind N", stop and reconcile first
 npm run voice:needed     # the count, and every line, grouped by voice
 npm run sfx:dry -- --voice-only --live-only   # the same work as filenames + words
 ```
 
 Those two must agree. If they disagree, your checkout is stale: stop and pull
-first. If they agree but disagree with this page, new lines have landed since it
-was written — believe the commands.
+first.
+
+**Check how stale you are before you believe any of it.** This page was
+rewritten once from a checkout seventy commits behind, and it confidently said
+zero while eighty-six cues upstream had no take at all. "Behind N" means every
+count here is answering an N-commit-old question.
 
 ## When new lines land
 
@@ -73,11 +96,11 @@ disagree.
 
 ## When an effect is missing rather than a line
 
-Sound effects come out of the same manifest and the same command, with
-`--sfx-only` instead of `--voice-only`. A described sound that is not in
-`assets/sfx/manifest.json` does not exist as far as production is concerned:
-`generate-sfx` cannot see it, `audio:todo` cannot list it, and the only reason
-the game makes any noise at all in its place is a procedural WebAudio fallback.
+Effects come out of the same manifest and the same command, with `--sfx-only`
+instead of `--voice-only`. A described sound that is not in the manifest does
+not exist as far as production is concerned: `generate-sfx` cannot see it,
+`audio:todo` cannot list it, and the only reason the game makes any noise in its
+place is a procedural WebAudio fallback.
 
 Promoting one is a code change, not a recording:
 
@@ -85,7 +108,7 @@ Promoting one is a code change, not a recording:
 - `tools/mansion-sfx.mjs` — PROJECT SILENT SQUATCH
 - `tools/pool-sfx.mjs` — the pool table
 
-Each has an `npm run check:*` gate, and all three are enforced by
+Each has an `npm run check:*` gate and all three are enforced by
 `npm run check`, so a promoted cue cannot quietly fall out of the manifest and
 drop back to the oscillator it was promoted away from.
 
@@ -101,6 +124,8 @@ model. `sfx:dry` reports them as skipped, not as work.
   of those lines is already recorded under its current `vo.motel.*` name.)
 - **The Initiation party catalog** — already indexed, and its scene isn't
   reachable yet. `sfx:vo` excludes it on purpose; don't force it back in.
+- **The retired `short-one` takes** — that character is now `lola` and
+  `johnny`, recorded fresh. Do not re-deliver the old name.
 - **The three mansion bookcase takes** — `mansion.bookcase.latch`, `.swing`
   and `.seat`. Delivered, indexed, and named by no source file in the game:
   three takes for a piece of furniture that has one E press and two states,

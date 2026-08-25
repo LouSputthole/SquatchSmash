@@ -4711,8 +4711,10 @@
       "source": "assumed"
     },
     "vo.bing.margo.5": {
-      "text": "7272b9eaef16",
-      "source": "assumed"
+      "text": "0e0e35706633",
+      "source": "rendered",
+      "voice": "margo",
+      "voiceId": "XlDdozLmuTofIxK4BjPD"
     },
     "vo.bing.margo.6": {
       "text": "2fc27db5eca1",
@@ -6763,8 +6765,10 @@
       "source": "assumed"
     },
     "vo.enolasquatch.numbskull.preflight-payload-tap-1.1": {
-      "text": "f6f973ced810",
-      "source": "assumed"
+      "text": "0337183428e4",
+      "source": "rendered",
+      "voice": "numbskull",
+      "voiceId": "R4Zv8YQNcHyNDZl0ViUG"
     },
     "vo.enolasquatch.numbskull.preflight-restraints-2.1": {
       "text": "62f4d6d014a5",
@@ -6959,8 +6963,10 @@
       "source": "assumed"
     },
     "vo.enolasquatch.sasole.emergency-overheat-1.1": {
-      "text": "7d2c530239c5",
-      "source": "assumed"
+      "text": "781be9669cef",
+      "source": "rendered",
+      "voice": "lou2",
+      "voiceId": "QzTKubutNn9TjrB7Xb2Q"
     },
     "vo.enolasquatch.sasole.emergency-overheat-2.1": {
       "text": "cb984e45bb5d",
@@ -15733,6 +15739,246 @@
     "vo.zyn.5": {
       "text": "8158ea6aa3a4",
       "source": "assumed"
+    },
+    "vo.palace.finale.lola.begging.shorts-1.1": {
+      "text": "f67d62459a93",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
+    },
+    "vo.palace.finale.johnny.begging.shorts-2.1": {
+      "text": "b5589cb50931",
+      "source": "rendered",
+      "voice": "johnny",
+      "voiceId": "rBkiq5ZQ43ogwd6i4uIQ"
+    },
+    "vo.palace.finale.lola.begging.shorts-3.1": {
+      "text": "837e43726f6f",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
+    },
+    "vo.palace.finale.johnny.begging.shorts-4.1": {
+      "text": "1e3e7da21d32",
+      "source": "rendered",
+      "voice": "johnny",
+      "voiceId": "rBkiq5ZQ43ogwd6i4uIQ"
+    },
+    "vo.palace.finale.lola.begging.shorts-5.1": {
+      "text": "aa6a14e70dbd",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
+    },
+    "vo.palace.finale.mark.go-3.1": {
+      "text": "87c618102e08",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.sauce.mark.scramble-1.1": {
+      "text": "03328b1ee88a",
+      "source": "rendered",
+      "voice": "sauce",
+      "voiceId": "hU1ratPhBTZNviWitzAh"
+    },
+    "vo.palace.finale.wife.mark.scramble-2.1": {
+      "text": "130d44dfcf66",
+      "source": "rendered",
+      "voice": "mark-wife",
+      "voiceId": "5GR0JTHRVmv00OeaRI9u"
+    },
+    "vo.palace.finale.sauce.sauce.alone-1.1": {
+      "text": "6b059b2bd19b",
+      "source": "rendered",
+      "voice": "sauce",
+      "voiceId": "hU1ratPhBTZNviWitzAh"
+    },
+    "vo.palace.finale.sauce.sauce.alone-2.1": {
+      "text": "a33cfe59b2c4",
+      "source": "rendered",
+      "voice": "sauce",
+      "voiceId": "hU1ratPhBTZNviWitzAh"
+    },
+    "vo.palace.finale.wife.react.sauce-down-1.1": {
+      "text": "aa3d13acac2f",
+      "source": "rendered",
+      "voice": "mark-wife",
+      "voiceId": "5GR0JTHRVmv00OeaRI9u"
+    },
+    "vo.palace.finale.johnny.react.sauce-down-2.1": {
+      "text": "e065cc83a5c4",
+      "source": "rendered",
+      "voice": "johnny",
+      "voiceId": "rBkiq5ZQ43ogwd6i4uIQ"
+    },
+    "vo.palace.finale.lola.react.sauce-down-3.1": {
+      "text": "0b921529c9c9",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
+    },
+    "vo.palace.finale.lola.begging.after-sauce-1.1": {
+      "text": "71a79b4da160",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
+    },
+    "vo.palace.finale.johnny.begging.after-sauce-2.1": {
+      "text": "d7f904feebe6",
+      "source": "rendered",
+      "voice": "johnny",
+      "voiceId": "rBkiq5ZQ43ogwd6i4uIQ"
+    },
+    "vo.palace.finale.lola.begging.after-sauce-3.1": {
+      "text": "af526cd34547",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
+    },
+    "vo.palace.finale.mark.reprisal.enter.cold-1.1": {
+      "text": "6f528ba5e79e",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.mark.reprisal.enter.cold-2.1": {
+      "text": "2a16ae853fdf",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.mark.reprisal.enter.enraged-1.1": {
+      "text": "b1e498a97fff",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.mark.reprisal.enter.enraged-2.1": {
+      "text": "ab2c44f28551",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.mark.reprisal.enter.enraged-3.1": {
+      "text": "36e245c1527f",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.mark.reprisal.armor-broken-1.1": {
+      "text": "b2a8ead68919",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.mark.reprisal.armor-broken-2.1": {
+      "text": "3e0dc88f76ae",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.wife.reprisal.wave-1.1": {
+      "text": "b26dda535885",
+      "source": "rendered",
+      "voice": "mark-wife",
+      "voiceId": "5GR0JTHRVmv00OeaRI9u"
+    },
+    "vo.palace.finale.johnny.reprisal.wave-cleared-1.1": {
+      "text": "3edd31b3bd1d",
+      "source": "rendered",
+      "voice": "johnny",
+      "voiceId": "rBkiq5ZQ43ogwd6i4uIQ"
+    },
+    "vo.palace.finale.wife.reprisal.wave-cleared-2.1": {
+      "text": "3edd31b3bd1d",
+      "source": "rendered",
+      "voice": "mark-wife",
+      "voiceId": "5GR0JTHRVmv00OeaRI9u"
+    },
+    "vo.palace.finale.mark.reprisal.final.cold-1.1": {
+      "text": "1da3c71689b2",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.mark.reprisal.final.cold-2.1": {
+      "text": "f5e17cca9b44",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.mark.reprisal.final.enraged-1.1": {
+      "text": "0313740658fc",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.mark.reprisal.final.enraged-2.1": {
+      "text": "19a5a84f13f6",
+      "source": "rendered",
+      "voice": "mark",
+      "voiceId": "AyUQzJawNmKdAdeUrH5X"
+    },
+    "vo.palace.finale.lola.react.mark-first-2.1": {
+      "text": "0c98b74a99c8",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
+    },
+    "vo.palace.finale.johnny.react.mark-first-3.1": {
+      "text": "283873cd7b6d",
+      "source": "rendered",
+      "voice": "johnny",
+      "voiceId": "rBkiq5ZQ43ogwd6i4uIQ"
+    },
+    "vo.palace.finale.lola.react.dive-landed-1.1": {
+      "text": "a8e460ed6322",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
+    },
+    "vo.palace.finale.johnny.react.dive-landed-2.1": {
+      "text": "645a91a59bca",
+      "source": "rendered",
+      "voice": "johnny",
+      "voiceId": "rBkiq5ZQ43ogwd6i4uIQ"
+    },
+    "vo.palace.finale.lola.react.all-down-2.1": {
+      "text": "748ea28ec060",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
+    },
+    "vo.palace.finale.johnny.react.all-down-3.1": {
+      "text": "f7d45475d10c",
+      "source": "rendered",
+      "voice": "johnny",
+      "voiceId": "rBkiq5ZQ43ogwd6i4uIQ"
+    },
+    "vo.palace.finale.lola.react.wife-down-1.1": {
+      "text": "9163613e89be",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
+    },
+    "vo.palace.finale.johnny.react.wife-down-2.1": {
+      "text": "04064f97f864",
+      "source": "rendered",
+      "voice": "johnny",
+      "voiceId": "rBkiq5ZQ43ogwd6i4uIQ"
+    },
+    "vo.palace.finale.johnny.react.lola-down-1.1": {
+      "text": "afe3ef4bd872",
+      "source": "rendered",
+      "voice": "johnny",
+      "voiceId": "rBkiq5ZQ43ogwd6i4uIQ"
+    },
+    "vo.palace.finale.lola.react.johnny-down-1.1": {
+      "text": "b2e843be3567",
+      "source": "rendered",
+      "voice": "lola",
+      "voiceId": "B4wUDSZmHFnxqY60nxXm"
     }
   }
 }

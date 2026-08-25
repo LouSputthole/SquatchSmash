@@ -7986,9 +7986,7 @@
       "name": "vo.bing.margo.5",
       "voice": "margo",
       "say": "…You ate at mine. Four in the morning, corner two. You tipped Hector. Nobody tips Hector — he is behind a wall, you would have had to go and find him.",
-      "duration": 12,
-      "needsRerecord": true,
-      "rerecordReason": "the tree opens this line on an ellipsis -- Margo picking the thought back up -- and the manifest row had never carried it, so the indexed take comes in flat on 'You ate at mine'. Found by the drift check tools/bing-vo.mjs gained for HAND-NAMED tree cues: the generator only ever minted, and only ever compared, the vo.bing.full. prefix, so ninety-nine rows had never been compared against the tree by anybody"
+      "duration": 12
     },
     {
       "name": "vo.bing.margo.6",
@@ -21583,9 +21581,7 @@
     {
       "name": "vo.enolasquatch.numbskull.preflight-payload-tap-1.1",
       "voice": "numbskull",
-      "say": "Hold the key down. You do not load one of these with a tap.",
-      "needsRerecord": true,
-      "rerecordReason": "the payload check moved from a strap tug to holding the arming key down in the 2026-08-20 flight pass; the indexed take teaches the wrong action. Found by tools/take-history.mjs on 2026-08-22, six days after the rewrite -- the same commit queued six other lines and missed this one"
+      "say": "Hold the key down. You do not load one of these with a tap."
     },
     {
       "name": "vo.enolasquatch.numbskull.preflight-bombbay-tap-1.1",
@@ -22305,9 +22301,7 @@
     {
       "name": "vo.enolasquatch.sasole.emergency-overheat-1.1",
       "voice": "lou2",
-      "say": "Number three is running hot. Two-forty and climbing.",
-      "needsRerecord": true,
-      "rerecordReason": "the overheat moved to engine three with a temperature readout in the 2026-08-20 flight pass; the indexed take names a DIFFERENT ENGINE from the subtitle in a scene where the player acts on which one is hot. Found by tools/take-history.mjs on 2026-08-22"
+      "say": "Number three is running hot. Two-forty and climbing."
     },
     {
       "name": "vo.enolasquatch.sasole.emergency-overheat-2.1",
