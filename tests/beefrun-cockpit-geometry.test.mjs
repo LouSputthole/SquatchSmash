@@ -737,9 +737,17 @@ test('every fuselage frame station is a joined perimeter frame rather than a sol
     assert.equal(frame.isMesh, undefined, `${frame.name} is still a solid cross-cabin slab`);
     const members = frame.children.filter((child) => child.isMesh);
     const crossesDoor = /fuselage-frame-[34]$/.test(frame.name);
+    /* Station 1 is the flight deck. Its top run stops either side of the
+     * opening instead of crossing the pilots' faces -- the same reason 3 and 4
+     * break round the cargo doorway, and see the sightline test at the bottom
+     * of this file for the measurement that forced it. */
+    const crossesFlightDeck = /fuselage-frame-1$/.test(frame.name);
     const expectedParts = crossesDoor
       ? ['bottom', 'port', 'starboard-lower', 'starboard-upper', 'top']
-      : ['bottom', 'port', 'starboard', 'top'];
+      : crossesFlightDeck
+        ? ['bottom', 'port', 'starboard', 'top-port', 'top-port-cap',
+          'top-starboard', 'top-starboard-cap']
+        : ['bottom', 'port', 'starboard', 'top'];
     assert.deepEqual(
       members.map((member) => member.name).sort(),
       expectedParts.map((part) => `${frame.name}-${part}`).sort(),
@@ -754,9 +762,32 @@ test('every fuselage frame station is a joined perimeter frame rather than a sol
         );
       }
     }
-    const top = boundsOf(members.find((member) => member.name.endsWith('-top')));
-    const bottom = boundsOf(members.find((member) => member.name.endsWith('-bottom')));
-    const port = boundsOf(members.find((member) => member.name.endsWith('-port')));
+    /* EXACT names, not suffixes. `endsWith('-port')` also matches
+     * `-top-port`, which is a different member on the one station that has
+     * both -- the kind of match that silently tests the wrong bar. */
+    const member = (part) => {
+      const found = members.find((m) => m.name === `${frame.name}-${part}`);
+      assert.ok(found, `${frame.name} has no ${part} member`);
+      return boundsOf(found);
+    };
+    const bottom = member('bottom');
+    const port = member('port');
+    if (crossesFlightDeck) {
+      /* Two top runs, each landing on its own side rail, each capped where it
+       * stops at the opening. There is no rail across the middle -- that is
+       * the whole point of this station -- so nothing here asks for one. */
+      const starboard = member('starboard');
+      for (const [side, rail] of [['port', port], ['starboard', starboard]]) {
+        const run = member(`top-${side}`);
+        const cap = member(`top-${side}-cap`);
+        assert.ok(positiveVolumeOverlap(run, rail), `${frame.name} ${side} top run is detached from its side rail`);
+        assert.ok(positiveVolumeOverlap(run, cap), `${frame.name} ${side} opening is not capped`);
+      }
+      assert.ok(positiveVolumeOverlap(bottom, port), `${frame.name} port rail is detached from its bottom rail`);
+      assert.ok(positiveVolumeOverlap(bottom, starboard), `${frame.name} starboard rail is detached from its bottom rail`);
+      continue;
+    }
+    const top = member('top');
     assert.ok(positiveVolumeOverlap(top, port), `${frame.name} port rail is detached from its top rail`);
     assert.ok(positiveVolumeOverlap(bottom, port), `${frame.name} port rail is detached from its bottom rail`);
     if (crossesDoor) {
@@ -1626,5 +1657,107 @@ test('the pilot eye has a clear forward sight cone through the framed windshield
       'windshield',
       `${hits[0].object.name || '(unnamed surface)'} blocks sight-cone sample ${target.toArray().join(',')}`,
     );
+  }
+});
+
+/* ------------------------------------------------------------------------ */
+/* NOTHING STRUCTURAL BETWEEN THE PILOT AND HIS COPILOT                      */
+/*                                                                            */
+/* Owner playtest, verbatim: *"Bar in the Cockpit of The plane going through  */
+/* Capt Sasoles Head."*                                                       */
+/*                                                                            */
+/* It was never an INTERSECTION, which is why the geometry gate had nothing   */
+/* to say about it: `fuselage-frame-1-top` sits at z 1.877..1.923 and Sasole's */
+/* head ends at 1.78. It is a sightline, and it exists because the two men are */
+/* on opposite sides of a ring station -- the pilot's eye is half a metre aft  */
+/* of its own seat cushion, so the bulkhead at 1.90 falls between them.        */
+/*                                                                            */
+/* An overlap test cannot see that. This one rays the eye at his head and      */
+/* counts what it goes through, which is the thing the player is complaining   */
+/* about. Before the flight-deck opening, 45 of 125 lines crossed that frame.  */
+/* ------------------------------------------------------------------------ */
+
+/** Every structural member the eye looks through on its way to a point. */
+function structureBetween(aircraft, eye, target) {
+  const ray = new THREE.Raycaster();
+  const direction = target.clone().sub(eye);
+  ray.set(eye, direction.clone().normalize());
+  ray.far = direction.length() - 0.001;
+  return ray.intersectObject(aircraft.group, true)
+    .filter((hit) => hit.object.isMesh)
+    /* The hull is the tube the raised flight deck sits on: the eye is at
+     * y 1.07 and the fuselage tops out at 0.95, so every one of these lines
+     * leaves the skin and comes back through it. That is the canopy, not a
+     * bar across a face. */
+    .filter((hit) => !/^fuselage-body/.test(hit.object.name));
+}
+
+test('no cockpit structure crosses the line from the pilot’s eye to Sasole’s head', () => {
+  const aircraft = new Brushrunner({ withCockpit: true });
+  aircraft.group.updateMatrixWorld(true);
+
+  /* Posed and placed but NOT parented into the aeroplane. The aircraft group
+   * sits at the origin here, so his world transform IS aircraft-local, and
+   * keeping him out of it means the ray only ever has airframe to report --
+   * no filtering his own body back out of every hit, and no raycasting a rig
+   * that carries props the caster cannot walk. */
+  const lou = makeLou();
+  setPose(lou, 'sit');
+  lou.group.position.copy(aircraft.copilotSeat);
+  lou.group.rotation.set(0, 0, 0);
+  lou.group.updateMatrixWorld(true);
+
+  /* His own rig publishes it. Matching on a mesh NAME here would have been
+   * asking for `figure-head`, and the man in this seat is built by `makeLou`
+   * -- every mesh on him is prefixed `captain_lou_sasole-`. */
+  assert.ok(lou.head?.isMesh, 'the copilot has no head mesh to look at');
+  const head = boundsOf(lou.head);
+
+  const blocked = new Map();
+  let rays = 0;
+  for (let ix = 0; ix <= 4; ix += 1) {
+    for (let iy = 0; iy <= 4; iy += 1) {
+      for (let iz = 0; iz <= 4; iz += 1) {
+        const target = new THREE.Vector3(
+          head.min.x + (ix / 4) * (head.max.x - head.min.x),
+          head.min.y + (iy / 4) * (head.max.y - head.min.y),
+          head.min.z + (iz / 4) * (head.max.z - head.min.z),
+        );
+        rays += 1;
+        for (const hit of structureBetween(aircraft, aircraft.pilotEye, target)) {
+          const name = hit.object.name || hit.object.type;
+          blocked.set(name, (blocked.get(name) ?? 0) + 1);
+        }
+      }
+    }
+  }
+  assert.equal(rays, 125);
+  assert.deepEqual(
+    [...blocked.entries()].sort(),
+    [],
+    'something in the airframe stands between the pilot and his copilot’s face',
+  );
+});
+
+test('station 1 is open at the flight deck, and closed everywhere else', () => {
+  const aircraft = new Brushrunner({ withCockpit: true });
+  aircraft.group.updateMatrixWorld(true);
+  const tops = meshesMatching(aircraft.group, /^fuselage-frame-\d+-top/);
+  const byStation = new Map();
+  for (const m of tops) {
+    const station = m.name.match(/^fuselage-frame-(\d+)-top/)[1];
+    byStation.set(station, [...(byStation.get(station) ?? []), m.name]);
+  }
+  /* Every other station's top is one unbroken rail. Station 1's is two runs
+   * and two caps -- the ring stopping at the flight-deck opening, the same way
+   * stations 3 and 4 already stop at the cargo doorway. */
+  for (const [station, names] of byStation) {
+    if (station === '1') {
+      assert.equal(names.length, 4, `station 1 top: ${names.join(', ')}`);
+      assert.ok(names.some((n) => n.endsWith('-starboard-cap')), 'the opening is not capped');
+      assert.ok(names.some((n) => n.endsWith('-port-cap')), 'the opening is not capped');
+    } else {
+      assert.deepEqual(names, [`fuselage-frame-${station}-top`], `station ${station} should be one rail`);
+    }
   }
 });

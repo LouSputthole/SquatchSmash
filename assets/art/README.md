@@ -244,15 +244,15 @@ gate. Everything else on that list got a real picture:
 |---|---|
 | `mansion.foyer.crest` | Silver Sasquatches Emblem |
 | `mansion.suite.crest` | THE PATRIARCH |
-| `mansion.guest.crest` | HOUSE RULES |
-| `mansion.bedroom.booski-death.crest` | BLOOD OATH |
 | `mansion.lan.chairs` | FAMILY ENTERPRISE |
 | `mansion.office.shield` | THE ESTATE |
 | `mansion.conference.crest` | INNER CIRCLE |
 | `mansion.gallery.pride` | OMERTA |
+| `mansion.gallery.roster` | BLOOD OATH |
+| `mansion.lounge.cowboy` | HOUSE RULES |
 | `mansion.vault.mark` | Estate Architectural Study |
 | `mansion.winter.shield` | Mountain Valley Sunset |
-| `mansion.cellar.crest` | Desert Canyon Sunset |
+| `mansion.ballroom.backdrop` | Desert Canyon Sunset |
 | `mansion.bay.shield` | Lakeside Dock |
 | `mansion.lounge.banner` | Mountain Lake Sunrise |
 | `mansion.basement.shield` | Forest Waterfall |
@@ -264,3 +264,11 @@ gate. Everything else on that list got a real picture:
 | `luxury.bath.monochrome` | Tropical Beach Sunset |
 
 All twenty are hung; none of the library is sitting unused.
+
+**Five walls kept `logo-crest.png` on purpose.** A slot named `.crest` on a bed
+wall IS the house crest, and a house repeating its own badge is design rather
+than a stand-in -- `tests/mansion-interactions.test.mjs` says exactly that
+about the guest room and the shrine, by name, and it is right. The cellar's
+kept `casabonita.webp` for a different reason: the art-provenance contract
+fingerprints that slot against the file its screenshots were captured with, so
+changing it invalidates the evidence rather than improving the wall.

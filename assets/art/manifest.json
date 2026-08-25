@@ -717,9 +717,9 @@
     },
     {
       "slot": "mansion.ballroom.backdrop",
-      "file": "iem-dallas-2024-arena.jpg",
-      "title": "The arena, behind the stage",
-      "caption": "Hung on the swag behind the drum riser. The band plays under a full house."
+      "file": "silver-sasquatches/desert-canyon-sunset.webp",
+      "title": "The canyon",
+      "caption": "The full width of the ballroom’s end wall, lit from below."
     },
     {
       "slot": "mansion.office.shield",
@@ -753,9 +753,9 @@
     },
     {
       "slot": "mansion.cellar.crest",
-      "file": "silver-sasquatches/desert-canyon-sunset.webp",
-      "title": "The canyon",
-      "caption": "Down in the cellar, where there is no window to disagree with it."
+      "file": "casabonita.webp",
+      "title": "Casa Bonita",
+      "caption": "Down in the cellar. Nobody remembers who framed it and nobody will take it down."
     },
     {
       "slot": "mansion.theatre.banner",
@@ -783,9 +783,9 @@
     },
     {
       "slot": "mansion.guest.crest",
-      "file": "silver-sasquatches/silver-sasquatches-house-rules.webp",
-      "title": "HOUSE RULES",
-      "caption": "In the guest room, at eye level, where a guest cannot miss it."
+      "file": "logo-crest.png",
+      "title": "The crest, over the bed",
+      "caption": "Centred on the headboard wall, clear of the headboard itself. A guest sleeps under the badge."
     },
     {
       "slot": "mansion.gate.crests",
@@ -801,9 +801,9 @@
     },
     {
       "slot": "mansion.bedroom.booski-death.crest",
-      "file": "silver-sasquatches/silver-sasquatches-blood-oath.webp",
-      "title": "BLOOD OATH",
-      "caption": "Over the shrine. Whoever hung it here knew exactly what it was going to mean afterwards."
+      "file": "logo-crest.png",
+      "title": "The crest, over the shrine",
+      "caption": "The same badge as every other room, which is the point: he was one of theirs."
     },
     {
       "slot": "mansion.bedroom.booski-death.booski",
@@ -831,9 +831,9 @@
     },
     {
       "slot": "mansion.gallery.roster",
-      "file": "austin-major-2025-roster.jpg",
-      "title": "The roster, on the gallery",
-      "caption": "Austin Major 2025, every name on it. Hung opposite the founders' portraits."
+      "file": "silver-sasquatches/silver-sasquatches-blood-oath.webp",
+      "title": "BLOOD OATH",
+      "caption": "The gallery. Every guest walks the length of it on the way in."
     },
     {
       "slot": "mansion.ballroom.major",
@@ -843,9 +843,9 @@
     },
     {
       "slot": "mansion.lounge.cowboy",
-      "file": "austin-major-cowboy.jpg",
-      "title": "Austin, framed",
-      "caption": "In the billiard room, first thing you see coming through from the front hall."
+      "file": "silver-sasquatches/silver-sasquatches-house-rules.webp",
+      "title": "HOUSE RULES",
+      "caption": "In the lounge, where the rules are most likely to come up."
     },
     {
       "slot": "mansion.conference.stacks",
