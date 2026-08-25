@@ -147,7 +147,9 @@
     "check:initiation-vo": "node tools/initiation-vo.mjs --check",
     "verify:silver-story": "node tools/verify-silver-story.mjs",
     "sfx:legacy": "node tools/legacy-sfx.mjs",
-    "check:legacy-sfx": "node tools/legacy-sfx.mjs --check"
+    "check:legacy-sfx": "node tools/legacy-sfx.mjs --check",
+    "vo:infer": "node tools/infer-takes.mjs",
+    "check:infer": "node tools/infer-takes.mjs --check"
   },
   "devDependencies": {
     "eslint": "^9.39.5",

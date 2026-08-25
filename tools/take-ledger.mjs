@@ -153,11 +153,14 @@ export function takeDrift(manifest, ledger, queue, onDisk) {
  * return would have made an unrelated test go red for no reason a reader could
  * follow.
  *
- * Only `rendered` entries can be judged -- an `assumed` entry has no recorded
- * performer, so it is not evidence of agreement OR of drift, and counting it
- * either way would be a guess wearing a check's clothes. A rendered entry
- * whose profile has vanished from the manifest entirely is reported too, with
- * `now: null`: the take is real and nothing today claims to have made it.
+ * Only entries that record a performer can be judged -- an `assumed` entry has
+ * none, so it is not evidence of agreement OR of drift, and counting it either
+ * way would be a guess wearing a check's clothes. `rendered` (this tool made
+ * it) and `inferred` (git says what the manifest cast at the commit that wrote
+ * the mp3) both qualify; the entry carries which, so a report can say how it
+ * knows. An entry whose profile has vanished from the manifest entirely is
+ * reported too, with `now: null`: the take is real and nothing today claims to
+ * have made it.
  */
 export function voiceDrift(manifest, ledger, onDisk) {
   const takes = ledger?.takes ?? {};
@@ -167,12 +170,24 @@ export function voiceDrift(manifest, ledger, onDisk) {
   for (const cue of manifest.sfx ?? []) {
     if (!isSpoken(cue) || !present.has(fileOf(cue))) continue;
     const take = takes[cue.name];
-    if (take?.source !== 'rendered' || !take.voiceId) continue;
+    /* `inferred` counts as evidence here, `assumed` still does not. An assumed
+     * entry records no performer at all, so there is nothing to disagree with;
+     * an inferred one was read out of the manifest at the commit that wrote the
+     * mp3 (tools/infer-takes.mjs), which is weaker than a stamp this tool wrote
+     * itself but is not a guess about the past -- it IS the past. Judging only
+     * `rendered` is what left 3,926 takes, nearly the whole game, outside this
+     * check while Rico shipped in the wrong voice. */
+    if (!take?.voiceId || (take.source !== 'rendered' && take.source !== 'inferred')) continue;
     const profile = cue.voice || 'player';
     const now = voices[profile]?.id ?? null;
     if (now === take.voiceId) continue;
     stale.push({
-      cue: cue.name, profile, was: take.voiceId, wasProfile: take.voice ?? profile, now,
+      cue: cue.name,
+      profile,
+      was: take.voiceId,
+      wasProfile: take.voice ?? profile,
+      now,
+      source: take.source,
     });
   }
   return stale;
