@@ -1,6 +1,30 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
+
+/**
+ * PLAYWRIGHT IS IMPORTED WHEN A BROWSER IS LAUNCHED, NOT WHEN THIS IS READ.
+ *
+ * It used to be a static `import { chromium } from 'playwright'`, and that
+ * one line broke the Pages deploy on 2026-08-24. The workflow runs `npm test`
+ * with NO dependency install -- the whole suite is deliberately dependency-
+ * free, which is why the game vendors three.js -- so `playwright` is simply
+ * not on the runner. Two of the new certification tests
+ * (semantic-smoke-browser, persisted-checkpoint-liveness) import this module
+ * for its case tables and never launch anything, but a static import is
+ * resolved before a single line of either file runs. They failed with
+ * ERR_MODULE_NOT_FOUND, `npm test` exited 1, and three consecutive deploys
+ * never reached the staging step -- so the site kept serving the build from
+ * before the cabin and the luxury apartment existed.
+ *
+ * Deferring the import to the one function that needs a browser makes reading
+ * this module free. Anything that actually launches still needs the package
+ * and still fails loudly if it is missing, which is the behaviour every
+ * `tools/verify-*.mjs` already has.
+ */
+async function chromiumApi() {
+  const { chromium } = await import('playwright');
+  return chromium;
+}
 
 /**
  * Launch the Chromium Playwright can actually find on this machine.
@@ -40,6 +64,7 @@ function discoverChromium() {
 }
 
 export async function launchChromium(options = {}) {
+  const chromium = await chromiumApi();
   try {
     return await chromium.launch(options);
   } catch (error) {

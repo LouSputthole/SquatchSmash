@@ -1028,28 +1028,33 @@
       "caption": "The saint card burned into the new Squatch's hand."
     },
     {
-      "_comment": "THE CARTEL PALACE'S SIX A-TEAM PIECES. Slots with no file: the drawings exist, but they were pasted into a chat and none of them was ever written into this folder, so each row waits with its title and caption and src/world/gear.js hangs its drawn placeholder in the meantime. To land one: drop the file in assets/art/ and add its \"file\" line to the row below. That is the whole job -- no code changes. The filenames each row is waiting for are in README.md.",
+      "_comment": "THE CARTEL PALACE'S SIX A-TEAM PIECES. FIVE LANDED 2026-08-25 from the owner, as .webp rather than the .png README.md had guessed -- the file is named here, so the extension is whatever was actually delivered. `cartel-palace.ops.strat` (OPERATION: DUMB LUCK) is still owed and still waits with its title and caption while src/world/gear.js hangs its drawn placeholder. To land it: drop the file in assets/art/ and add its \"file\" line to the row below. That is the whole job -- no code changes.",
       "slot": "cartel-palace.entry.the-a-team",
+      "file": "a-team-palace-portrait.webp",
       "title": "The A Team",
       "caption": "Photographed on this drive, by this fountain, the week before anyone regretted it."
     },
     {
       "slot": "cartel-palace.entry.we-dont-miss",
+      "file": "a-team-we-dont-miss.webp",
       "title": "We don't miss",
       "caption": "Five men and four rifles making a claim. The bullet holes are in the wall behind them."
     },
     {
       "slot": "cartel-palace.security.assault",
+      "file": "a-team-assault.webp",
       "title": "A Team Assault",
       "caption": "Four men, two doors, one plan. The one on the floor is tripping over the plan."
     },
     {
       "slot": "cartel-palace.dining.el-jefe",
+      "file": "a-team-el-jefe.webp",
       "title": "El Jefe",
       "caption": "Commissioned by the subject, hung by the subject, paid for by somebody else."
     },
     {
       "slot": "cartel-palace.ops.champions",
+      "file": "a-team-champions.webp",
       "title": "A Team Champions",
       "caption": "Three kills, forty-seven losses, five trophies. The trophies are for the losses."
     },

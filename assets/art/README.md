@@ -157,16 +157,16 @@ moves or resizes when the picture arrives.
 
 | Slot | The drawing | Filename to drop in | Frame | Where it hangs |
 |---|---|---|---|---|
-| `cartel-palace.entry.the-a-team` | THE A TEAM — the four of them posed in front of this palace: cream stucco, red tile, arched entrance, blue fountain, the big A over the door, the black flag, the palm and the yellow sports car | `a-team-palace-portrait.png` | 1.90 m wide | Entry hall, west partition, z 6.75 |
-| `cartel-palace.entry.we-dont-miss` | A TEAM — "WE DON'T MISS", "A IS FOR AMIGOS". Five men in black tactical vests and camo, AKs and the white/orange sniper rifle, gold chains, sunglasses, brick wall, money bag, the yellow BOMB PLANS A crate | `a-team-we-dont-miss.png` | 1.50 m wide | Entry hall, east wall, z 5.0, beside the watch desk |
-| `cartel-palace.security.assault` | A TEAM ASSAULT — four men through the double doors, the cigar and the machine gun, the one tripping over, "I PITY THE FOOLS!" | `a-team-assault.png` | 1.60 m wide | Intelligence room, west partition, z -16.3 |
-| `cartel-palace.dining.el-jefe` | EL JEFE - A TEAM — white suit, gold medallion, the throne with the red-jewelled A, four men with pistols, red curtains, money bags | `a-team-el-jefe.png` | 2.20 m wide | Dining room, rear wall, x -6.6 |
-| `cartel-palace.ops.champions` | A TEAM CHAMPIONS — the couch, the cash, the blackboard reading KILLS: 3 / WINS: 0 / LOSSES: 47 / LAST PLACE, and the five trophies for it | `a-team-champions.png` | 2.00 m wide | Operations room, west wall, z -20.0 |
-| `cartel-palace.ops.strat` | A TEAM STRAT — OPERATION: DUMB LUCK on the war-room table, GUARDS R DUM, WATER HAZARD LOL, IF PLAN A FAILS: BLAME SOMEONE ELSE, VICTORY CERVEZA | `a-team-strat.png` | 2.00 m wide | Operations room, west wall, z -28.0 |
+| `cartel-palace.entry.the-a-team` | THE A TEAM — the four of them posed in front of this palace: cream stucco, red tile, arched entrance, blue fountain, the big A over the door, the black flag, the palm and the yellow sports car | `a-team-palace-portrait.webp` ✅ landed | 1.90 m wide | Entry hall, west partition, z 6.75 |
+| `cartel-palace.entry.we-dont-miss` | A TEAM — "WE DON'T MISS", "A IS FOR AMIGOS". Five men in black tactical vests and camo, AKs and the white/orange sniper rifle, gold chains, sunglasses, brick wall, money bag, the yellow BOMB PLANS A crate | `a-team-we-dont-miss.webp` ✅ landed | 1.50 m wide | Entry hall, east wall, z 5.0, beside the watch desk |
+| `cartel-palace.security.assault` | A TEAM ASSAULT — four men through the double doors, the cigar and the machine gun, the one tripping over, "I PITY THE FOOLS!" | `a-team-assault.webp` ✅ landed | 1.60 m wide | Intelligence room, west partition, z -16.3 |
+| `cartel-palace.dining.el-jefe` | EL JEFE - A TEAM — white suit, gold medallion, the throne with the red-jewelled A, four men with pistols, red curtains, money bags | `a-team-el-jefe.webp` ✅ landed | 2.20 m wide | Dining room, rear wall, x -6.6 |
+| `cartel-palace.ops.champions` | A TEAM CHAMPIONS — the couch, the cash, the blackboard reading KILLS: 3 / WINS: 0 / LOSSES: 47 / LAST PLACE, and the five trophies for it | `a-team-champions.webp` ✅ landed | 2.00 m wide | Operations room, west wall, z -20.0 |
+| `cartel-palace.ops.strat` | A TEAM STRAT — OPERATION: DUMB LUCK on the war-room table, GUARDS R DUM, WATER HAZARD LOL, IF PLAN A FAILS: BLAME SOMEONE ELSE, VICTORY CERVEZA | `a-team-strat.*` — STILL OWED | 2.00 m wide | Operations room, west wall, z -28.0 |
 
 ```json
 { "slot": "cartel-palace.ops.champions",
-  "file": "a-team-champions.png",
+  "file": "a-team-champions.webp",
   "title": "A Team Champions",
   "caption": "Three kills, forty-seven losses, five trophies. The trophies are for the losses." }
 ```
