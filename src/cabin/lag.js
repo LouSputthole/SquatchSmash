@@ -1,5 +1,5 @@
 /**
- * Wag, the cabin's one resident and its deliberately non-questy hint system.
+ * Lag, the cabin's one resident and its deliberately non-questy hint system.
  *
  * His body is the game's shared `Npc`/`makePerson` rig, including its outfit,
  * mouth and player-look behaviour. This module only adds cabin-specific work:
@@ -8,38 +8,39 @@
 import * as THREE from 'three';
 
 import { Npc } from '../bing/cast.js';
+import { FAMILY } from '../bing/family.js';
+import { CHARACTER_IDS } from '../core/campaign.js';
+import { getCharacter } from '../core/characters.js';
 import { SPEECH_MIX, speak } from '../core/dialogue.js';
 import { box, cylinder, group, mat } from '../world/build.js';
 
-export const WAG_VOICE_PREFIX = 'vo.cabin.wag.';
+export const LAG_VOICE_PREFIX = 'vo.cabin.lag.';
 
-function authoredWagLine(line) {
+function authoredLagLine(line) {
   return Object.freeze({
     ...line,
-    cue: `${WAG_VOICE_PREFIX}${line.id}`,
+    cue: `${LAG_VOICE_PREFIX}${line.id}`,
     missing: Object.freeze([...(line.missing ?? [])]),
   });
 }
 
-export const WAG_OUTFIT = Object.freeze({
-  height: 1.82,
-  build: 1.14,
-  dress: 'work',
-  shirt: 0x665338,
-  trouserColour: 0x29333a,
-  hair: 'crop',
-  hairColour: 0x332316,
-  skin: 0xd5a176,
-  beard: true,
-  belt: 'leather',
-  workVest: true,
-  workVestColour: 0x3c402d,
-  hat: 'flatcap',
-  shoeStyle: 'plain',
-  role: 'resident',
+const LAG_IDENTITY = getCharacter(CHARACTER_IDS.LAG);
+const LAG_FAMILY_MEMBER = FAMILY.find(({ id }) => id === CHARACTER_IDS.LAG);
+if (!LAG_IDENTITY || !LAG_FAMILY_MEMBER) {
+  throw new Error('Cabin Lag requires the canonical character and Family records');
+}
+
+/**
+ * Cabin behavior is scene-specific; Lag's body is not. Reuse the same
+ * procedural appearance the Bada Bing roster owns so a second character
+ * cannot silently grow under another scene-local outfit.
+ */
+export const LAG_MODEL = Object.freeze({
+  ...LAG_FAMILY_MEMBER.model,
+  role: LAG_IDENTITY.role,
 });
 
-export const WAG_ACTIVITY_LOOP = Object.freeze([
+export const LAG_ACTIVITY_LOOP = Object.freeze([
   Object.freeze({ id: 'chop', seconds: 5.2 }),
   Object.freeze({ id: 'stack', seconds: 3.8 }),
   Object.freeze({ id: 'lean', seconds: 5.0 }),
@@ -51,7 +52,7 @@ const GENERAL_HINTS = Object.freeze([
   { id: 'general.quiet', kind: 'general', weight: 1, text: 'Hell of a lot quieter than the city, ain\'t it?' },
   { id: 'general.poke', kind: 'general', weight: 1, text: 'Don\'t just stand there. Go poke around.' },
   { id: 'general.more', kind: 'general', weight: 1, text: 'Place has got more to it than it looks.' },
-].map(authoredWagLine));
+].map(authoredLagLine));
 
 const CABIN_HINTS = Object.freeze([
   { id: 'cabin.computer', kind: 'cabin', weight: 4, missing: ['computer'], text: 'Computer\'s inside if you\'re looking for something less outdoorsy.' },
@@ -61,7 +62,7 @@ const CABIN_HINTS = Object.freeze([
   { id: 'cabin.bedroom', kind: 'cabin', weight: 4, missing: ['bedroom'], text: 'Check around the bedroom.' },
   { id: 'cabin.wardrobe', kind: 'cabin', weight: 2, missing: ['wardrobe'], text: 'Dry clothes are in the wardrobe. Push past the hangers and look proper.' },
   { id: 'cabin.entertainment', kind: 'cabin', weight: 2, missing: ['entertainment'], text: 'Radio and television both work. Reception\'s got opinions about the trees.' },
-].map(authoredWagLine));
+].map(authoredLagLine));
 
 const PROPERTY_HINTS = Object.freeze([
   { id: 'property.trail', kind: 'property', weight: 4, missing: ['trailhead'], text: 'You see a trail, follow it.' },
@@ -70,23 +71,23 @@ const PROPERTY_HINTS = Object.freeze([
   { id: 'property.shed', kind: 'property', weight: 3, missing: ['shed'], text: 'There\'s some spots back in those woods most people walk right past.' },
   { id: 'property.overlook', kind: 'property', weight: 4, missing: ['overlook'], text: 'Trail keeps going farther than you think.' },
   { id: 'property.firepit', kind: 'property', weight: 2, missing: ['firepit'], text: 'Whole reason for having a place like this is nobody knows what\'s out back.' },
-].map(authoredWagLine));
+].map(authoredLagLine));
 
 const FLAVOR_HINTS = Object.freeze([
   { id: 'flavor.service', kind: 'flavor', weight: 1, text: 'Cell service gets weird past the bridge. That\'s a feature.' },
   { id: 'flavor.eyes', kind: 'flavor', weight: 1, text: 'If you see two eyes looking back at you, mind your business.' },
   { id: 'flavor.breaks', kind: 'flavor', weight: 1, text: 'Around here, if something breaks, you either fix it or learn to live without it.' },
   { id: 'flavor.dark', kind: 'flavor', weight: 1, text: 'Gets dark as hell out here.' },
-].map(authoredWagLine));
+].map(authoredLagLine));
 
 const AFTER_HINTS = Object.freeze([
   { id: 'after.good', kind: 'after', weight: 2, minimum: 2, text: 'Find anything good?' },
   { id: 'after.more', kind: 'after', weight: 2, minimum: 3, text: 'You ain\'t seen all of it.' },
   { id: 'after.missed', kind: 'after', weight: 2, minimum: 4, text: 'There\'s still a couple places you missed.' },
   { id: 'after.no-spoil', kind: 'after', weight: 2, minimum: 5, text: 'I\'m not telling you exactly where it is. That ruins it.' },
-].map(authoredWagLine));
+].map(authoredLagLine));
 
-export const WAG_CHOP_REACTIONS = Object.freeze([
+export const LAG_CHOP_REACTIONS = Object.freeze([
   'There you go. Congratulations, you\'re almost useful.',
   'That one was ugly.',
   'Wood still split. Guess it counts.',
@@ -102,7 +103,7 @@ const ALL_HINTS = Object.freeze([
   ...AFTER_HINTS,
 ]);
 
-const CHOP_LINES = Object.freeze(WAG_CHOP_REACTIONS.map((text, index) => authoredWagLine({
+const CHOP_LINES = Object.freeze(LAG_CHOP_REACTIONS.map((text, index) => authoredLagLine({
   id: `wood.${index + 1}`,
   kind: 'wood',
   text,
@@ -110,27 +111,27 @@ const CHOP_LINES = Object.freeze(WAG_CHOP_REACTIONS.map((text, index) => authore
 })));
 
 /**
- * Every subtitle Wag can put on screen, paired with the one exact recording
+ * Every subtitle Lag can put on screen, paired with the one exact recording
  * that owns those words. This is exported so the manifest gate can compare
  * source and production data in both directions instead of trusting a bank
  * prefix or a hand-maintained count.
  */
-export const WAG_DIALOGUE_CATALOG = Object.freeze([...ALL_HINTS, ...CHOP_LINES]);
+export const LAG_DIALOGUE_CATALOG = Object.freeze([...ALL_HINTS, ...CHOP_LINES]);
 
 /**
- * Route one authored Wag line through the shared dialogue/receipt pipeline.
+ * Route one authored Lag line through the shared dialogue/receipt pipeline.
  * There is deliberately no kind-level bank and no substitute cue: strict QA
  * requires this exact cue's decoded buffer, while normal play retains the
  * engine's usual subtitle-first behavior while production is outstanding.
  */
-export function speakWagLine(audio, line, {
+export function speakLagLine(audio, line, {
   speaker = null,
   mix = SPEECH_MIX,
 } = {}) {
   if (!line?.ok || !line.cue || !line.text) return null;
   return speak(audio, line.cue, {
     speaker,
-    speakerId: 'cabin.wag',
+    speakerId: LAG_IDENTITY.id,
     mix,
     subtitle: line.text,
     requiredRecorded: true,
@@ -164,7 +165,7 @@ function selectWeighted(candidates, random, previousId = null) {
  * Explicit-talk-only, discovery-aware dialogue. Calling `discover` never
  * emits a line; only `talk` can speak, and it enforces a real cooldown.
  */
-export function createWagHintDirector({
+export function createLagHintDirector({
   random = Math.random,
   cooldownSeconds = 7.5,
   chopCooldownSeconds = 9,
@@ -238,12 +239,12 @@ export function createWagHintDirector({
 }
 
 function makeAxe() {
-  const axe = group('cabin-wag-axe');
+  const axe = group('cabin-lag-axe');
   const handle = mat({ color: 0x8b6034, roughness: 0.94 });
   const steel = mat({ color: 0x4c5153, roughness: 0.42, metalness: 0.58 });
   axe.add(cylinder({ r: 0.024, h: 0.88, pos: [0, 0.28, 0], mat: handle }));
   axe.add(box({
-    name: 'cabin-wag-axe-head',
+    name: 'cabin-lag-axe-head',
     size: [0.095, 0.22, 0.31],
     pos: [0, 0.72, 0.03],
     mat: steel,
@@ -254,7 +255,7 @@ function makeAxe() {
 }
 
 function makeSplitLog() {
-  const log = group('cabin-wag-carried-log');
+  const log = group('cabin-lag-carried-log');
   const bark = mat({ color: 0x49301d, roughness: 1 });
   log.add(cylinder({ r: 0.11, h: 0.52, pos: [0, 0, 0], rotZ: Math.PI / 2, mat: bark }));
   log.position.set(0.22, -0.02, 0.12);
@@ -264,13 +265,13 @@ function makeSplitLog() {
 }
 
 function activityAt(elapsed) {
-  const length = WAG_ACTIVITY_LOOP.reduce((sum, entry) => sum + entry.seconds, 0);
+  const length = LAG_ACTIVITY_LOOP.reduce((sum, entry) => sum + entry.seconds, 0);
   let cursor = ((elapsed % length) + length) % length;
-  for (const activity of WAG_ACTIVITY_LOOP) {
+  for (const activity of LAG_ACTIVITY_LOOP) {
     if (cursor < activity.seconds) return { activity, progress: cursor / activity.seconds };
     cursor -= activity.seconds;
   }
-  return { activity: WAG_ACTIVITY_LOOP[0], progress: 0 };
+  return { activity: LAG_ACTIVITY_LOOP[0], progress: 0 };
 }
 
 function resetPose(parts) {
@@ -284,11 +285,11 @@ function resetPose(parts) {
 }
 
 /** Build the real diegetic actor. No dialogue fires from `update`. */
-export function buildWagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
-  if (!scene?.add) throw new TypeError('Wag requires a scene parent');
+export function buildLagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
+  if (!scene?.add) throw new TypeError('Lag requires a scene parent');
   const npc = new Npc(scene, {
-    name: 'Wag',
-    actorId: 'cabin.wag',
+    name: LAG_IDENTITY.canonicalName,
+    actorId: 'cabin.lag',
     tier: 'hero',
     x,
     y,
@@ -296,10 +297,14 @@ export function buildWagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
     yaw,
     job: 'stand',
     look: true,
-    model: WAG_OUTFIT,
+    model: LAG_MODEL,
   });
-  npc.group.name = 'cabin-wag';
-  npc.group.userData.cabinResident = 'wag';
+  npc.characterId = LAG_IDENTITY.id;
+  npc.familyMember = LAG_FAMILY_MEMBER;
+  npc.group.userData.npc.characterId = LAG_IDENTITY.id;
+  npc.group.userData.npc.family = true;
+  npc.group.name = 'cabin-lag';
+  npc.group.userData.cabinResident = 'lag';
   const axe = makeAxe();
   const carriedLog = makeSplitLog();
   npc.parts.handR.add(axe);

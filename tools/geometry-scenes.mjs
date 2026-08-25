@@ -133,20 +133,22 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
   ...HEIST_PREVIEW_CHECKPOINTS.map((checkpoint) => entry(
     'heist', checkpoint.replaceAll('_', '-'), 'heist', ['heist'], { checkpoint },
   )),
-  /* THE CABIN IS NO LONGER ACTORLESS.
+  /* THESE HOMES ARE NO LONGER ACTORLESS.
    *
-   * Wag now lives visibly at the woodpile, so an empty cabin cast is a defect.
-   * The luxury flat remains intentionally unplaced and actorless until the
-   * campaign gives somebody a reason to be there. */
+   * Lag now lives visibly at the woodpile, so an empty cabin cast is a defect.
+   * The Luxury Apartment visibly seats three civilian poker patrons; they are
+   * authored cast even though the hub has no current campaign edge. */
   entry('cabin', 'property', 'cabin', ['cabin'], {
     actorExpectation: requiredActors(
-      'The countryside hideout visibly stages Wag at the woodpile.',
+      'The countryside hideout visibly stages Lag at the woodpile.',
     ),
   }),
   entry('luxury-apartment', 'property', 'luxury-apartment', ['luxury-apartment'], {
-    actorExpectation: intentionalNoActors(
-      'The luxury flat is an unplaced hub with no campaign edge into it, so nobody is in it yet.',
-    ),
+    actorExpectation: Object.freeze({
+      disposition: GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS.REQUIRED,
+      minimum: 3,
+      reason: 'The luxury flat visibly seats its three civilian poker patrons.',
+    }),
   }),
   entry('motel', 'property', 'motel', ['motel'], { geometryStage: 'startup' }),
   entry('motel', 'late-cast', 'motel', [], { geometryStage: 'late' }),
@@ -412,16 +414,16 @@ async function buildCabin(descriptor, THREE, collaborators) {
     externalLighting: true,
   });
   await cabin.models;
-  const wagAssemblyId = 'cabin-resident:wag';
-  setGeometryGateMetadata(cabin.wag?.group, { assemblyId: wagAssemblyId });
-  cabin.wag?.group?.traverse((object) => {
+  const lagAssemblyId = 'cabin-resident:lag';
+  setGeometryGateMetadata(cabin.lag?.group, { assemblyId: lagAssemblyId });
+  cabin.lag?.group?.traverse((object) => {
     if (object.isGroup && object.name === 'forearm') {
       setGeometryGateMetadata(object, { fixedSupportAnchor: true });
     }
   });
-  const wagCollider = cabin.colliders.find((entry) => entry?.name === 'cabin-wag-body');
-  if (!wagCollider) throw new Error('Cabin geometry Adapter expected Wag body collider');
-  setGeometryGateMetadata(wagCollider, { assemblyId: wagAssemblyId });
+  const lagCollider = cabin.colliders.find((entry) => entry?.name === 'cabin-lag-body');
+  if (!lagCollider) throw new Error('Cabin geometry Adapter expected Lag body collider');
+  setGeometryGateMetadata(lagCollider, { assemblyId: lagAssemblyId });
   return result(
     descriptor,
     [{ label: 'countryside-cabin-property', root: cabin.root }],

@@ -420,10 +420,10 @@ export const NUMBSKULL = Object.freeze({
  * this roster is built (see HOG_MAMA, DEATHMEGATRON), and `makePerson` gates
  * the performer figure on the bikini rather than on `curvy`, so nothing from
  * the Silver Room's stage roles comes with them. `hair: 'tied'` replaces
- * `'short'` because she has NO face photo: at ten metres, in the dark, under
- * one dome light and a boot bulb, the hair silhouette is the only thing on
- * screen that says who she is. It also earns its keep on the gag -- that is
- * hair that has spent forty-two minutes against a spare wheel.
+ * `'short'` so her silhouette remains readable at ten metres, in the dark,
+ * under one dome light and a boot bulb; the landed portrait reinforces that
+ * identity up close. It also earns its keep on the gag -- that is hair that
+ * has spent forty-two minutes against a spare wheel.
  *
  * Deliberately NOT luxury and deliberately no chain: the men in the front of
  * the car have both. She is what a prospect owns.

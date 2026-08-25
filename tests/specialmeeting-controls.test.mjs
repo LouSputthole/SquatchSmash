@@ -97,6 +97,18 @@ test('campaign spawn, shared door interaction and movement-gated handoff are run
   assert.doesNotMatch(MAIN, /pauseMenu\.hold\(/);
 });
 
+test('the treeline handoff, not Palace completion, starts Initiation', () => {
+  const handoff = bodyOf('handOff');
+  const meetingComplete = handoff.indexOf('TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING');
+  const initiationDepart = handoff.indexOf('TIME_EVENT_IDS.DEPART_INITIATION');
+  const missionStart = handoff.indexOf("status = 'in_progress'");
+  const navigate = handoff.indexOf('navigateCampaign(campaign, SCENE_IDS.INITIATION');
+  assert.ok(meetingComplete >= 0 && initiationDepart > meetingComplete,
+    'Initiation departure is not recorded after Special Meeting completion');
+  assert.ok(missionStart > initiationDepart && navigate > missionStart,
+    'the runtime navigates into Initiation without first claiming it in campaign state');
+});
+
 test('the browser certification surface exposes observations, not progression hooks', () => {
   assert.match(MAIN, /const certification = \{/);
   for (const getter of [

@@ -43,6 +43,15 @@ import {
   createHeadlightBeamGeometry,
   setHeadlightBeamProfile,
 } from '../../core/vehicles/headlights.js';
+import {
+  createSedanGlassMaterial,
+  installSixPaneSedanGlazing,
+} from '../sedan-glazing.js';
+import {
+  FOREST_HEADLIGHT_BEAM_OPACITY,
+  FOREST_HEADLIGHT_DECAY,
+  FOREST_HEADLIGHT_PROFILES,
+} from './headlight-profile.js';
 
 /**
  * Where people sit, in the car's own space.
@@ -65,15 +74,15 @@ export const SEATS = Object.freeze({
  *
  * three.js has been physical since r155: a spot's intensity is candela and it
  * falls off as distance^decay, so the number is not a brightness dial, it is a
- * curve. At decay 1.8 — a reflector throws further than a bare bulb — 300 cd
- * puts about 1.4 on the road twenty metres out and rolls off to nothing by
- * sixty, which is what a dipped beam does. Guessing a small number here is how
+ * curve. At decay 1.8 — a reflector throws further than a bare bulb — the
+ * shared forest profile keeps useful light on the road twenty metres out and
+ * rolls it off before the draw horizon. Guessing a small number here is how
  * headlights end up as two bright patches on the bonnet.
  *
  * Main beam is reach, not glare: further and flatter, so the middle of the
  * road gets longer while the trees at the edge of it go dark.
  */
-const DECAY = 1.8;
+const DECAY = FOREST_HEADLIGHT_DECAY;
 /**
  * `aim` is where the beam is pointed, relative to the lamp: `ahead` metres
  * forward, `drop` metres down, `out` metres toward the kerb.
@@ -86,14 +95,8 @@ const DECAY = 1.8;
  * and the car drives around inside a puddle of its own light with blackness
  * beyond it.
  */
-const DIPPED = Object.freeze({
-  intensity: 300, distance: 70, angle: 0.32,
-  aim: { ahead: 55, drop: 1.9, out: 2.6 }, beam: 27,
-});
-const MAIN = Object.freeze({
-  intensity: 430, distance: 96, angle: 0.24,
-  aim: { ahead: 90, drop: 2.2, out: 1.4 }, beam: 40,
-});
+const DIPPED = FOREST_HEADLIGHT_PROFILES.dipped;
+const MAIN = FOREST_HEADLIGHT_PROFILES.main;
 
 /**
  * Build the car.
@@ -162,48 +165,27 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
   /* Glass                                                             */
   /* ---------------------------------------------------------------- */
 
-  /* The shell ships one box of glass filling the whole greenhouse, which from
-   * inside is a tinted cube around your head. It comes out, and six panes go
-   * in: a raked windscreen, a rear window and four sides — the front two of
-   * which can be wound down, because SM-290 is Numbskull asking whether the
-   * Prospect wants the window down and it should be possible to say yes. */
-  group.remove(car.glass);
-  car.glass.geometry.dispose();
-
-  const glassMat = track(new THREE.MeshStandardMaterial({
-    color: 0x11161c,
-    roughness: 0.05,
-    metalness: 0.2,
-    transparent: true,
+  const { cx1, cabinHalfW, glassY0, glassY1 } = cabin;
+  const paneH = glassY1 - glassY0;
+  const glassMat = track(createSedanGlassMaterial({
     /* Barely there. At night a windscreen is a faint sheen with the world
      * straight through it, and anything more opaque puts a wall between the
      * player and the only thing outside — the beams. */
-    opacity: 0.16,
-    side: THREE.DoubleSide,
+    color: 0x11161c, roughness: 0.05, metalness: 0.2, opacity: 0.16,
   }));
+  const glazing = installSixPaneSedanGlazing({
+    car,
+    cabin,
+    prefix: 'lincoln',
+    sideMaterial: glassMat,
+  });
+  const { sidePanes } = glazing;
 
-  const { cx0, cx1, cabinHalfW, glassY0, glassY1 } = cabin;
-  const paneH = glassY1 - glassY0;
-
-  const windscreen = box(0.05, paneH * 1.34, cabinHalfW * 1.9,
-    cx1 + 0.06, (glassY0 + glassY1) / 2 - 0.04, 0, glassMat, 'lincoln.windscreen');
-  windscreen.rotation.z = -0.36;          // raked back over the dash
-
-  const rearGlass = box(0.05, paneH * 1.2, cabinHalfW * 1.86,
-    cx0 - 0.05, (glassY0 + glassY1) / 2, 0, glassMat, 'lincoln.rear-glass');
-  rearGlass.rotation.z = 0.30;
-
-  const sidePanes = {};
+  /* The B pillars are bodywork, not part of the shared glazing helper. */
   for (const side of [-1, 1]) {
     const key = side > 0 ? 'left' : 'right';
     const z = side * (cabinHalfW - 0.035);
-    const front = box(1.16, paneH, 0.04, -0.12, (glassY0 + glassY1) / 2, z,
-      glassMat, `lincoln.window.front.${key}`);
-    const rear = box(1.02, paneH, 0.04, -1.42, (glassY0 + glassY1) / 2, z,
-      glassMat, `lincoln.window.rear.${key}`);
-    sidePanes[`front${side > 0 ? 'Left' : 'Right'}`] = front;
-    sidePanes[`rear${side > 0 ? 'Left' : 'Right'}`] = rear;
-    /* The B-pillar the shell does not build. Without it the two side panes are
+    /* Without this pillar the two side panes are
      * one long strip of glass and the car reads as a bus. */
     box(0.09, paneH, 0.05, -0.82, (glassY0 + glassY1) / 2, z, car.paint,
       `lincoln.pillar.b.${key}`);
@@ -358,7 +340,7 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
   const beamMat = track(new THREE.MeshBasicMaterial({
     color: 0xffe9c0,
     transparent: true,
-    opacity: 0.045,
+    opacity: FOREST_HEADLIGHT_BEAM_OPACITY,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
@@ -482,6 +464,7 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
     group,
     car,
     cabin,
+    glazing,
     wheels,
     steeringWheel,
     headlamps,

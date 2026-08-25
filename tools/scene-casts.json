@@ -322,15 +322,15 @@
         "vo.cabin."
       ],
       "sourceFiles": [
-        "src/cabin/wag.js",
+        "src/cabin/lag.js",
         "src/cabin/world.js",
         "src/cabin/main.js"
       ],
       "staged": [
-        "wag"
+        "lag"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "world.js builds Wag as the visible shared Npc rig at the woodpile. wag.js owns every hint and firewood reaction; main.js routes each exact cue through the canonical dialogue receipt path from that body."
+      "notes": "world.js builds Lag as the visible shared Npc rig at the woodpile. lag.js owns every hint and firewood reaction; main.js routes each exact cue through the canonical dialogue receipt path from that body."
     },
     {
       "id": "no-wake",

@@ -44,14 +44,12 @@ import { createSceneRecovery } from './scene-recovery.js';
  * scene with no mission record at all -- there is no `MISSION_IDS` entry for
  * it, because nothing in it can be done well or badly. The player is collected
  * in a car, driven, and let out at a spur; the only durable thing the scene
- * writes is the exact-once `COMPLETE_SPECIAL_MEETING` time event, and an
- * exact-once event cannot be rewound (same reason MANSION_RETURN's branch in
+ * writes is its exact-once completion/departure pair and Initiation's status;
+ * exact-once events cannot be rewound (same reason MANSION_RETURN's branch in
  * `resetCampaignScene` refuses to touch a completed briefing). A Restart Scene
- * entry here would therefore reduce to `campaign.update(() => {})` plus a
- * reload, which is exactly what Restart Checkpoint already does on every page
- * -- a second button with the same effect and a more frightening name. So the
- * Special Meeting gets the SKIP adapter and not the RESTART one. See its
- * entries in DESTINATIONS, COMPLETERS and CANONICAL_COMPLETIONS below.
+ * entry here would therefore be a destructive cross-scene rewind, not a local
+ * reset. So the Special Meeting gets the SKIP adapter and not the RESTART one.
+ * See its entries in DESTINATIONS, COMPLETERS and CANONICAL_COMPLETIONS below.
  */
 export const RECOVERABLE_CAMPAIGN_SCENES = Object.freeze([
   SCENE_IDS.BADA_BING_ONE,
@@ -88,17 +86,12 @@ const DESTINATIONS = Object.freeze({
   [SCENE_IDS.MANSION_SIEGE]: { sceneId: SCENE_IDS.ENOLA_SQUATCH, spawn: 'airfield' },
   [SCENE_IDS.ENOLA_SQUATCH]: { sceneId: SCENE_IDS.MANSION_RETURN, spawn: 'driveway' },
   [SCENE_IDS.MANSION_RETURN]: { sceneId: SCENE_IDS.CARTEL_PALACE, spawn: 'approach' },
-  /* The Palace goes HOME, not to the ceremony.
+  /* The Palace goes HOME, before the pickup.
    *
-   * This skipped straight to the Initiation for as long as the Palace's own
-   * exit button did. Both now name the Special Meeting -- he goes back to a
-   * flat where nobody has told him whether killing Sauce was the right call,
-   * Booskibro rings, and three men come and collect him -- and the old edge
-   * has been pulled out of the scene graph entirely, so leaving this pointing
-   * at the ceremony is not a shortcut, it is a throw: `campaign.transition`
-   * refuses an edge the graph does not have, and Skip Scene would have died on
-   * the one scene a developer skips it from most. */
-  [SCENE_IDS.CARTEL_PALACE]: { sceneId: SCENE_IDS.SPECIAL_MEETING, spawn: 'kerb' },
+   * Act One of the Special Meeting is playable in Apartment: Booskibro's call,
+   * getting ready, the refused door and the arriving headlights. A recovery
+   * skip must preserve that same route instead of becoming a story bypass. */
+  [SCENE_IDS.CARTEL_PALACE]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
   /* THE SPECIAL MEETING -> INITIATION NIGHT, at the `gathering` spawn.
    *
    * The same hand-off the scene performs for itself when it is played: see
@@ -284,14 +277,16 @@ function hasCanonicalCartelEnding(campaign) {
  * what the scene itself commits in `handOff()`, and `advanceTime` refuses to
  * apply it twice, which is what makes it safe to read as the completion mark.
  *
- * Initiation being unlocked is checked as well, and is not redundant with it:
- * the Palace is what opens the Initiation (see `hasCanonicalCartelEnding`),
- * and skipping INTO a locked Initiation would leave the campaign somewhere the
- * played route can never put it.
+ * The handoff's `DEPART_INITIATION` event and in-progress mission state are
+ * checked as well. Palace completion only makes that mission available; the
+ * Meeting owns the point where it actually begins.
  */
 function hasCanonicalSpecialMeetingEnding(campaign) {
   return campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING)
-    && missionIsUnlocked(campaign.state.missions[MISSION_IDS.INITIATION]);
+    && campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.DEPART_INITIATION)
+    && ['in_progress', 'complete'].includes(
+      campaign.state.missions[MISSION_IDS.INITIATION]?.status,
+    );
 }
 
 function completeBadaBingOne(campaign) {
@@ -517,14 +512,18 @@ function completeCartelPalace(campaign) {
  * Commit the Special Meeting's ending through the same seam the played scene
  * uses.
  *
- * One call, because there is one fact -- there is no story module to drive and
- * no mission to fill in. `advanceTime` is the exact-once ledger, so a second
- * skip after a legitimate completion changes nothing on the clock and the
- * canonical check still passes, which is the behaviour the re-entry tests
- * demand of every completer on this page.
+ * There is no story module to drive, but there are two exact-once facts: the
+ * Meeting completed, then Initiation began at the treeline. The played handoff
+ * writes the same pair in `src/specialmeeting/main.js`; the recovery skip must
+ * not leave the next mission merely available after navigating into it.
  */
 function completeSpecialMeeting(campaign) {
   campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (state) => {
+    if (state.missions[MISSION_IDS.INITIATION].status === 'available') {
+      state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
+    }
+  }, { required: true });
   return hasCanonicalSpecialMeetingEnding(campaign);
 }
 

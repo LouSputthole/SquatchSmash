@@ -184,6 +184,15 @@ const STANDING_YAW_OFFSET = Object.freeze({
 const STEP_CLEAR_M = 1.7;
 
 /**
+ * Bring the trunk reveal round the passenger-side rear corner of the car.
+ * The old centreline exit put Kittenboss directly behind the boot lid and the
+ * whole Lincoln from Tony's front-passenger-door eye: her subtitle played on
+ * a frame containing only bodywork. She is still at the trunk, but now on the
+ * side the player is standing on, where a person climbing out would land.
+ */
+const TRUNK_REVEAL_PASSENGER_OFFSET_M = 1.05;
+
+/**
  * How far back from a door anchor a man stands once he is just WAITING.
  *
  * A door anchor is where you stand to open a door -- close enough to reach the
@@ -283,14 +292,10 @@ const rosterPhoto = (id) => {
  * the moment she gains a `FAMILY`-style row this should read it off that row
  * with the other three.
  *
- * NONE of these four files exist yet — `assets/faces/index.json` lists neither
- * seff.png, lag.png, numbskull.png nor kittenboss.png — so every one of them
- * resolves to `null` today and all four keep the authored head they already
- * have. That is the intended behaviour and not a bug: the index is the ledger
- * of which photographs have LANDED, and asking for one that has not is a 404
- * in the console for every player. When the art is dropped into `assets/faces/`
- * and `node tools/faces-index.mjs` re-runs, these four wake up on their own
- * with nothing else changing.
+ * Kittenboss's dedicated portrait has landed. Seff, Lag and Numbskull still
+ * resolve to `null` and keep their authored heads; that is intentional until
+ * their files land. The index remains the authority, so no scene probes a
+ * missing image and produces a 404 in every player's console.
  */
 const FACE_PHOTOS = Object.freeze({
   seff: rosterPhoto(CHARACTER_IDS.SEFF),
@@ -690,8 +695,16 @@ export function buildSpecialMeetingCast(scene, {
       if (!sedan) return this;
       bootRider = false;
       standUp('kittenboss');
-      placeBeside('kittenboss', sedan.doorWorld('trunk'), {
-        away: true, standoff: WAITING_STANDOFF_M,
+      const trunk = sedan.doorWorld('trunk');
+      const passengerDoor = sedan.doorWorld('front_passenger');
+      const centre = sedan.group.getWorldPosition(new THREE.Vector3());
+      const sideX = passengerDoor.x - centre.x;
+      const sideZ = passengerDoor.z - centre.z;
+      const sideLength = Math.hypot(sideX, sideZ) || 1;
+      trunk.x += (sideX / sideLength) * TRUNK_REVEAL_PASSENGER_OFFSET_M;
+      trunk.z += (sideZ / sideLength) * TRUNK_REVEAL_PASSENGER_OFFSET_M;
+      placeBeside('kittenboss', trunk, {
+        away: true, standoff: 0.28,
       });
       return this;
     },

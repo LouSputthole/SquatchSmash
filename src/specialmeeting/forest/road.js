@@ -507,6 +507,12 @@ export const ROAD_EVENTS = Object.freeze([
    * left for its silence, two delivered lines and the fade. It is an event,
    * not a dialogue timer guessing where the car might be. */
   Object.freeze({ id: 'final_approach', s: LENGTH - 82, stop: false }),
+  /* SM-326. Start bringing the picture back while the sedan is still easing
+   * into the spur. Gating the fade on the stop itself left a player staring at
+   * a fully black screen for eight seconds on a slow render clock. This node
+   * is close enough to the authored stop that the 1.2 s dissolve completes,
+   * but early enough that the first returning image contains real motion. */
+  Object.freeze({ id: 'arrival_fade', s: LENGTH - 6.5, stop: false }),
   /* SM-330. Off the track onto a flat spur, and the engine goes off. */
   Object.freeze({ id: 'arrival', s: LENGTH - 4, stop: true }),
 ]);

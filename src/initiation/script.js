@@ -213,8 +213,8 @@ const IN_060 = beat('IN-060', 1, 'q1_again', [
   }),
   sd('Nobody answers him. One man steps out of the ring behind the line, '
     + 'walks unhurriedly around the front of it, and stops in front of him. '
-    + 'This is SEFF. Prospect One watches him come the whole way, still '
-    + 'smiling, waiting to be told the rules. Seff draws.'),
+    + 'This is BOOSKIBRO. Prospect One watches him come the whole way, still '
+    + 'smiling, waiting to be told the rules. Booskibro draws.'),
   l('PROSPECT_ONE', 'Oh.', {
     direction: 'Small. Two letters and it is the last thing he says. He is not '
       + 'frightened yet — he has only this second understood, and there is no '

@@ -74,9 +74,9 @@ test('known failures, debt, intentional N/A, and UNKNOWN are explicit registry f
   assert.doesNotMatch(serialized, /"pass"/, 'unexecuted registry claims must never be recorded as PASS');
 
   const palace = getSceneContract(SCENE_IDS.CARTEL_PALACE);
-  assert.equal(palace.entrypoints[0].disposition, CONTRACT_DISPOSITION.KNOWN_FAILURE);
+  assert.equal(palace.entrypoints[0].disposition, CONTRACT_DISPOSITION.REQUIRED);
   assert.deepEqual(palace.entrypoints[0].expectedExits, [SCENE_IDS.APARTMENT]);
-  assert.deepEqual(palace.entrypoints[0].observedExits, [SCENE_IDS.SPECIAL_MEETING]);
+  assert.equal(palace.entrypoints[0].observedExits, undefined);
 
   const motel = getSceneContract(SCENE_IDS.JERKY_MOTEL);
   assert.equal(motel.capabilities.checkpoints.disposition, CONTRACT_DISPOSITION.UNKNOWN);
@@ -100,6 +100,15 @@ test('canonical input adoption does not mutate unresolved browser behavior', () 
   assert.ok(canonical.length > 0, 'fixture lost canonical-but-uncertified input debt');
   assert.equal(new Set(unresolvedInput.map(({ input }) => input.description)).size, 1,
     'architecture metadata changed the player-facing browser obligation');
+});
+
+test('Countryside Cabin canonical input is required only after live semantic certification', () => {
+  const cabin = getSceneContract(SCENE_IDS.COUNTRYSIDE_CABIN);
+  assert.equal(cabin.capabilities.input.disposition, CONTRACT_DISPOSITION.REQUIRED);
+  assert.equal(cabin.capabilities.input.adapter, 'core/first-person-input');
+  assert.deepEqual(cabin.capabilities.input.actions, [
+    'pointer_lock', 'move', 'clear_held_input',
+  ]);
 });
 
 test('the validator rejects shallow or ambiguous contract records', () => {

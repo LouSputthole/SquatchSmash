@@ -4,22 +4,11 @@
   "domains": {
     "architecture": {
       "summary": {
-        "records": 1,
-        "units": 1,
-        "byStatus": {
-          "unknown": 1
-        }
+        "records": 0,
+        "units": 0,
+        "byStatus": {}
       },
-      "entries": [
-        {
-          "id": "initiation:initiation_canonical:inline_first_person_input:input",
-          "status": "unknown",
-          "count": 1,
-          "proofId": "initiation:initiation_canonical:inline_first_person_input:input",
-          "proofKind": "architecture_finding",
-          "fingerprint": "4a3b6f525afca45d57db"
-        }
-      ],
+      "entries": [],
       "proofs": [
         {
           "id": "airstrip_smuggling:airstrip_smuggling_canonical:canonical_adapter_import:input",
@@ -318,6 +307,54 @@
           }
         },
         {
+          "id": "countryside_cabin:countryside_cabin_canonical:canonical_adapter_import:input",
+          "status": "pass",
+          "evidence": {
+            "kind": "canonical_adapter_import",
+            "subject": "input"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:canonical_adapter_import:interaction",
+          "status": "pass",
+          "evidence": {
+            "kind": "canonical_adapter_import",
+            "subject": "interaction"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:canonical_adapter_import:objective",
+          "status": "pass",
+          "evidence": {
+            "kind": "canonical_adapter_import",
+            "subject": "objective"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:entrypoint_file:href",
+          "status": "pass",
+          "evidence": {
+            "kind": "entrypoint_file",
+            "subject": "href"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:entrypoint_file:root",
+          "status": "pass",
+          "evidence": {
+            "kind": "entrypoint_file",
+            "subject": "root"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:inline_first_person_input:input",
+          "status": "pass",
+          "evidence": {
+            "kind": "inline_first_person_input",
+            "subject": "input"
+          }
+        },
+        {
           "id": "enola_squatch:enola_squatch_canonical:canonical_adapter_import:input",
           "status": "pass",
           "evidence": {
@@ -358,6 +395,14 @@
           }
         },
         {
+          "id": "initiation:initiation_canonical:canonical_adapter_import:input",
+          "status": "pass",
+          "evidence": {
+            "kind": "canonical_adapter_import",
+            "subject": "input"
+          }
+        },
+        {
           "id": "initiation:initiation_canonical:canonical_adapter_import:objective",
           "status": "pass",
           "evidence": {
@@ -383,7 +428,7 @@
         },
         {
           "id": "initiation:initiation_canonical:inline_first_person_input:input",
-          "status": "unknown",
+          "status": "pass",
           "evidence": {
             "kind": "inline_first_person_input",
             "subject": "input"
@@ -881,11 +926,11 @@
     },
     "semantic_contract": {
       "summary": {
-        "records": 140,
-        "units": 140,
+        "records": 134,
+        "units": 134,
         "byStatus": {
-          "debt": 133,
-          "known_failure": 5,
+          "debt": 130,
+          "known_failure": 2,
           "unknown": 2
         }
       },
@@ -1235,14 +1280,6 @@
           "fingerprint": "d53eb06f9f1ddf473c04"
         },
         {
-          "id": "cartel_palace:cartel_palace_canonical:entry:route",
-          "status": "known_failure",
-          "count": 1,
-          "proofId": "cartel_palace:cartel_palace_canonical:entry:route",
-          "proofKind": "browser_obligation",
-          "fingerprint": "eef58fd7f10a9073d316"
-        },
-        {
           "id": "cartel_palace:cartel_palace_canonical:input:clear_held_input",
           "status": "debt",
           "count": 1,
@@ -1265,14 +1302,6 @@
           "proofId": "cartel_palace:cartel_palace_canonical:input:pointer_lock",
           "proofKind": "browser_obligation",
           "fingerprint": "503ef118f5e41767bcc1"
-        },
-        {
-          "id": "cartel_palace:cartel_palace_canonical:progression:real-action",
-          "status": "known_failure",
-          "count": 1,
-          "proofId": "cartel_palace:cartel_palace_canonical:progression:real-action",
-          "proofKind": "browser_obligation",
-          "fingerprint": "9074331742596449325e"
         },
         {
           "id": "enola_squatch:enola_squatch_canonical:camera:look_changes_view",
@@ -1353,38 +1382,6 @@
           "proofId": "initiation:initiation_canonical:camera:returns_to_playable_view",
           "proofKind": "browser_obligation",
           "fingerprint": "8219ed6c06f91d37da29"
-        },
-        {
-          "id": "initiation:initiation_canonical:checkpoint:unresolved",
-          "status": "known_failure",
-          "count": 1,
-          "proofId": "initiation:initiation_canonical:checkpoint:unresolved",
-          "proofKind": "browser_obligation",
-          "fingerprint": "9d73ad0d45e9c0634360"
-        },
-        {
-          "id": "initiation:initiation_canonical:input:clear_held_input",
-          "status": "debt",
-          "count": 1,
-          "proofId": "initiation:initiation_canonical:input:clear_held_input",
-          "proofKind": "browser_obligation",
-          "fingerprint": "8ffd9db2757a67e4935b"
-        },
-        {
-          "id": "initiation:initiation_canonical:input:move",
-          "status": "debt",
-          "count": 1,
-          "proofId": "initiation:initiation_canonical:input:move",
-          "proofKind": "browser_obligation",
-          "fingerprint": "0e7bcc7fd427ea87e68e"
-        },
-        {
-          "id": "initiation:initiation_canonical:input:pointer_lock",
-          "status": "debt",
-          "count": 1,
-          "proofId": "initiation:initiation_canonical:input:pointer_lock",
-          "proofKind": "browser_obligation",
-          "fingerprint": "e1bcc560ec984a075136"
         },
         {
           "id": "initiation:initiation_canonical:interaction:behavior",
@@ -3153,7 +3150,7 @@
           "status": "declaration_only",
           "evidence": {
             "area": "entry",
-            "disposition": "known_failure"
+            "disposition": "required"
           }
         },
         {
@@ -3241,7 +3238,7 @@
           "status": "declaration_only",
           "evidence": {
             "area": "progression",
-            "disposition": "known_failure"
+            "disposition": "required"
           }
         },
         {
@@ -3270,6 +3267,174 @@
         },
         {
           "id": "cartel_palace:cartel_palace_canonical:spawn:perimeter",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "spawn",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:boot:meaningful-frame",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "boot",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:camera:look_changes_view",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "camera",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:camera:owner_matches_phase",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "camera",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:checkpoint:arrival",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "checkpoint",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:checkpoint:porch",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "checkpoint",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:checkpoint:wake",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "checkpoint",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:entry:route",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "entry",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:input:clear_held_input",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "input",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:input:move",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "input",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:input:pointer_lock",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "input",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:interaction:behavior",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "interaction",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:minimum_subjects:authored_actor",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "minimum_subjects",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:minimum_subjects:interactable",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "minimum_subjects",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:minimum_subjects:meaningful_frame",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "minimum_subjects",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:minimum_subjects:objective_item",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "minimum_subjects",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:minimum_subjects:player",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "minimum_subjects",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:objective:behavior",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "objective",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:progression:real-action",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "progression",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:spawn:arrival",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "spawn",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:spawn:porch",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "spawn",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "countryside_cabin:countryside_cabin_canonical:spawn:wake",
           "status": "declaration_only",
           "evidence": {
             "area": "spawn",
@@ -3517,11 +3682,11 @@
           }
         },
         {
-          "id": "initiation:initiation_canonical:checkpoint:unresolved",
+          "id": "initiation:initiation_canonical:checkpoint:approach",
           "status": "declaration_only",
           "evidence": {
             "area": "checkpoint",
-            "disposition": "known_failure"
+            "disposition": "required"
           }
         },
         {
@@ -3537,7 +3702,7 @@
           "status": "declaration_only",
           "evidence": {
             "area": "input",
-            "disposition": "debt"
+            "disposition": "required"
           }
         },
         {
@@ -3545,7 +3710,7 @@
           "status": "declaration_only",
           "evidence": {
             "area": "input",
-            "disposition": "debt"
+            "disposition": "required"
           }
         },
         {
@@ -3553,7 +3718,7 @@
           "status": "declaration_only",
           "evidence": {
             "area": "input",
-            "disposition": "debt"
+            "disposition": "required"
           }
         },
         {
@@ -7745,23 +7910,57 @@
           }
         },
         {
+          "id": "cabin:property",
+          "status": "pass",
+          "evidence": {
+            "actorDiscoveredIds": [
+              "cabin.lag"
+            ],
+            "actorExpectation": {
+              "disposition": "REQUIRED",
+              "minimum": 1,
+              "reason": "The countryside hideout visibly stages Lag at the woodpile."
+            },
+            "actorObservedIds": [
+              "cabin.lag"
+            ],
+            "actorVisibilityPolicy": "rendered_only",
+            "actorsDiscovered": 1,
+            "actorsObserved": 1,
+            "built": true,
+            "findings": 0,
+            "findingsScanned": true,
+            "spatialCoverageStatus": "PASS",
+            "typed": 926,
+            "unmarkedRigs": 0,
+            "untyped": 0,
+            "visibilityFilteredActorIds": [],
+            "visibilityFilteredActors": 0
+          }
+        },
+        {
           "id": "cartel-palace:approach",
           "status": "observed",
           "evidence": {
             "actorDiscoveredIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west",
               "palace-wife"
             ],
             "actorExpectation": {
@@ -7770,33 +7969,39 @@
               "reason": "cartel-palace:approach must expose its visible staged cast."
             },
             "actorObservedIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
               "palace-wife"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 14,
-            "actorsObserved": 14,
+            "actorsDiscovered": 19,
+            "actorsObserved": 15,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 7,
             "unmarkedRigs": 0,
             "untyped": 73,
-            "visibilityFilteredActorIds": [],
-            "visibilityFilteredActors": 0
+            "visibilityFilteredActorIds": [
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west"
+            ],
+            "visibilityFilteredActors": 4
           }
         },
         {
@@ -7804,19 +8009,24 @@
           "status": "observed",
           "evidence": {
             "actorDiscoveredIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west",
               "palace-wife"
             ],
             "actorExpectation": {
@@ -7825,33 +8035,39 @@
               "reason": "cartel-palace:betrayal must expose its visible staged cast."
             },
             "actorObservedIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
               "palace-wife"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 14,
-            "actorsObserved": 14,
+            "actorsDiscovered": 19,
+            "actorsObserved": 15,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 7,
             "unmarkedRigs": 0,
             "untyped": 71,
-            "visibilityFilteredActorIds": [],
-            "visibilityFilteredActors": 0
+            "visibilityFilteredActorIds": [
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west"
+            ],
+            "visibilityFilteredActors": 4
           }
         },
         {
@@ -7859,19 +8075,24 @@
           "status": "observed",
           "evidence": {
             "actorDiscoveredIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west",
               "palace-wife"
             ],
             "actorExpectation": {
@@ -7880,33 +8101,39 @@
               "reason": "cartel-palace:clear must expose its visible staged cast."
             },
             "actorObservedIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
               "palace-wife"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 14,
-            "actorsObserved": 14,
+            "actorsDiscovered": 19,
+            "actorsObserved": 15,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 7,
             "unmarkedRigs": 0,
             "untyped": 70,
-            "visibilityFilteredActorIds": [],
-            "visibilityFilteredActors": 0
+            "visibilityFilteredActorIds": [
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west"
+            ],
+            "visibilityFilteredActors": 4
           }
         },
         {
@@ -7914,19 +8141,24 @@
           "status": "observed",
           "evidence": {
             "actorDiscoveredIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west",
               "palace-wife"
             ],
             "actorExpectation": {
@@ -7935,33 +8167,39 @@
               "reason": "cartel-palace:dining-room must expose its visible staged cast."
             },
             "actorObservedIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
               "palace-wife"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 14,
-            "actorsObserved": 14,
+            "actorsDiscovered": 19,
+            "actorsObserved": 15,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 7,
             "unmarkedRigs": 0,
             "untyped": 70,
-            "visibilityFilteredActorIds": [],
-            "visibilityFilteredActors": 0
+            "visibilityFilteredActorIds": [
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west"
+            ],
+            "visibilityFilteredActors": 4
           }
         },
         {
@@ -7969,19 +8207,24 @@
           "status": "observed",
           "evidence": {
             "actorDiscoveredIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west",
               "palace-wife"
             ],
             "actorExpectation": {
@@ -7990,33 +8233,39 @@
               "reason": "cartel-palace:estate must expose its visible staged cast."
             },
             "actorObservedIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
               "palace-wife"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 14,
-            "actorsObserved": 14,
+            "actorsDiscovered": 19,
+            "actorsObserved": 15,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 7,
             "unmarkedRigs": 0,
             "untyped": 71,
-            "visibilityFilteredActorIds": [],
-            "visibilityFilteredActors": 0
+            "visibilityFilteredActorIds": [
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west"
+            ],
+            "visibilityFilteredActors": 4
           }
         },
         {
@@ -8024,19 +8273,24 @@
           "status": "observed",
           "evidence": {
             "actorDiscoveredIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west",
               "palace-wife"
             ],
             "actorExpectation": {
@@ -8045,33 +8299,39 @@
               "reason": "cartel-palace:perimeter must expose its visible staged cast."
             },
             "actorObservedIds": [
+              "palace-cleaner",
               "palace-entry-watch",
               "palace-fountain",
               "palace-gallery-east",
               "palace-gallery-west",
               "palace-gate-one",
               "palace-guardhouse",
+              "palace-johnny",
+              "palace-lola",
               "palace-mark",
               "palace-pool",
               "palace-sauce",
               "palace-service-door",
               "palace-service-hall",
-              "palace-short-one",
-              "palace-short-two",
               "palace-wife"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 14,
-            "actorsObserved": 14,
+            "actorsDiscovered": 19,
+            "actorsObserved": 15,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 7,
             "unmarkedRigs": 0,
             "untyped": 72,
-            "visibilityFilteredActorIds": [],
-            "visibilityFilteredActors": 0
+            "visibilityFilteredActorIds": [
+              "palace-wave-back-east",
+              "palace-wave-back-west",
+              "palace-wave-doors-east",
+              "palace-wave-doors-west"
+            ],
+            "visibilityFilteredActors": 4
           }
         },
         {
@@ -9026,6 +9286,39 @@
           }
         },
         {
+          "id": "luxury-apartment:property",
+          "status": "pass",
+          "evidence": {
+            "actorDiscoveredIds": [
+              "luxury.poker.patron.east",
+              "luxury.poker.patron.north",
+              "luxury.poker.patron.west"
+            ],
+            "actorExpectation": {
+              "disposition": "REQUIRED",
+              "minimum": 3,
+              "reason": "The luxury flat visibly seats its three civilian poker patrons."
+            },
+            "actorObservedIds": [
+              "luxury.poker.patron.east",
+              "luxury.poker.patron.north",
+              "luxury.poker.patron.west"
+            ],
+            "actorVisibilityPolicy": "rendered_only",
+            "actorsDiscovered": 3,
+            "actorsObserved": 3,
+            "built": true,
+            "findings": 0,
+            "findingsScanned": true,
+            "spatialCoverageStatus": "PASS",
+            "typed": 64,
+            "unmarkedRigs": 0,
+            "untyped": 0,
+            "visibilityFilteredActorIds": [],
+            "visibilityFilteredActors": 0
+          }
+        },
+        {
           "id": "mansion-siege:alert",
           "status": "intentional_na",
           "evidence": {
@@ -9760,6 +10053,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -9798,6 +10093,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -9810,8 +10107,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -9849,6 +10146,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -9887,6 +10186,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -9899,8 +10200,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -9938,6 +10239,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -9976,6 +10279,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -9988,8 +10293,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10027,6 +10332,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10065,6 +10372,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10077,8 +10386,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10116,6 +10425,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10154,6 +10465,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10166,8 +10479,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10205,6 +10518,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10243,6 +10558,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10255,8 +10572,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10294,6 +10611,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10332,6 +10651,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10344,8 +10665,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10383,6 +10704,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10421,6 +10744,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10433,8 +10758,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10472,6 +10797,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10510,6 +10837,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10522,8 +10851,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10561,6 +10890,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10599,6 +10930,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10611,8 +10944,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10650,6 +10983,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "seff",
@@ -10687,6 +11022,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "seff",
@@ -10698,8 +11035,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 30,
-            "actorsObserved": 30,
+            "actorsDiscovered": 32,
+            "actorsObserved": 32,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10737,6 +11074,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10775,6 +11114,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10787,8 +11128,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10826,6 +11167,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10864,6 +11207,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10876,8 +11221,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -10915,6 +11260,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10953,6 +11300,8 @@
               "poolPerformer0",
               "poolPerformer1",
               "poolPerformer2",
+              "poolPerformer3",
+              "poolPerformer4",
               "rippin",
               "sasole",
               "sauce",
@@ -10965,8 +11314,8 @@
               "vault"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 31,
-            "actorsObserved": 31,
+            "actorsDiscovered": 33,
+            "actorsObserved": 33,
             "built": true,
             "findings": 0,
             "findingsScanned": true,

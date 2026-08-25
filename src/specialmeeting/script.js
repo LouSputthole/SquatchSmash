@@ -290,10 +290,14 @@ const RAW_BEATS = [
       l('SEFF', 'Quick thing before we go — no. Forget it. Later.',
         { direction: 'He does not say what the thing was. He never does. Do not resolve this.' }),
       l('LAG', "Forty minutes, roughly. There's no signal past the reservoir. I checked."),
+      l('PROSPECT', "Why'd all three of you come?"),
+      l('NUMBSKULL', 'Carpool.', { cue: 'vo.specialmeeting.numbskull.arrival.carpool.1' }),
+      l('PROSPECT', 'To pick up one person?'),
+      l('NUMBSKULL', "Now it's full."),
       sd('Numbskull arrives at the front passenger door, waits for Lag to step '
         + 'clear of it, and opens it. He holds it. He does not let go of it for '
         + 'the rest of the scene until Tony is sitting in it.'),
-      l('NUMBSKULL', 'Front.', { verbatim: true }),
+      l('NUMBSKULL', 'Front.', { verbatim: true, cue: 'vo.specialmeeting.numbskull.arrival.1' }),
     ],
     next: 'SM-110',
   },
@@ -508,7 +512,13 @@ const RAW_BEATS = [
     title: 'THE DIRT ROAD',
     note: 'Trees close over the visible road and the full beams pick out dirt. '
       + 'Nobody has said a word since the flat.',
-    lines: [sd('Full beams on the dirt road. Trees closing over it.')],
+    lines: [
+      sd('Full beams on the dirt road. Trees closing over it.'),
+      l('PROSPECT', 'You guys planning on killing me?'),
+      l('SEFF', "Planning's a strong word."),
+      l('PROSPECT', "What's the weaker word?"),
+      l('SEFF', 'Driving.'),
+    ],
     next: 'SM-210',
   },
 
@@ -898,8 +908,8 @@ const RAW_BEATS = [
     title: 'FADE TO BLACK',
     note: 'A dissolve after the final line, not the old hard cut before the '
       + 'conversation. Engine and road noise continue through the fade; the '
-      + 'arrival road gate owns the full-black beat so a slow render clock '
-      + 'cannot add another dead hold after the car has already parked.',
+      + 'pre-arrival road gate owns the full-black beat so a slow render clock '
+      + 'cannot add a dead hold while the car finishes parking.',
     lines: [sd('Fade to black. The car continues underneath.', {
       fadeSeconds: 1.2,
       holdSeconds: 0,
@@ -912,8 +922,8 @@ const RAW_BEATS = [
     act: 3,
     kind: 'fade',
     title: 'ARRIVAL',
-    note: 'The arrival releases the black quickly. The engine and road bed are '
-      + 'still audible when the first parked image appears; SM-330 then kills '
+    note: 'The pre-arrival node releases the black quickly. The engine and road '
+      + 'bed are still audible while the car finishes settling; SM-330 then kills '
       + 'the engine on screen.',
     lines: [sd('Fade up on headlights washing the trunks at the spur.', {
       fadeSeconds: 0.8,

@@ -144,7 +144,13 @@ export function createRideSequence({
       if (line.swapRear) rearSwapped = true;
       if (line.opensTrunk) trunkOpen = true;
       if (line.closesTrunk) trunkOpen = false;
-      return Math.max(0, line.holdSeconds ?? 0);
+      /* A visual dissolve owns real time even when it deliberately has no
+       * additional hold. Previously `fadeSeconds` was sent to the DOM but the
+       * sequence advanced again on the next frame, so a 1.2 second fade to
+       * black could be followed by fade-in roughly 16 ms later. Treat the
+       * transition itself as the stage direction's minimum duration; an
+       * authored hold may still extend it. */
+      return Math.max(0, line.holdSeconds ?? 0, line.fadeSeconds ?? 0);
     }
     const reported = onLine?.(line, b);
     const spoken = Number.isFinite(reported) && reported > 0

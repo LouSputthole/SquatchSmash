@@ -17,6 +17,8 @@ import { WALL_SLOTS, BATH_SLOTS } from '../world/apartment.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
 import { Person } from '../core/person.js';
 import { markSemanticPlacement } from '../core/semantic-placement.js';
+import { setActorLandmarks } from '../core/staging.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { buildInteractiveBong } from '../world/bong.js';
 import { makeAnswerMachine } from '../world/dressing.js';
 import {
@@ -136,12 +138,21 @@ function structural(target, assemblyId, wallAxis = null) {
   });
 }
 
-function addBounds(colliders, bounds, name, yOffset = 0, assemblyId = null) {
+function addBounds(colliders, bounds, name, yOffset = 0, assemblyId = null, spatial = null) {
+  const authoredSpatial = typeof spatial === 'string' ? { kind: spatial } : spatial;
+  if (!authoredSpatial || typeof authoredSpatial.kind !== 'string' || !authoredSpatial.kind) {
+    throw new TypeError(`Luxury collider ${name} requires an authored spatial kind`);
+  }
   const low = [bounds[0][0], bounds[0][1] + yOffset, bounds[0][2]];
   const high = [bounds[1][0], bounds[1][1] + yOffset, bounds[1][2]];
   const volume = collider(low, high);
   volume.name = name;
   if (assemblyId) own(volume, assemblyId);
+  markSpatialPrimitive(volume, {
+    ...authoredSpatial,
+    id: `luxury-apartment.collider.${name}`,
+    ...(assemblyId ? { assemblyId } : {}),
+  });
   colliders.push(volume);
   return volume;
 }
@@ -810,9 +821,24 @@ function buildShell({ root, city, M, colliders, occluders, floorZones }) {
   );
   shell.add(mainFloor, loftFloor);
 
+  const bath = LUXURY_APARTMENT.bathroom;
   const serviceFront = structural(
-    boxFrom(x0 + WALL, MAIN_Y, loft.z1 - 0.18, LUXURY_APARTMENT.stair.x0, LOFT_Y - 0.18, loft.z1, M.wallAccent, {
+    boxFrom(x0 + WALL, MAIN_Y, loft.z1 - 0.18, bath.doorX0, LOFT_Y - 0.18, loft.z1, M.wallAccent, {
       name: 'luxury-service-plinth-front-west',
+    }),
+    'luxury-service-plinth',
+    'z',
+  );
+  const serviceDoorJamb = structural(
+    boxFrom(bath.doorX1, MAIN_Y, loft.z1 - 0.18, LUXURY_APARTMENT.stair.x0, LOFT_Y - 0.18, loft.z1, M.wallAccent, {
+      name: 'luxury-service-plinth-bathroom-jamb',
+    }),
+    'luxury-service-plinth',
+    'z',
+  );
+  const serviceDoorCap = structural(
+    boxFrom(bath.doorX0, 2.66, loft.z1 - 0.18, bath.doorX1, LOFT_Y - 0.18, loft.z1, M.wallAccent, {
+      name: 'luxury-service-plinth-bathroom-cap',
     }),
     'luxury-service-plinth',
     'z',
@@ -824,14 +850,30 @@ function buildShell({ root, city, M, colliders, occluders, floorZones }) {
     'luxury-service-plinth',
     'z',
   );
-  shell.add(serviceFront, serviceFrontEast);
-  occluders.push(serviceFront, serviceFrontEast);
+  const bathThreshold = structural(
+    boxFrom(bath.doorX0, -0.14, bath.z1, bath.doorX1, MAIN_Y, main.z0, M.floor, {
+      name: 'luxury-bathroom-threshold',
+      cast: false,
+    }),
+    'luxury-bathroom-threshold',
+  );
+  shell.add(serviceFront, serviceDoorJamb, serviceDoorCap, serviceFrontEast, bathThreshold);
+  occluders.push(serviceFront, serviceDoorJamb, serviceDoorCap, serviceFrontEast);
+  floorZones.push({
+    name: 'luxury-bathroom-threshold-zone',
+    box: new THREE.Box3(
+      new THREE.Vector3(bath.doorX0, MAIN_Y, bath.z1),
+      new THREE.Vector3(bath.doorX1, MAIN_Y + 1.2, main.z0),
+    ),
+    surface: 'tile',
+    y: MAIN_Y,
+  });
   addBounds(colliders, [[x0 + WALL, 0, z0 + 0.04], [LUXURY_APARTMENT.stair.x0 - 0.095, LOFT_Y - 0.05, LUXURY_APARTMENT.bathroom.z0 - 0.04]],
-    'luxury-sealed-under-loft-west-back', 0, 'luxury-service-plinth-collision');
+    'luxury-sealed-under-loft-west-back', 0, 'luxury-service-plinth-collision', 'world');
   addBounds(colliders, [[LUXURY_APARTMENT.stair.x1 + 0.095, 0, z0 + 0.04], [6.70, LOFT_Y - 0.05, loft.z1]],
-    'luxury-sealed-under-loft-east-west-run', 0, 'luxury-service-plinth-collision');
+    'luxury-sealed-under-loft-east-west-run', 0, 'luxury-service-plinth-collision', 'world');
   addBounds(colliders, [[9.00, 0, z0 + 0.04], [x1 - WALL, LOFT_Y - 0.05, loft.z1]],
-    'luxury-sealed-under-loft-east-east-run', 0, 'luxury-service-plinth-collision');
+    'luxury-sealed-under-loft-east-east-run', 0, 'luxury-service-plinth-collision', 'world');
 
   // North wall is split around the upper entry vestibule only visually; the
   // playable main entry lives on the west wall, outside the stacked footprint.
@@ -843,7 +885,7 @@ function buildShell({ root, city, M, colliders, occluders, floorZones }) {
   shell.add(northWall);
   occluders.push(northWall);
   addBounds(colliders, [[x0 - 0.35, 0, z0 - WALL], [x1 + 0.35, CEILING_Y, z0]],
-    'luxury-wall-north-collider', 0, 'luxury-shell-collision');
+    'luxury-wall-north-collider', 0, 'luxury-shell-collision', 'world');
 
   // West wall leaves a true main-floor opening for the front door.
   const westSegments = [
@@ -860,7 +902,7 @@ function buildShell({ root, city, M, colliders, occluders, floorZones }) {
     shell.add(wall);
     occluders.push(wall);
     addBounds(colliders, [[x0 - WALL, 0, a], [x0, CEILING_Y, b]],
-      `luxury-wall-west-${i}-collider`, 0, 'luxury-shell-collision');
+      `luxury-wall-west-${i}-collider`, 0, 'luxury-shell-collision', 'world');
   }
   const westHeader = structural(
     boxFrom(x0 - WALL, DOOR_H, entry.z0, x0, CEILING_Y, entry.z1, M.wall, { name: 'luxury-entry-header' }),
@@ -870,7 +912,7 @@ function buildShell({ root, city, M, colliders, occluders, floorZones }) {
   shell.add(westHeader);
   occluders.push(westHeader);
   addBounds(colliders, [[x0 - WALL, DOOR_H, entry.z0], [x0, CEILING_Y, entry.z1]],
-    'luxury-entry-header-collider', 0, 'luxury-shell-collision');
+    'luxury-entry-header-collider', 0, 'luxury-shell-collision', 'world');
 
   // A thin, coffered ceiling keeps the double-height volume legible.
   shell.add(structural(
@@ -909,9 +951,9 @@ function buildShell({ root, city, M, colliders, occluders, floorZones }) {
   });
   occluders.push(...southWindows.glass, ...eastWindows.glass);
   addBounds(colliders, [[x0 + 0.04, 0, z1], [x1 - 0.04, CEILING_Y, z1 + WALL]],
-    'luxury-south-glass-wall-collider', 0, 'luxury-window-collision');
+    'luxury-south-glass-wall-collider', 0, 'luxury-window-collision', 'world');
   addBounds(colliders, [[x1, 0, z0 + 0.04], [x1 + WALL, CEILING_Y, z1 - 0.04]],
-    'luxury-east-glass-wall-collider', 0, 'luxury-window-collision');
+    'luxury-east-glass-wall-collider', 0, 'luxury-window-collision', 'world');
 
   const cityView = buildCityView({ root: city, M });
   const cityGlassTarget = proxy('luxury-city-glass-target', [5.2, 3.8, 0.22], [2.6, 3.3, z1 - 0.18], shell);
@@ -1322,6 +1364,7 @@ function buildPivotDoor({
     `luxury-${id}-door-collider`,
     0,
     `luxury-door-collision:${id}`,
+    'door',
   );
   let want = 0;
   let current = 0;
@@ -1414,13 +1457,13 @@ function buildElevatorDoor({ root, M, colliders }) {
   const target = proxy('luxury-elevator-target', [2.25, 2.5, 0.55], [7.85, 1.25, LUXURY_APARTMENT.loft.z1 + 0.35], root);
   const volume = addBounds(colliders,
     [[6.80, 0, LUXURY_APARTMENT.loft.z1 - 0.10], [8.90, 2.45, LUXURY_APARTMENT.loft.z1 + 0.12]],
-    'luxury-elevator-door-collider', 0, 'luxury-elevator-collision');
+    'luxury-elevator-door-collider', 0, 'luxury-elevator-collision', 'door');
   addBounds(colliders, [[6.80, 0, -2.24], [6.92, 2.58, -0.84]],
-    'luxury-elevator-cab-left-collider', 0, 'luxury-elevator-collision');
+    'luxury-elevator-cab-left-collider', 0, 'luxury-elevator-collision', 'world');
   addBounds(colliders, [[8.78, 0, -2.24], [8.90, 2.58, -0.84]],
-    'luxury-elevator-cab-right-collider', 0, 'luxury-elevator-collision');
+    'luxury-elevator-cab-right-collider', 0, 'luxury-elevator-collision', 'world');
   addBounds(colliders, [[6.80, 0, -2.24], [8.90, 2.58, -2.12]],
-    'luxury-elevator-cab-back-collider', 0, 'luxury-elevator-collision');
+    'luxury-elevator-cab-back-collider', 0, 'luxury-elevator-collision', 'world');
   let want = 0;
   let current = 0;
   const api = {
@@ -1498,13 +1541,16 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
     transparent: true,
     opacity: 0.28,
   });
-  for (const sideX of [stair.x0, stair.x1]) {
-    const rail = group(`luxury-stair-rail-${sideX < 0 ? 'west' : 'east'}`);
+  for (const { sideX, side, shortSide } of [
+    { sideX: stair.x0, side: 'west', shortSide: 'w' },
+    { sideX: stair.x1, side: 'east', shortSide: 'e' },
+  ]) {
+    const rail = group(`luxury-stair-rail-${side}`);
     for (let i = 0; i < STAIR_STEPS; i++) {
       const y = i * LUXURY_STAIR_RISE;
       const z = stair.z1 - (i + 0.5) * LUXURY_STAIR_RUN;
       const glass = box({
-        name: `luxury-stair-glass-${sideX < 0 ? 'w' : 'e'}-${i}`,
+        name: `luxury-stair-glass-${shortSide}-${i}`,
         size: [0.035, 0.88, LUXURY_STAIR_RUN + 0.025],
         pos: [sideX, y + 0.44, z],
         mat: glassMaterial,
@@ -1512,7 +1558,7 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
       });
       rail.add(own(glass, 'luxury-stair-glass'));
       const cap = box({
-        name: `luxury-stair-cap-${sideX < 0 ? 'w' : 'e'}-${i}`,
+        name: `luxury-stair-cap-${shortSide}-${i}`,
         size: [0.075, 0.055, LUXURY_STAIR_RUN + 0.04],
         pos: [sideX, y + 0.90, z],
         mat: M.trim,
@@ -1522,9 +1568,10 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
     g.add(rail);
     addBounds(colliders,
       [[sideX - 0.055, 0, stair.z0], [sideX + 0.055, LOFT_Y + 1.05, stair.z1]],
-      `luxury-stair-rail-${sideX < 0 ? 'west' : 'east'}-collider`,
+      `luxury-stair-rail-${side}-collider`,
       0,
-      'luxury-stair-rail-collision');
+      'luxury-stair-rail-collision',
+      'world');
   }
 
   const edgeRuns = [
@@ -1546,7 +1593,7 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
     });
     g.add(own(glass, 'luxury-loft-edge'), own(cap, 'luxury-loft-edge'));
     addBounds(colliders, [[a, LOFT_Y, loft.z1 - 0.08], [b, LOFT_Y + 1.08, loft.z1 + 0.08]],
-      `luxury-loft-edge-${i}-collider`, 0, 'luxury-loft-edge-collision');
+      `luxury-loft-edge-${i}-collider`, 0, 'luxury-loft-edge-collision', 'world');
   }
 
   // Open-plan dividers define private zones without turning the upper floor
@@ -1576,6 +1623,7 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
           `${name}-slat-${i + 3}-collider`,
           LOFT_Y,
           `luxury-loft-divider-collision:${name}`,
+          'world',
         );
       }
     }
@@ -1602,7 +1650,7 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
     });
     bedroomWall.add(structural(panel, 'luxury-bedroom-privacy-wall', 'z'));
     addBounds(colliders, [[a, 0, bedroomWallZ - 0.06], [b, 2.72, bedroomWallZ + 0.06]],
-      `luxury-bedroom-wall-panel-${i}-collider`, LOFT_Y, 'luxury-bedroom-wall-collision');
+      `luxury-bedroom-wall-panel-${i}-collider`, LOFT_Y, 'luxury-bedroom-wall-collision', 'world');
   }
   const bedroomHeader = boxFrom(
     bedroomDoorX0,
@@ -1616,7 +1664,7 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
   );
   bedroomWall.add(structural(bedroomHeader, 'luxury-bedroom-privacy-wall', 'z'));
   addBounds(colliders, [[bedroomDoorX0, 2.34, bedroomWallZ - 0.06], [bedroomDoorX1, 2.72, bedroomWallZ + 0.06]],
-    'luxury-bedroom-door-header-collider', LOFT_Y, 'luxury-bedroom-wall-collision');
+    'luxury-bedroom-door-header-collider', LOFT_Y, 'luxury-bedroom-wall-collision', 'world');
   for (const x of [2.56, bedroomDoorX0, bedroomDoorX1, bedroomWallEast]) {
     bedroomWall.add(own(box({
       name: `luxury-bedroom-wall-timber-${x}`,
@@ -1797,7 +1845,14 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     propArtPlacements[slot] = target;
     return target;
   };
-  const addProp = (parent, built, name, yOffset = 0, bounds = built.bounds) => {
+  const addProp = (
+    parent,
+    built,
+    name,
+    yOffset = 0,
+    spatialKind = 'prop',
+    bounds = built.bounds,
+  ) => {
     built.group.name = name;
     own(built.group, `luxury-prop:${name}`);
     parent.add(built.group);
@@ -1807,6 +1862,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
       `${name}-collider`,
       yOffset,
       `luxury-prop-collision:${name}`,
+      spatialKind,
     );
     return built;
   };
@@ -1831,14 +1887,20 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   furnishings.add(own(boxFrom(0.65, 0.006, 0.92, 6.42, 0.025, 6.05, M.rug, {
     name: 'luxury-lounge-rug', cast: false,
   }), 'luxury-lounge'));
-  const couch = addProp(furnishings, P.makeCouch(M, { x: 2.88, z: 3.27, len: 3.22, depth: 1.04 }), 'luxury-lounge-sectional');
+  const couch = addProp(
+    furnishings,
+    P.makeCouch(M, { x: 2.88, z: 3.27, len: 3.22, depth: 1.04 }),
+    'luxury-lounge-sectional',
+    0,
+    'seat',
+  );
   const couchReturn = addProp(furnishings, makeOrientedCouch({
     x: 4.50,
     z: 4.40,
     len: 2.18,
     depth: 0.94,
     rotY: Math.PI / 2,
-  }), 'luxury-lounge-return');
+  }), 'luxury-lounge-return', 0, 'seat');
   couchReturn.group.userData.sectionalReturn = true;
   void couchReturn;
   const table = addProp(furnishings, P.makeCoffeeTable(M, { x: 4.55, z: 3.26, w: 1.48, d: 0.78 }), 'luxury-lounge-coffee-table');
@@ -1922,7 +1984,8 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     [kitchen.bounds[0][0], kitchen.bounds[0][1], kitchen.bounds[0][2] + kitchenOffsetZ],
     [kitchen.bounds[1][0], kitchen.bounds[1][1], kitchen.bounds[1][2] + kitchenOffsetZ],
   ];
-  addBounds(colliders, kitchenBounds, 'luxury-chef-kitchen-collider', 0, 'luxury-prop-collision:kitchen');
+  addBounds(colliders, kitchenBounds, 'luxury-chef-kitchen-collider', 0,
+    'luxury-prop-collision:kitchen', 'prop');
   const shiftZ = (v) => v.clone().add(new THREE.Vector3(0, 0, kitchenOffsetZ));
   kitchen.hob = shiftZ(kitchen.hob);
   kitchen.sinkPos = shiftZ(kitchen.sinkPos);
@@ -2020,7 +2083,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     x: 0.15,
     z: -5.56,
     rotY: Math.PI,
-  }), 'luxury-loft-chair', LOFT_Y);
+  }), 'luxury-loft-chair', LOFT_Y, 'seat');
   chair.group.userData.workstationMaterial = 'dark';
   const bedroomPhone = P.makePhone(M, { x: 5.66, y: nightLeft.top + 0.01, z: -6.93, rotY: -0.35 });
   bedroomPhone.group.name = 'luxury-bedroom-spare-phone';
@@ -2044,7 +2107,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     ],
     back: closetBack ? { texture: closetBack.texture, w: 0.62, h: 0.78, y: 1.46 } : null,
   });
-  addProp(loftContents, closet, 'luxury-walk-in-wardrobe', LOFT_Y,
+  addProp(loftContents, closet, 'luxury-walk-in-wardrobe', LOFT_Y, 'prop',
     [[8.60, 0, -5.05], [10.50, 2.72, -3.18]]);
 
   // Every non-gallery texture has one concrete, semantically named home.
@@ -2087,12 +2150,18 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   ];
   for (const wall of bathWalls) bathShell.add(structural(wall, 'luxury-bath-shell'));
   furnishings.add(own(bathShell, 'luxury-bath-shell', { structural: true }));
-  addBounds(colliders, [[bath.x0, 0, bath.z0], [bath.x1, bathWallHeight, bath.z0 + 0.10]], 'luxury-bath-north-collider', 0, 'luxury-bath-collision');
-  addBounds(colliders, [[bath.x0, 0, bath.z0], [bath.x0 + 0.10, bathWallHeight, bath.z1]], 'luxury-bath-west-collider', 0, 'luxury-bath-collision');
-  addBounds(colliders, [[bath.x1 - 0.10, 0, bath.z0], [bath.x1, bathWallHeight, bath.z1]], 'luxury-bath-east-collider', 0, 'luxury-bath-collision');
-  addBounds(colliders, [[bath.x0, 0, bath.z1 - 0.10], [bath.doorX0, bathWallHeight, bath.z1]], 'luxury-bath-south-west-collider', 0, 'luxury-bath-collision');
-  addBounds(colliders, [[bath.doorX1, 0, bath.z1 - 0.10], [bath.x1, bathWallHeight, bath.z1]], 'luxury-bath-south-east-collider', 0, 'luxury-bath-collision');
-  addBounds(colliders, [[bath.doorX0, 2.34, bath.z1 - 0.10], [bath.doorX1, bathWallHeight, bath.z1]], 'luxury-bath-door-header-collider', 0, 'luxury-bath-collision');
+  addBounds(colliders, [[bath.x0, 0, bath.z0], [bath.x1, bathWallHeight, bath.z0 + 0.10]],
+    'luxury-bath-north-collider', 0, 'luxury-bath-collision', 'world');
+  addBounds(colliders, [[bath.x0, 0, bath.z0], [bath.x0 + 0.10, bathWallHeight, bath.z1]],
+    'luxury-bath-west-collider', 0, 'luxury-bath-collision', 'world');
+  addBounds(colliders, [[bath.x1 - 0.10, 0, bath.z0], [bath.x1, bathWallHeight, bath.z1]],
+    'luxury-bath-east-collider', 0, 'luxury-bath-collision', 'world');
+  addBounds(colliders, [[bath.x0, 0, bath.z1 - 0.10], [bath.doorX0, bathWallHeight, bath.z1]],
+    'luxury-bath-south-west-collider', 0, 'luxury-bath-collision', 'world');
+  addBounds(colliders, [[bath.doorX1, 0, bath.z1 - 0.10], [bath.x1, bathWallHeight, bath.z1]],
+    'luxury-bath-south-east-collider', 0, 'luxury-bath-collision', 'world');
+  addBounds(colliders, [[bath.doorX0, 2.34, bath.z1 - 0.10], [bath.doorX1, bathWallHeight, bath.z1]],
+    'luxury-bath-door-header-collider', 0, 'luxury-bath-collision', 'world');
 
   const bathDoor = buildPivotDoor({
     root: furnishings,
@@ -2108,7 +2177,10 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     collisionEdgeInset: 0.025,
   });
 
-  const tub = P.makeTub(M, { x0: -10.50, z0: -3.84, x1: -9.12, z1: -1.58 });
+  // Keep a full turning bay between the newly reachable door and the tub.
+  // The old south edge left exactly one player diameter and turned the open
+  // door into a second obstruction even after the stair-rail issue was fixed.
+  const tub = P.makeTub(M, { x0: -10.50, z0: -3.92, x1: -9.12, z1: -2.02 });
   // Seat the cistern against the finished north face and keep the shared sink
   // frame entirely inside the east shell. Both had small but visible air/bleed
   // gaps after the bathroom moved out of the loft.
@@ -2119,8 +2191,8 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   toiletCollision[0][2] = bath.z0 + 0.14;
   const sinkCollision = sink.bounds.map((corner) => [...corner]);
   sinkCollision[1][0] = bath.x1 - 0.14;
-  addProp(furnishings, toilet, 'luxury-main-toilet', 0, toiletCollision);
-  addProp(furnishings, sink, 'luxury-main-bath-sink', 0, sinkCollision);
+  addProp(furnishings, toilet, 'luxury-main-toilet', 0, 'seat', toiletCollision);
+  addProp(furnishings, sink, 'luxury-main-bath-sink', 0, 'prop', sinkCollision);
 
   // The generic toilet includes a roll hanging from the pan. Hide that pair
   // and mount the paper to the actual east wall beside this fixture.
@@ -2306,7 +2378,7 @@ function buildGameZone({ root, M, colliders }) {
   }
   gameRoot.add(own(arcadeGroup, 'luxury-minigame:arcade'));
   addBounds(colliders, [[ax - 0.53, 0, az - 0.42], [ax + 0.53, 2.40, az + 0.45]],
-    'luxury-arcade-cabinet-collider', 0, 'luxury-minigame-collision:arcade');
+    'luxury-arcade-cabinet-collider', 0, 'luxury-minigame-collision:arcade', 'prop');
   const arcadeTarget = proxy('luxury-arcade-target', [1.15, 2.20, 0.54], [ax, 1.25, az + 0.50], gameRoot);
   const arcadeSeatZ = az + 0.95;
   const arcadeSeat = group('luxury-arcade-stool');
@@ -2327,6 +2399,7 @@ function buildGameZone({ root, M, colliders }) {
     'luxury-arcade-stool-collider',
     0,
     'luxury-minigame-collision:arcade-seat',
+    'seat',
   );
 
   const pokerGroup = group('luxury-poker-table');
@@ -2365,7 +2438,7 @@ function buildGameZone({ root, M, colliders }) {
   }
   gameRoot.add(own(pokerGroup, 'luxury-minigame:poker'));
   addBounds(colliders, [[px - 1.22, 0, pz - 0.88], [px + 1.22, 0.88, pz + 0.88]],
-    'luxury-poker-table-collider', 0, 'luxury-minigame-collision:poker');
+    'luxury-poker-table-collider', 0, 'luxury-minigame-collision:poker', 'prop');
   const pokerTarget = proxy('luxury-poker-target', [2.40, 0.90, 1.85], [px, 0.72, pz], gameRoot);
 
   const makePokerSeat = (id, x, z, rotY) => {
@@ -2406,6 +2479,12 @@ function buildGameZone({ root, M, colliders }) {
       `${name}-collider`,
       0,
       'luxury-minigame-collision:poker-seat',
+      {
+        kind: 'seat',
+        ...(id === 'player'
+          ? {}
+          : { intentionalOverlapWith: [`luxury.poker.patron.${id}`] }),
+      },
     );
     return seat;
   };
@@ -2436,8 +2515,24 @@ function buildGameZone({ root, M, colliders }) {
     person.armL.rotation.x = -1.35;
     person.armR.rotation.x = -1.35;
     person.group.userData.activity = 'seated-poker';
+    /* This is real staged cast, not decorative furniture. Anchor the gate to
+     * the rendered eye line and folded hip rather than applying the standing
+     * Person defaults to a body scaled to 76% and dropped into a chair. */
+    const eye = group(`luxury-poker-patron-${id}-eye-landmark`);
+    eye.position.set(0, 0.04, 0.23);
+    person.head.add(eye);
+    const hip = group(`luxury-poker-patron-${id}-hip-landmark`);
+    hip.position.set(0, person.legL.position.y, 0);
+    person.group.add(hip);
+    person.markAs({
+      id: `luxury.poker.patron.${id}`,
+      role: 'civilian',
+      posture: 'sit',
+      seat: `luxury-poker-seat-${id}-seat`,
+    });
+    setActorLandmarks(person.group, { eye, hip });
     gameRoot.add(own(person.group, `luxury-poker-seated:${id}`, { checkSupport: false }));
-    return { id, person, armBase: person.armR.rotation.x };
+    return { id, person, eye, hip, armBase: person.armR.rotation.x };
   };
   const pokerPatrons = [
     makePokerPatron('north', px, pokerNorthZ, 0, {

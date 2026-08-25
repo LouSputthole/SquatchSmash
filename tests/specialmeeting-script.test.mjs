@@ -214,6 +214,26 @@ test('nobody in this scene reassures him', () => {
     + offences.join('\n'));
 });
 
+test('Tony directly asks every question the drive is built around', () => {
+  const spoken = BEATS.flatMap((entry) => entry.lines)
+    .filter((line) => line.spoken && line.who === 'PROSPECT')
+    .map((line) => line.text);
+  for (const question of [
+    "Why'd all three of you come?",
+    'Am I in trouble?',
+    'You guys planning on killing me?',
+    'So where are we going?',
+  ]) {
+    assert.ok(spoken.includes(question), `Tony never asks: ${question}`);
+  }
+  assert.deepEqual(beat('SM-197').lines.filter((line) => line.spoken).map((line) => line.text), [
+    'You guys planning on killing me?',
+    "Planning's a strong word.",
+    "What's the weaker word?",
+    'Driving.',
+  ], 'the direct threat question must stay evasive, dry, and unreassuring');
+});
+
 test('the valve opens once and is closed again immediately', () => {
   const valve = beat('SM-310');
   assert.deepEqual(valve.lines.map((line) => line.text), [
@@ -251,7 +271,7 @@ test('the only drive blackout follows the final exchange and returns at the arri
   assert.equal(beat('SM-326').kind, 'blackout');
   assert.equal(beat('SM-326').lines[0].fadeSeconds, 1.2);
   assert.equal(beat('SM-326').lines[0].holdSeconds, 0,
-    'the arrival gate owns the black beat; a second game-clock hold causes long dead black');
+    'the pre-arrival gate owns the black beat; a second game-clock hold causes long dead black');
   assert.equal(beat('SM-327').kind, 'fade');
   assert.equal(beat('SM-327').lines[0].fadeSeconds, 0.8,
     'the arrival must not sit behind a long dead-black screen');
@@ -349,11 +369,13 @@ test('both of the trunk greetings are kept and neither is explained', () => {
  * 4. THE ROUTE
  * ====================================================================== */
 
-test('the campaign route runs Cartel Palace -> the Special Meeting -> Initiation Night', () => {
+test('the campaign route runs Cartel Palace -> Apartment -> Special Meeting -> Initiation Night', () => {
   const campaign = freshCampaign();
   assert.ok(SCENE_IDS.SPECIAL_MEETING, 'the scene has a campaign id');
 
   campaign.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
+  const home = campaign.transition(SCENE_IDS.APARTMENT, { spawn: 'front_door' });
+  assert.deepEqual(home.scene, { id: SCENE_IDS.APARTMENT, spawn: 'front_door' });
   const moved = campaign.transition(SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb' });
   assert.equal(moved.scene.id, SCENE_IDS.SPECIAL_MEETING);
   assert.equal(moved.scene.spawn, 'kerb');
@@ -362,15 +384,18 @@ test('the campaign route runs Cartel Palace -> the Special Meeting -> Initiation
   assert.equal(arrived.scene.id, SCENE_IDS.INITIATION,
     'and it goes exactly one place from there');
 
-  /* And the old edge is GONE.
+  /* And both old bypasses are GONE.
    *
-   * It was legal for exactly as long as the Palace's own exit button still
-   * named the Initiation: a transition the graph refuses throws rather than
-   * degrading, so pulling the edge first would have stranded anybody who had
-   * just finished the Palace. That button now names the Special Meeting
-   * (`src/cartel-palace/main.js`), so the bridge came out, and this assertion
-   * flipped from `doesNotThrow` to the opposite — which is the only proof that
-   * nothing can quietly route round the scene again. */
+   * Palace must not skip either the Apartment-owned first act or the drive and
+   * forest sequence. `campaign.transition` throws instead of degrading, so
+   * these assertions prove no runtime can quietly route around them. */
+  const direct = freshCampaign();
+  direct.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
+  assert.throws(
+    () => direct.transition(SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb' }),
+    /Cannot transition from "cartel_palace" to "special_meeting"/,
+  );
+
   const legacy = freshCampaign();
   legacy.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
   assert.throws(
@@ -467,7 +492,7 @@ test('Kittenboss has canonical clothes and a wardrobe-ledger row', () => {
   assert.equal(KITTENBOSS.bodyShape, 'curvy',
     'gender alone only narrows the shoulders; the pair is how this roster builds a woman');
   assert.equal(KITTENBOSS.hair, 'tied',
-    'she has no face photo, so the hair silhouette is the only thing that says who she is');
+    'her tied-hair silhouette remains part of the identity around the face photo');
 
   /* And NOT small, NOT cute, NOT a victim. She is the same age and the same
    * rank as Tony, whose own model is 1.79 (`GOLF_PROSPECT`), and she stands

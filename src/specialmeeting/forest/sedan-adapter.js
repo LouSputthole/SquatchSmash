@@ -48,6 +48,11 @@ import {
   createHeadlightBeamGeometry,
   setHeadlightBeamProfile,
 } from '../../core/vehicles/headlights.js';
+import {
+  FOREST_HEADLIGHT_BEAM_OPACITY,
+  FOREST_HEADLIGHT_DECAY,
+  FOREST_HEADLIGHT_PROFILES,
+} from './headlight-profile.js';
 
 /* Deliberately NOT importing `../sedan.js`. This subtree does not reach into
  * the block's files, and a headless test of the forest should not have to
@@ -61,15 +66,9 @@ const SEAT_NAMES = Object.freeze({
   rearRight: 'rear_right',
 });
 
-const DECAY = 1.8;
-const DIPPED = Object.freeze({
-  intensity: 300, distance: 70, angle: 0.32,
-  aim: { ahead: 55, drop: 1.9, out: 2.6 }, beam: 27,
-});
-const MAIN = Object.freeze({
-  intensity: 430, distance: 96, angle: 0.24,
-  aim: { ahead: 90, drop: 2.2, out: 1.4 }, beam: 40,
-});
+const DECAY = FOREST_HEADLIGHT_DECAY;
+const DIPPED = FOREST_HEADLIGHT_PROFILES.dipped;
+const MAIN = FOREST_HEADLIGHT_PROFILES.main;
 
 /* THE SEATED EYE MOVED TO `../sedan.js`, AND THIS IS THE NOTE THAT SENT IT.
  *
@@ -134,7 +133,7 @@ export function adaptMeetingSedan(sedan, { shadows = true, length = null, width 
   const beamMat = new THREE.MeshBasicMaterial({
     color: 0xffe9c0,
     transparent: true,
-    opacity: 0.045,
+    opacity: FOREST_HEADLIGHT_BEAM_OPACITY,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,

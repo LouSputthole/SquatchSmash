@@ -35,8 +35,13 @@ export const LANDMARKS = Object.freeze({
   overlook: Object.freeze({ x: 64, z: -67, radius: 6.0, label: 'Ridge overlook' }),
 });
 
-/** Safe, authored approach poses used by debug travel and visual proof. */
+/** Safe, authored approach poses used by interaction access and visual proof. */
 export const LANDMARK_VIEWPOINTS = Object.freeze({
+  // Driver-side gravel stance. The world builder tightens this authored side
+  // into a 1.2 m interaction gap from the wagon's rotated target bounds, so
+  // the 2.7 m shared InteractionSystem can resolve the car without putting
+  // Tony inside its body collider.
+  car: Object.freeze({ x: 16.75, z: 27.35, lookX: 20, lookZ: 27, pitch: -0.14 }),
   creek: Object.freeze({ x: 4, z: -31.45, lookX: 4, lookZ: -37, pitch: -0.12 }),
   overlook: Object.freeze({ x: 61.6, z: -64.0, lookX: 23, lookZ: -25, pitch: -0.035 }),
   shed: Object.freeze({ x: -27, z: 22.35, lookX: -27, lookZ: 18, pitch: -0.045 }),

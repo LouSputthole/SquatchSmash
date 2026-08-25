@@ -33,7 +33,7 @@ import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 
 import { AudioEngine } from '../core/audio.js';
 import {
-  SCENES, SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
+  MISSION_IDS, SCENES, SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
 } from '../core/campaign.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
@@ -63,15 +63,23 @@ import { EYE_HEIGHT, FOOTSTEP_SURFACE, stageSpecialMeeting } from './stage.js';
  * The surface-change beat starts when the tyres reach the cattle grid; the
  * chain beat starts when the car has actually stopped in front of the chain;
  * and the final exchange waits for the last moving approach. The arrival fade
- * releases only after the sedan is parked on the spur. Nothing else waits.
+ * releases on the last 2.5 metres into the spur so the first returning image
+ * still moves and the player never waits on a long dead-black stop. Nothing
+ * else waits.
  */
 const GATES = Object.freeze({
   'SM-220': 'turn_off',
   'SM-260': 'chain',
   'SM-324': 'final_approach',
-  /* SM-326 begins the dissolve while the car is still rolling; holding that
-   * beat until the arrival node keeps SM-327's fade-up tied to a parked car. */
-  'SM-326': 'arrival',
+  /* SM-326 begins the dissolve while the car is still rolling. The dedicated
+   * pre-arrival node keeps the full-black interval short without divorcing it
+   * from the route or revealing a distant approach. */
+  'SM-326': 'arrival_fade',
+  /* The picture returns as SM-327 after its authored 1.2 second dissolve.
+   * Gate the parked SM-330 tableau, not the fade-in, on the physical stop: a
+   * distance-only proxy made the black interval exceed five seconds when the
+   * car was easing through its final metres under a slow render clock. */
+  'SM-330': 'arrival',
 });
 
 /** The one beat that lets the car move again: Lag has hooked the chain back up. */
@@ -129,7 +137,7 @@ const hud = new Hud();
  * `src/style.css` holds `#hud { opacity: 0 }` and turns it on with exactly one
  * rule: `body.playing #hud { opacity: 1 }`. Eight other scene roots add the
  * class; this one never did. So every subtitle this file writes, the crosshair
- * and the interaction prompt have all been rendering at opacity zero -- all 220
+ * and the interaction prompt have all been rendering at opacity zero -- all
  * authored voice lines played into a scene with no text on the screen, which is
  * the owner's "no subtitles" and a good part of his "nothing happens".
  *
@@ -212,6 +220,7 @@ let lastInteractionUse = null;
 let trailDistanceTravelled = 0;
 let trailStartProgress = 0;
 let spurLightsOffIn = null;
+let forestArrivalSettled = false;
 const observedExits = [...SCENES[SCENE_IDS.SPECIAL_MEETING].next];
 const entryHref = location.href;
 const handoffReceipt = {
@@ -230,6 +239,8 @@ const driveTransitionReceipt = {
   loopsAtFadeOut: [],
   loopsAtFadeIn: [],
   arrivalAt: null,
+  arrivalBeatAt: null,
+  authoredFadeAdvanceAt: null,
 };
 let forestTravelAudioRunning = false;
 
@@ -453,6 +464,28 @@ function setObjective(text) {
   objectivePanel.setLine(text);
 }
 
+/** Put the authored trunk reveal in front of the player once, then return
+ * control immediately. The previous staging left Kittenboss technically
+ * unobstructed at the extreme edge of the lens while the car body filled the
+ * frame; the player could hear her first line without actually seeing her. */
+function frameKittenbossReveal() {
+  const kittenboss = cast.byKey('kittenboss');
+  const head = kittenboss?.parts?.head;
+  if (!head) return;
+  const target = head.getWorldPosition(new THREE.Vector3());
+  const dx = target.x - player.position.x;
+  const dy = target.y - player.position.y;
+  const dz = target.z - player.position.z;
+  const horizontal = Math.hypot(dx, dz);
+  if (horizontal < 1e-4) return;
+  player.yaw = Math.atan2(-dx, -dz);
+  player.pitch = THREE.MathUtils.clamp(
+    Math.atan2(dy, horizontal),
+    player.pitchMin,
+    player.pitchMax,
+  );
+}
+
 const ride = createRideSequence({
   onLine: (line) => say(line),
   /* Story state alone cannot move a mesh. The same borrowed sedan survives the
@@ -500,11 +533,7 @@ const ride = createRideSequence({
      * is the difference between a cut and a freeze. */
     if (b.id === 'SM-195') stage.arrival?.driveAway?.();
     if (b.id === 'SM-322') cast.swapRearSeats();
-    if (b.id === 'SM-330') {
-      forest?.killEngine();
-      stopForestTravelAudio();
-      spurLightsOffIn = 4;
-    }
+    if (b.id === 'SM-330') settleForestArrival();
     if (b.id === 'SM-400') { cast.getOut(); forest?.leave(); }
     /* The boot. Kittenboss stands herself up and climbs out under her own
      * power — `cast.js` owns the move, and it is a stand rather than a lift
@@ -512,7 +541,10 @@ const ride = createRideSequence({
      * the other prospect, at Tony's rank; the scene said "he" everywhere
      * until 2026-08-20 and every one of those was corrected on the owner's
      * ruling. Nothing about this call changed with it. */
-    if (b.id === 'SM-420') cast.kittenbossOut();
+    if (b.id === 'SM-420') {
+      cast.kittenbossOut();
+      frameKittenbossReveal();
+    }
   },
   onSeated: () => {
     /* The door shuts, Numbskull walks round the back of the car, and the seat
@@ -539,9 +571,11 @@ const ride = createRideSequence({
     if (blackout) blackout.style.transitionDuration = `${seconds}s`;
     blackout?.classList.toggle('cut', seconds <= 0);
     blackout?.classList.add('on');
+    armAuthoredBlackAdvance(seconds);
     armTheBlackWatchdog();
   },
   onFadeIn: (seconds) => {
+    clearAuthoredBlackAdvance();
     clearTheBlackWatchdog();
     driveTransitionReceipt.fadeInAt = performance.now();
     driveTransitionReceipt.fadeInSeconds = seconds;
@@ -635,7 +669,9 @@ function objectiveFor(b) {
 /* It was not a crash. The old SM-196 painted the picture out before the  */
 /* drive conversation, then waited on a distant road event to reveal the */
 /* same drive again. The blackout now belongs to SM-326, after the final */
-/* line, and SM-327 is gated only on the nearby arrival. This watchdog is */
+/* line. SM-326 starts at the nearby pre-arrival node; SM-330 is separately */
+/* gated on the physical stop so the parked tableau cannot begin early. This */
+/* watchdog is */
 /* still the last-resort guarantee that a broken road event cannot leave */
 /* the player staring at a dead-black page.                              */
 /*                                                                      */
@@ -649,8 +685,42 @@ function objectiveFor(b) {
 /* ------------------------------------------------------------------ */
 
 /** How long a deliberate black may last before it is treated as a fault. */
-const BLACK_CEILING_MS = 9000;
+const BLACK_CEILING_MS = 2500;
 let blackWatchdog = null;
+let authoredBlackAdvance = null;
+
+function clearAuthoredBlackAdvance() {
+  if (authoredBlackAdvance === null) return;
+  clearTimeout(authoredBlackAdvance);
+  authoredBlackAdvance = null;
+}
+
+/**
+ * A CSS dissolve is wall-clock presentation, so its sequence hold must finish
+ * on the same clock. The gameplay loop deliberately clamps simulation delta;
+ * under SwiftShader (or a heavily loaded machine) 1.2 authored seconds can
+ * otherwise become almost three real seconds of black even though the road
+ * gate has already arrived.
+ *
+ * Do not skip the road gate. If `arrival_fade` has not fired yet, poll until
+ * it does and let the hard watchdog retain final authority over a broken
+ * route. Once it has, advance exactly one beat after the authored dissolve.
+ */
+function armAuthoredBlackAdvance(seconds) {
+  clearAuthoredBlackAdvance();
+  const delay = Math.max(0, Number(seconds) || 0) * 1000;
+  const advance = () => {
+    authoredBlackAdvance = null;
+    if (ride.beatId !== 'SM-326' || !blackout?.classList.contains('on')) return;
+    if (gatedOn) {
+      authoredBlackAdvance = setTimeout(advance, 50);
+      return;
+    }
+    driveTransitionReceipt.authoredFadeAdvanceAt = performance.now();
+    ride.skip();
+  };
+  authoredBlackAdvance = setTimeout(advance, delay);
+}
 
 function clearTheBlackWatchdog() {
   if (blackWatchdog === null) return;
@@ -663,6 +733,7 @@ function armTheBlackWatchdog() {
   blackWatchdog = setTimeout(() => {
     blackWatchdog = null;
     if (!blackout?.classList.contains('on')) return;
+    clearAuthoredBlackAdvance();
     console.warn(
       `the Special Meeting held a black screen for ${BLACK_CEILING_MS} ms `
       + `without reaching its fade beat (gated on ${gatedOn ?? 'nothing'}); `
@@ -680,6 +751,29 @@ function armTheBlackWatchdog() {
 /* ------------------------------------------------------------------ */
 /* The drive, which happens behind the black                           */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Apply the parked-tableau side effects only when BOTH clocks agree:
+ * SM-330 has begun and the route has physically reached `arrival`.
+ *
+ * GATES pauses a beat after `onBeat` announces it. Killing the engine
+ * directly in SM-330's callback therefore stopped the rail before it could
+ * fire the very arrival event that released that gate. Calling this helper
+ * from both clocks makes either ordering safe without returning to a long
+ * black hold.
+ */
+function settleForestArrival() {
+  if (forestArrivalSettled
+    || !forest
+    || ride.beatId !== 'SM-330'
+    || !reachedNodes.has('arrival')) return false;
+  forestArrivalSettled = true;
+  driveTransitionReceipt.arrivalBeatAt = performance.now();
+  forest.killEngine();
+  stopForestTravelAudio();
+  spurLightsOffIn = 4;
+  return true;
+}
 
 function beginTheDrive({ restoreNode = null } = {}) {
   if (forest) return;
@@ -700,6 +794,7 @@ function beginTheDrive({ restoreNode = null } = {}) {
       reachedNodes.add(id);
       if (gatedOn === id) gatedOn = null;
       if (id === 'arrival') driveTransitionReceipt.arrivalAt = performance.now();
+      if (id === 'arrival') settleForestArrival();
       if (id === 'arrival' && campaign.state.scene.spawn !== 'spur') {
         campaign.enter(SCENE_IDS.SPECIAL_MEETING, { spawn: 'spur' });
       }
@@ -714,7 +809,12 @@ function beginTheDrive({ restoreNode = null } = {}) {
   player.velocity.set(0, 0, 0);
   stage.block.group.visible = false;
   /* The wet street, the alley and the distant passes belong to the block, and
-   * the block is behind us now. The forest brings its own bed. */
+   * the block is behind us now. The forest brings its own bed. Dispose the
+   * block sky/light rig too: leaving its opaque 300 m sky sphere and key light
+   * in the scene made the forest route render against the old set and meant
+   * the scene briefly owned two moons despite both night modules explicitly
+   * forbidding that. */
+  stage.night.dispose();
   stage.ambience.stop();
   forest.board();
   if (restoreNode) {
@@ -795,6 +895,15 @@ function handOff() {
   handoffReceipt.error = null;
   input.suspend();
   campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
+  /* Initiation starts here, at the treeline -- not when the Palace ends and
+   * not while Tony is still in his Apartment. This mirrors the recovery skip
+   * seam and keeps the mission state aligned with the scene the player is
+   * actually entering. */
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (state) => {
+    if (state.missions[MISSION_IDS.INITIATION].status === 'available') {
+      state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
+    }
+  }, { required: true });
   blackout?.classList.remove('cut');
   if (blackout) blackout.style.transitionDuration = '1.4s';
   blackout?.classList.add('on');

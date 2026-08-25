@@ -177,7 +177,7 @@ export const STAND_MARK = Object.freeze({
 });
 
 /**
- * Where Seff performs the first, standing execution.
+ * Where Booskibro performs the first, standing execution.
  *
  * The old generic execution walk stopped him wherever he first came within
  * 2.2 m of Prospect One. From Seff's ring position that point was almost

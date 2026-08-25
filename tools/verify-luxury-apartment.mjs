@@ -296,6 +296,8 @@ try {
       z: (bathroomBounds.z0 + bathroomBounds.z1) / 2,
     };
     const bathroomZone = home.floorZones.find(({ name }) => name === 'luxury-bath-tile-zone');
+    const bathroomThresholdZone = home.floorZones.find(({ name }) => name === 'luxury-bathroom-threshold-zone');
+    const bathroomWestRail = home.colliders.find(({ name }) => name === 'luxury-stair-rail-west-collider');
     const bathroomParts = [];
     home.bathroom.shell.traverse((object) => bathroomParts.push(object.name));
     const toiletPaperParts = [];
@@ -423,6 +425,13 @@ try {
         floorPresent: bathroomParts.includes('luxury-bath-floor'),
         walls: bathroomParts.filter((name) => name.startsWith('luxury-bath-wall-')).length,
         doorPresent: Boolean(home.bathroom.door?.target),
+        doorWidth: bathroomBounds.doorX1 - bathroomBounds.doorX0,
+        doorClearsStairRail: Boolean(bathroomWestRail)
+          && bathroomWestRail.min.x - bathroomBounds.doorX1 >= -1e-6,
+        thresholdPresent: Boolean(home.root.getObjectByName('luxury-bathroom-threshold')),
+        thresholdZone: bathroomThresholdZone?.surface ?? null,
+        plinthDoorJamb: Boolean(home.root.getObjectByName('luxury-service-plinth-bathroom-jamb')),
+        plinthDoorCap: Boolean(home.root.getObjectByName('luxury-service-plinth-bathroom-cap')),
         tileZone: bathroomZone?.surface ?? null,
         tileZoneY: bathroomZone?.y ?? null,
         mirrorGeometry: home.mirrorMesh?.geometry?.type ?? null,
@@ -663,6 +672,12 @@ try {
       && authored.bathroom.floorPresent
       && authored.bathroom.walls === 5
       && authored.bathroom.doorPresent
+      && authored.bathroom.doorWidth >= 0.78
+      && authored.bathroom.doorClearsStairRail
+      && authored.bathroom.thresholdPresent
+      && authored.bathroom.thresholdZone === 'tile'
+      && authored.bathroom.plinthDoorJamb
+      && authored.bathroom.plinthDoorCap
       && authored.bathroom.tileZone === 'tile'
       && authored.bathroom.tileZoneY === 0
       && authored.bathroom.mirrorGeometry === 'PlaneGeometry'
@@ -752,7 +767,13 @@ try {
     const { player } = window.LUXURY_APARTMENT;
     return { position: player.position.toArray(), yaw: player.yaw, enabled: player.enabled };
   });
-  await page.locator('canvas').click({ position: { x: 640, y: 360 } });
+  const cleanStartPointerLocked = await page.evaluate(() => document.pointerLockElement?.tagName === 'CANVAS');
+  if (!cleanStartPointerLocked) {
+    // The first click acquires pointer lock. If lock is already held, clicking
+    // would itself invoke the live interaction and make the following E close
+    // the door again before the verifier samples the open state.
+    await page.locator('canvas').click({ position: { x: 640, y: 360 } });
+  }
   await page.mouse.move(640, 360);
   await page.mouse.move(700, 330, { steps: 3 });
   await page.keyboard.down('w');
@@ -824,21 +845,7 @@ try {
       colliderDisabled: home.doors.elevator.collider.max.y < 0,
     };
 
-    home.utilityTargets.bathroomDoor.userData.interact.onUse();
-    advance();
-    const bathroomOpened = {
-      open: home.doors.bathroom.isOpen(),
-      stateOpen: home.state.bathroomDoorOpen,
-      yaw: home.doors.bathroom.pivot.rotation.y,
-    };
-    home.utilityTargets.bathroomDoor.userData.interact.onUse();
-    advance();
-    const bathroomClosed = {
-      open: home.doors.bathroom.isOpen(),
-      stateOpen: home.state.bathroomDoorOpen,
-      yaw: home.doors.bathroom.pivot.rotation.y,
-    };
-    return { serviceDoor, elevatorCalled, bathroomOpened, bathroomClosed };
+    return { serviceDoor, elevatorCalled };
   });
   check('the sealed service door cannot bypass the private elevator, which can be called into the apartment',
     doorFlows.serviceDoor.result === false
@@ -849,14 +856,179 @@ try {
       && doorFlows.elevatorCalled.stateOpen
       && doorFlows.elevatorCalled.colliderDisabled,
     JSON.stringify({ serviceDoor: doorFlows.serviceDoor, call: doorFlows.elevatorCalled }));
-  check('the relocated main-floor bathroom door opens, clears, and closes through its live interaction',
-    doorFlows.bathroomOpened.open
-      && doorFlows.bathroomOpened.stateOpen
-      && Math.abs(doorFlows.bathroomOpened.yaw) > 1.4
-      && !doorFlows.bathroomClosed.open
-      && !doorFlows.bathroomClosed.stateOpen
-      && Math.abs(doorFlows.bathroomClosed.yaw) < 0.01,
-    JSON.stringify({ open: doorFlows.bathroomOpened, closed: doorFlows.bathroomClosed }));
+
+  const bathroomApproach = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const bath = runtime.home.bathroom.bounds;
+    const doorwayX = (bath.doorX0 + bath.doorX1) / 2;
+    runtime.teleport('main');
+    runtime.player.position.set(doorwayX, 1.68, -0.30);
+    runtime.player.velocity.set(0, 0, 0);
+    runtime.player.ground = 0;
+    runtime.player.mode = 'walk';
+    runtime.player.yaw = 0;
+    runtime.player.pitch = 0;
+    runtime.player.clearKeys();
+    runtime.interaction.setPaused(false);
+    /* This verifier moved the player between animation frames. Synchronize the
+     * camera and interaction ray once at the setup seam instead of assuming a
+     * busy SwiftShader frame will happen inside an arbitrary five seconds. */
+    runtime.player.update(1 / 60);
+    runtime.camera.updateMatrixWorld(true);
+    runtime.interaction.update(1 / 60);
+    return {
+      doorwayX,
+      position: runtime.player.position.toArray(),
+      camera: runtime.camera.position.toArray(),
+      yaw: runtime.player.yaw,
+      pitch: runtime.player.pitch,
+      interactionPaused: runtime.interaction.paused,
+      targetResolved: runtime.interaction.current === runtime.home.utilityTargets.bathroomDoor,
+      targetName: runtime.interaction.current?.name ?? null,
+    };
+  });
+  const bathroomPointerLocked = await page.evaluate(() => document.pointerLockElement?.tagName === 'CANVAS');
+  if (!bathroomPointerLocked) {
+    // On an unlocked canvas this click only acquires capture. With capture
+    // already held the same click is gameplay input and would toggle the live
+    // door before the explicit E press below.
+    await page.locator('canvas').click({ position: { x: 640, y: 360 } });
+  }
+  await page.waitForFunction(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    return runtime.interaction.current === runtime.home.utilityTargets.bathroomDoor;
+  }, null, { timeout: 5000, polling: 50 });
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => window.LUXURY_APARTMENT.home.doors.bathroom.isOpen(),
+    null, { timeout: 5000, polling: 50 });
+  await page.evaluate(() => {
+    const home = window.LUXURY_APARTMENT.home;
+    for (let index = 0; index < 180; index++) home.update(1 / 120);
+  });
+  const bathroomOpened = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    return {
+      open: runtime.home.doors.bathroom.isOpen(),
+      stateOpen: runtime.home.state.bathroomDoorOpen,
+      yaw: runtime.home.doors.bathroom.pivot.rotation.y,
+    };
+  });
+
+  let bathroomReachedInside = true;
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.z <= -1.40,
+      null, { timeout: 30000, polling: 50 });
+  } catch {
+    bathroomReachedInside = false;
+  } finally {
+    await page.keyboard.up('w');
+  }
+  const bathroomInside = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const bath = runtime.home.bathroom.bounds;
+    return {
+      position: runtime.player.position.toArray(),
+      insideBounds: runtime.player.position.x >= bath.x0 + 0.30
+        && runtime.player.position.x <= bath.x1 - 0.30
+        && runtime.player.position.z < bath.z1 - 0.30,
+      heldKeys: runtime.player.keys.size,
+      enabled: runtime.player.enabled,
+      mode: runtime.player.mode,
+      ground: runtime.player.ground,
+      velocity: runtime.player.velocity.toArray(),
+      doorCollider: {
+        min: runtime.home.doors.bathroom.collider.min.toArray(),
+        max: runtime.home.doors.bathroom.collider.max.toArray(),
+      },
+    };
+  });
+
+  let bathroomReturnedByInput = true;
+  await page.keyboard.down('s');
+  try {
+    await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.z >= -0.40,
+      null, { timeout: 30000, polling: 50 });
+  } catch {
+    bathroomReturnedByInput = false;
+  } finally {
+    await page.keyboard.up('s');
+  }
+  const bathroomAfterReturn = await page.evaluate((returnedByInput) => {
+    const runtime = window.LUXURY_APARTMENT;
+    return {
+      position: runtime.player.position.toArray(),
+      reachedDoor: returnedByInput && runtime.player.position.z >= -0.40,
+      heldKeys: runtime.player.keys.size,
+      enabled: runtime.player.enabled,
+      mode: runtime.player.mode,
+      ground: runtime.player.ground,
+      velocity: runtime.player.velocity.toArray(),
+    };
+  }, bathroomReturnedByInput);
+  let bathroomClosedViaInput = false;
+  if (bathroomAfterReturn.reachedDoor) {
+    try {
+      await page.waitForFunction(() => {
+        const runtime = window.LUXURY_APARTMENT;
+        return runtime.interaction.current === runtime.home.utilityTargets.bathroomDoor;
+      }, null, { timeout: 15000, polling: 50 });
+      await page.keyboard.press('e');
+      await page.waitForFunction(() => !window.LUXURY_APARTMENT.home.doors.bathroom.isOpen(),
+        null, { timeout: 5000, polling: 50 });
+      bathroomClosedViaInput = true;
+    } catch {
+      bathroomClosedViaInput = false;
+    }
+  }
+  if (!bathroomClosedViaInput) {
+    // Cleanup is deliberately separate from the assertion: preserve all
+    // sampled failure evidence, but do not let one failed flow prevent the
+    // verifier from auditing unrelated systems later in the scene.
+    await page.evaluate(() => {
+      const runtime = window.LUXURY_APARTMENT;
+      runtime.home.doors.bathroom.close();
+      for (let index = 0; index < 180; index++) runtime.home.update(1 / 120);
+    });
+  } else {
+    await page.evaluate(() => {
+      const home = window.LUXURY_APARTMENT.home;
+      for (let index = 0; index < 180; index++) home.update(1 / 120);
+    });
+  }
+  const bathroomExited = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    return {
+      position: runtime.player.position.toArray(),
+      open: runtime.home.doors.bathroom.isOpen(),
+      stateOpen: runtime.home.state.bathroomDoorOpen,
+      yaw: runtime.home.doors.bathroom.pivot.rotation.y,
+      heldKeys: runtime.player.keys.size,
+    };
+  });
+  check('the relocated bathroom opens and supports a real-input main-floor round trip',
+    bathroomApproach.targetResolved
+      && bathroomOpened.open
+      && bathroomOpened.stateOpen
+      && Math.abs(bathroomOpened.yaw) > 1.55
+      && bathroomReachedInside
+      && bathroomInside.insideBounds
+      && bathroomInside.heldKeys === 0
+      && bathroomAfterReturn.reachedDoor
+      && bathroomAfterReturn.heldKeys === 0
+      && bathroomClosedViaInput
+      && !bathroomExited.open
+      && !bathroomExited.stateOpen
+      && Math.abs(bathroomExited.yaw) < 0.01
+      && bathroomExited.heldKeys === 0,
+    JSON.stringify({
+      approach: bathroomApproach,
+      open: bathroomOpened,
+      inside: bathroomInside,
+      afterReturn: bathroomAfterReturn,
+      closedViaInput: bathroomClosedViaInput,
+      closed: bathroomExited,
+    }));
 
   const cigaretteFlow = await page.evaluate(() => {
     const target = window.LUXURY_APARTMENT.home.utilityTargets.cigarettes;
@@ -931,6 +1103,29 @@ try {
     return Boolean(frame) && document.activeElement === frame;
   }, undefined, { timeout: 60000 });
   const releasedForDom = await page.evaluate(() => document.pointerLockElement === null);
+  /* The embedded game correctly owns keyboard focus. Use the player-facing
+   * parent exit control to reclaim it before holding Tab; sending Tab to an
+   * iframe and hoping the event bubbles to its parent is browser-race luck,
+   * not an acceptance test. */
+  const framedExit = page.getByRole('button', { name: 'Exit to the SquatchOS desktop' });
+  /* Regression setup: leave the pointer on the parent-owned control, then
+   * explicitly give keyboard focus back to the frame. Calling hover() again
+   * from this state does not create another pointerenter event. */
+  await framedExit.hover();
+  await page.evaluate(() => window.LUXURY_APARTMENT.pcArcade.app.overlay.focusFrame());
+  await page.waitForFunction(() => {
+    const frame = window.LUXURY_APARTMENT.pcArcade.app?.overlay?.el;
+    return Boolean(frame) && document.activeElement === frame;
+  }, undefined, { timeout: 60000 });
+  // `hover()` is not an instruction to emit pointerenter when the mouse is
+  // already over the element. Leave the control first, then enter it exactly
+  // as a player would. Without this move the verifier intermittently waited
+  // for focus that the browser had no event-driven reason to change.
+  await page.mouse.move(640, 400, { steps: 4 });
+  await framedExit.hover();
+  await page.waitForFunction(() => (
+    document.activeElement?.getAttribute?.('aria-label') === 'Exit to the SquatchOS desktop'
+  ), undefined, { timeout: 60000 });
   await page.keyboard.down('Tab');
   await page.waitForTimeout(720);
   await page.keyboard.up('Tab');

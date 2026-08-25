@@ -25,7 +25,7 @@ function controller() {
   const adapter = new InitiationPlayerAdapter(camera, { bounds: 88 });
   adapter.teleport({ x: 0, z: -30 }, { heading: 0 });
   adapter.setControl(INITIATION_CONTROL_MODES.PLAYABLE);
-  adapter.setInputActive(true);
+  adapter.enabled = true;
   return adapter;
 }
 
@@ -78,6 +78,28 @@ test('touch joystick forwards its vector and sprint modifier into shared Player 
   assert.ok(!adapter.player.keys.has('ShiftLeft'));
 });
 
+test('canonical suspension overrides active touch until the input lifecycle resumes', () => {
+  const adapter = controller();
+  adapter.setTouchActive(true);
+  adapter.setTouchVector(0, -1, { sprint: true });
+  assert.equal(adapter.player.enabled, true);
+  assert.ok(adapter.player.keys.has('KeyW'));
+
+  adapter.setInputSuspended(true);
+  adapter.enabled = false;
+  assert.equal(adapter.player.enabled, false,
+    'touch mode bypassed the canonical suspended lifecycle');
+  assert.equal(adapter.player.keys.size, 0, 'suspension left touch movement held');
+
+  adapter.setTouchVector(0, -1, { sprint: true });
+  adapter.setTouchButton('Space', true);
+  assert.equal(adapter.player.keys.size, 0, 'suspended touch handlers restored held input');
+
+  adapter.setInputSuspended(false);
+  assert.equal(adapter.player.enabled, true,
+    'resuming canonical input did not restore the active touch control channel');
+});
+
 test('procession policy keeps shared movement but removes keyboard and touch sprint', () => {
   const adapter = controller();
   adapter.setKey('KeyW', true);
@@ -106,7 +128,7 @@ test('execution look-only mode preserves free look while locking translation at 
   const adapter = controller();
   adapter.teleport({ x: -2.2, z: -8 }, { heading: 0 });
   adapter.setControl(INITIATION_CONTROL_MODES.LOOK_ONLY, { pose: PLAYER_POSES.KNEELING });
-  adapter.setInputActive(true);
+  adapter.enabled = true;
   const before = adapter.player.position.clone();
   const yaw = adapter.player.yaw;
 
@@ -124,7 +146,7 @@ test('authored cutscene mode clears input and freezes the shared Player camera',
   const adapter = controller();
   adapter.setKey('KeyW', true);
   adapter.setControl(INITIATION_CONTROL_MODES.CUTSCENE);
-  adapter.setInputActive(true);
+  adapter.enabled = true;
   const before = adapter.player.position.clone();
   const yaw = adapter.player.yaw;
 

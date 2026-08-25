@@ -6,6 +6,8 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 const SILVER = read('src/silvercase/main.js');
 const PALACE = read('src/cartel-palace/main.js');
 const SIEGE = read('src/mansion/siege/main.js');
+const CABIN = read('src/cabin/main.js');
+const INITIATION = read('src/initiation/main.js');
 
 function assertCanonicalInput(source, relativeImport) {
   assert.match(source, new RegExp(
@@ -51,4 +53,29 @@ test('Mansion Siege preserves the visible rejected-capture and one-shot recovery
   assert.match(SIEGE, /onCaptureError: \(_error, controls\) => \{\s*pointerLockRejected = true;/);
   assert.match(SIEGE, /controls\.reason === 'pointer-lock-error'/);
   assert.match(SIEGE, /interaction\.release\(\);\s*weaponSystem\.setTrigger\(false\);\s*weaponSystem\.setAimed\(false\);/);
+});
+
+test('Countryside Cabin delegates browser lifecycle while retaining phone, arcade and inventory policy', () => {
+  assertCanonicalInput(CABIN, '../core/first-person-input.js');
+  assert.match(CABIN, /playerKeyCodes: \['KeyF'\],/,
+    'Cabin must route the held-use F key through the canonical Player adapter');
+  assert.match(CABIN, /player\.keys\.has\('KeyF'\)/,
+    'Cabin held consumables must consume the routed Player key state');
+  assert.match(CABIN, /canEnable: \(\) => state\.phase === 'active'[\s\S]*arcade\.inputMode !== 'dom',/);
+  assert.match(CABIN, /if \(state\.posture === 'desk' && arcade\.onKey\(event\.code, true\)\) return true;/);
+  assert.match(CABIN, /controls\.code === 'KeyE'[\s\S]*cabin\.inventory\.held === 'phone'/);
+  assert.match(CABIN, /if \(!controls\.locked\) return false;/);
+  assert.match(CABIN, /input\.suspend\(\);/);
+  assert.match(CABIN, /input\.resume\(\);/);
+});
+
+test('Initiation delegates browser lifecycle while retaining phase, choice and ritual policy', () => {
+  assertCanonicalInput(INITIATION, '../core/first-person-input.js');
+  assert.match(INITIATION, /player: playerController,/);
+  assert.match(INITIATION, /movementEnabled: canMove\(\) && !openChoice,/);
+  assert.match(INITIATION, /controls\.code === 'Space' && !canMove\(\)/);
+  assert.match(INITIATION, /if \(openChoice && \/\^Digit\[123\]\$\/\.test\(event\.code\)\)/);
+  assert.match(INITIATION, /input\?\.releasePointerLock\(\);/);
+  assert.match(INITIATION, /input\.suspend\(\);/);
+  assert.match(INITIATION, /input\.resume\(\{/);
 });

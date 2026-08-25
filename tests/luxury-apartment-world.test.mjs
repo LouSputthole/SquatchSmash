@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { ensureDomShim, ensureThreeShim } from '../tools/three-shim.mjs';
+import { collectActors } from '../src/core/staging.js';
+import { readSpatialPrimitive } from '../src/core/spatial-contract.js';
 
 ensureDomShim();
 ensureThreeShim();
@@ -154,6 +156,10 @@ test('luxury world builds a validated two-floor hub with screens, zones and pari
   assert.equal(world.metrics.extraArtSlots, LUXURY_EXTRA_ART_SLOTS.length);
   assert.equal(world.metrics.minigameCount, 5);
   assert.ok(world.colliders.length >= 35);
+  assert.equal(world.colliders.filter(({ name }) => name === 'luxury-stair-rail-west-collider').length, 1);
+  assert.equal(world.colliders.filter(({ name }) => name === 'luxury-stair-rail-east-collider').length, 1);
+  assert.equal(world.root.getObjectByName('luxury-stair-rail-west')?.isObject3D, true);
+  assert.equal(world.root.getObjectByName('luxury-stair-rail-east')?.isObject3D, true);
   assert.ok(world.floorZones.length >= 20, 'each real stair tread and both floors remain described');
 
   for (const screen of ['pc', 'tv', 'arcade', 'console']) assert.ok(world.screens[screen]?.isObject3D, screen);
@@ -190,6 +196,53 @@ test('luxury world builds a validated two-floor hub with screens, zones and pari
   world.dispose();
 });
 
+test('every Luxury collider declares stable authored spatial meaning', async () => {
+  const { world } = await build();
+  const records = world.colliders.map((collider) => readSpatialPrimitive(collider));
+  assert.equal(records.length, 64, 'the complete live Luxury collision inventory changed');
+  assert.ok(records.every(Boolean), 'an addBounds call bypassed the spatial contract');
+  assert.equal(new Set(records.map(({ id }) => id)).size, records.length,
+    'Luxury collider spatial ids are not unique');
+  assert.deepEqual(
+    Object.fromEntries([...records.reduce((counts, { kind }) => (
+      counts.set(kind, (counts.get(kind) ?? 0) + 1)
+    ), new Map())].sort(([left], [right]) => left.localeCompare(right))),
+    { door: 3, prop: 20, seat: 9, world: 32 },
+  );
+  world.dispose();
+});
+
+test('the three poker patrons are seated civilian actors with rendered landmarks', async () => {
+  const { world } = await build();
+  world.root.updateMatrixWorld(true);
+  const actors = collectActors(world.root, THREE);
+  assert.deepEqual(actors.map(({ id }) => id).sort(), [
+    'luxury.poker.patron.east',
+    'luxury.poker.patron.north',
+    'luxury.poker.patron.west',
+  ]);
+  for (const actor of actors) {
+    assert.equal(actor.actor.role, 'civilian');
+    assert.equal(actor.posture, 'sit');
+    const id = actor.id.split('.').at(-1);
+    assert.equal(actor.seat, `luxury-poker-seat-${id}-seat`);
+    const patron = world.poker.patrons.find((entry) => entry.id === id);
+    const expectedEye = new THREE.Vector3().setFromMatrixPosition(patron.eye.matrixWorld).toArray();
+    const expectedHip = new THREE.Vector3().setFromMatrixPosition(patron.hip.matrixWorld).toArray();
+    assert.deepEqual(actor.eye, expectedEye, `${id} eye was replaced by a standing-height guess`);
+    assert.deepEqual(actor.hip, expectedHip, `${id} hip was replaced by a standing-height guess`);
+    assert.ok(actor.eye[1] > actor.hip[1] + 0.7, `${id} seated landmarks are inverted`);
+
+    const seat = colliderNamed(world, `luxury-poker-seat-${id}-collider`);
+    const spatial = readSpatialPrimitive(seat);
+    assert.equal(spatial.kind, 'seat');
+    assert.deepEqual(spatial.intentionalOverlapWith, [actor.id]);
+    assert.equal(seat.containsPoint(new THREE.Vector3(...actor.hip)), true,
+      `${id} no longer occupies the chair whose explicit overlap names him`);
+  }
+  world.dispose();
+});
+
 test('every authored pose exits with at least 0.30m of collision clearance', async () => {
   const { world } = await build();
   for (const [id, authoredPose] of Object.entries(world.poses)) {
@@ -201,6 +254,35 @@ test('every authored pose exits with at least 0.30m of collision clearance', asy
     const clearance = Math.min(...relevant.map((entry) => horizontalClearance(authoredPose.exit, entry)));
     assert.ok(clearance >= 0.30 - 1e-6, `${id} exit clearance ${clearance.toFixed(3)}m`);
   }
+  world.dispose();
+});
+
+test('the main-floor bathroom is physically traversable through its live door collider', async () => {
+  const { world } = await build();
+  const bath = LUXURY_APARTMENT.bathroom;
+  const doorwayX = (bath.doorX0 + bath.doorX1) / 2;
+  const camera = new THREE.PerspectiveCamera();
+  const player = new Player(camera, world);
+  player.position.set(doorwayX, 1.68, -0.30);
+  player.yaw = 0;
+  player.mode = 'walk';
+  player.enabled = true;
+
+  world.doors.bathroom.toggle();
+  for (let index = 0; index < 180; index++) world.update(1 / 120);
+  assert.ok(Math.abs(world.doors.bathroom.pivot.rotation.y) > 1.4, 'door reaches its open pose');
+
+  player.setKey('KeyW', true);
+  for (let index = 0; index < 240 && player.position.z > -1.40; index++) player.update(1 / 120);
+  player.setKey('KeyW', false);
+  assert.ok(player.position.z <= -1.40, `player entered the bathroom at z=${player.position.z.toFixed(3)}`);
+  assert.ok(player.position.x >= bath.x0 + 0.30 && player.position.x <= bath.x1 - 0.30,
+    `player capsule remains inside the finished side walls at x=${player.position.x.toFixed(3)}`);
+
+  player.setKey('KeyS', true);
+  for (let index = 0; index < 240 && player.position.z < -0.40; index++) player.update(1 / 120);
+  player.setKey('KeyS', false);
+  assert.ok(player.position.z >= -0.40, `player exited back to the main floor at z=${player.position.z.toFixed(3)}`);
   world.dispose();
 });
 

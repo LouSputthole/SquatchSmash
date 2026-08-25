@@ -16,13 +16,13 @@ import { launchChromium } from './launch-chromium.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5247;
-const WAG_VOICE_PREFIX = 'vo.cabin.wag.';
+const LAG_VOICE_PREFIX = 'vo.cabin.lag.';
 const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
 const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
 const indexedFiles = new Set(soundIndex.files || []);
-const wagVoiceCues = soundManifest.sfx.filter(({ name }) => name?.startsWith(WAG_VOICE_PREFIX));
-const wagCueByName = new Map(wagVoiceCues.map((cue) => [cue.name, cue]));
-const missingWagDeliveries = wagVoiceCues.filter((cue) => {
+const lagVoiceCues = soundManifest.sfx.filter(({ name }) => name?.startsWith(LAG_VOICE_PREFIX));
+const lagCueByName = new Map(lagVoiceCues.map((cue) => [cue.name, cue]));
+const missingLagDeliveries = lagVoiceCues.filter((cue) => {
   const file = cue.file || `${cue.name}.mp3`;
   return !indexedFiles.has(file) || !fs.existsSync(path.join(ROOT, 'assets', 'sfx', file));
 });
@@ -30,6 +30,7 @@ const missingWagDeliveries = wagVoiceCues.filter((cue) => {
 const FRAME_BOUND_WAIT_MS = 600000;
 /** A semantic control response may need dozens of SwiftShader frames. */
 const CONTROL_RESPONSE_WAIT_MS = 45000;
+const WALK_EYE_HEIGHT = 1.66;
 const SCREENSHOT_DIR = process.env.CABIN_SCREENSHOT_DIR
   ? path.resolve(process.env.CABIN_SCREENSHOT_DIR)
   : process.argv.includes('--screenshots')
@@ -60,6 +61,68 @@ async function capture(page, name) {
   if (!SCREENSHOT_DIR) return;
   await fsp.mkdir(SCREENSHOT_DIR, { recursive: true });
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, `${name}.png`) });
+}
+
+function wrappedAngle(value) {
+  return Math.atan2(Math.sin(value), Math.cos(value));
+}
+
+/**
+ * Rotate the production Player through Playwright's real pointer-lock mouse
+ * path. The verifier may read the pose to calculate the required relative
+ * motion; it never writes yaw/pitch or calls Player.handleMouseMove itself.
+ */
+async function aimWithMouse(page, pointer, { yaw, pitch = null }) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const pose = await page.evaluate(() => {
+      const { player } = window.COUNTRYSIDE_CABIN;
+      return { yaw: player.yaw, pitch: player.pitch, sensitivity: player.sensitivity };
+    });
+    const yawError = wrappedAngle(yaw - pose.yaw);
+    const pitchError = pitch == null ? 0 : pitch - pose.pitch;
+    if (Math.abs(yawError) <= 0.018 && Math.abs(pitchError) <= 0.018) return pose;
+    pointer.x += -yawError / pose.sensitivity;
+    pointer.y += -pitchError / pose.sensitivity;
+    await page.mouse.move(pointer.x, pointer.y);
+  }
+  return page.evaluate(() => {
+    const { player } = window.COUNTRYSIDE_CABIN;
+    return { yaw: player.yaw, pitch: player.pitch, sensitivity: player.sensitivity };
+  });
+}
+
+/** Walk one collision-aware scene segment using only mouse-look + W/sprint. */
+async function walkTo(page, pointer, { x, z, radius = 0.42, label }) {
+  const desired = await page.evaluate(({ x: targetX, z: targetZ }) => {
+    const position = window.COUNTRYSIDE_CABIN.player.position;
+    return Math.atan2(-(targetX - position.x), -(targetZ - position.z));
+  }, { x, z });
+  await aimWithMouse(page, pointer, { yaw: desired });
+
+  await page.keyboard.down('Shift');
+  await page.keyboard.down('w');
+  let reached = false;
+  try {
+    await page.waitForFunction(({ x: targetX, z: targetZ, radius: targetRadius }) => {
+      const position = window.COUNTRYSIDE_CABIN.player.position;
+      return Math.hypot(position.x - targetX, position.z - targetZ) <= targetRadius;
+    }, { x, z, radius }, { polling: 'raf', timeout: FRAME_BOUND_WAIT_MS });
+    reached = true;
+  } finally {
+    await page.keyboard.up('w');
+    await page.keyboard.up('Shift');
+  }
+
+  const position = await page.evaluate(() => (
+    window.COUNTRYSIDE_CABIN.player.position.toArray()
+  ));
+  return {
+    label,
+    target: [x, z],
+    position,
+    distance: Math.hypot(position[0] - x, position[2] - z),
+    reached,
+  };
 }
 
 try {
@@ -95,7 +158,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
   /* Collect the AudioEngine the real Cabin constructs and keep its required
    * recording policy fail-closed. The wrapper below catches only that named
-   * QA exception after the engine has recorded it, so one missing Wag take
+   * QA exception after the engine has recorded it, so one missing Lag take
    * cannot abort the rest of the scene certification. It does not supply a
    * substitute or turn strict QA off; both delivery checks remain red. */
   await page.addInitScript(() => {
@@ -236,11 +299,11 @@ try {
   check('the car is gated by one overnight lay-low beat',
     !boot.rested && boot.leaveBeforeRest?.id === 'cabin_rest_first',
     JSON.stringify(boot.leaveBeforeRest));
-  check('all 30 authored Wag lines have exact indexed recordings on disk',
-    wagVoiceCues.length === 30 && missingWagDeliveries.length === 0,
+  check('all 30 authored Lag lines have exact indexed recordings on disk',
+    lagVoiceCues.length === 30 && missingLagDeliveries.length === 0,
     JSON.stringify({
-      authored: wagVoiceCues.length,
-      missing: missingWagDeliveries.map((cue) => cue.file || `${cue.name}.mp3`),
+      authored: lagVoiceCues.length,
+      missing: missingLagDeliveries.map((cue) => cue.file || `${cue.name}.mp3`),
     }));
 
   await capture(page, 'cabin-title');
@@ -266,6 +329,9 @@ try {
   await page.locator('canvas').click({ position: { x: 640, y: 360 } });
   await page.mouse.move(640, 360);
   await page.mouse.move(700, 330, { steps: 3 });
+  // Track the browser pointer's absolute CDP coordinate. Pointer lock turns
+  // later absolute moves into the relative deltas consumed by Player.
+  const pointer = { x: 700, y: 330 };
   let cleanStartMovementReached = false;
   await page.keyboard.down('w');
   /* Wait on the behavior, not on 720 ms of wall time. This scene renders
@@ -318,22 +384,22 @@ try {
       cleanStartYaw,
     }));
 
-  const wagAim = await page.evaluate(() => {
+  const lagAim = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
-    const target = runtime.cabin.interactionTargets.wag;
-    const viewpoint = runtime.cabin.interactionViewpoints.wag;
+    const target = runtime.cabin.interactionTargets.lag;
+    const viewpoint = runtime.cabin.interactionViewpoints.lag;
     const before = {
-      selected: runtime.wagHints.debug.lastHintId,
-      discovered: [...runtime.wagHints.debug.discovered],
-      eligible: [...runtime.wagHints.debug.eligible],
+      selected: runtime.lagHints.debug.lastHintId,
+      discovered: [...runtime.lagHints.debug.discovered],
+      eligible: [...runtime.lagHints.debug.eligible],
       receiptCount: window.__SQUATCH_QA_AUDIO__.engines[0].playbackReceipts.length,
-      wagYaw: runtime.wag.group.rotation.y,
+      lagYaw: runtime.lag.group.rotation.y,
     };
-    if (!target || !viewpoint || !runtime.teleport('wag', 'interact')) {
+    if (!target || !viewpoint || !runtime.teleport('lag', 'interact')) {
       return { ready: false, before };
     }
     /* This only authors the player's physical starting pose. The production
-     * Player camera and InteractionSystem still have to resolve the live Wag
+     * Player camera and InteractionSystem still have to resolve the live Lag
      * rig, and the browser key below is the only thing allowed to talk. */
     runtime.player.update(0.001);
     runtime.player.camera.updateMatrixWorld(true);
@@ -341,76 +407,84 @@ try {
     return {
       ready: true,
       before,
-      currentIsWag: runtime.interaction.current === target,
+      currentIsLag: runtime.interaction.current === target,
       currentName: runtime.interaction.current?.name ?? null,
       player: runtime.player.position.toArray(),
-      wag: target.position.toArray(),
+      lag: target.position.toArray(),
     };
   });
   await page.keyboard.press('e');
-  await page.waitForFunction(() => Boolean(window.COUNTRYSIDE_CABIN.wagHints.debug.lastHintId),
-    null, { timeout: CONTROL_RESPONSE_WAIT_MS });
-  const wagTalk = await page.evaluate(() => {
+  let lagHintSelected = true;
+  try {
+    await page.waitForFunction(() => Boolean(window.COUNTRYSIDE_CABIN.lagHints.debug.lastHintId),
+      null, { timeout: CONTROL_RESPONSE_WAIT_MS });
+  } catch {
+    /* Preserve the rest of the scene report. A dead interaction is a failed
+     * semantic check, not a reason to lose every later transition result. */
+    lagHintSelected = false;
+  }
+  const lagTalk = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
     const policy = window.__SQUATCH_QA_AUDIO__;
     const engine = policy.engines[0];
-    const selected = runtime.wagHints.debug.lastHintId;
-    const requested = `vo.cabin.wag.${selected}`;
+    const selected = runtime.lagHints.debug.lastHintId;
+    const requested = `vo.cabin.lag.${selected}`;
     const receipt = [...engine.playbackReceipts].reverse()
       .find((entry) => entry.requested === requested) ?? null;
-    const wagPosition = runtime.wag.group.position;
+    const lagPosition = runtime.lag.group.position;
     const expectedYaw = Math.atan2(
-      runtime.player.position.x - wagPosition.x,
-      runtime.player.position.z - wagPosition.z,
+      runtime.player.position.x - lagPosition.x,
+      runtime.player.position.z - lagPosition.z,
     );
     const yawError = Math.abs(Math.atan2(
-      Math.sin(runtime.wag.group.rotation.y - expectedYaw),
-      Math.cos(runtime.wag.group.rotation.y - expectedYaw),
+      Math.sin(runtime.lag.group.rotation.y - expectedYaw),
+      Math.cos(runtime.lag.group.rotation.y - expectedYaw),
     ));
     return {
       selected,
       requested,
-      discovered: [...runtime.wagHints.debug.discovered],
-      eligible: [...runtime.wagHints.debug.eligible],
-      yaw: runtime.wag.group.rotation.y,
+      discovered: [...runtime.lagHints.debug.discovered],
+      eligible: [...runtime.lagHints.debug.eligible],
+      yaw: runtime.lag.group.rotation.y,
       expectedYaw,
       yawError,
-      speaking: runtime.wag.npc.speaking,
+      speaking: runtime.lag.npc.speaking,
       subtitle: document.getElementById('subtitle')?.textContent ?? '',
       receipt,
       violations: [...policy.violations],
       caught: [...policy.caught],
     };
   });
-  const selectedWagCue = wagCueByName.get(wagTalk.requested);
-  check('real E input resolves Wag, chooses an eligible discovery-aware line, and turns him to Tony',
-    wagAim.ready
-      && wagAim.currentIsWag
-      && wagAim.before.selected == null
-      && wagAim.before.eligible.includes(wagTalk.selected)
-      && wagTalk.discovered.length === wagAim.before.discovered.length
-      && wagTalk.yawError <= 0.01
-      && wagTalk.speaking > 0
-      && selectedWagCue?.say === wagTalk.receipt?.subtitle
-      && wagTalk.subtitle.includes('Wag:')
-      && wagTalk.subtitle.includes(selectedWagCue?.say ?? '__missing__'),
-    JSON.stringify({ aim: wagAim, talk: wagTalk, authored: selectedWagCue?.say ?? null }));
-  check('that live Wag subtitle owns its exact delivered positional-audio receipt',
-    wagTalk.receipt?.requested === wagTalk.requested
-      && wagTalk.receipt?.actual === wagTalk.requested
-      && wagTalk.receipt?.source === 'buffer'
-      && wagTalk.receipt?.started === true
-      && wagTalk.receipt?.requiredRecorded === true
-      && wagTalk.receipt?.speakerId === 'cabin.wag'
-      && wagTalk.receipt?.subtitle === selectedWagCue?.say
-      && wagTalk.receipt?.positional?.enabled === true
-      && wagTalk.receipt?.positional?.follows === true
-      && wagTalk.receipt?.positional?.ref === 2.2
-      && wagTalk.receipt?.positional?.maxDist === 30
-      && wagTalk.receipt?.positional?.rolloff === 0.7
-      && !wagTalk.violations.some(({ requested }) => requested === wagTalk.requested)
-      && !wagTalk.caught.some(({ requested }) => requested === wagTalk.requested),
-    JSON.stringify({ receipt: wagTalk.receipt, violations: wagTalk.violations, caught: wagTalk.caught }));
+  const selectedLagCue = lagCueByName.get(lagTalk.requested);
+  check('real E input resolves Lag, chooses an eligible discovery-aware line, and turns him to Tony',
+    lagHintSelected
+      && lagAim.ready
+      && lagAim.currentIsLag
+      && lagAim.before.selected == null
+      && lagAim.before.eligible.includes(lagTalk.selected)
+      && lagTalk.discovered.length === lagAim.before.discovered.length
+      && lagTalk.yawError <= 0.01
+      && lagTalk.speaking > 0
+      && selectedLagCue?.say === lagTalk.receipt?.subtitle
+      && lagTalk.subtitle.includes('Lag:')
+      && lagTalk.subtitle.includes(selectedLagCue?.say ?? '__missing__'),
+    JSON.stringify({ lagHintSelected, aim: lagAim, talk: lagTalk, authored: selectedLagCue?.say ?? null }));
+  check('that live Lag subtitle owns its exact delivered positional-audio receipt',
+    lagTalk.receipt?.requested === lagTalk.requested
+      && lagTalk.receipt?.actual === lagTalk.requested
+      && lagTalk.receipt?.source === 'buffer'
+      && lagTalk.receipt?.started === true
+      && lagTalk.receipt?.requiredRecorded === true
+      && lagTalk.receipt?.speakerId === 'lag'
+      && lagTalk.receipt?.subtitle === selectedLagCue?.say
+      && lagTalk.receipt?.positional?.enabled === true
+      && lagTalk.receipt?.positional?.follows === true
+      && lagTalk.receipt?.positional?.ref === 2.2
+      && lagTalk.receipt?.positional?.maxDist === 30
+      && lagTalk.receipt?.positional?.rolloff === 0.7
+      && !lagTalk.violations.some(({ requested }) => requested === lagTalk.requested)
+      && !lagTalk.caught.some(({ requested }) => requested === lagTalk.requested),
+    JSON.stringify({ receipt: lagTalk.receipt, violations: lagTalk.violations, caught: lagTalk.caught }));
 
   const switchedOff = await page.evaluate(() => {
     const world = window.COUNTRYSIDE_CABIN.cabin;
@@ -567,10 +641,189 @@ try {
       presentation: [afterRest.presentedDay, afterRest.presentedMinutes],
     }));
   if (SCREENSHOT_DIR) {
-    await page.evaluate(() => window.COUNTRYSIDE_CABIN.teleport('overlook'));
     await page.waitForTimeout(220);
-    await capture(page, 'cabin-overlook-daylight');
+    await capture(page, 'cabin-wake-daylight');
   }
+
+  const wake = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      position: runtime.player.position.toArray(),
+      authored: runtime.cabin.spawns.wake.position.toArray(),
+      mode: runtime.player.mode,
+      locked: document.pointerLockElement?.tagName === 'CANVAS',
+      doorOpen: runtime.cabin.door.open,
+      carView: {
+        position: runtime.cabin.interactionViewpoints.car?.position?.toArray?.() ?? null,
+        lookAt: runtime.cabin.interactionViewpoints.car?.lookAt?.toArray?.() ?? null,
+      },
+    };
+  });
+  check('the completed rest wakes Tony at the authored cabin pose with a real car approach available',
+    wake.mode === 'walk'
+      && wake.locked
+      && !wake.doorOpen
+      && wake.carView.position?.length === 3
+      && wake.carView.lookAt?.length === 3
+      && Math.hypot(
+        wake.position[0] - wake.authored[0],
+        wake.position[2] - wake.authored[2],
+      ) <= 0.05
+      && Math.abs(wake.position[1] - WALK_EYE_HEIGHT) <= 0.05,
+    JSON.stringify(wake));
+
+  /* The last leg is deliberately not another runtime.teleport(). Tony walks
+   * from the bed, threads the furnished cabin, opens the real door, follows
+   * the trail/gravel approach, resolves the wagon target, and presses E. */
+  const departureWalk = [];
+  for (const waypoint of [
+    { x: -2.00, z: -2.75, label: 'clear the bed' },
+    { x: -2.00, z: -1.00, label: 'bedroom aisle' },
+    { x: -2.00, z: 0.00, label: 'centre aisle north' },
+    { x: -1.20, z: 0.00, label: 'clear the central chair' },
+    { x: -1.20, z: 4.50, label: 'front-door aisle' },
+    { x: 0.50, z: 5.05, label: 'inside door approach' },
+  ]) departureWalk.push(await walkTo(page, pointer, waypoint));
+
+  const doorAim = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const owner = runtime.cabin.utilityTargets.frontDoor;
+    owner.updateWorldMatrix(true, true);
+    let mesh = null;
+    owner.traverse((object) => { if (!mesh && object.isMesh) mesh = object; });
+    mesh.geometry.computeBoundingBox();
+    const centre = mesh.geometry.boundingBox.getCenter(mesh.position.clone()).applyMatrix4(mesh.matrixWorld);
+    const at = runtime.player.position;
+    const dx = centre.x - at.x;
+    const dy = centre.y - at.y;
+    const dz = centre.z - at.z;
+    return {
+      yaw: Math.atan2(-dx, -dz),
+      pitch: Math.atan2(dy, Math.hypot(dx, dz)),
+      centre: centre.toArray(),
+    };
+  });
+  await aimWithMouse(page, pointer, doorAim);
+  await page.waitForFunction(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return runtime.interaction.current === runtime.cabin.utilityTargets.frontDoor;
+  }, null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => (
+    window.COUNTRYSIDE_CABIN.cabin.door.open
+      && window.COUNTRYSIDE_CABIN.cabin.door.openness >= 0.92
+  ), null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
+
+  const carView = await page.evaluate(() => {
+    const view = window.COUNTRYSIDE_CABIN.cabin.interactionViewpoints.car;
+    return { position: view.position.toArray(), lookAt: view.lookAt.toArray() };
+  });
+  for (const waypoint of [
+    { x: 0.50, z: 3.75, label: 'clear the open door leaf' },
+    { x: 2.65, z: 3.75, label: 'line up with the threshold' },
+    { x: 2.65, z: 8.80, label: 'cross the real front doorway' },
+    { x: 5.50, z: 10.50, label: 'reach the loop trail' },
+    { x: 16.00, z: 17.00, label: 'follow the trail toward the wagon' },
+    { x: 16.50, z: 24.00, label: 'enter the gravel pull-off' },
+    { x: carView.position[0], z: carView.position[2], radius: 0.34, label: 'driver-side car stance' },
+  ]) departureWalk.push(await walkTo(page, pointer, waypoint));
+
+  const finalAim = await page.evaluate((lookAt) => {
+    const position = window.COUNTRYSIDE_CABIN.player.position;
+    const dx = lookAt[0] - position.x;
+    const dy = lookAt[1] - position.y;
+    const dz = lookAt[2] - position.z;
+    return {
+      yaw: Math.atan2(-dx, -dz),
+      pitch: Math.atan2(dy, Math.hypot(dx, dz)),
+    };
+  }, carView.lookAt);
+  await aimWithMouse(page, pointer, finalAim);
+  await page.waitForFunction(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return runtime.interaction.current === runtime.cabin.interactionTargets.car;
+  }, null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
+  const carApproach = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const view = runtime.cabin.interactionViewpoints.car;
+    return {
+      position: runtime.player.position.toArray(),
+      authored: view.position.toArray(),
+      aimed: runtime.interaction.current === runtime.cabin.interactionTargets.car,
+      prompt: document.getElementById('prompt')?.textContent ?? '',
+      input: runtime.input.snapshot(),
+      loops: [...runtime.audio.loops.keys()],
+      radioPaused: runtime.radio._paused,
+    };
+  });
+  check('real movement reaches the authored driver-side stance and resolves the wagon interaction',
+    departureWalk.every(({ reached }) => reached)
+      && carApproach.aimed
+      && carApproach.input.locked
+      && Math.hypot(
+        carApproach.position[0] - carApproach.authored[0],
+        carApproach.position[2] - carApproach.authored[2],
+      ) <= 0.5,
+    JSON.stringify({ route: departureWalk, carApproach }));
+  await capture(page, 'cabin-car-departure');
+
+  // Hold a real movement key across E. The transition must clear it, suspend
+  // input, release capture and retire audio before changing documents.
+  await page.keyboard.down('w');
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return runtime.state.phase === 'leaving' && runtime.input.snapshot().suspended;
+  }, null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
+  await page.waitForFunction(() => document.pointerLockElement == null,
+    null, { timeout: CONTROL_RESPONSE_WAIT_MS });
+  const departureCleanup = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      phase: runtime.state.phase,
+      input: runtime.input.snapshot(),
+      playerKeys: [...runtime.player.keys],
+      interactionPaused: runtime.interaction.paused,
+      pointerLocked: document.pointerLockElement != null,
+      loops: [...runtime.audio.loops.keys()],
+      radioPaused: runtime.radio._paused,
+      radioElementPaused: runtime.radio.el?.paused ?? true,
+    };
+  });
+  await page.keyboard.up('w');
+  check('the car exit clears held input, pointer capture, interaction, and every cabin/radio audio bed',
+    departureCleanup.phase === 'leaving'
+      && departureCleanup.input.suspended
+      && !departureCleanup.input.enabled
+      && departureCleanup.input.lastClearReason === 'suspend'
+      && departureCleanup.playerKeys.length === 0
+      && departureCleanup.interactionPaused
+      && !departureCleanup.pointerLocked
+      && departureCleanup.radioPaused
+      && departureCleanup.radioElementPaused
+      && !departureCleanup.loops.some((key) => key.startsWith('cabin.') || key.startsWith('radio.')),
+    JSON.stringify(departureCleanup));
+
+  await page.waitForURL((url) => url.pathname.endsWith('/silvercase.html')
+    && url.searchParams.get('preview') === '1', { timeout: CONTROL_RESPONSE_WAIT_MS });
+  await page.waitForFunction(() => Boolean(window.silvercase?.fsm),
+    null, { timeout: 120000 });
+  // Preview sessions are intentionally storage-less, so campaign.state() is
+  // null by design. Prove the fixed `car_ride` spawn by pressing the actual
+  // destination page button and observing its authored first beat instead.
+  await page.click('#beginBtn');
+  await page.waitForFunction(() => window.silvercase?.fsm?.name === 'CAR_RIDE',
+    null, { timeout: 60000 });
+  const silverCaseArrival = await page.evaluate(() => ({
+    path: location.pathname,
+    preview: new URLSearchParams(location.search).get('preview'),
+    beat: window.silvercase.fsm.name,
+  }));
+  check('the real wagon interaction navigates to The Silver Case car-ride entrypoint',
+    silverCaseArrival.path.endsWith('/silvercase.html')
+      && silverCaseArrival.preview === '1'
+      && silverCaseArrival.beat === 'CAR_RIDE',
+    JSON.stringify(silverCaseArrival));
   check('the cabin browser run has no page, console, or request failures',
     problems.length === 0,
     problems.join(' | '));

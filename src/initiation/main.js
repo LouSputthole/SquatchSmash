@@ -97,8 +97,9 @@ import {
   trailNarrativeStatus,
 } from './trail-formation.js';
 import { SPEECH_MIX, speak } from '../core/dialogue.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
-import { shakeScale, bindAudioVolume, translateKey } from '../core/settings.js';
+import { shakeScale, bindAudioVolume } from '../core/settings.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
@@ -520,12 +521,11 @@ function makeNameplate(name, color) {
 const playerController = new InitiationPlayerAdapter(camera, {
   circles: colliders,
   bounds: BOUNDS,
-  canvas: renderer.domElement,
-  documentRef: document,
   onFootstep: onStep,
 });
 playerController.teleport(SPAWN, { heading: 0 });
 const player = playerController.player;
+let input = null;
 
 // Tony's ceremony body is presentation only. The shared Player owns movement,
 // collision and camera; this rig appears only when an authored cabin shot
@@ -647,7 +647,7 @@ const prospects = [];
 const prospectByName = new Map();
 for (const slot of LINE_UP) {
   if (slot.player) continue;
-  const sq = makeInitiationCeremonyFigure(slot.name);
+  const sq = makeInitiationCeremonyFigure(slot.name, { face: slot.face ?? null });
   sq.group.position.set(slot.x, 0, LINE_Z);
   sq.heading = headingToward({ x: slot.x, z: LINE_Z }, { x: boosk.position.x, z: boosk.position.z });
   sq.group.rotation.y = sq.heading;
@@ -1072,7 +1072,7 @@ function showChoice({ prompt, options, hint, onPick, releasePointerLock = true }
     btn.dataset.correct = option.correct ? '1' : '0';
   });
   quizEl.classList.add('show');
-  if (releasePointerLock) playerController.releasePointerLock();
+  if (releasePointerLock) input?.releasePointerLock();
 }
 
 function hideChoice() {
@@ -1092,8 +1092,7 @@ function hideChoice() {
  * never reach them. The same rule protects both failure cards as well.
  */
 function showBlockingOverlay(element) {
-  playerController.setInputActive(false);
-  playerController.releasePointerLock();
+  input?.suspend();
   element.classList.remove('hidden');
 }
 
@@ -1105,7 +1104,7 @@ function pickChoice(index) {
   hideChoice();
   onPick(option);
   if (currentPhase().control !== CONTROL_MODES.CUTSCENE) {
-    playerController.requestPointerLock();
+    input?.requestPointerLock();
   }
 }
 
@@ -1180,6 +1179,7 @@ function applyPhaseControl(spec = currentPhase()) {
     poseFirstPersonRitualHands(playerFigure);
   }
   playerFigure.group.visible = showFirstPersonHands;
+  input?.refresh('phase-control');
 }
 
 function setPhase(next) {
@@ -1213,54 +1213,62 @@ function actionRelease() {
   holdHeld = false;
 }
 let holdHeld = false;
-
-window.addEventListener('keydown', (e) => {
-  if (paused) return;
-  const code = translateKey(e.code);
-  const movement = playerController.setKey(code, true);
-  if (movement) e.preventDefault();
-
-  if (code === 'Space' && !canMove()) {
-    e.preventDefault();
-    if (!e.repeat) actionPress();
-    holdHeld = true;
-  }
-  if (e.code === 'KeyM') toggleMute();
-  if (openChoice && /^Digit[123]$/.test(e.code)) {
-    pickChoice(Number(e.code.slice(-1)) - 1);
-  }
-});
-window.addEventListener('keyup', (e) => {
-  playerController.setKey(translateKey(e.code), false);
-  if (e.code === 'Space') actionRelease();
-});
-window.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement === renderer.domElement) {
-    playerController.handleMouseMove(e.movementX, e.movementY);
-  }
-});
-document.addEventListener('pointerlockchange', () => {
-  playerController.setInputActive(document.pointerLockElement === renderer.domElement);
-});
-window.addEventListener('mousedown', (e) => {
-  if (paused || e.target.closest('button, a, .touch-btn') || e.button !== 0) return;
-  const locked = document.pointerLockElement === renderer.domElement;
-  if (!locked) {
-    playerController.requestPointerLock();
-    return;
-  }
-  if (!canMove()) {
-    actionPress();
-    holdHeld = true;
-  }
-});
-window.addEventListener('mouseup', () => actionRelease());
-window.addEventListener('blur', () => {
-  playerController.clearInput();
-  holdHeld = false;
-});
-
 let paused = false;
+input = createFirstPersonInput({
+  player: playerController,
+  canvas: renderer.domElement,
+  playerKeyCodes: ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'],
+  canEnable: () => !paused,
+  canHandleInput: () => !paused,
+  controlState: () => {
+    const authoredCamera = currentPhase().control === CONTROL_MODES.CUTSCENE;
+    return {
+      playerEnabled: !authoredCamera && !openChoice,
+      movementEnabled: canMove() && !openChoice,
+      defaultLookEnabled: !authoredCamera && !openChoice,
+      interactionEnabled: false,
+    };
+  },
+  routes: {
+    keyDown(event, controls) {
+      if (controls.code === 'Space' && !canMove()) {
+        event.preventDefault();
+        if (!event.repeat) actionPress();
+        holdHeld = true;
+        return true;
+      }
+      if (event.code === 'KeyM' && !event.repeat) {
+        toggleMute();
+        return true;
+      }
+      if (openChoice && /^Digit[123]$/.test(event.code)) {
+        pickChoice(Number(event.code.slice(-1)) - 1);
+        return true;
+      }
+      return false;
+    },
+    keyUp(event) {
+      if (event.code === 'Space') actionRelease();
+      return false;
+    },
+    mouseDown(event, controls) {
+      if (event.button !== 0) return true;
+      if (!controls.locked) return false;
+      if (!canMove()) {
+        actionPress();
+        holdHeld = true;
+      }
+      return true;
+    },
+    mouseUp(event) {
+      if (event.button !== 0) return false;
+      actionRelease();
+      return true;
+    },
+  },
+  onClear: () => { holdHeld = false; },
+});
+
 createPauseMenu({
   title: 'The Initiation',
   canPause: () => phase !== 'complete' && phase !== 'failed' && phase !== 'failed_oath',
@@ -1273,7 +1281,7 @@ createPauseMenu({
   ],
   onPause: () => {
     paused = true;
-    playerController.setPaused(true);
+    input.suspend();
     holdHeld = false;
     sfx.suspend();
     audio.ctx?.suspend?.();
@@ -1281,10 +1289,9 @@ createPauseMenu({
   onResume: () => {
     paused = false;
     sfx.resume();
-    playerController.setPaused(false);
-    if (currentPhase().control !== CONTROL_MODES.CUTSCENE && !openChoice) {
-      playerController.requestPointerLock();
-    }
+    input.resume({
+      requestPointerLock: currentPhase().control !== CONTROL_MODES.CUTSCENE && !openChoice,
+    });
     audio.ctx?.resume?.();
   },
   /* RESTART CHECKPOINT AND RESTART SCENE, like every other campaign scene.
@@ -1334,7 +1341,7 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     touch.x = 0;
     touch.y = 0;
     zone.setPointerCapture(e.pointerId);
-    playerController.setInputActive(true);
+    playerController.setTouchActive(true);
     playerController.setTouchVector(0, 0);
   });
   zone.addEventListener('pointermove', (e) => {
@@ -1369,13 +1376,13 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
   smashBtn.textContent = '▸';
   smashBtn.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    playerController.setInputActive(true);
-    if (canMove()) playerController.setKey('Space', true);
+    playerController.setTouchActive(true);
+    if (canMove()) playerController.setTouchButton('Space', true);
     else { actionPress(); holdHeld = true; }
   });
   smashBtn.addEventListener('pointerup', (e) => {
     e.preventDefault();
-    playerController.setKey('Space', false);
+    playerController.setTouchButton('Space', false);
     actionRelease();
   });
 }
@@ -2498,6 +2505,11 @@ function tieTheBandana() {
  * ------------------------------------------------------------------ */
 function retry() {
   failEl.classList.add('hidden');
+  /* The failure card suspends canonical input so the pointer can reach its
+   * button. Retrying is a lifecycle boundary too: numbered choice routes must
+   * be live again even while the cursor remains free over the restored quiz.
+   * Request capture only after the player makes that choice. */
+  input?.resume({ requestPointerLock: false });
   painT = 0;
   hideChoice();
   sayQueue = [];
@@ -3038,6 +3050,7 @@ tick();
 // Debug/test handle (harmless in production)
 window.INITIATION = {
   get player() { return player; },
+  get input() { return input; },
   members,
   prospects,
   boosk,

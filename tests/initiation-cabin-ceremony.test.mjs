@@ -213,6 +213,8 @@ test('the run order kneels everyone, executes four, then interrupts Tony before 
   /* Prospect One keeps the staging that ships: standing, frontal, eight. */
   assert.equal(STANDING_EXECUTION.rounds, 8);
   assert.equal(STANDING_EXECUTION.kneeling, false);
+  assert.equal(STANDING_EXECUTION.shooter, 'BOOSKIBRO',
+    'Booskibro, not a proximity-selected substitute, owns Prospect One\'s execution');
   assert.equal(STANDING_EXECUTION.stance, site.STANDING_SHOOTER_MARK);
   assert.ok(STANDING_EXECUTION.stance.x < STANDING_EXECUTION.mark.x,
     'the standing shooter did not move left of Tony\'s victim sightline');
@@ -220,6 +222,23 @@ test('the run order kneels everyone, executes four, then interrupts Tony before 
     STANDING_EXECUTION.stance.x - STANDING_EXECUTION.mark.x,
     STANDING_EXECUTION.stance.z - STANDING_EXECUTION.mark.z,
   ) > 1.5, 'the standing shooter is crowding Prospect One');
+});
+
+test('the live clearing stations carry Lou and Booskibro\'s established faces', () => {
+  const byKey = new Map(OUTDOOR_MEMBER_STATIONS.map((station) => [station.key, station]));
+  assert.equal(byKey.get('BOOSKIBRO').face, 'assets/faces/booski.png');
+  assert.equal(byKey.get('LOU').face, 'assets/faces/lou.png');
+  assert.match(MAIN, /makeInitiationCeremonyFigure\(spec\.key, \{ face: spec\.face \?\? null \}\)/,
+    'the production scene stopped passing station faces to the canonical figure adapter');
+});
+
+test('Kittenboss carries her own landed female portrait into the live line-up', () => {
+  const kitten = LINE_UP.find((slot) => slot.id === 'kittenboss');
+  assert.equal(kitten.face, 'assets/faces/kittenboss.png');
+  assert.equal(fs.existsSync(path.join(ROOT, kitten.face)), true);
+  assert.match(MAIN,
+    /makeInitiationCeremonyFigure\(slot\.name, \{ face: slot\.face \?\? null \}\)/,
+    'the production line-up stopped passing Kittenboss\'s portrait to her figure');
 });
 
 /* ══════════════════════════════════════════════════════════════════════ *

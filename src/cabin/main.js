@@ -16,6 +16,7 @@ import {
 } from '../core/countryside-cabin-story.js';
 import { DayNight } from '../core/daynight.js';
 import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { ITEMS } from '../core/inventory.js';
@@ -27,7 +28,6 @@ import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
 import { Radio } from '../core/radio.js';
-import { translateKey } from '../core/settings.js';
 import { newsSegmentsFor } from '../core/stations.js';
 import { Tv } from '../core/tv.js';
 import { makeMaterials } from '../world/materials.js';
@@ -39,7 +39,7 @@ import {
   poseHeldDrink,
 } from '../world/props.js';
 import { buildCountrysideCabin } from './world.js';
-import { createWagHintDirector, speakWagLine } from './wag.js';
+import { createLagHintDirector, speakLagLine } from './lag.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -143,11 +143,14 @@ const state = {
   consumeLatch: false,
 };
 
-const wagHints = createWagHintDirector();
+const WALK_EYE_HEIGHT = 1.66;
+
+const lagHints = createLagHintDirector();
 
 let cabin = null;
 let bathroomMirror = null;
 let player = null;
+let input = null;
 let lastFrame = performance.now();
 
 function syncTime() {
@@ -175,8 +178,8 @@ function applyTimeOfDay() {
 
 function objectiveHint() {
   const exit = story.tryLeave();
-  if (exit.kind === 'go') return 'Ape is waiting at the car · Wag and the property remain open';
-  if (exit.id === 'cabin_rest_first') return 'Wag is chopping by the woodpile · use the bed whenever you are ready';
+  if (exit.kind === 'go') return 'Ape is waiting at the car · Lag and the property remain open';
+  if (exit.id === 'cabin_rest_first') return 'Lag is chopping by the woodpile · use the bed whenever you are ready';
   return exit.line;
 }
 
@@ -200,36 +203,38 @@ function syncCampaignPresentation() {
 }
 
 function discoverCabin(id) {
-  return wagHints.discover(id);
+  return lagHints.discover(id);
 }
 
-function presentWagLine(line, actor = cabin?.wag) {
+function presentLagLine(line, actor = cabin?.lag) {
   if (!line?.ok || !actor) return false;
-  const spoken = speakWagLine(audio, line, {
+  const spoken = speakLagLine(audio, line, {
     speaker: actor.group,
   });
   const seconds = Math.max(line.seconds, spoken.seconds);
   actor.speakTo(player?.position, seconds, { audio, source: spoken.source });
-  hud.say(`<b>Wag:</b> ${line.text}`, Math.round(seconds * 1000));
+  hud.say(`<b>Lag:</b> ${line.text}`, Math.round(seconds * 1000));
   return true;
 }
 
-function talkToWag(actor = cabin?.wag) {
+function talkToLag(actor = cabin?.lag) {
   for (const landmark of story.explored()) discoverCabin(landmark.id);
-  const line = wagHints.talk({ now: state.elapsed });
-  return presentWagLine(line, actor);
+  const line = lagHints.talk({ now: state.elapsed });
+  return presentLagLine(line, actor);
 }
 
 function showPosture(label) {
   state.posture = label;
   postureEl.querySelector('span').textContent = label === 'desk' ? 'leave computer' : 'stand up';
   postureEl.classList.remove('hidden');
+  input?.refresh('sit');
 }
 
 function hidePosture() {
   state.posture = null;
   postureEl.classList.add('hidden');
   arcade.setSeated?.(false);
+  input?.refresh('stand');
 }
 
 function sitAt(kind, pose) {
@@ -246,6 +251,7 @@ function sitAt(kind, pose) {
         arcade.boot();
       }
       arcade.setSeated?.(true);
+      input?.refresh('arcade-seat');
     }
   });
 }
@@ -267,7 +273,7 @@ function restAtCabin() {
   }
   state.resting = true;
   interaction.setPaused(true);
-  player.enabled = false;
+  input?.refresh('rest-start');
   restCurtain.classList.add('active');
   audio.stopLoop('cabin.forest', 0.8);
   window.setTimeout(() => {
@@ -276,15 +282,29 @@ function restAtCabin() {
     const wake = cabin.spawns?.wake ?? cabin.bedPose;
     if (wake?.position) {
       player.position.copy(wake.position);
+      // The property spans deep creek and ridge elevations. Copying only the
+      // wake transform left Player.ground carrying whichever remote landmark
+      // Tony last visited, so the next walk frame could put the camera under
+      // the cabin floor. A wake is a complete physical checkpoint.
+      player.ground = cabin.groundAt?.(wake.position.x, wake.position.z)
+        ?? wake.position.y - WALK_EYE_HEIGHT;
+      player.eyeHeight = WALK_EYE_HEIGHT;
+      player.targetEye = WALK_EYE_HEIGHT;
+      player.jumpHeight = 0;
+      player.grounded = true;
+      player.crouching = false;
+      player.velocity?.set?.(0, 0, 0);
+      input?.clear('rest-wake');
+      player.position.y = player.ground + WALK_EYE_HEIGHT;
       player.yaw = wake.yaw ?? player.yaw;
       player.pitch = wake.pitch ?? -0.08;
       player.mode = 'walk';
     }
     window.setTimeout(() => {
       restCurtain.classList.remove('active');
-      interaction.setPaused(false);
-      player.enabled = document.pointerLockElement === canvas;
       state.resting = false;
+      interaction.setPaused(false);
+      input?.refresh('rest-complete');
       audio.startLoop('cabin.forest', {
         name: 'ambience.course', volume: 0.21, ambience: true, fade: 1.6,
       });
@@ -301,14 +321,14 @@ function visitLandmark(id) {
   if (result.firstVisit) {
     audio.play(id === 'creek' ? 'bird' : 'footstep.dirt', { volume: 0.28 });
     const residentAwareLine = {
-      shed: 'Axes, fuel tins, a workbench, and a swept patch where Wag keeps the useful tools.',
-      firepit: 'Old ash under new cedar. Wag has kept the ring ready without advertising smoke above the road.',
+      shed: 'Axes, fuel tins, a workbench, and a swept patch where Lag keeps the useful tools.',
+      firepit: 'Old ash under new cedar. Lag has kept the ring ready without advertising smoke above the road.',
     }[id];
     hud.say(residentAwareLine ?? result.landmark.line, 5200);
     hud.toast(`${result.landmark.shortLabel} explored`, 'good');
     syncCampaignPresentation();
   } else {
-    const company = ['shed', 'firepit'].includes(id) ? ' Wag keeps to his work.' : ' Still nobody around.';
+    const company = ['shed', 'firepit'].includes(id) ? ' Lag keeps to his work.' : ' Still nobody around.';
     hud.say(`Been here. <em>${result.landmark.shortLabel}.</em>${company}`, 3000);
   }
   return result;
@@ -322,8 +342,16 @@ function leaveCabin() {
     return false;
   }
   state.phase = 'leaving';
-  player.enabled = false;
   interaction.setPaused(true);
+  // A campaign transition owns the whole browser now. Retire the live input
+  // socket and every cabin/radio bed immediately, before the 900 ms curtain,
+  // rather than relying on document teardown to release held keys, pointer
+  // lock, positional nodes, or an HTML radio element.
+  input?.suspend();
+  radio.pause();
+  audio.stopLoop('cabin.forest', 0.12);
+  audio.stopLoop('cabin.fridge', 0.12);
+  audio.stopLoop('cabin.firepit', 0.12);
   restCurtain.querySelector('span').textContent = 'APE IS WAITING';
   restCurtain.classList.add('active');
   window.setTimeout(() => {
@@ -497,8 +525,8 @@ function useWoodpile() {
     position: cabin.landmarks?.woodpile?.position,
   });
   hud.toast(`Split firewood · ${state.logsSplit}`, 'good');
-  const reaction = wagHints.reactToChop({ now: state.elapsed });
-  presentWagLine(reaction);
+  const reaction = lagHints.reactToChop({ now: state.elapsed });
+  presentLagLine(reaction);
   return true;
 }
 
@@ -536,8 +564,8 @@ try {
     onLeave: leaveCabin,
     onWoodpile: useWoodpile,
     onFirepit: useFirepit,
-    onWag: talkToWag,
-    canTalkToWag: () => wagHints.canTalk(state.elapsed),
+    onLag: talkToLag,
+    canTalkToLag: () => lagHints.canTalk(state.elapsed),
     onPorch: () => hud.say('No traffic. Just the creek below the trees.', 3000),
   });
   bathroomMirror = new PlanarMirror(scene, cabin.mirrorMesh, {
@@ -791,13 +819,76 @@ syncCampaignPresentation();
 applyTimeOfDay();
 
 function requestGamePointerLock() {
-  try {
-    const pending = canvas.requestPointerLock?.();
-    pending?.catch?.(() => {});
-  } catch {
-    // Embedded previews can deny pointer lock without invalidating the scene.
-  }
+  return input?.requestPointerLock() ?? false;
 }
+
+input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  // Held consumables are driven by Player.keys so the same key-down state is
+  // visible to updateHeldUse(). F is intentionally outside the adapter's
+  // movement-only default set and must be declared as part of this scene's
+  // capability contract.
+  playerKeyCodes: ['KeyF'],
+  canEnable: () => state.phase === 'active'
+    && !state.paused
+    && !state.resting
+    && arcade.inputMode !== 'dom',
+  canHandleInput: () => state.phase === 'active' && !state.paused && !state.resting,
+  controlState: () => ({
+    movementEnabled: !state.posture,
+    defaultLookEnabled: state.posture !== 'desk',
+    interactionEnabled: state.posture !== 'desk',
+  }),
+  routes: {
+    keyDown(event, controls) {
+      if (state.posture === 'desk' && arcade.onKey(event.code, true)) return true;
+      if (controls.code === 'KeyE' && !event.repeat && cabin.inventory.held === 'phone') {
+        phone.press();
+        return true;
+      }
+      if (controls.code === 'KeyQ' && !event.repeat) {
+        if (state.posture) standUp();
+        else pocketHeldItem();
+        return true;
+      }
+      if (controls.code === 'KeyR' && !event.repeat && radio.on) {
+        radio.next();
+        return true;
+      }
+      const number = /^Digit([1-5])$/.exec(event.code)?.[1];
+      if (number) {
+        cabin.inventory.select(Number(number) - 1);
+        return true;
+      }
+      return false;
+    },
+    keyUp(event) {
+      if (state.posture !== 'desk') return false;
+      return arcade.onKey(event.code, false) === true;
+    },
+    mouseMove(event) {
+      if (state.posture !== 'desk' || arcade.inputMode !== 'relative') return false;
+      arcade.onPointer(event.movementX, event.movementY);
+      return true;
+    },
+    mouseDown(event, controls) {
+      if (event.button !== 0) return true;
+      if (!controls.locked) return false;
+      if (state.posture === 'desk') arcade.onClick(true);
+      else interaction.press();
+      return true;
+    },
+    mouseUp(event) {
+      if (event.button !== 0) return false;
+      if (state.posture === 'desk') arcade.onClick(false);
+      else interaction.release();
+      return true;
+    },
+  },
+  onClear: () => arcade.onClick(false),
+});
 
 const available = campaign.state.scene.id === SCENE_IDS.COUNTRYSIDE_CABIN;
 if (!available) {
@@ -839,13 +930,13 @@ startButton.addEventListener('click', async () => {
   state.radioOn = true;
   cabin.state.radioOn = true;
   state.phase = 'active';
-  player.enabled = true;
   document.body.classList.add('playing');
   overlay.classList.add('hidden');
+  input.refresh('scene-start');
   requestGamePointerLock();
   hud.say(story.rested()
     ? '<em>Day Five.</em> The property stayed quiet. Ape is waiting by the car.'
-    : '<em>County road north.</em> One night out of sight. Wag is chopping by the woodpile.', 5200);
+    : '<em>County road north.</em> One night out of sight. Lag is chopping by the woodpile.', 5200);
 });
 
 const pauseMenu = createPauseMenu({
@@ -860,15 +951,12 @@ const pauseMenu = createPauseMenu({
     'E or Click — use. Hold E where a second action is shown.',
     'F — eat, drink or smoke a selected item. Q — stand up or pocket it.',
     'R — skip the radio.',
-    'Talk to Wag for loose hints. The bed advances the story; every property walk is optional.',
+    'Talk to Lag for loose hints. The bed advances the story; every property walk is optional.',
   ],
   onPause: () => {
     state.paused = true;
-    player.enabled = false;
-    player.clearKeys();
-    interaction.release();
     interaction.setPaused(true);
-    document.exitPointerLock?.();
+    input.suspend();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
@@ -876,57 +964,13 @@ const pauseMenu = createPauseMenu({
     interaction.setPaused(false);
     audio.ctx?.resume?.();
     lastFrame = performance.now();
-    requestGamePointerLock();
+    input.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
     sceneId: SCENE_IDS.COUNTRYSIDE_CABIN,
     location,
   }),
-});
-
-document.addEventListener('pointerlockchange', () => {
-  if (state.phase === 'active' && !state.paused && !state.resting) {
-    player.enabled = document.pointerLockElement === canvas || arcade.inputMode === 'dom';
-  }
-});
-document.addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement !== canvas) return;
-  if (state.posture === 'desk' && arcade.inputMode === 'relative') arcade.onPointer(event.movementX, event.movementY);
-  else player.handleMouseMove(event.movementX, event.movementY);
-});
-document.addEventListener('keydown', (event) => {
-  if (state.phase !== 'active' || state.paused || state.resting) return;
-  if (state.posture === 'desk' && arcade.onKey(event.code, true)) return;
-  const key = translateKey(event.code);
-  player.setKey(key, true);
-  if (key === 'Space') event.preventDefault();
-  if (key === 'KeyE' && !event.repeat) {
-    if (cabin.inventory.held === 'phone') phone.press();
-    else interaction.press();
-  }
-  if (key === 'KeyQ' && !event.repeat) {
-    if (state.posture) standUp();
-    else pocketHeldItem();
-  }
-  if (key === 'KeyR' && !event.repeat && radio.on) radio.next();
-  const number = /^Digit([1-5])$/.exec(event.code)?.[1];
-  if (number) cabin.inventory.select(Number(number) - 1);
-});
-document.addEventListener('keyup', (event) => {
-  if (state.posture === 'desk') arcade.onKey(event.code, false);
-  player.setKey(translateKey(event.code), false);
-  if (translateKey(event.code) === 'KeyE') interaction.release();
-});
-document.addEventListener('mousedown', (event) => {
-  if (event.button !== 0 || document.pointerLockElement !== canvas) return;
-  if (state.posture === 'desk') arcade.onClick(true);
-  else interaction.press();
-});
-document.addEventListener('mouseup', (event) => {
-  if (event.button !== 0) return;
-  if (state.posture === 'desk') arcade.onClick(false);
-  else interaction.release();
 });
 window.addEventListener('wheel', (event) => {
   if (state.phase !== 'active' || state.posture) return;
@@ -936,18 +980,8 @@ window.addEventListener('wheel', (event) => {
     cabin.inventory.cycle(event.deltaY > 0 ? 1 : -1);
   }
 }, { passive: true });
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  interaction.release();
-});
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseMenu.pause();
-});
-canvas.addEventListener('click', () => {
-  if (state.phase === 'active' && !state.paused && !state.resting
-    && document.pointerLockElement !== canvas && arcade.inputMode !== 'dom') {
-    requestGamePointerLock();
-  }
 });
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -993,11 +1027,14 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   cabin,
   interaction,
   player,
+  get input() { return input; },
+  audio,
+  radio,
   time,
   state,
-  wag: cabin.wag,
-  wagHints,
-  talkToWag,
+  lag: cabin.lag,
+  lagHints,
+  talkToLag,
   visit: visitLandmark,
   rest: restAtCabin,
   leave: leaveCabin,

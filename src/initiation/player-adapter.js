@@ -106,24 +106,29 @@ export class InitiationPlayerAdapter {
   constructor(camera, {
     circles = [],
     bounds = 88,
-    canvas = null,
-    documentRef = null,
     onFootstep = null,
   } = {}) {
     this.camera = camera;
-    this.canvas = canvas;
-    this.document = documentRef;
     this.world = createInitiationPlayerWorld({ circles, bounds });
     this.player = new Player(camera, this.world);
     this.player.onFootstep = onFootstep;
 
     this.control = INITIATION_CONTROL_MODES.CUTSCENE;
     this.pose = PLAYER_POSES.STANDING;
-    this.inputActive = false;
-    this.paused = false;
+    this.browserEnabled = false;
+    this.touchActive = false;
+    this.inputSuspended = false;
     this.touchCodes = new Set();
     this.allowSprint = true;
     this.moveScale = 1;
+  }
+
+  /** Player-compatible Interface consumed by FirstPersonInputAdapter. */
+  get enabled() { return this.browserEnabled; }
+
+  set enabled(enabled) {
+    this.browserEnabled = Boolean(enabled);
+    this.#refreshEnabled();
   }
 
   teleport(point, { heading = null, yaw = null, pose = this.pose } = {}) {
@@ -178,30 +183,6 @@ export class InitiationPlayerAdapter {
     this.#refreshEnabled();
   }
 
-  setPaused(paused) {
-    this.paused = Boolean(paused);
-    if (this.paused) this.clearInput();
-    this.#refreshEnabled();
-  }
-
-  setInputActive(active) {
-    this.inputActive = Boolean(active);
-    if (!this.inputActive) this.clearInput();
-    this.#refreshEnabled();
-  }
-
-  requestPointerLock() {
-    if (!this.canvas?.requestPointerLock) return false;
-    this.canvas.requestPointerLock();
-    return true;
-  }
-
-  releasePointerLock() {
-    if (this.document?.pointerLockElement !== this.canvas) return false;
-    this.document.exitPointerLock?.();
-    return true;
-  }
-
   handleMouseMove(dx, dy) {
     this.player.handleMouseMove(dx, dy);
   }
@@ -241,7 +222,7 @@ export class InitiationPlayerAdapter {
   setTouchVector(x, y, { sprint = false } = {}) {
     for (const code of this.touchCodes) this.player.setKey(code, false);
     this.touchCodes.clear();
-    if (this.control !== INITIATION_CONTROL_MODES.PLAYABLE) return;
+    if (this.inputSuspended || this.control !== INITIATION_CONTROL_MODES.PLAYABLE) return;
 
     if (y < -0.2) this.touchCodes.add('KeyW');
     if (y > 0.2) this.touchCodes.add('KeyS');
@@ -251,10 +232,35 @@ export class InitiationPlayerAdapter {
     for (const code of this.touchCodes) this.player.setKey(code, true);
   }
 
+  setTouchActive(active) {
+    this.touchActive = Boolean(active);
+    if (!this.touchActive) this.setTouchVector(0, 0);
+    this.#refreshEnabled();
+  }
+
+  setTouchButton(code, down) {
+    if (this.inputSuspended) {
+      this.setKey(code, false);
+      return false;
+    }
+    return this.setKey(code, down);
+  }
+
+  /** Let canonical input lifecycle suspend touch without disabling touch mode. */
+  setInputSuspended(suspended) {
+    this.inputSuspended = Boolean(suspended);
+    if (this.inputSuspended) this.clearInput();
+    this.#refreshEnabled();
+  }
+
   clearInput() {
     this.touchCodes.clear();
     this.player.clearKeys();
     this.player.velocity.set(0, 0, 0);
+  }
+
+  clearKeys() {
+    this.clearInput();
   }
 
   update(dt) {
@@ -272,8 +278,8 @@ export class InitiationPlayerAdapter {
   }
 
   #refreshEnabled() {
-    this.player.enabled = !this.paused
-      && this.inputActive
+    this.player.enabled = !this.inputSuspended
+      && (this.browserEnabled || this.touchActive)
       && this.control !== INITIATION_CONTROL_MODES.CUTSCENE;
   }
 }

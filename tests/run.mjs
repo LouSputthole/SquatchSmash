@@ -42,7 +42,7 @@ const TEST_MODULES = [
   './countryside-cabin-story.test.mjs',
   './countryside-cabin-field.test.mjs',
   './countryside-cabin-world.test.mjs',
-  './countryside-cabin-wag.test.mjs',
+  './countryside-cabin-lag.test.mjs',
   './luxury-apartment-layout.test.mjs',
   './luxury-apartment-runtime.test.mjs',
   './luxury-apartment-world.test.mjs',

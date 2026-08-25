@@ -55,6 +55,13 @@ const KITTEN_TEST_SUBSTITUTE_PATH = path.join(
   'vo.initiation.cabin.in-030-kittenboss.1ba2x2c.1.mp3',
 );
 const REQUIRED_TRAIL_BEATS = Object.freeze(['IN-210', 'IN-220', 'IN-230', 'IN-240']);
+/* A cold approach usually finishes well inside two minutes. The same walk
+ * after a complete SwiftShader playthrough and a page reload does not: shader
+ * compilation and WebGL teardown can leave the next page rendering slowly
+ * while the production Player is still making steady progress. Every woods
+ * traversal gets the same budget as the clean-start golden path so elapsed
+ * wall time is never misreported as a collision softlock. */
+const APPROACH_WALK_TIMEOUT_MS = 240_000;
 const productionKittenBegCueExists = fs.existsSync(KITTEN_BEG_CUE_PATH);
 const verifierSfxIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json')));
 const TYPES = {
@@ -187,7 +194,7 @@ async function driveTo(page, phase, { timeout = 90000 } = {}) {
  * unexpected numbered choice is a hard stop rather than something Space can
  * accidentally bypass.
  */
-async function pressActionTo(page, phase, { timeout = 120000 } = {}) {
+async function pressActionTo(page, phase, { timeout = 120000, seen = null } = {}) {
   const deadline = Date.now() + timeout;
   for (;;) {
     const at = await page.evaluate(() => ({
@@ -196,6 +203,7 @@ async function pressActionTo(page, phase, { timeout = 120000 } = {}) {
       paused: window.INITIATION.paused,
       quizOpen: window.INITIATION.quizOpen,
     }));
+    seen?.add(at.phase);
     if (at.phase === phase) return at;
     if (at.quizOpen) {
       throw new Error(`Initiation exposed a numbered choice in '${at.phase}' while driving to '${phase}'`);
@@ -208,6 +216,53 @@ async function pressActionTo(page, phase, { timeout = 120000 } = {}) {
     await page.keyboard.press('Space');
     await page.waitForTimeout(400);
   }
+}
+
+/**
+ * Clear spoken lines with the production Space-key route until the requested
+ * numbered choice is visibly available.
+ *
+ * This is deliberately separate from `driveTo()`: a clean-start run is not
+ * allowed to invoke the debug handle that calls `actionPress()` directly.
+ */
+async function pressActionUntilChoice(page, phase, { timeout = 120000, seen = null } = {}) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    const at = await page.evaluate(() => ({
+      phase: window.INITIATION.phase,
+      phaseT: window.INITIATION.phaseT,
+      quizOpen: window.INITIATION.quizOpen,
+    }));
+    seen?.add(at.phase);
+    if (at.phase === phase && at.quizOpen) return at;
+    if (Date.now() > deadline) {
+      throw new Error(`Initiation never exposed the real numbered choice in '${phase}' — `
+        + `stuck in '${at.phase}' (phaseT ${at.phaseT?.toFixed?.(1) ?? '?'}s)`);
+    }
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(400);
+  }
+}
+
+/**
+ * Read the actual on-screen option text, then use the matching number key.
+ * The DOM is observation only: no click handler, answer function or scene
+ * state is called from JavaScript.
+ */
+async function chooseDisplayedOption(page, predicate, label) {
+  const options = await page.locator('#quiz .quiz-opt').evaluateAll((buttons) => buttons
+    .filter((button) => !button.hidden && getComputedStyle(button).display !== 'none')
+    .map((button) => ({
+      index: Number(button.dataset.i),
+      text: button.textContent.replace(/\s+/g, ' ').trim(),
+    })));
+  const selected = options.find(predicate);
+  if (!selected) {
+    throw new Error(`Initiation ${label} did not display its authored successful option: `
+      + JSON.stringify(options));
+  }
+  await page.keyboard.press(`Digit${selected.index + 1}`);
+  return { options, selected };
 }
 
 async function capturePointerLock(page, { attempts = 3 } = {}) {
@@ -239,7 +294,7 @@ async function capturePointerLock(page, { attempts = 3 } = {}) {
  * silently strolls the wrong way would look exactly like a scene that cannot
  * advance.
  */
-async function walkTo(page, phase, { timeout = 120000 } = {}) {
+async function walkTo(page, phase, { timeout = APPROACH_WALK_TIMEOUT_MS } = {}) {
   /* Where he is, which way he is pointed, and how far off the mark.
    *
    * `window.INITIATION.player` is the SHARED `Player` (see
@@ -261,6 +316,11 @@ async function walkTo(page, phase, { timeout = 120000 } = {}) {
       yaw: player.yaw ?? player.group.rotation.y,
       enabled: player.enabled === true,
       phase: window.INITIATION.phase,
+      control: window.INITIATION.control,
+      mode: player.mode,
+      keys: [...player.keys],
+      velocity: player.velocity?.toArray?.() ?? null,
+      input: window.INITIATION.input?.snapshot?.() ?? null,
     };
   }, target);
 
@@ -270,8 +330,12 @@ async function walkTo(page, phase, { timeout = 120000 } = {}) {
     for (const key of keys) if (!held.has(key)) { await page.keyboard.down(key); held.add(key); }
   };
 
-  const deadline = Date.now() + timeout;
+  const startedAt = Date.now();
+  const deadline = startedAt + timeout;
   let best = Infinity;
+  let lastProgressAt = Date.now();
+  let avoidanceDirection = 1;
+  let steeringTicks = 0;
   /* Follow the authored dirt track instead of drawing a verifier-only chord
    * through its trees and rocks. The prior driver aimed directly from spawn
    * to the prospect slot; it left TRACK near its final bend and correctly hit
@@ -282,22 +346,30 @@ async function walkTo(page, phase, { timeout = 120000 } = {}) {
     for (;;) {
       const target = waypoints[waypointIndex];
       const at = await state(target);
-      if (at.phase === phase) return true;
-      const gap = Math.hypot(at.dx, at.dz);
-      /* `line_up` means the scene has accepted the wilderness approach and
-       * now wants Tony's exact prospect slot. Continuing to chase the final
-       * trail waypoint can wedge him against the edge of the assembled line
-       * even though the production objective has already changed. */
-      if (at.phase === 'line_up' && waypointIndex < waypoints.length - 1) {
-        await hold(new Set());
-        waypointIndex = waypoints.length - 1;
-        best = Infinity;
-        continue;
+      if (at.phase === phase) {
+        return {
+          phase: at.phase,
+          durationMs: Date.now() - startedAt,
+          steeringTicks,
+          waypointIndex,
+          waypointCount: waypoints.length,
+          x: at.x,
+          z: at.z,
+        };
       }
+      const gap = Math.hypot(at.dx, at.dz);
+      /* Do not cut the corner when `approach` becomes `line_up`. That phase
+       * changes as soon as Tony enters the 17 m clearing radius, while the
+       * authored track still has one bend left at z=-14. Jumping straight to
+       * the line from that trigger draws a chord through the forest-edge
+       * colliders and made identical clean starts pass or wedge depending on
+       * the exact frame that crossed the radius. The player keeps walking the
+       * visible track, then takes the short final leg to his marked slot. */
       if (waypointIndex < waypoints.length - 1 && gap < 1.25) {
         await hold(new Set());
         waypointIndex += 1;
         best = Infinity;
+        lastProgressAt = Date.now();
         continue;
       }
       if (Date.now() > deadline) {
@@ -314,12 +386,42 @@ async function walkTo(page, phase, { timeout = 120000 } = {}) {
           ? `Initiation never walked to '${phase}' — in '${at.phase}', ${gap.toFixed(1)} m from `
             + `track waypoint ${waypointIndex + 1}/${waypoints.length} at `
             + `(${at.x.toFixed(1)}, ${at.z.toFixed(1)}) with input live, so the keys are reaching `
-            + 'the scene and the walk itself is stuck'
+            + `the scene and the walk itself is stuck; diagnostics=${JSON.stringify({
+              elapsedMs: Date.now() - startedAt,
+              lastProgressMsAgo: Date.now() - lastProgressAt,
+              yaw: at.yaw,
+              control: at.control,
+              mode: at.mode,
+              keys: at.keys,
+              velocity: at.velocity,
+              input: at.input,
+            })}`
           : `Initiation never walked to '${phase}': the scene never enabled input `
             + `(Player.enabled false in '${at.phase}'). The adapter gates that on pointer `
             + 'lock, which this browser did not grant — the walk was never driveable.');
       }
-      if (gap < best) best = gap;
+      if (gap < best - 0.2 || !Number.isFinite(best)) {
+        best = gap;
+        lastProgressAt = Date.now();
+      }
+
+      /* The path is authored as a clear corridor, but the actual controller
+       * is a circle moving through other circles. At low SwiftShader frame
+       * rates, a diagonal can land exactly nose-on to a tree and keep a live
+       * forward velocity while `pushOut` returns the same position forever.
+       * A player naturally steps around it. Do exactly that with a real A/D
+       * hold after five seconds without 20 cm of progress, then resume toward
+       * the visible waypoint. Alternating sides keeps a second obstacle from
+       * turning the verifier's recovery into another deterministic wedge. */
+      if (at.enabled && Date.now() - lastProgressAt > 5000) {
+        await hold(new Set([avoidanceDirection > 0 ? 'KeyA' : 'KeyD']));
+        await page.waitForTimeout(5500);
+        await hold(new Set());
+        avoidanceDirection *= -1;
+        best = Infinity;
+        lastProgressAt = Date.now();
+        continue;
+      }
 
       /* Shared Player forward is (-sin(yaw), -cos(yaw)); its right vector is
        * (cos(yaw), -sin(yaw)). Project the target delta onto those exact
@@ -336,6 +438,7 @@ async function walkTo(page, phase, { timeout = 120000 } = {}) {
       if (right > 0.4) keys.add('KeyD');
       else if (right < -0.4) keys.add('KeyA');
       await hold(keys);
+      steeringTicks += 1;
       await page.waitForTimeout(450);
     }
   } finally {
@@ -381,6 +484,9 @@ async function walkAuthoredRouteTo(page, phase, waypoints, { timeout = 240000 } 
   let waypointIndex = 0;
   let keyTicks = 0;
   let trailChoiceAnswered = false;
+  let best = Infinity;
+  let lastProgressAt = Date.now();
+  let avoidanceDirection = 1;
   try {
     for (;;) {
       const target = waypoints[waypointIndex];
@@ -422,12 +528,28 @@ async function walkAuthoredRouteTo(page, phase, waypoints, { timeout = 240000 } 
       if (waypointIndex < waypoints.length - 1 && gap < 0.8) {
         await hold(new Set());
         waypointIndex += 1;
+        best = Infinity;
+        lastProgressAt = Date.now();
         continue;
       }
       if (Date.now() > deadline) {
         throw new Error(`Initiation never walked to '${phase}' — in '${at.phase}', ${gap.toFixed(1)} m from `
           + `authored waypoint ${waypointIndex + 1}/${waypoints.length} at `
           + `(${at.x.toFixed(1)}, ${at.z.toFixed(1)}) after ${keyTicks} real WASD ticks`);
+      }
+
+      if (gap < best - 0.2 || !Number.isFinite(best)) {
+        best = gap;
+        lastProgressAt = Date.now();
+      }
+      if (at.enabled && Date.now() - lastProgressAt > 5000) {
+        await hold(new Set([avoidanceDirection > 0 ? 'KeyA' : 'KeyD']));
+        await page.waitForTimeout(5500);
+        await hold(new Set());
+        avoidanceDirection *= -1;
+        best = Infinity;
+        lastProgressAt = Date.now();
+        continue;
       }
 
       const sin = Math.sin(at.yaw);
@@ -467,6 +589,255 @@ async function chooseCorrectDisplayedOath(page, expectedPhase) {
   return { options, selected: correct };
 }
 
+const CLEAN_START_FORBIDDEN_SHORTCUT_TOKENS = Object.freeze([
+  'window.INITIATION.smashAction',
+  'window.INITIATION.advanceSay',
+  'window.INITIATION.chooseAnswer',
+  '.skipTo',
+  '.teleport(',
+  '.position.set(',
+  '.position.copy(',
+]);
+
+function cleanStartShortcutTokens(functions) {
+  const source = functions.map((fn) => fn.toString()).join('\n');
+  return CLEAN_START_FORBIDDEN_SHORTCUT_TOKENS.filter((token) => source.includes(token));
+}
+
+/**
+ * Certify one successful mission from a fresh ordinary URL with only the
+ * inputs available to a player.
+ *
+ * Reads of `window.INITIATION` are receipts only. This path never calls a
+ * diagnostic action, phase skip, teleport, position setter or mission-state
+ * mutator. The sole browser-side write is Playwright's normal keyboard,
+ * pointer and button input. Keep this function distinct from the legacy
+ * failure/retry coverage below: that older coverage still uses `driveTo()` to
+ * exercise its checkpoint twice, and must not be mistaken for a golden path.
+ */
+async function runCleanStartGoldenPath(page) {
+  console.log('\n  --- clean-start real-input golden path ---');
+  const ordinaryUrl = `http://localhost:${PORT}/initiation.html`;
+  const seen = new Set();
+
+  await page.goto(ordinaryUrl, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.INITIATION?.phase === 'approach', null, {
+    timeout: 60000,
+  });
+  seen.add('approach');
+
+  const capture = await capturePointerLock(page);
+  if (!capture.captured) {
+    throw new Error('Initiation clean start could not capture the real first-person canvas');
+  }
+  await page.waitForFunction(() => window.INITIATION.audioReady || window.INITIATION.audioLoadError,
+    null, { timeout: 120000 });
+  const audio = await page.evaluate(() => ({
+    ready: window.INITIATION.audioReady,
+    error: window.INITIATION.audioLoadError,
+    missing: window.INITIATION.missingVoiceCues,
+  }));
+  if (!audio.ready || audio.error || audio.missing.length) {
+    throw new Error(`Initiation clean start could not arm its voice bank: ${JSON.stringify(audio)}`);
+  }
+
+  /* Woods -> exact place in the prospect line, entirely through shared WASD. */
+  await walkTo(page, 'line_chat', { timeout: APPROACH_WALK_TIMEOUT_MS });
+  seen.add('line_up');
+  seen.add('line_chat');
+  console.log('  clean start: woods approach and prospect-line mark reached through WASD');
+
+  /* Kitten Boss's first question releases pointer lock for a visible choice.
+   * Pick the first displayed response with its ordinary number key. All three
+   * are valid conversation branches and rejoin the speech. */
+  await pressActionUntilChoice(page, 'line_chat', { timeout: 120000, seen });
+  await page.keyboard.press('Digit1');
+
+  /* Clear the speech and Prospect One's visible execution with Space, then
+   * answer the founders prompt from the wording shown on screen. */
+  await pressActionTo(page, 'q2_choice', { timeout: 360000, seen });
+  const founders = await chooseDisplayedOption(
+    page,
+    (option) => option.text.includes('Rippinflow')
+      && option.text.includes('The Shubenator')
+      && option.text.includes('Deathmegatron'),
+    'founders quiz',
+  );
+  await pressActionTo(page, 'walk_out', { timeout: 900000, seen });
+  const execution = await page.evaluate(() => ({
+    phase: window.INITIATION.phase,
+    dead: window.INITIATION.deadProspects,
+    pose: window.INITIATION.playerPose,
+    control: window.INITIATION.control,
+  }));
+  const requiredExecutionPhases = [
+    'speech', 'q1', 'q1_again', 'exec_one', 'q2_intro', 'q2_choice',
+    'q2_result', 'q2_correct', 'conspiracy_reveal', 'mass_kneel',
+    'execution_sweep', 'player_aim', 'lou_interrupt', 'walk_out',
+  ];
+  const unseenExecutionPhases = requiredExecutionPhases.filter((phase) => !seen.has(phase));
+  if (unseenExecutionPhases.length
+    || execution.phase !== 'walk_out'
+    || execution.dead.length !== 5
+    || execution.dead.includes('PROSPECT TWO')) {
+    throw new Error(`Initiation clean start did not traverse the complete question/execution run: `
+      + JSON.stringify({ unseenExecutionPhases, execution, seen: [...seen] }));
+  }
+  console.log('  clean start: visible questions and complete execution run cleared through keys');
+
+  /* Walk the authored trail, answer its live walking choice, cross the real
+   * door threshold, then move to Lou's exact ceremony mark. */
+  const trailStart = await page.evaluate(() => ({
+    x: window.INITIATION.player.position.x,
+    z: window.INITIATION.player.position.z,
+  }));
+  const trailCapture = await capturePointerLock(page);
+  if (!trailCapture.captured) {
+    throw new Error('Initiation clean start could not re-arm WASD after the execution run');
+  }
+  const cabinWalk = await walkAuthoredRouteTo(page, 'ceremony', [
+    ...TRAIL,
+    CABIN_DOOR.outside,
+    CABIN_DOOR.inside,
+  ], { timeout: 360000 });
+  const trailDistance = Math.hypot(cabinWalk.x - trailStart.x, cabinWalk.z - trailStart.z);
+  if (!cabinWalk.trailChoiceAnswered
+    || !cabinWalk.trail?.storyComplete
+    || trailDistance <= 25
+    || cabinWalk.z <= CABIN.frontZ + 0.6) {
+    throw new Error(`Initiation clean start did not complete its player-driven trail: `
+      + JSON.stringify({ cabinWalk, trailStart, trailDistance }));
+  }
+  console.log('  clean start: authored trail, walking reply and cabin doorway crossed through WASD');
+
+  await pressActionTo(page, 'ceremony_approach', { timeout: 240000, seen });
+  const ceremonyWalk = await walkAuthoredRouteTo(page, 'ceremony', [CEREMONY_CENTRE], {
+    timeout: 120000,
+  });
+  const ceremonyMiss = Math.hypot(
+    ceremonyWalk.x - CEREMONY_CENTRE.x,
+    ceremonyWalk.z - CEREMONY_CENTRE.z,
+  );
+  if (ceremonyWalk.keyTicks < 1 || ceremonyMiss >= 0.05) {
+    throw new Error(`Initiation clean start missed the player-driven ceremony mark: `
+      + JSON.stringify({ ceremonyWalk, ceremonyMiss }));
+  }
+  console.log('  clean start: authored ceremony mark reached through WASD');
+
+  /* Continue through the room with Space and choose the visible commitment
+   * answer with its real randomized number key. */
+  await pressActionUntilChoice(page, 'oath_question', { timeout: 360000, seen });
+  const commitment = await chooseDisplayedOption(
+    page,
+    (option) => option.text.endsWith('Yes. I do.'),
+    'commitment question',
+  );
+  await pressActionTo(page, 'blade', { timeout: 180000, seen });
+
+  /* Act five keeps mouse look, Space presses and the held burn on production
+   * input. The exact oath wording is selected from the visible text rather
+   * than the diagnostic `data-correct` flag. */
+  const ritualCapture = await capturePointerLock(page);
+  if (!ritualCapture.captured) {
+    throw new Error('Initiation clean start could not capture ritual mouse-look');
+  }
+  await page.mouse.move(360, 180);
+  await page.mouse.move(420, 180, { steps: 3 });
+  await pressActionTo(page, 'hand', { timeout: 180000, seen });
+  await pressActionTo(page, 'cut', { timeout: 120000, seen });
+  await pressActionTo(page, 'card', { timeout: 120000, seen });
+  await pressActionUntilChoice(page, 'oath_1', { timeout: 180000, seen });
+  const firstOath = await chooseDisplayedOption(
+    page,
+    (option) => option.text.endsWith('I swear my loyalty to this family.'),
+    'first oath',
+  );
+  await pressActionUntilChoice(page, 'oath_2', { timeout: 180000, seen });
+  const secondOath = await chooseDisplayedOption(
+    page,
+    (option) => option.text
+      .endsWith('My flesh must burn in hell like this saint if I do not keep my oath.'),
+    'second oath',
+  );
+  await pressActionTo(page, 'burn', { timeout: 180000, seen });
+  await page.keyboard.down('Space');
+  await page.waitForFunction(() => window.INITIATION.ritual.char > 0
+    && window.INITIATION.ritual.committed, null, { timeout: 120000 });
+  await page.keyboard.up('Space');
+  await pressActionTo(page, 'complete', { timeout: 900000, seen });
+
+  const completion = await page.evaluate(() => ({
+    phase: window.INITIATION.phase,
+    visible: !document.querySelector('#complete')?.classList.contains('hidden'),
+    buttonVisible: (() => {
+      const rect = document.querySelector('#goHomeBtn')?.getBoundingClientRect();
+      return Boolean(rect && rect.width > 0 && rect.height > 0);
+    })(),
+    pointerReleased: document.pointerLockElement === null,
+  }));
+  if (completion.phase !== 'complete'
+    || !completion.visible
+    || !completion.buttonVisible
+    || !completion.pointerReleased) {
+    throw new Error(`Initiation clean start did not reach its usable completion card: `
+      + JSON.stringify(completion));
+  }
+
+  await Promise.all([
+    page.waitForURL((url) => url.pathname.endsWith('/index.html'), {
+      waitUntil: 'domcontentloaded',
+      timeout: 120000,
+    }),
+    page.locator('#goHomeBtn').click(),
+  ]);
+  const exit = await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('squatchlife.campaign') || 'null');
+    return {
+      pathname: location.pathname,
+      sceneId: saved?.scene?.id ?? null,
+      spawn: saved?.scene?.spawn ?? null,
+      status: saved?.missions?.initiation?.status ?? null,
+    };
+  });
+  if (!exit.pathname.endsWith('/index.html')
+    || exit.sceneId !== 'apartment'
+    || exit.spawn !== 'front_door'
+    || exit.status !== 'complete') {
+    throw new Error(`Initiation clean start did not complete its campaign exit: ${JSON.stringify(exit)}`);
+  }
+  console.log('  clean start: ritual, induction and visible campaign-exit button completed');
+
+  /* Mechanical guardrail: this function and every helper it delegates to
+   * must remain free of the known test-only state-changing APIs. */
+  const shortcutTokensFound = cleanStartShortcutTokens([
+    runCleanStartGoldenPath,
+    pressActionTo,
+    pressActionUntilChoice,
+    chooseDisplayedOption,
+    capturePointerLock,
+    walkTo,
+    walkAuthoredRouteTo,
+  ]);
+  if (shortcutTokensFound.length) {
+    throw new Error(`Initiation clean-start verifier contains forbidden shortcut calls: `
+      + shortcutTokensFound.join(', '));
+  }
+
+  return {
+    ordinaryUrl,
+    pointerCapture: capture,
+    founders: founders.selected.text,
+    commitment: commitment.selected.text,
+    oaths: [firstOath.selected.text, secondOath.selected.text],
+    execution,
+    trailDistance,
+    ceremonyMiss,
+    seen: [...seen],
+    exit,
+    shortcutTokensFound,
+  };
+}
+
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok });
@@ -474,6 +845,27 @@ function check(name, ok, detail = '') {
 }
 
 try {
+  const cleanStart = await runCleanStartGoldenPath(page);
+  check('a distinct clean-start golden path completes through only real player input',
+    cleanStart.shortcutTokensFound.length === 0
+      && cleanStart.exit.status === 'complete'
+      && cleanStart.execution.phase === 'walk_out'
+      && cleanStart.trailDistance > 25
+      && cleanStart.ceremonyMiss < 0.05,
+    JSON.stringify({
+      url: cleanStart.ordinaryUrl,
+      founders: cleanStart.founders,
+      commitment: cleanStart.commitment,
+      oaths: cleanStart.oaths,
+      trailDistance: cleanStart.trailDistance,
+      ceremonyMiss: cleanStart.ceremonyMiss,
+      exit: cleanStart.exit,
+      shortcutTokensFound: cleanStart.shortcutTokensFound,
+    }));
+
+  /* The remainder is broader failure/retry, staging and visual evidence. It
+   * starts from a new ordinary navigation so none of the clean-start mission
+   * state above is mistaken for a setup shortcut. */
   await page.goto(`http://localhost:${PORT}/initiation.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.INITIATION?.phase, null, { timeout: 60000 });
 
@@ -597,7 +989,7 @@ try {
   /* On foot to the line, because that is how a player gets there. */
   let walked = true;
   try {
-    await walkTo(page, 'line_chat', { timeout: 120000 });
+    await walkTo(page, 'line_chat', { timeout: APPROACH_WALK_TIMEOUT_MS });
   } catch (error) {
     walked = false;
     check('the player can walk from the woods to his place in the line', false, error.message);
@@ -686,7 +1078,14 @@ try {
       && reloadReady.missing.length === 0,
     JSON.stringify({ ...reloadReady, attempts: reloadCapture.attempts }));
 
-  await walkTo(page, 'line_chat', { timeout: 120000 });
+  const reloadedWalk = await walkTo(page, 'line_chat', {
+    timeout: APPROACH_WALK_TIMEOUT_MS,
+  });
+  check('the post-failure browser reload can walk the full woods route again with real WASD',
+    reloadedWalk.phase === 'line_chat'
+      && reloadedWalk.steeringTicks > 0
+      && reloadedWalk.waypointIndex === reloadedWalk.waypointCount - 1,
+    JSON.stringify(reloadedWalk));
   for (const [phase] of MIDDLE) await driveTo(page, phase, { timeout: 120000 });
   await driveTo(page, 'q2_choice', { timeout: 120000 });
   const secondWrongChoice = await page.evaluate(() => {
@@ -732,13 +1131,16 @@ try {
     failHidden: document.querySelector('#fail')?.classList.contains('hidden'),
     correct: window.INITIATION.correctChoice,
     playerPose: window.INITIATION.playerPose,
+    input: window.INITIATION.input?.snapshot?.() ?? null,
   }));
   check('TRY AGAIN restores the live founders checkpoint for repeated attempts',
     retried.phase === 'q2_choice'
       && retried.quizOpen
       && retried.failHidden
       && retried.correct >= 0
-      && retried.playerPose === 'standing',
+      && retried.playerPose === 'standing'
+      && retried.input?.suspended === false
+      && retried.input?.inputEnabled === true,
     JSON.stringify(retried));
   await page.keyboard.press(`Digit${retried.correct + 1}`);
   await pressActionTo(page, 'q2_correct', { timeout: 120000 });

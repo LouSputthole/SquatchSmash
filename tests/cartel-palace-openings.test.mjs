@@ -27,6 +27,7 @@ import test from 'node:test';
 
 import * as THREE from 'three';
 import { ensureDomShim } from '../tools/three-shim.mjs';
+import { readSpatialPrimitive } from '../src/core/spatial-contract.js';
 
 ensureDomShim();
 const { buildCartelPalace } = await import('../src/cartel-palace/world.js');
@@ -139,6 +140,25 @@ test('the header and both reveals carry the combat material they are drawn as', 
     + 'come through it again');
 });
 
+test('every Palace wall added after the spatial baseline declares world semantics', () => {
+  const typed = palace().colliders
+    .map((collider) => ({ collider, spatial: readSpatialPrimitive(collider) }))
+    .filter(({ spatial }) => spatial !== null)
+    .sort((left, right) => left.spatial.id.localeCompare(right.spatial.id));
+  assert.deepEqual(typed.map(({ spatial }) => spatial.id), [
+    'cartel-palace.world.estate-entry.header',
+    'cartel-palace.world.estate-entry.reveal.east',
+    'cartel-palace.world.estate-entry.reveal.west',
+    'cartel-palace.world.guest-suite.partition.west',
+    'cartel-palace.world.security-guest.header',
+    'cartel-palace.world.security-guest.partition.north',
+    'cartel-palace.world.security-guest.partition.south',
+  ]);
+  assert.ok(typed.every(({ spatial }) => spatial.kind === 'world'));
+  assert.equal(new Set(typed.map(({ spatial }) => spatial.id)).size, 7,
+    'new Palace architecture must keep unique stable spatial ids');
+});
+
 /* ================================================================== */
 /* AND THE PALACE ENDS AT THE PALACE                                    */
 /* ================================================================== */
@@ -146,16 +166,15 @@ test('the header and both reveals carry the combat material they are drawn as', 
 test('nothing in the Palace promises the player an Initiation', () => {
   /* Owner, 2026-08-24: the Prospect is not leaving for the Initiation here.
    *
-   * The campaign graph has agreed with him since the Palace was repointed:
-   * `SCENES[CARTEL_PALACE].next` goes to the SPECIAL MEETING, and it is THAT
-   * scene which hands off to the Initiation at the treeline. What happens
-   * after the terrace is that Tony goes home not knowing whether killing
-   * Sauce was the right call, and waits for a phone call.
+   * The campaign graph now agrees with the authored sequence: Palace goes to
+   * Apartment, where Act One's phone call, getting ready, refused door and
+   * headlights play. Apartment goes to the Special Meeting at the kerb, and
+   * that scene hands off to the Initiation at the treeline.
    *
    * Four separate places said otherwise, all of them on the scene's last
    * screen: the terrace prompt, the objective hint, the ending card and its
-   * button. The destination was never wrong -- only everything the player
-   * could read about it. */
+   * button. The old direct Special Meeting destination skipped the entire
+   * Apartment-owned first act. */
   const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
   const surfaces = [
     ['src/cartel-palace/mission.js', /hint: '[^']*Initiation[^']*'/],
@@ -183,11 +202,16 @@ test('nothing in the Palace promises the player an Initiation', () => {
     'the runtime is looking for a button the page does not have, so the mission '
     + 'cannot be left at all');
 
-  /* And the destination itself is untouched -- this is a wording pass, not a
-   * re-route. */
-  assert.match(read('src/cartel-palace/main.js'),
-    /navigateCampaign\(campaign, SCENE_IDS\.SPECIAL_MEETING, \{ spawn: 'kerb'/,
-    'the exit no longer goes to the Special Meeting');
+  const main = read('src/cartel-palace/main.js');
+  assert.match(main,
+    /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT, \{ spawn: 'front_door'/,
+    'the exit does not return home for the Apartment-owned pickup act');
+  assert.doesNotMatch(main,
+    /navigateCampaign\(campaign, SCENE_IDS\.SPECIAL_MEETING/,
+    'the Palace still jumps directly to the kerb and skips Apartment Act One');
+  assert.doesNotMatch(main,
+    /missions\[MISSION_IDS\.INITIATION\]\.status\s*=\s*'in_progress'/,
+    'the Palace starts Initiation before the Special Meeting reaches its treeline');
 });
 
 test('the estate has no slot between its walls and its ceilings', () => {

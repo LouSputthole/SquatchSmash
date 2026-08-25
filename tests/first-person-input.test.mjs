@@ -37,12 +37,15 @@ function fixture(options = {}) {
     canvas.lockRequests += 1;
     return canvasRequestPointerLock?.();
   };
-  const calls = { keys: [], clears: 0, looks: [], presses: 0, releases: 0, cancels: 0 };
+  const calls = {
+    keys: [], clears: 0, looks: [], presses: 0, releases: 0, cancels: 0, suspensions: [],
+  };
   const player = {
     enabled: false,
     setKey: (code, down) => calls.keys.push([code, down]),
     clearKeys: () => { calls.clears += 1; },
     handleMouseMove: (x, y) => calls.looks.push([x, y]),
+    setInputSuspended: (suspended) => calls.suspensions.push(suspended),
   };
   const interaction = {
     press: () => { calls.presses += 1; },
@@ -152,6 +155,32 @@ test('pointer lock is the single enable seam for translated movement and look', 
   assert.equal(f.input.snapshot().lookEvents, 1);
 });
 
+test('authored UI can release pointer lock without suspending keyboard routes', () => {
+  const choices = [];
+  const f = fixture({
+    routes: {
+      keyDown(event) {
+        if (event.code !== 'Digit2') return false;
+        choices.push(2);
+        return true;
+      },
+    },
+  });
+  f.documentTarget.pointerLockElement = f.canvas;
+  f.documentTarget.emit('pointerlockchange');
+  f.windowTarget.emit('keydown', { code: 'KeyW', preventDefault() {} });
+
+  assert.equal(f.input.releasePointerLock(), true);
+  assert.equal(f.documentTarget.pointerLockElement, null);
+  assert.equal(f.player.enabled, false);
+  assert.equal(f.input.snapshot().suspended, false);
+  assert.equal(f.input.snapshot().lastClearReason, 'release-pointer-lock');
+
+  f.windowTarget.emit('keydown', { code: 'Digit2' });
+  assert.deepEqual(choices, [2]);
+  assert.equal(f.input.releasePointerLock(), false);
+});
+
 test('interaction, pause, focus loss, resume and teardown share the same Adapter', () => {
   const f = fixture();
   f.documentTarget.pointerLockElement = f.canvas;
@@ -168,11 +197,13 @@ test('interaction, pause, focus loss, resume and teardown share the same Adapter
   const cancelsBeforePause = f.calls.cancels;
   f.input.suspend();
   assert.equal(f.player.enabled, false);
+  assert.deepEqual(f.calls.suspensions, [true]);
   assert.equal(f.documentTarget.pointerLockElement, null);
   assert.ok(f.calls.clears > clearsBeforePause);
   assert.ok(f.calls.cancels > cancelsBeforePause);
 
   f.input.resume();
+  assert.deepEqual(f.calls.suspensions, [true, false]);
   assert.equal(f.canvas.lockRequests, 1);
   const keysBeforeDestroy = f.calls.keys.length;
   const cancelsBeforeDestroy = f.calls.cancels;

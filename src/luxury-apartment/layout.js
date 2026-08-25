@@ -25,8 +25,11 @@ export const LUXURY_LAYOUT = Object.freeze({
     x1: -7.84,
     z0: -4.08,
     z1: -0.98,
-    doorX0: -9.52,
-    doorX1: -8.30,
+    // The south opening uses the service bay beside the west stair rail. The
+    // previous opening sat inside the stair footprint, so the continuous rail
+    // collider made a visually plausible bathroom impossible to enter.
+    doorX0: -10.58,
+    doorX1: -9.795,
   }),
   elevatorCab: Object.freeze({ x0: 6.78, x1: 8.92, z0: -2.24, z1: -0.72 }),
   bedroom: Object.freeze({ x0: 2.30, x1: 10.55, z0: -7.55, z1: -3.10 }),
@@ -53,12 +56,17 @@ export function luxuryStairHeightAt(z) {
 
 /** Floor resolver compatible with the shared Player and stacked bathroom. */
 export function luxuryGroundAt(x, z, currentY = null) {
-  const { stair, loft, bathroom, elevatorCab, loftY, mainY } = LUXURY_LAYOUT;
+  const { stair, loft, main, bathroom, elevatorCab, loftY, mainY } = LUXURY_LAYOUT;
   if (insideRect(x, z, stair)) return luxuryStairHeightAt(z);
-  if (insideRect(x, z, bathroom) || insideRect(x, z, elevatorCab)) {
+  const insideBathroomThreshold = x >= bathroom.doorX0 && x <= bathroom.doorX1
+    && z >= bathroom.z1 && z <= main.z0;
+  if (insideRect(x, z, bathroom) || insideRect(x, z, elevatorCab) || insideBathroomThreshold) {
     // Player position is eye height: ~1.66m downstairs and ~4.96m upstairs.
     // A missing hint intentionally resolves to the bathroom for interactions
     // and direct verification; the live floor-aware adapter always supplies Y.
+    // The threshold must participate in this stacked-floor rule as well: its
+    // north 6 cm overlaps the loft's X/Z rectangle, which previously lifted a
+    // downstairs player toward the upper floor before dropping them back.
     if (!Number.isFinite(currentY) || currentY < loftY + 0.55) return mainY;
     return loftY;
   }

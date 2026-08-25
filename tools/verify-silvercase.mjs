@@ -332,6 +332,478 @@ async function openOrdinaryResume(rawCampaign, label) {
   };
 }
 
+/*
+ * Input-only clean-path helpers.
+ *
+ * These deliberately never call the scene's go(), aimAt(), shootAt(),
+ * pressFire(), pressDraw(), retry(), or write Player transforms.  The only
+ * verifier-only seam they retain is deterministic clock advancement through
+ * tick(): SwiftShader can render far below real time, but authored dialogue
+ * and movement still need stable game-time steps.  Every decision, look,
+ * interaction, shot and metre travelled enters through the same keyboard and
+ * pointer events a player uses.
+ */
+const pointerPositions = new WeakMap();
+
+async function advanceCleanPathUntil(branchPage, predicate, {
+  stepSecs = 0.05,
+  maxSteps = 1200,
+} = {}) {
+  return branchPage.evaluate(([predicate, stepSecs, maxSteps]) => {
+    const sc = window.silvercase;
+    const [kind, value] = predicate.split(':');
+    const met = () => {
+      if (kind === 'beat') return sc.fsm.name === value;
+      if (kind === 'choice') return sc.dialogue.choice?.id === value;
+      if (kind === 'instruction') {
+        const el = document.getElementById('instruction');
+        return Boolean(el?.classList.contains('show') && el.textContent.trim());
+      }
+      return false;
+    };
+    let steps = 0;
+    while (!met() && steps < maxSteps) {
+      sc.tick(stepSecs);
+      steps += 1;
+    }
+    return { met: met(), steps, state: sc.state() };
+  }, [predicate, stepSecs, maxSteps]);
+}
+
+async function ensureCleanPathCapture(branchPage) {
+  if (await branchPage.evaluate(() => window.silvercase.input.snapshot().captured)) return;
+  await branchPage.locator('canvas').click({ position: { x: 480, y: 270 } });
+  await branchPage.waitForFunction(
+    () => window.silvercase.input.snapshot().captured,
+    null,
+    { timeout: 5000 },
+  );
+}
+
+async function walkCleanPathTo(branchPage, target, {
+  tolerance = 0.38,
+  maxBursts = 180,
+  burstSecs = 0.08,
+} = {}) {
+  await ensureCleanPathCapture(branchPage);
+  let report = null;
+  let stalled = 0;
+  for (let burst = 0; burst < maxBursts; burst += 1) {
+    const pose = await branchPage.evaluate(() => {
+      const p = window.silvercase.player;
+      return { x: p.position.x, z: p.position.z, yaw: p.yaw };
+    });
+    const dx = target.x - pose.x;
+    const dz = target.z - pose.z;
+    const distance = Math.hypot(dx, dz);
+    report = { ...pose, distance, bursts: burst };
+    if (distance <= tolerance) return { reached: true, ...report };
+
+    const sin = Math.sin(pose.yaw);
+    const cos = Math.cos(pose.yaw);
+    const forward = dx * -sin + dz * -cos;
+    const right = dx * cos + dz * -sin;
+    const keys = [];
+    if (Math.abs(forward) > tolerance * 0.35) keys.push(forward > 0 ? 'KeyW' : 'KeyS');
+    if (Math.abs(right) > tolerance * 0.35) keys.push(right > 0 ? 'KeyD' : 'KeyA');
+    if (!keys.length) return { reached: true, ...report };
+
+    for (const key of keys) await branchPage.keyboard.down(key);
+    try {
+      await branchPage.evaluate((secs) => window.silvercase.tick(secs), burstSecs);
+    } finally {
+      for (const key of [...keys].reverse()) await branchPage.keyboard.up(key);
+    }
+
+    const next = await branchPage.evaluate(() => {
+      const p = window.silvercase.player;
+      return { x: p.position.x, z: p.position.z };
+    });
+    const moved = Math.hypot(next.x - pose.x, next.z - pose.z);
+    stalled = moved < 0.002 ? stalled + 1 : 0;
+    if (stalled >= 12) return { reached: false, stalled: true, ...report, at: next };
+  }
+  return { reached: false, stalled: false, ...report };
+}
+
+function shortestAngleDelta(from, to) {
+  let delta = (to - from) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  if (delta < -Math.PI) delta += Math.PI * 2;
+  return delta;
+}
+
+async function lookCleanPathAt(branchPage, targetResolver, {
+  tolerance = 0.018,
+  maxMoves = 6,
+} = {}) {
+  await ensureCleanPathCapture(branchPage);
+  let cursor = pointerPositions.get(branchPage);
+  if (!cursor) {
+    cursor = { x: 480, y: 270 };
+    await branchPage.mouse.move(cursor.x, cursor.y);
+    pointerPositions.set(branchPage, cursor);
+  }
+
+  let report = null;
+  for (let move = 0; move < maxMoves; move += 1) {
+    report = await branchPage.evaluate((resolver) => {
+      const sc = window.silvercase;
+      const p = sc.player;
+      let at = null;
+      if (resolver.kind === 'actor') {
+        const actor = sc.cast[resolver.name];
+        if (!actor) return { error: `unknown actor ${resolver.name}` };
+        at = actor.parts.head.getWorldPosition(actor.parts.head.position.clone());
+        at.y += resolver.offsetY ?? -0.28;
+      } else if (resolver.kind === 'interactable') {
+        const hit = sc.apartment.interactables.find((mesh) => mesh.name === resolver.name);
+        if (!hit) return { error: `unknown interactable ${resolver.name}` };
+        hit.updateWorldMatrix(true, false);
+        at = hit.getWorldPosition(hit.position.clone());
+      } else if (resolver.kind === 'point') {
+        at = { x: resolver.x, y: resolver.y, z: resolver.z };
+      }
+      const dx = at.x - sc.camera.position.x;
+      const dy = at.y - sc.camera.position.y;
+      const dz = at.z - sc.camera.position.z;
+      return {
+        yaw: p.yaw,
+        pitch: p.pitch,
+        sensitivity: p.sensitivity,
+        desiredYaw: Math.atan2(-dx, -dz),
+        desiredPitch: Math.atan2(dy, Math.hypot(dx, dz)),
+        target: [at.x, at.y, at.z],
+      };
+    }, targetResolver);
+    if (report.error) return { aimed: false, ...report };
+    const yawDelta = shortestAngleDelta(report.yaw, report.desiredYaw);
+    const pitchDelta = report.desiredPitch - report.pitch;
+    report = { ...report, yawDelta, pitchDelta, moves: move };
+    if (Math.abs(yawDelta) <= tolerance && Math.abs(pitchDelta) <= tolerance) {
+      await branchPage.evaluate(() => window.silvercase.tick(0.001));
+      return { aimed: true, ...report };
+    }
+    const dx = Math.max(-650, Math.min(650, -yawDelta / report.sensitivity));
+    const dy = Math.max(-420, Math.min(420, -pitchDelta / report.sensitivity));
+    cursor = { x: cursor.x + dx, y: cursor.y + dy };
+    pointerPositions.set(branchPage, cursor);
+    await branchPage.mouse.move(cursor.x, cursor.y, { steps: 2 });
+    await branchPage.evaluate(() => window.silvercase.tick(0.001));
+  }
+  return { aimed: false, ...report };
+}
+
+async function pressCleanPathInteraction(branchPage) {
+  const before = await branchPage.evaluate(
+    () => window.silvercase.input.snapshot().interactionPresses,
+  );
+  await branchPage.keyboard.press('KeyE');
+  const after = await branchPage.evaluate(
+    () => window.silvercase.input.snapshot().interactionPresses,
+  );
+  return { before, after, recorded: after > before };
+}
+
+async function fireCleanPathShot(branchPage) {
+  const before = await branchPage.evaluate(
+    () => window.silvercase.input.snapshot().mouseDownEvents,
+  );
+  await branchPage.mouse.down({ button: 'left' });
+  await branchPage.mouse.up({ button: 'left' });
+  await branchPage.evaluate(() => window.silvercase.tick(0.02));
+  const after = await branchPage.evaluate(
+    () => window.silvercase.input.snapshot().mouseDownEvents,
+  );
+  return { before, after, recorded: after > before };
+}
+
+async function runCleanStartGoldenPath() {
+  const context = await browser.newContext({ viewport: { width: 960, height: 540 } });
+  const goldenPage = await context.newPage();
+  const goldenProblems = [];
+  goldenPage.on('pageerror', (error) => goldenProblems.push(error.message));
+  goldenPage.on('console', (message) => {
+    if (message.type() === 'error') goldenProblems.push(message.text().slice(0, 240));
+  });
+  try {
+    await goldenPage.addInitScript(({ key, state }) => {
+      localStorage.setItem(key, JSON.stringify(state));
+    }, { key: CAMPAIGN_STORAGE_KEY, state: SILVER_CASE_CAMPAIGN_SEED });
+    await goldenPage.goto(`http://localhost:${PORT}/silvercase.html`, {
+      waitUntil: 'load',
+      timeout: 60000,
+    });
+    await goldenPage.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
+
+    await goldenPage.click('#beginBtn');
+    await goldenPage.waitForFunction(
+      () => window.silvercase.fsm.name === 'CAR_RIDE',
+      null,
+      { timeout: 60000 },
+    );
+    await ensureCleanPathCapture(goldenPage);
+    const inputAtStart = await goldenPage.evaluate(() => window.silvercase.input.snapshot());
+
+    const arrived = await advanceCleanPathUntil(goldenPage, 'beat:ARRIVE_HALLWAY');
+    const toDoor = await walkCleanPathTo(goldenPage, { x: 4.75, z: 0 }, { tolerance: 0.3 });
+    const doorLook = await lookCleanPathAt(
+      goldenPage,
+      { kind: 'interactable', name: 'frontDoor' },
+    );
+    await goldenPage.evaluate(() => window.silvercase.tick(0.02));
+    const knockPrompt = await goldenPage.evaluate(
+      () => document.getElementById('promptText')?.textContent ?? '',
+    );
+    const knockInput = await pressCleanPathInteraction(goldenPage);
+    await goldenPage.waitForFunction(
+      () => window.silvercase.fsm.name === 'KNOCK',
+      null,
+      { timeout: 3000 },
+    );
+
+    const apartmentReady = await advanceCleanPathUntil(goldenPage, 'beat:ENTER_APARTMENT');
+    const throughDoor = await walkCleanPathTo(
+      goldenPage,
+      { x: 6.85, z: 0 },
+      { tolerance: 0.25 },
+    );
+    const closeDoorLook = await lookCleanPathAt(
+      goldenPage,
+      { kind: 'interactable', name: 'frontDoor' },
+    );
+    await goldenPage.evaluate(() => window.silvercase.tick(0.02));
+    const closePrompt = await goldenPage.evaluate(
+      () => document.getElementById('promptText')?.textContent ?? '',
+    );
+    const closeInput = await pressCleanPathInteraction(goldenPage);
+    await goldenPage.waitForFunction(
+      () => window.silvercase.fsm.name === 'ESTABLISH_CONTROL',
+      null,
+      { timeout: 3000 },
+    );
+
+    // Travel around the coffee table instead of walking a mathematical
+    // diagonal through it.  Both legs are collision-resolved Player movement.
+    const caseLegA = await walkCleanPathTo(
+      goldenPage,
+      { x: 9.45, z: 0.05 },
+      { tolerance: 0.3 },
+    );
+    const caseLegB = await walkCleanPathTo(
+      goldenPage,
+      { x: 9.45, z: 0.9 },
+      { tolerance: 0.28 },
+    );
+    const caseLook = await lookCleanPathAt(
+      goldenPage,
+      { kind: 'interactable', name: 'caseHiding' },
+    );
+    await goldenPage.evaluate(() => window.silvercase.tick(0.02));
+    const searchPrompt = await goldenPage.evaluate(
+      () => document.getElementById('promptText')?.textContent ?? '',
+    );
+    const searchInput = await pressCleanPathInteraction(goldenPage);
+    await goldenPage.waitForFunction(
+      () => window.silvercase.fsm.name === 'CASE_REVEAL',
+      null,
+      { timeout: 3000 },
+    );
+
+    const couchBeat = await advanceCleanPathUntil(goldenPage, 'beat:COUCH_SHOOTING');
+    const couchInstruction = await advanceCleanPathUntil(goldenPage, 'instruction');
+    const dekeLook = await lookCleanPathAt(goldenPage, { kind: 'actor', name: 'deke' });
+    const dekeTarget = await goldenPage.evaluate(() => window.silvercase.state().aim);
+    const dekeShot = await fireCleanPathShot(goldenPage);
+    const louBeat = await advanceCleanPathUntil(goldenPage, 'choice:louQuestion');
+    await goldenPage.keyboard.press('Digit1');
+
+    const prayerChoice = await advanceCleanPathUntil(goldenPage, 'choice:prayerFinish');
+    await goldenPage.keyboard.down('KeyE');
+    const chairBeat = await advanceCleanPathUntil(goldenPage, 'beat:CHAIR_SHOOTING');
+    await goldenPage.keyboard.up('KeyE');
+    const chairInstruction = await advanceCleanPathUntil(goldenPage, 'instruction');
+    const chesterLook = await lookCleanPathAt(goldenPage, { kind: 'actor', name: 'chester' });
+    const chesterTarget = await goldenPage.evaluate(() => window.silvercase.state().aim);
+    const chesterShot = await fireCleanPathShot(goldenPage);
+
+    const ambushBeat = await advanceCleanPathUntil(goldenPage, 'beat:BATHROOM_AMBUSH');
+    const pruittLook = await lookCleanPathAt(goldenPage, { kind: 'actor', name: 'pruitt' });
+    const pruittTarget = await goldenPage.evaluate(() => window.silvercase.state().aim);
+    const pruittShot = await fireCleanPathShot(goldenPage);
+    const aftermathChoice = await advanceCleanPathUntil(goldenPage, 'choice:aftermath');
+    await goldenPage.keyboard.press('Digit1');
+    const pickupBeat = await advanceCleanPathUntil(goldenPage, 'beat:PICK_UP_CASE');
+
+    const pickupLeg = await walkCleanPathTo(
+      goldenPage,
+      { x: 9.45, z: 0.9 },
+      { tolerance: 0.3 },
+    );
+    const pickupLook = await lookCleanPathAt(
+      goldenPage,
+      { kind: 'interactable', name: 'caseHiding' },
+    );
+    await goldenPage.evaluate(() => window.silvercase.tick(0.02));
+    const pickupPrompt = await goldenPage.evaluate(
+      () => document.getElementById('promptText')?.textContent ?? '',
+    );
+    const pickupInput = await pressCleanPathInteraction(goldenPage);
+    await goldenPage.waitForFunction(
+      () => window.silvercase.fsm.name === 'EXIT',
+      null,
+      { timeout: 3000 },
+    );
+
+    const exitLegA = await walkCleanPathTo(
+      goldenPage,
+      { x: 9.45, z: 0.05 },
+      { tolerance: 0.3 },
+    );
+    const exitLegB = await walkCleanPathTo(
+      goldenPage,
+      { x: 6.75, z: 0 },
+      { tolerance: 0.28 },
+    );
+    const exitLegC = await walkCleanPathTo(
+      goldenPage,
+      { x: 4.8, z: 0 },
+      { tolerance: 0.3 },
+    );
+    const exitLegD = await walkCleanPathTo(
+      goldenPage,
+      { x: 1.15, z: 0 },
+      { tolerance: 0.25 },
+    );
+    await goldenPage.evaluate(() => window.silvercase.tick(1.1));
+
+    const final = await goldenPage.evaluate(() => ({
+      state: window.silvercase.state(),
+      campaign: window.silvercase.campaign.state(),
+      input: window.silvercase.input.snapshot(),
+      overlay: !document.getElementById('sceneCompleteOverlay').classList.contains('hidden'),
+      player: {
+        x: window.silvercase.player.position.x,
+        z: window.silvercase.player.position.z,
+      },
+    }));
+    const path = {
+      arrived,
+      toDoor,
+      doorLook,
+      knockPrompt,
+      knockInput,
+      apartmentReady,
+      throughDoor,
+      closeDoorLook,
+      closePrompt,
+      closeInput,
+      caseLegA,
+      caseLegB,
+      caseLook,
+      searchPrompt,
+      searchInput,
+      couchBeat,
+      couchInstruction,
+      dekeLook,
+      dekeTarget,
+      dekeShot,
+      louBeat,
+      prayerChoice,
+      chairBeat,
+      chairInstruction,
+      chesterLook,
+      chesterTarget,
+      chesterShot,
+      ambushBeat,
+      pruittLook,
+      pruittTarget,
+      pruittShot,
+      aftermathChoice,
+      pickupBeat,
+      pickupLeg,
+      pickupLook,
+      pickupPrompt,
+      pickupInput,
+      exitLegA,
+      exitLegB,
+      exitLegC,
+      exitLegD,
+    };
+    const pathOk = [
+      arrived, toDoor, doorLook, apartmentReady, throughDoor, closeDoorLook,
+      caseLegA, caseLegB, caseLook, couchBeat, couchInstruction, dekeLook,
+      louBeat, prayerChoice, chairBeat, chairInstruction, chesterLook,
+      ambushBeat, pruittLook, aftermathChoice, pickupBeat, pickupLeg, pickupLook,
+      exitLegA, exitLegB, exitLegC, exitLegD,
+    ].every((step) => step.met ?? step.reached ?? step.aimed ?? false);
+    const inputOk = knockInput.recorded && closeInput.recorded && searchInput.recorded
+      && dekeShot.recorded && chesterShot.recorded && pruittShot.recorded
+      && pickupInput.recorded
+      && final.input.movementPresses >= inputAtStart.movementPresses + 8
+      && final.input.interactionPresses >= inputAtStart.interactionPresses + 4
+      && final.input.lookEvents >= inputAtStart.lookEvents + 5
+      && final.input.mouseDownEvents >= inputAtStart.mouseDownEvents + 3;
+    const targetsOk = dekeTarget.at === 'Deke' && dekeTarget.onTarget
+      && chesterTarget.at === 'Chester' && chesterTarget.onTarget
+      && pruittTarget.at === 'Pruitt' && pruittTarget.onTarget;
+    const promptsOk = knockPrompt === 'Knock'
+      && closePrompt === 'Close the door'
+      && searchPrompt === 'Look for the case'
+      && pickupPrompt === 'Take the case';
+    const pathSummary = Object.fromEntries(Object.entries(path).map(([name, step]) => {
+      if (typeof step === 'string') return [name, step];
+      if (typeof step?.recorded === 'boolean') return [name, { recorded: step.recorded }];
+      return [name, {
+        ok: step?.met ?? step?.reached ?? step?.aimed ?? null,
+        beat: step?.state?.beat ?? null,
+        distance: Number.isFinite(step?.distance) ? +step.distance.toFixed(3) : null,
+        stalled: step?.stalled ?? false,
+      }];
+    }));
+    check('clean-start golden path reaches every beat through authored state transitions, not go()',
+      pathOk,
+      JSON.stringify(pathSummary));
+    check('clean-start golden path uses real keyboard/pointer receipts for travel, looks, interactions and shots',
+      inputOk && targetsOk && promptsOk,
+      JSON.stringify({
+        input: {
+          movement: final.input.movementPresses - inputAtStart.movementPresses,
+          interaction: final.input.interactionPresses - inputAtStart.interactionPresses,
+          look: final.input.lookEvents - inputAtStart.lookEvents,
+          fire: final.input.mouseDownEvents - inputAtStart.mouseDownEvents,
+        },
+        targets: { deke: dekeTarget.at, chester: chesterTarget.at, pruitt: pruittTarget.at },
+        prompts: { knockPrompt, closePrompt, searchPrompt, pickupPrompt },
+      }));
+    check('clean-start golden path carries Lou’s case out and completes the canonical campaign mission',
+      final.state.beat === 'SCENE_COMPLETE'
+        && final.state.case.carried === true
+        && final.state.actors.deke.alive === false
+        && final.state.actors.chester.alive === false
+        && final.state.actors.pruitt.alive === false
+        && final.state.actors.winston.alive === true
+        && final.campaign?.missions?.[MISSION_IDS.SILVER_CASE]?.status === 'complete'
+        && final.overlay === true
+        && final.player.x < 1.4,
+      JSON.stringify({
+        beat: final.state.beat,
+        caseCarried: final.state.case.carried,
+        alive: Object.fromEntries(Object.entries(final.state.actors)
+          .map(([name, actor]) => [name, actor.alive])),
+        mission: final.campaign?.missions?.[MISSION_IDS.SILVER_CASE],
+        player: final.player,
+        overlay: final.overlay,
+        problems: goldenProblems,
+      }));
+    check('clean-start golden path produces no browser console or page errors',
+      goldenProblems.length === 0,
+      goldenProblems.join(' | ').slice(0, 800));
+  } finally {
+    await context.close();
+  }
+}
+
 try {
   await page.addInitScript(({ key, state }) => {
     localStorage.setItem(key, JSON.stringify(state));
@@ -1842,6 +2314,12 @@ try {
    * miss Playwright's navigation deadline while competing with a page whose
    * evidence has already been fully collected. */
   await page.close();
+
+  // One complete ordinary-URL run now proves the mission as a player flow.
+  // The large forensic audit above intentionally retains targeted debug
+  // probes for wrong-hit, rollback and corpse invariants; this second run is
+  // the clean contract: no beat jumps, pose writes or scripted targeting.
+  await runCleanStartGoldenPath();
 
   // ---- Ordinary-URL Winston decision certification ----------------------
   // Re-open the campaign snapshot written by the real AFTERMATH entry. Each

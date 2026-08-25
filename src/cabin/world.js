@@ -10,19 +10,20 @@
  *   onRadioTap, onRadioHold, onPhone, onFridge, onCook, onEat,
  *   onShower, onWardrobe, onToilet, onArt, onFrontDoor,
  *   onLandmark, onDiscover, onDrawingBoard, onCar, onWoodpile, onFirepit, onPorch,
- *   onWag, canTalkToWag.
+ *   onLag, canTalkToLag.
  */
 
 import * as THREE from 'three';
 import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 import { markSemanticPlacement } from '../core/semantic-placement.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { box, boxFrom, cylinder, plane, mat, collider, group, yawToward } from '../world/build.js';
 import { makeMaterials } from '../world/materials.js';
 import * as P from '../world/props.js';
 import { resolveGear } from '../world/gear.js';
 import { loadModels } from '../world/models.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
-import { buildWagActor } from './wag.js';
+import { buildLagActor } from './lag.js';
 import {
   PROPERTY,
   CABIN,
@@ -119,9 +120,27 @@ function proceduralSurface(target) {
   return target;
 }
 
-function addBounds(colliders, bounds, name = '') {
+function addBounds(colliders, bounds, name, {
+  id = name,
+  kind,
+  ownerActorId,
+} = {}) {
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new TypeError('Cabin collider requires a stable semantic name');
+  }
+  if (typeof id !== 'string' || !id.trim()) {
+    throw new TypeError(`Cabin collider ${name} requires a stable spatial id`);
+  }
+  if (typeof kind !== 'string' || !kind.trim()) {
+    throw new TypeError(`Cabin collider ${name} requires a spatial kind`);
+  }
   const c = collider(bounds[0], bounds[1]);
-  if (name) c.name = name;
+  c.name = name;
+  markSpatialPrimitive(c, {
+    id,
+    kind,
+    ...(ownerActorId ? { ownerActorId } : {}),
+  });
   colliders.push(c);
   return c;
 }
@@ -361,19 +380,19 @@ export async function buildCountrysideCabin(ctx) {
     })];
   }));
   /* A deterministic close approach for visual proof and accessibility tools.
-   * It lives only in interactionViewpoints: Wag is a resident, not another
+   * It lives only in interactionViewpoints: Lag is a resident, not another
    * property landmark or optional objective. */
-  const wagAt = exterior.wag.group.position;
-  const wagPosition = new THREE.Vector3(wagAt.x + 1.45, 0, wagAt.z + 1.15);
-  wagPosition.y = groundAt(wagPosition.x, wagPosition.z) + 1.68;
-  const wagLookAt = new THREE.Vector3(wagAt.x, wagAt.y + 1.52, wagAt.z);
-  const wagHorizontal = Math.hypot(wagLookAt.x - wagPosition.x, wagLookAt.z - wagPosition.z);
-  interactionViewpoints.wag = Object.freeze({
-    id: 'wag',
-    position: wagPosition,
-    lookAt: wagLookAt,
-    yaw: yawToward(wagPosition, wagLookAt),
-    pitch: Math.atan2(wagLookAt.y - wagPosition.y, Math.max(0.001, wagHorizontal)),
+  const lagAt = exterior.lag.group.position;
+  const lagPosition = new THREE.Vector3(lagAt.x + 1.45, 0, lagAt.z + 1.15);
+  lagPosition.y = groundAt(lagPosition.x, lagPosition.z) + 1.68;
+  const lagLookAt = new THREE.Vector3(lagAt.x, lagAt.y + 1.52, lagAt.z);
+  const lagHorizontal = Math.hypot(lagLookAt.x - lagPosition.x, lagLookAt.z - lagPosition.z);
+  interactionViewpoints.lag = Object.freeze({
+    id: 'lag',
+    position: lagPosition,
+    lookAt: lagLookAt,
+    yaw: yawToward(lagPosition, lagLookAt),
+    pitch: Math.atan2(lagLookAt.y - lagPosition.y, Math.max(0.001, lagHorizontal)),
   });
 
   const landscape = Object.freeze({
@@ -427,7 +446,7 @@ export async function buildCountrysideCabin(ctx) {
     interactionViewpoints,
     utilityTargets,
     carTarget: interactionTargets.car,
-    wag: exterior.wag,
+    lag: exterior.lag,
     splitWood: exterior.splitWood,
     woodpileState: exterior.woodpileState,
     setFireLit: exterior.setFireLit,
@@ -489,15 +508,15 @@ function buildCabinShell({ root, M, colliders, occluders }) {
   wallBlock('cabin-bath-east', [[BATH.x1, 0, BATH.z0], [BATH.x1 + WALL, WALL_H, BATH.z1]], 'east');
 
   // Collision remains continuous across windows, but not across doors.
-  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z0 - 0.42], [BATH_DOOR.x0, WALL_H, MAIN.z0]], 'cabin-shell-north-west');
-  addBounds(colliders, [[BATH_DOOR.x1, 0, MAIN.z0 - 0.42], [MAIN.x1 + 0.45, WALL_H, MAIN.z0]], 'cabin-shell-north-east');
-  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z1], [FRONT_DOOR.x0, WALL_H, MAIN.z1 + 0.45]], 'cabin-shell-south-west');
-  addBounds(colliders, [[FRONT_DOOR.x1, 0, MAIN.z1], [MAIN.x1 + 0.45, WALL_H, MAIN.z1 + 0.45]], 'cabin-shell-south-east');
-  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z0 - 0.35], [MAIN.x0, WALL_H, MAIN.z1 + 0.35]], 'cabin-shell-west');
-  addBounds(colliders, [[MAIN.x1, 0, MAIN.z0 - 0.35], [MAIN.x1 + 0.45, WALL_H, MAIN.z1 + 0.35]], 'cabin-shell-east');
-  addBounds(colliders, [[BATH.x0 - 0.35, 0, BATH.z0 - 0.42], [BATH.x1 + 0.35, WALL_H, BATH.z0]], 'cabin-bath-north');
-  addBounds(colliders, [[BATH.x0 - 0.42, 0, BATH.z0], [BATH.x0, WALL_H, BATH.z1]], 'cabin-bath-west');
-  addBounds(colliders, [[BATH.x1, 0, BATH.z0], [BATH.x1 + 0.42, WALL_H, BATH.z1]], 'cabin-bath-east');
+  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z0 - 0.42], [BATH_DOOR.x0, WALL_H, MAIN.z0]], 'cabin-shell-north-west', { kind: 'world' });
+  addBounds(colliders, [[BATH_DOOR.x1, 0, MAIN.z0 - 0.42], [MAIN.x1 + 0.45, WALL_H, MAIN.z0]], 'cabin-shell-north-east', { kind: 'world' });
+  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z1], [FRONT_DOOR.x0, WALL_H, MAIN.z1 + 0.45]], 'cabin-shell-south-west', { kind: 'world' });
+  addBounds(colliders, [[FRONT_DOOR.x1, 0, MAIN.z1], [MAIN.x1 + 0.45, WALL_H, MAIN.z1 + 0.45]], 'cabin-shell-south-east', { kind: 'world' });
+  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z0 - 0.35], [MAIN.x0, WALL_H, MAIN.z1 + 0.35]], 'cabin-shell-west', { kind: 'world' });
+  addBounds(colliders, [[MAIN.x1, 0, MAIN.z0 - 0.35], [MAIN.x1 + 0.45, WALL_H, MAIN.z1 + 0.35]], 'cabin-shell-east', { kind: 'world' });
+  addBounds(colliders, [[BATH.x0 - 0.35, 0, BATH.z0 - 0.42], [BATH.x1 + 0.35, WALL_H, BATH.z0]], 'cabin-bath-north', { kind: 'world' });
+  addBounds(colliders, [[BATH.x0 - 0.42, 0, BATH.z0], [BATH.x0, WALL_H, BATH.z1]], 'cabin-bath-west', { kind: 'world' });
+  addBounds(colliders, [[BATH.x1, 0, BATH.z0], [BATH.x1 + 0.42, WALL_H, BATH.z1]], 'cabin-bath-east', { kind: 'world' });
 
   buildWindows(structure, M, winS, winW);
   buildRoof(structure, M);
@@ -513,7 +532,12 @@ function buildCabinShell({ root, M, colliders, occluders }) {
     inwardSign: 1,
   });
   structure.add(doorBuilt.group);
-  const doorCollider = addBounds(colliders, [[0, 0, 0], [0, FRONT_DOOR.h, 0]], 'cabin-front-door-leaf');
+  const doorCollider = addBounds(
+    colliders,
+    [[0, 0, 0], [0, FRONT_DOOR.h, 0]],
+    'cabin-front-door-leaf',
+    { kind: 'door' },
+  );
   for (const cabinCollider of colliders.slice(colliderStart)) {
     ownGeometry(cabinCollider, 'cabin-shell-collision');
   }
@@ -728,26 +752,27 @@ function buildProperty({
   const shed = buildShed(root, M, colliders);
   const firepit = buildFirepit(root, M, colliders, footings);
   const woodpile = buildWoodpile(root, M);
-  /* Wag is a person, not a marker: the shared Npc/makePerson rig supplies his
+  /* Lag is a person, not a marker: the shared Npc/makePerson rig supplies his
    * outfit, mouth, gaze and staging identity. He stands just outside the broad
    * woodpile proxy so looking at him cannot accidentally select the activity
    * box behind him. */
-  const wagX = LANDMARKS.woodpile.x + 2.35;
-  const wagZ = LANDMARKS.woodpile.z + 1.65;
-  const wag = buildWagActor({
+  const lagX = LANDMARKS.woodpile.x + 2.35;
+  const lagZ = LANDMARKS.woodpile.z + 1.65;
+  const lag = buildLagActor({
     scene: root,
-    x: wagX,
-    y: heightAt(wagX, wagZ),
-    z: wagZ,
+    x: lagX,
+    y: heightAt(lagX, lagZ),
+    z: lagZ,
     yaw: yawToward(
-      new THREE.Vector3(wagX, 0, wagZ),
+      new THREE.Vector3(lagX, 0, lagZ),
       new THREE.Vector3(LANDMARKS.woodpile.x + 2.0, 0, LANDMARKS.woodpile.z + 0.45),
     ),
   });
   addBounds(
     colliders,
-    [[wagX - 0.28, heightAt(wagX, wagZ), wagZ - 0.28], [wagX + 0.28, heightAt(wagX, wagZ) + 1.86, wagZ + 0.28]],
-    'cabin-wag-body',
+    [[lagX - 0.28, heightAt(lagX, lagZ), lagZ - 0.28], [lagX + 0.28, heightAt(lagX, lagZ) + 1.86, lagZ + 0.28]],
+    'cabin-lag-body',
+    { kind: 'actor-body', ownerActorId: 'cabin.lag' },
   );
   const car = buildParkedCar(root, M, colliders);
   const overlook = buildOverlook(root, M, colliders, footings);
@@ -804,14 +829,14 @@ function buildProperty({
     else ctx.onLeave?.();
   });
 
-  const wagDescriptor = {
-    label: 'Talk to <b>Wag</b>',
-    enabled: () => ctx.canTalkToWag?.() ?? true,
-    onUse: () => ctx.onWag?.(wag),
+  const lagDescriptor = {
+    label: 'Talk to <b>Lag</b>',
+    enabled: () => ctx.canTalkToLag?.() ?? true,
+    onUse: () => ctx.onLag?.(lag),
   };
-  interactionTargets.wag = wag.group;
-  wag.group.userData.interact = wagDescriptor;
-  interaction.register(wag.group, wagDescriptor);
+  interactionTargets.lag = lag.group;
+  lag.group.userData.interact = lagDescriptor;
+  interaction.register(lag.group, lagDescriptor);
 
   return {
     bridgeY: bridge.y,
@@ -827,13 +852,13 @@ function buildProperty({
       firepitSeats: firepit.seatCount,
       overlookSeats: overlook.seatCount,
       residents: 1,
-      wagActivities: 4,
+      lagActivities: 4,
       exteriorFootings: footings.length,
       trailMetres: Math.round(polylineLength(TRAIL_LOOP) + polylineLength(OVERLOOK_TRAIL)),
       creekMetres: Math.round(polylineLength(CREEK_PATH)),
     },
     footings,
-    wag,
+    lag,
     splitWood: woodpile.split,
     woodpileState: woodpile.state,
     setFireLit: firepit.setLit,
@@ -841,7 +866,7 @@ function buildProperty({
       creek.update(elapsed);
       firepit.update(elapsed);
       woodpile.update(dt);
-      wag.update(dt, playerPosition);
+      lag.update(dt, playerPosition);
       wayfinding.update(elapsed);
       forest.update(dt, playerPosition);
     },
@@ -1036,7 +1061,12 @@ function buildPorch(root, M, colliders) {
   });
   g.add(awning);
   root.add(g);
-  const deckCollider = addBounds(colliders, [[p.x0, -0.04, p.z0], [p.x1, 0.10, p.z1]], 'cabin-porch-deck');
+  const deckCollider = addBounds(
+    colliders,
+    [[p.x0, -0.04, p.z0], [p.x1, 0.10, p.z1]],
+    'cabin-porch-deck',
+    { kind: 'world' },
+  );
   ownGeometry(deckCollider, 'cabin-shell-collision');
   const target = targetBox('cabin-porch-target', [2.4, 1.8, 1.1], [0.2, 0.95, p.z1 - 0.3]);
   g.add(target);
@@ -1082,9 +1112,9 @@ function buildBridge(root, M, colliders) {
     }
   }
   root.add(g);
-  addBounds(colliders, [[p.x - 1.30, y - 0.16, p.z - 4.9], [p.x + 1.30, y, p.z + 4.9]], 'cabin-bridge-deck');
-  addBounds(colliders, [[p.x - 1.42, y, p.z - 4.9], [p.x - 1.18, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-west');
-  addBounds(colliders, [[p.x + 1.18, y, p.z - 4.9], [p.x + 1.42, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-east');
+  addBounds(colliders, [[p.x - 1.30, y - 0.16, p.z - 4.9], [p.x + 1.30, y, p.z + 4.9]], 'cabin-bridge-deck', { kind: 'world' });
+  addBounds(colliders, [[p.x - 1.42, y, p.z - 4.9], [p.x - 1.18, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-west', { kind: 'world' });
+  addBounds(colliders, [[p.x + 1.18, y, p.z - 4.9], [p.x + 1.42, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-east', { kind: 'world' });
   const target = targetBox('cabin-bridge-target', [2.2, 1.5, 1.7], [p.x, y + 0.75, p.z]);
   g.add(target);
   return { group: g, target, y };
@@ -1126,9 +1156,9 @@ function buildShed(root, M, colliders) {
   for (const dx of [1.55, 2.18]) g.add(box({ size: [0.42, 0.52, 0.26], pos: [p.x + dx, y + 0.26, z0 + 0.5], mat: mat({ color: 0xa53a27, roughness: 0.7 }) }));
   root.add(g);
   for (const shedCollider of [
-    addBounds(colliders, [[x0, y, z0], [x0 + 0.18, y + 2.5, z1]], 'cabin-shed-west'),
-    addBounds(colliders, [[x1 - 0.18, y, z0], [x1, y + 2.5, z1]], 'cabin-shed-east'),
-    addBounds(colliders, [[x0, y, z0], [x1, y + 2.5, z0 + 0.18]], 'cabin-shed-back'),
+    addBounds(colliders, [[x0, y, z0], [x0 + 0.18, y + 2.5, z1]], 'cabin-shed-west', { kind: 'world' }),
+    addBounds(colliders, [[x1 - 0.18, y, z0], [x1, y + 2.5, z1]], 'cabin-shed-east', { kind: 'world' }),
+    addBounds(colliders, [[x0, y, z0], [x1, y + 2.5, z0 + 0.18]], 'cabin-shed-back', { kind: 'world' }),
   ]) ownGeometry(shedCollider, 'cabin-shed-collision');
   const target = targetBox('cabin-shed-target', [2.0, 1.8, 1.0], [p.x, y + 0.9, z1 - 0.35]);
   g.add(target);
@@ -1172,7 +1202,12 @@ function buildFirepit(root, M, colliders, footings) {
       bench.add(box({ size: [0.14, 0.48, 0.14], pos: [lx, 0.72, 0.30], mat: M.cabinLogDark }));
     }
     g.add(bench);
-    addBounds(colliders, [[x - 1.02, seatY, z - 1.02], [x + 1.02, seatY + 1.02, z + 1.02]], `cabin-firepit-bench-${i}`);
+    addBounds(
+      colliders,
+      [[x - 1.02, seatY, z - 1.02], [x + 1.02, seatY + 1.02, z + 1.02]],
+      `cabin-firepit-bench-${i}`,
+      { kind: 'seat' },
+    );
     noteFooting(footings, `firepit-bench-${i}`, x, z, seatY, 'firepit-seat');
   }
   // Layered low-poly tongues read as a fire from every approach. Flat crossed
@@ -1348,15 +1383,65 @@ function buildParkedCar(root, M, colliders) {
     g.add(pane);
   }
   const wheelMat = mat({ color: 0x121313, roughness: 0.95 });
+  const suspensionMat = mat({ color: 0x242a29, roughness: 0.72, metalness: 0.62 });
+  /* The wagon used to be two boxes with four wheels pushed through the lower
+   * box. Their centres were technically symmetrical, but there was no wheel
+   * well or suspension to make that overlap read as a vehicle. Keep one local
+   * vehicle transform and give every axle, shock and arch the same authored
+   * wheel stations, so a future adjustment cannot drift the body and running
+   * gear independently. */
+  const wheelStations = Object.freeze([-1.45, 1.45]);
+  const frame = box({
+    name: 'cabin-parked-wagon-chassis-frame',
+    size: [1.48, 0.12, 3.62],
+    pos: [0, 0.20, 0],
+    mat: suspensionMat,
+  });
+  ownGeometry(frame, 'cabin-parked-wagon', { structural: true });
+  g.add(frame);
+  for (const sz of wheelStations) {
+    const axle = cylinder({
+      r: 0.07,
+      h: 1.94,
+      pos: [0, 0.12, sz],
+      rotZ: Math.PI / 2,
+      mat: suspensionMat,
+    });
+    axle.name = `cabin-parked-wagon-axle-${sz < 0 ? 'front' : 'rear'}`;
+    ownGeometry(axle, 'cabin-parked-wagon', { structural: true });
+    g.add(axle);
+  }
   for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
+    for (const sz of wheelStations) {
       const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.24, 16), wheelMat);
       wheel.name = `cabin-parked-wagon-wheel-${sx < 0 ? 'left' : 'right'}-${sz < 0 ? 'front' : 'rear'}`;
-      wheel.position.set(sx * 0.94, 0.02, sz * 1.45);
+      wheel.position.set(sx * 0.94, 0.02, sz);
       wheel.rotation.z = Math.PI / 2;
       wheel.castShadow = true;
       ownGeometry(wheel, 'cabin-parked-wagon', { structural: true });
       g.add(wheel);
+
+      const shock = cylinder({
+        r: 0.045,
+        h: 0.42,
+        pos: [sx * 0.72, 0.34, sz],
+        rotZ: sx * 0.18,
+        mat: suspensionMat,
+      });
+      shock.name = `cabin-parked-wagon-shock-${sx < 0 ? 'left' : 'right'}-${sz < 0 ? 'front' : 'rear'}`;
+      ownGeometry(shock, 'cabin-parked-wagon', { structural: true });
+      g.add(shock);
+
+      const well = new THREE.Mesh(
+        new THREE.TorusGeometry(0.44, 0.055, 6, 24, Math.PI),
+        body,
+      );
+      well.name = `cabin-parked-wagon-wheel-well-${sx < 0 ? 'left' : 'right'}-${sz < 0 ? 'front' : 'rear'}`;
+      well.position.set(sx * 1.025, 0.12, sz);
+      well.rotation.y = Math.PI / 2;
+      well.castShadow = true;
+      ownGeometry(well, 'cabin-parked-wagon', { structural: true });
+      g.add(well);
     }
   }
   for (const sx of [-0.62, 0.62]) {
@@ -1376,6 +1461,7 @@ function buildParkedCar(root, M, colliders) {
     colliders,
     [[p.x - halfX, y - 0.35, p.z - halfZ], [p.x + halfX, y + 1.45, p.z + halfZ]],
     'cabin-parked-car',
+    { kind: 'vehicle' },
   );
   return { group: g, target };
 }
@@ -1505,7 +1591,12 @@ function buildOverlook(root, M, colliders, footings) {
     g.add(stone);
   }
   root.add(g);
-  addBounds(colliders, [[p.x - 1.25, y, p.z - 1.05], [p.x + 1.25, y + 1.15, p.z + 1.05]], 'cabin-overlook-bench');
+  addBounds(
+    colliders,
+    [[p.x - 1.25, y, p.z - 1.05], [p.x + 1.25, y + 1.15, p.z + 1.05]],
+    'cabin-overlook-bench',
+    { kind: 'seat' },
+  );
   noteFooting(footings, 'overlook-bench', p.x, p.z, y, 'overlook-seat');
   noteFooting(footings, 'overlook-cairn', p.x + 2.45, p.z + 0.85, y, 'overlook-focal');
   const target = makeLandmarkProxy(root, 'overlook', p, 3.2, 2.0);
@@ -1585,6 +1676,7 @@ function buildForest(root, M, colliders, disposables) {
         colliders,
         [[x - radius - 0.08, plan.y, z - radius - 0.08], [x + radius + 0.08, plan.y + plan.height, z + radius + 0.08]],
         'cabin-tree-trunk',
+        { id: `cabin-tree-trunk:${plantedTrees.length}`, kind: 'world' },
       );
     }
   }
@@ -1774,6 +1866,7 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
       colliders,
       [[p.x - p.radius * 0.75, p.y, p.z - p.radius * 0.75], [p.x + p.radius * 0.75, p.y + p.radius * 0.75, p.z + p.radius * 0.75]],
       'cabin-field-rock',
+      { id: `cabin-field-rock:${i}`, kind: 'world' },
     );
   }
   rocks.instanceMatrix.needsUpdate = true;
@@ -1840,6 +1933,7 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
         colliders,
         [[sx - hx, sy - hy, sz - hz], [sx + hx, sy + hy, sz + hz]],
         'cabin-deadfall-log',
+        { id: `cabin-deadfall-log:${i}:${segment}`, kind: 'world' },
       );
       ownGeometry(logCollider, `cabin-deadfall-log-collision:${i}`);
     }
@@ -1856,10 +1950,10 @@ function buildPropertyBoundary(root, M, colliders) {
   const low = -12;
   const high = 22;
   for (const boundaryCollider of [
-    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.minZ - 3], [PROPERTY.minX + 0.5, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-west'),
-    addBounds(colliders, [[PROPERTY.maxX - 0.5, low, PROPERTY.minZ - 3], [PROPERTY.maxX + 3, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-east'),
-    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.minZ - 3], [PROPERTY.maxX + 3, high, PROPERTY.minZ + 0.5]], 'cabin-property-boundary-north'),
-    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.maxZ - 0.5], [PROPERTY.maxX + 3, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-south'),
+    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.minZ - 3], [PROPERTY.minX + 0.5, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-west', { kind: 'world' }),
+    addBounds(colliders, [[PROPERTY.maxX - 0.5, low, PROPERTY.minZ - 3], [PROPERTY.maxX + 3, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-east', { kind: 'world' }),
+    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.minZ - 3], [PROPERTY.maxX + 3, high, PROPERTY.minZ + 0.5]], 'cabin-property-boundary-north', { kind: 'world' }),
+    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.maxZ - 0.5], [PROPERTY.maxX + 3, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-south', { kind: 'world' }),
   ]) ownGeometry(boundaryCollider, 'cabin-property-boundary-collision');
 
   // Weathered corner blazes make the invisible containment legible.
@@ -1934,14 +2028,21 @@ function buildDomesticHub({
   root.add(interior);
 
   let propAssemblyOrdinal = 0;
-  const addProp = (built, colliderName = '') => {
+  const addProp = (built, colliderName = '', { kind = 'prop' } = {}) => {
     const propName = (built.group.name || 'unnamed').replace(/[^A-Za-z0-9._:+-]/g, '-');
     ownGeometry(
       built.group,
       `cabin-prop:${propName}:${++propAssemblyOrdinal}`,
     );
     interior.add(built.group);
-    if (built.bounds) addBounds(colliders, built.bounds, colliderName || `cabin-${built.group.name}`);
+    if (built.bounds) {
+      addBounds(
+        colliders,
+        built.bounds,
+        colliderName || `cabin-${built.group.name}`,
+        { kind },
+      );
+    }
     return built;
   };
   const proxy = (name, size, pos) => {
@@ -1964,7 +2065,11 @@ function buildDomesticHub({
     z: -4.58,
     towerSticker: propTexture('sticker.tower'),
   }), 'cabin-desk');
-  const chair = addProp(P.makeChair(M, { x: 0.70, z: -3.70, rotY: Math.PI + 0.10 }), 'cabin-desk-chair');
+  const chair = addProp(
+    P.makeChair(M, { x: 0.70, z: -3.70, rotY: Math.PI + 0.10 }),
+    'cabin-desk-chair',
+    { kind: 'seat' },
+  );
   const zyn = P.makeZynCan(M, { x: 1.20, y: desk.top, z: -4.40, rotY: 0.4, lidTexture: propTexture('zyn.lid') });
   ownGeometry(zyn.group, 'cabin-prop:zyn');
   interior.add(zyn.group);
@@ -1972,7 +2077,11 @@ function buildDomesticHub({
   ownGeometry(bobble.group, 'cabin-prop:bobblehead');
   interior.add(bobble.group);
 
-  const couch = addProp(P.makeCouch(M, { x: -5.50, z: 2.20 }), 'cabin-couch');
+  const couch = addProp(
+    P.makeCouch(M, { x: -5.50, z: 2.20 }),
+    'cabin-couch',
+    { kind: 'seat' },
+  );
   const coffeeTable = addProp(P.makeCoffeeTable(M, { x: -3.75, z: 2.15, w: 1.18, d: 0.66, rotY: 0.05 }), 'cabin-coffee-table');
   const pizza = P.makePizzaBox(M, { x: -3.82, y: coffeeTable.top, z: 2.10, rotY: 0.10 });
   const bong = P.makeBong(M, { x: -3.42, y: coffeeTable.top, z: 2.22, rotY: -0.2 });
@@ -2044,13 +2153,18 @@ function buildDomesticHub({
   centralCluster.add(cylinder({ r: 0.055, h: 0.12, pos: [0.48, 0.87, 0.52], mat: M.paper }));
   centralCluster.add(box({ size: [0.34, 0.055, 0.24], pos: [0.92, 0.84, 0.72], mat: M.paper, rotY: -0.24 }));
   interior.add(centralCluster);
-  addBounds(colliders, [[0.0, 0, -0.10], [1.44, 0.84, 1.34]], 'cabin-central-table');
+  addBounds(
+    colliders,
+    [[0.0, 0, -0.10], [1.44, 0.84, 1.34]],
+    'cabin-central-table',
+    { kind: 'prop' },
+  );
   const westChair = P.makeChair(M, { x: -0.38, z: 0.62, rotY: Math.PI / 2 });
   westChair.group.name = 'cabin-central-chair-west';
-  addProp(westChair, 'cabin-central-chair-west');
+  addProp(westChair, 'cabin-central-chair-west', { kind: 'seat' });
   const eastChair = P.makeChair(M, { x: 1.82, z: 0.62, rotY: -Math.PI / 2 });
   eastChair.group.name = 'cabin-central-chair-east';
-  addProp(eastChair, 'cabin-central-chair-east');
+  addProp(eastChair, 'cabin-central-chair-east', { kind: 'seat' });
 
   const kitchen = addProp(P.makeKitchen(M, { x: 5.8, wallX: 5.8, z0: -1.78, z1: 1.62 }), 'cabin-kitchen');
   const fridge = addProp(P.makeFridge(M, { x: 5.42, z: 2.62 }), 'cabin-fridge');
@@ -2213,9 +2327,14 @@ function buildDomesticHub({
   }
   ownGeometry(toiletRollBracket, toiletAssembly, { checkSupport: false });
   bathroom.add(toiletRollBracket);
-  addBounds(colliders, tub.bounds, 'cabin-bath-tub');
-  const toiletCollider = addBounds(colliders, toilet.bounds, 'cabin-bath-toilet');
-  addBounds(colliders, bathSink.bounds, 'cabin-bath-sink');
+  addBounds(colliders, tub.bounds, 'cabin-bath-tub', { kind: 'prop' });
+  const toiletCollider = addBounds(
+    colliders,
+    toilet.bounds,
+    'cabin-bath-toilet',
+    { kind: 'seat' },
+  );
+  addBounds(colliders, bathSink.bounds, 'cabin-bath-sink', { kind: 'prop' });
 
   const bathDoorBuilt = makeTimberDoor(M, {
     name: 'cabin-bathroom-door',
@@ -2226,7 +2345,12 @@ function buildDomesticHub({
   });
   ownGeometry(bathDoorBuilt.group, 'cabin-shell');
   interior.add(bathDoorBuilt.group);
-  const bathDoorCollider = addBounds(colliders, [[0, 0, 0], [0, BATH_DOOR.h, 0]], 'cabin-bathroom-door-leaf');
+  const bathDoorCollider = addBounds(
+    colliders,
+    [[0, 0, 0], [0, BATH_DOOR.h, 0]],
+    'cabin-bathroom-door-leaf',
+    { kind: 'door' },
+  );
   ownGeometry(bathDoorCollider, 'cabin-shell-collision');
 
   /* ---------------------------------------------------------------- */

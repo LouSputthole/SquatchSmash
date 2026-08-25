@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -77,11 +78,11 @@ test('Countryside Cabin voice pickups stay scene-owned instead of falling into s
   const markdown = buildAudioTodo({
     manifest: {
       voices: {
-        wag: { id: '<owner to cast>', _note: 'Wag remains explicitly uncast.' },
+        uncast_test_character: { id: '<owner to cast>', _note: 'Synthetic fixture remains explicitly uncast.' },
       },
       sfx: [{
-        name: 'vo.cabin.wag.general.arrival',
-        voice: 'wag',
+        name: 'vo.cabin.uncast-fixture.general.arrival',
+        voice: 'uncast_test_character',
         say: 'Well, look who finally made it out here.',
       }],
     },
@@ -90,8 +91,8 @@ test('Countryside Cabin voice pickups stay scene-owned instead of falling into s
   });
 
   assert.match(markdown, /^## Voice pickups .* The Countryside Cabin \(1\)$/m);
-  assert.match(markdown, /Voice profile: `wag`/);
-  assert.match(markdown, /vo\.cabin\.wag\.general\.arrival\.mp3/);
+  assert.match(markdown, /Voice profile: `uncast_test_character`/);
+  assert.match(markdown, /vo\.cabin\.uncast-fixture\.general\.arrival\.mp3/);
   assert.doesNotMatch(markdown, /^## Voice pickups .* Apartment and shared hub/m);
 });
 
@@ -206,21 +207,47 @@ test('an unknown exact-queue selector fails closed instead of reporting an empty
 });
 
 test('a dry-run fails closed when a selected spoken cue still needs casting', () => {
-  const result = spawnSync(process.execPath, [
-    path.join(ROOT, 'tools', 'generate-sfx.mjs'),
-    '--dry-run',
-    '--force',
-    '--only', 'vo.cabin.wag.general.arrival',
-  ], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    env: { ...process.env, ELEVENLABS_API_KEY: '', XI_API_KEY: '' },
-  });
+  /* The production manifest now has every playable profile cast. Exercise the
+   * fail-closed branch against an isolated manifest fixture instead of
+   * keeping a fake character in shipping data just to make this test green. */
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'squatch-uncast-'));
+  try {
+    fs.mkdirSync(path.join(fixtureRoot, 'tools'), { recursive: true });
+    fs.mkdirSync(path.join(fixtureRoot, 'assets', 'sfx'), { recursive: true });
+    for (const file of [
+      'generate-sfx.mjs', 'audio-scope.mjs', 'sfx-index-json.mjs', 'take-ledger.mjs',
+    ]) {
+      fs.copyFileSync(path.join(ROOT, 'tools', file), path.join(fixtureRoot, 'tools', file));
+    }
+    fs.writeFileSync(path.join(fixtureRoot, 'assets', 'sfx', 'manifest.json'), JSON.stringify({
+      voices: {
+        uncast_test_character: { id: '<owner to cast>' },
+      },
+      sfx: [{
+        name: 'vo.test.uncast.general.arrival',
+        voice: 'uncast_test_character',
+        say: 'Testing must fail closed.',
+      }],
+    }));
 
-  assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
-  assert.match(result.stderr, /Casting is required before these spoken cues can be generated/);
-  assert.match(result.stderr, /No ElevenLabs voice id set for: wag/);
-  assert.doesNotMatch(result.stdout, /cue\(s\) to generate/);
+    const result = spawnSync(process.execPath, [
+      path.join(fixtureRoot, 'tools', 'generate-sfx.mjs'),
+      '--dry-run',
+      '--force',
+      '--only', 'vo.test.uncast.general.arrival',
+    ], {
+      cwd: fixtureRoot,
+      encoding: 'utf8',
+      env: { ...process.env, ELEVENLABS_API_KEY: '', XI_API_KEY: '' },
+    });
+
+    assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /Casting is required before these spoken cues can be generated/);
+    assert.match(result.stderr, /No ElevenLabs voice id set for: uncast_test_character/);
+    assert.doesNotMatch(result.stdout, /cue\(s\) to generate/);
+  } finally {
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  }
 });
 
 test('every production sheet shares the same future Initiation exclusion', () => {

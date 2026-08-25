@@ -1759,25 +1759,18 @@ addEventListener('pagehide', () => loadout.capture(weapons));
 
 departButton.addEventListener('click', () => {
   if (campaign.state.missions[MISSION_IDS.CARTEL_PALACE].status !== 'complete') return;
-  campaign.update((next) => {
-    next.missions[MISSION_IDS.INITIATION].status = 'in_progress';
-  });
-  /* NOT straight to the Initiation any more.
+  /* HOME before the Special Meeting.
    *
    * The Palace is over and nobody has told him whether killing Sauce was the
    * right call. He goes home, Booskibro rings to say there is a meeting and it
-   * is going to be a special one, and three men come and collect him — see
-   * `src/specialmeeting/`. That scene hands off to the Initiation at the
-   * treeline on its own, so this is a repoint rather than an insertion, and
-   * `SCENES[CARTEL_PALACE].next` is one edge again because of it.
+   * is going to be a special one, gets ready, is refused by the door and sees
+   * the headlights arrive. Beats SM-010 through SM-090 are owned by the
+   * Apartment runtime; the Apartment front door then carries him to the kerb.
    *
-   * The DESTINATION has been right since that repoint; what was wrong until
-   * 2026-08-24 was everything the player could read. This button said "Go to
-   * the Initiation", the terrace prompt said "Leave for the Initiation", the
-   * objective hint said "This ends at the Initiation" and the card called the
-   * Palace the final mission. Four promises the graph does not keep, on the
-   * scene's last screen. The id is `depart-btn` now for the same reason. */
-  navigateCampaign(campaign, SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb', location });
+   * CartelPalaceCampaignStory.complete() has already made Initiation
+   * available. It must not become in_progress here: Special Meeting owns that
+   * handoff at the treeline after its drive and forest approach. */
+  navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door', location });
 });
 
 canvas.addEventListener('contextmenu', (event) => event.preventDefault());

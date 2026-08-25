@@ -41,6 +41,10 @@ import { FixedStepRunner } from '../core/vehicles/fixed-step.js';
 import { createHeadlightBeam, createHeadlightBeamGeometry } from '../core/vehicles/headlights.js';
 import { VehicleOccupants } from '../core/vehicles/occupants.js';
 import { box, cylinder, group, mat } from '../world/build.js';
+import {
+  createSedanGlassMaterial,
+  installSixPaneSedanGlazing,
+} from './sedan-glazing.js';
 
 /**
  * A heavy old car, driven gently.
@@ -158,13 +162,39 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
   const shape = car.shape;
   const cabin = openCabin(car);
 
-  /* The side and rear glass is one box and a box culls its own back faces, so
-   * from inside the car there would be no windows at all. One clone, so the
-   * lot's other cars keep the single-sided material they share. */
-  car.glass.material = car.glass.material.clone();
-  car.glass.material.side = THREE.DoubleSide;
-  car.glass.material.opacity = 0.22;
-  car.glass.material.depthWrite = false;
+  /* The shared traffic shell has one solid greenhouse box. Replace it with
+   * the same six panes the forest fallback uses: no tinted cube around the
+   * camera, and no second windscreen layered over the first. */
+  const sideGlassMaterial = createSedanGlassMaterial({
+    color: 0x293746, roughness: 0.10, metalness: 0.22, opacity: 0.12,
+  });
+  const windscreenMaterial = createSedanGlassMaterial({
+    color: 0x9fb5c6, roughness: 0.05, metalness: 0.08, opacity: 0.08,
+  });
+  const glazing = installSixPaneSedanGlazing({
+    car,
+    cabin,
+    prefix: 'sedan',
+    sideMaterial: sideGlassMaterial,
+    windscreenMaterial,
+  });
+  /* Preserve the existing geometry-gate scope of the live windscreen. The
+   * whole car is one assembly; this flag records that the pane/frame contact
+   * is intentional without widening policy to the fallback builder. */
+  glazing.windscreen.userData.geometryGate = { overlap: false };
+
+  /* The B pillars are bodywork, not glass. They fill the deliberate gap
+   * between the independently movable front and rear panes. */
+  for (const side of [-1, 1]) {
+    const key = side > 0 ? 'left' : 'right';
+    root.add(box({
+      name: `sedan.pillar.b.${key}`,
+      size: [0.09, cabin.glassY1 - cabin.glassY0, 0.05],
+      pos: [-0.82, (cabin.glassY0 + cabin.glassY1) / 2,
+        side * (cabin.cabinHalfW - 0.035)],
+      mat: car.paint,
+    }));
+  }
 
   /* ---------------------------------------------------------------- */
   /* The boot                                                          */
@@ -180,6 +210,10 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
   /* ---------------------------------------------------------------- */
   const interior = buildInterior(car, cabin);
   root.add(interior.group);
+  /* Keep the live windscreen in the interior assembly where its predecessor
+   * lived. The group is identity-transformed, so this is only ownership (and
+   * keeps the geometry contract stable), not a second pane or a transform. */
+  interior.group.add(glazing.windscreen);
 
   /* ---------------------------------------------------------------- */
   /* Where each seat's voice comes out of                              */
@@ -250,12 +284,14 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
 
   const sedan = {
     car,
+    cabin,
     group: root,
     vehicle,
     runner,
     wheels,
     trunk,
     interior,
+    glazing,
     lights,
 
     /** Put the car somewhere without driving it there. */
@@ -402,6 +438,8 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
     dispose() {
       occupants.clear();
       lights.dispose();
+      sideGlassMaterial.dispose();
+      windscreenMaterial.dispose();
     },
   };
 
@@ -558,33 +596,24 @@ function buildInterior(car, cabin) {
   }
   root.add(box({ name: 'sedan.pedals', size: [0.10, 0.16, 0.24], pos: [0.60, floorY + 0.12, 0.50], mat: dashPlastic, rotZ: -0.18 }));
 
-  // Headliner, mirror, and the dome lamp that goes on when a door opens.
+  /* Headliner, mirror, and the dome lamp that goes on when a door opens.
+   *
+   * These used to hang 18 cm below the roof header, only 16 cm above the
+   * passenger eye. In a 70-degree first-person lens that put a pale ceiling
+   * across roughly the upper half of the image and reduced the windscreen to
+   * a letterbox slot. Keep the trim against the physical roof at 2.17 m: it
+   * still reads as a ceiling, gives Numbskull more honest headroom, and leaves
+   * the player enough aperture to see the road that is telling the story. */
   root.add(box({
     name: 'sedan.headliner', size: [2.40, 0.06, 1.72],
-    pos: [-0.42, cabin.glassY1 - 0.18, 0], mat: mat({ color: 0xc9c1b0, roughness: 0.97 }),
+    pos: [-0.42, cabin.glassY1 - 0.055, 0], mat: mat({ color: 0x4a4742, roughness: 0.97 }),
   }));
-  root.add(box({ name: 'sedan.mirror', size: [0.05, 0.12, 0.36], pos: [0.62, cabin.glassY1 - 0.31, 0], mat: chrome }));
+  root.add(box({ name: 'sedan.mirror', size: [0.05, 0.10, 0.32], pos: [0.62, cabin.glassY1 - 0.16, 0], mat: chrome }));
   const domeLamp = box({
     name: 'sedan.dome-lamp', size: [0.18, 0.03, 0.30],
-    pos: [-0.42, cabin.glassY1 - 0.23, 0], mat: dome, cast: false,
+    pos: [-0.42, cabin.glassY1 - 0.095, 0], mat: dome, cast: false,
   });
   root.add(domeLamp);
-
-  /* A windscreen, because there was a hole in the front of the car. Faint: it
-   * is read from the frame round it and the amber of the dash caught in it. */
-  const screen = box({
-    name: 'sedan.windscreen',
-    size: [0.024, 0.88, 1.74],
-    pos: [0.94, cabin.glassY0 + 0.06, 0],
-    mat: mat({
-      color: 0x8fa8bc, roughness: 0.06, metalness: 0.1,
-      transparent: true, opacity: 0.14, side: THREE.DoubleSide,
-    }),
-    cast: false,
-  });
-  screen.rotation.z = 0.20;
-  screen.userData.geometryGate = { overlap: false };
-  root.add(screen);
 
   /* ONE CAR, ONE ASSEMBLY.
    *

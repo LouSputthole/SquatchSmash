@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { resolveGear } from '../world/gear.js';
 import { makePlant } from '../world/props.js';
 import { markSemanticPlacement } from '../core/semantic-placement.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { PALACE_ANCHORS } from './anchors.js';
 import { EVIDENCE_IDS } from './mission.js';
 
@@ -337,6 +338,27 @@ function addCollider(colliders, center, size, name = '', material = null) {
   return collider;
 }
 
+/**
+ * Give newly authored Palace architecture an explicit spatial identity.
+ *
+ * The rest of the Palace collider inventory remains legacy debt. This helper
+ * is deliberately opt-in so adding a repaired wall cannot silently inherit a
+ * guessed meaning merely because it happened to be built with `solid`.
+ */
+function markPalaceWorldCollider(collider, id) {
+  return markSpatialPrimitive(collider, {
+    id: `cartel-palace.world.${id}`,
+    kind: 'world',
+  });
+}
+
+function markPalaceWorldSolid(mesh, id) {
+  const volume = mesh?.userData?.collider;
+  if (!volume) throw new Error(`Palace world solid ${id} has no collider`);
+  markPalaceWorldCollider(volume, id);
+  return mesh;
+}
+
 function solid(parent, colliders, size, position, material, name = '') {
   const mesh = box(size, position, material, name);
   parent.add(mesh);
@@ -430,17 +452,23 @@ function entrancePortal(parent, colliders) {
   const header = box([4.0, 4.8 - height, 0.5], [x, (4.8 + height) / 2, wallZ], M.stucco, 'estate-entry-header');
   header.userData.combatMaterial = 'concrete';
   portal.add(header);
-  addCollider(colliders, [x, (4.8 + height) / 2, wallZ], [4.0, 4.8 - height, 0.5],
-    'estate-entry-header', M.stucco);
+  markPalaceWorldCollider(
+    addCollider(colliders, [x, (4.8 + height) / 2, wallZ], [4.0, 4.8 - height, 0.5],
+      'estate-entry-header', M.stucco),
+    'estate-entry.header',
+  );
   /* The two slots either side of the leaf, from the ground to the header. */
   const revealWidth = (4.0 - width) / 2;
   for (const side of [-1, 1]) {
-    addCollider(
-      colliders,
-      [x + side * (width + revealWidth) / 2, height / 2, wallZ],
-      [revealWidth, height, 0.5],
-      'estate-entry-reveal',
-      M.stoneLight,
+    markPalaceWorldCollider(
+      addCollider(
+        colliders,
+        [x + side * (width + revealWidth) / 2, height / 2, wallZ],
+        [revealWidth, height, 0.5],
+        'estate-entry-reveal',
+        M.stoneLight,
+      ),
+      `estate-entry.reveal.${side < 0 ? 'west' : 'east'}`,
     );
   }
 
@@ -1783,22 +1811,31 @@ export function buildCartelPalace(scene) {
   const SECURITY_GUEST_DOOR_EDGE = SECURITY_GUEST_DOOR_WIDTH / 2;
   const securityGuestNorthEnd = SECURITY_GUEST_DOOR_Z + SECURITY_GUEST_DOOR_EDGE + 0.16;
   const securityGuestSouthEnd = SECURITY_GUEST_DOOR_Z - SECURITY_GUEST_DOOR_EDGE - 0.16;
-  partition(
-    [0.35, 0, -8 - securityGuestNorthEnd],
-    [10.5, 0, (securityGuestNorthEnd - 8) / 2],
-    'security-guest-partition-north',
+  markPalaceWorldSolid(
+    partition(
+      [0.35, 0, -8 - securityGuestNorthEnd],
+      [10.5, 0, (securityGuestNorthEnd - 8) / 2],
+      'security-guest-partition-north',
+    ),
+    'security-guest.partition.north',
   );
-  partition(
-    [0.35, 0, securityGuestSouthEnd + 14.5],
-    [10.5, 0, (securityGuestSouthEnd - 14.5) / 2],
-    'security-guest-partition-south',
+  markPalaceWorldSolid(
+    partition(
+      [0.35, 0, securityGuestSouthEnd + 14.5],
+      [10.5, 0, (securityGuestSouthEnd - 14.5) / 2],
+      'security-guest-partition-south',
+    ),
+    'security-guest.partition.south',
   );
-  solid(
-    estate, colliders,
-    [0.35, PARTITION_TOP - 3.2, SECURITY_GUEST_DOOR_WIDTH + 0.318],
-    [10.5, 3.2 + (PARTITION_TOP - 3.2) / 2, SECURITY_GUEST_DOOR_Z],
-    M.plaster,
-    'security-guest-door-header',
+  markPalaceWorldSolid(
+    solid(
+      estate, colliders,
+      [0.35, PARTITION_TOP - 3.2, SECURITY_GUEST_DOOR_WIDTH + 0.318],
+      [10.5, 3.2 + (PARTITION_TOP - 3.2) / 2, SECURITY_GUEST_DOOR_Z],
+      M.plaster,
+      'security-guest-door-header',
+    ),
+    'security-guest.header',
   );
   estate.add(
     box([0.42, 3.2, 0.16], [10.5, 1.6, securityGuestNorthEnd - 0.08], M.wood,
@@ -1840,7 +1877,10 @@ export function buildCartelPalace(scene) {
    * x -1.5 rather than 0: the suite's own west picture hangs at x -0.6 on
    * the south partition, so a wall on the rug's edge would have left one of
    * the room's two paintings out in the corridor. */
-  partition([0.35, 0, 6.55], [-1.5, 0, -11.575], 'guest-west-partition');
+  markPalaceWorldSolid(
+    partition([0.35, 0, 6.55], [-1.5, 0, -11.575], 'guest-west-partition'),
+    'guest-suite.partition.west',
+  );
   // Gallery to dining partition, with a locked double door in the middle.
   partition([14.7, 0, 0.42], [-10.65, 0, -34.2], 'dining-partition-west');
   partition([14.7, 0, 0.42], [10.65, 0, -34.2], 'dining-partition-east');

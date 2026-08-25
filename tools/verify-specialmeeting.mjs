@@ -12,8 +12,58 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { scriptCues as authoredSpecialMeetingCues } from '../src/specialmeeting/script.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const EXPECTED_VOICE_CUE_COUNT = new Set(
+  authoredSpecialMeetingCues().map((cue) => cue.name),
+).size;
+const SFX_ROOT = path.join(ROOT, 'assets', 'sfx');
+const AUDIO_MANIFEST = JSON.parse(fs.readFileSync(path.join(SFX_ROOT, 'manifest.json'), 'utf8'));
+const AUTHORED_SPECIAL_NAMES = new Set(authoredSpecialMeetingCues().map((cue) => cue.name));
+const cueFile = (cue) => cue.file || `${cue.name}.mp3`;
+const cueVoice = (cue) => cue.voice || 'player';
+const specialRows = AUDIO_MANIFEST.sfx.filter((cue) => AUTHORED_SPECIAL_NAMES.has(cue.name));
+const MISSING_SPECIAL_RECORDINGS = specialRows.filter(
+  (cue) => !fs.existsSync(path.join(SFX_ROOT, cueFile(cue))),
+);
+/* Keep the route testable while an external recording pickup is outstanding.
+ * This map exists only in this verifier's private HTTP server: production
+ * still fails closed, and the first browser assertion below remains red until
+ * every exact file lands. A same-performer take preserves a realistic speech
+ * clock without pretending it is the requested performance. */
+const VERIFIER_AUDIO_SUBSTITUTES = new Map(MISSING_SPECIAL_RECORDINGS.map((missingCue) => {
+  const substitute = AUDIO_MANIFEST.sfx.find((candidate) => (
+    candidate.say
+      && cueVoice(candidate) === cueVoice(missingCue)
+      && candidate.name !== missingCue.name
+      && fs.existsSync(path.join(SFX_ROOT, cueFile(candidate)))
+  ));
+  if (!substitute) {
+    throw new Error(`No verifier-only same-performer substitute exists for ${missingCue.name}`);
+  }
+  return [
+    `assets/sfx/${cueFile(missingCue).replaceAll('\\', '/')}`,
+    path.join(SFX_ROOT, cueFile(substitute)),
+  ];
+}));
+const VERIFIER_INDEX = (() => {
+  const index = JSON.parse(fs.readFileSync(path.join(SFX_ROOT, 'index.json'), 'utf8'));
+  const files = new Set(index.files || []);
+  const versions = { ...(index.versions || {}) };
+  for (const missingCue of MISSING_SPECIAL_RECORDINGS) {
+    const file = cueFile(missingCue).replaceAll('\\', '/');
+    files.add(file);
+    /* A verifier-only version keeps this virtual entry distinct from a real
+     * generated take should one land while the run is in progress. */
+    versions[file] = 'verifier-substitute';
+  }
+  return Buffer.from(JSON.stringify({
+    ...index,
+    files: [...files].sort(),
+    versions,
+  }));
+})();
 const PORT = Number(process.env.PORT) || 5227;
 const TYPES = {
   '.css': 'text/css; charset=utf-8',
@@ -39,7 +89,12 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const relative = decodeURIComponent(url.pathname).replace(/^\/+/, '');
-    const file = path.resolve(ROOT, relative);
+    if (relative === 'assets/sfx/index.json') {
+      res.writeHead(200, { 'content-type': TYPES['.json'] });
+      res.end(VERIFIER_INDEX);
+      return;
+    }
+    const file = VERIFIER_AUDIO_SUBSTITUTES.get(relative) ?? path.resolve(ROOT, relative);
     if (!file.startsWith(`${ROOT}${path.sep}`)
         || !fs.existsSync(file)
         || fs.statSync(file).isDirectory()) {
@@ -83,6 +138,9 @@ await page.addInitScript(() => {
     },
   };
 });
+await page.addInitScript((cues) => {
+  window.__SPECIAL_MEETING_VERIFIER_SUBSTITUTES__ = cues;
+}, MISSING_SPECIAL_RECORDINGS.map((cue) => cue.name));
 
 const problems = [];
 const missing = [];
@@ -234,6 +292,18 @@ async function doorWorldPoint() {
 /** A world point genuinely through the windscreen or passenger-side glass. */
 async function sedanViewPoint(view, distance = 24) {
   return page.evaluate(({ view: requested, distance: metres }) => {
+    const forest = window.SPECIAL_MEETING.forest;
+    if (requested === 'forward' && forest?.road && Number.isFinite(forest.drive?.distance)) {
+      const ahead = forest.road.at(Math.min(
+        forest.road.length(),
+        forest.drive.distance + metres,
+      ));
+      return {
+        x: ahead.x,
+        y: forest.heightAt(ahead.x, ahead.z) + 0.7,
+        z: ahead.z,
+      };
+    }
     const sedan = window.SPECIAL_MEETING.stage.sedan;
     const eye = sedan.eyeWorld('front_passenger', new window.SPECIAL_MEETING.player.position.constructor());
     let dx;
@@ -249,12 +319,68 @@ async function sedanViewPoint(view, distance = 24) {
       dz = -Math.cos(yaw);
     }
     const length = Math.hypot(dx, dz) || 1;
+    const x = eye.x + (dx / length) * metres;
+    const z = eye.z + (dz / length) * metres;
     return {
-      x: eye.x + (dx / length) * metres,
-      y: eye.y,
-      z: eye.z + (dz / length) * metres,
+      x,
+      /* A level side glance aims at empty night sky whenever the road falls
+       * away from the passenger side. Aim the verifier at the authored tree
+       * line instead: four metres above the terrain is trunk/crown, and still
+       * inside the real seated look cone. The camera continues to move only
+       * through browser mouse events. */
+      y: requested === 'side' && forest?.heightAt
+        ? forest.heightAt(x, z) + 4
+        : eye.y,
+      z,
     };
   }, { view, distance });
+}
+
+/** Read the pixels from a saved browser frame without a native image package.
+ * This is deliberately screenshot-backed: object presence and transparent
+ * materials both passed while the player still saw a featureless black side
+ * window. */
+async function screenshotRegionLuminance(file, region) {
+  const png = await fsp.readFile(file);
+  const dataUrl = `data:image/png;base64,${png.toString('base64')}`;
+  return page.evaluate(async ({ source, crop }) => {
+    const bitmap = new Image();
+    await new Promise((resolve, reject) => {
+      bitmap.onload = resolve;
+      bitmap.onerror = () => reject(new Error('Special Meeting evidence PNG failed to decode'));
+      bitmap.src = source;
+    });
+    const sx = Math.round(bitmap.naturalWidth * crop.x);
+    const sy = Math.round(bitmap.naturalHeight * crop.y);
+    const sw = Math.max(1, Math.round(bitmap.naturalWidth * crop.width));
+    const sh = Math.max(1, Math.round(bitmap.naturalHeight * crop.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = 96;
+    canvas.height = 54;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(bitmap, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let total = 0;
+    let readable = 0;
+    let distinct = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      const light = (
+        pixels[index] * 0.2126
+        + pixels[index + 1] * 0.7152
+        + pixels[index + 2] * 0.0722
+      ) / 255;
+      total += light;
+      if (light > 0.04) readable += 1;
+      if (light > 0.08) distinct += 1;
+    }
+    const count = pixels.length / 4;
+    return {
+      mean: +(total / count).toFixed(4),
+      readableFraction: +(readable / count).toFixed(4),
+      distinctFraction: +(distinct / count).toFixed(4),
+      sourceSize: [bitmap.naturalWidth, bitmap.naturalHeight],
+    };
+  }, { source: dataUrl, crop: region });
 }
 
 /** Walk the actual Player into the door's look-at interaction range. */
@@ -394,9 +520,14 @@ try {
   check('the page boots without an error overlay and publishes its scene',
     initial.canvasCount === 1 && !initial.bootFailureVisible,
     JSON.stringify({ canvas: initial.canvasCount, bootFailure: initial.bootFailureVisible }));
+  check('every authored Special Meeting voice take is delivered under its exact filename',
+    MISSING_SPECIAL_RECORDINGS.length === 0,
+    MISSING_SPECIAL_RECORDINGS.length
+      ? `${MISSING_SPECIAL_RECORDINGS.length} missing: ${MISSING_SPECIAL_RECORDINGS.map((cue) => cueFile(cue)).join(', ')}`
+      : `${EXPECTED_VOICE_CUE_COUNT} delivered recordings`);
   check('startup is closed before the first player gesture',
     !initial.started && !initial.voiceReady
-      && initial.expectedVoiceCueCount === 220
+      && initial.expectedVoiceCueCount === EXPECTED_VOICE_CUE_COUNT
       && initial.decodedVoiceCueCount === 0
       && initial.missingVoiceCues.length === 0
       && initial.failedCues.length === 0
@@ -440,10 +571,10 @@ try {
    * the scene's own copy of that answer. A photograph that has NOT landed must
    * come back null -- asking for a file that is not there is a 404 in every
    * player's console, which is the whole reason the index exists -- and a
-   * photograph that HAS landed must be on the model. Today no seff.png,
-   * lag.png, numbskull.png or kittenboss.png exists, so the first half is what
-   * runs and the second half is what starts proving something the moment the
-   * art is dropped in and `node tools/faces-index.mjs` re-runs. */
+   * photograph that HAS landed must be on the model. This stays data-driven:
+   * Kittenboss now has a landed portrait while the others currently exercise
+   * the null branch, and a regenerated index changes the obligation without a
+   * verifier edit. */
   const faces = await page.evaluate(async () => {
     const index = await fetch('assets/faces/index.json')
       .then((response) => response.json())
@@ -524,10 +655,10 @@ try {
       || sample.decoded !== sample.expected
       || sample.missing !== 0
       || sample.failed !== 0));
-  check('the first click starts SM-100 only after all 220 authored voice cues decode',
+  check(`the first click starts SM-100 only after all ${EXPECTED_VOICE_CUE_COUNT} voice slots decode`,
     startup.started && startup.ready
-      && startup.expected === 220
-      && startup.decoded === 220
+      && startup.expected === EXPECTED_VOICE_CUE_COUNT
+      && startup.decoded === EXPECTED_VOICE_CUE_COUNT
       && startup.missing.length === 0
       && startup.failed.length === 0
       && !startup.error
@@ -542,6 +673,7 @@ try {
       error: startup.error,
       traceSamples: startup.trace.length,
       invalidStartedSample,
+      verifierSubstitutes: MISSING_SPECIAL_RECORDINGS.map((cue) => cue.name),
     }));
 
   await page.waitForFunction(
@@ -631,7 +763,7 @@ try {
   /* ================================================================== *
    * THE TWO THINGS THIS FILE COULD NOT SEE
    *
-   * The scene shipped for weeks with its HUD at opacity zero -- all 220 voice
+   * The scene shipped for weeks with its HUD at opacity zero -- all authored voice
    * lines playing with no subtitle on screen -- and with the script starting
    * on the player's click rather than on the car's arrival, so Seff spoke
    * while the car was still driving down the block. Every check above was
@@ -714,7 +846,8 @@ try {
     const sm = window.SPECIAL_MEETING;
     const inspect = (key) => {
       const npc = sm.cast.byKey(key);
-      const toward = sm.player.position.clone().sub(npc.group.position).setY(0).normalize();
+      const world = npc.group.getWorldPosition(npc.group.position.clone());
+      const toward = sm.player.position.clone().sub(world).setY(0).normalize();
       const bodyForward = new npc.group.position.constructor(0, 0, 1)
         .applyQuaternion(npc.group.getWorldQuaternion(npc.group.quaternion.clone()))
         .setY(0).normalize();
@@ -724,21 +857,33 @@ try {
       return {
         key,
         seated: Boolean(npc.seated),
-        distance: npc.group.getWorldPosition(npc.group.position.clone()).distanceTo(sm.player.position),
+        seat: sm.cast.seatOf(key),
+        distance: world.distanceTo(sm.player.position),
         bodyDot: bodyForward.dot(toward),
         headDot: headForward.dot(toward),
         headYaw: npc.parts.head.rotation.y,
       };
     };
-    return ['lag', 'numbskull'].map(inspect);
+    return ['seff', 'lag', 'numbskull'].map(inspect);
   });
   const lagAttention = pickupAttention.find((entry) => entry.key === 'lag');
-  check('Lag gets out and turns his body, eyes, and head naturally toward the Prospect',
-    lagAttention
-      && !lagAttention.seated
-      && lagAttention.distance < 7
-      && lagAttention.bodyDot > 0.45
-      && lagAttention.headDot > 0.72,
+  const numbskullAttention = pickupAttention.find((entry) => entry.key === 'numbskull');
+  const seffAttention = pickupAttention.find((entry) => entry.key === 'seff');
+  check('the two standing escorts turn their bodies and heads naturally toward the Prospect',
+    [lagAttention, numbskullAttention].every((entry) => (
+      entry
+        && !entry.seated
+        && entry.distance < 7
+        && entry.bodyDot > 0.45
+        && entry.headDot > 0.72
+    )),
+    JSON.stringify(pickupAttention));
+  check('the seated driver keeps his body at the wheel while his head acknowledges the Prospect',
+    seffAttention
+      && seffAttention.seated
+      && seffAttention.seat === 'driver'
+      && seffAttention.distance < 7
+      && seffAttention.headDot > 0.65,
     JSON.stringify(pickupAttention));
 
   /* This is the scene's actual physical acceptance path. Number 3 would reach
@@ -847,16 +992,30 @@ try {
     return {
       windscreen: pane(sedan.group.getObjectByName('sedan.windscreen')),
       sideGlass: pane(sedan.car.glass),
+      panes: sedan.glazing.panes.map(pane),
+      paneNames: sedan.glazing.panes.map((object) => object.name),
+      windscreenLayers: sedan.glazing.panes.filter(
+        (object) => /\.windscreen$/.test(object.name),
+      ).length,
+      borrowedGreenhouseAttached: Boolean(sedan.glazing.borrowedGreenhouse.parent),
+      legacyGreenhousePresent: Boolean(sedan.group.getObjectByName('car.glass')),
       cameraFar: window.SPECIAL_MEETING.player.camera.far,
     };
   });
-  check('windscreen and side glass preserve a clear interior view of the route',
+  check('six discrete panes replace the obstructing greenhouse and preserve the route view',
     glazing.windscreen.visible
       && glazing.windscreen.transparent
       && glazing.windscreen.opacity <= 0.2
       && glazing.sideGlass.visible
       && glazing.sideGlass.transparent
       && glazing.sideGlass.opacity <= 0.24
+      && glazing.panes.length === 6
+      && glazing.panes.every((pane) => (
+        pane.visible && pane.transparent && !pane.depthWrite
+      ))
+      && glazing.windscreenLayers === 1
+      && !glazing.borrowedGreenhouseAttached
+      && !glazing.legacyGreenhousePresent
       && glazing.cameraFar >= 300,
     JSON.stringify(glazing));
 
@@ -864,19 +1023,24 @@ try {
   await fsp.mkdir(liveArtifactDir, { recursive: true });
   await lookAtWorldPoint(await sedanViewPoint('forward'));
   await page.screenshot({ path: path.join(liveArtifactDir, 'seated-forward.png') });
-  await lookAtWorldPoint(await sedanViewPoint('side'));
+  await lookAtWorldPoint(await sedanViewPoint('side', 12));
   await page.screenshot({ path: path.join(liveArtifactDir, 'seated-side-window.png') });
   await lookAtWorldPoint(await sedanViewPoint('forward'));
 
   /* Observe the real rail, passenger rig, car-owned cast anchors and WebAudio
    * followers at 10 Hz. The sampler never writes into any gameplay object. */
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
+    const { boundsInFrame } = await import('/src/core/spatial-bounds.js');
     const audit = { samples: [], followerAnchors: new Set() };
     const sample = () => {
       const sm = window.SPECIAL_MEETING;
       const forest = sm?.forest;
       if (!forest) return;
       const eye = sm.stage.sedan.eyeWorld('front_passenger', sm.player.position.clone());
+      const numbskull = sm.cast.byKey('numbskull');
+      const headliner = sm.stage.sedan.group.getObjectByName('sedan.headliner');
+      const numbskullBounds = boundsInFrame(numbskull.group, sm.stage.sedan.group);
+      const headlinerBounds = boundsInFrame(headliner, sm.stage.sedan.group);
       const engine = window.__specialMeetingDialogueAudit.engine;
       const followers = [...(engine._following ?? [])].map((entry) => entry.target?.name ?? null)
         .filter(Boolean);
@@ -906,6 +1070,7 @@ try {
         ),
         car: [forest.car.group.position.x, forest.car.group.position.y, forest.car.group.position.z],
         eyeError: eye.distanceTo(sm.player.position),
+        numbskullRoofClearance: headlinerBounds.min.y - numbskullBounds.max.y,
         mode: sm.player.mode,
         chunks: forest.terrain.chunks.size,
         trees: forest.terrain.treeCount,
@@ -935,10 +1100,29 @@ try {
   choicesTaken.push(await chooseAtBeat('SM-260', '[Say nothing.]'));
   choicesTaken.push(await chooseAtBeat('SM-280', '[Say nothing.]'));
   await lookAtWorldPoint(await sedanViewPoint('forward', 60));
-  await page.screenshot({ path: path.join(liveArtifactDir, 'drive-remote-forward.png') });
+  const forwardEvidence = path.join(liveArtifactDir, 'drive-remote-forward.png');
+  await page.screenshot({ path: forwardEvidence });
   /* Exercise the harder branch: the men physically trade rear seats while the
    * car is moving and the voice origins must trade with them. */
   choicesTaken.push(await chooseAtBeat('SM-320', 'Yeah. Actually'));
+  await lookAtWorldPoint(await sedanViewPoint('side', 12));
+  const sideEvidence = path.join(liveArtifactDir, 'drive-remote-side.png');
+  await page.screenshot({ path: sideEvidence });
+  const [forwardVisibility, sideVisibility] = await Promise.all([
+    screenshotRegionLuminance(forwardEvidence, {
+      x: 0.03, y: 0.37, width: 0.58, height: 0.41,
+    }),
+    screenshotRegionLuminance(sideEvidence, {
+      x: 0.28, y: 0.22, width: 0.69, height: 0.48,
+    }),
+  ]);
+  check('the rendered road and side woods remain readable through the live cabin glass',
+    forwardVisibility.mean >= 0.055
+      && forwardVisibility.readableFraction >= 0.55
+      && sideVisibility.mean >= 0.04
+      && sideVisibility.readableFraction >= 0.25,
+    JSON.stringify({ forward: forwardVisibility, side: sideVisibility }));
+  await lookAtWorldPoint(await sedanViewPoint('forward'));
 
   /* Observe the reveal while it is authored to be visible: SM-410 raises the
    * lid, SM-420 lets Kittenboss out and Numbskull shuts it after "Long story."
@@ -952,11 +1136,32 @@ try {
     { timeout: 240000 },
   );
 
-  const kittenReveal = await page.evaluate(() => {
+  const kittenReveal = await page.evaluate(async () => {
+    const { Raycaster, Vector3 } = await import('three');
     const sm = window.SPECIAL_MEETING;
     const kitten = sm.cast.byKey('kittenboss');
     const exit = sm.stage.sedan.doorWorld('trunk', kitten.group.position.clone());
     const world = kitten.group.getWorldPosition(kitten.group.position.clone());
+    const head = kitten.parts.head.getWorldPosition(new Vector3());
+    sm.player.camera.updateMatrixWorld(true);
+    const screen = head.clone().project(sm.player.camera);
+    const eye = sm.player.camera.getWorldPosition(new Vector3());
+    const sightline = head.clone().sub(eye);
+    const sightlineLength = sightline.length();
+    const raycaster = new Raycaster(
+      eye,
+      sightline.normalize(),
+      0.02,
+      Math.max(0.02, sightlineLength - 0.03),
+    );
+    const materialIsOpaque = (material) => {
+      const materials = Array.isArray(material) ? material : [material];
+      return materials.some((entry) => entry && entry.visible !== false
+        && !entry.transparent && (entry.opacity ?? 1) >= 0.98);
+    };
+    const opaqueCarHits = raycaster.intersectObject(sm.stage.sedan.group, true)
+      .filter((hit) => materialIsOpaque(hit.object.material))
+      .map((hit) => ({ name: hit.object.name, distance: hit.distance }));
     return {
       beat: sm.ride.beatId,
       visible: kitten.group.visible,
@@ -971,6 +1176,8 @@ try {
       renderedTrunkOpen: sm.stage.sedan.trunkOpen,
       occupants: sm.stage.sedan.occupantIds(),
       distanceFromTrunkExit: world.distanceTo(exit),
+      screen: { x: screen.x, y: screen.y, z: screen.z },
+      opaqueCarHits,
     };
   });
   await page.screenshot({ path: path.join(liveArtifactDir, 'arrival-kittenboss-reveal.png') });
@@ -996,7 +1203,12 @@ try {
       && !kittenReveal.occupants.includes('trunk')
       && kittenReveal.rideTrunkOpen
       && kittenReveal.renderedTrunkOpen >= 0.98
-      && kittenReveal.distanceFromTrunkExit < 1
+      && kittenReveal.distanceFromTrunkExit < 1.8
+      && Math.abs(kittenReveal.screen.x) < 0.95
+      && Math.abs(kittenReveal.screen.y) < 0.95
+      && kittenReveal.screen.z >= -1
+      && kittenReveal.screen.z <= 1
+      && kittenReveal.opaqueCarHits.length === 0
       && kittenReveal.profile.gender === 'female'
       && kittenReveal.profile.bodyShape === 'curvy'
       && revealAftermath.beat === 'SM-440'
@@ -1080,6 +1292,9 @@ try {
     }
     const modeFailures = driving.filter((sample) => sample.mode !== 'seated').length;
     const maxEyeError = Math.max(0, ...driving.map((sample) => sample.eyeError));
+    const minNumbskullRoofClearance = Math.min(
+      ...driving.map((sample) => sample.numbskullRoofClearance),
+    );
     const swapSeen = driving.some((sample) => (
       sample.seatedAs.rear_left === 'numbskull'
       && sample.seatedAs.rear_right === 'lag'
@@ -1227,6 +1442,7 @@ try {
       attachment: {
         maxEyeError,
         maxOccupantLocalDrift,
+        minNumbskullRoofClearance,
         modeFailures,
         attachmentFailures: attachmentFailures.slice(0, 4),
         swapSeen,
@@ -1235,6 +1451,7 @@ try {
       dialogue: {
         voiceCount: voiceCalls.length,
         voiceReceiptCount,
+        verifierSubstitutes: window.__SPECIAL_MEETING_VERIFIER_SUBSTITUTES__ ?? [],
         kittenbossVoiceCount: voiceCalls.filter((call) => speakerFor(call.cue) === 'kittenboss').length,
         inCarPhysicalCount: inCarPhysical.length,
         invalidReceipts,
@@ -1265,6 +1482,7 @@ try {
 
   check('the drive stays visible until its final exchange, then fades briefly with travel audio retained',
     certification.route.firedEvents.includes('final_approach')
+      && certification.route.firedEvents.includes('arrival_fade')
       && certification.route.transition.matchCutAt !== null
       && certification.route.transition.earlyBlackSamples.length === 0
       && certification.route.transition.finalBlackSampleCount > 0
@@ -1277,8 +1495,9 @@ try {
       && certification.route.transition.fadeOutSeconds === 1.2
       && certification.route.transition.fadeInSeconds === 0.8
       && certification.route.transition.blackDurationMs >= 1200
-      && certification.route.transition.blackDurationMs < 9000
-      && certification.route.transition.arrivalAt >= certification.route.transition.fadeOutAt
+      && certification.route.transition.blackDurationMs <= 2500
+      && certification.route.transition.arrivalAt >= certification.route.transition.fadeInAt
+      && certification.route.transition.arrivalBeatAt >= certification.route.transition.arrivalAt
       && ['sm.forest.engine', 'sm.forest.road'].every(
         (key) => certification.route.transition.loopsAtFadeOut.includes(key)
           && certification.route.transition.loopsAtFadeIn.includes(key),
@@ -1289,6 +1508,7 @@ try {
     certification.attachment.modeFailures === 0
       && certification.attachment.maxEyeError < 1e-4
       && certification.attachment.maxOccupantLocalDrift < 1e-4
+      && certification.attachment.minNumbskullRoofClearance >= 0.015
       && certification.attachment.attachmentFailures.length === 0
       && certification.attachment.swapSeen,
     JSON.stringify(certification.attachment));
@@ -1320,7 +1540,7 @@ try {
       && certification.parking.unexpectedTraffic.length === 0,
     JSON.stringify(certification.parking));
 
-  check('all 95 selected-path voice lines use delivered takes without overlapping',
+  check('the selected path exercises buffered speech without overlap or runtime audio violations',
     certification.dialogue.voiceCount >= 95
       && certification.dialogue.voiceReceiptCount >= 95
       && certification.dialogue.kittenbossVoiceCount >= 22
