@@ -131,6 +131,11 @@ test('every geometry state declares whether visible cast is required or intentio
       'apartment:day-one-wake',
       'apartment:day-three-wake',
       'apartment:day-two-wake',
+      /* The two hubs that are meant to be empty: the cabin is where he goes to
+       * be alone, and the luxury flat has no campaign edge into it yet. Both
+       * regain a cast expectation the moment anybody is written into them. */
+      'cabin:property',
+      'luxury-apartment:property',
       'mansion-siege:alert',
       'mansion-siege:clean',
       'mansion-siege:repaired',

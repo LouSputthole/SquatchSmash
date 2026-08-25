@@ -65,7 +65,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-33p78-0-m30p02-34p22-6-30p02",
       "maxDepthM": 0.441,
       "reason": "The leash slab that ends the playable street is deliberately buried in the building massing behind it, so the player is stopped by geometry he can see rather than by an invisible plane standing in open air. Overlapping the block is the point of where it is put.",
-      "source": "src/specialmeeting/block.js:1123",
+      "source": "src/specialmeeting/block.js:1124",
       "sourceAnchor": "solid(minX, minZ, maxX, maxZ, 0, height)"
     },
     {
@@ -98,7 +98,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -109,7 +109,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -120,7 +120,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -131,7 +131,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -142,7 +142,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -153,7 +153,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -175,7 +175,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
       "maxDepthM": 0.15,
       "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
-      "source": "src/specialmeeting/block.js:1195",
+      "source": "src/specialmeeting/block.js:1196",
       "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
     },
     {
@@ -186,7 +186,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
       "maxDepthM": 0.15,
       "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
-      "source": "src/specialmeeting/block.js:1195",
+      "source": "src/specialmeeting/block.js:1196",
       "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
     },
     {
@@ -197,7 +197,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
       "maxDepthM": 0.15,
       "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
-      "source": "src/specialmeeting/block.js:1195",
+      "source": "src/specialmeeting/block.js:1196",
       "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
     },
     {
@@ -208,7 +208,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
       "maxDepthM": 0.15,
       "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
-      "source": "src/specialmeeting/block.js:1195",
+      "source": "src/specialmeeting/block.js:1196",
       "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
     },
     {
@@ -274,7 +274,7 @@
       "right": "root:specialmeeting-kerb-arrived/collider:aabb-8p28-0-m10p12-10p42-1p9-m9p78",
       "maxDepthM": 0.14,
       "reason": "The gate wall between the building and the parking lot meets the lot’s own boundary rail where the two enclosures join. Authored corner join, capped at the rail depth.",
-      "source": "src/specialmeeting/block.js:1134",
+      "source": "src/specialmeeting/block.js:1135",
       "sourceAnchor": "solid(APARTMENT.maxX, FACADE_Z - 2.6, PARKING.minX, FACADE_Z, 0, 2.9)"
     },
     {
@@ -384,7 +384,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-33p78-0-m30p02-34p22-6-30p02",
       "maxDepthM": 0.441,
       "reason": "The leash slab that ends the playable street is deliberately buried in the building massing behind it, so the player is stopped by geometry he can see rather than by an invisible plane standing in open air. Overlapping the block is the point of where it is put.",
-      "source": "src/specialmeeting/block.js:1123",
+      "source": "src/specialmeeting/block.js:1124",
       "sourceAnchor": "solid(minX, minZ, maxX, maxZ, 0, height)"
     },
     {
@@ -417,7 +417,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -428,7 +428,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -439,7 +439,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -450,7 +450,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -461,7 +461,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -472,7 +472,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
       "maxDepthM": 0.15,
       "reason": "A car parked at the kerb overhangs the 15 cm kerb collider, which is what kerbside parking looks like — the wheels are against it and the body is over it. Removing the overlap would mean parking every car a body-width out into the lane.",
-      "source": "src/specialmeeting/block.js:985",
+      "source": "src/specialmeeting/block.js:986",
       "sourceAnchor": "colliders.push(makeVehicleCollider(car, 0.1))"
     },
     {
@@ -483,7 +483,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
       "maxDepthM": 0.15,
       "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
-      "source": "src/specialmeeting/block.js:1195",
+      "source": "src/specialmeeting/block.js:1196",
       "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
     },
     {
@@ -494,7 +494,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
       "maxDepthM": 0.15,
       "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
-      "source": "src/specialmeeting/block.js:1195",
+      "source": "src/specialmeeting/block.js:1196",
       "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
     },
     {
@@ -505,7 +505,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-5p75-34p02-0p15-6p03",
       "maxDepthM": 0.15,
       "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
-      "source": "src/specialmeeting/block.js:1195",
+      "source": "src/specialmeeting/block.js:1196",
       "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
     },
     {
@@ -516,7 +516,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-m40p02-0-m6p14-34p02-0p15-m5p86",
       "maxDepthM": 0.15,
       "reason": "The leash slab that ends the playable street is a full-height wall dropped across the carriageway at x=-38 and x=34, and the kerb collider runs the whole 74 m of pavement behind it. The slab crossing the kerb is the seam being sealed, not two solids colliding: it is what stops the player walking off the end of the kerb into untextured road.",
-      "source": "src/specialmeeting/block.js:1195",
+      "source": "src/specialmeeting/block.js:1196",
       "sourceAnchor": "collider([-38.2, 0, -30], [-37.8, 6, 30])"
     },
     {
@@ -582,7 +582,7 @@
       "right": "root:specialmeeting-kerb-waiting/collider:aabb-8p28-0-m10p12-10p42-1p9-m9p78",
       "maxDepthM": 0.14,
       "reason": "The gate wall between the building and the parking lot meets the lot’s own boundary rail where the two enclosures join. Authored corner join, capped at the rail depth.",
-      "source": "src/specialmeeting/block.js:1134",
+      "source": "src/specialmeeting/block.js:1135",
       "sourceAnchor": "solid(APARTMENT.maxX, FACADE_Z - 2.6, PARKING.minX, FACADE_Z, 0, 2.9)"
     },
     {

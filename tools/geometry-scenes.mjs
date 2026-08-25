@@ -133,8 +133,24 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
   ...HEIST_PREVIEW_CHECKPOINTS.map((checkpoint) => entry(
     'heist', checkpoint.replaceAll('_', '-'), 'heist', ['heist'], { checkpoint },
   )),
-  entry('cabin', 'property', 'cabin', ['cabin']),
-  entry('luxury-apartment', 'property', 'luxury-apartment', ['luxury-apartment']),
+  /* TWO HUBS WITH NOBODY IN THEM, ON PURPOSE.
+   *
+   * The countryside cabin is where Tony goes to be ALONE between jobs -- that
+   * is the whole point of the place -- and the luxury flat has no campaign
+   * edge into it yet, so there is nobody to be there. Neither is a state whose
+   * cast has simply not been staged; recording that keeps them out of the
+   * "missing required actors" list, where they would sit forever as a false
+   * two, and both regain a cast expectation the moment anybody is written in. */
+  entry('cabin', 'property', 'cabin', ['cabin'], {
+    actorExpectation: intentionalNoActors(
+      'The countryside hideout is deliberately solitary; there is no cast to stage.',
+    ),
+  }),
+  entry('luxury-apartment', 'property', 'luxury-apartment', ['luxury-apartment'], {
+    actorExpectation: intentionalNoActors(
+      'The luxury flat is an unplaced hub with no campaign edge into it, so nobody is in it yet.',
+    ),
+  }),
   entry('motel', 'property', 'motel', ['motel'], { geometryStage: 'startup' }),
   entry('motel', 'late-cast', 'motel', [], { geometryStage: 'late' }),
   entry('motel', 'drive', 'motel', [], {
