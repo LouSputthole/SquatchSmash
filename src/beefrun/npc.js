@@ -1147,10 +1147,27 @@ export function makeChicken(x, z) {
   const body = mesh(sphereGeo(0.16, 8, 6), solid(0xe8e2d4, { roughness: 1 }), 0, 0.24, 0);
   body.scale.set(1, 0.85, 1.25);
   g.add(body);
-  const head = mesh(sphereGeo(0.08, 8, 6), solid(0xe8e2d4, { roughness: 1 }), 0, 0.42, 0.14);
+  /* THE HEAD IS A GROUP, NOT A BALL WITH THINGS PARKED NEAR IT.
+   *
+   * Owner, 2026-08-25: *"the red gobbler stays put and it just the head
+   * floats."* Exactly right. `updateChicken` pecks by lowering the head 18 cm,
+   * and the beak and the comb were SIBLINGS of it on the body -- so the skull
+   * dipped and left its own beak and wattle hanging in the air where the head
+   * used to be. Three pieces of one head, one of them moving.
+   *
+   * They ride in a pivot at the neck now, positioned relative to it, so the
+   * peck takes the whole head with it. `head` still names the thing the update
+   * moves and still sits at y 0.42, so the bob arithmetic there is untouched. */
+  const head = group('chicken-head');
+  head.position.set(0, 0.42, 0.14);
+  head.add(
+    mesh(sphereGeo(0.08, 8, 6), solid(0xe8e2d4, { roughness: 1 }), 0, 0, 0),
+    // The beak, on the front of the skull.
+    mesh(coneGeo(0.03, 0.07, 5), solid(0xe8a23a, { roughness: 0.9 }), 0, 0, 0.10),
+    // The comb, on top of it.
+    mesh(boxGeo(0.04, 0.07, 0.03), solid(0xd92e2e, { roughness: 0.9 }), 0, 0.07, 0),
+  );
   g.add(head);
-  g.add(mesh(coneGeo(0.03, 0.07, 5), solid(0xe8a23a, { roughness: 0.9 }), 0, 0.42, 0.24));
-  g.add(mesh(boxGeo(0.04, 0.07, 0.03), solid(0xd92e2e, { roughness: 0.9 }), 0, 0.49, 0.14));
   for (const sx of [-0.05, 0.05]) {
     g.add(mesh(cylGeo(0.012, 0.012, 0.16, 5), solid(0xe8a23a, { roughness: 0.9 }), sx, 0.08, 0));
   }
