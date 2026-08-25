@@ -27,7 +27,8 @@ import { ensureThreeShim, ensureDomShim } from '../tools/three-shim.mjs';
 await ensureDomShim();
 await ensureThreeShim();
 
-const { LIL_TOM_ROUTE, DOG_SHOULDER_HEIGHT } = await import('../src/mansion/dog.js');
+const THREE = await import('three');
+const { LIL_TOM_ROUTE, DOG_SHOULDER_HEIGHT, mountLilTomCruze } = await import('../src/mansion/dog.js');
 const {
   MASTER_SUITE, SUITE_Y, SUITE_STAIR_HALL, SUITE_STAIR_LANDING_Y,
   SUITE_FLIGHT_A, SUITE_FLIGHT_B, SUITE_HALF_LANDING, SUITE_SECRET_DOOR,
@@ -139,4 +140,96 @@ test('he goes through the bookcase rather than through the wall beside it', () =
 test('he is a dog-sized dog, and the suite has headroom for him', () => {
   assert.ok(DOG_SHOULDER_HEIGHT > 0.55 && DOG_SHOULDER_HEIGHT < 0.7);
   assert.ok(SUITE_Y > UPPER_Y + 4.0, 'the third floor really is a storey above the office');
+});
+
+/* ------------------------------------------------------------------------ */
+/* HE STANDS ON THE FLOOR, IN BOTH POSES                                     */
+/*                                                                            */
+/* The model was re-cut after the owner said "the dog is still cursed, need a */
+/* new dog" -- new head, longer neck, wider track, thicker legs, a plume for  */
+/* a tail. None of it touched the rig, and this is the check that says so     */
+/* rather than the comment above it claiming so.                              */
+/*                                                                            */
+/* The claim being kept is narrow and exact: the LOWEST piece of the dog is a */
+/* paw pad, standing and sitting, and it is on the floor. That is what catches */
+/* both directions of the failure -- a rest angle nudged so the pads hover, and*/
+/* a new part hung so low it goes through the boards. The second one is not    */
+/* hypothetical: the first cut of the plume put its cream feathering 41 mm     */
+/* under the floor whenever he sat down to be petted, which no other check in  */
+/* this repo would ever have mentioned.                                        */
+/* ------------------------------------------------------------------------ */
+
+/** The lowest and highest rendered point of the dog, and what is lowest. */
+function extremes(dog) {
+  const parent = dog.group.parent ?? dog.group;
+  parent.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  let low = Infinity;
+  let high = -Infinity;
+  let lowest = null;
+  dog.group.traverse((o) => {
+    // The pet proxy is invisible and deliberately stands proud of everything.
+    if (!o.isMesh || o.name === 'dog.pet-target') return;
+    box.setFromObject(o);
+    if (box.min.y < low) { low = box.min.y; lowest = o.name; }
+    if (box.max.y > high) high = box.max.y;
+  });
+  return { low, high, lowest };
+}
+
+function poseDog(seconds) {
+  const parent = new THREE.Group();
+  const dog = mountLilTomCruze({ parent, enabled: () => false });
+  dog.update(1 / 60);
+  if (seconds > 0) {
+    dog.pet();
+    for (let i = 0; i < Math.round(seconds * 60); i += 1) dog.update(1 / 60);
+  }
+  return dog;
+}
+
+test('standing, every pad is on the floor and nothing hangs below one', () => {
+  const dog = poseDog(0);
+  const { low, lowest } = extremes(dog);
+  assert.ok(
+    lowest.includes('.pad.'),
+    `the lowest part of a standing dog must be a paw pad, not ${lowest}`,
+  );
+  /* THE FLOOR IS HIS OWN FEET, NOT y = 0. He is mounted on his route, and the
+   * route starts on the cushion by Lou's bed at SUITE_Y -- so the number to
+   * beat is his group's own height, which is what `dispose`-free `report()`
+   * publishes. Asserting against zero measures which storey he is on. */
+  const floor = dog.report().y;
+  assert.ok(
+    Math.abs(low - floor) < 0.004,
+    `standing pads must sit on the floor at ${floor}, measured ${low.toFixed(4)} at ${lowest}`,
+  );
+});
+
+test('sitting to be petted, he still lands on his pads rather than through the floor', () => {
+  const dog = poseDog(1.5);
+  assert.equal(dog.report().state, 'pet', 'the pose under test must be the sit');
+  const { low, lowest } = extremes(dog);
+  assert.ok(
+    lowest.includes('.pad.'),
+    `the lowest part of a sitting dog must be a paw pad, not ${lowest}`,
+  );
+  const floor = dog.report().y;
+  assert.ok(
+    low > floor - 0.004,
+    `nothing may hang through the floor when he sits: ${lowest} at ${low.toFixed(4)}`,
+  );
+});
+
+test('he carries his head clear over his own withers', () => {
+  /* The complaint that started the re-cut was a head hung DEAD LEVEL with the
+   * shoulders on 0.218 m of neck. An alert dog carries the crown of his skull
+   * well above the withers, and DOG_SHOULDER_HEIGHT is where those are. */
+  const dog = poseDog(0);
+  const { high } = extremes(dog);
+  const clearance = high - dog.report().y - DOG_SHOULDER_HEIGHT;
+  assert.ok(
+    clearance > 0.12,
+    `head must stand clear of the withers; only ${clearance.toFixed(3)} m over them`,
+  );
 });
