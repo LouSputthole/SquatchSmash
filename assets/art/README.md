@@ -88,9 +88,16 @@ until the day it does not.
 `manifest.json`.** That is the whole job; no code changes.
 
 2026-08-19: the owner reassigned the generic office frames to supplied team
-photos. The five files below are wired in `manifest.json` now; four of them
-are placeholder stand-ins (copies of the nearest existing art) until the
-owner's real drops overwrite them at the same filenames.
+photos. The five files below were wired in `manifest.json`; four of them were
+placeholder stand-ins -- literally byte-for-byte copies of mansion art, so the
+same picture hung in two scenes at once.
+
+**2026-08-25: those four are real pictures now.** The owner's Silver
+Sasquatches library landed (see the section below) and `bing.office.the_boys`,
+`bing.office.first_truck`, `bing.office.old_place` and `bing.office.nephews`
+carry branded pieces from it. The slots below are kept as a record of what
+each frame was originally for; if the owner's own photographs turn up later,
+point the row at the new file and the frame resizes to it.
 
 | Slot | The picture | Filename (owner will overwrite) | Frame | Aspect |
 |---|---|---|---|---|
@@ -203,3 +210,57 @@ The operations room is the long room west of the portrait gallery's own west
 wall. It is sealed today — the owner asked separately for it to be turned
 into an operations gallery, and cutting its doorway and dressing the rest of
 it is that pass, not this one. Its whole east wall is left bare for it.
+
+
+## The Silver Sasquatches library — landed 2026-08-25
+
+Twenty owner-supplied pieces in `assets/art/silver-sasquatches/`: thirteen
+branded Silver Sasquatches works and seven landscapes.
+
+**They arrived as PNGs and ship as WebP.** 2.4-3.2 MB each, 51.9 MB the lot --
+against a repo whose existing wall art is WebP at 200-300 kB a piece. Fifty-two
+megabytes in front of a browser game's first load is not a rounding error, it
+is the load. Re-encoded at 1280 px on the long edge, quality 0.86, through
+Chromium's own WebP encoder (this box has no `cwebp`, no PIL and no sharp):
+**51.9 MB -> 4.84 MB**, every file between 166 and 349 kB, which is exactly the
+band the A-Team pictures already occupy. Aspect ratios are untouched, so every
+frame hangs as it was drawn. The original PNGs remain on
+`codex/scene-certification-foundations` at `faac0fd9` if a master is ever
+wanted.
+
+**What they were hung on: the repeated pictures.** The complaint was
+placeholder art, and the manifest had no empty slots at all -- what it had was
+the same file on wall after wall. `logo-crest.png` alone hung on EIGHT slots,
+six of them inside one house: the foyer, the suite bar, the guest room, the
+gate, the LAN room and the shrine all showed the identical flat badge. Another
+dozen mansion walls carried a tournament photograph that also hung in the flat
+or the apartment.
+
+`logo-crest.png` is on three slots now, and all three are places a crest
+belongs -- the flat's round crest, the Bing office's plaque and the mansion
+gate. Everything else on that list got a real picture:
+
+| Where | What went up |
+|---|---|
+| `mansion.foyer.crest` | Silver Sasquatches Emblem |
+| `mansion.suite.crest` | THE PATRIARCH |
+| `mansion.guest.crest` | HOUSE RULES |
+| `mansion.bedroom.booski-death.crest` | BLOOD OATH |
+| `mansion.lan.chairs` | FAMILY ENTERPRISE |
+| `mansion.office.shield` | THE ESTATE |
+| `mansion.conference.crest` | INNER CIRCLE |
+| `mansion.gallery.pride` | OMERTA |
+| `mansion.vault.mark` | Estate Architectural Study |
+| `mansion.winter.shield` | Mountain Valley Sunset |
+| `mansion.cellar.crest` | Desert Canyon Sunset |
+| `mansion.bay.shield` | Lakeside Dock |
+| `mansion.lounge.banner` | Mountain Lake Sunrise |
+| `mansion.basement.shield` | Forest Waterfall |
+| `mansion.theatre.banner` | Coastal Lighthouse |
+| `bing.office.the_boys` | Formal Family Portrait |
+| `bing.office.first_truck` | THE POKER ROOM |
+| `bing.office.old_place` | THE LOUNGE |
+| `bing.office.nephews` | Mansion Arrival |
+| `luxury.bath.monochrome` | Tropical Beach Sunset |
+
+All twenty are hung; none of the library is sitting unused.

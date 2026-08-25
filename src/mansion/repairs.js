@@ -116,11 +116,16 @@ export function mountFoyerRepairs({ scene, foyer = null, at, colliders = null } 
   add(box({
     size: [1.5, 0.11, 1.2], pos: [px, gy + 0.055, pz], mat: M.timber, name: 'repairs-pallet',
   }));
+  /* The tier's arms, standing on edge in the pallet -- and STANDING IN IT
+   * rather than through it. A 0.9 box at 1.47 rad reaches 0.450 below its own
+   * centre, so hung at 0.44 the ring had its feet 10 mm under the marble. The
+   * pallet's top is 0.11; 0.57 puts them on it. */
+  const armLift = 0.57;
   for (let i = 0; i < 5; i += 1) {
     const a = (i / 5) * Math.PI - Math.PI / 2;
     add(box({
       size: [0.9, 0.05, 0.05],
-      pos: [px + Math.sin(a) * 0.05, gy + 0.44, pz + Math.cos(a) * 0.30],
+      pos: [px + Math.sin(a) * 0.05, gy + armLift, pz + Math.cos(a) * 0.30],
       mat: M.gold, rotY: a * 0.5, rotZ: Math.PI / 2 - 0.10, cast: false,
       name: 'repairs-tier-arm',
     }));
@@ -129,7 +134,7 @@ export function mountFoyerRepairs({ scene, foyer = null, at, colliders = null } 
     r: 0.16, h: 0.20, pos: [px + 0.44, gy + 0.21, pz - 0.30], mat: M.gold, name: 'repairs-tier-finial',
   }));
   add(box({
-    size: [1.30, 0.10, 1.00], pos: [px - 0.10, gy + 0.50, pz + 0.06], mat: M.sheet,
+    size: [1.30, 0.10, 1.00], pos: [px - 0.10, gy + 0.66, pz + 0.06], mat: M.sheet,
     rotZ: 0.05, cast: false, name: 'repairs-pallet-sheet',
   }));
 
@@ -180,11 +185,22 @@ export function mountFoyerRepairs({ scene, foyer = null, at, colliders = null } 
       }));
     }
   }
-  /* Diagonal braces on the two faces you can see from the front door. */
-  for (const [ox, oz, rz] of [[0, -0.62, 1.22], [-0.62, 0, -1.22]]) {
+  /* Diagonal braces on the two faces you can see from the front door.
+   *
+   * SIZED TO THE BAY, not eyeballed at it. The first pass was 2.30 m at 1.22
+   * rad, and 1.22 is steep enough that half of a 2.30 box reaches 1.086 m
+   * below its own centre -- so a brace hung at deck-half-height put 136 mm of
+   * scaffolding through the foyer floor. The bay is 1.24 wide (the legs) by
+   * 1.90 tall (the lower deck), so the diagonal is atan2(1.90, 1.24) = 0.993
+   * rad and 2.24 long: at that angle its vertical half-extent, tube thickness
+   * included, is 0.947 against the 0.95 it hangs from. It ends 2.5 mm above
+   * the marble instead of a hand's width under it. */
+  const braceAngle = Math.atan2(1.90, 1.24);
+  for (const [ox, oz, sign] of [[0, -0.62, 1], [-0.62, 0, -1]]) {
     add(box({
-      size: [2.30, 0.035, 0.035], pos: [sx + ox, gy + 0.95, sz + oz], mat: M.steel,
-      rotZ: rz, rotY: ox === 0 ? 0 : Math.PI / 2, cast: false, name: 'repairs-scaffold-brace',
+      size: [2.24, 0.035, 0.035], pos: [sx + ox, gy + 0.95, sz + oz], mat: M.steel,
+      rotZ: sign * braceAngle, rotY: ox === 0 ? 0 : Math.PI / 2,
+      cast: false, name: 'repairs-scaffold-brace',
     }));
   }
 
