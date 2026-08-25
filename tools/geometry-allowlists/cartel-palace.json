@@ -184,7 +184,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -195,7 +195,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -411,7 +411,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#6/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -422,7 +422,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#7/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -433,7 +433,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -444,7 +444,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -455,7 +455,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -466,7 +466,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -477,7 +477,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -488,7 +488,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -894,7 +894,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-west#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -905,7 +905,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-east#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -1230,7 +1230,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -1241,7 +1241,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -1457,7 +1457,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#6/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -1468,7 +1468,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#7/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -1479,7 +1479,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -1490,7 +1490,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -1501,7 +1501,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -1512,7 +1512,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -1523,7 +1523,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -1534,7 +1534,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -1940,7 +1940,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-west#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -1951,7 +1951,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-east#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -2276,7 +2276,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -2287,7 +2287,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -2503,7 +2503,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#6/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -2514,7 +2514,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#7/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -2525,7 +2525,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -2536,7 +2536,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -2547,7 +2547,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -2558,7 +2558,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -2569,7 +2569,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -2580,7 +2580,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -2986,7 +2986,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-west#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -2997,7 +2997,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-east#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -3322,7 +3322,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -3333,7 +3333,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -3549,7 +3549,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#6/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -3560,7 +3560,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#7/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -3571,7 +3571,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -3582,7 +3582,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -3593,7 +3593,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -3604,7 +3604,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -3615,7 +3615,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -3626,7 +3626,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -4032,7 +4032,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-west#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -4043,7 +4043,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-east#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -4368,7 +4368,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -4379,7 +4379,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -4595,7 +4595,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#6/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -4606,7 +4606,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#7/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -4617,7 +4617,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -4628,7 +4628,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -4639,7 +4639,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -4650,7 +4650,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -4661,7 +4661,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -4672,7 +4672,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -5078,7 +5078,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-west#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -5089,7 +5089,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-east#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -5414,7 +5414,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#3",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -5425,7 +5425,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=palace-perimeter#0/name=perimeter-pier#4",
       "maxDepthM": 0.072,
       "reason": "Each exterior practical bracket is deliberately keyed through its matching perimeter pier by the bracket cross-section so the light has a visible wall mount rather than floating beside the compound.",
-      "source": "src/cartel-palace/world.js:3145",
+      "source": "src/cartel-palace/world.js:3159",
       "sourceAnchor": "Exterior pair hangs from the inside face"
     },
     {
@@ -5641,7 +5641,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#6/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -5652,7 +5652,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-picture-light#7/name=gallery-picture-light-arm#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -5663,7 +5663,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -5674,7 +5674,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -5685,7 +5685,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -5696,7 +5696,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=portrait-gallery-refinement#0/name=gallery-west-wall#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -5707,7 +5707,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -5718,7 +5718,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=security-service-partition#0",
       "maxDepthM": 0.07100000000000001,
       "reason": "A picture light is SCREWED TO THE WALL it lights. Its arm ends inside the plaster because that is where the fixing goes; a picture light whose arm stopped at the wall face would be hanging off nothing.",
-      "source": "src/cartel-palace/world.js:2781",
+      "source": "src/cartel-palace/world.js:2795",
       "sourceAnchor": "'gallery-picture-light-arm'"
     },
     {
@@ -6124,7 +6124,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-west#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {
@@ -6135,7 +6135,7 @@
       "right": "root:cartel-palace/name=cartel-palace.compound#0/name=mark-estate#0/name=final-dining-refinement#0/name=dining-sideboard-east#0",
       "maxDepthM": 0.121,
       "reason": "A sideboard standing on its own plinth. The carcass sits down INTO the plinth rather than balancing on top of it, which is how plinths are built.",
-      "source": "src/cartel-palace/world.js:2949",
+      "source": "src/cartel-palace/world.js:2963",
       "sourceAnchor": "'dining-sideboard-plinth'"
     },
     {

@@ -577,9 +577,37 @@ test('the complete radio stack stays inside the real neutral pilot scan and rema
   assert.equal(displays.length, 3, 'the radio needs three readable displays');
   assert.equal(knobs.length, 6, 'the radio needs two knobs per unit');
   assert.equal(coaming.length, 1, 'the radio support coaming is missing or duplicated');
+  /* CARRIED BY THE COAMING, NOT BURIED IN IT.
+   *
+   * This asked for positive VOLUME overlap, which a stack sunk halfway into
+   * the glare shield satisfies perfectly -- and that is exactly what the owner
+   * reported on 2026-08-25: *"the radios ... are half in the dash right now."*
+   * The assertion was measuring the defect and calling it support.
+   *
+   * What "visibly carried" means for equipment on a shelf is: its underside is
+   * ON the shelf's top face, and its footprint is within the shelf. That rules
+   * out floating (a gap) and burial (a sink) with one pair of numbers, where
+   * volume overlap only ever ruled out the first. */
+  const housingBox = boundsOf(housing[0]);
+  const coamingBox = boundsOf(coaming[0]);
   assert.ok(
-    positiveVolumeOverlap(boundsOf(housing[0]), boundsOf(coaming[0])),
-    'the radio housing is not visibly carried by the glare-shield coaming',
+    Math.abs(housingBox.min.y - coamingBox.max.y) <= 0.02,
+    `the radio housing does not rest on the coaming: its underside is at `
+      + `${housingBox.min.y.toFixed(3)}, the shield top at ${coamingBox.max.y.toFixed(3)}`,
+  );
+  assert.ok(
+    housingBox.min.x >= coamingBox.min.x && housingBox.max.x <= coamingBox.max.x
+      && housingBox.min.z >= coamingBox.min.z && housingBox.max.z <= coamingBox.max.z,
+    'the radio housing overhangs the glare shield it is meant to stand on',
+  );
+  /* And it is a RUN, not a column: three units across, not three stacked. */
+  const unitBoxes = units.map((unit) => boundsOf(unit));
+  const spreadX = Math.max(...unitBoxes.map((b) => b.max.x)) - Math.min(...unitBoxes.map((b) => b.min.x));
+  const spreadY = Math.max(...unitBoxes.map((b) => b.max.y)) - Math.min(...unitBoxes.map((b) => b.min.y));
+  assert.ok(
+    spreadX > spreadY * 2,
+    `the radios are stacked rather than laid across the dash (x spread ${spreadX.toFixed(3)}, `
+      + `y spread ${spreadY.toFixed(3)})`,
   );
 
   for (const display of displays) {
