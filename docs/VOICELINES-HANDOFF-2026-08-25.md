@@ -148,12 +148,35 @@ instance of this bug in the repo.
 - **18 retired `short-one` takes.** That character is now `lola` and `johnny`,
   recorded fresh. The old files are dead under a retired name.
 
-## Still waiting on a human
+## The ad breaks are on air
 
-Three 97.8 THE SQUATCH ad breaks — `jerky`, `attorney`, `dealership` — are
-written, recorded and indexed, and still carry `live: false` in
-`src/core/stations.js`. The comment above that list names the condition: flip
-`live` to true once the lines are in `assets/sfx/index.json`. They are, every
-cue of all three. Until somebody flips it the ad slot keeps playing the one
-break that was already on air and twenty delivered lines sit unheard. Left
-alone because which commercials are on air is a content call.
+Three 97.8 THE SQUATCH ad breaks — `jerky`, `attorney`, `dealership` — were
+written, recorded and indexed months ago and had sat at `live: false` in
+`src/core/stations.js` ever since, so the slot kept playing the one break that
+was already on air while twenty delivered lines went unheard. All three are now
+`live: true`.
+
+That flag is not decoration. `src/core/radio.js` filters on it twice: once so a
+break that cannot air is never preloaded, and once at line 662 where the live
+breaks are the round-robin pool. With four live, every break airs before any of
+them repeats, and which one is next survives a save.
+
+No recording was needed. All 24 segments across the three were already indexed,
+and `npm run radio:cues` — which derives the radio's manifest entries from
+`stations.js`, so they cannot drift when somebody rewrites a line — reported
+275 radio lines already in sync after the flip.
+
+## Nothing is outstanding
+
+At the time of writing, with every filter off — no `--live-only`, no exclusion
+of the unreachable Initiation party catalog:
+
+```
+manifest cues 4607 | spoken 4022 | cues with no file: 0 | flagged for re-record: 0
+```
+
+`main`, `origin/main` and this branch all report zero. If you are looking at a
+number larger than that, check `git status -sb` for "behind N" before believing
+it — a stale checkout is the single most reliable way to get a wrong answer out
+of these commands, and it produced two confident wrong answers while this branch
+was being built.

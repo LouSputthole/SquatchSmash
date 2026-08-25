@@ -270,9 +270,9 @@ const COMMERCIAL_DEALERSHIP = [
  */
 const COMMERCIALS = [
   { id: 'station', live: true, segments: COMMERCIAL_STATION },
-  { id: 'jerky', live: false, segments: COMMERCIAL_JERKY },
-  { id: 'attorney', live: false, segments: COMMERCIAL_ATTORNEY },
-  { id: 'dealership', live: false, segments: COMMERCIAL_DEALERSHIP },
+  { id: 'jerky', live: true, segments: COMMERCIAL_JERKY },
+  { id: 'attorney', live: true, segments: COMMERCIAL_ATTORNEY },
+  { id: 'dealership', live: true, segments: COMMERCIAL_DEALERSHIP },
 ];
 
 /**
