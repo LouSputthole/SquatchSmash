@@ -18,14 +18,22 @@
  * purpose, because guessing from today's manifest would be false confidence in
  * a different column.
  *
- * All thirty-nine of Rico's takes are `assumed`. So the one character the owner
- * asked about is the one the drift check is blind to: recast him and the game
+ * All thirty-nine of Rico's takes were `assumed`. So the one character the owner
+ * asked about was the one the drift check was blind to: recast him and the game
  * keeps shipping the voice he complained about, with every gate green.
  *
  * This file is the gate for that hole. A profile that has been recast has to be
  * declared in `assets/sfx/rerecord.json` under `recast`, and its entry has to
  * agree with the manifest -- so the fact survives in the same place every other
  * stale recording is tracked, and a human reading the queue finds it.
+ *
+ * RESOLVED 2026-08-25. The thirty-nine takes were re-rendered on the new id, so
+ * Rico's queue entry came out and the third test below now gates the landed
+ * state instead of the pending one. The hole itself is only closed for HIM: the
+ * ledger stamps a performer on takes it renders, and the great majority of this
+ * game's takes predate it and are still `assumed`. The next recast of a
+ * pre-ledger profile is invisible in exactly the same way, and the queue entry
+ * these tests enforce is still the only thing that will catch it.
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -56,7 +64,6 @@ test('a recast profile whose takes are unstamped stays in the queue until they a
    * `assumed` takes there is nothing to compare, and the entry in the queue is
    * the only record that the mp3s are stale. It may only be removed once the
    * takes carry a stamp, and that stamp has to be the NEW id. */
-  const manifest = read('assets/sfx/manifest.json');
   const takes = read('assets/sfx/takes.json').takes ?? {};
   for (const entry of read('assets/sfx/rerecord.json').recast ?? []) {
     const owned = Object.entries(takes)
@@ -72,17 +79,37 @@ test('a recast profile whose takes are unstamped stays in the queue until they a
   }
 });
 
-test('Rico is the recast the owner asked for, and his takes are still the old voice', () => {
+test('Rico is on the id the owner supplied, and his takes are that performer', () => {
   /* Named rather than generic, because the point of the whole exercise is that
-   * this specific character sounded like two other people. */
-  const rico = (read('assets/sfx/rerecord.json').recast ?? [])
-    .find((entry) => entry.profile === 'motel-rico');
-  assert.ok(rico, 'the Motel Rico recast has been dropped from the queue');
-  assert.equal(rico.to, '5sPGxVw5vqj7a08c5Xbw', 'Rico is not on the id the owner supplied');
+   * this specific character sounded like two other people.
+   *
+   * This test used to assert the opposite: that the recast was still pending
+   * and the mp3s were still the old man. That was the correct gate right up
+   * until 2026-08-25, when the thirty-nine takes were re-rendered on the new
+   * id. Flipping it rather than deleting it keeps the question the owner asked
+   * -- "is this the same voice as somebody else?" -- being asked of every
+   * future change to this profile. */
   const manifest = read('assets/sfx/manifest.json');
-  assert.equal(manifest.voices['motel-rico'].id, '5sPGxVw5vqj7a08c5Xbw');
-  assert.match(manifest.voices['motel-rico']._note ?? '', /STILL THE OLD PERFORMER/,
-    'the manifest no longer warns that Rico\'s recordings have not caught up with his casting');
+  assert.equal(manifest.voices['motel-rico'].id, '5sPGxVw5vqj7a08c5Xbw',
+    'Rico is not on the id the owner supplied');
+
+  /* The queue entry is gone because the work it tracked is done. If a take is
+   * ever stale again, `check:takes` catches it directly now -- all thirty-nine
+   * carry a stamp, so nothing has to be written down by hand. */
+  const pending = (read('assets/sfx/rerecord.json').recast ?? [])
+    .find((entry) => entry.profile === 'motel-rico');
+  assert.equal(pending, undefined,
+    'Rico is queued as a pending recast again: either his takes went stale, or '
+    + 'the entry outlived the re-render that retired it');
+
+  const takes = read('assets/sfx/takes.json').takes ?? {};
+  const owned = Object.entries(takes).filter(([cue]) => cue.startsWith('vo.motel.rico.'));
+  assert.ok(owned.length > 0, 'no vo.motel.rico.* take is in the ledger at all');
+  const stale = owned.filter(([, take]) => (
+    take.source !== 'rendered' || take.voiceId !== '5sPGxVw5vqj7a08c5Xbw'
+  ));
+  assert.deepEqual(stale.map(([cue]) => cue), [],
+    'these Rico takes are not the performer the manifest casts him as');
 
   /* And nobody else has quietly been given his new id. */
   const sharing = Object.entries(manifest.voices)

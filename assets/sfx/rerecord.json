@@ -111,14 +111,5 @@
       "reason": "named by no source file; a second take of the close the wired shut take already plays"
     }
   ],
-  "recast": [
-    {
-      "profile": "motel-rico",
-      "from": "UZvBfqEdvCFLqsBOo9Zr",
-      "to": "5sPGxVw5vqj7a08c5Xbw",
-      "cuePrefix": "vo.motel.rico.",
-      "reason": "Owner, on the Jerky Motel playthrough: 'Does Rico use the same voice as Capt Lou Sasole? I thought I heard his voice from one of the mansion gaurds as well.' The audit found no shared id -- the old casting was provisional, from the owner's Boston side-character pool, and simply read as the wrong man. The owner supplied the replacement id on 2026-08-24.",
-      "regenerate": "npm run sfx -- --force --cast motel-rico && npm run sfx:listen && npm run vo:takes"
-    }
-  ]
+  "recast": []
 }
