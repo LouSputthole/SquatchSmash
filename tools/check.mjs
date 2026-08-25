@@ -513,6 +513,21 @@ try {
     }
   }
 
+  /* The Motel and the campground reach their promoted cues through a
+   * `playSample` guard rather than a literal `audio.play(...)`, so the scan
+   * further up cannot see them either. A promoted cue that falls out of the
+   * manifest does not go quiet -- it silently drops back to the oscillator it
+   * was promoted away from, which is the one failure nobody hears. */
+  {
+    const { checkLegacySfxManifest } = await import('./legacy-sfx.mjs');
+    const queue = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/audio/sound-queue.json'), 'utf8'));
+    const drift = checkLegacySfxManifest(sfxManifest, queue);
+    if (drift.length) {
+      fail(`Promoted Motel and Campground sound drift: ${drift.length} problem(s) `
+        + `(first: ${drift[0]}). Run \`npm run sfx:legacy\`.`);
+    }
+  }
+
   /* The inbox names its group in data rather than at the call site, so the
    * scan above cannot see it. Same failure either way: a renamed bank is a
    * reply he never gives, and nothing anywhere says so. */

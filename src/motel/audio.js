@@ -70,6 +70,17 @@ const SAMPLE_CUES = [...new Set([
   // The motel was synthesising all of these while the recordings sat on disk.
   'door.locked', 'car.door', 'ice.drop', 'pipe.knock.cistern',
   'footstep.tile', 'footstep.wood', 'footstep.rug', 'footstep.street.wet',
+  // Promoted from assets/audio/sound-queue.json — see tools/legacy-sfx.
+  'alarm.counter', 'body.fall.carpet', 'door.knock.motel', 'door.open.motel',
+  'door.slam', 'door.splinter', 'fan.sparks', 'footstep.asphalt',
+  'footstep.concrete', 'glass.settle', 'grapple.struggle', 'gun.dry',
+  'jerky.bite', 'jerky.chew', 'knife.tap', 'land.heavy',
+  'neon.short', 'punch.heavy', 'punch.light', 'shipment.burn',
+  'siege.glass.shatter', 'silent.case.latches', 'siren.close', 'siren.distant',
+  'slicer.spin', 'spice.throw', 'sting.scene.end', 'stunprod.arc',
+  'swing.whiff', 'tunnel.crawl', 'tv.implode', 'tv.static',
+  'ui.achievement', 'ui.objective', 'vacuum.pack.handle', 'window.slide',
+  'wood.break',
   ...WEAPON_CUES,
 ])];
 
@@ -582,6 +593,7 @@ export function setTension(k) {
 
 export function knock() {
   if (!ctx) return;
+  if (playSample('door.knock.motel', { volume: 0.85 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 3; i++) {
     tone(t + i * 0.19, { type: 'sine', from: 150, to: 60, dur: 0.09, peak: 0.32 });
@@ -591,6 +603,7 @@ export function knock() {
 
 export function doorOpen() {
   if (!ctx) return;
+  if (playSample('door.open.motel', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.1, attack: 0.03, decay: 0.35, freq: 700, type: 'bandpass', q: 1.2 });
   tone(t, { type: 'triangle', from: 210, to: 160, dur: 0.3, peak: 0.05 });
@@ -598,6 +611,7 @@ export function doorOpen() {
 
 export function doorSlam() {
   if (!ctx) return;
+  if (playSample('door.slam', { volume: 0.9 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 130, to: 38, dur: 0.24, peak: 0.5 });
   noise(t, { peak: 0.32, attack: 0.002, decay: 0.2, freq: 500, type: 'lowpass' });
@@ -613,6 +627,7 @@ export function lockClick() {
 
 export function punch(heavy = false) {
   if (!ctx) return;
+  if (playSample(heavy ? 'punch.heavy' : 'punch.light', { volume: heavy ? 0.9 : 0.7 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: heavy ? 150 : 120, to: 40, dur: 0.16, peak: heavy ? 0.5 : 0.34 });
   noise(t, { peak: heavy ? 0.32 : 0.2, attack: 0.002, decay: 0.14, freq: 420, type: 'lowpass' });
@@ -621,11 +636,13 @@ export function punch(heavy = false) {
 
 export function whiff() {
   if (!ctx) return;
+  if (playSample('swing.whiff', { volume: 0.5 })) return;
   noise(ctx.currentTime, { peak: 0.1, attack: 0.02, decay: 0.12, freq: 1100, type: 'bandpass', q: 2 });
 }
 
 export function bodyFall() {
   if (!ctx) return;
+  if (playSample('body.fall.carpet', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 95, to: 30, dur: 0.3, peak: 0.34 });
   noise(t, { peak: 0.22, attack: 0.004, decay: 0.26, freq: 340, type: 'lowpass' });
@@ -633,6 +650,7 @@ export function bodyFall() {
 
 export function glassSmash() {
   if (!ctx) return;
+  if (playSample('siege.glass.shatter', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.3, attack: 0.001, decay: 0.35, freq: 5200, type: 'highpass' });
   for (let i = 0; i < 6; i++) {
@@ -642,6 +660,7 @@ export function glassSmash() {
 
 export function woodBreak() {
   if (!ctx) return;
+  if (playSample('wood.break', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.28, attack: 0.002, decay: 0.16, freq: 1500, type: 'bandpass', q: 0.8 });
   tone(t, { type: 'triangle', from: 240, to: 70, dur: 0.12, peak: 0.16 });
@@ -658,6 +677,7 @@ export function gunshot() {
 
 export function sliceWhir() {
   if (!ctx) return;
+  if (playSample('slicer.spin', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   const osc = ctx.createOscillator();
   osc.type = 'sawtooth';
@@ -676,11 +696,13 @@ export function sliceWhir() {
 
 export function tvStatic() {
   if (!ctx) return;
+  if (playSample('tv.static', { volume: 0.6 })) return;
   noise(ctx.currentTime, { peak: 0.09, attack: 0.02, decay: 0.6, freq: 3000, type: 'highpass' });
 }
 
 export function packaging() {
   if (!ctx) return;
+  if (playSample('vacuum.pack.handle', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 5; i++) {
     noise(t + i * 0.04 + Math.random() * 0.02, {
@@ -691,6 +713,7 @@ export function packaging() {
 
 export function chew() {
   if (!ctx) return;
+  if (playSample('jerky.chew', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 3; i++) {
     noise(t + i * 0.16, { peak: 0.05, attack: 0.01, decay: 0.1, freq: 700, type: 'lowpass' });
@@ -718,6 +741,7 @@ export function plumbing() {
 
 export function knifeTap() {
   if (!ctx) return;
+  if (playSample('knife.tap', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 3; i++) {
     tone(t + i * 0.22, { type: 'square', from: 1500, to: 1400, dur: 0.03, peak: 0.05 });
@@ -726,6 +750,7 @@ export function knifeTap() {
 
 export function siren(far = true) {
   if (!ctx) return;
+  if (playSample(far ? 'siren.distant' : 'siren.close', { volume: far ? 0.35 : 0.8 })) return;
   const t = ctx.currentTime;
   const osc = ctx.createOscillator();
   osc.type = 'sine';
@@ -785,6 +810,8 @@ const STEP_SURFACES = {
 /* The recorded step that best matches each motel surface. Anything without a
  * recording keeps the filtered thump below. */
 const STEP_SAMPLES = {
+  concrete: 'footstep.concrete',
+  asphalt: 'footstep.asphalt',
   carpet: 'footstep.rug',
   tile: 'footstep.tile',
   stairs: 'footstep.wood',
@@ -804,6 +831,7 @@ export function step(surface = 'concrete') {
 // Take-off and landing. `hard` is a big drop from the balcony or into the pool.
 export function land(hard = false) {
   if (!ctx) return;
+  if (hard && playSample('land.heavy', { volume: 0.9 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: hard ? 110 : 80, to: 26, dur: hard ? 0.34 : 0.16, peak: hard ? 0.5 : 0.2 });
   noise(t, { peak: hard ? 0.3 : 0.12, attack: 0.002, decay: hard ? 0.3 : 0.12, freq: 420, type: 'lowpass' });
@@ -812,6 +840,7 @@ export function land(hard = false) {
 // Two large bodies wrestling over a suitcase.
 export function grapple() {
   if (!ctx) return;
+  if (playSample('grapple.struggle', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.16, attack: 0.02, decay: 0.22, freq: 900, type: 'bandpass', q: 0.8 });
   tone(t, { type: 'sine', from: 130, to: 90, dur: 0.2, peak: 0.16 });
@@ -820,6 +849,7 @@ export function grapple() {
 // A jar of classified seasoning going into somebody's eyes.
 export function spice() {
   if (!ctx) return;
+  if (playSample('spice.throw', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.22, attack: 0.004, decay: 0.4, freq: 3400, type: 'highpass' });
   tone(t, { type: 'triangle', from: 620, to: 240, dur: 0.2, peak: 0.08 });
@@ -828,6 +858,7 @@ export function spice() {
 // A television taking a man and dying.
 export function tvBreak() {
   if (!ctx) return;
+  if (playSample('tv.implode', { volume: 0.85 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'square', from: 900, to: 90, dur: 0.24, peak: 0.22 });
   noise(t, { peak: 0.34, attack: 0.001, decay: 0.5, freq: 4200, type: 'highpass' });
@@ -837,6 +868,7 @@ export function tvBreak() {
 // Ceiling fan overspeeding, then throwing sparks.
 export function sparks() {
   if (!ctx) return;
+  if (playSample('fan.sparks', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 7; i++) {
     noise(t + i * 0.09 + Math.random() * 0.05, {
@@ -849,6 +881,7 @@ export function sparks() {
 // The motel sign going off its wiring.
 export function neonShort() {
   if (!ctx) return;
+  if (playSample('neon.short', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'square', from: 120, to: 30, dur: 0.3, peak: 0.35 });
   noise(t, { peak: 0.3, attack: 0.001, decay: 0.4, freq: 3000, type: 'highpass' });
@@ -858,6 +891,7 @@ export function neonShort() {
 // The Reserve meeting an open flame.
 export function fire() {
   if (!ctx) return;
+  if (playSample('shipment.burn', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.3, attack: 0.08, decay: 1.6, freq: 900, type: 'lowpass' });
   noise(t + 0.1, { peak: 0.12, attack: 0.1, decay: 1.4, freq: 2600, type: 'highpass' });
@@ -867,6 +901,7 @@ export function fire() {
 // Stun prod arcing.
 export function prod() {
   if (!ctx) return;
+  if (playSample('stunprod.arc', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 5; i++) {
     noise(t + i * 0.03, { peak: 0.14, attack: 0.001, decay: 0.04, freq: 6000, type: 'highpass' });
@@ -877,6 +912,7 @@ export function prod() {
 // Suitcase latches.
 export function caseLatch() {
   if (!ctx) return;
+  if (playSample('silent.case.latches', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (const d of [0, 0.11]) {
     tone(t + d, { type: 'square', from: 1400, to: 900, dur: 0.04, peak: 0.09 });
@@ -887,6 +923,7 @@ export function caseLatch() {
 // One deliberate bite of eleven-year cure.
 export function bite() {
   if (!ctx) return;
+  if (playSample('jerky.bite', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.22, attack: 0.002, decay: 0.14, freq: 2200, type: 'bandpass', q: 0.7 });
   noise(t + 0.18, { peak: 0.1, attack: 0.01, decay: 0.3, freq: 800, type: 'lowpass' });
@@ -905,6 +942,7 @@ export function carDoor() {
 // Crawling through the pool drain.
 export function tunnel() {
   if (!ctx) return;
+  if (playSample('tunnel.crawl', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.16, attack: 0.15, decay: 1.4, freq: 600, type: 'lowpass' });
   for (let i = 0; i < 4; i++) {
@@ -915,6 +953,7 @@ export function tunnel() {
 // Hammer on an empty chamber.
 export function dryFire() {
   if (!ctx) return;
+  if (playSample('gun.dry', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.12, attack: 0.001, decay: 0.03, freq: 3600, type: 'bandpass', q: 3 });
   tone(t, { type: 'square', from: 520, to: 380, dur: 0.04, peak: 0.05 });
@@ -923,6 +962,7 @@ export function dryFire() {
 // Shards settling a second after the window goes.
 export function glassSettle() {
   if (!ctx) return;
+  if (playSample('glass.settle', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 5; i++) {
     tone(t + 0.15 + i * 0.14 + Math.random() * 0.1, {
@@ -934,6 +974,7 @@ export function glassSettle() {
 // A door leaving its frame with somebody attached.
 export function doorSplinter() {
   if (!ctx) return;
+  if (playSample('door.splinter', { volume: 0.9 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 140, to: 34, dur: 0.35, peak: 0.5 });
   noise(t, { peak: 0.34, attack: 0.002, decay: 0.3, freq: 1400, type: 'bandpass', q: 0.7 });
@@ -943,6 +984,7 @@ export function doorSplinter() {
 // A window sliding open an inch, and stopping.
 export function windowSlide() {
   if (!ctx) return;
+  if (playSample('window.slide', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.09, attack: 0.03, decay: 0.34, freq: 1800, type: 'bandpass', q: 1.6 });
   tone(t + 0.3, { type: 'square', from: 900, to: 700, dur: 0.03, peak: 0.04 });
@@ -962,12 +1004,14 @@ export function select() {
 
 export function objective() {
   if (!ctx) return;
+  if (playSample('ui.objective', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   [523, 784].forEach((f, i) => tone(t + i * 0.1, { type: 'sine', from: f, to: f, dur: 0.2, peak: 0.09 }));
 }
 
 export function achievement() {
   if (!ctx) return;
+  if (playSample('ui.achievement', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   [659, 784, 988, 1319].forEach((f, i) => {
     tone(t + i * 0.08, { type: 'triangle', from: f, to: f, dur: 0.24, peak: 0.08 });
@@ -976,6 +1020,7 @@ export function achievement() {
 
 export function alarm() {
   if (!ctx) return;
+  if (playSample('alarm.counter', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 4; i++) {
     tone(t + i * 0.26, { type: 'square', from: 980, to: 980, dur: 0.16, peak: 0.09 });
@@ -984,6 +1029,7 @@ export function alarm() {
 
 export function sting() {
   if (!ctx) return;
+  if (playSample('sting.scene.end', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   [110, 138.6, 164.8, 220].forEach((f, i) => {
     tone(t + i * 0.13, { type: 'sawtooth', from: f, to: f, dur: 0.4, peak: 0.12 });
