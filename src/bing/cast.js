@@ -1013,7 +1013,12 @@ export function makePerson(o = {}) {
     name: 'ribcage',
     size: [(curvy ? 0.192 : 0.188) * t * 2, 0.16 * 2, D * 2],
     pos: [0, 0, 0],
-    mat: performanceWear ? skinMat : cloth,
+    /* The ribcage is also the side/back surface visible inside the shoulder
+     * socket. A suit used to leave it in `cloth` (the white dress-shirt
+     * material) while the deltoids and sleeves used the jacket, producing
+     * bright white wedges under both raised arms. Outerwear owns the shell;
+     * its deliberately exposed shirt is built separately on the front. */
+    mat: performanceWear ? skinMat : (outerwear ? jacket : cloth),
   });
   const torsoWrap = group('torso-wrap', torso);
   torsoWrap.position.set(0, 1.365, lean);

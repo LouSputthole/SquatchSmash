@@ -703,9 +703,12 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
    * joining it, which is exactly the "not quite right" you cannot name until
    * you look straight at it. `face` is the door's outward face; everything
    * else is measured from there so the posts always land on the door. */
-  const pull = (face, y, z, len = 0.11) => {
+  const pull = (face, y, z, len = 0.11, doorId = '') => {
     const bar = face - 0.030;
-    g.add(cylinder({ r: 0.009, h: len, pos: [bar, y, z], mat: M.chrome }));
+    const grip = cylinder({ r: 0.009, h: len, pos: [bar, y, z], mat: M.chrome });
+    grip.name = doorId ? `cabinet-pull:${doorId}` : 'cabinet-pull';
+    grip.userData.cabinetDoor = doorId || null;
+    g.add(grip);
     // The bar is vertical, so the standoffs sit above and below along Y —
     // offsetting them along Z left two brackets hanging in mid-air.
     for (const dy of [-len / 2 + 0.012, len / 2 - 0.012]) {
@@ -713,6 +716,19 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
         r: 0.005, h: 0.030, pos: [face - 0.015, y + dy, z], rotZ: Math.PI / 2, mat: M.chrome,
       }));
     }
+  };
+
+  /*
+   * Cabinet doors are paired along the Z run. A pull in each panel's centre
+   * makes six doors read as six unrelated drawers; a real pair puts both pulls
+   * beside the shared meeting edge. Odd final panels remain honest singles.
+   */
+  const pairedPullZ = (index, count, start, width) => {
+    const pairStart = index - (index % 2);
+    if (pairStart + 1 >= count) return start + width * (index + 0.5);
+    const meeting = start + width * (pairStart + 1);
+    const inset = Math.min(0.10, width * 0.22);
+    return meeting + (index % 2 === 0 ? -inset : inset);
   };
 
   /* The basin opening, needed by the carcass below and the sink build after
@@ -739,7 +755,7 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
   for (let i = 0; i < nDoors; i++) {
     const cz = z0 + dw * (i + 0.5);
     g.add(box({ size: [0.02, top - 0.22, dw - 0.03], pos: [x0 - 0.012, 0.10 + (top - 0.18) / 2, cz], mat: M.cabinet }));
-    pull(x0 - 0.022, top - 0.16, cz);
+    pull(x0 - 0.022, top - 0.16, pairedPullZ(i, nDoors, z0, dw), 0.11, `lower-${i}`);
   }
 
   /* ---- sink: a real inset basin, recessed through the counter cut above ---- */
@@ -802,7 +818,13 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
   for (let i = 0; i < nUpper; i++) {
     const cz = z0 + udw * (i + 0.5);
     g.add(box({ size: [0.02, upY1 - upY0 - 0.04, udw - 0.03], pos: [wallX - upD - 0.012, (upY0 + upY1) / 2, cz], mat: M.cabinet }));
-    pull(wallX - upD - 0.022, upY0 + 0.12, cz);
+    pull(
+      wallX - upD - 0.022,
+      upY0 + 0.12,
+      pairedPullZ(i, nUpper, z0, udw),
+      0.11,
+      `upper-${i}`,
+    );
   }
 
   /* ---- microwave: wall-mounted in the cabinet gap, nowhere near the hob ---- */
@@ -2809,12 +2831,13 @@ export function makeBathSink(M, { x, z, rotY = 0 }) {
   // Mirrored cabinet: carcass, frame, then the glass proud of it.
   g.add(box({ size: [0.60, 0.72, 0.13], pos: [0, 1.46, -0.255], mat: mat({ color: 0xdad6cc, roughness: 0.6 }) }));
   g.add(box({ size: [0.62, 0.74, 0.02], pos: [0, 1.46, -0.196], mat: M.trim }));
-  const mirror = box({
-    size: [0.54, 0.66, 0.012], pos: [0, 1.46, -0.186],
-    // Full metalness with nothing to reflect rendered as a black hole in the
-    // tiles; this reads as glass with a cold sheen instead.
-    mat: new THREE.MeshStandardMaterial({ color: 0xdfe6ec, roughness: 0.12, metalness: 0.55 }),
-  });
+  const mirror = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.54, 0.66),
+    new THREE.MeshStandardMaterial({ color: 0xdfe6ec, roughness: 0.12, metalness: 0.55 }),
+  );
+  mirror.name = 'bathsink.mirror.surface';
+  mirror.position.set(0, 1.46, -0.186);
+  mirror.userData.planarMirrorSurface = true;
   g.add(mirror);
   // Strip light over the cabinet.
   g.add(box({ size: [0.44, 0.05, 0.07], pos: [0, 1.88, -0.24], mat: mat({ color: 0xf0efe6, roughness: 0.7 }) }));

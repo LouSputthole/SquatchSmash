@@ -26,8 +26,10 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import * as THREE from 'three';
+import { ensureDomShim } from '../tools/three-shim.mjs';
 
-import { buildCartelPalace } from '../src/cartel-palace/world.js';
+ensureDomShim();
+const { buildCartelPalace } = await import('../src/cartel-palace/world.js');
 
 let cached = null;
 function palace() {
@@ -235,6 +237,36 @@ test('the estate has no slot between its walls and its ceilings', () => {
   }
 });
 
+test('the third-evidence wall is finished around one walkable doorway', () => {
+  /* Owner: turn away from the third evidence and chair and a whole wall bay
+   * was missing. That bay is the intended route into the guest suite, so the
+   * repair must close the wall without sealing the route. Probe only the new
+   * named assembly: unrelated furniture beside either room must not make an
+   * accidentally blocked doorway look valid. */
+  const { colliders } = palace();
+  const assembly = colliders.filter((collider) => /^security-guest-/.test(collider.name));
+  const names = assembly.map((collider) => collider.name).sort();
+  assert.deepEqual(names, [
+    'security-guest-door-header',
+    'security-guest-partition-north',
+    'security-guest-partition-south',
+  ]);
+
+  const across = (z, y) => contacts(
+    assembly,
+    V(9.8, y, z),
+    V(11.2, y, z),
+  );
+  for (const z of [-13.4, -9.1]) {
+    assert.ok(across(z, 1.6).some((name) => /partition/.test(name)),
+      `the third-evidence wall is still open at z=${z}`);
+  }
+  assert.deepEqual(across(-11.25, 1.6), [],
+    'the repaired wall blocks the guest-suite route at player height');
+  assert.deepEqual(across(-11.25, 3.6), ['security-guest-door-header'],
+    'the doorway still has an open wall above its head');
+});
+
 test('the open dresser drawer is in the dresser', () => {
   /* Owner: misaligned dresser drawer. Two faults compounding. The top-right
    * slot carried a CLOSED face and an OPEN drawer box at the same time, so the
@@ -278,6 +310,8 @@ test('the open dresser drawer is in the dresser', () => {
   assert.equal(clash.length, 0,
     'a closed drawer face is still drawn in the slot the open drawer came out of');
   assert.equal(faces.length, 4, `${faces.length} drawer faces for four drawers`);
+  assert.equal(named('dresser-spilled-sleeve').length, 0,
+    'the random pale object is still sticking out of the guest-suite drawer');
 });
 
 test('the desk lamp\'s shade is on the end of its arm', () => {

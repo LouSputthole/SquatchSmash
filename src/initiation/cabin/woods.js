@@ -7,13 +7,15 @@
  * That he is a long way from a road. The whole approach is one idea: the
  * ground underfoot is the only thing that knows where it is going. There is a
  * track, it is wet, it has been driven on, and on both sides of it there is
- * nothing but trunks going back until the fog eats them. No signs, no lights,
- * no landmark. The first thing in the entire level that is man-made and lit is
- * a pair of headlights pointing at some mud.
+ * nothing but trunks going back until the fog eats them. No signs, no electric
+ * guide lights, no landmark. The first thing in the entire level that is
+ * man-made and lit is a pair of headlights pointing at some mud.
  *
- * Then, much later, the trail — which is narrower, unlit, and bends twice, so
- * the clearing is out of sight behind him before the porch light is in front
- * of him. There is about eight seconds of that walk where he can see neither.
+ * Then, much later, the trail — which is narrower and bends twice, so the
+ * clearing is out of sight behind him before the porch light is in front of
+ * him. Five knee-high cairns catch the moon at the trail edge. They are not
+ * lamps or objective markers; they simply confirm the next bend during the
+ * few seconds where the player can see neither clearing nor porch.
  *
  * ═══════════════════════════════════════════════════════════════════════
  * WHAT THIS OWNS
@@ -36,7 +38,9 @@ import { lambert } from '../../../game/src/world.js';
 import {
   assembly, bakedTexture, between, namedGroup, part, pickOne, rng, speckle, structural,
 } from './kit.js';
-import { TRACK, TRACK_HALF_WIDTH, TRAIL, TRAIL_HALF_WIDTH, siteFits } from './site.js';
+import {
+  TRACK, TRACK_HALF_WIDTH, TRAIL, TRAIL_HALF_WIDTH, pointAlongPath, siteFits,
+} from './site.js';
 
 /** How far out the ground plane and the far treeline go. */
 const GROUND_SIZE = 400;
@@ -183,6 +187,73 @@ function buildRuts(random) {
       }
     }
   }
+  return group;
+}
+
+/* ------------------------------------------------------------------ */
+/* Trail wayfinding                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Sparse, diegetic confirmation at the bends of the woods trail.
+ *
+ * The player already has the worn dirt ribbon and, later, the porch light.
+ * These cairns only bridge the dark interval between those landmarks. They
+ * stay on the right edge of travel, never enter the walking corridor, never
+ * emit a light and never become an interaction or collision target.
+ */
+export const TRAIL_GUIDE_FRACTIONS = Object.freeze([0.12, 0.31, 0.50, 0.70, 0.88]);
+
+export function buildTrailWayfinding() {
+  const group = namedGroup('initiation.trail.wayfinding');
+  const stone = new THREE.MeshStandardMaterial({
+    color: 0x77786f,
+    roughness: 0.82,
+    metalness: 0.05,
+    emissive: 0x111827,
+    emissiveIntensity: 0.42,
+  });
+  const moonFace = new THREE.MeshStandardMaterial({
+    color: 0xb8bdc7,
+    roughness: 0.56,
+    metalness: 0.12,
+    emissive: 0x25304a,
+    emissiveIntensity: 0.58,
+  });
+
+  for (const [index, fraction] of TRAIL_GUIDE_FRACTIONS.entries()) {
+    const sample = pointAlongPath(TRAIL, fraction);
+    const rightX = Math.cos(sample.heading);
+    const rightZ = -Math.sin(sample.heading);
+    const marker = assembly(`trail.guide.cairn.${index}`, `initiation.trail.guide.${index}`);
+    marker.position.set(
+      sample.x + rightX * (TRAIL_HALF_WIDTH - 0.08),
+      0,
+      sample.z + rightZ * (TRAIL_HALF_WIDTH - 0.08),
+    );
+    marker.rotation.y = sample.heading;
+    marker.userData.navigationMarker = 'moonlit-cairn';
+    marker.userData.trailFraction = fraction;
+
+    const base = part(
+      new THREE.SphereGeometry(0.16, 7, 4), stone,
+      0, 0.072, 0, `trail.guide.cairn.${index}.base`,
+    );
+    base.scale.set(1.08, 0.45, 0.86);
+    const middle = part(
+      new THREE.SphereGeometry(0.12, 7, 4), stone,
+      0.018, 0.145, -0.004, `trail.guide.cairn.${index}.middle`,
+    );
+    middle.scale.set(0.93, 0.52, 0.82);
+    const cap = part(
+      new THREE.OctahedronGeometry(0.074, 0), moonFace,
+      -0.008, 0.232, 0.004, `trail.guide.cairn.${index}.moon-face`,
+    );
+    cap.scale.set(0.82, 1.05, 0.65);
+    marker.add(base, middle, cap);
+    group.add(marker);
+  }
+
   return group;
 }
 
@@ -618,6 +689,7 @@ export function buildWoods({ seed = 0x1a17ed, trees = 148, ferns = 56, ground = 
   group.add(buildRuts(random));
   group.add(assembly('trail', 'initiation.trail',
     ribbon('trail.dirt.surface', TRAIL, TRAIL_HALF_WIDTH, 0.02, random, { tint: 0x2f2820, wear: 0.28, step: 0.9 })));
+  group.add(buildTrailWayfinding());
 
   const { plan, colliders, placed } = planWoods(random, { trees, ferns });
   buildBatches(group, plan, random);

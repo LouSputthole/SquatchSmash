@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PlanarMirror } from '../../core/planar-mirror.js';
 
 // The cracked bathroom mirror actually reflects. Prospect's body lives on
 // render layer 1 — invisible to the first-person camera, visible to this one —
@@ -8,77 +9,21 @@ import * as THREE from 'three';
 // mirror's centre rather than using an oblique frustum. On a small mirror the
 // player stands square to, the difference doesn't read.
 
-const PLANE_X = 2.06; // mirror plane, normal +X
-
-export class MirrorReflection {
+export class MirrorReflection extends PlanarMirror {
   constructor(scene, mirrorMesh, { width = 0.85, height = 1.05 } = {}) {
-    this.scene = scene;
-    this.mesh = mirrorMesh;
-    this.width = width;
-    this.height = height;
-    this.center = mirrorMesh.position.clone();
-    this.enabled = false;
-
-    this.target = new THREE.WebGLRenderTarget(320, 400, {
-      minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter,
-    });
-    this.target.texture.colorSpace = THREE.SRGBColorSpace;
-    // A mirror image is laterally inverted relative to the virtual view.
-    this.target.texture.wrapS = THREE.RepeatWrapping;
-    this.target.texture.repeat.x = -1;
-    this.target.texture.offset.x = 1;
-
-    this.cam = new THREE.PerspectiveCamera(50, width / height, 0.1, 40);
-    this.cam.layers.enable(1);
-
-    // Silvered glass: the reflection, tinted and grubby, under the cracks.
-    this.mesh.material = new THREE.MeshBasicMaterial({
-      map: this.target.texture,
-      color: 0xc6ccd2,
-    });
-
     const crackTex = makeCrackTexture();
-    const overlay = new THREE.Mesh(
-      new THREE.PlaneGeometry(width, height),
-      new THREE.MeshBasicMaterial({ map: crackTex, transparent: true, depthWrite: false })
-    );
-    overlay.position.copy(mirrorMesh.position);
-    overlay.position.x += 0.006;
-    overlay.rotation.copy(mirrorMesh.rotation);
-    const fixtureGate = mirrorMesh.parent?.userData?.geometryGate;
-    if (fixtureGate) overlay.userData.geometryGate = { ...fixtureGate };
-    overlay.renderOrder = 2;
-    scene.add(overlay);
-    this.overlay = overlay;
-  }
-
-  render(renderer, camera) {
-    if (!this.enabled) return;
-    // Only worth the pass when he's actually in the room with it
-    if (camera.position.x > 7.2 || camera.position.z < 14.2) return;
-
-    this.cam.position.set(
-      2 * PLANE_X - camera.position.x,
-      camera.position.y,
-      camera.position.z
-    );
-    this.cam.lookAt(this.center);
-    // The virtual camera sits behind the wall the mirror is hung on, so the
-    // wall — and the mirror's own backing board — would fill the whole
-    // reflection. Push the near plane out to the glass and they clip away.
-    this.cam.near = Math.abs(this.cam.position.x - PLANE_X) + 0.03;
-    this.cam.updateProjectionMatrix();
-    this.cam.updateMatrixWorld();
-
-    const prevTarget = renderer.getRenderTarget();
-    this.mesh.visible = false;
-    this.overlay.visible = false;
-    renderer.setRenderTarget(this.target);
-    renderer.render(this.scene, this.cam);
-    renderer.setRenderTarget(prevTarget);
-    this.mesh.visible = true;
-    this.overlay.visible = true;
+    super(scene, mirrorMesh, {
+      width,
+      height,
+      resolution: [320, 400],
+      overlayMaterial: new THREE.MeshBasicMaterial({
+        map: crackTex,
+        transparent: true,
+        depthWrite: false,
+      }),
+      maxDistance: 11,
+      visibleWhen: (camera) => camera.position.x <= 7.2 && camera.position.z >= 14.2,
+    });
   }
 }
 

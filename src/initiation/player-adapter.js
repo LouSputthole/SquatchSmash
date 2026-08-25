@@ -122,6 +122,8 @@ export class InitiationPlayerAdapter {
     this.inputActive = false;
     this.paused = false;
     this.touchCodes = new Set();
+    this.allowSprint = true;
+    this.moveScale = 1;
   }
 
   teleport(point, { heading = null, yaw = null, pose = this.pose } = {}) {
@@ -151,9 +153,14 @@ export class InitiationPlayerAdapter {
     if (!Object.values(INITIATION_CONTROL_MODES).includes(control)) {
       throw new TypeError(`Unknown Initiation control mode: ${control}`);
     }
+    const preserveHeldMovement = this.control === INITIATION_CONTROL_MODES.PLAYABLE
+      && control === INITIATION_CONTROL_MODES.PLAYABLE;
     this.control = control;
     this.pose = pose;
-    this.clearInput();
+    // Adjacent playable phases are narrative boundaries, not input boundaries.
+    // Clearing here drops a physical key that is still held; browsers do not
+    // owe us another keydown until the player releases and presses it again.
+    if (!preserveHeldMovement) this.clearInput();
 
     const eye = pose === PLAYER_POSES.KNEELING ? KNEELING_EYE_HEIGHT : STANDING_EYE_HEIGHT;
     this.player.eyeHeight = eye;
@@ -199,12 +206,33 @@ export class InitiationPlayerAdapter {
     this.player.handleMouseMove(dx, dy);
   }
 
+  /** Apply scene pacing without replacing shared Player locomotion. */
+  setMovementPolicy({ moveScale = 1, allowSprint = true } = {}) {
+    const scale = Number(moveScale);
+    if (!Number.isFinite(scale) || scale <= 0) {
+      throw new RangeError(`Initiation moveScale must be a positive number, got ${moveScale}`);
+    }
+    this.moveScale = scale;
+    this.allowSprint = allowSprint !== false;
+    this.player.moveScale = scale;
+    if (!this.allowSprint) {
+      this.player.setKey('ShiftLeft', false);
+      this.player.setKey('ShiftRight', false);
+      this.touchCodes.delete('ShiftLeft');
+      this.touchCodes.delete('ShiftRight');
+    }
+  }
+
   setKey(code, down) {
     const normalized = ARROW_CODES[code] ?? code;
     if (!MOVEMENT_CODES.has(normalized)) return false;
     if (this.control !== INITIATION_CONTROL_MODES.PLAYABLE) {
       this.player.setKey(normalized, false);
       return false;
+    }
+    if (!this.allowSprint && (normalized === 'ShiftLeft' || normalized === 'ShiftRight')) {
+      this.player.setKey(normalized, false);
+      return true;
     }
     this.player.setKey(normalized, down);
     return true;
@@ -219,7 +247,7 @@ export class InitiationPlayerAdapter {
     if (y > 0.2) this.touchCodes.add('KeyS');
     if (x < -0.2) this.touchCodes.add('KeyA');
     if (x > 0.2) this.touchCodes.add('KeyD');
-    if (sprint) this.touchCodes.add('ShiftLeft');
+    if (sprint && this.allowSprint) this.touchCodes.add('ShiftLeft');
     for (const code of this.touchCodes) this.player.setKey(code, true);
   }
 

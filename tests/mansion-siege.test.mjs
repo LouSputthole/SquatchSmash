@@ -567,6 +567,23 @@ test('the mission walks the brief\'s objective chain in order', () => {
   assert.equal(m.objective, 'Hold the house');
 });
 
+test('the essential office briefing owns the player-fire lock', () => {
+  const { m } = mission();
+  m.start();
+  m.wokeUp();
+  m.enteredArmory();
+  m.weaponTaken('carbine');
+
+  assert.equal(m.playerFireEnabled, true, 'the armed route remains playable');
+  m.enteredOffice();
+  assert.equal(m.beat, B.BRIEFING);
+  assert.equal(m.playerFireEnabled, false, 'Lou must be allowed to finish the briefing');
+
+  m.briefingEnded();
+  assert.equal(m.beat, B.LITTLE_FRIEND);
+  assert.equal(m.playerFireEnabled, true, 'the gun unlocks on the authored beat boundary');
+});
+
 test('the last few attackers hunt instead of hiding, and only the last few', () => {
   /* Owner, playtest 2026-08-13: "four attacks left cant find them". The
    * mission flips `huntActive` when the active wave has released everything

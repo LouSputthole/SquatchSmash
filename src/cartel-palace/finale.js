@@ -405,6 +405,7 @@ export class PalaceFinaleDirector {
     onMarkReturn = () => {},
     onMarkRetreat = () => {},
     onWave = () => {},
+    onPresentationStep = null,
   } = {}) {
     if (!cast?.civilians) throw new TypeError('PalaceFinaleDirector requires a cast with civilians');
     this.cast = cast;
@@ -418,6 +419,8 @@ export class PalaceFinaleDirector {
     this.onMarkReturn = onMarkReturn;
     this.onMarkRetreat = onMarkRetreat;
     this.onWave = onWave;
+    this.onPresentationStep = typeof onPresentationStep === 'function'
+      ? onPresentationStep : null;
     this.phase = 'idle';
     /**
      * WHICH OF THE THREE STAGES THE ROOM IS IN.
@@ -486,14 +489,16 @@ export class PalaceFinaleDirector {
     return true;
   }
 
-  /** The player opened fire before the verdict: the words lose, the room engages. */
-  interrupt() {
-    if (this.phase !== 'confrontation' || this.engaged) return false;
-    this.queue.length = 0;
-    this.current = null;
-    this.timer = 0;
-    this._engage();
-    return true;
+  /**
+   * The input seam for the dramatic opening.
+   *
+   * Movement and looking remain live, but a mouse press cannot erase the
+   * evidence payoff. Tony's authored verdict carries `engage`; from that line
+   * onward the ordinary WeaponSystem owns the trigger again while the exit
+   * and handoff lines are still allowed to finish around the player.
+   */
+  canPlayerFire() {
+    return this.phase !== 'confrontation' || this.engaged;
   }
 
   /**
@@ -769,6 +774,13 @@ export class PalaceFinaleDirector {
   /** Simulated clock only: `dt` comes from the scene loop, never wall time. */
   update(dt) {
     const step = Math.max(0, Math.min(0.1, Number(dt) || 0));
+
+    /* Entrances and exits are beats of this same staged sequence, not a
+     * second animation clock the renderer happens to advance. Owning them
+     * here keeps a simulated finale (browser verifier, checkpoint tooling,
+     * or a future cutscene fast-forward) mechanically identical to live
+     * frames: a line cannot finish while its actor is frozen in a doorway. */
+    this.cast.updatePresentation?.(step, this.onPresentationStep);
 
     /* Civilians are not Combatants: PalaceSecurity never ticks their figures,
      * so their breathing, tremble, pose blends and mouths advance here. */

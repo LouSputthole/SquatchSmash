@@ -1683,6 +1683,10 @@ let siegeCampaignComplete = false;
 /* ================================================================== */
 const dialogue = new SiegeDialogue({
   audio,
+  resolveSpeaker: (speakerId) => {
+    const memberId = speakerId === 'sasole' ? 'captain_lou_sasole' : speakerId;
+    return ensemble.members?.get?.(memberId)?.root ?? null;
+  },
   onLine: (line) => {
     if (!subtitleEl) return;
     combatBarkTimer = 0;
@@ -1816,6 +1820,12 @@ const mission = new SiegeMission({
     }
   },
   onBeat: (beat) => {
+    /* Fire permission belongs to the mission beat, not to how many seconds a
+     * line happens to take. Clear an already-held trigger at the boundary so
+     * walking into Lou's office while firing cannot leak one automatic round
+     * into the briefing. The BRIEFING -> LITTLE_FRIEND transition restores
+     * permission immediately through `mission.playerFireEnabled`. */
+    if (!mission.playerFireEnabled) weaponSystem.setTrigger(false);
     ensemble.stage(beat);
     waveDirty = true;
     if (beat === B.WAVE_ONE) missionAudio.waveIncoming('one');
@@ -2671,6 +2681,25 @@ const pauseMenu = createPauseMenu({
   },
 });
 
+/**
+ * The one player-fire gate for both a held trigger and the pointer-lock retry
+ * shot. Equipping, reloading, looking and moving stay available while the
+ * office briefing owns this permission; only emission of a round is refused.
+ */
+function tryPlayerFire({ single = false } = {}) {
+  if (!mission.playerFireEnabled) {
+    weaponSystem.setTrigger(false);
+    return false;
+  }
+  if (!weaponSystem.equipped) {
+    nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
+    return false;
+  }
+  if (single) weaponSystem.triggerPress();
+  else weaponSystem.setTrigger(true);
+  return true;
+}
+
 input = createFirstPersonInput({
   player,
   canvas: renderer.domElement,
@@ -2730,17 +2759,10 @@ input = createFirstPersonInput({
          * never fires; verify:mansion-siege depends on that distinction. */
         const fallbackShot = pointerLockRejected;
         requestSiegePointerLock({ explain: true });
-        if (fallbackShot) {
-          if (weaponSystem.equipped) weaponSystem.triggerPress();
-          else nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
-        }
+        if (fallbackShot) tryPlayerFire({ single: true });
         return true;
       }
-      if (!weaponSystem.equipped) {
-        nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
-        return true;
-      }
-      weaponSystem.setTrigger(true);
+      tryPlayerFire();
       return true;
     },
     mouseUp(e) {
@@ -3188,6 +3210,11 @@ function updateGame(dt) {
     /* Sight and shot truth both come off this list. It is the one with floors
      * in it -- see `combatColliders` above. */
     colliders: combatColliders,
+    /* Body motion uses the movement list without floor/ceiling slabs. The
+     * combat list above remains authoritative for sight, suppression and
+     * bullets; mixing the two made a climber treat the gallery floor as a
+     * wall and eventually abandon his route through blocked recovery. */
+    movementColliders: colliders,
     hunt: huntActive,
     alive: () => ensemble.targets(),
     audio: combatAdapterAudio,

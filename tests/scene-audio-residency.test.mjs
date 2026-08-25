@@ -560,7 +560,15 @@ test('THE SPECIAL MEETING: the block asks for its whole cue catalogue by name', 
   const mainSource = fs.readFileSync(path.join(ROOT, 'src/specialmeeting/main.js'), 'utf8');
   const call = mainSource.match(/loadAdditional\(\{([^]*?)\}\);/);
   assert.ok(call, 'the page still preloads through loadAdditional');
-  assert.match(call[1], /names: \[\.\.\.SPECIAL_MEETING_VOICE_CUES, \.\.\.AMBIENCE_CUES\]/);
+  /* Keep this semantic rather than pinning the array's old one-line formatting.
+   * The forest drive now owns two continuous travel beds in addition to the
+   * block catalogue; all three sources must be passed to the same residency
+   * request so the fade can carry real engine/road audio through black. */
+  assert.match(call[1], /\.\.\.SPECIAL_MEETING_VOICE_CUES/);
+  assert.match(call[1], /\.\.\.AMBIENCE_CUES/);
+  assert.match(call[1], /\.\.\.Object\.values\(FOREST_TRAVEL_AUDIO\)\.map\(\(\{ cue \}\) => cue\)/);
+  assert.match(mainSource, /cue: 'car\.engine\.idle'/);
+  assert.match(mainSource, /cue: 'heist\.vehicle\.tires\.road'/);
   const prefixes = [...call[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
   /* Why the names list is not redundant: two of the nine cues share no prefix
    * with the other seven, and both are recorded. `ambience.alley` is the

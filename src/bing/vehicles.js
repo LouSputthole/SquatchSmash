@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { mat, box, group, collider } from '../world/build.js';
 import { markSpatialPrimitive } from '../core/spatial-contract.js';
+import { VehicleOccupants } from '../core/vehicles/occupants.js';
 import { lit, rand, pick } from './kit.js';
 
 const BODY_COLOURS = [0x16161c, 0x24242e, 0x4a1418, 0x2e2e36, 0x5a4a2a, 0x18242e, 0x7a7a82, 0x3a2a1e];
@@ -547,6 +548,9 @@ export function makePlayerCar(scene, { x, z, yaw = 0, spatialId = 'bing.player-c
   // Tony or the interaction pad through the neighbouring vehicle.
   const driverLocal = new THREE.Vector3(-0.18, 1.55, -0.43);
   const exitLocal = new THREE.Vector3(-0.35, 0, -1.55);
+  const occupants = new VehicleOccupants(car.group, {
+    driverEye: driverLocal,
+  });
   const worldPoint = (local) => {
     car.group.updateMatrixWorld(true);
     return local.clone().applyMatrix4(car.group.matrixWorld);
@@ -561,10 +565,11 @@ export function makePlayerCar(scene, { x, z, yaw = 0, spatialId = 'bing.player-c
     seats,
     rearBench,
     gauges,
+    occupants,
     driverLocal,
     exitLocal,
     /** Where the camera sits when you are behind the wheel. */
-    driverPosition: () => worldPoint(driverLocal),
+    driverPosition: (out = new THREE.Vector3()) => occupants.worldPoint('driverEye', null, out),
     /** Clear ground beside the driver's door. */
     exitPosition: () => worldPoint(exitLocal),
     /** Player yaw matching the car's local +X forward direction. */

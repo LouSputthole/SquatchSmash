@@ -16,6 +16,7 @@ import { createFirstPersonInput } from './core/first-person-input.js';
 import { Player } from './core/player.js';
 import { shakeScale } from './core/settings.js';
 import { attachPixelRatio } from './core/pixel-ratio.js';
+import { PlanarMirror } from './core/planar-mirror.js';
 import { Radio } from './core/radio.js';
 import { SPOOKY_RADIO_LINES, newsSegmentsFor, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
@@ -586,6 +587,7 @@ const _aim = new THREE.Vector3();
 const _aimPoint = new THREE.Vector3();
 
 let apartment = null;
+let bathroomMirror = null;
 
 const game = {
   started: false,
@@ -750,6 +752,13 @@ async function boot() {
       apartment.state.radioOn = radio.on;
       hud.toast(`Radio volume ${Math.round(volume * 100)}%`);
     },
+  });
+  bathroomMirror = new PlanarMirror(scene, apartment.mirrorMesh, {
+    width: 0.54,
+    height: 0.66,
+    resolution: [384, 468],
+    maxDistance: 9,
+    enabled: true,
   });
 
   const savedActivities = campaign.state.activities;
@@ -5884,6 +5893,7 @@ function frame() {
     }
   }
 
+  bathroomMirror?.render(renderer, camera);
   postfx.render();
   postfx.sample(dt);
 }

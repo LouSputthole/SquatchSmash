@@ -14,6 +14,7 @@
 
 import * as THREE from 'three';
 import { mat } from '../world/build.js';
+import { VehicleOccupants } from '../core/vehicles/occupants.js';
 import { heightAt } from './field.js';
 import { HOLE } from './hole.js';
 
@@ -435,6 +436,15 @@ export class Cart {
      * full-lock turn is worse than no wheel at all. */
     this.steeringWheel = built.steering;
     this.amenities = built.amenities;
+    /* Seats belong to the moving cart, not to the mission frame loop. NPC
+     * bodies inherit every future translation and turn through these anchors;
+     * the non-Object3D player camera reads the same contract through
+     * driverViewWorld() below while retaining Golf's own look policy. */
+    this.occupants = new VehicleOccupants(this.group, {
+      driver: SEAT.driver,
+      passenger: SEAT.passenger,
+      driverEye: { x: -0.20, y: 1.50, z: 0.04 },
+    });
     this.distance = startDistance;
     this.speed = speed;
     this.velocity = 0;
@@ -547,9 +557,9 @@ export class Cart {
 
   /** World position of a seat, for putting a rider or a camera in it. */
   seatWorld(which, out = new THREE.Vector3()) {
-    const s = SEAT[which] ?? SEAT.passenger;
-    out.set(s.x, s.y, s.z);
-    return this.group.localToWorld(out);
+    return this.occupants.worldPoint(
+      this.occupants.has(which) ? which : 'passenger', null, out,
+    );
   }
 
   /** Speaker position for the spatial station mix. */
@@ -579,8 +589,7 @@ export class Cart {
    * behind the wheel, not dead centre of the cart.
    */
   driverViewWorld(out = new THREE.Vector3()) {
-    out.set(-0.20, 1.50, 0.04);
-    return this.group.localToWorld(out);
+    return this.occupants.worldPoint('driverEye', null, out);
   }
 
   /** Ground beside a seat, used when a rider gets out. */

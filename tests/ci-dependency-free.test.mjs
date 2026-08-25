@@ -29,8 +29,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../', import.meta.url));
 
 /** Everything package.json admits it does not install for the deploy. */
 const OPTIONAL_PACKAGES = Object.freeze(

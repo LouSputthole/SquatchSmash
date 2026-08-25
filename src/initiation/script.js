@@ -292,6 +292,12 @@ const IN_145 = beat('IN-145', 2, 'execution_sweep', [
   sd('GRATIN fires once. Prospect Five falls forward. Booskibro does not react.'),
 ], { victim: 'PROSPECT FIVE', mark: 'kneel-3', shooter: 'GRATIN' });
 const IN_150 = beat('IN-150', 2, 'execution_sweep', [
+  sd('Kittenboss finally understands. She recoils on her knees and looks from '
+    + 'Gratin to the Circle; one involuntary plea, no speech and no melodrama.'),
+  l('KITTENBOSS', 'No, no, wait...', {
+    direction: 'Female voice. Small and immediate, as realization arrives. '
+      + 'One line only; she is not given time for another.',
+  }),
   sd('GRATIN fires once. Kittenboss falls forward beside Tony while he remains '
     + 'free to look at her. Nobody comments and the sweep continues.'),
 ], { victim: 'KITTENBOSS', mark: 'kneel-4', shooter: 'GRATIN' });
@@ -542,8 +548,10 @@ const IN_300 = beat('IN-300', 4, 'ceremony', [
 
 const IN_310 = beat('IN-310', 4, 'ceremony', [
   l('LOU', 'Come forward.', { verbatim: true }),
-  sd('He does not stand. Tony walks the length of the table to him, and the '
-    + 'room closes up behind him as he passes.'),
+  sd('He does not stand. STAND BEFORE UNCLE LOU appears. The player walks '
+    + 'Tony the length of the table in first person; no separate avatar or '
+    + 'authored camera takes the movement away from him. The room closes up '
+    + 'behind him as he passes.'),
 ]);
 
 const IN_320 = beat('IN-320', 4, 'ceremony', [

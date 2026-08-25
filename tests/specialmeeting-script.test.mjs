@@ -229,6 +229,36 @@ test('the valve opens once and is closed again immediately', () => {
   assert.equal(down.options.length, 3);
 });
 
+test('the only drive blackout follows the final exchange and returns at the arrival', () => {
+  assert.equal(beat('SM-196').kind, 'lines',
+    'the block-to-road match cut must not hide the first half of the drive');
+  assert.ok(beat('SM-196').lines.some((line) => line.startsForestDrive),
+    'the visible match cut still has to transfer ownership to the forest road');
+
+  for (const branch of ['SM-321', 'SM-322', 'SM-323']) {
+    assert.equal(beat(branch).next, 'SM-324', `${branch} bypasses the final approach`);
+  }
+  assert.equal(beat('SM-324').lines[0].holdSeconds, 3.5,
+    'conversation ends before the car carries on by itself');
+  assert.deepEqual(beat('SM-325').lines.map((line) => line.text), [
+    'So where are we going?',
+    "You'd never find it.",
+  ]);
+  assert.deepEqual(beat('SM-325').lines.map((line) => line.cue), [
+    'vo.specialmeeting.tony.dirt_one.1',
+    'vo.specialmeeting.lag.own_car.1',
+  ], 'the coda must use delivered takes instead of an unrecorded fallback');
+  assert.equal(beat('SM-326').kind, 'blackout');
+  assert.equal(beat('SM-326').lines[0].fadeSeconds, 1.2);
+  assert.equal(beat('SM-326').lines[0].holdSeconds, 0,
+    'the arrival gate owns the black beat; a second game-clock hold causes long dead black');
+  assert.equal(beat('SM-327').kind, 'fade');
+  assert.equal(beat('SM-327').lines[0].fadeSeconds, 0.8,
+    'the arrival must not sit behind a long dead-black screen');
+  assert.equal(beat('SM-327').next, 'SM-330',
+    'the authored engine-off, trunk and trail sequence stays downstream');
+});
+
 test("nobody names what this is before the trees open", () => {
   const named = BEATS
     .filter((b) => b.id !== 'SM-540')

@@ -26,6 +26,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 import * as THREE from 'three';
+import { ensureDomShim } from '../tools/three-shim.mjs';
 
 import { PALACE_GUARD_POSTS, buildPalaceCast } from '../src/cartel-palace/cast.js';
 import { PalaceBystanders } from '../src/cartel-palace/bystanders.js';
@@ -40,9 +41,14 @@ import {
   suppressedFireCue,
 } from '../src/cartel-palace/suppressor.js';
 import { PALACE_VOICE_LINES, PalaceVoice, allPalaceVoiceLines } from '../src/cartel-palace/voice.js';
-import { buildCartelPalace } from '../src/cartel-palace/world.js';
 import { WEAPON_IDS, weaponCue } from '../src/core/weapons/catalog.js';
 import { buildWeaponModel } from '../src/core/weapons/models.js';
+
+/* The canonical shared plant lives in the browser-authored prop module,
+ * which bakes textures while importing. Install the suite's one DOM shim
+ * before loading the real Palace world so focused direct runs stay honest. */
+ensureDomShim();
+const { buildCartelPalace } = await import('../src/cartel-palace/world.js');
 
 const manifest = JSON.parse(
   fs.readFileSync(new URL('../assets/sfx/manifest.json', import.meta.url), 'utf8'),
@@ -181,6 +187,57 @@ test('the entry hall is a room people worked in, not an empty box', () => {
   }
 });
 
+test('the cleaner cart reads as one grounded tool and its warning faces the entrance', () => {
+  const built = world();
+  const cart = built.root.getObjectByName('estate-cleaning-cart');
+  const handle = cart?.getObjectByName('cleaning-cart-mop-handle');
+  const head = cart?.getObjectByName('cleaning-cart-mop-head');
+  assert.ok(cart && handle && head, 'the cleaning cart lost its mop');
+
+  /* CylinderGeometry is centred on local Y. The lower end is the physical
+   * join a player sees, so test that point against the rendered head rather
+   * than comparing authored positions that ignore rotation. */
+  handle.updateWorldMatrix(true, false);
+  const lower = new THREE.Vector3(0, -0.75, 0).applyMatrix4(handle.matrixWorld);
+  const headBounds = boundsOf(head);
+  assert.ok(headBounds.distanceToPoint(lower) <= 0.025,
+    `the mop handle floats ${(headBounds.distanceToPoint(lower)).toFixed(3)} m off its head`);
+
+  const sign = built.root.getObjectByName('entry-detail.wet-floor-sign');
+  const warning = sign?.getObjectByName('wet-floor-warning-front');
+  assert.ok(sign && warning?.userData?.warningFace,
+    'the wet-floor sign has no readable warning side');
+  sign.updateWorldMatrix(true, false);
+  const signAt = sign.getWorldPosition(new THREE.Vector3());
+  const towardDoor = new THREE.Vector3(13.5, 0, 12).sub(signAt).setY(0).normalize();
+  const signForward = sign.getWorldDirection(new THREE.Vector3()).setY(0).normalize();
+  assert.ok(signForward.dot(towardDoor) > 0.75,
+    'the readable side of the wet-floor sign faces away from the arriving player');
+
+  /* The rest of the role read is content, not decoration: a cart with no
+   * bucket, wringer, bottles or waste bag is just a steel trolley beside an
+   * apron. Pin the whole authored assembly so a later optimisation cannot
+   * preserve the collider and quietly erase Rosa's visual context. */
+  assert.equal(named(cart, 'cleaning-cart-bottle').length, 3,
+    'the cleaning cart lost its bottle set');
+  for (const part of [
+    'cleaning-cart-bucket', 'cleaning-cart-wringer', 'cleaning-cart-refuse-bag',
+  ]) {
+    assert.equal(named(cart, part).length, 1, `the cleaning cart lost ${part}`);
+  }
+});
+
+test('Palace planters use the canonical attached-leaf plant module', () => {
+  const plants = named(world().root, 'palace-potted-plant');
+  assert.ok(plants.length >= 7, `the Palace has only ${plants.length} canonical planters`);
+  for (const plant of plants) {
+    assert.equal(plant.userData.plantModule, 'world.makePlant');
+    assert.ok(plant.children.length >= 20, 'the canonical plant lost its stem/leaf structure');
+    assert.equal(named(plant, 'planter-frond').length, 0,
+      'the Palace is still rendering its giant local box-frond fork');
+  }
+});
+
 test('a guard sits at the watch desk and stands up when he has a reason to', () => {
   const post = PALACE_GUARD_POSTS.find((entry) => entry.id === 'entry-watch');
   assert.ok(post, 'the foyer has no watch-desk post');
@@ -205,18 +262,49 @@ test('a guard sits at the watch desk and stands up when he has a reason to', () 
   assert.equal(cast.standUp(watch), false, 'standing up twice is not a thing');
 });
 
-test('the alarm gets the watch guard out of his chair through the security layer', () => {
+test('the alarm gets the watch guard out of his chair and into live firearm combat', () => {
   const cast = buildPalaceCast(new THREE.Group());
-  const security = new PalaceSecurity({ cast, colliders: [] });
+  const weaponEvents = [];
+  const enemyFire = [];
+  const security = new PalaceSecurity({
+    cast,
+    colliders: [],
+    combatPosts: [],
+    random: () => 0,
+    onWeaponEvent: (event) => weaponEvents.push(event),
+    onEnemyFire: (event) => enemyFire.push(event),
+  });
   const watch = cast.guards.find((guard) => guard.id === 'entry-watch');
+  const start = watch.root.position.clone();
+  const startingRounds = watch.firearm.rounds;
   assert.equal(watch.seated, true);
   security.raiseAlarm('gunshot');
-  security.update(1 / 60, { playerPosition: new THREE.Vector3(13.5, 0, 9) });
+  /* Isolate whose receipt this assertion reads without replacing any of the
+   * production security/aim/firearm code under test. */
+  for (const entry of cast.all) entry.active = entry === watch;
+  const playerPosition = new THREE.Vector3(15.6, 1.66, 10.85);
+  let frames = 0;
+  for (; frames < 600 && !watch.lastShot; frames++) {
+    security.update(1 / 60, { playerPosition, finalEncounter: true });
+  }
   assert.equal(watch.seated, false, 'the alarm left a man typing');
+  assert.equal(watch.figure.pose, 'aiming');
+  assert.equal(watch.figure.tilt.position.y, 0);
+  assert.equal(watch.weaponModel?.visible, true, 'he never picked up the desk pistol');
+  assert.ok(watch.root.position.distanceTo(start) > 0.05, 'he stood up but never joined tactical movement');
+  assert.ok(watch.lastShot, `the watch guard never fired in ${frames} live security frames`);
+  assert.ok(watch.lastShotOrigin?.isVector3, 'his actual muzzle origin was never recorded');
+  assert.ok(watch.firearm.rounds < startingRounds, 'his production Firearm spent no round');
+  assert.ok(security.stats.roundsFired >= 1, 'security published no hostile round');
+  assert.ok(weaponEvents.some((event) => event.type === 'shot' && event.id === watch.id),
+    'the computer guard produced no weapon-event receipt');
+  assert.ok(enemyFire.some((event) => event.entry === watch),
+    'the computer guard never reached the shared enemy-fire presentation');
 });
 
 test('the cleaner is an unarmed bystander who cowers and never fights', () => {
-  const cast = buildPalaceCast(new THREE.Group());
+  const scene = new THREE.Group();
+  const cast = buildPalaceCast(scene);
   assert.equal(cast.civilians.length, 3, 'the dining trio must stay exactly three');
   assert.equal(cast.bystanders.length, 1);
   const cleaner = cast.bystanders[0];
@@ -225,6 +313,18 @@ test('the cleaner is an unarmed bystander who cowers and never fights', () => {
   assert.equal(cast.all.includes(cleaner), false, 'a cleaner is not in the combat cast');
   assert.equal(cleaner.actor, undefined, 'a cleaner has no CombatActor');
   assert.equal(cast.hitTargets.includes(cleaner.root), true, 'she must still be shootable');
+  assert.equal(cleaner.root.parent, scene, 'Rosa exists in state but is absent from the rendered cast');
+  assert.equal(cleaner.occupation, 'housekeeper');
+  assert.equal(cleaner.root.userData.palaceNoncombatant, true);
+  const uniform = [];
+  cleaner.root.traverse((object) => {
+    if (object.isMesh && object.userData?.housekeeperUniformPiece) uniform.push(object);
+  });
+  assert.ok(uniform.length >= 5,
+    `Rosa has only ${uniform.length} housekeeper marker(s); she still reads as a generic blue figure`);
+  assert.ok(uniform.some((object) => /apron/i.test(object.name)), 'Rosa has no visible apron');
+  assert.ok(uniform.some((object) => /cleaning-cloth/i.test(object.name)),
+    'Rosa carries no role-specific cleaning marker');
   assert.ok(cleaner.cowerAt?.isVector3, 'she has nowhere to go when the shooting starts');
   /* And the corner she runs to is real floor, not the inside of the bench. */
   const built = world();
@@ -575,6 +675,9 @@ test('Mark still aims correctly once his encounter activates', () => {
   security.activateFinalEncounter();
   assert.equal(cast.mark.active, false, 'the doors opening still activates the boss');
   cast.activateMark({ armored: true });
+  for (let index = 0; index < 180 && !cast.mark.active; index++) {
+    cast.updatePresentation(1 / 60);
+  }
   assert.equal(cast.mark.active, true);
   for (let index = 0; index < 240; index++) {
     security.update(1 / 60, { playerPosition: target, finalEncounter: true });

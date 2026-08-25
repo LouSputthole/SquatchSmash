@@ -1,4 +1,4 @@
-import { SPEECH_MIX_CLOSE, speak } from '../core/dialogue.js';
+import { SPEECH_MIX_CLOSE, SPEECH_MIX_INDOORS, speak } from '../core/dialogue.js';
 import * as THREE from 'three';
 import { ANCHORS, BATHROOM_DOOR, ROOMS } from './scenes/ApartmentScene.js';
 import { SILVERCASE_APE_PRESENTATION } from './cast/ape.js';
@@ -442,9 +442,21 @@ const SPEAKER_BODY = Object.freeze({
   PRUITT: 'pruitt',
 });
 
+/** Resolve a script speaker to the body that is physically in the live set.
+ * The drive-over and apartment deliberately use separate Ape rigs, so the
+ * active world chooses the emitter rather than a global character id. */
+function physicalSpeaker(line) {
+  const bodyId = SPEAKER_BODY[line?.speaker];
+  if (!bodyId) return null;
+  if (bodyId === 'ape' && car.root.visible) return car.ape;
+  return cast[bodyId] ?? null;
+}
+
 /** Cut every mouth in the room. Called wherever the voice itself is cut. */
 function hushCast() {
   for (const actor of cast.all) actor.npc.hush?.();
+  /* CarInterior owns the raw Npc; apartment cast entries wrap one in Actor. */
+  car.ape.hush?.();
 }
 
 /**
@@ -457,10 +469,11 @@ function hushCast() {
  */
 function speakLine(line) {
   hushCast();
-  const actor = cast[SPEAKER_BODY[line.speaker]];
-  if (!actor?.alive) return;
+  const actor = physicalSpeaker(line);
+  if (!actor || actor.alive === false) return;
+  const npc = actor.npc ?? actor;
   const authored = line.hold ?? Math.max(1.2, (line.text?.length || 0) * 0.045);
-  actor.npc.say(Math.max(authored, voiceSeconds), { audio, source: voiceSource });
+  npc.say(Math.max(authored, voiceSeconds), { audio, source: voiceSource });
 }
 
 const dialogue = new DialogueController({
@@ -480,17 +493,23 @@ const dialogue = new DialogueController({
    * further code change. */
   /* Returns the take's real length so the controller can hold the line for
    * it rather than for an authored guess. See DialogueController._advance. */
-  playCue(cue) {
+  playCue(cue, _voice, line) {
     voiceSource = null;
     voiceSeconds = 0;
     if (!cue || !audio?.hasSample?.(cue)) return 0;
-    /* Through the shared dialogue path. The 0.9 that used to be here was this
-     * scene's own guess at dialogue level; it lives on the voice bus now, once,
-     * for the whole game. `SPEECH_MIX_CLOSE` because the Silver Case is two
-     * men in a room and a hallway -- there is nowhere far enough away for a
-     * positional mix to buy anything, and a line that fades when the player
-     * turns round is worse than one that does not. */
-    const spoken = speak(audio, cue, { mix: SPEECH_MIX_CLOSE });
+    /* Through the shared dialogue path. A person who exists in the world owns
+     * a moving indoor emitter; first-person Tony and HUD/narration stay close
+     * and non-positional. The actor identity and subtitle ride on the receipt
+     * so QA proves the actual recording came from the actual speaker instead
+     * of merely observing nearby audio and text events. */
+    const actor = physicalSpeaker(line);
+    const speakerId = SPEAKER_BODY[line?.speaker] ?? line?.speaker?.toLowerCase() ?? null;
+    const spoken = speak(audio, cue, {
+      ...(actor?.group ? { speaker: actor.group } : {}),
+      mix: actor?.group ? SPEECH_MIX_INDOORS : SPEECH_MIX_CLOSE,
+      speakerId,
+      subtitle: line?.text ?? null,
+    });
     voiceSource = spoken.source;
     voiceSeconds = spoken.seconds;
     return voiceSeconds;
@@ -595,6 +614,7 @@ const pauseMenu = createPauseMenu({
   },
   onResume: () => {
     paused = false;
+    dialogue.syncClock();
     input.refresh('resume');
     if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
     clock.getDelta();
@@ -1369,8 +1389,17 @@ function buildStates() {
           if (!resolvePlayerShot()) return;
           couchFireHandled = true;
           cast.deke.kill();
+          cast.chester.startle({
+            shooter: player.position,
+            body: cast.deke.group.position,
+            duration: 1.8,
+          });
           setInstruction('');
-          dialogue.play(SEQUENCES.couchAftermath, { onDone: () => fsm.go(S.LOU_QUESTION) });
+          dialogue.play(SEQUENCES.chesterShotReaction, {
+            onDone: () => dialogue.play(SEQUENCES.couchAftermath, {
+              onDone: () => fsm.go(S.LOU_QUESTION),
+            }),
+          });
         }
       },
       exit() {
@@ -1543,8 +1572,22 @@ function buildStates() {
         setObjective(OBJECTIVES.AFTERMATH);
         dialogue.play(SEQUENCES.aftermathIntro, {
           onDone: () => {
+            /* The choice is a held tableau, not a paused menu. Winston keeps
+             * breathing and bracing while a quiet recorded clock marks the
+             * room around him for the entire authored 27-second window. The
+             * Actor owns both the live pose and its production observation;
+             * the verifier reads that observation rather than maintaining a
+             * second verifier-only timer. */
+            cast.winston.startTension({
+              pulseSeconds: 4.5,
+              onPulse: () => audio.play('clock.tick', {
+                volume: 0.14,
+                requiredRecorded: true,
+              }),
+            });
             dialogue.presentChoice(CHOICES.aftermath, {
               onResolved: (outcome) => {
+                cast.winston.stopTension();
                 // Sparing him resolves here, the way it always did. Killing
                 // him no longer resolves on the keypress at all — the owner's
                 // note is that if you are not going to spare the last man you
@@ -1559,6 +1602,9 @@ function buildStates() {
             });
           },
         });
+      },
+      exit() {
+        cast.winston.stopTension();
       },
     },
 
@@ -2009,6 +2055,8 @@ window.silvercase = {
     weapon: { drawn: viewModel.drawn, visible: viewModel.group.visible },
     inventory: { ...loadout, slots: JSON.parse(inventorySignature || '[]') },
     reactionWindow: reactionWindow.snapshot(),
+    /** Live production evidence for the held Winston decision tableau. */
+    winstonTension: cast.winston.tensionSnapshot(),
   }),
   begin: () => beginScene(),
   retry: () => { ui.deathOverlay.classList.add('hidden'); restoreCheckpoint(); },

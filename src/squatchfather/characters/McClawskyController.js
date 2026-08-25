@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import {
+  beginDeathTransition,
+  restoreDeathTransition,
+} from '../../core/death-transition.js';
 import { Figure } from './Figure.js';
 import { POS } from '../scenes/SquatchfatherScene.js';
 
@@ -42,6 +46,8 @@ export class McClawskyController {
     this.drawT = -1;          // >=0 once he starts reaching
     this.drawn = false;
     this.onDrawComplete = null;
+    this._deathTransition = null;
+    this._deathTimer = null;
 
     // The revolver stays in the coat unless things go badly.
     this.gun = new THREE.Group();
@@ -104,12 +110,29 @@ export class McClawskyController {
     this.dead = true;
     this.drawT = -1;
     this.onDrawComplete = null;
+    this._deathTransition = beginDeathTransition(this.fig.group, {
+      mode: 'seated',
+      stop: [() => {
+        this.fig.hush();
+        this.drawT = -1;
+        this.onDrawComplete = null;
+      }],
+    });
     this.fig.hit();
-    setTimeout(() => { this.fig.setDown(true); }, 220);
+    this._deathTimer = setTimeout(() => {
+      this._deathTimer = null;
+      this.fig.setDown(true);
+    }, 220);
   }
 
   // Checkpoint restart: back in his chair, hand nowhere near the coat.
   revive() {
+    if (this._deathTimer !== null) {
+      clearTimeout(this._deathTimer);
+      this._deathTimer = null;
+    }
+    restoreDeathTransition(this._deathTransition);
+    this._deathTransition = null;
     this.dead = false;
     this.drawT = -1;
     this.drawn = false;

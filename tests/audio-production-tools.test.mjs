@@ -73,6 +73,28 @@ test('the recording handoff groups manifest pickups and quarantines legacy brief
   assert.match(markdown, /UNWIRED DESIGN BRIEF/);
 });
 
+test('Countryside Cabin voice pickups stay scene-owned instead of falling into shared hub debt', () => {
+  const markdown = buildAudioTodo({
+    manifest: {
+      voices: {
+        wag: { id: '<owner to cast>', _note: 'Wag remains explicitly uncast.' },
+      },
+      sfx: [{
+        name: 'vo.cabin.wag.general.arrival',
+        voice: 'wag',
+        say: 'Well, look who finally made it out here.',
+      }],
+    },
+    index: { files: [], versions: {} },
+    legacyQueue: {},
+  });
+
+  assert.match(markdown, /^## Voice pickups .* The Countryside Cabin \(1\)$/m);
+  assert.match(markdown, /Voice profile: `wag`/);
+  assert.match(markdown, /vo\.cabin\.wag\.general\.arrival\.mp3/);
+  assert.doesNotMatch(markdown, /^## Voice pickups .* Apartment and shared hub/m);
+});
+
 test('indexed takes with retired wording stay in the voice pickup handoff', () => {
   const markdown = buildAudioTodo({
     manifest: {
@@ -149,6 +171,56 @@ test('the standard voice generation command excludes unreachable party dialogue'
   assert.match(packageJson.scripts['sfx:vo'], /--voice-only --live-only/);
   assert.match(generator, /const LIVE_ONLY = has\('--live-only'\)/);
   assert.match(generator, /if \(LIVE_ONLY \|\| !INCLUDE_FUTURE\) cues = cues\.filter\(\(cue\) => !isFutureInitiationCue\(cue\)\)/);
+});
+
+test('repeated exact-queue filters cannot silently drop a requested recording', () => {
+  const result = spawnSync(process.execPath, [
+    path.join(ROOT, 'tools', 'generate-sfx.mjs'),
+    '--dry-run',
+    '--force',
+    '--only', 'vo.silvercase.couch.chester.whatthehell',
+    '--only', 'vo.initiation.cabin.in-150-kittenboss.1baf5ya.1',
+  ], { cwd: ROOT, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /2 cue\(s\) to generate/);
+  assert.match(result.stdout, /vo\.silvercase\.couch\.chester\.whatthehell/);
+  assert.match(result.stdout, /vo\.initiation\.cabin\.in-150-kittenboss\.1baf5ya\.1/);
+});
+
+test('an unknown exact-queue selector fails closed instead of reporting an empty success', () => {
+  const result = spawnSync(process.execPath, [
+    path.join(ROOT, 'tools', 'generate-sfx.mjs'),
+    '--dry-run',
+    '--only', 'definitely.not.a.real.cue',
+  ], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: { ...process.env, ELEVENLABS_API_KEY: '', XI_API_KEY: '' },
+  });
+
+  assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+  assert.match(result.stderr,
+    /Unknown --only cue selector\(s\): definitely\.not\.a\.real\.cue/);
+  assert.match(result.stderr, /must exactly match a cue name in assets\/sfx\/manifest\.json/);
+  assert.doesNotMatch(result.stdout, /Nothing to do|cue\(s\) to generate/);
+});
+
+test('a dry-run fails closed when a selected spoken cue still needs casting', () => {
+  const result = spawnSync(process.execPath, [
+    path.join(ROOT, 'tools', 'generate-sfx.mjs'),
+    '--dry-run',
+    '--force',
+    '--only', 'vo.cabin.wag.general.arrival',
+  ], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: { ...process.env, ELEVENLABS_API_KEY: '', XI_API_KEY: '' },
+  });
+
+  assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+  assert.match(result.stderr, /Casting is required before these spoken cues can be generated/);
+  assert.match(result.stderr, /No ElevenLabs voice id set for: wag/);
+  assert.doesNotMatch(result.stdout, /cue\(s\) to generate/);
 });
 
 test('every production sheet shares the same future Initiation exclusion', () => {

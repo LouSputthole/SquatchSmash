@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import {
+  beginDeathTransition,
+  restoreDeathTransition,
+} from '../../core/death-transition.js';
 import { Figure } from './Figure.js';
 import { POS } from '../scenes/SquatchfatherScene.js';
 
@@ -37,6 +41,8 @@ export class SalController {
     scene.add(this.fig.group);
     this.watchT = 0;
     this.dead = false;
+    this._deathTransition = null;
+    this._deathTimer = null;
   }
 
   get group() { return this.fig.group; }
@@ -60,13 +66,28 @@ export class SalController {
   kill() {
     if (this.dead) return;
     this.dead = true;
+    this._deathTransition = beginDeathTransition(this.fig.group, {
+      mode: 'seated',
+      stop: [() => {
+        this.fig.hush();
+        this.fig.leanTarget = 0;
+      }],
+    });
     this.fig.hit();
-    this.fig.leanTarget = 0;
-    setTimeout(() => { this.fig.setDown(true); }, 220);
+    this._deathTimer = setTimeout(() => {
+      this._deathTimer = null;
+      this.fig.setDown(true);
+    }, 220);
   }
 
   // Checkpoint restart: he is sitting there again, mid-sentence.
   revive() {
+    if (this._deathTimer !== null) {
+      clearTimeout(this._deathTimer);
+      this._deathTimer = null;
+    }
+    restoreDeathTransition(this._deathTransition);
+    this._deathTransition = null;
     this.dead = false;
     const f = this.fig;
     f.setDown(false);

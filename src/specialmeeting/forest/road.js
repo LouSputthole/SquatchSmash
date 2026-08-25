@@ -503,6 +503,10 @@ export const ROAD_EVENTS = Object.freeze([
   Object.freeze({ id: 'dirt_third', s: sAtNode(19), stop: false }),
   Object.freeze({ id: 'deep', s: stageStartS('deep'), stop: false }),
   Object.freeze({ id: 'dirt_fourth', s: sAtNode(24), stop: false }),
+  /* The final exchange begins on the last moving approach, with enough road
+   * left for its silence, two delivered lines and the fade. It is an event,
+   * not a dialogue timer guessing where the car might be. */
+  Object.freeze({ id: 'final_approach', s: LENGTH - 82, stop: false }),
   /* SM-330. Off the track onto a flat spur, and the engine goes off. */
   Object.freeze({ id: 'arrival', s: LENGTH - 4, stop: true }),
 ]);

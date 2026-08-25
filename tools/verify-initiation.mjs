@@ -34,10 +34,29 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  CABIN,
+  CABIN_DOOR,
+  CEREMONY_CENTRE,
+  PLAYER_SLOT as AUTHORED_PLAYER_SLOT,
+  TRACK,
+  TRAIL,
+} from '../src/initiation/cabin/site.js';
 import { voiceOverlapFindings } from './voice-overlap-check.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5206;
+const KITTEN_BEG_CUE_FILE = 'vo.initiation.cabin.in-150-kittenboss.1baf5ya.1.mp3';
+const KITTEN_BEG_CUE_PATH = path.join(ROOT, 'assets', 'sfx', KITTEN_BEG_CUE_FILE);
+const KITTEN_TEST_SUBSTITUTE_PATH = path.join(
+  ROOT,
+  'assets',
+  'sfx',
+  'vo.initiation.cabin.in-030-kittenboss.1ba2x2c.1.mp3',
+);
+const REQUIRED_TRAIL_BEATS = Object.freeze(['IN-210', 'IN-220', 'IN-230', 'IN-240']);
+const productionKittenBegCueExists = fs.existsSync(KITTEN_BEG_CUE_PATH);
+const verifierSfxIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json')));
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -72,7 +91,34 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
 
+/* Keep the production failure singular without allowing it to hide the rest of
+ * the ceremony. The active voice bank correctly fail-closes when the delivered
+ * IN-150 take is absent. In verifier-only traffic, route that one request to an
+ * existing recording by the same female performer so decoding and the later
+ * state graph can still be exercised. The explicit file-system assertion below
+ * remains red until the real take is delivered; nothing is copied into assets,
+ * and production runtime behavior is unchanged. */
+if (!productionKittenBegCueExists) {
+  await page.route('**/assets/sfx/index.json*', async (route) => {
+    const files = new Set(verifierSfxIndex.files ?? []);
+    files.add(KITTEN_BEG_CUE_FILE);
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ...verifierSfxIndex, files: [...files] }),
+    });
+  });
+  await page.route(`**/assets/sfx/${KITTEN_BEG_CUE_FILE}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'audio/mpeg',
+      path: KITTEN_TEST_SUBSTITUTE_PATH,
+    });
+  });
+}
+
 const problems = [];
+const pointerLockWarnings = [];
 const missing = [];
 page.on('pageerror', (error) => {
   /* WITH THE STACK. A bare message names the Web Audio call that threw and
@@ -82,7 +128,17 @@ page.on('pageerror', (error) => {
   problems.push(where ? `${error.message} @ ${where}` : error.message);
 });
 page.on('console', (message) => {
-  if (message.type() === 'error') problems.push(message.text().slice(0, 240));
+  if (message.type() !== 'error') return;
+  const text = message.text().slice(0, 240);
+  /* Headless Chromium can reject the first otherwise-trusted Playwright click
+   * while another software-rendered page has focus. It is only harmless if a
+   * subsequent real click actually captures the scene; that behavioral proof
+   * is asserted before walking and again in ritual free-look. */
+  if (/user gesture is required to request pointer lock/i.test(text)) {
+    pointerLockWarnings.push(text);
+    return;
+  }
+  problems.push(text);
 });
 page.on('response', (response) => {
   if (response.status() >= 400) missing.push(`${response.status()} ${response.url()}`);
@@ -122,6 +178,53 @@ async function driveTo(page, phase, { timeout = 90000 } = {}) {
 }
 
 /**
+ * Reach a phase through the production keyboard action path.
+ *
+ * `driveTo()` predates the real-input pass and invokes the public diagnostic
+ * handle directly. Keep it for the failure/checkpoint coverage above, whose
+ * purpose is state recovery. The successful run uses this helper instead: a
+ * genuine Space keydown reaches the same listener a player uses, and an
+ * unexpected numbered choice is a hard stop rather than something Space can
+ * accidentally bypass.
+ */
+async function pressActionTo(page, phase, { timeout = 120000 } = {}) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    const at = await page.evaluate(() => ({
+      phase: window.INITIATION.phase,
+      phaseT: window.INITIATION.phaseT,
+      paused: window.INITIATION.paused,
+      quizOpen: window.INITIATION.quizOpen,
+    }));
+    if (at.phase === phase) return at;
+    if (at.quizOpen) {
+      throw new Error(`Initiation exposed a numbered choice in '${at.phase}' while driving to '${phase}'`);
+    }
+    if (Date.now() > deadline) {
+      const said = problems.length ? ` — page said: ${problems.slice(0, 2).join(' ;; ')}` : '';
+      throw new Error(`Initiation never reached '${phase}' through real Space input — stuck in `
+        + `'${at.phase}' (phaseT ${at.phaseT?.toFixed?.(1) ?? '?'}s, paused ${at.paused})${said}`);
+    }
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(400);
+  }
+}
+
+async function capturePointerLock(page, { attempts = 3 } = {}) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    if (await page.evaluate(() => document.pointerLockElement === document.querySelector('canvas'))) {
+      return { captured: true, attempts: attempt - 1 };
+    }
+    await page.locator('canvas').first().click({ position: { x: 320, y: 180 } });
+    await page.waitForTimeout(250);
+  }
+  return {
+    captured: await page.evaluate(() => document.pointerLockElement === document.querySelector('canvas')),
+    attempts,
+  };
+}
+
+/**
  * Walk the player, on the real keys, until the phase moves.
  *
  * `approach` and `line_up` advance on DISTANCE -- within 17 m of the line,
@@ -147,18 +250,19 @@ async function walkTo(page, phase, { timeout = 120000 } = {}) {
    * four phases downstream of it timed out one after another. Five red checks
    * from one stale property name, and none of them said so. The fallbacks keep
    * it working either way. */
-  const state = () => page.evaluate(() => {
+  const state = (target) => page.evaluate((destination) => {
     const player = window.INITIATION.player;
     const p = player.position ?? player.group.position;
-    const c = window.INITIATION.PLAYER_SLOT;
     return {
-      dx: c.x - p.x,
-      dz: c.z - p.z,
+      x: p.x,
+      z: p.z,
+      dx: destination.x - p.x,
+      dz: destination.z - p.z,
       yaw: player.yaw ?? player.group.rotation.y,
       enabled: player.enabled === true,
       phase: window.INITIATION.phase,
     };
-  });
+  }, target);
 
   const held = new Set();
   const hold = async (keys) => {
@@ -167,27 +271,35 @@ async function walkTo(page, phase, { timeout = 120000 } = {}) {
   };
 
   const deadline = Date.now() + timeout;
-  /* Which strafe key is his right is MEASURED, not assumed: pick one, watch
-   * whether the gap closes, flip once if it does not. Walking confidently in
-   * the wrong direction looks exactly like a scene that cannot advance, which
-   * is how the first version of this reported four phases broken. */
-  let rightIsD = true;
-  /* AND SO IS WHICH WAY IS FORWARD, for the same reason and with more at
-   * stake. The shared Player's yaw is `Math.atan2(-dx, -dz)` -- a heading
-   * whose forward vector is (-sin, -cos) -- and the arithmetic below was
-   * written for the opposite convention. A walker that strafes the wrong way
-   * wanders; a walker that walks BACKWARDS never arrives, and looks from the
-   * outside exactly like a scene that cannot advance. So the forward sign is
-   * measured against the closing distance too. */
-  let forwardSign = -1;
   let best = Infinity;
-  let stale = 0;
-  let flippedStrafe = false;
+  /* Follow the authored dirt track instead of drawing a verifier-only chord
+   * through its trees and rocks. The prior driver aimed directly from spawn
+   * to the prospect slot; it left TRACK near its final bend and correctly hit
+   * wilderness collision 13 m from the line. */
+  const waypoints = [...TRACK.slice(1), AUTHORED_PLAYER_SLOT];
+  let waypointIndex = 0;
   try {
     for (;;) {
-      const at = await state();
+      const target = waypoints[waypointIndex];
+      const at = await state(target);
       if (at.phase === phase) return true;
       const gap = Math.hypot(at.dx, at.dz);
+      /* `line_up` means the scene has accepted the wilderness approach and
+       * now wants Tony's exact prospect slot. Continuing to chase the final
+       * trail waypoint can wedge him against the edge of the assembled line
+       * even though the production objective has already changed. */
+      if (at.phase === 'line_up' && waypointIndex < waypoints.length - 1) {
+        await hold(new Set());
+        waypointIndex = waypoints.length - 1;
+        best = Infinity;
+        continue;
+      }
+      if (waypointIndex < waypoints.length - 1 && gap < 1.25) {
+        await hold(new Set());
+        waypointIndex += 1;
+        best = Infinity;
+        continue;
+      }
       if (Date.now() > deadline) {
         /* SAY WHICH OF THE TWO IT WAS.
          *
@@ -199,37 +311,160 @@ async function walkTo(page, phase, { timeout = 120000 } = {}) {
          * Reporting the distance alone sent the first of those to be
          * investigated as the second. */
         throw new Error(at.enabled
-          ? `Initiation never walked to '${phase}' — in '${at.phase}', ${gap.toFixed(1)} m out `
-            + 'with input live, so the keys are reaching the scene and the walk itself is stuck'
+          ? `Initiation never walked to '${phase}' — in '${at.phase}', ${gap.toFixed(1)} m from `
+            + `track waypoint ${waypointIndex + 1}/${waypoints.length} at `
+            + `(${at.x.toFixed(1)}, ${at.z.toFixed(1)}) with input live, so the keys are reaching `
+            + 'the scene and the walk itself is stuck'
           : `Initiation never walked to '${phase}': the scene never enabled input `
             + `(Player.enabled false in '${at.phase}'). The adapter gates that on pointer `
             + 'lock, which this browser did not grant — the walk was never driveable.');
       }
-      if (gap < best - 0.1) { best = gap; stale = 0; flippedStrafe = false; } else { stale += 1; }
-      if (stale === 4) {
-        /* Strafe first, because it is the cheaper mistake; forward next. */
-        if (!flippedStrafe) { rightIsD = !rightIsD; flippedStrafe = true; }
-        else { forwardSign = -forwardSign; flippedStrafe = false; }
-        stale = 0;
-      }
+      if (gap < best) best = gap;
 
-      /* The heading-relative move. Forward is +Z rotated by the yaw, which is
-       * the convention `Math.atan2(x, z)` reads for everywhere else here. */
+      /* Shared Player forward is (-sin(yaw), -cos(yaw)); its right vector is
+       * (cos(yaw), -sin(yaw)). Project the target delta onto those exact
+       * vectors. A previous "learn by flipping keys" loop could reverse a
+       * correct sign after four collision-limited samples and walk away from
+       * the slot on the second pass through this route. */
       const sin = Math.sin(at.yaw);
       const cos = Math.cos(at.yaw);
-      const forward = (at.dx * sin + at.dz * cos) * forwardSign;
+      const forward = -(at.dx * sin + at.dz * cos);
       const right = at.dx * cos - at.dz * sin;
       const keys = new Set();
       if (forward > 0.4) keys.add('KeyW');
       else if (forward < -0.4) keys.add('KeyS');
-      if (right > 0.4) keys.add(rightIsD ? 'KeyD' : 'KeyA');
-      else if (right < -0.4) keys.add(rightIsD ? 'KeyA' : 'KeyD');
+      if (right > 0.4) keys.add('KeyD');
+      else if (right < -0.4) keys.add('KeyA');
       await hold(keys);
       await page.waitForTimeout(450);
     }
   } finally {
     await hold(new Set());
   }
+}
+
+/**
+ * Walk a supplied authored route with real WASD until production changes phase.
+ *
+ * This deliberately does not set position, yaw, phase, or mission state. The
+ * browser only reads the shared Player to decide which real movement keys to
+ * hold. A trail conversation may release pointer lock for its numbered reply;
+ * the verifier answers "keep walking" with Digit3 and recaptures the canvas
+ * before taking another step.
+ */
+async function walkAuthoredRouteTo(page, phase, waypoints, { timeout = 240000 } = {}) {
+  if (!waypoints.length) throw new Error(`Initiation route to '${phase}' has no authored waypoints`);
+
+  const state = (target) => page.evaluate((destination) => {
+    const player = window.INITIATION.player;
+    const p = player.position ?? player.group.position;
+    return {
+      x: p.x,
+      z: p.z,
+      dx: destination.x - p.x,
+      dz: destination.z - p.z,
+      yaw: player.yaw ?? player.group.rotation.y,
+      enabled: player.enabled === true,
+      phase: window.INITIATION.phase,
+      quizOpen: window.INITIATION.quizOpen,
+      trail: window.INITIATION.trail,
+    };
+  }, target);
+
+  const held = new Set();
+  const hold = async (keys) => {
+    for (const key of [...held]) if (!keys.has(key)) { await page.keyboard.up(key); held.delete(key); }
+    for (const key of keys) if (!held.has(key)) { await page.keyboard.down(key); held.add(key); }
+  };
+
+  const deadline = Date.now() + timeout;
+  let waypointIndex = 0;
+  let keyTicks = 0;
+  let trailChoiceAnswered = false;
+  try {
+    for (;;) {
+      const target = waypoints[waypointIndex];
+      const at = await state(target);
+      if (at.phase === phase) {
+        return {
+          ...at,
+          keyTicks,
+          reachedWaypoints: waypointIndex,
+          trailChoiceAnswered,
+        };
+      }
+
+      if (at.phase === 'trail_choice') {
+        await hold(new Set());
+        if (at.quizOpen) {
+          await page.keyboard.press('Digit3');
+          trailChoiceAnswered = true;
+          await page.waitForTimeout(300);
+        }
+        const recapture = await capturePointerLock(page);
+        if (!recapture.captured) {
+          throw new Error('Initiation trail reply released pointer lock and real WASD could not be re-armed');
+        }
+        continue;
+      }
+
+      if (!at.enabled) {
+        await hold(new Set());
+        const recapture = await capturePointerLock(page);
+        if (!recapture.captured && Date.now() > deadline) {
+          throw new Error(`Initiation could not enable real WASD in '${at.phase}' while walking to '${phase}'`);
+        }
+        await page.waitForTimeout(250);
+        continue;
+      }
+
+      const gap = Math.hypot(at.dx, at.dz);
+      if (waypointIndex < waypoints.length - 1 && gap < 0.8) {
+        await hold(new Set());
+        waypointIndex += 1;
+        continue;
+      }
+      if (Date.now() > deadline) {
+        throw new Error(`Initiation never walked to '${phase}' — in '${at.phase}', ${gap.toFixed(1)} m from `
+          + `authored waypoint ${waypointIndex + 1}/${waypoints.length} at `
+          + `(${at.x.toFixed(1)}, ${at.z.toFixed(1)}) after ${keyTicks} real WASD ticks`);
+      }
+
+      const sin = Math.sin(at.yaw);
+      const cos = Math.cos(at.yaw);
+      const forward = -(at.dx * sin + at.dz * cos);
+      const right = at.dx * cos - at.dz * sin;
+      const keys = new Set();
+      if (forward > 0.35) keys.add('KeyW');
+      else if (forward < -0.35) keys.add('KeyS');
+      if (right > 0.35) keys.add('KeyD');
+      else if (right < -0.35) keys.add('KeyA');
+      await hold(keys);
+      keyTicks += 1;
+      await page.waitForTimeout(350);
+    }
+  } finally {
+    await hold(new Set());
+  }
+}
+
+async function chooseCorrectDisplayedOath(page, expectedPhase) {
+  await page.waitForFunction((wanted) => window.INITIATION.phase === wanted
+    && document.querySelector('#quiz')?.classList.contains('show')
+    && [...document.querySelectorAll('#quiz .quiz-opt')]
+      .some((button) => !button.hidden && button.dataset.correct === '1'), expectedPhase,
+  { timeout: 120000 });
+  const options = await page.locator('#quiz .quiz-opt').evaluateAll((buttons) => buttons
+    .filter((button) => !button.hidden)
+    .map((button) => ({
+      index: Number(button.dataset.i),
+      correct: button.dataset.correct === '1',
+      text: button.textContent.replace(/\s+/g, ' ').trim(),
+    })));
+  const correct = options.find((option) => option.correct);
+  if (!correct) throw new Error(`Initiation ${expectedPhase} displayed no correct oath wording`);
+  await page.keyboard.press(`Digit${correct.index + 1}`);
+  return { options, selected: correct };
 }
 
 const results = [];
@@ -305,9 +540,14 @@ try {
     missing: window.INITIATION.missingVoiceCues,
     failed: window.INITIATION.failedCues,
   }));
+  check('the delivered Kitten Boss begging take exists in the production voice bank',
+    productionKittenBegCueExists,
+    productionKittenBegCueExists
+      ? KITTEN_BEG_CUE_FILE
+      : `${KITTEN_BEG_CUE_FILE} is absent; later flow uses a verifier-only same-performer substitute`);
   check('the first gesture decodes the active Initiation voice bank before ceremony dialogue',
     audioState.ready && !audioState.error && audioState.missing.length === 0 && audioState.failed.length === 0,
-    JSON.stringify(audioState));
+    JSON.stringify({ ...audioState, verifierSubstitute: !productionKittenBegCueExists }));
   check('all scene modules, art and face textures load', missing.length === 0, missing.join(' | '));
 
   /* ---------------------------------------------------------------- */
@@ -332,6 +572,11 @@ try {
       && quizVoiceProbe.loaded && quizVoiceProbe.duration > 0
       && quizVoiceProbe.played && !quizVoiceProbe.blocked,
     JSON.stringify(quizVoiceProbe));
+
+  const approachCapture = await capturePointerLock(page);
+  check('a real canvas gesture captures first-person input before the woods walk',
+    approachCapture.captured,
+    JSON.stringify({ ...approachCapture, transientWarnings: pointerLockWarnings.length }));
 
   /* ---------------------------------------------------------------- */
   /* ACTS TWO TO FOUR — the part nothing had ever played               */
@@ -376,6 +621,130 @@ try {
     if (reached) check(`the scene reaches ${phase} — ${what}`, true);
   }
 
+  /* Exercise the failure path with the same numbered keys a player uses. This
+   * specifically guards the historical raw "Could not load scene" failure,
+   * proves the whole connected death completes, and then reloads the browser
+   * from that terminal state. A reload and an in-page retry are different
+   * recovery paths; certifying only the latter left the explicit reload
+   * requirement untested. */
+  await driveTo(page, 'q2_choice', { timeout: 120000 });
+  const wrongChoice = await page.evaluate(() => {
+    const correct = window.INITIATION.correctChoice;
+    return { correct, wrong: (correct + 1) % 3, url: location.href };
+  });
+  await page.keyboard.press(`Digit${wrongChoice.wrong + 1}`);
+  await driveTo(page, 'failed', { timeout: 180000 });
+  const failedAttempt = await page.evaluate(() => ({
+    phase: window.INITIATION.phase,
+    visible: !document.querySelector('#fail')?.classList.contains('hidden'),
+    title: document.querySelector('#fail .title')?.textContent?.trim(),
+    reason: document.querySelector('#failReason')?.textContent?.replace(/\s+/g, ' ').trim(),
+    url: location.href,
+  }));
+  check('a wrong founders answer executes the player through the connected failure flow',
+    failedAttempt.phase === 'failed'
+      && failedAttempt.visible
+      && failedAttempt.title === 'INITIATION FAILED'
+      && failedAttempt.reason?.includes('Wrong founders'),
+    JSON.stringify(failedAttempt));
+  check('the wrong answer remains in the live Initiation page instead of loading an error scene',
+    failedAttempt.url === wrongChoice.url
+      && !failedAttempt.reason?.includes('Could not load scene'),
+    JSON.stringify({ before: wrongChoice.url, after: failedAttempt.url, reason: failedAttempt.reason }));
+
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => window.INITIATION?.phase, null, { timeout: 60000 });
+  const reloadedAttempt = await page.evaluate(() => ({
+    phase: window.INITIATION.phase,
+    control: window.INITIATION.control,
+    failHidden: document.querySelector('#fail')?.classList.contains('hidden'),
+    objective: document.querySelector('#objective')?.textContent?.trim(),
+    url: location.href,
+  }));
+  check('reloading after a wrong answer restores a playable Initiation scene entry',
+    reloadedAttempt.phase === 'approach'
+      && reloadedAttempt.control === 'playable'
+      && reloadedAttempt.failHidden
+      && Boolean(reloadedAttempt.objective)
+      && reloadedAttempt.url === wrongChoice.url,
+    JSON.stringify(reloadedAttempt));
+
+  const reloadCapture = await capturePointerLock(page);
+  await page.waitForFunction(() => window.INITIATION.audioReady || window.INITIATION.audioLoadError,
+    null, { timeout: 120000 });
+  const reloadReady = await page.evaluate(() => ({
+    input: document.pointerLockElement === document.querySelector('canvas'),
+    audioReady: window.INITIATION.audioReady,
+    audioError: window.INITIATION.audioLoadError,
+    missing: window.INITIATION.missingVoiceCues,
+  }));
+  check('the reloaded scene re-arms real input and the active voice bank',
+    reloadCapture.captured
+      && reloadReady.input
+      && reloadReady.audioReady
+      && !reloadReady.audioError
+      && reloadReady.missing.length === 0,
+    JSON.stringify({ ...reloadReady, attempts: reloadCapture.attempts }));
+
+  await walkTo(page, 'line_chat', { timeout: 120000 });
+  for (const [phase] of MIDDLE) await driveTo(page, phase, { timeout: 120000 });
+  await driveTo(page, 'q2_choice', { timeout: 120000 });
+  const secondWrongChoice = await page.evaluate(() => {
+    const correct = window.INITIATION.correctChoice;
+    return { correct, wrong: (correct + 2) % 3 };
+  });
+  await page.keyboard.press(`Digit${secondWrongChoice.wrong + 1}`);
+  await driveTo(page, 'failed', { timeout: 180000 });
+  const secondFailure = await page.evaluate(() => ({
+    phase: window.INITIATION.phase,
+    visible: !document.querySelector('#fail')?.classList.contains('hidden'),
+    title: document.querySelector('#fail .title')?.textContent?.trim(),
+    reason: document.querySelector('#failReason')?.textContent?.replace(/\s+/g, ' ').trim(),
+    url: location.href,
+  }));
+  check('a second wrong attempt repeats the connected death flow without a raw scene-load error',
+    secondFailure.phase === 'failed'
+      && secondFailure.visible
+      && secondFailure.title === 'INITIATION FAILED'
+      && secondFailure.reason?.includes('Wrong founders')
+      && !secondFailure.reason?.includes('Could not load scene')
+      && secondFailure.url === wrongChoice.url,
+    JSON.stringify(secondFailure));
+
+  /* The failure lands while the first-person canvas still owns pointer lock.
+   * Escape is the real browser gesture that returns the cursor before the
+  * player clicks the visible retry button; forcing a locator click would
+   * bypass that browser state instead of certifying it. Headless Chromium
+   * does not always route Playwright's synthetic Escape through browser chrome,
+   * so release only the browser lock if it remains; the retry itself is still
+   * a real hit-tested pointer click. */
+  await page.keyboard.press('Escape');
+  if (await page.evaluate(() => document.pointerLockElement !== null)) {
+    await page.evaluate(() => document.exitPointerLock());
+  }
+  await page.waitForFunction(() => document.pointerLockElement === null, null, { timeout: 3000 });
+  await page.locator('#retryBtn').click();
+  await page.waitForFunction(() => window.INITIATION.phase === 'q2_choice'
+    && window.INITIATION.quizOpen, null, { timeout: 30000 });
+  const retried = await page.evaluate(() => ({
+    phase: window.INITIATION.phase,
+    quizOpen: window.INITIATION.quizOpen,
+    failHidden: document.querySelector('#fail')?.classList.contains('hidden'),
+    correct: window.INITIATION.correctChoice,
+    playerPose: window.INITIATION.playerPose,
+  }));
+  check('TRY AGAIN restores the live founders checkpoint for repeated attempts',
+    retried.phase === 'q2_choice'
+      && retried.quizOpen
+      && retried.failHidden
+      && retried.correct >= 0
+      && retried.playerPose === 'standing',
+    JSON.stringify(retried));
+  await page.keyboard.press(`Digit${retried.correct + 1}`);
+  await pressActionTo(page, 'q2_correct', { timeout: 120000 });
+  check('a correct retry resumes the successful initiation graph', true,
+    JSON.stringify({ phase: await page.evaluate(() => window.INITIATION.phase) }));
+
   /* Nobody talked over anybody on the way here. The engine's own playback log
    * is the evidence; `voiceOverlaps()` is the arithmetic. A line that MEANS
    * to cut in says so with `interrupt: true` and is not reported. */
@@ -392,7 +761,7 @@ try {
   /* ACT FIVE — the blade, the hand, the cut, the card, the burning    */
   /* ---------------------------------------------------------------- */
 
-  await page.evaluate(() => window.INITIATION.skipToMassKneel());
+  await pressActionTo(page, 'mass_kneel', { timeout: 180000 });
   const kneel = await page.evaluate(() => ({
     phase: window.INITIATION.phase,
     control: window.INITIATION.control,
@@ -411,38 +780,157 @@ try {
       && kneel.kneeling.every((entry) => entry.pose === 'kneeling' && entry.rootY >= -0.01),
     JSON.stringify(kneel.kneeling));
 
+  /* Finish the execution run through the same Space-key action path, then let
+   * Tony walk every authored metre himself. No phase, player-position, or
+   * mission-state seam participates in the successful route. */
+  await pressActionTo(page, 'walk_out', { timeout: 900000 });
+  const trailStart = await page.evaluate(() => ({
+    x: window.INITIATION.player.position.x,
+    z: window.INITIATION.player.position.z,
+  }));
+  const trailCapture = await capturePointerLock(page);
+  check('the successful execution run releases Tony into real first-person movement',
+    trailCapture.captured
+      && await page.evaluate(() => window.INITIATION.phase === 'walk_out'
+        && window.INITIATION.control === 'playable'),
+    JSON.stringify({ phase: await page.evaluate(() => window.INITIATION.phase), ...trailCapture }));
 
-  await page.evaluate(() => window.INITIATION.skipToRitual());
-  await page.waitForFunction(() => window.INITIATION.phase === 'blade', null, { timeout: 30000 });
+  /* Try the exact bypass that used to skip three markers: hold run and walk.
+   * The key events are real; the scene must keep W while rejecting Shift at
+   * the shared Player socket, not patch position after the fact. */
+  await page.keyboard.down('Shift');
+  await page.keyboard.down('w');
+  await page.waitForTimeout(350);
+  const processionInput = await page.evaluate(() => window.INITIATION.trail);
+  await page.keyboard.up('w');
+  await page.keyboard.up('Shift');
+  check('the trail keeps real walking while rejecting keyboard sprint bypass',
+    processionInput.moveScale === 0.78
+      && processionInput.allowSprint === false
+      && processionInput.dialogueTiming === 'recorded'
+      && processionInput.playerSprinting === false
+      && !processionInput.heldKeys.includes('ShiftLeft')
+      && !processionInput.heldKeys.includes('ShiftRight'),
+    JSON.stringify(processionInput));
 
-  const ritualStart = await page.evaluate(() => window.INITIATION.ritual);
-  check('act five opens on the ritual camera',
-    ritualStart.camera === 'ritual', JSON.stringify(ritualStart));
+  const cabinWalk = await walkAuthoredRouteTo(page, 'ceremony', [
+    ...TRAIL,
+    CABIN_DOOR.outside,
+    CABIN_DOOR.inside,
+  ], { timeout: 360000 });
+  const trailDistance = Math.hypot(cabinWalk.x - trailStart.x, cabinWalk.z - trailStart.z);
+  check('real WASD follows the authored trail and crosses the cabin doorway',
+    cabinWalk.phase === 'ceremony'
+      && cabinWalk.keyTicks > 0
+      && cabinWalk.reachedWaypoints >= TRAIL.length + 1
+      && cabinWalk.z > CABIN.frontZ + 0.6
+      && trailDistance > 25,
+    JSON.stringify({ ...cabinWalk, trailStart, trailDistance }));
+  check('the cabin gate waits for every trail beat and the resolved player choice',
+    cabinWalk.trailChoiceAnswered
+      && cabinWalk.trail?.storyComplete
+      && cabinWalk.trail?.pendingBeatIds?.length === 0
+      && JSON.stringify(cabinWalk.trail?.requiredBeatIds) === JSON.stringify(REQUIRED_TRAIL_BEATS)
+      && JSON.stringify(cabinWalk.trail?.firedBeatIds) === JSON.stringify(REQUIRED_TRAIL_BEATS)
+      && cabinWalk.trail?.choiceUsed
+      && cabinWalk.trail?.choiceResolved,
+    JSON.stringify({ answered: cabinWalk.trailChoiceAnswered, trail: cabinWalk.trail }));
 
-  /* THE CHECK THAT WOULD HAVE CAUGHT IT. The shot is supposed to be close on
-   * the hand; it aimed at a fixed patch of tabletop 2.4 m in front of it.
-   *
-   * On `aimMiss` and not `lookMiss`: the camera flies rather than cuts, and a
-   * debug skip from the clearing to the cabin starts it 70 m away, so the
-   * smoothed look point is meaningless for about a second afterwards. */
-  check('the ritual camera is aimed at the hand',
-    ritualStart.aimMiss < 1.0,
-    `shot aims ${ritualStart.aimMiss?.toFixed(2)} m off the hand`);
+  await pressActionTo(page, 'ceremony_approach', { timeout: 240000 });
+  const ceremonyWalk = await walkAuthoredRouteTo(
+    page,
+    'ceremony',
+    [CEREMONY_CENTRE],
+    { timeout: 120000 },
+  );
+  const ceremonyMiss = Math.hypot(
+    ceremonyWalk.x - CEREMONY_CENTRE.x,
+    ceremonyWalk.z - CEREMONY_CENTRE.z,
+  );
+  check('Tony physically walks to the authored ceremony mark before translation locks',
+    ceremonyWalk.phase === 'ceremony'
+      && ceremonyWalk.keyTicks > 0
+      && ceremonyMiss < 0.05,
+    JSON.stringify({ ...ceremonyWalk, ceremonyMiss }));
 
-  /* And the skip CUT rather than flew: the smoothed look point is already on
-   * the hand, because `skipToRitual` snaps the camera to the shot. Before it
-   * did, this waited twenty seconds for a camera to cross the map and then
-   * timed out anyway on a slow software renderer. */
-  check('a skip into act five cuts to the shot rather than flying to it',
-    ritualStart.lookMiss < 1.0,
-    `look point misses the hand by ${ritualStart.lookMiss?.toFixed(2)} m`);
+  /* Evidence only: this is intentionally not a visual-regression oracle. It
+   * lets a human inspect Lou, Booski, face readability and bloom at the exact
+   * clean-start room tableau reached above. */
+  const ceremonyArtifact = path.join(ROOT, '.artifacts', 'initiation-ceremony-real-flow.png');
+  await fsp.mkdir(path.dirname(ceremonyArtifact), { recursive: true });
+  await page.waitForTimeout(750);
+  await page.screenshot({ path: ceremonyArtifact });
+
+  await pressActionTo(page, 'oath_question', { timeout: 360000 });
+  await page.waitForFunction(() => window.INITIATION.phase === 'oath_question'
+    && window.INITIATION.quizOpen, null, { timeout: 120000 });
+  const commitmentOptions = await page.locator('#quiz .quiz-opt').evaluateAll((buttons) => buttons
+    .filter((button) => !button.hidden)
+    .map((button) => ({
+      index: Number(button.dataset.i),
+      text: button.textContent.replace(/\s+/g, ' ').trim(),
+    })));
+  const yes = commitmentOptions.find((option) => option.text.includes('Yes. I do.'));
+  if (!yes) throw new Error(`Initiation commitment choice did not offer its authored successful answer: ${JSON.stringify(commitmentOptions)}`);
+  await page.keyboard.press(`Digit${yes.index + 1}`);
+  await page.waitForFunction(() => window.INITIATION.phase === 'oath_yes', null, { timeout: 30000 });
+  check('the real numbered commitment input chooses the successful oath path',
+    yes.index >= 0,
+    JSON.stringify({ options: commitmentOptions, selected: yes }));
+
+  await pressActionTo(page, 'blade', { timeout: 180000 });
+  const ritualCapture = await capturePointerLock(page);
+  check('the successful oath re-arms real first-person look for the ritual',
+    ritualCapture.captured,
+    JSON.stringify(ritualCapture));
+
+  const ritualStart = await page.evaluate(() => ({
+    ...window.INITIATION.ritual,
+    yaw: window.INITIATION.player.yaw,
+    position: window.INITIATION.player.position.toArray(),
+  }));
+  check('act five remains in the shared first-person camera with ritual hands visible',
+    ritualStart.control === 'look-only'
+      && ritualStart.cameraOwnedByPlayer
+      && ritualStart.firstPersonHandsVisible,
+    JSON.stringify(ritualStart));
+  check('the ritual hand is presented inside the first-person view by default',
+    ritualStart.handNdc.every(Number.isFinite)
+      && Math.abs(ritualStart.handNdc[0]) <= 1
+      && Math.abs(ritualStart.handNdc[1]) <= 1
+      && ritualStart.handNdc[2] >= -1 && ritualStart.handNdc[2] <= 1,
+    JSON.stringify({ handNdc: ritualStart.handNdc }));
+
+  /* Real input, because importing Player is not evidence that the player owns
+   * the camera. Translation must stay locked while pointer-lock mouse input
+   * continues to rotate the view. */
+  await page.keyboard.down('w');
+  await page.waitForTimeout(300);
+  await page.keyboard.up('w');
+  await page.mouse.move(360, 180);
+  await page.mouse.move(420, 180, { steps: 3 });
+  await page.waitForTimeout(120);
+  const ritualInput = await page.evaluate(() => ({
+    yaw: window.INITIATION.player.yaw,
+    position: window.INITIATION.player.position.toArray(),
+    control: window.INITIATION.control,
+  }));
+  const ritualMoved = Math.hypot(
+    ritualInput.position[0] - ritualStart.position[0],
+    ritualInput.position[2] - ritualStart.position[2],
+  );
+  check('ritual input locks walking but preserves natural mouse-look',
+    ritualInput.control === 'look-only'
+      && ritualMoved < 0.01
+      && Math.abs(ritualInput.yaw - ritualStart.yaw) > 0.001,
+    JSON.stringify({ before: ritualStart, after: ritualInput, moved: ritualMoved }));
 
   /* Drive it: the blade runs on a timer, then the hand is asked for, then the
    * cut. Every one of those beats speaks first, so every one needs more than
    * one press. */
   await page.waitForFunction(() => window.INITIATION.phase === 'hand', null, { timeout: 90000 });
-  await driveTo(page, 'cut');
-  await driveTo(page, 'card');
+  await pressActionTo(page, 'cut');
+  await pressActionTo(page, 'card');
 
   const afterCut = await page.evaluate(() => window.INITIATION.ritual);
   check('the cut is marked on the palm, not on the floorboards',
@@ -451,10 +939,18 @@ try {
     afterCut.cardInPlayerHand && afterCut.cardVisible,
     JSON.stringify(afterCut));
 
-  /* Both oath lines -- Lou says each, the prompt goes up, Tony repeats it --
-   * and then the burning. */
-  await driveTo(page, 'burn', { timeout: 180000 });
-  await page.evaluate(() => window.INITIATION.setHold(true));
+  /* Both oath lines -- Lou says each, the prompt goes up, Tony chooses the
+   * exact wording with the real randomized numbered key, and then the card
+   * burns under a real held Space input. */
+  await pressActionTo(page, 'oath_1', { timeout: 180000 });
+  const firstOath = await chooseCorrectDisplayedOath(page, 'oath_1');
+  await pressActionTo(page, 'oath_2', { timeout: 180000 });
+  const secondOath = await chooseCorrectDisplayedOath(page, 'oath_2');
+  await pressActionTo(page, 'burn', { timeout: 180000 });
+  check('both randomized oath lines are repeated word-for-word through real numbered input',
+    firstOath.selected.correct && secondOath.selected.correct,
+    JSON.stringify({ first: firstOath, second: secondOath }));
+  await page.keyboard.down('Space');
   /* The burn tick is held off while IN-440 is still speaking, so this waits
    * for the line as well as for the card to take. */
   await page.waitForFunction(() => window.INITIATION.ritual.char > 0, null, { timeout: 90000 });
@@ -465,13 +961,13 @@ try {
     JSON.stringify(burning));
   check('the card is burning in the player\'s own hand',
     burning.cardInPlayerHand, JSON.stringify(burning));
-  check('the camera stays on the burning hand',
-    burning.lookMiss < 1.0 && burning.aimMiss < 1.0,
-    `aim ${burning.aimMiss?.toFixed(2)} m / look ${burning.lookMiss?.toFixed(2)} m off the hand`);
+  check('the burning remains attached to visible first-person hands',
+    burning.firstPersonHandsVisible && burning.cameraOwnedByPlayer,
+    JSON.stringify(burning));
 
   /* Let go. Past the commit, Lou has it and nothing dead-ends. */
   await page.waitForFunction(() => window.INITIATION.ritual.committed, null, { timeout: 90000 });
-  await page.evaluate(() => window.INITIATION.setHold(false));
+  await page.keyboard.up('Space');
   await page.waitForFunction(() => window.INITIATION.phase === 'made', null, { timeout: 120000 });
 
   const made = await page.evaluate(() => window.INITIATION.ritual);
@@ -502,7 +998,7 @@ try {
    * renderer, not a beat doing something expensive, and there is nothing here
    * to fix. Act six only LOOKED singular because it is the one act gated on a
    * long unattended timer rather than on a keypress. */
-  await driveTo(page, 'complete', { timeout: 900000 });
+  await pressActionTo(page, 'complete', { timeout: 900000 });
   const inducted = await page.evaluate(() => ({
     controller: window.INITIATION.player?.constructor?.name,
     figure: window.INITIATION.playerFigure?.constructor?.name,
@@ -528,6 +1024,47 @@ try {
       && inducted.subtitle?.includes("walking out family")
       && !inducted.subtitle?.includes('squatch feet'),
     JSON.stringify(inducted));
+
+  const completionPointer = await page.evaluate(() => {
+    const button = document.querySelector('#goHomeBtn');
+    const rect = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return {
+      pointerReleased: document.pointerLockElement === null,
+      hitId: hit?.id ?? null,
+      buttonVisible: rect.width > 0 && rect.height > 0,
+    };
+  });
+  check('the completion card releases pointer lock and leaves its campaign exit clickable',
+    completionPointer.pointerReleased
+      && completionPointer.buttonVisible
+      && completionPointer.hitId === 'goHomeBtn',
+    JSON.stringify(completionPointer));
+
+  const completionUrl = page.url();
+  await Promise.all([
+    page.waitForURL((url) => url.pathname.endsWith('/index.html'), {
+      waitUntil: 'domcontentloaded',
+      timeout: 120000,
+    }),
+    page.locator('#goHomeBtn').click(),
+  ]);
+  const successfulExit = await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('squatchlife.campaign') || 'null');
+    return {
+      url: location.href,
+      sceneId: saved?.scene?.id ?? null,
+      spawn: saved?.scene?.spawn ?? null,
+      initiationStatus: saved?.missions?.initiation?.status ?? null,
+    };
+  });
+  check('the successful end card navigates into the next campaign scene',
+    completionUrl.endsWith('/initiation.html')
+      && new URL(successfulExit.url).pathname.endsWith('/index.html')
+      && successfulExit.sceneId === 'apartment'
+      && successfulExit.spawn === 'front_door'
+      && successfulExit.initiationStatus === 'complete',
+    JSON.stringify({ completionUrl, ...successfulExit }));
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
 } catch (error) {
   console.error('Initiation verifier aborted before checks completed.');

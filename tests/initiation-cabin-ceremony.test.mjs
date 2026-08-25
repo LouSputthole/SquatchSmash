@@ -213,6 +213,13 @@ test('the run order kneels everyone, executes four, then interrupts Tony before 
   /* Prospect One keeps the staging that ships: standing, frontal, eight. */
   assert.equal(STANDING_EXECUTION.rounds, 8);
   assert.equal(STANDING_EXECUTION.kneeling, false);
+  assert.equal(STANDING_EXECUTION.stance, site.STANDING_SHOOTER_MARK);
+  assert.ok(STANDING_EXECUTION.stance.x < STANDING_EXECUTION.mark.x,
+    'the standing shooter did not move left of Tony\'s victim sightline');
+  assert.ok(Math.hypot(
+    STANDING_EXECUTION.stance.x - STANDING_EXECUTION.mark.x,
+    STANDING_EXECUTION.stance.z - STANDING_EXECUTION.mark.z,
+  ) > 1.5, 'the standing shooter is crowding Prospect One');
 });
 
 /* ══════════════════════════════════════════════════════════════════════ *

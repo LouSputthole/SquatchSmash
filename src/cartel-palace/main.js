@@ -48,6 +48,7 @@ import { BallisticImpactSystem } from '../world/impacts.js';
 import { createPalaceAcoustics } from './acoustics.js';
 import {
   PALACE_BACKGROUND_BANK, PALACE_NEXT_BEAT_BANK, PALACE_START_BANK,
+  PALACE_WAVE_INCOMING_CUE,
 } from './audio-banks.js';
 import { buildPalaceCast } from './cast.js';
 import { PalaceFinaleDirector } from './finale.js';
@@ -326,11 +327,10 @@ const suppression = new SuppressionModel();
 const bloodImpacts = new BloodImpactSystem(scene);
 const deathBloodPools = new DeathBloodPool(scene, { capacity: 12 });
 
-/* The staged dining-room confrontation. Engagement stays player-paced: the
- * script hands combat over on Tony's verdict line, and any shot the player
- * fires first interrupts the speech and engages immediately — the words
- * never take the trigger away. `security` is assigned below; the callback
- * runs only once the dining doors are open, long after construction. */
+/* The staged dining-room confrontation. Movement stays player-paced while the
+ * essential evidence payoff owns the trigger. Tony's verdict hands combat to
+ * WeaponSystem; no early click can discard the setup. `security` is assigned
+ * below and runs only once the dining doors are open, long after construction. */
 const finale = new PalaceFinaleDirector({
   cast,
   hud,
@@ -363,7 +363,33 @@ const finale = new PalaceFinaleDirector({
   },
   onWave: () => {
     const released = cast.releaseWave();
-    if (released > 0) hud.toast(`A-Team · ${released} in the room`, 'bad', 3200);
+    if (released > 0) {
+      /* A delivered, nonverbal cue from the shared Siege library: doors and
+       * many boots, placed at the rear threshold while each visible body gets
+       * its own positional footsteps below. The next-beat bank is awaited at
+       * the dining door, so this request cannot race its decode. */
+      audio.play(PALACE_WAVE_INCOMING_CUE, {
+        volume: 0.72,
+        position: PALACE_ANCHORS.extraction,
+        ref: 4,
+        maxDist: 34,
+      });
+      hud.toast(`A-Team · ${released} in the room`, 'bad', 3200);
+    }
+  },
+  /* Mark's retreats/returns and the A-Team ingress are cast presentation,
+   * not AI travel, but boots should not become silent because ownership
+   * changes at the threshold. Reuse the exact cadence and surface mapping
+   * used by PalaceSecurity's onStep adapter. */
+  onPresentationStep: ({ id, dt, position, moving, entry }) => {
+    combatSteps.update({
+      id: `palace-${id}`,
+      dt,
+      position,
+      surface: palaceSurfaceAt(position),
+      intensity: entry?.role === 'boss' ? 1.2 : 0.92,
+      moving,
+    });
   },
 });
 
@@ -730,10 +756,6 @@ const weapons = new WeaponSystem({
     }
     if (event.type === 'equip' || event.type === 'stow') syncSuppressor();
     if (event.type !== 'fire' || state.phase !== 'active') return;
-    /* A shot during the confrontation is the player's answer to it: the
-     * speech stops mid-sentence and the room engages. The kills stay
-     * player-driven — the script never fires first. */
-    if (mission.beat === PALACE_BEATS.DINING_ROOM) finale.interrupt();
     if (![PALACE_BEATS.DINING_ROOM, PALACE_BEATS.CLEAR].includes(mission.beat)) {
       /* THE SUPPRESSED HEARING RADIUS. This used to be an unconditional
        * `raiseAlarm('gunshot')`: one round anywhere in the compound and the
@@ -1276,8 +1298,9 @@ interaction.register(palace.targets.diningDoor, {
     audio.play('door.creak', { volume: 0.7, position: PALACE_ANCHORS.diningRoom });
     ui.boss.classList.remove('hidden');
     /* The confrontation the evidence earned, in place of the old two-line
-     * hand-off. Combat activates on Tony's verdict line — or instantly on
-     * the player's first shot, whichever comes first. */
+     * hand-off. A held trigger from the corridor cannot leak through the door;
+     * Tony's verdict is the only handoff into combat. */
+    weapons.setTrigger(false);
     const progress = mission.snapshot();
     finale.beginConfrontation({
       evidenceFound: progress.evidenceFound,
@@ -1345,6 +1368,10 @@ function clearCombatInput() {
 
 function clearCombatTransients() {
   clearCombatInput();
+  /* Scripted threshold crossings belong to the discarded attempt just like
+   * hostile fire and queued dialogue. Security.restore() immediately puts
+   * every body back at its checkpoint position after this cancellation. */
+  cast.clearPresentation();
   weapons.cancelPendingImpacts();
   tracers.clear();
   combatAudio.reset();
@@ -1577,7 +1604,14 @@ const input = createFirstPersonInput({
     },
     mouseDown(event, controls) {
       if (!controls.locked) return false;
-      if (event.button === 0) weapons.setTrigger(true);
+      if (event.button === 0) {
+        if (!finale.canPlayerFire()) {
+          weapons.setTrigger(false);
+          hud.toast('Hold fire · listen', 'warn', 1400);
+          return true;
+        }
+        weapons.setTrigger(true);
+      }
       if (event.button === 2) weapons.setAimed(true);
       return event.button === 0 || event.button === 2;
     },
@@ -1914,6 +1948,9 @@ function animate(now) {
     acoustics.update(player.position);
     interaction.update(dt);
     finale.update(dt);
+    /* PalaceFinaleDirector advances every scripted threshold crossing on its
+     * own simulated clock. Inactive during the crossing means nobody fires
+     * from off-screen; activation on arrival reaches Security below. */
     security.update(dt, {
       playerPosition: player.position,
       powerCut: state.powerCut,

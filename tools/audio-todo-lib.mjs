@@ -24,6 +24,7 @@ const VOICE_SCENES = [
    * and the whole Silver Case run disappears into the Silver Room's section. */
   ['The Silver Room', (name) => name.startsWith('vo.silver.')],
   ['The Silver Case', (name) => name.startsWith('vo.silvercase.')],
+  ['The Countryside Cabin', (name) => name.startsWith('vo.cabin.')],
   ['Day Four apartment', (name) => name.startsWith('vo.call.lou.golf.')
     || name.startsWith('vo.call.lou.heist.')
     || name.startsWith('vo.machine.lou.golf_morning.')
@@ -199,7 +200,7 @@ function renderVoice(out, voice, voices, recast = new Map()) {
   const preferred = [
     'Apartment and shared hub', 'Bada Bing', 'Squatchfather', 'The Beef Run',
     'The Enola Squatch', 'Jerky Motel', 'NO WAKE', 'The Silver Room',
-    'The Silver Case', 'Day Four apartment',
+    'The Countryside Cabin', 'The Silver Case', 'Day Four apartment',
     'Silver Pines', 'THE TAKE', 'The HotDog Incident', 'PROJECT SILENT SQUATCH',
     'Squatch Graveyard', 'Initiation', 'Radio',
   ];

@@ -2247,13 +2247,17 @@ export function createAttackerPool({
     if (wantsMove) {
       _step.multiplyScalar(Math.min(1, (speed * dt) / planar));
       SIEGE_COMBAT_SPACE.move(position, _step, {
-        boxes: ctx.colliders,
+        /* Floors and ceilings belong in the sight/ballistic model, but a
+         * body must not read the landing slab it is stepping onto as a wall.
+         * The scene publishes both lists; keep locomotion on the movement
+         * contract while perception and fire continue using `colliders`. */
+        boxes: ctx.movementColliders,
         /* The authored clamp below owns pulledBack diagnostics. */
         bounds: null,
       });
     }
     const separation = SIEGE_COMBAT_SPACE.separate(entry, entries.values(), {
-      boxes: ctx.colliders,
+      boxes: ctx.movementColliders,
       bounds: null,
       positionOf: attackerPosition,
       idOf: attackerId,
@@ -2443,7 +2447,7 @@ export function createAttackerPool({
      * rather than re-timed here; it hands back an anchor outside the house
      * for the one case a route cannot recover from itself. */
     if (entry.path.length && entry.blocked) {
-      const recovery = navigator.blocked(entry.id, dt);
+      const recovery = navigator.blocked(entry.id, dt, entry.anchor);
       if (recovery.recover && recovery.anchor) {
         const point = laneWaypoints([entry.anchor ?? recovery.anchor, recovery.anchor], {
           from: position, laneT: entry.laneT, kindFor: kindForAnchor,
@@ -3086,8 +3090,10 @@ export function createAttackerPool({
    *              through the shared resolver; if it carries `.suppression`,
    *              near misses go into it. With neither he is still a man to
    *              shoot at and the fight still reads.
-   *   colliders  the scene's live collider array. This is the line-of-sight
-   *              model: no colliders means every shot is a clean shot.
+   *   colliders  the scene's live line-of-sight/ballistic collider array: no
+   *              colliders means every shot is a clean shot.
+   *   movementColliders the subset bodies may not enter. Defaults to
+   *              `colliders` for headless callers with only one model.
    *   alive      the crew the cartel may engage -- pass `ensemble.targets()`,
    *              which never contains Snow. An array or a function.
    *   audio, onImpact, onBark, onBreach, onPlayerHit, playerDamageScale
@@ -3105,6 +3111,7 @@ export function createAttackerPool({
     const frame = {
       audio: context.audio,
       colliders: ctx.colliders ?? [],
+      movementColliders: ctx.movementColliders ?? ctx.colliders ?? [],
       player: ctx.player ?? null,
       /* The scene raises this when the active wave is nearly done: every
        * wave attacker still standing drops his standoff and pushes at the

@@ -15,11 +15,13 @@ import {
   createCountrysideCabinStory,
 } from '../core/countryside-cabin-story.js';
 import { DayNight } from '../core/daynight.js';
+import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { ITEMS } from '../core/inventory.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { PlanarMirror } from '../core/planar-mirror.js';
 import { Phone } from '../core/phone.js';
 import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
@@ -37,6 +39,7 @@ import {
   poseHeldDrink,
 } from '../world/props.js';
 import { buildCountrysideCabin } from './world.js';
+import { createWagHintDirector, speakWagLine } from './wag.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -62,7 +65,9 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x25332f);
 scene.fog = new THREE.FogExp2(0x25332f, 0.0072);
 
-const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.045, 220);
+const camera = new THREE.PerspectiveCamera(
+  68, innerWidth / innerHeight, 0.045, ENVIRONMENT_VISIBILITY.wildernessHub.cameraFar,
+);
 camera.name = 'countryside-cabin.camera';
 scene.add(camera);
 
@@ -132,12 +137,16 @@ const state = {
   cooked: false,
   eaten: false,
   fireLit: false,
+  logsSplit: 0,
   heldUse: 0,
   heldUseItem: null,
   consumeLatch: false,
 };
 
+const wagHints = createWagHintDirector();
+
 let cabin = null;
+let bathroomMirror = null;
 let player = null;
 let lastFrame = performance.now();
 
@@ -166,8 +175,8 @@ function applyTimeOfDay() {
 
 function objectiveHint() {
   const exit = story.tryLeave();
-  if (exit.kind === 'go') return 'Ape is waiting at the car · the property remains open to explore';
-  if (exit.id === 'cabin_rest_first') return 'Use the bed when you are ready · every walk on the property is optional';
+  if (exit.kind === 'go') return 'Ape is waiting at the car · Wag and the property remain open';
+  if (exit.id === 'cabin_rest_first') return 'Wag is chopping by the woodpile · use the bed whenever you are ready';
   return exit.line;
 }
 
@@ -190,6 +199,27 @@ function syncCampaignPresentation() {
   phone.setThreads(phoneThreadsForCampaign(campaign.state));
 }
 
+function discoverCabin(id) {
+  return wagHints.discover(id);
+}
+
+function presentWagLine(line, actor = cabin?.wag) {
+  if (!line?.ok || !actor) return false;
+  const spoken = speakWagLine(audio, line, {
+    speaker: actor.group,
+  });
+  const seconds = Math.max(line.seconds, spoken.seconds);
+  actor.speakTo(player?.position, seconds, { audio, source: spoken.source });
+  hud.say(`<b>Wag:</b> ${line.text}`, Math.round(seconds * 1000));
+  return true;
+}
+
+function talkToWag(actor = cabin?.wag) {
+  for (const landmark of story.explored()) discoverCabin(landmark.id);
+  const line = wagHints.talk({ now: state.elapsed });
+  return presentWagLine(line, actor);
+}
+
 function showPosture(label) {
   state.posture = label;
   postureEl.querySelector('span').textContent = label === 'desk' ? 'leave computer' : 'stand up';
@@ -204,6 +234,9 @@ function hidePosture() {
 
 function sitAt(kind, pose) {
   if (!player || player.mode !== 'walk' || !pose) return;
+  if (kind === 'bed') discoverCabin('bedroom');
+  else if (kind === 'couch') discoverCabin('entertainment');
+  else if (kind === 'desk') discoverCabin('computer');
   player.sitAt(pose, () => {
     showPosture(kind);
     if (kind === 'desk') {
@@ -227,6 +260,7 @@ function standUp() {
 
 function restAtCabin() {
   if (state.resting) return;
+  discoverCabin('bedroom');
   if (story.rested()) {
     hud.say('Already slept through the heat. <em>Lou has the next thing.</em>', 3600);
     return;
@@ -261,16 +295,23 @@ function restAtCabin() {
 }
 
 function visitLandmark(id) {
+  discoverCabin(id);
   const result = story.visit(id);
-  if (!result.ok) return;
+  if (!result.ok) return result;
   if (result.firstVisit) {
     audio.play(id === 'creek' ? 'bird' : 'footstep.dirt', { volume: 0.28 });
-    hud.say(result.landmark.line, 5200);
+    const residentAwareLine = {
+      shed: 'Axes, fuel tins, a workbench, and a swept patch where Wag keeps the useful tools.',
+      firepit: 'Old ash under new cedar. Wag has kept the ring ready without advertising smoke above the road.',
+    }[id];
+    hud.say(residentAwareLine ?? result.landmark.line, 5200);
     hud.toast(`${result.landmark.shortLabel} explored`, 'good');
     syncCampaignPresentation();
   } else {
-    hud.say(`Been here. <em>${result.landmark.shortLabel}.</em> Still nobody around.`, 3000);
+    const company = ['shed', 'firepit'].includes(id) ? ' Wag keeps to his work.' : ' Still nobody around.';
+    hud.say(`Been here. <em>${result.landmark.shortLabel}.</em>${company}`, 3000);
   }
+  return result;
 }
 
 function leaveCabin() {
@@ -309,6 +350,7 @@ function togglePhone() {
 }
 
 function toggleFridge() {
+  discoverCabin('kitchen');
   state.fridgeOpen = !state.fridgeOpen;
   cabin.state.fridgeOpen = state.fridgeOpen;
   cabin.setFridge?.(state.fridgeOpen);
@@ -319,6 +361,7 @@ function toggleFridge() {
 }
 
 function cookOrEat() {
+  discoverCabin('kitchen');
   if (!state.cooked) {
     state.cooked = true;
     cabin.state.eggsCooked = true;
@@ -339,6 +382,7 @@ function cookOrEat() {
 }
 
 function useShower() {
+  discoverCabin('bathroom');
   if (state.showered) {
     hud.say('Already clean. The water still smells faintly like iron.', 2800);
     return;
@@ -351,6 +395,7 @@ function useShower() {
 }
 
 function useWardrobe() {
+  discoverCabin('wardrobe');
   state.dressed = true;
   cabin.state.dressed = true;
   hud.toast('Changed into country clothes', 'good');
@@ -358,29 +403,34 @@ function useWardrobe() {
 }
 
 function useToilet() {
+  discoverCabin('bathroom');
   hud.say('Indoor plumbing this far out. <em>Lou planned ahead.</em>', 3000);
   audio.play('toilet.lid', { volume: 0.32, position: cabin.toiletSeat });
 }
 
 function inspectArt(info) {
+  if (info?.slot === 'bed.under' || info?.slot?.startsWith('bed.')) discoverCabin('bedroom');
   const title = info?.title || 'Squatch gear';
   const caption = info?.caption ? ` <em>${info.caption}</em>` : '';
   hud.say(`${title}.${caption}`, 4300);
 }
 
 function toggleTelevision() {
+  discoverCabin('entertainment');
   state.tvOn = tv.toggle();
   cabin.state.tvOn = state.tvOn;
   hud.toast(state.tvOn ? `Television · ${tv.channel.name}` : 'Television off');
 }
 
 function nextTelevision() {
+  discoverCabin('entertainment');
   if (!tv.on) toggleTelevision();
   else tv.next();
   hud.toast(`Television · ${tv.channel.name}`);
 }
 
 function toggleRadio() {
+  discoverCabin('entertainment');
   radio.toggle();
   state.radioOn = radio.on;
   cabin.state.radioOn = state.radioOn;
@@ -388,6 +438,7 @@ function toggleRadio() {
 }
 
 function tuneRadio() {
+  discoverCabin('entertainment');
   if (!radio.on) radio.turnOn();
   radio.tune();
   state.radioOn = radio.on;
@@ -399,8 +450,8 @@ function toggleFrontDoor() {
   return opened;
 }
 
-function useWoodpile() {
-  state.fireLit = !state.fireLit;
+function setCabinFire(lit) {
+  state.fireLit = Boolean(lit);
   cabin.state.fireLit = state.fireLit;
   cabin.setFireLit?.(state.fireLit);
   if (state.fireLit) {
@@ -416,10 +467,39 @@ function useWoodpile() {
   } else {
     audio.stopLoop('cabin.firepit', 0.35);
   }
+  return state.fireLit;
+}
+
+function useFirepit(visitResult = null) {
+  discoverCabin('firepit');
+  if (state.logsSplit <= 0) {
+    hud.toast('Split a log at the woodpile first');
+    if (!visitResult?.firstVisit) hud.say('Ring is ready. <em>Needs split cedar.</em>', 2600);
+    return false;
+  }
+  setCabinFire(!state.fireLit);
   hud.toast(state.fireLit ? 'Lit the fire ring' : 'Put the fire out');
-  hud.say(state.fireLit
-    ? 'Dry cedar catches fast. <em>One small fire, down below the road.</em>'
-    : 'Better not advertise the smoke.', 3200);
+  if (!visitResult?.firstVisit) {
+    hud.say(state.fireLit
+      ? 'Dry cedar catches fast. <em>One small fire, down below the road.</em>'
+      : 'Better not advertise the smoke.', 3200);
+  }
+  return true;
+}
+
+function useWoodpile() {
+  discoverCabin('woodpile');
+  if (!cabin.splitWood?.()) return false;
+  state.logsSplit++;
+  cabin.state.logsSplit = state.logsSplit;
+  audio.play('gun.drop.wood', {
+    volume: 0.46,
+    position: cabin.landmarks?.woodpile?.position,
+  });
+  hud.toast(`Split firewood · ${state.logsSplit}`, 'good');
+  const reaction = wagHints.reactToChop({ now: state.elapsed });
+  presentWagLine(reaction);
+  return true;
 }
 
 window.__squatchStage?.('Building the cabin and the property…');
@@ -450,10 +530,22 @@ try {
     onArt: inspectArt,
     onFrontDoor: toggleFrontDoor,
     onLandmark: visitLandmark,
+    onDiscover: discoverCabin,
+    onDrawingBoard: () => discoverCabin('drawing-board'),
     onCar: leaveCabin,
     onLeave: leaveCabin,
     onWoodpile: useWoodpile,
+    onFirepit: useFirepit,
+    onWag: talkToWag,
+    canTalkToWag: () => wagHints.canTalk(state.elapsed),
     onPorch: () => hud.say('No traffic. Just the creek below the trees.', 3000),
+  });
+  bathroomMirror = new PlanarMirror(scene, cabin.mirrorMesh, {
+    width: 0.54,
+    height: 0.66,
+    resolution: [384, 468],
+    maxDistance: 9,
+    enabled: true,
   });
 } catch (error) {
   window.__squatchSceneFail?.('Could not build the cabin', error?.message || String(error));
@@ -727,7 +819,7 @@ startButton.addEventListener('click', async () => {
       'fridge.hum', 'siege.fire.crackle', 'can.crack', 'can.sip', 'can.crush',
       'cig.pack', 'cig.light', 'cig.exhale', 'cig.stub',
       'whiskey.cap', 'whiskey.pour', 'whiskey.swig', 'whiskey.gasp',
-      'pizza.take', 'egg.eat', 'tv.click',
+      'pizza.take', 'egg.eat', 'tv.click', 'gun.drop.wood',
       ...radio.preloadCueNames({ startupOnly: true }),
     ],
   });
@@ -753,7 +845,7 @@ startButton.addEventListener('click', async () => {
   requestGamePointerLock();
   hud.say(story.rested()
     ? '<em>Day Five.</em> The property stayed quiet. Ape is waiting by the car.'
-    : '<em>County road north.</em> One night out of sight. That was Lou’s instruction.', 5200);
+    : '<em>County road north.</em> One night out of sight. Wag is chopping by the woodpile.', 5200);
 });
 
 const pauseMenu = createPauseMenu({
@@ -768,7 +860,7 @@ const pauseMenu = createPauseMenu({
     'E or Click — use. Hold E where a second action is shown.',
     'F — eat, drink or smoke a selected item. Q — stand up or pocket it.',
     'R — skip the radio.',
-    'The bed advances the lay-low story. All four property landmarks are optional.',
+    'Talk to Wag for loose hints. The bed advances the story; every property walk is optional.',
   ],
   onPause: () => {
     state.paused = true;
@@ -890,6 +982,7 @@ function frame(now) {
   heldPhone.screen.material.map.needsUpdate = heldPhone.group.visible;
   hud.setClock(time.day, time.clock12, time.elapsedReal);
   audio.updateListener(camera);
+  bathroomMirror?.render(renderer, camera);
   renderer.render(scene, camera);
 }
 
@@ -902,6 +995,9 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   player,
   time,
   state,
+  wag: cabin.wag,
+  wagHints,
+  talkToWag,
   visit: visitLandmark,
   rest: restAtCabin,
   leave: leaveCabin,

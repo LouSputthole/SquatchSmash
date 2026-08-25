@@ -34,7 +34,8 @@ test('Cartel Palace keeps combat controls phase-gated and clears every held comb
   assert.match(PALACE, /canHandleInput: \(\) => state\.phase === 'active' && !state\.paused,/);
   assert.match(PALACE, /if \(event\.code === 'KeyR' && !event\.repeat\) \{\s*weapons\.reload\(\);/);
   assert.match(PALACE, /if \(!controls\.locked\) return false;/);
-  assert.match(PALACE, /if \(event\.button === 0\) weapons\.setTrigger\(true\);/);
+  assert.match(PALACE, /if \(event\.button === 0\) \{\s*if \(!finale\.canPlayerFire\(\)\) \{\s*weapons\.setTrigger\(false\);/);
+  assert.match(PALACE, /hud\.toast\('Hold fire · listen', 'warn', 1400\);\s*return true;\s*\}\s*weapons\.setTrigger\(true\);/);
   assert.match(PALACE, /onClear: \(reason\) => \{\s*weapons\.setTrigger\(false\);\s*weapons\.setAimed\(false\);/);
   assert.match(PALACE, /function clearCombatInput\(\) \{\s*input\?\.clear\('combat-reset'\);\s*\}/);
 });
@@ -43,7 +44,9 @@ test('Mansion Siege preserves the visible rejected-capture and one-shot recovery
   assertCanonicalInput(SIEGE, '../../core/first-person-input.js');
   assert.match(SIEGE, /playerEnabled: waking <= 0,/);
   assert.match(SIEGE, /const fallbackShot = pointerLockRejected;\s*requestSiegePointerLock\(\{ explain: true \}\);/);
-  assert.match(SIEGE, /if \(fallbackShot\) \{\s*if \(weaponSystem\.equipped\) weaponSystem\.triggerPress\(\);/);
+  assert.match(SIEGE, /function tryPlayerFire\(\{ single = false \} = \{\}\) \{\s*if \(!mission\.playerFireEnabled\) \{\s*weaponSystem\.setTrigger\(false\);\s*return false;/);
+  assert.match(SIEGE, /if \(single\) weaponSystem\.triggerPress\(\);\s*else weaponSystem\.setTrigger\(true\);/);
+  assert.match(SIEGE, /if \(fallbackShot\) tryPlayerFire\(\{ single: true \}\);/);
   assert.match(SIEGE, /onCaptureChange: \(_event, controls\) => \{\s*if \(controls\.locked\) \{\s*pointerLockRejected = false;/);
   assert.match(SIEGE, /onCaptureError: \(_error, controls\) => \{\s*pointerLockRejected = true;/);
   assert.match(SIEGE, /controls\.reason === 'pointer-lock-error'/);

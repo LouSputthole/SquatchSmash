@@ -41,8 +41,10 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import * as THREE from 'three';
+import { ensureDomShim } from '../tools/three-shim.mjs';
 
-import { buildCartelPalace } from '../src/cartel-palace/world.js';
+ensureDomShim();
+const { buildCartelPalace } = await import('../src/cartel-palace/world.js');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 

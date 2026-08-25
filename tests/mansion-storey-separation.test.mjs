@@ -446,6 +446,14 @@ test('sight, shot and suppression are handed the list with floors in it', () => 
   }
 });
 
+test('attacker locomotion is handed the floor-free movement list separately', () => {
+  assert.match(
+    SIEGE_MAIN,
+    /attackers\.update\(dt,\s*\{[^}]*?colliders:\s*combatColliders[^}]*?movementColliders:\s*colliders/s,
+    'attackers need combatColliders for sight and bullets but bare colliders for body motion',
+  );
+});
+
 test('the combat list is the movement list plus the storey model, and is built once', () => {
   assert.match(
     SIEGE_MAIN,

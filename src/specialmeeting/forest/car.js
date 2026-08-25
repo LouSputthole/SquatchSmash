@@ -37,6 +37,12 @@
 
 import * as THREE from 'three';
 import { makeCar, makeVehicleCollider, openCabin } from '../../bing/vehicles.js';
+import {
+  aimHeadlightBeam,
+  createHeadlightBeam,
+  createHeadlightBeamGeometry,
+  setHeadlightBeamProfile,
+} from '../../core/vehicles/headlights.js';
 
 /**
  * Where people sit, in the car's own space.
@@ -357,7 +363,7 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
   }));
-  const beamGeo = track(new THREE.ConeGeometry(1, 1, 12, 1, true));
+  const beamGeo = track(createHeadlightBeamGeometry());
 
   for (const side of [-1, 1]) {
     const z = side * (shape.W / 2 - 0.42);
@@ -394,10 +400,14 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
      * no light in a forward renderer can: it makes the air visible, so the
      * beam has a shape before it lands on anything. In the fog pockets it is
      * the difference between headlights and two bright spots on the ground. */
-    const beam = new THREE.Mesh(beamGeo, beamMat);
-    beam.name = 'lincoln.beam';
+    const beam = createHeadlightBeam({
+      geometry: beamGeo,
+      material: beamMat,
+      reach: DIPPED.beam,
+      farRadius: 4.6,
+      name: 'lincoln.beam',
+    });
     beam.userData.side = side;
-    beam.userData.lampY = lampY;
     beam.userData.z = z;
     beam.castShadow = false;
     beam.renderOrder = 3;
@@ -437,9 +447,9 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
   }
 
   const state = { lit: true, main: false };
+  const beamAim = new THREE.Vector3();
   function applyLamps() {
     const profile = state.main ? MAIN : DIPPED;
-    const droop = Math.atan2(profile.aim.drop, profile.aim.ahead);
     for (const spot of spots) {
       const side = spot.userData.side;
       spot.intensity = state.lit ? profile.intensity : 0;
@@ -454,20 +464,14 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
     }
     for (const beam of beams) {
       beam.visible = state.lit;
-      const reach = profile.beam;
       const spread = state.main ? 3.6 : 4.6;
-      beam.scale.set(spread, reach, spread);
-      /* The cone's own tip is on its +Y. Turned a quarter turn about Z that
-       * axis lands on −X, which puts the TIP at the lamp and the mouth of the
-       * cone out in front — and the quarter turn is short by the droop, so the
-       * mouth is the part that drops. A quarter turn PLUS the droop tips the
-       * far end up into the trees instead, which is a searchlight. */
-      beam.rotation.set(0, 0, Math.PI / 2 - droop);
-      beam.position.set(
-        car.length / 2 + Math.cos(droop) * reach * 0.5,
-        beam.userData.lampY - Math.sin(droop) * reach * 0.5,
-        beam.userData.z + beam.userData.side * 0.9,
-      );
+      setHeadlightBeamProfile(beam, { reach: profile.beam, farRadius: spread });
+      aimHeadlightBeam(beam, beamAim.set(
+        profile.aim.ahead,
+        -profile.aim.drop,
+        beam.userData.side * profile.aim.out,
+      ));
+      beam.position.set(car.length / 2 - 0.1, lampY, beam.userData.z);
     }
     for (const lens of headlamps) {
       lens.material.color.setHex(state.lit ? 0xfff2cf : 0x2a2822);

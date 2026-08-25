@@ -25,7 +25,9 @@
  * than by eye. `verifyExecutionStaging()` is what the test runs and it is what
  * a debug build can run at boot.
  */
-import { KNEEL_MARKS, PLAYER_EYE, STAND_MARK, facingOf } from './cabin/site.js';
+import {
+  KNEEL_MARKS, PLAYER_EYE, STAND_MARK, STANDING_SHOOTER_MARK, facingOf,
+} from './cabin/site.js';
 
 /**
  * Where Kittenboss stands.
@@ -68,6 +70,7 @@ export const STANDING_EXECUTION = Object.freeze({
   beat: 'IN-060',
   victim: 'PROSPECT ONE',
   mark: STAND_MARK,
+  stance: STANDING_SHOOTER_MARK,
   shooter: 'SEFF',
   weapon: 'revolver',
   kneeling: false,

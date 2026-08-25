@@ -1013,10 +1013,16 @@ function renderDealBoard() {
 }
 
 function syncArrivalSeats() {
-  const passenger = refs.manCar.passengerPosition();
+  const occupants = refs.manCar.occupants;
+  if (occupants.object('passengerActor') !== player.group) {
+    occupants.attach('passengerActor', player.group, { localYaw: Math.PI / 2 });
+  }
+  const passenger = occupants.worldPoint('passengerEye');
   pos.set(passenger.x, 0, passenger.z);
   feetY = 0;
-  if (snow && S.snowSeated) poseMotelSnowInDriverSeat(snow, refs.manCar);
+  if (snow && S.snowSeated && occupants.object('driverActor') !== snow.group) {
+    poseMotelSnowInDriverSeat(snow, refs.manCar);
+  }
 }
 
 /** Mostly windscreen, with Snow retained as a readable three-quarter profile. */
@@ -1250,6 +1256,8 @@ function finishScene(kind) {
   }
   lastEndingKind = kind;
   phase = 'end';
+  refs.manCar.occupants.release('passengerActor');
+  refs.manCar.occupants.release('driverActor');
   resetSpeechFloor();
   sfx.setMusic('none');
   sfx.stopAmbience();
@@ -2148,6 +2156,7 @@ function exitCar() {
    * spawned, no prompt, no explanation. */
   closeDialogue();
   const outside = refs.manCar.passengerExitPosition();
+  refs.manCar.occupants.release('passengerActor');
   feetY = level.floorAt(outside.x, outside.z, 0);
   pos.set(outside.x, 0, outside.z);
   refs.manCar.collider.enabled = true;
@@ -3915,9 +3924,7 @@ function tryJump() {
 function updatePlayer(dt) {
   if (phase === 'arrival' || phase === 'car') {
     syncArrivalSeats();
-    player.group.position.copy(refs.manCar.passengerActorPosition());
     player.group.scale.setScalar(PLAYER_SEATED_SCALE);
-    player.group.rotation.y = refs.manCar.forwardYaw();
     player.legL.rotation.x = -1.15;
     player.legR.rotation.x = -1.15;
     player.armL.rotation.x = -0.55;
@@ -4015,16 +4022,21 @@ function updateCamera(dt) {
   const dirX = Math.sin(camYaw) * Math.cos(camPitch);
   const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
   const dirY = Math.sin(camPitch);
-  const bodyBob = phase === 'arrival' || phase === 'car' || phase === 'boarding'
+  const seatedInArrivalCar = phase === 'arrival' || phase === 'car';
+  const bodyBob = seatedInArrivalCar || phase === 'boarding'
     ? 0
     : Math.max(-0.06, Math.min(0.08, player.group.position.y - feetY));
-  const eyeY = (phase === 'arrival' || phase === 'car' || phase === 'boarding' ? 1.55 : feetY + PLAYER_EYE)
-    + bodyBob * 0.45;
+  const passengerEye = seatedInArrivalCar
+    ? refs.manCar.occupants.worldPoint('passengerEye', null, _camPos)
+    : null;
+  const eyeY = (passengerEye?.y
+    ?? (phase === 'boarding' ? 1.55 : feetY + PLAYER_EYE)) + bodyBob * 0.45;
 
   // Motel play is first-person in every walkable phase. The old trailing
   // camera repeatedly wedged Tony's body between the lens, room furniture,
   // and doors, making the already-dense room unreadable.
-  _camPos.set(pos.x, eyeY, pos.z);
+  if (passengerEye) _camPos.copy(passengerEye);
+  else _camPos.set(pos.x, eyeY, pos.z);
   camera.position.copy(_camPos);
   player.group.visible = false;
 

@@ -45,6 +45,7 @@
  * `Math.random` here would move the geometry gate's buckets on every build.
  * See docs/STAGING-GATE.md.
  */
+import * as THREE from 'three';
 import { Npc } from '../bing/cast.js';
 import { markActor, readActor, setActorPosture } from '../core/staging.js';
 import { FAMILY } from '../bing/family.js';
@@ -54,6 +55,7 @@ import { WARDROBE } from '../core/wardrobe.js';
 
 /** Seff and Lag live on the Bing roster, by the ledger's own decision. */
 const FAMILY_ROWS = new Map(FAMILY.map((member) => [member.id, member]));
+const VEHICLE_LOCAL_FOCUS = new THREE.Vector3();
 
 function familyRow(id) {
   const row = FAMILY_ROWS.get(id);
@@ -144,6 +146,14 @@ const RIDER_YAW_OFFSET = Object.freeze({
   lag: -0.14,       // turned into the door card, on his phone
   numbskull: 0.19,  // looking out of his own window at nothing
 });
+
+/**
+ * Numbskull uses the largest established body in this cast. The shared seated
+ * fold keeps his anatomy connected, but at the generic 0.64 m drop his crown
+ * passes through the sedan headliner. Lower only his body origin while keeping
+ * the vehicle-owned rear seat anchor, eye-line, and attachment hierarchy.
+ */
+const RIDER_DROP = Object.freeze({ numbskull: 0.79 });
 
 /**
  * How she is wedged in the boot: facing the lid, and not square to it.
@@ -400,6 +410,15 @@ export function buildSpecialMeetingCast(scene, {
   /* Whether Kittenboss is riding in the boot. Her own state, because the seat
    * she used to be keyed off belongs to Lag from the moment the drive starts. */
   let bootRider = false;
+  /* The live player focus during the kerb pickup only. `holdTheFrontDoor()`
+   * restages both men when SM-110 opens; without retaining this point, that
+   * move overwrites the body turn they have spent SM-100 making and can leave
+   * a head pinned at its one-radian gaze limit. Later standing tableaux keep
+   * their existing car-facing direction because this flag closes when Lag
+   * boards. */
+  const pickupFocus = new THREE.Vector3();
+  let hasPickupFocus = false;
+  let pickupAttention = false;
 
   /**
    * WHAT THEY ARE STANDING ON.
@@ -442,7 +461,16 @@ export function buildSpecialMeetingCast(scene, {
     const npc = people[key];
     npc.group.visible = true;
     npc.group.position.set(x, y, z);
-    npc.group.rotation.y = yaw;
+    /* A rider released from the sedan keeps the seat anchor's world
+     * quaternion.  For the rear-right seat Three decomposes that quaternion
+     * as X = PI, Y = ..., Z = PI.  Writing only `rotation.y` therefore leaves
+     * the standing rig upside-down in Euler space and reverses its declared
+     * +Z face axis: Numbskull was visibly beside the open front door while
+     * the staging gate correctly measured him looking straight back into the
+     * Lincoln at 0.14 m.  A standing placement owns the whole upright pose,
+     * not one component of the previous seated pose, so clear the carried
+     * pitch and roll together with setting its authored heading. */
+    npc.group.rotation.set(0, yaw, 0);
     npc.homeX = x;
     npc.homeZ = z;
     npc.homeYaw = yaw;
@@ -476,7 +504,11 @@ export function buildSpecialMeetingCast(scene, {
   /** A rider, turned the way the car is going, off his own authored offset. */
   function faceRider(key) {
     if (!sedan) return;
-    people[key].group.rotation.y = carFacing() + (RIDER_YAW_OFFSET[key] ?? 0);
+    const rider = people[key].group;
+    const offset = RIDER_YAW_OFFSET[key] ?? 0;
+    rider.rotation.y = rider.userData.vehicleAnchor
+      ? Math.PI / 2 + offset
+      : carFacing() + offset;
   }
 
   /**
@@ -488,10 +520,11 @@ export function buildSpecialMeetingCast(scene, {
    */
   function rideInTheBoot() {
     if (!sedan) return;
-    const boot = sedan.trunkWorld();
     const kb = people.kittenboss;
-    kb.group.position.set(boot.x, boot.y - 0.62, boot.z);
-    kb.group.rotation.y = carFacing() + BOOT_YAW_OFFSET;
+    sedan.occupy('trunk', kb.group, {
+      drop: 0.62,
+      localYaw: Math.PI / 2 + BOOT_YAW_OFFSET,
+    });
     /* She is riding too, and more thoroughly inside the car than anybody. */
     setActorPosture(kb.group, 'ride');
   }
@@ -506,7 +539,10 @@ export function buildSpecialMeetingCast(scene, {
      * sitting sideways: the car is long on local +X and a person faces local
      * +Z. `facingYaw()` is the same quarter turn the player gets, and it is
      * reapplied every frame in `update` because the car turns. */
-    sedan.occupy(seatId, npc.group, { yaw: false });
+    sedan.occupy(seatId, npc.group, {
+      ...(Number.isFinite(RIDER_DROP[key]) ? { drop: RIDER_DROP[key] } : {}),
+      localYaw: Math.PI / 2 + (RIDER_YAW_OFFSET[key] ?? 0),
+    });
     /* RIDING, not merely sitting. The distinction earns its keep at the
      * staging gate: a man in a chair who is inside a solid is a bug, and a
      * man in a car who is inside a solid is a passenger -- the sedan's
@@ -522,10 +558,11 @@ export function buildSpecialMeetingCast(scene, {
   function standUp(key) {
     const npc = people[key];
     if (!npc) return null;
-    npc.stand();
     for (const [seatId, who] of seated) {
       if (who === key) { seated.delete(seatId); sedan?.release(seatId); }
     }
+    if (key === 'kittenboss') sedan?.release('trunk');
+    npc.stand();
     return npc;
   }
 
@@ -557,13 +594,6 @@ export function buildSpecialMeetingCast(scene, {
         const kb = people.kittenboss;
         kb.group.visible = true;
         kb.sit();
-        sedan.occupy('rear_left', kb.group, { yaw: false });
-        seated.delete('rear_left');
-        /* She is not in that seat. She is in the boot, and the boot has no
-         * ride-along of its own, so she borrows the nearest one to be folded
-         * and dropped, and is then put on the boot anchor -- here, and again
-         * every frame by `update` below. */
-        sedan.release('rear_left');
         rideInTheBoot();
         bootRider = true;
       }
@@ -573,6 +603,7 @@ export function buildSpecialMeetingCast(scene, {
     /** Lag out of the front, Numbskull out of the back and round to the door. */
     disembarkForPickup() {
       if (!sedan) return this;
+      pickupAttention = true;
       standUp('lag');
       /* "Lag gets out of the FRONT and stands with the door open behind him,
        * on his phone" -- SM-100. Behind him, so he is turned out of the car. */
@@ -594,11 +625,21 @@ export function buildSpecialMeetingCast(scene, {
         z: door.z + Math.cos(nose) * STEP_CLEAR_M,
       }, { away: true });
       placeBeside('numbskull', door, { away: true });
+      if (hasPickupFocus) {
+        for (const key of ['lag', 'numbskull']) {
+          people[key].faceToward(pickupFocus.x, pickupFocus.z, true);
+          people[key].gaze = 0;
+          people[key].parts.head.rotation.y = 0;
+        }
+      }
       return this;
     },
 
     /** Lag gets in the back without ceremony. Nobody points this out. */
-    lagTakesTheBack() { return sit('lag', 'rear_left'), this; },
+    lagTakesTheBack() {
+      pickupAttention = false;
+      return sit('lag', 'rear_left'), this;
+    },
 
     /**
      * The arrangement, once the Prospect is in it.
@@ -607,6 +648,7 @@ export function buildSpecialMeetingCast(scene, {
      * car and gets in behind him; Lag is already behind Seff.
      */
     takeSeats() {
+      pickupAttention = false;
       sit('seff', 'driver');
       sit('lag', 'rear_left');
       sit('numbskull', 'rear_right');
@@ -689,41 +731,31 @@ export function buildSpecialMeetingCast(scene, {
     },
 
     update(dt, focus = null) {
-      /* KEEP THE RIDERS IN THE CAR.
-       *
-       * `sedan.rideAlong()` is what holds a seated body on its cushion as the
-       * car moves, and it was called from exactly one place: the last line of
-       * `sedan.update()`, which is reached only through `arrival.update()`,
-       * which is reached only through `stage.update()`. And `main.js`'s frame
-       * loop is an either/or -- the forest replaces the stage the moment the
-       * drive begins. So from the cut to black onward nothing called it, and
-       * Seff, Lag and Numbskull stayed frozen at the kerb for the whole
-       * two-minute drive while the camera rode away in the car. Their voices
-       * stayed with them: positional audio emitted from a street the player
-       * had left. That is the owner's "voices sound like they are coming from
-       * arbitrary directions", from the other end.
-       *
-       * It belongs here rather than in the rail, because this module is the one
-       * that knows who is riding. `cast.update` is called unconditionally every
-       * frame in both phases, `rideAlong` early-returns with no occupants, and
-       * it is idempotent against the block-phase call it already had. */
-      sedan?.rideAlong?.();
+      if (focus) {
+        pickupFocus.copy(focus);
+        hasPickupFocus = true;
+        if (pickupAttention) {
+          for (const key of ['lag', 'numbskull']) {
+            if (!people[key].seated) people[key].faceToward(focus.x, focus.z);
+          }
+        }
+      }
       for (const npc of Object.values(people)) {
         if (!npc.group.visible) continue;
-        npc.update(dt, focus);
+        let actorFocus = focus;
+        if (focus && npc.group.userData.vehicleAnchor && npc.group.parent) {
+          VEHICLE_LOCAL_FOCUS.copy(focus);
+          npc.group.parent.worldToLocal(VEHICLE_LOCAL_FOCUS);
+          actorFocus = VEHICLE_LOCAL_FOCUS;
+        }
+        npc.update(dt, actorFocus);
       }
       /* Reapplied every frame because the car turns, and because an idling rig
        * drifts its own yaw towards whatever it is looking at. */
       for (const key of seated.values()) faceRider(key);
-      /* The boot. She rides where she is, and where she is is not a seat.
-       *
-       * Gated on her own state, not on somebody else's seat. It used to read
-       * `!seated.has('rear_left')` as a proxy for "she is still borrowing that
-       * ride-along" -- true through Acts One and Two, and false forever after
-       * `takeSeats()` puts Lag in the back. She then stopped travelling with
-       * the car at the exact moment the drive began, and was found at the spur
-       * having never left the kerb. */
-      if (sedan && bootRider && people.kittenboss.seated) rideInTheBoot();
+      if (sedan && bootRider && people.kittenboss.seated) {
+        people.kittenboss.group.rotation.y = Math.PI / 2 + BOOT_YAW_OFFSET;
+      }
       return this;
     },
 

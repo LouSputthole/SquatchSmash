@@ -470,6 +470,7 @@ try {
     const motel = window.MOTEL;
     const snow = motel.actors.find((actor) => actor.identity === 'snow');
     const driver = new motel.three.Vector3(...motel.arrival.driver);
+    const snowWorld = snow.group.getWorldPosition(new motel.three.Vector3());
     const passenger = new motel.three.Vector3(...motel.arrival.passenger);
     motel.scene.updateMatrixWorld(true);
     motel.camera.updateMatrixWorld(true);
@@ -564,7 +565,7 @@ try {
         .every((name) => Boolean(motel.refs.manCar.group.getObjectByName(name))),
       playerAtPassenger: Math.hypot(motel.pos.x - passenger.x, motel.pos.z - passenger.z),
       snowState: snow.state,
-      snowAtDriver: snow.group.position.distanceTo(driver),
+      snowAtDriver: snowWorld.distanceTo(driver),
       snowFaceOnScreen: Boolean(face) && projectVisible(face),
       snowTorsoOnScreen: Boolean(torso) && projectVisible(torso),
       snowFacePixels: projectedPixels(face),
@@ -644,6 +645,8 @@ try {
     const passenger = new motel.three.Vector3(...motel.arrival.passengerActor);
     motel.scene.updateMatrixWorld(true);
     motel.camera.updateMatrixWorld(true);
+    const snowWorld = snow.group.getWorldPosition(new motel.three.Vector3());
+    const tonyWorld = motel.player.group.getWorldPosition(new motel.three.Vector3());
     const onScreen = (object) => {
       const bounds = new motel.three.Box3().setFromObject(object);
       const center = bounds.getCenter(new motel.three.Vector3()).project(motel.camera);
@@ -657,8 +660,8 @@ try {
       cameraMode: motel.arrival.cameraMode,
       cameraDistance: motel.camera.position.distanceTo(motel.refs.manCar.cabinCenterPosition()),
       snowState: snow.state,
-      snowAtDriver: snow.group.position.distanceTo(driver),
-      tonyAtPassenger: motel.player.group.position.distanceTo(passenger),
+      snowAtDriver: snowWorld.distanceTo(driver),
+      tonyAtPassenger: tonyWorld.distanceTo(passenger),
       snowScale: snow.group.scale.x,
       snowBaseScale: snow.baseScale,
       tonyScale: motel.player.group.scale.x,

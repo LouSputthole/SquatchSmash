@@ -60,6 +60,29 @@ test('Cartel Palace is a first-class runtime built on the shared game systems', 
   assert.doesNotMatch(main, /navigateCampaign\([\s\S]{0,120}SCENE_IDS\.INITIATION/);
   assert.doesNotMatch(main, /vo\.cartel|SEQUENCES|DialogueController/,
     'locked confrontation voice lines must not be invented in the runtime');
+  assert.match(main, /event\.button === 0[\s\S]{0,180}finale\.canPlayerFire\(\)[\s\S]{0,180}weapons\.setTrigger\(true\)/,
+    'left-click must cross the finale fire-permission seam before reaching WeaponSystem');
+  assert.doesNotMatch(main, /finale\.interrupt\(\)/,
+    'a post-shot interruption callback is too late to protect essential dialogue');
+  assert.match(main, /finale\.update\(dt\);[\s\S]{0,300}security\.update\(dt/,
+    'the finale clock is not advanced before shared combat AI');
+  assert.match(main, /onPresentationStep:[\s\S]{0,500}combatSteps\.update\(/,
+    'scripted Palace arrivals bypass the shared positional footstep cadence');
+});
+
+test('the Palace browser gate certifies one clean-start mission before checkpoint probes', async () => {
+  const verifier = await readFile(new URL('../tools/verify-cartel-palace.mjs', import.meta.url), 'utf8');
+  assert.ok(verifier.includes("'--use-gl=angle'")
+      && verifier.includes("'--use-angle=swiftshader'"),
+  'the Palace gate must use the stable ANGLE-on-SwiftShader route used by other heavy scenes');
+  assert.match(verifier, /CLEAN_START_HREF\s*=\s*`[^`]*cartel-palace\.html\?preview=1`/,
+    'the browser gate has no ordinary preview entry without an authored checkpoint');
+  assert.match(verifier, /clean start:[\s\S]*real pointer lock[\s\S]*housekeeper[\s\S]*entry watch[\s\S]*opening dialogue blocks a real shot[\s\S]*walking A-Team entrance[\s\S]*Mark retreats[\s\S]*post-combat extraction/i,
+    'the clean-start gate does not cover the player-facing Palace pass end to end');
+  assert.match(verifier, /page\.keyboard\.down\('e'\)[\s\S]*interaction\.update\(0\.1\)/,
+    'clean-start progression must cross the real keyboard/InteractionSystem seam');
+  assert.match(verifier, /page\.mouse\.down\(\{ button: 'left' \}\)[\s\S]*finale\.canPlayerFire\(\)/,
+    'clean-start dialogue protection must be exercised through the document mouse binding');
 });
 
 test('Cartel Palace death retry restores in memory, with reload only as the fallback', async () => {

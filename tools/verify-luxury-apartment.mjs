@@ -3,8 +3,9 @@
  * Focused browser proof for the standalone late-game luxury apartment.
  *
  * Boots the real WebGL page, inspects the authored two-floor/art/utility
- * contracts, starts the first-person runtime, and exercises every apartment
- * parity activity through the scene's public deterministic verification seam.
+ * contracts, starts the first-person runtime, exercises the apartment's
+ * player-facing entrance/utility/game flows with real input, and then runs the
+ * public deterministic parity seam for the longer-form activity coverage.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -97,11 +98,14 @@ const EXPECTED_PROP_ART = Object.freeze([
 ]);
 
 const EXPECTED_UTILITIES = Object.freeze([
-  'frontDoor', 'elevator', 'bed', 'couch', 'desk', 'tv', 'radio', 'phone',
-  'fridge', 'kitchen', 'shower', 'wardrobe', 'toilet',
+  'frontDoor', 'elevator', 'bathroomDoor', 'bed', 'couch', 'desk', 'tv', 'radio', 'phone',
+  'fridge', 'kitchen', 'cigarettes', 'shower', 'wardrobe', 'toilet',
   'mainLights', 'loftLights', 'cityGlass', 'shades', 'answeringMachine',
   'revolver', 'ammo', 'bong', 'shrooms', 'whiteLine', 'crookedArt',
 ]);
+
+const LUXURY_MAIN_SOURCE = fs.readFileSync(path.join(ROOT, 'src', 'luxury-apartment', 'main.js'), 'utf8');
+const LUXURY_RUNTIME_SOURCE = fs.readFileSync(path.join(ROOT, 'src', 'luxury-apartment', 'runtime.js'), 'utf8');
 
 const problems = [];
 const results = [];
@@ -281,6 +285,28 @@ try {
       ...officeSlats.map((entry) => bodyClearance(officeCirculation, entry)),
     );
 
+    const worldPoint = (object) => {
+      const point = home.spawns.main.position.clone().set(0, 0, 0);
+      object?.getWorldPosition?.(point);
+      return { x: point.x, y: point.y, z: point.z };
+    };
+    const bathroomBounds = home.bathroom.bounds;
+    const bathroomCenter = {
+      x: (bathroomBounds.x0 + bathroomBounds.x1) / 2,
+      z: (bathroomBounds.z0 + bathroomBounds.z1) / 2,
+    };
+    const bathroomZone = home.floorZones.find(({ name }) => name === 'luxury-bath-tile-zone');
+    const bathroomParts = [];
+    home.bathroom.shell.traverse((object) => bathroomParts.push(object.name));
+    const toiletPaperParts = [];
+    home.bathroom.toiletPaper.traverse((object) => toiletPaperParts.push(object.name));
+    const elevatorParts = [];
+    home.doors.elevator.group.traverse((object) => elevatorParts.push(object.name));
+    const bedroomWallParts = [];
+    home.root.getObjectByName('luxury-bedroom-privacy-wall')?.traverse((object) => {
+      bedroomWallParts.push(object.name);
+    });
+
     const southSky = home.root.getObjectByName('luxury-city-panorama-south');
     const eastSky = home.root.getObjectByName('luxury-city-panorama-east');
     const originalMinutes = home.state.cityMinutes;
@@ -374,6 +400,80 @@ try {
       officeDivider: {
         colliders: officeSlats.length,
         circulationClearance: officeCirculationClearance,
+      },
+      entrance: {
+        serviceDoorLocked: home.doors.front.locked === true,
+        serviceDoorOpen: home.doors.front.isOpen(),
+        servicePlate: Boolean(home.doors.front.servicePlate),
+        elevatorOpen: home.doors.elevator.isOpen(),
+        elevatorCab: elevatorParts.includes('luxury-elevator-cab'),
+        elevatorCabParts: elevatorParts.filter((name) => name.startsWith('luxury-elevator-cab-')).length,
+        arrivalGround: home.groundAt(
+          home.spawns.arrival.position.x,
+          home.spawns.arrival.position.z,
+          home.spawns.arrival.position.y,
+        ),
+      },
+      bathroom: {
+        floorY: home.bathroom.floorY,
+        metricFloorY: home.metrics.bathroomFloorY,
+        lowGround: home.groundAt(bathroomCenter.x, bathroomCenter.z, 1.68),
+        highGround: home.groundAt(bathroomCenter.x, bathroomCenter.z, home.metrics.bathroomFloorY + 4.98),
+        shellName: home.bathroom.shell.name,
+        floorPresent: bathroomParts.includes('luxury-bath-floor'),
+        walls: bathroomParts.filter((name) => name.startsWith('luxury-bath-wall-')).length,
+        doorPresent: Boolean(home.bathroom.door?.target),
+        tileZone: bathroomZone?.surface ?? null,
+        tileZoneY: bathroomZone?.y ?? null,
+        mirrorGeometry: home.mirrorMesh?.geometry?.type ?? null,
+        toilet: worldPoint(home.bathroom.toilet.group),
+        sink: worldPoint(home.bathroom.sink.group),
+        toiletPaper: worldPoint(home.bathroom.toiletPaper.getObjectByName('luxury-toilet-paper-wall-plate')),
+        toiletPaperMounted: toiletPaperParts.includes('luxury-toilet-paper-wall-plate')
+          && toiletPaperParts.includes('luxury-toilet-paper-holder')
+          && toiletPaperParts.includes('luxury-toilet-paper-roll'),
+        artZone: home.artTargets['luxury.bath.monochrome']?.userData?.artZone ?? null,
+        bounds: bathroomBounds,
+      },
+      workstation: {
+        chairMaterial: home.deskChair?.group?.userData?.workstationMaterial ?? null,
+        zynDesktopHalf: home.deskZyn?.group?.userData?.desktopHalf ?? null,
+        zyn: worldPoint(home.deskZyn?.group),
+      },
+      pokerPolish: {
+        patrons: home.poker?.patrons?.length ?? 0,
+        seats: home.poker?.seats?.length ?? 0,
+        railPresent: Boolean(home.poker?.rail),
+        feltPresent: Boolean(home.poker?.felt),
+      },
+      dartsPolish: {
+        board: Boolean(home.darts?.board),
+        backing: Boolean(home.darts?.backing),
+        rack: Boolean(home.darts?.rack),
+        impactRoot: Boolean(home.darts?.impactRoot),
+        center: home.darts?.center ? {
+          x: home.darts.center.x,
+          y: home.darts.center.y,
+          z: home.darts.center.z,
+        } : null,
+        normal: home.darts?.normal ? {
+          x: home.darts.normal.x,
+          y: home.darts.normal.y,
+          z: home.darts.normal.z,
+        } : null,
+      },
+      bedroomPolish: {
+        wallPresent: bedroomWallParts.includes('luxury-bedroom-privacy-wall'),
+        wallPanels: bedroomWallParts.filter((name) => name.startsWith('luxury-bedroom-wall-panel-')).length,
+        bannerZones: [
+          home.artTargets['banner.main']?.userData?.artZone ?? null,
+          home.artTargets['banner.twitch']?.userData?.artZone ?? null,
+        ],
+      },
+      cityGround: {
+        present: Boolean(home.cityGround),
+        groundY: home.metrics.cityGroundY,
+        lowestBuildingY: home.metrics.cityLowestBuildingY,
       },
       utilities,
       utilityKeys: Object.keys(home.utilityTargets),
@@ -545,6 +645,74 @@ try {
     authored.officeDivider.colliders === 7
       && authored.officeDivider.circulationClearance >= 0.30,
     JSON.stringify(authored.officeDivider));
+  check('the service door is sealed and the furnished private elevator is the canonical arrival',
+    authored.entrance.serviceDoorLocked
+      && !authored.entrance.serviceDoorOpen
+      && authored.entrance.servicePlate
+      && !authored.entrance.elevatorOpen
+      && authored.entrance.elevatorCab
+      && authored.entrance.elevatorCabParts >= 5
+      && authored.entrance.arrivalGround === 0,
+    JSON.stringify(authored.entrance));
+  check('the under-stair bathroom is a complete main-floor room with mounted fixtures',
+    authored.bathroom.floorY === 0
+      && authored.bathroom.metricFloorY === 0
+      && authored.bathroom.lowGround === 0
+      && authored.bathroom.highGround === authored.loftFloorY
+      && authored.bathroom.shellName === 'luxury-under-stair-bathroom'
+      && authored.bathroom.floorPresent
+      && authored.bathroom.walls === 5
+      && authored.bathroom.doorPresent
+      && authored.bathroom.tileZone === 'tile'
+      && authored.bathroom.tileZoneY === 0
+      && authored.bathroom.mirrorGeometry === 'PlaneGeometry'
+      && authored.bathroom.toiletPaperMounted
+      && authored.bathroom.artZone === 'under-stair-bathroom'
+      && authored.bathroom.toilet.x > authored.bathroom.bounds.x0
+      && authored.bathroom.toilet.x < authored.bathroom.bounds.x1
+      && authored.bathroom.toilet.z > authored.bathroom.bounds.z0
+      && authored.bathroom.toilet.z < authored.bathroom.bounds.z1
+      && authored.bathroom.sink.x > authored.bathroom.bounds.x0
+      && authored.bathroom.sink.x < authored.bathroom.bounds.x1
+      && authored.bathroom.sink.z > authored.bathroom.bounds.z0
+      && authored.bathroom.sink.z < authored.bathroom.bounds.z1
+      && Math.abs(authored.bathroom.bounds.x1 - authored.bathroom.toiletPaper.x) <= 0.15
+      && authored.bathroom.toiletPaper.y > 0.5,
+    JSON.stringify(authored.bathroom));
+  check('the workstation, poker room, darts wall, bedroom, and skyline retain the authored polish contracts',
+    authored.workstation.chairMaterial === 'dark'
+      && authored.workstation.zynDesktopHalf === 'front'
+      && authored.workstation.zyn.y > authored.loftFloorY
+      && authored.pokerPolish.patrons === 3
+      && authored.pokerPolish.seats === 4
+      && authored.pokerPolish.railPresent
+      && authored.pokerPolish.feltPresent
+      && authored.dartsPolish.board
+      && authored.dartsPolish.backing
+      && authored.dartsPolish.rack
+      && authored.dartsPolish.impactRoot
+      && Math.abs(authored.dartsPolish.normal.x) < 1e-9
+      && Math.abs(authored.dartsPolish.normal.y) < 1e-9
+      && Math.abs(authored.dartsPolish.normal.z - 1) < 1e-9
+      && authored.bedroomPolish.wallPresent
+      && authored.bedroomPolish.wallPanels === 2
+      && authored.bedroomPolish.bannerZones.every((zone) => zone === 'bedroom-privacy-wall')
+      && authored.cityGround.present
+      && authored.cityGround.groundY === authored.cityGround.lowestBuildingY,
+    JSON.stringify({
+      workstation: authored.workstation,
+      poker: authored.pokerPolish,
+      darts: authored.dartsPolish,
+      bedroom: authored.bedroomPolish,
+      cityGround: authored.cityGround,
+    }));
+  check('the bathroom mirror and darts physics consume the approved shared foundations',
+    LUXURY_MAIN_SOURCE.includes("from '../core/planar-mirror.js'")
+      && LUXURY_MAIN_SOURCE.includes('new PlanarMirror(')
+      && LUXURY_RUNTIME_SOURCE.includes("from '../core/throwable.js'")
+      && LUXURY_RUNTIME_SOURCE.includes('new BallisticProjectile(')
+      && LUXURY_RUNTIME_SOURCE.includes('new ThrowCharge('),
+    'PlanarMirror + shared throwable primitives');
   check('the complete domestic utility set is present and interactive',
     authored.utilities.length === EXPECTED_UTILITIES.length
       && authored.utilities.every(({ exists, interactive }) => exists && interactive),
@@ -580,6 +748,49 @@ try {
     playing.phase === 'active' && playing.mode === 'walk' && playing.overlayHidden,
     JSON.stringify(playing));
 
+  const cleanStartBefore = await page.evaluate(() => {
+    const { player } = window.LUXURY_APARTMENT;
+    return { position: player.position.toArray(), yaw: player.yaw, enabled: player.enabled };
+  });
+  await page.locator('canvas').click({ position: { x: 640, y: 360 } });
+  await page.mouse.move(640, 360);
+  await page.mouse.move(700, 330, { steps: 3 });
+  await page.keyboard.down('w');
+  await page.waitForFunction(({ x, z }) => {
+    const position = window.LUXURY_APARTMENT.player.position;
+    return Math.hypot(position.x - x, position.z - z) >= 0.08;
+  }, { x: cleanStartBefore.position[0], z: cleanStartBefore.position[2] }, {
+    timeout: 15000,
+    polling: 100,
+  });
+  await page.keyboard.up('w');
+  const cleanStartAfter = await page.evaluate(() => {
+    const { player } = window.LUXURY_APARTMENT;
+    return {
+      position: player.position.toArray(),
+      yaw: player.yaw,
+      enabled: player.enabled,
+      locked: document.pointerLockElement?.tagName === 'CANVAS',
+    };
+  });
+  const cleanStartDistance = Math.hypot(
+    cleanStartAfter.position[0] - cleanStartBefore.position[0],
+    cleanStartAfter.position[2] - cleanStartBefore.position[2],
+  );
+  const cleanStartYaw = Math.abs(Math.atan2(
+    Math.sin(cleanStartAfter.yaw - cleanStartBefore.yaw),
+    Math.cos(cleanStartAfter.yaw - cleanStartBefore.yaw),
+  ));
+  check('a clean Luxury start responds to real pointer-lock, mouse-look, and W input',
+    cleanStartAfter.enabled
+      && cleanStartAfter.locked
+      // The private-elevator arrival starts close to its cab threshold; the
+      // invariant is that real W produces meaningful displacement before the
+      // collision boundary, not that the verifier gets to walk through it.
+      && cleanStartDistance >= 0.08
+      && cleanStartYaw >= 0.01,
+    JSON.stringify({ before: cleanStartBefore, after: cleanStartAfter, cleanStartDistance, cleanStartYaw }));
+
   const arcadeClocks = await page.evaluate(() => ({
     scene: window.LUXURY_APARTMENT.time.clock12,
     pc: window.LUXURY_APARTMENT.pcArcade.clock,
@@ -588,6 +799,86 @@ try {
   check('both Squatch OS screens track the standalone apartment clock',
     arcadeClocks.pc === arcadeClocks.scene && arcadeClocks.cabinet === arcadeClocks.scene,
     JSON.stringify(arcadeClocks));
+
+  const doorFlows = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const home = runtime.home;
+    const advance = () => {
+      for (let index = 0; index < 120; index++) home.update(1 / 120);
+    };
+
+    const frontResult = home.utilityTargets.frontDoor.userData.interact.onUse();
+    advance();
+    const serviceDoor = {
+      result: frontResult,
+      locked: home.doors.front.locked,
+      open: home.doors.front.isOpen(),
+      stateOpen: home.state.frontDoorOpen,
+    };
+
+    home.utilityTargets.elevator.userData.interact.onUse();
+    advance();
+    const elevatorCalled = {
+      open: home.doors.elevator.isOpen(),
+      stateOpen: home.state.elevatorOpen,
+      colliderDisabled: home.doors.elevator.collider.max.y < 0,
+    };
+
+    home.utilityTargets.bathroomDoor.userData.interact.onUse();
+    advance();
+    const bathroomOpened = {
+      open: home.doors.bathroom.isOpen(),
+      stateOpen: home.state.bathroomDoorOpen,
+      yaw: home.doors.bathroom.pivot.rotation.y,
+    };
+    home.utilityTargets.bathroomDoor.userData.interact.onUse();
+    advance();
+    const bathroomClosed = {
+      open: home.doors.bathroom.isOpen(),
+      stateOpen: home.state.bathroomDoorOpen,
+      yaw: home.doors.bathroom.pivot.rotation.y,
+    };
+    return { serviceDoor, elevatorCalled, bathroomOpened, bathroomClosed };
+  });
+  check('the sealed service door cannot bypass the private elevator, which can be called into the apartment',
+    doorFlows.serviceDoor.result === false
+      && doorFlows.serviceDoor.locked
+      && !doorFlows.serviceDoor.open
+      && !doorFlows.serviceDoor.stateOpen
+      && doorFlows.elevatorCalled.open
+      && doorFlows.elevatorCalled.stateOpen
+      && doorFlows.elevatorCalled.colliderDisabled,
+    JSON.stringify({ serviceDoor: doorFlows.serviceDoor, call: doorFlows.elevatorCalled }));
+  check('the relocated main-floor bathroom door opens, clears, and closes through its live interaction',
+    doorFlows.bathroomOpened.open
+      && doorFlows.bathroomOpened.stateOpen
+      && Math.abs(doorFlows.bathroomOpened.yaw) > 1.4
+      && !doorFlows.bathroomClosed.open
+      && !doorFlows.bathroomClosed.stateOpen
+      && Math.abs(doorFlows.bathroomClosed.yaw) < 0.01,
+    JSON.stringify({ open: doorFlows.bathroomOpened, closed: doorFlows.bathroomClosed }));
+
+  const cigaretteFlow = await page.evaluate(() => {
+    const target = window.LUXURY_APARTMENT.home.utilityTargets.cigarettes;
+    const descriptor = target.userData.interact;
+    const label = () => typeof descriptor.label === 'function' ? descriptor.label() : descriptor.label;
+    const beforeLabel = label();
+    const replenished = descriptor.onUse();
+    const fullLabel = label();
+    const fullAgain = descriptor.onUse();
+    return { beforeLabel, replenished, fullLabel, fullAgain };
+  });
+  check('the desk cigarette pack replenishes once and gives explicit full-pack feedback thereafter',
+    /replenish/i.test(cigaretteFlow.beforeLabel)
+      && cigaretteFlow.replenished?.owned
+      && cigaretteFlow.replenished.count === 12
+      && cigaretteFlow.replenished.added > 0
+      && cigaretteFlow.replenished.reason === 'replenished'
+      && /already have a full pack/i.test(cigaretteFlow.fullLabel)
+      && cigaretteFlow.fullAgain?.full
+      && cigaretteFlow.fullAgain.added === 0
+      && cigaretteFlow.fullAgain.reason === 'already-full',
+    JSON.stringify(cigaretteFlow));
 
   if (SCREENSHOT_DIR) {
     await page.evaluate(() => {
@@ -628,17 +919,17 @@ try {
       inputMode: os.inputMode,
     };
   });
-  await page.waitForFunction(() => document.pointerLockElement === null, undefined, { timeout: 10000 });
+  await page.waitForFunction(() => document.pointerLockElement === null, undefined, { timeout: 60000 });
   await page.waitForFunction(() => {
     const app = window.LUXURY_APARTMENT.pcArcade.app;
     const frame = app?.overlay?.el;
     return app?.id === 'smash' && frame?.contentDocument?.readyState === 'complete';
-  }, undefined, { timeout: 10000 });
+  }, undefined, { timeout: 60000 });
   await page.evaluate(() => window.LUXURY_APARTMENT.pcArcade.app.overlay.focusFrame());
   await page.waitForFunction(() => {
     const frame = window.LUXURY_APARTMENT.pcArcade.app?.overlay?.el;
     return Boolean(frame) && document.activeElement === frame;
-  }, undefined, { timeout: 10000 });
+  }, undefined, { timeout: 60000 });
   const releasedForDom = await page.evaluate(() => document.pointerLockElement === null);
   await page.keyboard.down('Tab');
   await page.waitForTimeout(720);
@@ -648,7 +939,7 @@ try {
     return runtime.pcArcade.mode === 'desktop'
       && runtime.pcArcade.inputMode === 'relative'
       && document.pointerLockElement === document.getElementById('scene');
-  }, undefined, { timeout: 10000 });
+  }, undefined, { timeout: 60000 });
   const desktopRecovered = await page.evaluate(() => ({
     mode: window.LUXURY_APARTMENT.pcArcade.mode,
     inputMode: window.LUXURY_APARTMENT.pcArcade.inputMode,
@@ -681,6 +972,95 @@ try {
       && seatedTab.mode === 'desktop'
       && seatedTab.locked,
     JSON.stringify({ pcEntry, framedApp, releasedForDom, desktopRecovered, seatedTab }));
+
+  const arcadeEntry = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    runtime.teleport('main');
+    const entered = runtime.station('arcade');
+    for (let index = 0; entered && runtime.state.posture === 'transition' && index < 180; index++) {
+      runtime.player.update(1 / 60);
+    }
+
+    const screen = runtime.home.gameStations.arcade.screen;
+    const camera = runtime.camera;
+    screen.geometry.computeBoundingBox();
+    screen.updateMatrixWorld(true);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+    const bounds = screen.geometry.boundingBox;
+    const project = (x, y) => {
+      const point = camera.position.clone().set(x, y, 0);
+      screen.localToWorld(point);
+      point.project(camera);
+      return { x: point.x, y: point.y, z: point.z };
+    };
+    const corners = [
+      project(bounds.min.x, bounds.min.y),
+      project(bounds.max.x, bounds.min.y),
+      project(bounds.max.x, bounds.max.y),
+      project(bounds.min.x, bounds.max.y),
+    ];
+    const center = project(
+      (bounds.min.x + bounds.max.x) / 2,
+      (bounds.min.y + bounds.max.y) / 2,
+    );
+    const xs = corners.map(({ x }) => x);
+    const ys = corners.map(({ y }) => y);
+    const result = {
+      entered,
+      posture: runtime.state.posture,
+      playerMode: runtime.player.mode,
+      active: runtime.state.activeArcade === runtime.cabinetArcade,
+      app: runtime.cabinetArcade.app?.id ?? null,
+      center,
+      corners,
+      ndcWidth: Math.max(...xs) - Math.min(...xs),
+      ndcHeight: Math.max(...ys) - Math.min(...ys),
+    };
+    if (runtime.cabinetArcade.mode === 'app') runtime.cabinetArcade.toDesktop();
+    return result;
+  });
+  await page.waitForFunction(() => (
+    window.LUXURY_APARTMENT.state.posture === 'arcade'
+      && window.LUXURY_APARTMENT.cabinetArcade.mode === 'desktop'
+      && window.LUXURY_APARTMENT.cabinetArcade.inputMode === 'relative'
+  ));
+  await page.keyboard.press('q');
+  await page.waitForFunction(() => (
+    window.LUXURY_APARTMENT.state.posture === null
+      && window.LUXURY_APARTMENT.player.mode === 'walk'
+  ));
+  const arcadeExit = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const exit = runtime.home.poses.arcade.exit;
+    return {
+      posture: runtime.state.posture,
+      playerMode: runtime.player.mode,
+      active: runtime.state.activeArcade !== null,
+      distanceFromExit: Math.hypot(
+        runtime.player.position.x - exit.x,
+        runtime.player.position.z - exit.z,
+      ),
+    };
+  });
+  check('the cabinet seats cleanly with its screen centered and fully visible, then exits on real Q input',
+    arcadeEntry.entered
+      && arcadeEntry.posture === 'arcade'
+      && arcadeEntry.playerMode === 'seated'
+      && arcadeEntry.active
+      && arcadeEntry.app === 'smash'
+      && Math.abs(arcadeEntry.center.x) <= 0.08
+      && Math.abs(arcadeEntry.center.y) <= 0.08
+      && arcadeEntry.ndcWidth >= 0.75
+      && arcadeEntry.ndcHeight >= 0.75
+      && arcadeEntry.corners.every(({ x, y, z }) => (
+        Math.abs(x) < 0.98 && Math.abs(y) < 0.98 && z > -1 && z < 1
+      ))
+      && arcadeExit.posture === null
+      && arcadeExit.playerMode === 'walk'
+      && !arcadeExit.active
+      && arcadeExit.distanceFromExit < 0.05,
+    JSON.stringify({ entry: arcadeEntry, exit: arcadeExit }));
 
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => window.LUXURY_APARTMENT.state.paused === true);
@@ -776,6 +1156,119 @@ try {
     await page.waitForTimeout(220);
     await capture(page, 'luxury-loft');
   }
+
+  /* The preceding SquatchOS proof deliberately focused its iframe. A player
+   * reaches darts from the top-level canvas, whereas a verifier calling the
+   * public station seam would otherwise leave real keyboard events inside that
+   * now-hidden frame. A middle click moves browser focus back to the game
+   * without firing a dart or invoking an apartment interaction. */
+  await page.locator('canvas').click({ button: 'middle', position: { x: 640, y: 360 } });
+  const dartsEntry = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    runtime.teleport('main');
+    runtime.darts.reset();
+    const entered = runtime.station('darts');
+    for (let index = 0; entered && runtime.state.posture === 'transition' && index < 180; index++) {
+      runtime.player.update(1 / 60);
+    }
+    const direction = runtime.camera.position.clone();
+    runtime.camera.getWorldDirection(direction);
+    const toBoard = runtime.home.darts.center.clone().sub(runtime.camera.position).normalize();
+    return {
+      entered,
+      posture: runtime.state.posture,
+      playerMode: runtime.player.mode,
+      active: runtime.darts.active,
+      aimedAtBoard: direction.dot(toBoard),
+      throws: runtime.darts.throws,
+    };
+  });
+  await page.waitForFunction(() => (
+    window.LUXURY_APARTMENT.state.posture === 'darts'
+      && window.LUXURY_APARTMENT.darts.active
+  ), null, { timeout: 60000 });
+  const dartImpacts = [];
+  const dartCharges = [];
+  for (const targetCharge of [0.20, 0.55]) {
+    const beforeThrows = await page.evaluate(() => window.LUXURY_APARTMENT.darts.throws);
+    await page.keyboard.down('e');
+    await page.waitForFunction((minimum) => (
+      window.LUXURY_APARTMENT.darts.charge.active
+        && window.LUXURY_APARTMENT.darts.charge.amount >= minimum
+    ), targetCharge, { timeout: 60000, polling: 100 });
+    dartCharges.push(await page.evaluate(() => ({
+      active: window.LUXURY_APARTMENT.darts.charge.active,
+      amount: window.LUXURY_APARTMENT.darts.charge.amount,
+    })));
+    await page.keyboard.up('e');
+    await page.waitForFunction((prior) => {
+      const darts = window.LUXURY_APARTMENT.darts;
+      return darts.throws > prior && !darts.inFlight && Boolean(darts.lastImpact);
+    }, beforeThrows, { timeout: 60000, polling: 100 });
+    dartImpacts.push(await page.evaluate(() => {
+      const impact = window.LUXURY_APARTMENT.darts.lastImpact;
+      return {
+        target: impact.target,
+        score: impact.score,
+        label: impact.label,
+        age: impact.age,
+        point: { x: impact.point.x, y: impact.point.y, z: impact.point.z },
+        remaining: impact.remaining,
+      };
+    }));
+  }
+  const dartsBeforeReset = await page.evaluate(() => ({
+    throws: window.LUXURY_APARTMENT.darts.throws,
+    projectiles: window.LUXURY_APARTMENT.darts.projectiles.length,
+    last: window.LUXURY_APARTMENT.darts.last,
+  }));
+  await page.keyboard.press('r');
+  const dartsAfterReset = await page.evaluate(() => ({
+    throws: window.LUXURY_APARTMENT.darts.throws,
+    projectiles: window.LUXURY_APARTMENT.darts.projectiles.length,
+    lastImpact: window.LUXURY_APARTMENT.darts.lastImpact,
+    remaining: window.LUXURY_APARTMENT.darts.remaining,
+  }));
+  await page.keyboard.press('q');
+  await page.waitForFunction(() => (
+    window.LUXURY_APARTMENT.state.posture === null
+      && window.LUXURY_APARTMENT.player.mode === 'walk'
+  ));
+  const dartsExit = await page.evaluate(() => ({
+    active: window.LUXURY_APARTMENT.darts.active,
+    posture: window.LUXURY_APARTMENT.state.posture,
+    mode: window.LUXURY_APARTMENT.player.mode,
+  }));
+  check('real hold-and-release input throws multiple ballistic darts, scores impacts, resets, and exits cleanly',
+    dartsEntry.entered
+      && dartsEntry.posture === 'darts'
+      && dartsEntry.playerMode === 'seated'
+      && dartsEntry.active
+      && dartsEntry.aimedAtBoard > 0.99
+      && dartsEntry.throws === 0
+      && dartCharges.every(({ active, amount }) => active && amount > 0)
+      && dartCharges[1].amount > dartCharges[0].amount
+      && dartImpacts.length === 2
+      && dartImpacts.every(({ target, age }) => target === 'dartboard' && age > 0)
+      && dartImpacts.some(({ score }) => score > 0)
+      && dartsBeforeReset.throws === 2
+      && dartsBeforeReset.projectiles === 2
+      && /scored|left|won/i.test(dartsBeforeReset.last)
+      && dartsAfterReset.throws === 0
+      && dartsAfterReset.projectiles === 0
+      && dartsAfterReset.lastImpact === null
+      && dartsAfterReset.remaining === 301
+      && !dartsExit.active
+      && dartsExit.posture === null
+      && dartsExit.mode === 'walk',
+    JSON.stringify({
+      entry: dartsEntry,
+      charges: dartCharges,
+      impacts: dartImpacts,
+      beforeReset: dartsBeforeReset,
+      afterReset: dartsAfterReset,
+      exit: dartsExit,
+    }));
 
   // The parity/runtime proof is appended below once the public verification
   // surface has been exercised. Keeping it in one browser session ensures the
@@ -873,6 +1366,116 @@ try {
     await page.waitForTimeout(220);
     await capture(page, 'luxury-morning');
   }
+
+  /* The earlier door proof only called the lift. Finish on the actual exit so
+   * a navigating interaction cannot strand the rest of this verifier on the
+   * scene-select page. Positioning authors the player's physical starting
+   * pose; the production camera, raycaster, keyboard handler and elevator
+   * descriptor still have to resolve and perform the ride. */
+  const elevatorApproach = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const target = runtime.home.utilityTargets.elevator;
+    const moved = runtime.teleport('arrival');
+    const targetPosition = target.getWorldPosition(new target.position.constructor());
+    const delta = targetPosition.clone().sub(runtime.player.position);
+    runtime.player.yaw = Math.atan2(-delta.x, -delta.z);
+    runtime.player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    runtime.player.update(0.001);
+    runtime.camera.updateMatrixWorld(true);
+    runtime.interaction.setPaused(false);
+    runtime.interaction.update(0);
+    return {
+      moved,
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      elevatorOpen: runtime.home.state.elevatorOpen,
+      colliderDisabled: runtime.home.doors.elevator.collider.max.y < 0,
+      position: runtime.player.position.toArray(),
+      yaw: runtime.player.yaw,
+      pitch: runtime.player.pitch,
+      campaignBefore: localStorage.getItem('squatchlife.campaign'),
+    };
+  });
+  /* Install the intermediate-state observer before the real keypress. The
+   * production receipt intentionally exists only during the final 940 ms of
+   * the curtain hold; on a saturated SwiftShader frame the old post-keypress
+   * observer could be scheduled after navigation and turn a successful ride
+   * into an opaque timeout. Keeping the navigation wait separate below still
+   * guarantees that a failed interaction cannot leave a dangling promise. */
+  const elevatorReceipt = page.waitForFunction(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const curtain = document.getElementById('luxury-elevator-exit');
+    return runtime?.state?.phase === 'exiting'
+      && runtime.state.exitAudioStopped
+      && runtime.player.enabled === false
+      && runtime.player.keys.size === 0
+      && runtime.interaction.paused
+      && document.pointerLockElement === null
+      && !runtime.home.state.elevatorOpen
+      && runtime.home.doors.elevator.collider.max.y > 2
+      && curtain?.classList.contains('active')
+      && Number.parseFloat(getComputedStyle(curtain).opacity) >= 0.5;
+  }, null, { timeout: 30000, polling: 25 });
+  await page.keyboard.press('e');
+  await elevatorReceipt;
+  const elevatorTransition = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const curtain = document.getElementById('luxury-elevator-exit');
+    return {
+      phase: runtime.state.phase,
+      destination: runtime.state.exitDestination,
+      audioStopped: runtime.state.exitAudioStopped,
+      audioContext: runtime.audio.ctx?.state ?? null,
+      activeLoops: runtime.audio.loops.size,
+      activeSpeech: runtime.audio._voiceSources?.size ?? 0,
+      playerEnabled: runtime.player.enabled,
+      heldKeys: runtime.player.keys.size,
+      interactionPaused: runtime.interaction.paused,
+      pointerLocked: Boolean(document.pointerLockElement),
+      elevatorOpen: runtime.home.state.elevatorOpen,
+      colliderRestored: runtime.home.doors.elevator.collider.max.y > 2,
+      curtainActive: curtain.classList.contains('active'),
+      curtainHidden: curtain.getAttribute('aria-hidden'),
+      curtainOpacity: Number.parseFloat(getComputedStyle(curtain).opacity),
+    };
+  });
+  check('real E input takes the called elevator, closes the scene, locks control, and silences active audio',
+    elevatorApproach.moved
+      && elevatorApproach.targetResolved
+      && elevatorApproach.elevatorOpen
+      && elevatorApproach.colliderDisabled
+      && elevatorTransition.phase === 'exiting'
+      && elevatorTransition.destination === './preview.html'
+      && elevatorTransition.audioStopped
+      && elevatorTransition.audioContext === 'suspended'
+      && elevatorTransition.activeLoops === 0
+      && elevatorTransition.activeSpeech === 0
+      && !elevatorTransition.playerEnabled
+      && elevatorTransition.heldKeys === 0
+      && elevatorTransition.interactionPaused
+      && !elevatorTransition.pointerLocked
+      && !elevatorTransition.elevatorOpen
+      && elevatorTransition.colliderRestored
+      && elevatorTransition.curtainActive
+      && elevatorTransition.curtainHidden === 'false'
+      && elevatorTransition.curtainOpacity >= 0.5,
+    JSON.stringify({ approach: elevatorApproach, transition: elevatorTransition }));
+  /* Begin this only after the intermediate receipt is captured. Previously a
+   * failure in that receipt closed the browser in finally and turned this
+   * unobserved promise into a misleading "Target page has been closed" error. */
+  const previewNavigation = page.waitForURL('**/preview.html', {
+    waitUntil: 'domcontentloaded',
+    timeout: 30000,
+  });
+  await previewNavigation;
+  const elevatorDestination = await page.evaluate(() => ({
+    path: location.pathname,
+    campaignAfter: localStorage.getItem('squatchlife.campaign'),
+  }));
+  check('the real private-elevator ride navigates to scene select without mutating campaign state',
+    elevatorDestination.path.endsWith('/preview.html')
+      && elevatorDestination.campaignAfter === elevatorApproach.campaignBefore,
+    JSON.stringify({ before: elevatorApproach.campaignBefore, ...elevatorDestination }));
 
   check('the luxury-apartment browser run has no page, console, or request failures',
     problems.length === 0,

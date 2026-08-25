@@ -16,8 +16,20 @@ import { launchChromium } from './launch-chromium.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5247;
+const WAG_VOICE_PREFIX = 'vo.cabin.wag.';
+const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
+const indexedFiles = new Set(soundIndex.files || []);
+const wagVoiceCues = soundManifest.sfx.filter(({ name }) => name?.startsWith(WAG_VOICE_PREFIX));
+const wagCueByName = new Map(wagVoiceCues.map((cue) => [cue.name, cue]));
+const missingWagDeliveries = wagVoiceCues.filter((cue) => {
+  const file = cue.file || `${cue.name}.mp3`;
+  return !indexedFiles.has(file) || !fs.existsSync(path.join(ROOT, 'assets', 'sfx', file));
+});
 /** Budget for the waits that advance on rendered frames; see the note below. */
 const FRAME_BOUND_WAIT_MS = 600000;
+/** A semantic control response may need dozens of SwiftShader frames. */
+const CONTROL_RESPONSE_WAIT_MS = 45000;
 const SCREENSHOT_DIR = process.env.CABIN_SCREENSHOT_DIR
   ? path.resolve(process.env.CABIN_SCREENSHOT_DIR)
   : process.argv.includes('--screenshots')
@@ -81,6 +93,28 @@ try {
     ],
   });
   const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
+  /* Collect the AudioEngine the real Cabin constructs and keep its required
+   * recording policy fail-closed. The wrapper below catches only that named
+   * QA exception after the engine has recorded it, so one missing Wag take
+   * cannot abort the rest of the scene certification. It does not supply a
+   * substitute or turn strict QA off; both delivery checks remain red. */
+  await page.addInitScript(() => {
+    window.__SQUATCH_QA_AUDIO__ = {
+      strictRequiredRecordings: true,
+      engines: [],
+      violations: [],
+      caught: [],
+      onViolation(receipt) {
+        window.__SQUATCH_QA_AUDIO__.violations.push({
+          requested: receipt?.requested ?? null,
+          actual: receipt?.actual ?? null,
+          source: receipt?.source ?? null,
+          started: receipt?.started === true,
+          fallbackReason: receipt?.fallbackReason ?? null,
+        });
+      },
+    };
+  });
   page.setDefaultTimeout(180000);
   /* THE TWO WAITS THAT ARE FRAME-BOUND, NOT NETWORK-BOUND.
    *
@@ -107,6 +141,29 @@ try {
     waitUntil: 'domcontentloaded',
   });
   await page.waitForFunction(() => Boolean(window.COUNTRYSIDE_CABIN?.cabin));
+  await page.evaluate(() => {
+    const policy = window.__SQUATCH_QA_AUDIO__;
+    const engine = policy?.engines?.[0];
+    if (!engine) throw new Error('Cabin did not construct a certifiable AudioEngine');
+    if (engine.__cabinVerifierRequiredRecordingCatch) return;
+    const original = engine.playWithReceipt.bind(engine);
+    engine.playWithReceipt = (name, options = {}) => {
+      try {
+        return original(name, options);
+      } catch (error) {
+        if (error?.name !== 'RequiredRecordedAudioError' || !error.receipt) throw error;
+        policy.caught.push({
+          requested: error.receipt.requested,
+          actual: error.receipt.actual,
+          source: error.receipt.source,
+          started: error.receipt.started,
+          fallbackReason: error.receipt.fallbackReason,
+        });
+        return { source: null, receipt: error.receipt };
+      }
+    };
+    engine.__cabinVerifierRequiredRecordingCatch = true;
+  });
 
   const boot = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
@@ -179,6 +236,12 @@ try {
   check('the car is gated by one overnight lay-low beat',
     !boot.rested && boot.leaveBeforeRest?.id === 'cabin_rest_first',
     JSON.stringify(boot.leaveBeforeRest));
+  check('all 30 authored Wag lines have exact indexed recordings on disk',
+    wagVoiceCues.length === 30 && missingWagDeliveries.length === 0,
+    JSON.stringify({
+      authored: wagVoiceCues.length,
+      missing: missingWagDeliveries.map((cue) => cue.file || `${cue.name}.mp3`),
+    }));
 
   await capture(page, 'cabin-title');
   await page.evaluate(() => document.getElementById('start-btn').click());
@@ -195,6 +258,159 @@ try {
   check('starting the scene hands control to the first-person cabin runtime',
     playing.phase === 'active' && playing.playerMode === 'walk' && playing.overlayHidden,
     JSON.stringify(playing));
+
+  const cleanStartBefore = await page.evaluate(() => {
+    const { player } = window.COUNTRYSIDE_CABIN;
+    return { position: player.position.toArray(), yaw: player.yaw, enabled: player.enabled };
+  });
+  await page.locator('canvas').click({ position: { x: 640, y: 360 } });
+  await page.mouse.move(640, 360);
+  await page.mouse.move(700, 330, { steps: 3 });
+  let cleanStartMovementReached = false;
+  await page.keyboard.down('w');
+  /* Wait on the behavior, not on 720 ms of wall time. This scene renders
+   * thousands of wilderness meshes in software under CI; under contention
+   * that old fixed sleep could contain zero movement frames and report a
+   * working input path as dead. W remains a real held browser key and the
+   * quarter-metre bar remains unchanged; only the frame budget is honest. */
+  try {
+    await page.waitForFunction(([x, z]) => {
+      const p = window.COUNTRYSIDE_CABIN.player.position;
+      return Math.hypot(p.x - x, p.z - z) >= 0.25;
+    }, [cleanStartBefore.position[0], cleanStartBefore.position[2]], {
+      polling: 'raf',
+      timeout: CONTROL_RESPONSE_WAIT_MS,
+    });
+    cleanStartMovementReached = true;
+  } catch {
+    // Keep accumulating the verification report; the check below owns the
+    // failure and still records the final pose and pointer-lock state.
+  }
+  await page.keyboard.up('w');
+  const cleanStartAfter = await page.evaluate(() => {
+    const { player } = window.COUNTRYSIDE_CABIN;
+    return {
+      position: player.position.toArray(),
+      yaw: player.yaw,
+      enabled: player.enabled,
+      locked: document.pointerLockElement?.tagName === 'CANVAS',
+    };
+  });
+  const cleanStartDistance = Math.hypot(
+    cleanStartAfter.position[0] - cleanStartBefore.position[0],
+    cleanStartAfter.position[2] - cleanStartBefore.position[2],
+  );
+  const cleanStartYaw = Math.abs(Math.atan2(
+    Math.sin(cleanStartAfter.yaw - cleanStartBefore.yaw),
+    Math.cos(cleanStartAfter.yaw - cleanStartBefore.yaw),
+  ));
+  check('a clean Cabin start responds to real pointer-lock, mouse-look, and W input',
+    cleanStartAfter.enabled
+      && cleanStartAfter.locked
+      && cleanStartMovementReached
+      && cleanStartDistance >= 0.25
+      && cleanStartYaw >= 0.01,
+    JSON.stringify({
+      before: cleanStartBefore,
+      after: cleanStartAfter,
+      cleanStartMovementReached,
+      cleanStartDistance,
+      cleanStartYaw,
+    }));
+
+  const wagAim = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const target = runtime.cabin.interactionTargets.wag;
+    const viewpoint = runtime.cabin.interactionViewpoints.wag;
+    const before = {
+      selected: runtime.wagHints.debug.lastHintId,
+      discovered: [...runtime.wagHints.debug.discovered],
+      eligible: [...runtime.wagHints.debug.eligible],
+      receiptCount: window.__SQUATCH_QA_AUDIO__.engines[0].playbackReceipts.length,
+      wagYaw: runtime.wag.group.rotation.y,
+    };
+    if (!target || !viewpoint || !runtime.teleport('wag', 'interact')) {
+      return { ready: false, before };
+    }
+    /* This only authors the player's physical starting pose. The production
+     * Player camera and InteractionSystem still have to resolve the live Wag
+     * rig, and the browser key below is the only thing allowed to talk. */
+    runtime.player.update(0.001);
+    runtime.player.camera.updateMatrixWorld(true);
+    runtime.interaction.update(0);
+    return {
+      ready: true,
+      before,
+      currentIsWag: runtime.interaction.current === target,
+      currentName: runtime.interaction.current?.name ?? null,
+      player: runtime.player.position.toArray(),
+      wag: target.position.toArray(),
+    };
+  });
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => Boolean(window.COUNTRYSIDE_CABIN.wagHints.debug.lastHintId),
+    null, { timeout: CONTROL_RESPONSE_WAIT_MS });
+  const wagTalk = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const policy = window.__SQUATCH_QA_AUDIO__;
+    const engine = policy.engines[0];
+    const selected = runtime.wagHints.debug.lastHintId;
+    const requested = `vo.cabin.wag.${selected}`;
+    const receipt = [...engine.playbackReceipts].reverse()
+      .find((entry) => entry.requested === requested) ?? null;
+    const wagPosition = runtime.wag.group.position;
+    const expectedYaw = Math.atan2(
+      runtime.player.position.x - wagPosition.x,
+      runtime.player.position.z - wagPosition.z,
+    );
+    const yawError = Math.abs(Math.atan2(
+      Math.sin(runtime.wag.group.rotation.y - expectedYaw),
+      Math.cos(runtime.wag.group.rotation.y - expectedYaw),
+    ));
+    return {
+      selected,
+      requested,
+      discovered: [...runtime.wagHints.debug.discovered],
+      eligible: [...runtime.wagHints.debug.eligible],
+      yaw: runtime.wag.group.rotation.y,
+      expectedYaw,
+      yawError,
+      speaking: runtime.wag.npc.speaking,
+      subtitle: document.getElementById('subtitle')?.textContent ?? '',
+      receipt,
+      violations: [...policy.violations],
+      caught: [...policy.caught],
+    };
+  });
+  const selectedWagCue = wagCueByName.get(wagTalk.requested);
+  check('real E input resolves Wag, chooses an eligible discovery-aware line, and turns him to Tony',
+    wagAim.ready
+      && wagAim.currentIsWag
+      && wagAim.before.selected == null
+      && wagAim.before.eligible.includes(wagTalk.selected)
+      && wagTalk.discovered.length === wagAim.before.discovered.length
+      && wagTalk.yawError <= 0.01
+      && wagTalk.speaking > 0
+      && selectedWagCue?.say === wagTalk.receipt?.subtitle
+      && wagTalk.subtitle.includes('Wag:')
+      && wagTalk.subtitle.includes(selectedWagCue?.say ?? '__missing__'),
+    JSON.stringify({ aim: wagAim, talk: wagTalk, authored: selectedWagCue?.say ?? null }));
+  check('that live Wag subtitle owns its exact delivered positional-audio receipt',
+    wagTalk.receipt?.requested === wagTalk.requested
+      && wagTalk.receipt?.actual === wagTalk.requested
+      && wagTalk.receipt?.source === 'buffer'
+      && wagTalk.receipt?.started === true
+      && wagTalk.receipt?.requiredRecorded === true
+      && wagTalk.receipt?.speakerId === 'cabin.wag'
+      && wagTalk.receipt?.subtitle === selectedWagCue?.say
+      && wagTalk.receipt?.positional?.enabled === true
+      && wagTalk.receipt?.positional?.follows === true
+      && wagTalk.receipt?.positional?.ref === 2.2
+      && wagTalk.receipt?.positional?.maxDist === 30
+      && wagTalk.receipt?.positional?.rolloff === 0.7
+      && !wagTalk.violations.some(({ requested }) => requested === wagTalk.requested)
+      && !wagTalk.caught.some(({ requested }) => requested === wagTalk.requested),
+    JSON.stringify({ receipt: wagTalk.receipt, violations: wagTalk.violations, caught: wagTalk.caught }));
 
   const switchedOff = await page.evaluate(() => {
     const world = window.COUNTRYSIDE_CABIN.cabin;
@@ -304,7 +520,10 @@ try {
     await page.evaluate(() => {
       const runtime = window.COUNTRYSIDE_CABIN;
       if (!runtime.state.fireLit) {
+        // Splitting wood and tending the fire are now two honest activities.
+        // Exercise both contracts in the same order the player must use them.
         runtime.cabin.interactionTargets.woodpile?.userData?.interact?.onUse?.();
+        runtime.cabin.interactionTargets.firepit?.userData?.interact?.onUse?.();
       }
       runtime.teleport('firepit');
     });

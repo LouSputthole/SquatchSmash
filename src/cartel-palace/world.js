@@ -1,7 +1,12 @@
 import * as THREE from 'three';
 
 import { resolveGear } from '../world/gear.js';
+import { makePlant } from '../world/props.js';
+import { markSemanticPlacement } from '../core/semantic-placement.js';
+import { PALACE_ANCHORS } from './anchors.js';
 import { EVIDENCE_IDS } from './mission.js';
+
+export { PALACE_ANCHORS } from './anchors.js';
 
 /* THE SECURITY ROOM'S RACK COLUMN, in one place.
  *
@@ -18,21 +23,6 @@ const SECURITY_RACK_FACE_X = SECURITY_RACK_X - 0.54;
 const SECURITY_RACK_Z0 = -14;
 const SECURITY_RACK_Z1 = -6;
 const SECURITY_RACK_PITCH = 2.1;
-
-export const PALACE_ANCHORS = Object.freeze({
-  approach: Object.freeze(new THREE.Vector3(14, 0, 76)),
-  powerBox: Object.freeze(new THREE.Vector3(19.2, 1.15, 61.2)),
-  perimeter: Object.freeze(new THREE.Vector3(14, 0, 51)),
-  estate: Object.freeze(new THREE.Vector3(12.5, 0, 4)),
-  belongings: Object.freeze(new THREE.Vector3(4.7, 0.72, -6.4)),
-  paymentLedger: Object.freeze(new THREE.Vector3(-10.6, 0.88, -6.8)),
-  securityStill: Object.freeze(new THREE.Vector3(14.8, 1.22, -10.2)),
-  gallery: Object.freeze(new THREE.Vector3(0, 0, -25)),
-  diningRoom: Object.freeze(new THREE.Vector3(0, 0, -42)),
-  mark: Object.freeze(new THREE.Vector3(-3.2, 0, -40.8)),
-  sauce: Object.freeze(new THREE.Vector3(3.2, 0, -40.8)),
-  extraction: Object.freeze(new THREE.Vector3(0, 0, -55)),
-});
 
 const M = Object.freeze({
   stucco: new THREE.MeshStandardMaterial({ color: 0xc4aa82, roughness: 0.92 }),
@@ -213,9 +203,9 @@ const A_TEAM_ART = Object.freeze([
     slot: 'cartel-palace.security.assault',
     room: 'security',
     /* Intelligence room, west partition. `security-service-partition` is
-     * solid from z -22 to -14.5 and the doorway through to the guest suite
-     * is the gap NORTH of it (z -14.5..-8), so a 1.6 m picture centred at
-     * -16.3 stands a full metre clear of the opening -- which is the fault
+     * solid from z -22 to -14.5 and the finished doorway through to the guest
+     * suite is centred at z -11.25, so a 1.6 m picture centred at -16.3
+     * stands a full metre clear of the opening -- which is the fault
      * this building has already been caught with once (the gallery's east
      * row, hung straight across the service doorway) and the Bing's back
      * office once. The east wall is not available at all:
@@ -723,35 +713,19 @@ function wallArt(parent, {
   return art;
 }
 
-/** A potted plant: the cheapest honest sign that somebody lives somewhere. */
+/**
+ * Palace adapter for the shared, attached-leaf plant.
+ *
+ * The old local seven-box fork was the broken asset called out in the
+ * playtest: every long frond grew from the same point and read as roots or
+ * sticks pushed through the pot. Keep the Palace's stable semantic name and
+ * authored placement surface, but let the shared prop own the actual plant.
+ */
 function pottedPlant(parent, x, z, { scale = 1, y = 0 } = {}) {
-  const plant = new THREE.Group();
+  const { group: plant } = makePlant(M, { x, z, scale });
   plant.name = 'palace-potted-plant';
-  plant.position.set(x, y, z);
-  const pot = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.26 * scale, 0.19 * scale, 0.44 * scale, 12),
-    M.terracotta,
-  );
-  pot.name = 'planter-pot';
-  pot.position.y = 0.22 * scale;
-  pot.castShadow = true;
-  pot.receiveShadow = true;
-  plant.add(pot);
-  plant.add(cylinder(0.22 * scale, 0.04, [0, 0.43 * scale, 0], M.soil, 'planter-soil', 12));
-  for (let index = 0; index < 7; index++) {
-    const angle = (index / 7) * Math.PI * 2 + x * 0.31;
-    const blade = box(
-      [0.075 * scale, 0.9 * scale, 0.03],
-      [0, 0.88 * scale, 0],
-      M.leaf,
-      'planter-frond',
-      { cast: false },
-    );
-    blade.rotation.y = angle;
-    blade.rotation.x = 0.24 + (index % 3) * 0.12;
-    blade.translateZ(0.16 * scale);
-    plant.add(blade);
-  }
+  plant.position.y = y;
+  plant.userData.plantModule = 'world.makePlant';
   parent.add(plant);
   return plant;
 }
@@ -917,12 +891,28 @@ function cleaningCart(parent, colliders, x, z, yaw = 0) {
   bag.scale.set(1, 1.25, 0.9);
   bag.castShadow = true;
   cart.add(bag);
-  const mop = cylinder(0.022, 1.5, [0.28, 0.78, -0.2], M.woodLight, 'cleaning-cart-mop-handle', 8);
-  mop.rotation.x = 0.2;
-  mop.rotation.z = -0.16;
-  cart.add(mop);
   const head = box([0.16, 0.24, 0.1], [0.42, 0.12, -0.34], M.plasticPale, 'cleaning-cart-mop-head');
-  cart.add(head);
+  /* One authored segment from the mop head to the cart handle. The previous
+   * Euler-rotated cylinder missed its own head by sixteen centimetres: the
+   * broom looked laid against the cart while its cleaning end floated beside
+   * it. Derive the transform from the join point so placement and orientation
+   * cannot drift apart again. */
+  const mopFoot = new THREE.Vector3(0.42, 0.2, -0.34);
+  const mopDirection = new THREE.Vector3(-0.16, 1.45, 0.15).normalize();
+  const mop = cylinder(
+    0.022,
+    1.5,
+    mopFoot.clone().addScaledVector(mopDirection, 0.75).toArray(),
+    M.woodLight,
+    'cleaning-cart-mop-handle',
+    8,
+  );
+  mop.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), mopDirection);
+  markSemanticPlacement(mop, {
+    id: 'cartel-palace.cleaning-cart.mop-attachment',
+    seams: [{ target: 'cleaning-cart-mop-head', maxGap: 0.03 }],
+  });
+  cart.add(head, mop);
   parent.add(cart);
   addCollider(colliders, [x, 0.5, z], [0.9, 1.0, 1.2], 'estate-cleaning-cart');
   return cart;
@@ -1776,6 +1766,49 @@ export function buildCartelPalace(scene) {
   // Rooms and a continuous service corridor along the east edge.
   partition([0.35, 0, 20], [10.5, 0, 2], 'guest-service-partition');
   partition([0.35, 0, 7.5], [10.5, 0, -18.25], 'security-service-partition');
+  /* THE THIRD-EVIDENCE ROOM HAD A SIX-AND-A-HALF-METRE HOLE IN ITS WALL.
+   *
+   * Owner, 2026-08-25: facing the third evidence and its chair, there is a
+   * large unexplained opening behind it. It did serve one purpose: this is
+   * the route from the intelligence room into Sauce's suite. That requires a
+   * doorway, not an entire missing wall.
+   *
+   * Two keyed wall leaves close the 6.5 m span from z -14.5 to -8 around a
+   * 2.4 m clear door. Each 160 mm side trim fills the reveal before the wall
+   * begins; the structural header clears those outer edges by 1 mm while its
+   * top trim spans only the clear opening. Every piece therefore meets or clears
+   * at a face rather than intersecting, and evidence order/navigation stay intact. */
+  const SECURITY_GUEST_DOOR_Z = -11.25;
+  const SECURITY_GUEST_DOOR_WIDTH = 2.4;
+  const SECURITY_GUEST_DOOR_EDGE = SECURITY_GUEST_DOOR_WIDTH / 2;
+  const securityGuestNorthEnd = SECURITY_GUEST_DOOR_Z + SECURITY_GUEST_DOOR_EDGE + 0.16;
+  const securityGuestSouthEnd = SECURITY_GUEST_DOOR_Z - SECURITY_GUEST_DOOR_EDGE - 0.16;
+  partition(
+    [0.35, 0, -8 - securityGuestNorthEnd],
+    [10.5, 0, (securityGuestNorthEnd - 8) / 2],
+    'security-guest-partition-north',
+  );
+  partition(
+    [0.35, 0, securityGuestSouthEnd + 14.5],
+    [10.5, 0, (securityGuestSouthEnd - 14.5) / 2],
+    'security-guest-partition-south',
+  );
+  solid(
+    estate, colliders,
+    [0.35, PARTITION_TOP - 3.2, SECURITY_GUEST_DOOR_WIDTH + 0.318],
+    [10.5, 3.2 + (PARTITION_TOP - 3.2) / 2, SECURITY_GUEST_DOOR_Z],
+    M.plaster,
+    'security-guest-door-header',
+  );
+  estate.add(
+    box([0.42, 3.2, 0.16], [10.5, 1.6, securityGuestNorthEnd - 0.08], M.wood,
+      'security-guest-door-architrave', { cast: false }),
+    box([0.42, 3.2, 0.16], [10.5, 1.6, securityGuestSouthEnd + 0.08], M.wood,
+      'security-guest-door-architrave', { cast: false }),
+    box([0.42, 0.18, SECURITY_GUEST_DOOR_WIDTH],
+      [10.5, 3.11, SECURITY_GUEST_DOOR_Z], M.wood,
+      'security-guest-door-architrave', { cast: false }),
+  );
   partition([0.35, 0, 8.5], [10.5, 0, -30.75], 'gallery-service-partition');
   // West office / guest split with wide door gaps.
   partition([8.2, 0, 0.35], [-13.9, 0, 1.5], 'office-north-partition');
@@ -1784,8 +1817,8 @@ export function buildCartelPalace(scene) {
   partition([18.2, 0, 0.35], [1.4, 0, -15], 'guest-south-partition');
   /* SAUCE'S BEDROOM HAD NO WEST WALL.
    *
-   * The media wall's own note already calls the suite's entrance *"the
-   * corridor doorway at x 10.5, z -14.5..-8"* -- but nothing ever closed the
+   * The media wall's own note already calls the suite's entrance the finished
+   * security-room doorway at x 10.5, z -12.45..-10.05 -- but nothing ever closed the
    * other side, so the sleeping end simply ran out of room at x 0 and opened
    * onto the unlit strip between here and Mark's office. Owner, 2026-08-25:
    * *"that's the small door in the wall on the left side of the bedroom
@@ -1907,7 +1940,8 @@ export function buildCartelPalace(scene) {
   const wetSign = new THREE.Group();
   wetSign.name = 'entry-detail.wet-floor-sign';
   wetSign.position.set(12.7, 0, 3.3);
-  wetSign.rotation.y = -0.5;
+  /* The +Z/readable face points back down the player's entrance lane. */
+  wetSign.rotation.y = Math.atan2(13.5 - wetSign.position.x, 12 - wetSign.position.z);
   for (const side of [-1, 1]) {
     /* y 0.31, not 0.34. The boards lean 0.16 rad, and leaning a 0.62 m board
      * lifts its own bounding box: at 0.34 the sign's feet finished 5.7 cm off
@@ -1917,6 +1951,25 @@ export function buildCartelPalace(scene) {
     board.rotation.x = side * 0.16;
     wetSign.add(board);
   }
+  const warning = new THREE.Group();
+  warning.name = 'wet-floor-warning-front';
+  warning.position.set(0, -0.075, 0.112);
+  warning.userData.warningFace = true;
+  warning.add(
+    box([0.16, 0.035, 0.012], [0, 0.46, 0], M.ink, 'wet-floor-warning-cap', { cast: false }),
+    box([0.035, 0.2, 0.012], [0, 0.34, 0], M.ink, 'wet-floor-warning-mark', { cast: false }),
+    box([0.045, 0.045, 0.012], [0, 0.2, 0], M.ink, 'wet-floor-warning-dot', { cast: false }),
+  );
+  wetSign.add(warning);
+  markSemanticPlacement(wetSign, {
+    id: 'cartel-palace.foyer.wet-floor-sign',
+    surface: { kind: 'floor', y: 0, maxGap: 0.012, maxPenetration: 0.012 },
+    upright: { maxDegrees: 1 },
+    facing: {
+      axis: '+z', direction: [13.5 - wetSign.position.x, 0, 12 - wetSign.position.z],
+      maxDegrees: 1,
+    },
+  });
   entryDetails.add(wetSign);
 
   const trashCan = new THREE.Group();
@@ -2271,8 +2324,8 @@ export function buildCartelPalace(scene) {
   /* THE MEDIA WALL. The suite had no surface to hang a television on, and a
    * TV 16 m up the room on the far partition is not "across from the bed";
    * this stub carries the set, the dresser under it, and the line between
-   * the sleeping and dressing ends. It leaves the corridor doorway at
-   * x 10.5, z -14.5..-8 completely clear and can be walked around either
+   * the sleeping and dressing ends. It leaves the finished corridor doorway
+   * at x 10.5, z -12.45..-10.05 completely clear and can be walked around either
    * side (x < 2.2 or x > 7.2). */
   solid(guestDetails, colliders, [5.0, 2.9, 0.3], [4.7, 1.45, -8.7], M.plaster, 'guest-suite-detail.media-wall');
   guestDetails.add(
@@ -2327,8 +2380,9 @@ export function buildCartelPalace(scene) {
       );
     }
   }
-  // Half open, with a sleeve hanging out of it. Somebody packed in a hurry
-  // exactly once in this house, and it was not this room.
+  // Half open. Keep its silhouette unambiguous: the pale sleeve that used to
+  // protrude from this slot read as the owner's "random light/object sticking
+  // out of a drawer", so the drawer now communicates only its own geometry.
   const drawerDepth = 0.16;
   const drawerFrontZ = DRESSER_FRONT - OPEN_BY;
   dresser.add(
@@ -2341,9 +2395,6 @@ export function buildCartelPalace(scene) {
       M.woodLight, 'dresser-drawer-face', { cast: false }),
     box([0.26, 0.035, 0.03], [OPEN_DRAWER.dx, OPEN_DRAWER.dy, drawerFrontZ - 0.045],
       M.brass, 'dresser-drawer-pull', { cast: false }),
-    /* Caught in the drawer front rather than hanging in the air beside it. */
-    box([0.16, 0.06, 0.24], [OPEN_DRAWER.dx + 0.12, OPEN_DRAWER.dy - 0.07, drawerFrontZ - 0.1],
-      M.chefWhite, 'dresser-spilled-sleeve', { cast: false }),
     cylinder(0.09, 0.24, [-0.9, 1.08, -0.06], M.bottleAmber, 'dresser-decanter', 10),
     cylinder(0.04, 0.09, [-0.66, 1.005, -0.1], M.glass, 'dresser-tumbler', 10),
   );

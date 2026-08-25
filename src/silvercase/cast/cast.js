@@ -383,12 +383,20 @@ export function populateCast(root) {
     if (wasAlive && !pruitt.alive) dropPruittGun();
   };
 
-  /** A pace clear of the door frame, aimed down the player's ambush lane. */
+  /**
+   * A pace through and west of the open leaf, aimed down the player's ambush
+   * lane.  The door swings toward +z from its west hinge, so leaving Pruitt on
+   * the opening's east half put the fully-open leaf directly between him and
+   * the canonical checkpoint position.  A retry could therefore present the
+   * target callout while every chest/head ray struck the door.  This is the
+   * first clear floor position after stepping around that leaf, not a verifier
+   * accommodation: the restarted ambush has to remain physically winnable.
+   */
   const pruittRevealed = {
-    x: ANCHORS.bathroomDoorway.x - 0.1,
+    x: ANCHORS.bathroomDoorway.x - 0.75,
     y: ANCHORS.bathroomDoorway.y,
-    z: ANCHORS.bathroomDoorway.z + 0.4,
-    yaw: -0.55,
+    z: ANCHORS.bathroomDoorway.z + 0.48,
+    yaw: -0.4,
   };
   pruitt.reveal = function reveal() {
     if (pruitt.group.visible) return;

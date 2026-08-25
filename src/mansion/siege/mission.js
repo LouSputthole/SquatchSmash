@@ -77,6 +77,11 @@ export const BEATS = Object.freeze({
   /** The whole family, armed, still shooting while they talk. */
   BRIEFING: Object.freeze({
     objective: null, hint: null, state: 'under_attack', checkpoint: 'briefed',
+    /* This is an authored permission boundary, not a timer. The player keeps
+     * movement/look control while Lou talks, but a trigger pull cannot cut
+     * across the essential office briefing. `briefingEnded()` changes the
+     * beat and therefore restores fire permission immediately. */
+    playerFireEnabled: false,
   }),
   /** A weapon comes up at the top of the stairs. The line. Once. */
   LITTLE_FRIEND: Object.freeze({
@@ -207,6 +212,10 @@ export class SiegeMission {
   /* ---------------------------------------------------------------- */
 
   get objective() { return this.beat ? BEATS[this.beat].objective : null; }
+  /** Whether real player fire input is permitted in the current beat. */
+  get playerFireEnabled() {
+    return this.beat !== null && BEATS[this.beat].playerFireEnabled !== false;
+  }
   /** The directional half of the objective. See the note on BEATS. */
   get hint() { return this.beat ? BEATS[this.beat].hint ?? null : null; }
   /** Whether this beat's objective is a thing achieved rather than pending. */

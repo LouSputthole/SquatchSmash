@@ -380,6 +380,51 @@ test('the Prospect drives the lead cart while Erican keeps the follow cart with 
   assert.ok(Math.abs(carts.lead.velocity) < 0.05, 'holding Space should stop the lead cart');
 });
 
+test('all three Golf riders inherit cart motion from canonical seat anchors', () => {
+  setActiveHole(1);
+  const scene = new THREE.Scene();
+  const carts = new CartPair(scene);
+  carts.stage();
+  const rider = () => {
+    const group = new THREE.Group();
+    scene.add(group);
+    return { group };
+  };
+  const golfers = {
+    [CHARACTER_IDS.LOU]: rider(),
+    [CHARACTER_IDS.ERIC]: rider(),
+    [CHARACTER_IDS.RIPPINFLOW]: rider(),
+  };
+  const round = makeRound();
+  round.carts = carts;
+  round.golfers = golfers;
+
+  round._rideAlong();
+  assert.equal(golfers[CHARACTER_IDS.LOU].group.parent,
+    carts.lead.occupants.anchor('passenger'));
+  assert.equal(golfers[CHARACTER_IDS.ERIC].group.parent,
+    carts.follow.occupants.anchor('driver'));
+  assert.equal(golfers[CHARACTER_IDS.RIPPINFLOW].group.parent,
+    carts.follow.occupants.anchor('passenger'));
+
+  carts.lead.group.position.add(new THREE.Vector3(11, 1.3, -4));
+  carts.lead.group.rotation.set(0.09, 0.72, -0.05);
+  carts.lead.group.updateMatrixWorld(true);
+  const louWorld = golfers[CHARACTER_IDS.LOU].group.getWorldPosition(new THREE.Vector3());
+  const louSeat = carts.lead.occupants.worldPoint('passenger', { y: -0.92 });
+  assert.ok(louWorld.distanceTo(louSeat) < 1e-9,
+    'Lou did not inherit the cart translation, turn, pitch and roll');
+
+  round._rideAlong();
+  assert.equal(carts.lead.occupants.size, 1,
+    'the update-safe ride call duplicated or reattached the lead rider');
+  const beforeRelease = louWorld.clone();
+  round._releaseCartRiders();
+  assert.equal(golfers[CHARACTER_IDS.LOU].group.parent, scene);
+  assert.ok(golfers[CHARACTER_IDS.LOU].group.getWorldPosition(new THREE.Vector3())
+    .distanceTo(beforeRelease) < 1e-9, 'getting out changed Lou\'s world pose');
+});
+
 test('getting out is gated by Lou, cart speed and proximity to the live ball', () => {
   setActiveHole(1);
   const scene = new THREE.Scene();

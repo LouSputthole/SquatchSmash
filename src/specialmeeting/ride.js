@@ -143,6 +143,7 @@ export function createRideSequence({
       }
       if (line.swapRear) rearSwapped = true;
       if (line.opensTrunk) trunkOpen = true;
+      if (line.closesTrunk) trunkOpen = false;
       return Math.max(0, line.holdSeconds ?? 0);
     }
     const reported = onLine?.(line, b);
@@ -160,7 +161,13 @@ export function createRideSequence({
     hold = 0;
     closeChoice();
 
-    if (b.kind === 'blackout') { blackedOut = true; setPhase('driving'); onBlackout?.(); }
+    /* The road is visible from its first frame now. Act three, not a blackout,
+     * is the durable phase boundary between the kerb and the drive. */
+    if (b.act === 3 && phase === 'seated') setPhase('driving');
+    if (b.kind === 'blackout') {
+      blackedOut = true;
+      onBlackout?.(b.lines[0]?.fadeSeconds ?? 0);
+    }
     if (b.kind === 'fade') { blackedOut = false; onFadeIn?.(b.lines[0]?.fadeSeconds ?? 3); }
     if (b.act === 4 && phase === 'driving') setPhase('spur');
     if (b.id === 'SM-530') setPhase('trail');

@@ -22,6 +22,7 @@ import {
   SEQUENCES, SIEGE_CUE_PREFIX, SIEGE_SPEAKER_NAMES, SIEGE_VOICES,
   SiegeDialogue, allSiegeLines, readingSeconds, siegeVoiceCueNames,
 } from '../src/mansion/siege/script.js';
+import { SPEECH_MIX_INDOORS, voiceOverlaps } from '../src/core/dialogue.js';
 import {
   checkSiegeVoiceManifest, collectSiegeVoiceCues, syncSiegeVoiceManifest,
 } from '../tools/siege-vo.mjs';
@@ -166,6 +167,87 @@ test('a sequence plays its lines in order and finishes exactly once', () => {
   assert.deepEqual(seen, SEQUENCES.briefing.map((l) => l.id));
   assert.deepEqual(done, ['briefing']);
   assert.equal(runner.active, false);
+});
+
+test('scripted siege dialogue crosses the canonical speech seam with spatial receipts and no overlap', () => {
+  let now = 0;
+  let receiptId = 0;
+  const calls = [];
+  const holds = [];
+  const playbacks = [];
+  const audio = {
+    hasSample: () => true,
+    sampleDuration: () => 0.6,
+    hold(seconds) { holds.push(seconds); },
+    play() {
+      throw new Error('SiegeDialogue bypassed the canonical receipt-aware speech seam');
+    },
+    playWithReceipt(cue, opts) {
+      const positional = {
+        enabled: opts.follow != null,
+        follows: opts.follow != null,
+        ref: opts.ref,
+        maxDist: opts.maxDist,
+        rolloff: opts.rolloff,
+      };
+      const receipt = {
+        id: ++receiptId,
+        requested: cue,
+        actual: cue,
+        source: 'buffer',
+        started: true,
+        voice: true,
+        speakerId: opts.speakerId,
+        subtitle: opts.subtitle,
+        positional,
+      };
+      calls.push({ cue, opts, receipt });
+      playbacks.push({
+        name: cue,
+        voice: true,
+        speakerId: opts.speakerId,
+        scheduledAt: now,
+        endedAt: now + 0.6,
+        seconds: 0.6,
+      });
+      return { source: { cue }, receipt };
+    },
+  };
+  const roots = new Map([
+    ['lou', { position: { x: 1, y: 6, z: 72 } }],
+    ['booski', { position: { x: -2, y: 6, z: 64 } }],
+  ]);
+  const runner = new SiegeDialogue({
+    audio,
+    resolveSpeaker: (id) => roots.get(id) ?? null,
+  });
+
+  assert.equal(runner.play('briefing'), true);
+  for (let guard = 0; guard < 200 && runner.active; guard += 1) {
+    now += 0.1;
+    runner.update(0.1);
+  }
+
+  assert.ok(calls.length > 1, 'an empty or one-line receipt set is vacuous');
+  assert.equal(calls.length, SEQUENCES.briefing.length);
+  assert.equal(holds.length, calls.length, 'every accepted line must claim the speech floor');
+  for (const call of calls) {
+    assert.equal(call.opts.bus, 'voice');
+    assert.equal(call.opts.analyse, true);
+    assert.equal(call.opts.requiredRecorded, true);
+    assert.equal(call.opts.subtitle, SEQUENCES.briefing.find((line) => line.name === call.cue)?.say);
+    assert.equal(call.receipt.speakerId, call.opts.speakerId);
+  }
+  const physical = calls.filter((call) => call.opts.speakerId !== 'prospect');
+  assert.ok(physical.length > 1, 'the positional receipt assertion needs multiple physical speakers');
+  for (const call of physical) {
+    assert.equal(call.receipt.positional.enabled, true, `${call.cue} is not positional`);
+    assert.equal(call.receipt.positional.follows, true, `${call.cue} does not follow its speaker`);
+    assert.equal(call.receipt.positional.ref, SPEECH_MIX_INDOORS.ref);
+    assert.equal(call.receipt.positional.maxDist, SPEECH_MIX_INDOORS.maxDist);
+    assert.equal(call.receipt.positional.rolloff, SPEECH_MIX_INDOORS.rolloff);
+  }
+  assert.deepEqual(voiceOverlaps(playbacks), []);
 });
 
 test('the briefing only queues the delivered heavy line when the SAW is equipped', () => {

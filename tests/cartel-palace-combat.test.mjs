@@ -144,6 +144,9 @@ test('a full world-space head impact kills armored Mark and preserves its Locate
    * when he IS live, so it puts him there the way the director does. */
   security.activateFinalEncounter();
   cast.activateMark({ armored: true });
+  for (let frame = 0; frame < 180 && !cast.mark.active; frame++) {
+    cast.updatePresentation(1 / 60);
+  }
   assert.equal(cast.mark.active, true);
   assert.ok(cast.mark.actor.armor > 0, 'the test did not exercise armored Mark');
 

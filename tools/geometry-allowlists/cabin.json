@@ -6,7 +6,7 @@
     {
       "state": "property",
       "overlap": 1014,
-      "checkSupport": 1579,
+      "checkSupport": 1597,
       "sources": [
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=cabin-art%3Abanner.main#0",
@@ -285,10 +285,34 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=cabin-bathroom#0/name=bathsink#0",
+          "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=cabin-bathroom#0/name=cabin-bath-sink#0",
           "scope": "inherited",
           "overlap": 0,
           "checkSupport": 27
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=cabin-bathroom#0/name=cabin-bath-toilet#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 14
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=cabin-bathroom#0/name=cabin-bath-toilet-roll-wall-bracket#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=cabin-south-wall-clock#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 8
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=cabin-wardrobe#0/name=closet-rail#0",
+          "scope": "direct",
+          "overlap": 0,
+          "checkSupport": 1
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=ceilinglight#0",
@@ -309,12 +333,6 @@
           "checkSupport": 3
         },
         {
-          "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=closet#0/name=closet-rail#0",
-          "scope": "direct",
-          "overlap": 0,
-          "checkSupport": 1
-        },
-        {
           "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=corkboard#0",
           "scope": "inherited",
           "overlap": 0,
@@ -331,12 +349,6 @@
           "scope": "inherited",
           "overlap": 0,
           "checkSupport": 2
-        },
-        {
-          "sourceId": "root:countryside-cabin-property/name=cabin-building#0/name=cabin-domestic-hub#0/name=wallclock#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 8
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-deadfall#0",
@@ -984,7 +996,7 @@
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-woodpile#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 21
+          "checkSupport": 22
         }
       ]
     }

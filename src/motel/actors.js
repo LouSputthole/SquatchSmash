@@ -3,6 +3,7 @@ import { lambert } from '../../game/src/world.js';
 import { Mouth } from '../core/mouth.js';
 import { weaponDef } from '../core/weapons/catalog.js';
 import { buildRevolver } from '../core/weapons/models.js';
+import { beginDeathTransition } from '../core/death-transition.js';
 import { coarseActorRole, markActor, setActorPosture } from '../core/staging.js';
 
 // ---------------------------------------------------------------------------
@@ -882,7 +883,7 @@ export class Actor {
        * update(), which pitches him flat and then leaves him alone. The gate
        * is told, so a body on the tarmac is never read as a man standing on
        * it. */
-      setActorPosture(this.group, 'lie');
+      beginDeathTransition(this.group, { mode: 'standing' });
       return true;
     }
     return false;
