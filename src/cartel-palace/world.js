@@ -690,28 +690,43 @@ function framedPortrait(parent, x, y, z, { scale = 1, facing = 'z' } = {}) {
  * group's names change so the geometry allowlist's `wall-art-frame#n` paths
  * keep counting the frames they were written for. See `A_TEAM_ART` below.
  */
+/**
+ * @param {object} options
+ * @param {string|null} [options.slot] a manifest slot; the canvas is dressed
+ *        from `resolveGear` and gets its own material instance.
+ * @param {boolean} [options.aTeamNaming] whether to name the meshes
+ *        `a-team-art-*` instead of `wall-art-*`. Defaults to true when a slot
+ *        is given, which is what the six late-added pieces want -- BUT the
+ *        gallery's four canvases were authored before any of this and sit in
+ *        the middle of the traversal, so tools/geometry-allowlists addresses
+ *        their neighbours as `wall-art-frame#N`. Renaming those two per wall
+ *        would renumber every `wall-art-*` entry after them and invalidate
+ *        allowlist rows describing geometry nobody touched. They take a slot
+ *        and keep their name.
+ */
 function wallArt(parent, {
   x, y, z, yaw = 0, width = 0.9, height = 1.15, tone = 0, slot = null,
+  aTeamNaming = slot !== null,
 }) {
   const art = new THREE.Group();
-  art.name = slot ? 'palace-a-team-art' : 'palace-wall-art';
+  art.name = aTeamNaming ? 'palace-a-team-art' : 'palace-wall-art';
   art.position.set(x, y, z);
   art.rotation.y = yaw;
   const toneMaterial = ART_TONES[Math.abs(Math.trunc(tone)) % ART_TONES.length];
   const frame = box(
     [width, height, 0.07], [0, 0, 0.035], M.brass,
-    slot ? 'a-team-art-frame' : 'wall-art-frame',
+    aTeamNaming ? 'a-team-art-frame' : 'wall-art-frame',
   );
   const field = box(
     [width - 0.14, height - 0.14, 0.075],
     [0, 0, 0.042],
     slot ? toneMaterial.clone() : toneMaterial,
-    slot ? 'a-team-art-field' : 'wall-art-field',
+    aTeamNaming ? 'a-team-art-field' : 'wall-art-field',
     { cast: false },
   );
   const mount = box(
     [0.07, 0.07, 0.02], [0, height / 2 - 0.06, 0.01], M.iron,
-    slot ? 'a-team-art-mount' : 'wall-art-mount',
+    aTeamNaming ? 'a-team-art-mount' : 'wall-art-mount',
     { cast: false },
   );
   art.add(frame, field, mount);
@@ -2685,18 +2700,56 @@ export function buildCartelPalace(scene) {
 
   /* Wall faces, measured: the west gallery wall is 0.32 thick at x -10.5 and
    * the east service partitions are 0.35 thick at x 10.5. */
+  /* Canvases outside `A_TEAM_ART` that still carry a manifest slot, collected
+   * so the one dressing pass below reaches all of them. */
+  const extraSlottedArt = [];
+
+  /* THE FOUR CANVASES IN HERE ARE NOT PLACEHOLDERS ANY MORE.
+   *
+   * Every second position on each wall is a `wallArt` canvas rather than a
+   * framedPortrait, and until 2026-08-25 all four were flat coloured fields --
+   * four blank rectangles on the one stretch of wall every player walks the
+   * whole length of on his way to the dining doors. The owner delivered four
+   * more A-Team pieces that night, all portrait, and this is where they go:
+   * on the route, at eye height, lit by the picture lights already over them.
+   *
+   * The order is the joke, read in the direction he walks (z -15 toward -34):
+   * the crew introduce themselves, show you the plan, show you the raid, and
+   * then show you the scoreboard.
+   */
   const GALLERY_WALLS = Object.freeze([
     Object.freeze({
-      side: -1, face: -10.34, yaw: -Math.PI / 2,
+      /* THE YAWS WERE SWAPPED, AND FOUR BLANK RECTANGLES HID IT.
+       *
+       * `yaw` orients the `wallArt` canvases, and a canvas is built forward of
+       * its own origin -- so yaw must point OUT of the wall, into the corridor.
+       * Both walls had the opposite value: measured 2026-08-25, the left wall's
+       * canvases faced -x into the west wall and the right wall's faced +x into
+       * the service partition. The player walking between them saw the back of
+       * every one. Nobody could tell, because until the same day all four were
+       * flat coloured fields, and a flat field looks the same from behind.
+       *
+       * The framedPortraits interleaved with them on these exact walls have
+       * always been right (`facing: wall.side > 0 ? '-x' : 'x'`), which is what
+       * the correct values look like: away from the wall, at the player. */
+      side: -1, face: -10.34, yaw: Math.PI / 2,
       /* LEFT WALL -- pushed farther down the hall, and spread rather than
        * bunched at the entrance end. */
       art: Object.freeze([-19.4, -23.0, -26.6, -30.2]),
+      slots: Object.freeze([
+        { index: 1, slot: 'cartel-palace.gallery.master-plan' },
+        { index: 3, slot: 'cartel-palace.gallery.stealth-mission' },
+      ]),
     }),
     Object.freeze({
-      side: 1, face: 10.325, yaw: Math.PI / 2,
+      side: 1, face: 10.325, yaw: -Math.PI / 2,
       /* RIGHT WALL -- the service doorway occupies z -26.5..-22, so the row
        * is authored either side of it and hard against the wall. */
       art: Object.freeze([-17.4, -20.2, -28.6, -31.4]),
+      slots: Object.freeze([
+        { index: 1, slot: 'cartel-palace.gallery.respect-us' },
+        { index: 3, slot: 'cartel-palace.gallery.best-team' },
+      ]),
     }),
   ]);
   for (const wall of GALLERY_WALLS) {
@@ -2717,9 +2770,23 @@ export function buildCartelPalace(scene) {
           scale: 0.46, facing: wall.side > 0 ? '-x' : 'x',
         });
       } else {
-        wallArt(galleryDetails, {
-          x: front, y: 1.85, z, yaw: wall.yaw, width: 1.0, height: 1.3, tone: index + wall.side + 2,
+        /* 1.0 x 1.25 rather than the old 1.0 x 1.30: the delivered drawings are
+         * 1122 x 1402, a 0.8 portrait, and a frame authored at the picture's
+         * own shape never has to stretch it. The frame does not resize when
+         * the file lands -- same rule as the six in `A_TEAM_ART` -- so the
+         * shape has to be right here, in the authored scene the static checks
+         * measure, rather than at load time. */
+        const hung = wallArt(galleryDetails, {
+          x: front, y: 1.85, z, yaw: wall.yaw, width: 1.0, height: 1.25,
+          tone: index + wall.side + 2, slot: wall.slots?.find((row) => row.index === index)?.slot ?? null,
+          aTeamNaming: false,
         });
+        if (hung.userData.artSlot) {
+          extraSlottedArt.push({
+            slot: hung.userData.artSlot, group: hung, field: hung.userData.artField,
+            room: 'gallery', x: front, y: 1.85, z, yaw: wall.yaw, width: 1.0, height: 1.25,
+          });
+        }
       }
       const pictureLight = new THREE.Group();
       pictureLight.name = 'gallery-picture-light';
@@ -3195,9 +3262,11 @@ export function buildCartelPalace(scene) {
    * A frame that resized itself at load time would be a frame no static
    * check had ever measured.
    */
+  const dressableArt = [...aTeamPieces, ...extraSlottedArt];
+
   function dressATeamArt(gear) {
     const dressed = [];
-    for (const piece of aTeamPieces) {
+    for (const piece of dressableArt) {
       const resolved = gear.get(piece.slot);
       if (!resolved?.texture) continue;
       piece.field.material.dispose();
@@ -3215,7 +3284,7 @@ export function buildCartelPalace(scene) {
   /* Nothing waits on this. A failed manifest, a missing file, or a Node test
    * with no canvas to draw a placeholder into all land in the same place:
    * the frames keep what they were built with and the palace still stands. */
-  const artReady = resolveGear(A_TEAM_ART.map((piece) => piece.slot))
+  const artReady = resolveGear(dressableArt.map((piece) => piece.slot))
     .then((gear) => dressATeamArt(gear))
     .catch(() => []);
 
@@ -3304,9 +3373,15 @@ export function buildCartelPalace(scene) {
      * moves in `A_TEAM_ART` moves here too and the doorway proof in
      * tests/cartel-palace-a-team-art.test.mjs moves with it. */
     art: {
-      slots: A_TEAM_ART.map((piece) => piece.slot),
+      /* EVERY owner-art canvas in the palace, not just the six in
+       * `A_TEAM_ART`. The gallery's four were flat coloured fields when this
+       * surface was written and had nothing to report; they carry delivered
+       * pictures now, and the doorway sweep in
+       * tests/cartel-palace-a-team-art.test.mjs is worth just as much on a
+       * corridor wall as on a dining-room panel. */
+      slots: dressableArt.map((piece) => piece.slot),
       ready: artReady,
-      pieces: aTeamPieces.map((piece) => ({
+      pieces: dressableArt.map((piece) => ({
         slot: piece.slot,
         room: piece.room,
         x: piece.x,

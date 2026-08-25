@@ -380,6 +380,12 @@ sharedPauseMenu = createPauseMenu({
   // P and Escape still pause the hidden run when SquatchOS closes the app.
   canHandleTab: () => window.top === window && !quitConfirmOpen()
     && (state === 'playing' || state === 'paused'),
+  /* No SAVE DATA block while the fake-out is live: during the cold open this
+   * page is pretending to be a game he downloaded, and Squatch Life's save
+   * controls sitting in its pause menu give the reveal away before the camera
+   * moves. Asked fresh on every pause -- the answer changes the moment the
+   * camera comes off the monitor, and this menu is built once at boot. */
+  showSaveData: () => !apartmentHost()?.coldOpenActive?.(),
   getObjective: () => `Smash the campground before time runs out. ${Math.ceil(timeLeft)} seconds remain; ${goals.completed} of ${goals.total} goals complete.`,
   instructions: [
     'W A S D or arrows — move. Shift — charge.',

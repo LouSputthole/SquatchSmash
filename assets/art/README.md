@@ -162,7 +162,24 @@ moves or resizes when the picture arrives.
 | `cartel-palace.security.assault` | A TEAM ASSAULT — four men through the double doors, the cigar and the machine gun, the one tripping over, "I PITY THE FOOLS!" | `a-team-assault.webp` ✅ landed | 1.60 m wide | Intelligence room, west partition, z -16.3 |
 | `cartel-palace.dining.el-jefe` | EL JEFE - A TEAM — white suit, gold medallion, the throne with the red-jewelled A, four men with pistols, red curtains, money bags | `a-team-el-jefe.webp` ✅ landed | 2.20 m wide | Dining room, rear wall, x -6.6 |
 | `cartel-palace.ops.champions` | A TEAM CHAMPIONS — the couch, the cash, the blackboard reading KILLS: 3 / WINS: 0 / LOSSES: 47 / LAST PLACE, and the five trophies for it | `a-team-champions.webp` ✅ landed | 2.00 m wide | Operations room, west wall, z -20.0 |
-| `cartel-palace.ops.strat` | A TEAM STRAT — OPERATION: DUMB LUCK on the war-room table, GUARDS R DUM, WATER HAZARD LOL, IF PLAN A FAILS: BLAME SOMEONE ELSE, VICTORY CERVEZA | `a-team-strat.*` — STILL OWED | 2.00 m wide | Operations room, west wall, z -28.0 |
+| `cartel-palace.ops.strat` | A TEAM STRAT — OPERATION: DUMB LUCK on the war-room table, GUARDS R DUM, WATER HAZARD LOL, IF PLAN A FAILS: BLAME SOMEONE ELSE, VICTORY CERVEZA | `a-team-strat.webp` ✅ landed | 2.00 m wide | Operations room, west wall, z -28.0 |
+
+
+### The gallery corridor's four, delivered 2026-08-25
+
+Portrait (1122 x 1402, a 0.8) rather than the 4:3 the six above are, so they
+hang on the four `wallArt` canvases in the portrait gallery — the one stretch
+of the route every player walks the whole length of — rather than on frames
+authored for landscape. The frames were re-authored to 1.0 x 1.25 to match the
+delivered shape, because a frame that resizes itself at load time is a frame no
+static check ever measured.
+
+| Slot | The drawing | File | Frame | Where it hangs |
+|---|---|---|---|---|
+| `cartel-palace.gallery.respect-us` | THE A TEAM — RESPECT US. The four of them and the dog, desert, the black van | `a-team-respect-us.webp` | 1.00 x 1.25 | Gallery right wall, z -20.2 — the first canvas he passes |
+| `cartel-palace.gallery.master-plan` | A TEAM MASTER PLAN — the wall map, PLAN: 1. ??? 2. PROFIT 3. PARTY 4. STONKS, the one asleep in his own drool | `a-team-master-plan.webp` | 1.00 x 1.25 | Gallery left wall, z -23.0 |
+| `cartel-palace.gallery.stealth-mission` | STEALTH MISSION — LOUD IS QUIET, the sledgehammer, the flashbang, GRADE: F- | `a-team-stealth-mission.webp` | 1.00 x 1.25 | Gallery left wall, z -30.2 |
+| `cartel-palace.gallery.best-team` | BEST TEAM — the 4th-place podium, A TEAM 12 points, LOL LAST AGAIN | `a-team-best-team.webp` | 1.00 x 1.25 | Gallery right wall, z -31.4 — last thing before the dining doors |
 
 ```json
 { "slot": "cartel-palace.ops.champions",

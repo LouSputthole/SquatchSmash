@@ -1028,7 +1028,7 @@
       "caption": "The saint card burned into the new Squatch's hand."
     },
     {
-      "_comment": "THE CARTEL PALACE'S SIX A-TEAM PIECES. FIVE LANDED 2026-08-25 from the owner, as .webp rather than the .png README.md had guessed -- the file is named here, so the extension is whatever was actually delivered. `cartel-palace.ops.strat` (OPERATION: DUMB LUCK) is still owed and still waits with its title and caption while src/world/gear.js hangs its drawn placeholder. To land it: drop the file in assets/art/ and add its \"file\" line to the row below. That is the whole job -- no code changes.",
+      "_comment": "THE CARTEL PALACE'S SIX A-TEAM PIECES. ALL SIX LANDED 2026-08-25 from the owner, as .webp rather than the .png README.md had guessed -- the file is named here, so the extension is whatever was actually delivered. Four MORE arrived the same night, portrait rather than landscape; they are the gallery rows below.",
       "slot": "cartel-palace.entry.the-a-team",
       "file": "a-team-palace-portrait.webp",
       "title": "The A Team",
@@ -1060,8 +1060,34 @@
     },
     {
       "slot": "cartel-palace.ops.strat",
+      "file": "a-team-strat.webp",
       "title": "A Team Strat",
       "caption": "Operation Dumb Luck. Step one is shoot stuff. Step two is blame someone else."
+    },
+    {
+      "_comment": "THE PORTRAIT GALLERY'S FOUR CANVASES. Delivered 2026-08-25, portrait 1122x1402 where the other six are 4:3 -- so they hang on the four wallArt frames in the gallery corridor, authored at 1.0 x 1.25 to match, rather than on the six frames authored for landscape. They are also the only A-Team pieces every player is guaranteed to see: the gallery is the one stretch of the route with no way around it.",
+      "slot": "cartel-palace.gallery.respect-us",
+      "file": "a-team-respect-us.webp",
+      "title": "Respect Us",
+      "caption": "Commissioned, framed and hung by the only four people who agree with it."
+    },
+    {
+      "slot": "cartel-palace.gallery.master-plan",
+      "file": "a-team-master-plan.webp",
+      "title": "A Team Master Plan",
+      "caption": "Step one is a question mark. Step two is profit. Nobody has ever asked about step one."
+    },
+    {
+      "slot": "cartel-palace.gallery.stealth-mission",
+      "file": "a-team-stealth-mission.webp",
+      "title": "Stealth Mission",
+      "caption": "Graded F minus by the man who planned it, framed anyway by the men who ran it."
+    },
+    {
+      "slot": "cartel-palace.gallery.best-team",
+      "file": "a-team-best-team.webp",
+      "title": "Best Team",
+      "caption": "Fourth of four, twelve points, and a banner they paid for themselves."
     }
   ]
 }
