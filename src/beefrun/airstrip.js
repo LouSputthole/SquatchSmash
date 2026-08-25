@@ -418,13 +418,14 @@ export function buildAirstrip(scene) {
     const x = EH.x + (rand() - 0.5) * 26;
     const z = EH.zHigh + 30 + rand() * 90;
     const c = makeChicken(x, z);
-    /* The support witness is a LEG, found by what it is rather than by where it
-     * sits in the child list: `children[4]` was the first leg only while the
-     * head, beak and comb were three separate children. Grouping the head into
-     * one pivot (see makeChicken) made children[4] undefined, which
+    /* The support witness is a LEG, found BY NAME rather than by where it sits
+     * in the child list: `children[4]` was the first leg only while the head,
+     * beak and comb were three separate children. Grouping the head into one
+     * pivot (see makeChicken) made children[4] undefined, which
      * ownGroundedAssembly throws on -- correctly, but for a reason nobody
-     * would have guessed from the call site. */
-    const chickenLeg = c.group.children.find((child) => child.geometry?.type === 'CylinderGeometry');
+     * would have guessed from the call site. Every part of the bird carries
+     * its own name now, for this and for the allowlists. */
+    const chickenLeg = c.group.children.find((child) => child.name === 'chicken-leg');
     ownGroundedAssembly(c.group, `beefrun.el-hueso.chicken.${i + 1}`, chickenLeg);
     c.group.position.y = terrainHeight(x, z);
     root.add(c.group);

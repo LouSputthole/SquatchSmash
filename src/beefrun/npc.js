@@ -1145,6 +1145,15 @@ export function makeAssociate(i) {
 export function makeChicken(x, z) {
   const g = group('chicken');
   const body = mesh(sphereGeo(0.16, 8, 6), solid(0xe8e2d4, { roughness: 1 }), 0, 0.24, 0);
+  /* NAMED, ALL OF IT, and not for readability.
+   *
+   * The geometry allowlists address an unnamed mesh by its ordinal among the
+   * unnamed -- `name=chicken#2/type=Mesh#4` -- so grouping the head above
+   * renumbered the legs from Mesh#4/#5 to Mesh#1/#2 and quietly invalidated a
+   * checked-in suppression source for every chicken in every one of the six
+   * Beef Run states. Nothing about the birds had changed; only the counting
+   * had. Names do not renumber. */
+  body.name = 'chicken-body';
   body.scale.set(1, 0.85, 1.25);
   g.add(body);
   /* THE HEAD IS A GROUP, NOT A BALL WITH THINGS PARKED NEAR IT.
@@ -1160,16 +1169,22 @@ export function makeChicken(x, z) {
    * moves and still sits at y 0.42, so the bob arithmetic there is untouched. */
   const head = group('chicken-head');
   head.position.set(0, 0.42, 0.14);
-  head.add(
-    mesh(sphereGeo(0.08, 8, 6), solid(0xe8e2d4, { roughness: 1 }), 0, 0, 0),
-    // The beak, on the front of the skull.
-    mesh(coneGeo(0.03, 0.07, 5), solid(0xe8a23a, { roughness: 0.9 }), 0, 0, 0.10),
-    // The comb, on top of it.
-    mesh(boxGeo(0.04, 0.07, 0.03), solid(0xd92e2e, { roughness: 0.9 }), 0, 0.07, 0),
-  );
+  const skull = mesh(sphereGeo(0.08, 8, 6), solid(0xe8e2d4, { roughness: 1 }), 0, 0, 0);
+  skull.name = 'chicken-skull';
+  // The beak, on the front of the skull.
+  const beak = mesh(coneGeo(0.03, 0.07, 5), solid(0xe8a23a, { roughness: 0.9 }), 0, 0, 0.10);
+  beak.name = 'chicken-beak';
+  // The comb, on top of it.
+  const comb = mesh(boxGeo(0.04, 0.07, 0.03), solid(0xd92e2e, { roughness: 0.9 }), 0, 0.07, 0);
+  comb.name = 'chicken-comb';
+  head.add(skull, beak, comb);
   g.add(head);
   for (const sx of [-0.05, 0.05]) {
-    g.add(mesh(cylGeo(0.012, 0.012, 0.16, 5), solid(0xe8a23a, { roughness: 0.9 }), sx, 0.08, 0));
+    const leg = mesh(cylGeo(0.012, 0.012, 0.16, 5), solid(0xe8a23a, { roughness: 0.9 }), sx, 0.08, 0);
+    /* `airstrip.js` needs this one by name: it is the bird's support witness,
+     * and it used to be fished out as `children[4]`. */
+    leg.name = 'chicken-leg';
+    g.add(leg);
   }
   g.position.set(x, 0, z);
   return {
