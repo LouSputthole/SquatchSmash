@@ -879,6 +879,16 @@ export class PoolFrame {
      * also true of a real one. */
     this._stroke = {
       t: 0, power, seat, accuracy, struck: false, addressBack: addressBack(this.drawPower),
+      /* WHERE THE CUE BALL WAS WHEN HE HIT IT.
+       *
+       * `syncMeshes` used to place the cue relative to the cue ball's LIVE
+       * position for the whole of `rolling`, so the moment the ball left, the
+       * cue set off after it and rode down the table behind it until everything
+       * stopped. Owner, twice: *"stick follows ball all the way through shot"*.
+       * A cue stays where the man holding it is standing; the ball is the only
+       * thing that goes anywhere. This is the address, frozen at commit. */
+      ballX: cue.x,
+      ballZ: cue.z,
     };
     this.hooks.onTurn?.(seat, this.view);
   }
@@ -1160,10 +1170,17 @@ export class PoolFrame {
       const rest = meshes.cueRest;
       if (playing && !cue.potted) {
         const back = this.cueBack(meshes.cueLength ?? CUE_STROKE.fallbackCueLength);
+        /* Anchored to where the ball WAS when he committed, not to where it is
+         * now. While he is aiming there is no stroke and the two are the same
+         * point; the instant he shoots they part company, and it is the address
+         * the cue belongs to. See the note on `_stroke.ballX`. */
+        const stroke = this._stroke;
+        const anchorX = stroke ? stroke.ballX : cue.x;
+        const anchorZ = stroke ? stroke.ballZ : cue.z;
         meshes.cue.position.set(
-          centre.x + cue.x - Math.sin(this.aimAngle) * back,
+          centre.x + anchorX - Math.sin(this.aimAngle) * back,
           ballY + 0.03,
-          centre.z + cue.z - Math.cos(this.aimAngle) * back,
+          centre.z + anchorZ - Math.cos(this.aimAngle) * back,
         );
         /* YXZ so the yaw is applied OUTSIDE the 90-degree lay-flat rotation.
          * Under the default XYZ order the same numbers tip the cue up out of

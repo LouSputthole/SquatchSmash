@@ -676,6 +676,102 @@ export function buildMansionInterior(shell = null) {
     });
   }
 
+
+  /**
+   * A chandelier that is one object rather than a pile of parts.
+   *
+   * ALL THREE OF THIS HOUSE'S CHANDELIERS WERE HANGING IN PIECES. Each was
+   * authored as a short stem, some rings of arms and a finial, every group
+   * placed at its own height and none of them touching: the stem stopped above
+   * the top tier, the lower tiers hung in clear air beneath it, and the finial
+   * floated below that. The suite's did not even reach its own ceiling -- it
+   * ended 0.4 m short and the whole fixture hovered.
+   *
+   * Nothing caught it because all three are fixed fixtures, and a fixed fixture
+   * is excused from the support check -- which is precisely the check that says
+   * "this part is resting on nothing". The excuse is right for a sconce bolted
+   * to a wall; it is not a licence for a fixture to be internally disconnected.
+   *
+   * So the drop is continuous here. A canopy flush to the ceiling, ONE rod from
+   * that canopy down through every tier to the finial, and arms that start
+   * inside the rod instead of near it.
+   *
+   * The arms also take `rotY: -a` where all three sites had `+a`. A box long in
+   * X turns its length onto (cos t, 0, -sin t), so landing it on the radial
+   * (cos a, 0, sin a) needs the sign flipped. At `+a` every arm except the two
+   * on the X axis pointed at a MIRRORED bearing and missed the shade it was
+   * supposed to be carrying -- twelve arms in the foyer, fourteen in the
+   * office, thirteen in the suite, each one aimed somewhere its bulb was not.
+   *
+   * @param {object} o
+   *   mount     - (mesh) => void; the caller decides parenting and gate policy
+   *   x, z      - centre in the caller's frame
+   *   ceilingY  - underside of the ceiling the canopy presses against
+   *   finialY   - centre of the ball that caps the bottom of the rod
+   *   tiers     - [{ y, r, n, bulb }] rings of arms, y in the caller's frame
+   *   shade     - optional { rTop, rBottom, h, mat } cream shade over each bulb
+   */
+  function chandelierDrop({
+    mount, x = 0, z = 0, ceilingY, finialY, tiers,
+    rodR = 0.05, finialR = 0.16, armT = 0.03, dropH = 0.3, dropT = 0.02,
+    shade = null, name = null, rodName = null, canopy = false,
+  }) {
+    /* NAMES ARE IDENTITY HERE, so this only hands out the ones the caller asks
+     * for. The geometry allowlists address an unnamed mesh by its ordinal
+     * among the unnamed -- `type=Mesh#1809` -- so naming a fixture's fifty-odd
+     * parts renumbers every anonymous mesh built after it, and thousands of
+     * checked-in entries quietly start pointing at different objects. Measured:
+     * naming the office's parts moved the tail of the mansion's list by 58 and
+     * broke 115 entries outright. Both of the anonymous fixtures therefore stay
+     * anonymous and keep their part COUNT and ORDER exactly. */
+    const tag = (mesh, suffix) => (name ? named(mesh, `${name}-${suffix}`) : mesh);
+    if (canopy) {
+      mount(tag(cylinder({
+        r: rodR * 2.6, h: 0.06, pos: [x, ceilingY - 0.03, z], mat: M_BRONZE, cast: false,
+      }), 'canopy'));
+    }
+    /* One rod, ceiling to finial. Its length is the whole reason this reads as
+     * a hanging fixture instead of three rings of debris. */
+    const rodTop = ceilingY;
+    mount(tag(cylinder({
+      r: rodR, h: rodTop - finialY, pos: [x, (rodTop + finialY) / 2, z], mat: M_BRONZE,
+    }), rodName ?? 'rod'));
+    const inner = rodR * 0.8;             // arms start inside the rod, not beside it
+    for (const tier of tiers) {
+      const bulbR = tier.bulb ?? 0.06;
+      for (let i = 0; i < tier.n; i++) {
+        const a = (i / tier.n) * Math.PI * 2;
+        const ux = Math.cos(a);
+        const uz = Math.sin(a);
+        const len = tier.r - inner;
+        const mid = inner + len / 2;
+        mount(tag(box({
+          size: [len, armT, armT], pos: [x + ux * mid, tier.y, z + uz * mid],
+          mat: M_GOLD, rotY: -a,
+        }), 'arm'));
+        if (shade) {
+          mount(tag(cylinder({
+            rTop: shade.rTop, rBottom: shade.rBottom, h: shade.h,
+            pos: [x + ux * tier.r, tier.y + shade.h * 0.45, z + uz * tier.r],
+            mat: M_SHADE_CREAM,
+          }), 'shade'));
+        }
+        mount(tag(sphere({
+          r: bulbR, pos: [x + ux * tier.r, tier.y + (shade ? bulbR * 0.5 : -bulbR), z + uz * tier.r],
+          mat: M_BULB_WARM, cast: false,
+        }), 'bulb'));
+        /* The crystal hangs FROM the arm it is under, so its top has to touch
+         * the arm rather than start somewhere below it. */
+        mount(tag(box({
+          size: [dropT, dropH, dropT],
+          pos: [x + ux * tier.r * 0.86, tier.y - dropH / 2, z + uz * tier.r * 0.86],
+          mat: M_CRYSTAL, cast: false,
+        }), 'drop'));
+      }
+    }
+    mount(tag(sphere({ r: finialR, pos: [x, finialY, z], mat: M_GOLD }), 'finial'));
+  }
+
   /** Opt-in support surface for Siege actor grounding. A material/normal
    * heuristic also admits bodies, props and transparent VFX, so the builder
    * marks only architecture intended to carry a person. */
@@ -2277,27 +2373,19 @@ export function buildMansionInterior(shell = null) {
       fixedSupportAnchor: true,
     });
     chandelier.name = 'mansion-foyer-chandelier';
-    chandelier.add(cylinder({ r: 0.05, h: 1.4, pos: [0, 0.7, 0], mat: M_BRONZE }));
-    const tiers = [
-      { y: 0, r: 1.45, bulbs: 12, arm: 0.2 },
-      { y: -0.42, r: 1.0, bulbs: 8, arm: 0.16 },
-      { y: -0.76, r: 0.5, bulbs: 5, arm: 0.12 },
-    ];
-    for (const tier of tiers) {
-      for (let i = 0; i < tier.bulbs; i++) {
-        const a = (i / tier.bulbs) * Math.PI * 2;
-        const bx = Math.cos(a) * tier.r;
-        const bz = Math.sin(a) * tier.r;
-        chandelier.add(box({
-          size: [tier.r * 0.9, 0.03, 0.03], pos: [bx / 2, tier.y, bz / 2], mat: M_GOLD, rotY: a,
-        }));
-        chandelier.add(sphere({ r: tier.arm * 0.5, pos: [bx, tier.y - 0.06, bz], mat: M_BULB_WARM }));
-        chandelier.add(box({
-          size: [0.02, 0.3, 0.02], pos: [bx * 0.85, tier.y - 0.24, bz * 0.85], mat: M_CRYSTAL,
-        }));
-      }
-    }
-    chandelier.add(sphere({ r: 0.16, pos: [0, -1.0, 0], mat: M_GOLD }));
+    /* Local frame: the group is placed at CHANDELIER_POS afterwards, so the
+     * ceiling it hangs from is +1.4 from here -- the height the old stem
+     * reached up to before stopping dead above the first tier. */
+    chandelierDrop({
+      mount: (part) => chandelier.add(part),
+      ceilingY: 1.4,
+      finialY: -1.0,
+      tiers: [
+        { y: 0, r: 1.45, n: 12, bulb: 0.1 },
+        { y: -0.42, r: 1.0, n: 8, bulb: 0.08 },
+        { y: -0.76, r: 0.5, n: 5, bulb: 0.06 },
+      ],
+    });
     /* The fixture has 77 rendered parts, intentionally above the inherited
      * suppression ceiling. Publish the same authored ceiling attachment on
      * each concrete part so the fail-closed scene-scale bound stays useful. */
@@ -6750,25 +6838,23 @@ export function buildMansionInterior(shell = null) {
       const cy = UCY - 1.0;
       const fixtureId = 'mansion-office-chandelier';
       const mount = (object) => root.add(fixedFixture(object, fixtureId));
-      mount(cylinder({ r: 0.04, h: 0.8, pos: [0, cy + 0.4, 70.2], mat: M_BRONZE }));
-      for (const [ty, tr, tn] of [[0, 1.0, 8], [-0.32, 0.62, 6]]) {
-        for (let i = 0; i < tn; i++) {
-          const a = (i / tn) * Math.PI * 2;
-          const bx = Math.cos(a) * tr;
-          const bz = Math.sin(a) * tr;
-          mount(box({
-            size: [tr * 0.9, 0.03, 0.03], pos: [bx / 2, cy + ty, 70.2 + bz / 2], mat: M_GOLD, rotY: a,
-          }));
-          mount(cylinder({
-            rTop: 0.085, rBottom: 0.11, h: 0.13, pos: [bx, cy + ty + 0.06, 70.2 + bz], mat: M_SHADE_CREAM,
-          }));
-          mount(sphere({ r: 0.06, pos: [bx, cy + ty + 0.04, 70.2 + bz], mat: M_BULB_WARM, cast: false }));
-          mount(box({
-            size: [0.02, 0.24, 0.02], pos: [bx * 0.86, cy + ty - 0.2, 70.2 + bz * 0.86], mat: M_CRYSTAL,
-          }));
-        }
-      }
-      mount(sphere({ r: 0.13, pos: [0, cy - 0.56, 70.2], mat: M_GOLD }));
+      chandelierDrop({
+        mount,
+        z: 70.2,
+        /* The coffered tray is a 0.02 slab centred on UCY - 0.18; press the
+         * canopy against its underside rather than leave the stem 0.2 m clear
+         * of it with nothing between. */
+        ceilingY: UCY - 0.19,
+        finialY: cy - 0.56,
+        tiers: [
+          { y: cy, r: 1.0, n: 8 },
+          { y: cy - 0.32, r: 0.62, n: 6 },
+        ],
+        rodR: 0.04,
+        finialR: 0.13,
+        dropH: 0.24,
+        shade: { rTop: 0.085, rBottom: 0.11, h: 0.13 },
+      });
     }
     const ceil = new THREE.PointLight(0xffdca0, 6, 18, 2);
     ceil.position.set(0, UCY - 1.3, 70.2);
@@ -8162,16 +8248,27 @@ export function buildMansionInterior(shell = null) {
      * leaf standing ajar on what read as a floor hinge, 2.2 m from where
      * the stair delivers you. Owner playtest 2026-08-18, verbatim: "there
      * is still the weird door hinge thing coming out at the top of the
-     * stairs." Turned to -1.2 so the glass faces the room: the corner is
-     * hemmed by the dressing run's carcass (x <= 5.95) on one side and the
-     * floor crest (circle r 0.86 about 7.7, 64.28) on the other, and this
-     * pitch is the one that keeps every foot out of both -- measured
-     * extremes x 5.98..6.72, z 63.20..64.20. */
+     * there is still the weird door hinge thing coming out at the top of the
+     * stairs." The corner is hemmed by the dressing run's carcass (x <= 5.95)
+     * on one side and the floor crest (circle r 0.86 about 7.7, 64.28) on the
+     * other, and at the old centre 6.35, 63.70 the ONLY pitch that kept every
+     * foot out of both was -1.2 -- which points the glass almost due west, at
+     * a wall, when the walk it wants to catch comes off the stair head away to
+     * the north-east on bearing +51 degrees.
+     *
+     * OWNER PLAYTEST 2026-08-24: "mirror in Lous room needs slight turning
+     * towards stairs." Turning it alone is not possible -- every yaw between
+     * -1.0 and -0.5 drives a foot through the dressing carcass at that centre.
+     * So the piece moves with it, 0.16 east and 0.05 south into the corner it
+     * was already in, which is what buys the swing: at (6.51, 63.65) and -0.45
+     * the tightest clearance of the three is 0.037 m, the best any yaw in the
+     * whole feasible band gets, and the glass now looks up the room on bearing
+     * -26 rather than -69. Measured extremes x 6.00..7.02, z 63.25..64.05. */
     {
       const cg = new THREE.Group();
       cg.name = 'suite-cheval';
-      cg.position.set(6.35, SY, r.z0 + 0.55);
-      cg.rotation.y = -1.2;
+      cg.position.set(6.51, SY, r.z0 + 0.50);
+      cg.rotation.y = -0.45;
       for (const px of [-0.42, 0.42]) {
         cg.add(named(cylinder({
           r: 0.035, h: 1.9, pos: [px, 0.95, 0], mat: M_WOOD_DK,
@@ -8197,7 +8294,7 @@ export function buildMansionInterior(shell = null) {
       }));
       root.add(cg);
     }
-    solid(5.95, 6.75, SY, SY + 2.05, r.z0 + 0.1, r.z0 + 1.05);
+    solid(6.0, 7.02, SY, SY + 2.05, r.z0 + 0.1, r.z0 + 0.9);
     root.add(box({
       size: [1.5, 0.16, 0.5], pos: [(drX0 + drX1) / 2, SY + 0.44, r.z0 + 1.3], mat: M_SUITE_VELVET, name: 'suite-dressing-bench',
     }));
@@ -8431,27 +8528,28 @@ export function buildMansionInterior(shell = null) {
       const cz = 70.4;
       const fixtureId = 'mansion-suite-chandelier';
       const mount = (object) => root.add(fixedFixture(object, fixtureId));
-      mount(named(cylinder({ r: 0.035, h: 0.7, pos: [-1.2, cy + 0.5, cz], mat: M_BRONZE }), 'suite-chandelier-stem'));
-      for (const [ty, tr, tn] of [[0, 0.86, 8], [-0.28, 0.5, 5]]) {
-        for (let i = 0; i < tn; i++) {
-          const a = (i / tn) * Math.PI * 2;
-          const bx = Math.cos(a) * tr;
-          const bz = Math.sin(a) * tr;
-          mount(box({
-            size: [tr, 0.025, 0.025], pos: [-1.2 + bx / 2, cy + ty, cz + bz / 2], mat: M_GOLD, rotY: -a, name: 'suite-chandelier-arm',
-          }));
-          mount(named(cylinder({
-            rTop: 0.07, rBottom: 0.09, h: 0.11, pos: [-1.2 + bx, cy + ty + 0.05, cz + bz], mat: M_SHADE_CREAM,
-          }), 'suite-chandelier-shade'));
-          mount(named(sphere({
-            r: 0.05, pos: [-1.2 + bx, cy + ty + 0.03, cz + bz], mat: M_BULB_WARM, cast: false,
-          }), 'suite-chandelier-bulb'));
-          mount(box({
-            size: [0.018, 0.2, 0.018], pos: [-1.2 + bx * 0.86, cy + ty - 0.17, cz + bz * 0.86], mat: M_CRYSTAL, cast: false, name: 'suite-chandelier-drop',
-          }));
-        }
-      }
-      mount(named(sphere({ r: 0.1, pos: [-1.2, cy - 0.48, cz], mat: M_GOLD }), 'suite-chandelier-finial'));
+      chandelierDrop({
+        mount,
+        x: -1.2,
+        z: cz,
+        /* This one hung entirely free: its stem topped out at SCY - 0.4, four
+         * tenths of a metre below a ceiling it never reached. The tray is the
+         * 0.02 slab centred on SCY - 0.18. */
+        ceilingY: SCY - 0.19,
+        finialY: cy - 0.48,
+        tiers: [
+          { y: cy, r: 0.86, n: 8, bulb: 0.05 },
+          { y: cy - 0.28, r: 0.5, n: 5, bulb: 0.05 },
+        ],
+        rodR: 0.035,
+        finialR: 0.1,
+        armT: 0.025,
+        dropH: 0.2,
+        dropT: 0.018,
+        shade: { rTop: 0.07, rBottom: 0.09, h: 0.11 },
+        name: 'suite-chandelier',
+        rodName: 'stem',
+      });
     }
 
     /* ================================================================ */

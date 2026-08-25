@@ -31,6 +31,8 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+/* `.pathname` on a file: URL is `/C:/…` on Windows, and `resolve()` then builds
+ * `C:\C:\…` and throws ENOENT before a single assertion runs. */
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 
 /** Everything package.json admits it does not install for the deploy. */

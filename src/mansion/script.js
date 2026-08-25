@@ -954,6 +954,76 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'GUARD_VAULT', text: 'Back up. I don’t get told what’s in there either, and I’ve stopped wanting to know.', cue: cue('guards', 'vault.backup'), hold: 1.4 },
   ]),
 
+  /* ---- The guards, THE MORNING AFTER. ---------------------------------
+   *
+   * Owner playtest, verbatim: *"Repaired mansion is really just the same
+   * thing as the original mansion. The guards should have some voicelines
+   * acknowledging your actions. Welcome back, nice work the other night.
+   * Etc."*
+   *
+   * He was right and the reason was structural rather than an oversight. The
+   * return visit re-mounted the SAME cast module with the same barks, so five
+   * men who had watched the player fight a war through this house on the
+   * night of the siege greeted him the next morning with "Keep on the path"
+   * and "Nothing down here belongs to you" -- the house had not noticed.
+   *
+   * Each of these is the same man on the same square of floor as his mission
+   * line, saying the one thing that square earned. Nobody makes a speech: the
+   * stairs man still will not look at you, the vault man still will not tell
+   * you what is in there. They just know who you are now.
+   *
+   * `cue('return', ...)` is its own scope, so the recording sheet lists them
+   * as a block and no take of a mission line gets reused for one.
+   */
+  guardPathReturn: Object.freeze([
+    { speaker: 'GUARD', text: 'Walk wherever you want today.', cue: cue('return', 'perimeter.wherever'), hold: 2.4 },
+  ]),
+  guardCameraReturn: Object.freeze([
+    { speaker: 'GUARD', text: 'Cameras are back up. Took them all night.', cue: cue('return', 'perimeter.camerasback'), hold: 3.0 },
+  ]),
+  guardLapReturn: Object.freeze([
+    { speaker: 'GUARD_PERIMETER', text: 'Eleven laps and I still missed the whole thing. Story of my life.', cue: cue('return', 'perimeter.missedit'), hold: 4.2 },
+  ]),
+  guardStairsReturn: Object.freeze([
+    { speaker: 'GUARD_STAIRS', text: 'Welcome back. He’s expecting you.', cue: cue('return', 'stairs.welcomeback'), hold: 2.8 },
+  ]),
+  guardStairsReturnIdle: Object.freeze([
+    { speaker: 'GUARD_STAIRS', text: 'Nice work the other night. I mean that.', cue: cue('return', 'stairs.nicework'), hold: 3.0 },
+  ]),
+  guardBasementReturn: Object.freeze([
+    { speaker: 'GUARD_BASEMENT', text: 'Go where you like. After the other night you’ve earned the run of it.', cue: cue('return', 'basement.runofit'), hold: 4.4 },
+  ]),
+  guardBasementReturnIdle: Object.freeze([
+    { speaker: 'GUARD_BASEMENT', text: 'They came down these stairs at me. I got two. You got the rest.', cue: cue('return', 'basement.gottwo'), hold: 4.4 },
+  ]),
+  guardVaultReturn: Object.freeze([
+    { speaker: 'GUARD_VAULT', text: 'Door’s still open. I’m still here. Different reason now.', cue: cue('return', 'vault.differentreason'), hold: 4.0 },
+  ]),
+  guardVaultReturnIdle: Object.freeze([
+    { speaker: 'GUARD_VAULT', text: 'Whatever you did upstairs, nobody got past me down here. Not that night.', cue: cue('return', 'vault.nobodygotpast'), hold: 4.6 },
+  ]),
+
+  /* ---- Snow, the morning after. ---------------------------------------
+   *
+   * Owner, same note: *"I want some things to be repaired. Like maybe the
+   * centerpiece in the foyer is clearly still half broken and being repaired.
+   * Maybe Snow is working on it as a maintenance man -- lets give him a
+   * maintenance outfit and a voice line about how long its going to take to
+   * get everything fixed up."*
+   *
+   * He is the man who said "Try not to make more work for me tonight" on the
+   * way in, on the night that turned into the siege. This is the bill. */
+  snowRepairFoyer: Object.freeze([
+    { speaker: 'SNOW', text: 'Six weeks. That’s what the man quoted me for the foyer alone.', cue: cue('return', 'snow.sixweeks'), hold: 4.2 },
+  ]),
+  snowRepairIdle: Object.freeze([
+    { speaker: 'SNOW', text: 'I told you not to make more work for me. Nobody listens.', cue: cue('return', 'snow.nobodylistens'), hold: 4.0 },
+  ]),
+  snowRepairSecond: Object.freeze([
+    { speaker: 'SNOW', text: 'Marble you can’t patch. It has to come out and go back in.', cue: cue('return', 'snow.marblecomesout'), hold: 4.2 },
+    { speaker: 'SNOW', text: 'Ask me at Christmas.', cue: cue('return', 'snow.askmeatchristmas'), hold: 2.2 },
+  ]),
+
   /* ---- The bar in the billiard bay. -----------------------------------
    * The Bada Bing's own bartender, working a private room for the night. He
    * is not impressed by any of this and he is not going to be.

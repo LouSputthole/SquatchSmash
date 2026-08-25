@@ -48,8 +48,8 @@ const { buildCartelPalace } = await import('../src/cartel-palace/world.js');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The six the owner supplied, in the order he supplied them. */
-const EXPECTED_SLOTS = [
+/** The six landscape pieces, in the order the owner supplied them. */
+const LANDSCAPE_SLOTS = [
   'cartel-palace.entry.the-a-team',
   'cartel-palace.entry.we-dont-miss',
   'cartel-palace.security.assault',
@@ -58,8 +58,29 @@ const EXPECTED_SLOTS = [
   'cartel-palace.ops.strat',
 ];
 
-/** All six drawings are 1456 x 1092. The frames are authored at that shape. */
+/**
+ * The four PORTRAIT pieces delivered 2026-08-25, which hang on the gallery
+ * corridor's canvases rather than on the six frames authored for landscape.
+ * A separate list because they are a separate shape: mixing them into one set
+ * would mean the aspect check below could only assert something true of both,
+ * which is nothing.
+ */
+const PORTRAIT_SLOTS = [
+  'cartel-palace.gallery.respect-us',
+  'cartel-palace.gallery.master-plan',
+  'cartel-palace.gallery.stealth-mission',
+  'cartel-palace.gallery.best-team',
+];
+
+const EXPECTED_SLOTS = [...LANDSCAPE_SLOTS, ...PORTRAIT_SLOTS];
+
+/** 1456 x 1092 landscape, 1122 x 1402 portrait. Frames match, by hand. */
 const DELIVERED_ASPECT = 4 / 3;
+const PORTRAIT_ASPECT = 0.8;
+const ASPECT_FOR = new Map([
+  ...LANDSCAPE_SLOTS.map((slot) => [slot, DELIVERED_ASPECT]),
+  ...PORTRAIT_SLOTS.map((slot) => [slot, PORTRAIT_ASPECT]),
+]);
 
 let cached = null;
 function palace() {
@@ -80,12 +101,12 @@ function hungSlots() {
   return slots;
 }
 
-test('the manifest declares the palace\'s six A-Team slots', () => {
+test('the manifest declares every palace A-Team slot', () => {
   const rows = manifest().art.filter((entry) => entry.slot?.startsWith('cartel-palace.'));
   assert.deepEqual(
     rows.map((entry) => entry.slot).sort(),
     [...EXPECTED_SLOTS].sort(),
-    'assets/art/manifest.json must carry exactly the six cartel-palace.* rows',
+    'assets/art/manifest.json must carry exactly the cartel-palace.* rows the scene builds',
   );
   for (const row of rows) {
     /* Title and caption are what the player reads off the wall on [E]. A row
@@ -108,7 +129,7 @@ test('the manifest declares the palace\'s six A-Team slots', () => {
   }
 });
 
-test('the palace hangs exactly those six, once each', () => {
+test('the palace hangs exactly those, once each', () => {
   const hung = hungSlots();
   assert.deepEqual(
     [...hung].sort(), [...EXPECTED_SLOTS].sort(),
@@ -116,21 +137,27 @@ test('the palace hangs exactly those six, once each', () => {
   );
   assert.equal(new Set(hung).size, hung.length, 'a slot is hung twice');
   assert.deepEqual(
-    palace().art.slots, EXPECTED_SLOTS,
+    [...palace().art.slots].sort(), [...EXPECTED_SLOTS].sort(),
     'world.art.slots is what a verifier reads; it must match what is built',
   );
   assert.equal(palace().art.pieces.length, EXPECTED_SLOTS.length);
 });
 
-test('every frame is authored at the delivered 4:3', () => {
+test('every frame is authored at the shape of the picture that goes in it', () => {
   for (const piece of palace().art.pieces) {
     /* The frames deliberately do NOT resize themselves from the file's own
      * aspect ratio when it arrives (see `dressATeamArt`). That is only safe
      * because they are authored at the shape the file will be -- otherwise
-     * the doorway sweep below measures a frame the player never sees. */
+     * the doorway sweep below measures a frame the player never sees.
+     *
+     * Two shapes now, and the pairing is the point: put a 0.8 portrait in a
+     * 4:3 frame and it is not a stretched picture in a test, it is a
+     * stretched picture on a wall in the one corridor with no way around it. */
+    const expected = ASPECT_FOR.get(piece.slot);
+    assert.ok(expected, `${piece.slot} has no authored aspect on record`);
     assert.ok(
-      Math.abs(piece.width / piece.height - DELIVERED_ASPECT) < 1e-9,
-      `${piece.slot} is ${piece.width} x ${piece.height}, not 4:3`,
+      Math.abs(piece.width / piece.height - expected) < 1e-9,
+      `${piece.slot} is ${piece.width} x ${piece.height}, not ${expected}`,
     );
   }
 });

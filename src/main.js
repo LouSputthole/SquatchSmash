@@ -1192,6 +1192,14 @@ window.__SQUATCH_SMASH_HOST = {
     if (!coldOpenActive) return false;
     return coldOpen.quit();
   },
+  /* THE ONE THING THE EMBEDDED GAME NEEDS TO KNOW ABOUT US.
+   *
+   * While the cold open is running the player believes Squatch Smash is a game
+   * he downloaded, and its pause menu must not offer him Export save / Import
+   * save for a campaign he has not been told about. It asks; this answers.
+   * Deliberately narrow: the game learns whether the fake-out is live, and
+   * nothing else about the apartment. */
+  coldOpenActive: () => coldOpenActive === true,
 };
 
 startBtn.addEventListener('click', async () => {

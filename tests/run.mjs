@@ -251,6 +251,7 @@ const TEST_MODULES = [
   './mansion-cellar-wine-qa.test.mjs',
   './mansion-cast-whip.test.mjs',
   './mansion-suite-dog.test.mjs',
+  './mansion-return-repairs.test.mjs',
   './mansion-siege-evidence-contract.test.mjs',
   './evidence-output-transaction.test.mjs',
   './evidence-directory-transaction.test.mjs',

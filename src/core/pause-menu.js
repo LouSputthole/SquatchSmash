@@ -327,6 +327,18 @@ export function createPauseMenu({
   canRestart = () => true,
   recovery = null,
   actions: extraActions = [],
+  /**
+   * Whether the SAVE DATA block belongs on this menu right now.
+   *
+   * It always did, and inside Squatch Smash during the cold open that was a
+   * leak: the player believes he is paused in a game he downloaded, and the
+   * menu offered him Export save / Import save / Load save for a campaign he
+   * does not know exists yet. The reveal is the whole point of the opening
+   * and this quietly gave it away before the camera moved. Read on every
+   * pause rather than once at construction, because whether the cold open is
+   * running changes underneath a menu that is built at boot.
+   */
+  showSaveData = () => true,
   /* Does this scene HAVE an assist? Silver's sway, the Heist guard threat,
    * and the Silver Case ambush share this setting. Other scenes hide a switch
    * that would have no effect on their authored beats. */
@@ -458,6 +470,7 @@ export function createPauseMenu({
   /* migrate+normalize door and reloads the page so every live system  */
   /* re-reads the result.                                              */
   /* ---------------------------------------------------------------- */
+  const savePanel = root.querySelector('.scene-pause-save');
   const saveStatus = root.querySelector('[data-scene-pause-save-status]');
   const importPanel = root.querySelector('[data-scene-pause-import-panel]');
   const importText = root.querySelector('[data-scene-pause-import-text]');
@@ -660,6 +673,16 @@ export function createPauseMenu({
 
   function refresh() {
     refreshSettings();
+    /* NOT `read()`: that one stringifies, so a `false` came back as the string
+     * "false" and every comparison against it was truthy. */
+    let saveVisible = true;
+    try {
+      saveVisible = typeof showSaveData === 'function' ? showSaveData() !== false : showSaveData !== false;
+    } catch { saveVisible = true; }
+    savePanel.hidden = !saveVisible;
+    /* A hidden panel must not leave its import textarea open behind it, or
+     * the next pause reopens with a paste box and no way to see it. */
+    if (!saveVisible) importPanel.hidden = true;
     objective.textContent = read(getObjective, 'Review the instructions, then return when you are ready.');
     if (recoveryButtons.checkpoint) {
       const state = recovery.getState();

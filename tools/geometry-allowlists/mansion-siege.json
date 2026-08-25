@@ -102,17 +102,6 @@
       "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
     },
     {
-      "id": "mansion-siege-alert-collider-00010",
-      "state": "alert",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion-siege/collider:aabb-1p93-10p6-63p13-5p97-13p1-63p85",
-      "right": "root:mansion-siege/collider:aabb-5p93-10p6-63p23-6p77-12p65-64p22",
-      "maxDepthM": 0.04,
-      "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
-      "source": "src/mansion/scenes/MansionInterior.js:608",
-      "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
-    },
-    {
       "id": "mansion-siege-alert-collider-00011",
       "state": "alert",
       "kind": "INTERPENETRATION",
@@ -16926,17 +16915,6 @@
       "kind": "INTERPENETRATION",
       "left": "root:mansion-siege/collider:aabb-1p58-0-102p98-2p07-0p36-115p02",
       "right": "root:mansion-siege/collider:aabb-m2p07-0-114p98-2p07-0p36-115p47",
-      "maxDepthM": 0.04,
-      "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
-      "source": "src/mansion/scenes/MansionInterior.js:608",
-      "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
-    },
-    {
-      "id": "mansion-siege-checkpoint-armed-collider-00010",
-      "state": "checkpoint-armed",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion-siege/collider:aabb-1p93-10p6-63p13-5p97-13p1-63p85",
-      "right": "root:mansion-siege/collider:aabb-5p93-10p6-63p23-6p77-12p65-64p22",
       "maxDepthM": 0.04,
       "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
       "source": "src/mansion/scenes/MansionInterior.js:608",
@@ -34158,17 +34136,6 @@
       "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
     },
     {
-      "id": "mansion-siege-checkpoint-briefed-collider-00010",
-      "state": "checkpoint-briefed",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion-siege/collider:aabb-1p93-10p6-63p13-5p97-13p1-63p85",
-      "right": "root:mansion-siege/collider:aabb-5p93-10p6-63p23-6p77-12p65-64p22",
-      "maxDepthM": 0.04,
-      "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
-      "source": "src/mansion/scenes/MansionInterior.js:608",
-      "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
-    },
-    {
       "id": "mansion-siege-checkpoint-briefed-collider-00011",
       "state": "checkpoint-briefed",
       "kind": "INTERPENETRATION",
@@ -51351,17 +51318,6 @@
       "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
     },
     {
-      "id": "mansion-siege-checkpoint-wake-collider-00010",
-      "state": "checkpoint-wake",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion-siege/collider:aabb-1p93-10p6-63p13-5p97-13p1-63p85",
-      "right": "root:mansion-siege/collider:aabb-5p93-10p6-63p23-6p77-12p65-64p22",
-      "maxDepthM": 0.04,
-      "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
-      "source": "src/mansion/scenes/MansionInterior.js:608",
-      "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
-    },
-    {
       "id": "mansion-siege-checkpoint-wake-collider-00011",
       "state": "checkpoint-wake",
       "kind": "INTERPENETRATION",
@@ -68538,17 +68494,6 @@
       "kind": "INTERPENETRATION",
       "left": "root:mansion-siege/collider:aabb-1p58-0-102p98-2p07-0p36-115p02",
       "right": "root:mansion-siege/collider:aabb-m2p07-0-114p98-2p07-0p36-115p47",
-      "maxDepthM": 0.04,
-      "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
-      "source": "src/mansion/scenes/MansionInterior.js:608",
-      "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
-    },
-    {
-      "id": "mansion-siege-checkpoint-wave-one-collider-00010",
-      "state": "checkpoint-wave-one",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion-siege/collider:aabb-1p93-10p6-63p13-5p97-13p1-63p85",
-      "right": "root:mansion-siege/collider:aabb-5p93-10p6-63p23-6p77-12p65-64p22",
       "maxDepthM": 0.04,
       "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
       "source": "src/mansion/scenes/MansionInterior.js:608",
@@ -85748,17 +85693,6 @@
       "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
     },
     {
-      "id": "mansion-siege-clean-collider-00010",
-      "state": "clean",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion-siege/collider:aabb-1p93-10p6-63p13-5p97-13p1-63p85",
-      "right": "root:mansion-siege/collider:aabb-5p93-10p6-63p23-6p77-12p65-64p22",
-      "maxDepthM": 0.04,
-      "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
-      "source": "src/mansion/scenes/MansionInterior.js:608",
-      "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
-    },
-    {
       "id": "mansion-siege-clean-collider-00011",
       "state": "clean",
       "kind": "INTERPENETRATION",
@@ -102517,17 +102451,6 @@
       "kind": "INTERPENETRATION",
       "left": "root:mansion-siege/collider:aabb-1p58-0-102p98-2p07-0p36-115p02",
       "right": "root:mansion-siege/collider:aabb-m2p07-0-114p98-2p07-0p36-115p47",
-      "maxDepthM": 0.04,
-      "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
-      "source": "src/mansion/scenes/MansionInterior.js:608",
-      "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
-    },
-    {
-      "id": "mansion-siege-damaged-collider-00010",
-      "state": "damaged",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion-siege/collider:aabb-1p93-10p6-63p13-5p97-13p1-63p85",
-      "right": "root:mansion-siege/collider:aabb-5p93-10p6-63p23-6p77-12p65-64p22",
       "maxDepthM": 0.04,
       "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
       "source": "src/mansion/scenes/MansionInterior.js:608",
@@ -119716,17 +119639,6 @@
       "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
     },
     {
-      "id": "mansion-siege-post-battle-collider-00010",
-      "state": "post-battle",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion-siege/collider:aabb-1p93-10p6-63p13-5p97-13p1-63p85",
-      "right": "root:mansion-siege/collider:aabb-5p93-10p6-63p23-6p77-12p65-64p22",
-      "maxDepthM": 0.04,
-      "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
-      "source": "src/mansion/scenes/MansionInterior.js:608",
-      "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
-    },
-    {
       "id": "mansion-siege-post-battle-collider-00011",
       "state": "post-battle",
       "kind": "INTERPENETRATION",
@@ -136854,17 +136766,6 @@
       "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
     },
     {
-      "id": "mansion-siege-repaired-collider-00010",
-      "state": "repaired",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion-siege/collider:aabb-1p93-10p6-63p13-5p97-13p1-63p85",
-      "right": "root:mansion-siege/collider:aabb-5p93-10p6-63p23-6p77-12p65-64p22",
-      "maxDepthM": 0.04,
-      "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
-      "source": "src/mansion/scenes/MansionInterior.js:608",
-      "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
-    },
-    {
       "id": "mansion-siege-repaired-collider-00011",
       "state": "repaired",
       "kind": "INTERPENETRATION",
@@ -153623,17 +153524,6 @@
       "kind": "INTERPENETRATION",
       "left": "root:mansion-siege/collider:aabb-1p58-0-102p98-2p07-0p36-115p02",
       "right": "root:mansion-siege/collider:aabb-m2p07-0-114p98-2p07-0p36-115p47",
-      "maxDepthM": 0.04,
-      "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
-      "source": "src/mansion/scenes/MansionInterior.js:608",
-      "sourceAnchor": "GEOMETRY_GATE_MANSION_INTERIOR_COLLIDER_JOIN"
-    },
-    {
-      "id": "mansion-siege-under-attack-collider-00010",
-      "state": "under-attack",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion-siege/collider:aabb-1p93-10p6-63p13-5p97-13p1-63p85",
-      "right": "root:mansion-siege/collider:aabb-5p93-10p6-63p23-6p77-12p65-64p22",
       "maxDepthM": 0.04,
       "reason": "These exact runtime collision solids close one authored case, jamb, slab, fixture or adjoining wall seam; the exact pair and measured cap do not suppress any neighboring boundary.",
       "source": "src/mansion/scenes/MansionInterior.js:608",

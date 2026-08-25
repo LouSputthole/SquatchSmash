@@ -80,7 +80,7 @@ import {
   CAPTAIN_LOU_SASOLE, DEATHMEGATRON, DEATHMEGATRON_HEIST, ERIC,
   GRATIN, HOG_MAMA, IRISH, IRISH_NO_WAKE, KITTENBOSS, MANSION_BOOTH_MAN,
   MANSION_DOOR_MAN, MANSION_GUARDS, NUMBSKULL, JAMES_BLOND, RIPPINFLOW,
-  RIPPINFLOW_HEIST, SAUCE, SHUBENATOR, SNOW, WILLY,
+  RIPPINFLOW_HEIST, SAUCE, SHUBENATOR, SNOW, SNOW_MAINTENANCE, WILLY,
 } from './wardrobe.js';
 
 /* ====================================================================== *
@@ -1810,11 +1810,29 @@ export const APPEARANCES = Object.freeze([
     model: SNOW,
     from: { wardrobe: 'SNOW' },
     module: 'src/mansion/cast.js',
-    evidence: 'model: withFace(SNOW, FACES.snow),',
+    evidence: 'model: withFace(repairing ? SNOW_MAINTENANCE : SNOW, FACES.snow),',
     /* He was built WITHOUT his photograph until 2026-08-06 — owner playtest,
      * "snow doesnt have his face". `snow.png` had been on disk and in the
      * faces index the whole time; the mansion's own FACES table simply never
      * named it, so he got the authored fallback head. Same for Gratin. */
+  }),
+  row({
+    character: CHARACTER_IDS.SNOW,
+    name: 'Snow',
+    scene: 'mansion_house',
+    where: 'the foyer on the RETURN visit — kneeling over the lifted marble, in a work vest',
+    model: SNOW_MAINTENANCE,
+    from: { wardrobe: 'SNOW_MAINTENANCE' },
+    module: 'src/mansion/cast.js',
+    evidence: 'model: withFace(repairing ? SNOW_MAINTENANCE : SNOW, FACES.snow),',
+    /* Owner playtest: *"Maybe Snow is working on it as a maintenance man --
+     * lets give him a maintenance outfit and a voice line about how long its
+     * going to take to get everything fixed up."* The morning after the siege
+     * he is not mopping, he is rebuilding the room, so the same body wears a
+     * different set of clothes. Two rows for one man in one scene because the
+     * two VISITS dress him differently and the fitting room should be able to
+     * show both — his mission-night row is directly above. */
+    previewNote: 'The return visit only. On the night of PROJECT SILENT SQUATCH he is in the same foyer in his own work clothes, with a mop.',
   }),
   row({
     character: CHARACTER_IDS.RIPPINFLOW,

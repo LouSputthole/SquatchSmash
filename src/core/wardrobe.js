@@ -299,6 +299,30 @@ export const SNOW = Object.freeze({
   belt: 'leather',
 });
 
+/**
+ * SNOW ON THE MAINTENANCE JOB — the morning after the siege.
+ *
+ * Owner playtest, verbatim: *"Maybe Snow is working on it as a maintenance
+ * man -- lets give him a maintenance outfit and a voice line about how long
+ * its going to take to get everything fixed up."*
+ *
+ * It is the same man, so it is the same figure: his height, his build, his
+ * grey hair and his skin are taken straight off `SNOW` rather than retyped,
+ * and only the clothes change. Coverall blue top AND bottom -- one colour
+ * head to foot is the whole reason a coverall reads as a coverall and not as
+ * a shirt somebody tucked in -- a hi-vis work vest over it, and the flat cap
+ * a man wears when he is under something all day.
+ */
+export const SNOW_MAINTENANCE = Object.freeze({
+  ...SNOW,
+  shirt: 0x35506e,
+  trouserColour: 0x35506e,
+  workVest: true,
+  workVestColour: 0xc4922c,
+  hat: 'flatcap',
+  hatColour: 0x2b4058,
+});
+
 /* Ape's figure is canon and is NOT restated here -- `src/bing/family-ape.js`
  * owns it, because the scenes that need him also need his knife, his routes
  * and his signature takes, and splitting the man across two files is how a

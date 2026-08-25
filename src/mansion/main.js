@@ -32,7 +32,7 @@ import {
   FOUNTAIN_POS,
   POOL,
 } from './scenes/MansionGrounds.js';
-import { buildMansionInterior } from './scenes/MansionInterior.js';
+import { CHANDELIER_POS, buildMansionInterior } from './scenes/MansionInterior.js';
 import { buildSilentSquatch } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
 import { shakeScale } from '../core/settings.js';
@@ -73,6 +73,7 @@ import {
   createCampaignSceneRecovery, createCampaignSceneRestartAdapter,
 } from '../core/campaign-scene-skip.js';
 import { createMansionReturnCampaignStory } from '../core/final-arc-story.js';
+import { mountFoyerRepairs } from './repairs.js';
 import { isPreviewMode } from '../core/preview-mode.js';
 import { createSilentSquatchStory } from '../core/silent-squatch-story.js';
 import { createMansionControlPolicy } from './controls.js';
@@ -237,6 +238,41 @@ greySedan.setCampaignEnding(badaBingEnding);
 const colliders = [...grounds.colliders, ...interior.colliders];
 const doors = { ...grounds.doors, ...interior.doors };
 const anchors = { ...grounds.anchors, ...interior.anchors };
+
+/* ================================================================== */
+/* THE MORNING AFTER, THE HOUSE IS STILL A BUILDING SITE                 */
+/*                                                                        */
+/* Owner playtest: *"Repaired mansion is really just the same thing as     */
+/* the original mansion. [...] I want some things to be repaired. Like     */
+/* maybe the centerpiece in the foyer is clearly still half broken and     */
+/* being repaired."*                                                       */
+/*                                                                          */
+/* `./repairs.js` is the whole answer and it only runs on this visit: the   */
+/* chandelier loses its bottom tier to a pallet by the wall, a patch of the */
+/* compass inlay is lifted, and a scaffold stands over half a centre table  */
+/* under a dust sheet. Mounted here, off the finished interior, rather than */
+/* branched inside `buildMansionInterior` -- the SIEGE mounts that builder  */
+/* too, and a visit flag in it is a branch three scenes carry and every     */
+/* geometry allowlist has to be re-anchored around.                         */
+/* ================================================================== */
+const foyerRepairs = mansionVisit === 'return'
+  ? mountFoyerRepairs({
+    scene,
+    foyer: interior.props.foyer,
+    at: { x: 0, y: GROUND_Y, z: CHANDELIER_POS.z },
+  })
+  : null;
+/* A named contributor to the collider total, for the same reason Snow's
+ * cart is one: verify-mansion adds that total up from its contributors and
+ * an anonymous +3 makes the sum unverifiable rather than merely wrong. */
+let repairColliders = 0;
+for (const blocker of foyerRepairs?.blockers ?? []) {
+  colliders.push(blocker);
+  repairColliders += 1;
+}
+/* Where the man doing the work stands, published to the cast the same way
+ * every other post in this house is: through the anchor table. */
+if (foyerRepairs) anchors.foyerRepairSpot = foyerRepairs.workSpot;
 
 /* ================================================================== */
 /* Night lighting rig                                                    */
@@ -3199,6 +3235,10 @@ window.mansion = {
    * as a SUM of named contributors -- an anonymous +1 makes that check
    * unverifiable rather than merely wrong. */
   castColliders,
+  /** The return visit's work site. 0 on the mission night, when it is absent. */
+  repairColliders,
+  /** How many chandelier parts came down for the repair. 0 on the mission night. */
+  foyerTierDown: foyerRepairs?.tierDown ?? 0,
   rooms: anchors,
   /** Every enterable room: its rect, its floor height and a stand-on anchor.
    * tools/verify-mansion.mjs walks this list, so a room added to the interior

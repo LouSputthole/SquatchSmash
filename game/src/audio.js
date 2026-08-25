@@ -1,4 +1,14 @@
-// Procedural sound effects via WebAudio — no audio assets needed.
+// Procedural sound effects via WebAudio, with the campaign's recordings
+// preferred when they can be reached.
+//
+// Every cue keeps its oscillator. The recordings live at the repo root, so a
+// page served from `game/` finds them and `dist/squatchsmash.html` — which is
+// deliberately one self-contained file with no server behind it — does not,
+// and falls back to synthesis without noticing. That is the whole contract:
+// this module still needs no audio assets, it just sounds better with them.
+//
+// ponytail: one flat fetch per cue at init, no preload budget or priority
+// queue. Twenty small mp3s; add one if the first frame ever waits on them.
 
 let ctx = null;
 let master = null;
@@ -17,6 +27,45 @@ export function init() {
   noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = noiseBuf.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  loadSamples();
+}
+
+// ---------- Recorded samples ----------
+// Promoted from assets/audio/sound-queue.json — see tools/legacy-sfx.
+const SAMPLE_CUES = [
+  'smash.structure', 'structure.crack', 'swing.whiff.outdoor', 'fist.on.rock',
+  'ground.stomp', 'camper.squish', 'vehicle.explosion', 'footstep.forest',
+  'camper.scream', 'sasquatch.roar', 'bee.swarm', 'tranq.fire', 'tranq.hit',
+  'ui.time.bonus', 'ui.powerup', 'ui.goal.complete', 'ui.final.frenzy',
+  'sting.run.end', 'boss.hit', 'boss.down',
+];
+const samples = new Map();
+
+/** Fetch and decode every cue. A miss is deleted, so `playSample` says false. */
+function loadSamples() {
+  for (const name of SAMPLE_CUES) {
+    if (samples.has(name)) continue;
+    samples.set(name, null);
+    fetch(`../assets/sfx/${name}.mp3`)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((buf) => ctx.decodeAudioData(buf))
+      .then((decoded) => { samples.set(name, decoded); })
+      .catch(() => { samples.delete(name); });
+  }
+}
+
+/** True when a decoded take played, false when the caller should synthesise. */
+function playSample(name, { volume = 1, rate = 1 } = {}) {
+  const buf = samples.get(name);
+  if (!buf || !ctx) return false;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.playbackRate.value = rate;
+  const g = ctx.createGain();
+  g.gain.value = volume;
+  src.connect(g).connect(master);
+  src.start();
+  return true;
 }
 
 export function setMuted(m) {
@@ -65,6 +114,7 @@ function tone(t0, { type = 'sine', from = 90, to = 40, dur = 0.2, peak = 0.4 } =
 // Heavy ground-shaking smash impact.
 export function smash(big = false) {
   if (!ctx) return;
+  if (playSample('smash.structure', { volume: big ? 0.95 : 0.7, rate: big ? 0.9 : 1.05 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: big ? 120 : 95, to: 30, dur: 0.28, peak: big ? 0.55 : 0.4 });
   noise(t, { peak: big ? 0.4 : 0.28, decay: 0.22, freq: 500, type: 'lowpass' });
@@ -74,6 +124,7 @@ export function smash(big = false) {
 // Wood/structure cracking (non-final hit).
 export function crack() {
   if (!ctx) return;
+  if (playSample('structure.crack', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.3, attack: 0.002, decay: 0.09, freq: 1800, type: 'bandpass', q: 0.8 });
   tone(t, { type: 'triangle', from: 220, to: 70, dur: 0.08, peak: 0.15 });
@@ -82,6 +133,7 @@ export function crack() {
 // Arms swishing through empty air.
 export function whiff() {
   if (!ctx) return;
+  if (playSample('swing.whiff.outdoor', { volume: 0.5 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.12, attack: 0.02, decay: 0.12, freq: 1200, type: 'bandpass', q: 2 });
 }
@@ -89,6 +141,7 @@ export function whiff() {
 // Fist meets rock: metallic clang, rock wins.
 export function clang() {
   if (!ctx) return;
+  if (playSample('fist.on.rock', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'square', from: 320, to: 240, dur: 0.16, peak: 0.14 });
   tone(t, { type: 'triangle', from: 620, to: 580, dur: 0.1, peak: 0.08 });
@@ -98,6 +151,7 @@ export function clang() {
 // Soft heavy footfall.
 export function step() {
   if (!ctx) return;
+  if (playSample('footstep.forest', { volume: 0.5 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 70, to: 38, dur: 0.09, peak: 0.09 });
 }
@@ -105,6 +159,7 @@ export function step() {
 // Panicked camper: a cartoonish "waAAH" glide.
 export function scream() {
   if (!ctx) return;
+  if (playSample('camper.scream', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   const osc = ctx.createOscillator();
   osc.type = 'triangle';
@@ -128,6 +183,7 @@ export function scream() {
 // Golden cooler time bonus.
 export function chime() {
   if (!ctx) return;
+  if (playSample('ui.time.bonus', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 880, to: 880, dur: 0.22, peak: 0.16 });
   tone(t + 0.1, { type: 'sine', from: 1318, to: 1318, dur: 0.3, peak: 0.14 });
@@ -136,6 +192,7 @@ export function chime() {
 // Camper meets fist: wet thwack.
 export function squish() {
   if (!ctx) return;
+  if (playSample('camper.squish', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 170, to: 45, dur: 0.13, peak: 0.32 });
   noise(t, { peak: 0.26, attack: 0.003, decay: 0.16, freq: 380, type: 'lowpass' });
@@ -145,6 +202,7 @@ export function squish() {
 // Vehicle explosion.
 export function boom() {
   if (!ctx) return;
+  if (playSample('vehicle.explosion', { volume: 0.9 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 75, to: 22, dur: 0.5, peak: 0.6 });
   noise(t, { peak: 0.5, attack: 0.005, decay: 0.5, freq: 320, type: 'lowpass' });
@@ -246,6 +304,7 @@ export function stopMusic() {
 // Ground stomp: deeper and meaner than a regular smash.
 export function stomp() {
   if (!ctx) return;
+  if (playSample('ground.stomp', { volume: 0.9 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 65, to: 18, dur: 0.42, peak: 0.6 });
   noise(t, { peak: 0.4, attack: 0.004, decay: 0.4, freq: 260, type: 'lowpass' });
@@ -255,6 +314,7 @@ export function stomp() {
 // Angry bee swarm.
 export function buzz() {
   if (!ctx) return;
+  if (playSample('bee.swarm', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   const osc = ctx.createOscillator();
   osc.type = 'sawtooth';
@@ -276,11 +336,13 @@ export function buzz() {
 // Tranq dart: pfft on fire, thwip on hit.
 export function dart() {
   if (!ctx) return;
+  if (playSample('tranq.fire', { volume: 0.7 })) return;
   noise(ctx.currentTime, { peak: 0.12, attack: 0.002, decay: 0.09, freq: 2200, type: 'bandpass', q: 1.5 });
 }
 
 export function dartHit() {
   if (!ctx) return;
+  if (playSample('tranq.hit', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'triangle', from: 900, to: 160, dur: 0.14, peak: 0.16 });
   noise(t, { peak: 0.08, attack: 0.002, decay: 0.06, freq: 1400, type: 'bandpass', q: 2 });
@@ -289,6 +351,7 @@ export function dartHit() {
 // Power-up collect: quick ascending sparkle.
 export function powerup() {
   if (!ctx) return;
+  if (playSample('ui.powerup', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   [523, 659, 784, 1046].forEach((f, i) => {
     tone(t + i * 0.05, { type: 'sine', from: f, to: f, dur: 0.14, peak: 0.1 });
@@ -298,6 +361,7 @@ export function powerup() {
 // Final frenzy alarm.
 export function frenzyJingle() {
   if (!ctx) return;
+  if (playSample('ui.final.frenzy', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   [440, 554, 659, 554, 440, 659].forEach((f, i) => {
     tone(t + i * 0.09, { type: 'square', from: f, to: f, dur: 0.1, peak: 0.07 });
@@ -307,6 +371,7 @@ export function frenzyJingle() {
 // Sasquatch roar: layered detuned saws swept through a lowpass, plus breath noise.
 export function roar() {
   if (!ctx) return;
+  if (playSample('sasquatch.roar', { volume: 0.9 })) return;
   const t = ctx.currentTime;
   for (const det of [0, 4, -6]) {
     const osc = ctx.createOscillator();
@@ -331,6 +396,7 @@ export function roar() {
 // Goal completed: bright three-note flourish.
 export function goalDing() {
   if (!ctx) return;
+  if (playSample('ui.goal.complete', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   [784, 988, 1319].forEach((f, i) => {
     tone(t + i * 0.07, { type: 'triangle', from: f, to: f, dur: 0.22, peak: 0.13 });
@@ -349,6 +415,7 @@ export function siren() {
 // Boss takes a hit but stays up: dull armored thud.
 export function bossHit() {
   if (!ctx) return;
+  if (playSample('boss.hit', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'square', from: 220, to: 70, dur: 0.16, peak: 0.16 });
   noise(t, { peak: 0.14, attack: 0.003, decay: 0.12, freq: 900, type: 'bandpass', q: 1.2 });
@@ -357,6 +424,7 @@ export function bossHit() {
 // Boss goes down: descending fanfare over a boom.
 export function bossDown() {
   if (!ctx) return;
+  if (playSample('boss.down', { volume: 0.85 })) return;
   const t = ctx.currentTime;
   [880, 740, 587, 440].forEach((f, i) => {
     tone(t + i * 0.13, { type: 'sawtooth', from: f, to: f * 0.98, dur: 0.3, peak: 0.13 });
@@ -368,6 +436,7 @@ export function bossDown() {
 // Short victory-ish sting for the end screen.
 export function sting() {
   if (!ctx) return;
+  if (playSample('sting.run.end', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   [220, 277, 330, 440].forEach((f, i) => {
     tone(t + i * 0.12, { type: 'triangle', from: f, to: f, dur: 0.3, peak: 0.18 });

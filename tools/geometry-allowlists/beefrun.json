@@ -10,7 +10,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-starboard-bottom-longeron#0",
       "maxDepthM": 0.032,
       "reason": "The closed cargo-door leaf is authored one centimetre inside its jamb; the approach rotation conservatively expands the separate world AABBs at that exact fitted edge.",
-      "source": "src/beefrun/aircraft.js:980",
+      "source": "src/beefrun/aircraft.js:1015",
       "sourceAnchor": "a closed leaf, not a slab sharing the opening wall"
     },
     {
@@ -21,7 +21,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=cockpit#0/name=instrument-panel#0",
       "maxDepthM": 0.035,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -32,7 +32,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-port#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -43,7 +43,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-starboard-forward#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -54,7 +54,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-starboard-lower-2#0",
       "maxDepthM": 0.048,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -65,7 +65,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-port-lower#0",
       "maxDepthM": 0.048,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -76,7 +76,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-starboard-lower-2#0",
       "maxDepthM": 0.112,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -87,7 +87,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-starboard-forward#0",
       "maxDepthM": 0.074,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -98,7 +98,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-starboard-bottom-longeron#0",
       "maxDepthM": 0.041,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -109,7 +109,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.069,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -120,7 +120,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-starboard-lower-2#0",
       "maxDepthM": 0.088,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -197,7 +197,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.051,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -208,7 +208,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.052,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -219,7 +219,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.052,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -230,7 +230,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.052,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -241,7 +241,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.102,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -252,7 +252,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.102,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -263,7 +263,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.102,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -274,7 +274,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.147,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -285,7 +285,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.147,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -296,7 +296,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.167,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -307,7 +307,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.147,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -318,7 +318,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.147,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -329,7 +329,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#1",
       "maxDepthM": 0.163,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -340,7 +340,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -351,7 +351,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -362,7 +362,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#1",
       "maxDepthM": 0.163,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -373,7 +373,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-port-lower#0",
       "maxDepthM": 0.038,
       "reason": "The left rudder-pedal mount is a floor-standing cockpit fixture fitted beside the lower port frame; the approach-only pad contact is the rotated world-AABB envelope of that same mounted control.",
-      "source": "src/beefrun/aircraft.js:1655",
+      "source": "src/beefrun/aircraft.js:1708",
       "sourceAnchor": "Rudder pedals, under the flying pilot"
     },
     {
@@ -384,7 +384,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.061,
       "reason": "The left rudder-pedal mount is a floor-standing cockpit fixture fitted beside the lower port frame; the approach-only pad contact is the rotated world-AABB envelope of that same mounted control.",
-      "source": "src/beefrun/aircraft.js:1655",
+      "source": "src/beefrun/aircraft.js:1708",
       "sourceAnchor": "Rudder pedals, under the flying pilot"
     },
     {
@@ -527,7 +527,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-starboard-forward#0",
       "maxDepthM": 0.074,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -538,7 +538,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-starboard-forward#0",
       "maxDepthM": 0.074,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -549,7 +549,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-port-lower#0",
       "maxDepthM": 0.094,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -560,7 +560,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-port-lower#0",
       "maxDepthM": 0.093,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -571,7 +571,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.074,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -582,7 +582,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-port-lower#0",
       "maxDepthM": 0.057,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -593,7 +593,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.074,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -604,7 +604,7 @@
       "right": "root:beef-run-approach/name=brushrunner#0/name=fuselage-side-shell#0/name=fuselage-side-port-lower#0",
       "maxDepthM": 0.045,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -802,7 +802,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-port#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -813,7 +813,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-starboard-forward#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -824,7 +824,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.047,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -835,7 +835,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.047,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -846,7 +846,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.052,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -857,7 +857,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.102,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -868,7 +868,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.061,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -879,7 +879,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.061,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -890,7 +890,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -901,7 +901,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -912,7 +912,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.161,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -923,7 +923,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -934,7 +934,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -945,7 +945,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#1",
       "maxDepthM": 0.081,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -956,7 +956,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -967,7 +967,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -978,7 +978,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#1",
       "maxDepthM": 0.081,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -989,7 +989,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.056,
       "reason": "The left rudder-pedal mount is a floor-standing cockpit fixture fitted beside the lower port frame; the approach-only pad contact is the rotated world-AABB envelope of that same mounted control.",
-      "source": "src/beefrun/aircraft.js:1655",
+      "source": "src/beefrun/aircraft.js:1708",
       "sourceAnchor": "Rudder pedals, under the flying pilot"
     },
     {
@@ -1132,7 +1132,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.072,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -1143,7 +1143,7 @@
       "right": "root:beef-run-departure/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.072,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -1209,7 +1209,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-port#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -1220,7 +1220,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-starboard-forward#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -1231,7 +1231,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.047,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1242,7 +1242,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.047,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1253,7 +1253,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.052,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1264,7 +1264,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.102,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1275,7 +1275,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.061,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1286,7 +1286,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.061,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1297,7 +1297,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1308,7 +1308,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1319,7 +1319,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.161,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1330,7 +1330,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1341,7 +1341,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1352,7 +1352,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#1",
       "maxDepthM": 0.081,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1363,7 +1363,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1374,7 +1374,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1385,7 +1385,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#1",
       "maxDepthM": 0.081,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1396,7 +1396,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.056,
       "reason": "The left rudder-pedal mount is a floor-standing cockpit fixture fitted beside the lower port frame; the approach-only pad contact is the rotated world-AABB envelope of that same mounted control.",
-      "source": "src/beefrun/aircraft.js:1655",
+      "source": "src/beefrun/aircraft.js:1708",
       "sourceAnchor": "Rudder pedals, under the flying pilot"
     },
     {
@@ -1539,7 +1539,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.072,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -1550,7 +1550,7 @@
       "right": "root:beef-run-landing/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.072,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -1616,7 +1616,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-port#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -1627,7 +1627,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-starboard-forward#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -1638,7 +1638,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.047,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1649,7 +1649,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.047,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1660,7 +1660,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.052,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1671,7 +1671,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.102,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1682,7 +1682,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.061,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1693,7 +1693,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.061,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1704,7 +1704,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1715,7 +1715,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1726,7 +1726,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.161,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1737,7 +1737,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1748,7 +1748,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1759,7 +1759,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#1",
       "maxDepthM": 0.081,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1770,7 +1770,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1781,7 +1781,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1792,7 +1792,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#1",
       "maxDepthM": 0.081,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -1803,7 +1803,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.056,
       "reason": "The left rudder-pedal mount is a floor-standing cockpit fixture fitted beside the lower port frame; the approach-only pad contact is the rotated world-AABB envelope of that same mounted control.",
-      "source": "src/beefrun/aircraft.js:1655",
+      "source": "src/beefrun/aircraft.js:1708",
       "sourceAnchor": "Rudder pedals, under the flying pilot"
     },
     {
@@ -1946,7 +1946,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.072,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -1957,7 +1957,7 @@
       "right": "root:beef-run-preflight/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.072,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -1968,7 +1968,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-port#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -1979,7 +1979,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-starboard-forward#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -1990,7 +1990,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.047,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2001,7 +2001,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.047,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2012,7 +2012,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.052,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2023,7 +2023,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.102,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2034,7 +2034,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.061,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2045,7 +2045,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.061,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2056,7 +2056,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2067,7 +2067,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2078,7 +2078,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.161,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2089,7 +2089,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2100,7 +2100,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2111,7 +2111,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#1",
       "maxDepthM": 0.081,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2122,7 +2122,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2133,7 +2133,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2144,7 +2144,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#1",
       "maxDepthM": 0.081,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2155,7 +2155,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.056,
       "reason": "The left rudder-pedal mount is a floor-standing cockpit fixture fitted beside the lower port frame; the approach-only pad contact is the rotated world-AABB envelope of that same mounted control.",
-      "source": "src/beefrun/aircraft.js:1655",
+      "source": "src/beefrun/aircraft.js:1708",
       "sourceAnchor": "Rudder pedals, under the flying pilot"
     },
     {
@@ -2298,7 +2298,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.072,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -2309,7 +2309,7 @@
       "right": "root:beef-run-return/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.072,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -2375,7 +2375,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-port#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -2386,7 +2386,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-upper-starboard-forward#0",
       "maxDepthM": 0.102,
       "reason": "This exact panel, coaming, map, support, or hull-stringer contact is a fitted cockpit installation inside the narrow cabin frame; the additional approach-only contacts are conservative rotated world-AABB enclosure.",
-      "source": "src/beefrun/aircraft.js:1494",
+      "source": "src/beefrun/aircraft.js:1529",
       "sourceAnchor": "Panel and coaming both sit lower than they used to."
     },
     {
@@ -2397,7 +2397,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.047,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2408,7 +2408,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.047,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2419,7 +2419,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.052,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2430,7 +2430,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.102,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2441,7 +2441,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.061,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2452,7 +2452,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.061,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2463,7 +2463,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2474,7 +2474,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2485,7 +2485,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-nose#0/type=Mesh#0",
       "maxDepthM": 0.161,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2496,7 +2496,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2507,7 +2507,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.111,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2518,7 +2518,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#1",
       "maxDepthM": 0.081,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2529,7 +2529,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-port#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2540,7 +2540,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#2",
       "maxDepthM": 0.046,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2551,7 +2551,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=landing-gear-starboard#0/type=Mesh#1",
       "maxDepthM": 0.081,
       "reason": "These exact fixed-undercarriage members deliberately terminate through the named floor, belly, keel, or side-frame member so the landing gear has a visible structural load path rather than floating beside the aircraft.",
-      "source": "src/beefrun/aircraft.js:946",
+      "source": "src/beefrun/aircraft.js:981",
       "sourceAnchor": "Two members per side"
     },
     {
@@ -2562,7 +2562,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.056,
       "reason": "The left rudder-pedal mount is a floor-standing cockpit fixture fitted beside the lower port frame; the approach-only pad contact is the rotated world-AABB envelope of that same mounted control.",
-      "source": "src/beefrun/aircraft.js:1655",
+      "source": "src/beefrun/aircraft.js:1708",
       "sourceAnchor": "Rudder pedals, under the flying pilot"
     },
     {
@@ -2705,7 +2705,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.072,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -2716,7 +2716,7 @@
       "right": "root:beef-run-takeoff/name=brushrunner#0/name=fuselage-shell#0/name=fuselage-corner-lower-port#0",
       "maxDepthM": 0.072,
       "reason": "The named seat leg or upholstered seat surface is fitted against the narrow cabin frame; repeated leg contacts are its visible floor-to-chair load path and approach-only side contacts are conservative rotated world AABBs.",
-      "source": "src/beefrun/aircraft.js:1680",
+      "source": "src/beefrun/aircraft.js:1733",
       "sourceAnchor": "Seats."
     },
     {
@@ -3274,43 +3274,43 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#0/type=Mesh#4",
+          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#0/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#1/type=Mesh#4",
+          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#1/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#2/type=Mesh#4",
+          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#2/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#3/type=Mesh#4",
+          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#3/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#4/type=Mesh#4",
+          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#4/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#5/type=Mesh#4",
+          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#5/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#6/type=Mesh#4",
+          "sourceId": "root:beef-run-approach/name=el-hueso#0/name=chicken#6/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
@@ -4385,43 +4385,43 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#0/type=Mesh#4",
+          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#0/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#1/type=Mesh#4",
+          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#1/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#2/type=Mesh#4",
+          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#2/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#3/type=Mesh#4",
+          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#3/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#4/type=Mesh#4",
+          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#4/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#5/type=Mesh#4",
+          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#5/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#6/type=Mesh#4",
+          "sourceId": "root:beef-run-departure/name=el-hueso#0/name=chicken#6/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
@@ -5466,43 +5466,43 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#0/type=Mesh#4",
+          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#0/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#1/type=Mesh#4",
+          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#1/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#2/type=Mesh#4",
+          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#2/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#3/type=Mesh#4",
+          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#3/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#4/type=Mesh#4",
+          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#4/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#5/type=Mesh#4",
+          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#5/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#6/type=Mesh#4",
+          "sourceId": "root:beef-run-landing/name=el-hueso#0/name=chicken#6/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
@@ -6481,43 +6481,43 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#0/type=Mesh#4",
+          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#0/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#1/type=Mesh#4",
+          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#1/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#2/type=Mesh#4",
+          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#2/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#3/type=Mesh#4",
+          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#3/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#4/type=Mesh#4",
+          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#4/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#5/type=Mesh#4",
+          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#5/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#6/type=Mesh#4",
+          "sourceId": "root:beef-run-preflight/name=el-hueso#0/name=chicken#6/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
@@ -7574,43 +7574,43 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#0/type=Mesh#4",
+          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#0/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#1/type=Mesh#4",
+          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#1/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#2/type=Mesh#4",
+          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#2/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#3/type=Mesh#4",
+          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#3/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#4/type=Mesh#4",
+          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#4/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#5/type=Mesh#4",
+          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#5/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#6/type=Mesh#4",
+          "sourceId": "root:beef-run-return/name=el-hueso#0/name=chicken#6/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
@@ -8589,43 +8589,43 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#0/type=Mesh#4",
+          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#0/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#1/type=Mesh#4",
+          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#1/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#2/type=Mesh#4",
+          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#2/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#3/type=Mesh#4",
+          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#3/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#4/type=Mesh#4",
+          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#4/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#5/type=Mesh#4",
+          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#5/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#6/type=Mesh#4",
+          "sourceId": "root:beef-run-takeoff/name=el-hueso#0/name=chicken#6/name=chicken-leg#0",
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1

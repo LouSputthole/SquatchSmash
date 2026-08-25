@@ -88,9 +88,16 @@ until the day it does not.
 `manifest.json`.** That is the whole job; no code changes.
 
 2026-08-19: the owner reassigned the generic office frames to supplied team
-photos. The five files below are wired in `manifest.json` now; four of them
-are placeholder stand-ins (copies of the nearest existing art) until the
-owner's real drops overwrite them at the same filenames.
+photos. The five files below were wired in `manifest.json`; four of them were
+placeholder stand-ins -- literally byte-for-byte copies of mansion art, so the
+same picture hung in two scenes at once.
+
+**2026-08-25: those four are real pictures now.** The owner's Silver
+Sasquatches library landed (see the section below) and `bing.office.the_boys`,
+`bing.office.first_truck`, `bing.office.old_place` and `bing.office.nephews`
+carry branded pieces from it. The slots below are kept as a record of what
+each frame was originally for; if the owner's own photographs turn up later,
+point the row at the new file and the frame resizes to it.
 
 | Slot | The picture | Filename (owner will overwrite) | Frame | Aspect |
 |---|---|---|---|---|
@@ -162,7 +169,24 @@ moves or resizes when the picture arrives.
 | `cartel-palace.security.assault` | A TEAM ASSAULT — four men through the double doors, the cigar and the machine gun, the one tripping over, "I PITY THE FOOLS!" | `a-team-assault.webp` ✅ landed | 1.60 m wide | Intelligence room, west partition, z -16.3 |
 | `cartel-palace.dining.el-jefe` | EL JEFE - A TEAM — white suit, gold medallion, the throne with the red-jewelled A, four men with pistols, red curtains, money bags | `a-team-el-jefe.webp` ✅ landed | 2.20 m wide | Dining room, rear wall, x -6.6 |
 | `cartel-palace.ops.champions` | A TEAM CHAMPIONS — the couch, the cash, the blackboard reading KILLS: 3 / WINS: 0 / LOSSES: 47 / LAST PLACE, and the five trophies for it | `a-team-champions.webp` ✅ landed | 2.00 m wide | Operations room, west wall, z -20.0 |
-| `cartel-palace.ops.strat` | A TEAM STRAT — OPERATION: DUMB LUCK on the war-room table, GUARDS R DUM, WATER HAZARD LOL, IF PLAN A FAILS: BLAME SOMEONE ELSE, VICTORY CERVEZA | `a-team-strat.*` — STILL OWED | 2.00 m wide | Operations room, west wall, z -28.0 |
+| `cartel-palace.ops.strat` | A TEAM STRAT — OPERATION: DUMB LUCK on the war-room table, GUARDS R DUM, WATER HAZARD LOL, IF PLAN A FAILS: BLAME SOMEONE ELSE, VICTORY CERVEZA | `a-team-strat.webp` ✅ landed | 2.00 m wide | Operations room, west wall, z -28.0 |
+
+
+### The gallery corridor's four, delivered 2026-08-25
+
+Portrait (1122 x 1402, a 0.8) rather than the 4:3 the six above are, so they
+hang on the four `wallArt` canvases in the portrait gallery — the one stretch
+of the route every player walks the whole length of — rather than on frames
+authored for landscape. The frames were re-authored to 1.0 x 1.25 to match the
+delivered shape, because a frame that resizes itself at load time is a frame no
+static check ever measured.
+
+| Slot | The drawing | File | Frame | Where it hangs |
+|---|---|---|---|---|
+| `cartel-palace.gallery.respect-us` | THE A TEAM — RESPECT US. The four of them and the dog, desert, the black van | `a-team-respect-us.webp` | 1.00 x 1.25 | Gallery right wall, z -20.2 — the first canvas he passes |
+| `cartel-palace.gallery.master-plan` | A TEAM MASTER PLAN — the wall map, PLAN: 1. ??? 2. PROFIT 3. PARTY 4. STONKS, the one asleep in his own drool | `a-team-master-plan.webp` | 1.00 x 1.25 | Gallery left wall, z -23.0 |
+| `cartel-palace.gallery.stealth-mission` | STEALTH MISSION — LOUD IS QUIET, the sledgehammer, the flashbang, GRADE: F- | `a-team-stealth-mission.webp` | 1.00 x 1.25 | Gallery left wall, z -30.2 |
+| `cartel-palace.gallery.best-team` | BEST TEAM — the 4th-place podium, A TEAM 12 points, LOL LAST AGAIN | `a-team-best-team.webp` | 1.00 x 1.25 | Gallery right wall, z -31.4 — last thing before the dining doors |
 
 ```json
 { "slot": "cartel-palace.ops.champions",
@@ -186,3 +210,79 @@ The operations room is the long room west of the portrait gallery's own west
 wall. It is sealed today — the owner asked separately for it to be turned
 into an operations gallery, and cutting its doorway and dressing the rest of
 it is that pass, not this one. Its whole east wall is left bare for it.
+
+
+## The Silver Sasquatches library — landed 2026-08-25
+
+Twenty owner-supplied pieces in `assets/art/silver-sasquatches/`: thirteen
+branded Silver Sasquatches works and seven landscapes.
+
+**They arrived as PNGs and ship as WebP.** 2.4-3.2 MB each, 51.9 MB the lot --
+against a repo whose existing wall art is WebP at 200-300 kB a piece. Fifty-two
+megabytes in front of a browser game's first load is not a rounding error, it
+is the load. Re-encoded at 1280 px on the long edge, quality 0.86, through
+Chromium's own WebP encoder (this box has no `cwebp`, no PIL and no sharp):
+**51.9 MB -> 4.84 MB**, every file between 166 and 349 kB, which is exactly the
+band the A-Team pictures already occupy. Aspect ratios are untouched, so every
+frame hangs as it was drawn. The original PNGs remain on
+`codex/scene-certification-foundations` at `faac0fd9` if a master is ever
+wanted.
+
+**What they were hung on: the repeated pictures.** The complaint was
+placeholder art, and the manifest had no empty slots at all -- what it had was
+the same file on wall after wall. `logo-crest.png` alone hung on EIGHT slots,
+six of them inside one house: the foyer, the suite bar, the guest room, the
+gate, the LAN room and the shrine all showed the identical flat badge. Another
+dozen mansion walls carried a tournament photograph that also hung in the flat
+or the apartment.
+
+`logo-crest.png` is on three slots now, and all three are places a crest
+belongs -- the flat's round crest, the Bing office's plaque and the mansion
+gate. Everything else on that list got a real picture:
+
+| Where | What went up |
+|---|---|
+| `mansion.foyer.crest` | Silver Sasquatches Emblem |
+| `mansion.suite.crest` | THE PATRIARCH |
+| `mansion.lan.chairs` | FAMILY ENTERPRISE |
+| `mansion.office.shield` | THE ESTATE |
+| `mansion.conference.crest` | INNER CIRCLE |
+| `mansion.gallery.pride` | OMERTA |
+| `mansion.trophy.crest` | BLOOD OATH |
+| `mansion.lan.banner` | HOUSE RULES |
+| `mansion.vault.mark` | Estate Architectural Study |
+| `mansion.winter.shield` | Mountain Valley Sunset |
+| `mansion.ballroom.backdrop` | Desert Canyon Sunset |
+| `mansion.bay.shield` | Lakeside Dock |
+| `mansion.lounge.banner` | Mountain Lake Sunrise |
+| `mansion.basement.shield` | Forest Waterfall |
+| `mansion.theatre.banner` | Coastal Lighthouse |
+| `bing.office.the_boys` | Formal Family Portrait |
+| `bing.office.first_truck` | THE POKER ROOM |
+| `bing.office.old_place` | THE LOUNGE |
+| `bing.office.nephews` | Mansion Arrival |
+| `luxury.bath.monochrome` | Tropical Beach Sunset |
+
+All twenty are hung; none of the library is sitting unused.
+
+**Twenty-six slots are OFF LIMITS, and the list is worth knowing before the
+next drop.** A file is pinned when a test or a capture tool asserts it by name:
+the owner's own ten recovered photographs
+(`tests/mansion-interactions.test.mjs`), the dynasty set the art-capture tool
+shoots (`tools/capture-mansion-dynasty-art.mjs`), and the slots the
+art-provenance contract fingerprints against the screenshots they were
+captured with. Re-pointing one of those does not improve a wall, it invalidates
+evidence -- and it is easy to do by accident, because nothing about the
+manifest row says so. To list them:
+
+```
+grep -rn "\['mansion\." tests/*.mjs tools/*.mjs | grep -o "\['[a-z.]*', '[^']*'\]"
+```
+
+**Five walls kept `logo-crest.png` on purpose.** A slot named `.crest` on a bed
+wall IS the house crest, and a house repeating its own badge is design rather
+than a stand-in -- `tests/mansion-interactions.test.mjs` says exactly that
+about the guest room and the shrine, by name, and it is right. The cellar's
+kept `casabonita.webp` for a different reason: the art-provenance contract
+fingerprints that slot against the file its screenshots were captured with, so
+changing it invalidates the evidence rather than improving the wall.
