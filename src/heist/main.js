@@ -3,7 +3,9 @@ import { AudioEngine } from '../core/audio.js';
 import { CombatActor } from '../core/combat/actors.js';
 import { FACTIONS, FactionMatrix } from '../core/combat/factions.js';
 import { AabbCombatSpace } from '../core/combat/spatial.js';
+import { MuzzleFlashPool } from '../core/combat/muzzle-flash.js';
 import { SuppressionModel } from '../core/combat/suppression.js';
+import { TracerPool } from '../core/combat/tracers.js';
 import { BloodImpactSystem, BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import {
   CHARACTER_IDS, MISSION_IDS, SCENE_IDS, TIME_EVENT_IDS,
@@ -25,7 +27,9 @@ import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
  * the game, each with a real recording standing in until the wanted cue
  * lands. THE TAKE was playing its own carbine recording for both of its
  * weapons — see `fireWeapon`. */
-import { WEAPON_IDS, playWeaponCue, weaponCueNames } from '../core/weapons/index.js';
+import {
+  WEAPON_CATALOG, WEAPON_IDS, playWeaponCue, weaponCueNames,
+} from '../core/weapons/index.js';
 import {
   installPreviewNotice, isPreviewMode, previewCheckpointForLocation,
   previewDifficultyForLocation,
@@ -52,7 +56,9 @@ import { DialogueArbiter, heistSpeechMix } from './dialogue.js';
 import { HeistHud } from './hud.js';
 import { bankBoltGoal, intersectsDrivingObstacle } from './geometry.js';
 import { STAGING_POINT, buildHeistLevel } from './level.js';
-import { HeistCombatAdapter } from './combat.js';
+import {
+  HEIST_HOSTILE_BURST, HEIST_HOSTILE_WEAPON_ID, HeistCombatAdapter,
+} from './combat.js';
 import { createLobbyHostages, HostageDirector } from './hostages.js';
 import { HEIST_ITEM_CATALOG, HEIST_SLOT_ORDER, HeistLoadout } from './loadout.js';
 import { createHeistBags, LootLedger } from './loot.js';
@@ -739,6 +745,53 @@ const raycaster = new THREE.Raycaster();
 const pursuitTarget = new THREE.Vector3();
 const muzzle = new THREE.PointLight(0xffc35c, 0, 4, 2);
 camera.add(muzzle);
+
+/* ------------------------------------------------------------------ *
+ * THE FIREFIGHT, AS SOMETHING YOU CAN SEE
+ *
+ * Owner, playtest 2026-08-26, on the street and the garage: the police
+ * *"die standing up and never really appear to be shooting back."*
+ *
+ * They were shooting back. `combat.updateHostile` had been running the whole
+ * shared pipeline — sight, aim, ammunition, blockers, real hits — since the
+ * adapter landed, and rounds were reaching the player's actor. NONE OF IT WAS
+ * PRESENTED. An officer's round produced one non-positional-ish gunshot cue
+ * and a dust puff wherever it stopped; there was no flash at his muzzle and
+ * nothing in the air between him and the player. The player's own rounds were
+ * no better: a point light on the camera and an impact at the far end, with
+ * three hundred metres a second of nothing in between.
+ *
+ * Both pools are the shared ones. `TracerPool` is the Enola raid's, by way of
+ * `src/core/combat/tracers.js`; `MuzzleFlashPool` is the Cartel Palace's,
+ * lifted into `src/core/combat/muzzle-flash.js` for this. Neither is new code
+ * and neither is heist-shaped.
+ *
+ * SIZES, MEASURED. `PERFORMANCE_BUDGET` caps the street at six live officers
+ * and the garage at five. A three-round burst from each of six, at the
+ * pistol's 5.5 rps, is 18 rounds inside 0.55 s; a tracer at the catalog's
+ * 520 m/s crossing the 48 m engagement range lives 0.092 s, so at most about
+ * four of those eighteen are in the air together. 48 slots is that with the
+ * player's own carbine (12.5 rps, one tracer in three) emptying a thirty-round
+ * magazine into the same street on top of it, and room to spare. Six flash
+ * slots is one per live officer, which is the most that can fire in a frame.
+ *
+ * The minimum streak is the argument the raid's own header makes: 6 m is right
+ * for a fight read at a kilometre and absurd on a four-lane street, where it
+ * would put a rod through the far pavement on every shot. 1.6 m is a little
+ * under the length of the men firing them, which reads as a round at the 12 to
+ * 48 m this scene actually fights at.
+ */
+const tracers = new TracerPool(scene, 48, { minLength: 1.6 });
+const policeMuzzleFlashes = new MuzzleFlashPool(scene, {
+  capacity: 6,
+  name: 'heist-police-muzzle-flash',
+  /* A 9 mm, not a rifle: the palace's 7/11 peak over a lit estate is too much
+   * light for a sidearm on a street that already has streetlights and an
+   * emergency wash on it. Two thirds of it. */
+  peak: 4.6,
+  heavyPeak: 7,
+  distance: 5,
+});
 const impactPool = Array.from({ length: Math.min(32, PERFORMANCE_BUDGET.maxImpactParticles) }, () => {
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.045, 5, 4),
@@ -3397,6 +3450,28 @@ function fireWeapon() {
     damage: shot.damage,
     penetration: shot.penetration,
   });
+  /* THE PLAYER'S ROUND, IN THE AIR.
+   *
+   * The camera had a flash on it and the far end had a dust puff, and between
+   * the two there was nothing at all — so a burst down the street looked
+   * identical whether it was going anywhere near a man or a metre over his
+   * head. The catalog decides which rounds are visible (`every: 1` on the
+   * 9 mm, one in three on the carbine, the way a belt is loaded), and the
+   * streak starts at the VIEW MODEL's muzzle rather than at the camera, so it
+   * leaves the barrel the player can see instead of the bridge of his nose. */
+  if (shot.tracer) {
+    const card = WEAPON_CATALOG[active.weaponId]?.tracer;
+    const to = impact.hit
+      ? impact.hit.point.clone()
+      : raycaster.ray.origin.clone().addScaledVector(raycaster.ray.direction, 120);
+    tracers.fire({
+      from: viewModel.muzzleWorld?.() ?? raycaster.ray.origin.clone(),
+      to,
+      speed: card?.speed ?? 620,
+      colour: card?.colour ?? 0xfff0a0,
+      width: (card?.width ?? 0.012) * 2.4,
+    });
+  }
   const located = impact.located;
   const reachedActor = Boolean(located && located.reason !== 'unregistered' && located.actor);
   objective.noteShot({ hitActor: reachedActor });
@@ -3434,6 +3509,15 @@ function fireWeapon() {
     }
     refreshInteractions();
     return;
+  }
+  if (actor.faction === FACTIONS.POLICE) {
+    /* A round that does not kill still moves a man: it costs him his aim for
+     * the shared stagger window, wounds the limb it went through, and drives
+     * the flinch `updatePoliceFigures` puts on his rig. Head 0.74 s, chest
+     * 0.58 s, limb 0.40 s — `CombatImpairments`' own numbers, the same ones
+     * the Mansion Siege's attackers are knocked about by. */
+    const struck = policeEntryFor(located.root);
+    if (struck) combat.noteHostileHit(struck, located);
   }
   if (actor.faction === FACTIONS.POLICE && result.fatal) {
     const downedRoot = located.root;
@@ -3706,10 +3790,36 @@ function updatePoliceMovement(dt) {
 const POLICE_COMBAT = Object.freeze({
   damage: 11,
   range: 48,
-  cadence: Object.freeze([2.6, 4.6]),
+  /*
+   * THE PAUSE BETWEEN BURSTS, not the gap between rounds.
+   *
+   * This used to be [2.6, 4.6] and it meant one round, then two and a half to
+   * four and a half seconds of nothing, per officer, forever. Six of them
+   * produced 1.7 lone pops a second scattered across a street, which is a
+   * sound design, not a firefight — and it is half of what the owner saw when
+   * he wrote that they *"never really appear to be shooting back."*
+   *
+   * `BurstController` in the adapter now spends the same ammunition in twos
+   * and threes at the pistol's own 5.5 rps. The rounds per second are held
+   * where they were, deliberately — the arithmetic and the four-seed
+   * measurement are written out over `HEIST_HOSTILE_BURST` in `./combat.js`,
+   * and they put the pause at a mean of 8.55 s. [7.2, 9.9] is that mean with
+   * the same ±1.35 s spread the old numbers carried, and the draw is made ONCE
+   * PER OFFICER at his first frame rather than per shot, so six men on the
+   * same street cycle at six different rates and never fall into step.
+   */
+  cadence: Object.freeze([7.2, 9.9]),
+  burst: HEIST_HOSTILE_BURST,
   accuracyMoving: 0.18,
   accuracyStill: 0.34,
 });
+
+/**
+ * The catalog card for the gun every officer carries. Read once: the tracer's
+ * colour, width, speed and `every` are the same 9 mm numbers the armory hands
+ * the player when he picks the same pistol up.
+ */
+const POLICE_TRACER = HeistCombatAdapter.hostileTracer();
 const policeAimPoint = new THREE.Vector3();
 
 /**
@@ -3742,6 +3852,16 @@ function updatePoliceFigures(dt) {
   for (const entry of policeFigures) {
     if (!entry?.figure || entry.root?.userData.phaseId !== activePhase) continue;
     entry.figure.update(dt, { fear: entry.actor?.incapacitated ? 0 : 0.35 });
+    /* THE HIT, MADE VISIBLE.
+     *
+     * Owner, same note: a round that landed on an officer did nothing at all
+     * to him on screen. The shared `CombatImpairments` he now carries knows
+     * exactly how long he is off his weapon and how big the knock should read
+     * (`reaction`); this is the one line that puts it on the rig. A dead man
+     * does not flinch — his pose is the fall, and `HeistFigure.flinch` would
+     * be adding an aiming offset to a corpse. */
+    const impairments = combat.hostileImpairments(entry.actor?.id);
+    entry.figure.flinch(entry.actor?.incapacitated ? 0 : (impairments?.reaction ?? 0));
   }
 }
 
@@ -3833,12 +3953,52 @@ function updatePoliceCombat(dt) {
       damage: POLICE_COMBAT.damage,
       range: POLICE_COMBAT.range,
       cadence: POLICE_COMBAT.cadence,
+      burst: POLICE_COMBAT.burst,
     });
+    /* HIS GUN, WHEN IT IS NOT FIRING. The shared pipeline reports the
+     * magazine coming out and going in; a man who runs dry in front of you and
+     * audibly reloads is a man you can push. Same cue slots and same volumes
+     * the siege's attackers use — `playWeaponCue`, not a heist-local sound. */
+    for (const event of update.events ?? []) {
+      const position = entry.root.position;
+      if (event.type === 'reload-start') {
+        playWeaponCue(audio, HEIST_HOSTILE_WEAPON_ID, 'reload.out', { position, volume: 0.4 });
+      } else if (event.type === 'loaded') {
+        playWeaponCue(audio, HEIST_HOSTILE_WEAPON_ID, 'reload.in', { position, volume: 0.35 });
+      } else if (event.type === 'empty') {
+        playWeaponCue(audio, HEIST_HOSTILE_WEAPON_ID, 'empty', { position, volume: 0.42 });
+      }
+    }
     const shot = update.shot;
     if (!shot?.fired) continue;
-    audio.play('heist.police.gunshot', {
-      position: shot.origin, volume: 0.72, ref: 1.6, maxDist: 55,
+    /* THE REPORT IS THE CATALOG'S. `heist.police.gunshot` is a real recording
+     * and it is not going anywhere — `src/core/weapons/audio.js` uses it as
+     * the SAW's stand-in — but playing it directly meant the men shooting at
+     * the player were the only guns in the game not coming out of the shared
+     * bank. They carry a `pistol9`; they now sound like one, at the shared
+     * gun-layer falloff, and they will pick up the recorded 9 mm the day it
+     * lands with no code change here. */
+    playWeaponCue(audio, shot.weaponId ?? HEIST_HOSTILE_WEAPON_ID, 'fire', {
+      position: shot.origin, volume: 0.72,
     });
+    /* The muzzle, and the round in the air. Both start at `shot.origin`, which
+     * is the bore CombatWeaponAim sampled off the modelled gun — so the flash
+     * is on the barrel and the streak leaves it, rather than both erupting
+     * from the middle of the officer's chest. */
+    policeMuzzleFlashes.flash(shot.origin);
+    if (shot.tracer) {
+      tracers.fire({
+        from: shot.origin,
+        to: shot.end,
+        speed: POLICE_TRACER.speed,
+        colour: POLICE_TRACER.colour,
+        /* The catalog width is authored for a first-person view model at arm's
+         * length. A 10 mm streak forty metres down a street is invisible, and
+         * the siege found the same thing and multiplied by 2.4; this is that
+         * number, on the same argument. */
+        width: POLICE_TRACER.width * 2.4,
+      });
+    }
     /* The round lands where the shared truth says it landed — on the blocker
      * that owns it or at the declared miss point — not at a random offset
      * conjured around the player. */
@@ -4005,6 +4165,10 @@ checkpoints.register('police', {
     policeFigures = [];
     combat.resetHostiles();
     police.reset();
+    /* Nothing from the old attempt is left in the air or lit. Same lifecycle
+     * every other shared presentation Module in the game has at a restore. */
+    tracers.clear();
+    policeMuzzleFlashes.reset();
   },
   restore: (snapshot) => {
     police.restore(snapshot.director);
@@ -4917,6 +5081,12 @@ function animate() {
   suppression.update(dt);
   combat.update(dt);
   updateEffectPools(dt);
+  /* Rounds in the air and flashes decaying. Both run outside the
+   * `started && !simulationPaused` gate on purpose: a tracer already launched
+   * has to finish its flight and a flash has to go out, or pausing mid-burst
+   * leaves six point lights burning over a frozen street. */
+  tracers.update(dt);
+  policeMuzzleFlashes.update(dt);
   hud.setSuppression(suppression.value);
   muzzle.intensity = Math.max(0, muzzle.intensity - dt * 70);
   if (dialogue.current && now >= dialogueEndAt) dialogue.finish();

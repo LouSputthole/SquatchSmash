@@ -84,7 +84,7 @@ import { CombatWeaponAim } from '../../core/combat/aim.js';
 import { CombatActor } from '../../core/combat/actors.js';
 import { DEFAULT_FACTION_MATRIX, FACTIONS } from '../../core/combat/factions.js';
 import { CombatFireControl } from '../../core/combat/fire-control.js';
-import { CombatImpactResolver } from '../../core/combat/impact.js';
+import { COMBAT_HIT_ZONE_DAMAGE, CombatImpactResolver } from '../../core/combat/impact.js';
 import { CombatImpairments } from '../../core/combat/impairments.js';
 import { CombatPerception } from '../../core/combat/perception.js';
 import { CombatProjectilePattern } from '../../core/combat/projectile-pattern.js';
@@ -204,16 +204,13 @@ export function groundHeightAt(x, z) {
 /* ================================================================== */
 /* WHERE A ROUND LANDS ON A MAN                                         */
 /*                                                                       */
-/* The multiplier is applied to the damage handed to CombatImpactResolver, */
-/* which is still the only thing that decides whether the hit lands. A     */
-/* headshot is 2.6 rounds' worth of one round; it is not a special case in  */
-/* the damage model, because there is only one damage model.               */
+/* These numbers were written here and were right here, so THE TAKE spent  */
+/* its whole street fight with every zone worth the same and nothing        */
+/* tagged. The table is `COMBAT_HIT_ZONE_DAMAGE` in                         */
+/* src/core/combat/impact.js now, value for value; this name stays because  */
+/* the siege's own tests and `main.js` ask for it.                          */
 /* ================================================================== */
-export const HIT_ZONES = Object.freeze({
-  head: 2.6,
-  chest: 1.0,
-  limb: 0.58,
-});
+export const HIT_ZONES = COMBAT_HIT_ZONE_DAMAGE;
 
 /* ================================================================== */
 /* THE CARTEL, DRESSED                                                  */

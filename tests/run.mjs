@@ -100,6 +100,7 @@ const TEST_MODULES = [
   './heist-garage-fight.test.mjs',
   './heist-garage-exterior.test.mjs',
   './heist-police-suppression.test.mjs',
+  './heist-firefight-presentation.test.mjs',
   './heist-street-fight.test.mjs',
   './heist-systems.test.mjs',
   './heist-route.test.mjs',

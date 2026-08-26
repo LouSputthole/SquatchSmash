@@ -17,7 +17,10 @@ export {
 export { CombatFireControl, DEFAULT_COMBAT_FIRE_CONTROL } from './fire-control.js';
 export { resolveCombatFeedback } from './feedback.js';
 export { CombatStatusHud, combatVitals } from './hud.js';
-export { CombatImpactResolver } from './impact.js';
+export {
+  COMBAT_HIT_ZONE_DAMAGE, CombatImpactResolver, resolveHitZone,
+} from './impact.js';
+export { MuzzleFlashPool } from './muzzle-flash.js';
 export { CombatImpairments, resolveCombatReaction } from './impairments.js';
 export { CombatPerception, DEFAULT_COMBAT_PERCEPTION } from './perception.js';
 export { CombatProjectilePattern } from './projectile-pattern.js';

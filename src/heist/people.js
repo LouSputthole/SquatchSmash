@@ -201,7 +201,53 @@ export class HeistFigure {
     this._skirt = this.parts.group.getObjectByName('gown.skirt') ?? null;
     this._skirtY = this._skirt ? this._skirt.position.y : 0;
     this.root.userData.figure = this;
+    /**
+     * How much of the visible knock is currently ON the rig.
+     *
+     * `flinch()` writes an OFFSET, and nothing else in this class re-authors
+     * the aiming arms every frame, so the offset has to be tracked or it
+     * accumulates. See `flinch()`.
+     */
+    this._flinch = 0;
+    this._tagHitZones();
     this.stand();
+  }
+
+  /**
+   * Tag every part group with the zone it belongs to, so a round that lands
+   * on the head is worth a head's damage and a round through a shin is not.
+   *
+   * Owner, playtest 2026-08-26, on the bank job's police: they *"die standing
+   * up and never really appear to be shooting back."* Half of that is what a
+   * hit does not tell you. Nothing in THE TAKE was tagged, so
+   * `CombatImpactResolver` answered `chest` for every contact on every body in
+   * the mission — a headshot, a leg hit and a round through a forearm were the
+   * same number, and `lethalHeadshots: true` (which `resolvePlayerShot` has
+   * always passed) could never fire because no zone was ever `head`.
+   *
+   * The tag goes on the PART groups, not on each mesh: the shared resolver
+   * walks up from whatever the raycast returned, so tagging six groups covers
+   * every mesh on the body and survives the figure being redressed. `foreL`
+   * hangs off `armL` and `shinL` off `legL`, so a forearm reads `arm` and a
+   * shin reads `leg` without either being named here. Same six lines as
+   * `tagHitZones` in `src/mansion/siege/attackers.js`, which is where the idea
+   * and the multipliers come from.
+   */
+  _tagHitZones() {
+    const p = this.parts;
+    p.head.userData.hitZone = 'head';
+    p.head.userData.hitPart = 'head';
+    p.body.userData.hitZone = 'chest';
+    p.body.userData.hitPart = 'chest';
+    for (const limb of [p.armL, p.armR]) {
+      limb.userData.hitZone = 'limb';
+      limb.userData.hitPart = 'arm';
+    }
+    for (const limb of [p.legL, p.legR]) {
+      limb.userData.hitZone = 'limb';
+      limb.userData.hitPart = 'leg';
+    }
+    return this;
   }
 
   get group() { return this.root; }
@@ -235,6 +281,11 @@ export class HeistFigure {
     this.tilt.rotation.set(0, 0, 0);
     this.tilt.position.set(0, 0, 0);
     if (this._skirt) this._skirt.position.y = this._skirtY;
+    /* Every authored pose rewrites the joints the knock was riding on, so the
+     * offset that was applied is gone with them. Forgetting this is how a
+     * flinch survives a man being knocked down and leaves a corpse with one
+     * arm 0.24 rad out of the pose it was measured in. */
+    this._flinch = 0;
   }
 
   stand() {
@@ -671,6 +722,51 @@ export class HeistFigure {
     return this;
   }
 
+  /**
+   * The visible knock. A man who is hit is off his weapon for a moment.
+   *
+   * Owner, playtest 2026-08-26: the bank job's police *"never really appear to
+   * be shooting back"* — and the other half of that is that they never appear
+   * to be shot AT either. Rounds landed, health came off an actor nobody can
+   * see, and the officer's rig did not move a millimetre. There was no way to
+   * tell a hit from a miss except by counting how many more it took.
+   *
+   * `CombatImpairments.reaction` is the shared curve that drives this — full
+   * size while the stagger has more than 0.42 s left, then a sub-linear
+   * release — and the offsets below are the Mansion Siege's, from
+   * `attackers.js`'s pose callback, because the two scenes are posing the same
+   * `HeistFigure` rig with the same shared aim module on top of it. Measured
+   * on a built officer at reaction 1: the weapon arm ends 0.2600 rad off its
+   * authored `aiming()` rotation and the support arm 0.3400, both inside the
+   * 0.37 rad total-deviation cap `tests/mansion-siege-people` holds a braced
+   * long-gun arm to -- and this scene's officers carry a pistol, with no
+   * contact-tested shoulder quaternion underneath for the knock to compound
+   * with.
+   *
+   * THIS WRITES AN OFFSET, and nothing re-authors the aiming pose per frame,
+   * so what is currently applied is tracked and only the DIFFERENCE is added.
+   * That makes the call idempotent — `flinch(x)` twice is `flinch(x)` — and
+   * makes releasing to 0 land back exactly on the authored pose.
+   *
+   * @param {number} amount 0..1, normally `CombatImpairments.reaction`
+   */
+  flinch(amount) {
+    const next = Math.max(0, Math.min(1, Number(amount) || 0));
+    const delta = next - this._flinch;
+    if (Math.abs(delta) < 1e-6) return this;
+    this._flinch = next;
+    const p = this.parts;
+    p.armR.rotation.x += delta * 0.24;
+    p.armR.rotation.z += delta * 0.1;
+    p.armL.rotation.x += delta * 0.34;
+    /* The torso goes with the arms, or the knock reads as a shrug. Small:
+     * the breath and the tremble in `update()` already own `body.rotation.z`
+     * and a big lean here fights them. */
+    p.body.rotation.x += delta * 0.09;
+    p.head.rotation.x += delta * 0.12;
+    return this;
+  }
+
   /** Fallen. Not the same shape as prone — nobody chose this one. */
   fallen({ roll = 0.5 } = {}) {
     this._clear();
@@ -803,6 +899,10 @@ export class HeistFigure {
   /** Walk the current pose blend forward. Returns true while one is running. */
   _updatePoseBlend(dt) {
     if (!this._poseFrom) return false;
+    /* The blend rewrites every pose node absolutely, which takes the knock's
+     * offset off the rig with them. Say so, or `flinch()` releases a knock
+     * that is no longer there and drives the arms the other way. */
+    this._flinch = 0;
     this._poseElapsed += dt;
     const raw = Math.min(1, this._poseElapsed / this._poseDuration);
     // Smoothstep: a body leaves and arrives at rest, it does not start at
