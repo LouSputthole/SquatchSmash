@@ -817,9 +817,40 @@ function renderCombatHud() {
   combatEl.querySelector('.reload').textContent = snapshot.reloading ? 'RELOADING' : snapshot.empty ? 'EMPTY · R' : '';
 }
 
+/**
+ * How far from a thing you can be and still have it caption your screen.
+ *
+ * Owner, 2026-08-26: *"after going to the shooting range the score Pts are
+ * stuck on my hub in bottom left. Should disappear after I walk away"* and
+ * *"Radio station always showing in the bottom left maybe only show when in
+ * close range of radio like inside the cabin."*
+ *
+ * Both readouts latched on a STATE -- `snapshot.complete` never goes back to
+ * false once a run has ended, and the radio stays on while he walks a ridge
+ * -- so both followed him around the property for the rest of the chapter.
+ * A readout belongs to a place. 14 m covers the firing line and its bench
+ * without reaching the treeline; 9 m is the cabin's own main room from the
+ * sideboard the set stands on, so the OSD is up indoors and gone outside.
+ */
+const RANGE_HUD_RANGE_M = 14;
+const RADIO_HUD_RANGE_M = 9;
+
+function nearEnough(point, metres) {
+  if (!point || !player?.position) return false;
+  return Math.hypot(
+    player.position.x - point.x,
+    player.position.z - point.z,
+  ) <= metres;
+}
+
 function renderRangeHud(snapshot = cabin?.shootingRange?.snapshot?.()) {
   if (!rangeEl || !snapshot) return;
-  const visible = snapshot.active || snapshot.complete;
+  /* A run in progress always shows -- he could be shooting from the back of
+   * the firing line. A FINISHED run only shows while he is still standing
+   * there to read it. */
+  const anchor = cabin?.interactionTargets?.range?.position ?? null;
+  const visible = snapshot.active
+    || (snapshot.complete && (!anchor || nearEnough(anchor, RANGE_HUD_RANGE_M)));
   rangeEl.classList.toggle('hidden', !visible);
   rangeEl.querySelector('.range-score').textContent = snapshot.active
     ? `${snapshot.currentScore} PTS · ${snapshot.shotsRemaining} SHOTS · ${snapshot.timeRemaining.toFixed(1)}s`
@@ -1774,6 +1805,9 @@ function frame(now) {
       }
       renderCombatHud();
       renderRangeHud();
+      /* `radioPos` is spread onto the cabin's public surface by world.js --
+       * the sideboard the set actually stands on, not the room's centre. */
+      hud.setRadioAudible(nearEnough(cabin?.radioPos, RADIO_HUD_RANGE_M));
     }
     applyTimeOfDay();
   }

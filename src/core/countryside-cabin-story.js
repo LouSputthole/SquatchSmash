@@ -929,17 +929,43 @@ export class CountrysideCabinStory {
     const dungeonPrimary = this.dungeonPrimary();
     const explored = new Set(this.explored().map(({ id }) => id));
     const out = [
+      /* THE FIRST THING THAT HAPPENS HERE IS A BED. It was not on the list at
+       * all, so a player who got out of the car at 05:20 was shown a call he
+       * could not answer and nothing he could. */
+      {
+        id: TIME_EVENT_IDS.CABIN_LAY_LOW_REST,
+        label: 'Get some sleep',
+        done: this.arrivalRestComplete(),
+        required: true,
+        pending: this.openingCallComplete(),
+        retire: true,
+      },
       {
         id: TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL,
-        label: 'Answer Lou’s call at the cabin',
+        label: 'Answer Lou’s call',
         done: this.openingCallComplete(),
         required: true,
+        /* Owner: *"hide the objective that is answer lous call and display it
+         * only as he calls."* He arrives at five in the morning and sleeps;
+         * Lou rings at 09:20. Listing the call before it happens names a
+         * thing the player cannot do and then leaves it sitting there
+         * unticked, reading as something he has failed to do. */
+        pending: !this.arrivalRestComplete() && !this.openingCallComplete(),
+        retire: true,
       },
+      /* The walks retire one at a time. Four ticked lines that cannot be
+       * un-ticked are four lines of nothing, and they push the thing he is
+       * actually meant to do next off the bottom of a short panel. */
+      /* The walks are not offered until Lou has rung, because `visit()`
+       * refuses them until then -- a list that asks for something the code
+       * will refuse is the same fault as Lou's own line, four times over. */
       ...COUNTRYSIDE_CABIN_LANDMARKS.map((entry) => ({
         id: entry.id,
         label: entry.label,
         done: explored.has(entry.id),
         required: !dungeonPrimary,
+        pending: !this.openingCallComplete(),
+        retire: true,
       })),
     ];
 
@@ -950,6 +976,10 @@ export class CountrysideCabinStory {
         label: 'Call the number Margo wrote down',
         done: this.margoCallComplete(),
         required: true,
+        /* `completeMargoCall` returns `explore_first` until all four corners
+         * are walked, so until then this is a row he cannot act on. */
+        pending: !this.propertyWalked(),
+        retire: true,
       });
       if (this.margoCallComplete() || this.booskiSasoleCallComplete()) {
         out.push({
@@ -957,6 +987,7 @@ export class CountrysideCabinStory {
           label: 'Answer Booskibro about Captain Sasole',
           done: this.booskiSasoleCallComplete(),
           required: true,
+          retire: true,
         });
       }
       if (this.booskiSasoleCallComplete()) {
@@ -1116,14 +1147,20 @@ export class CountrysideCabinStory {
       [SCENE_IDS.BADA_BING_TWO]: 'Drive back to the Bing',
       [SCENE_IDS.SILVER_CASE]: 'Take the car to Lou’s next job',
     };
-    out.push({
-      id: `depart.${door.destination ?? door.id}`,
-      label: door.kind === 'go'
-        ? DEPARTURE_LABELS[door.destination] ?? 'Take the car to Lou’s next job'
-        : 'Finish the cabin chapter',
-      done: false,
-      required: true,
-    });
+    /* AND IT SAYS NOTHING WHEN IT IS SHUT.
+     *
+     * Owner: *"Remove the finish the Cabin chapter from objectives what does
+     * that even mean."* He is right -- it was the panel describing the panel.
+     * The car is either a thing he can get into or it is not part of the
+     * list, and every other line here already says what to do next. */
+    if (door.kind === 'go') {
+      out.push({
+        id: `depart.${door.destination}`,
+        label: DEPARTURE_LABELS[door.destination] ?? 'Take the car',
+        done: false,
+        required: true,
+      });
+    }
     return out;
   }
 }

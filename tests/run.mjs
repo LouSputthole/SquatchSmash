@@ -44,6 +44,7 @@ const TEST_MODULES = [
   './heist-campaign.test.mjs',
   './bank-heist-story.test.mjs',
   './countryside-cabin-story.test.mjs',
+  './objective-panel-concise.test.mjs',
   './countryside-cabin-field.test.mjs',
   './countryside-cabin-world.test.mjs',
   './countryside-cabin-basement.test.mjs',

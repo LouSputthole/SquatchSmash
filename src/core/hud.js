@@ -256,14 +256,37 @@ export class Hud {
     this.handItem.classList.remove('hidden');
   }
 
+  /**
+   * EARSHOT, WHICH THE READOUT DID NOT HAVE.
+   *
+   * Owner, 2026-08-26: *"Radio station always showing in the bottom left
+   * maybe only show when in close range of radio like inside the cabin."*
+   * The OSD tracked whether the radio was ON, and the radio stays on while
+   * the player walks a ridge two hundred metres away. A set that is playing
+   * to an empty room does not get to caption his screen.
+   *
+   * Kept as a separate latch rather than folded into `setRadio` because the
+   * two facts are independent: the Radio owns what is playing, the scene owns
+   * whether he can hear it, and either can change without the other.
+   */
+  setRadioAudible(audible) {
+    const next = audible !== false;
+    if (next === this._radioAudible) return;
+    this._radioAudible = next;
+    this.radioOsd.classList.toggle('hidden', !next || !this._radioState);
+  }
+
   setRadio(state) {
+    this._radioState = state ?? null;
     if (!state) {
       this.radioOsd.classList.add('hidden');
       return;
     }
     this.radioName.textContent = state.station;
     this.radioTrack.textContent = state.track;
-    this.radioOsd.classList.remove('hidden');
+    /* Default true, so a scene that never calls `setRadioAudible` behaves
+     * exactly as it did before this existed. */
+    this.radioOsd.classList.toggle('hidden', this._radioAudible === false);
   }
 
   /**
