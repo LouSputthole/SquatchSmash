@@ -1013,14 +1013,22 @@ function debugApproachInteraction(name) {
     bounds.min.y + height * 0.42,
   ];
 
+  /* Only sample from somewhere the player could actually stand. Without this
+   * the ring happily reports a target reachable from inside the geometry that
+   * occludes it -- see PHASE_PLAYER_BOUNDS. */
+  const legal = PHASE_PLAYER_BOUNDS[activePhase];
+  const standable = (x, z) => !legal
+    || (x >= legal[0] && x <= legal[1] && z >= legal[2] && z <= legal[3]);
+  let sampled = 0;
+
   for (const radius of [1.35, 1.7, 2.05, 2.35]) {
     for (let i = 0; i < 48; i++) {
       const angle = (i / 48) * Math.PI * 2;
-      player.position.set(
-        center.x + Math.cos(angle) * radius,
-        1.66,
-        center.z + Math.sin(angle) * radius,
-      );
+      const px = center.x + Math.cos(angle) * radius;
+      const pz = center.z + Math.sin(angle) * radius;
+      if (!standable(px, pz)) continue;
+      sampled += 1;
+      player.position.set(px, 1.66, pz);
       player.velocity.set(0, 0, 0);
       player.pitch = 0;
       player.update(1 / 60);
@@ -1047,8 +1055,9 @@ function debugApproachInteraction(name) {
   }
   return {
     ok: false,
-    reason: 'no_clear_interaction_ray',
+    reason: sampled ? 'no_clear_interaction_ray' : 'no_standable_viewpoint',
     name,
+    sampled,
     current: interaction.current?.name ?? null,
   };
 }
@@ -3576,6 +3585,39 @@ const POLICE_COMBAT = Object.freeze({
 });
 const policeAimPoint = new THREE.Vector3();
 
+/**
+ * Walk every police rig's pose blend, dead ones included.
+ *
+ * Owner, playtest 2026-08-26: *"when they die, they don't fall down. So they
+ * just kind of keep standing up."*
+ *
+ * The death pose was never missing. `setState('down')` captures the standing
+ * pose, applies `fallen()`, captures the endpoint, and then REWINDS the rig
+ * and hands the walk-across to `_updatePoseBlend` -- which only ever runs
+ * from `HeistFigure.update()`. Nothing in this scene called that on a police
+ * figure: the only per-frame figure ticks were `updateLobbyFigures`, which
+ * returns immediately unless the phase is `bank`, and `updateCrew`. So a
+ * killed officer ended the frame flagged `fallen` in the data with his rig
+ * still in the exact `aiming()` pose it was rewound to. Dead in the model,
+ * standing on the screen.
+ *
+ * It survived tooling because both debug hooks bypass the blend --
+ * `debugNeutralizePolice` calls `figure.fallen()` directly and
+ * `debugProbePoliceRecycle` passes `{ blend: false }` -- so both snap
+ * straight to the pose and both looked correct.
+ *
+ * The siege has had this right for a while: its update loop keeps ticking a
+ * figure inside the `incapacitated` branch before it continues. Same shape
+ * here, and the fear term goes to zero for the fallen, because a dead man
+ * does not breathe.
+ */
+function updatePoliceFigures(dt) {
+  for (const entry of policeFigures) {
+    if (!entry?.figure || entry.root?.userData.phaseId !== activePhase) continue;
+    entry.figure.update(dt, { fear: entry.actor?.incapacitated ? 0 : 0.35 });
+  }
+}
+
 function updatePoliceCombat(dt) {
   if (!['street', 'garage'].includes(activePhase) || machine.state === 'FAILED') return;
   policeAimPoint.set(player.position.x, 1.2, player.position.z);
@@ -4620,16 +4662,27 @@ function updateDriving(dt) {
   }
 }
 
+/**
+ * The legal standing box for each phase, as [minX, maxX, minZ, maxZ].
+ *
+ * Lifted out of `constrainPlayerToPhase` because `debugApproachInteraction`
+ * needs the same numbers. It used to sample a ring around a target with no
+ * check that the sampled viewpoint was anywhere a player could actually be,
+ * which is how it certified the bank exit as reachable from four centimetres
+ * inside a marble slab.
+ */
+const PHASE_PLAYER_BOUNDS = Object.freeze({
+  safehouse: [-8.7, 8.7, -6.7, 6.7],
+  van: [-1.45, 1.45, -2.65, 2.65],
+  // The z floor reaches into the vault corridor, which is where the cash is.
+  bank: [-10.6, 10.6, -12.9, 10.4],
+  street: [-8.8, 8.8, -35.2, 35.2],
+  garage: [-11.6, 11.6, -14.6, 14.6],
+  driving: [14, 26, -659, -645],
+});
+
 function constrainPlayerToPhase() {
-  const bounds = {
-    safehouse: [-8.7, 8.7, -6.7, 6.7],
-    van: [-1.45, 1.45, -2.65, 2.65],
-    // The z floor reaches into the vault corridor, which is where the cash is.
-    bank: [-10.6, 10.6, -12.9, 10.4],
-    street: [-8.8, 8.8, -35.2, 35.2],
-    garage: [-11.6, 11.6, -14.6, 14.6],
-    driving: [14, 26, -659, -645],
-  }[activePhase];
+  const bounds = PHASE_PLAYER_BOUNDS[activePhase];
   if (!bounds) return;
   player.position.x = Math.max(bounds[0], Math.min(bounds[1], player.position.x));
   player.position.z = Math.max(bounds[2], Math.min(bounds[3], player.position.z));
@@ -4682,6 +4735,7 @@ function animate() {
        * has got to this frame, not where he left. */
       updatePoliceMovement(dt);
       updatePoliceCombat(dt);
+      updatePoliceFigures(dt);
       if (camera.fov !== 72) { camera.fov = 72; camera.updateProjectionMatrix(); }
     }
     updateCrew(crew, dt);

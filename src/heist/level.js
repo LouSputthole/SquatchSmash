@@ -1162,7 +1162,44 @@ function buildBank() {
   ownGeometry(doors, 'heist.phase-bank.shell', { structural: true, fixedSupportAnchor: true });
   doors.position.set(0, 0, 10.6);
   box(doors, [22, 6.4, 0.4], [0, 3.2, 0.3], MAT.marbleDark);
-  const exit = box(doors, [3.2, 3.8, 0.12], [0, 1.9, 0.2], MAT.glass, 'bank-exit');
+  const exitPane = box(doors, [3.2, 3.8, 0.12], [0, 1.9, 0.2], MAT.glass, 'bank-exit');
+  /* THE WAY OUT, and why it is a proxy rather than the glass.
+   *
+   * Owner, playtest 2026-08-26: *"after you have the cash pile, there's no way
+   * to get outside. You stand by the door, you can't really leave."*
+   *
+   * The state machine was never the problem. The entrance wall on the line
+   * above is a solid 22 x 6.4 x 0.4 m slab with no doorway cut in it, running
+   * world z 10.70-11.10, and the glass pane sits at z 10.74-10.86 -- entirely
+   * INSIDE that slab, four centimetres behind its lobby face. The whole phase
+   * group is registered as an interaction occluder, and InteractionSystem's
+   * hit loop BREAKS on the first hit that owns no descriptor (see the loop in
+   * src/core/interaction.js) rather than skipping past it, so the marble takes
+   * the ray every time and the pane four centimetres further along is never
+   * examined. Driven headlessly over the shipped geometry, `bank-exit` became
+   * the crosshair target in 0 of 1127 lobby viewpoints, and 0 of 420 samples
+   * at the closest position the player clamp allows.
+   *
+   * So the descriptor moves onto an invisible volume standing proud of the
+   * slab on the lobby side, which is what this module's own header prescribes
+   * and what `cash-staging-volume` two hundred lines below already does.
+   * Invisible is the correct flag on both counts: three.js still raycasts a
+   * mesh with `visible = false`, so the crosshair finds it, while
+   * `hiddenOrIgnored` in src/core/combat/aim-proxy.js walks the parents for
+   * exactly that flag, so it will never stop a bullet.
+   *
+   * It is thin because it has to fit the gap exactly. The player clamp for
+   * this phase stops him at z 10.40 and the slab face is at z 10.70, so the
+   * volume lives at 10.45-10.66: proud of the marble, and never containing
+   * the camera. A deeper box would be easier to hit and useless, because a
+   * box is invisible to a ray that starts inside it -- every triangle faces
+   * away -- which this very file warns about a couple of hundred lines up. */
+  const exit = box(doors, [3.4, 2.3, 0.21], [0, 1.45, -0.045], MAT.invisible,
+    'bank-exit-volume');
+  exit.visible = false;
+  exit.castShadow = false;
+  exit.receiveShadow = false;
+  ownGeometry(exit, 'heist.bank.exit-volume', { overlap: false, checkSupport: false });
   box(doors, [0.16, 3.9, 0.2], [-1.7, 1.95, 0.16], MAT.brass);
   box(doors, [0.16, 3.9, 0.2], [1.7, 1.95, 0.16], MAT.brass);
   for (const x of [-5.4, 5.4]) {
@@ -1648,6 +1685,7 @@ function buildBank() {
       manager,
       vault,
       exit,
+      exitPane,
       staging: stagingVolume,
     },
     staging,

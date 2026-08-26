@@ -939,7 +939,23 @@ try {
   check('two by hand and the crew bring the rest, and all eight are on the floor',
     stagedAll?.staged === 8 && stagedAll.duffles === 8 && stagedAll.vaultBagsLeft === 0,
     JSON.stringify(stagedAll));
-  await use('bank-exit');
+  /* THE WAY OUT, proved through the crosshair rather than through the handler.
+   *
+   * This line used to be a bare `use('bank-exit')`, which looks the descriptor
+   * up by name and calls its onUse directly -- it never casts a ray, so it
+   * passed happily on a door the player could not aim at. That is exactly how
+   * the mission shipped hard-blocked after the cash: the glass pane sat four
+   * centimetres inside the solid entrance slab and never once won the
+   * interaction ray. Acquire it the way a player does, then press the key. */
+  const exitApproach = await page.evaluate(
+    () => window.__heistDebug.approachInteraction('bank-exit-volume'),
+  );
+  check('the way out of the bank can actually be aimed at from the lobby floor',
+    exitApproach.ok === true, JSON.stringify(exitApproach));
+  if (!exitApproach.ok) throw new Error(`bank exit approach: ${JSON.stringify(exitApproach)}`);
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => window.__heistDebug.snapshot().phase === 'street',
+    null, { timeout: 60000 });
 
   state = await snapshot();
   const policeBeforeFailure = state.policeTotal;
