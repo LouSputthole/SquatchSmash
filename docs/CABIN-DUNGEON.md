@@ -66,6 +66,26 @@ forward when necessary and never rewind a later save.
 The legacy `CABIN_REST` marker remains readable for old saves, but it cannot
 bypass the dungeon, morning call, or departure gate.
 
+## Progressive objective presentation
+
+The phase list above is durable story truth, not a checklist that should be
+shown to the player. The Cabin HUD and pause menu expose only two levels:
+
+1. One spoiler-safe standing order, such as `Find Gratin` or `Burn the bodies`.
+2. One quieter `NEXT` hint for the action that can be taken now.
+
+Completed steps disappear instead of accumulating. Unvisited exploration
+sites remain playable but are summarized as `Explore the property · N/2 sites
+checked`; their names are not four separate objectives. The hidden cellar,
+second secret door, prisoners, cleanup, night transition, blackout, and
+morning exit do not appear before the story reveals them.
+
+Cleanup is deliberately one objective. `Burn the bodies` appears only after
+Gratin finishes the nightfall wrapping instructions, then advances through
+wrapping, carrying, gasoline, ignition, and staying with the fire one soft step
+at a time. The exact event markers still persist each action independently for
+reload safety; they are no longer presented as separate missions.
+
 ## Exploration and phone gates
 
 Lou rings on chapter start. Ending his completed call records
@@ -92,7 +112,7 @@ unique exploration, Gratin can ring. His call establishes all three essential
 facts: he is already in the Cabin basement, he needs help, and Tony should
 “Follow the Supreme Leader.” Finishing the call makes the first secret both
 visible and interactable. Any unvisited exploration goals remain available,
-but the dungeon objectives become primary.
+but the single `Find Gratin` order becomes primary.
 
 The return-to-Cabin VO remains owed after Gratin's call and queues once Tony is
 within 30 metres of the Cabin. If Tony then spends 40 simulation seconds within
@@ -371,8 +391,9 @@ Useful console inspection through the page's supported debug surface:
 
 ```js
 CABIN.story.phase()
+CABIN.story.objectivePlan()
 CABIN.chapter.snapshot()
-CABIN.objectives.filter((objective) => objective.required && !objective.done)
+CABIN.objectives
 CABIN.range.snapshot()
 CABIN.cleanup.snapshot()
 CABIN.campaign.state.story.timeEvents
@@ -450,4 +471,4 @@ cast move, gasoline/pyre presentation, blackout, Day 6 wake, and Silver Case
 departure gate. It also writes review images under `.artifacts/cabin/` when
 `--screenshots` is supplied. Missing user-generated chapter takes are reported
 as a handoff count rather than treated as a WebGL failure.
-The browser verifier currently owns 43 checkpoints.
+The browser verifier currently owns 44 checkpoints.

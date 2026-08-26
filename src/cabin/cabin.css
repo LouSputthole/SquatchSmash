@@ -116,6 +116,31 @@ body.cabin #objectives {
   backdrop-filter: blur(8px);
 }
 
+body.cabin #objectives .olist li {
+  margin: 1px 0;
+  color: #f3e7d1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Cabin progression is one standing order with one immediate soft step. The
+ * divider keeps the step readable without presenting it as another mission. */
+body.cabin #objectives .ohint {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(216, 165, 95, .14);
+  color: rgba(220, 211, 193, .7);
+  font-size: 10px;
+  letter-spacing: .04em;
+}
+
+body.cabin #objectives .ohint::before {
+  content: "NEXT · ";
+  color: rgba(216, 165, 95, .8);
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
 body.cabin #prompt {
   border-color: rgba(216, 165, 95, .3);
   background: rgba(7, 10, 8, .86);

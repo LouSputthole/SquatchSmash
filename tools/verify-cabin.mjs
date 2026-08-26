@@ -353,19 +353,30 @@ try {
     cabin.state.closetT = 1;
     cabin.update(0.2, runtime.state.elapsed, runtime.player.position);
     chapter.callbacks.onSync?.();
+    const objectiveRows = [...document.querySelectorAll('#objectives .olist li')]
+      .map((item) => item.textContent.trim());
+    const objectiveHint = document.querySelector('#objectives .ohint')?.textContent.trim() ?? '';
     return {
       call,
       visible: cabin.basement.entryTarget.visible,
       enabled: cabin.basement.entryTarget.userData.interact.enabled(),
       phase: story.phase(),
-      requiredLeft: story.objectives().filter((item) => item.required && !item.done).map((item) => item.id),
-      optionalUnfinished: story.objectives().filter((item) => !item.required && !item.done).map((item) => item.id),
+      objectiveRows,
+      objectiveHint,
+      objectivePlan: story.objectivePlan(),
     };
   });
   check('Gratin’s call reveals the first secret only after two explorations',
     reveal.call.ok && reveal.visible && reveal.enabled && reveal.phase === 'open_cellar');
-  check('Unvisited exploration sites stay optional when the dungeon becomes primary',
-    reveal.optionalUnfinished.length >= 2 && reveal.requiredLeft.some((id) => /cellar_open/.test(id)));
+  const revealObjectiveText = [...reveal.objectiveRows, reveal.objectiveHint].join(' ');
+  check('HUD shows one current order without unfinished exploration or future dungeon spoilers',
+    reveal.objectiveRows.length === 1
+      && reveal.objectiveRows[0] === 'Find Gratin'
+      && /Supreme Leader/i.test(reveal.objectiveHint)
+      && reveal.objectivePlan.id === 'cabin.find_gratin'
+      && !/creek|ridge|shed|range|prisoner|execution|bod(?:y|ies)|gas|fire|blackout|morning/i
+        .test(revealObjectiveText),
+    JSON.stringify({ rows: reveal.objectiveRows, hint: reveal.objectiveHint }));
   await clearHands(page);
   await teleport(page, 'basementEntrance', 'interact');
   await capture(page, '03-supreme-leader-secret');
@@ -637,10 +648,16 @@ try {
     const gratinAt = gratinNpc.group.getWorldPosition(gratinNpc.group.position.clone());
     const lagSeat = seats[0].getWorldPosition(seats[0].position.clone());
     const gratinSeat = seats[1].getWorldPosition(seats[1].position.clone());
+    const objectiveRows = [...document.querySelectorAll('#objectives .olist li')]
+      .map((item) => item.textContent.trim());
+    const objectiveHint = document.querySelector('#objectives .ohint')?.textContent.trim() ?? '';
     return {
       upOne, placeOne, downTwo, carryTwo, upTwo, placeTwo,
       cleanup: runtime.cleanup.snapshot(),
       phase: runtime.story.phase(),
+      objectiveRows,
+      objectiveHint,
+      objectivePlan: runtime.story.objectivePlan(),
       gratinAfterOne,
       castAtFireAfterOne,
       castAtFireAfterTwo,
@@ -668,6 +685,15 @@ try {
       lagSeatDistance: carryRoute.lagSeatDistance,
       gratinSeatDistance: carryRoute.gratinSeatDistance,
     }));
+  const cleanupObjectiveText = [...carryRoute.objectiveRows, carryRoute.objectiveHint].join(' ');
+  check('Burn-body cleanup exposes gasoline as the only current soft step',
+    carryRoute.phase === 'pour_gas'
+      && carryRoute.objectiveRows.length === 1
+      && carryRoute.objectiveRows[0] === 'Burn the bodies'
+      && /gasoline/i.test(carryRoute.objectiveHint)
+      && carryRoute.objectivePlan.id === 'cabin.burn_bodies'
+      && !/light|ignite/i.test(cleanupObjectiveText),
+    JSON.stringify({ rows: carryRoute.objectiveRows, hint: carryRoute.objectiveHint }));
 
   const fire = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;

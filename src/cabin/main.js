@@ -217,47 +217,17 @@ function applyTimeOfDay() {
   cabin?.setLamp?.(cabinLightsOn, { automatic: true });
 }
 
-function objectiveHint() {
-  const phase = story.phase();
-  const phaseHints = {
-    opening_call: 'Keep the phone selected · answer Lou with E',
-    explore: 'Explore any two marked locations · the creek, ridge, shed, or range',
-    gratin_call: 'Keep the phone close · Gratin is calling',
-    open_cellar: 'Return to the cabin · Follow the Supreme Leader',
-    enter_dungeon: 'Search the finished cellar for a second concealed door',
-    interrogation: 'Choose a tool, then work on both restrained prisoners',
-    ateam_intel: 'Let the A-Team prisoner finish talking',
-    execution_choice: 'Choose within ten seconds · 1 YES or 2 NO',
-    execution: story.executionChoice() === 'player'
-      ? 'Use Gratin’s pistol to finish both prisoners'
-      : 'Stand clear while Gratin finishes the job',
-    nightfall: 'Night is falling above the cellar',
-    wrap_bodies: 'Wrap both bodies at the marked stations',
-    carry_bodies: 'Carry each wrapped body out of the dungeon and onto the pyre',
-    pour_gas: 'Take the red gas can and soak the pyre',
-    ignite_bonfire: 'Light the soaked pyre',
-    fire_cleanup: 'Stay by the fire with Lag and Gratin',
-    drink: 'Take the offered drink with Lag and Gratin',
-    blackout: 'Finish the night by the fire',
-    morning_call: 'Answer Ape’s morning call',
-    morning_wake: 'Get up and meet Ape at the car',
-  };
-  if (phaseHints[phase]) return phaseHints[phase];
-  const exit = story.tryLeave();
-  if (exit.kind === 'go') return 'Ape is waiting at the car · Lag and the property remain open';
-  return exit.line;
-}
-
 function repaintObjectives() {
-  const chapterActive = story.gratinCallComplete();
+  const current = story.objectivePlan();
   objectivePanel.set({
-    title: chapterActive ? 'THE HIDEOUT · BELOW THE FLOORBOARDS' : 'THE HIDEOUT · LAY LOW',
-    items: story.objectives().map((item) => ({
-      label: item.label,
-      done: item.done,
-      required: item.required,
-    })),
-    hint: objectiveHint(),
+    title: 'CURRENT OBJECTIVE',
+    items: [{
+      label: current.label,
+      done: false,
+      required: true,
+      current: true,
+    }],
+    hint: current.step,
   });
 }
 
@@ -1658,8 +1628,8 @@ const pauseMenu = createPauseMenu({
   title: 'The Hideout',
   canPause: () => state.phase === 'active' && !state.resting,
   getObjective: () => {
-    const next = story.objectives().find((item) => item.required && !item.done);
-    return next?.label ?? 'Explore the property or take the car when you are ready.';
+    const current = story.objectivePlan();
+    return current.step ? `${current.label} — ${current.step}` : current.label;
   },
   instructions: [
     'W A S D — move. Shift — sprint. Space — jump.',

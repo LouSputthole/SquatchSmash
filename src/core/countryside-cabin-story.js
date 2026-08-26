@@ -688,156 +688,118 @@ export class CountrysideCabinStory {
     return { kind: 'go', destination: SCENE_IDS.SILVER_CASE };
   }
 
-  objectives() {
-    const dungeonPrimary = this.dungeonPrimary();
-    const explored = new Set(this.explored().map(({ id }) => id));
-    const out = [
-      {
-        id: TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL,
-        label: 'Answer Lou’s call at the cabin',
-        done: this.openingCallComplete(),
-        required: true,
-      },
-      ...COUNTRYSIDE_CABIN_LANDMARKS.map((entry) => ({
-        id: entry.id,
-        label: entry.label,
-        done: explored.has(entry.id),
-        required: !dungeonPrimary,
-      })),
-    ];
+  /**
+   * One spoiler-safe standing order and, at most, one immediate soft step.
+   *
+   * Durable event markers remain the complete chapter ledger. They are not a
+   * player-facing checklist: showing the whole ledger exposed future turns,
+   * made cleanup read as six unrelated missions, and buried the action the
+   * player could actually take. The HUD and pause menu consume this projection
+   * instead.
+   */
+  objectivePlan() {
+    const phase = this.phase();
+    const plan = (id, label, step) => Object.freeze({ id, label, step });
 
-    if (this.explorationCount() >= 2 || this.gratinCallComplete()) {
-      out.push({
-        id: TIME_EVENT_IDS.CABIN_GRATIN_CALL,
-        label: 'Answer Gratin’s call',
-        done: this.gratinCallComplete(),
-        required: true,
-      });
+    if (phase === 'opening_call') {
+      return plan('cabin.lay_low', 'Lay low at the cabin', 'Answer Lou’s call');
     }
-
-    if (dungeonPrimary) {
-      const counterStrike = this.hostageState(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER);
-      const ateam = this.hostageState(CABIN_HOSTAGE_IDS.ATEAM_MEMBER);
-      out.push(
-        {
-          id: TIME_EVENT_IDS.CABIN_CELLAR_OPEN,
-          label: 'Open the hidden cellar door',
-          done: this.cellarOpen(),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_DUNGEON_ENTERED,
-          label: 'Enter the dungeon',
-          done: this.dungeonEntered(),
-          required: true,
-        },
-        {
-          id: 'interrogate.counter_strike_player',
-          label: `Interrogate the Counter-Strike baiter (${Math.min(counterStrike.hits, counterStrike.threshold)}/${counterStrike.threshold})`,
-          done: counterStrike.interrogationReady,
-          required: true,
-        },
-        {
-          id: 'interrogate.ateam_member',
-          label: `Interrogate the A-Team member (${Math.min(ateam.hits, ateam.threshold)}/${ateam.threshold})`,
-          done: ateam.interrogationReady,
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_ATEAM_INTEL_LEARNED,
-          label: 'Learn what the A-Team member knows',
-          done: this.ateamIntelLearned(),
-          required: true,
-        },
-        {
-          id: 'execution.countryside_cabin',
-          label: 'Settle who carries out the executions',
-          done: Boolean(this.executionChoice()),
-          required: true,
-        },
-        {
-          id: 'deaths.countryside_cabin',
-          label: 'Finish the two prisoners',
-          done: this.deathsComplete(),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_NIGHTFALL,
-          label: 'Wait for nightfall',
-          done: this.nightfallComplete(),
-          required: true,
-        },
-        {
-          id: 'wrap.countryside_cabin',
-          label: 'Wrap both bodies',
-          done: this.wrappingComplete(),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_AT_FIRE,
-          label: 'Carry the Counter-Strike player to the fire',
-          done: this.bodyAtFire(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_ATEAM_AT_FIRE,
-          label: 'Carry the A-Team member to the fire',
-          done: this.bodyAtFire(CABIN_HOSTAGE_IDS.ATEAM_MEMBER),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_GAS_POURED,
-          label: 'Pour gasoline over the bodies',
-          done: this.gasPoured(),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_BONFIRE_IGNITED,
-          label: 'Ignite the bonfire',
-          done: this.bonfireIgnited(),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_FIRE_CLEANUP,
-          label: 'Burn the evidence and clear the dungeon',
-          done: this.fireCleanupComplete(),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_DRINK,
-          label: 'Have a drink by the fire',
-          done: this.drankAfterCleanup(),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_BLACKOUT,
-          label: 'Let the night go dark',
-          done: this.blackedOut(),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_MORNING_CALL,
-          label: 'Answer the morning call',
-          done: this.morningCallComplete(),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE,
-          label: 'Get ready to leave the cabin',
-          done: this.morningWakeComplete(),
-          required: true,
-        },
+    if (phase === 'explore') {
+      return plan(
+        'cabin.lay_low',
+        'Lay low at the cabin',
+        `Explore the property · ${Math.min(this.explorationCount(), 2)}/2 sites checked`,
       );
+    }
+    if (phase === 'gratin_call') {
+      return plan('cabin.lay_low', 'Lay low at the cabin', 'Answer Gratin’s call');
+    }
+    if (phase === 'open_cellar') {
+      return plan('cabin.find_gratin', 'Find Gratin', 'Return to the cabin · follow the Supreme Leader');
+    }
+    if (phase === 'enter_dungeon') {
+      return plan('cabin.find_gratin', 'Find Gratin', 'Search the cellar');
+    }
+    if (phase === 'interrogation') {
+      const ready = Object.values(CABIN_HOSTAGE_IDS)
+        .filter((id) => this.hostageInterrogationReady(id)).length;
+      return plan(
+        'cabin.help_gratin',
+        'Help Gratin get answers',
+        `Use the tools on both prisoners · ${ready}/2 talking`,
+      );
+    }
+    if (phase === 'ateam_intel') {
+      return plan('cabin.help_gratin', 'Help Gratin get answers', 'Hear the prisoner out');
+    }
+    if (phase === 'execution_choice') {
+      return plan('cabin.help_gratin', 'Help Gratin get answers', 'Listen to Gratin');
+    }
+    if (phase === 'execution') {
+      return plan(
+        'cabin.finish_job',
+        'Finish the job',
+        this.executionChoice() === 'player'
+          ? 'Use Gratin’s pistol on both prisoners'
+          : 'Give Gratin room',
+      );
+    }
+    if (phase === 'nightfall') {
+      return plan('cabin.finish_job', 'Finish the job', 'Listen to Gratin');
+    }
+    if (phase === 'wrap_bodies') {
+      if (!this.nightfallBriefingComplete()) {
+        return plan('cabin.finish_job', 'Finish the job', 'Listen to Gratin');
+      }
+      const wrapped = Object.values(CABIN_HOSTAGE_IDS)
+        .filter((id) => this.hostageState(id).wrapped).length;
+      return plan('cabin.burn_bodies', 'Burn the bodies', `Wrap them up · ${wrapped}/2`);
+    }
+    if (phase === 'carry_bodies') {
+      const delivered = Object.values(CABIN_HOSTAGE_IDS)
+        .filter((id) => this.bodyAtFire(id)).length;
+      return plan('cabin.burn_bodies', 'Burn the bodies', `Carry them to the fire · ${delivered}/2`);
+    }
+    if (phase === 'pour_gas') {
+      return plan('cabin.burn_bodies', 'Burn the bodies', 'Soak the pyre with gasoline');
+    }
+    if (phase === 'ignite_bonfire') {
+      return plan('cabin.burn_bodies', 'Burn the bodies', 'Light the pyre');
+    }
+    if (phase === 'fire_cleanup') {
+      return plan('cabin.burn_bodies', 'Burn the bodies', 'Stay with the fire');
+    }
+    if (phase === 'drink') {
+      return plan('cabin.fire_bonding', 'Sit with Lag and Gratin', 'Take the drink when it comes around');
+    }
+    if (phase === 'blackout') {
+      return plan('cabin.fire_bonding', 'Sit with Lag and Gratin', 'Stay by the fire');
+    }
+    if (phase === 'morning_call') {
+      return plan('cabin.answer_ape', 'Answer Ape’s call', 'Pick up the phone');
+    }
+    if (phase === 'morning_wake') {
+      return plan('cabin.meet_ape', 'Meet Ape at the car', 'Head outside');
     }
 
     const door = this.tryLeave();
-    out.push({
-      id: `depart.${door.destination ?? door.id}`,
-      label: door.kind === 'go' ? 'Take the car to Lou’s next job' : 'Finish the cabin chapter',
+    if (door.kind === 'go') {
+      return plan('cabin.depart', 'Take the car to Lou’s next job', 'Use the car when you are ready');
+    }
+    return plan('cabin.lay_low', 'Lay low at the cabin', door.line);
+  }
+
+  /** Player-facing objectives are deliberately singular. */
+  objectives() {
+    const current = this.objectivePlan();
+    return [{
+      id: current.id,
+      label: current.label,
+      step: current.step,
       done: false,
       required: true,
-    });
-    return out;
+      current: true,
+    }];
   }
 }
 

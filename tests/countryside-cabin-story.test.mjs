@@ -141,7 +141,6 @@ test('the range replaces the firepit in four durable exploration goals', () => {
   assert.equal(legacyStory.visit('range').firstVisit, false);
   assert.equal(legacyStory.has(TIME_EVENT_IDS.CABIN_EXPLORE_RANGE), false);
   assert.deepEqual(legacy.campaign.state, legacyBefore);
-  assert.equal(legacyStory.objectives().find(({ id }) => id === 'range').done, true);
 });
 
 test('first exploration emits Margo once and second exploration enables Gratin', () => {
@@ -173,13 +172,84 @@ test('first exploration emits Margo once and second exploration enables Gratin',
   assert.equal(story.completeGratinCall().firstTime, false);
   assert.equal(story.basementVisible(), true);
   assert.equal(story.phase(), 'open_cellar');
-  for (const landmark of COUNTRYSIDE_CABIN_LANDMARKS) {
-    assert.equal(
-      story.objectives().find(({ id }) => id === landmark.id).required,
-      false,
-      `${landmark.id} should become optional once the dungeon is primary`,
-    );
+  assert.deepEqual(story.objectivePlan(), {
+    id: 'cabin.find_gratin',
+    label: 'Find Gratin',
+    step: 'Return to the cabin · follow the Supreme Leader',
+  });
+  assert.equal(story.objectives().length, 1);
+  assert.equal(
+    story.objectives().some(({ label }) => /creek|ridge|shed|range/i.test(label)),
+    false,
+    'unfinished exploration sites should not remain as HUD objectives',
+  );
+});
+
+test('the HUD projection exposes one parent objective and only its current soft step', () => {
+  const { campaign } = cabinCampaign();
+  const story = createCountrysideCabinStory({ campaign });
+  const expectPlan = (label, step) => {
+    assert.equal(story.objectives().length, 1);
+    assert.equal(story.objectives()[0].label, label);
+    assert.equal(story.objectives()[0].step, step);
+    assert.equal(story.objectives()[0].current, true);
+  };
+
+  expectPlan('Lay low at the cabin', 'Answer Lou’s call');
+  story.completeOpeningCall();
+  expectPlan('Lay low at the cabin', 'Explore the property · 0/2 sites checked');
+  story.visit('creek');
+  expectPlan('Lay low at the cabin', 'Explore the property · 1/2 sites checked');
+  story.consumeMargoReady();
+  story.visit('range');
+  expectPlan('Lay low at the cabin', 'Answer Gratin’s call');
+  story.completeGratinCall();
+  expectPlan('Find Gratin', 'Return to the cabin · follow the Supreme Leader');
+  story.openCellar();
+  expectPlan('Find Gratin', 'Search the cellar');
+  story.enterDungeon();
+  expectPlan('Help Gratin get answers', 'Use the tools on both prisoners · 0/2 talking');
+  story.hitHostage(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER, { hits: 2 });
+  expectPlan('Help Gratin get answers', 'Use the tools on both prisoners · 1/2 talking');
+  story.hitHostage(CABIN_HOSTAGE_IDS.ATEAM_MEMBER, { hits: 6 });
+  expectPlan('Help Gratin get answers', 'Hear the prisoner out');
+  story.learnAteamIntel();
+  expectPlan('Help Gratin get answers', 'Listen to Gratin');
+  story.chooseExecution('player');
+  expectPlan('Finish the job', 'Use Gratin’s pistol on both prisoners');
+
+  for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
+    const hostage = story.hostageState(id);
+    story.damageHostage(id, { hits: hostage.remaining });
+    story.killHostage(id);
   }
+  expectPlan('Finish the job', 'Listen to Gratin');
+  story.completeNightfall();
+  expectPlan('Finish the job', 'Listen to Gratin');
+  story.completeNightfallBriefing();
+  expectPlan('Burn the bodies', 'Wrap them up · 0/2');
+  story.wrapHostage(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER);
+  expectPlan('Burn the bodies', 'Wrap them up · 1/2');
+  story.wrapHostage(CABIN_HOSTAGE_IDS.ATEAM_MEMBER);
+  expectPlan('Burn the bodies', 'Carry them to the fire · 0/2');
+  story.moveBodyToFire(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER);
+  expectPlan('Burn the bodies', 'Carry them to the fire · 1/2');
+  story.moveBodyToFire(CABIN_HOSTAGE_IDS.ATEAM_MEMBER);
+  expectPlan('Burn the bodies', 'Soak the pyre with gasoline');
+  story.pourGas();
+  expectPlan('Burn the bodies', 'Light the pyre');
+  story.igniteBonfire();
+  expectPlan('Burn the bodies', 'Stay with the fire');
+  story.completeFireCleanup();
+  expectPlan('Sit with Lag and Gratin', 'Take the drink when it comes around');
+  story.drink();
+  expectPlan('Sit with Lag and Gratin', 'Stay by the fire');
+  story.blackout();
+  expectPlan('Answer Ape’s call', 'Pick up the phone');
+  story.completeMorningCall();
+  expectPlan('Meet Ape at the car', 'Head outside');
+  story.completeMorningWake();
+  expectPlan('Take the car to Lou’s next job', 'Use the car when you are ready');
 });
 
 test('cellar and dungeon order is guarded and survives reload', () => {
@@ -324,10 +394,10 @@ test('player execution branch is mutually exclusive and cleanup state reloads', 
   assert.equal(story.bodyAtFire(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER), true);
   assert.equal(story.bodyAtFire(CABIN_HOSTAGE_IDS.ATEAM_MEMBER), true);
   assert.equal(story.phase(), 'pour_gas');
+  assert.equal(story.objectives().length, 1);
   assert.equal(story.objectives().some(({ label }) => /unmask|mole/i.test(label)), false);
-  assert.equal(story.objectives().find(
-    ({ id }) => id === TIME_EVENT_IDS.CABIN_ATEAM_INTEL_LEARNED,
-  ).label, 'Learn what the A-Team member knows');
+  assert.equal(story.objectives()[0].label, 'Burn the bodies');
+  assert.equal(story.objectives()[0].step, 'Soak the pyre with gasoline');
 });
 
 test('no response, explicit no, and timeout all choose Gratin', async (t) => {
