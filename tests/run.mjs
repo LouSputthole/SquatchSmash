@@ -94,6 +94,7 @@ const TEST_MODULES = [
   './heist-level-presentation.test.mjs',
   './heist-bank-exit-reachable.test.mjs',
   './heist-garage-fight.test.mjs',
+  './heist-police-suppression.test.mjs',
   './heist-street-fight.test.mjs',
   './heist-systems.test.mjs',
   './heist-route.test.mjs',

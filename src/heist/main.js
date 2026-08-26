@@ -3350,6 +3350,9 @@ function fireWeapon() {
   const located = impact.located;
   const reachedActor = Boolean(located && located.reason !== 'unregistered' && located.actor);
   objective.noteShot({ hitActor: reachedActor });
+  /* Before any of the early returns below: a round that misses still counts. */
+  notePoliceSuppression(raycaster.ray.origin, raycaster.ray.direction,
+    impact.hit ? impact.hit.point : null);
   if (!impact.hit) return;
   // A round into a wall throws dust; a round into a person does not.
   if (!reachedActor) { emitImpact(impact.hit.point); return; }
@@ -3692,20 +3695,87 @@ function updatePoliceFigures(dt) {
   }
 }
 
+const _suppressFrom = new THREE.Vector3();
+const _suppressTo = new THREE.Vector3();
+const _suppressLeg = new THREE.Vector3();
+
+/**
+ * A round that goes past a man is a round he reacts to.
+ *
+ * Police accuracy is scaled by each officer's own SuppressionModel, and this
+ * is the only thing that raises it: the perpendicular distance from every live
+ * officer to the player's shot, measured along the segment the round actually
+ * travelled rather than the infinite ray, so a bullet that stops in a wall
+ * does not suppress the man standing behind it.
+ *
+ * SuppressionModel.noteNearMiss treats anything past four metres as nothing,
+ * so the radius is its own, not a number invented here.
+ */
+function notePoliceSuppression(origin, direction, hitPoint) {
+  if (!['street', 'garage'].includes(activePhase)) return;
+  _suppressFrom.copy(origin);
+  if (hitPoint) _suppressTo.copy(hitPoint);
+  else _suppressTo.copy(origin).addScaledVector(direction, POLICE_COMBAT.range);
+  _suppressLeg.copy(_suppressTo).sub(_suppressFrom);
+  const legLength = _suppressLeg.length();
+  if (legLength < 0.001) return;
+
+  for (const entry of policeFigures) {
+    if (!entry.root?.visible || entry.actor?.incapacitated) continue;
+    if (entry.root.userData.phaseId !== activePhase) continue;
+    /* Chest height, so a round over his head reads differently to one past
+     * his ribs. */
+    const chest = entry.root.position;
+    const toManX = chest.x - _suppressFrom.x;
+    const toManY = 1.2 + chest.y - _suppressFrom.y;
+    const toManZ = chest.z - _suppressFrom.z;
+    const along = (toManX * _suppressLeg.x + toManY * _suppressLeg.y
+      + toManZ * _suppressLeg.z) / legLength;
+    /* Behind the muzzle, or past where the round stopped: not his problem. */
+    if (along < 0 || along > legLength) continue;
+    const t = along / legLength;
+    const missX = toManX - _suppressLeg.x * t;
+    const missY = toManY - _suppressLeg.y * t;
+    const missZ = toManZ - _suppressLeg.z * t;
+    const miss = Math.hypot(missX, missY, missZ);
+    if (miss > 4) continue;
+    if (!entry.suppression) entry.suppression = new SuppressionModel();
+    entry.suppression.noteNearMiss(miss, 1);
+  }
+}
+
 function updatePoliceCombat(dt) {
   if (!['street', 'garage'].includes(activePhase) || machine.state === 'FAILED') return;
   policeAimPoint.set(player.position.x, 1.2, player.position.z);
   const moving = player.velocity.lengthSq() > 2.5;
-  /* Suppressive pressure still degrades their shooting — same authored curve
-   * as before, now applied to the shared accuracy input. */
-  const accuracy = (moving ? POLICE_COMBAT.accuracyMoving : POLICE_COMBAT.accuracyStill)
-    * (1 - Math.min(0.45, suppression.value * 0.2));
+  /* THE SUPPRESSION TERM WAS POINTING THE WRONG WAY.
+   *
+   * Owner, playtest 2026-08-26: *"they also don't really appear to be shooting
+   * back."*
+   *
+   * `suppression` is the PLAYER's meter. It is fed by `noteNearMiss` when a
+   * police round passes close to him, it drives `hud.setSuppression`, and it
+   * shakes his camera. Multiplying police accuracy by `1 - suppression * 0.2`
+   * therefore meant: the more they shot at you, the worse they got at it. A
+   * player standing in the open under fire was the safest player on the
+   * street, and the effect compounded -- every near miss bought him up to 45%
+   * off the next one.
+   *
+   * Their own pressure is what belongs here, so each officer now carries a
+   * SuppressionModel of his own, raised by the player's near misses on HIM.
+   * Same authored curve, applied to the man it is actually about. */
+  const baseAccuracy = moving ? POLICE_COMBAT.accuracyMoving : POLICE_COMBAT.accuracyStill;
   for (const entry of policeFigures) {
     if (!entry.root.visible || entry.actor.incapacitated
       || entry.root.userData.phaseId !== activePhase) continue;
     /* A man crossing open ground is not the one to be afraid of; the two
      * holding on either side of him are. See `updatePoliceMovement`. */
     const bounding = entry.movement?.mode === 'bound';
+    /* His own suppression, not the player's. Decays on the same clock. */
+    if (!entry.suppression) entry.suppression = new SuppressionModel();
+    entry.suppression.update(dt);
+    const accuracy = baseAccuracy
+      * (1 - Math.min(0.45, entry.suppression.value * 0.2));
     const update = combat.updateHostile(entry, dt, {
       targetPoint: policeAimPoint,
       targetActor: playerActor,
