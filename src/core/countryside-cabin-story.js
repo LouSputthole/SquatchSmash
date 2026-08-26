@@ -6,7 +6,7 @@
  * No extra save fields are needed: the existing time-event ledger is the
  * chapter state machine.
  */
-import { MISSION_IDS, SCENE_IDS, TIME_EVENT_IDS } from './campaign.js';
+import { EVENT_IDS, MISSION_IDS, SCENE_IDS, TIME_EVENT_IDS } from './campaign.js';
 
 export const CABIN_HOSTAGE_IDS = Object.freeze({
   COUNTER_STRIKE_PLAYER: 'counter_strike_player',
@@ -186,22 +186,164 @@ export class CountrysideCabinStory {
     return { ...result, firstVisit: result.firstTime, landmark };
   }
 
+  /* ------------------------------------------------------------------ *
+   * VISIT ONE. Beats 4 and 5 of the spine.
+   *
+   * The Squatchfather ends near midnight and the same driver goes straight
+   * out of the city, so the first thing that happens at this cabin is a bed.
+   * He wakes on Day 2, Lou rings, he walks the four corners of the property,
+   * Margo's number finally gets dialled, and then Booski rings about a
+   * Captain who needs a hand nearby -- which is the Beef Run, and which is
+   * what takes him off this property and back onto it the same night.
+   * ------------------------------------------------------------------ */
+
+  /** The sleep he does on arrival, before any of it. Wakes him 09:20, Day 2. */
+  arrivalRestComplete() {
+    return this.has(TIME_EVENT_IDS.CABIN_LAY_LOW_REST);
+  }
+
+  completeArrivalRest() {
+    return this.mark(TIME_EVENT_IDS.CABIN_LAY_LOW_REST);
+  }
+
   openingCallComplete() {
     return this.has(TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL);
   }
 
   completeOpeningCall() {
+    /* Legacy saves reached this call without an arrival rest and must keep
+     * being able to finish the chapter, so this gates only forwards: a save
+     * that has already answered Lou is never sent back to bed. */
+    if (this.openingCallComplete()) return this.mark(TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL);
+    if (!this.arrivalRestComplete()) return this.blocked('arrival_rest_incomplete');
     return this.mark(TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL);
+  }
+
+  /** All four walks. The bible counts them, so this counts them. */
+  propertyWalked() {
+    return this.explorationCount() >= COUNTRYSIDE_CABIN_LANDMARKS.length;
+  }
+
+  /**
+   * MARGO'S NUMBER, FINALLY DIALLED.
+   *
+   * She wrote it down at the Bing in beat 2 and he has been carrying it since.
+   * This is the outgoing call and it is the only one at this cabin he makes
+   * rather than answers -- which is the point of putting it after the walks,
+   * with the property quiet and nobody to perform for.
+   */
+  margoCallComplete() {
+    return this.has(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL);
+  }
+
+  margoCallReady() {
+    return this.openingCallComplete()
+      && this.propertyWalked()
+      && !this.margoCallComplete();
+  }
+
+  completeMargoCall() {
+    if (this.margoCallComplete()) return this.mark(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL);
+    if (!this.openingCallComplete()) return this.blocked('opening_call_incomplete');
+    if (!this.propertyWalked()) return this.blocked('explore_first');
+    return this.mark(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL, (state) => {
+      state.events[EVENT_IDS.CABIN_MARGO_CALL].status = 'answered';
+      /* And the setup line goes with it, so a save that reached the call
+       * without hearing it is never handed it afterwards. */
+      if (!state.story.timeEvents.includes(TIME_EVENT_IDS.CABIN_MARGO_READY)) {
+        state.story.timeEvents.push(TIME_EVENT_IDS.CABIN_MARGO_READY);
+      }
+    });
+  }
+
+  /**
+   * BOOSKI, ABOUT THE CAPTAIN. The end of visit one.
+   *
+   * This is the same beat the apartment used to play as `BOOSKI_DAY_TWO_CALL`
+   * -- Booski authorising the Beef Run -- and `airstrip-story.js` still gates
+   * `begin()` on that event, so the relocated call marks it. One story beat,
+   * played somewhere else; not two calls that happen to be about a plane.
+   */
+  booskiSasoleCallComplete() {
+    return this.has(TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL);
+  }
+
+  booskiSasoleCallReady() {
+    return this.margoCallComplete() && !this.booskiSasoleCallComplete();
+  }
+
+  completeBooskiSasoleCall() {
+    if (this.booskiSasoleCallComplete()) {
+      return this.mark(TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL);
+    }
+    if (!this.margoCallComplete()) return this.blocked('margo_call_incomplete');
+    return this.mark(TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL, (state) => {
+      state.events[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL].status = 'answered';
+      state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+      state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'available';
+    });
+  }
+
+  /** Beat 5 is done and the aeroplane is what happens next. */
+  visitOneComplete() {
+    return this.booskiSasoleCallComplete();
+  }
+
+  /* ------------------------------------------------------------------ *
+   * VISIT TWO. Beat 7, which is the dungeon.
+   *
+   * Sasole runs him back to the property he was picked up from rather than a
+   * flat he is not supposed to be seen at. The clock ledger is exact-once by
+   * id, so the return and the second night carry ids of their own -- reusing
+   * the arrival's would find them already spent and advance nothing.
+   * ------------------------------------------------------------------ */
+
+  returnedFromAirstrip() {
+    return this.has(TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP);
+  }
+
+  recordReturnFromAirstrip() {
+    return this.mark(TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP);
+  }
+
+  /** The second night. Wakes him 08:10 on Day 3, which is the dungeon's day. */
+  secondRestComplete() {
+    return this.has(TIME_EVENT_IDS.CABIN_SECOND_REST);
+  }
+
+  completeSecondRest() {
+    return this.mark(TIME_EVENT_IDS.CABIN_SECOND_REST);
+  }
+
+  /**
+   * The dungeon half may not start until he has come back and slept.
+   *
+   * Legacy saves are the exception, and deliberately: a save that already
+   * answered Gratin under the old single-visit chapter has no
+   * RETURN_CABIN_FROM_AIRSTRIP marker and never will, so it is let through
+   * rather than wedged in a cabin it has already half-finished.
+   */
+  secondVisitReady() {
+    if (this.gratinCallComplete()) return true;
+    return this.secondRestComplete();
   }
 
   margoHookHandled() {
     return this.has(TIME_EVENT_IDS.CABIN_MARGO_READY);
   }
 
+  /**
+   * "Maybe I should give that girl from the bar a call."
+   *
+   * The one-line setup on the first walk, which is a different thing from the
+   * call itself. It is spent once he has actually rung her -- a man who has
+   * had the conversation does not then decide to have it.
+   */
   margoReady() {
     return this.openingCallComplete()
       && this.explorationCount() >= 1
-      && !this.margoHookHandled();
+      && !this.margoHookHandled()
+      && !this.margoCallComplete();
   }
 
   consumeMargoReady() {
@@ -215,15 +357,23 @@ export class CountrysideCabinStory {
     return this.has(TIME_EVENT_IDS.CABIN_GRATIN_CALL);
   }
 
+  /**
+   * Gratin rings on the SECOND morning, not the first.
+   *
+   * It used to be "two walks and the Margo hook", which was the single-visit
+   * chapter's own pacing. Under the spine the property walk, Margo and Booski
+   * are Day 2 and the cellar is Day 3, with a flight and a night in between.
+   */
   gratinCallReady() {
     return this.openingCallComplete()
-      && this.explorationCount() >= 2
-      && this.margoHookHandled()
+      && this.secondVisitReady()
       && !this.gratinCallComplete();
   }
 
   completeGratinCall() {
     if (this.gratinCallComplete()) return this.mark(TIME_EVENT_IDS.CABIN_GRATIN_CALL);
+    if (!this.openingCallComplete()) return this.blocked('opening_call_incomplete');
+    if (!this.secondVisitReady()) return this.blocked('second_visit_not_ready');
     if (!this.gratinCallReady()) return this.blocked('gratin_call_not_ready');
     return this.mark(TIME_EVENT_IDS.CABIN_GRATIN_CALL);
   }
@@ -618,13 +768,60 @@ export class CountrysideCabinStory {
     return this.mark(TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE);
   }
 
+  /**
+   * BOOSKI, ABOUT BILLY. The end of beat 7 and the end of this cabin.
+   *
+   * The bible: *"Then Booski: Billy is getting out, come back to the Bing."*
+   * It is the same summons the apartment used to play as `LOU_SECOND_CALL` on
+   * Day 2, so the relocated call marks that event too -- otherwise a man
+   * walking back into his own flat two missions later would be rung about a
+   * party he has already been to.
+   */
+  billyCallComplete() {
+    return this.has(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL);
+  }
+
+  billyCallReady() {
+    return this.morningWakeComplete() && !this.billyCallComplete();
+  }
+
+  completeBillyCall() {
+    if (this.billyCallComplete()) return this.mark(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL);
+    if (!this.morningWakeComplete()) return this.blocked('morning_wake_incomplete');
+    return this.mark(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL, (state) => {
+      state.events[EVENT_IDS.CABIN_BILLY_CALL].status = 'answered';
+      state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+      state.missions[MISSION_IDS.BADA_BING_TWO].status = 'available';
+      /* AND THE CHAPTER TURNS HERE, ON A COUNTY ROAD, NOT IN HIS OWN BED.
+       *
+       * `day_two` is the apartment's name for exactly this stretch -- the
+       * second Bing visit, the burial, the motel -- and both of the calls that
+       * used to open it have just been answered on this porch. Without this
+       * he drives to the Bing still in `day_one`, and the first time he lies
+       * down at home the chapter machine hands him a Tuesday he already had. */
+      state.story.chapter = 'day_two';
+    });
+  }
+
   chapterComplete() {
-    return this.morningWakeComplete();
+    return this.billyCallComplete();
   }
 
   phase() {
+    /* VISIT ONE. */
+    if (!this.arrivalRestComplete() && !this.openingCallComplete()) return 'arrival_rest';
     if (!this.openingCallComplete()) return 'opening_call';
-    if (!this.gratinCallComplete()) return this.explorationCount() < 2 ? 'explore' : 'gratin_call';
+    if (!this.gratinCallComplete()) {
+      if (!this.propertyWalked()) return 'explore';
+      if (!this.margoCallComplete()) return 'margo_call';
+      if (!this.booskiSasoleCallComplete()) return 'booski_call';
+      /* Beat 6 happens somewhere else. Until the aeroplane is down and he has
+       * been driven back, this cabin has nothing left to offer him. */
+      if (!this.airstripComplete()) return 'beef_run';
+      if (!this.returnedFromAirstrip()) return 'return_to_cabin';
+      if (!this.secondRestComplete()) return 'second_rest';
+      return 'gratin_call';
+    }
     if (!this.cellarOpen()) return 'open_cellar';
     if (!this.dungeonEntered()) return 'enter_dungeon';
     if (!this.interrogationComplete()) return 'interrogation';
@@ -641,7 +838,13 @@ export class CountrysideCabinStory {
     if (!this.blackedOut()) return 'blackout';
     if (!this.morningCallComplete()) return 'morning_call';
     if (!this.morningWakeComplete()) return 'morning_wake';
+    if (!this.billyCallComplete()) return 'billy_call';
     return 'complete';
+  }
+
+  /** Beat 6, asked of the campaign rather than of this chapter's ledger. */
+  airstripComplete() {
+    return this.campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING]?.status === 'complete';
   }
 
   /** Kept as a legacy-save predicate; CABIN_REST no longer gates this chapter. */
@@ -662,8 +865,34 @@ export class CountrysideCabinStory {
     };
   }
 
+  /**
+   * THE CAR, AND THE TWO TIMES IT IS ALLOWED TO MOVE.
+   *
+   * The cabin is one Act-One scene that the Beef Run cuts in half, so this
+   * door opens exactly twice: once at the end of visit one, for the airstrip,
+   * and once at the end of beat 7, for the Bing. Everything between is a man
+   * who was told to stay put.
+   *
+   * The legacy branch below is not decoration. `SILVER_CASE` was this scene's
+   * only exit while the cabin was a post-heist lay-low, and a save parked in
+   * that chapter has no route to the last third of the game without it.
+   * CLAUDE.md: add first, remove last.
+   */
   tryLeave() {
-    const silverCase = this.campaign.state.missions[MISSION_IDS.SILVER_CASE];
+    const missions = this.campaign.state.missions;
+    const silverCase = missions[MISSION_IDS.SILVER_CASE];
+
+    /* LEGACY: a save that got here the old way, after the bank. */
+    if (silverCase?.status === 'available' || silverCase?.status === 'in_progress') {
+      if (!this.morningWakeComplete()) {
+        return {
+          kind: 'stay',
+          id: 'cabin_chapter_incomplete',
+          line: 'The car stays where it is until the work below is finished and morning comes.',
+        };
+      }
+      return { kind: 'go', destination: SCENE_IDS.SILVER_CASE };
+    }
     if (silverCase?.status === 'complete') {
       return {
         kind: 'stay',
@@ -671,21 +900,29 @@ export class CountrysideCabinStory {
         line: 'The next thing already started. This place did its job.',
       };
     }
-    if (silverCase?.status !== 'available' && silverCase?.status !== 'in_progress') {
+
+    /* BEAT 7'S EXIT. Booski has rung about Billy and the Bing is expecting him. */
+    if (this.chapterComplete()) {
+      return { kind: 'go', destination: SCENE_IDS.BADA_BING_TWO };
+    }
+
+    /* BEAT 5'S EXIT. Booski has rung about the Captain and there is a plane. */
+    if (this.visitOneComplete() && !this.airstripComplete()) {
+      return { kind: 'go', destination: SCENE_IDS.AIRSTRIP_SMUGGLING };
+    }
+
+    if (!this.visitOneComplete()) {
       return {
         kind: 'stay',
         id: 'cabin_wait',
         line: 'Lou said stay put. The road can wait until the phone says otherwise.',
       };
     }
-    if (!this.morningWakeComplete()) {
-      return {
-        kind: 'stay',
-        id: 'cabin_chapter_incomplete',
-        line: 'The car stays where it is until the work below is finished and morning comes.',
-      };
-    }
-    return { kind: 'go', destination: SCENE_IDS.SILVER_CASE };
+    return {
+      kind: 'stay',
+      id: 'cabin_chapter_incomplete',
+      line: 'The car stays where it is until the work below is finished and morning comes.',
+    };
   }
 
   objectives() {
@@ -706,7 +943,41 @@ export class CountrysideCabinStory {
       })),
     ];
 
-    if (this.explorationCount() >= 2 || this.gratinCallComplete()) {
+    /* VISIT ONE's own list, which only exists until the cellar does. */
+    if (!dungeonPrimary) {
+      out.push({
+        id: TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL,
+        label: 'Call the number Margo wrote down',
+        done: this.margoCallComplete(),
+        required: true,
+      });
+      if (this.margoCallComplete() || this.booskiSasoleCallComplete()) {
+        out.push({
+          id: TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL,
+          label: 'Answer Booskibro about Captain Sasole',
+          done: this.booskiSasoleCallComplete(),
+          required: true,
+        });
+      }
+      if (this.booskiSasoleCallComplete()) {
+        out.push({
+          id: MISSION_IDS.AIRSTRIP_SMUGGLING,
+          label: 'Fly the beef run with Captain Sasole',
+          done: this.airstripComplete(),
+          required: true,
+        });
+      }
+      if (this.airstripComplete()) {
+        out.push({
+          id: TIME_EVENT_IDS.CABIN_SECOND_REST,
+          label: 'Sleep it off back at the cabin',
+          done: this.secondRestComplete(),
+          required: true,
+        });
+      }
+    }
+
+    if (this.secondVisitReady() || this.gratinCallComplete()) {
       out.push({
         id: TIME_EVENT_IDS.CABIN_GRATIN_CALL,
         label: 'Answer Gratin’s call',
@@ -828,12 +1099,28 @@ export class CountrysideCabinStory {
           required: true,
         },
       );
+      if (this.morningWakeComplete() || this.billyCallComplete()) {
+        out.push({
+          id: TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL,
+          label: 'Answer Booskibro about Billy Hotdog',
+          done: this.billyCallComplete(),
+          required: true,
+        });
+      }
     }
 
+    /* The door names where it is actually going, because it opens twice. */
     const door = this.tryLeave();
+    const DEPARTURE_LABELS = {
+      [SCENE_IDS.AIRSTRIP_SMUGGLING]: 'Ride out to the airstrip',
+      [SCENE_IDS.BADA_BING_TWO]: 'Drive back to the Bing',
+      [SCENE_IDS.SILVER_CASE]: 'Take the car to Lou’s next job',
+    };
     out.push({
       id: `depart.${door.destination ?? door.id}`,
-      label: door.kind === 'go' ? 'Take the car to Lou’s next job' : 'Finish the cabin chapter',
+      label: door.kind === 'go'
+        ? DEPARTURE_LABELS[door.destination] ?? 'Take the car to Lou’s next job'
+        : 'Finish the cabin chapter',
       done: false,
       required: true,
     });

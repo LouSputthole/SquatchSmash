@@ -431,7 +431,7 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(incident.checkpoint, 'body_loaded');
         assert.equal(incident.bodyLoaded, true);
         assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'locked');
-        assert.equal(state.story.day, 3);
+        assert.equal(state.story.day, 5);
         assert.equal(state.story.timeMinutes, 15);
         assert.equal(
           state.story.timeEvents.includes(TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD),
@@ -447,7 +447,7 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status, 'answered');
         assert.equal(state.missions[MISSION_IDS.NO_WAKE].status, 'available');
         assert.equal(state.story.chapter, 'no_wake');
-        assert.equal(state.story.day, 3);
+        assert.equal(state.story.day, 5);
       },
     },
     {
@@ -460,7 +460,7 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'available');
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');
         assert.equal(state.story.chapter, 'date');
-        assert.equal(state.story.day, 3);
+        assert.equal(state.story.day, 5);
       },
     },
     {
@@ -472,7 +472,7 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'available');
         assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
         assert.equal(state.story.chapter, 'golf_morning');
-        assert.equal(state.story.day, 4);
+        assert.equal(state.story.day, 6);
       },
     },
     {
@@ -484,7 +484,7 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'answered');
         assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'available');
         assert.equal(state.story.chapter, 'heist_day');
-        assert.equal(state.story.day, 4);
+        assert.equal(state.story.day, 6);
       },
     },
     {
@@ -496,7 +496,7 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(heist.cleanupComplete, true);
         assert.equal(state.missions[MISSION_IDS.SILVER_CASE].status, 'available');
         assert.equal(state.story.chapter, 'post_heist');
-        assert.equal(state.story.day, 5);
+        assert.equal(state.story.day, 7);
         assert.equal(state.story.timeMinutes, 11 * 60 + 15);
         assert.equal(state.story.timeEvents.includes(TIME_EVENT_IDS.PHONE_READ_CABIN), true);
         assert.equal(
@@ -517,7 +517,7 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(state.missions[MISSION_IDS.MANSION_RETURN].status, 'available');
         assert.equal(state.missions[MISSION_IDS.CARTEL_PALACE].status, 'locked');
         assert.equal(state.story.chapter, 'mansion_return');
-        assert.equal(state.story.day, 7);
+        assert.equal(state.story.day, 9);
         assert.equal(state.story.timeMinutes, 18 * 60 + 30);
       },
     },
@@ -535,7 +535,7 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         // Preview uses the same post-Cabin clock as play: Palace extraction is
         // the end of Day 7, and the frozen Initiation follows it directly.
         assert.equal(state.story.chapter, 'big_night');
-        assert.equal(state.story.day, 7);
+        assert.equal(state.story.day, 9);
         assert.equal(state.story.timeMinutes, 23 * 60);
       },
     },

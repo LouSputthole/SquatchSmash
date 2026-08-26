@@ -283,19 +283,28 @@ test('the Day Two through Day Four mission beats land on their authored clocks',
   const beats = [
     [TIME_EVENT_IDS.DEPART_AIRSTRIP, 2, 9 * 60 + 10],
     [TIME_EVENT_IDS.COMPLETE_AIRSTRIP, 2, 20 * 60 + 30],
-    [TIME_EVENT_IDS.DEPART_BADA_BING_TWO, 2, 23 * 60],
-    [TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD, 3, 15],
-    [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO, 3, 45],
-    [TIME_EVENT_IDS.DEPART_JERKY_MOTEL, 3, 60 + 30],
-    [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL, 3, 4 * 60 + 30],
-    [TIME_EVENT_IDS.DEPART_NO_WAKE, 3, 12 * 60 + 45],
-    [TIME_EVENT_IDS.COMPLETE_NO_WAKE, 3, 16 * 60 + 40],
-    /* Day 3 is the date. He sleeps the morning off, she rings in the
+    /* The Beef Run's two hours did not move: the bible already flies it on
+     * Day 2 and has him back by night. Everything after it gained the two
+     * days the Act-One cabin takes -- the lay-low and the dungeon -- with the
+     * hours themselves untouched. 23:00 is still 23:00. */
+    [TIME_EVENT_IDS.DEPART_BADA_BING_TWO, 4, 23 * 60],
+    [TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD, 5, 15],
+    [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO, 5, 45],
+    [TIME_EVENT_IDS.DEPART_JERKY_MOTEL, 5, 60 + 30],
+    [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL, 5, 4 * 60 + 30],
+    [TIME_EVENT_IDS.DEPART_NO_WAKE, 5, 12 * 60 + 45],
+    [TIME_EVENT_IDS.COMPLETE_NO_WAKE, 5, 16 * 60 + 40],
+    /* Day 5 is the date. He sleeps the morning off, she rings in the
      * afternoon, and he leaves at half seven for a nine o'clock table. */
-    [TIME_EVENT_IDS.DEPART_SILVER_ROOM, 3, 19 * 60 + 30],
-    [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM, 3, 23 * 60 + 20],
-    // And the ceremony is the next day: Day 4, seven sharp.
-    [TIME_EVENT_IDS.DEPART_INITIATION, 4, 19 * 60],
+    [TIME_EVENT_IDS.DEPART_SILVER_ROOM, 5, 19 * 60 + 30],
+    [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM, 5, 23 * 60 + 20],
+    /* DEPART_INITIATION is anchored at Day 4 19:00 and this walk has already
+     * gone past it, so it advances nothing and carries the clock where it
+     * stands. That is not a bug being papered over -- it is the same pure
+     * carry the real route sees, where the ceremony lands after midnight on
+     * Day 10 and no anchor this early can name its hour. Asserting the carry
+     * is what keeps the difference between "anchored" and "spent" visible. */
+    [TIME_EVENT_IDS.DEPART_INITIATION, 5, 23 * 60 + 20],
   ];
   for (const [eventId, day, timeMinutes] of beats) {
     const result = campaign.advanceTime(eventId);
@@ -308,7 +317,7 @@ test('the Day Two through Day Four mission beats land on their authored clocks',
   // and cannot drag the clock back to the beat's own authored hour either.
   const replay = campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO);
   assert.deepEqual(replay, {
-    applied: false, day: 4, timeMinutes: 19 * 60, minutesAdvanced: 0,
+    applied: false, day: 5, timeMinutes: 23 * 60 + 20, minutesAdvanced: 0,
   });
 });
 

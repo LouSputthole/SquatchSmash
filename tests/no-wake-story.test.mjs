@@ -54,7 +54,7 @@ test('NO WAKE requires the real Motel and Lou call prerequisites', () => {
   assert.deepEqual(story.begin(), { ok: false, reason: 'lou_call_incomplete' });
 });
 
-test('NO WAKE checkpoints are monotonic and completion opens the date on Day 3', () => {
+test('NO WAKE checkpoints are monotonic and completion opens the date on Day 5', () => {
   const storage = new MemoryStorage();
   const campaign = readyCampaign(storage);
   const story = createNoWakeStory({ campaign });
@@ -68,7 +68,7 @@ test('NO WAKE checkpoints are monotonic and completion opens the date on Day 3',
   const restored = createCampaign({ storage }).state;
   assert.equal(restored.version, CAMPAIGN_VERSION);
   assert.equal(restored.story.chapter, 'date');
-  assert.equal(restored.story.day, 3);
+  assert.equal(restored.story.day, 5);
   assert.equal(restored.story.timeMinutes, 16 * 60 + 40);
   assert.deepEqual(restored.missions[MISSION_IDS.NO_WAKE], {
     status: 'complete', checkpoint: 'returned', betrayalConfirmed: true,

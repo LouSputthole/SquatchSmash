@@ -16,6 +16,7 @@ import { Player } from '../core/player.js';
 import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import {
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
   createCampaignRadioAdapter,
   navigateCampaign,
@@ -409,7 +410,21 @@ startBtn.addEventListener('click', async () => {
   mission.paused = false;
 });
 
+/* Sasole drops him where he collected him. Mid-chapter that is the cabin --
+ * a man laying low does not get driven to the flat he is laying low from --
+ * and only once the cabin is behind him does this button mean home. */
 document.getElementById('br-home')?.addEventListener('click', () => {
+  /* Mid-chapter is "Booski has rung about the Captain and Booski has not yet
+   * rung about Billy". The cabin is a scene rather than a mission, so those
+   * two clock markers are the chapter, and asking them is asking it. */
+  const events = campaign.state.story.timeEvents;
+  const midChapter = events.includes(TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL)
+    && !events.includes(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL);
+  if (midChapter) {
+    campaign.advanceTime(TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP);
+    navigateCampaign(campaign, SCENE_IDS.COUNTRYSIDE_CABIN, { spawn: 'arrival' });
+    return;
+  }
   navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
 });
 

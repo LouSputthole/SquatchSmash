@@ -9,6 +9,7 @@ import {
 } from '../src/core/campaign.js';
 import {
   CABIN_HOSTAGE_IDS,
+  COUNTRYSIDE_CABIN_LANDMARKS,
   createCountrysideCabinStory,
 } from '../src/core/countryside-cabin-story.js';
 import {
@@ -77,22 +78,33 @@ function audioDouble() {
   };
 }
 
+/**
+ * The Act-One cabin, at the moment the driver pulls away. He has just come
+ * from the restaurant; the bed is the first thing that happens here.
+ */
 function seedCabinCampaign(storage = new MemoryStorage()) {
   const campaign = createCampaign({ storage });
   campaign.update((state) => {
-    state.story.chapter = 'post_heist';
-    state.story.day = 4;
-    state.story.timeMinutes = 17 * 60 + 20;
-    state.scene = { id: SCENE_IDS.APARTMENT, spawn: 'front_door' };
-    state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
-    state.missions[MISSION_IDS.BANK_HEIST].cleanupComplete = true;
-    state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
-    state.story.timeEvents.push(TIME_EVENT_IDS.PHONE_READ_CABIN);
+    state.scene = { id: SCENE_IDS.SQUATCHFATHER, spawn: 'restaurant_exterior' };
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
   });
-  campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN, (state) => {
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER);
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW, (state) => {
     state.scene = { id: SCENE_IDS.COUNTRYSIDE_CABIN, spawn: 'arrival' };
   });
   return { campaign, storage };
+}
+
+/**
+ * The same seed, plus the sleep the chapter opens on. Most of this file is
+ * about what the phone and the dialogue director do once the day has started,
+ * so it starts them there rather than repeating the bed in every case.
+ */
+function seedWokenCabin(storage = new MemoryStorage()) {
+  const seeded = seedCabinCampaign(storage);
+  createCountrysideCabinStory({ campaign: seeded.campaign }).completeArrivalRest();
+  return seeded;
 }
 
 function runtimeHarness(campaign, { callbacks = {}, hud = null } = {}) {
@@ -138,11 +150,38 @@ function finishCurrentCall(harness) {
   assert.equal(harness.phone.finish(), true);
 }
 
-function reachDungeon(story) {
+/**
+ * Everything the campaign does before the cellar: the bed, Lou, all four
+ * walks, Margo, Booski, the flight, the drive back and the second night.
+ */
+/** Visit one, the flight, the drive back and the second night -- but not the
+ * call that starts the dungeon. Everything Gratin has to wait for. */
+function reachGratin(story) {
+  story.completeArrivalRest();
   story.completeOpeningCall();
-  story.visit('creek');
+  for (const { id } of COUNTRYSIDE_CABIN_LANDMARKS) story.visit(id);
   story.consumeMargoReady();
-  story.visit('overlook');
+  story.completeMargoCall();
+  story.completeBooskiSasoleCall();
+  story.campaign.update((state) => {
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'complete';
+  });
+  story.recordReturnFromAirstrip();
+  story.completeSecondRest();
+  return story;
+}
+
+function reachDungeon(story) {
+  story.completeArrivalRest();
+  story.completeOpeningCall();
+  for (const { id } of COUNTRYSIDE_CABIN_LANDMARKS) story.visit(id);
+  story.completeMargoCall();
+  story.completeBooskiSasoleCall();
+  story.campaign.update((state) => {
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'complete';
+  });
+  story.recordReturnFromAirstrip();
+  story.completeSecondRest();
   story.completeGratinCall();
   story.openCellar();
   story.enterDungeon();
@@ -186,7 +225,7 @@ test('runtime maps dungeon and cleanup ids onto the two durable hostage records'
 });
 
 test('Lou, Margo, Gratin, hidden doors, return line, and forty-second clue follow authored gates', () => {
-  const { campaign } = seedCabinCampaign();
+  const { campaign } = seedWokenCabin();
   const margo = [];
   const doors = [];
   const ringing = [];
@@ -222,8 +261,31 @@ test('Lou, Margo, Gratin, hidden doors, return line, and forty-second clue follo
   const repeat = story.visit('creek');
   assert.equal(runtime.notifyLandmark(repeat), false);
   assert.equal(margo.length, 1);
-  runtime.notifyLandmark(story.visit('overlook'));
+
+  /* THE FOUR WALKS, THEN THE TWO CALLS THAT END VISIT ONE. Gratin is a day
+   * and a flight away yet: nothing here can reach the cellar. */
+  for (const { id } of COUNTRYSIDE_CABIN_LANDMARKS) {
+    runtime.notifyLandmark(story.visit(id));
+  }
+  drainDialogue(harness);
   tick(harness, 0.1);
+  assert.equal(phone.call.def.id, CABIN_PHONE_CALLS.MARGO_FIRST_CALL.id);
+  finishCurrentCall(harness);
+  assert.equal(story.margoCallComplete(), true);
+  tick(harness, 2);
+  assert.equal(phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_SASOLE.id);
+  finishCurrentCall(harness);
+  assert.equal(story.visitOneComplete(), true);
+  assert.equal(runtime.canRevealBasement(), false,
+    'the cellar cannot open on the first visit');
+
+  /* The Beef Run, the drive back, and the second night. */
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'complete';
+  });
+  story.recordReturnFromAirstrip();
+  story.completeSecondRest();
+  tick(harness, 2);
   assert.equal(phone.call.def.id, CABIN_PHONE_CALLS.GRATIN_BASEMENT.id);
   finishCurrentCall(harness);
   assert.equal(runtime.canRevealBasement(), true);
@@ -252,12 +314,14 @@ test('Lou, Margo, Gratin, hidden doors, return line, and forty-second clue follo
   assert.equal(doors.length, 1);
   assert.deepEqual(ringing, [
     CABIN_PHONE_CALLS.LOU_ARRIVAL.id,
+    CABIN_PHONE_CALLS.MARGO_FIRST_CALL.id,
+    CABIN_PHONE_CALLS.BOOSKI_SASOLE.id,
     CABIN_PHONE_CALLS.GRATIN_BASEMENT.id,
   ]);
 });
 
 test('stopping during a connected call does not complete that call as a story event', () => {
-  const { campaign } = seedCabinCampaign();
+  const { campaign } = seedWokenCabin();
   const harness = runtimeHarness(campaign);
   harness.runtime.start();
   tick(harness, 0.1);
@@ -271,7 +335,7 @@ test('stopping during a connected call does not complete that call as a story ev
 });
 
 test('manually hanging up a required Cabin call cannot award its story marker', () => {
-  const { campaign } = seedCabinCampaign();
+  const { campaign } = seedWokenCabin();
   const harness = runtimeHarness(campaign);
   harness.runtime.start();
   tick(harness, 0.1);
@@ -286,7 +350,7 @@ test('manually hanging up a required Cabin call cannot award its story marker', 
 });
 
 test('tool-gated torture reaches 2/6, reveals Short Bus intel, and arms the player branch', () => {
-  const { campaign } = seedCabinCampaign();
+  const { campaign } = seedWokenCabin();
   const tortureHits = [];
   const deaths = [];
   const equip = [];
@@ -375,7 +439,7 @@ test('explicit NO and the full ten-second timeout both make Gratin execute the c
     },
   ]) {
     await t.test(branch.name, () => {
-      const { campaign } = seedCabinCampaign();
+      const { campaign } = seedWokenCabin();
       const shots = [];
       const choices = [];
       const starts = [];
@@ -406,7 +470,7 @@ test('explicit NO and the full ten-second timeout both make Gratin execute the c
 });
 
 test('Gratin speaks his execution aftermath only after both authored shots land', () => {
-  const { campaign, storage } = seedCabinCampaign();
+  const { campaign, storage } = seedWokenCabin();
   const shots = [];
   const harness = runtimeHarness(campaign, {
     callbacks: { onGratinShot: (id) => shots.push(id) },
@@ -443,7 +507,7 @@ test('Gratin speaks his execution aftermath only after both authored shots land'
 });
 
 test('body wrapping, carry, gas, fire, drinking, blackout, and Ape morning call form one complete flow', () => {
-  const { campaign } = seedCabinCampaign();
+  const { campaign } = seedWokenCabin();
   let allowWrap = false;
   let allowCarry = false;
   let allowPlace = false;
@@ -535,6 +599,13 @@ test('body wrapping, carry, gas, fire, drinking, blackout, and Ape morning call 
   assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.APE_MORNING.id);
   finishCurrentCall(harness);
 
+  /* Ape gets him upright; Booski tells him where to go. Beat 7 is not over
+   * until the second of those, and neither is the cabin. */
+  assert.equal(harness.story.morningWakeComplete(), true);
+  assert.equal(harness.story.chapterComplete(), false);
+  tick(harness, 2);
+  assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_BILLY.id);
+  finishCurrentCall(harness);
   assert.equal(harness.story.chapterComplete(), true);
   assert.deepEqual(
     intoxication.map(({ amount, item }) => ({ amount: Number(amount.toFixed(2)), item })),
@@ -552,12 +623,8 @@ test('body wrapping, carry, gas, fire, drinking, blackout, and Ape morning call 
 
 test('reload restoration resumes Margo, Gratin execution, staged bodies, an ignited fire, and morning', async (t) => {
   await t.test('the return-to-Cabin line remains owed until approach and replays after a mid-line reload', () => {
-    const { campaign, storage } = seedCabinCampaign();
-    const story = createCountrysideCabinStory({ campaign });
-    story.completeOpeningCall();
-    story.visit('creek');
-    story.consumeMargoReady();
-    story.visit('overlook');
+    const { campaign, storage } = seedWokenCabin();
+    const story = reachGratin(createCountrysideCabinStory({ campaign }));
     story.completeGratinCall();
 
     const interrupted = reloadHarness(storage);
@@ -597,11 +664,10 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
   });
 
   await t.test('a Margo setup interrupted by reload replays before emitting once and unblocking Gratin', () => {
-    const { campaign, storage } = seedCabinCampaign();
+    const { campaign, storage } = seedWokenCabin();
     const story = createCountrysideCabinStory({ campaign });
     story.completeOpeningCall();
-    story.visit('creek');
-    story.visit('overlook');
+    for (const { id } of COUNTRYSIDE_CABIN_LANDMARKS) story.visit(id);
     const interrupted = reloadHarness(storage);
     interrupted.runtime.start();
     assert.equal(interrupted.dialogue.current, 'FIRST_EXPLORATION');
@@ -621,12 +687,14 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
     assert.equal(harness.story.margoHookHandled(), true);
     assert.equal(margo.length, 1);
     assert.equal(margo[0].restored, true);
+    /* The setup line's own payoff is the call to HER, not to Gratin. Gratin is
+     * a flight and a night away. */
     tick(harness, 0.1);
-    assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.GRATIN_BASEMENT.id);
+    assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.MARGO_FIRST_CALL.id);
   });
 
   await t.test('a mid-reveal reload repeats the Short Bus disclosure before making the intel durable', () => {
-    const { campaign, storage } = seedCabinCampaign();
+    const { campaign, storage } = seedWokenCabin();
     const story = reachDungeon(createCountrysideCabinStory({ campaign }));
     story.hitHostage(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER, { hits: 2 });
     story.hitHostage(CABIN_HOSTAGE_IDS.ATEAM_MEMBER, { hits: 6 });
@@ -654,7 +722,7 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
   });
 
   await t.test('a persisted player choice replays YES before restoring the pistol', () => {
-    const { campaign, storage } = seedCabinCampaign();
+    const { campaign, storage } = seedWokenCabin();
     const story = prepareIntel(createCountrysideCabinStory({ campaign }));
     story.chooseExecution('player');
     assert.equal(story.executionBranchVoComplete(), false);
@@ -683,7 +751,7 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
   });
 
   await t.test('a saved explicit NO finishes its response before restarting only living execution shots', () => {
-    const { campaign, storage } = seedCabinCampaign();
+    const { campaign, storage } = seedWokenCabin();
     const story = prepareIntel(createCountrysideCabinStory({ campaign }));
     story.chooseExecution('gratin');
     const baiter = story.hostageState(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER);
@@ -709,7 +777,7 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
   });
 
   await t.test('a timeout-selected Gratin choice replays TIMEOUT rather than explicit NO after reload', () => {
-    const { campaign, storage } = seedCabinCampaign();
+    const { campaign, storage } = seedWokenCabin();
     const story = prepareIntel(createCountrysideCabinStory({ campaign }));
     story.chooseExecution('gratin', { reason: 'timeout' });
     assert.equal(story.executionBranch(), 'timeout');
@@ -735,7 +803,7 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
   });
 
   await t.test('nightfall saved mid-briefing replays BOTH_DEAD and WRAP_INSTRUCTIONS before completion', () => {
-    const { campaign, storage } = seedCabinCampaign();
+    const { campaign, storage } = seedWokenCabin();
     prepareDeaths(createCountrysideCabinStory({ campaign }));
 
     const interrupted = reloadHarness(storage);
@@ -762,7 +830,7 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
   });
 
   await t.test('wrapped bodies stay in the dungeon on reload while a body already at the pyre stays unavailable', () => {
-    const { campaign, storage } = seedCabinCampaign();
+    const { campaign, storage } = seedWokenCabin();
     const story = prepareNightfall(createCountrysideCabinStory({ campaign }));
     for (const id of Object.values(CABIN_HOSTAGE_IDS)) story.wrapHostage(id);
     story.moveBodyToFire(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER);
@@ -784,7 +852,7 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
   });
 
   await t.test('an ignition saved before its dialogue resumes cleanup and fire talk', () => {
-    const { campaign, storage } = seedCabinCampaign();
+    const { campaign, storage } = seedWokenCabin();
     const story = prepareNightfall(createCountrysideCabinStory({ campaign }));
     for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
       story.wrapHostage(id);
@@ -819,7 +887,7 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
   });
 
   await t.test('a reload after the durable first drink resumes at Squatch talk and the next whiskey pull', () => {
-    const { campaign, storage } = seedCabinCampaign();
+    const { campaign, storage } = seedWokenCabin();
     const story = prepareNightfall(createCountrysideCabinStory({ campaign }));
     for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
       story.wrapHostage(id);
@@ -840,7 +908,7 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
   });
 
   await t.test('blackout restores the bed before ringing Ape', () => {
-    const { campaign, storage } = seedCabinCampaign();
+    const { campaign, storage } = seedWokenCabin();
     const story = prepareNightfall(createCountrysideCabinStory({ campaign }));
     for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
       story.wrapHostage(id);
@@ -862,8 +930,8 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
     assert.equal(harness.dialogue.current, 'MORNING');
   });
 
-  await t.test('a persisted morning call completes the final wake marker on reload', () => {
-    const { campaign, storage } = seedCabinCampaign();
+  await t.test('a persisted morning call completes the wake marker and rings Booski', () => {
+    const { campaign, storage } = seedWokenCabin();
     const story = prepareNightfall(createCountrysideCabinStory({ campaign }));
     for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
       story.wrapHostage(id);
@@ -880,8 +948,18 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
     const harness = reloadHarness(storage, {
       callbacks: { onChapterComplete: (detail) => complete.push(detail) },
     });
-    assert.equal(harness.runtime.start(), 'complete');
+    /* Restoring gets him on his feet -- and stops there. The chapter ends on
+     * Booski's call about Billy, and a reload owes the player that call rather
+     * than quietly awarding it. */
+    assert.equal(harness.runtime.start(), 'billy_call');
+    assert.equal(harness.story.morningWakeComplete(), true);
+    assert.equal(harness.story.chapterComplete(), false);
+    assert.deepEqual(complete, []);
+
+    tick(harness, 0.2);
+    assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_BILLY.id);
+    finishCurrentCall(harness);
     assert.equal(harness.story.chapterComplete(), true);
-    assert.deepEqual(complete, [{ restored: true }]);
+    assert.deepEqual(complete, [undefined]);
   });
 });

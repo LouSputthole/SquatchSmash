@@ -1420,7 +1420,29 @@ class ApartmentStory {
 
     this.campaign.update((next) => {
       next.story.chapter = step.to;
-      next.story.day = step.day;
+      /* SLEEPING IS A FLOOR, NOT A DATE.
+       *
+       * This assigned `step.day` outright, which was fine while every chapter
+       * boundary was a night in this bed and the table's numbers WERE the
+       * calendar. The Act-One cabin broke that: he now spends Days 2 to 4 out
+       * of the city and lets himself back in on Day 5, so a table that says
+       * "day_two ends on Day 3" would wind the clock BACKWARDS two days the
+       * first time he lay down at home.
+       *
+       * A night's sleep can only ever put you on the morning after the one you
+       * went to bed on, so that is what this says now. The table's day is a
+       * floor -- the earliest that chapter can start -- and it stays exactly
+       * as authoritative for every route that reaches it on time.
+       *
+       * The rule is "the next time it is that hour, at or after the chapter's
+       * floor day". Same day if the hour is still ahead of him -- he came in
+       * from the Motel at 04:30 and NO WAKE starts at noon, which is a lie-in
+       * and not a lost day -- and tomorrow if it is already behind him. */
+      const floor = Math.max(step.day, next.story.day);
+      next.story.day = floor === next.story.day
+        && step.timeMinutes <= next.story.timeMinutes
+        ? floor + 1
+        : floor;
       next.story.timeMinutes = step.timeMinutes;
       next.scene = { id: SCENE_IDS.APARTMENT, spawn: 'wake' };
       /* A new morning is a new morning. These used to carry over, so waking on
@@ -1448,7 +1470,8 @@ class ApartmentStory {
     return {
       ok: true,
       chapter: step.to,
-      day: step.day,
+      /* The day the clock actually landed on, not the table's floor. */
+      day: this.campaign.state.story.day,
       timeMinutes: step.timeMinutes,
     };
   }

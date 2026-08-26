@@ -520,71 +520,89 @@ const TIME_EVENTS = Object.freeze({
     atLeast: Object.freeze({ day: 2, timeMinutes: 20 * 60 + 30 }),
   }),
   // The club again, late the same evening Lou calls him back in.
+  /* +2 DAYS, FROM HERE TO THE END OF THE WAR.
+   *
+   * The Act-One cabin takes Days 2, 3 and 4 -- the lay-low, the Beef Run, the
+   * dungeon -- where the campaign used to be at the second Bing visit by the
+   * night of Day 2. Every anchor from here on was written against that older
+   * calendar and had to move with the route, in the same commit.
+   *
+   * Not moving them would not have failed anywhere. `advanceTime` takes
+   * `Math.max(now, atLeast)`, so an anchor the route now overshoots simply
+   * stops naming its hour: the golf round would have "ended" at 07:18 having
+   * teed off at 07:30, and nothing in the game would have said a word. The
+   * hours themselves are untouched -- 23:00 is still 23:00 -- because it was
+   * never the hours that were wrong, only which day they fell on.
+   *
+   * The Beef Run is the exception that proves it: DEPART_AIRSTRIP (Day 2
+   * 09:10) and COMPLETE_AIRSTRIP (Day 2 20:30) did NOT move, because the
+   * bible already puts the flight on Day 2 and back by night. They were right
+   * before the route reached them and they are right now. */
   [TIME_EVENT_IDS.DEPART_BADA_BING_TWO]: Object.freeze({
-    atLeast: Object.freeze({ day: 2, timeMinutes: 23 * 60 }),
+    atLeast: Object.freeze({ day: 4, timeMinutes: 23 * 60 }),
   }),
   // Lockdown, cleanup, loading the body, and the drive into the woods.
   [TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 15 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 15 }),
   }),
   // Lou's assignment lands after the club crosses midnight.
   [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 45 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 45 }),
   }),
   // The drive out to the Motel, straight from the club.
   [TIME_EVENT_IDS.DEPART_JERKY_MOTEL]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 60 + 30 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 60 + 30 }),
   }),
   // Deal, betrayal, recovery, and the getaway end before dawn.
   [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 4 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 4 * 60 + 30 }),
   }),
   // A deliberately vague call, then the drive down to South Harbor.
   [TIME_EVENT_IDS.DEPART_NO_WAKE]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 12 * 60 + 45 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 12 * 60 + 45 }),
   }),
   // Dock work, the run offshore, and the silent return consume the afternoon.
   [TIME_EVENT_IDS.COMPLETE_NO_WAKE]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 16 * 60 + 40 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 16 * 60 + 40 }),
   }),
   /* Day 3 turns through NO WAKE first. He wakes at noon off the back of the
    * Motel, completes the harbor job, takes Margo's afternoon call, and leaves
    * at half seven for a nine o'clock table -- the Silver Room's own evening. */
   [TIME_EVENT_IDS.DEPART_SILVER_ROOM]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 19 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 19 * 60 + 30 }),
   }),
   // Dinner, a set by the Midnight Pines, and the walk out the front.
   [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 23 * 60 + 20 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 23 * 60 + 20 }),
   }),
   /* Margo wakes him at seven. Lou's short invitation sends Tony out at half
    * seven for an eight-o'clock tee time; three holes and the return trip put
    * him back in the flat before THE TAKE begins. */
   [TIME_EVENT_IDS.DEPART_SILVER_PINES]: Object.freeze({
-    atLeast: Object.freeze({ day: 4, timeMinutes: 7 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 7 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_SILVER_PINES]: Object.freeze({
-    atLeast: Object.freeze({ day: 4, timeMinutes: 10 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 10 * 60 + 30 }),
   }),
   // After the round, Lou's crew collects Tony late that morning.
   [TIME_EVENT_IDS.DEPART_BANK_HEIST]: Object.freeze({
-    atLeast: Object.freeze({ day: 4, timeMinutes: 11 * 60 + 15 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 11 * 60 + 15 }),
   }),
   // Briefing, bank, withdrawal, pursuit, swap, and the count fill the day.
   [TIME_EVENT_IDS.COMPLETE_BANK_HEIST]: Object.freeze({
-    atLeast: Object.freeze({ day: 4, timeMinutes: 17 * 60 + 20 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 17 * 60 + 20 }),
   }),
   /* Clean clothes, a packed car and the county road now put him at the cabin
    * in late-morning daylight on Day 5. The dungeon chapter needs a readable
    * day-to-night turn on the same property; arriving at the old dusk time hid
    * that whole arc inside one unchanging lighting state. */
   [TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN]: Object.freeze({
-    atLeast: Object.freeze({ day: 5, timeMinutes: 11 * 60 + 15 }),
+    atLeast: Object.freeze({ day: 7, timeMinutes: 11 * 60 + 15 }),
   }),
   /* Legacy Cabin builds offered one full rest. Keep its marker/time readable;
    * the dungeon chapter now owns the actual night-to-morning progression. */
   [TIME_EVENT_IDS.CABIN_REST]: Object.freeze({
-    atLeast: Object.freeze({ day: 5, timeMinutes: 14 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 7, timeMinutes: 14 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.CABIN_EXPLORE_CREEK]: Object.freeze({ minutes: 20 }),
   [TIME_EVENT_IDS.CABIN_EXPLORE_OVERLOOK]: Object.freeze({ minutes: 30 }),
@@ -649,8 +667,19 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.CABIN_ATEAM_DEAD]: Object.freeze({ minutes: 0 }),
   /* The executions end the daylight chapter. Wrapping and carrying happen
    * only after this exact-once nightfall seam has landed. */
+  /* THE DUNGEON'S TWO ANCHORED HOURS, RE-ANCHORED WITH THE ROUTE.
+   *
+   * These read day 5 and day 6 because the cabin used to be a post-heist
+   * lay-low. The bible puts it in Act One and the calendar puts the dungeon on
+   * Day 3 -- nightfall 20:45 -- with the blackout ending at 09:30 on Day 4.
+   *
+   * They HAD to move in the same commit as the route, and in this direction
+   * specifically. `advanceTime` takes `Math.max(now, atLeast)`: a route that
+   * reaches this beat on Day 3 against a Day 5 anchor does not play at 20:45,
+   * it JUMPS the clock two days and eats the Beef Run's own dates. Left
+   * behind, the whole chapter would have silently happened in the wrong week. */
   [TIME_EVENT_IDS.CABIN_NIGHTFALL]: Object.freeze({
-    atLeast: Object.freeze({ day: 5, timeMinutes: 20 * 60 + 45 }),
+    atLeast: Object.freeze({ day: 3, timeMinutes: 20 * 60 + 45 }),
   }),
   [TIME_EVENT_IDS.CABIN_NIGHTFALL_BRIEFING_COMPLETE]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_WRAPPED]: Object.freeze({ minutes: 4 }),
@@ -665,14 +694,14 @@ const TIME_EVENTS = Object.freeze({
   /* The drink is followed by a hard blackout. Reloading after it resumes on
    * the Day 6 morning authored for the chapter, never back beside the fire. */
   [TIME_EVENT_IDS.CABIN_BLACKOUT]: Object.freeze({
-    atLeast: Object.freeze({ day: 6, timeMinutes: 9 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 4, timeMinutes: 9 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.CABIN_MORNING_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE]: Object.freeze({ minutes: 0 }),
   /* The Cabin chapter now owns Day 5 and its Day 6 morning. Ape's pickup and
    * the off-screen rendezvous land The Silver Case at 4 PM that afternoon. */
   [TIME_EVENT_IDS.DEPART_SILVER_CASE]: Object.freeze({
-    atLeast: Object.freeze({ day: 6, timeMinutes: 16 * 60 }),
+    atLeast: Object.freeze({ day: 8, timeMinutes: 16 * 60 }),
   }),
   // Car ride, apartment takeover, ambush, aftermath, and recovery of the case.
   [TIME_EVENT_IDS.COMPLETE_SILVER_CASE]: Object.freeze({ minutes: 90 }),
@@ -705,7 +734,7 @@ const TIME_EVENTS = Object.freeze({
    * consume the day; Enola opens late on Day 7, preserving the airfield
    * runtime's visible daylight-to-nightfall cut after the Cabin insertion. */
   [TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH]: Object.freeze({
-    atLeast: Object.freeze({ day: 7, timeMinutes: 14 * 60 }),
+    atLeast: Object.freeze({ day: 9, timeMinutes: 14 * 60 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH]: Object.freeze({ minutes: 4 * 60 }),
   [TIME_EVENT_IDS.RETURN_TO_MANSION]: Object.freeze({ minutes: 30 }),
@@ -713,7 +742,7 @@ const TIME_EVENTS = Object.freeze({
   /* Lou holds the raid until full dark. The estate approach therefore keeps
    * its Day 7 night label even if a faster preceding scene finishes early. */
   [TIME_EVENT_IDS.DEPART_CARTEL_PALACE]: Object.freeze({
-    atLeast: Object.freeze({ day: 7, timeMinutes: 20 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 9, timeMinutes: 20 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE]: Object.freeze({ minutes: 150 }),
   /* The phone call, getting changed, and going down to a car already running.
@@ -1413,6 +1442,11 @@ export const SCENES = Object.freeze({
     spawns: Object.freeze(['arrival', 'wake', 'porch']),
     next: Object.freeze([
       SCENE_IDS.AIRSTRIP_SMUGGLING,
+      /* Beat 7's exit. Booski rings while the ash is still warm -- Billy is
+       * getting out, come back to the Bing -- and the county road is what he
+       * drives back down. This edge is what makes the Act-One cabin a place
+       * the campaign passes THROUGH rather than a cul-de-sac. */
+      SCENE_IDS.BADA_BING_TWO,
       SCENE_IDS.APARTMENT,
       SCENE_IDS.SILVER_CASE,
     ]),
@@ -3822,9 +3856,13 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     ].includes(sceneId);
     const seedFinalArcClock = (eventCount) => {
       const reached = FINAL_ARC_TIME_EVENT_ORDER.slice(0, eventCount);
+      /* COMPLETE_BANK_HEIST's own anchor. It moved from Day 4 to Day 6 with
+       * the rest of the calendar when the Act-One cabin took Days 2 to 4, and
+       * a preview that seeded the old date would put every final-arc scene two
+       * days before the play route reaches it. */
       let clock = {
         ...state.story,
-        day: 4,
+        day: 6,
         timeMinutes: 17 * 60 + 20,
         timeEvents: [],
       };
@@ -3973,7 +4011,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
 
     if (sceneId === SCENE_IDS.NO_WAKE) {
       state.story.chapter = 'no_wake';
-      state.story.day = 3;
+      state.story.day = 5;
       state.story.timeMinutes = 12 * 60 + 45;
       state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
       noWake.status = 'available';
@@ -3996,9 +4034,9 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
 
     if (sceneId === SCENE_IDS.SILVER_ROOM) {
       /* He slept off the Motel, woke at noon, and she rang in the afternoon.
-       * Half seven on the evening of Day 3, on his way out of the door. */
+       * Half seven on the evening of Day 5, on his way out of the door. */
       state.story.chapter = 'date';
-      state.story.day = 3;
+      state.story.day = 5;
       state.story.timeMinutes = 19 * 60 + 30;
       silver.status = 'available';
       return;
@@ -4015,7 +4053,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
 
     if (sceneId === SCENE_IDS.SILVER_PINES) {
       state.story.chapter = 'golf_morning';
-      state.story.day = 4;
+      state.story.day = 6;
       state.story.timeMinutes = 7 * 60 + 30;
       if (!state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE)) {
         state.story.timeEvents.push(TIME_EVENT_IDS.MARGO_WAKE);
@@ -4038,7 +4076,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       || finalArcPrelude) {
       seedCompletedGolfRound(golf);
       state.story.chapter = 'heist_day';
-      state.story.day = 4;
+      state.story.day = 6;
       state.story.timeMinutes = 11 * 60 + 15;
       for (const eventId of [
         TIME_EVENT_IDS.MARGO_WAKE,
@@ -4099,7 +4137,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
          * phone, and leaves the Silver Case merely available: the hideout is
          * the connective hub, never a completed final-arc mission. */
         state.story.chapter = 'post_heist';
-        state.story.day = 5;
+        state.story.day = 7;
         state.story.timeMinutes = 11 * 60 + 15;
         state.story.timeEvents = uniqueStrings([
           ...state.story.timeEvents,

@@ -15099,22 +15099,22 @@
       "_comment": "cabin.lou.arrival — Phone call with BIG UNCLE LOU",
       "name": "vo.call.lou.cabin_lay_low.1",
       "voice": "lou1",
-      "say": "Tony. Good work today. You kept your head and you brought everybody home."
+      "say": "Tony. You did what was asked and you didn't make a mess of it. That gets noticed."
     },
     {
       "name": "vo.call.lou.cabin_lay_low.tony.1",
       "voice": "player",
-      "say": "Thanks, Lou. You sure disappearing right after a bank job doesn't look suspicious?"
+      "say": "Thanks, Lou. How long is a while?"
     },
     {
       "name": "vo.call.lou.cabin_lay_low.2",
       "voice": "lou1",
-      "say": "I need you quiet now. Cabin up north, no city, no visitors, no hero shit. Lay low and enjoy the air."
+      "say": "Now you're nowhere. No city, no visitors, no hero shit. A man who just did what you did does not get seen for a while."
     },
     {
       "name": "vo.call.lou.cabin_lay_low.tony.2",
       "voice": "player",
-      "say": "Quiet I can do. No promises on the hero shit."
+      "say": "Nowhere I can do. No promises on the hero shit."
     },
     {
       "name": "vo.call.lou.cabin_lay_low.3",
@@ -15124,7 +15124,130 @@
     {
       "name": "vo.call.lou.cabin_lay_low.tony.3",
       "voice": "player",
-      "say": "Understood. Cabin, fresh air, absolutely normal post-robbery holiday."
+      "say": "Understood. Cabin, fresh air, absolutely normal week."
+    },
+    {
+      "_comment": "cabin.margo.first_call — Phone call with MARGO",
+      "name": "vo.call.margo.cabin_first.1",
+      "voice": "margo",
+      "say": "Whoever this is, it's early."
+    },
+    {
+      "name": "vo.call.margo.cabin_first.tony.1",
+      "voice": "player",
+      "say": "It's Tony. From the Bing. You gave me this number."
+    },
+    {
+      "name": "vo.call.margo.cabin_first.2",
+      "voice": "margo",
+      "say": "You're the one from the club. The one who didn't ask me for anything."
+    },
+    {
+      "name": "vo.call.margo.cabin_first.tony.2",
+      "voice": "player",
+      "say": "I did ask you for something. I asked for the number."
+    },
+    {
+      "name": "vo.call.margo.cabin_first.3",
+      "voice": "margo",
+      "say": "Where are you? That's birds."
+    },
+    {
+      "name": "vo.call.margo.cabin_first.tony.3",
+      "voice": "player",
+      "say": "Out of town. Work thing. It's very boring and there's a lot of trees."
+    },
+    {
+      "name": "vo.call.margo.cabin_first.4",
+      "voice": "margo",
+      "say": "Then call me when you're back in the city and I'll let you buy me something."
+    },
+    {
+      "name": "vo.call.margo.cabin_first.tony.4",
+      "voice": "player",
+      "say": "That's the plan. Nothing else on for the week."
+    },
+    {
+      "_comment": "cabin.booski.sasole — Phone call with BOOSKIBRO",
+      "name": "vo.call.booski.cabin_sasole.1",
+      "voice": "booski",
+      "say": "Prospect. You're up at the property. Good. There's a strip forty minutes from you."
+    },
+    {
+      "name": "vo.call.booski.cabin_sasole.tony.1",
+      "voice": "player",
+      "say": "I'm here. Lou said quiet."
+    },
+    {
+      "name": "vo.call.booski.cabin_sasole.2",
+      "voice": "booski",
+      "say": "Captain Sasole. He flies for us and he needs a second pair of hands today."
+    },
+    {
+      "name": "vo.call.booski.cabin_sasole.tony.2",
+      "voice": "player",
+      "say": "Sasole. Do I know what I'm carrying?"
+    },
+    {
+      "name": "vo.call.booski.cabin_sasole.3",
+      "voice": "booski",
+      "say": "You're not being asked to fly it. You're being asked to be there."
+    },
+    {
+      "name": "vo.call.booski.cabin_sasole.tony.3",
+      "voice": "player",
+      "say": "That I can do."
+    },
+    {
+      "name": "vo.call.booski.cabin_sasole.4",
+      "voice": "booski",
+      "say": "Go now. Lag will point you at the road."
+    },
+    {
+      "name": "vo.call.booski.cabin_sasole.tony.4",
+      "voice": "player",
+      "say": "On my way."
+    },
+    {
+      "_comment": "cabin.booski.billy — Phone call with BOOSKIBRO",
+      "name": "vo.call.booski.cabin_billy.1",
+      "voice": "booski",
+      "say": "You're done up there. Come back."
+    },
+    {
+      "name": "vo.call.booski.cabin_billy.tony.1",
+      "voice": "player",
+      "say": "Done. Understood."
+    },
+    {
+      "name": "vo.call.booski.cabin_billy.2",
+      "voice": "booski",
+      "say": "Billy Hotdog is getting out this afternoon. The Bing is doing something about it tonight."
+    },
+    {
+      "name": "vo.call.booski.cabin_billy.tony.2",
+      "voice": "player",
+      "say": "Billy's out. That's good news."
+    },
+    {
+      "name": "vo.call.booski.cabin_billy.3",
+      "voice": "booski",
+      "say": "Everyone will be there. That includes you now."
+    },
+    {
+      "name": "vo.call.booski.cabin_billy.tony.3",
+      "voice": "player",
+      "say": "I'll be there."
+    },
+    {
+      "name": "vo.call.booski.cabin_billy.4",
+      "voice": "booski",
+      "say": "Drive careful. Don't stop anywhere."
+    },
+    {
+      "name": "vo.call.booski.cabin_billy.tony.4",
+      "voice": "player",
+      "say": "I won't."
     },
     {
       "_comment": "cabin.gratin.basement — Phone call with GRATIN",

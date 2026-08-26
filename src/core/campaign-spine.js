@@ -131,7 +131,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.SQUATCHFATHER,
     spawn: 'restaurant_exterior',
     residence: RESIDENCE.CABIN,
-    status: 'pending',
+    status: 'wired',
     exit: 'The same driver takes him straight to the cabin. He does not go home.',
   }),
   beat({
@@ -142,7 +142,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.COUNTRYSIDE_CABIN,
     spawn: 'arrival',
     residence: RESIDENCE.CABIN,
-    status: 'pending',
+    status: 'wired',
     exit: 'Lou: good job, stay quiet. The four walks, and the one outgoing '
       + 'call in the campaign -- the cabin already emits MARGO_CALL_READY and '
       + 'deliberately owns no Margo conversation of its own.',
@@ -154,7 +154,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     chapter: 'prospect',
     scene: SCENE_IDS.COUNTRYSIDE_CABIN,
     residence: RESIDENCE.CABIN,
-    status: 'pending',
+    status: 'wired',
     exit: 'Booski: Captain Sasole needs a hand, and you are already out here. '
       + 'This is where the light half of the cabin chapter ends.',
   }),
@@ -166,7 +166,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.AIRSTRIP_SMUGGLING,
     spawn: 'hangar',
     residence: RESIDENCE.CABIN,
-    status: 'pending',
+    status: 'wired',
     exit: 'Lands clean. Sasole runs him back to the cabin rather than to a '
       + 'flat he is supposed to be hiding from.',
   }),
@@ -178,7 +178,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.COUNTRYSIDE_CABIN,
     spawn: 'wake',
     residence: RESIDENCE.STARTER,
-    status: 'pending',
+    status: 'wired',
     exit: 'The dark half of the cabin chapter: Gratin calls, the cellar and '
       + 'the dungeon open, the interrogation yields a mole with no name and '
       + 'the phrase Short Bus, the executions, the pyre, the blackout. Then '

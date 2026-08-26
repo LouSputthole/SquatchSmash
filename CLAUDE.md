@@ -56,6 +56,8 @@ CH 6  THIS THING OF OURS
 
 ### The calendar
 
+The bible's calendar, which is the target:
+
 | Day | |
 |---|---|
 | 1 | Bing I, the Squatchfather, the drive out |
@@ -69,6 +71,22 @@ CH 6  THIS THING OF OURS
 | 9 | The siege at 2 AM, Lou's call, Enola |
 | 12 | The repaired mansion, and the Palace that night |
 | 13 | The meeting, the ride, the ceremony |
+
+Days 1 to 4 are the built route as well: beats 3-7 are wired, and the cabin's
+own clock is anchored to the days above. From Bada Bing II onward the built
+route still plays beats 8-19 in its OLD order (NO WAKE and the date before the
+heist rather than after), and its anchors are the bible's hours on the days
+that order actually reaches — Bing II Day 4 23:00, the motel Day 5 04:30, the
+golf Day 6, the Silver Case Day 8, the Palace Day 9. Those come into line with
+the table above when beats 12-19 are wired; until then the table is the plan
+and `src/core/campaign.js`'s `TIME_EVENT_CLOCK` is the fact.
+
+**Anchors move WITH the route, in the same commit.** Beats 3-7 cost every
+anchor after the Beef Run two days. Leaving one behind does not fail anywhere:
+`advanceTime` takes `Math.max(now, atLeast)`, so an overshot anchor silently
+stops naming its hour, and the golf round "ended" at 07:18 having teed off at
+07:30. `sleep()` in `apartment-story.js` treats its chapter table's day as a
+floor for the same reason.
 
 ### Settled story rules
 
