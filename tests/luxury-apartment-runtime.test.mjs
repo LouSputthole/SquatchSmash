@@ -8,10 +8,12 @@ ensureThreeShim();
 
 const THREE = await import('three');
 const { Player } = await import('../src/core/player.js');
+const { Inventory } = await import('../src/core/inventory.js');
 const {
   LuxuryAnsweringMachineRuntime,
   LuxuryCrookedArtRuntime,
   LuxuryDarts,
+  LuxuryInventoryRuntime,
   LuxuryToiletRuntime,
 } = await import('../src/luxury-apartment/runtime.js');
 
@@ -128,7 +130,7 @@ test('luxury crooked-art controller completes the eight-hit TimingBar', () => {
   assert.equal(interaction.paused, false);
 });
 
-test('luxury answering machine and darts expose complete deterministic play loops', () => {
+test('luxury answering machine and physical darts expose complete deterministic play loops', () => {
   const world = {
     state: { answeringMachinePlaying: false },
     setMessagesWaiting(value) { this.messagesWaiting = value; },
@@ -141,11 +143,53 @@ test('luxury answering machine and darts expose complete deterministic play loop
   assert.equal(messageReport.waiting, 0);
   assert.equal(messageReport.transcript.length, 2);
 
-  const darts = new LuxuryDarts({ hud: quietObject(), audio: quietObject() });
+  const scene = new THREE.Scene();
+  const darts = new LuxuryDarts({ scene, hud: quietObject(), audio: quietObject() });
   darts.enter();
-  const dart = darts.throwDart(0.275);
-  assert.ok(dart.score > 0);
+  const launch = darts.throwAtBoard({ power: 12 });
+  assert.equal(launch.launched, true);
+  assert.ok(launch.velocity.y > 0, 'the compensated throw has a real ballistic arc');
+  for (let i = 0; darts.inFlight && i < 480; i++) darts.update(1 / 240);
+  assert.equal(darts.inFlight, null);
+  assert.equal(darts.lastImpact.target, 'dartboard');
+  assert.equal(darts.lastImpact.score, 50);
   assert.equal(darts.throws, 1);
+  assert.equal(darts.projectiles.length, 1, 'a scored dart remains visibly stuck');
+  darts.reset();
+  assert.equal(darts.throws, 0);
+  assert.equal(darts.projectiles.length, 0);
   darts.leave();
   assert.equal(darts.active, false);
+});
+
+test('luxury cigarette pack replenishes, reports full state, and can restore a consumed pack', () => {
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.05, 100);
+  const inventory = new Inventory(5);
+  const toasts = [];
+  const runtime = new LuxuryInventoryRuntime({
+    camera,
+    inventory,
+    hud: quietObject({ toast(message) { toasts.push(message); } }),
+    audio: quietObject(),
+    phone: { canvas: document.createElement('canvas'), screen: 'home' },
+  });
+  runtime.seed();
+
+  assert.deepEqual(runtime.status('cigs'), {
+    id: 'cigs', owned: true, count: 6, max: 12, full: false,
+  });
+  const replenished = runtime.replenish('cigs', { amount: 6, max: 12 });
+  assert.equal(replenished.added, 6);
+  assert.equal(replenished.full, true);
+  const alreadyFull = runtime.replenish('cigs', { amount: 6, max: 12 });
+  assert.equal(alreadyFull.added, 0);
+  assert.equal(alreadyFull.reason, 'already-full');
+  assert.ok(toasts.includes('You already have a full pack'), 'full interaction gives explicit feedback');
+
+  assert.equal(inventory.remove('cigs'), true);
+  runtime.counts.cigs = 0;
+  const restored = runtime.replenish('cigs', { amount: 6, max: 12 });
+  assert.equal(restored.owned, true);
+  assert.equal(restored.count, 6);
+  assert.equal(restored.added, 6);
 });

@@ -21,7 +21,8 @@ test('the browser Adapter registry explicitly covers every runtime entry variant
   assert.ok(cases.every(({ adapter }) => typeof adapter.observable === 'boolean'));
   const observable = cases.filter(({ adapter }) => adapter.observable);
   assert.deepEqual(observable.map(({ entrypointId }) => entrypointId).sort(), [
-    'bada_bing_two_hotdog', 'special_meeting_canonical', 'squatch_graveyard_canonical',
+    'bada_bing_two_hotdog', 'countryside_cabin_canonical',
+    'special_meeting_canonical', 'squatch_graveyard_canonical',
   ]);
   const audioEvidence = observable.filter(({ adapter }) => adapter.audio);
   assert.deepEqual(audioEvidence.map(({ entrypointId }) => entrypointId), [
@@ -186,6 +187,82 @@ const specialMeetingObservation = ({
     meaningful_frame: null,
   },
   ...(route ? { route } : {}),
+});
+
+const countrysideCabinObservation = ({
+  x = 18,
+  z = 18,
+  yaw = Math.PI,
+  pitch = -0.08,
+  keys = [],
+  pointerLocked = true,
+} = {}) => ({
+  surfacePresent: true,
+  pointerLocked,
+  player: {
+    enabled: true,
+    mode: 'walk',
+    position: { x, y: 1.66, z },
+    yaw,
+    pitch,
+    keys,
+  },
+  camera: { yaw, pitch, owner: 'core/player', expectedOwner: 'core/player' },
+  input: {
+    schema: 'squatchsmash.first-person-input.v1',
+    enabled: true,
+    locked: pointerLocked,
+    movementPresses: keys.includes('KeyW') ? 1 : 0,
+    lookEvents: yaw !== Math.PI || pitch !== -0.08 ? 1 : 0,
+  },
+  objective: { visible: true, count: 2, text: ['Lay low for the night.', 'Explore the property.'] },
+  subjectCounts: {
+    player: 1,
+    objective_item: 2,
+    authored_actor: 1,
+    interactable: 20,
+    meaningful_frame: null,
+  },
+});
+
+test('the Countryside Cabin Adapter certifies canonical input through real Playwright APIs', async () => {
+  const page = new FakeSemanticPage([
+    countrysideCabinObservation(),
+    countrysideCabinObservation({ yaw: Math.PI + 0.24, pitch: -0.18 }),
+    countrysideCabinObservation({
+      x: 18.5, yaw: Math.PI + 0.24, pitch: -0.18, keys: ['KeyW'],
+    }),
+    countrysideCabinObservation({ x: 18.5, yaw: Math.PI + 0.24, pitch: -0.18 }),
+  ]);
+  const smokeCase = buildSemanticSmokeCases()
+    .find(({ entrypointId }) => entrypointId === 'countryside_cabin_canonical');
+
+  const result = await executeSemanticSmokeCase({
+    page,
+    smokeCase,
+    baseUrl: 'http://127.0.0.1:8123/',
+    exerciseJourneys: false,
+  });
+
+  assert.deepEqual(page.calls.filter(([kind]) => kind === 'locator.click')
+    .map(([, selector]) => selector), ['#start-btn', '#scene']);
+  assert.deepEqual(page.calls.filter(([kind]) => kind.startsWith('keyboard.'))
+    .map(([kind, key]) => [kind, key]), [
+    ['keyboard.down', 'w'],
+    ['keyboard.up', 'w'],
+  ]);
+  assert.equal(result.evidence.distanceMoved, 0.5);
+  assert.ok(Math.abs(result.evidence.yawDelta - 0.24) < 1e-12);
+  assert.ok(Math.abs(result.evidence.pitchDelta + 0.1) < 1e-12);
+
+  const realInput = result.obligations.filter(({ assertion }) => assertion.kind === 'real-input');
+  assert.deepEqual(realInput.map(({ disposition }) => disposition), ['required', 'required', 'required']);
+  assert.deepEqual(realInput.map(({ status }) => status), ['PASS', 'PASS', 'PASS']);
+  assert.deepEqual(result.evidence.input, {
+    pointer_lock: true,
+    move: true,
+    clear_held_input: true,
+  });
 });
 
 test('the Special Meeting Adapter drives real Playwright click, mouse, and keyboard APIs', async () => {

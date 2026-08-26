@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import {
   CAMPAIGN_STORAGE_KEY,
   CAMPAIGN_VERSION,
+  EVENT_IDS,
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
@@ -133,25 +134,22 @@ export const MARATHON_TRANSITIONS = Object.freeze([
     '/cartel-palace.html', 'approach', 'skip', [
       TIME_EVENT_IDS.RETURN_TO_MANSION, TIME_EVENT_IDS.COMPLETE_MANSION_RETURN,
     ]),
-  /* THE PALACE HAS NOT GONE STRAIGHT TO THE CABIN SINCE THE SPECIAL MEETING
-   * WAS WRITTEN. This table said it did, and said so for as long as the
-   * Special Meeting has existed: the marathon died at step 25 waiting for
-   * initiation.html while the browser sat on specialmeeting.html. Nothing
-   * caught it because nothing runs this gate -- it is not in CI, and the unit
-   * test beside it only checks that the table is internally consistent, which
-   * a wrong table can be. The route of record is SCENES[CARTEL_PALACE].next
-   * in src/core/campaign.js; read it there, not from here.
-   *
-   * DEPART_SPECIAL_MEETING is deliberately NOT required below. The played
-   * scene writes it on boot (src/specialmeeting/main.js), and this gate stubs
-   * every scene runtime out -- so the only Special Meeting fact that reaches
-   * the save here is the exact-once COMPLETE the skip adapter commits. */
-  transition('palace-to-special-meeting', SCENE_IDS.CARTEL_PALACE, SCENE_IDS.SPECIAL_MEETING,
-    '/specialmeeting.html', 'kerb', 'skip', [
+  /* Palace completion returns to Apartment for SM-010 through SM-090. The
+   * marathon drives that first act through ApartmentStory before it reaches
+   * the kerb; a direct Palace -> Special Meeting edge would skip player-facing
+   * authored content and must fail the graph. */
+  transition('palace-to-apartment', SCENE_IDS.CARTEL_PALACE, SCENE_IDS.APARTMENT,
+    '/index.html', 'front_door', 'skip', [
       TIME_EVENT_IDS.DEPART_CARTEL_PALACE, TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE,
     ]),
+  transition('apartment-to-special-meeting', SCENE_IDS.APARTMENT, SCENE_IDS.SPECIAL_MEETING,
+    '/specialmeeting.html', 'kerb', 'apartment:special-meeting', [
+      TIME_EVENT_IDS.DEPART_SPECIAL_MEETING,
+    ]),
   transition('special-meeting-to-initiation', SCENE_IDS.SPECIAL_MEETING, SCENE_IDS.INITIATION,
-    '/initiation.html', 'gathering', 'skip', [TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING]),
+    '/initiation.html', 'gathering', 'skip', [
+      TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING, TIME_EVENT_IDS.DEPART_INITIATION,
+    ]),
   transition('initiation-to-finale', SCENE_IDS.INITIATION, SCENE_IDS.APARTMENT,
     '/index.html', 'front_door', 'initiation:complete', [
       TIME_EVENT_IDS.DEPART_INITIATION, TIME_EVENT_IDS.COMPLETE_INITIATION,
@@ -159,7 +157,7 @@ export const MARATHON_TRANSITIONS = Object.freeze([
 ]);
 
 export function validateMarathonPlan(plan = MARATHON_TRANSITIONS) {
-  assert.equal(plan.length, 28, 'the canonical marathon must have 28 transitions');
+  assert.equal(plan.length, 29, 'the canonical marathon must have 29 transitions');
   assert.equal(plan[0]?.from, SCENE_IDS.APARTMENT);
   assert.equal(plan.at(-1)?.to, SCENE_IDS.APARTMENT);
   assert.equal(plan.at(-1)?.action, 'initiation:complete');
@@ -407,6 +405,25 @@ async function executeBrowserAction(page, step) {
         leaveFor(S.COUNTRYSIDE_CABIN);
         ensure(campaign.advanceTime(T.DEPART_COUNTRYSIDE_CABIN).applied === true,
           'Cabin departure was not recorded');
+      } else if (currentStep.action === 'apartment:special-meeting') {
+        const call = story.tryLeave(campaign.state.activities);
+        ensure(call?.kind === 'call'
+          && call.id === apartmentModule.SPECIAL_MEETING_BOOSKI_CALL.eventId,
+        `Special Meeting call did not gate departure: ${JSON.stringify(call)}`);
+        ensure(story.callAnswered(apartmentModule.SPECIAL_MEETING_BOOSKI_CALL) === true,
+          'Special Meeting call was not accepted');
+        for (const item of apartmentModule.chapterPastimes().big_night) pastime(item.id);
+        const waiting = story.tryLeave(campaign.state.activities);
+        ensure(waiting?.kind === 'wait' && waiting.id === 'special_meeting_car',
+          `Apartment did not wait for the pickup: ${JSON.stringify(waiting)}`);
+        const departure = story.tryLeave({
+          ...campaign.state.activities,
+          carOutside: true,
+        });
+        ensure(departure?.kind === 'go' && departure.destination === S.SPECIAL_MEETING,
+          `Apartment refused the arrived pickup: ${JSON.stringify(departure)}`);
+        ensure(campaign.advanceTime(T.DEPART_SPECIAL_MEETING).applied === true,
+          'Special Meeting departure was not recorded');
       } else {
         throw new Error(`${currentStep.id}: unknown Apartment action ${currentStep.action}`);
       }
@@ -624,13 +641,20 @@ function assertLandingFacts(step, state) {
       });
       assertMission(state, MISSION_IDS.CARTEL_PALACE, { status: 'available' });
       break;
-    case 'palace-to-special-meeting':
+    case 'palace-to-apartment':
       assertMission(state, MISSION_IDS.CARTEL_PALACE, {
         status: 'complete', checkpoint: 'clear', sauceBetrayalConfirmed: true,
         markEliminated: true, sauceEliminated: true, outcome: 'clean',
       });
       assertMission(state, MISSION_IDS.INITIATION, { status: 'available' });
       assert.equal(state.finale.status, 'locked');
+      break;
+    case 'apartment-to-special-meeting':
+      assert.equal(state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status, 'answered');
+      assert.equal(state.story.timeEvents.filter(
+        (eventId) => eventId === TIME_EVENT_IDS.DEPART_SPECIAL_MEETING,
+      ).length, 1, 'Special Meeting departure must be exact-once');
+      assertMission(state, MISSION_IDS.INITIATION, { status: 'available' });
       break;
     /* The one campaign scene with no mission record -- there is no
      * MISSION_IDS.SPECIAL_MEETING, because nothing in the drive can be done
@@ -641,7 +665,10 @@ function assertLandingFacts(step, state) {
       assert.equal(state.story.timeEvents.filter(
         (eventId) => eventId === TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING,
       ).length, 1, 'Special Meeting completion must be exact-once');
-      assertMission(state, MISSION_IDS.INITIATION, { status: 'available' });
+      assert.equal(state.story.timeEvents.filter(
+        (eventId) => eventId === TIME_EVENT_IDS.DEPART_INITIATION,
+      ).length, 1, 'Initiation departure must be exact-once');
+      assertMission(state, MISSION_IDS.INITIATION, { status: 'in_progress' });
       assert.equal(state.finale.status, 'locked');
       break;
     case 'initiation-to-finale':

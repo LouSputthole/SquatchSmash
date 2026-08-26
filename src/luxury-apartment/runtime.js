@@ -18,6 +18,12 @@ import * as THREE from 'three';
 
 import { ITEMS } from '../core/inventory.js';
 import { PeeSystem } from '../core/pee-system.js';
+import {
+  BallisticProjectile,
+  ThrowCharge,
+  composeThrowVelocity,
+  segmentPlaneImpact,
+} from '../core/throwable.js';
 import { TimingBar } from '../core/timingbar.js';
 import { BulletHoles } from '../world/bullets.js';
 import { makeMaterials } from '../world/materials.js';
@@ -40,8 +46,8 @@ export const LUXURY_WORLD_CONTRACT = Object.freeze({
   screens: Object.freeze(['pc', 'tv', 'arcade', 'console']),
   stations: Object.freeze(['pc', 'arcade', 'poker', 'darts', 'console']),
   utilities: Object.freeze([
-    'frontDoor', 'elevator', 'bed', 'couch', 'desk', 'tv', 'radio', 'phone',
-    'fridge', 'kitchen', 'shower', 'wardrobe', 'toilet',
+    'frontDoor', 'elevator', 'bathroomDoor', 'bed', 'couch', 'desk', 'tv', 'radio', 'phone',
+    'fridge', 'kitchen', 'cigarettes', 'shower', 'wardrobe', 'toilet',
     'mainLights', 'loftLights', 'cityGlass', 'shades', 'answeringMachine',
     'revolver', 'ammo', 'bong', 'shrooms', 'whiteLine', 'crookedArt',
   ]),
@@ -69,8 +75,8 @@ export function validateLuxuryWorld(world) {
   for (const key of LUXURY_WORLD_CONTRACT.utilities) {
     if (!world.utilityTargets?.[key]) throw new Error(`Luxury world is missing utilityTargets.${key}`);
   }
-  if (!world.inventory || !world.doors?.front || !world.doors?.elevator) {
-    throw new Error('Luxury world must expose inventory and both public doors');
+  if (!world.inventory || !world.doors?.front || !world.doors?.elevator || !world.doors?.bathroom) {
+    throw new Error('Luxury world must expose inventory, canonical elevator, sealed service door, and bathroom door');
   }
   for (const key of [
     'toiletBowl', 'toiletBowlRadius', 'toiletWaterY', 'toiletSeat',
@@ -823,34 +829,92 @@ export class LuxuryRevolverRuntime {
   }
 }
 
-/**
- * The repository has no reusable darts minigame. This small 301 controller is
- * intentionally scene-local; the physical board and throw pose stay in the
- * world builder, while this class only owns scoring and HUD feedback.
- */
+const DART_FORWARD = new THREE.Vector3(0, 0, -1);
+const DART_WEDGES = Object.freeze([20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5]);
+
+function makePhysicalDart(name = 'luxury-physical-dart') {
+  const root = new THREE.Group();
+  root.name = name;
+  const steel = new THREE.MeshStandardMaterial({ color: 0xb9c0c7, roughness: 0.28, metalness: 0.78 });
+  const barrel = new THREE.MeshStandardMaterial({ color: 0x3b4249, roughness: 0.42, metalness: 0.45 });
+  const flight = new THREE.MeshStandardMaterial({ color: 0xb93d4c, roughness: 0.62, side: THREE.DoubleSide });
+  const point = new THREE.Mesh(new THREE.ConeGeometry(0.010, 0.075, 8), steel);
+  point.rotation.x = -Math.PI / 2;
+  point.position.z = -0.155;
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.20, 8), steel);
+  shaft.rotation.x = Math.PI / 2;
+  shaft.position.z = -0.02;
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.013, 0.08, 10), barrel);
+  grip.rotation.x = Math.PI / 2;
+  grip.position.z = -0.055;
+  const finA = new THREE.Mesh(new THREE.PlaneGeometry(0.060, 0.075), flight);
+  finA.position.z = 0.105;
+  finA.rotation.y = Math.PI / 2;
+  const finB = finA.clone();
+  finB.rotation.y = 0;
+  root.add(point, shaft, grip, finA, finB);
+  root.userData.tipOffset = 0.192;
+  return root;
+}
+
+/** Physical 301. Core owns generic charge/flight/collision; this owns darts scoring and presentation. */
 export class LuxuryDarts {
-  constructor({ hud, audio, panel } = {}) {
+  constructor({ hud, audio, panel, scene = null, camera = null, station = null } = {}) {
     this.hud = hud;
     this.audio = audio;
     this.panel = panel;
+    this.scene = scene;
+    this.camera = camera;
+    this.station = station?.board ?? station ?? {};
+    this.board = {
+      mesh: this.station.board ?? null,
+      impactRoot: this.station.impactRoot ?? scene,
+      center: this.station.center?.clone?.() ?? new THREE.Vector3(0, 1.72, 0),
+      normal: this.station.normal?.clone?.().normalize() ?? new THREE.Vector3(0, 0, 1),
+      right: this.station.right?.clone?.().normalize() ?? new THREE.Vector3(1, 0, 0),
+      up: this.station.up?.clone?.().normalize() ?? new THREE.Vector3(0, 1, 0),
+      radius: Number(this.station.radius) || 0.43,
+    };
+    this.charge = new ThrowCharge({ minPower: 7.5, maxPower: 16.5, chargeSeconds: 1.05 });
+    this.gravity = new THREE.Vector3(0, -5.4, 0);
     this.active = false;
     this.remaining = 301;
     this.turnStart = 301;
     this.dart = 0;
     this.throws = 0;
-    this.last = 'Three darts. Double out if you want to be serious.';
+    this.last = 'Three darts. Hold, aim, and release.';
+    this.lastImpact = null;
+    this.inFlight = null;
+    this.projectiles = [];
+    this.flash = 0;
+    this.boardBaseEmissive = this.board.mesh?.material?.emissive?.clone?.() ?? new THREE.Color(0x000000);
+    this.held = makePhysicalDart('luxury-held-dart');
+    this.held.position.set(0.19, -0.15, -0.43);
+    this.held.rotation.set(-0.08, 0.10, -0.22);
+    this.held.visible = false;
+    this.camera?.add?.(this.held);
   }
 
   enter() {
     this.active = true;
     this.turnStart = this.remaining;
     this.dart = 0;
+    this.held.visible = this.remaining > 0;
     this.repaint();
+    return true;
   }
 
   leave() {
     this.active = false;
+    this.charge.cancel();
+    this.held.visible = false;
+    if (this.inFlight) {
+      this.inFlight.body.stop();
+      this.inFlight.mesh.removeFromParent();
+      this.inFlight = null;
+    }
     paintLuxuryGamePanel(this.panel, { visible: false });
+    return true;
   }
 
   reset() {
@@ -858,54 +922,238 @@ export class LuxuryDarts {
     this.turnStart = 301;
     this.dart = 0;
     this.throws = 0;
-    this.last = 'Fresh leg. 301.';
+    this.lastImpact = null;
+    this.last = 'Fresh leg. Hold, aim, and release.';
+    this.charge.cancel();
+    this.inFlight = null;
+    for (const record of this.projectiles) record.mesh.removeFromParent();
+    this.projectiles.length = 0;
+    this.held.visible = this.active;
     this.repaint();
+    return true;
   }
 
-  throwDart(now = performance.now() / 1000) {
-    if (!this.active) return null;
-    if (this.remaining === 0) {
+  beginCharge() {
+    if (!this.active || this.remaining === 0 || this.inFlight) return false;
+    const began = this.charge.begin();
+    if (began) {
+      this.held.visible = true;
+      this.last = 'Charging throw…';
       this.repaint();
-      return null;
     }
-    if (this.dart === 0) this.turnStart = this.remaining;
+    return began;
+  }
 
-    const phase = now * 5.73 + this.throws * 2.17;
-    const accuracy = 1 - Math.abs(Math.sin(phase)) * 0.86;
-    const wedges = [20, 19, 18, 17, 16, 15, 14, 13];
-    const wedge = wedges[Math.abs(Math.floor(phase * 3.1)) % wedges.length];
-    const multiplier = accuracy > 0.86 ? 3 : accuracy > 0.55 ? 2 : 1;
-    const score = accuracy > 0.965 ? 50 : wedge * multiplier;
-    const label = score === 50 ? 'BULL' : `${multiplier === 3 ? 'T' : multiplier === 2 ? 'D' : ''}${wedge}`;
-    const next = this.remaining - score;
+  _aim(options = {}) {
+    const direction = options.direction?.clone?.() ?? new THREE.Vector3();
+    const origin = options.origin?.clone?.() ?? new THREE.Vector3();
+    if (!options.direction && this.camera?.getWorldDirection) this.camera.getWorldDirection(direction);
+    if (!options.origin && this.camera?.getWorldPosition) this.camera.getWorldPosition(origin);
+    if (direction.lengthSq() <= 1e-8) {
+      origin.copy(this.board.center).addScaledVector(this.board.normal, 2.55);
+      direction.copy(this.board.center).sub(origin).normalize();
+    }
+    if (!options.origin) origin.addScaledVector(direction, 0.26);
+    return { origin, direction: direction.normalize() };
+  }
+
+  release(options = {}) {
+    if (!this.active || this.inFlight) return null;
+    const charged = this.charge.release();
+    if (!charged) return null;
+    if (this.dart === 0) this.turnStart = this.remaining;
+    const { origin, direction } = this._aim(options);
+    const power = Number.isFinite(options.power) ? options.power : charged.power;
+    const velocity = options.velocity?.clone?.()
+      ?? composeThrowVelocity(direction, power, { upwardBias: 0.025 });
+    const body = new BallisticProjectile({
+      gravity: this.gravity,
+      radius: 0.006,
+      maxLifetime: 3,
+      maxStep: 1 / 180,
+    }).launch(origin, velocity);
+    const mesh = makePhysicalDart(`luxury-thrown-dart-${this.throws + 1}`);
+    mesh.position.copy(origin);
+    mesh.quaternion.setFromUnitVectors(DART_FORWARD, velocity.clone().normalize());
+    (this.scene ?? this.board.impactRoot)?.add?.(mesh);
+    const record = { body, mesh, score: null };
+    this.projectiles.push(record);
+    this.inFlight = record;
     this.dart += 1;
     this.throws += 1;
-    /* There is no darts bank; the existing card flip is a short, dry thwip. */
-    this.audio?.play('card.flip', { volume: 0.42 });
+    this.held.visible = false;
+    this.last = `Dart ${this.dart} in flight…`;
+    this.repaint();
+    return { launched: true, charge: charged, power, origin: origin.clone(), velocity: velocity.clone() };
+  }
 
-    if (next === 0 && (multiplier === 2 || score === 50)) {
+  /** Deterministic convenience for verification; it still runs the real ballistic body. */
+  throwDart(options = {}) {
+    const config = typeof options === 'number' ? { chargeSeconds: options } : options;
+    if (!this.beginCharge()) return null;
+    this.charge.update(Number.isFinite(config.chargeSeconds) ? config.chargeSeconds : 0.55);
+    return this.release(config);
+  }
+
+  throwAtBoard({ x = 0, y = 0, power = 12, origin = null } = {}) {
+    const target = this.board.center.clone()
+      .addScaledVector(this.board.right, x)
+      .addScaledVector(this.board.up, y);
+    const start = origin?.clone?.() ?? target.clone().addScaledVector(this.board.normal, 2.55);
+    const distance = start.distanceTo(target);
+    const time = Math.max(0.12, distance / Math.max(1, power));
+    const velocity = target.clone().sub(start).addScaledVector(this.gravity, -0.5 * time * time).divideScalar(time);
+    return this.throwDart({ origin: start, direction: target.clone().sub(start), velocity, power, chargeSeconds: 0.55 });
+  }
+
+  scoreImpact(point) {
+    const offset = point.clone().sub(this.board.center);
+    const horizontal = offset.dot(this.board.right);
+    const vertical = offset.dot(this.board.up);
+    const radial = Math.hypot(horizontal, vertical);
+    if (radial > this.board.radius) return { score: 0, label: 'MISS', multiplier: 0, radial };
+    const normalized = radial / this.board.radius;
+    if (normalized <= 0.045) return { score: 50, label: 'BULL', multiplier: 2, radial };
+    if (normalized <= 0.095) return { score: 25, label: '25', multiplier: 1, radial };
+    const angle = (Math.atan2(horizontal, vertical) + Math.PI * 2) % (Math.PI * 2);
+    const wedgeIndex = Math.round(angle / (Math.PI * 2 / DART_WEDGES.length)) % DART_WEDGES.length;
+    const wedge = DART_WEDGES[wedgeIndex];
+    const multiplier = normalized >= 0.90 ? 2 : normalized >= 0.53 && normalized <= 0.63 ? 3 : 1;
+    const score = wedge * multiplier;
+    return {
+      score,
+      wedge,
+      multiplier,
+      label: `${multiplier === 3 ? 'T' : multiplier === 2 ? 'D' : ''}${wedge}`,
+      radial,
+    };
+  }
+
+  _applyScore(result) {
+    const next = this.remaining - result.score;
+    if (result.score > 0 && next === 0 && (result.multiplier === 2 || result.score === 50)) {
       this.remaining = 0;
-      this.last = `${label}. Leg won in ${this.throws} darts.`;
-      this.hud?.toast('Darts leg won', 'good');
-      this.repaint();
-      return { score, label, won: true, remaining: 0 };
+      this.last = `${result.label}. Leg won in ${this.throws} darts.`;
+      this.hud?.toast?.('Darts leg won', 'good');
+      return { ...result, won: true, remaining: 0 };
     }
-    if (next <= 1) {
+    if (result.score > 0 && next <= 1) {
       this.remaining = this.turnStart;
-      this.last = `${label}. Bust — back to ${this.remaining}.`;
+      this.last = `${result.label}. Bust — back to ${this.remaining}.`;
       this.dart = 0;
-      this.repaint();
-      return { score, label, bust: true, remaining: this.remaining };
+      return { ...result, bust: true, remaining: this.remaining };
     }
-
     this.remaining = next;
-    this.last = `${label} · ${score} scored`;
+    this.last = result.score ? `${result.label} · ${result.score} scored` : 'Missed the board';
     if (this.dart >= 3) {
       this.dart = 0;
       this.last += ` · ${this.remaining} left`;
     }
+    return { ...result, remaining: this.remaining };
+  }
+
+  _impact(record, impact) {
+    const boardHit = impact.target === 'dartboard';
+    const scored = boardHit ? this.scoreImpact(impact.contactPoint) : {
+      score: 0,
+      label: 'MISS',
+      multiplier: 0,
+      radial: Infinity,
+    };
+    record.mesh.position.copy(impact.contactPoint).addScaledVector(impact.normal, 0.006);
+    record.mesh.quaternion.setFromUnitVectors(DART_FORWARD, impact.velocity.clone().normalize());
+    record.score = this._applyScore(scored);
+    this.lastImpact = Object.freeze({
+      ...record.score,
+      point: impact.contactPoint.clone(),
+      velocity: impact.velocity.clone(),
+      age: impact.age,
+      target: impact.target,
+    });
+    this.audio?.play?.('card.flip', { volume: boardHit ? 0.52 : 0.30, position: impact.contactPoint });
+    if (record.score.score >= 25) this.audio?.play?.('ui.select', { volume: 0.28 });
+    this.flash = boardHit ? 0.18 : 0;
+    this.inFlight = null;
+    this.held.visible = this.active && this.remaining > 0;
     this.repaint();
-    return { score, label, remaining: this.remaining };
+    return this.lastImpact;
+  }
+
+  update(dt) {
+    if (this.charge.active) {
+      this.charge.update(dt);
+      this.last = `Power ${Math.round(this.charge.amount * 100)}% · release to throw`;
+      this.repaint();
+    }
+    if (this.inFlight) {
+      const boardCollider = ({ from, to, radius }) => segmentPlaneImpact({
+        from,
+        to,
+        radius,
+        planePoint: this.board.center,
+        planeNormal: this.board.normal,
+        maxRadius: this.board.radius,
+        target: 'dartboard',
+        oneSided: true,
+      });
+      const backingCollider = ({ from, to, radius }) => segmentPlaneImpact({
+        from,
+        to,
+        radius,
+        planePoint: this.board.center,
+        planeNormal: this.board.normal,
+        maxRadius: this.board.radius * 1.28,
+        target: 'backing',
+        oneSided: true,
+      });
+      const floorCollider = ({ from, to, radius }) => segmentPlaneImpact({
+        from,
+        to,
+        radius,
+        planePoint: new THREE.Vector3(0, 0.02, 0),
+        planeNormal: new THREE.Vector3(0, 1, 0),
+        target: 'floor',
+        oneSided: true,
+      });
+      const receipt = this.inFlight.body.update(dt, [boardCollider, backingCollider, floorCollider]);
+      this.inFlight.mesh.position.copy(this.inFlight.body.position);
+      if (this.inFlight.body.velocity.lengthSq() > 1e-8) {
+        this.inFlight.mesh.quaternion.setFromUnitVectors(
+          DART_FORWARD,
+          this.inFlight.body.velocity.clone().normalize(),
+        );
+      }
+      if (receipt.impact) this._impact(this.inFlight, receipt.impact);
+      else if (receipt.expired) {
+        const missed = this.inFlight;
+        this.inFlight = null;
+        missed.mesh.removeFromParent();
+        this.lastImpact = this._applyScore({ score: 0, label: 'MISS', multiplier: 0, radial: Infinity });
+        this.held.visible = this.active;
+        this.repaint();
+      }
+    }
+    if (this.flash > 0) {
+      this.flash = Math.max(0, this.flash - Math.max(0, Number(dt) || 0));
+      if (this.board.mesh?.material?.emissive) {
+        this.board.mesh.material.emissive.set(this.flash > 0 ? 0x7a321e : this.boardBaseEmissive);
+        this.board.mesh.material.emissiveIntensity = this.flash > 0 ? 0.9 : 0;
+      }
+    }
+  }
+
+  report() {
+    return {
+      active: this.active,
+      charging: this.charge.active,
+      charge: this.charge.amount,
+      inFlight: Boolean(this.inFlight),
+      remaining: this.remaining,
+      dart: this.dart,
+      throws: this.throws,
+      impacts: this.projectiles.filter(({ score }) => score).length,
+      lastImpact: this.lastImpact,
+    };
   }
 
   repaint() {
@@ -914,7 +1162,9 @@ export class LuxuryDarts {
       title: 'DARTS · 301',
       primary: this.remaining === 0 ? 'LEG WON' : `${this.remaining}`,
       secondary: this.last,
-      hint: this.remaining === 0 ? '[R] new leg · [Q] step away' : '[E] throw · [R] reset · [Q] step away',
+      hint: this.remaining === 0
+        ? '[R] new leg · [Q] step away'
+        : '[E/Mouse] hold + aim, release to throw · [R] reset · [Q] step away',
     });
   }
 }
@@ -1009,6 +1259,36 @@ export class LuxuryInventoryRuntime {
       return false;
     }
     return this.inventory.add(id);
+  }
+
+  status(id) {
+    const count = Math.max(0, Number(this.counts[id]) || 0);
+    const max = id === 'cigs' ? 12 : Infinity;
+    return Object.freeze({
+      id,
+      owned: this.inventory.has(id),
+      count,
+      max,
+      full: this.inventory.has(id) && count >= max,
+    });
+  }
+
+  replenish(id, { amount = 1, max = id === 'cigs' ? 12 : Infinity } = {}) {
+    const prior = Math.max(0, Number(this.counts[id]) || 0);
+    if (!this.inventory.has(id) && !this.give(id)) {
+      const result = Object.freeze({ ...this.status(id), added: 0, reason: 'inventory-full' });
+      this.hud.toast('No free pocket for the pack');
+      return result;
+    }
+    const next = Math.min(Math.max(0, Number(max) || Infinity), prior + Math.max(0, Number(amount) || 0));
+    this.counts[id] = next;
+    const added = next - prior;
+    if (id === 'cigs') {
+      this.audio?.play?.('zyn.pack', { volume: added ? 0.42 : 0.25 });
+      this.hud.toast(added ? `Smokes replenished · ${next}` : 'You already have a full pack', added ? 'good' : undefined);
+    }
+    this.sync(this.inventory);
+    return Object.freeze({ ...this.status(id), added, reason: added ? 'replenished' : 'already-full' });
   }
 
   takePhone() {

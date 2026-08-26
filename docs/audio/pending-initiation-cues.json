@@ -144,6 +144,12 @@
     "direction": "Kindly, and it is true."
   },
   {
+    "name": "vo.initiation.cabin.in-150-kittenboss.1baf5ya.1",
+    "voice": "kittenboss",
+    "say": "No, no, wait...",
+    "direction": "Female voice. Small and immediate, as realization arrives. One line only; she is not given time for another."
+  },
+  {
     "name": "vo.initiation.cabin.in-170-lou.15qwm4k.1",
     "voice": "lou",
     "say": "Stop. This one is good.",

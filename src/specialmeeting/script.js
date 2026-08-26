@@ -125,7 +125,7 @@ const opt = (text, to, o = {}) => ({
  *   bank      a pool of one-liners; the scene picks from it, it does not play through
  *   choice    put `options` up; each leads to a beat
  *   silence   hold, with `holdSeconds`, and let the player break it
- *   blackout  cut to black; the beats that follow play under it
+ *   blackout  fade to black; the beats that follow play under it
  *   fade      come back up
  *   handoff   leave the scene
  * ====================================================================== */
@@ -290,10 +290,14 @@ const RAW_BEATS = [
       l('SEFF', 'Quick thing before we go — no. Forget it. Later.',
         { direction: 'He does not say what the thing was. He never does. Do not resolve this.' }),
       l('LAG', "Forty minutes, roughly. There's no signal past the reservoir. I checked."),
+      l('PROSPECT', "Why'd all three of you come?"),
+      l('NUMBSKULL', 'Carpool.', { cue: 'vo.specialmeeting.numbskull.arrival.carpool.1' }),
+      l('PROSPECT', 'To pick up one person?'),
+      l('NUMBSKULL', "Now it's full."),
       sd('Numbskull arrives at the front passenger door, waits for Lag to step '
         + 'clear of it, and opens it. He holds it. He does not let go of it for '
         + 'the rest of the scene until Tony is sitting in it.'),
-      l('NUMBSKULL', 'Front.', { verbatim: true }),
+      l('NUMBSKULL', 'Front.', { verbatim: true, cue: 'vo.specialmeeting.numbskull.arrival.1' }),
     ],
     next: 'SM-110',
   },
@@ -464,14 +468,16 @@ const RAW_BEATS = [
   },
   {
     id: 'SM-196',
-    slug: 'cut_to_black',
+    slug: 'road_match_cut',
     act: 3,
-    kind: 'blackout',
-    title: 'CUT TO BLACK',
-    note: 'Hard cut, not a dissolve. The road noise does not cut with it — '
-      + 'tyres, engine, the car carries straight on underneath. The town leg '
-      + 'happens in the dark.',
-    lines: [sd('Cut to black. Road noise continues underneath.')],
+    kind: 'lines',
+    title: 'MATCH CUT — THE ROAD OUT',
+    note: 'The same passenger-seat composition carries from the block onto the '
+      + 'outskirts road. This is deliberately not a blackout: the drive is part '
+      + 'of the story and the player must see where the car is taking him.',
+    lines: [sd('Match cut on the moving passenger seat to the road out.', {
+      startsForestDrive: true,
+    })],
     next: 'SM-200',
   },
   {
@@ -480,7 +486,7 @@ const RAW_BEATS = [
     act: 3,
     kind: 'lines',
     title: 'The radio',
-    note: 'Played under the black. Lag reaches forward between the seats and '
+    note: 'Lag reaches forward between the seats and '
       + 'turns the radio on. Two seconds of a station announcer mid-sentence. '
       + 'Seff reaches over and turns it off. Neither of them says anything '
       + 'about it. Lag does not try again.',
@@ -493,21 +499,26 @@ const RAW_BEATS = [
     act: 3,
     kind: 'lines',
     title: 'The turn-off',
-    note: 'Also under the black, and it is the last thing heard before the '
-      + 'picture comes back: streetlights end, the tarmac ends, a cattle grid '
+    note: 'Streetlights end, the tarmac ends, and a cattle grid '
       + 'rattles the whole car.',
     lines: [sd('Cattle grid. The surface changes. Full beams on.')],
     next: 'SM-197',
   },
   {
     id: 'SM-197',
-    slug: 'fade_in',
+    slug: 'dirt_road_reveal',
     act: 3,
-    kind: 'fade',
-    title: 'FADE IN — the dirt road',
-    note: 'Slow. Three seconds up from black onto trees closing over the road '
-      + 'and full beams on dirt. Nobody has said a word since the flat.',
-    lines: [sd('Slow fade up on the dirt road.', { fadeSeconds: 3 })],
+    kind: 'lines',
+    title: 'THE DIRT ROAD',
+    note: 'Trees close over the visible road and the full beams pick out dirt. '
+      + 'Nobody has said a word since the flat.',
+    lines: [
+      sd('Full beams on the dirt road. Trees closing over it.'),
+      l('PROSPECT', 'You guys planning on killing me?'),
+      l('SEFF', "Planning's a strong word."),
+      l('PROSPECT', "What's the weaker word?"),
+      l('SEFF', 'Driving.'),
+    ],
     next: 'SM-210',
   },
 
@@ -825,7 +836,7 @@ const RAW_BEATS = [
       l('NUMBSKULL', 'Okay.'),
       sd('He does not move.'),
     ],
-    next: 'SM-330',
+    next: 'SM-324',
   },
   {
     id: 'SM-322',
@@ -844,7 +855,7 @@ const RAW_BEATS = [
       sd('Lag slides across into the seat Numbskull has just left. Directly behind Tony.'),
       l('LAG', 'Better?', { direction: 'sincerely' }),
     ],
-    next: 'SM-330',
+    next: 'SM-324',
   },
   {
     id: 'SM-323',
@@ -853,6 +864,70 @@ const RAW_BEATS = [
     kind: 'lines',
     title: "I'll stay, then",
     lines: [l('NUMBSKULL', "I'll stay, then.")],
+    next: 'SM-324',
+  },
+  {
+    id: 'SM-324',
+    slug: 'final_approach',
+    act: 3,
+    kind: 'lines',
+    title: 'The last road',
+    note: 'Conversation is over. The car keeps moving long enough for the '
+      + 'silence to become an answer before Tony tries once more.',
+    lines: [sd('The car carries on through the last trees. Nobody speaks.', {
+      holdSeconds: 3.5,
+    })],
+    next: 'SM-325',
+  },
+  {
+    id: 'SM-325',
+    slug: 'final_question',
+    act: 3,
+    kind: 'lines',
+    title: 'Nobody tells him',
+    note: 'The final exchange lands while the car is still moving. These are '
+      + 'delivered lines already heard earlier in optional paths; reusing the '
+      + 'same takes keeps the strict recording contract intact.',
+    lines: [
+      l('PROSPECT', 'So where are we going?', {
+        cue: 'vo.specialmeeting.tony.dirt_one.1',
+      }),
+      l('LAG', "You'd never find it.", {
+        cue: 'vo.specialmeeting.lag.own_car.1',
+        direction: 'Quietly. Looking out the window, not at Tony.',
+        holdAfter: 1.2,
+      }),
+    ],
+    next: 'SM-326',
+  },
+  {
+    id: 'SM-326',
+    slug: 'drive_fade_out',
+    act: 3,
+    kind: 'blackout',
+    title: 'FADE TO BLACK',
+    note: 'A dissolve after the final line, not the old hard cut before the '
+      + 'conversation. Engine and road noise continue through the fade; the '
+      + 'pre-arrival road gate owns the full-black beat so a slow render clock '
+      + 'cannot add a dead hold while the car finishes parking.',
+    lines: [sd('Fade to black. The car continues underneath.', {
+      fadeSeconds: 1.2,
+      holdSeconds: 0,
+    })],
+    next: 'SM-327',
+  },
+  {
+    id: 'SM-327',
+    slug: 'arrival_fade_in',
+    act: 3,
+    kind: 'fade',
+    title: 'ARRIVAL',
+    note: 'The pre-arrival node releases the black quickly. The engine and road '
+      + 'bed are still audible while the car finishes settling; SM-330 then kills '
+      + 'the engine on screen.',
+    lines: [sd('Fade up on headlights washing the trunks at the spur.', {
+      fadeSeconds: 0.8,
+    })],
     next: 'SM-330',
   },
   {
@@ -895,7 +970,12 @@ const RAW_BEATS = [
     lines: [
       l('NUMBSKULL', 'Pop the trunk.', { verbatim: true }),
       sd('Seff reaches in through the driver’s door. A clunk. The lid rises '
-        + 'on its own, slowly, and the little bulb inside comes on.', { opensTrunk: true }),
+        + 'on its own, slowly, and the little bulb inside comes on.', {
+        opensTrunk: true,
+        /* The visual takes 1.1 seconds. Do not put her on the ground before the
+         * lid which concealed her has actually risen. */
+        holdSeconds: 1.2,
+      }),
     ],
     next: 'SM-420',
   },
@@ -940,6 +1020,7 @@ const RAW_BEATS = [
       l('KITTENBOSS', 'Hey.', { verbatim: true }),
       l('PROSPECT', 'Why was she in the trunk?', { verbatim: true }),
       l('NUMBSKULL', 'Long story.', { verbatim: true, direction: 'shuts the trunk on the last word' }),
+      sd('Numbskull shuts the trunk on the last word.', { closesTrunk: true }),
     ],
     next: 'SM-430',
   },
@@ -1350,7 +1431,10 @@ function buildBeats() {
         spoken: true,
         speaker: sp,
         voice: sp.voice,
-        cue: cueName(beat, sp, n),
+        /* A repeated line may deliberately reuse its delivered take. The final
+         * drive coda does this for two earlier questions instead of minting an
+         * unrecorded cue and letting a fallback hide the missing performance. */
+        cue: raw.cue ?? cueName(beat, sp, n),
       });
     });
     const options = (beat.options ?? []).map((o, i) => Object.freeze({

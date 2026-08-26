@@ -57,7 +57,8 @@ const {
   COMBAT_BOUNDARY, ENCOUNTERS, ROLES, STAGING, WaveDirector,
 } = await import('../src/mansion/siege/waves.js');
 const {
-  ANCHORS, GROUND_Y, OPENINGS, ROOMS, anchorById, crossingFor, laneWaypoints, roomAt,
+  ANCHORS, GROUND_Y, OPENINGS, ROOMS, SiegeNavigator,
+  anchorById, crossingFor, laneWaypoints, roomAt,
 } = await import('../src/mansion/siege/nav.js');
 const {
   createAttackerPool, groundHeightAt, segmentBlocked, HIT_ZONES, HUNT_SPEED, ROLE_PLAN,
@@ -3023,6 +3024,48 @@ test('squadmate congestion queues at a tight waypoint without destroying either 
     'ordinary squad traffic was mistaken for a broken authored route');
   assert.ok(entries.some(({ path }) => path.length === 0), 'the head of the queue never arrived');
   assert.ok(entries.some(({ path }) => path.length === 1), 'the queue did not remain queued');
+});
+
+test('combat-only floor slabs do not stop a climber or trigger repeated route recovery', () => {
+  const { pool } = harness();
+  const entry = pool.spawn({ id: 'gallery-lip', role: ROLES.rifle, staging: STAGING.front_steps });
+  entry.root.position.set(7.84, 5.76, 47.69);
+  entry.floorY = 5.76;
+  entry.goal.set(7.84, 6, 49.33);
+  entry.path = [{
+    x: 7.84, y: 6, z: 49.33, anchor: 'gallery_head_east', kind: 'climb',
+  }];
+  /* This is the shape of a combat floor: it must stop vertical bullets, but
+   * its leading edge is not a wall a body walking onto the landing can see. */
+  const galleryFloor = new THREE.Box3(
+    new THREE.Vector3(-12, 5.7, 48), new THREE.Vector3(12, 6, 53),
+  );
+  entry.sinceThink = -1000;
+  for (let i = 0; i < 240 && entry.path.length; i++) {
+    pool.update(1 / 60, {
+      player: null,
+      colliders: [galleryFloor],
+      movementColliders: [],
+      alive: [],
+    });
+  }
+  assert.equal(entry.path.length, 0, `climber stopped at z ${entry.root.position.z}`);
+  assert.equal(entry.recovered, 0, 'a combat-only floor became a locomotion recovery');
+});
+
+test('siege blocked recovery starts at the reached anchor and is consumed once', () => {
+  const navigator = new SiegeNavigator();
+  navigator.enter('climber', 'steps_centre', 'east');
+  const plan = navigator.plan('climber', 'gallery', { role: 'east' });
+  assert.ok(plan?.destination?.startsWith('gallery'));
+
+  const first = navigator.blocked('climber', 2.5, 'stair_east_high');
+  assert.equal(first.recover, true);
+  const second = navigator.blocked('climber', 1 / 60, 'stair_east_high');
+  assert.deepEqual(second, { recover: false },
+    'one obstruction emitted recovery again on the next frame');
+  assert.ok((navigator.director.blockedFor.get('climber') ?? 0) < 0.02,
+    'the consumed obstruction kept its multi-second timer');
 });
 
 test('peer congestion may consume only a non-final transit waypoint', () => {

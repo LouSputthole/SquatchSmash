@@ -688,7 +688,7 @@ export const PHOTOS = Object.freeze({
    * src/specialmeeting/cast.js, which names hers because there is no roster
    * row to read it off -- so the name belongs here too, or the fitting room
    * would go on previewing her with an authored head after the scene had
-   * stopped doing that. Not landed either; see the note above. */
+   * stopped doing that. Her dedicated portrait landed in this pass. */
   [CHARACTER_IDS.KITTENBOSS]: 'kittenboss.png',
 });
 

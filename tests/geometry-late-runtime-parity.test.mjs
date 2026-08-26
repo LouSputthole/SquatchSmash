@@ -273,7 +273,7 @@ test('Silver Case adapters stage all six public poses over both built worlds', a
   }
 });
 
-test('Silver Case aftermath leaves Pruitt visibly fallen in the doorway, not inside the kitchen', async () => {
+test('Silver Case aftermath leaves Pruitt visibly fallen clear of the open bathroom leaf and kitchen', async () => {
   const built = await buildGeometrySceneState('silvercase:aftermath');
   const root = built.roots[0].root;
   const pruittAssembly = gateAssembly(root, 'silvercase:pruitt');
@@ -281,9 +281,12 @@ test('Silver Case aftermath leaves Pruitt visibly fallen in the doorway, not ins
   const pruittGun = pruittAssembly.find(({ name }) => name === 'big-revolver');
   assert.ok(pruitt, 'aftermath must include Pruitt');
   assert.equal(pruitt.visible, true);
-  assert.ok(Math.abs(pruitt.position.x - 11.1) < 1e-9);
-  assert.ok(Math.abs(pruitt.position.z - -2) < 1e-9);
-  assert.ok(Math.abs(pruitt.rotation.y - -0.55) < 1e-9);
+  // This is the same clear ambush position the live checkpoint uses. Keeping
+  // him on the doorway's east half made the open leaf absorb a correct shot
+  // after retry, so the authored corpse must also certify the repaired pose.
+  assert.ok(Math.abs(pruitt.position.x - 10.45) < 1e-9);
+  assert.ok(Math.abs(pruitt.position.z - -1.92) < 1e-9);
+  assert.ok(Math.abs(pruitt.rotation.y - -0.4) < 1e-9);
   assert.ok(Math.abs(pruitt.rotation.z - 0.15) < 1e-9);
   assert.ok(pruittGun, 'aftermath must leave Pruitt’s dropped revolver visible');
   assert.ok(pruittGun.parent === pruitt.parent, 'the dropped revolver must leave Pruitt’s hand but remain in the apartment world');

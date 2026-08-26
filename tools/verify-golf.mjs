@@ -1278,17 +1278,27 @@ check('6b. flight cleanup returns to the shot origin, not the landing',
   shotOriginReturn.fromOrigin < 0.1 && shotOriginReturn.fromLanding > 10,
   JSON.stringify(shotOriginReturn));
 
-const pointerFallback = await page.evaluate(() => {
+const pointerFallbackBefore = await page.evaluate(() => {
   const g = window.__golf;
   document.exitPointerLock?.();
   g.swing.reset();
-  const beforeAim = g.aimYaw;
-  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', bubbles: true }));
-  window.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true }));
+  return { aimYaw: g.aimYaw };
+});
+await page.waitForFunction(() => document.pointerLockElement === null);
+await page.keyboard.press('ArrowRight');
+const golfCanvas = page.locator('canvas').first();
+const golfCanvasBox = await golfCanvas.boundingBox();
+if (!golfCanvasBox) throw new Error('Golf canvas has no hit-testable bounds');
+await page.mouse.click(
+  golfCanvasBox.x + golfCanvasBox.width / 2,
+  golfCanvasBox.y + golfCanvasBox.height / 2,
+);
+const pointerFallback = await page.evaluate((beforeAim) => {
+  const g = window.__golf;
   const result = { phase: g.swing.phase, aimDelta: Math.abs(g.aimYaw - beforeAim) };
   g.swing.reset();
   return result;
-});
+}, pointerFallbackBefore.aimYaw);
 check('6c. keyboard aim and unlocked click work without pointer lock',
   pointerFallback.phase === 'power' && pointerFallback.aimDelta > 0.005,
   JSON.stringify(pointerFallback));

@@ -422,21 +422,18 @@ export const SCENE_CONTRACTS = deepFreeze([
   makeContract({
     id: SCENE_IDS.COUNTRYSIDE_CABIN,
     title: 'The Countryside Cabin',
-    purpose: 'A solitary hideout hub between jobs: sleep the clock forward, walk the creek, the overlook, the shed and the firepit, and leave for the Silver Case.',
+    purpose: 'A rural hideout hub between jobs: talk with resident caretaker Lag, sleep the clock forward, walk the creek, overlook, shed and firepit, and leave for the Silver Case.',
     entrypoints: [canonicalEntry(SCENE_IDS.COUNTRYSIDE_CABIN, 'src/cabin/main.js')],
     capabilities: {
-      input: browserInput(),
+      input: canonicalBrowserInput(),
       camera: firstPersonCamera(),
       objective: sharedObjective,
       interaction: sharedInteraction,
       checkpoints: sceneEntryCheckpoints(['arrival', 'wake', 'porch']),
     },
-    minimumSubjects: baseSubjects({ npc: 'none' }),
+    minimumSubjects: baseSubjects(),
     goldenPath: 'Arrive at dusk, rest to move the clock, walk any of the four authored excursions, and leave for the Silver Case.',
-    debt: [{
-      id: 'cabin_local_first_person_input',
-      summary: 'Keyboard, mouse and pointer lock are wired in the scene root rather than through FirstPersonInputAdapter.',
-    }],
+    debt: [],
     evidence: ['src/cabin/main.js:1-40', 'src/cabin/main.js:490-500', 'src/core/campaign.js:1186-1191'],
   }),
 
@@ -523,10 +520,7 @@ export const SCENE_CONTRACTS = deepFreeze([
     title: 'Cartel Palace',
     purpose: 'Approach, infiltration, evidence, betrayal, dining-room resolution, and final-arc transition.',
     entrypoints: [canonicalEntry(SCENE_IDS.CARTEL_PALACE, 'src/cartel-palace/main.js', {
-      disposition: D.KNOWN_FAILURE,
-      reason: 'The completion button jumps directly to Special Meeting and skips its Apartment-owned Act One.',
       expectedExits: [SCENE_IDS.APARTMENT],
-      observedExits: [SCENE_IDS.SPECIAL_MEETING],
     })],
     capabilities: {
       input: canonicalBrowserInputDebt('first_person_combat'),
@@ -536,9 +530,8 @@ export const SCENE_CONTRACTS = deepFreeze([
       checkpoints: runtimeCheckpoints(['approach', 'perimeter', 'estate', 'betrayal', 'dining_room', 'clear']),
     },
     goldenPath: 'Infiltrate, collect evidence, resolve Mark and Sauce, clear the estate, return to Apartment for Special Meeting Act One, then reach the car scene.',
-    knownFailures: [{ id: 'palace_skips_special_meeting_act_one', summary: 'Runtime, campaign graph, and campaign prose disagree about the post-Palace route.' }],
     debt: [{ id: 'palace_patrol_navigation', summary: 'Guard routes are local waypoint arrays without a navigation Interface.' }],
-    evidence: ['src/cartel-palace/main.js:1551-1564', 'src/core/campaign.js:1218-1232'],
+    evidence: ['src/cartel-palace/main.js:1759-1773', 'src/core/campaign.js:1235-1255'],
   }),
 
   makeContract({
@@ -564,20 +557,18 @@ export const SCENE_CONTRACTS = deepFreeze([
     purpose: 'Forest approach, prospect questioning and executions, cabin ceremony, oath, cut, burn, and campaign ending.',
     entrypoints: [canonicalEntry(SCENE_IDS.INITIATION, 'src/initiation/main.js')],
     capabilities: {
-      input: browserInput('first_person_choices_and_cutscenes'),
+      input: canonicalBrowserInput('first_person_choices_and_cutscenes'),
       camera: localCamera('InitiationPlayerAdapter and phase code switch playable, look-only, and cutscene ownership.', 'phase_camera'),
       objective: sharedObjective,
       interaction: localInteraction('initiation phase/action input'),
-      checkpoints: knownFailure(
-        'The scene has no authored checkpoint inventory and shared recovery resolves to entry reload with no Restart Scene or Skip Scene Adapter.',
-        'Certification must expose the missing restart/skip capability rather than treating the recovery import as coverage.',
-        { mode: 'scene_entry_only', ids: [] },
-      ),
+      checkpoints: sceneEntryCheckpoints(['approach']),
     },
     goldenPath: 'Walk the approach, complete questions and execution branches, reach the cabin, perform ceremony input, persist completion, and return to Apartment.',
-    knownFailures: [{ id: 'initiation_recovery_capability', summary: 'Recovery import overstates the runtime actions actually available.' }],
-    debt: [{ id: 'initiation_geometry_copy', summary: 'Line-up coordinates are copied between main.js and cabin/site.js.' }],
-    evidence: ['src/initiation/main.js:168-184', 'src/initiation/main.js:1075-1162', 'src/core/campaign-scene-skip.js:56-73'],
+    debt: [
+      { id: 'initiation_geometry_copy', summary: 'Line-up coordinates are copied between main.js and cabin/site.js.' },
+      { id: 'initiation_no_shared_restart_skip', summary: 'Wrong-answer reload and in-page retry work, but the scene still has no shared Restart Scene or Skip Scene Adapter.' },
+    ],
+    evidence: ['src/initiation/main.js:168-184', 'src/initiation/main.js:1075-1162', 'src/initiation/main.js:1530-1556'],
   }),
 
   makeContract({

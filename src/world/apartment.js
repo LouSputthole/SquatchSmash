@@ -2846,6 +2846,8 @@ export async function buildApartment(ctx) {
     /** The stream dies at the standing water now, not at the rim. */
     toiletWaterY: toilet.waterY,
     toiletCollider,
+    /** Marker-backed surface consumed by the canonical PlanarMirror runtime. */
+    mirrorMesh: bathSink.mirror,
     setBathLight(on) { state.bathLightOn = on; },
 
     setPcOn(on) {

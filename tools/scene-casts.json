@@ -316,6 +316,23 @@
       "notes": "cast/cast.js builds ape, chester, Deke and Winston (both voiced 'npc-male' per dialogue/script.js's VOICE_OF) and Pruitt (hidden until revealed, also 'npc-male')."
     },
     {
+      "id": "countryside-cabin",
+      "label": "The Countryside Cabin",
+      "cuePrefixes": [
+        "vo.cabin."
+      ],
+      "sourceFiles": [
+        "src/cabin/lag.js",
+        "src/cabin/world.js",
+        "src/cabin/main.js"
+      ],
+      "staged": [
+        "lag"
+      ],
+      "sceneVoiceExemptions": {},
+      "notes": "world.js builds Lag as the visible shared Npc rig at the woodpile. lag.js owns every hint and firewood reaction; main.js routes each exact cue through the canonical dialogue receipt path from that body."
+    },
+    {
       "id": "no-wake",
       "label": "NO WAKE",
       "cuePrefixes": [

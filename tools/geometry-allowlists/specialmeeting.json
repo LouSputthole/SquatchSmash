@@ -633,8 +633,8 @@
   "suppressionPolicy": [
     {
       "state": "kerb-arrived",
-      "overlap": 366,
-      "checkSupport": 578,
+      "overlap": 364,
+      "checkSupport": 576,
       "sources": [
         {
           "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.block#0/name=block.alley#0/name=alley.crate#0",
@@ -1979,18 +1979,6 @@
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
-        },
-        {
-          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.sedan#0/name=sedan.lights#0/name=sedan.headlight.beam.left#0",
-          "scope": "direct",
-          "overlap": 1,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.sedan#0/name=sedan.lights#0/name=sedan.headlight.beam.right#0",
-          "scope": "direct",
-          "overlap": 1,
-          "checkSupport": 1
         },
         {
           "sourceId": "root:specialmeeting-kerb-arrived/name=specialmeeting.sedan#0/name=sedan.trunk.lid#0",

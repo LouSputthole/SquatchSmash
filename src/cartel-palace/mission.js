@@ -79,14 +79,18 @@ const OBJECTIVES = Object.freeze({
  * is not even in the building is worse than no card at all.
  *
  * Keyed by `CartelPalaceFinale.stage`. The runtime pushes the matching entry
- * whenever the stage turns; `confrontation` deliberately has no entry, because
- * there is nothing to do at the table yet but listen, and the beat's own line
- * still covers it.
+ * whenever the stage turns. The confrontation owns a card too: it is the
+ * visible explanation for why movement still works while firing does not.
  */
 export const PALACE_DINING_OBJECTIVES = Object.freeze({
+  confrontation: Object.freeze({
+    kicker: 'MARK\'S TABLE',
+    text: 'Hold fire and hear them out.',
+    hint: 'You can move. Tony unlocks the trigger when he delivers the verdict.',
+  }),
   sauce: Object.freeze({
     kicker: 'MARK\'S TABLE',
-    text: 'Sauce is holding the room by himself.',
+    text: 'Eliminate Sauce and secure the room.',
     hint: 'Mark walked out and left his chef to entertain you.',
   }),
   'reprisal-one': Object.freeze({

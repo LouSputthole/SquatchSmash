@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { makeCar } from '../bing/vehicles.js';
 import { Npc } from '../bing/cast.js';
+import { VehicleOccupants } from '../core/vehicles/occupants.js';
 
 /** How far up the street the car starts, and how far it goes when it leaves. */
 const APPROACH = 22;
@@ -36,6 +37,9 @@ export function makeTaxi(scene, dropOff) {
   car.group.position.set(park.x - APPROACH, 0, park.z);
   car.group.rotation.y = 0;
   scene.add(car.group);
+  const occupants = new VehicleOccupants(car.group, {
+    driverActor: { x: 0.55, y: 0.16, z: 0.28 },
+  });
 
   const driver = new Npc(scene, {
     name: 'the driver', tier: 'ambient', job: 'sit', look: true,
@@ -67,10 +71,21 @@ export function makeTaxi(scene, dropOff) {
     group: car.group,
     car,
     driver,
+    occupants,
     window: win,
     park,
     /** He has three more of these before he is finished for the night. */
-    leave() { if (!leaving) leaving = 1; },
+    leave() {
+      if (leaving) return;
+      /* Keep the generic Bing Npc in scene space while he is parked and
+       * interactable: its faceToward policy is intentionally scene-owned.
+       * The moment he becomes a moving occupant, hand him to the canonical
+       * vehicle anchor so the whole departure transform is inherited. Keep
+       * whatever final glance the parked interaction left him on. */
+      const localYaw = driver.group.rotation.y - car.group.rotation.y;
+      occupants.attach('driverActor', driver.group, { localYaw });
+      leaving = 1;
+    },
     update(dt) {
       if (!leaving) {
         driver.update(dt, null);
@@ -79,10 +94,8 @@ export function makeTaxi(scene, dropOff) {
       // Off up the street the way he was already pointing, not across the kerb
       leaving += dt;
       car.group.position.x += 9 * dt;
-      driver.group.position.x = car.group.position.x + 0.55;
       if (car.group.position.x > park.x + APPROACH * 2) {
         car.group.visible = false;
-        driver.group.visible = false;
       }
     },
   };

@@ -108,7 +108,7 @@ test('checkpoint obligations preserve exact ids and unresolved capability state'
   assert.equal(mansionReturn[0].assertion.mustExposeLegalProgression, false);
 });
 
-test('legacy Bing 2 and Palace route drift are generated as failing obligations', () => {
+test('legacy Bing 2 fails while the repaired Palace route is a required obligation', () => {
   const obligations = generateSemanticSmokeRegistry(SCENE_CONTRACTS);
   const bingLegacy = obligations.find((item) => item.entrypointId === 'bada_bing_two_legacy_main'
     && item.area === 'entry');
@@ -118,19 +118,18 @@ test('legacy Bing 2 and Palace route drift are generated as failing obligations'
 
   const palace = obligations.find((item) => item.sceneId === SCENE_IDS.CARTEL_PALACE
     && item.area === 'entry');
-  assert.equal(palace.disposition, CONTRACT_DISPOSITION.KNOWN_FAILURE);
+  assert.equal(palace.disposition, CONTRACT_DISPOSITION.REQUIRED);
   assert.deepEqual(palace.assertion.expectedExits, [SCENE_IDS.APARTMENT]);
-  assert.deepEqual(palace.assertion.observedExits, [SCENE_IDS.SPECIAL_MEETING]);
+  assert.deepEqual(palace.assertion.observedExits, [SCENE_IDS.APARTMENT]);
 });
 
 test('the verifier reports schema health separately from certification readiness', () => {
   const report = buildSemanticSmokeReport();
   assert.deepEqual(report.validationErrors, []);
-  /* TWO now, not one: the countryside cabin is an intentionally solitary hub,
-   * so its `authored_actor` minimum is INTENTIONAL_NA rather than a cast that
-   * nobody has counted. A hub with nobody in it is a decision; an UNKNOWN is
-   * an absence of one, and this gate exists to keep them apart. */
-  assert.equal(report.summary.byDisposition.intentional_na, 2);
+  /* Mansion Return's absent runtime-checkpoint machine is the sole intentional
+   * N/A. The Cabin has resident caretaker Lag now, so its authored-actor
+   * minimum is required and must never be counted as a solitary-hub opt-out. */
+  assert.equal(report.summary.byDisposition.intentional_na, 1);
   assert.ok(report.summary.byDisposition.debt > 0);
   assert.ok(report.summary.byDisposition.known_failure > 0);
   assert.ok(report.summary.byDisposition.unknown > 0);

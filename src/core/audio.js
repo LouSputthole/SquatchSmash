@@ -151,6 +151,50 @@ function receiptPositioning(opts = {}, facts = {}) {
   });
 }
 
+/**
+ * Authored variants for the shared surface-footstep path.
+ *
+ * Most surfaces have one delivered recording and get their variation from a
+ * restrained playback-rate range. Forest floor is the useful exception: it
+ * deliberately rotates through the delivered dirt, grass and dry-leaf takes.
+ * The faster dry-leaf treatment is the little twig crack under a boot; it is a
+ * real decoded woodland recording, not a synthetic cue or an invented asset.
+ */
+export const FOOTSTEP_VARIANTS = Object.freeze({
+  wood: Object.freeze([
+    Object.freeze({ id: 'board-tight', cue: 'footstep.wood.a', rate: Object.freeze([0.94, 1.06]) }),
+    Object.freeze({ id: 'board-hollow', cue: 'footstep.wood.b', rate: Object.freeze([0.92, 1.04]) }),
+  ]),
+  forest: Object.freeze([
+    Object.freeze({ id: 'packed-dirt', cue: 'footstep.dirt', rate: Object.freeze([0.92, 1.04]) }),
+    Object.freeze({ id: 'leaf-crunch', cue: 'footstep.leaves', rate: Object.freeze([0.88, 1.02]), gain: 0.94 }),
+    Object.freeze({ id: 'twig-crack', cue: 'footstep.leaves', rate: Object.freeze([1.16, 1.30]), gain: 0.76 }),
+    Object.freeze({ id: 'soft-floor', cue: 'footstep.grass', rate: Object.freeze([0.92, 1.06]), gain: 0.86 }),
+  ]),
+});
+
+function unitRandom(random = Math.random) {
+  return Math.max(0, Math.min(0.999999, Number(random()) || 0));
+}
+
+/** Pure selection seam so scene and architecture tests can prove variation. */
+export function selectFootstepVariant(surface = 'wood', previousId = null, random = Math.random) {
+  const authored = FOOTSTEP_VARIANTS[surface];
+  const fallback = Object.freeze({
+    id: String(surface), cue: `footstep.${surface}`, rate: Object.freeze([0.92, 1.10]),
+  });
+  const bank = authored ?? [fallback];
+  const choices = bank.length > 1
+    ? bank.filter((entry) => entry.id !== previousId)
+    : bank;
+  const variant = choices[Math.floor(unitRandom(random) * choices.length)] ?? bank[0];
+  const [rateMin, rateMax] = variant.rate ?? [1, 1];
+  return Object.freeze({
+    ...variant,
+    rate: rateMin + unitRandom(random) * Math.max(0, rateMax - rateMin),
+  });
+}
+
 export class AudioEngine {
   constructor(options = {}) {
     /* Browser certification installs this policy before scene modules load.
@@ -193,7 +237,8 @@ export class AudioEngine {
     this._manifestLoadPromise = null;
     this._availableFiles = null;
     this._additionalLoads = new Map();
-    this._lastStep = 0;
+    this._lastSteps = new Map();
+    this._lastStepVariants = new Map();
     /* A small, factual record of sample playback.  `voLog` says that a scene
      * asked for a line; this says whether a decoded buffer was really put on
      * the audible graph and whether it was allowed to finish.  It is useful
@@ -1185,22 +1230,35 @@ export class AudioEngine {
     this._busyUntil = Math.max(this._busyUntil || 0, this.ctx.currentTime + secs);
   }
 
-  /** Footsteps get their own entry point so cadence + surface stay in one place. */
-  footstep(surface = 'wood', intensity = 1) {
+  /**
+   * Footsteps get their own entry point so cadence, surface, variation and
+   * spatial playback stay in one place.
+   *
+   * `options.position` makes a step positional without rebuilding this logic
+   * in a scene. `cadenceKey` keeps two independently walking actors from
+   * suppressing one another while retaining the 140 ms per-body voice bound.
+   */
+  footstep(surface = 'wood', intensity = 1, options = {}) {
+    const positionalOptions = options?.position == null
+      && Number.isFinite(options?.x) && Number.isFinite(options?.y) && Number.isFinite(options?.z)
+      ? { position: options }
+      : (options ?? {});
+    const { cadenceKey = 'player', ...playOptions } = positionalOptions;
     const now = performance.now();
-    if (now - this._lastStep < 140) return;
-    this._lastStep = now;
-    /* Alternate the two boards on wood -- left foot, right foot, different
-     * plank. One cue repeating is what makes a floor sound like a tape. */
-    let cue = `footstep.${surface}`;
-    if (surface === 'wood') {
-      this._woodFoot = !this._woodFoot;
-      cue = this._woodFoot ? 'footstep.wood.a' : 'footstep.wood.b';
-    }
-    this.play(cue, {
-      volume: 0.30 * intensity,
-      rate: 0.92 + Math.random() * 0.18,
+    const previousAt = this._lastSteps.get(cadenceKey) ?? -Infinity;
+    if (now - previousAt < 140) return null;
+    this._lastSteps.set(cadenceKey, now);
+
+    const previousId = this._lastStepVariants.get(surface) ?? null;
+    const variant = selectFootstepVariant(surface, previousId);
+    this._lastStepVariants.set(surface, variant.id);
+    const baseVolume = playOptions.volume ?? 0.30 * intensity;
+    const source = this.play(variant.cue, {
+      ...playOptions,
+      volume: baseVolume * (variant.gain ?? 1),
+      rate: playOptions.rate ?? variant.rate,
     });
+    return Object.freeze({ surface, variant: variant.id, cue: variant.cue, source });
   }
 
   _makePanner(position, refDistance, maxDistance, rolloff = 1.4, distanceModel = 'inverse') {

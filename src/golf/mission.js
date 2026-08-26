@@ -894,6 +894,7 @@ export class Round {
   _startCartRide() {
     this._go(BEAT.CART);
     this._cartFromTee = true;
+    this._releaseCartRiders();
     this.carts?.stage();
     this.carts?.beginPlayerDrive({ follow: true });
     /* The Prospect has the wheel. Lou takes the passenger seat so the private
@@ -958,6 +959,7 @@ export class Round {
     this.cues.suppressBanter(false);
     this._go(BEAT.APPROACH);
     if (this._cartFromTee) {
+      this._releaseCartRiders();
       for (const id of [LOU, ERIC, RIPPIN]) this.golfers[id]?.standUp();
       this._placeGroupAfterDrive();
       this._npcApproachJobs.clear();
@@ -985,16 +987,28 @@ export class Round {
   _rideAlong() {
     if (!this.carts) return;
     const seat = (golfer, cart, which) => {
-      if (!golfer) return;
-      const s = cart.seatWorld(which);
+      if (!golfer || !cart?.occupants) return;
       /* The seat is where his backside is; the figure's origin is the floor
-       * under it, so he is dropped by the height of a seated man. */
-      golfer.group.position.set(s.x, s.y - 0.92, s.z);
-      golfer.group.rotation.y = cart.group.rotation.y;
+       * under it, so he is dropped by the height of a seated man. Attachment
+       * is idempotent here because _rideAlong remains safe to call from the
+       * update path without detaching and reparenting a rider every frame. */
+      if (cart.occupants.object(which) !== golfer.group) {
+        cart.occupants.attach(which, golfer.group, { drop: 0.92 });
+      }
     };
     seat(this.golfers[LOU], this.carts.lead, 'passenger');
     seat(this.golfers[ERIC], this.carts.follow, 'driver');
     seat(this.golfers[RIPPIN], this.carts.follow, 'passenger');
+  }
+
+  /** Hand every moving rider back to the scene before a standing/walking pose. */
+  _releaseCartRiders() {
+    const releases = [
+      [this.carts?.lead, 'passenger'],
+      [this.carts?.follow, 'driver'],
+      [this.carts?.follow, 'passenger'],
+    ];
+    for (const [cart, which] of releases) cart?.occupants?.release(which);
   }
 
   /**
@@ -1351,6 +1365,7 @@ export class Round {
    * the world is thrown away and rebuilt and nobody should watch that happen.
    */
   startHole(number) {
+    this._releaseCartRiders();
     this.hooks.onLoadHole?.(number);
     this._prepareNpcTeeShots();
 

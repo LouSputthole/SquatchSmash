@@ -38,7 +38,13 @@ import { makeCar, openCabin, makeVehicleCollider } from '../bing/vehicles.js';
 import { lit } from '../bing/kit.js';
 import { GroundVehicle } from '../core/vehicles/ground-vehicle.js';
 import { FixedStepRunner } from '../core/vehicles/fixed-step.js';
+import { createHeadlightBeam, createHeadlightBeamGeometry } from '../core/vehicles/headlights.js';
+import { VehicleOccupants } from '../core/vehicles/occupants.js';
 import { box, cylinder, group, mat } from '../world/build.js';
+import {
+  createSedanGlassMaterial,
+  installSixPaneSedanGlazing,
+} from './sedan-glazing.js';
 
 /**
  * A heavy old car, driven gently.
@@ -156,11 +162,39 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
   const shape = car.shape;
   const cabin = openCabin(car);
 
-  /* The side and rear glass is one box and a box culls its own back faces, so
-   * from inside the car there would be no windows at all. One clone, so the
-   * lot's other cars keep the single-sided material they share. */
-  car.glass.material = car.glass.material.clone();
-  car.glass.material.side = THREE.DoubleSide;
+  /* The shared traffic shell has one solid greenhouse box. Replace it with
+   * the same six panes the forest fallback uses: no tinted cube around the
+   * camera, and no second windscreen layered over the first. */
+  const sideGlassMaterial = createSedanGlassMaterial({
+    color: 0x293746, roughness: 0.10, metalness: 0.22, opacity: 0.12,
+  });
+  const windscreenMaterial = createSedanGlassMaterial({
+    color: 0x9fb5c6, roughness: 0.05, metalness: 0.08, opacity: 0.08,
+  });
+  const glazing = installSixPaneSedanGlazing({
+    car,
+    cabin,
+    prefix: 'sedan',
+    sideMaterial: sideGlassMaterial,
+    windscreenMaterial,
+  });
+  /* Preserve the existing geometry-gate scope of the live windscreen. The
+   * whole car is one assembly; this flag records that the pane/frame contact
+   * is intentional without widening policy to the fallback builder. */
+  glazing.windscreen.userData.geometryGate = { overlap: false };
+
+  /* The B pillars are bodywork, not glass. They fill the deliberate gap
+   * between the independently movable front and rear panes. */
+  for (const side of [-1, 1]) {
+    const key = side > 0 ? 'left' : 'right';
+    root.add(box({
+      name: `sedan.pillar.b.${key}`,
+      size: [0.09, cabin.glassY1 - cabin.glassY0, 0.05],
+      pos: [-0.82, (cabin.glassY0 + cabin.glassY1) / 2,
+        side * (cabin.cabinHalfW - 0.035)],
+      mat: car.paint,
+    }));
+  }
 
   /* ---------------------------------------------------------------- */
   /* The boot                                                          */
@@ -176,6 +210,10 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
   /* ---------------------------------------------------------------- */
   const interior = buildInterior(car, cabin);
   root.add(interior.group);
+  /* Keep the live windscreen in the interior assembly where its predecessor
+   * lived. The group is identity-transformed, so this is only ownership (and
+   * keeps the geometry contract stable), not a second pane or a transform. */
+  interior.group.add(glazing.windscreen);
 
   /* ---------------------------------------------------------------- */
   /* Where each seat's voice comes out of                              */
@@ -219,7 +257,7 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
 
   const vehicle = new GroundVehicle(SEDAN_CONFIG);
   const runner = new FixedStepRunner({ hz: 120, maxSteps: 8 });
-  const occupants = new Map();
+  const occupants = new VehicleOccupants(root, { ...SEATS, trunk: TRUNK_ANCHOR });
 
   let wheelSpin = 0;
   let trunkOpen = 0;
@@ -232,14 +270,28 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
     return out.set(local.x, local.y, local.z).applyMatrix4(root.matrixWorld);
   };
 
+  /* The forest rail owns the car's transform and must never step this sedan's
+   * GroundVehicle. The boot is presentation, though, and still needs a clock
+   * after that ownership handoff. Keep its interpolation independently
+   * advanceable so the adapter can animate it without running two drivers. */
+  const advanceTrunk = (dt) => {
+    if (trunkOpen === trunkTarget) return;
+    const rate = Math.max(0, dt) / 1.1;
+    trunkOpen += Math.sign(trunkTarget - trunkOpen)
+      * Math.min(rate, Math.abs(trunkTarget - trunkOpen));
+    trunk.setOpen(trunkOpen);
+  };
+
   const sedan = {
     car,
+    cabin,
     group: root,
     vehicle,
     runner,
     wheels,
     trunk,
     interior,
+    glazing,
     lights,
 
     /** Put the car somewhere without driving it there. */
@@ -292,6 +344,12 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
 
     get trunkOpen() { return trunkOpen; },
 
+    /** Advance only the boot presentation; safe while another system drives. */
+    updateTrunk(dt) {
+      advanceTrunk(dt);
+      return sedan;
+    },
+
     /** Dome light, for when a door is open and the car is looking at you. */
     setCabinLight(on) {
       interior.setCabinLight(!!on);
@@ -302,14 +360,15 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
     seatLocal(id) { return SEATS[id] ?? null; },
     /** The car-owned emitter for a seat, at mouth height. See SEATED_MOUTH. */
     seatVoice(id) { return voiceAnchors[id] ?? null; },
-    seatWorld(id, out) { return worldPoint(SEATS[id] ?? SEATS.driver, out); },
+    seatAnchor(id) { return occupants.anchor(id); },
+    seatWorld(id, out) { return occupants.worldPoint(id, null, out) ?? worldPoint(SEATS.driver, out); },
     eyeWorld(id, out) {
       const seat = SEATS[id] ?? SEATS.driver;
-      _local.set(seat.x, seat.y + SEATED_EYE, seat.z);
-      return worldPoint(_local, out);
+      return occupants.worldPoint(id, { x: 0, y: SEATED_EYE, z: 0 }, out)
+        ?? worldPoint(_local.set(seat.x, seat.y + SEATED_EYE, seat.z), out);
     },
     doorWorld(id, out) { return worldPoint(DOORS[id] ?? DOORS.driver, out); },
-    trunkWorld(out) { return worldPoint(TRUNK_ANCHOR, out); },
+    trunkWorld(out) { return occupants.worldPoint('trunk', null, out) ?? worldPoint(TRUNK_ANCHOR, out); },
     /** Yaw a player should carry to face the same way the car does. */
     facingYaw() { return root.rotation.y - Math.PI / 2; },
 
@@ -323,29 +382,26 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
      * car pulls off. `drop` exists because a `makePerson` rig's origin is its
      * feet — pass 0 for a camera or an anchor.
      */
-    occupy(id, object3D, { drop = SEATED_FIGURE_DROP, yaw = true } = {}) {
-      if (!SEATS[id] || !object3D) return sedan;
-      occupants.set(id, { object3D, drop, yaw });
-      sedan.rideAlong();
+    occupy(id, object3D, { drop = SEATED_FIGURE_DROP, yaw = true, localYaw = null } = {}) {
+      if (!occupants.has(id) || !object3D) return sedan;
+      let attachmentYaw = localYaw;
+      if (!Number.isFinite(attachmentYaw)) {
+        attachmentYaw = yaw ? 0 : object3D.rotation.y - root.rotation.y;
+      }
+      occupants.attach(id, object3D, { drop, localYaw: attachmentYaw });
       return sedan;
     },
     release(id) {
-      occupants.delete(id);
+      occupants.release(id);
       return sedan;
     },
-    occupantIds() { return [...occupants.keys()]; },
-    get seatsTaken() { return occupants.size; },
+    occupantIds() { return occupants.ids(); },
+    get seatsTaken() { return SEAT_IDS.filter((id) => occupants.object(id)).length; },
 
     /** Put every occupant back on its seat. Called from `update`. */
     rideAlong() {
-      if (!occupants.size) return sedan;
-      root.updateMatrixWorld(true);
-      for (const [id, rider] of occupants) {
-        const seat = SEATS[id];
-        _local.set(seat.x, seat.y - rider.drop, seat.z).applyMatrix4(root.matrixWorld);
-        rider.object3D.position.copy(_local);
-        if (rider.yaw) rider.object3D.rotation.y = root.rotation.y;
-      }
+      // Compatibility surface for older callers. Occupants are children of
+      // car-owned anchors now, so the scene graph carries them without writes.
       return sedan;
     },
 
@@ -367,12 +423,7 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
       wheelSpin += (vehicle.speed / Math.max(0.05, shape.wheelR)) * dt;
       for (const wheel of wheels) wheel.rotation.y = wheelSpin;
 
-      if (trunkOpen !== trunkTarget) {
-        const rate = dt / 1.1;
-        trunkOpen += Math.sign(trunkTarget - trunkOpen)
-          * Math.min(rate, Math.abs(trunkTarget - trunkOpen));
-        trunk.setOpen(trunkOpen);
-      }
+      advanceTrunk(dt);
 
       lights.update(dt, vehicle);
       sedan.rideAlong();
@@ -387,6 +438,8 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
     dispose() {
       occupants.clear();
       lights.dispose();
+      sideGlassMaterial.dispose();
+      windscreenMaterial.dispose();
     },
   };
 
@@ -543,33 +596,24 @@ function buildInterior(car, cabin) {
   }
   root.add(box({ name: 'sedan.pedals', size: [0.10, 0.16, 0.24], pos: [0.60, floorY + 0.12, 0.50], mat: dashPlastic, rotZ: -0.18 }));
 
-  // Headliner, mirror, and the dome lamp that goes on when a door opens.
+  /* Headliner, mirror, and the dome lamp that goes on when a door opens.
+   *
+   * These used to hang 18 cm below the roof header, only 16 cm above the
+   * passenger eye. In a 70-degree first-person lens that put a pale ceiling
+   * across roughly the upper half of the image and reduced the windscreen to
+   * a letterbox slot. Keep the trim against the physical roof at 2.17 m: it
+   * still reads as a ceiling, gives Numbskull more honest headroom, and leaves
+   * the player enough aperture to see the road that is telling the story. */
   root.add(box({
     name: 'sedan.headliner', size: [2.40, 0.06, 1.72],
-    pos: [-0.42, cabin.glassY1 - 0.18, 0], mat: mat({ color: 0xc9c1b0, roughness: 0.97 }),
+    pos: [-0.42, cabin.glassY1 - 0.055, 0], mat: mat({ color: 0x4a4742, roughness: 0.97 }),
   }));
-  root.add(box({ name: 'sedan.mirror', size: [0.05, 0.12, 0.36], pos: [0.62, cabin.glassY1 - 0.31, 0], mat: chrome }));
+  root.add(box({ name: 'sedan.mirror', size: [0.05, 0.10, 0.32], pos: [0.62, cabin.glassY1 - 0.16, 0], mat: chrome }));
   const domeLamp = box({
     name: 'sedan.dome-lamp', size: [0.18, 0.03, 0.30],
-    pos: [-0.42, cabin.glassY1 - 0.23, 0], mat: dome, cast: false,
+    pos: [-0.42, cabin.glassY1 - 0.095, 0], mat: dome, cast: false,
   });
   root.add(domeLamp);
-
-  /* A windscreen, because there was a hole in the front of the car. Faint: it
-   * is read from the frame round it and the amber of the dash caught in it. */
-  const screen = box({
-    name: 'sedan.windscreen',
-    size: [0.024, 0.88, 1.74],
-    pos: [0.94, cabin.glassY0 + 0.06, 0],
-    mat: mat({
-      color: 0x8fa8bc, roughness: 0.06, metalness: 0.1,
-      transparent: true, opacity: 0.14, side: THREE.DoubleSide,
-    }),
-    cast: false,
-  });
-  screen.rotation.z = 0.20;
-  screen.userData.geometryGate = { overlap: false };
-  root.add(screen);
 
   /* ONE CAR, ONE ASSEMBLY.
    *
@@ -613,14 +657,17 @@ function buildLights(car, shape) {
     blending: THREE.AdditiveBlending,
     fog: false,
   });
+  const beamGeo = createHeadlightBeamGeometry();
   const beams = [];
   for (const side of [-1, 1]) {
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.5, 13, 12, 1, true), beamMat);
-    cone.name = `sedan.headlight.beam.${side < 0 ? 'right' : 'left'}`;
-    cone.rotation.z = -Math.PI / 2;
-    cone.position.set(shape.L / 2 + 6.2, shape.wheelR + 0.42, side * (shape.W / 2 - 0.38));
-    cone.castShadow = false;
-    cone.receiveShadow = false;
+    const cone = createHeadlightBeam({
+      geometry: beamGeo,
+      material: beamMat,
+      reach: 13,
+      farRadius: 1.5,
+      name: `sedan.headlight.beam.${side < 0 ? 'right' : 'left'}`,
+    });
+    cone.position.set(shape.L / 2 - 0.1, shape.wheelR + 0.42, side * (shape.W / 2 - 0.38));
     cone.userData.geometryGate = { overlap: false, checkSupport: false };
     root.add(cone);
     beams.push(cone);
@@ -665,7 +712,7 @@ function buildLights(car, shape) {
     },
     dispose() {
       beamMat.dispose();
-      for (const beam of beams) beam.geometry.dispose();
+      beamGeo.dispose();
     },
   };
 }

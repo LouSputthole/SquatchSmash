@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 import { FAMILY } from '../src/bing/family.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
+import { markActor } from '../src/core/staging.js';
 import { wardrobeFor } from '../src/core/wardrobe.js';
 import {
   INITIATION_PROSPECT_IDS,
@@ -12,8 +13,10 @@ import {
   makeInitiationCeremonyFigure,
   poseFallen,
   poseKneeling,
+  poseKneelingPanic,
   poseSeated,
   poseStanding,
+  poseStandingFallen,
 } from '../src/initiation/ceremony-figure.js';
 
 function boxOf(object) {
@@ -159,18 +162,65 @@ test('multiple prospects can occupy independent kneeling marks simultaneously', 
 
 test('fallen and standing poses remain grounded and reversible', () => {
   const figure = makeInitiationCeremonyFigure('PROSPECT FOUR');
+  markActor(figure.group, {
+    id: 'initiation.prospect.four',
+    role: 'player',
+    posture: 'stand',
+  });
   const mark = { x: 1.3, z: -4.8, heading: -0.4 };
   poseFallen(figure, mark, 1);
   assert.equal(figure.pose, 'fallen');
+  assert.equal(figure.group.userData.deathTransitionReceipt?.active, true);
+  assert.equal(figure.group.userData.actorPosture, 'lie');
   assert.equal(figure.group.position.y, 0);
   assert.ok(boxOf(figure.rig).min.y >= -1e-5, 'fallen anatomy went through the floor');
 
   poseStanding(figure, { x: 3, z: 4, heading: 0.7 });
   assert.equal(figure.pose, 'standing');
+  assert.equal(figure.group.userData.deathTransitionReceipt, undefined,
+    'standing restart retained a stale death lifecycle');
+  assert.equal(figure.group.userData.actorPosture, undefined,
+    'standing restart retained the fallen staging posture');
+  assert.equal(figure.group.userData.actor.posture, 'stand');
   assert.equal(figure.group.position.y, 0);
   assert.ok(Math.abs(figure.rig.rotation.x) < 1e-10);
   assert.ok(Math.abs(figure.shinL.rotation.x) < 1e-10);
   assert.ok(boxOf(figure.rig).min.y >= -1e-5, 'standing reset went through the floor');
+});
+
+test('Kitten Boss panic is one grounded recoil, not an audio-only reaction', () => {
+  const figure = makeInitiationCeremonyFigure('KITTENBOSS');
+  const mark = { x: -0.95, z: -5.55, heading: 0.36 };
+  poseKneelingPanic(figure, mark, { retreat: 0.14 });
+
+  assert.equal(figure.pose, 'kneeling');
+  assert.equal(figure.group.userData.executionReaction, 'panic');
+  assert.ok(Math.hypot(figure.position.x - mark.x, figure.position.z - mark.z) >= 0.139);
+  assert.ok(figure.head.rotation.x < -0.1, 'her head did not recoil');
+  assert.ok(Math.abs(figure.armL.rotation.z) > 0.4, 'left arm did not brace');
+  assert.ok(Math.abs(figure.armR.rotation.z) > 0.4, 'right arm did not brace');
+  const bounds = boxOf(figure.rig);
+  assert.ok(Math.abs(bounds.min.y) <= 1e-4, `panic pose floated at y=${bounds.min.y}`);
+});
+
+test('a standing execution rotates one connected body and stays on the floor throughout', () => {
+  const figure = makeInitiationCeremonyFigure('PROSPECT ONE');
+  const mark = { x: -4.4, z: -8, heading: 0.2 };
+
+  assert.ok(figure.body.parent, 'torso is detached before death');
+  assert.ok(figure.legL.parent && figure.legR.parent, 'legs are detached before death');
+  for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
+    poseStandingFallen(figure, mark, progress);
+    const bounds = boxOf(figure.rig);
+    assert.ok(Math.abs(bounds.min.y) <= 1e-4,
+      `standing fall ${progress} did not contact floor: y=${bounds.min.y}`);
+    assert.equal(figure.body.parent, figure.rig, 'torso left the body hierarchy');
+    assert.equal(figure.legL.parent, figure.rig, 'left leg left the body hierarchy');
+    assert.equal(figure.legR.parent, figure.rig, 'right leg left the body hierarchy');
+  }
+  assert.equal(figure.pose, 'fallen');
+  assert.ok(Math.abs(figure.rig.rotation.x + Math.PI / 2) <= 1e-6,
+    'the whole connected figure did not finish horizontal');
 });
 
 test('Lou keeps the shared articulated chair pose without moving the scene root below the floor', () => {

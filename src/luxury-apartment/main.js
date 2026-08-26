@@ -8,7 +8,9 @@ import { FocusRush } from '../core/focus-rush.js';
 import { Highs } from '../core/highs.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { PlanarMirror } from '../core/planar-mirror.js';
 import { Phone } from '../core/phone.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
@@ -42,10 +44,14 @@ const startButton = document.getElementById('start-btn');
 const postureEl = document.getElementById('posture');
 const postureLabel = postureEl.querySelector('span');
 const restCurtain = document.getElementById('luxury-rest');
+const elevatorExitCurtain = document.getElementById('luxury-elevator-exit');
 const gamePanel = document.getElementById('luxury-game-panel');
 const fxHigh = document.getElementById('fx-high');
 const fxTrip = document.getElementById('fx-trip');
 const chromaOffsets = document.querySelectorAll('#chroma feOffset');
+
+const ELEVATOR_AUDIO_CUT_MS = 720;
+const ELEVATOR_EXIT_MS = 1400;
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -62,9 +68,11 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x101722);
-scene.fog = new THREE.FogExp2(0x101722, 0.0065);
+scene.fog = new THREE.FogExp2(0x101722, 0.0038);
 
-const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.045, 180);
+const camera = new THREE.PerspectiveCamera(
+  68, innerWidth / innerHeight, 0.045, ENVIRONMENT_VISIBILITY.indoorSkyline.cameraFar,
+);
 camera.name = 'luxury-apartment.camera';
 scene.add(camera);
 
@@ -92,7 +100,6 @@ const showerFx = new ShowerSystem(scene);
 const smoke = new SmokeSystem(scene);
 const highs = new Highs();
 const focusRush = new FocusRush({ baseFov: camera.fov });
-const darts = new LuxuryDarts({ hud, audio, panel: gamePanel });
 const cameraDirection = new THREE.Vector3();
 const bongBehavior = createBongBehavior({
   audio,
@@ -122,6 +129,8 @@ const state = {
   activeArcade: null,
   activeArcadeScreen: null,
   cabinetBooted: false,
+  exitDestination: null,
+  exitAudioStopped: false,
 };
 
 /* Framed SquatchOS apps need the ordinary DOM cursor. Returning to the OS
@@ -137,6 +146,7 @@ const pcArcade = createArcade({ audio, onInputModeChange: onArcadeInputModeChang
 const cabinetArcade = createArcade({ audio, onInputModeChange: onArcadeInputModeChange });
 
 let home = null;
+let bathroomMirror = null;
 let player = null;
 let inventoryRuntime = null;
 let blackjack = null;
@@ -144,6 +154,7 @@ let toilet = null;
 let crookedArt = null;
 let answeringMachine = null;
 let revolver = null;
+let darts = null;
 let lastFrame = performance.now();
 
 function worldPoint(object, fallback = new THREE.Vector3()) {
@@ -287,7 +298,10 @@ function enterStation(id, station = home?.gameStations?.[id]) {
     });
   }
   if (id === 'darts') {
-    return sitAt('darts', station.pose ?? home.poses.darts, () => darts.enter());
+    return sitAt('darts', station.pose ?? home.poses.darts, () => {
+      darts.enter();
+      player.enabled = document.pointerLockElement === canvas;
+    });
   }
   if (id === 'console') {
     if (!tv.on) tv.toggle();
@@ -303,6 +317,85 @@ function useDoor(name, wasOpen) {
   audio.play('door.creak', { volume: 0.45 });
   hud.toast(`${name} ${wasOpen ? 'closed' : 'opened'}`);
   return true; // world.js performs the actual toggle after the callback.
+}
+
+function useFrontDoor() {
+  audio.play('door.knob', { volume: 0.36 });
+  hud.toast('Service door sealed');
+  hud.say('That door stays deadbolted. <em>The private elevator is the way in and out.</em>', 3600);
+  return false;
+}
+
+function beginElevatorExit() {
+  if (state.phase !== 'active') return false;
+
+  state.phase = 'exiting';
+  state.exitDestination = './preview.html';
+  state.exitAudioStopped = false;
+  state.paused = false;
+  player.enabled = false;
+  player.clearKeys();
+  interaction.release();
+  interaction.setPaused(true);
+  document.exitPointerLock?.();
+
+  /* A framed game or receiver can own audio outside AudioEngine's loop map.
+   * Release those owners first, then fade every scene loop through the shared
+   * engine. The lift cue is a short one-shot and is allowed to finish under
+   * the visible door-close/fade before the context is suspended. */
+  pcArcade.setSeated(false);
+  cabinetArcade.setSeated(false);
+  radio.pause();
+  if (tv.on) {
+    tv.toggle();
+    home.state.tvOn = tv.on;
+  }
+  answeringMachine?.stop();
+  audio.stopSpeech();
+  for (const key of [...audio.loops.keys()]) audio.stopLoop(key, 0.28);
+
+  elevatorExitCurtain.setAttribute('aria-hidden', 'false');
+  elevatorExitCurtain.classList.add('active');
+
+  setTimeout(() => {
+    if (state.phase !== 'exiting') return;
+    /* CSS transitions can be throttled behind a saturated WebGL frame. Do not
+     * let that turn the fixed navigation timer into a visible cut: once the
+     * authored 720 ms fade budget has elapsed, force the curtain to its final
+     * opaque frame before suspending audio or starting the navigation hold. */
+    elevatorExitCurtain.style.transition = 'none';
+    elevatorExitCurtain.style.opacity = '1';
+    Promise.resolve(audio.ctx?.suspend?.())
+      .catch(() => {})
+      .finally(() => {
+        if (state.phase !== 'exiting') return;
+        state.exitAudioStopped = true;
+        /* Navigation used to race the audio suspension on a separate fixed
+         * timer. A busy renderer could leave the apartment while its context
+         * was still live, and the certification promise then died with the
+         * page before it could say which half lost. Audio closes first; the
+         * remaining curtain hold starts from that receipt. */
+        setTimeout(() => {
+          if (state.phase === 'exiting') window.location.assign(state.exitDestination);
+        }, ELEVATOR_EXIT_MS - ELEVATOR_AUDIO_CUT_MS);
+      });
+  }, ELEVATOR_AUDIO_CUT_MS);
+  return true;
+}
+
+function useElevator(mode) {
+  audio.play(mode === 'ride' ? 'door.creak' : 'door.knob', { volume: 0.42 });
+  if (mode === 'ride') {
+    hud.toast('Private elevator descending');
+    hud.say('The doors close on the apartment. <em>No unfinished hallway. No open-world drop.</em>', 3400);
+    return beginElevatorExit();
+  }
+  hud.toast('Private elevator called');
+  return true;
+}
+
+function useCigarettePack() {
+  return inventoryRuntime?.replenish('cigs', { amount: 6, max: 12 }) ?? false;
 }
 
 function useTv(on) {
@@ -528,8 +621,9 @@ try {
     audio,
     hud,
     time,
-    onFrontDoor: (open) => useDoor('Front door', open),
-    onElevator: (open) => useDoor('Elevator', open),
+    onFrontDoor: useFrontDoor,
+    onElevator: useElevator,
+    onBathroomDoor: (open) => useDoor('Bathroom door', open),
     onBed: useBed,
     onCouch: () => sitAt('couch', home.poses.couch),
     onDesk: () => { if (home) home.state.pcOn = true; },
@@ -538,6 +632,8 @@ try {
     onPhone: () => inventoryRuntime?.takePhone(),
     onFridge: useFridge,
     onCook: useKitchen,
+    cigaretteStatus: () => inventoryRuntime?.status('cigs') ?? { full: false },
+    onCigarettes: useCigarettePack,
     onShower: startShower,
     onWardrobe: useWardrobe,
     onToilet: useToilet,
@@ -557,6 +653,13 @@ try {
     onCityView: () => hud.say('The whole city below. The original apartment is still down there somewhere.', 4200),
     onMinigame: enterStation,
   }));
+  bathroomMirror = new PlanarMirror(scene, home.mirrorMesh, {
+    width: 0.54,
+    height: 0.66,
+    resolution: [384, 468],
+    maxDistance: 9,
+    enabled: true,
+  });
 } catch (error) {
   window.__squatchSceneFail?.('Could not build the luxury apartment', error?.message || String(error));
   throw error;
@@ -617,6 +720,14 @@ crookedArt = new LuxuryCrookedArtRuntime({
   onMode: syncCrookedArtMode,
 });
 answeringMachine = new LuxuryAnsweringMachineRuntime({ world: home, hud, audio });
+darts = new LuxuryDarts({
+  scene,
+  camera,
+  station: home.gameStations.darts,
+  hud,
+  audio,
+  panel: gamePanel,
+});
 
 const pcTexture = mountCanvas(home.screens.pc, pcArcade.canvas);
 const cabinetTexture = mountCanvas(home.screens.arcade, cabinetArcade.canvas);
@@ -713,7 +824,7 @@ const pauseMenu = createPauseMenu({
     interaction.setPaused(Boolean(state.posture));
     audio.ctx?.resume?.();
     lastFrame = performance.now();
-    if (!state.posture || toilet?.aiming) requestGamePointerLock();
+    if (!state.posture || toilet?.aiming || state.posture === 'darts') requestGamePointerLock();
   },
   onRestart: () => location.reload(),
   restartLabel: 'Restart luxury preview',
@@ -721,7 +832,8 @@ const pauseMenu = createPauseMenu({
 
 document.addEventListener('pointerlockchange', () => {
   if (state.phase !== 'active' || state.paused || state.resting || state.showering) return;
-  player.enabled = (!state.posture || toilet?.aiming) && document.pointerLockElement === canvas;
+  player.enabled = (!state.posture || toilet?.aiming || state.posture === 'darts')
+    && document.pointerLockElement === canvas;
 });
 
 document.addEventListener('mousemove', (event) => {
@@ -769,7 +881,7 @@ document.addEventListener('keydown', (event) => {
 
   if (state.posture === 'darts') {
     if (event.code === 'KeyQ') leavePosture();
-    else if (event.code === 'KeyE') darts.throwDart();
+    else if (event.code === 'KeyE' && !event.repeat) darts.beginCharge();
     else if (event.code === 'KeyR') darts.reset();
     event.preventDefault();
     return;
@@ -815,6 +927,11 @@ document.addEventListener('keydown', (event) => {
 });
 
 document.addEventListener('keyup', (event) => {
+  if (state.posture === 'darts' && event.code === 'KeyE') {
+    darts.release();
+    event.preventDefault();
+    return;
+  }
   state.activeArcade?.onKey(event.code, false);
   const key = translateKey(event.code);
   player.setKey(key, false);
@@ -825,7 +942,7 @@ document.addEventListener('mousedown', (event) => {
   if (event.button !== 0 || state.phase !== 'active' || state.paused) return;
   if (toilet?.active || crookedArt?.bar.active) return;
   if (state.posture === 'poker') pokerAction();
-  else if (state.posture === 'darts') darts.throwDart();
+  else if (state.posture === 'darts') darts.beginCharge();
   else if (state.activeArcade) state.activeArcade.onClick(true);
   else if (home.inventory.held === 'gun' && document.pointerLockElement === canvas) revolver.fire();
   else if (document.pointerLockElement === canvas) interaction.press();
@@ -833,7 +950,8 @@ document.addEventListener('mousedown', (event) => {
 
 document.addEventListener('mouseup', (event) => {
   if (event.button !== 0) return;
-  if (state.activeArcade) state.activeArcade.onClick(false);
+  if (state.posture === 'darts') darts.release();
+  else if (state.activeArcade) state.activeArcade.onClick(false);
   else interaction.release();
 });
 
@@ -854,7 +972,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseMenu.pause();
 });
 canvas.addEventListener('click', () => {
-  if (state.phase === 'active' && !state.paused && (!state.posture || toilet?.aiming)
+  if (state.phase === 'active' && !state.paused
+    && (!state.posture || toilet?.aiming || state.posture === 'darts')
     && !state.resting && !state.showering && document.pointerLockElement !== canvas) {
     requestGamePointerLock();
   }
@@ -915,6 +1034,7 @@ function frame(now) {
     crookedArt.update(dt);
     answeringMachine.update(dt);
     revolver.update(dt);
+    darts.update(dt);
     updateTimedActivities(dt);
 
     if (state.phase === 'active' && !state.posture && !state.resting && !state.showering) {
@@ -957,6 +1077,7 @@ function frame(now) {
   audio.setLoopVolume('luxury.city.day', 0.02 + time.dayness * 0.10, 1.0);
   audio.setLoopVolume('luxury.city.night', 0.03 + (1 - time.dayness) * 0.11, 1.0);
   audio.updateListener(camera);
+  bathroomMirror?.render(renderer, camera);
   renderer.render(scene, camera);
 }
 
@@ -1040,7 +1161,9 @@ async function verifyParity() {
 
   darts.reset();
   darts.enter();
-  const dartThrow = darts.throwDart(0.275);
+  const dartLaunch = darts.throwAtBoard({ power: 12 });
+  for (let i = 0; dartLaunch && darts.inFlight && i < 240; i++) darts.update(1 / 120);
+  const dartThrow = darts.lastImpact;
   darts.leave();
 
   if (toilet.active) toilet.stop({ quiet: true });
@@ -1141,6 +1264,7 @@ window.LUXURY_APARTMENT = {
     messages: (playing = true) => answeringMachine.toggle(playing),
     revolver: () => revolver.pickup(),
     ammo: (count = 12) => revolver.takeAmmo(count),
+    cigarettes: useCigarettePack,
   },
   debug: {
     pcApps: pcArcade.apps.map((app) => ({ id: app.id, title: app.title ?? app.name ?? app.id })),

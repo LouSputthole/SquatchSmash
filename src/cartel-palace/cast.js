@@ -10,7 +10,7 @@ import { HeistFigure } from '../heist/people.js';
 import { CombatArmorPresentation } from '../world/combat-armor.js';
 import { dressInATeamColours } from '../world/ateam.js';
 import { palaceGuardVoice } from './voice.js';
-import { PALACE_ANCHORS } from './world.js';
+import { PALACE_ANCHORS } from './anchors.js';
 
 export const PALACE_GUARD_POSTS = Object.freeze([
   Object.freeze({ id: 'gate-one', x: 9.2, z: 54, yaw: Math.PI, weapon: WEAPON_IDS.PISTOL9, patrol: [[9.2, 54], [7.2, 48]] }),
@@ -133,21 +133,45 @@ const PALACE_CIVILIAN_POSTS = Object.freeze([
 export const PALACE_WAVE_POSTS = Object.freeze([
   Object.freeze({
     id: 'wave-doors-west', x: -2.2, z: -35.4, yaw: Math.PI,
+    enterFrom: Object.freeze([-2.2, -32.35]),
     weapon: WEAPON_IDS.CARBINE, health: 96, armor: 12,
   }),
   Object.freeze({
     id: 'wave-doors-east', x: 2.4, z: -35.4, yaw: Math.PI,
+    enterFrom: Object.freeze([2.4, -32.35]),
     weapon: WEAPON_IDS.PISTOL9, health: 82, armor: 0,
   }),
   Object.freeze({
     id: 'wave-back-west', x: -2.6, z: -48.6, yaw: 0,
+    enterFrom: Object.freeze([-2.6, -51.35]),
     weapon: WEAPON_IDS.CARBINE, health: 96, armor: 12,
   }),
   Object.freeze({
     id: 'wave-back-east', x: 2.6, z: -48.6, yaw: 0,
+    enterFrom: Object.freeze([2.6, -51.35]),
     weapon: WEAPON_IDS.SHOTGUN, health: 110, armor: 8,
   }),
 ]);
+
+/* Authored threshold paths, owned with the bodies that traverse them.
+ *
+ * The front pair begin north of the open dining doors at z -34.15. The rear
+ * pair begin inside the extraction vestibule, north of the closed exterior
+ * gate but south of the rear-wall opening. Mark uses those same readable
+ * seams: the open dining doors for his first return and the rear opening for
+ * the last stand. These are presentation paths, not navigation patrols; the
+ * shared combat runtime takes over only after the actor crosses the target. */
+const PALACE_FINALE_PATHS = Object.freeze({
+  markExit: Object.freeze([-1.8, -32.35]),
+  armoredFrom: Object.freeze([0, -32.35]),
+  armoredAt: Object.freeze([0, -36.4]),
+  armoredFace: Object.freeze([0, -42]),
+  finalFrom: Object.freeze([0, -51.35]),
+  finalAt: Object.freeze([0, -47.8]),
+  finalFace: Object.freeze([0, -40]),
+});
+
+const PRESENTATION_SPEED = 3.35;
 
 /** Four different men, not one man four times. */
 const WAVE_LOOKS = Object.freeze([
@@ -300,6 +324,43 @@ function tagHitZones(figure) {
   }
 }
 
+/* Rosa needs to read as the housekeeper before her first line, without
+ * widening the shared `work` outfit for every guard and extra in the game.
+ * The Palace adapter adds a pale apron, straps, pocket and cleaning cloth to
+ * the shared figure's torso. Every piece carries one semantic marker so the
+ * scene contract can prove the role from the rendered hierarchy. */
+const HOUSEKEEPER_APRON = new THREE.MeshStandardMaterial({ color: 0xd9ddd4, roughness: 0.97 });
+const HOUSEKEEPER_TRIM = new THREE.MeshStandardMaterial({ color: 0x8ea5a0, roughness: 0.95 });
+
+function housekeeperPiece(name, size, position, material = HOUSEKEEPER_APRON) {
+  const piece = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
+  piece.name = name;
+  piece.position.set(...position);
+  piece.castShadow = true;
+  piece.userData.housekeeperUniformPiece = true;
+  piece.userData.palaceNoncombatant = true;
+  return piece;
+}
+
+function dressAsHousekeeper(entry) {
+  const torso = entry?.figure?.parts?.body;
+  if (!torso?.add) return false;
+  const apron = housekeeperPiece('housekeeper.apron.skirt', [0.34, 0.56, 0.035], [0, 1.02, 0.17]);
+  const bib = housekeeperPiece('housekeeper.apron.bib', [0.27, 0.31, 0.035], [0, 1.39, 0.17]);
+  const strapLeft = housekeeperPiece('housekeeper.apron.strap.left', [0.05, 0.38, 0.025], [-0.105, 1.53, 0.145]);
+  const strapRight = housekeeperPiece('housekeeper.apron.strap.right', [0.05, 0.38, 0.025], [0.105, 1.53, 0.145]);
+  strapLeft.rotation.z = -0.1;
+  strapRight.rotation.z = 0.1;
+  const pocket = housekeeperPiece('housekeeper.apron.pocket', [0.17, 0.14, 0.018], [0, 1.03, 0.195], HOUSEKEEPER_TRIM);
+  const cloth = housekeeperPiece('housekeeper.cleaning-cloth', [0.13, 0.3, 0.025], [0.205, 0.92, 0.17], HOUSEKEEPER_TRIM);
+  cloth.rotation.z = -0.16;
+  torso.add(apron, bib, strapLeft, strapRight, pocket, cloth);
+  entry.occupation = 'housekeeper';
+  entry.root.userData.palaceOccupation = 'housekeeper';
+  entry.root.userData.palaceNoncombatant = true;
+  return true;
+}
+
 function makeCombatant({
   id, role, x, z, yaw = 0, model, weapon, health, armor = 0, patrol = null, seated = false,
   voice = null,
@@ -429,6 +490,9 @@ export function buildPalaceCast(parent) {
    * `civilians` so the finale director's roster stays the three people at
    * Mark's table. */
   const bystanders = PALACE_BYSTANDER_POSTS.map((post) => makeCivilian(post));
+  for (const entry of bystanders) {
+    if (entry.id === 'cleaner') dressAsHousekeeper(entry);
+  }
 
   /* Mark's reprisal, standing behind two walls with the lights off. */
   const wave = PALACE_WAVE_POSTS.map((post, index) => {
@@ -445,11 +509,117 @@ export function buildPalaceCast(parent) {
      * visibility, so a man who has not arrived cannot be shot through the
      * wall he is waiting behind. */
     entry.root.visible = false;
+    entry.presentation = 'waiting';
+    entry.stagingTarget = entry.root.position.clone();
+    entry.entryFrom = new THREE.Vector3(post.enterFrom[0], 0, post.enterFrom[1]);
     return entry;
   });
 
   const all = [...guards, mark, sauce, ...wave];
-  for (const entry of [...all, ...civilians]) parent.add(entry.root);
+  for (const entry of [...all, ...civilians, ...bystanders]) parent.add(entry.root);
+
+  /* One cast-owned motion lane for every scripted entrance and exit. The
+   * director decides WHEN; this module decides WHERE the body is on every
+   * frame. Combatants stay visible and shootable while crossing, but inactive
+   * so shared combat AI cannot fire from outside the room. */
+  const presentationMotions = new Map();
+
+  function faceFromTo(entry, from, to) {
+    const dx = to.x - from.x;
+    const dz = to.z - from.z;
+    if (Math.hypot(dx, dz) > 1e-6) entry.root.rotation.y = Math.atan2(dx, dz);
+  }
+
+  function facePoint(entry, point) {
+    faceFromTo(entry, entry.root.position, point);
+  }
+
+  function finishPresentation(motion) {
+    const { entry } = motion;
+    entry.root.position.copy(motion.to);
+    if (motion.face) facePoint(entry, motion.face);
+    presentationMotions.delete(entry.id);
+    if (motion.hideAtEnd) {
+      entry.root.visible = false;
+      entry.active = false;
+      entry.presentation = 'away';
+      return;
+    }
+    entry.root.visible = true;
+    entry.active = !entry.down && motion.activateAtEnd;
+    if (entry.active) entry.awareness = 1;
+    entry.presentation = entry.active ? 'combat' : 'staged';
+    entry.figure.aiming?.();
+  }
+
+  function beginPresentation(entry, {
+    from = entry.root.position,
+    to,
+    face = null,
+    kind = 'entering',
+    hideAtEnd = false,
+    activateAtEnd = false,
+    instant = false,
+  }) {
+    const start = from.clone();
+    const destination = to.clone();
+    entry.root.position.copy(start);
+    entry.root.visible = true;
+    entry.active = false;
+    entry.presentation = kind;
+    faceFromTo(entry, start, destination);
+    entry.figure.setState?.('bolting', { blend: !instant });
+    const distance = start.distanceTo(destination);
+    const motion = {
+      entry,
+      from: start,
+      to: destination,
+      face: face?.clone?.() ?? null,
+      elapsed: 0,
+      duration: Math.max(0.35, distance / PRESENTATION_SPEED),
+      hideAtEnd,
+      activateAtEnd,
+    };
+    presentationMotions.set(entry.id, motion);
+    if (instant || distance <= 1e-6) finishPresentation(motion);
+    return true;
+  }
+
+  function updatePresentation(dt, onStep = null) {
+    const step = Math.max(0, Math.min(0.1, Number(dt) || 0));
+    for (const motion of [...presentationMotions.values()]) {
+      if (motion.entry.down) {
+        presentationMotions.delete(motion.entry.id);
+        continue;
+      }
+      const before = motion.entry.root.position.clone();
+      motion.elapsed = Math.min(motion.duration, motion.elapsed + step);
+      const t = motion.duration > 0 ? motion.elapsed / motion.duration : 1;
+      const eased = t * t * (3 - 2 * t);
+      motion.entry.root.position.lerpVectors(motion.from, motion.to, eased);
+      const distance = before.distanceTo(motion.entry.root.position);
+      /* Presentation motion used to be visually correct but acoustically
+       * inert. Publish the same mechanical facts PalaceSecurity publishes for
+       * ordinary AI travel, so the scene can route both through the shared
+       * CombatStepCadence instead of inventing cutscene-only footsteps. */
+      if (typeof onStep === 'function') onStep({
+        id: motion.entry.id,
+        entry: motion.entry,
+        dt: step,
+        position: motion.entry.root.position,
+        distance,
+        moving: distance > 1e-6,
+      });
+      if (t >= 1) finishPresentation(motion);
+    }
+    return presentationMotions.size;
+  }
+
+  function clearPresentation() {
+    const cleared = presentationMotions.size;
+    presentationMotions.clear();
+    return cleared;
+  }
 
   /**
    * Sauce alone.
@@ -464,41 +634,57 @@ export function buildPalaceCast(parent) {
     return true;
   }
 
-  /** Mark leaves the table. Inactive and gone, not merely un-targeted. */
-  function markScramblesAway() {
+  /** Mark crosses the open dining doors before leaving the rendered room. */
+  function markScramblesAway({ instant = false, to = null } = {}) {
     if (mark.down) return false;
-    mark.active = false;
-    mark.root.visible = false;
     mark.phase = 'away';
-    return true;
+    const destination = to?.isVector3
+      ? to : new THREE.Vector3(PALACE_FINALE_PATHS.markExit[0], 0, PALACE_FINALE_PATHS.markExit[1]);
+    return beginPresentation(mark, {
+      to: destination,
+      kind: 'retreating',
+      hideAtEnd: true,
+      instant,
+    });
   }
 
-  /** And comes back, for a stage of the fight. */
-  function activateMark({ armored = true, at = null } = {}) {
+  /** And comes back through an authored opening, for a stage of the fight. */
+  function activateMark({ armored = true, at = null, from = null, instant = false } = {}) {
     if (mark.down) return false;
-    if (at) {
-      mark.root.position.set(at.x, mark.root.position.y, at.z);
-      /* Pointed at the room rather than at whatever heading he happened to
-       * leave on. `HeistFigure` has no facing helper -- the security layer
-       * turns these people by writing the root's yaw, and so does this. */
-      const dx = (at.faceX ?? at.x) - at.x;
-      const dz = (at.faceZ ?? at.z + 1) - at.z;
-      if (Math.hypot(dx, dz) > 1e-6) mark.root.rotation.y = Math.atan2(dx, dz);
-    }
-    mark.root.visible = true;
-    mark.active = true;
     mark.phase = armored ? 'armored' : 'exposed';
-    return true;
+    const authoredAt = armored ? PALACE_FINALE_PATHS.armoredAt : PALACE_FINALE_PATHS.finalAt;
+    const authoredFrom = armored ? PALACE_FINALE_PATHS.armoredFrom : PALACE_FINALE_PATHS.finalFrom;
+    const authoredFace = armored ? PALACE_FINALE_PATHS.armoredFace : PALACE_FINALE_PATHS.finalFace;
+    const destination = at
+      ? new THREE.Vector3(at.x, mark.root.position.y, at.z)
+      : new THREE.Vector3(authoredAt[0], 0, authoredAt[1]);
+    const origin = from?.isVector3
+      ? from : new THREE.Vector3(authoredFrom[0], 0, authoredFrom[1]);
+    const facing = at
+      ? new THREE.Vector3(at.faceX ?? at.x, 0, at.faceZ ?? at.z + 1)
+      : new THREE.Vector3(authoredFace[0], 0, authoredFace[1]);
+    return beginPresentation(mark, {
+      from: origin,
+      to: destination,
+      face: facing,
+      kind: 'entering',
+      activateAtEnd: true,
+      instant,
+    });
   }
 
-  /** The wave arrives: visible, active, and looking for the player. */
-  function releaseWave() {
+  /** The wave becomes visible at both thresholds and crosses before firing. */
+  function releaseWave({ instant = false } = {}) {
     let released = 0;
     for (const entry of wave) {
-      if (entry.down) continue;
-      entry.root.visible = true;
-      entry.active = true;
-      entry.awareness = 1;
+      if (entry.down || entry.active || presentationMotions.has(entry.id)) continue;
+      beginPresentation(entry, {
+        from: entry.entryFrom,
+        to: entry.stagingTarget,
+        kind: 'entering',
+        activateAtEnd: true,
+        instant,
+      });
       released += 1;
     }
     return released;
@@ -529,6 +715,7 @@ export function buildPalaceCast(parent) {
 
   function markDown(entry, { reaction = null } = {}) {
     if (!entry || entry.down) return false;
+    presentationMotions.delete(entry.id);
     entry.down = true;
     entry.active = false;
     const roll = Number.isFinite(reaction?.roll)
@@ -570,6 +757,8 @@ export function buildPalaceCast(parent) {
     markScramblesAway,
     activateMark,
     releaseWave,
+    updatePresentation,
+    clearPresentation,
     waveStanding,
     standUp,
     markDown,

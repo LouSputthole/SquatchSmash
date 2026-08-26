@@ -131,11 +131,9 @@ test('every geometry state declares whether visible cast is required or intentio
       'apartment:day-one-wake',
       'apartment:day-three-wake',
       'apartment:day-two-wake',
-      /* The two hubs that are meant to be empty: the cabin is where he goes to
-       * be alone, and the luxury flat has no campaign edge into it yet. Both
-       * regain a cast expectation the moment anybody is written into them. */
-      'cabin:property',
-      'luxury-apartment:property',
+      /* The cabin left this list as soon as Lag became a visible resident at
+       * the woodpile. The luxury flat left when its poker-table patrons were
+       * promoted into the required staged cast. */
       'mansion-siege:alert',
       'mansion-siege:clean',
       'mansion-siege:repaired',

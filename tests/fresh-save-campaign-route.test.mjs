@@ -430,13 +430,11 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   }), true);
   assert.equal(cartelPalace.complete({ outcome: 'clean' }), true);
 
-  /* And the Palace no longer runs straight into the ceremony. He goes home to
-   * a flat where nobody has told him whether killing Sauce was the right call,
-   * Booskibro rings to say there is a meeting and it is going to be a special
-   * one, and three men come and collect him — see `src/specialmeeting/`, which
-   * hands off at the treeline on its own. The old edge from the Palace to the
-   * Initiation is gone from the scene graph, so this is the only way through
-   * and a regression that routed round the scene would fail here. */
+  /* Palace returns home for Act One: the call, getting ready, refused door and
+   * headlights. Only the Apartment front door reaches the kerb, and the
+   * Special Meeting then hands off at the treeline. */
+  route(campaign, SCENE_IDS.APARTMENT, 'front_door', 'index.html');
+  assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'available');
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
   route(campaign, SCENE_IDS.SPECIAL_MEETING, 'kerb', 'specialmeeting.html');
   campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);

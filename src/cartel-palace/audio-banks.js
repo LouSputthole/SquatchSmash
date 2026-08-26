@@ -12,6 +12,12 @@
  */
 import { GROUND_COMBAT_AUDIO_CUES } from '../core/combat/index.js';
 
+/** One canonical token for the physical warning that Mark's reinforcements
+ * have reached the room. Keeping the request beside its residency contract
+ * means the late beat cannot quietly play a synth fallback because main.js
+ * and the bank drifted onto different strings. */
+export const PALACE_WAVE_INCOMING_CUE = 'siege.wave.incoming';
+
 export const PALACE_START_BANK = Object.freeze({
   /* `weapon.` also covers the mission's suppressed report and its mechanical
    * layer (`weapon.suppressed.*`, see ./suppressor.js), which the FIRST
@@ -52,7 +58,13 @@ export const PALACE_NEXT_BEAT_BANK = Object.freeze({
    * nothing — the index filter skips absent files — and recorded takes
    * start playing the day they land, with no code change. */
   prefixes: Object.freeze(['vo.palace.']),
-  names: Object.freeze([]),
+  names: Object.freeze([
+    /* Shared with the mansion Siege: vehicle doors and a rush of boots, no
+     * intelligible speech. It is the physical transition into the A-Team
+     * wave, and the dining-door gate guarantees it is decoded before Mark
+     * can call them. */
+    PALACE_WAVE_INCOMING_CUE,
+  ]),
 });
 
 export const PALACE_BACKGROUND_BANK = Object.freeze({

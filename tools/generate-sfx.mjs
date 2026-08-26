@@ -24,8 +24,8 @@
  * Cues carrying `needsRerecord` (see assets/sfx/rerecord.json) are regenerated
  * without --force: their words changed after they were recorded, so the take
  * on disk is stale rather than done.
- *   --only <name,...>  generate just these cues
- *   --cast <voice,...> just the spoken lines of these voice profiles
+ *   --only <name,...>  generate just these cues; the flag may be repeated
+ *   --cast <voice,...> just these voice profiles; the flag may be repeated
  *   --voice-only       just the spoken lines
  *   --live-only        exclude authored dialogue that is not reachable yet
  *   --include-future   explicitly allow unreachable future dialogue
@@ -54,9 +54,18 @@ const VOICES = 'https://api.elevenlabs.io/v1/voices';
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
-const valueOf = (f) => {
-  const i = args.indexOf(f);
-  return i >= 0 ? args[i + 1] : null;
+const valuesOf = (f) => {
+  const values = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] !== f) continue;
+    const value = args[i + 1];
+    if (!value || value.startsWith('--')) {
+      console.error(`${f} requires a comma-separated value after every occurrence.`);
+      process.exit(1);
+    }
+    values.push(...value.split(',').map((item) => item.trim()).filter(Boolean));
+  }
+  return values.length ? [...new Set(values)] : null;
 };
 
 /* A flag this build does not know is a stop, not a shrug.
@@ -87,8 +96,11 @@ const VOICE_ONLY = has('--voice-only');
 const SFX_ONLY = has('--sfx-only');
 const LIVE_ONLY = has('--live-only');
 const INCLUDE_FUTURE = has('--include-future');
-const ONLY = valueOf('--only')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
-const CAST = valueOf('--cast')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
+/* Both comma lists and repeated flags are accepted. Silently reading only the
+ * first --only is dangerous in production: a two-cue handoff can report a
+ * clean dry run while omitting the second missing recording. */
+const ONLY = valuesOf('--only');
+const CAST = valuesOf('--cast');
 
 const isSpoken = (cue) => typeof cue.say === 'string';
 
@@ -108,9 +120,24 @@ async function main() {
   const manifest = JSON.parse(await fs.readFile(MANIFEST, 'utf8'));
   const voices = manifest.voices || {};
 
+  const manifestCues = manifest.sfx || [];
+  if (ONLY) {
+    const manifestNames = new Set(manifestCues.map((cue) => cue.name));
+    const missingSelectors = ONLY.filter((name) => !manifestNames.has(name));
+    if (missingSelectors.length) {
+      console.error(
+        `Unknown --only cue selector(s): ${missingSelectors.join(', ')}\n\n`
+        + 'Every --only value must exactly match a cue name in assets/sfx/manifest.json.\n'
+        + 'Nothing was generated.',
+      );
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   if (LIST_VOICES) return listVoices();
 
-  let cues = manifest.sfx || [];
+  let cues = manifestCues;
   if (ONLY) cues = cues.filter((c) => ONLY.includes(c.name));
   if (CAST) cues = cues.filter((c) => isSpoken(c) && CAST.includes(voiceOf(c)));
   if (VOICE_ONLY) cues = cues.filter(isSpoken);
@@ -128,9 +155,10 @@ async function main() {
     const v = voices[voiceOf(cue)];
     if (!v?.id || /^<.*>$/.test(v.id)) unset.add(voiceOf(cue));
   }
-  if (unset.size && !DRY) {
+  if (unset.size) {
     console.error(
-      `\nNo voice id set for: ${[...unset].join(', ')}\n\n`
+      `\nCasting is required before these spoken cues can be generated.\n`
+      + `No ElevenLabs voice id set for: ${[...unset].join(', ')}\n\n`
       + 'Pick a voice, then put its id in the "voices" block of\n'
       + 'assets/sfx/manifest.json. To see what is on your account:\n'
       + '  npm run sfx -- --voices\n\n'

@@ -44,6 +44,12 @@
  * and never a lock. The only thing a sequence does to the mission is finish.
  */
 import { WEAPON_IDS } from '../../core/weapons/catalog.js';
+import {
+  SPEECH_GAIN,
+  SPEECH_MIX_CLOSE,
+  SPEECH_MIX_INDOORS,
+  speak,
+} from '../../core/dialogue.js';
 
 
 /**
@@ -255,8 +261,14 @@ export function siegeVoiceCueNames() {
  * failure rather than the silent one this file was written to remove.
  */
 export class SiegeDialogue {
-  constructor({ audio = null, onLine = null, onDone = null } = {}) {
+  constructor({
+    audio = null,
+    resolveSpeaker = null,
+    onLine = null,
+    onDone = null,
+  } = {}) {
     this.audio = audio;
+    this.resolveSpeaker = resolveSpeaker;
     this.onLine = onLine;
     this.onDone = onDone;
     this.sequence = null;
@@ -334,8 +346,29 @@ export class SiegeDialogue {
       ? recorded + 0.45
       : line.seconds;
     if (this._playbackSuppressionDepth === 0) {
-      try { this.audio?.play?.(line.name, { volume: 1 }); } catch { /* no audio yet */ }
-      this.onLine?.(line);
+      /* Siege still owns sequence/checkpoint policy, but it does not own a
+       * second speech engine. Player lines and house-radio guidance are close
+       * mix; everybody visibly present in the room follows their world rig.
+       * `speak()` owns the voice bus, analyser, speech floor, positional mix,
+       * required-recording policy and receipt -- the same Interface used by
+       * combat barks and the rest of the game. */
+      const close = line.speaker === 'prospect'
+        || line.speaker === 'guard'
+        || this.sequence === 'guide_armory'
+        || this.sequence === 'guide_office';
+      const speaker = close ? null : this.resolveSpeaker?.(line.speaker) ?? null;
+      let spoken = null;
+      try {
+        spoken = speak(this.audio, line.name, {
+          speaker,
+          speakerId: line.speaker,
+          subtitle: line.say,
+          requiredRecorded: true,
+          mix: close ? SPEECH_MIX_CLOSE : SPEECH_MIX_INDOORS,
+          gain: SPEECH_GAIN.normal,
+        });
+      } catch { /* no audio yet; subtitles and mission handoff still run */ }
+      this.onLine?.(line, spoken);
     }
   }
 

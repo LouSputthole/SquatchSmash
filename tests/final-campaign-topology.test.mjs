@@ -33,9 +33,10 @@ class MemoryStorage {
   setItem(key, value) { this.values.set(key, String(value)); }
 }
 
-function follow(campaign, sceneId, href) {
+function follow(campaign, sceneId, href, spawn) {
   const assigned = [];
   navigateCampaign(campaign, sceneId, {
+    spawn,
     location: { assign: (next) => assigned.push(next) },
   });
   assert.deepEqual(assigned, [href]);
@@ -66,9 +67,9 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
   follow(campaign, SCENE_IDS.ENOLA_SQUATCH, 'enolasquatch.html');
   follow(campaign, SCENE_IDS.MANSION_RETURN, 'mansion.html?visit=return');
   follow(campaign, SCENE_IDS.CARTEL_PALACE, 'cartel-palace.html');
-  /* And the Palace no longer runs straight into the ceremony. He goes home,
-   * Booskibro rings, and three men come and collect him — see
-   * `src/specialmeeting/`, which hands off at the treeline. */
+  /* Palace goes home for the Apartment-owned first act. Only that front door
+   * reaches the kerb; the Meeting then hands off at the treeline. */
+  follow(campaign, SCENE_IDS.APARTMENT, 'index.html', 'front_door');
   follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
   follow(campaign, SCENE_IDS.INITIATION, 'initiation.html');
 
@@ -611,11 +612,15 @@ test('Cartel Palace records the betrayal and only opens Initiation after the fin
   assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'available');
   assert.equal(state.story.chapter, 'big_night');
 
-  campaign.update((next) => {
+  // Home for Special Meeting Act One, then through the car scene.
+  follow(campaign, SCENE_IDS.APARTMENT, 'index.html', 'front_door');
+  assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'available');
+  follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
+  assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'available');
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (next) => {
     next.missions[MISSION_IDS.INITIATION].status = 'in_progress';
   });
-  // Through the Special Meeting, which is the only way out of the Palace now.
-  follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
   follow(campaign, SCENE_IDS.INITIATION, 'initiation.html');
   campaign = createCampaign({ storage });
   state = campaign.state;

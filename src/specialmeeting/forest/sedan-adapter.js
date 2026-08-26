@@ -42,6 +42,17 @@
  */
 
 import * as THREE from 'three';
+import {
+  aimHeadlightBeam,
+  createHeadlightBeam,
+  createHeadlightBeamGeometry,
+  setHeadlightBeamProfile,
+} from '../../core/vehicles/headlights.js';
+import {
+  FOREST_HEADLIGHT_BEAM_OPACITY,
+  FOREST_HEADLIGHT_DECAY,
+  FOREST_HEADLIGHT_PROFILES,
+} from './headlight-profile.js';
 
 /* Deliberately NOT importing `../sedan.js`. This subtree does not reach into
  * the block's files, and a headless test of the forest should not have to
@@ -55,15 +66,9 @@ const SEAT_NAMES = Object.freeze({
   rearRight: 'rear_right',
 });
 
-const DECAY = 1.8;
-const DIPPED = Object.freeze({
-  intensity: 300, distance: 70, angle: 0.32,
-  aim: { ahead: 55, drop: 1.9, out: 2.6 }, beam: 27,
-});
-const MAIN = Object.freeze({
-  intensity: 430, distance: 96, angle: 0.24,
-  aim: { ahead: 90, drop: 2.2, out: 1.4 }, beam: 40,
-});
+const DECAY = FOREST_HEADLIGHT_DECAY;
+const DIPPED = FOREST_HEADLIGHT_PROFILES.dipped;
+const MAIN = FOREST_HEADLIGHT_PROFILES.main;
 
 /* THE SEATED EYE MOVED TO `../sedan.js`, AND THIS IS THE NOTE THAT SENT IT.
  *
@@ -128,12 +133,12 @@ export function adaptMeetingSedan(sedan, { shadows = true, length = null, width 
   const beamMat = new THREE.MeshBasicMaterial({
     color: 0xffe9c0,
     transparent: true,
-    opacity: 0.045,
+    opacity: FOREST_HEADLIGHT_BEAM_OPACITY,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
   });
-  const beamGeo = new THREE.ConeGeometry(1, 1, 12, 1, true);
+  const beamGeo = createHeadlightBeamGeometry();
   materials.push(beamMat);
   geometries.push(beamGeo);
 
@@ -155,8 +160,13 @@ export function adaptMeetingSedan(sedan, { shadows = true, length = null, width 
     group.add(spot, spot.target);
     spots.push(spot);
 
-    const beam = new THREE.Mesh(beamGeo, beamMat);
-    beam.name = 'forest.headlamp.beam';
+    const beam = createHeadlightBeam({
+      geometry: beamGeo,
+      material: beamMat,
+      reach: DIPPED.beam,
+      farRadius: 4.6,
+      name: 'forest.headlamp.beam',
+    });
     beam.userData.side = side;
     beam.userData.z = z;
     beam.castShadow = false;
@@ -268,7 +278,6 @@ export function adaptMeetingSedan(sedan, { shadows = true, length = null, width 
   const state = { lit: false, main: false };
   function applyLamps() {
     const profile = state.main ? MAIN : DIPPED;
-    const droop = Math.atan2(profile.aim.drop, profile.aim.ahead);
     for (const spot of spots) {
       const side = spot.userData.side;
       spot.intensity = state.lit ? profile.intensity : 0;
@@ -283,15 +292,14 @@ export function adaptMeetingSedan(sedan, { shadows = true, length = null, width 
     }
     for (const beam of beams) {
       beam.visible = state.lit;
-      const reach = profile.beam;
       const spread = state.main ? 3.6 : 4.6;
-      beam.scale.set(spread, reach, spread);
-      beam.rotation.set(0, 0, Math.PI / 2 - droop);
-      beam.position.set(
-        carLength / 2 + Math.cos(droop) * reach * 0.5,
-        lampY - Math.sin(droop) * reach * 0.5,
-        beam.userData.z + beam.userData.side * 0.9,
-      );
+      setHeadlightBeamProfile(beam, { reach: profile.beam, farRadius: spread });
+      aimHeadlightBeam(beam, new THREE.Vector3(
+        profile.aim.ahead,
+        -profile.aim.drop,
+        beam.userData.side * profile.aim.out,
+      ));
+      beam.position.set(carLength / 2 - 0.1, lampY, beam.userData.z);
     }
   }
 
@@ -384,6 +392,10 @@ export function adaptMeetingSedan(sedan, { shadows = true, length = null, width 
      * @param {{speed:number, distance:number}} drive the rail's own state
      */
     updateCabin(dt, drive = {}) {
+      /* The rail owns motion here, so calling `sedan.update()` would step a
+       * second physics driver. The boot is independent presentation and must
+       * still receive time after SM-410 asks it to open (and SM-420 shuts it). */
+      sedan.updateTrunk?.(dt);
       const speed = Number.isFinite(drive.speed) ? drive.speed : 0;
       const travelled = Math.max(0, speed) * Math.max(0, dt);
 

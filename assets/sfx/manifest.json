@@ -9734,6 +9734,12 @@
       "direction": "Kindly, and it is true."
     },
     {
+      "name": "vo.initiation.cabin.in-150-kittenboss.1baf5ya.1",
+      "voice": "kittenboss",
+      "say": "No, no, wait...",
+      "direction": "Female voice. Small and immediate, as realization arrives. One line only; she is not given time for another."
+    },
+    {
       "name": "vo.initiation.cabin.in-170-lou.15qwm4k.1",
       "voice": "lou",
       "say": "Stop. This one is good.",
@@ -13197,6 +13203,26 @@
       "say": "Forty minutes, roughly. There's no signal past the reservoir. I checked."
     },
     {
+      "name": "vo.specialmeeting.tony.arrival.1",
+      "voice": "player",
+      "say": "Why'd all three of you come?"
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.arrival.carpool.1",
+      "voice": "numbskull",
+      "say": "Carpool."
+    },
+    {
+      "name": "vo.specialmeeting.tony.arrival.2",
+      "voice": "player",
+      "say": "To pick up one person?"
+    },
+    {
+      "name": "vo.specialmeeting.numbskull.arrival.2",
+      "voice": "numbskull",
+      "say": "Now it's full."
+    },
+    {
       "name": "vo.specialmeeting.numbskull.arrival.1",
       "voice": "numbskull",
       "say": "Front."
@@ -13343,6 +13369,27 @@
       "name": "vo.specialmeeting.tony.seat.2",
       "voice": "player",
       "say": "Right."
+    },
+    {
+      "_comment": "SM-197 — THE DIRT ROAD. Trees close over the visible road and the full beams pick out dirt. Nobody has said a word since the flat.",
+      "name": "vo.specialmeeting.tony.dirt_road_reveal.1",
+      "voice": "player",
+      "say": "You guys planning on killing me?"
+    },
+    {
+      "name": "vo.specialmeeting.seff.dirt_road_reveal.1",
+      "voice": "seff",
+      "say": "Planning's a strong word."
+    },
+    {
+      "name": "vo.specialmeeting.tony.dirt_road_reveal.2",
+      "voice": "player",
+      "say": "What's the weaker word?"
+    },
+    {
+      "name": "vo.specialmeeting.seff.dirt_road_reveal.2",
+      "voice": "seff",
+      "say": "Driving."
     },
     {
       "_comment": "SM-210 — The sandwich. From directly behind Tony’s head, the sound of a paper bag.",
@@ -14145,6 +14192,421 @@
       "duration": 1.3,
       "promptInfluence": 0.6,
       "prompt": "a billiard ball dropping into a pocket, a ball leaving the cloth and falling into a net and wooden channel, one soft leathery thud then a short low wooden roll away underneath the table, close interior, no voice, no music"
+    },
+    {
+      "name": "door.knock.motel",
+      "duration": 1.2,
+      "prompt": "three heavy slow knuckle knocks on a hollow-core motel door, close mic, dry interior corridor, no voice"
+    },
+    {
+      "name": "door.open.motel",
+      "duration": 1,
+      "prompt": "cheap interior door opening on a dry unoiled hinge, thin security chain rattling against the frame, close, no voice"
+    },
+    {
+      "name": "door.slam",
+      "duration": 0.8,
+      "prompt": "lightweight interior door slammed hard, sharp wooden crack and the frame rattling afterwards, small room, no voice"
+    },
+    {
+      "name": "door.splinter",
+      "duration": 1.4,
+      "prompt": "a door torn out of its frame, wood splintering and screws tearing free, heavy weight following it to the floor, no voice"
+    },
+    {
+      "name": "window.slide",
+      "duration": 1,
+      "prompt": "a small aluminium bathroom window sliding open a few inches on gritty runners and stopping hard, close mic, no voice"
+    },
+    {
+      "name": "punch.light",
+      "duration": 0.5,
+      "prompt": "a bare fist landing flat on a human torso, close and dull with a soft cloth impact, no music, no voice"
+    },
+    {
+      "name": "punch.heavy",
+      "duration": 0.7,
+      "prompt": "an enormous full-weight punch connecting with a body, deep low thud with a dry wooden crack inside it, no music, no voice"
+    },
+    {
+      "name": "swing.whiff",
+      "duration": 0.5,
+      "prompt": "a heavy arm swinging fast through still humid air and hitting nothing, low airy whoosh, close, no voice"
+    },
+    {
+      "name": "body.fall.carpet",
+      "duration": 0.9,
+      "prompt": "a large adult body dropping limp onto thin motel carpet over concrete, dull heavy thud with a small fabric rustle, no voice"
+    },
+    {
+      "name": "slicer.spin",
+      "duration": 1.6,
+      "prompt": "a commercial deli meat slicer motor spinning up, blade whine rising then holding steady, tiled room, no voice"
+    },
+    {
+      "name": "stunprod.arc",
+      "duration": 0.6,
+      "prompt": "a stun prod arcing, dry high-voltage electrical snapping and crackling in short bursts, close, no voice"
+    },
+    {
+      "name": "grapple.struggle",
+      "duration": 2.5,
+      "prompt": "two heavy bodies wrestling and shoving against each other, clothing scuffing, strained breathing, feet dragging on carpet"
+    },
+    {
+      "name": "spice.throw",
+      "duration": 0.8,
+      "prompt": "a glass jar of dry ground spice thrown open, powder bursting into the air in a dry hiss, glass jar clattering away, no voice"
+    },
+    {
+      "name": "glass.settle",
+      "duration": 1.2,
+      "prompt": "the last broken window shards sliding loose and tinkling down onto concrete, sparse and delicate, no voice"
+    },
+    {
+      "name": "wood.break",
+      "duration": 0.9,
+      "prompt": "a cheap pine table leg snapping under weight, single dry splintering crack with a short debris rattle, no voice"
+    },
+    {
+      "name": "tv.implode",
+      "duration": 1.5,
+      "prompt": "an old CRT television destroyed, thick glass tube imploding into a muffled inward whump, sparks and plastic casing cracking, no voice"
+    },
+    {
+      "name": "fan.sparks",
+      "duration": 2,
+      "prompt": "an overspeeding ceiling fan motor whining and spitting electrical sparks, intermittent bright snaps over a straining hum, no voice"
+    },
+    {
+      "name": "neon.short",
+      "duration": 2.2,
+      "prompt": "a neon motel sign shorting out, sharp electrical bang then the transformer hum falling away to silence, exterior night, no voice"
+    },
+    {
+      "name": "vacuum.pack.handle",
+      "duration": 0.9,
+      "prompt": "a stiff vacuum-sealed foil food pouch being turned over and gripped in large hands, crisp plastic crackling, close mic, no voice"
+    },
+    {
+      "name": "jerky.chew",
+      "duration": 1.4,
+      "prompt": "someone chewing a tough piece of dried meat, wet muffled mastication, close and unglamorous, no voice"
+    },
+    {
+      "name": "jerky.bite",
+      "duration": 1.2,
+      "prompt": "one deliberate bite tearing through a strip of dried jerky, dry fibrous rip then slow chewing, close mic, no voice"
+    },
+    {
+      "name": "shipment.burn",
+      "duration": 3,
+      "prompt": "vacuum-sealed plastic packaging catching fire and shrivelling, then fat rendering and meat spitting into an open flame, no voice"
+    },
+    {
+      "name": "tv.static",
+      "duration": 1.4,
+      "prompt": "an old television tuned to dead air, harsh white noise static swelling as the volume is turned up, small room, no voice"
+    },
+    {
+      "name": "knife.tap",
+      "duration": 1.2,
+      "prompt": "the flat of a kitchen knife tapping slowly and evenly on a cheap laminate table, unhurried, close mic, no voice"
+    },
+    {
+      "name": "alarm.counter",
+      "duration": 2.6,
+      "prompt": "a cheap battery-powered under-counter panic alarm, insistent shrill repeating electronic buzz, small office, no voice"
+    },
+    {
+      "name": "siren.distant",
+      "duration": 4,
+      "prompt": "a single police siren several streets away at night, thin and reverberant between buildings, no traffic, no voice"
+    },
+    {
+      "name": "siren.close",
+      "duration": 4,
+      "prompt": "a police siren arriving fast and close, loud wailing with engine noise underneath, exterior parking lot, no voice"
+    },
+    {
+      "name": "footstep.asphalt",
+      "duration": 0.5,
+      "prompt": "one heavy barefoot step on warm asphalt parking lot, soft tacky slap with loose grit, exterior, no voice"
+    },
+    {
+      "name": "land.heavy",
+      "duration": 0.8,
+      "prompt": "an enormous heavy body landing from a two storey drop onto concrete, deep impact thud with a low rumble tail, no voice"
+    },
+    {
+      "name": "tunnel.crawl",
+      "duration": 3,
+      "prompt": "a large body crawling through a wet concrete drainage tunnel, hands and knees in shallow water, close confined echo, no voice"
+    },
+    {
+      "name": "ui.objective",
+      "duration": 0.6,
+      "prompt": "a short soft two-note electronic confirmation tone, clean and quiet, notification style, no music bed"
+    },
+    {
+      "name": "ui.achievement",
+      "duration": 1.2,
+      "prompt": "a brief warm brass fanfare flourish, three notes, pleased with itself, dry and small, no reverb tail"
+    },
+    {
+      "name": "sting.scene.end",
+      "duration": 2.4,
+      "prompt": "a short minor-key orchestral sting, humid and unresolved, low strings with a muted brass swell that stops without landing"
+    },
+    {
+      "name": "smash.structure",
+      "duration": 0.8,
+      "prompt": "an enormous double-fisted slam into a wooden building, timber and panelling caving in, debris scattering, outdoor, no voice"
+    },
+    {
+      "name": "structure.crack",
+      "duration": 0.5,
+      "prompt": "wooden wall panelling cracking and buckling under a heavy blow without collapsing, single dry split, outdoor, no voice"
+    },
+    {
+      "name": "swing.whiff.outdoor",
+      "duration": 0.5,
+      "prompt": "huge arms swinging through open outdoor air and hitting nothing, broad low whoosh, forest clearing, no voice"
+    },
+    {
+      "name": "fist.on.rock",
+      "duration": 0.5,
+      "prompt": "a heavy fist striking solid granite boulder, dull stone impact with a sharp rock chip crack, outdoor, no voice"
+    },
+    {
+      "name": "ground.stomp",
+      "duration": 1,
+      "prompt": "both enormous feet slamming down on packed forest dirt together, deep shockwave thud with soil and gravel scattering, no voice"
+    },
+    {
+      "name": "camper.squish",
+      "duration": 0.6,
+      "prompt": "a wet heavy crushing impact, short and blunt, damp organic squelch, outdoor, no voice, no scream"
+    },
+    {
+      "name": "vehicle.explosion",
+      "duration": 2,
+      "prompt": "a car fuel tank exploding, sharp ignition crack into a deep booming fireball with metal debris raining down, outdoor, no voice"
+    },
+    {
+      "name": "footstep.forest",
+      "duration": 0.5,
+      "prompt": "one heavy footfall on dry pine needles and forest dirt, soft crunch with twigs snapping underneath, outdoor, no voice"
+    },
+    {
+      "name": "camper.scream",
+      "duration": 1.2,
+      "prompt": "a panicked adult screaming and running away at speed, voice dopplering off into the distance, forest, terrified"
+    },
+    {
+      "name": "sasquatch.roar",
+      "duration": 1.6,
+      "prompt": "an enormous ape creature roaring, deep chest resonance with a gravelly torn edge and a mournful falling tail, outdoor forest"
+    },
+    {
+      "name": "bee.swarm",
+      "duration": 2,
+      "prompt": "an angry swarm of hundreds of bees, dense chaotic buzzing rising and moving past the listener, outdoor, no voice"
+    },
+    {
+      "name": "tranq.fire",
+      "duration": 0.5,
+      "prompt": "a compressed air tranquiliser rifle firing, sharp pneumatic thump and hiss, no gunpowder bang, outdoor, no voice"
+    },
+    {
+      "name": "tranq.hit",
+      "duration": 0.5,
+      "prompt": "a tranquiliser dart thudding into thick fur and muscle, soft dull puncture with a small feathered flick, no voice"
+    },
+    {
+      "name": "ui.time.bonus",
+      "duration": 0.8,
+      "prompt": "a bright ascending three-note chime, clean and golden, arcade reward tone, dry, no music bed"
+    },
+    {
+      "name": "ui.powerup",
+      "duration": 0.6,
+      "prompt": "a short rising electronic power-up sweep, bright and synthetic, arcade pickup, dry, no music bed"
+    },
+    {
+      "name": "ui.goal.complete",
+      "duration": 0.8,
+      "prompt": "a single bright confirmation ding with a short bell tail, cutting and readable over noise, arcade style, no music bed"
+    },
+    {
+      "name": "ui.final.frenzy",
+      "duration": 1.2,
+      "prompt": "an urgent repeating arcade alarm jingle, bright synth stabs over a klaxon pulse, escalating, exciting, no voice"
+    },
+    {
+      "name": "sting.run.end",
+      "duration": 2,
+      "prompt": "a short descending orchestral end-of-round sting, brass and low strings resolving downward, dry and brief"
+    },
+    {
+      "name": "boss.hit",
+      "duration": 0.7,
+      "prompt": "a heavy armoured body absorbing a huge blow, dense padded impact with body armour plates knocking together, no voice"
+    },
+    {
+      "name": "boss.down",
+      "duration": 1.4,
+      "prompt": "an armoured body collapsing to the ground, plates and webbing clattering, followed by a short bright victory accent"
+    },
+    {
+      "name": "vo.cabin.lag.general.arrival",
+      "voice": "lag",
+      "say": "Well, look who finally made it out here."
+    },
+    {
+      "name": "vo.cabin.lag.general.quiet",
+      "voice": "lag",
+      "say": "Hell of a lot quieter than the city, ain't it?"
+    },
+    {
+      "name": "vo.cabin.lag.general.poke",
+      "voice": "lag",
+      "say": "Don't just stand there. Go poke around."
+    },
+    {
+      "name": "vo.cabin.lag.general.more",
+      "voice": "lag",
+      "say": "Place has got more to it than it looks."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.computer",
+      "voice": "lag",
+      "say": "Computer's inside if you're looking for something less outdoorsy."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.computer.old",
+      "voice": "lag",
+      "say": "There's some old stuff in that cabin nobody's bothered throwing away."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.board",
+      "voice": "lag",
+      "say": "Drawing board's worth looking at."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.board.odd",
+      "voice": "lag",
+      "say": "If something looks outta place in there, it probably is."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.bedroom",
+      "voice": "lag",
+      "say": "Check around the bedroom."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.wardrobe",
+      "voice": "lag",
+      "say": "Dry clothes are in the wardrobe. Push past the hangers and look proper."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.entertainment",
+      "voice": "lag",
+      "say": "Radio and television both work. Reception's got opinions about the trees."
+    },
+    {
+      "name": "vo.cabin.lag.property.trail",
+      "voice": "lag",
+      "say": "You see a trail, follow it."
+    },
+    {
+      "name": "vo.cabin.lag.property.bridge",
+      "voice": "lag",
+      "say": "Bridge is worth walking across."
+    },
+    {
+      "name": "vo.cabin.lag.property.creek",
+      "voice": "lag",
+      "say": "Take a look down by the water."
+    },
+    {
+      "name": "vo.cabin.lag.property.shed",
+      "voice": "lag",
+      "say": "There's some spots back in those woods most people walk right past."
+    },
+    {
+      "name": "vo.cabin.lag.property.overlook",
+      "voice": "lag",
+      "say": "Trail keeps going farther than you think."
+    },
+    {
+      "name": "vo.cabin.lag.property.firepit",
+      "voice": "lag",
+      "say": "Whole reason for having a place like this is nobody knows what's out back."
+    },
+    {
+      "name": "vo.cabin.lag.flavor.service",
+      "voice": "lag",
+      "say": "Cell service gets weird past the bridge. That's a feature."
+    },
+    {
+      "name": "vo.cabin.lag.flavor.eyes",
+      "voice": "lag",
+      "say": "If you see two eyes looking back at you, mind your business."
+    },
+    {
+      "name": "vo.cabin.lag.flavor.breaks",
+      "voice": "lag",
+      "say": "Around here, if something breaks, you either fix it or learn to live without it."
+    },
+    {
+      "name": "vo.cabin.lag.flavor.dark",
+      "voice": "lag",
+      "say": "Gets dark as hell out here."
+    },
+    {
+      "name": "vo.cabin.lag.after.good",
+      "voice": "lag",
+      "say": "Find anything good?"
+    },
+    {
+      "name": "vo.cabin.lag.after.more",
+      "voice": "lag",
+      "say": "You ain't seen all of it."
+    },
+    {
+      "name": "vo.cabin.lag.after.missed",
+      "voice": "lag",
+      "say": "There's still a couple places you missed."
+    },
+    {
+      "name": "vo.cabin.lag.after.no-spoil",
+      "voice": "lag",
+      "say": "I'm not telling you exactly where it is. That ruins it."
+    },
+    {
+      "name": "vo.cabin.lag.wood.1",
+      "voice": "lag",
+      "say": "There you go. Congratulations, you're almost useful."
+    },
+    {
+      "name": "vo.cabin.lag.wood.2",
+      "voice": "lag",
+      "say": "That one was ugly."
+    },
+    {
+      "name": "vo.cabin.lag.wood.3",
+      "voice": "lag",
+      "say": "Wood still split. Guess it counts."
+    },
+    {
+      "name": "vo.cabin.lag.wood.4",
+      "voice": "lag",
+      "say": "That'll burn."
+    },
+    {
+      "name": "vo.cabin.lag.wood.5",
+      "voice": "lag",
+      "say": "Keep that up, I might let you build the fire."
     },
     {
       "name": "vo.bing2.shubenator.intro",
@@ -19030,6 +19492,11 @@
       "say": "Now we have more seating."
     },
     {
+      "name": "vo.silvercase.couch.chester.whatthehell",
+      "voice": "chester",
+      "say": "What the hell, man?!"
+    },
+    {
       "name": "vo.silvercase.shots.ape.missed",
       "voice": "ape",
       "say": "That was a wall. The wall isn’t the problem here."
@@ -22633,608 +23100,6 @@
       "say": "Eat. Dress plain. I will call when the car is moving."
     },
     {
-      "name": "vo.siege.wake.prospect.awake",
-      "voice": "player",
-      "say": "Okay. Okay — that is not the television."
-    },
-    {
-      "name": "vo.siege.wake.guard.inside",
-      "voice": "mansion-guard",
-      "say": "They are inside! They are in the house — get to the armory!"
-    },
-    {
-      "name": "vo.siege.guide.booski.armory",
-      "voice": "booski",
-      "say": "Kid — armory. East end of the cellar hall, then south through the door. Move."
-    },
-    {
-      "name": "vo.siege.guide.booski.office",
-      "voice": "booski",
-      "say": "Now get up here. Basement stair, straight over the foyer, up the horseshoe — Lou is on the top floor."
-    },
-    {
-      "name": "vo.siege.briefing.prospect.report",
-      "voice": "player",
-      "say": "Lou. There were two of them in the cellar."
-    },
-    {
-      "name": "vo.siege.briefing.lou.forty",
-      "voice": "lou1",
-      "say": "Two in the cellar. There are forty on my lawn."
-    },
-    {
-      "name": "vo.siege.briefing.booski.drive",
-      "voice": "booski",
-      "say": "More coming up the drive — both sides of the fountain, they are not even hurrying."
-    },
-    {
-      "name": "vo.siege.briefing.lou.upstairs",
-      "voice": "lou1",
-      "say": "Everybody upstairs. Nobody holds a ground-floor room tonight, I do not care whose room it is."
-    },
-    {
-      "name": "vo.siege.briefing.lou.stairs",
-      "voice": "lou1",
-      "say": "You. Take the rail over the foyer. Anything that comes through my front door, you put it down on my floor."
-    },
-    {
-      "name": "vo.siege.briefing.prospect.stairs",
-      "voice": "player",
-      "say": "The stairs. Got it."
-    },
-    {
-      "name": "vo.siege.briefing.lou.heavy",
-      "voice": "lou1",
-      "say": "And get the big one up. You did not carry it out of my armory to look at it."
-    },
-    {
-      "name": "vo.siege.prospect.little_friend",
-      "voice": "player",
-      "say": "Say hello to my little friend."
-    },
-    {
-      "name": "vo.siege.lull.booski.reload",
-      "voice": "booski",
-      "say": "That is the first lot! Reload — they are forming up again on the drive!"
-    },
-    {
-      "name": "vo.siege.lull.lou.notover",
-      "voice": "lou1",
-      "say": "It is not over. Watch that door."
-    },
-    {
-      "name": "vo.siege.flank.deathmegatron.glass",
-      "voice": "deathmegatron",
-      "say": "Glass! West wing and east — they are coming in behind us!"
-    },
-    {
-      "name": "vo.siege.aftermath.lou.last",
-      "voice": "lou1",
-      "say": "That is the last of them. Somebody kill that alarm."
-    },
-    {
-      "name": "vo.siege.aftermath.lou.house",
-      "voice": "lou1",
-      "say": "They came to my house. With cars, and a plan, and enough men to spare four of them for a window."
-    },
-    {
-      "name": "vo.siege.aftermath.lou.budget",
-      "voice": "lou1",
-      "say": "This is not a neighbourhood thing any more, kid. This is somebody with a budget."
-    },
-    {
-      "name": "vo.siege.aftermath.lou.sasole",
-      "voice": "lou1",
-      "say": "There is a man on my landing in a flight jacket. Captain Lou Sasole. Go and talk to him — he is how we answer this."
-    },
-    {
-      "name": "vo.siege.aftermath.prospect.sasole",
-      "voice": "player",
-      "say": "Sasole. Right."
-    },
-    {
-      "name": "vo.siege.sasole.sasole.stairs",
-      "voice": "lou2",
-      "say": "You are the one who held the stairs. Good. Then you can hold a bomb bay."
-    },
-    {
-      "name": "vo.siege.sasole.sasole.tonight",
-      "voice": "lou2",
-      "say": "Get some sleep. We fly tonight, and you are coming with me."
-    },
-    {
-      "name": "vo.palace.finale.mark.arrival.quiet-1.1",
-      "voice": "mark",
-      "say": "Tony. Sit down. We are having the veal — Sauce’s recipe. He was going to tell you. Eventually.",
-      "direction": "Unhurried cartel-boss calm. A man offering dinner to the intruder in his house, certain the house wins."
-    },
-    {
-      "name": "vo.palace.finale.mark.arrival.loud-1.1",
-      "voice": "mark",
-      "say": "You shot your way through my payroll to ruin a Tuesday dinner. Sit down anyway. The veal is getting cold.",
-      "direction": "Dry, annoyed, unafraid — the gunfire outside was an inconvenience to his evening, not a threat to his life."
-    },
-    {
-      "name": "vo.palace.finale.tony.accuse-1.1",
-      "voice": "player",
-      "say": "Six months. Six months I burned this state down looking for you, Sauce.",
-      "direction": "Low and level, the anger already spent. He is not asking a question."
-    },
-    {
-      "name": "vo.palace.finale.tony.accuse.belongings-1.1",
-      "voice": "player",
-      "say": "Your knives are folded in the guest suite next to your passport. Prisoners don’t get turn-down service.",
-      "direction": "Flat prosecutor’s delivery, laying the first exhibit on the table."
-    },
-    {
-      "name": "vo.palace.finale.tony.accuse.ledger-1.1",
-      "voice": "player",
-      "say": "Mark’s ledger pays you every other Friday. Hostages don’t get direct deposit.",
-      "direction": "Second exhibit. Drier than the first — the joke is a scalpel, not a smile."
-    },
-    {
-      "name": "vo.palace.finale.tony.accuse.still-1.1",
-      "voice": "player",
-      "say": "And the cameras caught you waving them goodnight. Nobody has ever chained you to anything.",
-      "direction": "The last exhibit, and the coldest. The sentence ends the argument."
-    },
-    {
-      "name": "vo.palace.finale.sauce.admission.cornered-1.1",
-      "voice": "sauce",
-      "say": "Okay. Yeah. The kidnapping was less of a kidnapping and more of a — Mark, help me with the word.",
-      "direction": "Caught flat and scrambling, hands half-raised, appealing sideways to his boss mid-sentence."
-    },
-    {
-      "name": "vo.palace.finale.mark.admission.cornered-2.1",
-      "voice": "mark",
-      "say": "A rebrand.",
-      "direction": "One bored word. He has said it in meetings before."
-    },
-    {
-      "name": "vo.palace.finale.sauce.admission.cornered-3.1",
-      "voice": "sauce",
-      "say": "A rebrand. The family paid me in exposure and gunfire, Tony. Here I get dental. And a pool.",
-      "direction": "Relieved to have the word, then genuinely, indefensibly sincere about the dental."
-    },
-    {
-      "name": "vo.palace.finale.sauce.admission.pressed-1.1",
-      "voice": "sauce",
-      "say": "Whoa, whoa. ‘Never a prisoner’ is a strong read. I was reluctant. At first. The first week. Day. The drive over.",
-      "direction": "Backpedalling in real time, the timeline collapsing under him word by word."
-    },
-    {
-      "name": "vo.palace.finale.sauce.admission.denial-1.1",
-      "voice": "sauce",
-      "say": "Prisoner! That’s me. Blink twice, right? I’m blinking, Tony. This is me, blinking.",
-      "direction": "Terrible acting, performed with full commitment. He blinks audibly if that is possible."
-    },
-    {
-      "name": "vo.palace.finale.mark.mark.cornered-1.1",
-      "voice": "mark",
-      "say": "He cooks, I pay, and nobody down there missed him until the food got worse. I’d apologize, but look at my house. I’m not sorry about anything.",
-      "direction": "Resigned and expansive. He has seen the ledger on the table and skipped straight past denial to legacy."
-    },
-    {
-      "name": "vo.palace.finale.mark.mark.pressed-1.1",
-      "voice": "mark",
-      "say": "He begged me for this job. Ask the wall he did not climb over.",
-      "direction": "Deflecting with contempt, gesturing at the architecture as his witness."
-    },
-    {
-      "name": "vo.palace.finale.mark.mark.denial-1.1",
-      "voice": "mark",
-      "say": "You broke into my home with a theory and a rifle. One of those is loaded.",
-      "direction": "Amused, superior. He thinks the evidence is thin and he is enjoying saying so."
-    },
-    {
-      "name": "vo.palace.finale.wife.begging.wife-1.1",
-      "voice": "mark-wife",
-      "say": "No, no, no. Baby — whoever you are — not the face. He just had work done. There is a DEPOSIT.",
-      "direction": "Desperate glamorous begging at full volume. “DEPOSIT” lands like a bereavement."
-    },
-    {
-      "name": "vo.palace.finale.wife.begging.wife-2.1",
-      "voice": "mark-wife",
-      "say": "Take the cars. Take Sauce — he over-salts everything anyway—",
-      "direction": "Bargaining fast, throwing the chef overboard without a flicker of hesitation."
-    },
-    {
-      "name": "vo.palace.finale.sauce.begging.wife-3.1",
-      "voice": "sauce",
-      "say": "Hey!",
-      "direction": "Wounded. The over-salting accusation hurts more than the rifle."
-    },
-    {
-      "name": "vo.palace.finale.wife.begging.wife-4.1",
-      "voice": "mark-wife",
-      "say": "—but nobody dies at dinner. This rug is hand-knotted. Blood never comes out of hand-knotted.",
-      "direction": "Pleading for lives and upholstery in the same breath, and she means both equally."
-    },
-    {
-      "name": "vo.palace.finale.lola.begging.shorts-1.1",
-      "voice": "lola",
-      "say": "Boss man, listen. Me and him, we have personally witnessed maybe four hundred murders—",
-      "direction": "A short, urgent professional opening a negotiation. Fast, sincere, hands out."
-    },
-    {
-      "name": "vo.palace.finale.johnny.begging.shorts-2.1",
-      "voice": "johnny",
-      "say": "—five hundred—",
-      "direction": "Correcting his partner instantly, like they keep a shared spreadsheet."
-    },
-    {
-      "name": "vo.palace.finale.lola.begging.shorts-3.1",
-      "voice": "lola",
-      "say": "—five hundred murders, and not one of them improved the evening.",
-      "direction": "Accepting the correction without pause and finishing the shared sentence."
-    },
-    {
-      "name": "vo.palace.finale.johnny.begging.shorts-4.1",
-      "voice": "johnny",
-      "say": "Kill nobody, and we validate parking. Kill somebody, and we scream, we dive under the table, it becomes a whole thing.",
-      "direction": "Laying out both packages like a waiter reciting specials. Deadly serious about the logistics."
-    },
-    {
-      "name": "vo.palace.finale.lola.begging.shorts-5.1",
-      "voice": "lola",
-      "say": "It is rehearsed, but it is a whole thing.",
-      "direction": "Quiet, confidential postscript. She is not proud that it is rehearsed. She is a little proud."
-    },
-    {
-      "name": "vo.palace.finale.mark.go-1.1",
-      "voice": "mark",
-      "say": "Enough. He did not climb my wall to hear the help negotiate.",
-      "direction": "The boss ends the begging. Chair pushed back, evening over."
-    },
-    {
-      "name": "vo.palace.finale.tony.go-2.1",
-      "voice": "player",
-      "say": "The ledger says you bought him. The footage says he sold us. I say dinner’s over.",
-      "direction": "Verdict. Ice-flat, no rise at the end. The safety comes off on the last word."
-    },
-    {
-      "name": "vo.palace.finale.mark.go-3.1",
-      "voice": "mark",
-      "say": "It is. Sauce — you brought him into my house. You entertain him.",
-      "direction": "Not a threat and not a retreat, in his own mind: a delegation. He is already standing, already turning, and does not raise his voice once."
-    },
-    {
-      "name": "vo.palace.finale.sauce.mark.scramble-1.1",
-      "voice": "sauce",
-      "say": "Mark. Mark! MARK.",
-      "direction": "Three attempts at the same word, each one smaller than the last."
-    },
-    {
-      "name": "vo.palace.finale.wife.mark.scramble-2.1",
-      "voice": "mark-wife",
-      "say": "He is very fast for a big man. He has always been very fast.",
-      "direction": "Flat, admiring, entirely unhelpful. She is watching her husband leave and appraising his gait."
-    },
-    {
-      "name": "vo.palace.finale.sauce.sauce.alone-1.1",
-      "voice": "sauce",
-      "say": "Twenty years. Twenty years I cooked for that man, and he is going to leave me at the table.",
-      "direction": "The realisation arriving in real time, out loud, to nobody. Not frightened yet — insulted."
-    },
-    {
-      "name": "vo.palace.finale.sauce.sauce.alone-2.1",
-      "voice": "sauce",
-      "say": "Fine. FINE. You want to know what I am, Tony? I am the only one in this house who ever finished anything.",
-      "direction": "A chef losing his temper, which is a specific and dangerous kind of temper. He goes for the gun on the last word."
-    },
-    {
-      "name": "vo.palace.finale.wife.react.sauce-down-1.1",
-      "voice": "mark-wife",
-      "say": "The CHEF?! Who garnishes the branzino now, you son of a bitch?!",
-      "direction": "Screamed fury. The catering implications hit her before the mortality does."
-    },
-    {
-      "name": "vo.palace.finale.johnny.react.sauce-down-2.1",
-      "voice": "johnny",
-      "say": "He still owed me forty bucks—",
-      "direction": "Genuine dismay, already crouching."
-    },
-    {
-      "name": "vo.palace.finale.lola.react.sauce-down-3.1",
-      "voice": "lola",
-      "say": "—forty bucks, gone. AWAY from the table. AWAY from the table!",
-      "direction": "Finishes the accounting, then the bark, then the dive. All three at full commitment."
-    },
-    {
-      "name": "vo.palace.finale.lola.begging.after-sauce-1.1",
-      "voice": "lola",
-      "say": "We do not cook. We never cooked. We carried things for a man who is now on the tablecloth.",
-      "direction": "From the floor, fast and reasonable, laying out a position rather than begging. She thinks this is going to work."
-    },
-    {
-      "name": "vo.palace.finale.johnny.begging.after-sauce-2.1",
-      "voice": "johnny",
-      "say": "We can carry things for you. We are very good at carrying things.",
-      "direction": "Helpfully, and flat on his face. He is applying for a job over a corpse and he means it sincerely."
-    },
-    {
-      "name": "vo.palace.finale.lola.begging.after-sauce-3.1",
-      "voice": "lola",
-      "say": "That is the whole offer. It is not a big offer.",
-      "direction": "Quiet. She knows exactly how small it is and puts it on the table anyway."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.enter.cold-1.1",
-      "voice": "mark",
-      "say": "You shot my chef in my dining room. On a Tuesday.",
-      "direction": "Back through the door, unhurried, genuinely aggrieved about the day of the week."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.enter.cold-2.1",
-      "voice": "mark",
-      "say": "I was going to let you leave here with a theory. Now I have to do the leaving-you-here part myself.",
-      "direction": "Reasonable to the last syllable. The rifle comes up on \"myself\" and nothing in his voice changes."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.enter.enraged-1.1",
-      "voice": "mark",
-      "say": "They CARRIED things. That is the whole of what they did in this house. They carried things.",
-      "direction": "Not shouted. Said slowly, twice, because he cannot get past it."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.enter.enraged-2.1",
-      "voice": "mark",
-      "say": "Nothing in your ledger said to do that. You read my books and then you did that anyway.",
-      "direction": "The one moment in the mission where the man is not performing. It should be uncomfortable."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.enter.enraged-3.1",
-      "voice": "mark",
-      "say": "Come here.",
-      "direction": "Two words, quiet, and he is already moving."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.armor-broken-1.1",
-      "voice": "mark",
-      "say": "All right. All right — that is a good rifle.",
-      "direction": "Winded, plates gone, and complimenting the weapon. Buying the four seconds it takes to get through the door."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.armor-broken-2.1",
-      "voice": "mark",
-      "say": "BOYS. Dining room. Bring everybody.",
-      "direction": "Bellowed down a corridor, the first time all night he has raised his voice."
-    },
-    {
-      "name": "vo.palace.finale.wife.reprisal.wave-1.1",
-      "voice": "mark-wife",
-      "say": "That is the good crew. He keeps the good crew for weddings.",
-      "direction": "From behind the sideboard, appalled at the expense."
-    },
-    {
-      "name": "vo.palace.finale.johnny.reprisal.wave-cleared-1.1",
-      "voice": "johnny",
-      "say": "They are all on the rug.",
-      "direction": "Muffled, from under the table, doing an inventory."
-    },
-    {
-      "name": "vo.palace.finale.wife.reprisal.wave-cleared-2.1",
-      "voice": "mark-wife",
-      "say": "They are ALL on the rug.",
-      "direction": "The same four words, entirely different grief."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.final.cold-1.1",
-      "voice": "mark",
-      "say": "No vest. No boys. No chef.",
-      "direction": "Counting what is gone, in a tone that suggests he has done this arithmetic before."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.final.cold-2.1",
-      "voice": "mark",
-      "say": "Just the man who came to my house on a Tuesday, and me.",
-      "direction": "Almost hospitable. He walks out into the open on purpose."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.final.enraged-1.1",
-      "voice": "mark",
-      "say": "They carried things.",
-      "direction": "Still on it. He has been standing behind that wall thinking about it."
-    },
-    {
-      "name": "vo.palace.finale.mark.reprisal.final.enraged-2.1",
-      "voice": "mark",
-      "say": "Say one word to me about the ledger. Say one word, and I will put you through the wall my wife chose.",
-      "direction": "The full thing, finally uncapped. No performance left in it at all."
-    },
-    {
-      "name": "vo.palace.finale.wife.react.mark-first-1.1",
-      "voice": "mark-wife",
-      "say": "MARCO! You shot him in the FACE — the deposit, you ANIMAL, the DEPOSIT!",
-      "direction": "Screamed over a fresh corpse. Grief and cosmetic-surgery accounting at equal volume."
-    },
-    {
-      "name": "vo.palace.finale.lola.react.mark-first-2.1",
-      "voice": "lola",
-      "say": "NOT the table! AWAY from the table!",
-      "direction": "One barked correction, already moving. Twenty years of the wrong drill, unlearned mid-air."
-    },
-    {
-      "name": "vo.palace.finale.johnny.react.mark-first-3.1",
-      "voice": "johnny",
-      "say": "AWAY FROM THE TABLE!",
-      "direction": "The identical bark a half-beat later. It is rehearsed. It is finally rehearsed correctly."
-    },
-    {
-      "name": "vo.palace.finale.lola.react.dive-landed-1.1",
-      "voice": "lola",
-      "say": "Wall. The WALL is cover. A table is a table.",
-      "direction": "Winded, flat on the floor, delivering the correction like somebody who has just lost an argument with physics."
-    },
-    {
-      "name": "vo.palace.finale.johnny.react.dive-landed-2.1",
-      "voice": "johnny",
-      "say": "I am updating the procedure.",
-      "direction": "Muffled and absolutely serious. Somewhere there is a laminated card and he intends to reprint it."
-    },
-    {
-      "name": "vo.palace.finale.wife.react.all-down-1.1",
-      "voice": "mark-wife",
-      "say": "FINE! Fine. I hope every rug you ever love betrays you. Now get out of my house, you gorgeous psychopath!",
-      "direction": "The full aria: cursing Tony out, vicious and operatic, with one involuntary compliment in the middle."
-    },
-    {
-      "name": "vo.palace.finale.lola.react.all-down-2.1",
-      "voice": "lola",
-      "say": "We saw nothing.",
-      "direction": "Muffled, from under the table, instantly cooperative."
-    },
-    {
-      "name": "vo.palace.finale.johnny.react.all-down-3.1",
-      "voice": "johnny",
-      "say": "We are continuing to see nothing.",
-      "direction": "Also from under the table, providing ongoing legal coverage."
-    },
-    {
-      "name": "vo.palace.finale.lola.react.wife-down-1.1",
-      "voice": "lola",
-      "say": "He shot the missus! The missus is DOWN!",
-      "direction": "Genuine panic, announced like a ring judge, already moving."
-    },
-    {
-      "name": "vo.palace.finale.johnny.react.wife-down-2.1",
-      "voice": "johnny",
-      "say": "On the RUG! She is ON the rug!",
-      "direction": "Horrified — for her, and on her behalf about the rug, which she loved."
-    },
-    {
-      "name": "vo.palace.finale.johnny.react.lola-down-1.1",
-      "voice": "johnny",
-      "say": "LOLA. You had two centimetres on me. Two whole centimetres, and you never once let me forget it.",
-      "direction": "Grief measured in the only unit that ever mattered between them."
-    },
-    {
-      "name": "vo.palace.finale.lola.react.johnny-down-1.1",
-      "voice": "lola",
-      "say": "JOHNNY! You magnificent half-portion — I am not covering your shifts!",
-      "direction": "Bereft and furious about the rota in the same scream."
-    },
-    {
-      "name": "vo.door.refusal.heist_cleanup.1",
-      "voice": "player",
-      "say": "Not walking into the Bing wearing the bank. Clean up first."
-    },
-    {
-      "name": "vo.door.refusal.cabin_message.1",
-      "voice": "player",
-      "say": "Lou sent somewhere to disappear. Read it before driving into the dark."
-    },
-    {
-      "name": "vo.door.refusal.final_arc_locked.1",
-      "voice": "player",
-      "say": "Bank’s done. Nobody’s called. And when nobody calls, you sit down."
-    },
-    {
-      "name": "vo.door.refusal.initiation_locked.1",
-      "voice": "player",
-      "say": "Lou said seven. The invitation still has to land."
-    },
-    {
-      "name": "vo.door.refusal.golf_call.1",
-      "voice": "player",
-      "say": "Lou said he would call about this morning. I am not guessing where."
-    },
-    {
-      "name": "vo.door.refusal.golf_return.1",
-      "voice": "player",
-      "say": "Three holes done. Whatever comes next, Lou will call for it."
-    },
-    {
-      "name": "vo.door.refusal.heist_call.1",
-      "voice": "player",
-      "say": "Lou said he would call. Today is not a day to guess."
-    },
-    {
-      "name": "vo.door.refusal.heist_kit.1",
-      "voice": "player",
-      "say": "Everything Lou named goes with me. Nothing else does."
-    },
-    {
-      "name": "vo.door.refusal.big_night_call.1",
-      "voice": "player",
-      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
-    },
-    {
-      "name": "vo.door.refusal.no_wake_call.1",
-      "voice": "player",
-      "say": "Lou said he would call when he knew. I am not chasing him today."
-    },
-    {
-      "name": "vo.door.refusal.date_call.1",
-      "voice": "player",
-      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_date.1",
-      "voice": "player",
-      "say": "That was a good night. Tomorrow is the other kind. Bed."
-    },
-    {
-      "name": "vo.door.refusal.day_two_call.1",
-      "voice": "player",
-      "say": "Booskibro said he would call with the next job."
-    },
-    {
-      "name": "vo.door.refusal.second_bing_call.1",
-      "voice": "player",
-      "say": "Lou said he would call when he wanted you back at the Bing."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_motel.1",
-      "voice": "player",
-      "say": "It is not even light out. Whatever is next can wait until I have slept."
-    },
-    {
-      "name": "vo.door.refusal.first_call.1",
-      "voice": "player",
-      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_squatchfather.1",
-      "voice": "player",
-      "say": "That is enough going out for one night."
-    },
-    {
-      "name": "vo.door.refusal.lou_package.1",
-      "voice": "player",
-      "say": "I am not going anywhere until I find Lou’s package."
-    },
-    {
-      "name": "vo.door.refusal.whiskey.1",
-      "voice": "player",
-      "say": "Take one pull of whiskey. You earned the nerves."
-    },
-    {
-      "name": "vo.door.refusal.watch_tv.1",
-      "voice": "player",
-      "say": "I put a man in the ground last night. I would like to know whether it made the news before I go anywhere."
-    },
-    {
-      "name": "vo.door.refusal.counter_squatch.1",
-      "voice": "player",
-      "say": "I told the boys one game. One game, and then I am out the door."
-    },
-    {
-      "name": "vo.door.refusal.squatch_shoot.1",
-      "voice": "player",
-      "say": "Lou is going to put a club in my hand in front of people. Something needs warming up and it is not going to be the swing."
-    },
-    {
-      "name": "vo.door.refusal.squatch_smash.1",
-      "voice": "player",
-      "say": "Whatever tonight is, it is the last night of something. I would like to wreck a campground first."
-    },
-    {
-      "name": "vo.door.refusal.shrooms_before.1",
-      "voice": "player",
-      "say": "They take ninety minutes. Take them now and they land about the time somebody starts making speeches."
-    },
-    {
       "name": "vo.silentsquatch.arrival.prospect.humming",
       "voice": "player",
       "say": "Whatever’s in here has been humming since the car."
@@ -24520,269 +24385,606 @@
       "say": "Sure. Leave it there. I’ll just keep standing here, it’s what I do."
     },
     {
-      "name": "door.knock.motel",
-      "duration": 1.2,
-      "prompt": "three heavy slow knuckle knocks on a hollow-core motel door, close mic, dry interior corridor, no voice"
+      "name": "vo.siege.wake.prospect.awake",
+      "voice": "player",
+      "say": "Okay. Okay — that is not the television."
     },
     {
-      "name": "door.open.motel",
-      "duration": 1,
-      "prompt": "cheap interior door opening on a dry unoiled hinge, thin security chain rattling against the frame, close, no voice"
+      "name": "vo.siege.wake.guard.inside",
+      "voice": "mansion-guard",
+      "say": "They are inside! They are in the house — get to the armory!"
     },
     {
-      "name": "door.slam",
-      "duration": 0.8,
-      "prompt": "lightweight interior door slammed hard, sharp wooden crack and the frame rattling afterwards, small room, no voice"
+      "name": "vo.siege.guide.booski.armory",
+      "voice": "booski",
+      "say": "Kid — armory. East end of the cellar hall, then south through the door. Move."
     },
     {
-      "name": "door.splinter",
-      "duration": 1.4,
-      "prompt": "a door torn out of its frame, wood splintering and screws tearing free, heavy weight following it to the floor, no voice"
+      "name": "vo.siege.guide.booski.office",
+      "voice": "booski",
+      "say": "Now get up here. Basement stair, straight over the foyer, up the horseshoe — Lou is on the top floor."
     },
     {
-      "name": "window.slide",
-      "duration": 1,
-      "prompt": "a small aluminium bathroom window sliding open a few inches on gritty runners and stopping hard, close mic, no voice"
+      "name": "vo.siege.briefing.prospect.report",
+      "voice": "player",
+      "say": "Lou. There were two of them in the cellar."
     },
     {
-      "name": "punch.light",
-      "duration": 0.5,
-      "prompt": "a bare fist landing flat on a human torso, close and dull with a soft cloth impact, no music, no voice"
+      "name": "vo.siege.briefing.lou.forty",
+      "voice": "lou1",
+      "say": "Two in the cellar. There are forty on my lawn."
     },
     {
-      "name": "punch.heavy",
-      "duration": 0.7,
-      "prompt": "an enormous full-weight punch connecting with a body, deep low thud with a dry wooden crack inside it, no music, no voice"
+      "name": "vo.siege.briefing.booski.drive",
+      "voice": "booski",
+      "say": "More coming up the drive — both sides of the fountain, they are not even hurrying."
     },
     {
-      "name": "swing.whiff",
-      "duration": 0.5,
-      "prompt": "a heavy arm swinging fast through still humid air and hitting nothing, low airy whoosh, close, no voice"
+      "name": "vo.siege.briefing.lou.upstairs",
+      "voice": "lou1",
+      "say": "Everybody upstairs. Nobody holds a ground-floor room tonight, I do not care whose room it is."
     },
     {
-      "name": "body.fall.carpet",
-      "duration": 0.9,
-      "prompt": "a large adult body dropping limp onto thin motel carpet over concrete, dull heavy thud with a small fabric rustle, no voice"
+      "name": "vo.siege.briefing.lou.stairs",
+      "voice": "lou1",
+      "say": "You. Take the rail over the foyer. Anything that comes through my front door, you put it down on my floor."
     },
     {
-      "name": "slicer.spin",
-      "duration": 1.6,
-      "prompt": "a commercial deli meat slicer motor spinning up, blade whine rising then holding steady, tiled room, no voice"
+      "name": "vo.siege.briefing.prospect.stairs",
+      "voice": "player",
+      "say": "The stairs. Got it."
     },
     {
-      "name": "stunprod.arc",
-      "duration": 0.6,
-      "prompt": "a stun prod arcing, dry high-voltage electrical snapping and crackling in short bursts, close, no voice"
+      "name": "vo.siege.briefing.lou.heavy",
+      "voice": "lou1",
+      "say": "And get the big one up. You did not carry it out of my armory to look at it."
     },
     {
-      "name": "grapple.struggle",
-      "duration": 2.5,
-      "prompt": "two heavy bodies wrestling and shoving against each other, clothing scuffing, strained breathing, feet dragging on carpet"
+      "name": "vo.siege.prospect.little_friend",
+      "voice": "player",
+      "say": "Say hello to my little friend."
     },
     {
-      "name": "spice.throw",
-      "duration": 0.8,
-      "prompt": "a glass jar of dry ground spice thrown open, powder bursting into the air in a dry hiss, glass jar clattering away, no voice"
+      "name": "vo.siege.lull.booski.reload",
+      "voice": "booski",
+      "say": "That is the first lot! Reload — they are forming up again on the drive!"
     },
     {
-      "name": "glass.settle",
-      "duration": 1.2,
-      "prompt": "the last broken window shards sliding loose and tinkling down onto concrete, sparse and delicate, no voice"
+      "name": "vo.siege.lull.lou.notover",
+      "voice": "lou1",
+      "say": "It is not over. Watch that door."
     },
     {
-      "name": "wood.break",
-      "duration": 0.9,
-      "prompt": "a cheap pine table leg snapping under weight, single dry splintering crack with a short debris rattle, no voice"
+      "name": "vo.siege.flank.deathmegatron.glass",
+      "voice": "deathmegatron",
+      "say": "Glass! West wing and east — they are coming in behind us!"
     },
     {
-      "name": "tv.implode",
-      "duration": 1.5,
-      "prompt": "an old CRT television destroyed, thick glass tube imploding into a muffled inward whump, sparks and plastic casing cracking, no voice"
+      "name": "vo.siege.aftermath.lou.last",
+      "voice": "lou1",
+      "say": "That is the last of them. Somebody kill that alarm."
     },
     {
-      "name": "fan.sparks",
-      "duration": 2,
-      "prompt": "an overspeeding ceiling fan motor whining and spitting electrical sparks, intermittent bright snaps over a straining hum, no voice"
+      "name": "vo.siege.aftermath.lou.house",
+      "voice": "lou1",
+      "say": "They came to my house. With cars, and a plan, and enough men to spare four of them for a window."
     },
     {
-      "name": "neon.short",
-      "duration": 2.2,
-      "prompt": "a neon motel sign shorting out, sharp electrical bang then the transformer hum falling away to silence, exterior night, no voice"
+      "name": "vo.siege.aftermath.lou.budget",
+      "voice": "lou1",
+      "say": "This is not a neighbourhood thing any more, kid. This is somebody with a budget."
     },
     {
-      "name": "vacuum.pack.handle",
-      "duration": 0.9,
-      "prompt": "a stiff vacuum-sealed foil food pouch being turned over and gripped in large hands, crisp plastic crackling, close mic, no voice"
+      "name": "vo.siege.aftermath.lou.sasole",
+      "voice": "lou1",
+      "say": "There is a man on my landing in a flight jacket. Captain Lou Sasole. Go and talk to him — he is how we answer this."
     },
     {
-      "name": "jerky.chew",
-      "duration": 1.4,
-      "prompt": "someone chewing a tough piece of dried meat, wet muffled mastication, close and unglamorous, no voice"
+      "name": "vo.siege.aftermath.prospect.sasole",
+      "voice": "player",
+      "say": "Sasole. Right."
     },
     {
-      "name": "jerky.bite",
-      "duration": 1.2,
-      "prompt": "one deliberate bite tearing through a strip of dried jerky, dry fibrous rip then slow chewing, close mic, no voice"
+      "name": "vo.siege.sasole.sasole.stairs",
+      "voice": "lou2",
+      "say": "You are the one who held the stairs. Good. Then you can hold a bomb bay."
     },
     {
-      "name": "shipment.burn",
-      "duration": 3,
-      "prompt": "vacuum-sealed plastic packaging catching fire and shrivelling, then fat rendering and meat spitting into an open flame, no voice"
+      "name": "vo.siege.sasole.sasole.tonight",
+      "voice": "lou2",
+      "say": "Get some sleep. We fly tonight, and you are coming with me."
     },
     {
-      "name": "tv.static",
-      "duration": 1.4,
-      "prompt": "an old television tuned to dead air, harsh white noise static swelling as the volume is turned up, small room, no voice"
+      "name": "vo.palace.finale.mark.arrival.quiet-1.1",
+      "voice": "mark",
+      "say": "Tony. Sit down. We are having the veal — Sauce’s recipe. He was going to tell you. Eventually.",
+      "direction": "Unhurried cartel-boss calm. A man offering dinner to the intruder in his house, certain the house wins."
     },
     {
-      "name": "knife.tap",
-      "duration": 1.2,
-      "prompt": "the flat of a kitchen knife tapping slowly and evenly on a cheap laminate table, unhurried, close mic, no voice"
+      "name": "vo.palace.finale.mark.arrival.loud-1.1",
+      "voice": "mark",
+      "say": "You shot your way through my payroll to ruin a Tuesday dinner. Sit down anyway. The veal is getting cold.",
+      "direction": "Dry, annoyed, unafraid — the gunfire outside was an inconvenience to his evening, not a threat to his life."
     },
     {
-      "name": "alarm.counter",
-      "duration": 2.6,
-      "prompt": "a cheap battery-powered under-counter panic alarm, insistent shrill repeating electronic buzz, small office, no voice"
+      "name": "vo.palace.finale.tony.accuse-1.1",
+      "voice": "player",
+      "say": "Six months. Six months I burned this state down looking for you, Sauce.",
+      "direction": "Low and level, the anger already spent. He is not asking a question."
     },
     {
-      "name": "siren.distant",
-      "duration": 4,
-      "prompt": "a single police siren several streets away at night, thin and reverberant between buildings, no traffic, no voice"
+      "name": "vo.palace.finale.tony.accuse.belongings-1.1",
+      "voice": "player",
+      "say": "Your knives are folded in the guest suite next to your passport. Prisoners don’t get turn-down service.",
+      "direction": "Flat prosecutor’s delivery, laying the first exhibit on the table."
     },
     {
-      "name": "siren.close",
-      "duration": 4,
-      "prompt": "a police siren arriving fast and close, loud wailing with engine noise underneath, exterior parking lot, no voice"
+      "name": "vo.palace.finale.tony.accuse.ledger-1.1",
+      "voice": "player",
+      "say": "Mark’s ledger pays you every other Friday. Hostages don’t get direct deposit.",
+      "direction": "Second exhibit. Drier than the first — the joke is a scalpel, not a smile."
     },
     {
-      "name": "footstep.asphalt",
-      "duration": 0.5,
-      "prompt": "one heavy barefoot step on warm asphalt parking lot, soft tacky slap with loose grit, exterior, no voice"
+      "name": "vo.palace.finale.tony.accuse.still-1.1",
+      "voice": "player",
+      "say": "And the cameras caught you waving them goodnight. Nobody has ever chained you to anything.",
+      "direction": "The last exhibit, and the coldest. The sentence ends the argument."
     },
     {
-      "name": "land.heavy",
-      "duration": 0.8,
-      "prompt": "an enormous heavy body landing from a two storey drop onto concrete, deep impact thud with a low rumble tail, no voice"
+      "name": "vo.palace.finale.sauce.admission.cornered-1.1",
+      "voice": "sauce",
+      "say": "Okay. Yeah. The kidnapping was less of a kidnapping and more of a — Mark, help me with the word.",
+      "direction": "Caught flat and scrambling, hands half-raised, appealing sideways to his boss mid-sentence."
     },
     {
-      "name": "tunnel.crawl",
-      "duration": 3,
-      "prompt": "a large body crawling through a wet concrete drainage tunnel, hands and knees in shallow water, close confined echo, no voice"
+      "name": "vo.palace.finale.mark.admission.cornered-2.1",
+      "voice": "mark",
+      "say": "A rebrand.",
+      "direction": "One bored word. He has said it in meetings before."
     },
     {
-      "name": "ui.objective",
-      "duration": 0.6,
-      "prompt": "a short soft two-note electronic confirmation tone, clean and quiet, notification style, no music bed"
+      "name": "vo.palace.finale.sauce.admission.cornered-3.1",
+      "voice": "sauce",
+      "say": "A rebrand. The family paid me in exposure and gunfire, Tony. Here I get dental. And a pool.",
+      "direction": "Relieved to have the word, then genuinely, indefensibly sincere about the dental."
     },
     {
-      "name": "ui.achievement",
-      "duration": 1.2,
-      "prompt": "a brief warm brass fanfare flourish, three notes, pleased with itself, dry and small, no reverb tail"
+      "name": "vo.palace.finale.sauce.admission.pressed-1.1",
+      "voice": "sauce",
+      "say": "Whoa, whoa. ‘Never a prisoner’ is a strong read. I was reluctant. At first. The first week. Day. The drive over.",
+      "direction": "Backpedalling in real time, the timeline collapsing under him word by word."
     },
     {
-      "name": "sting.scene.end",
-      "duration": 2.4,
-      "prompt": "a short minor-key orchestral sting, humid and unresolved, low strings with a muted brass swell that stops without landing"
+      "name": "vo.palace.finale.sauce.admission.denial-1.1",
+      "voice": "sauce",
+      "say": "Prisoner! That’s me. Blink twice, right? I’m blinking, Tony. This is me, blinking.",
+      "direction": "Terrible acting, performed with full commitment. He blinks audibly if that is possible."
     },
     {
-      "name": "smash.structure",
-      "duration": 0.8,
-      "prompt": "an enormous double-fisted slam into a wooden building, timber and panelling caving in, debris scattering, outdoor, no voice"
+      "name": "vo.palace.finale.mark.mark.cornered-1.1",
+      "voice": "mark",
+      "say": "He cooks, I pay, and nobody down there missed him until the food got worse. I’d apologize, but look at my house. I’m not sorry about anything.",
+      "direction": "Resigned and expansive. He has seen the ledger on the table and skipped straight past denial to legacy."
     },
     {
-      "name": "structure.crack",
-      "duration": 0.5,
-      "prompt": "wooden wall panelling cracking and buckling under a heavy blow without collapsing, single dry split, outdoor, no voice"
+      "name": "vo.palace.finale.mark.mark.pressed-1.1",
+      "voice": "mark",
+      "say": "He begged me for this job. Ask the wall he did not climb over.",
+      "direction": "Deflecting with contempt, gesturing at the architecture as his witness."
     },
     {
-      "name": "swing.whiff.outdoor",
-      "duration": 0.5,
-      "prompt": "huge arms swinging through open outdoor air and hitting nothing, broad low whoosh, forest clearing, no voice"
+      "name": "vo.palace.finale.mark.mark.denial-1.1",
+      "voice": "mark",
+      "say": "You broke into my home with a theory and a rifle. One of those is loaded.",
+      "direction": "Amused, superior. He thinks the evidence is thin and he is enjoying saying so."
     },
     {
-      "name": "fist.on.rock",
-      "duration": 0.5,
-      "prompt": "a heavy fist striking solid granite boulder, dull stone impact with a sharp rock chip crack, outdoor, no voice"
+      "name": "vo.palace.finale.wife.begging.wife-1.1",
+      "voice": "mark-wife",
+      "say": "No, no, no. Baby — whoever you are — not the face. He just had work done. There is a DEPOSIT.",
+      "direction": "Desperate glamorous begging at full volume. “DEPOSIT” lands like a bereavement."
     },
     {
-      "name": "ground.stomp",
-      "duration": 1,
-      "prompt": "both enormous feet slamming down on packed forest dirt together, deep shockwave thud with soil and gravel scattering, no voice"
+      "name": "vo.palace.finale.wife.begging.wife-2.1",
+      "voice": "mark-wife",
+      "say": "Take the cars. Take Sauce — he over-salts everything anyway—",
+      "direction": "Bargaining fast, throwing the chef overboard without a flicker of hesitation."
     },
     {
-      "name": "camper.squish",
-      "duration": 0.6,
-      "prompt": "a wet heavy crushing impact, short and blunt, damp organic squelch, outdoor, no voice, no scream"
+      "name": "vo.palace.finale.sauce.begging.wife-3.1",
+      "voice": "sauce",
+      "say": "Hey!",
+      "direction": "Wounded. The over-salting accusation hurts more than the rifle."
     },
     {
-      "name": "vehicle.explosion",
-      "duration": 2,
-      "prompt": "a car fuel tank exploding, sharp ignition crack into a deep booming fireball with metal debris raining down, outdoor, no voice"
+      "name": "vo.palace.finale.wife.begging.wife-4.1",
+      "voice": "mark-wife",
+      "say": "—but nobody dies at dinner. This rug is hand-knotted. Blood never comes out of hand-knotted.",
+      "direction": "Pleading for lives and upholstery in the same breath, and she means both equally."
     },
     {
-      "name": "footstep.forest",
-      "duration": 0.5,
-      "prompt": "one heavy footfall on dry pine needles and forest dirt, soft crunch with twigs snapping underneath, outdoor, no voice"
+      "name": "vo.palace.finale.lola.begging.shorts-1.1",
+      "voice": "lola",
+      "say": "Boss man, listen. Me and him, we have personally witnessed maybe four hundred murders—",
+      "direction": "A short, urgent professional opening a negotiation. Fast, sincere, hands out."
     },
     {
-      "name": "camper.scream",
-      "duration": 1.2,
-      "prompt": "a panicked adult screaming and running away at speed, voice dopplering off into the distance, forest, terrified"
+      "name": "vo.palace.finale.johnny.begging.shorts-2.1",
+      "voice": "johnny",
+      "say": "—five hundred—",
+      "direction": "Correcting his partner instantly, like they keep a shared spreadsheet."
     },
     {
-      "name": "sasquatch.roar",
-      "duration": 1.6,
-      "prompt": "an enormous ape creature roaring, deep chest resonance with a gravelly torn edge and a mournful falling tail, outdoor forest"
+      "name": "vo.palace.finale.lola.begging.shorts-3.1",
+      "voice": "lola",
+      "say": "—five hundred murders, and not one of them improved the evening.",
+      "direction": "Accepting the correction without pause and finishing the shared sentence."
     },
     {
-      "name": "bee.swarm",
-      "duration": 2,
-      "prompt": "an angry swarm of hundreds of bees, dense chaotic buzzing rising and moving past the listener, outdoor, no voice"
+      "name": "vo.palace.finale.johnny.begging.shorts-4.1",
+      "voice": "johnny",
+      "say": "Kill nobody, and we validate parking. Kill somebody, and we scream, we dive under the table, it becomes a whole thing.",
+      "direction": "Laying out both packages like a waiter reciting specials. Deadly serious about the logistics."
     },
     {
-      "name": "tranq.fire",
-      "duration": 0.5,
-      "prompt": "a compressed air tranquiliser rifle firing, sharp pneumatic thump and hiss, no gunpowder bang, outdoor, no voice"
+      "name": "vo.palace.finale.lola.begging.shorts-5.1",
+      "voice": "lola",
+      "say": "It is rehearsed, but it is a whole thing.",
+      "direction": "Quiet, confidential postscript. She is not proud that it is rehearsed. She is a little proud."
     },
     {
-      "name": "tranq.hit",
-      "duration": 0.5,
-      "prompt": "a tranquiliser dart thudding into thick fur and muscle, soft dull puncture with a small feathered flick, no voice"
+      "name": "vo.palace.finale.mark.go-1.1",
+      "voice": "mark",
+      "say": "Enough. He did not climb my wall to hear the help negotiate.",
+      "direction": "The boss ends the begging. Chair pushed back, evening over."
     },
     {
-      "name": "ui.time.bonus",
-      "duration": 0.8,
-      "prompt": "a bright ascending three-note chime, clean and golden, arcade reward tone, dry, no music bed"
+      "name": "vo.palace.finale.tony.go-2.1",
+      "voice": "player",
+      "say": "The ledger says you bought him. The footage says he sold us. I say dinner’s over.",
+      "direction": "Verdict. Ice-flat, no rise at the end. The safety comes off on the last word."
     },
     {
-      "name": "ui.powerup",
-      "duration": 0.6,
-      "prompt": "a short rising electronic power-up sweep, bright and synthetic, arcade pickup, dry, no music bed"
+      "name": "vo.palace.finale.mark.go-3.1",
+      "voice": "mark",
+      "say": "It is. Sauce — you brought him into my house. You entertain him.",
+      "direction": "Not a threat and not a retreat, in his own mind: a delegation. He is already standing, already turning, and does not raise his voice once."
     },
     {
-      "name": "ui.goal.complete",
-      "duration": 0.8,
-      "prompt": "a single bright confirmation ding with a short bell tail, cutting and readable over noise, arcade style, no music bed"
+      "name": "vo.palace.finale.sauce.mark.scramble-1.1",
+      "voice": "sauce",
+      "say": "Mark. Mark! MARK.",
+      "direction": "Three attempts at the same word, each one smaller than the last."
     },
     {
-      "name": "ui.final.frenzy",
-      "duration": 1.2,
-      "prompt": "an urgent repeating arcade alarm jingle, bright synth stabs over a klaxon pulse, escalating, exciting, no voice"
+      "name": "vo.palace.finale.wife.mark.scramble-2.1",
+      "voice": "mark-wife",
+      "say": "He is very fast for a big man. He has always been very fast.",
+      "direction": "Flat, admiring, entirely unhelpful. She is watching her husband leave and appraising his gait."
     },
     {
-      "name": "sting.run.end",
-      "duration": 2,
-      "prompt": "a short descending orchestral end-of-round sting, brass and low strings resolving downward, dry and brief"
+      "name": "vo.palace.finale.sauce.sauce.alone-1.1",
+      "voice": "sauce",
+      "say": "Twenty years. Twenty years I cooked for that man, and he is going to leave me at the table.",
+      "direction": "The realisation arriving in real time, out loud, to nobody. Not frightened yet — insulted."
     },
     {
-      "name": "boss.hit",
-      "duration": 0.7,
-      "prompt": "a heavy armoured body absorbing a huge blow, dense padded impact with body armour plates knocking together, no voice"
+      "name": "vo.palace.finale.sauce.sauce.alone-2.1",
+      "voice": "sauce",
+      "say": "Fine. FINE. You want to know what I am, Tony? I am the only one in this house who ever finished anything.",
+      "direction": "A chef losing his temper, which is a specific and dangerous kind of temper. He goes for the gun on the last word."
     },
     {
-      "name": "boss.down",
-      "duration": 1.4,
-      "prompt": "an armoured body collapsing to the ground, plates and webbing clattering, followed by a short bright victory accent"
+      "name": "vo.palace.finale.wife.react.sauce-down-1.1",
+      "voice": "mark-wife",
+      "say": "The CHEF?! Who garnishes the branzino now, you son of a bitch?!",
+      "direction": "Screamed fury. The catering implications hit her before the mortality does."
+    },
+    {
+      "name": "vo.palace.finale.johnny.react.sauce-down-2.1",
+      "voice": "johnny",
+      "say": "He still owed me forty bucks—",
+      "direction": "Genuine dismay, already crouching."
+    },
+    {
+      "name": "vo.palace.finale.lola.react.sauce-down-3.1",
+      "voice": "lola",
+      "say": "—forty bucks, gone. AWAY from the table. AWAY from the table!",
+      "direction": "Finishes the accounting, then the bark, then the dive. All three at full commitment."
+    },
+    {
+      "name": "vo.palace.finale.lola.begging.after-sauce-1.1",
+      "voice": "lola",
+      "say": "We do not cook. We never cooked. We carried things for a man who is now on the tablecloth.",
+      "direction": "From the floor, fast and reasonable, laying out a position rather than begging. She thinks this is going to work."
+    },
+    {
+      "name": "vo.palace.finale.johnny.begging.after-sauce-2.1",
+      "voice": "johnny",
+      "say": "We can carry things for you. We are very good at carrying things.",
+      "direction": "Helpfully, and flat on his face. He is applying for a job over a corpse and he means it sincerely."
+    },
+    {
+      "name": "vo.palace.finale.lola.begging.after-sauce-3.1",
+      "voice": "lola",
+      "say": "That is the whole offer. It is not a big offer.",
+      "direction": "Quiet. She knows exactly how small it is and puts it on the table anyway."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.enter.cold-1.1",
+      "voice": "mark",
+      "say": "You shot my chef in my dining room. On a Tuesday.",
+      "direction": "Back through the door, unhurried, genuinely aggrieved about the day of the week."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.enter.cold-2.1",
+      "voice": "mark",
+      "say": "I was going to let you leave here with a theory. Now I have to do the leaving-you-here part myself.",
+      "direction": "Reasonable to the last syllable. The rifle comes up on \"myself\" and nothing in his voice changes."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.enter.enraged-1.1",
+      "voice": "mark",
+      "say": "They CARRIED things. That is the whole of what they did in this house. They carried things.",
+      "direction": "Not shouted. Said slowly, twice, because he cannot get past it."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.enter.enraged-2.1",
+      "voice": "mark",
+      "say": "Nothing in your ledger said to do that. You read my books and then you did that anyway.",
+      "direction": "The one moment in the mission where the man is not performing. It should be uncomfortable."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.enter.enraged-3.1",
+      "voice": "mark",
+      "say": "Come here.",
+      "direction": "Two words, quiet, and he is already moving."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.armor-broken-1.1",
+      "voice": "mark",
+      "say": "All right. All right — that is a good rifle.",
+      "direction": "Winded, plates gone, and complimenting the weapon. Buying the four seconds it takes to get through the door."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.armor-broken-2.1",
+      "voice": "mark",
+      "say": "BOYS. Dining room. Bring everybody.",
+      "direction": "Bellowed down a corridor, the first time all night he has raised his voice."
+    },
+    {
+      "name": "vo.palace.finale.wife.reprisal.wave-1.1",
+      "voice": "mark-wife",
+      "say": "That is the good crew. He keeps the good crew for weddings.",
+      "direction": "From behind the sideboard, appalled at the expense."
+    },
+    {
+      "name": "vo.palace.finale.johnny.reprisal.wave-cleared-1.1",
+      "voice": "johnny",
+      "say": "They are all on the rug.",
+      "direction": "Muffled, from under the table, doing an inventory."
+    },
+    {
+      "name": "vo.palace.finale.wife.reprisal.wave-cleared-2.1",
+      "voice": "mark-wife",
+      "say": "They are ALL on the rug.",
+      "direction": "The same four words, entirely different grief."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.final.cold-1.1",
+      "voice": "mark",
+      "say": "No vest. No boys. No chef.",
+      "direction": "Counting what is gone, in a tone that suggests he has done this arithmetic before."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.final.cold-2.1",
+      "voice": "mark",
+      "say": "Just the man who came to my house on a Tuesday, and me.",
+      "direction": "Almost hospitable. He walks out into the open on purpose."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.final.enraged-1.1",
+      "voice": "mark",
+      "say": "They carried things.",
+      "direction": "Still on it. He has been standing behind that wall thinking about it."
+    },
+    {
+      "name": "vo.palace.finale.mark.reprisal.final.enraged-2.1",
+      "voice": "mark",
+      "say": "Say one word to me about the ledger. Say one word, and I will put you through the wall my wife chose.",
+      "direction": "The full thing, finally uncapped. No performance left in it at all."
+    },
+    {
+      "name": "vo.palace.finale.wife.react.mark-first-1.1",
+      "voice": "mark-wife",
+      "say": "MARCO! You shot him in the FACE — the deposit, you ANIMAL, the DEPOSIT!",
+      "direction": "Screamed over a fresh corpse. Grief and cosmetic-surgery accounting at equal volume."
+    },
+    {
+      "name": "vo.palace.finale.lola.react.mark-first-2.1",
+      "voice": "lola",
+      "say": "NOT the table! AWAY from the table!",
+      "direction": "One barked correction, already moving. Twenty years of the wrong drill, unlearned mid-air."
+    },
+    {
+      "name": "vo.palace.finale.johnny.react.mark-first-3.1",
+      "voice": "johnny",
+      "say": "AWAY FROM THE TABLE!",
+      "direction": "The identical bark a half-beat later. It is rehearsed. It is finally rehearsed correctly."
+    },
+    {
+      "name": "vo.palace.finale.lola.react.dive-landed-1.1",
+      "voice": "lola",
+      "say": "Wall. The WALL is cover. A table is a table.",
+      "direction": "Winded, flat on the floor, delivering the correction like somebody who has just lost an argument with physics."
+    },
+    {
+      "name": "vo.palace.finale.johnny.react.dive-landed-2.1",
+      "voice": "johnny",
+      "say": "I am updating the procedure.",
+      "direction": "Muffled and absolutely serious. Somewhere there is a laminated card and he intends to reprint it."
+    },
+    {
+      "name": "vo.palace.finale.wife.react.all-down-1.1",
+      "voice": "mark-wife",
+      "say": "FINE! Fine. I hope every rug you ever love betrays you. Now get out of my house, you gorgeous psychopath!",
+      "direction": "The full aria: cursing Tony out, vicious and operatic, with one involuntary compliment in the middle."
+    },
+    {
+      "name": "vo.palace.finale.lola.react.all-down-2.1",
+      "voice": "lola",
+      "say": "We saw nothing.",
+      "direction": "Muffled, from under the table, instantly cooperative."
+    },
+    {
+      "name": "vo.palace.finale.johnny.react.all-down-3.1",
+      "voice": "johnny",
+      "say": "We are continuing to see nothing.",
+      "direction": "Also from under the table, providing ongoing legal coverage."
+    },
+    {
+      "name": "vo.palace.finale.lola.react.wife-down-1.1",
+      "voice": "lola",
+      "say": "He shot the missus! The missus is DOWN!",
+      "direction": "Genuine panic, announced like a ring judge, already moving."
+    },
+    {
+      "name": "vo.palace.finale.johnny.react.wife-down-2.1",
+      "voice": "johnny",
+      "say": "On the RUG! She is ON the rug!",
+      "direction": "Horrified — for her, and on her behalf about the rug, which she loved."
+    },
+    {
+      "name": "vo.palace.finale.johnny.react.lola-down-1.1",
+      "voice": "johnny",
+      "say": "LOLA. You had two centimetres on me. Two whole centimetres, and you never once let me forget it.",
+      "direction": "Grief measured in the only unit that ever mattered between them."
+    },
+    {
+      "name": "vo.palace.finale.lola.react.johnny-down-1.1",
+      "voice": "lola",
+      "say": "JOHNNY! You magnificent half-portion — I am not covering your shifts!",
+      "direction": "Bereft and furious about the rota in the same scream."
+    },
+    {
+      "name": "vo.door.refusal.heist_cleanup.1",
+      "voice": "player",
+      "say": "Not walking into the Bing wearing the bank. Clean up first."
+    },
+    {
+      "name": "vo.door.refusal.cabin_message.1",
+      "voice": "player",
+      "say": "Lou sent somewhere to disappear. Read it before driving into the dark."
+    },
+    {
+      "name": "vo.door.refusal.final_arc_locked.1",
+      "voice": "player",
+      "say": "Bank’s done. Nobody’s called. And when nobody calls, you sit down."
+    },
+    {
+      "name": "vo.door.refusal.initiation_locked.1",
+      "voice": "player",
+      "say": "Lou said seven. The invitation still has to land."
+    },
+    {
+      "name": "vo.door.refusal.golf_call.1",
+      "voice": "player",
+      "say": "Lou said he would call about this morning. I am not guessing where."
+    },
+    {
+      "name": "vo.door.refusal.golf_return.1",
+      "voice": "player",
+      "say": "Three holes done. Whatever comes next, Lou will call for it."
+    },
+    {
+      "name": "vo.door.refusal.heist_call.1",
+      "voice": "player",
+      "say": "Lou said he would call. Today is not a day to guess."
+    },
+    {
+      "name": "vo.door.refusal.heist_kit.1",
+      "voice": "player",
+      "say": "Everything Lou named goes with me. Nothing else does."
+    },
+    {
+      "name": "vo.door.refusal.big_night_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
+    },
+    {
+      "name": "vo.door.refusal.no_wake_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he knew. I am not chasing him today."
+    },
+    {
+      "name": "vo.door.refusal.date_call.1",
+      "voice": "player",
+      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_date.1",
+      "voice": "player",
+      "say": "That was a good night. Tomorrow is the other kind. Bed."
+    },
+    {
+      "name": "vo.door.refusal.day_two_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call with the next job."
+    },
+    {
+      "name": "vo.door.refusal.second_bing_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he wanted you back at the Bing."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_motel.1",
+      "voice": "player",
+      "say": "It is not even light out. Whatever is next can wait until I have slept."
+    },
+    {
+      "name": "vo.door.refusal.first_call.1",
+      "voice": "player",
+      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_squatchfather.1",
+      "voice": "player",
+      "say": "That is enough going out for one night."
+    },
+    {
+      "name": "vo.door.refusal.lou_package.1",
+      "voice": "player",
+      "say": "I am not going anywhere until I find Lou’s package."
+    },
+    {
+      "name": "vo.door.refusal.whiskey.1",
+      "voice": "player",
+      "say": "Take one pull of whiskey. You earned the nerves."
+    },
+    {
+      "name": "vo.door.refusal.watch_tv.1",
+      "voice": "player",
+      "say": "I put a man in the ground last night. I would like to know whether it made the news before I go anywhere."
+    },
+    {
+      "name": "vo.door.refusal.counter_squatch.1",
+      "voice": "player",
+      "say": "I told the boys one game. One game, and then I am out the door."
+    },
+    {
+      "name": "vo.door.refusal.squatch_shoot.1",
+      "voice": "player",
+      "say": "Lou is going to put a club in my hand in front of people. Something needs warming up and it is not going to be the swing."
+    },
+    {
+      "name": "vo.door.refusal.squatch_smash.1",
+      "voice": "player",
+      "say": "Whatever tonight is, it is the last night of something. I would like to wreck a campground first."
+    },
+    {
+      "name": "vo.door.refusal.shrooms_before.1",
+      "voice": "player",
+      "say": "They take ninety minutes. Take them now and they land about the time somebody starts making speeches."
     }
   ]
 }

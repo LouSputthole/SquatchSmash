@@ -35,7 +35,9 @@ const FACTORIES = Object.freeze({
 });
 
 function requireArrivalCar(arrivalCar, stageId) {
-  if (!arrivalCar?.group || typeof arrivalCar.driverActorPosition !== 'function') {
+  if (!arrivalCar?.group
+    || typeof arrivalCar.driverActorPosition !== 'function'
+    || !arrivalCar.occupants?.has?.('driverActor')) {
     throw new TypeError(`${stageId} requires the Motel arrival-car adapter`);
   }
   return arrivalCar;
@@ -70,11 +72,17 @@ export function poseMotelSnowInDriverSeat(actor, arrivalCar) {
   );
   ownArrivalCar(car, true);
   ownActor(actor, 'motel.arrival-car.occupied', 'snow-arrival');
-  return actor.sitAt(car.driverActorPosition(), forward, {
+  /* Pose in seat-local space, then parent the whole connected actor rig to
+   * the car-owned anchor. Nothing copies Snow toward a moving world point. */
+  actor.sitAt(new THREE.Vector3(), 0, {
     scaleFactor: MOTEL_SNOW_SEATED_SCALE_FACTOR,
     headYaw: glance,
     armPitch: MOTEL_SNOW_ARM_PITCH,
   });
+  car.occupants.attach('driverActor', actor.group, { localYaw: Math.PI / 2 });
+  actor.heading = forward;
+  actor.idleHeading = forward;
+  return actor;
 }
 
 /**
@@ -93,6 +101,7 @@ export function stageMotelActor(actor, stageId, {
   if (stageId === 'snow-arrival') return poseMotelSnowInDriverSeat(actor, arrivalCar);
   if (stageId === 'snow-exterior') {
     const car = requireArrivalCar(arrivalCar, stageId);
+    car.occupants.release('driverActor');
     const outside = car.driverExitPosition();
     outside.y = floorAt(outside.x, outside.z, 0);
     ownArrivalCar(car, false);

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { WEAPON_IDS } from '../src/core/weapons/catalog.js';
+import { ensureDomShim } from '../tools/three-shim.mjs';
 
 import {
   CartelPalaceMission,
@@ -9,7 +10,6 @@ import {
   PALACE_BEATS,
   PALACE_DINING_OBJECTIVES,
 } from '../src/cartel-palace/mission.js';
-import { buildCartelPalace, PALACE_ANCHORS } from '../src/cartel-palace/world.js';
 import { buildPalaceCast, PALACE_GUARD_POSTS } from '../src/cartel-palace/cast.js';
 import { PalaceSecurity } from '../src/cartel-palace/security.js';
 import {
@@ -17,6 +17,9 @@ import {
   previewPalaceCheckpointForLocation,
   previewSnapshotForCheckpoint,
 } from '../src/cartel-palace/preview.js';
+
+ensureDomShim();
+const { buildCartelPalace, PALACE_ANCHORS } = await import('../src/cartel-palace/world.js');
 
 test('the palace begins as a rescue at the quiet estate approach', () => {
   const objectives = [];
@@ -72,11 +75,11 @@ test('every stage of the dining room has its own objective card, and none of the
    * room. Since the 2026-08-25 rewire that room is four fights, and for the
    * first of them Mark is not in the house -- so a card naming him and his
    * plates sends the player looking for a target that is two rooms away.
-   * `confrontation` is deliberately absent: nothing to do at the table but
-   * listen, and the beat's own line still covers it. */
-  const stages = ['sauce', 'reprisal-one', 'wave', 'reprisal-final'];
+   * `confrontation` now says exactly what the temporary trigger lock means,
+   * instead of leaving an elimination objective on-screen while firing is
+   * intentionally unavailable. */
+  const stages = ['confrontation', 'sauce', 'reprisal-one', 'wave', 'reprisal-final'];
   assert.deepEqual(Object.keys(PALACE_DINING_OBJECTIVES).sort(), [...stages].sort());
-  assert.equal(PALACE_DINING_OBJECTIVES.confrontation, undefined);
   for (const stage of stages) {
     const card = PALACE_DINING_OBJECTIVES[stage];
     assert.equal(typeof card.kicker, 'string');
@@ -87,6 +90,8 @@ test('every stage of the dining room has its own objective card, and none of the
    * man who is behind a door until it is cleared. */
   assert.equal(/mark/i.test(PALACE_DINING_OBJECTIVES.sauce.text), false,
     'the chef stage still tells the player to shoot Mark');
+  assert.match(PALACE_DINING_OBJECTIVES.confrontation.text, /hold fire/i);
+  assert.match(PALACE_DINING_OBJECTIVES.sauce.text, /eliminate sauce/i);
   assert.match(PALACE_DINING_OBJECTIVES.wave.text, /a-team/i);
   assert.match(PALACE_DINING_OBJECTIVES['reprisal-one'].text, /armor/i);
 });

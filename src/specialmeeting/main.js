@@ -29,10 +29,11 @@
  */
 import { SPEECH_MIX, SPEECH_MIX_CLOSE, SPEECH_MIX_INDOORS, speak } from '../core/dialogue.js';
 import * as THREE from 'three';
+import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 
 import { AudioEngine } from '../core/audio.js';
 import {
-  SCENES, SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
+  MISSION_IDS, SCENES, SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
 } from '../core/campaign.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
@@ -47,7 +48,7 @@ import { loadFaceIndex } from '../bing/family.js';
 import { AMBIENCE_CUES } from './ambience.js';
 import { buildSpecialMeetingCast } from './cast.js';
 import { createFrontPassengerDoorTarget } from './door-interaction.js';
-import { createNightForestRoad, adaptMeetingSedan } from './forest/index.js';
+import { PassengerRig, createNightForestRoad, adaptMeetingSedan } from './forest/index.js';
 import { createRideSequence } from './ride.js';
 import { SPEAKERS, scriptCues } from './script.js';
 import { EYE_HEIGHT, FOOTSTEP_SURFACE, stageSpecialMeeting } from './stage.js';
@@ -59,20 +60,42 @@ import { EYE_HEIGHT, FOOTSTEP_SURFACE, stageSpecialMeeting } from './stage.js';
 /**
  * beat id -> the road event it may not start without.
  *
- * The picture comes back exactly when the surface changes under the tyres;
- * the chain beat starts when the car has actually stopped in front of the
- * chain; the arrival beat starts when it is on the spur. Nothing else waits.
+ * The surface-change beat starts when the tyres reach the cattle grid; the
+ * chain beat starts when the car has actually stopped in front of the chain;
+ * and the final exchange waits for the last moving approach. The arrival fade
+ * releases on the last 2.5 metres into the spur so the first returning image
+ * still moves and the player never waits on a long dead-black stop. Nothing
+ * else waits.
  */
 const GATES = Object.freeze({
   'SM-220': 'turn_off',
   'SM-260': 'chain',
+  'SM-324': 'final_approach',
+  /* SM-326 begins the dissolve while the car is still rolling. The dedicated
+   * pre-arrival node keeps the full-black interval short without divorcing it
+   * from the route or revealing a distant approach. */
+  'SM-326': 'arrival_fade',
+  /* The picture returns as SM-327 after its authored 1.2 second dissolve.
+   * Gate the parked SM-330 tableau, not the fade-in, on the physical stop: a
+   * distance-only proxy made the black interval exceed five seconds when the
+   * car was easing through its final metres under a slow render clock. */
   'SM-330': 'arrival',
 });
 
 /** The one beat that lets the car move again: Lag has hooked the chain back up. */
 const RELEASES = Object.freeze({ 'SM-270': true });
 const TRAIL_HANDOFF_DISTANCE_M = 8;
+/* The selected recorded performance reaches its final fade around 198
+ * seconds after the road match-cut, including the chain stop; the authored
+ * road is about 105 seconds at nominal cruise. The dialogue is the master:
+ * stretch nominal cruise to about 174 seconds without changing the authored
+ * target speeds, engine note, or any bend. */
+const FOREST_DRIVE_TIME_SCALE = 0.60;
 const CAR_DOOR_INTERACTION_ID = 'specialmeeting.front_passenger_door';
+const FOREST_TRAVEL_AUDIO = Object.freeze({
+  engine: Object.freeze({ key: 'sm.forest.engine', cue: 'car.engine.idle' }),
+  road: Object.freeze({ key: 'sm.forest.road', cue: 'heist.vehicle.tires.road' }),
+});
 
 /* ------------------------------------------------------------------ */
 /* Boot                                                                */
@@ -102,7 +125,9 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 registerSceneRenderer(renderer);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.04, 320);
+const camera = new THREE.PerspectiveCamera(
+  70, innerWidth / innerHeight, 0.04, ENVIRONMENT_VISIBILITY.forestDrive.cameraFar,
+);
 camera.name = 'specialmeeting.camera';
 scene.add(camera);
 
@@ -112,7 +137,7 @@ const hud = new Hud();
  * `src/style.css` holds `#hud { opacity: 0 }` and turns it on with exactly one
  * rule: `body.playing #hud { opacity: 1 }`. Eight other scene roots add the
  * class; this one never did. So every subtitle this file writes, the crosshair
- * and the interaction prompt have all been rendering at opacity zero -- all 220
+ * and the interaction prompt have all been rendering at opacity zero -- all
  * authored voice lines played into a scene with no text on the screen, which is
  * the owner's "no subtitles" and a good part of his "nothing happens".
  *
@@ -142,6 +167,12 @@ player.position.copy(stage.spawn.position ?? new THREE.Vector3(0, EYE_HEIGHT, 0)
 player.yaw = stage.spawn.yaw ?? 0;
 player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(stage.footstepSurface ?? FOOTSTEP_SURFACE, intensity);
+/* The passenger seat exists before the forest does. Binding the shared Player
+ * here means SM-195 can move the block sedan for its five visible seconds and
+ * the camera remains on the same VehicleOccupants anchor all the way to black.
+ * At the road cut this owner releases without moving the player and the
+ * forest's PassengerRig boards the identical physical seat. */
+const blockPassenger = new PassengerRig(player, stage.sedan, { seat: 'frontPassenger' });
 const interaction = new InteractionSystem(camera, hud);
 const frontPassengerDoorTarget = createFrontPassengerDoorTarget(stage.sedan);
 
@@ -189,6 +220,7 @@ let lastInteractionUse = null;
 let trailDistanceTravelled = 0;
 let trailStartProgress = 0;
 let spurLightsOffIn = null;
+let forestArrivalSettled = false;
 const observedExits = [...SCENES[SCENE_IDS.SPECIAL_MEETING].next];
 const entryHref = location.href;
 const handoffReceipt = {
@@ -197,6 +229,62 @@ const handoffReceipt = {
   destination: null,
   error: null,
 };
+const driveTransitionReceipt = {
+  matchCutAt: null,
+  fadeOutAt: null,
+  fadeOutSeconds: null,
+  fadeInAt: null,
+  fadeInSeconds: null,
+  blackDurationMs: null,
+  loopsAtFadeOut: [],
+  loopsAtFadeIn: [],
+  arrivalAt: null,
+  arrivalBeatAt: null,
+  authoredFadeAdvanceAt: null,
+};
+let forestTravelAudioRunning = false;
+
+function forestTravelLoopKeys() {
+  return Object.values(FOREST_TRAVEL_AUDIO).map(({ key }) => key);
+}
+
+function activeForestTravelLoops() {
+  return forestTravelLoopKeys().filter((key) => audio.loops.has(key));
+}
+
+function startForestTravelAudio() {
+  if (forestTravelAudioRunning) return;
+  forestTravelAudioRunning = true;
+  audio.startLoop(FOREST_TRAVEL_AUDIO.engine.key, {
+    name: FOREST_TRAVEL_AUDIO.engine.cue,
+    volume: 0.20,
+    ambience: true,
+    fade: 0.35,
+  });
+  audio.startLoop(FOREST_TRAVEL_AUDIO.road.key, {
+    name: FOREST_TRAVEL_AUDIO.road.cue,
+    volume: 0.12,
+    ambience: true,
+    fade: 0.35,
+  });
+}
+
+function updateForestTravelAudio() {
+  if (!forestTravelAudioRunning || !forest) return;
+  const speed = Math.max(0, forest.drive.speed);
+  const motion = Math.min(1, speed / 10);
+  audio.setLoopRate(FOREST_TRAVEL_AUDIO.engine.key, 0.78 + motion * 0.34, 0.16);
+  audio.setLoopVolume(FOREST_TRAVEL_AUDIO.engine.key, 0.14 + motion * 0.08, 0.16);
+  audio.setLoopRate(FOREST_TRAVEL_AUDIO.road.key, 0.70 + motion * 0.46, 0.16);
+  audio.setLoopVolume(FOREST_TRAVEL_AUDIO.road.key, 0.025 + motion * 0.12, 0.16);
+}
+
+function stopForestTravelAudio() {
+  if (!forestTravelAudioRunning) return;
+  forestTravelAudioRunning = false;
+  audio.stopLoop(FOREST_TRAVEL_AUDIO.engine.key, 0.9);
+  audio.stopLoop(FOREST_TRAVEL_AUDIO.road.key, 0.65);
+}
 
 /* ------------------------------------------------------------------ */
 /* Voice                                                               */
@@ -376,8 +464,41 @@ function setObjective(text) {
   objectivePanel.setLine(text);
 }
 
+/** Put the authored trunk reveal in front of the player once, then return
+ * control immediately. The previous staging left Kittenboss technically
+ * unobstructed at the extreme edge of the lens while the car body filled the
+ * frame; the player could hear her first line without actually seeing her. */
+function frameKittenbossReveal() {
+  const kittenboss = cast.byKey('kittenboss');
+  const head = kittenboss?.parts?.head;
+  if (!head) return;
+  const target = head.getWorldPosition(new THREE.Vector3());
+  const dx = target.x - player.position.x;
+  const dy = target.y - player.position.y;
+  const dz = target.z - player.position.z;
+  const horizontal = Math.hypot(dx, dz);
+  if (horizontal < 1e-4) return;
+  player.yaw = Math.atan2(-dx, -dz);
+  player.pitch = THREE.MathUtils.clamp(
+    Math.atan2(dy, horizontal),
+    player.pitchMin,
+    player.pitchMax,
+  );
+}
+
 const ride = createRideSequence({
   onLine: (line) => say(line),
+  /* Story state alone cannot move a mesh. The same borrowed sedan survives the
+   * block-to-forest handoff, and its adapter advances this presentation clock
+   * without stepping the block physics while the rail owns motion. */
+  onStage: (line) => {
+    if (line.startsForestDrive) {
+      driveTransitionReceipt.matchCutAt = performance.now();
+      beginTheDrive();
+    }
+    if (line.opensTrunk) stage.sedan.setTrunk(1);
+    if (line.closesTrunk) stage.sedan.setTrunk(0);
+  },
   onChoice: (options) => showChoices(options),
   onBeat: (b) => {
     /* ON THE SCREEN, not only in the pause menu. `objectiveFor` is captioned
@@ -412,10 +533,7 @@ const ride = createRideSequence({
      * is the difference between a cut and a freeze. */
     if (b.id === 'SM-195') stage.arrival?.driveAway?.();
     if (b.id === 'SM-322') cast.swapRearSeats();
-    if (b.id === 'SM-330') {
-      forest?.killEngine();
-      spurLightsOffIn = 4;
-    }
+    if (b.id === 'SM-330') settleForestArrival();
     if (b.id === 'SM-400') { cast.getOut(); forest?.leave(); }
     /* The boot. Kittenboss stands herself up and climbs out under her own
      * power — `cast.js` owns the move, and it is a stand rather than a lift
@@ -423,7 +541,10 @@ const ride = createRideSequence({
      * the other prospect, at Tony's rank; the scene said "he" everywhere
      * until 2026-08-20 and every one of those was corrected on the owner's
      * ruling. Nothing about this call changed with it. */
-    if (b.id === 'SM-420') cast.kittenbossOut();
+    if (b.id === 'SM-420') {
+      cast.kittenbossOut();
+      frameKittenbossReveal();
+    }
   },
   onSeated: () => {
     /* The door shuts, Numbskull walks round the back of the car, and the seat
@@ -441,19 +562,27 @@ const ride = createRideSequence({
      * arrival's own `settled` phase the car is already at the kerb by the time
      * anybody sits in it. It stays as the seatbelt it was always meant to be. */
     stage.arrival?.snapToKerb?.();
-    player.mode = 'seated';
-    stage.sedan.eyeWorld('front_passenger', player.position);
+    blockPassenger.board();
   },
-  onBlackout: () => {
-    /* A cut, not a dissolve. `.cut` takes the shared 1.4-second transition off
-     * so the picture stops dead; the engine and the tyres carry straight on. */
-    blackout?.classList.add('cut');
+  onBlackout: (seconds = 0) => {
+    driveTransitionReceipt.fadeOutAt = performance.now();
+    driveTransitionReceipt.fadeOutSeconds = seconds;
+    driveTransitionReceipt.loopsAtFadeOut = activeForestTravelLoops();
+    if (blackout) blackout.style.transitionDuration = `${seconds}s`;
+    blackout?.classList.toggle('cut', seconds <= 0);
     blackout?.classList.add('on');
-    beginTheDrive();
+    armAuthoredBlackAdvance(seconds);
     armTheBlackWatchdog();
   },
   onFadeIn: (seconds) => {
+    clearAuthoredBlackAdvance();
     clearTheBlackWatchdog();
+    driveTransitionReceipt.fadeInAt = performance.now();
+    driveTransitionReceipt.fadeInSeconds = seconds;
+    driveTransitionReceipt.blackDurationMs = driveTransitionReceipt.fadeOutAt === null
+      ? null
+      : driveTransitionReceipt.fadeInAt - driveTransitionReceipt.fadeOutAt;
+    driveTransitionReceipt.loopsAtFadeIn = activeForestTravelLoops();
     if (!blackout) return;
     blackout.classList.remove('cut');
     blackout.style.transitionDuration = `${seconds}s`;
@@ -537,17 +666,14 @@ function objectiveFor(b) {
 /* Owner: "after entering the car, screen turns black after a few       */
 /* seconds and nothing happens. This is a blocker."                     */
 /*                                                                      */
-/* It was not a crash. `onBlackout` paints the picture out and the ONLY  */
-/* thing that ever takes it off again is `onFadeIn`, which fires on one  */
-/* beat -- SM-197 -- reachable only through SM-220. SM-220 is in `GATES`,*/
-/* waiting on the road event `turn_off`, and `frame()` stops stepping    */
-/* the ride entirely while a gate is set. So the end of the black was    */
-/* never a clock at all: it was "the simulated car has covered 501 of    */
-/* 992 metres", which at the authored cruise speeds is 38 to 41 seconds  */
-/* -- and longer in proportion on a machine that drops frames, because   */
-/* the same dt drives both. Behind it, silence: the two beats written to */
-/* play under the black are stage directions, and stage directions hold  */
-/* zero seconds.                                                         */
+/* It was not a crash. The old SM-196 painted the picture out before the  */
+/* drive conversation, then waited on a distant road event to reveal the */
+/* same drive again. The blackout now belongs to SM-326, after the final */
+/* line. SM-326 starts at the nearby pre-arrival node; SM-330 is separately */
+/* gated on the physical stop so the parked tableau cannot begin early. This */
+/* watchdog is */
+/* still the last-resort guarantee that a broken road event cannot leave */
+/* the player staring at a dead-black page.                              */
 /*                                                                      */
 /* The gating is deliberate and worth keeping; a picture that cannot     */
 /* come back is not. This is the floor under it. If the road has not     */
@@ -559,8 +685,42 @@ function objectiveFor(b) {
 /* ------------------------------------------------------------------ */
 
 /** How long a deliberate black may last before it is treated as a fault. */
-const BLACK_CEILING_MS = 9000;
+const BLACK_CEILING_MS = 2500;
 let blackWatchdog = null;
+let authoredBlackAdvance = null;
+
+function clearAuthoredBlackAdvance() {
+  if (authoredBlackAdvance === null) return;
+  clearTimeout(authoredBlackAdvance);
+  authoredBlackAdvance = null;
+}
+
+/**
+ * A CSS dissolve is wall-clock presentation, so its sequence hold must finish
+ * on the same clock. The gameplay loop deliberately clamps simulation delta;
+ * under SwiftShader (or a heavily loaded machine) 1.2 authored seconds can
+ * otherwise become almost three real seconds of black even though the road
+ * gate has already arrived.
+ *
+ * Do not skip the road gate. If `arrival_fade` has not fired yet, poll until
+ * it does and let the hard watchdog retain final authority over a broken
+ * route. Once it has, advance exactly one beat after the authored dissolve.
+ */
+function armAuthoredBlackAdvance(seconds) {
+  clearAuthoredBlackAdvance();
+  const delay = Math.max(0, Number(seconds) || 0) * 1000;
+  const advance = () => {
+    authoredBlackAdvance = null;
+    if (ride.beatId !== 'SM-326' || !blackout?.classList.contains('on')) return;
+    if (gatedOn) {
+      authoredBlackAdvance = setTimeout(advance, 50);
+      return;
+    }
+    driveTransitionReceipt.authoredFadeAdvanceAt = performance.now();
+    ride.skip();
+  };
+  authoredBlackAdvance = setTimeout(advance, delay);
+}
 
 function clearTheBlackWatchdog() {
   if (blackWatchdog === null) return;
@@ -573,6 +733,7 @@ function armTheBlackWatchdog() {
   blackWatchdog = setTimeout(() => {
     blackWatchdog = null;
     if (!blackout?.classList.contains('on')) return;
+    clearAuthoredBlackAdvance();
     console.warn(
       `the Special Meeting held a black screen for ${BLACK_CEILING_MS} ms `
       + `without reaching its fade beat (gated on ${gatedOn ?? 'nothing'}); `
@@ -591,8 +752,34 @@ function armTheBlackWatchdog() {
 /* The drive, which happens behind the black                           */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Apply the parked-tableau side effects only when BOTH clocks agree:
+ * SM-330 has begun and the route has physically reached `arrival`.
+ *
+ * GATES pauses a beat after `onBeat` announces it. Killing the engine
+ * directly in SM-330's callback therefore stopped the rail before it could
+ * fire the very arrival event that released that gate. Calling this helper
+ * from both clocks makes either ordering safe without returning to a long
+ * black hold.
+ */
+function settleForestArrival() {
+  if (forestArrivalSettled
+    || !forest
+    || ride.beatId !== 'SM-330'
+    || !reachedNodes.has('arrival')) return false;
+  forestArrivalSettled = true;
+  driveTransitionReceipt.arrivalBeatAt = performance.now();
+  forest.killEngine();
+  stopForestTravelAudio();
+  spurLightsOffIn = 4;
+  return true;
+}
+
 function beginTheDrive({ restoreNode = null } = {}) {
   if (forest) return;
+  /* One camera owner at a time. `release()` preserves the exact seat pose; the
+   * forest boards that same anchor below after it receives the forest world. */
+  blockPassenger.release();
   window.__squatchStage?.('The road out…');
   const sedan = adaptMeetingSedan(stage.sedan);
   const forestColliders = [];
@@ -602,9 +789,12 @@ function beginTheDrive({ restoreNode = null } = {}) {
     player,
     car: sedan,
     colliders: forestColliders,
+    timeScale: FOREST_DRIVE_TIME_SCALE,
     onNode: (id) => {
       reachedNodes.add(id);
       if (gatedOn === id) gatedOn = null;
+      if (id === 'arrival') driveTransitionReceipt.arrivalAt = performance.now();
+      if (id === 'arrival') settleForestArrival();
       if (id === 'arrival' && campaign.state.scene.spawn !== 'spur') {
         campaign.enter(SCENE_IDS.SPECIAL_MEETING, { spawn: 'spur' });
       }
@@ -619,7 +809,12 @@ function beginTheDrive({ restoreNode = null } = {}) {
   player.velocity.set(0, 0, 0);
   stage.block.group.visible = false;
   /* The wet street, the alley and the distant passes belong to the block, and
-   * the block is behind us now. The forest brings its own bed. */
+   * the block is behind us now. The forest brings its own bed. Dispose the
+   * block sky/light rig too: leaving its opaque 300 m sky sphere and key light
+   * in the scene made the forest route render against the old set and meant
+   * the scene briefly owned two moons despite both night modules explicitly
+   * forbidding that. */
+  stage.night.dispose();
   stage.ambience.stop();
   forest.board();
   if (restoreNode) {
@@ -629,6 +824,7 @@ function beginTheDrive({ restoreNode = null } = {}) {
     reachedNodes.add(restoreNode);
     effectiveSpawn = 'spur';
   } else {
+    startForestTravelAudio();
     forest.start();
   }
 }
@@ -699,6 +895,15 @@ function handOff() {
   handoffReceipt.error = null;
   input.suspend();
   campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
+  /* Initiation starts here, at the treeline -- not when the Palace ends and
+   * not while Tony is still in his Apartment. This mirrors the recovery skip
+   * seam and keeps the mission state aligned with the scene the player is
+   * actually entering. */
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (state) => {
+    if (state.missions[MISSION_IDS.INITIATION].status === 'available') {
+      state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
+    }
+  }, { required: true });
   blackout?.classList.remove('cut');
   if (blackout) blackout.style.transitionDuration = '1.4s';
   blackout?.classList.add('on');
@@ -784,7 +989,12 @@ function frame() {
    * adapter's own header is explicit that nothing else may step the vehicle
    * while the rail is driving it. */
   if (forest) forest.update(dt);
-  else stage.update(dt, player.position);
+  else {
+    stage.update(dt, player.position);
+    /* AFTER the car. PassengerRig reapplies the camera with dt=0, so there is
+     * no previous-frame seat chase while the departure rail is moving. */
+    blockPassenger.update(dt);
+  }
   /* THE EARS, WHICH HAVE BEEN AT THE WORLD ORIGIN THIS WHOLE TIME.
    *
    * `AudioEngine.init()` parks the WebAudio listener at (0,0,0) facing -Z, and
@@ -804,6 +1014,7 @@ function frame() {
    * forest rail writes the seat; before the `started` return, so the listener
    * is already where the ears are on the first frame of sound. */
   audio.updateListener(camera);
+  updateForestTravelAudio();
   tryStartRide();
   if (!started) { renderScene(); return; }
   cast.update(dt, player.position);
@@ -848,7 +1059,11 @@ async function wakeTheSound() {
      * buffer keeps its synth stand-in for the whole scene. `ambience.js` publishes
      * the complete list precisely so nobody keeps a second copy of it. */
     await audio.loadAdditional({
-      names: [...SPECIAL_MEETING_VOICE_CUES, ...AMBIENCE_CUES],
+      names: [
+        ...SPECIAL_MEETING_VOICE_CUES,
+        ...AMBIENCE_CUES,
+        ...Object.values(FOREST_TRAVEL_AUDIO).map(({ cue }) => cue),
+      ],
       prefixes: ['car.', 'footstep.', 'street.'],
     });
     missingVoiceCues = SPECIAL_MEETING_VOICE_CUES.filter((cue) => !audio.hasSample?.(cue));
@@ -973,6 +1188,14 @@ const certification = {
     return {
       ...handoffReceipt,
       destination: handoffReceipt.destination ? { ...handoffReceipt.destination } : null,
+    };
+  },
+  get driveTransition() {
+    return {
+      ...driveTransitionReceipt,
+      loopsAtFadeOut: [...driveTransitionReceipt.loopsAtFadeOut],
+      loopsAtFadeIn: [...driveTransitionReceipt.loopsAtFadeIn],
+      activeTravelLoops: activeForestTravelLoops(),
     };
   },
   get rideBeat() { return ride.beatId; },

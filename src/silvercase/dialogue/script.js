@@ -158,6 +158,9 @@ export const SEQUENCES = Object.freeze({
   couchAftermath: Object.freeze([
     { speaker: 'APE', text: 'Now we have more seating.', cue: cue('couch', 'ape.moreseating'), hold: 2.4, look: 'chester' },
   ]),
+  chesterShotReaction: Object.freeze([
+    { speaker: 'CHESTER', text: 'What the hell, man?!', cue: cue('couch', 'chester.whatthehell'), hold: 1.8, look: 'deke' },
+  ]),
 
   // ---------------------------------------------------------------------
   // Shot feedback. The mission resolves a trigger pull against whatever the
@@ -288,6 +291,17 @@ export const SEQUENCES = Object.freeze({
  * `silent`/default branch on its own — the scene keeps running the whole
  * time, nothing pauses.
  */
+/** Explicit tuning point for the final survivor decision. */
+export const WINSTON_DECISION_SECONDS = 27;
+
+/** Entry-to-first-objective audio bank audited as one non-vacuous contract. */
+export const SILVERCASE_OPENING_SEQUENCE_IDS = Object.freeze([
+  'carRide',
+  'hallwayArrival',
+  'arrival',
+  'doorStall',
+]);
+
 export const CHOICES = Object.freeze({
   louQuestion: Object.freeze({
     id: 'louQuestion',
@@ -309,7 +323,7 @@ export const CHOICES = Object.freeze({
   }),
   aftermath: Object.freeze({
     id: 'aftermath',
-    timeout: 10,
+    timeout: WINSTON_DECISION_SECONDS,
     defaultOutcome: 'spare',
     options: Object.freeze([
       Object.freeze({ key: '1', text: 'Spare him — order the cleanup.', outcome: 'spare' }),

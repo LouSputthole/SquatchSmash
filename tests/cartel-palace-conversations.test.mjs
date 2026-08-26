@@ -28,6 +28,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import * as THREE from 'three';
+import { ensureDomShim } from '../tools/three-shim.mjs';
 
 import { buildPalaceCast, PALACE_GUARD_POSTS } from '../src/cartel-palace/cast.js';
 import {
@@ -49,8 +50,10 @@ import {
   palaceGuardVoice,
   palaceRecastLines,
 } from '../src/cartel-palace/voice.js';
-import { buildCartelPalace } from '../src/cartel-palace/world.js';
 import { AabbCombatSpace } from '../src/core/combat/index.js';
+
+ensureDomShim();
+const { buildCartelPalace } = await import('../src/cartel-palace/world.js');
 
 /* ------------------------------------------------------------------ */
 /* Harness                                                             */

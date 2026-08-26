@@ -29,11 +29,68 @@ A shared-system adoption is complete only when all four are present:
 | Weapon operation | `src/core/weapons/index.js` | Canonical; `Firearm` is the state authority | Cartel Palace, Mansion and Mansion Siege; CombatLab verifies; Heist runs catalog `Firearm` behind the `HeistFirearm` compatibility Adapter in `src/heist/combat.js` |
 | Character weapon mounting | `src/core/weapons/character-mount.js` | Canonical catalog grip, bore-roll and firing-hand Interface | Mansion Siege, Cartel Palace, Silver Case, NO WAKE, Heist and Initiation presentation |
 | Formal meeting appearance | `src/core/formal-appearance.js` | Canonical scene-variant garment Adapter; canonical bodies remain unchanged | Special Meeting and Initiation |
+| Vehicle occupants | `src/core/vehicles/occupants.js` | Canonical vehicle-owned seat and camera-anchor Interface | Special Meeting, Motel, Golf, Bing and Silver Pines |
+| Vehicle headlight beams | `src/core/vehicles/headlights.js` | Canonical forward-beam geometry and aiming Interface | Special Meeting forest/sedan traffic, Motel drive and Initiation cabin |
+| Death-transition lifecycle | `src/core/death-transition.js` | Canonical lifecycle and spatial audit seam; authored fall animation remains a scene Adapter | Silver Case, Motel, Initiation and Squatchfather (Sal/McClawsky seated deaths) |
+| Planar mirrors | `src/core/planar-mirror.js` | Canonical real reflection camera and mounted-plane derivation | Apartment, Luxury Apartment, Cabin and Squatchfather mirror Adapter |
+| Surface footsteps | `AudioEngine.footstep()` in `src/core/audio.js` | Canonical cadence, delivered-sample variation and optional positional playback Interface | Shared Player scenes; Initiation now supplies only its `footingAt()` scene Adapter and uses the canonical forest/wood banks |
+| Environment visibility budgets | `src/core/environment-visibility.js` | Canonical minimum contracts by environment archetype | Luxury Apartment skyline, Cabin wilderness and Special Meeting forest drive |
+| Semantic prop placement | `src/core/semantic-placement.js` | Canonical opt-in floor, wall, facing, room and seam validator | Luxury Apartment, Cabin and Cartel Palace |
+| Throwable ballistics | `src/core/throwable.js` | Canonical charge, continuous projectile and segment-impact foundation | Luxury Apartment darts; future thrown props should adapt this Module |
 | Ground-combat truth | `src/core/combat/` | Canonical Modules behind scene Adapters | Mansion Siege and Cartel Palace are green production Adapters; Mansion's ensemble also proves friendly perception/aim/fire reuse; CombatLab is verification only |
 | Player inventory | `src/core/inventory.js` | Canonical | Apartment, Bing, Silver, Silver Pines and Mansion final-arc loadout |
 | Look/hold interactions | `src/core/interaction.js` | Canonical | All first-person scenes that use world-object prompts |
 | Pause and failure recovery | `src/core/pause-menu.js`, `src/core/scene-recovery.js`, `src/core/campaign-scene-skip.js` | Canonical | Campaign scenes listed by `RECOVERABLE_CAMPAIGN_SCENES`; Apartment uses its hub Adapter |
 | Player settings (subtitles, shake, assist, volume, sensitivity, keymap) | `src/core/settings.js`, rendered by `src/core/pause-menu.js` | Canonical | Every scene that mounts the pause menu (all campaign scenes, Initiation, Combat Lab); the Silver Room start screen delegates to it; `AudioEngine` and the Motel/Squatchfather/Initiation audio modules honour its volume; the shared `Player`, Beef Run cameras and the Enola gunner honour its sensitivity |
+
+## Scene-polish foundations
+
+The 2026-08-24 cross-scene polish pass exposed seven concepts that had already
+started to fork. They now have small canonical Modules with narrow scene
+Adapters:
+
+- `VehicleOccupants` parents Object3D riders to vehicle-owned anchors. Players
+  that are not Object3Ds ask the same anchor for `worldPoint()`. No passenger
+  loop independently interpolates toward a moving car. `release()` preserves
+  the rider's world transform when an NPC exits and resumes scene navigation.
+- `createHeadlightBeam()` owns the transformed cone whose tip is at the lamp
+  and whose beam points along local +X. Scenes may choose reach, width and aim;
+  they may not rotate stock cone geometry and rediscover the backwards-beam
+  bug.
+- `beginDeathTransition()` disables live controller/navigation/animation
+  state, freezes posture semantics and records the connected body hierarchy.
+  `auditDeathTransition()` checks hierarchy, reactivation, rendered contact,
+  wall/furniture clearance and floor/seat/stair support. Standing, seated,
+  against-wall, furniture-adjacent, stair and scripted-execution contexts are
+  covered by `tests/death-transition-contract.test.mjs`; scene Adapters still
+  own the authored collapse pose.
+- `PlanarMirror` derives its plane from the mounted mesh and owns reflection
+  render-target lifecycle. A bathroom may provide grime, cracks and a distance
+  policy, not a second reflection-camera implementation.
+- `AudioEngine.footstep()` owns cadence, per-surface sample treatment,
+  no-immediate-repeat selection and positional routing. A scene may map a world
+  point to a surface and provide a per-actor cadence key; it may not rebuild the
+  cue switch. The `forest` treatment rotates delivered dirt, grass and dry-leaf
+  recordings, including a restrained higher-rate twig crack.
+- `ENVIRONMENT_VISIBILITY` makes skyline, wilderness-hub and forest-drive
+  distances reviewable together. `validateEnvironmentVisibility()` rejects
+  trees beyond supporting terrain, camera clipping before the last chunk and
+  undergrowth that outlives its near-detail band.
+- `markSemanticPlacement()` attaches serializable floor, wall, orientation,
+  room-envelope and seam contracts to important authored props. The validator
+  fails missing supports and marked objects with no rendered bounds; an
+  unmarked prop is not silently counted as certified.
+- `ThrowCharge` and `BallisticProjectile` separate charge and continuous
+  collision from dart scoring, audio and presentation. Future throwable scenes
+  should provide colliders and policy instead of copying integration code.
+
+The focused Interface proofs are
+`tests/vehicle-presentation.test.mjs`,
+`tests/death-transition-contract.test.mjs`,
+`tests/environment-visibility.test.mjs`,
+`tests/semantic-placement.test.mjs`, and
+`tests/core-throwable.test.mjs`. Scene browser verifiers remain responsible for
+proving that the real composition root mounts and exercises each Module.
 
 ## Blood impact and death pools
 

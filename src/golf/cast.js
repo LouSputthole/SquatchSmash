@@ -572,7 +572,13 @@ export class Golfer {
     this._teePicked = false;
   }
 
-  get position() { return this.group.position; }
+  get position() {
+    /* A golfer in a VehicleOccupants anchor has a seat-local group.position.
+     * Callers (speech panners, range checks and mission staging) ask for the
+     * golfer, so always give them his world position. */
+    this._worldPosition ??= new THREE.Vector3();
+    return this.group.getWorldPosition(this._worldPosition);
+  }
 
   /** Put a different club in his hands. */
   setClub(kind) {
@@ -607,7 +613,15 @@ export class Golfer {
   say(secs = 2, take = null) { this.npc.say(secs, take); }
   hush() { this.npc.hush(); }
 
-  faceToward(x, z, snap = false) { this.npc.faceToward(x, z, snap); }
+  faceToward(x, z, snap = false) {
+    if (!this.group.userData.vehicleAnchor || !this.group.parent) {
+      return this.npc.faceToward(x, z, snap);
+    }
+    this._localLook ??= new THREE.Vector3();
+    this._localLook.set(x, this.position.y, z);
+    this.group.parent.worldToLocal(this._localLook);
+    return this.npc.faceToward(this._localLook.x, this._localLook.z, snap);
+  }
 
   /**
    * Walk over there.
@@ -672,7 +686,14 @@ export class Golfer {
   /** Drop him at a spot on the course, standing on the ground. */
   placeAt(x, z, yaw = null) {
     this._walk = null;
-    this.group.position.set(x, heightAt(x, z), z);
+    const ground = heightAt(x, z);
+    this.group.position.set(x, ground, z);
+    /* Vehicle release preserves the complete world transform by design. A
+     * walking golfer still belongs upright on the course, so retire any cart
+     * pitch/roll here while retaining his authored heading. */
+    this.group.rotation.x = 0;
+    this.group.rotation.z = 0;
+    this.npc.baseY = ground;
     if (yaw !== null) {
       this.group.rotation.y = yaw;
       this.npc.homeYaw = yaw;
@@ -783,7 +804,14 @@ export class Golfer {
 
   update(dt, playerPos) {
     // Idle life, gaze and speech stay the Bing's job.
-    this.npc.update(dt, playerPos);
+    let gazeAt = playerPos;
+    if (this.state === GOLF_STATE.CART && playerPos && this.group.parent) {
+      this._localPlayer ??= new THREE.Vector3();
+      this._localPlayer.copy(playerPos);
+      this.group.parent.worldToLocal(this._localPlayer);
+      gazeAt = this._localPlayer;
+    }
+    this.npc.update(dt, gazeAt);
 
     if (this._walk) {
       this._updateWalk(dt);

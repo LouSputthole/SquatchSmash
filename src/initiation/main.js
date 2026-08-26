@@ -1,9 +1,6 @@
 import * as THREE from 'three';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
-import { EffectComposer } from '../../lib/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
+import { PostFX } from '../core/postfx.js';
 import { lambert } from '../../game/src/world.js';
 import { BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import { AudioEngine } from '../core/audio.js';
@@ -38,7 +35,9 @@ import {
   makeInitiationCeremonyFigure,
   poseFallen,
   poseKneeling,
+  poseKneelingPanic,
   poseSeated,
+  poseStandingFallen,
 } from './ceremony-figure.js';
 import {
   INITIATION_BARRAGE_SHOTS,
@@ -91,9 +90,16 @@ import { INITIATION_SHOTS } from './framing.js';
 import { CardBurn } from './cabin/card-burn.js';
 import { resolveGear } from '../world/gear.js';
 import { playFootstep } from './cabin/ambience.js';
+import {
+  INITIATION_TRAIL_BEATS,
+  INITIATION_TRAIL_FORMATION,
+  formationTarget,
+  trailNarrativeStatus,
+} from './trail-formation.js';
 import { SPEECH_MIX, speak } from '../core/dialogue.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
-import { shakeScale, bindAudioVolume, translateKey } from '../core/settings.js';
+import { shakeScale, bindAudioVolume } from '../core/settings.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
@@ -234,36 +240,33 @@ const CABIN_WALL_SLOTS = {
 
 // ---------- Renderer / scene / bloom ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+attachPixelRatio(renderer);
 renderer.setSize(window.innerWidth, window.innerHeight);
-attachPixelRatio(renderer, {
-  onChange: () => {
-    composer.setPixelRatio(renderer.getPixelRatio());
-    composer.setSize(window.innerWidth, window.innerHeight);
-  },
-});
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 0.98;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(BASE_FOV, window.innerWidth / window.innerHeight, 0.1, 600);
 
-const composer = new EffectComposer(renderer);
-composer.setPixelRatio(renderer.getPixelRatio());
-composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight), 0.72, 0.55, 1.05
-);
-composer.addPass(bloom);
-composer.addPass(new OutputPass());
+/* One canonical post chain, tuned down for readable faces in the cabin. The
+ * shared helper owns output colour, adaptive performance fallback and resize
+ * behaviour; this scene supplies only art-direction policy. */
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+if (postfx.bloom) {
+  postfx.bloom.threshold = 1.18;
+  postfx.bloom.strength = 0.30;
+  postfx.bloom.radius = 0.28;
+}
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
 });
 
 // ---------- Night sky, fog, lights ----------
@@ -518,12 +521,11 @@ function makeNameplate(name, color) {
 const playerController = new InitiationPlayerAdapter(camera, {
   circles: colliders,
   bounds: BOUNDS,
-  canvas: renderer.domElement,
-  documentRef: document,
   onFootstep: onStep,
 });
 playerController.teleport(SPAWN, { heading: 0 });
 const player = playerController.player;
+let input = null;
 
 // Tony's ceremony body is presentation only. The shared Player owns movement,
 // collision and camera; this rig appears only when an authored cabin shot
@@ -532,6 +534,40 @@ let playerFigure = makeInitiationCeremonyFigure('TONY');
 playerController.syncFigure(playerFigure);
 playerFigure.group.visible = false;
 scene.add(playerFigure.group);
+
+const FIRST_PERSON_RITUAL_PHASES = new Set([
+  'blade', 'hand', 'cut', 'card', 'oath_1', 'oath_2', 'burn', 'made',
+]);
+
+/**
+ * The player never leaves first person, but the hand ritual still needs hands.
+ * Keep the articulated shared body as the socket owner, hide every third-
+ * person surface, and reveal only its arm hierarchies while the ritual uses
+ * them. Props parented to a hand after this mask remain visible naturally.
+ */
+function prepareFirstPersonRitualFigure(figure) {
+  if (!figure?.group || figure.group.userData.firstPersonRitualPrepared) return;
+  figure.group.traverse((node) => {
+    if (node.isMesh) node.visible = false;
+  });
+  for (const arm of [figure.armL, figure.armR]) {
+    arm?.traverse((node) => {
+      if (node.isMesh) node.visible = true;
+    });
+  }
+  figure.group.userData.firstPersonRitualPrepared = true;
+}
+
+function poseFirstPersonRitualHands(figure) {
+  if (!figure) return;
+  figure.resetArticulation?.();
+  figure.armL?.rotation.set(-0.98, 0.04, -0.28);
+  figure.foreL?.rotation.set(-1.08, 0, -0.04);
+  figure.armR?.rotation.set(-0.72, -0.04, 0.34);
+  figure.foreR?.rotation.set(-0.92, 0, 0.04);
+}
+
+prepareFirstPersonRitualFigure(playerFigure);
 
 /* Four of them, plus the player if he gets it wrong. */
 const deathPools = new DeathBloodPool(scene, { capacity: 6 });
@@ -558,9 +594,8 @@ for (const spec of CIRCLE) {
   sq.group.rotation.y = sq.heading;
   sq.walkT = Math.random() * 10;
   sq.breatheT = Math.random() * 10;
-  const plate = makeNameplate(spec.name, spec.founder ? '#ff8a8a' : '#cfd4e0');
-  plate.position.y = sq.model.height + 0.35;
-  sq.group.add(plate);
+  /* Established members are recognised by their canonical faces and clothes.
+   * Floating names turned the execution ground into a debug roster. */
   scene.add(sq.group);
   const entry = {
     key: spec.key, name: spec.name, sq,
@@ -569,6 +604,9 @@ for (const spec of CIRCLE) {
     stepTo: null,
     /** Fraction of the trail he keeps ahead of (or behind) the player. */
     trailOffset: 0,
+    /** Metres across the trail and this member's slight pace variation. */
+    trailLateral: 0,
+    trailSpeed: 3.2,
     poseT: 0,
   };
   members.push(entry);
@@ -585,9 +623,16 @@ const lou = memberByKey.get('LOU').sq;
    * pivot with a hand-tuned -0.9 offset, which is the same fault that put beer
    * cans on golfers' forearms. */
   const staff = new THREE.Group();
-  staff.add(mesh(new THREE.CylinderGeometry(0.05, 0.07, 2.3, 6), lambert(0x33200e), 0, -0.05, 0));
-  staff.add(mesh(new THREE.DodecahedronGeometry(0.16, 0), lambert(0xcfd4e0), 0, 1.17, 0));
-  attachToHand(memberByKey.get('BOOSKIBRO').sq, 'R', staff, { offset: { y: -0.18 } });
+  staff.name = 'booskibro.founder.staff';
+  staff.userData.intendedProp = 'founder-staff';
+  const darkWood = lambert(0x24140b);
+  const silver = lambert(0x6f7480);
+  const amethyst = lambert(0x5d1c91);
+  staff.add(mesh(new THREE.CylinderGeometry(0.035, 0.05, 1.72, 8), darkWood, 0, -0.16, 0));
+  staff.add(mesh(new THREE.CylinderGeometry(0.07, 0.055, 0.16, 8), silver, 0, 0.74, 0));
+  staff.add(mesh(new THREE.OctahedronGeometry(0.115, 0), amethyst, 0, 0.91, 0));
+  staff.add(mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.11, 8), silver, 0, -1.07, 0));
+  attachToHand(memberByKey.get('BOOSKIBRO').sq, 'R', staff, { offset: { y: -0.03 } });
 }
 
 /**
@@ -602,15 +647,17 @@ const prospects = [];
 const prospectByName = new Map();
 for (const slot of LINE_UP) {
   if (slot.player) continue;
-  const sq = makeInitiationCeremonyFigure(slot.name);
+  const sq = makeInitiationCeremonyFigure(slot.name, { face: slot.face ?? null });
   sq.group.position.set(slot.x, 0, LINE_Z);
   sq.heading = headingToward({ x: slot.x, z: LINE_Z }, { x: boosk.position.x, z: boosk.position.z });
   sq.group.rotation.y = sq.heading;
   sq.walkT = Math.random() * 10;
   sq.breatheT = Math.random() * 10;
   const plate = makeNameplate(slot.name, slot.name === 'KITTENBOSS' ? '#e5b7d8' : '#8a92ab');
-  plate.scale.set(2.2, 0.42, 1);
-  plate.position.y = sq.model.height + 0.35;
+  plate.name = `prospect.nameplate.${slot.name.toLowerCase().replaceAll(' ', '-')}`;
+  plate.scale.set(1.18, 0.22, 1);
+  plate.position.y = sq.model.height + 0.18;
+  plate.material.opacity = 0.68;
   sq.group.add(plate);
   scene.add(sq.group);
   const entry = {
@@ -621,6 +668,7 @@ for (const slot of LINE_UP) {
     /** >= 0 while going down. Kneeling bodies fold forward; the first one topples. */
     fallT: -1,
     fallMark: null,
+    standingFall: false,
     kneelMark: null,
     jerkT: 0,
   };
@@ -895,7 +943,10 @@ function showCurrentLine() {
     setObjective(`VOICE AUDIO NOT READY: ${line.cue}`);
     return;
   }
-  sayAutoT = Math.max(2.6 + line.text.length * 0.028, voiced > 0 ? voiced + 0.35 : 0);
+  const recordedTiming = currentPhase().dialogueTiming === 'recorded' && voiced > 0;
+  sayAutoT = recordedTiming
+    ? voiced + 0.35
+    : Math.max(2.6 + line.text.length * 0.028, voiced > 0 ? voiced + 0.35 : 0);
   if (line.gesture === 'slam') {
     /* `gesture` is `dialogue.js`'s and only Booskibro and Lou carry one. It
      * used to play BOOSKIBRO's animation for any speaker who was not Lou,
@@ -1004,7 +1055,7 @@ let openChoice = null;
 /** Seconds the current choice has been on screen. Its own clock, not the phase's. */
 let choiceT = 0;
 
-function showChoice({ prompt, options, hint, onPick }) {
+function showChoice({ prompt, options, hint, onPick, releasePointerLock = true }) {
   openChoice = { options, onPick };
   choiceT = 0;
   quizQEl.textContent = prompt;
@@ -1021,7 +1072,7 @@ function showChoice({ prompt, options, hint, onPick }) {
     btn.dataset.correct = option.correct ? '1' : '0';
   });
   quizEl.classList.add('show');
-  playerController.releasePointerLock();
+  if (releasePointerLock) input?.releasePointerLock();
 }
 
 function hideChoice() {
@@ -1033,6 +1084,18 @@ function hideChoice() {
   }
 }
 
+/**
+ * Any full-screen card containing buttons owns the pointer.
+ *
+ * Keeping pointer lock while presenting completion made the buttons look live
+ * but converted every mouse movement into camera delta, so the pointer could
+ * never reach them. The same rule protects both failure cards as well.
+ */
+function showBlockingOverlay(element) {
+  input?.suspend();
+  element.classList.remove('hidden');
+}
+
 function pickChoice(index) {
   if (!openChoice) return;
   const option = openChoice.options[index];
@@ -1041,7 +1104,7 @@ function pickChoice(index) {
   hideChoice();
   onPick(option);
   if (currentPhase().control !== CONTROL_MODES.CUTSCENE) {
-    playerController.requestPointerLock();
+    input?.requestPointerLock();
   }
 }
 
@@ -1077,6 +1140,7 @@ let currentStep = null;
 /** Beats already fired on the trail. */
 const firedTrailBeats = new Set();
 let trailChoiceUsed = false;
+let trailChoiceResolved = false;
 /** The player's one-button input for the ritual beats. */
 let ritualPressed = false;
 
@@ -1102,10 +1166,20 @@ function applyPhaseControl(spec = currentPhase()) {
     ? ADAPTER_PLAYER_POSES.KNEELING
     : ADAPTER_PLAYER_POSES.STANDING;
   playerController.setControl(spec.control, { pose });
+  playerController.setMovementPolicy({
+    moveScale: spec.moveScale,
+    allowSprint: spec.allowSprint,
+  });
 
   const authoredCamera = spec.control === CONTROL_MODES.CUTSCENE;
   if (authoredCamera) playerController.syncFigure(playerFigure);
-  playerFigure.group.visible = authoredCamera;
+  const showFirstPersonHands = FIRST_PERSON_RITUAL_PHASES.has(spec.id);
+  if (showFirstPersonHands && !playerFigure.group.visible) {
+    prepareFirstPersonRitualFigure(playerFigure);
+    poseFirstPersonRitualHands(playerFigure);
+  }
+  playerFigure.group.visible = showFirstPersonHands;
+  input?.refresh('phase-control');
 }
 
 function setPhase(next) {
@@ -1139,54 +1213,62 @@ function actionRelease() {
   holdHeld = false;
 }
 let holdHeld = false;
-
-window.addEventListener('keydown', (e) => {
-  if (paused) return;
-  const code = translateKey(e.code);
-  const movement = playerController.setKey(code, true);
-  if (movement) e.preventDefault();
-
-  if (code === 'Space' && !canMove()) {
-    e.preventDefault();
-    if (!e.repeat) actionPress();
-    holdHeld = true;
-  }
-  if (e.code === 'KeyM') toggleMute();
-  if (openChoice && /^Digit[123]$/.test(e.code)) {
-    pickChoice(Number(e.code.slice(-1)) - 1);
-  }
-});
-window.addEventListener('keyup', (e) => {
-  playerController.setKey(translateKey(e.code), false);
-  if (e.code === 'Space') actionRelease();
-});
-window.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement === renderer.domElement) {
-    playerController.handleMouseMove(e.movementX, e.movementY);
-  }
-});
-document.addEventListener('pointerlockchange', () => {
-  playerController.setInputActive(document.pointerLockElement === renderer.domElement);
-});
-window.addEventListener('mousedown', (e) => {
-  if (paused || e.target.closest('button, a, .touch-btn') || e.button !== 0) return;
-  const locked = document.pointerLockElement === renderer.domElement;
-  if (!locked) {
-    playerController.requestPointerLock();
-    return;
-  }
-  if (!canMove()) {
-    actionPress();
-    holdHeld = true;
-  }
-});
-window.addEventListener('mouseup', () => actionRelease());
-window.addEventListener('blur', () => {
-  playerController.clearInput();
-  holdHeld = false;
-});
-
 let paused = false;
+input = createFirstPersonInput({
+  player: playerController,
+  canvas: renderer.domElement,
+  playerKeyCodes: ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'],
+  canEnable: () => !paused,
+  canHandleInput: () => !paused,
+  controlState: () => {
+    const authoredCamera = currentPhase().control === CONTROL_MODES.CUTSCENE;
+    return {
+      playerEnabled: !authoredCamera && !openChoice,
+      movementEnabled: canMove() && !openChoice,
+      defaultLookEnabled: !authoredCamera && !openChoice,
+      interactionEnabled: false,
+    };
+  },
+  routes: {
+    keyDown(event, controls) {
+      if (controls.code === 'Space' && !canMove()) {
+        event.preventDefault();
+        if (!event.repeat) actionPress();
+        holdHeld = true;
+        return true;
+      }
+      if (event.code === 'KeyM' && !event.repeat) {
+        toggleMute();
+        return true;
+      }
+      if (openChoice && /^Digit[123]$/.test(event.code)) {
+        pickChoice(Number(event.code.slice(-1)) - 1);
+        return true;
+      }
+      return false;
+    },
+    keyUp(event) {
+      if (event.code === 'Space') actionRelease();
+      return false;
+    },
+    mouseDown(event, controls) {
+      if (event.button !== 0) return true;
+      if (!controls.locked) return false;
+      if (!canMove()) {
+        actionPress();
+        holdHeld = true;
+      }
+      return true;
+    },
+    mouseUp(event) {
+      if (event.button !== 0) return false;
+      actionRelease();
+      return true;
+    },
+  },
+  onClear: () => { holdHeld = false; },
+});
+
 createPauseMenu({
   title: 'The Initiation',
   canPause: () => phase !== 'complete' && phase !== 'failed' && phase !== 'failed_oath',
@@ -1199,7 +1281,7 @@ createPauseMenu({
   ],
   onPause: () => {
     paused = true;
-    playerController.setPaused(true);
+    input.suspend();
     holdHeld = false;
     sfx.suspend();
     audio.ctx?.suspend?.();
@@ -1207,10 +1289,9 @@ createPauseMenu({
   onResume: () => {
     paused = false;
     sfx.resume();
-    playerController.setPaused(false);
-    if (currentPhase().control !== CONTROL_MODES.CUTSCENE && !openChoice) {
-      playerController.requestPointerLock();
-    }
+    input.resume({
+      requestPointerLock: currentPhase().control !== CONTROL_MODES.CUTSCENE && !openChoice,
+    });
     audio.ctx?.resume?.();
   },
   /* RESTART CHECKPOINT AND RESTART SCENE, like every other campaign scene.
@@ -1260,7 +1341,7 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     touch.x = 0;
     touch.y = 0;
     zone.setPointerCapture(e.pointerId);
-    playerController.setInputActive(true);
+    playerController.setTouchActive(true);
     playerController.setTouchVector(0, 0);
   });
   zone.addEventListener('pointermove', (e) => {
@@ -1295,13 +1376,13 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
   smashBtn.textContent = '▸';
   smashBtn.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    playerController.setInputActive(true);
-    if (canMove()) playerController.setKey('Space', true);
+    playerController.setTouchActive(true);
+    if (canMove()) playerController.setTouchButton('Space', true);
     else { actionPress(); holdHeld = true; }
   });
   smashBtn.addEventListener('pointerup', (e) => {
     e.preventDefault();
-    playerController.setKey('Space', false);
+    playerController.setTouchButton('Space', false);
     actionRelease();
   });
 }
@@ -1411,8 +1492,8 @@ function answerQuiz(selected) {
               'Wrong founders.<br>The Circle now knows two things about you: your name, and where you’re buried.';
           },
           onFinished: () => {
-            failEl.classList.remove('hidden');
             setPhase('failed');
+            showBlockingOverlay(failEl);
           },
         });
       });
@@ -1605,12 +1686,18 @@ function executeStanding(onFinished) {
     getPos: () => p.sq.position,
     y: 1.5,
     shooter: STANDING_EXECUTION.shooter,
+    stance: STANDING_EXECUTION.stance,
     rounds: STANDING_EXECUTION.rounds,
     onHit: () => { p.jerkT = 0.16; },
     onDead: () => {
       p.dead = true;
       p.fallT = 0;
-      p.fallMark = null; // he topples BACKWARD, about his feet
+      p.fallMark = {
+        x: p.sq.position.x,
+        z: p.sq.position.z,
+        heading: p.sq.heading,
+      };
+      p.standingFall = true;
       bleedOut(p.sq.position, 0);
     },
     onFinished: () => {
@@ -1644,6 +1731,7 @@ function executeKneeling(step, onFinished) {
       p.dead = true;
       p.fallT = 0;
       p.fallMark = mark;
+      p.standingFall = false;
       bleedOut({ x: mark.fall.x, y: 0, z: mark.fall.z }, runCursor + 1);
     },
     onFinished,
@@ -1925,6 +2013,7 @@ function advanceRun() {
 function kneelOnMark(p, mark) {
   p.stepTo = null;
   p.kneelMark = mark;
+  p.standingFall = false;
   poseKneeling(p.sq, mark);
 }
 
@@ -1950,6 +2039,9 @@ function runExecutionStep(step) {
   const prospect = prospectByName.get(step.victim);
   const mark = markForStep(step);
   if (prospect && mark && prospect.kneelMark !== mark) kneelOnMark(prospect, mark);
+  if (prospect && mark && step.victim === 'KITTENBOSS') {
+    poseKneelingPanic(prospect.sq, mark);
+  }
   sayBeat(step.beat, () => executeKneeling(step, advanceRun));
 }
 
@@ -2010,30 +2102,18 @@ function releaseTony(entry) {
 /* ------------------------------------------------------------------
  * ACT THREE — the walk
  * ------------------------------------------------------------------ */
-const TRAIL_ORDER = [
-  ['BOOSKIBRO', 0.16], ['LOU', 0.13], ['RIPPINFLOW', 0.10], ['HOGMAMA', 0.08],
-  ['IRISH', 0.07], ['SASOLE', 0.05], ['ERIC', 0.04], ['SNOW', 0.03],
-  ['APE', -0.03], ['NUMBSKULL', -0.04], ['SHUBENATOR', -0.05], ['LAG', -0.07],
-  ['DEATHMEGATRON', -0.08], ['SEFF', -0.10], ['GRATIN', -0.12],
-];
-
 function startTheWalk() {
-  for (const [key, offset] of TRAIL_ORDER) {
+  for (const { key, along, lateral, speed } of INITIATION_TRAIL_FORMATION) {
     const member = memberByKey.get(key);
-    if (member) member.trailOffset = offset;
+    if (!member) continue;
+    member.trailOffset = along;
+    member.trailLateral = lateral;
+    member.trailSpeed = speed;
   }
 }
 
-/** Beats fire at fractions of the trail, in order. */
-const TRAIL_BEATS = [
-  { id: 'IN-210', at: 0.16 },
-  { id: 'IN-220', at: 0.34 },
-  { id: 'IN-230', at: 0.50 },
-  { id: 'IN-240', at: 0.64 },
-];
-
 function updateTrailBeats() {
-  for (const entry of TRAIL_BEATS) {
+  for (const entry of INITIATION_TRAIL_BEATS) {
     if (trailK < entry.at || firedTrailBeats.has(entry.id)) continue;
     /* A beat is marked fired when it is SAID, never when it is passed. A
      * sprinting player used to run through three markers while one line was
@@ -2049,14 +2129,31 @@ function updateTrailBeats() {
     const beat = beatById('IN-245');
     showChoice({
       prompt: beat.choice.prompt,
-      hint: '',
+      hint: '1 · 2 · 3',
       options: beat.choice.options,
+      /* This is the one choice made while walking. Keeping the real first-
+       * person lock means its nine-second silent fallback cannot strand the
+       * player with disabled WASD and no prompt to click the canvas again. */
+      releasePointerLock: false,
       onPick: (option) => {
         setPhase('trail_reply');
-        sayBeat(option.to, () => setPhase('trail'));
+        sayBeat(option.to, () => {
+          trailChoiceResolved = true;
+          setPhase('trail');
+        });
       },
     });
   }
+}
+
+function currentTrailNarrativeStatus() {
+  return trailNarrativeStatus({
+    firedBeatIds: firedTrailBeats,
+    choiceUsed: trailChoiceUsed,
+    choiceResolved: trailChoiceResolved,
+    dialogActive: dialogActive(),
+    choiceOpen: Boolean(openChoice),
+  });
 }
 
 /**
@@ -2079,6 +2176,7 @@ function fillTheRoom(except = null) {
     if (member.key === except) continue;
     member.stepTo = null;
     member.trailOffset = 0;
+    member.trailLateral = 0;
     const slotId = CABIN_BLOCKING[member.key];
     const slot = slotId ? blockingSlot(slotId) : CABIN_WALL_SLOTS[member.key];
     if (!slot) continue;
@@ -2109,11 +2207,10 @@ function runCeremonyBeat() {
   }
   const id = CEREMONY_BEATS_IN_ORDER[ceremonyIndex++];
   if (id === 'IN-310') {
-    sayBeat(id, () => {
-      /* He walks the length of the table and the room closes up behind him. */
-      playerFigure.stepTo = { x: CEREMONY_CENTRE.x, z: CEREMONY_CENTRE.z };
-      runCeremonyBeat();
-    });
+    /* Lou asks; then the player, who is Tony, walks there himself. Keeping
+     * the continuation out of this callback is deliberate: dialogue cannot
+     * drag a separate presentation body away from the first-person camera. */
+    sayBeat(id, () => setPhase('ceremony_approach'));
     return;
   }
   const beat = beatById(id);
@@ -2190,8 +2287,8 @@ function fireTheOathShot(reason = 'WRONG ANSWER') {
   shake = Math.max(shake, 0.5);
   failTitleEl.textContent = 'MISSION FAILED';
   failReasonEl.innerHTML = reason;
-  failEl.classList.remove('hidden');
   setPhase('failed_oath');
+  showBlockingOverlay(failEl);
 }
 
 /* ------------------------------------------------------------------
@@ -2396,6 +2493,7 @@ function tieTheBandana() {
     scene.remove(playerFigure.group);
     scene.add(member.group);
     playerFigure = member;
+    prepareFirstPersonRitualFigure(playerFigure);
   }
   setPhase('room');
   sayOverlapping('IN-500');
@@ -2407,6 +2505,11 @@ function tieTheBandana() {
  * ------------------------------------------------------------------ */
 function retry() {
   failEl.classList.add('hidden');
+  /* The failure card suspends canonical input so the pointer can reach its
+   * button. Retrying is a lifecycle boundary too: numbered choice routes must
+   * be live again even while the cursor remains free over the restored quiz.
+   * Request capture only after the player makes that choice. */
+  input?.resume({ requestPointerLock: false });
   painT = 0;
   hideChoice();
   sayQueue = [];
@@ -2516,6 +2619,7 @@ function updatePhase(dt) {
           prospect.dead = true;
           prospect.fallT = 0;
           prospect.fallMark = markForStep(currentStep);
+          prospect.standingFall = false;
         }
         advanceRun();
       }
@@ -2543,7 +2647,8 @@ function updatePhase(dt) {
       updateTrailBeats();
       /* Only from `trail` itself: arriving out of a reply would cut a line off
        * for the sake of a HUD string. */
-      if (!openChoice && distance2D(player.position, CABIN_DOOR.outside) < 6) {
+      if (currentTrailNarrativeStatus().readyForCabin
+        && distance2D(player.position, CABIN_DOOR.outside) < 6) {
         setPhase('cabin_arrive');
         goInsideAhead();
       }
@@ -2551,7 +2656,10 @@ function updatePhase(dt) {
     if (phase === 'trail_choice' && openChoice && choiceT > spec.timeout) {
       hideChoice();
       setPhase('trail_reply');
-      sayBeat(beatById('IN-245').choice.fallback, () => setPhase('trail'));
+      sayBeat(beatById('IN-245').choice.fallback, () => {
+        trailChoiceResolved = true;
+        setPhase('trail');
+      });
     }
   } else if (phase === 'cabin_arrive') {
     trailK = 1;
@@ -2566,6 +2674,15 @@ function updatePhase(dt) {
       setPhase('ceremony');
       ceremonyIndex = 0;
       ceremonyHold = 2.4;
+    }
+  } else if (phase === 'ceremony_approach') {
+    if (distance2D(player.position, CEREMONY_CENTRE) < 0.72) {
+      /* Finish on the authored floor mark so every hand/table reach remains
+       * deterministic, then lock translation while preserving mouse-look. */
+      playerController.teleport(CEREMONY_CENTRE, { heading: CEREMONY_CENTRE.heading });
+      playerController.syncFigure(playerFigure);
+      setPhase('ceremony');
+      runCeremonyBeat();
     }
   } else if (phase === 'ceremony') {
     if (ceremonyHold > 0) {
@@ -2633,8 +2750,8 @@ function updatePhase(dt) {
   } else if (phase === 'pullback') {
     if (phaseT > spec.timeout) {
       recordInitiationComplete();
-      $('complete').classList.remove('hidden');
       setPhase('complete');
+      showBlockingOverlay($('complete'));
     }
   }
 }
@@ -2705,7 +2822,6 @@ let flameT = 0;
 let footT = 0;
 
 function onStep() {
-  sfx.step();
   playFootstep(audio, player.position.x, player.position.z, { volume: 0.45 });
 }
 
@@ -2752,7 +2868,10 @@ function tick() {
       footT -= dt;
       if (footT <= 0) {
         footT = 0.42;
-        playFootstep(audio, playerFigure.position.x, playerFigure.position.z, { volume: 0.35 });
+        playFootstep(audio, playerFigure.position.x, playerFigure.position.z, {
+          volume: 0.35,
+          cadenceKey: 'scripted-player',
+        });
       }
     } else {
       playerFigure.update(dt, _zero, 0);
@@ -2782,17 +2901,15 @@ function tick() {
   for (const p of prospects) {
     if (p.fallT >= 0) {
       p.fallT += dt;
-      if (p.fallMark) {
+      if (p.standingFall && p.fallMark) {
+        poseStandingFallen(p.sq, p.fallMark, Math.min(1, p.fallT * 2.2));
+      } else if (p.fallMark) {
         /* Shot from behind, on his knees: he goes FORWARD, face down, rotated
          * about the KNEES and about his own left-right axis. `main.js`'s old
          * topple spins the group about its origin on the world X axis, which
          * for a kneeling figure — whose origin is a metre BELOW the mud — sends
          * a man through the ground and out the other side. */
         poseFallen(p.sq, p.fallMark, Math.min(1, p.fallT * 2.6));
-      } else {
-        /* Prospect One, standing and frontal, still topples backward about his
-         * feet. Keeping him different is the point: the first one is temper. */
-        p.sq.group.rotation.x = -Math.min(1.5, p.fallT * 3.2);
       }
       continue;
     }
@@ -2841,8 +2958,8 @@ function tick() {
       /* Strung out along the trail in ones and twos, ahead of him and behind
        * him. The fire gets smaller behind them and nobody looks back at it. */
       const k = THREE.MathUtils.clamp(trailK + m.trailOffset, 0, 1);
-      const at = pointAlongPath(TRAIL, k);
-      walkNpc(m.sq, at.x, at.z, dt, 3.4, 0.5);
+      const at = formationTarget(pointAlongPath(TRAIL, k), m.trailLateral);
+      walkNpc(m.sq, at.x, at.z, dt, m.trailSpeed, 0.48);
       continue;
     }
     if (m.stepTo) {
@@ -2916,7 +3033,8 @@ function tick() {
   deathPools.update(dt);
   spurts.update(dt);
   updateCamera(dt);
-  composer.render();
+  postfx.render();
+  postfx.sample(dt);
 }
 
 /* The staging is checked in a test with real world-space vectors, and it is
@@ -2932,6 +3050,7 @@ tick();
 // Debug/test handle (harmless in production)
 window.INITIATION = {
   get player() { return player; },
+  get input() { return input; },
   members,
   prospects,
   boosk,
@@ -2957,9 +3076,24 @@ window.INITIATION = {
     return quizButtons.findIndex((btn) => btn.dataset.correct === '1');
   },
   get deadProspects() { return prospects.filter((p) => p.dead).map((p) => p.name); },
+  get trail() {
+    return {
+      phase,
+      progress: trailK,
+      moveScale: playerController.moveScale,
+      allowSprint: playerController.allowSprint,
+      dialogueTiming: currentPhase().dialogueTiming,
+      playerSprinting: player.sprinting,
+      heldKeys: [...player.keys],
+      ...currentTrailNarrativeStatus(),
+    };
+  },
   get inductionK() { return inductionK; },
   chooseAnswer: pickChoice,
   get playerFigure() { return playerFigure; },
+  get firstPersonHandsVisible() {
+    return playerFigure.group.visible && FIRST_PERSON_RITUAL_PHASES.has(phase);
+  },
   get control() { return playerController.control; },
   get playerPose() { return playerController.pose; },
   get audioReady() { return audioReady; },
@@ -3007,6 +3141,7 @@ window.INITIATION = {
       p.dead = true;
       p.kneelMark = mark;
       p.fallMark = mark;
+      p.standingFall = false;
       p.fallT = 1.2;
       poseFallen(p.sq, mark, 1);
     }
@@ -3014,6 +3149,9 @@ window.INITIATION = {
     one.stepTo = null;
     one.dead = true;
     one.fallT = 1.2;
+    one.fallMark = { x: one.sq.position.x, z: one.sq.position.z, heading: one.sq.heading };
+    one.standingFall = true;
+    poseStandingFallen(one.sq, one.fallMark, 1);
     holsterPistol();
   },
 
@@ -3057,11 +3195,13 @@ window.INITIATION = {
     sayDone = null;
     dialogEl.classList.remove('show');
     this._layThemOut();
-    playerController.teleport(CABIN_DOOR.inside, { heading: headingToward(CABIN_DOOR.inside, CEREMONY_CENTRE) });
+    playerController.teleport(CEREMONY_CENTRE, { heading: CEREMONY_CENTRE.heading });
     playerController.syncFigure(playerFigure);
     fillTheRoom();
     setPhase('ceremony');
-    ceremonyIndex = 0;
+    /* The debug seam starts after the player-driven approach. Clean-start
+     * gameplay still plays IN-300/IN-310 and waits for real WASD movement. */
+    ceremonyIndex = 2;
     ceremonyHold = 0.4;
   },
   /**
@@ -3077,9 +3217,14 @@ window.INITIATION = {
     const socket = handSocket(playerFigure, TABLE_SOCKETS.card.hand ?? 'L');
     const cardGroup = props.card?.group ?? null;
     const hand = ritualHandWorld(new THREE.Vector3());
+    const handNdc = hand.clone().project(camera);
     return {
       phase,
       camera: currentPhase().camera,
+      control: playerController.control,
+      cameraOwnedByPlayer: player.camera === camera,
+      firstPersonHandsVisible: playerFigure.group.visible
+        && FIRST_PERSON_RITUAL_PHASES.has(phase),
       cardInPlayerHand: Boolean(socket && cardGroup && cardGroup.parent === socket),
       cardVisible: props.card?.card?.visible === true,
       char: cardBurn.char,
@@ -3089,6 +3234,7 @@ window.INITIATION = {
       flame: cardBurn.flame,
       palmCut: Boolean(palmBlood && palmBlood.parent === socket),
       hand: hand.toArray(),
+      handNdc: handNdc.toArray(),
       cameraPos: camera.position.toArray(),
       /**
        * Two different questions, and conflating them wasted a verifier run.

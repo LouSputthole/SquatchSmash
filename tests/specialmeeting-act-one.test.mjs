@@ -501,8 +501,15 @@ test('the graph allows the evening the flat now plays', () => {
     'the front door cannot reach the kerb, so Act One has no way out');
   assert.doesNotThrow(() => campaign.transition(SCENE_IDS.INITIATION, { spawn: 'gathering' }));
 
-  /* And the bridge that was pulled stays pulled: nothing may route round the
-   * scene straight from the Palace to the ceremony. */
+  /* And both bypasses stay pulled: Palace cannot skip the Apartment-owned
+   * first act or the Special Meeting itself. */
+  const direct = createCampaign({ storage: new MemoryStorage() });
+  direct.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
+  assert.throws(
+    () => direct.transition(SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb' }),
+    /Cannot transition from "cartel_palace" to "special_meeting"/,
+  );
+
   const legacy = createCampaign({ storage: new MemoryStorage() });
   legacy.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
   assert.throws(

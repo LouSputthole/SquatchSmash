@@ -71,6 +71,40 @@ body.luxury-apartment #scene {
 #luxury-rest::after { top: calc(50% + 34px); }
 #luxury-rest.active { opacity: 1; }
 
+#luxury-elevator-exit {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(45, 55, 70, .26), transparent 38%),
+    #05070b;
+  color: var(--luxury-gold-bright);
+  font: 700 10px/1.2 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .31em;
+  text-align: center;
+  text-transform: uppercase;
+  transition: opacity .72s ease;
+}
+
+#luxury-elevator-exit::before,
+#luxury-elevator-exit::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: min(380px, 64vw);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 176, 108, .58), transparent);
+  transform: translateX(-50%);
+}
+
+#luxury-elevator-exit::before { top: calc(50% - 38px); }
+#luxury-elevator-exit::after { top: calc(50% + 34px); }
+#luxury-elevator-exit.active { opacity: 1; }
+
 body.luxury-apartment #overlay {
   background:
     linear-gradient(90deg, rgba(5, 7, 11, .96), rgba(6, 9, 15, .62) 56%, rgba(5, 7, 11, .82)),
@@ -297,6 +331,7 @@ body.luxury-apartment .boot-failure {
 }
 @media (prefers-reduced-motion: reduce) {
   #luxury-rest,
+  #luxury-elevator-exit,
   #luxury-game-panel,
   body.luxury-apartment #overlay button {
     transition: none;

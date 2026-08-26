@@ -45,6 +45,7 @@ export const SILVERCASE_EFFECT_CUES = Object.freeze([
   'footstep.tile',
   'footstep.wood.a',
   'footstep.wood.b',
+  'clock.tick',
 ]);
 
 const SILVERCASE_EFFECT_SET = new Set(SILVERCASE_EFFECT_CUES);

@@ -46,6 +46,7 @@ const SCENES = [
   ['Silver Pines', (n) => n.startsWith('vo.golf.')],
   ['The Silver Room', (n) => n.startsWith('vo.silver.')],
   ['The Silver Case', (n) => n.startsWith('vo.silvercase.')],
+  ['The Countryside Cabin', (n) => n.startsWith('vo.cabin.')],
   ['NO WAKE', (n) => n.startsWith('vo.nowake.')],
   ['The Beef Run', (n) => n.startsWith('vo.beefrun.')],
   ['Jerky Motel', (n) => n.startsWith('vo.motel.')],

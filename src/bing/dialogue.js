@@ -18,6 +18,16 @@ const RANGE = 6.5;        // walk further than this and the conversation lapses
  * Nothing is lost either way -- end() bookmarks the node, so walking back
  * picks the thread up where it lapsed. */
 const REPLY_RANGE = 3.6;
+let _speakerWorld = null;
+
+function speakerPosition(speaker) {
+  const group = speaker?.group;
+  if (group?.getWorldPosition) {
+    _speakerWorld ??= group.position.clone();
+    return group.getWorldPosition(_speakerWorld);
+  }
+  return group?.position ?? speaker?.position ?? null;
+}
 
 export class Dialogue {
   /**
@@ -314,9 +324,10 @@ export class Dialogue {
 
     // Walk away and it stops being a conversation
     if (!this.lockMovement && this.speaker && playerPos) {
+      const speakerAt = speakerPosition(this.speaker);
       const d = Math.hypot(
-        playerPos.x - this.speaker.group.position.x,
-        playerPos.z - this.speaker.group.position.z,
+        playerPos.x - (speakerAt?.x ?? 0),
+        playerPos.z - (speakerAt?.z ?? 0),
       );
       if (d > RANGE) {
         this.end('walked-away');

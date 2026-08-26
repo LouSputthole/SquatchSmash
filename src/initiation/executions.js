@@ -25,7 +25,9 @@
  * than by eye. `verifyExecutionStaging()` is what the test runs and it is what
  * a debug build can run at boot.
  */
-import { KNEEL_MARKS, PLAYER_EYE, STAND_MARK, facingOf } from './cabin/site.js';
+import {
+  KNEEL_MARKS, PLAYER_EYE, STAND_MARK, STANDING_SHOOTER_MARK, facingOf,
+} from './cabin/site.js';
 
 /**
  * Where Kittenboss stands.
@@ -49,7 +51,8 @@ export const LINE_UP = Object.freeze([
   Object.freeze({ id: 'prospect-five', name: 'PROSPECT FIVE', x: 4.4, speaks: true }),
   /** KITTENBOSS, on the end. See KITTENBOSS_SLOT above. */
   Object.freeze({
-    id: 'kittenboss', name: 'KITTENBOSS', x: KITTENBOSS_SLOT.x, speaks: true, she: true,
+    id: 'kittenboss', name: 'KITTENBOSS', x: KITTENBOSS_SLOT.x,
+    face: 'assets/faces/kittenboss.png', speaks: true, she: true,
   }),
 ]);
 
@@ -60,15 +63,16 @@ export const SURVIVORS = Object.freeze(['PROSPECT TWO']);
  * Prospect One.
  *
  * Standing, frontal, eight rounds, at the mark he steps forward onto — the
- * staging that ships today, unchanged. Seff is pinned rather than picked,
- * because "whichever member is nearest" is emergent behaviour and this is the
- * man who walks around the front of the line in the script.
+ * staging that ships today, unchanged. Booskibro is pinned rather than picked,
+ * because "whichever member is nearest" is emergent behaviour and the owner
+ * explicitly cast him for this first execution.
  */
 export const STANDING_EXECUTION = Object.freeze({
   beat: 'IN-060',
   victim: 'PROSPECT ONE',
   mark: STAND_MARK,
-  shooter: 'SEFF',
+  stance: STANDING_SHOOTER_MARK,
+  shooter: 'BOOSKIBRO',
   weapon: 'revolver',
   kneeling: false,
   rounds: 8,

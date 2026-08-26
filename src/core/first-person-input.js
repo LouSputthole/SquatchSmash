@@ -475,9 +475,29 @@ export class FirstPersonInputAdapter {
     }
   }
 
+  /**
+   * Give an authored UI its cursor without handing browser lifecycle back to
+   * the scene root. Unlike suspend(), routes remain active so a numbered
+   * dialogue choice can still be made from the keyboard while capture is
+   * released.
+   */
+  releasePointerLock() {
+    if (this.destroyed) return false;
+    this._captureAttempt += 1;
+    this._cancelFallbackTimer();
+    this.dragFallback = false;
+    this.dragging = false;
+    const released = this.locked;
+    if (released) this.document.exitPointerLock?.();
+    this.clear('release-pointer-lock');
+    this.refresh('release-pointer-lock');
+    return released;
+  }
+
   suspend({ exitPointerLock = true } = {}) {
     if (this.destroyed) return false;
     this.suspended = true;
+    this.player.setInputSuspended?.(true);
     this._captureAttempt += 1;
     this._cancelFallbackTimer();
     this.dragFallback = false;
@@ -491,6 +511,7 @@ export class FirstPersonInputAdapter {
   resume({ requestPointerLock = true } = {}) {
     if (this.destroyed) return false;
     this.suspended = false;
+    this.player.setInputSuspended?.(false);
     this.refresh('resume');
     if (requestPointerLock && !this.locked) this.requestPointerLock();
     return true;
@@ -516,6 +537,7 @@ export class FirstPersonInputAdapter {
     if (this.destroyed) return false;
     this.destroyed = true;
     this.suspended = true;
+    this.player.setInputSuspended?.(true);
     this._captureAttempt += 1;
     this._cancelFallbackTimer();
     this.dragFallback = false;

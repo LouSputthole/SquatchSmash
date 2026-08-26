@@ -117,6 +117,10 @@ test('Silver Case dresses the canonical Ape in a Pulp Fiction black suit, white 
   assert.equal(colour('suit.collar.point'), 0xf2efe7);
   assert.equal(colour('suit.tie'), 0x09090c);
   assert.equal(colour('suit.tie.knot'), 0x09090c);
+  assert.equal(colour('ribcage'), 0x111116,
+    'the white dress shirt leaks through the jacket under a raised arm');
+  assert.equal(colour('deltoid'), 0x111116);
+  assert.equal(colour('upperarm'), 0x111116);
 });
 
 test('Silver Case gives canonical Tony the matching suit contract and a visible white cuff', async () => {
@@ -178,4 +182,146 @@ test('a Silver Case actor can enter the death pose with the current shared torso
   assert.equal(actor.alive, false);
   assert.deepEqual(actor.parts.torsoWrap.scale.toArray(), [1, 1, 1]);
   assert.deepEqual(actor.parts.mouth.scale.toArray(), actor.parts.mouth.userData.base.toArray());
+});
+
+test('a seated death keeps torso, pelvis and legs in one connected hierarchy throughout collapse', () => {
+  const root = new THREE.Group();
+  const { actor } = makeActor({
+    parent: root,
+    name: 'Connected seated death',
+    job: 'sit',
+    collapse: { ...COLLAPSE.seated, bodyRoll: 0.46, bodyPitch: 0.34 },
+    model: { height: 1.81, build: 1.14, gut: 0.4 },
+  });
+  const parts = [
+    actor.parts.torsoWrap,
+    actor.parts.waist,
+    actor.parts.hips,
+    actor.parts.legL,
+    actor.parts.legR,
+  ];
+  const connectedToActor = (part) => {
+    for (let node = part; node; node = node.parent) if (node === actor.group) return true;
+    return false;
+  };
+  root.updateMatrixWorld(true);
+  const hipBefore = actor.parts.hips.getWorldPosition(new THREE.Vector3());
+
+  actor.kill();
+  for (const dt of [0, 0.15, 0.2, 0.4, 1]) {
+    actor.update(dt);
+    root.updateMatrixWorld(true);
+    assert.ok(parts.every(connectedToActor), 'death detached a body segment from the actor root');
+    assert.deepEqual(actor.parts.body.rotation.toArray(), [0, 0, 0, 'XYZ'],
+      'the upper-body branch rotated away from sibling legs');
+    const whole = new THREE.Box3().setFromObject(actor.group);
+    assert.ok(Number.isFinite(whole.min.x) && Number.isFinite(whole.max.y), 'collapse produced invalid geometry');
+    assert.ok(whole.getSize(new THREE.Vector3()).y > 0.9, 'the seated body collapsed into disconnected fragments');
+    assert.ok(whole.min.y >= -1e-6, 'the connected seated body penetrated the floor');
+  }
+  const hipAfter = actor.parts.hips.getWorldPosition(new THREE.Vector3());
+  assert.ok(hipAfter.distanceTo(hipBefore) <= COLLAPSE.seated.sink + 1e-4,
+    'the connected body pulled its pelvis out of the chair while collapsing');
+});
+
+test('a settled seated corpse ignores attached wound geometry and never creeps later', () => {
+  const root = new THREE.Group();
+  const { actor } = makeActor({
+    parent: root,
+    name: 'Stable marked corpse',
+    job: 'sit',
+    collapse: COLLAPSE.seated,
+    model: { height: 1.81, build: 1.14 },
+  });
+  const mark = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.01));
+  mark.name = 'silvercase.mark';
+  mark.position.set(0, -1.2, 0);
+  actor.group.add(mark);
+
+  actor.kill();
+  actor.update(0.8);
+  root.updateMatrixWorld(true);
+  const settled = actor.group.position.clone();
+  assert.ok(settled.y < 0.5, 'attached wound geometry lifted the body off its seat');
+
+  mark.position.y = -2.4;
+  mark.scale.setScalar(2);
+  actor.update(30);
+  root.updateMatrixWorld(true);
+  assert.deepEqual(actor.group.position.toArray(), settled.toArray(),
+    'a changing wound decal moved an already-settled corpse');
+});
+
+test('a living seated actor physically flinches and redirects attention after an unexpected shot', () => {
+  const root = new THREE.Group();
+  const { actor } = makeActor({
+    parent: root,
+    name: 'Chester reaction',
+    job: 'sit',
+    model: { height: 1.81, build: 1.14 },
+  });
+  const shooter = actor.group.position.clone().add(new THREE.Vector3(2, 0, 1));
+  const body = actor.group.position.clone().add(new THREE.Vector3(-2, 0, 1));
+  const origin = actor.group.position.clone();
+  const away = origin.clone().sub(shooter).setY(0).normalize();
+  assert.equal(actor.startle({ shooter, body, duration: 1.8 }), true);
+
+  actor.update(0.2, shooter);
+  const earlyStep = actor.group.position.clone().sub(origin);
+  assert.ok(earlyStep.dot(away) > 0.02, 'the connected figure did not step away from the shot');
+  for (const part of [actor.parts.torsoWrap, actor.parts.hips, actor.parts.legL, actor.parts.legR]) {
+    let connected = false;
+    for (let node = part; node; node = node.parent) if (node === actor.group) connected = true;
+    assert.equal(connected, true, `${part.name || part.type} detached during the backward step`);
+  }
+  assert.ok(actor.parts.armL.rotation.x < -0.1, 'there is no visible arm flinch');
+  assert.ok(Math.abs(actor.parts.torsoWrap.rotation.z) > 0.01, 'the torso did not recoil');
+  const shooterLook = actor.parts.head.rotation.y;
+  actor.update(0.8, shooter);
+  const bodyLook = actor.parts.head.rotation.y;
+  assert.ok(shooterLook * bodyLook <= 0, 'Chester never redirects from the shooter to the body');
+  actor.update(1, shooter);
+  assert.equal(actor.reaction, null);
+  const landedStep = actor.group.position.clone().sub(origin);
+  assert.ok(Math.abs(landedStep.length() - 0.18) < 1e-4,
+    'the backward step did not land at its authored distance');
+  assert.ok(landedStep.dot(away) > 0.179, 'the final step moved toward the shooter');
+  assert.deepEqual(actor.parts.torsoWrap.rotation.toArray(), [0, 0, 0, 'XYZ']);
+});
+
+test('Winston tension keeps a live connected pose and recorded ambient pulse receipts for 25 seconds', () => {
+  const root = new THREE.Group();
+  const { actor } = makeActor({
+    parent: root,
+    name: 'Winston tension',
+    job: 'stand',
+    model: { height: 1.71, build: 0.94 },
+  });
+  let now = 10;
+  let played = 0;
+  assert.equal(actor.startTension({
+    now: () => now,
+    pulseSeconds: 4.5,
+    onPulse: () => { played += 1; return { recorded: true }; },
+  }), true);
+
+  for (let second = 1; second <= 25; second += 1) {
+    now += 1;
+    actor.update(0.016);
+  }
+  const live = actor.tensionSnapshot();
+  assert.equal(live.active, true);
+  assert.equal(live.elapsed, 25);
+  assert.equal(live.updates, 25);
+  assert.ok(live.motion > 5, 'the held tableau stayed on one frozen pose');
+  assert.equal(live.pulses, 5);
+  assert.equal(live.ambientReceipts, 5);
+  assert.equal(played, 5);
+  assert.ok(Math.abs(live.headRoll) > 0.005, 'Winston has no visible tension pose');
+
+  assert.equal(actor.stopTension(), true);
+  actor.update(0.016);
+  assert.equal(actor.tensionSnapshot().active, false);
+  assert.equal(actor.parts.head.rotation.z, 0);
+  assert.equal(actor.parts.torsoWrap.rotation.z, 0);
 });

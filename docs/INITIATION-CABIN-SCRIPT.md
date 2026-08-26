@@ -109,8 +109,9 @@ scene's discipline about this is what makes the last shot mean anything.
 
 **Lip-sync note.** Anyone wearing a face photo can only nod — Booski, Lou,
 Rippinflow, Gratin, Snow, Eric, Irish, Hog Mama, Shubes, DeathMegatron, Sasole.
-**Seff, Numbskull, Lag and Kittenboss have no face photo, so they have real
-mouth geometry and lip-sync properly.** That is lucky and should be used: of the
+**Seff, Numbskull and Lag have no face photo, so they have real mouth geometry
+and lip-sync properly. Kittenboss now wears her dedicated portrait and uses the
+photo-rig nod.** Of the
 two executioners, put the longer instructions on **Seff**, who has a mouth.
 
 ---

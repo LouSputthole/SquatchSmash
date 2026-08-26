@@ -92,6 +92,16 @@ function graveyardInputSeed() {
   return JSON.stringify(campaign.state);
 }
 
+function countrysideCabinInputSeed() {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  /* Campaign#enter is the same direct-entry seam used by development pages.
+   * The Cabin runtime gates Start on this registered scene id and retains the
+   * authored arrival spawn; no preview query or test-only Player pose is
+   * needed to exercise the production input path. */
+  campaign.enter(SCENE_IDS.COUNTRYSIDE_CABIN, { spawn: 'arrival' });
+  return JSON.stringify(campaign.state);
+}
+
 function unobservable(reason) {
   return Object.freeze({ observable: false, reason });
 }
@@ -420,6 +430,98 @@ function observeGraveyardInput() {
   };
 }
 
+function countrysideCabinBootReady() {
+  const runtime = window.COUNTRYSIDE_CABIN;
+  return Boolean(runtime?.input?.snapshot
+    && runtime?.state?.phase === 'active');
+}
+
+function countrysideCabinReady() {
+  const runtime = window.COUNTRYSIDE_CABIN;
+  const input = runtime?.input?.snapshot?.();
+  return Boolean(runtime?.state?.phase === 'active'
+    && input?.enabled
+    && input?.locked
+    && document.pointerLockElement === document.querySelector('#scene'));
+}
+
+function countrysideCabinMoved({ x, z, minimum, code }) {
+  const player = window.COUNTRYSIDE_CABIN?.player;
+  return Boolean(player?.enabled
+    && player.mode === 'walk'
+    && player.keys?.has(code)
+    && Math.hypot(player.position.x - x, player.position.z - z) > minimum);
+}
+
+function observeCountrysideCabinInput() {
+  const runtime = window.COUNTRYSIDE_CABIN;
+  const canvas = document.querySelector('#scene');
+  const player = runtime?.player;
+  const input = runtime?.input?.snapshot?.() ?? null;
+  const panel = document.getElementById('objectives');
+  const objectiveItems = [...(panel?.querySelectorAll('.olist li') ?? [])]
+    .map((item) => item.textContent?.trim() ?? '')
+    .filter(Boolean);
+  const style = panel ? getComputedStyle(panel) : null;
+  const cabinCamera = runtime?.scene?.getObjectByName?.('countryside-cabin.camera') ?? null;
+  const bootFailure = document.getElementById('bootFailure');
+  const bootFailed = Boolean(bootFailure && !bootFailure.hidden);
+  return {
+    surfacePresent: Boolean(player && input && runtime?.state),
+    startupError: bootFailed
+      ? (bootFailure.textContent?.trim() || 'Cabin boot failure')
+      : null,
+    pointerLocked: Boolean(canvas && document.pointerLockElement === canvas),
+    player: player ? {
+      enabled: Boolean(player.enabled),
+      mode: player.mode ?? null,
+      position: {
+        x: player.position.x,
+        y: player.position.y,
+        z: player.position.z,
+      },
+      yaw: player.yaw,
+      pitch: player.pitch,
+      keys: [...(player.keys ?? [])],
+    } : null,
+    camera: player ? {
+      yaw: player.yaw,
+      pitch: player.pitch,
+      owner: player.camera === cabinCamera ? 'core/player' : null,
+      expectedOwner: 'core/player',
+    } : null,
+    input,
+    route: {
+      entrypointId: 'countryside_cabin_canonical',
+      href: 'cabin.html',
+      root: 'src/cabin/main.js',
+      observedExits: ['silver_case'],
+    },
+    objective: {
+      visible: Boolean(panel && !panel.classList.contains('hidden')
+        && style?.display !== 'none' && style?.visibility !== 'hidden'),
+      count: objectiveItems.length,
+      text: objectiveItems,
+      changeObserved: null,
+    },
+    renderEvidence: {
+      canvasWidth: canvas?.width ?? 0,
+      canvasHeight: canvas?.height ?? 0,
+      sceneChildren: runtime?.scene?.children?.length ?? null,
+      renderedFrameCount: null,
+    },
+    subjectCounts: {
+      meaningful_frame: null,
+      player: player ? 1 : 0,
+      objective_item: objectiveItems.length,
+      interactable: runtime?.interaction?.targets?.length ?? null,
+      authored_actor: runtime?.lag ? 1 : 0,
+    },
+    progressionChanged: null,
+    interactionInvoked: null,
+  };
+}
+
 /**
  * An Adapter is deliberately registered per runtime entry variant. A route is
  * not evidence of player behavior: until an entrypoint publishes a stable
@@ -482,11 +584,29 @@ export const SEMANTIC_SMOKE_BROWSER_ADAPTERS = Object.freeze({
   silver_room_canonical: unobservable('Silver Room has no declared semantic-smoke observation surface yet.'),
   silver_pines_canonical: unobservable('Silver Pines has no declared semantic-smoke observation surface yet.'),
   bank_heist_canonical: unobservable('Bank Heist has no declared semantic-smoke observation surface yet.'),
-  /* The cabin landed on its own branch, before this registry existed. It has a
-   * verifier of its own (tools/verify-cabin.mjs) but no `window.*` observation
-   * surface for THIS gate, and declaring one it does not have would be the
-   * exact false certification the registry is here to prevent. */
-  countryside_cabin_canonical: unobservable('Countryside Cabin has no declared semantic-smoke observation surface yet.'),
+  countryside_cabin_canonical: Object.freeze({
+    observable: true,
+    surface: 'window.COUNTRYSIDE_CABIN',
+    reason: 'Countryside Cabin publishes canonical input and Player observations behind a valid campaign entry.',
+    storageSeed: Object.freeze({ key: CAMPAIGN_STORAGE_KEY, value: countrysideCabinInputSeed() }),
+    start: '#start-btn',
+    bootReady: countrysideCabinBootReady,
+    canvas: '#scene',
+    click: Object.freeze({ position: Object.freeze({ x: 320, y: 180 }) }),
+    mouse: Object.freeze({
+      from: Object.freeze({ x: 320, y: 180 }),
+      to: Object.freeze({ x: 390, y: 145 }),
+      steps: 3,
+    }),
+    keyboard: Object.freeze({ key: 'w', code: 'KeyW' }),
+    movementMinimum: 0.25,
+    readyTimeoutMs: 180_000,
+    movementTimeoutMs: 45_000,
+    lookSettleMs: 100,
+    observe: observeCountrysideCabinInput,
+    ready: countrysideCabinReady,
+    moved: countrysideCabinMoved,
+  }),
   silver_case_canonical: unobservable('Silver Case has no declared semantic-smoke observation surface yet.'),
   mansion_siege_canonical: unobservable('Mansion Siege has no declared semantic-smoke observation surface yet.'),
   enola_squatch_canonical: unobservable('Enola Squatch has no declared semantic-smoke observation surface yet.'),

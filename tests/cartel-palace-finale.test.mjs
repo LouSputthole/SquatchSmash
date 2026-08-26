@@ -14,6 +14,10 @@ import * as THREE from 'three';
 
 import { buildPalaceCast } from '../src/cartel-palace/cast.js';
 import {
+  PALACE_NEXT_BEAT_BANK,
+  PALACE_WAVE_INCOMING_CUE,
+} from '../src/cartel-palace/audio-banks.js';
+import {
   FINALE_BEATS,
   FINALE_SPEAKERS,
   PalaceFinaleDirector,
@@ -46,7 +50,10 @@ function harness() {
   const scene = new THREE.Group();
   const cast = buildPalaceCast(scene);
   const hud = stubHud();
-  const log = { engaged: 0, scrambled: 0, returns: [], retreats: 0, waves: 0 };
+  const log = {
+    engaged: 0, scrambled: 0, returns: [], retreats: 0, waves: 0,
+    presentationSteps: [],
+  };
   const finale = new PalaceFinaleDirector({
     cast,
     hud,
@@ -60,6 +67,12 @@ function harness() {
     },
     onMarkRetreat: () => { log.retreats++; cast.markScramblesAway(); },
     onWave: () => { log.waves++; cast.releaseWave(); },
+    onPresentationStep: (event) => log.presentationSteps.push({
+      id: event.id,
+      distance: event.distance,
+      moving: event.moving,
+      position: event.position.clone(),
+    }),
   });
   return {
     scene, cast, hud, finale, log, engagements: () => log.engaged,
@@ -209,15 +222,113 @@ test('the confrontation plays accusation, admission, reaction, then both begging
   assert.equal(finale.report().stage, 'sauce');
 });
 
-test('the player opening fire mid-speech interrupts the script and engages immediately', () => {
+test('essential opening dialogue keeps the trigger locked until Tony hands combat over', () => {
   const { finale, engagements } = harness();
+  assert.equal(finale.canPlayerFire(), true, 'ordinary Palace play begins with its weapon available');
   finale.beginConfrontation({ evidenceFound: Object.values(EVIDENCE_IDS) });
   finale.update(0.1); // Mark's greeting starts.
-  assert.equal(finale.interrupt(), true);
+  assert.equal(finale.canPlayerFire(), false,
+    'the first click can still erase the confrontation instead of being consumed');
+  assert.equal(engagements(), 0, 'asking permission must not advance the room');
+
+  for (let step = 0; step < 2400 && !finale.canPlayerFire(); step++) finale.update(0.1);
+  assert.equal(finale.canPlayerFire(), true, 'Tony never released the trigger on the verdict line');
   assert.equal(engagements(), 1);
   assert.equal(finale.report().phase, 'combat');
-  assert.deepEqual(finale.report().pendingCues, [], 'no queued speech survives the first shot');
-  assert.equal(finale.interrupt(), false, 'a second shot cannot double-engage');
+  assert.ok(finale.report().pendingCues.length > 0,
+    'unlocking the trigger discarded the essential exit/chef handoff dialogue');
+});
+
+test('Mark and the A-Team cross the room thresholds continuously instead of popping', () => {
+  const { cast } = harness();
+
+  const table = cast.mark.root.position.clone();
+  assert.equal(cast.markScramblesAway(), true);
+  assert.equal(cast.mark.root.visible, true, 'retreat hides Mark on its first frame');
+  assert.equal(cast.mark.active, false, 'a retreating boss is still running combat AI');
+  cast.updatePresentation(0.1);
+  const firstRetreatFrame = cast.mark.root.position.clone();
+  assert.ok(firstRetreatFrame.distanceTo(table) > 0.01, 'Mark did not leave the table');
+  assert.equal(cast.mark.root.visible, true, 'Mark vanished before reaching the doorway');
+  for (let frame = 0; frame < 180; frame++) cast.updatePresentation(1 / 60);
+  assert.equal(cast.mark.root.visible, false, 'Mark never cleared the doorway after retreating');
+  assert.equal(cast.mark.presentation, 'away');
+
+  assert.equal(cast.activateMark({ armored: true }), true);
+  const returnStart = cast.mark.root.position.clone();
+  assert.equal(cast.mark.root.visible, true, 'Mark is not visible in the open doorway');
+  assert.equal(cast.mark.active, false, 'Mark begins shooting before he enters the room');
+  cast.updatePresentation(0.1);
+  assert.ok(cast.mark.root.position.distanceTo(returnStart) > 0.01, 'Mark return is a frozen reveal');
+  assert.equal(cast.mark.active, false, 'Mark activated on the threshold rather than after crossing it');
+  for (let frame = 0; frame < 180; frame++) cast.updatePresentation(1 / 60);
+  assert.equal(cast.mark.active, true, 'Mark never becomes live after entering');
+  assert.equal(cast.mark.presentation, 'combat');
+
+  assert.equal(cast.releaseWave(), 4);
+  const starts = new Map(cast.wave.map((entry) => [entry.id, entry.root.position.clone()]));
+  for (const entry of cast.wave) {
+    assert.equal(entry.root.visible, true, `${entry.id} is invisible in the doorway`);
+    assert.equal(entry.active, false, `${entry.id} starts firing before crossing the threshold`);
+  }
+  cast.updatePresentation(0.1);
+  for (const entry of cast.wave) {
+    assert.ok(entry.root.position.distanceTo(starts.get(entry.id)) > 0.01,
+      `${entry.id} popped in without an ingress frame`);
+  }
+  for (let frame = 0; frame < 180; frame++) cast.updatePresentation(1 / 60);
+  for (const entry of cast.wave) {
+    assert.equal(entry.active, true, `${entry.id} never completed ingress`);
+    assert.equal(entry.presentation, 'combat');
+  }
+});
+
+test('scripted retreats and arrivals publish real movement for shared positional footsteps', () => {
+  const { cast, finale, log } = harness();
+
+  cast.markScramblesAway();
+  for (let frame = 0; frame < 180; frame++) finale.update(1 / 60);
+  assert.ok(log.presentationSteps.some((event) => event.id === 'mark'
+    && event.moving && event.distance > 0),
+  'Mark crosses the room silently because scripted motion never reaches step cadence');
+
+  log.presentationSteps.length = 0;
+  cast.releaseWave();
+  for (let frame = 0; frame < 180; frame++) finale.update(1 / 60);
+  for (const entry of cast.wave) {
+    assert.ok(log.presentationSteps.some((event) => event.id === entry.id
+      && event.moving && event.distance > 0),
+    `${entry.id} crosses its threshold without publishing movement`);
+  }
+});
+
+test('the A-Team arrival cue is a delivered recording gated by the dining-room bank', () => {
+  const cue = manifest.sfx.find((entry) => entry.name === PALACE_WAVE_INCOMING_CUE);
+  assert.ok(cue, `${PALACE_WAVE_INCOMING_CUE} has no authored manifest row`);
+  assert.ok(PALACE_NEXT_BEAT_BANK.names.includes(PALACE_WAVE_INCOMING_CUE),
+    'the wave can begin before its physical arrival cue is resident');
+  assert.ok(fs.existsSync(new URL(`../assets/sfx/${PALACE_WAVE_INCOMING_CUE}.mp3`, import.meta.url)),
+    `${PALACE_WAVE_INCOMING_CUE} silently falls back because its recording is absent`);
+
+  const main = fs.readFileSync(new URL('../src/cartel-palace/main.js', import.meta.url), 'utf8');
+  assert.match(main, /onWave:[\s\S]{0,700}audio\.play\(PALACE_WAVE_INCOMING_CUE,[\s\S]{0,260}PALACE_ANCHORS\.extraction/,
+    'the live wave never requests the gated cue at an authored threshold');
+});
+
+test('every Palace wave path carries the complete shared A-Team colours', () => {
+  const { cast } = harness();
+  assert.equal(cast.wave.length, 4, 'the invariant did not inspect the complete wave');
+  for (const entry of cast.wave) {
+    const team = [];
+    entry.root.traverse((object) => {
+      if (object.isMesh && object.userData?.ateamTeamPiece) team.push(object);
+    });
+    assert.ok(team.length >= 7, `${entry.id} is out of A-Team colours (${team.length} pieces)`);
+    for (const piece of team) {
+      assert.match(piece.name, /^ateam\.colours\./);
+      assert.equal(piece.userData.palaceWave, true);
+    }
+  }
 });
 
 /* ---------------- The three-stage fight ---------------- */

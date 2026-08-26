@@ -133,23 +133,22 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
   ...HEIST_PREVIEW_CHECKPOINTS.map((checkpoint) => entry(
     'heist', checkpoint.replaceAll('_', '-'), 'heist', ['heist'], { checkpoint },
   )),
-  /* TWO HUBS WITH NOBODY IN THEM, ON PURPOSE.
+  /* THESE HOMES ARE NO LONGER ACTORLESS.
    *
-   * The countryside cabin is where Tony goes to be ALONE between jobs -- that
-   * is the whole point of the place -- and the luxury flat has no campaign
-   * edge into it yet, so there is nobody to be there. Neither is a state whose
-   * cast has simply not been staged; recording that keeps them out of the
-   * "missing required actors" list, where they would sit forever as a false
-   * two, and both regain a cast expectation the moment anybody is written in. */
+   * Lag now lives visibly at the woodpile, so an empty cabin cast is a defect.
+   * The Luxury Apartment visibly seats three civilian poker patrons; they are
+   * authored cast even though the hub has no current campaign edge. */
   entry('cabin', 'property', 'cabin', ['cabin'], {
-    actorExpectation: intentionalNoActors(
-      'The countryside hideout is deliberately solitary; there is no cast to stage.',
+    actorExpectation: requiredActors(
+      'The countryside hideout visibly stages Lag at the woodpile.',
     ),
   }),
   entry('luxury-apartment', 'property', 'luxury-apartment', ['luxury-apartment'], {
-    actorExpectation: intentionalNoActors(
-      'The luxury flat is an unplaced hub with no campaign edge into it, so nobody is in it yet.',
-    ),
+    actorExpectation: Object.freeze({
+      disposition: GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS.REQUIRED,
+      minimum: 3,
+      reason: 'The luxury flat visibly seats its three civilian poker patrons.',
+    }),
   }),
   entry('motel', 'property', 'motel', ['motel'], { geometryStage: 'startup' }),
   entry('motel', 'late-cast', 'motel', [], { geometryStage: 'late' }),
@@ -415,6 +414,16 @@ async function buildCabin(descriptor, THREE, collaborators) {
     externalLighting: true,
   });
   await cabin.models;
+  const lagAssemblyId = 'cabin-resident:lag';
+  setGeometryGateMetadata(cabin.lag?.group, { assemblyId: lagAssemblyId });
+  cabin.lag?.group?.traverse((object) => {
+    if (object.isGroup && object.name === 'forearm') {
+      setGeometryGateMetadata(object, { fixedSupportAnchor: true });
+    }
+  });
+  const lagCollider = cabin.colliders.find((entry) => entry?.name === 'cabin-lag-body');
+  if (!lagCollider) throw new Error('Cabin geometry Adapter expected Lag body collider');
+  setGeometryGateMetadata(lagCollider, { assemblyId: lagAssemblyId });
   return result(
     descriptor,
     [{ label: 'countryside-cabin-property', root: cabin.root }],
@@ -1612,6 +1621,14 @@ function objectPose(object) {
   };
 }
 
+function worldObjectPose(object) {
+  object.updateWorldMatrix(true, false);
+  const position = object.getWorldPosition(object.position.clone());
+  const quaternion = object.getWorldQuaternion(object.quaternion.clone());
+  const rotation = object.rotation.clone().setFromQuaternion(quaternion, 'YXZ');
+  return { x: position.x, y: position.y, z: position.z, yaw: rotation.y };
+}
+
 function golfTerrainSupportCollider(THREE, heightAt, root, name) {
   root.updateWorldMatrix(true, false);
   const at = root.getWorldPosition(new THREE.Vector3());
@@ -2483,7 +2500,7 @@ async function buildMotel(descriptor, THREE) {
     floorAt: motel.floorAt,
   });
   const expectedCastCount = descriptor.geometryStage === 'startup' ? 4 : 10;
-  if (cast.length !== expectedCastCount || cast.some(({ group }) => group.parent !== scene)) {
+  if (cast.length !== expectedCastCount || cast.some(({ group }) => scene.getObjectById(group.id) !== group)) {
     throw new Error(
       `Motel ${descriptor.geometryStage} Adapter expected ${expectedCastCount} mounted actors; found ${cast.length}`,
     );
@@ -2502,7 +2519,7 @@ async function buildMotel(descriptor, THREE) {
       actorStages,
       actorPoses: Object.fromEntries(cast.map(({ group }) => [
         group.userData.motelGeometryStage,
-        objectPose(group),
+        worldObjectPose(group),
       ])),
       enabledColliderCount: motel.colliders.filter(({ enabled }) => enabled !== false).length,
       propertyMeshCount: meshCount(scene),
@@ -2730,7 +2747,9 @@ async function buildSquatchfather(descriptor, THREE) {
   if (figureIds.length === 0 || figureIds.some((id) => !runtime.sceneState.figures[id]?.group)) {
     throw new Error('Squatchfather geometry Adapter did not publish its complete scene figure roster');
   }
-  if (runtime.impacts.pool.length !== 8 || runtime.blood.pool.length !== 8 || mirror.overlay.parent !== scene) {
+  if (runtime.impacts.pool.length !== 8
+    || runtime.blood.pool.length !== 8
+    || scene.getObjectById(mirror.overlay.id) !== mirror.overlay) {
     throw new Error('Squatchfather geometry Adapter omitted effect-pool or mirror geometry');
   }
 

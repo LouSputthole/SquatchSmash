@@ -244,11 +244,9 @@ const MATRIX = Object.freeze([
   [SCENE_IDS.MANSION_SIEGE, MISSION_IDS.MANSION_SIEGE, SCENE_IDS.ENOLA_SQUATCH],
   [SCENE_IDS.ENOLA_SQUATCH, MISSION_IDS.ENOLA_SQUATCH, SCENE_IDS.MANSION_RETURN],
   [SCENE_IDS.MANSION_RETURN, MISSION_IDS.MANSION_RETURN, SCENE_IDS.CARTEL_PALACE],
-  /* The Palace skips HOME now, not to the ceremony. He goes back to a flat
-   * where nobody has told him whether killing Sauce was the right call,
-   * Booskibro rings, and three men come and collect him — and the Special
-   * Meeting hands off to the Initiation itself, which is the row below. */
-  [SCENE_IDS.CARTEL_PALACE, MISSION_IDS.CARTEL_PALACE, SCENE_IDS.SPECIAL_MEETING],
+  /* The Palace skip preserves Apartment-owned Act One instead of becoming a
+   * shortcut around its call, getting-ready beat and pickup. */
+  [SCENE_IDS.CARTEL_PALACE, MISSION_IDS.CARTEL_PALACE, SCENE_IDS.APARTMENT],
 ]);
 
 const SPAWN = Object.freeze({
@@ -441,6 +439,35 @@ test('every recovery completer records a successful canonical outcome before its
       assert.equal(mission.outcome, 'clean');
     }
   }
+});
+
+test('Special Meeting skip completes the scene and starts Initiation at the treeline', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.update((state) => {
+    state.scene = { id: SCENE_IDS.SPECIAL_MEETING, spawn: 'spur' };
+    state.missions[MISSION_IDS.INITIATION].status = 'available';
+  });
+  const { assigned, location } = locationRecorder();
+
+  const result = createCampaignSceneSkipAdapter({
+    campaign,
+    sceneId: SCENE_IDS.SPECIAL_MEETING,
+    location,
+  })();
+
+  assert.deepEqual(result, {
+    ok: true,
+    from: SCENE_IDS.SPECIAL_MEETING,
+    to: SCENE_IDS.INITIATION,
+  });
+  assert.deepEqual(assigned, ['initiation.html']);
+  assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'in_progress');
+  assert.equal(campaign.state.story.timeEvents.includes(
+    TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING,
+  ), true);
+  assert.equal(campaign.state.story.timeEvents.includes(
+    TIME_EVENT_IDS.DEPART_INITIATION,
+  ), true);
 });
 
 test('a bare complete status is never accepted without that scene\'s canonical facts', () => {

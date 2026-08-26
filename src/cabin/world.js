@@ -9,16 +9,21 @@
  *   onBedTap, onBedRest, onCouch, onDesk, onTvTap, onTvHold,
  *   onRadioTap, onRadioHold, onPhone, onFridge, onCook, onEat,
  *   onShower, onWardrobe, onToilet, onArt, onFrontDoor,
- *   onLandmark, onCar, onWoodpile, onPorch.
+ *   onLandmark, onDiscover, onDrawingBoard, onCar, onWoodpile, onFirepit, onPorch,
+ *   onLag, canTalkToLag.
  */
 
 import * as THREE from 'three';
+import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
+import { markSemanticPlacement } from '../core/semantic-placement.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { box, boxFrom, cylinder, plane, mat, collider, group, yawToward } from '../world/build.js';
 import { makeMaterials } from '../world/materials.js';
 import * as P from '../world/props.js';
 import { resolveGear } from '../world/gear.js';
 import { loadModels } from '../world/models.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
+import { buildLagActor } from './lag.js';
 import {
   PROPERTY,
   CABIN,
@@ -115,9 +120,27 @@ function proceduralSurface(target) {
   return target;
 }
 
-function addBounds(colliders, bounds, name = '') {
+function addBounds(colliders, bounds, name, {
+  id = name,
+  kind,
+  ownerActorId,
+} = {}) {
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new TypeError('Cabin collider requires a stable semantic name');
+  }
+  if (typeof id !== 'string' || !id.trim()) {
+    throw new TypeError(`Cabin collider ${name} requires a stable spatial id`);
+  }
+  if (typeof kind !== 'string' || !kind.trim()) {
+    throw new TypeError(`Cabin collider ${name} requires a spatial kind`);
+  }
   const c = collider(bounds[0], bounds[1]);
-  if (name) c.name = name;
+  c.name = name;
+  markSpatialPrimitive(c, {
+    id,
+    kind,
+    ...(ownerActorId ? { ownerActorId } : {}),
+  });
   colliders.push(c);
   return c;
 }
@@ -356,6 +379,21 @@ export async function buildCountrysideCabin(ctx) {
       pitch: Math.atan2(lookAt.y - position.y, Math.max(0.001, horizontal)),
     })];
   }));
+  /* A deterministic close approach for visual proof and accessibility tools.
+   * It lives only in interactionViewpoints: Lag is a resident, not another
+   * property landmark or optional objective. */
+  const lagAt = exterior.lag.group.position;
+  const lagPosition = new THREE.Vector3(lagAt.x + 1.45, 0, lagAt.z + 1.15);
+  lagPosition.y = groundAt(lagPosition.x, lagPosition.z) + 1.68;
+  const lagLookAt = new THREE.Vector3(lagAt.x, lagAt.y + 1.52, lagAt.z);
+  const lagHorizontal = Math.hypot(lagLookAt.x - lagPosition.x, lagLookAt.z - lagPosition.z);
+  interactionViewpoints.lag = Object.freeze({
+    id: 'lag',
+    position: lagPosition,
+    lookAt: lagLookAt,
+    yaw: yawToward(lagPosition, lagLookAt),
+    pitch: Math.atan2(lagLookAt.y - lagPosition.y, Math.max(0.001, lagHorizontal)),
+  });
 
   const landscape = Object.freeze({
     bounds: PROPERTY,
@@ -364,7 +402,12 @@ export async function buildCountrysideCabin(ctx) {
     bridgeY: exterior.bridgeY,
     counts: Object.freeze({ ...exterior.counts }),
     footings: Object.freeze(exterior.footings.map((entry) => Object.freeze({ ...entry }))),
-    lod: Object.freeze({ near: 66, undergrowth: 52, far: 158, chunk: 32 }),
+    lod: Object.freeze({
+      near: ENVIRONMENT_VISIBILITY.wildernessHub.nearFoliage,
+      undergrowth: ENVIRONMENT_VISIBILITY.wildernessHub.undergrowth,
+      far: ENVIRONMENT_VISIBILITY.wildernessHub.farFoliage,
+      chunk: ENVIRONMENT_VISIBILITY.wildernessHub.chunkSize,
+    }),
   });
 
   const landmarkMetadata = Object.fromEntries(Object.entries(LANDMARKS).map(([id, landmark]) => {
@@ -403,6 +446,9 @@ export async function buildCountrysideCabin(ctx) {
     interactionViewpoints,
     utilityTargets,
     carTarget: interactionTargets.car,
+    lag: exterior.lag,
+    splitWood: exterior.splitWood,
+    woodpileState: exterior.woodpileState,
     setFireLit: exterior.setFireLit,
     door: shell.door,
     cabinDoor: shell.door,
@@ -462,15 +508,15 @@ function buildCabinShell({ root, M, colliders, occluders }) {
   wallBlock('cabin-bath-east', [[BATH.x1, 0, BATH.z0], [BATH.x1 + WALL, WALL_H, BATH.z1]], 'east');
 
   // Collision remains continuous across windows, but not across doors.
-  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z0 - 0.42], [BATH_DOOR.x0, WALL_H, MAIN.z0]], 'cabin-shell-north-west');
-  addBounds(colliders, [[BATH_DOOR.x1, 0, MAIN.z0 - 0.42], [MAIN.x1 + 0.45, WALL_H, MAIN.z0]], 'cabin-shell-north-east');
-  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z1], [FRONT_DOOR.x0, WALL_H, MAIN.z1 + 0.45]], 'cabin-shell-south-west');
-  addBounds(colliders, [[FRONT_DOOR.x1, 0, MAIN.z1], [MAIN.x1 + 0.45, WALL_H, MAIN.z1 + 0.45]], 'cabin-shell-south-east');
-  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z0 - 0.35], [MAIN.x0, WALL_H, MAIN.z1 + 0.35]], 'cabin-shell-west');
-  addBounds(colliders, [[MAIN.x1, 0, MAIN.z0 - 0.35], [MAIN.x1 + 0.45, WALL_H, MAIN.z1 + 0.35]], 'cabin-shell-east');
-  addBounds(colliders, [[BATH.x0 - 0.35, 0, BATH.z0 - 0.42], [BATH.x1 + 0.35, WALL_H, BATH.z0]], 'cabin-bath-north');
-  addBounds(colliders, [[BATH.x0 - 0.42, 0, BATH.z0], [BATH.x0, WALL_H, BATH.z1]], 'cabin-bath-west');
-  addBounds(colliders, [[BATH.x1, 0, BATH.z0], [BATH.x1 + 0.42, WALL_H, BATH.z1]], 'cabin-bath-east');
+  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z0 - 0.42], [BATH_DOOR.x0, WALL_H, MAIN.z0]], 'cabin-shell-north-west', { kind: 'world' });
+  addBounds(colliders, [[BATH_DOOR.x1, 0, MAIN.z0 - 0.42], [MAIN.x1 + 0.45, WALL_H, MAIN.z0]], 'cabin-shell-north-east', { kind: 'world' });
+  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z1], [FRONT_DOOR.x0, WALL_H, MAIN.z1 + 0.45]], 'cabin-shell-south-west', { kind: 'world' });
+  addBounds(colliders, [[FRONT_DOOR.x1, 0, MAIN.z1], [MAIN.x1 + 0.45, WALL_H, MAIN.z1 + 0.45]], 'cabin-shell-south-east', { kind: 'world' });
+  addBounds(colliders, [[MAIN.x0 - 0.45, 0, MAIN.z0 - 0.35], [MAIN.x0, WALL_H, MAIN.z1 + 0.35]], 'cabin-shell-west', { kind: 'world' });
+  addBounds(colliders, [[MAIN.x1, 0, MAIN.z0 - 0.35], [MAIN.x1 + 0.45, WALL_H, MAIN.z1 + 0.35]], 'cabin-shell-east', { kind: 'world' });
+  addBounds(colliders, [[BATH.x0 - 0.35, 0, BATH.z0 - 0.42], [BATH.x1 + 0.35, WALL_H, BATH.z0]], 'cabin-bath-north', { kind: 'world' });
+  addBounds(colliders, [[BATH.x0 - 0.42, 0, BATH.z0], [BATH.x0, WALL_H, BATH.z1]], 'cabin-bath-west', { kind: 'world' });
+  addBounds(colliders, [[BATH.x1, 0, BATH.z0], [BATH.x1 + 0.42, WALL_H, BATH.z1]], 'cabin-bath-east', { kind: 'world' });
 
   buildWindows(structure, M, winS, winW);
   buildRoof(structure, M);
@@ -486,7 +532,12 @@ function buildCabinShell({ root, M, colliders, occluders }) {
     inwardSign: 1,
   });
   structure.add(doorBuilt.group);
-  const doorCollider = addBounds(colliders, [[0, 0, 0], [0, FRONT_DOOR.h, 0]], 'cabin-front-door-leaf');
+  const doorCollider = addBounds(
+    colliders,
+    [[0, 0, 0], [0, FRONT_DOOR.h, 0]],
+    'cabin-front-door-leaf',
+    { kind: 'door' },
+  );
   for (const cabinCollider of colliders.slice(colliderStart)) {
     ownGeometry(cabinCollider, 'cabin-shell-collision');
   }
@@ -614,9 +665,23 @@ function buildRoof(root, M) {
   });
   root.add(lean);
 
-  // Stone chimney through the north roof plane.
-  root.add(box({ size: [0.78, 2.5, 0.72], pos: [4.25, 3.75, -2.8], mat: M.stone }));
-  root.add(box({ size: [0.93, 0.16, 0.87], pos: [4.25, 5.02, -2.8], mat: M.stone }));
+  /* Stone chimney through the north roof plane. The old 2.5 m stack started
+   * at y=2.50, more than half a metre below the cabin ceiling, so the exterior
+   * stack became a large block hanging over the kitchen. Keep enough masonry
+   * below the roof skin to close the penetration without putting any of the
+   * stack in the room. */
+  root.add(box({
+    name: 'cabin-roof-chimney-stack',
+    size: [0.78, 1.50, 0.72],
+    pos: [4.25, 4.30, -2.8],
+    mat: M.stone,
+  }));
+  root.add(box({
+    name: 'cabin-roof-chimney-cap',
+    size: [0.93, 0.16, 0.87],
+    pos: [4.25, 5.08, -2.8],
+    mat: M.stone,
+  }));
 }
 
 function buildFoundation(root, M) {
@@ -687,6 +752,28 @@ function buildProperty({
   const shed = buildShed(root, M, colliders);
   const firepit = buildFirepit(root, M, colliders, footings);
   const woodpile = buildWoodpile(root, M);
+  /* Lag is a person, not a marker: the shared Npc/makePerson rig supplies his
+   * outfit, mouth, gaze and staging identity. He stands just outside the broad
+   * woodpile proxy so looking at him cannot accidentally select the activity
+   * box behind him. */
+  const lagX = LANDMARKS.woodpile.x + 2.35;
+  const lagZ = LANDMARKS.woodpile.z + 1.65;
+  const lag = buildLagActor({
+    scene: root,
+    x: lagX,
+    y: heightAt(lagX, lagZ),
+    z: lagZ,
+    yaw: yawToward(
+      new THREE.Vector3(lagX, 0, lagZ),
+      new THREE.Vector3(LANDMARKS.woodpile.x + 2.0, 0, LANDMARKS.woodpile.z + 0.45),
+    ),
+  });
+  addBounds(
+    colliders,
+    [[lagX - 0.28, heightAt(lagX, lagZ), lagZ - 0.28], [lagX + 0.28, heightAt(lagX, lagZ) + 1.86, lagZ + 0.28]],
+    'cabin-lag-body',
+    { kind: 'actor-body', ownerActorId: 'cabin.lag' },
+  );
   const car = buildParkedCar(root, M, colliders);
   const overlook = buildOverlook(root, M, colliders, footings);
   const wayfinding = buildTrailWayfinding(root, M, footings);
@@ -701,8 +788,9 @@ function buildProperty({
     const descriptor = {
       label,
       onUse: () => {
-        if (storyLandmarkIds.has(id)) ctx.onLandmark?.(id);
-        dedicated?.();
+        ctx.onDiscover?.(id);
+        const progress = storyLandmarkIds.has(id) ? ctx.onLandmark?.(id) : null;
+        dedicated?.(progress);
       },
       ...extra,
     };
@@ -728,14 +816,27 @@ function buildProperty({
   });
   registerLandmark('overlook', overlook.target, 'Look out from the <b>ridge</b>');
   registerLandmark('shed', shed.target, 'Check the <b>forestry shed</b>');
-  registerLandmark('firepit', firepit.target, 'Sit by the <b>firepit</b>', () => {
-    hud.say?.('Dry cedar, old smoke, and nobody close enough to ask questions.', 3800);
+  registerLandmark('firepit', firepit.target, 'Tend the <b>firepit</b>', (progress) => {
+    if (ctx.onFirepit) ctx.onFirepit(progress);
+    else hud.say?.('Dry cedar, old smoke, and nobody close enough to ask questions.', 3800);
   });
-  registerLandmark('woodpile', woodpile.target, 'Split some <b>firewood</b>', () => ctx.onWoodpile?.());
+  registerLandmark('woodpile', woodpile.target, 'Split some <b>firewood</b>', () => ctx.onWoodpile?.(), {
+    holdLabel: 'Lining up the <b>axe</b>…',
+    hold: 0.68,
+  });
   registerLandmark('car', car.target, 'Leave in the <b>wagon</b>', () => {
     if (ctx.onCar) ctx.onCar();
     else ctx.onLeave?.();
   });
+
+  const lagDescriptor = {
+    label: 'Talk to <b>Lag</b>',
+    enabled: () => ctx.canTalkToLag?.() ?? true,
+    onUse: () => ctx.onLag?.(lag),
+  };
+  interactionTargets.lag = lag.group;
+  lag.group.userData.interact = lagDescriptor;
+  interaction.register(lag.group, lagDescriptor);
 
   return {
     bridgeY: bridge.y,
@@ -750,15 +851,22 @@ function buildProperty({
       duskBeacons: wayfinding.beacons,
       firepitSeats: firepit.seatCount,
       overlookSeats: overlook.seatCount,
+      residents: 1,
+      lagActivities: 4,
       exteriorFootings: footings.length,
       trailMetres: Math.round(polylineLength(TRAIL_LOOP) + polylineLength(OVERLOOK_TRAIL)),
       creekMetres: Math.round(polylineLength(CREEK_PATH)),
     },
     footings,
+    lag,
+    splitWood: woodpile.split,
+    woodpileState: woodpile.state,
     setFireLit: firepit.setLit,
     update(dt, elapsed, playerPosition) {
       creek.update(elapsed);
       firepit.update(elapsed);
+      woodpile.update(dt);
+      lag.update(dt, playerPosition);
       wayfinding.update(elapsed);
       forest.update(dt, playerPosition);
     },
@@ -778,7 +886,13 @@ function buildTerrain(disposables) {
       const x = PROPERTY.minX + ix * step;
       const at = (iz * width + ix) * 3;
       positions[at] = x;
-      positions[at + 1] = heightAt(x, z);
+      /* Keep the heightfield continuous under the building instead of
+       * deleting coarse 2 m cells around its outline. The cabin floor hides
+       * these vertices; lowering them avoids z-fighting while the connected
+       * edge triangles guarantee there is no blue void beside the foundation. */
+      const underBuilding = insideRect(x, z, CABIN.main, 0.02)
+        || insideRect(x, z, CABIN.bath, 0.02);
+      positions[at + 1] = heightAt(x, z) - (underBuilding ? 0.08 : 0);
       positions[at + 2] = z;
       colour.setHex(surfaceProps(surfaceAt(x, z)).colour);
       const shade = 0.86 + hashAt(x, z, 301) * 0.20;
@@ -790,9 +904,6 @@ function buildTerrain(disposables) {
   const indices = [];
   for (let iz = 0; iz < depth - 1; iz++) {
     for (let ix = 0; ix < width - 1; ix++) {
-      const cx = PROPERTY.minX + (ix + 0.5) * step;
-      const cz = PROPERTY.minZ + (iz + 0.5) * step;
-      if (insideRect(cx, cz, CABIN.main, 0.15) || insideRect(cx, cz, CABIN.bath, 0.15)) continue;
       const a = iz * width + ix;
       const b = a + 1;
       const c = a + width;
@@ -950,7 +1061,12 @@ function buildPorch(root, M, colliders) {
   });
   g.add(awning);
   root.add(g);
-  const deckCollider = addBounds(colliders, [[p.x0, -0.04, p.z0], [p.x1, 0.10, p.z1]], 'cabin-porch-deck');
+  const deckCollider = addBounds(
+    colliders,
+    [[p.x0, -0.04, p.z0], [p.x1, 0.10, p.z1]],
+    'cabin-porch-deck',
+    { kind: 'world' },
+  );
   ownGeometry(deckCollider, 'cabin-shell-collision');
   const target = targetBox('cabin-porch-target', [2.4, 1.8, 1.1], [0.2, 0.95, p.z1 - 0.3]);
   g.add(target);
@@ -996,9 +1112,9 @@ function buildBridge(root, M, colliders) {
     }
   }
   root.add(g);
-  addBounds(colliders, [[p.x - 1.30, y - 0.16, p.z - 4.9], [p.x + 1.30, y, p.z + 4.9]], 'cabin-bridge-deck');
-  addBounds(colliders, [[p.x - 1.42, y, p.z - 4.9], [p.x - 1.18, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-west');
-  addBounds(colliders, [[p.x + 1.18, y, p.z - 4.9], [p.x + 1.42, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-east');
+  addBounds(colliders, [[p.x - 1.30, y - 0.16, p.z - 4.9], [p.x + 1.30, y, p.z + 4.9]], 'cabin-bridge-deck', { kind: 'world' });
+  addBounds(colliders, [[p.x - 1.42, y, p.z - 4.9], [p.x - 1.18, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-west', { kind: 'world' });
+  addBounds(colliders, [[p.x + 1.18, y, p.z - 4.9], [p.x + 1.42, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-east', { kind: 'world' });
   const target = targetBox('cabin-bridge-target', [2.2, 1.5, 1.7], [p.x, y + 0.75, p.z]);
   g.add(target);
   return { group: g, target, y };
@@ -1023,7 +1139,16 @@ function buildShed(root, M, colliders) {
   g.add(boxFrom(x0, y, z1 - 0.16, p.x - 1.05, y + 2.45, z1, M.cabinLog));
   g.add(boxFrom(p.x + 1.05, y, z1 - 0.16, x1, y + 2.45, z1, M.cabinLog));
   g.add(boxFrom(p.x - 1.05, y + 2.05, z1 - 0.16, p.x + 1.05, y + 2.45, z1, M.cabinLog));
-  const roof = box({ size: [7.0, 0.14, 5.8], pos: [p.x, y + 2.62, p.z], mat: M.roof, rotX: -0.10 });
+  /* All four shed walls have a level 2.45 m top plate. A tilted single slab
+   * can only touch one of those plates; the opposite edge was visibly floating.
+   * This compact forestry shed gets a level roof that overlaps every plate by
+   * three centimetres, rather than pretending the rectangular walls are raked. */
+  const roof = box({
+    name: 'cabin-forestry-shed-roof',
+    size: [7.0, 0.14, 5.8],
+    pos: [p.x, y + 2.49, p.z],
+    mat: M.roof,
+  });
   g.add(roof);
   // Axe, bowsaw and fuel cans give it a job, not just walls.
   g.add(box({ size: [0.06, 1.25, 0.06], pos: [p.x - 2.35, y + 0.78, z0 + 0.34], mat: M.lightWood, rotZ: 0.18 }));
@@ -1031,9 +1156,9 @@ function buildShed(root, M, colliders) {
   for (const dx of [1.55, 2.18]) g.add(box({ size: [0.42, 0.52, 0.26], pos: [p.x + dx, y + 0.26, z0 + 0.5], mat: mat({ color: 0xa53a27, roughness: 0.7 }) }));
   root.add(g);
   for (const shedCollider of [
-    addBounds(colliders, [[x0, y, z0], [x0 + 0.18, y + 2.5, z1]], 'cabin-shed-west'),
-    addBounds(colliders, [[x1 - 0.18, y, z0], [x1, y + 2.5, z1]], 'cabin-shed-east'),
-    addBounds(colliders, [[x0, y, z0], [x1, y + 2.5, z0 + 0.18]], 'cabin-shed-back'),
+    addBounds(colliders, [[x0, y, z0], [x0 + 0.18, y + 2.5, z1]], 'cabin-shed-west', { kind: 'world' }),
+    addBounds(colliders, [[x1 - 0.18, y, z0], [x1, y + 2.5, z1]], 'cabin-shed-east', { kind: 'world' }),
+    addBounds(colliders, [[x0, y, z0], [x1, y + 2.5, z0 + 0.18]], 'cabin-shed-back', { kind: 'world' }),
   ]) ownGeometry(shedCollider, 'cabin-shed-collision');
   const target = targetBox('cabin-shed-target', [2.0, 1.8, 1.0], [p.x, y + 0.9, z1 - 0.35]);
   g.add(target);
@@ -1077,7 +1202,12 @@ function buildFirepit(root, M, colliders, footings) {
       bench.add(box({ size: [0.14, 0.48, 0.14], pos: [lx, 0.72, 0.30], mat: M.cabinLogDark }));
     }
     g.add(bench);
-    addBounds(colliders, [[x - 1.02, seatY, z - 1.02], [x + 1.02, seatY + 1.02, z + 1.02]], `cabin-firepit-bench-${i}`);
+    addBounds(
+      colliders,
+      [[x - 1.02, seatY, z - 1.02], [x + 1.02, seatY + 1.02, z + 1.02]],
+      `cabin-firepit-bench-${i}`,
+      { kind: 'seat' },
+    );
     noteFooting(footings, `firepit-bench-${i}`, x, z, seatY, 'firepit-seat');
   }
   // Layered low-poly tongues read as a fire from every approach. Flat crossed
@@ -1152,10 +1282,83 @@ function buildWoodpile(root, M) {
   g.add(cylinder({ r: 0.40, h: 0.66, pos: [p.x + 2.0, y + 0.33, p.z + 0.45], mat: M.cabinLogDark }));
   g.add(box({ size: [0.05, 1.05, 0.05], pos: [p.x + 2.15, y + 0.95, p.z + 0.45], mat: M.lightWood, rotZ: -0.18 }));
   g.add(box({ size: [0.10, 0.30, 0.34], pos: [p.x + 2.25, y + 1.45, p.z + 0.45], mat: M.darkSteel, rotZ: -0.18 }));
+
+  /* A real response to the splitting interaction. The intact round becomes
+   * two visible pieces which kick off the block, then a new round is set for
+   * the next swing. This keeps the repeatable activity honest without adding
+   * an inventory or crafting system the scene does not need. */
+  const blockX = p.x + 2.0;
+  const blockZ = p.z + 0.45;
+  const round = cylinder({
+    r: 0.15,
+    h: 0.46,
+    pos: [blockX, y + 0.89, blockZ],
+    mat: M.cabinLog,
+  });
+  round.name = 'cabin-woodpile-round';
+  const halves = [-1, 1].map((side) => {
+    const half = cylinder({
+      r: 0.105,
+      h: 0.44,
+      pos: [blockX + side * 0.07, y + 0.89, blockZ],
+      mat: M.cabinLog,
+    });
+    half.name = `cabin-woodpile-split-${side < 0 ? 'left' : 'right'}`;
+    half.userData.homeX = half.position.x;
+    half.userData.homeY = half.position.y;
+    half.visible = false;
+    g.add(half);
+    return half;
+  });
+  g.add(round);
   const target = targetBox('cabin-woodpile-target', [3.6, 1.7, 1.7], [p.x, y + 0.85, p.z]);
   g.add(target);
   root.add(g);
-  return { group: g, target };
+  let splitTime = 0;
+  let splitCount = 0;
+  const state = {};
+  Object.defineProperties(state, {
+    splitting: { enumerable: true, get: () => splitTime > 0 },
+    splitCount: { enumerable: true, get: () => splitCount },
+  });
+  const resetRound = () => {
+    splitTime = 0;
+    round.visible = true;
+    for (const half of halves) {
+      half.visible = false;
+      half.position.x = half.userData.homeX;
+      half.position.y = half.userData.homeY;
+      half.rotation.set(0, 0, 0);
+    }
+  };
+  return {
+    group: g,
+    target,
+    state: Object.freeze(state),
+    split() {
+      if (splitTime > 0) return false;
+      splitTime = 0.0001;
+      splitCount++;
+      round.visible = false;
+      for (const half of halves) half.visible = true;
+      return true;
+    },
+    update(dt = 0) {
+      if (splitTime <= 0) return;
+      splitTime += Math.max(0, Number(dt) || 0);
+      const progress = Math.min(1, splitTime / 0.82);
+      const eased = 1 - (1 - progress) ** 3;
+      for (let i = 0; i < halves.length; i++) {
+        const side = i === 0 ? -1 : 1;
+        const half = halves[i];
+        half.position.x = half.userData.homeX + side * eased * 0.34;
+        half.position.y = half.userData.homeY - Math.sin(progress * Math.PI) * 0.05;
+        half.rotation.z = side * eased * 0.82;
+        half.rotation.x = side * eased * 0.18;
+      }
+      if (splitTime >= 1.18) resetRound();
+    },
+  };
 }
 
 function buildParkedCar(root, M, colliders) {
@@ -1163,33 +1366,103 @@ function buildParkedCar(root, M, colliders) {
   const y = heightAt(p.x, p.z) + 0.34;
   const g = group('cabin-parked-wagon');
   ownGeometry(g, 'cabin-parked-wagon');
+  const yaw = 0.18;
+  g.position.set(p.x, y, p.z);
+  g.rotation.y = yaw;
   const body = mat({ color: 0x33463d, roughness: 0.55, metalness: 0.25 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x91a4a6, roughness: 0.16, metalness: 0.25, transparent: true, opacity: 0.72 });
-  g.add(box({ size: [2.02, 0.62, 4.55], pos: [p.x, y + 0.45, p.z], mat: body, rotY: 0.18 }));
-  g.add(box({ size: [1.82, 0.68, 2.45], pos: [p.x, y + 0.98, p.z - 0.22], mat: body, rotY: 0.18 }));
+  g.add(box({ name: 'cabin-parked-wagon-body', size: [2.02, 0.62, 4.55], pos: [0, 0.45, 0], mat: body }));
+  g.add(box({ name: 'cabin-parked-wagon-cabin', size: [1.82, 0.68, 2.45], pos: [0, 0.98, -0.22], mat: body }));
   for (const dz of [-0.88, 0.88]) {
-    const pane = box({ size: [1.84, 0.44, 0.04], pos: [p.x, y + 1.04, p.z + dz], mat: glass, rotY: 0.18 });
+    const pane = box({
+      name: dz < 0 ? 'cabin-parked-wagon-window-front' : 'cabin-parked-wagon-window-rear',
+      size: [1.84, 0.44, 0.04],
+      pos: [0, 1.04, dz],
+      mat: glass,
+    });
     g.add(pane);
   }
   const wheelMat = mat({ color: 0x121313, roughness: 0.95 });
+  const suspensionMat = mat({ color: 0x242a29, roughness: 0.72, metalness: 0.62 });
+  /* The wagon used to be two boxes with four wheels pushed through the lower
+   * box. Their centres were technically symmetrical, but there was no wheel
+   * well or suspension to make that overlap read as a vehicle. Keep one local
+   * vehicle transform and give every axle, shock and arch the same authored
+   * wheel stations, so a future adjustment cannot drift the body and running
+   * gear independently. */
+  const wheelStations = Object.freeze([-1.45, 1.45]);
+  const frame = box({
+    name: 'cabin-parked-wagon-chassis-frame',
+    size: [1.48, 0.12, 3.62],
+    pos: [0, 0.20, 0],
+    mat: suspensionMat,
+  });
+  ownGeometry(frame, 'cabin-parked-wagon', { structural: true });
+  g.add(frame);
+  for (const sz of wheelStations) {
+    const axle = cylinder({
+      r: 0.07,
+      h: 1.94,
+      pos: [0, 0.12, sz],
+      rotZ: Math.PI / 2,
+      mat: suspensionMat,
+    });
+    axle.name = `cabin-parked-wagon-axle-${sz < 0 ? 'front' : 'rear'}`;
+    ownGeometry(axle, 'cabin-parked-wagon', { structural: true });
+    g.add(axle);
+  }
   for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
+    for (const sz of wheelStations) {
       const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.24, 16), wheelMat);
-      wheel.position.set(p.x + sx * 0.94, y + 0.02, p.z + sz * 1.45);
+      wheel.name = `cabin-parked-wagon-wheel-${sx < 0 ? 'left' : 'right'}-${sz < 0 ? 'front' : 'rear'}`;
+      wheel.position.set(sx * 0.94, 0.02, sz);
       wheel.rotation.z = Math.PI / 2;
-      wheel.rotation.y = 0.18;
       wheel.castShadow = true;
       ownGeometry(wheel, 'cabin-parked-wagon', { structural: true });
       g.add(wheel);
+
+      const shock = cylinder({
+        r: 0.045,
+        h: 0.42,
+        pos: [sx * 0.72, 0.34, sz],
+        rotZ: sx * 0.18,
+        mat: suspensionMat,
+      });
+      shock.name = `cabin-parked-wagon-shock-${sx < 0 ? 'left' : 'right'}-${sz < 0 ? 'front' : 'rear'}`;
+      ownGeometry(shock, 'cabin-parked-wagon', { structural: true });
+      g.add(shock);
+
+      const well = new THREE.Mesh(
+        new THREE.TorusGeometry(0.44, 0.055, 6, 24, Math.PI),
+        body,
+      );
+      well.name = `cabin-parked-wagon-wheel-well-${sx < 0 ? 'left' : 'right'}-${sz < 0 ? 'front' : 'rear'}`;
+      well.position.set(sx * 1.025, 0.12, sz);
+      well.rotation.y = Math.PI / 2;
+      well.castShadow = true;
+      ownGeometry(well, 'cabin-parked-wagon', { structural: true });
+      g.add(well);
     }
   }
   for (const sx of [-0.62, 0.62]) {
-    g.add(box({ size: [0.28, 0.18, 0.06], pos: [p.x + sx, y + 0.48, p.z - 2.32], mat: M.ledAmber, rotY: 0.18 }));
+    g.add(box({
+      name: `cabin-parked-wagon-headlight-${sx < 0 ? 'left' : 'right'}`,
+      size: [0.28, 0.18, 0.06],
+      pos: [sx, 0.48, -2.32],
+      mat: M.ledAmber,
+    }));
   }
-  const target = targetBox('cabin-car-departure-target', [2.5, 1.8, 4.9], [p.x, y + 0.9, p.z]);
+  const target = targetBox('cabin-car-departure-target', [2.5, 1.8, 4.9], [0, 0.9, 0]);
   g.add(target);
   root.add(g);
-  addBounds(colliders, [[p.x - 1.15, y - 0.35, p.z - 2.45], [p.x + 1.15, y + 1.45, p.z + 2.45]], 'cabin-parked-car');
+  const halfX = Math.abs(Math.cos(yaw)) * 1.15 + Math.abs(Math.sin(yaw)) * 2.45;
+  const halfZ = Math.abs(Math.sin(yaw)) * 1.15 + Math.abs(Math.cos(yaw)) * 2.45;
+  addBounds(
+    colliders,
+    [[p.x - halfX, y - 0.35, p.z - halfZ], [p.x + halfX, y + 1.45, p.z + halfZ]],
+    'cabin-parked-car',
+    { kind: 'vehicle' },
+  );
   return { group: g, target };
 }
 
@@ -1318,7 +1591,12 @@ function buildOverlook(root, M, colliders, footings) {
     g.add(stone);
   }
   root.add(g);
-  addBounds(colliders, [[p.x - 1.25, y, p.z - 1.05], [p.x + 1.25, y + 1.15, p.z + 1.05]], 'cabin-overlook-bench');
+  addBounds(
+    colliders,
+    [[p.x - 1.25, y, p.z - 1.05], [p.x + 1.25, y + 1.15, p.z + 1.05]],
+    'cabin-overlook-bench',
+    { kind: 'seat' },
+  );
   noteFooting(footings, 'overlook-bench', p.x, p.z, y, 'overlook-seat');
   noteFooting(footings, 'overlook-cairn', p.x + 2.45, p.z + 0.85, y, 'overlook-focal');
   const target = makeLandmarkProxy(root, 'overlook', p, 3.2, 2.0);
@@ -1398,6 +1676,7 @@ function buildForest(root, M, colliders, disposables) {
         colliders,
         [[x - radius - 0.08, plan.y, z - radius - 0.08], [x + radius + 0.08, plan.y + plan.height, z + radius + 0.08]],
         'cabin-tree-trunk',
+        { id: `cabin-tree-trunk:${plantedTrees.length}`, kind: 'world' },
       );
     }
   }
@@ -1520,9 +1799,9 @@ function buildForest(root, M, colliders, disposables) {
     }
 
     const d0 = Math.hypot(chunk.x, chunk.z);
-    near.visible = d0 < 66;
-    far.visible = d0 >= 66;
-    brushGroup.visible = d0 < 54;
+    near.visible = d0 < ENVIRONMENT_VISIBILITY.wildernessHub.nearFoliage;
+    far.visible = d0 >= ENVIRONMENT_VISIBILITY.wildernessHub.nearFoliage;
+    brushGroup.visible = d0 < ENVIRONMENT_VISIBILITY.wildernessHub.undergrowth;
     root.add(chunkGroup);
     built.push({ root: chunkGroup, near, far, brush: brushGroup, x: chunk.x, z: chunk.z });
   }
@@ -1545,10 +1824,10 @@ function buildForest(root, M, colliders, disposables) {
       lastZ = pz;
       for (const chunk of built) {
         const d = Math.hypot(px - chunk.x, pz - chunk.z);
-        chunk.root.visible = d < 158;
-        chunk.near.visible = d < 66;
-        chunk.far.visible = d >= 66;
-        chunk.brush.visible = d < 52;
+        chunk.root.visible = d < ENVIRONMENT_VISIBILITY.wildernessHub.farFoliage;
+        chunk.near.visible = d < ENVIRONMENT_VISIBILITY.wildernessHub.nearFoliage;
+        chunk.far.visible = d >= ENVIRONMENT_VISIBILITY.wildernessHub.nearFoliage;
+        chunk.brush.visible = d < ENVIRONMENT_VISIBILITY.wildernessHub.undergrowth;
       }
     },
   };
@@ -1587,6 +1866,7 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
       colliders,
       [[p.x - p.radius * 0.75, p.y, p.z - p.radius * 0.75], [p.x + p.radius * 0.75, p.y + p.radius * 0.75, p.z + p.radius * 0.75]],
       'cabin-field-rock',
+      { id: `cabin-field-rock:${i}`, kind: 'world' },
     );
   }
   rocks.instanceMatrix.needsUpdate = true;
@@ -1653,6 +1933,7 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
         colliders,
         [[sx - hx, sy - hy, sz - hz], [sx + hx, sy + hy, sz + hz]],
         'cabin-deadfall-log',
+        { id: `cabin-deadfall-log:${i}:${segment}`, kind: 'world' },
       );
       ownGeometry(logCollider, `cabin-deadfall-log-collision:${i}`);
     }
@@ -1669,10 +1950,10 @@ function buildPropertyBoundary(root, M, colliders) {
   const low = -12;
   const high = 22;
   for (const boundaryCollider of [
-    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.minZ - 3], [PROPERTY.minX + 0.5, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-west'),
-    addBounds(colliders, [[PROPERTY.maxX - 0.5, low, PROPERTY.minZ - 3], [PROPERTY.maxX + 3, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-east'),
-    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.minZ - 3], [PROPERTY.maxX + 3, high, PROPERTY.minZ + 0.5]], 'cabin-property-boundary-north'),
-    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.maxZ - 0.5], [PROPERTY.maxX + 3, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-south'),
+    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.minZ - 3], [PROPERTY.minX + 0.5, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-west', { kind: 'world' }),
+    addBounds(colliders, [[PROPERTY.maxX - 0.5, low, PROPERTY.minZ - 3], [PROPERTY.maxX + 3, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-east', { kind: 'world' }),
+    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.minZ - 3], [PROPERTY.maxX + 3, high, PROPERTY.minZ + 0.5]], 'cabin-property-boundary-north', { kind: 'world' }),
+    addBounds(colliders, [[PROPERTY.minX - 3, low, PROPERTY.maxZ - 0.5], [PROPERTY.maxX + 3, high, PROPERTY.maxZ + 3]], 'cabin-property-boundary-south', { kind: 'world' }),
   ]) ownGeometry(boundaryCollider, 'cabin-property-boundary-collision');
 
   // Weathered corner blazes make the invisible containment legible.
@@ -1747,14 +2028,21 @@ function buildDomesticHub({
   root.add(interior);
 
   let propAssemblyOrdinal = 0;
-  const addProp = (built, colliderName = '') => {
+  const addProp = (built, colliderName = '', { kind = 'prop' } = {}) => {
     const propName = (built.group.name || 'unnamed').replace(/[^A-Za-z0-9._:+-]/g, '-');
     ownGeometry(
       built.group,
       `cabin-prop:${propName}:${++propAssemblyOrdinal}`,
     );
     interior.add(built.group);
-    if (built.bounds) addBounds(colliders, built.bounds, colliderName || `cabin-${built.group.name}`);
+    if (built.bounds) {
+      addBounds(
+        colliders,
+        built.bounds,
+        colliderName || `cabin-${built.group.name}`,
+        { kind },
+      );
+    }
     return built;
   };
   const proxy = (name, size, pos) => {
@@ -1777,7 +2065,11 @@ function buildDomesticHub({
     z: -4.58,
     towerSticker: propTexture('sticker.tower'),
   }), 'cabin-desk');
-  const chair = addProp(P.makeChair(M, { x: 0.70, z: -3.70, rotY: Math.PI + 0.10 }), 'cabin-desk-chair');
+  const chair = addProp(
+    P.makeChair(M, { x: 0.70, z: -3.70, rotY: Math.PI + 0.10 }),
+    'cabin-desk-chair',
+    { kind: 'seat' },
+  );
   const zyn = P.makeZynCan(M, { x: 1.20, y: desk.top, z: -4.40, rotY: 0.4, lidTexture: propTexture('zyn.lid') });
   ownGeometry(zyn.group, 'cabin-prop:zyn');
   interior.add(zyn.group);
@@ -1785,7 +2077,11 @@ function buildDomesticHub({
   ownGeometry(bobble.group, 'cabin-prop:bobblehead');
   interior.add(bobble.group);
 
-  const couch = addProp(P.makeCouch(M, { x: -5.50, z: 2.20 }), 'cabin-couch');
+  const couch = addProp(
+    P.makeCouch(M, { x: -5.50, z: 2.20 }),
+    'cabin-couch',
+    { kind: 'seat' },
+  );
   const coffeeTable = addProp(P.makeCoffeeTable(M, { x: -3.75, z: 2.15, w: 1.18, d: 0.66, rotY: 0.05 }), 'cabin-coffee-table');
   const pizza = P.makePizzaBox(M, { x: -3.82, y: coffeeTable.top, z: 2.10, rotY: 0.10 });
   const bong = P.makeBong(M, { x: -3.42, y: coffeeTable.top, z: 2.22, rotY: -0.2 });
@@ -1797,12 +2093,46 @@ function buildDomesticHub({
   tvGlow.position.copy(tv.screenPos).add(new THREE.Vector3(-0.45, 0, 0));
   interior.add(tvGlow);
 
-  const sideboard = addProp(P.makeSideboard(M, { x: -0.55, z: 4.58, w: 1.72 }), 'cabin-sideboard');
-  const radioPos = new THREE.Vector3(-0.55, sideboard.top + 0.12, 4.52);
+  /* makeSideboard's fronts face local +Z. Build it around a local origin, then
+   * turn that face into the room and mount its back two centimetres off the
+   * south wall. This scene-owned placement avoids changing the shared prop
+   * while keeping its collider honest. */
+  const sideboardWidth = 1.72;
+  const sideboardDepth = 0.44;
+  const sideboardCentre = new THREE.Vector3(-1.52, 0, MAIN.z1 - sideboardDepth / 2 - 0.02);
+  const sideboardBuilt = P.makeSideboard(M, { x: 0, z: 0, w: sideboardWidth, d: sideboardDepth });
+  sideboardBuilt.group.name = 'cabin-entertainment-sideboard';
+  sideboardBuilt.group.position.copy(sideboardCentre);
+  sideboardBuilt.group.rotation.y = Math.PI;
+  sideboardBuilt.bounds = [
+    [sideboardCentre.x - sideboardWidth / 2, 0, sideboardCentre.z - sideboardDepth / 2],
+    [sideboardCentre.x + sideboardWidth / 2, sideboardBuilt.top, sideboardCentre.z + sideboardDepth / 2],
+  ];
+  const sideboard = addProp(sideboardBuilt, 'cabin-sideboard');
+  const radioPos = new THREE.Vector3(sideboardCentre.x, sideboard.top + 0.12, sideboardCentre.z - 0.08);
   const radio = P.makeRadio(M, { x: radioPos.x, y: sideboard.top, z: radioPos.z, rotY: Math.PI });
   ownGeometry(radio.group, 'cabin-prop:radio');
   interior.add(radio.group);
-  const wallClock = P.makeWallClock(M, { x: -1.15, y: 2.38, z: 4.88, rotY: Math.PI });
+  const wallClock = P.makeWallClock(M, {
+    // Offset from the window's centre mullion while staying visibly above
+    // the glazing and the entertainment stand below it.
+    x: sideboardCentre.x - 0.28,
+    // The 16 cm case occupies the narrow, solid strip between the picture
+    // window head (2.24 m) and the porch-awning envelope (2.47 m).
+    y: 2.37,
+    z: MAIN.z1 - 0.01,
+    rotY: Math.PI,
+    r: 0.08,
+  });
+  wallClock.group.name = 'cabin-south-wall-clock';
+  markSemanticPlacement(wallClock.group, {
+    id: 'cabin.bedroom.south-wall-clock',
+    surface: {
+      kind: 'wall', axis: 'z', coordinate: MAIN.z1, side: 'negative',
+      maxGap: 0.035, maxPenetration: 0.035,
+    },
+    upright: { maxDegrees: 1 },
+  });
   ownGeometry(wallClock.group, 'cabin-fixture:wall-clock', { checkSupport: false });
   interior.add(wallClock.group);
 
@@ -1823,9 +2153,18 @@ function buildDomesticHub({
   centralCluster.add(cylinder({ r: 0.055, h: 0.12, pos: [0.48, 0.87, 0.52], mat: M.paper }));
   centralCluster.add(box({ size: [0.34, 0.055, 0.24], pos: [0.92, 0.84, 0.72], mat: M.paper, rotY: -0.24 }));
   interior.add(centralCluster);
-  addBounds(colliders, [[0.0, 0, -0.10], [1.44, 0.84, 1.34]], 'cabin-central-table');
-  addProp(P.makeChair(M, { x: -0.38, z: 0.62, rotY: -Math.PI / 2 }), 'cabin-central-chair-west');
-  addProp(P.makeChair(M, { x: 1.82, z: 0.62, rotY: Math.PI / 2 }), 'cabin-central-chair-east');
+  addBounds(
+    colliders,
+    [[0.0, 0, -0.10], [1.44, 0.84, 1.34]],
+    'cabin-central-table',
+    { kind: 'prop' },
+  );
+  const westChair = P.makeChair(M, { x: -0.38, z: 0.62, rotY: Math.PI / 2 });
+  westChair.group.name = 'cabin-central-chair-west';
+  addProp(westChair, 'cabin-central-chair-west', { kind: 'seat' });
+  const eastChair = P.makeChair(M, { x: 1.82, z: 0.62, rotY: -Math.PI / 2 });
+  eastChair.group.name = 'cabin-central-chair-east';
+  addProp(eastChair, 'cabin-central-chair-east', { kind: 'seat' });
 
   const kitchen = addProp(P.makeKitchen(M, { x: 5.8, wallX: 5.8, z0: -1.78, z1: 1.62 }), 'cabin-kitchen');
   const fridge = addProp(P.makeFridge(M, { x: 5.42, z: 2.62 }), 'cabin-fridge');
@@ -1875,8 +2214,10 @@ function buildDomesticHub({
   const closet = P.makeCloset(M, {
     x0: 4.48,
     x1: 5.72,
-    z0: 3.22,
-    z1: 4.86,
+    z0: 3.78,
+    // makeCloset adds a 14 cm back carcass beyond z1; reserve exactly that
+    // depth so its outer face, rather than its inner panel, meets the wall.
+    z1: MAIN.z1 - 0.14,
     h: 2.34,
     architectureAssembly: 'cabin-shell',
     railAssembly: 'cabin-prop:closet-rail',
@@ -1888,6 +2229,7 @@ function buildDomesticHub({
     ],
     back: closetBack ? { texture: closetBack.texture, w: 0.48, h: 0.64, y: 1.28 } : null,
   });
+  closet.group.name = 'cabin-wardrobe';
   addProp(closet, 'cabin-closet');
   closet.group.traverse((object) => {
     if (object.name !== 'closet-rail') return;
@@ -1928,14 +2270,71 @@ function buildDomesticHub({
   const bathroom = group('cabin-bathroom');
   interior.add(bathroom);
   bathroom.add(boxFrom(BATH.x0 + 0.03, 0.002, BATH.z0 + 0.03, BATH.x1 - 0.03, 0.016, BATH.z1, M.splash, { cast: false }));
+  /* A thin native tile liner belongs to the room, not to the exterior shell.
+   * It masks the timber envelope from every interior bathroom view while
+   * preserving the structural wall and collision volumes behind it. */
+  for (const liner of [
+    boxFrom(BATH.x0 + 0.035, 0.018, BATH.z0 + 0.010, BATH.x1 - 0.035, 2.42, BATH.z0 + 0.042, M.splash, {
+      name: 'cabin-bathroom-liner-north', cast: false,
+    }),
+    boxFrom(BATH.x0 + 0.010, 0.018, BATH.z0 + 0.035, BATH.x0 + 0.042, 2.42, BATH.z1 - 0.035, M.splash, {
+      name: 'cabin-bathroom-liner-west', cast: false,
+    }),
+    boxFrom(BATH.x1 - 0.042, 0.018, BATH.z0 + 0.035, BATH.x1 - 0.010, 2.42, BATH.z1 - 0.035, M.splash, {
+      name: 'cabin-bathroom-liner-east', cast: false,
+    }),
+  ]) {
+    ownGeometry(liner, 'cabin-bathroom-liner', { structural: true });
+    bathroom.add(liner);
+  }
   const tub = P.makeTub(M, { x0: -2.90, z0: -8.12, x1: -1.83, z1: -6.20 });
-  const toilet = P.makeToilet(M, { x: -0.74, z: -7.53, rotY: 0 });
-  const bathSink = P.makeBathSink(M, { x: -0.55, z: -5.70, rotY: -Math.PI / 2 });
+  const toilet = P.makeToilet(M, { x: -0.74, z: -7.94, rotY: 0 });
+  toilet.group.name = 'cabin-bath-toilet';
+  /* Collider boxes are padded by two centimetres on every horizontal face.
+   * Leave the matching allowance on both fixtures and their wall colliders,
+   * so the gameplay volumes meet at the tiled interior face instead of
+   * penetrating the structural north/east walls. */
+  toilet.bounds[0][2] = BATH.z0 + 0.04;
+  const toiletAssembly = 'cabin-fixture:toilet-and-wall-roll';
+  ownGeometry(toilet.group, toiletAssembly, { checkSupport: false });
+  const bathSink = P.makeBathSink(M, { x: -0.39, z: -5.75, rotY: -Math.PI / 2 });
+  bathSink.group.name = 'cabin-bath-sink';
+  /* makeBathSink's returned bounds are authored for its unrotated footprint.
+   * This sink faces the east wall, so describe the rotated footprint rather
+   * than leaving a collider in its former orientation. */
+  bathSink.bounds = [[-0.64, 0, -6.05], [BATH.x1 - 0.04, 0.84, -5.45]];
   ownGeometry(bathSink.group, 'cabin-fixture:bath-sink', { checkSupport: false });
   bathroom.add(tub.group, toilet.group, bathSink.group);
-  addBounds(colliders, tub.bounds, 'cabin-bath-tub');
-  const toiletCollider = addBounds(colliders, toilet.bounds, 'cabin-bath-toilet');
-  addBounds(colliders, bathSink.bounds, 'cabin-bath-sink');
+  /* makeToilet supplies the roll and crossbar, while this room supplies the
+   * wall bracket. Two short returns visibly join that holder to the tiled
+   * north wall, so it is no longer a roll suspended beside the pan. */
+  const toiletRollBracket = group('cabin-bath-toilet-roll-wall-bracket');
+  const rollX = toilet.group.position.x - 0.34;
+  const rollZ = toilet.group.position.z - 0.10;
+  toiletRollBracket.add(box({
+    name: 'cabin-bath-toilet-roll-backplate',
+    size: [0.18, 0.12, 0.026],
+    pos: [rollX, 0.62, BATH.z0 + 0.055],
+    mat: M.chrome,
+  }));
+  for (const sx of [-0.055, 0.055]) {
+    toiletRollBracket.add(box({
+      name: 'cabin-bath-toilet-roll-return',
+      size: [0.022, 0.022, rollZ - (BATH.z0 + 0.068)],
+      pos: [rollX + sx, 0.62, (rollZ + BATH.z0 + 0.068) / 2],
+      mat: M.chrome,
+    }));
+  }
+  ownGeometry(toiletRollBracket, toiletAssembly, { checkSupport: false });
+  bathroom.add(toiletRollBracket);
+  addBounds(colliders, tub.bounds, 'cabin-bath-tub', { kind: 'prop' });
+  const toiletCollider = addBounds(
+    colliders,
+    toilet.bounds,
+    'cabin-bath-toilet',
+    { kind: 'seat' },
+  );
+  addBounds(colliders, bathSink.bounds, 'cabin-bath-sink', { kind: 'prop' });
 
   const bathDoorBuilt = makeTimberDoor(M, {
     name: 'cabin-bathroom-door',
@@ -1946,7 +2345,12 @@ function buildDomesticHub({
   });
   ownGeometry(bathDoorBuilt.group, 'cabin-shell');
   interior.add(bathDoorBuilt.group);
-  const bathDoorCollider = addBounds(colliders, [[0, 0, 0], [0, BATH_DOOR.h, 0]], 'cabin-bathroom-door-leaf');
+  const bathDoorCollider = addBounds(
+    colliders,
+    [[0, 0, 0], [0, BATH_DOOR.h, 0]],
+    'cabin-bathroom-door-leaf',
+    { kind: 'door' },
+  );
   ownGeometry(bathDoorCollider, 'cabin-shell-collision');
 
   /* ---------------------------------------------------------------- */
@@ -2001,6 +2405,7 @@ function buildDomesticHub({
     closetOpen: false,
     closetT: 0,
     fed: false,
+    logsSplit: 0,
     hasEggs: false,
     panState: null,
     panCookTime: 0,
@@ -2296,7 +2701,10 @@ function buildDomesticHub({
   utilityTargets.corkboard = note.group;
   interaction.register(note.group, {
     label: 'Read the <b>note</b>',
-    onUse: () => hud.say?.('<em>LAY LOW. KEEP THE PHONE CLOSE. DO NOT COME BACK UNTIL LOU CALLS.</em>', 5200),
+    onUse: () => {
+      ctx.onDrawingBoard?.();
+      hud.say?.('<em>LAY LOW. KEEP THE PHONE CLOSE. DO NOT COME BACK UNTIL LOU CALLS.</em>', 5200);
+    },
   });
 
   if (revolver) {
@@ -2423,6 +2831,7 @@ function buildDomesticHub({
       chair: chair.group,
       fridgePos,
       bathroom: BATH,
+      mirrorMesh: bathSink.mirror,
       showerStand: tub.standPos,
       showerHead: tub.headPos,
       tubDrain: new THREE.Vector3(tub.standPos.x, 0.03, tub.standPos.z + 0.10),
@@ -2495,9 +2904,18 @@ function hangCabinArt({ root, M, gear, interaction, ctx, sideboard, nightstand, 
   for (const y of [1.48, 2.14]) {
     for (const z of eastZ) anchors.push({ x: 5.86, y, z, rotY: -Math.PI / 2 });
   }
-  for (const x of [-2.60, -1.94, -1.28, -0.62]) {
-    anchors.push({ x, y: 2.18, z: BATH.z0 + 0.13, rotY: 0 });
-  }
+  /* Bathroom art is keyed by meaning instead of appended to a positional
+   * array. The old array had 34 main-room anchors for 33 main-room slots, so
+   * bath.toilet landed on the east wall of the cabin and every remaining bath
+   * picture shifted one position. These five anchors also keep every frame
+   * away from the tub riser and curtain rail. */
+  const bathroomAnchors = Object.freeze({
+    'bath.toilet': { x: BATH.x1 - 0.03, y: 1.98, z: -7.54, rotY: -Math.PI / 2, h: 0.34 },
+    'bath.toilet.poster': { x: BATH.x1 - 0.03, y: 2.06, z: -6.82, rotY: -Math.PI / 2, h: 0.42 },
+    'bath.far': { x: -0.78, y: 2.12, z: BATH.z0 + 0.05, rotY: 0, h: 0.36 },
+    'bath.mirror': { x: BATH.x1 - 0.03, y: 2.25, z: -5.68, rotY: -Math.PI / 2, h: 0.30 },
+    'bath.high': { x: BATH.x0 + 0.03, y: 2.22, z: -5.52, rotY: Math.PI / 2, h: 0.28 },
+  });
 
   const registerArt = (target, slot, info) => {
     target.name = `cabin-art:${slot}`;
@@ -2513,10 +2931,10 @@ function hangCabinArt({ root, M, gear, interaction, ctx, sideboard, nightstand, 
 
   CABIN_ART_SLOTS.forEach((slot, i) => {
     const info = gear.get(slot);
-    const at = anchors[i];
+    const at = bathroomAnchors[slot] ?? anchors[i];
     if (!info || !at) return;
     const feature = slot.startsWith('feature.');
-    const h = feature ? 0.56 : heroSlots.has(slot) ? 0.38 : 0.25 + (i % 3) * 0.025;
+    const h = at.h ?? (feature ? 0.56 : heroSlots.has(slot) ? 0.38 : 0.25 + (i % 3) * 0.025);
     const w = h * THREE.MathUtils.clamp(info.aspect || 0.8, 0.55, feature ? 1.65 : 1.45);
     const frame = P.makeFrame(M, { ...at, w, h, texture: info.texture });
     root.add(frame.group);
@@ -2526,12 +2944,23 @@ function hangCabinArt({ root, M, gear, interaction, ctx, sideboard, nightstand, 
 
   // Cloth and crest keep the apartment's non-frame art types intact.
   for (const spec of [
-    { slot: 'banner.main', x: -0.35, y: 2.52, z: 4.86, rotY: Math.PI, w: 1.15, h: 0.48 },
-    { slot: 'banner.twitch', x: 2.75, y: 2.55, z: -4.86, rotY: 0, w: 0.95, h: 0.40 },
+    /* The main banner belongs on the solid south-mid wall, between the
+     * picture window and front door. Its old edge sat across the glazing at
+     * awning height; this placement leaves both architectural openings clear. */
+    { slot: 'banner.main', x: 0.70, y: 1.85, z: MAIN.z1 - 0.04, rotY: Math.PI, w: 1.15, h: 0.48 },
+    { slot: 'banner.twitch', x: 2.75, y: 2.55, z: MAIN.z0 + 0.04, rotY: 0, w: 0.95, h: 0.40 },
   ]) {
     const info = gear.get(spec.slot);
     if (!info) continue;
     const banner = P.makeBanner(M, { ...spec, texture: info.texture });
+    if (spec.slot === 'banner.main') markSemanticPlacement(banner.group, {
+      id: 'cabin.bedroom.austin-banner-wall-mount',
+      surface: {
+        kind: 'wall', axis: 'z', coordinate: MAIN.z1, side: 'negative',
+        maxGap: 0.055, maxPenetration: 0.055,
+      },
+      upright: { maxDegrees: 1 },
+    });
     root.add(banner.group);
     registerArt(banner.group, spec.slot, info);
     frames.push({ slot: spec.slot, mesh: banner.group, info, banner: true });
@@ -2546,12 +2975,28 @@ function hangCabinArt({ root, M, gear, interaction, ctx, sideboard, nightstand, 
 
   const standing = [
     { slot: 'shelf.photo', x: -2.45, y: 1.37, z: -4.68, rotY: 0.18, h: 0.18 },
-    { slot: 'sideboard.photo', x: -0.98, y: sideboard.top, z: 4.50, rotY: Math.PI - 0.25, h: 0.18 },
-    { slot: 'desk.photo', x: 0.24, y: desk.top, z: -4.39, rotY: 0.25, h: 0.14 },
+    {
+      slot: 'sideboard.photo',
+      x: sideboard.group.position.x - 0.43,
+      y: sideboard.top,
+      z: sideboard.group.position.z - 0.08,
+      rotY: Math.PI - 0.25,
+      h: 0.18,
+    },
+    /* Left of the desk mat and against the back half of the desktop. The old
+     * x=0.24/z=-4.39 position sat directly on the mouse-pad corner. */
+    { slot: 'desk.photo', x: -0.08, y: desk.top, z: -4.76, rotY: 0.25, h: 0.14 },
     { slot: 'night.photo', x: -4.04, y: nightstand.top, z: -4.30, rotY: -0.85, h: 0.15 },
     // This was in the apartment closet shrine. It remains a deliberately
     // separate, propped photograph rather than becoming generic wall art.
-    { slot: 'shrine.b', x: 0.02, y: sideboard.top, z: 4.48, rotY: Math.PI + 0.22, h: 0.19 },
+    {
+      slot: 'shrine.b',
+      x: sideboard.group.position.x + 0.57,
+      y: sideboard.top,
+      z: sideboard.group.position.z - 0.10,
+      rotY: Math.PI + 0.22,
+      h: 0.19,
+    },
   ];
   for (const spec of standing) {
     const info = gear.get(spec.slot);

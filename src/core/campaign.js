@@ -1237,35 +1237,24 @@ export const SCENES = Object.freeze({
     next: Object.freeze([SCENE_IDS.CARTEL_PALACE]),
   }),
   [SCENE_IDS.CARTEL_PALACE]: Object.freeze({
-    /* Two edges, and both of them are THE SPECIAL MEETING.
+    /* One edge: home for Act One of THE SPECIAL MEETING.
      *
      * The Palace is over and nobody has told him whether killing Sauce was the
      * right call. He goes home; Booskibro rings to say there is a meeting and
      * it is going to be a special one; three men come and collect him. That
      * scene hands off to the Initiation at the treeline on its own.
      *
-     * This list carried a second, legacy edge straight to INITIATION for
-     * exactly as long as the Palace's own exit button still named it -- a
-     * transition the graph refuses THROWS rather than degrading, so pulling
-     * the edge before repointing the button would have stranded anybody who
-     * had just finished the Palace. The button now names SPECIAL_MEETING
-     * (`src/cartel-palace/main.js`), so that bridge is pulled.
-     *
-     * APARTMENT is here for the same reason SPECIAL_MEETING was left in place
-     * while the button still said INITIATION, and it is the same manoeuvre in
-     * the same direction. "He goes home" above is literal: Act One of the
+     * "He goes home" above is literal: Act One of the
      * Special Meeting -- beats SM-010 to SM-090, the call, the getting ready,
      * the door refusing him and the headlights -- is played in the flat, and
      * the flat's own front door is what carries him to the kerb (see
      * `SCENES[APARTMENT].next` and `tryLeave` in core/apartment-story.js).
-     * The Palace's exit button has not been repointed yet, because
-     * `src/cartel-palace/main.js` belongs to another pass; it still names
-     * SPECIAL_MEETING and jumps the flat entirely. The edge is declared first
-     * so that repoint is one line and cannot throw when it lands. */
+     * No direct Palace edge may name Special Meeting or Initiation: either one
+     * would route around authored player-facing story. */
     href: 'cartel-palace.html',
     defaultSpawn: 'approach',
     spawns: Object.freeze(['approach', 'perimeter', 'estate', 'dining_room']),
-    next: Object.freeze([SCENE_IDS.APARTMENT, SCENE_IDS.SPECIAL_MEETING]),
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   /* THE SPECIAL MEETING.
    *

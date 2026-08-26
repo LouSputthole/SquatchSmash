@@ -98,11 +98,13 @@
 
 import {
   CABIN,
+  CABIN_DOOR,
   CEREMONY_CENTRE,
   KNEEL_MARKS,
   LINE_Z,
   LOU_SEAT,
   PLAYER_SLOT,
+  PLAYER_EYE_Y,
   ROOM,
   STAND_MARK,
   TABLE,
@@ -634,6 +636,22 @@ function cabinBeats() {
   /* The last of the walk, where the cabin exists to be walked into. */
   beats.push(followBeat({ id: 'cabin-arrive', phase: 'cabin_arrive', path: TRAIL, t: 0.9 }));
   beats.push(followBeat({ id: 'cabin-door', phase: 'cabin_door', path: TRAIL, t: 1 }));
+
+  /* The only movement inside the ritual belongs to the player. This nominal
+   * first-person frame publishes the start of that walk for the geometry
+   * gate; live yaw remains under mouse control rather than under a shot rail. */
+  beats.push({
+    id: 'ceremony-approach',
+    phase: 'ceremony_approach',
+    mode: 'follow',
+    camera: {
+      position: vec(CABIN_DOOR.inside.x, PLAYER_EYE_Y, CABIN_DOOR.inside.z),
+      lookAt: seatedTorso(LOU_SEAT, FIGURE_SCALE.founder),
+    },
+    speaker: { id: 'lou', point: seatedHead(LOU_SEAT, FIGURE_SCALE.founder) },
+    subject: { id: 'lou-body', point: seatedTorso(LOU_SEAT, FIGURE_SCALE.founder) },
+    aimToleranceM: 1.5,
+  });
 
   /* ACT FOUR. Lou is in the chair at the head of the table from the moment the
    * player walks in and does not get out of it until IN-370, so the ceremony

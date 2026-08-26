@@ -67,7 +67,11 @@ export const ANCHORS = Object.freeze({
   // The couch's cushions sit at 0.54 and the chair's at 0.53, so both bases
   // are effectively the floor. Handing this rig the cushion height instead
   // parks a man 46 cm in the air.
-  couchSeat: Object.freeze({ x: 8.42, y: 0.01, z: 1.94, yaw: Math.PI }), // heading, faces -z (north)
+  // Four centimetres toward the cushion back keeps the connected seated-death
+  // rig supported by the couch after its pelvis-pivot slump. At 1.94 the live
+  // pose looked seated, but the settled body retained only a 38 cm contact band
+  // and visually read as having slid off the front edge.
+  couchSeat: Object.freeze({ x: 8.42, y: 0.01, z: 1.98, yaw: Math.PI }), // heading, faces -z (north)
   chairSeat: Object.freeze({ x: 8, y: 0, z: -1.2, yaw: 0 }), // heading, faces +z (south)
   kitchenSpot: Object.freeze({ x: 10.6, y: 0, z: -0.1, yaw: -Math.PI / 2 }), // Person heading, faces -x
   bathroomDoorway: Object.freeze({ x: 11.2, y: 0, z: -2.4, yaw: 0 }), // Person heading, faces +z (into the room)
