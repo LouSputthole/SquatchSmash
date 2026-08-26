@@ -134,13 +134,40 @@ test('the luxury apartment carries its five story states', () => {
   ]);
 });
 
-test('the cabin is visited twice in the first chapter, and once at the end', () => {
+/**
+ * ONE CABIN, IN ACT ONE, AND BEEF RUN CUTS IT IN HALF.
+ *
+ * The Cabin Hideaway chapter -- cellar, dungeon, interrogation, executions,
+ * pyre, blackout -- is not a post-heist lay-low that happens to share a
+ * location. It is this scene. Beats 4 and 5 are its light half and beat 7 is
+ * its dark one, and nothing about it may drift back to the end of the
+ * campaign without somebody deciding to move it.
+ */
+test('the cabin is one Act-One scene, split around the Beef Run', () => {
   const beats = beatsForScene(SCENE_IDS.COUNTRYSIDE_CABIN);
   assert.deepEqual(beats.map((b) => b.id),
     ['cabin_lay_low', 'booski_sasole_call', 'cabin_two']);
-  for (const b of beats) assert.equal(b.chapter, 'prospect');
+  for (const b of beats) {
+    assert.equal(b.chapter, 'prospect',
+      `${b.id} left Act One -- the cabin chapter belongs to the Prospect`);
+  }
+
+  /* The dark half must sit AFTER the flight. Front-loading it would have him
+   * interrogating and burning two men before he had done a job for anybody. */
+  const n = (id) => spineBeat(id).n;
+  assert.ok(n('cabin_lay_low') < n('beef_run'), 'the light half comes first');
+  assert.ok(n('beef_run') < n('cabin_two'), 'the dungeon comes after the flight');
+
+  /* And it must still be Act One when it happens: no beat from a later
+   * chapter may slip between the two halves. */
+  const between = CAMPAIGN_SPINE.filter((b) => b.n > n('cabin_lay_low') && b.n < n('cabin_two'));
+  for (const b of between) {
+    assert.equal(b.chapter, 'prospect',
+      `${b.id} interrupts the cabin chapter from a later act`);
+  }
+
   assert.equal(spineBeat('initiation').scene, SCENE_IDS.INITIATION,
-    'the ceremony cabin is its own scene, not a third visit to the lay-low one');
+    'the ceremony cabin is its own scene, not a third visit to this one');
 });
 
 test('Beef Run happens while he is already out at the cabin', () => {

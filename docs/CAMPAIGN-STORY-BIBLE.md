@@ -1103,6 +1103,94 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Continuity Rule** — Dialogue tiers driven by prospectTrust / prospectStatus.
 - **Open Decision / Note** — Define 3–4 reusable dialogue trust tiers.
 
+
+## The cabin, and how the dungeon chapter fits Act One
+
+Decided 2026-08-26, with the owner: **there is one cabin, it is in Act One,
+and the whole Cabin Hideaway chapter -- cellar, dungeon, interrogation,
+executions, pyre and blackout -- IS that scene.** It is not a post-heist
+lay-low that happens to share a location.
+
+Beef Run cuts it in half.
+
+### Cabin I -- the light half (beats 4 and 5)
+
+The driver brings him straight from the Squatchfather, late. He sleeps, and
+the chapter proper opens the next morning.
+
+- Lou's opening call: good job, stay quiet.
+- The four walks: creek, ridge overlook, forestry shed, shooting range.
+- **The Margo call.** `src/cabin/script.js` already emits `MARGO_CALL_READY`
+  on the first unique exploration and deliberately owns no Margo conversation
+  of its own -- the chapter was built with this socket open for someone else
+  to fill. That someone is this beat.
+- Booski rings: Captain Sasole needs a hand, and you are already out here.
+
+### Beef Run (beat 6)
+
+He flies. Sasole runs him back to the cabin rather than to a flat he is
+supposed to be hiding from.
+
+### Cabin II -- the dark half (beat 7)
+
+That night he is back, and the next day Gratin calls.
+
+- The wardrobe panel, the stocked cellar, the loose-stone door.
+- The dungeon: the A-Team captive and the Counter-Strike baiter.
+- The interrogation, and what it yields -- a mole inside the crew, no
+  identity, and the phrase "Short Bus". **Kept exactly as built.** It names
+  nobody, which honours the rule that Mark is not named until his boss fight,
+  and it hands the player a clue to carry until Sauce turns out to be the one
+  who ratted. The A-Team appearing here is deliberate foreshadowing: the war
+  does not start until beat 23, and this is the first time anyone says the
+  name.
+- The execution choice. Gratin offers the pistol and asks politely. Ten
+  seconds. That the Prospect *can* hand it back is the point of putting this
+  in Act One at all.
+- Nightfall, wrapping, carrying, the pyre, the drink, the blackout.
+- **The morning call is Booski's**, and it is the summons the bible needs:
+  the heat is down, Ol' Billy is getting out, come back to the Bing. It
+  replaces Ape's morning call, which had no other Act One presence. Booski
+  has handled the Prospect all through this act -- he rang about Sasole, he
+  rings again -- which keeps Lou as the voice that only turns up for the big
+  things.
+
+### Why the split, rather than all of it in one visit
+
+Front-loading the whole chapter would have the Prospect interrogating and
+burning two men before he had done a single job for anybody. Splitting it
+buys a day of rising tension and puts the dark half after he has flown for
+Sasole -- and it gives the second visit a reason to exist that is not just
+"sleep again".
+
+### The calendar this implies
+
+The cabin was anchored to Day 5 and Day 6 as a post-heist lay-low. Moving it
+to Act One moves everything behind it. The authored day/night structure
+inside the chapter survives intact -- nightfall is still nightfall, the
+blackout still wakes him the next morning -- because the whole block shifts
+by two days rather than being rewritten.
+
+| Day | Beats |
+|---|---|
+| 1 | Fake-out, apartment, Bada Bing I, the Squatchfather, and the drive out |
+| 2 | Cabin I: wake, Lou's call, the walks, Margo. Booski calls. Beef Run. Back by night. |
+| 3 | Cabin II: Gratin's call, the cellar, the dungeon, the executions. Nightfall at 20:45, then the pyre. |
+| 4 | Blackout wakes him 09:30. Booski's summons. The drive to town. Bada Bing II that night. |
+| 5 | Graveyard, the motel, home in the morning. THE TAKE. Lou's new-space call. |
+| 6 | Silver Pines. The keys to the luxury apartment. Front & Center, and she comes home. |
+| 7 | The morning after. NO WAKE. Home again. |
+| 8 | The Silver Case, the mansion, PROJECT SILENT SQUATCH, the guest room. |
+| 9 | The siege at 2 AM. Lou's phone call. Enola. |
+| 12 | A few days on: the repaired mansion, and which city it actually was. The Palace that night. |
+| 13 | The special meeting, the ride, and the ceremony. |
+
+**These anchors move with the route, never before it.** `advanceTime` takes
+`Math.max(now, atLeast)`, so an anchor moved earlier than the route reaches it
+does not pull the clock back -- it silently stops firing, and the beat loses
+the hour it was written for. Changing the calendar without changing the order
+would leave the cabin's nightfall as a no-op on a Day 5 save.
+
 ## Decisions taken
 
 The owner's answers, verbatim from the Open Questions sheet. These are

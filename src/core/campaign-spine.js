@@ -6,11 +6,18 @@
  * instead of a person having to remember. Where the two disagree the bible is
  * right and this file has a bug.
  *
- * A *beat* is not a scene. Six of them are phases inside a scene somebody
- * already walks through -- the fake-out on the apartment computer, the two
- * calls at the cabin, the stayover and the morning after it -- and those carry
+ * A *beat* is not a scene. Several are phases inside a scene somebody already
+ * walks through -- the fake-out on the apartment computer, Booski's call at
+ * the cabin, the stayover and the morning after it -- and those carry
  * `spawn: null`, meaning the player is already standing there. Only a beat
  * that begins with travel names a spawn.
+ *
+ * The cabin is the clearest case. There is ONE cabin and it is in Act One:
+ * the whole Cabin Hideaway chapter, dungeon and all, is that scene. Beef Run
+ * cuts it in half -- beats 4 and 5 are the light half (Lou's call, the walks,
+ * Margo, then Booski about Sasole) and beat 7 is the dark one (Gratin, the
+ * cellar, the interrogation, the executions, the pyre, the blackout, and the
+ * summons back to the Bing). See docs/CAMPAIGN-STORY-BIBLE.md.
  *
  * `status` is the honest part. `wired` means the campaign really does play
  * this beat in this position today; `pending` means it does not yet. The count
@@ -136,7 +143,9 @@ export const CAMPAIGN_SPINE = Object.freeze([
     spawn: 'arrival',
     residence: RESIDENCE.CABIN,
     status: 'pending',
-    exit: 'Explore, and call Margo. The one outgoing call in the campaign.',
+    exit: 'Lou: good job, stay quiet. The four walks, and the one outgoing '
+      + 'call in the campaign -- the cabin already emits MARGO_CALL_READY and '
+      + 'deliberately owns no Margo conversation of its own.',
   }),
   beat({
     n: 5,
@@ -146,7 +155,8 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.COUNTRYSIDE_CABIN,
     residence: RESIDENCE.CABIN,
     status: 'pending',
-    exit: 'Booski: Captain Sasole needs a hand, and you are already out there.',
+    exit: 'Booski: Captain Sasole needs a hand, and you are already out here. '
+      + 'This is where the light half of the cabin chapter ends.',
   }),
   beat({
     n: 6,
@@ -157,18 +167,23 @@ export const CAMPAIGN_SPINE = Object.freeze([
     spawn: 'hangar',
     residence: RESIDENCE.CABIN,
     status: 'pending',
-    exit: 'Lands clean. Sasole runs him back to the cabin.',
+    exit: 'Lands clean. Sasole runs him back to the cabin rather than to a '
+      + 'flat he is supposed to be hiding from.',
   }),
   beat({
     n: 7,
     id: 'cabin_two',
-    title: 'Cabin II',
+    title: 'Cabin II: the dungeon',
     chapter: 'prospect',
     scene: SCENE_IDS.COUNTRYSIDE_CABIN,
     spawn: 'wake',
     residence: RESIDENCE.STARTER,
     status: 'pending',
-    exit: 'The heat is down and Ol’ Billy is getting out. Come back to the Bing.',
+    exit: 'The dark half of the cabin chapter: Gratin calls, the cellar and '
+      + 'the dungeon open, the interrogation yields a mole with no name and '
+      + 'the phrase Short Bus, the executions, the pyre, the blackout. Then '
+      + 'Booski: the heat is down and Ol’ Billy is getting out, come back '
+      + 'to the Bing.',
   }),
   beat({
     n: 8,
