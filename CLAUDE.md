@@ -144,7 +144,34 @@ floor for the same reason.
 - **The Home Ladder has two rungs he owns** — the starter flat and the luxury
   apartment — and he never goes back down. Cabin, motel, guest suite and car
   seat are beds somebody else picked, not promotions.
-- **No player decisions exist in the campaign yet.** It is a single line.
+- **The campaign is a single line and stays one.** Owner, 2026-08-26: *"I
+  think we are down to a linear campaign story."* There is exactly ONE player
+  decision in thirty-one beats — the cabin execution, where either Gratin
+  finishes the two prisoners or the Prospect does — and it *"has no real
+  bearing on the rest of the game"*. It may feed the end-game stat meter and
+  nothing else. Do not add a branch that changes which scenes are played.
+- **Margo is never at the golf course.** Her whole thread is four touches and
+  the bible lists them: meet her and get the number at Bing I, ring her from
+  the cabin to arrange the date, Front & Center, the stayover, and she leaves
+  in the morning. Beat 12's call is *"We got a new space. Come meet us on the
+  course."* and no more — a previous session invented *"bring that girl from
+  the Bing"*, put it in `campaign-spine.js`, and it was on its way to being
+  built when the owner caught it.
+- **THE TAKE is Day 5, before the new-space call.** It is not in the owner's
+  numbered bible at all, which is why it carries the number 11.5. Owner's
+  ruling: home from the Motel, do the heist, THEN Lou rings about the new
+  space — the job is what earns the upgrade, so the call reads as the reward.
+  Silver Pines therefore moves AFTER the heist, and the recorded golf call
+  ("three holes, home by half ten, after that your day starts") is retired
+  with it: it exists to set up a heist that has already happened.
+- **NO WAKE is still Lou's call**, and the recorded take stands. The bible only
+  says *"Family call after Margo leaves"*; the existing lines never mention the
+  Motel or the old flat, so they play word-for-word in the new position.
+- **The luxury apartment already has the toys.** Two arcades (the computer and
+  the Squatch Smash cabinet), darts, poker, blackjack, a TV, a bong and the
+  white line on the coffee table are all built in `luxury-apartment/world.js`.
+  Nothing has to be carried over from the starter flat when it goes dark;
+  check before "porting" anything.
 - **Nothing is taken for losing.** See the comment in `campaign.js`.
 
 ## Traps that have cost real time

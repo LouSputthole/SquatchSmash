@@ -254,8 +254,20 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.APARTMENT,
     residence: RESIDENCE.STARTER,
     status: 'pending',
-    exit: 'We got a new space. Come meet us on the course. Bring that girl from '
-      + 'the Bing — and do not let her know anything she should not.',
+    /* THE BIBLE'S WHOLE LINE, AND NOTHING ELSE.
+     *
+     * This carried "Bring that girl from the Bing — and do not let her know
+     * anything she should not", which is not in the bible and never was. The
+     * owner caught it: Margo is never at the course. Her whole thread is
+     * "meet/get number → cabin call → Front & Center date → stayover →
+     * morning exit" (bible, Threads table), and the date is already scheduled
+     * at beat 4 — the cabin's own Margo call, which is wired.
+     *
+     * An invented line in the spine is worse than one in a scene, because
+     * this file is what the tests hold the campaign against. Left alone it
+     * would have been built. */
+    exit: 'We got a new space. Come meet us on the course. Prospect travels '
+      + 'to Silver Pines.',
   }),
   beat({
     n: 13,
