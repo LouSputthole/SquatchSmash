@@ -19,10 +19,16 @@ test('campaign marathon pins every canonical public handoff in one continuous ch
       [SCENE_IDS.APARTMENT, SCENE_IDS.BADA_BING_ONE, '/bing.html', 'driver_seat'],
       [SCENE_IDS.BADA_BING_ONE, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
       [SCENE_IDS.APARTMENT, SCENE_IDS.SQUATCHFATHER, '/squatchfather.html', 'restaurant_exterior'],
-      [SCENE_IDS.SQUATCHFATHER, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
-      [SCENE_IDS.APARTMENT, SCENE_IDS.AIRSTRIP_SMUGGLING, '/beefrun.html', 'hangar'],
-      [SCENE_IDS.AIRSTRIP_SMUGGLING, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
-      [SCENE_IDS.APARTMENT, SCENE_IDS.BADA_BING_TWO, '/bing.html?visit=2', 'driver_seat'],
+      /* BEATS 3 TO 7. The driver takes him out of town and the flat does not
+       * see him again until the Motel sends him back, so the Act-One cabin
+       * sits between the restaurant and the second Bing with the Beef Run
+       * cutting it in half. This used to read squatchfather -> home -> home
+       * -> beefrun -> home -> bing two, which is where three of the bible's
+       * beats had nowhere to happen. */
+      [SCENE_IDS.SQUATCHFATHER, SCENE_IDS.COUNTRYSIDE_CABIN, '/cabin.html', 'arrival'],
+      [SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.AIRSTRIP_SMUGGLING, '/beefrun.html', 'hangar'],
+      [SCENE_IDS.AIRSTRIP_SMUGGLING, SCENE_IDS.COUNTRYSIDE_CABIN, '/cabin.html', 'arrival'],
+      [SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.BADA_BING_TWO, '/bing.html?visit=2', 'driver_seat'],
       [SCENE_IDS.BADA_BING_TWO, SCENE_IDS.SQUATCH_GRAVEYARD, '/graveyard.html', 'headlights'],
       [SCENE_IDS.SQUATCH_GRAVEYARD, SCENE_IDS.JERKY_MOTEL, '/motel.html', 'passenger_seat'],
       [SCENE_IDS.JERKY_MOTEL, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
@@ -34,6 +40,9 @@ test('campaign marathon pins every canonical public handoff in one continuous ch
       [SCENE_IDS.SILVER_PINES, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
       [SCENE_IDS.APARTMENT, SCENE_IDS.BANK_HEIST, '/heist.html', 'safehouse'],
       [SCENE_IDS.BANK_HEIST, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
+      /* The post-heist cabin trip, which is a doorway now and not a chapter:
+       * he finished this property on Day 3. It stays until beats 12-19 give
+       * the Silver Case another entrance. Add first, remove last. */
       [SCENE_IDS.APARTMENT, SCENE_IDS.COUNTRYSIDE_CABIN, '/cabin.html', 'arrival'],
       [SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.SILVER_CASE, '/silvercase.html', 'car_ride'],
       [SCENE_IDS.SILVER_CASE, SCENE_IDS.MANSION, '/mansion.html', 'gate'],
