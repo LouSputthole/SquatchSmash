@@ -26,6 +26,7 @@ import {
   createMansionSiegeCampaignStory,
   createSilverCaseCampaignStory,
 } from '../src/core/final-arc-story.js';
+import { completeCabinChapter } from './helpers/complete-cabin-chapter.mjs';
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
@@ -356,7 +357,7 @@ test('v12 saves before the old invitation retain The Silver Case behind the cabi
   assert.equal(state.scene.id, SCENE_IDS.APARTMENT);
 });
 
-test('THE TAKE cleanup routes through a cabin rest before The Silver Case', () => {
+test('THE TAKE cleanup routes through the complete Cabin chapter before The Silver Case', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
     const heist = state.missions[MISSION_IDS.BANK_HEIST];
@@ -387,8 +388,9 @@ test('THE TAKE cleanup routes through a cabin rest before The Silver Case', () =
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN);
   campaign.enter(SCENE_IDS.COUNTRYSIDE_CABIN, { spawn: 'arrival' });
   const cabin = createCountrysideCabinStory({ campaign });
-  assert.equal(cabin.tryLeave().id, 'cabin_rest_first');
-  assert.equal(cabin.rest().ok, true);
+  assert.equal(cabin.tryLeave().id, 'cabin_chapter_incomplete');
+  completeCabinChapter(cabin);
+  assert.equal(cabin.chapterComplete(), true);
   assert.deepEqual(cabin.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });

@@ -17,6 +17,7 @@ import {
 } from '../src/core/apartment-story.js';
 import { computeHeistSettlement, createBankHeistStory } from '../src/core/bank-heist-story.js';
 import { createCountrysideCabinStory } from '../src/core/countryside-cabin-story.js';
+import { completeCabinChapter } from './helpers/complete-cabin-chapter.mjs';
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
@@ -150,8 +151,9 @@ test('THE TAKE records authored checkpoints exactly once and folds its result in
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN);
   campaign.enter(SCENE_IDS.COUNTRYSIDE_CABIN, { spawn: 'arrival' });
   const cabin = createCountrysideCabinStory({ campaign });
-  assert.equal(cabin.tryLeave().id, 'cabin_rest_first');
-  assert.equal(cabin.rest().ok, true);
+  assert.equal(cabin.tryLeave().id, 'cabin_chapter_incomplete');
+  completeCabinChapter(cabin);
+  assert.equal(cabin.chapterComplete(), true);
   assert.deepEqual(cabin.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });

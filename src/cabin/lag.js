@@ -314,6 +314,7 @@ export function buildLagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
   let talkRemaining = 0;
   let currentActivity = 'chop';
   let returningHome = false;
+  let bonfireMode = false;
 
   const applyWorkPose = (id, progress) => {
     resetPose(npc.parts);
@@ -371,10 +372,48 @@ export function buildLagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
       npc.say(talkRemaining, take);
       return talkRemaining;
     },
+    setBonfireMode(active = true) {
+      const next = Boolean(active);
+      if (next === bonfireMode) return bonfireMode;
+      bonfireMode = next;
+      returningHome = false;
+      if (bonfireMode) {
+        currentActivity = 'bonfire';
+        axe.visible = false;
+        carriedLog.visible = false;
+        npc.job = 'drink';
+        npc.sit();
+      } else {
+        talkRemaining = 0;
+        npc.hush();
+        npc.job = 'stand';
+        npc.stand();
+        const at = activityAt(elapsed);
+        currentActivity = at.activity.id;
+        applyWorkPose(currentActivity, at.progress);
+      }
+      return bonfireMode;
+    },
     update(dt = 0, playerPosition = null) {
       const step = Number.isFinite(dt) && dt > 0 ? dt : 0;
       elapsed += step;
       npc.update(step, playerPosition);
+      if (bonfireMode) {
+        axe.visible = false;
+        carriedLog.visible = false;
+        if (talkRemaining > 0) {
+          talkRemaining = Math.max(0, talkRemaining - step);
+          currentActivity = 'talk';
+          if (talkRemaining === 0) returningHome = true;
+        } else {
+          currentActivity = 'bonfire';
+          if (returningHome) {
+            npc.targetYaw = npc.homeYaw;
+            returningHome = false;
+          }
+        }
+        return currentActivity;
+      }
       if (talkRemaining > 0) {
         talkRemaining = Math.max(0, talkRemaining - step);
         currentActivity = 'talk';
@@ -394,6 +433,7 @@ export function buildLagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
     debug: Object.freeze({
       get activity() { return currentActivity; },
       get elapsed() { return elapsed; },
+      get bonfireMode() { return bonfireMode; },
       activityAt: (time) => activityAt(time).activity.id,
     }),
   });

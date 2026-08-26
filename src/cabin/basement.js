@@ -1,14 +1,35 @@
 /**
- * The Hideout's concealed lower room occupies the same X/Z footprint as the
- * cabin above it. `resolveCabinFloor` therefore takes the caller's current
- * foot height, just as the mansion's multi-storey resolver does, and leaves
- * the outdoor property function in charge everywhere else.
+ * The Hideout's concealed lower level begins beneath the cabin, then descends
+ * through a buried connector into the dungeon. `resolveCabinFloor` therefore
+ * takes the caller's current foot height, just as the mansion's multi-storey
+ * resolver does, and leaves the outdoor property in charge above both rooms.
  */
 
 import * as THREE from 'three';
 
 import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { box, boxFrom, collider, cylinder, group, mat } from '../world/build.js';
+import {
+  CABIN_DUNGEON,
+  CABIN_DUNGEON_CORRIDOR,
+  CABIN_DUNGEON_DOOR,
+  buildCabinDungeon,
+  insideCabinDungeon,
+  resolveCabinDungeonFloor,
+} from './dungeon.js';
+
+export {
+  CABIN_CAPTIVE_IDS,
+  CABIN_CAPTIVE_CLEANUP_BODY_IDS,
+  CABIN_DUNGEON,
+  CABIN_DUNGEON_CLEANUP_LAYOUT,
+  CABIN_DUNGEON_CORRIDOR,
+  CABIN_DUNGEON_DOOR,
+  cabinDungeonCeilingAt,
+  cabinDungeonFloorAt,
+  insideCabinDungeon,
+  resolveCabinDungeonFloor,
+} from './dungeon.js';
 
 export const CABIN_BASEMENT = Object.freeze({
   x0: -5.45,
@@ -20,15 +41,21 @@ export const CABIN_BASEMENT = Object.freeze({
   levelSplitY: -1.20,
 });
 
-function insideBasement(x, z) {
+export function insideCabinCellar(x, z) {
   return x >= CABIN_BASEMENT.x0 && x <= CABIN_BASEMENT.x1
     && z >= CABIN_BASEMENT.z0 && z <= CABIN_BASEMENT.z1;
 }
 
+export function insideCabinLowerLevel(x, z) {
+  return insideCabinCellar(x, z) || insideCabinDungeon(x, z);
+}
+
 export function resolveCabinFloor(x, z, feetY = 0, baseGroundAt = () => 0) {
-  if (insideBasement(x, z) && Number(feetY) < CABIN_BASEMENT.levelSplitY) {
+  if (insideCabinCellar(x, z) && Number(feetY) < CABIN_BASEMENT.levelSplitY) {
     return CABIN_BASEMENT.floorY;
   }
+  const dungeonFloor = resolveCabinDungeonFloor(x, z, feetY, null);
+  if (dungeonFloor !== null) return dungeonFloor;
   return typeof baseGroundAt === 'function' ? baseGroundAt(x, z) : Number(baseGroundAt) || 0;
 }
 
@@ -47,11 +74,17 @@ function markAssembly(object, assemblyId, metadata = {}) {
   return object;
 }
 
-function addBasementCollider(colliders, bounds, name, kind = 'world') {
+function addBasementCollider(
+  colliders,
+  bounds,
+  name,
+  kind = 'world',
+  assembly = 'cabin-lower-level-collision',
+) {
   const volume = collider(bounds[0], bounds[1]);
   volume.name = name;
   markSpatialPrimitive(volume, { id: name, kind });
-  markAssembly(volume, 'cabin-basement-collision');
+  markAssembly(volume, assembly);
   colliders.push(volume);
   return volume;
 }
@@ -128,11 +161,16 @@ export function buildCabinBasement({
   const wallH = B.ceilingY - B.floorY;
   const wallY = B.floorY + wallH / 2;
   const wallT = 0.22;
+  const dungeonDoor = CABIN_DUNGEON_DOOR;
+  const doorLintelH = B.ceilingY - dungeonDoor.topY;
+  const doorLintelY = dungeonDoor.topY + doorLintelH / 2;
   for (const [name, size, pos, bounds] of [
     ['cabin-basement-wall-west', [wallT, wallH, B.z1 - B.z0], [B.x0 + wallT / 2, wallY, (B.z0 + B.z1) / 2], [[B.x0, B.floorY, B.z0], [B.x0 + wallT, B.ceilingY, B.z1]]],
     ['cabin-basement-wall-east', [wallT, wallH, B.z1 - B.z0], [B.x1 - wallT / 2, wallY, (B.z0 + B.z1) / 2], [[B.x1 - wallT, B.floorY, B.z0], [B.x1, B.ceilingY, B.z1]]],
     ['cabin-basement-wall-north', [B.x1 - B.x0, wallH, wallT], [(B.x0 + B.x1) / 2, wallY, B.z0 + wallT / 2], [[B.x0, B.floorY, B.z0], [B.x1, B.ceilingY, B.z0 + wallT]]],
-    ['cabin-basement-wall-south', [B.x1 - B.x0, wallH, wallT], [(B.x0 + B.x1) / 2, wallY, B.z1 - wallT / 2], [[B.x0, B.floorY, B.z1 - wallT], [B.x1, B.ceilingY, B.z1]]],
+    ['cabin-basement-wall-south-west', [dungeonDoor.x0 - B.x0, wallH, wallT], [(B.x0 + dungeonDoor.x0) / 2, wallY, B.z1 - wallT / 2], [[B.x0, B.floorY, B.z1 - wallT], [dungeonDoor.x0, B.ceilingY, B.z1]]],
+    ['cabin-basement-wall-south-east', [B.x1 - dungeonDoor.x1, wallH, wallT], [(dungeonDoor.x1 + B.x1) / 2, wallY, B.z1 - wallT / 2], [[dungeonDoor.x1, B.floorY, B.z1 - wallT], [B.x1, B.ceilingY, B.z1]]],
+    ['cabin-basement-wall-south-lintel', [dungeonDoor.x1 - dungeonDoor.x0, doorLintelH, wallT], [(dungeonDoor.x0 + dungeonDoor.x1) / 2, doorLintelY, B.z1 - wallT / 2], [[dungeonDoor.x0, dungeonDoor.topY, B.z1 - wallT], [dungeonDoor.x1, B.ceilingY, B.z1]]],
   ]) {
     addStructure(box({ name, size, pos, mat: wall, cast: false }));
     addBasementCollider(colliders, bounds, name, 'world');
@@ -145,7 +183,8 @@ export function buildCabinBasement({
   for (let y = B.floorY + 0.42; y < B.ceilingY - 0.18; y += 0.42) {
     for (const [name, size, pos] of [
       [`north-${y}`, [B.x1 - B.x0 - 0.48, 0.026, 0.014], [0, y, B.z0 + wallT + 0.016]],
-      [`south-${y}`, [B.x1 - B.x0 - 0.48, 0.026, 0.014], [0, y, B.z1 - wallT - 0.016]],
+      [`south-west-${y}`, [dungeonDoor.x0 - B.x0 - 0.24, 0.026, 0.014], [(B.x0 + dungeonDoor.x0) / 2 + 0.12, y, B.z1 - wallT - 0.016]],
+      [`south-east-${y}`, [B.x1 - dungeonDoor.x1 - 0.24, 0.026, 0.014], [(dungeonDoor.x1 + B.x1) / 2 - 0.12, y, B.z1 - wallT - 0.016]],
       [`west-${y}`, [0.014, 0.026, B.z1 - B.z0 - 0.48], [B.x0 + wallT + 0.016, y, 0.05]],
       [`east-${y}`, [0.014, 0.026, B.z1 - B.z0 - 0.48], [B.x1 - wallT - 0.016, y, 0.05]],
     ]) {
@@ -160,7 +199,8 @@ export function buildCabinBasement({
   }
   for (const [name, size, pos] of [
     ['north', [B.x1 - B.x0 - 0.50, 0.30, 0.018], [0, B.floorY + 0.16, B.z0 + wallT + 0.018]],
-    ['south', [B.x1 - B.x0 - 0.50, 0.30, 0.018], [0, B.floorY + 0.16, B.z1 - wallT - 0.018]],
+    ['south-west', [dungeonDoor.x0 - B.x0 - 0.25, 0.30, 0.018], [(B.x0 + dungeonDoor.x0) / 2 + 0.125, B.floorY + 0.16, B.z1 - wallT - 0.018]],
+    ['south-east', [B.x1 - dungeonDoor.x1 - 0.25, 0.30, 0.018], [(dungeonDoor.x1 + B.x1) / 2 - 0.125, B.floorY + 0.16, B.z1 - wallT - 0.018]],
     ['west', [0.018, 0.30, B.z1 - B.z0 - 0.50], [B.x0 + wallT + 0.018, B.floorY + 0.16, 0.05]],
     ['east', [0.018, 0.30, B.z1 - B.z0 - 0.50], [B.x1 - wallT - 0.018, B.floorY + 0.16, 0.05]],
   ]) {
@@ -172,6 +212,16 @@ export function buildCabinBasement({
       cast: false,
     }), 'cabin-basement-masonry', { structural: true }));
   }
+
+  const dungeon = buildCabinDungeon({
+    root: room,
+    M,
+    colliders,
+    occluders,
+    interaction,
+    utilityTargets,
+    ctx,
+  });
 
   // A scuffed runner and drain give the open centre a reason to exist while
   // leaving the browser-proven route completely clear.
@@ -675,6 +725,7 @@ export function buildCabinBasement({
   room.add(warmFill);
 
   const state = { discovered: false, entered: false, panelT: 0 };
+  const canRevealBasement = () => ctx.canRevealBasement?.() === true;
   /* The old closet.back art remains the face of the secret instead of being
    * replaced by a bunker hatch. Timber stiles, inset seams and a short view
    * into the ladder shaft make it clear that the framed piece is mounted on
@@ -723,7 +774,7 @@ export function buildCabinBasement({
   const panelArt = wardrobe?.picture ?? null;
   let movingPanelArt = null;
   if (panelArt) {
-    panelArt.visible = false;
+    panelArt.visible = !canRevealBasement();
     movingPanelArt = panelArt.clone();
     movingPanelArt.name = 'cabin-basement-moving-panel-art';
     movingPanelArt.visible = true;
@@ -809,6 +860,16 @@ export function buildCabinBasement({
   addPanelPart(latch);
   root.add(upperAccess);
 
+  const syncRevealVisibility = () => {
+    const revealed = canRevealBasement();
+    upperAccess.visible = revealed;
+    entranceTarget.visible = revealed;
+    if (panelArt) panelArt.visible = !revealed;
+    if (movingPanelArt) movingPanelArt.visible = revealed;
+    return revealed;
+  };
+  syncRevealVisibility();
+
   const exitTarget = invisibleTarget(
     'cabin-basement-return-ladder-target',
     [0.80, 1.75, 0.20],
@@ -818,6 +879,7 @@ export function buildCabinBasement({
   room.add(exitTarget);
 
   const discover = () => {
+    if (!canRevealBasement()) return false;
     if (state.discovered) return false;
     state.discovered = true;
     ctx.onDiscover?.('basement');
@@ -826,13 +888,17 @@ export function buildCabinBasement({
   utilityTargets.basementEntrance = entranceTarget;
   interaction.register(entranceTarget, {
     label: 'Push through the hangers and open the <b>concealed panel</b>',
-    enabled: () => wardrobeState?.closetOpen === true && wardrobeState.closetT >= 0.82,
+    enabled: () => canRevealBasement()
+      && wardrobeState?.closetOpen === true
+      && wardrobeState.closetT >= 0.82,
     onLook: discover,
     onUse: () => {
+      if (!canRevealBasement()) return false;
       discover();
       const firstEntry = !state.entered;
       state.entered = true;
       ctx.onBasementTransition?.('down', { firstEntry });
+      return true;
     },
   });
   utilityTargets.basementExit = exitTarget;
@@ -918,24 +984,50 @@ export function buildCabinBasement({
       yaw: Math.PI,
       pitch: -0.05,
     }),
+    dungeonEntry: dungeon.spawns.entry,
+    dungeon: dungeon.spawns.room,
   });
 
-  const update = (playerPosition = null) => {
-    const rawPanelT = THREE.MathUtils.clamp(((wardrobeState?.closetT ?? 0) - 0.68) / 0.32, 0, 1);
+  let dungeonElapsed = 0;
+  const update = (dtOrPlayer = null, elapsed = undefined, explicitPlayerPosition = null) => {
+    const legacyPlayerCall = dtOrPlayer && typeof dtOrPlayer === 'object'
+      && Number.isFinite(dtOrPlayer.x)
+      && Number.isFinite(dtOrPlayer.y)
+      && Number.isFinite(dtOrPlayer.z);
+    const dt = legacyPlayerCall
+      ? 1 / 60
+      : Number.isFinite(Number(dtOrPlayer)) ? Math.max(0, Number(dtOrPlayer)) : 1 / 60;
+    const playerPosition = legacyPlayerCall ? dtOrPlayer : explicitPlayerPosition;
+    dungeonElapsed = Number.isFinite(elapsed) ? elapsed : dungeonElapsed + dt;
+
+    const revealed = syncRevealVisibility();
+    const rawPanelT = revealed
+      ? THREE.MathUtils.clamp(((wardrobeState?.closetT ?? 0) - 0.68) / 0.32, 0, 1)
+      : 0;
     state.panelT = rawPanelT * rawPanelT * (3 - 2 * rawPanelT);
     panelPivot.rotation.y = PANEL_OPEN_ANGLE * state.panelT;
-    panelLightLeak.visible = state.panelT > 0.025;
+    panelLightLeak.visible = revealed && state.panelT > 0.025;
     const feetY = playerPosition ? playerPosition.y - WALK_EYE_HEIGHT : 0;
     const occupied = Boolean(playerPosition)
-      && insideBasement(playerPosition.x, playerPosition.z)
+      && insideCabinCellar(playerPosition.x, playerPosition.z)
       && Number(feetY) < B.levelSplitY;
     for (const light of utilityLights) light.intensity = occupied ? UTILITY_LIGHT_INTENSITY : 0;
     warmFill.intensity = occupied ? WORKBENCH_FILL_INTENSITY : 0;
-    return occupied;
+    const dungeonFrame = dungeon.update(dt, dungeonElapsed, playerPosition);
+    return occupied || dungeonFrame.occupied;
   };
+
+  const dispose = () => dungeon.dispose();
 
   return Object.freeze({
     root: room,
+    bounds: Object.freeze({
+      cellar: B,
+      corridor: CABIN_DUNGEON_CORRIDOR,
+      dungeon: CABIN_DUNGEON,
+      dungeonDoor: CABIN_DUNGEON_DOOR,
+    }),
+    dungeon,
     entryAssembly: upperAccess,
     panelArt,
     movingPanelArt,
@@ -948,6 +1040,7 @@ export function buildCabinBasement({
     lights: Object.freeze(utilityLights),
     fillLight: warmFill,
     update,
+    dispose,
     get discovered() { return state.discovered; },
     get entered() { return state.entered; },
   });

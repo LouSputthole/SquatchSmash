@@ -43,6 +43,7 @@ import {
 } from '../src/core/final-arc-story.js';
 import { createSilentSquatchStory } from '../src/core/silent-squatch-story.js';
 import { createSquatchfatherStory } from '../src/core/squatchfather-story.js';
+import { completeCabinChapter } from './helpers/complete-cabin-chapter.mjs';
 
 class MemoryStorage {
   constructor() {
@@ -346,8 +347,9 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   route(campaign, SCENE_IDS.COUNTRYSIDE_CABIN, 'arrival', 'cabin.html');
   campaign = reload(storage);
   const cabin = createCountrysideCabinStory({ campaign });
-  assert.equal(cabin.tryLeave().id, 'cabin_rest_first');
-  assert.equal(cabin.rest().ok, true);
+  assert.equal(cabin.tryLeave().id, 'cabin_chapter_incomplete');
+  completeCabinChapter(cabin);
+  assert.equal(cabin.chapterComplete(), true);
   assert.deepEqual(cabin.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });
@@ -464,20 +466,26 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.INITIATION, spawn: 'gathering' });
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'in_progress');
   assert.notEqual(campaign.state.missions[MISSION_IDS.INITIATION].status, 'complete');
-  /* Day 7, twenty to one in the morning — an hour and forty minutes later than
+  /* Day 8, twenty to one in the morning — an hour and forty minutes later than
    * this used to read, and every one of those minutes is the Special Meeting.
-   * The Palace finishes late on the sixth; the phone call, getting changed and
+   * The Cabin blackout shifts the final arc one day: Palace finishes late on
+   * the seventh; the phone call, getting changed and
    * going down to a car already running is thirty-five (DEPART_SPECIAL_MEETING)
    * and the drive, the spur, the boot and the walk in is sixty-five
    * (COMPLETE_SPECIAL_MEETING). `DEPART_INITIATION` is anchored at day 4, 19:00
    * and so absorbs nothing this late — it is pure carry. The ceremony starting
    * after midnight is the point of it. */
-  assert.equal(campaign.state.story.day, 7);
+  assert.equal(campaign.state.story.day, 8);
   assert.equal(campaign.state.story.timeMinutes, 40);
   for (const eventId of [
     TIME_EVENT_IDS.PHONE_READ_CABIN,
     TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN,
-    TIME_EVENT_IDS.CABIN_REST,
+    TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL,
+    TIME_EVENT_IDS.CABIN_GRATIN_CALL,
+    TIME_EVENT_IDS.CABIN_DUNGEON_ENTERED,
+    TIME_EVENT_IDS.CABIN_NIGHTFALL,
+    TIME_EVENT_IDS.CABIN_BLACKOUT,
+    TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE,
     TIME_EVENT_IDS.DEPART_SILVER_CASE,
     TIME_EVENT_IDS.COMPLETE_SILVER_CASE,
     TIME_EVENT_IDS.DEPART_MANSION,
@@ -493,6 +501,11 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   ]) {
     assert.equal(campaign.state.story.timeEvents.includes(eventId), true, eventId);
   }
+  assert.equal(
+    campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.CABIN_REST),
+    false,
+    'the legacy Cabin sleep marker cannot substitute for the dungeon chapter',
+  );
   /* Gap G1 minimal relief: the anointing writes COMPLETE_INITIATION exactly
    * once and the end card has ONE temporary edge home, so no save can be
    * trapped in a terminal scene. The owner-gated rewrite replaces this exit

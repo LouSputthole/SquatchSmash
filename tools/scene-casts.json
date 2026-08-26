@@ -324,13 +324,18 @@
       "sourceFiles": [
         "src/cabin/lag.js",
         "src/cabin/world.js",
-        "src/cabin/main.js"
+        "src/cabin/main.js",
+        "src/cabin/dungeon.js",
+        "src/cabin/script.js"
       ],
       "staged": [
-        "lag"
+        "lag",
+        "gratin",
+        "ateam1",
+        "npc-reserve-1"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "world.js builds Lag as the visible shared Npc rig at the woodpile. lag.js owns every hint and firewood reaction; main.js routes each exact cue through the canonical dialogue receipt path from that body."
+      "notes": "world.js builds Lag as the visible shared Npc rig. dungeon.js builds Cabin-local Gratin, a generic A-Team prisoner and a generic Counter-Strike prisoner; main.js binds their exact Npc mouth rigs to script.js dialogue and later stages Lag and Gratin at the fire."
     },
     {
       "id": "no-wake",

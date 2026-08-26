@@ -34,26 +34,25 @@ function setPostHeistClock(campaign) {
   });
 }
 
-test('the exact-once final-arc clock reaches every authored Day 5 and Day 6 seam', () => {
+test('the exact-once post-Cabin final arc reaches every authored Day 6 and Day 7 seam', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   setPostHeistClock(campaign);
 
   const beats = [
-    [TIME_EVENT_IDS.DEPART_SILVER_CASE, 5, 16 * 60],
-    [TIME_EVENT_IDS.COMPLETE_SILVER_CASE, 5, 17 * 60 + 30],
-    [TIME_EVENT_IDS.DEPART_MANSION, 5, 17 * 60 + 55],
-    [TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH, 5, 20 * 60 + 10],
-    /* "Day 5 night" is the narrative overnight begun on Day 5.  The campaign
-     * day field is a calendar, like HotDog's midnight crossing, so eight hours
-     * in the guest room wakes Tony on calendar Day 6. */
-    [TIME_EVENT_IDS.REST_AT_MANSION, 6, 4 * 60 + 10],
-    [TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE, 6, 6 * 60 + 10],
-    [TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH, 6, 14 * 60],
-    [TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH, 6, 18 * 60],
-    [TIME_EVENT_IDS.RETURN_TO_MANSION, 6, 18 * 60 + 30],
-    [TIME_EVENT_IDS.COMPLETE_MANSION_RETURN, 6, 19 * 60 + 15],
-    [TIME_EVENT_IDS.DEPART_CARTEL_PALACE, 6, 20 * 60 + 30],
-    [TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE, 6, 23 * 60],
+    [TIME_EVENT_IDS.DEPART_SILVER_CASE, 6, 16 * 60],
+    [TIME_EVENT_IDS.COMPLETE_SILVER_CASE, 6, 17 * 60 + 30],
+    [TIME_EVENT_IDS.DEPART_MANSION, 6, 17 * 60 + 55],
+    [TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH, 6, 20 * 60 + 10],
+    /* The Cabin blackout supplies the Day 6 morning. Eight hours in Lou's
+     * guest room therefore wakes Tony on calendar Day 7. */
+    [TIME_EVENT_IDS.REST_AT_MANSION, 7, 4 * 60 + 10],
+    [TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE, 7, 6 * 60 + 10],
+    [TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH, 7, 14 * 60],
+    [TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH, 7, 18 * 60],
+    [TIME_EVENT_IDS.RETURN_TO_MANSION, 7, 18 * 60 + 30],
+    [TIME_EVENT_IDS.COMPLETE_MANSION_RETURN, 7, 19 * 60 + 15],
+    [TIME_EVENT_IDS.DEPART_CARTEL_PALACE, 7, 20 * 60 + 30],
+    [TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE, 7, 23 * 60],
   ];
 
   for (const [eventId, day, timeMinutes] of beats) {
@@ -67,7 +66,7 @@ test('the exact-once final-arc clock reaches every authored Day 5 and Day 6 seam
   for (const [eventId] of beats) {
     assert.deepEqual(campaign.advanceTime(eventId), {
       applied: false,
-      day: 6,
+      day: 7,
       timeMinutes: 23 * 60,
       minutesAdvanced: 0,
     }, eventId);
@@ -85,19 +84,19 @@ test('the real final-arc story handoffs apply the authored clock as one atomic b
   assert.deepEqual(silver.begin(), { ok: true, resumed: false });
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [5, 16 * 60],
+    [6, 16 * 60],
   );
   assert.equal(silver.complete({ winstonOutcome: 'spared' }), true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [5, 17 * 60 + 30],
+    [6, 17 * 60 + 30],
   );
 
   const silent = createSilentSquatchStory({ campaign });
   assert.equal(silent.begin().ok, true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [5, 17 * 60 + 55],
+    [6, 17 * 60 + 55],
   );
   assert.equal(silent.complete({
     case: { placedOnDesk: true, delivered: true },
@@ -108,12 +107,12 @@ test('the real final-arc story handoffs apply the authored clock as one atomic b
   }), true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [5, 20 * 60 + 10],
+    [6, 20 * 60 + 10],
   );
   assert.equal(silent.restAtMansion().ok, true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [6, 4 * 60 + 10],
+    [7, 4 * 60 + 10],
   );
 
   const siege = createMansionSiegeCampaignStory({ campaign });
@@ -121,28 +120,28 @@ test('the real final-arc story handoffs apply the authored clock as one atomic b
   assert.equal(siege.complete({ attackersDown: 8, sasoleMet: true }), true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [6, 6 * 60 + 10],
+    [7, 6 * 60 + 10],
   );
 
   const enola = createEnolaSquatchCampaignStory({ campaign });
   assert.equal(enola.begin().ok, true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [6, 14 * 60],
+    [7, 14 * 60],
   );
   assert.equal(enola.complete({
     rank: 'A', score: 0.9, payloadReleased: true, returnedHome: true,
   }), true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [6, 18 * 60],
+    [7, 18 * 60],
   );
 
   const mansionReturn = createMansionReturnCampaignStory({ campaign });
   assert.equal(mansionReturn.begin().ok, true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [6, 18 * 60 + 30],
+    [7, 18 * 60 + 30],
   );
   assert.equal(mansionReturn.complete({
     wrongCityConfirmed: true,
@@ -151,14 +150,14 @@ test('the real final-arc story handoffs apply the authored clock as one atomic b
   }), true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [6, 19 * 60 + 15],
+    [7, 19 * 60 + 15],
   );
 
   const palace = createCartelPalaceCampaignStory({ campaign });
   assert.equal(palace.begin().ok, true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [6, 20 * 60 + 30],
+    [7, 20 * 60 + 30],
   );
   assert.equal(palace.checkpoint('betrayal', {
     sauceBetrayalConfirmed: true,
@@ -168,7 +167,7 @@ test('the real final-arc story handoffs apply the authored clock as one atomic b
   assert.equal(palace.complete({ outcome: 'clean' }), true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [6, 23 * 60],
+    [7, 23 * 60],
   );
   assert.equal(campaign.state.story.chapter, 'big_night');
 
@@ -186,7 +185,7 @@ test('the authored final-arc clock persists without duplicating markers on reloa
   campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SILVER_CASE);
 
   campaign = createCampaign({ storage });
-  assert.equal(campaign.state.story.day, 5);
+  assert.equal(campaign.state.story.day, 6);
   assert.equal(campaign.state.story.timeMinutes, 17 * 60 + 30);
   assert.deepEqual(
     campaign.state.story.timeEvents.slice(-2),
@@ -224,7 +223,7 @@ test('v13 partial final-arc saves migrate only through the handoff their status 
     {
       label: 'Silver Case begun',
       configure(state) { state.missions[MISSION_IDS.SILVER_CASE].status = 'in_progress'; },
-      day: 5,
+      day: 6,
       time: 16 * 60,
       count: 1,
     },
@@ -234,7 +233,7 @@ test('v13 partial final-arc saves migrate only through the handoff their status 
         state.missions[MISSION_IDS.SILVER_CASE].status = 'complete';
         state.missions[MISSION_IDS.SILENT_SQUATCH].status = 'available';
       },
-      day: 5,
+      day: 6,
       time: 17 * 60 + 30,
       count: 2,
     },
@@ -247,7 +246,7 @@ test('v13 partial final-arc saves migrate only through the handoff their status 
         });
         state.missions[MISSION_IDS.MANSION_SIEGE].status = 'available';
       },
-      day: 6,
+      day: 7,
       time: 4 * 60 + 10,
       count: 5,
     },
@@ -257,7 +256,7 @@ test('v13 partial final-arc saves migrate only through the handoff their status 
         state.missions[MISSION_IDS.MANSION_SIEGE].status = 'complete';
         state.missions[MISSION_IDS.ENOLA_SQUATCH].status = 'available';
       },
-      day: 6,
+      day: 7,
       time: 6 * 60 + 10,
       count: 6,
     },
@@ -267,7 +266,7 @@ test('v13 partial final-arc saves migrate only through the handoff their status 
         state.missions[MISSION_IDS.ENOLA_SQUATCH].status = 'complete';
         state.missions[MISSION_IDS.MANSION_RETURN].status = 'available';
       },
-      day: 6,
+      day: 7,
       time: 18 * 60,
       count: 8,
     },
@@ -277,7 +276,7 @@ test('v13 partial final-arc saves migrate only through the handoff their status 
         state.missions[MISSION_IDS.MANSION_RETURN].status = 'complete';
         state.missions[MISSION_IDS.CARTEL_PALACE].status = 'available';
       },
-      day: 6,
+      day: 7,
       time: 19 * 60 + 15,
       count: 10,
     },
@@ -287,7 +286,7 @@ test('v13 partial final-arc saves migrate only through the handoff their status 
         state.missions[MISSION_IDS.CARTEL_PALACE].status = 'complete';
         state.missions[MISSION_IDS.INITIATION].status = 'available';
       },
-      day: 6,
+      day: 7,
       time: 23 * 60,
       count: 12,
     },
@@ -364,7 +363,7 @@ test('preview-memory reset discards final-arc clock markers without touching dur
   setPostHeistClock(preview);
   preview.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_CASE);
   preview.advanceTime(TIME_EVENT_IDS.COMPLETE_SILVER_CASE);
-  assert.equal(preview.state.story.day, 5);
+  assert.equal(preview.state.story.day, 6);
 
   const reset = preview.reset();
   assert.equal(reset.story.day, 1);
