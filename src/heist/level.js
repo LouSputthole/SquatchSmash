@@ -201,20 +201,93 @@ export function makeCargoVan(group, position, color = 0x151719, name = 'cargo-va
   }
 
   const rearZ = -2.59;
+  /* ------------------------------------------------------------------ *
+   * THE REAR DOORS, ON HINGES THAT ARE WHERE HINGES GO
+   *
+   * Owner, playtest: the rear doors read wrong on the exit. Measured on the
+   * shipped van, in van-local metres:
+   *
+   *   leaf, either side   |x| 0.020 .. 1.250      (1.23 wide, 0.04 seam gap)
+   *   hinge barrels       |x| 1.090 .. 1.170      (centre 1.13)
+   *   cargo box side      |x| 1.290
+   *
+   * The barrels stood 0.12 m INBOARD of the edge they were supposed to be the
+   * pivot for — a hinge in the middle of a door panel — and there was no
+   * pivot at all: both leaves were meshes parented straight to the van root,
+   * so nothing in the mission could open them. Swung about the barrels as
+   * they were modelled, the 0.12 m strip of leaf outboard of them sweeps
+   * forward into the body: at 90 degrees it stands at x 1.13, z −2.47, which
+   * is 0.08 m in through the cargo box's rear face and 0.16 m inside its
+   * side. A door that cannot open without going through the van is a door
+   * that never opens.
+   *
+   * So each leaf hangs in its own hinge group ON the hinge line at its outer
+   * edge, and everything bolted to a door travels with it: the barrels, the
+   * tail light, the handle and the overlapping centre seam. Shut, every part
+   * is where it has always been to the millimetre except the two that were
+   * the bug: the barrels move out from |x| 1.09-1.17 onto the hinge line at
+   * 1.17-1.25, and the plate comes off the seam. Open, the leaf sweeps out
+   * behind the van — its free edge reaches (±1.565, −3.779) and the whole
+   * leaf clears the cargo box, at an AABB overlap of 0.000.
+   * ------------------------------------------------------------------ */
+  /** The hinge line: the outer edge of each leaf, which is where a barn door
+   * is hinged. The leaf hangs inboard of it to the centre seam. */
+  const REAR_DOOR_HINGE_X = 1.25;
+  /** Leaf width, hinge line to seam, leaving 0.04 m of gap down the middle. */
+  const REAR_DOOR_W = 1.23;
+  /** 105 degrees: past square, which is how a loading door is left standing
+   * open. The swung leaf spans z −3.792 to −2.577, so it stops 0.45 m short
+   * of the rear end of the cargo rail it is folding back towards. */
+  const REAR_DOOR_OPEN = 1.83;
+  const rearDoorHinges = [];
   for (const [side, label] of [[-1, 'left'], [1, 'right']]) {
-    box(root, [1.23, 2.08, 0.1], [side * 0.635, 1.53, rearZ], bodyMat,
+    const hinge = new THREE.Group();
+    hinge.name = `${name}-rear-door-hinge-${label}`;
+    hinge.position.set(side * REAR_DOOR_HINGE_X, 0, rearZ);
+    root.add(hinge);
+    rearDoorHinges.push([side, hinge]);
+    // Leaf-local X runs inboard from the hinge, so `-side` is toward the seam.
+    box(hinge, [REAR_DOOR_W, 2.08, 0.1], [-side * REAR_DOOR_W / 2, 1.53, 0], bodyMat,
       `${name}-rear-door-${label}`);
     for (const y of [0.78, 2.2]) {
-      box(root, [0.08, 0.2, 0.06], [side * 1.13, y, rearZ - 0.075], trim,
+      box(hinge, [0.08, 0.2, 0.06], [-side * 0.04, y, -0.075], trim,
         `${name}-rear-hinge-${label}-${y < 1 ? 'low' : 'high'}`);
     }
-    flat(root, [0.18, 0.38, 0.04], [side * 1.05, 0.9, rearZ - 0.085], lamp,
+    flat(hinge, [0.18, 0.38, 0.04], [-side * 0.2, 0.9, -0.085], lamp,
       `${name}-tail-light-${label}`);
   }
-  box(root, [0.06, 1.96, 0.06], [0, 1.53, rearZ - 0.07], trim, `${name}-rear-seam`);
-  box(root, [0.3, 0.1, 0.06], [0.2, 1.46, rearZ - 0.09], trim, `${name}-rear-handle`);
+  const [, rightLeaf] = rearDoorHinges[1];
+  /* The weather strip stands on the right leaf and laps over the left, which
+   * is the door that has to shut second — and is why the handle is on it. */
+  box(rightLeaf, [0.06, 1.96, 0.06], [-1.25, 1.53, -0.07], trim, `${name}-rear-seam`);
+  box(rightLeaf, [0.3, 0.1, 0.06], [-1.05, 1.46, -0.09], trim, `${name}-rear-handle`);
   box(root, [2.82, 0.22, 0.3], [0, 0.43, -2.7], trim, `${name}-rear-bumper`);
-  flat(root, [0.52, 0.22, 0.035], [0, 0.69, -2.655], MAT.paper, `${name}-rear-plate`);
+  /* The plate is on the BUMPER, not across the seam. It used to be a 0.52 m
+   * board centred on x 0 at door height, which belongs to both leaves and
+   * therefore to neither: opening the doors left it hanging in mid-air in the
+   * doorway. On the bumper face it stays with the van. */
+  flat(root, [0.52, 0.17, 0.035], [0, 0.43, -2.867], MAT.paper, `${name}-rear-plate`);
+
+  /**
+   * Swing both leaves, or shut them.
+   *
+   * The same shape as the vault door's `setOpen` a thousand lines below, and
+   * for the same reason: everything that moves when the door opens is a child
+   * of the hinge and nothing else is.
+   *
+   * @param {boolean} open
+   * @returns {boolean} what the doors now are
+   */
+  root.userData.setRearDoorsOpen = (open) => {
+    const isOpen = open === true;
+    root.userData.rearDoorsOpen = isOpen;
+    for (const [side, hinge] of rearDoorHinges) {
+      hinge.rotation.y = isOpen ? -side * REAR_DOOR_OPEN : 0;
+    }
+    return isOpen;
+  };
+  root.userData.rearDoorSwing = REAR_DOOR_OPEN;
+  root.userData.setRearDoorsOpen(false);
 
   // Two axles, four visible wheels. Their axis is X because this van is long Z.
   for (const z of [-1.72, 2.18]) {
@@ -808,6 +881,11 @@ function buildSafehouse() {
    * instead of parked sideways across the work floor. */
   const van = makeCargoVan(group, [0, 0, 6.45], 0x151719, 'primary-van');
   const vanDoor = van.userData.rearDoorTarget;
+  /* AND THE DOORS ARE OPEN, because the order on screen is "Board the primary
+   * van" and the beat `HEIST_CAMERA_MARKS.safehouse_van` frames is the two
+   * rear leaves. A crew loading a van through a sealed box is the whole of
+   * the owner's note. `main.js` shuts them behind him when he boards. */
+  van.userData.setRearDoorsOpen(true);
 
   return {
     group,
@@ -938,13 +1016,43 @@ function buildVan() {
     flat(group, [1.14, 0.012, 0.035], [0, 0.036, z], MAT.steel, `van-aisle-rib-${z}`);
   }
 
-  const door = box(group, [2.4, 2.5, 0.14], [0, 1.25, -3.13], vanDoor, 'van-interior-door');
+  /* ------------------------------------------------------------------ *
+   * THE DOORS THE CREW GOES OUT THROUGH, AND THE HOLE THEY WERE IN
+   *
+   * The rear opening of this box is the gap between the two side walls and
+   * between the floor and the ceiling. Measured on the built van:
+   *
+   *   side walls, inner faces   x ±1.660          -> opening 3.32 m wide
+   *   floor top / ceiling under y 0.000 / 2.700   -> opening 2.70 m tall
+   *   `van-interior-door`       x ±1.200, y 0-2.5 -> 2.40 x 2.50
+   *
+   * So the back of the van was a 2.4 m panel hung in a 3.32 m hole: 0.46 m of
+   * daylight down BOTH rear corners, floor to roof, and another 0.20 m across
+   * the top. Nearly three square metres of nothing, in the wall the exit beat
+   * is about, in the direction the man opposite you is facing for the whole
+   * ride. The doors did not read wrong because of what was drawn on them;
+   * they read wrong because two thirds of them were missing.
+   *
+   * The panel now fills its opening, and the detail says pair-of-doors: a
+   * seam down the middle where the leaves meet, the latch rods ON that seam
+   * rather than stranded 0.45 m out in the middle of a leaf, and a lining
+   * panel and reflector centred on each leaf at ±0.84.
+   * ------------------------------------------------------------------ */
+  const VAN_REAR_OPENING_W = 3.32;
+  const VAN_REAR_OPENING_H = 2.7;
+  /** Half the width of one leaf: the seam is at x 0, the hinge line at ±1.66. */
+  const VAN_LEAF_CENTRE_X = VAN_REAR_OPENING_W / 4;
+  const door = box(group, [VAN_REAR_OPENING_W, VAN_REAR_OPENING_H, 0.14],
+    [0, VAN_REAR_OPENING_H / 2, -3.13], vanDoor, 'van-interior-door');
+  box(group, [0.05, VAN_REAR_OPENING_H - 0.12, 0.05], [0, VAN_REAR_OPENING_H / 2, -3.03],
+    MAT.steel, 'van-rear-door-seam');
   for (const [side, label] of [[-1, 'left'], [1, 'right']]) {
-    box(group, [1.02, 0.88, 0.035], [side * 0.58, 1.55, -3.04], vanCeiling,
+    box(group, [1.4, 1.1, 0.035], [side * VAN_LEAF_CENTRE_X, 1.5, -3.04], vanCeiling,
       `van-rear-door-panel-${label}`);
-    flat(group, [0.34, 0.12, 0.025], [side * 0.84, 0.46, -3.015], GLOW.alarm,
+    flat(group, [0.34, 0.12, 0.025], [side * VAN_LEAF_CENTRE_X, 0.46, -3.015], GLOW.alarm,
       `van-rear-door-reflector-${label}`);
-    box(group, [0.1, 0.5, 0.06], [side * 0.5, 1.3, -3.0], MAT.brass,
+    // The latch rod stands on the leaf's own edge, at the seam it shuts on.
+    box(group, [0.1, 0.5, 0.06], [side * 0.16, 1.3, -2.985], MAT.brass,
       `van-rear-door-latch-${label}`);
   }
 
@@ -1001,6 +1109,27 @@ function buildVan() {
  * duffles somebody is standing in.
  */
 export const STAGING_POINT = Object.freeze({ x: -1.6, z: 9.2 });
+
+/**
+ * Where the crew come through the doors, and the only place they ever do.
+ *
+ * `buildBank` spawns the player here, `activatePhase` faces him down the hall
+ * from it, and the lobby guard is turned to watch it. It was three separate
+ * numbers — a spawn of (0, 8.6), a camera mark at (0, 8.5), and a guard yaw
+ * of −2.79 that answered to neither — and the third of them had the man on
+ * the door looking 114.86 degrees away from the door. One point, used by
+ * everything that is about the entrance, so they cannot drift apart again.
+ */
+export const BANK_ENTRY_POINT = Object.freeze({ x: 0, z: 8.6 });
+
+/**
+ * The guard's post: four metres inside the doors, on the east side.
+ *
+ * Beside `BANK_ENTRY_POINT` rather than derived from it — where he stands is
+ * a staging decision and where he looks is arithmetic off the entrance. See
+ * the block above `makeBankGuardFigure` below for both.
+ */
+const GUARD_POST = Object.freeze({ x: 2.2, z: 6.4 });
 
 /** Where the twenty-two lobby civilians stand when the doors come in. */
 export const LOBBY_ANCHORS = Object.freeze([
@@ -1268,17 +1397,44 @@ function buildBank() {
    * the one man in the room who was going to shoot somebody was a figure in
    * the middle distance. A guard stands where the public comes in.
    *
-   * This is four metres inside the doors, three metres from where the crew
-   * come through, turned to look down the hall at the teller line — which is
-   * what he is watching until the doors go.
+   * This is four metres inside the doors and three metres from where the crew
+   * come through. (It used to end "turned to look down the hall at the teller
+   * line — which is what he is watching until the doors go", and that half of
+   * it was the next bug. See below.)
    *
    * IN FRONT of the entry point rather than beside it, on purpose: the whole
    * beat is 2.75 seconds long, and a guard the player has to turn round to
    * find is a guard who shoots a teller while he is being looked for. East
    * side rather than west because the west door area is already four bodies
    * and a column — the geometry gate found him standing inside `bank-column-2`
-   * on the first attempt. */
-  const guardFigure = makeBankGuardFigure({ name: 'bank-guard', x: 2.2, z: 6.4, yaw: -2.79 });
+   * on the first attempt.
+   *
+   * AND HE FACES THE DOOR HE IS STANDING ON.
+   *
+   * Owner, playtest: *"the guard is facing the wrong way"*. He was, by
+   * 114.86 degrees. His yaw was the literal −2.79, which is `atan2` from his
+   * post to the middle of the teller counter (−2.7928 — sixteen thousandths
+   * of a radian off it), so the comment above was accurate and the staging
+   * was still wrong: it put his back to the entrance for the one beat he
+   * exists for. The crew come through the doors at BANK_ENTRY_POINT, he says
+   * `guard_warning` — *"Stop right there"* — while he is on screen for 2.75
+   * seconds, and `HEIST_CAMERA_MARKS.bank_guard` films him from 0.1 m short
+   * of it: the frame the mission is built around was the back of his head and
+   * the SECURITY legend across his shoulder blades.
+   *
+   * Derived from the entry point rather than written down, so a spawn that
+   * moves takes his eyeline with it. Measured after: yaw −0.7854, which is
+   * 0.00 degrees off the point the crew walk in on, 17.35 off the doorway
+   * itself four metres beyond it, and 8.62 off the cash staging circle. The
+   * teller line he used to be staring at is now 115.02 behind his shoulder,
+   * which is the right way round: a guard watches the way in, and the tellers
+   * are the thing he is standing between it and. */
+  const guardFigure = makeBankGuardFigure({
+    name: 'bank-guard',
+    x: GUARD_POST.x,
+    z: GUARD_POST.z,
+    yaw: Math.atan2(BANK_ENTRY_POINT.x - GUARD_POST.x, BANK_ENTRY_POINT.z - GUARD_POST.z),
+  });
   group.add(guardFigure.root);
   const rearGuardFigure = makeBankGuardFigure({
     name: 'bank-rear-guard', x: 6.8, z: -0.2, yaw: Math.PI, height: 1.79,
@@ -1677,7 +1833,7 @@ function buildBank() {
 
   return {
     group,
-    spawn: new THREE.Vector3(0, 1.66, 8.6),
+    spawn: new THREE.Vector3(BANK_ENTRY_POINT.x, 1.66, BANK_ENTRY_POINT.z),
     interactables: {
       guard: guardFigure.root,
       rearGuard: rearGuardFigure.root,

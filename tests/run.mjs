@@ -101,6 +101,7 @@ const TEST_MODULES = [
   './heist-hostages.test.mjs',
   './heist-loadout.test.mjs',
   './heist-scale.test.mjs',
+  './heist-van-and-hostages.test.mjs',
   './fresh-save-campaign-route.test.mjs',
   './final-campaign-topology.test.mjs',
   './final-arc-clock.test.mjs',

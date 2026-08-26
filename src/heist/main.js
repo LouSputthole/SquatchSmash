@@ -2573,6 +2573,11 @@ function refreshInteractions() {
       say('prospect_ready');
       sayCommand('lou_radio_open');
       audio.play('heist.van.door');
+      /* And the doors he just went through shut behind him. They stand open
+       * in the bay while the crew loads — see `buildSafehouse` — and this is
+       * the sound that has always played over them doing nothing. */
+      p.safehouse.group.getObjectByName('primary-van')
+        ?.userData.setRearDoorsOpen?.(false);
       startVanRide();
       recordCheckpoint('safehouse_ready', 'VAN_APPROACH');
     }, { enabled: () => preparation.ready && machine.state === 'LOADOUT' });

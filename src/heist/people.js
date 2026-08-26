@@ -94,6 +94,26 @@ const VISUAL_POSE_BY_STATE = Object.freeze({
  * ends 45 cm below where it started. */
 const FLOOR_POSES = new Set(['kneeling', 'prone', 'restrained', 'bolting', 'alarm', 'fallen']);
 
+/**
+ * THE FLOOR A POSE IS BUILT ON, and how close to it a body has to land.
+ *
+ * Every pose in this class is authored on the rig's own frame and then put on
+ * the ground by MEASUREMENT -- `_settle()` boxes the posed figure and drops
+ * its lowest point onto `baseY`. Two places need a number for "on the floor"
+ * rather than a measurement, and it is the same number in both:
+ *
+ *   - `seated()` converges the knee against the shoe height, and four secant
+ *     steps against a 0.45 m thigh land inside 4 mm;
+ *   - the gate in `tests/heist-van-and-hostages.test.mjs`, which asserts that
+ *     no settled pose puts any part of a body further than this under the
+ *     floor it is standing on.
+ *
+ * It is exported because a budget that only the source knows is a budget
+ * nothing is holding anybody to. See `alarm()` for the 0.3 that used to
+ * stand in for this and what it measured out at.
+ */
+export const POSE_FLOOR_CONTACT_M = 0.004;
+
 /** THE TAKE's pose vocabulary, in the four words the staging marker knows. */
 const HEIST_ACTOR_POSTURES = Object.freeze({
   stand: 'stand', startled: 'stand', pleading: 'stand', bolting: 'stand',
@@ -333,7 +353,7 @@ export class HeistFigure {
        * below the sole, and no amount of knee adjustment would ever satisfy
        * a full-rig box measurement. */
       const error = this._soleHeight() - this.baseY;
-      if (!Number.isFinite(error) || Math.abs(error) < 0.004) break;
+      if (!Number.isFinite(error) || Math.abs(error) < POSE_FLOOR_CONTACT_M) break;
       const step = Math.max(-0.24, Math.min(0.24, error / 0.45));
       for (const [thigh, shin] of [[this.parts.legL, this.parts.shinL],
         [this.parts.legR, this.parts.shinR]]) {
@@ -525,7 +545,16 @@ export class HeistFigure {
     return this._settle();
   }
 
-  /** Crouched low and moving — somebody who has decided to run for it. */
+  /**
+   * Crouched low and moving — somebody who has decided to run for it.
+   *
+   * Settles for the same reason `alarm()` does, and for a much smaller
+   * number: the shins are pitched 0.1 forward, which drives the soles 0.0167 m
+   * under the marble on a 1.73 m customer. `update()` re-grounds this pose
+   * every frame it runs the stride, so in play it was only ever the first
+   * frame — but the first frame is the whole of what a snapped restore and
+   * both headless gates ever see.
+   */
   bolting() {
     this._clear();
     this.parts.body.rotation.x = 0.42;
@@ -536,10 +565,39 @@ export class HeistFigure {
     this.parts.shinL.rotation.x = 0.1;
     this.parts.shinR.rotation.x = 0.1;
     this.pose = 'bolting';
-    return this;
+    return this._settle();
   }
 
-  /** Low, one arm reaching. Somebody going for a switch nobody can see. */
+  /**
+   * Low, one arm reaching. Somebody going for a switch nobody can see.
+   *
+   * THE CROUCH USED TO BE A NUMBER IN THE AIR.
+   *
+   * This was the one pose in the class that guessed its own floor: it ended
+   * `this.tilt.position.y = -0.3 * this.scale` and returned, so the whole
+   * figure was lowered by three tenths of a metre that nothing had measured.
+   * Measured on the built lobby, on the shipped pose:
+   *
+   *   1.73 m customer   right shoe sole y −0.286, left −0.166, hips 0.378
+   *   1.60 m customer   0.265 m of body under the marble
+   *   1.86 m customer   0.308 m of body under the marble
+   *
+   * — a man reaching for the alarm with one boot a foot under the floor and
+   * the other most of a foot under it, his chest 0.63 m up in the air over
+   * feet that were nowhere near it. Take the drop back off and measure the
+   * pose alone and its own contact is 0.005 m ABOVE the floor: the authored
+   * leg angles never lowered the body at all, so the entire 0.3 was invented.
+   * It survived because `_updatePoseBlend` re-grounds a floor pose on every
+   * frame of a blend, which quietly corrects it in play and leaves it exactly
+   * as authored on any snap — a checkpoint restore, a first build, or the
+   * headless staging both gates read.
+   *
+   * So it settles, like `kneeling`, `prone`, `restrained` and `fallen`: the
+   * posed rig is boxed and its lowest point is put on `baseY`. The lean is
+   * what makes this low — settled, the body still sits 0.205 m under a
+   * standing hip line with 0.55 rad of forward pitch on it — and the crouch
+   * is no longer paid for out of the marble.
+   */
   alarm() {
     this._clear();
     this.parts.body.rotation.x = 0.55;
@@ -551,9 +609,8 @@ export class HeistFigure {
     this.parts.foreR.rotation.x = -0.35;
     this.parts.armL.rotation.set(-0.6, 0, -0.3);
     this.parts.head.rotation.x = -0.3;
-    this.tilt.position.y = -0.3 * this.scale;
     this.pose = 'alarm';
-    return this;
+    return this._settle();
   }
 
   /**
