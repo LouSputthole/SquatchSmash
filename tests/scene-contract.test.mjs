@@ -16,7 +16,7 @@ import {
 test('the registry covers every campaign scene exactly once', () => {
   const expected = Object.values(SCENE_IDS).sort();
   const actual = SCENE_CONTRACTS.map((contract) => contract.id).sort();
-  assert.equal(SCENE_CONTRACTS.length, 20);
+  assert.equal(SCENE_CONTRACTS.length, 21);
   assert.deepEqual(actual, expected);
   assert.deepEqual(validateSceneContracts(SCENE_CONTRACTS, { expectedSceneIds: expected }), []);
 
@@ -29,10 +29,10 @@ test('the registry covers every campaign scene exactly once', () => {
   }
 });
 
-test('twenty scene contracts expand to twenty-one runtime entry variants', () => {
+test('twenty-one scene contracts expand to twenty-two runtime entry variants', () => {
   const entries = listSceneEntrypoints();
-  assert.equal(entries.length, 21);
-  assert.equal(new Set(entries.map((entry) => entry.id)).size, 21);
+  assert.equal(entries.length, 22);
+  assert.equal(new Set(entries.map((entry) => entry.id)).size, 22);
 
   const bingTwo = getSceneContract(SCENE_IDS.BADA_BING_TWO);
   assert.deepEqual(bingTwo.entrypoints.map((entry) => entry.id), [

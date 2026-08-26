@@ -419,6 +419,28 @@ export const SCENE_CONTRACTS = deepFreeze([
     evidence: ['src/heist/main.js:1-65', 'src/heist/config.js:1-56'],
   }),
 
+  /* The second home, and the only scene that carries five separate story
+   * states: the night Lou hands over the keys, the stayover, the morning
+   * after, coming home from the dock, and the night the special meeting
+   * rings. See CAMPAIGN_SPINE for which beat owns which spawn. */
+  makeContract({
+    id: SCENE_IDS.LUXURY_APARTMENT,
+    title: 'The Luxury Apartment',
+    purpose: 'The upgraded home Lou gives the Prospect after Silver Pines: a two-level loft with the domestic utility of the starter flat, the trophies and art moved over, and the five authored story states of the back half of the campaign.',
+    entrypoints: [canonicalEntry(SCENE_IDS.LUXURY_APARTMENT, 'src/luxury-apartment/main.js')],
+    capabilities: {
+      input: canonicalBrowserInput(),
+      camera: firstPersonCamera(),
+      objective: sharedObjective,
+      interaction: sharedInteraction,
+      checkpoints: sceneEntryCheckpoints(['arrival', 'main', 'loft', 'bed', 'arcade']),
+    },
+    minimumSubjects: baseSubjects(),
+    goldenPath: 'Take the keys, get ready and leave for the date, bring Margo home, wake alone, answer the dock call, come back, and be standing here when Booski rings about the special meeting.',
+    debt: [],
+    evidence: ['src/luxury-apartment/main.js:1-40', 'src/luxury-apartment/runtime.js:41', 'src/core/campaign.js:1199-1213'],
+  }),
+
   makeContract({
     id: SCENE_IDS.COUNTRYSIDE_CABIN,
     title: 'The Countryside Cabin',

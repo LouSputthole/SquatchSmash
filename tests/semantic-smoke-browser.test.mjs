@@ -14,7 +14,7 @@ test('the browser Adapter registry explicitly covers every runtime entry variant
   const adapterIds = Object.keys(SEMANTIC_SMOKE_BROWSER_ADAPTERS).sort();
   const cases = buildSemanticSmokeCases();
 
-  assert.equal(expectedIds.length, 21);
+  assert.equal(expectedIds.length, 22);
   assert.deepEqual(adapterIds, expectedIds);
   assert.deepEqual(cases.map(({ entrypointId }) => entrypointId).sort(), expectedIds);
   assert.ok(cases.every(({ obligations }) => obligations.length > 0));

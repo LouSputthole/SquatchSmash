@@ -584,6 +584,7 @@ export const SEMANTIC_SMOKE_BROWSER_ADAPTERS = Object.freeze({
   silver_room_canonical: unobservable('Silver Room has no declared semantic-smoke observation surface yet.'),
   silver_pines_canonical: unobservable('Silver Pines has no declared semantic-smoke observation surface yet.'),
   bank_heist_canonical: unobservable('Bank Heist has no declared semantic-smoke observation surface yet.'),
+  luxury_apartment_canonical: unobservable('The Luxury Apartment has no declared semantic-smoke observation surface yet.'),
   countryside_cabin_canonical: Object.freeze({
     observable: true,
     surface: 'window.COUNTRYSIDE_CABIN',

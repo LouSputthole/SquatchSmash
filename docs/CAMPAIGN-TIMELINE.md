@@ -1,4 +1,22 @@
-# Campaign timeline — current production flow (updated 2026-08-24)
+# Campaign timeline — current production flow (updated 2026-08-26)
+
+> **This file is the record of what is BUILT, not the plan.**
+>
+> The owner's campaign story bible arrived on 2026-08-26 and lives at
+> `docs/CAMPAIGN-STORY-BIBLE.md`, with the thirty-one beats as data in
+> `src/core/campaign-spine.js`. Where that spine and this timeline disagree,
+> the spine is where the campaign is going and this page is where it is now.
+> `tests/campaign-spine.test.mjs` counts the distance between them: fifteen
+> beats do not yet play in the position the bible puts them, and that number
+> is a budget that may only fall.
+>
+> The five structural moves still outstanding: the cabin comes forward from
+> the post-heist lay-low to the Squatchfather extraction; Beef Run moves
+> inside it; THE TAKE moves back to sit between coming home from the motel and
+> Lou's new-space call; the luxury apartment becomes the second home for the
+> whole back half; and the Margo arc inverts so the date precedes NO WAKE
+> rather than following it.
+
 
 The owner's connected campaign route implemented by campaign schema v19. The
 original four-day apartment spine remains intact. After THE TAKE cleanup, Lou

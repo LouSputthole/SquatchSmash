@@ -80,6 +80,15 @@ export const SCENE_IDS = Object.freeze({
    * left open for exploration. It is a scene rather than a mission: nothing
    * here can be failed and the existing Silver Case remains the next job. */
   COUNTRYSIDE_CABIN: 'countryside_cabin',
+  /* The second home. Lou gives it to the Prospect after Silver Pines as a
+   * reward for taking care of that thing for him, and from that moment the
+   * starter flat goes dark: the trophies, the art and the Squatchanium
+   * miniature move here and the campaign never spawns him in the old one
+   * again. Five story states live in this one scene -- getting ready for the
+   * date, the stayover, the morning after, coming home from the dock, and the
+   * night the special meeting rings. Residence is campaign state and is never
+   * inferred from the last scene visited. */
+  LUXURY_APARTMENT: 'luxury_apartment',
   SILVER_CASE: 'silver_case',
   MANSION_SIEGE: 'mansion_siege',
   ENOLA_SQUATCH: 'enola_squatch',
@@ -1182,6 +1191,21 @@ export const SCENES = Object.freeze({
       'safehouse_debrief',
     ]),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  /* luxury-apartment.html already ships arrival/main/loft/bed/arcade spawns.
+   * The five story states reuse them rather than inventing new ones: arrival
+   * for the night Lou hands over the keys, bed for the stayover and the
+   * morning, main for coming home and for the special-meeting call. */
+  [SCENE_IDS.LUXURY_APARTMENT]: Object.freeze({
+    href: 'luxury-apartment.html',
+    defaultSpawn: 'arrival',
+    spawns: Object.freeze(['arrival', 'main', 'loft', 'bed', 'arcade']),
+    next: Object.freeze([
+      SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.NO_WAKE,
+      SCENE_IDS.SILVER_CASE,
+      SCENE_IDS.SPECIAL_MEETING,
+    ]),
   }),
   [SCENE_IDS.COUNTRYSIDE_CABIN]: Object.freeze({
     href: 'cabin.html',
