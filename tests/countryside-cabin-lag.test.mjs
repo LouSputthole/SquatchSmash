@@ -64,6 +64,10 @@ test('Lag hints require explicit interaction, cool down, avoid repeats, and reti
     'trailhead', 'bridge', 'creek', 'shed', 'overlook', 'firepit',
   ]) director.discover(discovery);
 
+  assert.ok(director.debug.eligible.includes('cabin.wardrobe'),
+    'changing clothes must not retire the clue to the undiscovered panel');
+  director.discover('basement');
+
   const afterExploration = director.debug.eligible;
   assert.equal(afterExploration.some((id) => id.startsWith('cabin.')), false);
   assert.equal(afterExploration.some((id) => id.startsWith('property.')), false);

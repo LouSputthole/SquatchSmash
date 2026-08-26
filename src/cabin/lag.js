@@ -60,7 +60,7 @@ const CABIN_HINTS = Object.freeze([
   { id: 'cabin.board', kind: 'cabin', weight: 4, missing: ['drawing-board'], text: 'Drawing board\'s worth looking at.' },
   { id: 'cabin.board.odd', kind: 'cabin', weight: 3, missing: ['drawing-board'], text: 'If something looks outta place in there, it probably is.' },
   { id: 'cabin.bedroom', kind: 'cabin', weight: 4, missing: ['bedroom'], text: 'Check around the bedroom.' },
-  { id: 'cabin.wardrobe', kind: 'cabin', weight: 2, missing: ['wardrobe'], text: 'Dry clothes are in the wardrobe. Push past the hangers and look proper.' },
+  { id: 'cabin.wardrobe', kind: 'cabin', weight: 2, missing: ['basement'], text: 'Dry clothes are in the wardrobe. Push past the hangers and look proper.' },
   { id: 'cabin.entertainment', kind: 'cabin', weight: 2, missing: ['entertainment'], text: 'Radio and television both work. Reception\'s got opinions about the trees.' },
 ].map(authoredLagLine));
 

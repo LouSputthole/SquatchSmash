@@ -38,6 +38,10 @@ import { lookSensitivity, bindAudioVolume } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { buildSquatchfatherRuntimeGeometry } from './runtime-geometry.js';
+import {
+  SquatchfatherCombatAdapter,
+  squatchfatherBodyAnchor,
+} from './combat.js';
 import { createSquatchfatherInputPolicy } from './controls.js';
 
 // ---------------------------------------------------------------- boot
@@ -104,8 +108,25 @@ let campaignMissionStarted = false;
 // ---------------------------------------------------------------- systems
 
 const {
-  sceneState, impacts, blood, prospect, sal, mcclawsky,
+  sceneState, impacts, bloodImpacts, deathBloodPools, prospect, sal, mcclawsky,
 } = buildSquatchfatherRuntimeGeometry(scene, camera, { renderer });
+
+const combat = new SquatchfatherCombatAdapter({
+  camera,
+  hitTargets: () => scene.children,
+  surfaceImpacts: impacts,
+  bloodImpacts,
+  deathBloodPools,
+  floorY: () => 0,
+});
+for (const [id, controller] of [['sal', sal], ['mcclawsky', mcclawsky]]) {
+  combat.registerTarget(id, {
+    actor: controller,
+    root: controller.group,
+    anchorOf: (object) => squatchfatherBodyAnchor(controller, object),
+    spatterAnchorOf: () => controller.fig.torso,
+  });
+}
 
 const director = new CameraDirector(camera, ui);
 const seated = new SeatedCameraController(director);
@@ -423,7 +444,7 @@ function resetRoomReactions() {
   waiterPanic = null;
   waiterPanicStepClock = 0;
   impacts.reset();
-  blood.reset();
+  combat.reset();
   const { cook } = sceneState.bystanders;
   const { waiter, diner1, diner2 } = sceneState.figures;
   waiter.stopCower();
@@ -452,20 +473,6 @@ function fire() {
   const flashAt = new THREE.Vector3();
   prospect.weapon.getWorldPosition(flashAt);
   impacts.muzzle(flashAt);
-}
-
-/** Blood at the wound and a second spatter thrown low, facing the shooter. */
-function bloodHit(target) {
-  const at = target.eyePoint;
-  const toShooter = camera.position.clone().sub(at).normalize();
-  // These are wounds on people, not decals on the restaurant wall. Attach
-  // them to the moving figure so Sal's forward collapse and McClawsky's fall
-  // carry the impact with them instead of leaving it hanging in the air.
-  blood.punchAttached(target.fig.neck, at, toShooter);
-  blood.punchAttached(target.fig.torso,
-    at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.25, -0.38, (Math.random() - 0.5) * 0.25)),
-    toShooter,
-  );
 }
 
 function failScene(title) {
@@ -755,10 +762,13 @@ function buildStates() {
         }
         if (!firePressed) return;
         firePressed = false;
+        const shot = combat.resolve('sal');
         fire();
         prospect.fireKick();
+        combat.present(shot, { fatal: shot.outcome === 'intended' });
+        if (shot.outcome !== 'intended') return;
+        // Attach exact-contact blood before the authored fall moves the rig.
         sal.kill();
-        bloodHit(sal);
         knockGlassOver(glasswareFor(sceneState.props.salGlass));
         roomReacts();
         fsm.go(S.SHOOT_MCCLAWSKY);
@@ -776,10 +786,13 @@ function buildStates() {
       update() {
         if (!firePressed) return;
         firePressed = false;
+        const shot = combat.resolve('mcclawsky');
         fire();
         prospect.fireKick();
+        combat.present(shot, { fatal: shot.outcome === 'intended' });
+        if (shot.outcome !== 'intended') return;
+        // Attach exact-contact blood before the authored fall moves the rig.
         mcclawsky.kill();
-        bloodHit(mcclawsky);
         Foley.chairKnock();
         fsm.go(S.DROP_WEAPON);
       },
@@ -906,7 +919,7 @@ function buildStates() {
 /** Everything hidden now that the shooting beats put on screen later. */
 function firstShotObjects() {
   return [
-    blood.pool,            // the two spatters thrown at each hit
+    ...combat.prewarmObjects, // exact wounds, secondary spatters and floor pools
     impacts.pool,          // bullet holes, same material family
     prospect.weapon,       // the first-person revolver, out at DRAW_WEAPON
     mcclawsky.gun,         // his, if he gets that far
@@ -949,9 +962,9 @@ async function prewarmFirstShot() {
           'cloth.suit.movement', 'car.door.close.heavy',
         ],
       },
-      /* No pools to fill: BulletHoles builds all eight quads and its light in
-       * its constructor, so the first shot already allocates nothing. The
-       * passes above are what its pool was still missing. */
+      /* No pools to fill: the bullet and shared-blood systems build every
+       * bounded quad in their constructors, so a first shot allocates
+       * nothing. The passes above are what their materials were missing. */
     });
   } finally {
     impacts.flash.intensity = flashIntensity;
@@ -1154,9 +1167,9 @@ function wire(data, voCues) {
     ambience, train,
     campaign, campaignStory,
     chairInteraction, toiletInteraction, dropInteraction,
-    // The renderer and the two decal pools are on the handle so the frame-cost
-    // verifier can read renderer.info.programs across a shot.
-    renderer, scene, camera, impacts, blood, ringing,
+    // The renderer and bounded impact systems stay on the handle so the
+    // verifier can inspect shader cost and canonical blood metadata.
+    renderer, scene, camera, impacts, bloodImpacts, deathBloodPools, combat, ringing,
     input: browserInput,
     get heldInput() { return { ...keys }; },
     go: (name) => fsm.go(name),
@@ -1202,6 +1215,7 @@ function updateGame(dt) {
   vibration.update(dt);
   ringing.update(dt);
   impacts.update(dt);
+  combat.update(dt);
   waiterRounds(dt);
   updateCowering(dt);
   director.update(dt, prospect, seatedNow ? seated.clamp : null);

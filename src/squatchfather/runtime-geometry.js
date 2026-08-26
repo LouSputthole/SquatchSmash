@@ -1,4 +1,5 @@
 import { BulletHoles } from '../world/bullets.js';
+import { BloodImpactSystem, DeathBloodPool } from '../world/blood.js';
 import { McClawskyController } from './characters/McClawskyController.js';
 import { ProspectController } from './characters/ProspectController.js';
 import { SalController } from './characters/SalController.js';
@@ -20,7 +21,8 @@ function identifyRoot(root, name, assemblyId) {
 export function buildSquatchfatherRuntimeGeometry(scene, camera, { renderer = null } = {}) {
   const sceneState = buildSquatchfatherScene(scene, renderer);
   const impacts = new BulletHoles(scene);
-  const blood = new BulletHoles(scene, 'blood');
+  const bloodImpacts = new BloodImpactSystem(scene);
+  const deathBloodPools = new DeathBloodPool(scene, { capacity: 2 });
   const prospect = new ProspectController(scene, camera, sceneState.colliders);
   const sal = new SalController(scene);
   const mcclawsky = new McClawskyController(scene);
@@ -49,7 +51,8 @@ export function buildSquatchfatherRuntimeGeometry(scene, camera, { renderer = nu
   return Object.freeze({
     sceneState,
     impacts,
-    blood,
+    bloodImpacts,
+    deathBloodPools,
     prospect,
     sal,
     mcclawsky,

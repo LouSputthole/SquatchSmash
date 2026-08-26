@@ -9,43 +9,7 @@ most of these are lines waiting on a recording session, and
 `VOICE-LINES-TODO.md` is the queue for them. This file answers the other
 question: **which scene is silent, at which beat.**
 
-**42 silent cues across 2 scenes.**
-
-## mansion — 33
-
-- `billiards.break` (2.4s) — src/mansion/interaction-audio.js
-- `billiards.click` (0.4s) — src/mansion/interaction-audio.js
-- `billiards.cue.strike` (0.5s) — src/mansion/interaction-audio.js
-- `billiards.miscue` (0.55s) — src/mansion/interaction-audio.js
-- `billiards.pocket` (1.3s) — src/mansion/interaction-audio.js
-- `billiards.rail` (0.45s) — src/mansion/interaction-audio.js
-- `vo.silentsquatch.evening.lag.bighouse` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.lag.exactly` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.lag.golookaround` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.lag.itshim` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.lag.lostalready` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.lag.neverownedahouse` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.seff.gottheseatsright` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.seff.morethanmyfirsthouse` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.seff.thatguysdead` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.seff.thatsnotthepoint` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.seff.whosthebadguy` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.stove.lettingthemovieout` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.evening.stove.standthereallnight` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.ballinhand` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.crookedtable` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.doesntcount` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.finally` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.leaveitthere` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.movestanding` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.nobodyhears` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.nothing` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.onpurpose` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.rackemagain` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.remembered` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.thatstheframe` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.thewrist` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.house.rippin.pool.youbreak` (unknown length) — src/mansion/script.js
+**9 silent cues across 1 scenes.**
 
 ## world — 9
 

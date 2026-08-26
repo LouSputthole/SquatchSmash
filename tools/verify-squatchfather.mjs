@@ -652,7 +652,10 @@ try {
       renderer.render(gl, camera);
       return +(performance.now() - t0).toFixed(2);
     };
-    const shoot = () => {
+    const shoot = (target) => {
+      const bodyPoint = target.fig.chest.getWorldPosition(target.eyePoint.clone());
+      camera.lookAt(bodyPoint);
+      camera.updateMatrixWorld(true);
       sf.pressFire();
       sf.tick(0.001); // fire() runs; the flash is lit and not yet decayed
       const window6 = [draw()];
@@ -664,10 +667,15 @@ try {
     for (let i = 0; i < 6; i++) quiet.push(draw());
 
     const programsBefore = renderer.info.programs.length;
-    const first = shoot();
+    const first = shoot(sf.sal);
     const programsAfterFirst = renderer.info.programs.length;
     const salBeat = sf.state();
-    const second = shoot();
+    const second = shoot(sf.mcclawsky);
+    const bodyMarks = [
+      ...sf.bloodImpacts.wounds.pool,
+      ...sf.bloodImpacts.spatter.pool,
+    ].filter((mark) => mark.visible);
+    const pools = sf.deathBloodPools.meshes.filter((pool) => pool.visible);
     return {
       quiet,
       first,
@@ -677,14 +685,23 @@ try {
       programsAfterSecond: renderer.info.programs.length,
       salBeat,
       mcBeat: sf.state(),
-      woundsFollowBodies: sf.blood.pool.filter((m) => m.visible).every((m) => (
-        m.parent === sf.sal.fig.neck || m.parent === sf.sal.fig.torso
-          || m.parent === sf.mcclawsky.fig.neck || m.parent === sf.mcclawsky.fig.torso
+      woundsFollowBodies: bodyMarks.every((m) => (
+        m.parent === sf.sal.fig.head || m.parent === sf.sal.fig.torso
+          || m.parent === sf.mcclawsky.fig.head || m.parent === sf.mcclawsky.fig.torso
       )),
-      woundVisuals: sf.blood.pool.filter((m) => m.visible).map((m) => ({
+      woundVisuals: bodyMarks.map((m) => ({
+        name: m.name,
+        system: m.userData.reusableSystem,
+        effect: m.userData.bloodEffect,
         size: m.geometry.parameters.width,
         side: m.material.side,
         renderOrder: m.renderOrder,
+      })),
+      pools: pools.map((pool) => ({
+        name: pool.name,
+        system: pool.userData.reusableSystem,
+        effect: pool.userData.bloodEffect,
+        y: pool.position.y,
       })),
     };
   });
@@ -722,10 +739,26 @@ try {
   check('shooting McClawsky requires the weapon drop', current.beat === 'DROP_WEAPON', current.beat);
   check('the wounds stay attached to the men as they fall',
     shotCost.woundsFollowBodies === true, JSON.stringify(shotCost.woundsFollowBodies));
-  check('four large red wounds remain visible from either side after both men fall',
+  check('four canonical body marks remain visible from either side after both men fall',
     shotCost.woundVisuals.length === 4
-      && shotCost.woundVisuals.every((w) => w.size >= 0.3 && w.side === 2 && w.renderOrder >= 4),
+      && shotCost.woundVisuals.every((w) => (
+        (w.name === 'blood.impact' || w.name === 'blood.spatter')
+          && w.system === 'blood'
+          && (w.effect === 'impact' || w.effect === 'spatter')
+          && w.size >= 0.3
+          && w.side === 2
+          && w.renderOrder >= 4
+      )),
     JSON.stringify(shotCost.woundVisuals));
+  check('each accepted fatal hit creates one canonical floor pool',
+    shotCost.pools.length === 2
+      && shotCost.pools.every((pool) => (
+        pool.name.startsWith('blood.death-pool.')
+          && pool.system === 'blood'
+          && pool.effect === 'death-pool'
+          && Math.abs(pool.y - 0.006) < 0.001
+      )),
+    JSON.stringify(shotCost.pools));
   if (process.env.CAPTURE) {
     await page.waitForTimeout(300);
     await page.evaluate(() => {
@@ -792,6 +825,73 @@ try {
       && current.mission.weaponDropped,
     JSON.stringify(current.mission));
   check('the chapter card appears after the car exit', current.endVisible);
+
+  // Re-stage only the two shooting beats after the completed run. This keeps
+  // the first-shot timing proof above honest while exercising the rejection
+  // paths through the real FSM and real shared blood systems.
+  const rejectedShots = await page.evaluate(() => {
+    const sf = window.squatchfather;
+    sf.sal.revive();
+    sf.mcclawsky.revive();
+    sf.combat.reset();
+    sf.impacts.reset();
+    sf.prospect.sit();
+    sf.director.clearSteer();
+    sf.director.update(0, sf.prospect, null);
+    sf.go('SHOOT_SAL');
+    sf.tick(0.7);
+
+    const mcBodyPoint = sf.mcclawsky.fig.chest.getWorldPosition(sf.mcclawsky.eyePoint.clone());
+    sf.camera.lookAt(mcBodyPoint);
+    sf.camera.updateMatrixWorld(true);
+    sf.pressFire();
+    sf.tick(0.001);
+    const wrongTarget = {
+      beat: sf.state(),
+      salDead: sf.sal.dead,
+      mcDead: sf.mcclawsky.dead,
+      salMarks: sf.bloodImpacts.marksOn(sf.sal),
+      mcMarks: sf.bloodImpacts.marksOn(sf.mcclawsky),
+      pools: sf.deathBloodPools.visibleCount,
+    };
+
+    sf.combat.reset();
+    sf.impacts.reset();
+    sf.go('SHOOT_MCCLAWSKY');
+    sf.tick(0.55);
+    const drawBefore = sf.mcclawsky.drawT;
+    const floorPoint = sf.prospect.eye.clone();
+    floorPoint.y = 0;
+    floorPoint.z -= 0.4;
+    sf.camera.lookAt(floorPoint);
+    sf.camera.updateMatrixWorld(true);
+    sf.pressFire();
+    sf.tick(0.001);
+    const blocker = {
+      beat: sf.state(),
+      drawBefore,
+      drawAfter: sf.mcclawsky.drawT,
+      surfaceMarks: sf.impacts.visibleCount,
+      bodyMarks: sf.bloodImpacts.marksOn(sf.sal) + sf.bloodImpacts.marksOn(sf.mcclawsky),
+      pools: sf.deathBloodPools.visibleCount,
+    };
+    return { wrongTarget, blocker };
+  });
+  check('shooting the wrong wiseguy wounds him nonfatally and preserves Sal’s order',
+    rejectedShots.wrongTarget.beat === 'SHOOT_SAL'
+      && !rejectedShots.wrongTarget.salDead
+      && !rejectedShots.wrongTarget.mcDead
+      && rejectedShots.wrongTarget.salMarks === 0
+      && rejectedShots.wrongTarget.mcMarks === 2
+      && rejectedShots.wrongTarget.pools === 0,
+    JSON.stringify(rejectedShots.wrongTarget));
+  check('a blocker leaves only a surface mark without resetting McClawsky’s draw clock',
+    rejectedShots.blocker.beat === 'SHOOT_MCCLAWSKY'
+      && rejectedShots.blocker.drawAfter > rejectedShots.blocker.drawBefore
+      && rejectedShots.blocker.surfaceMarks === 1
+      && rejectedShots.blocker.bodyMarks === 0
+      && rejectedShots.blocker.pools === 0,
+    JSON.stringify(rejectedShots.blocker));
 
   await page.click('#againBtn');
   await page.waitForURL(`http://localhost:${PORT}/index.html`, { timeout: 45000 });

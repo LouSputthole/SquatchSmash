@@ -26,7 +26,7 @@ import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { PostFX } from '../core/postfx.js';
 import { Inventory, ITEMS } from '../core/inventory.js';
-import { makeHeldDrinks } from '../world/props.js';
+import { makeHeldDrinks, poseHeldDrink } from '../world/props.js';
 import { SmokeSystem } from '../world/smoke.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
@@ -781,18 +781,7 @@ const M = makeMaterials();
 const heldDrinks = makeHeldDrinks(M);
 heldDrinks.group.position.set(0.26, -0.30, -0.42);
 camera.add(heldDrinks.group);
-function poseDrink(which, k) {
-  const can = heldDrinks.can;
-  const bottle = heldDrinks.bottle;
-  can.visible = which === 'can';
-  bottle.visible = which === 'bottle';
-  const m = which === 'can' ? can : which === 'bottle' ? bottle : null;
-  if (!m) return;
-  const e = k * k * (3 - 2 * k);
-  m.position.set(-0.10 * e, 0.20 * e, 0.09 * e);
-  m.rotation.set(-1.30 * e, 0, 0.34 * e);
-}
-poseDrink(null, 0);
+poseHeldDrink(heldDrinks, null, 0);
 
 function serveDrink(what) {
   const kind = what === 'whiskey' || what === 'rye' ? 'whiskey' : what === 'beer' ? 'beer' : 'soft';
@@ -817,19 +806,19 @@ function serveTable() {
 function drinkTick(dt) {
   if (!game.heldDrink) return;
   if (!silverInputPolicy.isDown('KeyF')) {
-    if (game.drinking > 0) { game.drinking = 0; poseDrink(null, 0); }
+    if (game.drinking > 0) { game.drinking = 0; poseHeldDrink(heldDrinks, null, 0); }
     return;
   }
   game.drinking += dt;
   const k = Math.min(1, game.drinking / DRINK_TIME);
-  poseDrink(game.heldDrink === 'whiskey' ? 'bottle' : 'can', k);
+  poseHeldDrink(heldDrinks, game.heldDrink === 'whiskey' ? 'bottle' : 'can', k);
   if (k < 1) return;
   drunk.drink(game.heldDrink === 'whiskey' ? WHISKEY_UNITS : BEER_UNITS);
   audio.play('can.sip', { volume: 0.5 });
   inventory.remove?.(game.heldDrink === 'whiskey' ? 'whiskey' : 'beer');
   game.heldDrink = null;
   game.drinking = 0;
-  poseDrink(null, 0);
+  poseHeldDrink(heldDrinks, null, 0);
   if (drunk.level > 0.55) {
     narrate('<em>She notices. She does not say anything, which is not the same as not noticing.</em>', 4200);
   }

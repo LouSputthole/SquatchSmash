@@ -10,7 +10,7 @@
  *   onRadioTap, onRadioHold, onPhone, onFridge, onCook, onEat,
  *   onShower, onWardrobe, onToilet, onArt, onFrontDoor,
  *   onLandmark, onDiscover, onDrawingBoard, onCar, onWoodpile, onFirepit, onPorch,
- *   onLag, canTalkToLag.
+ *   onLag, canTalkToLag, onBasementTransition.
  */
 
 import * as THREE from 'three';
@@ -23,6 +23,7 @@ import * as P from '../world/props.js';
 import { resolveGear } from '../world/gear.js';
 import { loadModels } from '../world/models.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
+import { buildCabinBasement, resolveCabinFloor } from './basement.js';
 import { buildLagActor } from './lag.js';
 import {
   PROPERTY,
@@ -161,7 +162,7 @@ function bridgeDeckHeight() {
 
 /** Cabin/porch/bridge walking surfaces laid over the shared natural field. */
 function makeGroundAt(bridgeY, shedY) {
-  return (x, z) => {
+  const propertyGroundAt = (x, z) => {
     if (insideRect(x, z, CABIN.main) || insideRect(x, z, CABIN.bath)) return CABIN.floorY;
     if (insideRect(x, z, CABIN.porch)) return 0.10;
     const bridge = LANDMARKS.bridge;
@@ -177,6 +178,7 @@ function makeGroundAt(bridgeY, shedY) {
     if (Math.abs(x - shed.x) <= 3.35 && Math.abs(z - shed.z) <= 2.75) return shedY;
     return heightAt(x, z);
   };
+  return (x, z, feetY = 0) => resolveCabinFloor(x, z, feetY, propertyGroundAt);
 }
 
 /**
@@ -247,6 +249,17 @@ export async function buildCountrysideCabin(ctx) {
     time,
     shell,
   });
+  const basement = buildCabinBasement({
+    root: cabinRoot,
+    M,
+    colliders,
+    occluders,
+    interaction,
+    utilityTargets,
+    wardrobeState: hub.state,
+    wardrobe: hub.publicSurface.closet,
+    ctx,
+  });
 
   // The natural ground is the last fallback; authored indoor/path zones win.
   addOutdoorFloorZones(floorZones, exterior.bridgeY);
@@ -279,6 +292,7 @@ export async function buildCountrysideCabin(ctx) {
     shell.updateDoor(dt);
     hub.update(dt, elapsedInternal);
     exterior.update(dt, elapsedInternal, playerPosition);
+    basement.update(playerPosition);
 
     // DayNight is an Interface, not a requirement. If the campaign supplies
     // it the outside follows authored time; otherwise the cabin keeps a safe
@@ -321,6 +335,8 @@ export async function buildCountrysideCabin(ctx) {
       yaw: yawToward(porchPos, new THREE.Vector3(12, porchPos.y, 22)),
       pitch: -0.03,
     },
+    basement: basement.spawns.down,
+    wardrobeReturn: basement.spawns.up,
   };
 
   const viewpoints = Object.fromEntries(Object.entries(LANDMARK_VIEWPOINTS).map(([id, authored]) => {
@@ -394,6 +410,30 @@ export async function buildCountrysideCabin(ctx) {
     yaw: yawToward(lagPosition, lagLookAt),
     pitch: Math.atan2(lagLookAt.y - lagPosition.y, Math.max(0.001, lagHorizontal)),
   });
+  const transitionViewpoint = (id, spawn, target) => {
+    target.updateWorldMatrix(true, false);
+    const bounds = new THREE.Box3().setFromObject(target);
+    const lookAt = bounds.getCenter(new THREE.Vector3());
+    const position = spawn.position.clone();
+    const horizontal = Math.hypot(lookAt.x - position.x, lookAt.z - position.z);
+    return Object.freeze({
+      id,
+      position,
+      lookAt,
+      yaw: yawToward(position, lookAt),
+      pitch: Math.atan2(lookAt.y - position.y, Math.max(0.001, horizontal)),
+    });
+  };
+  interactionViewpoints.basementEntrance = transitionViewpoint(
+    'basementEntrance',
+    basement.spawns.up,
+    basement.entryTarget,
+  );
+  interactionViewpoints.basementExit = transitionViewpoint(
+    'basementExit',
+    basement.spawns.down,
+    basement.exitTarget,
+  );
 
   const landscape = Object.freeze({
     bounds: PROPERTY,
@@ -450,6 +490,7 @@ export async function buildCountrysideCabin(ctx) {
     splitWood: exterior.splitWood,
     woodpileState: exterior.woodpileState,
     setFireLit: exterior.setFireLit,
+    basement,
     door: shell.door,
     cabinDoor: shell.door,
     toggleDoor: shell.door.toggle,

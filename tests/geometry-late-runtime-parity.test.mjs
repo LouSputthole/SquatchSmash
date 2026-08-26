@@ -348,7 +348,9 @@ test('Squatchfather default mounts all controllers, room figures, pools, mirror,
     controllers: 3,
     sceneFigures: 3,
     impactPool: 8,
-    bloodPool: 8,
+    bloodWoundPool: 8,
+    bloodSpatterPool: 8,
+    deathBloodPool: 2,
     mirrorOverlays: 1,
   });
   assert.deepEqual(built.metadata.figureIds, ['diner1', 'diner2', 'waiter']);

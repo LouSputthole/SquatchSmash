@@ -2748,7 +2748,9 @@ async function buildSquatchfather(descriptor, THREE) {
     throw new Error('Squatchfather geometry Adapter did not publish its complete scene figure roster');
   }
   if (runtime.impacts.pool.length !== 8
-    || runtime.blood.pool.length !== 8
+    || runtime.bloodImpacts.wounds.pool.length !== 8
+    || runtime.bloodImpacts.spatter.pool.length !== 8
+    || runtime.deathBloodPools.meshes.length !== 2
     || scene.getObjectById(mirror.overlay.id) !== mirror.overlay) {
     throw new Error('Squatchfather geometry Adapter omitted effect-pool or mirror geometry');
   }
@@ -2758,7 +2760,9 @@ async function buildSquatchfather(descriptor, THREE) {
       controllers: Object.keys(controllers).length,
       sceneFigures: figureIds.length,
       impactPool: runtime.impacts.pool.length,
-      bloodPool: runtime.blood.pool.length,
+      bloodWoundPool: runtime.bloodImpacts.wounds.pool.length,
+      bloodSpatterPool: runtime.bloodImpacts.spatter.pool.length,
+      deathBloodPool: runtime.deathBloodPools.meshes.length,
       mirrorOverlays: 1,
     },
     figureIds,

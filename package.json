@@ -23,7 +23,7 @@
     "certify:debt-ratchet": "node tools/certification-debt-ratchet.mjs",
     "verify:campaign-route": "node --test tests/fresh-save-campaign-route.test.mjs",
     "verify:campaign-marathon": "node tools/verify-campaign-marathon.mjs",
-    "verify:cabin": "node --test --test-isolation=none tests/countryside-cabin-story.test.mjs tests/countryside-cabin-field.test.mjs tests/countryside-cabin-world.test.mjs tests/countryside-cabin-lag.test.mjs",
+    "verify:cabin": "node --test --test-isolation=none tests/countryside-cabin-story.test.mjs tests/countryside-cabin-field.test.mjs tests/countryside-cabin-world.test.mjs tests/countryside-cabin-lag.test.mjs tests/countryside-cabin-basement.test.mjs",
     "verify:cabin-browser": "node tools/verify-cabin.mjs",
     "verify:luxury-apartment": "node --test --test-isolation=none tests/luxury-apartment-layout.test.mjs tests/luxury-apartment-runtime.test.mjs tests/luxury-apartment-world.test.mjs",
     "verify:luxury-apartment-browser": "node tools/verify-luxury-apartment.mjs",

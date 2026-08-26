@@ -39,7 +39,7 @@ import {
   poseHeldDrink,
 } from '../world/props.js';
 import { buildCountrysideCabin } from './world.js';
-import { createLagHintDirector, speakLagLine } from './lag.js';
+import { createLagHintDirector, LAG_VOICE_PREFIX, speakLagLine } from './lag.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -141,6 +141,7 @@ const state = {
   heldUse: 0,
   heldUseItem: null,
   consumeLatch: false,
+  level: 'cabin',
 };
 
 const WALK_EYE_HEIGHT = 1.66;
@@ -204,6 +205,65 @@ function syncCampaignPresentation() {
 
 function discoverCabin(id) {
   return lagHints.discover(id);
+}
+
+function floorForCabinPose(pose) {
+  if (Number.isFinite(pose?.floorY)) return pose.floorY;
+  if (!pose?.position) return 0;
+  return cabin?.groundAt?.(
+    pose.position.x,
+    pose.position.z,
+    pose.position.y - WALK_EYE_HEIGHT,
+  ) ?? pose.position.y - WALK_EYE_HEIGHT;
+}
+
+/** Apply one complete physical checkpoint, including the floor identity. */
+function placePlayerAtCabinPose(pose, { level = null, reason = 'cabin-teleport' } = {}) {
+  if (!player || !pose?.position) return false;
+  const floorY = floorForCabinPose(pose);
+  player._tween = null;
+  player.mode = 'walk';
+  player.position.copy(pose.position);
+  player.ground = floorY;
+  player.eyeHeight = WALK_EYE_HEIGHT;
+  player.targetEye = WALK_EYE_HEIGHT;
+  player.jumpHeight = 0;
+  player.grounded = true;
+  player.crouching = false;
+  player.sprinting = false;
+  player.velocity?.set?.(0, 0, 0);
+  player.clearKeys?.();
+  player.position.y = floorY + WALK_EYE_HEIGHT;
+  player.yaw = pose.yaw ?? player.yaw;
+  player.pitch = pose.pitch ?? player.pitch;
+  player.pitchMin = -Math.PI / 2 + 0.05;
+  player.pitchMax = Math.PI / 2 - 0.05;
+  player.yawCenter = null;
+  state.level = level ?? (floorY < -1 ? 'basement' : 'cabin');
+  input?.clear(reason);
+  return true;
+}
+
+function transitionCabinBasement(direction) {
+  const down = direction === 'down';
+  const pose = down ? cabin?.spawns?.basement : cabin?.spawns?.wardrobeReturn;
+  if (!pose || !player || state.resting) return false;
+  interaction.setPaused(true);
+  const placed = placePlayerAtCabinPose(pose, {
+    level: down ? 'basement' : 'cabin',
+    reason: `basement-${direction}`,
+  });
+  interaction.setPaused(false);
+  if (!placed) return false;
+  input?.refresh(`basement-${direction}`);
+  audio.play('door.creak', { volume: 0.24 });
+  if (down) {
+    hud.toast('Hidden basement found', 'good');
+    hud.say('Behind the wardrobe, a ladder drops into a stocked room under the cabin.', 4200);
+  } else {
+    hud.say('Back through the wardrobe.', 2200);
+  }
+  return true;
 }
 
 function presentLagLine(line, actor = cabin?.lag) {
@@ -286,8 +346,7 @@ function restAtCabin() {
       // wake transform left Player.ground carrying whichever remote landmark
       // Tony last visited, so the next walk frame could put the camera under
       // the cabin floor. A wake is a complete physical checkpoint.
-      player.ground = cabin.groundAt?.(wake.position.x, wake.position.z)
-        ?? wake.position.y - WALK_EYE_HEIGHT;
+      player.ground = floorForCabinPose(wake);
       player.eyeHeight = WALK_EYE_HEIGHT;
       player.targetEye = WALK_EYE_HEIGHT;
       player.jumpHeight = 0;
@@ -299,6 +358,7 @@ function restAtCabin() {
       player.yaw = wake.yaw ?? player.yaw;
       player.pitch = wake.pitch ?? -0.08;
       player.mode = 'walk';
+      state.level = 'cabin';
     }
     window.setTimeout(() => {
       restCurtain.classList.remove('active');
@@ -474,7 +534,7 @@ function tuneRadio() {
 
 function toggleFrontDoor() {
   const opened = cabin.toggleDoor?.();
-  audio.play(opened ? 'door.open' : 'door.close', { volume: 0.45 });
+  audio.play('door.knob', { volume: 0.45 });
   return opened;
 }
 
@@ -567,6 +627,7 @@ try {
     onLag: talkToLag,
     canTalkToLag: () => lagHints.canTalk(state.elapsed),
     onPorch: () => hud.say('No traffic. Just the creek below the trees.', 3000),
+    onBasementTransition: transitionCabinBasement,
   });
   bathroomMirror = new PlanarMirror(scene, cabin.mirrorMesh, {
     width: 0.54,
@@ -583,7 +644,10 @@ try {
 const world = {
   colliders: cabin.colliders,
   floorZones: cabin.floorZones,
-  groundAt: cabin.groundAt,
+  groundAt(x, z) {
+    const feetY = player ? player.position.y - player.eyeHeight : 0;
+    return cabin.groundAt(x, z, feetY);
+  },
 };
 player = new Player(camera, world);
 player.mode = 'walk';
@@ -614,10 +678,12 @@ if (cabin.carTarget && !cabin.carTarget.userData?.interact) {
 const spawnId = campaign.state.scene.id === SCENE_IDS.COUNTRYSIDE_CABIN
   ? campaign.state.scene.spawn : 'arrival';
 const spawn = cabin.spawns?.[spawnId] ?? cabin.spawns?.arrival;
-if (spawn?.position) player.position.copy(spawn.position);
-else player.position.set(18, (cabin.groundAt?.(18, 18) ?? 0) + 1.66, 18);
-player.yaw = spawn?.yaw ?? Math.PI;
-player.pitch = spawn?.pitch ?? -0.08;
+if (spawn?.position) placePlayerAtCabinPose(spawn, { reason: 'cabin-spawn' });
+else placePlayerAtCabinPose({
+  position: new THREE.Vector3(18, (cabin.groundAt?.(18, 18, 0) ?? 0) + WALK_EYE_HEIGHT, 18),
+  yaw: Math.PI,
+  pitch: -0.08,
+}, { reason: 'cabin-spawn-fallback' });
 
 /* Real apartment art remains the source: world.js resolves the same manifest
  * slots. The screen-based utilities are also the real shared systems, mapped
@@ -905,7 +971,7 @@ startButton.addEventListener('click', async () => {
   await radio.loadManifest();
   await audio.loadManifest({
     names: [
-      'ambience.course', 'bird', 'phone.pickup', 'door.open', 'door.close',
+      'ambience.course', 'bird', 'phone.pickup', 'door.knob', 'door.creak',
       'fridge.open', 'fridge.close', 'switch.click', 'pan.sizzle', 'shower.run', 'toilet.lid',
       'fridge.hum', 'siege.fire.crackle', 'can.crack', 'can.sip', 'can.crush',
       'cig.pack', 'cig.light', 'cig.exhale', 'cig.stub',
@@ -913,6 +979,7 @@ startButton.addEventListener('click', async () => {
       'pizza.take', 'egg.eat', 'tv.click', 'gun.drop.wood',
       ...radio.preloadCueNames({ startupOnly: true }),
     ],
+    prefixes: [LAG_VOICE_PREFIX],
   });
   audio.startLoop('cabin.forest', {
     name: 'ambience.course', volume: 0.21, ambience: true, fade: 1.8,
@@ -1039,35 +1106,27 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   rest: restAtCabin,
   leave: leaveCabin,
   get objectives() { return story.objectives(); },
+  transitionBasement: transitionCabinBasement,
   teleport(id, mode = 'observe') {
     const viewpoint = mode === 'interact'
       ? cabin.interactionViewpoints?.[id]
       : cabin.viewpoints?.[id] ?? cabin.observationViewpoints?.[id];
     if (viewpoint?.position) {
-      player.position.copy(viewpoint.position);
-      player.ground = cabin.groundAt?.(viewpoint.position.x, viewpoint.position.z)
-        ?? viewpoint.position.y - 1.68;
-      player.jumpHeight = 0;
-      player.grounded = true;
-      player.velocity?.set?.(0, 0, 0);
-      player.yaw = viewpoint.yaw ?? player.yaw;
-      player.pitch = viewpoint.pitch ?? player.pitch;
-      return true;
+      const placed = placePlayerAtCabinPose(viewpoint, { reason: `debug-viewpoint-${id}` });
+      // Keep the longstanding debug-viewpoint contract byte-for-byte: field
+      // viewpoints are authored at +1.68 while Player walks at +1.66. The
+      // next live frame normalises the two-centimetre camera allowance.
+      if (placed) player.position.y = viewpoint.position.y;
+      return placed;
     }
     const target = cabin.landmarks?.find?.((entry) => entry.id === id)
       ?? cabin.landmarks?.[id]
       ?? cabin.spawns?.[id];
     const position = target?.position ?? target?.point;
     if (!position) return false;
-    player.position.copy(position);
-    player.ground = cabin.groundAt?.(position.x, position.z) ?? position.y ?? 0;
-    player.position.y = player.ground + 1.68;
-    player.jumpHeight = 0;
-    player.grounded = true;
-    player.velocity?.set?.(0, 0, 0);
-    player.yaw = target?.yaw ?? player.yaw;
-    player.pitch = target?.pitch ?? player.pitch;
-    return true;
+    const placed = placePlayerAtCabinPose({ ...target, position }, { reason: `debug-target-${id}` });
+    if (placed) player.position.y = player.ground + 1.68;
+    return placed;
   },
 };
 

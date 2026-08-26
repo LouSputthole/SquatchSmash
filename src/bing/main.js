@@ -42,7 +42,7 @@ import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
 import { getPreviewRuntime } from '../core/preview-mode.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
-import { makeHeldDrinks } from '../world/props.js';
+import { makeHeldDrinks, poseHeldDrink } from '../world/props.js';
 import { buildBooskiShotProps, createBooskiShotBeat } from './booski-shot.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
@@ -828,18 +828,7 @@ const shot = buildBooskiShotProps({
   bartender: cast.byName.bartender,
   barService: club.anchors.barService,
 });
-function poseDrink(which, k) {
-  const can = heldDrinks.can;
-  const bottle = heldDrinks.bottle;
-  can.visible = which === 'can';
-  bottle.visible = which === 'bottle';
-  const m = which === 'can' ? can : which === 'bottle' ? bottle : null;
-  if (!m) return;
-  const e = k * k * (3 - 2 * k);
-  m.position.set(-0.10 * e, 0.20 * e, 0.09 * e);
-  m.rotation.set(-1.30 * e, 0, 0.34 * e);
-}
-poseDrink(null, 0);
+poseHeldDrink(heldDrinks, null, 0);
 
 function switchClubRecord(record, { requested = false } = {}) {
   if (!record || game.clubRecord === record.file) {
@@ -1061,20 +1050,16 @@ function drinkTick(dt) {
   /* Booski's glass is an E-key story beat, not a bottle Tony can nurse by
    * holding F. Its camera animation and consumption live in shotDrinkTick. */
   if (game.heldDrink === 'booski-shot') return;
-  /* `autoDrink` is seconds of hold the game is doing on the player's behalf.
-   * The shot beat uses it: Booski says drink, so Tony drinks, and it goes
-   * through the same pose, the same units and the same swallow as [F]. */
-  if (game.autoDrink > 0) game.autoDrink = Math.max(0, game.autoDrink - dt);
-  if (!bingInputPolicy.isDown('KeyF') && game.autoDrink <= 0) {
+  if (!bingInputPolicy.isDown('KeyF')) {
     if (game.drinking > 0) {
       game.drinking = 0;
-      poseDrink(null, 0);
+      poseHeldDrink(heldDrinks, null, 0);
     }
     return;
   }
   game.drinking += dt;
   const k = Math.min(1, game.drinking / DRINK_TIME);
-  poseDrink(game.heldDrink === 'whiskey' ? 'bottle' : 'can', k);
+  poseHeldDrink(heldDrinks, game.heldDrink === 'whiskey' ? 'bottle' : 'can', k);
   if (k < 1) return;
   // Down it
   const units = game.heldDrink === 'whiskey' ? WHISKEY_UNITS : BEER_UNITS;
@@ -1083,7 +1068,7 @@ function drinkTick(dt) {
   inventory.remove?.(game.heldDrink === 'whiskey' ? 'whiskey' : 'beer');
   game.heldDrink = null;
   game.drinking = 0;
-  poseDrink(null, 0);
+  poseHeldDrink(heldDrinks, null, 0);
   hud.setHand(null);
   hud.setInventory(inventory, ITEMS);
   hud.say(drunk.level > 0.5

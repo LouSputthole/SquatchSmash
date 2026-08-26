@@ -531,6 +531,217 @@ try {
   await page.waitForTimeout(350);
   await capture(page, 'cabin-interior');
 
+  /* The basement is found through the real wardrobe owner and the real live
+   * interaction ray. Debug teleport supplies only the authored stance; both
+   * uses below are browser E events and the lower-room route is real WASD. */
+  const basementEntryBefore = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const world = runtime.cabin;
+    const entry = world.utilityTargets.basementEntrance;
+    const wardrobe = world.utilityTargets.wardrobe;
+    const teleported = runtime.teleport('basementEntrance', 'interact');
+    runtime.player.update(0.001);
+    runtime.player.camera.updateMatrixWorld(true);
+    runtime.interaction.update(0);
+    return {
+      teleported,
+      level: runtime.state.level,
+      currentIsWardrobe: runtime.interaction.current === wardrobe,
+      currentName: runtime.interaction.current?.name ?? null,
+      entryEnabled: entry.userData.interact.enabled?.() ?? true,
+      closetOpen: world.state.closetOpen,
+      closetT: world.state.closetT,
+      discovered: [...runtime.lagHints.debug.discovered],
+      wardrobeHintEligible: runtime.lagHints.debug.eligible.includes('cabin.wardrobe'),
+      panelArtPreserved: world.basement.panelArt === world.closet.picture,
+      hasShaft: Boolean(world.basement.entryAssembly.getObjectByName('cabin-basement-upper-shaft-mouth')),
+      hasUpperLadder: Boolean(world.basement.entryAssembly.getObjectByName('cabin-basement-upper-ladder-rung-4')),
+      basementLights: world.basement.lights.map(({ intensity }) => intensity),
+      basementFill: world.basement.fillLight.intensity,
+    };
+  });
+  await page.keyboard.press('e');
+  const basementAfterWardrobeUse = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      closetOpen: runtime.cabin.state.closetOpen,
+      discovered: [...runtime.lagHints.debug.discovered],
+      wardrobeHintEligible: runtime.lagHints.debug.eligible.includes('cabin.wardrobe'),
+    };
+  });
+  let basementPanelAimed = true;
+  try {
+    await page.waitForFunction(() => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      return runtime.cabin.state.closetT >= 0.82
+        && runtime.interaction.current === runtime.cabin.utilityTargets.basementEntrance;
+    }, null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
+  } catch {
+    basementPanelAimed = false;
+  }
+  const basementReveal = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const world = runtime.cabin;
+    return {
+      closetOpen: world.state.closetOpen,
+      closetT: world.state.closetT,
+      currentIsPanel: runtime.interaction.current === world.utilityTargets.basementEntrance,
+      currentName: runtime.interaction.current?.name ?? null,
+      entryEnabled: world.utilityTargets.basementEntrance.userData.interact.enabled?.() ?? true,
+      discovered: [...runtime.lagHints.debug.discovered],
+      wardrobeHintEligible: runtime.lagHints.debug.eligible.includes('cabin.wardrobe'),
+    };
+  });
+  check('the real wardrobe reveal preserves its art, exposes a legible shaft, and gives the panel the live ray',
+    basementEntryBefore.teleported
+      && basementEntryBefore.level === 'cabin'
+      && basementEntryBefore.currentIsWardrobe
+      && !basementEntryBefore.entryEnabled
+      && !basementEntryBefore.closetOpen
+      && basementEntryBefore.panelArtPreserved
+      && basementEntryBefore.hasShaft
+      && basementEntryBefore.hasUpperLadder
+      && basementEntryBefore.basementLights.every((intensity) => intensity === 0)
+      && basementEntryBefore.basementFill === 0
+      && basementEntryBefore.wardrobeHintEligible
+      && basementAfterWardrobeUse.closetOpen
+      && !basementAfterWardrobeUse.discovered.includes('basement')
+      && basementAfterWardrobeUse.wardrobeHintEligible
+      && basementPanelAimed
+      && basementReveal.currentIsPanel
+      && basementReveal.entryEnabled
+      && basementReveal.discovered.includes('basement')
+      && !basementReveal.wardrobeHintEligible,
+    JSON.stringify({
+      before: basementEntryBefore,
+      wardrobeUse: basementAfterWardrobeUse,
+      panelAimed: basementPanelAimed,
+      reveal: basementReveal,
+    }));
+  await capture(page, 'cabin-basement-entry-revealed');
+
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return runtime.state.level === 'basement'
+      && runtime.cabin.basement.lights.every(({ intensity }) => intensity > 1);
+  }, null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
+  const basementArrival = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const spawn = runtime.cabin.spawns.basement;
+    const position = runtime.player.position;
+    return {
+      level: runtime.state.level,
+      mode: runtime.player.mode,
+      position: position.toArray(),
+      authored: spawn.position.toArray(),
+      floorY: spawn.floorY,
+      ground: runtime.player.ground,
+      liveGround: runtime.player.world.groundAt(position.x, position.z),
+      lights: runtime.cabin.basement.lights.map(({ intensity }) => intensity),
+      fill: runtime.cabin.basement.fillLight.intensity,
+      discovered: [...runtime.lagHints.debug.discovered],
+    };
+  });
+  check('the concealed panel performs one grounded transition into the cabin basement',
+    basementArrival.level === 'basement'
+      && basementArrival.mode === 'walk'
+      && basementArrival.discovered.includes('basement')
+      && Math.abs(basementArrival.ground - basementArrival.floorY) <= 1e-6
+      && Math.abs(basementArrival.liveGround - basementArrival.floorY) <= 1e-6
+      && Math.hypot(
+        basementArrival.position[0] - basementArrival.authored[0],
+        basementArrival.position[2] - basementArrival.authored[2],
+      ) <= 1e-6
+      && basementArrival.lights.every((intensity) => Math.abs(intensity - 2.10) <= 1e-6)
+      && Math.abs(basementArrival.fill - 0.78) <= 1e-6,
+    JSON.stringify(basementArrival));
+
+  const basementWalk = [];
+  for (const waypoint of [
+    { x: 2.40, z: 2.00, label: 'leave the ladder bay' },
+    { x: 1.00, z: 0.50, label: 'cross the stocked lower room' },
+    { x: 3.00, z: 2.20, label: 'walk back past the supplies' },
+    { x: 4.52, z: 3.24, radius: 0.34, label: 'return to the ladder' },
+  ]) {
+    basementWalk.push(await walkTo(page, pointer, waypoint));
+    if (waypoint.label === 'cross the stocked lower room') {
+      const scenicAim = await page.evaluate(() => {
+        const position = window.COUNTRYSIDE_CABIN.player.position;
+        const lookAt = { x: -0.95, y: -2.20, z: -4.00 };
+        const dx = lookAt.x - position.x;
+        const dy = lookAt.y - position.y;
+        const dz = lookAt.z - position.z;
+        return {
+          yaw: Math.atan2(-dx, -dz),
+          pitch: Math.atan2(dy, Math.hypot(dx, dz)),
+        };
+      });
+      await aimWithMouse(page, pointer, scenicAim);
+      await page.waitForTimeout(180);
+      await capture(page, 'cabin-basement');
+    }
+  }
+  const basementWalkFloor = basementWalk.every(({ position }) => (
+    Math.abs(position[1] - (basementArrival.floorY + WALK_EYE_HEIGHT)) <= 0.08
+  ));
+  const basementExitView = await page.evaluate(() => {
+    const view = window.COUNTRYSIDE_CABIN.cabin.interactionViewpoints.basementExit;
+    return { yaw: view.yaw, pitch: view.pitch };
+  });
+  await aimWithMouse(page, pointer, basementExitView);
+  let basementExitAimed = true;
+  try {
+    await page.waitForFunction(() => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      return runtime.interaction.current === runtime.cabin.utilityTargets.basementExit;
+    }, null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
+  } catch {
+    basementExitAimed = false;
+  }
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return runtime.state.level === 'cabin'
+      && runtime.cabin.basement.lights.every(({ intensity }) => intensity === 0);
+  }, null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
+  const basementReturn = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const spawn = runtime.cabin.spawns.wardrobeReturn;
+    const position = runtime.player.position;
+    return {
+      level: runtime.state.level,
+      mode: runtime.player.mode,
+      position: position.toArray(),
+      authored: spawn.position.toArray(),
+      floorY: spawn.floorY,
+      ground: runtime.player.ground,
+      liveGround: runtime.player.world.groundAt(position.x, position.z),
+      lights: runtime.cabin.basement.lights.map(({ intensity }) => intensity),
+      fill: runtime.cabin.basement.fillLight.intensity,
+    };
+  });
+  check('real basement walking stays height-isolated and the ladder returns to the wardrobe pose',
+    basementWalk.every(({ reached }) => reached)
+      && basementWalkFloor
+      && basementExitAimed
+      && basementReturn.level === 'cabin'
+      && basementReturn.mode === 'walk'
+      && Math.abs(basementReturn.ground - basementReturn.floorY) <= 1e-6
+      && Math.abs(basementReturn.liveGround - basementReturn.floorY) <= 1e-6
+      && Math.hypot(
+        basementReturn.position[0] - basementReturn.authored[0],
+        basementReturn.position[2] - basementReturn.authored[2],
+      ) <= 1e-6
+      && basementReturn.lights.every((intensity) => intensity === 0)
+      && basementReturn.fill === 0,
+    JSON.stringify({
+      route: basementWalk,
+      floorIsolated: basementWalkFloor,
+      exitAimed: basementExitAimed,
+      returned: basementReturn,
+    }));
+
   const visits = [];
   for (const id of ['creek', 'overlook', 'shed', 'firepit']) {
     const approach = await page.evaluate((landmarkId) => {
