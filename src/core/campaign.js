@@ -186,6 +186,27 @@ export const EVENT_IDS = Object.freeze({
    * it, sleeping does not wait for it, and missing it costs nothing but the
    * only kind words anybody in this family says out loud. */
   LOU_ATTABOY_CALL: 'lou_attaboy_call',
+  /**
+   * THE ACT-ONE CABIN's two telephones, and why neither reuses an existing id.
+   *
+   * `BOOSKI_DAY_TWO_CALL` below rings in the flat on the second morning and
+   * is the only thing that authorises the Beef Run -- AirstripStory.begin()
+   * refuses without it. The bible moves that authorisation to the cabin, but
+   * the two are not the same call: one wakes a man in his own bed, the other
+   * reaches a man who is hiding. They also cannot share an id, because the
+   * apartment's ring scheduler owns that one and would try to ring it in an
+   * empty flat he is not standing in.
+   *
+   * MARGO is the campaign's only OUTGOING call. Every other entry in this
+   * table is somebody reaching him; this is him deciding to reach somebody,
+   * which is the whole point of the beat and the reason it is his own event
+   * rather than a variant of `MARGO_DATE_CALL` (a different, later, incoming
+   * one).
+   */
+  CABIN_MARGO_CALL: 'cabin_margo_call',
+  CABIN_BOOSKI_SASOLE_CALL: 'cabin_booski_sasole_call',
+  /* Cabin II. The heat is down and Ol' Billy is getting out. */
+  CABIN_BILLY_CALL: 'cabin_billy_call',
   BOOSKI_DAY_TWO_CALL: 'booski_day_two_call',
   LOU_SECOND_CALL: 'lou_second_call',
   LOU_NO_WAKE_CALL: 'lou_no_wake_call',
@@ -302,6 +323,29 @@ export const TIME_EVENT_IDS = Object.freeze({
   CABIN_EXPLORE_OVERLOOK: 'explore.countryside_cabin.overlook',
   CABIN_EXPLORE_SHED: 'explore.countryside_cabin.shed',
   CABIN_EXPLORE_FIREPIT: 'explore.countryside_cabin.firepit',
+  /* THE ACT-ONE CABIN. Beats 4 to 7 of the story bible.
+   *
+   * These are deliberately NOT the six ids above. That block is anchored to
+   * the post-heist calendar -- CABIN_REST alone says `atLeast day 5, 14:30`,
+   * and `advanceTime` takes Math.max(now, atLeast) -- so borrowing one for a
+   * Day 2 lay-low would throw the campaign clock three days forward in a
+   * single bed interaction, and then spend the id forever, leaving the later
+   * visit with a rest it can never take and four walks already ticked.
+   *
+   * The ledger is exact-once by id, so two visits need two sets. */
+  DEPART_CABIN_LAY_LOW: 'travel.cabin_lay_low',
+  CABIN_LAY_LOW_REST: 'sleep.cabin_lay_low',
+  CABIN_LAY_LOW_MARGO_CALL: 'call.cabin_lay_low.margo',
+  CABIN_LAY_LOW_BOOSKI_CALL: 'call.cabin_lay_low.booski',
+  CABIN_LAY_LOW_EXPLORE_CREEK: 'explore.cabin_lay_low.creek',
+  CABIN_LAY_LOW_EXPLORE_OVERLOOK: 'explore.cabin_lay_low.overlook',
+  CABIN_LAY_LOW_EXPLORE_SHED: 'explore.cabin_lay_low.shed',
+  CABIN_LAY_LOW_EXPLORE_FIREPIT: 'explore.cabin_lay_low.firepit',
+  /* Cabin II: home from the Beef Run, and the call that sends him back. */
+  RETURN_CABIN_FROM_AIRSTRIP: 'travel.cabin_return',
+  CABIN_SECOND_REST: 'sleep.cabin_second',
+  CABIN_SECOND_BILLY_CALL: 'call.cabin_second.billy',
+  DEPART_CABIN_FOR_TOWN: 'travel.cabin_to_town',
   /* The final chapter has no apartment hub between scenes, so its travel and
    * runtime spans live in this same exact-once ledger.  These markers make the
    * calendar agree with the authored Day 5 / Day 6 sequence without letting a
@@ -487,6 +531,32 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.CABIN_EXPLORE_OVERLOOK]: Object.freeze({ minutes: 30 }),
   [TIME_EVENT_IDS.CABIN_EXPLORE_SHED]: Object.freeze({ minutes: 15 }),
   [TIME_EVENT_IDS.CABIN_EXPLORE_FIREPIT]: Object.freeze({ minutes: 10 }),
+  /* THE ACT-ONE CABIN's own clock, which is a relative one on purpose.
+   *
+   * The Squatchfather ends around 11:41 PM on Day 1 and the driver goes
+   * straight out of the city, so every span here is a duration rather than an
+   * anchor: the drive is long enough to be out of town and short enough to
+   * still be the same night, and the lay-low wakes him the next morning
+   * without asserting a date the earlier beats have not reached yet. Only
+   * CABIN_LAY_LOW_REST names an hour, and it names one relative to arrival. */
+  [TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW]: Object.freeze({ minutes: 140 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_REST]: Object.freeze({
+    atLeast: Object.freeze({ day: 2, timeMinutes: 9 * 60 + 20 }),
+  }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL]: Object.freeze({ minutes: 12 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL]: Object.freeze({ minutes: 6 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_EXPLORE_CREEK]: Object.freeze({ minutes: 20 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_EXPLORE_OVERLOOK]: Object.freeze({ minutes: 30 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_EXPLORE_SHED]: Object.freeze({ minutes: 15 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_EXPLORE_FIREPIT]: Object.freeze({ minutes: 10 }),
+  /* Sasole runs him back rather than dropping him at a flat he is not
+   * supposed to be seen at. Cabin II is one night and a phone call. */
+  [TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP]: Object.freeze({ minutes: 70 }),
+  [TIME_EVENT_IDS.CABIN_SECOND_REST]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 8 * 60 + 10 }),
+  }),
+  [TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL]: Object.freeze({ minutes: 8 }),
+  [TIME_EVENT_IDS.DEPART_CABIN_FOR_TOWN]: Object.freeze({ minutes: 140 }),
   /* THE TAKE ends at 5:20 PM on Day 4.  The final chapter opens on the next
    * afternoon, without adding another playable apartment detour: Ape's pickup
    * and the off-screen rendezvous land The Silver Case at 4 PM on Day 5. */
@@ -552,7 +622,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 19;
+export const CAMPAIGN_VERSION = 20;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -1122,17 +1192,24 @@ export const SCENES = Object.freeze({
     spawns: Object.freeze(['driver_seat', 'club_entrance']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
+  /* The driver who brought him is still at the kerb when it is done, and the
+   * bible has that same driver take him straight out of the city rather than
+   * home. The apartment edge stays: `Campaign.transition()` is a whitelist
+   * that throws on an unlisted edge, so an edge nothing routes through is
+   * inert, while a missing one strands a player on a finished end card. */
   [SCENE_IDS.SQUATCHFATHER]: Object.freeze({
     href: 'squatchfather.html',
     defaultSpawn: 'restaurant_exterior',
     spawns: Object.freeze(['restaurant_exterior', 'development_entry']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.APARTMENT]),
   }),
+  /* Sasole runs him back to where he picked him up, which under the bible is
+   * the cabin and not the flat he is laying low from. */
   [SCENE_IDS.AIRSTRIP_SMUGGLING]: Object.freeze({
     href: 'beefrun.html',
     defaultSpawn: 'hangar',
     spawns: Object.freeze(['hangar']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.APARTMENT]),
   }),
   [SCENE_IDS.BADA_BING_TWO]: Object.freeze({
     href: 'bing.html?visit=2',
@@ -1207,11 +1284,28 @@ export const SCENES = Object.freeze({
       SCENE_IDS.SPECIAL_MEETING,
     ]),
   }),
+  /* Three exits, and the order they were added in is the story.
+   *
+   * AIRSTRIP_SMUGGLING is Cabin I: Booski rings about Sasole and he leaves
+   * from here. APARTMENT is Cabin II: the heat is down, Billy is getting out,
+   * come back to the Bing.
+   *
+   * SILVER_CASE is the old post-heist lay-low, and it stays until beats 14 to
+   * 20 are wired. Today this edge is the ONLY reachable entry to the Silver
+   * Case and the whole final chapter behind it -- APARTMENT.next deliberately
+   * excludes it, which tests/final-campaign-topology.test.mjs asserts on
+   * purpose -- so removing it before the luxury apartment can route there
+   * would strand every post-heist save with no way into the last third of the
+   * game. It comes out when LUXURY_APARTMENT takes over the doorway. */
   [SCENE_IDS.COUNTRYSIDE_CABIN]: Object.freeze({
     href: 'cabin.html',
     defaultSpawn: 'arrival',
     spawns: Object.freeze(['arrival', 'wake', 'porch']),
-    next: Object.freeze([SCENE_IDS.SILVER_CASE]),
+    next: Object.freeze([
+      SCENE_IDS.AIRSTRIP_SMUGGLING,
+      SCENE_IDS.APARTMENT,
+      SCENE_IDS.SILVER_CASE,
+    ]),
   }),
   [SCENE_IDS.SILVER_CASE]: Object.freeze({
     href: 'silvercase.html',
@@ -1556,6 +1650,16 @@ function initialState() {
         status: 'pending',
       },
       [EVENT_IDS.LOU_ATTABOY_CALL]: {
+        status: 'pending',
+      },
+      /* The Act-One cabin. One outgoing, two incoming. */
+      [EVENT_IDS.CABIN_MARGO_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.CABIN_BILLY_CALL]: {
         status: 'pending',
       },
       [EVENT_IDS.BOOSKI_DAY_TWO_CALL]: {
@@ -2222,6 +2326,66 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  19(saved) {
+    /* Schema 20 moves the cabin into Act One and adds its three telephones.
+     *
+     * The `events` half is the same obligation the last two migrations were
+     * written for: `normalize()` rebuilds that block from the base object's
+     * keys, so without a migration to set `changed` a v19 save comes back
+     * carrying three fields it never had on disk, `structurallyBroken` fires,
+     * and every save in the world is announced to its owner as recovered.
+     * All three land `pending`, which is honest -- nobody has taken a call
+     * that did not exist yesterday.
+     *
+     * The `chapter` half is the part that actually rescues players, and it
+     * has two shapes to repair.
+     *
+     * A save on `day_two` is the dangerous one. That chapter is being split:
+     * its first half (Booski's call and the Beef Run) moves to the cabin and
+     * its second half (Lou's call, the Bing, the graveyard, the motel) stays
+     * in the flat. A v19 save sitting in `day_two` would keep the string,
+     * find no door branch answering to it, fall through to the day-one tail
+     * and be told to go to bed -- while `sleep()` refuses, because the motel
+     * it wants is not complete. A soft lock, on the most common mid-campaign
+     * save there is. Migration 6 is the checked-in precedent for rewriting a
+     * stale chapter on load, and this does the same: a save that has already
+     * flown the Beef Run has done everything Act One's cabin exists to
+     * deliver, so it is moved forward to the chapter that owns what it has
+     * left to do. One that has not is moved back to the lay-low.
+     *
+     * A save at the cabin post-heist is left exactly where it is. That route
+     * still works -- COUNTRYSIDE_CABIN keeps its SILVER_CASE edge until the
+     * luxury apartment takes over the doorway -- and moving it would strand
+     * the very players furthest into the game. */
+    const chapter = typeof saved.story?.chapter === 'string' ? saved.story.chapter : null;
+    const flownBeefRun = saved.missions?.[MISSION_IDS.AIRSTRIP_SMUGGLING]?.status === 'complete';
+    const repaired = chapter === 'day_two'
+      ? (flownBeefRun ? 'day_two_town' : 'cabin_lay_low')
+      : chapter;
+    return {
+      ...saved,
+      version: 20,
+      story: {
+        ...(saved.story ?? {}),
+        ...(repaired === chapter ? {} : { chapter: repaired }),
+      },
+      events: {
+        ...(saved.events ?? {}),
+        [EVENT_IDS.CABIN_MARGO_CALL]: {
+          status: saved.events?.[EVENT_IDS.CABIN_MARGO_CALL]?.status === 'answered'
+            ? 'answered' : 'pending',
+        },
+        [EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL]: {
+          status: saved.events?.[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL]?.status === 'answered'
+            || flownBeefRun ? 'answered' : 'pending',
+        },
+        [EVENT_IDS.CABIN_BILLY_CALL]: {
+          status: saved.events?.[EVENT_IDS.CABIN_BILLY_CALL]?.status === 'answered'
+            ? 'answered' : 'pending',
+        },
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -2387,6 +2551,9 @@ function normalize(saved) {
     : base.missions[MISSION_IDS.SILENT_SQUATCH].status;
   const louCall = saved.events?.[EVENT_IDS.LOU_FIRST_CALL] ?? {};
   const attaboyCall = saved.events?.[EVENT_IDS.LOU_ATTABOY_CALL] ?? {};
+  const cabinMargoCall = saved.events?.[EVENT_IDS.CABIN_MARGO_CALL] ?? {};
+  const cabinBooskiCall = saved.events?.[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL] ?? {};
+  const cabinBillyCall = saved.events?.[EVENT_IDS.CABIN_BILLY_CALL] ?? {};
   const booskiCall = saved.events?.[EVENT_IDS.BOOSKI_DAY_TWO_CALL] ?? {};
   const louSecondCall = saved.events?.[EVENT_IDS.LOU_SECOND_CALL] ?? {};
   const louNoWakeCall = saved.events?.[EVENT_IDS.LOU_NO_WAKE_CALL] ?? {};
@@ -2744,6 +2911,26 @@ function normalize(saved) {
        * that unlocks nothing. */
       [EVENT_IDS.LOU_ATTABOY_CALL]: {
         status: attaboyCall.status === 'answered' ? 'answered' : 'pending',
+      },
+      /* THE ACT-ONE CABIN's three calls.
+       *
+       * Booski's cabin call is inferred the same way his apartment one is,
+       * and for the same reason: once the airstrip has been exposed, the
+       * thing that authorises it has demonstrably happened, and re-arming it
+       * would ring a phone at a cabin the player has already left. The other
+       * two unlock nothing, so a save that predates them simply has not taken
+       * them -- there is nothing to reconstruct and guessing would either
+       * silently answer Margo on the player's behalf or replay a call in an
+       * empty room. */
+      [EVENT_IDS.CABIN_MARGO_CALL]: {
+        status: cabinMargoCall.status === 'answered' ? 'answered' : 'pending',
+      },
+      [EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL]: {
+        status: cabinBooskiCall.status === 'answered' || airstripStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      [EVENT_IDS.CABIN_BILLY_CALL]: {
+        status: cabinBillyCall.status === 'answered' ? 'answered' : 'pending',
       },
       [EVENT_IDS.BOOSKI_DAY_TWO_CALL]: {
         // Once the airstrip mission has been exposed, Booski's call must not

@@ -52,7 +52,20 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
   assert.equal(SCENE_IDS.MANSION_RETURN, 'mansion_return');
   assert.equal(SCENE_IDS.CARTEL_PALACE, 'cartel_palace');
   assert.equal(SCENES[SCENE_IDS.APARTMENT].next.includes(SCENE_IDS.SILVER_CASE), false);
-  assert.deepEqual(SCENES[SCENE_IDS.COUNTRYSIDE_CABIN].next, [SCENE_IDS.SILVER_CASE]);
+  /* The cabin is the Silver Case's ONLY doorway, and that is the thing worth
+   * asserting rather than the exact length of the array. The cabin gained two
+   * Act-One exits when the story bible moved it forward -- Cabin I leaves for
+   * the Beef Run, Cabin II goes back to town -- but until the luxury
+   * apartment takes over the post-heist route, dropping this one edge would
+   * make the entire final chapter unreachable from anywhere a player can
+   * stand. */
+  assert.equal(SCENES[SCENE_IDS.COUNTRYSIDE_CABIN].next.includes(SCENE_IDS.SILVER_CASE), true);
+  const cabinDoorways = Object.entries(SCENES)
+    .filter(([, scene]) => scene.next.includes(SCENE_IDS.SILVER_CASE))
+    .map(([id]) => id);
+  assert.deepEqual(cabinDoorways.sort(),
+    [SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.LUXURY_APARTMENT].sort(),
+    'only the cabin and the not-yet-routed luxury apartment may reach the Silver Case');
 
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.enter(SCENE_IDS.COUNTRYSIDE_CABIN);
@@ -85,7 +98,7 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
 });
 
 test('a fresh schema carries locked durable records for every final-arc mission', () => {
-  assert.equal(CAMPAIGN_VERSION, 19);
+  assert.equal(CAMPAIGN_VERSION, 20);
   assert.equal(MISSION_IDS.SILVER_CASE, 'silver_case');
   assert.equal(MISSION_IDS.MANSION_SIEGE, 'mansion_siege');
   assert.equal(MISSION_IDS.ENOLA_SQUATCH, 'enola_squatch');

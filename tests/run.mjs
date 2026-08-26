@@ -16,6 +16,7 @@ const TEST_MODULES = [
   './campaign-finale-wiring.test.mjs',
   './campaign-marathon.test.mjs',
   './campaign-spine.test.mjs',
+  './campaign-schema-20-cabin.test.mjs',
   './scene-gate-tiers.test.mjs',
   './scene-contract.test.mjs',
   './environment-visibility.test.mjs',

@@ -115,7 +115,7 @@ test('current saves carry a durable HotDog incident shape', () => {
   /* Bumped to 13 when the final campaign arc added its durable mission records
    * (see MIGRATIONS[12]). The subject of this test is the HotDog incident's
    * SHAPE at the current version, and that shape is unchanged by the bump. */
-  assert.equal(CAMPAIGN_VERSION, 19);
+  assert.equal(CAMPAIGN_VERSION, 20);
   assert.deepEqual(incident, {
     status: 'locked',
     checkpoint: null,
