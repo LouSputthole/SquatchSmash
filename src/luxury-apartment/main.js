@@ -4,22 +4,25 @@ import { createArcade } from '../arcade/mount.js';
 import { BETS, Blackjack } from '../bing/blackjack.js';
 import { AudioEngine } from '../core/audio.js';
 import { DayNight } from '../core/daynight.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { FocusRush } from '../core/focus-rush.js';
 import { Highs } from '../core/highs.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { PlanarMirror } from '../core/planar-mirror.js';
 import { Phone } from '../core/phone.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
 import { Radio } from '../core/radio.js';
-import { applyBody, translateKey } from '../core/settings.js';
+import { applyBody } from '../core/settings.js';
 import { Tv } from '../core/tv.js';
 import { createBongBehavior } from '../world/bong.js';
 import { ShowerSystem } from '../world/shower.js';
 import { SmokeSystem } from '../world/smoke.js';
+import { createLuxuryInputPolicy } from './controls.js';
 import { buildLuxuryApartment } from './world.js';
 import {
   LuxuryAnsweringMachineRuntime,
@@ -82,6 +85,13 @@ scene.add(camera);
 const time = new DayNight(20.5);
 time.setTime(8, 20 * 60 + 30);
 const hud = new Hud();
+/* THE ONE PANEL (src/core/objective-panel.js), adopting the #objectives div
+ * luxury-apartment.html carries. The line below used to exist only inside the
+ * pause menu -- which is the exact failure that module's header describes: the
+ * one screen a player is not playing on. */
+const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
+/** The flat's standing order. One source; the pause menu reads it too. */
+const LUXURY_OBJECTIVE = 'Explore both floors or try the private games room.';
 const interaction = new InteractionSystem(camera, hud);
 const audio = new AudioEngine();
 const tv = new Tv({ audio });
@@ -156,6 +166,12 @@ let answeringMachine = null;
 let revolver = null;
 let darts = null;
 let lastFrame = performance.now();
+/* The canonical browser-input Adapter (src/core/first-person-input.js). It is
+ * constructed once `player` exists, and from that moment it — not this file —
+ * owns `player.enabled`, held keys, look and capture. Every place that used to
+ * write `player.enabled = document.pointerLockElement === canvas` now asks it
+ * to re-read the policy instead. */
+let browserInput = null;
 
 function worldPoint(object, fallback = new THREE.Vector3()) {
   if (object?.getWorldPosition) return object.getWorldPosition(new THREE.Vector3());
@@ -173,14 +189,22 @@ function mountCanvas(screen, sourceCanvas) {
   return texture;
 }
 
+/* Capture, the failure paths, and the drag fallback for a preview shell that
+ * denies pointer lock all live in the Adapter now. `canEnable` already refuses
+ * while a framed SquatchOS app owns the cursor, which is the guard this
+ * function used to carry itself. */
 function requestGamePointerLock() {
-  if (state.activeArcade?.inputMode === 'dom') return;
-  try {
-    const pending = canvas.requestPointerLock?.();
-    pending?.catch?.(() => {});
-  } catch {
-    // A developer preview can be embedded somewhere that denies pointer lock.
-  }
+  return browserInput?.requestPointerLock() ?? false;
+}
+
+/** Ask the Adapter to re-read scene policy after a phase or posture change. */
+function syncInput(reason) {
+  return browserInput?.refresh(reason) ?? null;
+}
+
+/** True while the Adapter holds the mouse — pointer lock or the drag fallback. */
+function inputCaptured() {
+  return browserInput?.captured === true;
 }
 
 function showPosture(kind) {
@@ -206,7 +230,10 @@ function clearPosture() {
 function sitAt(kind, pose, onReady = null) {
   if (!player || player.mode !== 'walk' || !pose || state.posture) return false;
   state.posture = 'transition';
-  player.clearKeys();
+  /* The posture is set BEFORE the refresh so the Adapter reads the new owner
+   * and drops movement itself. Clearing first and setting the flag after would
+   * leave a key held through the sit transition. */
+  syncInput(`sit-${kind}`);
   interaction.setPaused(true);
   player.sitAt(pose, () => {
     showPosture(kind);
@@ -233,7 +260,7 @@ function leavePosture() {
   clearPosture();
   restoreWalkingPose(player, exit, home.groundAt);
   interaction.setPaused(false);
-  player.enabled = document.pointerLockElement === canvas;
+  syncInput('leave-posture');
   requestGamePointerLock();
   return true;
 }
@@ -299,8 +326,11 @@ function enterStation(id, station = home?.gameStations?.[id]) {
   }
   if (id === 'darts') {
     return sitAt('darts', station.pose ?? home.poses.darts, () => {
+      /* The dartboard is the one seat that keeps the look axis, so the policy
+       * owner changes from SEATED to AIMED_POSTURE the instant darts.enter()
+       * lands. Re-read it here rather than waiting for the next mouse event. */
       darts.enter();
-      player.enabled = document.pointerLockElement === canvas;
+      syncInput('darts-entered');
     });
   }
   if (id === 'console') {
@@ -333,11 +363,12 @@ function beginElevatorExit() {
   state.exitDestination = './preview.html';
   state.exitAudioStopped = false;
   state.paused = false;
-  player.enabled = false;
-  player.clearKeys();
+  /* `phase` is already 'exiting', so the policy owner is DISABLED: suspend()
+   * drops held keys, disables the Player and gives the cursor back in one
+   * call, which is the whole of what the four lines here used to do. */
+  browserInput?.suspend();
   interaction.release();
   interaction.setPaused(true);
-  document.exitPointerLock?.();
 
   /* A framed game or receiver can own audio outside AudioEngine's loop map.
    * Release those owners first, then fade every scene loop through the shared
@@ -354,6 +385,7 @@ function beginElevatorExit() {
   audio.stopSpeech();
   for (const key of [...audio.loops.keys()]) audio.stopLoop(key, 0.28);
 
+  objectivePanel.clear();
   elevatorExitCurtain.setAttribute('aria-hidden', 'false');
   elevatorExitCurtain.classList.add('active');
 
@@ -466,8 +498,9 @@ function startShower() {
   if (state.showering) return false;
   state.showering = true;
   state.showerTime = 0;
-  player.clearKeys();
-  player.enabled = false;
+  /* `showering` is set first, so the refresh reads DISABLED and drops the
+   * held keys on its way past. */
+  syncInput('shower-start');
   player.mode = 'frozen';
   player.position.set(
     home.showerStand.x,
@@ -498,8 +531,7 @@ function useWardrobe() {
 function sleepAtHome() {
   if (state.resting || !player || player.mode !== 'walk') return false;
   state.resting = true;
-  player.clearKeys();
-  player.enabled = false;
+  syncInput('sleep-start');
   interaction.setPaused(true);
   player.lieDown(home.poses.bed, () => {
     audio.play('bed.rustle', { volume: 0.48 });
@@ -516,7 +548,7 @@ function sleepAtHome() {
         restCurtain.classList.remove('active');
         state.resting = false;
         interaction.setPaused(false);
-        player.enabled = document.pointerLockElement === canvas;
+        syncInput('wake');
         hud.toast(`Day ${time.day} · rested`, 'good');
         hud.say('Morning over the skyline. <em>The place is still yours.</em>', 4400);
       }, 850);
@@ -534,16 +566,18 @@ function syncToiletMode(mode) {
   if (mode === 'aim') showPosture('toilet-aim');
   else if (mode === 'seat' || mode === 'seat-transition') showPosture('toilet-seat');
   else clearPosture();
+  /* Aim keeps the look axis and the seat does not, so every mode change is an
+   * owner change (AIMED_POSTURE <-> SEATED <-> WORLD). */
+  syncInput(`toilet-${mode ?? 'clear'}`);
 }
 
 function syncCrookedArtMode(mode) {
   if (mode) {
-    player?.clearKeys();
     showPosture('crooked-art');
   } else {
     clearPosture();
-    player.enabled = document.pointerLockElement === canvas;
   }
+  syncInput(`crooked-art-${mode ? 'start' : 'end'}`);
 }
 
 function useToilet(mode = 'sit') {
@@ -710,7 +744,7 @@ toilet = new LuxuryToiletRuntime({
   audio,
   onMode: syncToiletMode,
   requestPointerLock: requestGamePointerLock,
-  isPointerLocked: () => document.pointerLockElement === canvas,
+  isPointerLocked: inputCaptured,
 });
 crookedArt = new LuxuryCrookedArtRuntime({
   art: home.crookedArt,
@@ -790,7 +824,8 @@ startButton.addEventListener('click', async () => {
     name: 'ambience.room', volume: 0.055, ambience: true, fade: 1.5,
   });
   state.phase = 'active';
-  player.enabled = true;
+  syncInput('start');
+  objectivePanel.setLine(LUXURY_OBJECTIVE, { title: 'OBJECTIVE' });
   document.body.classList.add('playing');
   overlay.classList.add('hidden');
   requestGamePointerLock();
@@ -801,7 +836,7 @@ const pauseMenu = createPauseMenu({
   title: 'The High Life',
   canPause: () => state.phase === 'active' && !state.posture && !state.resting && !state.showering,
   canHandleTab: () => state.activeArcade?.inputMode !== 'dom',
-  getObjective: () => 'Explore both floors or try the private games room.',
+  getObjective: () => LUXURY_OBJECTIVE,
   instructions: [
     'W A S D — move. Shift — sprint. Space — jump.',
     'E or Click — use and play. Hold E where a second action is shown.',
@@ -812,11 +847,18 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     state.paused = true;
-    player.enabled = false;
-    player.clearKeys();
+    /* releasePointerLock() AND NOT suspend(), and the difference cost a
+     * verifier run. `suspend()` switches the Adapter's ROUTES off — and the
+     * route that closes this menu is the second Escape, so the flat paused and
+     * then could never be unpaused from the keyboard again. `release` gives the
+     * cursor back, drops held keys and abandons a half-held interaction while
+     * leaving routing alive, which is exactly what an authored UI over a live
+     * scene wants; the Adapter's own header says so. `state.paused` is set
+     * first, so the refresh it ends with reads the PAUSED owner and disables
+     * the Player on its way out. */
+    browserInput?.releasePointerLock();
     interaction.release();
     interaction.setPaused(true);
-    document.exitPointerLock?.();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
@@ -824,46 +866,53 @@ const pauseMenu = createPauseMenu({
     interaction.setPaused(Boolean(state.posture));
     audio.ctx?.resume?.();
     lastFrame = performance.now();
+    syncInput('resume');
+    /* Only the postures that steer get the mouse back. Seated at the blackjack
+     * table the cursor stays free — but the Adapter's own mousedown will
+     * recapture on a click, which the old canvas handler refused to do and is
+     * why losing pointer lock at the table used to be a dead end. */
     if (!state.posture || toilet?.aiming || state.posture === 'darts') requestGamePointerLock();
   },
   onRestart: () => location.reload(),
   restartLabel: 'Restart luxury preview',
 });
 
-document.addEventListener('pointerlockchange', () => {
-  if (state.phase !== 'active' || state.paused || state.resting || state.showering) return;
-  player.enabled = (!state.posture || toilet?.aiming || state.posture === 'darts')
-    && document.pointerLockElement === canvas;
-});
+/* ------------------------------------------------------------------ */
+/* INPUT — routes only. Capture, key translation, release and focus    */
+/* cleanup all belong to src/core/first-person-input.js.               */
+/*                                                                     */
+/* A route runs AHEAD of the Adapter's default for that event, and     */
+/* returning `true` consumes that default. So a route that wants the   */
+/* ordinary WASD/Space behaviour returns nothing and lets the Adapter  */
+/* set the key; a posture that owns the keyboard returns true.         */
+/* ------------------------------------------------------------------ */
 
-document.addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement !== canvas) return;
-  if (state.activeArcade?.inputMode === 'relative') {
-    state.activeArcade.onPointer(event.movementX, event.movementY);
-  } else {
-    player.handleMouseMove(event.movementX, event.movementY);
-  }
-});
+/** True while the scene is playable and no timed sequence owns the body. */
+function inputLive() {
+  return state.phase === 'active' && !state.paused && !state.resting && !state.showering;
+}
 
-document.addEventListener('keydown', (event) => {
+function routeLuxuryKeyDown(event, { code }) {
   if (event.code === 'Escape' && !event.repeat) {
-    if (state.phase !== 'active' || state.activeArcade?.inputMode === 'dom') return;
+    /* `canHandleInput` already refused while a framed SquatchOS app owns the
+     * keyboard, which is the guard the old listener wrote out here. */
+    if (state.phase !== 'active') return true;
     event.preventDefault();
     pauseMenu.toggle();
-    return;
+    return true;
   }
-  if (state.phase !== 'active' || state.paused || state.resting || state.showering) return;
+  if (!inputLive()) return true;
 
   if (toilet?.active) {
     if (!event.repeat) toilet.handleKey(event.code);
     event.preventDefault();
-    return;
+    return true;
   }
 
   if (crookedArt?.bar.active) {
     if (!event.repeat) crookedArt.handleKey(event.code);
     event.preventDefault();
-    return;
+    return true;
   }
 
   if (state.posture === 'poker') {
@@ -876,7 +925,7 @@ document.addEventListener('keydown', (event) => {
       if (number && blackjack.state === 'bet') blackjack.setBet(BETS[Number(number) - 1]);
     }
     event.preventDefault();
-    return;
+    return true;
   }
 
   if (state.posture === 'darts') {
@@ -884,7 +933,7 @@ document.addEventListener('keydown', (event) => {
     else if (event.code === 'KeyE' && !event.repeat) darts.beginCharge();
     else if (event.code === 'KeyR') darts.reset();
     event.preventDefault();
-    return;
+    return true;
   }
 
   if (state.posture === 'console') {
@@ -896,63 +945,110 @@ document.addEventListener('keydown', (event) => {
       hud.toast(`Cinema wall · ${tv.channel.name}`);
     }
     event.preventDefault();
-    return;
+    return true;
   }
 
   if (state.activeArcade?.onKey(event.code, true)) {
     event.preventDefault();
-    return;
+    return true;
   }
 
   if (event.code === 'KeyQ' && state.posture) {
     leavePosture();
     event.preventDefault();
-    return;
+    return true;
   }
 
-  const key = translateKey(event.code);
-  player.setKey(key, true);
-  if (key === 'Space') event.preventDefault();
-  if (key === 'KeyE' && !event.repeat) {
+  /* From here down he is walking around his own flat, and `code` is the
+   * CONFIGURED key: the Adapter ran translateKey before the route, which is
+   * the one place that translation now happens in this scene. */
+  if (code === 'KeyE' && !event.repeat) {
     if (home.inventory.held === 'phone') phone.press();
     else interaction.press();
   }
-  if (key === 'KeyQ' && !event.repeat) inventoryRuntime.pocket();
-  if (key === 'KeyR' && !event.repeat) {
+  if (code === 'KeyQ' && !event.repeat) inventoryRuntime.pocket();
+  if (code === 'KeyR' && !event.repeat) {
     if (home.inventory.held === 'gun') revolver.reload();
     else if (radio.on) radio.next();
   }
   const number = /^Digit([1-5])$/.exec(event.code)?.[1];
   if (number) home.inventory.select(Number(number) - 1);
-});
+  /* Nothing consumed: the Adapter sets WASD/Shift/Space/C and the scene's one
+   * declared held key, F, and calls preventDefault on the ones it owns. */
+  return undefined;
+}
 
-document.addEventListener('keyup', (event) => {
+function routeLuxuryKeyUp(event) {
   if (state.posture === 'darts' && event.code === 'KeyE') {
     darts.release();
     event.preventDefault();
-    return;
+    return true;
   }
   state.activeArcade?.onKey(event.code, false);
-  const key = translateKey(event.code);
-  player.setKey(key, false);
-  if (key === 'KeyE') interaction.release();
-});
+  /* Nothing consumed: the Adapter releases the key it pressed and, on E, the
+   * interaction that key started. */
+  return undefined;
+}
 
-document.addEventListener('mousedown', (event) => {
-  if (event.button !== 0 || state.phase !== 'active' || state.paused) return;
-  if (toilet?.active || crookedArt?.bar.active) return;
+function routeLuxuryMouseMove(event) {
+  if (state.activeArcade?.inputMode === 'relative') {
+    state.activeArcade.onPointer(event.movementX, event.movementY);
+    return true;
+  }
+  return undefined;
+}
+
+function routeLuxuryMouseDown(event) {
+  if (event.button !== 0 || state.phase !== 'active' || state.paused) return true;
+  if (toilet?.active || crookedArt?.bar.active) return true;
   if (state.posture === 'poker') pokerAction();
   else if (state.posture === 'darts') darts.beginCharge();
   else if (state.activeArcade) state.activeArcade.onClick(true);
-  else if (home.inventory.held === 'gun' && document.pointerLockElement === canvas) revolver.fire();
-  else if (document.pointerLockElement === canvas) interaction.press();
-});
+  else if (home.inventory.held === 'gun' && inputCaptured()) revolver.fire();
+  else if (inputCaptured()) interaction.press();
+  /* Consume ONLY when the mouse is already ours. Uncaptured, the click falls
+   * through to the Adapter and buys capture back — including at the blackjack
+   * table and the cinema wall, where the old canvas click handler explicitly
+   * refused to, so losing pointer lock while seated was a dead end you could
+   * only leave by standing up. */
+  return inputCaptured();
+}
 
-document.addEventListener('mouseup', (event) => {
-  if (event.button !== 0) return;
+function routeLuxuryMouseUp(event) {
+  if (event.button !== 0) return undefined;
   if (state.posture === 'darts') darts.release();
   else if (state.activeArcade) state.activeArcade.onClick(false);
   else interaction.release();
+  return undefined;
+}
+
+const luxuryInputPolicy = createLuxuryInputPolicy({
+  readState: () => ({
+    phase: state.phase,
+    paused: state.paused,
+    resting: state.resting,
+    showering: state.showering,
+    posture: state.posture,
+    arcadeInputMode: state.activeArcade?.inputMode ?? null,
+    toiletAiming: toilet?.aiming === true,
+  }),
+  keyDown: routeLuxuryKeyDown,
+  keyUp: routeLuxuryKeyUp,
+  mouseMove: routeLuxuryMouseMove,
+  mouseDown: routeLuxuryMouseDown,
+  mouseUp: routeLuxuryMouseUp,
+  clear: () => state.activeArcade?.onClick(false),
+});
+
+browserInput = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  /* F is the held-consumable key: the frame loop reads `player.keys.has('KeyF')`
+   * every tick to decide whether he is still drinking. It is outside the
+   * Adapter's movement-only default set, so the scene declares it. */
+  playerKeyCodes: ['KeyF'],
+  ...luxuryInputPolicy.adapterOptions,
 });
 
 window.addEventListener('wheel', (event) => {
@@ -964,20 +1060,13 @@ window.addEventListener('wheel', (event) => {
   }
 }, { passive: true });
 
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  interaction.release();
-});
+/* No `blur` listener here: the Adapter clears held keys and abandons a
+ * half-held interaction on focus loss, which is what these three lines did. */
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseMenu.pause();
 });
-canvas.addEventListener('click', () => {
-  if (state.phase === 'active' && !state.paused
-    && (!state.posture || toilet?.aiming || state.posture === 'darts')
-    && !state.resting && !state.showering && document.pointerLockElement !== canvas) {
-    requestGamePointerLock();
-  }
-});
+/* No canvas `click` handler either: the Adapter's own mousedown asks for
+ * capture, gated by the policy's `canEnable`. */
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
@@ -1004,7 +1093,7 @@ function updateTimedActivities(dt) {
       audio.stopLoop('luxury.shower', 0.5);
       restoreWalkingPose(player, home.poses.shower.exit, home.groundAt);
       interaction.setPaused(false);
-      player.enabled = document.pointerLockElement === canvas;
+      syncInput('shower-end');
       hud.toast('Showered', 'good');
       hud.say('Clean clothes, clean glass, clean slate. <em>For tonight.</em>', 3800);
     }
@@ -1176,7 +1265,7 @@ async function verifyParity() {
   clearPosture();
   restoreWalkingPose(player, home.spawns.main.position, home.groundAt);
   interaction.setPaused(false);
-  player.enabled = document.pointerLockElement === canvas;
+  syncInput('parity-restore');
 
   return {
     toilet: {
@@ -1216,6 +1305,10 @@ window.LUXURY_APARTMENT = {
   home,
   player,
   interaction,
+  /* The canonical input Adapter, for the browser gates: `input.snapshot()` is
+   * the one place that answers "is he captured, enabled, and moving" without
+   * re-deriving it from the DOM. */
+  get input() { return browserInput; },
   audio,
   time,
   state,
@@ -1243,7 +1336,7 @@ window.LUXURY_APARTMENT = {
     const moved = teleportToSpawn(player, home, zone);
     if (moved) {
       interaction.setPaused(false);
-      player.enabled = document.pointerLockElement === canvas;
+      syncInput('teleport');
     }
     return moved;
   },

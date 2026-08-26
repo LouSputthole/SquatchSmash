@@ -2734,6 +2734,35 @@ async function buildSquatchfather(descriptor, THREE) {
     descriptor.id,
     () => buildSquatchfatherRuntimeGeometry(scene, camera, { renderer: null }),
   );
+  /* STAGE THE LENS WHERE FRAME ONE PUTS IT, not where `new PerspectiveCamera`
+   * leaves it.
+   *
+   * `buildSquatchfatherRuntimeGeometry` hands the camera to ProspectController,
+   * which records the boot pose but never writes it to the camera -- in the
+   * game, `CameraDirector.update()` does that on the first frame, and this
+   * Adapter never runs a frame. So the camera sat at the world origin, and the
+   * origin is INSIDE the restaurant's front door: the `frontDoor` collider is
+   * x -0.70..0.70, y -0.50..4.00, z -0.12..0.02, measured off this build.
+   * tools/verify-framing.mjs reported it as CAMERA_INSIDE_SOLID and was right
+   * about the arithmetic and wrong about the scene -- it was measuring the
+   * harness's default, not a shot anybody authored.
+   *
+   * This is `CameraDirector.update()` with the shake at zero: eye at
+   * (-12.00, 1.76, -2.60) -- POS.playerStart with ProspectController's
+   * EYE_STAND on top -- looking along PLAYER_START_YAW at pitch -0.03, which
+   * is Tony on the pavement facing the restaurant door. Nothing in the build
+   * moved; only the stand-in camera did. Measured after: the lens sits at
+   * (-12.000, 1.760, -2.600) looking (0.999, -0.030, 0.020), and 0 of the 36
+   * colliders contain that point -- the nearest, the kerbside block
+   * `aabb-m18-m0p5-m4p25-m13p2-4-m2p15`, stands 1.20 m off. */
+  camera.rotation.order = 'YXZ';
+  camera.position.copy(runtime.prospect.eye);
+  camera.rotation.y = runtime.prospect.yaw;
+  camera.rotation.x = runtime.prospect.pitch;
+  /* Object3D.raycast reads matrixWorld and never recomputes it, and nothing
+   * updates it headlessly without a renderer (docs/ENGINE-TRAPS.md). */
+  camera.updateMatrixWorld(true);
+
   const mirror = new MirrorReflection(scene, runtime.sceneState.props.mirror);
   const controllers = {
     prospect: runtime.prospect.fig.group,
