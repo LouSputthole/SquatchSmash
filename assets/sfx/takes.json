@@ -9907,6 +9907,186 @@
       "voiceId": "iP95p4xoKVk53GoZ742B",
       "commit": "ed849cc0a5491cd4c32662279d6dbdb623582861"
     },
+    "vo.cabin.lag.after.good": {
+      "text": "e6c08d55f260",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.after.missed": {
+      "text": "9fdfed3d63ae",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.after.more": {
+      "text": "070dacacebba",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.after.no-spoil": {
+      "text": "fcf817d86967",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.cabin.bedroom": {
+      "text": "b885c07d2bbe",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.cabin.board": {
+      "text": "d17d101c07a0",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.cabin.board.odd": {
+      "text": "facc401c7acb",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.cabin.computer": {
+      "text": "b75108b38743",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.cabin.computer.old": {
+      "text": "4bf1ea3cd8c3",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.cabin.entertainment": {
+      "text": "f908be70582f",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.cabin.wardrobe": {
+      "text": "f43e7cd6974a",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.flavor.breaks": {
+      "text": "5d6392252810",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.flavor.dark": {
+      "text": "1bcb44f8760f",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.flavor.eyes": {
+      "text": "917a71998c85",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.flavor.service": {
+      "text": "ee125f6186de",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.general.arrival": {
+      "text": "3350b66c151f",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.general.more": {
+      "text": "233fc51461e7",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.general.poke": {
+      "text": "e3054e29b6e3",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.general.quiet": {
+      "text": "eaddf893308e",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.property.bridge": {
+      "text": "61d31e8af1b3",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.property.creek": {
+      "text": "6188b65e46e3",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.property.firepit": {
+      "text": "b7378fa2bc13",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.property.overlook": {
+      "text": "d0e1494868e7",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.property.shed": {
+      "text": "98f3b7cce573",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.property.trail": {
+      "text": "b0c240edaedb",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.wood.1": {
+      "text": "788f14ba910a",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.wood.2": {
+      "text": "6d997ee3ef75",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.wood.3": {
+      "text": "4cb82883f0ba",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.wood.4": {
+      "text": "a2962d27778f",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
+    "vo.cabin.lag.wood.5": {
+      "text": "04ad7786102b",
+      "source": "rendered",
+      "voice": "lag",
+      "voiceId": "fBD19tfE58bkETeiwUoC"
+    },
     "vo.call.booski.1": {
       "text": "36325759cb09",
       "source": "inferred",
@@ -16413,6 +16593,12 @@
       "voice": "npc-reserve-2",
       "voiceId": "2vubyVoGjNJ5HPga4SkV",
       "commit": "2669e652c3e3d3f92c2a754262b577ed4c4dc17b"
+    },
+    "vo.initiation.cabin.in-150-kittenboss.1baf5ya.1": {
+      "text": "86735cf7e434",
+      "source": "rendered",
+      "voice": "kittenboss",
+      "voiceId": "2bk7ULW9HfwvcIbMWod0"
     },
     "vo.initiation.cabin.in-170-booskibro.1ktte4c.1": {
       "text": "693ce3ac0bb4",
@@ -26051,6 +26237,12 @@
       "voiceId": "pI7p9goUOVAfkfaP1k9Z",
       "commit": "f94fe8fd47f49796efcb819c9860893f2e0f64b5"
     },
+    "vo.silvercase.couch.chester.whatthehell": {
+      "text": "1abf14908192",
+      "source": "rendered",
+      "voice": "chester",
+      "voiceId": "tgfcQY9SGvn3GfmnNWIi"
+    },
     "vo.silvercase.lou.ape.evermeet": {
       "text": "8d39d94e8c90",
       "source": "inferred",
@@ -26688,6 +26880,18 @@
       "voiceId": "R4Zv8YQNcHyNDZl0ViUG",
       "commit": "73653206b25e805fcb711134f31e8b16753174a9"
     },
+    "vo.specialmeeting.numbskull.arrival.2": {
+      "text": "846756c5acb4",
+      "source": "rendered",
+      "voice": "numbskull",
+      "voiceId": "R4Zv8YQNcHyNDZl0ViUG"
+    },
+    "vo.specialmeeting.numbskull.arrival.carpool.1": {
+      "text": "10e04f6e25d4",
+      "source": "rendered",
+      "voice": "numbskull",
+      "voiceId": "R4Zv8YQNcHyNDZl0ViUG"
+    },
     "vo.specialmeeting.numbskull.back_seat.1": {
       "text": "8d09c91c33be",
       "source": "inferred",
@@ -26940,6 +27144,18 @@
       "voiceId": "lnFzEtvLAfx8I9DtiJTS",
       "commit": "73653206b25e805fcb711134f31e8b16753174a9"
     },
+    "vo.specialmeeting.seff.dirt_road_reveal.1": {
+      "text": "db6ed5a4d759",
+      "source": "rendered",
+      "voice": "seff",
+      "voiceId": "lnFzEtvLAfx8I9DtiJTS"
+    },
+    "vo.specialmeeting.seff.dirt_road_reveal.2": {
+      "text": "116ca81e87a9",
+      "source": "rendered",
+      "voice": "seff",
+      "voiceId": "lnFzEtvLAfx8I9DtiJTS"
+    },
     "vo.specialmeeting.seff.handoff.1": {
       "text": "bcce0c72ef6f",
       "source": "inferred",
@@ -27101,6 +27317,18 @@
       "voiceId": "lnFzEtvLAfx8I9DtiJTS",
       "commit": "73653206b25e805fcb711134f31e8b16753174a9"
     },
+    "vo.specialmeeting.tony.arrival.1": {
+      "text": "68cf85f1570c",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
+    },
+    "vo.specialmeeting.tony.arrival.2": {
+      "text": "2324189af7f8",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
+    },
     "vo.specialmeeting.tony.back_seat.1": {
       "text": "831653d71959",
       "source": "inferred",
@@ -27198,6 +27426,18 @@
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
       "commit": "73653206b25e805fcb711134f31e8b16753174a9"
+    },
+    "vo.specialmeeting.tony.dirt_road_reveal.1": {
+      "text": "4e3702080e90",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
+    },
+    "vo.specialmeeting.tony.dirt_road_reveal.2": {
+      "text": "2bc60dad9b6e",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
     },
     "vo.specialmeeting.tony.dirt_three.1": {
       "text": "b9fe1e1e1f17",
