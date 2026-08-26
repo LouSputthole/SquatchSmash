@@ -6,6 +6,7 @@ import {
 import {
   makeCashBag, makeHeistCarbine, makeHeistSidearm, makeBalaclava, makePlateCarrier, makeZipTies,
 } from './weapons.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
 
 const MAT = {
   concrete: new THREE.MeshStandardMaterial({ color: 0x5a5b58, roughness: 0.92 }),
@@ -80,6 +81,34 @@ function bounds(size, position) {
 
 function floorZone(width, depth, surface, x = 0, z = 0) {
   return { box: bounds([width, 0.1, depth], [x, 0, z]), surface };
+}
+
+/**
+ * A collision volume that carries WHAT IT IS beside where it is.
+ *
+ * `bounds` answers only the second question, and the certification ratchet
+ * counts a solid that cannot answer the first: `heist:street-withdrawal` was
+ * 21 of 21 untyped and `heist:mercer-garage` 35 of 35, which is what
+ * `spatial:heist:*:coverage:untyped-solids` had been counting since the debt
+ * baseline was first taken. `src/core/spatial-contract.js` is the contract;
+ * `src/luxury-apartment/world.js` is the pattern this follows.
+ *
+ * NO KIND USED IN THIS FILE CHANGES WHAT A SOLID BLOCKS, and that is on
+ * purpose. `world`, `prop` and `vehicle` all default to blocking all four
+ * channels -- collision, vision, navigation, ballistics -- which is exactly
+ * what an untyped collider already did in every place that reads them:
+ * `Player._resolve` and `_stepSupport` skip a box only for
+ * `blocks.collision === false`, and the staging sightline ray skips one only
+ * for `blocks.vision === false`. So this street keeps its firefight and this
+ * garage keeps its cover, unchanged, down to the metre. An explicit `blocks`
+ * here WOULD move them, and none of these solids wants that.
+ *
+ * The kinds are the truth about each solid, not the cheapest route to a lower
+ * number. A parked saloon is a `vehicle` because it is one -- not because
+ * `vehicle` and `world` happen to block the same four channels today.
+ */
+function solid(id, kind, size, position) {
+  return markSpatialPrimitive(bounds(size, position), { id, kind });
 }
 
 function roomColliders(width, depth, height) {
@@ -2289,13 +2318,25 @@ function buildMercerGarageExterior(street) {
        * the drivable corridor and nothing else in this build enters it: the
        * islands stand off it by 0.5 m, the booth by 1.9 m and the pylon by
        * 2.9 m. Measured in tests/heist-garage-exterior.test.mjs. */
-      ...[-1, 1].map((side) => bounds([panelWidth, 12.0, 0.5],
-        [side * (M.halfWidth + M.mouthHalf) / 2, 6.0, face - 0.25])),
+      /* `world`: this is the building. Twelve metres of precast elevation
+       * either side of the mouth, and nothing about it is furniture. */
+      ...[-1, 1].map((side, index) => solid(
+        `heist.street.mercer.elevation.${index === 0 ? 'west' : 'east'}`, 'world',
+        [panelWidth, 12.0, 0.5],
+        [side * (M.halfWidth + M.mouthHalf) / 2, 6.0, face - 0.25],
+      )),
       // The booth and the pylon, which are the two solids standing on the road.
-      bounds([2.4, 2.88, 2.4], [6.6, 1.44, -33.3]),
-      bounds([0.36, 9.0, 0.36], [6.6, 4.5, -34.8]),
-      /* The barrier cabinet and the arm standing straight up out of it. */
-      bounds([0.45, 4.7, 0.4], [-4.72, 2.35, -33.9]),
+      /* `world` for the booth: it is a built kiosk on the east island with a
+       * roof and a glazed front, not something anybody moves. */
+      solid('heist.street.mercer.booth', 'world', [2.4, 2.88, 2.4], [6.6, 1.44, -33.3]),
+      /* `prop` for the nine-metre pylon: signage bolted to the forecourt. */
+      solid('heist.street.mercer.pylon', 'prop', [0.36, 9.0, 0.36], [6.6, 4.5, -34.8]),
+      /* The barrier cabinet and the arm standing straight up out of it.
+       * `prop`, NOT `door`: the arm is raised and stays raised — the crew's
+       * people opened it hours ago — so it gates nothing and this volume is
+       * only the cabinet plus the vertical arm above it. A `door` would claim
+       * a passage that this build never closes. */
+      solid('heist.street.mercer.gate-barrier', 'prop', [0.45, 4.7, 0.4], [-4.72, 2.35, -33.9]),
     ],
   };
 }
@@ -2365,7 +2406,9 @@ function buildStreet() {
   for (let i = 0; i < 8; i++) {
     const position = [i % 2 ? -5.5 : 5.5, 0, -25 + i * 7];
     makeVehicleBody(group, position, i % 3 ? 0x31363a : 0x5a1f22, `cover-car-${i}`);
-    coverCars.push(bounds([4.1, 1.9, 2.2], [position[0], 0.95, position[2]]));
+    // `vehicle`: eight parked saloons, and the cover the whole block is fought from.
+    coverCars.push(solid(`heist.street.cover-car.${i}`, 'vehicle',
+      [4.1, 1.9, 2.2], [position[0], 0.95, position[2]]));
     /* Either end of the car, clear of its 2.2 m hull: a man tucked in at the
      * bumper with two tonnes of parked saloon between him and the muzzle. */
     firePositions.push({ id: `car-${i}-near`, x: position[0], z: position[2] - 2.9 });
@@ -2380,7 +2423,11 @@ function buildStreet() {
     planter.userData.kind = 'street-cover';
     box(group, [1.9, 0.4, 0.85], [x, 1.0, 31.5], new THREE.MeshStandardMaterial({ color: 0x2f3a27, roughness: 1 }));
     ownAddedChildren(group, planterStart, 'heist.street.bank-entry');
-    coverCars.push(bounds([2.2, 1.1, 1.1], [x, 0.55, 31.5]));
+    /* `prop`: a stone planter with a shrub in it. It is street furniture that
+     * happens to be the cover Snow's line names, which is not the same thing
+     * as being the building. */
+    coverCars.push(solid(`heist.street.bank-planter.${x}`, 'prop',
+      [2.2, 1.1, 1.1], [x, 0.55, 31.5]));
   }
   const bankFacadeStart = group.children.length;
   box(group, [7, 6.5, 1], [-5.5, 3.25, 35], MAT.marble, 'bank-facade-left');
@@ -2421,12 +2468,19 @@ function buildStreet() {
     firePositions: Object.freeze(firePositions.map((slot) => Object.freeze(slot))),
     interactables: { bankDoor, van, droppedBag, garage },
     colliders: [
-      bounds([3.4, 10, 72], [-10.3, 5, 0]),
-      bounds([3.4, 10, 72], [10.3, 5, 0]),
+      /* `world`: the two building lines. One solid apiece for the whole
+       * seventy-two metres of storefront row, kerb and pavement — this is
+       * where the street stops being a street. */
+      solid('heist.street.building-line.west', 'world', [3.4, 10, 72], [-10.3, 5, 0]),
+      solid('heist.street.building-line.east', 'world', [3.4, 10, 72], [10.3, 5, 0]),
       ...coverCars,
-      bounds([4.9, 2.0, 2.2], [0, 1, 14]),
-      bounds([6.6, 6.5, 1], [-5.3, 3.25, 35]),
-      bounds([6.6, 6.5, 1], [5.3, 3.25, 35]),
+      /* `vehicle`: the dead van at z 14, scaled up from the same body. It is
+       * the biggest solid on the road and the first block is fought behind
+       * it — see the `van-west`/`van-east` fire positions below. */
+      solid('heist.street.disabled-van', 'vehicle', [4.9, 2.0, 2.2], [0, 1, 14]),
+      // `world`: the bank's marble frontage either side of its doors.
+      solid('heist.street.bank-facade.west', 'world', [6.6, 6.5, 1], [-5.3, 3.25, 35]),
+      solid('heist.street.bank-facade.east', 'world', [6.6, 6.5, 1], [5.3, 3.25, 35]),
       ...mercer.colliders,
     ],
     floorZones: [floorZone(18, 72, 'asphalt')],
@@ -2609,14 +2663,25 @@ function buildGarage() {
     interactables: { hold, load, drive },
     sedan,
     colliders: [
-      ...roomColliders(24, 30, 4.4).filter((_, index) => index !== 1),
-      bounds([8.075, 4.4, 0.25], [-7.8375, 2.2, 15]),
-      bounds([8.075, 4.4, 0.25], [7.8375, 2.2, 15]),
-      bounds([7.6, 1.2, 0.25], [0, 3.8, 15]),
+      /* `world`: the shell. `roomColliders` hands back front, back, west,
+       * east and index 1 is the back wall, which the ramp portal below
+       * replaces — the wing/lintel trio IS that wall with a hole in it. */
+      ...roomColliders(24, 30, 4.4)
+        .filter((_, index) => index !== 1)
+        .map((box, index) => markSpatialPrimitive(box, {
+          id: `heist.garage.shell.${['front', 'west', 'east'][index]}`,
+          kind: 'world',
+        })),
+      solid('heist.garage.ramp-portal.wing-west', 'world', [8.075, 4.4, 0.25], [-7.8375, 2.2, 15]),
+      solid('heist.garage.ramp-portal.wing-east', 'world', [8.075, 4.4, 0.25], [7.8375, 2.2, 15]),
+      solid('heist.garage.ramp-portal.lintel', 'world', [7.6, 1.2, 0.25], [0, 3.8, 15]),
+      // `world`: ten structural pillars, floor to soffit. They hold the deck up.
       ...[-8, -3, 3, 8].flatMap((x) => [-10, 0, 10]
         .filter((z) => !(z === 10 && Math.abs(x) === 3))
-        .map((z) => bounds([0.8, 4.4, 0.8], [x, 2.2, z]))),
-      bounds([4.1, 1.9, 2.2], [0, 0.95, -8]),
+        .map((z) => solid(`heist.garage.pillar.${x}.${z}`, 'world',
+          [0.8, 4.4, 0.8], [x, 2.2, z]))),
+      // `vehicle`: the escape sedan, which is the whole point of the room.
+      solid('heist.garage.escape-sedan', 'vehicle', [4.1, 1.9, 2.2], [0, 0.95, -8]),
       /* THE RAMP, AS SOMETHING YOU CAN WALK ON.
        *
        * It used to be one axis-aligned 6.7 x 2.6 x 8 box over the whole
@@ -2626,18 +2691,30 @@ function buildGarage() {
        * AABBs: approximate the slope with eight one-metre treads, each as
        * tall as the ramp surface at its own midpoint. That is a 21.8 cm rise
        * per tread, which is an ordinary stair step. */
+      /* `world` for all eight treads: this is the floor of the way in, the
+       * same as the ramp slab they approximate. A `prop` would be a lie about
+       * a surface the player and every man coming down it walks on. */
       ...Array.from({ length: 8 }, (_, i) => {
         const z = 9.5 + i;
         const top = 0.866 + (z - 13) * 0.2182;
-        return bounds([6.7, top, 1], [0, top / 2, z]);
+        return solid(`heist.garage.ramp.tread.${i}`, 'world', [6.7, top, 1], [0, top / 2, z]);
       }),
-      ...[-1, 1].map((side) => bounds([0.3, 2.4, 8], [side * 3.5, 1.2, 13])),
-      // The stacked crates in the two corners.
-      ...[[-6.8, -13], [9.6, 4]].map(([x, z]) => bounds([0.9, 3.6, 0.9], [x, 1.8, z])),
-      bounds([1.4, 1.2, 0.8], [5.5, 0.6, -5.5]),
-      // The five parked cars down the side walls.
-      ...Array.from({ length: 5 }, (_, i) => bounds([2.2, 1.9, 4.1],
-        [i % 2 ? -10.2 : 10.2, 0.95, -11 + i * 5.5])),
+      // `world`: the two kerbed cheeks holding the ramp in.
+      ...[-1, 1].map((side) => solid(
+        `heist.garage.ramp.kerb.${side < 0 ? 'west' : 'east'}`, 'world',
+        [0.3, 2.4, 8], [side * 3.5, 1.2, 13],
+      )),
+      // The stacked crates in the two corners. `prop`: four boxes on a floor.
+      ...[[-6.8, -13], [9.6, 4]].map(([x, z]) => solid(
+        `heist.garage.crate-stack.${x}.${z}`, 'prop', [0.9, 3.6, 0.9], [x, 1.8, z],
+      )),
+      // `prop`: the tool cart beside the sedan.
+      solid('heist.garage.tool-cart', 'prop', [1.4, 1.2, 0.8], [5.5, 0.6, -5.5]),
+      // The five parked cars down the side walls. `vehicle`, like the sedan.
+      ...Array.from({ length: 5 }, (_, i) => solid(
+        `heist.garage.parked.${i}`, 'vehicle',
+        [2.2, 1.9, 4.1], [i % 2 ? -10.2 : 10.2, 0.95, -11 + i * 5.5],
+      )),
     ],
     floorZones: [floorZone(24, 30, 'concrete')],
   };

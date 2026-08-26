@@ -99,6 +99,7 @@ const TEST_MODULES = [
   './heist-final-car-and-leg.test.mjs',
   './heist-garage-fight.test.mjs',
   './heist-garage-exterior.test.mjs',
+  './heist-spatial-coverage.test.mjs',
   './heist-police-suppression.test.mjs',
   './heist-firefight-presentation.test.mjs',
   './heist-street-fight.test.mjs',

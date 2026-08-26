@@ -6312,10 +6312,10 @@
     },
     "spatial": {
       "summary": {
-        "records": 85,
-        "units": 39167,
+        "records": 83,
+        "units": 39111,
         "byStatus": {
-          "unknown": 39167
+          "unknown": 39111
         }
       },
       "entries": [
@@ -6584,14 +6584,6 @@
           "fingerprint": "4be41b82a10213a40927"
         },
         {
-          "id": "spatial:heist:mercer-garage:coverage:untyped-solids",
-          "status": "unknown",
-          "count": 35,
-          "proofId": "heist:mercer-garage",
-          "proofKind": "coverage",
-          "fingerprint": "52221d3575fe2a9b6e49"
-        },
-        {
           "id": "spatial:heist:safehouse-debrief:coverage:untyped-solids",
           "status": "unknown",
           "count": 11,
@@ -6606,14 +6598,6 @@
           "proofId": "heist:safehouse",
           "proofKind": "coverage",
           "fingerprint": "e87abadb1489bce37e69"
-        },
-        {
-          "id": "spatial:heist:street-withdrawal:coverage:untyped-solids",
-          "status": "unknown",
-          "count": 21,
-          "proofId": "heist:street-withdrawal",
-          "proofKind": "coverage",
-          "fingerprint": "45ba797e7555b2b2da5c"
         },
         {
           "id": "spatial:heist:vault-open:coverage:untyped-solids",
@@ -9155,7 +9139,7 @@
         },
         {
           "id": "heist:mercer-garage",
-          "status": "observed",
+          "status": "pass",
           "evidence": {
             "actorDiscoveredIds": [
               "crew-deathmegatron",
@@ -9182,10 +9166,10 @@
             "built": true,
             "findings": 0,
             "findingsScanned": true,
-            "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "spatialCoverageStatus": "PASS",
+            "typed": 35,
             "unmarkedRigs": 0,
-            "untyped": 35,
+            "untyped": 0,
             "visibilityFilteredActorIds": [],
             "visibilityFilteredActors": 0
           }
@@ -9266,7 +9250,7 @@
         },
         {
           "id": "heist:street-withdrawal",
-          "status": "observed",
+          "status": "pass",
           "evidence": {
             "actorDiscoveredIds": [
               "crew-deathmegatron",
@@ -9293,10 +9277,10 @@
             "built": true,
             "findings": 0,
             "findingsScanned": true,
-            "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "spatialCoverageStatus": "PASS",
+            "typed": 21,
             "unmarkedRigs": 0,
-            "untyped": 21,
+            "untyped": 0,
             "visibilityFilteredActorIds": [],
             "visibilityFilteredActors": 0
           }
