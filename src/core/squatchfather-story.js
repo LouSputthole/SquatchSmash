@@ -1,6 +1,7 @@
 import {
   ITEM_IDS,
   MISSION_IDS,
+  TIME_EVENT_IDS,
 } from './campaign.js';
 
 class SquatchfatherStory {
@@ -40,10 +41,24 @@ class SquatchfatherStory {
     return { ok: true, resumed: false };
   }
 
+  /**
+   * THE RESTAURANT STAMPS ITS OWN HOUR NOW.
+   *
+   * `COMPLETE_SQUATCHFATHER` -- Day 2, 03:00 -- used to be applied by the
+   * APARTMENT, on arrival, because the driver brought him home. Under the
+   * spine the driver takes him out of town instead, and the flat does not see
+   * him again for three days: the clock that says when the job ended had
+   * nobody left to apply it.
+   *
+   * A mission's own completion is the honest place for its own hour. It is
+   * exact-once by id, so a save that already banked it on the old route is
+   * unaffected, and every caller -- the page, the scene-skip adapter, the
+   * marathon -- gets it without having to remember.
+   */
   complete() {
     const mission = this.campaign.state.missions[MISSION_IDS.SQUATCHFATHER];
     if (mission.status !== 'in_progress' || !mission.weaponStaged) return false;
-    this.campaign.update((state) => {
+    this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER, (state) => {
       const completed = state.missions[MISSION_IDS.SQUATCHFATHER];
       completed.status = 'complete';
       completed.weaponDropped = true;
