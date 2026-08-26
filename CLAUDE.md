@@ -1,9 +1,52 @@
 # SquatchSmash
 
 A no-build Three.js browser game. No bundler, no transpiler: ES modules and an
-importmap, served as static files. `npm test` is the gate and it is
+importmap, served as static files. `npm test` is the *deploy* gate and it is
 dependency-free on purpose — GitHub Pages runs it with no `npm ci`, and
 `tests/ci-dependency-free.test.mjs` enforces that.
+
+## `npm test` IS NOT THE GATE. Verify is.
+
+There are two workflows. **Pages** runs `npm test` and publishes. **Verify**
+runs thirty-odd checks, and a green suite tells you nothing about it.
+
+`.github/workflows/verify.yml` is the list, and it is the authority — read it
+rather than this paragraph if the two disagree. Three of its steps need a
+browser and are the ones most easily forgotten, because nothing about a local
+`npm test` hints they exist:
+
+```
+npm run verify:campaign-marathon   Playwright walks the whole public route
+npm run verify:boot-failure-surfaces   every staged page actually boots
+npm run verify:framing             cameras, blocking, allowlisted shots
+```
+
+**The marathon is the one that bites.** It walks all twenty-nine scene
+handoffs in a real browser with real saves, and it catches exactly the class
+of thing a unit test cannot: a `tryLeave` branch nobody routes through any
+more, a scene whose exit strands the player, a clock that lost its owner. Ten
+commits once shipped against a green local suite while it died on step 19 of
+the marathon's twenty-nine, every single time. **Run it before you push anything that touches the
+campaign route, the scene graph, or a story adapter's exit.**
+
+The rest, roughly grouped — again, `verify.yml` is authoritative:
+
+```
+lint  check  check:flight  verify:geometry  verify:campaign-route
+certify:debt-ratchet         no new architecture/semantic/spatial debt
+verify:dialogue:check  check:line-presence  check:reachability
+check:rerecord  check:takes  voice:needed:check  audio:todo:check
+check:*-vo (sixteen per-scene cue ledgers)  check:mansion-sfx
+```
+
+Two of those regenerate rather than merely check: change a line and run
+`npm run vo:<scene>`, then `npm run audio:todo` and `npm run voice:needed`,
+or their `:check` twins fail on drift.
+
+**A gate that runs later in the job hides behind one that fails earlier.**
+When a Verify step goes red, everything after it in that job simply never
+ran — so fixing the first failure routinely reveals a second that was never
+green either. Do not read one green step as evidence about the next.
 
 ## THE CAMPAIGN SPINE — the scene flow, locked
 
