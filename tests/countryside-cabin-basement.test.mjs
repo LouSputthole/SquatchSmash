@@ -45,12 +45,20 @@ test('pushing the wardrobe hangers aside reveals the one basement transition', a
     externalLighting: true,
     interaction: { register(target, descriptor) { registered.set(target, descriptor); } },
     onDiscover: (id) => discoveries.push(id),
-    onBasementTransition: (direction) => transitions.push(direction),
+    onBasementTransition: (direction, detail) => transitions.push({ direction, detail }),
   });
 
   const wardrobe = registered.get(cabin.utilityTargets.wardrobe);
   const entrance = registered.get(cabin.utilityTargets.basementEntrance);
   assert.equal(cabin.basement.panelArt, cabin.closet.picture, 'closet.back stays on the concealed panel');
+  assert.ok(cabin.basement.panelPivot, 'the concealed art needs an authored moving panel');
+  assert.notEqual(cabin.basement.movingPanelArt, cabin.closet.picture,
+    'the animated panel uses a clone instead of stealing the wardrobe owner art');
+  assert.equal(cabin.basement.movingPanelArt.parent, cabin.basement.panelPivot,
+    'the cloned art moves with the concealed panel');
+  assert.equal(cabin.basement.panelLightLeak?.name, 'cabin-basement-panel-light-leak');
+  assert.equal(cabin.basement.panelLightLeak?.visible, false,
+    'the closed wardrobe cannot leak reveal lighting into the bedroom');
   assert.ok(cabin.basement.entryAssembly.getObjectByName('cabin-basement-upper-shaft-mouth'));
   assert.ok(cabin.basement.entryAssembly.getObjectByName('cabin-basement-upper-ladder-rung-4'));
   assert.equal(entrance.enabled(), false, 'the clothes conceal the panel while hanging normally');
@@ -60,15 +68,76 @@ test('pushing the wardrobe hangers aside reveals the one basement transition', a
   assert.equal(entrance.enabled(), false, 'the target waits for the hangers to clear physically');
   cabin.update(1, 1, new THREE.Vector3());
   assert.equal(entrance.enabled(), true);
+  assert.ok(Math.abs(cabin.basement.panelPivot.rotation.y - (-0.92)) <= 0.02,
+    'the cleared hangers swing the concealed panel visibly toward its authored open angle');
+  assert.equal(cabin.basement.panelLightLeak.visible, true,
+    'opening the concealed panel reveals the warm ladder-shaft light leak');
 
+  entrance.onLook();
+  assert.deepEqual(discoveries, ['basement']);
   entrance.onUse();
   assert.deepEqual(discoveries, ['basement']);
-  assert.deepEqual(transitions, ['down']);
+  assert.equal(transitions[0].direction, 'down');
+  assert.equal(transitions[0].detail?.firstEntry, true,
+    'seeing the panel is discovery, but the first descent is still the first entry');
   assert.equal(cabin.basement.discovered, true);
 
   registered.get(cabin.utilityTargets.basementExit).onUse();
+  entrance.onUse();
   assert.deepEqual(discoveries, ['basement'], 'returning upstairs does not rediscover the room');
-  assert.deepEqual(transitions, ['down', 'up']);
+  assert.deepEqual(transitions.map(({ direction }) => direction), ['down', 'up', 'down']);
+  assert.equal(transitions[2].detail?.firstEntry, false,
+    'repeat descents must not replay first-discovery feedback');
+
+  cabin.dispose();
+});
+
+test('the stocked basement gives three authored props real inspect interactions', async () => {
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.045, 100);
+  const hud = { showPrompt() {}, hidePrompt() {}, setHold() {} };
+  const registered = new Map();
+  const inspections = [];
+  const cabin = await buildCountrysideCabin({
+    scene: new THREE.Scene(),
+    camera,
+    externalLighting: true,
+    interaction: { register(target, descriptor) { registered.set(target, descriptor); } },
+    onBasementInspect: (id) => inspections.push(id),
+  });
+  const interaction = new InteractionSystem(camera, hud);
+  interaction.setOccluders(cabin.occluders ?? []);
+
+  const contracts = [
+    ['basementWorkbench', 'workbench'],
+    ['basementShelves', 'shelves'],
+    ['basementCot', 'cot'],
+  ];
+  assert.deepEqual(Object.keys(cabin.basement.inspectionViewpoints).sort(),
+    contracts.map(([targetId]) => targetId).sort());
+
+  for (const [targetId, inspectionId] of contracts) {
+    const target = cabin.utilityTargets[targetId];
+    const descriptor = registered.get(target);
+    const viewpoint = cabin.basement.inspectionViewpoints[targetId];
+    assert.ok(target, `${targetId} is published as a utility target`);
+    assert.equal(typeof descriptor?.onUse, 'function', `${targetId} has a usable interaction`);
+    assert.equal(cabin.interactionViewpoints[targetId], viewpoint,
+      `${targetId} publishes its authored approach through the cabin world`);
+    assert.ok(viewpoint?.position?.isVector3 && viewpoint?.lookAt?.isVector3,
+      `${targetId} has a complete position/look-at viewpoint`);
+    assert.ok(viewpoint.position.distanceTo(viewpoint.lookAt) <= 2.7,
+      `${targetId} remains inside the live interaction ray range`);
+
+    interaction.register(target, descriptor);
+    camera.position.copy(viewpoint.position);
+    camera.lookAt(viewpoint.lookAt);
+    camera.updateMatrixWorld(true);
+    interaction.update(0);
+    assert.equal(interaction.current, target, `${targetId} owns the real centre interaction ray`);
+    interaction.press();
+    assert.equal(inspections.at(-1), inspectionId);
+  }
+  assert.deepEqual(inspections, ['workbench', 'shelves', 'cot']);
 
   cabin.dispose();
 });
@@ -126,10 +195,10 @@ test('paired basement spawns remain grounded and isolated from the opposite stor
     'low exterior terrain cannot impersonate basement occupancy');
   assert.equal(cabin.basement.fillLight.intensity, 0);
   cabin.update(0.016, 2, down.position);
-  assert.deepEqual(cabin.basement.lights.map(({ intensity }) => intensity), [2.1, 2.1],
+  assert.deepEqual(cabin.basement.lights.map(({ intensity }) => intensity), [3, 3],
     'the same authored fixtures light the room while Tony is downstairs');
-  assert.equal(cabin.basement.fillLight.intensity, 0.78,
-    'a small warm fill makes the storage dressing readable only downstairs');
+  assert.equal(cabin.basement.fillLight.intensity, 1.35,
+    'a readable warm fill reveals the storage dressing only while Tony is downstairs');
 
   cabin.dispose();
 });

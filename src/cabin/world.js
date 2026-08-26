@@ -10,7 +10,7 @@
  *   onRadioTap, onRadioHold, onPhone, onFridge, onCook, onEat,
  *   onShower, onWardrobe, onToilet, onArt, onFrontDoor,
  *   onLandmark, onDiscover, onDrawingBoard, onCar, onWoodpile, onFirepit, onPorch,
- *   onLag, canTalkToLag, onBasementTransition.
+ *   onLag, canTalkToLag, onBasementTransition, onBasementInspect.
  */
 
 import * as THREE from 'three';
@@ -434,6 +434,7 @@ export async function buildCountrysideCabin(ctx) {
     basement.spawns.down,
     basement.exitTarget,
   );
+  Object.assign(interactionViewpoints, basement.inspectionViewpoints ?? {});
 
   const landscape = Object.freeze({
     bounds: PROPERTY,

@@ -574,7 +574,9 @@ try {
     await page.waitForFunction(() => {
       const runtime = window.COUNTRYSIDE_CABIN;
       return runtime.cabin.state.closetT >= 0.82
-        && runtime.interaction.current === runtime.cabin.utilityTargets.basementEntrance;
+        && runtime.interaction.current === runtime.cabin.utilityTargets.basementEntrance
+        && Math.abs(runtime.cabin.basement.panelPivot.rotation.y - (-0.92)) <= 0.02
+        && runtime.cabin.basement.panelLightLeak.visible;
     }, null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
   } catch {
     basementPanelAimed = false;
@@ -588,6 +590,9 @@ try {
       currentIsPanel: runtime.interaction.current === world.utilityTargets.basementEntrance,
       currentName: runtime.interaction.current?.name ?? null,
       entryEnabled: world.utilityTargets.basementEntrance.userData.interact.enabled?.() ?? true,
+      panelRotation: world.basement.panelPivot?.rotation?.y ?? null,
+      movingPanelArtOnPivot: world.basement.movingPanelArt?.parent === world.basement.panelPivot,
+      panelLightLeakVisible: world.basement.panelLightLeak?.visible === true,
       discovered: [...runtime.lagHints.debug.discovered],
       wardrobeHintEligible: runtime.lagHints.debug.eligible.includes('cabin.wardrobe'),
     };
@@ -610,6 +615,9 @@ try {
       && basementPanelAimed
       && basementReveal.currentIsPanel
       && basementReveal.entryEnabled
+      && Math.abs(basementReveal.panelRotation - (-0.92)) <= 0.02
+      && basementReveal.movingPanelArtOnPivot
+      && basementReveal.panelLightLeakVisible
       && basementReveal.discovered.includes('basement')
       && !basementReveal.wardrobeHintEligible,
     JSON.stringify({
@@ -623,8 +631,11 @@ try {
   await page.keyboard.press('e');
   await page.waitForFunction(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
+    const lights = runtime.cabin.basement.lights.map(({ intensity }) => intensity);
     return runtime.state.level === 'basement'
-      && runtime.cabin.basement.lights.every(({ intensity }) => intensity > 1);
+      && lights.length === 2
+      && lights.every((intensity) => Math.abs(intensity - 3) <= 1e-6)
+      && Math.abs(runtime.cabin.basement.fillLight.intensity - 1.35) <= 1e-6;
   }, null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
   const basementArrival = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
@@ -653,18 +664,39 @@ try {
         basementArrival.position[0] - basementArrival.authored[0],
         basementArrival.position[2] - basementArrival.authored[2],
       ) <= 1e-6
-      && basementArrival.lights.every((intensity) => Math.abs(intensity - 2.10) <= 1e-6)
-      && Math.abs(basementArrival.fill - 0.78) <= 1e-6,
+      && basementArrival.lights.length === 2
+      && basementArrival.lights.every((intensity) => Math.abs(intensity - 3) <= 1e-6)
+      && Math.abs(basementArrival.fill - 1.35) <= 1e-6,
     JSON.stringify(basementArrival));
 
+  const basementWorkbenchContract = await page.evaluate(() => {
+    const world = window.COUNTRYSIDE_CABIN.cabin;
+    const target = world.utilityTargets.basementWorkbench;
+    const view = world.interactionViewpoints.basementWorkbench;
+    return {
+      target: Boolean(target?.userData?.interact?.onUse),
+      viewpoint: Boolean(view?.position),
+      position: view?.position?.toArray?.() ?? null,
+      yaw: view?.yaw ?? null,
+      pitch: view?.pitch ?? null,
+    };
+  });
+  let basementWorkbenchReceipt = null;
   const basementWalk = [];
   for (const waypoint of [
     { x: 2.40, z: 2.00, label: 'leave the ladder bay' },
     { x: 1.00, z: 0.50, label: 'cross the stocked lower room' },
+    ...(basementWorkbenchContract.position ? [{
+      x: basementWorkbenchContract.position[0],
+      z: basementWorkbenchContract.position[2],
+      radius: 0.34,
+      label: 'inspect the stocked workbench',
+    }] : []),
     { x: 3.00, z: 2.20, label: 'walk back past the supplies' },
     { x: 4.52, z: 3.24, radius: 0.34, label: 'return to the ladder' },
   ]) {
-    basementWalk.push(await walkTo(page, pointer, waypoint));
+    const walked = await walkTo(page, pointer, waypoint);
+    basementWalk.push(walked);
     if (waypoint.label === 'cross the stocked lower room') {
       const scenicAim = await page.evaluate(() => {
         const position = window.COUNTRYSIDE_CABIN.player.position;
@@ -681,7 +713,41 @@ try {
       await page.waitForTimeout(180);
       await capture(page, 'cabin-basement');
     }
+    if (waypoint.label === 'inspect the stocked workbench') {
+      await aimWithMouse(page, pointer, basementWorkbenchContract);
+      let aimed = true;
+      try {
+        await page.waitForFunction(() => {
+          const runtime = window.COUNTRYSIDE_CABIN;
+          return runtime.interaction.current === runtime.cabin.utilityTargets.basementWorkbench;
+        }, null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
+      } catch {
+        aimed = false;
+      }
+      if (aimed) {
+        await page.keyboard.press('e');
+        await page.waitForFunction(() => (
+          window.COUNTRYSIDE_CABIN.cabin.state.basementInspection === 'workbench'
+        ), null, { polling: 'raf', timeout: CONTROL_RESPONSE_WAIT_MS });
+      }
+      basementWorkbenchReceipt = await page.evaluate(({ reached, aimed: liveAimed }) => ({
+        reached,
+        aimed: liveAimed,
+        inspection: window.COUNTRYSIDE_CABIN.cabin.state.basementInspection,
+        toast: document.querySelector('#toast-stack .toast:last-child')?.textContent?.trim() ?? '',
+        subtitle: document.getElementById('subtitle')?.textContent?.trim() ?? '',
+      }), { reached: walked.reached, aimed });
+    }
   }
+  check('the stocked workbench resolves from its authored stance and production E publishes its HUD receipt',
+    basementWorkbenchContract.target
+      && basementWorkbenchContract.viewpoint
+      && basementWorkbenchReceipt?.reached
+      && basementWorkbenchReceipt?.aimed
+      && basementWorkbenchReceipt?.inspection === 'workbench'
+      && basementWorkbenchReceipt?.toast === 'Repair supplies'
+      && basementWorkbenchReceipt?.subtitle.includes('Hand tools, wire, spare fittings, and a supply ledger.'),
+    JSON.stringify({ contract: basementWorkbenchContract, receipt: basementWorkbenchReceipt }));
   const basementWalkFloor = basementWalk.every(({ position }) => (
     Math.abs(position[1] - (basementArrival.floorY + WALK_EYE_HEIGHT)) <= 0.08
   ));

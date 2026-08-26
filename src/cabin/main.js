@@ -142,6 +142,8 @@ const state = {
   heldUseItem: null,
   consumeLatch: false,
   level: 'cabin',
+  basementVisited: false,
+  basementInspection: null,
 };
 
 const WALK_EYE_HEIGHT = 1.66;
@@ -244,7 +246,7 @@ function placePlayerAtCabinPose(pose, { level = null, reason = 'cabin-teleport' 
   return true;
 }
 
-function transitionCabinBasement(direction) {
+function transitionCabinBasement(direction, detail = {}) {
   const down = direction === 'down';
   const pose = down ? cabin?.spawns?.basement : cabin?.spawns?.wardrobeReturn;
   if (!pose || !player || state.resting) return false;
@@ -258,11 +260,46 @@ function transitionCabinBasement(direction) {
   input?.refresh(`basement-${direction}`);
   audio.play('door.creak', { volume: 0.24 });
   if (down) {
-    hud.toast('Hidden basement found', 'good');
-    hud.say('Behind the wardrobe, a ladder drops into a stocked room under the cabin.', 4200);
+    const firstEntry = detail?.firstEntry === true || !state.basementVisited;
+    state.basementVisited = true;
+    if (firstEntry) {
+      hud.toast('Hidden basement found', 'good');
+      hud.say('Behind the wardrobe, a ladder drops into a stocked room under the cabin.', 4200);
+    } else {
+      hud.toast('Back in the basement');
+      hud.say('Back below. <em>The hideout supplies are still where Lou left them.</em>', 2600);
+    }
   } else {
     hud.say('Back through the wardrobe.', 2200);
   }
+  return true;
+}
+
+const BASEMENT_INSPECTIONS = Object.freeze({
+  workbench: Object.freeze({
+    toast: 'Repair supplies',
+    line: 'Hand tools, wire, spare fittings, and a supply ledger. <em>Enough to keep the cabin running without a trip into town.</em>',
+    duration: 4200,
+  }),
+  shelves: Object.freeze({
+    toast: 'Provisions stocked',
+    line: 'Water, preserves, dry goods, and sealed tins. <em>Provisions for staying invisible longer than planned.</em>',
+    duration: 4000,
+  }),
+  cot: Object.freeze({
+    toast: 'Emergency cot',
+    line: 'A narrow cot, a folded blanket, and a pocket book. <em>One more place to sleep if the cabin has to hold somebody.</em>',
+    duration: 4000,
+  }),
+});
+
+function inspectCabinBasement(id) {
+  const inspection = BASEMENT_INSPECTIONS[id];
+  if (!inspection) return false;
+  state.basementInspection = id;
+  if (cabin?.state) cabin.state.basementInspection = id;
+  hud.toast(inspection.toast);
+  hud.say(inspection.line, inspection.duration);
   return true;
 }
 
@@ -628,6 +665,7 @@ try {
     canTalkToLag: () => lagHints.canTalk(state.elapsed),
     onPorch: () => hud.say('No traffic. Just the creek below the trees.', 3000),
     onBasementTransition: transitionCabinBasement,
+    onBasementInspect: inspectCabinBasement,
   });
   bathroomMirror = new PlanarMirror(scene, cabin.mirrorMesh, {
     width: 0.54,
