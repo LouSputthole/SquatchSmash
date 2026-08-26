@@ -467,6 +467,54 @@
           }
         },
         {
+          "id": "luxury_apartment:luxury_apartment_canonical:canonical_adapter_import:input",
+          "status": "pass",
+          "evidence": {
+            "kind": "canonical_adapter_import",
+            "subject": "input"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:canonical_adapter_import:interaction",
+          "status": "pass",
+          "evidence": {
+            "kind": "canonical_adapter_import",
+            "subject": "interaction"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:canonical_adapter_import:objective",
+          "status": "pass",
+          "evidence": {
+            "kind": "canonical_adapter_import",
+            "subject": "objective"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:entrypoint_file:href",
+          "status": "pass",
+          "evidence": {
+            "kind": "entrypoint_file",
+            "subject": "href"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:entrypoint_file:root",
+          "status": "pass",
+          "evidence": {
+            "kind": "entrypoint_file",
+            "subject": "root"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:inline_first_person_input:input",
+          "status": "pass",
+          "evidence": {
+            "kind": "inline_first_person_input",
+            "subject": "input"
+          }
+        },
+        {
           "id": "mansion:mansion_canonical:canonical_adapter_import:input",
           "status": "pass",
           "evidence": {
@@ -3938,6 +3986,206 @@
           }
         },
         {
+          "id": "luxury_apartment:luxury_apartment_canonical:boot:meaningful-frame",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "boot",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:camera:look_changes_view",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "camera",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:camera:owner_matches_phase",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "camera",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:checkpoint:arcade",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "checkpoint",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:checkpoint:arrival",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "checkpoint",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:checkpoint:bed",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "checkpoint",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:checkpoint:loft",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "checkpoint",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:checkpoint:main",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "checkpoint",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:entry:route",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "entry",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:input:clear_held_input",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "input",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:input:move",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "input",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:input:pointer_lock",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "input",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:interaction:behavior",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "interaction",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:minimum_subjects:authored_actor",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "minimum_subjects",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:minimum_subjects:interactable",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "minimum_subjects",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:minimum_subjects:meaningful_frame",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "minimum_subjects",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:minimum_subjects:objective_item",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "minimum_subjects",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:minimum_subjects:player",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "minimum_subjects",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:objective:behavior",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "objective",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:progression:real-action",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "progression",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:spawn:arcade",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "spawn",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:spawn:arrival",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "spawn",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:spawn:bed",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "spawn",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:spawn:loft",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "spawn",
+            "disposition": "required"
+          }
+        },
+        {
+          "id": "luxury_apartment:luxury_apartment_canonical:spawn:main",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "spawn",
+            "disposition": "required"
+          }
+        },
+        {
           "id": "mansion:mansion_canonical:boot:meaningful-frame",
           "status": "declaration_only",
           "evidence": {
@@ -6065,9 +6313,9 @@
     "spatial": {
       "summary": {
         "records": 85,
-        "units": 39155,
+        "units": 39167,
         "byStatus": {
-          "unknown": 39155
+          "unknown": 39167
         }
       },
       "entries": [
@@ -6338,7 +6586,7 @@
         {
           "id": "spatial:heist:mercer-garage:coverage:untyped-solids",
           "status": "unknown",
-          "count": 28,
+          "count": 35,
           "proofId": "heist:mercer-garage",
           "proofKind": "coverage",
           "fingerprint": "52221d3575fe2a9b6e49"
@@ -6362,7 +6610,7 @@
         {
           "id": "spatial:heist:street-withdrawal:coverage:untyped-solids",
           "status": "unknown",
-          "count": 16,
+          "count": 21,
           "proofId": "heist:street-withdrawal",
           "proofKind": "coverage",
           "fingerprint": "45ba797e7555b2b2da5c"
@@ -7914,6 +8162,9 @@
           "status": "pass",
           "evidence": {
             "actorDiscoveredIds": [
+              "cabin.dungeon.captive.ateam",
+              "cabin.dungeon.captive.counter-strike",
+              "cabin.dungeon.gratin",
               "cabin.lag"
             ],
             "actorExpectation": {
@@ -7922,16 +8173,19 @@
               "reason": "The countryside hideout visibly stages Lag at the woodpile."
             },
             "actorObservedIds": [
+              "cabin.dungeon.captive.ateam",
+              "cabin.dungeon.captive.counter-strike",
+              "cabin.dungeon.gratin",
               "cabin.lag"
             ],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 1,
-            "actorsObserved": 1,
+            "actorsDiscovered": 4,
+            "actorsObserved": 4,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "PASS",
-            "typed": 926,
+            "typed": 934,
             "unmarkedRigs": 0,
             "untyped": 0,
             "visibilityFilteredActorIds": [],
@@ -8931,7 +9185,7 @@
             "spatialCoverageStatus": "UNKNOWN",
             "typed": 0,
             "unmarkedRigs": 0,
-            "untyped": 28,
+            "untyped": 35,
             "visibilityFilteredActorIds": [],
             "visibilityFilteredActors": 0
           }
@@ -9042,7 +9296,7 @@
             "spatialCoverageStatus": "UNKNOWN",
             "typed": 0,
             "unmarkedRigs": 0,
-            "untyped": 16,
+            "untyped": 21,
             "visibilityFilteredActorIds": [],
             "visibilityFilteredActors": 0
           }

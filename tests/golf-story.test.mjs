@@ -167,7 +167,7 @@ test('Silver Pines completes only after three holes and returns to heist day at 
   assert.equal(state.missions[MISSION_IDS.SILVER_PINES].holesPlayed, 3);
   assert.equal(state.missions[MISSION_IDS.SILVER_PINES].rodeWithLou, true);
   assert.equal(state.story.chapter, 'heist_day');
-  assert.equal(state.story.day, 4);
+  assert.equal(state.story.day, 6);
   assert.equal(state.story.timeMinutes, 10 * 60 + 30);
   assert.equal(state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'pending');
   assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'locked');

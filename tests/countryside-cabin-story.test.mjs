@@ -21,34 +21,60 @@ class MemoryStorage {
   setItem(key, value) { this.values.set(key, String(value)); }
 }
 
-function cabinCampaign({ silverCase = 'available', legacyEvents = [] } = {}) {
+/**
+ * THE ACT-ONE CABIN, ARRIVED AT THE WAY THE CAMPAIGN ARRIVES AT IT.
+ *
+ * The Squatchfather ends near midnight on Day 1 and the same driver goes
+ * straight out of the city, so this fixture is a man getting out of a car at
+ * two in the morning with a bag -- not a man who has just robbed a bank.
+ *
+ * `silverCase` is still a parameter because the post-heist route survives for
+ * saves that took it, and `tryLeave` still answers them.
+ */
+function cabinCampaign({ silverCase = 'locked', legacyEvents = [] } = {}) {
   const storage = new MemoryStorage();
   const campaign = createCampaign({ storage });
   campaign.update((state) => {
-    state.story.chapter = 'post_heist';
-    state.story.day = 4;
-    state.story.timeMinutes = 17 * 60 + 20;
-    state.scene = { id: SCENE_IDS.APARTMENT, spawn: 'front_door' };
-    state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
-    state.missions[MISSION_IDS.BANK_HEIST].cleanupComplete = true;
+    state.scene = { id: SCENE_IDS.SQUATCHFATHER, spawn: 'restaurant_exterior' };
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
     state.missions[MISSION_IDS.SILVER_CASE].status = silverCase;
-    state.story.timeEvents.push(TIME_EVENT_IDS.PHONE_READ_CABIN, ...legacyEvents);
+    state.story.timeEvents.push(...legacyEvents);
   });
-  campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN, (state) => {
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER);
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW, (state) => {
     state.scene = { id: SCENE_IDS.COUNTRYSIDE_CABIN, spawn: 'arrival' };
   });
   return { campaign, storage };
+}
+
+/** Everything up to and including the bed he falls into on arrival. */
+function afterArrivalRest(campaign) {
+  const story = createCountrysideCabinStory({ campaign });
+  story.completeArrivalRest();
+  return story;
 }
 
 function reloadStory(storage) {
   return createCountrysideCabinStory({ campaign: createCampaign({ storage }) });
 }
 
+/**
+ * The whole of visit one, the flight, and the night that follows it -- which
+ * is what beat 7 costs to reach now. The Beef Run is marked complete rather
+ * than flown; this file is about the cabin, and the airstrip has its own.
+ */
 function reachDungeon(story) {
+  story.completeArrivalRest();
   story.completeOpeningCall();
-  story.visit('creek');
-  story.consumeMargoReady();
-  story.visit('overlook');
+  for (const { id } of COUNTRYSIDE_CABIN_LANDMARKS) story.visit(id);
+  story.completeMargoCall();
+  story.completeBooskiSasoleCall();
+  story.campaign.update((state) => {
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'complete';
+  });
+  story.recordReturnFromAirstrip();
+  story.completeSecondRest();
   story.completeGratinCall();
   story.openCellar();
   story.enterDungeon();
@@ -62,25 +88,39 @@ function finishInterrogations(story) {
   return story;
 }
 
-test('Cabin arrival and opening call use exact-once Day 5 daytime timing', () => {
+test('Cabin arrival, the bed, and the opening call use exact-once Day 2 timing', () => {
   const { campaign, storage } = cabinCampaign();
   const story = createCountrysideCabinStory({ campaign });
 
-  assert.equal(campaign.state.story.day, 5);
-  assert.equal(campaign.state.story.timeMinutes, 11 * 60 + 15);
+  /* The restaurant ends at 03:00 on Day 2 and the county road is two hours
+   * and twenty minutes of it, so he gets out of the car at 05:20. */
+  assert.equal(campaign.state.story.day, 2);
+  assert.equal(campaign.state.story.timeMinutes, 5 * 60 + 20);
   assert.deepEqual(campaign.state.scene, {
     id: SCENE_IDS.COUNTRYSIDE_CABIN,
     spawn: 'arrival',
   });
   assert.equal(campaign.state.story.timeEvents.filter(
-    (id) => id === TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN,
+    (id) => id === TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW,
   ).length, 1);
+
+  /* THE BED COMES FIRST, AND LOU'S CALL WILL NOT HAPPEN WITHOUT IT. Nobody
+   * rings a man at half past five in the morning to tell him to relax. */
+  assert.deepEqual(story.completeOpeningCall(), {
+    ok: false, reason: 'arrival_rest_incomplete',
+  });
+  assert.equal(story.phase(), 'arrival_rest');
+  const rest = story.completeArrivalRest();
+  assert.equal(rest.applied, true);
+  assert.equal(rest.day, 2);
+  assert.equal(rest.timeMinutes, 9 * 60 + 20, 'the lay-low wakes him at 09:20');
+
   assert.deepEqual(story.completeOpeningCall(), {
     ok: true,
     firstTime: true,
     applied: true,
-    day: 5,
-    timeMinutes: 11 * 60 + 18,
+    day: 2,
+    timeMinutes: 9 * 60 + 23,
     minutesAdvanced: 3,
   });
 
@@ -89,7 +129,7 @@ test('Cabin arrival and opening call use exact-once Day 5 daytime timing', () =>
   assert.deepEqual(campaign.state, afterFirst);
   assert.equal(reloadStory(storage).openingCallComplete(), true);
 
-  const repeatedTravel = campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN);
+  const repeatedTravel = campaign.advanceTime(TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW);
   assert.equal(repeatedTravel.applied, false);
   assert.equal(repeatedTravel.minutesAdvanced, 0);
   assert.deepEqual(campaign.state, afterFirst);
@@ -97,7 +137,7 @@ test('Cabin arrival and opening call use exact-once Day 5 daytime timing', () =>
 
 test('Lou must finish the opening call before exploration or the Margo handoff can progress', () => {
   const { campaign } = cabinCampaign();
-  const story = createCountrysideCabinStory({ campaign });
+  const story = afterArrivalRest(campaign);
 
   assert.deepEqual(story.visit('creek'), {
     ok: false,
@@ -122,7 +162,7 @@ test('the range replaces the firepit in four durable exploration goals', () => {
   );
 
   const { campaign, storage } = cabinCampaign();
-  const story = createCountrysideCabinStory({ campaign });
+  const story = afterArrivalRest(campaign);
   story.completeOpeningCall();
   const before = campaign.state.story.timeMinutes;
   const first = story.visit('range');
@@ -143,15 +183,15 @@ test('the range replaces the firepit in four durable exploration goals', () => {
   assert.deepEqual(legacy.campaign.state, legacyBefore);
 });
 
-test('first exploration emits Margo once and second exploration enables Gratin', () => {
+test('the four walks lead to Margo and Booski, and Gratin waits for the second night', () => {
   const { campaign, storage } = cabinCampaign();
-  let story = createCountrysideCabinStory({ campaign });
+  let story = afterArrivalRest(campaign);
 
   assert.equal(story.basementVisible(), false);
   assert.deepEqual(story.consumeMargoReady(), { ok: false, reason: 'opening_call_incomplete' });
   assert.deepEqual(story.completeGratinCall(), {
     ok: false,
-    reason: 'gratin_call_not_ready',
+    reason: 'opening_call_incomplete',
   });
   story.completeOpeningCall();
   story.visit('creek');
@@ -161,10 +201,26 @@ test('first exploration emits Margo once and second exploration enables Gratin',
   assert.equal(story.margoReady(), false);
   assert.equal(story.consumeMargoReady().firstTime, false);
   story.visit('creek');
-  assert.equal(story.explorationCount(), 1, 'a repeat walk cannot unlock Gratin');
+  assert.equal(story.explorationCount(), 1, 'a repeat walk cannot unlock anything');
+
+  /* THE BIBLE COUNTS FOUR WALKS, SO THE CALL COUNTS FOUR WALKS. */
+  assert.deepEqual(story.completeMargoCall(), { ok: false, reason: 'explore_first' });
+  for (const { id } of COUNTRYSIDE_CABIN_LANDMARKS) story.visit(id);
+  assert.equal(story.propertyWalked(), true);
+  assert.deepEqual(story.completeBooskiSasoleCall(), {
+    ok: false, reason: 'margo_call_incomplete',
+  });
+  assert.equal(story.completeMargoCall().firstTime, true);
+  assert.equal(story.completeBooskiSasoleCall().firstTime, true);
+  assert.equal(story.visitOneComplete(), true);
+
+  /* And Gratin still does not ring, because the aeroplane has not flown. */
   assert.equal(story.gratinCallReady(), false);
-  story.visit('overlook');
-  assert.equal(story.gratinCallReady(), true);
+  assert.deepEqual(story.completeGratinCall(), {
+    ok: false, reason: 'second_visit_not_ready',
+  });
+  story.recordReturnFromAirstrip();
+  story.completeSecondRest();
 
   story = reloadStory(storage);
   assert.equal(story.gratinCallReady(), true);
@@ -195,13 +251,29 @@ test('the HUD projection exposes one parent objective and only its current soft 
     assert.equal(story.objectives()[0].current, true);
   };
 
+  expectPlan('Settle in at the cabin', 'Get some sleep');
+  story.completeArrivalRest();
   expectPlan('Lay low at the cabin', 'Answer Lou’s call');
   story.completeOpeningCall();
-  expectPlan('Lay low at the cabin', 'Explore the property · 0/2 sites checked');
+  expectPlan('Explore the property', '0/4 places visited');
   story.visit('creek');
-  expectPlan('Lay low at the cabin', 'Explore the property · 1/2 sites checked');
+  expectPlan('Explore the property', '1/4 places visited');
   story.consumeMargoReady();
+  story.visit('overlook');
+  story.visit('shed');
   story.visit('range');
+  expectPlan('Call Margo', 'Use the number from the Bing');
+  story.completeMargoCall();
+  expectPlan('Answer Booskibro’s call', 'Pick up the phone');
+  story.completeBooskiSasoleCall();
+  expectPlan('Ride out to the airstrip', 'Take the car');
+  story.campaign.update((state) => {
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'complete';
+  });
+  expectPlan('Return to the cabin', 'Head back to the hideout');
+  story.recordReturnFromAirstrip();
+  expectPlan('Get some sleep', 'Use the cabin bed');
+  story.completeSecondRest();
   expectPlan('Lay low at the cabin', 'Answer Gratin’s call');
   story.completeGratinCall();
   expectPlan('Find Gratin', 'Return to the cabin · follow the Supreme Leader');
@@ -247,9 +319,11 @@ test('the HUD projection exposes one parent objective and only its current soft 
   story.blackout();
   expectPlan('Answer Ape’s call', 'Pick up the phone');
   story.completeMorningCall();
-  expectPlan('Meet Ape at the car', 'Head outside');
+  expectPlan('Get ready to leave', 'Head outside');
   story.completeMorningWake();
-  expectPlan('Take the car to Lou’s next job', 'Use the car when you are ready');
+  expectPlan('Answer Booskibro’s call', 'Pick up the phone');
+  story.completeBillyCall();
+  expectPlan('Drive back to the Bing', 'Use the car when you are ready');
 });
 
 test('cellar and dungeon order is guarded and survives reload', () => {
@@ -433,7 +507,7 @@ test('nightfall, blackout, morning call, and departure are reload-safe authored 
   assert.equal(story.completeFireCleanup().reason, 'bonfire_not_ignited');
   const nightfall = story.completeNightfall();
   assert.equal(nightfall.firstTime, true);
-  assert.equal(nightfall.day, 5);
+  assert.equal(nightfall.day, 3);
   assert.equal(nightfall.timeMinutes, 20 * 60 + 45);
   assert.equal(story.completeNightfall().minutesAdvanced, 0);
   story.wrapHostage(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER);
@@ -447,12 +521,12 @@ test('nightfall, blackout, morning call, and departure are reload-safe authored 
   assert.equal(story.igniteBonfire().firstTime, false);
   const fire = story.completeFireCleanup();
   assert.equal(fire.firstTime, true);
-  assert.equal(fire.day, 5);
+  assert.equal(fire.day, 3);
   assert.equal(fire.timeMinutes, 21 * 60 + 4);
   assert.equal(story.completeFireCleanup().minutesAdvanced, 0);
   assert.equal(story.drink().timeMinutes, 21 * 60 + 9);
   const blackout = story.blackout();
-  assert.equal(blackout.day, 6);
+  assert.equal(blackout.day, 4);
   assert.equal(blackout.timeMinutes, 9 * 60 + 30);
   assert.deepEqual(story.campaign.state.scene, {
     id: SCENE_IDS.COUNTRYSIDE_CABIN,
@@ -470,9 +544,13 @@ test('nightfall, blackout, morning call, and departure are reload-safe authored 
   assert.equal(story.completeMorningCall().timeMinutes, 9 * 60 + 33);
   assert.equal(story.tryLeave().id, 'cabin_chapter_incomplete');
   assert.equal(story.completeMorningWake().firstTime, true);
+  /* Getting ready to leave is not the same as being told where to go. Beat 7
+   * ends on Booski's call about Billy, and the car waits for it. */
+  assert.equal(story.tryLeave().id, 'cabin_chapter_incomplete');
+  assert.equal(story.completeBillyCall().firstTime, true);
   assert.deepEqual(story.tryLeave(), {
     kind: 'go',
-    destination: SCENE_IDS.SILVER_CASE,
+    destination: SCENE_IDS.BADA_BING_TWO,
   });
 
   story = reloadStory(storage);
@@ -480,30 +558,72 @@ test('nightfall, blackout, morning call, and departure are reload-safe authored 
   assert.equal(story.phase(), 'complete');
   assert.deepEqual(story.tryLeave(), {
     kind: 'go',
-    destination: SCENE_IDS.SILVER_CASE,
+    destination: SCENE_IDS.BADA_BING_TWO,
   });
-  const departure = story.campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_CASE);
+  const departure = story.campaign.advanceTime(TIME_EVENT_IDS.DEPART_CABIN_FOR_TOWN);
   assert.equal(departure.applied, true);
-  assert.equal(departure.day, 6);
-  assert.equal(departure.timeMinutes, 16 * 60);
-  assert.equal(story.campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_CASE).applied, false);
+  assert.equal(departure.day, 4, 'the county road is two hours and twenty minutes');
+  assert.equal(departure.minutesAdvanced, 140);
+  assert.equal(story.campaign.advanceTime(TIME_EVENT_IDS.DEPART_CABIN_FOR_TOWN).applied, false);
   assert.equal(story.campaign.state.story.timeEvents.filter(
-    (id) => id === TIME_EVENT_IDS.DEPART_SILVER_CASE,
+    (id) => id === TIME_EVENT_IDS.DEPART_CABIN_FOR_TOWN,
   ).length, 1);
 });
 
-test('legacy Cabin rest remains readable but cannot bypass the morning gate', () => {
+test('legacy Cabin rest remains readable but cannot bypass any gate', () => {
   const { campaign, storage } = cabinCampaign();
   let story = createCountrysideCabinStory({ campaign });
   assert.equal(story.rested(), false);
   assert.equal(story.rest().ok, true);
   assert.equal(story.rested(), true);
-  assert.equal(story.tryLeave().id, 'cabin_chapter_incomplete');
+  /* CABIN_REST is a marker old saves carry and nothing else. It is not the
+   * arrival's own sleep, so a man who "rested" has still been told to stay
+   * put -- and the door says so in those words. */
+  assert.equal(story.tryLeave().id, 'cabin_wait');
+  assert.equal(story.arrivalRestComplete(), false);
 
   story = reloadStory(storage);
   assert.equal(story.rested(), true);
   assert.equal(story.rest().reason, 'already_rested');
+  assert.equal(story.tryLeave().id, 'cabin_wait');
+});
+
+/**
+ * THE POST-HEIST SAVE, WHICH STILL HAS TO BE ABLE TO FINISH THE GAME.
+ *
+ * The bible retired this route -- there is one cabin and it is in Act One --
+ * but `SILVER_CASE` has no other entrance until the luxury apartment takes the
+ * doorway at beat 19, and `Campaign.transition()` throws on an edge nobody
+ * declared. A player parked in that chapter must still get to the last third.
+ */
+test('a save that reached the cabin the old way still leaves for the Silver Case', () => {
+  const { campaign } = cabinCampaign({ silverCase: 'available' });
+  const story = createCountrysideCabinStory({ campaign });
   assert.equal(story.tryLeave().id, 'cabin_chapter_incomplete');
+
+  finishInterrogations(reachDungeon(story));
+  story.chooseExecution('gratin');
+  for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
+    story.damageHostage(id, { hits: story.hostageState(id).remaining });
+    story.killHostage(id);
+  }
+  story.completeNightfall();
+  for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
+    story.wrapHostage(id);
+    story.moveBodyToFire(id);
+  }
+  story.stageBodies();
+  story.pourGas();
+  story.igniteBonfire();
+  story.completeFireCleanup();
+  story.drink();
+  story.blackout();
+  story.completeMorningCall();
+  story.completeMorningWake();
+
+  assert.deepEqual(story.tryLeave(), {
+    kind: 'go', destination: SCENE_IDS.SILVER_CASE,
+  });
 });
 
 test('unknown landmarks and invalid execution choices do not mutate durable state', () => {

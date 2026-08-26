@@ -49,7 +49,11 @@ test('bonfire sequence contains explicit player-controlled drink checkpoints', (
 
 test('phone calls retain caller/reply parity and distinct cue banks', () => {
   const calls = Object.values(CABIN_PHONE_CALLS);
-  assert.equal(calls.length, 3);
+  /* Six: Lou on the first morning, Margo after the four walks, Booski about
+   * the Captain, Gratin on the second morning, Ape after the blackout, and
+   * Booski again about Billy. Three of those are the beats the bible moved
+   * onto this porch when the cabin became an Act-One scene. */
+  assert.equal(calls.length, 6);
   assert.equal(new Set(calls.map((call) => call.vo)).size, calls.length);
   for (const call of calls) {
     assert.equal(call.allowHangup, false, `${call.id} must finish naturally`);
@@ -58,11 +62,24 @@ test('phone calls retain caller/reply parity and distinct cue banks', () => {
   }
 });
 
-test('Margo is an external one-shot hook, not a duplicate authored call', () => {
+/**
+ * The hook and the call are two different things, and both now exist.
+ *
+ * MARGO_CALL_READY is the one-line setup on the first walk -- "maybe I should
+ * give that girl from the bar a call" -- and it stayed an external event so
+ * the owner could hang anything he liked off it. Beat 4 then ends on the call
+ * itself, which is authored here like every other call in the chapter. The
+ * thing worth holding is that the SETUP is still a hook: it fires once, on the
+ * first walk, and it is not the call.
+ */
+test('Margo has both a one-shot setup hook and the authored call it sets up', () => {
   assert.equal(MARGO_CALL_READY.afterExplorationCount, 1);
   assert.equal(MARGO_CALL_READY.eventName, 'squatch:cabin-margo-call-ready');
-  assert.equal(
-    Object.values(CABIN_PHONE_CALLS).some((call) => /margo/i.test(call.from + call.vo)),
-    false,
-  );
+  assert.equal(MARGO_CALL_READY.setupBeat, 'FIRST_EXPLORATION');
+
+  const margoCalls = Object.values(CABIN_PHONE_CALLS)
+    .filter((call) => /margo/i.test(`${call.from}${call.vo}`));
+  assert.equal(margoCalls.length, 1, 'exactly one authored Margo call');
+  assert.equal(margoCalls[0].id, 'cabin.margo.first_call');
+  assert.equal(margoCalls[0].caller.voice, 'margo');
 });

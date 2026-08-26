@@ -1025,7 +1025,7 @@ test('the come-home dialogue is cast as Margo and shares no cue names with the w
   assert.notEqual(SILVER_ROOM_COME_HOME.vo, BIG_NIGHT_MARGO_WAKE.vo);
 });
 
-test('Lou rings once on the Day 4 wake and unlocks Silver Pines', () => {
+test('Lou rings once on the Day 6 wake and unlocks Silver Pines', () => {
   const storage = new MemoryStorage();
   const story = createApartmentStory({
     campaign: afterTheDate(storage),
@@ -1060,7 +1060,7 @@ test('Lou rings once on the Day 4 wake and unlocks Silver Pines', () => {
   assert.equal(answered.events[EVENT_IDS.LOU_HEIST_CALL].status, 'pending');
   assert.equal(answered.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
   assert.equal(answered.missions[MISSION_IDS.INITIATION].status, 'locked');
-  assert.equal(answered.story.day, 4);
+  assert.equal(answered.story.day, 6);
   assert.equal(answered.story.timeMinutes, 7 * 60 + 3);
   assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.LOU_GOLF_CALL));
   assert.equal(woken.callAnswered(DAY_FOUR_LOU_GOLF_CALL), false);

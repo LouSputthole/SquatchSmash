@@ -58,9 +58,24 @@ test('vehicle damage changes handling and survives checkpoint restore', () => {
   assert.equal(restored.lastStableNode, 'canal_entry');
 });
 
+/**
+ * Owner, playtest 2026-08-26: *"I would like the car to be able to go a little
+ * bit faster, so like at least 90."*
+ *
+ * The clamp used to be pinned to 24-28 m/s, which is 54-63 mph, and the car
+ * settled at 58.2. The interesting part is that the clamp was never what held
+ * it there: raising `maxForwardSpeed` alone and leaving `drag` at 0.014 gets
+ * 65.4 mph and stops, because drag is what the car actually balances against.
+ * Both had to move. Measured on this runner at full throttle: 91.7 mph
+ * steady, 89.0 within the seven seconds this test allows.
+ */
+const MPH_PER_MS = 2.23694;
+
 test('THE TAKE escape car reaches a cinematic road speed without losing fixed-step control', () => {
-  assert.ok(HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed >= 24);
-  assert.ok(HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed <= 28);
+  const topMph = HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed * MPH_PER_MS;
+  assert.ok(topMph >= 90,
+    `the owner asked for at least 90 mph and the clamp allows ${topMph.toFixed(1)}`);
+  assert.ok(topMph <= 100, `${topMph.toFixed(1)} mph is no longer an escape car`);
   assert.ok(HEIST_ESCAPE_VEHICLE_CONFIG.acceleration >= 10);
 
   const car = new GroundVehicle(HEIST_ESCAPE_VEHICLE_CONFIG);
@@ -70,6 +85,10 @@ test('THE TAKE escape car reaches a cinematic road speed without losing fixed-st
     runner.advance(1 / 60, (dt) => car.step(dt));
   }
 
-  assert.ok(car.speed * 2.237 >= 45, `only reached ${(car.speed * 2.237).toFixed(1)} mph`);
+  /* Reaching the clamp is not the same as being allowed to. Drag is the real
+   * limiter, so assert what the car DOES, not what the constant permits. */
+  assert.ok(car.speed * MPH_PER_MS >= 85,
+    `only reached ${(car.speed * MPH_PER_MS).toFixed(1)} mph in seven seconds -- `
+    + 'raising the clamp without lowering drag looks like this');
   assert.ok(car.speed <= HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed);
 });

@@ -380,6 +380,37 @@ const seatBase = (floorY, cushion) => floorY + cushion - POSE_CUSHION;
 /** How high this house's seats are, measured off its own colliders. */
 const CUSHION = Object.freeze({ chair: 0.50, islandStool: 0.75, barStool: 0.90 });
 
+/**
+ * THE SUN LOUNGER, and why 0.47 sank four women through it.
+ *
+ * A lounger's frame rails sit at 0.42, so 0.47 looks like an honest seat
+ * height and is the number that was here. It is the wrong reference. What a
+ * body lies on is the SLATTED DECK above those rails -- `buildLoungeChair`
+ * puts the slats at deckY + 0.045 with 0.045 of thickness, so the lying
+ * surface is 0.4875 above the lounger's own origin, and the origin sits on
+ * the pool deck rather than at the seat.
+ *
+ * Measured in the built house at 0.47: hips at y 1.3925 against a slat top of
+ * 1.6875. Twenty-nine centimetres under the thing she is lying on.
+ *
+ * What made it look like a small problem is `sitOnTheSeat`, which is supposed
+ * to catch exactly this. It raycasts down from above the hips and keeps the
+ * first surface at or BELOW their top (`candidate.point.y <= top`) -- so a
+ * body already sunk clean through a lounger cannot see the lounger at all,
+ * only the deck underneath it. It dutifully lifted her the last seven
+ * centimetres onto the DECK, which is why the geometry gate reported the
+ * bikini rear panels 58 to 78 mm inside `pool-deck-segment-*` across fourteen
+ * mansion states, 112 violations, rather than reporting a woman half a metre
+ * underground.
+ *
+ * That correction step is also why this number does not behave linearly:
+ * raising it far enough flips which surface the ray finds, and she jumps.
+ * Swept against the built house rather than reasoned about. At 0.70 her
+ * lowest point lands 1.0 cm into the slats -- resting, with a centimetre of
+ * give, and inside the 1.2 cm the leg-clearance test allows.
+ */
+const POOL_LOUNGER_POSE_CUSHION = 0.70;
+
 /* ================================================================== */
 /* ...AND THEN MEASURING IT IN THE HOUSE THAT WAS ACTUALLY BUILT        */
 /*                                                                       */
@@ -2129,7 +2160,7 @@ export function mountMansionCast(scene, world = {}, {
     tier: 'ambient',
     job: 'sit',
     x: firstLounger.x,
-    y: seatBase(firstLounger.y, 0.47),
+    y: seatBase(firstLounger.y, POOL_LOUNGER_POSE_CUSHION),
     z: firstLounger.z,
     yaw: firstLounger.yaw,
     model: MANSION_PERFORMER_VARIANTS.poolPerformer0.model,
@@ -2183,7 +2214,7 @@ export function mountMansionCast(scene, world = {}, {
     tier: 'ambient',
     job: 'sit',
     x: secondLounger.x,
-    y: seatBase(secondLounger.y, 0.47),
+    y: seatBase(secondLounger.y, POOL_LOUNGER_POSE_CUSHION),
     z: secondLounger.z,
     yaw: secondLounger.yaw,
     model: MANSION_PERFORMER_VARIANTS.poolPerformer1.model,
@@ -2361,7 +2392,7 @@ export function mountMansionCast(scene, world = {}, {
       tier: 'background',
       job: 'sit',
       x: chair.x,
-      y: seatBase(chair.y, 0.47),
+      y: seatBase(chair.y, POOL_LOUNGER_POSE_CUSHION),
       z: chair.z,
       yaw: chair.yaw,
       model: spec.model,

@@ -19,7 +19,7 @@ test('every runtime entry receives the complete semantic-smoke obligation famili
     if (!entries.has(obligation.entrypointId)) entries.set(obligation.entrypointId, []);
     entries.get(obligation.entrypointId).push(obligation);
   }
-  assert.equal(entries.size, 21);
+  assert.equal(entries.size, 22);
 
   const requiredAreas = [
     'entry', 'spawn', 'boot', 'input', 'camera', 'objective', 'interaction',
@@ -50,7 +50,7 @@ test('every registered campaign spawn becomes its own liveness obligation', () =
 test('input obligations require real pointer-lock, movement, and held-input clearing', () => {
   const obligations = generateSemanticSmokeRegistry(SCENE_CONTRACTS);
   const input = obligations.filter((item) => item.area === 'input');
-  assert.equal(input.length, 63, 'three real-input obligations for each of twenty-one entries');
+  assert.equal(input.length, 66, 'three real-input obligations for each of twenty-two entries');
   for (const entrypointId of new Set(input.map((item) => item.entrypointId))) {
     const actions = input.filter((item) => item.entrypointId === entrypointId)
       .map((item) => item.assertion.action).sort();

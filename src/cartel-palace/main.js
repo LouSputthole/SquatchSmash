@@ -14,6 +14,7 @@ import {
   CombatStepCadence,
   CombatSuppressionField,
   FACTIONS,
+  MuzzleFlashPool,
   SuppressionModel,
   TracerPool,
   combatVitals,
@@ -183,80 +184,17 @@ const world = {
   groundAt: palace.groundAt,
 };
 
-/** Fixed hostile-flash pool. Every flash root sits on the sampled world-space muzzle. */
-class HostileMuzzleFlashPool {
-  constructor(parent, { capacity = 12 } = {}) {
-    this.parent = parent;
-    this.capacity = Math.max(1, Math.trunc(Number(capacity) || 12));
-    this.pool = [];
-    this.next = 0;
-    this.lastOrigin = null;
-    const geometry = new THREE.SphereGeometry(0.065, 7, 5);
-    for (let index = 0; index < this.capacity; index++) {
-      const root = new THREE.Group();
-      root.name = `palace-hostile-muzzle-flash-${index}`;
-      root.visible = false;
-      const flare = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-        color: 0xffcf72,
-        transparent: true,
-        opacity: 0,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        toneMapped: false,
-      }));
-      const light = new THREE.PointLight(0xffb85f, 0, 6, 2);
-      root.add(flare, light);
-      parent.add(root);
-      this.pool.push({ root, flare, light, time: 0, peak: 7 });
-    }
-  }
-
-  flash(origin, { heavy = false } = {}) {
-    if (!origin?.isVector3) return null;
-    const slot = this.pool[this.next % this.pool.length];
-    this.next++;
-    slot.root.position.copy(origin);
-    slot.root.scale.setScalar(heavy ? 1.45 : 1);
-    slot.root.visible = true;
-    slot.flare.material.opacity = 0.95;
-    slot.peak = heavy ? 11 : 7;
-    slot.light.intensity = slot.peak;
-    slot.time = 0.065;
-    this.lastOrigin = origin.clone();
-    return slot.root;
-  }
-
-  update(dt) {
-    const step = Math.max(0, Number(dt) || 0);
-    for (const slot of this.pool) {
-      if (slot.time <= 0) continue;
-      slot.time = Math.max(0, slot.time - step);
-      const strength = slot.time / 0.065;
-      slot.flare.material.opacity = strength * 0.95;
-      slot.light.intensity = strength * slot.peak;
-      if (slot.time <= 0) slot.root.visible = false;
-    }
-  }
-
-  reset() {
-    for (const slot of this.pool) {
-      slot.time = 0;
-      slot.root.visible = false;
-      slot.flare.material.opacity = 0;
-      slot.light.intensity = 0;
-    }
-    this.next = 0;
-    this.lastOrigin = null;
-  }
-
-  report() {
-    return Object.freeze({
-      capacity: this.capacity,
-      active: this.pool.filter((slot) => slot.root.visible).length,
-      lastOrigin: this.lastOrigin?.toArray() ?? null,
-    });
-  }
-}
+/*
+ * The hostile flash pool used to be a class right here.
+ *
+ * It is now `MuzzleFlashPool` in `src/core/combat/muzzle-flash.js`, unchanged
+ * in behaviour — same 65 ms decay, same flare card over a point light, same
+ * round-robin slots, same `report()` the palace verifier reads — because THE
+ * TAKE's police needed exactly this and a second copy of it is how two scenes
+ * end up with two different flashes. The slot names stay `palace-hostile-
+ * muzzle-flash-N`, which is what `verify-cartel-palace.mjs` and the visibility
+ * probe below address them by.
+ */
 
 const hud = new Hud();
 const player = new Player(camera, world);
@@ -311,7 +249,9 @@ player.onFootstep = (_surface, intensity) => combatAudio.step({
 const combatSteps = new CombatStepCadence({ audio: combatAudio });
 const ballisticImpacts = new BallisticImpactSystem(scene, { audio: combatAudio, capacity: 32 });
 const suppressionField = new CombatSuppressionField({ colliders: palace.colliders });
-const hostileMuzzleFlashes = new HostileMuzzleFlashPool(scene, { capacity: 12 });
+const hostileMuzzleFlashes = new MuzzleFlashPool(scene, {
+  capacity: 12, name: 'palace-hostile-muzzle-flash',
+});
 
 const postfx = new PostFX(renderer, scene, camera);
 postfx.enable();

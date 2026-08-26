@@ -25,6 +25,13 @@ export const CABIN_SPEAKERS = Object.freeze({
   ATEAM: speaker('ATEAM', 'A-Team Prisoner', 'ateam1', 'ateam'),
   BAITER: speaker('BAITER', 'The Baiter', 'npc-reserve-1', 'baiter'),
   APE: speaker('APE', 'Ape', 'ape', 'ape'),
+  /* THE TWO VOICES THE BIBLE PUTS ON THIS PORCH.
+   *
+   * Beat 4 ends on the number Margo wrote down at the Bing, and beat 5 is
+   * Booski about a Captain nearby. Beat 7 ends on Booski again, about Billy.
+   * Neither of them is ever standing here -- they are both a phone. */
+  MARGO: speaker('MARGO', 'Margo', 'margo', 'margo'),
+  BOOSKI: speaker('BOOSKI', 'Booskibro', 'booski', 'booski'),
 });
 
 const line = (who, text, options = {}) => ({ who, text, ...options });
@@ -438,14 +445,90 @@ export const CABIN_PHONE_CALLS = Object.freeze({
     CABIN_SPEAKERS.LOU,
     'call.lou.cabin_lay_low',
     [
-      "Tony. Good work today. You kept your head and you brought everybody home.",
-      "I need you quiet now. Cabin up north, no city, no visitors, no hero shit. Lay low and enjoy the air.",
+      "Tony. You did what was asked and you didn't make a mess of it. That gets noticed.",
+      "Now you're nowhere. No city, no visitors, no hero shit. A man who just did what you did does not get seen for a while.",
       "Lag keeps the place. He knows you're coming. Walk the property, clear your head, answer your phone.",
     ],
     [
-      "Thanks, Lou. You sure disappearing right after a bank job doesn't look suspicious?",
-      "Quiet I can do. No promises on the hero shit.",
-      "Understood. Cabin, fresh air, absolutely normal post-robbery holiday.",
+      "Thanks, Lou. How long is a while?",
+      "Nowhere I can do. No promises on the hero shit.",
+      "Understood. Cabin, fresh air, absolutely normal week.",
+    ],
+  ),
+  /**
+   * BEAT 4'S LAST THING. The only call at this cabin he makes.
+   *
+   * She wrote the number on the back of something at the Bing and he has been
+   * carrying it since. He rings it standing on a porch two hours out of the
+   * city, the morning after the first man he ever killed, and neither of them
+   * says a word about any of that. Play it straight: it is a man asking a
+   * woman if she would like to do something, and being bad at it.
+   */
+  MARGO_FIRST_CALL: phoneCall(
+    'cabin.margo.first_call',
+    'MARGO',
+    CABIN_SPEAKERS.MARGO,
+    'call.margo.cabin_first',
+    [
+      "Whoever this is, it's early.",
+      "You're the one from the club. The one who didn't ask me for anything.",
+      "Where are you? That's birds.",
+      "Then call me when you're back in the city and I'll let you buy me something.",
+    ],
+    [
+      "It's Tony. From the Bing. You gave me this number.",
+      "I did ask you for something. I asked for the number.",
+      "Out of town. Work thing. It's very boring and there's a lot of trees.",
+      "That's the plan. Nothing else on for the week.",
+    ],
+  ),
+  /**
+   * BEAT 5. Booski about the Captain, which is the Beef Run.
+   *
+   * The Family does not explain itself to a prospect. He is told there is a
+   * man, and a plane, and that he is close enough to be useful -- and the
+   * useful part is the compliment.
+   */
+  BOOSKI_SASOLE: phoneCall(
+    'cabin.booski.sasole',
+    'BOOSKIBRO',
+    CABIN_SPEAKERS.BOOSKI,
+    'call.booski.cabin_sasole',
+    [
+      "Prospect. You're up at the property. Good. There's a strip forty minutes from you.",
+      "Captain Sasole. He flies for us and he needs a second pair of hands today.",
+      "You're not being asked to fly it. You're being asked to be there.",
+      "Go now. Lag will point you at the road.",
+    ],
+    [
+      "I'm here. Lou said quiet.",
+      "Sasole. Do I know what I'm carrying?",
+      "That I can do.",
+      "On my way.",
+    ],
+  ),
+  /**
+   * BEAT 7'S LAST THING, and the end of this cabin. Booski about Billy.
+   *
+   * Two men went on the fire last night and nobody mentions it. That is the
+   * joke, and the joke only works if it is never pointed at.
+   */
+  BOOSKI_BILLY: phoneCall(
+    'cabin.booski.billy',
+    'BOOSKIBRO',
+    CABIN_SPEAKERS.BOOSKI,
+    'call.booski.cabin_billy',
+    [
+      "You're done up there. Come back.",
+      "Billy Hotdog is getting out this afternoon. The Bing is doing something about it tonight.",
+      "Everyone will be there. That includes you now.",
+      "Drive careful. Don't stop anywhere.",
+    ],
+    [
+      "Done. Understood.",
+      "Billy's out. That's good news.",
+      "I'll be there.",
+      "I won't.",
     ],
   ),
   GRATIN_BASEMENT: phoneCall(

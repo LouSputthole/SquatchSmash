@@ -77,6 +77,25 @@ export class HeistHud {
     this.objectivePanel.setLine(text);
     return true;
   }
+  /**
+   * The standing order as a CHECKLIST, for the one beat that is a list.
+   *
+   * Owner: he disposed of six pieces of evidence at the swap and could not
+   * find the seventh. One sentence cannot name seven things and say which of
+   * them are done, and `src/core/objective-panel.js` has rendered exactly that
+   * — ticked items, a tally, and a hollow bullet for what is not available yet
+   * — since the Bing adopted it. `src/heist/orders.js` still owns every word.
+   *
+   * The cached sentence is dropped on the way through, or a later
+   * `setObjective` with the text that was last on screen before the list would
+   * compare equal to its own cache and never be written.
+   */
+  setObjectivePlan(plan) {
+    if (!plan) return false;
+    this._objectiveText = null;
+    this.objectivePanel.set(plan);
+    return true;
+  }
   setThreat(active, remaining = 0, total = 1) {
     this.threat.classList.toggle('hidden', !active);
     if (!active) return;

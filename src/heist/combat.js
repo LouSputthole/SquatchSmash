@@ -2,11 +2,16 @@ import { hiddenOrIgnored, resolveProxyContact } from '../core/combat/aim-proxy.j
 import * as THREE from 'three';
 
 import { CombatFireControl } from '../core/combat/fire-control.js';
-import { CombatImpactResolver } from '../core/combat/impact.js';
+import {
+  COMBAT_HIT_ZONE_DAMAGE, CombatImpactResolver, resolveHitZone,
+} from '../core/combat/impact.js';
+import { CombatImpairments } from '../core/combat/impairments.js';
 import { CombatPerception } from '../core/combat/perception.js';
 import { CombatWeaponAim } from '../core/combat/aim.js';
+import { BurstController } from '../core/combat/weapon.js';
 import { FACTIONS } from '../core/combat/factions.js';
 import { Firearm } from '../core/weapons/Firearm.js';
+import { WEAPON_CATALOG } from '../core/weapons/catalog.js';
 
 /**
  * THE TAKE's compatibility Combat Adapter.
@@ -168,6 +173,51 @@ const HOSTILE_EYE_HEIGHT = 1.52;
 const HOSTILE_MUZZLE_HEIGHT = 1.35;
 
 /**
+ * What an officer is carrying.
+ *
+ * `makePoliceFigure` mounts the catalog `pistol9` on his hand and this
+ * pipeline spends the same gun's ammunition, so the presentation layer can
+ * read one id off the shot and get the right report, the right tracer colour
+ * and the right muzzle-flash size without a second table to keep in step.
+ */
+export const HEIST_HOSTILE_WEAPON_ID = 'pistol9';
+
+/**
+ * Police trigger discipline.
+ *
+ * Owner, playtest 2026-08-26: the police *"never really appear to be shooting
+ * back."* Part of that was arithmetic — one round every 2.6-4.6 s per officer,
+ * so at five live officers the street produced 1.4 rounds a second, spread out
+ * as evenly as a dripping tap. A lone pop with nothing before or after it does
+ * not read as a man shooting at you; it reads as ambience.
+ *
+ * The same rounds now arrive in twos and threes at the pistol's own cyclic
+ * rate, with a real pause between them, through the shared `BurstController`
+ * the siege's riflemen already use. THE ROUNDS PER SECOND ARE HELD WHERE THEY
+ * WERE, on purpose: this is item 52 on the presentation list, not a difficulty
+ * change.
+ *
+ *   old   1 round per shot clock, mean 3.6 s        = 0.2778 rounds/s
+ *
+ * `BurstController` alternates its length deterministically (2, 3, 2, 3 ...)
+ * and arms the pause on the burst's LAST round, so one cycle is `pause` plus
+ * (n - 1) / 5.5 s of firing:
+ *
+ *          2.5 / (pause + 1.5 / 5.5) = 0.2778  ->  pause = 8.73 s
+ *
+ * Measured rather than assumed, because a magazine runs out: 300 s of held
+ * contact by one officer against a static target, four seeds, with the
+ * pause drawn per officer from the authored range and the 15-round reload
+ * falling where it falls --
+ *
+ *   0.2900, 0.2833, 0.2733, 0.2433 rounds/s, mean 0.2725
+ *
+ * against the old model's 0.2778. Same fire, delivered in bursts of
+ * 2, 3, 2, 3, 1 (the magazine), 3 ... at 0.183 s between rounds.
+ */
+export const HEIST_HOSTILE_BURST = Object.freeze({ min: 2, max: 3 });
+
+/**
  * Turning a proxy contact into a body contact now lives in
  * `src/core/combat/aim-proxy.js`.
  *
@@ -292,6 +342,13 @@ export class HeistCombatAdapter {
         .normalize()
         .clone();
     }
+    /* WHERE ON THE MAN. The resolver decides this again internally for its own
+     * bookkeeping, but the multiplier has to be chosen BEFORE the call, so the
+     * zone is read here off the same tagged part groups
+     * (`HeistFigure._tagHitZones`) through the same shared walk. An untagged
+     * wall answers `chest` and multiplies by 1, which is what an unregistered
+     * contact was always worth. */
+    const { zone } = resolveHitZone(hit.object);
     const located = this.impactResolver.resolve({
       object: hit.object,
       point: hit.point,
@@ -305,6 +362,7 @@ export class HeistCombatAdapter {
     }, {
       attacker: { faction: FACTIONS.CREW },
       playerShot: true,
+      damageScale: COMBAT_HIT_ZONE_DAMAGE[zone] ?? 1,
       lethalHeadshots: true,
     });
     return { hit, located };
@@ -322,12 +380,44 @@ export class HeistCombatAdapter {
           trace: (from, to) => this.blockedBetween(from, to, { ignore: entry.root }),
         }),
         aim: new CombatWeaponAim(),
-        firearm: new Firearm('pistol9'),
+        firearm: new Firearm(HEIST_HOSTILE_WEAPON_ID),
+        /* The opening stagger, so six officers do not all open up on the
+         * frame the wave spawns. It seeds the first burst's wait below. */
         shotClock: 0.6 + this.random() * 1.2,
+        burst: null,
+        /* A hit costs him his aim, his accuracy and, on a limb, his speed —
+         * the same shared Module the siege's attackers and the palace's
+         * security run. Nothing in THE TAKE reacted to being shot before. */
+        impairments: new CombatImpairments(),
       };
       this._hostiles.set(id, runtime);
     }
     return runtime;
+  }
+
+  /**
+   * One officer's live impairment state, for the scene's presentation layer.
+   * `reaction` is the visible flinch; `interrupted` is whether he is still
+   * off his weapon.
+   */
+  hostileImpairments(actorId) {
+    return this._hostiles.get(actorId)?.impairments ?? null;
+  }
+
+  /**
+   * A player round landed on this officer. Shared truth in, shared reaction
+   * out: the stagger window and the limb wound come from
+   * `CombatImpairments`, keyed off the zone and part the impact resolver
+   * already decided.
+   *
+   * @param {object} entry the police figure entry
+   * @param {object} located an applied Located hit from `resolvePlayerShot`
+   */
+  noteHostileHit(entry, located) {
+    if (!entry?.actor || located?.applied !== true) return false;
+    const runtime = this._hostiles.get(entry.actor.id);
+    if (!runtime) return false;
+    return runtime.impairments.applyResolvedHit(located);
   }
 
   /**
@@ -360,11 +450,26 @@ export class HeistCombatAdapter {
     accuracy = 0.3,
     damage = 10,
     cadence = [2.6, 4.6],
+    burst = HEIST_HOSTILE_BURST,
     range = 48,
   }) {
     const runtime = this._hostileRuntime(entry);
     const events = runtime.firearm.update(dt);
     runtime.shotClock = Math.max(0, runtime.shotClock - dt);
+    /* The knock decays whether he is shooting or not. Ticked before the aim
+     * frame is built, so a man hit this frame is off his weapon this frame. */
+    runtime.impairments.update(dt);
+    if (!runtime.burst) {
+      /* Built on first use because the pause is scene-authored and the shot
+       * clock's opening stagger is per officer: seeding `wait` with it is what
+       * keeps a fresh wave from opening up in unison. */
+      runtime.burst = new BurstController({
+        min: burst.min,
+        max: burst.max,
+        pause: cadence[0] + this.random() * Math.max(0, cadence[1] - cadence[0]),
+      });
+      runtime.burst.wait = runtime.shotClock;
+    }
     /* The modelled gun: heist figures hang it on `root.userData.weapon`
      * (see `makePoliceFigure`); an explicit `entry.weaponModel` wins so tests
      * and future casts can pass their own. Without a model there is no bore,
@@ -394,12 +499,24 @@ export class HeistCombatAdapter {
       weaponModel,
       targetPoint: aimTarget,
       muzzleHeight: HOSTILE_MUZZLE_HEIGHT,
-      interrupted: runtime.firearm.reloading,
+      /* A man taking rounds is off his aim, and a wounded arm settles onto a
+       * target more slowly. Both are the shared impairment Module's. */
+      settleScale: runtime.impairments.aimSettleScale,
+      interrupted: runtime.firearm.reloading > 0 || runtime.impairments.interrupted,
     });
 
+    /* THE TRIGGER, not a metronome. `BurstController` is called every frame
+     * whether he may shoot or not, because the pause between bursts has to run
+     * down while he is behind a car as well as while he is standing in the
+     * open. The rate INSIDE a burst is the gun's own: the same
+     * `firearm.cooldown` gate the siege's riflemen use. */
+    const canFire = frame.aligned
+      && runtime.perception.targetVisible
+      && runtime.firearm.reloading <= 0
+      && runtime.firearm.cooldown <= 0
+      && !runtime.impairments.interrupted;
     let shot = null;
-    if (frame.aligned && runtime.perception.targetVisible && runtime.shotClock <= 0) {
-      runtime.shotClock = cadence[0] + this.random() * Math.max(0, cadence[1] - cadence[0]);
+    if (runtime.burst.update(dt, canFire)) {
       runtime.firearm.setTrigger(true);
       const round = runtime.firearm.fire({ aimed: true });
       runtime.firearm.setTrigger(false);
@@ -418,13 +535,30 @@ export class HeistCombatAdapter {
           targetVisible: runtime.perception.targetVisible,
           attacker: { faction: FACTIONS.POLICE },
           matrix: this.matrix ?? undefined,
+          /* A shaking man shoots worse. `accuracyScale` is the arm wound; the
+           * scene's own suppression scalar is already folded into `accuracy`. */
           damage,
-          accuracy,
+          accuracy: accuracy * runtime.impairments.accuracyScale,
           trace: (from, to) => this.blockedBetween(from, to, { ignore: entry.root }),
         });
+        /* Presentation truth travels with the round: which gun made it, and
+         * whether the catalog says this one is a visible tracer. The scene
+         * owns the pools; it does not own the ballistics. */
+        if (shot) {
+          shot = {
+            ...shot,
+            weaponId: HEIST_HOSTILE_WEAPON_ID,
+            tracer: round.tracer === true,
+          };
+        }
       }
     }
     return { seen: Boolean(seen), frame, shot, events };
+  }
+
+  /** The catalog's tracer card for the gun the police carry. */
+  static hostileTracer() {
+    return WEAPON_CATALOG[HEIST_HOSTILE_WEAPON_ID].tracer;
   }
 
   /** JSON-safe durable pipeline state for one hostile, for the checkpoint seam. */
@@ -437,6 +571,15 @@ export class HeistCombatAdapter {
       perception: runtime.perception.snapshot(),
       aim: runtime.aim.snapshot(),
       shotClock: runtime.shotClock,
+      impairments: runtime.impairments.snapshot(),
+      burst: runtime.burst ? {
+        min: runtime.burst.min,
+        max: runtime.burst.max,
+        pause: runtime.burst.pause,
+        remaining: runtime.burst.remaining,
+        wait: runtime.burst.wait,
+        sequence: runtime.burst.sequence,
+      } : null,
     };
   }
 
@@ -447,6 +590,21 @@ export class HeistCombatAdapter {
     runtime.perception.restore(snapshot.perception ?? {});
     runtime.aim.restore(snapshot.aim ?? {}, { root: entry.root });
     runtime.shotClock = Math.max(0, Number(snapshot.shotClock) || 0);
+    runtime.impairments.restore(snapshot.impairments ?? {});
+    /* A checkpoint taken mid-burst restores mid-burst. A record from before
+     * bursts existed has no `burst` block; that officer simply builds a fresh
+     * one on his next frame, seeded from the restored shot clock. */
+    const record = snapshot.burst ?? null;
+    if (record) {
+      runtime.burst = new BurstController({
+        min: record.min, max: record.max, pause: record.pause,
+      });
+      runtime.burst.remaining = Math.max(0, Math.round(Number(record.remaining) || 0));
+      runtime.burst.wait = Math.max(0, Number(record.wait) || 0);
+      runtime.burst.sequence = Math.max(0, Math.round(Number(record.sequence) || 0));
+    } else {
+      runtime.burst = null;
+    }
     return runtime;
   }
 

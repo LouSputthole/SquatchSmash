@@ -55,7 +55,7 @@ test('HotDog must be secured and loaded before the graveyard, and burial alone u
   assert.equal(state.missions[MISSION_IDS.BADA_BING_TWO].status, 'in_progress');
   assert.equal(state.missions[MISSION_IDS.BADA_BING_TWO].checkpoint, 'body_loaded');
   assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'locked');
-  assert.equal(state.story.day, 3);
+  assert.equal(state.story.day, 5);
   assert.equal(state.story.timeMinutes, 15);
   assert.equal(state.story.timeEvents
     .filter((eventId) => eventId === TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD).length, 1);
@@ -85,7 +85,7 @@ test('HotDog must be secured and loaded before the graveyard, and burial alone u
   assert.deepEqual(state.missions[MISSION_IDS.BADA_BING_TWO].respectedGraves, ['babs']);
   assert.deepEqual(state.missions[MISSION_IDS.BADA_BING_TWO].urinatedOn, ['brawny', 'whiplash']);
   assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'available');
-  assert.equal(state.story.day, 3);
+  assert.equal(state.story.day, 5);
   assert.equal(state.story.timeMinutes, 45);
   assert.equal(state.story.timeEvents
     .filter((eventId) => eventId === TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO).length, 1);
@@ -115,7 +115,7 @@ test('current saves carry a durable HotDog incident shape', () => {
   /* Bumped to 13 when the final campaign arc added its durable mission records
    * (see MIGRATIONS[12]). The subject of this test is the HotDog incident's
    * SHAPE at the current version, and that shape is unchanged by the bump. */
-  assert.equal(CAMPAIGN_VERSION, 19);
+  assert.equal(CAMPAIGN_VERSION, 20);
   assert.deepEqual(incident, {
     status: 'locked',
     checkpoint: null,
@@ -277,7 +277,7 @@ test('a completed graveyard fallback applies Motel departure time through the ro
     });
     assert.equal(routed.scene.id, SCENE_IDS.JERKY_MOTEL);
     assert.equal(routed.scene.spawn, 'passenger_seat');
-    assert.equal(routed.story.day, 3);
+    assert.equal(routed.story.day, 5);
     assert.equal(routed.story.timeMinutes, 90);
     assert.equal(routed.story.timeEvents.includes(TIME_EVENT_IDS.DEPART_JERKY_MOTEL), true);
     assert.deepEqual(navigated, ['motel.html?preview=1']);
@@ -357,7 +357,7 @@ test('a completed v4 Bada Bing Two save migrates past the inserted burial atomic
   assert.equal(incident.bodyLoaded, true);
   assert.equal(incident.burialComplete, true);
   assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'available');
-  assert.equal(state.story.day, 3);
+  assert.equal(state.story.day, 5);
   assert.equal(state.story.timeMinutes, 45);
   assert.equal(state.story.timeEvents.includes(TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO), true);
   assert.deepEqual(createBadaBingTwoStory({ campaign }).begin(), {
@@ -393,7 +393,7 @@ test('v4 Motel progress repairs a stale in-progress Bada Bing Two save', () => {
   assert.equal(incident.assignment, 'reserve_pickup');
   assert.equal(incident.burialComplete, true);
   assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'in_progress');
-  assert.equal(state.story.day, 3);
+  assert.equal(state.story.day, 5);
   assert.equal(state.story.timeMinutes, 45);
   assert.equal(state.story.timeEvents.includes(TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO), true);
   assert.deepEqual(createBadaBingTwoStory({ campaign }).begin(), {

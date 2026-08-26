@@ -74,16 +74,24 @@ export const MARATHON_TRANSITIONS = Object.freeze([
     '/index.html', 'front_door', 'skip'),
   transition('home-to-squatchfather', SCENE_IDS.APARTMENT, SCENE_IDS.SQUATCHFATHER,
     '/squatchfather.html', 'restaurant_exterior', 'apartment:squatchfather'),
-  transition('squatchfather-home', SCENE_IDS.SQUATCHFATHER, SCENE_IDS.APARTMENT,
-    '/index.html', 'front_door', 'skip'),
-  transition('home-to-beefrun', SCENE_IDS.APARTMENT, SCENE_IDS.AIRSTRIP_SMUGGLING,
-    '/beefrun.html', 'hangar', 'apartment:beefrun', [
-      TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER, TIME_EVENT_IDS.DEPART_AIRSTRIP,
+  /* BEATS 3 TO 7. The driver takes him out of town and the flat does not see
+   * him again until the Motel sends him back. The route used to run
+   * squatchfather -> home -> home -> beefrun -> home -> bing two, which is
+   * where three of the bible's beats had nowhere to happen. */
+  transition('squatchfather-to-cabin', SCENE_IDS.SQUATCHFATHER, SCENE_IDS.COUNTRYSIDE_CABIN,
+    '/cabin.html', 'arrival', 'skip', [
+      TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER, TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW,
     ]),
-  transition('beefrun-home', SCENE_IDS.AIRSTRIP_SMUGGLING, SCENE_IDS.APARTMENT,
-    '/index.html', 'front_door', 'skip', [TIME_EVENT_IDS.COMPLETE_AIRSTRIP]),
-  transition('home-to-bing-two', SCENE_IDS.APARTMENT, SCENE_IDS.BADA_BING_TWO,
-    '/bing.html?visit=2', 'driver_seat', 'apartment:bing-two', [TIME_EVENT_IDS.DEPART_BADA_BING_TWO]),
+  transition('cabin-to-beefrun', SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.AIRSTRIP_SMUGGLING,
+    '/beefrun.html', 'hangar', 'cabin:visit-one', [TIME_EVENT_IDS.DEPART_AIRSTRIP]),
+  transition('beefrun-to-cabin', SCENE_IDS.AIRSTRIP_SMUGGLING, SCENE_IDS.COUNTRYSIDE_CABIN,
+    '/cabin.html', 'arrival', 'skip', [
+      TIME_EVENT_IDS.COMPLETE_AIRSTRIP, TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP,
+    ]),
+  transition('cabin-to-bing-two', SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.BADA_BING_TWO,
+    '/bing.html?visit=2', 'driver_seat', 'cabin:visit-two', [
+      TIME_EVENT_IDS.DEPART_CABIN_FOR_TOWN, TIME_EVENT_IDS.DEPART_BADA_BING_TWO,
+    ]),
   transition('bing-two-to-graveyard', SCENE_IDS.BADA_BING_TWO, SCENE_IDS.SQUATCH_GRAVEYARD,
     '/graveyard.html', 'headlights', 'skip', [TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD]),
   transition('graveyard-to-motel', SCENE_IDS.SQUATCH_GRAVEYARD, SCENE_IDS.JERKY_MOTEL,
@@ -112,8 +120,11 @@ export const MARATHON_TRANSITIONS = Object.freeze([
     '/cabin.html', 'arrival', 'apartment:cabin', [
       TIME_EVENT_IDS.PHONE_READ_CABIN, TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN,
     ]),
+  /* The post-heist cabin trip, which is a doorway now and not a chapter: he
+   * finished this property on Day 3. It stays until beats 12-19 give the
+   * Silver Case another entrance -- add first, remove last. */
   transition('cabin-to-silver-case', SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.SILVER_CASE,
-    '/silvercase.html', 'car_ride', 'cabin:rest', [TIME_EVENT_IDS.CABIN_REST]),
+    '/silvercase.html', 'car_ride', 'cabin:doorway'),
   transition('silver-case-to-mansion', SCENE_IDS.SILVER_CASE, SCENE_IDS.MANSION,
     '/mansion.html', 'gate', 'skip', [
       TIME_EVENT_IDS.DEPART_SILVER_CASE, TIME_EVENT_IDS.COMPLETE_SILVER_CASE,
@@ -344,22 +355,6 @@ async function executeBrowserAction(page, step) {
           `expected whiskey beat, got ${JSON.stringify(prompt)}`);
         campaign.update((state) => { state.activities.whiskeyRelaxed = true; });
         leaveFor(S.SQUATCHFATHER);
-      } else if (currentStep.action === 'apartment:beefrun') {
-        ensure(campaign.advanceTime(T.COMPLETE_SQUATCHFATHER).applied === true,
-          'Squatchfather return clock was not recorded');
-        ensure(story.sleep()?.ok === true, 'Day Two sleep failed');
-        ensure(story.callAnswered(apartmentModule.DAY_TWO_BOOSKI_CALL) === true,
-          'Day Two Booski call was not accepted');
-        pastime('watchedTv');
-        leaveFor(S.AIRSTRIP_SMUGGLING);
-        ensure(campaign.advanceTime(T.DEPART_AIRSTRIP).applied === true,
-          'Beef Run departure was not recorded');
-      } else if (currentStep.action === 'apartment:bing-two') {
-        ensure(story.callAnswered(apartmentModule.DAY_TWO_LOU_SECOND_CALL) === true,
-          'second Bing call was not accepted');
-        leaveFor(S.BADA_BING_TWO);
-        ensure(campaign.advanceTime(T.DEPART_BADA_BING_TWO).applied === true,
-          'second Bing departure was not recorded');
       } else if (currentStep.action === 'apartment:no-wake') {
         ensure(story.sleep()?.ok === true, 'post-Motel sleep failed');
         ensure(story.callAnswered(apartmentModule.NO_WAKE_LOU_CALL) === true,
@@ -431,18 +426,99 @@ async function executeBrowserAction(page, step) {
       return { ok: true, action: currentStep.action };
     }
 
-    if (currentStep.action === 'cabin:rest') {
-      const { createCountrysideCabinStory } = await import(
-        '/src/core/countryside-cabin-story.js'
-      );
-      const story = createCountrysideCabinStory({ campaign });
-      const refused = story.tryLeave();
-      ensure(refused?.kind === 'stay' && refused.id === 'cabin_rest_first',
-        `Cabin car did not require the lay-low rest: ${JSON.stringify(refused)}`);
-      ensure(story.rest()?.ok === true, 'Cabin lay-low rest failed');
-      const repeat = story.rest();
-      ensure(repeat?.ok === false && repeat.reason === 'already_rested',
-        `Cabin rest was not exact-once: ${JSON.stringify(repeat)}`);
+    if (currentStep.action === 'cabin:visit-one'
+      || currentStep.action === 'cabin:visit-two'
+      || currentStep.action === 'cabin:doorway') {
+      const cabinModule = await import('/src/core/countryside-cabin-story.js');
+      const story = cabinModule.createCountrysideCabinStory({ campaign });
+
+      /* BEATS 4 AND 5. Bed, Lou, four walks, Margo, Booski about the Captain.
+       * Every gate is exercised in order rather than skipped to, because the
+       * whole point of this walk is that a player can actually do it. */
+      if (currentStep.action === 'cabin:visit-one') {
+        const toldToWait = story.tryLeave();
+        ensure(toldToWait?.kind === 'stay' && toldToWait.id === 'cabin_wait',
+          `Cabin car was not locked on arrival: ${JSON.stringify(toldToWait)}`);
+        const tooEarly = story.completeOpeningCall();
+        ensure(tooEarly?.ok === false && tooEarly.reason === 'arrival_rest_incomplete',
+          `Lou rang before the bed: ${JSON.stringify(tooEarly)}`);
+        ensure(story.completeArrivalRest()?.applied === true, 'Cabin arrival rest failed');
+        ensure(story.completeOpeningCall()?.firstTime === true, 'Lou opening call failed');
+        const unwalked = story.completeMargoCall();
+        ensure(unwalked?.ok === false && unwalked.reason === 'explore_first',
+          `Margo was dialled before the walks: ${JSON.stringify(unwalked)}`);
+        for (const landmark of cabinModule.COUNTRYSIDE_CABIN_LANDMARKS) {
+          ensure(story.visit(landmark.id)?.ok === true, `${landmark.id} walk failed`);
+        }
+        ensure(story.completeMargoCall()?.firstTime === true, 'Margo call failed');
+        ensure(story.completeBooskiSasoleCall()?.firstTime === true, 'Booski call failed');
+        ensure(story.visitOneComplete() === true, 'visit one did not finish');
+        const departure = story.tryLeave();
+        ensure(departure?.kind === 'go' && departure.destination === S.AIRSTRIP_SMUGGLING,
+          `Cabin refused the airstrip: ${JSON.stringify(departure)}`);
+        ensure(campaign.advanceTime(T.DEPART_AIRSTRIP).applied === true,
+          'Beef Run departure was not recorded');
+        navigate();
+        return { ok: true, action: currentStep.action };
+      }
+
+      /* BEAT 7. The dungeon, and Booski about Billy at the end of it. */
+      if (currentStep.action === 'cabin:visit-two') {
+        ensure(story.returnedFromAirstrip() === true,
+          'the drive back from the airstrip was not recorded');
+        const stillWaiting = story.tryLeave();
+        ensure(stillWaiting?.kind === 'stay',
+          `Cabin car opened before the dungeon: ${JSON.stringify(stillWaiting)}`);
+        ensure(story.completeSecondRest()?.applied === true, 'second cabin night failed');
+        ensure(story.completeGratinCall()?.firstTime === true, 'Gratin call failed');
+        ensure(story.openCellar()?.ok === true, 'cellar failed');
+        ensure(story.enterDungeon()?.ok === true, 'dungeon entry failed');
+        for (const id of Object.values(cabinModule.CABIN_HOSTAGE_IDS)) {
+          const hostage = story.hostageState(id);
+          ensure(story.hitHostage(id, { hits: hostage.threshold })?.ok === true,
+            `${id} interrogation failed`);
+        }
+        ensure(story.learnAteamIntel()?.ok === true, 'A-Team intel failed');
+        ensure(story.chooseExecution('player')?.ok === true, 'execution choice failed');
+        for (const id of Object.values(cabinModule.CABIN_HOSTAGE_IDS)) {
+          story.damageHostage(id, { hits: story.hostageState(id).remaining });
+          ensure(story.killHostage(id)?.ok === true, `${id} death failed`);
+        }
+        const nightfall = story.completeNightfall();
+        ensure(nightfall?.day === 3 && nightfall.timeMinutes === 20 * 60 + 45,
+          `nightfall missed its authored hour: ${JSON.stringify(nightfall)}`);
+        for (const id of Object.values(cabinModule.CABIN_HOSTAGE_IDS)) {
+          story.wrapHostage(id);
+          story.moveBodyToFire(id);
+        }
+        story.stageBodies();
+        story.pourGas();
+        story.igniteBonfire();
+        story.completeFireCleanup();
+        story.drink();
+        const blackout = story.blackout();
+        ensure(blackout?.day === 4 && blackout.timeMinutes === 9 * 60 + 30,
+          `blackout missed its authored hour: ${JSON.stringify(blackout)}`);
+        ensure(story.completeMorningCall()?.ok === true, 'morning call failed');
+        ensure(story.completeMorningWake()?.ok === true, 'morning wake failed');
+        const beforeBilly = story.tryLeave();
+        ensure(beforeBilly?.kind === 'stay',
+          `Cabin car opened before Booski rang: ${JSON.stringify(beforeBilly)}`);
+        ensure(story.completeBillyCall()?.firstTime === true, 'Billy call failed');
+        const departure = story.tryLeave();
+        ensure(departure?.kind === 'go' && departure.destination === S.BADA_BING_TWO,
+          `Cabin refused the Bing: ${JSON.stringify(departure)}`);
+        ensure(campaign.advanceTime(T.DEPART_CABIN_FOR_TOWN).applied === true,
+          'cabin departure for town was not recorded');
+        ensure(campaign.advanceTime(T.DEPART_BADA_BING_TWO).applied === true,
+          'second Bing departure was not recorded');
+        navigate();
+        return { ok: true, action: currentStep.action };
+      }
+
+      /* The post-heist doorway: nothing left to play, straight through. */
+      ensure(story.chapterComplete() === true,
+        'the cabin was not already finished when the heist sent him back');
       const departure = story.tryLeave();
       ensure(departure?.kind === 'go' && departure.destination === S.SILVER_CASE,
         `Cabin refused The Silver Case: ${JSON.stringify(departure)}`);
@@ -544,20 +620,32 @@ function assertLandingFacts(step, state) {
       assertMission(state, MISSION_IDS.SQUATCHFATHER, { status: 'available' });
       assert.equal(hasItem(state, ITEM_IDS.LOU_PACKAGE), true);
       break;
-    case 'squatchfather-home':
+    case 'squatchfather-to-cabin':
       assertMission(state, MISSION_IDS.SQUATCHFATHER,
         { status: 'complete', weaponStaged: true, weaponDropped: true });
       assert.equal(hasItem(state, ITEM_IDS.LOU_PACKAGE), false);
+      /* He arrives in the small hours of Day Two, not at half eleven on Day
+       * One: the county road is two hours and twenty minutes of it. */
+      assert.equal(state.story.day, 2, 'the drive out must land on Day Two');
       break;
-    case 'home-to-beefrun':
+    case 'cabin-to-beefrun':
       assertMission(state, MISSION_IDS.AIRSTRIP_SMUGGLING, { status: 'available' });
+      /* Booski's call at the cabin IS the Beef Run authorisation. If it stopped
+       * marking the apartment's own event the aeroplane would refuse to start. */
+      assert.equal(state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status, 'answered');
+      assert.equal(state.events[EVENT_IDS.CABIN_MARGO_CALL].status, 'answered');
       break;
-    case 'beefrun-home':
+    case 'beefrun-to-cabin':
       assertMission(state, MISSION_IDS.AIRSTRIP_SMUGGLING,
         { status: 'complete', checkpoint: 'landed_home', cargoLoaded: true, landingQuality: 'clean' });
       break;
-    case 'home-to-bing-two':
+    case 'cabin-to-bing-two':
       assertMission(state, MISSION_IDS.BADA_BING_TWO, { status: 'available' });
+      /* And Booski about Billy IS the come-back-to-the-Bing summons. */
+      assert.equal(state.events[EVENT_IDS.LOU_SECOND_CALL].status, 'answered');
+      assert.equal(state.events[EVENT_IDS.CABIN_BILLY_CALL].status, 'answered');
+      assert.equal(state.story.chapter, 'day_two',
+        'the chapter turns on the county road, not in his own bed');
       break;
     case 'bing-two-to-graveyard':
       assertMission(state, MISSION_IDS.BADA_BING_TWO,
@@ -606,9 +694,17 @@ function assertLandingFacts(step, state) {
       assertMission(state, MISSION_IDS.SILVER_CASE, { status: 'available' });
       break;
     case 'cabin-to-silver-case':
-      assert.equal(state.story.timeEvents.filter(
-        (eventId) => eventId === TIME_EVENT_IDS.CABIN_REST,
-      ).length, 1, 'Cabin rest must be exact-once');
+      /* The ledger is exact-once by id, and the Act-One cabin spent both of
+       * its own rest markers on Days 2 and 3. A second visit that found them
+       * unspent would mean the chapter had somehow been replayed. */
+      for (const eventId of [
+        TIME_EVENT_IDS.CABIN_LAY_LOW_REST,
+        TIME_EVENT_IDS.CABIN_SECOND_REST,
+        TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL,
+      ]) {
+        assert.equal(state.story.timeEvents.filter((id) => id === eventId).length, 1,
+          `${eventId} must be exact-once`);
+      }
       assertMission(state, MISSION_IDS.SILVER_CASE, { status: 'available' });
       break;
     case 'silver-case-to-mansion':

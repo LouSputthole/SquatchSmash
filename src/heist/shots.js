@@ -86,10 +86,27 @@ export const HEIST_CAMERA_MARKS = Object.freeze({
   briefing: Object.freeze({ phase: 'safehouse', position: [0, 1.66, 2.55], yaw: 0, pitch: -0.28 }),
   armor: Object.freeze({ phase: 'safehouse', position: [-5.5, 1.66, 4.45], yaw: 0, pitch: -0.18 }),
   loadout: Object.freeze({ phase: 'safehouse', position: [4.7, 1.66, 4.25], yaw: 0, pitch: -0.38 }),
+  /* THE SUBJECT WAS THE DOOR ON THE FAR SIDE OF THE VAN.
+   *
+   * The camera stands at x -4.6 and the two rear leaves hang at x -1.408 and
+   * +1.408, so the near one is the LEFT. Measured perpendicular miss from this
+   * mark's own aim ray: left 0.338 m, right 1.165 m, and the gate's tolerance
+   * is 1.0 -- which is why it reported CAMERA_AIM_MISS in both safehouse
+   * states while the shot itself was framed correctly the whole time.
+   *
+   * The aim is not moved. At the door plane it lands at x -0.781, which is the
+   * middle of the open rear aperture, and that is the shot: the back of the
+   * van standing open with the bay behind it. `subjectObject` exists to give
+   * the gate one point to measure, and the honest point is the leaf the
+   * camera is actually in front of. `focus` still names all three.
+   *
+   * Not caused by the 2026-08-26 re-hinging, though that is what made it
+   * visible: this mark is byte-identical to its state before that commit. It
+   * had been failing behind an earlier gate that killed the job first. */
   safehouse_van: Object.freeze({
     phase: 'safehouse', position: [-4.6, 1.66, 0.9], yaw: -2.125, pitch: -0.05,
     focus: Object.freeze(['primary-van-rear-door-left', 'primary-van-rear-door-right', 'loading-bay-header']),
-    subjectObject: 'primary-van-rear-door-right',
+    subjectObject: 'primary-van-rear-door-left',
   }),
   /* On the guard where he stands, which moved to the door in the 2026-08-20
    * playtest pass. Derived: yaw = atan2(-dx, -dz) from this camera to him.

@@ -70,10 +70,49 @@ export const RECOVERABLE_CAMPAIGN_SCENES = Object.freeze([
   SCENE_IDS.CARTEL_PALACE,
 ]);
 
+/**
+ * THE TWO SCENES THE ACT-ONE CABIN SITS BETWEEN.
+ *
+ * The Squatchfather's driver takes him out of town, and Sasole runs him back
+ * to the property he collected him from -- so neither of these ends at the
+ * flat while the cabin chapter is open. The cabin is a scene rather than a
+ * mission, so its progress is read off the clock ledger, which is where that
+ * chapter actually keeps its state: the Booski/Sasole call opens it and the
+ * Booski/Billy call closes it.
+ *
+ * A skip that ignored this would put a dev straight home from the restaurant
+ * and quietly strand the whole of beats 4 to 7 behind a scene nobody visits.
+ */
+/* `travelEvent` is the hour the journey itself costs. A skip stands in for a
+ * drive the player would otherwise have made, so it has to cost the same. */
+const CABIN_ARRIVAL = Object.freeze({
+  sceneId: SCENE_IDS.COUNTRYSIDE_CABIN,
+  spawn: 'arrival',
+  travelEvent: TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW,
+});
+const CABIN_RETURN = Object.freeze({
+  sceneId: SCENE_IDS.COUNTRYSIDE_CABIN,
+  spawn: 'arrival',
+  travelEvent: TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP,
+});
+const APARTMENT_HOME = Object.freeze({ sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' });
+
+function cabinChapterDone(campaign) {
+  return campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL);
+}
+
 const DESTINATIONS = Object.freeze({
   [SCENE_IDS.BADA_BING_ONE]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
-  [SCENE_IDS.SQUATCHFATHER]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
-  [SCENE_IDS.AIRSTRIP_SMUGGLING]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
+  /* Beat 3's exit: out of town, unless the cabin is already behind him. */
+  [SCENE_IDS.SQUATCHFATHER]: (campaign) => (
+    cabinChapterDone(campaign) ? APARTMENT_HOME : CABIN_ARRIVAL
+  ),
+  /* Beat 6 ends where it started, but only while the chapter is open. */
+  [SCENE_IDS.AIRSTRIP_SMUGGLING]: (campaign) => (
+    campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL)
+      && !cabinChapterDone(campaign)
+      ? CABIN_RETURN : APARTMENT_HOME
+  ),
   [SCENE_IDS.BADA_BING_TWO]: { sceneId: SCENE_IDS.SQUATCH_GRAVEYARD, spawn: 'headlights' },
   [SCENE_IDS.SQUATCH_GRAVEYARD]: { sceneId: SCENE_IDS.JERKY_MOTEL, spawn: 'passenger_seat' },
   [SCENE_IDS.JERKY_MOTEL]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
@@ -777,8 +816,9 @@ export function createCampaignSceneSkipAdapter({
   if (!campaign || !sceneId) throw new TypeError('Campaign scene skip requires campaign and sceneId');
   const complete = COMPLETERS[sceneId];
   const isCanonicalCompletion = CANONICAL_COMPLETIONS[sceneId];
-  const destination = DESTINATIONS[sceneId];
-  if (!complete || !isCanonicalCompletion || !destination) return null;
+  /* A destination may be a function of campaign state -- see the two above. */
+  const resolveDestination = DESTINATIONS[sceneId];
+  if (!complete || !isCanonicalCompletion || !resolveDestination) return null;
 
   return function completeAndSkipScene() {
     if (campaign.state.scene.id !== sceneId) {
@@ -788,6 +828,9 @@ export function createCampaignSceneSkipAdapter({
       && (complete(campaign) !== true || isCanonicalCompletion(campaign) !== true)) {
       return { ok: false, reason: 'scene_completion_refused' };
     }
+    const destination = typeof resolveDestination === 'function'
+      ? resolveDestination(campaign) : resolveDestination;
+    if (destination.travelEvent) campaign.advanceTime(destination.travelEvent);
     navigateCampaign(campaign, destination.sceneId, {
       spawn: destination.spawn,
       location,

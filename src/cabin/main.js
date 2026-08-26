@@ -5,6 +5,7 @@ import { AudioEngine } from '../core/audio.js';
 import {
   ITEM_IDS,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
   createCampaignRadioAdapter,
   navigateCampaign,
@@ -457,11 +458,38 @@ function leaveCabin() {
   audio.stopLoop('cabin.forest', 0.12);
   audio.stopLoop('cabin.fridge', 0.12);
   audio.stopLoop('cabin.firepit', 0.12);
-  restCurtain.querySelector('span').textContent = 'APE IS WAITING';
+  /* The cabin's door opens twice and it does not always open onto the same
+   * road, so the curtain and the destination both come from `tryLeave` now
+   * rather than being written into this function.
+   *
+   * Each departure stamps its OWN clock id. The ledger is exact-once by id --
+   * reusing the airstrip run's marker for the drive back to town would find it
+   * already spent and move the clock by nothing, which is how a two-hour
+   * county road becomes instantaneous. */
+  const DEPARTURES = {
+    [SCENE_IDS.AIRSTRIP_SMUGGLING]: {
+      spawn: 'hangar',
+      curtain: 'WHISPERING PINES',
+      timeEventId: TIME_EVENT_IDS.DEPART_AIRSTRIP,
+    },
+    [SCENE_IDS.BADA_BING_TWO]: {
+      spawn: 'driver_seat',
+      curtain: 'BILLY IS OUT',
+      timeEventId: TIME_EVENT_IDS.DEPART_CABIN_FOR_TOWN,
+    },
+    [SCENE_IDS.SILVER_CASE]: {
+      spawn: 'car_ride',
+      curtain: 'APE IS WAITING',
+      timeEventId: null,
+    },
+  };
+  const departure = DEPARTURES[exit.destination] ?? DEPARTURES[SCENE_IDS.SILVER_CASE];
+  if (departure.timeEventId) campaign.advanceTime(departure.timeEventId);
+  restCurtain.querySelector('span').textContent = departure.curtain;
   restCurtain.classList.add('active');
   window.setTimeout(() => {
-    navigateCampaign(campaign, SCENE_IDS.SILVER_CASE, {
-      spawn: 'car_ride',
+    navigateCampaign(campaign, exit.destination, {
+      spawn: departure.spawn,
       location,
     });
   }, 900);

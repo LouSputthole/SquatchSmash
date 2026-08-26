@@ -325,6 +325,14 @@ export const CAMPAIGN_SCENE_COVERAGE = Object.freeze({
   [SCENE_IDS.COUNTRYSIDE_CABIN]: coverage(SCENE_IDS.COUNTRYSIDE_CABIN, 'no-fixed-cast', [],
     ['src/cabin/main.js', 'src/cabin/world.js'],
     'Tony remains first-person at the cabin, with no fixed visible character cast; its apartment-derived wardrobe is an environmental utility.'),
+  /* No fixed cast TODAY. The bible puts Margo here for the stayover and the
+   * morning after it, and the moment either is built this becomes an
+   * appearance-ledger scene with her as a required appearance -- the same
+   * boundary she already crosses in the starter apartment and the Silver
+   * Room. Until then Tony is alone in it and first-person. */
+  [SCENE_IDS.LUXURY_APARTMENT]: coverage(SCENE_IDS.LUXURY_APARTMENT, 'no-fixed-cast', [],
+    ['src/luxury-apartment/main.js', 'src/luxury-apartment/world.js'],
+    'Tony is first-person in the upgraded flat and it has no fixed visible cast yet; Margo arrives with the stayover beat and this becomes an appearance-ledger scene then.'),
   [SCENE_IDS.SILVER_CASE]: coverage(SCENE_IDS.SILVER_CASE, 'appearance-ledger', ['silver_case'],
     ['src/silvercase/cast/ape.js', 'src/silvercase/cast/prospect.js', 'src/silvercase/cast/cast.js'],
     'Ape and four locals are exact makePerson rows; Tony is an explicit arm-only private-viewmodel source row.',

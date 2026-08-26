@@ -128,14 +128,42 @@ export const HEIST_DIALOGUE = Object.freeze({
   death_load: line('death_load', CHARACTER_IDS.DEATHMEGATRON,
     'Cover me. Bags are heavier when everybody is shooting at the handles.', P.TACTICAL, ['SECONDARY_CAR_LOAD']),
 
+  /* THE STATE WINDOW ON A DRIVING CALL IS THE CALL PLUS THE TURN IT IS ABOUT.
+   *
+   * `DialogueArbiter` drops a queued line the moment the mission leaves its
+   * window, and finishes a playing one as `stale`. Every call below used to
+   * name exactly ONE state, and the states of the escape change at the
+   * junctions the calls are about — so a line still speaking, or still waiting
+   * its turn, at the junction was thrown away at the junction.
+   *
+   * `rippin_drive` was the one that failed every single run. It is 5.83 s of
+   * recording, and `PLAYER_TAKES_WHEEL` ends at `GARAGE_ESCAPE` the moment the
+   * car is 24 m from the garage — 2.2 s after the player touches the throttle.
+   * Its window is three states because the LEG it is given on is two of them:
+   * `GARAGE_ESCAPE` is a distance flip in the middle of the garage lane, not a
+   * junction, and the junction at the end of that lane arrives at 3.5 s at
+   * pinned throttle. It is a call about the first left AND the warehouse lights
+   * after it, so it is allowed to finish on the road it is describing.
+   *
+   * The others are given on legs that at 92 mph are shorter than the recording
+   * they carry — 140 m of financial row is 3.4 s and `snow_roadblock` is
+   * 3.45 s — so each of them now covers its own leg AND the state its turn puts
+   * the car into, which is also the only place the tail of a direction still
+   * makes sense: the driver is taking the corner it named. Nothing widens far
+   * enough to let a direction arrive a junction late, and
+   * `tests/heist-escape-car-voices.test.mjs` drives both timelines to prove it. */
   rippin_drive: line('rippin_drive', CHARACTER_IDS.RIPPINFLOW,
-    'Prospect drives. Left out, wrong way on purpose, then the warehouse lights.', P.TACTICAL, ['PLAYER_TAKES_WHEEL']),
+    'Prospect drives. Left out, wrong way on purpose, then the warehouse lights.',
+    P.TACTICAL, ['PLAYER_TAKES_WHEEL', 'GARAGE_ESCAPE', 'CITY_PURSUIT']),
   rippin_market_left: line('rippin_market_left', CHARACTER_IDS.RIPPINFLOW,
-    'Left at the warehouse. Hold it through Market, then right at the glass tower.', P.TACTICAL, ['CITY_PURSUIT']),
+    'Left at the warehouse. Hold it through Market, then right at the glass tower.',
+    P.TACTICAL, ['CITY_PURSUIT']),
   snow_roadblock: line('snow_roadblock', CHARACTER_IDS.SNOW,
-    'Roadblock. Center gap. Do not argue with the cruisers.', P.TACTICAL, ['ROADBLOCK']),
+    'Roadblock. Center gap. Do not argue with the cruisers.',
+    P.TACTICAL, ['ROADBLOCK', 'INDUSTRIAL_ROUTE']),
   rippin_canal: line('rippin_canal', CHARACTER_IDS.RIPPINFLOW,
-    'Canal road next. Narrow means they cannot put three cars beside us.', P.TACTICAL, ['INDUSTRIAL_ROUTE']),
+    'Canal road next. Narrow means they cannot put three cars beside us.',
+    P.TACTICAL, ['INDUSTRIAL_ROUTE', 'VEHICLE_SWAP']),
   shubes_swap: line('shubes_swap', CHARACTER_IDS.SHUBENATOR,
     'Cash first, coats second, weapons in the lined bin. In that order.', P.OBJECTIVE, ['VEHICLE_SWAP']),
   death_swap_bags: line('death_swap_bags', CHARACTER_IDS.DEATHMEGATRON,
@@ -402,10 +430,10 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
   /* ---- the drive ---- */
   rippin_tower_right: line('rippin_tower_right', CHARACTER_IDS.RIPPINFLOW,
     'Glass tower on the corner. Right there, and do not slow down for the light.',
-    P.TACTICAL, ['CITY_PURSUIT']),
+    P.TACTICAL, ['CITY_PURSUIT', 'ROADBLOCK']),
   rippin_swap_ahead: line('rippin_swap_ahead', CHARACTER_IDS.RIPPINFLOW,
     'Canal road. Yard gate on your left, four hundred metres. Lights off before you turn in.',
-    P.TACTICAL, ['INDUSTRIAL_ROUTE']),
+    P.TACTICAL, ['INDUSTRIAL_ROUTE', 'VEHICLE_SWAP']),
   snow_lost_them: line('snow_lost_them', CHARACTER_IDS.SNOW,
     'Nothing behind us. Nothing above us. We are a grey car on a service road.',
     P.OBJECTIVE, ['VEHICLE_SWAP']),

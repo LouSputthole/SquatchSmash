@@ -46,6 +46,16 @@
       <div class="track"><i class="win"></i><i class="mark"></i></div>
       <div class="pips"></div>
     </div>
+
+    <!-- The standing order, in the same place and the same idiom the starter
+         flat puts it: under the clock, top right. Present in the markup so
+         src/core/objective-panel.js ADOPTS it rather than injecting its own
+         upper-left default over the top of src/style.css's #objectives rules.
+         See the note at the head of that module. -->
+    <div id="objectives" class="hidden">
+      <div class="otitle"></div>
+      <ul class="olist"></ul>
+    </div>
   </div>
 
   <section id="luxury-game-panel" class="hidden" aria-live="polite" aria-atomic="true">

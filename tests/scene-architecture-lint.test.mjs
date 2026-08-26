@@ -53,8 +53,8 @@ const canonicalFiles = {
 test('all declared campaign hrefs and composition roots exist', () => {
   const report = buildSceneArchitectureReport({ repository: nodeRepository() });
   const entryFiles = report.findings.filter((item) => item.kind === 'entrypoint_file');
-  assert.equal(entryFiles.length, 42);
-  assert.equal(entryFiles.filter((item) => item.status === STATUS.PASS).length, 42);
+  assert.equal(entryFiles.length, 44);
+  assert.equal(entryFiles.filter((item) => item.status === STATUS.PASS).length, 44);
 });
 
 test('declared capability Adapters are proven only by exact root imports', () => {
@@ -306,7 +306,7 @@ test('partial or unavailable evidence remains UNKNOWN rather than passing', () =
 test('the current registry emits one input-ownership finding per runtime entry', () => {
   const report = buildSceneArchitectureReport({ repository: nodeRepository() });
   const runtimeEntries = SCENE_CONTRACTS.reduce((count, item) => count + item.entrypoints.length, 0);
-  assert.equal(runtimeEntries, 21);
+  assert.equal(runtimeEntries, 22);
   assert.equal(
     report.findings.filter((item) => item.kind === 'inline_first_person_input').length,
     runtimeEntries,

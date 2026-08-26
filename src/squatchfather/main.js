@@ -25,6 +25,7 @@ import { MirrorReflection } from './effects/MirrorReflection.js';
 import {
   ITEM_IDS,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
   navigateCampaign,
 } from '../core/campaign.js';
@@ -1323,14 +1324,39 @@ $('retryBtn').addEventListener('click', () => {
   restoreCheckpoint();
   lockPointer();
 });
-function returnToApartment() {
-  navigateCampaign(campaign, SCENE_IDS.APARTMENT, {
-    spawn: 'front_door',
+/**
+ * THE DRIVER DOES NOT TAKE HIM HOME.
+ *
+ * The bible: *"The first kill. The driver takes him OUT OF TOWN."* The man who
+ * brought him to the restaurant is still at the kerb when it is done, and Lou
+ * has already decided where the Prospect is sleeping tonight -- which is a
+ * cabin up north, not a flat with his name on the buzzer.
+ *
+ * The apartment branch stays for saves made before the cabin was wired,
+ * because `Campaign.transition()` throws on an edge nobody declared and a
+ * finished end card with no forward route is a stranded player.
+ */
+function leaveTheRestaurant() {
+  /* The cabin is a scene, not a mission -- there is no `missions.cabin` to
+   * ask -- so its chapter is read off the clock ledger, which is where that
+   * chapter actually keeps its state. The Billy call is its last marker. */
+  const cabinDone = campaign.state.story.timeEvents
+    .includes(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL);
+  if (cabinDone) {
+    navigateCampaign(campaign, SCENE_IDS.APARTMENT, {
+      spawn: 'front_door',
+      location: window.location,
+    });
+    return;
+  }
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW);
+  navigateCampaign(campaign, SCENE_IDS.COUNTRYSIDE_CABIN, {
+    spawn: 'arrival',
     location: window.location,
   });
 }
 
-$('againBtn').addEventListener('click', returnToApartment);
+$('againBtn').addEventListener('click', leaveTheRestaurant);
 
 // Build the audio graph while the menu is still up: the context sits
 // suspended until the start click, but the recordings fetch and decode now,

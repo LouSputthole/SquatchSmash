@@ -939,7 +939,23 @@ try {
   check('two by hand and the crew bring the rest, and all eight are on the floor',
     stagedAll?.staged === 8 && stagedAll.duffles === 8 && stagedAll.vaultBagsLeft === 0,
     JSON.stringify(stagedAll));
-  await use('bank-exit');
+  /* THE WAY OUT, proved through the crosshair rather than through the handler.
+   *
+   * This line used to be a bare `use('bank-exit')`, which looks the descriptor
+   * up by name and calls its onUse directly -- it never casts a ray, so it
+   * passed happily on a door the player could not aim at. That is exactly how
+   * the mission shipped hard-blocked after the cash: the glass pane sat four
+   * centimetres inside the solid entrance slab and never once won the
+   * interaction ray. Acquire it the way a player does, then press the key. */
+  const exitApproach = await page.evaluate(
+    () => window.__heistDebug.approachInteraction('bank-exit-volume'),
+  );
+  check('the way out of the bank can actually be aimed at from the lobby floor',
+    exitApproach.ok === true, JSON.stringify(exitApproach));
+  if (!exitApproach.ok) throw new Error(`bank exit approach: ${JSON.stringify(exitApproach)}`);
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => window.__heistDebug.snapshot().phase === 'street',
+    null, { timeout: 60000 });
 
   state = await snapshot();
   const policeBeforeFailure = state.policeTotal;
@@ -1115,10 +1131,25 @@ try {
     JSON.stringify({ frame: state.evidenceFrame, swapWorkbench }));
   await shot('10b-vehicle-swap-workbench');
 
+  /* AIMED AT, then pressed. `use()` calls the handler by name and casts no ray,
+   * so this loop used to prove that eight handlers worked and nothing at all
+   * about whether a player could aim at the eight props -- which is exactly the
+   * check the walled-in bank exit shipped behind. `swap-depart` was the one
+   * that was wrong: it is the prompt that leaves the swap in the clean car, and
+   * it was a box buried inside the clean car's own body. */
+  const swapAcquired = [];
   for (const target of [
     'swap-trunk', 'swap-bags', 'swap-aid', 'swap-masks',
     'swap-jackets', 'swap-weapons', 'swap-wipe', 'swap-depart',
-  ]) await use(target);
+  ]) {
+    const approach = await page.evaluate(
+      (name) => window.__heistDebug.approachInteraction(name), target,
+    );
+    swapAcquired.push({ target, ok: approach.ok === true, reason: approach.reason ?? null });
+    await use(target);
+  }
+  check('every evidence prop at the swap is acquired by a real interaction ray',
+    swapAcquired.every((entry) => entry.ok), JSON.stringify(swapAcquired));
   state = await snapshot();
   check('vehicle swap requires every evidence action before safehouse return',
     state.phase === 'safehouse' && Object.values(state.swap).every(Boolean)
@@ -1126,10 +1157,19 @@ try {
 
   /* ---- owner note: "everyone is just waiting for me... not sure what the debrief is" ---- */
   const debriefSteps = [];
-  debriefSteps.push(await pressAtPose('armor', {
-    target: 'safehouse-armor',
-    until: () => window.__heistDebug.state === 'FIRST_AID',
-  }));
+  /* STEP 1/4 IS ON RIPPINFLOW. It used to be on the plate-carrier stand, which
+   * is the owner's *"Rippin's leg just re-arms armor"* -- see
+   * `SAFEHOUSE_DEBRIEF_STEPS`. Posed at the man and held, through the real
+   * crosshair, so the check would fail again if it wandered back onto a prop. */
+  await page.evaluate(() => window.__heistDebug.poseForCrew('rippinflow'));
+  await waitForTarget('crew-rippinflow');
+  debriefSteps.push(await promptText());
+  const armorBefore = (await snapshot()).presentation.armorVisible;
+  await holdE(() => window.__heistDebug.state === 'FIRST_AID');
+  const armorAfter = (await snapshot()).presentation.armorVisible;
+  check('wrapping Rippin\u2019s leg is on Rippinflow and moves no armour',
+    armorBefore === armorAfter && /1\/4/.test(debriefSteps[0] ?? ''),
+    JSON.stringify({ prompt: debriefSteps[0], armorBefore, armorAfter }));
   debriefSteps.push(await pressAtPose('briefing', {
     target: 'briefing-map',
     until: () => window.__heistDebug.state === 'DEBRIEF',

@@ -201,9 +201,11 @@ export class CabinChapterRuntime {
       this._restoreMorning();
     } else if (phase === 'morning_wake') {
       this.callbacks.onWakeMorning?.({ restored: true });
-      const result = this.story.completeMorningWake();
-      if (result.ok) this.callbacks.onChapterComplete?.({ restored: true });
+      this.story.completeMorningWake();
       this.callbacks.onSync?.();
+    } else if (phase === 'billy_call') {
+      /* Upright, ash on the ground outside, and one call still to come. */
+      this.callbacks.onWakeMorning?.({ restored: true });
     } else if (phase === 'complete') {
       this.callbacks.onWakeMorning?.({ restored: true });
       this.callbacks.onChapterComplete?.({ restored: true });
@@ -247,6 +249,13 @@ export class CabinChapterRuntime {
     const id = definition?.id;
     if (id === CABIN_PHONE_CALLS.LOU_ARRIVAL.id) {
       this.story.completeOpeningCall();
+    } else if (id === CABIN_PHONE_CALLS.MARGO_FIRST_CALL.id) {
+      this.story.completeMargoCall();
+    } else if (id === CABIN_PHONE_CALLS.BOOSKI_SASOLE.id) {
+      this.story.completeBooskiSasoleCall();
+      /* Beat 5 is over the moment he hangs up: the car is unlocked and the
+       * strip is forty minutes away. The page reads `tryLeave` for the rest. */
+      this.callbacks.onVisitOneComplete?.();
     } else if (id === CABIN_PHONE_CALLS.GRATIN_BASEMENT.id) {
       const result = this.story.completeGratinCall();
       if (result.ok) {
@@ -254,8 +263,12 @@ export class CabinChapterRuntime {
         this.searchHintPlayed = false;
       }
     } else if (id === CABIN_PHONE_CALLS.APE_MORNING.id) {
+      /* Ape gets him upright. He does NOT end the chapter any more -- Booski
+       * does, one call later, and that is what unlocks the car for town. */
       this.story.completeMorningCall();
       this.story.completeMorningWake();
+    } else if (id === CABIN_PHONE_CALLS.BOOSKI_BILLY.id) {
+      this.story.completeBillyCall();
       this.callbacks.onChapterComplete?.();
     }
     this.currentCallId = null;
@@ -263,12 +276,33 @@ export class CabinChapterRuntime {
     this.callbacks.onSync?.();
   }
 
+  /**
+   * THE PHONE, IN THE ORDER THE BIBLE RINGS IT.
+   *
+   * Lou when he wakes up. Margo when he has walked all four corners of the
+   * property. Booski about the Captain, which ends visit one. Gratin on the
+   * second morning, which starts the dungeon. Ape after the blackout. Booski
+   * about Billy, which ends the chapter and the cabin.
+   *
+   * Nothing rings before the bed: the opening call gate is
+   * `arrivalRestComplete`, and ringing at half five in the morning to tell a
+   * man to relax is the one joke this scene must not make.
+   */
   _updateCalls(dt) {
     if (this.phone.call) return;
     this.callRetry = Math.max(0, this.callRetry - dt);
     if (this.callRetry > 0) return;
+    if (!this.story.arrivalRestComplete() && !this.story.openingCallComplete()) return;
     if (!this.story.openingCallComplete()) {
       if (!this._ring(CABIN_PHONE_CALLS.LOU_ARRIVAL)) this.callRetry = 2;
+      return;
+    }
+    if (this.story.margoCallReady()) {
+      if (!this._ring(CABIN_PHONE_CALLS.MARGO_FIRST_CALL)) this.callRetry = 2;
+      return;
+    }
+    if (this.story.booskiSasoleCallReady()) {
+      if (!this._ring(CABIN_PHONE_CALLS.BOOSKI_SASOLE)) this.callRetry = 2;
       return;
     }
     if (this.story.gratinCallReady()) {
@@ -279,6 +313,10 @@ export class CabinChapterRuntime {
       && !this._blackoutTransitionPending
       && !this.story.morningCallComplete()) {
       if (!this._ring(CABIN_PHONE_CALLS.APE_MORNING)) this.callRetry = 2;
+      return;
+    }
+    if (this.story.billyCallReady()) {
+      if (!this._ring(CABIN_PHONE_CALLS.BOOSKI_BILLY)) this.callRetry = 2;
     }
   }
 
