@@ -98,6 +98,26 @@ export const PHASE_FOR_STATE = Object.freeze(Object.fromEntries(HEIST_STATES.map
   return [state, 'none'];
 })));
 
+/**
+ * Where the player is allowed to stand, per phase: [minX, maxX, minZ, maxZ].
+ *
+ * `constrainPlayerToPhase` in `main.js` clamps to these every frame, so they
+ * are also the only positions a reachability probe is entitled to sample from
+ * — a prompt that can only be acquired from inside a wall is not reachable.
+ * They live here rather than in `main.js` because the Node reachability tests
+ * cannot import a page module, and the alternative is a second copy of the
+ * clamp in `tests/` that drifts the first time a room changes size.
+ */
+export const HEIST_PHASE_PLAYER_BOUNDS = Object.freeze({
+  safehouse: Object.freeze([-8.7, 8.7, -6.7, 6.7]),
+  van: Object.freeze([-1.45, 1.45, -2.65, 2.65]),
+  // The z floor reaches into the vault corridor, which is where the cash is.
+  bank: Object.freeze([-10.6, 10.6, -12.9, 10.4]),
+  street: Object.freeze([-8.8, 8.8, -35.2, 35.2]),
+  garage: Object.freeze([-11.6, 11.6, -14.6, 14.6]),
+  driving: Object.freeze([14, 26, -659, -645]),
+});
+
 export const PERFORMANCE_BUDGET = Object.freeze({
   maxCrew: 6,
   maxBankCivilians: 27,

@@ -2784,7 +2784,19 @@ function buildDriving() {
 
   const cleanCar = makeVehicleBody(group, [23.8, 0, -656], 0x18231f, 'clean-swap-car');
   cleanCar.rotation.y = Math.PI / 2;
-  const trunk = box(group, [1.4, 0.7, 0.2], [22.9, 0.82, -656], MAT.steel, 'swap-trunk');
+  /* AND THE TRUNK IS AT THE BACK OF THE CAR.
+   *
+   * The car is authored nose-first (`rotation.y = π/2` puts local +X on world
+   * -Z), so its body measures z -658.03 at the nose to -653.97 at the tailgate.
+   * The trunk panel was at [22.9, -656] — the middle of the driver's flank, and
+   * 0.9 m of its 1.4 m width inside the body. It worked, at 63 of 66 legal
+   * standing positions, but only because the sliver poking out of the flank was
+   * the first thing on the ray; the moment the door proxy below took its proper
+   * place on that flank the two started eating each other's rays and the trunk
+   * fell to 37 of 66. It is on the tailgate now, standing 17 cm proud of the
+   * body, which is where a trunk is and where the ray to it is clear.
+   * Measured after: 66 of 66. */
+  const trunk = box(group, [1.4, 0.7, 0.2], [23.8, 0.82, -653.88], MAT.steel, 'swap-trunk');
   ownGeometry(trunk, 'heist.vehicle.clean-swap-car');
   const bagsProp = box(group, [1.6, 0.7, 0.8], [17.7, 0.36, -652], MAT.darkConcrete, 'swap-bags');
   const aid = box(group, [0.62, 0.18, 0.42], [15.8, 0.89, -654], MAT.marble, 'swap-aid');
@@ -2792,7 +2804,29 @@ function buildDriving() {
   const jackets = box(group, [1.1, 0.28, 0.6], [18.5, 0.15, -657], MAT.wood, 'swap-jackets');
   const weapons = box(group, [1.7, 0.24, 0.62], [20.2, 0.16, -657], MAT.steel, 'swap-weapons');
   const wipe = box(group, [0.6, 0.08, 0.42], [21.7, 0.84, -654], MAT.marble, 'swap-wipe');
-  const depart = box(group, [1.2, 1.4, 0.2], [24.1, 1.0, -655.2], swapMat, 'swap-depart');
+  /* THE DRIVER'S DOOR OF THE CLEAN CAR, WHICH USED TO BE INSIDE THE CLEAN CAR.
+   *
+   * Owner, playtest 2026-08-26: *"the final car has no usable E zone"*. The
+   * proxy that carries "Leave in the clean car" was a 1.2 m panel centred at
+   * x 24.1 — and the car body measures x 22.72 to 24.88, so the whole box sat
+   * buried in the cabin. Every ray from the yard hit `clean-swap-car-cabin`
+   * first (measured: 1.02 m to the cabin, 1.57 m to the proxy). The prompt was
+   * acquired from 6 of 178 legal standing positions, and all six of them were
+   * in the 1.1 m gap between the car's far flank and the yard fence.
+   *
+   * It is the driver's door now: a 24 cm slab standing in the 16 cm of clear
+   * air outside the car's own collider (x 22.44 to 22.68; the collider face is
+   * x 22.70). `Player.RADIUS` is 0.30, so the closest the camera can ever get
+   * is x 22.40 — outside the box, which is the whole point, because a box is
+   * invisible to a ray that starts inside it. Kept clear in z of the trunk
+   * panel at z -656.1 so the two prompts do not fight over the same flank.
+   * Measured after: 106 of 178 legal positions, 100 % of the yard-side arc.
+   *
+   * `castShadow` off for the same reason `swap` has it off: an invisible box
+   * outside the car body still darkens the ground under the task lights. */
+  const depart = box(group, [0.24, 1.5, 1.1], [22.56, 0.95, -656.75], swapMat, 'swap-depart');
+  depart.castShadow = false;
+  depart.receiveShadow = false;
   ownGeometry(aid, 'heist.driving.workbench');
   ownGeometry(masks, 'heist.driving.workbench');
   ownGeometry(wipe, 'heist.driving.workbench');

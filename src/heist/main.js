@@ -12,7 +12,7 @@ import {
 import { createBankHeistStory } from '../core/bank-heist-story.js';
 import { InteractionSystem } from '../core/interaction.js';
 import {
-  SPEECH_GAIN, SPEECH_MIX_CLOSE, SPEECH_MIX_INDOORS, speak, speechDuration,
+  SPEECH_GAIN, speak, speechDuration,
 } from '../core/dialogue.js';
 import { Player } from '../core/player.js';
 import { shakeScale } from '../core/settings.js';
@@ -45,10 +45,10 @@ import {
 import { BankGuardThreat } from './bank-threat.js';
 import { CheckpointDirector } from './checkpoints.js';
 import {
-  BLOCK_CLEAR_OFFICERS, HEIST_ESCAPE_VEHICLE_CONFIG, HEIST_STATES, PERFORMANCE_BUDGET,
-  PHASE_FOR_STATE, PREVIEW_START_STATE,
+  BLOCK_CLEAR_OFFICERS, HEIST_ESCAPE_VEHICLE_CONFIG, HEIST_PHASE_PLAYER_BOUNDS, HEIST_STATES,
+  PERFORMANCE_BUDGET, PHASE_FOR_STATE, PREVIEW_START_STATE,
 } from './config.js';
-import { DialogueArbiter } from './dialogue.js';
+import { DialogueArbiter, heistSpeechMix } from './dialogue.js';
 import { HeistHud } from './hud.js';
 import { bankBoltGoal, intersectsDrivingObstacle } from './geometry.js';
 import { STAGING_POINT, buildHeistLevel } from './level.js';
@@ -59,7 +59,7 @@ import { createHeistBags, LootLedger } from './loot.js';
 import { HeistMissionMachine } from './mission.js';
 import { AuthoredNavigationGraph, SquadDirector } from './navigation.js';
 import { HeistObjectiveLedger } from './objective.js';
-import { objectiveForState } from './orders.js';
+import { debriefStep, objectiveForState, swapEvidencePlan } from './orders.js';
 import { makePoliceFigure } from './people.js';
 import { PoliceDirector } from './police.js';
 import { SafehousePreparation } from './safehouse.js';
@@ -387,6 +387,18 @@ function announceObjective(text, seconds = 2.5) {
 
 function refreshObjective(state = machine.state) {
   if (performance.now() / 1000 < objectiveOverrideUntil) return;
+  /* THE SWAP IS THE ONE BEAT THAT IS A LIST.
+   *
+   * Seven named actions, three of them locked behind another one, and the old
+   * order line named three of the seven and counted all of them — which is how
+   * a player ends up at 6/7 in a dark yard with nothing on screen telling him
+   * what the seventh is. `swapEvidencePlan` puts all seven in the shared
+   * objective panel with the count on the first row. Everywhere else the order
+   * is a sentence, because everywhere else it is one thing. */
+  if (state === 'VEHICLE_SWAP') {
+    hud.setObjectivePlan(swapEvidencePlan(swapProgress));
+    return;
+  }
   hud.setObjective(objectiveForState(state, {
     armorReady: preparation.armorReady,
     loadoutReady: preparation.loadoutReady,
@@ -518,7 +530,11 @@ const dialogue = new DialogueArbiter({
      * and `heist.cash.lift` is a sound effect (ENGINE-TRAPS.md entry 4). */
     const spoken = speak(audio, line.cue, {
       speaker: figure?.group ?? figure?.root ?? null,
-      mix: figure ? SPEECH_MIX_INDOORS : SPEECH_MIX_CLOSE,
+      /* In the room, or in the car. `heistSpeechMix` carries the measurement:
+       * the crew stand in the swap yard for the whole escape, so a panned line
+       * during the drive arrives from up to 898 m away at 1.8/d of its level
+       * and is never heard. */
+      mix: heistSpeechMix({ driving, figure }),
       gain: SPEECH_GAIN.normal,
     });
     activeDialogueSource = spoken.source;
@@ -2937,22 +2953,49 @@ function refreshInteractions() {
    * step states its own result on the HUD before the next one unlocks.
    */
   if (activePhase === 'safehouse' && stateIndex(state) >= stateIndex('SAFEHOUSE_RETURN')) {
-    use(p.safehouse.interactables.armor, '1/4 — Get Rippin’s leg wrapped', () => {
-      if (machine.state !== 'SAFEHOUSE_RETURN') return;
-      advanceTo('FIRST_AID');
-      say('rippin_aid');
-      crew.get(CHARACTER_IDS.RIPPINFLOW).injury = 'stabilized';
-      refreshObjective();
-      refreshInteractions();
-    }, { hold: 1.5, enabled: () => machine.state === 'SAFEHOUSE_RETURN' });
+    /* STEP ONE IS ON THE MAN, NOT ON THE VEST STAND.
+     *
+     * Owner: *"Rippin's leg just re-arms armor"*. It was registered on
+     * `interactables.armor` — the plate carrier on its mannequin, six metres
+     * from Rippinflow, and the one prop in this room whose every other verb is
+     * about body armour. See `SAFEHOUSE_DEBRIEF_STEPS` in `./orders.js` for the
+     * whole account; the table is the only place the four steps and their props
+     * are written down now, and nothing in it names the armour stand.
+     *
+     * The handler touches the injury and the objective. It does not touch
+     * `preparation`, `syncPlayerArmor`, or `armor.userData.setEquipped` — the
+     * vest is still on the player until he puts the guns down at 3/4, which is
+     * the step that is actually about gear. */
+    const rippin = crew.get(CHARACTER_IDS.RIPPINFLOW);
+    const debriefProps = {
+      rippin: rippin.group,
+      briefing: p.safehouse.interactables.briefing,
+      loadout: p.safehouse.interactables.loadout,
+      van: p.safehouse.interactables.van,
+    };
+    const firstAid = debriefStep('first_aid');
+    use(debriefProps[firstAid.target],
+      () => (rippin.injury === 'stabilized' ? firstAid.doneLabel : firstAid.label), () => {
+        if (machine.state !== 'SAFEHOUSE_RETURN') return;
+        advanceTo('FIRST_AID');
+        say('rippin_aid');
+        /* The dressing, out loud. `heist.swap.fabric` is the bag-the-masks cue
+         * and it is a strip of cloth being pulled tight, which is the same
+         * sound and the only one in this scene's bank that is. */
+        audio.play('heist.swap.fabric', { volume: 0.7 });
+        rippin.injury = 'stabilized';
+        refreshObjective();
+        refreshInteractions();
+      }, { hold: firstAid.hold, enabled: () => machine.state === 'SAFEHOUSE_RETURN' });
     /* The label reads the table, before and after. Before the count it is the
      * instruction; after it, the table is a readout the player can walk back
      * to and be told the number again — which is the whole point of putting
      * the bags on it. */
-    use(p.safehouse.interactables.briefing, () => (machine.state === 'FIRST_AID'
-      ? '2/4 — Empty the bags and count the take'
+    const count = debriefStep('count');
+    use(debriefProps[count.target], () => (machine.state === count.state
+      ? count.label
       : `The take: ${objective.bagsRecovered} of ${objective.totalBags} bags home`), () => {
-      if (machine.state !== 'FIRST_AID') return;
+      if (machine.state !== count.state) return;
       advanceTo('MONEY_COUNT');
       objective.syncLoot(loot.summary());
       objective.syncHostages(hostages.summary());
@@ -2986,9 +3029,10 @@ function refreshInteractions() {
       );
       refreshObjective();
       refreshInteractions();
-    }, { hold: 1.8, enabled: () => machine.state === 'FIRST_AID' });
-    use(p.safehouse.interactables.loadout, '3/4 — Put the weapons down', () => {
-      if (machine.state !== 'DEBRIEF' || weaponsDown) return;
+    }, { hold: count.hold, enabled: () => machine.state === count.state });
+    const weaponsStep = debriefStep('weapons_down');
+    use(debriefProps[weaponsStep.target], weaponsStep.label, () => {
+      if (machine.state !== weaponsStep.state || weaponsDown) return;
       weaponsDown = true;
       audio.play('heist.weapon.down');
       preparation.reset();
@@ -2996,14 +3040,15 @@ function refreshInteractions() {
       syncHeistInventory(true);
       refreshObjective();
       refreshInteractions();
-    }, { enabled: () => machine.state === 'DEBRIEF' && !weaponsDown });
-    use(p.safehouse.interactables.van, '4/4 — Answer Lou’s call', () => {
-      if (machine.state !== 'DEBRIEF' || !weaponsDown) return;
+    }, { enabled: () => machine.state === weaponsStep.state && !weaponsDown });
+    const louStep = debriefStep('lou_call');
+    use(debriefProps[louStep.target], louStep.label, () => {
+      if (machine.state !== louStep.state || !weaponsDown) return;
       advanceTo('LOU_CALL_SAFEHOUSE');
       scriptedSpeech.length = 0;
       sayInTurn('lou_call', 'lou_prospect_verdict', 'prospect_home');
       setTimeout(completeMission, 3200);
-    }, { enabled: () => machine.state === 'DEBRIEF' && weaponsDown });
+    }, { enabled: () => machine.state === louStep.state && weaponsDown });
   }
 }
 
@@ -4851,15 +4896,11 @@ function updateDriving(dt) {
  * which is how it certified the bank exit as reachable from four centimetres
  * inside a marble slab.
  */
-const PHASE_PLAYER_BOUNDS = Object.freeze({
-  safehouse: [-8.7, 8.7, -6.7, 6.7],
-  van: [-1.45, 1.45, -2.65, 2.65],
-  // The z floor reaches into the vault corridor, which is where the cash is.
-  bank: [-10.6, 10.6, -12.9, 10.4],
-  street: [-8.8, 8.8, -35.2, 35.2],
-  garage: [-11.6, 11.6, -14.6, 14.6],
-  driving: [14, 26, -659, -645],
-});
+/* Moved to `./config.js` so the reachability tests can sample the ring a
+ * player can really stand in without a second, drifting copy of the clamp.
+ * `tests/heist-swap-evidence.test.mjs` and `tests/heist-final-car-and-leg.mjs`
+ * both read it from there. */
+const PHASE_PLAYER_BOUNDS = HEIST_PHASE_PLAYER_BOUNDS;
 
 function constrainPlayerToPhase() {
   const bounds = PHASE_PLAYER_BOUNDS[activePhase];

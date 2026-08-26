@@ -64,10 +64,81 @@
 
 import { BLOCK_CLEAR_OFFICERS } from './config.js';
 
+/**
+ * THE SEVEN PIECES OF EVIDENCE, BY NAME.
+ *
+ * Owner, playtest 2026-08-26: he disposed of six and *could not find the
+ * seventh*. Every one of the seven is reachable — measured with a real ray from
+ * the legal standing ring, 98 to 100 % of the positions a player can actually
+ * occupy acquire each prop (`tests/heist-swap-evidence.test.mjs`). What the
+ * player was never told is WHICH SEVEN.
+ *
+ * The order line said *"Transfer the cash, change, and bag the weapons —
+ * 6/7 done"*: three verbs, a count of seven, and no way to work out which of
+ * the four unnamed ones was outstanding. Worse, three of the seven show no
+ * prompt at all until the one before them is finished — the trunk gates the
+ * cash, the cash gates the wipe, the masks gate the jackets — so on arrival
+ * only four of the seven props have a prompt on them, and the wipe, which is
+ * the one at the end of the longest chain, is a rag on a bench that nothing on
+ * screen ever mentions. That is a pixel hunt, and it is a HUD defect rather
+ * than a puzzle defect: the chain is the fiction (you cannot load a shut boot,
+ * you cannot wipe a car you are still loading) and it stays.
+ *
+ * So the panel names all seven, ticks the ones that are done, and says what is
+ * blocking the ones that are not. `key` is the `swapProgress` flag `main.js`
+ * keeps; `after` is the flag that has to be true before the prop takes a
+ * prompt, and it is read from the same place the interaction's `enabled` is.
+ */
+export const SWAP_EVIDENCE = Object.freeze([
+  Object.freeze({ key: 'trunk', label: 'Open the clean car\u2019s trunk', after: null }),
+  Object.freeze({ key: 'bags', label: 'Move the cash across', after: 'trunk' }),
+  Object.freeze({ key: 'masks', label: 'Bag the masks', after: null }),
+  Object.freeze({ key: 'jackets', label: 'Change the outer jackets', after: 'masks' }),
+  Object.freeze({ key: 'weapons', label: 'Clear and bag the weapons', after: null }),
+  Object.freeze({ key: 'aid', label: 'Bind Rippin\u2019s leg', after: null }),
+  Object.freeze({ key: 'wiped', label: 'Wipe the dirty car and the gear', after: 'bags' }),
+]);
+
 /** How many of the seven evidence actions at the swap are done. */
 function swapDone(progress) {
-  const values = Object.values(progress ?? {});
-  return values.length ? values.filter(Boolean).length : 0;
+  const done = progress ?? {};
+  return SWAP_EVIDENCE.filter((item) => done[item.key]).length;
+}
+
+/** The next thing the player can actually walk up to and press. */
+function nextSwapAction(progress = {}) {
+  return SWAP_EVIDENCE.find((item) => !progress[item.key]
+    && (!item.after || progress[item.after])) ?? null;
+}
+
+/**
+ * The seven, as objective-panel items.
+ *
+ * The shape `src/core/objective-panel.js` renders: a label, `done`, and a
+ * tally on the first row so the count is on screen next to the list it counts.
+ * A step whose prerequisite is not met is `required: false`, which the shared
+ * panel draws hollow and italic — visibly a thing you cannot do YET rather
+ * than a thing you have failed to find.
+ *
+ * @param {object} [progress] the `swapProgress` flags
+ * @returns {{title: string, items: object[], hint: string}}
+ */
+export function swapEvidencePlan(progress = {}) {
+  const done = swapDone(progress);
+  const next = nextSwapAction(progress);
+  return {
+    title: 'Clean the swap',
+    items: SWAP_EVIDENCE.map((item, index) => ({
+      label: item.label,
+      done: progress[item.key] === true,
+      required: progress[item.key] === true || !item.after || progress[item.after] === true,
+      current: next?.key === item.key,
+      ...(index === 0 ? { tally: { count: done, total: SWAP_EVIDENCE.length } } : {}),
+    })),
+    hint: done >= SWAP_EVIDENCE.length
+      ? 'Everything is clean. Leave in the clean car.'
+      : (next ? `Next: ${next.label.toLowerCase()}.` : ''),
+  };
 }
 
 /**
@@ -183,11 +254,16 @@ export const HEIST_ORDERS = Object.freeze({
   CITY_PURSUIT: 'Follow Rippin’s calls and keep the cruisers off the back bumper.',
   ROADBLOCK: 'Roadblock ahead. Straight through the centre gap — do not brake.',
   INDUSTRIAL_ROUTE: 'Canal service road. Lights off before the yard gate on the left.',
+  /* NAMED, not counted. See `SWAP_EVIDENCE`: the count on its own is what sent
+   * the owner round a dark yard looking for a seventh thing nobody had told
+   * him about. The panel carries all seven; this line carries the one he can
+   * do next, because the standing order is a sentence and has to stay one. */
   VEHICLE_SWAP: (c = {}) => {
     const done = swapDone(c.swapProgress);
-    return done >= 7
-      ? 'Everything is clean. Leave in the clean car.'
-      : `Nobody followed you in. Transfer the cash, change, and bag the weapons — ${done}/7 done.`;
+    if (done >= SWAP_EVIDENCE.length) return 'Everything is clean. Leave in the clean car.';
+    const next = nextSwapAction(c.swapProgress ?? {});
+    return `Nobody followed you in. Clean the swap — ${done}/${SWAP_EVIDENCE.length} done.`
+      + (next ? ` Next: ${next.label.toLowerCase()}.` : '');
   },
 
   /* ---- the safehouse, coming home ----
@@ -199,7 +275,7 @@ export const HEIST_ORDERS = Object.freeze({
    * WHAT HAD BEEN DECIDED. The debrief is the only place the job gets scored,
    * so from the count onward the order carries the count: the two numbers Lou
    * asks about, in the HUD, next to the thing you still have to do. */
-  SAFEHOUSE_RETURN: '1/4 — Let the room breathe. Get Rippin’s leg wrapped. HOLD E.',
+  SAFEHOUSE_RETURN: '1/4 — Rippin is still bleeding. Go to him and HOLD E to wrap the leg.',
   FIRST_AID: '2/4 — Empty the bags onto the briefing table and count the take. HOLD E at the table.',
   MONEY_COUNT: '2/4 — Empty the bags onto the briefing table and count the take. HOLD E at the table.',
   DEBRIEF: (c = {}) => `${c.weaponsDown
@@ -261,6 +337,70 @@ export function objectiveForState(state, context = {}) {
   if (typeof entry === 'function') return entry(context);
   if (typeof entry === 'string' && entry) return entry;
   return HEIST_ORDERS.SAFEHOUSE_ARRIVAL;
+}
+
+/**
+ * THE FOUR NUMBERED ACTIONS OF THE DEBRIEF, AND WHAT EACH ONE IS ON.
+ *
+ * ## Rippin's leg
+ *
+ * Owner, playtest 2026-08-26: *"Rippin's leg just re-arms armor"*. He was
+ * describing exactly what the room does. Step 1/4 says *get Rippin's leg
+ * wrapped*, and the prompt that said it was registered on
+ * `interactables.armor` — the plate-carrier stand in the far corner, six
+ * metres from Rippinflow, whose entire vocabulary everywhere else in this
+ * mission is the vest: `armor.userData.setEquipped`, `preparation.armorReady`,
+ * the HUD armour band, and a `syncSafehousePresentation()` on every checkpoint
+ * resume that puts the carrier back on it. So the player walked to a mannequin
+ * wearing body armour, held E, and the mission called it first aid. Nothing
+ * about a leg was anywhere near it.
+ *
+ * The step is on RIPPINFLOW now — the man with the wound, who already carries
+ * a person-sized look volume for the crew introductions — and it touches the
+ * injury and nothing else. `tests/heist-final-car-and-leg.test.mjs` holds the
+ * decoupling: no step in this table may name the armour stand, and step one
+ * must name a person.
+ *
+ * `target` is resolved in `main.js`: 'rippin' is the crew actor's group, the
+ * other three are `level.phases.safehouse.interactables` keys. `state` is the
+ * mission state the step is available in — it is also what the step advances
+ * out of, which is why the table is in order and read in order.
+ */
+export const SAFEHOUSE_DEBRIEF_STEPS = Object.freeze([
+  Object.freeze({
+    id: 'first_aid',
+    target: 'rippin',
+    state: 'SAFEHOUSE_RETURN',
+    label: '1/4 — Wrap Rippin\u2019s leg',
+    doneLabel: 'Rippin\u2019s leg is wrapped',
+    hold: 1.5,
+  }),
+  Object.freeze({
+    id: 'count',
+    target: 'briefing',
+    state: 'FIRST_AID',
+    label: '2/4 — Empty the bags and count the take',
+    hold: 1.8,
+  }),
+  Object.freeze({
+    id: 'weapons_down',
+    target: 'loadout',
+    state: 'DEBRIEF',
+    label: '3/4 — Put the weapons down',
+    hold: 0,
+  }),
+  Object.freeze({
+    id: 'lou_call',
+    target: 'van',
+    state: 'DEBRIEF',
+    label: '4/4 — Answer Lou\u2019s call',
+    hold: 0,
+  }),
+]);
+
+/** One step by id, for the call sites that wire a handler to it. */
+export function debriefStep(id) {
+  return SAFEHOUSE_DEBRIEF_STEPS.find((step) => step.id === id) ?? null;
 }
 
 /** Every state that has an authored order. For the coverage test. */
