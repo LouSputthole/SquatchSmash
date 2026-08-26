@@ -3029,6 +3029,29 @@ function showDebriefBoard() {
   board.classList.remove('hidden');
 }
 
+/**
+ * The floor under a point, which in the garage is not always the floor.
+ *
+ * `spawnPolice` places every officer at y 0. That is right everywhere except
+ * the one place they are supposed to come IN from: the garage ramp slopes
+ * from the street down to the floor across z 9 to 17, so a man staged on its
+ * footprint at floor height arrives buried to the chest in concrete. Which is
+ * exactly what the owner watched happen.
+ *
+ * The constants mirror the slab in `buildGaragePhase`: tilt -0.22 about a
+ * pivot at y 0.72, z 13, half-thickness 0.15.
+ */
+const GARAGE_RAMP = Object.freeze({
+  halfWidth: 3.5, minZ: 9, maxZ: 17, pivotZ: 13, pivotY: 0.866, slope: 0.2182,
+});
+
+function groundYAt(x, z) {
+  if (activePhase !== 'garage') return 0;
+  if (Math.abs(x) > GARAGE_RAMP.halfWidth) return 0;
+  if (z < GARAGE_RAMP.minZ || z > GARAGE_RAMP.maxZ) return 0;
+  return Math.max(0, GARAGE_RAMP.pivotY + (z - GARAGE_RAMP.pivotZ) * GARAGE_RAMP.slope);
+}
+
 function spawnPolice(block, count, { wave = false } = {}) {
   const gates = police.request(block, { count, visibleGates: [] });
   const baseZ = activePhase === 'street' ? 20 - policeFigures.length * 6 : 5;
@@ -3045,11 +3068,14 @@ function spawnPolice(block, count, { wave = false } = {}) {
       id: `${block}_${policeFigures.length}_${waveIndex}`,
       block,
       phaseId: activePhase,
-      position: entry
-        ? [entry[0] + (Math.random() - 0.5) * 1.6, 0, entry[1] + (Math.random() - 0.5) * 2.4]
-        : (contact
-          ? [contact[0], 0, contact[1]]
-          : [(i % 2 ? -1 : 1) * (4 + i), 0, baseZ - i * 5]),
+      position: (() => {
+        const [px, pz] = entry
+          ? [entry[0] + (Math.random() - 0.5) * 1.6, entry[1] + (Math.random() - 0.5) * 2.4]
+          : (contact
+            ? [contact[0], contact[1]]
+            : [(i % 2 ? -1 : 1) * (4 + i), baseZ - i * 5]);
+        return [px, groundYAt(px, pz), pz];
+      })(),
       recycle: wave,
     });
   }
@@ -3112,8 +3138,13 @@ const WAVE_ENTRY = Object.freeze({
   bank_avenue: [[-6.4, 4], [6.4, 2], [-5.2, -1], [5.6, -3], [0, -6]],
   // Block two: he leaves the van at z 14 and falls back to the garage at −35.
   market_street: [[-6.6, -18], [6.6, -21], [-5.4, -25], [5.8, -27], [0, -30]],
-  // The garage is a defence, and its entry is the ramp he is told to hold.
-  mercer_garage: [[-7.2, 11], [7.2, 10], [-6.4, 13.5], [6.4, 13], [0, 14]],
+  /* The garage is a defence, and its entry is the ramp he is told to hold.
+   * These stand ON the ramp on purpose, which is only possible now that
+   * `groundYAt` puts them on its surface instead of at floor height -- the
+   * old `(0, 14)` sat a man chest-deep in concrete. Coming down the slope is
+   * the believable entrance the owner asked for, and it keeps every arrival
+   * five to eight metres from where he holds rather than on top of him. */
+  mercer_garage: [[-2.4, 12.6], [2.4, 12.6], [-1.1, 14.4], [1.1, 13.8], [0, 11.2]],
 });
 
 /**
@@ -3128,7 +3159,11 @@ const WAVE_ENTRY = Object.freeze({
 const BLOCK_CONTACT = Object.freeze({
   bank_avenue: [[5.5, 19.9], [-5.5, 21.1], [1.9, 15.6], [5.5, 14.1], [-1.9, 8.6]],
   market_street: [[-5.5, -1.1], [5.5, -8.1], [1.9, -12.4], [-5.5, -15.1], [-1.9, -19.4]],
-  mercer_garage: [[-2.4, 12.2], [2.4, 12.2], [0, 11.4], [-8, 11.2], [8, 11.2]],
+  /* Three of these -- (-2.4, 12.2), (2.4, 12.2) and (0, 11.4) -- used to sit
+   * inside the ramp footprint, which is why the opening contact was a row of
+   * men standing waist-deep in the slope doing nothing. They hold the pillar
+   * line and the lane mouths instead, which is cover they can actually use. */
+  mercer_garage: [[-8, 11.2], [8, 11.2], [-5.6, 6.2], [5.6, 6.2], [0, 8.4]],
 });
 
 let waveClock = 4.5;
@@ -3435,6 +3470,44 @@ const POLICE_MOVEMENT = Object.freeze({
   reach: 16,
 });
 
+/**
+ * THE GARAGE FIGHTS AT A DIFFERENT RANGE, and used not to fight at all.
+ *
+ * Owner, playtest 2026-08-26, on the garage: *"they're kind of just standing
+ * there, and they're all kind of just standing there too."*
+ *
+ * The numbers above were written for the street, where a block runs seventy
+ * metres and men bound between parked cars. The garage is a 24 x 30 room, the
+ * player holds at z 6.4, and its eleven fire positions sit between 5.00 and
+ * 9.43 m from him. So `toPlayer < standoff - 1.5` threw out every slot for
+ * anybody whose rolled standoff came up past about 11 -- and `own - toPlayer
+ * < gain` threw out the rest, because in a room that small no bound can buy
+ * three metres of closure. `chooseFirePosition` returned null every time and
+ * every officer sat in `hold` forever. Combat was running, the movement code
+ * was running; there was simply nothing either would ever pick.
+ *
+ * These are the same rules measured against the room they are used in.
+ */
+const GARAGE_MOVEMENT = Object.freeze({
+  /* The top of the band matters as much as the bottom, and for a reason that
+   * is easy to miss. Reinforcements arrive at the head of the ramp about 7.4 m
+   * from where the player holds. Any slot further out than that is FURTHER
+   * from the man than he already is, so it scores a negative gain and is
+   * rejected -- which means a standoff above roughly 6.5 leaves him nothing to
+   * pick in either direction and he stands still. The band has to sit under
+   * the range the room actually delivers him at. */
+  standoff: Object.freeze([3.6, 6.4]),
+  gain: 1.2,
+  reach: 13,
+});
+
+/** The movement rules for the block being fought right now. */
+function movementRules() {
+  return activePhase === 'garage'
+    ? { ...POLICE_MOVEMENT, ...GARAGE_MOVEMENT }
+    : POLICE_MOVEMENT;
+}
+
 const _policeStep = new THREE.Vector3();
 const _policeGoal = new THREE.Vector3();
 
@@ -3454,8 +3527,8 @@ function policeMovementState(entry, index) {
     clock: POLICE_MOVEMENT.hold[0] * 0.4 + spread * 2.4,
     goal: null,
     slot: null,
-    standoff: POLICE_MOVEMENT.standoff[0]
-      + spread * (POLICE_MOVEMENT.standoff[1] - POLICE_MOVEMENT.standoff[0]),
+    standoff: movementRules().standoff[0]
+      + spread * (movementRules().standoff[1] - movementRules().standoff[0]),
     speed: 0,
   };
   return entry.movement;
@@ -3480,15 +3553,16 @@ function chooseFirePosition(entry, taken) {
   const here = entry.root.position;
   const own = Math.hypot(here.x - player.position.x, here.z - player.position.z);
   const standoff = entry.movement.standoff;
+  const rules = movementRules();
   let best = null;
   let bestScore = Infinity;
   for (const slot of slots) {
     if (taken.has(slot.id)) continue;
     const toPlayer = Math.hypot(slot.x - player.position.x, slot.z - player.position.z);
     if (toPlayer < standoff - 1.5) continue;
-    if (own - toPlayer < POLICE_MOVEMENT.gain) continue;
+    if (own - toPlayer < rules.gain) continue;
     const travel = Math.hypot(slot.x - here.x, slot.z - here.z);
-    if (travel > POLICE_MOVEMENT.reach || travel < 0.6) continue;
+    if (travel > rules.reach || travel < 0.6) continue;
     const score = Math.abs(toPlayer - standoff) + travel * 0.25;
     if (score < bestScore) { bestScore = score; best = slot; }
   }
@@ -4341,6 +4415,8 @@ function recoverDrivingRoute(reason) {
 const chaseCamera = new THREE.Vector3();
 const chaseLook = new THREE.Vector3();
 let chaseInitialised = false;
+/** Damped steering lead for the chase camera. Persists across frames. */
+let slipLead = 0;
 
 function updatePursuit(dt, forwardX, forwardZ) {
   const drivePhase = level.phases.driving;
@@ -4562,6 +4638,23 @@ function updateDriving(dt) {
   car.position.set(vehicle.x, vehicle.suspension * 0.6, vehicle.z);
   // Procedural cars are modelled long on local X; physics heading is +Z. Body
   // roll is about that long axis, so it goes on X once the yaw is applied.
+  /* THE WONKY.
+   *
+   * Owner, playtest 2026-08-26: *"the car is a little wonky. It could use a
+   * little refinement."*
+   *
+   * Euler order. Three.js defaults to XYZ, which applies the roll about the
+   * WORLD x axis and only then yaws -- so on the north and south legs, which
+   * is most of this route, `bodyRoll` stopped being roll and became pitch,
+   * dropping the nose about 28 cm into a hard turn and flipping sign with
+   * heading. `YZX` is Ry*Rz*Rx: yaw about world +Y first, then pitch about the
+   * car's own +Z, then roll about its own +X, which is what these three terms
+   * were always meant to be.
+   *
+   * src/specialmeeting/forest/driver.js hit this and left a comment saying so
+   * -- "getting an Euler order wrong here rolls the car when it should pitch
+   * and the mistake looks like a suspension bug". It looked like one here too. */
+  car.rotation.order = 'YZX';
   car.rotation.set(
     vehicle.bodyRoll * 0.9,
     vehicle.heading - Math.PI / 2,
@@ -4576,7 +4669,14 @@ function updateDriving(dt) {
    * whatever the front wheels are doing. */
   const speedRatio = Math.min(1, Math.abs(vehicle.speed) / HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed);
   const back = 11.5 + speedRatio * 4.5;
-  const slipLead = vehicle.steerAngle * 5.5;
+  /* THE WHIPLASH, half of it.
+   *
+   * `steerAngle` is a live control input with no smoothing of its own, and it
+   * was multiplied straight into the look point at 5.5 -- so every flick of
+   * the wheel threw the aim point sideways on the same frame. Damped here, and
+   * the coefficient comes down, because the other half of the effect grows
+   * with speed and the car is about to get a lot faster. */
+  slipLead += (vehicle.steerAngle * 3.4 - slipLead) * Math.min(1, dt * 7);
   chaseCamera.set(
     vehicle.x - forwardX * back - forwardZ * (1.2 + slipLead),
     4.1 + speedRatio * 0.9,
@@ -4590,8 +4690,13 @@ function updateDriving(dt) {
     vehicle.z + forwardZ * (7 + speedRatio * 6) + forwardX * slipLead * 1.6,
   );
   camera.lookAt(chaseLook);
-  camera.rotation.z += (vehicle.bodyRoll * 0.35 + suppression.value * 0.01) * shakeScale();
-  const targetFov = 72 + speedRatio * 14 + handbrake * 3;
+  /* THE WHIPLASH, the other half. `bodyRoll` is a 5 rad/s state read raw, so
+   * the horizon snapped over with the body. Keep enough of it that the car
+   * still feels heavy in a turn, and stop mounting the player's head to the
+   * differential. The FOV pump honours the Reduce Camera Shake setting now
+   * too -- it was the one speed effect that ignored it. */
+  camera.rotation.z += (vehicle.bodyRoll * 0.16 + suppression.value * 0.01) * shakeScale();
+  const targetFov = 72 + speedRatio * 14 * shakeScale() + handbrake * 3;
   camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3.2);
   camera.updateProjectionMatrix();
 

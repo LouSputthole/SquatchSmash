@@ -37,9 +37,16 @@ export const HEIST_ESCAPE_VEHICLE_CONFIG = Object.freeze({
   acceleration: 12.5,
   reverseAcceleration: 6.5,
   brakeForce: 16,
-  drag: 0.014,
+  /* THE TOP END.
+   *
+   * Owner: *"I would like the car to be able to go a little bit faster, so
+   * like at least 90."* `maxForwardSpeed` is a clamp, not a target, and drag
+   * is what the car actually settles against -- raising the clamp alone got
+   * it to about 65 mph and no further. Both move together.
+   * 41 m/s * 2.23694 = 91.7 mph. */
+  drag: 0.0070,
   rollingResistance: 0.55,
-  maxForwardSpeed: 26,
+  maxForwardSpeed: 41,
   maxReverseSpeed: 8,
   maxSteer: 0.62,
   steerRate: 3.4,

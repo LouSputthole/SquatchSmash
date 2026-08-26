@@ -1908,11 +1908,28 @@ function buildGarage() {
    *
    * The ramp keeps its place — it is where the crew came in from — and is a
    * solid now. The spawn moved to the clear floor in front of it. */
+  /* AND THEN IT WAS ROTATED THE WRONG WAY.
+   *
+   * Owner, playtest 2026-08-26: *"the on-ramp that you came in on is inverted
+   * the wrong way."*
+   *
+   * `rotation.x = 0.22` drives the +Z end DOWN and the -Z end UP, and +Z is
+   * the street: the slab stood 2.07 m high where the garage floor is and 0.32
+   * m high at the mouth it is supposed to come in through. It climbed into the
+   * room. Negative is the way down from the street, and the pivot drops from
+   * 1.05 to 0.72 so the foot lands flush with the floor instead of on a 32 cm
+   * lip: interior end 0.00, portal line 1.30, street end 1.74. */
   const rampStart = group.children.length;
-  const ramp = box(group, [7, 0.3, 8], [0, 1.05, 13], MAT.concrete, 'garage-ramp');
-  ramp.rotation.x = 0.22;
+  const RAMP_TILT = -0.22;
+  const RAMP_PIVOT_Y = 0.72;
+  const ramp = box(group, [7, 0.3, 8], [0, RAMP_PIVOT_Y, 13], MAT.concrete, 'garage-ramp');
+  ramp.rotation.x = RAMP_TILT;
   for (const side of [-1, 1]) {
-    box(group, [0.3, 1.6, 8], [side * 3.5, 1.5, 13], MAT.darkConcrete, `garage-ramp-wall-${side}`);
+    const wall = box(group, [0.3, 1.6, 8], [side * 3.5, RAMP_PIVOT_Y + 0.83, 13],
+      MAT.darkConcrete, `garage-ramp-wall-${side}`);
+    /* The kerbs were axis-aligned while the slab between them sloped, so they
+     * sank into it at one end and floated off it at the other. */
+    wall.rotation.x = RAMP_TILT;
   }
   ownAddedChildren(group, rampStart, 'heist.garage.ramp');
   const hold = box(group, [8, 0.1, 3], [0, 0.05, 8], MAT.invisible, 'garage-hold');
@@ -2017,9 +2034,21 @@ function buildGarage() {
         .filter((z) => !(z === 10 && Math.abs(x) === 3))
         .map((z) => bounds([0.8, 4.4, 0.8], [x, 2.2, z]))),
       bounds([4.1, 1.9, 2.2], [0, 0.95, -8]),
-      // The ramp and its side walls, which were drawn but not solid.
-      bounds([6.7, 2.6, 8], [0, 1.3, 13]),
-      ...[-1, 1].map((side) => bounds([0.3, 1.6, 8], [side * 3.5, 1.5, 13])),
+      /* THE RAMP, AS SOMETHING YOU CAN WALK ON.
+       *
+       * It used to be one axis-aligned 6.7 x 2.6 x 8 box over the whole
+       * footprint -- a solid wall two and a half metres tall, in both
+       * directions, standing exactly where the way in is. The slab above it
+       * slopes, so the solid has to as well, and this engine's colliders are
+       * AABBs: approximate the slope with eight one-metre treads, each as
+       * tall as the ramp surface at its own midpoint. That is a 21.8 cm rise
+       * per tread, which is an ordinary stair step. */
+      ...Array.from({ length: 8 }, (_, i) => {
+        const z = 9.5 + i;
+        const top = 0.866 + (z - 13) * 0.2182;
+        return bounds([6.7, top, 1], [0, top / 2, z]);
+      }),
+      ...[-1, 1].map((side) => bounds([0.3, 2.4, 8], [side * 3.5, 1.2, 13])),
       // The stacked crates in the two corners.
       ...[[-6.8, -13], [9.6, 4]].map(([x, z]) => bounds([0.9, 3.6, 0.9], [x, 1.8, z])),
       bounds([1.4, 1.2, 0.8], [5.5, 0.6, -5.5]),
