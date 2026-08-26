@@ -1,5 +1,13 @@
 import { isFutureInitiationCue } from './audio-scope.mjs';
 
+const CABIN_CALL_PREFIXES = Object.freeze([
+  'vo.call.lou.cabin_lay_low.',
+  'vo.call.gratin.cabin_basement.',
+  'vo.call.ape.cabin_morning.',
+]);
+const isCabinVoiceCue = (name) => name.startsWith('vo.cabin.')
+  || CABIN_CALL_PREFIXES.some((prefix) => name.startsWith(prefix));
+
 /**
  * Build the human-facing audio production handoff from the two audio systems
  * that still exist in this repository.
@@ -24,7 +32,7 @@ const VOICE_SCENES = [
    * and the whole Silver Case run disappears into the Silver Room's section. */
   ['The Silver Room', (name) => name.startsWith('vo.silver.')],
   ['The Silver Case', (name) => name.startsWith('vo.silvercase.')],
-  ['The Countryside Cabin', (name) => name.startsWith('vo.cabin.')],
+  ['The Countryside Cabin', isCabinVoiceCue],
   ['Day Four apartment', (name) => name.startsWith('vo.call.lou.golf.')
     || name.startsWith('vo.call.lou.heist.')
     || name.startsWith('vo.machine.lou.golf_morning.')

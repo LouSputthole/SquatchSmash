@@ -271,10 +271,11 @@ export class Phone {
     if (this.call.def.meeting) this.onMeeting?.();
   }
 
-  /** Hang up, or refuse to pick up. Both end the same way. */
-  hangUp() {
-    if (!this.call) return;
+  /** Hang up, or refuse to pick up. Required story calls only end naturally. */
+  hangUp({ force = false } = {}) {
+    if (!this.call) return false;
     const { def, state } = this.call;
+    if (state === 'talking' && def.allowHangup === false && !force) return false;
     this.audio?.stopLoop?.('phone.ring', 0.08);
     try { this.call.source?.stop(); } catch { /* already finished */ }
     this.audio?.play?.('phone.hangup', { volume: 0.5 });
@@ -286,6 +287,7 @@ export class Phone {
     if (state === 'ringing') this.missed++;
     this.call = null;
     if (state === 'talking') this.onCallState?.(false, def);
+    return true;
   }
 
   _stamp() {
@@ -302,7 +304,7 @@ export class Phone {
     const turn = c.turns[c.line];
     if (!turn) {
       // He does not get to say goodbye. Nobody on this phone says goodbye.
-      this.hangUp();
+      this.hangUp({ force: true });
       return;
     }
     /* His own voice is in the room and the caller's is coming out of an
@@ -549,7 +551,7 @@ export class Phone {
     g.fillStyle = '#4d5768';
     g.font = '12px ui-monospace, monospace';
     g.fillText(`${Math.floor(c.t / 60)}:${String(Math.floor(c.t % 60)).padStart(2, '0')}`, W / 2, H * 0.80);
-    this._hint(g, '[E] hang up');
+    this._hint(g, c.def.allowHangup === false ? 'connected · listen' : '[E] hang up');
   }
 
   _hint(g, text) {

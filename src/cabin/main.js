@@ -11,6 +11,7 @@ import {
 } from '../core/campaign.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import {
+  CABIN_HOSTAGE_IDS,
   COUNTRYSIDE_CABIN_LANDMARKS,
   createCountrysideCabinStory,
 } from '../core/countryside-cabin-story.js';
@@ -28,8 +29,20 @@ import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
 import { Radio } from '../core/radio.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { newsSegmentsFor } from '../core/stations.js';
 import { Tv } from '../core/tv.js';
+import {
+  WEAPON_IDS,
+  WeaponSystem,
+  buildWeaponModel,
+  mountArmory,
+  mountCharacterWeapon,
+  playWeaponCue,
+  weaponCueNames,
+  weaponDef,
+} from '../core/weapons/index.js';
+import { BloodImpactSystem, DeathBloodPool } from '../world/blood.js';
 import { makeMaterials } from '../world/materials.js';
 import {
   makeHeldCigarette,
@@ -38,8 +51,19 @@ import {
   makePhone,
   poseHeldDrink,
 } from '../world/props.js';
+import {
+  cabinCleanupRestoreState,
+  createCabinBonfireCastStaging,
+} from './body-cleanup.js';
 import { buildCountrysideCabin } from './world.js';
+import {
+  STORY_TO_CLEANUP_BODY,
+  createCabinChapterRuntime,
+} from './chapter-runtime.js';
+import { createCabinDialogueDirector } from './dialogue-director.js';
+import { createCabinExecutionChoice } from './execution-choice.js';
 import { createLagHintDirector, LAG_VOICE_PREFIX, speakLagLine } from './lag.js';
+import { CABIN_VO_PREFIX, MARGO_CALL_READY, cabinScriptCues } from './script.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -47,6 +71,10 @@ const loading = document.getElementById('loading');
 const startButton = document.getElementById('start-btn');
 const postureEl = document.getElementById('posture');
 const restCurtain = document.getElementById('cabin-rest');
+const combatEl = document.getElementById('cabin-combat');
+const rangeEl = document.getElementById('cabin-range-score');
+const choiceEl = document.getElementById('cabin-choice');
+const intoxicationEl = document.getElementById('cabin-intoxication');
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -142,6 +170,9 @@ const state = {
   heldUseItem: null,
   consumeLatch: false,
   level: 'cabin',
+  basementVisited: false,
+  basementInspection: null,
+  carryingBody: null,
 };
 
 const WALK_EYE_HEIGHT = 1.66;
@@ -152,6 +183,15 @@ let cabin = null;
 let bathroomMirror = null;
 let player = null;
 let input = null;
+let chapter = null;
+let dialogue = null;
+let executionChoice = null;
+let weapons = null;
+let armory = null;
+let gratinPistol = null;
+let bloodImpacts = null;
+let deathPools = null;
+let bonfireCast = null;
 let lastFrame = performance.now();
 
 function syncTime() {
@@ -178,15 +218,40 @@ function applyTimeOfDay() {
 }
 
 function objectiveHint() {
+  const phase = story.phase();
+  const phaseHints = {
+    opening_call: 'Keep the phone selected · answer Lou with E',
+    explore: 'Explore any two marked locations · the creek, ridge, shed, or range',
+    gratin_call: 'Keep the phone close · Gratin is calling',
+    open_cellar: 'Return to the cabin · Follow the Supreme Leader',
+    enter_dungeon: 'Search the finished cellar for a second concealed door',
+    interrogation: 'Choose a tool, then work on both restrained prisoners',
+    ateam_intel: 'Let the A-Team prisoner finish talking',
+    execution_choice: 'Choose within ten seconds · 1 YES or 2 NO',
+    execution: story.executionChoice() === 'player'
+      ? 'Use Gratin’s pistol to finish both prisoners'
+      : 'Stand clear while Gratin finishes the job',
+    nightfall: 'Night is falling above the cellar',
+    wrap_bodies: 'Wrap both bodies at the marked stations',
+    carry_bodies: 'Carry each wrapped body out of the dungeon and onto the pyre',
+    pour_gas: 'Take the red gas can and soak the pyre',
+    ignite_bonfire: 'Light the soaked pyre',
+    fire_cleanup: 'Stay by the fire with Lag and Gratin',
+    drink: 'Take the offered drink with Lag and Gratin',
+    blackout: 'Finish the night by the fire',
+    morning_call: 'Answer Ape’s morning call',
+    morning_wake: 'Get up and meet Ape at the car',
+  };
+  if (phaseHints[phase]) return phaseHints[phase];
   const exit = story.tryLeave();
   if (exit.kind === 'go') return 'Ape is waiting at the car · Lag and the property remain open';
-  if (exit.id === 'cabin_rest_first') return 'Lag is chopping by the woodpile · use the bed whenever you are ready';
   return exit.line;
 }
 
 function repaintObjectives() {
+  const chapterActive = story.gratinCallComplete();
   objectivePanel.set({
-    title: 'THE HIDEOUT · LAY LOW',
+    title: chapterActive ? 'THE HIDEOUT · BELOW THE FLOORBOARDS' : 'THE HIDEOUT · LAY LOW',
     items: story.objectives().map((item) => ({
       label: item.label,
       done: item.done,
@@ -244,8 +309,15 @@ function placePlayerAtCabinPose(pose, { level = null, reason = 'cabin-teleport' 
   return true;
 }
 
-function transitionCabinBasement(direction) {
+function transitionCabinBasement(direction, detail = {}) {
   const down = direction === 'down';
+  if (down) {
+    const opened = chapter?.openCellar?.() ?? story.openCellar();
+    if (!opened?.ok) {
+      hud.toast('Nothing behind the wardrobe');
+      return false;
+    }
+  }
   const pose = down ? cabin?.spawns?.basement : cabin?.spawns?.wardrobeReturn;
   if (!pose || !player || state.resting) return false;
   interaction.setPaused(true);
@@ -258,11 +330,46 @@ function transitionCabinBasement(direction) {
   input?.refresh(`basement-${direction}`);
   audio.play('door.creak', { volume: 0.24 });
   if (down) {
-    hud.toast('Hidden basement found', 'good');
-    hud.say('Behind the wardrobe, a ladder drops into a stocked room under the cabin.', 4200);
+    const firstEntry = detail?.firstEntry === true || !state.basementVisited;
+    state.basementVisited = true;
+    if (firstEntry) {
+      hud.toast('Hidden basement found', 'good');
+      hud.say('Behind the wardrobe, a ladder drops into a stocked room under the cabin.', 4200);
+    } else {
+      hud.toast('Back in the basement');
+      hud.say('Back below. <em>The hideout supplies are still where Lou left them.</em>', 2600);
+    }
   } else {
     hud.say('Back through the wardrobe.', 2200);
   }
+  return true;
+}
+
+const BASEMENT_INSPECTIONS = Object.freeze({
+  workbench: Object.freeze({
+    toast: 'Repair supplies',
+    line: 'Hand tools, wire, spare fittings, and a supply ledger. <em>Enough to keep the cabin running without a trip into town.</em>',
+    duration: 4200,
+  }),
+  shelves: Object.freeze({
+    toast: 'Provisions stocked',
+    line: 'Water, preserves, dry goods, and sealed tins. <em>Provisions for staying invisible longer than planned.</em>',
+    duration: 4000,
+  }),
+  cot: Object.freeze({
+    toast: 'Emergency cot',
+    line: 'A narrow cot, a folded blanket, and a pocket book. <em>One more place to sleep if the cabin has to hold somebody.</em>',
+    duration: 4000,
+  }),
+});
+
+function inspectCabinBasement(id) {
+  const inspection = BASEMENT_INSPECTIONS[id];
+  if (!inspection) return false;
+  state.basementInspection = id;
+  if (cabin?.state) cabin.state.basementInspection = id;
+  hud.toast(inspection.toast);
+  hud.say(inspection.line, inspection.duration);
   return true;
 }
 
@@ -325,53 +432,17 @@ function standUp() {
 }
 
 function restAtCabin() {
-  if (state.resting) return;
+  if (state.resting) return false;
   discoverCabin('bedroom');
-  if (story.rested()) {
-    hud.say('Already slept through the heat. <em>Lou has the next thing.</em>', 3600);
-    return;
+  if (story.chapterComplete()) {
+    hud.say('Already slept it off. <em>Ape is waiting by the car.</em>', 3200);
+  } else if (story.blackedOut()) {
+    hud.say('Wide awake now. <em>Whatever Lag put in the water worked.</em>', 3200);
+  } else {
+    hud.say('Not yet. <em>Lou said lay low; Gratin apparently heard “build a dungeon.”</em>', 3800);
+    hud.toast('Finish the work below first');
   }
-  state.resting = true;
-  interaction.setPaused(true);
-  input?.refresh('rest-start');
-  restCurtain.classList.add('active');
-  audio.stopLoop('cabin.forest', 0.8);
-  window.setTimeout(() => {
-    story.rest();
-    syncCampaignPresentation();
-    const wake = cabin.spawns?.wake ?? cabin.bedPose;
-    if (wake?.position) {
-      player.position.copy(wake.position);
-      // The property spans deep creek and ridge elevations. Copying only the
-      // wake transform left Player.ground carrying whichever remote landmark
-      // Tony last visited, so the next walk frame could put the camera under
-      // the cabin floor. A wake is a complete physical checkpoint.
-      player.ground = floorForCabinPose(wake);
-      player.eyeHeight = WALK_EYE_HEIGHT;
-      player.targetEye = WALK_EYE_HEIGHT;
-      player.jumpHeight = 0;
-      player.grounded = true;
-      player.crouching = false;
-      player.velocity?.set?.(0, 0, 0);
-      input?.clear('rest-wake');
-      player.position.y = player.ground + WALK_EYE_HEIGHT;
-      player.yaw = wake.yaw ?? player.yaw;
-      player.pitch = wake.pitch ?? -0.08;
-      player.mode = 'walk';
-      state.level = 'cabin';
-    }
-    window.setTimeout(() => {
-      restCurtain.classList.remove('active');
-      state.resting = false;
-      interaction.setPaused(false);
-      input?.refresh('rest-complete');
-      audio.startLoop('cabin.forest', {
-        name: 'ambience.course', volume: 0.21, ambience: true, fade: 1.6,
-      });
-      hud.say('<em>Day Five.</em> Still quiet. A message from Ape says the car is ready.', 5200);
-      hud.toast('Laid low until the next afternoon', 'good', 3600);
-    }, 1050);
-  }, 850);
+  return false;
 }
 
 function visitLandmark(id) {
@@ -383,6 +454,7 @@ function visitLandmark(id) {
     const residentAwareLine = {
       shed: 'Axes, fuel tins, a workbench, and a swept patch where Lag keeps the useful tools.',
       firepit: 'Old ash under new cedar. Lag has kept the ring ready without advertising smoke above the road.',
+      range: 'Five crude targets, a real backstop, and ten rounds on the chalkboard. Somebody took boredom seriously.',
     }[id];
     hud.say(residentAwareLine ?? result.landmark.line, 5200);
     hud.toast(`${result.landmark.shortLabel} explored`, 'good');
@@ -391,6 +463,7 @@ function visitLandmark(id) {
     const company = ['shed', 'firepit'].includes(id) ? ' Lag keeps to his work.' : ' Still nobody around.';
     hud.say(`Been here. <em>${result.landmark.shortLabel}.</em>${company}`, 3000);
   }
+  chapter?.notifyLandmark?.(result);
   return result;
 }
 
@@ -408,6 +481,8 @@ function leaveCabin() {
   // rather than relying on document teardown to release held keys, pointer
   // lock, positional nodes, or an HTML radio element.
   input?.suspend();
+  chapter?.stop?.();
+  weapons?.stow?.({ silent: true });
   radio.pause();
   audio.stopLoop('cabin.forest', 0.12);
   audio.stopLoop('cabin.fridge', 0.12);
@@ -590,6 +665,316 @@ function useWoodpile() {
   return true;
 }
 
+const CLEANUP_TO_STORY_HOSTAGE = Object.freeze(Object.fromEntries(
+  Object.entries(STORY_TO_CLEANUP_BODY).map(([storyId, cleanupId]) => [cleanupId, storyId]),
+));
+const pooledCaptives = new Set();
+const lastCaptiveImpact = new Map();
+
+function dungeonActorFor(id) {
+  if (!cabin?.basement?.dungeon) return null;
+  if (id === CABIN_HOSTAGE_IDS.ATEAM_MEMBER || id === 'ateam' || id === 'a-team-member') {
+    return cabin.basement.dungeon.actors.ateam;
+  }
+  if (id === CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER
+    || id === 'counterStrike' || id === 'counterstrike-player') {
+    return cabin.basement.dungeon.actors.counterStrike;
+  }
+  return null;
+}
+
+function storyHostageForCleanup(id) {
+  return CLEANUP_TO_STORY_HOSTAGE[id] ?? null;
+}
+
+function canCleanupWrap(id) {
+  const storyId = storyHostageForCleanup(id);
+  const hostage = storyId ? story.hostageState(storyId) : null;
+  return Boolean(story.nightfallComplete() && hostage?.dead && !hostage.wrapped);
+}
+
+function canCleanupCarry(id) {
+  const storyId = storyHostageForCleanup(id);
+  const hostage = storyId ? story.hostageState(storyId) : null;
+  return Boolean(hostage?.wrapped && !hostage.atFire);
+}
+
+function canCleanupStage(id) {
+  return canCleanupCarry(id) && cabin?.bodyCleanup?.snapshot?.().carryingId === id;
+}
+
+function canUseOrdinaryFirepit() {
+  return !['wrap_bodies', 'carry_bodies', 'pour_gas', 'ignite_bonfire', 'fire_cleanup', 'drink', 'blackout']
+    .includes(story.phase());
+}
+
+function useShootingRange(range = cabin?.shootingRange) {
+  if (!range) return false;
+  const before = range.snapshot();
+  const snapshot = range.begin();
+  if (weapons?.equipped) {
+    hud.toast(before.active ? 'Ten-shot range reset' : 'Ten-shot range started', 'good');
+    hud.say('Ten rounds. Painted centre is ten. <em>The backstop is the part you absolutely do not miss.</em>', 3800);
+  } else {
+    hud.toast('Range found · bring a rifle back');
+    hud.say('The range is live, but your hands are empty. <em>There are rifles below the cabin once Gratin opens the way.</em>', 4200);
+  }
+  renderRangeHud(snapshot);
+  return true;
+}
+
+function onRangeEvent(event) {
+  renderRangeHud(event?.snapshot);
+  if (event?.type === 'hit') {
+    hud.toast(`Range hit · +${event.delta}`, 'good', 900);
+  } else if (event?.type === 'complete') {
+    hud.toast(`Range complete · ${event.snapshot.currentScore} points`, 'good', 3200);
+  }
+}
+
+function handleDungeonDoor(action, event) {
+  if (action !== 'open' || event?.allowed === false) return false;
+  const result = chapter?.enterDungeon?.();
+  if (!result?.ok) return false;
+  audio.play('door.creak', { volume: 0.42, position: cabin.basement.dungeon.anchors.door });
+  return true;
+}
+
+function handleDungeonGratin() {
+  const phase = story.phase();
+  if (phase === 'interrogation') {
+    chapter?.introduceTools?.();
+    hud.toast('Gratin is waiting on you');
+    return true;
+  }
+  if (['execution_choice', 'execution'].includes(phase)) {
+    hud.say('<b>Gratin:</b> We can continue when you are ready.', 2400);
+    return true;
+  }
+  hud.say('<b>Gratin:</b> One thing at a time, Prospect.', 2400);
+  return true;
+}
+
+function handleDungeonTool(id) {
+  const selectable = new Set(['pliers', 'saw', 'battery', 'syringes', 'towels', 'leads', 'bucket']);
+  if (!selectable.has(id)) {
+    chapter?.introduceTools?.();
+    hud.say(id === 'rack'
+      ? 'Old oak, iron rollers, leather restraints. <em>It has seen worse nights than this one.</em>'
+      : 'Gratin keeps the whole table clean, ordered, and deeply upsetting.', 3200);
+    return true;
+  }
+  chapter?.selectTool?.(id);
+  hud.toast(`${id[0].toUpperCase()}${id.slice(1)} selected`);
+  return true;
+}
+
+function handleDungeonCaptive(id) {
+  const result = chapter?.torture?.(id);
+  if (!result?.ok) {
+    if (result?.reason === 'interrogation_busy') hud.toast('Let them finish talking');
+    else if (result?.reason === 'tool_required') hud.toast('Choose something from the tool table');
+    else if (story.executionChoice() === 'player') hud.toast('Gratin gave you the pistol for this');
+    return false;
+  }
+  return true;
+}
+
+function renderCombatHud() {
+  const snapshot = weapons?.hud?.();
+  combatEl?.classList.toggle('hidden', !snapshot);
+  if (!snapshot || !combatEl) return;
+  combatEl.querySelector('.weapon').textContent = snapshot.name;
+  combatEl.querySelector('.ammo').textContent = `${snapshot.rounds}/${snapshot.capacity} · ${snapshot.reserve}`;
+  combatEl.querySelector('.reload').textContent = snapshot.reloading ? 'RELOADING' : snapshot.empty ? 'EMPTY · R' : '';
+}
+
+function renderRangeHud(snapshot = cabin?.shootingRange?.snapshot?.()) {
+  if (!rangeEl || !snapshot) return;
+  const visible = snapshot.active || snapshot.complete;
+  rangeEl.classList.toggle('hidden', !visible);
+  rangeEl.querySelector('.range-score').textContent = snapshot.active
+    ? `${snapshot.currentScore} PTS · ${snapshot.shotsRemaining} SHOTS · ${snapshot.timeRemaining.toFixed(1)}s`
+    : `${snapshot.lastScore} PTS · ${snapshot.hits} HITS`;
+  rangeEl.querySelector('.range-best').textContent = `BEST ${snapshot.bestScore}`;
+}
+
+function setIntoxication(amount = 0) {
+  const level = THREE.MathUtils.clamp(Number(amount) || 0, 0, 1);
+  if (!intoxicationEl) return;
+  intoxicationEl.style.setProperty('--cabin-drunk', String(Math.max(0.08, level * 0.72)));
+  intoxicationEl.classList.toggle('active', level > 0.01);
+}
+
+function ensurePhoneSelected() {
+  weapons?.stow?.({ silent: true });
+  if (!cabin.inventory.has('phone')) {
+    const inserted = cabin.inventory.add('phone');
+    if (!inserted) {
+      const replace = cabin.inventory.items.findIndex((item) => item && item !== 'phone');
+      if (replace >= 0) cabin.inventory.removeAt(replace, cabin.inventory.items[replace]);
+      cabin.inventory.add('phone');
+    }
+  }
+  const slot = cabin.inventory.items.indexOf('phone');
+  if (slot >= 0) cabin.inventory.select(slot);
+  hud.toast('Phone ringing · E to answer');
+  return slot >= 0;
+}
+
+function dispatchMargoReady(payload = {}) {
+  const eventName = payload.eventName || MARGO_CALL_READY.eventName;
+  window.dispatchEvent(new CustomEvent(eventName, {
+    detail: Object.freeze({
+      sceneId: SCENE_IDS.COUNTRYSIDE_CABIN,
+      explorationCount: story.explorationCount(),
+      setupBeat: MARGO_CALL_READY.setupBeat,
+    }),
+  }));
+  return true;
+}
+
+function ensureConsumable(item) {
+  if (!['beer', 'whiskey', 'cigs'].includes(item)) return false;
+  weapons?.stow?.({ silent: true });
+  if (!cabin.inventory.has(item)) {
+    if (cabin.inventory.full) {
+      const replace = cabin.inventory.items.findIndex((entry) => ['eggs', 'slice', 'beer', 'whiskey', 'cigs'].includes(entry));
+      if (replace >= 0) cabin.inventory.removeAt(replace, cabin.inventory.items[replace]);
+    }
+    if (!cabin.inventory.add(item)) return false;
+  }
+  if (item === 'whiskey') cabin.state.whiskeyLeft = Math.max(3, cabin.state.whiskeyLeft || 0);
+  if (item === 'cigs') cabin.state.cigsLeft = Math.max(3, cabin.state.cigsLeft || 0);
+  const slot = cabin.inventory.items.indexOf(item);
+  if (slot >= 0) cabin.inventory.select(slot);
+  hud.toast(item === 'beer' ? 'Hold F to drink with them'
+    : item === 'whiskey' ? 'Hold F to take the pull'
+      : 'Hold F to smoke · Q to pass');
+  return slot >= 0;
+}
+
+function moveCastToFire() {
+  return bonfireCast?.stage?.() ?? false;
+}
+
+function captivePresentation(id) {
+  const actor = dungeonActorFor(id);
+  const hostage = story.hostageState(id);
+  if (!actor || !hostage) return null;
+  actor.sync({
+    pain: hostage.maxHits ? hostage.hits / hostage.maxHits : 0,
+    dead: hostage.dead,
+    wrapped: hostage.wrapped,
+    cause: hostage.dead ? (story.executionChoice() || 'interrogation') : null,
+  });
+  return actor;
+}
+
+function syncDungeonPresentation() {
+  const dungeon = cabin?.basement?.dungeon;
+  if (!dungeon) return;
+  dungeon.setDoorOpen(story.dungeonEntered());
+  for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
+    const hostage = story.hostageState(id);
+    captivePresentation(id);
+    if (hostage.dead) killCaptivePresentation(id, hostage, story.executionChoice() || 'restored');
+  }
+}
+
+function restoreCleanupPresentation() {
+  const cleanup = cabin?.bodyCleanup;
+  if (!cleanup) return;
+  cleanup.sync(cabinCleanupRestoreState({ story, storyToCleanupBody: STORY_TO_CLEANUP_BODY }));
+  // Keep the physical carry leg honest across reloads too. Wrapped bodies
+  // remain in the dungeon and Gratin remains below until both bundles have
+  // actually been carried to the pyre.
+  if (story.bodiesAtFire()) moveCastToFire();
+}
+
+function woundCaptive(id, impact = null) {
+  const actor = dungeonActorFor(id);
+  if (!actor) return false;
+  actor.flinch?.(1);
+  if (!impact?.point || !bloodImpacts) return true;
+  const zone = impact.object?.userData?.cabinCaptiveHitZone || 'body';
+  const anchor = zone === 'head' ? actor.headAnchor : actor.bodyAnchor;
+  bloodImpacts.hit({
+    actor,
+    anchor,
+    spatterAnchor: actor.npc?.parts?.body,
+    point: impact.point,
+    normal: impact.normal,
+    from: impact.origin,
+  });
+  lastCaptiveImpact.set(id, impact);
+  return true;
+}
+
+function killCaptivePresentation(id, hostage, cause = 'unknown') {
+  const actor = dungeonActorFor(id);
+  if (!actor) return false;
+  actor.setDead(true, cause);
+  if (!pooledCaptives.has(id) && deathPools) {
+    const prior = lastCaptiveImpact.get(id);
+    const point = prior?.point?.clone?.() ?? actor.bodyAnchor.getWorldPosition(new THREE.Vector3());
+    deathPools.spill(point, {
+      floorY: cabin.basement.dungeon.bounds.dungeon.floorY,
+      size: 1.08,
+      opacity: 0.90,
+      delay: 0.35,
+      seed: id === CABIN_HOSTAGE_IDS.ATEAM_MEMBER ? 31 : 29,
+    });
+    pooledCaptives.add(id);
+  }
+  void hostage;
+  return true;
+}
+
+function handleWeaponImpact(impact) {
+  const rangeHit = cabin?.shootingRange?.handleImpact?.(impact);
+  if (rangeHit?.applied || rangeHit?.reason === 'lower-zone') return rangeHit;
+  let owner = impact?.object ?? null;
+  while (owner && !owner.userData?.cabinCaptiveId) owner = owner.parent;
+  if (!owner?.userData?.cabinCaptiveId) return null;
+  return chapter?.shootHostage?.(owner.userData.cabinCaptiveId, { hitUnits: 4, impact });
+}
+
+function handleWeaponEvent(event) {
+  cabin?.shootingRange?.handleWeaponEvent?.(event);
+  renderCombatHud();
+  renderRangeHud();
+}
+
+function blackoutToMorning(done) {
+  if (state.resting) return false;
+  state.resting = true;
+  interaction.setPaused(true);
+  weapons?.setTrigger?.(false);
+  weapons?.setAimed?.(false);
+  restCurtain.querySelector('span').textContent = 'THE FIRE FOLDS INTO BLACK';
+  restCurtain.classList.add('active');
+  audio.stopLoop('cabin.forest', 0.9);
+  window.setTimeout(() => {
+    syncCampaignPresentation();
+    const wake = cabin.spawns?.wake ?? cabin.bedPose;
+    placePlayerAtCabinPose(wake, { level: 'cabin', reason: 'cabin-blackout-wake' });
+    setIntoxication(0);
+    restCurtain.querySelector('span').textContent = 'MORNING · SOMEHOW FINE';
+    window.setTimeout(() => {
+      restCurtain.classList.remove('active');
+      state.resting = false;
+      interaction.setPaused(false);
+      input?.refresh('cabin-blackout-complete');
+      audio.startLoop('cabin.forest', {
+        name: 'ambience.course', volume: 0.21, ambience: true, fade: 1.6,
+      });
+      done?.();
+    }, 1150);
+  }, 950);
+  return true;
+}
+
 window.__squatchStage?.('Building the cabin and the property…');
 try {
   cabin = await buildCountrysideCabin({
@@ -624,10 +1009,34 @@ try {
     onLeave: leaveCabin,
     onWoodpile: useWoodpile,
     onFirepit: useFirepit,
+    canUseOrdinaryFirepit,
     onLag: talkToLag,
     canTalkToLag: () => lagHints.canTalk(state.elapsed),
     onPorch: () => hud.say('No traffic. Just the creek below the trees.', 3000),
     onBasementTransition: transitionCabinBasement,
+    onBasementInspect: inspectCabinBasement,
+    canRevealBasement: () => chapter?.canRevealBasement?.() ?? story.basementVisible(),
+    canOpenDungeonDoor: () => story.cellarOpen(),
+    onDungeonDoor: handleDungeonDoor,
+    onDungeonGratin: handleDungeonGratin,
+    onDungeonCaptive: handleDungeonCaptive,
+    onDungeonTool: handleDungeonTool,
+    onRangeEvent,
+    onRange: useShootingRange,
+    canCleanupWrap,
+    canCleanupCarry,
+    canCleanupStage,
+    canCleanupPourGas: () => story.bodiesAtFire() && !story.gasPoured(),
+    onCleanupWrap: (id) => chapter?.wrapBody?.(id),
+    onCleanupCarry: (id) => chapter?.beginCarry?.(id),
+    onCleanupStage: (id) => {
+      const staged = cabin?.bodyCleanup?.stage?.(id) ?? false;
+      if (staged) state.carryingBody = null;
+      return staged;
+    },
+    onCleanupPlaceAtFire: (id) => chapter?.placeBodyAtFire?.(id),
+    onCleanupPourGas: () => chapter?.pourGas?.(),
+    onCleanupIgnite: () => chapter?.igniteBonfire?.(),
   });
   bathroomMirror = new PlanarMirror(scene, cabin.mirrorMesh, {
     width: 0.54,
@@ -653,6 +1062,210 @@ player = new Player(camera, world);
 player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 interaction.setOccluders(cabin.occluders ?? []);
+
+const dungeon = cabin.basement.dungeon;
+bonfireCast = createCabinBonfireCastStaging({
+  lag: cabin.lag,
+  gratin: dungeon.actors.gratin,
+  seats: cabin.bodyCleanup.dressing.seats,
+  fireTarget: cabin.bodyCleanup.interactionTargets.fire,
+});
+const weaponHitTargets = [
+  ...(cabin.occluders ?? []),
+  ...(cabin.shootingRange?.hitTargets ?? []),
+  ...(dungeon.hitTargets ?? []),
+];
+bloodImpacts = new BloodImpactSystem(scene);
+deathPools = new DeathBloodPool(scene, { capacity: 4, growthSeconds: 0.65 });
+weapons = new WeaponSystem({
+  camera,
+  world: scene,
+  audio,
+  groundAt: (x, z) => cabin.groundAt(x, z, player.position.y - player.eyeHeight),
+  hitTargets: weaponHitTargets,
+  range: 90,
+  onImpact: handleWeaponImpact,
+  onEvent: handleWeaponEvent,
+});
+armory = mountArmory({
+  parent: dungeon.root,
+  system: weapons,
+  interaction,
+  racks: dungeon.armory.racks,
+  retainTaken: true,
+  enabled: () => state.phase === 'active' && !state.resting && !state.carryingBody,
+  addCollider: (x0, x1, y0, y1, z0, z1) => {
+    const box3 = new THREE.Box3(
+      new THREE.Vector3(x0, y0, z0),
+      new THREE.Vector3(x1, y1, z1),
+    );
+    box3.name = `cabin-dungeon-armory-${cabin.colliders.length}`;
+    markSpatialPrimitive(box3, { id: box3.name, kind: 'prop' });
+    cabin.colliders.push(box3);
+  },
+  onEvent: (event) => {
+    if (event.type === 'take') {
+      const emptyPocket = cabin.inventory.items.findIndex((item) => item === null);
+      if (emptyPocket >= 0) cabin.inventory.select(emptyPocket);
+      hud.toast(`${weaponDef(event.id).name} ready`, 'good');
+    }
+    else if (event.type === 'resupply') hud.toast('Ammunition restocked', 'good');
+    renderCombatHud();
+  },
+});
+
+gratinPistol = buildWeaponModel(WEAPON_IDS.PISTOL9);
+mountCharacterWeapon(dungeon.actors.gratin.parts, WEAPON_IDS.PISTOL9, gratinPistol, {
+  name: 'cabin-dungeon-gratin-pistol',
+});
+gratinPistol.visible = false;
+
+dialogue = createCabinDialogueDirector({
+  audio,
+  hud,
+  actors: {
+    GRATIN: dungeon.actors.gratin,
+    ATEAM: dungeon.actors.ateam.npc,
+    BAITER: dungeon.actors.counterStrike.npc,
+    LAG: cabin.lag,
+  },
+  onStage: (entry, beatId) => {
+    if (beatId === 'EXECUTION_OFFER') gratinPistol.visible = true;
+    hud.say(`<em>${entry.stage}</em>`, 3600);
+  },
+});
+executionChoice = createCabinExecutionChoice({ element: choiceEl });
+chapter = createCabinChapterRuntime({
+  story,
+  phone,
+  dialogue,
+  choice: executionChoice,
+  hud,
+  callbacks: {
+    onSync: () => {
+      syncCampaignPresentation();
+      syncDungeonPresentation();
+    },
+    onRestore: () => {
+      syncDungeonPresentation();
+      restoreCleanupPresentation();
+    },
+    ensurePhone: ensurePhoneSelected,
+    onCallRinging: (definition) => hud.say(`<em>${definition.from} is calling.</em> Select the phone and press E.`, 3000),
+    onMargoReady: dispatchMargoReady,
+    onDungeonDoorOpen: () => dungeon.setDoorOpen(true),
+    onToolSelected: () => audio.play('switch.click', { volume: 0.32, position: dungeon.anchors.worktable }),
+    onTortureHit: (id, hostage, tool) => {
+      const actor = dungeonActorFor(id);
+      actor?.flinch?.(Math.min(1, 0.55 + hostage.hits * 0.08));
+      audio.play(tool === 'battery' ? 'punch.heavy' : 'punch.light', {
+        volume: 0.58,
+        position: actor?.bodyAnchor?.getWorldPosition?.(new THREE.Vector3()),
+      });
+    },
+    onChoiceOpen: () => {
+      input?.releasePointerLock?.();
+      weapons?.setTrigger(false);
+      weapons?.setAimed(false);
+    },
+    onChoiceClosed: () => {
+      input?.refresh('execution-choice-closed');
+      requestGamePointerLock();
+    },
+    onEquipPistol: () => {
+      gratinPistol.visible = false;
+      const emptyPocket = cabin.inventory.items.findIndex((item) => item === null);
+      if (emptyPocket >= 0) cabin.inventory.select(emptyPocket);
+      weapons.equip(WEAPON_IDS.PISTOL9);
+      renderCombatHud();
+      hud.toast('Gratin’s pistol · finish both prisoners', 'bad', 3600);
+    },
+    onGratinExecutionStart: () => {
+      gratinPistol.visible = true;
+      weapons.stow({ silent: true });
+    },
+    onGratinShot: (id) => {
+      const actor = dungeonActorFor(id);
+      const point = actor?.headAnchor?.getWorldPosition?.(new THREE.Vector3());
+      playWeaponCue(audio, WEAPON_IDS.PISTOL9, 'fire', {
+        position: dungeon.actors.gratin.group.getWorldPosition(new THREE.Vector3()),
+        volume: 0.9,
+      });
+      woundCaptive(id, {
+        point,
+        normal: new THREE.Vector3(0, 0, -1),
+        origin: dungeon.actors.gratin.group.getWorldPosition(new THREE.Vector3()),
+        object: actor?.headTarget,
+      });
+    },
+    onWeaponHit: (id, hostage, impact) => {
+      woundCaptive(id, impact);
+      void hostage;
+    },
+    onHostageDeath: killCaptivePresentation,
+    onNightfall: ({ restored = false } = {}) => {
+      syncCampaignPresentation();
+      if (!restored) hud.toast('Night falls over the hideout', 'good', 3400);
+    },
+    onWrapBody: (cleanupId, storyId) => {
+      const wrapped = cabin.bodyCleanup.wrap(cleanupId);
+      if (!wrapped) return false;
+      dungeonActorFor(storyId)?.setWrapped?.(true);
+      audio.play('cloth.snap', { volume: 0.5, position: dungeon.anchors.center });
+      audio.play('boat.bag.zip', { volume: 0.44, delay: 0.3, position: dungeon.anchors.center });
+      return true;
+    },
+    onMoveCastToFire: moveCastToFire,
+    onBeginCarry: (cleanupId) => {
+      const begun = cabin.bodyCleanup.beginCarry(cleanupId, camera);
+      if (!begun) return false;
+      state.carryingBody = cleanupId;
+      weapons.stow({ silent: true });
+      player.keys?.delete?.('ShiftLeft');
+      player.keys?.delete?.('ShiftRight');
+      player.keys?.delete?.('Space');
+      player.sprinting = false;
+      audio.play('boat.body.drag', { volume: 0.5 });
+      hud.toast('Body lifted · walk it outside', 'bad', 2800);
+      return true;
+    },
+    onPlaceBodyAtFire: (cleanupId) => {
+      const placed = cabin.bodyCleanup.placeAtFire(cleanupId);
+      if (placed) {
+        state.carryingBody = null;
+        audio.play('boat.body.drag', { volume: 0.58, position: cabin.bodyCleanup.geometry.firepit });
+      }
+      return placed;
+    },
+    onPourGas: ({ restored = false } = {}) => {
+      if (restored) return true;
+      const poured = cabin.bodyCleanup.pourGas();
+      if (poured) audio.play('silent.gas.hiss', { volume: 0.46, position: cabin.bodyCleanup.geometry.firepit });
+      return poured;
+    },
+    onIgniteBonfire: ({ restored = false } = {}) => {
+      if (restored) {
+        setCabinFire(!story.blackedOut());
+        return true;
+      }
+      const ignited = cabin.bodyCleanup.ignite();
+      if (ignited) setCabinFire(true);
+      return ignited;
+    },
+    onFireSequenceStart: moveCastToFire,
+    onConsumeRequest: ensureConsumable,
+    onIntoxication: setIntoxication,
+    onBlackout: blackoutToMorning,
+    onWakeMorning: () => {
+      if (story.blackedOut()) {
+        bonfireCast?.restore?.();
+        placePlayerAtCabinPose(cabin.spawns.wake, { level: 'cabin', reason: 'cabin-morning-restore' });
+        syncCampaignPresentation();
+      }
+    },
+    onChapterComplete: syncCampaignPresentation,
+  },
+});
 
 /* The builder owns the authored registrations. These fallbacks keep the
  * public exterior contract useful to a stripped-down geometry preview too. */
@@ -831,6 +1444,7 @@ function finishHeldUse(item) {
     hud.toast('Ate a cold slice', 'good');
     hud.say('Cold. Still pizza. <em>Still counts.</em>', 2800);
   }
+  chapter?.consume?.(item);
 }
 
 function updateHeldUse(dt) {
@@ -903,29 +1517,40 @@ input = createFirstPersonInput({
     && arcade.inputMode !== 'dom',
   canHandleInput: () => state.phase === 'active' && !state.paused && !state.resting,
   controlState: () => ({
-    movementEnabled: !state.posture,
-    defaultLookEnabled: state.posture !== 'desk',
-    interactionEnabled: state.posture !== 'desk',
+    movementEnabled: !state.posture && !executionChoice?.active,
+    defaultLookEnabled: state.posture !== 'desk' && !executionChoice?.active,
+    interactionEnabled: state.posture !== 'desk' && !executionChoice?.active,
   }),
   routes: {
     keyDown(event, controls) {
       if (state.posture === 'desk' && arcade.onKey(event.code, true)) return true;
+      if (!event.repeat && executionChoice?.handleKey?.(event.code)) return true;
       if (controls.code === 'KeyE' && !event.repeat && cabin.inventory.held === 'phone') {
         phone.press();
         return true;
       }
       if (controls.code === 'KeyQ' && !event.repeat) {
-        if (state.posture) standUp();
-        else pocketHeldItem();
+        if (chapter?.skipOptionalAction?.()) {
+          hud.toast('Passed on the cigarette');
+        } else if (state.posture) standUp();
+        else if (weapons?.equipped) {
+          weapons.stow();
+          renderCombatHud();
+        } else pocketHeldItem();
         return true;
       }
-      if (controls.code === 'KeyR' && !event.repeat && radio.on) {
-        radio.next();
+      if (controls.code === 'KeyR' && !event.repeat) {
+        if (weapons?.equipped) weapons.reload();
+        else if (radio.on) radio.next();
         return true;
       }
       const number = /^Digit([1-5])$/.exec(event.code)?.[1];
       if (number) {
         cabin.inventory.select(Number(number) - 1);
+        if (cabin.inventory.held && weapons?.equipped) {
+          weapons.stow();
+          renderCombatHud();
+        }
         return true;
       }
       return false;
@@ -940,21 +1565,37 @@ input = createFirstPersonInput({
       return true;
     },
     mouseDown(event, controls) {
-      if (event.button !== 0) return true;
       if (!controls.locked) return false;
+      if (event.button === 2) {
+        weapons?.setAimed?.(true);
+        return true;
+      }
+      if (event.button !== 0) return true;
       if (state.posture === 'desk') arcade.onClick(true);
+      else if (weapons?.equipped && !state.carryingBody) weapons.setTrigger(true);
       else interaction.press();
       return true;
     },
     mouseUp(event) {
+      if (event.button === 2) {
+        weapons?.setAimed?.(false);
+        return true;
+      }
       if (event.button !== 0) return false;
       if (state.posture === 'desk') arcade.onClick(false);
+      else if (weapons?.equipped) weapons.setTrigger(false);
       else interaction.release();
       return true;
     },
   },
-  onClear: () => arcade.onClick(false),
+  onClear: () => {
+    arcade.onClick(false);
+    weapons?.setTrigger?.(false);
+    weapons?.setAimed?.(false);
+  },
 });
+
+canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 
 const available = campaign.state.scene.id === SCENE_IDS.COUNTRYSIDE_CABIN;
 if (!available) {
@@ -972,14 +1613,19 @@ startButton.addEventListener('click', async () => {
   await audio.loadManifest({
     names: [
       'ambience.course', 'bird', 'phone.pickup', 'door.knob', 'door.creak',
+      'phone.ring', 'phone.hangup',
       'fridge.open', 'fridge.close', 'switch.click', 'pan.sizzle', 'shower.run', 'toilet.lid',
       'fridge.hum', 'siege.fire.crackle', 'can.crack', 'can.sip', 'can.crush',
       'cig.pack', 'cig.light', 'cig.exhale', 'cig.stub',
       'whiskey.cap', 'whiskey.pour', 'whiskey.swig', 'whiskey.gasp',
       'pizza.take', 'egg.eat', 'tv.click', 'gun.drop.wood',
+      'punch.light', 'punch.heavy', 'cloth.snap', 'boat.bag.zip', 'boat.body.drag',
+      'silent.gas.hiss', 'heist.bullet.impact',
+      ...weaponCueNames(),
+      ...cabinScriptCues().map(({ name }) => name),
       ...radio.preloadCueNames({ startupOnly: true }),
     ],
-    prefixes: [LAG_VOICE_PREFIX],
+    prefixes: [LAG_VOICE_PREFIX, CABIN_VO_PREFIX],
   });
   audio.startLoop('cabin.forest', {
     name: 'ambience.course', volume: 0.21, ambience: true, fade: 1.8,
@@ -1001,9 +1647,11 @@ startButton.addEventListener('click', async () => {
   overlay.classList.add('hidden');
   input.refresh('scene-start');
   requestGamePointerLock();
-  hud.say(story.rested()
-    ? '<em>Day Five.</em> The property stayed quiet. Ape is waiting by the car.'
-    : '<em>County road north.</em> One night out of sight. Lag is chopping by the woodpile.', 5200);
+  hud.say(story.chapterComplete()
+    ? '<em>Morning at the hideout.</em> Ape is waiting by the car.'
+    : '<em>Late morning, county road north.</em> Lou said lay low, walk the property, and keep the phone close.', 5200);
+  chapter.start();
+  chapter.update(0, { playerPosition: player.position, cabinPosition: { x: 0, z: 0 } });
 });
 
 const pauseMenu = createPauseMenu({
@@ -1017,11 +1665,14 @@ const pauseMenu = createPauseMenu({
     'W A S D — move. Shift — sprint. Space — jump.',
     'E or Click — use. Hold E where a second action is shown.',
     'F — eat, drink or smoke a selected item. Q — stand up or pocket it.',
-    'R — skip the radio.',
-    'Talk to Lag for loose hints. The bed advances the story; every property walk is optional.',
+    'With a firearm: Click — fire. Right Click — aim. R — reload. Q — stow.',
+    'At Gratin’s decision: 1 — yes. 2 — no. No answer after ten seconds means Gratin handles it.',
+    'Explore two property sites, follow the Supreme Leader clue, and finish the work below before morning.',
   ],
   onPause: () => {
     state.paused = true;
+    weapons?.setTrigger?.(false);
+    weapons?.setAimed?.(false);
     interaction.setPaused(true);
     input.suspend();
     audio.ctx?.suspend?.();
@@ -1065,11 +1716,27 @@ function frame(now) {
     time.update(dt);
     cabin.update?.(dt, state.elapsed, player.position);
     if (state.phase === 'active' && !state.resting) {
+      if (state.carryingBody) {
+        player.keys?.delete?.('ShiftLeft');
+        player.keys?.delete?.('ShiftRight');
+        player.keys?.delete?.('Space');
+        player.sprinting = false;
+      }
       player.update(dt);
       interaction.update(dt);
       updateHeldUse(dt);
       phone.update(dt);
       phone.draw();
+      chapter?.update?.(dt, {
+        playerPosition: player.position,
+        cabinPosition: { x: 0, z: 0 },
+      });
+      weapons.enabled = !state.resting && !executionChoice?.active && !state.carryingBody;
+      weapons.update(dt, {
+        speed: Math.hypot(player.velocity?.x || 0, player.velocity?.z || 0),
+      });
+      bloodImpacts?.update?.(dt);
+      deathPools?.update?.(dt);
       radio.update(dt);
       if (tv.update(dt)) tvTexture.needsUpdate = true;
       if (state.posture === 'desk') {
@@ -1077,6 +1744,8 @@ function frame(now) {
         arcadeTexture.needsUpdate = true;
         arcade.placeOverlay?.(cabin.screen, camera, canvas, THREE);
       }
+      renderCombatHud();
+      renderRangeHud();
     }
     applyTimeOfDay();
   }
@@ -1101,12 +1770,40 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   state,
   lag: cabin.lag,
   lagHints,
+  chapter,
+  dialogue,
+  executionChoice,
+  weapons,
+  armory,
+  dungeon,
+  range: cabin.shootingRange,
+  cleanup: cabin.bodyCleanup,
   talkToLag,
   visit: visitLandmark,
   rest: restAtCabin,
   leave: leaveCabin,
   get objectives() { return story.objectives(); },
   transitionBasement: transitionCabinBasement,
+  answerCall() {
+    if (!phone.ringing) return false;
+    ensurePhoneSelected();
+    phone.answer();
+    return true;
+  },
+  hangUpCall() {
+    if (!phone.call) return false;
+    return phone.hangUp() !== false;
+  },
+  selectDungeonTool: handleDungeonTool,
+  torture: (id) => chapter.torture(id),
+  chooseExecution: (choice) => executionChoice.choose(choice === 'yes' ? 'player' : 'gratin'),
+  shootHostage: (id, hitUnits = 4) => chapter.shootHostage(id, { hitUnits }),
+  wrapBody: (id) => chapter.wrapBody(id),
+  carryBody: (id) => chapter.beginCarry(id),
+  placeBodyAtFire: (id) => chapter.placeBodyAtFire(id),
+  pourGas: () => chapter.pourGas(),
+  ignitePyre: () => chapter.igniteBonfire(),
+  consumeForFire: (item) => chapter.consume(item),
   teleport(id, mode = 'observe') {
     const viewpoint = mode === 'interact'
       ? cabin.interactionViewpoints?.[id]
@@ -1121,7 +1818,9 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
     }
     const target = cabin.landmarks?.find?.((entry) => entry.id === id)
       ?? cabin.landmarks?.[id]
-      ?? cabin.spawns?.[id];
+      ?? cabin.spawns?.[id]
+      ?? cabin.basement?.spawns?.[id]
+      ?? dungeon?.spawns?.[id];
     const position = target?.position ?? target?.point;
     if (!position) return false;
     const placed = placePlayerAtCabinPose({ ...target, position }, { reason: `debug-target-${id}` });

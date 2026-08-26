@@ -109,6 +109,26 @@ test('the runtime cabin property keeps a dense explorable landscape and complete
   assert.ok(landscape.creekMetres >= 225, 'the creek must cross a meaningful part of the property');
 });
 
+test('the range interaction viewpoint keeps the Player capsule clear of the firing bench', async () => {
+  const cabin = await buildCountrysideCabin({
+    scene: new THREE.Scene(),
+    externalLighting: true,
+    interaction: { register() {} },
+  });
+  const view = cabin.interactionViewpoints.range;
+  const floorY = cabin.groundAt(view.position.x, view.position.z);
+  const capsule = new THREE.Box3(
+    new THREE.Vector3(view.position.x - 0.30, floorY, view.position.z - 0.30),
+    new THREE.Vector3(view.position.x + 0.30, floorY + 1.80, view.position.z + 0.30),
+  );
+  const blockers = cabin.colliders.filter((volume) => volume.intersectsBox(capsule));
+
+  assert.deepEqual(blockers, [],
+    `range interaction stance overlaps ${blockers.map(({ name }) => name || 'unnamed').join(', ')}`);
+
+  cabin.dispose();
+});
+
 test('cabin callbacks own hub toggles and only authored landmarks reach story progress', async () => {
   const registered = new Map();
   const storyVisits = [];
@@ -170,10 +190,10 @@ test('cabin callbacks own hub toggles and only authored landmarks reach story pr
   assert.deepEqual(storyVisits, [], 'flavor and dedicated targets are not story landmarks');
   assert.deepEqual(calls, { frontDoor: 1, fridge: 1, porch: 1, woodpile: 1, car: 1 });
 
-  for (const id of ['creek', 'overlook', 'shed', 'firepit']) {
+  for (const id of ['creek', 'overlook', 'shed', 'range']) {
     registered.get(cabin.interactionTargets[id]).onUse();
   }
-  assert.deepEqual(storyVisits, ['creek', 'overlook', 'shed', 'firepit']);
+  assert.deepEqual(storyVisits, ['creek', 'overlook', 'shed', 'range']);
 
   for (const spawn of Object.values(cabin.spawns)) {
     assert.equal(spawn.position.isVector3, true);

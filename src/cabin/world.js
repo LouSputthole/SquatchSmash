@@ -10,7 +10,7 @@
  *   onRadioTap, onRadioHold, onPhone, onFridge, onCook, onEat,
  *   onShower, onWardrobe, onToilet, onArt, onFrontDoor,
  *   onLandmark, onDiscover, onDrawingBoard, onCar, onWoodpile, onFirepit, onPorch,
- *   onLag, canTalkToLag, onBasementTransition.
+ *   onLag, canTalkToLag, onBasementTransition, onBasementInspect.
  */
 
 import * as THREE from 'three';
@@ -24,7 +24,9 @@ import { resolveGear } from '../world/gear.js';
 import { loadModels } from '../world/models.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
 import { buildCabinBasement, resolveCabinFloor } from './basement.js';
+import { buildCabinBodyCleanup } from './body-cleanup.js';
 import { buildLagActor } from './lag.js';
+import { buildCabinShootingRange } from './shooting-range.js';
 import {
   PROPERTY,
   CABIN,
@@ -232,6 +234,22 @@ export async function buildCountrysideCabin(ctx) {
     disposables,
   });
   const groundAt = makeGroundAt(exterior.bridgeY, exterior.shedY);
+  let shootingRange = null;
+  shootingRange = buildCabinShootingRange({
+    parent: landscapeRoot,
+    groundAt,
+    bestScore: Number(ctx.rangeBestScore) || 0,
+    onEvent: (event) => ctx.onRangeEvent?.(event),
+    onInteract: (snapshot) => {
+      ctx.onDiscover?.('range');
+      const progress = ctx.onLandmark?.('range');
+      ctx.onRange?.(shootingRange, progress, snapshot);
+    },
+  });
+  interactionTargets.range = shootingRange.interactTarget;
+  shootingRange.interactTarget.userData.interact = shootingRange.interaction;
+  interaction.register(shootingRange.interactTarget, shootingRange.interaction);
+  colliders.push(...shootingRange.colliders);
 
   const hub = buildDomesticHub({
     root: cabinRoot,
@@ -260,6 +278,58 @@ export async function buildCountrysideCabin(ctx) {
     wardrobe: hub.publicSurface.closet,
     ctx,
   });
+  const bodyCleanup = buildCabinBodyCleanup({
+    parent: root,
+    camera: ctx.camera ?? null,
+    groundAt,
+    layout: basement.dungeon?.cleanupLayout ?? basement.dungeon?.cleanup?.layout,
+    callbacks: {
+      onWrap: (id, snapshot) => ctx.onCleanupWrap?.(id, snapshot),
+      onCarry: (id, snapshot) => ctx.onCleanupCarry?.(id, snapshot),
+      onStage: (id, snapshot) => ctx.onCleanupStage?.(id, snapshot),
+      onPlaceAtFire: (id, snapshot) => ctx.onCleanupPlaceAtFire?.(id, snapshot),
+      onPourGas: (snapshot) => ctx.onCleanupPourGas?.(snapshot),
+      onIgnite: (snapshot) => ctx.onCleanupIgnite?.(snapshot),
+    },
+    onEvent: (event) => ctx.onCleanupEvent?.(event),
+  });
+  colliders.push(...bodyCleanup.colliders);
+
+  // The body-cleanup builder publishes presentation-only descriptors. The
+  // scene owns campaign truth and explicitly accepts each callback before
+  // calling the corresponding mutation method. Fire placement and ignition
+  // share one physical target, so register one dynamic descriptor rather than
+  // silently replacing one with the other in InteractionSystem.register().
+  const cleanupDescriptors = bodyCleanup.interactionDescriptors;
+  const registerCleanupRows = (rows, canUse) => {
+    for (const [id, descriptor] of Object.entries(rows)) {
+      interaction.register(descriptor.target, {
+        ...descriptor,
+        enabled: () => descriptor.enabled() && canUse(id),
+      });
+    }
+  };
+  registerCleanupRows(cleanupDescriptors.wrap, (id) => ctx.canCleanupWrap?.(id) === true);
+  registerCleanupRows(cleanupDescriptors.bodies, (id) => ctx.canCleanupCarry?.(id) === true);
+  registerCleanupRows(cleanupDescriptors.stage, (id) => ctx.canCleanupStage?.(id) === true);
+  interaction.register(cleanupDescriptors.gasCan.target, {
+    ...cleanupDescriptors.gasCan,
+    enabled: () => cleanupDescriptors.gasCan.enabled() && (ctx.canCleanupPourGas?.() ?? true),
+  });
+  const cleanupFireDescriptor = {
+    label: () => {
+      if (cleanupDescriptors.ignition.enabled()) return cleanupDescriptors.ignition.label();
+      return cleanupDescriptors.fire.label();
+    },
+    enabled: () => cleanupDescriptors.fire.enabled() || cleanupDescriptors.ignition.enabled(),
+    onUse: () => {
+      if (cleanupDescriptors.ignition.enabled()) cleanupDescriptors.ignition.onUse();
+      else cleanupDescriptors.fire.onUse();
+    },
+  };
+  interaction.register(cleanupDescriptors.fire.target, cleanupFireDescriptor);
+  interactionTargets.cleanupFire = cleanupDescriptors.fire.target;
+  interactionTargets.cleanupGas = cleanupDescriptors.gasCan.target;
 
   // The natural ground is the last fallback; authored indoor/path zones win.
   addOutdoorFloorZones(floorZones, exterior.bridgeY);
@@ -292,7 +362,9 @@ export async function buildCountrysideCabin(ctx) {
     shell.updateDoor(dt);
     hub.update(dt, elapsedInternal);
     exterior.update(dt, elapsedInternal, playerPosition);
-    basement.update(playerPosition);
+    basement.update(dt, elapsedInternal, playerPosition);
+    shootingRange.update(dt);
+    bodyCleanup.update(dt);
 
     // DayNight is an Interface, not a requirement. If the campaign supplies
     // it the outside follows authored time; otherwise the cabin keeps a safe
@@ -374,7 +446,10 @@ export async function buildCountrysideCabin(ctx) {
       Math.abs(approach.x) > 1e-6 ? size.x / 2 / Math.abs(approach.x) : Infinity,
       Math.abs(approach.z) > 1e-6 ? size.z / 2 / Math.abs(approach.z) : Infinity,
     );
-    const standDistance = edgeDistance + 1.20;
+    // The range target is mounted immediately west of a deep firing bench.
+    // Give its interaction stance enough east-side clearance for the Player's
+    // 0.30 m collision radius; the ordinary landmark gap remains unchanged.
+    const standDistance = edgeDistance + (id === 'range' ? 1.34 : 1.20);
     const position = new THREE.Vector3(
       centre.x + approach.x * standDistance,
       0,
@@ -434,6 +509,8 @@ export async function buildCountrysideCabin(ctx) {
     basement.spawns.down,
     basement.exitTarget,
   );
+  Object.assign(interactionViewpoints, basement.inspectionViewpoints ?? {});
+  Object.assign(interactionViewpoints, basement.dungeon?.viewpoints ?? {});
 
   const landscape = Object.freeze({
     bounds: PROPERTY,
@@ -490,6 +567,9 @@ export async function buildCountrysideCabin(ctx) {
     splitWood: exterior.splitWood,
     woodpileState: exterior.woodpileState,
     setFireLit: exterior.setFireLit,
+    shootingRange,
+    bodyCleanup,
+    cleanup: bodyCleanup,
     basement,
     door: shell.door,
     cabinDoor: shell.door,
@@ -822,7 +902,7 @@ function buildProperty({
   const groundScatter = buildGroundScatter(root, M, colliders, disposables, forest.trees);
   buildPropertyBoundary(root, M, colliders);
 
-  const storyLandmarkIds = new Set(['creek', 'overlook', 'shed', 'firepit']);
+  const storyLandmarkIds = new Set(['creek', 'overlook', 'shed']);
   const registerLandmark = (id, target, label, dedicated = null, extra = {}) => {
     target.name ||= `cabin-landmark-${id}`;
     interactionTargets[id] = target;
@@ -860,6 +940,8 @@ function buildProperty({
   registerLandmark('firepit', firepit.target, 'Tend the <b>firepit</b>', (progress) => {
     if (ctx.onFirepit) ctx.onFirepit(progress);
     else hud.say?.('Dry cedar, old smoke, and nobody close enough to ask questions.', 3800);
+  }, {
+    enabled: () => ctx.canUseOrdinaryFirepit?.() ?? true,
   });
   registerLandmark('woodpile', woodpile.target, 'Split some <b>firewood</b>', () => ctx.onWoodpile?.(), {
     holdLabel: 'Lining up the <b>axe</b>…',

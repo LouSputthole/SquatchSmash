@@ -132,6 +132,34 @@ test('the campaign can own scheduled calls and observe a physical-phone answer',
   assert.deepEqual(callStates, [[true, 'Lou'], [false, 'Lou']]);
 });
 
+test('an unskippable story call ignores double-E and manual hang-up until its script completes', () => {
+  const callStates = [];
+  const phone = new Phone({
+    time: { day: 5, hour: 11.5 },
+    calls: [],
+    audio: { play: () => null, startLoop() {}, stopLoop() {} },
+    onCallState: (connected) => callStates.push(connected),
+  });
+
+  phone.ring({
+    from: 'Gratin',
+    vo: 'call.gratin.required',
+    lines: ['Listen to the whole thing.'],
+    allowHangup: false,
+  });
+  phone.press();
+  assert.equal(phone.inCall, true);
+  phone.press();
+  assert.equal(phone.inCall, true, 'the second E must not turn an answer into completion');
+  assert.equal(phone.hangUp(), false);
+  assert.equal(phone.inCall, true);
+  assert.deepEqual(callStates, [true]);
+
+  for (let index = 0; index < 100 && phone.inCall; index += 1) phone.update(0.25);
+  assert.equal(phone.call, null);
+  assert.deepEqual(callStates, [true, false]);
+});
+
 test('a call is both halves, and Tony’s take their cue from the caller’s bank', () => {
   const turns = callScript({
     vo: 'call.lou.bada_bing',

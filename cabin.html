@@ -13,6 +13,7 @@
   <canvas id="scene"></canvas>
   <div id="cabin-grade" aria-hidden="true"></div>
   <div id="cabin-vignette" aria-hidden="true"></div>
+  <div id="cabin-intoxication" aria-hidden="true"></div>
   <div id="cabin-rest" aria-hidden="true"><span>KEEP YOUR HEAD DOWN</span></div>
 
   <div id="hud" aria-hidden="true">
@@ -23,8 +24,27 @@
     <div id="radio-osd" class="hidden"><div class="rtitle"><span></span></div><div class="rtrack"></div></div>
     <div id="clock"><span class="day"></span><span class="time"></span><span class="spent"></span></div>
     <div id="bladder" class="hidden"><span class="cap">bladder</span><div class="bar"><i></i></div></div>
+    <div id="cabin-combat" class="hidden">
+      <span class="weapon"></span><span class="ammo"></span>
+      <span class="reload"></span>
+    </div>
+    <div id="cabin-range-score" class="hidden">
+      <span class="range-title">BACKWOODS RANGE</span>
+      <span class="range-score"></span>
+      <span class="range-best"></span>
+    </div>
     <div id="toast-stack"></div>
     <div id="posture" class="hidden"><kbd class="key">Q</kbd><span>stand up</span></div>
+  </div>
+
+  <div id="cabin-choice" class="hidden" role="dialog" aria-live="assertive">
+    <p class="choice-eyebrow">GRATIN IS WAITING</p>
+    <h2>Would you mind taking care of these two for me?</h2>
+    <div class="choice-options">
+      <button type="button" data-choice="yes"><kbd>1</kbd><span>YES</span><small>Take the pistol</small></button>
+      <button type="button" data-choice="no"><kbd>2</kbd><span>NO</span><small>Ask Gratin to finish it</small></button>
+    </div>
+    <div class="choice-clock"><i></i><span>10.0</span></div>
   </div>
 
   <div id="overlay">
@@ -36,8 +56,8 @@
       <ul class="controls">
         <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · mouse look</li>
         <li><kbd>E</kbd> use · hold for the second action · <kbd>F</kbd> consume · <kbd>Q</kbd> stand / pocket</li>
-        <li><kbd>R</kbd> skip the radio · <kbd>Esc</kbd> pause · follow the trail markers to explore the property</li>
-        <li>The bed moves the story on. The creek, ridge, shed and fire ring are optional.</li>
+        <li><kbd>Mouse 1</kbd> fire when armed · <kbd>Mouse 2</kbd> aim · <kbd>R</kbd> reload / skip radio · <kbd>Esc</kbd> pause</li>
+        <li>Explore the creek, ridge, shed and crude shooting range. Keep your phone close.</li>
       </ul>
       <p class="fine">Everything Tony relies on at the apartment came with him: phone, computer, television, radio, clothes, kitchen and the walls full of Squatch gear.</p>
     </div>

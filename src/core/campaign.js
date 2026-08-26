@@ -322,6 +322,11 @@ export const TIME_EVENT_IDS = Object.freeze({
   CABIN_EXPLORE_CREEK: 'explore.countryside_cabin.creek',
   CABIN_EXPLORE_OVERLOOK: 'explore.countryside_cabin.overlook',
   CABIN_EXPLORE_SHED: 'explore.countryside_cabin.shed',
+  CABIN_EXPLORE_RANGE: 'explore.countryside_cabin.range',
+  /* Legacy saves can still carry this marker. The new Cabin chapter replaces
+   * the fire-ring walk with the old shooting range, but the story adapter
+   * deliberately treats this id as prior credit instead of erasing a walk a
+   * player already took. Keep the event registered forever. */
   CABIN_EXPLORE_FIREPIT: 'explore.countryside_cabin.firepit',
   /* THE ACT-ONE CABIN. Beats 4 to 7 of the story bible.
    *
@@ -346,6 +351,59 @@ export const TIME_EVENT_IDS = Object.freeze({
   CABIN_SECOND_REST: 'sleep.cabin_second',
   CABIN_SECOND_BILLY_CALL: 'call.cabin_second.billy',
   DEPART_CABIN_FOR_TOWN: 'travel.cabin_to_town',
+  /* The Cabin dungeon chapter is stored entirely in the exact-once event
+   * ledger. That keeps the current schema at v19 while still making every
+   * player action reload-safe; see core/countryside-cabin-story.js for the
+   * ordered public API over these markers. */
+  CABIN_LOU_OPENING_CALL: 'call.countryside_cabin.lou_opening',
+  CABIN_MARGO_READY: 'hook.countryside_cabin.margo_ready',
+  CABIN_GRATIN_CALL: 'call.countryside_cabin.gratin',
+  CABIN_RETURN_TO_CABIN_LINE: 'scene.countryside_cabin.return_to_cabin_line',
+  CABIN_CELLAR_OPEN: 'scene.countryside_cabin.cellar_open',
+  CABIN_DUNGEON_ENTERED: 'scene.countryside_cabin.dungeon_entered',
+  CABIN_COUNTER_STRIKE_HIT_1: 'interrogation.countryside_cabin.counter_strike.1',
+  CABIN_COUNTER_STRIKE_HIT_2: 'interrogation.countryside_cabin.counter_strike.2',
+  CABIN_COUNTER_STRIKE_HIT_3: 'interrogation.countryside_cabin.counter_strike.3',
+  CABIN_COUNTER_STRIKE_HIT_4: 'interrogation.countryside_cabin.counter_strike.4',
+  CABIN_COUNTER_STRIKE_HIT_5: 'interrogation.countryside_cabin.counter_strike.5',
+  CABIN_COUNTER_STRIKE_HIT_6: 'interrogation.countryside_cabin.counter_strike.6',
+  CABIN_COUNTER_STRIKE_HIT_7: 'interrogation.countryside_cabin.counter_strike.7',
+  CABIN_COUNTER_STRIKE_HIT_8: 'interrogation.countryside_cabin.counter_strike.8',
+  CABIN_ATEAM_HIT_1: 'interrogation.countryside_cabin.ateam.1',
+  CABIN_ATEAM_HIT_2: 'interrogation.countryside_cabin.ateam.2',
+  CABIN_ATEAM_HIT_3: 'interrogation.countryside_cabin.ateam.3',
+  CABIN_ATEAM_HIT_4: 'interrogation.countryside_cabin.ateam.4',
+  CABIN_ATEAM_HIT_5: 'interrogation.countryside_cabin.ateam.5',
+  CABIN_ATEAM_HIT_6: 'interrogation.countryside_cabin.ateam.6',
+  CABIN_ATEAM_HIT_7: 'interrogation.countryside_cabin.ateam.7',
+  CABIN_ATEAM_HIT_8: 'interrogation.countryside_cabin.ateam.8',
+  /* The original draft called this a mole reveal. Authored canon only lets
+   * Tony learn what the A-Team member knows, so the semantic name aliases the
+   * old marker and keeps any early save readable without claiming an identity. */
+  CABIN_ATEAM_INTEL_LEARNED: 'scene.countryside_cabin.mole_revealed',
+  CABIN_MOLE_REVEALED: 'scene.countryside_cabin.mole_revealed',
+  CABIN_EXECUTION_PLAYER: 'choice.countryside_cabin.execution.player',
+  CABIN_EXECUTION_GRATIN: 'choice.countryside_cabin.execution.gratin',
+  CABIN_EXECUTION_TIMEOUT_SELECTED: 'choice.countryside_cabin.execution.timeout_selected',
+  CABIN_EXECUTION_BRANCH_VO_COMPLETE: 'scene.countryside_cabin.execution_branch_vo_complete',
+  CABIN_COUNTER_STRIKE_DEAD: 'death.countryside_cabin.counter_strike',
+  CABIN_ATEAM_DEAD: 'death.countryside_cabin.ateam',
+  CABIN_NIGHTFALL: 'scene.countryside_cabin.nightfall',
+  CABIN_NIGHTFALL_BRIEFING_COMPLETE: 'scene.countryside_cabin.nightfall_briefing_complete',
+  CABIN_COUNTER_STRIKE_WRAPPED: 'cleanup.countryside_cabin.counter_strike_wrapped',
+  CABIN_ATEAM_WRAPPED: 'cleanup.countryside_cabin.ateam_wrapped',
+  CABIN_COUNTER_STRIKE_AT_FIRE: 'cleanup.countryside_cabin.counter_strike_at_fire',
+  CABIN_ATEAM_AT_FIRE: 'cleanup.countryside_cabin.ateam_at_fire',
+  CABIN_GAS_POURED: 'cleanup.countryside_cabin.gas_poured',
+  CABIN_BONFIRE_IGNITED: 'cleanup.countryside_cabin.bonfire_ignited',
+  /* Legacy/aggregate staging credit remains readable; new play records each
+   * body's trip to the fire separately before this optional roll-up marker. */
+  CABIN_BODIES_STAGED: 'cleanup.countryside_cabin.bodies_staged',
+  CABIN_FIRE_CLEANUP: 'cleanup.countryside_cabin.fire',
+  CABIN_DRINK: 'scene.countryside_cabin.drink',
+  CABIN_BLACKOUT: 'scene.countryside_cabin.blackout',
+  CABIN_MORNING_CALL: 'call.countryside_cabin.morning',
+  CABIN_MORNING_WAKE_COMPLETE: 'scene.countryside_cabin.morning_wake_complete',
   /* The final chapter has no apartment hub between scenes, so its travel and
    * runtime spans live in this same exact-once ledger.  These markers make the
    * calendar agree with the authored Day 5 / Day 6 sequence without letting a
@@ -516,20 +574,23 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_BANK_HEIST]: Object.freeze({
     atLeast: Object.freeze({ day: 4, timeMinutes: 17 * 60 + 20 }),
   }),
-  /* Clean clothes, a packed car and the county road put him at the cabin as
-   * dusk comes in. The individual property stops then spend honest, bounded
-   * amounts of time without ever gating the next story scene. */
-  [TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN]: Object.freeze({ minutes: 95 }),
-  /* Tony reaches the property around dusk, then genuinely disappears for the
-   * night and most of the following day. The Silver Case departure already
-   * owns the 4 PM appointment; this wake-up leaves a little playable daylight
-   * at the cabin before that hard scene clock takes over. */
+  /* Clean clothes, a packed car and the county road now put him at the cabin
+   * in late-morning daylight on Day 5. The dungeon chapter needs a readable
+   * day-to-night turn on the same property; arriving at the old dusk time hid
+   * that whole arc inside one unchanging lighting state. */
+  [TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN]: Object.freeze({
+    atLeast: Object.freeze({ day: 5, timeMinutes: 11 * 60 + 15 }),
+  }),
+  /* Legacy Cabin builds offered one full rest. Keep its marker/time readable;
+   * the dungeon chapter now owns the actual night-to-morning progression. */
   [TIME_EVENT_IDS.CABIN_REST]: Object.freeze({
     atLeast: Object.freeze({ day: 5, timeMinutes: 14 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.CABIN_EXPLORE_CREEK]: Object.freeze({ minutes: 20 }),
   [TIME_EVENT_IDS.CABIN_EXPLORE_OVERLOOK]: Object.freeze({ minutes: 30 }),
   [TIME_EVENT_IDS.CABIN_EXPLORE_SHED]: Object.freeze({ minutes: 15 }),
+  [TIME_EVENT_IDS.CABIN_EXPLORE_RANGE]: Object.freeze({ minutes: 15 }),
+  /* Kept readable for saves made before the range replaced the fire ring. */
   [TIME_EVENT_IDS.CABIN_EXPLORE_FIREPIT]: Object.freeze({ minutes: 10 }),
   /* THE ACT-ONE CABIN's own clock, which is a relative one on purpose.
    *
@@ -557,11 +618,61 @@ const TIME_EVENTS = Object.freeze({
   }),
   [TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL]: Object.freeze({ minutes: 8 }),
   [TIME_EVENT_IDS.DEPART_CABIN_FOR_TOWN]: Object.freeze({ minutes: 140 }),
-  /* THE TAKE ends at 5:20 PM on Day 4.  The final chapter opens on the next
-   * afternoon, without adding another playable apartment detour: Ape's pickup
-   * and the off-screen rendezvous land The Silver Case at 4 PM on Day 5. */
+  [TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL]: Object.freeze({ minutes: 3 }),
+  [TIME_EVENT_IDS.CABIN_MARGO_READY]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_GRATIN_CALL]: Object.freeze({ minutes: 3 }),
+  [TIME_EVENT_IDS.CABIN_RETURN_TO_CABIN_LINE]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_CELLAR_OPEN]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_DUNGEON_ENTERED]: Object.freeze({ minutes: 1 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_1]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_2]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_3]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_4]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_5]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_6]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_7]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_8]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_1]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_2]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_3]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_4]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_5]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_6]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_7]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_8]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_INTEL_LEARNED]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_EXECUTION_PLAYER]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_EXECUTION_GRATIN]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_EXECUTION_TIMEOUT_SELECTED]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_EXECUTION_BRANCH_VO_COMPLETE]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_DEAD]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_DEAD]: Object.freeze({ minutes: 0 }),
+  /* The executions end the daylight chapter. Wrapping and carrying happen
+   * only after this exact-once nightfall seam has landed. */
+  [TIME_EVENT_IDS.CABIN_NIGHTFALL]: Object.freeze({
+    atLeast: Object.freeze({ day: 5, timeMinutes: 20 * 60 + 45 }),
+  }),
+  [TIME_EVENT_IDS.CABIN_NIGHTFALL_BRIEFING_COMPLETE]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_WRAPPED]: Object.freeze({ minutes: 4 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_WRAPPED]: Object.freeze({ minutes: 4 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_AT_FIRE]: Object.freeze({ minutes: 4 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_AT_FIRE]: Object.freeze({ minutes: 4 }),
+  [TIME_EVENT_IDS.CABIN_GAS_POURED]: Object.freeze({ minutes: 2 }),
+  [TIME_EVENT_IDS.CABIN_BONFIRE_IGNITED]: Object.freeze({ minutes: 1 }),
+  [TIME_EVENT_IDS.CABIN_BODIES_STAGED]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_FIRE_CLEANUP]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_DRINK]: Object.freeze({ minutes: 5 }),
+  /* The drink is followed by a hard blackout. Reloading after it resumes on
+   * the Day 6 morning authored for the chapter, never back beside the fire. */
+  [TIME_EVENT_IDS.CABIN_BLACKOUT]: Object.freeze({
+    atLeast: Object.freeze({ day: 6, timeMinutes: 9 * 60 + 30 }),
+  }),
+  [TIME_EVENT_IDS.CABIN_MORNING_CALL]: Object.freeze({ minutes: 3 }),
+  [TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE]: Object.freeze({ minutes: 0 }),
+  /* The Cabin chapter now owns Day 5 and its Day 6 morning. Ape's pickup and
+   * the off-screen rendezvous land The Silver Case at 4 PM that afternoon. */
   [TIME_EVENT_IDS.DEPART_SILVER_CASE]: Object.freeze({
-    atLeast: Object.freeze({ day: 5, timeMinutes: 16 * 60 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 16 * 60 }),
   }),
   // Car ride, apartment takeover, ambush, aftermath, and recovery of the case.
   [TIME_EVENT_IDS.COMPLETE_SILVER_CASE]: Object.freeze({ minutes: 90 }),
@@ -573,11 +684,10 @@ const TIME_EVENTS = Object.freeze({
   /* Speech, quiz, execution, gauntlet, roar, anointing: a long evening at the
    * bonfire. Exact-once, so replaying a failed rite never farms hours. */
   [TIME_EVENT_IDS.COMPLETE_INITIATION]: Object.freeze({ minutes: 110 }),
-  /* PROJECT SILENT SQUATCH follows the now-routed Silver Case.  The drive is
-   * twenty-five minutes and the night in the basement is a little over two
-   * hours.  Eight hours in Lou's guest room wakes Tony at 4:10 AM on calendar
-   * Day 6; the workbook's "Day 5 night" label describes the overnight begun on
-   * Day 5, just as HotDog's Day 2 night already crosses calendar midnight. */
+  /* PROJECT SILENT SQUATCH follows the now-routed Silver Case. The Cabin
+   * chapter moved that case to Day 6, so the drive and basement work now end
+   * that evening. Eight hours in Lou's guest room wakes Tony at 4:10 AM on
+   * calendar Day 7 without changing any Mansion-scene duration. */
   [TIME_EVENT_IDS.DEPART_MANSION]: Object.freeze({ minutes: 25 }),
   [TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH]: Object.freeze({ minutes: 135 }),
   /* Zero minutes, on purpose and with precedent (the phone read markers,
@@ -591,19 +701,19 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.REST_AT_MANSION]: Object.freeze({ minutes: 8 * 60 }),
   // Guest-room wake through the Sasole handoff at the end of the assault.
   [TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE]: Object.freeze({ minutes: 120 }),
-  /* The house survives at dawn.  Repair, mission planning, and aircraft prep
-   * consume the day; Enola opens on the last of the Day 6 afternoon, matching
-   * the airfield runtime's visible daylight-to-nightfall cut. */
+  /* The house survives at dawn. Repair, mission planning, and aircraft prep
+   * consume the day; Enola opens late on Day 7, preserving the airfield
+   * runtime's visible daylight-to-nightfall cut after the Cabin insertion. */
   [TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH]: Object.freeze({
-    atLeast: Object.freeze({ day: 6, timeMinutes: 14 * 60 }),
+    atLeast: Object.freeze({ day: 7, timeMinutes: 14 * 60 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH]: Object.freeze({ minutes: 4 * 60 }),
   [TIME_EVENT_IDS.RETURN_TO_MANSION]: Object.freeze({ minutes: 30 }),
   [TIME_EVENT_IDS.COMPLETE_MANSION_RETURN]: Object.freeze({ minutes: 45 }),
-  /* Lou holds the raid until full dark.  The estate approach therefore keeps
-   * its Day 6 night label even if a faster preceding scene finishes early. */
+  /* Lou holds the raid until full dark. The estate approach therefore keeps
+   * its Day 7 night label even if a faster preceding scene finishes early. */
   [TIME_EVENT_IDS.DEPART_CARTEL_PALACE]: Object.freeze({
-    atLeast: Object.freeze({ day: 6, timeMinutes: 20 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 7, timeMinutes: 20 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE]: Object.freeze({ minutes: 150 }),
   /* The phone call, getting changed, and going down to a car already running.
@@ -3984,13 +4094,13 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       state.story.timeMinutes = 19 * 60;
 
       if (sceneId === SCENE_IDS.COUNTRYSIDE_CABIN) {
-        /* The standalone cabin preview begins at the same dusk arrival as a
+        /* The standalone cabin preview begins at the same daylight arrival as a
          * played route. It owns a page-local save, carries the already-taken
          * phone, and leaves the Silver Case merely available: the hideout is
          * the connective hub, never a completed final-arc mission. */
         state.story.chapter = 'post_heist';
-        state.story.day = 4;
-        state.story.timeMinutes = 18 * 60 + 55;
+        state.story.day = 5;
+        state.story.timeMinutes = 11 * 60 + 15;
         state.story.timeEvents = uniqueStrings([
           ...state.story.timeEvents,
           TIME_EVENT_IDS.COMPLETE_BANK_HEIST,

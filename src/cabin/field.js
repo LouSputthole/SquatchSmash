@@ -22,6 +22,24 @@ export const CABIN = Object.freeze({
   porch: Object.freeze({ x0: -4.9, x1: 4.2, z0: 5.5, z1: 8.15 }),
 });
 
+/**
+ * The range shoots west, away from the cabin and every authored walking route.
+ * The rectangle includes the firing line, all targets, and the earth backstop;
+ * both terrain grading and scatter exclusion consume this same contract.
+ */
+export const RANGE_SITE = Object.freeze({
+  x0: -66.5,
+  x1: -29.0,
+  z0: -27.0,
+  z1: -13.0,
+  centreX: -47.75,
+  centreZ: -20.0,
+  firingX: -33.0,
+  backstopX: -63.5,
+  directionX: -1,
+  directionZ: 0,
+});
+
 export const LANDMARKS = Object.freeze({
   cabin: Object.freeze({ x: 0, z: 0, radius: 10, label: 'Timber cabin' }),
   porch: Object.freeze({ x: 0, z: 7, radius: 4.8, label: 'Front porch' }),
@@ -32,6 +50,7 @@ export const LANDMARKS = Object.freeze({
   car: Object.freeze({ x: 20, z: 27, radius: 5.5, label: 'Parked wagon' }),
   creek: Object.freeze({ x: 4, z: -37, radius: 4.0, label: 'Cold creek' }),
   bridge: Object.freeze({ x: 4, z: -37, radius: 5.0, label: 'Footbridge' }),
+  range: Object.freeze({ x: RANGE_SITE.firingX, z: RANGE_SITE.centreZ, radius: 17.5, label: 'Logging-camp range' }),
   overlook: Object.freeze({ x: 64, z: -67, radius: 6.0, label: 'Ridge overlook' }),
 });
 
@@ -48,6 +67,9 @@ export const LANDMARK_VIEWPOINTS = Object.freeze({
   // Close enough for the real 2.7m interaction ray to reach the ring's
   // authored target, while remaining behind the northwest bench collider.
   firepit: Object.freeze({ x: -14, z: 17.45, lookX: -14, lookZ: 14, pitch: -0.12 }),
+  // Behind the firing rail, looking west downrange. Bullets continue away
+  // from the cabin and terminate in the authored earth-and-log backstop.
+  range: Object.freeze({ x: -30.35, z: -20, lookX: -49, lookZ: -20, pitch: -0.025 }),
 });
 
 /** A closed walking loop. The repeated first point is intentional. */
@@ -240,6 +262,11 @@ export function insideProperty(x, z, inset = 0) {
     && z >= PROPERTY.minZ + inset && z <= PROPERTY.maxZ - inset;
 }
 
+/** Whether a point occupies the graded, tree-free shooting-range envelope. */
+export function insideRangeClearing(x, z, pad = 0) {
+  return insideRect(x, z, RANGE_SITE, pad);
+}
+
 /** The ungraded country: long rolls, small hummocks and the overlook ridge. */
 export function baseHeightAt(x, z) {
   let h = noise2(x * 0.013, z * 0.013, 2) * 2.2;
@@ -313,6 +340,14 @@ function developedHeightAt(x, z) {
     h = lerp(h, clearing, 1 - ramp(fireD, 3.5, 6.4));
   }
 
+  // The logging range is a cut shelf. Keeping the complete firing lane on one
+  // grade makes the bench, target feet, and log backstop share honest footing.
+  const rangeD = rectOutsideDistance(x, z, RANGE_SITE);
+  if (rangeD < 4.5) {
+    const grade = baseHeightAt(RANGE_SITE.centreX, RANGE_SITE.centreZ);
+    h = lerp(h, grade, 1 - ramp(rangeD, 0, 4.5));
+  }
+
   const padD = rectOutsideDistance(x, z, CABIN.pad);
   if (padD < 3.2) h = lerp(h, CABIN.floorY, 1 - ramp(padD, 0, 3.2));
 
@@ -368,6 +403,8 @@ export function surfaceAt(x, z) {
   if (insideRect(x, z, CABIN.main) || insideRect(x, z, CABIN.bath)) return SURFACE.WOOD;
   if (insideRect(x, z, CABIN.porch)) return SURFACE.WOOD;
 
+  if (insideRangeClearing(x, z)) return SURFACE.DIRT;
+
   const bridge = LANDMARKS.bridge;
   if (Math.abs(x - bridge.x) <= 1.35 && Math.abs(z - bridge.z) <= 5.2) return SURFACE.WOOD;
 
@@ -401,6 +438,7 @@ export function surfaceProps(surface) {
 export function canPlantTree(x, z, radius = 0) {
   if (!insideProperty(x, z, PROPERTY.boundaryInset + radius)) return false;
   if (insideRect(x, z, CABIN.pad, 4 + radius)) return false;
+  if (insideRangeClearing(x, z, 2.5 + radius)) return false;
   if (trailFrame(x, z).distance < 3.0 + radius) return false;
   if (creekFrame(x, z).distance < 6.0 + radius) return false;
   const bridge = LANDMARKS.bridge;
@@ -409,7 +447,7 @@ export function canPlantTree(x, z, radius = 0) {
     && Math.abs(z - bridge.z) < 9.0 + radius
   ) return false;
   if (insideOverlookViewCorridor(x, z, radius)) return false;
-  for (const key of ['firepit', 'woodpile', 'shed', 'car', 'overlook']) {
+  for (const key of ['firepit', 'woodpile', 'shed', 'car', 'range', 'overlook']) {
     const p = LANDMARKS[key];
     if (Math.hypot(x - p.x, z - p.z) < p.radius + 2 + radius) return false;
   }

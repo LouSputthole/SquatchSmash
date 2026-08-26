@@ -19,11 +19,13 @@ const [
     createLagHintDirector,
     speakLagLine,
   },
+  { createCabinBonfireCastStaging },
   { AudioEngine, RequiredRecordedAudioError },
   THREE,
 ] = await Promise.all([
   import('../src/cabin/world.js'),
   import('../src/cabin/lag.js'),
+  import('../src/cabin/body-cleanup.js'),
   import('../src/core/audio.js'),
   import('three'),
 ]);
@@ -218,6 +220,36 @@ test('canonical Lag is reused with a cabin-specific four-state firewood loop and
   assert.notEqual(lag.debug.activity, 'talk');
 });
 
+test('Lag suspends the axe loop while seated at the bonfire and resumes it in the morning', () => {
+  const scene = new THREE.Scene();
+  const lag = buildLagActor({ scene, x: 0, y: 0, z: 0, yaw: Math.PI });
+
+  assert.equal(lag.setBonfireMode(true), true);
+  lag.update(0.25, new THREE.Vector3(4, 0, 0));
+  assert.equal(lag.debug.bonfireMode, true);
+  assert.equal(lag.debug.activity, 'bonfire');
+  assert.equal(lag.npc.job, 'drink');
+  assert.equal(lag.npc.seated, true);
+  assert.equal(lag.axe.visible, false);
+  assert.equal(lag.carriedLog.visible, false);
+
+  lag.speakTo(new THREE.Vector3(4, 0, 0), 0.5);
+  lag.update(0.1, new THREE.Vector3(4, 0, 0));
+  assert.equal(lag.debug.activity, 'talk');
+  assert.equal(lag.axe.visible, false);
+  assert.equal(lag.carriedLog.visible, false);
+  lag.update(0.5, new THREE.Vector3(4, 0, 0));
+  lag.update(0.01, new THREE.Vector3(4, 0, 0));
+  assert.equal(lag.debug.activity, 'bonfire');
+
+  assert.equal(lag.setBonfireMode(false), false);
+  lag.update(0.01, new THREE.Vector3(4, 0, 0));
+  assert.equal(lag.debug.bonfireMode, false);
+  assert.equal(lag.npc.job, 'stand');
+  assert.equal(lag.npc.seated, false);
+  assert.ok(LAG_ACTIVITY_LOOP.some(({ id }) => id === lag.debug.activity));
+});
+
 test('the built property registers Lag, publishes spatial meaning, and repeats firewood activity', async () => {
   const registered = new Map();
   const discoveries = [];
@@ -328,7 +360,7 @@ test('the built property registers Lag, publishes spatial meaning, and repeats f
 
   registered.get(cabin.interactionTargets.firepit).onUse();
   assert.equal(calls.firepit, 1);
-  assert.deepEqual(firepitProgress, { id: 'firepit', firstVisit: true });
+  assert.equal(firepitProgress, null, 'the firepit remains usable flavor but the range owns its former story slot');
   assert.ok(discoveries.includes('firepit'));
 
   /* Direct geometry evidence for the rest of the cabin-owned polish pass. */
@@ -452,6 +484,35 @@ test('the built property registers Lag, publishes spatial meaning, and repeats f
   const chimney = cabin.root.getObjectByName('cabin-roof-chimney-stack');
   const chimneyBounds = new THREE.Box3().setFromObject(chimney);
   assert.ok(chimneyBounds.min.y > 3.05, 'roof chimney no longer intrudes into the kitchen');
+
+  const gratin = cabin.basement.dungeon.actors.gratin;
+  const lagHome = cabin.lag.group.position.clone();
+  const gratinHome = gratin.group.position.clone();
+  const bonfireCast = createCabinBonfireCastStaging({
+    lag: cabin.lag,
+    gratin,
+    seats: cabin.bodyCleanup.dressing.seats,
+    fireTarget: cabin.bodyCleanup.interactionTargets.fire,
+  });
+  assert.equal(bonfireCast.stage(), true);
+  assert.equal(cabin.lag.debug.bonfireMode, true);
+  for (const [actor, seat] of [
+    [cabin.lag.npc, cabin.bodyCleanup.dressing.seats[0]],
+    [gratin, cabin.bodyCleanup.dressing.seats[1]],
+  ]) {
+    const actorAt = actor.group.getWorldPosition(new THREE.Vector3());
+    const seatAt = seat.getWorldPosition(new THREE.Vector3());
+    assert.ok(Math.hypot(actorAt.x - seatAt.x, actorAt.z - seatAt.z) < 1e-9,
+      `${actor.group.name} is seated on its authored fire stump`);
+    assert.equal(actor.job, 'drink');
+    assert.equal(actor.seated, true);
+  }
+  assert.equal(bonfireCast.restore(), true);
+  assert.equal(cabin.lag.debug.bonfireMode, false);
+  assert.deepEqual(cabin.lag.group.position.toArray(), lagHome.toArray());
+  assert.deepEqual(gratin.group.position.toArray(), gratinHome.toArray());
+  assert.equal(cabin.lag.npc.job, 'stand');
+  assert.equal(gratin.job, 'stand');
 
   await cabin.models;
   cabin.dispose();
