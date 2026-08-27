@@ -19,7 +19,14 @@ browser and are the ones most easily forgotten, because nothing about a local
 npm run verify:campaign-marathon   Playwright walks the whole public route
 npm run verify:boot-failure-surfaces   every staged page actually boots
 npm run verify:framing             cameras, blocking, allowlisted shots
+npm run verify:visual-smoke        deterministic apartment-mirror receipt
 ```
+
+The canonical 15-shot browser set is `npm run verify:visual`. It runs serially
+at a fixed viewport, DPR, seed and authored scene checkpoint, retains a
+Playwright trace on failure, and is scheduled in `verify-scenes.yml`; only the
+cheap mirror smoke belongs in the pull-request Verify job. Review a changed
+PNG. Do not refresh every baseline merely to turn a visual diff green.
 
 **The marathon is the one that bites.** It walks all twenty-nine scene
 handoffs in a real browser with real saves, and it catches exactly the class

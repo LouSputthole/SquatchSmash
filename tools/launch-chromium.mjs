@@ -39,7 +39,7 @@ async function chromiumApi() {
  * The default is always tried first, so a correctly provisioned machine gets
  * the pinned build and nothing about this changes.
  */
-function discoverChromium() {
+export function discoverChromium() {
   if (process.platform === 'win32') {
     const windowsCandidates = [
       path.join(process.env.PROGRAMFILES ?? '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
