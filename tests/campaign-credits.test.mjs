@@ -22,7 +22,10 @@ import {
   castCredits,
 } from '../src/core/campaign-credits.js';
 import { CHARACTER_REGISTRY } from '../src/core/characters.js';
-import { buildCreditsTrack } from '../src/core/campaign-credits-view.js';
+import {
+  buildCreditsTrack,
+  createCampaignCreditsView,
+} from '../src/core/campaign-credits-view.js';
 
 test('Lou is credited two hundred and forty separate times', () => {
   assert.equal(LOU_CREDITS.length, 240);
@@ -111,4 +114,51 @@ test('the view renders every entry, and nothing else', () => {
   assert.equal(rows.length, roll.filter((entry) => entry.kind === 'credit').length);
   const headings = track.children.filter((child) => child.className === 'credits-section');
   assert.equal(headings.length, 2);
+});
+
+test('opening the roll focuses the credits dialog instead of the Space-activatable Skip button', () => {
+  const nodes = new Map();
+  let documentRef;
+  const element = (id = '') => {
+    const classes = new Set();
+    const listeners = new Map();
+    const node = {
+      id,
+      textContent: '',
+      children: [],
+      style: { setProperty() {} },
+      classList: {
+        add: (...names) => names.forEach((name) => classes.add(name)),
+        remove: (...names) => names.forEach((name) => classes.delete(name)),
+        contains: (name) => classes.has(name),
+      },
+      setAttribute() {},
+      appendChild(child) { node.children.push(child); return child; },
+      append(...children) { node.children.push(...children); },
+      addEventListener(type, handler) { listeners.set(type, handler); },
+      focus() { documentRef.activeElement = node; },
+    };
+    if (id) nodes.set(id, node);
+    return node;
+  };
+  const screen = element('credits');
+  const track = element('credits-track');
+  const skip = element('credits-skip');
+  documentRef = {
+    activeElement: null,
+    getElementById: (id) => nodes.get(id) ?? null,
+    createElement: () => element(),
+    addEventListener() {},
+    removeEventListener() {},
+  };
+
+  const view = createCampaignCreditsView({ documentRef, musicSrc: null, duration: 3600 });
+  view.roll({ roll: [] });
+  try {
+    assert.equal(documentRef.activeElement, screen,
+      'residual gameplay Space must not land on the native Skip button');
+    assert.notEqual(documentRef.activeElement, skip);
+  } finally {
+    view.end();
+  }
 });

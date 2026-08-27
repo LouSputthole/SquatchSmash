@@ -169,7 +169,13 @@ export function createCampaignCreditsView({
       );
 
       documentRef.addEventListener('keydown', onKey);
-      skip.focus?.({ preventScroll: true });
+      /* Keep focus inside the modal without arming a native button. The final
+       * initiation action is Space; focusing Skip here lets that same held key
+       * synthesize a click after gameplay input releases and silently throws
+       * the player past the entire ending. Deliberate keyboard users can still
+       * Tab to Skip, while Escape/Enter remain the global shortcuts above. */
+      screen.tabIndex = -1;
+      screen.focus?.({ preventScroll: true });
     },
 
     end: finish,

@@ -555,7 +555,7 @@ playerFigure.group.visible = false;
 scene.add(playerFigure.group);
 
 const FIRST_PERSON_RITUAL_PHASES = new Set([
-  'hand', 'cut', 'card', 'oath_1', 'oath_2', 'burn', 'made',
+  'blade', 'hand', 'cut', 'card', 'oath_1', 'oath_2', 'burn', 'made',
   'shot_offer', 'shot_toast', 'shot_drink',
 ]);
 

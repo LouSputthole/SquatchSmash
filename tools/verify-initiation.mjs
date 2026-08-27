@@ -778,15 +778,36 @@ async function runCleanStartGoldenPath(page) {
       return Boolean(rect && rect.width > 0 && rect.height > 0);
     })(),
     pointerReleased: document.pointerLockElement === null,
+    focusId: document.activeElement?.id ?? null,
+    pathname: location.pathname,
   }));
   if (completion.phase !== 'complete'
     || !completion.visible
     || completion.rows < 250
     || completion.headings.join('|') !== "THE PROSPECT'S RECORD|THE FAMILY|BIG UNCLE LOU SPUTTHOLE"
     || !completion.buttonVisible
-    || !completion.pointerReleased) {
+    || !completion.pointerReleased
+    || completion.focusId !== 'credits') {
     throw new Error(`Initiation clean start did not reach its full campaign credit roll: `
       + JSON.stringify(completion));
+  }
+
+  /* The same Space that completed the ceremony used to activate the focused
+   * native Skip button on release. Reproduce that exact player input before
+   * deliberately clicking Skip. */
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(250);
+  const afterResidualSpace = await page.evaluate(() => ({
+    phase: window.INITIATION?.phase ?? null,
+    visible: document.querySelector('#credits')?.classList.contains('showing') === true,
+    focusId: document.activeElement?.id ?? null,
+    pathname: location.pathname,
+  }));
+  if (afterResidualSpace.phase !== 'complete'
+    || !afterResidualSpace.visible
+    || afterResidualSpace.focusId !== 'credits'
+    || !afterResidualSpace.pathname.endsWith('/initiation.html')) {
+    throw new Error(`Residual ceremony Space skipped the credit roll: ${JSON.stringify(afterResidualSpace)}`);
   }
 
   await Promise.all([
@@ -1290,6 +1311,20 @@ try {
     ritualCapture.captured,
     JSON.stringify(ritualCapture));
 
+  /* The phase transition and the authored look settle over rendered frames.
+   * Wait on the actual presentation contract rather than sampling the exact
+   * transition frame or sleeping for an arbitrary duration. */
+  await page.waitForFunction(() => {
+    const ritual = window.INITIATION?.ritual;
+    return ritual?.phase === 'blade'
+      && ritual.firstPersonHandsVisible
+      && ritual.handNdc.every(Number.isFinite)
+      && Math.abs(ritual.handNdc[0]) <= 1
+      && Math.abs(ritual.handNdc[1]) <= 1
+      && ritual.handNdc[2] >= -1
+      && ritual.handNdc[2] <= 1;
+  }, null, { timeout: 30000 });
+
   const ritualStart = await page.evaluate(() => ({
     ...window.INITIATION.ritual,
     yaw: window.INITIATION.player.yaw,
@@ -1415,6 +1450,7 @@ try {
     creditRows: document.querySelectorAll('#credits-track .credits-row').length,
     creditNames: [...document.querySelectorAll('#credits-track .credits-name')]
       .map((name) => name.textContent?.trim()),
+    focusId: document.activeElement?.id ?? null,
   }));
   check('induction keeps shared first-person control and awards Tony the member bandana',
     inducted.controller === 'Player'
@@ -1431,7 +1467,8 @@ try {
       && inducted.creditsVisible
       && inducted.creditRows >= 250
       && inducted.creditNames.includes('Prospect')
-      && inducted.creditNames.filter((name) => name === 'Lou Sputthole').length === 240,
+      && inducted.creditNames.filter((name) => name === 'Lou Sputthole').length === 240
+      && inducted.focusId === 'credits',
     JSON.stringify(inducted));
 
   const completionPointer = await page.evaluate(() => {
@@ -1449,6 +1486,21 @@ try {
       && completionPointer.buttonVisible
       && completionPointer.hitId === 'credits-skip',
     JSON.stringify(completionPointer));
+
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(250);
+  const afterResidualSpace = await page.evaluate(() => ({
+    pathname: location.pathname,
+    phase: window.INITIATION?.phase ?? null,
+    creditsVisible: document.querySelector('#credits')?.classList.contains('showing') === true,
+    focusId: document.activeElement?.id ?? null,
+  }));
+  check('residual ceremony Space cannot skip the full campaign credit roll',
+    afterResidualSpace.pathname.endsWith('/initiation.html')
+      && afterResidualSpace.phase === 'complete'
+      && afterResidualSpace.creditsVisible
+      && afterResidualSpace.focusId === 'credits',
+    JSON.stringify(afterResidualSpace));
 
   const completionUrl = page.url();
   await Promise.all([
