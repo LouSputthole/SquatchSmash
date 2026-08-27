@@ -1311,9 +1311,26 @@ try {
     ritualCapture.captured,
     JSON.stringify(ritualCapture));
 
+  /* The retry button sits below the centre of this 640 x 360 viewport. A
+   * numbered keyboard choice can re-lock the canvas while Playwright's
+   * virtual pointer remains at that button. An absolute "horizontal" move
+   * from there contains a hidden negative movementY and pitches the real
+   * Player upward. Reacquire from the canvas centre through actual browser
+   * input so the look assertion measures horizontal mouse-look rather than a
+   * stale harness coordinate. This changes pointer-lock state only; it never
+   * writes the Player's yaw, pitch, position, phase, or mission state. */
+  await page.evaluate(() => document.exitPointerLock());
+  await page.waitForFunction(() => document.pointerLockElement === null, null, { timeout: 30000 });
+  await page.mouse.move(320, 180);
+  const centeredRitualCapture = await capturePointerLock(page);
+  check('the ritual look probe reacquires pointer lock from the canvas centre',
+    centeredRitualCapture.captured,
+    JSON.stringify(centeredRitualCapture));
+
   const ritualStart = await page.evaluate(() => ({
     ...window.INITIATION.ritual,
     yaw: window.INITIATION.player.yaw,
+    pitch: window.INITIATION.player.pitch,
     position: window.INITIATION.player.position.toArray(),
   }));
   check('the blade reveal remains first-person while Tony\'s hands stay lowered',
@@ -1333,6 +1350,7 @@ try {
   await page.waitForTimeout(120);
   const ritualInput = await page.evaluate(() => ({
     yaw: window.INITIATION.player.yaw,
+    pitch: window.INITIATION.player.pitch,
     position: window.INITIATION.player.position.toArray(),
     control: window.INITIATION.control,
   }));
@@ -1343,7 +1361,8 @@ try {
   check('ritual input locks walking but preserves natural mouse-look',
     ritualInput.control === 'look-only'
       && ritualMoved < 0.01
-      && Math.abs(ritualInput.yaw - ritualStart.yaw) > 0.001,
+      && Math.abs(ritualInput.yaw - ritualStart.yaw) > 0.001
+      && Math.abs(ritualInput.pitch - ritualStart.pitch) < 0.001,
     JSON.stringify({ before: ritualStart, after: ritualInput, moved: ritualMoved }));
 
   /* Drive it: the blade runs on a timer, then the hand is asked for, then the
@@ -1362,12 +1381,10 @@ try {
    * `cut` pose while insisting the phase was still `hand`, contradicting the
    * authored sequence and its source contract. */
   await pressActionTo(page, 'cut');
-  /* The scene clock clamps every rendered frame to 0.05 s. After the whole
-   * ceremony has already exercised SwiftShader for seventeen minutes, the
-   * authored 0.58-s raise can therefore need more than thirty wall seconds
-   * even though the frame loop is healthy. Use the same real-browser budget
-   * as the surrounding input seam; the six-second `cut` watchdog still leaves
-   * a wide deterministic window in which to observe the raised hand. */
+  /* The scene clock clamps every rendered frame to 0.05 s. Use the same
+   * loaded-browser budget as the surrounding input seam; the six-second
+   * `cut` watchdog still leaves a wide deterministic rendered-frame window
+   * in which to observe the 0.58-s raise. */
   await page.waitForFunction(() => {
     const ritual = window.INITIATION?.ritual;
     return ritual?.phase === 'cut'

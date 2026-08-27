@@ -41,6 +41,19 @@ test('the browser verifier clicks after the hand prompt before requiring the rai
     'the loaded SwiftShader run does not give the 0.58-s raise a full browser budget');
 });
 
+test('the ritual browser look probe starts from canvas centre and does not inject vertical pitch', () => {
+  const start = verifier.indexOf("pressActionTo(page, 'blade'");
+  const end = verifier.indexOf("window.INITIATION.phase === 'hand'", start);
+  assert.ok(start >= 0 && end > start, 'the real ritual look probe is missing');
+  const lookProbe = verifier.slice(start, end);
+  assert.match(lookProbe, /document\.exitPointerLock\(\)[\s\S]+page\.mouse\.move\(320, 180\)[\s\S]+capturePointerLock\(page\)/,
+    'the look probe can inherit the retry button pointer coordinate');
+  assert.match(lookProbe, /pitch:\s*window\.INITIATION\.player\.pitch/g,
+    'the look probe does not record Player pitch before and after its mouse movement');
+  assert.match(lookProbe, /Math\.abs\(ritualInput\.pitch - ritualStart\.pitch\) < 0\.001/,
+    'the supposedly horizontal look probe does not reject unintended pitch');
+});
+
 test('family acknowledgements are queued and animate instead of wall-clock overlapping', () => {
   assert.doesNotMatch(main, /function sayOverlapping/);
   assert.doesNotMatch(main, /sayOverlapping\(/);
