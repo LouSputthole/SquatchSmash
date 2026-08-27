@@ -37,6 +37,8 @@ test('the browser verifier clicks after the hand prompt before requiring the rai
     'the verifier requires raised hands before sending the owner-authored click');
   assert.doesNotMatch(ritual, /ritual\?\.phase === 'hand'[\s\S]{0,160}handNdc/,
     'the verifier still expects the resting prompt pose to be the raised cut pose');
+  assert.match(ritual, /ritual\?\.phase === 'cut'[\s\S]+timeout: 120000/,
+    'the loaded SwiftShader run does not give the 0.58-s raise a full browser budget');
 });
 
 test('family acknowledgements are queued and animate instead of wall-clock overlapping', () => {

@@ -1362,6 +1362,12 @@ try {
    * `cut` pose while insisting the phase was still `hand`, contradicting the
    * authored sequence and its source contract. */
   await pressActionTo(page, 'cut');
+  /* The scene clock clamps every rendered frame to 0.05 s. After the whole
+   * ceremony has already exercised SwiftShader for seventeen minutes, the
+   * authored 0.58-s raise can therefore need more than thirty wall seconds
+   * even though the frame loop is healthy. Use the same real-browser budget
+   * as the surrounding input seam; the six-second `cut` watchdog still leaves
+   * a wide deterministic window in which to observe the raised hand. */
   await page.waitForFunction(() => {
     const ritual = window.INITIATION?.ritual;
     return ritual?.phase === 'cut'
@@ -1371,7 +1377,7 @@ try {
       && Math.abs(ritual.handNdc[1]) <= 1
       && ritual.handNdc[2] >= -1
       && ritual.handNdc[2] <= 1;
-  }, null, { timeout: 30000 });
+  }, null, { timeout: 120000 });
   const handPresentation = await page.evaluate(() => window.INITIATION.ritual);
   check('the real hand input raises Tony\'s hands inside the first-person view',
     handPresentation.control === 'look-only'
