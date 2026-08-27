@@ -140,12 +140,10 @@ const DESTINATIONS = Object.freeze({
   [SCENE_IDS.MANSION_SIEGE]: { sceneId: SCENE_IDS.ENOLA_SQUATCH, spawn: 'airfield' },
   [SCENE_IDS.ENOLA_SQUATCH]: { sceneId: SCENE_IDS.MANSION_RETURN, spawn: 'driveway' },
   [SCENE_IDS.MANSION_RETURN]: { sceneId: SCENE_IDS.CARTEL_PALACE, spawn: 'approach' },
-  /* The Palace goes HOME, before the pickup.
-   *
-   * Act One of the Special Meeting is playable in Apartment: Booskibro's call,
-   * getting ready, the refused door and the arriving headlights. A recovery
-   * skip must preserve that same route instead of becoming a story bypass. */
-  [SCENE_IDS.CARTEL_PALACE]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
+  /* The Palace goes HOME, before the pickup. Read the same homecoming table as
+   * the played ending card so recovery cannot send Beat 27 down the Home Ladder
+   * to the starter flat while ordinary play returns to the luxury apartment. */
+  [SCENE_IDS.CARTEL_PALACE]: missionHomecoming(SCENE_IDS.CARTEL_PALACE),
   /* THE SPECIAL MEETING -> INITIATION NIGHT, at the `gathering` spawn.
    *
    * The same hand-off the scene performs for itself when it is played: see

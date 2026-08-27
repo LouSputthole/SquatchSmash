@@ -6,7 +6,7 @@ import {
   MISSION_IDS,
   SCENE_IDS,
   createCampaign,
-  navigateCampaign,
+  returnHomeFromMission,
 } from '../core/campaign.js';
 import {
   CombatActor,
@@ -1703,14 +1703,13 @@ departButton.addEventListener('click', () => {
    *
    * The Palace is over and nobody has told him whether killing Sauce was the
    * right call. He goes home, Booskibro rings to say there is a meeting and it
-   * is going to be a special one, gets ready, is refused by the door and sees
-   * the headlights arrive. Beats SM-010 through SM-090 are owned by the
-   * Apartment runtime; the Apartment front door then carries him to the kerb.
+   * is going to be a special one. Beat 27 belongs to the luxury apartment Lou
+   * gave him after the round; its private lift then carries him to the kerb.
    *
    * CartelPalaceCampaignStory.complete() has already made Initiation
    * available. It must not become in_progress here: Special Meeting owns that
    * handoff at the treeline after its drive and forest approach. */
-  navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door', location });
+  returnHomeFromMission(campaign, SCENE_IDS.CARTEL_PALACE, { location });
 });
 
 canvas.addEventListener('contextmenu', (event) => event.preventDefault());

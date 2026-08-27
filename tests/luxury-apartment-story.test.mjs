@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  CAMPAIGN_STORAGE_KEY,
   CHARACTER_IDS,
   EVENT_IDS,
   MISSION_IDS,
@@ -14,6 +15,7 @@ import {
   DATE_MARGO_CALL,
   NO_WAKE_LOU_CALL,
   SILVER_CASE_BOOSKI_CALL,
+  SPECIAL_MEETING_BOOSKI_CALL,
 } from '../src/core/apartment-story.js';
 import {
   LUXURY_APARTMENT_PHASES,
@@ -96,6 +98,14 @@ function walkToPhase(campaign, target, { cameHome = true } = {}) {
   campaign.enter(SCENE_IDS.LUXURY_APARTMENT, { spawn: 'main' });
   if (target === 'return') return story;
   story.callAnswered(SILVER_CASE_BOOSKI_CALL);
+  if (target === 'special_meeting') {
+    campaign.update((state) => {
+      state.story.chapter = 'big_night';
+      state.missions[MISSION_IDS.CARTEL_PALACE].status = 'complete';
+      state.missions[MISSION_IDS.CARTEL_PALACE].checkpoint = 'clear';
+      state.missions[MISSION_IDS.INITIATION].status = 'available';
+    });
+  }
   return story;
 }
 
@@ -265,6 +275,75 @@ test('beat 19 is a quiet evening and then the only doorway to the Silver Case', 
   assert.deepEqual(story.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });
+});
+
+test('beat 27 rings in the luxury apartment and leaves for the existing pickup', () => {
+  const storage = new MemoryStorage();
+  const campaign = afterTheHandover(storage);
+  const story = walkToPhase(campaign, 'special_meeting');
+
+  assert.equal(story.phase(), 'special_meeting');
+  assert.equal(story.pendingCall(), SPECIAL_MEETING_BOOSKI_CALL);
+  assert.deepEqual(story.tryLeave(), {
+    kind: 'call',
+    id: EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL,
+    line: 'Nobody’s rung. Nobody’s rung all day.',
+    hint: 'Answer Booskibro’s call.',
+  });
+  assert.equal(SPECIAL_MEETING_BOOSKI_CALL.allowHangup, false,
+    'the player must hear who is collecting him before the lift opens');
+  assert.match(SPECIAL_MEETING_BOOSKI_CALL.lines.join(' '), /Special one/);
+  assert.match(SPECIAL_MEETING_BOOSKI_CALL.lines.join(' '), /Seff, Lag and Numbskull/);
+
+  assert.equal(story.callAnswered(SPECIAL_MEETING_BOOSKI_CALL), true);
+  assert.equal(story.callAnswered(SPECIAL_MEETING_BOOSKI_CALL), false,
+    'SM-030 must be exact-once');
+  assert.equal(campaign.state.story.timeEvents.filter(
+    (id) => id === TIME_EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL,
+  ).length, 1);
+  assert.deepEqual(story.tryLeave(), {
+    kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING,
+  });
+
+  const reloaded = createLuxuryApartmentStory({ campaign: createCampaign({ storage }) });
+  assert.equal(reloaded.pendingCall(), null, 'reload replayed the answered call');
+  assert.deepEqual(reloaded.tryLeave(), {
+    kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING,
+  });
+});
+
+test('schema 22 moves an old Palace landing up to the luxury flat without eating the call', () => {
+  const storage = new MemoryStorage();
+  const current = afterTheHandover(storage);
+  current.update((state) => {
+    state.story.chapter = 'big_night';
+    state.scene = { id: SCENE_IDS.APARTMENT, spawn: 'front_door' };
+    state.lastTransition = {
+      from: SCENE_IDS.CARTEL_PALACE,
+      to: SCENE_IDS.APARTMENT,
+      spawn: 'front_door',
+    };
+    state.missions[MISSION_IDS.CARTEL_PALACE].status = 'complete';
+    state.missions[MISSION_IDS.INITIATION].status = 'available';
+    state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status = 'pending';
+  });
+  const oldLanding = current.state;
+  oldLanding.version = 21;
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(oldLanding));
+
+  const migrated = createCampaign({ storage });
+  assert.equal(migrated.recoveredNow, false);
+  assert.deepEqual(migrated.state.scene, {
+    id: SCENE_IDS.LUXURY_APARTMENT, spawn: 'main',
+  });
+  assert.deepEqual(migrated.state.lastTransition, {
+    from: SCENE_IDS.CARTEL_PALACE,
+    to: SCENE_IDS.LUXURY_APARTMENT,
+    spawn: 'main',
+  });
+  assert.equal(migrated.state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status, 'pending');
+  assert.equal(createLuxuryApartmentStory({ campaign: migrated }).pendingCall(),
+    SPECIAL_MEETING_BOOSKI_CALL);
 });
 
 /**

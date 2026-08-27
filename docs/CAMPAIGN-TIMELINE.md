@@ -13,12 +13,11 @@
 > (2026-08-26); THE TAKE moved back to sit between coming home from the motel
 > and Lou's new-space call, the luxury apartment became the second home for
 > the whole back half, and the Margo arc inverted so the date precedes NO WAKE
-> (2026-08-27). Three beats are still pending, and only three: the Margo
-> stayover and the morning after it are wired as ROUTE but not yet staged as
-> SCENE in the new flat, and the Special Meeting call has not been wired at
-> all.
+> (2026-08-27). The two-floor Margo stayover and morning departure are staged,
+> and Beat 27 now rings in the luxury apartment before the existing pickup,
+> ride, trunk reveal, arrival and ceremony. All thirty-one beats are wired.
 
-The owner's connected campaign route implemented by campaign schema v21. Two
+The owner's connected campaign route implemented by campaign schema v22. Two
 homes: the starter apartment for beats 0 to 13, and the luxury apartment from
 the moment Lou hands over the keys on the eighteenth green at Silver Pines.
 The Home Ladder climbs there and never comes back down. Initiation remains a
@@ -30,7 +29,7 @@ that scene.
 `luxury-apartment.html` is the late-game home hub — a two-level loft plan,
 panoramic city windows, the original apartment's activities and art
 collection, and additional gallery and game-space dressing. It was standalone
-and unplaced until 2026-08-27; it now owns bible beats 14, 16, 17 and 19, and
+and unplaced until 2026-08-27; it now owns bible beats 14, 16, 17, 19 and 27, and
 `src/core/luxury-apartment-story.js` is its campaign seam. The page still
 boots as a standalone developer preview when the save is not standing in it,
 which is what `routed` decides in `src/luxury-apartment/main.js`.
@@ -62,7 +61,7 @@ by `npm run verify:campaign-route`:
 | 3 (Day 5) | Wake noon, get a game of Counter-Squatch in, answer Lou's heist call and collect seven loadout pieces | THE TAKE → apartment cleanup | Lou rings about a new space; sleep |
 | 4 (Day 6) | Wake 7:00 AM, warm the eye up on Squatch Shoot — no call, Lou rang last night | Silver Pines | Three holes and the keys: the starter flat goes dark and the route moves to the luxury apartment |
 | Luxury (Days 6–7) | GET READY FOR YOUR DATE, then Margo's call | Front and Center → luxury apartment with her; sleep; the morning; Lou's harbour call → NO WAKE → luxury apartment | Booskibro rings about something small and sensitive; the lift opens The Silver Case |
-| Final chapter | No additional apartment detour | The Silver Case → Lou's Mansion / PROJECT SILENT SQUATCH → quiet mansion evening and guest-room sleep → Mansion Under Siege → Enola Squatch → repaired Mansion return → Cartel Palace | Cartel Palace opens Initiation; Initiation is entered `in_progress` and remains frozen |
+| Final chapter | No starter-apartment detour | The Silver Case → Lou's Mansion / PROJECT SILENT SQUATCH → quiet mansion evening and guest-room sleep → Mansion Under Siege → Enola Squatch → repaired Mansion return → Cartel Palace → luxury-apartment call → existing Special Meeting pickup and ride | Special Meeting opens Initiation; Initiation is entered `in_progress` and remains frozen |
 
 Every external mission owns a registered scene/spawn and either returns to the
 apartment, passes through the later cabin hub, or hands directly to the next
@@ -162,16 +161,16 @@ handover: every door opens, the staff know him, the table is carried out front
 and center, the band plays, and Margo sees the glamorous version of his life.
 On the two best outcomes she leaves with him.
 
-**Beat 16 — the stayover.** She comes home to the new place. Nothing criminal
-rings tonight, and the bed is the only way out of the evening. Her lines play;
-her staging does not exist in this flat yet, which is why the spine still
-calls this beat pending.
+**Beat 16 — the stayover.** She comes home to the new place, comments on it,
+walks the deliberate two-floor route to the loft, asks for help with the dress,
+then sleeps and snores while Tony remains free to wander. Nothing criminal
+rings tonight, and the bed is the only way out of the evening.
 
 ## Day 7 — Loyalty Gets Ugly
 
 **Beat 17 — the morning.** Ten past seven. She has a delivery at eleven and a
-man who cannot be trusted with a delivery, so she dresses and goes. The quiet
-window the bible asks for, and then the phone.
+man who cannot be trusted with a delivery, so she asks for the dress help once
+more, leaves by the two-floor path, and only then can Lou's call ring.
 
 **NO WAKE — built and connected.** The boat: dock, board with Lou Sputthole,
 Booski, Willy and the Prospect, open water, conversation souring, the family
@@ -197,7 +196,9 @@ beat 19. The property's own page above covers it.
 opens The Silver Case, then hands directly through PROJECT SILENT SQUATCH,
 the quiet mansion evening and guest-room sleep, Mansion Under Siege, Enola
 Squatch, the repaired-mansion briefing, and Cartel Palace. Cartel Palace is the
-last combat mission. Its successful extraction exposes Initiation.
+last combat mission. Its successful extraction returns Tony to the luxury
+apartment, where Booskibro's exact-once call sends him downstairs to the
+existing Special Meeting pickup and ride; that scene exposes Initiation.
 
 The final chapter uses authored, exact-once clock events at every travel and
 mission handoff. Reloading or replaying a completion cannot add the duration a
@@ -485,22 +486,16 @@ Silver Pines then gives the climax one last breath before THE TAKE.
    Willy) belong to the older club-shaped draft. The connected second visit is
    now the dedicated HotDog party, so any revival must be designed into that
    scene instead of restoring the obsolete route.
-2. **Margo is not staged in the luxury apartment.** Beats 16 and 17 are wired
-   as route and clock and her recorded lines play, but the walk in, the bed and
-   the dress-help mini-game are all authored against the starter flat's
-   one-room plan in `src/world/apartment-preview-geometry.js`, and this place
-   is two floors with the bed up a staircase. That port is what the two
-   remaining Chapter 3 `pending` beats are waiting on.
-3. **The current Initiation is not a campaign-complete state.** The apartment
-   routes Tony into the frozen Initiation scene after the Cartel Palace, but
+2. **The current Initiation is not a campaign-complete state.** The Special
+   Meeting routes Tony into the frozen Initiation scene after the Cartel Palace, but
    that scene does not claim the
    campaign, record completion, or expose an outbound edge. The focused route
    contract therefore ends with Initiation `in_progress`, not `complete`.
-4. **The finale has two authored shapes.** This timeline places an oath and
+3. **The finale has two authored shapes.** This timeline places an oath and
    callback ceremony at the Bada Bing, while `docs/STORY.md` preserves the
    Pines quiz, execution, gauntlet, roar, timber, and anointing. Reconcile those
    designs after the required playtest before wiring the final checkpoint.
-5. **Silver Pines needs a human pacing and performance pass.** Its campaign,
+4. **Silver Pines needs a human pacing and performance pass.** Its campaign,
    inventory, preview, Pages, scorecard, and three-hole route are now canonical.
    The owner still needs to judge shot feel, walk/ride pacing, camera comfort,
    dialogue repetition, and the handoff into heist preparation in one continuous

@@ -47,12 +47,12 @@ test('Cartel Palace is a first-class runtime built on the shared game systems', 
     'Q must share the final-arc empty-hands contract');
   assert.match(main, /pagehide[\s\S]{0,180}loadout\.capture\(weapons\)/,
     'ammo changes must survive scene navigation');
-  /* The Palace goes HOME before the pickup.
-   *
-   * Act One of the Special Meeting lives in Apartment, so jumping straight to
-   * the kerb loses the call, getting ready, refused door and headlights. */
+  /* The Palace goes HOME before the pickup, through the shared homecoming
+   * table. Beat 27 belongs to the luxury apartment; the starter flat has been
+   * dark since Lou handed over the keys. */
   assert.match(main,
-    /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT, \{ spawn: 'front_door'/);
+    /returnHomeFromMission\(campaign, SCENE_IDS\.CARTEL_PALACE, \{ location \}\)/);
+  assert.doesNotMatch(main, /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT/);
   assert.doesNotMatch(main, /navigateCampaign\([\s\S]{0,160}SCENE_IDS\.SPECIAL_MEETING/);
   assert.doesNotMatch(main, /navigateCampaign\([\s\S]{0,120}SCENE_IDS\.INITIATION/);
   assert.doesNotMatch(main,

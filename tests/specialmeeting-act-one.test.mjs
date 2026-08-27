@@ -491,17 +491,17 @@ test('coming home from the Palace reads as coming home from the Palace', () => {
  * 5. THE ROUTE, AND THE SAVE
  * ====================================================================== */
 
-test('the graph allows the evening the flat now plays', () => {
+test('the graph routes the Palace through the luxury-apartment call', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
 
   campaign.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
-  assert.doesNotThrow(() => campaign.transition(SCENE_IDS.APARTMENT, { spawn: 'front_door' }),
-    'the Palace cannot send him home, so Act One is unreachable');
+  assert.doesNotThrow(() => campaign.transition(SCENE_IDS.LUXURY_APARTMENT, { spawn: 'main' }),
+    'the Palace cannot send him to the home he owns, so Beat 27 is unreachable');
   assert.doesNotThrow(() => campaign.transition(SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb' }),
-    'the front door cannot reach the kerb, so Act One has no way out');
+    'the private lift cannot reach the kerb, so Act One has no way out');
   assert.doesNotThrow(() => campaign.transition(SCENE_IDS.INITIATION, { spawn: 'gathering' }));
 
-  /* And both bypasses stay pulled: Palace cannot skip the Apartment-owned
+  /* And both bypasses stay pulled: Palace cannot skip the luxury-home
    * first act or the Special Meeting itself. */
   const direct = createCampaign({ storage: new MemoryStorage() });
   direct.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });

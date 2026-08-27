@@ -443,7 +443,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.LUXURY_APARTMENT,
     spawn: 'main',
     residence: RESIDENCE.LUXURY,
-    status: 'pending',
+    status: 'wired',
     exit: 'Booski: special one. Seff, Lag and Numbskull are coming to get you. '
       + 'He will not say why.',
   }),

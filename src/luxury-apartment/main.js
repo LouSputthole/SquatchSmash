@@ -15,7 +15,7 @@ import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { PlanarMirror } from '../core/planar-mirror.js';
 import { Person } from '../core/person.js';
-import { Phone } from '../core/phone.js';
+import { Phone, callScript } from '../core/phone.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
 import { Radio, radioHudWithinRange } from '../core/radio.js';
@@ -31,9 +31,13 @@ import {
 } from '../core/campaign.js';
 import {
   BIG_NIGHT_MARGO_WAKE,
+  DATE_MARGO_CALL,
+  NO_WAKE_LOU_CALL,
+  SILVER_CASE_BOOSKI_CALL,
   SILVER_ROOM_COME_HOME,
   SILVER_ROOM_DRESS_ASK,
   SILVER_ROOM_NEW_PLACE,
+  SPECIAL_MEETING_BOOSKI_CALL,
 } from '../core/apartment-story.js';
 import { DRESS_HELP_CUES } from '../world/dress-help.js';
 import { createLuxuryApartmentStory } from '../core/luxury-apartment-story.js';
@@ -78,6 +82,12 @@ const chromaOffsets = document.querySelectorAll('#chroma feOffset');
 
 const ELEVATOR_AUDIO_CUT_MS = 720;
 const ELEVATOR_EXIT_MS = 1400;
+const LUXURY_STORY_CALL_CUES = Object.freeze([
+  DATE_MARGO_CALL,
+  NO_WAKE_LOU_CALL,
+  SILVER_CASE_BOOSKI_CALL,
+  SPECIAL_MEETING_BOOSKI_CALL,
+].flatMap((definition) => callScript(definition).map(({ cue }) => cue)));
 
 export const LUXURY_OUTFITS = Object.freeze([
   Object.freeze({
@@ -175,15 +185,15 @@ const objectivePanel = createObjectivePanel({ parent: document.getElementById('h
  *
  * This flat is two things at once and has been since it landed: a standalone
  * developer preview of a place nobody could reach, and -- since beats 12 to
- * 19 -- the address the Prospect actually lives at for the second half of
+ * 27 -- the address the Prospect actually lives at for the second half of
  * Chapter 3. Which of the two it is on any given boot is a question with
  * exactly one honest answer, and it is the save's: `campaign.state.scene.id`.
  *
  * `routed` false is the old behaviour, unchanged and untouched: the lift goes
  * to preview.html, the objective is the standing order, and nothing is
  * written. `routed` true hands the front door, the panel, the bed and the
- * telephone to `core/luxury-apartment-story.js`, which owns beats 14, 16, 17
- * and 19 the way `apartment-story.js` owns the starter flat's.
+ * telephone to `core/luxury-apartment-story.js`, which owns beats 14, 16, 17,
+ * 19 and 27 the way `apartment-story.js` owns the starter flat's.
  * ------------------------------------------------------------------ */
 const campaign = createCampaign();
 const luxuryStory = createLuxuryApartmentStory({ campaign });
@@ -202,6 +212,7 @@ const LUXURY_OBJECTIVE = 'Explore both floors or try the private games room.';
 function currentObjective() {
   if (!routed) return readyTally.ready ? LUXURY_OBJECTIVE : readyTally.objective;
   if (luxuryMargo?.objective) return luxuryMargo.objective;
+  if (phone?.inCall) return 'Stay on the line.';
   const [first] = luxuryStory.objectives().items;
   if (!first) return LUXURY_OBJECTIVE;
   /* Beat 14's door is an `activity`, and the activity is the three chores the
@@ -294,7 +305,10 @@ const phone = new Phone({
   time,
   audio,
   calls: [],
-  onCallState: (connected) => radio.setPhoneDucked(connected),
+  onCallState: (connected) => {
+    radio.setPhoneDucked(connected);
+    if (routed && state.phase === 'active') refreshObjective();
+  },
 });
 /* Taking the call is what commits it. The story adapter owns what each one
  * unlocks; this only tells it the receiver came off the hook. */
@@ -557,11 +571,21 @@ function luxuryDeparture() {
     }
     return { href: './preview.html' };
   }
+  if (phone.inCall) {
+    return {
+      refusal: {
+        kind: 'call',
+        line: 'Not while he’s still on the line.',
+        hint: 'Finish the call before using the elevator.',
+      },
+    };
+  }
   const door = luxuryStory.tryLeave();
   if (door.kind !== 'go') return { refusal: door };
   return {
     navigate: () => navigateCampaign(campaign, door.destination, {
-      spawn: SCENE_IDS.SILVER_ROOM === door.destination ? 'kerb' : undefined,
+      spawn: [SCENE_IDS.SILVER_ROOM, SCENE_IDS.SPECIAL_MEETING].includes(door.destination)
+        ? 'kerb' : undefined,
     }),
   };
 }
@@ -1116,7 +1140,8 @@ startButton.addEventListener('click', async () => {
       'whiskey.pour', 'whiskey.swig', 'whiskey.gasp',
       'pizza.take', 'egg.crack', 'egg.eat', 'pan.sizzle',
       'shower.run', 'toilet.lid', 'closet.slide', 'bed.rustle',
-      'phone.pickup', 'tv.click', 'card.deal', 'card.flip', 'ui.select',
+      'phone.ring', 'phone.hangup', 'phone.pickup',
+      'tv.click', 'card.deal', 'card.flip', 'ui.select',
       'chair.sit', 'pee.zip', 'pee.stream', 'pee.miss', 'toilet.plop',
       'poop.1', 'poop.2', 'poop.3', 'poop.4', 'poop.strain',
       'gun.pickup', 'gun.shot', 'gun.dry', 'gun.impact', 'gun.reload', 'ammo.take',
@@ -1129,6 +1154,7 @@ startButton.addEventListener('click', async () => {
         SILVER_ROOM_DRESS_ASK,
         BIG_NIGHT_MARGO_WAKE,
       ),
+      ...LUXURY_STORY_CALL_CUES,
       'vo.luxury.poker.solo',
       'vo.luxury.elevator.not-ready', 'vo.luxury.elevator.not-ready-repeat',
       ...radio.preloadCueNames({ startupOnly: true }),

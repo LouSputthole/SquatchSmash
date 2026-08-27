@@ -81,9 +81,9 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
   follow(campaign, SCENE_IDS.ENOLA_SQUATCH, 'enolasquatch.html');
   follow(campaign, SCENE_IDS.MANSION_RETURN, 'mansion.html?visit=return');
   follow(campaign, SCENE_IDS.CARTEL_PALACE, 'cartel-palace.html');
-  /* Palace goes home for the Apartment-owned first act. Only that front door
-   * reaches the kerb; the Meeting then hands off at the treeline. */
-  follow(campaign, SCENE_IDS.APARTMENT, 'index.html', 'front_door');
+  /* Palace goes home for the call in the apartment the Prospect owns. The
+   * private lift reaches the kerb; the Meeting then hands off at the treeline. */
+  follow(campaign, SCENE_IDS.LUXURY_APARTMENT, 'luxury-apartment.html', 'main');
   follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
   follow(campaign, SCENE_IDS.INITIATION, 'initiation.html');
 
@@ -99,7 +99,7 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
 });
 
 test('a fresh schema carries locked durable records for every final-arc mission', () => {
-  assert.equal(CAMPAIGN_VERSION, 21);
+  assert.equal(CAMPAIGN_VERSION, 22);
   assert.equal(MISSION_IDS.SILVER_CASE, 'silver_case');
   assert.equal(MISSION_IDS.MANSION_SIEGE, 'mansion_siege');
   assert.equal(MISSION_IDS.ENOLA_SQUATCH, 'enola_squatch');
@@ -633,8 +633,8 @@ test('Cartel Palace records the betrayal and only opens Initiation after the fin
   assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'available');
   assert.equal(state.story.chapter, 'big_night');
 
-  // Home for Special Meeting Act One, then through the car scene.
-  follow(campaign, SCENE_IDS.APARTMENT, 'index.html', 'front_door');
+  // Home for Special Meeting Act One, then through the existing car scene.
+  follow(campaign, SCENE_IDS.LUXURY_APARTMENT, 'luxury-apartment.html', 'main');
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'available');
   follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'available');

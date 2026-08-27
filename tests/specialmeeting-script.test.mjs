@@ -369,13 +369,13 @@ test('both of the trunk greetings are kept and neither is explained', () => {
  * 4. THE ROUTE
  * ====================================================================== */
 
-test('the campaign route runs Cartel Palace -> Apartment -> Special Meeting -> Initiation Night', () => {
+test('the campaign route runs Cartel Palace -> Luxury -> Special Meeting -> Initiation Night', () => {
   const campaign = freshCampaign();
   assert.ok(SCENE_IDS.SPECIAL_MEETING, 'the scene has a campaign id');
 
   campaign.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
-  const home = campaign.transition(SCENE_IDS.APARTMENT, { spawn: 'front_door' });
-  assert.deepEqual(home.scene, { id: SCENE_IDS.APARTMENT, spawn: 'front_door' });
+  const home = campaign.transition(SCENE_IDS.LUXURY_APARTMENT, { spawn: 'main' });
+  assert.deepEqual(home.scene, { id: SCENE_IDS.LUXURY_APARTMENT, spawn: 'main' });
   const moved = campaign.transition(SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb' });
   assert.equal(moved.scene.id, SCENE_IDS.SPECIAL_MEETING);
   assert.equal(moved.scene.spawn, 'kerb');
@@ -386,7 +386,7 @@ test('the campaign route runs Cartel Palace -> Apartment -> Special Meeting -> I
 
   /* And both old bypasses are GONE.
    *
-   * Palace must not skip either the Apartment-owned first act or the drive and
+   * Palace must not skip either the luxury-home first act or the drive and
    * forest sequence. `campaign.transition` throws instead of degrading, so
    * these assertions prove no runtime can quietly route around them. */
   const direct = freshCampaign();

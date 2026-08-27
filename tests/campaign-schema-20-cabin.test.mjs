@@ -35,12 +35,13 @@ const dayTwoSave = (airstrip) => ({
   },
 });
 
-test('the schema is 21 and the cabin calls exist', () => {
+test('the schema is 22 and the cabin calls exist', () => {
   /* 20 when this file was written for the Act-One cabin; 21 since beats
-   * 12-19 added beat 19's telephone to the events map. The assertion is
+   * 12-19 added beat 19's telephone to the events map; 22 moves Beat 27's
+   * landing from the retired starter flat to the luxury apartment. The assertion is
    * kept pinned rather than loosened -- a schema that moves without somebody
    * writing a migration is the failure this whole file is about. */
-  assert.equal(CAMPAIGN_VERSION, 21);
+  assert.equal(CAMPAIGN_VERSION, 22);
   for (const id of ['CABIN_MARGO_CALL', 'CABIN_BOOSKI_SASOLE_CALL', 'CABIN_BILLY_CALL']) {
     assert.equal(typeof EVENT_IDS[id], 'string', `${id} is missing`);
   }

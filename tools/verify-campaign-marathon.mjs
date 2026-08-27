@@ -162,16 +162,15 @@ export const MARATHON_TRANSITIONS = Object.freeze([
     '/cartel-palace.html', 'approach', 'skip', [
       TIME_EVENT_IDS.RETURN_TO_MANSION, TIME_EVENT_IDS.COMPLETE_MANSION_RETURN,
     ]),
-  /* Palace completion returns to Apartment for SM-010 through SM-090. The
-   * marathon drives that first act through ApartmentStory before it reaches
-   * the kerb; a direct Palace -> Special Meeting edge would skip player-facing
-   * authored content and must fail the graph. */
-  transition('palace-to-apartment', SCENE_IDS.CARTEL_PALACE, SCENE_IDS.APARTMENT,
-    '/index.html', 'front_door', 'skip', [
+  /* Palace completion returns to the home Lou gave him. The marathon drives
+   * Beat 27 through the luxury story adapter before it reaches the kerb; a
+   * direct Palace -> Special Meeting edge would skip the call. */
+  transition('palace-to-luxury', SCENE_IDS.CARTEL_PALACE, SCENE_IDS.LUXURY_APARTMENT,
+    '/luxury-apartment.html', 'main', 'skip', [
       TIME_EVENT_IDS.DEPART_CARTEL_PALACE, TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE,
     ]),
-  transition('apartment-to-special-meeting', SCENE_IDS.APARTMENT, SCENE_IDS.SPECIAL_MEETING,
-    '/specialmeeting.html', 'kerb', 'apartment:special-meeting', [
+  transition('luxury-to-special-meeting', SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.SPECIAL_MEETING,
+    '/specialmeeting.html', 'kerb', 'luxury:special-meeting', [
       TIME_EVENT_IDS.DEPART_SPECIAL_MEETING,
     ]),
   transition('special-meeting-to-initiation', SCENE_IDS.SPECIAL_MEETING, SCENE_IDS.INITIATION,
@@ -488,6 +487,18 @@ async function executeBrowserAction(page, step) {
         ensure(luxury.callAnswered(apartmentModule.SILVER_CASE_BOOSKI_CALL) === true,
           'Silver Case call was not accepted');
         leaveFor(S.SILVER_CASE);
+      } else if (currentStep.action === 'luxury:special-meeting') {
+        ensure(luxury.phase() === 'special_meeting',
+          `beat 27 arrived in phase ${luxury.phase()}`);
+        const owed = luxury.tryLeave();
+        ensure(owed?.kind === 'call'
+          && owed.id === apartmentModule.SPECIAL_MEETING_BOOSKI_CALL.eventId,
+        `the Special Meeting call did not gate the lift: ${JSON.stringify(owed)}`);
+        ensure(luxury.callAnswered(apartmentModule.SPECIAL_MEETING_BOOSKI_CALL) === true,
+          'Special Meeting call was not accepted');
+        leaveFor(S.SPECIAL_MEETING);
+        ensure(campaign.advanceTime(T.DEPART_SPECIAL_MEETING).applied === true,
+          'Special Meeting departure was not recorded');
       } else {
         throw new Error(`${currentStep.id}: unknown luxury action ${currentStep.action}`);
       }
@@ -827,7 +838,7 @@ function assertLandingFacts(step, state) {
       });
       assertMission(state, MISSION_IDS.CARTEL_PALACE, { status: 'available' });
       break;
-    case 'palace-to-apartment':
+    case 'palace-to-luxury':
       assertMission(state, MISSION_IDS.CARTEL_PALACE, {
         status: 'complete', checkpoint: 'clear', sauceBetrayalConfirmed: true,
         markEliminated: true, sauceEliminated: true, outcome: 'clean',
@@ -835,7 +846,7 @@ function assertLandingFacts(step, state) {
       assertMission(state, MISSION_IDS.INITIATION, { status: 'available' });
       assert.equal(state.finale.status, 'locked');
       break;
-    case 'apartment-to-special-meeting':
+    case 'luxury-to-special-meeting':
       assert.equal(state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status, 'answered');
       assert.equal(state.story.timeEvents.filter(
         (eventId) => eventId === TIME_EVENT_IDS.DEPART_SPECIAL_MEETING,

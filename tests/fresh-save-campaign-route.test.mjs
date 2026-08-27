@@ -21,6 +21,7 @@ import {
   NEW_SPACE_LOU_CALL,
   NO_WAKE_LOU_CALL,
   SILVER_CASE_BOOSKI_CALL,
+  SPECIAL_MEETING_BOOSKI_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createLuxuryApartmentStory } from '../src/core/luxury-apartment-story.js';
@@ -517,11 +518,17 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   }), true);
   assert.equal(cartelPalace.complete({ outcome: 'clean' }), true);
 
-  /* Palace returns home for Act One: the call, getting ready, refused door and
-   * headlights. Only the Apartment front door reaches the kerb, and the
-   * Special Meeting then hands off at the treeline. */
-  route(campaign, SCENE_IDS.APARTMENT, 'front_door', 'index.html');
+  /* Palace returns to the home Tony actually owns. Booskibro's exact-once
+   * call gates the private lift; the existing Special Meeting then handles
+   * the kerb, ride, trunk reveal and treeline handoff. */
+  route(campaign, SCENE_IDS.LUXURY_APARTMENT, 'main', 'luxury-apartment.html');
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'available');
+  const beatTwentySeven = createLuxuryApartmentStory({ campaign });
+  assert.equal(beatTwentySeven.pendingCall(), SPECIAL_MEETING_BOOSKI_CALL);
+  assert.equal(beatTwentySeven.callAnswered(SPECIAL_MEETING_BOOSKI_CALL), true);
+  assert.deepEqual(beatTwentySeven.tryLeave(), {
+    kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING,
+  });
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
   route(campaign, SCENE_IDS.SPECIAL_MEETING, 'kerb', 'specialmeeting.html');
   campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);

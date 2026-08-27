@@ -263,9 +263,9 @@ const MATRIX = Object.freeze([
   [SCENE_IDS.MANSION_SIEGE, MISSION_IDS.MANSION_SIEGE, SCENE_IDS.ENOLA_SQUATCH],
   [SCENE_IDS.ENOLA_SQUATCH, MISSION_IDS.ENOLA_SQUATCH, SCENE_IDS.MANSION_RETURN],
   [SCENE_IDS.MANSION_RETURN, MISSION_IDS.MANSION_RETURN, SCENE_IDS.CARTEL_PALACE],
-  /* The Palace skip preserves Apartment-owned Act One instead of becoming a
-   * shortcut around its call, getting-ready beat and pickup. */
-  [SCENE_IDS.CARTEL_PALACE, MISSION_IDS.CARTEL_PALACE, SCENE_IDS.APARTMENT],
+  /* The Palace skip preserves the luxury-apartment call instead of becoming a
+   * shortcut around Beat 27 and the existing pickup. */
+  [SCENE_IDS.CARTEL_PALACE, MISSION_IDS.CARTEL_PALACE, SCENE_IDS.LUXURY_APARTMENT],
 ]);
 
 const SPAWN = Object.freeze({

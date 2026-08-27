@@ -921,7 +921,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 21;
+export const CAMPAIGN_VERSION = 22;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -1480,11 +1480,10 @@ export const SCENES = Object.freeze({
        * leaves by. The starter flat has no edge BACK from there and never
        * gets one -- the Home Ladder climbs and does not come down. */
       SCENE_IDS.LUXURY_APARTMENT,
-      /* THE SPECIAL MEETING. Act One (SM-010 to SM-090) is played in this
-       * flat -- the call, the getting ready, the door refusing him and the
-       * headlights -- and the front door is what ends it. The kerb is the
-       * next thing he stands on. */
-      SCENE_IDS.SPECIAL_MEETING,
+      /* Legacy safety edge for pre-v22 saves which had already reached the
+       * starter-flat implementation of SM-010 to SM-090. MIGRATIONS[21]
+       * carries the canonical Palace landing to the luxury apartment, whose
+       * private lift now owns this exit. */
       SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.INITIATION,
       SCENE_IDS.MANSION,
@@ -1589,8 +1588,8 @@ export const SCENES = Object.freeze({
    * for the day Lou hands over the keys, bed for the stayover and the
    * morning, main for coming home and for the special-meeting call.
    *
-   * Four of those five are wired as of beats 12-19. `SILVER_CASE` is beat
-   * 19's exit and it is now the ONLY reachable entrance to the final third of
+   * All five are wired. `SILVER_CASE` is beat 19's exit and it is now the
+   * ONLY reachable entrance to the final third of
    * the game: `SCENES[COUNTRYSIDE_CABIN].next` gave that doorway up in the
    * same commit, having held it open since the cabin moved to Act One. Add
    * first, remove last -- this edge was added on 2026-08-26 and the cabin's
@@ -1690,17 +1689,16 @@ export const SCENES = Object.freeze({
      * it is going to be a special one; three men come and collect him. That
      * scene hands off to the Initiation at the treeline on its own.
      *
-     * "He goes home" above is literal: Act One of the
-     * Special Meeting -- beats SM-010 to SM-090, the call, the getting ready,
-     * the door refusing him and the headlights -- is played in the flat, and
-     * the flat's own front door is what carries him to the kerb (see
-     * `SCENES[APARTMENT].next` and `tryLeave` in core/apartment-story.js).
+     * "He goes home" above is literal: the call is played in the luxury flat
+     * Lou handed him on the eighteenth green, and that flat's private lift is
+     * what carries him to the kerb (see `SCENES[LUXURY_APARTMENT].next` and
+     * `tryLeave` in core/luxury-apartment-story.js).
      * No direct Palace edge may name Special Meeting or Initiation: either one
      * would route around authored player-facing story. */
     href: 'cartel-palace.html',
     defaultSpawn: 'approach',
     spawns: Object.freeze(['approach', 'perimeter', 'estate', 'dining_room']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.LUXURY_APARTMENT]),
   }),
   /* THE SPECIAL MEETING.
    *
@@ -1754,6 +1752,11 @@ const MISSION_HOMECOMINGS = Object.freeze({
     sceneId: SCENE_IDS.LUXURY_APARTMENT,
     spawn: 'main',
     travelEvent: TIME_EVENT_IDS.RETURN_LUXURY_APARTMENT,
+  }),
+  [SCENE_IDS.CARTEL_PALACE]: Object.freeze({
+    sceneId: SCENE_IDS.LUXURY_APARTMENT,
+    spawn: 'main',
+    travelEvent: null,
   }),
 });
 
@@ -2844,6 +2847,41 @@ const MIGRATIONS = Object.freeze({
             || silverCaseSettled ? 'answered' : 'pending',
         },
       },
+    };
+  },
+  21(saved) {
+    /**
+     * Schema 22 moves Beat 27 to the home the Prospect actually owns.
+     *
+     * The first implementation returned a completed Palace to the starter
+     * apartment for the Special Meeting call. Lou handed over the luxury flat
+     * at beat 14 and the Home Ladder never descends, so current route saves
+     * parked at that old landing need to cross the same seam as new play.
+     *
+     * Restrict the repair to the exact pre-call landing: a genuinely played
+     * Palace, Initiation merely available, and the starter flat still current.
+     * Grandfathered campaigns did not play this final arc, while an Initiation
+     * already in progress or complete may legitimately be at a later landing.
+     * The call event is left untouched. Pending stays pending; answered stays
+     * answered, so a reload never repeats or silently consumes SM-030.
+     */
+    const palace = saved.missions?.[MISSION_IDS.CARTEL_PALACE] ?? {};
+    const initiation = saved.missions?.[MISSION_IDS.INITIATION] ?? {};
+    const parkedAtOldBeat27 = saved.scene?.id === SCENE_IDS.APARTMENT
+      && palace.status === 'complete'
+      && palace.grandfathered !== true
+      && initiation.status === 'available';
+    return {
+      ...saved,
+      version: 22,
+      ...(parkedAtOldBeat27 ? {
+        scene: { id: SCENE_IDS.LUXURY_APARTMENT, spawn: 'main' },
+        lastTransition: {
+          from: SCENE_IDS.CARTEL_PALACE,
+          to: SCENE_IDS.LUXURY_APARTMENT,
+          spawn: 'main',
+        },
+      } : {}),
     };
   },
 });

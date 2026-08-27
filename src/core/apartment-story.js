@@ -1047,6 +1047,9 @@ export const SPECIAL_MEETING_BOOSKI_CALL = Object.freeze({
   eventId: EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL,
   characterId: CHARACTER_IDS.BOOSKI,
   targetSceneId: SCENE_IDS.SPECIAL_MEETING,
+  /* Required story call. Booskibro hangs up first after the final authored
+   * line; the player cannot turn SM-030 into a three-word optional bark. */
+  allowHangup: false,
   from: getCharacter(CHARACTER_IDS.BOOSKI).subtitleName,
   voiceProfile: voiceProfileFor(CHARACTER_IDS.BOOSKI),
   /* `callScript()` wants the bank without the `vo.` and without the trailing

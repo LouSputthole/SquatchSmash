@@ -8,11 +8,12 @@ import {
   DATE_MARGO_CALL,
   NO_WAKE_LOU_CALL,
   SILVER_CASE_BOOSKI_CALL,
+  SPECIAL_MEETING_BOOSKI_CALL,
   departureRefusal,
 } from './apartment-story.js';
 
 /**
- * THE LUXURY APARTMENT, as the campaign sees it. Beats 14, 16, 17 and 19.
+ * THE LUXURY APARTMENT, as the campaign sees it. Beats 14, 16, 17, 19 and 27.
  *
  * The bible gives Chapter 3's second half to a flat Lou hands over on the
  * eighteenth green, and it is four separate visits rather than one scene with
@@ -24,6 +25,7 @@ import {
  *   17  the morning: she goes, and then Lou rings about a boat
  *   18  (NO WAKE, elsewhere) -- he leaves from here and comes back
  *   19  a quiet evening, and then a call about something sensitive
+ *   27  home from the Palace; Booskibro calls a special meeting and sends a car
  *
  * WHY THE PHASE COMES OFF THE CLOCK LEDGER AND NOT OFF `story.chapter`.
  *
@@ -56,6 +58,7 @@ export const LUXURY_APARTMENT_PHASES = Object.freeze([
   'no_wake',
   'return',
   'complete',
+  'special_meeting',
 ]);
 
 class LuxuryApartmentStory {
@@ -105,6 +108,14 @@ class LuxuryApartmentStory {
    * the save and reloading cannot move it.
    */
   phase() {
+    /* Beat 27 is another visit to this same address, separated from beat 19 by
+     * the whole final arc. Palace completion is the durable seam that makes it
+     * unambiguous. A grandfathered Palace was never played and must keep the
+     * old terminal route rather than being sent backward into a new call. */
+    const palace = this.#mission(MISSION_IDS.CARTEL_PALACE);
+    if (palace.status === 'complete' && palace.grandfathered !== true) {
+      return 'special_meeting';
+    }
     const silver = this.#mission(MISSION_IDS.SILVER_ROOM);
     const noWakeDone = this.#mission(MISSION_IDS.NO_WAKE).status === 'complete';
 
@@ -198,6 +209,10 @@ class LuxuryApartmentStory {
     if (phase === 'return' && !this.#answered(EVENT_IDS.BOOSKI_SILVER_CASE_CALL)) {
       return SILVER_CASE_BOOSKI_CALL;
     }
+    if (phase === 'special_meeting'
+      && !this.#answered(EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL)) {
+      return SPECIAL_MEETING_BOOSKI_CALL;
+    }
     return null;
   }
 
@@ -232,6 +247,13 @@ class LuxuryApartmentStory {
       && !this.#answered(EVENT_IDS.BOOSKI_SILVER_CASE_CALL)) {
       this.campaign.advanceTime(TIME_EVENT_IDS.BOOSKI_SILVER_CASE_CALL, (state) => {
         state.events[EVENT_IDS.BOOSKI_SILVER_CASE_CALL].status = 'answered';
+      });
+      return true;
+    }
+    if (definition?.eventId === EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL
+      && !this.#answered(EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL, (state) => {
+        state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status = 'answered';
       });
       return true;
     }
@@ -298,6 +320,17 @@ class LuxuryApartmentStory {
         ...departureRefusal('final_arc_locked'),
       };
     }
+    if (phase === 'special_meeting') {
+      if (!this.#answered(EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL)) {
+        return {
+          kind: 'call',
+          id: EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL,
+          line: 'Nobody’s rung. Nobody’s rung all day.',
+          hint: 'Answer Booskibro’s call.',
+        };
+      }
+      return { kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING };
+    }
     return { kind: 'go', destination: SCENE_IDS.SILVER_CASE };
   }
 
@@ -341,6 +374,7 @@ const LUXURY_SCENE_LABELS = Object.freeze({
   [SCENE_IDS.SILVER_ROOM]: 'Front & Center',
   [SCENE_IDS.NO_WAKE]: 'South Harbor',
   [SCENE_IDS.SILVER_CASE]: 'the Silver Case pickup',
+  [SCENE_IDS.SPECIAL_MEETING]: 'the car downstairs',
 });
 
 export function createLuxuryApartmentStory(options) {

@@ -20,7 +20,7 @@ import {
  * means a beat that used to be wired stopped being wired, which is a
  * regression whatever the commit message says.
  */
-const PENDING_BUDGET = 1;
+const PENDING_BUDGET = 0;
 
 test('the spine runs in order and every number is distinct', () => {
   const numbers = CAMPAIGN_SPINE.map((b) => b.n);

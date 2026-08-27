@@ -167,14 +167,14 @@ test('nothing in the Palace promises the player an Initiation', () => {
   /* Owner, 2026-08-24: the Prospect is not leaving for the Initiation here.
    *
    * The campaign graph now agrees with the authored sequence: Palace goes to
-   * Apartment, where Act One's phone call, getting ready, refused door and
-   * headlights play. Apartment goes to the Special Meeting at the kerb, and
-   * that scene hands off to the Initiation at the treeline.
+   * the luxury apartment, where Act One's phone call and refused lift play.
+   * The private lift goes to the Special Meeting at the kerb, and that scene
+   * hands off to the Initiation at the treeline.
    *
    * Four separate places said otherwise, all of them on the scene's last
    * screen: the terrace prompt, the objective hint, the ending card and its
    * button. The old direct Special Meeting destination skipped the entire
-   * Apartment-owned first act. */
+   * luxury-home first act. */
   const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
   const surfaces = [
     ['src/cartel-palace/mission.js', /hint: '[^']*Initiation[^']*'/],
@@ -204,11 +204,11 @@ test('nothing in the Palace promises the player an Initiation', () => {
 
   const main = read('src/cartel-palace/main.js');
   assert.match(main,
-    /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT, \{ spawn: 'front_door'/,
-    'the exit does not return home for the Apartment-owned pickup act');
+    /returnHomeFromMission\(campaign, SCENE_IDS\.CARTEL_PALACE, \{ location \}\)/,
+    'the exit bypasses the shared homecoming seam for the luxury pickup act');
   assert.doesNotMatch(main,
     /navigateCampaign\(campaign, SCENE_IDS\.SPECIAL_MEETING/,
-    'the Palace still jumps directly to the kerb and skips Apartment Act One');
+    'the Palace still jumps directly to the kerb and skips luxury Act One');
   assert.doesNotMatch(main,
     /missions\[MISSION_IDS\.INITIATION\]\.status\s*=\s*'in_progress'/,
     'the Palace starts Initiation before the Special Meeting reaches its treeline');
