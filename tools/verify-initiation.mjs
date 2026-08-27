@@ -1350,12 +1350,21 @@ try {
    * cut. Every one of those beats speaks first, so every one needs more than
    * one press. */
   await page.waitForFunction(() => window.INITIATION.phase === 'hand', null, { timeout: 90000 });
-  /* The authored prompt is the state change that raises the hands. Wait on
-   * their real rendered framing rather than an arbitrary sleep or the exact
-   * transition frame. */
+  const handPrompt = await page.evaluate(() => window.INITIATION.ritual);
+  check('the hand prompt arrives before the player raises Tony\'s hands',
+    handPrompt.phase === 'hand'
+      && handPrompt.control === 'look-only'
+      && handPrompt.cameraOwnedByPlayer,
+    JSON.stringify(handPrompt));
+  /* Owner sequence: prompt, player clicks, then the hands visibly rise. Drive
+   * that click through the real Space listener before asking the renderer to
+   * prove the hand is in frame. The earlier verifier waited for the raised
+   * `cut` pose while insisting the phase was still `hand`, contradicting the
+   * authored sequence and its source contract. */
+  await pressActionTo(page, 'cut');
   await page.waitForFunction(() => {
     const ritual = window.INITIATION?.ritual;
-    return ritual?.phase === 'hand'
+    return ritual?.phase === 'cut'
       && ritual.firstPersonHandsVisible
       && ritual.handNdc.every(Number.isFinite)
       && Math.abs(ritual.handNdc[0]) <= 1
@@ -1364,7 +1373,7 @@ try {
       && ritual.handNdc[2] <= 1;
   }, null, { timeout: 30000 });
   const handPresentation = await page.evaluate(() => window.INITIATION.ritual);
-  check('the hand prompt raises Tony\'s hands inside the first-person view',
+  check('the real hand input raises Tony\'s hands inside the first-person view',
     handPresentation.control === 'look-only'
       && handPresentation.cameraOwnedByPlayer
       && handPresentation.firstPersonHandsVisible,
@@ -1376,7 +1385,6 @@ try {
       && handPresentation.handNdc[2] >= -1
       && handPresentation.handNdc[2] <= 1,
     JSON.stringify({ handNdc: handPresentation.handNdc }));
-  await pressActionTo(page, 'cut');
   await pressActionTo(page, 'card');
 
   const afterCut = await page.evaluate(() => window.INITIATION.ritual);

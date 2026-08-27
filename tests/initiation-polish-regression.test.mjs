@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const main = readFileSync(new URL('../src/initiation/main.js', import.meta.url), 'utf8');
 const phases = readFileSync(new URL('../src/initiation/phases.js', import.meta.url), 'utf8');
+const verifier = readFileSync(new URL('../tools/verify-initiation.mjs', import.meta.url), 'utf8');
 
 test('production cabin entry walks the cast instead of invoking checkpoint placement', () => {
   const entry = main.slice(main.indexOf('function goInsideAhead()'), main.indexOf('/** Everybody in their place'));
@@ -23,6 +24,19 @@ test('the hand prompt precedes the visible raise and the physical shot has its o
   }
   assert.match(main, /TABLE_SOCKETS\.whiskey\.hand/);
   assert.match(main, /props\.whiskey\.grip/);
+});
+
+test('the browser verifier clicks after the hand prompt before requiring the raised cut pose', () => {
+  const start = verifier.indexOf("window.INITIATION.phase === 'hand'");
+  const end = verifier.indexOf("pressActionTo(page, 'card')", start);
+  assert.ok(start >= 0 && end > start, 'the real ritual browser path is missing');
+  const ritual = verifier.slice(start, end);
+  const click = ritual.indexOf("pressActionTo(page, 'cut')");
+  const framedCut = ritual.indexOf("ritual?.phase === 'cut'");
+  assert.ok(click >= 0 && framedCut > click,
+    'the verifier requires raised hands before sending the owner-authored click');
+  assert.doesNotMatch(ritual, /ritual\?\.phase === 'hand'[\s\S]{0,160}handNdc/,
+    'the verifier still expects the resting prompt pose to be the raised cut pose');
 });
 
 test('family acknowledgements are queued and animate instead of wall-clock overlapping', () => {
