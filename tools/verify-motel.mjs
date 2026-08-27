@@ -2735,16 +2735,58 @@ try {
       && evidencePermutations.complete.complete,
     JSON.stringify(evidencePermutations));
 
-
+  const driveMixPrimer = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const line = motel.S.snowInjured
+      ? 'Hold the case. I am driving.'
+      : 'Seatbelt. Or do not.';
+    const cue = motel.voice.cueForLine(motel.S.snowInjured ? 'Prospect' : 'Snow', line);
+    return {
+      line,
+      cue,
+      playedBefore: motel.voice.played.filter((entry) => entry.cue === cue).length,
+    };
+  });
   await previewPage.evaluate(() => window.MOTEL.drive());
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'drive', null, { timeout: SCENE_WAIT_MS });
-  await previewPage.waitForTimeout(900);
+  /* This is an active-play receipt, not a source assertion. Wait until the
+   * drive's own recorded line owns the speech floor while the supplied HTML
+   * score is genuinely playing. The score lives outside AudioEngine, so the
+   * generic voice-duck tests cannot prove this scene-level coexistence. */
+  await previewPage.waitForFunction(
+    ({ line, cue, playedBefore }) => {
+      const motel = window.MOTEL;
+      return motel.phase === 'drive'
+        && motel.audio.music().playing
+        && motel.voice.playing()
+        && document.getElementById('subtitle')?.textContent.includes(line)
+        && motel.voice.played.filter((entry) => entry.cue === cue).length > playedBefore;
+    },
+    driveMixPrimer,
+    { timeout: SCENE_WAIT_MS, polling: 80 },
+  );
+  const jerkyActiveMix = await previewPage.evaluate(({ cue, playedBefore }) => ({
+    phase: window.MOTEL.phase,
+    music: window.MOTEL.audio.music(),
+    voicePlaying: window.MOTEL.voice.playing(),
+    newDriveTakeCount: window.MOTEL.voice.played.filter((entry) => entry.cue === cue).length - playedBefore,
+    musicEvents: window.MOTEL.audio.events.filter((entry) => entry.type.startsWith('music-')),
+  }), driveMixPrimer);
+  check('the recorded drive line and Jerky score coexist in active play',
+    jerkyActiveMix.phase === 'drive'
+      && jerkyActiveMix.music.playing === true
+      && jerkyActiveMix.voicePlaying === true
+      && jerkyActiveMix.newDriveTakeCount === 1
+      && jerkyActiveMix.musicEvents.filter((entry) => entry.type === 'music-start').length === 1
+      && jerkyActiveMix.musicEvents.filter((entry) => entry.type === 'music-stop').length === 0,
+    JSON.stringify(jerkyActiveMix));
   await capture(previewPage, 'after-drive-first-person');
 
   const jerkyDriveMusic = await previewPage.evaluate(() => window.MOTEL.audio.music());
   check('the Jerky driving track plays as quiet non-diegetic score',
-    jerkyDriveMusic.url.endsWith('/driving-jerky-hotel.mp3')
-      || jerkyDriveMusic.url === 'assets/music/driving-jerky-hotel.mp3',
+    jerkyDriveMusic.playing === true
+      && (jerkyDriveMusic.url.endsWith('/driving-jerky-hotel.mp3')
+        || jerkyDriveMusic.url === 'assets/music/driving-jerky-hotel.mp3'),
     JSON.stringify(jerkyDriveMusic));
   check('the Jerky driving score stays below dialogue',
     jerkyDriveMusic.diegetic === false
@@ -2831,6 +2873,30 @@ try {
   });
   check('the final Motel WebGL context remains healthy',
     !!webgl.kind && !webgl.contextLost && webgl.error === 0, JSON.stringify(webgl));
+
+  /* Let the real drive update cross its authored distance gate. This exercises
+   * the same finishScene('home') path a player reaches instead of calling the
+   * audio stop helper or a debug-use handler directly. */
+  await previewPage.evaluate(() => {
+    window.MOTEL.driveState.dist = window.MOTEL.driveState.target + 1;
+  });
+  await previewPage.waitForFunction(
+    () => window.MOTEL.phase === 'end',
+    null,
+    { timeout: SCENE_WAIT_MS },
+  );
+  const jerkyDriveTeardown = await previewPage.evaluate(() => ({
+    phase: window.MOTEL.phase,
+    music: window.MOTEL.audio.music(),
+    musicEvents: window.MOTEL.audio.events.filter((entry) => entry.type.startsWith('music-')),
+  }));
+  check('finishing the drive stops and rewinds its score exactly once',
+    jerkyDriveTeardown.phase === 'end'
+      && jerkyDriveTeardown.music.playing === false
+      && jerkyDriveTeardown.musicEvents.filter((entry) => entry.type === 'music-start').length === 1
+      && jerkyDriveTeardown.musicEvents.filter((entry) => entry.type === 'music-stop').length === 1
+      && jerkyDriveTeardown.musicEvents.at(-1)?.type === 'music-stop',
+    JSON.stringify(jerkyDriveTeardown));
 
   await previewPage.close();
 

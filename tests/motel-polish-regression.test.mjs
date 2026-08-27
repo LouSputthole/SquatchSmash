@@ -164,6 +164,16 @@ test('the Jerky driving score is a low non-diegetic scene track', () => {
   assert.match(ensure, /dataset\.role = 'non-diegetic-score'/);
   assert.doesNotMatch(ensure, /Panner|position/);
   assert.match(bodyOf('setMusic', AUDIO), /if \(mode === 'chase'\) \{\s*startDriveMusic\(\)/);
+  const setMusic = bodyOf('setMusic', AUDIO);
+  assert.match(setMusic, /if \(musicMode === 'chase'\) stopDriveMusic\(\)/,
+    'leaving the drive must stop the dedicated HTML score');
+  assert.ok(setMusic.indexOf("if (musicMode === 'chase') stopDriveMusic()")
+    < setMusic.indexOf('musicMode = mode'),
+    'the old drive score must stop before the next music mode becomes authoritative');
+  assert.match(bodyOf('finishScene'), /sfx\.setMusic\('none'\)/,
+    'the successful drive handoff must retire all Motel music');
+  assert.match(bodyOf('driveMusicStatus', AUDIO), /playing: !!driveMusic && !driveMusic\.paused/,
+    'the live verifier needs playback state, not only the configured URL');
 });
 
 test('the requested checkpoint set is covered by concrete state authorities', () => {
