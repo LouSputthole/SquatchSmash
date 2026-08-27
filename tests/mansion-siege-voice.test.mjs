@@ -20,9 +20,10 @@ import test from 'node:test';
 
 import {
   SEQUENCES, SIEGE_CUE_PREFIX, SIEGE_SPEAKER_NAMES, SIEGE_VOICES,
-  SiegeDialogue, allSiegeLines, readingSeconds, siegeVoiceCueNames,
+  SiegeDialogue, allSiegeLines, readingSeconds, siegeDialogueEffectCueNames,
+  siegeVoiceCueNames,
 } from '../src/mansion/siege/script.js';
-import { SPEECH_MIX_INDOORS, voiceOverlaps } from '../src/core/dialogue.js';
+import { SPEECH_MIX_CLOSE, SPEECH_MIX_INDOORS, voiceOverlaps } from '../src/core/dialogue.js';
 import {
   checkSiegeVoiceManifest, collectSiegeVoiceCues, syncSiegeVoiceManifest,
 } from '../tools/siege-vo.mjs';
@@ -121,6 +122,106 @@ test('the two Lous stay two men', () => {
   const byVoice = {};
   for (const line of allSiegeLines()) byVoice[line.voice] = (byVoice[line.voice] ?? 0) + 1;
   assert.ok(byVoice.lou1 > 0 && byVoice.lou2 > 0, 'both Lous speak in this mission');
+});
+
+test('the aftermath contains the original A-Team phone threat before the Sasole handoff', () => {
+  const lines = SEQUENCES.aftermath;
+  const caller = lines.filter((line) => line.speaker === 'ateam_caller');
+  const callStart = lines.findIndex((line) => line.id === 'aftermath.call.lou.answer');
+  const callEnd = lines.findIndex((line) => line.id === 'aftermath.call.lou.not-home');
+  const handoff = lines.findIndex((line) => line.id === 'aftermath.lou.sasole');
+
+  assert.ok(callStart === 0, 'the post-siege phone rings before Lou debriefs the landing');
+  assert.ok(caller.length >= 3, 'one bark is not a phone confrontation');
+  assert.ok(caller.every((line) => line.remote === true && line.voice === 'ateam3'),
+    'the A-Team caller must remain one cold remote voice');
+  assert.ok(callEnd > callStart && handoff > callEnd,
+    'Lou must finish the call before he hands the Prospect to Sasole');
+  assert.match(lines.map((line) => line.say).join(' '), /A-Team/,
+    'the caller never establishes who attacked the house');
+
+  /* Recognition belongs to the player, not to copied wording. These are the
+   * most load-bearing phrases from the film monologue; none belongs in this
+   * original, straight-faced exchange. */
+  const words = lines.map((line) => line.say).join(' ');
+  assert.doesNotMatch(words,
+    /particular set of skills|look for you|find you|I will kill you|good luck/i);
+});
+
+test('the phone rings once, answers with the shared pickup, and keeps the remote caller non-positional', () => {
+  const loops = [];
+  const stopped = [];
+  const effects = [];
+  const speech = [];
+  const leadIns = [];
+  const audio = {
+    hasSample: () => true,
+    sampleDuration: () => 0.6,
+    hold() {},
+    startLoop(cue, options) { loops.push({ cue, options }); return {}; },
+    stopLoop(cue, fade) { stopped.push({ cue, fade }); },
+    play(cue, options) { effects.push({ cue, options }); return {}; },
+    playWithReceipt(cue, options) {
+      speech.push({ cue, options });
+      return {
+        source: {},
+        receipt: {
+          started: true,
+          speakerId: options.speakerId,
+          positional: { enabled: options.follow != null },
+        },
+      };
+    },
+  };
+  const lou = { position: { x: -1.4, y: 6, z: 50.2 } };
+  const runner = new SiegeDialogue({
+    audio,
+    resolveSpeaker: (id) => (id === 'lou' ? lou : null),
+    onLeadIn: (leadIn, line) => leadIns.push({ leadIn, line }),
+  });
+
+  assert.equal(runner.play('aftermath'), true);
+  assert.equal(runner.line, null, 'Lou must not answer over the ringtone');
+  assert.equal(runner.leadIn?.cue, 'phone.ring');
+  assert.equal(leadIns.length, 1, 'the HUD must be told to clear the prior combat subtitle');
+  assert.equal(leadIns[0].line.id, 'aftermath.call.lou.answer');
+  assert.deepEqual(siegeDialogueEffectCueNames(), ['phone.ring', 'phone.pickup', 'phone.hangup']);
+  for (let guard = 0; guard < 200 && runner.active; guard += 1) runner.update(0.5);
+
+  assert.equal(loops.filter((entry) => entry.cue === 'phone.ring').length, 1);
+  assert.equal(stopped.filter((entry) => entry.cue === 'phone.ring').length, 1);
+  assert.deepEqual(effects.map((entry) => entry.cue), ['phone.pickup', 'phone.hangup']);
+  const remote = speech.filter((entry) => entry.options.speakerId === 'ateam_caller');
+  assert.equal(remote.length, SEQUENCES.aftermath.filter((line) => line.remote === true).length);
+  for (const entry of remote) {
+    assert.equal(entry.options.follow, undefined, `${entry.cue} acquired a world position`);
+    assert.equal(entry.options.ref, undefined, `${entry.cue} acquired distance rolloff`);
+    assert.equal(entry.options.maxDist, undefined, `${entry.cue} acquired a maximum distance`);
+    assert.equal(entry.options.rolloff, undefined, `${entry.cue} acquired distance rolloff`);
+    assert.equal(entry.options.bus, 'voice');
+  }
+  assert.deepEqual(SPEECH_MIX_CLOSE, { ref: null, maxDist: null, rolloff: null });
+});
+
+test('restoring a heard aftermath cannot ring or replay the call', () => {
+  const events = [];
+  const audio = {
+    sampleDuration: () => null,
+    startLoop: (cue) => events.push(`start:${cue}`),
+    stopLoop: (cue) => events.push(`stop:${cue}`),
+    play: (cue) => events.push(`play:${cue}`),
+  };
+  const first = new SiegeDialogue({ audio });
+  assert.equal(first.play('aftermath'), true);
+  first.finish();
+  const snapshot = first.snapshot();
+  assert.equal(events.filter((entry) => entry === 'start:phone.ring').length, 1);
+
+  const restored = new SiegeDialogue({ audio });
+  restored.restore(snapshot);
+  const before = events.length;
+  assert.equal(restored.play('aftermath'), false);
+  assert.equal(events.length, before, 'a restored call emitted another ring, pickup, line, or hangup');
 });
 
 test('the committed manifest carries the siege exactly, with nothing stale', () => {

@@ -84,7 +84,9 @@ import { BallisticImpactSystem } from '../../world/impacts.js';
 import { MansionDamageState } from './state.js';
 import { SiegeMission, B, CHECKPOINTS } from './mission.js';
 import { isSiegeLineWeapon, resolveArmoryTake } from './armory-policy.js';
-import { SiegeDialogue, SIEGE_SPEAKER_NAMES, siegeVoiceCueNames } from './script.js';
+import {
+  SiegeDialogue, SIEGE_SPEAKER_NAMES, siegeDialogueEffectCueNames, siegeVoiceCueNames,
+} from './script.js';
 import { REQUIRED_SIEGE_EFFECT_CUES, SIEGE_AMBIENCE_CUES, SiegeMissionAudio } from './audio.js';
 import {
   COMBAT_BOUNDARY, DEFENCE_POST, ENCOUNTERS, totalAttackers,
@@ -1707,6 +1709,13 @@ const dialogue = new SiegeDialogue({
     const memberId = speakerId === 'sasole' ? 'captain_lou_sasole' : speakerId;
     return ensemble.members?.get?.(memberId)?.root ?? null;
   },
+  onLeadIn: () => {
+    combatBarkTimer = 0;
+    if (!subtitleEl) return;
+    subtitleEl.hidden = true;
+    subtitleEl.classList.remove('hero');
+    delete subtitleEl.dataset.priority;
+  },
   onLine: (line) => {
     if (!subtitleEl) return;
     combatBarkTimer = 0;
@@ -1733,7 +1742,10 @@ const dialogue = new SiegeDialogue({
 /** Barks are already authored by the cast Adapters; this only renders them. */
 function renderCombatBark(event = {}) {
   const line = typeof event.line === 'string' ? event.line.trim() : '';
-  if (!line || dialogue.line || !subtitleEl) return false;
+  /* The phone ring is part of the authored sequence even though no subtitle
+   * is up yet. Letting a combat bark into that 1.2-second answer beat can
+   * overwrite the first line just as the receiver comes up. */
+  if (!line || dialogue.active || !subtitleEl) return false;
   subtitleEl.hidden = false;
   subtitleEl.classList.remove('hero');
   subtitleEl.dataset.priority = 'ambient';
@@ -1767,7 +1779,7 @@ function renderCombatBark(event = {}) {
 }
 
 function updateCombatBark(dt) {
-  if (dialogue.line || combatBarkTimer <= 0) return;
+  if (dialogue.active || combatBarkTimer <= 0) return;
   combatBarkTimer = Math.max(0, combatBarkTimer - Math.max(0, Number(dt) || 0));
   if (combatBarkTimer === 0 && subtitleEl) subtitleEl.hidden = true;
 }
@@ -3004,7 +3016,8 @@ async function beginSiege() {
     await audio.loadManifest({ names: siegeEffectCueNames() }).catch(() => {});
     await audio.loadAdditional({
       names: [
-        ...weaponCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames(),
+        ...weaponCueNames(), ...siegeVoiceCueNames(), ...siegeDialogueEffectCueNames(),
+        ...siegeCombatCueNames(),
         /* The crew's own forty-two lines. They are barks rather than script,
          * so they were never in `siegeVoiceCueNames()`, and a bark whose bank
          * is not decoded plays the synth stand-in rather than the take. */
@@ -3104,7 +3117,8 @@ export function siegeCombatCueNames() {
 
 export function siegeCueNames() {
   return [
-    ...siegeEffectCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames(),
+    ...siegeEffectCueNames(), ...siegeVoiceCueNames(), ...siegeDialogueEffectCueNames(),
+    ...siegeCombatCueNames(),
     ...ateamBarkCueNames(),
   ];
 }

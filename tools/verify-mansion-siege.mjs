@@ -4633,12 +4633,14 @@ try {
   /* authored in the brief, staged in `ensemble.js` (he has three postings */
   /* in this house) and unreachable.                                       */
   /*                                                                       */
-  /* So this walks it: clear wave two, let Lou talk on the clock, WALK to  */
+  /* So this walks it: clear wave two, hear the phone ring and the A-Team  */
+  /* caller answer Lou, let the whole aftermath run on the clock, WALK to */
   /* Sasole, and require the card. Nothing is pressed and nothing is       */
   /* called on the mission object.                                         */
   /* ---------------------------------------------------------------- */
   const aftermath = await evaluate(() => {
     const s = window.mansionSiege;
+    s.audio.clearPlaybackLog();
     /* Fight wave two out. Release everything, then put it all down. */
     for (let t = 0; t < 200 && s.beat === 'WAVE_TWO'; t += 0.5) {
       for (const id of [...s.mission.waves.two.standing]) s.mission.noteDown(id);
@@ -4647,6 +4649,8 @@ try {
     return {
       beat: s.beat, state: s.state, objective: s.objective,
       hud: s.hud(), sequence: s.speakingSequence,
+      leadIn: s.dialogue.leadIn?.cue ?? null,
+      phoneLoopActive: s.audio.loops.has('phone.ring'),
     };
   });
   check('clearing wave two drops into the aftermath with the fires still burning',
@@ -4656,9 +4660,79 @@ try {
   check('and the objective reads as HELD rather than going blank',
     aftermath.objective === 'The house is held' && aftermath.hud.objective === 'The house is held',
     JSON.stringify(aftermath.hud));
-  check('Lou comes to the landing and talks, unprompted',
-    aftermath.sequence === 'aftermath' && !!aftermath.hud.subtitle,
-    JSON.stringify({ sequence: aftermath.sequence, said: aftermath.hud.subtitle }));
+  check('Lou comes to the landing and the shared telephone rings, unprompted',
+    aftermath.sequence === 'aftermath' && aftermath.leadIn === 'phone.ring'
+      && aftermath.phoneLoopActive === true && aftermath.hud.subtitle === null,
+    JSON.stringify({
+      sequence: aftermath.sequence,
+      leadIn: aftermath.leadIn,
+      ringing: aftermath.phoneLoopActive,
+      said: aftermath.hud.subtitle,
+    }));
+
+  const ateamCall = await evaluate(() => {
+    const s = window.mansionSiege;
+    for (let t = 0; t < 30 && s.dialogue.line?.speaker !== 'ateam_caller'; t += 0.2) {
+      s.tick(0.2);
+    }
+    const line = s.dialogue.line;
+    const receipt = [...s.audio.playbackReceipts].reverse()
+      .find((entry) => entry.requested === line?.name) ?? null;
+    return {
+      beat: s.beat,
+      sequence: s.speakingSequence,
+      speaker: line?.speaker ?? null,
+      remote: line?.remote === true,
+      speaking: s.speaking,
+      subtitle: s.hud().subtitle,
+      phoneLoopActive: s.audio.loops.has('phone.ring'),
+      pickupRequests: s.audio.playbackReceipts
+        .filter((entry) => entry.requested === 'phone.pickup').length,
+      receipt: receipt ? {
+        requested: receipt.requested,
+        speakerId: receipt.speakerId,
+        positional: receipt.positional,
+      } : null,
+    };
+  });
+  check('the A-Team answers through a close non-positional call before Sasole',
+    ateamCall.beat === 'AFTERMATH'
+      && ateamCall.sequence === 'aftermath'
+      && ateamCall.speaker === 'ateam_caller'
+      && ateamCall.remote === true
+      && ateamCall.subtitle === ateamCall.speaking
+      && ateamCall.phoneLoopActive === false
+      && ateamCall.pickupRequests === 1
+      && ateamCall.receipt?.speakerId === 'ateam_caller'
+      && ateamCall.receipt?.positional?.enabled === false
+      && ateamCall.receipt?.positional?.follows === false,
+    JSON.stringify(ateamCall));
+
+  /* Keep one active-play frame of the actual caller line. Rendering stays
+   * disabled for the simulation-heavy verifier except around deliberate
+   * evidence captures, so turn it on for two frames and put it straight back. */
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const phoneFrame = await evaluate(() => {
+    const s = window.mansionSiege;
+    s.setRendering(true);
+    s.tick(0.05);
+    return { frame: s.framesRendered, subtitle: s.hud().subtitle };
+  });
+  await page.waitForFunction(
+    (before) => window.mansionSiege.framesRendered >= before + 2,
+    phoneFrame.frame,
+    { timeout: 180000 },
+  );
+  const phoneCallPath = path.join(
+    ROOT, 'docs', 'validation', '2026-08-27-siege-phone-call', 'a-team-phone-call.png',
+  );
+  fs.mkdirSync(path.dirname(phoneCallPath), { recursive: true });
+  await page.screenshot({ path: phoneCallPath, animations: 'disabled', timeout: 300000 });
+  await evaluate(() => window.mansionSiege.setRendering(false));
+  await page.setViewportSize({ width: 480, height: 300 });
+  check('the post-siege A-Team call has an active-play rendered frame',
+    fs.statSync(phoneCallPath).size > 10_000 && phoneFrame.subtitle === ateamCall.subtitle,
+    `${phoneCallPath} ${JSON.stringify(phoneFrame)}`);
 
   const cartelLooks = await evaluate(() => {
     const s = window.mansionSiege;

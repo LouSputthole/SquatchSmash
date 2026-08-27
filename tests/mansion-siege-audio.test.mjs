@@ -191,6 +191,7 @@ test('the playable Siege and its verifier use the observable mission-audio bound
   for (const [list, why] of [
     ['weaponCueNames', 'the guns'],
     ['siegeVoiceCueNames', 'the mission script'],
+    ['siegeDialogueEffectCueNames', 'the scripted phone ring, pickup and hangup'],
     ['siegeCombatCueNames', 'combat feedback'],
     /* Owner, 2026-08-24: *"I also didnt hear the A team voice lines during
      * the siege."* They are barks, not script, so they were in neither of the

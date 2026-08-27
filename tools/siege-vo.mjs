@@ -56,7 +56,18 @@ const PREFIX = SIEGE_CUE_PREFIX;
 export function collectSiegeVoiceCues() {
   return allSiegeLines()
     .filter((line) => line.voice)
-    .map((line) => ({ name: line.name, voice: line.voice, say: line.say }));
+    .map((line) => ({
+      name: line.name,
+      voice: line.voice,
+      say: line.say,
+      /* Recording direction belongs beside the line it directs. The global
+       * recording packet already preserves manifest metadata, so carrying it
+       * here gives the new caller and Lou's half of the call an exact acting
+       * brief without creating a Siege-only spreadsheet. */
+      ...(typeof line.direction === 'string' && line.direction.trim()
+        ? { direction: line.direction.trim() }
+        : {}),
+    }));
 }
 
 /** An updated manifest. Does not mutate or write the input. */
@@ -85,7 +96,11 @@ export function checkSiegeVoiceManifest(manifest) {
   for (const [name, cue] of expected) {
     const actual = declared.get(name);
     if (!actual) failures.push(`missing cue ${name}`);
-    else if (actual.voice !== cue.voice || actual.say !== cue.say) failures.push(`drifted cue ${name}`);
+    else if (actual.voice !== cue.voice
+      || actual.say !== cue.say
+      || (actual.direction ?? '') !== (cue.direction ?? '')) {
+      failures.push(`drifted cue ${name}`);
+    }
   }
   for (const name of declared.keys()) if (!expected.has(name)) failures.push(`stale cue ${name}`);
   /* And the one that is not about the manifest at all: a speaker whose voice
