@@ -25,15 +25,18 @@ note still needs proof.
 - **Browser-covered** means the scene verifier exercises the live page through
   the production interaction surface. It does not mean the verifier has been
   rerun in the final all-gates pass yet.
-- **Final visual pending** means the deterministic baseline/active-play capture
-  is still part of this branch's remaining visual-regression job.
+- **Final visual pending** means a canonical baseline may now be committed, but
+  the complete integrated visual run and human diff review are still release
+  evidence rather than assumptions.
 - **Owner choice** means the implementation has intentionally stopped at a
   review surface because selecting creative material on the owner's behalf
   would change authored intent.
 
-On this branch, the focused source-contract run for the rows below is currently
-**209 / 209 passing**. The final report must still list each browser verifier
-and full gate actually rerun after all concurrent jobs land.
+The original scene-polish batch recorded **209 / 209 focused source contracts
+passing**. Later commits added their own focused receipts, listed in the Jobs
+0–12 ledger below. This is a committed-state audit at
+`077d58d95e95911aa2ab2da2a131ef2692d462fe`; it is not a substitute for the
+final integrated browser, full-gate, debt-ratchet, push, or Pages receipts.
 
 ## Combined scene-polish brief
 
@@ -74,7 +77,7 @@ Primary implementation commits: `bdaee880`, `cd1079ad`, `75eae53d`,
 | 3.12 bridge collision | The real Player capsule crosses the entire bridge from both banks without being ejected into the creek. | Contracted; browser-covered |
 | 3.13 score HUD; 3.14 radio HUD | The finished score expires outside the firing-line radius; the station readout follows the Cabin receiver's audible radius rather than its on/off latch. | Contracted; browser-covered |
 | 3.15 creek; 3.16 ridge | Real ray acquisition works from legal standing ground; creek focus mixes the water/forest and exits on input or movement. | Contracted; browser-covered |
-| 3.17 Lou objective timing; 3.18 remove “Finish the Cabin Chapter” | Cabin projects one truthful parent objective and only the current soft step; the call is pending until it exists and the vague chapter label is gone. The all-scene objective-honesty pass is still active for non-Cabin scenes. | Cabin contracted; global audit active |
+| 3.17 Lou objective timing; 3.18 remove “Finish the Cabin Chapter” | Cabin projects one truthful parent objective and only the current soft step; the call is pending until it exists and the vague chapter label is gone. The all-scene audit subsequently repaired Apartment, Bing I/II, Graveyard, and THE TAKE through the same shared lifecycle. | Contracted; Job 12 committed in `f2b8095d`; final integrated gates pending |
 
 Primary implementation commits: `493c1c67`, `933dacd4`, `986ea417`,
 `bdaee880`, `8f0a0f95`.
@@ -83,8 +86,8 @@ Primary implementation commits: `493c1c67`, `933dacd4`, `986ea417`,
 
 | Owner area | Current implementation and proof | Status |
 | --- | --- | --- |
-| Objective lifecycle and no spoilers | Shared `ObjectivePanel` supports `pending` and `retire`; meaningful tallies remain opt-in. Every scene is being audited against the state that owns its interaction/exit gate. | Shared mechanism contracted; Job 12 active |
-| HUD scoping | Cabin range/radio, shared inventory, objective, and subtitle HUDs have explicit scope contracts. The all-scene pass checks lingering state and direct-entry/reload behavior. | Contracted where named; global audit active |
+| Objective lifecycle and no spoilers | Shared `ObjectivePanel` supports `pending` and `retire`; meaningful tallies remain opt-in. The campaign-wide audit derives visible steps from the same live state that owns interactions and exits. | Shared mechanism and Job 12 contracted; final integrated gates pending |
+| HUD scoping | Cabin range/radio, shared inventory, objective, and subtitle HUDs have explicit scope contracts. The completed all-scene pass covers lingering state plus direct-entry/reload behavior. | Contracted; Job 12 committed in `f2b8095d` |
 | Mirrors/player body | Shared body applies only to regular apartment, luxury apartment, and Cabin. Combat scenes and Squatchfather are untouched by this pass. | Contracted; Spector-proven |
 | Asset reuse/root-cause standard | Shared mirror/body/objective/radio/death-transition systems were reused; the commits quote measured faults instead of hiding them behind scene-local wrappers. | Enforced by repository workflow and tests |
 
@@ -96,7 +99,7 @@ Primary implementation commits: `493c1c67`, `933dacd4`, `986ea417`,
 | --- | --- | --- |
 | staff clipping; first execution; following formation | The staff stays in the off hand and outside the body; the execution revolver has one visible copy; the Circle walks in loose pairs and every member uses the measured cabin-door route. | Contracted; browser-covered |
 | dead air/pacing; Saint Squatch card; player-held ceremonial shot | The cabin entry walks rather than checkpoint-snaps, authored gates own the pacing, the real registered card has a bounded burn lifecycle, and the hand prompt/raise/shot have separate phases. | Contracted; browser-covered; final visual pending |
-| salutes; Gratin line; ending; full credits | Family acknowledgements are queued/animated, the owner line is pinned immediately before Kittenboss's shot, and the scene fades directly into the shared full credit roll with a deterministic natural ending. | Contracted; browser-covered; final-record integration active in Job 6 |
+| salutes; Gratin line; ending; full credits | Family acknowledgements are queued/animated, the owner line is pinned immediately before Kittenboss's shot, and the scene fades directly into the shared full credit roll with a deterministic natural ending. `campaign-finale.js` now reads the bounded saved record rather than reconstructing it from scene state. | Contracted; browser-covered; Job 6 committed in `a0c103cc`; visual baseline committed in `df167002` |
 
 Primary implementation commit: `ca49ca6e`.
 
@@ -122,7 +125,7 @@ Primary implementation commit: `ca49ca6e`.
 | guest counter; bandleader identity; waiter movement/trays/champagne | The roster remains lookable, the bandleader has one dedicated voice across all eight cues, servers use collision prediction/right-of-way, two staff carry the table, and champagne/service props are physical. | Contracted; browser-covered |
 | player/Margo drinks; paired shots; drink state/service cycle | Drink delivery, bottle/source order, paired table shots, and service-return behavior are source- and browser-covered. | Contracted; browser-covered |
 | dance; Margo return; Woo score | The dance uses forgiving/assist windows and persists correctly; every Woo band returns an affirmative Margo answer while changing delivery, not route; the relationship is handed to campaign state. | Contracted; browser-covered |
-| “same person” diner concern | `DINER_VOICE_PROFILES` rotates `silver-diner-a/b/c`; the cast uses distinct ElevenLabs voice IDs, while waiters and bandleader retain separate staff profiles. `tests/silver-diner-voices.test.mjs`. | Contracted; 209/209 focused run includes this check |
+| “same person” diner concern | `DINER_VOICE_PROFILES` rotates `silver-diner-a/b/c`; the cast uses distinct ElevenLabs voice IDs, while waiters and bandleader retain separate staff profiles. `tests/silver-diner-voices.test.mjs`. | Contracted; original focused batch includes this check; rendered-voice receipts committed in `9c89bb4f` |
 
 Primary implementation commit: `ca49ca6e`.
 
@@ -146,8 +149,8 @@ combat/staging suite retained).
 | Owner rule | Current implementation and proof | Status |
 | --- | --- | --- |
 | subtitle priority | `src/core/subtitle-priority.js` lets story speech preempt ambient flavor without freezing gameplay; expiry and release are deterministic. | Contracted |
-| objective state/display | Shared pending/retire behavior is contracted; the all-scene state/exit/reload audit is Job 12. | Active |
-| audio scene variants | `src/core/weapons/audio.js` owns standard/suppressed profiles; scene music modules own their buses, stop points, and ducking. | Contracted; radio lifecycle follow-through remains |
+| objective state/display | Shared pending/retire behavior and the all-scene state/exit/reload audit are committed in Job 12. | Contracted; final integrated gates pending |
+| audio scene variants | `src/core/weapons/audio.js` owns standard/suppressed profiles; scene music modules own their buses, stop points, and ducking. Physical Luxury and Mansion receivers now persist through the shared campaign adapter. | Contracted; active-scene overlap/mix review remains |
 
 ## Delivered music brief
 
@@ -155,41 +158,78 @@ combat/staging suite retained).
 | --- | --- | --- |
 | `Driving Jerky Hotel.mp3` | Low non-diegetic drive score below dialogue. | Contracted; browser-covered |
 | `Driving THe take.mp3` | Scene-owned escape driving score; vehicle-feel measurements and live heist browser verifier remain green at the feature commit. | Contracted; browser-covered |
-| `EnolaPreBombDropApproach.mp3` | Approach cue targets the bomb-release boundary and stops immediately if arrival wins the race; the drop/explosion is silent. | Contracted; final Enola clue/payoff verifier active |
-| `EnolaEscapeAfterDrop.mp3` | Starts only after the explosion's authored silent hold. | Contracted; final verifier active |
+| `EnolaPreBombDropApproach.mp3` | Approach cue targets the bomb-release boundary and stops immediately if arrival wins the race; the drop/explosion is silent. | Contracted; clue/payoff implementation committed in `db894088`; deterministic cockpit baseline committed in `df167002` |
+| `EnolaEscapeAfterDrop.mp3` | Starts only after the explosion's authored silent hold. | Contracted; clue/payoff implementation committed; final integrated gates pending |
 | `Silver Room (front and center background).mp3` | Corridor-muffled, in-room audible, dialogue-ducked non-positional room score. | Contracted; browser-covered |
 | `SilverRoomOpening20sec.mp3` | Exactly 27 seconds after the opening joke, then direct handoff/fade into Bananaphone; stage trumpeter visibly plays and works the valves. | Contracted; browser-covered |
 
-## Engineering handoff beyond the scene briefs
+## Jobs 0–12 current-state ledger
 
-The following are not omitted merely because they do not appear in the two
-playtest documents:
+This ledger audits the committed branch snapshot
+`077d58d95e95911aa2ab2da2a131ef2692d462fe`. Abbreviated hashes below resolve
+uniquely in this repository. “Implemented” means the scoped production change
+and its narrow receipts are committed; it does **not** mean the final integrated
+gate, push, merge, or Pages run has happened.
 
-- Spector MCP and real mirror-frame evidence — complete.
-- Repository skill, `AGENTS.md`, and `BEFORE-YOU-PUSH.md` — complete.
-- Luxury Margo beats 16/17 — complete.
-- Beat 27 Special Meeting call — complete.
-- Day 12/13 tail repair — complete.
-- Cartel Palace Recast pilot — complete and isolated to Palace.
-- Campaign statistics and THE PROSPECT'S RECORD — active.
-- Enola wrong-city instrument and Lou payoff — active.
-- Persistent all-scene objective honesty — active.
-- Generated radio/music workbook, CSVs, revamp plan, and generator — complete;
-  non-creative mechanical follow-through remains before Job 11 is closed.
-- ElevenLabs generation/recording packet — waits for the final authored ledgers
-  from the active Enola/stats/objective jobs.
-- Deterministic visual regression and trace evidence — queued immediately after
-  those scene states stop moving.
+| Job | State | Commits and principal paths | Measured evidence and remaining risk |
+| --- | --- | --- | --- |
+| 0 — Current baseline | Baseline established; release refresh pending | Baseline `56e3fb2d`; this audit snapshot `077d58d9`; `CLAUDE.md`, `.github/workflows/verify.yml`, `docs/CAMPAIGN-STORY-BIBLE.md`, `src/core/campaign-spine.js` | The task branch contains all work below while `origin/main` still points to `56e3fb2d`. Cheap/narrow receipts are recorded per job, but the final post-integration gate sequence and trusted-ref debt ratchet remain open. |
+| 1 — Luxury browser checks | Implemented | `d9bdf5bc`, `f3c8fc2c`, reaffirmed by `75eae53d`; `tools/verify-luxury-apartment.mjs`, `src/core/first-person-input.js`, `src/luxury-apartment/main.js` | Real pointer lock plus mouse movement must change yaw; real W/S traversal must enter and leave the bathroom before the E-close action. The current Margo-era verifier recorded 49/49. The cheap visual mirror smoke is now connected to `verify.yml`; the full scene verifier remains tiered/scheduled. |
+| 2 — Shared body and three mirrors | Implemented | `d9bdf5bc`, `bdaee880`, `8f0a0f95`; `src/core/planar-mirror.js`, `src/core/first-person-body.js`, `src/cabin/player-body.js`, `src/luxury-apartment/main.js`, `src/main.js`, `docs/engineering/SPECTOR-MIRROR-EVIDENCE.md` | Spector captured `#scene`, WebGL2, 1920×1080: Apartment 3,297→3,387 draws, Luxury 2,979→3,015, Cabin 6,322→6,369, with zero GL errors. Outfit `cream_cashmere` appears in all three reflections while normal first-person view remains bodyless. Combat scenes and Squatchfather were not changed. |
+| 3 — Margo beats 16/17 | Implemented | `75eae53d`; `src/luxury-apartment/margo-scene.js`, `src/luxury-apartment/main.js`, `src/core/apartment-story.js`, `src/world/dress-help.js` | Entrance, two-floor waypoint route, stairs, both dress-help beats, sleep/snore, free wandering, morning departure, and Lou-after-exit ordering are contracted. Focused Margo checks were 10/10 and the full Luxury browser verifier 49/49. Five Margo visual states are committed in `df167002`. |
+| 4 — Beat 27 Special Meeting call | Implemented | `bc2eb161`; `src/core/campaign-spine.js`, `src/core/luxury-apartment-story.js`, `src/core/campaign.js`, `src/luxury-apartment/main.js`, `tools/verify-campaign-marathon.mjs` | The luxury-apartment call hands into the existing `specialmeeting.html` pickup/ride/trunk/ceremony flow, with exact-once call state and no extra ride scene. The spine has 31/31 wired beats and `tests/campaign-spine.test.mjs` pins `PENDING_BUDGET = 0`. Final integrated marathon rerun remains open. |
+| 5 — Day 12/13 tail | Implemented | `ebe99416`, with early verifier alignment `87b6d592`; `src/core/campaign.js`, `docs/CAMPAIGN-STORY-BIBLE.md`, `tests/campaign-clock.test.mjs`, `tools/verify-campaign-marathon.mjs` | Runtime anchors, spine tests, bible, and engineering notes move together. The exact landing ledger is below. No clock is pulled backward through `Math.max`; final integrated marathon/gates remain open. |
+| 6 — THE PROSPECT'S RECORD | Implemented | `a0c103cc`; `src/core/campaign-stats.js`, `src/core/campaign-finale.js`, `src/core/campaign.js`, `src/initiation/main.js`, `tests/campaign-stats.test.mjs`, `tests/campaign-finale.test.mjs` | Schema v24 adds one bounded block and a fixed 16-mission aggregation ledger. Tests cover pre-v24/partial saves, repeated normalization, exact-once reload, cabin choice, 16/16 marathon population, and absent optional credit fields. No grades, best scores, per-shot save writes, event log, or route branch were added. The final-record visual baseline is committed; final integrated save/marathon run remains open. |
+| 7 — THE TAKE escape-car feel | Implemented and measured; owner feel check remains | `934a0513`, browser-harness hardening `09fa8a5a`; `src/heist/main.js`, `docs/audits/THE-TAKE-ESCAPE-CAR-EVIDENCE.md`, `tools/verify-heist.mjs` | 0→90 mph 7.60 s; steady speed 91.71454 mph; 60→0 in 1.633 s / 22.90 m. Three final browser repetitions measured exactly 35.473020° steering and 6.774620 m in the atomic 60-mph quarter-second probe, each 9/9. Automated contracts cannot decide whether the final handling and mix feel fun on the owner's hardware. |
+| 8 — Enola clue and Mansion reveal | Implemented | `db894088`; `src/enolasquatch/config.js`, `src/enolasquatch/main.js`, `src/mansion/main.js`, scene dialogue contracts and verifiers | The cockpit shows BOMB ORDER / THE DESERT COMPOUND against NAV FIX / SQUATCHBOURG; no spoken line points it out. Lou pays it off only at repaired Mansion. Deterministic Enola-instrument and Mansion-debrief baselines are committed in `df167002`; final integrated browser/audio gates remain open. |
+| 9 — Original post-Siege call | Implemented | `90d7e372`; `src/mansion/siege/main.js`, `src/mansion/siege/script.js`, `tools/siege-vo.mjs`, `tools/verify-siege.mjs` | The original A-Team confrontation uses shared ring/pickup/hangup behavior, motivates Enola, avoids copied Taken phrasing, and is exact-once across reload. The live verifier captured the call and no-replay seam. Its rendered assets are included in Job 10; final integrated Siege/route gates remain open. |
+| 10 — Voice backlog | Rendered and committed; release verification pending | `9c89bb4f`, CI wiring `077d58d9`; `assets/sfx/`, `assets/sfx/index.json`, `assets/sfx/manifest.json`, `assets/sfx/takes.json`, `docs/audits/VOICE-GENERATION-PASS-2026-08-27.md`, `docs/audits/voice/rendered-voice-receipts.json` | The commit rendered 207 outstanding cues (204 new, three corrected Silver takes), reports the reachable backlog at 0/4,123, and stores 386/386 hash/text/voice/browser-decode receipts plus a 15-take Scribe cast sample. Its focused voice/dialogue/ledger checks passed, and the receipt check is now in `verify.yml`; the final integrated audio/take/rerecord suite and push receipt remain open. |
+| 11 — Radio audit and revamp | Audit/content/mechanical work committed; owner decisions and active-play mix review remain | `d6f2ae0e`, `14cc6c94`, `4d7d01ef`, `b2e63abb`, CI wiring `077d58d9`; `tools/radio-audit.mjs`, `docs/audits/SQUATCHSMASH-RADIO-AUDIT.xlsx`, `docs/audits/radio/*.csv`, `docs/audits/SQUATCHSMASH-RADIO-REVAMP.md`, `docs/audits/radio/content-transcriptions.json`, `src/core/stations.js` | All 31 beats are in the generated workbook; five sheets rendered with zero formula/error tokens. The latest receipts cover 298/298 spoken assets, 24/24 loudness-measured music masters, 26/26 focused contracts, and zero missing audit assets; audit, loudness, and content drift checks are now in `verify.yml`. Luxury/Mansion receiver state persists. Still open: active-scene overlap/teardown/mix listening, four legacy identity orphans, long-form provenance, venue/news allocation, and other explicit OWNER rows. |
+| 12 — Objective honesty | Implemented | `f2b8095d`, with clock/browser alignments `87b6d592` and `09fa8a5a`; `src/core/objective-panel.js`, Apartment/Bing I/Bing II/Graveyard/THE TAKE objective sources, `tests/objective-*.test.mjs` | Before: Bing exposed four jobs plus its optional room, THE TAKE seven future swaps, and Apartment a call before it rang. After: one Bing route step plus one soft task, the next 0–7 THE TAKE action with a deliberate 7/7 receipt, and only a physically ringing Apartment call. Evidence: 89 focused contracts, Bing 163/163, Bing Two 35/35, Graveyard 43/43, and Heist 9/9 in three final runs. Graveyard's 8/8 tally and THE TAKE's 7/7 receipt remain intentionally persistent. Final full repo suite remains open. |
+
+### Final-arc landing ledger
+
+These are actual route landings, not merely static clock-table labels:
+
+| Handoff | Landing day/time |
+| --- | --- |
+| Enola → repaired Mansion | Day 9, 18:00 |
+| Repaired Mansion → Cartel Palace | Day 12, 19:15 |
+| Cartel Palace → Luxury Apartment | Day 12, 23:00 |
+| Luxury Apartment → Special Meeting | Day 13, 17:55 |
+| Special Meeting → Initiation | Day 13, 19:00 |
+| Initiation → Apartment/credits tail | Day 13, 20:50 |
+
+The corresponding named anchors are Mansion return Day 12 18:30, Palace
+departure Day 12 20:30, Special Meeting pickup Day 13 17:55, and Initiation
+Day 13 19:00.
+
+## Approved tooling stack
+
+| Addition | Committed state | Evidence / remaining work |
+| --- | --- | --- |
+| Spector.js MCP | Setup contract `424f8391`; real mirror receipts `8f0a0f95` | `docs/engineering/SPECTOR-MCP.md` gives the external install/configuration steps and keeps Spector out of the game. `docs/engineering/SPECTOR-MIRROR-EVIDENCE.md` records real captures. The repository does not prove that the developer's current Codex MCP registration is installed/enabled. |
+| SquatchSmash skill and agent guidance | `88862f5d` | `.agents/skills/squatchsmash-game-development/SKILL.md`, `AGENTS.md`, and `BEFORE-YOU-PUSH.md` route agents to the canonical docs and verification order. |
+| Deterministic Playwright visual/trace evidence | `df167002`; committed, final integrated run/review pending | `playwright.visual.config.mjs` fixes 960×540, DPR 1, one worker, disabled screenshot animations, and retains traces/screenshots on failure. `tests/visual/` contains 15 reviewed canonical PNGs: three mirrors, Luxury living room, five Margo states, Mansion foyer/debrief, Enola instrument, Palace courtyard, THE TAKE car, and final record. PR CI runs the regular-apartment mirror smoke; scheduled/manual CI runs the full serial suite and uploads failure artifacts. |
+| Palace-only Recast pilot | `3d34cf96`; merged only for Palace | `docs/audits/CARTEL-PALACE-RECAST-PILOT.md`, `src/cartel-palace/navigation.js`, checked-in 32,400-byte navmesh, and vendored MIT runtime. Service-wing failure improved from 45 s / 2,298 blocked frames to 18.717 s / five; stale-return failure improved from 45 s / 1,741 blocked / 44 reversals to 19.583 s / 12 / zero. Cold initialization was about 1.9 s and Palace payload 1,146,950 HTTP bytes, so no wider rollout is authorized. |
 
 ## Explicit remaining risks / choices
 
-1. Weapon-audition favorites are review data until the owner chooses which
+1. The branch is not released: `origin/main` remains at `56e3fb2d`. The final
+   authoritative gate order, trusted-ref debt ratchet, push/merge, Verify, and
+   Pages deployment receipts are still required after every committed stream is
+   reconciled.
+2. The visual stack and 15 baselines are committed, but the final integrated
+   full visual run and human review of any diff remain separate release evidence.
+3. Voice generation reports a zero reachable backlog and stores decode/content
+   receipts, but final integrated VO, dialogue, reachability, rerecord, take, and
+   audio-ledger gates must still run on the complete branch.
+4. Radio source/content auditing is now repeatable and most mechanical receiver
+   work is committed. Active-play overlap/stop/restore/teardown and audible mix
+   review remain open; creative rows stay OWNER decisions. In particular, do not
+   silently delete four legacy identity orphans, assign venues/news coverage,
+   invent chapter programming, or assert license/provenance facts.
+5. Weapon-audition favorites remain review data until the owner chooses which
    candidate, if any, should replace each production report.
-2. The radio audit found legacy station identities and programming/provenance
-   decisions that are creative. They remain OWNER rows; no station or song will
-   be silently deleted or reassigned.
-3. Radio receiver persistence, stop/restore/overlap receipts, loudness analysis,
-   and source-only orphan review are mechanical follow-through and must not be
-   mislabeled as finished by the existence of the spreadsheet.
-4. Contract tests do not replace the final live-browser and visual-baseline run.
-   The final report must show those results separately.
+6. Automated vehicle numbers protect the Job 7 contract, but the owner still has
+   to judge final escape-car handling and engine/music feel on the target machine.
