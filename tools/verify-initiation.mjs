@@ -782,7 +782,7 @@ async function runCleanStartGoldenPath(page) {
   if (completion.phase !== 'complete'
     || !completion.visible
     || completion.rows < 250
-    || completion.headings.join('|') !== 'THE FAMILY|BIG UNCLE LOU SPUTTHOLE'
+    || completion.headings.join('|') !== "THE PROSPECT'S RECORD|THE FAMILY|BIG UNCLE LOU SPUTTHOLE"
     || !completion.buttonVisible
     || !completion.pointerReleased) {
     throw new Error(`Initiation clean start did not reach its full campaign credit roll: `
