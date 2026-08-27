@@ -331,6 +331,7 @@ const TEST_MODULES = [
   './radio-tape.test.mjs',
   './radio-commercials.test.mjs',
   './radio-voice-coverage.test.mjs',
+  './radio-loudness-audit.test.mjs',
   './voice-transition-runtime.test.mjs',
   './sfx-index.test.mjs',
   './audio-production-tools.test.mjs',

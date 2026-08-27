@@ -10,8 +10,9 @@ This is the implementation plan paired with [SQUATCHSMASH-RADIO-AUDIT.xlsx](./SQ
 - Live stations: **1**; legacy manifest station identities: **2**.
 - Current generated station/news voice cues: **275**.
 - Cue Inventory rows: **337**.
-- Radio/music rows with no reachable source/runtime use: **14**.
+- Radio/music rows with no reachable source/runtime use: **4**.
 - Referenced audit assets missing on disk: **0**.
+- Long-form masters with current hash-bound loudness evidence: **24 / 24**.
 - Live 97.8 programming pool: **12** non-cue tracks before venue filtering.
 
 ## What is actually built
@@ -30,8 +31,8 @@ Long-form scene music remains owned by the scene-specific systems already in pla
 | P1 | Global | assets/music/manifest.json `station` | The manifest says `station` assigns dial position; Radio.playlist ignores `station` and filters only `cue` plus exact `venue`. | Mechanical after OWNER decision: reconcile manifest metadata with actual selection logic and add a contract test. | OPEN |
 | P1 | Luxury Apartment; Mansion; Mansion Return | Physical 97.8 receivers | These receiver implementations do not use createCampaignRadioAdapter while the apartment, cabin, Bing car, Beef Run, No Wake, and golf cart do. | Mechanical: add unique receiver IDs and the shared adapter if those radios should follow campaign continuity. | OPEN |
 | P1 | Global | Radio + venue/mission scores | There is no generated all-scene proof for simultaneous playback, stop/restore behavior, or scene teardown across radio and dedicated music systems. | Mechanical: add narrow browser receipts for start, stop, restore, teardown, console errors, and concurrent music keys. | OPEN |
-| P1 | Global | Mix / loudness | Configured gains are documented, but no integrated-LUFS or true-peak audit exists for radio, venue, driving, and mission masters. | Mechanical: add repeatable loudness analysis; OWNER approves any gain or asset normalization changes. | OPEN |
-| P2 | Global | Cue inventory | 14 radio/music assets have no reachable source/runtime use; 0 referenced audit assets are missing. | Mechanical: review each generated row. Remove manifest and file together only after confirming no dynamic use; preserve legacy station assets pending OWNER decision. | OPEN |
+| P1 | Global | Mix / loudness | 24/24 long-form masters now have hash-bound integrated-LUFS, sample-peak, and 4× intersample peak evidence; configured gains still need active-scene mix review. | Mechanical measurement is complete. Add active-play dialogue/overlap receipts; OWNER approves any gain or asset normalization changes. | MEASURED — ACTIVE MIX REVIEW OPEN |
+| P2 | Global | Cue inventory | 4 radio/music assets have no reachable source/runtime use; 0 referenced audit assets are missing. | Mechanical: review each generated row. Remove manifest and file together only after confirming no dynamic use; preserve legacy station assets pending OWNER decision. | OPEN |
 | P2 | Global | Filename/content and source-only audit limit | A filename, manifest title, or current cue text does not prove the recording actually contains that content. | Mechanical: add transcription or supervised listening comparison and record exceptions explicitly. | OPEN |
 | P3 | Global | Previous radio audit | The 2026-08-05 prose audit reports 222 cues; current voiceCues() reports 275 and includes mission-aware news. | Mechanical: treat this generated workbook/CSVs as the current audit and keep the older report as dated history. | RESOLVED BY THIS AUDIT |
 
@@ -44,11 +45,11 @@ No creative decision below is implemented by the generator.
 | P1 | Global | Station architecture | The station source comment still documents three selectable stations, but STATIONS exports one live station. | OWNER: retire or restore `uncle` and `ksqch` identities. | OPEN |
 | P1 | Global | assets/music/manifest.json `station` | The manifest says `station` assigns dial position; Radio.playlist ignores `station` and filters only `cue` plus exact `venue`. | OWNER: desired station/venue allocation for existing tracks. | OPEN |
 | P1 | Global | All long-form music | All 24 music tracks lack a structured license/source field; 24 rely on title/artist/notes only. | OWNER: provenance/license for every retained track. | OWNER |
-| P1 | Global | Mix / loudness | Configured gains are documented, but no integrated-LUFS or true-peak audit exists for radio, venue, driving, and mission masters. | OWNER for audible mix changes after measurements. | OPEN |
+| P1 | Global | Mix / loudness | 24/24 long-form masters now have hash-bound integrated-LUFS, sample-peak, and 4× intersample peak evidence; configured gains still need active-scene mix review. | OWNER for audible mix changes after measurements. | MEASURED — ACTIVE MIX REVIEW OPEN |
 | P2 | Multiple receivers | Venue filtering | No exact non-cue track is tagged for countryside_cabin, beefrun, silver_pines, luxury_apartment; those venues inherit every unscoped radio record. | OWNER: venue availability for existing tracks. | OWNER |
 | P2 | Apartment; Cabin vs other receivers | Mission news | Mission-aware NEWS_SEGMENTS are enabled on the apartment and cabin receivers only; other receivers run the same station without news eligibility. | OWNER: news coverage by venue. | OWNER |
 | P2 | Global | Station shows vs mission news | Show selection remains hour-only. Mission news is event-gated, but the named hosts do not gain day/chapter-specific exchange pools. | OWNER: whether host programming should become chapter-aware. | OWNER |
-| P2 | Global | Cue inventory | 14 radio/music assets have no reachable source/runtime use; 0 referenced audit assets are missing. | OWNER only for legacy station identity cues. | OPEN |
+| P2 | Global | Cue inventory | 4 radio/music assets have no reachable source/runtime use; 0 referenced audit assets are missing. | OWNER only for legacy station identity cues. | OPEN |
 | P3 | Campaign-wide | Intentional silence | 7 campaign beat rows have no authored station or long-form music source. | OWNER only if a silent beat should gain music. | DOCUMENTED |
 
 ## Ordered revamp plan
@@ -59,7 +60,7 @@ No creative decision below is implemented by the generator.
 | 2 | Reconcile stale station comments and manifest semantics | src/core/stations.js; assets/music/manifest.json; src/core/radio.js; tests/radio-*.test.mjs | OWNER rules on legacy uncle/ksqch identities | Medium | Docs, manifest, runtime selection, and tests describe the same station model | WAITING ON OWNER |  |
 | 3 | Make receiver persistence consistent | src/luxury-apartment/main.js; src/mansion/main.js; src/core/campaign.js | Existing createCampaignRadioAdapter | Low | Power, volume, cursor, and selection survive reload without cross-receiver collisions | READY |  |
 | 4 | Add stop, restore, overlap, and teardown browser receipts | Existing Playwright scene verifiers; src/core/scene-lifecycle.js; audio residency tests | Stable receiver IDs and current music ownership | Medium | Each changed scene proves active keys, stops, reload state, console errors, and no unintended concurrent masters | READY |  |
-| 5 | Add repeatable duration, integrated-loudness, true-peak, and identity evidence | tools/radio-audit.mjs; audio QA tooling; generated Cue Inventory | Approved local analysis/transcription tooling | Medium | Every retained master has measured duration/LUFS/peak and verified content or an explicit exception | PARTIAL — duration only |  |
+| 5 | Add repeatable duration, integrated-loudness, true-peak, and identity evidence | tools/audio-loudness-audit.mjs; docs/audits/radio/loudness-measurements.json; tools/radio-audit.mjs; generated Cue Inventory | Existing Playwright Chromium decoder; supervised listening/transcription for content identity | Medium | Every retained master has measured duration/LUFS/peak and verified content or an explicit exception | LOUDNESS DONE — CONTENT IDENTITY PENDING |  |
 | 6 | Resolve OWNER programming decisions | Problems and Decisions sheet | Owner chooses legacy stations, venue allocation, news coverage, provenance, and any host rewrite | High if guessed | Every OWNER row has an explicit answer; no track is silently replaced or deleted | WAITING ON OWNER |  |
 | 7 | Implement approved mechanical trigger, stop, restore, and selection fixes | src/core/radio.js; scene-owned score modules; manifests; relevant tests | Orders 2–6 | Medium | Source contracts and real-browser receipts pass; owner-selected material remains intact | BLOCKED BY DECISIONS/EVIDENCE |  |
 | 8 | Run campaign-wide active-play music/dialogue mix QA | All Scene Timeline rows; Playwright traces and scene evidence | Mechanical fixes and loudness measurements | Medium | Dialogue remains intelligible; intentional silence lands; no stale loop crosses a scene handoff | PLANNED |  |
@@ -70,18 +71,20 @@ No creative decision below is implemented by the generator.
 - [Scene Timeline CSV](./radio/scene-timeline.csv)
 - [Station Catalog CSV](./radio/station-catalog.csv)
 - [Cue Inventory CSV](./radio/cue-inventory.csv)
+- [Hash-bound loudness measurements](./radio/loudness-measurements.json)
 - [Problems and Decisions CSV](./radio/problems-and-decisions.csv)
 - [Revamp Plan CSV](./radio/revamp-plan.csv)
 
 ## Verification boundary
 
-This audit proves source/manifests/route coverage and measures MP3 duration. It does **not** claim that a named recording contains the current script, that two simultaneous systems mix correctly in a browser, or that loudness is normalized. Those remain explicit rows in the workbook instead of assumptions.
+This audit proves source/manifests/route coverage, measures MP3 duration, and carries hash-bound integrated loudness/sample-peak/4× intersample-peak evidence for every long-form master. It does **not** claim that a named recording contains the current script, that two simultaneous systems mix correctly in a browser, or that measured loudness has been normalized. Those remain explicit rows in the workbook instead of assumptions.
 
 Regenerate deterministic text artifacts with:
 
 ```powershell
 node tools/radio-audit.mjs
 node tools/radio-audit.mjs --check
+node tools/audio-loudness-audit.mjs --check
 npm run check:radio-vo
 ```
 
