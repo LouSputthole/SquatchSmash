@@ -327,6 +327,10 @@ test('pointer-lock-or-drag recovers rejected capture, gates look to a held butto
     captureMode: FIRST_PERSON_CAPTURE_MODES.POINTER_LOCK_OR_DRAG,
     canvasRequestPointerLock: () => Promise.reject(new Error('denied')),
     onCaptureError: (_error, state) => failures.push([state.reason, state.recovered]),
+    /* A scene may consume clicks once fallback counts as captured (the Luxury
+     * Apartment does this for interactions). Core capture recovery must still
+     * own the held-drag state and retry real pointer lock. */
+    routes: { mouseDown: (_event, { dragFallback }) => dragFallback },
   });
 
   f.canvas.emit('mousedown', { button: 0, target: f.canvas });
@@ -345,6 +349,9 @@ test('pointer-lock-or-drag recovers rejected capture, gates look to a held butto
 
   f.canvas.emit('mousedown', { button: 0, target: f.canvas });
   assert.equal(f.canvas.lockRequests, 2, 'fallback clicks must retry real pointer lock');
+  assert.equal(f.input.dragging, true, 'a consumed fallback click still owns drag-look');
+  f.windowTarget.emit('mousemove', { movementX: 4, movementY: 2 });
+  assert.deepEqual(f.calls.looks, [[7, -1], [4, 2]]);
   f.documentTarget.pointerLockElement = f.canvas;
   f.documentTarget.emit('pointerlockchange');
   assert.equal(f.input.dragFallback, false, 'real capture retires fallback');

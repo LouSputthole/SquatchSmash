@@ -158,18 +158,31 @@ export class FirstPersonInputAdapter {
       if (this.destroyed) return;
       this.receipts.mouseDownEvents += 1;
       this._buttons.add(event.button);
-      const controls = this.refresh('mouse-down');
+      let controls = this.refresh('mouse-down');
+      const captureGesture = this.captureButtons.has(event.button)
+        && !event.target?.closest?.('button, a');
+      const fallbackGesture = captureGesture
+        && event.button === 0
+        && this.dragFallback
+        && controls.inputEnabled;
+      /* Live Pages receipt, 2026-08-27: production Chromium rejected the
+       * post-load pointer-lock request, Luxury correctly entered drag fallback,
+       * and W moved 0.445 m — but the scene consumed the next captured click
+       * before these two lines ran, leaving mouse-look at zero and preventing
+       * a real-lock retry. Capture lifecycle must remain core-owned even when a
+       * scene uses that same press for an interaction. */
+      if (fallbackGesture) {
+        this.dragging = true;
+        controls = this.refresh('drag-start');
+      }
       const context = this._eventContext({ controls });
       const routeResult = controls.inputEnabled
         ? this.routes.mouseDown?.(event, context)
         : undefined;
+      if (fallbackGesture) this.requestPointerLock();
       if (!allowsDefault(routeResult)) return;
-      if (!this.captureButtons.has(event.button) || event.target?.closest?.('button, a')) return;
-      if (event.button === 0 && this.dragFallback && controls.inputEnabled) {
-        this.dragging = true;
-        this.refresh('drag-start');
-      }
-      this.requestPointerLock();
+      if (!captureGesture) return;
+      if (!fallbackGesture) this.requestPointerLock();
     };
     this._mouseup = (event) => {
       if (this.destroyed) return;
