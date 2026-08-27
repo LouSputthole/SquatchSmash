@@ -163,6 +163,15 @@ test('regular apartment mirror and persisted outfit @smoke', async ({ page }) =>
   });
   const mirror = await stageHomeMirror(page, 'regular');
   expect(mirror).toMatchObject({ outfit: 'cream_cashmere', reflectionLayer: 1, visible: true });
+  /* The PR smoke runs on Ubuntu while a reviewed baseline may be authored on
+   * Windows. This receipt is the rendered mirror/body/outfit, not Courier New
+   * HUD glyphs or the Segoe UI preview banner; both are substituted by Linux
+   * and produced a stable 4,794-pixel false diff on the first main run. Keep
+   * effects and the whole WebGL frame visible, but remove those unrelated DOM
+   * overlays from this one cross-platform release receipt. */
+  await page.addStyleTag({ content: `
+    #hud, #squatch-preview-notice { visibility: hidden !important; }
+  ` });
   await captureVisual(page, 'regular-apartment-mirror-outfit', mirror);
   assertNoVisualErrors(page);
 });

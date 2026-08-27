@@ -98,7 +98,20 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Deterministic apartment-mirror visual smoke
+        id: apartment_mirror_visual_smoke
         run: npm run verify:visual-smoke
+
+      # A visual failure without its actual/diff/trace taught us only that a
+      # Windows-authored PNG differed on Ubuntu. Preserve the evidence from the
+      # blocking PR smoke just as the scheduled canonical visual job does.
+      - name: Upload apartment-mirror visual failure evidence
+        if: ${{ failure() && steps.apartment_mirror_visual_smoke.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: apartment-mirror-visual-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/visual-regression
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Lint
         run: npm run lint

@@ -14,3 +14,9 @@ to make a regression disappear.
 On failure Playwright retains its trace plus the failed screenshot/diff. The
 test fixture also attaches scene readiness, console errors, page errors,
 network failures and a DOM snapshot to the test result directory.
+
+The PR smoke is specifically the regular-apartment WebGL mirror/body/outfit
+receipt. It hides the Apartment HUD and developer-preview banner before the
+shot because those DOM layers use Windows system fonts that Ubuntu substitutes;
+their typography is not part of the mirror contract. Other canonical shots
+remain full-page receipts when their UI is intentionally under test.
