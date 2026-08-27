@@ -14,31 +14,41 @@ import {
   BIG_NIGHT_BOOSKI_CALL,
   BIG_NIGHT_MARGO_WAKE,
   DATE_MARGO_CALL,
-  DAY_FOUR_LOU_GOLF_CALL,
   DAY_FOUR_LOU_HEIST_CALL,
+  HEIST_CLEANUP_ITEMS,
   HEIST_PREPARATION_ITEMS,
   DAY_ONE_LOU_ATTABOY_CALL,
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
+  NEW_SPACE_LOU_CALL,
   NO_WAKE_LOU_CALL,
+  SILVER_CASE_BOOSKI_CALL,
   SILVER_ROOM_COME_HOME,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
-import { createNoWakeStory } from '../src/core/no-wake-story.js';
 import { createGolfStory } from '../src/core/golf-story.js';
 import { RING_SECONDS, callScript } from '../src/core/phone.js';
 
-/** Every call the campaign makes, in the order Tony gets them. */
+/**
+ * Every call the campaign makes, in the order Tony gets them.
+ *
+ * Three of these no longer ring in this flat -- Margo's, Lou's about the
+ * boat, and Booskibro's about the case all belong to the luxury apartment
+ * from beat 14 on -- but they are still WRITTEN here, because this file is
+ * where every telephone in the campaign is written and where the VO pipeline
+ * looks for them. The list is the whole cast of callers, not the flat's own.
+ */
 const CAMPAIGN_CALLS = [
   DAY_ONE_LOU_CALL,
   DAY_ONE_LOU_ATTABOY_CALL,
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
-  NO_WAKE_LOU_CALL,
-  DATE_MARGO_CALL,
-  DAY_FOUR_LOU_GOLF_CALL,
   DAY_FOUR_LOU_HEIST_CALL,
+  NEW_SPACE_LOU_CALL,
+  DATE_MARGO_CALL,
+  NO_WAKE_LOU_CALL,
+  SILVER_CASE_BOOSKI_CALL,
   BIG_NIGHT_BOOSKI_CALL,
 ];
 
@@ -518,22 +528,18 @@ test('each chapter of sleep refuses until its own mission is finished', () => {
   campaign.update((state) => {
     state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
   });
-  // The Motel opens NO WAKE, not the date or the big night.
-  assert.equal(story.sleep().chapter, 'no_wake');
+  /* The Motel opens THE TAKE. It used to open NO WAKE and then the date, both
+   * of which the bible plays from the luxury apartment three beats later. */
+  assert.equal(story.sleep().chapter, 'heist_day');
   assert.deepEqual(story.sleep(), { ok: false, reason: 'unknown_chapter' });
-  finishNoWake(campaign, story);
-  assert.deepEqual(story.sleep(), { ok: false, reason: 'date_incomplete' });
 
   campaign.update((state) => {
-    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
+    state.story.chapter = 'post_heist';
   });
   assert.equal(story.sleep().chapter, 'golf_morning');
-  assert.deepEqual(story.sleep(), { ok: false, reason: 'unknown_chapter' });
-  campaign.update((state) => {
-    state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
-    state.story.chapter = 'heist_day';
-  });
-  assert.deepEqual(story.sleep(), { ok: false, reason: 'already_heist_day' });
+  /* And the round is the last thing this flat is ever used for. */
+  assert.deepEqual(story.sleep(), { ok: false, reason: 'already_golf_morning' });
 });
 
 test('crossing midnight does not start the Day Two chapter before Tony sleeps', () => {
@@ -772,17 +778,6 @@ function afterTheMotel(storage = new MemoryStorage()) {
   return campaign;
 }
 
-function finishNoWake(campaign, apartment = createApartmentStory({ campaign, ring: () => true })) {
-  assert.equal(apartment.callAnswered(NO_WAKE_LOU_CALL), true);
-  campaign.enter(SCENE_IDS.NO_WAKE, { spawn: 'gate_c' });
-  const noWake = createNoWakeStory({ campaign });
-  assert.deepEqual(noWake.begin(), { ok: true, resumed: false });
-  assert.equal(noWake.complete({
-    betrayalConfirmed: true, playerFired: true, bodyDisposed: true,
-  }), true);
-  campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'front_door' });
-  return campaign;
-}
 
 test('the door sends Tony to bed after the Motel instead of straight to the Circle', () => {
   const campaign = afterTheMotel();
@@ -810,20 +805,23 @@ test('the door sends Tony to bed after the Motel instead of straight to the Circ
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'locked');
 });
 
-test('sleep after the Motel creates a persistent Day Three NO WAKE checkpoint', () => {
+test('sleep after the Motel creates a persistent Day Five checkpoint for THE TAKE', () => {
   const storage = new MemoryStorage();
   const campaign = afterTheMotel(storage);
   const story = createApartmentStory({ campaign, ring: () => true });
 
-  // He was up until half four, so noon of the same calendar day: the chapter
-  // turns without the day turning with it. NO WAKE comes before the date.
+  /* He was up until half four, so noon of the same calendar day: the chapter
+   * turns without the day turning with it. THE TAKE comes first now -- the
+   * harbour job and the date are both after the handover, from the flat he
+   * has not been given yet. And it is Day 5, not Day 3, because Days 2 to 4
+   * were spent at the Act-One cabin. */
   assert.deepEqual(story.sleep(), {
-    ok: true, chapter: 'no_wake', day: 3, timeMinutes: 12 * 60,
+    ok: true, chapter: 'heist_day', day: 5, timeMinutes: 12 * 60,
   });
 
   const restored = createCampaign({ storage }).state;
-  assert.equal(restored.story.chapter, 'no_wake');
-  assert.equal(restored.story.day, 3);
+  assert.equal(restored.story.chapter, 'heist_day');
+  assert.equal(restored.story.day, 5);
   assert.equal(restored.story.timeMinutes, 12 * 60);
   assert.deepEqual(restored.scene, { id: SCENE_IDS.APARTMENT, spawn: 'wake' });
   assert.equal(restored.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
@@ -834,98 +832,39 @@ test('sleep after the Motel creates a persistent Day Three NO WAKE checkpoint', 
   assert.equal(restored.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'pending');
 });
 
-test('Margo rings once on the afternoon of the date and unlocks the Silver Room', () => {
-  const storage = new MemoryStorage();
-  const story = createApartmentStory({
-    campaign: afterTheMotel(storage),
-    ring: () => true,
-  });
-  story.sleep();
-  finishNoWake(story.campaign, story);
+/* MARGO'S CALL AND THE DATE DOOR LEFT THIS FILE WITH THE ROUTE.
+ *
+ * Both used to be tested here because both used to be played here: she rang
+ * the flat on the afternoon of Day 3 and he walked out of this front door for
+ * a nine o'clock table. The bible has Front & Center on the night Lou hands
+ * over the keys, so the call rings in the luxury apartment and its door is
+ * the one that opens -- see tests/luxury-apartment-story.test.mjs, which
+ * exercises the same two definitions through `LuxuryApartmentStory`.
+ */
 
-  const calls = [];
-  const woken = createApartmentStory({
-    campaign: createCampaign({ storage }),
-    ring: (definition) => {
-      calls.push(definition);
-      return true;
-    },
-  });
-  woken.beginMorning();
-  woken.update(6.1);
-  assert.deepEqual(calls, [DATE_MARGO_CALL]);
-  /* She is a civilian and she is not on the family's radio station, so she
-   * carries her own character id, her own voice profile, and her own bank. */
-  assert.equal(DATE_MARGO_CALL.characterId, CHARACTER_IDS.MARGO);
-  assert.equal(DATE_MARGO_CALL.from, 'Margo');
-  assert.equal(DATE_MARGO_CALL.voiceProfile, 'margo');
-  assert.equal(DATE_MARGO_CALL.vo, 'call.margo.date');
-  assert.equal(DATE_MARGO_CALL.targetSceneId, SCENE_IDS.SILVER_ROOM);
-  assert.notEqual(DATE_MARGO_CALL.vo, BIG_NIGHT_BOOSKI_CALL.vo);
-  assert.notEqual(DATE_MARGO_CALL.eventId, BIG_NIGHT_BOOSKI_CALL.eventId);
-
-  assert.equal(woken.callAnswered(DATE_MARGO_CALL), true);
-  const answered = createCampaign({ storage }).state;
-  assert.equal(answered.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered');
-  assert.equal(answered.missions[MISSION_IDS.SILVER_ROOM].status, 'available');
-  // +5 minutes on the authored clock, once.
-  assert.equal(answered.story.timeMinutes, 16 * 60 + 45);
-  assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DATE_CALL));
-  assert.equal(woken.callAnswered(DATE_MARGO_CALL), false);
-
-  // And she does not ring twice.
-  const replayed = [];
-  const afterReload = createApartmentStory({
-    campaign: createCampaign({ storage }),
-    ring: (definition) => {
-      replayed.push(definition);
-      return true;
-    },
-  });
-  afterReload.beginMorning();
-  afterReload.update(60);
-  assert.deepEqual(replayed, []);
-});
-
-test('the date door waits for Margo, then routes to the Silver Room', () => {
-  const campaign = afterTheMotel();
-  const story = createApartmentStory({ campaign, ring: () => true });
-  story.sleep();
-  finishNoWake(campaign, story);
-
-  assert.deepEqual(story.tryLeave({}), {
-    kind: 'call',
-    id: EVENT_IDS.MARGO_DATE_CALL,
-    line: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
-    vo: 'door.refusal.date_call',
-  });
-
-  story.callAnswered(DATE_MARGO_CALL);
-  assert.deepEqual(story.tryLeave({}), {
-    kind: 'go',
-    destination: SCENE_IDS.SILVER_ROOM,
-  });
-
-  // Home from the date, the door sends him to bed rather than to the Circle.
-  campaign.update((state) => {
-    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
-  });
-  assert.deepEqual(story.tryLeave({}), {
-    kind: 'stay',
-    id: 'sleep_before_big_night',
-    line: 'That was a good night. Tomorrow is the other kind. <em>Bed.</em>',
-    vo: 'door.refusal.sleep_after_date',
-  });
-});
-
-/** Home from the Silver Room, with the evening on the save. */
+/**
+ * The starter flat on the night of the Silver Room, SEEDED rather than walked.
+ *
+ * It used to be reachable: sleep off the Motel, do the harbour job, take
+ * Margo's call, come home. Beats 12-19 moved all three of those beats to the
+ * luxury apartment, so nothing on the live route puts this flat in the `date`
+ * chapter any more -- which is exactly why the state is written directly here
+ * instead of being played into existence.
+ *
+ * The machinery below it is not dead code and is not deleted: it is the
+ * come-home beat, the dress mini-game hand-off and the morning after, and it
+ * is what beats 16 and 17 port across when the luxury flat learns to stage
+ * her. `campaign-spine.js` calls those two `pending` for the same reason.
+ */
 function afterTheDate(storage) {
   const campaign = afterTheMotel(storage);
-  const story = createApartmentStory({ campaign, ring: () => true });
-  story.sleep();
-  finishNoWake(campaign, story);
   campaign.update((state) => {
+    state.story.chapter = 'date';
+    state.story.day = 6;
+    state.story.timeMinutes = 23 * 60 + 20;
     state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+    state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
+    state.missions[MISSION_IDS.NO_WAKE].status = 'complete';
     state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
     state.missions[MISSION_IDS.SILVER_ROOM].outcome = 'strong';
   });
@@ -967,10 +906,11 @@ test('SCENE 9 never fires on a bad night, and never past the night it happened',
   const goodStory = createApartmentStory({ campaign: goodNight, ring: () => true });
   assert.equal(goodStory.margoComeHomeOwed(), true);
 
-  // Sleeping off the date turns the chapter; the come-home beat belongs to
-  // the night before, not to the morning that follows it.
+  /* The come-home beat belongs to the night it happened and to nothing
+   * after it. The chapter turning is what ends it -- which used to be a
+   * night's sleep in this bed and is a change of address now. */
   goodStory.margoComeHomeDone();
-  assert.equal(goodStory.sleep().chapter, 'golf_morning');
+  goodNight.update((state) => { state.story.chapter = 'golf_morning'; });
   assert.equal(goodStory.margoComeHomeOwed(), false);
   assert.equal(goodStory.margoHomeForTheNight(), false, 'the night is over');
 });
@@ -993,8 +933,7 @@ test('an absent cameHome verdict survives normalize, and the fourth morning surv
   assert.equal('cameHome' in silver, false, 'absent verdict must stay absent through normalize');
 
   const story = createApartmentStory({ campaign, ring: () => true });
-  story.sleep();
-  assert.equal(campaign.state.story.chapter, 'golf_morning');
+  campaign.update((state) => { state.story.chapter = 'golf_morning'; });
   assert.equal(story.margoWakeOwed(), true, 'the shim keeps the old save\'s morning');
 
   // The explicit verdicts still round-trip untouched in both directions.
@@ -1025,13 +964,27 @@ test('the come-home dialogue is cast as Margo and shares no cue names with the w
   assert.notEqual(SILVER_ROOM_COME_HOME.vo, BIG_NIGHT_MARGO_WAKE.vo);
 });
 
-test('Lou rings once on the Day 6 wake and unlocks Silver Pines', () => {
-  const storage = new MemoryStorage();
-  const story = createApartmentStory({
-    campaign: afterTheDate(storage),
-    ring: () => true,
+/** The starter flat's last evening: home from THE TAKE, with the flat dirty. */
+function afterTheTake(storage) {
+  const campaign = afterTheMotel(storage);
+  campaign.update((state) => {
+    state.story.chapter = 'post_heist';
+    state.story.day = 5;
+    state.story.timeMinutes = 18 * 60 + 50;
+    state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
+    state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
   });
-  story.sleep();
+  return campaign;
+}
+
+test('Lou rings once on the evening of THE TAKE about a new space', () => {
+  const storage = new MemoryStorage();
+  const campaign = afterTheTake(storage);
+  const cleanUp = createApartmentStory({ campaign, ring: () => true });
+  for (const item of HEIST_CLEANUP_ITEMS) {
+    assert.equal(cleanUp.completeHeistCleanup(item.id), true);
+  }
 
   const calls = [];
   const woken = createApartmentStory({
@@ -1045,25 +998,32 @@ test('Lou rings once on the Day 6 wake and unlocks Silver Pines', () => {
   woken.update(5.9);
   assert.deepEqual(calls, []);
   woken.update(0.2);
-  assert.deepEqual(calls, [DAY_FOUR_LOU_GOLF_CALL]);
-  assert.equal(DAY_FOUR_LOU_GOLF_CALL.characterId, CHARACTER_IDS.LOU);
-  assert.equal(DAY_FOUR_LOU_GOLF_CALL.from, 'Big Uncle Lou');
-  assert.equal(DAY_FOUR_LOU_GOLF_CALL.voiceProfile, 'lou1');
-  assert.equal(DAY_FOUR_LOU_GOLF_CALL.vo, 'call.lou.golf');
-  assert.equal(DAY_FOUR_LOU_GOLF_CALL.targetSceneId, SCENE_IDS.SILVER_PINES);
-  assert.notEqual(DAY_FOUR_LOU_GOLF_CALL.vo, DAY_FOUR_LOU_HEIST_CALL.vo);
+  assert.deepEqual(calls, [NEW_SPACE_LOU_CALL]);
+  assert.equal(NEW_SPACE_LOU_CALL.characterId, CHARACTER_IDS.LOU);
+  assert.equal(NEW_SPACE_LOU_CALL.from, 'Big Uncle Lou');
+  assert.equal(NEW_SPACE_LOU_CALL.voiceProfile, 'lou1');
+  /* THE RETIRED TAKE. `call.lou.golf` was four recordings ending "three
+   * holes, home by half ten, after that your day starts" -- a call that only
+   * makes sense before a bank job, and the bank job is the day before now.
+   * The cue name is what proves those takes are gone. */
+  assert.equal(NEW_SPACE_LOU_CALL.vo, 'call.lou.new_space');
+  assert.equal(NEW_SPACE_LOU_CALL.targetSceneId, SCENE_IDS.SILVER_PINES);
+  assert.notEqual(NEW_SPACE_LOU_CALL.vo, DAY_FOUR_LOU_HEIST_CALL.vo);
+  /* And Margo is not in it. Her whole thread is four touches and the course
+   * is not one of them; an earlier draft of the spine invented "bring that
+   * girl from the Bing" and the owner caught it before it was built. */
+  for (const line of [...NEW_SPACE_LOU_CALL.lines, ...NEW_SPACE_LOU_CALL.replies]) {
+    assert.equal(/margo|girl/i.test(line), false, `beat 12 must not mention her: ${line}`);
+  }
 
-  assert.equal(woken.callAnswered(DAY_FOUR_LOU_GOLF_CALL), true);
+  assert.equal(woken.callAnswered(NEW_SPACE_LOU_CALL), true);
   const answered = createCampaign({ storage }).state;
   assert.equal(answered.events[EVENT_IDS.LOU_GOLF_CALL].status, 'answered');
   assert.equal(answered.missions[MISSION_IDS.SILVER_PINES].status, 'available');
-  assert.equal(answered.events[EVENT_IDS.LOU_HEIST_CALL].status, 'pending');
-  assert.equal(answered.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
-  assert.equal(answered.missions[MISSION_IDS.INITIATION].status, 'locked');
-  assert.equal(answered.story.day, 6);
-  assert.equal(answered.story.timeMinutes, 7 * 60 + 3);
+  assert.equal(answered.story.day, 5);
+  assert.equal(answered.story.timeMinutes, 18 * 60 + 53);
   assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.LOU_GOLF_CALL));
-  assert.equal(woken.callAnswered(DAY_FOUR_LOU_GOLF_CALL), false);
+  assert.equal(woken.callAnswered(NEW_SPACE_LOU_CALL), false);
 
   const replayed = [];
   const afterReload = createApartmentStory({
@@ -1078,22 +1038,35 @@ test('Lou rings once on the Day 6 wake and unlocks Silver Pines', () => {
   assert.deepEqual(replayed, []);
 });
 
-test('the Day 4 door routes through Golf before exposing THE TAKE', () => {
-  const campaign = afterTheDate();
+test('the flat\'s last two doors: the new-space call, a bed, and the course', () => {
+  const campaign = afterTheTake();
   const story = createApartmentStory({ campaign, ring: () => true });
-  story.sleep();
+
+  /* The bank is still on him and on the flat. */
+  assert.equal(story.tryLeave({}).kind, 'activity');
+  for (const item of HEIST_CLEANUP_ITEMS) {
+    assert.equal(story.completeHeistCleanup(item.id), true);
+  }
 
   assert.deepEqual(story.tryLeave({}), {
     kind: 'call',
     id: EVENT_IDS.LOU_GOLF_CALL,
-    line: 'Lou said he would call about this morning. I am not guessing where.',
-    vo: 'door.refusal.golf_call',
+    line: 'Lou said he would ring tonight. Whatever it is, it waits for the phone.',
+    vo: 'door.refusal.new_space_call',
+  });
+  story.callAnswered(NEW_SPACE_LOU_CALL);
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'stay',
+    id: 'sleep_before_the_course',
+    line: 'Eight o’clock at Silver Pines, and it is a drive. <em>Bed.</em>',
+    vo: 'door.refusal.sleep_after_take',
   });
 
-  story.callAnswered(DAY_FOUR_LOU_GOLF_CALL);
-  /* Golf morning's own thing stands between the call and the course -- Lou is
-   * about to put a club in his hand in front of people. See CHAPTER_PASTIMES
-   * in core/apartment-story.js. */
+  assert.deepEqual(story.sleep(), {
+    ok: true, chapter: 'golf_morning', day: 6, timeMinutes: 7 * 60,
+  });
+  /* No second telephone: he was told eight o'clock last night. What stands
+   * between him and the car is the one thing that is his. */
   const warmUp = story.tryLeave({});
   assert.equal(warmUp.kind, 'activity');
   assert.equal(warmUp.id, 'playedSquatchShoot');
@@ -1101,6 +1074,7 @@ test('the Day 4 door routes through Golf before exposing THE TAKE', () => {
     kind: 'go',
     destination: SCENE_IDS.SILVER_PINES,
   });
+
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_PINES);
   campaign.enter(SCENE_IDS.SILVER_PINES, { spawn: 'car_park' });
   const golf = createGolfStory({ campaign });
@@ -1111,25 +1085,30 @@ test('the Day 4 door routes through Golf before exposing THE TAKE', () => {
     { hole: 3, par: 4, strokes: 5 },
   ]) assert.equal(golf.recordHole(card), true);
   assert.equal(golf.complete(), true);
+  assert.equal(campaign.state.story.chapter, 'luxury_apartment',
+    'the round hands control to the new address, not to another morning here');
+});
 
-  assert.deepEqual(story.tryLeave({}), {
-    kind: 'call',
-    id: EVENT_IDS.LOU_HEIST_CALL,
-    line: 'Lou said he would call. Today is not a day to guess.',
-    vo: 'door.refusal.heist_call',
-  });
-  story.callAnswered(DAY_FOUR_LOU_HEIST_CALL);
-  for (const item of HEIST_PREPARATION_ITEMS) story.collectHeistPreparation(item.id);
-  assert.deepEqual(story.tryLeave({}), {
-    kind: 'go',
-    destination: SCENE_IDS.BANK_HEIST,
-  });
+/**
+ * BEAT 14, from the wrong side of the door.
+ *
+ * A save that comes back to this flat with the round already played -- a
+ * mid-round reload, or one MIGRATIONS[20] walked here -- has nothing left in
+ * it. THE STARTER FLAT GOES DARK at Silver Pines, so the door takes him to
+ * the address rather than refusing in an empty room.
+ */
+test('a finished round turns this flat\'s door into the way out of it', () => {
+  const campaign = afterTheTake();
   campaign.update((state) => {
-    state.missions[MISSION_IDS.BANK_HEIST].status = 'in_progress';
+    state.story.chapter = 'golf_morning';
+    state.story.day = 6;
+    state.story.timeMinutes = 10 * 60 + 30;
+    state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
   });
+  const story = createApartmentStory({ campaign, ring: () => true });
   assert.deepEqual(story.tryLeave({}), {
-    kind: 'go',
-    destination: SCENE_IDS.BANK_HEIST,
+    kind: 'go', destination: SCENE_IDS.LUXURY_APARTMENT,
   });
 });
 

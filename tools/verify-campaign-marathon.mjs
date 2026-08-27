@@ -51,6 +51,7 @@ export const PUBLIC_RUNTIME_ENTRY_PATHS = Object.freeze([
   '/src/golf/main.js',
   '/src/heist/main.js',
   '/src/cabin/main.js',
+  '/src/luxury-apartment/main.js',
   '/src/silvercase/main.js',
   '/src/mansion/main.js',
   '/src/mansion/siege/main.js',
@@ -100,31 +101,47 @@ export const MARATHON_TRANSITIONS = Object.freeze([
     ]),
   transition('motel-home', SCENE_IDS.JERKY_MOTEL, SCENE_IDS.APARTMENT,
     '/index.html', 'front_door', 'skip', [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL]),
-  transition('home-to-no-wake', SCENE_IDS.APARTMENT, SCENE_IDS.NO_WAKE,
-    '/nowake.html', 'gate_c', 'apartment:no-wake', [TIME_EVENT_IDS.DEPART_NO_WAKE]),
-  transition('no-wake-home', SCENE_IDS.NO_WAKE, SCENE_IDS.APARTMENT,
-    '/index.html', 'front_door', 'skip', [TIME_EVENT_IDS.COMPLETE_NO_WAKE]),
-  transition('home-to-silver-room', SCENE_IDS.APARTMENT, SCENE_IDS.SILVER_ROOM,
-    '/silver.html', 'kerb', 'apartment:silver-room', [TIME_EVENT_IDS.DEPART_SILVER_ROOM]),
-  transition('silver-room-home', SCENE_IDS.SILVER_ROOM, SCENE_IDS.APARTMENT,
-    '/index.html', 'front_door', 'skip', [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM]),
-  transition('home-to-golf', SCENE_IDS.APARTMENT, SCENE_IDS.SILVER_PINES,
-    '/golf.html', 'car_park', 'apartment:golf', [TIME_EVENT_IDS.DEPART_SILVER_PINES]),
-  transition('golf-home', SCENE_IDS.SILVER_PINES, SCENE_IDS.APARTMENT,
-    '/index.html', 'front_door', 'skip', [TIME_EVENT_IDS.COMPLETE_SILVER_PINES]),
+  /* BEATS 11.5 TO 19, IN THE BIBLE'S ORDER.
+   *
+   * The route used to run home -> NO WAKE -> home -> the date -> home -> the
+   * round -> home -> the bank -> home -> the cabin -> the Silver Case: five
+   * returns to a flat the story bible says he moves out of halfway through,
+   * a harbour job three beats early, and the last third of the game reached
+   * through a property he had already finished on Day 3.
+   *
+   * It now runs THE TAKE on Day 5, the round on Day 6, and everything after
+   * the eighteenth green from the address Lou hands him on it. */
   transition('home-to-heist', SCENE_IDS.APARTMENT, SCENE_IDS.BANK_HEIST,
     '/heist.html', 'safehouse', 'apartment:heist', [TIME_EVENT_IDS.DEPART_BANK_HEIST]),
   transition('heist-home', SCENE_IDS.BANK_HEIST, SCENE_IDS.APARTMENT,
     '/index.html', 'front_door', 'skip', [TIME_EVENT_IDS.COMPLETE_BANK_HEIST]),
-  transition('home-to-cabin', SCENE_IDS.APARTMENT, SCENE_IDS.COUNTRYSIDE_CABIN,
-    '/cabin.html', 'arrival', 'apartment:cabin', [
-      TIME_EVENT_IDS.PHONE_READ_CABIN, TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN,
+  transition('home-to-golf', SCENE_IDS.APARTMENT, SCENE_IDS.SILVER_PINES,
+    '/golf.html', 'car_park', 'apartment:golf', [TIME_EVENT_IDS.DEPART_SILVER_PINES]),
+  /* Beat 14. The last thing the starter flat ever does is let him out of it. */
+  transition('golf-to-luxury', SCENE_IDS.SILVER_PINES, SCENE_IDS.LUXURY_APARTMENT,
+    '/luxury-apartment.html', 'arrival', 'skip', [
+      TIME_EVENT_IDS.COMPLETE_SILVER_PINES, TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT,
     ]),
-  /* The post-heist cabin trip, which is a doorway now and not a chapter: he
-   * finished this property on Day 3. It stays until beats 12-19 give the
-   * Silver Case another entrance -- add first, remove last. */
-  transition('cabin-to-silver-case', SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.SILVER_CASE,
-    '/silvercase.html', 'car_ride', 'cabin:doorway'),
+  transition('luxury-to-silver-room', SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.SILVER_ROOM,
+    '/silver.html', 'kerb', 'luxury:date', [
+      TIME_EVENT_IDS.LUXURY_GET_READY, TIME_EVENT_IDS.DEPART_SILVER_ROOM,
+    ]),
+  transition('silver-room-to-luxury', SCENE_IDS.SILVER_ROOM, SCENE_IDS.LUXURY_APARTMENT,
+    '/luxury-apartment.html', 'main', 'skip', [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM]),
+  transition('luxury-to-no-wake', SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.NO_WAKE,
+    '/nowake.html', 'gate_c', 'luxury:no-wake', [
+      TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME,
+      TIME_EVENT_IDS.LUXURY_STAYOVER_REST,
+      TIME_EVENT_IDS.LUXURY_MARGO_WAKE,
+      TIME_EVENT_IDS.DEPART_NO_WAKE,
+    ]),
+  transition('no-wake-to-luxury', SCENE_IDS.NO_WAKE, SCENE_IDS.LUXURY_APARTMENT,
+    '/luxury-apartment.html', 'main', 'skip', [
+      TIME_EVENT_IDS.COMPLETE_NO_WAKE, TIME_EVENT_IDS.RETURN_LUXURY_APARTMENT,
+    ]),
+  /* Beat 19, and the doorway the post-heist cabin held open until now. */
+  transition('luxury-to-silver-case', SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.SILVER_CASE,
+    '/silvercase.html', 'car_ride', 'luxury:silver-case'),
   transition('silver-case-to-mansion', SCENE_IDS.SILVER_CASE, SCENE_IDS.MANSION,
     '/mansion.html', 'gate', 'skip', [
       TIME_EVENT_IDS.DEPART_SILVER_CASE, TIME_EVENT_IDS.COMPLETE_SILVER_CASE,
@@ -168,7 +185,7 @@ export const MARATHON_TRANSITIONS = Object.freeze([
 ]);
 
 export function validateMarathonPlan(plan = MARATHON_TRANSITIONS) {
-  assert.equal(plan.length, 29, 'the canonical marathon must have 29 transitions');
+  assert.equal(plan.length, 28, 'the canonical marathon must have 28 transitions');
   assert.equal(plan[0]?.from, SCENE_IDS.APARTMENT);
   assert.equal(plan.at(-1)?.to, SCENE_IDS.APARTMENT);
   assert.equal(plan.at(-1)?.action, 'initiation:complete');
@@ -189,10 +206,10 @@ export function validateMarathonPlan(plan = MARATHON_TRANSITIONS) {
     SCENE_IDS.BADA_BING_TWO,
     SCENE_IDS.SQUATCH_GRAVEYARD,
     SCENE_IDS.JERKY_MOTEL,
-    SCENE_IDS.NO_WAKE,
-    SCENE_IDS.SILVER_ROOM,
-    SCENE_IDS.SILVER_PINES,
     SCENE_IDS.BANK_HEIST,
+    SCENE_IDS.SILVER_PINES,
+    SCENE_IDS.SILVER_ROOM,
+    SCENE_IDS.NO_WAKE,
     SCENE_IDS.SILVER_CASE,
     SCENE_IDS.MANSION,
     SCENE_IDS.MANSION_SIEGE,
@@ -355,31 +372,14 @@ async function executeBrowserAction(page, step) {
           `expected whiskey beat, got ${JSON.stringify(prompt)}`);
         campaign.update((state) => { state.activities.whiskeyRelaxed = true; });
         leaveFor(S.SQUATCHFATHER);
-      } else if (currentStep.action === 'apartment:no-wake') {
-        ensure(story.sleep()?.ok === true, 'post-Motel sleep failed');
-        ensure(story.callAnswered(apartmentModule.NO_WAKE_LOU_CALL) === true,
-          'NO WAKE call was not accepted');
-        pastime('playedCounterSquatch');
-        leaveFor(S.NO_WAKE);
-        ensure(campaign.advanceTime(T.DEPART_NO_WAKE).applied === true,
-          'NO WAKE departure was not recorded');
-      } else if (currentStep.action === 'apartment:silver-room') {
-        ensure(story.callAnswered(apartmentModule.DATE_MARGO_CALL) === true,
-          'Margo date call was not accepted');
-        leaveFor(S.SILVER_ROOM);
-        ensure(campaign.advanceTime(T.DEPART_SILVER_ROOM).applied === true,
-          'Silver Room departure was not recorded');
-      } else if (currentStep.action === 'apartment:golf') {
-        ensure(story.sleep()?.ok === true, 'Day Four sleep failed');
-        ensure(story.callAnswered(apartmentModule.DAY_FOUR_LOU_GOLF_CALL) === true,
-          'Golf call was not accepted');
-        pastime('playedSquatchShoot');
-        leaveFor(S.SILVER_PINES);
-        ensure(campaign.advanceTime(T.DEPART_SILVER_PINES).applied === true,
-          'Golf departure was not recorded');
       } else if (currentStep.action === 'apartment:heist') {
+        /* BEAT 11.5. He gets in from the Motel at half four and sleeps it
+         * off; the flat opens on the morning of Day 5 with Lou's call and a
+         * car coming at a quarter to one. */
+        ensure(story.sleep()?.ok === true, 'post-Motel sleep failed');
         ensure(story.callAnswered(apartmentModule.DAY_FOUR_LOU_HEIST_CALL) === true,
           'Heist call was not accepted');
+        pastime('playedCounterSquatch');
         for (const item of apartmentModule.HEIST_PREPARATION_ITEMS) {
           ensure(story.collectHeistPreparation(item.id) === true,
             `Heist preparation ${item.id} failed`);
@@ -387,19 +387,23 @@ async function executeBrowserAction(page, step) {
         leaveFor(S.BANK_HEIST);
         ensure(campaign.advanceTime(T.DEPART_BANK_HEIST).applied === true,
           'Heist departure was not recorded');
-      } else if (currentStep.action === 'apartment:cabin') {
+      } else if (currentStep.action === 'apartment:golf') {
+        /* BEAT 12, and then beat 13's morning. Wash the bank off, take Lou's
+         * call about a new space, sleep, and drive to the course. */
         for (const item of apartmentModule.HEIST_CLEANUP_ITEMS) {
           ensure(story.completeHeistCleanup(item.id) === true,
             `Heist cleanup ${item.id} failed`);
         }
-        const unread = story.tryLeave(campaign.state.activities);
-        ensure(unread?.id === T.PHONE_READ_CABIN,
-          `Cabin message did not gate departure: ${JSON.stringify(unread)}`);
-        ensure(campaign.advanceTime(T.PHONE_READ_CABIN).applied === true,
-          'Lou cabin message was not recorded');
-        leaveFor(S.COUNTRYSIDE_CABIN);
-        ensure(campaign.advanceTime(T.DEPART_COUNTRYSIDE_CABIN).applied === true,
-          'Cabin departure was not recorded');
+        const owed = story.tryLeave(campaign.state.activities);
+        ensure(owed?.kind === 'call' && owed.id === apartmentModule.NEW_SPACE_LOU_CALL.eventId,
+          `the new-space call did not gate the door: ${JSON.stringify(owed)}`);
+        ensure(story.callAnswered(apartmentModule.NEW_SPACE_LOU_CALL) === true,
+          'new-space call was not accepted');
+        ensure(story.sleep()?.ok === true, 'the night before the round failed');
+        pastime('playedSquatchShoot');
+        leaveFor(S.SILVER_PINES);
+        ensure(campaign.advanceTime(T.DEPART_SILVER_PINES).applied === true,
+          'Golf departure was not recorded');
       } else if (currentStep.action === 'apartment:special-meeting') {
         const call = story.tryLeave(campaign.state.activities);
         ensure(call?.kind === 'call'
@@ -426,9 +430,73 @@ async function executeBrowserAction(page, step) {
       return { ok: true, action: currentStep.action };
     }
 
+    /* THE LUXURY APARTMENT, beats 14 to 19. Same shape as the flat above it:
+     * the real story adapter, driven through the gates a player meets, in
+     * order, so a phase that cannot be left stops the walk here. */
+    if (currentStep.action.startsWith('luxury:')) {
+      const luxuryModule = await import('/src/core/luxury-apartment-story.js');
+      const apartmentModule = await import('/src/core/apartment-story.js');
+      const luxury = luxuryModule.createLuxuryApartmentStory({ campaign });
+      const leaveFor = (sceneId) => {
+        const result = luxury.tryLeave();
+        ensure(result?.kind === 'go' && result.destination === sceneId,
+          `Luxury apartment refused ${sceneId}: ${JSON.stringify(result)}`);
+      };
+
+      if (currentStep.action === 'luxury:date') {
+        ensure(luxury.arrived() === true, 'the drive from Silver Pines was not recorded');
+        ensure(luxury.phase() === 'get_ready', `arrived in phase ${luxury.phase()}`);
+        const chore = luxury.tryLeave();
+        ensure(chore?.kind === 'activity' && chore.id === T.LUXURY_GET_READY,
+          `GET READY did not gate the door: ${JSON.stringify(chore)}`);
+        ensure(luxury.completeGetReady()?.ok === true, 'getting ready failed');
+        const owed = luxury.tryLeave();
+        ensure(owed?.kind === 'call' && owed.id === apartmentModule.DATE_MARGO_CALL.eventId,
+          `Margo's call did not gate the door: ${JSON.stringify(owed)}`);
+        ensure(luxury.callAnswered(apartmentModule.DATE_MARGO_CALL) === true,
+          'Margo date call was not accepted');
+        leaveFor(S.SILVER_ROOM);
+        ensure(campaign.advanceTime(T.DEPART_SILVER_ROOM).applied === true,
+          'Silver Room departure was not recorded');
+      } else if (currentStep.action === 'luxury:no-wake') {
+        /* BEATS 16 AND 17. She came home, the night happens, she leaves in
+         * the morning, and only then does the family get to ring. */
+        ensure(luxury.margoComeHomeOwed() === true,
+          `she did not come home: phase ${luxury.phase()}`);
+        const early = luxury.sleep();
+        ensure(early?.ok === false && early.reason === 'margo_still_arriving',
+          `the bed was reachable before she was in: ${JSON.stringify(early)}`);
+        ensure(luxury.margoComeHomeDone() === true, 'the come-home beat failed');
+        const night = luxury.sleep();
+        ensure(night?.ok === true && night.day === 7 && night.timeMinutes === 7 * 60 + 10,
+          `the stayover missed its authored morning: ${JSON.stringify(night)}`);
+        ensure(luxury.margoWakeOwed() === true, 'the morning after was not owed');
+        ensure(luxury.margoWakeDone() === true, 'the morning after failed');
+        ensure(luxury.callAnswered(apartmentModule.NO_WAKE_LOU_CALL) === true,
+          'NO WAKE call was not accepted');
+        leaveFor(S.NO_WAKE);
+        ensure(campaign.advanceTime(T.DEPART_NO_WAKE).applied === true,
+          'NO WAKE departure was not recorded');
+      } else if (currentStep.action === 'luxury:silver-case') {
+        /* BEAT 19. Home from the dock, a quiet hour, and then a call about
+         * something small and sensitive. */
+        ensure(luxury.phase() === 'return', `beat 19 arrived in phase ${luxury.phase()}`);
+        const owed = luxury.tryLeave();
+        ensure(owed?.kind === 'call'
+          && owed.id === apartmentModule.SILVER_CASE_BOOSKI_CALL.eventId,
+        `the Silver Case call did not gate the door: ${JSON.stringify(owed)}`);
+        ensure(luxury.callAnswered(apartmentModule.SILVER_CASE_BOOSKI_CALL) === true,
+          'Silver Case call was not accepted');
+        leaveFor(S.SILVER_CASE);
+      } else {
+        throw new Error(`${currentStep.id}: unknown luxury action ${currentStep.action}`);
+      }
+      navigate();
+      return { ok: true, action: currentStep.action };
+    }
+
     if (currentStep.action === 'cabin:visit-one'
-      || currentStep.action === 'cabin:visit-two'
-      || currentStep.action === 'cabin:doorway') {
+      || currentStep.action === 'cabin:visit-two') {
       const cabinModule = await import('/src/core/countryside-cabin-story.js');
       const story = cabinModule.createCountrysideCabinStory({ campaign });
 
@@ -516,14 +584,7 @@ async function executeBrowserAction(page, step) {
         return { ok: true, action: currentStep.action };
       }
 
-      /* The post-heist doorway: nothing left to play, straight through. */
-      ensure(story.chapterComplete() === true,
-        'the cabin was not already finished when the heist sent him back');
-      const departure = story.tryLeave();
-      ensure(departure?.kind === 'go' && departure.destination === S.SILVER_CASE,
-        `Cabin refused The Silver Case: ${JSON.stringify(departure)}`);
-      navigate();
-      return { ok: true, action: currentStep.action };
+      throw new Error(`${currentStep.id}: unknown cabin action ${currentStep.action}`);
     }
 
     if (currentStep.action === 'skip') {
@@ -659,52 +720,81 @@ function assertLandingFacts(step, state) {
       assertMission(state, MISSION_IDS.JERKY_MOTEL,
         { status: 'complete', ending: 'home', cargoRecovered: true });
       break;
-    case 'home-to-no-wake':
-      assertMission(state, MISSION_IDS.NO_WAKE, { status: 'available' });
-      break;
-    case 'no-wake-home':
-      assertMission(state, MISSION_IDS.NO_WAKE, {
-        status: 'complete', checkpoint: 'returned', betrayalConfirmed: true,
-        playerFired: true, bodyDisposed: true,
-      });
-      break;
-    case 'home-to-silver-room':
-      assertMission(state, MISSION_IDS.SILVER_ROOM, { status: 'available' });
-      break;
-    case 'silver-room-home':
-      assertMission(state, MISSION_IDS.SILVER_ROOM,
-        { status: 'complete', outcome: 'perfect', seeingHerAgain: true, cameHome: true });
-      break;
-    case 'home-to-golf':
-      assertMission(state, MISSION_IDS.SILVER_PINES, { status: 'available' });
-      break;
-    case 'golf-home':
-      assertMission(state, MISSION_IDS.SILVER_PINES, { status: 'complete', holesPlayed: 3 });
-      assert.equal(state.missions[MISSION_IDS.SILVER_PINES].holes.length, 3);
-      break;
     case 'home-to-heist':
       assertMission(state, MISSION_IDS.BANK_HEIST, { status: 'available' });
+      /* Day 5, the morning after the Motel. THE TAKE moved here from Day 6
+       * when the owner put the job before the reward. */
+      assert.equal(state.story.day, 5, 'THE TAKE must leave on Day Five');
+      assert.equal(state.story.chapter, 'heist_day');
       break;
     case 'heist-home':
       assertMission(state, MISSION_IDS.BANK_HEIST,
         { status: 'complete', checkpoint: 'vehicle_swap', outcome: 'professional' });
       break;
-    case 'home-to-cabin':
+    case 'home-to-golf':
+      assertMission(state, MISSION_IDS.SILVER_PINES, { status: 'available' });
       assertMission(state, MISSION_IDS.BANK_HEIST, { cleanupComplete: true });
-      assertMission(state, MISSION_IDS.SILVER_CASE, { status: 'available' });
+      /* Beat 12's call landed the night before, which is what makes the
+       * round a reward rather than an errand before a bank job. */
+      assert.equal(state.events[EVENT_IDS.LOU_GOLF_CALL].status, 'answered');
+      assert.equal(state.story.day, 6, 'the round must tee off on Day Six');
       break;
-    case 'cabin-to-silver-case':
-      /* The ledger is exact-once by id, and the Act-One cabin spent both of
-       * its own rest markers on Days 2 and 3. A second visit that found them
-       * unspent would mean the chapter had somehow been replayed. */
+    case 'golf-to-luxury':
+      assertMission(state, MISSION_IDS.SILVER_PINES, { status: 'complete', holesPlayed: 3 });
+      assert.equal(state.missions[MISSION_IDS.SILVER_PINES].holes.length, 3);
+      /* THE STARTER FLAT GOES DARK HERE. The Home Ladder's second rung, and
+       * the campaign never routes back to the first one. */
+      assert.equal(state.story.chapter, 'luxury_apartment');
+      assert.equal(state.story.day, 6);
+      break;
+    case 'luxury-to-silver-room':
+      assertMission(state, MISSION_IDS.SILVER_ROOM, { status: 'available' });
+      assert.equal(state.story.day, 6, 'the date is the night of the handover');
+      assert.equal(state.story.timeMinutes, 19 * 60 + 30);
+      break;
+    case 'silver-room-to-luxury':
+      assertMission(state, MISSION_IDS.SILVER_ROOM,
+        { status: 'complete', outcome: 'perfect', seeingHerAgain: true, cameHome: true });
+      break;
+    case 'luxury-to-no-wake':
+      assertMission(state, MISSION_IDS.NO_WAKE, { status: 'available' });
+      /* Beat 18 is the morning after the stayover, and its anchor moved two
+       * days with the route. Left on Day 5 it would have been absorbed whole
+       * -- an afternoon on a boat that started and finished at 07:14. */
+      assert.equal(state.story.day, 7, 'the harbour job must be Day Seven');
+      assert.equal(state.story.timeMinutes, 12 * 60 + 45);
+      break;
+    case 'no-wake-to-luxury':
+      assertMission(state, MISSION_IDS.NO_WAKE, {
+        status: 'complete', checkpoint: 'returned', betrayalConfirmed: true,
+        playerFired: true, bodyDisposed: true,
+      });
+      break;
+    case 'luxury-to-silver-case':
+      /* The ledger is exact-once by id, and this flat has four visits with
+       * four sets of markers. One spent twice would mean a beat replayed. */
       for (const eventId of [
-        TIME_EVENT_IDS.CABIN_LAY_LOW_REST,
-        TIME_EVENT_IDS.CABIN_SECOND_REST,
-        TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL,
+        TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT,
+        TIME_EVENT_IDS.LUXURY_GET_READY,
+        TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME,
+        TIME_EVENT_IDS.LUXURY_STAYOVER_REST,
+        TIME_EVENT_IDS.LUXURY_MARGO_WAKE,
+        TIME_EVENT_IDS.RETURN_LUXURY_APARTMENT,
       ]) {
         assert.equal(state.story.timeEvents.filter((id) => id === eventId).length, 1,
           `${eventId} must be exact-once`);
       }
+      /* And the Act-One cabin's own rest markers, which this walk spent on
+       * Days 2 and 3 and must never have spent again -- the post-heist trip
+       * that used to stand between here and the Silver Case is gone. */
+      for (const eventId of [
+        TIME_EVENT_IDS.CABIN_LAY_LOW_REST,
+        TIME_EVENT_IDS.CABIN_SECOND_REST,
+      ]) {
+        assert.equal(state.story.timeEvents.filter((id) => id === eventId).length, 1,
+          `${eventId} must be exact-once`);
+      }
+      assert.equal(state.events[EVENT_IDS.BOOSKI_SILVER_CASE_CALL].status, 'answered');
       assertMission(state, MISSION_IDS.SILVER_CASE, { status: 'available' });
       break;
     case 'silver-case-to-mansion':

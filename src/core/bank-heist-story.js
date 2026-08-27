@@ -72,18 +72,21 @@ class BankHeistStory {
     const state = this.campaign.state;
     const mission = state.missions[MISSION_IDS.BANK_HEIST];
     if (mission.status === 'complete') return { ok: false, reason: 'already_complete' };
-    /* THE TAKE is the afternoon half of Day Four. Version 9 grandfathers
-     * saves that had already reached the heist before Silver Pines existed,
-     * so every current route -- including a resumed checkpoint -- can state
-     * this prerequisite honestly. */
-    if (state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete') {
-      return { ok: false, reason: 'golf_incomplete' };
+    /* THE TAKE IS THE AFTERNOON OF DAY 5, AND IT NO LONGER WAITS ON ANYTHING
+     * IN CHAPTER 3.
+     *
+     * Both of the checks that stood here -- Silver Pines complete, then the
+     * Silver Room complete -- were the old order stated as a precondition:
+     * golf in the morning, the bank after lunch, on the day after the date.
+     * The owner's ruling reversed all three. THE TAKE is beat 11.5, it is the
+     * job that earns the upgrade, and everything it used to require now
+     * happens after it. What is left is the one thing that was always true:
+     * he is home from the Jerky Motel, and Lou rang. */
+    if (state.missions[MISSION_IDS.JERKY_MOTEL].status !== 'complete') {
+      return { ok: false, reason: 'motel_incomplete' };
     }
     if (mission.status === 'in_progress') {
       return { ok: true, resumed: true, checkpoint: mission.checkpoint };
-    }
-    if (state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete') {
-      return { ok: false, reason: 'silver_incomplete' };
     }
     if (state.events[EVENT_IDS.LOU_HEIST_CALL].status !== 'answered') {
       return { ok: false, reason: 'lou_call_incomplete' };

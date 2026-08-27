@@ -21,6 +21,16 @@ import { Tv } from '../core/tv.js';
 import { createBongBehavior } from '../world/bong.js';
 import { ShowerSystem } from '../world/shower.js';
 import { SmokeSystem } from '../world/smoke.js';
+import {
+  SCENE_IDS,
+  createCampaign,
+  navigateCampaign,
+} from '../core/campaign.js';
+import {
+  BIG_NIGHT_MARGO_WAKE,
+  SILVER_ROOM_COME_HOME,
+} from '../core/apartment-story.js';
+import { createLuxuryApartmentStory } from '../core/luxury-apartment-story.js';
 import { createLuxuryInputPolicy } from './controls.js';
 import { buildLuxuryApartment } from './world.js';
 import {
@@ -91,8 +101,149 @@ const hud = new Hud();
  * pause menu -- which is the exact failure that module's header describes: the
  * one screen a player is not playing on. */
 const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
-/** The flat's standing order. One source; the pause menu reads it too. */
+
+/* ------------------------------------------------------------------ *
+ * THE CAMPAIGN, WHEN THERE IS ONE
+ *
+ * This flat is two things at once and has been since it landed: a standalone
+ * developer preview of a place nobody could reach, and -- since beats 12 to
+ * 19 -- the address the Prospect actually lives at for the second half of
+ * Chapter 3. Which of the two it is on any given boot is a question with
+ * exactly one honest answer, and it is the save's: `campaign.state.scene.id`.
+ *
+ * `routed` false is the old behaviour, unchanged and untouched: the lift goes
+ * to preview.html, the objective is the standing order, and nothing is
+ * written. `routed` true hands the front door, the panel, the bed and the
+ * telephone to `core/luxury-apartment-story.js`, which owns beats 14, 16, 17
+ * and 19 the way `apartment-story.js` owns the starter flat's.
+ * ------------------------------------------------------------------ */
+const campaign = createCampaign();
+const luxuryStory = createLuxuryApartmentStory({ campaign });
+const routed = campaign.state.scene.id === SCENE_IDS.LUXURY_APARTMENT;
+
+/** The flat's standing order when nothing in the campaign is asking. */
 const LUXURY_OBJECTIVE = 'Explore both floors or try the private games room.';
+
+/**
+ * What the panel and the pause menu say, which is whatever the door says.
+ *
+ * Derived rather than authored, for the reason the starter flat's own
+ * `objectives()` gives: a panel that keeps its own copy of the door's rules
+ * will eventually disagree with the door, and the player believes the panel.
+ */
+function currentObjective() {
+  if (!routed) return LUXURY_OBJECTIVE;
+  const [first] = luxuryStory.objectives().items;
+  return first?.label ?? LUXURY_OBJECTIVE;
+}
+
+function refreshObjective() {
+  objectivePanel.setLine(currentObjective(), { title: 'OBJECTIVE' });
+}
+
+/**
+ * The campaign's own beat, on arrival and on waking.
+ *
+ * Three shapes, and which one runs is `phase()`'s answer rather than this
+ * file's guess:
+ *
+ *  - a MARGO beat (16 or 17), played as her recorded lines over the room;
+ *  - a TELEPHONE beat (15, 18 or 19), which schedules the ring;
+ *  - nothing, which is a save standing between two of them.
+ *
+ * WHAT THE MARGO BEATS ARE NOT, YET. `SILVER_ROOM_COME_HOME` and
+ * `BIG_NIGHT_MARGO_WAKE` are the writing the starter flat already had, and
+ * they are played here verbatim -- the takes are recorded and neither line
+ * names a room. What is missing is HER: the walk in, the bed, and the
+ * dress-help mini-game are staged against the starter flat's one-room plan
+ * (`world/apartment-preview-geometry.js`) and this place is two floors with
+ * the bed up a staircase. Until that staging exists the beat is her voice and
+ * the marker, which is why `campaign-spine.js` still calls beats 16 and 17
+ * `pending`. The marker is spent either way, because a beat that cannot be
+ * finished is a door that cannot be opened.
+ */
+const luxuryPhone = { elapsed: 0, nextRingAt: null };
+let margoBeat = null;
+
+function playMargoBeat(definition, commit) {
+  margoBeat = { definition, line: -1, hold: 0, commit };
+  advanceMargoBeat();
+}
+
+function advanceMargoBeat() {
+  if (!margoBeat) return;
+  const { definition } = margoBeat;
+  margoBeat.line += 1;
+  const index = margoBeat.line;
+  if (index >= definition.lines.length) {
+    margoBeat.commit?.();
+    margoBeat = null;
+    refreshObjective();
+    return;
+  }
+  const cue = `vo.${definition.vo}.${index + 1}`;
+  hud.say(`${definition.from}: ${definition.lines[index]}`, 4200);
+  audio.play(cue, { volume: 0.9 });
+  const reply = definition.replies?.[index];
+  margoBeat.hold = 4.4;
+  margoBeat.reply = reply ?? null;
+}
+
+function updateMargoBeat(dt) {
+  if (!margoBeat) return;
+  margoBeat.hold -= dt;
+  if (margoBeat.hold > 0) return;
+  if (margoBeat.reply) {
+    const cue = `vo.${margoBeat.definition.vo}.tony.${margoBeat.line + 1}`;
+    hud.say(`You: ${margoBeat.reply}`, 3200);
+    audio.play(cue, { volume: 0.9 });
+    margoBeat.reply = null;
+    margoBeat.hold = 3.4;
+    return;
+  }
+  advanceMargoBeat();
+}
+
+function startLuxuryStoryBeat() {
+  if (!routed) return;
+  refreshObjective();
+  const phase = luxuryStory.phase();
+  if (phase === 'come_home') {
+    playMargoBeat(SILVER_ROOM_COME_HOME, () => luxuryStory.margoComeHomeDone());
+    return;
+  }
+  if (phase === 'morning') {
+    playMargoBeat(BIG_NIGHT_MARGO_WAKE, () => luxuryStory.margoWakeDone());
+    return;
+  }
+  /* Six seconds, the same lead-in the starter flat gives every call: long
+   * enough to be standing in the room before it rings. */
+  luxuryPhone.nextRingAt = luxuryPhone.elapsed + 6;
+}
+
+function updateLuxuryPhone(dt) {
+  if (!routed || margoBeat) return;
+  luxuryPhone.elapsed += Math.max(0, dt);
+  if (luxuryPhone.nextRingAt === null || luxuryPhone.elapsed < luxuryPhone.nextRingAt) return;
+  const call = luxuryStory.pendingCall();
+  if (!call) {
+    luxuryPhone.nextRingAt = null;
+    return;
+  }
+  /* A refused ring (there is already a call up) tries again next second; a
+   * successful one books the retry a full ring plus a breath later. */
+  const rang = phone.ring(call) === true;
+  if (rang) {
+    /* The phone is a carried prop in this flat, and it starts on the console
+     * table rather than in his pocket. A ring nobody can find is a beat that
+     * looks broken, so the toast says where it is and what to do with it. */
+    hud.toast(`${call.from} is calling`, '', 5200);
+    hud.say(home?.inventory?.has('phone')
+      ? 'Take the phone out and answer it. <em>[E] on the handset.</em>'
+      : 'The phone is ringing. <em>It is on the console table by the lift.</em>', 4600);
+  }
+  luxuryPhone.nextRingAt = luxuryPhone.elapsed + (rang ? 28 : 1);
+}
 const interaction = new InteractionSystem(camera, hud);
 const audio = new AudioEngine();
 const tv = new Tv({ audio });
@@ -107,6 +258,13 @@ const phone = new Phone({
   calls: [],
   onCallState: (connected) => radio.setPhoneDucked(connected),
 });
+/* Taking the call is what commits it. The story adapter owns what each one
+ * unlocks; this only tells it the receiver came off the hook. */
+phone.onAnswered = (definition) => {
+  if (!routed) return;
+  luxuryStory.callAnswered(definition);
+  refreshObjective();
+};
 const showerFx = new ShowerSystem(scene);
 const smoke = new SmokeSystem(scene);
 const highs = new Highs();
@@ -143,6 +301,7 @@ const state = {
   activeArcadeScreen: null,
   cabinetBooted: false,
   exitDestination: null,
+  exitNavigate: null,
   exitAudioStopped: false,
 };
 
@@ -331,11 +490,41 @@ function useFrontDoor() {
   return false;
 }
 
+/**
+ * The lift, which is the only way out of this flat and therefore the door.
+ *
+ * On the campaign route it asks `LuxuryApartmentStory` where the save is
+ * allowed to go and refuses in Tony's own voice when the answer is nowhere --
+ * the same `go`/`call`/`activity`/`stay` vocabulary the starter flat's front
+ * door speaks. Off it, the lift goes back to the preview launcher exactly as
+ * it always has.
+ */
+function luxuryDeparture() {
+  if (!routed) return { href: './preview.html' };
+  const door = luxuryStory.tryLeave();
+  if (door.kind !== 'go') return { refusal: door };
+  return {
+    navigate: () => navigateCampaign(campaign, door.destination, {
+      spawn: SCENE_IDS.SILVER_ROOM === door.destination ? 'kerb' : undefined,
+    }),
+  };
+}
+
 function beginElevatorExit() {
   if (state.phase !== 'active') return false;
 
+  const departure = luxuryDeparture();
+  if (departure.refusal) {
+    const { line, hint } = departure.refusal;
+    if (line) hud.say(line, 4200);
+    if (hint) hud.toast(hint);
+    refreshObjective();
+    return false;
+  }
+
   state.phase = 'exiting';
-  state.exitDestination = './preview.html';
+  state.exitDestination = departure.href ?? null;
+  state.exitNavigate = departure.navigate ?? null;
   state.exitAudioStopped = false;
   state.paused = false;
   /* `phase` is already 'exiting', so the policy owner is DISABLED: suspend()
@@ -383,7 +572,12 @@ function beginElevatorExit() {
          * page before it could say which half lost. Audio closes first; the
          * remaining curtain hold starts from that receipt. */
         setTimeout(() => {
-          if (state.phase === 'exiting') window.location.assign(state.exitDestination);
+          if (state.phase !== 'exiting') return;
+          /* `navigateCampaign` writes the save BEFORE it changes the page --
+           * that is the whole of its contract -- so a campaign departure is a
+           * call rather than an href. The preview's lift still assigns. */
+          if (state.exitNavigate) state.exitNavigate();
+          else window.location.assign(state.exitDestination);
         }, ELEVATOR_EXIT_MS - ELEVATOR_AUDIO_CUT_MS);
       });
   }, ELEVATOR_AUDIO_CUT_MS);
@@ -393,9 +587,16 @@ function beginElevatorExit() {
 function useElevator(mode) {
   audio.play(mode === 'ride' ? 'door.creak' : 'door.knob', { volume: 0.42 });
   if (mode === 'ride') {
-    hud.toast('Private elevator descending');
-    hud.say('The doors close on the apartment. <em>No unfinished hallway. No open-world drop.</em>', 3400);
-    return beginElevatorExit();
+    /* Say the line only if the lift is actually going anywhere. On the
+     * campaign route the door can refuse, and "the doors close on the
+     * apartment" over a man who has not been told where to go is the flat
+     * lying to him. `beginElevatorExit` speaks the refusal itself. */
+    const going = beginElevatorExit();
+    if (going) {
+      hud.toast('Private elevator descending');
+      hud.say('The doors close on the apartment. <em>No unfinished hallway. No open-world drop.</em>', 3400);
+    }
+    return going;
   }
   hud.toast('Private elevator called');
   return true;
@@ -505,6 +706,21 @@ function useWardrobe() {
 
 function sleepAtHome() {
   if (state.resting || !player || player.mode !== 'walk') return false;
+  /* BEAT 16 ENDS IN THIS BED. "Fade/sleep into the following morning."
+   *
+   * On the campaign route the night is a durable beat rather than a nap: the
+   * story adapter refuses it until she is in (and skips her entirely on an
+   * evening that did not earn her), and it writes the Day 7 morning the
+   * bible asks for. A refused night says why instead of silently doing
+   * nothing, because a bed that ignores you is a bed you assume is broken. */
+  if (routed) {
+    const night = luxuryStory.sleep();
+    if (!night.ok) {
+      const door = luxuryStory.tryLeave();
+      if (door.line) hud.say(door.line, 4200);
+      return false;
+    }
+  }
   state.resting = true;
   syncInput('sleep-start');
   interaction.setPaused(true);
@@ -524,8 +740,9 @@ function sleepAtHome() {
         state.resting = false;
         interaction.setPaused(false);
         syncInput('wake');
-        hud.toast(`Day ${time.day} · rested`, 'good');
+        hud.toast(`Day ${routed ? campaign.state.story.day : time.day} · rested`, 'good');
         hud.say('Morning over the skyline. <em>The place is still yours.</em>', 4400);
+        if (routed) startLuxuryStoryBeat();
       }, 850);
     }, 800);
   });
@@ -786,18 +1003,21 @@ startButton.addEventListener('click', async () => {
   });
   state.phase = 'active';
   syncInput('start');
-  objectivePanel.setLine(LUXURY_OBJECTIVE, { title: 'OBJECTIVE' });
+  refreshObjective();
   document.body.classList.add('playing');
   overlay.classList.add('hidden');
   requestGamePointerLock();
-  hud.say('<em>Developer preview.</em> Two floors, one private elevator, and every way Tony wastes an evening.', 5200);
+  if (routed) startLuxuryStoryBeat();
+  else {
+    hud.say('<em>Developer preview.</em> Two floors, one private elevator, and every way Tony wastes an evening.', 5200);
+  }
 });
 
 const pauseMenu = createPauseMenu({
   title: 'The High Life',
   canPause: () => state.phase === 'active' && !state.posture && !state.resting && !state.showering,
   canHandleTab: () => state.activeArcade?.inputMode !== 'dom',
-  getObjective: () => LUXURY_OBJECTIVE,
+  getObjective: () => currentObjective(),
   instructions: [
     'W A S D — move. Shift — sprint. Space — jump.',
     'E or Click — use and play. Hold E where a second action is shown.',
@@ -1075,6 +1295,8 @@ function frame(now) {
     if (state.phase === 'active' && !state.posture && !state.resting && !state.showering) {
       interaction.update(dt);
     }
+    updateMargoBeat(dt);
+    updateLuxuryPhone(dt);
     phone.update(dt);
     phone.draw();
     radio.update(dt);

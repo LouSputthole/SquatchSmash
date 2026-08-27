@@ -130,8 +130,15 @@ test('schema v9 inserts Golf only for a pristine old Day Four wake', () => {
   delete legacy.events[EVENT_IDS.LOU_GOLF_CALL];
   storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(legacy));
 
+  /* MIGRATIONS[9] still inserts the round; MIGRATIONS[20] then moves it.
+   *
+   * `golf_morning` is a chapter the starter flat no longer plays before THE
+   * TAKE -- beats 12-19 put the bank on Day 5 and the round on Day 6 -- so a
+   * save v9 rescues into it is carried forward again to the beat the new
+   * route actually has for it. The bank is not done, so that is `heist_day`.
+   * The hour v9 chose is preserved: this is a chapter repair, not a clock. */
   const migrated = createCampaign({ storage }).state;
-  assert.equal(migrated.story.chapter, 'golf_morning');
+  assert.equal(migrated.story.chapter, 'heist_day');
   assert.equal(migrated.story.day, 4);
   assert.equal(migrated.story.timeMinutes, 7 * 60);
   assert.equal(migrated.missions[MISSION_IDS.SILVER_PINES].status, 'locked');
@@ -292,19 +299,37 @@ test('the Day Two through Day Four mission beats land on their authored clocks',
     [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO, 5, 45],
     [TIME_EVENT_IDS.DEPART_JERKY_MOTEL, 5, 60 + 30],
     [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL, 5, 4 * 60 + 30],
-    [TIME_EVENT_IDS.DEPART_NO_WAKE, 5, 12 * 60 + 45],
-    [TIME_EVENT_IDS.COMPLETE_NO_WAKE, 5, 16 * 60 + 40],
-    /* Day 5 is the date. He sleeps the morning off, she rings in the
-     * afternoon, and he leaves at half seven for a nine o'clock table. */
-    [TIME_EVENT_IDS.DEPART_SILVER_ROOM, 5, 19 * 60 + 30],
-    [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM, 5, 23 * 60 + 20],
+    /* BEAT 11.5. THE TAKE is the afternoon of Day 5 now: he gets in from the
+     * Motel at half four, sleeps until noon, and a car collects him at a
+     * quarter to one. Both of these read Day 6 before the reorder. */
+    [TIME_EVENT_IDS.DEPART_BANK_HEIST, 5, 12 * 60 + 45],
+    [TIME_EVENT_IDS.COMPLETE_BANK_HEIST, 5, 18 * 60 + 50],
+    /* Beat 13, and the two anchors that did NOT move. Silver Pines was
+     * already a Day 6 morning and the bible already has it there; what
+     * changed is what it is a morning after. */
+    [TIME_EVENT_IDS.DEPART_SILVER_PINES, 6, 7 * 60 + 30],
+    [TIME_EVENT_IDS.COMPLETE_SILVER_PINES, 6, 10 * 60 + 30],
+    /* Beat 14, straight off the eighteenth green. */
+    [TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT, 6, 11 * 60 + 45],
+    /* Beat 15. The date is the night of the handover -- half seven for a nine
+     * o'clock table -- which is Day 6 rather than Day 5. */
+    [TIME_EVENT_IDS.DEPART_SILVER_ROOM, 6, 19 * 60 + 30],
+    [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM, 6, 23 * 60 + 20],
+    /* Beats 16 and 17: the night, and ten past seven the next morning. */
+    [TIME_EVENT_IDS.LUXURY_STAYOVER_REST, 7, 7 * 60 + 10],
+    /* BEAT 18, TWO DAYS LATER THAN IT USED TO BE. The bible's harbour job is
+     * a call after Margo leaves, not the first thing he does off the back of
+     * the Motel. Left on its old Day 5 anchor both of these would have been
+     * absorbed by `Math.max(now, atLeast)` and named no hour at all. */
+    [TIME_EVENT_IDS.DEPART_NO_WAKE, 7, 12 * 60 + 45],
+    [TIME_EVENT_IDS.COMPLETE_NO_WAKE, 7, 16 * 60 + 40],
     /* DEPART_INITIATION is anchored at Day 4 19:00 and this walk has already
      * gone past it, so it advances nothing and carries the clock where it
      * stands. That is not a bug being papered over -- it is the same pure
      * carry the real route sees, where the ceremony lands after midnight on
      * Day 10 and no anchor this early can name its hour. Asserting the carry
      * is what keeps the difference between "anchored" and "spent" visible. */
-    [TIME_EVENT_IDS.DEPART_INITIATION, 5, 23 * 60 + 20],
+    [TIME_EVENT_IDS.DEPART_INITIATION, 7, 16 * 60 + 40],
   ];
   for (const [eventId, day, timeMinutes] of beats) {
     const result = campaign.advanceTime(eventId);
@@ -317,7 +342,7 @@ test('the Day Two through Day Four mission beats land on their authored clocks',
   // and cannot drag the clock back to the beat's own authored hour either.
   const replay = campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO);
   assert.deepEqual(replay, {
-    applied: false, day: 5, timeMinutes: 23 * 60 + 20, minutesAdvanced: 0,
+    applied: false, day: 7, timeMinutes: 16 * 60 + 40, minutesAdvanced: 0,
   });
 });
 

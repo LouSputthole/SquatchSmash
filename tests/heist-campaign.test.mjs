@@ -74,7 +74,11 @@ test('v2 saves still waiting on the old big-night call receive Golf before heist
   const state = createCampaign({ storage }).state;
 
   assert.equal(state.version, CAMPAIGN_VERSION);
-  assert.equal(state.story.chapter, 'golf_morning');
+  /* MIGRATIONS[9] inserted the round and put this save in `golf_morning`;
+   * MIGRATIONS[20] carries it forward again, because beats 12-19 put the
+   * round AFTER the bank and the starter flat no longer opens on a golf
+   * morning it has not earned. THE TAKE is not done, so `heist_day`. */
+  assert.equal(state.story.chapter, 'heist_day');
   assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'locked');
   assert.equal(state.events[EVENT_IDS.LOU_GOLF_CALL].status, 'pending');
   assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'locked');

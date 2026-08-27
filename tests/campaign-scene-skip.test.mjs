@@ -245,9 +245,18 @@ const MATRIX = Object.freeze([
   [SCENE_IDS.BADA_BING_TWO, MISSION_IDS.BADA_BING_TWO, SCENE_IDS.SQUATCH_GRAVEYARD],
   [SCENE_IDS.SQUATCH_GRAVEYARD, MISSION_IDS.BADA_BING_TWO, SCENE_IDS.JERKY_MOTEL],
   [SCENE_IDS.JERKY_MOTEL, MISSION_IDS.JERKY_MOTEL, SCENE_IDS.APARTMENT],
-  [SCENE_IDS.NO_WAKE, MISSION_IDS.NO_WAKE, SCENE_IDS.APARTMENT],
-  [SCENE_IDS.SILVER_ROOM, MISSION_IDS.SILVER_ROOM, SCENE_IDS.APARTMENT],
-  [SCENE_IDS.SILVER_PINES, MISSION_IDS.SILVER_PINES, SCENE_IDS.APARTMENT],
+  /* BEATS 13, 15 AND 18 END AT THE NEW ADDRESS.
+   *
+   * All three were `APARTMENT` while the round, the date and the harbour job
+   * were played before Lou handed over the keys. The bible has the handover
+   * at the eighteenth green and the Home Ladder never climbs back down, so
+   * from beat 14 onward "home" is one place and it is not the starter flat.
+   * A skip that still went there would drop a developer into a room the
+   * campaign has finished with, whose door only knows how to send him back
+   * to the course he has just left. */
+  [SCENE_IDS.NO_WAKE, MISSION_IDS.NO_WAKE, SCENE_IDS.LUXURY_APARTMENT],
+  [SCENE_IDS.SILVER_ROOM, MISSION_IDS.SILVER_ROOM, SCENE_IDS.LUXURY_APARTMENT],
+  [SCENE_IDS.SILVER_PINES, MISSION_IDS.SILVER_PINES, SCENE_IDS.LUXURY_APARTMENT],
   [SCENE_IDS.BANK_HEIST, MISSION_IDS.BANK_HEIST, SCENE_IDS.APARTMENT],
   [SCENE_IDS.SILVER_CASE, MISSION_IDS.SILVER_CASE, SCENE_IDS.MANSION],
   [SCENE_IDS.MANSION, MISSION_IDS.SILENT_SQUATCH, SCENE_IDS.MANSION_SIEGE],

@@ -1,0 +1,369 @@
+import {
+  EVENT_IDS,
+  MISSION_IDS,
+  SCENE_IDS,
+  TIME_EVENT_IDS,
+} from './campaign.js';
+import {
+  DATE_MARGO_CALL,
+  NO_WAKE_LOU_CALL,
+  SILVER_CASE_BOOSKI_CALL,
+  departureRefusal,
+} from './apartment-story.js';
+
+/**
+ * THE LUXURY APARTMENT, as the campaign sees it. Beats 14, 16, 17 and 19.
+ *
+ * The bible gives Chapter 3's second half to a flat Lou hands over on the
+ * eighteenth green, and it is four separate visits rather than one scene with
+ * a lot of state:
+ *
+ *   14  the keys, and GET READY FOR YOUR DATE
+ *   15  (Front & Center, elsewhere) -- he leaves from here and comes back
+ *   16  she comes home with him, and stays
+ *   17  the morning: she goes, and then Lou rings about a boat
+ *   18  (NO WAKE, elsewhere) -- he leaves from here and comes back
+ *   19  a quiet evening, and then a call about something sensitive
+ *
+ * WHY THE PHASE COMES OFF THE CLOCK LEDGER AND NOT OFF `story.chapter`.
+ *
+ * `core/countryside-cabin-story.js` established this shape for the Act-One
+ * cabin and the reason is the same one: the ledger is already exact-once,
+ * already reloaded with the save, and already the thing every one of these
+ * beats has to write anyway. A parallel set of chapter strings would be a
+ * second source of truth for the same six facts, and the first time the two
+ * disagreed the player would be the one to find out. So `phase()` below is a
+ * pure read of what has been spent, in order, and nothing here keeps state.
+ *
+ * IT ALSO READS MISSION STATUS, deliberately. A save that comes here with the
+ * Silver Room or NO WAKE already complete -- the grandfathered kind
+ * MIGRATIONS[20] walks across from the old order -- must not be asked to play
+ * a beat it can see is behind him. Finished is finished.
+ *
+ * WHAT IT DOES NOT OWN: the staged Margo scene. Beats 16 and 17 are wired as
+ * route and clock here, and `margoComeHomeOwed()`/`margoWakeOwed()` are the
+ * hooks a runtime uses to play her, exactly as `ApartmentStory` exposes them
+ * for the starter flat. The luxury scene does not stage her yet; see the
+ * `status: 'pending'` on those two beats in `core/campaign-spine.js`.
+ */
+
+/** The states this flat passes through, in the order the bible plays them. */
+export const LUXURY_APARTMENT_PHASES = Object.freeze([
+  'get_ready',
+  'date',
+  'come_home',
+  'stayover',
+  'morning',
+  'no_wake',
+  'return',
+  'complete',
+]);
+
+class LuxuryApartmentStory {
+  constructor({ campaign }) {
+    this.campaign = campaign;
+  }
+
+  #spent(eventId) {
+    return this.campaign.state.story.timeEvents.includes(eventId);
+  }
+
+  #answered(eventId) {
+    return this.campaign.state.events[eventId]?.status === 'answered';
+  }
+
+  #mission(missionId) {
+    return this.campaign.state.missions[missionId];
+  }
+
+  /**
+   * Book the drive that got him here.
+   *
+   * Two arrivals, two markers, because the ledger is exact-once by id: the
+   * cross-town run from Silver Pines with Lou in the passenger seat is not
+   * the same journey as the ride back from South Harbor, and sharing one id
+   * would price the first and give the second away free.
+   */
+  arrive() {
+    return this.campaign.advanceTime(TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT);
+  }
+
+  /** Home from the dock. Beat 19 begins when this lands. */
+  returnFromDock() {
+    return this.campaign.advanceTime(TIME_EVENT_IDS.RETURN_LUXURY_APARTMENT);
+  }
+
+  /** Has he been driven here at all? Beat 14 has not started until he has. */
+  arrived() {
+    return this.#spent(TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT);
+  }
+
+  /**
+   * Where in the four visits this save is.
+   *
+   * Read top to bottom; the first thing outstanding is the phase. Every test
+   * is either a spent marker or a finished mission, so this is a function of
+   * the save and reloading cannot move it.
+   */
+  phase() {
+    const silver = this.#mission(MISSION_IDS.SILVER_ROOM);
+    const noWakeDone = this.#mission(MISSION_IDS.NO_WAKE).status === 'complete';
+
+    if (silver.status !== 'complete') {
+      return this.#spent(TIME_EVENT_IDS.LUXURY_GET_READY) ? 'date' : 'get_ready';
+    }
+    if (!noWakeDone) {
+      /* SHE IS ONLY HERE IF THE EVENING EARNED HER.
+       *
+       * `cameHome` is the Silver Room's own verdict and the two Margo phases
+       * hang off it, which is not politeness -- it is the difference between
+       * a door and a soft lock. Both `come_home` and `morning` refuse to open
+       * the door, so a save that ended the night `awkward` and could still
+       * reach them would sit in a flat waiting for a woman who is not coming,
+       * forever, with nothing on the panel to do about it. */
+      const cameHome = silver.cameHome === true;
+      if (cameHome && !this.#spent(TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME)) return 'come_home';
+      if (!this.#spent(TIME_EVENT_IDS.LUXURY_STAYOVER_REST)) return 'stayover';
+      if (cameHome && !this.#spent(TIME_EVENT_IDS.LUXURY_MARGO_WAKE)) return 'morning';
+      return 'no_wake';
+    }
+    return this.#answered(EVENT_IDS.BOOSKI_SILVER_CASE_CALL) ? 'complete' : 'return';
+  }
+
+  /**
+   * Beat 14's objective, which the bible marks optional and the door does
+   * not: "Shower, change clothes, check phone, leave for Front & Center."
+   *
+   * Optional in the bible means "no failure state", not "skippable" -- the
+   * exit transition for beat 14 is literally "Complete get-ready flow and
+   * leave". Forty-five minutes on the clock and it cannot move the table:
+   * DEPART_SILVER_ROOM is anchored at half seven.
+   */
+  completeGetReady() {
+    if (this.phase() !== 'get_ready') return { ok: false, reason: 'wrong_phase' };
+    const applied = this.campaign.advanceTime(TIME_EVENT_IDS.LUXURY_GET_READY).applied === true;
+    return applied ? { ok: true } : { ok: false, reason: 'already_ready' };
+  }
+
+  /**
+   * She came back with him, or she did not.
+   *
+   * `cameHome` is the Silver Room's own verdict on the evening -- computed
+   * from the outcome band by `src/silver/mission.js` and carried across the
+   * seam by `SilverStory.complete` -- so a night that ended `awkward` or
+   * worse gets a flat with one person in it. Same rule the starter flat used
+   * for the same beat; it is the mission's verdict that decides, never the
+   * chapter.
+   */
+  margoComeHomeOwed() {
+    return this.phase() === 'come_home';
+  }
+
+  /** She is in, helped out of the dress, and asleep. Marker prevents replay. */
+  margoComeHomeDone() {
+    if (this.phase() !== 'come_home') return false;
+    return this.campaign
+      .advanceTime(TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME).applied === true;
+  }
+
+  /**
+   * The night. Beat 16 ends "fade/sleep into the following morning", so this
+   * is the whole of what going to bed does here -- there is no chapter to
+   * turn, because this flat's beats are ledger entries rather than chapters.
+   *
+   * Refused until she is in, so that lying down cannot skip her arrival.
+   */
+  sleep() {
+    const phase = this.phase();
+    if (phase === 'come_home') return { ok: false, reason: 'margo_still_arriving' };
+    if (phase !== 'stayover') return { ok: false, reason: 'wrong_phase' };
+    const rest = this.campaign.advanceTime(TIME_EVENT_IDS.LUXURY_STAYOVER_REST);
+    if (!rest.applied) return { ok: false, reason: 'already_slept' };
+    const { day, timeMinutes } = this.campaign.state.story;
+    return { ok: true, day, timeMinutes };
+  }
+
+  /**
+   * Beat 17. She has a delivery at eleven and a man who cannot be trusted
+   * with a delivery, so she gets dressed and goes.
+   *
+   * Owed only if she was actually here: the same `cameHome` test as the night
+   * before, so the morning cannot produce a woman the evening did not.
+   */
+  margoWakeOwed() {
+    return this.phase() === 'morning';
+  }
+
+  /** She left. The quiet window the bible asks for starts here. */
+  margoWakeDone() {
+    if (this.phase() !== 'morning') return false;
+    return this.campaign.advanceTime(TIME_EVENT_IDS.LUXURY_MARGO_WAKE).applied === true;
+  }
+
+  /**
+   * Which telephone this flat is waiting on, or null.
+   *
+   * Three calls, one per outgoing beat, and the order is the phase order
+   * rather than a list of chapter tests -- `phase()` has already decided
+   * which visit this is, so each of these only has to ask whether its own
+   * call has landed yet.
+   */
+  pendingCall() {
+    const phase = this.phase();
+    if (phase === 'date' && !this.#answered(EVENT_IDS.MARGO_DATE_CALL)) {
+      return DATE_MARGO_CALL;
+    }
+    if (phase === 'no_wake' && !this.#answered(EVENT_IDS.LOU_NO_WAKE_CALL)) {
+      return NO_WAKE_LOU_CALL;
+    }
+    if (phase === 'return' && !this.#answered(EVENT_IDS.BOOSKI_SILVER_CASE_CALL)) {
+      return SILVER_CASE_BOOSKI_CALL;
+    }
+    return null;
+  }
+
+  /**
+   * Take one of them.
+   *
+   * Each writes the answer and unlocks exactly what the caller offered, which
+   * is the same contract `ApartmentStory.callAnswered` keeps. Beat 19's is
+   * the odd one: THE TAKE already made the Silver Case available on Day 5, so
+   * Booskibro's call unlocks nothing and only records that it landed -- which
+   * is also all it does in the fiction. He is being told a thing is coming,
+   * not being given it.
+   */
+  callAnswered(definition) {
+    if (definition?.eventId === EVENT_IDS.MARGO_DATE_CALL
+      && !this.#answered(EVENT_IDS.MARGO_DATE_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_DATE_CALL, (state) => {
+        state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+        state.missions[MISSION_IDS.SILVER_ROOM].status = 'available';
+      });
+      return true;
+    }
+    if (definition?.eventId === EVENT_IDS.LOU_NO_WAKE_CALL
+      && !this.#answered(EVENT_IDS.LOU_NO_WAKE_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.LOU_NO_WAKE_CALL, (state) => {
+        state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
+        state.missions[MISSION_IDS.NO_WAKE].status = 'available';
+      });
+      return true;
+    }
+    if (definition?.eventId === EVENT_IDS.BOOSKI_SILVER_CASE_CALL
+      && !this.#answered(EVENT_IDS.BOOSKI_SILVER_CASE_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.BOOSKI_SILVER_CASE_CALL, (state) => {
+        state.events[EVENT_IDS.BOOSKI_SILVER_CASE_CALL].status = 'answered';
+      });
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * The front door, in the same vocabulary `ApartmentStory.tryLeave` speaks:
+   * `go` with a destination, `call` waiting on a telephone, `activity`
+   * waiting on something he has to do, `stay` meaning the answer is bed.
+   *
+   * @param {object} activities the room's own live flags, for parity with the
+   *   starter flat's door. Nothing in this flat gates on one yet.
+   */
+  tryLeave() {
+    const phase = this.phase();
+    if (phase === 'get_ready') {
+      return {
+        kind: 'activity',
+        id: TIME_EVENT_IDS.LUXURY_GET_READY,
+        label: 'Get ready for your date',
+        hint: 'Shower, put on something for the Silver Room, and take the phone.',
+        ...departureRefusal('luxury_get_ready'),
+      };
+    }
+    if (phase === 'date') {
+      if (!this.#answered(EVENT_IDS.MARGO_DATE_CALL)) {
+        return {
+          kind: 'call',
+          id: EVENT_IDS.MARGO_DATE_CALL,
+          ...departureRefusal('date_call'),
+        };
+      }
+      return { kind: 'go', destination: SCENE_IDS.SILVER_ROOM };
+    }
+    if (phase === 'come_home' || phase === 'stayover') {
+      return {
+        kind: 'stay',
+        id: 'luxury_stayover',
+        ...departureRefusal('luxury_stayover'),
+      };
+    }
+    if (phase === 'morning') {
+      return {
+        kind: 'stay',
+        id: 'luxury_margo_morning',
+        ...departureRefusal('luxury_margo_morning'),
+      };
+    }
+    if (phase === 'no_wake') {
+      if (!this.#answered(EVENT_IDS.LOU_NO_WAKE_CALL)) {
+        return {
+          kind: 'call',
+          id: EVENT_IDS.LOU_NO_WAKE_CALL,
+          ...departureRefusal('no_wake_call'),
+        };
+      }
+      return { kind: 'go', destination: SCENE_IDS.NO_WAKE };
+    }
+    if (phase === 'return') {
+      return {
+        kind: 'call',
+        id: EVENT_IDS.BOOSKI_SILVER_CASE_CALL,
+        ...departureRefusal('final_arc_locked'),
+      };
+    }
+    return { kind: 'go', destination: SCENE_IDS.SILVER_CASE };
+  }
+
+  /**
+   * The morning's list, for the objective panel.
+   *
+   * Derived from `tryLeave` for the same reason the starter flat's is: a
+   * panel that authors its own copy of the door's rules is a panel that will
+   * eventually disagree with the door, and the player believes the panel.
+   */
+  objectives() {
+    const door = this.tryLeave();
+    const items = [];
+    const call = this.pendingCall();
+    if (call) {
+      items.push({
+        id: call.eventId,
+        label: `Answer ${call.from}’s call`,
+        done: false,
+        required: true,
+      });
+    }
+    if (door.kind === 'activity') {
+      items.push({ id: door.id, label: door.label, done: false, required: true });
+    } else if (door.kind === 'stay') {
+      items.push({ id: door.id, label: 'Sleep', done: false, required: true });
+    } else if (door.kind === 'go') {
+      items.push({
+        id: `depart.${door.destination}`,
+        label: `Leave for ${LUXURY_SCENE_LABELS[door.destination] ?? door.destination}`,
+        done: false,
+        required: true,
+      });
+    }
+    return { phase: this.phase(), day: this.campaign.state.story.day, items };
+  }
+}
+
+/** Somewhere to go, in words a person would use for it. */
+const LUXURY_SCENE_LABELS = Object.freeze({
+  [SCENE_IDS.SILVER_ROOM]: 'Front & Center',
+  [SCENE_IDS.NO_WAKE]: 'South Harbor',
+  [SCENE_IDS.SILVER_CASE]: 'the Silver Case pickup',
+});
+
+export function createLuxuryApartmentStory(options) {
+  return new LuxuryApartmentStory(options);
+}

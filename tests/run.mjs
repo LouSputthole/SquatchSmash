@@ -61,6 +61,7 @@ const TEST_MODULES = [
   './luxury-apartment-layout.test.mjs',
   './luxury-apartment-poker-table.test.mjs',
   './luxury-apartment-runtime.test.mjs',
+  './luxury-apartment-story.test.mjs',
   './luxury-apartment-world.test.mjs',
   './combat-core.test.mjs',
   './combat-spatial-perception.test.mjs',

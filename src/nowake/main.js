@@ -28,6 +28,7 @@ import { createCampaignAudioFeedback } from '../core/campaign-audio-feedback.js'
 import { AuthoredClock } from '../core/authored-clock.js';
 import {
   MISSION_IDS, SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
+  returnHomeFromMission,
 } from '../core/campaign.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
@@ -1561,8 +1562,12 @@ function completeMission() {
     return;
   }
   campaignAudioFeedback.complete('no-wake', completed);
+  /* Beat 18's exit: "Prospect returns home knowing he has been trusted with a
+   * deeply internal matter." Home is the luxury apartment from beat 14 on --
+   * `returnHomeFromMission` owns which door and books the drive back up from
+   * South Harbor once. */
   setTimeout(() => {
-    navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door', location });
+    returnHomeFromMission(campaign, SCENE_IDS.NO_WAKE, { location });
   }, 3200);
 }
 

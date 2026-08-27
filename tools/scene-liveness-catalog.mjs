@@ -84,14 +84,20 @@ function makeEntry({
   });
 }
 
+/* The bible's beat 18: the morning after the stayover, from the luxury
+ * apartment, on Day 7. It used to seed Day 3 with the Silver Room untouched,
+ * because NO WAKE used to be the first job of the morning after the Motel --
+ * `NoWakeStory.begin()` refuses that shape now, and refusing it is the point:
+ * a man reports to Gate C because the family rang him after Margo left. */
 function readyNoWakeCampaign() {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
-    state.story.chapter = 'no_wake';
-    state.story.day = 3;
+    state.story.chapter = 'luxury_apartment';
+    state.story.day = 7;
     state.story.timeMinutes = 12 * 60 + 45;
     state.scene = { id: SCENE_IDS.NO_WAKE, spawn: 'gate_c' };
     state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
     state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
     state.missions[MISSION_IDS.NO_WAKE].status = 'available';
   });

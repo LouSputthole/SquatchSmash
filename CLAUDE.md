@@ -132,14 +132,23 @@ The bible's calendar, which is the target:
 | 12 | The repaired mansion, and the Palace that night |
 | 13 | The meeting, the ride, the ceremony |
 
-Days 1 to 4 are the built route as well: beats 3-7 are wired, and the cabin's
-own clock is anchored to the days above. From Bada Bing II onward the built
-route still plays beats 8-19 in its OLD order (NO WAKE and the date before the
-heist rather than after), and its anchors are the bible's hours on the days
-that order actually reaches — Bing II Day 4 23:00, the motel Day 5 04:30, the
-golf Day 6, the Silver Case Day 8, the Palace Day 9. Those come into line with
-the table above when beats 12-19 are wired; until then the table is the plan
-and `src/core/campaign.js`'s `TIME_EVENT_CLOCK` is the fact.
+**Days 1 to 9 are the built route.** Beats 3-7 and 11.5-19 are both wired, so
+the table above is the calendar the campaign actually keeps up to the siege:
+the cabin owns Days 2 to 4, THE TAKE is the afternoon of Day 5, the round and
+the handover are Day 6 morning with Front & Center that night, the stayover
+runs into Day 7 and NO WAKE fills its afternoon, and the Silver Case leaves at
+4 PM on Day 8. The one place the built route still differs from the table is
+the tail: the repaired mansion and the Palace are Day 9 rather than Day 12,
+because nothing has yet wired the time jump the bible asks for between Enola
+and the debrief. `src/core/campaign.js`'s `TIME_EVENT_CLOCK` is the fact.
+
+Two beats are wired as ROUTE but not yet as SCENE: 16 and 17. The campaign
+comes home from Front & Center to the luxury apartment, sleeps the night,
+wakes on the morning of Day 7 and takes Lou's call — and Margo's lines play —
+but she is not staged in that flat, and the dress mini-game with her is still
+the starter apartment's. `campaign-spine.js` calls both `pending` for exactly
+that reason. The port is `world/apartment-preview-geometry.js`'s job, not a
+route commit's.
 
 **Anchors move WITH the route, in the same commit.** Beats 3-7 cost every
 anchor after the Beef Run two days. Leaving one behind does not fail anywhere:
@@ -178,12 +187,16 @@ floor for the same reason.
   numbered bible at all, which is why it carries the number 11.5. Owner's
   ruling: home from the Motel, do the heist, THEN Lou rings about the new
   space — the job is what earns the upgrade, so the call reads as the reward.
-  Silver Pines therefore moves AFTER the heist, and the recorded golf call
-  ("three holes, home by half ten, after that your day starts") is retired
-  with it: it exists to set up a heist that has already happened.
+  Silver Pines is therefore AFTER the heist, and the recorded golf call
+  ("three holes, home by half ten, after that your day starts") was retired
+  with it — it existed to set up a heist that has already happened. Beat 12's
+  call is `NEW_SPACE_LOU_CALL` under `call.lou.new_space`, and the eight
+  `vo.call.lou.golf.*` takes are gone from the manifest and off the disk.
 - **NO WAKE is still Lou's call**, and the recorded take stands. The bible only
   says *"Family call after Margo leaves"*; the existing lines never mention the
-  Motel or the old flat, so they play word-for-word in the new position.
+  Motel or the old flat, so they play word-for-word in the new position — Day 7,
+  from the luxury apartment, once she has gone. Margo's own date call moved the
+  same way and for the same reason.
 - **The luxury apartment already has the toys.** Two arcades (the computer and
   the Squatch Smash cabinet), darts, poker, blackjack, a TV, a bong and the
   white line on the coffee table are all built in `luxury-apartment/world.js`.

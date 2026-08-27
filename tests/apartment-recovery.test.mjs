@@ -69,21 +69,57 @@ test('Apartment recovery clears only the blocking morning beats before routing t
   assert.equal(campaign.state.activities.emailChecked, false, 'optional HR email was skipped too');
 });
 
-test('Apartment recovery turns the post-date sleep/call seam into the next playable mission', () => {
+/* BEAT 12'S SEAM, which is the one the reorder moved.
+ *
+ * This used to seed `date` with the Silver Room finished, because the night
+ * of the date was the last thing the flat did before the round. It is
+ * `post_heist` now: home from the bank after dark, the flat to clean, Lou's
+ * call about a new space, and a bed. Recovery has to walk all four -- the
+ * cleanup items, the telephone, the sleep, and then the morning's pastime --
+ * or a player stuck on any one of them is stuck for good. */
+test('Apartment recovery turns the post-heist cleanup/call/sleep seam into the round', () => {
   const { campaign, destinations, skip } = apartmentHarness();
   campaign.update((state) => {
-    state.story.chapter = 'date';
-    state.story.day = 3;
+    state.story.chapter = 'post_heist';
+    state.story.day = 5;
+    state.story.timeMinutes = 18 * 60 + 50;
     state.scene = { id: SCENE_IDS.APARTMENT, spawn: 'front_door' };
-    state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
-    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'locked';
   });
 
   assert.equal(skip().ok, true);
   assert.deepEqual(destinations, [SCENE_IDS.SILVER_PINES]);
   assert.equal(campaign.state.story.chapter, 'golf_morning');
+  assert.equal(campaign.state.story.day, 6);
   assert.equal(campaign.state.events[EVENT_IDS.LOU_GOLF_CALL].status, 'answered');
   assert.equal(campaign.state.missions[MISSION_IDS.SILVER_PINES].status, 'available');
+});
+
+/**
+ * And beat 14, which is a doorway rather than a dead end.
+ *
+ * A save that comes back to this flat with the round already played has
+ * nothing left here: the keys are in his hand and the campaign has moved
+ * address. Recovery must take him there rather than reporting itself
+ * blocked in a room the story has finished with.
+ */
+test('Apartment recovery sends a finished round on to the new address', () => {
+  const { campaign, destinations, skip } = apartmentHarness();
+  campaign.update((state) => {
+    state.story.chapter = 'golf_morning';
+    state.story.day = 6;
+    state.story.timeMinutes = 10 * 60 + 30;
+    state.scene = { id: SCENE_IDS.APARTMENT, spawn: 'front_door' };
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
+    state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+  });
+
+  assert.equal(skip().ok, true);
+  assert.deepEqual(destinations, [SCENE_IDS.LUXURY_APARTMENT]);
 });
 
 test('Apartment recovery packs every required heist item but leaves optional gear alone', () => {
@@ -120,17 +156,23 @@ test('Apartment recovery repairs a stale final-arc apartment return by routing t
 
 test('Apartment recovery refuses an unknown locked seam instead of navigating naked', () => {
   const { campaign, destinations, skip } = apartmentHarness();
+  /* A save that says the flat is in its post-heist evening while THE TAKE is
+   * still running. `completeHeistCleanup` refuses to wash the bank off a job
+   * that has not ended, so the loop meets an activity it cannot finish --
+   * which is exactly the case this affordance must report rather than paper
+   * over by navigating somewhere plausible.
+   *
+   * It used to be posed with the Silver Case complete and the Initiation
+   * locked, which was the old post-heist cul-de-sac. That branch is gone:
+   * beat 12 gave this chapter a telephone and a bed instead of a road north. */
   campaign.update((state) => {
     state.story.chapter = 'post_heist';
-    state.story.day = 4;
+    state.story.day = 5;
     state.scene = { id: SCENE_IDS.APARTMENT, spawn: 'front_door' };
-    state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'in_progress';
     state.missions[MISSION_IDS.BANK_HEIST].cleanup = {
-      washed: true, changed: true, gearSecured: true, finalCalls: true,
+      washed: false, changed: false, gearSecured: false, finalCalls: false,
     };
-    state.missions[MISSION_IDS.SILVER_CASE].status = 'complete';
-    state.missions[MISSION_IDS.SILENT_SQUATCH].status = 'locked';
-    state.missions[MISSION_IDS.INITIATION].status = 'locked';
   });
 
   const result = skip();

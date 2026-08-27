@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   CAMPAIGN_STORAGE_KEY,
   CAMPAIGN_VERSION,
+  EVENT_IDS,
   MISSION_IDS,
   SCENES,
   SCENE_IDS,
@@ -14,10 +15,10 @@ import {
 } from '../src/core/campaign.js';
 import {
   HEIST_CLEANUP_ITEMS,
+  NEW_SPACE_LOU_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createBankHeistStory } from '../src/core/bank-heist-story.js';
-import { createCountrysideCabinStory } from '../src/core/countryside-cabin-story.js';
 import { createSilentSquatchStory } from '../src/core/silent-squatch-story.js';
 import {
   createCartelPalaceCampaignStory,
@@ -26,7 +27,6 @@ import {
   createMansionSiegeCampaignStory,
   createSilverCaseCampaignStory,
 } from '../src/core/final-arc-story.js';
-import { completeCabinChapter } from './helpers/complete-cabin-chapter.mjs';
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
@@ -53,25 +53,25 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
   assert.equal(SCENE_IDS.MANSION_RETURN, 'mansion_return');
   assert.equal(SCENE_IDS.CARTEL_PALACE, 'cartel_palace');
   assert.equal(SCENES[SCENE_IDS.APARTMENT].next.includes(SCENE_IDS.SILVER_CASE), false);
-  /* The cabin is the Silver Case's ONLY doorway, and that is the thing worth
-   * asserting rather than the exact length of the array. The cabin gained two
-   * Act-One exits when the story bible moved it forward -- Cabin I leaves for
-   * the Beef Run, Cabin II goes back to town -- but until the luxury
-   * apartment takes over the post-heist route, dropping this one edge would
-   * make the entire final chapter unreachable from anywhere a player can
-   * stand. */
-  assert.equal(SCENES[SCENE_IDS.COUNTRYSIDE_CABIN].next.includes(SCENE_IDS.SILVER_CASE), true);
-  const cabinDoorways = Object.entries(SCENES)
+  /* THE LUXURY APARTMENT IS THE SILVER CASE'S ONLY DOORWAY, and that is the
+   * thing worth asserting rather than the exact length of any array.
+   *
+   * The cabin held it while the post-heist lay-low was the only route into
+   * the last third of the game. Beat 19 -- "after a quiet period, Lou/Booski
+   * contacts Prospect about moving a highly sensitive Silver Case" -- is
+   * where the bible always had it, and once something routed through that
+   * edge the cabin's could come out. Add first, remove last. */
+  assert.equal(SCENES[SCENE_IDS.COUNTRYSIDE_CABIN].next.includes(SCENE_IDS.SILVER_CASE), false);
+  const caseDoorways = Object.entries(SCENES)
     .filter(([, scene]) => scene.next.includes(SCENE_IDS.SILVER_CASE))
     .map(([id]) => id);
-  assert.deepEqual(cabinDoorways.sort(),
-    [SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.LUXURY_APARTMENT].sort(),
-    'only the cabin and the not-yet-routed luxury apartment may reach the Silver Case');
+  assert.deepEqual(caseDoorways, [SCENE_IDS.LUXURY_APARTMENT],
+    'exactly one scene may reach the Silver Case, and it is the flat he lives in');
 
   const campaign = createCampaign({ storage: new MemoryStorage() });
-  campaign.enter(SCENE_IDS.COUNTRYSIDE_CABIN);
+  campaign.enter(SCENE_IDS.LUXURY_APARTMENT);
   assert.deepEqual(campaign.state.scene, {
-    id: SCENE_IDS.COUNTRYSIDE_CABIN,
+    id: SCENE_IDS.LUXURY_APARTMENT,
     spawn: 'arrival',
   });
   campaign.enter(SCENE_IDS.SILVER_CASE);
@@ -99,7 +99,7 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
 });
 
 test('a fresh schema carries locked durable records for every final-arc mission', () => {
-  assert.equal(CAMPAIGN_VERSION, 20);
+  assert.equal(CAMPAIGN_VERSION, 21);
   assert.equal(MISSION_IDS.SILVER_CASE, 'silver_case');
   assert.equal(MISSION_IDS.MANSION_SIEGE, 'mansion_siege');
   assert.equal(MISSION_IDS.ENOLA_SQUATCH, 'enola_squatch');
@@ -370,7 +370,16 @@ test('v12 saves before the old invitation retain The Silver Case behind the cabi
   assert.equal(state.scene.id, SCENE_IDS.APARTMENT);
 });
 
-test('THE TAKE cleanup routes through the complete Cabin chapter before The Silver Case', () => {
+/**
+ * THE TAKE's cleanup routes through beat 12's telephone, not a road north.
+ *
+ * The old shape of this test drove the post-heist flat to Lou's lay-low
+ * message, up the county road to a cabin the campaign had already finished,
+ * and out the far side into the Silver Case. All three of those were the
+ * pre-bible order. What the flat's last evening does now is wash the bank
+ * off, take a call about a new space, and go to bed.
+ */
+test('THE TAKE cleanup routes through beat 12’s call and into the round', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
     const heist = state.missions[MISSION_IDS.BANK_HEIST];
@@ -378,12 +387,17 @@ test('THE TAKE cleanup routes through the complete Cabin chapter before The Silv
     heist.checkpoint = 'vehicle_swap';
     heist.vaultOpened = true;
     heist.crewSurvived = true;
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
   });
 
   assert.equal(createBankHeistStory({ campaign }).complete(), true);
   assert.equal(campaign.state.story.chapter, 'post_heist');
   assert.equal(campaign.state.missions[MISSION_IDS.SILVER_CASE].status, 'available');
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'locked');
+  /* Available, and still two days early. Beat 19's telephone is what actually
+   * opens that door -- see the narrow inference on BOOSKI_SILVER_CASE_CALL in
+   * `normalize()`, which deliberately does NOT read `available` as proof. */
+  assert.equal(campaign.state.events[EVENT_IDS.BOOSKI_SILVER_CASE_CALL].status, 'pending');
 
   const apartment = createApartmentStory({ campaign, ring: () => true });
   for (const item of HEIST_CLEANUP_ITEMS) {
@@ -391,21 +405,13 @@ test('THE TAKE cleanup routes through the complete Cabin chapter before The Silv
   }
   assert.equal(
     apartment.tryLeave(campaign.state.activities).id,
-    TIME_EVENT_IDS.PHONE_READ_CABIN,
+    EVENT_IDS.LOU_GOLF_CALL,
   );
-  campaign.advanceTime(TIME_EVENT_IDS.PHONE_READ_CABIN);
-  assert.deepEqual(apartment.tryLeave(campaign.state.activities), {
-    kind: 'go', destination: SCENE_IDS.COUNTRYSIDE_CABIN,
-  });
-
-  campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN);
-  campaign.enter(SCENE_IDS.COUNTRYSIDE_CABIN, { spawn: 'arrival' });
-  const cabin = createCountrysideCabinStory({ campaign });
-  assert.equal(cabin.tryLeave().id, 'cabin_chapter_incomplete');
-  completeCabinChapter(cabin);
-  assert.equal(cabin.chapterComplete(), true);
-  assert.deepEqual(cabin.tryLeave(), {
-    kind: 'go', destination: SCENE_IDS.SILVER_CASE,
+  assert.equal(apartment.callAnswered(NEW_SPACE_LOU_CALL), true);
+  assert.equal(apartment.tryLeave(campaign.state.activities).kind, 'stay');
+  assert.equal(apartment.sleep().chapter, 'golf_morning');
+  assert.deepEqual(apartment.tryLeave({ playedSquatchShoot: true }), {
+    kind: 'go', destination: SCENE_IDS.SILVER_PINES,
   });
 });
 

@@ -35,8 +35,12 @@ const dayTwoSave = (airstrip) => ({
   },
 });
 
-test('the schema is 20 and the cabin calls exist', () => {
-  assert.equal(CAMPAIGN_VERSION, 20);
+test('the schema is 21 and the cabin calls exist', () => {
+  /* 20 when this file was written for the Act-One cabin; 21 since beats
+   * 12-19 added beat 19's telephone to the events map. The assertion is
+   * kept pinned rather than loosened -- a schema that moves without somebody
+   * writing a migration is the failure this whole file is about. */
+  assert.equal(CAMPAIGN_VERSION, 21);
   for (const id of ['CABIN_MARGO_CALL', 'CABIN_BOOSKI_SASOLE_CALL', 'CABIN_BILLY_CALL']) {
     assert.equal(typeof EVENT_IDS[id], 'string', `${id} is missing`);
   }
@@ -183,6 +187,14 @@ test('the scene graph carries the Act-One cabin edges', () => {
     'Cabin I cannot leave for the Beef Run');
   assert.equal(SCENES[SCENE_IDS.COUNTRYSIDE_CABIN].next.includes(SCENE_IDS.APARTMENT), true,
     'Cabin II cannot go back to town');
-  assert.equal(SCENES[SCENE_IDS.COUNTRYSIDE_CABIN].next.includes(SCENE_IDS.SILVER_CASE), true,
+  /* AND THE EDGE THAT CAME OUT, which is the other half of the same rule.
+   *
+   * The cabin held the Silver Case doorway open while it was the only way
+   * into the last third of the game. Beat 19 gives that doorway to the
+   * luxury apartment, so the cabin gives it up -- add first, remove last --
+   * and the finale still has exactly one entrance. */
+  assert.equal(SCENES[SCENE_IDS.COUNTRYSIDE_CABIN].next.includes(SCENE_IDS.SILVER_CASE), false,
+    'the post-heist lay-low still claims the Silver Case');
+  assert.equal(SCENES[SCENE_IDS.LUXURY_APARTMENT].next.includes(SCENE_IDS.SILVER_CASE), true,
     'the finale lost its only doorway');
 });

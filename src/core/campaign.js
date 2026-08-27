@@ -211,8 +211,36 @@ export const EVENT_IDS = Object.freeze({
   LOU_SECOND_CALL: 'lou_second_call',
   LOU_NO_WAKE_CALL: 'lou_no_wake_call',
   MARGO_DATE_CALL: 'margo_date_call',
+  /**
+   * BEAT 12, under the id the golf call already had, and deliberately so.
+   *
+   * The bible's twelfth beat is *"We got a new space. Come meet us on the
+   * course."* -- one call, in the starter flat, that sends him to Silver
+   * Pines. That is the same slot in the machine this id has always occupied,
+   * so the SAVE KEY does not move and no player's events map changes shape.
+   *
+   * What was retired is the RECORDING. `vo.call.lou.golf.*` was four takes of
+   * "three holes, home by half ten, after that your day starts" -- a call
+   * whose whole job was to fit a round of golf in before a bank job later the
+   * same day. THE TAKE is on Day 5 now and the round is on Day 6, so those
+   * lines set up a heist that has already happened. `NEW_SPACE_LOU_CALL` in
+   * apartment-story.js carries beat 12's words under `call.lou.new_space`.
+   */
   LOU_GOLF_CALL: 'lou_golf_call',
   LOU_HEIST_CALL: 'lou_heist_call',
+  /**
+   * BEAT 19. The call that ends the luxury apartment's quiet evening.
+   *
+   * A new key in the save's `events` map, which is why MIGRATIONS[20] exists:
+   * `normalize()` rebuilds that block from `initialState`, so a save that
+   * reaches v21 without this key present is `structurallyBroken` and every
+   * player is told their save was recovered.
+   *
+   * It is Booskibro rather than Lou because the case is going TO Lou -- the
+   * bible's beat 20 is "hand it to Lou himself" -- and a man does not ring
+   * ahead to tell you he is expecting a delivery from you.
+   */
+  BOOSKI_SILVER_CASE_CALL: 'booski_silver_case_call',
   BOOSKI_BIG_NIGHT_CALL: 'booski_big_night_call',
   /**
    * THE SPECIAL MEETING — Booskibro's second call, and why it is a second one.
@@ -275,9 +303,22 @@ export const TIME_EVENT_IDS = Object.freeze({
   PHONE_READ_LOU: 'phone.read.lou',
   PHONE_READ_MUM: 'phone.read.mum',
   PHONE_READ_CABIN: 'phone.read.cabin_lay_low',
-  /** Margo waking up beside him on the fourth morning, and leaving. */
+  /**
+   * THE STARTER FLAT'S TWO MARGO MARKERS, WHICH THE ROUTE NO LONGER REACHES.
+   *
+   * These are the come-home and the morning after as they were staged in the
+   * starter apartment, back when the date was a Day 3 beat played from that
+   * flat. The bible puts Front & Center after the handover -- she comes home
+   * to the LUXURY apartment, and the starter flat is dark by then -- so the
+   * live route now spends `LUXURY_MARGO_COME_HOME` and `LUXURY_MARGO_WAKE`
+   * below instead.
+   *
+   * They stay registered forever, and not only for tidiness: the ledger is
+   * exact-once BY ID, so a save that already spent one of these in the old
+   * order must still read back as having spent it. Deleting the id would make
+   * `advanceTime` throw on a save that legitimately contains it.
+   */
   MARGO_WAKE: 'scene.margo_wake',
-  /** Margo coming home with him the night of the Silver Room, and staying. */
   MARGO_COME_HOME: 'scene.margo_come_home',
   LOU_FIRST_CALL: 'call.lou_first',
   LOU_ATTABOY_CALL: 'call.lou_attaboy',
@@ -285,8 +326,12 @@ export const TIME_EVENT_IDS = Object.freeze({
   LOU_SECOND_CALL: 'call.lou_second',
   LOU_NO_WAKE_CALL: 'call.lou_no_wake',
   MARGO_DATE_CALL: 'call.margo_date',
+  /* Beat 12's call. Same ledger id as the retired golf call -- see the note
+   * on EVENT_IDS.LOU_GOLF_CALL for why the key stays and the take does not. */
   LOU_GOLF_CALL: 'call.lou_golf',
   LOU_HEIST_CALL: 'call.lou_heist',
+  /* Beat 19's call, at the luxury apartment. */
+  BOOSKI_SILVER_CASE_CALL: 'call.booski_silver_case',
   BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
   /* The Special Meeting call. A marker rather than an errand -- see its zero
    * in TIME_EVENTS below. It exists because `ApartmentStory.callAnswered()`
@@ -404,6 +449,37 @@ export const TIME_EVENT_IDS = Object.freeze({
   CABIN_BLACKOUT: 'scene.countryside_cabin.blackout',
   CABIN_MORNING_CALL: 'call.countryside_cabin.morning',
   CABIN_MORNING_WAKE_COMPLETE: 'scene.countryside_cabin.morning_wake_complete',
+  /**
+   * THE LUXURY APARTMENT. Beats 14, 16, 17 and 19 of the story bible.
+   *
+   * FOUR STATES MEANS FOUR SETS OF IDS, and that is the whole reason this
+   * block exists rather than the flat reusing the starter apartment's. He
+   * lives here for the second half of Chapter 3 and the campaign passes
+   * through the same front door four separate times:
+   *
+   *   14  Lou hands over the keys after the round; GET READY FOR YOUR DATE
+   *   16  she comes home with him from Front & Center, and stays
+   *   17  the morning: she leaves, and then the phone rings about a boat
+   *   19  home from the dock, and a call about something sensitive
+   *
+   * The ledger is exact-once by id. One `sleep.luxury` shared between the
+   * stayover and any later night would be spent on the first of them and
+   * silently unavailable on the second; one `travel.luxury` shared between
+   * the arrival and the drive back from South Harbor would price a
+   * cross-town move once and the return leg at nothing. Same trap the
+   * Act-One cabin hit, same answer.
+   *
+   * Also NOT the starter flat's `MARGO_WAKE`/`MARGO_COME_HOME`. Those are the
+   * same two beats in a different room, and a save that played them there in
+   * the old order still holds them; borrowing one would hand that player a
+   * stayover that was over before it started.
+   */
+  ARRIVE_LUXURY_APARTMENT: 'travel.luxury_apartment',
+  LUXURY_GET_READY: 'activity.luxury.get_ready',
+  LUXURY_MARGO_COME_HOME: 'scene.luxury.margo_come_home',
+  LUXURY_STAYOVER_REST: 'sleep.luxury.stayover',
+  LUXURY_MARGO_WAKE: 'scene.luxury.margo_wake',
+  RETURN_LUXURY_APARTMENT: 'travel.luxury_apartment_return',
   /* The final chapter has no apartment hub between scenes, so its travel and
    * runtime spans live in this same exact-once ledger.  These markers make the
    * calendar agree with the authored Day 5 / Day 6 sequence without letting a
@@ -488,6 +564,7 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.MARGO_DATE_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.LOU_GOLF_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.LOU_HEIST_CALL]: Object.freeze({ minutes: 3 }),
+  [TIME_EVENT_IDS.BOOSKI_SILVER_CASE_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
   /* Zero, and that is not an oversight.
    *
@@ -557,45 +634,85 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL]: Object.freeze({
     atLeast: Object.freeze({ day: 5, timeMinutes: 4 * 60 + 30 }),
   }),
-  // A deliberately vague call, then the drive down to South Harbor.
+  /* NO WAKE IS DAY 7 NOW, AND IT MOVED WITH THE ROUTE.
+   *
+   * The bible's beat 18 is a family call AFTER Margo leaves -- the morning
+   * of the stayover, from the luxury apartment, on the day after the date.
+   * This read Day 5 because NO WAKE used to be the first thing he did on
+   * waking off the back of the Motel, two beats before the date rather than
+   * three after it.
+   *
+   * Leaving it on Day 5 would not have failed anywhere, which is exactly what
+   * makes it dangerous: `advanceTime` takes `Math.max(now, atLeast)`, and the
+   * route reaches this beat at 07:14 on Day 7. A Day 5 anchor is absorbed
+   * whole, so the harbour job would have "started" at 07:14 on the morning
+   * Lou rang and "finished" at 07:14 as well -- an afternoon on a boat that
+   * takes no time and names no hour. Measured on the first run before these
+   * moved: DEPART_NO_WAKE landed 07:14, COMPLETE_NO_WAKE 07:14.
+   *
+   * The HOURS are untouched. A quarter to one at Gate C is still a quarter to
+   * one; it is which day it falls on that the reorder changed. */
   [TIME_EVENT_IDS.DEPART_NO_WAKE]: Object.freeze({
-    atLeast: Object.freeze({ day: 5, timeMinutes: 12 * 60 + 45 }),
+    atLeast: Object.freeze({ day: 7, timeMinutes: 12 * 60 + 45 }),
   }),
   // Dock work, the run offshore, and the silent return consume the afternoon.
   [TIME_EVENT_IDS.COMPLETE_NO_WAKE]: Object.freeze({
-    atLeast: Object.freeze({ day: 5, timeMinutes: 16 * 60 + 40 }),
+    atLeast: Object.freeze({ day: 7, timeMinutes: 16 * 60 + 40 }),
   }),
-  /* Day 3 turns through NO WAKE first. He wakes at noon off the back of the
-   * Motel, completes the harbor job, takes Margo's afternoon call, and leaves
-   * at half seven for a nine o'clock table -- the Silver Room's own evening. */
+  /* FRONT & CENTER IS DAY 6, THE NIGHT OF THE HANDOVER.
+   *
+   * The bible's beat 15 is the evening of the day Lou hands over the keys:
+   * the round in the morning, the new flat at lunchtime, GET READY FOR YOUR
+   * DATE, and a nine o'clock table. Both of these were Day 5 when the date
+   * came before the round. Half seven and twenty past eleven are unchanged --
+   * only the date moved. */
   [TIME_EVENT_IDS.DEPART_SILVER_ROOM]: Object.freeze({
-    atLeast: Object.freeze({ day: 5, timeMinutes: 19 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 19 * 60 + 30 }),
   }),
   // Dinner, a set by the Midnight Pines, and the walk out the front.
   [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM]: Object.freeze({
-    atLeast: Object.freeze({ day: 5, timeMinutes: 23 * 60 + 20 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 23 * 60 + 20 }),
   }),
-  /* Margo wakes him at seven. Lou's short invitation sends Tony out at half
-   * seven for an eight-o'clock tee time; three holes and the return trip put
-   * him back in the flat before THE TAKE begins. */
+  /* The round did NOT move, and that is the point of the reorder.
+   *
+   * Silver Pines was already a Day 6 morning and the bible already puts it
+   * there. What changed is what it is a morning AFTER: the bank, not the
+   * date. He sleeps off THE TAKE, Lou's invitation from the night before
+   * sends him out at half seven for an eight-o'clock tee time, and three
+   * holes later somebody hands him a set of keys. */
   [TIME_EVENT_IDS.DEPART_SILVER_PINES]: Object.freeze({
     atLeast: Object.freeze({ day: 6, timeMinutes: 7 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_SILVER_PINES]: Object.freeze({
     atLeast: Object.freeze({ day: 6, timeMinutes: 10 * 60 + 30 }),
   }),
-  // After the round, Lou's crew collects Tony late that morning.
+  /* THE TAKE IS DAY 5, WHICH IS THE OWNER'S RULING AND NOT A TIDY-UP.
+   *
+   * *"Home from the Motel, do the heist, THEN Lou rings about the new
+   * space"* -- the job is what earns the upgrade, so the call reads as the
+   * reward for it. Both of these were Day 6, after the round. He now wakes
+   * at noon off the back of the Motel, takes Lou's call, and a car collects
+   * him at a quarter to one.
+   *
+   * Same span as before, six hours and five minutes of it: briefing, bank,
+   * withdrawal, pursuit, swap and the count. It ends after dark, which is why
+   * beat 12's call is the last thing that happens on Day 5 and the course is
+   * the first thing that happens on Day 6. */
   [TIME_EVENT_IDS.DEPART_BANK_HEIST]: Object.freeze({
-    atLeast: Object.freeze({ day: 6, timeMinutes: 11 * 60 + 15 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 12 * 60 + 45 }),
   }),
-  // Briefing, bank, withdrawal, pursuit, swap, and the count fill the day.
   [TIME_EVENT_IDS.COMPLETE_BANK_HEIST]: Object.freeze({
-    atLeast: Object.freeze({ day: 6, timeMinutes: 17 * 60 + 20 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 18 * 60 + 50 }),
   }),
-  /* Clean clothes, a packed car and the county road now put him at the cabin
-   * in late-morning daylight on Day 5. The dungeon chapter needs a readable
-   * day-to-night turn on the same property; arriving at the old dusk time hid
-   * that whole arc inside one unchanging lighting state. */
+  /* THE POST-HEIST DRIVE NORTH, WHICH NO LIVE ROUTE TAKES ANY MORE.
+   *
+   * Beats 12-19 gave the Silver Case its own doorway out of the luxury
+   * apartment, so `SCENES[COUNTRYSIDE_CABIN].next` no longer names it and
+   * `post_heist` sends him to bed rather than to the county road. This anchor
+   * and CABIN_REST below are reachable only by a save that was already parked
+   * on that property, which MIGRATIONS[20] moves off it. Kept and dated
+   * because an id in this ledger can be spent, and a spent id has to stay
+   * readable. */
   [TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN]: Object.freeze({
     atLeast: Object.freeze({ day: 7, timeMinutes: 11 * 60 + 15 }),
   }),
@@ -698,8 +815,50 @@ const TIME_EVENTS = Object.freeze({
   }),
   [TIME_EVENT_IDS.CABIN_MORNING_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE]: Object.freeze({ minutes: 0 }),
-  /* The Cabin chapter now owns Day 5 and its Day 6 morning. Ape's pickup and
-   * the off-screen rendezvous land The Silver Case at 4 PM that afternoon. */
+  /* THE LUXURY APARTMENT'S FOUR VISITS, PRICED.
+   *
+   * Two anchors and five spans, and which is which is the design. The two
+   * anchored ones are the beats the bible puts at a stated time of day -- he
+   * gets the keys on Day 6 and he wakes up on Day 7 -- and the rest are
+   * durations, because their hour is whatever the beat in front of them left
+   * behind.
+   *
+   * ARRIVE: the round ends at half ten. Then the handshake on the eighteenth
+   * green, the drive across town with Lou in the passenger seat, and a lift
+   * up to a floor he has never been on. A quarter to twelve, measured against
+   * the golf's own completion rather than guessed. */
+  [TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT]: Object.freeze({
+    atLeast: Object.freeze({ day: 6, timeMinutes: 11 * 60 + 45 }),
+  }),
+  /* Shower, shave, and put on the one suit -- the bible's optional objective
+   * for beat 14, which is the whole content of the afternoon. Forty-five
+   * minutes and it cannot move the date: DEPART_SILVER_ROOM is anchored. */
+  [TIME_EVENT_IDS.LUXURY_GET_READY]: Object.freeze({ minutes: 45 }),
+  /* Zero, for the same reason the starter flat's version was zero:
+   * COMPLETE_SILVER_ROOM has already staged the walk home and the hour it
+   * lands at. This marks that the two of them came through the door. */
+  [TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME]: Object.freeze({ minutes: 0 }),
+  /* The bible's beat 16 ends "fade/sleep into the following morning", and
+   * beat 17 is a morning. Ten past seven on Day 7, which is a kitchen
+   * manager's alarm rather than his. */
+  [TIME_EVENT_IDS.LUXURY_STAYOVER_REST]: Object.freeze({
+    atLeast: Object.freeze({ day: 7, timeMinutes: 7 * 60 + 10 }),
+  }),
+  /* Also zero. Her leaving must not move Lou's call or the departure after
+   * it -- the bible asks for "a short quiet window", and a window that eats
+   * the clock is not quiet, it is a time skip. */
+  [TIME_EVENT_IDS.LUXURY_MARGO_WAKE]: Object.freeze({ minutes: 0 }),
+  /* South Harbor back to the tower. Not the same drive as the arrival and
+   * not priced as one: he is coming from a dock rather than a golf course,
+   * in somebody else's car, at the end of an afternoon nobody wants to talk
+   * about. Forty minutes. */
+  [TIME_EVENT_IDS.RETURN_LUXURY_APARTMENT]: Object.freeze({ minutes: 40 }),
+  /* Day 8, and it did not have to move. Chapter 3 ends on the evening of Day
+   * 7 -- home from South Harbor at twenty past five, Booskibro rings at
+   * twenty-five past -- and the bible gives the case its own day. Ape's
+   * pickup and the off-screen rendezvous land it at 4 PM that afternoon, and
+   * everything behind it (mansion, siege, Enola, Palace, the ceremony at
+   * twenty to one on Day 10) keeps the hours it already had. */
   [TIME_EVENT_IDS.DEPART_SILVER_CASE]: Object.freeze({
     atLeast: Object.freeze({ day: 8, timeMinutes: 16 * 60 }),
   }),
@@ -761,7 +920,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 20;
+export const CAMPAIGN_VERSION = 21;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -1315,6 +1474,11 @@ export const SCENES = Object.freeze({
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.COUNTRYSIDE_CABIN,
+      /* BEAT 14. The round hands him a set of keys and he is driven to the
+       * new address; this edge is what a save that reloads home mid-handover
+       * leaves by. The starter flat has no edge BACK from there and never
+       * gets one -- the Home Ladder climbs and does not come down. */
+      SCENE_IDS.LUXURY_APARTMENT,
       /* THE SPECIAL MEETING. Act One (SM-010 to SM-090) is played in this
        * flat -- the call, the getting ready, the door refusing him and the
        * headlights -- and the front door is what ends it. The kerb is the
@@ -1368,28 +1532,39 @@ export const SCENES = Object.freeze({
     spawns: Object.freeze(['passenger_seat']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
+  /* Beat 18 goes home to the flat he actually lives in now. The starter
+   * apartment edge is kept for the same add-first reason as the two below. */
   [SCENE_IDS.NO_WAKE]: Object.freeze({
     href: 'nowake.html',
     defaultSpawn: 'gate_c',
     spawns: Object.freeze(['gate_c']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.APARTMENT]),
   }),
   /* The date. One continuous scene with no loads of its own, so it has a single
-   * spawn on the pavement where the hired car drops them, and it comes home the
-   * way every other mission does. */
+   * spawn on the pavement where the hired car drops them.
+   *
+   * BEAT 15's EXIT IS THE LUXURY APARTMENT, not the starter flat. The bible:
+   * "Margo leaves Front & Center with the Prospect and goes back to the
+   * luxury apartment." The APARTMENT edge stays because removing an edge
+   * strands anybody parked behind it -- a save that walked into the Silver
+   * Room under the old order still has to be able to come home. */
   [SCENE_IDS.SILVER_ROOM]: Object.freeze({
     href: 'silver.html',
     defaultSpawn: 'kerb',
     spawns: Object.freeze(['kerb']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.APARTMENT]),
   }),
-  /* Silver Pines is a three-hole Day 4 morning chapter. Two spawns keep the
-   * ordinary car-park arrival and the first-tee preview seam explicit. */
+  /* Silver Pines is a three-hole Day 6 morning chapter. Two spawns keep the
+   * ordinary car-park arrival and the first-tee preview seam explicit.
+   *
+   * BEAT 13's EXIT IS THE HANDOVER. "Three holes, and the keys to somewhere
+   * better" -- he does not go back to the starter flat from the eighteenth
+   * green, he is driven to the new one. Same add-first rule as above. */
   [SCENE_IDS.SILVER_PINES]: Object.freeze({
     href: 'golf.html',
     defaultSpawn: 'car_park',
     spawns: Object.freeze(['car_park', 'first_tee']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.APARTMENT]),
   }),
   /* THE TAKE owns all of its internal phases and checkpoints behind one scene
    * boundary. Preview spawns expose those phases without inventing campaign
@@ -1410,8 +1585,15 @@ export const SCENES = Object.freeze({
   }),
   /* luxury-apartment.html already ships arrival/main/loft/bed/arcade spawns.
    * The five story states reuse them rather than inventing new ones: arrival
-   * for the night Lou hands over the keys, bed for the stayover and the
-   * morning, main for coming home and for the special-meeting call. */
+   * for the day Lou hands over the keys, bed for the stayover and the
+   * morning, main for coming home and for the special-meeting call.
+   *
+   * Four of those five are wired as of beats 12-19. `SILVER_CASE` is beat
+   * 19's exit and it is now the ONLY reachable entrance to the final third of
+   * the game: `SCENES[COUNTRYSIDE_CABIN].next` gave that doorway up in the
+   * same commit, having held it open since the cabin moved to Act One. Add
+   * first, remove last -- this edge was added on 2026-08-26 and the cabin's
+   * was removed once something routed through this one. */
   [SCENE_IDS.LUXURY_APARTMENT]: Object.freeze({
     href: 'luxury-apartment.html',
     defaultSpawn: 'arrival',
@@ -1429,13 +1611,15 @@ export const SCENES = Object.freeze({
    * from here. APARTMENT is Cabin II: the heat is down, Billy is getting out,
    * come back to the Bing.
    *
-   * SILVER_CASE is the old post-heist lay-low, and it stays until beats 14 to
-   * 20 are wired. Today this edge is the ONLY reachable entry to the Silver
-   * Case and the whole final chapter behind it -- APARTMENT.next deliberately
-   * excludes it, which tests/final-campaign-topology.test.mjs asserts on
-   * purpose -- so removing it before the luxury apartment can route there
-   * would strand every post-heist save with no way into the last third of the
-   * game. It comes out when LUXURY_APARTMENT takes over the doorway. */
+   * THE SILVER_CASE EDGE IS GONE, and this is the commit that could finally
+   * take it. It was the last surviving piece of the post-heist lay-low: with
+   * the cabin moved to Act One there was nothing left to play on this
+   * property, but the edge was the only reachable entry to the Silver Case
+   * and the whole final chapter behind it, so pulling it early would have
+   * stranded every post-heist save. Beat 19 gives that doorway to
+   * `LUXURY_APARTMENT`, which is where the bible always had it. Add first,
+   * remove last -- and MIGRATIONS[20] walks the saves that were parked here
+   * across to the new flat rather than leaving them on a road to nowhere. */
   [SCENE_IDS.COUNTRYSIDE_CABIN]: Object.freeze({
     href: 'cabin.html',
     defaultSpawn: 'arrival',
@@ -1448,7 +1632,6 @@ export const SCENES = Object.freeze({
        * the campaign passes THROUGH rather than a cul-de-sac. */
       SCENE_IDS.BADA_BING_TWO,
       SCENE_IDS.APARTMENT,
-      SCENE_IDS.SILVER_CASE,
     ]),
   }),
   [SCENE_IDS.SILVER_CASE]: Object.freeze({
@@ -1534,6 +1717,69 @@ export const SCENES = Object.freeze({
     next: Object.freeze([SCENE_IDS.INITIATION]),
   }),
 });
+
+/**
+ * WHERE A FINISHED MISSION SENDS HIM, AND WHY IT IS A TABLE.
+ *
+ * "Home" is not one place in this campaign. Lou hands over the keys on the
+ * eighteenth green at beat 13, the Home Ladder climbs there and never comes
+ * back down, so the round, the date and the harbour job all end at the luxury
+ * apartment while everything before them ends at the starter flat.
+ *
+ * It lives here rather than in each scene's ending card because it was in
+ * each scene's ending card: `navigateCampaign(campaign, SCENE_IDS.APARTMENT,
+ * { spawn: 'front_door' })`, written out three times, in three files that had
+ * no way of knowing the answer had changed. The Skip Scene adapter reads the
+ * same table (see DESTINATIONS in core/campaign-scene-skip.js), so a
+ * developer's skip and a player's ending card cannot disagree about which
+ * front door he walks through.
+ *
+ * `travelEvent` is the journey itself, and it is exact-once by id: a skip
+ * stands in for a drive the player would otherwise have made, so both halves
+ * have to cost the same drive.
+ */
+const MISSION_HOMECOMINGS = Object.freeze({
+  [SCENE_IDS.SILVER_PINES]: Object.freeze({
+    sceneId: SCENE_IDS.LUXURY_APARTMENT,
+    spawn: 'arrival',
+    travelEvent: TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT,
+  }),
+  [SCENE_IDS.SILVER_ROOM]: Object.freeze({
+    sceneId: SCENE_IDS.LUXURY_APARTMENT,
+    spawn: 'main',
+    travelEvent: null,
+  }),
+  [SCENE_IDS.NO_WAKE]: Object.freeze({
+    sceneId: SCENE_IDS.LUXURY_APARTMENT,
+    spawn: 'main',
+    travelEvent: TIME_EVENT_IDS.RETURN_LUXURY_APARTMENT,
+  }),
+});
+
+const STARTER_FLAT_HOMECOMING = Object.freeze({
+  sceneId: SCENE_IDS.APARTMENT,
+  spawn: 'front_door',
+  travelEvent: null,
+});
+
+/** The front door a mission's ending card opens onto. Never null. */
+export function missionHomecoming(sceneId) {
+  return MISSION_HOMECOMINGS[sceneId] ?? STARTER_FLAT_HOMECOMING;
+}
+
+/**
+ * Walk out of a finished mission into whichever flat is his at the time,
+ * booking the journey on the way.
+ *
+ * The one call an ending card needs. `advanceTime` is exact-once, so a card
+ * a player clicks twice books the drive once.
+ */
+export function returnHomeFromMission(campaign, sceneId, { location } = {}) {
+  const home = missionHomecoming(sceneId);
+  if (home.travelEvent) campaign.advanceTime(home.travelEvent);
+  navigateCampaign(campaign, home.sceneId, { spawn: home.spawn, location });
+  return home;
+}
 
 function normalizedSpawn(sceneId, spawn) {
   const scene = SCENES[sceneId];
@@ -1822,6 +2068,9 @@ function initialState() {
         status: 'pending',
       },
       [EVENT_IDS.LOU_HEIST_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.BOOSKI_SILVER_CASE_CALL]: {
         status: 'pending',
       },
       [EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: {
@@ -2530,6 +2779,72 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  20(saved) {
+    /**
+     * Schema 21 wires beats 12 to 19 and repairs three kinds of save.
+     *
+     * ONE: the new key. `BOOSKI_SILVER_CASE_CALL` is beat 19's telephone and
+     * it is a field the `events` block did not have. `normalize()` rebuilds
+     * that block from `initialState`, so a v20 save arriving at v21 without
+     * it set here comes back carrying a field it never had on disk,
+     * `structurallyBroken` fires, and every save in the world is announced to
+     * its owner as recovered. Answered when the Silver Case is already out of
+     * the way, pending otherwise -- a man who has delivered the case has
+     * plainly had the call about it.
+     *
+     * TWO: the three chapters the starter flat no longer uses. `no_wake`,
+     * `date` and `golf_morning` were all played in that flat under the old
+     * order; the bible puts the first two in the luxury apartment and the
+     * third after THE TAKE rather than before it. A save left in one of them
+     * would find a door with no branch answering to its chapter -- the same
+     * soft lock MIGRATIONS[19] was written for. So it is moved to the beat
+     * the new route puts him in with the missions he has actually finished:
+     * `post_heist` once the bank is done, `heist_day` otherwise. Anything he
+     * had already completed early stays completed; the luxury apartment reads
+     * mission status rather than replaying a beat it can see is behind him.
+     *
+     * THREE: the saves parked at the post-heist cabin. That property's
+     * SILVER_CASE edge came out in this commit -- beat 19 owns the doorway
+     * now -- and `Campaign.transition()` throws on an edge nobody declared,
+     * so leaving them there would strand the players furthest into the game
+     * on a scene with no way forward. They are moved to the luxury apartment,
+     * standing in the main room, with the beat-19 call still owed. That is
+     * the same place beat 19 leaves a player who walked the route.
+     */
+    const chapter = typeof saved.story?.chapter === 'string' ? saved.story.chapter : null;
+    const status = (missionId) => saved.missions?.[missionId]?.status ?? 'locked';
+    const done = (missionId) => status(missionId) === 'complete';
+    const silverCaseSettled = ['available', 'in_progress', 'complete']
+      .includes(status(MISSION_IDS.SILVER_CASE));
+
+    const strandedChapter = ['no_wake', 'date', 'golf_morning'].includes(chapter);
+    const repairedChapter = strandedChapter
+      ? (done(MISSION_IDS.BANK_HEIST) ? 'post_heist' : 'heist_day')
+      : chapter;
+
+    const parkedAtCabin = saved.scene?.id === SCENE_IDS.COUNTRYSIDE_CABIN
+      && done(MISSION_IDS.BANK_HEIST);
+    const scene = parkedAtCabin
+      ? { id: SCENE_IDS.LUXURY_APARTMENT, spawn: 'main' }
+      : saved.scene;
+
+    return {
+      ...saved,
+      version: 21,
+      ...(parkedAtCabin ? { scene } : {}),
+      story: {
+        ...(saved.story ?? {}),
+        ...(repairedChapter === chapter ? {} : { chapter: repairedChapter }),
+      },
+      events: {
+        ...(saved.events ?? {}),
+        [EVENT_IDS.BOOSKI_SILVER_CASE_CALL]: {
+          status: saved.events?.[EVENT_IDS.BOOSKI_SILVER_CASE_CALL]?.status === 'answered'
+            || silverCaseSettled ? 'answered' : 'pending',
+        },
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -2704,6 +3019,7 @@ function normalize(saved) {
   const margoCall = saved.events?.[EVENT_IDS.MARGO_DATE_CALL] ?? {};
   const golfCall = saved.events?.[EVENT_IDS.LOU_GOLF_CALL] ?? {};
   const louHeistCall = saved.events?.[EVENT_IDS.LOU_HEIST_CALL] ?? {};
+  const booskiSilverCaseCall = saved.events?.[EVENT_IDS.BOOSKI_SILVER_CASE_CALL] ?? {};
   const booskiBigNightCall = saved.events?.[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL] ?? {};
   const booskiSpecialMeetingCall = saved
     .events?.[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL] ?? {};
@@ -3103,6 +3419,23 @@ function normalize(saved) {
       // Once THE TAKE is exposed, Lou's Day 4 call has already landed.
       [EVENT_IDS.LOU_HEIST_CALL]: {
         status: louHeistCall.status === 'answered' || bankHeistStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      /**
+       * Beat 19, and the inference is deliberately the narrow one.
+       *
+       * `available` is NOT evidence here, which is the opposite of the rule
+       * every other call on this list uses. THE TAKE makes the Silver Case
+       * available the moment it completes, on the afternoon of Day 5, and
+       * beat 19's call does not ring until the evening of Day 7 -- so
+       * "exposed" would pre-answer a telephone two days before it is due and
+       * the luxury apartment's quiet evening would have nothing to wait for.
+       * Having actually STARTED the case is the honest proof: a man carrying
+       * it has plainly been told to.
+       */
+      [EVENT_IDS.BOOSKI_SILVER_CASE_CALL]: {
+        status: booskiSilverCaseCall.status === 'answered'
+          || ['in_progress', 'complete'].includes(silverCaseStatus)
           ? 'answered' : 'pending',
       },
       /* Same rule at the end of the line: an exposed Initiation is proof

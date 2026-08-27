@@ -38,7 +38,7 @@ import { Dialogue } from '../bing/dialogue.js';
 import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF, WALK_GREETS } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
 import { enqueueVoiceFloor } from './voice-floor.js';
-import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
+import { SCENE_IDS, createCampaign, returnHomeFromMission } from '../core/campaign.js';
 import { createSilverStory } from '../core/silver-story.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { getPreviewRuntime } from '../core/preview-mode.js';
@@ -2293,11 +2293,14 @@ function finish(outcome) {
   if (saved.seeingHerAgain) extras.push('<b>She will pick up if you ring the station.</b>');
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
   /* The evening ends where every other mission ends: at his own front door.
+   * Which door that is stopped being a constant at beat 14 -- Lou handed him
+   * a set of keys on the eighteenth green this morning, and the bible has her
+   * leaving Front & Center WITH him and going back to the new place.
    * Replaying it is a preview/debug affordance, not the way out. */
   startBtn.textContent = 'Go Home';
   startBtn.disabled = false;
   startBtn.onclick = () => {
-    navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
+    returnHomeFromMission(campaign, SCENE_IDS.SILVER_ROOM);
   };
   document.exitPointerLock?.();
 }

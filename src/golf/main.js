@@ -24,7 +24,7 @@ import { lookSensitivity } from '../core/settings.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import {
-  SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
+  SCENE_IDS, createCampaign, createCampaignRadioAdapter, returnHomeFromMission,
 } from '../core/campaign.js';
 import { createGolfStory } from '../core/golf-story.js';
 import { Radio } from '../core/radio.js';
@@ -2023,8 +2023,15 @@ function showEndCard(summary) {
   audio.play('golf.cup', { volume: 0.5 });
 }
 
+/* BEAT 13'S EXIT IS THE KEYS, not the flat he drove here from.
+ *
+ * "Three holes, and the keys to somewhere better." The address is `SCENES`'
+ * business rather than this card's -- `returnHomeFromMission` reads the one
+ * table the Skip Scene adapter reads, so a developer's skip and a player's
+ * CONTINUE button cannot walk out of different doors -- and it books the
+ * cross-town drive on the way, exactly once. */
 const returnHome = () => {
-  navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
+  returnHomeFromMission(campaign, SCENE_IDS.SILVER_PINES);
 };
 /**
  * "Go home" read as an early exit -- a way to bail out of the round rather

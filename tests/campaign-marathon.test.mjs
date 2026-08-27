@@ -32,19 +32,23 @@ test('campaign marathon pins every canonical public handoff in one continuous ch
       [SCENE_IDS.BADA_BING_TWO, SCENE_IDS.SQUATCH_GRAVEYARD, '/graveyard.html', 'headlights'],
       [SCENE_IDS.SQUATCH_GRAVEYARD, SCENE_IDS.JERKY_MOTEL, '/motel.html', 'passenger_seat'],
       [SCENE_IDS.JERKY_MOTEL, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
-      [SCENE_IDS.APARTMENT, SCENE_IDS.NO_WAKE, '/nowake.html', 'gate_c'],
-      [SCENE_IDS.NO_WAKE, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
-      [SCENE_IDS.APARTMENT, SCENE_IDS.SILVER_ROOM, '/silver.html', 'kerb'],
-      [SCENE_IDS.SILVER_ROOM, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
-      [SCENE_IDS.APARTMENT, SCENE_IDS.SILVER_PINES, '/golf.html', 'car_park'],
-      [SCENE_IDS.SILVER_PINES, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
+      /* BEATS 11.5 TO 19. THE TAKE is the afternoon of Day 5 and the round
+       * is the morning of Day 6, because the owner's ruling is that the job
+       * is what earns the upgrade -- so Lou's call about a new space reads as
+       * the reward for it rather than an errand before it.
+       *
+       * From the eighteenth green on, "home" is the luxury apartment. The
+       * chain used to bounce off the starter flat five more times and reach
+       * the Silver Case through a cabin he had finished on Day 3. */
       [SCENE_IDS.APARTMENT, SCENE_IDS.BANK_HEIST, '/heist.html', 'safehouse'],
       [SCENE_IDS.BANK_HEIST, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
-      /* The post-heist cabin trip, which is a doorway now and not a chapter:
-       * he finished this property on Day 3. It stays until beats 12-19 give
-       * the Silver Case another entrance. Add first, remove last. */
-      [SCENE_IDS.APARTMENT, SCENE_IDS.COUNTRYSIDE_CABIN, '/cabin.html', 'arrival'],
-      [SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.SILVER_CASE, '/silvercase.html', 'car_ride'],
+      [SCENE_IDS.APARTMENT, SCENE_IDS.SILVER_PINES, '/golf.html', 'car_park'],
+      [SCENE_IDS.SILVER_PINES, SCENE_IDS.LUXURY_APARTMENT, '/luxury-apartment.html', 'arrival'],
+      [SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.SILVER_ROOM, '/silver.html', 'kerb'],
+      [SCENE_IDS.SILVER_ROOM, SCENE_IDS.LUXURY_APARTMENT, '/luxury-apartment.html', 'main'],
+      [SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.NO_WAKE, '/nowake.html', 'gate_c'],
+      [SCENE_IDS.NO_WAKE, SCENE_IDS.LUXURY_APARTMENT, '/luxury-apartment.html', 'main'],
+      [SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.SILVER_CASE, '/silvercase.html', 'car_ride'],
       [SCENE_IDS.SILVER_CASE, SCENE_IDS.MANSION, '/mansion.html', 'gate'],
       [SCENE_IDS.MANSION, SCENE_IDS.MANSION_SIEGE, '/mansion-siege.html', 'guest_suite'],
       [SCENE_IDS.MANSION_SIEGE, SCENE_IDS.ENOLA_SQUATCH, '/enolasquatch.html', 'airfield'],
@@ -75,6 +79,8 @@ test('campaign marathon is fail-closed around one browser context, one page, and
   assert.doesNotMatch(source, /[?&]preview=1/);
   assert.equal(PUBLIC_RUNTIME_ENTRY_PATHS.includes('/src/cabin/main.js'), true,
     'the cabin rendering runtime must be stubbed while its story contract remains live');
+  assert.equal(PUBLIC_RUNTIME_ENTRY_PATHS.includes('/src/luxury-apartment/main.js'), true,
+    'the luxury flat is a campaign scene now and its runtime must be stubbed too');
   assert.equal(PUBLIC_RUNTIME_ENTRY_PATHS.includes('/src/initiation/main.js'), true,
     'the frozen Initiation runtime must be stubbed, not exercised or modified');
   assert.doesNotMatch(source, /import\(['"]\/src\/initiation\/main\.js['"]\)/);

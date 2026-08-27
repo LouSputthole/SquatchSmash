@@ -13,11 +13,10 @@ import {
   DAY_FOUR_LOU_HEIST_CALL,
   HEIST_CLEANUP_ITEMS,
   HEIST_PREPARATION_ITEMS,
+  NEW_SPACE_LOU_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { computeHeistSettlement, createBankHeistStory } from '../src/core/bank-heist-story.js';
-import { createCountrysideCabinStory } from '../src/core/countryside-cabin-story.js';
-import { completeCabinChapter } from './helpers/complete-cabin-chapter.mjs';
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
@@ -25,29 +24,31 @@ class MemoryStorage {
   setItem(key, value) { this.values.set(key, String(value)); }
 }
 
-function dayFourCampaign() {
+/**
+ * The morning of THE TAKE, which is Day 5 now.
+ *
+ * It used to be Day 4 with Silver Pines and the Silver Room already finished,
+ * because the round and the date both came first. The owner's ruling reversed
+ * that -- home from the Motel, do the heist, THEN Lou rings about the new
+ * space -- so the only thing behind him here is the Jerky Motel, and the
+ * chapter's own pastime has to be done before the door opens.
+ */
+function heistDayCampaign() {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
     state.story.chapter = 'heist_day';
-    state.story.day = 4;
-    state.story.timeMinutes = 10 * 60 + 30;
-    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
-    state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
-    state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
-    state.story.timeEvents.push(
-      TIME_EVENT_IDS.MARGO_WAKE,
-      TIME_EVENT_IDS.LOU_GOLF_CALL,
-      TIME_EVENT_IDS.DEPART_SILVER_PINES,
-      TIME_EVENT_IDS.COMPLETE_SILVER_PINES,
-    );
+    state.story.day = 5;
+    state.story.timeMinutes = 12 * 60;
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+    state.activities.playedCounterSquatch = true;
   });
   return campaign;
 }
 
-test('THE TAKE cannot start before the Day Four round is complete', () => {
-  const campaign = dayFourCampaign();
+test('THE TAKE cannot start before the Jerky Motel sends him home', () => {
+  const campaign = heistDayCampaign();
   campaign.update((state) => {
-    state.missions[MISSION_IDS.SILVER_PINES].status = 'locked';
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'locked';
     state.missions[MISSION_IDS.BANK_HEIST].status = 'available';
     state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
     Object.keys(state.missions[MISSION_IDS.BANK_HEIST].preparation)
@@ -56,18 +57,20 @@ test('THE TAKE cannot start before the Day Four round is complete', () => {
     state.missions[MISSION_IDS.BANK_HEIST].preparationComplete = true;
   });
 
+  /* The gate that used to stand here was `golf_incomplete`, and before that
+   * `silver_incomplete`. Both were the old order stated as a precondition. */
   assert.deepEqual(createBankHeistStory({ campaign }).begin(), {
-    ok: false, reason: 'golf_incomplete',
+    ok: false, reason: 'motel_incomplete',
   });
   assert.equal(campaign.state.missions[MISSION_IDS.BANK_HEIST].status, 'available');
 });
 
 test('Lou gates THE TAKE until every required apartment item is physically collected', () => {
-  const campaign = dayFourCampaign();
+  const campaign = heistDayCampaign();
   const apartment = createApartmentStory({ campaign, ring: () => true });
 
   assert.equal(apartment.margoWakeOwed(), false);
-  assert.deepEqual(apartment.tryLeave(), {
+  assert.deepEqual(apartment.tryLeave(campaign.state.activities), {
     kind: 'call',
     id: EVENT_IDS.LOU_HEIST_CALL,
     line: 'Lou said he would call. Today is not a day to guess.',
@@ -80,13 +83,13 @@ test('Lou gates THE TAKE until every required apartment item is physically colle
     assert.equal(apartment.collectHeistPreparation(item.id), true);
   }
   assert.equal(campaign.state.missions[MISSION_IDS.BANK_HEIST].preparationComplete, true);
-  assert.deepEqual(apartment.tryLeave(), {
+  assert.deepEqual(apartment.tryLeave(campaign.state.activities), {
     kind: 'go', destination: SCENE_IDS.BANK_HEIST,
   });
 });
 
 test('THE TAKE records authored checkpoints exactly once and folds its result into campaign', () => {
-  const campaign = dayFourCampaign();
+  const campaign = heistDayCampaign();
   const apartment = createApartmentStory({ campaign, ring: () => true });
   apartment.callAnswered(DAY_FOUR_LOU_HEIST_CALL);
   for (const item of HEIST_PREPARATION_ITEMS) apartment.collectHeistPreparation(item.id);
@@ -138,29 +141,23 @@ test('THE TAKE records authored checkpoints exactly once and folds its result in
   assert.equal(state.missions[MISSION_IDS.SILVER_CASE].status, 'available');
   assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');
 
+  /* BEAT 12. Home after dark, the flat to clean, and then the telephone.
+   * The lay-low message and the drive north used to stand here; the luxury
+   * apartment owns the Silver Case doorway now. */
   for (const item of HEIST_CLEANUP_ITEMS) {
     assert.equal(apartment.completeHeistCleanup(item.id), true);
   }
   assert.equal(campaign.state.missions[MISSION_IDS.BANK_HEIST].cleanupComplete, true);
-  assert.equal(apartment.tryLeave().id, TIME_EVENT_IDS.PHONE_READ_CABIN);
-  campaign.advanceTime(TIME_EVENT_IDS.PHONE_READ_CABIN);
-  assert.deepEqual(apartment.tryLeave(), {
-    kind: 'go', destination: SCENE_IDS.COUNTRYSIDE_CABIN,
-  });
-
-  campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN);
-  campaign.enter(SCENE_IDS.COUNTRYSIDE_CABIN, { spawn: 'arrival' });
-  const cabin = createCountrysideCabinStory({ campaign });
-  assert.equal(cabin.tryLeave().id, 'cabin_chapter_incomplete');
-  completeCabinChapter(cabin);
-  assert.equal(cabin.chapterComplete(), true);
-  assert.deepEqual(cabin.tryLeave(), {
-    kind: 'go', destination: SCENE_IDS.SILVER_CASE,
+  assert.equal(apartment.tryLeave(campaign.state.activities).id, EVENT_IDS.LOU_GOLF_CALL);
+  assert.equal(apartment.callAnswered(NEW_SPACE_LOU_CALL), true);
+  assert.equal(apartment.tryLeave(campaign.state.activities).kind, 'stay');
+  assert.deepEqual(apartment.sleep(), {
+    ok: true, chapter: 'golf_morning', day: 6, timeMinutes: 7 * 60,
   });
 });
 
 test('required heist progress refuses to advance when persistence is unavailable', () => {
-  const campaign = dayFourCampaign();
+  const campaign = heistDayCampaign();
   const apartment = createApartmentStory({ campaign, ring: () => true });
   apartment.callAnswered(DAY_FOUR_LOU_HEIST_CALL);
   for (const item of HEIST_PREPARATION_ITEMS) apartment.collectHeistPreparation(item.id);

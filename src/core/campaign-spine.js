@@ -243,7 +243,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.BANK_HEIST,
     spawn: 'safehouse',
     residence: RESIDENCE.STARTER,
-    status: 'pending',
+    status: 'wired',
     exit: 'Home, and the flat needs cleaning before anybody sees it.',
   }),
   beat({
@@ -253,7 +253,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     chapter: 'moving_up',
     scene: SCENE_IDS.APARTMENT,
     residence: RESIDENCE.STARTER,
-    status: 'pending',
+    status: 'wired',
     /* THE BIBLE'S WHOLE LINE, AND NOTHING ELSE.
      *
      * This carried "Bring that girl from the Bing — and do not let her know
@@ -277,7 +277,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.SILVER_PINES,
     spawn: 'car_park',
     residence: RESIDENCE.STARTER,
-    status: 'pending',
+    status: 'wired',
     exit: 'Three holes of being included, and the keys to somewhere better.',
   }),
   beat({
@@ -288,7 +288,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.LUXURY_APARTMENT,
     spawn: 'arrival',
     residence: RESIDENCE.LUXURY,
-    status: 'pending',
+    status: 'wired',
     exit: 'Lou’s reward for taking care of that thing for him. Get ready for '
       + 'your date. The starter flat goes dark from here.',
   }),
@@ -300,9 +300,31 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.SILVER_ROOM,
     spawn: 'kerb',
     residence: RESIDENCE.LUXURY,
-    status: 'pending',
+    status: 'wired',
     exit: 'She comes home with him.',
   }),
+  /* THE TWO BEATS THAT ARE ROUTE-WIRED AND STILL PENDING, and the honest
+   * reason why. The campaign really does come home from Front & Center to
+   * this flat, sleep the night here, wake on the morning of Day 7 and take
+   * Lou's call about a boat -- the clock, the doors and the save all do it,
+   * and `core/luxury-apartment-story.js` exposes `margoComeHomeOwed()` and
+   * `margoWakeOwed()` for the beat that has to play on top.
+   *
+   * What is not here is MARGO HERSELF. The owner's note is that this is a
+   * port -- *"we are basically taking the old apartment scenes and
+   * transporting them to the luxury apartment"* -- and the writing, the
+   * dress mini-game and the campaign hooks are all shared already
+   * (`SILVER_ROOM_COME_HOME`, `SILVER_ROOM_DRESS_ASK`,
+   * `BIG_NIGHT_MARGO_WAKE`, `world/dress-help.js`). What is NOT shared is her
+   * staging: `world/apartment-preview-geometry.js` authors her entry pose,
+   * her walk and her side of the bed against the starter flat's one-room
+   * plan, and this flat is two floors with the bed up a staircase. Staging
+   * her here is real spatial authoring that the geometry and framing gates
+   * both audit, and it is not a thing to bolt onto a route commit.
+   *
+   * `pending` is what this file means by it: the campaign does not yet play
+   * this beat in this position. It plays the night; it does not yet play
+   * her. */
   beat({
     n: 16,
     id: 'margo_stayover',
@@ -332,7 +354,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.NO_WAKE,
     spawn: 'gate_c',
     residence: RESIDENCE.LUXURY,
-    status: 'pending',
+    status: 'wired',
     exit: 'Willy was the rat. He goes in a bag, and the Prospect is now trusted '
       + 'with something genuinely internal.',
   }),
@@ -344,7 +366,7 @@ export const CAMPAIGN_SPINE = Object.freeze([
     scene: SCENE_IDS.LUXURY_APARTMENT,
     spawn: 'main',
     residence: RESIDENCE.LUXURY,
-    status: 'pending',
+    status: 'wired',
     exit: 'Quiet, then a call about something sensitive that needs moving.',
   }),
   beat({

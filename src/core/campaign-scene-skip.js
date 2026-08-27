@@ -7,6 +7,7 @@ import {
   SCENE_IDS,
   SILENT_SQUATCH_CHECKPOINT_IDS,
   TIME_EVENT_IDS,
+  missionHomecoming,
   navigateCampaign,
 } from './campaign.js';
 import {
@@ -97,6 +98,8 @@ const CABIN_RETURN = Object.freeze({
 });
 const APARTMENT_HOME = Object.freeze({ sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' });
 
+
+
 function cabinChapterDone(campaign) {
   return campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL);
 }
@@ -116,9 +119,21 @@ const DESTINATIONS = Object.freeze({
   [SCENE_IDS.BADA_BING_TWO]: { sceneId: SCENE_IDS.SQUATCH_GRAVEYARD, spawn: 'headlights' },
   [SCENE_IDS.SQUATCH_GRAVEYARD]: { sceneId: SCENE_IDS.JERKY_MOTEL, spawn: 'passenger_seat' },
   [SCENE_IDS.JERKY_MOTEL]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
-  [SCENE_IDS.NO_WAKE]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
-  [SCENE_IDS.SILVER_ROOM]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
-  [SCENE_IDS.SILVER_PINES]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
+  /* BEATS 13, 15 and 18 ALL END AT THE NEW ADDRESS.
+   *
+   * All three used to end at the starter flat, and all three were the old
+   * order: the round and the date were played before the handover, and NO
+   * WAKE was the first job of a morning three beats earlier than the bible
+   * puts it. The Home Ladder climbs at Silver Pines and never comes back
+   * down, so from the eighteenth green onward "home" means one place.
+   *
+   * Read from `missionHomecoming` rather than restated, because the played
+   * ending cards read the same table -- see the note on it in campaign.js.
+   * A skip that landed somewhere the finished mission does not would stop
+   * being a test of the real route. */
+  [SCENE_IDS.NO_WAKE]: missionHomecoming(SCENE_IDS.NO_WAKE),
+  [SCENE_IDS.SILVER_ROOM]: missionHomecoming(SCENE_IDS.SILVER_ROOM),
+  [SCENE_IDS.SILVER_PINES]: missionHomecoming(SCENE_IDS.SILVER_PINES),
   [SCENE_IDS.BANK_HEIST]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
   [SCENE_IDS.SILVER_CASE]: { sceneId: SCENE_IDS.MANSION, spawn: 'gate' },
   [SCENE_IDS.MANSION]: { sceneId: SCENE_IDS.MANSION_SIEGE, spawn: 'guest_suite' },

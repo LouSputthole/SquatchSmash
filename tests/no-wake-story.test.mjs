@@ -19,14 +19,23 @@ class MemoryStorage {
   removeItem(key) { this.values.delete(key); }
 }
 
+/**
+ * Gate C, a quarter to one, on the afternoon of Day 7.
+ *
+ * The bible's beat 18 is a family call after Margo leaves, so the date is
+ * behind him and this is the day AFTER the stayover. It used to seed Day 3
+ * with the Silver Room untouched, because the harbour job was the first thing
+ * he did off the back of the Motel and the date came after it.
+ */
 function readyCampaign(storage = new MemoryStorage()) {
   const campaign = createCampaign({ storage });
   campaign.update((state) => {
-    state.story.chapter = 'no_wake';
-    state.story.day = 3;
+    state.story.chapter = 'luxury_apartment';
+    state.story.day = 7;
     state.story.timeMinutes = 12 * 60 + 45;
     state.scene = { id: SCENE_IDS.NO_WAKE, spawn: 'gate_c' };
     state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
     state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
     state.missions[MISSION_IDS.NO_WAKE].status = 'available';
   });
@@ -46,15 +55,20 @@ test('NO WAKE eligibility is read-only until Start commits the mission', () => {
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.APARTMENT, spawn: 'front_door' });
 });
 
-test('NO WAKE requires the real Motel and Lou call prerequisites', () => {
+test('NO WAKE requires the Motel, the date, and Lou’s call', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   const story = createNoWakeStory({ campaign });
   assert.deepEqual(story.begin(), { ok: false, reason: 'motel_incomplete' });
   campaign.update((state) => { state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete'; });
+  /* The middle gate is new with beats 12-19. The bible's entry trigger for
+   * this beat is "family call after Margo leaves", which is only a sentence
+   * that means anything if Front & Center has happened. */
+  assert.deepEqual(story.begin(), { ok: false, reason: 'silver_incomplete' });
+  campaign.update((state) => { state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete'; });
   assert.deepEqual(story.begin(), { ok: false, reason: 'lou_call_incomplete' });
 });
 
-test('NO WAKE checkpoints are monotonic and completion opens the date on Day 5', () => {
+test('NO WAKE checkpoints are monotonic and completion sends him home on Day 7', () => {
   const storage = new MemoryStorage();
   const campaign = readyCampaign(storage);
   const story = createNoWakeStory({ campaign });
@@ -67,8 +81,10 @@ test('NO WAKE checkpoints are monotonic and completion opens the date on Day 5',
 
   const restored = createCampaign({ storage }).state;
   assert.equal(restored.version, CAMPAIGN_VERSION);
-  assert.equal(restored.story.chapter, 'date');
-  assert.equal(restored.story.day, 5);
+  /* Completion used to open the date, because the date came after the boat.
+   * It comes home to the luxury apartment now, into beat 19's quiet hour. */
+  assert.equal(restored.story.chapter, 'luxury_apartment');
+  assert.equal(restored.story.day, 7);
   assert.equal(restored.story.timeMinutes, 16 * 60 + 40);
   assert.deepEqual(restored.missions[MISSION_IDS.NO_WAKE], {
     status: 'complete', checkpoint: 'returned', betrayalConfirmed: true,

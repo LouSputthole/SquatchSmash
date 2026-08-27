@@ -1,4 +1,4 @@
-# Campaign timeline — current production flow (updated 2026-08-26)
+# Campaign timeline — current production flow (updated 2026-08-27)
 
 > **This file is the record of what is BUILT, not the plan.**
 >
@@ -6,35 +6,34 @@
 > `docs/CAMPAIGN-STORY-BIBLE.md`, with the thirty-one beats as data in
 > `src/core/campaign-spine.js`. Where that spine and this timeline disagree,
 > the spine is where the campaign is going and this page is where it is now.
-> `tests/campaign-spine.test.mjs` counts the distance between them: fifteen
-> beats do not yet play in the position the bible puts them, and that number
-> is a budget that may only fall.
+> `tests/campaign-spine.test.mjs` counts the distance between them.
 >
-> The five structural moves still outstanding: the cabin comes forward from
-> the post-heist lay-low to the Squatchfather extraction; Beef Run moves
-> inside it; THE TAKE moves back to sit between coming home from the motel and
-> Lou's new-space call; the luxury apartment becomes the second home for the
-> whole back half; and the Margo arc inverts so the date precedes NO WAKE
-> rather than following it.
+> **All five structural moves are made.** The cabin came forward from the
+> post-heist lay-low to the Squatchfather extraction with Beef Run inside it
+> (2026-08-26); THE TAKE moved back to sit between coming home from the motel
+> and Lou's new-space call, the luxury apartment became the second home for
+> the whole back half, and the Margo arc inverted so the date precedes NO WAKE
+> (2026-08-27). Three beats are still pending, and only three: the Margo
+> stayover and the morning after it are wired as ROUTE but not yet staged as
+> SCENE in the new flat, and the Special Meeting call has not been wired at
+> all.
 
+The owner's connected campaign route implemented by campaign schema v21. Two
+homes: the starter apartment for beats 0 to 13, and the luxury apartment from
+the moment Lou hands over the keys on the eighteenth green at Silver Pines.
+The Home Ladder climbs there and never comes back down. Initiation remains a
+protected terminal WIP until the owner has playtested and approved changes to
+that scene.
 
-The owner's connected campaign route implemented by campaign schema v19. The
-original four-day apartment spine remains intact. After THE TAKE cleanup, Lou
-sends Tony to a separate furnished cabin in the countryside to lay low. That
-second home base then connects The Silver Case, PROJECT SILENT SQUATCH,
-Mansion Under Siege, Enola Squatch, the repaired-mansion briefing, and Cartel
-Palace. Initiation remains a protected terminal WIP until the owner has
-playtested and approved changes to that scene.
+## The second home: the luxury apartment
 
-## Built but deliberately unplaced: the luxury apartment
-
-`luxury-apartment.html` is a standalone late-game home hub with a two-level
-loft plan, panoramic city windows, the original apartment's activities and art
-collection, and additional gallery and game-space dressing. It does not
-replace the original apartment, alter the route table below, or claim a story
-checkpoint yet. Its eventual unlock, move-in beat, and return routing stay an
-owner story decision; until then it is available only from the preview gallery
-as a future-hub scene.
+`luxury-apartment.html` is the late-game home hub — a two-level loft plan,
+panoramic city windows, the original apartment's activities and art
+collection, and additional gallery and game-space dressing. It was standalone
+and unplaced until 2026-08-27; it now owns bible beats 14, 16, 17 and 19, and
+`src/core/luxury-apartment-story.js` is its campaign seam. The page still
+boots as a standalone developer preview when the save is not standing in it,
+which is what `routed` decides in `src/luxury-apartment/main.js`.
 
 ## Campaign premise
 
@@ -60,9 +59,9 @@ by `npm run verify:campaign-route`:
 |---|---|---|---|
 | 1 | Eat, shower, poop, change clothes, answer Big Uncle Lou | Bada Bing one → apartment whiskey nerve-settle → Squatchfather | Return home and sleep |
 | 2 | Wake 7:00 AM, answer Booskibro | Beef Run → apartment, answer Big Uncle Lou → Bada Bing two / HotDog incident → Squatch Graveyard → Jerky Motel | Return home 4:30 AM and sleep |
-| 3 | Wake noon, answer Big Uncle Lou's vague harbor call | NO WAKE → apartment, answer Margo → Front and Center | Return home and sleep |
-| 4 | Margo's morning-after beat, answer Big Uncle Lou's Silver Pines call | Silver Pines → apartment, answer Lou's heist call and collect seven loadout pieces → THE TAKE → apartment cleanup | Read Lou's lay-low message and drive north; the apartment remains the original hub |
-| Lay low | Countryside cabin: a second home base with the apartment's domestic utility | Sleep one night at the cabin; optionally explore the creek, ridge overlook, forestry shed, and firepit | Take the parked car to The Silver Case after the required rest |
+| 3 (Day 5) | Wake noon, get a game of Counter-Squatch in, answer Lou's heist call and collect seven loadout pieces | THE TAKE → apartment cleanup | Lou rings about a new space; sleep |
+| 4 (Day 6) | Wake 7:00 AM, warm the eye up on Squatch Shoot — no call, Lou rang last night | Silver Pines | Three holes and the keys: the starter flat goes dark and the route moves to the luxury apartment |
+| Luxury (Days 6–7) | GET READY FOR YOUR DATE, then Margo's call | Front and Center → luxury apartment with her; sleep; the morning; Lou's harbour call → NO WAKE → luxury apartment | Booskibro rings about something small and sensitive; the lift opens The Silver Case |
 | Final chapter | No additional apartment detour | The Silver Case → Lou's Mansion / PROJECT SILENT SQUATCH → quiet mansion evening and guest-room sleep → Mansion Under Siege → Enola Squatch → repaired Mansion return → Cartel Palace | Cartel Palace opens Initiation; Initiation is entered `in_progress` and remains frozen |
 
 Every external mission owns a registered scene/spawn and either returns to the
@@ -121,12 +120,58 @@ state.
 stops feeling glamorous. Day 2 ends with the Prospect exhausted, rattled, and
 more valuable to the family.
 
-## Day 3 — Loyalty Gets Ugly
+## Day 5 — The Take
 
-**Apartment, noon.** The atmosphere turns: rain or grey light, radio news about
-the motel, Lou telling him to dress casually and meet at the docks, the call
-unusually vague, and **Willy gone from his contacts and messages**. The player
-should know something is wrong before knowing what.
+**Apartment, noon.** He gets in from the Jerky Motel at half four in the
+morning and sleeps until midday. The atmosphere turns: rain or grey light,
+radio news about the motel, and one game of Counter-Squatch with Booskibro's
+boys before the phone. Then Lou: a car is coming, gray suit, armor underneath,
+and everything he owns on the table.
+
+**THE TAKE — built and connected.** Crew: the Prospect, Numbskull,
+Rippinflow, the Shubenator, DeathMegatron, Snow. The mechanical climax
+combining everything taught: driving, instructions, weapons, crowd control,
+timed objectives, carrying loot, crew coordination, police response, escape
+routing, injuries, decisions under pressure. It does not end at the escape —
+it decompresses: vehicle swap, safehouse, counting money, arguing over
+mistakes, checking who survived, and Lou putting the crew's performance on the
+record. The safehouse returns Tony home after dark, where washing, changing,
+and hiding the gear are physical door requirements.
+
+**Beat 12 — Lou's new-space call.** The last thing the starter flat ever does.
+*"Kid. Sit down. We got a new space. Come meet us on the course."* Eight
+o'clock, Silver Pines, second gate, and nothing about what the new space is.
+The owner's ruling put the job first: the call reads as the reward for it.
+
+## Day 6 — The Keys, and the Table
+
+**A Morning at Silver Pines — built and connected.** Lou, Rippinflow, and Eric
+take Tony through three holes. The quiet, invitation-only round is a status
+reward for the bank and a pressure-release before the second half of the
+chapter. Its scorecard, strokes, penalties, memorable golf outcomes, and Lou's
+invitation conversation persist. **Completing the third hole does not return
+Tony home** — it hands him a set of keys, and the starter apartment goes dark
+for good.
+
+**Beat 14 — the luxury apartment, a quarter to twelve.** Two floors, a private
+lift, and the whole afternoon to GET READY FOR YOUR DATE. Margo rings once to
+fix the hour; the lift will not move until both are done.
+
+**Front and Center.** The Copacabana date with Margo, on the night of the
+handover: every door opens, the staff know him, the table is carried out front
+and center, the band plays, and Margo sees the glamorous version of his life.
+On the two best outcomes she leaves with him.
+
+**Beat 16 — the stayover.** She comes home to the new place. Nothing criminal
+rings tonight, and the bed is the only way out of the evening. Her lines play;
+her staging does not exist in this flat yet, which is why the spine still
+calls this beat pending.
+
+## Day 7 — Loyalty Gets Ugly
+
+**Beat 17 — the morning.** Ten past seven. She has a delivery at eleven and a
+man who cannot be trusted with a delivery, so she dresses and goes. The quiet
+window the bible asks for, and then the phone.
 
 **NO WAKE — built and connected.** The boat: dock, board with Lou Sputthole,
 Booski, Willy and the Prospect, open water, conversation souring, the family
@@ -136,55 +181,20 @@ believe they killed an enemy. The Palace evidence later proves they killed the
 wrong man and clears Willy posthumously. Willy's permanent large-belly model is
 shared with his earlier appearance so his body does not change between scenes.
 
-**Front and Center.** The Copacabana date with Margo, deliberately placed
-after the hit for the tonal whiplash: that afternoon he killed a friend; that
-evening every door opens, the staff know him, the table is carried out front
-and center, the band plays, and Margo sees the glamorous version of his life.
-The player is allowed to enjoy it while small details keep the boat underneath.
-Ends with a cutscene of the apartment with Margo.
+**Beat 19 — home from the dock, twenty past five.** A quiet hour in a flat he
+has lived in for a day and a half, and then Booskibro: there is a thing that
+needs moving tomorrow. Small. Sensitive. It goes to Lou himself.
 
-## Day 4 — The Peak
+THE TAKE's briefing, bank, vault, street, garage, vehicle-swap, driving, loot,
+injuries, settlement, and retry checkpoints all persist.
 
-**Apartment, morning, with Margo.** A short cutscene: the Prospect rolls over,
-Margo wakes beside him, gives a line or two — warm but not sentimental,
-slightly awkward, she enjoyed last night, she may tease him about acting
-important — dresses, and leaves before the criminal plot takes over. Then the
-phone rings: Lou invites him to three holes at Silver Pines before the big job.
-**The flat now shows his rise**: cash, expensive
-clothes, club memorabilia, weapons, photographs, mission souvenirs — the den of
-a newly minted Squatch criminal who has accumulated money, enemies, souvenirs,
-and one extremely questionable laundry basket.
+**The countryside cabin is in ACT ONE, and no route reaches it from here.**
+The whole Cabin Hideaway chapter is Days 2 to 4 — the lay-low, the Beef Run
+inside it, and the dungeon — and the post-heist drive north was retired with
+beat 19. The property's own page above covers it.
 
-**A Morning at Silver Pines — built and connected.** Lou, Rippinflow, and Eric
-take Tony through three holes. The quiet, invitation-only round is a status
-reward after Front and Center and a pressure-release before the mechanical
-climax. Its scorecard, strokes, penalties, memorable golf outcomes, and Lou's
-invitation conversation persist. Completing the third hole returns Tony home;
-only then does Lou call about the heist and the seven-piece loadout appear.
-
-**THE TAKE — built and connected.** Crew: the Prospect, Numbskull,
-Rippinflow, the Shubenator, DeathMegatron, Snow. The mechanical climax
-combining everything taught: driving, instructions, weapons, crowd control,
-timed objectives, carrying loot, crew coordination, police response, escape
-routing, injuries, decisions under pressure. It does not end at the escape —
-it decompresses: vehicle swap, safehouse, counting money, arguing over
-mistakes, checking who survived, and Lou putting the crew's performance on the
-record before the Family decides Tony's future later. Its briefing,
-bank, vault, street, garage, vehicle-swap, driving, loot, injuries, settlement,
-and retry checkpoints persist. The safehouse returns Tony home, where washing,
-changing, and hiding the gear are physical door requirements.
-
-**The countryside cabin — built and connected.** Completing the apartment
-cleanup does not replace or retire the apartment. Tony reads Lou's lay-low
-instructions, packs light, and drives north to a separate second hub. The
-cabin imports the apartment's familiar domestic utility and collected art into
-a rural home base, while its detailed property opens onto a trail, creek,
-ridge overlook, forestry shed, firepit, porch, and surrounding woods. Sleeping
-one night is the only required cabin beat. Exploring the property is optional,
-durable, and advances the clock once per landmark.
-
-**The final chapter — built and connected.** After the cabin rest, the parked
-car opens The Silver Case, then hands directly through PROJECT SILENT SQUATCH,
+**The final chapter — built and connected.** The luxury apartment's lift
+opens The Silver Case, then hands directly through PROJECT SILENT SQUATCH,
 the quiet mansion evening and guest-room sleep, Mansion Under Siege, Enola
 Squatch, the repaired-mansion briefing, and Cartel Palace. Cartel Palace is the
 last combat mission. Its successful extraction exposes Initiation.
@@ -193,30 +203,35 @@ The final chapter uses authored, exact-once clock events at every travel and
 mission handoff. Reloading or replaying a completion cannot add the duration a
 second time, and preview campaigns keep these events in page-local storage.
 
+These are the hours `npm run verify:campaign-marathon` prints at each landing,
+not a plan. They read Day 4 to Day 6 before the Act-One cabin took Days 2 to 4
+and beats 12-19 gave Chapter 3 the two days it needed.
+
 | Beat | Campaign clock after the authored event |
 |---|---|
-| Arrive at the countryside cabin | Day 4, 6:55 PM |
-| Wake after laying low | Day 5, 2:30 PM |
-| Leave for The Silver Case | Day 5, 4:00 PM |
-| Complete The Silver Case | Day 5, 5:30 PM |
-| Arrive at Lou's Mansion | Day 5, 5:55 PM |
-| Complete PROJECT SILENT SQUATCH | Day 5, 8:10 PM |
-| Sleep in the guest room | Day 6, 4:10 AM |
-| Complete Mansion Under Siege | Day 6, 6:10 AM |
-| Leave for Enola Squatch after regrouping | Day 6, 2:00 PM |
-| Complete Enola Squatch | Day 6, 6:00 PM |
-| Return to the repaired Mansion | Day 6, 6:30 PM |
-| Complete the return briefing | Day 6, 7:15 PM |
-| Leave for Cartel Palace | Day 6, 8:30 PM |
-| Extract from Cartel Palace | Day 6, 11:00 PM |
+| Home from South Harbor | Day 7, 5:20 PM |
+| Booskibro rings about the case | Day 7, 5:25 PM |
+| Leave for The Silver Case | Day 8, 4:00 PM |
+| Complete The Silver Case | Day 8, 5:30 PM |
+| Arrive at Lou's Mansion | Day 8, 5:55 PM |
+| Complete PROJECT SILENT SQUATCH | Day 8, 8:10 PM |
+| Sleep in the guest room | Day 9, 4:10 AM |
+| Complete Mansion Under Siege | Day 9, 6:10 AM |
+| Leave for Enola Squatch after regrouping | Day 9, 2:00 PM |
+| Complete Enola Squatch | Day 9, 6:00 PM |
+| Return to the repaired Mansion | Day 9, 6:30 PM |
+| Complete the return briefing | Day 9, 7:15 PM |
+| Leave for Cartel Palace | Day 9, 8:30 PM |
+| Extract from Cartel Palace | Day 9, 11:00 PM |
 
-The cabin rows show the required route with no optional detours. Creek, ridge,
-shed, and firepit exploration add their own exact-once time without gating the
-car or rewriting the final-arc schedule backwards.
+The bible puts the repaired mansion and the Palace on Day 12, after a
+deliberate time jump the built route does not take yet. That gap is the one
+remaining calendar difference between the plan and the fact.
 
 The workbook's **Day 5 night** label for Mansion Under Siege is a narrative
-label for the overnight begun on Day 5. The guest-room sleep crosses midnight,
-so the campaign's calendar clock correctly begins Siege on Day 6 at 4:10 AM.
+label for the overnight begun on the day the case is delivered. The guest-room
+sleep crosses midnight, so the campaign's calendar clock correctly begins Siege
+on the following morning at 4:10 AM.
 
 The 2:00 PM Enola row is the drive and the aircraft prep, matching
 `campaign.js`'s own comment — Sasole's handoff at the end of the siege
@@ -470,10 +485,15 @@ Silver Pines then gives the climax one last breath before THE TAKE.
    Willy) belong to the older club-shaped draft. The connected second visit is
    now the dedicated HotDog party, so any revival must be designed into that
    scene instead of restoring the obsolete route.
-2. The Front and Center closing **cutscene of the apartment with Margo** is not
-   built; Day 4 opens with her in the bed instead.
+2. **Margo is not staged in the luxury apartment.** Beats 16 and 17 are wired
+   as route and clock and her recorded lines play, but the walk in, the bed and
+   the dress-help mini-game are all authored against the starter flat's
+   one-room plan in `src/world/apartment-preview-geometry.js`, and this place
+   is two floors with the bed up a staircase. That port is what the two
+   remaining Chapter 3 `pending` beats are waiting on.
 3. **The current Initiation is not a campaign-complete state.** The apartment
-   routes Tony into the frozen Initiation scene after THE TAKE, but that scene does not claim the
+   routes Tony into the frozen Initiation scene after the Cartel Palace, but
+   that scene does not claim the
    campaign, record completion, or expose an outbound edge. The focused route
    contract therefore ends with Initiation `in_progress`, not `complete`.
 4. **The finale has two authored shapes.** This timeline places an oath and
@@ -484,4 +504,4 @@ Silver Pines then gives the climax one last breath before THE TAKE.
    inventory, preview, Pages, scorecard, and three-hole route are now canonical.
    The owner still needs to judge shot feel, walk/ride pacing, camera comfort,
    dialogue repetition, and the handoff into heist preparation in one continuous
-   Day Four playthrough.
+   Day Six playthrough.

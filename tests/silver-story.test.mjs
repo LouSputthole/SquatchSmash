@@ -35,7 +35,10 @@ function completedDate(outcome) {
   const campaign = createCampaign({ storage });
   campaign.update((state) => {
     state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
-    state.missions[MISSION_IDS.NO_WAKE].status = 'complete';
+    /* The round, not the harbour job. Beats 12-19 put Front & Center on the
+     * night Lou hands over the keys and NO WAKE the morning after it, so what
+     * stands behind a man walking into the Silver Room is Silver Pines. */
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
     state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
     state.missions[MISSION_IDS.SILVER_ROOM].status = 'available';
   });

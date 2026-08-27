@@ -32,14 +32,16 @@ function authorizedGolfCampaign(storage = new MemoryStorage(), {
 } = {}) {
   const campaign = createCampaign({ storage });
   campaign.update((state) => {
+    /* The morning AFTER the bank, on Day 6. The round used to be gated on
+     * the Silver Room, because the date came first; the owner reversed that
+     * -- "the job is what earns the upgrade" -- so what stands behind a man
+     * on the first tee is THE TAKE and Lou's call about a new space. */
     state.story.chapter = 'golf_morning';
-    state.story.day = 4;
+    state.story.day = 6;
     state.story.timeMinutes = 7 * 60;
-    state.story.timeEvents = [
-      TIME_EVENT_IDS.MARGO_WAKE,
-      TIME_EVENT_IDS.LOU_GOLF_CALL,
-    ];
-    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+    state.story.timeEvents = [TIME_EVENT_IDS.LOU_GOLF_CALL];
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
     state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
     state.missions[MISSION_IDS.SILVER_PINES].status = 'available';
   });
@@ -146,7 +148,7 @@ test('each completed hole persists and replaying a hole replaces its card', () =
   assert.equal(card.toPar, -1);
 });
 
-test('Silver Pines completes only after three holes and returns to heist day at 10:30', () => {
+test('Silver Pines completes only after three holes and hands over the keys at 10:30', () => {
   const { campaign, story } = startRound();
 
   assert.equal(story.recordHole({ hole: 1, par: 4, strokes: 5 }), true);
@@ -166,11 +168,16 @@ test('Silver Pines completes only after three holes and returns to heist day at 
   assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'complete');
   assert.equal(state.missions[MISSION_IDS.SILVER_PINES].holesPlayed, 3);
   assert.equal(state.missions[MISSION_IDS.SILVER_PINES].rodeWithLou, true);
-  assert.equal(state.story.chapter, 'heist_day');
+  /* BEAT 13'S EXIT IS THE HANDOVER. Three holes of being included, and then
+   * somebody puts an address in his hand. The round used to hand control back
+   * to `heist_day` in the starter flat -- the bank was later the same day --
+   * and it hands it to the luxury apartment now. THE STARTER FLAT GOES DARK
+   * HERE and the Home Ladder never climbs back down. */
+  assert.equal(state.story.chapter, 'luxury_apartment');
   assert.equal(state.story.day, 6);
   assert.equal(state.story.timeMinutes, 10 * 60 + 30);
-  assert.equal(state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'pending');
-  assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
+  assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'locked',
+    'the date is still three hours and one telephone away');
 });
 
 test('a required-save failure cannot complete the round or advance the clock', () => {
