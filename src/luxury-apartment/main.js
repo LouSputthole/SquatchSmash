@@ -33,11 +33,16 @@ import {
   BIG_NIGHT_MARGO_WAKE,
   SILVER_ROOM_COME_HOME,
   SILVER_ROOM_DRESS_ASK,
+  SILVER_ROOM_NEW_PLACE,
 } from '../core/apartment-story.js';
 import { DRESS_HELP_CUES } from '../world/dress-help.js';
 import { createLuxuryApartmentStory } from '../core/luxury-apartment-story.js';
 import { createLuxuryInputPolicy } from './controls.js';
-import { createLuxuryMargoScene, luxuryMargoCueNames } from './margo-scene.js';
+import {
+  LUXURY_MARGO_CHECKPOINT_IDS,
+  createLuxuryMargoScene,
+  luxuryMargoCueNames,
+} from './margo-scene.js';
 import { createLuxuryReadyTally } from './story.js';
 import { buildLuxuryApartment } from './world.js';
 import {
@@ -237,7 +242,11 @@ function startLuxuryStoryBeat() {
   const phase = luxuryStory.phase();
   luxuryMargo?.stageForPhase(phase);
   if (phase === 'come_home') {
-    luxuryMargo?.startComeHome(SILVER_ROOM_COME_HOME, SILVER_ROOM_DRESS_ASK);
+    luxuryMargo?.startComeHome(
+      SILVER_ROOM_COME_HOME,
+      SILVER_ROOM_DRESS_ASK,
+      SILVER_ROOM_NEW_PLACE,
+    );
     return;
   }
   if (phase === 'morning') {
@@ -1112,8 +1121,14 @@ startButton.addEventListener('click', async () => {
       'poop.1', 'poop.2', 'poop.3', 'poop.4', 'poop.strain',
       'gun.pickup', 'gun.shot', 'gun.dry', 'gun.impact', 'gun.reload', 'ammo.take',
       'bong.bubble', 'zyn.pack', 'glue.slip',
+      'margo.snore',
       ...DRESS_HELP_CUES,
-      ...luxuryMargoCueNames(SILVER_ROOM_COME_HOME, SILVER_ROOM_DRESS_ASK, BIG_NIGHT_MARGO_WAKE),
+      ...luxuryMargoCueNames(
+        SILVER_ROOM_NEW_PLACE,
+        SILVER_ROOM_COME_HOME,
+        SILVER_ROOM_DRESS_ASK,
+        BIG_NIGHT_MARGO_WAKE,
+      ),
       'vo.luxury.poker.solo',
       'vo.luxury.elevator.not-ready', 'vo.luxury.elevator.not-ready-repeat',
       ...radio.preloadCueNames({ startupOnly: true }),
@@ -1689,6 +1704,12 @@ window.LUXURY_APARTMENT = {
   },
   debug: {
     pcApps: pcArcade.apps.map((app) => ({ id: app.id, title: app.title ?? app.name ?? app.id })),
+    margo: {
+      checkpointIds: Object.freeze({ ...LUXURY_MARGO_CHECKPOINT_IDS }),
+      stage: (id) => luxuryMargo.debug.stageCheckpoint(id),
+      clear: () => luxuryMargo.debug.clearCheckpoint(),
+      report: () => luxuryMargo.debug.snapshot(),
+    },
     parity: {
       toilet: {
         startAim: () => toilet.startAim(),

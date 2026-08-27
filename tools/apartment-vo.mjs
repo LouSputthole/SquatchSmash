@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Synchronize the apartment's door refusals with the sound manifest.
+ * Synchronize the apartment's generated dialogue with the sound manifest.
  *
  *   npm run vo:apartment        -> synchronize the exact cue block
  *   npm run check:apartment-vo  -> report missing/stale/text/cast drift
@@ -19,26 +19,84 @@
  * anybody to record.
  *
  * `DEPARTURE_REFUSALS` in src/core/apartment-story.js is now the single copy
- * of that writing, and this walks it. Nothing here restates a line.
+ * of that writing, and this walks it. The physical Margo stayover definitions
+ * live beside it and are owned here for the same reason: a line added to the
+ * two-floor scene must enter the booth sheet without a hand-edited manifest.
+ * Nothing here restates a line.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { departureRefusalCues } from '../src/core/apartment-story.js';
+import {
+  BIG_NIGHT_MARGO_WAKE,
+  SILVER_ROOM_COME_HOME,
+  SILVER_ROOM_DRESS_ASK,
+  SILVER_ROOM_NEW_PLACE,
+  departureRefusalCues,
+} from '../src/core/apartment-story.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST = path.join(ROOT, 'assets/sfx/manifest.json');
 
-const PREFIX = 'vo.door.refusal.';
+const OWNED_PREFIXES = Object.freeze([
+  'vo.door.refusal.',
+  'vo.margo.comehome.',
+  'vo.margo.wake.',
+]);
+
+function owned(name) {
+  return OWNED_PREFIXES.some((prefix) => String(name).startsWith(prefix));
+}
+
+function definitionCues(definition) {
+  const cues = [];
+  definition.lines.forEach((line, index) => {
+    cues.push({
+      name: `vo.${definition.vo}.${index + 1}`,
+      voice: definition.voiceProfile,
+      say: line,
+    });
+    const reply = definition.replies?.[index];
+    if (reply) {
+      cues.push({
+        name: `vo.${definition.vo}.tony.${index + 1}`,
+        voice: 'player',
+        say: reply,
+      });
+    }
+  });
+  return cues;
+}
 
 export function collectApartmentVoiceCues() {
-  return departureRefusalCues();
+  return [
+    ...departureRefusalCues(),
+    ...definitionCues(SILVER_ROOM_NEW_PLACE),
+    ...definitionCues(SILVER_ROOM_COME_HOME),
+    ...definitionCues(SILVER_ROOM_DRESS_ASK),
+    ...definitionCues(BIG_NIGHT_MARGO_WAKE),
+  ];
 }
 
 /** Return an updated manifest without mutating or writing the input. */
 export function syncApartmentVoiceManifest(manifest) {
-  const kept = (manifest.sfx || []).filter((cue) => !cue.name.startsWith(PREFIX));
-  return { ...manifest, sfx: [...kept, ...collectApartmentVoiceCues()] };
+  const expected = new Map(collectApartmentVoiceCues().map((cue) => [cue.name, cue]));
+  const emitted = new Set();
+  const sfx = [];
+  for (const cue of manifest.sfx || []) {
+    if (!owned(cue.name)) {
+      sfx.push(cue);
+      continue;
+    }
+    const replacement = expected.get(cue.name);
+    if (!replacement || emitted.has(cue.name)) continue;
+    sfx.push(replacement);
+    emitted.add(cue.name);
+  }
+  for (const cue of expected.values()) {
+    if (!emitted.has(cue.name)) sfx.push(cue);
+  }
+  return { ...manifest, sfx };
 }
 
 /** Report cue drift without changing the manifest. */
@@ -50,7 +108,7 @@ export function checkApartmentVoiceManifest(manifest) {
     expected.set(cue.name, cue);
   }
   const declared = new Map();
-  for (const cue of (manifest.sfx || []).filter((entry) => entry.name.startsWith(PREFIX))) {
+  for (const cue of (manifest.sfx || []).filter((entry) => owned(entry.name))) {
     if (declared.has(cue.name)) failures.push(`duplicate cue ${cue.name}`);
     else declared.set(cue.name, cue);
   }
@@ -69,18 +127,18 @@ function main() {
     const failures = checkApartmentVoiceManifest(manifest);
     if (failures.length) {
       failures.forEach((failure) => console.error(`FAIL ${failure}`));
-      console.error(`${failures.length} apartment door-refusal problem(s). Run \`npm run vo:apartment\`.`);
+      console.error(`${failures.length} apartment voice-manifest problem(s). Run \`npm run vo:apartment\`.`);
       process.exitCode = 1;
     } else {
-      console.log(`Apartment door refusals match ${collectApartmentVoiceCues().length} cue(s).`);
+      console.log(`Apartment voice manifest matches ${collectApartmentVoiceCues().length} cue(s).`);
     }
     return;
   }
 
-  const dropped = (manifest.sfx || []).filter((cue) => cue.name.startsWith(PREFIX)).length;
+  const dropped = (manifest.sfx || []).filter((cue) => owned(cue.name)).length;
   const cues = collectApartmentVoiceCues();
   fs.writeFileSync(MANIFEST, `${JSON.stringify(syncApartmentVoiceManifest(manifest), null, 2)}\n`);
-  console.log(`${cues.length} apartment door-refusal cue(s) in the manifest`
+  console.log(`${cues.length} apartment voice cue(s) in the manifest`
     + `${dropped ? ` (replaced ${dropped})` : ''}.`);
   console.log('\nRun `npm run audio:todo` for the recording sheet.');
 }

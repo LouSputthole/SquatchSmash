@@ -42,6 +42,19 @@ export const LUXURY_MARGO_PLACEMENTS = Object.freeze({
   wakeSit: Object.freeze({ position: Object.freeze([6.72, 4.02, -5.92]), yaw: -2.58 }),
 });
 
+export const LUXURY_MARGO_CHECKPOINT_IDS = Object.freeze({
+  ENTRANCE: 'entrance',
+  STAIRS: 'stairs',
+  UPSTAIRS_DRESS: 'upstairs-dress',
+  SLEEP: 'sleep',
+  MORNING_DEPARTURE: 'morning-departure',
+});
+
+const MARGO_CHECKPOINTS = new Set(Object.values(LUXURY_MARGO_CHECKPOINT_IDS));
+const SNORE_FIRST_DELAY = 0.65;
+const SNORE_INTERVAL = 3.8;
+const SNORE_VOLUME = 0.14;
+
 function segmentLength(a, b) {
   return Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
 }
@@ -59,6 +72,9 @@ function pathMetrics(path) {
 
 const ENTRY_METRICS = pathMetrics(LUXURY_MARGO_ENTRY_PATH);
 const EXIT_METRICS = pathMetrics(LUXURY_MARGO_EXIT_PATH);
+const ENTRANCE_CHECKPOINT_DISTANCE = ENTRY_METRICS.segments[0].to;
+const STAIR_CHECKPOINT_DISTANCE = ENTRY_METRICS.segments[5].to;
+const DEPARTURE_CHECKPOINT_PROGRESS = 0.92;
 
 /** Sample a route by metres travelled rather than by waypoint count. */
 export function sampleLuxuryMargoPath(path, distance) {
@@ -143,10 +159,48 @@ export function createLuxuryMargoScene({
 
   let scene = null;
   let objective = null;
+  let checkpointState = null;
+  let snoring = false;
+  let snoreIn = 0;
+  let snoreSource = null;
+  let snorePlays = 0;
 
   const setObjective = (next) => {
     objective = next;
     onObjectiveChange(next);
+  };
+
+  const stopSnoring = () => {
+    snoring = false;
+    snoreIn = 0;
+    if (snoreSource?.stop) {
+      try { snoreSource.stop(); } catch { /* the one-shot already ended */ }
+    }
+    snoreSource = null;
+  };
+
+  const startSnoring = () => {
+    if (snoring) return;
+    snoring = true;
+    snoreIn = SNORE_FIRST_DELAY;
+  };
+
+  const updateSnoring = (dt) => {
+    if (!snoring) return;
+    snoreIn -= dt;
+    if (snoreIn > 0) return;
+    /* The delivered cue is one 1.8-second breath, not an ambience bed. A
+     * fixed quiet interval leaves real air between breaths, remains
+     * deterministic for browser evidence, and lets the player hear where
+     * she is while wandering the two-floor apartment. */
+    snoreSource = audio.play('margo.snore', {
+      volume: SNORE_VOLUME,
+      position: actor.group.position,
+      ref: 1.2,
+      maxDist: 13,
+    });
+    snorePlays += 1;
+    snoreIn += SNORE_INTERVAL;
   };
 
   const dress = createDressHelpSequence({
@@ -196,6 +250,7 @@ export function createLuxuryMargoScene({
     scene = null;
     setObjective(null);
     hud?.say?.('<em>Night.</em> She is out inside a minute.', 3600);
+    startSnoring();
     onComeHomeDone();
   };
 
@@ -244,6 +299,10 @@ export function createLuxuryMargoScene({
     scene.turn += 1;
     const turn = scene.turns[scene.turn];
     if (!turn) {
+      if (scene.phase === 'arrival-talk') {
+        beginEntryWalk();
+        return;
+      }
       offerHelp();
       return;
     }
@@ -256,6 +315,8 @@ export function createLuxuryMargoScene({
   const beginTalk = () => {
     if (!scene) return;
     scene.phase = 'talk';
+    scene.definition = scene.bedroomDefinition;
+    scene.turns = makeTurns(scene.definition);
     scene.turn = -1;
     scene.hold = 0;
     if (scene.kind === 'wake') placeActor(actor, 'sitting', LUXURY_MARGO_PLACEMENTS.wakeSit);
@@ -274,8 +335,38 @@ export function createLuxuryMargoScene({
     return turns;
   };
 
-  const start = (kind, definition, ask = null) => {
+  const beginEntryWalk = () => {
+    if (!scene) return;
+    scene.phase = 'walk';
+    scene.definition = scene.bedroomDefinition;
+    scene.path = LUXURY_MARGO_ENTRY_PATH;
+    scene.distance = 0;
+    scene.walkTime = 0;
+    actor.setPose('standing');
+    setWalkPose(actor, sampleLuxuryMargoPath(scene.path, 0), 0);
+    setObjective('Follow Margo upstairs');
+  };
+
+  const beginArrivalTalk = () => {
+    if (!scene?.arrivalDefinition?.lines?.length) {
+      beginEntryWalk();
+      return;
+    }
+    scene.phase = 'arrival-talk';
+    scene.definition = scene.arrivalDefinition;
+    scene.turns = makeTurns(scene.definition);
+    scene.turn = -1;
+    scene.hold = 0;
+    actor.setPose('standing');
+    setWalkPose(actor, sampleLuxuryMargoPath(LUXURY_MARGO_ENTRY_PATH, 0), 0);
+    setObjective('Talk with Margo');
+    advanceTurn();
+  };
+
+  const start = (kind, definition, ask = null, arrivalDefinition = null) => {
     if (scene || !definition?.lines?.length) return false;
+    checkpointState = null;
+    stopSnoring();
     dress.reset();
     actor.hush?.();
     actor.setDressGlue(0);
@@ -284,8 +375,10 @@ export function createLuxuryMargoScene({
     scene = {
       kind,
       definition,
+      bedroomDefinition: definition,
+      arrivalDefinition,
       ask,
-      phase: kind === 'comeHome' ? 'walk' : 'talk',
+      phase: null,
       turns: makeTurns(definition),
       turn: -1,
       hold: 0,
@@ -297,14 +390,94 @@ export function createLuxuryMargoScene({
     };
     if (kind === 'comeHome') {
       openElevator();
-      actor.setPose('standing');
-      setWalkPose(actor, sampleLuxuryMargoPath(scene.path, 0), 0);
-      setObjective('Follow Margo upstairs');
+      beginArrivalTalk();
     } else {
       placeActor(actor, 'lying', LUXURY_MARGO_PLACEMENTS.bed);
       beginTalk();
     }
     return true;
+  };
+
+  const snapshot = () => {
+    const position = actor.group.position;
+    const pathProgress = checkpointState?.pathProgress
+      ?? (scene?.path
+        ? sampleLuxuryMargoPath(scene.path, scene.distance).progress
+        : 0);
+    return {
+      checkpoint: checkpointState?.id ?? null,
+      kind: scene?.kind ?? (snoring ? 'stayover' : null),
+      phase: checkpointState?.phase ?? scene?.phase ?? (snoring ? 'sleep' : null),
+      pose: actor.pose,
+      visible: actor.group.visible,
+      position: [position.x, position.y, position.z],
+      yaw: actor.group.rotation.y,
+      pathProgress,
+      awaitingHelp: Boolean(scene?.awaitingHelp),
+      dressActive: dress.active,
+      snoring: {
+        active: snoring,
+        plays: snorePlays,
+        nextIn: snoreIn,
+      },
+    };
+  };
+
+  const resetCheckpointPresentation = () => {
+    scene = null;
+    checkpointState = null;
+    dress.reset();
+    actor.hush?.();
+    actor.setDressGlue(0);
+    actor.setDressHelpProgress(0);
+    clearFocus();
+    stopSnoring();
+    closeElevator();
+    setObjective(null);
+  };
+
+  const stageCheckpoint = (id) => {
+    if (!MARGO_CHECKPOINTS.has(id)) throw new RangeError(`Unknown luxury Margo checkpoint: ${id}`);
+    resetCheckpointPresentation();
+    actor.group.visible = true;
+
+    if (id === LUXURY_MARGO_CHECKPOINT_IDS.ENTRANCE) {
+      actor.setPose('standing');
+      const sample = sampleLuxuryMargoPath(LUXURY_MARGO_ENTRY_PATH, ENTRANCE_CHECKPOINT_DISTANCE);
+      setWalkPose(actor, sample, 0);
+      openElevator();
+      checkpointState = { id, phase: 'entrance', pathProgress: sample.progress };
+    } else if (id === LUXURY_MARGO_CHECKPOINT_IDS.STAIRS) {
+      actor.setPose('standing');
+      const sample = sampleLuxuryMargoPath(LUXURY_MARGO_ENTRY_PATH, STAIR_CHECKPOINT_DISTANCE);
+      setWalkPose(actor, sample, 1.1);
+      checkpointState = { id, phase: 'stairs', pathProgress: sample.progress };
+    } else if (id === LUXURY_MARGO_CHECKPOINT_IDS.UPSTAIRS_DRESS) {
+      placeActor(actor, 'kneeling', LUXURY_MARGO_PLACEMENTS.dress);
+      actor.setDressHelpProgress(4 / 7);
+      checkpointState = { id, phase: 'dress-help', pathProgress: 1 };
+    } else if (id === LUXURY_MARGO_CHECKPOINT_IDS.SLEEP) {
+      actor.setDressGlue(1);
+      placeActor(actor, 'lying', LUXURY_MARGO_PLACEMENTS.bed);
+      checkpointState = { id, phase: 'sleep', pathProgress: 1 };
+      startSnoring();
+    } else {
+      actor.setPose('standing');
+      const distance = EXIT_METRICS.total * DEPARTURE_CHECKPOINT_PROGRESS;
+      const sample = sampleLuxuryMargoPath(LUXURY_MARGO_EXIT_PATH, distance);
+      setWalkPose(actor, sample, 2.2);
+      openElevator();
+      checkpointState = { id, phase: 'morning-departure', pathProgress: sample.progress };
+    }
+
+    actor.group.updateMatrixWorld?.(true);
+    return snapshot();
+  };
+
+  const clearCheckpoint = () => {
+    resetCheckpointPresentation();
+    actor.group.visible = false;
+    return snapshot();
   };
 
   const updateWalk = (dt) => {
@@ -336,7 +509,9 @@ export function createLuxuryMargoScene({
   };
 
   return {
-    startComeHome: (definition, ask) => start('comeHome', definition, ask),
+    startComeHome: (definition, ask, arrivalDefinition) => start(
+      'comeHome', definition, ask, arrivalDefinition,
+    ),
     startWake: (definition) => start('wake', definition),
     interact() {
       if (!scene?.awaitingHelp || dress.active) return false;
@@ -351,6 +526,7 @@ export function createLuxuryMargoScene({
     },
     update(dt) {
       const safeDt = Math.max(0, Math.min(Number(dt) || 0, 0.1));
+      updateSnoring(safeDt);
       if (!scene) return;
       if (dress.active) {
         hud?.setTiming?.(dress.update(safeDt));
@@ -360,17 +536,24 @@ export function createLuxuryMargoScene({
         updateWalk(safeDt);
         return;
       }
-      if (scene.phase === 'talk') {
+      if (scene.phase === 'talk' || scene.phase === 'arrival-talk') {
         scene.hold -= safeDt;
         if (scene.hold <= 0) advanceTurn();
       }
     },
     stageForPhase(phase) {
       if (scene) return false;
+      checkpointState = null;
       const stays = phase === 'stayover';
       actor.group.visible = stays;
-      if (stays) placeActor(actor, 'lying', LUXURY_MARGO_PLACEMENTS.bed);
-      else actor.hush?.();
+      if (stays) {
+        actor.setDressGlue(1);
+        placeActor(actor, 'lying', LUXURY_MARGO_PLACEMENTS.bed);
+        startSnoring();
+      } else {
+        actor.hush?.();
+        stopSnoring();
+      }
       return true;
     },
     get active() { return Boolean(scene); },
@@ -383,6 +566,9 @@ export function createLuxuryMargoScene({
         dress,
         actor,
         pathMetrics: { entry: ENTRY_METRICS, exit: EXIT_METRICS },
+        snapshot,
+        stageCheckpoint,
+        clearCheckpoint,
       };
     },
   };

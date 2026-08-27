@@ -832,6 +832,109 @@ try {
     playing.phase === 'active' && playing.mode === 'walk' && playing.overlayHidden,
     JSON.stringify(playing));
 
+  /* Beats 16 and 17 are one physical two-floor scene, so their evidence is
+   * staged from its own deterministic presentation hooks rather than from
+   * arbitrary sleeps. These hooks spend no campaign markers and call no
+   * interaction handler; the unit contract separately drives the real
+   * seven-pull sequence. Here the live WebGL composition proves that every
+   * authored position exists, is visible, and stays on the intended floor. */
+  await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    runtime.state.paused = true;
+    /* Screenshots may cause headless Chromium to abandon pointer lock. Do the
+     * release through the shared Adapter first so its drag-fallback state
+     * cannot turn the next capture click into a world interaction. */
+    runtime.input.releasePointerLock();
+  });
+  await page.waitForFunction(() => document.pointerLockElement === null);
+  const margoIds = await page.evaluate(() => window.LUXURY_APARTMENT.debug.margo.checkpointIds);
+  const margoExpectations = [
+    { id: margoIds.ENTRANCE, pose: 'standing', phase: 'entrance', y: [0.80, 1.00], progress: [0.02, 0.08], snoring: false, eye: [0, 0.9, 2.4] },
+    { id: margoIds.STAIRS, pose: 'standing', phase: 'stairs', y: [2.40, 2.70], progress: [0.20, 0.80], snoring: false, eye: [2.5, 1.2, 2.2] },
+    { id: margoIds.UPSTAIRS_DRESS, pose: 'kneeling', phase: 'dress-help', y: [3.70, 3.90], progress: [0.99, 1], snoring: false, eye: [-2.2, 1.15, 2.0] },
+    { id: margoIds.SLEEP, pose: 'lying', phase: 'sleep', y: [4.15, 4.32], progress: [0.99, 1], snoring: true, eye: [-2.5, 1.0, 2.1] },
+    { id: margoIds.MORNING_DEPARTURE, pose: 'standing', phase: 'morning-departure', y: [0.80, 1.80], progress: [0.90, 0.94], snoring: false, eye: [-2.4, 1.1, 2.0] },
+  ];
+  const margoReports = [];
+  for (const expected of margoExpectations) {
+    let report = await page.evaluate(({ id, eye }) => {
+      const runtime = window.LUXURY_APARTMENT;
+      const staged = runtime.debug.margo.stage(id);
+      runtime.state.paused = true;
+      /* The checkpoint freezes the main frame immediately. Settle the actual
+       * lift leaves to the checkpoint's requested state so entrance/departure
+       * evidence cannot photograph Margo hidden behind a still-closing door. */
+      for (let index = 0; index < 180; index++) {
+        runtime.home.doors.elevator.update(1 / 120);
+      }
+      runtime.camera.position.set(
+        staged.position[0] + eye[0],
+        staged.position[1] + eye[1],
+        staged.position[2] + eye[2],
+      );
+      runtime.camera.lookAt(staged.position[0], staged.position[1] + 0.38, staged.position[2]);
+      runtime.camera.updateMatrixWorld(true);
+      return staged;
+    }, expected);
+
+    if (expected.id === margoIds.SLEEP) {
+      await page.evaluate(() => { window.LUXURY_APARTMENT.state.paused = false; });
+      await page.waitForFunction(() => window.LUXURY_APARTMENT.debug.margo.report().snoring.plays >= 1);
+      report = await page.evaluate(({ eye }) => {
+        const runtime = window.LUXURY_APARTMENT;
+        const staged = runtime.debug.margo.report();
+        runtime.state.paused = true;
+        runtime.camera.position.set(
+          staged.position[0] + eye[0],
+          staged.position[1] + eye[1],
+          staged.position[2] + eye[2],
+        );
+        runtime.camera.lookAt(staged.position[0], staged.position[1] + 0.25, staged.position[2]);
+        runtime.camera.updateMatrixWorld(true);
+        return {
+          ...staged,
+          snoreEvidence: {
+            decoded: (runtime.audio.buffers.get('margo.snore')?.length ?? 0) > 0,
+            playedBuffer: runtime.audio.playbacks.some((playback) => (
+              playback.name === 'margo.snore' && playback.source === 'buffer'
+            )),
+          },
+        };
+      }, expected);
+    }
+
+    const position = report.position;
+    const valid = report.checkpoint === expected.id
+      && report.visible
+      && report.pose === expected.pose
+      && report.phase === expected.phase
+      && position.every(Number.isFinite)
+      && position[1] >= expected.y[0]
+      && position[1] <= expected.y[1]
+      && report.pathProgress >= expected.progress[0]
+      && report.pathProgress <= expected.progress[1]
+      && report.snoring.active === expected.snoring
+      && (expected.id !== margoIds.SLEEP || (
+        report.snoring.plays >= 1
+        && report.snoreEvidence?.decoded
+        && report.snoreEvidence?.playedBuffer
+      ));
+    margoReports.push({ ...report, valid });
+    check(`Margo's ${expected.id} checkpoint is visibly staged on the authored route`,
+      valid,
+      JSON.stringify(report));
+    await capture(page, `margo-${expected.id}`);
+  }
+  await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    runtime.debug.margo.clear();
+    runtime.state.paused = false;
+    /* Evidence staging freezes the authored frame without opening the pause
+     * menu. Re-read the real input policy at the same seam so a pointer-lock
+     * change observed while frozen cannot leave the Player disabled. */
+    runtime.input.refresh('margo-evidence-complete');
+  });
+
   const cleanStartBefore = await page.evaluate(() => {
     const { player } = window.LUXURY_APARTMENT;
     return { position: player.position.toArray(), yaw: player.yaw, enabled: player.enabled };

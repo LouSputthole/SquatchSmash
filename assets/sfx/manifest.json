@@ -25247,116 +25247,6 @@
       "say": "Sure. Leave it there. I’ll just keep standing here, it’s what I do."
     },
     {
-      "name": "vo.siege.wake.prospect.awake",
-      "voice": "player",
-      "say": "Okay. Okay — that is not the television."
-    },
-    {
-      "name": "vo.siege.wake.guard.inside",
-      "voice": "mansion-guard",
-      "say": "They are inside! They are in the house — get to the armory!"
-    },
-    {
-      "name": "vo.siege.guide.booski.armory",
-      "voice": "booski",
-      "say": "Kid — armory. East end of the cellar hall, then south through the door. Move."
-    },
-    {
-      "name": "vo.siege.guide.booski.office",
-      "voice": "booski",
-      "say": "Now get up here. Basement stair, straight over the foyer, up the horseshoe — Lou is on the top floor."
-    },
-    {
-      "name": "vo.siege.briefing.prospect.report",
-      "voice": "player",
-      "say": "Lou. There were two of them in the cellar."
-    },
-    {
-      "name": "vo.siege.briefing.lou.forty",
-      "voice": "lou1",
-      "say": "Two in the cellar. There are forty on my lawn."
-    },
-    {
-      "name": "vo.siege.briefing.booski.drive",
-      "voice": "booski",
-      "say": "More coming up the drive — both sides of the fountain, they are not even hurrying."
-    },
-    {
-      "name": "vo.siege.briefing.lou.upstairs",
-      "voice": "lou1",
-      "say": "Everybody upstairs. Nobody holds a ground-floor room tonight, I do not care whose room it is."
-    },
-    {
-      "name": "vo.siege.briefing.lou.stairs",
-      "voice": "lou1",
-      "say": "You. Take the rail over the foyer. Anything that comes through my front door, you put it down on my floor."
-    },
-    {
-      "name": "vo.siege.briefing.prospect.stairs",
-      "voice": "player",
-      "say": "The stairs. Got it."
-    },
-    {
-      "name": "vo.siege.briefing.lou.heavy",
-      "voice": "lou1",
-      "say": "And get the big one up. You did not carry it out of my armory to look at it."
-    },
-    {
-      "name": "vo.siege.prospect.little_friend",
-      "voice": "player",
-      "say": "Say hello to my little friend."
-    },
-    {
-      "name": "vo.siege.lull.booski.reload",
-      "voice": "booski",
-      "say": "That is the first lot! Reload — they are forming up again on the drive!"
-    },
-    {
-      "name": "vo.siege.lull.lou.notover",
-      "voice": "lou1",
-      "say": "It is not over. Watch that door."
-    },
-    {
-      "name": "vo.siege.flank.deathmegatron.glass",
-      "voice": "deathmegatron",
-      "say": "Glass! West wing and east — they are coming in behind us!"
-    },
-    {
-      "name": "vo.siege.aftermath.lou.last",
-      "voice": "lou1",
-      "say": "That is the last of them. Somebody kill that alarm."
-    },
-    {
-      "name": "vo.siege.aftermath.lou.house",
-      "voice": "lou1",
-      "say": "They came to my house. With cars, and a plan, and enough men to spare four of them for a window."
-    },
-    {
-      "name": "vo.siege.aftermath.lou.budget",
-      "voice": "lou1",
-      "say": "This is not a neighbourhood thing any more, kid. This is somebody with a budget."
-    },
-    {
-      "name": "vo.siege.aftermath.lou.sasole",
-      "voice": "lou1",
-      "say": "There is a man on my landing in a flight jacket. Captain Lou Sasole. Go and talk to him — he is how we answer this."
-    },
-    {
-      "name": "vo.siege.aftermath.prospect.sasole",
-      "voice": "player",
-      "say": "Sasole. Right."
-    },
-    {
-      "name": "vo.siege.sasole.sasole.stairs",
-      "voice": "lou2",
-      "say": "You are the one who held the stairs. Good. Then you can hold a bomb bay."
-    },
-    {
-      "name": "vo.siege.sasole.sasole.tonight",
-      "voice": "lou2",
-      "say": "Get some sleep. We fly tonight, and you are coming with me."
-    },
-    {
       "name": "vo.palace.finale.mark.arrival.quiet-1.1",
       "voice": "mark",
       "say": "Tony. Sit down. We are having the veal — Sauce’s recipe. He was going to tell you. Eventually.",
@@ -25872,6 +25762,168 @@
       "name": "vo.door.refusal.shrooms_before.1",
       "voice": "player",
       "say": "They take ninety minutes. Take them now and they land about the time somebody starts making speeches."
+    },
+    {
+      "name": "vo.margo.comehome.place.1",
+      "voice": "margo",
+      "say": "Jesus Christ. A private lift, a staircase, and that view. Who the fuck did you have to bury?"
+    },
+    {
+      "name": "vo.margo.comehome.place.tony.1",
+      "voice": "player",
+      "say": "Nobody on the lease."
+    },
+    {
+      "name": "vo.siege.wake.prospect.awake",
+      "voice": "player",
+      "say": "Okay. Okay — that is not the television."
+    },
+    {
+      "name": "vo.siege.wake.guard.inside",
+      "voice": "mansion-guard",
+      "say": "They are inside! They are in the house — get to the armory!"
+    },
+    {
+      "name": "vo.siege.guide.booski.armory",
+      "voice": "booski",
+      "say": "Kid — armory. East end of the cellar hall, then south through the door. Move."
+    },
+    {
+      "name": "vo.siege.guide.booski.office",
+      "voice": "booski",
+      "say": "Now get up here. Basement stair, straight over the foyer, up the horseshoe — Lou is on the top floor."
+    },
+    {
+      "name": "vo.siege.briefing.prospect.report",
+      "voice": "player",
+      "say": "Lou. There were two of them in the cellar."
+    },
+    {
+      "name": "vo.siege.briefing.lou.forty",
+      "voice": "lou1",
+      "say": "Two in the cellar. There are forty on my lawn."
+    },
+    {
+      "name": "vo.siege.briefing.booski.drive",
+      "voice": "booski",
+      "say": "More coming up the drive — both sides of the fountain, they are not even hurrying."
+    },
+    {
+      "name": "vo.siege.briefing.lou.upstairs",
+      "voice": "lou1",
+      "say": "Everybody upstairs. Nobody holds a ground-floor room tonight, I do not care whose room it is."
+    },
+    {
+      "name": "vo.siege.briefing.lou.stairs",
+      "voice": "lou1",
+      "say": "You. Take the rail over the foyer. Anything that comes through my front door, you put it down on my floor."
+    },
+    {
+      "name": "vo.siege.briefing.prospect.stairs",
+      "voice": "player",
+      "say": "The stairs. Got it."
+    },
+    {
+      "name": "vo.siege.briefing.lou.heavy",
+      "voice": "lou1",
+      "say": "And get the big one up. You did not carry it out of my armory to look at it."
+    },
+    {
+      "name": "vo.siege.prospect.little_friend",
+      "voice": "player",
+      "say": "Say hello to my little friend."
+    },
+    {
+      "name": "vo.siege.lull.booski.reload",
+      "voice": "booski",
+      "say": "That is the first lot! Reload — they are forming up again on the drive!"
+    },
+    {
+      "name": "vo.siege.lull.lou.notover",
+      "voice": "lou1",
+      "say": "It is not over. Watch that door."
+    },
+    {
+      "name": "vo.siege.flank.deathmegatron.glass",
+      "voice": "deathmegatron",
+      "say": "Glass! West wing and east — they are coming in behind us!"
+    },
+    {
+      "name": "vo.siege.aftermath.call.lou.answer",
+      "voice": "lou1",
+      "say": "Sputthole.",
+      "direction": "Dry and immediate into the receiver. One word; no greeting and no uncertainty."
+    },
+    {
+      "name": "vo.siege.aftermath.call.ateam.walk",
+      "voice": "ateam3",
+      "say": "Walk away. Keep what family you have left.",
+      "direction": "Cold telephone threat. He believes he is offering mercy, not performing menace."
+    },
+    {
+      "name": "vo.siege.aftermath.call.lou.terms",
+      "voice": "lou1",
+      "say": "You sent twenty-two men into my home, and now you are offering me terms.",
+      "direction": "Level and incredulous without raising his voice. The bodies are still around him."
+    },
+    {
+      "name": "vo.siege.aftermath.call.ateam.more",
+      "voice": "ateam3",
+      "say": "We can send twenty-two more. The A-Team does not stop because a house was expensive.",
+      "direction": "Matter-of-fact and completely serious about the A-Team. No wink in the house line."
+    },
+    {
+      "name": "vo.siege.aftermath.call.lou.trade",
+      "voice": "lou1",
+      "say": "You know my name and my address. I know your voice. That is an uneven trade.",
+      "direction": "Quiet calculation. This is when Lou stops reacting and starts hunting."
+    },
+    {
+      "name": "vo.siege.aftermath.call.ateam.family",
+      "voice": "ateam3",
+      "say": "You will learn what happens when the A-Team comes for your family.",
+      "direction": "A promise delivered flatly over the telephone. Proud of the crew, deadly serious."
+    },
+    {
+      "name": "vo.siege.aftermath.call.lou.not-home",
+      "voice": "lou1",
+      "say": "No. You are going to learn what happens when I stop waiting at home.",
+      "direction": "Final and controlled. Hang up at the end; the decision to counterstrike is made."
+    },
+    {
+      "name": "vo.siege.aftermath.lou.last",
+      "voice": "lou1",
+      "say": "That is the last of them. Somebody kill that alarm."
+    },
+    {
+      "name": "vo.siege.aftermath.lou.house",
+      "voice": "lou1",
+      "say": "They came to my house. With cars, and a plan, and enough men to spare four of them for a window."
+    },
+    {
+      "name": "vo.siege.aftermath.lou.budget",
+      "voice": "lou1",
+      "say": "This is not a neighbourhood thing any more, kid. This is somebody with a budget."
+    },
+    {
+      "name": "vo.siege.aftermath.lou.sasole",
+      "voice": "lou1",
+      "say": "There is a man on my landing in a flight jacket. Captain Lou Sasole. Go and talk to him — he is how we answer this."
+    },
+    {
+      "name": "vo.siege.aftermath.prospect.sasole",
+      "voice": "player",
+      "say": "Sasole. Right."
+    },
+    {
+      "name": "vo.siege.sasole.sasole.stairs",
+      "voice": "lou2",
+      "say": "You are the one who held the stairs. Good. Then you can hold a bomb bay."
+    },
+    {
+      "name": "vo.siege.sasole.sasole.tonight",
+      "voice": "lou2",
+      "say": "Get some sleep. We fly tonight, and you are coming with me."
     }
   ]
 }

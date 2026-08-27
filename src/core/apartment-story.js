@@ -1327,6 +1327,25 @@ export const BIG_NIGHT_MARGO_WAKE = Object.freeze({
 });
 
 /**
+ * Margo's first look at the home upgrade, spoken while both of them are still
+ * standing at the private lift. This owns a separate cue bank so the two
+ * already-recorded bedside exchanges below keep their cue identity and take
+ * history when the missing arrival beat is added.
+ */
+export const SILVER_ROOM_NEW_PLACE = Object.freeze({
+  characterId: CHARACTER_IDS.MARGO,
+  from: getCharacter(CHARACTER_IDS.MARGO).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.MARGO),
+  vo: 'margo.comehome.place',
+  lines: Object.freeze([
+    'Jesus Christ. A private lift, a staircase, and that view. Who the fuck did you have to bury?',
+  ]),
+  replies: Object.freeze([
+    'Nobody on the lease.',
+  ]),
+});
+
+/**
  * The night the Silver Room ends with both of them coming back here.
  *
  * `SilverStory.complete` folds the mission's own verdict -- `cameHome`,

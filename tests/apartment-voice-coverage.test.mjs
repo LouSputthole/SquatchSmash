@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { NO_WAKE_LOU_CALL } from '../src/core/apartment-story.js';
+import {
+  BIG_NIGHT_MARGO_WAKE,
+  NO_WAKE_LOU_CALL,
+  SILVER_ROOM_COME_HOME,
+  SILVER_ROOM_DRESS_ASK,
+  SILVER_ROOM_NEW_PLACE,
+} from '../src/core/apartment-story.js';
 import { callScript } from '../src/core/phone.js';
 import { allNoWakeVoiceLines } from '../src/nowake/dialogue.js';
 import {
@@ -9,6 +15,11 @@ import {
   collectNoWakeVoiceCues,
   syncNoWakeVoiceManifest,
 } from '../tools/nowake-vo.mjs';
+import {
+  checkApartmentVoiceManifest,
+  collectApartmentVoiceCues,
+  syncApartmentVoiceManifest,
+} from '../tools/apartment-vo.mjs';
 
 test('the NO WAKE voice ledger is generated from the scene and canonical phone call', () => {
   const expectedScene = allNoWakeVoiceLines().map((line) => ({
@@ -67,4 +78,35 @@ test('NO WAKE voice check reports missing, drifted, stale and duplicate cues', (
   assert.match(failures, /drifted cue /);
   assert.match(failures, /stale cue vo\.call\.lou\.no_wake\.stale/);
   assert.match(failures, /duplicate cue /);
+});
+
+test('the apartment ledger owns every physical Margo stayover cue, including the new-place exchange', () => {
+  const cues = collectApartmentVoiceCues();
+  const byName = new Map(cues.map((cue) => [cue.name, cue]));
+  const definitions = [
+    SILVER_ROOM_NEW_PLACE,
+    SILVER_ROOM_COME_HOME,
+    SILVER_ROOM_DRESS_ASK,
+    BIG_NIGHT_MARGO_WAKE,
+  ];
+
+  for (const definition of definitions) {
+    definition.lines.forEach((line, index) => {
+      assert.deepEqual(byName.get(`vo.${definition.vo}.${index + 1}`), {
+        name: `vo.${definition.vo}.${index + 1}`,
+        voice: definition.voiceProfile,
+        say: line,
+      });
+      const reply = definition.replies?.[index];
+      if (reply) {
+        assert.deepEqual(byName.get(`vo.${definition.vo}.tony.${index + 1}`), {
+          name: `vo.${definition.vo}.tony.${index + 1}`,
+          voice: 'player',
+          say: reply,
+        });
+      }
+    });
+  }
+
+  assert.deepEqual(checkApartmentVoiceManifest(syncApartmentVoiceManifest({ sfx: [] })), []);
 });
