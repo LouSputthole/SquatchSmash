@@ -66,7 +66,7 @@ import { MANSION_NEXT_BEAT_ZONES, mansionAudioBanks } from './audio-banks.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
 import {
   MANSION_EVENING_BEAT_IDS, MISSION_IDS, POOL_FRAME_RESPECT, SCENE_IDS,
-  awardPoolFrameRespect, createCampaign,
+  awardPoolFrameRespect, createCampaign, createCampaignRadioAdapter,
 } from '../core/campaign.js';
 import { createFinalArcRuntimeSession } from '../core/final-arc-runtime.js';
 import {
@@ -846,25 +846,36 @@ const HOUSE_RADIO_HOUR = 21;
 const houseRadio = new Radio(audio, {
   setRadio: () => {},
   toast: () => {},
-}, { hour: HOUSE_RADIO_HOUR }, { venue: 'mansion' });
+}, { hour: HOUSE_RADIO_HOUR }, {
+  venue: 'mansion',
+  state: createCampaignRadioAdapter(mansionRecoveryCampaign, {
+    /* The billiard-bay and pool-deck cabinets are two speaker sets on the
+     * same physical house tuner. The Silent Squatch and repaired-house visits
+     * therefore share this one receiver id without colliding with either of
+     * the Prospect's own apartments. */
+    receiverId: 'mansion_house',
+    defaultPower: false,
+  }),
+});
 let activeRadioSet = radioSets[0] ?? null;
 if (activeRadioSet) houseRadio.setPosition(activeRadioSet.speakerPos);
-houseRadio.on = false;
-houseRadio.preferredOn = false;
+
+function syncHouseRadioSets() {
+  for (const set of radioSets) set.setLit(houseRadio.on && activeRadioSet === set);
+}
 
 /** Use a set: move the sound to it, then toggle it. */
 function useRadioSet(set) {
   if (!set) return;
   if (houseRadio.on && activeRadioSet === set) {
     houseRadio.turnOff();
-    set.setLit(false);
+    syncHouseRadioSets();
     return;
   }
-  activeRadioSet?.setLit(false);
   activeRadioSet = set;
   houseRadio.setPosition(set.speakerPos);
   if (!houseRadio.on) houseRadio.turnOn();
-  set.setLit(true);
+  syncHouseRadioSets();
 }
 
 /**
@@ -2691,11 +2702,11 @@ async function beginTour() {
   input.requestPointerLock();
   await audio.init();
   startAmbience();
-  /* The station's own record list. It is loaded but the set stays OFF: this
-   * is a tour of an empty house, and a radio that starts talking at you
-   * before you have touched it is not what "a radio in the pool table room"
-   * means. Either set switches it on. */
-  houseRadio.loadManifest().catch(() => {});
+  /* The station's record list can fetch behind the blocking start bank. The
+   * receiver itself remains physically off until this user gesture even when
+   * its saved switch is on; Radio's constructor separates `preferredOn` from
+   * live `on` precisely so a reload never attempts autoplay at module load. */
+  const houseRadioManifest = houseRadio.loadManifest().catch(() => []);
   /* The armory's sound. `weaponCueNames()` asks for both halves: the thirty
    * `weapon.*` cues this system wants recorded (which match nothing yet and
    * cost nothing to name) and the recordings standing in for them tonight,
@@ -2753,6 +2764,15 @@ async function beginTour() {
    * `startSuiteBeds` for why these two beds are the only ones that wait. */
   startSuiteBeds();
   mansionBanks.kickoff();
+  /* Restore only after the trusted start click has initialized audio. The
+   * first cabinet is the deterministic home for a restored house tuner; using
+   * either cabinet afterward moves the same single Radio instance, so no two
+   * `radio.talk` beds can overlap. */
+  if (houseRadio.preferredOn) {
+    await houseRadioManifest;
+    houseRadio.turnOn({ remember: false });
+    syncHouseRadioSets();
+  }
   /* PROJECT SILENT SQUATCH begins NOW, with its voice bank decoded -- the
    * mount no longer autostarts it at module load (see `autoStart: false`
    * below). `start()` is idempotent, so a `?checkpoint=` jump that outran
@@ -3362,6 +3382,9 @@ window.mansion = {
     })),
     radioSets: radioSets.length,
     get radioOn() { return houseRadio.on; },
+    get radioPreferredOn() { return houseRadio.preferredOn; },
+    get radioSavedPower() { return houseRadio.state?.load?.().power ?? null; },
+    get activeRadioSet() { return radioSets.indexOf(activeRadioSet); },
     get radioTracks() { return houseRadio.playlist.length; },
     useRadio: (i = 0) => useRadioSet(radioSets[i]),
   },

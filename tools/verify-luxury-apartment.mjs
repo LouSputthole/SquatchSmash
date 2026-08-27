@@ -162,7 +162,12 @@ try {
       '--autoplay-policy=no-user-gesture-required',
     ],
   });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  /* This verifier ordinarily needs one page. The receiver reload receipt
+   * needs a second tab sharing the first tab's localStorage, so own an
+   * explicit context instead of Browser.newPage's one-page convenience
+   * context (which Playwright deliberately refuses to extend). */
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
   page.setDefaultTimeout(180000);
   page.setDefaultNavigationTimeout(180000);
   page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
@@ -173,7 +178,11 @@ try {
     problems.push(`request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
   });
 
-  await page.goto(`http://127.0.0.1:${PORT}/luxury-apartment.html?preview=1`, {
+  /* No preview query here: preview campaign storage is intentionally
+   * page-local and disposable. This standalone fresh-save landing is still
+   * unrouted, but it owns real browser localStorage, which is the receiver
+   * persistence boundary this verifier is proving. */
+  await page.goto(`http://127.0.0.1:${PORT}/luxury-apartment.html`, {
     waitUntil: 'domcontentloaded',
   });
   await page.waitForFunction(() => Boolean(window.LUXURY_APARTMENT?.home));
@@ -831,6 +840,140 @@ try {
   check('entering the apartment hands control to the first-person runtime',
     playing.phase === 'active' && playing.mode === 'walk' && playing.overlayHidden,
     JSON.stringify(playing));
+
+  /* The hi-fi is a real physical receiver, so prove its save through the
+   * same quick E press a player uses. Positioning the player is only test
+   * setup; target resolution and the toggle travel through the live camera
+   * ray, shared InteractionSystem, canonical input Adapter, and DOM key. */
+  const stageLuxuryRadio = async (targetPage) => targetPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const target = runtime.home.utilityTargets.radio;
+    const pose = runtime.home.poses.radio;
+    runtime.teleport('main');
+    runtime.player.position.set(pose.exit.x, pose.exit.y + 1.68, pose.exit.z);
+    runtime.player.ground = pose.exit.y;
+    runtime.player.mode = 'walk';
+    runtime.player.velocity.set(0, 0, 0);
+    runtime.player.clearKeys();
+    runtime.home.root.updateMatrixWorld(true);
+    const targetPosition = target.getWorldPosition(new target.position.constructor());
+    const delta = targetPosition.clone().sub(runtime.player.position);
+    runtime.player.yaw = Math.atan2(-delta.x, -delta.z);
+    runtime.player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    runtime.player.update(0.001);
+    runtime.camera.updateMatrixWorld(true);
+    runtime.interaction.setPaused(false);
+    runtime.interaction.update(0);
+    return {
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      distance: runtime.camera.position.distanceTo(targetPosition),
+    };
+  });
+  const initialRadio = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    return {
+      on: runtime.radio.on,
+      preferredOn: runtime.radio.preferredOn,
+      savedPower: runtime.radio.state.load().power,
+      worldOn: runtime.home.state.radioOn,
+    };
+  });
+  check('a fresh luxury-apartment receiver is default-off',
+    !initialRadio.on && !initialRadio.preferredOn
+      && !initialRadio.savedPower && !initialRadio.worldOn,
+    JSON.stringify(initialRadio));
+
+  const luxuryRadioApproach = await stageLuxuryRadio(page);
+  if (!await page.evaluate(() => document.pointerLockElement?.tagName === 'CANVAS')) {
+    await page.locator('canvas').click({ position: { x: 640, y: 360 } });
+    await stageLuxuryRadio(page);
+  }
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => window.LUXURY_APARTMENT.radio.on === true);
+  const radioOn = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    return {
+      on: runtime.radio.on,
+      preferredOn: runtime.radio.preferredOn,
+      savedPower: runtime.radio.state.load().power,
+      worldOn: runtime.home.state.radioOn,
+      talkBeds: Number(runtime.audio.loops.has('radio.talk')),
+    };
+  });
+  check('real E on the luxury hi-fi resolves the target and persists its switch',
+    luxuryRadioApproach.targetResolved && luxuryRadioApproach.distance < 3
+      && radioOn.on && radioOn.preferredOn && radioOn.savedPower && radioOn.worldOn
+      && radioOn.talkBeds === 1,
+    JSON.stringify({ approach: luxuryRadioApproach, radioOn }));
+
+  /* A second page in the SAME browser context is the reload receipt. The
+   * constructor may remember the switch, but it must remain silent until a
+   * new start-button gesture has unlocked that page's AudioContext. Suspend
+   * the first page before opening it so this lifecycle proof never creates
+   * two audible station contexts merely for the sake of testing one. */
+  await page.evaluate(() => window.LUXURY_APARTMENT.audio.ctx?.suspend());
+  await page.waitForFunction(() => window.LUXURY_APARTMENT.audio.ctx?.state === 'suspended');
+  const radioReloadPage = await page.context().newPage();
+  radioReloadPage.setDefaultTimeout(180000);
+  radioReloadPage.on('pageerror', (error) => problems.push(`radio reload pageerror: ${error.message}`));
+  radioReloadPage.on('console', (message) => {
+    if (message.type() === 'error') problems.push(`radio reload console: ${message.text().slice(0, 400)}`);
+  });
+  radioReloadPage.on('requestfailed', (request) => {
+    problems.push(`radio reload request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
+  });
+  await radioReloadPage.goto(`http://127.0.0.1:${PORT}/luxury-apartment.html`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await radioReloadPage.waitForFunction(() => Boolean(window.LUXURY_APARTMENT?.home));
+  const beforeReloadGesture = await radioReloadPage.evaluate(() => ({
+    on: window.LUXURY_APARTMENT.radio.on,
+    preferredOn: window.LUXURY_APARTMENT.radio.preferredOn,
+    savedPower: window.LUXURY_APARTMENT.radio.state.load().power,
+    worldOn: window.LUXURY_APARTMENT.home.state.radioOn,
+  }));
+  check('reload remembers luxury receiver power without attempting pre-gesture autoplay',
+    !beforeReloadGesture.on && beforeReloadGesture.preferredOn
+      && beforeReloadGesture.savedPower && !beforeReloadGesture.worldOn,
+    JSON.stringify(beforeReloadGesture));
+  await radioReloadPage.locator('#start-btn').click();
+  await radioReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT?.state?.phase === 'active'
+      && window.LUXURY_APARTMENT.radio.on === true
+  ));
+  const afterReloadGesture = await radioReloadPage.evaluate(() => ({
+    on: window.LUXURY_APARTMENT.radio.on,
+    preferredOn: window.LUXURY_APARTMENT.radio.preferredOn,
+    savedPower: window.LUXURY_APARTMENT.radio.state.load().power,
+    worldOn: window.LUXURY_APARTMENT.home.state.radioOn,
+    talkBeds: Number(window.LUXURY_APARTMENT.audio.loops.has('radio.talk')),
+  }));
+  const originalRadioContext = await page.evaluate(() => window.LUXURY_APARTMENT.audio.ctx?.state ?? null);
+  check('the next real start gesture restores one luxury receiver bed and synchronizes the world prop',
+    afterReloadGesture.on && afterReloadGesture.preferredOn
+      && afterReloadGesture.savedPower && afterReloadGesture.worldOn
+      && afterReloadGesture.talkBeds === 1 && originalRadioContext === 'suspended',
+    JSON.stringify({ reload: afterReloadGesture, originalRadioContext }));
+  await radioReloadPage.close();
+
+  await page.bringToFront();
+  await page.evaluate(() => window.LUXURY_APARTMENT.audio.ctx?.resume());
+  if (!await page.evaluate(() => document.pointerLockElement?.tagName === 'CANVAS')) {
+    await page.locator('canvas').click({ position: { x: 640, y: 360 } });
+  }
+  await stageLuxuryRadio(page);
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => window.LUXURY_APARTMENT.radio.on === false);
+  const radioOff = await page.evaluate(() => ({
+    on: window.LUXURY_APARTMENT.radio.on,
+    preferredOn: window.LUXURY_APARTMENT.radio.preferredOn,
+    savedPower: window.LUXURY_APARTMENT.radio.state.load().power,
+    worldOn: window.LUXURY_APARTMENT.home.state.radioOn,
+  }));
+  check('a second real E press persists off and leaves later verifier work with no station overlap',
+    !radioOff.on && !radioOff.preferredOn && !radioOff.savedPower && !radioOff.worldOn,
+    JSON.stringify(radioOff));
 
   /* Beats 16 and 17 are one physical two-floor scene, so their evidence is
    * staged from its own deterministic presentation hooks rather than from

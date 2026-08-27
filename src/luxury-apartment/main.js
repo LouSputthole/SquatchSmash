@@ -27,6 +27,7 @@ import { SmokeSystem } from '../world/smoke.js';
 import {
   SCENE_IDS,
   createCampaign,
+  createCampaignRadioAdapter,
   navigateCampaign,
 } from '../core/campaign.js';
 import {
@@ -297,6 +298,10 @@ const audio = new AudioEngine();
 const tv = new Tv({ audio });
 const radio = new Radio(audio, hud, time, {
   venue: 'luxury_apartment',
+  state: createCampaignRadioAdapter(campaign, {
+    receiverId: 'luxury_apartment',
+    defaultPower: false,
+  }),
   canPlayNotice: () => false,
   output: 0.88,
   hudVisible: () => radioHudWithinRange(camera?.position, home?.radioPos),
@@ -1160,6 +1165,14 @@ startButton.addEventListener('click', async () => {
       ...radio.preloadCueNames({ startupOnly: true }),
     ],
   });
+  /* Owner engineering decision, 2026-08-27: each physical receiver keeps
+   * its switch across visits. Radio deliberately loads that preference into
+   * `preferredOn` while leaving `on` false, so no restored set can challenge
+   * browser autoplay before this real start-button gesture has initialized
+   * the AudioContext. `remember: false` restores the saved switch without
+   * manufacturing a second save write on every apartment reload. */
+  if (radio.preferredOn) radio.turnOn({ remember: false });
+  home.state.radioOn = radio.on;
   audio.startLoop('luxury.city.day', {
     name: 'ambience.city.day', volume: 0.02 + time.dayness * 0.10, ambience: true, fade: 2,
   });

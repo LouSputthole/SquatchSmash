@@ -595,7 +595,7 @@ test('THE SPECIAL MEETING: the block asks for its whole cue catalogue by name', 
   for (const cue of missedByPrefixAlone) assert.ok(delivered(cue), cue);
 });
 
-test('Mansion: the house receiver and the sets decode, and they do it in the background bank', () => {
+test('Mansion: the one persistent house receiver decodes in the background bank', () => {
   /* THE SIXTH RADIO-HOSTING PAGE, AND THE ONLY ONE THAT NEVER ASKED.
    *
    * The flat, the Bing, Silver Pines' cart, the Beef Run cockpit and NO WAKE
@@ -642,9 +642,30 @@ test('Mansion: the house receiver and the sets decode, and they do it in the bac
   assert.match(mainSource, /mansionAudioBanks\(\n\s+mansionVisit,\n\s+houseRadio\.preloadCueNames\(\{ hours: \[HOUSE_RADIO_HOUR\] \}\),\n\)/);
   /* One hour, read twice from one constant -- the receiver's clock and the
    * preload window cannot drift apart into a bank that decodes the wrong show. */
-  assert.match(mainSource, /\{ hour: HOUSE_RADIO_HOUR \}, \{ venue: 'mansion' \}/);
-  /* And it is still built switched off, which is the affordability argument. */
-  assert.match(mainSource, /houseRadio\.on = false;\n\s*houseRadio\.preferredOn = false;/);
+  assert.match(mainSource, /\{ hour: HOUSE_RADIO_HOUR \}, \{\n\s+venue: 'mansion'/);
+  /* One physical tuner across both campaign visits, default-off on a new
+   * save. A saved-on tuner is restored only inside beginTour, after the real
+   * start gesture initializes the AudioContext, and that restoration cannot
+   * create a second radio.talk owner because there is only one Radio. */
+  assert.match(mainSource,
+    /state: createCampaignRadioAdapter\(mansionRecoveryCampaign, \{[\s\S]*?receiverId: 'mansion_house',[\s\S]*?defaultPower: false,/);
+  assert.match(mainSource,
+    /if \(houseRadio\.preferredOn\) \{[\s\S]*?houseRadio\.turnOn\(\{ remember: false \}\);[\s\S]*?syncHouseRadioSets\(\);/);
+  assert.equal((mainSource.match(/\bnew Radio\(/g) ?? []).length, 1);
+});
+
+test('Luxury and Mansion persist separate default-off physical receivers after audio unlock', () => {
+  const luxurySource = readSource('src/luxury-apartment/main.js');
+  const mansionSource = readSource('src/mansion/main.js');
+
+  assert.match(luxurySource,
+    /state: createCampaignRadioAdapter\(campaign, \{[\s\S]*?receiverId: 'luxury_apartment',[\s\S]*?defaultPower: false,/);
+  assert.match(luxurySource,
+    /await audio\.loadManifest\([\s\S]*?if \(radio\.preferredOn\) radio\.turnOn\(\{ remember: false \}\);\n\s+home\.state\.radioOn = radio\.on;/);
+  assert.match(mansionSource,
+    /state: createCampaignRadioAdapter\(mansionRecoveryCampaign, \{[\s\S]*?receiverId: 'mansion_house',[\s\S]*?defaultPower: false,/);
+  assert.doesNotMatch(luxurySource, /receiverId: 'mansion_house'/);
+  assert.doesNotMatch(mansionSource, /receiverId: 'luxury_apartment'/);
 });
 
 test('Mansion: every recorded mansion.* take is one the house actually plays', () => {
