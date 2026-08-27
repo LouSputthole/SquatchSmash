@@ -1,5 +1,5 @@
 {
-  "_comment": "Radio playlists. Drop audio files (mp3/ogg/m4a/wav) into this folder and list them here. `station` says which dial position a track belongs to — \"uncle\" for 98.8 UNCLE SQUATCH BEATS, \"ksqch\" for 101.7 KSQCH. Leave it out and the track lands on the first music station. Each station plays its own list in order and loops; a station with no tracks tunes to static and says why.",
+  "_comment": "Music catalog for the one live station, 97.8 THE SQUATCH, plus direct scene cues. Runtime playlist selection uses `cue` and exact `venue`; unscoped non-cue tracks enter 97.8's record pool. Historical `station` values (`uncle` / `ksqch`) are retained only as unresolved legacy metadata and do not create dial positions or filter playback. Do not revive or remove those identities until the owner decides their future.",
   "tracks": [
     {
       "file": "good-ole-days.mp3",

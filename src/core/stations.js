@@ -1,14 +1,16 @@
 /**
  * What is on the radio.
  *
- * Three stations. 97.8 THE SQUATCH is talk radio, and what is on depends on
- * the in-game hour -- the schedule below is the one the station advertises,
- * and it keeps to it. The other two are music, and each has its own playlist:
- * tracks in assets/music/manifest.json name the station they belong to.
+ * One station: 97.8 THE SQUATCH. What is on depends on the in-game hour --
+ * the schedule below is the one the station advertises, and it keeps to it.
+ * The station plays the roster's records between its talk, links, notices,
+ * tapes, commercials, and mission-aware news. The music manifest still keeps
+ * legacy `uncle` / `ksqch` tags as unresolved catalog metadata; Radio does not
+ * expose those former dial positions or filter its playlist by those tags.
  *
- * Nothing here is spoken by a voice actor. You hear a radio murmuring from
- * across the room and read what it is saying, which is roughly the
- * experience of having a radio on in another room anyway.
+ * Every spoken line here feeds both the runtime and tools/radio-cues.mjs.
+ * Delivered takes therefore retain one discoverable cue, voice, filename,
+ * current text, and take-ledger history instead of relying on captions alone.
  *
  * The 60-second station commercial is the one the player wrote, with one
  * exception: the original "Irish's Deep Dives" teaser was an antisemitic

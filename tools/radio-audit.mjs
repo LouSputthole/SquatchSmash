@@ -225,18 +225,18 @@ const RECEIVERS = Object.freeze({
     output: 1, hour: 'Authored 08:00', fullSongs: true,
   },
   luxury_apartment: {
-    sourceFile: 'src/luxury-apartment/main.js', receiverId: null,
-    venue: 'luxury_apartment', persisted: false, notice: 'Off', news: false,
+    sourceFile: 'src/luxury-apartment/main.js', receiverId: 'luxury_apartment',
+    venue: 'luxury_apartment', persisted: true, notice: 'Off', news: false,
     output: 0.88, hour: 'Live campaign clock', fullSongs: false,
   },
   mansion: {
-    sourceFile: 'src/mansion/main.js', receiverId: null, venue: 'mansion',
-    persisted: false, notice: 'Off', news: false, output: 1,
+    sourceFile: 'src/mansion/main.js', receiverId: 'mansion_house', venue: 'mansion',
+    persisted: true, notice: 'Off', news: false, output: 1,
     hour: 'Fixed 21:00', fullSongs: false,
   },
   mansion_return: {
-    sourceFile: 'src/mansion/main.js', receiverId: null, venue: 'mansion',
-    persisted: false, notice: 'Off', news: false, output: 1,
+    sourceFile: 'src/mansion/main.js', receiverId: 'mansion_house', venue: 'mansion',
+    persisted: true, notice: 'Off', news: false, output: 1,
     hour: 'Fixed 21:00', fullSongs: false,
   },
 });
@@ -724,7 +724,7 @@ function buildStationCatalog({ stations, musicTracks, durations, sfxByName }) {
 }
 
 async function buildCueInventory({ repoRoot, musicTracks, sfxManifest, voiceCueNames, contracts, sourceFiles, sourceTexts,
-  loudnessEvidence }) {
+  loudnessEvidence, contentEvidence }) {
   const sfxDir = path.join(repoRoot, 'assets/sfx');
   const musicDir = path.join(repoRoot, 'assets/music');
   const sfxFiles = await fs.readdir(sfxDir);
@@ -736,6 +736,8 @@ async function buildCueInventory({ repoRoot, musicTracks, sfxManifest, voiceCueN
   const records = [];
   const loudnessByFile = new Map((loudnessEvidence?.measurements ?? [])
     .map((measurement) => [measurement.file, measurement]));
+  const contentByCue = new Map((contentEvidence?.receipts ?? [])
+    .map((receipt) => [receipt.cue, receipt]));
   function actualFile(directory, fileMap, base, explicit) {
     const choices = explicit ? [explicit] : MUSIC_EXTENSIONS.map((extension) => `${base}${extension}`);
     for (const choice of choices) {
@@ -825,6 +827,13 @@ async function buildCueInventory({ repoRoot, musicTracks, sfxManifest, voiceCueN
       : `${record.manifest.voice ? `Voice: ${record.manifest.voice}. ` : ''}${record.manifest.prompt ? 'Generated SFX prompt recorded. ' : ''}License/source field not recorded in manifest.`;
     const measurement = loudnessByFile.get(record.relative);
     const loudnessCurrent = record.kind === 'music' && measurement && measurement.sha256 === record.hash;
+    const contentReceipt = contentByCue.get(record.id);
+    const spokenCue = record.kind === 'sfx' && typeof record.manifest.say === 'string'
+      && record.manifest.say.trim().length > 0;
+    const contentCurrent = spokenCue && contentReceipt
+      && contentReceipt.sha256 === record.hash
+      && contentReceipt.file === path.basename(record.relative)
+      && contentReceipt.status === 'MATCH';
     let loudness = record.file
       ? 'Not a long-form master — excluded from the music-master loudness pass; active speech/effect mix receipt pending'
       : 'Cannot measure — file missing';
@@ -836,6 +845,20 @@ async function buildCueInventory({ repoRoot, musicTracks, sfxManifest, voiceCueN
       } else {
         loudness = 'UNMEASURED — run tools/audio-loudness-audit.mjs';
       }
+    }
+    let contentIdentity = 'NON-SPEECH — transcription is not applicable; inspect the authored prompt and active playback';
+    if (!record.file) {
+      contentIdentity = 'Cannot test — file missing';
+    } else if (spokenCue && contentCurrent) {
+      contentIdentity = `VERIFIED — hash-bound Scribe v2 transcript matches authored speech (${Number(contentReceipt.similarity).toFixed(4)})`;
+    } else if (spokenCue && contentReceipt) {
+      contentIdentity = contentReceipt.sha256 === record.hash
+        ? `REVIEW — transcription similarity ${Number(contentReceipt.similarity).toFixed(4)}; ${contentReceipt.status}`
+        : 'STALE — delivered speech hash changed after transcription';
+    } else if (spokenCue) {
+      contentIdentity = 'UNVERIFIED — spoken cue has no transcription receipt';
+    } else if (record.kind === 'music') {
+      contentIdentity = 'OWNER LISTEN — long-form music identity is not inferred from its filename or speech transcription';
     }
     let action = loudnessCurrent
       ? 'Keep; loudness is hash-bound. Verify audible content, dialogue masking, and lifecycle in the active scene.'
@@ -858,7 +881,7 @@ async function buildCueInventory({ repoRoot, musicTracks, sfxManifest, voiceCueN
       'Orphan status': record.file ? (orphan ? 'YES — no source/runtime use found' : 'No') : 'BROKEN — file missing',
       'Duplicate status': duplicateGroup.length > 1
         ? `IDENTICAL BY SHA-256: ${duplicateGroup.filter((item) => item !== record).map((item) => item.id).join('; ')}` : 'No byte-identical audit duplicate',
-      'Filename-content mismatch': record.file ? 'UNVERIFIED — manifest text/title is not an audio-content check' : 'Cannot test — file missing',
+      'Filename-content mismatch': contentIdentity,
       'Loudness issue': loudness,
       'Playback issue': !record.file ? 'Referenced asset is missing' : orphan ? 'No reachable runtime use found' : 'No source-level issue; active-play receipt pending',
       'Recommended action': action,
@@ -878,30 +901,32 @@ function buildProblems({ source, voiceCueCount, cueRows, musicTracks, timelineRo
     .filter((venue) => !musicTracks.some((track) => !track.cue && track.venue === venue));
   const measuredMasters = cueRows.filter((row) => /^(music|track):/.test(row['Cue ID'])
     && String(row['Loudness issue']).startsWith('Measured:')).length;
+  const verifiedSpoken = cueRows.filter((row) => String(row['Filename-content mismatch']).startsWith('VERIFIED —')).length;
+  const unverifiedSpoken = cueRows.filter((row) => /^(UNVERIFIED|STALE|REVIEW) —/.test(String(row['Filename-content mismatch']))).length;
   const rows = [
     {
       Severity: 'P1', Scene: 'Global', 'Station or cue': 'Station architecture',
-      Problem: 'The station source comment still documents three selectable stations, but STATIONS exports one live station.',
-      Evidence: lineReference('src/core/stations.js', source.stations, 'Three stations.'),
-      'Player impact': 'No direct runtime failure; developers can make wrong playlist and UI assumptions.',
-      'Proposed fix': 'Mechanical: update the comment after the owner decides whether the two legacy identities are retired or returning.',
-      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'OWNER: retire or restore `uncle` and `ksqch` identities.', Status: 'OPEN',
+      Problem: 'Runtime and source documentation now agree that 97.8 THE SQUATCH is the one live station; `uncle` and `ksqch` remain unresolved legacy identities only.',
+      Evidence: lineReference('src/core/stations.js', source.stations, 'One station: 97.8 THE SQUATCH.'),
+      'Player impact': 'Resolved for current development: agents no longer mistake legacy tags for selectable dials.',
+      'Proposed fix': 'Documentation is corrected. Do not revive or delete legacy identities until the owner decides their future.',
+      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'OWNER: retire or restore `uncle` and `ksqch` identities.', Status: 'DOCUMENTED — OWNER DECISION OPEN',
     },
     {
       Severity: 'P1', Scene: 'Global', 'Station or cue': 'assets/music/manifest.json `station`',
-      Problem: 'The manifest says `station` assigns dial position; Radio.playlist ignores `station` and filters only `cue` plus exact `venue`.',
-      Evidence: `${lineReference('assets/music/manifest.json', source.musicManifest, '`station` says')} vs ${lineReference('src/core/radio.js', source.radio, 'return this.tracks.filter')}`,
-      'Player impact': 'Legacy-tagged unscoped records can air on 97.8 in every physical receiver.',
-      'Proposed fix': 'Mechanical after OWNER decision: reconcile manifest metadata with actual selection logic and add a contract test.',
-      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'OWNER: desired station/venue allocation for existing tracks.', Status: 'OPEN',
+      Problem: 'The manifest now labels `station` as ignored legacy catalog metadata; current Radio.playlist intentionally filters only `cue` plus exact `venue`.',
+      Evidence: `${lineReference('assets/music/manifest.json', source.musicManifest, 'Historical `station` values')} and ${lineReference('src/core/radio.js', source.radio, 'return this.tracks.filter')}`,
+      'Player impact': 'Current behavior is documented: legacy-tagged unscoped records can air on 97.8 in every physical receiver.',
+      'Proposed fix': 'After OWNER decides station/venue allocation, update metadata and runtime together with a contract test.',
+      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'OWNER: desired station/venue allocation for existing tracks.', Status: 'DOCUMENTED — OWNER DECISION OPEN',
     },
     {
       Severity: 'P1', Scene: 'Luxury Apartment; Mansion; Mansion Return', 'Station or cue': 'Physical 97.8 receivers',
-      Problem: 'These receiver implementations do not use createCampaignRadioAdapter while the apartment, cabin, Bing car, Beef Run, No Wake, and golf cart do.',
-      Evidence: `${lineReference('src/luxury-apartment/main.js', source.luxury, "venue: 'luxury_apartment'")}; ${lineReference('src/mansion/main.js', source.mansion, 'const houseRadio = new Radio')}`,
-      'Player impact': 'Power, volume, cursor, and selection continuity reset on reload or scene return.',
-      'Proposed fix': 'Mechanical: add unique receiver IDs and the shared adapter if those radios should follow campaign continuity.',
-      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'No; use the established shared receiver behavior.', Status: 'OPEN',
+      Problem: 'Luxury Apartment and both Mansion visits previously reset their physical 97.8 receivers instead of using the shared campaign adapter.',
+      Evidence: `${lineReference('src/luxury-apartment/main.js', source.luxury, "receiverId: 'luxury_apartment'")}; ${lineReference('src/mansion/main.js', source.mansion, "receiverId: 'mansion_house'")}; focused residency and real-browser reload receipts.`,
+      'Player impact': 'Resolved: saved power, volume, cursor, and selection now survive reload without autoplay before the player gesture or duplicate Mansion talk beds.',
+      'Proposed fix': 'Implemented: unique Luxury ownership and one shared physical Mansion house tuner, both default-off and restored after audio unlock.',
+      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'No; used the established shared receiver behavior.', Status: 'RESOLVED',
     },
     {
       Severity: 'P1', Scene: 'Global', 'Station or cue': 'Radio + venue/mission scores',
@@ -962,11 +987,12 @@ function buildProblems({ source, voiceCueCount, cueRows, musicTracks, timelineRo
     },
     {
       Severity: 'P2', Scene: 'Global', 'Station or cue': 'Filename/content and source-only audit limit',
-      Problem: 'A filename, manifest title, or current cue text does not prove the recording actually contains that content.',
-      Evidence: 'Every Cue Inventory row marks audio identity UNVERIFIED; no transcription/listening comparison is part of the current generator.',
-      'Player impact': 'A correctly named but stale/wrong take can pass source checks.',
-      'Proposed fix': 'Mechanical: add transcription or supervised listening comparison and record exceptions explicitly.',
-      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'No for detection; OWNER resolves creative mismatches.', Status: 'OPEN',
+      Problem: `${verifiedSpoken} spoken station/news cues have current hash-bound Scribe v2 receipts; ${unverifiedSpoken} spoken cues remain stale, missing, or below the review threshold. Long-form music still requires owner listening/provenance.`,
+      Evidence: 'docs/audits/radio/content-transcriptions.json binds cue, current authored text hash, voice, delivered MP3 hash, transcript, language, and similarity.',
+      'Player impact': 'A correctly named but stale/wrong spoken take now fails the content gate; music identity is still explicitly not inferred from filenames.',
+      'Proposed fix': 'Mechanical spoken-content verification is implemented. OWNER supplies provenance and reviews retained music identity; rerender any future speech review row.',
+      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'OWNER only for long-form music provenance/identity or a genuine creative speech mismatch.',
+      Status: unverifiedSpoken ? 'OPEN — SPOKEN CONTENT REVIEW' : 'RESOLVED FOR SPOKEN CUES — MUSIC OWNER REVIEW',
     },
     {
       Severity: 'P3', Scene: 'Campaign-wide', 'Station or cue': 'Intentional silence',
@@ -996,15 +1022,15 @@ function buildProblems({ source, voiceCueCount, cueRows, musicTracks, timelineRo
   return rows;
 }
 
-function buildRevampPlan({ measuredMasters, musicMasters }) {
+function buildRevampPlan({ measuredMasters, musicMasters, verifiedSpokenCues, spokenCueTotal }) {
   return [
     { Order: 1, 'Work item': 'Generate the source-driven radio/music audit and five review sheets', Files: 'tools/radio-audit.mjs; docs/audits/radio/*.csv; docs/audits/SQUATCHSMASH-RADIO-AUDIT.xlsx; docs/audits/SQUATCHSMASH-RADIO-REVAMP.md', Dependency: 'Current manifests, station data, scene contracts, campaign spine', Risk: 'Low', 'Acceptance check': 'Generator --check passes; all five sheets render; every campaign beat is represented', Status: 'DONE', Commit: 'This audit commit' },
-    { Order: 2, 'Work item': 'Reconcile stale station comments and manifest semantics', Files: 'src/core/stations.js; assets/music/manifest.json; src/core/radio.js; tests/radio-*.test.mjs', Dependency: 'OWNER rules on legacy uncle/ksqch identities', Risk: 'Medium', 'Acceptance check': 'Docs, manifest, runtime selection, and tests describe the same station model', Status: 'WAITING ON OWNER', Commit: '' },
-    { Order: 3, 'Work item': 'Make receiver persistence consistent', Files: 'src/luxury-apartment/main.js; src/mansion/main.js; src/core/campaign.js', Dependency: 'Existing createCampaignRadioAdapter', Risk: 'Low', 'Acceptance check': 'Power, volume, cursor, and selection survive reload without cross-receiver collisions', Status: 'READY', Commit: '' },
-    { Order: 4, 'Work item': 'Add stop, restore, overlap, and teardown browser receipts', Files: 'Existing Playwright scene verifiers; src/core/scene-lifecycle.js; audio residency tests', Dependency: 'Stable receiver IDs and current music ownership', Risk: 'Medium', 'Acceptance check': 'Each changed scene proves active keys, stops, reload state, console errors, and no unintended concurrent masters', Status: 'READY', Commit: '' },
-    { Order: 5, 'Work item': 'Add repeatable duration, integrated-loudness, true-peak, and identity evidence', Files: 'tools/audio-loudness-audit.mjs; docs/audits/radio/loudness-measurements.json; tools/radio-audit.mjs; generated Cue Inventory', Dependency: 'Existing Playwright Chromium decoder; supervised listening/transcription for content identity', Risk: 'Medium', 'Acceptance check': 'Every retained master has measured duration/LUFS/peak and verified content or an explicit exception', Status: measuredMasters === musicMasters ? 'LOUDNESS DONE — CONTENT IDENTITY PENDING' : 'PARTIAL — LOUDNESS DRIFT', Commit: '' },
+    { Order: 2, 'Work item': 'Reconcile station documentation and manifest semantics while preserving unresolved legacy identities', Files: 'src/core/stations.js; assets/music/manifest.json; src/core/radio.js; tests/radio-*.test.mjs', Dependency: 'OWNER rules on legacy uncle/ksqch identities for any runtime change', Risk: 'Medium', 'Acceptance check': 'Docs, manifest, runtime selection, and tests describe the same current station model without guessing the legacy identities future', Status: 'DOCUMENTATION DONE — IDENTITY DECISION OWNER', Commit: '' },
+    { Order: 3, 'Work item': 'Make receiver persistence consistent', Files: 'src/luxury-apartment/main.js; src/mansion/main.js; src/core/campaign.js', Dependency: 'Existing createCampaignRadioAdapter', Risk: 'Low', 'Acceptance check': 'Power, volume, cursor, and selection survive reload without cross-receiver collisions', Status: 'DONE', Commit: '4d7d01ef' },
+    { Order: 4, 'Work item': 'Add stop, restore, overlap, and teardown browser receipts', Files: 'Existing Playwright scene verifiers; src/core/scene-lifecycle.js; audio residency tests', Dependency: 'Stable receiver IDs and current music ownership', Risk: 'Medium', 'Acceptance check': 'Each changed scene proves active keys, stops, reload state, console errors, and no unintended concurrent masters', Status: 'HOME RECEIVER RECEIPTS DONE — CAMPAIGN MIX PASS OPEN', Commit: '4d7d01ef' },
+    { Order: 5, 'Work item': 'Add repeatable duration, integrated-loudness, true-peak, and identity evidence', Files: 'tools/audio-loudness-audit.mjs; tools/verify-radio-content.ps1; docs/audits/radio/loudness-measurements.json; docs/audits/radio/content-transcriptions.json; tools/radio-audit.mjs; generated Cue Inventory', Dependency: 'Existing Playwright Chromium decoder and ElevenLabs Scribe v2 for spoken identity', Risk: 'Medium', 'Acceptance check': 'Every retained master has measured duration/LUFS/peak; every spoken cue has a current transcript; music identity remains an explicit owner review', Status: measuredMasters === musicMasters && verifiedSpokenCues === spokenCueTotal ? 'LOUDNESS + SPOKEN IDENTITY DONE — MUSIC OWNER REVIEW' : 'PARTIAL — EVIDENCE DRIFT', Commit: '' },
     { Order: 6, 'Work item': 'Resolve OWNER programming decisions', Files: 'Problems and Decisions sheet', Dependency: 'Owner chooses legacy stations, venue allocation, news coverage, provenance, and any host rewrite', Risk: 'High if guessed', 'Acceptance check': 'Every OWNER row has an explicit answer; no track is silently replaced or deleted', Status: 'WAITING ON OWNER', Commit: '' },
-    { Order: 7, 'Work item': 'Implement approved mechanical trigger, stop, restore, and selection fixes', Files: 'src/core/radio.js; scene-owned score modules; manifests; relevant tests', Dependency: 'Orders 2–6', Risk: 'Medium', 'Acceptance check': 'Source contracts and real-browser receipts pass; owner-selected material remains intact', Status: 'BLOCKED BY DECISIONS/EVIDENCE', Commit: '' },
+    { Order: 7, 'Work item': 'Implement approved mechanical trigger, stop, restore, and selection fixes', Files: 'src/core/radio.js; scene-owned score modules; manifests; relevant tests', Dependency: 'Orders 2–6', Risk: 'Medium', 'Acceptance check': 'Source contracts and real-browser receipts pass; owner-selected material remains intact', Status: 'HOME RECEIVER FIX DONE — PROGRAMMING CHANGES WAIT ON OWNER', Commit: '4d7d01ef' },
     { Order: 8, 'Work item': 'Run campaign-wide active-play music/dialogue mix QA', Files: 'All Scene Timeline rows; Playwright traces and scene evidence', Dependency: 'Mechanical fixes and loudness measurements', Risk: 'Medium', 'Acceptance check': 'Dialogue remains intelligible; intentional silence lands; no stale loop crosses a scene handoff', Status: 'PLANNED', Commit: '' },
     { Order: 9, 'Work item': 'Regenerate ledgers and certify the final radio revamp', Files: 'Generated dialogue/audio/take ledgers; check:radio-vo; scene tests; campaign marathon if handoffs change', Dependency: 'Any authored line or route changes', Risk: 'Low', 'Acceptance check': 'All applicable cue, take, audio, radio, scene, and campaign gates actually run and pass', Status: 'PLANNED', Commit: '' },
   ];
@@ -1038,6 +1064,7 @@ This is the implementation plan paired with [SQUATCHSMASH-RADIO-AUDIT.xlsx](./SQ
 - Radio/music rows with no reachable source/runtime use: **${data.summary.orphans}**.
 - Referenced audit assets missing on disk: **${data.summary.missingAssets}**.
 - Long-form masters with current hash-bound loudness evidence: **${data.summary.measuredMasters} / ${data.summary.musicMasters}**.
+- Spoken station/news cues with current hash-bound Scribe receipts: **${data.summary.verifiedSpokenCues} / ${data.summary.spokenCueTotal}**.
 - Live 97.8 programming pool: **${station?.['Track count'] ?? 0}** non-cue tracks before venue filtering.
 
 ## What is actually built
@@ -1068,12 +1095,13 @@ ${markdownTable(SHEETS['Revamp Plan'], data.rows['Revamp Plan'])}
 - [Station Catalog CSV](./radio/station-catalog.csv)
 - [Cue Inventory CSV](./radio/cue-inventory.csv)
 - [Hash-bound loudness measurements](./radio/loudness-measurements.json)
+- [Hash-bound spoken-content transcriptions](./radio/content-transcriptions.json)
 - [Problems and Decisions CSV](./radio/problems-and-decisions.csv)
 - [Revamp Plan CSV](./radio/revamp-plan.csv)
 
 ## Verification boundary
 
-This audit proves source/manifests/route coverage, measures MP3 duration, and carries hash-bound integrated loudness/sample-peak/4× intersample-peak evidence for every long-form master. It does **not** claim that a named recording contains the current script, that two simultaneous systems mix correctly in a browser, or that measured loudness has been normalized. Those remain explicit rows in the workbook instead of assumptions.
+This audit proves source/manifests/route coverage, measures MP3 duration, carries hash-bound integrated loudness/sample-peak/4× intersample-peak evidence for every long-form master, and verifies every spoken station/news take against its current authored text with Scribe v2. It does **not** claim a song's identity from its filename, claim every campaign-wide overlap has been mixed by ear, or claim that measured loudness has been normalized. Those remaining boundaries stay explicit in the workbook.
 
 Regenerate deterministic text artifacts with:
 
@@ -1081,6 +1109,7 @@ Regenerate deterministic text artifacts with:
 node tools/radio-audit.mjs
 node tools/radio-audit.mjs --check
 node tools/audio-loudness-audit.mjs --check
+pwsh -NoProfile -File tools/verify-radio-content.ps1 -Check
 npm run check:radio-vo
 \`\`\`
 
@@ -1110,6 +1139,10 @@ export async function buildAuditData({ repoRoot = DEFAULT_ROOT } = {}) {
     path.join(repoRoot, 'docs/audits/radio/loudness-measurements.json'),
     { measurements: [] },
   );
+  const contentEvidence = await readOptionalJson(
+    path.join(repoRoot, 'docs/audits/radio/content-transcriptions.json'),
+    { receipts: [] },
+  );
   const sourceFilesAbsolute = await walkFiles(path.join(repoRoot, 'src'), (file) => file.endsWith('.js'));
   const sourceTexts = await Promise.all(sourceFilesAbsolute.map((file) => fs.readFile(file, 'utf8')));
   const sourceFiles = sourceFilesAbsolute.map((file) => path.relative(repoRoot, file).replace(/\\/g, '/'));
@@ -1129,7 +1162,8 @@ export async function buildAuditData({ repoRoot = DEFAULT_ROOT } = {}) {
     beatClock,
   });
   const cueInventory = await buildCueInventory({ repoRoot, musicTracks: musicManifest.tracks,
-    sfxManifest, voiceCueNames, contracts: SCENE_CONTRACTS, sourceFiles, sourceTexts, loudnessEvidence });
+    sfxManifest, voiceCueNames, contracts: SCENE_CONTRACTS, sourceFiles, sourceTexts,
+    loudnessEvidence, contentEvidence });
   const sfxByName = new Map(sfxManifest.sfx.map((cue) => [cue.name, cue]));
   const stationCatalog = buildStationCatalog({ stations: stationsModule.STATIONS,
     musicTracks: musicManifest.tracks, durations: cueInventory.durations, sfxByName });
@@ -1137,7 +1171,10 @@ export async function buildAuditData({ repoRoot = DEFAULT_ROOT } = {}) {
     cueRows: cueInventory.rows, musicTracks: musicManifest.tracks, timelineRows: timeline });
   const measuredMasters = cueInventory.rows.filter((row) => /^(music|track):/.test(row['Cue ID'])
     && String(row['Loudness issue']).startsWith('Measured:')).length;
-  const revamp = buildRevampPlan({ measuredMasters, musicMasters: musicManifest.tracks.length });
+  const verifiedSpokenCues = cueInventory.rows.filter((row) => String(row['Filename-content mismatch']).startsWith('VERIFIED —')).length;
+  const spokenCueTotal = cueInventory.rows.filter((row) => /^(VERIFIED|UNVERIFIED|STALE|REVIEW) —/.test(String(row['Filename-content mismatch']))).length;
+  const revamp = buildRevampPlan({ measuredMasters, musicMasters: musicManifest.tracks.length,
+    verifiedSpokenCues, spokenCueTotal });
   const rows = {
     'Scene Timeline': timeline,
     'Station Catalog': stationCatalog,
@@ -1165,6 +1202,7 @@ export async function buildAuditData({ repoRoot = DEFAULT_ROOT } = {}) {
     scenesCovered: sceneIdsCovered.size, liveStations: stationsModule.STATIONS.length,
     voiceCues: voiceCues.length,
     measuredMasters, musicMasters: musicManifest.tracks.length,
+    verifiedSpokenCues, spokenCueTotal,
     orphans: cueInventory.rows.filter((row) => String(row['Orphan status']).startsWith('YES')).length,
     missingAssets: cueInventory.rows.filter((row) => String(row['Orphan status']).startsWith('BROKEN')).length,
   };
@@ -1247,7 +1285,7 @@ export async function writeWorkbook(data, { outputFile, artifactToolUrl, preview
     };
     sheet.getRange(`A2:${lastColumn}2`).format.rowHeight = 34;
     sheet.mergeCells(`A3:${lastColumn}3`);
-    sheet.getRange('A3').values = [[`${rows.length} data rows · Generated by tools/radio-audit.mjs · Source-only findings remain explicitly marked for active-play/loudness/content verification.`]];
+    sheet.getRange('A3').values = [[`${rows.length} data rows · Generated by tools/radio-audit.mjs · Active-play mix, music identity, provenance, and owner decisions remain explicitly marked.`]];
     sheet.getRange(`A3:${lastColumn}3`).format = { font: { color: '#52645B', size: 9 }, wrapText: true };
     sheet.getRange(`A${headerRow}:${lastColumn}${headerRow}`).values = [columns];
     sheet.getRange(`A${headerRow}:${lastColumn}${headerRow}`).format = {
