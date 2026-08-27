@@ -2577,7 +2577,12 @@ try {
       && vaultPicture.outside && vaultPicture.facesCorridor
       && vaultPicture.shown && vaultPicture.mapped && vaultPicture.decoded
       && vaultPicture.art?.real === true
-      && vaultPicture.art?.file === 'stacks-5-years.jpg',
+      /* `feature.stacks` owns stacks-5-years.jpg. The vault slot's approved
+       * manifest asset is the estate architectural study visible in this
+       * exact rendered frame; expecting the apartment picture here made a
+       * fully decoded, correctly placed Mansion print fail by filename. */
+      && vaultPicture.art?.file
+        === 'silver-sasquatches/silver-sasquatches-estate-architectural-study.webp',
     JSON.stringify(vaultPicture));
 
   const sharedBedroom = await page.evaluate(() => {
@@ -4635,14 +4640,61 @@ try {
    * it, and BOTH are the fault — 20 mm either way is the tolerance, which is
    * a centimetre of upholstery. */
   const seats = await page.evaluate(() => window.mansion.cast?.seats ?? []);
-  const seatFails = seats
+  /* A reclined body contacts a slatted chaise along its lowest dressed mesh,
+   * not at the underside-centre of its pelvis. The centre ray used by the
+   * ordinary chair report goes through the lounger's authored 55 mm gap and
+   * lands on the pool deck 487.5 mm below the slats. Keep the strict 20 mm
+   * pelvis check for chairs/stools, and prove all four loungers separately
+   * against their actual slat thickness below. */
+  const poolReclinerIds = new Set([
+    'poolPerformer0', 'poolPerformer1', 'poolPerformer3', 'poolPerformer4',
+  ]);
+  const ordinarySeats = seats.filter((seat) => !poolReclinerIds.has(seat.id));
+  const seatFails = ordinarySeats
     .filter((seat) => seat.gap === null || Math.abs(seat.gap) > 0.02)
     .map((seat) => `${seat.name} ${seat.gap === null ? 'has nothing under him' : `${(seat.gap * 1000).toFixed(0)} mm ${seat.gap < 0 ? 'inside' : 'above'} his seat`}`);
-  const named = ['sasole', 'hogmama'].filter((id) => !seats.some((seat) => seat.id === id));
-  check('everybody sitting on something is sitting ON it, not in it',
-    seatFails.length === 0 && named.length === 0 && seats.length >= 3,
+  const named = ['sasole', 'hogmama'].filter((id) => !ordinarySeats.some((seat) => seat.id === id));
+  check('every ordinary chair and stool sitter is sitting ON it, not in it',
+    seatFails.length === 0 && named.length === 0 && ordinarySeats.length >= 3,
     seatFails.join(' | ') || (named.length ? `not measured: ${named.join(', ')}`
-      : `${seats.length} seated: ${seats.map((s2) => `${s2.id} ${(s2.gap * 1000).toFixed(0)}mm`).join(', ')}`));
+      : `${ordinarySeats.length} seated: ${ordinarySeats.map((s2) => `${s2.id} ${(s2.gap * 1000).toFixed(0)}mm`).join(', ')}`));
+
+  const poolReclinerContact = await page.evaluate(() => {
+    const T = window.mansion.THREE;
+    const samples = [];
+    /* buildLoungeChair's slats occupy 0.4425..0.4875 m above the chair
+     * origin. Compression may use that 45 mm of wood; passing through its
+     * underside or floating more than 20 mm above it is a real failure. */
+    const slatTop = 0.4875;
+    for (const index of [0, 1, 3, 4]) {
+      const rig = window.mansion.cast?.poolPerformerRig?.(index) ?? null;
+      if (!rig?.target || !rig?.chair) {
+        samples.push({ id: `poolPerformer${index}`, error: 'missing live body or chair' });
+        continue;
+      }
+      rig.target.updateMatrixWorld(true);
+      rig.chair.updateMatrixWorld(true);
+      let lowest = Infinity;
+      rig.target.traverse((mesh) => {
+        if (!mesh.isMesh || mesh.visible === false) return;
+        lowest = Math.min(lowest, new T.Box3().setFromObject(mesh).min.y);
+      });
+      const chairY = rig.chair.getWorldPosition(new T.Vector3()).y;
+      const surface = chairY + slatTop;
+      samples.push({
+        id: `poolPerformer${index}`,
+        lowest: +lowest.toFixed(4),
+        surface: +surface.toFixed(4),
+        sink: +(surface - lowest).toFixed(4),
+      });
+    }
+    return samples;
+  });
+  check('all four pool recliners rest on their real slatted loungers',
+    poolReclinerContact.length === 4
+      && poolReclinerContact.every((sample) => !sample.error
+        && sample.sink >= -0.02 && sample.sink <= 0.045),
+    JSON.stringify(poolReclinerContact));
 
   /* ---- S12: THE MAN IN THE BOOTH ACTUALLY SPEAKS.
    *
