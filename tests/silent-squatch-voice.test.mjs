@@ -113,12 +113,14 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
    * other night. Etc."* -- plus Snow, off the same note, in a work vest with a
    * quote for the foyer.
    *
-   * 13: the five guard posts get nine between them (the three perimeter
+   * 19: the five guard posts get nine between them (the three perimeter
    * walkers one each, and the stairs, basement and vault men a bark and an
-   * idle apiece), and Snow gets four. The whole scope is unreachable on the
-   * night of PROJECT SILENT SQUATCH and `MANSION_RETURN_SCOPES` is what keeps
-   * it out of that visit's audio banks. */
-  return: 13, // the guards acknowledging the siege, and Snow costing the repairs
+   * idle apiece), Snow gets four, and the repaired-mansion debrief gets six.
+   * Those six pay off the cockpit's wrong-city instrument clue before sending
+   * the Prospect after Sauce. The whole scope is unreachable on the night of
+   * PROJECT SILENT SQUATCH and `MANSION_RETURN_SCOPES` is what keeps it out of
+   * that visit's audio banks. */
+  return: 19, // guard/Snow acknowledgements plus the wrong-city debrief
   bar: 3, // the Bada Bing's bartender, working Lou's bar
   /* 2026-08-05: the whip became a HANDOVER and a repeatable swing rather than
    * one press on Gratin, so this scope gained the handover line, four

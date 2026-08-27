@@ -14,7 +14,6 @@ import http from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
 
 import { textHash } from './take-ledger.mjs';
 
@@ -130,6 +129,10 @@ function closeServer(server) {
 }
 
 async function decodeRows(rows) {
+  /* `--check` is imported by the dependency-free Node suite and never opens a
+   * browser. Keep Playwright behind the development-only decode path so the
+   * Pages workflow can still run `npm test` without installing packages. */
+  const { chromium } = await import('playwright');
   const server = serverForSfx();
   let browser;
   try {

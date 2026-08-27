@@ -20,7 +20,6 @@ import http from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
 
 const TOOL_FILE = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(TOOL_FILE), '..');
@@ -248,6 +247,9 @@ function round(value, digits = 2) {
 }
 
 async function performMeasurements(tracks, { headed = false } = {}) {
+  /* Receipt validation is part of the dependency-free Node suite. Only the
+   * explicit development measurement path needs the optional browser package. */
+  const { chromium } = await import('playwright');
   const server = serverForMusic();
   let browser;
   try {

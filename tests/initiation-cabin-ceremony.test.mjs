@@ -543,9 +543,10 @@ test('the right answer completes the mission, and the path never touches a fail 
   assert.deepEqual(PHASES.oath_yes.exits, ['blade']);
 
   /* The making itself: the completion event, once, and a direct ending so no
-   * obsolete campground button sits between the wind beat and the credits. */
+   * obsolete campground button sits between the wind beat and the credits.
+   * The bounded Prospect's Record is deliberately passed into that roll. */
   assert.match(MAIN, /TIME_EVENT_IDS\.COMPLETE_INITIATION/);
-  assert.match(MAIN, /campaignCreditsView\.roll\(\)/);
+  assert.match(MAIN, /campaignCreditsView\.roll\(\{/);
 });
 
 test('only Tony survives before the walk to the cabin', () => {
