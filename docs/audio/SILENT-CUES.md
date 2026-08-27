@@ -9,16 +9,7 @@ most of these are lines waiting on a recording session, and
 `VOICE-LINES-TODO.md` is the queue for them. This file answers the other
 question: **which scene is silent, at which beat.**
 
-**15 silent cues across 2 scenes.**
-
-## mansion — 6
-
-- `vo.silentsquatch.return.briefing.lou.compoundstanding` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.return.briefing.lou.estate` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.return.briefing.lou.instrument` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.return.briefing.lou.saucemissing` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.return.briefing.prospect.tookhim` (unknown length) — src/mansion/script.js
-- `vo.silentsquatch.return.briefing.prospect.wholecity` (unknown length) — src/mansion/script.js
+**9 silent cues across 1 scenes.**
 
 ## world — 9
 

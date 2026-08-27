@@ -265,7 +265,7 @@ const COMMENT = Object.freeze([
 ]);
 
 function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
+  return retryLedgerIo(() => JSON.parse(fs.readFileSync(file, 'utf8')));
 }
 
 function readLedger(file) {
@@ -275,9 +275,32 @@ function readLedger(file) {
 }
 
 function writeLedger(file, ledger) {
-  fs.writeFileSync(file, `${JSON.stringify(
+  const body = `${JSON.stringify(
     { _comment: COMMENT, takes: ledger.takes }, null, 2,
-  )}\n`);
+  )}\n`;
+  retryLedgerIo(() => fs.writeFileSync(file, body));
+}
+
+/* OneDrive can briefly deny `open` on a file immediately after it changes.
+ * The voice generator is deliberately sequential, but each completed take
+ * rewrites this bounded ledger and the sync client occasionally catches that
+ * exact seam. Without a retry the MP3 is already on disk while its provenance
+ * stamp is missing, so the next normal generation pass skips it. Keep the
+ * retry here, at the shared ledger boundary, and never pretend the unstamped
+ * file was verified. */
+const TRANSIENT_LEDGER_IO = new Set(['EACCES', 'EBUSY', 'EPERM', 'UNKNOWN']);
+const RETRY_DELAYS_MS = Object.freeze([15, 30, 60, 120, 240, 480]);
+const LEDGER_WAIT = new Int32Array(new SharedArrayBuffer(4));
+
+function retryLedgerIo(operation) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return operation();
+    } catch (error) {
+      if (!TRANSIENT_LEDGER_IO.has(error?.code) || attempt >= RETRY_DELAYS_MS.length) throw error;
+      Atomics.wait(LEDGER_WAIT, 0, 0, RETRY_DELAYS_MS[attempt]);
+    }
+  }
 }
 
 function main() {
