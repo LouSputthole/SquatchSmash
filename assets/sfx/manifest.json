@@ -4249,12 +4249,16 @@
     {
       "name": "vo.silver.margo.bandleader.her-pick",
       "voice": "margo",
-      "say": "Bananaphone. Completely straight. I want that violinist fighting for his life and nobody smiling."
+      "say": "Bananaphone. Completely straight. I want that violinist fighting for his life and nobody smiling.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten for the Bananaphone performance; the indexed take still says the retired horn-arrangement line"
     },
     {
       "name": "vo.silver.margo.bandleader.horns",
       "voice": "margo",
-      "say": "You came prepared to say that out loud. Fine. If he smiles, it doesn’t count."
+      "say": "You came prepared to say that out loud. Fine. If he smiles, it doesn’t count.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten for the Bananaphone performance; the indexed take still answers the retired horn request"
     },
     {
       "name": "vo.silver.margo.bark.alley.1",
@@ -4859,7 +4863,9 @@
     {
       "name": "vo.silver.player.bandleader.open.1e0ys9u",
       "voice": "player",
-      "say": "Bananaphone. Straight. Like it’s Carnegie Hall."
+      "say": "Bananaphone. Straight. Like it’s Carnegie Hall.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten for the Bananaphone performance; the indexed take still requests the retired horn arrangement"
     },
     {
       "name": "vo.silver.player.bandleader.open.cmq3w6",
