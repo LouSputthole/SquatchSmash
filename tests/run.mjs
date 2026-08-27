@@ -390,6 +390,7 @@ const TEST_MODULES = [
   './specialmeeting-forest-footing.test.mjs',
   './specialmeeting-cast.test.mjs',
   './scene-pages-hud-contract.test.mjs',
+  './radio-audit-portability.test.mjs',
   './source-line-endings.test.mjs',
   './test-registry.test.mjs',
 ];

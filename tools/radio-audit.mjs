@@ -422,10 +422,12 @@ function csvCell(value) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
-function toCsv(columns, rows) {
+export function toCsv(columns, rows) {
+  // `.gitattributes` pins LF. CRLF passes locally on Windows but Git stores LF,
+  // so a Linux `--check` would otherwise reject the exact files we generated.
   return [columns, ...rows.map((row) => columns.map((column) => row[column] ?? ''))]
     .map((row) => row.map(csvCell).join(','))
-    .join('\r\n') + '\r\n';
+    .join('\n') + '\n';
 }
 
 function slugSheet(name) {
