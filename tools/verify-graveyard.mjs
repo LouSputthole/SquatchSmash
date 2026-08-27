@@ -684,7 +684,7 @@ try {
       && buried.incident.urinated.join(',') === 'brawny,whiplash',
     fmt(buried.incident));
   check('closing the incident advances the campaign clock past midnight',
-    buried.story.day === 3 && buried.story.timeMinutes >= 45,
+    buried.story.day === 5 && buried.story.timeMinutes >= 45,
     fmt({ day: buried.story.day, timeMinutes: buried.story.timeMinutes }));
   check('the objective card sends him back to the car',
     /Return to Snow/.test(buried.headline || ''), fmt({ headline: buried.headline }));
@@ -737,7 +737,7 @@ try {
     departed?.scene?.id === 'jerky_motel' && departed?.scene?.spawn === 'passenger_seat',
     fmt(departed?.scene));
   check('the drive out spends the travel marker',
-    departed?.story?.day === 3 && departed?.story?.timeMinutes >= 90,
+    departed?.story?.day === 5 && departed?.story?.timeMinutes >= 90,
     fmt({ day: departed?.story?.day, timeMinutes: departed?.story?.timeMinutes }));
   await context.close();
 } catch (err) {

@@ -1277,7 +1277,7 @@ try {
     burial.completed
       && burial.body.phase === 'buried'
       && !burial.body.visible
-      && burial.clock.day === 3
+      && burial.clock.day === 5
       && burial.clock.timeMinutes === 45
       && burial.incident.status === 'complete'
       && burial.incident.checkpoint === 'buried'
