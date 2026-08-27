@@ -7796,7 +7796,9 @@
     },
     "vo.enolasquatch.irish.bomb-cityInSight-2.1": {
       "text": "9d22f54263c4",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "irish",
+      "voiceId": "qwaVDEGNsBllYcZO1ZOJ"
     },
     "vo.enolasquatch.irish.bomb-falling-3.1": {
       "text": "7d041ad412aa",

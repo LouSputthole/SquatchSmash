@@ -2836,6 +2836,19 @@
       "channels": 1
     },
     {
+      "cue": "vo.enolasquatch.irish.bomb-cityInSight-2.1",
+      "file": "vo.enolasquatch.irish.bomb-cityInSight-2.1.mp3",
+      "sha256": "dcff6425a8250da548cd70231f08a7006a64fb65dcec0b3be943050ecdc75f1c",
+      "bytes": 119998,
+      "indexVersion": "68f7d999ca",
+      "textHash": "9d22f54263c4",
+      "voice": "irish",
+      "voiceId": "qwaVDEGNsBllYcZO1ZOJ",
+      "durationSeconds": 7.43,
+      "sampleRate": 48000,
+      "channels": 1
+    },
+    {
       "cue": "vo.enolasquatch.numbskull.preflight-payload-tap-1.1",
       "file": "vo.enolasquatch.numbskull.preflight-payload-tap-1.1.mp3",
       "sha256": "e622d2c8cabdf16e274011aeb0355c9cb2b9357a1a81246d9fc5e397ef4c5998",
