@@ -310,6 +310,7 @@ const TEST_MODULES = [
   './required-audio-bank.test.mjs',
   './cartel-palace-mission.test.mjs',
   './cartel-palace-combat.test.mjs',
+  './cartel-palace-navigation.test.mjs',
   './cartel-palace-a-team-art.test.mjs',
   './cartel-palace-cleaner-audibility.test.mjs',
   './cartel-palace-openings.test.mjs',

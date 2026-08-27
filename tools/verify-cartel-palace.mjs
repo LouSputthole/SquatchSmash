@@ -80,6 +80,7 @@ const NEW_GROUND_COMBAT_CUES = Object.freeze([
 const TYPES = Object.freeze({
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.mp3': 'audio/mpeg',
@@ -89,6 +90,7 @@ const TYPES = Object.freeze({
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
+  '.bin': 'application/octet-stream',
 });
 
 let chromium;
@@ -208,6 +210,9 @@ function check(name, ok, detail = '') {
 async function bootPalace(href) {
   await page.goto(href, { waitUntil: 'load' });
   await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'menu');
+  await page.evaluate(() => window.CARTEL_PALACE.palaceNavigationReady);
+  const navigation = await page.evaluate(() => window.CARTEL_PALACE.palaceNavigation.report());
+  if (!navigation.ready) throw new Error(`Palace navigation did not load: ${JSON.stringify(navigation)}`);
   await page.evaluate(() => document.getElementById('start-btn').click());
   await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'active');
   await page.waitForTimeout(180);
@@ -353,6 +358,18 @@ try {
    * CLEAN START: one mission, no checkpoint URL and no mission shortcuts.
    * ------------------------------------------------------------------ */
   await bootPalace(CLEAN_START_HREF);
+  const cleanNavigation = await page.evaluate(() => ({
+    report: window.CARTEL_PALACE.palaceNavigation.report(),
+    resources: performance.getEntriesByType('resource')
+      .filter((entry) => /recast-navigation|cartel-palace-navmesh/.test(entry.name))
+      .map((entry) => ({ name: new URL(entry.name).pathname, bytes: entry.decodedBodySize })),
+  }));
+  check('clean start: the Palace-only navmesh is loaded before active play',
+    cleanNavigation.report.ready
+      && cleanNavigation.report.assetBytes === 32400
+      && cleanNavigation.resources.some((entry) => entry.name.endsWith('/cartel-palace-navmesh.bin'))
+      && cleanNavigation.resources.some((entry) => entry.name.endsWith('/recast-navigation.wasm-compat.js')),
+    JSON.stringify(cleanNavigation));
   await capturePalaceInput();
   const cleanInputBefore = await page.evaluate(() => {
     const player = window.CARTEL_PALACE.player;
@@ -2030,14 +2047,24 @@ try {
       );
       let penetrated = false;
       let everBlocked = false;
+      let totalTravel = 0;
+      let maxLateral = 0;
+      const previous = entries.map((entry) => entry.root.position.clone());
       for (let frame = 0; frame < 600; frame++) {
         security.update(1 / 60, { playerPosition: runtime.player.position });
         penetrated ||= entries.some((entry) => strictlyInside(entry.root.position));
         everBlocked ||= entries.some((entry) => entry.blocked);
+        for (let index = 0; index < entries.length; index++) {
+          totalTravel += entries[index].root.position.distanceTo(previous[index]);
+          maxLateral = Math.max(maxLateral, Math.abs(entries[index].root.position.x));
+          previous[index].copy(entries[index].root.position);
+        }
       }
       return {
         penetrated,
         everBlocked,
+        totalTravel,
+        maxLateral,
         radius: security.space.radius,
         requiredSeparation: security.space.separation,
         separation: entries[0].root.position.distanceTo(entries[1].root.position),
@@ -2070,8 +2097,10 @@ try {
       runtime.resetCombatBlood();
     }
   });
-  check('Palace patrol bodies detour without entering an expanded live Box3',
-    collisionProof.everBlocked && collisionProof.penetrated === false,
+  check('Palace navigation or its live AABB fallback routes patrol bodies around an expanded Box3',
+    collisionProof.penetrated === false
+      && collisionProof.totalTravel > 1
+      && collisionProof.maxLateral >= collisionProof.expanded.max[0],
     JSON.stringify(collisionProof));
   check('Palace actor separation resolves a real overlap to the configured body spacing',
     collisionProof.separation >= collisionProof.requiredSeparation - 1e-5,

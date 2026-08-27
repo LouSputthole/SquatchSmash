@@ -82,6 +82,7 @@
     "probe:siege-anchors": "node tools/probe-siege-anchors.mjs",
     "verify:enolasquatch": "node tools/verify-enolasquatch.mjs",
     "verify:cartel-palace": "node tools/verify-cartel-palace.mjs",
+    "pilot:cartel-palace-recast": "node tools/cartel-palace-recast-pilot.mjs",
     "soak:cartel-palace": "node tools/soak-cartel-palace.mjs",
     "verify:final-arc-reloads": "node tools/verify-final-arc-reloads.mjs",
     "verify:enola-bomb-audio": "node tools/verify-enola-bomb-audio.mjs",
@@ -159,6 +160,7 @@
   },
   "devDependencies": {
     "eslint": "^9.39.5",
-    "playwright": "^1.49.0"
+    "playwright": "^1.49.0",
+    "recast-navigation": "0.43.1"
   }
 }

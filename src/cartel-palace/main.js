@@ -62,6 +62,7 @@ import {
   stagePalaceCheckpointGeometry,
 } from './preview.js';
 import { PALACE_COMBAT_POSTS, PalaceSecurity } from './security.js';
+import { createPalaceNavigation } from './navigation.js';
 import { PalaceBystanders } from './bystanders.js';
 import { PalaceGuardConversations } from './conversations.js';
 import { PalaceSuppressor } from './suppressor.js';
@@ -173,6 +174,12 @@ scene.add(new THREE.AmbientLight(0x657279, 0.48));
 
 window.__squatchStage?.('Building Mark\'s estate…');
 const palace = buildCartelPalace(scene);
+/* Development pilot result, now limited to this mission: a checked-in Recast
+ * navmesh supplies physical route legs while the existing Palace AI keeps
+ * every decision. Loading begins behind the menu and failure is a clean
+ * fallback to the established AABB/detour movement. */
+const palaceNavigation = createPalaceNavigation();
+const palaceNavigationReady = palaceNavigation.start();
 const castRoot = new THREE.Group();
 castRoot.name = 'cartel-palace.cast';
 scene.add(castRoot);
@@ -966,6 +973,7 @@ security = new PalaceSecurity({
   cast,
   colliders: palace.colliders,
   combatPosts: PALACE_COMBAT_POSTS,
+  navigation: palaceNavigation,
   playerActor,
   /* Security calls this for the hit it just applied, so a man cries out even
    * when the root's per-trigger audio budget has already suppressed the thud
@@ -1695,7 +1703,10 @@ retryButton.addEventListener('click', () => {
    * fallback for a missing or pre-v1 checkpoint snapshot. */
   if (!retryFromCheckpoint()) location.reload();
 });
-addEventListener('pagehide', () => loadout.capture(weapons));
+addEventListener('pagehide', () => {
+  loadout.capture(weapons);
+  palaceNavigation.destroy();
+});
 
 departButton.addEventListener('click', () => {
   if (campaign.state.missions[MISSION_IDS.CARTEL_PALACE].status !== 'complete') return;
@@ -1960,6 +1971,8 @@ window.CARTEL_PALACE = {
   input,
   interaction,
   palace,
+  palaceNavigation,
+  palaceNavigationReady,
   cast,
   finale,
   security,
