@@ -127,6 +127,7 @@ function addBounds(colliders, bounds, name, {
   id = name,
   kind,
   ownerActorId,
+  blocks,
 } = {}) {
   if (typeof name !== 'string' || !name.trim()) {
     throw new TypeError('Cabin collider requires a stable semantic name');
@@ -143,6 +144,7 @@ function addBounds(colliders, bounds, name, {
     id,
     kind,
     ...(ownerActorId ? { ownerActorId } : {}),
+    ...(blocks ? { blocks } : {}),
   });
   colliders.push(c);
   return c;
@@ -906,7 +908,14 @@ function buildProperty({
   const registerLandmark = (id, target, label, dedicated = null, extra = {}) => {
     target.name ||= `cabin-landmark-${id}`;
     interactionTargets[id] = target;
+    /* A wide aim volume standing over other things is exactly what
+     * `InteractionSystem`'s `soft` flag is for: it is taken only when nothing
+     * solid was found anywhere along the same ray, so the footbridge inside
+     * the creek's volume, and the pyre and the two men inside the firepit's,
+     * still win the crosshair. Every proxy sized by `makeLandmarkProxy` — and
+     * the firepit, sized by the same rule — declares itself. */
     const descriptor = {
+      ...(target.userData?.softAimVolume ? { soft: true } : {}),
       label,
       onUse: () => {
         ctx.onDiscover?.(id);
@@ -923,7 +932,7 @@ function buildProperty({
   };
 
   registerLandmark('porch', porch.target, 'Take in the <b>front porch</b>', () => ctx.onPorch?.());
-  registerLandmark('trailhead', makeLandmarkProxy(root, 'trailhead', LANDMARKS.trailhead, 2.4, 1.8), 'Follow the <b>loop trail</b>', () => {
+  registerLandmark('trailhead', makeLandmarkProxy(root, 'trailhead', LANDMARKS.trailhead, 2.4), 'Follow the <b>loop trail</b>', () => {
     hud.say?.('The blazes make one circuit of the property and come back here.', 3200);
   });
   registerLandmark('creek', creek.target, 'Listen to the <b>creek</b>', null, {
@@ -1149,7 +1158,7 @@ function buildCreek(disposables) {
     1.8,
   );
   const g = group('cabin-creek', water);
-  const target = makeLandmarkProxy(g, 'creek', LANDMARKS.creek, 3.5, 1.5);
+  const target = makeLandmarkProxy(g, 'creek', LANDMARKS.creek, 3.5);
   disposables.push(water.geometry, material);
   return {
     group: g,
@@ -1235,7 +1244,33 @@ function buildBridge(root, M, colliders) {
     }
   }
   root.add(g);
-  addBounds(colliders, [[p.x - 1.30, y - 0.16, p.z - 4.9], [p.x + 1.30, y, p.z + 4.9]], 'cabin-bridge-deck', { kind: 'world' });
+  /* Owner, cabin playtest: "The collision on the bridge is weird going over
+   * the creek."
+   *
+   * The deck box was a blocking world volume laid over the SAME footprint
+   * `makeGroundAt` already publishes as the walking surface, and the player
+   * capsule cannot be pushed out of a box it is standing inside. Measured
+   * headlessly with the real `Player` at 60 Hz, walking straight up the
+   * planked approach at x = 4.000:
+   *
+   *   from the south bank  stopped dead at z = -31.802, jittering 2.2 cm
+   *   from the north bank  stopped dead at z = -42.212, jittering 2.2 cm
+   *
+   * (the deck spans z -41.920 to -32.080, so both stops are exactly the box
+   * face plus the 0.30 m capsule radius: he never set foot on the span.)
+   * Dropped onto the deck centre instead, `_resolve`'s dead-centre ejection
+   * fired every frame and shot him sideways from x 4.000 to x 5.740 — out
+   * through the east rail and into the creek, feet -1.878 against a deck at
+   * -0.933.
+   *
+   * The deck is CONTAINMENT, not a wall: it caps the creek gap flush with the
+   * floor `groundAt` already returns across |x-4| <= 1.35, |z+37| <= 5.2. So
+   * it keeps its volume for sight and bullets and stops pushing the capsule.
+   * After: he crosses the full 9.8 m span at a constant x = 4.000. */
+  addBounds(colliders, [[p.x - 1.30, y - 0.16, p.z - 4.9], [p.x + 1.30, y, p.z + 4.9]], 'cabin-bridge-deck', {
+    kind: 'world',
+    blocks: { collision: false, vision: true, navigation: true, ballistics: true },
+  });
   addBounds(colliders, [[p.x - 1.42, y, p.z - 4.9], [p.x - 1.18, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-west', { kind: 'world' });
   addBounds(colliders, [[p.x + 1.18, y, p.z - 4.9], [p.x + 1.42, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-east', { kind: 'world' });
   const target = targetBox('cabin-bridge-target', [2.2, 1.5, 1.7], [p.x, y + 0.75, p.z]);
@@ -1358,7 +1393,19 @@ function buildFirepit(root, M, colliders, footings) {
   const glow = new THREE.PointLight(0xff6a28, 3.2, 14, 1.7);
   glow.position.set(p.x, y + 1.0, p.z);
   g.add(glow);
-  const target = targetBox('cabin-firepit-target', [2.7, 1.5, 2.7], [p.x, y + 0.75, p.z]);
+  /* Same eye-band rule as `makeLandmarkProxy`. At 1.5 m the lid stood 16 cm
+   * under the standing eye and 0 of 1880 level rays from clear ground found
+   * it; you could only tend the fire by looking at your boots. It spans the
+   * eye now — and it is registered `soft`, because the pyre's own placement
+   * and ignition targets and the two men standing at the fire all live inside
+   * this footprint, and a soft volume is taken only when nothing solid was
+   * found anywhere along the same ray. */
+  const target = targetBox(
+    'cabin-firepit-target',
+    [2.7, PROXY_FOOT + PROXY_EYE + PROXY_HEADROOM, 2.7],
+    [p.x, y + (PROXY_EYE + PROXY_HEADROOM - PROXY_FOOT) / 2, p.z],
+  );
+  target.userData.softAimVolume = true;
   g.add(target);
   root.add(g);
   let lit = false;
@@ -1589,9 +1636,79 @@ function buildParkedCar(root, M, colliders) {
   return { group: g, target };
 }
 
-function makeLandmarkProxy(root, id, p, radius = 2, height = 1.8) {
-  const y = heightAt(p.x, p.z);
-  const target = targetBox(`cabin-${id}-target`, [radius * 2, height, radius * 2], [p.x, y + height / 2, p.z]);
+/** The standing eye, `WALK_EYE_HEIGHT` in src/cabin/main.js. */
+const PROXY_EYE = 1.66;
+/** Lid clearance above the tallest eye that can look at the proxy. */
+const PROXY_HEADROOM = 1.15;
+/** Floor clearance below the lowest boot that can stand around it. */
+const PROXY_FOOT = 0.35;
+/** How far outside its own footprint the authored approach stance must sit. */
+const PROXY_STANCE_CLEAR = 0.55;
+
+/**
+ * A landmark's aim proxy.
+ *
+ * Owner, cabin playtest: *"I cant listen to the creek or look out over the
+ * ridge overlook."*
+ *
+ * Both were CLAUDE.md's documented trap — a box is invisible to a ray that
+ * starts inside it — and THIS BUILDER was the mechanism, because it sized
+ * every proxy as a wide, low slab and then took its height from the terrain
+ * under the CENTRE, which is not the ground the player is standing on.
+ * Measured headlessly by driving the real `InteractionSystem` ray from each
+ * landmark's own authored approach pose (`LANDMARK_VIEWPOINTS`) at the
+ * authored pitch:
+ *
+ *   creek     7.0 x 7.0 m, 1.50 m tall, y -1.88..-0.38. The bank stands the
+ *             eye at 0.72, which is 1.09 m ABOVE the lid, so a level ray
+ *             passes clean over it. Nothing acquired.
+ *   overlook  6.4 x 6.4 m, 2.00 m tall, y 6.24..8.24 — and the authored stance
+ *             is INSIDE that footprint with the eye at 7.92, inside the box.
+ *             No pitch anywhere between -60 and +60 degrees acquired it.
+ *   trailhead 4.8 x 4.8 m, 1.80 m tall: same wide-low slab, and 0 of the 36
+ *             bearings on the two nearest approach rings acquired it.
+ *
+ * Two rules size every proxy now, and they are the two the trap implies:
+ *
+ *  1. **The side face covers the standing eye band.** The vertical span is
+ *     measured across the whole footprint AND the approach ring around it,
+ *     and runs from below the lowest boot to above the highest eye. A level
+ *     ray from anywhere around it enters the side rather than sailing over
+ *     the lid or under the floor.
+ *  2. **The proxy never contains its own authored approach stance.** The
+ *     footprint is clamped so that stance stays PROXY_STANCE_CLEAR outside
+ *     it — which is what stops rule 1 from turning a wide proxy into a box
+ *     the player is standing inside.
+ */
+function makeLandmarkProxy(root, id, p, radius = 2) {
+  const stance = LANDMARK_VIEWPOINTS[id] ?? null;
+  let half = radius;
+  if (stance) {
+    /* Axis-aligned box, so the stance is outside it as soon as EITHER axis
+     * clears the half-extent. Take the larger separation. */
+    const clear = Math.max(Math.abs(stance.x - p.x), Math.abs(stance.z - p.z)) - PROXY_STANCE_CLEAR;
+    if (clear >= 0.8) half = Math.min(half, clear);
+  }
+  let lowest = Infinity;
+  let highest = -Infinity;
+  // The footprint itself, then the ring the player actually walks in on.
+  for (const reach of [half, half * 1.45]) {
+    for (let i = -2; i <= 2; i++) {
+      for (let j = -2; j <= 2; j++) {
+        const g = heightAt(p.x + (i / 2) * reach, p.z + (j / 2) * reach);
+        if (g < lowest) lowest = g;
+        if (g > highest) highest = g;
+      }
+    }
+  }
+  const minY = lowest - PROXY_FOOT;
+  const maxY = highest + PROXY_EYE + PROXY_HEADROOM;
+  const target = targetBox(
+    `cabin-${id}-target`,
+    [half * 2, maxY - minY, half * 2],
+    [p.x, (minY + maxY) / 2, p.z],
+  );
+  target.userData.softAimVolume = true;
   root.add(target);
   return target;
 }
@@ -1722,7 +1839,7 @@ function buildOverlook(root, M, colliders, footings) {
   );
   noteFooting(footings, 'overlook-bench', p.x, p.z, y, 'overlook-seat');
   noteFooting(footings, 'overlook-cairn', p.x + 2.45, p.z + 0.85, y, 'overlook-focal');
-  const target = makeLandmarkProxy(root, 'overlook', p, 3.2, 2.0);
+  const target = makeLandmarkProxy(root, 'overlook', p, 3.2);
   return { group: g, target, seatCount: 1 };
 }
 
@@ -1748,6 +1865,82 @@ function makeUndergrowthGeometry() {
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   return geometry;
+}
+
+/**
+ * Owner, cabin playtest: *"We need some tree variety"*.
+ *
+ * The treeline was 558 copies of one tree. Every trunk was 0x3b281a, every
+ * crown 0x183321, and the only authored difference between the two `kind`s
+ * was a crown spread of 3.5 against 4.2 and a 7% height bump — invisible at
+ * any distance you actually look at a treeline from.
+ *
+ * Five species now share the SAME four instanced draw calls per chunk. What
+ * separates them is instance data only: proportions, how many cone tiers the
+ * crown gets, whether the lowest tier is flipped into a rounded broadleaf
+ * lozenge, and a per-instance colour off `setColorAt`. Variety therefore
+ * costs no geometry, no material and no extra draw call — which is the
+ * budget this no-build game has.
+ *
+ * `share` sums to 1 and is walked cumulatively against one field hash, so
+ * the mix is deterministic and a species can be re-weighted without moving
+ * every other tree on the property.
+ */
+const TREE_SPECIES = Object.freeze([
+  {
+    id: 'fir', share: 0.30, shape: 'spire',
+    height: [8.6, 15.4], radius: [0.14, 0.26], broad: 3.4,
+    tiers: 3, crownBase: 0.50, tierRise: 0.17, tierHeight: 0.33, tierTaper: 0.025,
+    lean: 0.035, trunk: [0x3b281a, 0x2d2015], crown: [0x16301f, 0x1e3c27],
+  },
+  {
+    // Lodgepole: tall, bare to two thirds, a thin crown right at the top.
+    id: 'pine', share: 0.22, shape: 'spire',
+    height: [9.8, 17.2], radius: [0.15, 0.28], broad: 2.9,
+    tiers: 2, crownBase: 0.62, tierRise: 0.16, tierHeight: 0.27, tierTaper: 0.02,
+    lean: 0.030, trunk: [0x5a3a20, 0x6e4527], crown: [0x27492a, 0x315a34],
+  },
+  {
+    // Hemlock: short, and much wider than it is tall.
+    id: 'hemlock', share: 0.20, shape: 'spire',
+    height: [6.2, 11.0], radius: [0.16, 0.31], broad: 4.7,
+    tiers: 3, crownBase: 0.38, tierRise: 0.20, tierHeight: 0.36, tierTaper: 0.030,
+    lean: 0.045, trunk: [0x33241a, 0x241a12], crown: [0x1d3f28, 0x2a5233],
+  },
+  {
+    // The only broadleaf, and the reason the treeline stops repeating: pale
+    // trunk, yellow-green crown, and a ROUND silhouette among the spires.
+    id: 'birch', share: 0.21, shape: 'round',
+    height: [5.6, 9.9], radius: [0.10, 0.19], broad: 3.9,
+    tiers: 3, crownBase: 0.52, tierRise: 0, tierHeight: 0, tierTaper: 0,
+    lean: 0.075, trunk: [0xb9b3a4, 0x8b8676], crown: [0x51702c, 0x718e36],
+  },
+  {
+    // Dead standing. Trunk only — its crown tiers are the gate's documented
+    // all-axes-zero visibility sentinel, so nothing is drawn and nothing is
+    // audited above the snapped top.
+    id: 'snag', share: 0.07, shape: 'bare',
+    height: [4.2, 9.4], radius: [0.13, 0.24], broad: 0,
+    tiers: 0, crownBase: 0, tierRise: 0, tierHeight: 0, tierTaper: 0,
+    lean: 0.16, trunk: [0x6d6459, 0x4b453c], crown: null,
+  },
+]);
+
+function speciesAt(pick) {
+  let run = 0;
+  for (const species of TREE_SPECIES) {
+    run += species.share;
+    if (pick < run) return species;
+  }
+  return TREE_SPECIES[TREE_SPECIES.length - 1];
+}
+
+const _speciesColour = new THREE.Color();
+const _speciesColourTo = new THREE.Color();
+function speciesColour(range, t, dim = 1) {
+  _speciesColour.setHex(range[0]).lerp(_speciesColourTo.setHex(range[1]), t);
+  if (dim !== 1) _speciesColour.multiplyScalar(dim);
+  return _speciesColour;
 }
 
 function buildForest(root, M, colliders, disposables) {
@@ -1780,24 +1973,38 @@ function buildForest(root, M, colliders, disposables) {
       const z = gz + (hashAt(gx, gz, 102) - 0.5) * spacing * 0.68;
       const density = treeDensityAt(x, z);
       if (!density || hashAt(x, z, 103) > density * 0.88) continue;
-      const height = 7.8 + hashAt(x, z, 104) * 7.8;
-      const radius = 0.13 + hashAt(x, z, 105) * 0.15;
-      const kind = hashAt(x, z, 106) < 0.22 ? 'pine' : 'fir';
+      const species = speciesAt(hashAt(x, z, 106));
+      const grow = hashAt(x, z, 104);
+      const girth = hashAt(x, z, 105);
       const plan = {
         x,
         z,
         y: heightAt(x, z),
-        height: kind === 'pine' ? height * 1.07 : height,
-        radius,
+        height: species.height[0] + grow * (species.height[1] - species.height[0]),
+        radius: species.radius[0] + girth * (species.radius[1] - species.radius[0]),
         yaw: hashAt(x, z, 107) * Math.PI * 2,
-        lean: (hashAt(x, z, 108) - 0.5) * 0.035,
-        kind,
+        lean: (hashAt(x, z, 108) - 0.5) * species.lean,
+        // 109 is the species' own colour axis: young/pale at 0, old/dark at 1.
+        tone: hashAt(x, z, 109),
+        kind: species.id,
+        species,
       };
+      /* What the trunk actually occupies on the ground, which is NOT its
+       * radius: a leaning trunk's AABB grows by half its height times the
+       * sine of the lean, and a snag leans up to 0.08 rad over 9.4 m — 38 cm
+       * of reach the old circle test could not see. Ground scatter avoids
+       * THIS, so a boulder or a deadfall log cannot be planted inside a tree
+       * it thought it had cleared. Eight of them were, by 10 to 45 cm, and
+       * they only ever showed up once the far LOD started drawing trunks. */
+      plan.spread = plan.radius + (plan.height / 2) * Math.abs(Math.sin(plan.lean));
       getChunk(x, z).trees.push(plan);
       plantedTrees.push(plan);
       addBounds(
         colliders,
-        [[x - radius - 0.08, plan.y, z - radius - 0.08], [x + radius + 0.08, plan.y + plan.height, z + radius + 0.08]],
+        [
+          [x - plan.radius - 0.08, plan.y, z - plan.radius - 0.08],
+          [x + plan.radius + 0.08, plan.y + plan.height, z + plan.radius + 0.08],
+        ],
         'cabin-tree-trunk',
         { id: `cabin-tree-trunk:${plantedTrees.length}`, kind: 'world' },
       );
@@ -1826,15 +2033,32 @@ function buildForest(root, M, colliders, disposables) {
   const crownGeometry = new THREE.ConeGeometry(1, 1, 8);
   const farCrownGeometry = new THREE.ConeGeometry(1, 1, 6);
   const brushGeometry = makeUndergrowthGeometry();
-  const trunkMaterial = mat({ color: 0x3b281a, roughness: 1 });
-  const crownMaterial = mat({ color: 0x183321, roughness: 1, side: THREE.DoubleSide });
-  const farCrownMaterial = mat({ color: 0x142a1c, roughness: 1 });
+  /* White base colours: every trunk and crown carries its own species tint on
+   * `instanceColor`, and the shader multiplies the two. These are built
+   * directly rather than through `mat()` so a 0xffffff standard material
+   * cached for something else can never end up wearing the forest's
+   * DoubleSide, and so the forest owns its own disposal. */
+  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
+  const crownMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 1,
+    side: THREE.DoubleSide,
+  });
+  const farCrownMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
   const brushMaterial = new THREE.MeshStandardMaterial({
     color: 0x31502d,
     roughness: 1,
     side: THREE.DoubleSide,
   });
-  disposables.push(trunkGeometry, crownGeometry, farCrownGeometry, brushGeometry, brushMaterial);
+  disposables.push(
+    trunkGeometry, crownGeometry, farCrownGeometry, brushGeometry,
+    trunkMaterial, crownMaterial, farCrownMaterial, brushMaterial,
+  );
+  /* Distance already costs the far crowns their near-LOD lighting detail;
+   * 0.86 keeps the same instance tint reading as haze rather than as a
+   * different, brighter tree suddenly appearing at the LOD line. */
+  const FAR_CROWN_DIM = 0.86;
+  const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0);
 
   const dummy = new THREE.Object3D();
   const built = [];
@@ -1851,51 +2075,159 @@ function buildForest(root, M, colliders, disposables) {
       const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, chunk.trees.length);
       const crowns = new THREE.InstancedMesh(crownGeometry, crownMaterial, chunk.trees.length * 3);
       const farCrowns = new THREE.InstancedMesh(farCrownGeometry, farCrownMaterial, chunk.trees.length);
-      trunks.name = 'cabin-pine-trunks';
-      crowns.name = 'cabin-pine-crowns-near';
-      farCrowns.name = 'cabin-pine-crowns-far';
+      trunks.name = 'cabin-tree-trunks';
+      crowns.name = 'cabin-tree-crowns-near';
+      farCrowns.name = 'cabin-tree-crowns-far';
       // Needles naturally interlock, and near/far crowns are alternate LODs
       // for the same authored trees. Their instance AABBs are not collision
       // solids and their footing comes from the matching planted trunks.
       proceduralSurface(crowns);
       proceduralSurface(farCrowns);
+      /* Every trunk stands at `heightAt(x, z)` by construction — the same
+       * deterministic footing the undergrowth declares, and the same reason
+       * `cabin-property-heightfield` opts out of being a support witness: its
+       * AABB is the whole 224 m property, so the gate can never see it as
+       * "below" anything standing on a low part of it.
+       *
+       * This used to be implicit and invisible. The trunks shared the
+       * `forest-near-lod` group with the crowns, the crowns carry
+       * `checkSupport: false`, and one `false` in a support bucket skips the
+       * whole connected component — so 558 trunks were silently exempt
+       * because of a metadata flag on their needles. Lifting the trunks out
+       * of that group to fix the draw distance made all 558 report FLOATING
+       * at once. Their footing did not change; only who was declaring it.
+       * Overlap stays audited: a log or a boulder inside a trunk is still a
+       * bug, and eight of them were. */
+      trunks.userData.geometryGate = {
+        ...(trunks.userData.geometryGate ?? {}),
+        checkSupport: false,
+      };
       let crownAt = 0;
       for (let i = 0; i < chunk.trees.length; i++) {
         const tree = chunk.trees[i];
+        const species = tree.species;
         dummy.position.set(tree.x, tree.y + tree.height / 2, tree.z);
         dummy.rotation.set(tree.lean, tree.yaw, 0);
         dummy.scale.set(tree.radius, tree.height, tree.radius);
         dummy.updateMatrix();
         trunks.setMatrixAt(i, dummy.matrix);
 
-        const broad = tree.kind === 'pine' ? 3.5 : 4.2;
+        trunks.setColorAt(i, speciesColour(species.trunk, tree.tone));
+
+        const broad = tree.radius * species.broad;
+        const crownTint = species.crown
+          ? speciesColour(species.crown, tree.tone).clone()
+          : null;
+
         for (let tier = 0; tier < 3; tier++) {
-          const tierScale = 1 - tier * 0.17;
-          dummy.position.set(tree.x, tree.y + tree.height * (0.52 + tier * 0.17), tree.z);
-          dummy.rotation.set(0, tree.yaw + tier * 0.73, 0);
-          dummy.scale.set(
-            tree.radius * broad * tierScale,
-            tree.height * (0.31 - tier * 0.025),
-            tree.radius * broad * tierScale,
-          );
+          if (tier >= species.tiers) {
+            // The gate's documented all-axes-zero visibility sentinel: a snag
+            // has no foliage, and a two-tier pine has no third whorl.
+            crowns.setMatrixAt(crownAt, HIDDEN);
+            crowns.setColorAt(crownAt, _speciesColour.setHex(0x000000));
+            crownAt += 1;
+            continue;
+          }
+          if (species.shape === 'round') {
+            /* Two cones sharing one equator make the broadleaf lozenge, with
+             * a small upright cap for a crown that is not a perfect ball.
+             * Tier 0 is the underside and is rotated PI about X rather than
+             * given a negative Y scale — a mirrored instance would flip its
+             * normals, and the geometry gate reads decomposed scale. */
+            const equator = tree.y + tree.height * (species.crownBase + 0.22);
+            const lower = tree.height * 0.22;
+            const upper = tree.height * 0.28;
+            if (tier === 0) {
+              dummy.position.set(tree.x, equator - lower / 2, tree.z);
+              dummy.rotation.set(Math.PI, tree.yaw, 0);
+              dummy.scale.set(broad, lower, broad);
+            } else if (tier === 1) {
+              dummy.position.set(tree.x, equator + upper / 2, tree.z);
+              dummy.rotation.set(0, tree.yaw + 0.73, 0);
+              dummy.scale.set(broad * 0.98, upper, broad * 0.98);
+            } else {
+              dummy.position.set(tree.x, equator + upper * 0.82, tree.z);
+              dummy.rotation.set(0, tree.yaw + 1.46, 0);
+              dummy.scale.set(broad * 0.58, tree.height * 0.16, broad * 0.58);
+            }
+          } else {
+            const tierScale = 1 - tier * 0.17;
+            dummy.position.set(
+              tree.x,
+              tree.y + tree.height * (species.crownBase + tier * species.tierRise),
+              tree.z,
+            );
+            dummy.rotation.set(0, tree.yaw + tier * 0.73, 0);
+            dummy.scale.set(
+              broad * tierScale,
+              tree.height * (species.tierHeight - tier * species.tierTaper),
+              broad * tierScale,
+            );
+          }
           dummy.updateMatrix();
-          crowns.setMatrixAt(crownAt++, dummy.matrix);
+          crowns.setMatrixAt(crownAt, dummy.matrix);
+          crowns.setColorAt(crownAt, crownTint);
+          crownAt += 1;
         }
 
-        dummy.position.set(tree.x, tree.y + tree.height * 0.69, tree.z);
-        dummy.rotation.set(0, tree.yaw, 0);
-        dummy.scale.set(tree.radius * broad * 0.92, tree.height * 0.72, tree.radius * broad * 0.92);
-        dummy.updateMatrix();
-        farCrowns.setMatrixAt(i, dummy.matrix);
+        if (!species.crown) {
+          farCrowns.setMatrixAt(i, HIDDEN);
+          farCrowns.setColorAt(i, _speciesColour.setHex(0x000000));
+        } else {
+          /* One cone stands in for the whole crown past the LOD line. A
+           * broadleaf gets a squatter, lower one so its silhouette still
+           * reads round-ish rather than turning into a spire at 70 m. */
+          const round = species.shape === 'round';
+          dummy.position.set(
+            tree.x,
+            tree.y + tree.height * (round ? species.crownBase + 0.20 : species.crownBase + 0.17),
+            tree.z,
+          );
+          dummy.rotation.set(0, tree.yaw, 0);
+          dummy.scale.set(
+            broad * (round ? 1.02 : 0.92),
+            tree.height * (round ? 0.50 : species.tiers * 0.26),
+            broad * (round ? 1.02 : 0.92),
+          );
+          dummy.updateMatrix();
+          farCrowns.setMatrixAt(i, dummy.matrix);
+          farCrowns.setColorAt(i, speciesColour(species.crown, tree.tone, FAR_CROWN_DIM));
+        }
       }
       trunks.instanceMatrix.needsUpdate = true;
       crowns.instanceMatrix.needsUpdate = true;
       farCrowns.instanceMatrix.needsUpdate = true;
+      if (trunks.instanceColor) trunks.instanceColor.needsUpdate = true;
+      if (crowns.instanceColor) crowns.instanceColor.needsUpdate = true;
+      if (farCrowns.instanceColor) farCrowns.instanceColor.needsUpdate = true;
       trunks.castShadow = true;
       trunks.receiveShadow = true;
       crowns.castShadow = true;
       farCrowns.castShadow = false;
-      near.add(trunks, crowns);
+      /* Owner, cabin playtest: *"We need greater draw distance on the tree
+       * trunks. as they are floating trees in the distance."*
+       *
+       * The trunks used to live in `near`, and `near` switched off at
+       * `nearFoliage` (66 m of CHUNK-CENTRE distance) while the crowns
+       * carried on to `farFoliage` (158 m). Measured headlessly by driving
+       * this LOD loop and reading back every visible instance's world
+       * position:
+       *
+       *   from the porch      trunks to  86.2 m, canopies to 153.9 m
+       *   from the overlook   trunks to  78.9 m, canopies to 164.3 m
+       *   from the bridge     trunks to  79.3 m, canopies to 163.4 m
+       *
+       * — a 68 to 85 m band with 210 to 376 canopies hanging in it over
+       * nothing at all. It was never a fog band or a frustum cull: it was one
+       * `add`.
+       *
+       * The trunk is the cheapest thing in the forest (one 7-sided cylinder,
+       * one instanced draw call per chunk, ~28 triangles a tree), so it does
+       * not belong to an LOD tier at all. It hangs off the chunk and lives
+       * exactly as long as the chunk does, which is exactly as long as the
+       * crowns above it. Only the CROWN swaps near for far. */
+      chunkGroup.add(trunks);
+      near.add(crowns);
       far.add(farCrowns);
       trees += chunk.trees.length;
     }
@@ -1956,9 +2288,21 @@ function buildForest(root, M, colliders, disposables) {
   };
 }
 
+/**
+ * Half the world-space AABB of a capsule/cylinder along one axis.
+ *
+ * Support function of a cylinder of half-length `half` and radius `r` whose
+ * unit axis has component `a` on the axis being measured. This is exactly the
+ * box the geometry collector builds from the instance matrix, which is why
+ * placement clears THIS rather than a centre-line distance.
+ */
+function capsuleHalfExtent(half, r, a) {
+  return half * Math.abs(a) + r * Math.sqrt(Math.max(0, 1 - a * a));
+}
+
 function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) {
   const hitsTree = (x, z, radius) => plantedTrees.some((tree) => (
-    Math.hypot(x - tree.x, z - tree.z) < radius + tree.radius + 0.16
+    Math.hypot(x - tree.x, z - tree.z) < radius + (tree.spread ?? tree.radius) + 0.16
   ));
   const rockPlans = [];
   for (let gx = PROPERTY.minX + 6; gx < PROPERTY.maxX - 6; gx += 11.5) {
@@ -1966,9 +2310,21 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
       const x = gx + (hashAt(gx, gz, 151) - 0.5) * 7.0;
       const z = gz + (hashAt(gx, gz, 152) - 0.5) * 7.0;
       if (insideRect(x, z, CABIN.pad, 4) || trailFrame(x, z).distance < 2.5) continue;
-      if (hashAt(x, z, 153) > 0.36) continue;
+      /* 0.36 -> 0.385, and the same trade in the deadfall pass below.
+       * Clearing a trunk's true AABB instead of its centre line is stricter,
+       * and it cost the property three boulders and three logs -- 102 rocks
+       * to 99 and 25 deadfall to 22, both under the density floors
+       * `countryside-cabin-world.test.mjs` holds (>= 100 and >= 25). The
+       * clearance is the correctness fix and stays; the acceptance threshold
+       * buys the density back from the same deterministic hash. Measured
+       * after: 108 rocks and 28 logs, so both floors have headroom rather
+       * than sitting one boulder above failing. */
+      if (hashAt(x, z, 153) > 0.40) continue;
       const radius = 0.30 + hashAt(x, z, 154) * 0.80;
-      if (hitsTree(x, z, radius * 1.02)) continue;
+      /* A rock instance is scaled 0.75..1.20 of `radius` on Z, so its AABB
+       * reaches 1.20 x radius, not 1.02. Clearing at 1.02 planted boulders
+       * 10 to 14 cm inside distant trunks. */
+      if (hitsTree(x, z, radius * 1.20)) continue;
       rockPlans.push({ x, z, y: heightAt(x, z), radius, yaw: hashAt(x, z, 155) * Math.PI * 2 });
     }
   }
@@ -2002,27 +2358,39 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
     for (let gz = PROPERTY.minZ + 10; gz < PROPERTY.maxZ - 10; gz += 17.5) {
       const x = gx + (hashAt(gx, gz, 171) - 0.5) * 9;
       const z = gz + (hashAt(gx, gz, 172) - 0.5) * 9;
-      if (!canPlantTree(x, z, 1.0) || hashAt(x, z, 173) > 0.27) continue;
+      if (!canPlantTree(x, z, 1.0) || hashAt(x, z, 173) > 0.325) continue;
       const length = 2.2 + hashAt(x, z, 174) * 3.2;
       const radius = 0.16 + hashAt(x, z, 175) * 0.16;
       const yaw = hashAt(x, z, 176) * Math.PI * 2;
       const ax = Math.sin(yaw);
       const az = Math.cos(yaw);
       const half = length / 2;
-      const hitsStandingTree = plantedTrees.some((tree) => {
-        const along = THREE.MathUtils.clamp(
-          (tree.x - x) * ax + (tree.z - z) * az,
-          -half,
-          half,
-        );
-        const closestX = x + ax * along;
-        const closestZ = z + az * along;
-        return Math.hypot(tree.x - closestX, tree.z - closestZ) < radius + tree.radius + 0.32;
-      });
-      if (hitsStandingTree) continue;
       const y0 = heightAt(x - ax * length / 2, z - az * length / 2) + radius;
       const y1 = heightAt(x + ax * length / 2, z + az * length / 2) + radius;
-      logPlans.push({ x, z, y: (y0 + y1) / 2, length, radius, yaw, pitch: Math.atan2(y1 - y0, length), ax, az });
+      const pitch = Math.atan2(y1 - y0, length);
+      /* Clear the trunk's BOX, not its centre line.
+       *
+       * The old test measured the distance from each trunk to the log's axis,
+       * and that is not what the geometry gate measures: it audits one AABB
+       * per rendered instance, and the AABB of a 5.4 m log lying at 45
+       * degrees is 3.8 m square, most of it empty corner. Four logs cleared
+       * the cylinder and still buried a trunk 18 to 45 cm inside the box —
+       * invisible while distant trunks were not drawn, and four gate
+       * violations the moment they were. Both bodies are capsules with a
+       * known support function, so the two boxes are computed here exactly as
+       * the collector will and asked to stay apart. */
+      const logAxis = [ax * Math.cos(pitch), Math.sin(pitch), az * Math.cos(pitch)];
+      const logHalfX = capsuleHalfExtent(half, radius, logAxis[0]);
+      const logHalfZ = capsuleHalfExtent(half, radius, logAxis[2]);
+      const hitsStandingTree = plantedTrees.some((tree) => {
+        // rotation.set(lean, yaw, 0): the trunk tips in Z only.
+        const treeHalfX = tree.radius;
+        const treeHalfZ = capsuleHalfExtent(tree.height / 2, tree.radius, Math.sin(tree.lean));
+        return Math.abs(tree.x - x) < logHalfX + treeHalfX + 0.05
+          && Math.abs(tree.z - z) < logHalfZ + treeHalfZ + 0.05;
+      });
+      if (hitsStandingTree) continue;
+      logPlans.push({ x, z, y: (y0 + y1) / 2, length, radius, yaw, pitch, ax, az });
     }
   }
   const logGeometry = new THREE.CylinderGeometry(1, 1, 1, 8);

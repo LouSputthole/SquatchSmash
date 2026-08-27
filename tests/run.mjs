@@ -56,6 +56,7 @@ const TEST_MODULES = [
   './countryside-cabin-voice.test.mjs',
   './cabin-shooting-range.test.mjs',
   './cabin-body-cleanup.test.mjs',
+  './cabin-outdoor-world.test.mjs',
   './luxury-apartment-layout.test.mjs',
   './luxury-apartment-runtime.test.mjs',
   './luxury-apartment-world.test.mjs',

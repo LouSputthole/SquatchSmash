@@ -17,6 +17,7 @@ import {
   createCountrysideCabinStory,
 } from '../core/countryside-cabin-story.js';
 import { DayNight } from '../core/daynight.js';
+import { SkyDome } from '../core/sky.js';
 import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Hud } from '../core/hud.js';
@@ -118,6 +119,14 @@ scene.add(sun);
 const hemi = new THREE.HemisphereLight(0x758b93, 0x242117, 0.65);
 const ambient = new THREE.AmbientLight(0x5e584c, 0.26);
 scene.add(hemi, ambient);
+/** Where the daylight fill is warmed to. Low sun through conifers. */
+const WARM_DAY_FILL = new THREE.Color(0xffe0b4);
+
+/* A real sky, on the shared `DayNight` table -- sun disc, drifting cloud
+ * deck, and the horizon colour the fog then matches so the far treeline
+ * dissolves into it. `radius` stays inside the 220 m camera far plane and the
+ * dome rides the camera, so the ridge at 190 m still draws over it. */
+const sky = new SkyDome(scene, { camera, radius: 180, cloudCover: 0.52 });
 
 const campaign = createCampaign();
 const story = createCountrysideCabinStory({ campaign });
@@ -204,14 +213,24 @@ function applyTimeOfDay() {
   const twilightLift = time.isDark ? 1.65 : time.hour >= 18 ? 1.32 : 1.08;
   sun.position.copy(time.sunPos).multiplyScalar(4.2);
   sun.color.copy(time.sunColour);
-  sun.intensity = time.sunIntensity * 0.92;
+  /* Owner, cabin playtest: *"Its a bleak gray day make it nice out."*
+   *
+   * The key light was trimmed to 0.92 of the authored table and the fill was
+   * the table's own cold `ambColour`. On Day 2 at 09:20 that is a 1.93 key
+   * over a 0x8d94a8 fill: correct, and grey. The day now runs the key at
+   * FULL authored strength and warms the fill toward 0xffe0b4 by `dayness`,
+   * which is 0.93 at 09:20 and 0.01 at the 20:45 nightfall — so the good day
+   * is a DAY effect and the dungeon chapter's dark is untouched. */
+  sun.intensity = time.sunIntensity * (0.92 + 0.16 * time.dayness);
   hemi.color.copy(time.hemiSky);
   hemi.groundColor.copy(time.hemiGround);
-  hemi.intensity = time.hemiIntensity * (time.isDark ? 1.32 : 1.08);
-  ambient.color.copy(time.ambColour);
+  hemi.intensity = time.hemiIntensity * (time.isDark ? 1.32 : 1.08 + 0.14 * time.dayness);
+  ambient.color.copy(time.ambColour).lerp(WARM_DAY_FILL, 0.42 * time.dayness);
   ambient.intensity = time.ambIntensity * twilightLift;
-  scene.background.copy(time.fogColour).lerp(new THREE.Color(0x31453b), 0.32);
-  scene.fog.color.copy(scene.background);
+  sky.update(time, state.elapsed);
+  scene.background.copy(sky.fogColour);
+  scene.fog.color.copy(sky.fogColour);
+  scene.fog.density = sky.fogDensity;
   renderer.toneMappingExposure = time.exposure * (time.isDark ? 1.30 : time.hour >= 18 ? 1.20 : 1.14);
   const cabinLightsOn = time.isDark || time.hour >= 18;
   cabin?.setCeiling?.(cabinLightsOn, { automatic: true });
