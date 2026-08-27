@@ -17,7 +17,7 @@
 > and Beat 27 now rings in the luxury apartment before the existing pickup,
 > ride, trunk reveal, arrival and ceremony. All thirty-one beats are wired.
 
-The owner's connected campaign route implemented by campaign schema v22. Two
+The owner's connected campaign route implemented by campaign schema v23. Two
 homes: the starter apartment for beats 0 to 13, and the luxury apartment from
 the moment Lou hands over the keys on the eighteenth green at Silver Pines.
 The Home Ladder climbs there and never comes back down. Initiation remains a
@@ -220,14 +220,22 @@ and beats 12-19 gave Chapter 3 the two days it needed.
 | Complete Mansion Under Siege | Day 9, 6:10 AM |
 | Leave for Enola Squatch after regrouping | Day 9, 2:00 PM |
 | Complete Enola Squatch | Day 9, 6:00 PM |
-| Return to the repaired Mansion | Day 9, 6:30 PM |
-| Complete the return briefing | Day 9, 7:15 PM |
-| Leave for Cartel Palace | Day 9, 8:30 PM |
-| Extract from Cartel Palace | Day 9, 11:00 PM |
+| Return to the repaired Mansion | Day 12, 6:30 PM |
+| Complete the return briefing | Day 12, 7:15 PM |
+| Leave for Cartel Palace | Day 12, 8:30 PM |
+| Extract from Cartel Palace | Day 12, 11:00 PM |
+| Special Meeting pickup | Day 13, 5:55 PM |
+| Arrive at the Initiation | Day 13, 7:00 PM |
+| Complete the ceremony | Day 13, 8:50 PM |
 
-The bible puts the repaired mansion and the Palace on Day 12, after a
-deliberate time jump the built route does not take yet. That gap is the one
-remaining calendar difference between the plan and the fact.
+The deliberate jump is the exact-once `RETURN_TO_MANSION` handoff after Enola:
+it floors the repaired-house return at Day 12, 6:30 PM without rewinding a
+later save. The Palace keeps its 8:30 PM night approach. Beat 27 then waits for
+the following evening: the car collects Tony at 5:55 PM, Seff's stated
+forty-two-minute ride plus twenty-three minutes at the spur and on the trail
+lands the Initiation at its 7:00 PM anchor exactly. Schema v23 floors saves
+that had already consumed one of those markers; it never replays a marker,
+invents progress, or winds a later clock back.
 
 The workbook's **Day 5 night** label for Mansion Under Siege is a narrative
 label for the overnight begun on the day the case is delivered. The guest-room

@@ -1185,6 +1185,14 @@ by two days rather than being rewritten.
 | 12 | A few days on: the repaired mansion, and which city it actually was. The Palace that night. |
 | 13 | The special meeting, the ride, and the ceremony. |
 
+The current campaign implements this tail literally. Enola ends at 6:00 PM on
+Day 9; the exact-once repaired-mansion handoff jumps to Day 12 at 6:30 PM, the
+Palace runs from 8:30 to 11:00 that night, and the Special Meeting pickup waits
+until 5:55 PM on Day 13. Seff's forty-two-minute drive plus twenty-three minutes
+at the spur and on the trail lands the Initiation at 7:00 PM. Schema v23 repairs
+already-consumed old tail markers by flooring the save to the highest beat it
+proves, without inventing progress or rewinding a later clock.
+
 **These anchors move with the route, never before it.** `advanceTime` takes
 `Math.max(now, atLeast)`, so an anchor moved earlier than the route reaches it
 does not pull the clock back -- it silently stops firing, and the beat loses

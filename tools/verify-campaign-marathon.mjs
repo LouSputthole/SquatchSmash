@@ -830,6 +830,8 @@ function assertLandingFacts(step, state) {
       assertMission(state, MISSION_IDS.ENOLA_SQUATCH,
         { status: 'complete', checkpoint: 'return', payloadReleased: true, returnedHome: true });
       assertMission(state, MISSION_IDS.MANSION_RETURN, { status: 'available' });
+      assert.deepEqual([state.story.day, state.story.timeMinutes], [9, 18 * 60],
+        'Enola must end on Day Nine before the deliberate repair jump');
       break;
     case 'mansion-return-to-palace':
       assertMission(state, MISSION_IDS.MANSION_RETURN, {
@@ -837,6 +839,8 @@ function assertLandingFacts(step, state) {
         sauceMissingConfirmed: true, palaceLocationKnown: true,
       });
       assertMission(state, MISSION_IDS.CARTEL_PALACE, { status: 'available' });
+      assert.deepEqual([state.story.day, state.story.timeMinutes], [12, 19 * 60 + 15],
+        'the repaired-mansion briefing must land on Day Twelve');
       break;
     case 'palace-to-luxury':
       assertMission(state, MISSION_IDS.CARTEL_PALACE, {
@@ -845,6 +849,8 @@ function assertLandingFacts(step, state) {
       });
       assertMission(state, MISSION_IDS.INITIATION, { status: 'available' });
       assert.equal(state.finale.status, 'locked');
+      assert.deepEqual([state.story.day, state.story.timeMinutes], [12, 23 * 60],
+        'the Palace must extract at eleven on Day Twelve');
       break;
     case 'luxury-to-special-meeting':
       assert.equal(state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status, 'answered');
@@ -852,6 +858,8 @@ function assertLandingFacts(step, state) {
         (eventId) => eventId === TIME_EVENT_IDS.DEPART_SPECIAL_MEETING,
       ).length, 1, 'Special Meeting departure must be exact-once');
       assertMission(state, MISSION_IDS.INITIATION, { status: 'available' });
+      assert.deepEqual([state.story.day, state.story.timeMinutes], [13, 17 * 60 + 55],
+        'the Special Meeting pickup must wait for the next evening');
       break;
     /* The one campaign scene with no mission record -- there is no
      * MISSION_IDS.SPECIAL_MEETING, because nothing in the drive can be done
@@ -867,6 +875,8 @@ function assertLandingFacts(step, state) {
       ).length, 1, 'Initiation departure must be exact-once');
       assertMission(state, MISSION_IDS.INITIATION, { status: 'in_progress' });
       assert.equal(state.finale.status, 'locked');
+      assert.deepEqual([state.story.day, state.story.timeMinutes], [13, 19 * 60],
+        '42 minutes in the car plus 23 at the spur and trail must land at 19:00');
       break;
     case 'initiation-to-finale':
       assertMission(state, MISSION_IDS.INITIATION, { status: 'complete' });
@@ -879,6 +889,8 @@ function assertLandingFacts(step, state) {
       assert.equal(state.story.timeEvents.filter(
         (eventId) => eventId === TIME_EVENT_IDS.COMPLETE_INITIATION,
       ).length, 1, 'Initiation completion must be exact-once');
+      assert.deepEqual([state.story.day, state.story.timeMinutes], [13, 20 * 60 + 50],
+        'the completed ceremony must remain on Day Thirteen');
       break;
     default:
       assert.fail(`unclassified marathon landing ${step.id}`);

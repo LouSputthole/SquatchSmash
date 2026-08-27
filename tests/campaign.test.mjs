@@ -323,13 +323,10 @@ test('the Day Two through Day Four mission beats land on their authored clocks',
      * absorbed by `Math.max(now, atLeast)` and named no hour at all. */
     [TIME_EVENT_IDS.DEPART_NO_WAKE, 7, 12 * 60 + 45],
     [TIME_EVENT_IDS.COMPLETE_NO_WAKE, 7, 16 * 60 + 40],
-    /* DEPART_INITIATION is anchored at Day 4 19:00 and this walk has already
-     * gone past it, so it advances nothing and carries the clock where it
-     * stands. That is not a bug being papered over -- it is the same pure
-     * carry the real route sees, where the ceremony lands after midnight on
-     * Day 10 and no anchor this early can name its hour. Asserting the carry
-     * is what keeps the difference between "anchored" and "spent" visible. */
-    [TIME_EVENT_IDS.DEPART_INITIATION, 7, 16 * 60 + 40],
+    /* The ceremony is one of the four anchors that move with the repaired-
+     * mansion jump. Spending it out of story order still proves its authored
+     * floor: Day 13 at seven, never the retired Day 4 anchor. */
+    [TIME_EVENT_IDS.DEPART_INITIATION, 13, 19 * 60],
   ];
   for (const [eventId, day, timeMinutes] of beats) {
     const result = campaign.advanceTime(eventId);
@@ -342,7 +339,7 @@ test('the Day Two through Day Four mission beats land on their authored clocks',
   // and cannot drag the clock back to the beat's own authored hour either.
   const replay = campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO);
   assert.deepEqual(replay, {
-    applied: false, day: 7, timeMinutes: 16 * 60 + 40, minutesAdvanced: 0,
+    applied: false, day: 13, timeMinutes: 19 * 60, minutesAdvanced: 0,
   });
 });
 

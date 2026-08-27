@@ -558,19 +558,12 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.INITIATION, spawn: 'gathering' });
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'in_progress');
   assert.notEqual(campaign.state.missions[MISSION_IDS.INITIATION].status, 'complete');
-  /* Day 10, twenty to one in the morning.
-   *
-   * It read Day 8 before the Act-One cabin, and the two days it gained are
-   * exactly the two the cabin now takes -- the lay-low and the dungeon. The
-   * TIME of it has not moved at all, and that is the part worth holding: the
-   * Palace finishes late; the phone call, getting changed and going down to a
-   * car already running is thirty-five minutes (DEPART_SPECIAL_MEETING); the
-   * drive, the spur, the boot and the walk in is sixty-five
-   * (COMPLETE_SPECIAL_MEETING). `DEPART_INITIATION` is anchored at Day 4 19:00
-   * and absorbs nothing this late -- it is pure carry. The ceremony starting
-   * after midnight is the point of it. */
-  assert.equal(campaign.state.story.day, 10);
-  assert.equal(campaign.state.story.timeMinutes, 40);
+  /* Day 13, seven in the evening. Palace extraction is 23:00 on Day 12; the
+   * Special Meeting call and pickup wait until 17:55 the next evening. Seff's
+   * ride is the authored forty-two minutes and the spur/trail consumes the
+   * other twenty-three, landing the Initiation at its 19:00 anchor exactly. */
+  assert.equal(campaign.state.story.day, 13);
+  assert.equal(campaign.state.story.timeMinutes, 19 * 60);
   for (const eventId of [
     /* The luxury apartment's four visits, each with its own marker. */
     TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT,
@@ -597,6 +590,9 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
     TIME_EVENT_IDS.COMPLETE_MANSION_RETURN,
     TIME_EVENT_IDS.DEPART_CARTEL_PALACE,
     TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE,
+    TIME_EVENT_IDS.DEPART_SPECIAL_MEETING,
+    TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING,
+    TIME_EVENT_IDS.DEPART_INITIATION,
   ]) {
     assert.equal(campaign.state.story.timeEvents.includes(eventId), true, eventId);
   }

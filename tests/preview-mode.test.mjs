@@ -519,7 +519,7 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(state.missions[MISSION_IDS.MANSION_RETURN].status, 'available');
         assert.equal(state.missions[MISSION_IDS.CARTEL_PALACE].status, 'locked');
         assert.equal(state.story.chapter, 'mansion_return');
-        assert.equal(state.story.day, 9);
+        assert.equal(state.story.day, 12);
         assert.equal(state.story.timeMinutes, 18 * 60 + 30);
       },
     },
@@ -535,9 +535,10 @@ test('standalone mission previews receive only temporary prerequisites', () => {
         assert.equal(state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'answered');
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'available');
         // Preview uses the same post-Cabin clock as play: Palace extraction is
-        // the end of Day 7, and the frozen Initiation follows it directly.
+        // the end of Day 12. The real pickup is the following evening; this
+        // seed deliberately stands just before that call.
         assert.equal(state.story.chapter, 'big_night');
-        assert.equal(state.story.day, 9);
+        assert.equal(state.story.day, 12);
         assert.equal(state.story.timeMinutes, 23 * 60);
       },
     },

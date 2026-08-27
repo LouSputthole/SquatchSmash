@@ -312,7 +312,7 @@ test('beat 27 rings in the luxury apartment and leaves for the existing pickup',
   });
 });
 
-test('schema 22 moves an old Palace landing up to the luxury flat without eating the call', () => {
+test('the v21 Palace landing migration survives the v23 clock repair without eating the call', () => {
   const storage = new MemoryStorage();
   const current = afterTheHandover(storage);
   current.update((state) => {

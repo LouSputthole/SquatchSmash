@@ -513,9 +513,8 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_CARTEL_PALACE: 'mission.cartel_palace',
   /* THE SPECIAL MEETING: waiting in the flat for a car nobody described, and
    * then the drive out. `DEPART` is the wait and the walk downstairs; the
-   * completion is Seff's forty-two minutes plus the standing about at the spur
-   * and the walk up the trail. Relative minutes rather than an `atLeast`
-   * because the final arc's day is whatever the Palace left behind it. */
+   * completion is Seff's forty-two minutes plus twenty-three at the spur and
+   * on the trail. Both live on Day 13 now; see their anchors below. */
   DEPART_SPECIAL_MEETING: 'travel.special_meeting',
   COMPLETE_SPECIAL_MEETING: 'scene.special_meeting',
 });
@@ -569,14 +568,11 @@ const TIME_EVENTS = Object.freeze({
   /* Zero, and that is not an oversight.
    *
    * Every other call on this list buys its own minutes because nothing else
-   * prices it. This one is already priced: DEPART_SPECIAL_MEETING below is
-   * thirty-five minutes of "the phone call, getting changed, and going down to
-   * a car already running", written when the whole of Act One lived on the
-   * Special Meeting's own page. Act One is played in the flat now, but the
-   * thirty-five minutes still cover it end to end, so charging the call again
-   * here would bill the same forty seconds twice. Kept as a registered event
-   * with no cost rather than dropped, because `advanceTime` is the exact-once
-   * ledger that records the call as answered -- see the id's note above. */
+   * prices it. This one is already inside DEPART_SPECIAL_MEETING below: that
+   * Day 13 pickup anchor covers the call, changing, decompression and going
+   * down to the car. Charging here would bill one conversation twice. Kept as
+   * a registered zero-minute event because `advanceTime` is also the
+   * exact-once ledger that records the call as answered. */
   [TIME_EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
@@ -858,25 +854,26 @@ const TIME_EVENTS = Object.freeze({
    * 7 -- home from South Harbor at twenty past five, Booskibro rings at
    * twenty-five past -- and the bible gives the case its own day. Ape's
    * pickup and the off-screen rendezvous land it at 4 PM that afternoon, and
-   * everything behind it (mansion, siege, Enola, Palace, the ceremony at
-   * twenty to one on Day 10) keeps the hours it already had. */
+   * everything behind it (mansion, siege and Enola through Day 9, then the
+   * repaired house and Palace on Day 12 and the ceremony on Day 13) keeps its
+   * authored place. */
   [TIME_EVENT_IDS.DEPART_SILVER_CASE]: Object.freeze({
     atLeast: Object.freeze({ day: 8, timeMinutes: 16 * 60 }),
   }),
   // Car ride, apartment takeover, ambush, aftermath, and recovery of the case.
   [TIME_EVENT_IDS.COMPLETE_SILVER_CASE]: Object.freeze({ minutes: 90 }),
-  /* The big night is the day after the date. Sleeping off the Silver Room is
-   * what turns the page, so the ceremony lands on Day 4 at seven sharp. */
+  /* The ceremony begins at seven on Day 13. The Special Meeting pickup is
+   * anchored sixty-five minutes earlier, so Seff's forty-two-minute drive and
+   * twenty-three minutes at the spur and on the trail land exactly here. */
   [TIME_EVENT_IDS.DEPART_INITIATION]: Object.freeze({
-    atLeast: Object.freeze({ day: 4, timeMinutes: 19 * 60 }),
+    atLeast: Object.freeze({ day: 13, timeMinutes: 19 * 60 }),
   }),
   /* Speech, quiz, execution, gauntlet, roar, anointing: a long evening at the
    * bonfire. Exact-once, so replaying a failed rite never farms hours. */
   [TIME_EVENT_IDS.COMPLETE_INITIATION]: Object.freeze({ minutes: 110 }),
-  /* PROJECT SILENT SQUATCH follows the now-routed Silver Case. The Cabin
-   * chapter moved that case to Day 6, so the drive and basement work now end
-   * that evening. Eight hours in Lou's guest room wakes Tony at 4:10 AM on
-   * calendar Day 7 without changing any Mansion-scene duration. */
+  /* PROJECT SILENT SQUATCH follows the now-routed Silver Case on Day 8. The
+   * drive and basement work end that evening; eight hours in Lou's guest room
+   * wake Tony at 4:10 AM on Day 9 without changing any Mansion duration. */
   [TIME_EVENT_IDS.DEPART_MANSION]: Object.freeze({ minutes: 25 }),
   [TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH]: Object.freeze({ minutes: 135 }),
   /* Zero minutes, on purpose and with precedent (the phone read markers,
@@ -891,37 +888,40 @@ const TIME_EVENTS = Object.freeze({
   // Guest-room wake through the Sasole handoff at the end of the assault.
   [TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE]: Object.freeze({ minutes: 120 }),
   /* The house survives at dawn. Repair, mission planning, and aircraft prep
-   * consume the day; Enola opens late on Day 7, preserving the airfield
-   * runtime's visible daylight-to-nightfall cut after the Cabin insertion. */
+   * consume the day; Enola opens at two on Day 9, preserving the airfield
+   * runtime's visible daylight-to-nightfall cut. */
   [TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH]: Object.freeze({
     atLeast: Object.freeze({ day: 9, timeMinutes: 14 * 60 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH]: Object.freeze({ minutes: 4 * 60 }),
-  [TIME_EVENT_IDS.RETURN_TO_MANSION]: Object.freeze({ minutes: 30 }),
+  /* A FEW DAYS ON. Enola ends at six on Day 9, but the repaired-mansion scene
+   * is not the thirty-minute drive that old builds made it. The bible requires
+   * visible time for repair and recovery, so this exact-once handoff jumps to
+   * half six on Day 12. `Math.max` keeps a genuinely later save from rewinding. */
+  [TIME_EVENT_IDS.RETURN_TO_MANSION]: Object.freeze({
+    atLeast: Object.freeze({ day: 12, timeMinutes: 18 * 60 + 30 }),
+  }),
   [TIME_EVENT_IDS.COMPLETE_MANSION_RETURN]: Object.freeze({ minutes: 45 }),
-  /* Lou holds the raid until full dark. The estate approach therefore keeps
-   * its Day 7 night label even if a faster preceding scene finishes early. */
+  /* Lou holds the raid until full dark on the same Day 12. */
   [TIME_EVENT_IDS.DEPART_CARTEL_PALACE]: Object.freeze({
-    atLeast: Object.freeze({ day: 9, timeMinutes: 20 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 12, timeMinutes: 20 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE]: Object.freeze({ minutes: 150 }),
-  /* The phone call, getting changed, and going down to a car already running.
-   *
-   * All three of those are now played rather than described -- Act One (beats
-   * SM-010 to SM-090) happens in the flat, so this is the hour the FLAT spends,
-   * and the apartment's own `leaveForMission` books it on the way out of the
-   * front door the same way every other departure is booked. The Special
-   * Meeting's page still asks for it on boot, which costs nothing: `advanceTime`
-   * is exact-once, so whichever of the two gets there first is the only one
-   * that moves the clock. */
-  [TIME_EVENT_IDS.DEPART_SPECIAL_MEETING]: Object.freeze({ minutes: 35 }),
-  /* Forty-two minutes, per Seff, who is not being funny; then the spur, the
-   * boot, and the walk in. */
+  /* The next evening. Act One (SM-010 to SM-090) happens in the luxury flat;
+   * the call, changing and the wait are folded into this 17:55 pickup anchor.
+   * The flat writes it at the lift and the Special Meeting page asks for it on
+   * boot as a recovery guard. Exact-once means only the first can move the
+   * clock, and no reload can replay the overnight decompression. */
+  [TIME_EVENT_IDS.DEPART_SPECIAL_MEETING]: Object.freeze({
+    atLeast: Object.freeze({ day: 13, timeMinutes: 17 * 60 + 55 }),
+  }),
+  /* Forty-two minutes, per Seff, who is not being funny; then twenty-three at
+   * the spur, the boot, and on the trail. 42 + 23 lands at 19:00 exactly. */
   [TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING]: Object.freeze({ minutes: 65 }),
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 22;
+export const CAMPAIGN_VERSION = 23;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -2145,6 +2145,48 @@ const FINAL_ARC_TIME_EVENT_ORDER = Object.freeze([
   TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE,
 ]);
 
+/* The bible's repaired-mansion jump and the following night, in order. This
+ * is separate from FINAL_ARC_TIME_EVENT_ORDER because it also includes the
+ * Special Meeting and ceremony markers that have no mission record of their
+ * own. Schema 23 uses the highest marker actually consumed by an old save to
+ * recover the new clock floor without inventing an event the player did not
+ * reach. */
+const FINAL_TAIL_TIME_EVENT_ORDER = Object.freeze([
+  TIME_EVENT_IDS.RETURN_TO_MANSION,
+  TIME_EVENT_IDS.COMPLETE_MANSION_RETURN,
+  TIME_EVENT_IDS.DEPART_CARTEL_PALACE,
+  TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE,
+  TIME_EVENT_IDS.DEPART_SPECIAL_MEETING,
+  TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING,
+  TIME_EVENT_IDS.DEPART_INITIATION,
+  TIME_EVENT_IDS.COMPLETE_INITIATION,
+]);
+
+function finalTailClockFloor(story) {
+  const spent = new Set(uniqueStrings(story?.timeEvents));
+  let highest = -1;
+  for (let i = 0; i < FINAL_TAIL_TIME_EVENT_ORDER.length; i += 1) {
+    if (spent.has(FINAL_TAIL_TIME_EVENT_ORDER[i])) highest = i;
+  }
+  if (highest < 0) return null;
+
+  /* Enola's exact ending before the deliberate jump. Replaying the consumed
+   * tail events from this fixed seam derives every later floor from the same
+   * TIME_EVENTS table the live route uses. Do not start from the saved clock:
+   * a relative completion would otherwise add its duration to a legitimately
+   * later post-campaign save rather than leaving that later clock alone. */
+  let canonical = {
+    ...(story ?? {}),
+    day: 9,
+    timeMinutes: 18 * 60,
+    timeEvents: [],
+  };
+  for (let i = 0; i <= highest; i += 1) {
+    canonical = storyAfterTimeEvent(canonical, FINAL_TAIL_TIME_EVENT_ORDER[i]);
+  }
+  return { day: canonical.day, timeMinutes: canonical.timeMinutes };
+}
+
 function finalArcTimeEventsReached(saved) {
   const missions = saved.missions ?? {};
   const silverCase = missions[MISSION_IDS.SILVER_CASE] ?? {};
@@ -2883,6 +2925,34 @@ const MIGRATIONS = Object.freeze({
         },
       } : {}),
     };
+  },
+  22(saved) {
+    /**
+     * Schema 23 repairs saves which already spent a final-tail event before
+     * the story bible's Day 12 / Day 13 calendar was wired.
+     *
+     * Merely changing TIME_EVENTS fixes new runs, but an exact-once marker in
+     * an existing save is never applied again. Use the highest tail marker the
+     * save actually carries to derive the minimum clock it has proved, floor
+     * the clock there, and never rewind a clock that is already later. No
+     * markers are added or removed. Grandfathered final-arc saves preserve the
+     * old terminal timeline exactly as earlier migrations promised.
+     */
+    const finalArcMissions = [
+      MISSION_IDS.SILVER_CASE,
+      MISSION_IDS.MANSION_SIEGE,
+      MISSION_IDS.ENOLA_SQUATCH,
+      MISSION_IDS.MANSION_RETURN,
+      MISSION_IDS.CARTEL_PALACE,
+    ];
+    const grandfathered = finalArcMissions.some(
+      (id) => saved.missions?.[id]?.grandfathered === true,
+    );
+    const floor = grandfathered ? null : finalTailClockFloor(saved.story);
+    const repair = floor && absoluteStoryMinutes(floor) > absoluteStoryMinutes(saved.story)
+      ? { story: { ...(saved.story ?? {}), ...floor } }
+      : {};
+    return { ...saved, version: 23, ...repair };
   },
 });
 

@@ -173,9 +173,9 @@ test('answering it moves nothing, because the call itself moved nothing', () => 
 
   assert.equal(after.missions[MISSION_IDS.INITIATION].status, before.initiation,
     'Booskibro unlocked something by refusing to say where he was sending a car');
-  /* Zero on the clock, and on purpose: DEPART_SPECIAL_MEETING already prices
-   * the call along with getting changed and going downstairs. See its note in
-   * core/campaign.js. */
+  /* Zero on the clock, and on purpose: DEPART_SPECIAL_MEETING already folds
+   * the call, changing, decompression and going downstairs into the Day 13
+   * pickup anchor. See its note in core/campaign.js. */
   assert.equal(after.story.day, before.day);
   assert.equal(after.story.timeMinutes, before.minutes,
     'the call was billed twice — once here and once in DEPART_SPECIAL_MEETING');

@@ -99,7 +99,7 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
 });
 
 test('a fresh schema carries locked durable records for every final-arc mission', () => {
-  assert.equal(CAMPAIGN_VERSION, 22);
+  assert.equal(CAMPAIGN_VERSION, 23);
   assert.equal(MISSION_IDS.SILVER_CASE, 'silver_case');
   assert.equal(MISSION_IDS.MANSION_SIEGE, 'mansion_siege');
   assert.equal(MISSION_IDS.ENOLA_SQUATCH, 'enola_squatch');

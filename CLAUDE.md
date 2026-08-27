@@ -116,7 +116,7 @@ CH 6  THIS THING OF OURS
 
 ### The calendar
 
-The bible's calendar, which is the target:
+The bible's calendar, which the runtime now implements:
 
 | Day | |
 |---|---|
@@ -132,26 +132,19 @@ The bible's calendar, which is the target:
 | 12 | The repaired mansion, and the Palace that night |
 | 13 | The meeting, the ride, the ceremony |
 
-**Days 1 to 9 are the built route.** Beats 3-7 and 11.5-19 are both wired, so
-the table above is the calendar the campaign actually keeps up to the siege:
-the cabin owns Days 2 to 4, THE TAKE is the afternoon of Day 5, the round and
-the handover are Day 6 morning with Front & Center that night, the stayover
-runs into Day 7 and NO WAKE fills its afternoon, and the Silver Case leaves at
-4 PM on Day 8. The one place the built route still differs from the table is
-the tail: the repaired mansion and the Palace are Day 9 rather than Day 12,
-because nothing has yet wired the time jump the bible asks for between Enola
-and the debrief. `src/core/campaign.js`'s `TIME_EVENT_CLOCK` is the fact.
+**All thirty-one beats are wired, through Day 13.** The cabin owns Days 2 to 4,
+THE TAKE is the afternoon of Day 5, the round and handover are Day 6 with Front
+& Center that night, Margo's physical two-floor stayover runs into Day 7, and
+the Silver Case leaves at 4 PM on Day 8. Siege and Enola occupy Day 9. The
+exact-once `RETURN_TO_MANSION` handoff then jumps to the repaired house at 6:30
+PM on Day 12; Cartel Palace opens at 8:30 PM and extracts at 11:00 PM. The
+Special Meeting pickup is 5:55 PM on Day 13. Seff's forty-two-minute ride plus
+twenty-three minutes at the spur and on the trail lands Initiation at 7:00 PM.
+Schema v23 floors old saves which had already consumed one of those tail
+markers without replaying it or rewinding a later clock.
 
-Two beats are wired as ROUTE but not yet as SCENE: 16 and 17. The campaign
-comes home from Front & Center to the luxury apartment, sleeps the night,
-wakes on the morning of Day 7 and takes Lou's call — and Margo's lines play —
-but she is not staged in that flat, and the dress mini-game with her is still
-the starter apartment's. `campaign-spine.js` calls both `pending` for exactly
-that reason. The port is `world/apartment-preview-geometry.js`'s job, not a
-route commit's.
-
-**Anchors move WITH the route, in the same commit.** Beats 3-7 cost every
-anchor after the Beef Run two days. Leaving one behind does not fail anywhere:
+**Anchors move WITH the route, in the same commit.** Leaving one behind does
+not fail anywhere:
 `advanceTime` takes `Math.max(now, atLeast)`, so an overshot anchor silently
 stops naming its hour, and the golf round "ended" at 07:18 having teed off at
 07:30. `sleep()` in `apartment-story.js` treats its chapter table's day as a
