@@ -1969,7 +1969,14 @@ try {
       .map((cue) => cue.name))
     : mansionSelectedNames;
   const mansionSelectedCues = soundManifest.sfx.filter((cue) => (
-    scopedNames.has(cue.name) || cue.name.startsWith('vo.silentsquatch.')
+    scopedNames.has(cue.name)
+      /* Before the page exposed its three actual banks, the broad story
+       * prefix was the verifier's safety net. Once published banks exist,
+       * adding that prefix again is wrong: it makes the Silent Squatch visit
+       * wait for repaired-house-only `vo.silentsquatch.return.*` recordings
+       * that this visit intentionally never decodes. Keep the old breadth
+       * only on the legacy fallback path. */
+      || (!publishedBanks && cue.name.startsWith('vo.silentsquatch.'))
   ));
   const expectedMansionResident = mansionSelectedCues
     .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
