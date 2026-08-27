@@ -612,7 +612,27 @@ export class CountrysideCabinStory {
   completeNightfall() {
     if (this.nightfallComplete()) return this.mark(TIME_EVENT_IDS.CABIN_NIGHTFALL);
     if (!this.deathsComplete()) return this.blocked('executions_incomplete');
-    return this.mark(TIME_EVENT_IDS.CABIN_NIGHTFALL);
+
+    /* The current route reaches this beat on Day 3, where the canonical time
+     * event anchors it at 20:45. Post-heist saves and the standalone Cabin
+     * preview can legitimately arrive on a later date, though, and an
+     * `atLeast: Day 3` event cannot move Day 7 from noon to night: absolute
+     * time is already greater than the fixed anchor. Bring only those later
+     * calendars forward to the same day's 20:45 before spending the exact-once
+     * event. Never move a late-running playthrough backwards. */
+    const before = this.campaign.state.story;
+    let compatibilityMinutes = 0;
+    const nightfallMinute = 20 * 60 + 45;
+    if (before.day > 3 && before.timeMinutes < nightfallMinute) {
+      compatibilityMinutes = nightfallMinute - before.timeMinutes;
+      this.campaign.update((state) => {
+        state.story.timeMinutes = nightfallMinute;
+      });
+    }
+    const result = this.mark(TIME_EVENT_IDS.CABIN_NIGHTFALL);
+    return compatibilityMinutes > 0
+      ? { ...result, minutesAdvanced: result.minutesAdvanced + compatibilityMinutes }
+      : result;
   }
 
   nightfallBriefingComplete() {
@@ -743,9 +763,31 @@ export class CountrysideCabinStory {
   blackout() {
     if (this.blackedOut()) return this.mark(TIME_EVENT_IDS.CABIN_BLACKOUT);
     if (!this.drankAfterCleanup()) return this.blocked('drink_first');
-    return this.mark(TIME_EVENT_IDS.CABIN_BLACKOUT, (state) => {
+
+    /* Same compatibility rule as nightfall, but this transition owns the
+     * next morning. The fixed Day-4 anchor serves the current route. A later
+     * legacy calendar advances to its next 09:30 instead of remaining beside
+     * the fire because its absolute timestamp already outranks Day 4. */
+    const before = this.campaign.state.story;
+    let compatibilityMinutes = 0;
+    const wakeMinute = 9 * 60 + 30;
+    const fixedWakeAbsolute = (4 - 1) * 24 * 60 + wakeMinute;
+    const beforeAbsolute = (before.day - 1) * 24 * 60 + before.timeMinutes;
+    if (beforeAbsolute >= fixedWakeAbsolute) {
+      const wakeDay = before.timeMinutes < wakeMinute ? before.day : before.day + 1;
+      const wakeAbsolute = (wakeDay - 1) * 24 * 60 + wakeMinute;
+      compatibilityMinutes = wakeAbsolute - beforeAbsolute;
+      this.campaign.update((state) => {
+        state.story.day = wakeDay;
+        state.story.timeMinutes = wakeMinute;
+      });
+    }
+    const result = this.mark(TIME_EVENT_IDS.CABIN_BLACKOUT, (state) => {
       state.scene = { id: SCENE_IDS.COUNTRYSIDE_CABIN, spawn: 'wake' };
     });
+    return compatibilityMinutes > 0
+      ? { ...result, minutesAdvanced: result.minutesAdvanced + compatibilityMinutes }
+      : result;
   }
 
   morningCallComplete() {
@@ -781,8 +823,20 @@ export class CountrysideCabinStory {
     return this.has(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL);
   }
 
+  /**
+   * Compatibility saves entered this scene after the bank, when Silver Case
+   * was already the next mission. They leave after the morning wake and must
+   * never receive the Act-One call about Billy on their way to the final arc.
+   */
+  legacySilverCaseRoute() {
+    const status = this.campaign.state.missions[MISSION_IDS.SILVER_CASE]?.status;
+    return status === 'available' || status === 'in_progress';
+  }
+
   billyCallReady() {
-    return this.morningWakeComplete() && !this.billyCallComplete();
+    return !this.legacySilverCaseRoute()
+      && this.morningWakeComplete()
+      && !this.billyCallComplete();
   }
 
   completeBillyCall() {
@@ -804,7 +858,9 @@ export class CountrysideCabinStory {
   }
 
   chapterComplete() {
-    return this.billyCallComplete();
+    return this.legacySilverCaseRoute()
+      ? this.morningWakeComplete()
+      : this.billyCallComplete();
   }
 
   phase() {
@@ -838,6 +894,7 @@ export class CountrysideCabinStory {
     if (!this.blackedOut()) return 'blackout';
     if (!this.morningCallComplete()) return 'morning_call';
     if (!this.morningWakeComplete()) return 'morning_wake';
+    if (this.legacySilverCaseRoute()) return 'complete';
     if (!this.billyCallComplete()) return 'billy_call';
     return 'complete';
   }
@@ -883,7 +940,7 @@ export class CountrysideCabinStory {
     const silverCase = missions[MISSION_IDS.SILVER_CASE];
 
     /* LEGACY: a save that got here the old way, after the bank. */
-    if (silverCase?.status === 'available' || silverCase?.status === 'in_progress') {
+    if (this.legacySilverCaseRoute()) {
       if (!this.morningWakeComplete()) {
         return {
           kind: 'stay',
@@ -1100,7 +1157,8 @@ export class CountrysideCabinStory {
           required: true,
         },
       );
-      if (this.morningWakeComplete() || this.billyCallComplete()) {
+      if (!this.legacySilverCaseRoute()
+        && (this.morningWakeComplete() || this.billyCallComplete())) {
         out.push({
           id: TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL,
           label: 'Answer Booskibro about Billy Hotdog',

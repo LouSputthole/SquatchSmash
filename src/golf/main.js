@@ -282,6 +282,9 @@ const cartRadio = new Radio(audio, hud, radioClock, {
   }),
   /* This quiet morning does not replay campaign meeting interruptions. */
   canPlayNotice: () => false,
+  /* A cart receiver can remain powered while the group plays a ball, but its
+   * station card must not follow the player across an entire golf hole. */
+  hudVisible: () => camMode === CAM.CART,
 });
 const cartRadioPosition = new THREE.Vector3();
 const cartRadioReady = cartRadio.loadManifest();
@@ -2088,12 +2091,14 @@ const pauseMenu = createPauseMenu({
     paused = true;
     interaction.setPaused(true);
     input?.suspend();
+    cartRadio.pause();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     paused = false;
     interaction.setPaused(false);
     audio.ctx?.resume?.();
+    cartRadio.resume();
     clock.getDelta();
     input?.resume();
   },

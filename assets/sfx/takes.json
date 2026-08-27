@@ -15370,12 +15370,6 @@
       "voice": "npc-male",
       "voiceId": "THy3prVIjAFnT9vQVvCB"
     },
-    "vo.silvercase.control.deke.goodshow": {
-      "text": "5319d1f00ee5",
-      "source": "rendered",
-      "voice": "npc-male",
-      "voiceId": "THy3prVIjAFnT9vQVvCB"
-    },
     "vo.silvercase.control.deke.justus": {
       "text": "cbdc81815540",
       "source": "rendered",
@@ -15404,84 +15398,12 @@
       "voice": "chester",
       "voiceId": "tgfcQY9SGvn3GfmnNWIi"
     },
-    "vo.silvercase.lou.ape.evermeet": {
-      "text": "8d39d94e8c90",
-      "source": "assumed"
-    },
     "vo.silvercase.lou.ape.lookslikeabitch": {
       "text": "cf05cec4c174",
       "source": "assumed"
     },
-    "vo.silvercase.lou.ape.reaction.absolutelynot": {
-      "text": "a70ffcb0c55a",
-      "source": "assumed"
-    },
-    "vo.silvercase.lou.ape.reaction.lighting": {
-      "text": "ff600770647e",
-      "source": "assumed"
-    },
-    "vo.silvercase.lou.ape.reaction.no": {
-      "text": "a70ffcb0c55a",
-      "source": "assumed"
-    },
-    "vo.silvercase.lou.ape.reaction.silent": {
-      "text": "d9ee5b7a5ae4",
-      "source": "assumed"
-    },
-    "vo.silvercase.lou.ape.whatlookslike": {
-      "text": "cdd1155641e8",
-      "source": "assumed"
-    },
-    "vo.silvercase.lou.chester.heardofhim": {
-      "text": "4d5d6e2ac737",
-      "source": "assumed"
-    },
     "vo.silvercase.lou.chester.no": {
       "text": "3b20ece829b0",
-      "source": "assumed"
-    },
-    "vo.silvercase.lou.chester.notpersonal": {
-      "text": "6a76f87eb781",
-      "source": "assumed"
-    },
-    "vo.silvercase.lou.prospect.choice.absolutelynot": {
-      "text": "91213a77e32d",
-      "source": "assumed"
-    },
-    "vo.silvercase.lou.prospect.choice.lighting": {
-      "text": "0bfa1c81402f",
-      "source": "assumed"
-    },
-    "vo.silvercase.lou.prospect.choice.no": {
-      "text": "3b20ece829b0",
-      "source": "assumed"
-    },
-    "vo.silvercase.prayer.ape.line1": {
-      "text": "a725f29db5e7",
-      "source": "assumed"
-    },
-    "vo.silvercase.prayer.ape.line2": {
-      "text": "6fb4f114b878",
-      "source": "assumed"
-    },
-    "vo.silvercase.prayer.ape.line3": {
-      "text": "64c0df85009d",
-      "source": "assumed"
-    },
-    "vo.silvercase.prayer.ape.line4": {
-      "text": "59016d12bde9",
-      "source": "assumed"
-    },
-    "vo.silvercase.prayer.ape.line5": {
-      "text": "2dfd56708a63",
-      "source": "assumed"
-    },
-    "vo.silvercase.prayer.ape.onemoment": {
-      "text": "9d5405525777",
-      "source": "assumed"
-    },
-    "vo.silvercase.prayer.prospect.nofootprints": {
-      "text": "80bad631f018",
       "source": "assumed"
     },
     "vo.silvercase.shots.ape.atme": {

@@ -615,8 +615,7 @@ async function runCleanStartGoldenPath() {
     const dekeLook = await lookCleanPathAt(goldenPage, { kind: 'actor', name: 'deke' });
     const dekeTarget = await goldenPage.evaluate(() => window.silvercase.state().aim);
     const dekeShot = await fireCleanPathShot(goldenPage);
-    const louBeat = await advanceCleanPathUntil(goldenPage, 'choice:louQuestion');
-    await goldenPage.keyboard.press('Digit1');
+    const louBeat = await advanceCleanPathUntil(goldenPage, 'beat:SQUATCH_PRAYER');
 
     const prayerChoice = await advanceCleanPathUntil(goldenPage, 'choice:prayerFinish');
     await goldenPage.keyboard.down('KeyE');
@@ -628,6 +627,9 @@ async function runCleanStartGoldenPath() {
     const chesterShot = await fireCleanPathShot(goldenPage);
 
     const ambushBeat = await advanceCleanPathUntil(goldenPage, 'beat:BATHROOM_AMBUSH');
+    // Pruitt's opening pair are guaranteed authored misses. The return-fire
+    // window deliberately does not arm until both rounds and impacts land.
+    await goldenPage.evaluate(() => window.silvercase.tick(2.1));
     const pruittLook = await lookCleanPathAt(goldenPage, { kind: 'actor', name: 'pruitt' });
     const pruittTarget = await goldenPage.evaluate(() => window.silvercase.state().aim);
     const pruittShot = await fireCleanPathShot(goldenPage);
@@ -735,8 +737,12 @@ async function runCleanStartGoldenPath() {
       caseLegA, caseLegB, caseLook, couchBeat, couchInstruction, dekeLook,
       louBeat, prayerChoice, chairBeat, chairInstruction, chesterLook,
       ambushBeat, pruittLook, aftermathChoice, pickupBeat, pickupLeg, pickupLook,
-      exitLegA, exitLegB, exitLegC, exitLegD,
-    ].every((step) => step.met ?? step.reached ?? step.aimed ?? false);
+      exitLegA, exitLegB, exitLegC,
+    ].every((step) => step.met ?? step.reached ?? step.aimed ?? false)
+      // The scene-complete trigger sits just inside the last walk target. Once
+      // it fires, input is correctly disabled, so the walker can report its
+      // final 25 cm as "stalled" even though the authored exit succeeded.
+      && (exitLegD.reached || final.state.beat === 'SCENE_COMPLETE');
     const inputOk = knockInput.recorded && closeInput.recorded && searchInput.recorded
       && dekeShot.recorded && chesterShot.recorded && pruittShot.recorded
       && pickupInput.recorded
@@ -761,6 +767,7 @@ async function runCleanStartGoldenPath() {
         stalled: step?.stalled ?? false,
       }];
     }));
+    pathSummary.sceneComplete = final.state.beat === 'SCENE_COMPLETE';
     check('clean-start golden path reaches every beat through authored state transitions, not go()',
       pathOk,
       JSON.stringify(pathSummary));
@@ -1613,6 +1620,17 @@ try {
     return !sc.cast.deke.alive
       && sc.dialogue.voiceLog.some((line) => line.cue === 'vo.silvercase.couch.chester.whatthehell');
   }, null, { timeout: 5000 });
+  // Capture the subtitle while Chester owns it. The physical root takes a few
+  // frames to clear the displacement threshold below; a short recorded take
+  // can legitimately finish during that wait and hand the subtitle to Ape.
+  const chesterSubtitleReceipt = await page.evaluate(() => {
+    const subs = document.getElementById('subs');
+    return {
+      shown: subs?.classList.contains('show') ?? false,
+      who: document.getElementById('subsWho')?.textContent ?? '',
+      text: document.getElementById('subsLine')?.textContent ?? '',
+    };
+  });
   /* A wall-clock sleep is not a game-frame guarantee under SwiftShader. The
    * old 120 ms pause could contain no rendered update, then sample Chester at
    * the first few milliseconds of a valid flinch: his limbs had visibly
@@ -1669,6 +1687,7 @@ try {
       state: sc.state(),
     };
   });
+  chesterImmediateReaction.subtitle = chesterSubtitleReceipt;
   const chesterFlinch = chesterImmediateReaction.reaction
     ? Math.sin(Math.PI * (
       chesterImmediateReaction.reaction.elapsed / chesterImmediateReaction.reaction.duration
@@ -1757,26 +1776,82 @@ try {
     onTheCouch && dekeSettledAt.seated === true && dekeSettledAt.alive === false,
     JSON.stringify({ before: dekeSeated, settled: dekeSettled }));
 
-  // ---- LOU_QUESTION: let the setup lines drain, then pick the option that
-  // irritates Ape ("Depends on the lighting.") via the real 1-4 key path.
-  // Polled rather than ticked a fixed duration — see tickUntil's own comment:
-  // the mission's requestAnimationFrame loop keeps advancing in real time
-  // between every one of this script's await calls, so a fixed-duration
-  // tick(N) picked to land just past a dialogue sequence risks landing past
-  // the choice's own timeout instead, on a slow enough run. -----------------
-  let louSetup = await tickUntil('choice:louQuestion');
-  check('the Lou question opens its 1-4 choice once the setup lines finish',
-    louSetup.met, JSON.stringify(louSetup));
-  await page.keyboard.press('Digit4');
+  // ---- LOU_QUESTION: this is Ape interrogating Chester, never a player
+  // choice. Let the five-line exchange drain and prove the actual lines that
+  // ran, their speaker labels, and the two men's final blocking. ------------
   let afterLou = await tickUntil('beat:SQUATCH_PRAYER');
-  check('answering "depends on the lighting" irritates Ape and moves on to the prayer',
-    afterLou.met && afterLou.state.mission.flags.irritatedApe === true,
-    JSON.stringify(afterLou));
+  const louInterrogation = await page.evaluate(async () => {
+    const [{ SEQUENCES, CHOICES }, { ANCHORS }] = await Promise.all([
+      import('/src/silvercase/dialogue/script.js'),
+      import('/src/silvercase/scenes/ApartmentScene.js'),
+    ]);
+    const sc = window.silvercase;
+    const expected = [...SEQUENCES.louQuestionOpening, ...SEQUENCES.louQuestionPress]
+      .map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    const expectedCues = new Set(expected.map((line) => line.cue));
+    const actual = sc.dialogue.voiceLog
+      .filter((line) => expectedCues.has(line.cue))
+      .map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    const ape = sc.cast.ape;
+    const chester = sc.cast.chester;
+    const dx = chester.group.position.x - ape.group.position.x;
+    const dz = chester.group.position.z - ape.group.position.z;
+    const distance = Math.hypot(dx, dz);
+    const chairDistance = Math.hypot(
+      ANCHORS.chairSeat.x - ape.group.position.x,
+      ANCHORS.chairSeat.z - ape.group.position.z,
+    );
+    const apeDot = distance > 0
+      ? (Math.sin(ape.group.rotation.y) * dx + Math.cos(ape.group.rotation.y) * dz) / distance
+      : 0;
+    const chesterDot = distance > 0
+      ? (Math.sin(chester.group.rotation.y) * -dx + Math.cos(chester.group.rotation.y) * -dz) / distance
+      : 0;
+    return {
+      expected,
+      actual,
+      playerChoiceRemoved: !Object.hasOwn(CHOICES, 'louQuestion'),
+      distance,
+      chairDistance,
+      apeDot,
+      chesterDot,
+      apeLooksAtPlayer: ape.npc.look,
+      chesterLooksAtPlayer: chester.npc.look,
+    };
+  });
+  check('Ape and Chester perform the exact five-line interrogation with no player/colors choice',
+    afterLou.met
+      && louInterrogation.playerChoiceRemoved
+      && JSON.stringify(louInterrogation.actual) === JSON.stringify(louInterrogation.expected),
+    JSON.stringify(louInterrogation));
+  check('Ape closes to the chair and both men keep their eyelines on each other',
+    louInterrogation.chairDistance >= 0.78 && louInterrogation.chairDistance <= 0.86
+      // Chester has just recoiled his connected body away from the couch shot,
+      // so live actor-to-actor distance is intentionally a little over 0.82 m.
+      && louInterrogation.distance <= 1.05
+      && louInterrogation.apeDot > 0.98
+      && louInterrogation.chesterDot > 0.98
+      && louInterrogation.apeLooksAtPlayer === false
+      && louInterrogation.chesterLooksAtPlayer === false,
+    JSON.stringify(louInterrogation));
 
   // ---- SQUATCH_PRAYER: drain Ape's lines, then hold E to finish it. -------
   let prayerLines = await tickUntil('choice:prayerFinish');
   check('the prayer opens its hold-E finish prompt once Ape is done reciting',
     prayerLines.met, JSON.stringify(prayerLines));
+  const prayerPerformance = await page.evaluate(async () => {
+    const { SEQUENCES } = await import('/src/silvercase/dialogue/script.js');
+    const expected = [...SEQUENCES.squatchPrayerIntro, ...SEQUENCES.squatchPrayer]
+      .map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    const expectedCues = new Set(expected.map((line) => line.cue));
+    const actual = window.silvercase.dialogue.voiceLog
+      .filter((line) => expectedCues.has(line.cue))
+      .map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    return { expected, actual };
+  });
+  check('Ape performs the complete Squatchiel 69:17 intro and four-line passage in order',
+    JSON.stringify(prayerPerformance.actual) === JSON.stringify(prayerPerformance.expected),
+    JSON.stringify(prayerPerformance));
   await page.keyboard.down('KeyE');
   let afterPrayer = await tickUntil('beat:CHAIR_SHOOTING');
   /* Ape sets the chair up before the screen names the button. */
@@ -1790,6 +1865,18 @@ try {
       && /chair/i.test(afterPrayer.state.aim.instruction)
       && afterPrayer.state.aim.instructionShown === true,
     JSON.stringify(afterPrayer));
+  const playerPrayerFinish = await page.evaluate(async () => {
+    const { SEQUENCES } = await import('/src/silvercase/dialogue/script.js');
+    const expected = SEQUENCES.squatchPrayerFinish.map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    const expectedCues = new Set(expected.map((line) => line.cue));
+    const actual = window.silvercase.dialogue.voiceLog
+      .filter((line) => expectedCues.has(line.cue))
+      .map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    return { expected, actual };
+  });
+  check('the player-synced final vengeance line lands before the chair execution arms',
+    JSON.stringify(playerPrayerFinish.actual) === JSON.stringify(playerPrayerFinish.expected),
+    JSON.stringify(playerPrayerFinish));
 
   // ---- "Ape needs a gun. There should also be a prompt to shoot the guy in
   // the chair with Ape." Both guns are up, the prompt is on screen, and the
@@ -1891,18 +1978,30 @@ try {
       && connectedChairDeath.actor.max[1] > 0.8,
     JSON.stringify(connectedChairDeath));
   let afterPrayerChain = await tickUntil('beat:BATHROOM_AMBUSH');
-  check('the chair beat hands on to the bathroom ambush, armed',
+  await tick(2.1);
+  afterPrayerChain = {
+    ...afterPrayerChain,
+    state: await page.evaluate(() => window.silvercase.state()),
+  };
+  check('the bathroom attacker lands two intentional misses before the return-fire window opens',
     afterPrayerChain.met
       && afterPrayerChain.state.reactionWindow.state === 'armed'
-      && afterPrayerChain.state.reactionWindow.windowSeconds >= 3.2,
-    JSON.stringify(afterPrayerChain.state.reactionWindow));
+      && afterPrayerChain.state.reactionWindow.windowSeconds >= 3.2
+      && afterPrayerChain.state.bathroomAmbush.openingShots === 2
+      && afterPrayerChain.state.bathroomAmbush.openingImpacts.length === 2
+      && afterPrayerChain.state.bathroomAmbush.playerWindowOpened === true
+      && afterPrayerChain.state.bathroomAmbush.attackerMoving === false
+      && afterPrayerChain.state.marks.holes >= afterLou.state.marks.holes + 2,
+    JSON.stringify({
+      window: afterPrayerChain.state.reactionWindow,
+      ambush: afterPrayerChain.state.bathroomAmbush,
+      marks: afterPrayerChain.state.marks,
+    }));
 
   // ---- The bathroom man is holding the big revolver, and the door he came
-  // through is off the latch rather than still standing in his way. The swing
-  // is a 0.22 s tween started in the beat's own enter(), so it is given a
-  // moment before being measured — "the door opens properly" is a claim about
-  // where it ends up, not about the frame the beat began on. ---------------
-  await tick(0.5);
+  // through is off the latch rather than still standing in his way. The two
+  // opening shots above already gave the door and attacker their authored
+  // staging time, so this measures the completed entrance. -----------------
   const ambushStaging = await page.evaluate(() => {
     const sc = window.silvercase;
     const gun = sc.cast.pruitt.weapon;
@@ -2036,11 +2135,18 @@ try {
   // the mission parked on a prompt forever, so this also proves that fallback.
   let afterPrayerAgain = await tickUntil('beat:BATHROOM_AMBUSH');
   await page.keyboard.up('KeyE');
+  await tick(2.1);
+  afterPrayerAgain = {
+    ...afterPrayerAgain,
+    state: await page.evaluate(() => window.silvercase.state()),
+  };
   check('a player who will not take the chair shot has Ape take it, and the scene goes on',
     afterPrayerAgain.met
       && afterPrayerAgain.state.mission.flags.apeFinishedChester === true
       && afterPrayerAgain.state.actors.chester.alive === false
-      && afterPrayerAgain.state.reactionWindow.state === 'armed',
+      && afterPrayerAgain.state.reactionWindow.state === 'armed'
+      && afterPrayerAgain.state.bathroomAmbush.openingShots === 2
+      && afterPrayerAgain.state.bathroomAmbush.openingImpacts.length === 2,
     JSON.stringify({
       flags: afterPrayerAgain.state.mission.flags,
       window: afterPrayerAgain.state.reactionWindow,
@@ -2053,12 +2159,6 @@ try {
   await page.waitForFunction(() => window.silvercase.cast.chester.downT >= 0.75,
     null, { timeout: 12000 });
   const chesterReplaySettled = await actorBounds('chester');
-
-  /* BATHROOM_AMBUSH arms as the door starts its 0.45 s swing. An immediate
-   * verifier ray can hit the moving leaf before Pruitt's head even though a
-   * player necessarily sees a few frames while acquiring the target. Give
-   * that authored reveal its half-second; this is still well inside 3.2 s. */
-  await tick(0.5);
 
   // ---- The owner's bug, in the beat it actually happened in. -------------
   // Do not actually shoot the already-dead chair target:

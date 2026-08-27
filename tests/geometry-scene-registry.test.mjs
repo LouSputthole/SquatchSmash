@@ -132,8 +132,9 @@ test('every geometry state declares whether visible cast is required or intentio
       'apartment:day-three-wake',
       'apartment:day-two-wake',
       /* The cabin left this list as soon as Lag became a visible resident at
-       * the woodpile. The luxury flat left when its poker-table patrons were
-       * promoted into the required staged cast. */
+       * the woodpile. The luxury flat is explicitly back after its anonymous
+       * poker patrons were reviewed and retired for the authored solo beat. */
+      'luxury-apartment:property',
       'mansion-siege:alert',
       'mansion-siege:clean',
       'mansion-siege:repaired',

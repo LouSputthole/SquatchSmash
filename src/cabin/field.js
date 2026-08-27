@@ -143,13 +143,13 @@ export const SURFACE = Object.freeze({
 export const SURFACE_PROPS = Object.freeze({
   [SURFACE.WOOD]: Object.freeze({ colour: 0x725332, footstep: 'wood' }),
   [SURFACE.TILE]: Object.freeze({ colour: 0x77736a, footstep: 'tile' }),
-  [SURFACE.GRAVEL]: Object.freeze({ colour: 0x625c4f, footstep: 'gravel' }),
-  [SURFACE.DIRT]: Object.freeze({ colour: 0x4a3b29, footstep: 'dirt' }),
-  [SURFACE.GRASS]: Object.freeze({ colour: 0x39472a, footstep: 'grass' }),
-  [SURFACE.LEAVES]: Object.freeze({ colour: 0x2c291e, footstep: 'leaves' }),
-  [SURFACE.ROCK]: Object.freeze({ colour: 0x4b4b48, footstep: 'stone' }),
-  [SURFACE.MUD]: Object.freeze({ colour: 0x282219, footstep: 'mud' }),
-  [SURFACE.WATER]: Object.freeze({ colour: 0x263c3d, footstep: 'water' }),
+  [SURFACE.GRAVEL]: Object.freeze({ colour: 0x706a5b, footstep: 'gravel' }),
+  [SURFACE.DIRT]: Object.freeze({ colour: 0x604b33, footstep: 'dirt' }),
+  [SURFACE.GRASS]: Object.freeze({ colour: 0x53663b, footstep: 'grass' }),
+  [SURFACE.LEAVES]: Object.freeze({ colour: 0x403b2b, footstep: 'leaves' }),
+  [SURFACE.ROCK]: Object.freeze({ colour: 0x5b5e58, footstep: 'stone' }),
+  [SURFACE.MUD]: Object.freeze({ colour: 0x352d22, footstep: 'mud' }),
+  [SURFACE.WATER]: Object.freeze({ colour: 0x345258, footstep: 'water' }),
 });
 
 export const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);

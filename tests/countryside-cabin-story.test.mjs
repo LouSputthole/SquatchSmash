@@ -570,6 +570,42 @@ test('nightfall, blackout, morning call, and departure are reload-safe authored 
   ).length, 1);
 });
 
+test('legacy post-heist Cabin calendars still turn to night and the next morning', () => {
+  const { campaign } = cabinCampaign({ silverCase: 'available' });
+  campaign.update((state) => {
+    state.scene = { id: SCENE_IDS.COUNTRYSIDE_CABIN, spawn: 'arrival' };
+    state.story.day = 7;
+    state.story.timeMinutes = 11 * 60 + 15;
+  });
+  const story = finishInterrogations(reachDungeon(createCountrysideCabinStory({ campaign })));
+  story.chooseExecution('player');
+  for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
+    story.damageHostage(id, { hits: story.hostageState(id).remaining });
+    story.killHostage(id);
+  }
+
+  const nightfall = story.completeNightfall();
+  assert.equal(nightfall.day, 7);
+  assert.equal(nightfall.timeMinutes, 20 * 60 + 45,
+    'a later legacy date still reaches the authored nighttime presentation');
+  for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
+    story.wrapHostage(id);
+    story.moveBodyToFire(id);
+  }
+  story.pourGas();
+  story.igniteBonfire();
+  story.completeFireCleanup();
+  story.drink();
+  const blackout = story.blackout();
+  assert.equal(blackout.day, 8);
+  assert.equal(blackout.timeMinutes, 9 * 60 + 30,
+    'a later legacy date wakes at the next 09:30 instead of beside the fire');
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.COUNTRYSIDE_CABIN,
+    spawn: 'wake',
+  });
+});
+
 test('legacy Cabin rest remains readable but cannot bypass any gate', () => {
   const { campaign, storage } = cabinCampaign();
   let story = createCountrysideCabinStory({ campaign });
@@ -621,6 +657,15 @@ test('a save that reached the cabin the old way still leaves for the Silver Case
   story.completeMorningCall();
   story.completeMorningWake();
 
+  assert.equal(story.phase(), 'complete');
+  assert.equal(story.chapterComplete(), true);
+  assert.equal(story.billyCallReady(), false, 'the retired route must not ring about Billy');
+  assert.equal(story.objectivePlan().label, 'Take the car to Lou’s next job');
+  assert.equal(
+    story.objectives().some(({ id }) => id === TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL),
+    false,
+    'the retired route must not expose an Act-One objective',
+  );
   assert.deepEqual(story.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });

@@ -58,6 +58,18 @@ const APE_SPOTS = Object.freeze({
   chair: Object.freeze({
     x: ANCHORS.chairSeat.x, z: ANCHORS.chairSeat.z + 1.15, yaw: Math.PI,
   }),
+  // The repeat is delivered a third of a metre closer. Both marks face the
+  // chair, so Ape never turns the question toward the player while moving.
+  chairClose: Object.freeze({
+    x: ANCHORS.chairSeat.x, z: ANCHORS.chairSeat.z + 0.82, yaw: Math.PI,
+  }),
+  // Clear of Pruitt's doorway-to-player lane, facing the bathroom before the
+  // first scripted miss cracks past him.
+  bathroom: Object.freeze({
+    x: 8.25,
+    z: 0.28,
+    yaw: Math.atan2(ANCHORS.bathroomDoorway.x - 8.25, ANCHORS.bathroomDoorway.z - 0.28),
+  }),
 });
 
 // How long Ape's walk-over between spots takes — "a lerp-to-target over
@@ -86,12 +98,14 @@ function lerpAngle(a, b, t) {
  * Both hands are on the revolver, which is what a man does with a gun that
  * size when he has been standing in the dark waiting to use it.
  */
-function twoHandedAim(parts) {
-  parts.armR.rotation.set(-1.32, 0, 0.16);
-  parts.foreR.rotation.set(-0.12, 0, 0);
-  parts.armL.rotation.set(-1.24, 0, -0.3);
-  parts.foreL.rotation.set(-0.24, 0.28, 0);
-  parts.head.rotation.x = -0.05;
+function twoHandedAim(parts, npc) {
+  const recoil = THREE.MathUtils.clamp(npc?.shotRecoil ?? 0, 0, 1);
+  parts.armR.rotation.set(-1.32 + recoil * 0.16, 0, 0.16);
+  parts.foreR.rotation.set(-0.12 + recoil * 0.1, 0, 0);
+  parts.armL.rotation.set(-1.24 + recoil * 0.12, 0, -0.3);
+  parts.foreL.rotation.set(-0.24 + recoil * 0.08, 0.28, 0);
+  parts.body.rotation.x = -recoil * 0.06;
+  parts.head.rotation.x = -0.05 - recoil * 0.04;
 }
 
 /**
@@ -182,6 +196,24 @@ export function populateCast(root) {
     ape.npc.homeX = to.x;
     ape.npc.homeZ = to.z;
     return true;
+  };
+
+  /** Keep an authored interrogation/ambush eyeline off the player. */
+  ape.focusPoint = function focusPoint(x, z, { snap = true } = {}) {
+    ape.npc.look = false;
+    ape.npc.gaze = 0;
+    ape.parts.head.rotation.y = 0;
+    ape.npc.faceToward(x, z, snap);
+  };
+  ape.focusOn = function focusOn(actor, options) {
+    if (!actor?.group?.position) return false;
+    ape.focusPoint(actor.group.position.x, actor.group.position.z, options);
+    return true;
+  };
+  ape.releaseFocus = function releaseFocus() {
+    ape.npc.look = true;
+    ape.npc.gaze = 0;
+    ape.parts.head.rotation.y = 0;
   };
 
   /**
@@ -350,6 +382,10 @@ export function populateCast(root) {
   const pruittGun = mountHandRevolver(pruitt.parts.foreR);
   pruittGun.userData.geometryGate = { assemblyId: 'silvercase:pruitt' };
   pruitt.weapon = pruittGun;
+  pruitt.npc.shotRecoil = 0;
+  pruitt.recoilShot = function recoilShot() {
+    pruitt.npc.shotRecoil = 1;
+  };
   const pruittGunHandPose = {
     position: pruittGun.position.clone(),
     quaternion: pruittGun.quaternion.clone(),
@@ -398,12 +434,23 @@ export function populateCast(root) {
     z: ANCHORS.bathroomDoorway.z + 0.48,
     yaw: -0.4,
   };
+  pruitt.stageAmbush = function stageAmbush(progress = 1) {
+    const k = THREE.MathUtils.clamp(Number(progress) || 0, 0, 1);
+    pruitt.group.visible = true;
+    pruitt.group.position.set(
+      lerp(pruittHidden.x, pruittRevealed.x, k),
+      lerp(pruittHidden.y, pruittRevealed.y, k),
+      lerp(pruittHidden.z, pruittRevealed.z, k),
+    );
+    pruitt.group.rotation.y = lerpAngle(ANCHORS.bathroomDoorway.yaw, pruittRevealed.yaw, k);
+    pruitt.npc.homeYaw = pruitt.group.rotation.y;
+    pruitt.npc.homeX = pruitt.group.position.x;
+    pruitt.npc.homeZ = pruitt.group.position.z;
+    return k;
+  };
   pruitt.reveal = function reveal() {
     if (pruitt.group.visible) return;
-    pruitt.group.visible = true;
-    pruitt.group.position.set(pruittRevealed.x, pruittRevealed.y, pruittRevealed.z);
-    pruitt.group.rotation.y = pruittRevealed.yaw;
-    pruitt.npc.homeYaw = pruittRevealed.yaw;
+    pruitt.stageAmbush(1);
   };
 
   /** Tuck him back into the dark for a checkpoint retry. */
@@ -422,6 +469,7 @@ export function populateCast(root) {
   function update(dt, playerPosition = null) {
     if (playerPosition) _playerPos.copy(playerPosition);
     const look = playerPosition ? _playerPos : null;
+    pruitt.npc.shotRecoil = Math.max(0, pruitt.npc.shotRecoil - dt * 5.5);
     for (const actor of all) actor.update(dt, look);
     updateApeMove(dt);
   }

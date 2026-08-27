@@ -10,6 +10,7 @@
  *   onRadioTap, onRadioHold, onPhone, onFridge, onCook, onEat,
  *   onShower, onWardrobe, onToilet, onArt, onFrontDoor,
  *   onLandmark, onDiscover, onDrawingBoard, onCar, onWoodpile, onFirepit, onPorch,
+ *   onCreekListen,
  *   onLag, canTalkToLag, onBasementTransition, onBasementInspect.
  */
 
@@ -382,6 +383,7 @@ export async function buildCountrysideCabin(ctx) {
 
   const dispose = () => {
     audio.stopLoop?.('cabin.forest', 0.4);
+    audio.stopLoop?.('cabin.creek', 0.4);
     audio.stopLoop?.('cabin.fridge', 0.2);
     audio.stopLoop?.('cabin.firepit', 0.3);
     for (const d of disposables) d?.dispose?.();
@@ -926,7 +928,9 @@ function buildProperty({
   registerLandmark('trailhead', makeLandmarkProxy(root, 'trailhead', LANDMARKS.trailhead, 2.4, 1.8), 'Follow the <b>loop trail</b>', () => {
     hud.say?.('The blazes make one circuit of the property and come back here.', 3200);
   });
-  registerLandmark('creek', creek.target, 'Listen to the <b>creek</b>', null, {
+  registerLandmark('creek', creek.target, 'Listen to the <b>creek</b>', () => ctx.onCreekListen?.(), {
+    hold: 0.55,
+    holdLabel: 'Listening to the <b>creek</b>…',
     onLook: () => audio.play?.('water.splash', {
       position: new THREE.Vector3(LANDMARKS.creek.x, creekWaterAt(LANDMARKS.creek.x, LANDMARKS.creek.z), LANDMARKS.creek.z),
       volume: 0.14,
@@ -966,6 +970,7 @@ function buildProperty({
     shedY: shed.y,
     counts: {
       trees: forest.counts.trees,
+      treeSpecies: forest.counts.species,
       forestChunks: forest.counts.chunks,
       undergrowth: forest.counts.undergrowth,
       rocks: groundScatter.rocks,
@@ -974,6 +979,7 @@ function buildProperty({
       duskBeacons: wayfinding.beacons,
       firepitSeats: firepit.seatCount,
       overlookSeats: overlook.seatCount,
+      overlookVistaFeatures: overlook.vistaFeatures,
       residents: 1,
       lagActivities: 4,
       exteriorFootings: footings.length,
@@ -1003,6 +1009,10 @@ function buildTerrain(disposables) {
   const positions = new Float32Array(width * depth * 3);
   const colours = new Float32Array(width * depth * 3);
   const colour = new THREE.Color();
+  const sunlight = new THREE.Color(0xd8c99d);
+  const surfaces = new Set();
+  let minHeight = Infinity;
+  let maxHeight = -Infinity;
   for (let iz = 0; iz < depth; iz++) {
     const z = PROPERTY.minZ + iz * step;
     for (let ix = 0; ix < width; ix++) {
@@ -1017,11 +1027,16 @@ function buildTerrain(disposables) {
         || insideRect(x, z, CABIN.bath, 0.02);
       positions[at + 1] = heightAt(x, z) - (underBuilding ? 0.08 : 0);
       positions[at + 2] = z;
-      colour.setHex(surfaceProps(surfaceAt(x, z)).colour);
-      const shade = 0.86 + hashAt(x, z, 301) * 0.20;
+      const surface = surfaceAt(x, z);
+      surfaces.add(surface);
+      colour.setHex(surfaceProps(surface).colour)
+        .lerp(sunlight, hashAt(x, z, 302) * 0.035);
+      const shade = 0.92 + hashAt(x, z, 301) * 0.16;
       colours[at] = colour.r * shade;
       colours[at + 1] = colour.g * shade;
       colours[at + 2] = colour.b * shade;
+      minHeight = Math.min(minHeight, positions[at + 1]);
+      maxHeight = Math.max(maxHeight, positions[at + 1]);
     }
   }
   const indices = [];
@@ -1057,6 +1072,13 @@ function buildTerrain(disposables) {
     checkSupport: false,
     checkWallEmbed: false,
   };
+  mesh.userData.cabinTerrain = Object.freeze({
+    sampleSpacing: step,
+    minHeight,
+    maxHeight,
+    relief: maxHeight - minHeight,
+    surfaceCount: surfaces.size,
+  });
   disposables.push(geometry, material);
   return mesh;
 }
@@ -1235,7 +1257,11 @@ function buildBridge(root, M, colliders) {
     }
   }
   root.add(g);
-  addBounds(colliders, [[p.x - 1.30, y - 0.16, p.z - 4.9], [p.x + 1.30, y, p.z + 4.9]], 'cabin-bridge-deck', { kind: 'world' });
+  /* groundAt() is the deck and both eased approaches. A second solid Box3
+   * under that same surface catches the Player while his feet are still
+   * easing up the first ramp (measured stop: z=-42.21 on the north approach).
+   * Keep collision only on the rails; the shared ground contract carries the
+   * player over the planks without a duplicate floor volume. */
   addBounds(colliders, [[p.x - 1.42, y, p.z - 4.9], [p.x - 1.18, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-west', { kind: 'world' });
   addBounds(colliders, [[p.x + 1.18, y, p.z - 4.9], [p.x + 1.42, y + 1.05, p.z + 4.9]], 'cabin-bridge-rail-east', { kind: 'world' });
   const target = targetBox('cabin-bridge-target', [2.2, 1.5, 1.7], [p.x, y + 0.75, p.z]);
@@ -1703,6 +1729,25 @@ function buildOverlook(root, M, colliders, footings) {
   }
   g.add(bench);
 
+  /* A low split rail and survey marker turn the cleared shelf into an actual
+   * destination while keeping the cabin-valley sightline above them open. */
+  const viewRail = group('cabin-overlook-view-rail');
+  viewRail.position.set(p.x, y, p.z);
+  viewRail.rotation.y = yaw;
+  for (const x of [-2.15, 2.15]) {
+    viewRail.add(box({ size: [0.16, 0.86, 0.16], pos: [x, 0.43, -2.25], mat: M.cabinLogDark }));
+  }
+  viewRail.add(box({ size: [4.45, 0.14, 0.14], pos: [0, 0.76, -2.25], mat: M.cabinLog }));
+  ownGeometry(viewRail, 'cabin-overlook-focal', { checkSupport: false });
+  g.add(viewRail);
+
+  const survey = group('cabin-overlook-survey-marker');
+  survey.add(cylinder({ r: 0.16, h: 0.82, pos: [0, 0.41, 0], mat: M.stone }));
+  survey.add(cylinder({ r: 0.19, h: 0.045, pos: [0, 0.845, 0], mat: M.chrome }));
+  survey.position.set(p.x - 2.35, y, p.z - 0.35);
+  ownGeometry(survey, 'cabin-overlook-focal', { checkSupport: false });
+  g.add(survey);
+
   // A small USGS-style cairn makes the destination read before the player
   // reaches the bench without blocking the opened view corridor.
   for (let i = 0; i < 4; i++) {
@@ -1723,7 +1768,7 @@ function buildOverlook(root, M, colliders, footings) {
   noteFooting(footings, 'overlook-bench', p.x, p.z, y, 'overlook-seat');
   noteFooting(footings, 'overlook-cairn', p.x + 2.45, p.z + 0.85, y, 'overlook-focal');
   const target = makeLandmarkProxy(root, 'overlook', p, 3.2, 2.0);
-  return { group: g, target, seatCount: 1 };
+  return { group: g, target, seatCount: 1, vistaFeatures: 2 };
 }
 
 function makeUndergrowthGeometry() {
@@ -1782,13 +1827,17 @@ function buildForest(root, M, colliders, disposables) {
       if (!density || hashAt(x, z, 103) > density * 0.88) continue;
       const height = 7.8 + hashAt(x, z, 104) * 7.8;
       const radius = 0.13 + hashAt(x, z, 105) * 0.15;
-      const kind = hashAt(x, z, 106) < 0.22 ? 'pine' : 'fir';
+      const speciesRoll = hashAt(x, z, 106);
+      const kind = speciesRoll < 0.16 ? 'aspen'
+        : speciesRoll < 0.34 ? 'cedar'
+          : speciesRoll < 0.60 ? 'pine' : 'fir';
       const plan = {
         x,
         z,
         y: heightAt(x, z),
-        height: kind === 'pine' ? height * 1.07 : height,
-        radius,
+        height: kind === 'pine' ? height * 1.07
+          : kind === 'aspen' ? height * 0.88 : height,
+        radius: kind === 'aspen' ? radius * 0.78 : radius,
         yaw: hashAt(x, z, 107) * Math.PI * 2,
         lean: (hashAt(x, z, 108) - 0.5) * 0.035,
         kind,
@@ -1823,21 +1872,47 @@ function buildForest(root, M, colliders, disposables) {
   }
 
   const trunkGeometry = new THREE.CylinderGeometry(1, 1, 1, 7);
-  const crownGeometry = new THREE.ConeGeometry(1, 1, 8);
-  const farCrownGeometry = new THREE.ConeGeometry(1, 1, 6);
+  const coniferCrownGeometry = new THREE.ConeGeometry(1, 1, 8);
+  const farConiferGeometry = new THREE.ConeGeometry(1, 1, 6);
+  const aspenCrownGeometry = new THREE.IcosahedronGeometry(1, 1);
+  const farAspenGeometry = new THREE.IcosahedronGeometry(1, 0);
   const brushGeometry = makeUndergrowthGeometry();
-  const trunkMaterial = mat({ color: 0x3b281a, roughness: 1 });
-  const crownMaterial = mat({ color: 0x183321, roughness: 1, side: THREE.DoubleSide });
-  const farCrownMaterial = mat({ color: 0x142a1c, roughness: 1 });
+  const trunkMaterials = Object.freeze({
+    fir: mat({ color: 0x3c2b1d, roughness: 1 }),
+    pine: mat({ color: 0x4a3420, roughness: 1 }),
+    cedar: mat({ color: 0x493021, roughness: 1 }),
+    aspen: mat({ color: 0x9c9278, roughness: 1 }),
+  });
+  const crownMaterials = Object.freeze({
+    fir: mat({ color: 0x1d452d, roughness: 1, side: THREE.DoubleSide }),
+    pine: mat({ color: 0x31563a, roughness: 1, side: THREE.DoubleSide }),
+    cedar: mat({ color: 0x2a513f, roughness: 1, side: THREE.DoubleSide }),
+    aspen: mat({ color: 0x70854a, roughness: 1, side: THREE.DoubleSide }),
+  });
+  const farCrownMaterials = Object.freeze({
+    fir: mat({ color: 0x183826, roughness: 1 }),
+    pine: mat({ color: 0x274832, roughness: 1 }),
+    cedar: mat({ color: 0x224437, roughness: 1 }),
+    aspen: mat({ color: 0x596f3e, roughness: 1 }),
+  });
   const brushMaterial = new THREE.MeshStandardMaterial({
-    color: 0x31502d,
+    color: 0x47663b,
     roughness: 1,
     side: THREE.DoubleSide,
   });
-  disposables.push(trunkGeometry, crownGeometry, farCrownGeometry, brushGeometry, brushMaterial);
+  disposables.push(
+    trunkGeometry,
+    coniferCrownGeometry,
+    farConiferGeometry,
+    aspenCrownGeometry,
+    farAspenGeometry,
+    brushGeometry,
+    brushMaterial,
+  );
 
   const dummy = new THREE.Object3D();
   const built = [];
+  const species = { fir: 0, pine: 0, cedar: 0, aspen: 0 };
   let trees = 0;
   let undergrowth = 0;
   for (const chunk of chunks.values()) {
@@ -1848,56 +1923,86 @@ function buildForest(root, M, colliders, disposables) {
     chunkGroup.add(near, far, brushGroup);
 
     if (chunk.trees.length) {
-      const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, chunk.trees.length);
-      const crowns = new THREE.InstancedMesh(crownGeometry, crownMaterial, chunk.trees.length * 3);
-      const farCrowns = new THREE.InstancedMesh(farCrownGeometry, farCrownMaterial, chunk.trees.length);
-      trunks.name = 'cabin-pine-trunks';
-      crowns.name = 'cabin-pine-crowns-near';
-      farCrowns.name = 'cabin-pine-crowns-far';
-      // Needles naturally interlock, and near/far crowns are alternate LODs
-      // for the same authored trees. Their instance AABBs are not collision
-      // solids and their footing comes from the matching planted trunks.
-      proceduralSurface(crowns);
-      proceduralSurface(farCrowns);
-      let crownAt = 0;
-      for (let i = 0; i < chunk.trees.length; i++) {
-        const tree = chunk.trees[i];
-        dummy.position.set(tree.x, tree.y + tree.height / 2, tree.z);
-        dummy.rotation.set(tree.lean, tree.yaw, 0);
-        dummy.scale.set(tree.radius, tree.height, tree.radius);
-        dummy.updateMatrix();
-        trunks.setMatrixAt(i, dummy.matrix);
-
-        const broad = tree.kind === 'pine' ? 3.5 : 4.2;
-        for (let tier = 0; tier < 3; tier++) {
-          const tierScale = 1 - tier * 0.17;
-          dummy.position.set(tree.x, tree.y + tree.height * (0.52 + tier * 0.17), tree.z);
-          dummy.rotation.set(0, tree.yaw + tier * 0.73, 0);
-          dummy.scale.set(
-            tree.radius * broad * tierScale,
-            tree.height * (0.31 - tier * 0.025),
-            tree.radius * broad * tierScale,
-          );
+      for (const kind of Object.keys(species)) {
+        const plans = chunk.trees.filter((tree) => tree.kind === kind);
+        if (!plans.length) continue;
+        const tiers = kind === 'cedar' ? 4 : 3;
+        const nearGeometry = kind === 'aspen' ? aspenCrownGeometry : coniferCrownGeometry;
+        const farGeometry = kind === 'aspen' ? farAspenGeometry : farConiferGeometry;
+        const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterials[kind], plans.length);
+        const crowns = new THREE.InstancedMesh(nearGeometry, crownMaterials[kind], plans.length * tiers);
+        const farCrowns = new THREE.InstancedMesh(farGeometry, farCrownMaterials[kind], plans.length);
+        trunks.name = `cabin-tree-${kind}-trunks`;
+        crowns.name = `cabin-tree-${kind}-crowns-near`;
+        farCrowns.name = `cabin-tree-${kind}-crowns-far`;
+        // Every species owns one near and one far silhouette. The parent LOD
+        // groups remain mutually exclusive, so variety never doubles trees.
+        proceduralSurface(crowns);
+        proceduralSurface(farCrowns);
+        let crownAt = 0;
+        for (let i = 0; i < plans.length; i++) {
+          const tree = plans[i];
+          dummy.position.set(tree.x, tree.y + tree.height / 2, tree.z);
+          dummy.rotation.set(tree.lean, tree.yaw, 0);
+          dummy.scale.set(tree.radius, tree.height, tree.radius);
           dummy.updateMatrix();
-          crowns.setMatrixAt(crownAt++, dummy.matrix);
-        }
+          trunks.setMatrixAt(i, dummy.matrix);
 
-        dummy.position.set(tree.x, tree.y + tree.height * 0.69, tree.z);
-        dummy.rotation.set(0, tree.yaw, 0);
-        dummy.scale.set(tree.radius * broad * 0.92, tree.height * 0.72, tree.radius * broad * 0.92);
-        dummy.updateMatrix();
-        farCrowns.setMatrixAt(i, dummy.matrix);
+          if (kind === 'aspen') {
+            for (let tier = 0; tier < tiers; tier++) {
+              const spread = 3.75 - tier * 0.42;
+              dummy.position.set(
+                tree.x + Math.sin(tree.yaw + tier * 2.1) * tree.radius * 0.85,
+                tree.y + tree.height * (0.60 + tier * 0.105),
+                tree.z + Math.cos(tree.yaw + tier * 2.1) * tree.radius * 0.85,
+              );
+              dummy.rotation.set(0, tree.yaw + tier * 0.8, 0);
+              dummy.scale.set(
+                tree.radius * spread,
+                tree.height * (0.17 - tier * 0.012),
+                tree.radius * spread * 0.92,
+              );
+              dummy.updateMatrix();
+              crowns.setMatrixAt(crownAt++, dummy.matrix);
+            }
+            dummy.position.set(tree.x, tree.y + tree.height * 0.72, tree.z);
+            dummy.rotation.set(0, tree.yaw, 0);
+            dummy.scale.set(tree.radius * 4.0, tree.height * 0.31, tree.radius * 3.7);
+          } else {
+            const broad = kind === 'fir' ? 4.25 : kind === 'pine' ? 3.45 : 3.75;
+            const start = kind === 'pine' ? 0.57 : 0.49;
+            const rise = kind === 'cedar' ? 0.135 : 0.17;
+            for (let tier = 0; tier < tiers; tier++) {
+              const tierScale = 1 - tier * (kind === 'cedar' ? 0.145 : 0.17);
+              dummy.position.set(tree.x, tree.y + tree.height * (start + tier * rise), tree.z);
+              dummy.rotation.set(0, tree.yaw + tier * 0.73, 0);
+              dummy.scale.set(
+                tree.radius * broad * tierScale,
+                tree.height * (kind === 'cedar' ? 0.27 : 0.31 - tier * 0.025),
+                tree.radius * broad * tierScale,
+              );
+              dummy.updateMatrix();
+              crowns.setMatrixAt(crownAt++, dummy.matrix);
+            }
+            dummy.position.set(tree.x, tree.y + tree.height * 0.69, tree.z);
+            dummy.rotation.set(0, tree.yaw, 0);
+            dummy.scale.set(tree.radius * broad * 0.92, tree.height * 0.72, tree.radius * broad * 0.92);
+          }
+          dummy.updateMatrix();
+          farCrowns.setMatrixAt(i, dummy.matrix);
+        }
+        trunks.instanceMatrix.needsUpdate = true;
+        crowns.instanceMatrix.needsUpdate = true;
+        farCrowns.instanceMatrix.needsUpdate = true;
+        trunks.castShadow = true;
+        trunks.receiveShadow = true;
+        crowns.castShadow = true;
+        farCrowns.castShadow = false;
+        near.add(trunks, crowns);
+        far.add(farCrowns);
+        species[kind] += plans.length;
+        trees += plans.length;
       }
-      trunks.instanceMatrix.needsUpdate = true;
-      crowns.instanceMatrix.needsUpdate = true;
-      farCrowns.instanceMatrix.needsUpdate = true;
-      trunks.castShadow = true;
-      trunks.receiveShadow = true;
-      crowns.castShadow = true;
-      farCrowns.castShadow = false;
-      near.add(trunks, crowns);
-      far.add(farCrowns);
-      trees += chunk.trees.length;
     }
 
     if (chunk.brush.length) {
@@ -1933,7 +2038,7 @@ function buildForest(root, M, colliders, disposables) {
   let lastX = Infinity;
   let lastZ = Infinity;
   return {
-    counts: { trees, undergrowth, chunks: built.length },
+    counts: { trees, undergrowth, chunks: built.length, species: Object.freeze({ ...species }) },
     trees: plantedTrees,
     update(dt, playerPosition) {
       visibilityClock += dt;
@@ -2369,6 +2474,18 @@ function buildDomesticHub({
   ownGeometry(corkboard.group, 'cabin-fixture:corkboard', { checkSupport: false });
   ownGeometry(corkNote.group, 'cabin-fixture:cork-note-main', { checkSupport: false });
   interior.add(shelf.group, books.group, corkboard.group, corkNote.group);
+  /* Practical long guns live upstairs for the optional range. These are new
+   * shared-armory mounts, not relocations: the dungeon keeps its AK-47 and
+   * Barrett racks and their independent taken/ammunition state. The carbine
+   * uses the open north-wall return; the shotgun occupies the clear east-wall
+   * bay between the bathroom corner and kitchen. */
+  const rifleRack = Object.freeze({
+    parent: interior,
+    racks: Object.freeze([
+      Object.freeze({ id: 'carbine', x: 4.42, y: 0, z: MAIN.z0 + 0.24, rotY: 0 }),
+      Object.freeze({ id: 'shotgun', x: MAIN.x1 - 0.24, y: 0, z: -3.18, rotY: -Math.PI / 2 }),
+    ]),
+  });
   interior.add(P.makeBoots(M, { x: 3.62, z: 4.56, rotY: 0.2 }).group);
   interior.add(P.makeLaundry(M, { x: 3.78, z: 3.68 }).group);
   const plant = addProp(P.makePlant(M, { x: -5.58, z: 4.38, scale: 1.05 }), 'cabin-plant');
@@ -2405,6 +2522,23 @@ function buildDomesticHub({
     }),
     boxFrom(BATH.x1 - 0.042, 0.018, BATH.z0 + 0.035, BATH.x1 - 0.010, 2.42, BATH.z1 - 0.035, M.splash, {
       name: 'cabin-bathroom-liner-east', cast: false,
+    }),
+  ]) {
+    ownGeometry(liner, 'cabin-bathroom-liner', { structural: true });
+    bathroom.add(liner);
+  }
+  /* The lean-to shares the main cabin's north wall. Tile the two returns and
+   * the door header on the bathroom side so the thick timber blocks do not
+   * read as protruding into the room around the open door. */
+  for (const liner of [
+    boxFrom(BATH.x0 + 0.035, 0.018, BATH.z1 - 0.042, BATH_DOOR.x0, 2.42, BATH.z1 - 0.010, M.splash, {
+      name: 'cabin-bathroom-liner-south-west', cast: false,
+    }),
+    boxFrom(BATH_DOOR.x1, 0.018, BATH.z1 - 0.042, BATH.x1 - 0.035, 2.42, BATH.z1 - 0.010, M.splash, {
+      name: 'cabin-bathroom-liner-south-east', cast: false,
+    }),
+    boxFrom(BATH_DOOR.x0, BATH_DOOR.h, BATH.z1 - 0.042, BATH_DOOR.x1, 2.42, BATH.z1 - 0.010, M.splash, {
+      name: 'cabin-bathroom-liner-south-header', cast: false,
     }),
   ]) {
     ownGeometry(liner, 'cabin-bathroom-liner', { structural: true });
@@ -2949,6 +3083,7 @@ function buildDomesticHub({
       tv,
       tvGlow,
       radioPos,
+      rifleRack,
       radioNeedle: radio.needle,
       phoneProp: phone,
       chair: chair.group,
@@ -3036,7 +3171,9 @@ function hangCabinArt({ root, M, gear, interaction, ctx, sideboard, nightstand, 
     'bath.toilet': { x: BATH.x1 - 0.03, y: 1.98, z: -7.54, rotY: -Math.PI / 2, h: 0.34 },
     'bath.toilet.poster': { x: BATH.x1 - 0.03, y: 2.06, z: -6.82, rotY: -Math.PI / 2, h: 0.42 },
     'bath.far': { x: -0.78, y: 2.12, z: BATH.z0 + 0.05, rotY: 0, h: 0.36 },
-    'bath.mirror': { x: BATH.x1 - 0.03, y: 2.25, z: -5.68, rotY: -Math.PI / 2, h: 0.30 },
+    /* This picture used to occupy the same east-wall rectangle as the real
+     * sink mirror. Give it its own west-wall bay above the tub instead. */
+    'bath.mirror': { x: BATH.x0 + 0.03, y: 2.22, z: -6.34, rotY: Math.PI / 2, h: 0.30 },
     'bath.high': { x: BATH.x0 + 0.03, y: 2.22, z: -5.52, rotY: Math.PI / 2, h: 0.28 },
   });
 
@@ -3109,7 +3246,9 @@ function hangCabinArt({ root, M, gear, interaction, ctx, sideboard, nightstand, 
     /* Left of the desk mat and against the back half of the desktop. The old
      * x=0.24/z=-4.39 position sat directly on the mouse-pad corner. */
     { slot: 'desk.photo', x: -0.08, y: desk.top, z: -4.76, rotY: 0.25, h: 0.14 },
-    { slot: 'night.photo', x: -4.04, y: nightstand.top, z: -4.30, rotY: -0.85, h: 0.15 },
+    /* Back-left corner of the nightstand: visible from the bed and clear of
+     * both the alarm clock and the physical phone/interaction volume. */
+    { slot: 'night.photo', x: -4.08, y: nightstand.top, z: -4.56, rotY: 0.18, h: 0.15 },
     // This was in the apartment closet shrine. It remains a deliberately
     // separate, propped photograph rather than becoming generic wall art.
     {

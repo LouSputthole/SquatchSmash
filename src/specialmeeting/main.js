@@ -458,10 +458,12 @@ function requestScenePointerLock() {
 const objectivePanel = createObjectivePanel();
 
 function setObjective(text) {
-  if (!text || text === objectiveText) return;
-  objectiveText = text;
+  const next = String(text || '');
+  if (next === objectiveText) return;
+  objectiveText = next;
   objectiveRevision += 1;
-  objectivePanel.setLine(text);
+  if (next) objectivePanel.setLine(next);
+  else objectivePanel.clear();
 }
 
 /** Put the authored trunk reveal in front of the player once, then return
@@ -894,6 +896,9 @@ function handOff() {
   handoffReceipt.destination = { sceneId: SCENE_IDS.INITIATION, spawn: 'gathering' };
   handoffReceipt.error = null;
   input.suspend();
+  interaction.setPaused(true);
+  showChoices(null);
+  setObjective('');
   campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
   /* Initiation starts here, at the treeline -- not when the Palace ends and
    * not while Tony is still in his Apartment. This mirrors the recovery skip
@@ -915,6 +920,9 @@ function handOff() {
       handoffReceipt.error = error?.message || String(error);
       handedOff = false;
       blackout?.classList.remove('on');
+      interaction.setPaused(false);
+      setObjective(objectiveFor(ride.beat ?? { act: 2 }));
+      showChoices(ride.options);
       input.resume();
       console.error('[specialmeeting] campaign handoff failed', error);
     }

@@ -18,11 +18,13 @@ const [
   { CABIN_ART_SLOTS, buildCountrysideCabin },
   { BATH_SLOTS, WALL_SLOTS },
   { buildGeometrySceneState },
+  { Player },
   THREE,
 ] = await Promise.all([
   import('../src/cabin/world.js'),
   import('../src/world/apartment.js'),
   import('../tools/geometry-scenes.mjs'),
+  import('../src/core/player.js'),
   import('three'),
 ]);
 
@@ -96,6 +98,10 @@ test('the runtime cabin property keeps a dense explorable landscape and complete
 
   const landscape = built.metadata.landscape;
   assert.ok(landscape.trees >= 500, 'the surrounding woods must remain dense');
+  assert.deepEqual(Object.keys(landscape.treeSpecies).sort(), ['aspen', 'cedar', 'fir', 'pine']);
+  assert.equal(Object.values(landscape.treeSpecies).reduce((sum, count) => sum + count, 0), landscape.trees);
+  assert.ok(Object.values(landscape.treeSpecies).every((count) => count >= 50),
+    'each authored tree silhouette needs a meaningful stand, not one token specimen');
   assert.ok(landscape.forestChunks >= 40, 'the explorable terrain needs authored forest coverage');
   assert.ok(landscape.undergrowth >= 1500, 'the forest floor must remain dressed');
   assert.ok(landscape.rocks >= 100, 'the property needs terrain detail beyond trees');
@@ -104,6 +110,7 @@ test('the runtime cabin property keeps a dense explorable landscape and complete
   assert.ok(landscape.duskBeacons >= 5, 'major approaches need dusk-visible beacons');
   assert.equal(landscape.firepitSeats, 3, 'the fire ring label needs real seating');
   assert.equal(landscape.overlookSeats, 1, 'the ridge needs an anchored focal seat');
+  assert.equal(landscape.overlookVistaFeatures, 2, 'the ridge needs a rail and survey marker');
   assert.ok(landscape.exteriorFootings >= 40, 'new exterior dressing needs audited footings');
   assert.ok(landscape.trailMetres >= 350, 'the player needs a substantial trail loop');
   assert.ok(landscape.creekMetres >= 225, 'the creek must cross a meaningful part of the property');
@@ -132,7 +139,9 @@ test('the range interaction viewpoint keeps the Player capsule clear of the firi
 test('cabin callbacks own hub toggles and only authored landmarks reach story progress', async () => {
   const registered = new Map();
   const storyVisits = [];
-  const calls = { frontDoor: 0, fridge: 0, porch: 0, woodpile: 0, car: 0 };
+  const calls = {
+    frontDoor: 0, fridge: 0, porch: 0, woodpile: 0, car: 0, creekListen: 0,
+  };
   let cabin;
 
   cabin = await buildCountrysideCabin({
@@ -153,6 +162,7 @@ test('cabin callbacks own hub toggles and only authored landmarks reach story pr
       cabin.setFridge(open);
     },
     onLandmark: (id) => storyVisits.push(id),
+    onCreekListen: () => { calls.creekListen++; },
     onPorch: () => { calls.porch++; },
     onWoodpile: () => { calls.woodpile++; },
     onCar: () => { calls.car++; },
@@ -188,12 +198,23 @@ test('cabin callbacks own hub toggles and only authored landmarks reach story pr
     registered.get(cabin.interactionTargets[id]).onUse();
   }
   assert.deepEqual(storyVisits, [], 'flavor and dedicated targets are not story landmarks');
-  assert.deepEqual(calls, { frontDoor: 1, fridge: 1, porch: 1, woodpile: 1, car: 1 });
+  assert.deepEqual(calls, {
+    frontDoor: 1, fridge: 1, porch: 1, woodpile: 1, car: 1, creekListen: 0,
+  });
 
   for (const id of ['creek', 'overlook', 'shed', 'range']) {
     registered.get(cabin.interactionTargets[id]).onUse();
   }
   assert.deepEqual(storyVisits, ['creek', 'overlook', 'shed', 'range']);
+  assert.equal(registered.get(cabin.interactionTargets.creek).hold, 0.55,
+    'listening at the creek is a deliberate held interaction');
+  assert.equal(calls.creekListen, 1, 'the held creek landmark starts its optional focus mode');
+  assert.match(registered.get(cabin.interactionTargets.range).label(), /practice range/i,
+    'the optional range advertises practice, not a campaign objective');
+  assert.deepEqual(cabin.rifleRack.racks.map(({ id }) => id), ['carbine', 'shotgun'],
+    'two distinct upstairs long guns support optional range practice');
+  assert.deepEqual(cabin.basement.dungeon.armory.racks.map(({ id }) => id).sort(), ['ak47', 'barrett'],
+    'the upstairs practice rifle must not move either basement gun');
 
   for (const spawn of Object.values(cabin.spawns)) {
     assert.equal(spawn.position.isVector3, true);
@@ -247,13 +268,38 @@ test('cabin callbacks own hub toggles and only authored landmarks reach story pr
     }
   }
 
+  const bridgeWalker = new Player(new THREE.PerspectiveCamera(), {
+    colliders: cabin.colliders,
+    floorZones: cabin.floorZones,
+    groundAt: (x, z) => cabin.groundAt(x, z),
+  });
+  bridgeWalker.mode = 'walk';
+  bridgeWalker.enabled = true;
+  bridgeWalker.ground = cabin.groundAt(LANDMARKS.bridge.x, LANDMARKS.bridge.z - 9);
+  bridgeWalker.position.set(
+    LANDMARKS.bridge.x,
+    bridgeWalker.ground + bridgeWalker.eyeHeight,
+    LANDMARKS.bridge.z - 9,
+  );
+  bridgeWalker.yaw = Math.PI;
+  bridgeWalker.keys.add('KeyW');
+  for (let frame = 0; frame < 600; frame++) bridgeWalker.update(1 / 60);
+  assert.ok(bridgeWalker.position.z > LANDMARKS.bridge.z + 6,
+    `the bridge collision stopped the player at z=${bridgeWalker.position.z.toFixed(2)}`);
+
   cabin.update(1, 1, new THREE.Vector3(0, 0, 0));
   const chunks = [];
   const undergrowth = [];
+  const nearTreeSpecies = new Set();
+  const farTreeSpecies = new Set();
   const authoredPolish = new Set();
   cabin.root.traverse((object) => {
     if (object.name.startsWith('cabin-forest-chunk-')) chunks.push(object);
     if (object.name === 'cabin-fern-undergrowth') undergrowth.push(object);
+    const nearSpecies = object.name.match(/^cabin-tree-(aspen|cedar|fir|pine)-crowns-near$/)?.[1];
+    const farSpecies = object.name.match(/^cabin-tree-(aspen|cedar|fir|pine)-crowns-far$/)?.[1];
+    if (nearSpecies) nearTreeSpecies.add(nearSpecies);
+    if (farSpecies) farTreeSpecies.add(farSpecies);
     if (['cabin-central-table-cluster', 'cabin-ridge-overlook'].includes(object.name)) authoredPolish.add(object.name);
   });
   assert.ok(chunks.length >= 40);
@@ -264,7 +310,39 @@ test('cabin callbacks own hub toggles and only authored landmarks reach story pr
   }
   assert.ok(undergrowth.length > 0);
   assert.ok(undergrowth.every((mesh) => mesh.geometry.type !== 'PlaneGeometry'), 'undergrowth uses shaped low-poly fronds');
+  assert.deepEqual([...nearTreeSpecies].sort(), ['aspen', 'cedar', 'fir', 'pine']);
+  assert.deepEqual([...farTreeSpecies].sort(), ['aspen', 'cedar', 'fir', 'pine']);
   assert.deepEqual([...authoredPolish].sort(), ['cabin-central-table-cluster', 'cabin-ridge-overlook']);
+  assert.ok(cabin.root.getObjectByName('cabin-overlook-view-rail'));
+  assert.ok(cabin.root.getObjectByName('cabin-overlook-survey-marker'));
+
+  const nightPhoto = cabin.frames.find(({ slot }) => slot === 'night.photo')?.mesh;
+  const alarm = cabin.root.getObjectByName('alarmclock');
+  const phoneTarget = cabin.utilityTargets.phone;
+  assert.ok(nightPhoto && alarm && phoneTarget, 'nightstand photo, alarm, and phone must all be built');
+  const nightPhotoBounds = new THREE.Box3().setFromObject(nightPhoto);
+  assert.equal(nightPhotoBounds.intersectsBox(new THREE.Box3().setFromObject(alarm)), false,
+    'the nightstand photograph must not intrude into the alarm clock');
+  assert.equal(nightPhotoBounds.intersectsBox(new THREE.Box3().setFromObject(phoneTarget)), false,
+    'the nightstand photograph must leave the phone interaction clear');
+
+  for (const liner of [
+    'cabin-bathroom-liner-south-west',
+    'cabin-bathroom-liner-south-east',
+    'cabin-bathroom-liner-south-header',
+  ]) assert.ok(cabin.root.getObjectByName(liner), `${liner} must hide the shared timber wall`);
+  const bathArt = cabin.frames.find(({ slot }) => slot === 'bath.mirror')?.mesh;
+  assert.ok(bathArt && cabin.mirrorMesh);
+  assert.equal(
+    new THREE.Box3().setFromObject(bathArt)
+      .intersectsBox(new THREE.Box3().setFromObject(cabin.mirrorMesh)),
+    false,
+    'bathroom wall art must not intrude into the functional sink mirror',
+  );
+
+  const terrain = cabin.root.getObjectByName('cabin-property-heightfield');
+  assert.ok(terrain.userData.cabinTerrain.relief > 6, 'the property needs a real creek-to-ridge relief profile');
+  assert.ok(terrain.userData.cabinTerrain.surfaceCount >= 7, 'terrain colour keeps authored surfaces legible');
 
   const forbiddenExternalLights = [];
   cabin.root.traverse((object) => {

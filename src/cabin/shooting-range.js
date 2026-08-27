@@ -538,6 +538,10 @@ export function buildCabinShootingRange({
     return session.reset(options);
   }
 
+  function finish(reason = 'complete') {
+    return session.finish(reason);
+  }
+
   function update(dt) {
     for (const target of targets.values()) target.update(dt);
     session.update(dt);
@@ -582,7 +586,7 @@ export function buildCabinShootingRange({
     target: interactTarget,
     label: () => (session.phase === 'active'
       ? `Reset the <b>${RANGE_SHOT_LIMIT}-shot range</b>`
-      : `Start the <b>${RANGE_SHOT_LIMIT}-shot range</b>`),
+      : 'Inspect the <b>practice range</b>'),
     enabled: () => true,
     onUse: () => onInteract?.(snapshot()),
   });
@@ -602,6 +606,7 @@ export function buildCabinShootingRange({
     handleWeaponEvent,
     handleImpact,
     begin,
+    finish,
     reset,
     update,
     snapshot,

@@ -5,6 +5,7 @@ import test from 'node:test';
 import { QUEST } from '../src/bing/license-to-grill.js';
 
 const bingMain = readFileSync(new URL('../src/bing/main.js', import.meta.url), 'utf8');
+const hotdogMain = readFileSync(new URL('../src/bing/hotdog-main.js', import.meta.url), 'utf8');
 const optionalStart = bingMain.indexOf('function optionalObjectives()');
 const optionalEnd = bingMain.indexOf('function repaintObjectives()', optionalStart);
 const optionalObjectivesSource = bingMain.slice(optionalStart, optionalEnd);
@@ -25,4 +26,14 @@ test('Bada Bing One shows Help Au Gratin in the back room as a real objective', 
   assert.match(bingMain,
     /initialPersisted: loadLicenseToGrillProgress\(\)/,
     'the stored completion is not supplied to the room runtime');
+});
+
+test('the HotDog Incident projects its durable ledger through the shared live objective panel', () => {
+  assert.match(hotdogMain,
+    /import \{ createObjectivePanel \} from '\.\.\/core\/objective-panel\.js';/);
+  assert.match(hotdogMain,
+    /objectivePanel\.set\(\{[\s\S]*?items: mission\.objectives\.map/,
+    'the second-visit ledger bypasses the shared active-objective projection');
+  assert.doesNotMatch(hotdogMain, /li\.className\s*=\s*objective\.done/,
+    'completed HotDog work is still rendered into the live list');
 });

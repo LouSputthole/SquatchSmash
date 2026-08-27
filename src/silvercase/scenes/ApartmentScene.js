@@ -5,8 +5,9 @@ import {
 import * as T from '../../world/textures.js';
 import { makeMaterials } from '../../world/materials.js';
 import {
-  makeCouch, makeCoffeeTable, makeChair, makeKitchen, makeFridge,
+  makeCouch, makeCoffeeTable, makeChair, makeKitchen, makeFridge, makeToilet,
 } from '../../world/props.js';
+import { markSpatialPrimitive } from '../../core/spatial-contract.js';
 import { makeCase } from '../props/case.js';
 
 /**
@@ -136,6 +137,10 @@ export function buildApartmentScene() {
   hallFloorTex.repeat.set(5, 2);
   const ceilTex = T.ceilingTex();
   ceilTex.repeat.set(6, 5);
+  const bathWallTex = T.tileTex(10, '#77736b', '#5f5b55');
+  bathWallTex.repeat.set(5, 6);
+  const bathFloorTex = T.tileTex(8, '#1b1c1f', '#2a2928');
+  bathFloorTex.repeat.set(4, 5);
 
   const M2 = {
     wall: mat({ map: wallTex, roughness: 0.96 }),
@@ -157,6 +162,9 @@ export function buildApartmentScene() {
     blind: mat({ color: 0xb9b09a, roughness: 0.98 }),
     rug: mat({ map: T.rugTex(), roughness: 1 }),
     dark: mat({ color: 0x07070a, roughness: 1 }),
+    bathWall: mat({ map: bathWallTex, roughness: 0.82 }),
+    bathFloor: mat({ map: bathFloorTex, roughness: 0.9 }),
+    porcelain: mat({ color: 0xd8d9d2, roughness: 0.3 }),
     bag: mat({ color: 0x3a3226, roughness: 0.96 }),
     grip: mat({ color: 0x17140f, roughness: 0.55 }),
     batWood: mat({ color: 0x8a6a3a, roughness: 0.55 }),
@@ -623,21 +631,104 @@ export function buildApartmentScene() {
   );
   colliders.push(bathDoorCollider);
 
-  // Shallow, unlit alcove — just enough depth for the door to swing and
-  // someone to burst out of it. No modelled interior: same
-  // never-show-contents rule as the case, enforced here by simply never
-  // building anything back there to see.
-  const ALC_DEPTH = 0.7;
-  const alcBack = A.z0 - ALC_DEPTH;
-  wallBox(bathX0 - 0.1, 0, alcBack, bathX0 + 0.1, A.h, A.z0, M2.dark, 'silvercase.shell.apartment');
-  wallBox(bathX1 - 0.1, 0, alcBack, bathX1 + 0.1, A.h, A.z0, M2.dark, 'silvercase.shell.apartment');
-  wallBox(bathX0 + 0.1, 0, alcBack - 0.1, bathX1 - 0.1, A.h, alcBack, M2.dark, 'silvercase.shell.apartment');
-  const alcFloor = plane(bathX1 - bathX0, ALC_DEPTH, M2.dark);
-  alcFloor.name = 'silvercase.bathroom-alcove.floor';
+  // A real, crude bathroom rather than a black 70 cm void. The opening stays
+  // where it was, but the room widens behind the north wall so the gunman has
+  // a clear centre lane and finished fixtures remain visible after he falls.
+  // The close-coupled toilet below is the shared Apartment fixture, not a
+  // scene-local block pretending to be one.
+  const BATH_X0 = 10.0;
+  const BATH_X1 = 12.0;
+  const BATH_DEPTH = 2.15;
+  const bathBack = A.z0 - BATH_DEPTH;
+  // Stop at the apartment wall's north face. Extending through that existing
+  // 20 cm shell made the two structural colliders overlap at this corner.
+  wallBox(BATH_X0 - 0.1, 0, bathBack, BATH_X0 + 0.1, A.h, A.z0 - 0.2, M2.bathWall, 'silvercase.shell.bathroom');
+  wallBox(BATH_X1 - 0.1, 0, bathBack, BATH_X1 + 0.1, A.h, A.z0, M2.bathWall, 'silvercase.shell.bathroom');
+  wallBox(BATH_X0 + 0.1, 0, bathBack - 0.1, BATH_X1 - 0.1, A.h, bathBack, M2.bathWall, 'silvercase.shell.bathroom');
+  const alcFloor = plane(BATH_X1 - BATH_X0 - 0.2, BATH_DEPTH, M2.bathFloor);
+  alcFloor.name = 'silvercase.bathroom.floor';
   alcFloor.userData.geometryGate = { structural: true, fixedSupportAnchor: true, supportAssemblyId: 'silvercase.shell.apartment' };
   alcFloor.rotation.x = -Math.PI / 2;
-  alcFloor.position.set((bathX0 + bathX1) / 2, 0, A.z0 - ALC_DEPTH / 2);
+  alcFloor.position.set((BATH_X0 + BATH_X1) / 2, 0, A.z0 - BATH_DEPTH / 2);
   root.add(alcFloor);
+
+  // Built now, appended to the root after the existing apartment dressing so
+  // introducing named bathroom meshes does not renumber unrelated traversal
+  // paths in the geometry gate.
+  const bathroomFixtures = group('silvercaseBathroomInterior');
+  bathroomFixtures.userData.geometryGate = { assemblyId: 'silvercase.bathroom-interior' };
+
+  const bathCeiling = plane(BATH_X1 - BATH_X0 - 0.2, BATH_DEPTH, M2.ceiling);
+  bathCeiling.name = 'silvercase.bathroom.ceiling';
+  bathCeiling.userData.geometryGate = {
+    structural: true,
+    fixedSupportAnchor: true,
+    supportAssemblyId: 'silvercase.shell.bathroom',
+  };
+  bathCeiling.rotation.x = Math.PI / 2;
+  bathCeiling.position.set((BATH_X0 + BATH_X1) / 2, A.h, A.z0 - BATH_DEPTH / 2);
+  bathroomFixtures.add(bathCeiling);
+
+  const bathToilet = makeToilet(M, { x: 10.43, z: bathBack + 0.56, rotY: 0 });
+  bathToilet.group.userData.geometryGate = {
+    assemblyId: 'silvercase.bathroom-toilet',
+    // The pedestal is bolted to the slab; classify the complete fixture as
+    // floor-anchored instead of asking the gate to support each curved shell.
+    fixedSupportAnchor: true,
+  };
+  bathroomFixtures.add(bathToilet.group);
+  const bathToiletCollider = collider(bathToilet.bounds[0], bathToilet.bounds[1], 0);
+  bathToiletCollider.name = 'silvercase-bathroom-toilet';
+  bathToiletCollider.userData = {
+    geometryGate: { assemblyId: 'silvercase.bathroom-toilet' },
+  };
+  markSpatialPrimitive(bathToiletCollider, {
+    id: 'silvercase.bathroom.toilet',
+    kind: 'prop',
+    assemblyId: 'silvercase.bathroom-toilet',
+  });
+  colliders.push(bathToiletCollider);
+
+  const bathSink = group('silvercaseBathroomSink');
+  bathSink.userData.geometryGate = { assemblyId: 'silvercase.bathroom-sink' };
+  bathSink.add(box({ size: [0.5, 0.7, 0.56], pos: [0, 0.35, 0], mat: M2.doorWorn }));
+  bathSink.add(box({ size: [0.56, 0.08, 0.62], pos: [0, 0.74, 0], mat: M2.porcelain }));
+  // Basin depression, tap and exposed drain: enough silhouette to read from
+  // the living room even under the deliberately weak practical light.
+  bathSink.add(cylinder({ rTop: 0.18, rBottom: 0.11, h: 0.08, pos: [0, 0.79, 0], mat: M2.porcelain }));
+  bathSink.add(cylinder({ r: 0.018, h: 0.2, pos: [0, 0.92, -0.19], mat: M.chrome }));
+  bathSink.add(box({ size: [0.18, 0.025, 0.025], pos: [0, 1.02, -0.12], mat: M.chrome }));
+  bathSink.position.set(11.58, 0, bathBack + 0.72);
+  bathroomFixtures.add(bathSink);
+  const bathSinkCollider = collider(
+    [bathSink.position.x - 0.3, 0, bathSink.position.z - 0.34],
+    [bathSink.position.x + 0.3, 1.05, bathSink.position.z + 0.34],
+    0,
+  );
+  bathSinkCollider.name = 'silvercase-bathroom-sink';
+  bathSinkCollider.userData = {
+    geometryGate: { assemblyId: 'silvercase.bathroom-sink' },
+  };
+  markSpatialPrimitive(bathSinkCollider, {
+    id: 'silvercase.bathroom.sink',
+    kind: 'prop',
+    assemblyId: 'silvercase.bathroom-sink',
+  });
+  colliders.push(bathSinkCollider);
+
+  const bathPractical = group('silvercaseBathroomPractical');
+  bathPractical.userData.geometryGate = {
+    assemblyId: 'silvercase.bathroom-practical',
+    // This is a wall-mounted light fitting, not a free-standing object.
+    fixedSupportAnchor: true,
+  };
+  bathPractical.add(box({ size: [0.22, 0.055, 0.1], pos: [0, 0, 0], mat: M2.trim }));
+  bathPractical.add(sphere({ r: 0.055, pos: [0, -0.07, 0], mat: M2.porcelain }));
+  bathPractical.position.set(11.05, 2.34, bathBack + 0.88);
+  bathroomFixtures.add(bathPractical);
+  const bathPracticalLight = new THREE.PointLight(0xd7d2bb, 1.65, 3.2, 2);
+  bathPracticalLight.position.set(11.05, 2.18, bathBack + 0.88);
+  bathroomFixtures.add(bathPracticalLight);
 
   // ---------------- couch (against the south wall, facing north) ----------
   // makeCouch bakes its (x,z) straight into its children's coordinates
@@ -822,6 +913,10 @@ export function buildApartmentScene() {
   tvGlow.position.set(ANCHORS.tvSpot.x + 0.35, ANCHORS.tvSpot.y, ANCHORS.tvSpot.z);
   root.add(tvGlow);
 
+  // Last by design: see the traversal-stability note where this group is
+  // built. Everything before it keeps the same sibling path.
+  root.add(bathroomFixtures);
+
   // ---------------- per-frame update ----------------
   let flickerT = Math.random() * 10;
   let flickerHold = 0;
@@ -890,6 +985,12 @@ export function buildApartmentScene() {
       caseOcclusion,
       hallwayDoors,
       bedroomDoor,
+      bathroom: {
+        group: bathroomFixtures,
+        toilet: bathToilet,
+        sink: bathSink,
+        practical: bathPractical,
+      },
       weaponHints: { couchGrip, batBehindTV },
     },
     anchors: ANCHORS,

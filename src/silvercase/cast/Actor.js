@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { Npc } from '../../bing/cast.js';
-import { beginDeathTransition, restoreDeathTransition } from '../../core/death-transition.js';
+import {
+  applyConnectedDeathPivot,
+  beginDeathTransition,
+  restoreDeathTransition,
+} from '../../core/death-transition.js';
 import { coarseActorRole, markActor, setActorPosture } from '../../core/staging.js';
 
 /**
@@ -170,9 +174,6 @@ export class Actor {
       x: npc.group.position.x, y: npc.group.position.y, z: npc.group.position.z,
     };
     this._spawn = { ...this._rest, yaw: npc.group.rotation.y, baseY: npc.baseY };
-    this._seatPivotLocal = null;
-    this._seatPivotParent = null;
-    this._seatPivotNow = new THREE.Vector3();
     this._deathBounds = new THREE.Box3();
     this._deathPartBounds = new THREE.Box3();
     this._settled = false;
@@ -389,6 +390,7 @@ export class Actor {
      * the furniture) and a man shot on his feet ends up on the floor. */
     this._deathTransition = beginDeathTransition(this.group, {
       mode: this.collapse.seat ? 'seated' : 'standing',
+      pivot: this.collapse.seat ? this.parts.hips : null,
       stop: [() => this.npc.hush?.()],
     });
     this._rest = {
@@ -397,17 +399,6 @@ export class Actor {
     this._restY = this.collapse.seat
       ? this._rest.y - (this.collapse.sink ?? 0)
       : FLOOR_Y + (this.collapse.lift ?? 0);
-    if (this.collapse.seat && this.parts.hips && this.group.parent) {
-      /* makePerson's legs are siblings of `body`, not children of it. The old
-       * seated collapse rotated `body`, visually tearing the torso/hips away
-       * from legs that correctly stayed folded in the chair. Capture the
-       * pelvis as a pivot and rotate the complete person instead: one
-       * hierarchy, one rigid connection, with the hip held in the cushion. */
-      this.group.updateWorldMatrix(true, true);
-      const pivotWorld = this.parts.hips.getWorldPosition(new THREE.Vector3());
-      this._seatPivotLocal = this.group.worldToLocal(pivotWorld.clone());
-      this._seatPivotParent = this.group.parent.worldToLocal(pivotWorld.clone());
-    }
     this._deadPose();
   }
 
@@ -474,20 +465,13 @@ export class Actor {
        * connection-preserving weight shift; the head and relaxed limbs above
        * provide the readable slump. */
       const connectedTilt = 0.05;
-      this.group.rotation.set(
-        c.bodyPitch * k * connectedTilt,
-        this._spawn.yaw,
-        c.bodyRoll * k * connectedTilt,
-      );
-      this.group.position.set(this._rest.x, this._rest.y, this._rest.z);
-      if (this._seatPivotLocal && this._seatPivotParent) {
-        this.group.updateMatrix();
-        this._seatPivotNow.copy(this._seatPivotLocal).applyMatrix4(this.group.matrix);
-        this.group.position.x += this._seatPivotParent.x - this._seatPivotNow.x;
-        this.group.position.y += this._seatPivotParent.y
-          - (c.sink ?? 0) * k - this._seatPivotNow.y;
-        this.group.position.z += this._seatPivotParent.z - this._seatPivotNow.z;
-      }
+      applyConnectedDeathPivot(this._deathTransition, {
+        rotationDelta: {
+          x: c.bodyPitch * k * connectedTilt,
+          z: c.bodyRoll * k * connectedTilt,
+        },
+        pivotOffset: { y: -(c.sink ?? 0) * k },
+      });
       /* Keep the connected fall honest at floor contact too. Rotating folded
        * legs around the pelvis can put the toe a centimetre under y=0 even
        * while the hips remain correctly planted in the cushion. Clamp the
@@ -550,8 +534,6 @@ export class Actor {
     this.npc.baseY = this._spawn.baseY;
     this.npc.targetYaw = undefined;
     this.npc.gaze = 0;
-    this._seatPivotLocal = null;
-    this._seatPivotParent = null;
     this.reaction = null;
     this.stopTension();
     this.tension = null;

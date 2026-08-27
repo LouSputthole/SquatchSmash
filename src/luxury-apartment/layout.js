@@ -22,7 +22,9 @@ export const LUXURY_LAYOUT = Object.freeze({
   stair: Object.freeze({ x0: -9.72, x1: -7.72, z0: -0.92, z1: 4.72, steps: 18 }),
   bathroom: Object.freeze({
     x0: -10.68,
-    x1: -7.84,
+    // The finished room now claims the unused service bay east of the stair
+    // instead of compressing a tub, toilet and vanity into the old footprint.
+    x1: -6.98,
     z0: -4.08,
     z1: -0.98,
     // The south opening uses the service bay beside the west stair rail. The

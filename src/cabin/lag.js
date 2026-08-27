@@ -396,7 +396,6 @@ export function buildLagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
     },
     update(dt = 0, playerPosition = null) {
       const step = Number.isFinite(dt) && dt > 0 ? dt : 0;
-      elapsed += step;
       npc.update(step, playerPosition);
       if (bonfireMode) {
         axe.visible = false;
@@ -420,6 +419,10 @@ export function buildLagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
         applyWorkPose('lean', 0.5);
         if (talkRemaining === 0) returningHome = true;
       } else {
+        /* Work time pauses while Lag is speaking or staged at the bonfire.
+         * Resuming therefore continues the exact interrupted stroke instead
+         * of skipping ahead to a carried log or snapping into a new swing. */
+        elapsed += step;
         const at = activityAt(elapsed);
         currentActivity = at.activity.id;
         applyWorkPose(currentActivity, at.progress);
@@ -433,6 +436,7 @@ export function buildLagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
     debug: Object.freeze({
       get activity() { return currentActivity; },
       get elapsed() { return elapsed; },
+      get workElapsed() { return elapsed; },
       get bonfireMode() { return bonfireMode; },
       activityAt: (time) => activityAt(time).activity.id,
     }),

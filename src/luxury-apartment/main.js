@@ -4,6 +4,8 @@ import { createArcade } from '../arcade/mount.js';
 import { BETS, Blackjack } from '../bing/blackjack.js';
 import { AudioEngine } from '../core/audio.js';
 import { DayNight } from '../core/daynight.js';
+import { SPEECH_MIX_CLOSE, speak } from '../core/dialogue.js';
+import { FirstPersonBody, createPlayerAppearanceStore } from '../core/first-person-body.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { FocusRush } from '../core/focus-rush.js';
 import { Highs } from '../core/highs.js';
@@ -13,16 +15,18 @@ import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { PlanarMirror } from '../core/planar-mirror.js';
+import { Person } from '../core/person.js';
 import { Phone } from '../core/phone.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
-import { Radio } from '../core/radio.js';
+import { Radio, radioHudWithinRange } from '../core/radio.js';
 import { applyBody } from '../core/settings.js';
 import { Tv } from '../core/tv.js';
 import { createBongBehavior } from '../world/bong.js';
 import { ShowerSystem } from '../world/shower.js';
 import { SmokeSystem } from '../world/smoke.js';
 import { createLuxuryInputPolicy } from './controls.js';
+import { createLuxuryApartmentStory } from './story.js';
 import { buildLuxuryApartment } from './world.js';
 import {
   LuxuryAnsweringMachineRuntime,
@@ -55,6 +59,61 @@ const chromaOffsets = document.querySelectorAll('#chroma feOffset');
 
 const ELEVATOR_AUDIO_CUT_MS = 720;
 const ELEVATOR_EXIT_MS = 1400;
+
+export const LUXURY_OUTFITS = Object.freeze([
+  Object.freeze({
+    id: 'black_henley', label: 'clean black henley',
+    palette: Object.freeze({ shirt: 0x17191d, shirtDark: 0x0d0f12, pants: 0x20242b }),
+  }),
+  Object.freeze({
+    id: 'charcoal_suit', label: 'charcoal suit',
+    palette: Object.freeze({ shirt: 0x353941, shirtDark: 0x20242a, pants: 0x171a20 }),
+  }),
+  Object.freeze({
+    id: 'cream_cashmere', label: 'cream cashmere',
+    palette: Object.freeze({ shirt: 0xd8cdb7, shirtDark: 0xb7aa91, pants: 0x393a3f }),
+  }),
+  Object.freeze({
+    id: 'late-night_track_jacket', label: 'late-night track jacket',
+    palette: Object.freeze({ shirt: 0x252d3d, shirtDark: 0x141a25, pants: 0x171c27 }),
+  }),
+]);
+
+export const LUXURY_OUTFIT_PALETTES = Object.freeze({
+  ...Object.fromEntries(LUXURY_OUTFITS.map(({ id, palette }) => [id, palette])),
+  cabin_workshirt: Object.freeze({ shirt: 0x4e5746, shirtDark: 0x30382d, pants: 0x3d342b }),
+  grey_henley: Object.freeze({ shirt: 0x777b80, shirtDark: 0x51555a, pants: 0x292d33 }),
+  good_shirt: Object.freeze({ shirt: 0x47627d, shirtDark: 0x2d4156, pants: 0x252a31 }),
+});
+
+const baseAppearanceStore = createPlayerAppearanceStore({ fallback: 'charcoal_suit' });
+const canonicalLuxuryOutfitId = (outfitId) => (
+  Object.hasOwn(LUXURY_OUTFIT_PALETTES, outfitId) ? outfitId : 'charcoal_suit'
+);
+const appearanceStore = Object.freeze({
+  key: baseAppearanceStore.key,
+  read() {
+    const requested = baseAppearanceStore.read();
+    const resolved = canonicalLuxuryOutfitId(requested);
+    if (resolved !== requested) baseAppearanceStore.write(resolved);
+    return resolved;
+  },
+  write(outfitId) {
+    return baseAppearanceStore.write(canonicalLuxuryOutfitId(outfitId));
+  },
+});
+const initialOutfitId = appearanceStore.read();
+const story = createLuxuryApartmentStory();
+
+function makeLuxuryPlayerBody(outfitId) {
+  const person = new Person({
+    ...(LUXURY_OUTFIT_PALETTES[outfitId] ?? LUXURY_OUTFIT_PALETTES.charcoal_suit),
+    bandana: null,
+  });
+  person.group.scale.setScalar(0.70);
+  person.group.userData.outfitId = outfitId;
+  return person;
+}
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -90,8 +149,8 @@ const hud = new Hud();
  * pause menu -- which is the exact failure that module's header describes: the
  * one screen a player is not playing on. */
 const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
-/** The flat's standing order. One source; the pause menu reads it too. */
-const LUXURY_OBJECTIVE = 'Explore both floors or try the private games room.';
+/** Story adapter is the one source for the live and paused objective. */
+const currentLuxuryObjective = () => story.objective;
 const interaction = new InteractionSystem(camera, hud);
 const audio = new AudioEngine();
 const tv = new Tv({ audio });
@@ -99,6 +158,7 @@ const radio = new Radio(audio, hud, time, {
   venue: 'luxury_apartment',
   canPlayNotice: () => false,
   output: 0.88,
+  hudVisible: () => radioHudWithinRange(camera?.position, home?.radioPos),
 });
 const phone = new Phone({
   time,
@@ -131,7 +191,7 @@ const state = {
   cooking: 'idle',
   cookingTime: 0,
   fed: false,
-  outfit: 0,
+  outfit: LUXURY_OUTFITS.findIndex(({ id }) => id === initialOutfitId),
   money: 2500,
   fridgeBeer: 5,
   fridgeSlices: 2,
@@ -157,6 +217,7 @@ const cabinetArcade = createArcade({ audio, onInputModeChange: onArcadeInputMode
 
 let home = null;
 let bathroomMirror = null;
+let firstPersonBody = null;
 let player = null;
 let inventoryRuntime = null;
 let blackjack = null;
@@ -319,10 +380,14 @@ function enterStation(id, station = home?.gameStations?.[id]) {
     return true;
   }
   if (id === 'poker') {
-    return sitAt('poker', station.pose ?? home.poses.poker, () => {
-      blackjack.sitDown();
-      repaintBlackjack();
+    const line = 'Not much of a poker game by myself.';
+    hud.say(line, 3000);
+    speak(audio, 'vo.luxury.poker.solo', {
+      mix: SPEECH_MIX_CLOSE,
+      subtitle: line,
+      requiredRecorded: false,
     });
+    return true;
   }
   if (id === 'darts') {
     return sitAt('darts', station.pose ?? home.poses.darts, () => {
@@ -415,9 +480,35 @@ function beginElevatorExit() {
   return true;
 }
 
+function refreshLuxuryObjective({ toast = false } = {}) {
+  story.sync(home?.state);
+  if (state.phase === 'active') {
+    objectivePanel.setLine(currentLuxuryObjective(), { title: story.ready ? 'READY' : 'OBJECTIVE' });
+  }
+  if (toast && story.ready) hud.toast('Ready to leave · private elevator unlocked', 'good');
+  return story.snapshot();
+}
+
 function useElevator(mode) {
-  audio.play(mode === 'ride' ? 'door.creak' : 'door.knob', { volume: 0.42 });
-  if (mode === 'ride') {
+  if (state.phase !== 'active') return false;
+  const result = story.elevator(mode === 'ride');
+  if (result.action === 'blocked') {
+    audio.play('door.knob', { volume: 0.28 });
+    hud.toast('Private elevator locked');
+    hud.say(result.line, 3600);
+    const cue = story.blockedUses > 1
+      ? 'vo.luxury.elevator.not-ready-repeat'
+      : 'vo.luxury.elevator.not-ready';
+    speak(audio, cue, {
+      mix: SPEECH_MIX_CLOSE,
+      subtitle: result.line,
+      requiredRecorded: false,
+    });
+    return false;
+  }
+  if (result.action === 'duplicate') return false;
+  audio.play(result.action === 'depart' ? 'door.creak' : 'door.knob', { volume: 0.42 });
+  if (result.action === 'depart') {
     hud.toast('Private elevator descending');
     hud.say('The doors close on the apartment. <em>No unfinished hallway. No open-world drop.</em>', 3400);
     return beginElevatorExit();
@@ -521,11 +612,22 @@ function startShower() {
 }
 
 function useWardrobe() {
-  const outfits = ['clean black henley', 'charcoal suit', 'cream cashmere', 'late-night track jacket'];
-  state.outfit = (state.outfit + 1) % outfits.length;
-  hud.toast(`Changed · ${outfits[state.outfit]}`, 'good');
+  const current = LUXURY_OUTFITS.findIndex(({ id }) => id === firstPersonBody?.outfitId);
+  state.outfit = current < 0 ? 0 : (current + 1) % LUXURY_OUTFITS.length;
+  const outfit = LUXURY_OUTFITS[state.outfit];
+  firstPersonBody?.setOutfit(outfit.id);
+  story.complete('dressed');
+  hud.toast(`Changed · ${outfit.label}`, 'good');
   audio.play('closet.slide', { volume: 0.36 });
+  refreshLuxuryObjective({ toast: true });
   return true;
+}
+
+function takeHomePhone() {
+  const taken = inventoryRuntime?.takePhone() ?? false;
+  if (home?.state.phoneTaken || taken) story.complete('phoneTaken');
+  refreshLuxuryObjective({ toast: true });
+  return taken;
 }
 
 function sleepAtHome() {
@@ -657,13 +759,14 @@ try {
     time,
     onFrontDoor: useFrontDoor,
     onElevator: useElevator,
+    elevatorStatus: () => story.snapshot(),
     onBathroomDoor: (open) => useDoor('Bathroom door', open),
     onBed: useBed,
     onCouch: () => sitAt('couch', home.poses.couch),
     onDesk: () => { if (home) home.state.pcOn = true; },
     onTv: useTv,
     onRadio: useRadio,
-    onPhone: () => inventoryRuntime?.takePhone(),
+    onPhone: takeHomePhone,
     onFridge: useFridge,
     onCook: useKitchen,
     cigaretteStatus: () => inventoryRuntime?.status('cigs') ?? { full: false },
@@ -710,6 +813,12 @@ player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 interaction.setOccluders(home.occluders ?? []);
 teleportToSpawn(player, home, 'arrival');
+firstPersonBody = new FirstPersonBody(scene, {
+  factory: makeLuxuryPlayerBody,
+  store: appearanceStore,
+  outfitId: initialOutfitId,
+  eyeHeight: 1.68,
+});
 
 inventoryRuntime = new LuxuryInventoryRuntime({
   camera,
@@ -811,6 +920,8 @@ startButton.addEventListener('click', async () => {
       'poop.1', 'poop.2', 'poop.3', 'poop.4', 'poop.strain',
       'gun.pickup', 'gun.shot', 'gun.dry', 'gun.impact', 'gun.reload', 'ammo.take',
       'bong.bubble', 'zyn.pack', 'glue.slip',
+      'vo.luxury.poker.solo',
+      'vo.luxury.elevator.not-ready', 'vo.luxury.elevator.not-ready-repeat',
       ...radio.preloadCueNames({ startupOnly: true }),
     ],
   });
@@ -825,7 +936,7 @@ startButton.addEventListener('click', async () => {
   });
   state.phase = 'active';
   syncInput('start');
-  objectivePanel.setLine(LUXURY_OBJECTIVE, { title: 'OBJECTIVE' });
+  refreshLuxuryObjective();
   document.body.classList.add('playing');
   overlay.classList.add('hidden');
   requestGamePointerLock();
@@ -836,13 +947,13 @@ const pauseMenu = createPauseMenu({
   title: 'The High Life',
   canPause: () => state.phase === 'active' && !state.posture && !state.resting && !state.showering,
   canHandleTab: () => state.activeArcade?.inputMode !== 'dom',
-  getObjective: () => LUXURY_OBJECTIVE,
+  getObjective: currentLuxuryObjective,
   instructions: [
     'W A S D — move. Shift — sprint. Space — jump.',
     'E or Click — use and play. Hold E where a second action is shown.',
     'F — consume the selected item. Q — stand or pocket it. R — radio/game action.',
     'Tab or Esc — pause. At a computer, Tab returns to SquatchOS and Q stands up.',
-    'At blackjack: 1–4 set the bet, E hits, Space stands, R doubles.',
+    'At darts: hold E or Mouse to charge, release to throw, R resets the leg.',
     'This is a standalone developer preview and does not alter campaign progress.',
   ],
   onPause: () => {
@@ -859,12 +970,14 @@ const pauseMenu = createPauseMenu({
     browserInput?.releasePointerLock();
     interaction.release();
     interaction.setPaused(true);
+    radio.pause();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     state.paused = false;
     interaction.setPaused(Boolean(state.posture));
     audio.ctx?.resume?.();
+    radio.resume();
     lastFrame = performance.now();
     syncInput('resume');
     /* Only the postures that steer get the mouse back. Seated at the blackjack
@@ -1089,6 +1202,7 @@ function updateTimedActivities(dt) {
     if (state.showerTime >= 7.0) {
       state.showering = false;
       home.state.showered = true;
+      story.complete('showered');
       showerFx.stop();
       audio.stopLoop('luxury.shower', 0.5);
       restoreWalkingPose(player, home.poses.shower.exit, home.groundAt);
@@ -1096,6 +1210,7 @@ function updateTimedActivities(dt) {
       syncInput('shower-end');
       hud.toast('Showered', 'good');
       hud.say('Clean clothes, clean glass, clean slate. <em>For tonight.</em>', 3800);
+      refreshLuxuryObjective({ toast: true });
     }
   }
 }
@@ -1118,6 +1233,9 @@ function frame(now) {
     focusRush.update(dt);
     focusRush.apply(camera, player, { baseMoveScale: player.moveScale });
     player.update(dt);
+    firstPersonBody?.update(dt, player, {
+      groundY: home.groundAt(player.position.x, player.position.z, player.position.y),
+    });
     home.update(dt * highs.timeScale, state.elapsed, player.position);
     toilet.update(dt);
     crookedArt.update(dt);
@@ -1242,11 +1360,9 @@ async function verifyParity() {
   const cabinetApp = cabinetArcade.app?.id ?? null;
 
   if (blackjack.state !== 'off') blackjack.standUp();
-  blackjack.sitDown();
-  const blackjackOpened = blackjack.state === 'bet';
-  blackjack.setBet(BETS[0]);
-  const blackjackBet = blackjack.bet;
-  blackjack.standUp();
+  const pokerPostureBefore = state.posture;
+  const pokerResponded = enterStation('poker');
+  const pokerStayedSolo = state.posture === pokerPostureBefore && blackjack.state === 'off';
 
   darts.reset();
   darts.enter();
@@ -1291,7 +1407,8 @@ async function verifyParity() {
     },
     games: {
       cabinet: { launched: cabinetLaunched, app: cabinetApp },
-      blackjack: { opened: blackjackOpened, bet: blackjackBet },
+      poker: { responded: pokerResponded, stayedSolo: pokerStayedSolo, patrons: home.poker.patrons.length },
+      blackjack: { opened: false, bet: blackjack.bet },
       darts: { entered: true, throw: dartThrow },
     },
   };
@@ -1326,6 +1443,10 @@ window.LUXURY_APARTMENT = {
   revolverRuntime: revolver,
   highs,
   focusRush,
+  firstPersonBody,
+  appearanceStore,
+  story,
+  outfits: LUXURY_OUTFITS,
   bongBehavior,
   verifyParity,
   station: enterStation,
@@ -1358,6 +1479,13 @@ window.LUXURY_APARTMENT = {
     revolver: () => revolver.pickup(),
     ammo: (count = 12) => revolver.takeAmmo(count),
     cigarettes: useCigarettePack,
+    elevator: useElevator,
+    ready(taskId) {
+      const changed = story.complete(taskId);
+      if (home?.state && Object.hasOwn(home.state, taskId)) home.state[taskId] = true;
+      refreshLuxuryObjective({ toast: true });
+      return changed;
+    },
   },
   debug: {
     pcApps: pcArcade.apps.map((app) => ({ id: app.id, title: app.title ?? app.name ?? app.id })),

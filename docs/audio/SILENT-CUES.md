@@ -9,7 +9,13 @@ most of these are lines waiting on a recording session, and
 `VOICE-LINES-TODO.md` is the queue for them. This file answers the other
 question: **which scene is silent, at which beat.**
 
-**9 silent cues across 1 scenes.**
+**12 silent cues across 2 scenes.**
+
+## luxury-apartment — 3
+
+- `vo.luxury.elevator.not-ready` (unknown length) — src/luxury-apartment/main.js
+- `vo.luxury.elevator.not-ready-repeat` (unknown length) — src/luxury-apartment/main.js
+- `vo.luxury.poker.solo` (unknown length) — src/luxury-apartment/main.js
 
 ## world — 9
 

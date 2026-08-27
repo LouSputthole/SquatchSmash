@@ -20150,11 +20150,6 @@
       "say": "Put it away. I’ll tell you when."
     },
     {
-      "name": "vo.silvercase.control.deke.goodshow",
-      "voice": "npc-male",
-      "say": "That’s — that’s a good show."
-    },
-    {
       "name": "vo.silvercase.control.chester.drink",
       "voice": "chester",
       "say": "You, uh — you want a drink or somethin’?"
@@ -20225,14 +20220,19 @@
       "say": "You want to swing that back around at me, Prospect? Take your time. Think it through."
     },
     {
-      "name": "vo.silvercase.lou.chester.notpersonal",
-      "voice": "chester",
-      "say": "Look, man, it wasn’t personal, we just — we needed the money, we didn’t know whose —"
+      "name": "vo.silvercase.lou.ape.lookslikeabitch",
+      "voice": "ape",
+      "say": "Does he look like a bitch?"
     },
     {
-      "name": "vo.silvercase.lou.ape.evermeet",
+      "name": "vo.silvercase.lou.chester.what",
+      "voice": "chester",
+      "say": "What?"
+    },
+    {
+      "name": "vo.silvercase.lou.ape.lookslikeabitch.again",
       "voice": "ape",
-      "say": "You ever meet Lou?"
+      "say": "Does he look like a bitch?"
     },
     {
       "name": "vo.silvercase.lou.chester.no",
@@ -20240,74 +20240,44 @@
       "say": "No."
     },
     {
-      "name": "vo.silvercase.lou.ape.whatlookslike",
+      "name": "vo.silvercase.lou.ape.mrssputthole",
       "voice": "ape",
-      "say": "Do you know what Lou looks like?"
+      "say": "Then why you trying to fuck him like a bitch? Because the only one he likes to fuck is Mrs. Sputthole."
     },
     {
-      "name": "vo.silvercase.lou.chester.heardofhim",
-      "voice": "chester",
-      "say": "I mean — I’ve heard of him, everybody’s heard of —"
-    },
-    {
-      "name": "vo.silvercase.lou.ape.lookslikeabitch",
+      "name": "vo.silvercase.prayer.ape.sharepassage",
       "voice": "ape",
-      "say": "Does he look like a bitch?"
+      "say": "I’m gonna share a little passage with you."
     },
     {
-      "name": "vo.silvercase.lou.ape.reaction.no",
+      "name": "vo.silvercase.prayer.ape.squatchiel6917",
       "voice": "ape",
-      "say": "Good. Then start acting like it."
+      "say": "Squatchiel. Sixty-nine, seventeen."
     },
     {
-      "name": "vo.silvercase.lou.ape.reaction.absolutelynot",
+      "name": "vo.silvercase.prayer.ape.squatchiel.line1",
       "voice": "ape",
-      "say": "Good. Then start acting like it."
+      "say": "The trail of the righteous Squatch is surrounded on every side by the greed of weak men."
     },
     {
-      "name": "vo.silvercase.lou.ape.reaction.silent",
+      "name": "vo.silvercase.prayer.ape.squatchiel.line2",
       "voice": "ape",
-      "say": "Nothing to say. Smart, for once."
+      "say": "Blessed is the Squatch who walks with his brothers."
     },
     {
-      "name": "vo.silvercase.lou.ape.reaction.lighting",
+      "name": "vo.silvercase.prayer.ape.squatchiel.line3",
       "voice": "ape",
-      "say": "…No. It does not depend on the lighting."
+      "say": "But to those who betray the family, or raise a hand against one of our own..."
     },
     {
-      "name": "vo.silvercase.prayer.ape.onemoment",
+      "name": "vo.silvercase.prayer.ape.squatchiel.line4",
       "voice": "ape",
-      "say": "Lou believes every man should get one moment to understand why this is happening."
+      "say": "I will strike down upon thee with great vengeance and furious anger!"
     },
     {
-      "name": "vo.silvercase.prayer.ape.line1",
-      "voice": "ape",
-      "say": "Great Beast of the dark timber, steady our hands and mark our trail."
-    },
-    {
-      "name": "vo.silvercase.prayer.ape.line2",
-      "voice": "ape",
-      "say": "Let the loyal walk beneath the silver branches."
-    },
-    {
-      "name": "vo.silvercase.prayer.ape.line3",
-      "voice": "ape",
-      "say": "Let thieves hear the footsteps before they see what’s coming."
-    },
-    {
-      "name": "vo.silvercase.prayer.ape.line4",
-      "voice": "ape",
-      "say": "When the forest closes behind us, let it leave no path for betrayal."
-    },
-    {
-      "name": "vo.silvercase.prayer.ape.line5",
-      "voice": "ape",
-      "say": "Silver above. Family below."
-    },
-    {
-      "name": "vo.silvercase.prayer.prospect.nofootprints",
+      "name": "vo.silvercase.prayer.prospect.squatchiel.finish",
       "voice": "player",
-      "say": "No footprints left."
+      "say": "And you will know my name is the Squatch when I lay my vengeance upon thee."
     },
     {
       "name": "vo.silvercase.chair.ape.amen",
@@ -20338,6 +20308,11 @@
       "name": "vo.silvercase.chair.ape.myparttoo",
       "voice": "ape",
       "say": "Lou is going to hear it was mine. That’s twice now I did your part of this."
+    },
+    {
+      "name": "vo.silvercase.bathroom.ape.warning",
+      "voice": "ape",
+      "say": "Bathroom!"
     },
     {
       "name": "vo.silvercase.bathroom.ape.listen",
@@ -20393,21 +20368,6 @@
       "name": "vo.silvercase.aftermath.ape.badideas",
       "voice": "ape",
       "say": "Always check the bathroom. That’s where bad ideas go to load themselves."
-    },
-    {
-      "name": "vo.silvercase.lou.prospect.choice.no",
-      "voice": "player",
-      "say": "No."
-    },
-    {
-      "name": "vo.silvercase.lou.prospect.choice.absolutelynot",
-      "voice": "player",
-      "say": "Absolutely not."
-    },
-    {
-      "name": "vo.silvercase.lou.prospect.choice.lighting",
-      "voice": "player",
-      "say": "Depends on the lighting."
     },
     {
       "name": "vo.enolasquatch.lou.call-opening-1.1",
@@ -25848,6 +25808,21 @@
       "name": "vo.cabin.lag.wood.5",
       "voice": "lag",
       "say": "Keep that up, I might let you build the fire."
+    },
+    {
+      "name": "vo.luxury.poker.solo",
+      "voice": "player",
+      "say": "Not much of a poker game by myself."
+    },
+    {
+      "name": "vo.luxury.elevator.not-ready",
+      "voice": "player",
+      "say": "Not yet. Shower, get dressed, grab the phone. Then the elevator."
+    },
+    {
+      "name": "vo.luxury.elevator.not-ready-repeat",
+      "voice": "player",
+      "say": "I am not going downstairs dressed like this. Get ready first."
     }
   ]
 }

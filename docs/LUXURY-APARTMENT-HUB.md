@@ -37,13 +37,20 @@ The runtime owns the same categories of downtime the current apartment does:
 - upstairs and downstairs posture exits that restore the correct floor height;
 - extra late-game game-space activities and gallery interactions.
 
+The preview now carries the intended get-ready beat as a scene-local story
+adapter: shower, change clothes, and take the phone before the private elevator
+will answer. It projects only the current objective and latches departure once,
+without assigning a campaign checkpoint. The poker table deliberately remains
+empty and answers with Tony's solo observation; the darts station is the live
+game in that room.
+
 These are scene-local systems. They do not advance campaign state while the
 scene is unplaced.
 
 ## Art collection
 
 The gallery resolves every art slot used by the current apartment and rehangs
-it for the larger architecture. Fourteen additional luxury slots add a foyer
+it for the larger architecture. Thirteen additional luxury slots add a foyer
 statement piece, loft triptych, stair memories, private rooms, game-space art,
 and two original canvases made for this scene:
 
@@ -52,7 +59,8 @@ and two original canvases made for this scene:
 - `assets/art/luxury-ascension.webp` — a vertical guardian composition that
   carries forest imagery into the gold geometry of the city.
 
-All fourteen slots are manifest-backed. Reused collection pieces remain real
+All thirteen slots are manifest-backed. The conflicting arcade picture was
+removed and the Silver Sasquatch crest now owns that wall position. Reused collection pieces remain real
 textures rather than placeholder panels.
 
 ## Integration contract

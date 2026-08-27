@@ -11,6 +11,7 @@ import test from 'node:test';
 import * as THREE from 'three';
 
 import { buildAirstrip } from '../src/beefrun/airstrip.js';
+import { FlightHud } from '../src/beefrun/hud.js';
 import { buildLandmarks } from '../src/beefrun/landmarks.js';
 import { MissionController } from '../src/beefrun/mission.js';
 import { BIG_UNCLE_LOU, CAPTAIN_LOU_SASOLE } from '../src/core/wardrobe.js';
@@ -250,6 +251,27 @@ test('the preview-only preflight link starts the walkaround instead of a flight 
   assert.match(beefMain, /preflight:\s*'PREFLIGHT CHECK'/);
   const start = beefMain.slice(beefMain.indexOf("startBtn.addEventListener('click'"));
   assert.match(start, /game\.resume === 'preflight'\s*\? mission\.startPreviewPreflight\(\)/);
+});
+
+test('the walkaround HUD removes completed checks while the mission keeps its recovery ledger', () => {
+  const ledger = [
+    { label: 'Pull both chocks', count: 2, need: 2, state: 'done' },
+    { label: 'Check both fuel caps', count: 1, need: 2, state: 'next' },
+    { label: 'Inspect the propellers', count: 0, need: 2, state: 'todo' },
+  ];
+  let rendered = [];
+  const list = { replaceChildren: (...nodes) => { rendered = nodes; } };
+  const hud = { _checkSig: null, checklist: { querySelector: () => list } };
+
+  FlightHud.prototype.setChecklist.call(hud, ledger);
+
+  assert.deepEqual(rendered.map((row) => row.textContent), [
+    '▸ Check both fuel caps 1/2',
+    '· Inspect the propellers 0/2',
+  ]);
+  assert.deepEqual(rendered.map((row) => row.className), ['next', 'todo']);
+  assert.equal(ledger.length, 3, 'projecting the HUD must not discard recovery state');
+  assert.equal(ledger[0].state, 'done');
 });
 
 test('Old Stove finishes close enough to share the handoff mark with Sasole', () => {

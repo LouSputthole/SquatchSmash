@@ -8,6 +8,22 @@ export const DEATH_TRANSITION_MODES = Object.freeze([
   'scripted_execution',
 ]);
 
+function connectedPivot(root, pivot) {
+  if (!pivot?.isObject3D) return null;
+  if (!root.parent?.isObject3D) {
+    throw new TypeError('A connected death pivot requires the body root to have an Object3D parent');
+  }
+  root.updateWorldMatrix(true, true);
+  const world = pivot.getWorldPosition(new THREE.Vector3());
+  return {
+    local: root.worldToLocal(world.clone()),
+    parent: root.parent.worldToLocal(world.clone()),
+    position: root.position.clone(),
+    rotation: root.rotation.clone(),
+    now: new THREE.Vector3(),
+  };
+}
+
 function descendants(root) {
   const nodes = [];
   root.traverse((node) => nodes.push({ node, parent: node.parent }));
@@ -27,6 +43,7 @@ function descendants(root) {
 export function beginDeathTransition(root, {
   mode = 'standing',
   posture = mode === 'seated' ? 'sit' : 'lie',
+  pivot = null,
   disable = [],
   stop = [],
 } = {}) {
@@ -77,6 +94,7 @@ export function beginDeathTransition(root, {
     hierarchy: descendants(root),
     disabled,
     actorState,
+    connectedPivot: connectedPivot(root, pivot),
     startedAt: Date.now(),
   };
   root.userData.deathTransition = Object.freeze({
@@ -94,6 +112,40 @@ export function beginDeathTransition(root, {
     enumerable: false,
   });
   return receipt;
+}
+
+/**
+ * Rotate one complete body hierarchy around an authored joint without
+ * reparenting any anatomy. `makePerson` keeps its legs beside the `body`
+ * branch, so rotating `body` alone can visually tear a seated corpse in two;
+ * this moves the scene root while holding the chosen pelvis point in place.
+ *
+ * Deltas are relative to the transform captured by beginDeathTransition().
+ * `pivotOffset` deliberately moves the held point (for a cushion sink) while
+ * preserving the same connected motion.
+ */
+export function applyConnectedDeathPivot(receipt, {
+  rotationDelta = {},
+  pivotOffset = {},
+} = {}) {
+  const root = receipt?.root;
+  const pivot = receipt?.connectedPivot;
+  if (!receipt?.active || !root?.isObject3D || !pivot) return false;
+
+  root.position.copy(pivot.position);
+  root.rotation.set(
+    pivot.rotation.x + (Number(rotationDelta.x) || 0),
+    pivot.rotation.y + (Number(rotationDelta.y) || 0),
+    pivot.rotation.z + (Number(rotationDelta.z) || 0),
+    pivot.rotation.order,
+  );
+  root.updateMatrix();
+  pivot.now.copy(pivot.local).applyMatrix4(root.matrix);
+  root.position.x += pivot.parent.x + (Number(pivotOffset.x) || 0) - pivot.now.x;
+  root.position.y += pivot.parent.y + (Number(pivotOffset.y) || 0) - pivot.now.y;
+  root.position.z += pivot.parent.z + (Number(pivotOffset.z) || 0) - pivot.now.z;
+  root.updateMatrixWorld(true);
+  return true;
 }
 
 /**

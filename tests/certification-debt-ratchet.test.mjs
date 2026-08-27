@@ -11,9 +11,11 @@ import {
   evaluateCertificationDebtGate,
   evaluateCertificationDebtGateWithLiveSemanticProofs,
   extractSemanticBrowserProofs,
+  readActorRetirementLedger,
   readCertificationDebtBaseline,
   semanticObligationFingerprint,
   semanticFingerprint,
+  validateActorRetirementLedger,
   validateCertificationDebtSnapshot,
 } from '../tools/certification-debt-ratchet.mjs';
 
@@ -78,6 +80,16 @@ function livenessEntry(id) {
   };
 }
 
+function actorRetirement(proofId, actorIds) {
+  return {
+    proofId,
+    actorIds,
+    reason: 'The reviewed fixture deliberately retires this state\'s complete prior cast.',
+    source: 'src/luxury-apartment/world.js:2647',
+    sourceAnchor: 'const pokerPatrons = [];',
+  };
+}
+
 function makeSnapshot({
   architecture = [architectureFinding('scene:entry:inline_first_person_input:input')],
   architectureFindings = architecture,
@@ -109,6 +121,7 @@ function makeSnapshot({
       spatialCoverageStatus: 'UNKNOWN',
     },
   }],
+  actorRetirements = [],
 } = {}) {
   return certificationDebtSnapshot({
     architectureReport: {
@@ -118,6 +131,7 @@ function makeSnapshot({
     semanticReport: { blockers: semantic, obligations: semanticObligations },
     livenessEntries: liveness,
     spatialReport: { schemaVersion: 1, debt: spatial, proofs: spatialProofs },
+    actorRetirements,
   });
 }
 
@@ -654,6 +668,145 @@ test('removing an actor cannot masquerade as fixing that actor finding', () => {
   assert.equal(gate.pass, false);
 });
 
+test('an exact reviewed whole-cast retirement permits an intentional no-cast state', () => {
+  const proofId = 'luxury-apartment:property';
+  const actorIds = [
+    'luxury.poker.patron.east',
+    'luxury.poker.patron.north',
+    'luxury.poker.patron.west',
+  ];
+  const trusted = makeSnapshot({
+    spatial: [],
+    spatialProofs: [{
+      id: proofId,
+      status: 'pass',
+      evidence: {
+        built: true,
+        actorsObserved: 3,
+        actorsDiscovered: 3,
+        visibilityFilteredActors: 0,
+        actorObservedIds: actorIds,
+        actorDiscoveredIds: actorIds,
+        visibilityFilteredActorIds: [],
+        actorVisibilityPolicy: 'rendered_only',
+        unmarkedRigs: 0,
+        findingsScanned: true,
+        spatialCoverageStatus: 'PASS',
+      },
+    }],
+  });
+  const retired = makeSnapshot({
+    spatial: [],
+    actorRetirements: [actorRetirement(proofId, actorIds)],
+    spatialProofs: [{
+      id: proofId,
+      status: 'intentional_na',
+      evidence: {
+        built: true,
+        actorsObserved: 0,
+        actorsDiscovered: 0,
+        visibilityFilteredActors: 0,
+        actorObservedIds: [],
+        actorDiscoveredIds: [],
+        visibilityFilteredActorIds: [],
+        actorVisibilityPolicy: 'rendered_only',
+        unmarkedRigs: 0,
+        findingsScanned: true,
+        spatialCoverageStatus: 'PASS',
+        actorExpectation: {
+          disposition: 'INTENTIONAL_NA',
+          minimum: 0,
+          reason: 'This apartment scene deliberately contains no cast.',
+        },
+      },
+    }],
+  });
+  const gate = evaluateCertificationDebtGate({
+    trusted,
+    candidate: retired,
+    current: retired,
+  });
+  assert.deepEqual(gate.proofCoverageViolations, []);
+  assert.equal(gate.pass, true);
+});
+
+test('actor retirement receipts fail closed when copied, incomplete, or not intentional', () => {
+  const actorIds = ['actor-a', 'actor-b'];
+  const trusted = makeSnapshot({
+    spatial: [],
+    spatialProofs: [{
+      id: 'scene:state',
+      status: 'pass',
+      evidence: {
+        built: true,
+        actorsObserved: 2,
+        actorsDiscovered: 2,
+        visibilityFilteredActors: 0,
+        actorObservedIds: actorIds,
+        actorDiscoveredIds: actorIds,
+        visibilityFilteredActorIds: [],
+        actorVisibilityPolicy: 'rendered_only',
+        unmarkedRigs: 0,
+        findingsScanned: true,
+        spatialCoverageStatus: 'PASS',
+      },
+    }],
+  });
+  const intentionalEvidence = {
+    built: true,
+    actorsObserved: 0,
+    actorsDiscovered: 0,
+    visibilityFilteredActors: 0,
+    actorObservedIds: [],
+    actorDiscoveredIds: [],
+    visibilityFilteredActorIds: [],
+    actorVisibilityPolicy: 'rendered_only',
+    unmarkedRigs: 0,
+    findingsScanned: true,
+    spatialCoverageStatus: 'PASS',
+    actorExpectation: {
+      disposition: 'INTENTIONAL_NA', minimum: 0, reason: 'Deliberately empty fixture.',
+    },
+  };
+  const variants = [
+    actorRetirement('other:state', actorIds),
+    actorRetirement('scene:state', ['actor-a']),
+  ];
+  for (const retirement of variants) {
+    const current = makeSnapshot({
+      spatial: [],
+      actorRetirements: [retirement],
+      spatialProofs: [{
+        id: 'scene:state',
+        status: 'intentional_na',
+        evidence: intentionalEvidence,
+      }, ...(retirement.proofId === 'other:state' ? [{
+        id: 'other:state',
+        status: 'intentional_na',
+        evidence: intentionalEvidence,
+      }] : [])],
+    });
+    const violations = compareTrustedProofCoverage(trusted, current, current);
+    assert.ok(violations.some(({ kind }) => (
+      kind === 'ACTOR_RETIREMENT_PROOF_INVALID'
+        || kind === 'ACTOR_DISCOVERED_COVERAGE_SHRANK'
+    )));
+  }
+
+  const notIntentional = makeSnapshot({
+    spatial: [],
+    actorRetirements: [actorRetirement('scene:state', actorIds)],
+    spatialProofs: [{
+      id: 'scene:state',
+      status: 'pass',
+      evidence: { ...intentionalEvidence, actorExpectation: undefined },
+    }],
+  });
+  assert.ok(compareTrustedProofCoverage(trusted, notIntentional, notIntentional).some(({ kind }) => (
+    kind === 'ACTOR_RETIREMENT_PROOF_INVALID'
+  )));
+});
+
 test('rendered-only staging may filter hidden cast without shrinking marker inventory', () => {
   const finding = {
     id: 'spatial:scene:state:finding:inside-solid:abc123:hidden-actor',
@@ -811,6 +964,22 @@ test('spatial collector accepts exit 1 when a complete debt report was emitted',
     }),
   });
   assert.deepEqual(report, { schemaVersion: 1, debt: [] });
+});
+
+test('checked-in actor retirement ledger is exact, anchored, and fails when its source drifts', () => {
+  const ledger = readActorRetirementLedger();
+  assert.deepEqual(validateActorRetirementLedger(ledger), []);
+  assert.deepEqual(ledger.entries.map(({ proofId, actorIds }) => ({ proofId, actorIds })), [{
+    proofId: 'luxury-apartment:property',
+    actorIds: [
+      'luxury.poker.patron.east',
+      'luxury.poker.patron.north',
+      'luxury.poker.patron.west',
+    ],
+  }]);
+  const stale = structuredClone(ledger);
+  stale.entries[0].sourceAnchor = 'const pokerPatrons = [anonymousCast];';
+  assert.match(validateActorRetirementLedger(stale).join('\n'), /sourceAnchor is not on/u);
 });
 
 test('checked-in baseline is a structurally valid deterministic snapshot', () => {

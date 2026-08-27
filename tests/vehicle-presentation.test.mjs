@@ -175,14 +175,36 @@ test('a mounted mirror derives its plane from the fixture world transform', () =
 });
 
 test('every playable bathroom uses the canonical planar mirror Module', () => {
-  const files = [
+  const compositions = [
+    ['../src/main.js'],
+    ['../src/squatchfather/effects/MirrorReflection.js'],
+    ['../src/luxury-apartment/main.js'],
+    ['../src/cabin/main.js', '../src/cabin/presentation.js'],
+  ];
+  for (const relatives of compositions) {
+    const source = relatives
+      .map((relative) => readFileSync(new URL(relative, import.meta.url), 'utf8'))
+      .join('\n');
+    assert.match(source, /core\/planar-mirror\.js/,
+      `${relatives[0]} must reach the canonical planar mirror Module`);
+  }
+});
+
+test('mirror scenes either use the shared first-person body or an authored reflection-layer body', () => {
+  for (const relative of [
     '../src/main.js',
-    '../src/squatchfather/effects/MirrorReflection.js',
     '../src/luxury-apartment/main.js',
     '../src/cabin/main.js',
-  ];
-  for (const relative of files) {
+  ]) {
     const source = readFileSync(new URL(relative, import.meta.url), 'utf8');
-    assert.match(source, /core\/planar-mirror\.js/);
+    assert.match(source, /core\/first-person-body\.js/,
+      `${relative} must use the persistent mirror-body lifecycle`);
   }
+
+  const squatchfather = readFileSync(
+    new URL('../src/squatchfather/characters/ProspectController.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(squatchfather, /layers\.set\(1\)/,
+    'Squatchfather keeps its authored mirror-only Prospect body');
 });

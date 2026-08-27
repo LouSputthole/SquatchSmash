@@ -867,7 +867,7 @@ export class LuxuryDarts {
     this.camera = camera;
     this.station = station?.board ?? station ?? {};
     this.board = {
-      mesh: this.station.board ?? null,
+      mesh: this.station.face ?? this.station.board ?? null,
       impactRoot: this.station.impactRoot ?? scene,
       center: this.station.center?.clone?.() ?? new THREE.Vector3(0, 1.72, 0),
       normal: this.station.normal?.clone?.().normalize() ?? new THREE.Vector3(0, 0, 1),
@@ -887,6 +887,8 @@ export class LuxuryDarts {
     this.inFlight = null;
     this.projectiles = [];
     this.flash = 0;
+    this.playFov = 50;
+    this.walkingFov = null;
     this.boardBaseEmissive = this.board.mesh?.material?.emissive?.clone?.() ?? new THREE.Color(0x000000);
     this.held = makePhysicalDart('luxury-held-dart');
     this.held.position.set(0.19, -0.15, -0.43);
@@ -896,10 +898,13 @@ export class LuxuryDarts {
   }
 
   enter() {
+    if (!this.active && Number.isFinite(this.camera?.fov)) this.walkingFov = this.camera.fov;
     this.active = true;
     this.turnStart = this.remaining;
     this.dart = 0;
     this.held.visible = this.remaining > 0;
+    this.panel?.classList?.add?.('darts-active');
+    this._applyCamera();
     this.repaint();
     return true;
   }
@@ -914,6 +919,21 @@ export class LuxuryDarts {
       this.inFlight = null;
     }
     paintLuxuryGamePanel(this.panel, { visible: false });
+    this.panel?.classList?.remove?.('darts-active');
+    if (Number.isFinite(this.walkingFov) && this.camera) {
+      this.camera.fov = this.walkingFov;
+      this.camera.updateProjectionMatrix?.();
+    }
+    this.walkingFov = null;
+    return true;
+  }
+
+  _applyCamera() {
+    if (!this.active || !this.camera || !Number.isFinite(this.camera.fov)) return false;
+    if (Math.abs(this.camera.fov - this.playFov) > 1e-6) {
+      this.camera.fov = this.playFov;
+      this.camera.updateProjectionMatrix?.();
+    }
     return true;
   }
 
@@ -1080,6 +1100,7 @@ export class LuxuryDarts {
   }
 
   update(dt) {
+    this._applyCamera();
     if (this.charge.active) {
       this.charge.update(dt);
       this.last = `Power ${Math.round(this.charge.amount * 100)}% · release to throw`;
@@ -1153,6 +1174,7 @@ export class LuxuryDarts {
       throws: this.throws,
       impacts: this.projectiles.filter(({ score }) => score).length,
       lastImpact: this.lastImpact,
+      cameraFov: Number.isFinite(this.camera?.fov) ? this.camera.fov : null,
     };
   }
 
@@ -1235,7 +1257,10 @@ export class LuxuryInventoryRuntime {
   }
 
   seed() {
-    for (const id of ['phone', 'cigs', 'whiskey']) {
+    // The phone remains a physical get-ready pickup in this scene. Seeding it
+    // made the prop disappear at boot and silently completed one third of the
+    // elevator gate before the player had done anything.
+    for (const id of ['cigs', 'whiskey']) {
       if (!this.inventory.has(id) && !this.inventory.full) this.inventory.add(id);
     }
     const empty = this.inventory.items.indexOf(null);

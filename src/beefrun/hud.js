@@ -310,15 +310,21 @@ export class FlightHud {
     if (!on) this._checkSig = null;
   }
 
-  /** @param {Array<{label,count,need,state}>} rows state: done | next | todo */
+  /**
+   * @param {Array<{label,count,need,state}>} rows state: done | next | todo
+   * The preflight controller keeps the whole ledger for recovery and scoring;
+   * this live activity card owns only unfinished work. A completed check leaves
+   * immediately instead of consuming HUD space as a receipt.
+   */
   setChecklist(rows) {
-    const sig = rows.map((r) => `${r.state}${r.count}`).join('|');
+    const activeRows = rows.filter((r) => r.state !== 'done');
+    const sig = activeRows.map((r) => `${r.state}${r.count}`).join('|');
     if (this._checkSig === sig) return;
     this._checkSig = sig;
-    this.checklist.querySelector('ul').replaceChildren(...rows.map((r) => {
+    this.checklist.querySelector('ul').replaceChildren(...activeRows.map((r) => {
       const li = document.createElement('li');
       li.className = r.state;
-      const glyph = r.state === 'done' ? '✓' : r.state === 'next' ? '▸' : '·';
+      const glyph = r.state === 'next' ? '▸' : '·';
       li.textContent = `${glyph} ${r.label}${r.need > 1 ? ` ${r.count}/${r.need}` : ''}`;
       return li;
     }));

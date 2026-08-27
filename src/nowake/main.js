@@ -36,7 +36,7 @@ import { Player } from '../core/player.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
-import { Radio } from '../core/radio.js';
+import { Radio, radioHudWithinRange } from '../core/radio.js';
 import { BulletHoles } from '../world/bullets.js';
 import {
   NO_WAKE_BODY_LINES,
@@ -240,6 +240,7 @@ let inputCaptureAllowed = false;
 
 const radioClock = new AuthoredClock(12.75);
 radioClock.setTime(3, 12 * 60 + 45);
+const radioPosition = new THREE.Vector3();
 const radio = new Radio(audio, hud, radioClock, {
   venue: 'apartment',
   state: createCampaignRadioAdapter(campaign, {
@@ -252,8 +253,8 @@ const radio = new Radio(audio, hud, radioClock, {
    * until Lou shuts it off, so this one is quieter than the shared knob rather
    * than louder. `output` is not saved, so it cannot move the apartment. */
   output: .55,
+  hudVisible: () => radioHudWithinRange(camera?.position, radioPosition),
 });
-const radioPosition = new THREE.Vector3();
 boat.targets.radio.getWorldPosition(radioPosition);
 radio.setPosition(radioPosition);
 const radioReady = radio.loadManifest();

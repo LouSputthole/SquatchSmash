@@ -9,7 +9,7 @@ body.cabin {
 }
 
 body.cabin #scene {
-  filter: saturate(.9) contrast(1.03);
+  filter: saturate(1.03) contrast(1.01);
 }
 
 #cabin-grade,
