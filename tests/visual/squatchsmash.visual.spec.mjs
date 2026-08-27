@@ -388,6 +388,15 @@ test('THE TAKE escape-car active view follows real throttle input', async ({ pag
       && window.__heistDebug.inputState().driving,
     seed: 0x7707,
   });
+  /* Park the real render loop before staging. The objective and Rippinflow's
+   * 5.83-second opening call use native timers, while the road/camera use RAF;
+   * the old baseline let software-renderer wall time decide which survived.
+   * Wait for the next game callback to queue so no native frame can race the
+   * fixed driving simulation below. */
+  await page.evaluate(() => window.__SQUATCH_VISUAL_TEST__.clock.freeze());
+  await page.waitForFunction(() => (
+    window.__SQUATCH_VISUAL_TEST__.clock.snapshot().queued > 0
+  ), null, { timeout: 15_000, polling: 50 });
   await page.locator('#scene').click({ position: { x: 480, y: 270 } });
   await page.keyboard.down('KeyW');
   await page.waitForFunction(() => window.__heistDebug.inputState().keys.includes('KeyW'));
@@ -398,7 +407,45 @@ test('THE TAKE escape-car active view follows real throttle input', async ({ pag
   await page.keyboard.up('KeyW');
   expect(drive.ok).toBe(true);
   expect(drive.mph).toBeGreaterThan(60);
-  await captureVisual(page, 'the-take-escape-car', drive);
+  /* This is the active-drive opening, not a world-only beauty shot. Keep its
+   * truthful standing order and spoken route call visible even if screenshot
+   * capture itself is slow; first assert the exact live state so the test-only
+   * presentation class cannot manufacture absent or stale copy. */
+  const presentation = await page.evaluate(() => {
+    const objectives = document.querySelector('#objectives');
+    const subtitle = document.querySelector('#subtitle');
+    const snapshot = window.__heistDebug.snapshot();
+    const copy = (node) => node?.textContent.replace(/\s+/g, ' ').trim() ?? '';
+    const report = {
+      objective: [
+        copy(objectives?.querySelector('.otitle')),
+        copy(objectives?.querySelector('.olist li')),
+      ].filter(Boolean).join(' '),
+      subtitle: copy(subtitle),
+      spoken: snapshot.voice.spoken,
+      clock: window.__SQUATCH_VISUAL_TEST__.clock.snapshot(),
+    };
+    objectives?.classList.add('visual-active-drive');
+    subtitle?.classList.add('visual-active-drive');
+    return report;
+  });
+  expect(presentation.objective).toBe(
+    'Objective Drive. Follow Rippin’s calls — every wrong turn is a wall.',
+  );
+  expect(presentation.subtitle).toBe(
+    'Rippinflow: Prospect drives. Left out, wrong way on purpose, then the warehouse lights.',
+  );
+  expect(presentation.spoken).toContain('rippin_drive');
+  expect(presentation.clock).toMatchObject({ frozen: true });
+  expect(presentation.clock.queued).toBeGreaterThan(0);
+  await page.addStyleTag({ content: `
+    #objectives.visual-active-drive,
+    #subtitle.visual-active-drive {
+      display: block !important;
+      opacity: 1 !important;
+    }
+  ` });
+  await captureVisual(page, 'the-take-escape-car', { ...drive, presentation });
   assertNoVisualErrors(page);
 });
 
