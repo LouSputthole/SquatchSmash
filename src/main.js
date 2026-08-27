@@ -1263,17 +1263,31 @@ function runColdOpenReveal() {
 }
 
 /**
- * He is in the chair, and the game lets go.
+ * The reveal lands at the chair, then carries him straight back onto his feet.
  *
- * No narrator, no toast, no "WELCOME TO SQUATCH LIFE". One prompt telling him
- * Q gets him out of the chair, and then forty seconds of nothing at all --
- * which is `beginMorning`'s existing ring delay, not a second timer, so there
- * is exactly one clock deciding when Lou rings.
+ * Owner, 2026-08-27: "when you quit Squatch Smash don't make me hit Q to stand
+ * up — just back me out of the computer." The pull-back still reaches the
+ * seated pose so the fake-out lands spatially, but quitting the game is now the
+ * whole exit gesture: the shared desk transition hides the frame, restores
+ * apartment input and walks him to the authored desk exit without another key.
+ * Squatch Smash is also closed back to SquatchOS, rather than leaving its
+ * shutdown card waiting to reappear the next time he sits down.
+ *
+ * The forty seconds of silence still come from `beginMorning`'s existing ring
+ * delay, not a second timer, so exactly one clock decides when Lou rings.
  */
 function endColdOpen() {
   coldOpenActive = false;
-  browserInput?.refresh('cold-open-end');
-  hud.setPosture('get up from the desk');
+  const squatchSmash = arcade.app;
+  standFromPC();
+  arcade.toDesktop();
+  /* This is a confirmed Quit, not an ordinary stand-up. The app contract is
+   * deliberate here: silently retaining the shutdown page would make the
+   * next desktop launch look as though Squatch Smash never really closed. */
+  if (squatchSmash?.id !== 'smash' || typeof squatchSmash.closeSession !== 'function') {
+    throw new Error('Cold-open Squatch Smash app cannot close its session');
+  }
+  squatchSmash.closeSession();
   apartmentStory.beginMorning({ delay: BEAT_S });
 }
 

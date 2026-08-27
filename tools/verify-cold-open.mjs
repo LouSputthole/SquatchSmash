@@ -11,7 +11,9 @@
  *     before it has started, and whether the quad clears the frustum edge
  *     depends on the desk, the field of view AND the window shape.
  *   - the camera must not move until he says yes to quitting.
- *   - the reveal has to land him in his own chair with the radio on.
+ *   - the real Squatch Smash pause/quit UI must start the reveal.
+ *   - the reveal has to pass through his chair, then put him on his feet and
+ *     return real apartment movement without asking for Q.
  *   - the phone must NOT ring during the beat afterwards. Forty seconds of
  *     nothing is what carries him from "I quit the game" to "that was a game
  *     inside this game", and a call landing in it steps on all of it.
@@ -25,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5240;
+const EVIDENCE_DIR = path.join(ROOT, 'artifacts', 'cold-open');
 const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -67,10 +70,36 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
 
+/* Record the input the verifier really sends in every frame. This regression
+ * is specifically "no Q required", so the proof must be able to say that Q
+ * never arrived by accident through a helper or focus workaround. */
+await page.addInitScript(() => {
+  window.__coldOpenVerifyKeys = [];
+  window.__coldOpenVerifyContextLosses = 0;
+  window.__coldOpenVerifyContextRestores = 0;
+  window.addEventListener('keydown', (event) => {
+    window.__coldOpenVerifyKeys.push(event.code);
+  }, true);
+  window.addEventListener('webglcontextlost', () => {
+    window.__coldOpenVerifyContextLosses += 1;
+  }, true);
+  window.addEventListener('webglcontextrestored', () => {
+    window.__coldOpenVerifyContextRestores += 1;
+  }, true);
+});
+
 const problems = [];
 page.on('pageerror', (error) => problems.push(error.message));
 page.on('console', (message) => {
   if (message.type() === 'error') problems.push(message.text().slice(0, 240));
+});
+page.on('requestfailed', (request) => {
+  /* Media can be deliberately absent and substituted by the audio engine;
+   * documents and code cannot. Keep the network assertion about boot/runtime
+   * integrity instead of turning the recording backlog into a scene failure. */
+  if (['document', 'script', 'stylesheet'].includes(request.resourceType())) {
+    problems.push(`${request.resourceType()} failed: ${request.url()} (${request.failure()?.errorText || 'unknown'})`);
+  }
 });
 
 const results = [];
@@ -121,8 +150,13 @@ try {
         const frame = document.querySelector('iframe');
         return !!frame && getComputedStyle(frame).display !== 'none'
           && (frame.getAttribute('src') || '').includes('game/');
-      }),
+    }),
     'the embedded page is game/index.html, not a mock');
+
+  const frameElement = await page.waitForSelector('iframe[title="Squatch Smash"]', { timeout: 60000 });
+  const smashFrame = await frameElement.contentFrame();
+  if (!smashFrame) throw new Error('Squatch Smash iframe never produced a document');
+  await smashFrame.waitForFunction(() => window.SQUATCH?.state === 'menu', null, { timeout: 60000 });
 
   /* ---------------------------------------------------------------- */
   /* 2. NOTHING MOVES UNTIL HE QUITS                                    */
@@ -139,7 +173,48 @@ try {
   /* 3. THE FAKE QUIT, AND THE REVEAL                                   */
   /* ---------------------------------------------------------------- */
   const startedAt = held.cameraToMonitor;
-  await page.evaluate(() => window.__squatch.quitSquatchSmash());
+
+  /* THE PLAYER'S DOOR, NOT THE HOST HOOK.
+   *
+   * The old verifier called `window.__squatch.quitSquatchSmash()` directly.
+   * It stayed green while the actual pause-menu door was unreachable, and it
+   * also stayed green while the reveal deliberately stranded the player in
+   * the chair. Start a run, pause it, choose the labelled Quit action and say
+   * YES exactly as the player does. */
+  await smashFrame.locator('body').press('Enter');
+  await smashFrame.waitForFunction(() => window.SQUATCH?.state === 'playing', null, { timeout: 30000 });
+  await smashFrame.locator('body').press('Escape');
+  await smashFrame.waitForFunction(() => window.__scenePause?.isPaused?.() === true,
+    null, { timeout: 30000 });
+  await smashFrame.getByRole('button', { name: 'Quit Squatch Smash', exact: true }).click();
+  const quitBox = await smashFrame.evaluate(() => ({
+    confirmShown: !document.getElementById('quitConfirm').classList.contains('hidden'),
+    stillPaused: window.SQUATCH.state === 'paused',
+    menuHidden: document.querySelector('[data-scene-pause]')?.classList.contains('hidden') === true,
+  }));
+  check('the real pause-menu Quit action opens its confirmation box',
+    quitBox.confirmShown && quitBox.stillPaused && quitBox.menuHidden,
+    JSON.stringify(quitBox));
+
+  /* Capture child evidence before YES intentionally unloads that document.
+   * Reading it after the quit would inspect the fresh about:blank page and
+   * turn both the no-Q and WebGL assertions into accidental tautologies. */
+  const smashEvidenceBeforeQuit = await smashFrame.evaluate(() => {
+    const canvas = document.getElementById('game');
+    const gl = canvas?.getContext('webgl2') || canvas?.getContext('webgl');
+    return {
+      keys: [...window.__coldOpenVerifyKeys],
+      contextLost: window.__coldOpenVerifyContextLosses,
+      contextRestored: window.__coldOpenVerifyContextRestores,
+      contextLostNow: gl?.isContextLost?.() === true,
+    };
+  });
+
+  await smashFrame.locator('#quitYes').click();
+  check('saying YES shows Squatch Smash shutting down',
+    await smashFrame.locator('#shutdown').evaluate((element) => !element.classList.contains('hidden')));
+  await page.waitForFunction(() => window.__squatch.coldOpenState.phase === 'shutdown',
+    null, { timeout: 30000 });
   const shutting = await state();
   check('saying yes looks like the game closing, not like a cutscene starting',
     shutting.phase === 'shutdown' && shutting.pullbackK === 0,
@@ -167,13 +242,100 @@ try {
   /* Ten frames a second against a 5.2 s dolly is a minute of patience. */
   await page.waitForFunction(() => window.__squatch.coldOpenState.phase === 'beat',
     null, { timeout: 120000 });
-  const landed = await state();
-  check('it lands him in his own chair, at the desk',
-    landed.cameraToSeat < 0.2 && landed.seated,
-    `${landed.cameraToSeat.toFixed(3)} m from the seated pose`);
-  check('and hands the game back with one prompt and no narration',
-    !landed.active && /get up/i.test(landed.posture || ''),
-    JSON.stringify({ active: landed.active, posture: landed.posture }));
+  await page.waitForFunction(() => {
+    const runtime = window.__squatch;
+    return runtime
+      && runtime.coldOpenState.active === false
+      && runtime.game.seated === false
+      && runtime.player.mode === 'walk'
+      && runtime.player.enabled === true
+      && runtime.inputOwner === 'world'
+      && runtime.arcade.inputMode === 'relative'
+      && runtime.arcade.mode === 'desktop'
+      && runtime.arcade.app === null
+      && runtime.interaction.paused === false;
+  }, null, { timeout: 120000 });
+
+  const landed = await page.evaluate(() => {
+    const runtime = window.__squatch;
+    const frame = document.querySelector('iframe[title="Squatch Smash"]');
+    return {
+      ...runtime.coldOpenState,
+      playerMode: runtime.player.mode,
+      playerEnabled: runtime.player.enabled,
+      inputOwner: runtime.inputOwner,
+      arcadeInputMode: runtime.arcade.inputMode,
+      arcadeMode: runtime.arcade.mode,
+      arcadeApp: runtime.arcade.app?.id ?? null,
+      interactionPaused: runtime.interaction.paused,
+      frameVisible: frame ? getComputedStyle(frame).display !== 'none' : false,
+      frameSrc: frame?.getAttribute('src') ?? null,
+      deskExitDistance: Math.hypot(
+        runtime.player.position.x - runtime.apartment.deskExit.x,
+        runtime.player.position.z - runtime.apartment.deskExit.z,
+      ),
+      x: runtime.player.position.x,
+      z: runtime.player.position.z,
+    };
+  });
+  check('quitting automatically stands him at the authored desk exit',
+    !landed.active && !landed.seated && landed.playerMode === 'walk'
+      && landed.deskExitDistance < 0.05,
+    JSON.stringify({
+      active: landed.active,
+      seated: landed.seated,
+      playerMode: landed.playerMode,
+      deskExitDistance: landed.deskExitDistance,
+    }));
+  check('the apartment owns input again with no Q prompt or framed game left open',
+    landed.inputOwner === 'world' && landed.arcadeInputMode === 'relative'
+      && landed.arcadeMode === 'desktop' && landed.arcadeApp === null
+      && !landed.interactionPaused && !landed.frameVisible
+      && landed.frameSrc === 'about:blank' && landed.posture === null,
+    JSON.stringify({
+      inputOwner: landed.inputOwner,
+      arcadeInputMode: landed.arcadeInputMode,
+      arcadeMode: landed.arcadeMode,
+      arcadeApp: landed.arcadeApp,
+      interactionPaused: landed.interactionPaused,
+      frameVisible: landed.frameVisible,
+      frameSrc: landed.frameSrc,
+      posture: landed.posture,
+    }));
+
+  /* Do not click the room and do not send Q. Focus restoration is part of the
+   * bug: a state object can say "walk" while the keyboard still belongs to a
+   * hidden iframe. Hold the real backwards key until the player physically
+   * moves away from the desk. */
+  await page.keyboard.down('KeyS');
+  try {
+    await page.waitForFunction(({ x, z }) => {
+      const player = window.__squatch?.player;
+      return player && Math.hypot(player.position.x - x, player.position.z - z) > 0.10;
+    }, { x: landed.x, z: landed.z }, { timeout: 60000 });
+  } finally {
+    await page.keyboard.up('KeyS');
+  }
+  const moved = await page.evaluate(({ x, z }) => ({
+    distance: Math.hypot(window.__squatch.player.position.x - x, window.__squatch.player.position.z - z),
+    mode: window.__squatch.player.mode,
+    inputOwner: window.__squatch.inputOwner,
+  }), { x: landed.x, z: landed.z });
+  check('real apartment movement works immediately, without Q or another click',
+    moved.distance > 0.10 && moved.mode === 'walk' && moved.inputOwner === 'world',
+    JSON.stringify(moved));
+  await fsp.mkdir(EVIDENCE_DIR, { recursive: true });
+  const automaticExitEvidence = path.join(EVIDENCE_DIR, 'automatic-exit-to-apartment.png');
+  await page.screenshot({ path: automaticExitEvidence, animations: 'disabled' });
+  console.log(`  evidence  ${path.relative(ROOT, automaticExitEvidence)}`);
+
+  const keyEvidence = {
+    apartment: await page.evaluate(() => window.__coldOpenVerifyKeys),
+    smash: smashEvidenceBeforeQuit.keys,
+  };
+  check('the whole route used no Q key at all',
+    ![...keyEvidence.apartment, ...keyEvidence.smash].includes('KeyQ'),
+    JSON.stringify(keyEvidence));
 
   /* ---------------------------------------------------------------- */
   /* 4. THE BEAT                                                        */
@@ -187,6 +349,24 @@ try {
   check('nothing happens while he works out what just happened',
     thinking.ringsIn > 25 && thinking.ringsIn < landed.ringsIn,
     `rings in ${thinking.ringsIn?.toFixed(1)}s, counting down`);
+
+  const contextLosses = {
+    apartment: await page.evaluate(() => ({
+      lost: window.__coldOpenVerifyContextLosses,
+      restored: window.__coldOpenVerifyContextRestores,
+      lostNow: window.__squatch.renderer.getContext().isContextLost(),
+    })),
+    smashBeforeQuit: {
+      lost: smashEvidenceBeforeQuit.contextLost,
+      restored: smashEvidenceBeforeQuit.contextRestored,
+      lostNow: smashEvidenceBeforeQuit.contextLostNow,
+    },
+  };
+  check('Squatch Smash is healthy while live and the apartment is healthy after exit',
+    !contextLosses.apartment.lostNow && !contextLosses.smashBeforeQuit.lostNow
+      && contextLosses.apartment.lost === contextLosses.apartment.restored
+      && contextLosses.smashBeforeQuit.lost === contextLosses.smashBeforeQuit.restored,
+    JSON.stringify(contextLosses));
 
   check('no runtime console errors occurred', problems.length === 0, problems.slice(0, 3).join(' | '));
 } finally {
