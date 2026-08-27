@@ -1338,6 +1338,21 @@ try {
     state.vehicle.collisionDamage > 0 && state.vehicle.lastStableNode === 'industrial_swap',
     JSON.stringify({ damage: state.vehicle.collisionDamage, node: state.vehicle.lastStableNode }));
 
+  const swapObjective = async () => page.evaluate(() => (
+    [...document.querySelectorAll('#objectives .olist li')].map((li) => ({
+      text: li.textContent?.trim() ?? '',
+      done: li.classList.contains('done'),
+      current: li.classList.contains('now'),
+    }))
+  ));
+  const openingSwapObjective = await swapObjective();
+  check('the swap starts on one actionable 0/7 step without spoiling the other six',
+    openingSwapObjective.length === 1
+      && /0\/7/.test(openingSwapObjective[0].text)
+      && /Open the clean car.s trunk/i.test(openingSwapObjective[0].text)
+      && openingSwapObjective[0].current,
+    JSON.stringify(openingSwapObjective));
+
   /* ---- owner note: "If you make it to the end you lose the cops too" ---- */
   await page.waitForFunction(
     () => window.__heistDebug.snapshot().voice.spoken.includes('snow_lost_them'),
@@ -1371,6 +1386,8 @@ try {
    * that was wrong: it is the prompt that leaves the swap in the clean car, and
    * it was a box buried inside the clean car's own body. */
   const swapAcquired = [];
+  let sixOfSevenObjective = null;
+  let completedSwapObjective = null;
   for (const target of [
     'swap-trunk', 'swap-bags', 'swap-aid', 'swap-masks',
     'swap-jackets', 'swap-weapons', 'swap-wipe', 'swap-depart',
@@ -1380,9 +1397,21 @@ try {
     );
     swapAcquired.push({ target, ok: approach.ok === true, reason: approach.reason ?? null });
     await use(target);
+    if (target === 'swap-weapons') sixOfSevenObjective = await swapObjective();
+    if (target === 'swap-wipe') completedSwapObjective = await swapObjective();
   }
   check('every evidence prop at the swap is acquired by a real interaction ray',
     swapAcquired.every((entry) => entry.ok), JSON.stringify(swapAcquired));
+  check('six completed actions collapse to the one 6/7 wipe step',
+    sixOfSevenObjective?.length === 1
+      && /6\/7/.test(sixOfSevenObjective[0].text)
+      && /Wipe the dirty car/i.test(sixOfSevenObjective[0].text),
+    JSON.stringify(sixOfSevenObjective));
+  check('the completed 7/7 receipt remains beside the clean-car exit',
+    completedSwapObjective?.length === 2
+      && completedSwapObjective.some((row) => row.done && /7\/7/.test(row.text))
+      && completedSwapObjective.some((row) => /Leave in the clean car/i.test(row.text)),
+    JSON.stringify(completedSwapObjective));
   state = await snapshot();
   check('vehicle swap requires every evidence action before safehouse return',
     state.phase === 'safehouse' && Object.values(state.swap).every(Boolean)

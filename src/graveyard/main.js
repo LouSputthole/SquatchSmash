@@ -11,7 +11,7 @@ import { createGraveyardStory } from '../core/graveyard-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
-import { createObjectivePanel } from '../core/objective-panel.js';
+import { conciseObjectiveItems, createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
@@ -189,9 +189,17 @@ function objectivePlan() {
     label: objective.text,
     done: objective.done,
     required: !objective.optional,
+    retire: objective.retire,
   }));
   if (mission.bodyBuried) items.push({ label: 'Return to Snow\'s car', done: false, required: true });
-  return { title: 'THE HOTDOG INCIDENT · DISPOSAL', items, hint: objectiveHint() };
+  return {
+    title: 'THE HOTDOG INCIDENT · DISPOSAL',
+    /* Burial is the one next action. The two museum counters are the explicit
+     * exception: they describe optional work already available across this
+     * open graveyard and preserve a meaningful 8/8 result when finished. */
+    items: conciseObjectiveItems(items, { optionalLimit: 2 }),
+    hint: objectiveHint(),
+  };
 }
 
 function repaintObjectives() {

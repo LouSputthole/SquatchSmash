@@ -29,6 +29,7 @@ import {
 } from '../src/core/apartment-story.js';
 import { createGolfStory } from '../src/core/golf-story.js';
 import { RING_SECONDS, callScript } from '../src/core/phone.js';
+import { conciseObjectiveItems } from '../src/core/objective-panel.js';
 
 /**
  * Every call the campaign makes, in the order Tony gets them.
@@ -348,6 +349,36 @@ test('the apartment door waits for Lou’s call even when every chore is done', 
     line: 'Big Uncle Lou said he would call. I should answer before I go anywhere.',
     vo: 'door.refusal.first_call',
   });
+});
+
+test('the apartment hides future calls, promotes the physical ring, and does not resurrect them', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  let story = createApartmentStory({ campaign, ring: () => true });
+  const chores = {
+    eaten: true, showered: true, peed: true, pooped: true,
+    changedClothes: true, emailChecked: false,
+  };
+
+  const waiting = story.objectives(chores);
+  const call = waiting.items.find((item) => item.id === EVENT_IDS.LOU_FIRST_CALL);
+  assert.equal(call.pending, true);
+  assert.equal(conciseObjectiveItems(waiting.items).some((item) => item.id === call.id), false,
+    'a phone call the player cannot answer is already on screen');
+
+  const ringing = conciseObjectiveItems(story.objectives({
+    ...chores,
+    ringingCallId: EVENT_IDS.LOU_FIRST_CALL,
+  }).items);
+  assert.deepEqual(ringing.map((item) => item.id), [EVENT_IDS.LOU_FIRST_CALL]);
+  assert.equal(ringing[0].current, true);
+
+  assert.equal(story.callAnswered(DAY_ONE_LOU_CALL), true);
+  story = createApartmentStory({ campaign: createCampaign({ storage }), ring: () => true });
+  const restored = conciseObjectiveItems(story.objectives(chores).items);
+  assert.equal(restored.some((item) => item.id === EVENT_IDS.LOU_FIRST_CALL), false,
+    'reload resurrected an answered call');
+  assert.equal(restored[0].id, 'depart.bada_bing_one');
 });
 
 test('the apartment door names each required chore while email stays optional', () => {

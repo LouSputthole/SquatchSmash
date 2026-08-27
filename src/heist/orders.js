@@ -112,13 +112,12 @@ function nextSwapAction(progress = {}) {
 }
 
 /**
- * The seven, as objective-panel items.
+ * The swap as one actionable objective-panel item.
  *
- * The shape `src/core/objective-panel.js` renders: a label, `done`, and a
- * tally on the first row so the count is on screen next to the list it counts.
- * A step whose prerequisite is not met is `required: false`, which the shared
- * panel draws hollow and italic — visibly a thing you cannot do YET rather
- * than a thing you have failed to find.
+ * The durable seven-step order remains above, but the live card names only the
+ * next reachable action. Listing locked trunk/mask/cash consequences spoiled
+ * the route and made 0/7 look like seven simultaneous errands. Once complete,
+ * the 7/7 receipt deliberately persists beside the real next action: leave.
  *
  * @param {object} [progress] the `swapProgress` flags
  * @returns {{title: string, items: object[], hint: string}}
@@ -126,15 +125,36 @@ function nextSwapAction(progress = {}) {
 export function swapEvidencePlan(progress = {}) {
   const done = swapDone(progress);
   const next = nextSwapAction(progress);
+  const tally = { count: done, total: SWAP_EVIDENCE.length };
+  const items = done >= SWAP_EVIDENCE.length
+    ? [
+      {
+        id: 'swap.complete',
+        label: 'Evidence moved and the dirty car wiped',
+        done: true,
+        retire: false,
+        required: false,
+        tally,
+      },
+      {
+        id: 'swap.depart',
+        label: 'Leave in the clean car',
+        done: false,
+        required: true,
+        current: true,
+      },
+    ]
+    : (next ? [{
+      id: next.key,
+      label: next.label,
+      done: false,
+      required: true,
+      current: true,
+      tally,
+    }] : []);
   return {
     title: 'Clean the swap',
-    items: SWAP_EVIDENCE.map((item, index) => ({
-      label: item.label,
-      done: progress[item.key] === true,
-      required: progress[item.key] === true || !item.after || progress[item.after] === true,
-      current: next?.key === item.key,
-      ...(index === 0 ? { tally: { count: done, total: SWAP_EVIDENCE.length } } : {}),
-    })),
+    items,
     hint: done >= SWAP_EVIDENCE.length
       ? 'Everything is clean. Leave in the clean car.'
       : (next ? `Next: ${next.label.toLowerCase()}.` : ''),

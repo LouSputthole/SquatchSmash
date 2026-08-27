@@ -1633,19 +1633,25 @@ class ApartmentStory {
     const state = this.campaign.state;
     const plan = this.#plan();
     if (!plan) return { chapter: state.story.chapter, day: state.story.day, items: [] };
+    const door = this.tryLeave(activities);
+    const eventAnswered = !plan.event || this.#eventAnswered(plan.event);
 
     const items = DEPARTURE_REQUIREMENTS.map(({ id }) => ({
       id,
       label: ROUTINE_LABELS[id],
       done: activities[id] === true,
       required: plan.routineRequired,
+      current: door.kind === 'activity' && door.id === id,
     }));
     if (plan.event) {
+      const ringing = activities.ringingCallId === plan.event;
       items.push({
         id: plan.event,
         label: `Answer ${plan.caller}’s call`,
-        done: this.#eventAnswered(plan.event),
+        done: eventAnswered,
         required: true,
+        current: !eventAnswered && ringing,
+        pending: !eventAnswered && !ringing,
       });
     }
 
@@ -1666,6 +1672,8 @@ class ApartmentStory {
         label: pastimeLabel(item, activities),
         done: activities[item.id] === true,
         required: pastimesStillGate,
+        current: door.kind === 'activity' && door.id === item.id,
+        pending: !eventAnswered,
       });
     }
 
@@ -1709,18 +1717,18 @@ class ApartmentStory {
     /* And what the door itself would say if he tried it right now. A chore it
      * is still waiting on is already a line above, so that case adds nothing.
      */
-    const door = this.tryLeave(activities);
     if (door.kind === 'go') {
       items.push({
         id: `depart.${door.destination}`,
         label: `Leave for ${SCENE_LABELS[door.destination] ?? door.destination}`,
         done: false,
         required: true,
+        current: true,
       });
     } else if (door.kind === 'item') {
-      items.push({ id: door.id, label: 'Find Lou’s package', done: false, required: true });
+      items.push({ id: door.id, label: 'Find Lou’s package', done: false, required: true, current: true });
     } else if (door.kind === 'stay') {
-      items.push({ id: door.id, label: 'Sleep', done: false, required: true });
+      items.push({ id: door.id, label: 'Sleep', done: false, required: true, current: true });
     } else if (door.kind === 'wait') {
       /* `wait` is not `stay`, and the difference is the whole of Act One's
        * second half. `stay` means the night is over and the answer is bed, so
@@ -1728,9 +1736,9 @@ class ApartmentStory {
        * in his own front room with nothing left to do but be in when they
        * arrive -- which is not a chore, not a sleep, and not something he can
        * go and finish. The label carries the door's own words. */
-      items.push({ id: door.id, label: door.label, done: false, required: true });
+      items.push({ id: door.id, label: door.label, done: false, required: true, current: true });
     } else if (door.kind === 'activity' && !items.some((item) => item.id === door.id)) {
-      items.push({ id: door.id, label: door.label, done: false, required: true });
+      items.push({ id: door.id, label: door.label, done: false, required: true, current: true });
     }
     /* Last line, and only on the first day: the Bing is not until a quarter
      * to midnight, so everything above it is true and useless for seventeen

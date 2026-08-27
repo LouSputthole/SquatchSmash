@@ -76,16 +76,19 @@ export class Mission {
       foundBody: false,
     };
 
-    /* The three things the evening is actually for. The rest of the club --
-     * the machine, the felt, the runway, the floor -- reports in as optional
-     * from main.js, which owns that list because it owns those systems. */
+    /* Lou owns the route. Margo and Booski are real opportunities in the room,
+     * but neither locks the bouncer or the car, so presenting all three as
+     * equally required made the objective card disagree with the exit. */
     this.addObjective('lou', 'Meet Lou in the back office');
-    this.addObjective('margo', 'Talk to the cute girl at the bar');
-    this.addObjective('shot', 'Take a shot with Booski');
+    this.addObjective('margo', 'Talk to the cute girl at the bar', { optional: true });
+    this.addObjective('shot', 'Take a shot with Booski', { optional: true });
   }
 
   get readyToLeave() {
-    return this.flags.gotPackage;
+    /* The package in hand is not the end of Lou's briefing. `louDone()` owns
+     * both the final spoken beat and the leave objective, so the bouncer and
+     * car must read that same state instead of opening one beat early. */
+    return this.flags.gotPackage && STATES.indexOf(this.state) >= STATES.indexOf('briefed');
   }
 
   /* ---------------------------------------------------------------- */
@@ -98,9 +101,9 @@ export class Mission {
     this.hooks.onState?.(next, this);
   }
 
-  addObjective(id, text) {
+  addObjective(id, text, { optional = false } = {}) {
     if (this.objectives.some((o) => o.id === id)) return;
-    this.objectives.push({ id, text, done: false });
+    this.objectives.push({ id, text, done: false, ...(optional ? { optional: true } : {}) });
     this.hooks.onObjective?.(this.objectives);
   }
 

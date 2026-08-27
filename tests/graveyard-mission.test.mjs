@@ -179,6 +179,8 @@ test('optional museum objectives require every marker and a respect or disrespec
 
   assert.match(mission.objectives.find((objective) => objective.id === 'memorials').text, /0\/8/);
   assert.match(mission.objectives.find((objective) => objective.id === 'tributes').text, /0\/8/);
+  assert.equal(mission.objectives.find((objective) => objective.id === 'memorials').retire, false);
+  assert.equal(mission.objectives.find((objective) => objective.id === 'tributes').retire, false);
 
   for (const id of ids) mission.inspectGrave(id);
   assert.equal(mission.objectives.find((objective) => objective.id === 'memorials').done, true);

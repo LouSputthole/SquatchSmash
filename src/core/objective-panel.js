@@ -199,11 +199,60 @@ export function activeObjectiveItems(items = []) {
       activeSinceRule = false;
       continue;
     }
-    if (item.done || !item.label) continue;
+    /* `pending` has to be part of the exported projection, not merely the DOM
+     * adapter below. The apartment HUD consumes this helper directly; keeping
+     * the check in createObjectivePanel meant the same authored plan hid a
+     * future call in every adopted panel except the starter apartment.
+     *
+     * Completed work retires by default. A deliberately persistent tally opts
+     * out with `retire: false`: this is the narrow exception for a meaningful
+     * result such as 7/7, not permission for old errands to accumulate. */
+    if (item.pending || (item.done && item.retire !== false) || !item.label) continue;
     projected.unshift(item);
     activeSinceRule = true;
   }
   return projected;
+}
+
+/**
+ * Project a durable ledger onto one honest next action.
+ *
+ * Story and recovery systems are allowed to retain the whole ledger. The live
+ * HUD is not: it names the explicitly-current row when one exists, otherwise
+ * the first unfinished required row, plus at most the requested number of
+ * soft opportunities. Deliberately persistent completed tallies remain.
+ * Section headings survive only when one of their selected children does.
+ */
+export function conciseObjectiveItems(items = [], { optionalLimit = 0 } = {}) {
+  const active = activeObjectiveItems(items);
+  const rows = active.filter((item) => !item.rule);
+  const persistent = rows.filter((item) => item.done && item.retire === false);
+  const unfinished = rows.filter((item) => !item.done);
+  const primary = unfinished.find((item) => item.current)
+    ?? unfinished.find((item) => item.required !== false)
+    ?? unfinished[0]
+    ?? null;
+  const soft = unfinished
+    .filter((item) => item !== primary && item.required === false)
+    .slice(0, Math.max(0, Math.trunc(optionalLimit)));
+  const selected = new Set([...persistent, ...(primary ? [primary] : []), ...soft]);
+  if (!selected.size) return [];
+
+  const projected = [];
+  let rule = null;
+  for (const item of active) {
+    if (item.rule) {
+      rule = item;
+      continue;
+    }
+    if (!selected.has(item)) continue;
+    if (rule) projected.push(rule);
+    rule = null;
+    projected.push(item);
+  }
+  return projected.map((item) => (item === primary && !item.current
+    ? { ...item, current: true }
+    : item));
 }
 
 /**
@@ -288,24 +337,13 @@ export function createObjectivePanel({
    * call" before the phone rings tells the player about a thing he cannot do
    * and then leaves it sitting there, unticked, looking like a failure.
    *
-   * `retire: true` -- story layers use this to identify a one-shot step when
-   * they make their own concise projections. The shared live panel is stricter:
-   * `activeObjectiveItems` removes every completed row, then removes any rule
-   * heading left without an active child. Keeping the authoring flag accepted
-   * here preserves those story/pause projections without letting a completed
-   * checklist accumulate on the HUD.
+   * Completed work retires by default. `retire: false` is the deliberate,
+   * narrow exception for a meaningful result such as 7/7; it remains while
+   * the next actionable row replaces the work that produced it. Empty section
+   * headings still leave with their children.
    */
-  function visibleItems(items) {
-    return items.filter((item) => {
-      if (item.rule) return true;
-      if (item.pending) return false;
-      if (item.retire && item.done) return false;
-      return true;
-    });
-  }
-
   function set(plan) {
-    const items = activeObjectiveItems(visibleItems(plan?.items ?? []));
+    const items = activeObjectiveItems(plan?.items ?? []);
     if (!plan || !items.length) {
       if (signature === null && element.classList.contains('hidden')) return;
       signature = null;

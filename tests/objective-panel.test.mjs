@@ -19,6 +19,7 @@ import test from 'node:test';
 import {
   OBJECTIVE_DISPLAY_MS,
   activeObjectiveItems,
+  conciseObjectiveItems,
   createObjectivePanel,
 } from '../src/core/objective-panel.js';
 
@@ -197,6 +198,50 @@ test('an empty section heading leaves with its completed objectives', () => {
     { rule: 'WHILE YOU ARE HERE' },
     { label: 'buy a round', done: true, required: false },
   ]), [{ label: 'see Lou' }]);
+});
+
+test('pending work stays out of every shared projection until it is actionable', () => {
+  const plan = [
+    { id: 'walk', label: 'Walk the grounds', done: true },
+    { id: 'call', label: 'Answer Lou’s call', pending: true, required: true },
+    { id: 'door', label: 'Find the cellar', pending: true, required: true },
+  ];
+  assert.deepEqual(activeObjectiveItems(plan), []);
+  assert.deepEqual(conciseObjectiveItems(plan), []);
+
+  plan[1].pending = false;
+  assert.deepEqual(conciseObjectiveItems(plan), [{
+    id: 'call', label: 'Answer Lou’s call', pending: false, required: true, current: true,
+  }]);
+});
+
+test('completed errands retire by default while an explicit final tally remains', () => {
+  const projected = conciseObjectiveItems([
+    { id: 'old', label: 'Move one bag', done: true },
+    {
+      id: 'receipt', label: 'Evidence moved', done: true, retire: false,
+      required: false, tally: { count: 7, total: 7 },
+    },
+    { id: 'leave', label: 'Leave in the clean car', required: true },
+  ]);
+  assert.deepEqual(projected.map(({ id }) => id), ['receipt', 'leave']);
+  assert.deepEqual(projected[0].tally, { count: 7, total: 7 });
+  assert.equal(projected[1].current, true);
+});
+
+test('the concise projection shows one main step and only the allowed soft work', () => {
+  const projected = conciseObjectiveItems([
+    { id: 'main-one', label: 'See Lou', done: true },
+    { id: 'main-two', label: 'Hear Lou out', required: true },
+    { id: 'future', label: 'Leave the club', required: true },
+    { rule: 'WHILE YOU ARE HERE' },
+    { id: 'soft-one', label: 'Help Gratin', required: false },
+    { id: 'soft-two', label: 'Play blackjack', required: false },
+  ], { optionalLimit: 1 });
+  assert.deepEqual(projected.map((item) => item.rule ?? item.id), [
+    'main-two', 'WHILE YOU ARE HERE', 'soft-one',
+  ]);
+  assert.equal(projected[0].current, true);
 });
 
 test('an unchanged plan does not rebuild the list: it is set from a tick', () => {

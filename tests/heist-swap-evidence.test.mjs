@@ -140,18 +140,16 @@ test('all seven are acquired by a real ray from the positions a player can stand
   }
 });
 
-test('the objective panel names all seven and carries the count', () => {
+test('the objective panel names only the next reachable swap action', () => {
   const plan = swapEvidencePlan({});
-  assert.equal(plan.items.length, 7);
+  assert.equal(plan.items.length, 1);
   assert.deepEqual(plan.items[0].tally, { count: 0, total: 7 });
-  for (const item of SWAP_EVIDENCE) {
-    assert.ok(plan.items.some((row) => row.label === item.label),
-      `${item.key} is not named in the panel`);
+  assert.equal(plan.items[0].label, SWAP_EVIDENCE[0].label);
+  assert.equal(plan.items[0].current, true);
+  for (const future of SWAP_EVIDENCE.slice(1)) {
+    assert.equal(plan.items.some((row) => row.label === future.label), false,
+      `${future.key} is spoiled before it becomes the next action`);
   }
-  /* A step whose prerequisite is not met is drawn hollow rather than dropped:
-   * the player is told it exists and that it is not his turn yet. */
-  const locked = plan.items.filter((row) => row.required === false).length;
-  assert.equal(locked, 3, 'the trunk, the masks and the cash each gate one step');
 });
 
 test('the panel ticks what is done and names what is left', () => {
@@ -160,8 +158,8 @@ test('the panel ticks what is done and names what is left', () => {
   };
   const plan = swapEvidencePlan(sixOfSeven);
   assert.deepEqual(plan.items[0].tally, { count: 6, total: 7 });
-  assert.equal(plan.items.filter((row) => row.done).length, 6);
-  const outstanding = plan.items.find((row) => !row.done);
+  assert.equal(plan.items.length, 1);
+  const outstanding = plan.items[0];
   assert.equal(outstanding.label, 'Wipe the dirty car and the gear');
   assert.equal(outstanding.current, true, 'the one thing left has to be marked current');
   assert.match(plan.hint, /wipe the dirty car and the gear/);
@@ -178,6 +176,11 @@ test('a finished swap says so and points at the way out', () => {
   const done = Object.fromEntries(SWAP_EVIDENCE.map((item) => [item.key, true]));
   assert.match(objectiveForState('VEHICLE_SWAP', { swapProgress: done }),
     /Leave in the clean car/);
-  assert.match(swapEvidencePlan(done).hint, /Leave in the clean car/);
-  assert.equal(swapEvidencePlan(done).items.every((row) => row.done), true);
+  const plan = swapEvidencePlan(done);
+  assert.match(plan.hint, /Leave in the clean car/);
+  assert.deepEqual(plan.items.map(({ id }) => id), ['swap.complete', 'swap.depart']);
+  assert.deepEqual(plan.items[0].tally, { count: 7, total: 7 });
+  assert.equal(plan.items[0].done, true);
+  assert.equal(plan.items[0].retire, false, 'the meaningful 7/7 receipt should remain');
+  assert.equal(plan.items[1].current, true);
 });

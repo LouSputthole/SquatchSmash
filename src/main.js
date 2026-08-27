@@ -3260,6 +3260,10 @@ function activityContext() {
     playedSquatchShoot: campaign.state.activities.playedSquatchShoot === true,
     playedSquatchSmash: campaign.state.activities.playedSquatchSmash === true,
     tookShrooms: campaign.state.activities.tookShrooms === true,
+    /* A required call is actionable only while the physical phone is actually
+     * ringing. ApartmentStory keeps the future ledger row for recovery and QA,
+     * but marks it pending until this exact runtime edge says otherwise. */
+    ringingCallId: phone.ringing ? phone.call?.def?.eventId ?? null : null,
     /* Not a flag -- the seconds themselves, so the objective can count down
      * rather than sit there saying the same thing for half a minute. */
     tvSeconds: apartment.state.tvWatched || 0,

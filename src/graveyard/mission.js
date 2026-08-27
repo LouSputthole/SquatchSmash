@@ -112,8 +112,14 @@ export class GraveyardMission {
     this.bodyBuried = false;
     this.objectives = [
       { id: 'bury', text: 'Bury Billy HotDog in a fresh plot', done: false },
-      { id: 'memorials', text: `Check every Family marker · 0/${GRAVE_COUNT}`, done: false, optional: true },
-      { id: 'tributes', text: `Pay respect or disrespect · 0/${GRAVE_COUNT}`, done: false, optional: true },
+      {
+        id: 'memorials', text: `Check every Family marker · 0/${GRAVE_COUNT}`,
+        done: false, optional: true, retire: false,
+      },
+      {
+        id: 'tributes', text: `Pay respect or disrespect · 0/${GRAVE_COUNT}`,
+        done: false, optional: true, retire: false,
+      },
     ];
   }
 

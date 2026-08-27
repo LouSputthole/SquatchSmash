@@ -480,10 +480,9 @@ const packageAtStart = s.campaign?.inventory
   && !s.campaign.inventory.carried.includes('parcel')
   && !s.campaign.inventory.concealed.includes('parcel')
   && s.carrying !== 'parcel';
-/* Three things the evening is for, and none of them ticked in the lot. The
- * club's own optional list is separate and lives on the HUD card, not on the
- * mission -- it is checked further down against the rendered objectives. */
-check('the night opens on its three jobs, none of them done',
+/* One route objective and two durable soft opportunities, none complete in the
+ * lot. The live card projects this ledger later; recovery keeps the full list. */
+check('the night opens on Lou’s route plus two soft opportunities',
   s.objectives.join(',') === ' lou, margo, shot', s.objectives.join(','));
 const displayedDay = await page.textContent('#clock .day');
 check('the first Bing visit is still Day One', displayedDay === 'Day 1', displayedDay);
@@ -3107,16 +3106,13 @@ check('tipping the runway puts money in the air',
   const texts = punchHud.objectives.map((o) => o.text);
   const primary = punchHud.objectives.filter((o) => !o.optional && !o.rule).map((o) => o.text);
   const optional = punchHud.objectives.filter((o) => o.optional).map((o) => o.text);
-  check('the objective card carries the four required jobs and the optional evening',
-    primary.some((t) => /Lou/.test(t))
-      && primary.some((t) => /cute girl at the bar/.test(t))
-      && primary.some((t) => /shot with Booski/.test(t))
-      && primary.some((t) => t.includes('Help Au Gratin in the back room'))
-      && optional.some((t) => /\d+\/\d+.*squatches/.test(t))
-      && ['Play the slots', 'Play blackjack', 'Tip the performers', 'Order a drink from the bar']
-        .every((want) => optional.some((t) => t.includes(want)))
-      && !optional.some((t) => /Gratin|service room/.test(t))
-      && punchHud.objectives.some((o) => o.rule),
+  check('the live objective card shows one route step and one featured soft opportunity',
+    primary.length === 1
+      && primary.some((t) => /Lou/.test(t))
+      && optional.length === 1
+      && optional[0].includes('Help Au Gratin in the back room')
+      && !texts.some((t) => /cute girl|shot with Booski|Play the slots|Play blackjack/.test(t))
+      && punchHud.objectives.filter((o) => o.rule).length === 1,
     JSON.stringify(texts));
 }
 {

@@ -15,7 +15,7 @@ import {
 import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
-import { createObjectivePanel } from '../core/objective-panel.js';
+import { conciseObjectiveItems, createObjectivePanel } from '../core/objective-panel.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
 import { shakeScale } from '../core/settings.js';
@@ -245,12 +245,12 @@ function repaintObjectives() {
    * an exhausted list hides the whole card instead of becoming a trophy case. */
   objectivePanel.set({
     title: 'THE HOTDOG INCIDENT',
-    items: mission.objectives.map((objective) => ({
+    items: conciseObjectiveItems(mission.objectives.map((objective) => ({
       id: objective.id,
       label: objective.text,
       done: objective.done,
       required: true,
-    })),
+    }))),
   });
 }
 repaintObjectives();

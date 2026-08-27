@@ -1,7 +1,7 @@
 import { renderInventorySlots } from './scene-inventory.js';
 import { writeGameplayPromptKey } from './gameplay-key-adapter.js';
 import {
-  activeObjectiveItems,
+  conciseObjectiveItems,
   createObjectiveDisplayController,
 } from './objective-panel.js';
 import { SubtitlePriorityLane } from './subtitle-priority.js';
@@ -224,10 +224,10 @@ export class Hud {
   /**
    * The morning's list.
    *
-   * Takes what `ApartmentStory.objectives()` produced and applies only the
-   * shared live-HUD projection: completed work and now-empty section headings
-   * leave the screen. It does not reorder work or decide story completion; a
-   * HUD that makes either decision will eventually disagree with the door.
+   * Takes what `ApartmentStory.objectives()` produced and applies the shared
+   * live-HUD projection: one actionable step, no future calls, and no completed
+   * errands. The story still owns the durable ledger and marks the step that
+   * came from its own door verdict; the HUD only projects that verdict.
    *
    * @param {{day: number, items: {id: string, label: string, done: boolean,
    *   required: boolean}[]}|null} plan
@@ -245,7 +245,7 @@ export class Hud {
       }
     }
     if (!this.objectives) return;
-    const items = activeObjectiveItems(plan?.items);
+    const items = conciseObjectiveItems(plan?.items);
     if (!plan || !items.length) {
       this._objectivesKey = null;
       this._objectiveVisibility.clear();

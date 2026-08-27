@@ -76,7 +76,7 @@ import {
   AMBIENT,
   NOTES,
 } from './script.js';
-import { createObjectivePanel } from '../core/objective-panel.js';
+import { conciseObjectiveItems, createObjectivePanel } from '../core/objective-panel.js';
 import { Mission, ENDINGS } from './mission.js';
 import {
   SecondVisitMission,
@@ -930,9 +930,13 @@ function paintObjectives(list) {
     ...(o.total ? { tally: { count: o.count ?? 0, total: o.total } } : {}),
   });
   const items = list.filter((o) => !o.optional).map(item);
-  const optional = list.filter((o) => o.optional);
+  const optional = list.filter((o) => o.optional)
+    .sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)));
   if (optional.length) items.push({ rule: 'WHILE YOU ARE HERE' }, ...optional.map(item));
-  objectivePanel.set({ title: OBJECTIVE_TITLE, items });
+  objectivePanel.set({
+    title: OBJECTIVE_TITLE,
+    items: conciseObjectiveItems(items, { optionalLimit: 1 }),
+  });
 }
 
 /* ------------------------------------------------------------------ *
@@ -978,7 +982,8 @@ function optionalObjectives() {
     list.push({
       id: 'grill',
       text: LICENSE_TO_GRILL_QUEST.objective,
-      optional: false,
+      optional: true,
+      featured: true,
       done: licenseToGrill?.phase === 'done',
     });
   }
