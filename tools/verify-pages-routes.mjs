@@ -21,7 +21,7 @@ function linkedHtmlRoutes(html) {
   const routes = new Set();
   for (const article of html.matchAll(/<article\b[\s\S]*?<\/article>/gi)) {
     const card = article[0];
-    if (!/data-preview-(?:scene|apartment|tool)=/i.test(card)) continue;
+    if (!/data-preview-(?:scene|apartment|beat|tool)=/i.test(card)) continue;
     for (const match of card.matchAll(/\bhref=["']([^"']+\.html(?:\?[^"']*)?)["']/gi)) {
       const href = match[1].replaceAll('&amp;', '&');
       const url = new URL(href, 'http://pages.invalid/preview.html');

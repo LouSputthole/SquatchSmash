@@ -59,7 +59,7 @@ import {
 import { createCampaignFinaleView } from './core/campaign-finale-view.js';
 import { createCampaignCreditsView } from './core/campaign-credits-view.js';
 import { BEAT_S, ColdOpen, monitorFillDistance } from './core/cold-open.js';
-import { isPreviewMode } from './core/preview-mode.js';
+import { isPreviewMode, previewBeatForLocation } from './core/preview-mode.js';
 import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
@@ -1194,12 +1194,16 @@ function apartmentStartupCueNames() {
  *
  * The cold open is for a player who does not yet know SQUATCH LIFE exists. It
  * is emphatically not for somebody reloading mid-campaign, coming home from a
- * scene, running a preview, or recovering a broken save -- all of whom know
- * exactly what they downloaded and would just be confused by a full-screen
- * arcade game.
+ * scene, running an ordinary preview, or recovering a broken save -- all of
+ * whom know exactly what they downloaded and would just be confused by a
+ * full-screen arcade game. The bounded beat-0 preview is the one deliberate
+ * exception: its whole purpose is to review this reveal, while beat 1 remains
+ * an honest post-reveal apartment preview.
  */
 function coldOpenEligible() {
-  return !isPreviewMode()
+  const previewingColdOpen = isPreviewMode()
+    && previewBeatForLocation() === 'squatch_smash_intro';
+  return (!isPreviewMode() || previewingColdOpen)
     && !returningToApartment
     && !recoveryNotice
     && !campaignFinaleRecapAtLoad

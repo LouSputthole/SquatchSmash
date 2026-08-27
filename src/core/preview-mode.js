@@ -33,6 +33,32 @@ export const APARTMENT_PREVIEW_VARIANTS = Object.freeze([
   'after-heist',
 ]);
 
+/**
+ * Public home-hub previews follow the campaign spine by stable beat id.
+ *
+ * Keep this separate from APARTMENT_PREVIEW_VARIANTS. Those older variants
+ * remain deterministic geometry fixtures, while these are the slides a
+ * developer uses to enter the story as it is actually routed today.
+ *
+ * Owner playtest note: "This should follow the bridge spine of the campaign
+ * so the old apartment scenes should be replaced with the correct hub and
+ * scene."
+ */
+export const CAMPAIGN_HUB_PREVIEW_BEATS = Object.freeze({
+  squatch_smash_intro: 'apartment',
+  first_apartment: 'apartment',
+  cabin_lay_low: 'countryside_cabin',
+  booski_sasole_call: 'countryside_cabin',
+  cabin_two: 'countryside_cabin',
+  return_to_old_apartment: 'apartment',
+  new_space_call: 'apartment',
+  luxury_apartment_intro: 'luxury_apartment',
+  margo_stayover: 'luxury_apartment',
+  luxury_apartment_morning: 'luxury_apartment',
+  luxury_apartment_return: 'luxury_apartment',
+  special_meeting_call: 'luxury_apartment',
+});
+
 export class PreviewMemoryStorage {
   constructor() {
     this.values = new Map();
@@ -129,6 +155,18 @@ export function previewApartmentVariantForLocation(locationLike = globalThis.loc
   return APARTMENT_PREVIEW_VARIANTS.includes(variant) ? variant : null;
 }
 
+/**
+ * Resolve only a campaign hub beat that belongs to the page being opened.
+ * A copied or mistyped beat cannot make one page seed another scene.
+ */
+export function previewBeatForLocation(locationLike = globalThis.location) {
+  if (!isPreviewMode(locationLike)) return null;
+  const beatId = searchParams(locationLike).get('beat');
+  const expectedScene = CAMPAIGN_HUB_PREVIEW_BEATS[beatId];
+  if (!expectedScene) return null;
+  return previewSceneForLocation(locationLike) === expectedScene ? beatId : null;
+}
+
 export function previewSceneForLocation(locationLike = globalThis.location) {
   const pathname = String(locationLike?.pathname || '').toLowerCase();
   if (pathname.endsWith('/motel.html') || pathname.endsWith('motel.html')) {
@@ -154,6 +192,10 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   }
   if (pathname.endsWith('/cabin.html') || pathname.endsWith('cabin.html')) {
     return 'countryside_cabin';
+  }
+  if (pathname.endsWith('/luxury-apartment.html')
+    || pathname.endsWith('luxury-apartment.html')) {
+    return 'luxury_apartment';
   }
   if (pathname.endsWith('/nowake.html') || pathname.endsWith('nowake.html')) {
     return 'no_wake';
@@ -220,6 +262,7 @@ export function getPreviewRuntime(locationLike = globalThis.location) {
     signature,
     sceneId: previewSceneForLocation(locationLike),
     apartmentVariant: previewApartmentVariantForLocation(locationLike),
+    beatId: previewBeatForLocation(locationLike),
     storage: new PreviewMemoryStorage(),
     seeded: false,
   };

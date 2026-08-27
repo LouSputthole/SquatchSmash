@@ -4301,6 +4301,393 @@ function seedApartmentPreviewCampaign(state, variant) {
   return checkpoint.spawn;
 }
 
+function appendPreviewTimeEvents(state, ...eventIds) {
+  state.story.timeEvents = uniqueStrings([
+    ...uniqueStrings(state.story.timeEvents),
+    ...eventIds.filter(Boolean),
+  ]);
+}
+
+/** The current Act-One route through the Motel, without the retired flat hops. */
+function seedPreviewThroughMotel(state) {
+  const firstBing = state.missions[MISSION_IDS.BADA_BING_ONE];
+  Object.assign(firstBing, {
+    status: 'complete', packageReceived: true, ending: 'clean',
+  });
+  Object.assign(state.missions[MISSION_IDS.SQUATCHFATHER], {
+    status: 'complete', weaponStaged: true, weaponDropped: true,
+  });
+  Object.assign(state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING], {
+    status: 'complete',
+    checkpoint: 'landed_home',
+    cargoLoaded: true,
+    detected: false,
+    landingQuality: 'greased',
+    rank: 'Certified Meat Aviator',
+    packagesDelivered: 27,
+    gunsDelivered: 3,
+  });
+  Object.assign(state.missions[MISSION_IDS.BADA_BING_TWO], {
+    status: 'complete',
+    checkpoint: 'buried',
+    assignment: 'reserve_pickup',
+    attackResolved: true,
+    cleanupTasks: [...PREVIEW_CLEANUP_TASKS],
+    bodyWrapped: true,
+    bodyLoaded: true,
+    burialComplete: true,
+  });
+  Object.assign(state.missions[MISSION_IDS.JERKY_MOTEL], {
+    status: 'complete',
+    ending: 'home',
+    cargoRecovered: true,
+    packagesIntact: 3,
+    freshness: 78,
+    policeHeat: 18,
+  });
+  state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+  state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+  state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+  previewCarry(state, ITEM_IDS.PHONE);
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.LOU_FIRST_CALL,
+    TIME_EVENT_IDS.DEPART_BADA_BING_ONE,
+    TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER,
+    TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_REST,
+    TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL,
+    TIME_EVENT_IDS.CABIN_EXPLORE_CREEK,
+    TIME_EVENT_IDS.CABIN_EXPLORE_OVERLOOK,
+    TIME_EVENT_IDS.CABIN_EXPLORE_SHED,
+    TIME_EVENT_IDS.CABIN_EXPLORE_RANGE,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL,
+    TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP,
+    TIME_EVENT_IDS.CABIN_SECOND_REST,
+    TIME_EVENT_IDS.CABIN_GRATIN_CALL,
+    TIME_EVENT_IDS.CABIN_CELLAR_OPEN,
+    TIME_EVENT_IDS.CABIN_DUNGEON_ENTERED,
+    TIME_EVENT_IDS.CABIN_ATEAM_INTEL_LEARNED,
+    TIME_EVENT_IDS.CABIN_EXECUTION_GRATIN,
+    TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_DEAD,
+    TIME_EVENT_IDS.CABIN_ATEAM_DEAD,
+    TIME_EVENT_IDS.CABIN_NIGHTFALL,
+    TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_WRAPPED,
+    TIME_EVENT_IDS.CABIN_ATEAM_WRAPPED,
+    TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_AT_FIRE,
+    TIME_EVENT_IDS.CABIN_ATEAM_AT_FIRE,
+    TIME_EVENT_IDS.CABIN_GAS_POURED,
+    TIME_EVENT_IDS.CABIN_BONFIRE_IGNITED,
+    TIME_EVENT_IDS.CABIN_FIRE_CLEANUP,
+    TIME_EVENT_IDS.CABIN_DRINK,
+    TIME_EVENT_IDS.CABIN_BLACKOUT,
+    TIME_EVENT_IDS.CABIN_MORNING_CALL,
+    TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE,
+    TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL,
+    TIME_EVENT_IDS.DEPART_CABIN_FOR_TOWN,
+    TIME_EVENT_IDS.DEPART_BADA_BING_TWO,
+    TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD,
+    TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO,
+    TIME_EVENT_IDS.DEPART_JERKY_MOTEL,
+    TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL,
+  );
+  state.story.chapter = 'day_two';
+  state.story.day = 5;
+  state.story.timeMinutes = 4 * 60 + 30;
+}
+
+function seedPreviewCompletedHeist(state, { cleanupComplete = true } = {}) {
+  const heist = state.missions[MISSION_IDS.BANK_HEIST];
+  state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+  Object.assign(heist.preparation, {
+    armor: true,
+    gloves: true,
+    mask: true,
+    carbine: true,
+    sidearm: true,
+    magazines: true,
+    duffel: true,
+  });
+  Object.assign(heist, {
+    status: 'complete',
+    checkpoint: 'vehicle_swap',
+    briefingComplete: true,
+    preparationComplete: true,
+    bankEntered: true,
+    guardsDisarmed: 2,
+    alarmTriggered: true,
+    vaultOpened: true,
+    bagsStaged: 8,
+    bagsRecovered: 7,
+    grossTake: 1_260_000,
+    compromisedCash: 0,
+    operationalLoss: 55_500,
+    familyShare: 602_250,
+    crewShare: 481_800,
+    prospectShare: 120_450,
+    primaryVanLost: true,
+    playerDroveEscape: true,
+    vehicleDamage: 41,
+    followedSnow: true,
+    disciplinedFire: true,
+    crewSurvived: true,
+    outcome: 'professional',
+  });
+  heist.crewInjuries[CHARACTER_IDS.RIPPINFLOW] = 'moderate';
+  Object.assign(heist.cleanup, {
+    washed: cleanupComplete,
+    changed: cleanupComplete,
+    gearSecured: cleanupComplete,
+    finalCalls: true,
+  });
+  state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
+  state.story.chapter = 'post_heist';
+  state.story.day = 5;
+  state.story.timeMinutes = 18 * 60 + 50;
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.LOU_HEIST_CALL,
+    TIME_EVENT_IDS.DEPART_BANK_HEIST,
+    TIME_EVENT_IDS.COMPLETE_BANK_HEIST,
+  );
+}
+
+function seedPreviewMovingUp(state, stage) {
+  seedPreviewThroughMotel(state);
+
+  if (stage === 'bank_heist') {
+    state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'available';
+    Object.assign(state.missions[MISSION_IDS.BANK_HEIST].preparation, {
+      armor: true, gloves: true, mask: true, carbine: true,
+      sidearm: true, magazines: true, duffel: true,
+    });
+    state.story.chapter = 'heist_day';
+    state.story.day = 5;
+    state.story.timeMinutes = 12 * 60 + 45;
+    appendPreviewTimeEvents(state, TIME_EVENT_IDS.LOU_HEIST_CALL, TIME_EVENT_IDS.DEPART_BANK_HEIST);
+    return;
+  }
+
+  seedPreviewCompletedHeist(state);
+  if (stage === 'new_space_call') return;
+
+  state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+  state.missions[MISSION_IDS.SILVER_PINES].status = 'available';
+  state.story.chapter = 'golf_morning';
+  state.story.day = 6;
+  state.story.timeMinutes = 7 * 60 + 30;
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.LOU_GOLF_CALL, TIME_EVENT_IDS.DEPART_SILVER_PINES);
+  if (stage === 'silver_pines') return;
+
+  seedCompletedGolfRound(state.missions[MISSION_IDS.SILVER_PINES]);
+  state.story.day = 6;
+  state.story.timeMinutes = 10 * 60 + 30;
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.COMPLETE_SILVER_PINES);
+
+  state.story.chapter = 'luxury_apartment';
+  state.story.day = 6;
+  state.story.timeMinutes = 11 * 60 + 45;
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT);
+  if (stage === 'luxury_apartment_intro') return;
+
+  state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+  state.missions[MISSION_IDS.SILVER_ROOM].status = 'available';
+  state.story.chapter = 'date';
+  state.story.day = 6;
+  state.story.timeMinutes = 19 * 60 + 30;
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.LUXURY_GET_READY,
+    TIME_EVENT_IDS.MARGO_DATE_CALL,
+    TIME_EVENT_IDS.DEPART_SILVER_ROOM,
+  );
+  if (stage === 'silver_room') return;
+
+  Object.assign(state.missions[MISSION_IDS.SILVER_ROOM], {
+    status: 'complete',
+    outcome: 'strong',
+    woo: 74,
+    band: 'midnight_pines',
+    tippedEverybody: true,
+    rememberedDrink: true,
+    seeingHerAgain: true,
+    knowsWhatHeDoes: true,
+    cameHome: true,
+  });
+  state.story.chapter = 'date';
+  state.story.day = 6;
+  state.story.timeMinutes = 23 * 60 + 20;
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.COMPLETE_SILVER_ROOM);
+  if (stage === 'margo_stayover') return;
+
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME,
+    TIME_EVENT_IDS.LUXURY_STAYOVER_REST,
+  );
+  state.story.chapter = 'luxury_morning';
+  state.story.day = 7;
+  state.story.timeMinutes = 7 * 60 + 10;
+  if (stage === 'luxury_apartment_morning') return;
+
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.LUXURY_MARGO_WAKE);
+  state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
+  state.missions[MISSION_IDS.NO_WAKE].status = 'available';
+  state.story.chapter = 'no_wake';
+  state.story.day = 7;
+  state.story.timeMinutes = 12 * 60 + 45;
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.LOU_NO_WAKE_CALL, TIME_EVENT_IDS.DEPART_NO_WAKE);
+  if (stage === 'no_wake') return;
+
+  Object.assign(state.missions[MISSION_IDS.NO_WAKE], {
+    status: 'complete',
+    checkpoint: 'returned',
+    betrayalConfirmed: true,
+    playerFired: true,
+    bodyDisposed: true,
+  });
+  state.story.chapter = 'luxury_return';
+  state.story.day = 7;
+  state.story.timeMinutes = 17 * 60 + 20;
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.COMPLETE_NO_WAKE,
+    TIME_EVENT_IDS.RETURN_LUXURY_APARTMENT,
+  );
+}
+
+function seedPreviewCabinBeat(state, beatId) {
+  Object.assign(state.missions[MISSION_IDS.BADA_BING_ONE], {
+    status: 'complete', packageReceived: true, ending: 'clean',
+  });
+  Object.assign(state.missions[MISSION_IDS.SQUATCHFATHER], {
+    status: 'complete', weaponStaged: true, weaponDropped: true,
+  });
+  state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+  previewCarry(state, ITEM_IDS.PHONE);
+  state.story.chapter = 'cabin_lay_low';
+  state.story.day = 2;
+  state.story.timeMinutes = 5 * 60 + 20;
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.LOU_FIRST_CALL,
+    TIME_EVENT_IDS.DEPART_BADA_BING_ONE,
+    TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER,
+    TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW,
+  );
+  if (beatId === 'cabin_lay_low') return 'arrival';
+
+  state.story.timeMinutes = 10 * 60 + 43;
+  state.events[EVENT_IDS.CABIN_MARGO_CALL].status = 'answered';
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_REST,
+    TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL,
+    TIME_EVENT_IDS.CABIN_EXPLORE_CREEK,
+    TIME_EVENT_IDS.CABIN_EXPLORE_OVERLOOK,
+    TIME_EVENT_IDS.CABIN_EXPLORE_SHED,
+    TIME_EVENT_IDS.CABIN_EXPLORE_RANGE,
+    TIME_EVENT_IDS.CABIN_MARGO_READY,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL,
+  );
+  if (beatId === 'booski_sasole_call') return 'porch';
+
+  state.events[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL].status = 'answered';
+  state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+  Object.assign(state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING], {
+    status: 'complete', checkpoint: 'landed_home', cargoLoaded: true,
+    detected: false, landingQuality: 'greased',
+  });
+  state.story.day = 2;
+  state.story.timeMinutes = 22 * 60 + 50;
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL,
+    TIME_EVENT_IDS.DEPART_AIRSTRIP,
+    TIME_EVENT_IDS.COMPLETE_AIRSTRIP,
+    TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP,
+    TIME_EVENT_IDS.CABIN_SECOND_REST,
+  );
+  state.story.day = 3;
+  state.story.timeMinutes = 8 * 60 + 10;
+  return 'wake';
+}
+
+function seedCampaignHubPreview(state, beatId) {
+  if (beatId === 'squatch_smash_intro') {
+    state.story.chapter = 'day_one';
+    state.story.day = 1;
+    state.story.timeMinutes = 6 * 60 + 4;
+    return 'wake';
+  }
+  if (beatId === 'first_apartment') {
+    state.story.chapter = 'day_one';
+    state.story.day = 1;
+    state.story.timeMinutes = 6 * 60 + 4;
+    return 'wake';
+  }
+  if (['cabin_lay_low', 'booski_sasole_call', 'cabin_two'].includes(beatId)) {
+    return seedPreviewCabinBeat(state, beatId);
+  }
+  if (beatId === 'return_to_old_apartment') {
+    seedPreviewThroughMotel(state);
+    return 'front_door';
+  }
+  if (beatId === 'new_space_call') {
+    seedPreviewMovingUp(state, 'new_space_call');
+    return 'front_door';
+  }
+  if ([
+    'luxury_apartment_intro',
+    'margo_stayover',
+    'luxury_apartment_morning',
+    'luxury_apartment_return',
+  ].includes(beatId)) {
+    seedPreviewMovingUp(state, beatId);
+    return beatId === 'luxury_apartment_intro' ? 'arrival' : 'main';
+  }
+  if (beatId === 'special_meeting_call') {
+    seedPreviewMovingUp(state, 'luxury_apartment_return');
+    Object.assign(state.missions[MISSION_IDS.SILVER_CASE], {
+      status: 'complete', checkpoint: 'case_recovered', caseRecovered: true,
+    });
+    Object.assign(state.missions[MISSION_IDS.SILENT_SQUATCH], {
+      status: 'complete', checkpoint: 'clear', casePlaced: true,
+      caseDelivered: true, labLocked: true, aubbieEliminated: true,
+      silentNightActivated: true, basementUnlocked: true, notesRecovered: true,
+      conspiracyBoard: true, trophyAwarded: true, eveningReady: true,
+      sleptAtMansion: true,
+    });
+    Object.assign(state.missions[MISSION_IDS.MANSION_SIEGE], {
+      status: 'complete', checkpoint: 'wave_one', attackersDown: 8,
+      littleFriendSaid: true, sasoleMet: true,
+    });
+    Object.assign(state.missions[MISSION_IDS.ENOLA_SQUATCH], {
+      status: 'complete', checkpoint: 'return', payloadReleased: true,
+      returnedHome: true,
+    });
+    Object.assign(state.missions[MISSION_IDS.MANSION_RETURN], {
+      status: 'complete', briefingComplete: true, wrongCityConfirmed: true,
+      sauceMissingConfirmed: true, palaceLocationKnown: true,
+    });
+    Object.assign(state.missions[MISSION_IDS.CARTEL_PALACE], {
+      status: 'complete', checkpoint: 'clear',
+      evidenceFound: ['photograph', 'security_tape'],
+      sauceBetrayalConfirmed: true, markEliminated: true,
+      sauceEliminated: true, outcome: 'clean', grandfathered: false,
+    });
+    state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status = 'answered';
+    state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status = 'pending';
+    state.story.chapter = 'big_night';
+    state.story.day = 12;
+    state.story.timeMinutes = 23 * 60;
+    return 'main';
+  }
+  return null;
+}
+
 /**
  * Build the same normalized temporary campaign state used by an Apartment
  * preview without consulting browser globals or persistent storage. Headless
@@ -4316,7 +4703,7 @@ export function apartmentPreviewCampaignState(variant) {
   return Object.freeze({ state, spawn });
 }
 
-function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
+function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null, previewBeat = null) {
   let apartmentSpawn = null;
   campaign.update((state) => {
     const firstBing = state.missions[MISSION_IDS.BADA_BING_ONE];
@@ -4336,7 +4723,6 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     const cartelPalace = state.missions[MISSION_IDS.CARTEL_PALACE];
     const initiation = state.missions[MISSION_IDS.INITIATION];
     const finalArcPrelude = [
-      SCENE_IDS.COUNTRYSIDE_CABIN,
       SCENE_IDS.SILVER_CASE,
       SCENE_IDS.MANSION_SIEGE,
       SCENE_IDS.ENOLA_SQUATCH,
@@ -4363,6 +4749,43 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
         ...reached,
       ]);
     };
+
+    if (previewBeat) {
+      apartmentSpawn = seedCampaignHubPreview(state, previewBeat);
+      if (apartmentSpawn === null) {
+        throw new RangeError(`Unknown campaign preview beat "${previewBeat}"`);
+      }
+      return;
+    }
+
+    /* Public standalone previews follow the current Moving Up route. The
+     * former chain encoded NO WAKE -> date -> golf -> THE TAKE, which made a
+     * direct scene boot look playable while silently putting every preceding
+     * mission on the wrong side of it. */
+    if (sceneId === SCENE_IDS.COUNTRYSIDE_CABIN) {
+      apartmentSpawn = seedCampaignHubPreview(state, 'cabin_lay_low');
+      return;
+    }
+    if (sceneId === SCENE_IDS.LUXURY_APARTMENT) {
+      apartmentSpawn = seedCampaignHubPreview(state, 'luxury_apartment_intro');
+      return;
+    }
+    if (sceneId === SCENE_IDS.BANK_HEIST) {
+      seedPreviewMovingUp(state, 'bank_heist');
+      return;
+    }
+    if (sceneId === SCENE_IDS.SILVER_PINES) {
+      seedPreviewMovingUp(state, 'silver_pines');
+      return;
+    }
+    if (sceneId === SCENE_IDS.SILVER_ROOM) {
+      seedPreviewMovingUp(state, 'silver_room');
+      return;
+    }
+    if (sceneId === SCENE_IDS.NO_WAKE) {
+      seedPreviewMovingUp(state, 'no_wake');
+      return;
+    }
 
     if (sceneId === SCENE_IDS.APARTMENT) {
       apartmentSpawn = seedApartmentPreviewCampaign(state, apartmentVariant);
@@ -4626,25 +5049,6 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       bankHeist.outcome = 'professional';
       state.story.timeMinutes = 19 * 60;
 
-      if (sceneId === SCENE_IDS.COUNTRYSIDE_CABIN) {
-        /* The standalone cabin preview begins at the same daylight arrival as a
-         * played route. It owns a page-local save, carries the already-taken
-         * phone, and leaves the Silver Case merely available: the hideout is
-         * the connective hub, never a completed final-arc mission. */
-        state.story.chapter = 'post_heist';
-        state.story.day = 7;
-        state.story.timeMinutes = 11 * 60 + 15;
-        state.story.timeEvents = uniqueStrings([
-          ...state.story.timeEvents,
-          TIME_EVENT_IDS.COMPLETE_BANK_HEIST,
-          TIME_EVENT_IDS.PHONE_READ_CABIN,
-          TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN,
-        ]);
-        silverCase.status = 'available';
-        previewCarry(state, ITEM_IDS.PHONE);
-        return;
-      }
-
       if (sceneId === SCENE_IDS.SILVER_CASE) {
         state.story.chapter = 'silver_case';
         silverCase.status = 'available';
@@ -4764,7 +5168,12 @@ export function createCampaign(options = {}) {
   const campaign = new Campaign(storage);
 
   if (preview && !preview.seeded) {
-    seedPreviewCampaign(campaign, preview.sceneId, preview.apartmentVariant);
+    seedPreviewCampaign(
+      campaign,
+      preview.sceneId,
+      preview.apartmentVariant,
+      preview.beatId,
+    );
     preview.seeded = true;
   }
   if (preview) installPreviewNotice();

@@ -139,7 +139,16 @@ test('THE TAKE preview seeds temporary prerequisites and never reads canonical s
     const campaign = createCampaign();
     const state = campaign.state;
     assert.equal(state.scene.id, SCENE_IDS.BANK_HEIST);
-    assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'complete');
+    /* Owner route: THE TAKE happens before the new-space call, Golf, the
+     * luxury hub, Front & Center, and NO WAKE. Preview prerequisites must not
+     * resurrect the older Silver Room-first campaign order. */
+    assert.equal(state.story.chapter, 'heist_day');
+    assert.equal(state.story.day, 5);
+    assert.equal(state.story.timeMinutes, 12 * 60 + 45);
+    assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
+    assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'locked');
+    assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'locked');
+    assert.equal(state.missions[MISSION_IDS.NO_WAKE].status, 'locked');
     assert.equal(state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'answered');
     assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'available');
     assert.equal(state.missions[MISSION_IDS.BANK_HEIST].preparationComplete, true);

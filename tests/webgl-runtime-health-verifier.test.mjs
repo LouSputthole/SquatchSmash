@@ -15,18 +15,39 @@ import {
 } from '../tools/verify-webgl-runtime-health.mjs';
 
 const previewHtml = readFileSync(new URL('../preview.html', import.meta.url), 'utf8');
+const expectedHubRuntimes = Object.freeze([
+  { id: 'hub:squatch_smash_intro', url: 'index.html?preview=1&beat=squatch_smash_intro' },
+  { id: 'hub:first_apartment', url: 'index.html?preview=1&beat=first_apartment' },
+  { id: 'hub:cabin_lay_low', url: 'cabin.html?preview=1&beat=cabin_lay_low' },
+  { id: 'hub:booski_sasole_call', url: 'cabin.html?preview=1&beat=booski_sasole_call' },
+  { id: 'hub:cabin_two', url: 'cabin.html?preview=1&beat=cabin_two' },
+  { id: 'hub:return_to_old_apartment', url: 'index.html?preview=1&beat=return_to_old_apartment' },
+  { id: 'hub:new_space_call', url: 'index.html?preview=1&beat=new_space_call' },
+  { id: 'hub:luxury_apartment_intro', url: 'luxury-apartment.html?preview=1&beat=luxury_apartment_intro' },
+  { id: 'hub:margo_stayover', url: 'luxury-apartment.html?preview=1&beat=margo_stayover' },
+  { id: 'hub:luxury_apartment_morning', url: 'luxury-apartment.html?preview=1&beat=luxury_apartment_morning' },
+  { id: 'hub:luxury_apartment_return', url: 'luxury-apartment.html?preview=1&beat=luxury_apartment_return' },
+  { id: 'hub:special_meeting_call', url: 'luxury-apartment.html?preview=1&beat=special_meeting_call' },
+]);
 
 test('the WebGL health gate covers every playable launcher runtime except frozen Initiation', () => {
   const launcherEntries = launcherRuntimeEntries(previewHtml);
   const initiation = launcherEntries.filter(({ id, url }) => /initiation/i.test(`${id} ${url}`));
+  const hubRuntimes = NON_INITIATION_RUNTIME_CASES
+    .filter(({ id }) => id.startsWith('hub:'))
+    .map(({ id, url }) => ({ id, url }));
+  const runtimeIds = NON_INITIATION_RUNTIME_CASES.map(({ id }) => id);
 
   assert.equal(initiation.length, 1, 'the launcher should expose exactly one frozen Initiation entry');
-  /* 31 since the Special Meeting joined the launcher. The count is pinned on
-   * purpose — `validateRuntimeMatrix` below already proves the gate and the
-   * launcher agree, and this catches the other direction: a runtime quietly
-   * dropped from the gate AND from the launcher in the same change, which
-   * would leave the two agreeing about a scene neither covers. */
-  assert.equal(NON_INITIATION_RUNTIME_CASES.length, 33);
+  /* 12 public campaign-hub beats + 17 non-Initiation mission aliases + 2 tools.
+   * The count is pinned on purpose — `validateRuntimeMatrix` below already
+   * proves the gate and launcher agree, and this catches the other direction:
+   * a runtime quietly dropped from both in the same change. */
+  assert.equal(NON_INITIATION_RUNTIME_CASES.length, 31);
+  assert.deepEqual(hubRuntimes, expectedHubRuntimes);
+  assert.equal(runtimeIds.some((id) => id.startsWith('apartment:')), false);
+  assert.equal(runtimeIds.includes('cabin'), false);
+  assert.equal(runtimeIds.includes('luxury-apartment'), false);
   assert.doesNotMatch(
     NON_INITIATION_RUNTIME_CASES.map(({ id, url }) => `${id} ${url}`).join('\n'),
     /initiation/i,
@@ -39,6 +60,20 @@ test('the WebGL health gate covers every playable launcher runtime except frozen
     ]),
     /Frozen Initiation entered the WebGL runtime gate/,
   );
+});
+
+test('launcher parsing assigns public beat cards stable hub ids', () => {
+  const entries = launcherRuntimeEntries(`
+    <a data-preview-beat="cabin_two" href="cabin.html?preview=1&amp;beat=cabin_two">Cabin II</a>
+    <a data-preview-scene="bing-one" href="bing.html?preview=1">Bing</a>
+    <a data-preview-tool="wardrobe" href="wardrobe.html">Wardrobe</a>
+  `);
+
+  assert.deepEqual(entries, [
+    { id: 'hub:cabin_two', url: 'cabin.html?preview=1&beat=cabin_two' },
+    { id: 'bing-one', url: 'bing.html?preview=1' },
+    { id: 'wardrobe', url: 'wardrobe.html' },
+  ]);
 });
 
 test('runtime health accepts a clean WebGL2 boot', () => {
@@ -127,15 +162,19 @@ test('the frozen-safe WebGL gate is registered in the project release surface', 
 test('diagnostic sequences preserve explicit order and repetition without admitting Initiation', () => {
   const selected = selectDiagnosticRuntimeCases([
     'wardrobe',
-    'apartment:day-one-wake',
+    'hub:cabin_two',
     'wardrobe',
   ]);
 
   assert.deepEqual(selected.map(({ id }) => id), [
     'wardrobe',
-    'apartment:day-one-wake',
+    'hub:cabin_two',
     'wardrobe',
   ]);
+  assert.throws(
+    () => selectDiagnosticRuntimeCases(['apartment:day-one-wake']),
+    /not a non-Initiation runtime/i,
+  );
   assert.throws(
     () => selectDiagnosticRuntimeCases(['initiation']),
     /not a non-Initiation runtime/i,

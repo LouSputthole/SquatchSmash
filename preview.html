@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Squatch Life — Scene Preview</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#127916;</text></svg>" />
+<title>Squatch Life — Campaign Preview</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#127916;</text></svg>">
 <style>
   :root {
     color-scheme: dark;
@@ -20,8 +20,6 @@
   body {
     min-height: 100vh;
     margin: 0;
-    display: grid;
-    place-items: center;
     padding: 32px 18px;
     color: var(--ink);
     font-family: "Trebuchet MS", "Segoe UI", sans-serif;
@@ -30,13 +28,12 @@
       radial-gradient(circle at 90% 95%, rgba(117, 224, 181, .13), transparent 34rem),
       linear-gradient(145deg, #080910, #111521 58%, #090a11);
   }
-  main { width: min(980px, 100%); }
-  .eyebrow {
-    margin: 0 0 8px;
+  main { width: min(1080px, 100%); margin: 0 auto; }
+  .eyebrow, .number {
     color: var(--gold);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 900;
-    letter-spacing: .28em;
+    letter-spacing: .22em;
   }
   h1 {
     margin: 0;
@@ -45,8 +42,8 @@
     letter-spacing: -.045em;
   }
   .lede {
-    max-width: 690px;
-    margin: 18px 0 28px;
+    max-width: 760px;
+    margin: 18px 0 22px;
     color: var(--muted);
     font-size: 17px;
     line-height: 1.55;
@@ -55,7 +52,6 @@
     display: inline-flex;
     gap: 9px;
     align-items: center;
-    margin-bottom: 22px;
     padding: 8px 11px;
     border: 1px solid rgba(117, 224, 181, .35);
     border-radius: 999px;
@@ -70,26 +66,13 @@
     align-items: end;
     justify-content: space-between;
     gap: 24px;
-    margin: 30px 0 14px;
+    margin: 34px 0 14px;
   }
-  .section-heading h2 {
-    margin: 0;
-    font-size: clamp(25px, 4vw, 38px);
-    letter-spacing: -.025em;
-  }
-  .section-heading p {
-    max-width: 520px;
-    margin: 0;
-    color: var(--muted);
-    line-height: 1.45;
-  }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-  }
+  .section-heading h2 { margin: 0; font-size: clamp(25px, 4vw, 38px); }
+  .section-heading p { max-width: 590px; margin: 0; color: var(--muted); line-height: 1.45; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .card {
-    min-height: 190px;
+    min-height: 205px;
     display: flex;
     flex-direction: column;
     padding: 22px;
@@ -99,22 +82,11 @@
     box-shadow: 0 18px 40px rgba(0, 0, 0, .22);
   }
   .card.primary { border-color: rgba(255, 101, 177, .46); }
-  .card.apartment-card { border-color: rgba(117, 224, 181, .25); }
-  .card.apartment-card .number { color: var(--green); }
-  .card.apartment-card .play { background: var(--green); }
-  .number {
-    color: var(--pink);
-    font-size: 11px;
-    font-weight: 900;
-    letter-spacing: .22em;
-  }
-  h2 { margin: 8px 0 7px; font-size: 25px; }
-  .card p {
-    flex: 1;
-    margin: 0 0 18px;
-    color: var(--muted);
-    line-height: 1.45;
-  }
+  .card.hub-card { border-color: rgba(117, 224, 181, .34); }
+  .card.hub-card .number { color: var(--green); }
+  .card.hub-card .play { background: var(--green); }
+  .card h2 { margin: 8px 0 7px; font-size: 25px; }
+  .card p { flex: 1; margin: 0 0 18px; color: var(--muted); line-height: 1.45; }
   .play {
     align-self: flex-start;
     padding: 10px 14px;
@@ -125,26 +97,14 @@
     text-decoration: none;
   }
   .primary .play { background: var(--pink); color: #1b0711; }
-  .phase-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-    margin: 0 0 16px;
-  }
+  .phase-links { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 16px; }
   .phase-links a {
     color: var(--green);
     font-size: 12px;
     text-decoration: none;
     border-bottom: 1px solid rgba(117, 224, 181, .35);
   }
-  footer {
-    display: flex;
-    justify-content: space-between;
-    gap: 18px;
-    margin-top: 24px;
-    color: var(--muted);
-    font-size: 13px;
-  }
+  footer { display: flex; justify-content: space-between; gap: 18px; margin-top: 24px; color: var(--muted); font-size: 13px; }
   footer a { color: var(--green); }
   @media (max-width: 700px) {
     .grid { grid-template-columns: 1fr; }
@@ -156,129 +116,66 @@
 <body>
 <main>
   <p class="eyebrow">SQUATCH LIFE · DEVELOPMENT</p>
-  <h1>Scene preview</h1>
+  <h1>Campaign preview</h1>
   <p class="lede">
-    Jump directly into later story scenes without changing your real campaign.
-    Each scene gets the prerequisites it needs in temporary memory, and a reload
-    resets that preview.
+    The complete playable spine, in story order. Hub slides enter the exact
+    Cabin, starter-apartment, or Luxury Apartment visit that owns that beat;
+    mission slides receive only their temporary prerequisites.
   </p>
   <div class="safe">Your saved campaign is not read or written in preview mode</div>
 
   <div class="section-heading">
-    <h2>Apartment timeline</h2>
-    <p>Review every authored return and chapter-changing wake-up with the right temporary mission, call, clock, inventory, and dressing state.</p>
+    <h2>Campaign spine</h2>
+    <p>Thirty-one beats, numbered 0–29 with THE TAKE at 11.5. Follow these cards top to bottom to review the same route the campaign marathon walks.</p>
   </div>
 
-  <section class="grid" aria-label="Apartment timeline previews">
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 01 · DAY 1, 6:04 AM</span>
-      <h2>Day One Wake</h2>
-      <p>The untouched opening morning: no calls answered, no jobs complete, and the phone still waiting in the flat.</p>
-      <a class="play" data-preview-apartment="day-one-wake" href="index.html?preview=1&amp;apartment=day-one-wake">Wake up on Day One →</a>
+  <section class="grid" aria-label="Campaign spine previews">
+    <article class="card hub-card" data-campaign-beat="squatch_smash_intro" data-campaign-scene="apartment">
+      <span class="number">BEAT 0 · DAY 1 · STARTER APARTMENT</span>
+      <h2>Squatch Smash Intro</h2>
+      <p>Wake at the computer before the fake game gives way to the Prospect’s real apartment.</p>
+      <a class="play" data-preview-beat="squatch_smash_intro" data-campaign-scene="apartment" href="index.html?preview=1&amp;beat=squatch_smash_intro">Start the campaign →</a>
     </article>
 
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 02 · DAY 1, 11:41 PM</span>
-      <h2>Home from the First Bing</h2>
-      <p>Enter through the front door with Lou's package concealed, the phone in hand, and the Squatchfather meeting now available.</p>
-      <a class="play" data-preview-apartment="after-bing-one" href="index.html?preview=1&amp;apartment=after-bing-one">Return from the Bing →</a>
+    <article class="card hub-card" data-campaign-beat="first_apartment" data-campaign-scene="apartment">
+      <span class="number">BEAT 1 · DAY 1 · STARTER APARTMENT</span>
+      <h2>First Apartment</h2>
+      <p>The first real morning, with the routine, phone, and Lou’s first call still ahead.</p>
+      <a class="play" data-preview-beat="first_apartment" data-campaign-scene="apartment" href="index.html?preview=1&amp;beat=first_apartment">Wake in the flat →</a>
     </article>
 
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 03 · DAY 2, 3:00 AM</span>
-      <h2>Home from Squatchfather</h2>
-      <p>The weapon is gone, the business is settled, and Lou's brief attaboy call can still arrive before bed.</p>
-      <a class="play" data-preview-apartment="after-squatchfather" href="index.html?preview=1&amp;apartment=after-squatchfather">Return from the restaurant →</a>
-    </article>
-
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 04 · DAY 2, 7:00 AM</span>
-      <h2>Day Two Wake</h2>
-      <p>A reset morning routine, updated flat dressing and news, and Booskibro's Beef Run call still waiting to ring.</p>
-      <a class="play" data-preview-apartment="day-two-wake" href="index.html?preview=1&amp;apartment=day-two-wake">Wake up on Day Two →</a>
-    </article>
-
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 05 · DAY 2, 8:30 PM</span>
-      <h2>Home from the Beef Run</h2>
-      <p>The plane and cargo are safely home. Lou's second call has not rung yet, leaving the HotDog party as the next beat.</p>
-      <a class="play" data-preview-apartment="after-beef-run" href="index.html?preview=1&amp;apartment=after-beef-run">Return from the airstrip →</a>
-    </article>
-
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 06 · DAY 3, 4:30 AM</span>
-      <h2>Home from the Motel</h2>
-      <p>HotDog is buried, the motel shipment is recovered, and the only correct next move is finally going to bed.</p>
-      <a class="play" data-preview-apartment="after-motel" href="index.html?preview=1&amp;apartment=after-motel">Return from the motel →</a>
-    </article>
-
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 07 · DAY 3, 12:00 PM</span>
-      <h2>Day Three Wake</h2>
-      <p>Grey-water weather, the NO WAKE apartment dressing, and Lou's harbor call still pending.</p>
-      <a class="play" data-preview-apartment="day-three-wake" href="index.html?preview=1&amp;apartment=day-three-wake">Wake up before NO WAKE →</a>
-    </article>
-
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 08 · DAY 3, 4:40 PM</span>
-      <h2>Home from NO WAKE</h2>
-      <p>The boat job is complete, the chapter has turned to the date, and Margo has not called yet.</p>
-      <a class="play" data-preview-apartment="after-no-wake" href="index.html?preview=1&amp;apartment=after-no-wake">Return from the harbor →</a>
-    </article>
-
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 09 · DAY 3, 11:20 PM</span>
-      <h2>Home from the Silver Room</h2>
-      <p>A strong date is behind the Prospect, Margo will see him again, and tomorrow's last job waits beyond sleep.</p>
-      <a class="play" data-preview-apartment="after-silver-room" href="index.html?preview=1&amp;apartment=after-silver-room">Return from the date — Margo comes home →</a>
-    </article>
-
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 10 · DAY 4, 7:00 AM</span>
-      <h2>Day Four Wake</h2>
-      <p>Margo's one-time wake sequence is still owed, Lou's Silver Pines call is pending, and the heist loadout has not taken over the flat yet.</p>
-      <a class="play" data-preview-apartment="day-four-wake" href="index.html?preview=1&amp;apartment=day-four-wake">Wake up on the big day — Margo's morning →</a>
-    </article>
-
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 11 · DAY 4, 10:30 AM</span>
-      <h2>Home from Silver Pines</h2>
-      <p>The three-hole round is complete. Lou's heist call is now pending and the seven pieces for THE TAKE are staged around the flat.</p>
-      <a class="play" data-preview-apartment="after-golf" href="index.html?preview=1&amp;apartment=after-golf">Return from the course →</a>
-    </article>
-
-    <article class="card apartment-card">
-      <span class="number">APARTMENT 12 · DAY 4, 5:20 PM</span>
-      <h2>Home from THE TAKE</h2>
-      <p>The money is counted and the Silver Case is next, but the Prospect must wash, change, and hide the heist gear before leaving again.</p>
-      <a class="play" data-preview-apartment="after-heist" href="index.html?preview=1&amp;apartment=after-heist">Return from THE TAKE →</a>
-    </article>
-  </section>
-
-  <div class="section-heading">
-    <h2>Mission scenes</h2>
-    <p>Launch the major playable scenes directly with only the temporary prerequisites each one needs.</p>
-  </div>
-
-  <section class="grid" aria-label="Playable scene previews">
-    <article class="card">
-      <span class="number">SCENE PREVIEW 01</span>
+    <article class="card" data-campaign-beat="bada_bing_one" data-campaign-scene="bada_bing_one">
+      <span class="number">BEAT 2 · DAY 1 · BADA BING I</span>
       <h2>Bada Bing · Scene One</h2>
-      <p>The first night at the club: the bouncer, the floor, the games, and Lou's package in the back office.</p>
+      <p>The bouncer, the floor, Margo’s number, James Blond, and Lou’s package in the back office.</p>
       <a class="play" data-preview-scene="bing-one" href="bing.html?preview=1">Play scene one →</a>
     </article>
 
-    <article class="card">
-      <span class="number">SCENE PREVIEW 02</span>
-      <h2>Squatchfather</h2>
-      <p>Enter the restaurant meeting with Lou's package already concealed and the scene ready to begin.</p>
-      <a class="play" data-preview-scene="squatchfather" href="squatchfather.html?preview=1">Play meeting →</a>
+    <article class="card" data-campaign-beat="squatchfather" data-campaign-scene="squatchfather">
+      <span class="number">BEAT 3 · NIGHT 1 · SQUATCHFATHER</span>
+      <h2>The Squatchfather</h2>
+      <p>Deliver Lou’s package, handle the restaurant job, and take the same driver straight to the cabin.</p>
+      <a class="play" data-preview-scene="squatchfather" href="squatchfather.html?preview=1">Play the meeting →</a>
     </article>
 
-    <article class="card primary">
-      <span class="number">SCENE PREVIEW 03</span>
+    <article class="card hub-card" data-campaign-beat="cabin_lay_low" data-campaign-scene="countryside_cabin">
+      <span class="number">BEAT 4 · DAY 2 · CABIN I</span>
+      <h2>Cabin I: Lay Low</h2>
+      <p>Arrive after Squatchfather, sleep off the drive, take Lou’s call, and begin exploring the property.</p>
+      <a class="play" data-preview-beat="cabin_lay_low" data-campaign-scene="countryside_cabin" href="cabin.html?preview=1&amp;beat=cabin_lay_low">Arrive at the cabin →</a>
+    </article>
+
+    <article class="card hub-card" data-campaign-beat="booski_sasole_call" data-campaign-scene="countryside_cabin">
+      <span class="number">BEAT 5 · DAY 2 · CABIN I</span>
+      <h2>Booski / Sasole Call</h2>
+      <p>The property is walked and Margo has been called. Booski’s phone call opens the Beef Run.</p>
+      <a class="play" data-preview-beat="booski_sasole_call" data-campaign-scene="countryside_cabin" href="cabin.html?preview=1&amp;beat=booski_sasole_call">Answer at the cabin →</a>
+    </article>
+
+    <article class="card primary" data-campaign-beat="beef_run" data-campaign-scene="airstrip_smuggling">
+      <span class="number">BEAT 6 · DAY 2 · BEEF RUN</span>
       <h2>The Beef Run</h2>
-      <p>Fly Captain Lou Sasole's jerky smuggle: preflight, the mountain strip, the loaded return, and the Bureau in between.</p>
+      <p>Fly Sasole’s jerky smuggle, work the mountain strip, and return to the cabin instead of the old flat.</p>
       <nav class="phase-links" aria-label="Beef Run checkpoints">
         <a href="beefrun.html?preview=1&amp;checkpoint=preflight">Preflight</a>
         <a href="beefrun.html?preview=1&amp;checkpoint=takeoff">Takeoff</a>
@@ -287,14 +184,21 @@
         <a href="beefrun.html?preview=1&amp;checkpoint=return">Return</a>
         <a href="beefrun.html?preview=1&amp;checkpoint=landing">Landing</a>
       </nav>
-      <a class="play" data-preview-scene="beefrun" href="beefrun.html?preview=1">Play beef run →</a>
+      <a class="play" data-preview-scene="beefrun" href="beefrun.html?preview=1">Fly the Beef Run →</a>
     </article>
 
-    <article class="card">
-      <span class="number">SCENE PREVIEW 04</span>
-      <h2>The HotDog Incident</h2>
-      <p>Billy HotDog's closed welcome-home party turns into a fast murder and a club-wide cleanup under Lou's direction.</p>
-      <nav class="phase-links" aria-label="HotDog party checkpoints">
+    <article class="card hub-card primary" data-campaign-beat="cabin_two" data-campaign-scene="countryside_cabin">
+      <span class="number">BEAT 7 · DAY 3 · CABIN II</span>
+      <h2>Cabin II: The Dungeon</h2>
+      <p>Wake after the airstrip return. Gratin’s call leads through the cellar, interrogation, executions, pyre, and blackout.</p>
+      <a class="play" data-preview-beat="cabin_two" data-campaign-scene="countryside_cabin" href="cabin.html?preview=1&amp;beat=cabin_two">Wake for Cabin II →</a>
+    </article>
+
+    <article class="card" data-campaign-beat="bada_bing_two" data-campaign-scene="bada_bing_two">
+      <span class="number">BEAT 8 · DAY 4 · BADA BING II</span>
+      <h2>The Billy HotDog Incident</h2>
+      <p>The welcome-home party turns into a murder and a club-wide cleanup under Lou’s direction.</p>
+      <nav class="phase-links" aria-label="HotDog checkpoints">
         <a href="bing.html?visit=2&amp;preview=1&amp;checkpoint=party">Party</a>
         <a href="bing.html?visit=2&amp;preview=1&amp;checkpoint=attack">Attack</a>
         <a href="bing.html?visit=2&amp;preview=1&amp;checkpoint=cleanup">Cleanup</a>
@@ -303,28 +207,99 @@
       <a class="play" data-preview-scene="bing-two" href="bing.html?visit=2&amp;preview=1">Play the incident →</a>
     </article>
 
-    <article class="card primary">
-      <span class="number">SCENE PREVIEW 05</span>
+    <article class="card primary" data-campaign-beat="graveyard" data-campaign-scene="squatch_graveyard">
+      <span class="number">BEAT 9 · NIGHT 4 · GRAVEYARD</span>
       <h2>Squatch Graveyard</h2>
-      <nav class="phase-links" aria-label="Squatch Graveyard checkpoints">
+      <p>Dispose of HotDog beneath the headlights and walk the Family’s neglected memorial ground.</p>
+      <nav class="phase-links" aria-label="Graveyard checkpoints">
         <a href="graveyard.html?preview=1&amp;checkpoint=arrival">Open trunk</a>
         <a href="graveyard.html?preview=1&amp;checkpoint=carried">Carry HotDog</a>
         <a href="graveyard.html?preview=1&amp;checkpoint=placed">Body in grave</a>
         <a href="graveyard.html?preview=1&amp;checkpoint=buried">Burial complete</a>
       </nav>
-      <p>Dispose of HotDog beneath the headlights and walk the Family's neglected memorial ground before the motel.</p>
       <a class="play" data-preview-scene="graveyard" href="graveyard.html?preview=1">Bury HotDog →</a>
     </article>
 
-    <article class="card">
-      <span class="number">SCENE PREVIEW 06</span>
+    <article class="card" data-campaign-beat="jerky_motel" data-campaign-scene="jerky_motel">
+      <span class="number">BEAT 10 · NIGHT 4–DAY 5 · MOTEL</span>
       <h2>The Jerky Motel</h2>
-      <p>Start in Manny's car, inspect the shipment, survive the room, and make the drive home.</p>
-      <a class="play" data-preview-scene="motel" href="motel.html?preview=1">Play motel →</a>
+      <p>Start in Snow’s car, inspect the shipment, survive the room, and make the drive home.</p>
+      <a class="play" data-preview-scene="motel" href="motel.html?preview=1">Play the motel →</a>
     </article>
 
-    <article class="card">
-      <span class="number">SCENE PREVIEW 07</span>
+    <article class="card hub-card" data-campaign-beat="return_to_old_apartment" data-campaign-scene="apartment">
+      <span class="number">BEAT 11 · DAY 5 · STARTER APARTMENT</span>
+      <h2>Return to Old Apartment</h2>
+      <p>Home from the motel at 4:30 AM. Normal life is available again, but it no longer feels normal.</p>
+      <a class="play" data-preview-beat="return_to_old_apartment" data-campaign-scene="apartment" href="index.html?preview=1&amp;beat=return_to_old_apartment">Return from the motel →</a>
+    </article>
+
+    <article class="card primary" data-campaign-beat="bank_heist" data-campaign-scene="bank_heist">
+      <span class="number">BEAT 11.5 · DAY 5 · THE TAKE</span>
+      <h2>THE TAKE</h2>
+      <p>The Day 5 bank job that earns the home upgrade, with focused checkpoints for each movement of the operation.</p>
+      <nav class="phase-links" aria-label="THE TAKE checkpoints">
+        <a href="heist.html?preview=1&amp;checkpoint=safehouse">Briefing</a>
+        <a href="heist.html?preview=1&amp;checkpoint=bank_lobby">Bank</a>
+        <a href="heist.html?preview=1&amp;checkpoint=vault_open">Vault</a>
+        <a href="heist.html?preview=1&amp;checkpoint=street_withdrawal">Street</a>
+        <a href="heist.html?preview=1&amp;checkpoint=mercer_garage">Garage</a>
+        <a href="heist.html?preview=1&amp;checkpoint=vehicle_escape">Driving</a>
+        <a href="heist.html?preview=1&amp;checkpoint=safehouse_debrief">Debrief</a>
+      </nav>
+      <a class="play" data-preview-scene="heist" href="heist.html?preview=1&amp;checkpoint=safehouse">Play THE TAKE →</a>
+    </article>
+
+    <article class="card hub-card" data-campaign-beat="new_space_call" data-campaign-scene="apartment">
+      <span class="number">BEAT 12 · NIGHT 5 · STARTER APARTMENT</span>
+      <h2>Lou’s “New Space” Call</h2>
+      <p>The bank is behind him and the gear is put away. Lou’s reward call sends him to Silver Pines the next morning.</p>
+      <a class="play" data-preview-beat="new_space_call" data-campaign-scene="apartment" href="index.html?preview=1&amp;beat=new_space_call">Take the new-space call →</a>
+    </article>
+
+    <article class="card" data-campaign-beat="silver_pines" data-campaign-scene="silver_pines">
+      <span class="number">BEAT 13 · DAY 6 · SILVER PINES</span>
+      <h2>Silver Pines Golf Course</h2>
+      <p>Three holes of being included, with THE TAKE already complete and the luxury-apartment keys waiting at the end.</p>
+      <nav class="phase-links" aria-label="Silver Pines checkpoints">
+        <a href="golf.html?preview=1&amp;checkpoint=hole1">Hole 1</a>
+        <a href="golf.html?preview=1&amp;checkpoint=hole2">Hole 2</a>
+        <a href="golf.html?preview=1&amp;checkpoint=hole3">Hole 3</a>
+        <a href="golf.html?preview=1&amp;checkpoint=grille">The Grille</a>
+      </nav>
+      <a class="play" data-preview-scene="golf" href="golf.html?preview=1">Play the round →</a>
+    </article>
+
+    <article class="card hub-card primary" data-campaign-beat="luxury_apartment_intro" data-campaign-scene="luxury_apartment">
+      <span class="number">BEAT 14 · DAY 6 · LUXURY APARTMENT</span>
+      <h2>Luxury Apartment Introduction</h2>
+      <p>Enter the upgraded two-floor home for the first time, then get ready for the Front &amp; Center date.</p>
+      <a class="play" data-preview-beat="luxury_apartment_intro" data-campaign-scene="luxury_apartment" href="luxury-apartment.html?preview=1&amp;beat=luxury_apartment_intro">Enter the new home →</a>
+    </article>
+
+    <article class="card" data-campaign-beat="front_and_center" data-campaign-scene="silver_room">
+      <span class="number">BEAT 15 · NIGHT 6 · FRONT &amp; CENTER</span>
+      <h2>Front &amp; Center / Margo Date</h2>
+      <p>Dinner, the band, and the date that ends with Margo returning to the luxury apartment.</p>
+      <a class="play" data-preview-scene="silver" href="silver.html?preview=1">Play the date →</a>
+    </article>
+
+    <article class="card hub-card" data-campaign-beat="margo_stayover" data-campaign-scene="luxury_apartment">
+      <span class="number">BEAT 16 · NIGHT 6 · LUXURY APARTMENT</span>
+      <h2>Margo Stayover</h2>
+      <p>Margo enters, takes in the new place, walks upstairs, and begins the two-floor stayover sequence.</p>
+      <a class="play" data-preview-beat="margo_stayover" data-campaign-scene="luxury_apartment" href="luxury-apartment.html?preview=1&amp;beat=margo_stayover">Bring Margo home →</a>
+    </article>
+
+    <article class="card hub-card" data-campaign-beat="luxury_apartment_morning" data-campaign-scene="luxury_apartment">
+      <span class="number">BEAT 17 · DAY 7 · LUXURY APARTMENT</span>
+      <h2>Luxury Apartment Morning</h2>
+      <p>Wake after the stayover, help Margo with the dress again, and let her leave before Lou can ring.</p>
+      <a class="play" data-preview-beat="luxury_apartment_morning" data-campaign-scene="luxury_apartment" href="luxury-apartment.html?preview=1&amp;beat=luxury_apartment_morning">Wake with Margo →</a>
+    </article>
+
+    <article class="card primary" data-campaign-beat="no_wake" data-campaign-scene="no_wake">
+      <span class="number">BEAT 18 · DAY 7 · NO WAKE</span>
       <h2>NO WAKE</h2>
       <p>Meet Lou at South Harbor, take the cruiser into open water, and learn why Willy was invited.</p>
       <nav class="phase-links" aria-label="NO WAKE checkpoints">
@@ -338,60 +313,17 @@
       <a class="play" data-preview-scene="no-wake" href="nowake.html?preview=1">Take the boat →</a>
     </article>
 
-    <article class="card">
-      <span class="number">SCENE PREVIEW 08</span>
-      <h2>The Silver Room</h2>
-      <p>Day three's date with Margo: the hired car, the alley, the kitchen walk, the table, and the Midnight Pines.</p>
-      <a class="play" data-preview-scene="silver" href="silver.html?preview=1">Play the date →</a>
+    <article class="card hub-card" data-campaign-beat="luxury_apartment_return" data-campaign-scene="luxury_apartment">
+      <span class="number">BEAT 19 · EVENING 7 · LUXURY APARTMENT</span>
+      <h2>Luxury Apartment Return</h2>
+      <p>Come home from the dock. After a quiet interval, Booski can call about the Silver Case.</p>
+      <a class="play" data-preview-beat="luxury_apartment_return" data-campaign-scene="luxury_apartment" href="luxury-apartment.html?preview=1&amp;beat=luxury_apartment_return">Return from NO WAKE →</a>
     </article>
 
-    <article class="card primary">
-      <span class="number">SCENE PREVIEW 09</span>
-      <h2>A Morning at Silver Pines</h2>
-      <p>Play three holes with Big Uncle Lou, Rippin, and Eric before the last job and the room at seven.</p>
-      <nav class="phase-links" aria-label="Silver Pines checkpoints">
-        <a href="golf.html?preview=1&amp;checkpoint=hole1">Hole 1</a>
-        <a href="golf.html?preview=1&amp;checkpoint=hole2">Hole 2</a>
-        <a href="golf.html?preview=1&amp;checkpoint=hole3">Hole 3</a>
-        <a href="golf.html?preview=1&amp;checkpoint=grille">The Grille</a>
-      </nav>
-      <a class="play" data-preview-scene="golf" href="golf.html?preview=1">Play the round →</a>
-    </article>
-
-    <article class="card primary">
-      <span class="number">SCENE PREVIEW 10</span>
-      <h2>THE TAKE</h2>
-      <p>Run Day 4's bank job in temporary memory, or jump to an authored checkpoint for focused development.</p>
-      <nav class="phase-links" aria-label="THE TAKE checkpoints">
-        <a href="heist.html?preview=1&amp;checkpoint=safehouse">Briefing</a>
-        <a href="heist.html?preview=1&amp;checkpoint=bank_lobby">Bank</a>
-        <a href="heist.html?preview=1&amp;checkpoint=vault_open">Vault</a>
-        <a href="heist.html?preview=1&amp;checkpoint=street_withdrawal">Street</a>
-        <a href="heist.html?preview=1&amp;checkpoint=mercer_garage">Garage</a>
-        <a href="heist.html?preview=1&amp;checkpoint=vehicle_escape">Driving</a>
-        <a href="heist.html?preview=1&amp;checkpoint=safehouse_debrief">Debrief</a>
-      </nav>
-      <a class="play" data-preview-scene="heist" href="heist.html?preview=1&amp;checkpoint=safehouse">Play THE TAKE →</a>
-    </article>
-
-    <article class="card">
-      <span class="number">SCENE PREVIEW 11</span>
-      <h2>The Hideout</h2>
-      <p>Lay low in the furnished cabin, use the same home-base essentials as the apartment, or follow the trail to the creek, ridge and forestry shed.</p>
-      <a class="play" data-preview-scene="cabin" href="cabin.html?preview=1">Explore the property →</a>
-    </article>
-
-    <article class="card primary">
-      <span class="number">FUTURE HUB · UNPLACED</span>
-      <h2>The High Life</h2>
-      <p>Tour Tony's possible late-game home: a two-floor luxury apartment with a glass-walled city view, open loft, private games room, every apartment activity and an expanded art collection.</p>
-      <a class="play" data-preview-scene="luxury-apartment" href="luxury-apartment.html?preview=1">Enter the high-rise →</a>
-    </article>
-
-    <article class="card">
-      <span class="number">SCENE PREVIEW 12</span>
+    <article class="card" data-campaign-beat="silver_case_setup" data-campaign-scene="silver_case">
+      <span class="number">BEAT 20 · DAY 8 · SILVER CASE</span>
       <h2>The Silver Case</h2>
-      <p>Ride over with Ape, walk into somebody else's apartment, and collect a case Lou never explains the contents of.</p>
+      <p>Ride over with Ape, take the apartment, and recover the case Lou wants delivered by hand.</p>
       <nav class="phase-links" aria-label="Silver Case checkpoints">
         <a href="silvercase.html?preview=1&amp;checkpoint=car">Car</a>
         <a href="silvercase.html?preview=1&amp;checkpoint=hallway">Hallway</a>
@@ -403,44 +335,50 @@
       <a class="play" data-preview-scene="silvercase" href="silvercase.html?preview=1">Collect the case →</a>
     </article>
 
-    <article class="card">
-      <span class="number">SCENE PREVIEW 13</span>
-      <h2>Lou's Mansion</h2>
-      <p>The grounds, the foyer and the horseshoe stair, the conference room at the top of it, the office behind &mdash; and, behind a bookcase in that office, a stair up to the third floor. Or jump straight to a beat of PROJECT SILENT SQUATCH.</p>
-      <nav class="phase-links" aria-label="Lou's Mansion checkpoints">
+    <article class="card" data-campaign-beat="silver_case_mansion" data-campaign-scene="mansion">
+      <span class="number">BEAT 21 · DAY 8 · LOU’S MANSION</span>
+      <h2>Silver Case → Mansion</h2>
+      <p>Carry the case through the foyer and up to Lou. The handoff opens the work below the house.</p>
+      <a class="play" data-preview-scene="mansion" href="mansion.html?preview=1">Deliver the case →</a>
+    </article>
+
+    <article class="card" data-campaign-beat="silent_squatch" data-campaign-scene="mansion">
+      <span class="number">BEAT 22 · DAY 8 · SILENT SQUATCH</span>
+      <h2>Mansion / Silent Squatch</h2>
+      <p>Build the device, clear the lab, learn the peaceful house, and sleep in Lou’s guest suite.</p>
+      <nav class="phase-links" aria-label="Mansion checkpoints">
         <a href="mansion.html?preview=1&amp;checkpoint=arrival">Arrival</a>
         <a href="mansion.html?preview=1&amp;checkpoint=office">Office</a>
         <a href="mansion.html?preview=1&amp;checkpoint=basement">Hidden door</a>
         <a href="mansion.html?preview=1&amp;checkpoint=lab">Laboratory</a>
         <a href="mansion.html?preview=1&amp;checkpoint=core_complete">Core built</a>
-        <a href="mansion.html?preview=1&amp;checkpoint=locked">Locked</a>
+        <a href="mansion.html?preview=1&amp;checkpoint=locked">Locked lab</a>
         <a href="mansion.html?preview=1&amp;checkpoint=aubbie_down">Aubbie down</a>
         <a href="mansion.html?preview=1&amp;checkpoint=silent_night">Silent Night</a>
         <a href="mansion.html?preview=1&amp;checkpoint=clear">Clear</a>
-        <a href="mansion.html?preview=1&amp;checkpoint=suite">The suite</a>
+        <a href="mansion.html?preview=1&amp;checkpoint=suite">Guest suite</a>
       </nav>
-      <a class="play" data-preview-scene="mansion" href="mansion.html?preview=1">Walk the house →</a>
+      <a class="play" href="mansion.html?preview=1&amp;checkpoint=lab">Open Silent Squatch →</a>
     </article>
 
-    <article class="card primary">
-      <span class="number">SCENE PREVIEW 14</span>
+    <article class="card primary" data-campaign-beat="mansion_siege" data-campaign-scene="mansion_siege">
+      <span class="number">BEAT 23 · DAY 9 · MANSION SIEGE</span>
       <h2>The Mansion Siege</h2>
-      <p>Wake in the basement to the sound of the gate coming down, arm up, and hold Lou's house through both waves.</p>
+      <p>Wake in the guest suite to the gate coming down, arm up, and hold Lou’s house through both waves.</p>
       <nav class="phase-links" aria-label="Mansion Siege checkpoints">
         <a href="mansion-siege.html?preview=1&amp;checkpoint=wake">Wake</a>
         <a href="mansion-siege.html?preview=1&amp;checkpoint=armory">Armory</a>
         <a href="mansion-siege.html?preview=1&amp;checkpoint=armed">Armed</a>
         <a href="mansion-siege.html?preview=1&amp;checkpoint=briefed">Briefed</a>
         <a href="mansion-siege.html?preview=1&amp;checkpoint=wave_one">Wave one held</a>
-        <a href="weapon-sound-audition.html">Weapon audio lab</a>
       </nav>
       <a class="play" data-preview-scene="mansion-siege" href="mansion-siege.html?preview=1">Hold the house →</a>
     </article>
 
-    <article class="card primary">
-      <span class="number">SCENE PREVIEW 15</span>
-      <h2>The Enola Squatch</h2>
-      <p>Walk the preflight with Sasole, get four engines and five men off the ground, and deliver the Fat Squatch to Squatchbourg.</p>
+    <article class="card primary" data-campaign-beat="enola_squatch" data-campaign-scene="enola_squatch">
+      <span class="number">BEAT 24 · DAY 9 · ENOLA SQUATCH</span>
+      <h2>Enola Squatch</h2>
+      <p>Walk the preflight with Sasole, get the heavy airborne, and follow the cockpit instruments through the bomb run.</p>
       <nav class="phase-links" aria-label="Enola Squatch checkpoints">
         <a href="enolasquatch.html?preview=1&amp;checkpoint=preflight">Preflight</a>
         <a href="enolasquatch.html?preview=1&amp;checkpoint=takeoff">Takeoff</a>
@@ -452,17 +390,17 @@
       <a class="play" data-preview-scene="enolasquatch" href="enolasquatch.html?preview=1">Fly the heavy →</a>
     </article>
 
-    <article class="card">
-      <span class="number">SCENE PREVIEW 16</span>
-      <h2>Repaired Mansion Return</h2>
-      <p>Return from Enola Squatch, meet Lou in the repaired house, and receive the briefing that points the Family toward Mark's estate.</p>
+    <article class="card" data-campaign-beat="mansion_return" data-campaign-scene="mansion_return">
+      <span class="number">BEAT 25 · DAY 12 · REPAIRED MANSION</span>
+      <h2>Repaired Mansion</h2>
+      <p>Return after Enola. Lou names the city that was actually hit and gives the Family an address for the rival palace.</p>
       <a class="play" data-preview-scene="mansion-return" href="mansion.html?visit=return&amp;preview=1">Report to Lou →</a>
     </article>
 
-    <article class="card">
-      <span class="number">SCENE PREVIEW 17</span>
+    <article class="card primary" data-campaign-beat="cartel_palace" data-campaign-scene="cartel_palace">
+      <span class="number">BEAT 26 · NIGHT 12 · CARTEL PALACE</span>
       <h2>Cartel Palace</h2>
-      <p>Cut the service power, follow the evidence through Mark's estate, expose Sauce, and clear the dining room.</p>
+      <p>Cut the service power, follow the evidence through the estate, expose the mole, and clear the dining room.</p>
       <nav class="phase-links" aria-label="Cartel Palace checkpoints">
         <a href="cartel-palace.html?preview=1&amp;checkpoint=approach">Approach</a>
         <a href="cartel-palace.html?preview=1&amp;checkpoint=perimeter">Perimeter</a>
@@ -474,46 +412,53 @@
       <a class="play" data-preview-scene="cartel-palace" href="cartel-palace.html?preview=1">Infiltrate the estate →</a>
     </article>
 
-    <article class="card">
-      <span class="number">SCENE PREVIEW 18</span>
+    <article class="card hub-card" data-campaign-beat="special_meeting_call" data-campaign-scene="luxury_apartment">
+      <span class="number">BEAT 27 · NIGHT 12 → DAY 13 · LUXURY APARTMENT</span>
+      <h2>Luxury Apartment: Special Meeting</h2>
+      <p>Return home after the Palace. Booski’s special call sets up Seff, Lag, and Numbskull’s next-evening pickup.</p>
+      <a class="play" data-preview-beat="special_meeting_call" data-campaign-scene="luxury_apartment" href="luxury-apartment.html?preview=1&amp;beat=special_meeting_call">Answer the special call →</a>
+    </article>
+
+    <article class="card" data-campaign-beat="pickup_ride" data-campaign-scene="special_meeting">
+      <span class="number">BEAT 28 · NIGHT 13 · PICKUP / RIDE</span>
       <h2>The Special Meeting</h2>
-      <p>The Palace is over and nobody has told him whether killing Sauce was the right
-        call. Booskibro rings to say there is a meeting and it is going to be a special
-        one. Seff, Lag and Numbskull come and collect him, and he rides in the front.
-        Then the dirt road, the boot, and the walk into the woods.</p>
-      <a class="play" data-preview-scene="special-meeting" href="specialmeeting.html?preview=1">Get in the car &rarr;</a>
+      <p>The car is already at the kerb. Ride forty-two minutes, hear the trunk move, and arrive at the ceremony road.</p>
+      <a class="play" data-preview-scene="special-meeting" href="specialmeeting.html?preview=1">Get in the car →</a>
     </article>
 
-    <article class="card">
-      <span class="number">SCENE PREVIEW 19</span>
+    <article class="card primary" data-campaign-beat="initiation" data-campaign-scene="initiation">
+      <span class="number">BEAT 29 · NIGHT 13 · INITIATION</span>
       <h2>Initiation Night</h2>
-      <p>A clearing in black woods, two sets of headlights across some mud, and six
-        prospects in a line. One answers wrong and is shot where he stands; then Gratin
-        and Seff walk the rest out one at a time, put them on their knees in the crossed
-        beams, and shoot them in the back of the head. Kittenboss last, and not skipped.
-        Then he alone is walked up the trail to a cabin with the light on, and made.</p>
-      <a class="play" data-preview-scene="initiation" href="initiation.html?preview=1">Walk into the clearing &rarr;</a>
+      <p>Five prospects enter the clearing. Only Tony completes the walk to the lit cabin and THE PROSPECT’S RECORD.</p>
+      <a class="play" data-preview-scene="initiation" href="initiation.html?preview=1">Walk into the clearing →</a>
     </article>
+  </section>
 
+  <div class="section-heading">
+    <h2>Optional scenes &amp; tools</h2>
+    <p>Useful development entries that are intentionally outside the numbered campaign spine.</p>
+  </div>
+
+  <section class="grid" aria-label="Optional previews and development tools">
     <article class="card">
-      <span class="number">OPTIONAL SCENE</span>
+      <span class="number">OPTIONAL · INSIDE BEAT 2</span>
       <h2>License to Grill</h2>
-      <p>James Blond is tied up in the Bing's store room on night one. Take the cord from Gratin and find out what he knows.</p>
-      <a class="play" href="bing.html?preview=1">Through the store-room door →</a>
+      <p>James Blond is tied up in the Bing’s store room on night one. Take the cord from Gratin and find out what he knows.</p>
+      <a class="play" href="bing.html?preview=1">Use the store-room door →</a>
     </article>
 
     <article class="card">
       <span class="number">DEVELOPMENT TOOL</span>
       <h2>Wardrobe Preview</h2>
-      <p>Inspect every authored Squatch wardrobe, compare scene looks, and open the focused character views used by the visual audits.</p>
-      <a class="play" data-preview-tool="wardrobe" href="wardrobe.html">Open the wardrobe preview →</a>
+      <p>Inspect every authored Squatch wardrobe and open the focused character views used by visual audits.</p>
+      <a class="play" data-preview-tool="wardrobe" href="wardrobe.html">Open wardrobe preview →</a>
     </article>
 
     <article class="card">
       <span class="number">DEVELOPMENT TOOL</span>
       <h2>Combat System</h2>
-      <p>Test shared movement, firearms, ballistics, target health, death, the cord whip, and a full range reset without entering a campaign mission.</p>
-      <a class="play" data-preview-tool="combat" href="combatlab.html?preview=1">Open the combat system →</a>
+      <p>Test shared movement, firearms, ballistics, target health, death, and range reset outside the campaign.</p>
+      <a class="play" data-preview-tool="combat" href="combatlab.html?preview=1">Open combat system →</a>
     </article>
   </section>
 
