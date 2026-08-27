@@ -933,6 +933,11 @@ window.__heistDebug = {
       mph: Math.abs(vehicle.speed) * 2.237,
       x: vehicle.x,
       z: vehicle.z,
+      heading: vehicle.heading,
+      steerAngle: vehicle.steerAngle,
+      throttle: vehicle.throttle,
+      brake: vehicle.brake,
+      audio: debugDriveAudioSnapshot(),
       routeIndex,
       collisionDamage: vehicle.collisionDamage,
     };
@@ -945,6 +950,17 @@ window.__heistDebug = {
     vehicle.heading = heading;
     vehicle.speed = 0;
     vehicle.lateralSlip = 0;
+    vehicle.steerAngle = 0;
+    vehicle.throttle = 0;
+    vehicle.brake = 0;
+    vehicle.bodyRoll = 0;
+    vehicle.suspension = 0;
+    vehicle.setInput();
+    fixedStep.reset();
+    handbrake = 0;
+    slipLead = 0;
+    engineRevs = 0.2;
+    engineGear = 0;
     /* "Put the car here and start clean" has to include the recovery flag. It
      * did not, so a recovery that fired during the previous probe stayed armed
      * across this call and ate the next 650 ms of driving — which is most of a
@@ -953,6 +969,9 @@ window.__heistDebug = {
     drivingRecovery = false;
     driveInvalidFor = 0;
     driveStuckFor = 0;
+    pursuitPressure = 0;
+    ramCooldown = 0;
+    pursuitWarned = false;
     if (options.resetRoute) { routeIndex = 0; roadblockHit = false; }
     if (options.resetDamage) {
       vehicle.collisionDamage = 0;
@@ -1365,6 +1384,36 @@ function debugForceDriveRecovery() {
   return { ok: drivingRecovery, x: vehicle.x, z: vehicle.z };
 }
 
+/**
+ * Read the mix the shared AudioEngine is actually applying to the escape car.
+ *
+ * This deliberately reports the loop handles, rather than recomputing the
+ * numbers from speed in a verifier. The owner heard *"engine sounds are bad"*
+ * in the browser, so the useful evidence is the playback rate, load volume and
+ * exhaust cutoff that reached WebAudio, including the synthesised-loop path.
+ */
+function debugDriveAudioSnapshot() {
+  const loop = (key) => {
+    const handle = audio.loops.get(key);
+    return {
+      active: Boolean(handle),
+      rate: Number.isFinite(handle?.rate) ? handle.rate : null,
+      volume: Number.isFinite(handle?.volume) ? handle.volume : null,
+      cutoff: Number.isFinite(handle?.cutoff) ? handle.cutoff : null,
+    };
+  };
+  return {
+    gear: engineGear,
+    revs: engineRevs,
+    throttle: vehicle.throttle,
+    requestedThrottle: vehicle.inputThrottle,
+    brake: vehicle.brake,
+    handbrake,
+    engine: loop('heist.vehicle.engine.load'),
+    tires: loop('heist.vehicle.tires.road'),
+  };
+}
+
 function debugSnapshot() {
   const hotbar = document.getElementById('hotbar');
   const heistPlaybacks = audio.playbacks.filter((entry) => HEIST_VOICE_CUES.includes(entry.name));
@@ -1438,6 +1487,7 @@ function debugSnapshot() {
     vehicle: {
       ...vehicle.snapshot(),
       maxForwardSpeed: HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed,
+      audio: debugDriveAudioSnapshot(),
       pursuitVisible: level.phases.driving.pursuit.visible,
       pursuitDistance: level.phases.driving.pursuit.position.distanceTo(level.phases.driving.car.position),
       pursuitInFrame: (() => {

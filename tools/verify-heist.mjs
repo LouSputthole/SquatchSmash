@@ -28,6 +28,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5221;
 const SHOTS = path.join(ROOT, 'artifacts', 'heist');
 const INPUT_ONLY = process.argv.includes('--input-only');
+const VEHICLE_ONLY = process.env.HEIST_VEHICLE_ONLY === '1';
 const INPUT_ONLY_TIMEOUT_MS = 240000;
 const INPUT_ONLY_COMPLETE = Symbol('HEIST_INPUT_ONLY_COMPLETE');
 const SENTINEL = '{"canonical":"THE TAKE preview must not mutate this"}';
@@ -161,6 +162,243 @@ const shot = async (name) => {
   await page.waitForTimeout(name === '02-safehouse-briefing' ? 900 : 180);
   await page.screenshot({ path: path.join(SHOTS, `${name}.png`) });
 };
+
+/**
+ * Measure the escape car through the actual `vehicle_escape` runtime.
+ *
+ * Keyboard events remain the source of throttle, brake and steering. The
+ * verifier advances the real `updateDriving` at 120 Hz through the existing
+ * debug clock because SwiftShader renders too slowly for wall time to mean
+ * physics time. GroundVehicle owns every state transition and AudioEngine's
+ * live loop handles own the audio evidence; this does not duplicate either
+ * implementation in the harness.
+ */
+async function measureEscapeVehicle(vehiclePage, { completeRoute = false } = {}) {
+  const reset = async () => {
+    await vehiclePage.keyboard.up('KeyW').catch(() => {});
+    await vehiclePage.keyboard.up('KeyA').catch(() => {});
+    await vehiclePage.keyboard.up('KeyD').catch(() => {});
+    await vehiclePage.keyboard.up('Space').catch(() => {});
+    return vehiclePage.evaluate(() => window.__heistDebug.placeCar(
+      20, -300, Math.PI,
+      { resetRoute: true, resetDamage: true },
+    ));
+  };
+  const stepUntil = (targetMph, maxSeconds = 12) => vehiclePage.evaluate(
+    ([target, max]) => {
+      const fixedDt = 1 / 120;
+      const start = window.__heistDebug.snapshot().vehicle;
+      let sample = window.__heistDebug.simulateDriving(fixedDt, fixedDt);
+      const gears = [];
+      let previousGear = null;
+      let seconds = 0;
+      let at60 = null;
+      let at90 = null;
+      while (seconds < max && sample.mph < target) {
+        sample = window.__heistDebug.simulateDriving(fixedDt, fixedDt);
+        seconds += fixedDt;
+        if (sample.audio.gear !== previousGear) {
+          gears.push({
+            gear: sample.audio.gear,
+            seconds,
+            mph: sample.mph,
+            rate: sample.audio.engine.rate,
+          });
+          previousGear = sample.audio.gear;
+        }
+        const point = {
+          seconds,
+          mph: sample.mph,
+          distance: Math.hypot(sample.x - start.x, sample.z - start.z),
+          audio: sample.audio,
+        };
+        if (!at60 && sample.mph >= 60) at60 = structuredClone(point);
+        if (!at90 && sample.mph >= 90) at90 = structuredClone(point);
+      }
+      return {
+        seconds,
+        mph: sample.mph,
+        distance: Math.hypot(sample.x - start.x, sample.z - start.z),
+        collisionDamage: sample.collisionDamage,
+        audio: sample.audio,
+        at60,
+        at90,
+        gears,
+      };
+    },
+    [targetMph, maxSeconds],
+  );
+
+  await reset();
+  const idle = await vehiclePage.evaluate(() => window.__heistDebug.simulateDriving(0.5, 1 / 120));
+  await vehiclePage.locator('#scene').click({ position: { x: 640, y: 360 } });
+  await vehiclePage.keyboard.down('KeyW');
+  await vehiclePage.waitForFunction(
+    () => window.__heistDebug.inputState().keys.includes('KeyW'),
+    null,
+    { timeout: 5000 },
+  );
+  const throttleReceipt = await vehiclePage.evaluate(() => window.__heistDebug.inputState());
+  const acceleration = await stepUntil(91.7, 11);
+  await vehiclePage.screenshot({ path: path.join(SHOTS, 'job7-vehicle-escape-active.png') });
+  await vehiclePage.keyboard.up('KeyW');
+  await vehiclePage.waitForFunction(
+    () => !window.__heistDebug.inputState().keys.includes('KeyW'),
+    null,
+    { timeout: 5000 },
+  );
+  const coast = await vehiclePage.evaluate(() => window.__heistDebug.simulateDriving(0.75, 1 / 120));
+
+  check('real W input reaches the vehicle_escape checkpoint drivetrain',
+    throttleReceipt.keys.includes('KeyW')
+      && throttleReceipt.driving
+      && acceleration.at60?.mph >= 60,
+    JSON.stringify({ keys: throttleReceipt.keys, at60: acceleration.at60?.mph }));
+  check('the live escape car reaches 90 mph and its 91.7 mph steady top speed',
+    acceleration.at90?.seconds >= 7.3
+      && acceleration.at90.seconds <= 8.0
+      && acceleration.seconds >= 9.3
+      && acceleration.seconds <= 10.2
+      && acceleration.mph >= 91.65
+      && acceleration.mph <= 91.75
+      && acceleration.collisionDamage === 0,
+    JSON.stringify({
+      at90Seconds: acceleration.at90?.seconds,
+      topSeconds: acceleration.seconds,
+      topMph: acceleration.mph,
+      distance: acceleration.distance,
+      damage: acceleration.collisionDamage,
+    }));
+  check('speed crosses all four gears and drives real engine pitch and load',
+    acceleration.gears.map((entry) => entry.gear).join(',') === '0,1,2,3'
+      && idle.audio.engine.active
+      && idle.audio.tires.active
+      && acceleration.audio.engine.rate > idle.audio.engine.rate + 0.45
+      && acceleration.audio.engine.volume > idle.audio.engine.volume + 0.2
+      && acceleration.audio.engine.cutoff === 6200,
+    JSON.stringify({ idle: idle.audio, gears: acceleration.gears, top: acceleration.audio }));
+  check('lifting at speed removes engine load without restarting either loop',
+    coast.audio.engine.active
+      && coast.audio.tires.active
+      && coast.audio.engine.cutoff === 2400
+      && coast.audio.engine.rate < acceleration.audio.engine.rate
+      && coast.audio.engine.volume < acceleration.audio.engine.volume,
+    JSON.stringify({ loaded: acceleration.audio, coast: coast.audio }));
+
+  await reset();
+  await vehiclePage.keyboard.down('KeyW');
+  const sixtyForBrake = await stepUntil(60, 4);
+  await vehiclePage.keyboard.up('KeyW');
+  await vehiclePage.keyboard.down('Space');
+  const braking = await vehiclePage.evaluate(() => {
+    const fixedDt = 1 / 120;
+    const start = window.__heistDebug.snapshot().vehicle;
+    let sample = window.__heistDebug.simulateDriving(fixedDt, fixedDt);
+    let seconds = 0;
+    while (sample.speed > 0 && seconds < 4) {
+      sample = window.__heistDebug.simulateDriving(fixedDt, fixedDt);
+      seconds += fixedDt;
+    }
+    return {
+      seconds,
+      startMph: start.speed * 2.23694,
+      stopMph: sample.mph,
+      distance: Math.hypot(sample.x - start.x, sample.z - start.z),
+      audio: sample.audio,
+      collisionDamage: sample.collisionDamage,
+    };
+  });
+  await vehiclePage.keyboard.up('Space');
+  check('full braking stops the live car from 60 mph in the measured envelope',
+    sixtyForBrake.mph >= 60
+      && braking.seconds >= 1.5
+      && braking.seconds <= 1.8
+      && braking.distance >= 21
+      && braking.distance <= 25
+      && braking.collisionDamage === 0,
+    JSON.stringify(braking));
+
+  await reset();
+  await vehiclePage.keyboard.down('KeyW');
+  const sixtyForSteer = await stepUntil(60, 4);
+  const steerStart = await vehiclePage.evaluate(() => window.__heistDebug.snapshot().vehicle);
+  await vehiclePage.keyboard.down('KeyA');
+  const steerEnd = await vehiclePage.evaluate(() => window.__heistDebug.simulateDriving(0.25, 1 / 120));
+  await vehiclePage.keyboard.up('KeyA');
+  await vehiclePage.keyboard.up('KeyW');
+  const yawDegrees = Math.abs(Math.atan2(
+    Math.sin(steerEnd.heading - steerStart.heading),
+    Math.cos(steerEnd.heading - steerStart.heading),
+  )) * 180 / Math.PI;
+  const steerDistance = Math.hypot(steerEnd.x - steerStart.x, steerEnd.z - steerStart.z);
+  check('a quarter-second real steering input produces a responsive, bounded yaw at 60 mph',
+    sixtyForSteer.mph >= 60
+      && yawDegrees >= 30
+      && yawDegrees <= 42
+      && steerDistance >= 6
+      && steerDistance <= 7.5
+      && steerEnd.collisionDamage === 0,
+    JSON.stringify({ yawDegrees, distance: steerDistance, endMph: steerEnd.mph,
+      steerAngle: steerEnd.steerAngle, damage: steerEnd.collisionDamage }));
+
+  await reset();
+  let progression = null;
+  if (completeRoute) {
+    const nodes = [];
+    for (let index = 0; index < 6; index++) {
+      nodes.push(await vehiclePage.evaluate(() => window.__heistDebug.driveToNextNode()));
+    }
+    await vehiclePage.waitForFunction(
+      () => window.__heistDebug.state === 'VEHICLE_SWAP',
+      null,
+      { timeout: 30000, polling: 250 },
+    );
+    progression = await vehiclePage.evaluate(() => window.__heistDebug.snapshot());
+    check('the measured vehicle_escape checkpoint still reaches the existing swap',
+      nodes.map((entry) => entry.node).join(',')
+        === 'garage_left,warehouse_left,tower_right,roadblock,canal_turn,industrial_swap'
+        && progression.state === 'VEHICLE_SWAP'
+        && progression.vehicle.pursuitVisible === false,
+      JSON.stringify({ nodes: nodes.map((entry) => entry.node), state: progression.state,
+        pursuit: progression.vehicle.pursuitVisible }));
+  }
+
+  return { idle, acceleration, coast, braking, yawDegrees, steerDistance, progression };
+}
+
+async function verifyEscapeVehicleCheckpoint() {
+  await page.goto(`http://localhost:${PORT}/heist.html?preview=1&checkpoint=vehicle_escape`,
+    { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__heistDebug?.start, null, { timeout: 120000 });
+  await page.evaluate(() => document.getElementById('start').click());
+  await page.waitForFunction(
+    () => window.__heistDebug?.snapshot().state === 'PLAYER_TAKES_WHEEL',
+    null,
+    { timeout: 120000 },
+  );
+  const opening = await snapshot();
+  check('vehicle_escape preview starts in the live driving state with both shared loops',
+    opening.phase === 'driving'
+      && opening.vehicle.audio.engine.active
+      && opening.vehicle.audio.tires.active,
+    JSON.stringify({ state: opening.state, phase: opening.phase, audio: opening.vehicle.audio }));
+  const evidence = await measureEscapeVehicle(page, { completeRoute: true });
+  console.log(`    vehicle evidence ${JSON.stringify({
+    at60: evidence.acceleration.at60,
+    at90: evidence.acceleration.at90,
+    top: {
+      seconds: evidence.acceleration.seconds,
+      mph: evidence.acceleration.mph,
+      distance: evidence.acceleration.distance,
+      audio: evidence.acceleration.audio,
+    },
+    coast: evidence.coast.audio,
+    braking: evidence.braking,
+    steering: { yawDegrees: evidence.yawDegrees, distance: evidence.steerDistance },
+  })}`);
+  check('vehicle_escape checkpoint emitted no page, console, or request failures',
+    problems.length === 0, problems.join(' | ').slice(0, 600));
+}
 
 async function verifyManagerAndActorRecovery() {
   const managerPage = await browser.newPage({ viewport: { width: 960, height: 540 } });
@@ -387,6 +625,8 @@ try {
     await verifyManagerAndActorRecovery();
   } else if (process.env.HEIST_POLICE_ONLY === '1') {
     await verifyPoliceCombatAndRecycle();
+  } else if (VEHICLE_ONLY) {
+    await verifyEscapeVehicleCheckpoint();
   } else {
   markInputOnlyPhase('page-load');
   await page.goto(`http://localhost:${PORT}/heist.html?preview=1&checkpoint=safehouse`, { waitUntil: 'load' });
@@ -1051,18 +1291,11 @@ try {
   check('the drive opens on the first instruction rather than a stale caption',
     routeLabel === plan[0].label, String(routeLabel));
 
-  /* Real throttle: prove the key reaches the car, then step the physics at a
-   * fixed rate because this rasteriser cannot render fast enough to measure it. */
-  await page.mouse.click(640, 400);
-  await page.keyboard.down('KeyW');
-  await page.waitForTimeout(150);
-  const inputState = await page.evaluate(() => window.__heistDebug.inputState());
-  const drive = await page.evaluate(() => window.__heistDebug.simulateDriving(4));
-  await page.keyboard.up('KeyW');
-  check('real throttle input reaches the escape car and it accelerates like a car',
-    inputState.keys.includes('KeyW') && inputState.driving
-      && drive.ok && drive.mph >= 45,
-    JSON.stringify({ keys: inputState.keys, mph: drive.mph?.toFixed?.(1) }));
+  /* Owner: "I would like the car to be able to go a little bit faster, so
+   * like at least 90" and "engine sounds are bad." Measure both claims in the
+   * live checkpoint: real W/A/Space input drives the same GroundVehicle and
+   * the returned mix comes from AudioEngine's active loop handles. */
+  await measureEscapeVehicle(page);
   await shot('09-player-driving');
 
   /* ---- owner note: "do blocked roads so you just have to stay on the road" ---- */

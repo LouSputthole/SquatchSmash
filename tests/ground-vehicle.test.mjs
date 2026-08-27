@@ -70,6 +70,22 @@ test('vehicle damage changes handling and survives checkpoint restore', () => {
  * steady, 89.0 within the seven seconds this test allows.
  */
 const MPH_PER_MS = 2.23694;
+const ESCAPE_STEP = 1 / 120;
+
+function accelerateEscapeCar(targetMph, maxSeconds = 20) {
+  const car = new GroundVehicle(HEIST_ESCAPE_VEHICLE_CONFIG);
+  car.setInput({ throttle: 1 });
+  let steps = 0;
+  let distance = 0;
+  while (car.speed * MPH_PER_MS < targetMph && steps * ESCAPE_STEP < maxSeconds) {
+    const beforeX = car.x;
+    const beforeZ = car.z;
+    car.step(ESCAPE_STEP);
+    distance += Math.hypot(car.x - beforeX, car.z - beforeZ);
+    steps++;
+  }
+  return { car, seconds: steps * ESCAPE_STEP, distance };
+}
 
 test('THE TAKE escape car reaches a cinematic road speed without losing fixed-step control', () => {
   const topMph = HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed * MPH_PER_MS;
@@ -91,4 +107,67 @@ test('THE TAKE escape car reaches a cinematic road speed without losing fixed-st
     `only reached ${(car.speed * MPH_PER_MS).toFixed(1)} mph in seven seconds -- `
     + 'raising the clamp without lowering drag looks like this');
   assert.ok(car.speed <= HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed);
+});
+
+test('THE TAKE escape-car acceleration and steady top speed stay inside the measured envelope', () => {
+  /* These are the concrete version of the owner's *"at least 90"*. A clamp
+   * can be green while drag quietly keeps the car at 65 mph, so this contract
+   * measures both when the road speed arrives and where the drivetrain really
+   * settles. The same 120 Hz GroundVehicle is used by the browser scene. */
+  const sixty = accelerateEscapeCar(60);
+  const ninety = accelerateEscapeCar(90);
+  const top = accelerateEscapeCar(HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed * MPH_PER_MS);
+
+  assert.ok(sixty.seconds >= 2.75 && sixty.seconds <= 2.9,
+    `60 mph arrived in ${sixty.seconds.toFixed(3)} s`);
+  assert.ok(sixty.distance >= 38 && sixty.distance <= 41,
+    `60 mph took ${sixty.distance.toFixed(2)} m`);
+  assert.ok(ninety.seconds >= 7.5 && ninety.seconds <= 7.7,
+    `90 mph arrived in ${ninety.seconds.toFixed(3)} s`);
+  assert.ok(ninety.distance >= 208 && ninety.distance <= 215,
+    `90 mph took ${ninety.distance.toFixed(2)} m`);
+  assert.ok(top.seconds >= 9.6 && top.seconds <= 9.9,
+    `the 91.7 mph clamp arrived in ${top.seconds.toFixed(3)} s`);
+  assert.ok(Math.abs(top.car.speed * MPH_PER_MS - 91.71454) < 0.001,
+    `steady top speed is ${(top.car.speed * MPH_PER_MS).toFixed(5)} mph`);
+});
+
+test('THE TAKE escape car stops from a representative 60 mph without a hidden brake delay', () => {
+  const { car } = accelerateEscapeCar(60);
+  const startX = car.x;
+  const startZ = car.z;
+  car.setInput({ throttle: 0, brake: 1 });
+  let steps = 0;
+  while (car.speed > 0 && steps < 120 * 5) {
+    car.step(ESCAPE_STEP);
+    steps++;
+  }
+  const seconds = steps * ESCAPE_STEP;
+  const distance = Math.hypot(car.x - startX, car.z - startZ);
+
+  assert.ok(seconds >= 1.55 && seconds <= 1.75,
+    `full braking from 60 mph took ${seconds.toFixed(3)} s`);
+  assert.ok(distance >= 21.5 && distance <= 24.5,
+    `full braking from 60 mph took ${distance.toFixed(2)} m`);
+});
+
+test('THE TAKE escape car answers a quarter-second steering input at 60 mph', () => {
+  /* A whole second of full lock is not a lane change; it is an authored city
+   * corner. A quarter-second press is the useful response sample for whether
+   * the player can place the car without waiting on the steering state. */
+  const { car } = accelerateEscapeCar(60);
+  const startX = car.x;
+  const startZ = car.z;
+  const startHeading = car.heading;
+  car.setInput({ throttle: 1, steer: 1 });
+  for (let step = 0; step < 30; step++) car.step(ESCAPE_STEP);
+  const yawDegrees = Math.abs(car.heading - startHeading) * 180 / Math.PI;
+  const distance = Math.hypot(car.x - startX, car.z - startZ);
+
+  assert.ok(yawDegrees >= 33 && yawDegrees <= 38,
+    `quarter-second full steer produced ${yawDegrees.toFixed(2)} degrees of yaw`);
+  assert.ok(distance >= 6.4 && distance <= 7.1,
+    `quarter-second steering sample travelled ${distance.toFixed(2)} m`);
+  assert.ok(car.steerAngle > 0.25,
+    `steering only reached ${car.steerAngle.toFixed(3)} rad`);
 });
