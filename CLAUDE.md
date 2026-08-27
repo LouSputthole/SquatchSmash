@@ -43,6 +43,23 @@ Two of those regenerate rather than merely check: change a line and run
 `npm run vo:<scene>`, then `npm run audio:todo` and `npm run voice:needed`,
 or their `:check` twins fail on drift.
 
+**`certify:debt-ratchet` compares against the PREVIOUS PUSH, not a fixed
+line.** CI passes `--trusted-ref ${{ github.event.before }}`, falling back to
+`HEAD^`. Two consequences worth knowing before you spend an evening on it:
+
+- It passes locally and fails in CI on the same commit, because locally there
+  is no trusted ref at all — the tool says so (*"local mode; CI must pass
+  --trusted-ref"*). To reproduce what CI will do, run
+  `node tools/certification-debt-ratchet.mjs --trusted-ref $(git rev-parse HEAD)`
+  BEFORE committing.
+- Raising the checked-in ceiling by hand fails **exactly one push** — the one
+  that raises it — and passes from then on, because the next push compares a
+  raised baseline against a raised baseline. It is *not* a permanent red. I
+  claimed it was, sent an agent after it on that premise, and a commit message
+  on `main` still says so; the run on `7d4d7515` disproves it, having gone
+  green with the raised ceiling still in place. Lowering the debt for real is
+  still the right answer — it is just not the *forced* one.
+
 **A gate that runs later in the job hides behind one that fails earlier.**
 When a Verify step goes red, everything after it in that job simply never
 ran — so fixing the first failure routinely reveals a second that was never
