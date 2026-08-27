@@ -7,7 +7,8 @@ This is the short card. `CLAUDE.md`, `docs/ENGINE-TRAPS.md`, and
   clock, handoff, or save-backed story changes. A green unit suite does not
   prove that the campaign route works.
 - Regenerate and check the dialogue, VO, take, recording, and audio ledgers
-  after authored line or cue changes. Do not hand-edit generated sheets.
+  after authored line or cue changes. Run the rendered-voice and radio evidence
+  checks as well; do not hand-edit generated sheets or transcription receipts.
 - Inspect geometry traversal-path churn. Naming or inserting a mesh can
   renumber later paths; never bless a large allowlist diff mechanically.
 - Read CI in execution order. A later gate may never have run when an earlier
@@ -19,4 +20,3 @@ This is the short card. `CLAUDE.md`, `docs/ENGINE-TRAPS.md`, and
   `debugUse()` handler call is not interaction proof.
 - Run the relevant scene verifier before the broad gates, then follow the
   authoritative order in `.github/workflows/verify.yml`.
-

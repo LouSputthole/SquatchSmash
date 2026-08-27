@@ -43,6 +43,8 @@ lint  check  check:flight  verify:geometry  verify:campaign-route
 certify:debt-ratchet         no new architecture/semantic/spatial debt
 verify:dialogue:check  check:line-presence  check:reachability
 check:rerecord  check:takes  voice:needed:check  audio:todo:check
+audit:rendered-voices:check  audit:radio:check
+audit:radio-loudness:check  audit:radio-content:check
 check:*-vo (seventeen per-scene cue ledgers)  check:mansion-sfx
 ```
 

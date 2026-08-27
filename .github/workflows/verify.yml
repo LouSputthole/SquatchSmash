@@ -16,6 +16,7 @@
 #   - npm run verify:framing  camera framing, blocking, allowlisted exceptions
 #   - npm run verify:dialogue:check / check:line-presence / check:rerecord
 #   - npm run check:takes   recorded mp3s still say what the script says
+#   - rendered-voice + radio audit checks  hash/text/decode/transcript evidence
 #   - npm run voice:needed:check / audio:todo:check  booth sheets in step
 #   - the sixteen per-scene cue ledgers (check:*-vo, check:mansion-sfx)
 #   - npm run verify:boot-failure-surfaces      cheap browser gate, all 20 staged pages
@@ -193,6 +194,15 @@ jobs:
       # tell. See tools/take-ledger.mjs.
       - name: Recorded takes match the script
         run: npm run check:takes
+
+      - name: Rendered voice evidence
+        run: npm run audit:rendered-voices:check
+
+      - name: Radio audit evidence
+        run: |
+          npm run audit:radio:check
+          npm run audit:radio-loudness:check
+          npm run audit:radio-content:check
 
       - name: Booth sheets match the manifest
         run: |
