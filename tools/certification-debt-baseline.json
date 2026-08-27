@@ -9525,26 +9525,18 @@
         },
         {
           "id": "luxury-apartment:property",
-          "status": "pass",
+          "status": "intentional_na",
           "evidence": {
-            "actorDiscoveredIds": [
-              "luxury.poker.patron.east",
-              "luxury.poker.patron.north",
-              "luxury.poker.patron.west"
-            ],
+            "actorDiscoveredIds": [],
             "actorExpectation": {
-              "disposition": "REQUIRED",
-              "minimum": 3,
-              "reason": "The luxury flat visibly seats its three civilian poker patrons."
+              "disposition": "INTENTIONAL_NA",
+              "minimum": 0,
+              "reason": "The luxury flat is his alone: the poker table is furniture and nobody sits at it."
             },
-            "actorObservedIds": [
-              "luxury.poker.patron.east",
-              "luxury.poker.patron.north",
-              "luxury.poker.patron.west"
-            ],
+            "actorObservedIds": [],
             "actorVisibilityPolicy": "rendered_only",
-            "actorsDiscovered": 3,
-            "actorsObserved": 3,
+            "actorsDiscovered": 0,
+            "actorsObserved": 0,
             "built": true,
             "findings": 0,
             "findingsScanned": true,

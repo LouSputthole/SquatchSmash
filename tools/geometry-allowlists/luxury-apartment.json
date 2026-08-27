@@ -6,7 +6,7 @@
     {
       "state": "property",
       "overlap": 0,
-      "checkSupport": 1517,
+      "checkSupport": 1463,
       "sources": [
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-architecture#0/name=luxury-elevator#0",
@@ -1435,24 +1435,6 @@
           "scope": "direct",
           "overlap": 0,
           "checkSupport": 1
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-furnishings#0/name=luxury-game-zone#0/name=luxury-poker-patron-east#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 18
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-furnishings#0/name=luxury-game-zone#0/name=luxury-poker-patron-north#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 18
-        },
-        {
-          "sourceId": "root:luxury-apartment-property/name=luxury-furnishings#0/name=luxury-game-zone#0/name=luxury-poker-patron-west#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 18
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-furnishings#0/name=luxury-panelled-fridge#0/type=Group#0/name=fridgeDoor#0/name=luxury-fridge-art-fridge-magnet#0",

@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { ensureDomShim, ensureThreeShim } from '../tools/three-shim.mjs';
-import { collectActors } from '../src/core/staging.js';
 import { readSpatialPrimitive } from '../src/core/spatial-contract.js';
 
 ensureDomShim();
@@ -65,14 +64,6 @@ function penetrationDepth(first, second) {
     Math.min(first.max.z, second.max.z) - Math.max(first.min.z, second.min.z),
   ];
   return depths.every((depth) => depth > 0) ? Math.min(...depths) : 0;
-}
-
-function meshBounds(root) {
-  const bounds = [];
-  root.traverse((object) => {
-    if (object.isMesh && object.visible !== false) bounds.push(new THREE.Box3().setFromObject(object));
-  });
-  return bounds;
 }
 
 test('luxury world gives every imported and new art asset a real semantic placement', async () => {
@@ -212,37 +203,6 @@ test('every Luxury collider declares stable authored spatial meaning', async () 
   world.dispose();
 });
 
-test('the three poker patrons are seated civilian actors with rendered landmarks', async () => {
-  const { world } = await build();
-  world.root.updateMatrixWorld(true);
-  const actors = collectActors(world.root, THREE);
-  assert.deepEqual(actors.map(({ id }) => id).sort(), [
-    'luxury.poker.patron.east',
-    'luxury.poker.patron.north',
-    'luxury.poker.patron.west',
-  ]);
-  for (const actor of actors) {
-    assert.equal(actor.actor.role, 'civilian');
-    assert.equal(actor.posture, 'sit');
-    const id = actor.id.split('.').at(-1);
-    assert.equal(actor.seat, `luxury-poker-seat-${id}-seat`);
-    const patron = world.poker.patrons.find((entry) => entry.id === id);
-    const expectedEye = new THREE.Vector3().setFromMatrixPosition(patron.eye.matrixWorld).toArray();
-    const expectedHip = new THREE.Vector3().setFromMatrixPosition(patron.hip.matrixWorld).toArray();
-    assert.deepEqual(actor.eye, expectedEye, `${id} eye was replaced by a standing-height guess`);
-    assert.deepEqual(actor.hip, expectedHip, `${id} hip was replaced by a standing-height guess`);
-    assert.ok(actor.eye[1] > actor.hip[1] + 0.7, `${id} seated landmarks are inverted`);
-
-    const seat = colliderNamed(world, `luxury-poker-seat-${id}-collider`);
-    const spatial = readSpatialPrimitive(seat);
-    assert.equal(spatial.kind, 'seat');
-    assert.deepEqual(spatial.intentionalOverlapWith, [actor.id]);
-    assert.equal(seat.containsPoint(new THREE.Vector3(...actor.hip)), true,
-      `${id} no longer occupies the chair whose explicit overlap names him`);
-  }
-  world.dispose();
-});
-
 test('every authored pose exits with at least 0.30m of collision clearance', async () => {
   const { world } = await build();
   for (const [id, authoredPose] of Object.entries(world.poses)) {
@@ -361,8 +321,9 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
     'the complete cabinet screen remains visible');
   assert.ok(Math.max(...projectedArcade.slice(1).map(({ x }) => Math.abs(x))) > 0.48,
     'the cabinet screen fills the seated view instead of appearing distant');
+  /* Four chairs and nobody in them: tests/luxury-apartment-poker-table.test.mjs
+   * owns the emptiness. This case still owns the furniture. */
   assert.equal(world.gameStations.poker.seats.length, 4);
-  assert.equal(world.poker.patrons.length, 3, 'the poker table is visibly occupied');
   for (const seat of world.gameStations.poker.seats) {
     assert.ok(colliderNamed(world, `${seat.name}-collider`), seat.name);
   }
@@ -370,45 +331,6 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
   const railRadius = world.poker.rail.geometry.parameters.tube;
   assert.ok(world.poker.rail.position.y - railRadius < feltTop);
   assert.ok(world.poker.rail.position.y > feltTop, 'poker trim nests into the felt without floating');
-  const tableParts = [
-    new THREE.Box3().setFromObject(world.poker.felt),
-    new THREE.Box3().setFromObject(world.poker.rail),
-  ];
-  for (const { id, person } of world.poker.patrons) {
-    const seat = world.poker.seats.find((candidate) => candidate.name === `luxury-poker-seat-${id}`);
-    const cushion = seat?.getObjectByName(`luxury-poker-seat-${id}-seat`);
-    assert.ok(seat && cushion, `${id} has an assigned poker chair`);
-    assert.equal(
-      person.group.userData.geometryGate.assemblyId,
-      seat.userData.geometryGate.assemblyId,
-      `${id} actor and chair own only their intentional seated contact`,
-    );
-    assert.notEqual(
-      person.group.userData.geometryGate.assemblyId,
-      world.poker.group.userData.geometryGate.assemblyId,
-      `${id} remains independent from the table geometry`,
-    );
-    const cushionBounds = new THREE.Box3().setFromObject(cushion);
-    const hip = person.legL.getWorldPosition(new THREE.Vector3());
-    assert.ok(
-      hip.x >= cushionBounds.min.x && hip.x <= cushionBounds.max.x
-        && hip.z >= cushionBounds.min.z && hip.z <= cushionBounds.max.z,
-      `${id} hips are over the chair cushion`,
-    );
-    assert.ok(Math.abs(hip.y - cushionBounds.max.y) <= 0.08, `${id} hips meet the cushion height`);
-    for (const actorPart of meshBounds(person.group)) {
-      for (const tablePart of tableParts) {
-        assert.equal(penetrationDepth(actorPart, tablePart), 0, `${id} body stays clear of felt and rail`);
-      }
-    }
-  }
-  const patronBounds = world.poker.patrons.map(({ person }) => new THREE.Box3().setFromObject(person.group));
-  for (let i = 0; i < patronBounds.length; i++) {
-    for (let j = i + 1; j < patronBounds.length; j++) {
-      assert.equal(penetrationDepth(patronBounds[i], patronBounds[j]), 0, `poker patrons ${i}/${j} do not overlap`);
-    }
-  }
-
   assert.equal(world.deskChair.group.userData.workstationMaterial, 'dark');
   assert.equal(world.deskZyn.group.userData.desktopHalf, 'front');
   const desktopBounds = new THREE.Box3().setFromObject(world.desk.group.children[0]);

@@ -450,7 +450,17 @@ try {
         zyn: worldPoint(home.deskZyn?.group),
       },
       pokerPolish: {
+        /* ZERO, and the gate holds it at zero. Owner note 2026-08-26: the three
+         * civilian patrons who used to hold the north, west and east chairs are
+         * gone, and the table stays as furniture. */
         patrons: home.poker?.patrons?.length ?? 0,
+        actors: (() => {
+          let seated = 0;
+          home.root.traverse((object) => {
+            if (object.userData?.actor) seated += 1;
+          });
+          return seated;
+        })(),
         seats: home.poker?.seats?.length ?? 0,
         railPresent: Boolean(home.poker?.rail),
         feltPresent: Boolean(home.poker?.felt),
@@ -492,7 +502,7 @@ try {
       pcLaunchById: typeof runtime.pcArcade.launchById === 'function',
       cabinetApps: runtime.cabinetArcade.apps.map(({ id }) => id),
       cabinetStation: Boolean(home.gameStations.arcade?.screen === home.screens.arcade),
-      blackjack: Boolean(runtime.blackjack && home.gameStations.poker),
+      blackjackMounted: 'blackjack' in runtime,
       darts: Boolean(runtime.darts && home.gameStations.darts),
       campaignAssigned: Boolean(runtime.campaign),
     };
@@ -698,7 +708,8 @@ try {
     authored.workstation.chairMaterial === 'dark'
       && authored.workstation.zynDesktopHalf === 'front'
       && authored.workstation.zyn.y > authored.loftFloorY
-      && authored.pokerPolish.patrons === 3
+      && authored.pokerPolish.patrons === 0
+      && authored.pokerPolish.actors === 0
       && authored.pokerPolish.seats === 4
       && authored.pokerPolish.railPresent
       && authored.pokerPolish.feltPresent
@@ -740,10 +751,10 @@ try {
       && authored.appLookup.every(Boolean)
       && authored.pcLaunchById,
     JSON.stringify({ apps: authored.pcApps }));
-  check('the cabinet, blackjack table, and darts board are real playable stations',
+  check('the cabinet and darts board are real playable stations, and no table game is mounted',
     authored.cabinetStation
       && JSON.stringify(sorted(authored.cabinetApps)) === JSON.stringify(sorted(EXPECTED_PC_APPS))
-      && authored.blackjack
+      && !authored.blackjackMounted
       && authored.darts
       && ['pc', 'arcade', 'poker', 'darts', 'console']
         .every((id) => authored.gameStations.includes(id)),
@@ -1508,11 +1519,13 @@ try {
       && parity.substances.state?.shroomsTaken
       && parity.substances.state?.whiteLineConsumed,
     JSON.stringify(parity?.substances));
-  check('the physical cabinet and both table games execute deterministic actions',
+  check('the cabinet and the dartboard execute deterministic actions, and poker refuses',
     parity?.games?.cabinet?.launched
       && parity.games.cabinet.app === 'smash'
-      && parity.games.blackjack?.opened
-      && parity.games.blackjack.bet > 0
+      && parity.games.poker?.played === false
+      && parity.games.poker.posture === null
+      && typeof parity.games.poker?.line === 'string'
+      && parity.games.poker.line.length > 0
       && parity.games.darts?.entered
       && parity.games.darts.throw?.score > 0,
     JSON.stringify(parity?.games));

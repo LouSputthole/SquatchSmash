@@ -15,9 +15,7 @@ import * as P from '../world/props.js';
 import { resolveGear } from '../world/gear.js';
 import { WALL_SLOTS, BATH_SLOTS } from '../world/apartment.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
-import { Person } from '../core/person.js';
 import { markSemanticPlacement } from '../core/semantic-placement.js';
-import { setActorLandmarks } from '../core/staging.js';
 import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { buildInteractiveBong } from '../world/bong.js';
 import { makeAnswerMachine } from '../world/dressing.js';
@@ -645,6 +643,7 @@ export async function buildLuxuryApartment(ctx = {}) {
     cityRoofFeatures: shell.cityRoofFeatures,
     cityGroundY: shell.cityGroundY,
     cityLowestBuildingY: shell.cityLowestBuildingY,
+    /* Zero, and it stays zero: the table is furniture, not a table game. */
     pokerPatrons: games.poker.patrons.length,
     bathroomFloorY: MAIN_Y,
   });
@@ -2479,12 +2478,10 @@ function buildGameZone({ root, M, colliders }) {
       `${name}-collider`,
       0,
       'luxury-minigame-collision:poker-seat',
-      {
-        kind: 'seat',
-        ...(id === 'player'
-          ? {}
-          : { intentionalOverlapWith: [`luxury.poker.patron.${id}`] }),
-      },
+      /* Four empty chairs. They used to carry `intentionalOverlapWith` for the
+       * three seated patrons; with the cast gone nothing overlaps a cushion,
+       * so the plain seat primitive is the honest declaration again. */
+      'seat',
     );
     return seat;
   };
@@ -2497,54 +2494,20 @@ function buildGameZone({ root, M, colliders }) {
     makePokerSeat('east', px + 1.57, pz, -Math.PI / 2),
   ];
 
-  const makePokerPatron = (id, x, z, yaw, palette) => {
-    const person = new Person({ ...palette, bandana: null });
-    person.group.name = `luxury-poker-patron-${id}`;
-    person.group.position.set(x, 0.02, z);
-    person.group.rotation.y = yaw;
-    person.group.scale.setScalar(0.76);
-    person.body.position.y = -0.50;
-    person.legL.position.y = 0.78;
-    person.legR.position.y = 0.78;
-    person.legL.rotation.x = -1.16;
-    person.legR.rotation.x = -1.16;
-    // A more deeply folded elbow puts hands above the felt instead of through
-    // its edge. The actor and assigned chair share ownership only for genuine
-    // hip/cushion and leg/chair contact; the table remains an independent
-    // assembly so any future torso/hand penetration still fails geometry QA.
-    person.armL.rotation.x = -1.35;
-    person.armR.rotation.x = -1.35;
-    person.group.userData.activity = 'seated-poker';
-    /* This is real staged cast, not decorative furniture. Anchor the gate to
-     * the rendered eye line and folded hip rather than applying the standing
-     * Person defaults to a body scaled to 76% and dropped into a chair. */
-    const eye = group(`luxury-poker-patron-${id}-eye-landmark`);
-    eye.position.set(0, 0.04, 0.23);
-    person.head.add(eye);
-    const hip = group(`luxury-poker-patron-${id}-hip-landmark`);
-    hip.position.set(0, person.legL.position.y, 0);
-    person.group.add(hip);
-    person.markAs({
-      id: `luxury.poker.patron.${id}`,
-      role: 'civilian',
-      posture: 'sit',
-      seat: `luxury-poker-seat-${id}-seat`,
-    });
-    setActorLandmarks(person.group, { eye, hip });
-    gameRoot.add(own(person.group, `luxury-poker-seated:${id}`, { checkSupport: false }));
-    return { id, person, eye, hip, armBase: person.armR.rotation.x };
-  };
-  const pokerPatrons = [
-    makePokerPatron('north', px, pokerNorthZ, 0, {
-      shirt: 0x3f4652, shirtDark: 0x242a33, pants: 0x20242b, skin: 0xc58f68, hair: 0x261b16,
-    }),
-    makePokerPatron('west', px - 1.57, pz, Math.PI / 2, {
-      shirt: 0x6b3f36, shirtDark: 0x3c2622, pants: 0x252b34, skin: 0xe0ad82, hair: 0x5a3923,
-    }),
-    makePokerPatron('east', px + 1.57, pz, -Math.PI / 2, {
-      shirt: 0x31504a, shirtDark: 0x1c302d, pants: 0x20252b, skin: 0x9f684e, hair: 0x171312,
-    }),
-  ];
+  /* NOBODY SITS HERE. Owner playtest note, 2026-08-26: "Luxury apartment, who
+   * are these guys at my poker table? Get rid of them. Just leave the poker
+   * table for clearly fun when people are over."
+   *
+   * Three civilian actors -- luxury.poker.patron.{north,west,east} -- 0.76-scale
+   * Person rigs, 1.57 m out from the felt centre on three sides -- used to hold
+   * those chairs. They were the only cast this flat had, and taking them out
+   * takes the flat's whole cast with them (see tools/geometry-scenes.mjs).
+   *
+   * The table, its rail, the twenty-four chips and all four chairs stay: a man
+   * who owns a poker table is the point, and an empty one is the joke. Measured
+   * on the built world afterwards, every cushion top sits at y=0.560 and the
+   * next thing above it within a 0.30 m plan radius is the CEILING, 6.240 m up.
+   */
 
   const dartsGroup = group('luxury-darts-station');
   const dartX = -6.78;
@@ -2609,7 +2572,7 @@ function buildGameZone({ root, M, colliders }) {
   return {
     root: gameRoot,
     arcade: { group: arcadeGroup, target: arcadeTarget, screen: arcadeScreen, marquee, seat: arcadeSeat },
-    poker: { group: pokerGroup, target: pokerTarget, chips, seats: pokerSeats, patrons: pokerPatrons, rail: pokerRail, felt: pokerTop },
+    poker: { group: pokerGroup, target: pokerTarget, chips, seats: pokerSeats, patrons: [], rail: pokerRail, felt: pokerTop },
     darts: {
       group: dartsGroup,
       target: dartsTarget,
@@ -2624,14 +2587,10 @@ function buildGameZone({ root, M, colliders }) {
       radius: 0.43,
     },
     update(_dt, elapsed) {
+      /* The arcade marquee is the only thing in this zone that still moves.
+       * The breathing/head-turn/arm-drift loop belonged to the three poker
+       * patrons and went out with them. */
       arcadeMarqueeMaterial.emissiveIntensity = 1.08 + Math.sin(elapsed * 2.1) * 0.20;
-      for (let index = 0; index < pokerPatrons.length; index++) {
-        const { person, armBase } = pokerPatrons[index];
-        const breathe = 1 + Math.sin(elapsed * 1.7 + index) * 0.012;
-        person.torso.scale.set(breathe, 1, breathe);
-        person.head.rotation.y = Math.sin(elapsed * 0.34 + index * 1.7) * 0.16;
-        person.armR.rotation.x = armBase + Math.sin(elapsed * 0.62 + index * 2.1) * 0.08;
-      }
     },
   };
 }

@@ -59,6 +59,7 @@ const TEST_MODULES = [
   './cabin-body-cleanup.test.mjs',
   './cabin-outdoor-world.test.mjs',
   './luxury-apartment-layout.test.mjs',
+  './luxury-apartment-poker-table.test.mjs',
   './luxury-apartment-runtime.test.mjs',
   './luxury-apartment-world.test.mjs',
   './combat-core.test.mjs',
