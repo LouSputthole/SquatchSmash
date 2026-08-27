@@ -96,7 +96,8 @@ const OBJ_ANSWER = 'Answer';
 const KEYS_THREE = '1 · 2 · 3';
 const OBJ_ANSWER_LOU = 'Answer Lou';
 const KEYS_TWO = '1 or 2';
-const OBJ_HAND = 'Hold out your hand';
+const OBJ_HAND = 'Hold out your hands';
+const OBJ_TAKE_SHOT = 'Take the shot';
 const KEYS_PRESS = 'Space or Click';
 const OBJ_PRESS = 'Press on';
 const OBJ_REPEAT = 'Repeat the words';
@@ -255,7 +256,14 @@ export const PHASES = Object.freeze({
   }),
   cabin_door: phase('cabin_door', {
     objective: OBJ_INSIDE, camera: 'follow', advance: 'player', canMove: true,
-    beat: 'IN-260', exits: ['ceremony'],
+    beat: 'IN-260', exits: ['cabin_settle'],
+  }),
+  cabin_settle: phase('cabin_settle', {
+    /* The moving group is the content. This timed event watchdog is not a
+     * hidden delay: production leaves as soon as Lou, Rippin and Booski reach
+     * their measured marks; timeout only guards a malformed route. */
+    camera: 'follow', advance: 'event', timeout: 18,
+    exits: ['ceremony'],
   }),
 
   /* ---- ACT FOUR ---- */
@@ -334,10 +342,22 @@ export const PHASES = Object.freeze({
 
   /* ---- ACT SIX ---- */
   room: phase('room', {
-    camera: 'room_wide', advance: 'timer', timeout: 22, beat: 'IN-500', exits: ['room_aside'],
+    /* The delivered salute queue owns this beat. Seventy-five seconds is an
+     * emergency drain for a missing callback, not a fixed hold after speech. */
+    camera: 'room_wide', advance: 'event', timeout: 75, beat: 'IN-500', exits: ['room_aside'],
   }),
   room_aside: phase('room_aside', {
-    camera: 'room_wide', advance: 'event', timeout: 40, beat: 'IN-520', exits: ['pullback'],
+    camera: 'room_wide', advance: 'event', timeout: 40, beat: 'IN-520', exits: ['shot_offer'],
+  }),
+  shot_offer: phase('shot_offer', {
+    objective: OBJ_TAKE_SHOT, keys: KEYS_PRESS,
+    camera: 'ritual', advance: 'event', timeout: 10, exits: ['shot_toast'],
+  }),
+  shot_toast: phase('shot_toast', {
+    camera: 'ritual', advance: 'event', timeout: 5, exits: ['shot_drink'],
+  }),
+  shot_drink: phase('shot_drink', {
+    camera: 'ritual', advance: 'timer', timeout: 1.8, exits: ['pullback'],
   }),
   pullback: phase('pullback', {
     camera: 'pullback', advance: 'timer', timeout: 14, beat: 'IN-540', exits: ['complete'],

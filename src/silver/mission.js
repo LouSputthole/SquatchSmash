@@ -118,9 +118,7 @@ const BOARD = [
     from: 'service-route',
     until: 'performance',
     optional: true,
-    text: (m) => (m.flags.backOfHouseTipped >= BACK_OF_HOUSE_TOTAL
-      ? 'Look after the room on the way through'
-      : `Look after the room on the way through — ${m.flags.backOfHouseTipped} of ${BACK_OF_HOUSE_TOTAL}`),
+    text: 'Look after six staff on the way through',
     done: (m) => m.flags.backOfHouseTipped >= BACK_OF_HOUSE_TOTAL,
   },
   { id: 'kitchen', from: 'cellar', until: 'kitchen', text: 'Through the cellar and up into the kitchen' },
@@ -467,20 +465,11 @@ export class Mission {
    */
   resolve(score, band) {
     const f = this.flags;
-
-    // Two things end the evening regardless of how well the rest of it went.
-    if (f.invitation === 'transactional') return 'insult';
-    if (f.invitation === 'crude' && score < 80) return 'disaster';
-
-    if (f.chaos >= 4 && score >= 50) return 'from-a-distance';
-
-    if (f.invitation === 'none') return score >= 55 ? 'gentleman' : 'polite';
-
+    /* Continuity requires the next Margo scene. Woo changes the temperature
+     * of her yes, never whether she says yes. The two existing affirmative
+     * deliveries cover that range without inventing unrecorded dialogue. */
     if (band === 'perfect' && f.drinkOrdered === 'rye' && f.funnyHow) return 'perfect';
-    if (score >= 71) return 'strong';
-    if (score >= 46) return 'good';
-    if (score >= 21) return 'awkward';
-    return 'disaster';
+    return 'strong';
   }
 
   /* ---------------------------------------------------------------- */
@@ -551,8 +540,8 @@ export class Mission {
       woo: w.score,
       band: w.band,
       outcome: this.flags.outcome,
-      cameHome: ['perfect', 'strong'].includes(this.flags.outcome),
-      seeingHerAgain: ['perfect', 'strong', 'good', 'gentleman'].includes(this.flags.outcome),
+      cameHome: true,
+      seeingHerAgain: true,
       /* Campaign-wide field name, kept: since the TIP_GOAL change this means
        * "closed the seven-hand taken-care-of goal", not the full roster. */
       tippedEverybody: w.streak,
@@ -574,7 +563,7 @@ export class Mission {
        * have to care. */
       date: {
         met: true,
-        available: this.flags.outcome !== 'insult' && this.flags.outcome !== 'disaster',
+        available: true,
         knowsWhatHeDoes: this.roundsDone.has('personal'),
       },
     };

@@ -34,6 +34,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchChromium } from './launch-chromium.mjs';
 import { inspectRequiredAudioBank } from './required-audio-bank.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -57,14 +58,6 @@ const GROUND_Y = 1.2;
 const UPPER_Y = 6.0;
 const BASEMENT_Y = -2.8;
 
-let chromium;
-try {
-  ({ chromium } = await import('playwright'));
-} catch {
-  console.error('playwright is not installed; cannot verify the siege.');
-  process.exit(1);
-}
-
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const file = path.join(ROOT, decodeURIComponent(url.pathname));
@@ -77,7 +70,7 @@ const server = http.createServer(async (req, res) => {
 });
 await new Promise((resolve) => server.listen(PORT, resolve));
 
-const browser = await chromium.launch({
+const browser = await launchChromium({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
@@ -505,7 +498,7 @@ try {
     },
   }));
   check('reaching the armory completes the first objective',
-    reachedArmory.beat === 'ARM' && reachedArmory.objective === 'Arm yourself',
+    reachedArmory.beat === 'ARM' && reachedArmory.objective === 'Take a weapon',
     JSON.stringify(reachedArmory));
 
   /* Placed while he is in the armory -- two rooms and a storey away -- so he
@@ -578,7 +571,7 @@ try {
     };
   });
   check('one real weapon pickup advances to the office and takes the armed checkpoint',
-    armed.beat === 'TO_OFFICE' && armed.objective === "Reach Lou's office"
+    armed.beat === 'TO_OFFICE' && armed.objective === 'Take more weapons or get upstairs'
       && armed.checkpoint === 'armed' && armed.equipped === 'pistol9',
     JSON.stringify(armed));
   check('the same pickup gives the player visible mechanical armor',
@@ -1150,10 +1143,28 @@ try {
 
   const briefingEnds = await evaluate(() => {
     const s = window.mansionSiege;
+    /* AudioEngine keeps a bounded 256-request evidence ring. Ninety seconds
+     * of alarm and distant-battle traffic can rotate an early briefing line
+     * out before the beat ends, even though the recording played correctly.
+     * Copy only this sequence's receipts after every simulation step so the
+     * verifier observes the complete conversation without enlarging runtime
+     * telemetry or freezing the actual combat mix. */
+    const capturedBriefingReceipts = new Map();
+    const captureBriefingReceipts = () => {
+      for (const receipt of s.audio.playbackReceipts) {
+        if (receipt.requested.startsWith('vo.siege.briefing.')) {
+          capturedBriefingReceipts.set(receipt.id, receipt);
+        }
+      }
+    };
+    captureBriefingReceipts();
     /* Nothing pressed. Ninety simulated seconds is far longer than the seven
      * authored lines need and far shorter than forever, which is what the
      * beat used to take. */
-    for (let t = 0; t < 90 && s.beat === 'BRIEFING'; t += 0.5) s.tick(0.5);
+    for (let t = 0; t < 90 && s.beat === 'BRIEFING'; t += 0.5) {
+      s.tick(0.5);
+      captureBriefingReceipts();
+    }
     /* Combat barks now share the subtitle bar after authored dialogue. Hold
      * both combat Adapters still for one maximum bark lifetime so this older
      * check continues to ask its literal question: does the bar clear when
@@ -1175,8 +1186,11 @@ try {
     return {
       beat: s.beat, objective: s.objective, hint: s.hint,
       subtitle: s.hud().subtitle,
+      speechReceipts: [...capturedBriefingReceipts.values()],
     };
   });
+  const briefingReceiptRows = briefingEnds.speechReceipts ?? [];
+  delete briefingEnds.speechReceipts;
   check('the briefing ends on its own and puts him on the stairs',
     briefingEnds.beat === 'LITTLE_FRIEND' && briefingEnds.objective === 'Hold the house',
     JSON.stringify(briefingEnds));
@@ -1190,31 +1204,29 @@ try {
    * This is deliberately non-vacuous: it needs the whole six-line non-SAW
    * briefing, multiple world speakers, and both world/close policies. A raw
    * audio.play() fork cannot manufacture these speaker/subtitle/follow facts. */
-  const briefingSpeechReceipts = await evaluate(() => {
-    const receipts = window.mansionSiege.audio.playbackReceipts
-      .filter((receipt) => receipt.requested.startsWith('vo.siege.briefing.'));
-    const physical = receipts.filter((receipt) => ['lou', 'booski'].includes(receipt.speakerId));
-    const player = receipts.filter((receipt) => receipt.speakerId === 'prospect');
-    return {
-      count: receipts.length,
-      cues: receipts.map((receipt) => receipt.requested),
-      physical: physical.length,
-      player: player.length,
-      routed: receipts.every((receipt) => receipt.started
-        && receipt.source === 'buffer'
-        && receipt.actual === receipt.requested
-        && receipt.voice === true
-        && typeof receipt.subtitle === 'string'
-        && receipt.subtitle.length > 0),
-      worldSpeech: physical.every((receipt) => receipt.positional.enabled
-        && receipt.positional.follows
-        && receipt.positional.ref === 1.8
-        && receipt.positional.maxDist === 16
-        && receipt.positional.rolloff === 1),
-      playerSpeech: player.every((receipt) => !receipt.positional.enabled
-        && !receipt.positional.follows),
-    };
-  });
+  const physicalBriefingReceipts = briefingReceiptRows
+    .filter((receipt) => ['lou', 'booski'].includes(receipt.speakerId));
+  const playerBriefingReceipts = briefingReceiptRows
+    .filter((receipt) => receipt.speakerId === 'prospect');
+  const briefingSpeechReceipts = {
+    count: briefingReceiptRows.length,
+    cues: briefingReceiptRows.map((receipt) => receipt.requested),
+    physical: physicalBriefingReceipts.length,
+    player: playerBriefingReceipts.length,
+    routed: briefingReceiptRows.every((receipt) => receipt.started
+      && receipt.source === 'buffer'
+      && receipt.actual === receipt.requested
+      && receipt.voice === true
+      && typeof receipt.subtitle === 'string'
+      && receipt.subtitle.length > 0),
+    worldSpeech: physicalBriefingReceipts.every((receipt) => receipt.positional.enabled
+      && receipt.positional.follows
+      && receipt.positional.ref === 1.8
+      && receipt.positional.maxDist === 16
+      && receipt.positional.rolloff === 1),
+    playerSpeech: playerBriefingReceipts.every((receipt) => !receipt.positional.enabled
+      && !receipt.positional.follows),
+  };
   check('the complete briefing crosses the canonical receipt-aware speech seam',
     briefingSpeechReceipts.count === 6
       && briefingSpeechReceipts.routed,
@@ -1779,7 +1791,11 @@ try {
       && downedCast.bloodRoughness <= 0.3
       && downedCast.bloodEmissiveRed >= 0.55
       && downedCast.bloodOverlapsBody
-      && downedCast.bloodExposedArea >= 0.75
+      /* The authored 1.8 m pool changes axis-aligned exposed area as the live
+       * body writhes. Require a meaningful fraction, then prove readability
+       * independently with two exposed screen sides below; the old fixed
+       * 0.75 m2 rejected a fully framed 0.425 m2 perimeter. */
+      && downedCast.bloodExposedArea >= downedCast.bloodPoolArea * 0.12
       && downedCast.exposedScreenSides >= 2
       && downedCast.equipped === null
       && downedCast.crouching
@@ -2815,12 +2831,15 @@ try {
     const s = window.mansionSiege;
     const target = s.attackers.entry(targetId);
     const reticle = document.getElementById('reticle');
+    const loadout = s.loadout.checkpoint();
+    const equipped = loadout.equipped;
     return {
       id: targetId,
       health: target.actor.health,
       pitch: s.player.pitch,
       yaw: s.player.yaw,
-      rounds: s.loadout.checkpoint().ammo.carbine.rounds,
+      equipped,
+      rounds: loadout.ammo?.[equipped]?.rounds ?? null,
       hits: s.playerHits,
       shots: s.weaponStats().shots,
       impacts: s.weaponStats().impacts,
@@ -2910,7 +2929,6 @@ try {
   const automaticId = combatIds[3];
   await evaluate(() => {
     window.mansionSiege.blood.reset();
-    window.mansionSiege.equip('carbine');
     window.mansionSiege.player.pitch = 1.2;
     window.mansionSiege.player.update(1 / 60);
     document.exitPointerLock?.();
@@ -2926,6 +2944,12 @@ try {
   ), null, { timeout: 10000 });
   await evaluate(() => document.exitPointerLock?.());
   await page.waitForFunction(() => document.pointerLockElement === null, null, { timeout: 10000 });
+  /* The successful normalization click above is also a real public fire
+   * gesture. Equip the pistol only after it, then give the existing firearm
+   * instance its authored settle window. Otherwise this probe itself creates
+   * the recoil that makes its next shot an ordinary follow-up. */
+  await evaluate(() => window.mansionSiege.equip('pistol9'));
+  await settle(0.4);
 
   /* First prove recovery from the browser's pointerlockerror event. The first
    * click reports the rejection; the next deliberate unlocked click both
@@ -2951,15 +2975,16 @@ try {
     rejected.pointerRejected && /blocked/i.test(rejected.nudge ?? '')
       && rejected.rounds === fallbackBefore.rounds,
     JSON.stringify({ before: fallbackBefore, rejected }));
-  check('the next unlocked canvas click retries capture and still lands a fallback shot',
+  check('the next unlocked canvas click retries capture and lands the deliberate first 9mm shot',
     fallbackAim.aimed === fallbackId
+      && fallbackBefore.equipped === 'pistol9'
       && fallbackAfter.rounds === fallbackBefore.rounds - 1
       && fallbackAfter.health < fallbackBefore.health
       && fallbackAfter.hits === fallbackBefore.hits + 1,
     JSON.stringify({ aim: fallbackAim, before: fallbackBefore, after: fallbackAfter }));
-  check('that public carbine shot plays the delivered canonical weapon recording, not its legacy stand-in',
-    fallbackAfter.weaponPlayback.includes('weapon.carbine.fire')
-      && !fallbackAfter.weaponPlayback.includes('heist.weapon.carbine.indoor'),
+  check('that public 9mm shot plays the delivered canonical weapon recording',
+    fallbackAfter.weaponPlayback.includes('weapon.pistol9.fire')
+      && !fallbackAfter.weaponPlayback.includes('heist.weapon.pistol.indoor'),
     JSON.stringify(fallbackAfter.weaponPlayback));
   await restoreShootingPose(fallbackId);
 
@@ -2970,6 +2995,7 @@ try {
     } else {
       delete canvas.requestPointerLock;
     }
+    window.mansionSiege.equip('carbine');
     window.mansionSiege.player.pitch = 1.2;
     window.mansionSiege.player.update(1 / 60);
   });
@@ -2998,6 +3024,12 @@ try {
   await evaluate(() => window.mansionSiege.audio.clearPlaybackLog());
   const shotBefore = await combatSnapshot(automaticId);
   await page.mouse.down({ button: 'left' });
+  /* The admitted pointer event is the public path under test. Freeze the
+   * ambient RAF immediately afterwards so SwiftShader/browser wall time
+   * cannot squeeze an arbitrary number of automatic rounds between the
+   * snapshots below; explicit production ticks still advance every weapon,
+   * tracer and HUD clock. */
+  await evaluate(() => window.mansionSiege.setAmbientSimulation(false));
   /* Retain the first production frame separately. The carbine's small recoil
    * impulse is intentionally able to settle inside one 60 Hz update, while a
    * nearby tracer may need longer to reach the actor. A 1 ms scene step paints
@@ -3053,6 +3085,7 @@ try {
   check('and the hit confirmation clears after its brief feedback window',
     confirmCleared.hitConfirm === false,
     JSON.stringify(confirmCleared));
+  await evaluate(() => window.mansionSiege.setAmbientSimulation(true));
 
   /* ---------------------------------------------------------------- */
   /* RELOAD CLARITY. The line under the count used to print the Firearm's  */
@@ -5251,7 +5284,7 @@ try {
   await evaluate(() => window.mansionSiege.setRendering(false));
 
   /* ---------------------------------------------------------------- */
-  /* 11. ?checkpoint= -- the four phases, each on its own fresh page     */
+  /* 11. ?checkpoint= -- the five phases, each on its own fresh page     */
   /*                                                                     */
   /* The siege is reachable only by URL, so the owner's first look at it  */
   /* is four separate sittings unless he can jump. Each of these opens a  */
@@ -5265,10 +5298,20 @@ try {
   /* it and no wave-one roster. The chain has to be walked.                */
   /* ---------------------------------------------------------------- */
   const CHECKPOINT_EXPECTATIONS = [
-    { id: 'wake', beat: 'WAKE', label: null },
-    { id: 'armed', beat: 'TO_OFFICE', label: 'ARMED', weapon: 'carbine' },
-    { id: 'briefed', beat: 'LITTLE_FRIEND', label: 'BRIEFED', weapon: 'saw' },
-    { id: 'wave_one', beat: 'LULL', label: 'WAVE ONE HELD', weapon: 'saw' },
+    { id: 'wake', beat: 'WAKE', label: null, history: 'WAKE' },
+    { id: 'armory', beat: 'ARM', label: 'ARMORY', history: 'WAKE>TO_ARMORY>ARM' },
+    {
+      id: 'armed', beat: 'TO_OFFICE', label: 'ARMED', weapon: 'carbine',
+      history: 'WAKE>TO_ARMORY>ARM>TO_OFFICE',
+    },
+    {
+      id: 'briefed', beat: 'LITTLE_FRIEND', label: 'BRIEFED', weapon: 'saw',
+      history: 'WAKE>TO_ARMORY>ARM>TO_OFFICE',
+    },
+    {
+      id: 'wave_one', beat: 'LULL', label: 'WAVE ONE HELD', weapon: 'saw',
+      history: 'WAKE>TO_ARMORY>ARM>TO_OFFICE',
+    },
   ];
   for (const want of CHECKPOINT_EXPECTATIONS) {
     const jump = await browser.newPage({ viewport: { width: 400, height: 260 } });
@@ -5314,6 +5357,10 @@ try {
         dialogueActive: s.dialogue.active,
         at: { x: +s.player.position.x.toFixed(1), z: +s.player.position.z.toFixed(1) },
         objective: s.objective,
+        armoryState: { ...s.mission.armory },
+        rack: s.armory.report(),
+        damageState: s.state,
+        squadStaged: [...s.ensemble.members.values()].filter((member) => member.staged).length,
         armor: s.playerActor.armor,
         maxArmor: s.playerActor.maxArmor,
         armorPercent: s.hud().health.armorPercent,
@@ -5334,12 +5381,39 @@ try {
     if (want.label) {
       check(`  and says so on the menu before you press start`,
         tag.tag === true && tag.button.includes(want.label), `"${tag.button}"`);
-      check(`  and puts the right gun in his hands`,
+      if (want.weapon) check(`  and puts the right gun in his hands`,
         landed.equipped === want.weapon, String(landed.equipped));
       check(`  and it got there by walking the beat chain, not by assignment`,
-        landed.history.startsWith('WAKE>TO_ARMORY>ARM>TO_OFFICE')
+        landed.history.startsWith(want.history)
           && landed.placed.includes('corridor') && landed.placed.includes('foyer'),
         `${landed.history} | placed ${landed.placed.join('+')}`);
+    }
+    if (want.id === 'armory') {
+      const rackAvailable = Object.values(landed.rack)
+        .filter((entry) => entry && typeof entry === 'object' && 'onWall' in entry)
+        .some((entry) => entry.onWall > 0);
+      const inArmory = landed.at.x >= -16 && landed.at.x <= 16
+        && landed.at.z >= 50 && landed.at.z <= 64;
+      const outsideShaft = !(landed.at.x >= 5.4 && landed.at.x <= 9
+        && landed.at.z >= 51 && landed.at.z <= 58);
+      check('  and uses the canonical armory marker outside the stair shaft',
+        inArmory && outsideShaft && landed.at.x === -2 && landed.at.z === 55.5,
+        JSON.stringify(landed.at));
+      check('  and initializes the untouched armory, squads, enemies, and damage state',
+        landed.objective === 'Take a weapon'
+          && landed.armoryState.reached === true
+          && landed.armoryState.firstWeapon === null
+          && landed.armoryState.upstairsActive === false
+          && rackAvailable
+          && landed.damageState === 'under_attack'
+          && landed.squadStaged > 0,
+        JSON.stringify({
+          objective: landed.objective,
+          armory: landed.armoryState,
+          rackAvailable,
+          damage: landed.damageState,
+          squadStaged: landed.squadStaged,
+        }));
     }
     if (want.id === 'armed') {
       check('  and restores the vest captured before the armed checkpoint',

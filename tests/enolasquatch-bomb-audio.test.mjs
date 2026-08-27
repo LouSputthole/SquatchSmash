@@ -28,8 +28,10 @@ ensureDomShim();
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const {
-  EnolaMissionAudio, BLAST_LAYERS, BOOM_LEAD, FALLING_CUE, WIND_CUE, SIREN_CUE, isEnolaPreloadCue,
+  EnolaMissionAudio, BLAST_LAYERS, BOOM_LEAD, FALLING_CUE, WIND_CUE, SIREN_CUE,
+  ENOLA_NARRATIVE_MUSIC, ENOLA_ESCAPE_MUSIC_DELAY_SECONDS, isEnolaPreloadCue,
 } = await import('../src/enolasquatch/audio.js');
+const { MissionController } = await import('../src/enolasquatch/mission/MissionController.js');
 
 /* ------------------------------------------------------------------ */
 /* A WebAudio context that records what it was told, and nothing else  */
@@ -85,14 +87,34 @@ function fakeContext() {
 function fakeAudio({ cues = [] } = {}) {
   const ctx = fakeContext();
   const loops = [];
+  const media = [];
   const engine = {
     ctx,
     busSfx: node(),
     busAmb: node(),
+    busMusic: node(),
+    loops: new Map(),
     buffers: new Map(cues.map(([name, duration]) => [name, [{ duration }]])),
     hasSample(name) { return (this.buffers.get(name)?.length ?? 0) > 0; },
     startLoop(key, opts) { loops.push({ key, opts }); },
-    stopLoop(key) { loops.push({ key, stopped: true }); },
+    startMusicLoop(key, url, opts) {
+      const handle = { key, url, opts, released: false, ended: false, failed: false };
+      this.loops.set(key, handle);
+      media.push({ action: 'start', key, url, opts });
+      return handle;
+    },
+    replaceMusicLoop(key, url, opts) {
+      this.stopLoop(key, opts.crossfade ?? 0.65);
+      const handle = this.startMusicLoop(key, url, opts);
+      media.push({ action: 'replace', key, url, opts });
+      return handle;
+    },
+    stopLoop(key, fade) {
+      loops.push({ key, stopped: true, fade });
+      const handle = this.loops.get(key);
+      if (handle) handle.released = true;
+      this.loops.delete(key);
+    },
     setLoopVolume() {},
     setLoopCutoff() {},
   };
@@ -105,7 +127,7 @@ function fakeAudio({ cues = [] } = {}) {
   // Everything the mission builds afterwards, without init()'s own sources.
   const base = ctx.sources.length;
   const since = () => ctx.sources.slice(base);
-  return { audio, engine, ctx, loops, since };
+  return { audio, engine, ctx, loops, media, since };
 }
 
 const BLAST_CUES = [['enola.blast.a', 44.0], ['enola.blast.b', 8.06], ['enola.blast.c', 22.31]];
@@ -294,4 +316,88 @@ test('`npm run sfx` can never overwrite an owner-delivered bomb clip', () => {
     assert.ok(Number.isFinite(cue.duration) && cue.duration > 0);
     assert.equal(cue.loop, true);
   }
+});
+
+test('the owner-delivered approach and escape records are streamed once on the music bus', () => {
+  const { audio, engine, media, loops } = fakeAudio();
+
+  assert.equal(audio.startBombApproachMusic(), true);
+  const approach = media.find((event) => event.action === 'start'
+    && event.key === ENOLA_NARRATIVE_MUSIC.approach.key);
+  assert.ok(approach, 'the target-run record must be handed to the streaming player');
+  assert.equal(approach.url, `assets/music/${ENOLA_NARRATIVE_MUSIC.approach.file}`);
+  assert.equal(approach.opts.loop, false, 'a narrative needle-drop is never a looping ambience bed');
+  assert.equal(approach.opts.bus, 'music', 'dialogue ducking owns the record');
+  assert.equal(approach.opts.ambience, false, 'the score has no fake world position');
+  assert.ok(approach.opts.volume <= 0.25, 'the approach leaves headroom for the crew');
+
+  assert.equal(audio.stopBombApproachMusic(0.04), true);
+  const cut = loops.findLast((event) => event.stopped
+    && event.key === ENOLA_NARRATIVE_MUSIC.approach.key);
+  assert.equal(cut?.fade, 0.04, 'the release edge gets only a click-safe ramp');
+  assert.equal(engine.loops.has(ENOLA_NARRATIVE_MUSIC.approach.key), false);
+
+  assert.equal(audio.startEscapeMusic(), true);
+  const escape = media.find((event) => event.action === 'start'
+    && event.key === ENOLA_NARRATIVE_MUSIC.escape.key);
+  assert.ok(escape, 'the flight-away record must be handed to the streaming player');
+  assert.equal(escape.url, `assets/music/${ENOLA_NARRATIVE_MUSIC.escape.file}`);
+  assert.equal(escape.opts.loop, false);
+  assert.equal(escape.opts.bus, 'music');
+  assert.ok(escape.opts.volume <= 0.25, 'the escape dialogue remains intelligible');
+});
+
+test('both delivered Enola records are present and their authored timing is documented', () => {
+  for (const score of Object.values(ENOLA_NARRATIVE_MUSIC)) {
+    const target = path.join(ROOT, 'assets/music', score.file);
+    assert.ok(fs.existsSync(target), `${score.file} must ship with the page`);
+    assert.ok(fs.statSync(target).size > 4096, `${score.file} must not be an empty placeholder`);
+    assert.ok(Number.isFinite(score.duration) && score.duration > 20,
+      `${score.file} needs an audited master duration`);
+  }
+  assert.ok(Math.abs(ENOLA_NARRATIVE_MUSIC.approach.duration - 37.704) < 0.001);
+  assert.ok(Math.abs(ENOLA_NARRATIVE_MUSIC.escape.duration - 148.2) < 0.001);
+});
+
+test('escape music waits out the deliberate aftermath beat and starts only once', () => {
+  const starts = [];
+  const mission = {
+    physics: { agl: 100 },
+    _escapeT: 0,
+    _escapeMusicStarted: false,
+    _emergencyDecided: true,
+    audio: {
+      startEscapeMusic(options) {
+        starts.push(options);
+        return true;
+      },
+    },
+    updateRearGunner() {},
+    interceptors: { engagedCount: 0, activeCount: 1 },
+    dialogue: { seen: () => true, play() {} },
+    weather: { setConditions() {} },
+  };
+
+  MissionController.prototype.updateEscape.call(
+    mission,
+    ENOLA_ESCAPE_MUSIC_DELAY_SECONDS - 0.01,
+  );
+  assert.equal(starts.length, 0, 'the blast aftermath stays silent');
+
+  MissionController.prototype.updateEscape.call(mission, 0.02);
+  assert.deepEqual(starts, [{ restart: false }]);
+  MissionController.prototype.updateEscape.call(mission, 5);
+  assert.equal(starts.length, 1, 'later frames cannot restart the record');
+});
+
+test('the release frame cuts the approach record before the bomb is detached', () => {
+  const source = fs.readFileSync(
+    path.join(ROOT, 'src/enolasquatch/mission/MissionController.js'),
+    'utf8',
+  );
+  const release = source.indexOf('this.payload.release(this.scene');
+  const cut = source.lastIndexOf('this.audio?.stopBombApproachMusic?.(0.04)', release);
+  assert.ok(release > 0, 'the payload release edge must remain findable');
+  assert.ok(cut > 0 && cut < release,
+    'music must leave before the release/transient frame, never after it');
 });

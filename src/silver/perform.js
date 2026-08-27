@@ -15,6 +15,7 @@
  */
 
 import { assistTimingWindow } from '../core/assist-timing.js';
+import { SILVER_ROOM_MUSIC } from './music.js';
 
 /** The set. `duck` is how much of the melody survives a line of dialogue. */
 export const SET = [
@@ -75,9 +76,23 @@ export const SET = [
       },
       { at: 9.8, sfx: ['crowd.laughter', 'band.rimshot'] },
     ],
-    // Room for the rimshot to land before the standard end-of-number
-    // applause and the 2.4s transition carry the set straight into Bananaphone.
-    dur: 12,
+    /* After the rimshot, play exactly the first 27 seconds of the delivered
+     * opening master. This is a tail on the second slot, not a fifth number:
+     * Bananaphone remains literally the third number everybody promised. */
+    tail: {
+      track: SILVER_ROOM_MUSIC.opening.file,
+      at: 12,
+      start: SILVER_ROOM_MUSIC.opening.start,
+      cutAt: SILVER_ROOM_MUSIC.opening.cutAt,
+      volume: 0.46,
+      duck: 0.22,
+    },
+    dur: 39,
+    /* The joke already received its laugh and rimshot. At the delivered
+     * clip's out-point, fade directly into Bananaphone without another round
+     * of applause or a dead 2.4-second inter-number gap. */
+    seamlessNext: true,
+    transition: 0.15,
     // Near silent: this is patter, not a number. A hair of rhythm so the
     // room does not go dead while he talks.
     stems: { rhythm: 0.04, horns: 0, piano: 0 },
@@ -165,6 +180,7 @@ export class Performance {
     this.numbersPlayed = [];
     this.roomMix = 1;
     this._featureHandle = null;
+    this._tailStarted = false;
     this._featureFallback = false;
     this._resumeFeature = false;
     this._advancing = false;
@@ -274,6 +290,7 @@ export class Performance {
     this.numbersPlayed.push(n.id);
     this._stopFeatured(0.35);
     this._featureFallback = false;
+    this._tailStarted = false;
     if (!n.track) this._startStems();
     if (n.track) {
       const handle = this.audio?.startMusicLoop('band.feature', n.track, {
@@ -312,6 +329,41 @@ export class Performance {
     return true;
   }
 
+  /** Start a delivered post-patter clip at its authored point on game time. */
+  _startTail(n) {
+    if (!n?.tail || this._tailStarted || this.current !== n) return false;
+    this._tailStarted = true;
+    const tail = n.tail;
+    const handle = this.audio?.startMusicLoop('band.feature', tail.track, {
+      volume: 0,
+      fade: 0.45,
+      loop: false,
+      bus: 'music',
+      /* Delivered game music, not a PA speaker on the stage. The visible
+       * trumpeter sells the performance; the track itself must remain
+       * non-diegetic and equally intelligible from every seat. */
+      ambience: false,
+      start: tail.start ?? 0,
+      cutAt: tail.cutAt,
+      cutFade: 0.35,
+      onEnded: () => {
+        if (this.current === n) this._completeNumber(n);
+      },
+      onError: (failedHandle, error) => this._handleFeatureError(n, failedHandle, error),
+    }) ?? null;
+    if (!this._featureFallback && handle && !handle.released && !handle.failed) {
+      this._featureHandle = handle;
+    }
+    if (!handle) {
+      this._handleFeatureError(n, null, new Error('opening recording is unavailable'));
+    } else if ((handle.released || handle.failed) && !this._featureFallback) {
+      this._handleFeatureError(n, handle, new Error(handle.lastError || 'opening recording failed'));
+    }
+    if (!this._featureFallback) this._stopStems(0.5);
+    this._applyMix(0.45);
+    return true;
+  }
+
   _stopFeatured(fade = 0.4) {
     if (this._featureHandle) this.audio?.stopLoop('band.feature', fade);
     this._featureHandle = null;
@@ -343,11 +395,13 @@ export class Performance {
   _applyMix(ramp = 0.25) {
     const n = this.current;
     if (!n) return;
-    if (n.track && !this._featureFallback) {
+    if ((n.track || (n.tail && this._tailStarted)) && !this._featureFallback) {
       /* No stem pass at all: `_next` stopped them, and re-ramping keys that
        * are no longer in the loop table is how they used to creep back. */
-      const duck = 1 - this.duck * (1 - (n.trackDuck ?? 0.2));
-      this.audio?.setLoopVolume('band.feature', (n.trackVolume ?? 0.42) * this.roomMix * duck, ramp);
+      const volume = n.track ? (n.trackVolume ?? 0.42) : (n.tail.volume ?? 0.42);
+      const survives = n.track ? (n.trackDuck ?? 0.2) : (n.tail.duck ?? 0.2);
+      const duck = 1 - this.duck * (1 - survives);
+      this.audio?.setLoopVolume('band.feature', volume * this.roomMix * duck, ramp);
       this.audio?.setLoopCutoff?.('band.feature', this.duck > 0.05 ? 3200 : 20000, ramp);
       return;
     }
@@ -510,14 +564,27 @@ export class Performance {
 
     const n = this.current;
     if (!n) return;
-    if (n.track && !this._featureFallback && this._featureHandle?.element) {
+    if ((n.track || (n.tail && this._tailStarted))
+        && !this._featureFallback && this._featureHandle?.element) {
       const mediaTime = Number(this._featureHandle.element.currentTime);
+      const authoredTime = n.tail
+        ? n.tail.at + Math.max(0, mediaTime - (n.tail.start ?? 0))
+        : mediaTime;
       /* The recording is the clock. A test/debug fast-forward may place `t`
        * ahead deliberately; never drag that backwards to a stalled media
-       * element, but ordinary rendering follows currentTime exactly. */
-      if (Number.isFinite(mediaTime) && (mediaTime > this.t || this.t < 1)) this.t = mediaTime;
+       * element, but ordinary rendering follows currentTime exactly. A tail
+       * takes over at its authored start so a buffering media element cannot
+       * be cut short by the render clock reaching the nominal duration. */
+      if (Number.isFinite(authoredTime)) {
+        if (n.tail) this.t = Math.max(n.tail.at, authoredTime);
+        else if (authoredTime > this.t || this.t < 1) this.t = authoredTime;
+      }
     } else {
       this.t += dt;
+    }
+    if (n.tail && !this._tailStarted && this.t >= n.tail.at) {
+      this._startTail(n);
+      if (!this._featureFallback && this._featureHandle?.element) this.t = n.tail.at;
     }
 
     /* Musicians, playing their actual instruments.
@@ -548,6 +615,17 @@ export class Performance {
           P.foreR.rotation.x = -1.3;
           P.body.rotation.z = Math.sin(this.t * 1.6 + ph) * 0.055;
           P.body.rotation.x = -0.04 - swell * 0.06;
+          if (m.trumpet) {
+            /* Bell up on the phrase and valves moving under his right hand.
+             * The horn is already at his mouth; this is performance, not a
+             * prop being waved in the same pose for four minutes. */
+            m.trumpet.rotation.x = -0.035 - lift * 0.16;
+            const valves = m.trumpet.children.filter((child) => child.name === 'stage-trumpet-valve-button');
+            valves.forEach((valve, vi) => {
+              valve.position.y = 0.078 - Math.max(0, Math.sin(beat * 2 + ph + vi * 1.7)) * 0.022;
+            });
+            P.head.rotation.x = -0.04 - swell * 0.04;
+          }
           P.legL.rotation.x = Math.sin(beat + ph) * 0.08;
           P.legR.rotation.x = -Math.sin(beat + ph) * 0.08;
           break;
@@ -690,22 +768,26 @@ export class Performance {
       }
     }
 
-    if (this.t >= n.dur) this._completeNumber(n);
+    /* A healthy streamed tail completes at its media out-point callback, not
+     * because a render delta guessed that 27 seconds of audio elapsed. */
+    const tailOwnsEnd = n.tail && this._tailStarted
+      && !this._featureFallback && this._featureHandle?.element;
+    if (this.t >= n.dur && !tailOwnsEnd) this._completeNumber(n);
   }
 
   _completeNumber(expected = this.current) {
     const n = this.current;
     if (!n || n !== expected || this._advancing) return false;
     this._advancing = true;
-    if (n.track) this._stopFeatured(0.35);
+    if (n.track || n.tail) this._stopFeatured(0.35);
     this.onNumberEnd?.(n, this.index);
-    this.applaud(n.theOne ? 1.3 : 1);
+    if (!n.seamlessNext) this.applaud(n.theOne ? 1.3 : 1);
     /* A request moves the queue rather than interrupting: whatever is
      * playing finishes, and the next thing up is what was asked for. */
     const nextIndex = this._queue();
     this.index = -1;
     this.t = 0;
-    this._transition = { remaining: 2.4, nextIndex };
+    this._transition = { remaining: n.transition ?? 2.4, nextIndex };
     return true;
   }
 }
@@ -713,12 +795,10 @@ export class Performance {
 /**
  * The optional dance.
  *
- * Deliberately not a partner dance. Nothing in this animation library can hold
- * two figures in contact without them sliding through each other, and a bad
- * one would undo every careful thing in the twenty minutes before it. What
- * this is instead: standing up, going six feet, and staying roughly on the
- * beat for four bars, which is what most people at a supper club are actually
- * doing.
+ * Timing adjudicator for the paired dance staged in main.js. Keeping rhythm
+ * scoring independent from the two actor roots lets the choreography face the
+ * partners, join their hands and spin Margo without coupling animation drift
+ * to input timing.
  *
  * Four prompts, on the beat, using the existing timing bar.
  */

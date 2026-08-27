@@ -58,6 +58,30 @@ test('the little friend is a vo. cue now, and it is the one the scene plays', ()
   assert.ok(names.has('vo.siege.prospect.little_friend'));
   assert.equal(SEQUENCES.little_friend.length, 1, 'it is one line, said once, ever');
   assert.equal(SEQUENCES.little_friend[0].say, 'Say hello to my little friend.');
+  assert.equal(SEQUENCES.little_friend[0].protected, true);
+  assert.equal(SEQUENCES.little_friend[0].priority, 'hero');
+  assert.ok(SEQUENCES.little_friend[0].gain >= 1.4,
+    'the siege payoff fell back to conversational level');
+});
+
+test('the little-friend playback carries its protected hero mix through the speech seam', () => {
+  const calls = [];
+  const audio = {
+    hasSample: () => true,
+    sampleDuration: () => 1.2,
+    hold() {},
+    playWithReceipt(cue, options) {
+      calls.push({ cue, options });
+      return { source: {}, receipt: { started: true } };
+    },
+  };
+  const runner = new SiegeDialogue({ audio });
+  assert.equal(runner.play('little_friend'), true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].cue, 'vo.siege.prospect.little_friend');
+  assert.equal(calls[0].options.volume, SEQUENCES.little_friend[0].gain);
+  assert.equal(calls[0].options.priority, 'hero');
+  assert.equal(calls[0].options.bus, 'voice');
 });
 
 test('every speaker resolves to a voice profile the manifest actually has', () => {

@@ -42,9 +42,8 @@ import {
  *
  * WHAT IT DOES NOT OWN: the staged Margo scene. Beats 16 and 17 are wired as
  * route and clock here, and `margoComeHomeOwed()`/`margoWakeOwed()` are the
- * hooks a runtime uses to play her, exactly as `ApartmentStory` exposes them
- * for the starter flat. The luxury scene does not stage her yet; see the
- * `status: 'pending'` on those two beats in `core/campaign-spine.js`.
+ * hooks the physical two-floor runtime uses to play her, exactly as
+ * `ApartmentStory` exposes them for the starter flat.
  */
 
 /** The states this flat passes through, in the order the bible plays them. */
@@ -113,18 +112,13 @@ class LuxuryApartmentStory {
       return this.#spent(TIME_EVENT_IDS.LUXURY_GET_READY) ? 'date' : 'get_ready';
     }
     if (!noWakeDone) {
-      /* SHE IS ONLY HERE IF THE EVENING EARNED HER.
-       *
-       * `cameHome` is the Silver Room's own verdict and the two Margo phases
-       * hang off it, which is not politeness -- it is the difference between
-       * a door and a soft lock. Both `come_home` and `morning` refuse to open
-       * the door, so a save that ended the night `awkward` and could still
-       * reach them would sit in a flat waiting for a woman who is not coming,
-       * forever, with nothing on the panel to do about it. */
-      const cameHome = silver.cameHome === true;
-      if (cameHome && !this.#spent(TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME)) return 'come_home';
+      /* THE DATE ALWAYS COMES HOME NOW. Woo is a performance grade, not a
+       * route fork. Read the durable beat markers rather than the historical
+       * `cameHome` mission field so old low-score saves receive the same
+       * canonical continuation instead of silently skipping two scenes. */
+      if (!this.#spent(TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME)) return 'come_home';
       if (!this.#spent(TIME_EVENT_IDS.LUXURY_STAYOVER_REST)) return 'stayover';
-      if (cameHome && !this.#spent(TIME_EVENT_IDS.LUXURY_MARGO_WAKE)) return 'morning';
+      if (!this.#spent(TIME_EVENT_IDS.LUXURY_MARGO_WAKE)) return 'morning';
       return 'no_wake';
     }
     return this.#answered(EVENT_IDS.BOOSKI_SILVER_CASE_CALL) ? 'complete' : 'return';
@@ -145,16 +139,7 @@ class LuxuryApartmentStory {
     return applied ? { ok: true } : { ok: false, reason: 'already_ready' };
   }
 
-  /**
-   * She came back with him, or she did not.
-   *
-   * `cameHome` is the Silver Room's own verdict on the evening -- computed
-   * from the outcome band by `src/silver/mission.js` and carried across the
-   * seam by `SilverStory.complete` -- so a night that ended `awkward` or
-   * worse gets a flat with one person in it. Same rule the starter flat used
-   * for the same beat; it is the mission's verdict that decides, never the
-   * chapter.
-   */
+  /** She came back with him. Woo changes the line, never this route. */
   margoComeHomeOwed() {
     return this.phase() === 'come_home';
   }
@@ -183,13 +168,7 @@ class LuxuryApartmentStory {
     return { ok: true, day, timeMinutes };
   }
 
-  /**
-   * Beat 17. She has a delivery at eleven and a man who cannot be trusted
-   * with a delivery, so she gets dressed and goes.
-   *
-   * Owed only if she was actually here: the same `cameHome` test as the night
-   * before, so the morning cannot produce a woman the evening did not.
-   */
+  /** Beat 17. She gets dressed, goes, and only then can Lou ring. */
   margoWakeOwed() {
     return this.phase() === 'morning';
   }

@@ -768,18 +768,24 @@ async function runCleanStartGoldenPath(page) {
 
   const completion = await page.evaluate(() => ({
     phase: window.INITIATION.phase,
-    visible: !document.querySelector('#complete')?.classList.contains('hidden'),
+    visible: document.querySelector('#credits')?.classList.contains('showing') === true
+      && document.querySelector('#credits')?.getAttribute('aria-hidden') === 'false',
+    rows: document.querySelectorAll('#credits-track .credits-row').length,
+    headings: [...document.querySelectorAll('#credits-track .credits-section')]
+      .map((heading) => heading.textContent?.trim()),
     buttonVisible: (() => {
-      const rect = document.querySelector('#goHomeBtn')?.getBoundingClientRect();
+      const rect = document.querySelector('#credits-skip')?.getBoundingClientRect();
       return Boolean(rect && rect.width > 0 && rect.height > 0);
     })(),
     pointerReleased: document.pointerLockElement === null,
   }));
   if (completion.phase !== 'complete'
     || !completion.visible
+    || completion.rows < 250
+    || completion.headings.join('|') !== 'THE FAMILY|BIG UNCLE LOU SPUTTHOLE'
     || !completion.buttonVisible
     || !completion.pointerReleased) {
-    throw new Error(`Initiation clean start did not reach its usable completion card: `
+    throw new Error(`Initiation clean start did not reach its full campaign credit roll: `
       + JSON.stringify(completion));
   }
 
@@ -788,7 +794,7 @@ async function runCleanStartGoldenPath(page) {
       waitUntil: 'domcontentloaded',
       timeout: 120000,
     }),
-    page.locator('#goHomeBtn').click(),
+    page.locator('#credits-skip').click(),
   ]);
   const exit = await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem('squatchlife.campaign') || 'null');
@@ -800,12 +806,10 @@ async function runCleanStartGoldenPath(page) {
     };
   });
   if (!exit.pathname.endsWith('/index.html')
-    || exit.sceneId !== 'apartment'
-    || exit.spawn !== 'front_door'
     || exit.status !== 'complete') {
-    throw new Error(`Initiation clean start did not complete its campaign exit: ${JSON.stringify(exit)}`);
+    throw new Error(`Initiation clean start did not save completion before returning to title: ${JSON.stringify(exit)}`);
   }
-  console.log('  clean start: ritual, induction and visible campaign-exit button completed');
+  console.log('  clean start: ritual, induction, full credits and title return completed');
 
   /* Mechanical guardrail: this function and every helper it delegates to
    * must remain free of the known test-only state-changing APIs. */
@@ -1406,9 +1410,11 @@ try {
     figure: window.INITIATION.playerFigure?.constructor?.name,
     bandana: window.INITIATION.playerFigure?.model?.bandana,
     dead: window.INITIATION.deadProspects,
-    title: document.querySelector('#complete .title')?.textContent?.trim(),
-    subtitle: document.querySelector('#complete .subtitle')?.textContent?.replace(/\s+/g, ' ').trim(),
-    visible: !document.querySelector('#complete')?.classList.contains('hidden'),
+    phase: window.INITIATION.phase,
+    creditsVisible: document.querySelector('#credits')?.classList.contains('showing') === true,
+    creditRows: document.querySelectorAll('#credits-track .credits-row').length,
+    creditNames: [...document.querySelectorAll('#credits-track .credits-name')]
+      .map((name) => name.textContent?.trim()),
   }));
   check('induction keeps shared first-person control and awards Tony the member bandana',
     inducted.controller === 'Player'
@@ -1420,15 +1426,16 @@ try {
       .every((name) => inducted.dead.includes(name))
       && !inducted.dead.includes('PROSPECT TWO'),
     JSON.stringify(inducted.dead));
-  check('completion describes family membership rather than a species change',
-    inducted.visible
-      && inducted.title === 'SILVER SASQUATCH'
-      && inducted.subtitle?.includes("walking out family")
-      && !inducted.subtitle?.includes('squatch feet'),
+  check('the induction resolves directly into the full family credit roll',
+    inducted.phase === 'complete'
+      && inducted.creditsVisible
+      && inducted.creditRows >= 250
+      && inducted.creditNames.includes('Prospect')
+      && inducted.creditNames.filter((name) => name === 'Lou Sputthole').length === 240,
     JSON.stringify(inducted));
 
   const completionPointer = await page.evaluate(() => {
-    const button = document.querySelector('#goHomeBtn');
+    const button = document.querySelector('#credits-skip');
     const rect = button.getBoundingClientRect();
     const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
     return {
@@ -1437,10 +1444,10 @@ try {
       buttonVisible: rect.width > 0 && rect.height > 0,
     };
   });
-  check('the completion card releases pointer lock and leaves its campaign exit clickable',
+  check('the full-screen credits release pointer lock and leave Skip clickable',
     completionPointer.pointerReleased
       && completionPointer.buttonVisible
-      && completionPointer.hitId === 'goHomeBtn',
+      && completionPointer.hitId === 'credits-skip',
     JSON.stringify(completionPointer));
 
   const completionUrl = page.url();
@@ -1449,7 +1456,7 @@ try {
       waitUntil: 'domcontentloaded',
       timeout: 120000,
     }),
-    page.locator('#goHomeBtn').click(),
+    page.locator('#credits-skip').click(),
   ]);
   const successfulExit = await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem('squatchlife.campaign') || 'null');
@@ -1460,11 +1467,9 @@ try {
       initiationStatus: saved?.missions?.initiation?.status ?? null,
     };
   });
-  check('the successful end card navigates into the next campaign scene',
+  check('skipping the completed credit roll returns to the title without losing completion',
     completionUrl.endsWith('/initiation.html')
       && new URL(successfulExit.url).pathname.endsWith('/index.html')
-      && successfulExit.sceneId === 'apartment'
-      && successfulExit.spawn === 'front_door'
       && successfulExit.initiationStatus === 'complete',
     JSON.stringify({ completionUrl, ...successfulExit }));
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));

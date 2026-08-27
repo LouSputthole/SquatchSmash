@@ -32,6 +32,61 @@ export const WEAPON_SFX = Object.freeze(Object.fromEntries(
 ));
 
 /**
+ * Named report profiles. A profile describes a weapon, not a scene.
+ *
+ * `standard` is deliberately the fallback/default: the mansion siege, cabin,
+ * heist and any future caller get the full unsuppressed recording by doing
+ * nothing. A mission that has actually fitted a can opts into `suppressed`
+ * through either `opts.profile` or its audio adapter's
+ * `weaponAudioProfile({ id, slot })` hook.
+ *
+ * The values are plain frozen data so an audition page, verifier or future
+ * attachment system can inspect the contract without duplicating runtime
+ * conditionals. Only the report changes. Magazine, bolt and dry-fire events
+ * remain the canonical weapon events in both profiles.
+ */
+export const WEAPON_AUDIO_PROFILE_IDS = Object.freeze({
+  STANDARD: 'standard',
+  SUPPRESSED: 'suppressed',
+});
+
+export const WEAPON_AUDIO_PROFILES = Object.freeze({
+  [WEAPON_AUDIO_PROFILE_IDS.STANDARD]: Object.freeze({
+    id: WEAPON_AUDIO_PROFILE_IDS.STANDARD,
+    firePrefix: 'weapon.',
+    fallbackVolume: 1,
+    fallbackRate: 1,
+    actionCue: null,
+    actionVolume: 0,
+  }),
+  [WEAPON_AUDIO_PROFILE_IDS.SUPPRESSED]: Object.freeze({
+    id: WEAPON_AUDIO_PROFILE_IDS.SUPPRESSED,
+    firePrefix: 'weapon.suppressed.',
+    /* Until a dedicated take decodes, keep the ordinary crack but make it
+     * substantially quieter and darker. Muted, never mute or a fake pfft. */
+    fallbackVolume: 0.3,
+    fallbackRate: 0.86,
+    actionCue: 'weapon.suppressed.action',
+    actionVolume: 0.82,
+  }),
+});
+
+/** Resolve an unknown/missing profile safely to the loud standard weapon. */
+export function weaponAudioProfile(profile = WEAPON_AUDIO_PROFILE_IDS.STANDARD) {
+  const id = typeof profile === 'string' ? profile : profile?.id;
+  return WEAPON_AUDIO_PROFILES[id] ?? WEAPON_AUDIO_PROFILES.standard;
+}
+
+/** The recording requested by a slot under a named audio profile. */
+export function weaponProfileCue(id, slot, profile = WEAPON_AUDIO_PROFILE_IDS.STANDARD) {
+  const resolved = weaponAudioProfile(profile);
+  if (slot === 'fire' && resolved.id !== WEAPON_AUDIO_PROFILE_IDS.STANDARD) {
+    return `${resolved.firePrefix}${id}.fire`;
+  }
+  return weaponCue(id, slot);
+}
+
+/**
  * Proven fallbacks for an old, partial, or failed-to-decode audio bank.
  *
  * Listed here as data purely so a scene can PRELOAD them (see
@@ -153,19 +208,27 @@ export function weaponCueOptions(id, slot, opts = {}) {
  *                        has scaled `volume` by the catalog mix and filled in
  *                        a gunshot's distance falloff for a positional call
  */
-export function playWeaponCue(audio, id, slot, opts = {}) {
+function playStandardWeaponCue(audio, id, slot, opts = {}, {
+  optionsReady = false,
+  requestedCue = null,
+  receiptSource = null,
+  fallbackReason = 'requested-recording-not-decoded',
+} = {}) {
   if (!audio) return false;
   const wanted = weaponCue(id, slot);
   /* Every `audio.play` below is handed THIS, not the caller's raw options.
    * The literal cue names stay literal so `tools/check.mjs` can still read
    * them out of the source; only the options are computed. */
-  opts = weaponCueOptions(id, slot, opts);
+  if (!optionsReady) opts = weaponCueOptions(id, slot, opts);
   opts = {
     ...opts,
-    requestedCue: wanted,
+    requestedCue: requestedCue ?? wanted,
     requiredRecorded: opts.requiredRecorded ?? true,
   };
-  if (audio.hasSample?.(wanted)) { audio.play(wanted, opts); return true; }
+  if (audio.hasSample?.(wanted)) {
+    audio.play(wanted, receiptSource ? { ...opts, receiptSource, fallbackReason } : opts);
+    return true;
+  }
 
   /* A substitute must say WHAT it substituted for. AudioEngine receipts and
    * strict QA can now distinguish "something made a noise" from "the
@@ -173,8 +236,8 @@ export function playWeaponCue(audio, id, slot, opts = {}) {
    * fallback compatibility. */
   const standInOpts = {
     ...opts,
-    receiptSource: 'stand-in',
-    fallbackReason: 'requested-recording-not-decoded',
+    receiptSource: receiptSource ?? 'stand-in',
+    fallbackReason,
   };
 
   switch (`${id}.${slot}`) {
@@ -237,6 +300,72 @@ export function playWeaponCue(audio, id, slot, opts = {}) {
 
     default: return false;
   }
+}
+
+/**
+ * Play one weapon cue under the caller's named report profile.
+ *
+ * Existing callers need no change: absent a profile, this is byte-for-byte
+ * the standard path above. A scene with a real attachment may pass
+ * `{ profile: 'suppressed' }`, or expose a `weaponAudioProfile` function on
+ * its AudioEngine adapter. The latter lets a shared WeaponSystem ask the
+ * equipped attachment without knowing anything about the mission that owns
+ * it.
+ */
+export function playWeaponCue(audio, id, slot, opts = {}) {
+  if (!audio) return false;
+  const { profile: requestedProfile = null, ...rawOpts } = opts ?? {};
+  let selected = requestedProfile;
+  if (selected == null && typeof audio.weaponAudioProfile === 'function') {
+    try { selected = audio.weaponAudioProfile({ id, slot }); } catch { selected = null; }
+  }
+  const profile = weaponAudioProfile(selected);
+  try { audio.onWeaponAudioProfile?.({ id, slot, profile: profile.id }); } catch { /* telemetry */ }
+
+  if (slot !== 'fire' || profile.id === WEAPON_AUDIO_PROFILE_IDS.STANDARD) {
+    return playStandardWeaponCue(audio, id, slot, rawOpts);
+  }
+
+  const wanted = weaponProfileCue(id, slot, profile);
+  const mixed = {
+    ...weaponCueOptions(id, slot, rawOpts),
+    requestedCue: wanted,
+    requiredRecorded: rawOpts.requiredRecorded ?? true,
+    weaponAudioProfile: profile.id,
+  };
+
+  if (audio.hasSample?.(wanted)) {
+    audio.play(wanted, mixed);
+  } else {
+    /* The can still changes a missing take. Fall back through the same proven
+     * standard/stand-in ladder, but make that report quieter and darker and
+     * keep the receipt pointed at the suppressed recording QA still needs. */
+    playStandardWeaponCue(audio, id, slot, {
+      ...mixed,
+      volume: (mixed.volume ?? 1) * profile.fallbackVolume,
+      rate: (mixed.rate ?? 1) * profile.fallbackRate,
+    }, {
+      optionsReady: true,
+      requestedCue: wanted,
+      receiptSource: 'profile-fallback',
+      fallbackReason: 'profile-recording-not-decoded',
+    });
+  }
+
+  /* A suppressor removes gas report, not bolt/slide/brass. Keep that physical
+   * action nearly full-level and spatially co-located with the report. */
+  if (profile.actionCue && audio.hasSample?.(profile.actionCue)) {
+    const actionOpts = {
+      ...weaponCueOptions(id, slot, rawOpts),
+      volume: (rawOpts.volume ?? 1) * profile.actionVolume,
+      requestedCue: profile.actionCue,
+      requiredRecorded: true,
+      weaponAudioProfile: profile.id,
+    };
+    /* Literal on purpose: check.mjs can prove this shipped recording exists. */
+    audio.play('weapon.suppressed.action', actionOpts);
+  }
+  return true;
 }
 
 /** Taking one off the rack. An existing cue; nothing new is wanted for it. */

@@ -57,6 +57,9 @@ const _dir = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3();
 
+/** Below a slow shuffle, the weapon treats the player as planted. */
+export const DELIBERATE_SHOT_MAX_SPEED = 0.08;
+
 function worldHitNormal(hit, fallbackDirection) {
   let normal = fallbackDirection.clone().negate();
   if (hit?.face?.normal?.isVector3 && hit.object?.matrixWorld) {
@@ -283,6 +286,7 @@ export class WeaponSystem {
     this.aimBlend = 0;
     this.suppression = 0;
     this.aimStability = 1;
+    this.movementSpeed = 0;
     this._baseFov = Number.isFinite(Number(camera?.fov)) ? Number(camera.fov) : null;
     this._managingFov = false;
 
@@ -446,7 +450,14 @@ export class WeaponSystem {
   _pullTrigger() {
     if (!this.enabled || !this.current) return null;
     const f = this.firearm(this.current);
-    const shot = f.fire({ aimed: this.aimed, aimStability: this.aimStability });
+    const shot = f.fire({
+      aimed: this.aimed,
+      aimStability: this.aimStability,
+      /* Firearm applies this request only to a settled pistol9. Supplying it
+       * from the shared movement state means the policy follows the gun into
+       * every scene without a Siege-name conditional. */
+      settledFirstShot: this.movementSpeed <= DELIBERATE_SHOT_MAX_SPEED,
+    });
     if (shot.fired) { this._onShot(f, shot); return shot; }
     if (shot.reason === 'empty') {
       /* The dry click, and only on the transition. `fire()` returns 'semi'
@@ -610,6 +621,8 @@ export class WeaponSystem {
         penetration: def.penetration,
         remainingEnergy: materialPath.remainingEnergy,
         remainingPenetration: materialPath.remainingPenetration,
+        spread,
+        deliberate: shot.deliberate === true,
       });
       pelletTruths.push(pelletTruth);
 
@@ -821,6 +834,7 @@ export class WeaponSystem {
   /* ---------------------------------------------------------------- */
   update(dt, { speed = 0 } = {}) {
     const step = Math.max(0, Math.min(0.1, Number(dt) || 0));
+    this.movementSpeed = Number.isFinite(Number(speed)) ? Math.max(0, Number(speed)) : 0;
     this.tracers.update(step);
     this.ejecta.update(step);
 
@@ -850,7 +864,7 @@ export class WeaponSystem {
     // Hold pose: swap dip, recoil kick, walking sway.
     this.swap = Math.max(0, this.swap - step * 3.6);
     this.recoilKick = Math.max(0, this.recoilKick - step * 7);
-    this.sway += step * (1.5 + Math.min(4, speed));
+    this.sway += step * (1.5 + Math.min(4, this.movementSpeed));
     const aimTarget = this.aimed && this.current ? 1 : 0;
     const aimEase = 1 - Math.exp(-step * 12);
     this.aimBlend += (aimTarget - this.aimBlend) * aimEase;
@@ -871,7 +885,7 @@ export class WeaponSystem {
       pump.position.z = pump.userData.combatRestZ + Math.sin(elapsed * Math.PI) * 0.15;
     }
     const hold = model.userData.hold;
-    const bob = Math.min(1, speed / 4);
+    const bob = Math.min(1, this.movementSpeed / 4);
     const reloadDip = this.firearm(id).reloading ? 0.09 : 0;
     const hipX = hold.position[0] + Math.sin(this.sway) * 0.006 * bob;
     const hipY = hold.position[1] + Math.abs(Math.cos(this.sway)) * 0.007 * bob
@@ -917,6 +931,7 @@ export class WeaponSystem {
     const spread = firearm.spreadNow({
       aimed: this.aimed,
       aimStability: this.aimStability,
+      settledFirstShot: this.movementSpeed <= DELIBERATE_SHOT_MAX_SPEED,
     });
     const settled = firearm.def.spread * (this.aimed ? 0.48 : 1);
     return {

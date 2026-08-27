@@ -442,10 +442,84 @@ test('taking any one armory weapon advances to the office and saves the armed ch
 
     assert.equal(m.weaponTaken(id), true, `${id} should be enough to leave the armory`);
     assert.equal(m.beat, B.TO_OFFICE);
-    assert.equal(m.objective, "Reach Lou's office");
+    assert.equal(m.objective, 'Take more weapons or get upstairs');
     assert.equal(m.checkpoint.id, 'armed');
+    assert.deepEqual(m.armory, {
+      reached: true,
+      firstWeapon: id,
+      optionalWeapons: [],
+      left: false,
+      upstairsActive: true,
+    });
     assert.equal(m.weaponTaken(id), false, 'the transition only happens once');
   }
+});
+
+test('zero guns never unlock upstairs; optional guns and leaving are independent states', () => {
+  const { m } = mission();
+  m.start();
+  m.wokeUp();
+  m.enteredArmory();
+
+  assert.equal(m.beat, B.ARM);
+  assert.equal(m.objective, 'Take a weapon');
+  assert.equal(m.armory.upstairsActive, false);
+  assert.equal(m.leftArmory(), false, 'an untouched armory cannot activate the route');
+  assert.equal(m.optionalWeaponTaken('ak47'), false, 'an optional pickup cannot precede the first');
+
+  assert.equal(m.weaponTaken('pistol9'), true);
+  assert.equal(m.optionalWeaponTaken('ak47'), true);
+  assert.equal(m.optionalWeaponTaken('ak47'), true, 'revisiting one rack stays idempotent');
+  assert.equal(m.optionalWeaponTaken('saw'), true);
+  assert.deepEqual(m.armory.optionalWeapons, ['ak47', 'saw']);
+  assert.equal(m.beat, B.TO_OFFICE, 'optional pickups never close or rewind the route');
+  assert.equal(m.leftArmory(), true);
+  assert.equal(m.leftArmory(), false, 'leaving is recorded exactly once');
+  assert.equal(m.armory.left, true);
+  assert.equal(m.armory.upstairsActive, true);
+});
+
+test('collecting every armory weapon preserves the unlocked route across checkpoint restore', () => {
+  const { m } = mission();
+  const guns = ['revolver', 'pistol9', 'carbine', 'ak47', 'saw', 'barrett'];
+  m.start(); m.wokeUp(); m.enteredArmory();
+  assert.equal(m.weaponTaken(guns[0]), true);
+  for (const id of guns.slice(1)) assert.equal(m.optionalWeaponTaken(id), true, id);
+  assert.equal(m.leftArmory(), true);
+  const saved = JSON.parse(JSON.stringify(m.checkpoint));
+
+  m.armory = {
+    reached: false, firstWeapon: null, optionalWeapons: [], left: false, upstairsActive: false,
+  };
+  assert.equal(m.restoreCheckpoint(saved), true);
+  assert.equal(m.beat, B.TO_OFFICE);
+  assert.deepEqual(m.armory, {
+    reached: true,
+    firstWeapon: 'revolver',
+    optionalWeapons: guns.slice(1),
+    left: true,
+    upstairsActive: true,
+  });
+});
+
+test('reaching the armory creates a local recovery checkpoint before any gun is taken', () => {
+  const { m } = mission();
+  m.start(); m.wokeUp(); m.enteredArmory();
+  const saved = JSON.parse(JSON.stringify(m.checkpoint));
+  assert.equal(saved.id, 'armory');
+  assert.equal(saved.beat, B.ARM);
+  assert.deepEqual(saved.armory, {
+    reached: true,
+    firstWeapon: null,
+    optionalWeapons: [],
+    left: false,
+    upstairsActive: false,
+  });
+  m.weaponTaken('carbine');
+  assert.equal(m.restoreCheckpoint(saved), true);
+  assert.equal(m.beat, B.ARM);
+  assert.equal(m.objective, 'Take a weapon');
+  assert.equal(m.armory.upstairsActive, false);
 });
 
 test('a full inherited loadout falls back to an owned gun and still advances', () => {
@@ -557,9 +631,9 @@ test('the mission walks the brief\'s objective chain in order', () => {
   assert.equal(m.enteredOffice(), false, 'the office is not reachable yet');
 
   m.enteredArmory();
-  assert.equal(m.objective, 'Arm yourself');
+  assert.equal(m.objective, 'Take a weapon');
   assert.equal(m.weaponTaken('carbine'), true);
-  assert.equal(m.objective, "Reach Lou's office");
+  assert.equal(m.objective, 'Take more weapons or get upstairs');
 
   m.enteredOffice();
   assert.equal(m.beat, B.BRIEFING);

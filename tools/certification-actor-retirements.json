@@ -1,16 +1,4 @@
 {
   "$schema": "squatchsmash.certification-actor-retirements.v1",
-  "entries": [
-    {
-      "proofId": "luxury-apartment:property",
-      "actorIds": [
-        "luxury.poker.patron.east",
-        "luxury.poker.patron.north",
-        "luxury.poker.patron.west"
-      ],
-      "reason": "The Luxury Apartment poker beat is intentionally solo; its three anonymous patrons were removed because they contradicted Tony being alone and falsely promised a hosted game.",
-      "source": "src/luxury-apartment/world.js:2663",
-      "sourceAnchor": "const pokerPatrons = [];"
-    }
-  ]
+  "entries": []
 }

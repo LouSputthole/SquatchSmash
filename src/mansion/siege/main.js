@@ -16,7 +16,7 @@
  * WHAT LIVES WHERE:
  *   state.js      the six damage states, and what is standing in each
  *   waves.js      who attacks, from where, and when they are released
- *   mission.js    the beat chain, the objectives and the four checkpoints
+ *   mission.js    the beat chain, the objectives and the five checkpoints
  *   night.js      emergency light and the alarm's clock
  *   dressing.js   wrecks, fire, bodies, debris, the wrecked centrepiece
  *   glass.js      intact / cracked / broken, and the collider that goes with
@@ -660,6 +660,13 @@ const SIEGE_SUPPLY_FLOORS = Object.freeze({
     flankCache: Object.freeze({ resupply: 2 }),
     triageCase: Object.freeze({ triage: 4 }),
   }),
+  /* Armory reached, before a gun is chosen: the whole mission is still ahead. */
+  armory: Object.freeze({
+    foyerLine: Object.freeze({ triage: 1, resupply: 1 }),
+    firingStep: Object.freeze({ resupply: 3 }),
+    flankCache: Object.freeze({ resupply: 2 }),
+    triageCase: Object.freeze({ triage: 4 }),
+  }),
   /* Armed, in the cellar: the whole mission is still ahead of him. */
   armed: Object.freeze({
     foyerLine: Object.freeze({ triage: 1, resupply: 1 }),
@@ -787,13 +794,15 @@ function grantSiegeArmor() {
 }
 
 function completeArmoryPickup(id) {
-  if (mission.beat !== B.ARM || !isSiegeLineWeapon(id)) return false;
+  if (!isSiegeLineWeapon(id)) return false;
+  if (mission.beat === B.TO_OFFICE) return mission.optionalWeaponTaken(id);
+  if (mission.beat !== B.ARM) return false;
   const armorAdded = grantSiegeArmor();
-  const finished = mission.weaponTaken(id);
-  if (finished && armorAdded > 0 && running && checkpointReconstructionDepth === 0) {
+  const advanced = mission.weaponTaken(id);
+  if (advanced && armorAdded > 0 && running && checkpointReconstructionDepth === 0) {
     nudge(`Plate carrier secured — ${Math.round(playerActor.armor)} armor.`, 2.8);
   }
-  return finished;
+  return advanced;
 }
 
 const finalArcLoadout = createFinalArcLoadout();
@@ -1266,7 +1275,12 @@ const armory = mountArmory({
     }
     if (acquisition.ok) captureSiegeLoadout();
     loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
-    completeArmoryPickup(decision.weaponId);
+    /* A full inherited loadout may satisfy the FIRST pickup with a gun the
+     * player already owns, but it must not manufacture an optional pickup on
+     * every refused rack interaction after that. Only a retained rack gun is
+     * written into the optional-pickup ledger. */
+    const takingFirstWeapon = mission.beat === B.ARM;
+    if (takingFirstWeapon || acquisition.ok) completeArmoryPickup(decision.weaponId);
     if (decision.nudge) nudge(decision.nudge);
   },
 });
@@ -1655,6 +1669,12 @@ const shadowCap = capShadowCasters({
 /* The mission                                                           */
 /* ================================================================== */
 let running = false;
+/* The browser verifier owns its simulation clock while sampling exact
+ * trigger/impact frames. Keep that hold separate from the player-facing pause
+ * menu: pausing releases pointer lock and clears a held trigger, which makes
+ * it impossible to verify that one real mouse-down continues automatic fire.
+ * Ordinary play never changes this flag. */
+let ambientSimulationEnabled = true;
 let starting = false;
 let checkpointReconstructionDepth = 0;
 let ammoDirty = true;
@@ -1691,11 +1711,17 @@ const dialogue = new SiegeDialogue({
     if (!subtitleEl) return;
     combatBarkTimer = 0;
     subtitleEl.hidden = false;
+    subtitleEl.classList.toggle('hero', line.protected === true);
+    subtitleEl.dataset.priority = line.priority ?? 'story';
     subtitleWhoEl.textContent = (SIEGE_SPEAKER_NAMES[line.speaker] ?? line.speaker).toUpperCase();
     subtitleTextEl.textContent = line.say;
   },
   onDone: (sequence) => {
-    if (subtitleEl) subtitleEl.hidden = true;
+    if (subtitleEl) {
+      subtitleEl.hidden = true;
+      subtitleEl.classList.remove('hero');
+      delete subtitleEl.dataset.priority;
+    }
     /* THE THREE HANDOFFS. Each of these is a mission method that existed
      * from the first commit and that nothing in the scene ever called. */
     if (sequence === 'briefing') mission.briefingEnded();
@@ -1709,6 +1735,8 @@ function renderCombatBark(event = {}) {
   const line = typeof event.line === 'string' ? event.line.trim() : '';
   if (!line || dialogue.line || !subtitleEl) return false;
   subtitleEl.hidden = false;
+  subtitleEl.classList.remove('hero');
+  subtitleEl.dataset.priority = 'ambient';
   subtitleWhoEl.textContent = String(event.name ?? event.role ?? event.id ?? '').toUpperCase();
   subtitleTextEl.textContent = line;
   combatBarkTimer = THREE.MathUtils.clamp(line.length * 0.055, 1.4, 3.2);
@@ -1744,6 +1772,11 @@ function updateCombatBark(dt) {
   if (combatBarkTimer === 0 && subtitleEl) subtitleEl.hidden = true;
 }
 
+/** The one authored line allowed to hold every gun report for its own take. */
+function heroDialogueProtected() {
+  return dialogue.line?.protected === true;
+}
+
 /**
  * Which sequence a beat opens with.
  *
@@ -1769,7 +1802,11 @@ function recordSiegeCheckpoint(id) {
     ? mission.checkpoint.scene?.supplies
     : null;
   missionAudio.checkpoint(id);
-  siegeCampaign.checkpoint(id, {
+  /* `armory` is a high-value in-page death retry but not yet one of the four
+   * durable campaign checkpoint ids. Keep the full mission snapshot locally
+   * and let a hard page reload fall back to `wake`; never write an id the
+   * campaign normalizer would discard together with its combat snapshot. */
+  if (id !== 'armory') siegeCampaign.checkpoint(id, {
     attackersDown: mission.attackersDown,
     littleFriendSaid: mission.littleFriendSaid,
     sasoleMet: mission.beat === B.COMPLETE,
@@ -2105,7 +2142,7 @@ function shatterNearest({ x, z, opening }) {
  * He went down.
  *
  * This used to restore the checkpoint silently and say so in this comment:
- * "there is no death screen and no retry menu, because the four checkpoints
+ * "there is no death screen and no retry menu, because the five checkpoints
  * are placed so that the longest thing a death can cost is one wave." The
  * owner asked for one, so there is one, and the comment is corrected rather
  * than left contradicting the code underneath it.
@@ -2261,9 +2298,12 @@ function updateTriggers(dt) {
     if (inRect(CELLAR_HALL, x, z) && feet < GROUND_Y - 1) dialogue.play('guide_armory');
     return;
   }
-  if (mission.beat === B.TO_OFFICE && inRect(OFFICE, x, z) && feet > UPPER_Y - 1) {
-    mission.enteredOffice();
-    return;
+  if (mission.beat === B.TO_OFFICE) {
+    if (!inRect(BASEMENT_ROOM, x, z) || feet >= GROUND_Y - 1) mission.leftArmory();
+    if (inRect(OFFICE, x, z) && feet > UPPER_Y - 1) {
+      mission.enteredOffice();
+      return;
+    }
   }
   /* The handoff. He is standing on the landing in a flight jacket; walk up to
    * him and the mission ends. */
@@ -2687,7 +2727,7 @@ const pauseMenu = createPauseMenu({
  * office briefing owns this permission; only emission of a round is refused.
  */
 function tryPlayerFire({ single = false } = {}) {
-  if (!mission.playerFireEnabled) {
+  if (!mission.playerFireEnabled || heroDialogueProtected()) {
     weaponSystem.setTrigger(false);
     return false;
   }
@@ -2800,7 +2840,7 @@ input = createFirstPersonInput({
 });
 
 /* ================================================================== */
-/* CHECKPOINT ENTRY -- ?checkpoint=wake|armed|briefed|wave_one            */
+/* CHECKPOINT ENTRY -- ?checkpoint=wake|armory|armed|briefed|wave_one    */
 /*                                                                       */
 /* WHY THIS IS PARSED HERE AND NOT IN `src/core/preview-mode.js`.        */
 /*                                                                       */
@@ -2819,11 +2859,29 @@ const CHECKPOINT_ENTRIES = Object.freeze({
   wake: Object.freeze({
     label: 'WAKE UP', blurb: 'The guest room, from the top. The whole mission.',
   }),
+  armory: Object.freeze({
+    label: 'ARMORY',
+    blurb: 'Inside the armory before the first pickup. Take any one weapon.',
+    /* The builder's canonical armory marker, not the basement stair shaft.
+     * Yaw 90 faces the west rack while leaving the door at the player's back. */
+    at: Object.freeze({
+      x: anchors.armoryCenter.x,
+      y: anchors.armoryCenter.y,
+      z: anchors.armoryCenter.z,
+      yaw: 90,
+    }),
+  }),
   armed: Object.freeze({
     label: 'ARMED',
-    blurb: 'Out of the armory with a weapon, on the way up to Lou.',
-    /* At the foot of the basement stair, facing the way up. */
-    at: Object.freeze({ x: 7.2, y: BASEMENT_Y, z: 55.5, yaw: 0 }),
+    blurb: 'First weapon taken; the remaining rack guns are optional.',
+    /* Still in the safe armory bay so an armed preview can compare optional
+     * pickups. The old (7.2, 55.5) marker was inside BASEMENT_SHAFT itself. */
+    at: Object.freeze({
+      x: anchors.armoryCenter.x,
+      y: anchors.armoryCenter.y,
+      z: anchors.armoryCenter.z,
+      yaw: 90,
+    }),
   }),
   briefed: Object.freeze({
     label: 'BRIEFED',
@@ -2880,6 +2938,7 @@ function jumpToCheckpoint(id) {
   const restored = withCheckpointReconstruction(() => {
     mission.wokeUp();
     mission.enteredArmory();
+    if (id === 'armory') return mission.beat === B.ARM;
     equipOwnedWeapon(WEAPON_IDS.CARBINE);
     completeArmoryPickup(WEAPON_IDS.CARBINE);
     if (id === 'armed') return true;
@@ -2991,7 +3050,9 @@ async function beginSiege() {
         return jumpToCheckpoint(entryCheckpoint);
       });
       if (!restored) throw new Error(`Could not restore Siege checkpoint: ${entryCheckpoint}`);
-      restoreDurableCombatCheckpoint(campaignEntry.checkpointSnapshot, entryCheckpoint);
+      if (entryCheckpoint !== 'armory') {
+        restoreDurableCombatCheckpoint(campaignEntry.checkpointSnapshot, entryCheckpoint);
+      }
       recordSiegeCheckpoint(entryCheckpoint);
       const at = CHECKPOINT_ENTRIES[entryCheckpoint].at;
       if (at) teleport(at.x, at.y, at.z, at.yaw);
@@ -3216,6 +3277,7 @@ function updateGame(dt) {
      * wall and eventually abandon his route through blocked recovery. */
     movementColliders: colliders,
     hunt: huntActive,
+    holdFire: heroDialogueProtected(),
     alive: () => ensemble.targets(),
     audio: combatAdapterAudio,
     onBark: renderCombatBark,
@@ -3252,6 +3314,7 @@ function updateGame(dt) {
     /* The friendlies shoot through the same model the attackers do. */
     colliders: combatColliders,
     attackers,
+    holdFire: heroDialogueProtected(),
     audio: combatAdapterAudio,
     onBark: renderCombatBark,
     onWeaponEvent: (event) => presentCombatWeaponEvent(event, 'friendly'),
@@ -3289,7 +3352,7 @@ function updateGame(dt) {
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
-  if (running && !pauseMenu.isPaused()) updateGame(dt);
+  if (running && ambientSimulationEnabled && !pauseMenu.isPaused()) updateGame(dt);
   /* Where the player's ears are. Without this the WebAudio listener sits at
    * the world origin facing -Z for the whole scene and every positioned cue is
    * panned as heard from there -- see the long note in
@@ -3564,6 +3627,11 @@ window.mansionSiege = {
     for (let elapsed = 0; elapsed < seconds; elapsed += step) {
       updateGame(Math.min(step, seconds - elapsed));
     }
+  },
+  /** Headless verifier clock hold; unlike pause, it preserves pointer input. */
+  setAmbientSimulation(on) {
+    ambientSimulationEnabled = on !== false;
+    return ambientSimulationEnabled;
   },
   setRendering(on) { renderEnabled = !!on; },
   get framesRendered() { return framesRendered; },

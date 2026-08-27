@@ -35,13 +35,16 @@
  * ballistic and combat-audio paths at full presence, which is what makes a
  * quiet gun read as HITTING things.
  *
- * Nothing here modifies `src/core/**`. The suppressor wraps the audio object
- * the scene hands to `WeaponSystem`, decorates the models that system built,
- * and post-processes the flash the same frame it was written.
+ * The shared weapon audio layer owns the named `suppressed` profile; this
+ * mission's adapter merely selects that profile when a fitted gun is in hand.
+ * Model decoration, flash treatment and guard hearing remain Palace concerns.
  */
 import * as THREE from 'three';
 
-import { WEAPON_IDS, weaponCue } from '../core/weapons/catalog.js';
+import { WEAPON_IDS } from '../core/weapons/catalog.js';
+import {
+  WEAPON_AUDIO_PROFILE_IDS, WEAPON_AUDIO_PROFILES, weaponProfileCue,
+} from '../core/weapons/audio.js';
 
 /**
  * Which of the final-raid guns can take a can.
@@ -72,10 +75,14 @@ export const GUNSHOT_HEARING = Object.freeze({
 });
 
 /** The recording a suppressed shot asks for. */
-export const suppressedFireCue = (id) => `weapon.suppressed.${id}.fire`;
+export const suppressedFireCue = (id) => weaponProfileCue(
+  id,
+  'fire',
+  WEAPON_AUDIO_PROFILE_IDS.SUPPRESSED,
+);
 
 /** The mechanical layer every suppressed shot puts on top of the report. */
-export const SUPPRESSED_ACTION_CUE = 'weapon.suppressed.action';
+export const SUPPRESSED_ACTION_CUE = WEAPON_AUDIO_PROFILES.suppressed.actionCue;
 
 /* Per-weapon can dimensions, in metres. A 9 mm pistol can is short and fat;
  * a rifle can is longer and slimmer. Both are sized off the real barrel. */
@@ -178,10 +185,8 @@ export class PalaceSuppressor {
     this.canSuppress = typeof canSuppress === 'function'
       ? canSuppress
       : (id) => SUPPRESSED_WEAPON_IDS.includes(id);
-    /** The weapon currently in the player's hands, for the audio wrapper. */
+    /** The weapon currently in the player's hands, for the profile adapter. */
     this.equipped = null;
-    /** Set by `hasSample` when a suppressed fire cue has no recording at all. */
-    this._standInPending = false;
     this.stats = { fitted: [], suppressedShots: 0, loudShots: 0 };
   }
 
@@ -239,89 +244,38 @@ export class PalaceSuppressor {
   }
 
   /**
-   * The audio object to hand `WeaponSystem`.
+   * The audio adapter to hand `WeaponSystem`.
    *
-   * `playWeaponCue` asks `hasSample(wanted)` and then plays either `wanted`
-   * or a hard-coded stand-in, so both halves are wrapped:
+   * This is an explicit, data-driven opt-in: the shared `playWeaponCue`
+   * resolves `weaponAudioProfile({ id, slot })`, and this adapter answers
+   * `suppressed` only for a live fire event from the fitted gun. It delegates
+   * sample lookup and playback unchanged, so the shared layer—not a fragile
+   * name-rewriting wrapper—owns dedicated takes, fallback muffling and the
+   * mechanical action layer.
    *
-   *   - a FIRE cue for a suppressed gun answers for the suppressed recording
-   *     as well as the plain one, and the play call is redirected to it;
-   *   - if neither exists, `hasSample` returns false, `playWeaponCue` falls
-   *     through to its stand-in, and `_standInPending` — set one call
-   *     earlier, synchronously, in the same expression — muffles whatever it
-   *     reaches for. That flag is safe precisely because the two calls are
-   *     adjacent statements with nothing between them.
-   *
-   * `suppress` is the scene's own filter (the Palace mutes the generic
-   * contact cue so its Adapter can present one truthful impact); it is
-   * applied first and unchanged.
+   * `suppress` remains the Palace's contact filter: its Adapter presents the
+   * truthful material impact instead of the WeaponSystem's legacy generic
+   * contact cue.
    */
   playback({ suppress = () => false } = {}) {
     const audio = this.audio;
     return {
-      hasSample: (name) => {
-        const wanted = this._suppressedNameFor(name);
-        if (!wanted) return audio?.hasSample?.(name) ?? false;
-        if (audio?.hasSample?.(wanted)) { this._standInPending = false; return true; }
-        if (audio?.hasSample?.(name)) { this._standInPending = false; return true; }
-        this._standInPending = true;
-        return false;
+      weaponAudioProfile: ({ id, slot } = {}) => (
+        slot === 'fire' && id === this.equipped && this.canSuppress(id)
+          ? WEAPON_AUDIO_PROFILE_IDS.SUPPRESSED
+          : WEAPON_AUDIO_PROFILE_IDS.STANDARD
+      ),
+      onWeaponAudioProfile: ({ slot, profile } = {}) => {
+        if (slot !== 'fire') return;
+        if (profile === WEAPON_AUDIO_PROFILE_IDS.SUPPRESSED) this.stats.suppressedShots++;
+        else this.stats.loudShots++;
       },
+      hasSample: (name) => audio?.hasSample?.(name) ?? false,
       play: (name, options) => {
         if (suppress(name)) return null;
-        const wanted = this._suppressedNameFor(name);
-        if (wanted) {
-          this.stats.suppressedShots++;
-          const take = audio?.hasSample?.(wanted)
-            ? audio.play(wanted, options)
-            /* No suppressed take yet: the unsuppressed report, dropped a
-             * major third and cut hard. Muted, never mute. */
-            : audio?.play(name, this._muffled(options));
-          this._layerAction(options);
-          return take;
-        }
-        if (this._standInPending) {
-          /* This IS the stand-in for a suppressed fire cue with no
-           * recordings of its own — see the note above. */
-          this._standInPending = false;
-          this.stats.suppressedShots++;
-          const take = audio?.play(name, this._muffled(options));
-          this._layerAction(options);
-          return take;
-        }
         return audio?.play(name, options);
       },
     };
-  }
-
-  /** The suppressed cue a name maps to, or null if it is not a live fire cue. */
-  _suppressedNameFor(name) {
-    if (!this.equipped || !this.canSuppress(this.equipped)) return null;
-    return name === weaponCue(this.equipped, 'fire')
-      ? suppressedFireCue(this.equipped)
-      : null;
-  }
-
-  /** Substantially quieter and darker, and still a crack — not a pfft. */
-  _muffled(options = {}) {
-    return {
-      ...options,
-      volume: (options?.volume ?? 1) * 0.3,
-      rate: (options?.rate ?? 1) * 0.86,
-    };
-  }
-
-  /**
-   * The mechanical layer. Bolt, slide, brass — everything the can does not
-   * touch — at close to full level, so the gun reads as a machine working
-   * rather than as an absence.
-   */
-  _layerAction(options = {}) {
-    if (!this.audio?.hasSample?.(SUPPRESSED_ACTION_CUE)) return;
-    this.audio.play(SUPPRESSED_ACTION_CUE, {
-      ...options,
-      volume: (options?.volume ?? 1) * 0.82,
-    });
   }
 
   /** JSON-safe view for tests and the verifier. */

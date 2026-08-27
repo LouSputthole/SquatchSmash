@@ -169,7 +169,14 @@ export const SEQUENCES = Object.freeze({
 
   /** Once, ever. PART VI. */
   little_friend: Object.freeze([
-    say('prospect.little_friend', 'prospect', 'Say hello to my little friend.'),
+    say('prospect.little_friend', 'prospect', 'Say hello to my little friend.', {
+      /* This is the siege payoff, not another conversational line. The named
+       * flag lets the scene hold weapon reports and give the subtitle its own
+       * visual weight for exactly the recording's measured duration. */
+      gain: 1.5,
+      protected: true,
+      priority: 'hero',
+    }),
   ]),
 
   /**
@@ -365,7 +372,8 @@ export class SiegeDialogue {
           subtitle: line.say,
           requiredRecorded: true,
           mix: close ? SPEECH_MIX_CLOSE : SPEECH_MIX_INDOORS,
-          gain: SPEECH_GAIN.normal,
+          gain: line.gain ?? SPEECH_GAIN.normal,
+          priority: line.priority ?? 'story',
         });
       } catch { /* no audio yet; subtitles and mission handoff still run */ }
       this.onLine?.(line, spoken);

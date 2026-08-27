@@ -64,14 +64,14 @@ export const BEATS = Object.freeze({
   }),
   /** At the rack. Any real weapon take is enough to keep the mission moving. */
   ARM: Object.freeze({
-    objective: 'Arm yourself',
-    hint: 'E takes a weapon off the rack. Pick any one you want, then get upstairs.',
-    state: 'under_attack',
+    objective: 'Take a weapon',
+    hint: 'E takes a weapon off the rack. Any one of them opens the route upstairs.',
+    state: 'under_attack', checkpoint: 'armory',
   }),
   /** Up the cellar stair, through the foyer, up the horseshoe. */
   TO_OFFICE: Object.freeze({
-    objective: "Reach Lou's office",
-    hint: 'Up the cellar stair, across the foyer, up the horseshoe — top floor, far end',
+    objective: 'Take more weapons or get upstairs',
+    hint: "The remaining rack guns are optional. Upstairs: cross the foyer, climb the horseshoe, reach Lou's office.",
     state: 'under_attack',
   }),
   /** The whole family, armed, still shooting while they talk. */
@@ -130,7 +130,7 @@ export const BEAT_NAMES = Object.freeze(Object.keys(BEATS));
 export const B = Object.freeze(Object.fromEntries(BEAT_NAMES.map((n) => [n, n])));
 
 /**
- * The four checkpoints, and the beat each one resumes at.
+ * The five checkpoints, and the beat each one resumes at.
  *
  * A checkpoint resumes at the START of its beat, not where the player was
  * standing -- restoring mid-corridor with two men half-dead and the door
@@ -138,6 +138,10 @@ export const B = Object.freeze(Object.fromEntries(BEAT_NAMES.map((n) => [n, n]))
  */
 export const CHECKPOINTS = Object.freeze({
   wake: Object.freeze({ id: 'wake', beat: B.WAKE, label: 'Woke up' }),
+  /* In-page recovery point. The durable campaign schema predates it and
+   * deliberately falls back to `wake` after a full page reload; main.js keeps
+   * this one local while still making death in the room recover in the room. */
+  armory: Object.freeze({ id: 'armory', beat: B.ARM, label: 'Armory reached' }),
   armed: Object.freeze({ id: 'armed', beat: B.TO_OFFICE, label: 'Armed' }),
   briefed: Object.freeze({ id: 'briefed', beat: B.LITTLE_FRIEND, label: 'Briefed' }),
   wave_one: Object.freeze({ id: 'wave_one', beat: B.LULL, label: 'Wave one held' }),
@@ -192,6 +196,13 @@ export class SiegeMission {
     this.history = [];
     this.providers = new Map();
     this.checkpoint = null;
+
+    /* The armory is a progression ledger, not one boolean. Keeping these
+     * facts separate prevents three different player states from collapsing
+     * into the same misleading objective: standing at an untouched rack,
+     * carrying the first valid gun, and returning for optional weapons after
+     * the upstairs route is already live. */
+    this.armory = this._freshArmoryState();
 
     /* The line is said once, ever. Not once per checkpoint, not once per
      * wave -- once, and a restore after it must not hand it back. */
@@ -287,7 +298,33 @@ export class SiegeMission {
     return encountersDown + this.waves.one.down.size + this.waves.two.down.size;
   }
 
-  start(beat = B.WAKE) { this._enter(beat); return this; }
+  _freshArmoryState() {
+    return {
+      reached: false,
+      firstWeapon: null,
+      optionalWeapons: [],
+      left: false,
+      upstairsActive: false,
+    };
+  }
+
+  _armorySnapshot() {
+    return {
+      reached: this.armory.reached === true,
+      firstWeapon: typeof this.armory.firstWeapon === 'string'
+        ? this.armory.firstWeapon : null,
+      optionalWeapons: [...new Set(this.armory.optionalWeapons
+        .filter((id) => typeof id === 'string' && id.length > 0))],
+      left: this.armory.left === true,
+      upstairsActive: this.armory.upstairsActive === true,
+    };
+  }
+
+  start(beat = B.WAKE) {
+    if (beat === B.WAKE) this.armory = this._freshArmoryState();
+    this._enter(beat);
+    return this;
+  }
 
   _enter(name) {
     const definition = BEATS[name];
@@ -343,6 +380,7 @@ export class SiegeMission {
   /** The player crossed into BASEMENT_ROOM. */
   enteredArmory() {
     if (this.beat !== B.TO_ARMORY) return false;
+    this.armory.reached = true;
     this._enter(B.ARM);
     return true;
   }
@@ -350,7 +388,33 @@ export class SiegeMission {
   /** The player took one real weapon from the basement armory. */
   weaponTaken(id) {
     if (this.beat !== B.ARM || typeof id !== 'string' || id.length === 0) return false;
+    this.armory.reached = true;
+    this.armory.firstWeapon = id;
+    this.armory.upstairsActive = true;
     this._enter(B.TO_OFFICE);
+    this.saveCheckpoint('armed');
+    return true;
+  }
+
+  /** Record a rack pickup after the first without closing or changing the route. */
+  optionalWeaponTaken(id) {
+    if (this.beat !== B.TO_OFFICE || !this.armory.firstWeapon
+        || typeof id !== 'string' || id.length === 0) return false;
+    if (id !== this.armory.firstWeapon && !this.armory.optionalWeapons.includes(id)) {
+      this.armory.optionalWeapons.push(id);
+    }
+    /* Refresh the same checkpoint so a death does not erase optional guns or
+     * silently rewind the armory ledger to its first-pickup snapshot. */
+    this.saveCheckpoint('armed');
+    return true;
+  }
+
+  /** The route out of the room is a separate fact from unlocking that route. */
+  leftArmory() {
+    if (this.beat !== B.TO_OFFICE || !this.armory.upstairsActive || this.armory.left) {
+      return false;
+    }
+    this.armory.left = true;
     this.saveCheckpoint('armed');
     return true;
   }
@@ -452,6 +516,7 @@ export class SiegeMission {
       encounters: Object.fromEntries(
         [...this.encounters].map(([key, set]) => [key, [...set]]),
       ),
+      armory: this._armorySnapshot(),
       scene,
     };
     this.onCheckpoint?.(id);
@@ -473,6 +538,34 @@ export class SiegeMission {
     this.waves.two.restore(snapshot.waves.two);
     this.encounters = new Map(Object.entries(snapshot.encounters)
       .map(([key, ids]) => [key, new Set(ids)]));
+    const savedArmory = snapshot.armory;
+    if (savedArmory && typeof savedArmory === 'object') {
+      this.armory = {
+        reached: savedArmory.reached === true,
+        firstWeapon: typeof savedArmory.firstWeapon === 'string'
+          ? savedArmory.firstWeapon : null,
+        optionalWeapons: Array.isArray(savedArmory.optionalWeapons)
+          ? [...new Set(savedArmory.optionalWeapons
+            .filter((id) => typeof id === 'string' && id.length > 0))]
+          : [],
+        left: savedArmory.left === true,
+        upstairsActive: savedArmory.upstairsActive === true,
+      };
+    } else {
+      /* Backward compatibility for checkpoints made before the ledger
+       * existed. An armed checkpoint is already proof that the room was
+       * reached, one valid gun was taken, and upstairs became available. */
+      const armed = snapshot.beat !== B.WAKE
+        && snapshot.beat !== B.TO_ARMORY && snapshot.beat !== B.ARM;
+      this.armory = {
+        reached: snapshot.beat !== B.WAKE && snapshot.beat !== B.TO_ARMORY,
+        firstWeapon: armed && typeof snapshot.scene?.weapon === 'string'
+          ? snapshot.scene.weapon : null,
+        optionalWeapons: [],
+        left: armed,
+        upstairsActive: armed,
+      };
+    }
     const definition = BEATS[snapshot.beat];
     const prev = this.beat;
     this.beat = snapshot.beat;

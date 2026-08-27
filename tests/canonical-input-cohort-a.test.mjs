@@ -46,7 +46,7 @@ test('Mansion Siege preserves the visible rejected-capture and one-shot recovery
   assertCanonicalInput(SIEGE, '../../core/first-person-input.js');
   assert.match(SIEGE, /playerEnabled: waking <= 0,/);
   assert.match(SIEGE, /const fallbackShot = pointerLockRejected;\s*requestSiegePointerLock\(\{ explain: true \}\);/);
-  assert.match(SIEGE, /function tryPlayerFire\(\{ single = false \} = \{\}\) \{\s*if \(!mission\.playerFireEnabled\) \{\s*weaponSystem\.setTrigger\(false\);\s*return false;/);
+  assert.match(SIEGE, /function tryPlayerFire\(\{ single = false \} = \{\}\) \{\s*if \(!mission\.playerFireEnabled \|\| heroDialogueProtected\(\)\) \{\s*weaponSystem\.setTrigger\(false\);\s*return false;/);
   assert.match(SIEGE, /if \(single\) weaponSystem\.triggerPress\(\);\s*else weaponSystem\.setTrigger\(true\);/);
   assert.match(SIEGE, /if \(fallbackShot\) tryPlayerFire\(\{ single: true \}\);/);
   assert.match(SIEGE, /onCaptureChange: \(_event, controls\) => \{\s*if \(controls\.locked\) \{\s*pointerLockRejected = false;/);

@@ -1008,20 +1008,31 @@ test('spatial collector accepts exit 1 when a complete debt report was emitted',
   assert.deepEqual(report, { schemaVersion: 1, debt: [] });
 });
 
-test('checked-in actor retirement ledger is exact, anchored, and fails when its source drifts', () => {
+test('checked-in actor retirement ledger is current, and synthetic receipts fail when their source drifts', () => {
   const ledger = readActorRetirementLedger();
   assert.deepEqual(validateActorRetirementLedger(ledger), []);
-  assert.deepEqual(ledger.entries.map(({ proofId, actorIds }) => ({ proofId, actorIds })), [{
-    proofId: 'luxury-apartment:property',
-    actorIds: [
-      'luxury.poker.patron.east',
-      'luxury.poker.patron.north',
-      'luxury.poker.patron.west',
-    ],
-  }]);
-  const stale = structuredClone(ledger);
-  stale.entries[0].sourceAnchor = 'const pokerPatrons = [anonymousCast];';
-  assert.match(validateActorRetirementLedger(stale).join('\n'), /sourceAnchor is not on/u);
+  assert.deepEqual(ledger.entries, [],
+    'Margo is now a discovered future actor, so the former whole-cast retirement receipt is no longer applicable');
+
+  const synthetic = {
+    $schema: 'squatchsmash.certification-actor-retirements.v1',
+    entries: [{
+      proofId: 'example:state',
+      actorIds: ['example.actor'],
+      reason: 'This fixture proves that a reviewed actor-retirement source remains executable.',
+      source: 'src/example.js:1',
+      sourceAnchor: 'const retiredCast = [];',
+    }],
+  };
+  assert.deepEqual(validateActorRetirementLedger(synthetic, {
+    repositoryRoot: process.cwd(),
+    readFile: () => 'const retiredCast = [];\n',
+  }), []);
+  synthetic.entries[0].sourceAnchor = 'const retiredCast = [actor];';
+  assert.match(validateActorRetirementLedger(synthetic, {
+    repositoryRoot: process.cwd(),
+    readFile: () => 'const retiredCast = [];\n',
+  }).join('\n'), /sourceAnchor is not on/u);
 });
 
 test('checked-in baseline is a structurally valid deterministic snapshot', () => {

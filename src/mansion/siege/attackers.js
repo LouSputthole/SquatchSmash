@@ -2454,6 +2454,7 @@ export function createAttackerPool({
     }
 
     /* --- fire --- */
+    if (ctx.holdFire === true) return;
     const fireTarget = entry.targetVisible ? entry.target : entry.areaTarget;
     if (!fireTarget || entry.awareness < 0.7 || entry.impairments.interrupted) return;
     if (entry.suppression.value > 0.82) {
@@ -3114,6 +3115,9 @@ export function createAttackerPool({
        * wave attacker still standing drops his standoff and pushes at the
        * player. See the note in `think()`. */
       hunt: ctx.hunt === true,
+      /* A hero story line can hold reports without freezing movement,
+       * perception, aiming, cooldowns, or the rest of the assault. */
+      holdFire: ctx.holdFire === true,
       onBreach: context.onBreach,
       onPlayerHit: context.onPlayerHit,
       onStep: ctx.onStep ?? null,

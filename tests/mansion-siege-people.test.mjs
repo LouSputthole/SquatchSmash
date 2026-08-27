@@ -2580,6 +2580,40 @@ test('the eight roles actually fire differently over a minute', () => {
   assert.ok(byRole.get('smg') > 0 && byRole.get('rifle') > 0);
 });
 
+test('a protected story line holds hostile reports without freezing the assault', () => {
+  const { colliders, pool } = harness();
+  const shooter = pool.spawn({
+    id: 'hero-line-rifle', role: ROLES.rifle, staging: STAGING.front_steps,
+  });
+  shooter.root.position.set(0, 1.2, 40);
+  shooter.floorY = 1.2;
+  shooter.path.length = 0;
+  shooter.goal.copy(shooter.root.position);
+  shooter.root.rotation.y = 0;
+  shooter.awareness = 1;
+  shooter.sinceThink = 1;
+  const player = makePlayer(0, 1.2, 48);
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    for (let frame = 0; frame < 240; frame++) {
+      pool.update(1 / 60, {
+        player, colliders, alive: [], holdFire: true, playerDamageScale: 0,
+      });
+    }
+    assert.equal(shooter.targetVisible, true, 'the protected line froze perception');
+    assert.equal(shooter.roundsFired, 0, 'a hostile gun talked over the protected line');
+    for (let frame = 0; frame < 360 && shooter.roundsFired === 0; frame++) {
+      pool.update(1 / 60, {
+        player, colliders, alive: [], holdFire: false, playerDamageScale: 0,
+      });
+    }
+  } finally {
+    Math.random = originalRandom;
+  }
+  assert.ok(shooter.roundsFired > 0, 'combat did not resume when the line released the floor');
+});
+
 /* ================================================================== */
 /* THE RAIL IS COVER, NOT IMMUNITY                                      */
 /* ================================================================== */
@@ -3722,6 +3756,13 @@ test('friendlies acquire through shared LOS and fire only from their rendered bo
     assert.equal(shooter.shotsFired, 0, 'a friendly fired through unseen cover');
 
     shooter.sinceThink = 1;
+    for (let frame = 0; frame < 240; frame++) {
+      ensemble.update(1 / 60, {
+        player: null, hostiles: [hostile], colliders: [], holdFire: true,
+      });
+    }
+    assert.equal(shooter.targetVisible, true, 'the protected line froze friendly perception');
+    assert.equal(shooter.shotsFired, 0, 'a friendly gun talked over the protected line');
     for (let frame = 0; frame < 360 && !shooter.lastShot; frame++) {
       ensemble.update(1 / 60, { player: null, hostiles: [hostile], colliders: [] });
     }
@@ -3940,13 +3981,37 @@ test('every beat from the mission model stages somebody', () => {
   const { scene, damage, matrix } = harness();
   const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
   for (const beat of [
-    'BRIEFING', 'LITTLE_FRIEND', 'WAVE_ONE', 'LULL', 'WAVE_TWO',
+    'ARM', 'TO_OFFICE', 'BRIEFING', 'LITTLE_FRIEND', 'WAVE_ONE', 'LULL', 'WAVE_TWO',
     'AFTERMATH', 'TO_SASOLE',
   ]) {
     ensemble.stage(beat);
     const standing = [...ensemble.members.values()].filter((m) => m.root.visible);
     assert.ok(standing.length >= 14, `${beat} staged only ${standing.length} people`);
   }
+});
+
+test('the armory checkpoint pre-stages the same hidden defence used after the first pickup', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('ARM');
+  const armory = [...ensemble.members.values()]
+    .filter((member) => member.staged)
+    .map((member) => ({
+      id: member.id,
+      position: member.root.position.toArray(),
+      facing: member.root.rotation.y,
+    }));
+  ensemble.stage('TO_OFFICE');
+  const upstairs = [...ensemble.members.values()]
+    .filter((member) => member.staged)
+    .map((member) => ({
+      id: member.id,
+      position: member.root.position.toArray(),
+      facing: member.root.rotation.y,
+    }));
+  assert.ok(armory.length >= 14, `only ${armory.length} defenders were ready above the armory`);
+  assert.deepEqual(upstairs, armory,
+    'taking the first gun visibly restaged or refaced the already-hidden defence');
 });
 
 test('the aftermath is people working, not people at attention', () => {

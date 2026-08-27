@@ -292,10 +292,14 @@
         "ape",
         "doorman",
         "manager",
-        "announcer"
+        "announcer",
+        "bandleader",
+        "silver-diner-a",
+        "silver-diner-b",
+        "silver-diner-c"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "cast.js's populate() builds Vinny/the doorman ('doorman'), 'manager', the featured date waiter ('silver-waiter'), ambient staff on the shared 'waiter' profile (mover1/mover2/server<N>), and 'the host'; Ape is spread in as the exact Bing FAMILY figure (identifySilverApe()). The single 'announcer' line ('...the Silver Room is proud... the Midnight Pines') is the room's own host introducing the act on stage, not an offscreen PA."
+      "notes": "cast.js's populate() builds Vinny/the doorman ('doorman'), 'manager', the featured date waiter ('silver-waiter'), ambient staff on the shared 'waiter' profile (mover1/mover2/server<N>), the three physically staged diner voice rotations ('silver-diner-a/b/c'), and 'the host'; Ape is spread in as the exact Bing FAMILY figure (identifySilverApe()). The room also stages the dedicated 'bandleader' on the Midnight Pines figure. The single 'announcer' line ('...the Silver Room is proud... the Midnight Pines') is the room's own host introducing the act on stage, not an offscreen PA."
     },
     {
       "id": "silver-case",

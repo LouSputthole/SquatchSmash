@@ -78,11 +78,11 @@ function walkToPhase(campaign, target, { cameHome = true } = {}) {
   }), true);
   campaign.enter(SCENE_IDS.LUXURY_APARTMENT, { spawn: 'main' });
   if (target === 'come_home') return story;
-  if (cameHome) story.margoComeHomeDone();
+  story.margoComeHomeDone();
   if (target === 'stayover') return story;
   story.sleep();
   if (target === 'morning') return story;
-  if (cameHome) story.margoWakeDone();
+  story.margoWakeDone();
   if (target === 'no_wake') return story;
   story.callAnswered(NO_WAKE_LOU_CALL);
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_NO_WAKE);
@@ -199,20 +199,20 @@ test('beats 16 and 17: she comes home, the night passes, and only then a telepho
   assert.equal(story.pendingCall(), NO_WAKE_LOU_CALL);
 });
 
-/**
- * A night that went badly must not leave him standing in a flat waiting for
- * somebody who is not coming. `cameHome` is the Silver Room's own verdict,
- * and both Margo phases are skipped outright when it is not `true`.
- */
-test('an evening that ended badly skips both Margo beats instead of wedging', () => {
+/** Legacy low-score saves still receive the canonical, non-gated route. */
+test('an old cameHome false verdict cannot skip the now-canonical Margo beats', () => {
   const campaign = afterTheHandover();
   const story = walkToPhase(campaign, 'come_home', { cameHome: false });
 
   assert.equal(campaign.state.missions[MISSION_IDS.SILVER_ROOM].cameHome, false);
+  assert.equal(story.phase(), 'come_home');
+  assert.equal(story.margoComeHomeOwed(), true);
+  assert.equal(story.margoComeHomeDone(), true);
   assert.equal(story.phase(), 'stayover');
-  assert.equal(story.margoComeHomeOwed(), false);
   assert.deepEqual(story.sleep(), { ok: true, day: 7, timeMinutes: 7 * 60 + 10 });
-  assert.equal(story.margoWakeOwed(), false);
+  assert.equal(story.margoWakeOwed(), true);
+  assert.equal(story.phase(), 'morning');
+  assert.equal(story.margoWakeDone(), true);
   assert.equal(story.phase(), 'no_wake');
 });
 

@@ -44,6 +44,37 @@ import { MissionAudio } from '../beefrun/audio.js';
 import { clamp, lerp } from '../beefrun/util.js';
 
 const SFX_DIR = 'assets/sfx/';
+const MUSIC_DIR = 'assets/music/';
+
+/**
+ * Owner-delivered non-diegetic score for the target run and the flight away.
+ *
+ * These are deliberately NOT SFX-manifest cues. They are long-form streamed
+ * records, routed through the music bus so every spoken line gets the shared
+ * dialogue duck and so neither track acquires a fake world position. The
+ * approach is a one-shot whose delivered length is 37.704 s; the mission cuts
+ * it on the exact release frame if the player reaches the handle sooner. The
+ * escape record starts only after the detonation has had a silent aftermath.
+ */
+export const ENOLA_NARRATIVE_MUSIC = Object.freeze({
+  approach: Object.freeze({
+    key: 'music.enola.approach',
+    file: 'enola-pre-bomb-drop-approach.mp3',
+    duration: 37.704,
+    volume: 0.22,
+    fade: 0.8,
+  }),
+  escape: Object.freeze({
+    key: 'music.enola.escape',
+    file: 'enola-escape-after-drop.mp3',
+    duration: 148.2,
+    volume: 0.24,
+    fade: 1.1,
+  }),
+});
+
+/** Silence after the explosion phase has landed before the escape score rises. */
+export const ENOLA_ESCAPE_MUSIC_DELAY_SECONDS = 1.8;
 
 /** One-off recordings shared with the apartment that this page calls by name. */
 export const ENOLA_SHARED_CUES = new Set([
@@ -278,6 +309,7 @@ export class EnolaMissionAudio extends MissionAudio {
     this._wind = false;
     this._windLevel = -1;
     this._siren = false;
+    this.lastNarrativeMusic = null;
   }
 
   /**
@@ -327,6 +359,90 @@ export class EnolaMissionAudio extends MissionAudio {
   /** The take of the line most recently started by `line()`, or null. */
   voiceTake() {
     return this.lastTake ?? null;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* The target-run and escape score                                   */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Start one owner-delivered, non-diegetic record on the music bus.
+   *
+   * `MissionAudio` can still have its procedural sequencer or the takeoff
+   * needle-drop alive when the bombing run begins. Both are retired here so
+   * there is one score, not two. The other Enola narrative track is also
+   * stopped, which makes a checkpoint rewind from the return leg back to the
+   * target deterministic.
+   */
+  _playNarrativeMusic(kind, { restart = true } = {}) {
+    const score = ENOLA_NARRATIVE_MUSIC[kind];
+    const engine = this.engine;
+    if (!score || !engine?.startMusicLoop) return false;
+
+    const live = engine.loops?.get?.(score.key);
+    if (!restart && live && !live.released && !live.ended && !live.failed) return true;
+
+    this.stopMusic();
+    engine.stopLoop?.('music.takeoff', 0.35);
+    for (const entry of Object.values(ENOLA_NARRATIVE_MUSIC)) {
+      if (entry.key !== score.key) engine.stopLoop?.(entry.key, 0.18);
+    }
+
+    const options = {
+      volume: score.volume,
+      fade: score.fade,
+      crossfade: 0.18,
+      loop: false,
+      bus: 'music',
+      ambience: false,
+    };
+    const url = `${MUSIC_DIR}${score.file}`;
+    if (restart && engine.replaceMusicLoop) engine.replaceMusicLoop(score.key, url, options);
+    else engine.startMusicLoop(score.key, url, options);
+    this.lastNarrativeMusic = {
+      kind,
+      key: score.key,
+      file: score.file,
+      volume: score.volume,
+      startedAt: this.ctx?.currentTime ?? null,
+      stoppedAt: null,
+    };
+    return true;
+  }
+
+  /** Start/restart the run-in record at the pre-release checkpoint. */
+  startBombApproachMusic() {
+    return this._playNarrativeMusic('approach', { restart: true });
+  }
+
+  /**
+   * The bomb owns this cut. A near-zero fade avoids a click while leaving no
+   * musical tail under the release whistle or the detonation.
+   */
+  stopBombApproachMusic(fade = 0.06) {
+    const score = ENOLA_NARRATIVE_MUSIC.approach;
+    this.engine?.stopLoop?.(score.key, Math.max(0, Number(fade) || 0));
+    if (this.lastNarrativeMusic?.key === score.key) {
+      this.lastNarrativeMusic.stoppedAt = this.ctx?.currentTime ?? null;
+    }
+    return true;
+  }
+
+  /** Start the flight-away record once; a return-checkpoint restore may resume it. */
+  startEscapeMusic({ restart = false } = {}) {
+    return this._playNarrativeMusic('escape', { restart });
+  }
+
+  /** Remove both records when an attempt is rewound or the page is disposed. */
+  stopNarrativeMusic(fade = 0.2) {
+    const seconds = Math.max(0, Number(fade) || 0);
+    for (const score of Object.values(ENOLA_NARRATIVE_MUSIC)) {
+      this.engine?.stopLoop?.(score.key, seconds);
+    }
+    if (this.lastNarrativeMusic && this.lastNarrativeMusic.stoppedAt === null) {
+      this.lastNarrativeMusic.stoppedAt = this.ctx?.currentTime ?? null;
+    }
+    return true;
   }
 
   /* ---------------------------------------------------------------- */
@@ -987,6 +1103,7 @@ export class EnolaMissionAudio extends MissionAudio {
   dispose() {
     this.endFallingWhistle(0.02);
     this.stopBlast(0.2);
+    this.stopNarrativeMusic(0.2);
     this.engine?.stopLoop?.(WIND_CUE, 0.3);
     this.engine?.stopLoop?.(SIREN_CUE, 0.3);
     this._wind = false;

@@ -71,6 +71,7 @@ import { PoliceDirector } from './police.js';
 import { SafehousePreparation } from './safehouse.js';
 import { HEIST_CAMERA_MARKS, publishHeistFramingBeats } from './shots.js';
 import { makeHeistViewModel } from './weapons.js';
+import { HeistDrivingScore } from './music.js';
 import {
   CREW_FRIENDLY_FIRE_LINES, HOSTAGE_BARKS, PROSPECT_VERB_LINES,
   SNOW_CASUALTY_LADDER, dialogueLine,
@@ -109,6 +110,7 @@ scene.add(camera);
 
 const hud = new HeistHud();
 const audio = new AudioEngine();
+const driveScore = new HeistDrivingScore(audio);
 const campaign = createCampaign();
 campaign.enter(SCENE_IDS.BANK_HEIST);
 const story = createBankHeistStory({ campaign });
@@ -1447,6 +1449,7 @@ function debugSnapshot() {
     swap: { ...swapProgress },
     squadAnchors: { ...window.__heistDebug.squadAnchors },
     audioZone,
+    drivingMusic: driveScore.snapshot(),
     missionCompleted,
     simulationPaused,
     inventory: {
@@ -2436,12 +2439,14 @@ function beginDriving() {
   refreshObjective();
   audio.startLoop('heist.vehicle.engine.load', { volume: 0.14, ambience: true, fade: 0.2 });
   audio.startLoop('heist.vehicle.tires.road', { volume: 0.08, ambience: true, fade: 0.25 });
+  driveScore.start({ restart: true });
   say('rippin_drive');
   input?.refresh('driving-start');
 }
 
 function reachSwap() {
   driving = false;
+  driveScore.stop();
   vehicle.setInput();
   audio.stopLoop('heist.vehicle.engine.load', 0.35);
   audio.stopLoop('heist.vehicle.tires.road', 0.35);
@@ -2519,6 +2524,7 @@ function returnToApartment() {
    * graph before asking the Apartment to create and decode another one; leaving
    * both contexts for browser GC can starve Chromium's decoder pool and strand
    * the next scene behind its Start card. Mission state is already durable. */
+  driveScore.stop(0.12);
   try {
     /* Start teardown immediately, but never make campaign navigation wait for
      * Chromium to settle every decoded source. Some WebAudio implementations
@@ -4083,6 +4089,7 @@ function resolveCarriedBagMesh() {
 
 function failMission(reason) {
   if (!machine.fail(reason)) return;
+  driveScore.stop(0.12);
   const fade = document.getElementById('fade');
   const restoreId = recoveryCheckpoint ?? latestCheckpoint;
   fade.querySelector('span').textContent = restoreId
@@ -4106,6 +4113,7 @@ function failMission(reason) {
     machine.restore(snapshot.meta.state);
     activatePhase(snapshot.meta.phase);
     interaction.setPaused(driving);
+    if (driving) driveScore.start({ restart: true });
     hud.setDriving(driving, Math.abs(vehicle.speed) * 2.237);
     player.mode = driving ? 'frozen' : 'walk';
     fade.style.opacity = '0';

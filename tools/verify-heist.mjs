@@ -1326,11 +1326,11 @@ try {
       .map((id) => window.__squatch.apartment.dressing.get(id).group.visible),
     door: window.__squatch.apartmentStory.tryLeave(window.__squatch.activityContext()),
   }));
-  check('physical cleanup persists and the apartment door opens only afterward',
+  check('physical cleanup persists and the post-job night correctly requires sleep',
     apartment.cleanupComplete
       && apartment.visible.every((visible) => !visible)
-      && apartment.door.kind === 'go'
-      && apartment.door.destination === 'silver_case',
+      && apartment.door.kind === 'stay'
+      && apartment.door.id === 'sleep_before_the_course',
     JSON.stringify(apartment));
   await apartmentPage.screenshot({ path: path.join(SHOTS, '13-apartment-cleanup-complete.png') });
   await apartmentPage.close();

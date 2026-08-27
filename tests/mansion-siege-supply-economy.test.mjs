@@ -464,7 +464,7 @@ test('every checkpoint floor is enough for the fight in front of it', () => {
     `the briefing guarantees ${ammunition('briefed')} rounds against ${realRounds(UPSTAIRS_ROLES)}`);
   /* And the earlier two hand the whole mission back, because nothing has been
    * spent yet that a fair restart should remember. */
-  for (const checkpoint of ['wake', 'armed']) {
+  for (const checkpoint of ['wake', 'armory', 'armed']) {
     for (const [id, plan] of Object.entries(CACHES)) {
       assert.equal(floorFor(checkpoint, id, 'triage'), plan.triageCharges, `${checkpoint}/${id}`);
       assert.equal(floorFor(checkpoint, id, 'resupply'), plan.resupplyCharges, `${checkpoint}/${id}`);

@@ -150,6 +150,12 @@
     "direction": "Female voice. Small and immediate, as realization arrives. One line only; she is not given time for another."
   },
   {
+    "name": "vo.initiation.cabin.in-150-gratin.1usmj9t.1",
+    "voice": "gratin",
+    "say": "Everybody remembers the night they joined the family. Nobody remembers the one who didn't.",
+    "direction": "Calm and level. Hold one short beat after the line, then fire. No overacting."
+  },
+  {
     "name": "vo.initiation.cabin.in-170-lou.15qwm4k.1",
     "voice": "lou",
     "say": "Stop. This one is good.",

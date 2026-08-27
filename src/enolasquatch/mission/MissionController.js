@@ -79,6 +79,7 @@ import { WP, KT, FT } from '../../beefrun/config.js';
 import { evaluateLineupGate } from '../../beefrun/lineup-gate.js';
 import { clamp, lerp, headingDelta, unlit } from '../../beefrun/util.js';
 import { SmokeSystem } from '../../world/smoke.js';
+import { ENOLA_ESCAPE_MUSIC_DELAY_SECONDS } from '../audio.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const TOWN = LANDMARKS_EAST.find((l) => l.id === 'town');
@@ -565,6 +566,7 @@ export class MissionController {
     /** True once Sasole has handed the tail gun over — see `offerTailGun()`. */
     this.gunOffered = false;
     this._returnT = 0;
+    this._escapeMusicStarted = false;
     this._nearFieldT = 0;
     this._waveIndex = 0;
     this._airborneT = 0;
@@ -1361,6 +1363,13 @@ export class MissionController {
         this.setObjective(OBJECTIVES.BOMB_APPROACH);
         this.targeting.reset();
         this.saveCheckpoint('preRelease');
+        /* The owner's target-run record is a non-diegetic one-shot. Starting
+         * it on the checkpoint boundary makes the 37.704 s master land close
+         * to the authored malfunction/release choreography on a normal run;
+         * the actual release frame below remains authoritative and cuts it if
+         * the player gets there early. */
+        this.audio?.startBombApproachMusic?.();
+        this._escapeMusicStarted = false;
         this.bombBayOpen = false;
         this._sawTargetInSight = false;
         this._sawCity = false;
@@ -1386,6 +1395,11 @@ export class MissionController {
 
       case 'explosion':
         this.setObjective(OBJECTIVES.BLAST);
+        /* Backstop the exact release-frame cut. There is intentionally no
+         * music under the falling bomb, flash, pressure front or first beat of
+         * aftermath. */
+        this.audio?.stopBombApproachMusic?.(0.04);
+        this._escapeMusicStarted = false;
         this._explosionT = 0;
         break;
 
@@ -1397,6 +1411,7 @@ export class MissionController {
         this.weather.setConditions({ turbulence: 0.95, lightning: 0.3 });
         this.bombBayOpen = false;
         this._escapeT = 0;
+        this._escapeMusicStarted = false;
         this._emergencyDecided = false;
         break;
 
@@ -1440,6 +1455,12 @@ export class MissionController {
         this.detection.active = false;
         this.weather.setConditions({ turbulence: 0.5, lightning: 0.1, cloudDensity: 0.5 });
         this._navCallTimer = 4;
+        /* Ordinary play already has this record running from `updateEscape`.
+         * A direct return-checkpoint restore does not, so resume it without
+         * restarting a live handle. */
+        if (!this._escapeMusicStarted) {
+          this._escapeMusicStarted = this.audio?.startEscapeMusic?.({ restart: false }) === true;
+        }
         break;
 
       case 'landing':
@@ -2368,6 +2389,11 @@ export class MissionController {
          * `rearmPayload()`. If anything at all has left this in that state,
          * hang a fresh one up before pulling the handle. */
         if (this.payload.released) this.rearmPayload();
+        /* The drop itself is silent score-wise. This is the authoritative
+         * edge, not entering the choice phase: a player may hold at the lever
+         * as long as they like, but the music leaves on the exact frame the
+         * bomb does. A 40 ms ramp only removes the digital click. */
+        this.audio?.stopBombApproachMusic?.(0.04);
         this.payload.release(this.scene, this.physics.velocity.clone());
         this.payloadReleased = true;
 
@@ -2494,6 +2520,7 @@ export class MissionController {
      * restart before the drop can still detonate. */
     if (this.explosionPoint) return;
     this.explosionPoint = point.clone();
+    this.audio?.stopBombApproachMusic?.(0.02);
     // The whistle stops the instant it arrives, not a frame later.
     this.audio?.endFallingWhistle?.(0.03);
 
@@ -2713,6 +2740,14 @@ export class MissionController {
   updateEscape(dt) {
     const p = this.physics;
     this._escapeT += dt;
+    /* Twelve-plus seconds of explosion phase already pass without score. Give
+     * the blast one more deliberate breath after the phase handoff, then let
+     * the flight-away record rise. This is mission time, so pause and reload
+     * semantics stay honest instead of a wall-clock setTimeout firing while
+     * the game is stopped. */
+    if (!this._escapeMusicStarted && this._escapeT >= ENOLA_ESCAPE_MUSIC_DELAY_SECONDS) {
+      this._escapeMusicStarted = this.audio?.startEscapeMusic?.({ restart: false }) === true;
+    }
     // He works the gun as long as there is anything to work it at, and only
     // announces that he is out once the sky behind them is empty.
     this.updateRearGunner(dt, this.interceptors.engagedCount > 0);
@@ -3429,6 +3464,8 @@ export class MissionController {
      * and a restart is the mission saying that detonation did not happen. Same
      * reasoning as the turbulence and the screen wash below. */
     this.audio?.stopBlast?.(0.5);
+    this.audio?.stopNarrativeMusic?.(0.2);
+    this._escapeMusicStarted = false;
     this.gunFiring = false;
     this.gunTracking = false;
     // See `onPayloadImpact`: a restart before the drop must be able to detonate.
@@ -3662,6 +3699,7 @@ export class MissionController {
     this.audio?.setPhase?.('silent');
     this.audio?.setStallHorn?.(false);
     this.audio?.endFallingWhistle?.(0.15);
+    this.audio?.stopNarrativeMusic?.(0.3);
     this.gunFiring = false;
     this.gunTracking = false;
     this.gunner.leave();

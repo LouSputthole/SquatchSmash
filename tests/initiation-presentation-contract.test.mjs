@@ -3,6 +3,10 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
 const source = readFileSync(new URL('../src/initiation/main.js', import.meta.url), 'utf8');
+const propMotion = readFileSync(
+  new URL('../src/initiation/ceremony-props-motion.js', import.meta.url),
+  'utf8',
+);
 
 test('Initiation uses the shared restrained post-processing pipeline', () => {
   assert.match(source, /import \{ PostFX \} from '\.\.\/core\/postfx\.js'/);
@@ -34,9 +38,12 @@ test('established members are identified by their faces, with subtle labels only
 });
 
 test('Booskibro carries an intentional dark staff rather than a missing-material wand', () => {
-  assert.match(source, /staff\.name\s*=\s*'booskibro\.founder\.staff'/);
-  assert.match(source, /staff\.userData\.intendedProp\s*=\s*'founder-staff'/);
-  assert.match(source, /const darkWood\s*=\s*lambert\(0x24140b\)/);
-  assert.match(source, /new THREE\.OctahedronGeometry\(0\.115, 0\)/);
-  assert.doesNotMatch(source, /DodecahedronGeometry/);
+  assert.match(source, /const founderStaff = buildFounderStaff\(\)/);
+  assert.match(source, /mountFounderStaff\(boosk, founderStaff\)/);
+  assert.match(propMotion, /FOUNDER_STAFF_HAND = 'L'/);
+  assert.match(propMotion, /staff\.name = 'booskibro\.founder\.staff'/);
+  assert.match(propMotion, /staff\.userData\.intendedProp = 'founder-staff'/);
+  assert.match(propMotion, /color: 0x24140b/);
+  assert.match(propMotion, /new THREE\.OctahedronGeometry\(0\.115, 0\)/);
+  assert.doesNotMatch(propMotion, /DodecahedronGeometry/);
 });

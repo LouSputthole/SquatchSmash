@@ -32,9 +32,12 @@ import {
 import {
   BIG_NIGHT_MARGO_WAKE,
   SILVER_ROOM_COME_HOME,
+  SILVER_ROOM_DRESS_ASK,
 } from '../core/apartment-story.js';
+import { DRESS_HELP_CUES } from '../world/dress-help.js';
 import { createLuxuryApartmentStory } from '../core/luxury-apartment-story.js';
 import { createLuxuryInputPolicy } from './controls.js';
+import { createLuxuryMargoScene, luxuryMargoCueNames } from './margo-scene.js';
 import { createLuxuryReadyTally } from './story.js';
 import { buildLuxuryApartment } from './world.js';
 import {
@@ -115,6 +118,7 @@ const appearanceStore = Object.freeze({
 });
 const initialOutfitId = appearanceStore.read();
 const readyTally = createLuxuryReadyTally();
+let luxuryMargo = null;
 
 function makeLuxuryPlayerBody(outfitId) {
   const person = new Person({
@@ -192,6 +196,7 @@ const LUXURY_OBJECTIVE = 'Explore both floors or try the private games room.';
  */
 function currentObjective() {
   if (!routed) return readyTally.ready ? LUXURY_OBJECTIVE : readyTally.objective;
+  if (luxuryMargo?.objective) return luxuryMargo.objective;
   const [first] = luxuryStory.objectives().items;
   if (!first) return LUXURY_OBJECTIVE;
   /* Beat 14's door is an `activity`, and the activity is the three chores the
@@ -215,73 +220,28 @@ function refreshObjective() {
  * Three shapes, and which one runs is `phase()`'s answer rather than this
  * file's guess:
  *
- *  - a MARGO beat (16 or 17), played as her recorded lines over the room;
+ *  - a MARGO beat (16 or 17), physically staged from lift to upstairs bed;
  *  - a TELEPHONE beat (15, 18 or 19), which schedules the ring;
  *  - nothing, which is a save standing between two of them.
  *
- * WHAT THE MARGO BEATS ARE NOT, YET. `SILVER_ROOM_COME_HOME` and
- * `BIG_NIGHT_MARGO_WAKE` are the writing the starter flat already had, and
- * they are played here verbatim -- the takes are recorded and neither line
- * names a room. What is missing is HER: the walk in, the bed, and the
- * dress-help mini-game are staged against the starter flat's one-room plan
- * (`world/apartment-preview-geometry.js`) and this place is two floors with
- * the bed up a staircase. Until that staging exists the beat is her voice and
- * the marker, which is why `campaign-spine.js` still calls beats 16 and 17
- * `pending`. The marker is spent either way, because a beat that cannot be
- * finished is a door that cannot be opened.
+ * The durable markers remain in `LuxuryApartmentStory`; the physical actor,
+ * mouth, stair walk, bed poses and shared dress-help rhythm are owned by
+ * `luxury-apartment/margo-scene.js`.  A marker is not spent until that visible
+ * sequence reaches its authored end.
  */
 const luxuryPhone = { elapsed: 0, nextRingAt: null };
-let margoBeat = null;
-
-function playMargoBeat(definition, commit) {
-  margoBeat = { definition, line: -1, hold: 0, commit };
-  advanceMargoBeat();
-}
-
-function advanceMargoBeat() {
-  if (!margoBeat) return;
-  const { definition } = margoBeat;
-  margoBeat.line += 1;
-  const index = margoBeat.line;
-  if (index >= definition.lines.length) {
-    margoBeat.commit?.();
-    margoBeat = null;
-    refreshObjective();
-    return;
-  }
-  const cue = `vo.${definition.vo}.${index + 1}`;
-  hud.say(`${definition.from}: ${definition.lines[index]}`, 4200);
-  audio.play(cue, { volume: 0.9 });
-  const reply = definition.replies?.[index];
-  margoBeat.hold = 4.4;
-  margoBeat.reply = reply ?? null;
-}
-
-function updateMargoBeat(dt) {
-  if (!margoBeat) return;
-  margoBeat.hold -= dt;
-  if (margoBeat.hold > 0) return;
-  if (margoBeat.reply) {
-    const cue = `vo.${margoBeat.definition.vo}.tony.${margoBeat.line + 1}`;
-    hud.say(`You: ${margoBeat.reply}`, 3200);
-    audio.play(cue, { volume: 0.9 });
-    margoBeat.reply = null;
-    margoBeat.hold = 3.4;
-    return;
-  }
-  advanceMargoBeat();
-}
 
 function startLuxuryStoryBeat() {
   if (!routed) return;
   refreshObjective();
   const phase = luxuryStory.phase();
+  luxuryMargo?.stageForPhase(phase);
   if (phase === 'come_home') {
-    playMargoBeat(SILVER_ROOM_COME_HOME, () => luxuryStory.margoComeHomeDone());
+    luxuryMargo?.startComeHome(SILVER_ROOM_COME_HOME, SILVER_ROOM_DRESS_ASK);
     return;
   }
   if (phase === 'morning') {
-    playMargoBeat(BIG_NIGHT_MARGO_WAKE, () => luxuryStory.margoWakeDone());
+    luxuryMargo?.startWake(BIG_NIGHT_MARGO_WAKE);
     return;
   }
   /* Six seconds, the same lead-in the starter flat gives every call: long
@@ -290,7 +250,7 @@ function startLuxuryStoryBeat() {
 }
 
 function updateLuxuryPhone(dt) {
-  if (!routed || margoBeat) return;
+  if (!routed || luxuryMargo?.active) return;
   luxuryPhone.elapsed += Math.max(0, dt);
   if (luxuryPhone.nextRingAt === null || luxuryPhone.elapsed < luxuryPhone.nextRingAt) return;
   const call = luxuryStory.pendingCall();
@@ -988,6 +948,8 @@ try {
     onTv: useTv,
     onRadio: useRadio,
     onPhone: takeHomePhone,
+    margoHelpEnabled: () => luxuryMargo?.awaitingHelp === true,
+    onMargoHelp: () => luxuryMargo?.interact() ?? false,
     onFridge: useFridge,
     onCook: useKitchen,
     cigaretteStatus: () => inventoryRuntime?.status('cigs') ?? { full: false },
@@ -1023,6 +985,29 @@ try {
   throw error;
 }
 
+luxuryMargo = createLuxuryMargoScene({
+  actor: home.margo,
+  audio,
+  hud,
+  interaction,
+  openElevator: () => home.doors.elevator.open(),
+  closeElevator: () => home.doors.elevator.close(),
+  onObjectiveChange: () => {
+    if (state.phase === 'active') refreshObjective();
+  },
+  onComeHomeDone: () => {
+    luxuryStory.margoComeHomeDone();
+    refreshObjective();
+  },
+  onWakeDone: () => {
+    luxuryStory.margoWakeDone();
+    refreshObjective();
+    /* Lou waits until she is physically in the lift, then the ordinary phone
+     * scheduler gets the same six-second breathing room as every other call. */
+    luxuryPhone.nextRingAt = luxuryPhone.elapsed + 6;
+  },
+});
+
 home.root.updateMatrixWorld(true);
 
 /* The shared Player is one-floor by default. Its world adapter supplies the
@@ -1033,7 +1018,7 @@ player = new Player(camera, playerWorld);
 player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 interaction.setOccluders(home.occluders ?? []);
-teleportToSpawn(player, home, 'arrival');
+teleportToSpawn(player, home, routed ? campaign.state.scene.spawn : 'arrival');
 firstPersonBody = new FirstPersonBody(scene, {
   factory: makeLuxuryPlayerBody,
   store: appearanceStore,
@@ -1127,6 +1112,8 @@ startButton.addEventListener('click', async () => {
       'poop.1', 'poop.2', 'poop.3', 'poop.4', 'poop.strain',
       'gun.pickup', 'gun.shot', 'gun.dry', 'gun.impact', 'gun.reload', 'ammo.take',
       'bong.bubble', 'zyn.pack', 'glue.slip',
+      ...DRESS_HELP_CUES,
+      ...luxuryMargoCueNames(SILVER_ROOM_COME_HOME, SILVER_ROOM_DRESS_ASK, BIG_NIGHT_MARGO_WAKE),
       'vo.luxury.poker.solo',
       'vo.luxury.elevator.not-ready', 'vo.luxury.elevator.not-ready-repeat',
       ...radio.preloadCueNames({ startupOnly: true }),
@@ -1164,7 +1151,9 @@ const pauseMenu = createPauseMenu({
     'F — consume the selected item. Q — stand or pocket it. R — radio/game action.',
     'Tab or Esc — pause. At a computer, Tab returns to SquatchOS and Q stands up.',
     'At darts: hold E or Mouse to charge, release to throw, R resets the leg.',
-    'This is a standalone developer preview and does not alter campaign progress.',
+    routed
+      ? 'Story progress saves through the campaign ledger.'
+      : 'Preview mode does not alter campaign progress.',
   ],
   onPause: () => {
     state.paused = true;
@@ -1225,6 +1214,13 @@ function routeLuxuryKeyDown(event, { code }) {
     return true;
   }
   if (!inputLive()) return true;
+
+  if (luxuryMargo?.dressActive) {
+    if (!event.repeat && code === 'KeyE') luxuryMargo.press();
+    else if (!event.repeat && code === 'KeyQ') luxuryMargo.abandon();
+    event.preventDefault();
+    return true;
+  }
 
   if (toilet?.active) {
     if (!event.repeat) toilet.handleKey(event.code);
@@ -1443,7 +1439,7 @@ function frame(now) {
     if (state.phase === 'active' && !state.posture && !state.resting && !state.showering) {
       interaction.update(dt);
     }
-    updateMargoBeat(dt);
+    luxuryMargo?.update(dt);
     updateLuxuryPhone(dt);
     phone.update(dt);
     phone.draw();
@@ -1649,6 +1645,7 @@ window.LUXURY_APARTMENT = {
   firstPersonBody,
   appearanceStore,
   readyTally,
+  margoScene: luxuryMargo,
   outfits: LUXURY_OUTFITS,
   bongBehavior,
   verifyParity,

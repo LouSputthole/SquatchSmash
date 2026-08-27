@@ -12515,20 +12515,11 @@ const M_GOLD_BAR = mat({
       geometryIntent(sign, { checkSupport: false, fixedSupportAnchor: true });
       root.add(sign);
     }
-    // Framed photographs of the house being built, between the doors.
-    const shots = [
-      [-10.4, 'cellar-dig', 'THE DIG, 1986'],
-      [-0.6, 'cellar-pour', 'THE POUR'],
-      [11.0, 'cellar-topping', 'TOPPING OUT'],
-    ];
-    /* rotY PI, for the same reason as the signs above: `makeFrame` builds its
-     * picture on the group's own +z face, so a frame hung on the corridor's
-     * NORTH wall at rotY 0 shows the corridor its dark backing board and shows
-     * the photograph to the masonry. */
-    for (const [sx, id, label] of shots) {
-      wallArt(id, sx, BY + 1.75, r.z1 - 0.1, Math.PI, 0.8, 0.6,
-        makePortraitTexture(id, label, '#1b1712'));
-    }
+    /* Leave the three narrow bays between the cellar doors as brick and
+     * signage. The old generated construction prints (THE DIG / THE POUR /
+     * TOPPING OUT) were placeholder labels masquerading as finished art; the
+     * lower level already has two resolved, authored pieces on the opposite
+     * wall, and negative space here keeps all four room signs readable. */
     /* The house crest goes on the SOUTH wall, beside the armory door.
      *
      * Not on the corridor's west end wall, which is where it would naturally
@@ -12834,21 +12825,25 @@ const M_GOLD_BAR = mat({
       }),
     });
     guestArt.name = 'mansion.guest.art';
-    const guestCrest = flatArt('mansion.guest.crest', {
-      x: bedX,
-      y: BY + 2.05,
-      z: r.z1 - 0.13,
-      rotY: Math.PI,
-      w: 0.95,
-      h: 0.95,
-      material: mat({
-        map: squatchArt('mansion-guest-crest', {
-          title: ['SILVER', 'SASQUATCHES'], footer: 'FAMILY HOUSE', ink: '#d8b85b', bg: '#1b1520',
-        }),
-        roughness: 0.9,
-        unique: true,
+    /* This is the Prospect's Silver Sasquatches piece, not a vinyl wall
+     * decal. Give it the same physical frame hierarchy as the commissioned
+     * house art. The north-wall lining's room face is `r.z1 - 0.04`; offset
+     * the group by makeFrame's measured rear depth so its backing touches the
+     * finish. At 820 mm it clears both the headboard and low cellar ceiling. */
+    const guestCrestFrame = wallArt(
+      'mansion.guest.crest',
+      bedX,
+      BY + 2.0,
+      r.z1 - 0.04 - FRAME_REAR,
+      Math.PI,
+      0.82,
+      0.82,
+      squatchArt('mansion-guest-crest', {
+        title: ['SILVER', 'SASQUATCHES'], footer: 'FAMILY HOUSE', ink: '#d8b85b', bg: '#1b1520',
       }),
-    });
+    );
+    guestCrestFrame.group.name = 'mansion.guest.crest.frame';
+    const guestCrest = guestCrestFrame.art;
     guestCrest.name = 'mansion.guest.crest';
     const guestDog = wallArt(
       'mansion.guest.dog',
@@ -14131,7 +14126,7 @@ const M_GOLD_BAR = mat({
     { slot: 'mansion.theatre.banner', mesh: theatreProps.banner, w: 1.0 },
     { slot: 'mansion.lan.banner', mesh: lanProps.banner, w: 1.6 },
     { slot: 'mansion.guest.art', mesh: guestProps.art, w: 1.1 },
-    { slot: 'mansion.guest.crest', mesh: guestProps.crest, w: 0.95 },
+    { slot: 'mansion.guest.crest', mesh: guestProps.crest, w: 0.82 },
     /* Keep the resolved square photograph at the deliberately narrowed
      * 700 mm authored width. The old 800 mm async override left only 40 mm
      * from the real white jamb even though the pre-dress geometry measured

@@ -542,10 +542,10 @@ test('the right answer completes the mission, and the path never touches a fail 
   assert.equal(PHASES.complete.terminal, true);
   assert.deepEqual(PHASES.oath_yes.exits, ['blade']);
 
-  /* The making itself: the completion event, once, and a real exit home so no
-   * save is trapped in a terminal scene. */
+  /* The making itself: the completion event, once, and a direct ending so no
+   * obsolete campground button sits between the wind beat and the credits. */
   assert.match(MAIN, /TIME_EVENT_IDS\.COMPLETE_INITIATION/);
-  assert.match(MAIN, /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT/);
+  assert.match(MAIN, /campaignCreditsView\.roll\(\)/);
 });
 
 test('only Tony survives before the walk to the cabin', () => {
@@ -793,6 +793,14 @@ test('only the four sweep beats are allowed to fire', () => {
     'Get Tony up.',
   ]);
   assert.equal(script.beatById('IN-170').lines[0].verbatim, true);
+});
+
+test('Gratin gives the owner-authored line immediately before the Kittenboss shot', () => {
+  const lines = script.beatById('IN-150').lines;
+  assert.deepEqual(lines.map((line) => line.speakerKey), ['KITTENBOSS', 'GRATIN']);
+  assert.equal(lines.at(-1).say,
+    "Everybody remembers the night they joined the family. Nobody remembers the one who didn't.");
+  assert.equal(lines.at(-1).verbatim, true);
 });
 
 test('all five remaining prospects kneel before the first sweep shot', () => {

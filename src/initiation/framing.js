@@ -637,6 +637,26 @@ function cabinBeats() {
   beats.push(followBeat({ id: 'cabin-arrive', phase: 'cabin_arrive', path: TRAIL, t: 0.9 }));
   beats.push(followBeat({ id: 'cabin-door', phase: 'cabin_door', path: TRAIL, t: 1 }));
 
+  /* The player has crossed the threshold while the Circle files in behind
+   * him. This is still the live follow camera, only sampled at its first
+   * stable cabin position so a newly added procession hold cannot disappear
+   * from the framing gate. */
+  const settleForward = vec(
+    Math.sin(CABIN_DOOR.inside.heading),
+    0,
+    Math.cos(CABIN_DOOR.inside.heading),
+  );
+  const settlePlayer = vec(CABIN_DOOR.inside.x, 0, CABIN_DOOR.inside.z);
+  const settleShot = INITIATION_SHOTS.follow({ player: settlePlayer, forward: settleForward });
+  beats.push({
+    id: 'cabin-settle',
+    phase: 'cabin_settle',
+    mode: 'follow',
+    camera: settleShot,
+    speaker: { id: 'player', point: standingHead(CABIN_DOOR.inside) },
+    subject: { id: 'cabin-settle:ahead', point: settleShot.lookAt },
+  });
+
   /* The only movement inside the ritual belongs to the player. This nominal
    * first-person frame publishes the start of that walk for the geometry
    * gate; live yaw remains under mouse control rather than under a shot rail. */
@@ -737,6 +757,29 @@ function cabinBeats() {
        * fair to judge, and it is the shot's own. See docs/FRAMING-GATE.md on
        * why an unsettled beat may not be judged on `look`. */
       look: INITIATION_SHOTS.ritual({ hand }).lookAt,
+      settled: true,
+    });
+  }
+
+  /* THE PHYSICAL SHOT. The whiskey glass is handed into the player's right
+   * hand, raised for the toast, and tipped for the drink. These phases reuse
+   * the ritual camera but they emphatically do not reuse act five's left-hand
+   * subject: publishing the right hand keeps the deterministic gate aligned
+   * with `ritualHandWorld()` in the running scene. */
+  const shotHand = handAt(player, 'R');
+  for (const [id, phase] of [
+    ['shot-offer', 'shot_offer'],
+    ['shot-toast', 'shot_toast'],
+    ['shot-drink', 'shot_drink'],
+  ]) {
+    const camera = INITIATION_SHOTS.ritual({ hand: shotHand });
+    beats.push({
+      id,
+      phase,
+      mode: 'ritual',
+      camera,
+      subject: { id: 'player-shot-hand', point: shotHand },
+      look: camera.lookAt,
       settled: true,
     });
   }

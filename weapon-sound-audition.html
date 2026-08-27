@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weapon Sound Audition — SquatchSmash</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #f4eee0;
+    --muted: #a7a08f;
+    --gold: #e8c268;
+    --gold-hot: #ffe8aa;
+    --red: #e55b43;
+    --panel: rgba(18, 17, 15, .9);
+    --line: rgba(232, 194, 104, .24);
+  }
+  * { box-sizing: border-box; }
+  html { background: #080806; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--ink);
+    font: 15px/1.45 "Trebuchet MS", "Segoe UI", sans-serif;
+    background:
+      radial-gradient(circle at 15% 0, rgba(138, 94, 24, .22), transparent 30rem),
+      radial-gradient(circle at 90% 18%, rgba(128, 29, 17, .17), transparent 34rem),
+      linear-gradient(145deg, #100f0c, #060605 52%, #10100d);
+  }
+  button, input { font: inherit; }
+  header {
+    position: sticky; top: 0; z-index: 5; padding: 22px clamp(18px, 4vw, 56px);
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 28px;
+    background: rgba(7, 7, 6, .9); border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(14px);
+  }
+  .kicker { color: var(--gold); font-size: 12px; font-weight: 900; letter-spacing: .24em; }
+  h1 { margin: 2px 0 0; font-size: clamp(28px, 5vw, 54px); line-height: .98; }
+  header p { max-width: 62ch; margin: 8px 0 0; color: var(--muted); }
+  .master { min-width: min(100%, 250px); }
+  .master label { display: flex; justify-content: space-between; color: var(--muted); }
+  input[type="range"] { width: 100%; accent-color: var(--gold); }
+  main { width: min(1500px, 100%); margin: 0 auto; padding: 34px clamp(16px, 3vw, 42px) 70px; }
+  .notice {
+    margin-bottom: 30px; padding: 14px 18px; border: 1px solid var(--line);
+    border-radius: 10px; background: rgba(232, 194, 104, .06); color: #d7cfbd;
+  }
+  .notice code { color: var(--gold-hot); user-select: all; }
+  .weapon {
+    margin: 0 0 38px; padding: clamp(18px, 3vw, 30px); border: 1px solid var(--line);
+    border-radius: 16px; background: linear-gradient(160deg, var(--panel), rgba(10, 10, 9, .88));
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .28);
+  }
+  .weapon-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+  .weapon h2 { margin: 0; font-size: clamp(24px, 3vw, 36px); }
+  .weapon-note { margin: 5px 0 18px; color: var(--muted); max-width: 80ch; }
+  .mode-strip { display: flex; flex-wrap: wrap; gap: 7px; }
+  .mode-strip span { align-self: center; margin-right: 4px; color: var(--muted); font-size: 12px; font-weight: 900; letter-spacing: .12em; }
+  .candidate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(245px, 1fr)); gap: 12px; }
+  .candidate {
+    min-height: 220px; padding: 16px; display: flex; flex-direction: column; gap: 10px;
+    border: 1px solid rgba(255, 255, 255, .09); border-radius: 11px;
+    background: rgba(255, 255, 255, .025); transition: border-color .14s, transform .14s;
+  }
+  .candidate:hover { transform: translateY(-2px); border-color: rgba(232, 194, 104, .4); }
+  .candidate.favorite { border-color: var(--gold); box-shadow: inset 0 0 0 1px rgba(232, 194, 104, .2); }
+  .candidate.missing { border-color: rgba(229, 91, 67, .48); }
+  .candidate h3 { margin: 0; font-size: 18px; }
+  .filename { color: var(--gold); font: 12px/1.3 Consolas, monospace; overflow-wrap: anywhere; user-select: all; }
+  .description { color: var(--muted); flex: 1; }
+  .status { min-height: 18px; font-size: 12px; color: #aebf9a; }
+  .missing .status { color: #ef9a86; }
+  .controls { display: flex; flex-wrap: wrap; gap: 7px; }
+  button, a.back {
+    border: 1px solid rgba(232, 194, 104, .38); border-radius: 7px; padding: 7px 10px;
+    color: var(--ink); background: #17150f; cursor: pointer; text-decoration: none;
+  }
+  button:hover, a.back:hover { border-color: var(--gold); background: #242015; }
+  button.primary { color: #171106; background: var(--gold); font-weight: 900; }
+  button.favorite { margin-left: auto; }
+  .candidate.favorite button.favorite { color: #171106; background: var(--gold-hot); }
+  footer { padding: 22px; text-align: center; color: var(--muted); }
+  @media (max-width: 720px) {
+    header, .weapon-head { align-items: stretch; flex-direction: column; }
+    .candidate-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="kicker">SQUATCHSMASH · AUDIO LAB</div>
+      <h1>Weapon report audition</h1>
+      <p>Current production reports beside five intentionally different drop-in directions. One normalized preview level; favorites stay in this browser.</p>
+    </div>
+    <div class="master">
+      <label for="masterVolume"><span>Preview level</span><output id="masterReadout">68%</output></label>
+      <input id="masterVolume" type="range" min="0" max="100" value="68">
+      <button id="stopAll" type="button">Stop everything</button>
+      <a class="back" href="preview.html">Back to previews</a>
+    </div>
+  </header>
+  <main>
+    <div class="notice">
+      Audition masters live under <code>assets/audio/auditions/</code>, outside the production SFX index. Missing files are marked only when played, so the page stays quiet in normal QA. Approved favorites are review data—not production routing—until deliberately promoted.
+    </div>
+    <div id="weapons"></div>
+  </main>
+  <footer>POWERFUL + FUN · fair level · no scene profile changes from this page</footer>
+<script type="module">
+  import {
+    WEAPON_AUDITION_STORAGE_KEY,
+    WEAPON_AUDITION_WEAPONS,
+    weaponAuditionFavorite,
+    weaponAuditionOffsets,
+  } from './src/core/weapons/audition.js';
+
+  const root = document.getElementById('weapons');
+  const volume = document.getElementById('masterVolume');
+  const readout = document.getElementById('masterReadout');
+  const active = new Set();
+  const timers = new Set();
+  let favorites = {};
+  try { favorites = JSON.parse(localStorage.getItem(WEAPON_AUDITION_STORAGE_KEY) || '{}'); } catch { favorites = {}; }
+
+  const previewLevel = () => Number(volume.value) / 100;
+  const statusFor = (card, text, missing = false) => {
+    card.classList.toggle('missing', missing);
+    card.querySelector('.status').textContent = text;
+  };
+  function stopAll() {
+    for (const timer of timers) clearTimeout(timer);
+    timers.clear();
+    for (const sound of active) { sound.pause(); sound.currentTime = 0; }
+    active.clear();
+  }
+  function fireSample(candidate, card) {
+    const sound = new Audio(candidate.url);
+    sound.preload = 'auto';
+    sound.volume = previewLevel();
+    active.add(sound);
+    sound.addEventListener('ended', () => active.delete(sound), { once: true });
+    sound.addEventListener('error', () => {
+      active.delete(sound);
+      statusFor(card, `Missing drop-in: ${candidate.filename}`, true);
+    }, { once: true });
+    sound.play().then(() => statusFor(card, 'Playing', false)).catch(() => {
+      statusFor(card, `Could not play: ${candidate.filename}`, true);
+    });
+  }
+  function play(candidate, weapon, card, mode = 'single') {
+    stopAll();
+    statusFor(card, mode === 'single' ? 'Loading single shot…' : `Loading ${mode}…`, false);
+    for (const offset of weaponAuditionOffsets(weapon, mode)) {
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        fireSample(candidate, card);
+      }, Math.round(offset * 1000));
+      timers.add(timer);
+    }
+  }
+  function persistFavorite(weaponId, candidateId) {
+    favorites = { ...favorites, [weaponId]: candidateId };
+    try { localStorage.setItem(WEAPON_AUDITION_STORAGE_KEY, JSON.stringify(favorites)); } catch { /* private storage */ }
+    document.querySelectorAll(`[data-weapon="${weaponId}"] .candidate`).forEach((card) => {
+      const selected = card.dataset.candidate === candidateId;
+      card.classList.toggle('favorite', selected);
+      card.querySelector('button.favorite').textContent = selected ? '★ Favorite' : '☆ Favorite';
+    });
+  }
+
+  for (const weapon of WEAPON_AUDITION_WEAPONS) {
+    const section = document.createElement('section');
+    section.className = 'weapon';
+    section.dataset.weapon = weapon.id;
+    section.innerHTML = `
+      <div class="weapon-head">
+        <div><h2>${weapon.name}</h2><p class="weapon-note">${weapon.note}</p></div>
+        <div class="mode-strip"><span>COMPARE</span></div>
+      </div>
+      <div class="candidate-grid"></div>`;
+    const strip = section.querySelector('.mode-strip');
+    const grid = section.querySelector('.candidate-grid');
+    const favorite = weaponAuditionFavorite(favorites, weapon.id);
+    if (weapon.automatic) {
+      for (const [mode, label] of [['single', 'Single'], ['burst', '4-round burst'], ['automatic', '12-round auto']]) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.textContent = label;
+        button.addEventListener('click', () => {
+          const picked = weapon.candidates.find((candidate) => candidate.id === weaponAuditionFavorite(favorites, weapon.id));
+          const card = grid.querySelector(`[data-candidate="${picked.id}"]`);
+          play(picked, weapon, card, mode);
+        });
+        strip.append(button);
+      }
+    } else {
+      const hint = document.createElement('span'); hint.textContent = 'Single shot'; strip.append(hint);
+    }
+    for (const candidate of weapon.candidates) {
+      const card = document.createElement('article');
+      card.className = `candidate${candidate.id === favorite ? ' favorite' : ''}`;
+      card.dataset.candidate = candidate.id;
+      card.innerHTML = `
+        <h3>${candidate.name}</h3>
+        <div class="filename">${candidate.filename}</div>
+        <div class="description">${candidate.description}</div>
+        <div class="status">${candidate.delivered ? 'Production file' : 'Awaiting drop-in'}</div>
+        <div class="controls">
+          <button class="primary play" type="button">Play</button>
+          <button class="stop" type="button">Stop</button>
+          <button class="replay" type="button">Replay</button>
+          <button class="favorite" type="button">${candidate.id === favorite ? '★ Favorite' : '☆ Favorite'}</button>
+        </div>`;
+      card.querySelector('.play').addEventListener('click', () => play(candidate, weapon, card));
+      card.querySelector('.stop').addEventListener('click', stopAll);
+      card.querySelector('.replay').addEventListener('click', () => play(candidate, weapon, card));
+      card.querySelector('button.favorite').addEventListener('click', () => persistFavorite(weapon.id, candidate.id));
+      grid.append(card);
+    }
+    root.append(section);
+  }
+  volume.addEventListener('input', () => {
+    readout.value = `${volume.value}%`;
+    for (const sound of active) sound.volume = previewLevel();
+  });
+  document.getElementById('stopAll').addEventListener('click', stopAll);
+  window.addEventListener('pagehide', stopAll);
+</script>
+</body>
+</html>

@@ -2073,7 +2073,7 @@ try {
   await capture(previewPage, 'after-room-first-person');
   const meetingGate = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    const enabled = Object.fromEntries(['sample', 'jerkyCase', 'placeMoney'].map((id) => {
+    const enabled = Object.fromEntries(['placeOwnCase', 'sample', 'jerkyCase', 'placeMoney'].map((id) => {
       const target = motel.interactableList.find((entry) => entry.id === id);
       return [id, target ? target.enabled() : null];
     }));
@@ -2082,8 +2082,42 @@ try {
   check('the three transaction objects wait for the spoken package briefing',
     !meetingGate.sampleOut
       && Object.values(meetingGate.enabled).every((enabled) => enabled === false)
-      && !['sample', 'jerkyCase', 'placeMoney'].includes(meetingGate.active),
+      && !['placeOwnCase', 'sample', 'jerkyCase', 'placeMoney'].includes(meetingGate.active),
     JSON.stringify(meetingGate));
+
+  await previewPage.waitForFunction(() => window.MOTEL.S.casePlacementReady, null, { timeout: SCENE_WAIT_MS });
+  const placementReady = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const target = motel.interactableList.find((entry) => entry.id === 'placeOwnCase');
+    const marker = motel.scene.getObjectByName('motel.room12.case-placement-marker');
+    return {
+      enabled: target?.enabled(),
+      markerVisible: marker?.visible,
+      caseDown: motel.S.caseDown,
+      objective: motel.objective,
+    };
+  });
+  check('room twelve marks the exact table spot before asking for inspection',
+    placementReady.enabled
+      && placementReady.markerVisible
+      && !placementReady.caseDown
+      && placementReady.objective.id === 'place'
+      && /highlighted table spot/i.test(placementReady.objective.sub),
+    JSON.stringify(placementReady));
+  await capture(previewPage, 'case-placement-marker');
+  await previewPage.evaluate(() => window.MOTEL.forceInteract('placeOwnCase'));
+  const placementConfirmed = await previewPage.evaluate(() => ({
+    confirmed: window.MOTEL.S.casePlacementConfirmed,
+    caseDown: window.MOTEL.S.caseDown,
+    markerVisible: window.MOTEL.scene.getObjectByName('motel.room12.case-placement-marker')?.visible,
+    placeDone: window.MOTEL.objectives.done.includes('place'),
+  }));
+  check('placing Lou\'s case animates into authoritative mission state',
+    placementConfirmed.confirmed
+      && placementConfirmed.caseDown
+      && !placementConfirmed.markerVisible
+      && placementConfirmed.placeDone,
+    JSON.stringify(placementConfirmed));
 
   /* ---- the transaction, step by step ----
    *
@@ -2304,6 +2338,19 @@ try {
     roomSpawns.cameraDistance < 0.08 && !roomSpawns.playerVisible,
     JSON.stringify(roomSpawns));
 
+  const windowPolicy = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const z = motel.refs.window12.z;
+    return {
+      declared: motel.refs.window12.playerTraversalBlocked,
+      fromInside: motel.isBlocked(3, z - 0.05, 0, motel.playerRadius),
+      fromOutside: motel.isBlocked(3, z + 0.05, 0, motel.playerRadius),
+    };
+  });
+  check('the room-twelve window is fully blocked in both directions',
+    windowPolicy.declared && windowPolicy.fromInside && windowPolicy.fromOutside,
+    JSON.stringify(windowPolicy));
+
   await previewPage.evaluate(() => {
     window.MOTEL.forceInteract('windowSignal');
     const snow = window.MOTEL.actors.find((actor) => actor.identity === 'snow');
@@ -2461,6 +2508,18 @@ try {
       && revolverPresentation.inventoryText.includes('6/6')
       && revolverPresentation.selected,
     JSON.stringify(revolverPresentation));
+
+  await previewPage.waitForFunction(() => window.MOTEL.S.snowInside, null, { timeout: SCENE_WAIT_MS });
+  const snowDoorEntrance = await previewPage.evaluate(() => ({
+    frontDoorOpen: window.MOTEL.refs.frontDoor.open,
+    frontDoorSolid: window.MOTEL.refs.frontDoor.collider.enabled,
+    windowBroken: window.MOTEL.S.windowBroken,
+  }));
+  check('Snow opens the room-twelve door instead of walking through it or breaking the window',
+    snowDoorEntrance.frontDoorOpen
+      && !snowDoorEntrance.frontDoorSolid
+      && !snowDoorEntrance.windowBroken,
+    JSON.stringify(snowDoorEntrance));
   await capture(previewPage, 'shared-revolver-viewmodel-car');
 
   const mattressState = await previewPage.evaluate(() => {
@@ -2651,11 +2710,48 @@ try {
       && revolverVoice.standIns.length === 0,
     JSON.stringify(revolverVoice));
 
+  const evidencePermutations = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const ids = ['reserve', 'money', 'premium'];
+    const states = [];
+    for (let mask = 0; mask < 8; mask++) {
+      const held = ids.filter((_, bit) => mask & (1 << bit));
+      states.push({ mask, ...motel.evidenceTest.reset(held) });
+    }
+    motel.evidenceTest.reset(['reserve']);
+    const beforePhase = motel.phase;
+    motel.forceInteract('getaway');
+    const partialGate = { beforePhase, afterPhase: motel.phase, objective: motel.objective };
+    motel.evidenceTest.reset(ids);
+    return { states, partialGate, complete: motel.evidence };
+  });
+  check('all evidence permutations agree on the 0/3 through 3/3 car gate',
+    evidencePermutations.states.length === 8
+      && evidencePermutations.states.every((state) => state.count === state.collected.length)
+      && evidencePermutations.states.filter((state) => state.complete).length === 1
+      && evidencePermutations.states.find((state) => state.mask === 7)?.complete === true
+      && evidencePermutations.partialGate.afterPhase === evidencePermutations.partialGate.beforePhase
+      && evidencePermutations.partialGate.objective.id === 'recover'
+      && evidencePermutations.complete.complete,
+    JSON.stringify(evidencePermutations));
+
 
   await previewPage.evaluate(() => window.MOTEL.drive());
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'drive', null, { timeout: SCENE_WAIT_MS });
   await previewPage.waitForTimeout(900);
   await capture(previewPage, 'after-drive-first-person');
+
+  const jerkyDriveMusic = await previewPage.evaluate(() => window.MOTEL.audio.music());
+  check('the Jerky driving track plays as quiet non-diegetic score',
+    jerkyDriveMusic.url.endsWith('/driving-jerky-hotel.mp3')
+      || jerkyDriveMusic.url === 'assets/music/driving-jerky-hotel.mp3',
+    JSON.stringify(jerkyDriveMusic));
+  check('the Jerky driving score stays below dialogue',
+    jerkyDriveMusic.diegetic === false
+      && jerkyDriveMusic.volume > 0
+      && jerkyDriveMusic.volume <= 0.2
+      && jerkyDriveMusic.loop === true,
+    JSON.stringify(jerkyDriveMusic));
 
   const driveView = await previewPage.evaluate(() => {
     const motel = window.MOTEL;

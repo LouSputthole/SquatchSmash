@@ -1665,15 +1665,12 @@ export function buildSiegeDressing({
   }
 
   /* ================================================================== */
-  /* 4b. THE DEAD BING PERFORMER IN THE FOYER                             */
+  /* 4b. THE DEAD MANSION SERVER IN THE FOYER                              */
   /*                                                                       */
-  /* Still dressed from the evening, a dropped glass by her hand. She is the */
-  /* line that says the house was full of people an hour ago, so she is put   */
-  /* where you SEE her walking in -- the pocket west of the front door -- and  */
-  /* not where you fight, which is the middle of the hall and both flights.    */
-  /*                                                                            */
-  /* IDENTITY PENDING, as the brief says: which of the Bing's performers this   */
-  /* is gets picked once the party staging is final. Nothing here names her.    */
+  /* A waistcoated house server, with the glass she had been clearing by her */
+  /* hand. She is explicitly an unnamed civilian -- not Margo and not one of */
+  /* the Bing performers. Put her where you SEE her walking in, the pocket   */
+  /* west of the front door, rather than in the fight lane through the hall. */
   /* ================================================================== */
   const foyerBody = {};
   {
@@ -1689,18 +1686,24 @@ export function buildSiegeDressing({
       yaw: fallenYaw(HER_ROLL, Math.PI),
       tier: 'ambient',
       model: {
-        height: 1.71,
-        build: 0.92,
-        dress: 'gown',
-        shirt: 0x6d1230,
-        hair: 'long',
-        hairColour: 0x1b1410,
-        skin: 0xe3b489,
+        height: 1.64,
+        build: 0.88,
+        dress: 'waistcoat',
+        shirt: 0xe1ddd2,
+        trouserColour: 0x202329,
+        hair: 'tied',
+        hairColour: 0x5a3b22,
+        skin: 0xb97852,
         gender: 'female',
-        bodyShape: 'curvy',
-        luxury: true,
+        bodyShape: 'average',
+        luxury: false,
         castShadow: false,
       },
+    });
+    her.root.userData.siegeIdentity = Object.freeze({
+      role: 'mansion-service-staff',
+      namedCharacter: null,
+      isMargo: false,
     });
     /* GY is the slab datum; the visible foyer marble spans 1.20..1.22.
      * fallen() settles to baseY, so binding it to plain GY embedded the whole
@@ -1782,6 +1785,7 @@ export function buildSiegeDressing({
     g.updateMatrixWorld(true);
     foyerBody.figure = her;
     foyerBody.group = g;
+    foyerBody.identity = her.root.userData.siegeIdentity;
     foyerBody.blood = { system: deathBlood, pool: bloodPool };
     foyerBody.bounds = new THREE.Box3().setFromObject(g);
     foyerBody.figureBounds = new THREE.Box3().setFromObject(her.root);
@@ -2242,7 +2246,9 @@ export function buildSiegeDressing({
       foyer: fires.find((f) => f.group.name === 'siege.fire.foyer.flame') ?? null,
       all: fires,
     },
-    bodies: { guard: cellarBody, performer: foyerBody },
+    /* `performer` remains as a compatibility handle for old evidence tools;
+     * new code should use the authored identity. Both point at one tableau. */
+    bodies: { guard: cellarBody, staff: foyerBody, performer: foyerBody },
     debris,
     centrepiece,
     architecture,

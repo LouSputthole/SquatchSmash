@@ -9560,6 +9560,12 @@
       "text": "758ab12dfcc1",
       "source": "assumed"
     },
+    "vo.initiation.cabin.in-150-gratin.1usmj9t.1": {
+      "text": "23793d1e46e0",
+      "source": "rendered",
+      "voice": "gratin",
+      "voiceId": "UgBBYS2sOqTuMpoF3BR0"
+    },
     "vo.initiation.cabin.in-150-kittenboss.1baf5ya.1": {
       "text": "86735cf7e434",
       "source": "rendered",
@@ -13746,35 +13752,51 @@
     },
     "vo.silver.bandleader.open.front-table": {
       "text": "6a37af1a147c",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "bandleader",
+      "voiceId": "7fbQ7yJuEo56rYjrYaEh"
     },
     "vo.silver.bandleader.open.on-the-pad": {
       "text": "092cb21ac91c",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "bandleader",
+      "voiceId": "7fbQ7yJuEo56rYjrYaEh"
     },
     "vo.silver.bandleader.set.front-and-center": {
       "text": "fba14c595424",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "bandleader",
+      "voiceId": "7fbQ7yJuEo56rYjrYaEh"
     },
     "vo.silver.bandleader.set.opener": {
       "text": "38e2058f07fb",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "bandleader",
+      "voiceId": "7fbQ7yJuEo56rYjrYaEh"
     },
     "vo.silver.bandleader.set.second": {
       "text": "def9942c165e",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "bandleader",
+      "voiceId": "7fbQ7yJuEo56rYjrYaEh"
     },
     "vo.silver.bandleader.set.second-wife": {
       "text": "3f5edd3287c1",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "bandleader",
+      "voiceId": "7fbQ7yJuEo56rYjrYaEh"
     },
     "vo.silver.bandleader.slow": {
       "text": "03678edcfb14",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "bandleader",
+      "voiceId": "7fbQ7yJuEo56rYjrYaEh"
     },
     "vo.silver.bandleader.tipped": {
       "text": "a0f69b295bcf",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "bandleader",
+      "voiceId": "7fbQ7yJuEo56rYjrYaEh"
     },
     "vo.silver.cellarman.open": {
       "text": "ef2091b13c5a",
@@ -14596,10 +14618,6 @@
       "text": "29ce18032202",
       "source": "assumed"
     },
-    "vo.silver.player.invitation.open.1p4sox7": {
-      "text": "498c598cca2a",
-      "source": "assumed"
-    },
     "vo.silver.player.invitation.open.z470kj": {
       "text": "3583a922986e",
       "source": "assumed"
@@ -14920,7 +14938,9 @@
     },
     "vo.silver.room.floor.1": {
       "text": "7198294bcd47",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "silver-diner-a",
+      "voiceId": "Je8d8oi82sj0l8L1VM0l"
     },
     "vo.silver.room.floor.10": {
       "text": "c1342ee84172",
@@ -14931,14 +14951,14 @@
     "vo.silver.room.floor.11": {
       "text": "1ad53cb68b18",
       "source": "rendered",
-      "voice": "waiter",
-      "voiceId": "miqykcv8BCUvQnRlIGUV"
+      "voice": "silver-diner-b",
+      "voiceId": "75MqelvgFq5upx0r44WK"
     },
     "vo.silver.room.floor.12": {
       "text": "2e8e3df5231e",
       "source": "rendered",
-      "voice": "waiter",
-      "voiceId": "miqykcv8BCUvQnRlIGUV"
+      "voice": "silver-diner-c",
+      "voiceId": "qBDvhofpxp92JgXJxDjB"
     },
     "vo.silver.room.floor.13": {
       "text": "cac443d1e5ca",
@@ -14949,14 +14969,14 @@
     "vo.silver.room.floor.14": {
       "text": "ebf98b99ef14",
       "source": "rendered",
-      "voice": "waiter",
-      "voiceId": "miqykcv8BCUvQnRlIGUV"
+      "voice": "silver-diner-a",
+      "voiceId": "Je8d8oi82sj0l8L1VM0l"
     },
     "vo.silver.room.floor.15": {
       "text": "f4054d9c6114",
       "source": "rendered",
-      "voice": "waiter",
-      "voiceId": "miqykcv8BCUvQnRlIGUV"
+      "voice": "silver-diner-b",
+      "voiceId": "75MqelvgFq5upx0r44WK"
     },
     "vo.silver.room.floor.16": {
       "text": "00b6fc38856a",
@@ -14967,14 +14987,14 @@
     "vo.silver.room.floor.17": {
       "text": "9a7b01a53f6e",
       "source": "rendered",
-      "voice": "waiter",
-      "voiceId": "miqykcv8BCUvQnRlIGUV"
+      "voice": "silver-diner-c",
+      "voiceId": "qBDvhofpxp92JgXJxDjB"
     },
     "vo.silver.room.floor.18": {
       "text": "2fba08a94999",
       "source": "rendered",
-      "voice": "waiter",
-      "voiceId": "miqykcv8BCUvQnRlIGUV"
+      "voice": "silver-diner-a",
+      "voiceId": "Je8d8oi82sj0l8L1VM0l"
     },
     "vo.silver.room.floor.19": {
       "text": "741858213c5b",
@@ -14984,13 +15004,15 @@
     },
     "vo.silver.room.floor.2": {
       "text": "049d1ea65ddd",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "silver-diner-b",
+      "voiceId": "75MqelvgFq5upx0r44WK"
     },
     "vo.silver.room.floor.20": {
       "text": "40b87985bdea",
       "source": "rendered",
-      "voice": "waiter",
-      "voiceId": "miqykcv8BCUvQnRlIGUV"
+      "voice": "silver-diner-b",
+      "voiceId": "75MqelvgFq5upx0r44WK"
     },
     "vo.silver.room.floor.3": {
       "text": "88f955bd6d3b",
@@ -14998,15 +15020,21 @@
     },
     "vo.silver.room.floor.4": {
       "text": "7960e620548e",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "silver-diner-c",
+      "voiceId": "qBDvhofpxp92JgXJxDjB"
     },
     "vo.silver.room.floor.5": {
       "text": "bfdf7580e225",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "silver-diner-a",
+      "voiceId": "Je8d8oi82sj0l8L1VM0l"
     },
     "vo.silver.room.floor.6": {
       "text": "eadfbc3de7ef",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "silver-diner-b",
+      "voiceId": "75MqelvgFq5upx0r44WK"
     },
     "vo.silver.room.floor.7": {
       "text": "cb1dac5f3d45",
@@ -15015,14 +15043,14 @@
     "vo.silver.room.floor.8": {
       "text": "6678543b9397",
       "source": "rendered",
-      "voice": "waiter",
-      "voiceId": "miqykcv8BCUvQnRlIGUV"
+      "voice": "silver-diner-c",
+      "voiceId": "qBDvhofpxp92JgXJxDjB"
     },
     "vo.silver.room.floor.9": {
       "text": "ae28a1024229",
       "source": "rendered",
-      "voice": "waiter",
-      "voiceId": "miqykcv8BCUvQnRlIGUV"
+      "voice": "silver-diner-a",
+      "voiceId": "Je8d8oi82sj0l8L1VM0l"
     },
     "vo.silver.room.kitchen.1": {
       "text": "a42ea6016603",

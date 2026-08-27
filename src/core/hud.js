@@ -1,6 +1,10 @@
 import { renderInventorySlots } from './scene-inventory.js';
 import { writeGameplayPromptKey } from './gameplay-key-adapter.js';
-import { activeObjectiveItems } from './objective-panel.js';
+import {
+  activeObjectiveItems,
+  createObjectiveDisplayController,
+} from './objective-panel.js';
+import { SubtitlePriorityLane } from './subtitle-priority.js';
 
 /**
  * THE PROMPT, ONCE, FOR SCENES THAT CANNOT HAVE THE WHOLE HUD.
@@ -128,7 +132,13 @@ export class Hud {
     this.bladderFill = this.bladder.querySelector('.bar i');
     this.toasts = document.getElementById('toast-stack');
     this._bladderShown = -1;
-    this._subTimer = null;
+    this._subtitleLane = new SubtitlePriorityLane({
+      show: (text) => {
+        this.subtitle.innerHTML = text;
+        this.subtitle.classList.remove('hidden');
+      },
+      hide: () => this.subtitle.classList.add('hidden'),
+    });
     this._prompt = createPromptHud({
       prompt: this.prompt,
       label: this.promptLabel,
@@ -152,27 +162,28 @@ export class Hud {
   setHold(progress) { this._prompt.setHold(progress); }
 
   /** Narration line at the bottom of the screen. `<em>` renders in amber. */
-  say(text, ms = 4200) {
-    clearTimeout(this._subTimer);
-    this.subtitle.innerHTML = text;
-    this.subtitle.classList.remove('hidden');
-    this._sayUntil = performance.now() + ms;
-    this._subTimer = setTimeout(() => this.subtitle.classList.add('hidden'), ms);
+  say(text, ms = 4200, options = {}) {
+    /* Legacy Hud calls are authored foreground lines. Systems producing room
+     * chatter or nearby flavor opt into a lower lane explicitly. */
+    return this._subtitleLane.say(text, ms, {
+      priority: options.priority ?? 'story',
+    });
+  }
+
+  sayAmbient(text, ms = 3200) {
+    return this.say(text, ms, { priority: 'ambient' });
   }
 
   /** True while a subtitle is on screen -- the narrator waits its turn. */
   get saying() {
-    return performance.now() < (this._sayUntil || 0);
+    return this._subtitleLane.busy;
   }
 
   /** Cut a pending narration line dead. A checkpoint retry calls this so the
    * failed attempt's subtitle (and its hide timer) cannot play on into the
    * restored timeline. */
   clearSay() {
-    clearTimeout(this._subTimer);
-    this._subTimer = null;
-    this._sayUntil = 0;
-    this.subtitle.classList.add('hidden');
+    this._subtitleLane.clear();
   }
 
   toast(text, kind = '', duration = 2800) {
@@ -226,12 +237,18 @@ export class Hud {
       this.objectives = document.getElementById('objectives');
       this.objectivesTitle = this.objectives?.querySelector('.otitle');
       this.objectivesList = this.objectives?.querySelector('.olist');
+      if (this.objectives) {
+        this._objectiveVisibility = createObjectiveDisplayController({
+          show: () => this.objectives.classList.remove('hidden'),
+          collapse: () => this.objectives.classList.add('hidden'),
+        });
+      }
     }
     if (!this.objectives) return;
     const items = activeObjectiveItems(plan?.items);
     if (!plan || !items.length) {
       this._objectivesKey = null;
-      this.objectives.classList.add('hidden');
+      this._objectiveVisibility.clear();
       return;
     }
     // Only touch the DOM when the list actually reads differently.
@@ -252,8 +269,11 @@ export class Hud {
       el.textContent = item.label;
       return el;
     }));
-    this.objectives.classList.remove('hidden');
+    this._objectiveVisibility.changed();
   }
+
+  /** Review the current plan without mutating story state. */
+  revealObjectives() { this._objectiveVisibility?.reveal(); }
 
   setHand(item) {
     if (!item) {

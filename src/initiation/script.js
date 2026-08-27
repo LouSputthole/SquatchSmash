@@ -298,6 +298,10 @@ const IN_150 = beat('IN-150', 2, 'execution_sweep', [
     direction: 'Female voice. Small and immediate, as realization arrives. '
       + 'One line only; she is not given time for another.',
   }),
+  l('GRATIN', "Everybody remembers the night they joined the family. Nobody remembers the one who didn't.", {
+    verbatim: true,
+    direction: 'Calm and level. Hold one short beat after the line, then fire. No overacting.',
+  }),
   sd('GRATIN fires once. Kittenboss falls forward beside Tony while he remains '
     + 'free to look at her. Nobody comments and the sweep continues.'),
 ], { victim: 'KITTENBOSS', mark: 'kneel-4', shooter: 'GRATIN' });
@@ -768,49 +772,47 @@ const IN_465 = beat('IN-465', 5, 'made', [
  * ACT SIX — THE ROOM
  *
  * It has to sound like fifteen men, not five. The moment the bandana is tied
- * the room breaks, all at once, and stays broken.
- *
- * NONE OF THIS GOES THROUGH THE DIALOGUE QUEUE. A queued salud is a roll call
- * and it takes forty seconds. It is a crowd bed with named lines fired over
- * the top at small random offsets — `overlap` is the offset in seconds.
+ * the room breaks open, then almost every person gets one quick, readable
+ * acknowledgment. The runtime queues these short lines against delivered VO
+ * and poses the matching body; no two named subtitles occupy the same floor.
  * ====================================================================== */
 
-const over = (who, text, overlap, opts = {}) => l(who, text, { ...opts, overlap });
+const salute = (who, text, opts = {}) => l(who, text, opts);
 
 const IN_500 = beat('IN-500', 6, 'room', [
-  sd('Three of them, overlapping, ragged, getting louder. Glasses coming off '
+  sd('Three of them, rapid and ragged, getting louder. Glasses coming off '
     + 'the table faster than they can be poured. Somebody bangs the plank '
     + 'table. The stove door gets knocked shut by somebody’s boot and nobody '
     + 'notices.'),
-  over('APE', 'SALUD!', 0.0, { verbatim: true }),
-  over('HOGMAMA', 'SALUD!', 0.28, { verbatim: true }),
-  over('SASOLE', 'SALUD!', 0.61, { verbatim: true }),
+  salute('APE', 'SALUD!', { verbatim: true }),
+  salute('HOGMAMA', 'SALUD!', { verbatim: true }),
+  salute('SASOLE', 'SALUD!', { verbatim: true }),
 ]);
 
 const IN_510 = beat('IN-510', 6, 'room', [
-  over('ERIC', 'Salud, kid.', 1.1, { verbatim: true }),
-  over('SNOW', 'You’re family now.', 1.9, { verbatim: true }),
-  over('IRISH', 'That’s it, brother.', 2.6, { verbatim: true }),
-  over('NUMBSKULL', 'He made it.', 3.2, { verbatim: true }),
-  over('SEFF', 'Salud!', 3.9, { verbatim: true }),
-  over('HOGMAMA', 'Come here. Come here, baby.', 4.7),
-  over('APE', 'Look at his face. Look at it.', 5.6),
-  over('APE', 'He’s gone grey. He’s actually gone grey.', 6.9),
-  over('SASOLE', 'Still top five, this one.', 8.1),
-  over('LAG', 'Congrats. Genuinely.', 9.0),
-  over('RIPPINFLOW', 'Good. Now sit down.', 9.9),
-  over('SHUBENATOR', 'It’s the stove.', 10.8, {
+  salute('ERIC', 'Salud, kid.', { verbatim: true }),
+  salute('SNOW', 'You’re family now.', { verbatim: true }),
+  salute('IRISH', 'That’s it, brother.', { verbatim: true }),
+  salute('NUMBSKULL', 'He made it.', { verbatim: true }),
+  salute('SEFF', 'Salud!', { verbatim: true }),
+  salute('HOGMAMA', 'Come here. Come here, baby.'),
+  salute('APE', 'Look at his face. Look at it.'),
+  salute('APE', 'He’s gone grey. He’s actually gone grey.'),
+  salute('SASOLE', 'Still top five, this one.'),
+  salute('LAG', 'Congrats. Genuinely.'),
+  salute('RIPPINFLOW', 'Good. Now sit down.'),
+  salute('SHUBENATOR', 'It’s the stove.', {
     direction: 'Still going, and now there is a stove to blame.',
   }),
-  over('GRATIN', 'There’s food. Nobody’s eating it.', 11.7, {
+  salute('GRATIN', 'There’s food. Nobody’s eating it.', {
     direction: 'THE LINE TO PROTECT. An hour ago he shot three people on their '
       + 'knees and now he is quietly upset that his food is going cold, and he '
       + 'is not doing a bit — he cooked and nobody is eating. Exactly as flat '
       + 'as everything else he has said tonight.',
   }),
-  over('NUMBSKULL', 'I said I liked him. I said that before.', 13.0),
-  over('IRISH', 'The card was fine, by the way. That was a proper card.', 14.0),
-  over('BOOSKIBRO', 'SIT HIM DOWN. Somebody sit him down.', 15.2),
+  salute('NUMBSKULL', 'I said I liked him. I said that before.'),
+  salute('IRISH', 'The card was fine, by the way. That was a proper card.'),
+  salute('BOOSKIBRO', 'SIT HIM DOWN. Somebody sit him down.'),
   sd('DeathMegatron has no line: a hand on the back of his neck, and it stays '
     + 'there a second too long. NOBODY IN THIS ROOM MENTIONS THE CLEARING. Not '
     + 'one person. Not once.'),

@@ -339,6 +339,38 @@
       "style": 0.4,
       "_recastHistory": "Recast on 2026-08-08 from miqykcv8BCUvQnRlIGUV; all twelve vo.silver.waiter.* takes re-rendered with this actor on 2026-08-13."
     },
+    "bandleader": {
+      "id": "7fbQ7yJuEo56rYjrYaEh",
+      "_note": "Dedicated Midnight Pines bandleader. Split from generic Silver Room staff for the 2026-08-27 polish pass; this deep owner-listed alternate is used only for the eight vo.silver.bandleader.* performance cues.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.42,
+      "similarity": 0.8,
+      "style": 0.58
+    },
+    "silver-diner-a": {
+      "id": "Je8d8oi82sj0l8L1VM0l",
+      "_note": "Front and Center ambient diner A. Owner-listed alternate split into the dining-floor rotation on 2026-08-27 so the room no longer sounds like one waiter reading every table.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.32
+    },
+    "silver-diner-b": {
+      "id": "75MqelvgFq5upx0r44WK",
+      "_note": "Front and Center ambient diner B. Owner-listed alternate split into the dining-floor rotation on 2026-08-27; natural overheard delivery, never a story-dialogue priority voice.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.52,
+      "similarity": 0.8,
+      "style": 0.3
+    },
+    "silver-diner-c": {
+      "id": "qBDvhofpxp92JgXJxDjB",
+      "_note": "Front and Center ambient diner C. Owner-listed alternate split into the dining-floor rotation on 2026-08-27; natural overheard delivery, never a story-dialogue priority voice.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.48,
+      "similarity": 0.8,
+      "style": 0.34
+    },
     "waiter": {
       "id": "miqykcv8BCUvQnRlIGUV",
       "_note": "Shared Silver Room staff: host, bandleader, back-of-house workers, and the room’s overheard voices. Keep these eighty cues on the existing actor. The featured date waiter was split into the dedicated silver-waiter profile on 2026-08-08, so his twelve replacement takes can be generated without recasting the rest of the room.",
@@ -3908,42 +3940,42 @@
     },
     {
       "name": "vo.silver.bandleader.open.front-table",
-      "voice": "waiter",
+      "voice": "bandleader",
       "say": "Evening. You’re the front table. Front table gets one."
     },
     {
       "name": "vo.silver.bandleader.open.on-the-pad",
-      "voice": "waiter",
+      "voice": "bandleader",
       "say": "It’s on the pad. Front table got its one."
     },
     {
       "name": "vo.silver.bandleader.set.front-and-center",
-      "voice": "waiter",
+      "voice": "bandleader",
       "say": "This one is for the table nobody had a table for."
     },
     {
       "name": "vo.silver.bandleader.set.opener",
-      "voice": "waiter",
+      "voice": "bandleader",
       "say": "Good evening. We are the Midnight Pines and we are contractually obliged to be here."
     },
     {
       "name": "vo.silver.bandleader.set.second",
-      "voice": "waiter",
+      "voice": "bandleader",
       "say": "How are ya? Glad to be here!"
     },
     {
       "name": "vo.silver.bandleader.set.second-wife",
-      "voice": "waiter",
+      "voice": "bandleader",
       "say": "Take my wife, please! I take my wife everywhere… but she finds her way home!"
     },
     {
       "name": "vo.silver.bandleader.slow",
-      "voice": "waiter",
+      "voice": "bandleader",
       "say": "Slow it is. Four! The four!"
     },
     {
       "name": "vo.silver.bandleader.tipped",
-      "voice": "waiter",
+      "voice": "bandleader",
       "say": "Ma’am, anything you want, all night, you raise a finger."
     },
     {
@@ -4978,11 +5010,6 @@
       "say": "Come back with me. There’s a bottle I’ve been saving for a reason I couldn’t name until about an hour ago."
     },
     {
-      "name": "vo.silver.player.invitation.open.1p4sox7",
-      "voice": "player",
-      "say": "I’ll get you a car. This was good."
-    },
-    {
       "name": "vo.silver.player.invitation.open.z470kj",
       "voice": "player",
       "say": "I’ve got a better bottle of the rye at the apartment."
@@ -5374,7 +5401,7 @@
     },
     {
       "name": "vo.silver.room.floor.1",
-      "voice": "waiter",
+      "voice": "silver-diner-a",
       "say": "He calls it a franchise. It’s a van. I’ve seen the van."
     },
     {
@@ -5384,12 +5411,12 @@
     },
     {
       "name": "vo.silver.room.floor.11",
-      "voice": "waiter",
+      "voice": "silver-diner-b",
       "say": "I don’t ask. That is the arrangement. I don’t ask, and I sleep."
     },
     {
       "name": "vo.silver.room.floor.12",
-      "voice": "waiter",
+      "voice": "silver-diner-c",
       "say": "Did you see the coat. Look at the coat. That is not a birthday coat."
     },
     {
@@ -5399,12 +5426,12 @@
     },
     {
       "name": "vo.silver.room.floor.14",
-      "voice": "waiter",
+      "voice": "silver-diner-a",
       "say": "Everybody’s a cousin. I have cousins I’ve met twice and one of them does my books."
     },
     {
       "name": "vo.silver.room.floor.15",
-      "voice": "waiter",
+      "voice": "silver-diner-b",
       "say": "Six weeks they told me. Six weeks, and we’re sat behind a pillar."
     },
     {
@@ -5414,12 +5441,12 @@
     },
     {
       "name": "vo.silver.room.floor.17",
-      "voice": "waiter",
+      "voice": "silver-diner-c",
       "say": "He orders for the whole table. Every time. I have never once eaten what I wanted in this room."
     },
     {
       "name": "vo.silver.room.floor.18",
-      "voice": "waiter",
+      "voice": "silver-diner-a",
       "say": "and the horse was fine! Nobody ever remembers that part!"
     },
     {
@@ -5429,12 +5456,12 @@
     },
     {
       "name": "vo.silver.room.floor.2",
-      "voice": "waiter",
+      "voice": "silver-diner-b",
       "say": "And they gave him Wednesdays. Wednesdays!"
     },
     {
       "name": "vo.silver.room.floor.20",
-      "voice": "waiter",
+      "voice": "silver-diner-b",
       "say": "Ask me next week. Next week I’ll know, and then I won’t be able to tell you."
     },
     {
@@ -5444,17 +5471,17 @@
     },
     {
       "name": "vo.silver.room.floor.4",
-      "voice": "waiter",
+      "voice": "silver-diner-c",
       "say": "Out of respect. That’s what he said. Out of respect, and then he took the whole route."
     },
     {
       "name": "vo.silver.room.floor.5",
-      "voice": "waiter",
+      "voice": "silver-diner-a",
       "say": "You don’t put Big Uncle Lou on a list. Lou doesn’t wait for a table."
     },
     {
       "name": "vo.silver.room.floor.6",
-      "voice": "waiter",
+      "voice": "silver-diner-b",
       "say": "The front door’s for civilians. That’s not me being clever, that’s the actual policy."
     },
     {
@@ -5464,12 +5491,12 @@
     },
     {
       "name": "vo.silver.room.floor.8",
-      "voice": "waiter",
+      "voice": "silver-diner-c",
       "say": "Thirty-one years on that corner, and the son wants to put a wine list in it."
     },
     {
       "name": "vo.silver.room.floor.9",
-      "voice": "waiter",
+      "voice": "silver-diner-a",
       "say": "He was there. I saw him. He was at the christening."
     },
     {
@@ -9744,6 +9771,12 @@
       "voice": "kittenboss",
       "say": "No, no, wait...",
       "direction": "Female voice. Small and immediate, as realization arrives. One line only; she is not given time for another."
+    },
+    {
+      "name": "vo.initiation.cabin.in-150-gratin.1usmj9t.1",
+      "voice": "gratin",
+      "say": "Everybody remembers the night they joined the family. Nobody remembers the one who didn't.",
+      "direction": "Calm and level. Hold one short beat after the line, then fire. No overacting."
     },
     {
       "name": "vo.initiation.cabin.in-170-lou.15qwm4k.1",

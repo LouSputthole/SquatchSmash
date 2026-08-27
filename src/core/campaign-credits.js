@@ -166,15 +166,19 @@ export const LOU_CREDITS = Object.freeze([
  */
 export const CAST_CREDIT_ROLE = 'as Themselves';
 
-/** The Prospect is you, and the joke does not work if the game says your name. */
-export const CREDIT_EXCLUDED_CHARACTERS = Object.freeze(['prospect']);
+/** Every important character is credited, including the Prospect as himself. */
+export const CREDIT_EXCLUDED_CHARACTERS = Object.freeze([]);
 
 export function castCredits(registry = CHARACTER_REGISTRY) {
   return Object.values(registry)
     .filter((character) => !CREDIT_EXCLUDED_CHARACTERS.includes(character.id))
     .map((character) => Object.freeze({
       role: CAST_CREDIT_ROLE,
-      name: character.canonicalName ?? character.subtitleName ?? character.id,
+      /* Tony's credit is the player's role, exactly as the owner listed it;
+       * everybody else gets the canonical name they use across the campaign. */
+      name: character.id === 'prospect'
+        ? (character.subtitleName ?? 'Prospect')
+        : (character.canonicalName ?? character.subtitleName ?? character.id),
     }));
 }
 

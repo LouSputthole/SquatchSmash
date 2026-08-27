@@ -134,12 +134,19 @@ test('both cases sit on the dining table, not on a bed', () => {
     'the reserve case is back on the bed');
 });
 
-test('walking in puts your case down before a word of the deal is said', () => {
+test('walking in exposes one obvious placement spot and the player confirms it', () => {
   const enter = fn('enterRoom');
-  const down = enter.indexOf('putOwnCaseDown()');
-  const beats = enter.indexOf('speakAuthoredBeats(CASE_DOWN_BEATS');
-  assert.ok(down >= 0, 'entering room twelve must set the case down');
-  assert.ok(beats > down, 'the case lands, and then the room talks about it');
+  assert.match(enter, /S\.casePlacementReady = true/);
+  assert.match(enter, /casePlacementMarker\.visible = true/);
+  assert.match(enter, /Place Lou's case on the highlighted table spot beside their sample/);
+  assert.doesNotMatch(enter, /putOwnCaseDown\(\)/,
+    'the old automatic placement bypasses the player and leaves the prompt unexplained');
+
+  const confirm = fn('confirmOwnCasePlacement');
+  assert.match(confirm, /putOwnCaseDown\(\{ animate: true \}\)/);
+  assert.match(confirm, /completeObjective\('place'\)/);
+  assert.match(confirm, /speakAuthoredBeats\(ROOM_ENTRY_BEATS/,
+    'the transaction briefing must wait for the physical placement');
 
   const place = fn('putOwnCaseDown');
   assert.match(place, /S\.caseDown = true;/);
@@ -154,19 +161,21 @@ test('walking in puts your case down before a word of the deal is said', () => {
     'the money is still his until he pushes it across');
 });
 
-test('the three things on the table each have their own prompt point', () => {
+test('the table placement, sample, and payment each have an explicit prompt', () => {
   /* They used to be stacked: `sample` and `placeMoney` shared one coordinate
    * and one radius, and because `sample` is declared first it won every tie --
    * so "put your case on the table" could not be selected at all. */
   const points = new Map();
   for (const [, id, x, , z] of main.matchAll(
-    /id: '(sample|placeMoney)', x: ([-\d.A-Z_]+(?:\.[a-z]+)?), y: ([-\d.]+), z: ([-\w.]+)/g,
+    /id: '(placeOwnCase|sample|placeMoney)', x: ([-\d.A-Z_]+(?:\.[a-z]+)?), y: ([-\d.]+), z: ([-\w.]+)/g,
   )) {
     points.set(id, `${x}|${z}`);
   }
-  assert.equal(points.size, 2, 'both table prompts should still be declared inline');
+  assert.equal(points.size, 3, 'all three table prompts should be declared inline');
   assert.notEqual(points.get('sample'), points.get('placeMoney'),
     'the sample and your case must not share one authored point');
+  assert.match(main, /priority: \(\) => \(S\.casePlacementReady \? 2 : 0\)/,
+    'the required placement must win the crowded table before optional props');
 
   // And the tie-break is the deal, not the order of the array.
   assert.match(main, /priority: stepPriority\('sample'\)/);
@@ -270,12 +279,12 @@ test('the Commander still opens the fast gunfight, and still cannot be drawn in 
 // ---------------------------------------------------------------------------
 
 test('the room plays its beats in the authored order', () => {
-  const enter = fn('enterRoom');
-  const order = ['putOwnCaseDown()', 'CASE_DOWN_BEATS', 'S.sampleOut = true', 'scheduleRoomEvents()'];
+  const confirm = fn('confirmOwnCasePlacement');
+  const order = ['putOwnCaseDown({ animate: true })', 'ROOM_ENTRY_BEATS', 'S.sampleOut = true', 'scheduleRoomEvents()'];
   let at = -1;
   for (const step of order) {
-    const next = enter.indexOf(step);
-    assert.ok(next > at, `${step} is out of order in enterRoom()`);
+    const next = confirm.indexOf(step);
+    assert.ok(next > at, `${step} is out of order in confirmOwnCasePlacement()`);
     at = next;
   }
 

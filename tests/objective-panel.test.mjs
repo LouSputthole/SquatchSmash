@@ -16,7 +16,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { activeObjectiveItems, createObjectivePanel } from '../src/core/objective-panel.js';
+import {
+  OBJECTIVE_DISPLAY_MS,
+  activeObjectiveItems,
+  createObjectivePanel,
+} from '../src/core/objective-panel.js';
 
 /** Just enough document for what the panel actually touches. */
 function fakeDoc() {
@@ -76,6 +80,29 @@ function panelWith(items, extra = {}) {
   const panel = createObjectivePanel({ doc });
   panel.set({ title: 'THE JOB', items, ...extra });
   return { panel, rows: panel.element.querySelector('.olist').children };
+}
+
+function fakeScheduler() {
+  let now = 0;
+  let nextId = 1;
+  const jobs = new Map();
+  return {
+    setTimeout(fn, delay) {
+      const id = nextId++;
+      jobs.set(id, { at: now + delay, fn });
+      return id;
+    },
+    clearTimeout(id) { jobs.delete(id); },
+    advance(ms) {
+      now += ms;
+      for (const [id, job] of [...jobs].sort((a, b) => a[1].at - b[1].at)) {
+        if (job.at > now) continue;
+        jobs.delete(id);
+        job.fn();
+      }
+    },
+    get pending() { return jobs.size; },
+  };
 }
 
 test('a page with no panel gets one, and one with a panel keeps it', () => {
@@ -209,4 +236,36 @@ test('the first clear and disposing an adopted panel both remove stale UI', () =
   existing.classList.remove('hidden');
   panel.dispose();
   assert.equal(existing.classList.contains('hidden'), true);
+});
+
+test('a changed objective is prominent for twelve seconds, then collapses without tick resets', () => {
+  assert.ok(OBJECTIVE_DISPLAY_MS >= 10_000 && OBJECTIVE_DISPLAY_MS <= 15_000);
+  const doc = fakeDoc();
+  const scheduler = fakeScheduler();
+  const panel = createObjectivePanel({ doc, scheduler });
+  const plan = { title: 'THE JOB', items: [{ label: 'Reach the cabin' }] };
+
+  panel.set(plan);
+  assert.equal(panel.element.classList.contains('hidden'), false);
+  scheduler.advance(OBJECTIVE_DISPLAY_MS - 1);
+  assert.equal(panel.element.classList.contains('hidden'), false);
+
+  /* This is the production shape: scenes call set() from their frame loop.
+   * Identical state must not buy another twelve seconds every frame. */
+  panel.set({ title: 'THE JOB', items: [{ label: 'Reach the cabin' }] });
+  scheduler.advance(1);
+  assert.equal(panel.element.classList.contains('hidden'), true);
+
+  /* Progress is new information. It comes back up, gets its own complete
+   * reading window, and can still be reviewed explicitly after collapsing. */
+  panel.set({
+    title: 'THE JOB',
+    items: [{ label: 'Help the guests', tally: { count: 2, total: 6 } }],
+  });
+  assert.equal(panel.element.classList.contains('hidden'), false);
+  assert.equal(scheduler.pending, 1);
+  scheduler.advance(OBJECTIVE_DISPLAY_MS);
+  assert.equal(panel.element.classList.contains('hidden'), true);
+  panel.reveal();
+  assert.equal(panel.element.classList.contains('hidden'), false);
 });

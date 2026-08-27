@@ -42,6 +42,9 @@ import {
 } from '../src/cartel-palace/suppressor.js';
 import { PALACE_VOICE_LINES, PalaceVoice, allPalaceVoiceLines } from '../src/cartel-palace/voice.js';
 import { WEAPON_IDS, weaponCue } from '../src/core/weapons/catalog.js';
+import {
+  WEAPON_AUDIO_PROFILE_IDS, playWeaponCue,
+} from '../src/core/weapons/audio.js';
 import { buildWeaponModel } from '../src/core/weapons/models.js';
 
 /* The canonical shared plant lives in the browser-authored prop module,
@@ -723,10 +726,13 @@ test('a suppressed shot is muted and layered, never silenced, and never a pfft',
   suppressor.equipped = WEAPON_IDS.PISTOL9;
   const playback = suppressor.playback();
 
+  assert.equal(playback.weaponAudioProfile({ id: WEAPON_IDS.PISTOL9, slot: 'fire' }),
+    WEAPON_AUDIO_PROFILE_IDS.SUPPRESSED,
+    'the Palace adapter must explicitly select the shared suppressed profile');
+
   /* No suppressed take has landed yet, so the unsuppressed recording plays
    * MUTED -- substantially quieter and darker, and still a crack. */
-  assert.equal(playback.hasSample(weaponCue(WEAPON_IDS.PISTOL9, 'fire')), true);
-  playback.play(weaponCue(WEAPON_IDS.PISTOL9, 'fire'), { volume: 0.75 });
+  playWeaponCue(playback, WEAPON_IDS.PISTOL9, 'fire', { volume: 0.75 });
   const report = played.find((row) => row.name === weaponCue(WEAPON_IDS.PISTOL9, 'fire'));
   assert.ok(report, 'a suppressed shot made no sound at all');
   assert.ok(report.volume > 0.1 && report.volume <= 0.75 * 0.5,
@@ -740,8 +746,7 @@ test('a suppressed shot is muted and layered, never silenced, and never a pfft',
   played.length = 0;
   audio.hasSample = (name) => name === suppressedFireCue(WEAPON_IDS.PISTOL9)
     || name === SUPPRESSED_ACTION_CUE;
-  assert.equal(playback.hasSample(weaponCue(WEAPON_IDS.PISTOL9, 'fire')), true);
-  playback.play(weaponCue(WEAPON_IDS.PISTOL9, 'fire'), { volume: 0.75 });
+  playWeaponCue(playback, WEAPON_IDS.PISTOL9, 'fire', { volume: 0.75 });
   assert.ok(played.some((row) => row.name === suppressedFireCue(WEAPON_IDS.PISTOL9)),
     'the dedicated suppressed recording was ignored');
 
@@ -749,8 +754,12 @@ test('a suppressed shot is muted and layered, never silenced, and never a pfft',
   played.length = 0;
   suppressor.equipped = WEAPON_IDS.REVOLVER;
   audio.hasSample = () => true;
-  playback.play(weaponCue(WEAPON_IDS.REVOLVER, 'fire'), { volume: 0.75 });
-  assert.deepEqual(played, [{ name: weaponCue(WEAPON_IDS.REVOLVER, 'fire'), volume: 0.75 }]);
+  assert.equal(playback.weaponAudioProfile({ id: WEAPON_IDS.REVOLVER, slot: 'fire' }),
+    WEAPON_AUDIO_PROFILE_IDS.STANDARD);
+  playWeaponCue(playback, WEAPON_IDS.REVOLVER, 'fire', { volume: 0.75 });
+  assert.equal(played[0].name, weaponCue(WEAPON_IDS.REVOLVER, 'fire'));
+  assert.equal(played[0].weaponAudioProfile, undefined,
+    'the standard profile must remain the unadorned legacy path');
 });
 
 test('a suppressed shot is heard across a room, an unsuppressed one across the estate', () => {

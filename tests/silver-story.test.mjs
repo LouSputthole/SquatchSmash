@@ -12,6 +12,7 @@ import {
 } from '../src/core/campaign.js';
 import { createSilverStory } from '../src/core/silver-story.js';
 import { Mission } from '../src/silver/mission.js';
+import { SILVER_ROOM_MUSIC, SupperClubScore } from '../src/silver/music.js';
 import { Performance, SET, Sway } from '../src/silver/perform.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -52,6 +53,24 @@ function completedDate(outcome) {
 test('every ending authored by the Silver Room mission survives the campaign handoff', () => {
   assert.equal(completedDate('polite').outcome, 'polite');
   assert.equal(completedDate('from-a-distance').outcome, 'from-a-distance');
+});
+
+test('Woo changes Margo\'s affirmative delivery but never gates the next scene', () => {
+  for (const [score, band] of [[0, 'disaster'], [20, 'bad'], [45, 'awkward'], [70, 'good'], [84, 'strong']]) {
+    const mission = new Mission();
+    mission.flags.invitation = 'plain';
+    assert.equal(mission.resolve(score, band), 'strong', `${score}/${band} must still be yes`);
+  }
+  const perfect = new Mission();
+  Object.assign(perfect.flags, { invitation: 'callback', drinkOrdered: 'rye', funnyHow: true });
+  assert.equal(perfect.resolve(98, 'perfect'), 'perfect');
+
+  const saved = perfect.persist({
+    snapshot: () => ({ score: 98, band: 'perfect', streak: true, tips: [] }),
+  });
+  assert.equal(saved.cameHome, true);
+  assert.equal(saved.seeingHerAgain, true);
+  assert.equal(saved.date.available, true);
 });
 
 test('the supper-club dance has forgiving default and assist windows while two of four still succeeds', () => {
@@ -405,26 +424,94 @@ test('the featured number stops the house band stems instead of ducking them', (
     'the retired vocal stem is never addressed at all');
 });
 
-/**
- * "Let's basically [play] all the sounds once for about a quarter of a number
- * and then just go right into banana phone."
- *
- * Both warm-ups still happen, in order, so the third number is still the third
- * number — which the Ape, the bandleader and the board all promise it will be.
- * They are simply about a quarter of the length they were.
- */
-test('the warm-ups are about a quarter of a number and Bananaphone still lands third', () => {
+test('the delivered opening plays for exactly 27 seconds after the joke, then hands straight to Bananaphone', () => {
   assert.deepEqual(SET.map((number) => number.id), ['opener', 'second', 'third', 'slow'],
     'the featured number is the third one anybody hears');
   const [opener, second, third] = SET;
   assert.equal(third.id, 'third');
   assert.ok(third.dur > 190, 'the featured master is not cut');
-  for (const warmUp of [opener, second]) {
-    assert.ok(warmUp.dur <= 12, `${warmUp.id} is a quarter of a number, not a number`);
-    assert.ok(warmUp.dur >= 8, `${warmUp.id} still has room for its line and its applause`);
-  }
-  /* The gate the owner was waiting through: curtain to Bananaphone, including
-   * the two applause gaps between numbers. It was 84 seconds. */
-  const toBanana = opener.dur + 2.4 + second.dur + 2.4;
-  assert.ok(toBanana < 30, `Bananaphone starts ${toBanana.toFixed(1)}s after the curtain`);
+  assert.ok(opener.dur >= 8 && opener.dur <= 12);
+  assert.equal(second.tail.track, SILVER_ROOM_MUSIC.opening.file);
+  assert.equal(second.tail.at, 12, 'the delivered master starts after the patter and rimshot');
+  assert.equal(second.tail.start, 0);
+  assert.equal(second.tail.cutAt, 27);
+  assert.equal(second.dur - second.tail.at, 27);
+  assert.equal(second.seamlessNext, true);
+  assert.ok(second.transition <= 0.2, 'there is no applause-sized dead gap before Bananaphone');
+
+  const file = path.join(ROOT, second.tail.track);
+  const bytes = fs.readFileSync(file);
+  assert.equal(bytes.length, 7_388_632, 'the supplied opening master changed');
+  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),
+    'b3b9d1cca44488ee43723a44a36c5b860a04ee7c0c2787922ce6436852b00e30');
+
+  const calls = [];
+  const audio = {
+    ready: true,
+    startLoop: (key) => calls.push(['startLoop', key]),
+    startMusicLoop: (key, url, options) => {
+      calls.push(['startMusicLoop', key, url, options]);
+      return { element: { currentTime: 0, paused: false }, volume: options.volume };
+    },
+    setLoopVolume: (key, volume) => calls.push(['setLoopVolume', key, volume]),
+    setLoopCutoff: () => null,
+    stopLoop: (key) => calls.push(['stopLoop', key]),
+    play: (key) => calls.push(['play', key]),
+    busy: () => false,
+  };
+  const performance = new Performance({ audio, band: { members: [] } });
+  performance.begin();
+  performance._next(SET.indexOf(second));
+  performance.update(second.tail.at);
+  const opening = calls.find((call) => call[0] === 'startMusicLoop');
+  assert.deepEqual(opening?.slice(0, 3), ['startMusicLoop', 'band.feature', second.tail.track]);
+  assert.equal(opening?.[3]?.start, 0);
+  assert.equal(opening?.[3]?.cutAt, 27);
+  assert.equal(opening?.[3]?.loop, false);
+  assert.equal(opening?.[3]?.ambience, false);
+  assert.equal('position' in opening[3], false, 'the supplied opening is non-diegetic game music');
+  const beforeEnd = calls.length;
+  opening[3].onEnded();
+  assert.equal(calls.slice(beforeEnd).some(([kind, key]) => kind === 'play' && key === 'applause'), false,
+    'the out-point does not insert another applause beat');
+  performance.update(0.16);
+  assert.equal(performance.current?.id, 'third');
+  assert.equal(calls.filter(([kind]) => kind === 'startMusicLoop').at(-1)?.[2], third.track);
+});
+
+test('the delivered room score is non-positional, corridor-muffled, and dialogue-ducked', () => {
+  const calls = [];
+  const handle = { streamed: true };
+  const audio = {
+    startMusicLoop: (key, file, options) => {
+      calls.push(['start', key, file, options]);
+      return handle;
+    },
+    setLoopVolume: (key, value) => calls.push(['volume', key, value]),
+    setLoopCutoff: (key, value) => calls.push(['cutoff', key, value]),
+    stopLoop: (key) => calls.push(['stop', key]),
+  };
+  const score = new SupperClubScore(audio);
+  assert.equal(score.start(), true);
+  const start = calls.find(([kind]) => kind === 'start');
+  assert.equal(start[2], SILVER_ROOM_MUSIC.background.file);
+  assert.equal('position' in start[3], false, 'game score must not pretend to come from a speaker');
+  assert.equal(start[3].loop, true);
+
+  score.setZone('corridor', 0);
+  const corridorVolume = calls.filter(([kind]) => kind === 'volume').at(-1)[2];
+  const corridorCutoff = calls.filter(([kind]) => kind === 'cutoff').at(-1)[2];
+  score.setZone('club', 0);
+  const clubVolume = calls.filter(([kind]) => kind === 'volume').at(-1)[2];
+  const clubCutoff = calls.filter(([kind]) => kind === 'cutoff').at(-1)[2];
+  score.setDialogueDucked(true, 0);
+  const ducked = calls.filter(([kind]) => kind === 'volume').at(-1)[2];
+  assert.ok(corridorVolume > 0 && corridorVolume < clubVolume);
+  assert.ok(corridorCutoff < clubCutoff);
+  assert.ok(ducked < clubVolume);
+
+  const bytes = fs.readFileSync(path.join(ROOT, SILVER_ROOM_MUSIC.background.file));
+  assert.equal(bytes.length, 2_588_181, 'the supplied supper-club background master changed');
+  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),
+    '35c043f1834d73a693bbe019f4d170abf988a08ebebd53f631c45e8bb0a8bd2a');
 });

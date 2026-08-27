@@ -459,7 +459,11 @@ try {
         patrons: home.poker?.patrons?.length ?? 0,
         actors: (() => {
           let seated = 0;
-          home.root.traverse((object) => {
+          /* Count only the poker assembly. Beats 16/17 now keep a hidden
+           * principal actor rig in the apartment root; treating every actor
+           * anywhere in the home as a poker patron made this furniture gate
+           * reject the very story staging it was supposed to coexist with. */
+          home.poker?.group?.traverse((object) => {
             if (object.userData?.actor) seated += 1;
           });
           return seated;

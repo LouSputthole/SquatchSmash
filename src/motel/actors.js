@@ -718,6 +718,7 @@ export class Actor {
     if (this.weapon) this.equip(this.weapon);
     this.attackCd = 0.6 + Math.random() * 0.6;
     this.walkT = Math.random() * 10;
+    this.lastStepSign = Math.sign(Math.sin(this.walkT)) || 1;
     this.downT = -1;
     this.stunT = 0;
     this.blindT = 0;
@@ -725,6 +726,7 @@ export class Actor {
     this.target = null;         // {x,z} to walk to
     this.anchor = { x: this.group.position.x, z: this.group.position.z };
     this.carryingCase = false;
+    this.carryingMoneyCase = false;
     this.grappleT = 0;
     this.talkT = 0;
     /* The mouth, driven by the voice rather than by a clock -- one shared
@@ -1116,6 +1118,15 @@ export class Actor {
 
     // Animation
     if (moving) this.walkT += dt * 9;
+    const stepSign = Math.sign(Math.sin(this.walkT));
+    if (moving && stepSign && stepSign !== this.lastStepSign) {
+      this.lastStepSign = stepSign;
+      /* NPCs used to glide silently while Tony's recorded steps carried the
+       * entire mix. One event per planted foot, handed to the scene with the
+       * actor's actual position; the audio layer owns cadence protection and
+       * distance falloff. */
+      ctx.onStep?.(this, { running: speed > this.speed * 1.05 });
+    }
     const gait = Math.sin(this.walkT) * (moving ? 0.8 : 0.12);
     this.rig.legL.rotation.x = gait;
     this.rig.legR.rotation.x = -gait;

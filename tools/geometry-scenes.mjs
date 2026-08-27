@@ -139,11 +139,12 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
       'The countryside hideout visibly stages Lag at the woodpile.',
     ),
   }),
-  /* The anonymous poker patrons were deliberately retired. The table remains,
-   * but the authored apartment state has Tony alone and no staged NPC cast. */
+  /* The anonymous poker patrons remain retired. Margo is mounted but hidden
+   * for her later physical entrance, so this initial property snapshot still
+   * intentionally has no visible NPC cast. */
   entry('luxury-apartment', 'property', 'luxury-apartment', ['luxury-apartment'], {
     actorExpectation: intentionalNoActors(
-      'The Luxury Apartment is Tony alone; its empty poker table is a deliberate solo beat.',
+      'The initial Luxury Apartment snapshot has no visible guest; Margo remains hidden until her owed entrance.',
     ),
   }),
   entry('motel', 'property', 'motel', ['motel'], { geometryStage: 'startup' }),
@@ -174,7 +175,14 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
   )),
   ...MANSION_SIEGE_PREVIEW_CHECKPOINTS.map((checkpoint) => entry(
     'mansion-siege', `checkpoint-${checkpoint.replaceAll('_', '-')}`, 'mansion-siege', ['mansion-siege'],
-    { checkpoint, damageState: 'under_attack' },
+    {
+      checkpoint,
+      damageState: 'under_attack',
+      /* `armory` exposes the same settled world geometry as `armed`; it only
+       * advances the in-page interaction/story state. Keep one authoritative
+       * scan instead of duplicating 1,570 reviewed geometry suppressions. */
+      checkpointAliases: checkpoint === 'armed' ? Object.freeze(['armory']) : Object.freeze([]),
+    },
   )),
   /* The Special Meeting is one campaign scene over two mutually exclusive
    * worlds, so it registers three states rather than one. `kerb` is the

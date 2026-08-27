@@ -171453,7 +171453,7 @@
     {
       "state": "alert",
       "overlap": 1122,
-      "checkSupport": 1583,
+      "checkSupport": 1574,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -173442,24 +173442,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#47",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#48",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#49",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#5",
           "scope": "inherited",
           "overlap": 0,
@@ -174012,10 +173994,10 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest#0",
-          "scope": "direct",
+          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest.frame#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=modern-dressing-cluster#0/name=modern-dressing-mirror#0",
@@ -176698,7 +176680,7 @@
     {
       "state": "checkpoint-armed",
       "overlap": 1316,
-      "checkSupport": 1727,
+      "checkSupport": 1718,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -178687,24 +178669,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#47",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#48",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#49",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#5",
           "scope": "inherited",
           "overlap": 0,
@@ -179257,10 +179221,10 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest#0",
-          "scope": "direct",
+          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest.frame#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=modern-dressing-cluster#0/name=modern-dressing-mirror#0",
@@ -182813,7 +182777,7 @@
     {
       "state": "checkpoint-briefed",
       "overlap": 1316,
-      "checkSupport": 1727,
+      "checkSupport": 1718,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -184802,24 +184766,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#47",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#48",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#49",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#5",
           "scope": "inherited",
           "overlap": 0,
@@ -185372,10 +185318,10 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest#0",
-          "scope": "direct",
+          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest.frame#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=modern-dressing-cluster#0/name=modern-dressing-mirror#0",
@@ -188928,7 +188874,7 @@
     {
       "state": "checkpoint-wake",
       "overlap": 1316,
-      "checkSupport": 1727,
+      "checkSupport": 1718,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -190917,24 +190863,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#47",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#48",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#49",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#5",
           "scope": "inherited",
           "overlap": 0,
@@ -191487,10 +191415,10 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest#0",
-          "scope": "direct",
+          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest.frame#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=modern-dressing-cluster#0/name=modern-dressing-mirror#0",
@@ -195043,7 +194971,7 @@
     {
       "state": "checkpoint-wave-one",
       "overlap": 1316,
-      "checkSupport": 1727,
+      "checkSupport": 1718,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -197032,24 +196960,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#47",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#48",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#49",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#5",
           "scope": "inherited",
           "overlap": 0,
@@ -197602,10 +197512,10 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest#0",
-          "scope": "direct",
+          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest.frame#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=modern-dressing-cluster#0/name=modern-dressing-mirror#0",
@@ -201158,7 +201068,7 @@
     {
       "state": "clean",
       "overlap": 1122,
-      "checkSupport": 1556,
+      "checkSupport": 1547,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -203147,24 +203057,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#47",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#48",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#49",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#5",
           "scope": "inherited",
           "overlap": 0,
@@ -203717,10 +203609,10 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest#0",
-          "scope": "direct",
+          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest.frame#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=modern-dressing-cluster#0/name=modern-dressing-mirror#0",
@@ -206349,7 +206241,7 @@
     {
       "state": "damaged",
       "overlap": 1316,
-      "checkSupport": 1727,
+      "checkSupport": 1718,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -208338,24 +208230,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#47",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#48",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#49",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#5",
           "scope": "inherited",
           "overlap": 0,
@@ -208908,10 +208782,10 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest#0",
-          "scope": "direct",
+          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest.frame#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=modern-dressing-cluster#0/name=modern-dressing-mirror#0",
@@ -212464,7 +212338,7 @@
     {
       "state": "post-battle",
       "overlap": 1316,
-      "checkSupport": 1700,
+      "checkSupport": 1691,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -214453,24 +214327,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#47",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#48",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#49",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#5",
           "scope": "inherited",
           "overlap": 0,
@@ -215023,10 +214879,10 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest#0",
-          "scope": "direct",
+          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest.frame#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=modern-dressing-cluster#0/name=modern-dressing-mirror#0",
@@ -218525,7 +218381,7 @@
     {
       "state": "repaired",
       "overlap": 1122,
-      "checkSupport": 1556,
+      "checkSupport": 1547,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -220514,24 +220370,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#47",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#48",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#49",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#5",
           "scope": "inherited",
           "overlap": 0,
@@ -221084,10 +220922,10 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest#0",
-          "scope": "direct",
+          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest.frame#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=modern-dressing-cluster#0/name=modern-dressing-mirror#0",
@@ -223716,7 +223554,7 @@
     {
       "state": "under-attack",
       "overlap": 1316,
-      "checkSupport": 1727,
+      "checkSupport": 1718,
       "sources": [
         {
           "sourceId": "root:mansion-siege/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -225705,24 +225543,6 @@
           "checkSupport": 4
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#47",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#48",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#49",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 4
-        },
-        {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=frame#5",
           "scope": "inherited",
           "overlap": 0,
@@ -226275,10 +226095,10 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest#0",
-          "scope": "direct",
+          "sourceId": "root:mansion-siege/name=MansionInterior#0/name=mansion.guest.crest.frame#0",
+          "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 1
+          "checkSupport": 4
         },
         {
           "sourceId": "root:mansion-siege/name=MansionInterior#0/name=modern-dressing-cluster#0/name=modern-dressing-mirror#0",

@@ -2,10 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  INITIATION_CABIN_PROCESSION,
+  INITIATION_CABIN_REQUIRED_AT_MARK,
   INITIATION_PROCESSION_PHASES,
   INITIATION_PROCESSION_POLICY,
   INITIATION_TRAIL_BEATS,
   INITIATION_TRAIL_FORMATION,
+  cabinProcessionRoute,
   formationTarget,
   trailNarrativeStatus,
 } from '../src/initiation/trail-formation.js';
@@ -97,4 +100,20 @@ test('cabin narrative gate requires every marker and a completed choice reply', 
     'completed trail story regressed when later cabin dialogue began');
   assert.equal(unrelatedDialogue.readyForCabin, false,
     'the transient cabin gate ignored live dialogue');
+});
+
+test('every family member takes a measured route through the one cabin doorway', () => {
+  assert.equal(INITIATION_CABIN_PROCESSION.length, 15);
+  assert.equal(new Set(INITIATION_CABIN_PROCESSION).size, 15);
+  assert.deepEqual(INITIATION_CABIN_REQUIRED_AT_MARK, ['LOU', 'RIPPINFLOW', 'BOOSKIBRO']);
+
+  const door = { x: 24, frontZ: 21.8, outsideZ: 20.4 };
+  for (let index = 0; index < INITIATION_CABIN_PROCESSION.length; index += 1) {
+    const final = { x: 19 + index * 0.55, z: 23 + (index % 3), heading: index / 10 };
+    const route = cabinProcessionRoute({ door, final, index });
+    assert.deepEqual(route.map(({ stage }) => stage), ['queue', 'porch', 'threshold', 'fan', 'mark']);
+    assert.equal(route[2].x, door.x, 'the threshold must stay on the door centreline');
+    assert.ok(route[2].z > door.frontZ, 'the threshold waypoint never enters the room');
+    assert.deepEqual(route.at(-1), { ...final, stage: 'mark' });
+  }
 });

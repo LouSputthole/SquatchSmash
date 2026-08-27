@@ -40,6 +40,18 @@ async function chromiumApi() {
  * the pinned build and nothing about this changes.
  */
 function discoverChromium() {
+  if (process.platform === 'win32') {
+    const windowsCandidates = [
+      path.join(process.env.PROGRAMFILES ?? '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(process.env['PROGRAMFILES(X86)'] ?? '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(process.env.LOCALAPPDATA ?? '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(process.env.PROGRAMFILES ?? '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      path.join(process.env['PROGRAMFILES(X86)'] ?? '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      path.join(process.env.LOCALAPPDATA ?? '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    ];
+    const installed = windowsCandidates.find((candidate) => candidate && fs.existsSync(candidate));
+    if (installed) return installed;
+  }
   const roots = [
     process.env.PLAYWRIGHT_BROWSERS_PATH,
     '/opt/pw-browsers',
@@ -55,6 +67,8 @@ function discoverChromium() {
       for (const candidate of [
         path.join(root, build, 'chrome-linux', 'chrome'),
         path.join(root, build, 'chrome-linux', 'headless_shell'),
+        path.join(root, build, 'chrome-win', 'chrome.exe'),
+        path.join(root, build, 'chrome-win64', 'chrome.exe'),
       ]) {
         if (fs.existsSync(candidate)) return candidate;
       }

@@ -58,6 +58,47 @@ export const INITIATION_PROCESSION_POLICY = Object.freeze({
 });
 
 /**
+ * Single-file order through the cabin's 1.15 m door.
+ *
+ * Lou and Rippin are already near the head of the trail. Booski holds the
+ * door for Tony, then enters third; this is early enough that the ceremony
+ * never waits on the tail of a fifteen-person procession, but late enough for
+ * the player to see him physically come in behind. Everyone else follows in
+ * loose pairs only after the previous entrant has cleared the threshold.
+ */
+export const INITIATION_CABIN_PROCESSION = Object.freeze([
+  'LOU', 'RIPPINFLOW', 'BOOSKIBRO', 'HOGMAMA', 'IRISH', 'SASOLE',
+  'ERIC', 'SNOW', 'APE', 'NUMBSKULL', 'SHUBENATOR', 'LAG',
+  'DEATHMEGATRON', 'SEFF', 'GRATIN',
+]);
+
+/** Dialogue may begin once the principals are physically on their marks. */
+export const INITIATION_CABIN_REQUIRED_AT_MARK = Object.freeze([
+  'LOU', 'RIPPINFLOW', 'BOOSKIBRO',
+]);
+
+/**
+ * Door-centred route for one entrant.
+ *
+ * `door` is `{x, frontZ, outsideZ}` and `final` is the member's measured room
+ * mark. The two tiny lane offsets disappear at the threshold: they keep the
+ * waiting line from stacking but never ask a shoulder to pass through a jamb.
+ */
+export function cabinProcessionRoute({ door, final, index = 0 } = {}) {
+  if (!door || !final) return [];
+  const side = index % 2 === 0 ? -1 : 1;
+  const lane = side * 0.14;
+  const fan = Math.sign(final.x - door.x) * Math.min(0.82, Math.abs(final.x - door.x));
+  return [
+    Object.freeze({ x: door.x + lane, z: door.outsideZ - 0.34, stage: 'queue' }),
+    Object.freeze({ x: door.x + lane * 0.35, z: door.outsideZ + 0.34, stage: 'porch' }),
+    Object.freeze({ x: door.x, z: door.frontZ + 0.62, stage: 'threshold' }),
+    Object.freeze({ x: door.x + fan, z: door.frontZ + 1.48, stage: 'fan' }),
+    Object.freeze({ x: final.x, z: final.z, heading: final.heading, stage: 'mark' }),
+  ];
+}
+
+/**
  * Pure status calculation used by both the production gate and certification.
  * `choiceUsed` means the prompt appeared; `choiceResolved` means its reply (or
  * silent keep-walking option) finished. They are deliberately separate so

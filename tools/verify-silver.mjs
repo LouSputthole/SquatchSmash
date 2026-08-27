@@ -26,14 +26,25 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  isSilverPreloadCue, SILVER_START_EFFECTS, SILVER_START_VOICE_PREFIXES,
+} from '../src/silver/audio.js';
+import { launchChromium } from './launch-chromium.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5212;
 const silverManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
 const silverIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
 const indexedSilverFiles = new Set(silverIndex.files || []);
-const expectedSilverVo = silverManifest.sfx.filter((cue) => cue.name.startsWith('vo.silver.')
-  && indexedSilverFiles.has(cue.file || `${cue.name}.mp3`)).length;
+const expectedSilverScoped = silverManifest.sfx.filter((cue) => (
+  indexedSilverFiles.has(cue.file || `${cue.name}.mp3`) && isSilverPreloadCue(cue)
+));
+const expectedSilverStart = expectedSilverScoped.filter((cue) => (
+  SILVER_START_EFFECTS.has(cue.name)
+  || SILVER_START_VOICE_PREFIXES.some((prefix) => cue.name.startsWith(prefix))
+));
+const expectedSilverStartVo = expectedSilverStart.filter((cue) => cue.name.startsWith('vo.silver.')).length;
+const expectedSilverScopedVo = expectedSilverScoped.filter((cue) => cue.name.startsWith('vo.silver.')).length;
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -44,14 +55,6 @@ const TYPES = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
 };
-
-let chromium;
-try {
-  ({ chromium } = await import('playwright'));
-} catch {
-  console.error('playwright is not installed; cannot verify the club.');
-  process.exit(1);
-}
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -65,7 +68,7 @@ const server = http.createServer(async (req, res) => {
 });
 await new Promise((r) => server.listen(PORT, r));
 
-const browser = await chromium.launch({
+const browser = await launchChromium({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
@@ -82,9 +85,17 @@ const page = await browser.newPage({ viewport: { width: 320, height: 200 }, devi
  * master is first fetched, while the connection ledger proves the streamed
  * media node terminates on the music bus instead of ambience or SFX. */
 const bananaTrackRequests = [];
+const supperClubTrackRequests = [];
+const openingTrackRequests = [];
 page.on('request', (request) => {
   if (/\/front-and-center-bananaphone-[0-9a-f]+\.mp3(?:[?#]|$)/i.test(request.url())) {
     bananaTrackRequests.push(request.url());
+  }
+  if (/\/front-and-center-background-[0-9a-f]+\.mp3(?:[?#]|$)/i.test(request.url())) {
+    supperClubTrackRequests.push(request.url());
+  }
+  if (/\/front-and-center-opening-[0-9a-f]+\.mp3(?:[?#]|$)/i.test(request.url())) {
+    openingTrackRequests.push(request.url());
   }
 });
 await page.addInitScript(() => {
@@ -127,13 +138,28 @@ if (failedToLoad) {
  * which every pixel of is drawn on the CPU. */
 const startClickedAt = Date.now();
 await page.evaluate(() => document.getElementById('start-btn').click());
-/* Start is `await audio.loadManifest()`, which is four hundred fetches and
- * four hundred decodes on a machine that is also drawing this scene in
- * software. How long that takes is not what this harness is for — the
- * *selection* is, and it is measured and asserted twenty lines below, wall
- * clock included. The ninety seconds this used to allow was a number from a
- * quieter box and it is a flake on a busy one. */
-await page.waitForFunction(() => window.__silver?.game.started, null, { timeout: 300000 });
+await page.waitForTimeout(750);
+const startGate = await page.evaluate(() => {
+  const b = window.__silver;
+  const button = document.getElementById('start-btn');
+  return {
+    button: button?.textContent?.trim() ?? null,
+    disabled: !!button?.disabled,
+    started: !!b?.game?.started,
+    audioReady: !!b?.audio?.ready,
+    preload: b?.audio?.preloadStats ?? null,
+    failedCues: b?.audio?.failedCues?.length ?? null,
+    overlayHidden: document.getElementById('overlay')?.classList.contains('hidden') ?? null,
+    campaignScene: globalThis.__campaignDebug?.state?.scene?.id ?? null,
+  };
+});
+console.log(`  info  start gate — ${JSON.stringify(startGate)}`);
+if (startGate.disabled && !startGate.started) {
+  throw new Error(`Front and Center start was refused: ${JSON.stringify(startGate)}`);
+}
+/* Only the curbside bank is on this critical path. A regression to the full
+ * 446-cue room bank is a start failure, not merely a slow CI machine. */
+await page.waitForFunction(() => window.__silver?.game.started, null, { timeout: 120000 });
 await page.evaluate(() => window.__silver.postfx.disable?.());
 await page.keyboard.press('Tab');
 await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
@@ -214,11 +240,13 @@ const silverLoad = await page.evaluate(() => {
   };
 });
 silverLoad.wallMs = Date.now() - startClickedAt;
-check('the Silver Room decodes its own sound set instead of the whole campaign before opening',
+check('the Silver Room opens on a bounded curbside bank and continues decoding only its own voices',
   silverLoad.plan?.manifestTotal > 1000
-    && silverLoad.plan?.selected >= expectedSilverVo
-    && silverLoad.plan?.selected < silverLoad.plan?.manifestTotal / 2
-    && silverLoad.silverVo === expectedSilverVo
+    && silverLoad.plan?.selected === expectedSilverStart.length
+    && silverLoad.plan?.scoped === expectedSilverScoped.length
+    && silverLoad.plan?.deferred === expectedSilverScoped.length - expectedSilverStart.length
+    && silverLoad.silverVo >= expectedSilverStartVo
+    && silverLoad.silverVo <= expectedSilverScopedVo
     && silverLoad.unrelatedVo.length === 0,
   JSON.stringify(silverLoad));
 check('Bananaphone is the versioned, full-length third number',
@@ -229,6 +257,57 @@ check('Bananaphone is the versioned, full-length third number',
 check('the featured master is neither decoded nor requested during startup',
   !silverLoad.feature.decoded && !silverLoad.feature.active && bananaTrackRequests.length === 0,
   JSON.stringify({ feature: silverLoad.feature, requests: bananaTrackRequests }));
+const roomMusic = await page.evaluate(() => {
+  const b = window.__silver;
+  const handle = b.audio.loops.get('silver.room.background');
+  b.roomScore.setZone('corridor', 0);
+  const corridor = { volume: handle?.volume ?? null, cutoff: handle?.cutoff ?? null };
+  b.roomScore.setZone('club', 0);
+  const club = { volume: handle?.volume ?? null, cutoff: handle?.cutoff ?? null };
+  b.roomScore.setDialogueDucked(true, 0);
+  const dialogue = { volume: handle?.volume ?? null, cutoff: handle?.cutoff ?? null };
+  b.roomScore.setDialogueDucked(false, 0);
+  b.roomScore.setZone('exterior', 0);
+  return {
+    catalog: b.SILVER_ROOM_MUSIC,
+    streamed: !!handle?.streamed,
+    loop: handle?.element?.loop ?? null,
+    positional: !!handle?.panner,
+    corridor, club, dialogue,
+  };
+});
+check('the delivered supper-club master is streamed as non-diegetic room score',
+  roomMusic.catalog.background.file === 'assets/music/front-and-center-background-35c043f1.mp3'
+    && roomMusic.streamed && roomMusic.loop && !roomMusic.positional
+    && supperClubTrackRequests.length > 0 && openingTrackRequests.length === 0,
+  JSON.stringify({ roomMusic, supperClubTrackRequests, openingTrackRequests }));
+check('the score is muffled in the post-kitchen corridor, clear in the room, and ducks under dialogue',
+  roomMusic.corridor.volume > 0 && roomMusic.corridor.volume < roomMusic.club.volume
+    && roomMusic.corridor.cutoff < roomMusic.club.cutoff
+    && roomMusic.dialogue.volume < roomMusic.club.volume,
+  JSON.stringify({ corridor: roomMusic.corridor, club: roomMusic.club, dialogue: roomMusic.dialogue }));
+/* Observe every later streamed number without changing its options. The room
+ * score is already live; this ledger is for the supplied opening and the
+ * authored Bananaphone handoff much later in the evening. */
+await page.evaluate(() => {
+  const b = window.__silver;
+  window.__silverMusicStarts = [];
+  const start = b.audio.startMusicLoop.bind(b.audio);
+  b.audio.startMusicLoop = (key, url, options = {}) => {
+    const handle = start(key, url, options);
+    window.__silverMusicStarts.push({
+      key, url,
+      start: options.start ?? null,
+      cutAt: options.cutAt ?? null,
+      loop: options.loop !== false,
+      bus: options.bus ?? null,
+      ambience: options.ambience ?? true,
+      positioned: options.position != null,
+      panner: !!handle?.panner,
+    });
+    return handle;
+  };
+});
 const firstFrameUi = await page.evaluate(() => {
   const b = window.__silver;
   const bar = document.getElementById('hotbar');
@@ -1779,18 +1858,49 @@ check('sitting down puts her in the other chair, with no chair-pull involved',
 
 /* Both of them back on their feet, so the optional pad is tested doing what it
  * is for rather than re-seating somebody already sitting. */
-const chair = await page.evaluate(() => {
+const chairStart = await page.evaluate(() => {
   const b = window.__silver;
   b.game.chairPads.his.userData.interact.onUse();       // he stands
   b.date.standFrom({ x: b.room.anchors.frontTable.x + 1.4, z: b.room.anchors.frontTable.z + 1.6 });
   b.date.follow();
   b.player.position.set(b.room.anchors.frontTable.x + 1.2, 1.66, b.room.anchors.frontTable.z + 1.2);
+  const seat = b.room.anchors.frontSeats[1];
+  const chair = b.room.frontTable.chairs[1];
   const before = b.woo.score;
   b.game.chairPads.her.userData.interact.onUse();
-  return { before, after: b.woo.score, dateMode: b.date.mode };
+  return {
+    before, after: b.woo.score, dateMode: b.date.mode,
+    chairHome: Math.hypot(chair.position.x - seat.x, chair.position.z - seat.z),
+  };
 });
-check('pulling her chair out is worth something, and sits her down',
-  chair.after > chair.before && chair.dateMode === 'seated', JSON.stringify(chair));
+await tick(0.48, 0.04);
+const chairMiddle = await page.evaluate(() => {
+  const b = window.__silver;
+  const seat = b.room.anchors.frontSeats[1];
+  const chair = b.room.frontTable.chairs[1];
+  return {
+    dateMode: b.date.mode,
+    pulled: Math.hypot(chair.position.x - seat.x, chair.position.z - seat.z),
+  };
+});
+await tick(2.6, 0.04);
+const chairEnd = await page.evaluate(() => {
+  const b = window.__silver;
+  const seat = b.room.anchors.frontSeats[1];
+  const chair = b.room.frontTable.chairs[1];
+  return {
+    dateMode: b.date.mode,
+    sitting: !!b.date.npc.seated,
+    chairHome: Math.hypot(chair.position.x - seat.x, chair.position.z - seat.z),
+    dateHome: Math.hypot(b.date.position.x - seat.x, b.date.position.z - seat.z),
+  };
+});
+check('pulling her chair has root motion, is worth something, and seats her cleanly',
+  chairStart.after > chairStart.before && chairStart.dateMode === 'seating'
+    && chairMiddle.dateMode === 'seating' && chairMiddle.pulled > 0.15
+    && chairEnd.dateMode === 'seated' && chairEnd.sitting
+    && chairEnd.chairHome < 0.03 && chairEnd.dateHome < 0.05,
+  JSON.stringify({ chairStart, chairMiddle, chairEnd }));
 
 /* `tick()` advances mission time deliberately without advancing the browser's
  * subtitle clock. The chair line is queued behind whatever still owns the
@@ -1876,8 +1986,8 @@ await page.waitForFunction(() => {
   const b = window.__silver;
   return !b.__voice().speaking && !b.performance.holdingTheFloor;
 }, null, { timeout: 120000, polling: 120 });
-let floorChatter = { lines: [], delays: [] };
-for (let attempt = 0; attempt < 20 && floorChatter.lines.length === 0; attempt++) {
+let floorChatter = { lines: [], cues: [], delays: [] };
+for (let attempt = 0; attempt < 20 && floorChatter.cues.length === 0; attempt++) {
   if (attempt > 0) await page.waitForTimeout(400);
   floorChatter = await page.evaluate(() => {
   const b = window.__silver;
@@ -1891,6 +2001,7 @@ for (let attempt = 0; attempt < 20 && floorChatter.lines.length === 0; attempt++
     voLength: b.game.voLog.length,
   };
   const lines = [];
+  const cues = [];
   const delays = [];
   b.dialogue.active = false;
   b.game.lastBark = -1;
@@ -1910,8 +2021,10 @@ for (let attempt = 0; attempt < 20 && floorChatter.lines.length === 0; attempt++
   const floorPick = 5.5 / b.BARKS.floor.length;
   Math.random = () => floorPick;
   for (let i = 0; i < 3; i++) {
+    const beforeCue = b.game.voLog.length;
     b.game.barkAt = 0;
     b.__barks(1, { flush: false });
+    cues.push(...b.game.voLog.slice(beforeCue));
     delays.push(b.game.barkAt);
   }
   Math.random = was.random;
@@ -1922,13 +2035,14 @@ for (let attempt = 0; attempt < 20 && floorChatter.lines.length === 0; attempt++
   b.game.lastBark = was.lastBark;
   b.game.floorFrontDoorBarked = was.frontDoorBarked;
   b.game.voLog.length = was.voLength;
-  return { lines, delays };
+  return { lines, cues, delays };
   });
 }
-const frontDoorBarks = floorChatter.lines.filter((line) => line.includes('front door')).length;
-check('the civilian front-door diner speaks once and floor ambience waits at least 28 seconds',
-  frontDoorBarks === 1 && floorChatter.delays.every((delay) => delay >= 28),
-  JSON.stringify({ frontDoorBarks, delays: floorChatter.delays, lines: floorChatter.lines }));
+const frontDoorBarks = floorChatter.cues.filter((cue) => cue === 'vo.silver.room.floor.6').length;
+check('the civilian front-door diner speaks once without a subtitle, and floor ambience breathes',
+  frontDoorBarks === 1 && floorChatter.lines.length === 0
+    && floorChatter.delays.every((delay) => delay >= 28),
+  JSON.stringify({ frontDoorBarks, ...floorChatter }));
 
 /* ---- the conversation ---- */
 await tick(2);
@@ -2238,6 +2352,11 @@ const stagecraft = await page.evaluate(() => {
   const leader = b.band.members.find((m) => m.holds === 'violin');
   const violin = leader?.group.getObjectByName('lead-violin');
   const bow = leader?.group.getObjectByName('lead-bow');
+  const trumpeter = b.band.members.find((m) => m.instrument === 'trumpet');
+  const trumpet = trumpeter?.group.getObjectByName('stage-trumpet');
+  const trumpetBell = trumpeter?.group.getObjectByName('stage-trumpet-bell');
+  const trumpetMouthpiece = trumpeter?.group.getObjectByName('stage-trumpet-mouthpiece');
+  const valves = trumpet?.children.filter((child) => child.name === 'stage-trumpet-valve-button') ?? [];
   /* Drive the show clock by hand and watch the bow follow it.
    *
    * Two reasons this cannot be `update(0.31)` and a single before/after.
@@ -2265,19 +2384,32 @@ const stagecraft = await page.evaluate(() => {
    * it; that is what a seated table would actually see, and it is what
    * `getWorldPosition` reads. */
   const wasT = b.performance.t;
+  const wasHandle = b.performance._featureHandle;
+  /* A streamed number follows media currentTime, which deliberately does not
+   * advance in this headless window. Detach only the verifier's clock sample;
+   * the live handle remains registered in AudioEngine and is restored before
+   * leaving this evaluate. */
+  b.performance._featureHandle = null;
   let bowTravel = 0;
+  let valveTravel = 0;
   const bowAt = bow?.getWorldPosition(new b.THREE.Vector3());
   const bowNow = new b.THREE.Vector3();
+  let priorValves = valves.map((valve) => valve.position.y);
   for (let i = 1; i <= 8; i++) {
     b.performance.t = 1.5 + i * 0.22;
     b.performance.update(0);
+    b.scene.updateMatrixWorld(true);
     if (bow) {
       bow.getWorldPosition(bowNow);
       bowTravel += bowAt.distanceTo(bowNow);
       bowAt.copy(bowNow);
     }
+    const nextValves = valves.map((valve) => valve.position.y);
+    valveTravel += nextValves.reduce((sum, value, vi) => sum + Math.abs(value - priorValves[vi]), 0);
+    priorValves = nextValves;
   }
   b.performance.t = wasT;
+  b.performance._featureHandle = wasHandle;
   const size = violin ? new b.THREE.Box3().setFromObject(violin).getSize(new b.THREE.Vector3()) : null;
   return {
     facing: members.every((m) => Math.abs(m.yaw) < 0.9),
@@ -2290,6 +2422,10 @@ const stagecraft = await page.evaluate(() => {
     violinVisible: !!violin && violin.visible && size.x > 0.45 && size.y > 0.15,
     bowVisible: !!bow && bow.visible && bowTravel > 0.08,
     bowTravel: +bowTravel.toFixed(3),
+    trumpetVisible: !!trumpet && trumpet.visible && !!trumpetBell && !!trumpetMouthpiece
+      && valves.length === 3,
+    trumpetValves: valves.length,
+    valveTravel: +valveTravel.toFixed(3),
     violinSize: size ? size.toArray().map((n) => +n.toFixed(2)) : null,
     members,
   };
@@ -2301,6 +2437,10 @@ check('the band faces the audience and plays its instruments rather than shaking
     hornsUp: stagecraft.hornsUp, lead: stagecraft.leadWorking,
     violin: stagecraft.violinVisible, bow: stagecraft.bowVisible,
     bowTravel: stagecraft.bowTravel, size: stagecraft.violinSize }));
+check('the stage trumpeter is visibly on the horn and works all three valves',
+  stagecraft.trumpetVisible && stagecraft.valveTravel > 0.02,
+  JSON.stringify({ visible: stagecraft.trumpetVisible, valves: stagecraft.trumpetValves,
+    travel: stagecraft.valveTravel }));
 
 /* The three things the owner could see wrong from the front table.
  *
@@ -2465,7 +2605,9 @@ check('getting up out of the chair is not itself a failed dance',
     && (swayPending.starting || (swayPending.running && swayPending.active)),
   JSON.stringify(swayPending));
 
-await page.waitForTimeout(1100);               // the band gets to the bar, on a real clock
+/* The paired dance now walks both bodies out from behind the table for 2.8s;
+ * drive that authored approach through the same update path as gameplay. */
+await tick(2.4, 0.1);
 const swayLive = await page.evaluate(() => ({
   active: window.__silver.sway.active,
   running: window.__silver.game.swayRunning,
@@ -2555,21 +2697,52 @@ const impatience = await page.evaluate(() => {
 check('so she starts noticing being kept waiting again',
   impatience.heard.length > 0, `${impatience.state}: ${impatience.heard.join(', ') || 'silence'}`);
 
-/* ---- the supplied main performance ----
- * Advance the ordinary first two numbers, then let the media element own the
- * feature's completion. Assigning `p.t` here is only the deterministic skip to
- * the start of Bananaphone; its own end below comes through the exact `ended`
- * event a browser emits at the end of the supplied master. */
-for (let i = 0; i < 3; i++) {
-  const onFeature = await page.evaluate(() => window.__silver.performance.current?.theOne === true);
-  if (onFeature) break;
+/* ---- the supplied opening and main performance ----
+ * The first number can use game-time acceleration. The second hands its clock
+ * to the delivered opening master at 12 seconds, so a healthy stream must be
+ * completed by its media end rather than by forging 27 seconds of render
+ * time. This is exactly the production seam: joke/rimshot → opening window →
+ * Bananaphone, with no applause-sized gap. */
+for (let i = 0; i < 8; i++) {
+  const phase = await page.evaluate(() => ({
+    id: window.__silver.performance.current?.id ?? null,
+    tail: !!window.__silver.performance._tailStarted,
+  }));
+  if (phase.id === 'third') break;
+  if (phase.id === 'second') {
+    await page.evaluate(() => {
+      const b = window.__silver;
+      const p = b.performance;
+      if (!p._tailStarted) {
+        p.t = p.current.tail.at;
+        p.update(0);
+      }
+      const handle = b.audio.loops.get('band.feature');
+      /* A real browser reaches this through `timeupdate` at cutAt. Dispatching
+       * `ended` is the deterministic equivalent after the call contract has
+       * been captured below; it exercises the same completion callback. */
+      handle?.element?.dispatchEvent(new Event('ended'));
+    });
+    await tick(0.4, 0.1);
+    continue;
+  }
   await page.evaluate(() => {
     const p = window.__silver.performance;
     if (p.current) p.t = p.current.dur + 0.05;
   });
-  await tick(0.4, 0.2);
+  await tick(0.4, 0.1);
   await tick(2.6, 0.2);
 }
+const openingLive = await page.evaluate(() => (window.__silverMusicStarts || [])
+  .find((entry) => /front-and-center-opening-[0-9a-f]+\.mp3$/i.test(entry.url)) ?? null);
+const requestedOpeningUrls = [...new Set(openingTrackRequests)];
+check('the post-joke opening is a non-diegetic 27-second music-bus stream',
+  openingLive?.url === 'assets/music/front-and-center-opening-b3b9d1cc.mp3'
+    && openingLive.start === 0 && openingLive.cutAt === 27
+    && openingLive.loop === false && openingLive.bus === 'music'
+    && openingLive.ambience === false && !openingLive.positioned && !openingLive.panner
+    && requestedOpeningUrls.length === 1,
+  JSON.stringify({ openingLive, requests: requestedOpeningUrls }));
 await page.waitForFunction(() => {
   const b = window.__silver;
   return b.performance.current?.theOne === true && b.audio.loops.has('band.feature');
@@ -2623,10 +2796,10 @@ check('starting the main performance does not unlock the invitation before it en
 /* Put the live seated queue on its dessert entry without exposing production
  * internals. A checkpoint is the public round-trip for queueAt/seatedFor, so
  * stage the gate through one, exercise it, then restore the evening exactly. */
-const dessertGate = await page.evaluate(() => {
+const dessertGateStart = await page.evaluate(() => {
   const b = window.__silver;
   b.dialogue.end();
-  const original = JSON.parse(JSON.stringify(b.debug.save()));
+  window.__silverDessertGateOriginal = JSON.parse(JSON.stringify(b.debug.save()));
   b.game.checkpoint.queueAt = 11;               // ROUND_QUEUE's dessert entry
   b.game.checkpoint.seatedFor = 377;
   b.game.checkpoint.mission.flags.mainPerformanceComplete = false;
@@ -2640,18 +2813,39 @@ const dessertGate = await page.evaluate(() => {
   };
   b.mission.flags.mainPerformanceComplete = true;
   b.__seatTick(0);
+  const waiter = b.cast.byName.waiter;
+  const dispatched = waiter.job === 'patrol' && !!waiter.route
+    && waiter.serviceTray?.group?.visible === true;
+  for (let t = 0; t < 40 && !(b.dialogue.active && b.dialogue.nodeId === 'dessert'); t += 0.1) {
+    b.__serviceTick(0.1);
+    b.dialogue.update(0.1, b.player.position);
+  }
+  return {
+    before,
+    dispatched,
+    arrived: b.dialogue.active && b.dialogue.nodeId === 'dessert',
+  };
+});
+/* Service is physical now: dispatching the dessert entry sends a waiter down
+ * the live aisle and the conversation begins only when his body reaches the
+ * table. Advance the exact live cast/service path rather than sampling the
+ * dispatch frame, which was the old teleport contract. */
+const dessertGate = await page.evaluate((start) => {
+  const b = window.__silver;
   const after = {
     active: b.dialogue.active,
     node: b.dialogue.nodeId,
     complete: b.mission.flags.mainPerformanceComplete,
   };
   b.dialogue.end();
-  b.game.checkpoint = original;
+  b.game.checkpoint = window.__silverDessertGateOriginal;
+  delete window.__silverDessertGateOriginal;
   b.debug.load();
-  return { before, after, restoredComplete: b.mission.flags.mainPerformanceComplete };
-});
+  return { ...start, after, restoredComplete: b.mission.flags.mainPerformanceComplete };
+}, dessertGateStart);
 check('dessert waits for the main performance, then enters exactly once it is complete',
   !dessertGate.before.active && dessertGate.before.complete === false
+    && dessertGate.dispatched && dessertGate.arrived
     && dessertGate.after.active && dessertGate.after.node === 'dessert'
     && dessertGate.after.complete === true && dessertGate.restoredComplete === false,
   JSON.stringify(dessertGate));
@@ -2735,6 +2929,10 @@ const orphan = await page.evaluate(() => {
   const b = window.__silver;
   b.dialogue.end();
   b.debug.waiter();
+  for (let t = 0; t < 40 && !(b.dialogue.active && b.cast.byName.waiter.job === 'stand'); t += 0.1) {
+    b.__serviceTick(0.1);
+    b.dialogue.update(0.1, b.player.position);
+  }
   const during = { job: b.cast.byName.waiter.job, active: b.dialogue.active };
   b.cast.byName.smoker.group.userData.interact.onUse();
   return {
@@ -2833,7 +3031,7 @@ check('and it round-trips the evening it claims to: state, rounds, chairs and al
 check('and reloading does not let a tip pay out twice',
   reload.farmed === reload.after.woo, String(reload.farmed));
 
-/* ---- the endings ---- */
+/* ---- the ending is affirmative at every Woo score ---- */
 const endings = await page.evaluate(() => {
   const { Mission } = window.__silver.mission.constructor
     ? { Mission: window.__silver.mission.constructor } : {};
@@ -2844,9 +3042,7 @@ const endings = await page.evaluate(() => {
     ['good', 70, 'good', { invitation: 'plain' }],
     ['awkward', 45, 'bad', { invitation: 'plain' }],
     ['disaster', 20, 'disaster', { invitation: 'plain' }],
-    ['gentleman', 72, 'good', { invitation: 'none' }],
-    ['insult', 99, 'perfect', { invitation: 'transactional' }],
-    ['from-a-distance', 60, 'decent', { chaos: 5, invitation: 'plain' }],
+    ['messy', 60, 'decent', { chaos: 5, invitation: 'plain' }],
   ];
   for (const [name, score, band, flags] of cases) {
     const m = new Mission();
@@ -2856,17 +3052,16 @@ const endings = await page.evaluate(() => {
   return out;
 });
 const wanted = {
-  perfect: 'perfect', strong: 'strong', good: 'good', awkward: 'awkward',
-  disaster: 'disaster', gentleman: 'gentleman', insult: 'insult',
-  'from-a-distance': 'from-a-distance',
+  perfect: 'perfect', strong: 'strong', good: 'strong', awkward: 'strong',
+  disaster: 'strong', messy: 'strong',
 };
 const wrong = Object.entries(wanted).filter(([k, v]) => endings[k] !== v);
-check('every ending resolves to the one it should', wrong.length === 0,
+check('every Woo band resolves to an affirmative Margo answer', wrong.length === 0,
   wrong.map(([k, v]) => `${k}: wanted ${v}, got ${endings[k]}`).join('; '));
 
 const cards = await page.evaluate((names) => names.filter((n) => !window.__silver.ENDINGS[n]),
-  Object.keys(wanted));
-check('and every one of them has a card written for it', cards.length === 0, cards.join(', '));
+  [...new Set(Object.values(endings))]);
+check('both affirmative deliveries have an ending card', cards.length === 0, cards.join(', '));
 
 /* ---- money is not required to finish ---- */
 const broke = await page.evaluate(() => {
@@ -2930,10 +3125,9 @@ check('the dev panel is absent without ?dev',
  * key — her deciding to go first and that line running into the menu on its
  * own. Nothing below touches `debug.invite()`.
  */
-const dessertToAsk = await page.evaluate(() => {
+const dessertArrival = await page.evaluate(() => {
   const b = window.__silver;
   b.dialogue.end();
-  const out = {};
   /* Sit him at the end of the evening, exactly as the queue would have: both
    * gates open, the dessert entry next, and a man who has been in this state
    * long enough that asking is not rushing it. */
@@ -2944,30 +3138,48 @@ const dessertToAsk = await page.evaluate(() => {
   b.mission.flags.showStarted = true;
   b.mission.flags.mainPerformanceComplete = true;
   b.mission.inState = 150;
-  /* Sampled rather than snapshotted at the end: every one of these nodes runs
-   * on its own hold and clears itself, so asking afterwards would only ever
-   * see the last one. */
-  const seen = new Set();
+  b.__seatTick(0);
+  for (let t = 0; t < 40 && !(b.dialogue.active && b.dialogue.nodeId === 'dessert'); t += 0.1) {
+    b.__serviceTick(0.1);
+    b.dialogue.update(0.1, b.player.position);
+  }
+  return b.dialogue.active && b.dialogue.nodeId === 'dessert';
+});
+/* Ending a menu node does not end the recorded take already on the voice
+ * floor. Let that take finish before accelerating 27 seconds into closing;
+ * otherwise simulated queue time outruns real media time and the plates line
+ * is correctly refused as an overlap, which is not a pace a player can reach. */
+await page.evaluate(() => window.__silver.dialogue.end());
+await page.waitForFunction(() => !window.__silver.__voice().speaking,
+  null, { timeout: 30000, polling: 100 });
+const dessertToAsk = await page.evaluate((arrived) => {
+  const b = window.__silver;
+  const out = {};
+  /* Keep the frame samples for useful timing evidence, but use Dialogue's
+   * persistent history for the actual entered-node contract. A live browser
+   * may advance a short node between two accelerated samples; history is
+   * written synchronously by Dialogue.go(), so it proves the authored beat
+   * was entered without requiring the harness to catch one painted frame. */
+  const seen = new Set(arrived ? ['dessert'] : []);
   let promptSeen = false;
   const step = (secs) => {
     for (let t = 0; t < secs; t += 0.25) {
       b.dialogue.update(0.25, b.player.position);
       b.mission.update(0.25, { trailing: false });
       b.__seatTick(0.25);
+      b.__serviceTick(0.25);
       if (b.dialogue.nodeId) seen.add(b.dialogue.nodeId);
       if (b.__closing().prompt) promptSeen = true;
       if (b.mission.state === 'invitation' && b.dialogue.options.length) return;
     }
   };
-  step(1);
   out.orderedDessert = seen.has('dessert');
-  b.dialogue.end();
   /* Past the closing entry's own `after`, which is what a player who has just
    * finished ordering reaches next, and then a full grace period of a man who
    * says nothing at all. */
   step(140);
-  out.platesWent = seen.has('plates');
-  out.sheWentFirst = seen.has('waiting');
+  out.platesWent = seen.has('plates') || b.dialogue.history.has('plates');
+  out.sheWentFirst = seen.has('waiting') || b.dialogue.history.has('waiting');
   out.promptShown = promptSeen;
   out.closing = b.__closing();
   out.after = {
@@ -2980,7 +3192,7 @@ const dessertToAsk = await page.evaluate(() => {
     onBoard: b.mission.objectives.some((o) => o.id === 'ask'),
   };
   return out;
-});
+}, dessertArrival);
 check('ordering dessert is followed by the plates going and her giving him the opening',
   dessertToAsk.orderedDessert && dessertToAsk.platesWent
     && dessertToAsk.closing.started === true,
@@ -3107,7 +3319,7 @@ const crude = await page.evaluate(() => {
 });
 check('"car’s outside, come on" costs what it costs at any score',
   crude.found && crude.fired && crude.after <= crude.before - 12
-    && crude.andThen === 'disaster',
+    && crude.andThen === 'strong',
   JSON.stringify(crude));
 
 /* ---- the set dressing, measured ----

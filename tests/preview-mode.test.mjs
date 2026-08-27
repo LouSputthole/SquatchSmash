@@ -17,6 +17,7 @@ import {
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createMotelStory } from '../src/core/motel-story.js';
+import { createSilverStory } from '../src/core/silver-story.js';
 import {
   APARTMENT_PREVIEW_VARIANTS,
   isPreviewMode,
@@ -456,6 +457,7 @@ test('standalone mission previews receive only temporary prerequisites', () => {
       verify(state) {
         assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
         assert.equal(state.missions[MISSION_IDS.NO_WAKE].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'complete');
         assert.equal(state.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered');
         assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'available');
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');
@@ -550,5 +552,20 @@ test('standalone mission previews receive only temporary prerequisites', () => {
     } finally {
       delete globalThis.location;
     }
+  }
+});
+
+test('the standalone Silver Room preview satisfies the real story entrance gate', () => {
+  globalThis.location = { pathname: '/silver.html', search: '?preview=1' };
+  try {
+    const campaign = createCampaign();
+    assert.deepEqual(createSilverStory({ campaign }).begin(), {
+      ok: true,
+      resumed: false,
+    });
+    assert.equal(campaign.state.missions[MISSION_IDS.SILVER_ROOM].status, 'in_progress');
+  } finally {
+    delete globalThis.location;
+    delete globalThis.__squatchLifePreviewRuntime;
   }
 });

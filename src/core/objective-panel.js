@@ -32,6 +32,47 @@
 
 const STYLE_ID = 'objective-panel-style';
 
+/** Normal objective changes get one readable window, then leave the playfield. */
+export const OBJECTIVE_DISPLAY_MS = 12_000;
+
+/**
+ * Shared visibility clock for both the stand-alone panel and the apartment Hud.
+ * Frame-loop callers can submit the same objective forever without extending
+ * its life; only a changed signature calls `changed()`.
+ */
+export function createObjectiveDisplayController({
+  show = () => {},
+  collapse = () => {},
+  durationMs = OBJECTIVE_DISPLAY_MS,
+  scheduler = globalThis,
+  autoCollapse = true,
+} = {}) {
+  let timer = null;
+  const cancel = () => {
+    if (timer !== null && typeof scheduler?.clearTimeout === 'function') {
+      scheduler.clearTimeout(timer);
+    }
+    timer = null;
+  };
+  const reveal = () => {
+    cancel();
+    show();
+    if (autoCollapse && Number.isFinite(durationMs) && durationMs > 0
+      && typeof scheduler?.setTimeout === 'function') {
+      timer = scheduler.setTimeout(() => {
+        timer = null;
+        collapse();
+      }, durationMs);
+    }
+  };
+  return {
+    changed: reveal,
+    reveal,
+    clear() { cancel(); collapse(); },
+    dispose() { cancel(); },
+  };
+}
+
 /**
  * Upper left, quiet, and out of the way of a crosshair.
  *
@@ -174,7 +215,13 @@ export function activeObjectiveItems(items = []) {
  * @returns {{element: HTMLElement, set: Function, setLine: Function,
  *   clear: Function, dispose: Function, adopted: boolean}}
  */
-export function createObjectivePanel({ parent = null, doc = null } = {}) {
+export function createObjectivePanel({
+  parent = null,
+  doc = null,
+  displayDurationMs = OBJECTIVE_DISPLAY_MS,
+  autoCollapse = true,
+  scheduler = undefined,
+} = {}) {
   const document_ = doc ?? globalThis.document ?? null;
   if (!document_) return nullPanel();
   const host = parent ?? document_.body;
@@ -212,6 +259,16 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
    * rebuilt every frame is a panel that cannot be selected, animated, or
    * profiled, and this one is rebuilt from a getter on every tick. */
   let signature = null;
+  const visibility = createObjectiveDisplayController({
+    show: () => element.classList.remove('hidden'),
+    collapse: () => element.classList.add('hidden'),
+    durationMs: displayDurationMs,
+    autoCollapse,
+    /* A supplied fake owns deterministic tests. A real Document's window owns
+     * browser timers. A headless fake with no window deliberately schedules
+     * nothing instead of keeping Node alive for twelve seconds per test. */
+    scheduler: scheduler ?? document_.defaultView ?? null,
+  });
 
   /**
    * WHAT A PANEL IS ALLOWED TO SAY, WHICH IS LESS THAN IT USED TO.
@@ -252,7 +309,7 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
     if (!plan || !items.length) {
       if (signature === null && element.classList.contains('hidden')) return;
       signature = null;
-      element.classList.add('hidden');
+      visibility.clear();
       return;
     }
     const key = [
@@ -304,7 +361,7 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
     }));
     hint.textContent = plan.hint ?? '';
     hint.classList.toggle('hidden', !plan.hint);
-    element.classList.remove('hidden');
+    visibility.changed();
   }
 
   /** The common case: one standing order, optionally with a direction. */
@@ -318,10 +375,15 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
     adopted,
     set,
     setLine,
+    reveal() { visibility.reveal(); },
     clear() { set(null); },
     dispose() {
+      visibility.dispose();
       if (!adopted) element.remove();
-      else set(null);
+      else {
+        signature = null;
+        element.classList.add('hidden');
+      }
     },
   };
 }
@@ -333,6 +395,7 @@ function nullPanel() {
     adopted: false,
     set() {},
     setLine() {},
+    reveal() {},
     clear() {},
     dispose() {},
   };

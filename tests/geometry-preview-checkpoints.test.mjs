@@ -38,8 +38,9 @@ test('every public preview checkpoint has exactly one headless geometry state', 
   const publicLinks = await publicCheckpointLinks();
   assert.ok(publicLinks.length > 0, 'preview.html exposed no checkpoint links');
   for (const link of publicLinks) {
-    const matches = GEOMETRY_SCENE_STATES.filter(({ launcherIds, checkpoint }) => (
-      launcherIds.includes(link.launcherId) && checkpoint === link.checkpoint
+    const matches = GEOMETRY_SCENE_STATES.filter(({ launcherIds, checkpoint, checkpointAliases = [] }) => (
+      launcherIds.includes(link.launcherId)
+      && (checkpoint === link.checkpoint || checkpointAliases.includes(link.checkpoint))
     ));
     assert.equal(
       matches.length,
@@ -53,10 +54,12 @@ test('every public preview checkpoint has exactly one headless geometry state', 
   );
   for (const descriptor of GEOMETRY_SCENE_STATES.filter(({ checkpoint }) => checkpoint)) {
     for (const launcherId of descriptor.launcherIds) {
-      assert.ok(
-        publicKeys.has(`${launcherId}:${descriptor.checkpoint}`),
-        `${descriptor.id} invents non-public checkpoint ${launcherId}:${descriptor.checkpoint}`,
-      );
+      for (const checkpoint of [descriptor.checkpoint, ...(descriptor.checkpointAliases ?? [])]) {
+        assert.ok(
+          publicKeys.has(`${launcherId}:${checkpoint}`),
+          `${descriptor.id} invents non-public checkpoint ${launcherId}:${checkpoint}`,
+        );
+      }
     }
   }
 });

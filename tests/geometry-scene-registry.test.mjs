@@ -132,8 +132,8 @@ test('every geometry state declares whether visible cast is required or intentio
       'apartment:day-three-wake',
       'apartment:day-two-wake',
       /* The cabin left this list when Lag became a visible resident at the
-       * woodpile. The luxury flat is explicitly actorless again after its
-       * anonymous poker patrons were reviewed and retired for the solo beat. */
+       * woodpile. The luxury flat has no visible cast in its initial property
+       * snapshot; Margo is mounted hidden until her later entrance. */
       'luxury-apartment:property',
       'mansion-siege:alert',
       'mansion-siege:clean',

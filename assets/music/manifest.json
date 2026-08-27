@@ -120,6 +120,51 @@
       "title": "Theme for an Unconfirmed Sighting",
       "_note": "The Bing store room's portable radio during License to Grill (Blond). No station and no venue -- a cue, not programming. Runtime reads signature-music.js's storeRoomJazz.",
       "cue": true
+    },
+    {
+      "file": "driving-jerky-hotel.mp3",
+      "title": "Driving to the Jerky Hotel",
+      "cue": true,
+      "loop": true,
+      "_note": "Low-volume, non-diegetic score for the Jerky Motel drive. It is not radio programming and has no world source."
+    },
+    {
+      "file": "driving-the-take.mp3",
+      "title": "Driving THE TAKE",
+      "cue": true,
+      "loop": true,
+      "_note": "Low-volume, non-diegetic score for THE TAKE's escape drive. It is not radio programming and has no world source."
+    },
+    {
+      "file": "front-and-center-background-35c043f1.mp3",
+      "artist": "lousputthole",
+      "title": "Coco Cabana",
+      "cue": true,
+      "loop": true,
+      "_note": "Non-diegetic supper-club bed. The Silver runtime filters it in the kitchen hallway, opens it in the dining room, and ducks it under story dialogue."
+    },
+    {
+      "file": "front-and-center-opening-b3b9d1cc.mp3",
+      "artist": "lousputthole",
+      "title": "Big Feet on the Dance Floor",
+      "start": 0,
+      "cutAt": 27,
+      "cue": true,
+      "_note": "The first 27 seconds only, immediately after the band's opening joke; it fades directly into Bananaphone."
+    },
+    {
+      "file": "enola-pre-bomb-drop-approach.mp3",
+      "title": "Enola Pre-Bomb-Drop Approach",
+      "duration": 37.704,
+      "cue": true,
+      "_note": "Non-diegetic approach score. The mission aligns its ending to bomb release and hard-cuts it if the release happens early."
+    },
+    {
+      "file": "enola-escape-after-drop.mp3",
+      "title": "Enola Escape After Drop",
+      "duration": 148.2,
+      "cue": true,
+      "_note": "Non-diegetic escape score. It starts only after the explosion and its authored silent aftermath have landed."
     }
   ]
 }

@@ -4367,6 +4367,12 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     }
 
     if (sceneId === SCENE_IDS.SILVER_ROOM) {
+      /* Keep the standalone preview on the same side of the scene boundary as
+       * SilverStory.begin(). The route reorder made the completed Silver Pines
+       * round (not NO WAKE) the immediate prerequisite for Front & Center, but
+       * this seed kept constructing the old side of that gate. The page then
+       * correctly refused its own preview as `golf_incomplete`. */
+      seedCompletedGolfRound(golf);
       /* He slept off the Motel, woke at noon, and she rang in the afternoon.
        * Half seven on the evening of Day 5, on his way out of the door. */
       state.story.chapter = 'date';

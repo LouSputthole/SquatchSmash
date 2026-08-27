@@ -12,7 +12,7 @@ ensureThreeShim();
 ensureDomShim();
 
 const {
-  buildMansionGrounds, GROUND_Y, POOL, UPPER_Y, VAULT,
+  buildMansionGrounds, GROUND_Y, GUEST_ROOM, POOL, UPPER_Y, VAULT,
 } = await import('../src/mansion/scenes/MansionGrounds.js');
 const {
   buildMansionInterior, LOUNGE, MANSION_ART_SLOTS, STAIR_EAST,
@@ -683,6 +683,10 @@ test('the guest-room family photo moved to the dresser and the Squatch crest own
   assert.ok(guest.crest?.isMesh, 'the guest-room Squatch crest is missing');
   assert.equal(guest.dresser?.name, 'guest-dresser');
   assert.equal(guest.crest.name, 'mansion.guest.crest');
+  const crestFrame = interior.root.getObjectByName('mansion.guest.crest.frame');
+  assert.ok(crestFrame?.isGroup, 'the Silver Squatch piece is still an unframed wall decal');
+  assert.equal(guest.crest.parent?.parent, crestFrame,
+    'the resolved Silver Squatch art is not mounted inside its physical frame');
 
   const dresserAt = guest.dresser.getWorldPosition(new THREE.Vector3());
   const photoAt = guest.art.getWorldPosition(new THREE.Vector3());
@@ -693,6 +697,7 @@ test('the guest-room family photo moved to the dresser and the Squatch crest own
   const mirrorBox = new THREE.Box3().setFromObject(interior.root.getObjectByName('guest-mirror'));
   const photoBox = new THREE.Box3().setFromObject(guest.art);
   const crestBox = new THREE.Box3().setFromObject(guest.crest);
+  const crestFrameBox = new THREE.Box3().setFromObject(crestFrame);
 
   assert.ok(Math.abs(photoAt.z - dresserAt.z) < 1.55, 'family photo is not beside the dresser');
   assert.ok(Math.abs(photoAt.x - dresserAt.x) < 0.7, 'family photo stayed over the bed');
@@ -700,11 +705,31 @@ test('the guest-room family photo moved to the dresser and the Squatch crest own
   assert.ok(Math.abs(crestAt.x - headboardAt.x) < 0.05, 'crest is not centred over the bed');
   assert.ok(Math.abs(crestAt.z - headboardAt.z) < 0.25, 'crest is not on the bed wall');
   assert.ok(crestBox.min.y > headboardBox.max.y + 0.02, 'crest overlaps the guest headboard');
+  assert.ok(crestFrameBox.min.y > headboardBox.max.y + 0.02,
+    'the new crest bezel overlaps the guest headboard');
+  assert.ok(crestFrameBox.max.z <= GUEST_ROOM.z1 - 0.04 + 0.002,
+    'the crest backing penetrates the north-wall lining');
+  assert.ok(crestFrameBox.min.z >= GUEST_ROOM.z1 - 0.13,
+    'the framed crest floats visibly off the north wall');
   assert.ok(MANSION_ART_SLOTS.includes('mansion.guest.crest'));
   assert.equal(
     artManifest.art.find((entry) => entry.slot === 'mansion.guest.crest')?.file,
     'logo-crest.png',
   );
+});
+
+test('the lower hall has no generated construction-title placeholder batch', () => {
+  const grounds = buildMansionGrounds(null);
+  const interior = buildMansionInterior({ grounds });
+  const oldPlaceholders = ['cellar-dig', 'cellar-pour', 'cellar-topping'];
+  for (const id of oldPlaceholders) {
+    assert.equal(interior.root.getObjectByName(id), undefined,
+      `${id} still hangs in the cellar as generated filler`);
+    assert.equal(interior.art.some((piece) => piece.id === id), false,
+      `${id} is still registered as finished Mansion art`);
+  }
+  assert.ok(interior.props.cellarHall.crest?.isMesh,
+    'placeholder cleanup accidentally removed the authored cellar photograph');
 });
 
 test('the winter-garden birdcage bars terminate in a named bottom tray', () => {

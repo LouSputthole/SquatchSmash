@@ -7,7 +7,10 @@ import {
   allWeaponCueNames, weaponCue, weaponCueSlots, weaponDef,
 } from '../src/core/weapons/catalog.js';
 import { WEAPON_SFX, WEAPON_SFX_STANDINS, playWeaponCue, weaponStandInCueNames } from '../src/core/weapons/audio.js';
-import { Firearm, READY, RELOAD_IN, RELOAD_OUT } from '../src/core/weapons/Firearm.js';
+import {
+  Firearm, PISTOL_DELIBERATE_SETTLE_SECONDS, PISTOL_DELIBERATE_SPREAD_MULTIPLIER,
+  READY, RELOAD_IN, RELOAD_OUT,
+} from '../src/core/weapons/Firearm.js';
 import { EjectaPool } from '../src/core/weapons/Ejecta.js';
 import { WeaponSystem } from '../src/core/weapons/WeaponSystem.js';
 import { CombatActor, CombatImpactResolver, FACTIONS } from '../src/core/combat/index.js';
@@ -171,6 +174,64 @@ test('ADS tightens the cone, suppression widens it, and a resupply is capped', (
   assert.equal(f.resupply(9999), f.def.reserve - f.capacity * 2);
   assert.equal(f.reserve, f.def.reserve);
   assert.equal(f.resupply(1), 0);
+});
+
+test('a planted first 9mm shot is centre-reticle while rapid, moving and recoiling shots keep spread', () => {
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.08, 100);
+  camera.updateMatrixWorld(true);
+  const world = new THREE.Group();
+  const shots = [];
+  const weapons = new WeaponSystem({
+    camera,
+    world,
+    onEvent: (event) => { if (event.type === 'fire') shots.push(event.shot); },
+  });
+  weapons.equip('pistol9');
+  weapons.update(1 / 60, { speed: 0 });
+
+  const opening = weapons.triggerPress();
+  assert.equal(opening.deliberate, true);
+  assert.ok(Math.abs(opening.spread
+    - WEAPON_CATALOG.pistol9.spread * PISTOL_DELIBERATE_SPREAD_MULTIPLIER) < 1e-12);
+  assert.equal(shots[0].deliberate, true, 'the precision truth was lost before the scene Adapter');
+  assert.equal(shots[0].spread, opening.spread);
+
+  /* The pistol can mechanically fire again before the deliberate settle
+   * window. That follow-up must retain ordinary cone + recoil. */
+  weapons.update(0.095, { speed: 0 });
+  weapons.update(0.095, { speed: 0 });
+  const rapid = weapons.triggerPress();
+  assert.equal(rapid.fired, true);
+  assert.equal(rapid.deliberate, false);
+  assert.ok(rapid.spread > opening.spread * 20,
+    `rapid ${rapid.spread} accidentally kept opening-shot precision ${opening.spread}`);
+
+  /* Waiting is not enough while the player is moving. */
+  for (let i = 0; i < 4; i++) weapons.update(0.1, { speed: 2.2 });
+  const moving = weapons.triggerPress();
+  assert.equal(moving.deliberate, false);
+  assert.ok(moving.spread > opening.spread * 20);
+
+  /* Plant, settle, and the deliberate rule returns. */
+  for (let i = 0; i < 4; i++) weapons.update(0.1, { speed: 0 });
+  const settled = weapons.triggerPress();
+  assert.equal(settled.deliberate, true);
+  assert.equal(settled.spread, opening.spread);
+
+  /* Suppression is a physical reason to lose the precision exception. */
+  for (let i = 0; i < 4; i++) weapons.update(0.1, { speed: 0 });
+  weapons.setSuppression(1, 0.62);
+  const suppressed = weapons.triggerPress();
+  assert.equal(suppressed.deliberate, false);
+  assert.ok(suppressed.spread > opening.spread * 20);
+  weapons.dispose();
+});
+
+test('the deliberate opening-shot policy cannot turn a carbine into a laser', () => {
+  const carbine = new Firearm('carbine');
+  const shot = carbine.fire({ settledFirstShot: true, aimStability: 1 });
+  assert.equal(shot.deliberate, false);
+  assert.ok(shot.spread >= WEAPON_CATALOG.carbine.spread);
 });
 
 test('tracer spacing follows the catalog, so a belt is not solid tracer', () => {

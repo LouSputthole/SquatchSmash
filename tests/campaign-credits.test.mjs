@@ -60,13 +60,14 @@ test('the family is credited as themselves, one each', () => {
 test('the cast list is the character registry, so a new character is in it free', () => {
   const expected = Object.values(CHARACTER_REGISTRY)
     .filter((character) => !CREDIT_EXCLUDED_CHARACTERS.includes(character.id))
-    .map((character) => character.canonicalName);
+    .map((character) => character.id === 'prospect'
+      ? character.subtitleName : character.canonicalName);
   assert.deepEqual(castCredits().map((credit) => credit.name), expected);
 });
 
-test('the Prospect is not in the crawl: he is the player', () => {
-  assert.ok(CREDIT_EXCLUDED_CHARACTERS.includes('prospect'));
-  assert.ok(!castCredits().some((credit) => credit.name === 'Prospect'));
+test('the Prospect is credited with the rest of the important cast', () => {
+  assert.equal(CREDIT_EXCLUDED_CHARACTERS.length, 0);
+  assert.ok(castCredits().some((credit) => credit.name === 'Prospect'));
 });
 
 test('the roll puts the family first and Lou second', () => {

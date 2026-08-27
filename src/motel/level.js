@@ -666,7 +666,9 @@ export function buildMotel(scene, renderer) {
   win12.name = 'motel.shell.room12-front-window';
   ownGeometry(win12, 'motel.shell');
   scene.add(win12);
-  refs.window12 = { mesh: win12, broken: false, x: 3.0, z: R.z1 };
+  refs.window12 = {
+    mesh: win12, playerTraversalBlocked: true, broken: false, x: 3.0, z: R.z1,
+  };
 
   // Bathroom: walls, door, window to the rear alley
   wall(BATH.x0 - 0.15, BATH.x0 + 0.15, BATH.z0, BATH.z1, 0, ROOM_H, C.tile);
@@ -732,7 +734,10 @@ export function buildMotel(scene, renderer) {
   bathWin.name = 'motel.shell.bathroom-window';
   ownGeometry(bathWin, 'motel.shell');
   scene.add(bathWin);
-  refs.bathWindow = { mesh: bathWin, open: false, broken: false, x: 3.3, z: R.z0 };
+  refs.bathWindow = {
+    mesh: bathWin, playerTraversalBlocked: true,
+    open: false, broken: false, x: 3.3, z: R.z0,
+  };
 
   // Beds
   const beds = [];
@@ -964,7 +969,9 @@ export function buildMotel(scene, renderer) {
   win11.name = 'motel.shell.room11-rear-window';
   ownGeometry(win11, 'motel.shell');
   scene.add(win11);
-  refs.window11 = { mesh: win11, broken: false, x: -12, z: R11.z0 };
+  refs.window11 = {
+    mesh: win11, playerTraversalBlocked: true, broken: false, x: -12, z: R11.z0,
+  };
   // Stacked shipment crates — the real product
   const crates = new THREE.Group();
   crates.name = 'motel.room11.shipment-crates';

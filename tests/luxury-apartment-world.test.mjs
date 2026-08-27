@@ -8,12 +8,13 @@ import { readSpatialPrimitive } from '../src/core/spatial-contract.js';
 ensureDomShim();
 ensureThreeShim();
 
-const [worldModule, apartmentModule, runtimeModule, playerModule, THREE] = await Promise.all([
+const [worldModule, apartmentModule, runtimeModule, playerModule, THREE, margoModule] = await Promise.all([
   import('../src/luxury-apartment/world.js'),
   import('../src/world/apartment.js'),
   import('../src/luxury-apartment/runtime.js'),
   import('../src/core/player.js'),
   import('three'),
+  import('../src/luxury-apartment/margo-scene.js'),
 ]);
 
 const {
@@ -163,8 +164,12 @@ test('luxury world builds a validated two-floor hub with screens, zones and pari
     'frontDoor', 'elevator', 'bathroomDoor', 'bed', 'couch', 'desk', 'tv', 'radio', 'phone',
     'fridge', 'kitchen', 'cigarettes', 'shower', 'wardrobe', 'toilet', 'mainLights', 'loftLights',
     'cityGlass', 'shades', 'answeringMachine', 'revolver', 'ammo', 'bong', 'shrooms',
-    'whiteLine', 'crookedArt', 'crookedFrame', 'art',
+    'whiteLine', 'margoDress', 'crookedArt', 'crookedFrame', 'art',
   ]) assert.ok(world.utilityTargets[target], target);
+
+  assert.equal(world.margo?.identity, 'margo');
+  assert.equal(world.margo?.group.visible, false, 'the story actor leaked into standalone play');
+  assert.equal(world.margo?.helpTarget, world.utilityTargets.margoDress);
 
   assert.equal(world.groundAt(0, -4), LUXURY_APARTMENT.loftY);
   assert.equal(world.groundAt(0, 4), LUXURY_APARTMENT.mainY);
@@ -184,6 +189,22 @@ test('luxury world builds a validated two-floor hub with screens, zones and pari
   assert.equal(footsteps.surfaceAt(new THREE.Vector3(8, 0, 2)), 'tile');
   assert.equal(footsteps.surfaceAt(new THREE.Vector3(bathroomX, LUXURY_APARTMENT.mainY, bathroomZ)), 'tile');
 
+  world.dispose();
+});
+
+test('Margo’s authored lift-to-bed route stays on the live floors and inside the stair rails', async () => {
+  const { world } = await build();
+  const { LUXURY_MARGO_ENTRY_PATH } = margoModule;
+  const stair = LUXURY_APARTMENT.stair;
+  for (const [x, hipY, z] of LUXURY_MARGO_ENTRY_PATH) {
+    const ground = world.groundAt(x, z, hipY + 0.79);
+    assert.ok(Math.abs((hipY - 0.87) - ground) < 0.20,
+      `Margo is off the live floor at ${x}, ${z}: hip ${hipY}, ground ${ground}`);
+    if (z <= stair.z1 && z >= stair.z0 && x >= stair.x0 && x <= stair.x1) {
+      assert.ok(x - stair.x0 >= 0.75 && stair.x1 - x >= 0.75,
+        `Margo clips a stair rail at x=${x}`);
+    }
+  }
   world.dispose();
 });
 

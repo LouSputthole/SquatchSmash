@@ -73,6 +73,7 @@ const NON_CAMPAIGN_ROOT_HTML = Object.freeze([
   'roster.html',
   'trophyroom.html',
   'wardrobe.html',
+  'weapon-sound-audition.html',
 ]);
 
 /* A separate 90-second arcade game, not a node in the story campaign. */

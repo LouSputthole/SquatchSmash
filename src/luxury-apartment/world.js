@@ -18,7 +18,7 @@ import { Inventory, bindHeldItem } from '../core/inventory.js';
 import { markSemanticPlacement } from '../core/semantic-placement.js';
 import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { buildInteractiveBong } from '../world/bong.js';
-import { makeAnswerMachine } from '../world/dressing.js';
+import { makeAnswerMachine, makeMorningGuest } from '../world/dressing.js';
 import {
   LUXURY_LAYOUT,
   LUXURY_STAIR_RISE,
@@ -264,6 +264,13 @@ export async function buildLuxuryApartment(ctx = {}) {
     colliders,
     floorZones,
   });
+  /* Beats 16 and 17 use the same authored Margo rig and mouth as the starter
+   * apartment, but her placement is owned by luxury-apartment/margo-scene.js.
+   * Build her once with the room, hidden, so route/reload changes only pose
+   * and visibility rather than creating a second actor halfway through play. */
+  const margo = makeMorningGuest(M);
+  root.add(margo.group);
+  ticks.push((dt) => margo.update(dt));
   doors.bathroom = domestic.bathDoor;
   const games = buildGameZone({ root: furnishings, M, colliders });
   const gallery = buildGallery({
@@ -450,6 +457,11 @@ export async function buildLuxuryApartment(ctx = {}) {
       domestic.phone.group.visible = !state.phoneTaken;
       ctx.onPhone?.();
     },
+  });
+  register('margoDress', margo.helpTarget, {
+    label: 'Help Margo with the <b>dress</b>',
+    enabled: () => ctx.margoHelpEnabled?.() === true,
+    onUse: () => ctx.onMargoHelp?.() ?? false,
   });
   register('fridge', domestic.fridge.doorPivot, {
     label: () => state.fridgeOpen ? 'Close the panelled <b>fridge</b>' : 'Open the panelled <b>fridge</b>',
@@ -729,6 +741,7 @@ export async function buildLuxuryApartment(ctx = {}) {
     cityGround: shell.cityGround,
     tv: domestic.tv,
     phoneProp: domestic.phone,
+    margo,
     radioPos: domestic.radioPos,
     showerHead: domestic.tub.headPos.clone(),
     showerStand: domestic.tub.standPos.clone(),

@@ -85,6 +85,15 @@ export function createCampaignCreditsView({
   let music = null;
   let onDone = null;
   let running = false;
+  let crawlTimer = null;
+  let finishTimer = null;
+
+  function clearTimers() {
+    if (crawlTimer !== null) globalThis.clearTimeout?.(crawlTimer);
+    if (finishTimer !== null) globalThis.clearTimeout?.(finishTimer);
+    crawlTimer = null;
+    finishTimer = null;
+  }
 
   function stopMusic() {
     if (!music) return;
@@ -97,6 +106,7 @@ export function createCampaignCreditsView({
   function finish() {
     if (!running) return;
     running = false;
+    clearTimers();
     stopMusic();
     screen.classList.remove('showing', 'rolling');
     screen.classList.add('hidden-hard');
@@ -135,8 +145,9 @@ export function createCampaignCreditsView({
 
       /* The crawl starts AFTER the black has arrived, not during -- credits
        * sliding up through a half-faded game read as a bug in playtest. */
-      globalThis.setTimeout?.(() => {
+      crawlTimer = globalThis.setTimeout?.(() => {
         if (!running) return;
+        crawlTimer = null;
         screen.classList.add('rolling');
         if (musicSrc && typeof globalThis.Audio === 'function') {
           try {
@@ -148,6 +159,14 @@ export function createCampaignCreditsView({
           } catch { music = null; }
         }
       }, CREDITS_FADE_S * 1000);
+
+      /* The animation clock, not the music file, owns completion. Missing
+       * music and reduced-motion layouts still arrive at a clean ending, and
+       * a player who puts the controller down is never trapped in the crawl. */
+      finishTimer = globalThis.setTimeout?.(
+        finish,
+        (CREDITS_FADE_S * 1000) + (duration * 1000),
+      );
 
       documentRef.addEventListener('keydown', onKey);
       skip.focus?.({ preventScroll: true });

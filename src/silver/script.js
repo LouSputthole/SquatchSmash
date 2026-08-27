@@ -117,7 +117,10 @@ export const PROFILE_OF = {
   // Owner-cast 2026-08-04, split off the shared npc-male id.
   manager: 'manager',
   waiter: 'silver-waiter',
-  bandleader: 'waiter',
+  /* A named performer, never the generic diner/waiter actor. The shared
+   * manifest owns the ElevenLabs id and all eight takes; keeping the profile
+   * explicit here prevents a missing cast from silently falling back. */
+  bandleader: 'bandleader',
   driver: 'doorman',
   vinny: 'doorman',
   cellarman: 'waiter',
@@ -132,6 +135,19 @@ export const PROFILE_OF = {
   /** The building overheard: "a cook", "the pass", "a porter". */
   room: 'waiter',
 };
+
+/**
+ * The dining floor is a crowd, not one waiter reading fourteen parts.
+ *
+ * These are dedicated, non-recurring supper-club patrons. The cue ids remain
+ * `vo.silver.room.floor.N` because runtime timing and authored bark retirement
+ * key off those stable names; the recording catalog rotates only the actor.
+ */
+export const DINER_VOICE_PROFILES = Object.freeze([
+  'silver-diner-a',
+  'silver-diner-b',
+  'silver-diner-c',
+]);
 
 function silverCueWords(value) {
   return String(value ?? '')
@@ -304,9 +320,8 @@ export function buildScripts(ctx) {
     },
     off: {
       who: '',
-      line: '<em>(And he pulls out, and that is the last person this evening who will have '
-        + 'no idea who you are.)</em>',
-      hold: 4.0,
+      line: '',
+      hold: 0.6,
     },
   };
 
@@ -1001,9 +1016,7 @@ export function buildScripts(ctx) {
     },
     'funny-how': {
       who: '',
-      line: '<em>(The table goes quiet. Two men at the next table stop talking. '
-        + 'The waiter, halfway down with a tray, does not put it down and does not '
-        + 'move.)</em>',
+      line: '',
       enter: () => { flags.funnyHow = true; ctx.holdTheRoom(); },
       hold: 3.6,
       next: 'funny-hang',
@@ -1271,11 +1284,9 @@ export function buildScripts(ctx) {
       ],
     },
     figs: {
-      who: 'the waiter',
-      line: '<em>(Twenty seconds later Chef is standing at the pass with a towel over '
-        + 'his shoulder, looking across the room at your table, and then he goes back '
-        + 'in.)</em>',
-      hold: 4.6,
+      who: '',
+      line: '',
+      hold: 0.8,
     },
     'her-call': {
       who: DATE.name,
@@ -1590,9 +1601,9 @@ export function buildScripts(ctx) {
     },
     up: {
       who: '',
-      line: '<em>(Six feet of floor by the stage. Not a dance floor. A gap.)</em>',
+      line: '',
       enter: () => ctx.startSway(),
-      hold: 2.0,
+      hold: 0.6,
     },
     declined: {
       who: DATE.name,
@@ -1665,11 +1676,7 @@ export function buildScripts(ctx) {
       who: DATE.name,
       enter: () => ctx.openInvitation?.(),
       variant: () => (woo.score >= 88 ? 'looking-at-the-door' : woo.score >= 60 ? 'she-claps' : 'checks-the-time'),
-      line: () => {
-        if (woo.score >= 88) return '<em>(She has been looking at the door for about a minute and not saying anything about it.)</em>';
-        if (woo.score >= 60) return '<em>(The set finishes. The room claps. She claps, and then she looks at you.)</em>';
-        return '<em>(She checks the time on your watch rather than asking.)</em>';
-      },
+      line: '',
       options: () => [
         { tone: 'Plain', text: 'Come back with me. There’s a bottle I’ve been saving for a reason I couldn’t name until about an hour ago.', next: 'judge',
           effect: () => { flags.invitation = 'plain'; } },
@@ -1685,10 +1692,6 @@ export function buildScripts(ctx) {
          * used to buy him out of it entirely, because nothing fired. */
         { tone: 'Overconfident', text: 'Car’s outside. Come on.', next: 'judge',
           effect: () => { flags.invitation = 'crude'; fire('Woo.CrudeInvitation'); } },
-        { tone: 'Transactional', text: '<em>(Put money on the tablecloth.)</em>', next: 'judge',
-          effect: () => { flags.invitation = 'transactional'; fire('Woo.PaidForAffection'); } },
-        { tone: 'Don’t', text: 'I’ll get you a car. This was good.', next: 'judge',
-          effect: () => { flags.invitation = 'none'; } },
       ],
     },
     judge: {
