@@ -320,25 +320,52 @@ async function measureEscapeVehicle(vehiclePage, { completeRoute = false } = {})
 
   await reset();
   await vehiclePage.keyboard.down('KeyW');
-  const sixtyForSteer = await stepUntil(60, 4);
-  const steerStart = await vehiclePage.evaluate(() => window.__heistDebug.snapshot().vehicle);
   await vehiclePage.keyboard.down('KeyA');
-  const steerEnd = await vehiclePage.evaluate(() => window.__heistDebug.simulateDriving(0.25, 1 / 120));
+  await vehiclePage.waitForFunction(
+    () => ['KeyW', 'KeyA'].every((key) => window.__heistDebug.inputState().keys.includes(key)),
+    null,
+    { timeout: 5000 },
+  );
+  /* Stage, snapshot and fixed-step advance must share one browser task. The
+   * live RAF also calls updateDriving(), so taking the start snapshot before
+   * dispatching KeyA let one or more software-rendered frames land inside a
+   * nominal 0.25 s sample. That produced 42.99-44.42 degrees and 9.5 m while
+   * the same real car is 35.48 degrees and 6.78 m for exactly thirty 120 Hz
+   * steps. placeCar only stages debug state; updateDriving below still reads
+   * the real W+A keyboard input recorded above. */
+  const steering = await vehiclePage.evaluate(() => {
+    const input = window.__heistDebug.inputState();
+    const staged = window.__heistDebug.placeCar(20, -300, Math.PI, {
+      resetRoute: true,
+      resetDamage: true,
+      speed: 60 / 2.237,
+      throttle: 1,
+    });
+    const start = window.__heistDebug.snapshot().vehicle;
+    const end = window.__heistDebug.simulateDriving(0.25, 1 / 120);
+    return { input, staged, start, end };
+  });
   await vehiclePage.keyboard.up('KeyA');
   await vehiclePage.keyboard.up('KeyW');
+  const { start: steerStart, end: steerEnd } = steering;
   const yawDegrees = Math.abs(Math.atan2(
     Math.sin(steerEnd.heading - steerStart.heading),
     Math.cos(steerEnd.heading - steerStart.heading),
   )) * 180 / Math.PI;
   const steerDistance = Math.hypot(steerEnd.x - steerStart.x, steerEnd.z - steerStart.z);
   check('a quarter-second real steering input produces a responsive, bounded yaw at 60 mph',
-    sixtyForSteer.mph >= 60
-      && yawDegrees >= 30
-      && yawDegrees <= 42
-      && steerDistance >= 6
-      && steerDistance <= 7.5
+    steering.input.keys.includes('KeyW')
+      && steering.input.keys.includes('KeyA')
+      && steering.staged.ok
+      && Math.abs(steerStart.speed * 2.237 - 60) <= 0.001
+      && steerStart.steerAngle === 0
+      && yawDegrees >= 33
+      && yawDegrees <= 38
+      && steerDistance >= 6.4
+      && steerDistance <= 7.1
       && steerEnd.collisionDamage === 0,
-    JSON.stringify({ yawDegrees, distance: steerDistance, endMph: steerEnd.mph,
+    JSON.stringify({ keys: steering.input.keys, yawDegrees, distance: steerDistance,
+      startMph: steerStart.speed * 2.237, endMph: steerEnd.mph,
       steerAngle: steerEnd.steerAngle, damage: steerEnd.collisionDamage }));
 
   await reset();

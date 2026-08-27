@@ -220,7 +220,15 @@ await new Promise((resolve) => server.listen(PORT, resolve));
 
 const browser = await launchChromium({
   args: [
-    '--use-gl=swiftshader',
+    /* Direct SwiftShader intermittently rejects Three's first shadow-depth
+     * program on a cold page with VALIDATE_STATUS false and an empty shader
+     * log. The scene then renders normally in later contexts, which made the
+     * fresh-save gate report a renderer failure the game did not have. Keep
+     * software rendering deterministic through ANGLE, the same backend used
+     * by the Mansion Siege and Cartel Palace browser gates. Console and page
+     * errors remain fatal below; this changes the GL route, not the policy. */
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required',
   ],
@@ -276,6 +284,30 @@ try {
       gate.button === 'SCENE UNAVAILABLE' && gate.phase === 'menu'
         && /Bada Bing/.test(gate.tag || ''),
       fmt(gate));
+    const contextHealth = await page.evaluate(() => {
+      const canvas = document.getElementById('scene');
+      const gl = canvas?.getContext('webgl2') || canvas?.getContext('webgl');
+      if (!gl) return { available: false };
+      const debug = gl.getExtension('WEBGL_debug_renderer_info');
+      return {
+        available: true,
+        lost: gl.isContextLost(),
+        error: gl.getError(),
+        noError: gl.NO_ERROR,
+        drawingBuffer: [gl.drawingBufferWidth, gl.drawingBufferHeight],
+        renderer: debug
+          ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)
+          : gl.getParameter(gl.RENDERER),
+      };
+    });
+    check('the refused page keeps a healthy ANGLE SwiftShader frame',
+      contextHealth.available === true
+        && contextHealth.lost === false
+        && contextHealth.error === contextHealth.noError
+        && contextHealth.drawingBuffer[0] > 0
+        && contextHealth.drawingBuffer[1] > 0
+        && /SwiftShader/i.test(contextHealth.renderer || ''),
+      fmt(contextHealth));
     check('the refused page reports no runtime errors', problems.length === 0, problems.join(' | '));
     await context.close();
   }

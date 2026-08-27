@@ -20,6 +20,20 @@ import {
 } from '../src/graveyard/world.js';
 import { ensureDomShim } from '../tools/three-shim.mjs';
 
+test('the Graveyard browser gate uses stable software GL without suppressing real errors', () => {
+  const source = fs.readFileSync(new URL('../tools/verify-graveyard.mjs', import.meta.url), 'utf8');
+
+  assert.match(source, /['"]--use-gl=angle['"]/);
+  assert.match(source, /['"]--use-angle=swiftshader['"]/);
+  assert.doesNotMatch(source, /['"]--use-gl=swiftshader['"]/);
+  assert.match(source, /page\.on\('pageerror'/,
+    'page exceptions must remain fatal after changing the software GL backend');
+  assert.match(source, /message\.type\(\) === 'error'/,
+    'console errors must remain fatal after changing the software GL backend');
+  assert.match(source, /gl\.getError\(\)/,
+    'the cold refused-page frame needs an explicit WebGL health receipt');
+});
+
 test('authored grave portraits map to their markers without duplicating Colton\'s carved name', () => {
   assert.deepEqual(Object.keys(GRAVE_ART_PRESENTATION), [
     'babs', 'brawny', 'whiplash', 'echo', 'colton',

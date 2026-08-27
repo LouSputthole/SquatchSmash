@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 
 import { FixedStepRunner } from '../src/core/vehicles/fixed-step.js';
@@ -170,4 +171,20 @@ test('THE TAKE escape car answers a quarter-second steering input at 60 mph', ()
     `quarter-second steering sample travelled ${distance.toFixed(2)} m`);
   assert.ok(car.steerAngle > 0.25,
     `steering only reached ${car.steerAngle.toFixed(3)} rad`);
+});
+
+test('THE TAKE browser gate measures steering atomically against the authored envelope', () => {
+  const source = fs.readFileSync(new URL('../tools/verify-heist.mjs', import.meta.url), 'utf8');
+  const start = source.indexOf("await vehiclePage.keyboard.down('KeyA');");
+  const end = source.indexOf('let progression = null;', start);
+  const steeringProbe = source.slice(start, end);
+
+  assert.ok(start >= 0 && end > start, 'the browser steering probe stays discoverable');
+  assert.match(steeringProbe,
+    /vehiclePage\.evaluate\(\(\) => \{[\s\S]*speed: 60 \/ 2\.237,[\s\S]*throttle: 1,[\s\S]*const start = window\.__heistDebug\.snapshot\(\)\.vehicle;[\s\S]*const end = window\.__heistDebug\.simulateDriving\(0\.25, 1 \/ 120\);[\s\S]*return \{ input, staged, start, end \};/,
+    'the live RAF cannot run between the steering start and end samples');
+  assert.match(steeringProbe, /Math\.abs\(steerStart\.speed \* 2\.237 - 60\) <= 0\.001/,
+    'the response sample must start at the named 60 mph instead of a nearby live frame');
+  assert.match(steeringProbe, /yawDegrees >= 33[\s\S]*yawDegrees <= 38/);
+  assert.match(steeringProbe, /steerDistance >= 6\.4[\s\S]*steerDistance <= 7\.1/);
 });

@@ -942,16 +942,22 @@ window.__heistDebug = {
       collisionDamage: vehicle.collisionDamage,
     };
   },
-  /** Point the car at a heading and place it, for the barrier probes. */
+  /** Point the car at a heading and place it, for deterministic browser probes. */
   placeCar: (x, z, heading, options = {}) => {
     if (!driving) return { ok: false, reason: 'not_driving' };
     vehicle.x = x;
     vehicle.z = z;
     vehicle.heading = heading;
-    vehicle.speed = 0;
+    /* The normal debug reset still starts parked. A verifier may stage an
+     * exact initial speed so a fixed-duration handling sample is not polluted
+     * by live RAF frames between "reached 60" and its start snapshot. This is
+     * debug-only setup; updateDriving still reads the real keyboard state. */
+    vehicle.speed = Number.isFinite(options.speed) ? options.speed : 0;
     vehicle.lateralSlip = 0;
     vehicle.steerAngle = 0;
-    vehicle.throttle = 0;
+    vehicle.throttle = Number.isFinite(options.throttle)
+      ? Math.max(-1, Math.min(1, options.throttle))
+      : 0;
     vehicle.brake = 0;
     vehicle.bodyRoll = 0;
     vehicle.suspension = 0;
@@ -978,7 +984,12 @@ window.__heistDebug = {
       vehicle.engineHealth = 100;
       vehicle.tireGrip = 1;
     }
-    return { ok: true, routeIndex, collisionDamage: vehicle.collisionDamage };
+    return {
+      ok: true,
+      routeIndex,
+      speed: vehicle.speed,
+      collisionDamage: vehicle.collisionDamage,
+    };
   },
   routePlan: () => level.phases.driving.route.map((node) => ({
     id: node.id, x: node.x, z: node.z, heading: node.heading, turn: node.turn, label: node.label,
