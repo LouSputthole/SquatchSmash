@@ -26,6 +26,10 @@ test('the shared credits view owns a deterministic natural ending', async () => 
   const source = await read('src/core/campaign-credits-view.js');
   assert.match(source, /setTimeout/);
   assert.match(source, /CREDITS_FADE_S/);
+  assert.match(source, /CREDITS_MUSIC_SRC = null/,
+    'the undelivered owner music slot must stay silent instead of requesting a missing asset');
+  assert.doesNotMatch(source, /assets\/music\/credits\.mp3/,
+    'the default credits path points at a file that does not exist');
   assert.match(source, /onDone\?\.\(\)/);
   assert.match(source, /duration \* 1000/,
     'the crawl must end even when the player never presses Skip');

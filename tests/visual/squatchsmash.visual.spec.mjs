@@ -450,13 +450,6 @@ test('THE TAKE escape-car active view follows real throttle input', async ({ pag
 });
 
 test('Initiation ends on THE PROSPECT\'S RECORD', async ({ page }) => {
-  /* The credits song is an intentionally unfilled owner-supplied slot.  Feed
-   * the browser a real, tiny repository MP3 so the visual gate can still keep
-   * a zero-network-error contract while exercising the genuine credits path. */
-  await page.route('**/assets/music/credits.mp3', (route) => route.fulfill({
-    path: 'assets/sfx/vo.call.unknown.1.mp3',
-    contentType: 'audio/mpeg',
-  }));
   await bootActiveScene(page, {
     path: '/initiation.html',
     handle: () => window.INITIATION?.phase === 'approach',
