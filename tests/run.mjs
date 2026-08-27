@@ -13,6 +13,7 @@ const TEST_MODULES = [
   './build-kit.test.mjs',
   './campaign.test.mjs',
   './campaign-finale.test.mjs',
+  './campaign-stats.test.mjs',
   './campaign-finale-wiring.test.mjs',
   './campaign-marathon.test.mjs',
   './campaign-spine.test.mjs',

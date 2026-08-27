@@ -632,4 +632,11 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
     id: SCENE_IDS.APARTMENT,
     spawn: 'front_door',
   });
+  assert.equal(campaign.state.statistics.missionsCompleted, 16,
+    "the full walked route must populate THE PROSPECT'S RECORD");
+  assert.equal(campaign.state.statistics.completedMissionIds.length, 16);
+  assert.equal(campaign.state.statistics.campaignDaysElapsed, 13);
+  assert.equal(campaign.state.statistics.cabinExecutionByProspect, true);
+  assert.equal(campaign.state.statistics.margoCameHome, true);
+  assert.ok(campaign.state.statistics.peopleKilled >= 2);
 });

@@ -285,6 +285,7 @@ const S = {
   caseBurned: false,
   firedWeapon: false,
   lethalKills: 0,
+  shotsFired: 0,
   usedNonImprovised: false,
   policeHeat: 0,
   policeArrived: false,
@@ -1372,6 +1373,8 @@ function finishScene(kind) {
       packagesIntact: S.packagesIntact,
       freshness: freshness.value,
       policeHeat: S.policeHeat,
+      shotsFired: S.shotsFired,
+      peopleKilled: S.lethalKills,
     })) {
       return;
     }
@@ -3176,6 +3179,7 @@ function onReload() {
 
 /** What one round costs Tony, whoever it hit. */
 function spendRangedShot() {
+  S.shotsFired++;
   S.firedWeapon = true;
   S.usedNonImprovised = true;
   S.policeHeat += 12;

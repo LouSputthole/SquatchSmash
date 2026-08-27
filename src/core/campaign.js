@@ -9,6 +9,12 @@ import {
   normalizeFinalArcLoadoutSnapshot,
 } from './final-arc-loadout.js';
 import { SCENE_RECOVERY_STORAGE_KEY } from './scene-recovery-storage.js';
+import {
+  initialCampaignStatistics,
+  migrateCampaignStatistics,
+  normalizeCampaignStatistics,
+  synchronizeCampaignStatistics,
+} from './campaign-stats.js';
 
 /**
  * Stable IDs shared by every scene. Display names and voice-provider aliases
@@ -921,7 +927,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 23;
+export const CAMPAIGN_VERSION = 24;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -1854,6 +1860,10 @@ function initialState() {
       carried: [],
       concealed: [],
     },
+    /* One bounded record, folded only at durable scene/mission seams. The
+     * exact-once mission ids are a fixed whitelist in campaign-stats.js, not
+     * an event log and never a reason to write on each gunshot. */
+    statistics: initialCampaignStatistics(),
     /* The frozen Initiation earns this handoff; the Apartment owns presenting
      * credits and releasing the same save into post-campaign freeplay. */
     finale: {
@@ -2954,6 +2964,23 @@ const MIGRATIONS = Object.freeze({
       : {};
     return { ...saved, version: 23, ...repair };
   },
+  23(saved) {
+    /**
+     * Schema 24 adds THE PROSPECT'S RECORD.
+     *
+     * Old saves never wrote missed rounds, so this migration does not invent
+     * them. It folds only the mission facts they can already prove, marks
+     * those fixed mission ids consumed, and lets unfinished missions add their
+     * real runtime counters at their eventual completion seam. A partially
+     * populated development save is normalised through the same path, which
+     * is why migration is stable when the resulting v24 save is loaded again.
+     */
+    return {
+      ...saved,
+      version: 24,
+      statistics: migrateCampaignStatistics(saved),
+    };
+  },
 });
 
 function migrate(saved) {
@@ -3189,6 +3216,7 @@ function normalize(saved) {
       carried: uniqueStrings(saved.inventory?.carried),
       concealed: uniqueStrings(saved.inventory?.concealed),
     },
+    statistics: normalizeCampaignStatistics(saved.statistics),
     finale: {
       status: finaleStatus,
       creditsViewed: finaleStatus === 'freeplay',
@@ -3591,6 +3619,13 @@ function normalize(saved) {
   return state;
 }
 
+function withoutCampaignStatistics(value) {
+  if (!value || typeof value !== 'object') return value;
+  const rest = { ...value };
+  delete rest.statistics;
+  return rest;
+}
+
 function load(storage) {
   const fresh = {
     state: initialState(),
@@ -3646,9 +3681,17 @@ function load(storage) {
   }
 
   const state = normalize(migrated.value);
+  synchronizeCampaignStatistics(state);
   const normalizedChanged = JSON.stringify(state) !== JSON.stringify(migrated.value);
+  /* Statistics are additive and self-normalising. A v24 development save may
+   * contain only the counters its scene knew when it was written; filling the
+   * rest of this bounded block is not corruption and must not display the
+   * save-recovered warning. Every other top-level shape retains the existing
+   * strict recovery policy. */
+  const normalizedChangedOutsideStatistics = JSON.stringify(withoutCampaignStatistics(state))
+    !== JSON.stringify(withoutCampaignStatistics(migrated.value));
   const structurallyBroken = !migrated.changed
-    && (!hasCurrentShape(migrated.value) || normalizedChanged);
+    && (!hasCurrentShape(migrated.value) || normalizedChangedOutsideStatistics);
   return {
     ...fresh,
     state,
@@ -3734,6 +3777,9 @@ class Campaign {
     if (typeof change !== 'function') throw new TypeError('Campaign update requires a function');
     const candidate = clone(this._state);
     change(candidate);
+    /* Runtime counters arrive with the mission-completion mutation and are
+     * folded before this one save. There is deliberately no per-shot write. */
+    synchronizeCampaignStatistics(candidate);
     candidate.version = CAMPAIGN_VERSION;
     candidate.revision = this._state.revision + 1;
     this._state = normalize(candidate);
@@ -3749,6 +3795,7 @@ class Campaign {
     const before = clone(this._state);
     const candidate = clone(this._state);
     change(candidate);
+    synchronizeCampaignStatistics(candidate);
     candidate.version = CAMPAIGN_VERSION;
     candidate.revision = this._state.revision + 1;
     this._state = normalize(candidate);

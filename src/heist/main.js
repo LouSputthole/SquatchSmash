@@ -2608,6 +2608,10 @@ function completeMission() {
     compromisedCash: summary.compromisedCash,
     crewInjuries: { [CHARACTER_IDS.RIPPINFLOW]: 'moderate' },
     optionalVaultBagTaken: droppedBagDecision === 'recovered',
+    /* One bounded record at the mission seam, never one save per round. The
+     * objective ledger already owns both honest counters. */
+    shotsFired: objective.shotsFired,
+    peopleKilled: objective.officersDown + objective.civilianCasualties,
     ...report,
   });
   if (!completed) return;

@@ -36,6 +36,7 @@ test('Initiation reports completion and hands the ending directly to the shared 
   const source = await read('src/initiation/main.js');
   assert.match(source, /TIME_EVENT_IDS\.COMPLETE_INITIATION/);
   assert.match(source, /createCampaignCreditsView/);
-  assert.match(source, /campaignCreditsView\.roll\(\)/);
+  assert.match(source, /prospectRecordCreditEntries\(campaign\.state\.statistics\)/);
+  assert.match(source, /campaignCreditsView\.roll\(\{/);
   assert.doesNotMatch(source, /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT/);
 });

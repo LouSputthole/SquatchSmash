@@ -814,6 +814,7 @@ let attackers = null;
 let hitConfirmTimer = 0;
 let hitConfirmKind = null;
 let playerHitCount = 0;
+const playerKillIds = new Set();
 let playerDamageEvents = 0;
 let pointerLockRejected = false;
 let explainPointerLockFailure = false;
@@ -1133,6 +1134,7 @@ function resolvePlayerWeaponImpact(impact) {
   for (const hit of applied) {
     if (!groupedPresentation) presentActorImpact(hit, budget.impact);
     showEnemyBlood(hit, budget.impact);
+    if (hit.result?.fatal && hit.entry?.id) playerKillIds.add(hit.entry.id);
   }
   playerHitCount += applied.length;
   const best = applied.find((hit) => hit.zone === 'head')
@@ -1887,6 +1889,8 @@ const mission = new SiegeMission({
         attackersDown: mission.attackersDown,
         littleFriendSaid: mission.littleFriendSaid,
         sasoleMet: true,
+        shotsFired: weaponSystem.stats.shots,
+        peopleKilled: playerKillIds.size,
       });
       showMissionCard();
     }

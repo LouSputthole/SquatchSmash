@@ -633,6 +633,8 @@ mission.onComplete = (report) => {
     ...report,
     payloadReleased: mission.payloadReleased,
     returnedHome: true,
+    shotsFired: mission.gunner.shots,
+    peopleKilled: mission.gunner.kills,
   });
   showEnolaCompletion(report, {
     campaignComplete: enolaCampaignComplete,

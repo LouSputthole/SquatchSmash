@@ -432,6 +432,9 @@ let armorBreakTimer = 0;
 let lastCombatFeedback = null;
 let lastPlayerSuppression = null;
 const playerTriggerDamage = new Map();
+/* Kept local for the whole mission and folded once when the Palace clears.
+ * A Set makes shotgun pellets and a final overkill impact one person. */
+const playerKillIds = new Set();
 
 function confirmCombatHit(kind) {
   ui.crosshair.dataset.confirmed = kind;
@@ -674,6 +677,7 @@ const weapons = new WeaponSystem({
         });
       }
       budget?.audioActors.add(combatant.id);
+      if (located.fatal) playerKillIds.add(combatant.id);
       confirmCombatHit(located.zone === 'head' ? 'headshot'
         : located.fatal ? 'kill'
           : located.result?.absorbed > 0 ? 'armor' : 'hit');
@@ -848,6 +852,7 @@ function applyCivilianImpact(impact, entry) {
     entry.health = zone === 'head' ? 0 : Math.max(0, entry.health - damage);
     fatal = entry.health <= 0;
     if (fatal) {
+      playerKillIds.add(entry.id);
       cast.civilianDown(entry, { roll: entry.id === 'wife' ? -0.36 : 0.44 });
       const at = entry.root.getWorldPosition(new THREE.Vector3());
       deathBloodPools.spill(at, {
@@ -951,13 +956,18 @@ const mission = new CartelPalaceMission({
     hud.toast('Evidence complete · rescue premise disproved', 'good', 3600);
   },
   onComplete: (report) => {
-    const completed = campaignStory.complete(report);
+    const completionReport = {
+      ...report,
+      shotsFired: weapons.stats.shots,
+      peopleKilled: playerKillIds.size,
+    };
+    const completed = campaignStory.complete(completionReport);
     if (!completed) {
       hud.toast('The palace is not clear yet.', 'bad');
       return;
     }
     campaignAudioFeedback.complete('cartel-palace', completed);
-    state.completeReport = report;
+    state.completeReport = completionReport;
     loadout.capture(weapons);
     state.phase = 'complete';
     input.refresh('mission-complete');

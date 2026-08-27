@@ -5,6 +5,7 @@ import {
   MISSION_IDS,
   TIME_EVENT_IDS,
 } from './campaign.js';
+import { recordCampaignMissionBoundary } from './campaign-stats.js';
 
 const PREVIOUS_CHECKPOINT = Object.freeze({
   safehouse_ready: null,
@@ -177,6 +178,10 @@ class BankHeistStory {
       state.story.chapter = 'post_heist';
       state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
       state.missions[MISSION_IDS.INITIATION].status = 'locked';
+      recordCampaignMissionBoundary(state, MISSION_IDS.BANK_HEIST, {
+        shotsFired: report.shotsFired,
+        peopleKilled: report.peopleKilled,
+      });
     }, { required: true });
     return true;
   }

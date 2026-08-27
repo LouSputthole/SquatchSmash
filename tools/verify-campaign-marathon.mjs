@@ -880,6 +880,15 @@ function assertLandingFacts(step, state) {
       break;
     case 'initiation-to-finale':
       assertMission(state, MISSION_IDS.INITIATION, { status: 'complete' });
+      assert.equal(state.statistics.missionsCompleted, 16,
+        "THE PROSPECT'S RECORD must contain every completed campaign mission");
+      assert.equal(state.statistics.completedMissionIds.length, 16,
+        'the bounded exact-once mission ledger must be full at the finale');
+      assert.equal(state.statistics.campaignDaysElapsed, 13);
+      assert.equal(state.statistics.cabinExecutionByProspect, true);
+      assert.equal(state.statistics.margoCameHome, true);
+      assert.ok(state.statistics.peopleKilled >= 2,
+        'the walked cabin execution must reach the stored record');
       assert.deepEqual(state.finale, {
         status: 'ready',
         creditsViewed: false,

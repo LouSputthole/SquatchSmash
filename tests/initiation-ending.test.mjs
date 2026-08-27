@@ -16,8 +16,9 @@ test('Initiation ends by fading directly into the shared full credit roll', asyn
     assert.match(html, new RegExp(`id=["']${id}["']`), `${id} is missing`);
   }
   assert.match(main, /createCampaignCreditsView/);
-  assert.match(main, /campaignCreditsView\.roll\(\)/);
-  assert.match(main, /recordInitiationComplete\(\)[\s\S]{0,500}campaignCreditsView\.roll\(\)/,
+  assert.match(main, /prospectRecordCreditEntries\(campaign\.state\.statistics\)/);
+  assert.match(main, /campaignCreditsView\.roll\(\{/);
+  assert.match(main, /recordInitiationComplete\(\)[\s\S]{0,700}campaignCreditsView\.roll\(\{/,
     'completion must be saved before the credits take over');
 });
 

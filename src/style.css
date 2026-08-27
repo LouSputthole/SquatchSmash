@@ -534,7 +534,13 @@ kbd.key, .controls kbd {
 }
 .finale-recap { min-width: 0; }
 .finale-eyebrow { margin: 0 0 5px; color: var(--amber); font-size: 11px; letter-spacing: 3px; }
-.campaign-finale-card h2 { margin: 0; color: var(--paper); font-size: clamp(38px, 7vw, 68px); line-height: 1; }
+.campaign-finale-card h2 {
+  margin: 0;
+  color: var(--paper);
+  font-size: clamp(30px, 5vw, 52px);
+  line-height: 1;
+  text-wrap: balance;
+}
 .finale-subtitle { margin: 10px 0 18px; color: #a99e8c; font-size: 13px; }
 .finale-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
 .finale-stats div { padding: 9px 10px; background: rgba(255, 255, 255, .035); border-left: 2px solid #72552e; }

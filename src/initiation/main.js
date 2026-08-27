@@ -118,6 +118,8 @@ import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { createCampaignCreditsView } from '../core/campaign-credits-view.js';
+import { campaignCreditRoll } from '../core/campaign-credits.js';
+import { prospectRecordCreditEntries } from '../core/campaign-stats.js';
 import {
   MISSION_IDS,
   SCENE_IDS,
@@ -3028,7 +3030,12 @@ function updatePhase(dt) {
       setPhase('complete');
       input?.suspend();
       hudEl.classList.remove('visible');
-      campaignCreditsView.roll();
+      campaignCreditsView.roll({
+        roll: [
+          ...prospectRecordCreditEntries(campaign.state.statistics),
+          ...campaignCreditRoll(),
+        ],
+      });
     }
   }
 }

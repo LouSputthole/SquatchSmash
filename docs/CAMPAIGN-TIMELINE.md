@@ -17,7 +17,7 @@
 > and Beat 27 now rings in the luxury apartment before the existing pickup,
 > ride, trunk reveal, arrival and ceremony. All thirty-one beats are wired.
 
-The owner's connected campaign route implemented by campaign schema v23. Two
+The owner's connected campaign route implemented by campaign schema v24. Two
 homes: the starter apartment for beats 0 to 13, and the luxury apartment from
 the moment Lou hands over the keys on the eighteenth green at Silver Pines.
 The Home Ladder climbs there and never comes back down. Initiation remains a
