@@ -279,10 +279,13 @@ export const ENOLA_PARKING = Object.freeze({
   playerStart: Object.freeze({ x: -78, z: 320 }),
 });
 
-export const TARGET_X = 9000;   // the target city, per the mission brief
+export const TARGET_X = 9000;   // the city the aircraft's navigation is actually taking them to
 
 /**
- * Squatchbourg — the city the Fat Squatch is addressed to.
+ * Squatchbourg — the city the aircraft's navigation is actually taking the
+ * Fat Squatch to. The crew's order calls this position "The Desert Compound";
+ * the disagreement is deliberate final-arc story evidence, not a second
+ * target or a branch. See `ENOLA_ROUTE_DATA` below.
  *
  * "It doesn't have to be super detailed as we are only going to see it from
  * the air, but I want it to be more extensive" (owner, 2026-08-04), and then
@@ -353,6 +356,29 @@ export const LANDMARKS_EAST = [
   { id: 'cloudbank', name: 'The Cloud Bank', x: 7300, z: -700, kind: 'clouds' },
   { id: 'compound', name: 'The Desert Compound', x: TARGET_X, z: -500, kind: 'compound' },
 ];
+
+/**
+ * The one catchable wrong-city clue.
+ *
+ * Owner, 2026-08-26: the mistake is never acknowledged on the Enola run. A
+ * detail should read as ordinary route data the first time and become obvious
+ * on replay; no voice line points it out. The existing sources of truth already
+ * supplied both halves: the bombing order calls the destination "The Desert
+ * Compound" (`LANDMARKS_EAST`) while the aircraft's real nav target and the
+ * built city call it Squatchbourg (`TARGET_CITY`). Keep those two truthful
+ * labels side by side. Do not add another campaign flag: the repaired-mansion
+ * briefing owns `wrongCityConfirmed` after Lou says what happened.
+ */
+export const ENOLA_ROUTE_DATA = Object.freeze({
+  order: Object.freeze({
+    label: LANDMARKS_EAST.find((landmark) => landmark.id === 'compound').name.toUpperCase(),
+    source: 'BOMB ORDER',
+  }),
+  navigation: Object.freeze({
+    label: TARGET_CITY.name.toUpperCase(),
+    source: 'NAV FIX',
+  }),
+});
 
 /**
  * Safety-carve note (no code here — `terrainHeight` in

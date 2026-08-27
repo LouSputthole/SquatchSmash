@@ -26,7 +26,7 @@ test('Mansion Return has a focused real-input browser verifier', () => {
     'the verifier bypasses the player-facing Start button');
   assert.match(source, /page\.keyboard\.down\(['"]w['"]\)/);
   assert.match(source, /page\.keyboard\.up\(['"]w['"]\)/);
-  assert.ok((source.match(/page\.keyboard\.press\(['"]e['"]\)/g) ?? []).length >= 2,
+  assert.ok((source.match(/page\.keyboard\.press\(['"]KeyE['"]\)/g) ?? []).length >= 2,
     'both Lou interactions must travel through real DOM KeyE input');
   assert.match(source, /interaction\.current/,
     'the verifier never proves Lou is the InteractionSystem crosshair target');
@@ -38,6 +38,14 @@ test('Mansion Return has a focused real-input browser verifier', () => {
   assert.match(source, /wrongCityConfirmed/);
   assert.match(source, /sauceMissingConfirmed/);
   assert.match(source, /palaceLocationKnown/);
+  assert.match(source, /briefingStarted\.mission\.status\s*===\s*['"]in_progress['"]/,
+    'the verifier does not prove E starts the scene before the report commits');
+  assert.match(source, /vo\.silentsquatch\.return\.briefing\.lou\.instrument/,
+    'the verifier never observes Lou actually delivering the reveal');
+  assert.match(source, /window\.mansion\.tick\(30, 1\)/,
+    'the verifier never drains the real cast dialogue controller');
+  assert.match(source, /completed\.captions\.length\s*===\s*6/,
+    'the verifier can pass without the complete repaired-mansion scene');
   assert.match(source, /BRIEFING COMPLETE/);
   assert.match(source, /returnCount\s*===\s*1/);
   assert.match(source, /completeCount\s*===\s*1/);
@@ -70,6 +78,9 @@ test('the canonical return pause objective follows Lou briefing progress', () =>
 
   const source = read('../src/mansion/main.js');
   assert.match(source,
-    /mansionVisit === 'return' && !mansionPreview\s*\? mansionReturnObjective\(mansionCampaign\.story\?\.mission\?\.status\)/,
-    'the return-only objective is not wired into the shared pause menu');
+    /mansionVisit === 'return' && !mansionPreview\s*\? \(returnBriefingPlaying\s*\? 'Listen to Lou'\s*:\s*mansionReturnObjective\(mansionCampaign\.story\?\.mission\?\.status\)\)/,
+    'the return-only pause objective does not distinguish receiving, listening, and leaving');
+  assert.doesNotMatch(source,
+    /status !== 'in_progress'[^;]+cast\?\.dialogue\?\.busy/,
+    'an unrelated ambient bark can make Lou\'s visible briefing prompt refuse E');
 });

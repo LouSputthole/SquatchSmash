@@ -2,11 +2,12 @@
 /**
  * Focused real-input proof for the repaired-house return briefing.
  *
- * The first E on Big Uncle Lou must commit all three briefing facts. The
- * second E must take the registered campaign edge to Cartel Palace. Player
- * movement, crosshair selection and both uses travel through the page's real
- * DOM input handlers; this tool never calls Lou's handler or the campaign's
- * debug briefing shortcut.
+ * The first E on Big Uncle Lou must start his authored briefing, leave the
+ * campaign facts uncommitted while he is talking, then commit all three facts
+ * only after his last line. The second E must take the registered campaign
+ * edge to Cartel Palace. Player movement, crosshair selection and both uses
+ * travel through the page's real DOM input handlers; this tool never calls
+ * Lou's handler or the campaign's debug briefing shortcut.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -30,6 +31,7 @@ const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.jpg': 'image/jpeg',
   '.mp3': 'audio/mpeg',
@@ -119,17 +121,20 @@ try {
   page.setDefaultTimeout(180_000);
 
   const problems = [];
-  page.on('pageerror', (error) => problems.push(`page: ${error.message}`));
-  page.on('console', (message) => {
-    if (message.type() === 'error') problems.push(`console: ${message.text()}`);
-  });
-  page.on('requestfailed', (request) => {
-    const reason = request.failure()?.errorText ?? '';
-    if (!reason.includes('ERR_ABORTED')) problems.push(`request: ${request.url()} - ${reason}`);
-  });
-  page.on('response', (response) => {
-    if (response.status() >= 400) problems.push(`http ${response.status()}: ${response.url()}`);
-  });
+  const observeProblems = (target) => {
+    target.on('pageerror', (error) => problems.push(`page: ${error.message}`));
+    target.on('console', (message) => {
+      if (message.type() === 'error') problems.push(`console: ${message.text()}`);
+    });
+    target.on('requestfailed', (request) => {
+      const reason = request.failure()?.errorText ?? '';
+      if (!reason.includes('ERR_ABORTED')) problems.push(`request: ${request.url()} - ${reason}`);
+    });
+    target.on('response', (response) => {
+      if (response.status() >= 400) problems.push(`http ${response.status()}: ${response.url()}`);
+    });
+  };
+  observeProblems(page);
 
   await page.addInitScript(({ key, save }) => {
     if (localStorage.getItem(key) === null) localStorage.setItem(key, save);
@@ -255,7 +260,53 @@ try {
     aimed.ok && aimed.label === "Receive Lou's briefing" && aimed.key === 'E',
     JSON.stringify(aimed));
 
-  await page.keyboard.press('e');
+  await page.keyboard.press('KeyE');
+  const briefingStarted = await page.evaluate((missionId) => {
+    const mission = window.mansion.campaign.state().missions[missionId];
+    const captions = window.mansion.cast.captions.filter((caption) => (
+      caption.cue?.startsWith('vo.silentsquatch.return.briefing.')
+    ));
+    return {
+      mission,
+      captions,
+    };
+  }, MISSION_IDS.MANSION_RETURN);
+  check('the first real E starts Lou speaking before it commits any briefing fact',
+    briefingStarted.mission.status === 'in_progress'
+      && briefingStarted.mission.briefingComplete === false
+      && briefingStarted.mission.wrongCityConfirmed === false
+      && briefingStarted.mission.sauceMissingConfirmed === false
+      && briefingStarted.mission.palaceLocationKnown === false
+      && briefingStarted.captions[0]?.speaker === 'LOU'
+      && /instrument was right.*wrong fucking city/i.test(briefingStarted.captions[0]?.text ?? ''),
+    JSON.stringify(briefingStarted));
+
+  /* Render the active line once for human review. The verifier normally
+   * suspends Mansion draws while walking its state because this scene is
+   * heavy; wait on an observed frame rather than sleeping for a guess. */
+  const frameBeforeBriefing = await page.evaluate(() => {
+    const M = window.mansion;
+    const before = M.framesRendered;
+    M.setRendering(true);
+    return before;
+  });
+  await page.waitForFunction((before) => window.mansion.framesRendered > before, frameBeforeBriefing);
+  const briefingScreenshot = path.join(
+    ROOT, 'artifacts', 'mansion-return', 'job8-lou-wrong-city-debrief.png',
+  );
+  await fsp.mkdir(path.dirname(briefingScreenshot), { recursive: true });
+  await page.screenshot({ path: briefingScreenshot });
+  await page.evaluate(() => window.mansion.setRendering(false));
+
+  /* Advance the real cast controller in this real page. No private handler or
+   * state mutation: this is the same per-frame update path the render loop
+   * calls, compacted so the focused verifier does not wait twenty seconds. */
+  /* One-second simulation slices preserve every authored hold and every
+   * controller transition, while avoiding 1,800 full Mansion updates. The
+   * default 60 Hz slice made this focused proof spend minutes animating an
+   * unrendered 15,000-mesh house after the browser had already proved the
+   * real interaction path. */
+  await page.evaluate(() => window.mansion.tick(30, 1));
   await page.waitForFunction((missionId) => (
     window.mansion.campaign.state().missions[missionId].status === 'complete'
   ), MISSION_IDS.MANSION_RETURN);
@@ -273,6 +324,9 @@ try {
       completeCount: state.story.timeEvents.filter((id) => id === completeEventId).length,
       prompt: window.mansion.prompt.label,
       checkpoint: document.getElementById('checkpoint')?.textContent?.trim() ?? '',
+      captions: window.mansion.cast.captions.filter((caption) => (
+        caption.cue?.startsWith('vo.silentsquatch.return.briefing.')
+      )),
     };
   }, {
     missionId: MISSION_IDS.MANSION_RETURN,
@@ -280,7 +334,7 @@ try {
     returnEventId: TIME_EVENT_IDS.RETURN_TO_MANSION,
     completeEventId: TIME_EVENT_IDS.COMPLETE_MANSION_RETURN,
   });
-  check('the first real E commits the complete three-fact briefing once',
+  check('Lou finishes the six-line briefing before the complete three-fact report commits once',
     completed.mission.status === 'complete'
       && completed.mission.briefingComplete === true
       && completed.mission.wrongCityConfirmed === true
@@ -290,7 +344,11 @@ try {
       && completed.chapter === 'cartel_palace'
       && completed.returnCount === 1
       && completed.completeCount === 1
-      && completed.prompt === 'Leave for the Cartel Palace',
+      && completed.prompt === 'Leave for the Cartel Palace'
+      && completed.captions.length === 6
+      && completed.captions[0].cue === 'vo.silentsquatch.return.briefing.lou.instrument'
+      && completed.captions.at(-1).cue === 'vo.silentsquatch.return.briefing.lou.estate'
+      && completed.captions.every(({ text }) => !/\bMark\b/i.test(text)),
     JSON.stringify(completed));
   check('the briefing completion banner tells the player all three facts',
     completed.checkpoint === 'BRIEFING COMPLETE — WRONG CITY · SAUCE MISSING · PALACE LOCATED',
@@ -300,10 +358,42 @@ try {
     waitUntil: 'domcontentloaded',
     timeout: 180_000,
   });
-  await page.keyboard.press('e');
+  await page.keyboard.press('KeyE');
   await destination;
-  await page.waitForFunction(() => window.CARTEL_PALACE?.campaignState);
-  const routed = await page.evaluate(({ sceneId, missionId }) => {
+  const routedHref = page.url();
+  /* The real navigation above proves the registered edge. Reload its exact
+   * landing in the same storage context before reading campaign truth: this
+   * is also the required reload-at-landing proof, and releasing the enormous
+   * Mansion WebGL page keeps SwiftShader from retaining two late-game scenes
+   * while Palace establishes its own context. */
+  await page.close();
+  const landingPage = await context.newPage();
+  landingPage.setDefaultTimeout(180_000);
+  observeProblems(landingPage);
+  await landingPage.goto(routedHref, { waitUntil: 'load', timeout: 180_000 });
+  try {
+    await landingPage.waitForFunction(
+      () => window.CARTEL_PALACE?.campaignState,
+      null,
+      { timeout: 45_000 },
+    );
+  } catch (error) {
+    const landing = await landingPage.evaluate(() => ({
+      href: location.href,
+      readyState: document.readyState,
+      runtimePublished: Boolean(window.CARTEL_PALACE),
+      campaignPublished: Boolean(window.CARTEL_PALACE?.campaignState),
+      loading: document.getElementById('loading')?.textContent?.trim() ?? '',
+      bootFailure: {
+        hidden: document.getElementById('bootFailure')?.hidden ?? null,
+        text: document.getElementById('bootFailure')?.textContent?.trim() ?? '',
+      },
+    }));
+    throw new Error(`Cartel Palace landing did not publish campaign state: ${JSON.stringify({ landing, problems })}`, {
+      cause: error,
+    });
+  }
+  const routed = await landingPage.evaluate(({ sceneId, missionId }) => {
     const state = window.CARTEL_PALACE.campaignState;
     return {
       pathname: location.pathname,

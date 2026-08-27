@@ -446,7 +446,10 @@ export const BEATS = {
   ],
   'bomb.cityInSight': [
     N('That is a whole town down there. Streets and everything.', 3.0),
-    I('Squatchbourg. Grid runs north–south, the tall part is the middle, and the middle is what we were given.', 4.6),
+    /* The nav readout names the city. Irish does not: the wrong-city clue is
+     * visual route data and nobody aboard notices it out loud. Lou is the
+     * first person to say what happened, at the repaired mansion. */
+    I('City in sight. Grid runs north–south, the tall part is the middle, and the middle is what we were given.', 4.6),
     P('It’s bigger than I thought.', 2.0),
     L('They always are. Fly the line.', 2.4),
   ],

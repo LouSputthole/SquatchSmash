@@ -27,6 +27,20 @@
   }
   .es-choice-row .txt { color: #d9c2ff; }
 
+  /* One quiet instrument discrepancy, not a warning or an objective. The
+     bombing order and the live navigation fix tell the truth independently;
+     nobody aboard calls attention to the fact that their place names differ. */
+  #enola-route-data {
+    margin: .3rem auto 0; width: max-content; max-width: 18rem;
+    padding: .24rem .48rem .22rem; border: 1px solid rgba(168,255,122,.24);
+    background: rgba(7,15,11,.58); color: rgba(190,225,177,.76);
+    font: 600 .58rem/1.35 "Trebuchet MS", "Segoe UI", sans-serif;
+    letter-spacing: .11em; text-align: left; text-shadow: 0 1px 3px #000;
+  }
+  #enola-route-data.hidden { display: none; }
+  #enola-route-data span { display: block; white-space: nowrap; }
+  #enola-route-data b { color: rgba(224,238,214,.88); font-weight: 700; }
+
   #overlay .beefrun-panel .tag { max-width: 640px; }
 </style>
 <script type="importmap">
@@ -110,6 +124,9 @@
   <div class="br-top">
     <div id="br-hdg-tape" class="hdg"><i id="br-bug" class="bug hidden"></i><span id="br-hdg">000</span></div>
     <div id="br-nav" class="nav hidden"></div>
+    <div id="enola-route-data" class="hidden" aria-label="Bomb order and navigation fix">
+      <span class="order"></span><span class="fix"></span>
+    </div>
   </div>
 
   <div id="br-warnings" class="warnings"></div>

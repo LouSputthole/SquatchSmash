@@ -51,7 +51,12 @@ const { TargetCity, WINDOW_GLOW, DEAD_WINDOW_GLOW } = await import('../src/enola
 const { EnolaSquatch } = await import('../src/enolasquatch/scenes/EnolaSquatch.js');
 const { PartKit } = await import('../src/enolasquatch/scenes/PartKit.js');
 const { Defense, LETHAL_RADIUS, FLAK_PUFF_SECONDS } = await import('../src/enolasquatch/combat/Defense.js');
-const { AC_ENOLA, LIVE_FIRE, CHECKPOINTS, CRATER } = await import('../src/enolasquatch/config.js');
+const {
+  AC_ENOLA, LIVE_FIRE, CHECKPOINTS, CRATER, ENOLA_ROUTE_DATA,
+} = await import('../src/enolasquatch/config.js');
+const {
+  BEATS, allEnolaSquatchLines,
+} = await import('../src/enolasquatch/dialogue/script.js');
 const { AC } = await import('../src/beefrun/config.js');
 const {
   MissionController, NAV_BY_PHASE, NAV_CITY, NAV_FIELD, evaluateClimbTurnProgress,
@@ -338,6 +343,24 @@ test('the city marker is up for the whole run in and the field marker for the wa
   assert.equal(NAV_FIELD.label, 'WHISPERING PINES');
   // The city marker stands over the tallest thing in town rather than inside it.
   assert.ok(NAV_CITY.up > 132);
+});
+
+test('the Enola clue is truthful route data and nobody aboard points it out', () => {
+  assert.deepEqual(ENOLA_ROUTE_DATA, {
+    order: { label: 'THE DESERT COMPOUND', source: 'BOMB ORDER' },
+    navigation: { label: 'SQUATCHBOURG', source: 'NAV FIX' },
+  });
+  assert.notEqual(ENOLA_ROUTE_DATA.order.label, ENOLA_ROUTE_DATA.navigation.label);
+  assert.equal(NAV_CITY.label, ENOLA_ROUTE_DATA.navigation.label,
+    'the clue must read the same actual nav target as the marker, not a second copy');
+
+  const spoken = allEnolaSquatchLines().map(({ text }) => text).join('\n');
+  assert.doesNotMatch(spoken, /Squatchbourg/i,
+    'no crew/radio line may say the wrong city name during the flight');
+  assert.doesNotMatch(spoken, /wrong city/i,
+    'the Enola script may not interpret its own clue before Lou does');
+  assert.match(BEATS['bomb.cityInSight'][1].text, /^City in sight\./,
+    'the existing city callout should remain useful without naming the clue');
 });
 
 /* THE ENGINE PROBLEM IS AN INSTRUCTION NOW, NOT A MENU.

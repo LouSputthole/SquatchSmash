@@ -91,7 +91,7 @@ import { clamp, lerp, smoothstep } from '../beefrun/util.js';
 
 import {
   AC_ENOLA, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X, ENOLA_PARKING, CRATER,
-  TARGET_CITY, LIVE_FIRE,
+  TARGET_CITY, ENOLA_ROUTE_DATA, LIVE_FIRE,
 } from './config.js';
 import { EnolaSquatch } from './scenes/EnolaSquatch.js';
 import { TargetCity, craterOffset } from './scenes/TargetCity.js';
@@ -712,6 +712,35 @@ function updateCargoReadout() {
 }
 
 /* ------------------------------------------------------------------ */
+/* The wrong-city route-data clue                                      */
+/*                                                                      */
+/* Owner, 2026-08-26: catchable in flight, possible to miss, and never */
+/* pointed out in dialogue. This is deliberately a small instrument    */
+/* readout rather than an objective or warning. Each row is true by     */
+/* itself: the order calls for The Desert Compound; the live nav fix is */
+/* Squatchbourg. Lou interprets that disagreement only after the run.   */
+/* ------------------------------------------------------------------ */
+
+const routeDataEl = $('enola-route-data');
+const routeOrderEl = routeDataEl?.querySelector('.order') ?? null;
+const routeFixEl = routeDataEl?.querySelector('.fix') ?? null;
+if (routeOrderEl) {
+  routeOrderEl.innerHTML = `${ENOLA_ROUTE_DATA.order.source} <b>${ENOLA_ROUTE_DATA.order.label}</b>`;
+}
+if (routeFixEl) {
+  routeFixEl.innerHTML = `${ENOLA_ROUTE_DATA.navigation.source} <b>${ENOLA_ROUTE_DATA.navigation.label}</b>`;
+}
+
+function updateRouteDataReadout() {
+  if (!routeDataEl) return;
+  const nav = mission.navTarget?.();
+  const visible = mission.inCockpit
+    && nav?.label === ENOLA_ROUTE_DATA.navigation.label
+    && !mission.payloadReleased;
+  routeDataEl.classList.toggle('hidden', !visible);
+}
+
+/* ------------------------------------------------------------------ */
 /* The 1-5 release-line choice and the 3-option emergency choice.        */
 /*
  * Note on the emergency choice: the phase brief for MissionController
@@ -1105,6 +1134,7 @@ function paintHud() {
   flightHud.setFlaps(physics.controls.flaps);
   flightHud.setAirBrake(physics.controls.airBrake);
   updateCargoReadout();
+  updateRouteDataReadout();
   updatePreflightChecklist();
   updateChoicePanel();
   paintCutscene();
@@ -1639,6 +1669,14 @@ window.__enolaSquatch = {
           tag: document.getElementById('br-dir')?.querySelector('.tag')?.textContent ?? null,
         };
       })(),
+      /* The actual cockpit DOM, not a re-derived test table. This reports the
+       * two labels and whether the player could see them on this frame. */
+      wrongCityClue: {
+        order: ENOLA_ROUTE_DATA.order.label,
+        navigation: ENOLA_ROUTE_DATA.navigation.label,
+        visible: !!routeDataEl && !routeDataEl.classList.contains('hidden'),
+        text: routeDataEl?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      },
       /* For show, or for real. See `LIVE_FIRE` in ./config.js. */
       liveFire: { flak: mission.defense.liveFire, fighters: LIVE_FIRE.fighters },
       /* The 2026-08-04 escalation pass: the air battle, the box that flies for

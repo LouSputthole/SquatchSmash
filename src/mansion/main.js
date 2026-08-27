@@ -1199,6 +1199,10 @@ function houseExplored() {
   return exploredRooms.size >= EXPLORE_ENOUGH;
 }
 
+/** Return-visit scene-local playback latch; campaign truth still lives in the
+ * existing Mansion Return mission and is written only when Lou finishes. */
+let returnBriefingPlaying = false;
+
 /**
  * The one standing order, for the shared upper-left panel.
  *
@@ -1208,7 +1212,9 @@ function houseExplored() {
  */
 function mansionObjectivePlan() {
   if (mansionVisit === 'return') {
-    const line = mansionReturnObjective(mansionCampaign.story?.mission?.status);
+    const line = returnBriefingPlaying
+      ? 'Listen to Lou'
+      : mansionReturnObjective(mansionCampaign.story?.mission?.status);
     return line ? { title: 'Objective', items: [{ label: line, done: false }] } : null;
   }
   const mission = mansionCampaign.story?.mission;
@@ -2320,6 +2326,7 @@ function returnLouLabel() {
   if (mansionVisit !== 'return' || mansionPreview) {
     return 'Big Uncle Lou. He has been waiting for you and he is not going to say so.';
   }
+  if (returnBriefingPlaying) return 'Listen to Lou';
   return mansionCampaign.story?.mission?.status === 'complete'
     ? 'Leave for the Cartel Palace'
     : "Receive Lou's briefing";
@@ -2332,12 +2339,31 @@ function useReturnBriefing() {
     mansionCampaign.navigate(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
     return true;
   }
-  if (status !== 'in_progress') return false;
-  const completed = mansionCampaign.complete(MANSION_RETURN_REPORT);
-  if (completed) {
-    announceCheckpoint('BRIEFING COMPLETE — WRONG CITY · SAUCE MISSING · PALACE LOCATED');
-  }
-  return completed;
+  if (status !== 'in_progress' || returnBriefingPlaying) return false;
+
+  /* Owner, 2026-08-26: "Lou reveals we accidentally bombed the wrong city"
+   * at the repaired mansion. The old handler committed all three facts on the
+   * same E frame and replaced the scene with a HUD toast. E now starts the
+   * existing cast DialogueController; the exact same three-fact report is
+   * persisted only after Lou has actually delivered every line. `play()` also
+   * deliberately replaces any driveway or foyer ambient bark still draining
+   * through the shared cast controller: Lou is the actionable objective, so
+   * a visible E prompt must never silently refuse him because somebody behind
+   * the player is finishing a one-liner. Reloading in
+   * the middle therefore repeats an unfinished briefing, while a completed
+   * save never repeats or double-credits it. */
+  returnBriefingPlaying = true;
+  cast.dialogue.play(SEQUENCES.returnBriefing, {
+    onDone: () => {
+      returnBriefingPlaying = false;
+      const completed = mansionCampaign.story?.mission?.status === 'in_progress'
+        && mansionCampaign.complete(MANSION_RETURN_REPORT);
+      if (completed) {
+        announceCheckpoint('BRIEFING COMPLETE — WRONG CITY · SAUCE MISSING · PALACE LOCATED');
+      }
+    },
+  });
+  return true;
 }
 
 /* ================================================================== */
@@ -2387,7 +2413,7 @@ const cast = mountMansionCast(scene, world, {
    * laboratory in it simply has a Booski you cannot hand anything to. */
   onDeliverCase: () => silentSquatch?.deliverCase?.() === true,
   louInteraction: mansionVisit === 'return' && !mansionPreview
-    ? { label: returnLouLabel, onUse: useReturnBriefing, enabled: () => true }
+    ? { label: returnLouLabel, onUse: useReturnBriefing, enabled: () => !returnBriefingPlaying }
     : {
       label: 'Report to Lou',
       enabled: () => silentSquatch?.debug?.state === 'BACK_TO_LOU',
@@ -2522,7 +2548,9 @@ const sharedPauseMenu = createPauseMenu({
   title: "Lou's Mansion",
   canPause: () => running,
   getObjective: () => mansionVisit === 'return' && !mansionPreview
-    ? mansionReturnObjective(mansionCampaign.story?.mission?.status)
+    ? (returnBriefingPlaying
+      ? 'Listen to Lou'
+      : mansionReturnObjective(mansionCampaign.story?.mission?.status))
     : silentSquatch?.mission.objective
       /* The quiet evening's own objective: the wind-down checklist, in the
        * same slot the mission's objectives used. Empty outside the evening. */

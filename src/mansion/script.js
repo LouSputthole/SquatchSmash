@@ -975,6 +975,21 @@ export const SEQUENCES = Object.freeze({
    * `cue('return', ...)` is its own scope, so the recording sheet lists them
    * as a block and no take of a mission line gets reused for one.
    */
+  /* Owner, 2026-08-26: the wrong city is never acknowledged aboard the
+   * Enola. Lou reveals it here, at the repaired mansion, then delivers the
+   * Sauce and palace facts in that order. The instrument line is the payoff
+   * for the quiet ORDER / NAV discrepancy in the cockpit. Mark stays unnamed
+   * until his boss fight; this is A-Team leadership's estate and nothing more
+   * specific. Grim absurdity, played straight. */
+  returnBriefing: Object.freeze([
+    { speaker: 'LOU', text: 'Sit down. The instrument was right. Our briefing wasn’t. We bombed the wrong fucking city.', cue: cue('return', 'briefing.lou.instrument'), hold: 4.8 },
+    { speaker: 'PROSPECT', text: 'The whole city?', cue: cue('return', 'briefing.prospect.wholecity'), hold: 1.8 },
+    { speaker: 'LOU', text: 'Every pound of it. Squatchbourg is a crater. The A-Team’s desert compound is still exactly where it was.', cue: cue('return', 'briefing.lou.compoundstanding'), hold: 5.2 },
+    { speaker: 'LOU', text: 'While we were admiring the hole, Sauce went missing.', cue: cue('return', 'briefing.lou.saucemissing'), hold: 3.2 },
+    { speaker: 'PROSPECT', text: 'They took him?', cue: cue('return', 'briefing.prospect.tookhim'), hold: 1.8 },
+    { speaker: 'LOU', text: 'We traced it to an A-Team leadership estate. You are going there tonight. We are done guessing at maps.', cue: cue('return', 'briefing.lou.estate'), hold: 5.0 },
+  ]),
+
   guardPathReturn: Object.freeze([
     { speaker: 'GUARD', text: 'Walk wherever you want today.', cue: cue('return', 'perimeter.wherever'), hold: 2.4 },
   ]),

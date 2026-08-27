@@ -6,7 +6,8 @@
  * seated crew, cockpit preflight, taxi, takeoff (real thrust from all four
  * engines), climb-out and turn, the cruise nav-correction barks, the detection
  * corridor, the compound's defensive fire (damage API) and the rear gunner,
- * the bombing approach over Squatchbourg, the bomb-bay malfunction, a real 1-5
+ * the bombing approach over Squatchbourg, the quiet order/nav wrong-city clue,
+ * the bomb-bay malfunction, a real 1-5
  * release-line choice (payload detaches, mass drops), the falling whistle, the
  * detonation, the crater the city used to be in, escape, the engine emergency,
  * return, landing (grading), and the epilogue/report card. Asserts no
@@ -2204,6 +2205,47 @@ try {
       && !cityMarker.navHidden && !cityMarker.bugHidden
       && /SQUATCHBOURG/.test(cityMarker.navLine),
     JSON.stringify(cityMarker));
+
+  /* ---- THE DETAIL THE CREW MISSES ----
+   * Owner, 2026-08-26: the wrong-city clue is visible during the flight,
+   * possible to miss, and no line points it out. Read the actual cockpit DOM:
+   * the order's DESERT COMPOUND and the nav's SQUATCHBOURG are both legible,
+   * neither row calls itself a clue, and the state is still the same bombing
+   * run rather than a second target or campaign branch. */
+  const wrongCityClue = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const el = document.getElementById('enola-route-data');
+    const bounds = el?.getBoundingClientRect();
+    const style = el ? getComputedStyle(el) : null;
+    return {
+      ...h.state().wrongCityClue,
+      phase: h.mission.phase,
+      payloadReleased: h.mission.payloadReleased,
+      display: style?.display ?? null,
+      opacity: style?.opacity ?? null,
+      width: bounds?.width ?? 0,
+      height: bounds?.height ?? 0,
+      onScreen: !!bounds && bounds.left >= 0 && bounds.top >= 0
+        && bounds.right <= innerWidth && bounds.bottom <= innerHeight,
+    };
+  });
+  check('the cockpit quietly disagrees with itself: BOMB ORDER / DESERT COMPOUND, NAV FIX / SQUATCHBOURG',
+    wrongCityClue.phase === 'bombApproach'
+      && wrongCityClue.payloadReleased === false
+      && wrongCityClue.visible && wrongCityClue.display !== 'none'
+      && wrongCityClue.order === 'THE DESERT COMPOUND'
+      && wrongCityClue.navigation === 'SQUATCHBOURG'
+      && /BOMB ORDER THE DESERT COMPOUND/.test(wrongCityClue.text)
+      && /NAV FIX SQUATCHBOURG/.test(wrongCityClue.text)
+      && wrongCityClue.width > 120 && wrongCityClue.height > 20
+      && wrongCityClue.onScreen,
+    JSON.stringify(wrongCityClue));
+
+  const wrongCityScreenshot = path.join(
+    ROOT, 'artifacts', 'enolasquatch', 'job8-wrong-city-route-data.png',
+  );
+  await fsp.mkdir(path.dirname(wrongCityScreenshot), { recursive: true });
+  await page.screenshot({ path: wrongCityScreenshot });
 
   /* And it is a marker on the WORLD, not a sticker on the middle of the glass:
    * turn away from the target and it leaves, as an arrowhead on the frame edge
