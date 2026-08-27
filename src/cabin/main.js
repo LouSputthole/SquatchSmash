@@ -17,6 +17,7 @@ import {
   createCountrysideCabinStory,
 } from '../core/countryside-cabin-story.js';
 import { DayNight } from '../core/daynight.js';
+import { SkyDome } from '../core/sky.js';
 import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 import { FirstPersonBody, createPlayerAppearanceStore } from '../core/first-person-body.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
@@ -79,7 +80,6 @@ import {
   cabinRangeHudPresentation,
   createCabinPlanarMirror,
   createCabinCreekListeningMode,
-  createCabinSky,
 } from './presentation.js';
 import { CABIN_VO_PREFIX, MARGO_CALL_READY, cabinScriptCues } from './script.js';
 
@@ -135,6 +135,14 @@ scene.add(sun);
 const hemi = new THREE.HemisphereLight(0x758b93, 0x242117, 0.65);
 const ambient = new THREE.AmbientLight(0x5e584c, 0.26);
 scene.add(hemi, ambient);
+/** Where the daylight fill is warmed to. Low sun through conifers. */
+const WARM_DAY_FILL = new THREE.Color(0xffe0b4);
+
+/* A real sky, on the shared `DayNight` table -- sun disc, drifting cloud
+ * deck, and the horizon colour the fog then matches so the far treeline
+ * dissolves into it. `radius` stays inside the 220 m camera far plane and the
+ * dome rides the camera, so the ridge at 190 m still draws over it. */
+const sky = new SkyDome(scene, { camera, radius: 180, cloudCover: 0.52 });
 
 const campaign = createCampaign();
 const story = createCountrysideCabinStory({ campaign });
@@ -221,12 +229,12 @@ let executionChoice = null;
 let weapons = null;
 let armory = null;
 let rifleRackArmory = null;
+let wallRack = null;
 let gratinPistol = null;
 let bloodImpacts = null;
 let deathPools = null;
 let bonfireCast = null;
 let lastFrame = performance.now();
-const cabinSky = createCabinSky(scene);
 
 function syncTime() {
   const { day, timeMinutes } = campaign.state.story;
@@ -237,20 +245,24 @@ function applyTimeOfDay() {
   const twilightLift = time.isDark ? 1.65 : time.hour >= 18 ? 1.32 : 1.08;
   sun.position.copy(time.sunPos).multiplyScalar(4.2);
   sun.color.copy(time.sunColour);
-  sun.intensity = time.sunIntensity * 0.92;
+  /* Owner, cabin playtest: *"Its a bleak gray day make it nice out."*
+   *
+   * The key light was trimmed to 0.92 of the authored table and the fill was
+   * the table's own cold `ambColour`. On Day 2 at 09:20 that is a 1.93 key
+   * over a 0x8d94a8 fill: correct, and grey. The day now runs the key at
+   * FULL authored strength and warms the fill toward 0xffe0b4 by `dayness`,
+   * which is 0.93 at 09:20 and 0.01 at the 20:45 nightfall — so the good day
+   * is a DAY effect and the dungeon chapter's dark is untouched. */
+  sun.intensity = time.sunIntensity * (0.92 + 0.16 * time.dayness);
   hemi.color.copy(time.hemiSky);
   hemi.groundColor.copy(time.hemiGround);
-  hemi.intensity = time.hemiIntensity * (time.isDark ? 1.32 : 1.08);
-  ambient.color.copy(time.ambColour);
+  hemi.intensity = time.hemiIntensity * (time.isDark ? 1.32 : 1.08 + 0.14 * time.dayness);
+  ambient.color.copy(time.ambColour).lerp(WARM_DAY_FILL, 0.42 * time.dayness);
   ambient.intensity = time.ambIntensity * twilightLift;
-  const sky = cabinSky?.update(time, camera.position);
-  if (sky) {
-    scene.background.setHex(sky.horizon);
-    scene.fog.color.setHex(sky.fog);
-  } else {
-    scene.background.copy(time.fogColour).lerp(new THREE.Color(0x5c746c), 0.24);
-    scene.fog.color.copy(scene.background);
-  }
+  sky.update(time, state.elapsed);
+  scene.background.copy(sky.fogColour);
+  scene.fog.color.copy(sky.fogColour);
+  scene.fog.density = sky.fogDensity;
   renderer.toneMappingExposure = time.exposure * (time.isDark ? 1.30 : time.hour >= 18 ? 1.20 : 1.14);
   const cabinLightsOn = time.isDark || time.hour >= 18;
   cabin?.setCeiling?.(cabinLightsOn, { automatic: true });
@@ -782,8 +794,8 @@ function useShootingRange(range = cabin?.shootingRange) {
   if (!range) return false;
   const before = range.snapshot();
   if (!weapons?.equipped) {
-    hud.toast('Practice range · firearm required');
-    hud.say('Ten shots when you are armed. <em>The range is optional; the earth backstop is not.</em>', 3600);
+    hud.toast('Range found · bring a rifle back');
+    hud.say('The range is live, but your hands are empty. <em>There is a rack of rifles on the cabin wall.</em>', 4200);
     renderRangeHud(before);
     return true;
   }
@@ -1216,60 +1228,74 @@ weapons = new WeaponSystem({
   onImpact: handleWeaponImpact,
   onEvent: handleWeaponEvent,
 });
-rifleRackArmory = mountArmory({
-  parent: cabin.rifleRack.parent,
-  system: weapons,
-  interaction,
-  racks: cabin.rifleRack.racks,
-  retainTaken: true,
-  enabled: () => state.phase === 'active' && !state.resting && !state.carryingBody,
-  addCollider: (x0, x1, y0, y1, z0, z1) => {
-    const box3 = new THREE.Box3(
-      new THREE.Vector3(x0, y0, z0),
-      new THREE.Vector3(x1, y1, z1),
-    );
-    box3.name = `cabin-rifle-rack-${cabin.colliders.length}`;
-    markSpatialPrimitive(box3, { id: box3.name, kind: 'prop' });
-    cabin.colliders.push(box3);
-  },
-  onEvent: (event) => {
-    if (event.type === 'take') {
-      const emptyPocket = cabin.inventory.items.findIndex((item) => item === null);
-      if (emptyPocket >= 0) cabin.inventory.select(emptyPocket);
-      hud.toast(`${weaponDef(event.id).name} ready`, 'good');
-    } else if (event.type === 'resupply') {
-      hud.toast('Ammunition restocked', 'good');
-    }
-    renderCombatHud();
-  },
-});
-rifleRackArmory.root.name = 'cabin-rifle-rack-armory';
+/* Both racks in this scene are the same shared `mountArmory`, so they get the
+ * same collider bookkeeping and the same pickup feedback rather than two
+ * copies that can drift. Only the parent, the specs and the collider prefix
+ * differ. */
+const armoryCollider = (prefix) => (x0, x1, y0, y1, z0, z1) => {
+  const box3 = new THREE.Box3(
+    new THREE.Vector3(x0, y0, z0),
+    new THREE.Vector3(x1, y1, z1),
+  );
+  box3.name = `${prefix}-${cabin.colliders.length}`;
+  markSpatialPrimitive(box3, { id: box3.name, kind: 'prop' });
+  cabin.colliders.push(box3);
+};
+const armoryEvent = (event) => {
+  if (event.type === 'take') {
+    const emptyPocket = cabin.inventory.items.findIndex((item) => item === null);
+    if (emptyPocket >= 0) cabin.inventory.select(emptyPocket);
+    hud.toast(`${weaponDef(event.id).name} ready`, 'good');
+  }
+  else if (event.type === 'resupply') hud.toast('Ammunition restocked', 'good');
+  renderCombatHud();
+};
+const armoryEnabled = () => state.phase === 'active' && !state.resting && !state.carryingBody;
 armory = mountArmory({
   parent: dungeon.root,
   system: weapons,
   interaction,
   racks: dungeon.armory.racks,
   retainTaken: true,
-  enabled: () => state.phase === 'active' && !state.resting && !state.carryingBody,
-  addCollider: (x0, x1, y0, y1, z0, z1) => {
-    const box3 = new THREE.Box3(
-      new THREE.Vector3(x0, y0, z0),
-      new THREE.Vector3(x1, y1, z1),
-    );
-    box3.name = `cabin-dungeon-armory-${cabin.colliders.length}`;
-    markSpatialPrimitive(box3, { id: box3.name, kind: 'prop' });
-    cabin.colliders.push(box3);
-  },
-  onEvent: (event) => {
-    if (event.type === 'take') {
-      const emptyPocket = cabin.inventory.items.findIndex((item) => item === null);
-      if (emptyPocket >= 0) cabin.inventory.select(emptyPocket);
-      hud.toast(`${weaponDef(event.id).name} ready`, 'good');
-    }
-    else if (event.type === 'resupply') hud.toast('Ammunition restocked', 'good');
-    renderCombatHud();
-  },
+  enabled: armoryEnabled,
+  addCollider: armoryCollider('cabin-dungeon-armory'),
+  onEvent: armoryEvent,
 });
+
+/* The main-room rack. Owner: *"have rifles on one of the walls in the cabin"*,
+ * and *"Leave the other ones in the basement as well"* -- so this is an
+ * addition, not a move. Placement and the free-wall measurements that chose it
+ * are in `world.js` beside `WALL_RACK_Z_INSET`; this is only the mount.
+ *
+ * It hangs off `cabinRoot` rather than the dungeon root, which is what makes
+ * it live from the first frame: the cellar is hidden until the story reveals
+ * it, and the main room never is.
+ */
+wallRack = mountArmory({
+  parent: cabin.cabinRoot,
+  system: weapons,
+  interaction,
+  racks: cabin.wallRack.racks,
+  retainTaken: true,
+  enabled: armoryEnabled,
+  addCollider: armoryCollider('cabin-wall-rack'),
+  onEvent: armoryEvent,
+});
+
+/* The polished cabin also keeps the distinct shotgun on the clear east wall.
+ * Its original carbine spec overlaps the upstream north-wall rack, so only
+ * the non-duplicate long gun is mounted here. */
+rifleRackArmory = mountArmory({
+  parent: cabin.rifleRack.parent,
+  system: weapons,
+  interaction,
+  racks: cabin.rifleRack.racks.filter(({ id }) => id === WEAPON_IDS.SHOTGUN),
+  retainTaken: true,
+  enabled: armoryEnabled,
+  addCollider: armoryCollider('cabin-shotgun-rack'),
+  onEvent: armoryEvent,
+});
+rifleRackArmory.root.name = 'cabin-shotgun-rack-armory';
 
 gratinPistol = buildWeaponModel(WEAPON_IDS.PISTOL9);
 mountCharacterWeapon(dungeon.actors.gratin.parts, WEAPON_IDS.PISTOL9, gratinPistol, {
@@ -1965,6 +1991,7 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   rifleRackArmory,
   reflectionBody,
   creekListening,
+  wallRack,
   dungeon,
   range: cabin.shootingRange,
   cleanup: cabin.bodyCleanup,

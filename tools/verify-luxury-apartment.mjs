@@ -453,7 +453,17 @@ try {
         zyn: worldPoint(home.deskZyn?.group),
       },
       pokerPolish: {
+        /* ZERO, and the gate holds it at zero. Owner note 2026-08-26: the three
+         * civilian patrons who used to hold the north, west and east chairs are
+         * gone, and the table stays as furniture. */
         patrons: home.poker?.patrons?.length ?? 0,
+        actors: (() => {
+          let seated = 0;
+          home.root.traverse((object) => {
+            if (object.userData?.actor) seated += 1;
+          });
+          return seated;
+        })(),
         seats: home.poker?.seats?.length ?? 0,
         railPresent: Boolean(home.poker?.rail),
         feltPresent: Boolean(home.poker?.felt),
@@ -516,7 +526,8 @@ try {
       pcLaunchById: typeof runtime.pcArcade.launchById === 'function',
       cabinetApps: runtime.cabinetArcade.apps.map(({ id }) => id),
       cabinetStation: Boolean(home.gameStations.arcade?.screen === home.screens.arcade),
-      pokerSolo: Boolean(runtime.blackjack?.state === 'off' && home.poker?.patrons?.length === 0),
+      pokerSolo: Boolean(home.poker?.patrons?.length === 0),
+      blackjackMounted: 'blackjack' in runtime,
       darts: Boolean(runtime.darts && home.gameStations.darts),
       reflectionBody: {
         present: Boolean(runtime.firstPersonBody?.group?.userData?.firstPersonBody),
@@ -732,6 +743,7 @@ try {
       && authored.workstation.zynDesktopHalf === 'front'
       && authored.workstation.zyn.y > authored.loftFloorY
       && authored.pokerPolish.patrons === 0
+      && authored.pokerPolish.actors === 0
       && authored.pokerPolish.seats === 4
       && authored.pokerPolish.railPresent
       && authored.pokerPolish.feltPresent
@@ -796,6 +808,7 @@ try {
     authored.cabinetStation
       && JSON.stringify(sorted(authored.cabinetApps)) === JSON.stringify(sorted(EXPECTED_PC_APPS))
       && authored.pokerSolo
+      && !authored.blackjackMounted
       && authored.darts
       && ['pc', 'arcade', 'poker', 'darts', 'console']
         .every((id) => authored.gameStations.includes(id)),
@@ -1347,22 +1360,22 @@ try {
     const runtime = window.LUXURY_APARTMENT;
     runtime.teleport('main');
     const postureBefore = runtime.state.posture;
-    const responded = runtime.station('poker');
+    const played = runtime.station('poker');
     return {
-      responded,
+      played,
       postureBefore,
       postureAfter: runtime.state.posture,
       playerMode: runtime.player.mode,
-      blackjackState: runtime.blackjack.state,
+      blackjackMounted: 'blackjack' in runtime,
       patrons: runtime.home.poker.patrons.length,
     };
   });
   check('the empty poker table gives its solo response without launching blackjack or seating Tony',
-    soloPoker.responded
+    !soloPoker.played
       && soloPoker.postureBefore === null
       && soloPoker.postureAfter === null
       && soloPoker.playerMode === 'walk'
-      && soloPoker.blackjackState === 'off'
+      && !soloPoker.blackjackMounted
       && soloPoker.patrons === 0,
     JSON.stringify(soloPoker));
 
@@ -1635,13 +1648,14 @@ try {
       && parity.substances.state?.shroomsTaken
       && parity.substances.state?.whiteLineConsumed,
     JSON.stringify(parity?.substances));
-  check('the physical cabinet, solo poker response, and darts execute deterministic actions',
+  check('the physical cabinet, solo poker refusal, and darts execute deterministic actions',
     parity?.games?.cabinet?.launched
       && parity.games.cabinet.app === 'smash'
-      && parity.games.poker?.responded
-      && parity.games.poker.stayedSolo
+      && parity.games.poker?.played === false
+      && parity.games.poker.posture === null
+      && typeof parity.games.poker?.line === 'string'
+      && parity.games.poker.line.length > 0
       && parity.games.poker.patrons === 0
-      && parity.games.blackjack?.opened === false
       && parity.games.darts?.entered
       && parity.games.darts.throw?.score > 0,
     JSON.stringify(parity?.games));

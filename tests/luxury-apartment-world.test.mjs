@@ -338,6 +338,8 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
     'the complete cabinet screen remains visible');
   assert.ok(Math.max(...projectedArcade.slice(1).map(({ x }) => Math.abs(x))) > 0.48,
     'the cabinet screen fills the seated view instead of appearing distant');
+  /* Four chairs and nobody in them: tests/luxury-apartment-poker-table.test.mjs
+   * owns the emptiness. This case still owns the furniture. */
   assert.equal(world.gameStations.poker.seats.length, 4);
   assert.equal(world.poker.patrons.length, 0, 'the solo beat has no random poker partners');
   for (const seat of world.gameStations.poker.seats) {

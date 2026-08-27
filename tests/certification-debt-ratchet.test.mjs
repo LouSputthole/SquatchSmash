@@ -730,6 +730,48 @@ test('an exact reviewed whole-cast retirement permits an intentional no-cast sta
   assert.equal(gate.pass, true);
 });
 
+test('a reviewed historical retirement remains valid after the trusted proof is already no-cast', () => {
+  const proofId = 'luxury-apartment:property';
+  const retiredActorIds = [
+    'luxury.poker.patron.east',
+    'luxury.poker.patron.north',
+    'luxury.poker.patron.west',
+  ];
+  const intentionalNoCastProof = {
+    id: proofId,
+    status: 'intentional_na',
+    evidence: {
+      built: true,
+      actorsObserved: 0,
+      actorsDiscovered: 0,
+      visibilityFilteredActors: 0,
+      actorObservedIds: [],
+      actorDiscoveredIds: [],
+      visibilityFilteredActorIds: [],
+      actorVisibilityPolicy: 'rendered_only',
+      unmarkedRigs: 0,
+      findingsScanned: true,
+      spatialCoverageStatus: 'PASS',
+      actorExpectation: {
+        disposition: 'INTENTIONAL_NA',
+        minimum: 0,
+        reason: 'This apartment scene deliberately contains no cast.',
+      },
+    },
+  };
+  const trusted = makeSnapshot({
+    spatial: [],
+    spatialProofs: [intentionalNoCastProof],
+  });
+  const current = makeSnapshot({
+    spatial: [],
+    actorRetirements: [actorRetirement(proofId, retiredActorIds)],
+    spatialProofs: [intentionalNoCastProof],
+  });
+
+  assert.deepEqual(compareTrustedProofCoverage(trusted, current, current), []);
+});
+
 test('actor retirement receipts fail closed when copied, incomplete, or not intentional', () => {
   const actorIds = ['actor-a', 'actor-b'];
   const trusted = makeSnapshot({

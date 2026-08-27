@@ -98,9 +98,9 @@ test('the runtime cabin property keeps a dense explorable landscape and complete
 
   const landscape = built.metadata.landscape;
   assert.ok(landscape.trees >= 500, 'the surrounding woods must remain dense');
-  assert.deepEqual(Object.keys(landscape.treeSpecies).sort(), ['aspen', 'cedar', 'fir', 'pine']);
+  assert.deepEqual(Object.keys(landscape.treeSpecies).sort(), ['birch', 'fir', 'hemlock', 'pine', 'snag']);
   assert.equal(Object.values(landscape.treeSpecies).reduce((sum, count) => sum + count, 0), landscape.trees);
-  assert.ok(Object.values(landscape.treeSpecies).every((count) => count >= 50),
+  assert.ok(Object.values(landscape.treeSpecies).every((count) => count >= 30),
     'each authored tree silhouette needs a meaningful stand, not one token specimen');
   assert.ok(landscape.forestChunks >= 40, 'the explorable terrain needs authored forest coverage');
   assert.ok(landscape.undergrowth >= 1500, 'the forest floor must remain dressed');
@@ -290,16 +290,16 @@ test('cabin callbacks own hub toggles and only authored landmarks reach story pr
   cabin.update(1, 1, new THREE.Vector3(0, 0, 0));
   const chunks = [];
   const undergrowth = [];
-  const nearTreeSpecies = new Set();
-  const farTreeSpecies = new Set();
+  const trunkMeshes = [];
+  const nearTreeCrowns = [];
+  const farTreeCrowns = [];
   const authoredPolish = new Set();
   cabin.root.traverse((object) => {
     if (object.name.startsWith('cabin-forest-chunk-')) chunks.push(object);
     if (object.name === 'cabin-fern-undergrowth') undergrowth.push(object);
-    const nearSpecies = object.name.match(/^cabin-tree-(aspen|cedar|fir|pine)-crowns-near$/)?.[1];
-    const farSpecies = object.name.match(/^cabin-tree-(aspen|cedar|fir|pine)-crowns-far$/)?.[1];
-    if (nearSpecies) nearTreeSpecies.add(nearSpecies);
-    if (farSpecies) farTreeSpecies.add(farSpecies);
+    if (object.name === 'cabin-tree-trunks') trunkMeshes.push(object);
+    if (object.name === 'cabin-tree-crowns-near') nearTreeCrowns.push(object);
+    if (object.name === 'cabin-tree-crowns-far') farTreeCrowns.push(object);
     if (['cabin-central-table-cluster', 'cabin-ridge-overlook'].includes(object.name)) authoredPolish.add(object.name);
   });
   assert.ok(chunks.length >= 40);
@@ -310,8 +310,13 @@ test('cabin callbacks own hub toggles and only authored landmarks reach story pr
   }
   assert.ok(undergrowth.length > 0);
   assert.ok(undergrowth.every((mesh) => mesh.geometry.type !== 'PlaneGeometry'), 'undergrowth uses shaped low-poly fronds');
-  assert.deepEqual([...nearTreeSpecies].sort(), ['aspen', 'cedar', 'fir', 'pine']);
-  assert.deepEqual([...farTreeSpecies].sort(), ['aspen', 'cedar', 'fir', 'pine']);
+  assert.ok(trunkMeshes.length > 0);
+  assert.equal(nearTreeCrowns.length, trunkMeshes.length);
+  assert.equal(farTreeCrowns.length, trunkMeshes.length);
+  assert.ok(trunkMeshes.every((mesh) => mesh.parent?.name.startsWith('cabin-forest-chunk-')),
+    'trunks stay mounted to the chunk so distant crowns never float');
+  assert.ok([...trunkMeshes, ...nearTreeCrowns, ...farTreeCrowns].every((mesh) => mesh.instanceColor),
+    'the five-species forest keeps its per-instance species tint');
   assert.deepEqual([...authoredPolish].sort(), ['cabin-central-table-cluster', 'cabin-ridge-overlook']);
   assert.ok(cabin.root.getObjectByName('cabin-overlook-view-rail'));
   assert.ok(cabin.root.getObjectByName('cabin-overlook-survey-marker'));

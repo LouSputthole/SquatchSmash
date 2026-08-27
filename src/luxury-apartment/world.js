@@ -595,9 +595,10 @@ export async function buildLuxuryApartment(ctx = {}) {
   for (const [id, stationValue] of Object.entries(gameStations)) {
     if (id === 'pc' || id === 'console') continue; // desk/TV already own prompts
     register(`minigame.${id}`, stationValue.target, {
-      label: id === 'poker'
-        ? 'Look over the empty <b>poker table</b>'
-        : `Play <b>${id === 'arcade' ? 'Squatch arcade' : id}</b>`,
+      // Poker still offers the natural "Play" affordance. Selecting it owns
+      // the authored reveal that Tony has nobody here to deal; the prompt
+      // itself does not spoil the refusal before the player tries the table.
+      label: `Play <b>${id === 'arcade' ? 'Squatch arcade' : id}</b>`,
       onUse: () => ctx.onMinigame?.(id, stationValue),
     });
   }
@@ -649,6 +650,7 @@ export async function buildLuxuryApartment(ctx = {}) {
     cityRoofFeatures: shell.cityRoofFeatures,
     cityGroundY: shell.cityGroundY,
     cityLowestBuildingY: shell.cityLowestBuildingY,
+    /* Zero, and it stays zero: the table is furniture, not a table game. */
     pokerPatrons: games.poker.patrons.length,
     bathroomFloorY: MAIN_Y,
   });
@@ -2628,6 +2630,9 @@ function buildGameZone({ root, M, colliders }) {
       `${name}-collider`,
       0,
       'luxury-minigame-collision:poker-seat',
+      /* Four empty chairs. They used to carry `intentionalOverlapWith` for the
+       * three seated patrons; with the cast gone nothing overlaps a cushion,
+       * so the plain seat primitive is the honest declaration again. */
       'seat',
     );
     return seat;
@@ -2641,9 +2646,20 @@ function buildGameZone({ root, M, colliders }) {
     makePokerSeat('east', px + 1.57, pz, -Math.PI / 2),
   ];
 
-  // The table is intentionally empty in this beat. Chairs and chips establish
-  // a future game, but spawning anonymous partners contradicts Tony's solo
-  // apartment moment and made the interaction promise a game that had no host.
+  /* NOBODY SITS HERE. Owner playtest note, 2026-08-26: "Luxury apartment, who
+   * are these guys at my poker table? Get rid of them. Just leave the poker
+   * table for clearly fun when people are over."
+   *
+   * Three civilian actors -- luxury.poker.patron.{north,west,east} -- 0.76-scale
+   * Person rigs, 1.57 m out from the felt centre on three sides -- used to hold
+   * those chairs. They were the only cast this flat had, and taking them out
+   * takes the flat's whole cast with them (see tools/geometry-scenes.mjs).
+   *
+   * The table, its rail, the twenty-four chips and all four chairs stay: a man
+   * who owns a poker table is the point, and an empty one is the joke. Measured
+   * on the built world afterwards, every cushion top sits at y=0.560 and the
+   * next thing above it within a 0.30 m plan radius is the CEILING, 6.240 m up.
+   */
   const pokerPatrons = [];
 
   const dartsGroup = group('luxury-darts-station');
@@ -2718,7 +2734,7 @@ function buildGameZone({ root, M, colliders }) {
   return {
     root: gameRoot,
     arcade: { group: arcadeGroup, target: arcadeTarget, screen: arcadeScreen, marquee, seat: arcadeSeat },
-    poker: { group: pokerGroup, target: pokerTarget, chips, seats: pokerSeats, patrons: pokerPatrons, rail: pokerRail, felt: pokerTop },
+    poker: { group: pokerGroup, target: pokerTarget, chips, seats: pokerSeats, patrons: [], rail: pokerRail, felt: pokerTop },
     darts: {
       group: dartsGroup,
       target: dartsTarget,
@@ -2736,6 +2752,9 @@ function buildGameZone({ root, M, colliders }) {
       radius: 0.43,
     },
     update(_dt, elapsed) {
+      /* The arcade marquee is the only thing in this zone that still moves.
+       * The breathing/head-turn/arm-drift loop belonged to the three poker
+       * patrons and went out with them. */
       arcadeMarqueeMaterial.emissiveIntensity = 1.08 + Math.sin(elapsed * 2.1) * 0.20;
     },
   };

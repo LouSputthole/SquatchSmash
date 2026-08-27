@@ -489,10 +489,20 @@ export function buildCabinShootingRange({
     hitTargets.push(...target.meshes);
   }
 
+  /* The firing-line proxy has to COVER THE STANDING EYE, not stop under it.
+   *
+   * At 1.55 m tall its lid sat at firingY + 1.555 and the eye stands at
+   * firingY + 1.66 (`WALK_EYE_HEIGHT`, src/cabin/main.js): 10.5 cm of clear
+   * air. Measured with the real InteractionSystem ray from every legal
+   * standing position around it, looking LEVEL at the range, 0 of 2096
+   * viewpoints acquired it — the only way in was to pitch down onto the lid,
+   * between 3 and 27 degrees. Same fault the creek and the overlook had, at a
+   * tenth of the magnitude, so it read as "sometimes it works" instead of as
+   * a bug. 2.40 m carries the panel from the gravel to 74 cm over the eye. */
   const interactTarget = invisibleTarget(
     'cabin-range.interact-target',
-    [0.28, 1.55, 2.35],
-    [CABIN_RANGE_LAYOUT.firingLine.x + 0.12, firingY + 0.78, -20],
+    [0.28, 2.40, 2.35],
+    [CABIN_RANGE_LAYOUT.firingLine.x + 0.12, firingY + 1.20, -20],
   );
   root.add(interactTarget);
 

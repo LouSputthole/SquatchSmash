@@ -155,6 +155,40 @@ export function paintLuxuryGamePanel(panel, {
   panel.querySelector('[data-game-hint]').textContent = hint;
 }
 
+/**
+ * THE POKER TABLE IS FURNITURE. Owner playtest note, 2026-08-26:
+ *
+ *   "Just leave the poker table for clearly fun when people are over and
+ *    remove the poker mini game or give the player the option but just hint
+ *    they have no one to play with when they select it and dont let them
+ *    play."
+ *
+ * So the prompt stays -- `Play poker` is still on the table target, and he
+ * still walks up to it and presses E -- and the answer is one flat line in
+ * the flat's own refusal idiom, the same shape the deadbolted service door
+ * uses: a toast naming the fact, then a sentence he says to himself. Nothing
+ * winks (docs/TONE-AND-PARODY.md); he has just moved into the second rung of
+ * the Home Ladder and noticed what is missing from his own front room.
+ */
+export const LUXURY_POKER_REFUSAL = Object.freeze({
+  toast: 'Nobody to deal in',
+  // This is also the authored text for vo.luxury.poker.solo. Keeping the HUD,
+  // playback receipt and booth line identical prevents a recorded pickup from
+  // saying something different from the subtitle on screen.
+  line: 'Not much of a poker game by myself.',
+  durationMs: 2600,
+});
+
+/**
+ * Refuse the poker table out loud. Returns FALSE, always: the caller uses it
+ * as the station's return value, so nothing sits down and no game opens.
+ */
+export function refuseLuxuryPoker(hud) {
+  hud?.toast?.(LUXURY_POKER_REFUSAL.toast);
+  hud?.say?.(LUXURY_POKER_REFUSAL.line, LUXURY_POKER_REFUSAL.durationMs);
+  return false;
+}
+
 const TOILET_PUSH_KEYS = Object.freeze(['W', 'A', 'S', 'D']);
 const TOILET_PUSH_SEQUENCE = Object.freeze(['W', 'A', 'S', 'D', 'D', 'W', 'S', 'A']);
 const TOILET_PUSH_WINDOW = 1.5;

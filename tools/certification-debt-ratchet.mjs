@@ -956,16 +956,42 @@ function sameActorIds(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function exactIntentionalNoCastProof(proof) {
+  const evidence = proof?.evidence;
+  return proof?.status === 'intentional_na'
+    && evidence && typeof evidence === 'object'
+    && actorInventoryIsConsistent(evidence)
+    && evidence.built === true
+    && evidence.findingsScanned === true
+    && evidence.unmarkedRigs === 0
+    && evidence.actorsObserved === 0
+    && evidence.actorsDiscovered === 0
+    && evidence.actorVisibilityPolicy === 'rendered_only'
+    && evidence.actorExpectation?.disposition === 'INTENTIONAL_NA'
+    && evidence.actorExpectation?.minimum === 0
+    && typeof evidence.actorExpectation?.reason === 'string'
+    && evidence.actorExpectation.reason.trim().length > 0;
+}
+
 /**
  * A retirement receipt is deliberately narrower than an allowlist. It proves
  * one whole state changed from an exact trusted cast inventory to an explicit
  * no-cast contract. Partial removals, simultaneous visibility changes, stale
- * IDs, and a receipt copied to another proof all fail closed.
+ * IDs, and a receipt copied to another proof all fail closed. Once the trusted
+ * proof has itself ratcheted to that exact no-cast contract, the reviewed
+ * historical receipt remains valid but no longer grants a coverage exception.
  */
 function reviewedActorRetirement(prior, observed) {
   const receipt = observed?.evidence?.reviewedActorRetirement;
-  if (receipt === undefined) return { present: false, approved: false, reason: null };
-  const fail = (reason) => ({ present: true, approved: false, reason });
+  if (receipt === undefined) {
+    return { present: false, accepted: false, coverageException: false, reason: null };
+  }
+  const fail = (reason) => ({
+    present: true,
+    accepted: false,
+    coverageException: false,
+    reason,
+  });
   if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) {
     return fail('receipt must be an object');
   }
@@ -994,6 +1020,19 @@ function reviewedActorRetirement(prior, observed) {
   if (!actorInventoryIsConsistent(before) || !actorInventoryIsConsistent(after)) {
     return fail('actor inventory evidence is inconsistent');
   }
+
+  /* A historical receipt cannot be re-proved from an already-empty trusted
+   * inventory. Accept it only when both proofs independently establish the
+   * same strict no-cast state; it cannot waive any coverage comparison. */
+  if (exactIntentionalNoCastProof(prior) && exactIntentionalNoCastProof(observed)) {
+    return {
+      present: true,
+      accepted: true,
+      coverageException: false,
+      reason: null,
+    };
+  }
+
   if (!sameActorIds(receipt.actorIds, before.actorDiscoveredIds)) {
     return fail('receipt does not retire the exact trusted discovered cast');
   }
@@ -1005,20 +1044,15 @@ function reviewedActorRetirement(prior, observed) {
     || !sameActorIds(after.visibilityFilteredActorIds, expectedFiltered)) {
     return fail('current cast inventory changed beyond the reviewed IDs');
   }
-  if (observed.status !== 'intentional_na'
-    || after.built !== true
-    || after.findingsScanned !== true
-    || after.unmarkedRigs !== 0
-    || after.actorsObserved !== 0
-    || after.actorsDiscovered !== 0
-    || after.actorVisibilityPolicy !== 'rendered_only'
-    || after.actorExpectation?.disposition !== 'INTENTIONAL_NA'
-    || after.actorExpectation?.minimum !== 0
-    || typeof after.actorExpectation?.reason !== 'string'
-    || !after.actorExpectation.reason.trim()) {
+  if (!exactIntentionalNoCastProof(observed)) {
     return fail('current proof is not an exact intentional no-cast contract');
   }
-  return { present: true, approved: true, reason: null };
+  return {
+    present: true,
+    accepted: true,
+    coverageException: true,
+    reason: null,
+  };
 }
 
 /**
@@ -1043,7 +1077,7 @@ export function compareTrustedProofCoverage(trusted, candidate, current) {
       }
       if (domainName !== 'spatial') continue;
       const retirement = reviewedActorRetirement(prior, observed);
-      if (retirement.present && !retirement.approved) {
+      if (retirement.present && !retirement.accepted) {
         violations.push({
           domain: domainName,
           id,
@@ -1058,7 +1092,7 @@ export function compareTrustedProofCoverage(trusted, candidate, current) {
       if (Number.isInteger(priorDiscoveredActors)
         && (!Number.isInteger(currentDiscoveredActors)
           || currentDiscoveredActors < priorDiscoveredActors)
-        && !retirement.approved) {
+        && !retirement.coverageException) {
         violations.push({
           domain: domainName,
           id,
@@ -1079,7 +1113,7 @@ export function compareTrustedProofCoverage(trusted, candidate, current) {
           });
         } else {
           const missing = missingActorIds(priorActorIds, currentActorIds);
-          if (missing.length > 0 && !retirement.approved) {
+          if (missing.length > 0 && !retirement.coverageException) {
             violations.push({
               domain: domainName,
               id,
@@ -1091,7 +1125,7 @@ export function compareTrustedProofCoverage(trusted, candidate, current) {
       }
       if (Number.isInteger(priorActors) && Number.isInteger(currentActors)
         && currentActors < priorActors) {
-        if (retirement.approved) continue;
+        if (retirement.coverageException) continue;
         const discoveredActors = observed.evidence?.actorsDiscovered;
         const filteredActors = observed.evidence?.visibilityFilteredActors;
         /* The old collector counted hidden descendants as staged cast. A

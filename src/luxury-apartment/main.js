@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 
 import { createArcade } from '../arcade/mount.js';
-import { BETS, Blackjack } from '../bing/blackjack.js';
 import { AudioEngine } from '../core/audio.js';
 import { DayNight } from '../core/daynight.js';
 import { SPEECH_MIX_CLOSE, speak } from '../core/dialogue.js';
@@ -35,8 +34,10 @@ import {
   LuxuryInventoryRuntime,
   LuxuryRevolverRuntime,
   LuxuryToiletRuntime,
+  LUXURY_POKER_REFUSAL,
   createFloorAwarePlayerWorld,
   paintLuxuryGamePanel,
+  refuseLuxuryPoker,
   restoreWalkingPose,
   teleportToSpawn,
   validateLuxuryWorld,
@@ -220,7 +221,6 @@ let bathroomMirror = null;
 let firstPersonBody = null;
 let player = null;
 let inventoryRuntime = null;
-let blackjack = null;
 let toilet = null;
 let crookedArt = null;
 let answeringMachine = null;
@@ -272,13 +272,12 @@ function showPosture(kind) {
   state.posture = kind;
   postureLabel.textContent = kind === 'desk' ? 'leave the PC'
     : kind === 'arcade' ? 'leave the cabinet'
-      : kind === 'poker' ? 'leave the table'
-        : kind === 'darts' ? 'step away'
-          : kind === 'console' ? 'leave the console'
-            : kind === 'toilet-aim' ? 'stop'
-              : kind === 'toilet-seat' ? 'get up'
-                : kind === 'crooked-art' ? 'give up'
-            : 'stand up';
+      : kind === 'darts' ? 'step away'
+        : kind === 'console' ? 'leave the console'
+          : kind === 'toilet-aim' ? 'stop'
+            : kind === 'toilet-seat' ? 'get up'
+              : kind === 'crooked-art' ? 'give up'
+                : 'stand up';
   postureEl.classList.remove('hidden');
 }
 
@@ -309,14 +308,12 @@ function leavePosture() {
   state.activeArcade?.setSeated?.(false);
   state.activeArcade = null;
   state.activeArcadeScreen = null;
-  if (kind === 'poker') blackjack?.standUp();
   if (kind === 'darts') darts.leave();
   const poseKey = kind === 'arcade' ? 'arcade'
-    : kind === 'poker' ? 'poker'
-      : kind === 'darts' ? 'darts'
-        : kind === 'console' ? 'console'
-          : kind === 'desk' ? 'desk'
-            : kind;
+    : kind === 'darts' ? 'darts'
+      : kind === 'console' ? 'console'
+        : kind === 'desk' ? 'desk'
+          : kind;
   const exit = home.poses?.[poseKey]?.exit ?? home.spawns.main.position;
   clearPosture();
   restoreWalkingPose(player, exit, home.groundAt);
@@ -341,33 +338,6 @@ function enterArcade(kind, system, screen, { launchSmash = false } = {}) {
   });
 }
 
-function repaintBlackjack(view = blackjack?.view) {
-  if (state.posture !== 'poker' || !view) {
-    if (state.posture === 'poker') paintLuxuryGamePanel(gamePanel, { visible: false });
-    return;
-  }
-  const playerCards = view.player.length ? view.player.join(' ') : '—';
-  const dealerCards = view.dealer.length ? view.dealer.join(' ') : '—';
-  const hint = view.state === 'bet'
-    ? '[1–4] bet · [E] deal · [Q] leave'
-    : view.state === 'player'
-      ? '[E] hit · [Space] stand · [R] double · [Q] leave'
-      : '[Q] leave the table';
-  paintLuxuryGamePanel(gamePanel, {
-    visible: true,
-    title: `BLACKJACK · $${Math.round(state.money)}`,
-    primary: view.state === 'bet' ? `$${view.bet} BET` : `${view.playerTotal}`,
-    secondary: view.message || `You: ${playerCards} · Dealer: ${dealerCards}`,
-    hint,
-  });
-}
-
-function pokerAction() {
-  if (!blackjack) return;
-  if (blackjack.state === 'bet') blackjack.deal();
-  else if (blackjack.state === 'player') blackjack.hit();
-}
-
 function enterStation(id, station = home?.gameStations?.[id]) {
   if (!home || !station || player?.mode !== 'walk') return false;
   if (id === 'pc') {
@@ -380,14 +350,15 @@ function enterStation(id, station = home?.gameStations?.[id]) {
     return true;
   }
   if (id === 'poker') {
-    const line = 'Not much of a poker game by myself.';
-    hud.say(line, 3000);
+    /* The table remains authored furniture, but Tony is alone and no table
+     * game is mounted. Keep newest-main's hard refusal (false means no seat or
+     * game) while retaining the polished branch's optional spoken pickup. */
     speak(audio, 'vo.luxury.poker.solo', {
       mix: SPEECH_MIX_CLOSE,
-      subtitle: line,
+      subtitle: LUXURY_POKER_REFUSAL.line,
       requiredRecorded: false,
     });
-    return true;
+    return refuseLuxuryPoker(hud);
   }
   if (id === 'darts') {
     return sitAt('darts', station.pose ?? home.poses.darts, () => {
@@ -878,24 +849,10 @@ const tvTexture = mountCanvas(home.screens.tv, tv.canvas);
 tv.position = worldPoint(home.screens.tv);
 radio.setPosition(home.radioPos ?? worldPoint(home.utilityTargets.radio));
 
-const pokerTarget = worldPoint(home.gameStations.poker.target, home.gameStations.poker.anchor.position);
-const pokerSeat = home.poses.poker.position;
-blackjack = new Blackjack(scene, { x: pokerTarget.x, z: pokerTarget.z }, {
-  x: pokerSeat.x,
-  z: pokerSeat.z,
-}, {
-  getMoney: () => state.money,
-  spend: (amount) => { state.money = Math.max(0, state.money - amount); },
-  win: (amount) => { state.money += amount; },
-  onState: (view) => repaintBlackjack(view),
-  onDeal: () => audio.play('card.deal', { volume: 0.42, position: home.gameStations.poker.anchor }),
-  onFlip: () => audio.play('card.flip', { volume: 0.38, position: home.gameStations.poker.anchor }),
-  onChips: () => audio.play('ui.select', { volume: 0.32 }),
-  onHandDone: (_hands, won, outcome) => {
-    const net = Math.round(outcome.payout - outcome.staked);
-    hud.toast(won ? `Blackjack +$${Math.max(0, net)}` : `Blackjack −$${outcome.staked}`, won ? 'good' : 'bad');
-  },
-});
+/* No table game is mounted at the poker table any more. It used to carry
+ * src/bing/blackjack.js -- the Bing's dealer module, re-seated on this felt --
+ * and the owner took it off on 2026-08-26. The module itself is untouched and
+ * still runs at the Bada Bing, where there are people to play it with. */
 
 applyTimeOfDay();
 
@@ -980,10 +937,10 @@ const pauseMenu = createPauseMenu({
     radio.resume();
     lastFrame = performance.now();
     syncInput('resume');
-    /* Only the postures that steer get the mouse back. Seated at the blackjack
-     * table the cursor stays free — but the Adapter's own mousedown will
-     * recapture on a click, which the old canvas handler refused to do and is
-     * why losing pointer lock at the table used to be a dead end. */
+    /* Only the postures that steer get the mouse back. Seated at the cinema
+     * wall or the desk the cursor stays free — but the Adapter's own mousedown
+     * will recapture on a click, which the old canvas handler refused to do
+     * and is why losing pointer lock while seated used to be a dead end. */
     if (!state.posture || toilet?.aiming || state.posture === 'darts') requestGamePointerLock();
   },
   onRestart: () => location.reload(),
@@ -1024,19 +981,6 @@ function routeLuxuryKeyDown(event, { code }) {
 
   if (crookedArt?.bar.active) {
     if (!event.repeat) crookedArt.handleKey(event.code);
-    event.preventDefault();
-    return true;
-  }
-
-  if (state.posture === 'poker') {
-    if (event.code === 'KeyQ') leavePosture();
-    else if (event.code === 'KeyE') pokerAction();
-    else if (event.code === 'Space' && blackjack.state === 'player') blackjack.stand();
-    else if (event.code === 'KeyR' && blackjack.state === 'player') blackjack.double();
-    else {
-      const number = /^Digit([1-4])$/.exec(event.code)?.[1];
-      if (number && blackjack.state === 'bet') blackjack.setBet(BETS[Number(number) - 1]);
-    }
     event.preventDefault();
     return true;
   }
@@ -1114,16 +1058,15 @@ function routeLuxuryMouseMove(event) {
 function routeLuxuryMouseDown(event) {
   if (event.button !== 0 || state.phase !== 'active' || state.paused) return true;
   if (toilet?.active || crookedArt?.bar.active) return true;
-  if (state.posture === 'poker') pokerAction();
-  else if (state.posture === 'darts') darts.beginCharge();
+  if (state.posture === 'darts') darts.beginCharge();
   else if (state.activeArcade) state.activeArcade.onClick(true);
   else if (home.inventory.held === 'gun' && inputCaptured()) revolver.fire();
   else if (inputCaptured()) interaction.press();
   /* Consume ONLY when the mouse is already ours. Uncaptured, the click falls
-   * through to the Adapter and buys capture back — including at the blackjack
-   * table and the cinema wall, where the old canvas click handler explicitly
-   * refused to, so losing pointer lock while seated was a dead end you could
-   * only leave by standing up. */
+   * through to the Adapter and buys capture back — including at the desk and
+   * the cinema wall, where the old canvas click handler explicitly refused to,
+   * so losing pointer lock while seated was a dead end you could only leave by
+   * standing up. */
   return inputCaptured();
 }
 
@@ -1251,7 +1194,6 @@ function frame(now) {
     phone.draw();
     radio.update(dt);
     if (tv.update(dt) && tvTexture) tvTexture.needsUpdate = true;
-    blackjack.update(dt);
 
     if (pcArcade.mode !== 'off') {
       pcArcade.update(dt);
@@ -1359,11 +1301,6 @@ async function verifyParity() {
   const cabinetLaunched = cabinetArcade.launchById('smash');
   const cabinetApp = cabinetArcade.app?.id ?? null;
 
-  if (blackjack.state !== 'off') blackjack.standUp();
-  const pokerPostureBefore = state.posture;
-  const pokerResponded = enterStation('poker');
-  const pokerStayedSolo = state.posture === pokerPostureBefore && blackjack.state === 'off';
-
   darts.reset();
   darts.enter();
   const dartLaunch = darts.throwAtBoard({ power: 12 });
@@ -1382,6 +1319,13 @@ async function verifyParity() {
   restoreWalkingPose(player, home.spawns.main.position, home.groundAt);
   interaction.setPaused(false);
   syncInput('parity-restore');
+
+  /* THE POKER TABLE IS ASKED LAST, ON HIS FEET. `enterStation` returns false
+   * for an unreachable station too, so a refusal measured mid-posture would
+   * pass for the wrong reason: the walking pose is restored above, and the
+   * posture is read back after to prove nothing sat him down. */
+  const pokerPlayed = enterStation('poker');
+  const pokerPosture = state.posture;
 
   return {
     toilet: {
@@ -1407,8 +1351,13 @@ async function verifyParity() {
     },
     games: {
       cabinet: { launched: cabinetLaunched, app: cabinetApp },
-      poker: { responded: pokerResponded, stayedSolo: pokerStayedSolo, patrons: home.poker.patrons.length },
-      blackjack: { opened: false, bet: blackjack.bet },
+      /* The poker table answers instead of dealing. */
+      poker: {
+        played: pokerPlayed,
+        posture: pokerPosture,
+        line: LUXURY_POKER_REFUSAL.line,
+        patrons: home.poker.patrons.length,
+      },
       darts: { entered: true, throw: dartThrow },
     },
   };
@@ -1435,7 +1384,6 @@ window.LUXURY_APARTMENT = {
   radio,
   pcArcade,
   cabinetArcade,
-  blackjack,
   darts,
   toilet,
   crookedArtRuntime: crookedArt,

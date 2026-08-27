@@ -213,8 +213,42 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
    * profiled, and this one is rebuilt from a getter on every tick. */
   let signature = null;
 
+  /**
+   * WHAT A PANEL IS ALLOWED TO SAY, WHICH IS LESS THAN IT USED TO.
+   *
+   * Owner, 2026-08-26, on the Cabin: *"Also hide the objective that is answer
+   * lous call and display it only as he calls. Remove the finish the Cabin
+   * chapter from objectives what does that even mean. Keep the objectives
+   * concise and relevant to whats next and then once complete remove and
+   * replace with the new objectives we need to implement that across the
+   * board."*
+   *
+   * Two rules, and they live here rather than in one scene because "across
+   * the board" is the whole point of this module existing.
+   *
+   * `pending: true` -- the item is real but not yet the player's problem, so
+   * it is not drawn at all. Lou's call is the case: listing "answer Lou's
+   * call" before the phone rings tells the player about a thing he cannot do
+   * and then leaves it sitting there, unticked, looking like a failure.
+   *
+   * `retire: true` -- story layers use this to identify a one-shot step when
+   * they make their own concise projections. The shared live panel is stricter:
+   * `activeObjectiveItems` removes every completed row, then removes any rule
+   * heading left without an active child. Keeping the authoring flag accepted
+   * here preserves those story/pause projections without letting a completed
+   * checklist accumulate on the HUD.
+   */
+  function visibleItems(items) {
+    return items.filter((item) => {
+      if (item.rule) return true;
+      if (item.pending) return false;
+      if (item.retire && item.done) return false;
+      return true;
+    });
+  }
+
   function set(plan) {
-    const items = activeObjectiveItems(plan?.items);
+    const items = activeObjectiveItems(visibleItems(plan?.items ?? []));
     if (!plan || !items.length) {
       if (signature === null && element.classList.contains('hidden')) return;
       signature = null;

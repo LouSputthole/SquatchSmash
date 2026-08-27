@@ -9,7 +9,7 @@
         "luxury.poker.patron.west"
       ],
       "reason": "The Luxury Apartment poker beat is intentionally solo; its three anonymous patrons were removed because they contradicted Tony being alone and falsely promised a hosted game.",
-      "source": "src/luxury-apartment/world.js:2647",
+      "source": "src/luxury-apartment/world.js:2663",
       "sourceAnchor": "const pokerPatrons = [];"
     }
   ]
