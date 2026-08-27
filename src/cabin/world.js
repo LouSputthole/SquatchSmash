@@ -23,6 +23,7 @@ import * as P from '../world/props.js';
 import { resolveGear } from '../world/gear.js';
 import { loadModels } from '../world/models.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
+import { WEAPON_IDS } from '../core/weapons/catalog.js';
 import { buildCabinBasement, resolveCabinFloor } from './basement.js';
 import { buildCabinBodyCleanup } from './body-cleanup.js';
 import { buildLagActor } from './lag.js';
@@ -55,6 +56,37 @@ const MAIN = CABIN.main;
 const BATH = CABIN.bath;
 const FRONT_DOOR = Object.freeze({ x0: 1.90, x1: 3.08, z: MAIN.z1, h: 2.24 });
 const BATH_DOOR = Object.freeze({ x0: -2.12, x1: -1.02, z: MAIN.z0, h: 2.16 });
+
+/**
+ * THE RIFLES ARE ON THE WALL, AND THEY ARE THERE FROM THE FIRST MINUTE.
+ *
+ * Owner, cabin playtest: *"Rifles should be accessible before the night time
+ * scene.. And the hint at the shooting yard totally gives it away.. Need that
+ * not to be the case and have rifles on one of the walls in the cabin. Lot of
+ * space. Leave the other ones in the basement as well."*
+ *
+ * The cellar armory is untouched -- the AK and the Barrett still hang in the
+ * dungeon anteroom behind Gratin's door, which is where the second half of the
+ * chapter wants them. This is a third rack in the main room, mountable on the
+ * hour the player walks in, so the shooting range is a thing he can actually
+ * do on the Day Two walk instead of a promissory note about the cellar.
+ *
+ * WHERE, MEASURED. Every ground-floor collider and every hung frame in the
+ * main room was swept for a clear stretch of wall. The north wall east of the
+ * desk is the only span with nothing on it at all: the corkboard ends at
+ * x 3.195, the Twitch banner at 3.225 (and sits at y 2.35 regardless), and the
+ * north-east corner post starts at 5.76. The rack is 1.32 m wide and 1.295 m
+ * tall, so 4.50 centres it in that 2.53 m gap with 0.60 m to spare each side
+ * and 1.05 m of clear wall above it.
+ *
+ * `z` puts the backboard's rear face on the wall face at MAIN.z0: the board
+ * sits at rack-local z -0.055, so the origin is 0.055 in front of it.
+ */
+const WALL_RACK_Z_INSET = 0.055;
+/* A short carbine, not the cellar's AK or Barrett. Those are the job; this is
+ * the hunting rifle that lives in a hunting cabin, and it is the one the range
+ * downhill is sighted for. */
+const CABIN_WALL_RACK_WEAPON = WEAPON_IDS.CARBINE;
 
 /** Every apartment-wall memory is rehung in the cabin, never silently lost. */
 export const CABIN_ART_SLOTS = Object.freeze([
@@ -566,6 +598,15 @@ export async function buildCountrysideCabin(ctx) {
     utilityTargets,
     carTarget: interactionTargets.car,
     lag: exterior.lag,
+    wallRack: Object.freeze({
+      racks: Object.freeze([Object.freeze({
+        id: CABIN_WALL_RACK_WEAPON,
+        x: 4.50,
+        y: CABIN.floorY,
+        z: MAIN.z0 + WALL_RACK_Z_INSET,
+        rotY: 0,
+      })]),
+    }),
     splitWood: exterior.splitWood,
     woodpileState: exterior.woodpileState,
     setFireLit: exterior.setFireLit,
@@ -598,8 +639,36 @@ function buildCabinShell({ root, M, colliders, occluders }) {
     mesh.userData.geometryGate = { assemblyId: 'cabin-shell', structural: true };
     structure.add(mesh);
     occluders.push(mesh);
-    if (exteriorFace) addCladding(structure, M, bounds, exteriorFace);
+    if (exteriorFace) {
+      for (const span of exteriorSpansOf(bounds, exteriorFace)) addCladding(structure, M, span, exteriorFace);
+    }
     return mesh;
+  };
+
+  /* THE NORTH WALL IS ONLY EXTERIOR WHERE THE BATHROOM ISN'T BEHIND IT.
+   *
+   * Owner, cabin playtest: *"Exterior wall around the bathroom is coming into
+   * the interior."*
+   *
+   * The bathroom is a lean-to hung off the main room's north face, x -3.05 to
+   * -0.05. Its own three walls are clad correctly, on their outside. The main
+   * room's north wall is a PARTY wall over that span -- and it was clad along
+   * its whole 12 m length regardless, so horizontal log siding hung on the
+   * inside of the bathroom's south wall. Measured in the built cabin: 26
+   * boards, each standing 0.0725 m proud of the wall face at z = -5.20, in
+   * three bands -- x -3.05..-2.12 and -1.02..-0.05 from the two wall halves,
+   * plus the full 1.10 m of the door header directly over the bathroom door.
+   * Floor to ceiling, the entire 3.0 m width of the room.
+   *
+   * `exteriorSpansOf` clips a north face to the stretches that genuinely face
+   * outdoors, and returns nothing at all for the header, which does not.
+   */
+  const exteriorSpansOf = ([a, b], face) => {
+    if (face !== 'north' || b[0] <= BATH.x0 || a[0] >= BATH.x1) return [[a, b]];
+    const spans = [];
+    if (a[0] < BATH.x0) spans.push([a, [BATH.x0, b[1], b[2]]]);
+    if (b[0] > BATH.x1) spans.push([[BATH.x1, a[1], a[2]], b]);
+    return spans;
   };
 
   // North wall, split around the bathroom opening.
@@ -810,6 +879,12 @@ function buildRoof(root, M) {
 function buildFoundation(root, M) {
   for (let x = MAIN.x0 - 0.1; x <= MAIN.x1 + 0.1; x += 0.62) {
     for (const z of [MAIN.z0 - 0.15, MAIN.z1 + 0.15]) {
+      /* Same lean-to, same rule as the cladding above: the north perimeter
+       * piers run under the bathroom floor over x -3.05..-0.05, where they
+       * are not a perimeter at all. Measured before this clip, five of them
+       * stood 0.09 m proud of a bathroom floor laid at 0.016 -- rough field
+       * stone indoors, along the whole width of the wall. */
+      if (z < MAIN.z0 && x > BATH.x0 - 0.28 && x < BATH.x1 + 0.28) continue;
       root.add(box({ size: [0.56, 0.30, 0.30], pos: [x, -0.06, z], mat: M.stone, rotY: hashAt(x, z, 4) * 0.12 }));
     }
   }
@@ -886,9 +961,18 @@ function buildProperty({
     x: lagX,
     y: heightAt(lagX, lagZ),
     z: lagZ,
-    yaw: yawToward(
-      new THREE.Vector3(lagX, 0, lagZ),
-      new THREE.Vector3(LANDMARKS.woodpile.x + 2.0, 0, LANDMARKS.woodpile.z + 0.45),
+    /* HE FACES THE BLOCK, AND HE WAS NOT.
+     *
+     * `yawToward` is the PLAYER's convention -- `atan2(-dx, -dz)`, because a
+     * camera looks down its own -Z. A `makePerson` figure's face is on +Z and
+     * `Npc.faceToward` uses `atan2(dx, dz)`, so handing an Npc a yawToward
+     * result aims it exactly 180 degrees wrong. This call names the splitting
+     * block as its target and then turned its back on it: measured in the
+     * built world, the round on the block sat at Lag-local z = -1.2787, dead
+     * behind him, while he swung at open ground. */
+    yaw: Math.atan2(
+      LANDMARKS.woodpile.x + 2.0 - lagX,
+      LANDMARKS.woodpile.z + 0.45 - lagZ,
     ),
   });
   addBounds(

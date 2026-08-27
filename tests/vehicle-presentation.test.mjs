@@ -179,10 +179,34 @@ test('every playable bathroom uses the canonical planar mirror Module', () => {
     '../src/main.js',
     '../src/squatchfather/effects/MirrorReflection.js',
     '../src/luxury-apartment/main.js',
-    '../src/cabin/main.js',
   ];
   for (const relative of files) {
     const source = readFileSync(new URL(relative, import.meta.url), 'utf8');
     assert.match(source, /core\/planar-mirror\.js/);
   }
+});
+
+/**
+ * THE CABIN IS OFF THIS LIST ON PURPOSE, AND IT IS STILL ON A LIST.
+ *
+ * Owner, cabin playtest: *"The mirror is fucked. I may also not have a body..
+ * So if thats the case just disable the mirror for this scene. It works great
+ * in the squatchfather thoo."* Only the Squatchfather gives the player a body
+ * -- `ProspectController` builds a `Figure` on render layer 1 -- and the cabin
+ * runs the shared `src/core/player.js`, which is a camera and a capsule. A
+ * working reflection there renders a bathroom with nobody in it.
+ *
+ * So the rule the list above enforces is unchanged: there is ONE reflection
+ * Module and no scene forks it. This is the other half of the same rule -- a
+ * scene that opts out has to opt out completely, rather than hand-rolling a
+ * second render target or shipping the dead black pane that `PlanarMirror`
+ * leaves behind when it is constructed disabled.
+ */
+test('the cabin opts out of the mirror entirely rather than forking one', () => {
+  const source = readFileSync(new URL('../src/cabin/main.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /core\/planar-mirror\.js/);
+  assert.doesNotMatch(source, /new\s+WebGLRenderTarget/,
+    'a scene without the shared mirror must not grow a private one');
+  assert.match(source, /THE BATHROOM MIRROR IS OFF IN THIS SCENE, DELIBERATELY/,
+    'and the reason has to survive in the file that made the decision');
 });

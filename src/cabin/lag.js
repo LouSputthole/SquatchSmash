@@ -238,6 +238,67 @@ export function createLagHintDirector({
   });
 }
 
+/* ---- THE SWING ITSELF ----
+ *
+ * The other half of the same note. The shipped stroke rotated the shoulders
+ * and nothing else, and the axe is parented to `handR` with its head 0.68 m
+ * up the haft from the grip -- so the head stayed folded back along the
+ * forearm for the whole cycle. Measured over one 5.2 s chop phase against the
+ * splitting block that Lag is standing at:
+ *
+ *   axe head height        never left the band 1.287 .. 1.497 m
+ *   axe head reach         maximum 0.604 m forward of him
+ *   distance to the round  closest approach 1.184 m, at the TOP of the windup
+ *
+ * The round on the block is 1.279 m ahead of him at 1.12 m. The axe was not
+ * missing it; it was never travelling toward it. What the player saw was a man
+ * waving a hatchet at chest height, which is what "bad for cutting firewood"
+ * means.
+ *
+ * The fix is a wrist. `axe.rotation.x` near -pi turns the haft round so the
+ * head leads AWAY from the elbow, and then the shoulder arc does the work: up
+ * over the head, down the front, into the wood. Solved numerically against the
+ * real built world -- the block sits at Lag-local (0, 1.12, 1.279) once he is
+ * facing it -- and the resulting arc measures:
+ *
+ *   axe head height        1.121 m at the block .. 2.694 m overhead
+ *   closest approach       0.002 m from the top of the round, at stroke 0.84
+ *   skull clearance        1.137 m at its worst
+ *   hands apart            0.318 m at its worst -- two hands, one haft
+ *
+ * `roll` converges both arms onto the centreline; without it the head lands
+ * 0.28 m to his right of a round he is standing square to.
+ */
+const AXE_REST_ROLL = -0.08;
+const CHOP_IMPACT_PITCH = 0.18;
+/** [stroke, armPitch, armRoll, forearm, wrist, torsoPitch] -- see above. */
+const CHOP_STROKE = Object.freeze([
+  // Buried in the round, weight still on it.
+  Object.freeze([0.00, -1.14, 0.24, -0.40, -3.42, 0.14]),
+  // Overhead, elbows straight, haft vertical and a shade past his own crown.
+  Object.freeze([0.58, -3.00, 0.10, -0.06, -3.20, -0.06]),
+  // Contact.
+  Object.freeze([0.84, -1.02, 0.25, -0.44, -3.45, CHOP_IMPACT_PITCH]),
+  Object.freeze([1.00, -1.14, 0.24, -0.40, -3.42, 0.14]),
+]);
+
+function sampleChopStroke(stroke) {
+  for (let i = 0; i < CHOP_STROKE.length - 1; i++) {
+    const from = CHOP_STROKE[i];
+    const to = CHOP_STROKE[i + 1];
+    if (stroke > to[0] && i < CHOP_STROKE.length - 2) continue;
+    const t = THREE.MathUtils.smoothstep((stroke - from[0]) / (to[0] - from[0]), 0, 1);
+    return [
+      THREE.MathUtils.lerp(from[1], to[1], t),
+      THREE.MathUtils.lerp(from[2], to[2], t),
+      THREE.MathUtils.lerp(from[3], to[3], t),
+      THREE.MathUtils.lerp(from[4], to[4], t),
+      THREE.MathUtils.lerp(from[5], to[5], t),
+    ];
+  }
+  return CHOP_STROKE[0].slice(1);
+}
+
 function makeAxe() {
   const axe = group('cabin-lag-axe');
   const handle = mat({ color: 0x8b6034, roughness: 0.94 });
@@ -250,7 +311,7 @@ function makeAxe() {
     mat: steel,
     rotZ: 0.04,
   }));
-  axe.rotation.z = -0.08;
+  axe.rotation.z = AXE_REST_ROLL;
   return axe;
 }
 
@@ -274,11 +335,53 @@ function activityAt(elapsed) {
   return { activity: LAG_ACTIVITY_LOOP[0], progress: 0 };
 }
 
+/* ---- THE TORSO HINGES AT THE HIPS, NOT AT THE FLOOR ----
+ *
+ * Owner, cabin playtest: *"Lag animation is bad for cutting firewood, hes like
+ * pumping his whole body and his top half goes off"*.
+ *
+ * `makePerson` parents the head, both arms and the pelvis to one `body` group
+ * whose ORIGIN IS y = 0 -- the floorboard between his boots -- while the legs
+ * are siblings of it at `STANDING_LEG_ROOT_Y` 0.922. Setting `body.rotation.x`
+ * therefore swings the entire upper half about his ankles. Measured on the
+ * shipped 0.26 rad chop, per stroke:
+ *
+ *   head            travelled 0.3770 m forward and 0.0493 m down
+ *   pelvis slab     travelled 0.2513 m forward off a thigh that never moved
+ *
+ * That is the whole complaint in two numbers: the pumping is the head lurching
+ * 38 cm, and the top half "going off" is a quarter of a metre of daylight
+ * opening between his belt and his legs. (Same defect the seated mansion cast
+ * had, same cause -- the body group's origin is the floor.)
+ *
+ * `hingeTorso` rotates that group about the LEG ROOT instead, by composing the
+ * rotation with the position offset `c - R*c` that pins the pivot in place.
+ * Nothing else in the rig writes `body.position.y`, and `Npc.update()` zeroes
+ * only `.x`/`.z` -- and runs before this does -- so the compensation survives.
+ * After the fix the same stroke moves the pelvis 0.014 m and the head 0.135 m,
+ * which is a man leaning into a swing rather than a man folding at the shoes.
+ */
+const TORSO_HINGE_Y = 0.922;
+const _hingeEuler = new THREE.Euler();
+const _hingeQuaternion = new THREE.Quaternion();
+const _hingePivot = new THREE.Vector3();
+
+function hingeTorso(parts, pitch = 0, roll = 0, sway = 0) {
+  const { body } = parts;
+  body.rotation.x = pitch;
+  body.rotation.z = roll;
+  _hingeEuler.set(pitch, 0, roll, body.rotation.order);
+  _hingeQuaternion.setFromEuler(_hingeEuler);
+  _hingePivot.set(0, TORSO_HINGE_Y, 0).applyQuaternion(_hingeQuaternion);
+  body.position.set(
+    -_hingePivot.x,
+    TORSO_HINGE_Y - _hingePivot.y,
+    sway - _hingePivot.z,
+  );
+}
+
 function resetPose(parts) {
-  parts.body.rotation.x = 0;
-  parts.body.rotation.z = 0;
-  parts.body.position.x = 0;
-  parts.body.position.z = 0;
+  hingeTorso(parts, 0, 0, 0);
   for (const limb of [parts.armL, parts.armR, parts.foreL, parts.foreR, parts.legL, parts.legR]) {
     limb.rotation.set(0, 0, 0);
   }
@@ -321,42 +424,35 @@ export function buildLagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
     axe.visible = id !== 'stack';
     carriedLog.visible = id === 'stack';
     if (id === 'chop') {
-      const stroke = (progress * 3.25) % 1;
-      const windup = stroke < 0.58
-        ? THREE.MathUtils.smoothstep(stroke / 0.58, 0, 1)
-        : 1;
-      const strike = stroke < 0.58
-        ? 0
-        : THREE.MathUtils.smoothstep((stroke - 0.58) / 0.42, 0, 1);
-      const arm = THREE.MathUtils.lerp(-1.10, -2.42, windup)
-        + THREE.MathUtils.lerp(0, 2.74, strike);
-      npc.parts.armL.rotation.set(arm + 0.06, 0, -0.10);
-      npc.parts.armR.rotation.set(arm, 0, 0.10);
-      npc.parts.foreL.rotation.x = -0.22;
-      npc.parts.foreR.rotation.x = -0.20;
-      npc.parts.body.rotation.x = strike * 0.26;
-      npc.parts.legL.rotation.x = -strike * 0.08;
-      npc.parts.legR.rotation.x = strike * 0.08;
+      const [arm, roll, fore, wrist, pitch] = sampleChopStroke((progress * 3.25) % 1);
+      npc.parts.armL.rotation.set(arm, 0, roll);
+      npc.parts.armR.rotation.set(arm, 0, -roll);
+      npc.parts.foreL.rotation.x = fore;
+      npc.parts.foreR.rotation.x = fore;
+      axe.rotation.set(wrist, 0, AXE_REST_ROLL);
+      hingeTorso(npc.parts, pitch);
+      const brace = THREE.MathUtils.clamp(pitch / CHOP_IMPACT_PITCH, 0, 1);
+      npc.parts.legL.rotation.x = -brace * 0.08;
+      npc.parts.legR.rotation.x = brace * 0.08;
     } else if (id === 'stack') {
       const carry = Math.sin(progress * Math.PI);
       npc.parts.armL.rotation.set(-0.92 - carry * 0.18, 0, -0.13);
       npc.parts.armR.rotation.set(-0.90 - carry * 0.18, 0, 0.13);
       npc.parts.foreL.rotation.x = -1.12;
       npc.parts.foreR.rotation.x = -1.12;
-      npc.parts.body.rotation.x = 0.08 + carry * 0.05;
-      npc.parts.body.position.z = carry * 0.05;
+      hingeTorso(npc.parts, 0.08 + carry * 0.05, 0, carry * 0.05);
     } else if (id === 'lean') {
-      npc.parts.body.rotation.z = -0.045;
+      hingeTorso(npc.parts, 0, -0.045);
       npc.parts.armR.rotation.set(-0.20, 0, 0.08);
       npc.parts.foreR.rotation.x = -0.34;
       npc.parts.armL.rotation.set(-0.34, 0, -0.12);
       npc.parts.foreL.rotation.x = -0.62;
-      axe.rotation.z = -0.18;
+      axe.rotation.set(0, 0, -0.18);
     } else {
       npc.parts.armL.rotation.x = Math.sin(elapsed * 0.55) * 0.035;
       npc.parts.armR.rotation.x = -0.10;
       npc.parts.foreR.rotation.x = -0.28;
-      axe.rotation.z = -0.10;
+      axe.rotation.set(0, 0, -0.10);
     }
   };
 
@@ -381,6 +477,10 @@ export function buildLagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
         currentActivity = 'bonfire';
         axe.visible = false;
         carriedLog.visible = false;
+        /* Nothing in `Npc` ever writes `body.position.y`, so the hip-hinge
+         * offset the chop left behind (up to 0.015 m at contact) would ride
+         * into the chair with him. Clear the work pose before he sits. */
+        resetPose(npc.parts);
         npc.job = 'drink';
         npc.sit();
       } else {

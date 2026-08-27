@@ -49,6 +49,7 @@ const TEST_MODULES = [
   './countryside-cabin-world.test.mjs',
   './countryside-cabin-basement.test.mjs',
   './countryside-cabin-lag.test.mjs',
+  './countryside-cabin-fixtures.test.mjs',
   './countryside-cabin-chapter-runtime.test.mjs',
   './countryside-cabin-dialogue.test.mjs',
   './countryside-cabin-execution-choice.test.mjs',

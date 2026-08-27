@@ -1968,11 +1968,33 @@ export function makeStandingFrame(M, { x, y, z, rotY = 0, w = 0.16, h = 0.20, te
    * forward of the glass. Rotating a strut about its own centre swings one end
    * forward by exactly as much as it swings the other back, which is easy to
    * forget and immediately visible as a bar across somebody's face. */
+  /* AND IT HAS TO TOUCH THE FRAME, WHICH THE FIXED -0.058 DID NOT.
+   *
+   * Owner, cabin playtest: *"Picture on nightstand is detached from the stand
+   * holding up the picture."* It was. The setback was one constant while the
+   * strut's LENGTH is h * 0.8, so how far tilting it swings the top end back
+   * depends on the picture -- and the constant was sized for a big one.
+   * Measured in panel space on the cabin nightstand photograph (h 0.15), the
+   * strut's top-back corner sat at z -0.031 against a backing whose rear face
+   * is at z -0.014: a 0.0170 m gap, an eighth of the frame's own height, with
+   * nothing joining the two. Every standing frame in the game had it, worst on
+   * the smallest: 0.0185 at h 0.14, 0.0123 at h 0.18, 0.0107 at h 0.19.
+   *
+   * So the setback is derived from the tilt and the strut instead. The top
+   * corner lands 2 mm INSIDE the backing -- a hinge, not a float -- and the
+   * original constraint still holds by construction: the corner that reaches
+   * furthest forward is the bottom one, and it goes further back, not less. */
+  const legTilt = 0.40;
+  const legLength = h * 0.8;
+  const legThickness = 0.008;
+  const legBite = 0.002;
+  const legReach = Math.sin(legTilt) * legLength / 2 + Math.cos(legTilt) * legThickness / 2;
   const leg = box({
-    size: [0.03, h * 0.8, 0.008], pos: [0, -h * 0.18, -0.058],
+    size: [0.03, legLength, legThickness],
+    pos: [0, -h * 0.18, -(0.014 + legReach - legBite)],
     mat: mat({ color: tint, roughness: 0.7 }),
   });
-  leg.rotation.x = 0.40;
+  leg.rotation.x = legTilt;
   panel.add(leg);
 
   g.add(panel);

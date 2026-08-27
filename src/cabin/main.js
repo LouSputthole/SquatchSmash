@@ -25,7 +25,6 @@ import { InteractionSystem } from '../core/interaction.js';
 import { ITEMS } from '../core/inventory.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
-import { PlanarMirror } from '../core/planar-mirror.js';
 import { Phone } from '../core/phone.js';
 import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
@@ -198,6 +197,7 @@ let dialogue = null;
 let executionChoice = null;
 let weapons = null;
 let armory = null;
+let wallRack = null;
 let gratinPistol = null;
 let bloodImpacts = null;
 let deathPools = null;
@@ -763,8 +763,22 @@ function useShootingRange(range = cabin?.shootingRange) {
     hud.toast(before.active ? 'Ten-shot range reset' : 'Ten-shot range started', 'good');
     hud.say('Ten rounds. Painted centre is ten. <em>The backstop is the part you absolutely do not miss.</em>', 3800);
   } else {
+    /* THIS LINE USED TO GIVE AWAY THE SECOND HALF OF THE CHAPTER.
+     *
+     * Owner, cabin playtest: *"the hint at the shooting yard totally gives it
+     * away"*. It read: "There are rifles below the cabin once Gratin opens the
+     * way" -- which, on a Day Two walk around a quiet property, announces that
+     * there is a below-the-cabin, that it is currently shut, that a man named
+     * Gratin is going to open it, and therefore that the afternoon is not
+     * going to stay quiet. The dungeon is the turn this chapter is built on
+     * and it should arrive with Booski's call, not with a range marker.
+     *
+     * The range stays -- it is one of the four walks the story requires -- and
+     * it now points at the wall rack in the main room, which is a thing the
+     * player can walk back and pick up right now.
+     */
     hud.toast('Range found · bring a rifle back');
-    hud.say('The range is live, but your hands are empty. <em>There are rifles below the cabin once Gratin opens the way.</em>', 4200);
+    hud.say('The range is live, but your hands are empty. <em>There is a rack of rifles on the cabin wall.</em>', 4200);
   }
   renderRangeHud(snapshot);
   return true;
@@ -1116,13 +1130,34 @@ try {
     onCleanupPourGas: () => chapter?.pourGas?.(),
     onCleanupIgnite: () => chapter?.igniteBonfire?.(),
   });
-  bathroomMirror = new PlanarMirror(scene, cabin.mirrorMesh, {
-    width: 0.54,
-    height: 0.66,
-    resolution: [384, 468],
-    maxDistance: 9,
-    enabled: true,
-  });
+  /* THE BATHROOM MIRROR IS OFF IN THIS SCENE, DELIBERATELY.
+   *
+   * Owner, cabin playtest: *"The mirror is fucked. I may also not have a
+   * body.. So if thats the case just disable the mirror for this scene. It
+   * works great in the squatchfather thoo."*
+   *
+   * He is right about the cause. The Squatchfather runs its own
+   * `ProspectController`, which builds a full `Figure` and puts every mesh of
+   * it on render layer 1 -- invisible to the first-person camera, visible to
+   * `PlanarMirror`'s. The cabin runs the SHARED `src/core/player.js`, which is
+   * a camera, a capsule and nothing else. There is no body within a hundred
+   * metres of that glass, so a working reflection here renders a bathroom with
+   * nobody in it: the player walks up to a mirror and is not in it, which
+   * reads as broken far more loudly than a plain silvered pane does.
+   *
+   * So the mirror is not constructed at all, rather than constructed with
+   * `enabled: false` -- the constructor REPLACES the mesh's material with its
+   * own render-target basic material on the way in, and an unrendered target
+   * is black. Left alone, `bathsink.mirror.surface` keeps its authored glass
+   * (roughness 0.12, metalness 0.55), which is a mirror you cannot see
+   * yourself in rather than a hole in the wall.
+   *
+   * Turn this back on the day the player has a body in this scene. See the
+   * write-up handed to the owner: the shared Player would need the layer-1
+   * figure the Squatchfather already proves out, and `src/core/wardrobe.js`
+   * would need a player row beside its NPC ones.
+   */
+  bathroomMirror = null;
 } catch (error) {
   window.__squatchSceneFail?.('Could not build the cabin', error?.message || String(error));
   throw error;
@@ -1165,31 +1200,59 @@ weapons = new WeaponSystem({
   onImpact: handleWeaponImpact,
   onEvent: handleWeaponEvent,
 });
+/* Both racks in this scene are the same shared `mountArmory`, so they get the
+ * same collider bookkeeping and the same pickup feedback rather than two
+ * copies that can drift. Only the parent, the specs and the collider prefix
+ * differ. */
+const armoryCollider = (prefix) => (x0, x1, y0, y1, z0, z1) => {
+  const box3 = new THREE.Box3(
+    new THREE.Vector3(x0, y0, z0),
+    new THREE.Vector3(x1, y1, z1),
+  );
+  box3.name = `${prefix}-${cabin.colliders.length}`;
+  markSpatialPrimitive(box3, { id: box3.name, kind: 'prop' });
+  cabin.colliders.push(box3);
+};
+const armoryEvent = (event) => {
+  if (event.type === 'take') {
+    const emptyPocket = cabin.inventory.items.findIndex((item) => item === null);
+    if (emptyPocket >= 0) cabin.inventory.select(emptyPocket);
+    hud.toast(`${weaponDef(event.id).name} ready`, 'good');
+  }
+  else if (event.type === 'resupply') hud.toast('Ammunition restocked', 'good');
+  renderCombatHud();
+};
+const armoryEnabled = () => state.phase === 'active' && !state.resting && !state.carryingBody;
+
 armory = mountArmory({
   parent: dungeon.root,
   system: weapons,
   interaction,
   racks: dungeon.armory.racks,
   retainTaken: true,
-  enabled: () => state.phase === 'active' && !state.resting && !state.carryingBody,
-  addCollider: (x0, x1, y0, y1, z0, z1) => {
-    const box3 = new THREE.Box3(
-      new THREE.Vector3(x0, y0, z0),
-      new THREE.Vector3(x1, y1, z1),
-    );
-    box3.name = `cabin-dungeon-armory-${cabin.colliders.length}`;
-    markSpatialPrimitive(box3, { id: box3.name, kind: 'prop' });
-    cabin.colliders.push(box3);
-  },
-  onEvent: (event) => {
-    if (event.type === 'take') {
-      const emptyPocket = cabin.inventory.items.findIndex((item) => item === null);
-      if (emptyPocket >= 0) cabin.inventory.select(emptyPocket);
-      hud.toast(`${weaponDef(event.id).name} ready`, 'good');
-    }
-    else if (event.type === 'resupply') hud.toast('Ammunition restocked', 'good');
-    renderCombatHud();
-  },
+  enabled: armoryEnabled,
+  addCollider: armoryCollider('cabin-dungeon-armory'),
+  onEvent: armoryEvent,
+});
+
+/* The main-room rack. Owner: *"have rifles on one of the walls in the cabin"*,
+ * and *"Leave the other ones in the basement as well"* -- so this is an
+ * addition, not a move. Placement and the free-wall measurements that chose it
+ * are in `world.js` beside `WALL_RACK_Z_INSET`; this is only the mount.
+ *
+ * It hangs off `cabinRoot` rather than the dungeon root, which is what makes
+ * it live from the first frame: the cellar is hidden until the story reveals
+ * it, and the main room never is.
+ */
+wallRack = mountArmory({
+  parent: cabin.cabinRoot,
+  system: weapons,
+  interaction,
+  racks: cabin.wallRack.racks,
+  retainTaken: true,
+  enabled: armoryEnabled,
+  addCollider: armoryCollider('cabin-wall-rack'),
+  onEvent: armoryEvent,
 });
 
 gratinPistol = buildWeaponModel(WEAPON_IDS.PISTOL9);
@@ -1856,6 +1919,7 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   executionChoice,
   weapons,
   armory,
+  wallRack,
   dungeon,
   range: cabin.shootingRange,
   cleanup: cabin.bodyCleanup,
