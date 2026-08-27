@@ -131,23 +131,37 @@ export async function installVisualDeterminism(page, {
         queued.set(id, callback);
       } else {
         const nativeId = nativeRaf((time) => {
+          if (!nativeIds.has(id)) return;
           nativeIds.delete(id);
           virtualNow = time;
           callback(time);
         });
-        nativeIds.set(id, nativeId);
+        nativeIds.set(id, { nativeId, callback });
       }
       return id;
     };
     window.cancelAnimationFrame = (id) => {
       queued.delete(id);
-      const nativeId = nativeIds.get(id);
-      if (nativeId !== undefined) nativeCancel(nativeId);
+      const pending = nativeIds.get(id);
+      if (pending) nativeCancel(pending.nativeId);
       nativeIds.delete(id);
     };
 
     const clock = {
-      freeze() { frozen = true; },
+      freeze({ capturePending = false } = {}) {
+        frozen = true;
+        if (!capturePending) return;
+        /* A scheduled native frame used to survive this boundary. Depending on
+         * runner timing it could move the staged camera before the test's one
+         * explicit step, while Playwright's RAF-polled wait deadlocked behind
+         * the same frozen clock. Preserve each callback, cancel native
+         * ownership, and make the next frame entirely test-owned. */
+        for (const [id, pending] of nativeIds) {
+          nativeCancel(pending.nativeId);
+          queued.set(id, pending.callback);
+        }
+        nativeIds.clear();
+      },
       resume() {
         frozen = false;
         const callbacks = [...queued.values()];
@@ -194,22 +208,40 @@ export async function installStablePresentation(page) {
 }
 
 export async function freezeRenderedFrame(page, frames = 1) {
-  await page.evaluate(() => window.__SQUATCH_VISUAL_TEST__.clock.freeze());
+  const frozen = await page.evaluate(() => {
+    const clock = window.__SQUATCH_VISUAL_TEST__.clock;
+    clock.freeze();
+    return clock.snapshot();
+  });
+  expect(frozen.frozen).toBe(true);
+  if (frames === 0) {
+    /* A scene may explicitly render a fully staged frame while its loop is
+     * parked. In that mode, prove atomic ownership and preserve that framebuffer
+     * instead of advancing a wall-clock-dependent simulation callback. */
+    expect(frozen.nativePending).toBe(0);
+    expect(frozen.queued).toBeGreaterThan(0);
+    return;
+  }
   await page.waitForFunction(() => (
     window.__SQUATCH_VISUAL_TEST__.clock.snapshot().queued > 0
-  ), null, { timeout: 15_000 }).catch(() => {});
-  await page.evaluate((count) => {
+      && window.__SQUATCH_VISUAL_TEST__.clock.snapshot().nativePending === 0
+  ), null, { timeout: 15_000, polling: 50 });
+  const stepped = await page.evaluate((count) => {
     const clock = window.__SQUATCH_VISUAL_TEST__.clock;
-    for (let index = 0; index < count; index++) clock.step(1000 / 60);
+    let callbacks = 0;
+    for (let index = 0; index < count; index++) callbacks += clock.step(1000 / 60);
+    return { callbacks, snapshot: clock.snapshot() };
   }, frames);
+  expect(stepped.callbacks).toBeGreaterThan(0);
+  expect(stepped.snapshot).toMatchObject({ frozen: true, nativePending: 0 });
 }
 
-export async function captureVisual(page, name, readiness = {}) {
+export async function captureVisual(page, name, readiness = {}, { frames = 1 } = {}) {
   await page.evaluate(({ shot, state }) => {
     window.__SQUATCH_VISUAL_TEST__.shot = shot;
     window.__SQUATCH_VISUAL_TEST__.state = state;
   }, { shot: name, state: readiness });
-  await freezeRenderedFrame(page);
+  await freezeRenderedFrame(page, frames);
   await expect(page).toHaveScreenshot(`${name}.png`);
 }
 

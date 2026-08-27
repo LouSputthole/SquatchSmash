@@ -94,6 +94,10 @@ async function bootActiveScene(page, {
 
 async function stageHomeMirror(page, kind) {
   return page.evaluate((sceneKind) => {
+    /* Park the native loop before moving the real player. The first Ubuntu
+     * retry proved that even the short await between staging and capture can
+     * admit a frame which resolves the capsule away from the mirror mark. */
+    window.__SQUATCH_VISUAL_TEST__.clock.freeze({ capturePending: true });
     const runtime = sceneKind === 'regular'
       ? window.__squatch
       : sceneKind === 'luxury'
@@ -107,6 +111,11 @@ async function stageHomeMirror(page, kind) {
     const bodyMetadata = bodyGroup?.userData?.firstPersonBody ?? null;
     const player = runtime.player;
     const camera = runtime.camera ?? player.camera;
+
+    /* Keep pointer-lock lifecycle events from re-enabling locomotion after the
+     * authored pose is applied. suspend() leaves the rendering controllers
+     * alive; it only turns off the browser-to-player input route. */
+    runtime.input?.suspend?.({ exitPointerLock: false });
 
     mirror.updateWorldMatrix(true, false);
     const center = mirror.getWorldPosition(mirror.position.clone());
@@ -122,6 +131,13 @@ async function stageHomeMirror(page, kind) {
     eye.y = Math.max(center.y + 0.02, 1.62);
 
     player.mode = 'walk';
+    /* This is a presentation receipt, not a locomotion probe. Keep the real
+     * frame/body/mirror path active while preventing collision resolution from
+     * moving the authored camera before that single frame is rendered. */
+    player.enabled = false;
+    player.yawCenter = null;
+    player.pitchMin = -Math.PI / 2 + 0.05;
+    player.pitchMax = Math.PI / 2 - 0.05;
     player.position.copy(eye);
     player.ground = eye.y - 1.66;
     player.eyeHeight = 1.66;
@@ -153,6 +169,31 @@ async function stageHomeMirror(page, kind) {
   }, kind);
 }
 
+async function expectHomeMirrorPoseHeld(page, kind, staged) {
+  const actual = await page.evaluate((sceneKind) => {
+    const runtime = sceneKind === 'regular'
+      ? window.__squatch
+      : sceneKind === 'luxury'
+        ? window.LUXURY_APARTMENT
+        : window.CABIN;
+    const player = runtime.player;
+    const camera = runtime.camera ?? player.camera;
+    const rounded = (vector) => vector.toArray().map((value) => +value.toFixed(3));
+    return {
+      player: rounded(player.position),
+      camera: rounded(camera.position),
+      playerEnabled: player.enabled,
+      inputSuspended: runtime.input?.snapshot?.().suspended ?? null,
+    };
+  }, kind);
+  expect(actual).toMatchObject({
+    player: staged.eye,
+    camera: staged.eye,
+    playerEnabled: false,
+    inputSuspended: true,
+  });
+}
+
 test('regular apartment mirror and persisted outfit @smoke', async ({ page }) => {
   await bootActiveScene(page, {
     path: '/index.html?preview=1',
@@ -173,6 +214,7 @@ test('regular apartment mirror and persisted outfit @smoke', async ({ page }) =>
     #hud, #squatch-preview-notice { visibility: hidden !important; }
   ` });
   await captureVisual(page, 'regular-apartment-mirror-outfit', mirror);
+  await expectHomeMirrorPoseHeld(page, 'regular', mirror);
   assertNoVisualErrors(page);
 });
 
@@ -350,15 +392,26 @@ test('Enola cockpit carries the subtle wrong-city instrument clue', async ({ pag
   });
   const clue = await page.evaluate(() => {
     const runtime = window.__enolaSquatch;
+    /* The analogue needles advance in the flight loop. Take ownership of its
+     * already-scheduled frame before authoring the cockpit receipt so runner
+     * speed cannot decide whether the gauges receive an extra tick. */
+    window.__SQUATCH_VISUAL_TEST__.clock.freeze({ capturePending: true });
+    runtime.browserInput?.suspend?.({ exitPointerLock: false });
     runtime.go('bombApproach');
-    runtime.tick(1 / 30, 1 / 30);
+    /* Settle the reused analogue instrument canvas on fixed simulation time.
+     * Its 14 Hz paint cadence and damped needles need more than one 1/30 tick;
+     * half a second makes the panel agree with the digital flight HUD without
+     * introducing a wall-clock frame into the receipt. */
+    runtime.tick(0.5, 1 / 60);
     runtime.postfx.enabled = false;
+    runtime.postfx.render();
+    runtime.postfx.sample(0);
     return runtime.state().wrongCityClue;
   });
   expect(clue).toMatchObject({
     order: 'THE DESERT COMPOUND', navigation: 'SQUATCHBOURG', visible: true,
   });
-  await captureVisual(page, 'enola-wrong-city-instrument', clue);
+  await captureVisual(page, 'enola-wrong-city-instrument', clue, { frames: 0 });
   assertNoVisualErrors(page);
 });
 
