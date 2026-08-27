@@ -1311,36 +1311,16 @@ try {
     ritualCapture.captured,
     JSON.stringify(ritualCapture));
 
-  /* The phase transition and the authored look settle over rendered frames.
-   * Wait on the actual presentation contract rather than sampling the exact
-   * transition frame or sleeping for an arbitrary duration. */
-  await page.waitForFunction(() => {
-    const ritual = window.INITIATION?.ritual;
-    return ritual?.phase === 'blade'
-      && ritual.firstPersonHandsVisible
-      && ritual.handNdc.every(Number.isFinite)
-      && Math.abs(ritual.handNdc[0]) <= 1
-      && Math.abs(ritual.handNdc[1]) <= 1
-      && ritual.handNdc[2] >= -1
-      && ritual.handNdc[2] <= 1;
-  }, null, { timeout: 30000 });
-
   const ritualStart = await page.evaluate(() => ({
     ...window.INITIATION.ritual,
     yaw: window.INITIATION.player.yaw,
     position: window.INITIATION.player.position.toArray(),
   }));
-  check('act five remains in the shared first-person camera with ritual hands visible',
+  check('the blade reveal remains first-person while Tony\'s hands stay lowered',
     ritualStart.control === 'look-only'
       && ritualStart.cameraOwnedByPlayer
-      && ritualStart.firstPersonHandsVisible,
+      && !ritualStart.firstPersonHandsVisible,
     JSON.stringify(ritualStart));
-  check('the ritual hand is presented inside the first-person view by default',
-    ritualStart.handNdc.every(Number.isFinite)
-      && Math.abs(ritualStart.handNdc[0]) <= 1
-      && Math.abs(ritualStart.handNdc[1]) <= 1
-      && ritualStart.handNdc[2] >= -1 && ritualStart.handNdc[2] <= 1,
-    JSON.stringify({ handNdc: ritualStart.handNdc }));
 
   /* Real input, because importing Player is not evidence that the player owns
    * the camera. Translation must stay locked while pointer-lock mouse input
@@ -1370,6 +1350,32 @@ try {
    * cut. Every one of those beats speaks first, so every one needs more than
    * one press. */
   await page.waitForFunction(() => window.INITIATION.phase === 'hand', null, { timeout: 90000 });
+  /* The authored prompt is the state change that raises the hands. Wait on
+   * their real rendered framing rather than an arbitrary sleep or the exact
+   * transition frame. */
+  await page.waitForFunction(() => {
+    const ritual = window.INITIATION?.ritual;
+    return ritual?.phase === 'hand'
+      && ritual.firstPersonHandsVisible
+      && ritual.handNdc.every(Number.isFinite)
+      && Math.abs(ritual.handNdc[0]) <= 1
+      && Math.abs(ritual.handNdc[1]) <= 1
+      && ritual.handNdc[2] >= -1
+      && ritual.handNdc[2] <= 1;
+  }, null, { timeout: 30000 });
+  const handPresentation = await page.evaluate(() => window.INITIATION.ritual);
+  check('the hand prompt raises Tony\'s hands inside the first-person view',
+    handPresentation.control === 'look-only'
+      && handPresentation.cameraOwnedByPlayer
+      && handPresentation.firstPersonHandsVisible,
+    JSON.stringify(handPresentation));
+  check('the raised ritual hand is framed inside the viewport',
+    handPresentation.handNdc.every(Number.isFinite)
+      && Math.abs(handPresentation.handNdc[0]) <= 1
+      && Math.abs(handPresentation.handNdc[1]) <= 1
+      && handPresentation.handNdc[2] >= -1
+      && handPresentation.handNdc[2] <= 1,
+    JSON.stringify({ handNdc: handPresentation.handNdc }));
   await pressActionTo(page, 'cut');
   await pressActionTo(page, 'card');
 

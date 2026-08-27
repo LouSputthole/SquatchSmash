@@ -48,9 +48,11 @@ test('Booskibro carries an intentional dark staff rather than a missing-material
   assert.doesNotMatch(propMotion, /DodecahedronGeometry/);
 });
 
-test('the first-person ritual shows Tony\'s hands from the blade reveal through the burn', () => {
+test('the first-person ritual raises Tony\'s hands only after the hand prompt', () => {
   const visible = source.match(/const FIRST_PERSON_RITUAL_PHASES = new Set\(\[([\s\S]*?)\]\);/)?.[1] ?? '';
-  for (const phase of ['blade', 'hand', 'cut', 'card', 'oath_1', 'oath_2', 'burn', 'made']) {
+  assert.doesNotMatch(visible, /'blade'/,
+    'the blade reveal must not pre-raise the hands before the authored prompt');
+  for (const phase of ['hand', 'cut', 'card', 'oath_1', 'oath_2', 'burn', 'made']) {
     assert.match(visible, new RegExp(`'${phase}'`), `${phase} hides the hand the ritual camera frames`);
   }
 });
