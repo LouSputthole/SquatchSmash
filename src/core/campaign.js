@@ -481,9 +481,9 @@ export const TIME_EVENT_IDS = Object.freeze({
   LUXURY_MARGO_WAKE: 'scene.luxury.margo_wake',
   RETURN_LUXURY_APARTMENT: 'travel.luxury_apartment_return',
   /* The final chapter has no apartment hub between scenes, so its travel and
-   * runtime spans live in this same exact-once ledger.  These markers make the
-   * calendar agree with the authored Day 5 / Day 6 sequence without letting a
-   * reload, retry, or repeated Continue click farm hours. */
+   * runtime spans live in this same exact-once ledger. These markers preserve
+   * the authored final-arc calendar without letting a reload, retry, or
+   * repeated Continue click farm hours. */
   DEPART_SILVER_CASE: 'travel.silver_case',
   COMPLETE_SILVER_CASE: 'mission.silver_case',
   DEPART_INITIATION: 'travel.initiation',
@@ -809,7 +809,8 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.CABIN_FIRE_CLEANUP]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.CABIN_DRINK]: Object.freeze({ minutes: 5 }),
   /* The drink is followed by a hard blackout. Reloading after it resumes on
-   * the Day 6 morning authored for the chapter, never back beside the fire. */
+   * Day 4 in the current route (or the next morning for a later compatibility
+   * save), never back beside the fire. */
   [TIME_EVENT_IDS.CABIN_BLACKOUT]: Object.freeze({
     atLeast: Object.freeze({ day: 4, timeMinutes: 9 * 60 + 30 }),
   }),

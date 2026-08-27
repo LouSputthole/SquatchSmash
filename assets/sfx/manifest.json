@@ -4249,12 +4249,16 @@
     {
       "name": "vo.silver.margo.bandleader.her-pick",
       "voice": "margo",
-      "say": "Bananaphone. Completely straight. I want that violinist fighting for his life and nobody smiling."
+      "say": "Bananaphone. Completely straight. I want that violinist fighting for his life and nobody smiling.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten for the Bananaphone performance; the indexed take still says the retired horn-arrangement line"
     },
     {
       "name": "vo.silver.margo.bandleader.horns",
       "voice": "margo",
-      "say": "You came prepared to say that out loud. Fine. If he smiles, it doesn’t count."
+      "say": "You came prepared to say that out loud. Fine. If he smiles, it doesn’t count.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten for the Bananaphone performance; the indexed take still answers the retired horn request"
     },
     {
       "name": "vo.silver.margo.bark.alley.1",
@@ -4859,7 +4863,9 @@
     {
       "name": "vo.silver.player.bandleader.open.1e0ys9u",
       "voice": "player",
-      "say": "Bananaphone. Straight. Like it’s Carnegie Hall."
+      "say": "Bananaphone. Straight. Like it’s Carnegie Hall.",
+      "needsRerecord": true,
+      "rerecordReason": "rewritten for the Bananaphone performance; the indexed take still requests the retired horn arrangement"
     },
     {
       "name": "vo.silver.player.bandleader.open.cmq3w6",
@@ -15322,6 +15328,156 @@
       "say": "Too late to be useful, but appreciated."
     },
     {
+      "name": "vo.cabin.lag.general.arrival",
+      "voice": "lag",
+      "say": "Well, look who finally made it out here."
+    },
+    {
+      "name": "vo.cabin.lag.general.quiet",
+      "voice": "lag",
+      "say": "Hell of a lot quieter than the city, ain't it?"
+    },
+    {
+      "name": "vo.cabin.lag.general.poke",
+      "voice": "lag",
+      "say": "Don't just stand there. Go poke around."
+    },
+    {
+      "name": "vo.cabin.lag.general.more",
+      "voice": "lag",
+      "say": "Place has got more to it than it looks."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.computer",
+      "voice": "lag",
+      "say": "Computer's inside if you're looking for something less outdoorsy."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.computer.old",
+      "voice": "lag",
+      "say": "There's some old stuff in that cabin nobody's bothered throwing away."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.board",
+      "voice": "lag",
+      "say": "Drawing board's worth looking at."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.board.odd",
+      "voice": "lag",
+      "say": "If something looks outta place in there, it probably is."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.bedroom",
+      "voice": "lag",
+      "say": "Check around the bedroom."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.wardrobe",
+      "voice": "lag",
+      "say": "Dry clothes are in the wardrobe. Push past the hangers and look proper."
+    },
+    {
+      "name": "vo.cabin.lag.cabin.entertainment",
+      "voice": "lag",
+      "say": "Radio and television both work. Reception's got opinions about the trees."
+    },
+    {
+      "name": "vo.cabin.lag.property.trail",
+      "voice": "lag",
+      "say": "You see a trail, follow it."
+    },
+    {
+      "name": "vo.cabin.lag.property.bridge",
+      "voice": "lag",
+      "say": "Bridge is worth walking across."
+    },
+    {
+      "name": "vo.cabin.lag.property.creek",
+      "voice": "lag",
+      "say": "Take a look down by the water."
+    },
+    {
+      "name": "vo.cabin.lag.property.shed",
+      "voice": "lag",
+      "say": "There's some spots back in those woods most people walk right past."
+    },
+    {
+      "name": "vo.cabin.lag.property.overlook",
+      "voice": "lag",
+      "say": "Trail keeps going farther than you think."
+    },
+    {
+      "name": "vo.cabin.lag.property.firepit",
+      "voice": "lag",
+      "say": "Whole reason for having a place like this is nobody knows what's out back."
+    },
+    {
+      "name": "vo.cabin.lag.flavor.service",
+      "voice": "lag",
+      "say": "Cell service gets weird past the bridge. That's a feature."
+    },
+    {
+      "name": "vo.cabin.lag.flavor.eyes",
+      "voice": "lag",
+      "say": "If you see two eyes looking back at you, mind your business."
+    },
+    {
+      "name": "vo.cabin.lag.flavor.breaks",
+      "voice": "lag",
+      "say": "Around here, if something breaks, you either fix it or learn to live without it."
+    },
+    {
+      "name": "vo.cabin.lag.flavor.dark",
+      "voice": "lag",
+      "say": "Gets dark as hell out here."
+    },
+    {
+      "name": "vo.cabin.lag.after.good",
+      "voice": "lag",
+      "say": "Find anything good?"
+    },
+    {
+      "name": "vo.cabin.lag.after.more",
+      "voice": "lag",
+      "say": "You ain't seen all of it."
+    },
+    {
+      "name": "vo.cabin.lag.after.missed",
+      "voice": "lag",
+      "say": "There's still a couple places you missed."
+    },
+    {
+      "name": "vo.cabin.lag.after.no-spoil",
+      "voice": "lag",
+      "say": "I'm not telling you exactly where it is. That ruins it."
+    },
+    {
+      "name": "vo.cabin.lag.wood.1",
+      "voice": "lag",
+      "say": "There you go. Congratulations, you're almost useful."
+    },
+    {
+      "name": "vo.cabin.lag.wood.2",
+      "voice": "lag",
+      "say": "That one was ugly."
+    },
+    {
+      "name": "vo.cabin.lag.wood.3",
+      "voice": "lag",
+      "say": "Wood still split. Guess it counts."
+    },
+    {
+      "name": "vo.cabin.lag.wood.4",
+      "voice": "lag",
+      "say": "That'll burn."
+    },
+    {
+      "name": "vo.cabin.lag.wood.5",
+      "voice": "lag",
+      "say": "Keep that up, I might let you build the fire."
+    },
+    {
       "name": "vo.bing2.shubenator.intro",
       "voice": "shubenator",
       "say": "Club is closed, glasses are full. Hog Mama, save us from one another."
@@ -20150,11 +20306,6 @@
       "say": "Put it away. I’ll tell you when."
     },
     {
-      "name": "vo.silvercase.control.deke.goodshow",
-      "voice": "npc-male",
-      "say": "That’s — that’s a good show."
-    },
-    {
       "name": "vo.silvercase.control.chester.drink",
       "voice": "chester",
       "say": "You, uh — you want a drink or somethin’?"
@@ -20225,14 +20376,19 @@
       "say": "You want to swing that back around at me, Prospect? Take your time. Think it through."
     },
     {
-      "name": "vo.silvercase.lou.chester.notpersonal",
-      "voice": "chester",
-      "say": "Look, man, it wasn’t personal, we just — we needed the money, we didn’t know whose —"
+      "name": "vo.silvercase.lou.ape.lookslikeabitch",
+      "voice": "ape",
+      "say": "Does he look like a bitch?"
     },
     {
-      "name": "vo.silvercase.lou.ape.evermeet",
+      "name": "vo.silvercase.lou.chester.what",
+      "voice": "chester",
+      "say": "What?"
+    },
+    {
+      "name": "vo.silvercase.lou.ape.lookslikeabitch.again",
       "voice": "ape",
-      "say": "You ever meet Lou?"
+      "say": "Does he look like a bitch?"
     },
     {
       "name": "vo.silvercase.lou.chester.no",
@@ -20240,74 +20396,44 @@
       "say": "No."
     },
     {
-      "name": "vo.silvercase.lou.ape.whatlookslike",
+      "name": "vo.silvercase.lou.ape.mrssputthole",
       "voice": "ape",
-      "say": "Do you know what Lou looks like?"
+      "say": "Then why you trying to fuck him like a bitch? Because the only one he likes to fuck is Mrs. Sputthole."
     },
     {
-      "name": "vo.silvercase.lou.chester.heardofhim",
-      "voice": "chester",
-      "say": "I mean — I’ve heard of him, everybody’s heard of —"
-    },
-    {
-      "name": "vo.silvercase.lou.ape.lookslikeabitch",
+      "name": "vo.silvercase.prayer.ape.sharepassage",
       "voice": "ape",
-      "say": "Does he look like a bitch?"
+      "say": "I’m gonna share a little passage with you."
     },
     {
-      "name": "vo.silvercase.lou.ape.reaction.no",
+      "name": "vo.silvercase.prayer.ape.squatchiel6917",
       "voice": "ape",
-      "say": "Good. Then start acting like it."
+      "say": "Squatchiel. Sixty-nine, seventeen."
     },
     {
-      "name": "vo.silvercase.lou.ape.reaction.absolutelynot",
+      "name": "vo.silvercase.prayer.ape.squatchiel.line1",
       "voice": "ape",
-      "say": "Good. Then start acting like it."
+      "say": "The trail of the righteous Squatch is surrounded on every side by the greed of weak men."
     },
     {
-      "name": "vo.silvercase.lou.ape.reaction.silent",
+      "name": "vo.silvercase.prayer.ape.squatchiel.line2",
       "voice": "ape",
-      "say": "Nothing to say. Smart, for once."
+      "say": "Blessed is the Squatch who walks with his brothers."
     },
     {
-      "name": "vo.silvercase.lou.ape.reaction.lighting",
+      "name": "vo.silvercase.prayer.ape.squatchiel.line3",
       "voice": "ape",
-      "say": "…No. It does not depend on the lighting."
+      "say": "But to those who betray the family, or raise a hand against one of our own..."
     },
     {
-      "name": "vo.silvercase.prayer.ape.onemoment",
+      "name": "vo.silvercase.prayer.ape.squatchiel.line4",
       "voice": "ape",
-      "say": "Lou believes every man should get one moment to understand why this is happening."
+      "say": "I will strike down upon thee with great vengeance and furious anger!"
     },
     {
-      "name": "vo.silvercase.prayer.ape.line1",
-      "voice": "ape",
-      "say": "Great Beast of the dark timber, steady our hands and mark our trail."
-    },
-    {
-      "name": "vo.silvercase.prayer.ape.line2",
-      "voice": "ape",
-      "say": "Let the loyal walk beneath the silver branches."
-    },
-    {
-      "name": "vo.silvercase.prayer.ape.line3",
-      "voice": "ape",
-      "say": "Let thieves hear the footsteps before they see what’s coming."
-    },
-    {
-      "name": "vo.silvercase.prayer.ape.line4",
-      "voice": "ape",
-      "say": "When the forest closes behind us, let it leave no path for betrayal."
-    },
-    {
-      "name": "vo.silvercase.prayer.ape.line5",
-      "voice": "ape",
-      "say": "Silver above. Family below."
-    },
-    {
-      "name": "vo.silvercase.prayer.prospect.nofootprints",
+      "name": "vo.silvercase.prayer.prospect.squatchiel.finish",
       "voice": "player",
-      "say": "No footprints left."
+      "say": "And you will know my name is the Squatch when I lay my vengeance upon thee."
     },
     {
       "name": "vo.silvercase.chair.ape.amen",
@@ -20338,6 +20464,11 @@
       "name": "vo.silvercase.chair.ape.myparttoo",
       "voice": "ape",
       "say": "Lou is going to hear it was mine. That’s twice now I did your part of this."
+    },
+    {
+      "name": "vo.silvercase.bathroom.ape.warning",
+      "voice": "ape",
+      "say": "Bathroom!"
     },
     {
       "name": "vo.silvercase.bathroom.ape.listen",
@@ -20393,21 +20524,6 @@
       "name": "vo.silvercase.aftermath.ape.badideas",
       "voice": "ape",
       "say": "Always check the bathroom. That’s where bad ideas go to load themselves."
-    },
-    {
-      "name": "vo.silvercase.lou.prospect.choice.no",
-      "voice": "player",
-      "say": "No."
-    },
-    {
-      "name": "vo.silvercase.lou.prospect.choice.absolutelynot",
-      "voice": "player",
-      "say": "Absolutely not."
-    },
-    {
-      "name": "vo.silvercase.lou.prospect.choice.lighting",
-      "voice": "player",
-      "say": "Depends on the lighting."
     },
     {
       "name": "vo.enolasquatch.lou.call-opening-1.1",
@@ -25578,156 +25694,6 @@
       "voice": "lola",
       "say": "JOHNNY! You magnificent half-portion — I am not covering your shifts!",
       "direction": "Bereft and furious about the rota in the same scream."
-    },
-    {
-      "name": "vo.cabin.lag.general.arrival",
-      "voice": "lag",
-      "say": "Well, look who finally made it out here."
-    },
-    {
-      "name": "vo.cabin.lag.general.quiet",
-      "voice": "lag",
-      "say": "Hell of a lot quieter than the city, ain't it?"
-    },
-    {
-      "name": "vo.cabin.lag.general.poke",
-      "voice": "lag",
-      "say": "Don't just stand there. Go poke around."
-    },
-    {
-      "name": "vo.cabin.lag.general.more",
-      "voice": "lag",
-      "say": "Place has got more to it than it looks."
-    },
-    {
-      "name": "vo.cabin.lag.cabin.computer",
-      "voice": "lag",
-      "say": "Computer's inside if you're looking for something less outdoorsy."
-    },
-    {
-      "name": "vo.cabin.lag.cabin.computer.old",
-      "voice": "lag",
-      "say": "There's some old stuff in that cabin nobody's bothered throwing away."
-    },
-    {
-      "name": "vo.cabin.lag.cabin.board",
-      "voice": "lag",
-      "say": "Drawing board's worth looking at."
-    },
-    {
-      "name": "vo.cabin.lag.cabin.board.odd",
-      "voice": "lag",
-      "say": "If something looks outta place in there, it probably is."
-    },
-    {
-      "name": "vo.cabin.lag.cabin.bedroom",
-      "voice": "lag",
-      "say": "Check around the bedroom."
-    },
-    {
-      "name": "vo.cabin.lag.cabin.wardrobe",
-      "voice": "lag",
-      "say": "Dry clothes are in the wardrobe. Push past the hangers and look proper."
-    },
-    {
-      "name": "vo.cabin.lag.cabin.entertainment",
-      "voice": "lag",
-      "say": "Radio and television both work. Reception's got opinions about the trees."
-    },
-    {
-      "name": "vo.cabin.lag.property.trail",
-      "voice": "lag",
-      "say": "You see a trail, follow it."
-    },
-    {
-      "name": "vo.cabin.lag.property.bridge",
-      "voice": "lag",
-      "say": "Bridge is worth walking across."
-    },
-    {
-      "name": "vo.cabin.lag.property.creek",
-      "voice": "lag",
-      "say": "Take a look down by the water."
-    },
-    {
-      "name": "vo.cabin.lag.property.shed",
-      "voice": "lag",
-      "say": "There's some spots back in those woods most people walk right past."
-    },
-    {
-      "name": "vo.cabin.lag.property.overlook",
-      "voice": "lag",
-      "say": "Trail keeps going farther than you think."
-    },
-    {
-      "name": "vo.cabin.lag.property.firepit",
-      "voice": "lag",
-      "say": "Whole reason for having a place like this is nobody knows what's out back."
-    },
-    {
-      "name": "vo.cabin.lag.flavor.service",
-      "voice": "lag",
-      "say": "Cell service gets weird past the bridge. That's a feature."
-    },
-    {
-      "name": "vo.cabin.lag.flavor.eyes",
-      "voice": "lag",
-      "say": "If you see two eyes looking back at you, mind your business."
-    },
-    {
-      "name": "vo.cabin.lag.flavor.breaks",
-      "voice": "lag",
-      "say": "Around here, if something breaks, you either fix it or learn to live without it."
-    },
-    {
-      "name": "vo.cabin.lag.flavor.dark",
-      "voice": "lag",
-      "say": "Gets dark as hell out here."
-    },
-    {
-      "name": "vo.cabin.lag.after.good",
-      "voice": "lag",
-      "say": "Find anything good?"
-    },
-    {
-      "name": "vo.cabin.lag.after.more",
-      "voice": "lag",
-      "say": "You ain't seen all of it."
-    },
-    {
-      "name": "vo.cabin.lag.after.missed",
-      "voice": "lag",
-      "say": "There's still a couple places you missed."
-    },
-    {
-      "name": "vo.cabin.lag.after.no-spoil",
-      "voice": "lag",
-      "say": "I'm not telling you exactly where it is. That ruins it."
-    },
-    {
-      "name": "vo.cabin.lag.wood.1",
-      "voice": "lag",
-      "say": "There you go. Congratulations, you're almost useful."
-    },
-    {
-      "name": "vo.cabin.lag.wood.2",
-      "voice": "lag",
-      "say": "That one was ugly."
-    },
-    {
-      "name": "vo.cabin.lag.wood.3",
-      "voice": "lag",
-      "say": "Wood still split. Guess it counts."
-    },
-    {
-      "name": "vo.cabin.lag.wood.4",
-      "voice": "lag",
-      "say": "That'll burn."
-    },
-    {
-      "name": "vo.cabin.lag.wood.5",
-      "voice": "lag",
-      "say": "Keep that up, I might let you build the fire."
     },
     {
       "name": "vo.door.refusal.heist_cleanup.1",

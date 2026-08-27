@@ -8,7 +8,7 @@
  */
 
 import * as THREE from 'three';
-import { box, boxFrom, cylinder, plane, mat, collider, group, yawToward } from '../world/build.js';
+import { box, boxFrom, cylinder, sphere, plane, mat, collider, group, yawToward } from '../world/build.js';
 import { makeMaterials } from '../world/materials.js';
 import * as T from '../world/textures.js';
 import * as P from '../world/props.js';
@@ -80,7 +80,6 @@ export const LUXURY_EXTRA_ART_SLOTS = Object.freeze([
   'luxury.stair.memory.b',
   'luxury.bedroom.private',
   'luxury.office.victory',
-  'luxury.arcade.marquee',
   'luxury.poker.champions',
   'luxury.bath.monochrome',
 ]);
@@ -94,7 +93,7 @@ export const LUXURY_ART_SLOTS = Object.freeze([...new Set([
 ])]);
 
 /** Art physically hung on a wall: inherited frames, the two banners and
- * crest, and the fourteen authored late-game works. */
+ * crest, and the thirteen non-conflicting authored late-game works. */
 export const LUXURY_HUNG_ART_SLOTS = Object.freeze([...new Set([
   ...WALL_SLOTS.map(({ slot }) => slot),
   ...BATH_SLOTS.map(({ slot }) => slot),
@@ -288,11 +287,11 @@ export async function buildLuxuryApartment(ctx = {}) {
   const poses = Object.freeze({
     bed: pose([7.02, LOFT_Y + 1.05, -6.62], [7.02, LOFT_Y + 0.8, -7.52], -0.08, [5.55, LOFT_Y, -5.82]),
     couch: pose([3.15, 1.12, 3.25], [7.55, 1.0, 3.25], -0.03, [1.85, MAIN_Y, 3.25]),
-    desk: pose([0.12, LOFT_Y + 1.24, -5.68], [0.12, LOFT_Y + 0.88, -6.55], -0.05, [-0.75, LOFT_Y, -4.90]),
+    desk: pose([0.12, LOFT_Y + 1.24, -6.19], [0.12, LOFT_Y + 0.88, -7.06], -0.05, [-0.75, LOFT_Y, -5.41]),
     tv: pose([3.18, 1.12, 3.25], [7.72, 0.92, 3.25], -0.03, [1.85, MAIN_Y, 3.25]),
-    radio: pose([1.70, 1.10, 5.95], [1.70, 0.85, 6.70], -0.12, [1.70, MAIN_Y, 5.05]),
+    radio: pose([1.70, 1.10, 6.47], [1.70, 0.85, 7.28], -0.12, [1.70, MAIN_Y, 5.70]),
     kitchen: pose([8.90, 1.62, -0.20], [10.35, 0.92, -0.20], -0.25, [8.15, MAIN_Y, 0.80]),
-    shower: pose([-9.82, MAIN_Y + 1.64, -2.24], [-9.82, MAIN_Y + 1.85, -3.18], -0.05, [-8.82, MAIN_Y, -1.42]),
+    shower: pose([-9.92, MAIN_Y + 1.64, -2.80], [-9.92, MAIN_Y + 1.85, -3.48], -0.05, [-8.70, MAIN_Y, -1.56]),
     wardrobe: pose([9.02, LOFT_Y + 1.10, -3.65], [9.65, LOFT_Y + 1.2, -4.25], -0.02, [8.05, LOFT_Y, -3.80]),
     arcade: pose([-5.42, 1.62, 2.13], [-5.42, 1.67, 1.46], 0.075, [-4.55, MAIN_Y, 2.72]),
     poker: pose([-2.45, 1.12, 4.82], [-2.45, 0.76, 3.80], -0.15, [-1.45, MAIN_Y, 5.08]),
@@ -386,7 +385,11 @@ export async function buildLuxuryApartment(ctx = {}) {
     },
   });
   register('elevator', doors.elevator.target, {
-    label: () => state.elevatorOpen ? 'Take the private <b>elevator</b>' : 'Call the private <b>elevator</b>',
+    label: () => {
+      const status = ctx.elevatorStatus?.();
+      if (status && !status.ready) return 'Private <b>elevator</b> · get ready first';
+      return state.elevatorOpen ? 'Take the private <b>elevator</b>' : 'Call the private <b>elevator</b>';
+    },
     onUse: () => {
       const result = ctx.onElevator?.(state.elevatorOpen ? 'ride' : 'call');
       if (result !== false) doors.elevator.toggle();
@@ -592,6 +595,9 @@ export async function buildLuxuryApartment(ctx = {}) {
   for (const [id, stationValue] of Object.entries(gameStations)) {
     if (id === 'pc' || id === 'console') continue; // desk/TV already own prompts
     register(`minigame.${id}`, stationValue.target, {
+      // Poker still offers the natural "Play" affordance. Selecting it owns
+      // the authored reveal that Tony has nobody here to deal; the prompt
+      // itself does not spoil the refusal before the player tries the table.
       label: `Play <b>${id === 'arcade' ? 'Squatch arcade' : id}</b>`,
       onUse: () => ctx.onMinigame?.(id, stationValue),
     });
@@ -602,6 +608,7 @@ export async function buildLuxuryApartment(ctx = {}) {
   doors.front.onState = (open) => { state.frontDoorOpen = open; };
   doors.elevator.onState = (open) => { state.elevatorOpen = open; };
   doors.bathroom.onState = (open) => { state.bathroomDoorOpen = open; };
+  state.bathroomDoorOpen = doors.bathroom.isOpen();
   setCityTime(state.cityMinutes);
   const afterDark = state.cityMinutes < 7 * 60 || state.cityMinutes >= 18 * 60;
   setLights('all', afterDark, { automatic: true });
@@ -794,6 +801,13 @@ function makeLuxuryMaterials(M) {
   M.cityBlue = new THREE.MeshBasicMaterial({ color: 0x0d1b2b, toneMapped: false });
   M.cityRoof = new THREE.MeshBasicMaterial({ color: 0x25354a, toneMapped: false });
   M.cityGround = mat({ color: 0x11161b, roughness: 0.96 });
+  M.bathGlass = M.windowGlass.clone();
+  M.bathGlass.color.set(0xe8f4f7);
+  M.bathGlass.transparent = true;
+  M.bathGlass.opacity = 0.24;
+  M.bathGlass.depthWrite = false;
+  M.bathGlass.roughness = 0.08;
+  if ('transmission' in M.bathGlass) M.bathGlass.transmission = 0.92;
   return M;
 }
 
@@ -869,7 +883,7 @@ function buildShell({ root, city, M, colliders, occluders, floorZones }) {
   });
   addBounds(colliders, [[x0 + WALL, 0, z0 + 0.04], [LUXURY_APARTMENT.stair.x0 - 0.095, LOFT_Y - 0.05, LUXURY_APARTMENT.bathroom.z0 - 0.04]],
     'luxury-sealed-under-loft-west-back', 0, 'luxury-service-plinth-collision', 'world');
-  addBounds(colliders, [[LUXURY_APARTMENT.stair.x1 + 0.095, 0, z0 + 0.04], [6.70, LOFT_Y - 0.05, loft.z1]],
+  addBounds(colliders, [[bath.x1 + 0.10, 0, z0 + 0.04], [6.70, LOFT_Y - 0.05, loft.z1]],
     'luxury-sealed-under-loft-east-west-run', 0, 'luxury-service-plinth-collision', 'world');
   addBounds(colliders, [[9.00, 0, z0 + 0.04], [x1 - WALL, LOFT_Y - 0.05, loft.z1]],
     'luxury-sealed-under-loft-east-east-run', 0, 'luxury-service-plinth-collision', 'world');
@@ -1317,6 +1331,8 @@ function buildPivotDoor({
   openYaw,
   axis,
   locked = false,
+  leafMaterial = M.darkWood,
+  initiallyOpen = false,
   collisionEdgeInset = null,
   collisionHalfThickness = 0.055,
 }) {
@@ -1327,7 +1343,7 @@ function buildPivotDoor({
     name: `luxury-${id}-door-leaf`,
     size: axis === 'z' ? [0.10, height, width] : [width, height, 0.10],
     pos: axis === 'z' ? [0, height / 2, width / 2] : [width / 2, height / 2, 0],
-    mat: M.darkWood,
+    mat: leafMaterial,
   });
   own(leaf, `luxury-door:${id}`);
   pivot.add(leaf);
@@ -1365,14 +1381,18 @@ function buildPivotDoor({
     `luxury-door-collision:${id}`,
     'door',
   );
-  let want = 0;
-  let current = 0;
+  let want = initiallyOpen ? 1 : 0;
+  let current = want;
+  pivot.rotation.y = THREE.MathUtils.lerp(closedYaw, openYaw, current);
 
   const syncCollider = () => {
     const yaw = THREE.MathUtils.lerp(closedYaw, openYaw, current);
     const end = axis === 'z'
       ? new THREE.Vector3(hinge.x - Math.sin(yaw) * width, 0, hinge.z + Math.cos(yaw) * width)
-      : new THREE.Vector3(hinge.x + Math.cos(yaw) * width, 0, hinge.z + Math.sin(yaw) * width);
+      // THREE's Y rotation sends local +X toward world -Z. Keeping the
+      // collision endpoint on that same transform prevents an open leaf from
+      // blocking the opposite side of the jamb from the visible glass.
+      : new THREE.Vector3(hinge.x + Math.cos(yaw) * width, 0, hinge.z - Math.sin(yaw) * width);
     if (collisionEdgeInset !== null) {
       // Door leaves legitimately meet their jambs. Model the actual thin leaf
       // instead of the broad endpoint padding used by the older entry door,
@@ -1895,7 +1915,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   );
   const couchReturn = addProp(furnishings, makeOrientedCouch({
     x: 4.50,
-    z: 4.40,
+    z: 5.30,
     len: 2.18,
     depth: 0.94,
     rotY: Math.PI / 2,
@@ -1953,24 +1973,40 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   tvGlow.position.set(7.32, 1.25, 3.28);
   furnishings.add(tvGlow);
 
-  const sideboard = addProp(furnishings, P.makeSideboard(M, { x: 1.72, z: 6.78, w: 2.25, d: 0.52 }), 'luxury-hifi-sideboard');
-  const radioPos = new THREE.Vector3(1.72, sideboard.top, 6.66);
-  const radio = P.makeRadio(M, { x: radioPos.x, y: radioPos.y, z: radioPos.z, rotY: Math.PI });
+  // Build the complete entertainment console in local space. Its shared
+  // sideboard fronts +Z, so the 180-degree parent turn faces the room while
+  // moving the receiver, phone and answering machine with the cabinet.
+  const consoleX = 1.72;
+  const consoleZ = 7.40;
+  const entertainmentConsole = group('luxury-entertainment-console');
+  entertainmentConsole.position.set(consoleX, 0, consoleZ);
+  entertainmentConsole.rotation.y = Math.PI;
+  furnishings.add(own(entertainmentConsole, 'luxury-prop:entertainment-console'));
+  const sideboard = P.makeSideboard(M, { x: 0, z: 0, w: 2.25, d: 0.52 });
+  sideboard.group.name = 'luxury-hifi-sideboard';
+  entertainmentConsole.add(own(sideboard.group, 'luxury-prop:luxury-hifi-sideboard'));
+  sideboard.collider = addBounds(colliders,
+    [[consoleX - 1.125, 0, consoleZ - 0.26], [consoleX + 1.125, 0.70, consoleZ + 0.26]],
+    'luxury-hifi-sideboard-collider', 0, 'luxury-prop-collision:luxury-hifi-sideboard', 'prop');
+  const radioLocal = new THREE.Vector3(0, sideboard.top, 0.12);
+  const radio = P.makeRadio(M, { x: radioLocal.x, y: radioLocal.y, z: radioLocal.z, rotY: 0 });
   radio.group.name = 'luxury-hifi';
-  furnishings.add(own(radio.group, 'luxury-prop:hifi'));
-  const phone = P.makePhone(M, { x: 2.36, y: sideboard.top + 0.01, z: 6.68, rotY: 0.28 });
+  entertainmentConsole.add(own(radio.group, 'luxury-prop:hifi'));
+  const phone = P.makePhone(M, { x: -0.64, y: sideboard.top + 0.01, z: 0.10, rotY: -0.28 });
   phone.group.name = 'luxury-phone';
-  furnishings.add(own(phone.group, 'luxury-prop:phone'));
-  const phoneTarget = proxy('luxury-phone-target', [0.32, 0.30, 0.34], [2.36, sideboard.top + 0.15, 6.68], furnishings);
-  const answeringMachine = makeAnswerMachine(M, { x: 1.02, y: sideboard.top, z: 6.67, rotY: Math.PI });
+  entertainmentConsole.add(own(phone.group, 'luxury-prop:phone'));
+  const phoneTarget = proxy('luxury-phone-target', [0.32, 0.30, 0.34], [-0.64, sideboard.top + 0.15, 0.10], entertainmentConsole);
+  const answeringMachine = makeAnswerMachine(M, { x: 0.70, y: sideboard.top, z: 0.11, rotY: 0 });
   answeringMachine.group.name = 'luxury-answering-machine';
-  furnishings.add(own(answeringMachine.group, 'luxury-prop:answering-machine'));
+  entertainmentConsole.add(own(answeringMachine.group, 'luxury-prop:answering-machine'));
   const answeringMachineTarget = proxy(
     'luxury-answering-machine-target',
     [0.38, 0.30, 0.34],
-    [1.02, sideboard.top + 0.14, 6.67],
-    furnishings,
+    [0.70, sideboard.top + 0.14, 0.11],
+    entertainmentConsole,
   );
+  entertainmentConsole.updateMatrixWorld(true);
+  const radioPos = entertainmentConsole.localToWorld(radioLocal.clone());
 
   // Reuse the apartment kitchen at a translated Z origin. The builder's
   // returned handle positions receive the same translation exactly once.
@@ -1994,6 +2030,24 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
 
   const fridge = addProp(furnishings, P.makeFridge(M, { x: 10.37, z: 6.92, w: 0.92, d: 0.80, h: 2.12 }), 'luxury-panelled-fridge');
   const fridgeArt = dressLuxuryFridge(fridge, M, gear);
+  // A fitted under-counter wine cooler closes the dead metre between the
+  // translated cabinet run and the fridge without inventing a second kitchen
+  // style. It uses the same cabinet, steel and smoked-glass finish language.
+  const fittedAppliance = group('luxury-fitted-wine-cooler');
+  fittedAppliance.add(
+    box({ name: 'luxury-fitted-wine-cooler-body', size: [0.62, 0.84, 1.08], pos: [10.42, 0.42, 5.86], mat: M.cabinet }),
+    box({ name: 'luxury-fitted-wine-cooler-face', size: [0.025, 0.72, 0.98], pos: [10.095, 0.43, 5.86], mat: M.marbleDark }),
+    box({ name: 'luxury-fitted-wine-cooler-handle', size: [0.035, 0.035, 0.68], pos: [10.072, 0.71, 5.86], mat: M.chrome }),
+  );
+  for (let shelf = 0; shelf < 4; shelf++) fittedAppliance.add(box({
+    name: `luxury-fitted-wine-cooler-shelf-${shelf}`,
+    size: [0.018, 0.018, 0.84],
+    pos: [10.057, 0.20 + shelf * 0.15, 5.86],
+    mat: M.steel,
+  }));
+  furnishings.add(own(fittedAppliance, 'luxury-prop:fitted-wine-cooler'));
+  addBounds(colliders, [[10.08, 0, 5.31], [10.75, 0.86, 6.41]],
+    'luxury-fitted-wine-cooler-collider', 0, 'luxury-prop-collision:fitted-wine-cooler', 'prop');
   const pan = P.makePan(M, { x: kitchen.hob.x, y: kitchen.hob.y, z: kitchen.hob.z, rotY: -1.05 });
   pan.group.name = 'luxury-kitchen-pan';
   furnishings.add(own(pan.group, 'luxury-prop:kitchen-pan'));
@@ -2046,19 +2100,26 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   });
   furnishings.add(own(eggs.group, 'luxury-prop:eggs'), own(milk.group, 'luxury-prop:milk'), own(cereal.group, 'luxury-prop:cereal'));
 
-  for (const [x, z, scale] of [[7.75, 7.18, 1.20], [-0.15, 7.02, 1.12], [9.1, 0.50, 1.12]]) {
+  for (const [x, z, scale] of [[7.75, 7.18, 1.20], [0.15, 7.52, 1.12], [9.1, 0.50, 1.12]]) {
     addProp(furnishings, P.makePlant(M, { x, z, scale }), `luxury-main-plant-${x}-${z}`);
   }
 
   /* Loft: bedroom, open office and wardrobe share one upper plate and
    * look over the main room. Props stay local to loftContents (Y=3.30). */
   const bed = addProp(loftContents, P.makeBed(M, { x: 7.05, z: -6.70, w: 2.05, len: 2.35 }), 'luxury-loft-bed', LOFT_Y);
-  const nightLeft = addProp(loftContents, P.makeNightstand(M, { x: 5.68, z: -6.94 }), 'luxury-nightstand-left', LOFT_Y);
-  const nightRight = addProp(loftContents, P.makeNightstand(M, { x: 8.42, z: -6.94 }), 'luxury-nightstand-right', LOFT_Y);
+  const makeOrientedNightstand = (x, z) => {
+    const built = P.makeNightstand(M, { x: 0, z: 0 });
+    built.group.position.set(x, 0, z);
+    built.group.rotation.y = Math.PI;
+    built.bounds = [[x - 0.26, 0, z - 0.22], [x + 0.26, 0.55, z + 0.22]];
+    return built;
+  };
+  const nightLeft = addProp(loftContents, makeOrientedNightstand(5.68, -7.48), 'luxury-nightstand-left', LOFT_Y);
+  const nightRight = addProp(loftContents, makeOrientedNightstand(8.42, -7.48), 'luxury-nightstand-right', LOFT_Y);
   void nightRight;
   const desk = addProp(loftContents, P.makeDesk(M, {
     x: 0.15,
-    z: -6.54,
+    z: -7.05,
     w: 2.85,
     d: 0.78,
     towerSticker: propTexture('sticker.tower'),
@@ -2066,7 +2127,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   const zyn = P.makeZynCan(M, {
     x: 1.34,
     y: desk.top + 0.01,
-    z: -6.28,
+    z: -6.80,
     rotY: 0.34,
     lidTexture: propTexture('zyn.lid'),
   });
@@ -2080,11 +2141,11 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   const deskChairMaterials = { ...M, fabricCouch: M.black };
   const chair = addProp(loftContents, P.makeChair(deskChairMaterials, {
     x: 0.15,
-    z: -5.56,
+    z: -6.07,
     rotY: Math.PI,
   }), 'luxury-loft-chair', LOFT_Y, 'seat');
   chair.group.userData.workstationMaterial = 'dark';
-  const bedroomPhone = P.makePhone(M, { x: 5.66, y: nightLeft.top + 0.01, z: -6.93, rotY: -0.35 });
+  const bedroomPhone = P.makePhone(M, { x: 5.66, y: nightLeft.top + 0.01, z: -7.28, rotY: Math.PI - 0.35 });
   bedroomPhone.group.name = 'luxury-bedroom-spare-phone';
   loftContents.add(own(bedroomPhone.group, 'luxury-prop:bedroom-phone'));
 
@@ -2173,18 +2234,23 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     closedYaw: 0,
     openYaw: -Math.PI / 2,
     axis: 'x',
-    collisionEdgeInset: 0.025,
+    leafMaterial: M.bathGlass,
+    initiallyOpen: true,
+    // The glass still meets the jamb visually; the collision leaf stops short
+    // of both finished returns so the hinge cannot become a second wall while
+    // the door swings through its fully-open resting angle.
+    collisionEdgeInset: 0.085,
   });
 
   // Keep a full turning bay between the newly reachable door and the tub.
   // The old south edge left exactly one player diameter and turned the open
   // door into a second obstruction even after the stair-rail issue was fixed.
-  const tub = P.makeTub(M, { x0: -10.50, z0: -3.92, x1: -9.12, z1: -2.02 });
+  const tub = P.makeTub(M, { x0: -10.50, z0: -3.88, x1: -9.35, z1: -2.42 });
   // Seat the cistern against the finished north face and keep the shared sink
   // frame entirely inside the east shell. Both had small but visible air/bleed
   // gaps after the bathroom moved out of the loft.
-  const toilet = P.makeToilet(M, { x: -8.52, z: -3.58, rotY: 0 });
-  const sink = P.makeBathSink(M, { x: -8.17, z: -2.16, rotY: -Math.PI / 2 });
+  const toilet = P.makeToilet(M, { x: -7.55, z: -3.62, rotY: 0 });
+  const sink = P.makeBathSink(M, { x: -7.30, z: -2.05, rotY: -Math.PI / 2 });
   addProp(furnishings, tub, 'luxury-rainfall-shower', 0);
   const toiletCollision = toilet.bounds.map((corner) => [...corner]);
   toiletCollision[0][2] = bath.z0 + 0.14;
@@ -2202,10 +2268,12 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
       && Math.abs(child.position.z + 0.10) < 0.01) child.visible = false;
   }
   const toiletPaper = group('luxury-wall-toilet-paper');
+  const paperWallX = bath.x1 - 0.115;
+  const paperRollX = bath.x1 - 0.215;
   toiletPaper.add(
-    box({ name: 'luxury-toilet-paper-wall-plate', size: [0.035, 0.15, 0.15], pos: [-7.955, 0.72, -3.02], mat: M.chrome }),
-    cylinder({ name: 'luxury-toilet-paper-holder', r: 0.009, h: 0.16, pos: [-8.055, 0.72, -3.02], rotZ: Math.PI / 2, mat: M.chrome }),
-    cylinder({ name: 'luxury-toilet-paper-roll', r: 0.057, h: 0.11, pos: [-8.055, 0.72, -3.02], rotZ: Math.PI / 2, mat: M.paper }),
+    box({ name: 'luxury-toilet-paper-wall-plate', size: [0.035, 0.15, 0.15], pos: [paperWallX, 0.72, -3.02], mat: M.chrome }),
+    cylinder({ name: 'luxury-toilet-paper-holder', r: 0.009, h: 0.16, pos: [paperRollX, 0.72, -3.02], rotZ: Math.PI / 2, mat: M.chrome }),
+    cylinder({ name: 'luxury-toilet-paper-roll', r: 0.057, h: 0.11, pos: [paperRollX, 0.72, -3.02], rotZ: Math.PI / 2, mat: M.paper }),
   );
   markSemanticPlacement(toiletPaper, {
     id: 'luxury.bathroom.toilet-paper-wall-mount',
@@ -2231,9 +2299,21 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   bathShell.userData.floorZone = bathZone;
   floorZones.unshift(bathZone);
 
-  for (const [x, z, scale] of [[2.7, -2.15, 1.20], [10.1, -7.0, 1.05], [-8.9, -6.8, 1.12]]) {
+  for (const [x, z, scale] of [[9.86, -2.04, 1.20], [10.1, -7.0, 1.05], [-8.9, -6.8, 1.12]]) {
     addProp(loftContents, P.makePlant(M, { x, z, scale }), `luxury-loft-plant-${x}-${z}`, LOFT_Y);
   }
+
+  // A small silver Sasquatch bust catches the eye at the top landing without
+  // stealing the 1.2m circulation lane around the stair rail.
+  const stairFocal = group('luxury-top-stair-focal');
+  stairFocal.add(
+    cylinder({ name: 'luxury-top-stair-focal-plinth', rTop: 0.20, rBottom: 0.24, h: 0.54, pos: [-6.48, 0.27, -1.70], mat: M.marbleDark }),
+    sphere({ name: 'luxury-top-stair-focal-body', r: 0.16, ry: 0.22, pos: [-6.48, 0.69, -1.70], mat: M.steel }),
+    sphere({ name: 'luxury-top-stair-focal-head', r: 0.105, pos: [-6.48, 0.94, -1.70], mat: M.steel }),
+  );
+  loftContents.add(own(stairFocal, 'luxury-prop:top-stair-focal'));
+  addBounds(colliders, [[-6.72, 0, -1.94], [-6.24, 1.05, -1.46]],
+    'luxury-top-stair-focal-collider', LOFT_Y, 'luxury-prop-collision:top-stair-focal', 'prop');
 
   const bedTarget = proxy('luxury-bed-target', [2.20, 0.72, 2.45], [7.05, LOFT_Y + 0.88, -6.70], furnishings);
   const couchTarget = proxy('luxury-couch-target', [1.25, 0.86, 3.10], [2.90, 0.92, 3.27], furnishings);
@@ -2270,6 +2350,9 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     tub,
     toilet,
     sink,
+    fittedAppliance,
+    entertainmentConsole,
+    stairFocal,
     bathShell,
     bathDoor,
     toiletPaper,
@@ -2317,6 +2400,75 @@ function dressLuxuryFridge(fridge, M, gear) {
     placements[item.slot] = decal.group;
   }
   return placements;
+}
+
+export const LUXURY_DARTBOARD_SECTIONS = Object.freeze([
+  20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5,
+]);
+
+function makeDartboardFace() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 1024;
+  const ctx = canvas.getContext('2d');
+  const center = 512;
+  const radius = 480;
+  const sector = Math.PI * 2 / LUXURY_DARTBOARD_SECTIONS.length;
+  const start = -Math.PI / 2 - sector / 2;
+  const wedge = (inner, outer, index, color) => {
+    const a0 = start + index * sector;
+    const a1 = a0 + sector;
+    ctx.beginPath();
+    ctx.arc(center, center, outer * radius, a0, a1);
+    ctx.arc(center, center, inner * radius, a1, a0, true);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  };
+
+  ctx.fillStyle = '#121313';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let index = 0; index < LUXURY_DARTBOARD_SECTIONS.length; index++) {
+    const light = index % 2 === 0;
+    wedge(0.10, 0.53, index, light ? '#e5ddc7' : '#1b1d1d');
+    wedge(0.53, 0.63, index, light ? '#b72d2b' : '#28714d');
+    wedge(0.63, 0.90, index, light ? '#e5ddc7' : '#1b1d1d');
+    wedge(0.90, 0.98, index, light ? '#b72d2b' : '#28714d');
+  }
+  ctx.beginPath();
+  ctx.arc(center, center, radius * 0.10, 0, Math.PI * 2);
+  ctx.fillStyle = '#28714d';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(center, center, radius * 0.047, 0, Math.PI * 2);
+  ctx.fillStyle = '#b72d2b';
+  ctx.fill();
+  ctx.strokeStyle = '#c7baa0';
+  ctx.lineWidth = 4;
+  for (let index = 0; index < LUXURY_DARTBOARD_SECTIONS.length; index++) {
+    const angle = start + index * sector;
+    ctx.beginPath();
+    ctx.moveTo(center + Math.cos(angle) * radius * 0.10, center + Math.sin(angle) * radius * 0.10);
+    ctx.lineTo(center + Math.cos(angle) * radius * 0.98, center + Math.sin(angle) * radius * 0.98);
+    ctx.stroke();
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '700 46px Arial, sans-serif';
+  ctx.fillStyle = '#f4ead5';
+  for (let index = 0; index < LUXURY_DARTBOARD_SECTIONS.length; index++) {
+    const angle = -Math.PI / 2 + index * sector;
+    ctx.fillText(
+      String(LUXURY_DARTBOARD_SECTIONS[index]),
+      center + Math.cos(angle) * radius * 0.85,
+      center + Math.sin(angle) * radius * 0.85,
+    );
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
 }
 
 function buildGameZone({ root, M, colliders }) {
@@ -2508,6 +2660,7 @@ function buildGameZone({ root, M, colliders }) {
    * on the built world afterwards, every cushion top sits at y=0.560 and the
    * next thing above it within a 0.30 m plan radius is the CEILING, 6.240 m up.
    */
+  const pokerPatrons = [];
 
   const dartsGroup = group('luxury-darts-station');
   const dartX = -6.78;
@@ -2528,13 +2681,22 @@ function buildGameZone({ root, M, colliders }) {
   board.position.set(dartX, dartY, dartZ);
   board.rotation.x = Math.PI / 2;
   dartsGroup.add(board);
-  for (let ring = 0; ring < 5; ring++) {
-    const r = 0.36 - ring * 0.068;
-    const marker = new THREE.Mesh(new THREE.TorusGeometry(r, 0.008, 6, 42), ring % 2 ? M.trim : M.marble);
-    marker.name = `luxury-darts-ring-${ring}`;
-    marker.position.set(dartX, dartY, dartZ + 0.045);
-    dartsGroup.add(marker);
-  }
+  const dartFaceMaterial = new THREE.MeshStandardMaterial({
+    map: makeDartboardFace(),
+    roughness: 0.72,
+    emissive: 0x000000,
+    emissiveIntensity: 0,
+  });
+  const dartFace = plane(0.86, 0.86, dartFaceMaterial);
+  dartFace.name = 'luxury-darts-numbered-face';
+  dartFace.position.set(dartX, dartY, dartZ + 0.046);
+  dartsGroup.add(dartFace);
+  const dartLight = new THREE.SpotLight(0xffe3b0, 34, 4.5, Math.PI / 7, 0.58, 1.6);
+  dartLight.name = 'luxury-darts-board-light';
+  dartLight.position.set(dartX + 0.72, dartY + 1.06, dartZ + 1.36);
+  dartLight.target = dartFace;
+  dartLight.castShadow = false;
+  dartsGroup.add(dartLight);
   const oche = box({
     name: 'luxury-darts-oche',
     size: [1.10, 0.025, 0.07],
@@ -2577,6 +2739,9 @@ function buildGameZone({ root, M, colliders }) {
       group: dartsGroup,
       target: dartsTarget,
       board,
+      face: dartFace,
+      light: dartLight,
+      sections: LUXURY_DARTBOARD_SECTIONS,
       backing: boardBacking,
       rack: dartRack,
       impactRoot,
@@ -2727,9 +2892,8 @@ function makeLuxuryExtraPlacements() {
     ['luxury.loft.triptych.c', { x: -7.70, y: LOFT_Y + 1.55, z: northZ, rotY: 0, height: 0.68, aspect: 1.2, zone: 'loft-triptych' }],
     ['luxury.stair.memory.a', { x: westX, y: 1.58, z: 0.78, rotY: Math.PI / 2, height: 0.62, aspect: 1.45, zone: 'stair-gallery' }],
     ['luxury.stair.memory.b', { x: westX, y: 2.42, z: 2.22, rotY: Math.PI / 2, height: 0.62, aspect: 1.45, zone: 'stair-gallery' }],
-    ['luxury.bedroom.private', { x: 7.05, y: LOFT_Y + 1.70, z: northZ, rotY: 0, height: 0.72, aspect: 1.45, zone: 'bedroom-headboard-wall' }],
+    ['luxury.bedroom.private', { x: 6.35, y: LOFT_Y + 2.15, z: northZ, rotY: 0, height: 0.62, aspect: 1.45, zone: 'bedroom-headboard-wall' }],
     ['luxury.office.victory', { x: 0.15, y: LOFT_Y + 1.56, z: northZ, rotY: 0, height: 0.72, aspect: 1.65, zone: 'office' }],
-    ['luxury.arcade.marquee', { x: -5.55, y: 1.72, z: plinthZ, rotY: 0, height: 0.58, aspect: 1.65, zone: 'arcade' }],
     ['luxury.poker.champions', { x: -3.35, y: 1.72, z: plinthZ, rotY: 0, height: 0.68, aspect: 1.50, zone: 'poker' }],
     ['luxury.bath.monochrome', { x: -8.52, y: 1.55, z: LUXURY_APARTMENT.bathroom.z0 + 0.125, rotY: 0, height: 0.62, aspect: 1.0, zone: 'under-stair-bathroom' }],
   ]);
@@ -2751,23 +2915,23 @@ function makeSemanticArtPlacements(domestic) {
       width: 1.05, height: 0.54, zone: 'bedroom-privacy-wall',
     }],
     ['crest.round', {
-      kind: 'crest', x: -6.40, y: 1.72, z: plinthZ, rotY: 0,
+      kind: 'crest', x: -5.55, y: 1.72, z: plinthZ, rotY: 0,
       radius: 0.29, height: 0.58, aspect: 1, zone: 'main-games-crest',
     }],
     ['shelf.photo', {
-      kind: 'standing', x: 0.74, y: domestic.sideboard.top + 0.01, z: 6.61,
+      kind: 'standing', x: 2.37, y: domestic.sideboard.top + 0.01, z: 7.19,
       rotY: Math.PI - 0.24, height: 0.18, zone: 'main-sideboard-display',
     }],
     ['sideboard.photo', {
-      kind: 'standing', x: 2.71, y: domestic.sideboard.top + 0.01, z: 6.61,
+      kind: 'standing', x: 0.75, y: domestic.sideboard.top + 0.01, z: 7.19,
       rotY: Math.PI + 0.20, height: 0.17, zone: 'main-sideboard-display',
     }],
     ['desk.photo', {
-      kind: 'standing', x: 1.34, y: LOFT_Y + domestic.desk.top + 0.01, z: -6.58,
+      kind: 'standing', x: 1.34, y: LOFT_Y + domestic.desk.top + 0.01, z: -6.84,
       rotY: 0.20, height: 0.13, zone: 'loft-office-desktop',
     }],
     ['night.photo', {
-      kind: 'standing', x: 8.42, y: LOFT_Y + domestic.nightRight.top + 0.01, z: -6.92,
+      kind: 'standing', x: 8.42, y: LOFT_Y + domestic.nightRight.top + 0.01, z: -7.27,
       rotY: -0.82, height: 0.15, zone: 'loft-bedroom-nightstand',
     }],
     ['shrine.b', {
@@ -2780,6 +2944,27 @@ function makeSemanticArtPlacements(domestic) {
     }],
   ]) placements.set(slot, placement);
 
+  // The named history row sits high enough to clear the pushed-back desk and
+  // monitors, while the two personal bedroom photographs live above the
+  // headboard instead of being hidden behind it.
+  for (const [slot, x] of [
+    ['feature.stacks', -1.25],
+    ['couch.left', -0.42],
+    ['couch.right', 0.42],
+    ['west.late', 1.25],
+  ]) placements.set(slot, {
+    x, y: LOFT_Y + 2.40, z: LUXURY_APARTMENT.z0 + 0.045, rotY: 0,
+    height: 0.44, zone: 'loft-office-history-row',
+  });
+  placements.set('bath.toilet.poster', {
+    x: 7.65, y: LOFT_Y + 2.14, z: LUXURY_APARTMENT.z0 + 0.045, rotY: 0,
+    height: 0.48, zone: 'bedroom-headboard-photos',
+  });
+  placements.set('cork.above', {
+    x: 8.55, y: LOFT_Y + 2.11, z: LUXURY_APARTMENT.z0 + 0.045, rotY: 0,
+    height: 0.48, zone: 'bedroom-headboard-photos',
+  });
+
   return placements;
 }
 
@@ -2788,7 +2973,7 @@ function makeGalleryPlacements(count) {
   // Two salon rows preserve a clear middle register for the named luxury
   // triptych, office, bedroom, and bathroom works.
   const northXs = Array.from({ length: 18 }, (_, i) => -9.35 + i * 1.10);
-  const northYs = [LOFT_Y + 0.62, LOFT_Y + 2.47];
+  const northYs = [LOFT_Y + 0.80, LOFT_Y + 3.05];
   for (let row = 0; row < northYs.length; row++) {
     for (let col = 0; col < northXs.length; col++) {
       placements.push({

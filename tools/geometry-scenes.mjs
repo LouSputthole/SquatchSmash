@@ -133,20 +133,17 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
   ...HEIST_PREVIEW_CHECKPOINTS.map((checkpoint) => entry(
     'heist', checkpoint.replaceAll('_', '-'), 'heist', ['heist'], { checkpoint },
   )),
-  /* THE CABIN IS NO LONGER ACTORLESS. Lag lives visibly at the woodpile, so an
-   * empty cabin cast is a defect. */
+  /* Lag lives visibly at the woodpile, so an empty Cabin cast is a defect. */
   entry('cabin', 'property', 'cabin', ['cabin'], {
     actorExpectation: requiredActors(
       'The countryside hideout visibly stages Lag at the woodpile.',
     ),
   }),
-  /* The luxury flat came back to this list on the owner's note of 2026-08-26:
-   * "who are these guys at my poker table? Get rid of them." Its only cast was
-   * the three civilian poker patrons, and the empty table is the authored
-   * state now -- he has the room, and nobody is in it yet. */
+  /* The anonymous poker patrons were deliberately retired. The table remains,
+   * but the authored apartment state has Tony alone and no staged NPC cast. */
   entry('luxury-apartment', 'property', 'luxury-apartment', ['luxury-apartment'], {
     actorExpectation: intentionalNoActors(
-      'The luxury flat is his alone: the poker table is furniture and nobody sits at it.',
+      'The Luxury Apartment is Tony alone; its empty poker table is a deliberate solo beat.',
     ),
   }),
   entry('motel', 'property', 'motel', ['motel'], { geometryStage: 'startup' }),

@@ -883,7 +883,13 @@ try {
       os.powerOff();
       os.update(0.1);
       const afterPowerOff = sample();
-      out[id] = { running, afterQuit, afterStandingUp, afterPowerOff };
+      const afterPowerOffOwnership = {
+        ownsScreen: document.body.classList.contains('arcade-owns-screen'),
+        hud: getComputedStyle(document.getElementById('hud')).visibility,
+      };
+      out[id] = {
+        running, afterQuit, afterStandingUp, afterPowerOff, afterPowerOffOwnership,
+      };
     }
     return out;
   });
@@ -898,6 +904,11 @@ try {
       && framedStop.smash.afterStandingUp !== 'playing'
       && framedStop.smash.afterPowerOff !== 'playing',
     JSON.stringify(framedStop.smash));
+
+  check('powering off the cabinet releases fullscreen HUD ownership immediately',
+    framedStop.smash.afterPowerOffOwnership.ownsScreen === false
+      && framedStop.smash.afterPowerOffOwnership.hud === 'visible',
+    JSON.stringify(framedStop.smash.afterPowerOffOwnership));
 
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
 } finally {

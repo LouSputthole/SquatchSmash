@@ -144,8 +144,22 @@ test('luxury answering machine and physical darts expose complete deterministic 
   assert.equal(messageReport.transcript.length, 2);
 
   const scene = new THREE.Scene();
-  const darts = new LuxuryDarts({ scene, hud: quietObject(), audio: quietObject() });
+  const dartsCamera = new THREE.PerspectiveCamera(68, 1, 0.05, 100);
+  scene.add(dartsCamera);
+  const darts = new LuxuryDarts({
+    scene,
+    camera: dartsCamera,
+    hud: quietObject(),
+    audio: quietObject(),
+  });
   darts.enter();
+  assert.equal(dartsCamera.fov, 50, 'entering darts narrows the camera for a readable board');
+  dartsCamera.fov = 68;
+  darts.update(1 / 60);
+  assert.equal(dartsCamera.fov, 50, 'darts reapplies its authored view after the shared focus effect');
+  const tripleTwenty = darts.scoreImpact(darts.board.center.clone()
+    .addScaledVector(darts.board.up, darts.board.radius * 0.58));
+  assert.deepEqual({ score: tripleTwenty.score, label: tripleTwenty.label }, { score: 60, label: 'T20' });
   const launch = darts.throwAtBoard({ power: 12 });
   assert.equal(launch.launched, true);
   assert.ok(launch.velocity.y > 0, 'the compensated throw has a real ballistic arc');
@@ -160,6 +174,7 @@ test('luxury answering machine and physical darts expose complete deterministic 
   assert.equal(darts.projectiles.length, 0);
   darts.leave();
   assert.equal(darts.active, false);
+  assert.equal(dartsCamera.fov, 68, 'leaving darts restores the walking camera');
 });
 
 test('luxury cigarette pack replenishes, reports full state, and can restore a consumed pack', () => {
@@ -175,6 +190,7 @@ test('luxury cigarette pack replenishes, reports full state, and can restore a c
   });
   runtime.seed();
 
+  assert.equal(inventory.has('phone'), false, 'the get-ready phone stays in the apartment until picked up');
   assert.deepEqual(runtime.status('cigs'), {
     id: 'cigs', owned: true, count: 6, max: 12, full: false,
   });

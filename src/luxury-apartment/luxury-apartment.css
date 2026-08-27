@@ -292,6 +292,31 @@ body.luxury-apartment #toast-stack > * {
   font: 600 10px/1.4 ui-monospace, monospace;
 }
 
+#luxury-game-panel.darts-active::after {
+  content: '';
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(255, 239, 199, .92);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(12, 14, 18, .72), 0 0 12px rgba(212, 176, 108, .32);
+  transform: translate(-50%, -50%);
+}
+
+#luxury-game-panel.darts-active::before {
+  content: '';
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #fff3d2;
+  transform: translate(-50%, -50%);
+}
+
 body.luxury-apartment #loading {
   background:
     radial-gradient(circle at 50% 42%, rgba(44, 56, 75, .30), transparent 36%),

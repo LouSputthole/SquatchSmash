@@ -88,8 +88,8 @@ const STYLE = `
   left: 0;
   color: #ffd08a;
 }
-/* Struck through and faded rather than removed: a list that deletes what you
- * have achieved gives you no credit for the evening. */
+/* Kept as a defensive style for adopted/static markup. The renderer projects
+ * completed work out of the live list before it reaches this stylesheet. */
 #objectives.op-panel .olist li.done {
   color: #6f6a5f;
   text-decoration: line-through;
@@ -138,6 +138,31 @@ function ensureStyle(doc) {
    * to this one's id-plus-class, so specificity keeps this winning wherever no
    * scene has an opinion. */
   doc.head.prepend(style);
+}
+
+/**
+ * Project an authored objective ledger onto what is actionable right now.
+ * Completed work leaves the HUD immediately; section rules remain only when
+ * they still introduce at least one active line. The underlying story can
+ * retain its complete ledger for save logic, pause recaps and QA without
+ * turning the live panel into a spoiler-filled checklist.
+ */
+export function activeObjectiveItems(items = []) {
+  const projected = [];
+  let activeSinceRule = false;
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (!item) continue;
+    if (item.rule) {
+      if (activeSinceRule) projected.unshift(item);
+      activeSinceRule = false;
+      continue;
+    }
+    if (item.done || !item.label) continue;
+    projected.unshift(item);
+    activeSinceRule = true;
+  }
+  return projected;
 }
 
 /**
@@ -206,11 +231,12 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
    * call" before the phone rings tells the player about a thing he cannot do
    * and then leaves it sitting there, unticked, looking like a failure.
    *
-   * `retire: true` -- drop this item once it is done rather than leaving a
-   * ticked line behind. NOT the default, and that is deliberate: a checklist
-   * that counts (the safe house's seven pieces of evidence, the Bing's four
-   * tallies) needs its ticks to stay on screen or the count means nothing.
-   * A scene opts a line in when the line is a step and not a tally.
+   * `retire: true` -- story layers use this to identify a one-shot step when
+   * they make their own concise projections. The shared live panel is stricter:
+   * `activeObjectiveItems` removes every completed row, then removes any rule
+   * heading left without an active child. Keeping the authoring flag accepted
+   * here preserves those story/pause projections without letting a completed
+   * checklist accumulate on the HUD.
    */
   function visibleItems(items) {
     return items.filter((item) => {
@@ -222,9 +248,9 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
   }
 
   function set(plan) {
-    if (plan?.items?.length) plan = { ...plan, items: visibleItems(plan.items) };
-    if (!plan || !plan.items?.length) {
-      if (signature === null) return;
+    const items = activeObjectiveItems(visibleItems(plan?.items ?? []));
+    if (!plan || !items.length) {
+      if (signature === null && element.classList.contains('hidden')) return;
       signature = null;
       element.classList.add('hidden');
       return;
@@ -232,7 +258,7 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
     const key = [
       plan.title ?? '',
       plan.hint ?? '',
-      ...plan.items.map((item) => (item.rule
+      ...items.map((item) => (item.rule
         ? `rule:${item.rule}`
         : `${item.label}|${item.done ? 1 : 0}|${item.required === false ? 0 : 1}`
           + `|${item.current ? 1 : 0}|${item.tally ? `${item.tally.count ?? 0}/${item.tally.total}` : ''}`)),
@@ -240,7 +266,7 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
     if (key === signature) return;
     signature = key;
     title.textContent = plan.title ?? 'Objective';
-    list.replaceChildren(...plan.items.map((item) => {
+    list.replaceChildren(...items.map((item) => {
       const li = document_.createElement('li');
       /* A HEADING INSIDE THE LIST, because two scenes had one before this
        * panel existed and neither should have to keep a whole renderer alive
@@ -295,6 +321,7 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
     clear() { set(null); },
     dispose() {
       if (!adopted) element.remove();
+      else set(null);
     },
   };
 }

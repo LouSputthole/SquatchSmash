@@ -174,11 +174,11 @@ test('selecting poker refuses with a line instead of starting a game', async () 
   assert.deepEqual(toasted, [LUXURY_POKER_REFUSAL.toast]);
   assert.deepEqual(said, [[LUXURY_POKER_REFUSAL.line, LUXURY_POKER_REFUSAL.durationMs]]);
 
-  /* One flat line in his own voice, in the flat's established refusal idiom --
-   * the same `sentence + <em>quieter clause</em>` shape the deadbolted service
-   * door uses. docs/TONE-AND-PARODY.md: nothing winks. */
-  assert.match(LUXURY_POKER_REFUSAL.line, /<em>.+<\/em>/);
-  assert.ok(LUXURY_POKER_REFUSAL.line.length > 40);
+  /* One flat line in his own voice, shared exactly with the booth cue. The
+   * joke is the empty table; the line itself does not wink at the player. */
+  assert.equal(LUXURY_POKER_REFUSAL.line, 'Not much of a poker game by myself.');
+  assert.doesNotMatch(LUXURY_POKER_REFUSAL.line, /<[^>]+>/);
+  assert.ok(LUXURY_POKER_REFUSAL.line.length > 20);
   assert.ok(LUXURY_POKER_REFUSAL.durationMs >= 2000);
   for (const wink of [/\bha\s*ha\b/i, /\blol\b/i, /\bloser\b/i, /\bno friends\b/i, /😂|🙃|😅/]) {
     assert.doesNotMatch(LUXURY_POKER_REFUSAL.line, wink, 'the joke is the situation, never the line');

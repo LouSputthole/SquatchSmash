@@ -10,6 +10,7 @@
  *   onRadioTap, onRadioHold, onPhone, onFridge, onCook, onEat,
  *   onShower, onWardrobe, onToilet, onArt, onFrontDoor,
  *   onLandmark, onDiscover, onDrawingBoard, onCar, onWoodpile, onFirepit, onPorch,
+ *   onCreekListen,
  *   onLag, canTalkToLag, onBasementTransition, onBasementInspect.
  */
 
@@ -416,6 +417,7 @@ export async function buildCountrysideCabin(ctx) {
 
   const dispose = () => {
     audio.stopLoop?.('cabin.forest', 0.4);
+    audio.stopLoop?.('cabin.creek', 0.4);
     audio.stopLoop?.('cabin.fridge', 0.2);
     audio.stopLoop?.('cabin.firepit', 0.3);
     for (const d of disposables) d?.dispose?.();
@@ -1019,7 +1021,9 @@ function buildProperty({
   registerLandmark('trailhead', makeLandmarkProxy(root, 'trailhead', LANDMARKS.trailhead, 2.4), 'Follow the <b>loop trail</b>', () => {
     hud.say?.('The blazes make one circuit of the property and come back here.', 3200);
   });
-  registerLandmark('creek', creek.target, 'Listen to the <b>creek</b>', null, {
+  registerLandmark('creek', creek.target, 'Listen to the <b>creek</b>', () => ctx.onCreekListen?.(), {
+    hold: 0.55,
+    holdLabel: 'Listening to the <b>creek</b>…',
     onLook: () => audio.play?.('water.splash', {
       position: new THREE.Vector3(LANDMARKS.creek.x, creekWaterAt(LANDMARKS.creek.x, LANDMARKS.creek.z), LANDMARKS.creek.z),
       volume: 0.14,
@@ -1059,6 +1063,7 @@ function buildProperty({
     shedY: shed.y,
     counts: {
       trees: forest.counts.trees,
+      treeSpecies: forest.counts.species,
       forestChunks: forest.counts.chunks,
       undergrowth: forest.counts.undergrowth,
       rocks: groundScatter.rocks,
@@ -1067,6 +1072,7 @@ function buildProperty({
       duskBeacons: wayfinding.beacons,
       firepitSeats: firepit.seatCount,
       overlookSeats: overlook.seatCount,
+      overlookVistaFeatures: overlook.vistaFeatures,
       residents: 1,
       lagActivities: 4,
       exteriorFootings: footings.length,
@@ -1096,6 +1102,10 @@ function buildTerrain(disposables) {
   const positions = new Float32Array(width * depth * 3);
   const colours = new Float32Array(width * depth * 3);
   const colour = new THREE.Color();
+  const sunlight = new THREE.Color(0xd8c99d);
+  const surfaces = new Set();
+  let minHeight = Infinity;
+  let maxHeight = -Infinity;
   for (let iz = 0; iz < depth; iz++) {
     const z = PROPERTY.minZ + iz * step;
     for (let ix = 0; ix < width; ix++) {
@@ -1110,11 +1120,16 @@ function buildTerrain(disposables) {
         || insideRect(x, z, CABIN.bath, 0.02);
       positions[at + 1] = heightAt(x, z) - (underBuilding ? 0.08 : 0);
       positions[at + 2] = z;
-      colour.setHex(surfaceProps(surfaceAt(x, z)).colour);
-      const shade = 0.86 + hashAt(x, z, 301) * 0.20;
+      const surface = surfaceAt(x, z);
+      surfaces.add(surface);
+      colour.setHex(surfaceProps(surface).colour)
+        .lerp(sunlight, hashAt(x, z, 302) * 0.035);
+      const shade = 0.92 + hashAt(x, z, 301) * 0.16;
       colours[at] = colour.r * shade;
       colours[at + 1] = colour.g * shade;
       colours[at + 2] = colour.b * shade;
+      minHeight = Math.min(minHeight, positions[at + 1]);
+      maxHeight = Math.max(maxHeight, positions[at + 1]);
     }
   }
   const indices = [];
@@ -1150,6 +1165,13 @@ function buildTerrain(disposables) {
     checkSupport: false,
     checkWallEmbed: false,
   };
+  mesh.userData.cabinTerrain = Object.freeze({
+    sampleSpacing: step,
+    minHeight,
+    maxHeight,
+    relief: maxHeight - minHeight,
+    surfaceCount: surfaces.size,
+  });
   disposables.push(geometry, material);
   return mesh;
 }
@@ -1904,6 +1926,25 @@ function buildOverlook(root, M, colliders, footings) {
   }
   g.add(bench);
 
+  /* A low split rail and survey marker turn the cleared shelf into an actual
+   * destination while keeping the cabin-valley sightline above them open. */
+  const viewRail = group('cabin-overlook-view-rail');
+  viewRail.position.set(p.x, y, p.z);
+  viewRail.rotation.y = yaw;
+  for (const x of [-2.15, 2.15]) {
+    viewRail.add(box({ size: [0.16, 0.86, 0.16], pos: [x, 0.43, -2.25], mat: M.cabinLogDark }));
+  }
+  viewRail.add(box({ size: [4.45, 0.14, 0.14], pos: [0, 0.76, -2.25], mat: M.cabinLog }));
+  ownGeometry(viewRail, 'cabin-overlook-focal', { checkSupport: false });
+  g.add(viewRail);
+
+  const survey = group('cabin-overlook-survey-marker');
+  survey.add(cylinder({ r: 0.16, h: 0.82, pos: [0, 0.41, 0], mat: M.stone }));
+  survey.add(cylinder({ r: 0.19, h: 0.045, pos: [0, 0.845, 0], mat: M.chrome }));
+  survey.position.set(p.x - 2.35, y, p.z - 0.35);
+  ownGeometry(survey, 'cabin-overlook-focal', { checkSupport: false });
+  g.add(survey);
+
   // A small USGS-style cairn makes the destination read before the player
   // reaches the bench without blocking the opened view corridor.
   for (let i = 0; i < 4; i++) {
@@ -1923,8 +1964,8 @@ function buildOverlook(root, M, colliders, footings) {
   );
   noteFooting(footings, 'overlook-bench', p.x, p.z, y, 'overlook-seat');
   noteFooting(footings, 'overlook-cairn', p.x + 2.45, p.z + 0.85, y, 'overlook-focal');
-  const target = makeLandmarkProxy(root, 'overlook', p, 3.2);
-  return { group: g, target, seatCount: 1 };
+  const target = makeLandmarkProxy(root, 'overlook', p, 3.2, 2.0);
+  return { group: g, target, seatCount: 1, vistaFeatures: 2 };
 }
 
 function makeUndergrowthGeometry() {
@@ -2146,6 +2187,8 @@ function buildForest(root, M, colliders, disposables) {
 
   const dummy = new THREE.Object3D();
   const built = [];
+  const speciesCounts = Object.fromEntries(TREE_SPECIES.map(({ id }) => [id, 0]));
+  for (const tree of plantedTrees) speciesCounts[tree.kind] += 1;
   let trees = 0;
   let undergrowth = 0;
   for (const chunk of chunks.values()) {
@@ -2349,7 +2392,12 @@ function buildForest(root, M, colliders, disposables) {
   let lastX = Infinity;
   let lastZ = Infinity;
   return {
-    counts: { trees, undergrowth, chunks: built.length },
+    counts: {
+      trees,
+      undergrowth,
+      chunks: built.length,
+      species: Object.freeze({ ...speciesCounts }),
+    },
     trees: plantedTrees,
     update(dt, playerPosition) {
       visibilityClock += dt;
@@ -2821,6 +2869,18 @@ function buildDomesticHub({
   ownGeometry(corkboard.group, 'cabin-fixture:corkboard', { checkSupport: false });
   ownGeometry(corkNote.group, 'cabin-fixture:cork-note-main', { checkSupport: false });
   interior.add(shelf.group, books.group, corkboard.group, corkNote.group);
+  /* Practical long guns live upstairs for the optional range. These are new
+   * shared-armory mounts, not relocations: the dungeon keeps its AK-47 and
+   * Barrett racks and their independent taken/ammunition state. The carbine
+   * uses the open north-wall return; the shotgun occupies the clear east-wall
+   * bay between the bathroom corner and kitchen. */
+  const rifleRack = Object.freeze({
+    parent: interior,
+    racks: Object.freeze([
+      Object.freeze({ id: 'carbine', x: 4.42, y: 0, z: MAIN.z0 + 0.24, rotY: 0 }),
+      Object.freeze({ id: 'shotgun', x: MAIN.x1 - 0.24, y: 0, z: -3.18, rotY: -Math.PI / 2 }),
+    ]),
+  });
   interior.add(P.makeBoots(M, { x: 3.62, z: 4.56, rotY: 0.2 }).group);
   interior.add(P.makeLaundry(M, { x: 3.78, z: 3.68 }).group);
   const plant = addProp(P.makePlant(M, { x: -5.58, z: 4.38, scale: 1.05 }), 'cabin-plant');
@@ -2857,6 +2917,23 @@ function buildDomesticHub({
     }),
     boxFrom(BATH.x1 - 0.042, 0.018, BATH.z0 + 0.035, BATH.x1 - 0.010, 2.42, BATH.z1 - 0.035, M.splash, {
       name: 'cabin-bathroom-liner-east', cast: false,
+    }),
+  ]) {
+    ownGeometry(liner, 'cabin-bathroom-liner', { structural: true });
+    bathroom.add(liner);
+  }
+  /* The lean-to shares the main cabin's north wall. Tile the two returns and
+   * the door header on the bathroom side so the thick timber blocks do not
+   * read as protruding into the room around the open door. */
+  for (const liner of [
+    boxFrom(BATH.x0 + 0.035, 0.018, BATH.z1 - 0.042, BATH_DOOR.x0, 2.42, BATH.z1 - 0.010, M.splash, {
+      name: 'cabin-bathroom-liner-south-west', cast: false,
+    }),
+    boxFrom(BATH_DOOR.x1, 0.018, BATH.z1 - 0.042, BATH.x1 - 0.035, 2.42, BATH.z1 - 0.010, M.splash, {
+      name: 'cabin-bathroom-liner-south-east', cast: false,
+    }),
+    boxFrom(BATH_DOOR.x0, BATH_DOOR.h, BATH.z1 - 0.042, BATH_DOOR.x1, 2.42, BATH.z1 - 0.010, M.splash, {
+      name: 'cabin-bathroom-liner-south-header', cast: false,
     }),
   ]) {
     ownGeometry(liner, 'cabin-bathroom-liner', { structural: true });
@@ -3401,6 +3478,7 @@ function buildDomesticHub({
       tv,
       tvGlow,
       radioPos,
+      rifleRack,
       radioNeedle: radio.needle,
       phoneProp: phone,
       chair: chair.group,
@@ -3488,7 +3566,9 @@ function hangCabinArt({ root, M, gear, interaction, ctx, sideboard, nightstand, 
     'bath.toilet': { x: BATH.x1 - 0.03, y: 1.98, z: -7.54, rotY: -Math.PI / 2, h: 0.34 },
     'bath.toilet.poster': { x: BATH.x1 - 0.03, y: 2.06, z: -6.82, rotY: -Math.PI / 2, h: 0.42 },
     'bath.far': { x: -0.78, y: 2.12, z: BATH.z0 + 0.05, rotY: 0, h: 0.36 },
-    'bath.mirror': { x: BATH.x1 - 0.03, y: 2.25, z: -5.68, rotY: -Math.PI / 2, h: 0.30 },
+    /* This picture used to occupy the same east-wall rectangle as the real
+     * sink mirror. Give it its own west-wall bay above the tub instead. */
+    'bath.mirror': { x: BATH.x0 + 0.03, y: 2.22, z: -6.34, rotY: Math.PI / 2, h: 0.30 },
     'bath.high': { x: BATH.x0 + 0.03, y: 2.22, z: -5.52, rotY: Math.PI / 2, h: 0.28 },
   });
 
@@ -3561,7 +3641,9 @@ function hangCabinArt({ root, M, gear, interaction, ctx, sideboard, nightstand, 
     /* Left of the desk mat and against the back half of the desktop. The old
      * x=0.24/z=-4.39 position sat directly on the mouse-pad corner. */
     { slot: 'desk.photo', x: -0.08, y: desk.top, z: -4.76, rotY: 0.25, h: 0.14 },
-    { slot: 'night.photo', x: -4.04, y: nightstand.top, z: -4.30, rotY: -0.85, h: 0.15 },
+    /* Back-left corner of the nightstand: visible from the bed and clear of
+     * both the alarm clock and the physical phone/interaction volume. */
+    { slot: 'night.photo', x: -4.08, y: nightstand.top, z: -4.56, rotY: 0.18, h: 0.15 },
     // This was in the apartment closet shrine. It remains a deliberately
     // separate, propped photograph rather than becoming generic wall art.
     {

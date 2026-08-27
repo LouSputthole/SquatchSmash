@@ -31,10 +31,17 @@ export const CERTIFICATION_DEBT_DOMAINS = Object.freeze([
 const TOOL_PATH = fileURLToPath(import.meta.url);
 const REPOSITORY_ROOT = path.resolve(path.dirname(TOOL_PATH), '..');
 const BASELINE_REPOSITORY_PATH = 'tools/certification-debt-baseline.json';
+const ACTOR_RETIREMENTS_REPOSITORY_PATH = 'tools/certification-actor-retirements.json';
 export const DEFAULT_CERTIFICATION_DEBT_BASELINE = path.join(
   REPOSITORY_ROOT,
   ...BASELINE_REPOSITORY_PATH.split('/'),
 );
+export const DEFAULT_CERTIFICATION_ACTOR_RETIREMENTS = path.join(
+  REPOSITORY_ROOT,
+  ...ACTOR_RETIREMENTS_REPOSITORY_PATH.split('/'),
+);
+export const CERTIFICATION_ACTOR_RETIREMENTS_SCHEMA =
+  'squatchsmash.certification-actor-retirements.v1';
 
 /** Locale-independent ordering for serialized baseline data and fingerprints. */
 export function compareStableText(left, right) {
@@ -57,6 +64,141 @@ export function semanticFingerprint(value) {
     .update(JSON.stringify(canonicalValue(value)))
     .digest('hex')
     .slice(0, 20);
+}
+
+/** Bind a reviewed cast retirement to its exact state, IDs, rationale and source. */
+export function actorRetirementFingerprint(retirement) {
+  return semanticFingerprint({
+    proofId: retirement.proofId,
+    actorIds: retirement.actorIds,
+    reason: retirement.reason,
+    source: retirement.source,
+    sourceAnchor: retirement.sourceAnchor,
+  });
+}
+
+function actorRetirementReceipt(retirement) {
+  return Object.freeze({
+    schema: CERTIFICATION_ACTOR_RETIREMENTS_SCHEMA,
+    proofId: retirement.proofId,
+    actorIds: Object.freeze([...retirement.actorIds]),
+    reason: retirement.reason,
+    source: retirement.source,
+    sourceAnchor: retirement.sourceAnchor,
+    fingerprint: actorRetirementFingerprint(retirement),
+  });
+}
+
+function sourceCitation(source) {
+  const match = /^(.*):(\d+)$/u.exec(String(source ?? ''));
+  if (!match) return null;
+  const line = Number(match[2]);
+  if (!Number.isInteger(line) || line < 1) return null;
+  return { file: match[1].replaceAll('\\', '/'), line };
+}
+
+/**
+ * Validate the small, reviewed exception ledger used only for intentional cast
+ * retirement. Unlike an actor allowlist, an entry cannot hide a live finding:
+ * the coverage comparator below requires the exact trusted IDs to disappear,
+ * the current state to publish an intentional no-cast contract, and no other
+ * actor inventory change. The source citation makes the reason executable
+ * enough to fail when the production declaration moves or is removed.
+ */
+export function validateActorRetirementLedger(document, {
+  repositoryRoot = REPOSITORY_ROOT,
+  readFile = fs.readFileSync,
+} = {}) {
+  const errors = [];
+  if (!document || typeof document !== 'object' || Array.isArray(document)) {
+    return ['actor retirement ledger must be an object'];
+  }
+  if (document.$schema !== CERTIFICATION_ACTOR_RETIREMENTS_SCHEMA) {
+    errors.push(`actor retirement ledger $schema must be ${CERTIFICATION_ACTOR_RETIREMENTS_SCHEMA}`);
+  }
+  if (!Array.isArray(document.entries)) {
+    errors.push('actor retirement ledger entries must be an array');
+    return errors;
+  }
+  const proofIds = new Set();
+  const root = path.resolve(repositoryRoot);
+  const sourceCache = new Map();
+  for (const [index, entry] of document.entries.entries()) {
+    const at = `entries[${index}]`;
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      errors.push(`${at} must be an object`);
+      continue;
+    }
+    if (typeof entry.proofId !== 'string' || !entry.proofId.trim()) {
+      errors.push(`${at}.proofId is required`);
+    } else if (proofIds.has(entry.proofId)) {
+      errors.push(`${at}.proofId duplicates ${entry.proofId}`);
+    } else proofIds.add(entry.proofId);
+    if (!Array.isArray(entry.actorIds) || entry.actorIds.length === 0) {
+      errors.push(`${at}.actorIds must be a non-empty array`);
+    } else {
+      const actorIds = new Set();
+      for (const [actorIndex, actorId] of entry.actorIds.entries()) {
+        if (typeof actorId !== 'string' || !actorId.trim()) {
+          errors.push(`${at}.actorIds[${actorIndex}] must be a non-empty string`);
+        } else if (actorIds.has(actorId)) {
+          errors.push(`${at}.actorIds duplicates ${actorId}`);
+        } else actorIds.add(actorId);
+      }
+      const sorted = [...entry.actorIds].sort(compareStableText);
+      if (entry.actorIds.some((actorId, actorIndex) => actorId !== sorted[actorIndex])) {
+        errors.push(`${at}.actorIds must be sorted`);
+      }
+    }
+    if (typeof entry.reason !== 'string' || entry.reason.trim().length < 20) {
+      errors.push(`${at}.reason must explain the retirement`);
+    }
+    if (typeof entry.sourceAnchor !== 'string' || !entry.sourceAnchor.trim()) {
+      errors.push(`${at}.sourceAnchor is required`);
+    }
+    const citation = sourceCitation(entry.source);
+    if (!citation) {
+      errors.push(`${at}.source must be a repository-relative file:line citation`);
+      continue;
+    }
+    const absolute = path.resolve(root, ...citation.file.split('/'));
+    if (absolute !== root && !absolute.startsWith(`${root}${path.sep}`)) {
+      errors.push(`${at}.source escapes the repository`);
+      continue;
+    }
+    let lines = sourceCache.get(absolute);
+    if (!lines) {
+      try {
+        lines = String(readFile(absolute, 'utf8')).split(/\r?\n/u);
+        sourceCache.set(absolute, lines);
+      } catch (error) {
+        errors.push(`${at}.source could not be read: ${error.message}`);
+        continue;
+      }
+    }
+    const actual = lines[citation.line - 1]?.trim();
+    if (actual !== entry.sourceAnchor?.trim()) {
+      errors.push(`${at}.sourceAnchor is not on ${entry.source}`);
+    }
+  }
+  const sortedEntries = [...document.entries]
+    .sort((left, right) => compareStableText(left?.proofId, right?.proofId));
+  if (document.entries.some((entry, index) => entry !== sortedEntries[index])) {
+    errors.push('actor retirement ledger entries must be sorted by proofId');
+  }
+  return errors;
+}
+
+export function readActorRetirementLedger(
+  file = DEFAULT_CERTIFICATION_ACTOR_RETIREMENTS,
+  options = {},
+) {
+  const document = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const errors = validateActorRetirementLedger(document, options);
+  if (errors.length) {
+    throw new Error(`actor retirement ledger is not usable:\n  ${errors.join('\n  ')}`);
+  }
+  return document;
 }
 
 /** Fingerprint exactly what the live browser claims to have executed. */
@@ -119,6 +261,7 @@ export function certificationDebtSnapshot({
   semanticReport,
   livenessEntries,
   spatialReport,
+  actorRetirements = [],
 }) {
   const architecture = architectureReport.summary.uncertified.map((item) => debtEntry({
     id: item.id,
@@ -199,7 +342,31 @@ export function certificationDebtSnapshot({
   if (!Array.isArray(spatialReport.proofs)) {
     throw new TypeError('spatial report must publish state proofs');
   }
-  const spatialProofs = spatialReport.proofs.map((item) => proofEntry(item));
+  const retirementByProof = new Map();
+  for (const retirement of actorRetirements) {
+    if (retirementByProof.has(retirement.proofId)) {
+      throw new TypeError(`actor retirement duplicates proof ${retirement.proofId}`);
+    }
+    retirementByProof.set(retirement.proofId, retirement);
+  }
+  const spatialProofs = spatialReport.proofs.map((item) => {
+    const retirement = retirementByProof.get(item.id);
+    if (retirement) retirementByProof.delete(item.id);
+    return proofEntry({
+      ...item,
+      evidence: retirement
+        ? {
+          ...(item.evidence ?? {}),
+          reviewedActorRetirement: actorRetirementReceipt(retirement),
+        }
+        : item.evidence,
+    });
+  });
+  if (retirementByProof.size > 0) {
+    throw new TypeError(
+      `actor retirement references unknown spatial proof ${[...retirementByProof.keys()].join(', ')}`,
+    );
+  }
 
   return Object.freeze({
     schemaVersion: CERTIFICATION_DEBT_SCHEMA_VERSION,
@@ -247,13 +414,17 @@ export function collectSpatialDebtReport({
 export function collectCertificationDebtSnapshot({
   spatialReport = null,
   semanticReport = null,
+  actorRetirements = null,
 } = {}) {
   const resolvedSpatial = spatialReport ?? collectSpatialDebtReport();
+  const resolvedActorRetirements = actorRetirements
+    ?? readActorRetirementLedger().entries;
   return certificationDebtSnapshot({
     architectureReport: buildSceneArchitectureReport(),
     semanticReport: semanticReport ?? buildSemanticSmokeReport(),
     livenessEntries: buildSceneLivenessCatalog(),
     spatialReport: resolvedSpatial,
+    actorRetirements: resolvedActorRetirements,
   });
 }
 
@@ -776,6 +947,114 @@ function actorInventoryIsConsistent(evidence) {
   return JSON.stringify(recomposed) === JSON.stringify(discoveredIds);
 }
 
+function removeActorIds(inventory, removedIds) {
+  const removed = new Set(removedIds);
+  return inventory.filter((id) => !removed.has(id));
+}
+
+function sameActorIds(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function exactIntentionalNoCastProof(proof) {
+  const evidence = proof?.evidence;
+  return proof?.status === 'intentional_na'
+    && evidence && typeof evidence === 'object'
+    && actorInventoryIsConsistent(evidence)
+    && evidence.built === true
+    && evidence.findingsScanned === true
+    && evidence.unmarkedRigs === 0
+    && evidence.actorsObserved === 0
+    && evidence.actorsDiscovered === 0
+    && evidence.actorVisibilityPolicy === 'rendered_only'
+    && evidence.actorExpectation?.disposition === 'INTENTIONAL_NA'
+    && evidence.actorExpectation?.minimum === 0
+    && typeof evidence.actorExpectation?.reason === 'string'
+    && evidence.actorExpectation.reason.trim().length > 0;
+}
+
+/**
+ * A retirement receipt is deliberately narrower than an allowlist. It proves
+ * one whole state changed from an exact trusted cast inventory to an explicit
+ * no-cast contract. Partial removals, simultaneous visibility changes, stale
+ * IDs, and a receipt copied to another proof all fail closed. Once the trusted
+ * proof has itself ratcheted to that exact no-cast contract, the reviewed
+ * historical receipt remains valid but no longer grants a coverage exception.
+ */
+function reviewedActorRetirement(prior, observed) {
+  const receipt = observed?.evidence?.reviewedActorRetirement;
+  if (receipt === undefined) {
+    return { present: false, accepted: false, coverageException: false, reason: null };
+  }
+  const fail = (reason) => ({
+    present: true,
+    accepted: false,
+    coverageException: false,
+    reason,
+  });
+  if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) {
+    return fail('receipt must be an object');
+  }
+  if (receipt.schema !== CERTIFICATION_ACTOR_RETIREMENTS_SCHEMA) {
+    return fail('receipt schema is unsupported');
+  }
+  if (receipt.proofId !== prior.id || observed.id !== prior.id) {
+    return fail('receipt belongs to another spatial proof');
+  }
+  if (!Array.isArray(receipt.actorIds) || receipt.actorIds.length === 0
+    || !validActorIdInventory(receipt.actorIds)
+    || new Set(receipt.actorIds).size !== receipt.actorIds.length) {
+    return fail('receipt actor IDs are invalid');
+  }
+  if (typeof receipt.reason !== 'string' || receipt.reason.trim().length < 20
+    || !sourceCitation(receipt.source)
+    || typeof receipt.sourceAnchor !== 'string' || !receipt.sourceAnchor.trim()) {
+    return fail('receipt lacks a reviewed reason or source citation');
+  }
+  if (receipt.fingerprint !== actorRetirementFingerprint(receipt)) {
+    return fail('receipt fingerprint is stale');
+  }
+
+  const before = prior.evidence ?? {};
+  const after = observed.evidence ?? {};
+  if (!actorInventoryIsConsistent(before) || !actorInventoryIsConsistent(after)) {
+    return fail('actor inventory evidence is inconsistent');
+  }
+
+  /* A historical receipt cannot be re-proved from an already-empty trusted
+   * inventory. Accept it only when both proofs independently establish the
+   * same strict no-cast state; it cannot waive any coverage comparison. */
+  if (exactIntentionalNoCastProof(prior) && exactIntentionalNoCastProof(observed)) {
+    return {
+      present: true,
+      accepted: true,
+      coverageException: false,
+      reason: null,
+    };
+  }
+
+  if (!sameActorIds(receipt.actorIds, before.actorDiscoveredIds)) {
+    return fail('receipt does not retire the exact trusted discovered cast');
+  }
+  const expectedObserved = removeActorIds(before.actorObservedIds, receipt.actorIds);
+  const expectedDiscovered = removeActorIds(before.actorDiscoveredIds, receipt.actorIds);
+  const expectedFiltered = removeActorIds(before.visibilityFilteredActorIds, receipt.actorIds);
+  if (!sameActorIds(after.actorObservedIds, expectedObserved)
+    || !sameActorIds(after.actorDiscoveredIds, expectedDiscovered)
+    || !sameActorIds(after.visibilityFilteredActorIds, expectedFiltered)) {
+    return fail('current cast inventory changed beyond the reviewed IDs');
+  }
+  if (!exactIntentionalNoCastProof(observed)) {
+    return fail('current proof is not an exact intentional no-cast contract');
+  }
+  return {
+    present: true,
+    accepted: true,
+    coverageException: true,
+    reason: null,
+  };
+}
+
 /**
  * Debt may disappear only while the subject inventory remains observable.
  * Otherwise deleting a scene, obligation, checkpoint, state, or actor could
@@ -797,13 +1076,23 @@ export function compareTrustedProofCoverage(trusted, candidate, current) {
         continue;
       }
       if (domainName !== 'spatial') continue;
+      const retirement = reviewedActorRetirement(prior, observed);
+      if (retirement.present && !retirement.accepted) {
+        violations.push({
+          domain: domainName,
+          id,
+          kind: 'ACTOR_RETIREMENT_PROOF_INVALID',
+          reason: retirement.reason,
+        });
+      }
       const priorActors = prior.evidence?.actorsObserved;
       const currentActors = observed.evidence?.actorsObserved;
       const priorDiscoveredActors = prior.evidence?.actorsDiscovered;
       const currentDiscoveredActors = observed.evidence?.actorsDiscovered;
       if (Number.isInteger(priorDiscoveredActors)
         && (!Number.isInteger(currentDiscoveredActors)
-          || currentDiscoveredActors < priorDiscoveredActors)) {
+          || currentDiscoveredActors < priorDiscoveredActors)
+        && !retirement.coverageException) {
         violations.push({
           domain: domainName,
           id,
@@ -824,7 +1113,7 @@ export function compareTrustedProofCoverage(trusted, candidate, current) {
           });
         } else {
           const missing = missingActorIds(priorActorIds, currentActorIds);
-          if (missing.length > 0) {
+          if (missing.length > 0 && !retirement.coverageException) {
             violations.push({
               domain: domainName,
               id,
@@ -836,6 +1125,7 @@ export function compareTrustedProofCoverage(trusted, candidate, current) {
       }
       if (Number.isInteger(priorActors) && Number.isInteger(currentActors)
         && currentActors < priorActors) {
+        if (retirement.coverageException) continue;
         const discoveredActors = observed.evidence?.actorsDiscovered;
         const filteredActors = observed.evidence?.visibilityFilteredActors;
         /* The old collector counted hidden descendants as staged cast. A

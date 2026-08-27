@@ -41,6 +41,7 @@ const [
 ]);
 
 const MAIN_SOURCE = readFileSync(new URL('../src/cabin/main.js', import.meta.url), 'utf8');
+const PRESENTATION_SOURCE = readFileSync(new URL('../src/cabin/presentation.js', import.meta.url), 'utf8');
 
 /** The interaction system's own reach and the Player's own capsule. */
 const INTERACT_REACH = 2.7;
@@ -252,20 +253,20 @@ test('no exterior cladding or footing stands inside the bathroom', async () => {
 
 /* -------------------------------------------------------------- mirror */
 
-test('the cabin mounts no planar mirror, because the cabin has no player body', async () => {
+test('the cabin uses the canonical mirror with a persistent first-person reflection body', async () => {
   const { cabin } = await cabinScene();
-  /* The shared `src/core/player.js` is a camera and a capsule. Only the
-   * Squatchfather builds a body for the player, on render layer 1, which is
-   * why its mirror works and this one reflected an empty bathroom. */
-  assert.ok(!MAIN_SOURCE.includes('new PlanarMirror('),
-    'the cabin must not build a reflection with nobody in front of it');
-  assert.ok(!MAIN_SOURCE.includes('planar-mirror.js'),
-    'and must not carry the import either');
-  // The glass is still glass. `PlanarMirror` REPLACES the mesh material on the
-  // way in, so constructing it disabled would leave a black rectangle.
+  assert.match(MAIN_SOURCE, /core\/first-person-body\.js/,
+    'the cabin must share the persistent mirror-body lifecycle');
+  assert.match(MAIN_SOURCE, /new FirstPersonBody\(scene/,
+    'the mirror must have an authored Prospect body to reflect');
+  assert.match(MAIN_SOURCE, /createCabinPlanarMirror\(scene, cabin\.mirrorMesh/,
+    'the bathroom fixture must mount through the cabin presentation helper');
+  assert.match(PRESENTATION_SOURCE, /core\/planar-mirror\.js/,
+    'the helper must consume the one canonical planar-mirror Module');
   assert.equal(cabin.mirrorMesh.userData.planarMirrorSurface, true);
   assert.equal(cabin.mirrorMesh.material.type, 'MeshStandardMaterial');
-  assert.ok(cabin.mirrorMesh.material.metalness >= 0.4, 'the pane still reads as silvered');
+  assert.ok(cabin.mirrorMesh.material.metalness >= 0.4,
+    'the authored silvered fallback remains legible if reflection setup fails');
 });
 
 /* ---------------------------------------------------------- the rifles */

@@ -66,10 +66,31 @@ const VOLUME_STEP = 0.07;
 /** A connected phone call leaves 34% of the radio level: roughly 66% down. */
 const PHONE_CALL_RADIO_SCALE = 0.34;
 
+/**
+ * The persistent station card follows the physical receiver's useful audio
+ * range. Every positioned radio branch uses this boundary, so positional
+ * scenes do not invent a HUD-only distance that outlives the sound.
+ */
+export const RADIO_HUD_AUDIBLE_DISTANCE = 20;
+
+export function radioHudWithinRange(
+  listener,
+  receiver,
+  maxDistance = RADIO_HUD_AUDIBLE_DISTANCE,
+) {
+  if (!listener || !receiver) return false;
+  const dx = Number(listener.x) - Number(receiver.x);
+  const dy = Number(listener.y) - Number(receiver.y);
+  const dz = Number(listener.z) - Number(receiver.z);
+  const radius = Number(maxDistance);
+  if (![dx, dy, dz, radius].every(Number.isFinite) || radius < 0) return false;
+  return dx * dx + dy * dy + dz * dz <= radius * radius;
+}
+
 export class Radio {
   /**
    * @param {{ venue?: string, state?: object, canPlayNotice?: Function, fullSongs?: boolean,
-   *   output?: number }} options
+   *   output?: number, hudVisible?: Function }} options
    * `venue` is deliberately separate from the station: a record can belong
    * to the radio rotation without leaking into a different in-world music
    * system such as the Bada Bing DJ.
@@ -81,6 +102,7 @@ export class Radio {
     news = () => [],
     fullSongs = false,
     output = 1,
+    hudVisible = () => true,
   } = {}) {
     this.audio = audio;
     this.hud = hud;
@@ -105,6 +127,12 @@ export class Radio {
      * fixed by the scene that built it and never persisted. Default 1 leaves
      * every existing receiver exactly where it was. */
     this.output = Number.isFinite(output) ? THREE.MathUtils.clamp(output, 0, 4) : 1;
+    /* A receiver can remain audible while its station card is no longer
+     * relevant. The scene supplies the SAME physical-range decision used by
+     * its interaction/audio policy; Radio owns clearing and restoring the OSD
+     * when that decision changes. Default true preserves every existing set. */
+    this.hudVisible = typeof hudVisible === 'function' ? hudVisible : () => true;
+    this._hudShown = false;
     const saved = this.state?.load?.() ?? {};
     this.tracks = [];
     /** Each station keeps its own place in its own playlist. */
@@ -370,7 +398,7 @@ export class Radio {
     this.panner.panningModel = 'HRTF';
     this.panner.distanceModel = 'inverse';
     this.panner.refDistance = 3.2;
-    this.panner.maxDistance = 30;
+    this.panner.maxDistance = RADIO_HUD_AUDIBLE_DISTANCE;
     this.panner.rolloffFactor = 1.1;
     this._applyPannerPosition();
 
@@ -447,6 +475,7 @@ export class Radio {
       }, 300);
     }
     this.hud.setRadio(null);
+    this._hudShown = false;
   }
 
   /** Freeze this physical receiver without changing its saved power switch. */
@@ -459,6 +488,7 @@ export class Radio {
     this._voice = null;
     if (this.el && this.songPlaying) this.el.pause();
     this.hud.setRadio(null);
+    this._hudShown = false;
   }
 
   /** Resume the same block after pause rather than advancing it off-screen. */
@@ -467,7 +497,7 @@ export class Radio {
     this._paused = false;
     this.audio.startLoop('radio.talk', {
       volume: this._level(this.songPlaying ? 0.006 : this._talkBase),
-      position: this.position, ref: 2.6, maxDist: 20,
+      position: this.position, ref: 2.6, maxDist: RADIO_HUD_AUDIBLE_DISTANCE,
     });
     if (this.songPlaying && this.el) {
       const playing = this.el.play();
@@ -534,7 +564,8 @@ export class Radio {
     // A murmuring voice bed under the words, so the room is not silent.
     this._talkBase = 0.055;
     this.audio.startLoop('radio.talk', {
-      volume: this._level(this._talkBase), position: this.position, ref: 2.6, maxDist: 20,
+      volume: this._level(this._talkBase), position: this.position,
+      ref: 2.6, maxDist: RADIO_HUD_AUDIBLE_DISTANCE,
     });
     this._show = null;
     this._pump();
@@ -783,7 +814,7 @@ export class Radio {
     if (s.reactionCue) {
       this._voice = this.audio.play(s.reactionCue, {
         follow: () => this.position, volume: this._level(1),
-        ref: 3.4, maxDist: 26, rolloff: DIALOGUE_ROLLOFF,
+        ref: 3.4, maxDist: RADIO_HUD_AUDIBLE_DISTANCE, rolloff: DIALOGUE_ROLLOFF,
       });
       this._dwell = this._voice?.buffer?.duration ?? 2.2;
       return;
@@ -807,7 +838,7 @@ export class Radio {
      * from anywhere but the sideboard the station read as dead air. */
     this._voice = v ? this.audio.play(v.cue, {
       follow: () => this.position, volume: this._level(1),
-      ref: 3.4, maxDist: 26, rolloff: DIALOGUE_ROLLOFF,
+      ref: 3.4, maxDist: RADIO_HUD_AUDIBLE_DISTANCE, rolloff: DIALOGUE_ROLLOFF,
     }) : null;
     this._dwell = this._voice?.buffer
       ? this._voice.buffer.duration
@@ -815,12 +846,21 @@ export class Radio {
   }
 
   _showOsd() {
+    let visible = false;
+    try { visible = this.on && !this._paused && this.hudVisible() !== false; } catch { visible = false; }
+    if (!visible) {
+      if (this._hudShown) this.hud.setRadio(null);
+      this._hudShown = false;
+      return false;
+    }
     const st = this.station;
     const show = this._show ? this._show.name : null;
     this.hud.setRadio({
       station: show ? `${st.dial} \u2014 ${show}` : st.name,
       track: this._line || st.tagline,
     });
+    this._hudShown = true;
+    return true;
   }
 
   /** Put an urgent bulletin ahead of the ordinary running order. */
@@ -840,7 +880,7 @@ export class Radio {
     this._showOsd();
     this._voice = cue ? this.audio.play(cue, {
       follow: () => this.position, volume: this._level(1),
-      ref: 3.4, maxDist: 26, rolloff: DIALOGUE_ROLLOFF,
+      ref: 3.4, maxDist: RADIO_HUD_AUDIBLE_DISTANCE, rolloff: DIALOGUE_ROLLOFF,
     }) : null;
     this._broadcastT = this._voice?.buffer
       ? this._voice.buffer.duration + SEGMENT_GAP
@@ -961,6 +1001,18 @@ export class Radio {
 
   /** Called once a frame by main.js. */
   update(dt) {
+    /* Proximity can change without the programme changing. Refresh only on
+     * the visibility edge so a walk out of range clears immediately and a
+     * walk back in restores the current show without rebuilding it per frame. */
+    let shouldShow = false;
+    try { shouldShow = this.on && !this._paused && this.hudVisible() !== false; } catch { shouldShow = false; }
+    if (shouldShow !== this._hudShown) {
+      if (shouldShow) this._showOsd();
+      else {
+        this.hud.setRadio(null);
+        this._hudShown = false;
+      }
+    }
     if (!this.on || this._paused) return;
 
     if (this._broadcastT > 0) {

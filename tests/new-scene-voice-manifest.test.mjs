@@ -94,13 +94,13 @@ test('the HUD is not cast — its prose is read, not performed', () => {
   assert.equal(spoken.has('TOO SLOW'), false);
 });
 
-test('Ape\'s branch reactions are both recorded, even where they share words', () => {
-  /* louQuestionReaction is `outcome -> line[]`, one nesting level deeper than
-   * every other sequence. A collector that only walked arrays would drop the
-   * whole branch silently. */
+test('Ape\'s rewritten Lou interrogation records the repeated question without obsolete choice reactions', () => {
   const names = new Set(collectSilverCaseVoiceCues().map((cue) => cue.name));
-  assert.ok(names.has('vo.silvercase.lou.ape.reaction.no'));
-  assert.ok(names.has('vo.silvercase.lou.ape.reaction.absolutelynot'));
+  assert.ok(names.has('vo.silvercase.lou.ape.lookslikeabitch'));
+  assert.ok(names.has('vo.silvercase.lou.ape.lookslikeabitch.again'));
+  assert.ok(names.has('vo.silvercase.lou.ape.mrssputthole'));
+  assert.equal(names.has('vo.silvercase.lou.ape.reaction.no'), false);
+  assert.equal(names.has('vo.silvercase.lou.ape.reaction.absolutelynot'), false);
 });
 
 test('Silver Case sync is pure and its check catches drift', () => {

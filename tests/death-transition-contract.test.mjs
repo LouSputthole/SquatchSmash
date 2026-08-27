@@ -4,6 +4,7 @@ import test from 'node:test';
 import * as THREE from 'three';
 
 import {
+  applyConnectedDeathPivot,
   auditDeathTransition,
   beginDeathTransition,
   restoreDeathTransition,
@@ -60,6 +61,49 @@ test('one death transition disables live systems and preserves a connected seate
   assert.equal(root.userData.actorPosture, undefined,
     'restore retained a death-only posture override');
   assert.equal(root.userData.actor.posture, 'stand');
+});
+
+test('a connected death pivot moves split makePerson branches around one held pelvis', () => {
+  const scene = new THREE.Scene();
+  const root = new THREE.Group();
+  root.position.set(2, 0.45, -3);
+  root.rotation.y = 0.4;
+  const body = new THREE.Group();
+  body.name = 'body-branch';
+  const hips = new THREE.Group();
+  hips.name = 'hips';
+  hips.position.y = 1;
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.8, 0.3));
+  torso.position.y = 0.4;
+  hips.add(torso);
+  body.add(hips);
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 0.2));
+  const legR = legL.clone();
+  legL.name = 'leg-left-sibling';
+  legR.name = 'leg-right-sibling';
+  legL.position.set(-0.14, 0.6, 0);
+  legR.position.set(0.14, 0.6, 0);
+  root.add(body, legL, legR);
+  scene.add(root);
+  markActor(root, { id: 'connected-pivot-fixture', role: 'enemy', posture: 'sit' });
+  scene.updateMatrixWorld(true);
+  const hipBefore = hips.getWorldPosition(new THREE.Vector3());
+  const parents = new Map();
+  root.traverse((node) => parents.set(node, node.parent));
+
+  const receipt = beginDeathTransition(root, { mode: 'seated', pivot: hips });
+  assert.equal(applyConnectedDeathPivot(receipt, {
+    rotationDelta: { x: 0.08, z: -0.18 },
+    pivotOffset: { y: -0.02 },
+  }), true);
+  scene.updateMatrixWorld(true);
+  const hipAfter = hips.getWorldPosition(new THREE.Vector3());
+  assert.ok(Math.abs(hipAfter.x - hipBefore.x) < 1e-9);
+  assert.ok(Math.abs(hipAfter.y - (hipBefore.y - 0.02)) < 1e-9);
+  assert.ok(Math.abs(hipAfter.z - hipBefore.z) < 1e-9);
+  assert.ok(Math.abs(root.rotation.z) > 0.1, 'complete root never took the death tilt');
+  for (const [node, parent] of parents) assert.equal(node.parent, parent, `${node.name} changed parent`);
+  assert.deepEqual(auditDeathTransition(receipt), []);
 });
 
 test('death restore preserves a live seated posture and seat override exactly', () => {
@@ -161,6 +205,7 @@ test('the scene-specific death rigs use the shared lifecycle contract', () => {
     '../src/initiation/ceremony-figure.js',
     '../src/squatchfather/characters/SalController.js',
     '../src/squatchfather/characters/McClawskyController.js',
+    '../src/bing/license-to-grill-runtime.js',
   ]) {
     const source = readFileSync(new URL(relative, import.meta.url), 'utf8');
     assert.match(source, /core\/death-transition\.js/);

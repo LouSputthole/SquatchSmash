@@ -27,7 +27,23 @@
     "the takes and `npm run vo:takes` has stamped them.",
     "Remove a line from `lines` once its replacement take is indexed."
   ],
-  "lines": [],
+  "lines": [
+    {
+      "cue": "vo.silver.margo.bandleader.her-pick",
+      "retiredText": "Horns. All of them. I don’t want a backing track, I want to watch seven people be slightly out of breath.",
+      "reason": "rewritten for the Bananaphone performance; the indexed take still says the retired horn-arrangement line"
+    },
+    {
+      "cue": "vo.silver.margo.bandleader.horns",
+      "retiredText": "How did you — I said that in the car. I said one sentence about horns in a car nine blocks long.",
+      "reason": "rewritten for the Bananaphone performance; the indexed take still answers the retired horn request"
+    },
+    {
+      "cue": "vo.silver.player.bandleader.open.1e0ys9u",
+      "retiredText": "Something with the horns. All of them.",
+      "reason": "rewritten for the Bananaphone performance; the indexed take still requests the retired horn arrangement"
+    }
+  ],
   "retired": [
     {
       "cue": "vo.bing.full.bartender.open.tony.1mgwzff",

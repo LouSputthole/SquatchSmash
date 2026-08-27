@@ -17,7 +17,8 @@ import { Player } from './core/player.js';
 import { shakeScale } from './core/settings.js';
 import { attachPixelRatio } from './core/pixel-ratio.js';
 import { PlanarMirror } from './core/planar-mirror.js';
-import { Radio } from './core/radio.js';
+import { FirstPersonBody, createPlayerAppearanceStore } from './core/first-person-body.js';
+import { Radio, radioHudWithinRange } from './core/radio.js';
 import { SPOOKY_RADIO_LINES, newsSegmentsFor, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
@@ -98,6 +99,7 @@ import {
 import { makeMaterials } from './world/materials.js';
 import { roomEnvironment } from './world/textures.js';
 import { createApartmentInputPolicy } from './apartment-controls.js';
+import { makePerson } from './bing/cast.js';
 
 const DRINK_TIME = 2.4;
 const SWIG_TIME = 1.7;   // whiskey goes down faster, for better or worse
@@ -108,6 +110,70 @@ const CIG_DRAG = 0.46;
 const CIG_EXHALE = 1.55;
 const CIG_DONE = 2.40;
 const CIG_AFTERGLOW = 4.20;
+
+/* Stable appearance ids are shared with the Cabin and Luxury Apartment.
+ * Each scene may own its figure builder, but an id must still mean the same
+ * clothes when Tony crosses a page boundary. This apartment also preserves
+ * its three long-standing shirt choices for saves made here. */
+const APARTMENT_PLAYER_OUTFITS = Object.freeze({
+  black_henley: Object.freeze({
+    dress: 'shirt', shirt: 0x17191d, trouserColour: 0x20242b,
+    trim: true, tie: false, neckline: 'open',
+  }),
+  grey_henley: Object.freeze({
+    dress: 'shirt', shirt: 0x6d7278, trouserColour: 0x20242b,
+    trim: true, tie: false, neckline: 'open',
+  }),
+  good_shirt: Object.freeze({
+    dress: 'shirt', shirt: 0x323b4b, trouserColour: 0x181b21,
+    trim: true, tie: false, neckline: 'open',
+  }),
+  charcoal_suit: Object.freeze({
+    dress: 'suit', jacketColour: 0x292d35, shirtAccent: 0xe4d8c2,
+    trouserColour: 0x171a20, trim: true, belt: 'leather',
+    tie: true, tieColour: 0x49354e, pocketSquare: false,
+  }),
+  cream_cashmere: Object.freeze({
+    dress: 'shirt', shirt: 0xd8cdb7, trouserColour: 0x393a3f,
+    trim: false, tie: false, neckline: 'open',
+  }),
+  'late-night_track_jacket': Object.freeze({
+    dress: 'tracksuit', shirt: 0x252d3d, trouserColour: 0x171c27,
+    jacketColour: 0x252d3d, trim: true, tie: false,
+  }),
+  cabin_workshirt: Object.freeze({
+    dress: 'shirt', shirt: 0x4b5143, trouserColour: 0x27303a,
+    trim: true, belt: 'leather', tie: false, neckline: 'open',
+  }),
+});
+
+const APARTMENT_SHIRT_OUTFIT = Object.freeze({
+  'black shirt': 'black_henley',
+  'grey henley': 'grey_henley',
+  'good shirt': 'good_shirt',
+});
+
+const apartmentAppearanceStore = createPlayerAppearanceStore({ fallback: 'charcoal_suit' });
+const storedApartmentOutfitId = apartmentAppearanceStore.read();
+const initialApartmentOutfitId = Object.hasOwn(APARTMENT_PLAYER_OUTFITS, storedApartmentOutfitId)
+  ? storedApartmentOutfitId
+  : apartmentAppearanceStore.write('charcoal_suit');
+
+function buildApartmentPlayerBody(outfitId) {
+  const outfit = APARTMENT_PLAYER_OUTFITS[outfitId]
+    ?? APARTMENT_PLAYER_OUTFITS.charcoal_suit;
+  return makePerson({
+    height: 1.80,
+    build: 1.03,
+    gut: 0.08,
+    skin: 0xc9936d,
+    hair: 'short',
+    hairColour: 0x261b16,
+    bandana: false,
+    castShadow: false,
+    ...outfit,
+  });
+}
 
 const canvas = document.getElementById('scene');
 const fxDrunk = document.getElementById('fx-drunk');
@@ -359,6 +425,11 @@ const radio = new Radio(audio, hud, time, {
    * state, so nothing airs before its event). Read live rather than snapshot,
    * so a save that advances mid-session is reported on the same evening. */
   news: () => newsSegmentsFor(campaign.state),
+  /* The receiver keeps playing as Tony crosses the flat, but its station card
+   * is local furniture, not permanent mission HUD. Use the same shared useful
+   * range as the radio audio and let Radio clear/restore the
+   * card on the distance edge. */
+  hudVisible: () => radioHudWithinRange(camera?.position, apartment?.radioPos),
 });
 const DAY_TWO_CALL_AFTER_BULLETIN = 20;
 // Nothing happens in here. Somebody should say so.
@@ -588,6 +659,7 @@ const _aimPoint = new THREE.Vector3();
 
 let apartment = null;
 let bathroomMirror = null;
+let playerBody = null;
 
 const game = {
   started: false,
@@ -696,6 +768,8 @@ async function boot() {
     // The drawer names the shirt he settled on, so the toast can say which.
     onDressed: (shirt) => {
       const name = shirt?.name || 'clean shirt';
+      const outfitId = APARTMENT_SHIRT_OUTFIT[name.toLowerCase?.() ?? ''];
+      if (outfitId) playerBody?.setOutfit(outfitId);
       completeApartmentActivity('changedClothes', TIME_EVENT_IDS.CHANGE_CLOTHES);
       audio.say('dress', { chance: 0.8, delay: 0.4 });
       hud.toast(`Changed · ${name}`, 'good');
@@ -760,6 +834,19 @@ async function boot() {
     maxDistance: 9,
     enabled: true,
   });
+  playerBody = new FirstPersonBody(scene, {
+    factory: buildApartmentPlayerBody,
+    store: apartmentAppearanceStore,
+    outfitId: initialApartmentOutfitId,
+    eyeHeight: 1.66,
+  });
+  /* The view-model remains camera-owned; this second revolver exists only on
+   * the mirror layer and rides the shared body's hand socket. */
+  const reflectedRevolver = makeRevolver(makeMaterials(), { x: 0, y: 0, z: 0 }).group;
+  reflectedRevolver.position.set(0, -0.02, 0.015);
+  reflectedRevolver.rotation.set(-0.10, Math.PI, 0.08);
+  reflectedRevolver.scale.setScalar(0.94);
+  playerBody.setWeapon(reflectedRevolver, { visible: false });
 
   const savedActivities = campaign.state.activities;
   apartment.state.fed ||= savedActivities.eaten;
@@ -1738,6 +1825,11 @@ browserInput = createFirstPersonInput({
   onCaptureError: (_error, controls) => {
     paintInputCapture(controls);
     if (!controls.recovered) return;
+    /* A pointer-lock request can reject after Tab has already opened the
+     * shared pause menu. Recovery used to call enableInput() unconditionally,
+     * setting game.paused=false behind a still-visible menu. The menu owns
+     * this lifecycle boundary; a late browser error must not resume it. */
+    if (game.paused || pauseMenu.isPaused() || game.left) return;
     enableInput();
     const activations = controls.adapter.snapshot().dragFallbackActivations;
     if (activations <= fallbackHints) return;
@@ -4538,11 +4630,10 @@ function endRingBooskiBack() {
 /**
  * SM-070. Getting dressed for something nobody has described to him.
  *
- * The script stages these at a wardrobe and a mirror. This flat has neither --
- * the clean shirts are in the nightstand drawer and there is no mirror in the
- * build at all -- so the drawer carries both halves: the wardrobe line the
- * first time he opens it, and one of the three mirror lines every time after,
- * ending on the one that is him talking himself down and failing.
+ * Both the closet rail and the legacy nightstand route feed this one callback,
+ * so the same getting-ready beat survives whichever clean shirt the player
+ * actually reaches first. The bathroom mirror now reflects the persisted
+ * choice; the line still belongs to dressing, not to entering that room.
  *
  * Called from `onDressed` AFTER the ordinary toast, because the ordinary toast
  * is the flat behaving normally and that is the joke he is standing inside.
@@ -5802,6 +5893,13 @@ function frame() {
       applyDrunkFx();
 
       player.update(dt);
+      const reflectedPose = game.inBed || player.mode === 'bed'
+        ? 'bed'
+        : game.seated || game.sitting || game.onToilet || player.mode === 'seated'
+          ? 'seated'
+          : 'standing';
+      playerBody?.update(dt, player, { pose: reflectedPose });
+      playerBody?.setWeaponVisible(apartment.state.heldItem === 'gun');
       apartment.update(hdt, elapsed);
       updateMargoWake(dt);
       updateConsume(dt);

@@ -19,6 +19,7 @@ import {
 import { DayNight } from '../core/daynight.js';
 import { SkyDome } from '../core/sky.js';
 import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
+import { FirstPersonBody, createPlayerAppearanceStore } from '../core/first-person-body.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
@@ -64,6 +65,22 @@ import {
 import { createCabinDialogueDirector } from './dialogue-director.js';
 import { createCabinExecutionChoice } from './execution-choice.js';
 import { createLagHintDirector, LAG_VOICE_PREFIX, speakLagLine } from './lag.js';
+import {
+  CABIN_WORK_OUTFIT,
+  knownCabinPlayerOutfitId,
+  makeCabinPlayerFigure,
+} from './player-body.js';
+import {
+  CABIN_RANGE_ACTIVITY_RADIUS,
+  CABIN_RADIO_AUDIBLE_DISTANCE,
+  CABIN_RANGE_RESULT_SECONDS,
+  cabinObjectivePresentation,
+  cabinRadioHudVisible,
+  cabinRangeActivityContains,
+  cabinRangeHudPresentation,
+  createCabinPlanarMirror,
+  createCabinCreekListeningMode,
+} from './presentation.js';
 import { CABIN_VO_PREFIX, MARGO_CALL_READY, cabinScriptCues } from './script.js';
 
 const canvas = document.getElementById('scene');
@@ -135,7 +152,11 @@ const hud = new Hud();
 const interaction = new InteractionSystem(camera, hud);
 const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
 const audio = new AudioEngine();
+const appearanceStore = createPlayerAppearanceStore();
+const initialCabinOutfitId = knownCabinPlayerOutfitId(appearanceStore.read());
 const tv = new Tv({ audio });
+let player = null;
+const radioWorldPosition = new THREE.Vector3();
 const radio = new Radio(audio, hud, time, {
   venue: 'countryside_cabin',
   state: createCampaignRadioAdapter(campaign, {
@@ -145,6 +166,11 @@ const radio = new Radio(audio, hud, time, {
   canPlayNotice: () => false,
   news: () => newsSegmentsFor(campaign.state),
   output: 0.9,
+  hudVisible: () => cabinRadioHudVisible(
+    player?.position,
+    radioWorldPosition,
+    CABIN_RADIO_AUDIBLE_DISTANCE,
+  ),
 });
 const phone = new Phone({
   time,
@@ -155,7 +181,10 @@ const phone = new Phone({
     if (thread.readEventId) campaign.advanceTime(thread.readEventId);
     syncCampaignPresentation();
   },
-  onCallState: (connected) => radio.setPhoneDucked(connected),
+  onCallState: (connected) => {
+    radio.setPhoneDucked(connected);
+    syncCampaignPresentation();
+  },
 });
 const arcade = createArcade({ audio });
 
@@ -182,21 +211,24 @@ const state = {
   basementVisited: false,
   basementInspection: null,
   carryingBody: null,
+  rangeHudUntil: 0,
 };
 
 const WALK_EYE_HEIGHT = 1.66;
 
 const lagHints = createLagHintDirector();
+const creekListening = createCabinCreekListeningMode({ audio });
 
 let cabin = null;
 let bathroomMirror = null;
-let player = null;
+let reflectionBody = null;
 let input = null;
 let chapter = null;
 let dialogue = null;
 let executionChoice = null;
 let weapons = null;
 let armory = null;
+let rifleRackArmory = null;
 let wallRack = null;
 let gratinPistol = null;
 let bloodImpacts = null;
@@ -237,47 +269,20 @@ function applyTimeOfDay() {
   cabin?.setLamp?.(cabinLightsOn, { automatic: true });
 }
 
-function objectiveHint() {
-  const phase = story.phase();
-  const phaseHints = {
-    opening_call: 'Keep the phone selected · answer Lou with E',
-    explore: 'Explore any two marked locations · the creek, ridge, shed, or range',
-    gratin_call: 'Keep the phone close · Gratin is calling',
-    open_cellar: 'Return to the cabin · Follow the Supreme Leader',
-    enter_dungeon: 'Search the finished cellar for a second concealed door',
-    interrogation: 'Choose a tool, then work on both restrained prisoners',
-    ateam_intel: 'Let the A-Team prisoner finish talking',
-    execution_choice: 'Choose within ten seconds · 1 YES or 2 NO',
-    execution: story.executionChoice() === 'player'
-      ? 'Use Gratin’s pistol to finish both prisoners'
-      : 'Stand clear while Gratin finishes the job',
-    nightfall: 'Night is falling above the cellar',
-    wrap_bodies: 'Wrap both bodies at the marked stations',
-    carry_bodies: 'Carry each wrapped body out of the dungeon and onto the pyre',
-    pour_gas: 'Take the red gas can and soak the pyre',
-    ignite_bonfire: 'Light the soaked pyre',
-    fire_cleanup: 'Stay by the fire with Lag and Gratin',
-    drink: 'Take the offered drink with Lag and Gratin',
-    blackout: 'Finish the night by the fire',
-    morning_call: 'Answer Ape’s morning call',
-    morning_wake: 'Get up and meet Ape at the car',
-  };
-  if (phaseHints[phase]) return phaseHints[phase];
-  const exit = story.tryLeave();
-  if (exit.kind === 'go') return 'Ape is waiting at the car · Lag and the property remain open';
-  return exit.line;
-}
-
 function repaintObjectives() {
-  const chapterActive = story.gratinCallComplete();
+  const current = cabinObjectivePresentation(story.objectivePlan(), {
+    phoneRinging: phone.ringing,
+    phoneConnected: phone.inCall,
+  });
   objectivePanel.set({
-    title: chapterActive ? 'THE HIDEOUT · BELOW THE FLOORBOARDS' : 'THE HIDEOUT · LAY LOW',
-    items: story.objectives().map((item) => ({
-      label: item.label,
-      done: item.done,
-      required: item.required,
-    })),
-    hint: objectiveHint(),
+    title: 'CURRENT OBJECTIVE',
+    items: [{
+      label: current.label,
+      done: false,
+      required: true,
+      current: true,
+    }],
+    hint: current.step,
   });
 }
 
@@ -340,6 +345,8 @@ function transitionCabinBasement(direction, detail = {}) {
   }
   const pose = down ? cabin?.spawns?.basement : cabin?.spawns?.wardrobeReturn;
   if (!pose || !player || state.resting) return false;
+  stopCreekListening('level-transition', { silent: true });
+  clearShootingRange({ reason: 'level-transition' });
   interaction.setPaused(true);
   const placed = placePlayerAtCabinPose(pose, {
     level: down ? 'basement' : 'cabin',
@@ -470,8 +477,13 @@ function visitLandmark(id) {
   const result = story.visit(id);
   if (!result.ok) return result;
   if (result.firstVisit) {
-    audio.play(id === 'creek' ? 'bird' : 'footstep.dirt', { volume: 0.28 });
+    audio.play(id === 'creek' ? 'water.splash' : 'footstep.dirt', {
+      volume: id === 'creek' ? 0.18 : 0.28,
+      position: id === 'creek' ? cabin.landmarks?.creek?.position : undefined,
+    });
     const residentAwareLine = {
+      creek: 'Cold water over stone, close enough to cover every small sound from the cabin.',
+      overlook: 'The ridge opens over the whole valley. The cabin is a warm square below, and the county road has nowhere to hide.',
       shed: 'Axes, fuel tins, a workbench, and a swept patch where Lag keeps the useful tools.',
       firepit: 'Old ash under new cedar. Lag has kept the ring ready without advertising smoke above the road.',
       range: 'Five crude targets, a real backstop, and ten rounds on the chalkboard. Somebody took boredom seriously.',
@@ -487,6 +499,25 @@ function visitLandmark(id) {
   return result;
 }
 
+function beginCreekListening() {
+  if (!creekListening.begin(player?.position, state.elapsed)) return false;
+  hud.toast('Creek listening · move or press a control to leave', 'good');
+  hud.say('Stay still. <em>The current comes forward while the rest of the property falls back.</em>', 4400);
+  return true;
+}
+
+function stopCreekListening(reason = 'cancelled', { silent = false } = {}) {
+  const stopped = creekListening.stop(reason);
+  if (stopped && !silent) hud.toast('Creek listening ended');
+  return Boolean(stopped);
+}
+
+function stopCreekListeningForInput() {
+  const stopped = creekListening.handleInput(state.elapsed);
+  if (stopped) hud.toast('Creek listening ended');
+  return Boolean(stopped);
+}
+
 function leaveCabin() {
   const exit = story.tryLeave();
   if (exit.kind !== 'go') {
@@ -495,6 +526,8 @@ function leaveCabin() {
     return false;
   }
   state.phase = 'leaving';
+  stopCreekListening('leave', { silent: true });
+  clearShootingRange({ reason: 'leave' });
   interaction.setPaused(true);
   // A campaign transition owns the whole browser now. Retire the live input
   // socket and every cabin/radio bed immediately, before the 900 ms curtain,
@@ -505,6 +538,7 @@ function leaveCabin() {
   weapons?.stow?.({ silent: true });
   radio.pause();
   audio.stopLoop('cabin.forest', 0.12);
+  audio.stopLoop('cabin.creek', 0.12);
   audio.stopLoop('cabin.fridge', 0.12);
   audio.stopLoop('cabin.firepit', 0.12);
   /* The cabin's door opens twice and it does not always open onto the same
@@ -608,6 +642,7 @@ function useWardrobe() {
   discoverCabin('wardrobe');
   state.dressed = true;
   cabin.state.dressed = true;
+  reflectionBody?.setOutfit?.(CABIN_WORK_OUTFIT);
   hud.toast('Changed into country clothes', 'good');
   hud.say('Same closet. Less city.', 2600);
 }
@@ -758,30 +793,45 @@ function canUseOrdinaryFirepit() {
 function useShootingRange(range = cabin?.shootingRange) {
   if (!range) return false;
   const before = range.snapshot();
-  const snapshot = range.begin();
-  if (weapons?.equipped) {
-    hud.toast(before.active ? 'Ten-shot range reset' : 'Ten-shot range started', 'good');
-    hud.say('Ten rounds. Painted centre is ten. <em>The backstop is the part you absolutely do not miss.</em>', 3800);
-  } else {
-    /* THIS LINE USED TO GIVE AWAY THE SECOND HALF OF THE CHAPTER.
-     *
-     * Owner, cabin playtest: *"the hint at the shooting yard totally gives it
-     * away"*. It read: "There are rifles below the cabin once Gratin opens the
-     * way" -- which, on a Day Two walk around a quiet property, announces that
-     * there is a below-the-cabin, that it is currently shut, that a man named
-     * Gratin is going to open it, and therefore that the afternoon is not
-     * going to stay quiet. The dungeon is the turn this chapter is built on
-     * and it should arrive with Booski's call, not with a range marker.
-     *
-     * The range stays -- it is one of the four walks the story requires -- and
-     * it now points at the wall rack in the main room, which is a thing the
-     * player can walk back and pick up right now.
-     */
+  if (!weapons?.equipped) {
     hud.toast('Range found · bring a rifle back');
     hud.say('The range is live, but your hands are empty. <em>There is a rack of rifles on the cabin wall.</em>', 4200);
+    renderRangeHud(before);
+    return true;
   }
+  state.rangeHudUntil = 0;
+  const snapshot = range.begin();
+  hud.toast(before.active ? 'Ten-shot range reset' : 'Ten-shot range started', 'good');
+  hud.say('Ten rounds. Painted centre is ten. <em>The backstop is the part you absolutely do not miss.</em>', 3800);
   renderRangeHud(snapshot);
   return true;
+}
+
+function clearShootingRange({ reason = 'cancelled', receipt = false } = {}) {
+  const range = cabin?.shootingRange;
+  if (!range) return false;
+  const before = range.snapshot();
+  if (receipt && before.active) {
+    return range.finish?.(reason) === true;
+  }
+  if (!before.active && !before.complete && state.rangeHudUntil <= 0) return false;
+  range.reset();
+  state.rangeHudUntil = 0;
+  renderRangeHud(range.snapshot());
+  return true;
+}
+
+function updateShootingRangeLifecycle() {
+  const range = cabin?.shootingRange;
+  const snapshot = range?.snapshot?.();
+  if (!snapshot?.active) return false;
+  const firingLine = range.geometry?.firingLine;
+  if (state.level === 'cabin' && cabinRangeActivityContains(
+    player?.position,
+    firingLine,
+    CABIN_RANGE_ACTIVITY_RADIUS,
+  )) return false;
+  return clearShootingRange({ reason: 'left-range', receipt: true });
 }
 
 function onRangeEvent(event) {
@@ -789,7 +839,9 @@ function onRangeEvent(event) {
   if (event?.type === 'hit') {
     hud.toast(`Range hit · +${event.delta}`, 'good', 900);
   } else if (event?.type === 'complete') {
-    hud.toast(`Range complete · ${event.snapshot.currentScore} points`, 'good', 3200);
+    state.rangeHudUntil = state.elapsed + CABIN_RANGE_RESULT_SECONDS;
+    const left = event.reason === 'left-range';
+    hud.toast(`${left ? 'Range ended' : 'Range complete'} · ${event.snapshot.currentScore} points`, 'good', 3200);
   }
 }
 
@@ -850,45 +902,15 @@ function renderCombatHud() {
   combatEl.querySelector('.reload').textContent = snapshot.reloading ? 'RELOADING' : snapshot.empty ? 'EMPTY · R' : '';
 }
 
-/**
- * How far from a thing you can be and still have it caption your screen.
- *
- * Owner, 2026-08-26: *"after going to the shooting range the score Pts are
- * stuck on my hub in bottom left. Should disappear after I walk away"* and
- * *"Radio station always showing in the bottom left maybe only show when in
- * close range of radio like inside the cabin."*
- *
- * Both readouts latched on a STATE -- `snapshot.complete` never goes back to
- * false once a run has ended, and the radio stays on while he walks a ridge
- * -- so both followed him around the property for the rest of the chapter.
- * A readout belongs to a place. 14 m covers the firing line and its bench
- * without reaching the treeline; 9 m is the cabin's own main room from the
- * sideboard the set stands on, so the OSD is up indoors and gone outside.
- */
-const RANGE_HUD_RANGE_M = 14;
-const RADIO_HUD_RANGE_M = 9;
-
-function nearEnough(point, metres) {
-  if (!point || !player?.position) return false;
-  return Math.hypot(
-    player.position.x - point.x,
-    player.position.z - point.z,
-  ) <= metres;
-}
-
 function renderRangeHud(snapshot = cabin?.shootingRange?.snapshot?.()) {
   if (!rangeEl || !snapshot) return;
-  /* A run in progress always shows -- he could be shooting from the back of
-   * the firing line. A FINISHED run only shows while he is still standing
-   * there to read it. */
-  const anchor = cabin?.interactionTargets?.range?.position ?? null;
-  const visible = snapshot.active
-    || (snapshot.complete && (!anchor || nearEnough(anchor, RANGE_HUD_RANGE_M)));
-  rangeEl.classList.toggle('hidden', !visible);
-  rangeEl.querySelector('.range-score').textContent = snapshot.active
-    ? `${snapshot.currentScore} PTS · ${snapshot.shotsRemaining} SHOTS · ${snapshot.timeRemaining.toFixed(1)}s`
-    : `${snapshot.lastScore} PTS · ${snapshot.hits} HITS`;
-  rangeEl.querySelector('.range-best').textContent = `BEST ${snapshot.bestScore}`;
+  const view = cabinRangeHudPresentation(snapshot, {
+    now: state.elapsed,
+    completeUntil: state.rangeHudUntil,
+  });
+  rangeEl.classList.toggle('hidden', !view.visible);
+  rangeEl.querySelector('.range-score').textContent = view.score;
+  rangeEl.querySelector('.range-best').textContent = view.best;
 }
 
 function setIntoxication(amount = 0) {
@@ -1041,12 +1063,15 @@ function handleWeaponEvent(event) {
 function blackoutToMorning(done) {
   if (state.resting) return false;
   state.resting = true;
+  stopCreekListening('rest', { silent: true });
+  clearShootingRange({ reason: 'rest' });
   interaction.setPaused(true);
   weapons?.setTrigger?.(false);
   weapons?.setAimed?.(false);
   restCurtain.querySelector('span').textContent = 'THE FIRE FOLDS INTO BLACK';
   restCurtain.classList.add('active');
   audio.stopLoop('cabin.forest', 0.9);
+  audio.stopLoop('cabin.creek', 0.9);
   window.setTimeout(() => {
     syncCampaignPresentation();
     const wake = cabin.spawns?.wake ?? cabin.bedPose;
@@ -1060,6 +1085,15 @@ function blackoutToMorning(done) {
       input?.refresh('cabin-blackout-complete');
       audio.startLoop('cabin.forest', {
         name: 'ambience.course', volume: 0.21, ambience: true, fade: 1.6,
+      });
+      audio.startLoop('cabin.creek', {
+        name: 'water.lap.hull',
+        volume: 0.12,
+        ambience: true,
+        position: cabin.landmarks.creek.position,
+        ref: 2.8,
+        maxDist: 26,
+        fade: 1.2,
       });
       done?.();
     }, 1150);
@@ -1095,6 +1129,7 @@ try {
     onArt: inspectArt,
     onFrontDoor: toggleFrontDoor,
     onLandmark: visitLandmark,
+    onCreekListen: beginCreekListening,
     onDiscover: discoverCabin,
     onDrawingBoard: () => discoverCabin('drawing-board'),
     onCar: leaveCabin,
@@ -1130,34 +1165,15 @@ try {
     onCleanupPourGas: () => chapter?.pourGas?.(),
     onCleanupIgnite: () => chapter?.igniteBonfire?.(),
   });
-  /* THE BATHROOM MIRROR IS OFF IN THIS SCENE, DELIBERATELY.
-   *
-   * Owner, cabin playtest: *"The mirror is fucked. I may also not have a
-   * body.. So if thats the case just disable the mirror for this scene. It
-   * works great in the squatchfather thoo."*
-   *
-   * He is right about the cause. The Squatchfather runs its own
-   * `ProspectController`, which builds a full `Figure` and puts every mesh of
-   * it on render layer 1 -- invisible to the first-person camera, visible to
-   * `PlanarMirror`'s. The cabin runs the SHARED `src/core/player.js`, which is
-   * a camera, a capsule and nothing else. There is no body within a hundred
-   * metres of that glass, so a working reflection here renders a bathroom with
-   * nobody in it: the player walks up to a mirror and is not in it, which
-   * reads as broken far more loudly than a plain silvered pane does.
-   *
-   * So the mirror is not constructed at all, rather than constructed with
-   * `enabled: false` -- the constructor REPLACES the mesh's material with its
-   * own render-target basic material on the way in, and an unrendered target
-   * is black. Left alone, `bathsink.mirror.surface` keeps its authored glass
-   * (roughness 0.12, metalness 0.55), which is a mirror you cannot see
-   * yourself in rather than a hole in the wall.
-   *
-   * Turn this back on the day the player has a body in this scene. See the
-   * write-up handed to the owner: the shared Player would need the layer-1
-   * figure the Squatchfather already proves out, and `src/core/wardrobe.js`
-   * would need a player row beside its NPC ones.
-   */
-  bathroomMirror = null;
+  bathroomMirror = createCabinPlanarMirror(scene, cabin.mirrorMesh, {
+    width: 0.54,
+    height: 0.66,
+    resolution: [384, 468],
+    maxDistance: 9,
+    enabled: true,
+  }, {
+    onError: (error) => console.warn('Cabin mirror using authored fallback material:', error),
+  });
 } catch (error) {
   window.__squatchSceneFail?.('Could not build the cabin', error?.message || String(error));
   throw error;
@@ -1175,6 +1191,18 @@ player = new Player(camera, world);
 player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 interaction.setOccluders(cabin.occluders ?? []);
+radioWorldPosition.copy(cabin.radioPos);
+radio.setPosition(radioWorldPosition);
+try {
+  reflectionBody = new FirstPersonBody(scene, {
+    factory: makeCabinPlayerFigure,
+    store: appearanceStore,
+    outfitId: initialCabinOutfitId,
+    eyeHeight: WALK_EYE_HEIGHT,
+  });
+} catch (error) {
+  console.warn('Cabin reflection body unavailable; mirror remains safe:', error);
+}
 
 const dungeon = cabin.basement.dungeon;
 bonfireCast = createCabinBonfireCastStaging({
@@ -1223,7 +1251,6 @@ const armoryEvent = (event) => {
   renderCombatHud();
 };
 const armoryEnabled = () => state.phase === 'active' && !state.resting && !state.carryingBody;
-
 armory = mountArmory({
   parent: dungeon.root,
   system: weapons,
@@ -1254,6 +1281,21 @@ wallRack = mountArmory({
   addCollider: armoryCollider('cabin-wall-rack'),
   onEvent: armoryEvent,
 });
+
+/* The polished cabin also keeps the distinct shotgun on the clear east wall.
+ * Its original carbine spec overlaps the upstream north-wall rack, so only
+ * the non-duplicate long gun is mounted here. */
+rifleRackArmory = mountArmory({
+  parent: cabin.rifleRack.parent,
+  system: weapons,
+  interaction,
+  racks: cabin.rifleRack.racks.filter(({ id }) => id === WEAPON_IDS.SHOTGUN),
+  retainTaken: true,
+  enabled: armoryEnabled,
+  addCollider: armoryCollider('cabin-shotgun-rack'),
+  onEvent: armoryEvent,
+});
+rifleRackArmory.root.name = 'cabin-shotgun-rack-armory';
 
 gratinPistol = buildWeaponModel(WEAPON_IDS.PISTOL9);
 mountCharacterWeapon(dungeon.actors.gratin.parts, WEAPON_IDS.PISTOL9, gratinPistol, {
@@ -1292,7 +1334,10 @@ chapter = createCabinChapterRuntime({
       restoreCleanupPresentation();
     },
     ensurePhone: ensurePhoneSelected,
-    onCallRinging: (definition) => hud.say(`<em>${definition.from} is calling.</em> Select the phone and press E.`, 3000),
+    onCallRinging: (definition) => {
+      syncCampaignPresentation();
+      hud.say(`<em>${definition.from} is calling.</em> Select the phone and press E.`, 3000);
+    },
     onMargoReady: dispatchMargoReady,
     onDungeonDoorOpen: () => dungeon.setDoorOpen(true),
     onToolSelected: () => audio.play('switch.click', { volume: 0.32, position: dungeon.anchors.worktable }),
@@ -1664,6 +1709,7 @@ input = createFirstPersonInput({
   }),
   routes: {
     keyDown(event, controls) {
+      stopCreekListeningForInput();
       if (state.posture === 'desk' && arcade.onKey(event.code, true)) return true;
       if (!event.repeat && executionChoice?.handleKey?.(event.code)) return true;
       if (controls.code === 'KeyE' && !event.repeat && cabin.inventory.held === 'phone') {
@@ -1701,11 +1747,13 @@ input = createFirstPersonInput({
       return arcade.onKey(event.code, false) === true;
     },
     mouseMove(event) {
+      stopCreekListeningForInput();
       if (state.posture !== 'desk' || arcade.inputMode !== 'relative') return false;
       arcade.onPointer(event.movementX, event.movementY);
       return true;
     },
     mouseDown(event, controls) {
+      stopCreekListeningForInput();
       if (!controls.locked) return false;
       if (event.button === 2) {
         weapons?.setAimed?.(true);
@@ -1754,6 +1802,7 @@ startButton.addEventListener('click', async () => {
   await audio.loadManifest({
     names: [
       'ambience.course', 'bird', 'phone.pickup', 'door.knob', 'door.creak',
+      'water.lap.hull', 'water.splash',
       'phone.ring', 'phone.hangup',
       'fridge.open', 'fridge.close', 'switch.click', 'pan.sizzle', 'shower.run', 'toilet.lid',
       'fridge.hum', 'siege.fire.crackle', 'can.crack', 'can.sip', 'can.crush',
@@ -1770,6 +1819,15 @@ startButton.addEventListener('click', async () => {
   });
   audio.startLoop('cabin.forest', {
     name: 'ambience.course', volume: 0.21, ambience: true, fade: 1.8,
+  });
+  audio.startLoop('cabin.creek', {
+    name: 'water.lap.hull',
+    volume: 0.12,
+    ambience: true,
+    position: cabin.landmarks.creek.position,
+    ref: 2.8,
+    maxDist: 26,
+    fade: 1.8,
   });
   audio.startLoop('cabin.fridge', {
     name: 'fridge.hum',
@@ -1799,8 +1857,11 @@ const pauseMenu = createPauseMenu({
   title: 'The Hideout',
   canPause: () => state.phase === 'active' && !state.resting,
   getObjective: () => {
-    const next = story.objectives().find((item) => item.required && !item.done);
-    return next?.label ?? 'Explore the property or take the car when you are ready.';
+    const current = cabinObjectivePresentation(story.objectivePlan(), {
+      phoneRinging: phone.ringing,
+      phoneConnected: phone.inCall,
+    });
+    return current.step ? `${current.label} — ${current.step}` : current.label;
   },
   instructions: [
     'W A S D — move. Shift — sprint. Space — jump.',
@@ -1812,10 +1873,13 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     state.paused = true;
+    stopCreekListening('pause', { silent: true });
+    clearShootingRange({ reason: 'pause' });
     weapons?.setTrigger?.(false);
     weapons?.setAimed?.(false);
     interaction.setPaused(true);
     input.suspend();
+    radio.pause();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
@@ -1824,6 +1888,7 @@ const pauseMenu = createPauseMenu({
     audio.ctx?.resume?.();
     lastFrame = performance.now();
     input.resume();
+    radio.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -1832,6 +1897,7 @@ const pauseMenu = createPauseMenu({
   }),
 });
 window.addEventListener('wheel', (event) => {
+  stopCreekListeningForInput();
   if (state.phase !== 'active' || state.posture) return;
   if (cabin.inventory.held === 'phone' && ['messages', 'thread'].includes(phone.screen)) {
     phone.cycle(event.deltaY > 0 ? 1 : -1);
@@ -1864,6 +1930,8 @@ function frame(now) {
         player.sprinting = false;
       }
       player.update(dt);
+      if (creekListening.update(player.position)) hud.toast('Creek listening ended');
+      updateShootingRangeLifecycle();
       interaction.update(dt);
       updateHeldUse(dt);
       phone.update(dt);
@@ -1887,15 +1955,16 @@ function frame(now) {
       }
       renderCombatHud();
       renderRangeHud();
-      /* `radioPos` is spread onto the cabin's public surface by world.js --
-       * the sideboard the set actually stands on, not the room's centre. */
-      hud.setRadioAudible(nearEnough(cabin?.radioPos, RADIO_HUD_RANGE_M));
     }
     applyTimeOfDay();
   }
   heldPhone.screen.material.map.needsUpdate = heldPhone.group.visible;
   hud.setClock(time.day, time.clock12, time.elapsedReal);
   audio.updateListener(camera);
+  reflectionBody?.update(dt, player, {
+    groundY: player?.ground,
+    visible: state.phase !== 'leaving',
+  });
   bathroomMirror?.render(renderer, camera);
   renderer.render(scene, camera);
 }
@@ -1919,6 +1988,9 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   executionChoice,
   weapons,
   armory,
+  rifleRackArmory,
+  reflectionBody,
+  creekListening,
   wallRack,
   dungeon,
   range: cabin.shootingRange,

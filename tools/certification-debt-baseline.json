@@ -9531,7 +9531,7 @@
             "actorExpectation": {
               "disposition": "INTENTIONAL_NA",
               "minimum": 0,
-              "reason": "The luxury flat is his alone: the poker table is furniture and nobody sits at it."
+              "reason": "The Luxury Apartment is Tony alone; its empty poker table is a deliberate solo beat."
             },
             "actorObservedIds": [],
             "actorVisibilityPolicy": "rendered_only",
@@ -9540,8 +9540,21 @@
             "built": true,
             "findings": 0,
             "findingsScanned": true,
+            "reviewedActorRetirement": {
+              "actorIds": [
+                "luxury.poker.patron.east",
+                "luxury.poker.patron.north",
+                "luxury.poker.patron.west"
+              ],
+              "fingerprint": "da34b5bbbb3e1d3bccf0",
+              "proofId": "luxury-apartment:property",
+              "reason": "The Luxury Apartment poker beat is intentionally solo; its three anonymous patrons were removed because they contradicted Tony being alone and falsely promised a hosted game.",
+              "schema": "squatchsmash.certification-actor-retirements.v1",
+              "source": "src/luxury-apartment/world.js:2663",
+              "sourceAnchor": "const pokerPatrons = [];"
+            },
             "spatialCoverageStatus": "PASS",
-            "typed": 64,
+            "typed": 66,
             "unmarkedRigs": 0,
             "untyped": 0,
             "visibilityFilteredActorIds": [],
@@ -12122,7 +12135,7 @@
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 2,
             "unmarkedRigs": 0,
             "untyped": 18,
             "visibilityFilteredActorIds": [
@@ -12162,7 +12175,7 @@
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 2,
             "unmarkedRigs": 0,
             "untyped": 19,
             "visibilityFilteredActorIds": [
@@ -12241,7 +12254,7 @@
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 2,
             "unmarkedRigs": 0,
             "untyped": 20,
             "visibilityFilteredActorIds": [
@@ -12281,7 +12294,7 @@
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 2,
             "unmarkedRigs": 0,
             "untyped": 19,
             "visibilityFilteredActorIds": [
@@ -12321,7 +12334,7 @@
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "UNKNOWN",
-            "typed": 0,
+            "typed": 2,
             "unmarkedRigs": 0,
             "untyped": 19,
             "visibilityFilteredActorIds": [

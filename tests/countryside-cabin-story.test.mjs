@@ -181,7 +181,6 @@ test('the range replaces the firepit in four durable exploration goals', () => {
   assert.equal(legacyStory.visit('range').firstVisit, false);
   assert.equal(legacyStory.has(TIME_EVENT_IDS.CABIN_EXPLORE_RANGE), false);
   assert.deepEqual(legacy.campaign.state, legacyBefore);
-  assert.equal(legacyStory.objectives().find(({ id }) => id === 'range').done, true);
 });
 
 test('the four walks lead to Margo and Booski, and Gratin waits for the second night', () => {
@@ -229,13 +228,102 @@ test('the four walks lead to Margo and Booski, and Gratin waits for the second n
   assert.equal(story.completeGratinCall().firstTime, false);
   assert.equal(story.basementVisible(), true);
   assert.equal(story.phase(), 'open_cellar');
-  for (const landmark of COUNTRYSIDE_CABIN_LANDMARKS) {
-    assert.equal(
-      story.objectives().find(({ id }) => id === landmark.id).required,
-      false,
-      `${landmark.id} should become optional once the dungeon is primary`,
-    );
+  assert.deepEqual(story.objectivePlan(), {
+    id: 'cabin.find_gratin',
+    label: 'Find Gratin',
+    step: 'Return to the cabin · follow the Supreme Leader',
+  });
+  assert.equal(story.objectives().length, 1);
+  assert.equal(
+    story.objectives().some(({ label }) => /creek|ridge|shed|range/i.test(label)),
+    false,
+    'unfinished exploration sites should not remain as HUD objectives',
+  );
+});
+
+test('the HUD projection exposes one parent objective and only its current soft step', () => {
+  const { campaign } = cabinCampaign();
+  const story = createCountrysideCabinStory({ campaign });
+  const expectPlan = (label, step) => {
+    assert.equal(story.objectives().length, 1);
+    assert.equal(story.objectives()[0].label, label);
+    assert.equal(story.objectives()[0].step, step);
+    assert.equal(story.objectives()[0].current, true);
+  };
+
+  expectPlan('Settle in at the cabin', 'Get some sleep');
+  story.completeArrivalRest();
+  expectPlan('Lay low at the cabin', 'Answer Lou’s call');
+  story.completeOpeningCall();
+  expectPlan('Explore the property', '0/4 places visited');
+  story.visit('creek');
+  expectPlan('Explore the property', '1/4 places visited');
+  story.consumeMargoReady();
+  story.visit('overlook');
+  story.visit('shed');
+  story.visit('range');
+  expectPlan('Call Margo', 'Use the number from the Bing');
+  story.completeMargoCall();
+  expectPlan('Answer Booskibro’s call', 'Pick up the phone');
+  story.completeBooskiSasoleCall();
+  expectPlan('Ride out to the airstrip', 'Take the car');
+  story.campaign.update((state) => {
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'complete';
+  });
+  expectPlan('Return to the cabin', 'Head back to the hideout');
+  story.recordReturnFromAirstrip();
+  expectPlan('Get some sleep', 'Use the cabin bed');
+  story.completeSecondRest();
+  expectPlan('Lay low at the cabin', 'Answer Gratin’s call');
+  story.completeGratinCall();
+  expectPlan('Find Gratin', 'Return to the cabin · follow the Supreme Leader');
+  story.openCellar();
+  expectPlan('Find Gratin', 'Search the cellar');
+  story.enterDungeon();
+  expectPlan('Help Gratin get answers', 'Use the tools on both prisoners · 0/2 talking');
+  story.hitHostage(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER, { hits: 2 });
+  expectPlan('Help Gratin get answers', 'Use the tools on both prisoners · 1/2 talking');
+  story.hitHostage(CABIN_HOSTAGE_IDS.ATEAM_MEMBER, { hits: 6 });
+  expectPlan('Help Gratin get answers', 'Hear the prisoner out');
+  story.learnAteamIntel();
+  expectPlan('Help Gratin get answers', 'Listen to Gratin');
+  story.chooseExecution('player');
+  expectPlan('Finish the job', 'Use Gratin’s pistol on both prisoners');
+
+  for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
+    const hostage = story.hostageState(id);
+    story.damageHostage(id, { hits: hostage.remaining });
+    story.killHostage(id);
   }
+  expectPlan('Finish the job', 'Listen to Gratin');
+  story.completeNightfall();
+  expectPlan('Finish the job', 'Listen to Gratin');
+  story.completeNightfallBriefing();
+  expectPlan('Burn the bodies', 'Wrap them up · 0/2');
+  story.wrapHostage(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER);
+  expectPlan('Burn the bodies', 'Wrap them up · 1/2');
+  story.wrapHostage(CABIN_HOSTAGE_IDS.ATEAM_MEMBER);
+  expectPlan('Burn the bodies', 'Carry them to the fire · 0/2');
+  story.moveBodyToFire(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER);
+  expectPlan('Burn the bodies', 'Carry them to the fire · 1/2');
+  story.moveBodyToFire(CABIN_HOSTAGE_IDS.ATEAM_MEMBER);
+  expectPlan('Burn the bodies', 'Soak the pyre with gasoline');
+  story.pourGas();
+  expectPlan('Burn the bodies', 'Light the pyre');
+  story.igniteBonfire();
+  expectPlan('Burn the bodies', 'Stay with the fire');
+  story.completeFireCleanup();
+  expectPlan('Sit with Lag and Gratin', 'Take the drink when it comes around');
+  story.drink();
+  expectPlan('Sit with Lag and Gratin', 'Stay by the fire');
+  story.blackout();
+  expectPlan('Answer Ape’s call', 'Pick up the phone');
+  story.completeMorningCall();
+  expectPlan('Get ready to leave', 'Head outside');
+  story.completeMorningWake();
+  expectPlan('Answer Booskibro’s call', 'Pick up the phone');
+  story.completeBillyCall();
+  expectPlan('Drive back to the Bing', 'Use the car when you are ready');
 });
 
 test('cellar and dungeon order is guarded and survives reload', () => {
@@ -380,10 +468,10 @@ test('player execution branch is mutually exclusive and cleanup state reloads', 
   assert.equal(story.bodyAtFire(CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER), true);
   assert.equal(story.bodyAtFire(CABIN_HOSTAGE_IDS.ATEAM_MEMBER), true);
   assert.equal(story.phase(), 'pour_gas');
+  assert.equal(story.objectives().length, 1);
   assert.equal(story.objectives().some(({ label }) => /unmask|mole/i.test(label)), false);
-  assert.equal(story.objectives().find(
-    ({ id }) => id === TIME_EVENT_IDS.CABIN_ATEAM_INTEL_LEARNED,
-  ).label, 'Learn what the A-Team member knows');
+  assert.equal(story.objectives()[0].label, 'Burn the bodies');
+  assert.equal(story.objectives()[0].step, 'Soak the pyre with gasoline');
 });
 
 test('no response, explicit no, and timeout all choose Gratin', async (t) => {
@@ -482,6 +570,42 @@ test('nightfall, blackout, morning call, and departure are reload-safe authored 
   ).length, 1);
 });
 
+test('legacy post-heist Cabin calendars still turn to night and the next morning', () => {
+  const { campaign } = cabinCampaign({ silverCase: 'available' });
+  campaign.update((state) => {
+    state.scene = { id: SCENE_IDS.COUNTRYSIDE_CABIN, spawn: 'arrival' };
+    state.story.day = 7;
+    state.story.timeMinutes = 11 * 60 + 15;
+  });
+  const story = finishInterrogations(reachDungeon(createCountrysideCabinStory({ campaign })));
+  story.chooseExecution('player');
+  for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
+    story.damageHostage(id, { hits: story.hostageState(id).remaining });
+    story.killHostage(id);
+  }
+
+  const nightfall = story.completeNightfall();
+  assert.equal(nightfall.day, 7);
+  assert.equal(nightfall.timeMinutes, 20 * 60 + 45,
+    'a later legacy date still reaches the authored nighttime presentation');
+  for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
+    story.wrapHostage(id);
+    story.moveBodyToFire(id);
+  }
+  story.pourGas();
+  story.igniteBonfire();
+  story.completeFireCleanup();
+  story.drink();
+  const blackout = story.blackout();
+  assert.equal(blackout.day, 8);
+  assert.equal(blackout.timeMinutes, 9 * 60 + 30,
+    'a later legacy date wakes at the next 09:30 instead of beside the fire');
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.COUNTRYSIDE_CABIN,
+    spawn: 'wake',
+  });
+});
+
 test('legacy Cabin rest remains readable but cannot bypass any gate', () => {
   const { campaign, storage } = cabinCampaign();
   let story = createCountrysideCabinStory({ campaign });
@@ -533,6 +657,15 @@ test('a save that reached the cabin the old way still leaves for the Silver Case
   story.completeMorningCall();
   story.completeMorningWake();
 
+  assert.equal(story.phase(), 'complete');
+  assert.equal(story.chapterComplete(), true);
+  assert.equal(story.billyCallReady(), false, 'the retired route must not ring about Billy');
+  assert.equal(story.objectivePlan().label, 'Take the car to Lou’s next job');
+  assert.equal(
+    story.objectives().some(({ id }) => id === TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL),
+    false,
+    'the retired route must not expose an Act-One objective',
+  );
   assert.deepEqual(story.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_CASE,
   });

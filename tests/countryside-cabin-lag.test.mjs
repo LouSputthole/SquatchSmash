@@ -250,6 +250,36 @@ test('Lag suspends the axe loop while seated at the bonfire and resumes it in th
   assert.ok(LAG_ACTIVITY_LOOP.some(({ id }) => id === lag.debug.activity));
 });
 
+test('Lag resumes the exact interrupted chop clock after speech and bonfire staging', () => {
+  const player = new THREE.Vector3(4, 0, 0);
+  const lag = buildLagActor({ scene: new THREE.Scene(), x: 0, y: 0, z: 0, yaw: Math.PI });
+  const reference = buildLagActor({ scene: new THREE.Scene(), x: 0, y: 0, z: 0, yaw: Math.PI });
+
+  lag.update(0.72, player);
+  reference.update(0.72, player);
+  const interruptedAt = lag.debug.workElapsed;
+  lag.speakTo(player, 1);
+  lag.update(0.4, player);
+  lag.update(0.4, player);
+  lag.update(0.3, player);
+  assert.equal(lag.debug.workElapsed, interruptedAt,
+    'conversation time must not advance the firewood animation');
+  lag.update(0.01, player);
+  reference.update(0.01, player);
+  assert.equal(lag.debug.workElapsed, reference.debug.workElapsed);
+  assert.equal(lag.debug.activity, reference.debug.activity);
+  assert.ok(Math.abs(lag.npc.parts.armR.rotation.x - reference.npc.parts.armR.rotation.x) < 1e-9,
+    'the next work frame continues the interrupted axe stroke');
+
+  const beforeBonfire = lag.debug.workElapsed;
+  lag.setBonfireMode(true);
+  lag.update(5, player);
+  assert.equal(lag.debug.workElapsed, beforeBonfire,
+    'bonfire staging must not skip the ambient work loop');
+  lag.setBonfireMode(false);
+  assert.equal(lag.debug.workElapsed, beforeBonfire);
+});
+
 test('the built property registers Lag, publishes spatial meaning, and repeats firewood activity', async () => {
   const registered = new Map();
   const discoveries = [];

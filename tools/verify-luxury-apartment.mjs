@@ -85,7 +85,6 @@ const EXPECTED_EXTRA_ART = Object.freeze([
   'luxury.stair.memory.b',
   'luxury.bedroom.private',
   'luxury.office.victory',
-  'luxury.arcade.marquee',
   'luxury.poker.champions',
   'luxury.bath.monochrome',
 ]);
@@ -391,6 +390,7 @@ try {
         returnExists: Boolean(returnCouch),
         returnWidth: returnCouch ? returnCouch.max.x - returnCouch.min.x - 0.04 : null,
         returnDepth: returnCouch ? returnCouch.max.z - returnCouch.min.z - 0.04 : null,
+        returnCenterZ: returnCouch ? (returnCouch.min.z + returnCouch.max.z) / 2 : null,
         joined: Boolean(primaryCouch?.intersectsBox(returnCouch)),
       },
       seating: {
@@ -425,7 +425,10 @@ try {
         floorPresent: bathroomParts.includes('luxury-bath-floor'),
         walls: bathroomParts.filter((name) => name.startsWith('luxury-bath-wall-')).length,
         doorPresent: Boolean(home.bathroom.door?.target),
+        doorInitiallyOpen: home.bathroom.door?.isOpen?.() === true,
+        doorGlassOpacity: home.bathroom.door?.leaf?.material?.opacity ?? null,
         doorWidth: bathroomBounds.doorX1 - bathroomBounds.doorX0,
+        roomWidth: bathroomBounds.x1 - bathroomBounds.x0,
         doorClearsStairRail: Boolean(bathroomWestRail)
           && bathroomWestRail.min.x - bathroomBounds.doorX1 >= -1e-6,
         thresholdPresent: Boolean(home.root.getObjectByName('luxury-bathroom-threshold')),
@@ -464,9 +467,16 @@ try {
         seats: home.poker?.seats?.length ?? 0,
         railPresent: Boolean(home.poker?.rail),
         feltPresent: Boolean(home.poker?.felt),
+        railOval: home.poker?.rail?.scale?.z ?? null,
+        feltOval: home.poker?.felt?.scale?.z ?? null,
       },
       dartsPolish: {
         board: Boolean(home.darts?.board),
+        numberedFace: home.darts?.face?.name ?? null,
+        faceTexture: Boolean(home.darts?.face?.material?.map?.isTexture),
+        sections: home.darts?.sections?.length ?? 0,
+        topSection: home.darts?.sections?.[0] ?? null,
+        spotLight: Boolean(home.darts?.light?.isSpotLight),
         backing: Boolean(home.darts?.backing),
         rack: Boolean(home.darts?.rack),
         impactRoot: Boolean(home.darts?.impactRoot),
@@ -488,6 +498,20 @@ try {
           home.artTargets['banner.main']?.userData?.artZone ?? null,
           home.artTargets['banner.twitch']?.userData?.artZone ?? null,
         ],
+        photoZones: [
+          home.artTargets['cork.above']?.userData?.artZone ?? null,
+          home.artTargets['bath.toilet.poster']?.userData?.artZone ?? null,
+        ],
+      },
+      decorPolish: {
+        fittedAppliance: Boolean(home.root.getObjectByName('luxury-fitted-wine-cooler')),
+        stairFocal: Boolean(home.root.getObjectByName('luxury-top-stair-focal')),
+        consoleYaw: home.root.getObjectByName('luxury-entertainment-console')?.rotation?.y ?? null,
+        consoleChildren: home.root.getObjectByName('luxury-entertainment-console')?.children?.length ?? 0,
+        crestX: home.artTargets['crest.round']?.position?.x ?? null,
+        removedArcadeArt: !home.artTargets['luxury.arcade.marquee'],
+        historyRow: ['feature.stacks', 'couch.left', 'couch.right', 'west.late']
+          .map((slot) => home.artTargets[slot]?.userData?.artZone ?? null),
       },
       cityGround: {
         present: Boolean(home.cityGround),
@@ -502,8 +526,14 @@ try {
       pcLaunchById: typeof runtime.pcArcade.launchById === 'function',
       cabinetApps: runtime.cabinetArcade.apps.map(({ id }) => id),
       cabinetStation: Boolean(home.gameStations.arcade?.screen === home.screens.arcade),
+      pokerSolo: Boolean(home.poker?.patrons?.length === 0),
       blackjackMounted: 'blackjack' in runtime,
       darts: Boolean(runtime.darts && home.gameStations.darts),
+      reflectionBody: {
+        present: Boolean(runtime.firstPersonBody?.group?.userData?.firstPersonBody),
+        outfitId: runtime.firstPersonBody?.outfitId ?? null,
+        layer: runtime.firstPersonBody?.group?.userData?.firstPersonBody?.reflectionLayer ?? null,
+      },
       campaignAssigned: Boolean(runtime.campaign),
     };
   }, {
@@ -600,12 +630,12 @@ try {
       morning: authored.morningSky,
       night: authored.nightSky,
     }));
-  check('all 61 inherited apartment art assets and all 14 additions resolve real files',
+  check('all 61 inherited apartment art assets and all 13 non-conflicting additions resolve real files',
     authored.metrics.originalArtSlots === 61
-      && authored.metrics.extraArtSlots === 14
+      && authored.metrics.extraArtSlots === 13
       && authored.apartmentArt === 61
-      && authored.luxuryArt === 14
-      && authored.art.length === 75
+      && authored.luxuryArt === 13
+      && authored.art.length === 74
       && authored.art.every(({ real, file, width, height, zone, kind }) => (
         real && file && width > 0 && height > 0 && zone && kind
       )),
@@ -614,18 +644,18 @@ try {
       extra: authored.luxuryArt,
       unresolved: authored.art.filter(({ real }) => !real).map(({ slot }) => slot),
     }));
-  check('art taxonomy proves 55 hung, 6 standing/under-bed, and 14 prop-only placements',
-    authored.metrics.hungArtSlots === 55
+  check('art taxonomy proves 54 hung, 6 standing/under-bed, and 14 prop-only placements',
+    authored.metrics.hungArtSlots === 54
       && authored.metrics.standingArtSlots === 6
-      && authored.metrics.displayArtSlots === 61
+      && authored.metrics.displayArtSlots === 60
       && authored.metrics.propTextureSlots === 14
-      && authored.artTargetCount === 61
-      && authored.displayArt.length === 61
+      && authored.artTargetCount === 60
+      && authored.displayArt.length === 60
       && authored.propArt.length === 14
       && authored.propArt.every(({ textureAttached }) => textureAttached)
-      && authored.visibleArtSlots.length === 75
+      && authored.visibleArtSlots.length === 74
       && authored.expectedPropPlaced.every(Boolean)
-      && authored.extraArtZones.length === 14
+      && authored.extraArtZones.length === 13
       && authored.extraArtZones.every(Boolean),
     JSON.stringify({
       hung: authored.metrics.hungArtSlots,
@@ -652,6 +682,7 @@ try {
       && Math.abs(authored.sectional.returnYaw - Math.PI / 2) < 1e-9
       && Math.abs(authored.sectional.returnWidth - 2.18) < 1e-9
       && Math.abs(authored.sectional.returnDepth - 0.94) < 1e-9
+      && authored.sectional.returnCenterZ >= 5.29
       && authored.sectional.joined,
     JSON.stringify(authored.sectional));
   check('arcade and poker seating are aligned physical fixtures with collision',
@@ -682,7 +713,10 @@ try {
       && authored.bathroom.floorPresent
       && authored.bathroom.walls === 5
       && authored.bathroom.doorPresent
+      && authored.bathroom.doorInitiallyOpen
+      && authored.bathroom.doorGlassOpacity <= 0.28
       && authored.bathroom.doorWidth >= 0.78
+      && authored.bathroom.roomWidth >= 3.6
       && authored.bathroom.doorClearsStairRail
       && authored.bathroom.thresholdPresent
       && authored.bathroom.thresholdZone === 'tile'
@@ -713,7 +747,13 @@ try {
       && authored.pokerPolish.seats === 4
       && authored.pokerPolish.railPresent
       && authored.pokerPolish.feltPresent
+      && authored.pokerPolish.railOval === authored.pokerPolish.feltOval
       && authored.dartsPolish.board
+      && authored.dartsPolish.numberedFace === 'luxury-darts-numbered-face'
+      && authored.dartsPolish.faceTexture
+      && authored.dartsPolish.sections === 20
+      && authored.dartsPolish.topSection === 20
+      && authored.dartsPolish.spotLight
       && authored.dartsPolish.backing
       && authored.dartsPolish.rack
       && authored.dartsPolish.impactRoot
@@ -723,6 +763,14 @@ try {
       && authored.bedroomPolish.wallPresent
       && authored.bedroomPolish.wallPanels === 2
       && authored.bedroomPolish.bannerZones.every((zone) => zone === 'bedroom-privacy-wall')
+      && authored.bedroomPolish.photoZones.every((zone) => zone === 'bedroom-headboard-photos')
+      && authored.decorPolish.fittedAppliance
+      && authored.decorPolish.stairFocal
+      && Math.abs(authored.decorPolish.consoleYaw - Math.PI) < 1e-9
+      && authored.decorPolish.consoleChildren >= 6
+      && authored.decorPolish.crestX === -5.55
+      && authored.decorPolish.removedArcadeArt
+      && authored.decorPolish.historyRow.every((zone) => zone === 'loft-office-history-row')
       && authored.cityGround.present
       && authored.cityGround.groundY === authored.cityGround.lowestBuildingY,
     JSON.stringify({
@@ -730,11 +778,16 @@ try {
       poker: authored.pokerPolish,
       darts: authored.dartsPolish,
       bedroom: authored.bedroomPolish,
+      decor: authored.decorPolish,
       cityGround: authored.cityGround,
     }));
   check('the bathroom mirror and darts physics consume the approved shared foundations',
     LUXURY_MAIN_SOURCE.includes("from '../core/planar-mirror.js'")
       && LUXURY_MAIN_SOURCE.includes('new PlanarMirror(')
+      && LUXURY_MAIN_SOURCE.includes("from '../core/first-person-body.js'")
+      && LUXURY_MAIN_SOURCE.includes('new FirstPersonBody(')
+      && authored.reflectionBody.present
+      && authored.reflectionBody.layer === 1
       && LUXURY_RUNTIME_SOURCE.includes("from '../core/throwable.js'")
       && LUXURY_RUNTIME_SOURCE.includes('new BallisticProjectile(')
       && LUXURY_RUNTIME_SOURCE.includes('new ThrowCharge('),
@@ -751,9 +804,10 @@ try {
       && authored.appLookup.every(Boolean)
       && authored.pcLaunchById,
     JSON.stringify({ apps: authored.pcApps }));
-  check('the cabinet and darts board are real playable stations, and no table game is mounted',
+  check('the cabinet, deliberately solo poker table, and darts board are authored stations',
     authored.cabinetStation
       && JSON.stringify(sorted(authored.cabinetApps)) === JSON.stringify(sorted(EXPECTED_PC_APPS))
+      && authored.pokerSolo
       && !authored.blackjackMounted
       && authored.darts
       && ['pc', 'arcade', 'poker', 'darts', 'console']
@@ -848,25 +902,60 @@ try {
       stateOpen: home.state.frontDoorOpen,
     };
 
-    home.utilityTargets.elevator.userData.interact.onUse();
+    const elevatorDescriptor = home.utilityTargets.elevator.userData.interact;
+    const label = () => typeof elevatorDescriptor.label === 'function'
+      ? elevatorDescriptor.label()
+      : elevatorDescriptor.label;
+    const initialObjective = runtime.readyTally.objective;
+    const earlyLabel = label();
+    elevatorDescriptor.onUse();
+    advance();
+    const elevatorBlocked = {
+      open: home.doors.elevator.isOpen(),
+      stateOpen: home.state.elevatorOpen,
+      colliderDisabled: home.doors.elevator.collider.max.y < 0,
+      story: runtime.readyTally.snapshot(),
+    };
+    for (const task of ['showered', 'dressed', 'phoneTaken']) runtime.actions.ready(task);
+    const readyObjective = runtime.readyTally.objective;
+    const readyLabel = label();
+    elevatorDescriptor.onUse();
     advance();
     const elevatorCalled = {
       open: home.doors.elevator.isOpen(),
       stateOpen: home.state.elevatorOpen,
       colliderDisabled: home.doors.elevator.collider.max.y < 0,
+      story: runtime.readyTally.snapshot(),
     };
 
-    return { serviceDoor, elevatorCalled };
+    return {
+      serviceDoor,
+      initialObjective,
+      earlyLabel,
+      elevatorBlocked,
+      readyObjective,
+      readyLabel,
+      elevatorCalled,
+    };
   });
-  check('the sealed service door cannot bypass the private elevator, which can be called into the apartment',
+  check('the service door stays sealed and the elevator refuses early use before one ready-state unlock',
     doorFlows.serviceDoor.result === false
       && doorFlows.serviceDoor.locked
       && !doorFlows.serviceDoor.open
       && !doorFlows.serviceDoor.stateOpen
+      && /0\/3/.test(doorFlows.initialObjective)
+      && /get ready/i.test(doorFlows.earlyLabel)
+      && !doorFlows.elevatorBlocked.open
+      && !doorFlows.elevatorBlocked.stateOpen
+      && !doorFlows.elevatorBlocked.colliderDisabled
+      && !doorFlows.elevatorBlocked.story.ready
+      && doorFlows.readyObjective === 'Use the private elevator.'
+      && /Call the private/.test(doorFlows.readyLabel)
       && doorFlows.elevatorCalled.open
       && doorFlows.elevatorCalled.stateOpen
-      && doorFlows.elevatorCalled.colliderDisabled,
-    JSON.stringify({ serviceDoor: doorFlows.serviceDoor, call: doorFlows.elevatorCalled }));
+      && doorFlows.elevatorCalled.colliderDisabled
+      && doorFlows.elevatorCalled.story.ready,
+    JSON.stringify(doorFlows));
 
   const bathroomApproach = await page.evaluate(() => {
     const runtime = window.LUXURY_APARTMENT;
@@ -909,7 +998,6 @@ try {
     const runtime = window.LUXURY_APARTMENT;
     return runtime.interaction.current === runtime.home.utilityTargets.bathroomDoor;
   }, null, { timeout: 5000, polling: 50 });
-  await page.keyboard.press('e');
   await page.waitForFunction(() => window.LUXURY_APARTMENT.home.doors.bathroom.isOpen(),
     null, { timeout: 5000, polling: 50 });
   await page.evaluate(() => {
@@ -1268,6 +1356,29 @@ try {
       && arcadeExit.distanceFromExit < 0.05,
     JSON.stringify({ entry: arcadeEntry, exit: arcadeExit }));
 
+  const soloPoker = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    runtime.teleport('main');
+    const postureBefore = runtime.state.posture;
+    const played = runtime.station('poker');
+    return {
+      played,
+      postureBefore,
+      postureAfter: runtime.state.posture,
+      playerMode: runtime.player.mode,
+      blackjackMounted: 'blackjack' in runtime,
+      patrons: runtime.home.poker.patrons.length,
+    };
+  });
+  check('the empty poker table gives its solo response without launching blackjack or seating Tony',
+    !soloPoker.played
+      && soloPoker.postureBefore === null
+      && soloPoker.postureAfter === null
+      && soloPoker.playerMode === 'walk'
+      && !soloPoker.blackjackMounted
+      && soloPoker.patrons === 0,
+    JSON.stringify(soloPoker));
+
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => window.LUXURY_APARTMENT.state.paused === true);
   const escapePaused = await page.evaluate(() => ({
@@ -1334,12 +1445,20 @@ try {
     const mainMoved = runtime.teleport('main');
     const main = {
       y: runtime.player.position.y,
-      ground: runtime.home.groundAt(runtime.player.position.x, runtime.player.position.z),
+      ground: runtime.home.groundAt(
+        runtime.player.position.x,
+        runtime.player.position.z,
+        runtime.player.position.y,
+      ),
     };
     const loftMoved = runtime.teleport('loft');
     const loft = {
       y: runtime.player.position.y,
-      ground: runtime.home.groundAt(runtime.player.position.x, runtime.player.position.z),
+      ground: runtime.home.groundAt(
+        runtime.player.position.x,
+        runtime.player.position.z,
+        runtime.player.position.y,
+      ),
     };
     return { mainMoved, loftMoved, main, loft };
   });
@@ -1387,6 +1506,9 @@ try {
       active: runtime.darts.active,
       aimedAtBoard: direction.dot(toBoard),
       throws: runtime.darts.throws,
+      fov: runtime.camera.fov,
+      numberedSections: runtime.home.darts.sections.length,
+      reticle: document.getElementById('luxury-game-panel').classList.contains('darts-active'),
     };
   });
   await page.waitForFunction(() => (
@@ -1444,6 +1566,8 @@ try {
     active: window.LUXURY_APARTMENT.darts.active,
     posture: window.LUXURY_APARTMENT.state.posture,
     mode: window.LUXURY_APARTMENT.player.mode,
+    fov: window.LUXURY_APARTMENT.camera.fov,
+    reticle: document.getElementById('luxury-game-panel').classList.contains('darts-active'),
   }));
   check('real hold-and-release input throws multiple ballistic darts, scores impacts, resets, and exits cleanly',
     dartsEntry.entered
@@ -1452,6 +1576,9 @@ try {
       && dartsEntry.active
       && dartsEntry.aimedAtBoard > 0.99
       && dartsEntry.throws === 0
+      && dartsEntry.fov === 50
+      && dartsEntry.numberedSections === 20
+      && dartsEntry.reticle
       && dartCharges.every(({ active, amount }) => active && amount > 0)
       && dartCharges[1].amount > dartCharges[0].amount
       && dartImpacts.length === 2
@@ -1466,7 +1593,9 @@ try {
       && dartsAfterReset.remaining === 301
       && !dartsExit.active
       && dartsExit.posture === null
-      && dartsExit.mode === 'walk',
+      && dartsExit.mode === 'walk'
+      && dartsExit.fov === 68
+      && !dartsExit.reticle,
     JSON.stringify({
       entry: dartsEntry,
       charges: dartCharges,
@@ -1519,13 +1648,14 @@ try {
       && parity.substances.state?.shroomsTaken
       && parity.substances.state?.whiteLineConsumed,
     JSON.stringify(parity?.substances));
-  check('the cabinet and the dartboard execute deterministic actions, and poker refuses',
+  check('the physical cabinet, solo poker refusal, and darts execute deterministic actions',
     parity?.games?.cabinet?.launched
       && parity.games.cabinet.app === 'smash'
       && parity.games.poker?.played === false
       && parity.games.poker.posture === null
       && typeof parity.games.poker?.line === 'string'
       && parity.games.poker.line.length > 0
+      && parity.games.poker.patrons === 0
       && parity.games.darts?.entered
       && parity.games.darts.throw?.score > 0,
     JSON.stringify(parity?.games));
@@ -1629,6 +1759,7 @@ try {
   const elevatorTransition = await page.evaluate(() => {
     const runtime = window.LUXURY_APARTMENT;
     const curtain = document.getElementById('luxury-elevator-exit');
+    const duplicateRide = runtime.actions.elevator('ride');
     return {
       phase: runtime.state.phase,
       destination: runtime.state.exitDestination,
@@ -1645,6 +1776,7 @@ try {
       curtainActive: curtain.classList.contains('active'),
       curtainHidden: curtain.getAttribute('aria-hidden'),
       curtainOpacity: Number.parseFloat(getComputedStyle(curtain).opacity),
+      duplicateRide,
     };
   });
   check('real E input takes the called elevator, closes the scene, locks control, and silences active audio',
@@ -1666,7 +1798,8 @@ try {
       && elevatorTransition.colliderRestored
       && elevatorTransition.curtainActive
       && elevatorTransition.curtainHidden === 'false'
-      && elevatorTransition.curtainOpacity >= 0.5,
+      && elevatorTransition.curtainOpacity >= 0.5
+      && elevatorTransition.duplicateRide === false,
     JSON.stringify({ approach: elevatorApproach, transition: elevatorTransition }));
   /* Begin this only after the intermediate receipt is captured. Previously a
    * failure in that receipt closed the browser in finally and turned this

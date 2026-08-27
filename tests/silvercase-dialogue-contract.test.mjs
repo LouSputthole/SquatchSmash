@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import test from 'node:test';
+import * as THREE from 'three';
 
 import { SILVERCASE_EFFECT_CUES } from '../src/silvercase/audio.js';
 import { DialogueController } from '../src/silvercase/dialogue/DialogueController.js';
@@ -11,6 +12,10 @@ import {
   SPEAKERS,
   WINSTON_DECISION_SECONDS,
 } from '../src/silvercase/dialogue/script.js';
+import { ensureDomShim, ensureThreeShim } from '../tools/three-shim.mjs';
+
+ensureThreeShim();
+ensureDomShim();
 
 const manifest = JSON.parse(readFileSync(new URL('../assets/sfx/manifest.json', import.meta.url), 'utf8'));
 const index = JSON.parse(readFileSync(new URL('../assets/sfx/index.json', import.meta.url), 'utf8'));
@@ -147,6 +152,90 @@ test('Chester owns an immediate named reaction before Ape resumes the scripted a
   assert.equal(line.speaker, 'CHESTER');
   assert.equal(line.text, 'What the hell, man?!');
   assert.equal(line.cue, 'vo.silvercase.couch.chester.whatthehell');
+});
+
+test('Ape interrogates Chester with the exact bitch and Mrs. Sputthole exchange', () => {
+  const exchange = [...SEQUENCES.louQuestionOpening, ...SEQUENCES.louQuestionPress]
+    .map(({ speaker, text }) => [speaker, text]);
+  assert.deepEqual(exchange, [
+    ['APE', 'Does he look like a bitch?'],
+    ['CHESTER', 'What?'],
+    ['APE', 'Does he look like a bitch?'],
+    ['CHESTER', 'No.'],
+    ['APE', 'Then why you trying to fuck him like a bitch? Because the only one he likes to fuck is Mrs. Sputthole.'],
+  ]);
+  assert.equal(Object.hasOwn(CHOICES, 'louQuestion'), false,
+    'the exchange drifted back into a question aimed at the player');
+
+  const spokenText = Object.values(SEQUENCES).flatMap((sequence) => (
+    Array.isArray(sequence) ? sequence : Object.values(sequence).flat()
+  )).map((line) => line.text).join('\n');
+  assert.doesNotMatch(spokenText, /depends on the lighting|colou?rs?/i,
+    'the retired unrelated response is still reachable as Silver Case dialogue');
+  assert.doesNotMatch(mainSource, /SEQUENCES\.ambientTV/,
+    'the unrelated TV voice can still queue ahead of the first execution');
+});
+
+test('Squatchiel 69:17 uses the requested passage and the player owns its final line', () => {
+  assert.deepEqual(SEQUENCES.squatchPrayerIntro.map((line) => line.text), [
+    'I’m gonna share a little passage with you.',
+    'Squatchiel. Sixty-nine, seventeen.',
+  ]);
+  assert.deepEqual(SEQUENCES.squatchPrayer.map((line) => line.text), [
+    'The trail of the righteous Squatch is surrounded on every side by the greed of weak men.',
+    'Blessed is the Squatch who walks with his brothers.',
+    'But to those who betray the family, or raise a hand against one of our own...',
+    'I will strike down upon thee with great vengeance and furious anger!',
+  ]);
+  assert.deepEqual(SEQUENCES.squatchPrayerFinish.map(({ speaker, text }) => [speaker, text]), [[
+    'PROSPECT',
+    'And you will know my name is the Squatch when I lay my vengeance upon thee.',
+  ]]);
+  assert.equal(CHOICES.prayerFinish.prompt, 'Hold E to finish the passage.');
+});
+
+test('the first execution target and objective arm only after Ape finishes speaking', () => {
+  assert.match(mainSource, /couchShotArmed = false;[\s\S]*?sayThenInstruct\(SEQUENCES\.couchOrder/,
+    'the couch target is not reset before Ape gives the order');
+  assert.match(mainSource, /onDone:\s*\(\)\s*=>\s*\{[\s\S]*?couchShotArmed = true;[\s\S]*?setObjective\(OBJECTIVES\.COUCH_SHOOTING\)/,
+    'firing and objective do not arm together after the order');
+  assert.match(mainSource, /if \(!couchShotArmed\) \{[\s\S]*?firePressed = false;[\s\S]*?return;/,
+    'an early click can still execute Deke while Ape is talking');
+});
+
+test('the bathroom ambush stages two guaranteed impact misses before arming return fire', () => {
+  assert.match(mainSource, /fireBathroomOpeningMiss\(0\);/);
+  assert.match(mainSource, /fireBathroomOpeningMiss\(1\);/);
+  assert.match(mainSource, /openingShots \+= 1;/);
+  assert.match(mainSource, /openingImpacts\.push\(impact\.toArray\(\)\);/);
+  assert.match(mainSource, /if \(!this\.armed && this\.t >= 2\.05\)[\s\S]*?reactionWindow\.start/,
+    'the return-fire window can open before the two authored misses');
+  assert.match(mainSource, /audio\.play\('door\.creak',[\s\S]*?position:\s*\{\s*x:\s*BATHROOM_DOOR\.x/,
+    'the bathroom creak is not spatialized at its doorway');
+  assert.equal(SEQUENCES.bathroomWarning[0].speaker, 'APE');
+  assert.equal(SEQUENCES.bathroomWarning[0].text, 'Bathroom!');
+});
+
+test('the Silver Case bathroom is a finished room with reused toilet, sink, floor, ceiling, and practical light', async () => {
+  const { buildApartmentScene, ROOMS } = await import('../src/silvercase/scenes/ApartmentScene.js');
+  const built = buildApartmentScene();
+  const bathroom = built.props.bathroom;
+  assert.ok(bathroom?.group?.isGroup);
+  assert.equal(bathroom.toilet.group.name, 'toilet', 'the shared Apartment toilet was not reused');
+  assert.ok(bathroom.sink?.isGroup);
+  assert.ok(bathroom.practical?.isGroup);
+  assert.ok(bathroom.group.children.some((child) => child instanceof THREE.PointLight),
+    'the room has no dim practical light');
+
+  const floor = built.root.getObjectByName('silvercase.bathroom.floor');
+  const ceiling = built.root.getObjectByName('silvercase.bathroom.ceiling');
+  assert.ok(floor?.isMesh && ceiling?.isMesh);
+  floor.geometry.computeBoundingBox();
+  const depth = floor.geometry.boundingBox.getSize(new THREE.Vector3()).y;
+  assert.ok(depth >= 2, `bathroom depth is still an alcove (${depth.toFixed(2)}m)`);
+  const bounds = new THREE.Box3().setFromObject(bathroom.group);
+  assert.ok(bounds.min.z < ROOMS.apartment.z0 - 1.8,
+    'fixtures do not occupy the expanded bathroom interior');
 });
 
 test('the dialogue adapter receives the authored speaker line needed for physical routing', () => {

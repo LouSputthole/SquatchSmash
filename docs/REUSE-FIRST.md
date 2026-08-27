@@ -20,6 +20,7 @@ That is exactly right, and the four bugs below are what it cost.
 | System | The one implementation |
 | --- | --- |
 | Objective UI | `src/core/objective-panel.js` |
+| Reflected first-person body / outfit continuity | `src/core/first-person-body.js` |
 | Dialogue playback, mixing, timing | `src/core/dialogue.js`, over `src/core/audio.js` |
 | Subtitles | the scene's HUD `say()`, timed off `speechDuration()` |
 | Voice volume | the voice bus in `src/core/audio.js` — **not** a per-call number |
@@ -58,6 +59,21 @@ in `src/core/combat/aim-proxy.js`.
 ways, in three stylesheets, at three positions. The mansion had none on screen
 at all — its objective text existed and was visible only in the pause menu,
 which is the one place a player is not playing.
+
+The shared objective projection is intentionally spoiler-safe: completed
+steps disappear from the live HUD immediately, and headings with no remaining
+active children disappear with them. Scenes may keep richer completed/history
+state in their story controller, but they must pass only the current active
+projection to the panel. Repeated `clear()`/`show()` cycles are supported, so a
+radio, range, darts board, or other activity can temporarily own its own HUD
+without leaving stale mission text behind.
+
+**Reflected player bodies.** Apartment, Luxury Apartment, and Cabin now use
+`FirstPersonBody` instead of independently posing a mirror-only mannequin.
+The shared body owns the reflection layer, standing/seated/bed/scripted pose
+sync, reflected weapon visibility, walk gait, and the durable outfit id used
+when one scene hands the player to another. Each scene still provides the
+narrow figure/outfit factory needed by its art style.
 
 **A fifth, caught before it happened.** The mansion billiard table needed "a
 power bar similar to golf" and golf already had one — `src/golf/swing.js`, a

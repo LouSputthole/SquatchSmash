@@ -193,6 +193,10 @@ export function createArcade(opts = {}) {
      * still hearing DOOM, arriving by a third door. */
     for (const app of framed) { app.suspend?.(); app.hide(); }
     powerOff();
+    /* powerOff() clears os.app without routing through toDesktop(), so the
+     * fullscreen ownership class otherwise survives with no app left to give
+     * the HUD back. Powering off is an activity exit even while seated. */
+    paintScreenOwnership(false);
   };
   return os;
 }

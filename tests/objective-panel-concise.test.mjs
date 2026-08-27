@@ -59,14 +59,16 @@ test('Lou is not on the list until the player can answer him', () => {
   const before = drawn(story).map((item) => item.label);
   assert.ok(!before.includes('Answer Lou’s call'),
     'the call is listed before the phone can ring');
-  assert.deepEqual(before, ['Get some sleep'],
+  assert.deepEqual(before, ['Settle in at the cabin'],
     'the first thing that happens at this cabin is a bed, and it is the only '
     + 'thing the panel should be asking for');
+  assert.equal(story.objectives()[0].step, 'Get some sleep');
 
   story.completeArrivalRest();
-  const after = drawn(story).map((item) => item.label);
-  assert.ok(after.includes('Answer Lou’s call'), 'the call never arrives');
-  assert.ok(!after.includes('Get some sleep'),
+  const after = drawn(story);
+  assert.deepEqual(after.map((item) => item.label), ['Lay low at the cabin']);
+  assert.equal(after[0].step, 'Answer Lou’s call', 'the call never arrives');
+  assert.ok(!after.some((item) => item.step === 'Get some sleep'),
     'the bed is done and should have retired');
 });
 
@@ -96,7 +98,7 @@ test('the panel never says "Finish the cabin chapter"', () => {
 test('the car is on the list only when it will actually move', () => {
   const story = atTheCabin();
   const departLines = () => drawn(story)
-    .filter((item) => String(item.id).startsWith('depart.'));
+    .filter((item) => /ride out|drive back|take the car/i.test(item.label));
 
   assert.deepEqual(departLines(), [], 'the car is listed while it is locked');
 
@@ -110,6 +112,7 @@ test('the car is on the list only when it will actually move', () => {
   assert.equal(open.length, 1, 'the car opened and said nothing');
   assert.equal(open[0].label, 'Ride out to the airstrip',
     'the door has to name where it is going -- it opens twice in this scene');
+  assert.equal(story.tryLeave().kind, 'go');
 });
 
 /**

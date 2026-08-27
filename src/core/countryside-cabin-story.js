@@ -612,7 +612,27 @@ export class CountrysideCabinStory {
   completeNightfall() {
     if (this.nightfallComplete()) return this.mark(TIME_EVENT_IDS.CABIN_NIGHTFALL);
     if (!this.deathsComplete()) return this.blocked('executions_incomplete');
-    return this.mark(TIME_EVENT_IDS.CABIN_NIGHTFALL);
+
+    /* The current route reaches this beat on Day 3, where the canonical time
+     * event anchors it at 20:45. Post-heist saves and the standalone Cabin
+     * preview can legitimately arrive on a later date, though, and an
+     * `atLeast: Day 3` event cannot move Day 7 from noon to night: absolute
+     * time is already greater than the fixed anchor. Bring only those later
+     * calendars forward to the same day's 20:45 before spending the exact-once
+     * event. Never move a late-running playthrough backwards. */
+    const before = this.campaign.state.story;
+    let compatibilityMinutes = 0;
+    const nightfallMinute = 20 * 60 + 45;
+    if (before.day > 3 && before.timeMinutes < nightfallMinute) {
+      compatibilityMinutes = nightfallMinute - before.timeMinutes;
+      this.campaign.update((state) => {
+        state.story.timeMinutes = nightfallMinute;
+      });
+    }
+    const result = this.mark(TIME_EVENT_IDS.CABIN_NIGHTFALL);
+    return compatibilityMinutes > 0
+      ? { ...result, minutesAdvanced: result.minutesAdvanced + compatibilityMinutes }
+      : result;
   }
 
   nightfallBriefingComplete() {
@@ -743,9 +763,31 @@ export class CountrysideCabinStory {
   blackout() {
     if (this.blackedOut()) return this.mark(TIME_EVENT_IDS.CABIN_BLACKOUT);
     if (!this.drankAfterCleanup()) return this.blocked('drink_first');
-    return this.mark(TIME_EVENT_IDS.CABIN_BLACKOUT, (state) => {
+
+    /* Same compatibility rule as nightfall, but this transition owns the
+     * next morning. The fixed Day-4 anchor serves the current route. A later
+     * legacy calendar advances to its next 09:30 instead of remaining beside
+     * the fire because its absolute timestamp already outranks Day 4. */
+    const before = this.campaign.state.story;
+    let compatibilityMinutes = 0;
+    const wakeMinute = 9 * 60 + 30;
+    const fixedWakeAbsolute = (4 - 1) * 24 * 60 + wakeMinute;
+    const beforeAbsolute = (before.day - 1) * 24 * 60 + before.timeMinutes;
+    if (beforeAbsolute >= fixedWakeAbsolute) {
+      const wakeDay = before.timeMinutes < wakeMinute ? before.day : before.day + 1;
+      const wakeAbsolute = (wakeDay - 1) * 24 * 60 + wakeMinute;
+      compatibilityMinutes = wakeAbsolute - beforeAbsolute;
+      this.campaign.update((state) => {
+        state.story.day = wakeDay;
+        state.story.timeMinutes = wakeMinute;
+      });
+    }
+    const result = this.mark(TIME_EVENT_IDS.CABIN_BLACKOUT, (state) => {
       state.scene = { id: SCENE_IDS.COUNTRYSIDE_CABIN, spawn: 'wake' };
     });
+    return compatibilityMinutes > 0
+      ? { ...result, minutesAdvanced: result.minutesAdvanced + compatibilityMinutes }
+      : result;
   }
 
   morningCallComplete() {
@@ -781,8 +823,20 @@ export class CountrysideCabinStory {
     return this.has(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL);
   }
 
+  /**
+   * Compatibility saves entered this scene after the bank, when Silver Case
+   * was already the next mission. They leave after the morning wake and must
+   * never receive the Act-One call about Billy on their way to the final arc.
+   */
+  legacySilverCaseRoute() {
+    const status = this.campaign.state.missions[MISSION_IDS.SILVER_CASE]?.status;
+    return status === 'available' || status === 'in_progress';
+  }
+
   billyCallReady() {
-    return this.morningWakeComplete() && !this.billyCallComplete();
+    return !this.legacySilverCaseRoute()
+      && this.morningWakeComplete()
+      && !this.billyCallComplete();
   }
 
   completeBillyCall() {
@@ -804,7 +858,9 @@ export class CountrysideCabinStory {
   }
 
   chapterComplete() {
-    return this.billyCallComplete();
+    return this.legacySilverCaseRoute()
+      ? this.morningWakeComplete()
+      : this.billyCallComplete();
   }
 
   phase() {
@@ -838,6 +894,7 @@ export class CountrysideCabinStory {
     if (!this.blackedOut()) return 'blackout';
     if (!this.morningCallComplete()) return 'morning_call';
     if (!this.morningWakeComplete()) return 'morning_wake';
+    if (this.legacySilverCaseRoute()) return 'complete';
     if (!this.billyCallComplete()) return 'billy_call';
     return 'complete';
   }
@@ -883,7 +940,7 @@ export class CountrysideCabinStory {
     const silverCase = missions[MISSION_IDS.SILVER_CASE];
 
     /* LEGACY: a save that got here the old way, after the bank. */
-    if (silverCase?.status === 'available' || silverCase?.status === 'in_progress') {
+    if (this.legacySilverCaseRoute()) {
       if (!this.morningWakeComplete()) {
         return {
           kind: 'stay',
@@ -925,7 +982,8 @@ export class CountrysideCabinStory {
     };
   }
 
-  objectives() {
+  /** Full durable chapter ledger for debug, save auditing, and QA tools. */
+  objectiveLedger() {
     const dungeonPrimary = this.dungeonPrimary();
     const explored = new Set(this.explored().map(({ id }) => id));
     const out = [
@@ -1130,7 +1188,8 @@ export class CountrysideCabinStory {
           required: true,
         },
       );
-      if (this.morningWakeComplete() || this.billyCallComplete()) {
+      if (!this.legacySilverCaseRoute()
+        && (this.morningWakeComplete() || this.billyCallComplete())) {
         out.push({
           id: TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL,
           label: 'Answer Booskibro about Billy Hotdog',
@@ -1162,6 +1221,148 @@ export class CountrysideCabinStory {
       });
     }
     return out;
+  }
+
+  /**
+   * One spoiler-safe standing order and, at most, one immediate soft step.
+   *
+   * The ledger above is durable story truth, not a player-facing checklist.
+   * This projection keeps future calls, the dungeon, the executions, and the
+   * cleanup sequence hidden until the player can actually act on them.
+   */
+  objectivePlan() {
+    const phase = this.phase();
+    const plan = (id, label, step) => Object.freeze({ id, label, step });
+
+    if (phase === 'arrival_rest') {
+      return plan('cabin.settle_in', 'Settle in at the cabin', 'Get some sleep');
+    }
+    if (phase === 'opening_call') {
+      return plan('cabin.lay_low', 'Lay low at the cabin', 'Answer Lou’s call');
+    }
+    if (phase === 'explore') {
+      return plan(
+        'cabin.explore',
+        'Explore the property',
+        `${Math.min(this.explorationCount(), COUNTRYSIDE_CABIN_LANDMARKS.length)}/${COUNTRYSIDE_CABIN_LANDMARKS.length} places visited`,
+      );
+    }
+    if (phase === 'margo_call') {
+      return plan('cabin.call_margo', 'Call Margo', 'Use the number from the Bing');
+    }
+    if (phase === 'booski_call') {
+      return plan('cabin.answer_booski', 'Answer Booskibro’s call', 'Pick up the phone');
+    }
+    if (phase === 'beef_run') {
+      return plan('cabin.depart_airstrip', 'Ride out to the airstrip', 'Take the car');
+    }
+    if (phase === 'return_to_cabin') {
+      return plan('cabin.return', 'Return to the cabin', 'Head back to the hideout');
+    }
+    if (phase === 'second_rest') {
+      return plan('cabin.second_rest', 'Get some sleep', 'Use the cabin bed');
+    }
+    if (phase === 'gratin_call') {
+      return plan('cabin.lay_low', 'Lay low at the cabin', 'Answer Gratin’s call');
+    }
+    if (phase === 'open_cellar') {
+      return plan('cabin.find_gratin', 'Find Gratin', 'Return to the cabin · follow the Supreme Leader');
+    }
+    if (phase === 'enter_dungeon') {
+      return plan('cabin.find_gratin', 'Find Gratin', 'Search the cellar');
+    }
+    if (phase === 'interrogation') {
+      const ready = Object.values(CABIN_HOSTAGE_IDS)
+        .filter((id) => this.hostageInterrogationReady(id)).length;
+      return plan(
+        'cabin.help_gratin',
+        'Help Gratin get answers',
+        `Use the tools on both prisoners · ${ready}/2 talking`,
+      );
+    }
+    if (phase === 'ateam_intel') {
+      return plan('cabin.help_gratin', 'Help Gratin get answers', 'Hear the prisoner out');
+    }
+    if (phase === 'execution_choice') {
+      return plan('cabin.help_gratin', 'Help Gratin get answers', 'Listen to Gratin');
+    }
+    if (phase === 'execution') {
+      return plan(
+        'cabin.finish_job',
+        'Finish the job',
+        this.executionChoice() === 'player'
+          ? 'Use Gratin’s pistol on both prisoners'
+          : 'Give Gratin room',
+      );
+    }
+    if (phase === 'nightfall') {
+      return plan('cabin.finish_job', 'Finish the job', 'Listen to Gratin');
+    }
+    if (phase === 'wrap_bodies') {
+      if (!this.nightfallBriefingComplete()) {
+        return plan('cabin.finish_job', 'Finish the job', 'Listen to Gratin');
+      }
+      const wrapped = Object.values(CABIN_HOSTAGE_IDS)
+        .filter((id) => this.hostageState(id).wrapped).length;
+      return plan('cabin.burn_bodies', 'Burn the bodies', `Wrap them up · ${wrapped}/2`);
+    }
+    if (phase === 'carry_bodies') {
+      const delivered = Object.values(CABIN_HOSTAGE_IDS)
+        .filter((id) => this.bodyAtFire(id)).length;
+      return plan('cabin.burn_bodies', 'Burn the bodies', `Carry them to the fire · ${delivered}/2`);
+    }
+    if (phase === 'pour_gas') {
+      return plan('cabin.burn_bodies', 'Burn the bodies', 'Soak the pyre with gasoline');
+    }
+    if (phase === 'ignite_bonfire') {
+      return plan('cabin.burn_bodies', 'Burn the bodies', 'Light the pyre');
+    }
+    if (phase === 'fire_cleanup') {
+      return plan('cabin.burn_bodies', 'Burn the bodies', 'Stay with the fire');
+    }
+    if (phase === 'drink') {
+      return plan('cabin.fire_bonding', 'Sit with Lag and Gratin', 'Take the drink when it comes around');
+    }
+    if (phase === 'blackout') {
+      return plan('cabin.fire_bonding', 'Sit with Lag and Gratin', 'Stay by the fire');
+    }
+    if (phase === 'morning_call') {
+      return plan('cabin.answer_ape', 'Answer Ape’s call', 'Pick up the phone');
+    }
+    if (phase === 'morning_wake') {
+      return plan('cabin.morning', 'Get ready to leave', 'Head outside');
+    }
+    if (phase === 'billy_call') {
+      return plan('cabin.answer_booski', 'Answer Booskibro’s call', 'Pick up the phone');
+    }
+
+    const door = this.tryLeave();
+    const departureLabels = {
+      [SCENE_IDS.AIRSTRIP_SMUGGLING]: 'Ride out to the airstrip',
+      [SCENE_IDS.BADA_BING_TWO]: 'Drive back to the Bing',
+      [SCENE_IDS.SILVER_CASE]: 'Take the car to Lou’s next job',
+    };
+    if (door.kind === 'go') {
+      return plan(
+        `depart.${door.destination}`,
+        departureLabels[door.destination] ?? 'Take the car to Lou’s next job',
+        'Use the car when you are ready',
+      );
+    }
+    return plan(`cabin.${door.id}`, 'Stay at the cabin', door.line);
+  }
+
+  /** Player-facing objectives are deliberately singular. */
+  objectives() {
+    const current = this.objectivePlan();
+    return [{
+      id: current.id,
+      label: current.label,
+      step: current.step,
+      done: false,
+      required: true,
+      current: true,
+    }];
   }
 }
 

@@ -134,4 +134,14 @@ test('Apartment delegates the complete first-person browser lifecycle to the can
   );
   assert.doesNotMatch(source, /canvas\.requestPointerLock/);
   assert.doesNotMatch(source, /\b(?:let\s+dragLook|let\s+dragging|fallBackToDragLook)\b/);
+
+  const captureErrorStart = source.indexOf('onCaptureError:');
+  const captureError = source.slice(
+    captureErrorStart,
+    source.indexOf('paintInputCapture(browserInput.snapshot());', captureErrorStart),
+  );
+  const pauseGuard = captureError.indexOf('pauseMenu.isPaused()');
+  const recoverInput = captureError.indexOf('\n    enableInput();');
+  assert.ok(pauseGuard >= 0 && recoverInput > pauseGuard,
+    'a late pointer-lock error can resume simulation behind the open pause HUD');
 });

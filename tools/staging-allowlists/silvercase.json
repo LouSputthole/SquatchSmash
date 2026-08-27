@@ -9,7 +9,7 @@
       "actor": "deke",
       "solid": "aabb-6p905-0-1p58-9p095-0p66-2p5",
       "reason": "Deke is sat on the couch, which is the whole point of him: the beat this mission builds to is a man shot ON that couch, and he stays on it afterwards. The couch is collided as one box from the floor to 0.66 m, the height of its ARMS, which the player must not be able to walk through; the seat cushion inside that box tops out at 0.54 and his hips measure 0.583, so he is 43 mm above the cushion and 77 mm below the lid of the box. A sitter's hips are inside the couch by definition. Chester, on a chair whose collider stops at 0.50, clears the same check only because a dining chair has no arms.",
-      "source": "src/silvercase/cast/cast.js:248",
+      "source": "src/silvercase/cast/cast.js:280",
       "sourceAnchor": "position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },"
     },
     {
@@ -19,7 +19,7 @@
       "actor": "deke",
       "solid": "aabb-6p905-0-1p58-9p095-0p66-2p5",
       "reason": "Deke is sat on the couch, which is the whole point of him: the beat this mission builds to is a man shot ON that couch, and he stays on it afterwards. The couch is collided as one box from the floor to 0.66 m, the height of its ARMS, which the player must not be able to walk through; the seat cushion inside that box tops out at 0.54 and his hips measure 0.583, so he is 43 mm above the cushion and 77 mm below the lid of the box. A sitter's hips are inside the couch by definition. Chester, on a chair whose collider stops at 0.50, clears the same check only because a dining chair has no arms.",
-      "source": "src/silvercase/cast/cast.js:248",
+      "source": "src/silvercase/cast/cast.js:280",
       "sourceAnchor": "position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },"
     },
     {
@@ -29,7 +29,7 @@
       "actor": "deke",
       "solid": "aabb-6p905-0-1p58-9p095-0p66-2p5",
       "reason": "Deke is sat on the couch, which is the whole point of him: the beat this mission builds to is a man shot ON that couch, and he stays on it afterwards. The couch is collided as one box from the floor to 0.66 m, the height of its ARMS, which the player must not be able to walk through; the seat cushion inside that box tops out at 0.54 and his hips measure 0.583, so he is 43 mm above the cushion and 77 mm below the lid of the box. A sitter's hips are inside the couch by definition. Chester, on a chair whose collider stops at 0.50, clears the same check only because a dining chair has no arms.",
-      "source": "src/silvercase/cast/cast.js:248",
+      "source": "src/silvercase/cast/cast.js:280",
       "sourceAnchor": "position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },"
     },
     {
@@ -39,7 +39,7 @@
       "actor": "deke",
       "solid": "aabb-6p905-0-1p58-9p095-0p66-2p5",
       "reason": "Deke is sat on the couch, which is the whole point of him: the beat this mission builds to is a man shot ON that couch, and he stays on it afterwards. The couch is collided as one box from the floor to 0.66 m, the height of its ARMS, which the player must not be able to walk through; the seat cushion inside that box tops out at 0.54 and his hips measure 0.583, so he is 43 mm above the cushion and 77 mm below the lid of the box. A sitter's hips are inside the couch by definition. Chester, on a chair whose collider stops at 0.50, clears the same check only because a dining chair has no arms.",
-      "source": "src/silvercase/cast/cast.js:248",
+      "source": "src/silvercase/cast/cast.js:280",
       "sourceAnchor": "position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },"
     },
     {
@@ -49,7 +49,7 @@
       "actor": "deke",
       "solid": "aabb-6p905-0-1p58-9p095-0p66-2p5",
       "reason": "Deke is sat on the couch, which is the whole point of him: the beat this mission builds to is a man shot ON that couch, and he stays on it afterwards. The couch is collided as one box from the floor to 0.66 m, the height of its ARMS, which the player must not be able to walk through; the seat cushion inside that box tops out at 0.54 and his hips measure 0.583, so he is 43 mm above the cushion and 77 mm below the lid of the box. A sitter's hips are inside the couch by definition. Chester, on a chair whose collider stops at 0.50, clears the same check only because a dining chair has no arms.",
-      "source": "src/silvercase/cast/cast.js:248",
+      "source": "src/silvercase/cast/cast.js:280",
       "sourceAnchor": "position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },"
     }
   ]

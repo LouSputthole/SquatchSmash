@@ -107,6 +107,17 @@ test('the treeline handoff, not Palace completion, starts Initiation', () => {
     'Initiation departure is not recorded after Special Meeting completion');
   assert.ok(missionStart > initiationDepart && navigate > missionStart,
     'the runtime navigates into Initiation without first claiming it in campaign state');
+  const cleanup = handoff.indexOf("setObjective('')");
+  const clearChoices = handoff.indexOf('showChoices(null)');
+  assert.ok(cleanup >= 0 && cleanup < meetingComplete,
+    'the departing vehicle objective remains visible through the scene handoff');
+  assert.ok(clearChoices >= 0 && clearChoices < meetingComplete,
+    'vehicle dialogue choices remain live through the scene handoff');
+  assert.match(handoff, /interaction\.setPaused\(true\)/,
+    'the outgoing interaction prompt can survive the handoff curtain');
+  assert.match(handoff,
+    /catch \(error\) \{[\s\S]*?interaction\.setPaused\(false\)[\s\S]*?setObjective\(objectiveFor\([\s\S]*?showChoices\(ride\.options\)[\s\S]*?input\.resume\(\)/,
+    'a failed navigation does not restore the HUD state it cleared');
 });
 
 test('the browser certification surface exposes observations, not progression hooks', () => {

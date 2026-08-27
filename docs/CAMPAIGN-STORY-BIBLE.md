@@ -1324,4 +1324,3 @@ owner while wiring the spine:
 4. **The Margo call at the cabin is one scripted beat,** not a general
    outgoing-call system. An objective says CALL MARGO and the conversation
    plays. Every other call in the campaign remains incoming.
-

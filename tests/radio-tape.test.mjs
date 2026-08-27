@@ -95,6 +95,63 @@ test('preparing a bulletin cannot pump ordinary radio before it starts', async (
   assert.equal(tuned, 0);
 });
 
+test('a receiver scopes its station HUD to the scene supplied physical range', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const states = [];
+  let nearby = true;
+  const radio = new Radio(
+    { ready: false, play() { return null; }, startLoop() {}, stopLoop() {}, setLoopVolume() {} },
+    { setRadio: (state) => states.push(state), toast() {} },
+    { hour: 9 },
+    { hudVisible: () => nearby },
+  );
+  radio.on = true;
+  radio._show = showAt(radio.station, 9);
+
+  radio._showOsd();
+  assert.equal(states.at(-1)?.station.includes(radio.station.dial), true);
+
+  nearby = false;
+  radio.update(0);
+  assert.equal(states.at(-1), null, 'leaving the receiver range must clear its HUD');
+
+  nearby = true;
+  radio.update(0);
+  assert.equal(states.at(-1)?.station.includes(radio.station.dial), true,
+    're-entering range restores the current programme without retuning');
+});
+
+test('the shared radio range matches its panner boundary and rejects invalid positions', async () => {
+  const {
+    RADIO_HUD_AUDIBLE_DISTANCE,
+    radioHudWithinRange,
+  } = await import('../src/core/radio.js');
+  const receiver = { x: 10, y: 2, z: -5 };
+  assert.equal(RADIO_HUD_AUDIBLE_DISTANCE, 20);
+  assert.equal(radioHudWithinRange({ x: 30, y: 2, z: -5 }, receiver), true);
+  assert.equal(radioHudWithinRange({ x: 30.01, y: 2, z: -5 }, receiver), false);
+  const source = fs.readFileSync(path.join(ROOT, 'src/core/radio.js'), 'utf8');
+  assert.match(source, /panner\.maxDistance\s*=\s*RADIO_HUD_AUDIBLE_DISTANCE/);
+  assert.equal([...source.matchAll(/maxDist:\s*RADIO_HUD_AUDIBLE_DISTANCE/g)].length, 5,
+    'songs, talk beds, segments, and bulletins must share the HUD boundary');
+  assert.equal(radioHudWithinRange(null, receiver), false);
+  assert.equal(radioHudWithinRange({ x: Number.NaN, y: 2, z: -5 }, receiver), false);
+  assert.equal(radioHudWithinRange(receiver, receiver, -1), false);
+});
+
+test('every roaming positional-radio scene gives the station card a physical range', () => {
+  for (const file of [
+    'src/main.js',
+    'src/luxury-apartment/main.js',
+    'src/beefrun/main.js',
+    'src/nowake/main.js',
+  ]) {
+    const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    assert.match(source, /hudVisible:\s*\(\)\s*=>[\s\S]{0,220}radioHudWithinRange\(/,
+      `${file} leaves its positional radio station card global`);
+  }
+});
+
 test('the meeting notice is one Day One bulletin and never repeats once heard', async () => {
   assert.equal(MEETING_NOTICE.length, 1);
   assert.match(MEETING_NOTICE[0].line, /Wednesday.*Seven/i);

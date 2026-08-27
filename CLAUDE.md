@@ -36,7 +36,7 @@ lint  check  check:flight  verify:geometry  verify:campaign-route
 certify:debt-ratchet         no new architecture/semantic/spatial debt
 verify:dialogue:check  check:line-presence  check:reachability
 check:rerecord  check:takes  voice:needed:check  audio:todo:check
-check:*-vo (sixteen per-scene cue ledgers)  check:mansion-sfx
+check:*-vo (seventeen per-scene cue ledgers)  check:mansion-sfx
 ```
 
 Two of those regenerate rather than merely check: change a line and run

@@ -196,7 +196,7 @@ jobs:
           npm run voice:needed:check
           npm run audio:todo:check
 
-      # One step for all sixteen cue ledgers. bash -e stops at the first
+      # One step for all seventeen cue ledgers. bash -e stops at the first
       # failure, and the step name that goes red names the scene.
       - name: Scene cue ledgers
         run: |
@@ -204,6 +204,7 @@ jobs:
           npm run check:apartment-vo
           npm run check:beefrun-vo
           npm run check:bing-vo
+          npm run check:cabin-vo
           npm run check:enolasquatch-vo
           npm run check:golf-vo
           npm run check:heist-vo

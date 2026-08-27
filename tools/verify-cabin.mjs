@@ -133,7 +133,7 @@ async function teleport(page, id, mode = 'interact') {
 }
 
 try {
-  check('Cabin script exposes exactly 141 authored VO cues', authoredCues.length === 141, `${authoredCues.length} cues`);
+  check('Cabin script exposes exactly 165 authored VO cues', authoredCues.length === 165, `${authoredCues.length} cues`);
   check('Every authored Cabin VO cue is synchronized into the sound manifest', absentFromManifest.length === 0,
     absentFromManifest.length ? absentFromManifest.slice(0, 3).join(', ') : 'manifest synchronized');
   check('Required inside-joke and polite-choice lines remain authored',
@@ -232,11 +232,11 @@ try {
     };
   });
   check('Production Cabin preview boots without a failure surface', boot.ready && !boot.bootFailure);
-  check('Preview opens at the Cabin on Day 5 at 11:15',
-    boot.sceneId === 'countryside_cabin' && boot.day === 5 && boot.timeMinutes === 675,
+  check('Legacy post-heist preview opens at the Cabin on Day 7 at 11:15',
+    boot.sceneId === 'countryside_cabin' && boot.day === 7 && boot.timeMinutes === 675,
     `day ${boot.day}, minute ${boot.timeMinutes}`);
-  check('Lou call is the opening chapter phase and the car is gated',
-    boot.phase === 'opening_call' && boot.leave.id === 'cabin_chapter_incomplete');
+  check('The arrival rest is the opening chapter phase and the car is gated',
+    boot.phase === 'arrival_rest' && boot.leave.id === 'cabin_chapter_incomplete');
   check('First cellar entrance is physically hidden and disabled before Gratin calls',
     !boot.entryVisible && !boot.entryEnabled);
   check('Second concealed door is closed and unavailable before the cellar opens',
@@ -257,9 +257,17 @@ try {
 
   await page.locator('#start-btn').click();
   await page.waitForFunction(() => window.COUNTRYSIDE_CABIN.state.phase === 'active');
+  /* Cross the browser-to-Player seam with a real canvas gesture. Headless
+   * Chromium does not consistently honor pointer lock requested from the
+   * overlay button, even though a direct gameplay click is accepted. */
+  await page.locator('#scene').click({ position: { x: 160, y: 100 } });
+  await page.waitForFunction(() => (
+    window.COUNTRYSIDE_CABIN.input?.captured
+      && window.COUNTRYSIDE_CABIN.input?.controls?.movementEnabled
+  ), null, { timeout: 5000 });
   const beforeMove = await page.evaluate(() => window.COUNTRYSIDE_CABIN.player.position.toArray());
   await page.keyboard.down('w');
-  await nextFrames(page, 3);
+  await nextFrames(page, 8);
   await page.keyboard.up('w');
   const afterMove = await page.evaluate(() => window.COUNTRYSIDE_CABIN.player.position.toArray());
   check('Real production keyboard input moves the first-person player',
@@ -271,6 +279,7 @@ try {
     chapter._suppressCallEnd = true;
     chapter.phone.hangUp?.();
     chapter._suppressCallEnd = false;
+    story.completeArrivalRest();
     story.completeOpeningCall();
     chapter.callbacks.onSync?.();
   });
@@ -320,8 +329,8 @@ try {
       phase: runtime.story.phase(),
     };
   });
-  check('Two daylight exploration sites unlock Gratin’s call',
-    exploration.count === 2 && exploration.phase === 'gratin_call');
+  check('Two daylight exploration sites remain part of the spoiler-safe first visit',
+    exploration.count === 2 && exploration.phase === 'explore');
   check('First exploration emits the one-shot external Margo integration event',
     exploration.firstExplorationBeat.started === exploration.firstExplorationBeat.expected
       && exploration.firstExplorationBeat.completed
@@ -346,6 +355,10 @@ try {
     chapter._suppressCallEnd = true;
     chapter.phone.hangUp?.();
     chapter._suppressCallEnd = false;
+    /* The standalone post-heist preview is a compatibility route rather than
+     * a replay of the full Act-One Beef Run. Give it the durable second-rest
+     * seam before certifying the shared dungeon half. */
+    story.completeSecondRest();
     const call = story.completeGratinCall();
     chapter.dialogue.stop?.();
     chapter.beatQueue.length = 0;
@@ -353,19 +366,30 @@ try {
     cabin.state.closetT = 1;
     cabin.update(0.2, runtime.state.elapsed, runtime.player.position);
     chapter.callbacks.onSync?.();
+    const objectiveRows = [...document.querySelectorAll('#objectives .olist li')]
+      .map((item) => item.textContent.trim());
+    const objectiveHint = document.querySelector('#objectives .ohint')?.textContent.trim() ?? '';
     return {
       call,
       visible: cabin.basement.entryTarget.visible,
       enabled: cabin.basement.entryTarget.userData.interact.enabled(),
       phase: story.phase(),
-      requiredLeft: story.objectives().filter((item) => item.required && !item.done).map((item) => item.id),
-      optionalUnfinished: story.objectives().filter((item) => !item.required && !item.done).map((item) => item.id),
+      objectiveRows,
+      objectiveHint,
+      objectivePlan: story.objectivePlan(),
     };
   });
   check('Gratin’s call reveals the first secret only after two explorations',
     reveal.call.ok && reveal.visible && reveal.enabled && reveal.phase === 'open_cellar');
-  check('Unvisited exploration sites stay optional when the dungeon becomes primary',
-    reveal.optionalUnfinished.length >= 2 && reveal.requiredLeft.some((id) => /cellar_open/.test(id)));
+  const revealObjectiveText = [...reveal.objectiveRows, reveal.objectiveHint].join(' ');
+  check('HUD shows one current order without unfinished exploration or future dungeon spoilers',
+    reveal.objectiveRows.length === 1
+      && reveal.objectiveRows[0] === 'Find Gratin'
+      && /Supreme Leader/i.test(reveal.objectiveHint)
+      && reveal.objectivePlan.id === 'cabin.find_gratin'
+      && !/creek|ridge|shed|range|prisoner|execution|bod(?:y|ies)|gas|fire|blackout|morning/i
+        .test(revealObjectiveText),
+    JSON.stringify({ rows: reveal.objectiveRows, hint: reveal.objectiveHint }));
   await clearHands(page);
   await teleport(page, 'basementEntrance', 'interact');
   await capture(page, '03-supreme-leader-secret');
@@ -554,12 +578,12 @@ try {
       && execution.baiter.hits === 8 && execution.ateamState.hits === 8
       && execution.baiter.dead && execution.ateamState.dead,
     JSON.stringify(execution.branchBeat));
-  check('Both deaths switch the same Cabin world to Day 5 at 20:45 nightfall',
+  check('Both deaths switch the same legacy-preview Cabin world to Day 7 at 20:45 nightfall',
     execution.deaths && execution.night
       && execution.nightfallBeats.started === execution.nightfallBeats.expected
       && execution.nightfallBeats.completed
       && execution.phase === 'wrap_bodies'
-      && execution.day === 5 && execution.timeMinutes === 1245 && execution.dark,
+      && execution.day === 7 && execution.timeMinutes === 1245 && execution.dark,
     `day ${execution.day}, minute ${execution.timeMinutes}; ${JSON.stringify(execution.nightfallBeats)}`);
   await clearHands(page);
   await teleport(page, 'dungeonCounterStrikeCaptive', 'interact');
@@ -637,10 +661,16 @@ try {
     const gratinAt = gratinNpc.group.getWorldPosition(gratinNpc.group.position.clone());
     const lagSeat = seats[0].getWorldPosition(seats[0].position.clone());
     const gratinSeat = seats[1].getWorldPosition(seats[1].position.clone());
+    const objectiveRows = [...document.querySelectorAll('#objectives .olist li')]
+      .map((item) => item.textContent.trim());
+    const objectiveHint = document.querySelector('#objectives .ohint')?.textContent.trim() ?? '';
     return {
       upOne, placeOne, downTwo, carryTwo, upTwo, placeTwo,
       cleanup: runtime.cleanup.snapshot(),
       phase: runtime.story.phase(),
+      objectiveRows,
+      objectiveHint,
+      objectivePlan: runtime.story.objectivePlan(),
       gratinAfterOne,
       castAtFireAfterOne,
       castAtFireAfterTwo,
@@ -668,6 +698,15 @@ try {
       lagSeatDistance: carryRoute.lagSeatDistance,
       gratinSeatDistance: carryRoute.gratinSeatDistance,
     }));
+  const cleanupObjectiveText = [...carryRoute.objectiveRows, carryRoute.objectiveHint].join(' ');
+  check('Burn-body cleanup exposes gasoline as the only current soft step',
+    carryRoute.phase === 'pour_gas'
+      && carryRoute.objectiveRows.length === 1
+      && carryRoute.objectiveRows[0] === 'Burn the bodies'
+      && /gasoline/i.test(carryRoute.objectiveHint)
+      && carryRoute.objectivePlan.id === 'cabin.burn_bodies'
+      && !/light|ignite/i.test(cleanupObjectiveText),
+    JSON.stringify({ rows: carryRoute.objectiveRows, hint: carryRoute.objectiveHint }));
 
   const fire = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
@@ -737,18 +776,18 @@ try {
       wakeCheckpoint,
     };
   });
-  check('Blackout restores Tony fine in bed on Day 6 at 09:30',
-    morning.wakeCheckpoint.day === 6 && morning.wakeCheckpoint.timeMinutes === 570
+  check('Blackout restores Tony fine in bed on Day 8 at 09:30',
+    morning.wakeCheckpoint.day === 8 && morning.wakeCheckpoint.timeMinutes === 570
       && !morning.wakeCheckpoint.dark
       && Math.hypot(
         morning.wakeCheckpoint.player[0] - morning.wakeCheckpoint.wake[0],
         morning.wakeCheckpoint.player[2] - morning.wakeCheckpoint.wake[2],
       ) < 0.1,
     `day ${morning.wakeCheckpoint.day}, minute ${morning.wakeCheckpoint.timeMinutes}`);
-  check('Morning call completes the chapter and releases the car toward Silver Case',
+  check('Legacy morning wake completes the compatibility chapter and releases the car toward Silver Case',
     morning.chapterComplete && morning.phase === 'complete'
       && morning.leave.kind === 'go' && morning.leave.destination === 'silver_case'
-      && morning.day === 6 && morning.timeMinutes === 573);
+      && morning.day === 8 && morning.timeMinutes === 573);
   await capture(page, '10-morning-wake');
 
   check('Live Cabin browser produced no page, console, or request failures', problems.length === 0,

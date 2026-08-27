@@ -798,6 +798,10 @@ const carRadio = new Radio(audio, hud, carRadioClock, {
     defaultPower: true,
   }),
   canPlayNotice: () => campaign.state.story.chapter === 'day_one',
+  /* The station card belongs to the dashboard, not the whole club. The
+   * receiver may keep its saved switch while Tony is inside, but its HUD is
+   * only actionable while he is actually in the driver seat. */
+  hudVisible: () => game.seatedIn === 'car',
 });
 const carRadioPosition = new THREE.Vector3();
 car.radioFace.getWorldPosition(carRadioPosition);
@@ -2803,12 +2807,14 @@ const _pauseMenu = createPauseMenu({
     game.paused = true;
     input.suspend();
     interaction.setPaused(true);
+    carRadio.pause();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     game.paused = false;
     interaction.setPaused(false);
     audio.ctx?.resume?.();
+    if (game.seatedIn === 'car' && game.radioOn) carRadio.resume();
     clock.getDelta();
     input.resume();
   },

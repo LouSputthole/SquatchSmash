@@ -6,7 +6,7 @@
     {
       "state": "property",
       "overlap": 865,
-      "checkSupport": 2026,
+      "checkSupport": 2031,
       "sources": [
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-body-cleanup#0/name=cabin-cleanup.fire-dressing#0/name=cabin-cleanup.beer-cans#0",
@@ -1039,6 +1039,18 @@
           "scope": "inherited",
           "overlap": 0,
           "checkSupport": 10
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-ridge-overlook#0/name=cabin-overlook-survey-marker#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 2
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-ridge-overlook#0/name=cabin-overlook-view-rail#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-trail-loop#0",

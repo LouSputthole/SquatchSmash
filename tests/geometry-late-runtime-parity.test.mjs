@@ -233,11 +233,14 @@ test('Silver Case adapters stage all six public poses over both built worlds', a
   };
   const expectedColliders = {
     car: 0,
-    hallway: 20,
-    room: 19,
-    prayer: 19,
-    bathroom: 19,
-    aftermath: 18,
+    // Every apartment pose shares the finished bathroom's physical toilet
+    // and sink. The car remains its own world; the apartment checkpoints each
+    // gain the same two authored fixture colliders.
+    hallway: 22,
+    room: 21,
+    prayer: 21,
+    bathroom: 21,
+    aftermath: 20,
   };
   const expectedAssemblyMembers = {
     ape: ['person'],

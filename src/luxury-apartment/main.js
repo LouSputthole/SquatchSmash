@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { createArcade } from '../arcade/mount.js';
 import { AudioEngine } from '../core/audio.js';
 import { DayNight } from '../core/daynight.js';
+import { SPEECH_MIX_CLOSE, speak } from '../core/dialogue.js';
+import { FirstPersonBody, createPlayerAppearanceStore } from '../core/first-person-body.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { FocusRush } from '../core/focus-rush.js';
 import { Highs } from '../core/highs.js';
@@ -12,10 +14,11 @@ import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { PlanarMirror } from '../core/planar-mirror.js';
+import { Person } from '../core/person.js';
 import { Phone } from '../core/phone.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
-import { Radio } from '../core/radio.js';
+import { Radio, radioHudWithinRange } from '../core/radio.js';
 import { applyBody } from '../core/settings.js';
 import { Tv } from '../core/tv.js';
 import { createBongBehavior } from '../world/bong.js';
@@ -32,6 +35,7 @@ import {
 } from '../core/apartment-story.js';
 import { createLuxuryApartmentStory } from '../core/luxury-apartment-story.js';
 import { createLuxuryInputPolicy } from './controls.js';
+import { createLuxuryReadyTally } from './story.js';
 import { buildLuxuryApartment } from './world.js';
 import {
   LuxuryAnsweringMachineRuntime,
@@ -66,6 +70,61 @@ const chromaOffsets = document.querySelectorAll('#chroma feOffset');
 
 const ELEVATOR_AUDIO_CUT_MS = 720;
 const ELEVATOR_EXIT_MS = 1400;
+
+export const LUXURY_OUTFITS = Object.freeze([
+  Object.freeze({
+    id: 'black_henley', label: 'clean black henley',
+    palette: Object.freeze({ shirt: 0x17191d, shirtDark: 0x0d0f12, pants: 0x20242b }),
+  }),
+  Object.freeze({
+    id: 'charcoal_suit', label: 'charcoal suit',
+    palette: Object.freeze({ shirt: 0x353941, shirtDark: 0x20242a, pants: 0x171a20 }),
+  }),
+  Object.freeze({
+    id: 'cream_cashmere', label: 'cream cashmere',
+    palette: Object.freeze({ shirt: 0xd8cdb7, shirtDark: 0xb7aa91, pants: 0x393a3f }),
+  }),
+  Object.freeze({
+    id: 'late-night_track_jacket', label: 'late-night track jacket',
+    palette: Object.freeze({ shirt: 0x252d3d, shirtDark: 0x141a25, pants: 0x171c27 }),
+  }),
+]);
+
+export const LUXURY_OUTFIT_PALETTES = Object.freeze({
+  ...Object.fromEntries(LUXURY_OUTFITS.map(({ id, palette }) => [id, palette])),
+  cabin_workshirt: Object.freeze({ shirt: 0x4e5746, shirtDark: 0x30382d, pants: 0x3d342b }),
+  grey_henley: Object.freeze({ shirt: 0x777b80, shirtDark: 0x51555a, pants: 0x292d33 }),
+  good_shirt: Object.freeze({ shirt: 0x47627d, shirtDark: 0x2d4156, pants: 0x252a31 }),
+});
+
+const baseAppearanceStore = createPlayerAppearanceStore({ fallback: 'charcoal_suit' });
+const canonicalLuxuryOutfitId = (outfitId) => (
+  Object.hasOwn(LUXURY_OUTFIT_PALETTES, outfitId) ? outfitId : 'charcoal_suit'
+);
+const appearanceStore = Object.freeze({
+  key: baseAppearanceStore.key,
+  read() {
+    const requested = baseAppearanceStore.read();
+    const resolved = canonicalLuxuryOutfitId(requested);
+    if (resolved !== requested) baseAppearanceStore.write(resolved);
+    return resolved;
+  },
+  write(outfitId) {
+    return baseAppearanceStore.write(canonicalLuxuryOutfitId(outfitId));
+  },
+});
+const initialOutfitId = appearanceStore.read();
+const readyTally = createLuxuryReadyTally();
+
+function makeLuxuryPlayerBody(outfitId) {
+  const person = new Person({
+    ...(LUXURY_OUTFIT_PALETTES[outfitId] ?? LUXURY_OUTFIT_PALETTES.charcoal_suit),
+    bandana: null,
+  });
+  person.group.scale.setScalar(0.70);
+  person.group.userData.outfitId = outfitId;
+  return person;
+}
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -132,13 +191,22 @@ const LUXURY_OBJECTIVE = 'Explore both floors or try the private games room.';
  * will eventually disagree with the door, and the player believes the panel.
  */
 function currentObjective() {
-  if (!routed) return LUXURY_OBJECTIVE;
+  if (!routed) return readyTally.ready ? LUXURY_OBJECTIVE : readyTally.objective;
   const [first] = luxuryStory.objectives().items;
-  return first?.label ?? LUXURY_OBJECTIVE;
+  if (!first) return LUXURY_OBJECTIVE;
+  /* Beat 14's door is an `activity`, and the activity is the three chores the
+   * tally already counts. Show the count rather than the door's own label:
+   * "Get ready for your date" is true and tells him nothing about what is
+   * left, and the panel is the only place he can find that out. */
+  const door = luxuryStory.tryLeave();
+  if (door.kind === 'activity' && first.id === door.id) return readyTally.objective;
+  return first.label;
 }
 
 function refreshObjective() {
-  objectivePanel.setLine(currentObjective(), { title: 'OBJECTIVE' });
+  objectivePanel.setLine(currentObjective(), {
+    title: !routed && readyTally.ready ? 'READY' : 'OBJECTIVE',
+  });
 }
 
 /**
@@ -251,6 +319,7 @@ const radio = new Radio(audio, hud, time, {
   venue: 'luxury_apartment',
   canPlayNotice: () => false,
   output: 0.88,
+  hudVisible: () => radioHudWithinRange(camera?.position, home?.radioPos),
 });
 const phone = new Phone({
   time,
@@ -290,9 +359,7 @@ const state = {
   cooking: 'idle',
   cookingTime: 0,
   fed: false,
-  outfit: 0,
-  /* He is carrying it, and there is nothing in this flat to lose it to any
-   * more: the poker table stopped being a table game on 2026-08-26. */
+  outfit: LUXURY_OUTFITS.findIndex(({ id }) => id === initialOutfitId),
   money: 2500,
   fridgeBeer: 5,
   fridgeSlices: 2,
@@ -319,6 +386,7 @@ const cabinetArcade = createArcade({ audio, onInputModeChange: onArcadeInputMode
 
 let home = null;
 let bathroomMirror = null;
+let firstPersonBody = null;
 let player = null;
 let inventoryRuntime = null;
 let toilet = null;
@@ -450,12 +518,14 @@ function enterStation(id, station = home?.gameStations?.[id]) {
     return true;
   }
   if (id === 'poker') {
-    /* THE ONE STATION THAT REFUSES. The prompt is still on the table and the
-     * chairs are still real; what used to happen here was a seat at the Bing's
-     * dealer module, at a table the flat had staged three civilian patrons
-     * around. Both went out on the owner's 2026-08-26 note.
-     * `refuseLuxuryPoker` returns false, so no posture is entered, the player
-     * keeps the room, and he gets one line about his own furniture. */
+    /* The table remains authored furniture, but Tony is alone and no table
+     * game is mounted. Keep newest-main's hard refusal (false means no seat or
+     * game) while retaining the polished branch's optional spoken pickup. */
+    speak(audio, 'vo.luxury.poker.solo', {
+      mix: SPEECH_MIX_CLOSE,
+      subtitle: LUXURY_POKER_REFUSAL.line,
+      requiredRecorded: false,
+    });
     return refuseLuxuryPoker(hud);
   }
   if (id === 'darts') {
@@ -500,7 +570,24 @@ function useFrontDoor() {
  * it always has.
  */
 function luxuryDeparture() {
-  if (!routed) return { href: './preview.html' };
+  /* The preview has no campaign to ask, so the three chores are its whole
+   * gate: getting ready IS the standalone flat's content, and a lift that
+   * leaves before he is dressed skips the only thing in it to do. Same
+   * refusal shape the campaign door speaks, so `beginElevatorExit` keeps one
+   * branch instead of growing a second for the preview. */
+  if (!routed) {
+    if (!readyTally.ready) {
+      return {
+        refusal: {
+          kind: 'activity',
+          id: 'luxury_get_ready',
+          line: 'Not yet. Shower, get dressed, grab the phone. Then the elevator.',
+          hint: 'Shower, change clothes, and take your phone.',
+        },
+      };
+    }
+    return { href: './preview.html' };
+  }
   const door = luxuryStory.tryLeave();
   if (door.kind !== 'go') return { refusal: door };
   return {
@@ -584,7 +671,40 @@ function beginElevatorExit() {
   return true;
 }
 
+/**
+ * The three chores changed, so re-count them and tell the door.
+ *
+ * The chores ARE beat 14's exit condition -- the bible's transition for it is
+ * "complete get-ready flow and leave" -- and until this call existed nothing
+ * in the flat ever spent LUXURY_GET_READY. `LuxuryApartmentStory.phase()`
+ * reads that ledger entry to decide whether he is still getting ready, so the
+ * campaign door refused the lift forever, on every routed save, waiting on a
+ * signal the room had no way to send. Sending it from the same place that
+ * counts the chores is what keeps the tally and the door agreeing.
+ */
+function refreshLuxuryObjective({ toast = false } = {}) {
+  readyTally.sync(home?.state);
+  if (routed && readyTally.ready) luxuryStory.completeGetReady();
+  if (state.phase === 'active') refreshObjective();
+  if (toast && readyTally.ready) hud.toast('Ready to leave · private elevator unlocked', 'good');
+  return readyTally.snapshot();
+}
+
 function useElevator(mode) {
+  /* Both verbs are the same door, so both ask the same question. A `call` that
+   * opens while the ride would be refused is the flat showing him a way out it
+   * has no intention of honouring -- and it is worse than cosmetic, because
+   * opening the doors drops the shaft collider and leaves him standing in a
+   * hole that goes nowhere. */
+  const departure = luxuryDeparture();
+  if (departure.refusal) {
+    audio.play('door.knob', { volume: 0.28 });
+    const { line, hint } = departure.refusal;
+    if (line) hud.say(line, 4200);
+    if (hint) hud.toast(hint);
+    refreshObjective();
+    return false;
+  }
   audio.play(mode === 'ride' ? 'door.creak' : 'door.knob', { volume: 0.42 });
   if (mode === 'ride') {
     /* Say the line only if the lift is actually going anywhere. On the
@@ -697,11 +817,22 @@ function startShower() {
 }
 
 function useWardrobe() {
-  const outfits = ['clean black henley', 'charcoal suit', 'cream cashmere', 'late-night track jacket'];
-  state.outfit = (state.outfit + 1) % outfits.length;
-  hud.toast(`Changed · ${outfits[state.outfit]}`, 'good');
+  const current = LUXURY_OUTFITS.findIndex(({ id }) => id === firstPersonBody?.outfitId);
+  state.outfit = current < 0 ? 0 : (current + 1) % LUXURY_OUTFITS.length;
+  const outfit = LUXURY_OUTFITS[state.outfit];
+  firstPersonBody?.setOutfit(outfit.id);
+  readyTally.complete('dressed');
+  hud.toast(`Changed · ${outfit.label}`, 'good');
   audio.play('closet.slide', { volume: 0.36 });
+  refreshLuxuryObjective({ toast: true });
   return true;
+}
+
+function takeHomePhone() {
+  const taken = inventoryRuntime?.takePhone() ?? false;
+  if (home?.state.phoneTaken || taken) readyTally.complete('phoneTaken');
+  refreshLuxuryObjective({ toast: true });
+  return taken;
 }
 
 function sleepAtHome() {
@@ -849,13 +980,14 @@ try {
     time,
     onFrontDoor: useFrontDoor,
     onElevator: useElevator,
+    elevatorStatus: () => readyTally.snapshot(),
     onBathroomDoor: (open) => useDoor('Bathroom door', open),
     onBed: useBed,
     onCouch: () => sitAt('couch', home.poses.couch),
     onDesk: () => { if (home) home.state.pcOn = true; },
     onTv: useTv,
     onRadio: useRadio,
-    onPhone: () => inventoryRuntime?.takePhone(),
+    onPhone: takeHomePhone,
     onFridge: useFridge,
     onCook: useKitchen,
     cigaretteStatus: () => inventoryRuntime?.status('cigs') ?? { full: false },
@@ -902,6 +1034,12 @@ player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 interaction.setOccluders(home.occluders ?? []);
 teleportToSpawn(player, home, 'arrival');
+firstPersonBody = new FirstPersonBody(scene, {
+  factory: makeLuxuryPlayerBody,
+  store: appearanceStore,
+  outfitId: initialOutfitId,
+  eyeHeight: 1.68,
+});
 
 inventoryRuntime = new LuxuryInventoryRuntime({
   camera,
@@ -989,6 +1127,8 @@ startButton.addEventListener('click', async () => {
       'poop.1', 'poop.2', 'poop.3', 'poop.4', 'poop.strain',
       'gun.pickup', 'gun.shot', 'gun.dry', 'gun.impact', 'gun.reload', 'ammo.take',
       'bong.bubble', 'zyn.pack', 'glue.slip',
+      'vo.luxury.poker.solo',
+      'vo.luxury.elevator.not-ready', 'vo.luxury.elevator.not-ready-repeat',
       ...radio.preloadCueNames({ startupOnly: true }),
     ],
   });
@@ -1023,6 +1163,7 @@ const pauseMenu = createPauseMenu({
     'E or Click — use and play. Hold E where a second action is shown.',
     'F — consume the selected item. Q — stand or pocket it. R — radio/game action.',
     'Tab or Esc — pause. At a computer, Tab returns to SquatchOS and Q stands up.',
+    'At darts: hold E or Mouse to charge, release to throw, R resets the leg.',
     'This is a standalone developer preview and does not alter campaign progress.',
   ],
   onPause: () => {
@@ -1039,12 +1180,14 @@ const pauseMenu = createPauseMenu({
     browserInput?.releasePointerLock();
     interaction.release();
     interaction.setPaused(true);
+    radio.pause();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     state.paused = false;
     interaction.setPaused(Boolean(state.posture));
     audio.ctx?.resume?.();
+    radio.resume();
     lastFrame = performance.now();
     syncInput('resume');
     /* Only the postures that steer get the mouse back. Seated at the cinema
@@ -1255,6 +1398,7 @@ function updateTimedActivities(dt) {
     if (state.showerTime >= 7.0) {
       state.showering = false;
       home.state.showered = true;
+      readyTally.complete('showered');
       showerFx.stop();
       audio.stopLoop('luxury.shower', 0.5);
       restoreWalkingPose(player, home.poses.shower.exit, home.groundAt);
@@ -1262,6 +1406,7 @@ function updateTimedActivities(dt) {
       syncInput('shower-end');
       hud.toast('Showered', 'good');
       hud.say('Clean clothes, clean glass, clean slate. <em>For tonight.</em>', 3800);
+      refreshLuxuryObjective({ toast: true });
     }
   }
 }
@@ -1284,6 +1429,9 @@ function frame(now) {
     focusRush.update(dt);
     focusRush.apply(camera, player, { baseMoveScale: player.moveScale });
     player.update(dt);
+    firstPersonBody?.update(dt, player, {
+      groundY: home.groundAt(player.position.x, player.position.z, player.position.y),
+    });
     home.update(dt * highs.timeScale, state.elapsed, player.position);
     toilet.update(dt);
     crookedArt.update(dt);
@@ -1459,7 +1607,12 @@ async function verifyParity() {
     games: {
       cabinet: { launched: cabinetLaunched, app: cabinetApp },
       /* The poker table answers instead of dealing. */
-      poker: { played: pokerPlayed, posture: pokerPosture, line: LUXURY_POKER_REFUSAL.line },
+      poker: {
+        played: pokerPlayed,
+        posture: pokerPosture,
+        line: LUXURY_POKER_REFUSAL.line,
+        patrons: home.poker.patrons.length,
+      },
       darts: { entered: true, throw: dartThrow },
     },
   };
@@ -1493,6 +1646,10 @@ window.LUXURY_APARTMENT = {
   revolverRuntime: revolver,
   highs,
   focusRush,
+  firstPersonBody,
+  appearanceStore,
+  readyTally,
+  outfits: LUXURY_OUTFITS,
   bongBehavior,
   verifyParity,
   station: enterStation,
@@ -1525,6 +1682,13 @@ window.LUXURY_APARTMENT = {
     revolver: () => revolver.pickup(),
     ammo: (count = 12) => revolver.takeAmmo(count),
     cigarettes: useCigarettePack,
+    elevator: useElevator,
+    ready(taskId) {
+      const changed = readyTally.complete(taskId);
+      if (home?.state && Object.hasOwn(home.state, taskId)) home.state[taskId] = true;
+      refreshLuxuryObjective({ toast: true });
+      return changed;
+    },
   },
   debug: {
     pcApps: pcArcade.apps.map((app) => ({ id: app.id, title: app.title ?? app.name ?? app.id })),

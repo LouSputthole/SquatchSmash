@@ -81,9 +81,9 @@ test('luxury world gives every imported and new art asset a real semantic placem
   }
   assert.ok(LUXURY_EXTRA_ART_SLOTS.includes('luxury.night-watch'));
   assert.ok(LUXURY_EXTRA_ART_SLOTS.includes('luxury.ascension'));
-  assert.equal(LUXURY_ART_SLOTS.length, 75);
-  assert.equal(LUXURY_DISPLAY_ART_SLOTS.length, 61);
-  assert.equal(LUXURY_HUNG_ART_SLOTS.length, 55);
+  assert.equal(LUXURY_ART_SLOTS.length, 74);
+  assert.equal(LUXURY_DISPLAY_ART_SLOTS.length, 60);
+  assert.equal(LUXURY_HUNG_ART_SLOTS.length, 54);
   assert.equal(LUXURY_STANDING_ART_SLOTS.length, 6);
   assert.equal(LUXURY_PROP_ART_SLOTS.length, 14);
   assert.deepEqual(
@@ -190,7 +190,7 @@ test('luxury world builds a validated two-floor hub with screens, zones and pari
 test('every Luxury collider declares stable authored spatial meaning', async () => {
   const { world } = await build();
   const records = world.colliders.map((collider) => readSpatialPrimitive(collider));
-  assert.equal(records.length, 64, 'the complete live Luxury collision inventory changed');
+  assert.equal(records.length, 66, 'the complete live Luxury collision inventory changed');
   assert.ok(records.every(Boolean), 'an addBounds call bypassed the spatial contract');
   assert.equal(new Set(records.map(({ id }) => id)).size, records.length,
     'Luxury collider spatial ids are not unique');
@@ -198,8 +198,23 @@ test('every Luxury collider declares stable authored spatial meaning', async () 
     Object.fromEntries([...records.reduce((counts, { kind }) => (
       counts.set(kind, (counts.get(kind) ?? 0) + 1)
     ), new Map())].sort(([left], [right]) => left.localeCompare(right))),
-    { door: 3, prop: 20, seat: 9, world: 32 },
+    { door: 3, prop: 22, seat: 9, world: 32 },
   );
+  world.dispose();
+});
+
+test('the poker room is deliberately solo and keeps all four future seats', async () => {
+  const { world } = await build();
+  world.root.updateMatrixWorld(true);
+  assert.equal(world.poker.patrons.length, 0);
+  assert.equal(world.metrics.pokerPatrons, 0);
+  assert.equal(world.poker.seats.length, 4);
+  assert.equal(world.root.getObjectByName('luxury-poker-patron-east'), undefined);
+  for (const seat of world.poker.seats) {
+    const spatial = readSpatialPrimitive(colliderNamed(world, `${seat.name}-collider`));
+    assert.equal(spatial.kind, 'seat');
+    assert.equal(spatial.intentionalOverlapWith, undefined);
+  }
   world.dispose();
 });
 
@@ -228,7 +243,7 @@ test('the main-floor bathroom is physically traversable through its live door co
   player.mode = 'walk';
   player.enabled = true;
 
-  world.doors.bathroom.toggle();
+  assert.equal(world.doors.bathroom.isOpen(), true, 'the transparent entrance starts visibly open');
   for (let index = 0; index < 180; index++) world.update(1 / 120);
   assert.ok(Math.abs(world.doors.bathroom.pivot.rotation.y) > 1.4, 'door reaches its open pose');
 
@@ -294,6 +309,8 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
   assert.ok(Math.abs(returnGroup.rotation.y - Math.PI / 2) < 1e-9);
   assert.ok(Math.abs((returnCouch.max.x - returnCouch.min.x - 0.04) - 2.18) < 1e-9);
   assert.ok(Math.abs((returnCouch.max.z - returnCouch.min.z - 0.04) - 0.94) < 1e-9);
+  assert.ok((returnCouch.min.z + returnCouch.max.z) / 2 >= 5.29,
+    'the perpendicular return sits on the outer edge of the rug near the glass');
   assert.equal(primaryCouch.intersectsBox(returnCouch), true, 'sectional pieces join at the corner');
 
   assert.equal(world.gameStations.arcade.seat.name, 'luxury-arcade-stool');
@@ -324,6 +341,7 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
   /* Four chairs and nobody in them: tests/luxury-apartment-poker-table.test.mjs
    * owns the emptiness. This case still owns the furniture. */
   assert.equal(world.gameStations.poker.seats.length, 4);
+  assert.equal(world.poker.patrons.length, 0, 'the solo beat has no random poker partners');
   for (const seat of world.gameStations.poker.seats) {
     assert.ok(colliderNamed(world, `${seat.name}-collider`), seat.name);
   }
@@ -331,6 +349,9 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
   const railRadius = world.poker.rail.geometry.parameters.tube;
   assert.ok(world.poker.rail.position.y - railRadius < feltTop);
   assert.ok(world.poker.rail.position.y > feltTop, 'poker trim nests into the felt without floating');
+  assert.equal(world.poker.rail.scale.z, world.poker.felt.scale.z,
+    'outer dark-wood rail follows the same oval as the felt');
+
   assert.equal(world.deskChair.group.userData.workstationMaterial, 'dark');
   assert.equal(world.deskZyn.group.userData.desktopHalf, 'front');
   const desktopBounds = new THREE.Box3().setFromObject(world.desk.group.children[0]);
@@ -342,11 +363,15 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
 
   assert.equal(world.bathroom.floorY, LUXURY_APARTMENT.mainY);
   assert.equal(world.bathroom.shell.name, 'luxury-under-stair-bathroom');
+  assert.ok(LUXURY_APARTMENT.bathroom.x1 - LUXURY_APARTMENT.bathroom.x0 >= 3.6,
+    'bathroom expands into the former east service bay');
+  assert.equal(world.doors.bathroom.leaf.material, world.materials.bathGlass);
+  assert.ok(world.doors.bathroom.leaf.material.opacity <= 0.28 && world.doors.bathroom.isOpen());
   assert.ok(world.mirrorMesh.geometry instanceof THREE.PlaneGeometry, 'bathroom exposes the shared planar-mirror surface');
   const sinkBounds = new THREE.Box3().setFromObject(world.bathroom.sink.group);
   const toiletBounds = new THREE.Box3().setFromObject(world.bathroom.toilet.group);
-  assert.ok(sinkBounds.min.x >= LUXURY_APARTMENT.bathroom.x0
-    && sinkBounds.max.x <= LUXURY_APARTMENT.bathroom.x1,
+  assert.ok(sinkBounds.min.x >= LUXURY_APARTMENT.bathroom.x0 - 1e-6
+    && sinkBounds.max.x <= LUXURY_APARTMENT.bathroom.x1 + 1e-6,
   'wall-mounted sink and mirror do not bleed through the bathroom shell');
   assert.ok(toiletBounds.min.z - (LUXURY_APARTMENT.bathroom.z0 + 0.10) <= 0.02,
     'toilet tank is set against the finished north wall');
@@ -370,9 +395,8 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
     ['luxury-sealed-under-loft-west-back', 'luxury-bath-north-collider'],
     ['luxury-sealed-under-loft-west-back', 'luxury-bath-west-collider'],
   ]) {
-    assert.equal(
-      penetrationDepth(colliderNamed(world, fixture), colliderNamed(world, wall)),
-      0,
+    assert.ok(
+      penetrationDepth(colliderNamed(world, fixture), colliderNamed(world, wall)) <= 1e-9,
       `${fixture}/${wall}`,
     );
   }
@@ -380,12 +404,24 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
   assert.ok(world.root.getObjectByName('luxury-elevator-cab'), 'the canonical elevator has a physical cab');
 
   assert.ok(world.darts.backing.isObject3D && world.darts.rack.isObject3D);
+  assert.equal(world.darts.sections.length, 20);
+  assert.equal(world.darts.sections[0], 20);
+  assert.equal(world.darts.face.name, 'luxury-darts-numbered-face');
+  assert.ok(world.darts.face.material.map?.isTexture && world.darts.light.isSpotLight);
   assert.deepEqual(world.darts.normal.toArray(), [0, 0, 1]);
   assert.ok(Math.abs(world.darts.board.position.z - world.darts.backing.position.z) < 0.10,
     'dartboard is mounted flush to its backing');
   assert.equal(world.artTargets['banner.main'].userData.artZone, 'bedroom-privacy-wall');
   assert.equal(world.artTargets['banner.twitch'].userData.artZone, 'bedroom-privacy-wall');
   assert.ok(world.root.getObjectByName('luxury-bedroom-privacy-wall'), 'bedroom has a finished privacy wall');
+  assert.ok(world.root.getObjectByName('luxury-fitted-wine-cooler'), 'kitchen/fridge gap is fitted');
+  assert.ok(world.root.getObjectByName('luxury-top-stair-focal'), 'top landing has a focal object');
+  assert.equal(world.root.getObjectByName('luxury-entertainment-console').rotation.y, Math.PI);
+  assert.equal(world.artTargets['crest.round'].position.x, -5.55);
+  assert.equal(world.artTargets['luxury.arcade.marquee'], undefined);
+  assert.equal(world.artTargets['feature.stacks'].userData.artZone, 'loft-office-history-row');
+  assert.equal(world.artTargets['cork.above'].userData.artZone, 'bedroom-headboard-photos');
+  assert.equal(world.artTargets['bath.toilet.poster'].userData.artZone, 'bedroom-headboard-photos');
   assert.equal(
     colliderNamed(world, 'luxury-bedroom-wall-panel-1-collider')
       .intersectsBox(colliderNamed(world, 'luxury-walk-in-wardrobe-collider')),
@@ -465,10 +501,11 @@ test('luxury interactions preserve tap/hold parity and expose deterministic cont
   assert.equal(world.state.elevatorOpen, false);
 
   const bathroom = registered.get(world.utilityTargets.bathroomDoor);
-  bathroom.onUse();
   assert.equal(world.state.bathroomDoorOpen, true);
   bathroom.onUse();
   assert.equal(world.state.bathroomDoorOpen, false);
+  bathroom.onUse();
+  assert.equal(world.state.bathroomDoorOpen, true);
 
   const cigarettes = registered.get(world.utilityTargets.cigarettes);
   assert.match(cigarettes.label(), /Replenish/);
@@ -485,8 +522,8 @@ test('luxury interactions preserve tap/hold parity and expose deterministic cont
     ['front', 'blocked'],
     ['elevator', 'call'],
     ['elevator', 'ride'],
-    ['bathroom', false],
     ['bathroom', true],
+    ['bathroom', false],
     ['cigarettes', 6],
     ['cigarettes', 0],
   ]);

@@ -1,5 +1,6 @@
 import { renderInventorySlots } from './scene-inventory.js';
 import { writeGameplayPromptKey } from './gameplay-key-adapter.js';
+import { activeObjectiveItems } from './objective-panel.js';
 
 /**
  * THE PROMPT, ONCE, FOR SCENES THAT CANNOT HAVE THE WHOLE HUD.
@@ -212,10 +213,10 @@ export class Hud {
   /**
    * The morning's list.
    *
-   * Takes what `ApartmentStory.objectives()` produced and does nothing to it
-   * but draw it -- no filtering, no reordering, no second opinion about what
-   * counts as done. A HUD that decides for itself what the objectives are is
-   * a HUD that will eventually disagree with the door.
+   * Takes what `ApartmentStory.objectives()` produced and applies only the
+   * shared live-HUD projection: completed work and now-empty section headings
+   * leave the screen. It does not reorder work or decide story completion; a
+   * HUD that makes either decision will eventually disagree with the door.
    *
    * @param {{day: number, items: {id: string, label: string, done: boolean,
    *   required: boolean}[]}|null} plan
@@ -227,16 +228,25 @@ export class Hud {
       this.objectivesList = this.objectives?.querySelector('.olist');
     }
     if (!this.objectives) return;
-    if (!plan || !plan.items?.length) {
+    const items = activeObjectiveItems(plan?.items);
+    if (!plan || !items.length) {
+      this._objectivesKey = null;
       this.objectives.classList.add('hidden');
       return;
     }
     // Only touch the DOM when the list actually reads differently.
-    const key = `${plan.day}|${plan.items.map((i) => `${i.id}${i.done ? '1' : '0'}${i.required ? 'r' : ''}`).join(',')}`;
+    const key = `${plan.day}|${items.map((i) => [
+      i.id ?? '',
+      i.rule ?? '',
+      i.label ?? '',
+      i.required === false ? 'o' : 'r',
+      i.current ? 'n' : '',
+      i.tally ? `${i.tally.count ?? 0}/${i.tally.total ?? 0}` : '',
+    ].join(':')).join(',')}`;
     if (key === this._objectivesKey) return;
     this._objectivesKey = key;
     this.objectivesTitle.textContent = `Day ${plan.day} · today`;
-    this.objectivesList.replaceChildren(...plan.items.map((item) => {
+    this.objectivesList.replaceChildren(...items.map((item) => {
       const el = document.createElement('li');
       el.className = `${item.done ? 'done' : ''} ${item.required ? 'required' : ''}`.trim();
       el.textContent = item.label;

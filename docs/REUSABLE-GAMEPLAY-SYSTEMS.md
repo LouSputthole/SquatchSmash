@@ -33,6 +33,7 @@ A shared-system adoption is complete only when all four are present:
 | Vehicle headlight beams | `src/core/vehicles/headlights.js` | Canonical forward-beam geometry and aiming Interface | Special Meeting forest/sedan traffic, Motel drive and Initiation cabin |
 | Death-transition lifecycle | `src/core/death-transition.js` | Canonical lifecycle and spatial audit seam; authored fall animation remains a scene Adapter | Silver Case, Motel, Initiation and Squatchfather (Sal/McClawsky seated deaths) |
 | Planar mirrors | `src/core/planar-mirror.js` | Canonical real reflection camera and mounted-plane derivation | Apartment, Luxury Apartment, Cabin and Squatchfather mirror Adapter |
+| Reflected first-person body | `src/core/first-person-body.js` | Canonical reflection-layer pose, weapon and cross-scene outfit-continuity Interface | Apartment, Luxury Apartment and Cabin; Squatchfather retains its authored layer-1 Adapter |
 | Surface footsteps | `AudioEngine.footstep()` in `src/core/audio.js` | Canonical cadence, delivered-sample variation and optional positional playback Interface | Shared Player scenes; Initiation now supplies only its `footingAt()` scene Adapter and uses the canonical forest/wood banks |
 | Environment visibility budgets | `src/core/environment-visibility.js` | Canonical minimum contracts by environment archetype | Luxury Apartment skyline, Cabin wilderness and Special Meeting forest drive |
 | Semantic prop placement | `src/core/semantic-placement.js` | Canonical opt-in floor, wall, facing, room and seam validator | Luxury Apartment, Cabin and Cartel Palace |
@@ -67,6 +68,11 @@ Adapters:
 - `PlanarMirror` derives its plane from the mounted mesh and owns reflection
   render-target lifecycle. A bathroom may provide grime, cracks and a distance
   policy, not a second reflection-camera implementation.
+- `FirstPersonBody` owns the reflection-only figure layer, stable
+  standing/seated/bed/scripted pose synchronization, walk gait, reflected
+  weapon state and persistent outfit identity. Scenes supply only their
+  palette/figure factory and their current player state; they do not fork the
+  body lifecycle to make a different bathroom mirror work.
 - `AudioEngine.footstep()` owns cadence, per-surface sample treatment,
   no-immediate-repeat selection and positional routing. A scene may map a world
   point to a surface and provide a per-actor cadence key; it may not rebuild the

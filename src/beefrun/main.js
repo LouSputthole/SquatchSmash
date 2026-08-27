@@ -22,7 +22,7 @@ import {
   navigateCampaign,
 } from '../core/campaign.js';
 import { AuthoredClock } from '../core/authored-clock.js';
-import { Radio } from '../core/radio.js';
+import { Radio, radioHudWithinRange } from '../core/radio.js';
 import { createAirstripStory } from '../core/airstrip-story.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -165,6 +165,7 @@ scene.add(aircraft.group);
  * meeting bulletin is long behind the crew by this flight. */
 const radioClock = new AuthoredClock(9 + 10 / 60);
 radioClock.setTime(Math.max(1, campaign.state.story.day), 9 * 60 + 10);
+const radioPosition = new THREE.Vector3();
 const radio = new Radio(audio, hud, radioClock, {
   venue: 'beefrun',
   state: createCampaignRadioAdapter(campaign, {
@@ -173,8 +174,9 @@ const radio = new Radio(audio, hud, radioClock, {
   }),
   canPlayNotice: () => false,
   output: 0.62,
+  /* Camera is the actual audio listener in both cockpit and on-foot modes. */
+  hudVisible: () => radioHudWithinRange(camera?.position, radioPosition),
 });
-const radioPosition = new THREE.Vector3();
 aircraft.parts.radioStack.getWorldPosition(radioPosition);
 radio.setPosition(radioPosition);
 const radioReady = radio.loadManifest();

@@ -15,6 +15,7 @@ import {
 import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
 import { shakeScale } from '../core/settings.js';
@@ -59,8 +60,6 @@ const loading = document.getElementById('loading');
 const startButton = document.getElementById('start-btn');
 const assetStatus = document.getElementById('asset-status');
 const blackout = document.getElementById('blackout');
-const objectivesRoot = document.getElementById('objectives');
-const objectiveList = objectivesRoot.querySelector('ul');
 const dialogueRoot = document.getElementById('dialogue');
 
 /* `.otitle`, not `.head`, and THIS PAGE SHARES bing.html WITH THE CLUB.
@@ -75,7 +74,7 @@ const dialogueRoot = document.getElementById('dialogue');
  * The rename was grepped for, in main.js and in the HTML, and not in the
  * sibling that shares the file. verify:webgl-health is what caught it, on its
  * first run in this repository's life. */
-objectivesRoot.querySelector('.otitle').textContent = 'THE HOTDOG INCIDENT';
+const objectivePanel = createObjectivePanel();
 
 overlay.querySelector('h1').innerHTML = 'THE <span>HOTDOG INCIDENT</span>';
 overlay.querySelector('.tag').textContent = 'The Bada Bing is closed for Billy HotDog\'s welcome-home party. Family only. Hog Mama is waiting on the stage controls.';
@@ -240,13 +239,19 @@ mission = new SecondVisitMission({
 
 function repaintObjectives() {
   if (!mission) return;
-  objectiveList.replaceChildren(...mission.objectives.map((objective) => {
-    const li = document.createElement('li');
-    li.className = objective.done ? 'done' : '';
-    li.innerHTML = `<i></i><span>${objective.text}</span>`;
-    return li;
-  }));
-  objectivesRoot.classList.remove('hidden');
+  /* SecondVisitMission keeps its completed ledger for campaign recovery and
+   * verifier receipts. The shared panel projects that ledger onto the one
+   * thing the player can act on now, so completed work leaves immediately and
+   * an exhausted list hides the whole card instead of becoming a trophy case. */
+  objectivePanel.set({
+    title: 'THE HOTDOG INCIDENT',
+    items: mission.objectives.map((objective) => ({
+      id: objective.id,
+      label: objective.text,
+      done: objective.done,
+      required: true,
+    })),
+  });
 }
 repaintObjectives();
 window.__squatchStage?.('Assigning party reactions...');

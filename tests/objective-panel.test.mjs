@@ -16,7 +16,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createObjectivePanel } from '../src/core/objective-panel.js';
+import { activeObjectiveItems, createObjectivePanel } from '../src/core/objective-panel.js';
 
 /** Just enough document for what the panel actually touches. */
 function fakeDoc() {
@@ -154,13 +154,22 @@ test('optional and required are the same fact, and both class names ship', () =>
   assert.equal(rows[1].className, 'optional');
 });
 
-test('the line he is on is marked, which is the Silver Room', () => {
+test('completed lines leave immediately and the line he is on is marked', () => {
   const { rows } = panelWith([
     { label: 'done that', done: true },
     { label: 'doing this', current: true },
   ]);
-  assert.equal(rows[0].className, 'done required');
-  assert.equal(rows[1].className, 'required now');
+  assert.equal(rows.length, 1);
+  assert.equal(words(rows[0]), 'doing this');
+  assert.equal(rows[0].className, 'required now');
+});
+
+test('an empty section heading leaves with its completed objectives', () => {
+  assert.deepEqual(activeObjectiveItems([
+    { label: 'see Lou' },
+    { rule: 'WHILE YOU ARE HERE' },
+    { label: 'buy a round', done: true, required: false },
+  ]), [{ label: 'see Lou' }]);
 });
 
 test('an unchanged plan does not rebuild the list: it is set from a tick', () => {
@@ -186,4 +195,18 @@ test('an empty plan hides the card rather than leaving the last order up', () =>
   assert.equal(panel.element.classList.contains('hidden'), false);
   panel.setLine('');
   assert.equal(panel.element.classList.contains('hidden'), true);
+});
+
+test('the first clear and disposing an adopted panel both remove stale UI', () => {
+  const doc = fakeDoc();
+  const existing = doc.createElement('div');
+  existing.id = 'objectives';
+  doc.byId.set('objectives', existing);
+  const panel = createObjectivePanel({ doc });
+  panel.clear();
+  assert.equal(existing.classList.contains('hidden'), true);
+
+  existing.classList.remove('hidden');
+  panel.dispose();
+  assert.equal(existing.classList.contains('hidden'), true);
 });
