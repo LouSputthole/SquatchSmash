@@ -12,4 +12,3 @@ Use the narrowest relevant checks first. Before committing, run every gate
 required by `.github/workflows/verify.yml` and every changed scene's verifier.
 Report the commands that actually ran and their results; do not infer coverage
 from a green subset.
-

@@ -48,4 +48,3 @@ to choose the shared systems, tests, scene verifier, and evidence required.
 Finish with the exact commands run, observed browser path, captured evidence,
 errors inspected, and any unverified risk. Use `BEFORE-YOU-PUSH.md` as the final
 short checklist.
-

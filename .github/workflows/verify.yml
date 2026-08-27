@@ -27,7 +27,7 @@
 # because neither one boots a scene. verify:boot-failure-surfaces aborts each staged
 # page's entry module and asserts the recovery surface, touching all 20 staged
 # pages. verify:campaign-marathon stubs every scene runtime out and walks the
-# whole public route — 27 handoffs, apartment day one to the finale — through
+# whole public route — 28 handoffs, apartment day one to the finale — through
 # the real skip adapters and a durable reload at each landing. The other
 # verify:* gates each boot full scenes under swiftshader for minutes apiece,
 # and as of the scene-gate pass they are no longer "local/manual for now":

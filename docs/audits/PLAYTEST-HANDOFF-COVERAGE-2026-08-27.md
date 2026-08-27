@@ -11,8 +11,8 @@ note still needs proof.
   Luxury Apartment, Cabin, objectives, HUD scoping, mirrors, and player body.
 - `FULL POLISH / QA / IMPLEMENTATION PASS` — Initiation, Jerky Motel, Silver
   Front & Center, Mansion Siege, and global subtitle/objective/audio rules.
-  The three supplied copies of this brief are byte-identical, so they are one
-  checklist rather than three divergent requests.
+  The four supplied copies of this brief are byte-identical, so they are one
+  checklist rather than four divergent requests.
 - The separate delivered-music brief — Jerky drive, THE TAKE drive, Enola
   approach/silence/escape, and the two Front & Center masters.
 - The later engineering handoff — Jobs 0–12, the four tooling additions, and
@@ -37,6 +37,10 @@ passing**. Later commits added their own focused receipts, listed in the Jobs
 0–12 ledger below. This is a committed-state audit at
 `077d58d95e95911aa2ab2da2a131ef2692d462fe`; it is not a substitute for the
 final integrated browser, full-gate, debt-ratchet, push, or Pages receipts.
+Those later release receipts and the final Jobs 0–12 disposition are now in
+`docs/audits/ENGINEERING-COMPLETION-REPORT-2026-08-27.md`; “pending” language
+below records this ledger's `077d58d9` snapshot and is not the final branch
+status.
 
 ## Combined scene-polish brief
 
@@ -90,6 +94,7 @@ Primary implementation commits: `493c1c67`, `933dacd4`, `986ea417`,
 | HUD scoping | Cabin range/radio, shared inventory, objective, and subtitle HUDs have explicit scope contracts. The completed all-scene pass covers lingering state plus direct-entry/reload behavior. | Contracted; Job 12 committed in `f2b8095d` |
 | Mirrors/player body | Shared body applies only to regular apartment, luxury apartment, and Cabin. Combat scenes and Squatchfather are untouched by this pass. | Contracted; Spector-proven |
 | Asset reuse/root-cause standard | Shared mirror/body/objective/radio/death-transition systems were reused; the commits quote measured faults instead of hiding them behind scene-local wrappers. | Enforced by repository workflow and tests |
+| Final QA checklist | The completion report records the final Node, browser, visual, audio, route, geometry, and debt-ratchet receipts, with remaining subjective checks stated separately. | Linked to final integrated evidence |
 
 ## Full polish / QA brief
 
@@ -178,12 +183,12 @@ gate, push, merge, or Pages run has happened.
 | 2 — Shared body and three mirrors | Implemented | `d9bdf5bc`, `bdaee880`, `8f0a0f95`; `src/core/planar-mirror.js`, `src/core/first-person-body.js`, `src/cabin/player-body.js`, `src/luxury-apartment/main.js`, `src/main.js`, `docs/engineering/SPECTOR-MIRROR-EVIDENCE.md` | Spector captured `#scene`, WebGL2, 1920×1080: Apartment 3,297→3,387 draws, Luxury 2,979→3,015, Cabin 6,322→6,369, with zero GL errors. Outfit `cream_cashmere` appears in all three reflections while normal first-person view remains bodyless. Combat scenes and Squatchfather were not changed. |
 | 3 — Margo beats 16/17 | Implemented | `75eae53d`; `src/luxury-apartment/margo-scene.js`, `src/luxury-apartment/main.js`, `src/core/apartment-story.js`, `src/world/dress-help.js` | Entrance, two-floor waypoint route, stairs, both dress-help beats, sleep/snore, free wandering, morning departure, and Lou-after-exit ordering are contracted. Focused Margo checks were 10/10 and the full Luxury browser verifier 49/49. Five Margo visual states are committed in `df167002`. |
 | 4 — Beat 27 Special Meeting call | Implemented | `bc2eb161`; `src/core/campaign-spine.js`, `src/core/luxury-apartment-story.js`, `src/core/campaign.js`, `src/luxury-apartment/main.js`, `tools/verify-campaign-marathon.mjs` | The luxury-apartment call hands into the existing `specialmeeting.html` pickup/ride/trunk/ceremony flow, with exact-once call state and no extra ride scene. The spine has 31/31 wired beats and `tests/campaign-spine.test.mjs` pins `PENDING_BUDGET = 0`. Final integrated marathon rerun remains open. |
-| 5 — Day 12/13 tail | Implemented | `ebe99416`, with early verifier alignment `87b6d592`; `src/core/campaign.js`, `docs/CAMPAIGN-STORY-BIBLE.md`, `tests/campaign-clock.test.mjs`, `tools/verify-campaign-marathon.mjs` | Runtime anchors, spine tests, bible, and engineering notes move together. The exact landing ledger is below. No clock is pulled backward through `Math.max`; final integrated marathon/gates remain open. |
+| 5 — Day 12/13 tail | Implemented | `ebe99416`, with early verifier alignment `87b6d592`; `src/core/campaign.js`, `docs/CAMPAIGN-STORY-BIBLE.md`, `tests/final-arc-clock.test.mjs`, `tools/verify-campaign-marathon.mjs` | Runtime anchors, spine tests, bible, and engineering notes move together. The exact landing ledger is below. No clock is pulled backward through `Math.max`; final integrated marathon/gates remain open. |
 | 6 — THE PROSPECT'S RECORD | Implemented | `a0c103cc`; `src/core/campaign-stats.js`, `src/core/campaign-finale.js`, `src/core/campaign.js`, `src/initiation/main.js`, `tests/campaign-stats.test.mjs`, `tests/campaign-finale.test.mjs` | Schema v24 adds one bounded block and a fixed 16-mission aggregation ledger. Tests cover pre-v24/partial saves, repeated normalization, exact-once reload, cabin choice, 16/16 marathon population, and absent optional credit fields. No grades, best scores, per-shot save writes, event log, or route branch were added. The final-record visual baseline is committed; final integrated save/marathon run remains open. |
 | 7 — THE TAKE escape-car feel | Implemented and measured; owner feel check remains | `934a0513`, browser-harness hardening `09fa8a5a`; `src/heist/main.js`, `docs/audits/THE-TAKE-ESCAPE-CAR-EVIDENCE.md`, `tools/verify-heist.mjs` | 0→90 mph 7.60 s; steady speed 91.71454 mph; 60→0 in 1.633 s / 22.90 m. Three final browser repetitions measured exactly 35.473020° steering and 6.774620 m in the atomic 60-mph quarter-second probe, each 9/9. Automated contracts cannot decide whether the final handling and mix feel fun on the owner's hardware. |
 | 8 — Enola clue and Mansion reveal | Implemented | `db894088`; `src/enolasquatch/config.js`, `src/enolasquatch/main.js`, `src/mansion/main.js`, scene dialogue contracts and verifiers | The cockpit shows BOMB ORDER / THE DESERT COMPOUND against NAV FIX / SQUATCHBOURG; no spoken line points it out. Lou pays it off only at repaired Mansion. Deterministic Enola-instrument and Mansion-debrief baselines are committed in `df167002`; final integrated browser/audio gates remain open. |
-| 9 — Original post-Siege call | Implemented | `90d7e372`; `src/mansion/siege/main.js`, `src/mansion/siege/script.js`, `tools/siege-vo.mjs`, `tools/verify-siege.mjs` | The original A-Team confrontation uses shared ring/pickup/hangup behavior, motivates Enola, avoids copied Taken phrasing, and is exact-once across reload. The live verifier captured the call and no-replay seam. Its rendered assets are included in Job 10; final integrated Siege/route gates remain open. |
-| 10 — Voice backlog | Rendered and committed; release verification pending | `9c89bb4f`, CI wiring `077d58d9`; `assets/sfx/`, `assets/sfx/index.json`, `assets/sfx/manifest.json`, `assets/sfx/takes.json`, `docs/audits/VOICE-GENERATION-PASS-2026-08-27.md`, `docs/audits/voice/rendered-voice-receipts.json` | The commit rendered 207 outstanding cues (204 new, three corrected Silver takes), reports the reachable backlog at 0/4,123, and stores 386/386 hash/text/voice/browser-decode receipts plus a 15-take Scribe cast sample. Its focused voice/dialogue/ledger checks passed, and the receipt check is now in `verify.yml`; the final integrated audio/take/rerecord suite and push receipt remain open. |
+| 9 — Original post-Siege call | Implemented | `90d7e372`; `src/mansion/siege/main.js`, `src/mansion/siege/script.js`, `tools/siege-vo.mjs`, `tools/verify-mansion-siege.mjs` | The original A-Team confrontation uses shared ring/pickup/hangup behavior, motivates Enola, avoids copied Taken phrasing, and is exact-once across reload. The live verifier captured the call and no-replay seam. Its rendered assets are included in Job 10; final integrated Siege/route gates remain open. |
+| 10 — Voice backlog | Rendered and committed; release verification pending | `9c89bb4f`, final Irish correction `6a4abf65`, CI wiring `077d58d9`; `assets/sfx/`, `assets/sfx/index.json`, `assets/sfx/manifest.json`, `assets/sfx/takes.json`, `docs/audits/VOICE-GENERATION-PASS-2026-08-27.md`, `docs/audits/voice/rendered-voice-receipts.json` | The backlog commit rendered 207 outstanding cues (204 new, three corrected Silver takes); the final full-history gate found and corrected one Enola take that still spoke the forbidden wrong-city hint. The reachable backlog remains 0/4,123 and the final branch stores 387/387 hash/text/voice/browser-decode receipts plus a 15-take Scribe cast sample. |
 | 11 — Radio audit and revamp | Audit/content/mechanical work committed; owner decisions and active-play mix review remain | `d6f2ae0e`, `14cc6c94`, `4d7d01ef`, `b2e63abb`, CI wiring `077d58d9`; `tools/radio-audit.mjs`, `docs/audits/SQUATCHSMASH-RADIO-AUDIT.xlsx`, `docs/audits/radio/*.csv`, `docs/audits/SQUATCHSMASH-RADIO-REVAMP.md`, `docs/audits/radio/content-transcriptions.json`, `src/core/stations.js` | All 31 beats are in the generated workbook; five sheets rendered with zero formula/error tokens. The latest receipts cover 298/298 spoken assets, 24/24 loudness-measured music masters, 26/26 focused contracts, and zero missing audit assets; audit, loudness, and content drift checks are now in `verify.yml`. Luxury/Mansion receiver state persists. Still open: active-scene overlap/teardown/mix listening, four legacy identity orphans, long-form provenance, venue/news allocation, and other explicit OWNER rows. |
 | 12 — Objective honesty | Implemented | `f2b8095d`, with clock/browser alignments `87b6d592` and `09fa8a5a`; `src/core/objective-panel.js`, Apartment/Bing I/Bing II/Graveyard/THE TAKE objective sources, `tests/objective-*.test.mjs` | Before: Bing exposed four jobs plus its optional room, THE TAKE seven future swaps, and Apartment a call before it rang. After: one Bing route step plus one soft task, the next 0–7 THE TAKE action with a deliberate 7/7 receipt, and only a physically ringing Apartment call. Evidence: 89 focused contracts, Bing 163/163, Bing Two 35/35, Graveyard 43/43, and Heist 9/9 in three final runs. Graveyard's 8/8 tally and THE TAKE's 7/7 receipt remain intentionally persistent. Final full repo suite remains open. |
 
@@ -193,7 +198,8 @@ These are actual route landings, not merely static clock-table labels:
 
 | Handoff | Landing day/time |
 | --- | --- |
-| Enola → repaired Mansion | Day 9, 18:00 |
+| Enola → mansion-return scene (pre-jump landing) | Day 9, 18:00 |
+| Repaired-Mansion recovery jump/start | Day 12, 18:30 |
 | Repaired Mansion → Cartel Palace | Day 12, 19:15 |
 | Cartel Palace → Luxury Apartment | Day 12, 23:00 |
 | Luxury Apartment → Special Meeting | Day 13, 17:55 |
