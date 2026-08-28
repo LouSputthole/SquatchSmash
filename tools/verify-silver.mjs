@@ -2799,29 +2799,53 @@ check('starting the main performance does not unlock the invitation before it en
 const dessertGateStart = await page.evaluate(() => {
   const b = window.__silver;
   b.dialogue.end();
+  const waiter = b.cast.byName.waiter;
+  /* The prior "another round" is physical service, and ending its dialogue
+   * sends the waiter back through the same aisle rather than teleporting him
+   * to his patrol. Drain that return before isolating the dessert gate. A
+   * checkpoint intentionally preserves interrupted service as a return trip;
+   * carrying that unrelated trip into this proof made waiterComesOver()
+   * correctly refuse a second job and made the harness call the refusal a
+   * broken dessert. */
+  for (let t = 0; t < 50 && waiter.__serviceHome; t += 0.1) b.__serviceTick(0.1);
+  const previousServiceCleared = !waiter.__serviceHome;
   window.__silverDessertGateOriginal = JSON.parse(JSON.stringify(b.debug.save()));
   b.game.checkpoint.queueAt = 11;               // ROUND_QUEUE's dessert entry
   b.game.checkpoint.seatedFor = 377;
   b.game.checkpoint.mission.flags.mainPerformanceComplete = false;
   b.debug.load();
   b.dialogue.end();
+  const performance = b.performance;
+  const threshold = b.SET.find((number) => number.theOne).dur * (2 / 3);
+  /* The authored contract is dessert DURING the final third of Bananaphone,
+   * not after it. Keep the completion fallback false and straddle the real
+   * performance clock by one hundredth of a second. */
+  performance.t = threshold - 0.01;
   b.__seatTick(0);
   const before = {
     active: b.dialogue.active,
     node: b.dialogue.nodeId,
     complete: b.mission.flags.mainPerformanceComplete,
+    onTheOne: performance.onTheOne,
+    performanceTime: performance.t,
+    threshold,
   };
-  b.mission.flags.mainPerformanceComplete = true;
+  performance.t = threshold;
   b.__seatTick(0);
-  const waiter = b.cast.byName.waiter;
-  const dispatched = waiter.job === 'patrol' && !!waiter.route
+  let dispatched = waiter.job === 'patrol' && !!waiter.route
     && waiter.serviceTray?.group?.visible === true;
   for (let t = 0; t < 40 && !(b.dialogue.active && b.dialogue.nodeId === 'dessert'); t += 0.1) {
     b.__serviceTick(0.1);
+    /* A live frame retries a blocked queue entry after the physical return
+     * clears. The old harness advanced service but never the queue again, so
+     * one honest refusal stranded its synthetic evening forever. */
+    b.__seatTick(0.1);
     b.dialogue.update(0.1, b.player.position);
+    dispatched ||= waiter.carryingShot && waiter.serviceTray?.group?.visible === true;
   }
   return {
     before,
+    previousServiceCleared,
     dispatched,
     arrived: b.dialogue.active && b.dialogue.nodeId === 'dessert',
   };
@@ -2843,11 +2867,14 @@ const dessertGate = await page.evaluate((start) => {
   b.debug.load();
   return { ...start, after, restoredComplete: b.mission.flags.mainPerformanceComplete };
 }, dessertGateStart);
-check('dessert waits for the main performance, then enters exactly once it is complete',
-  !dessertGate.before.active && dessertGate.before.complete === false
+check('dessert stays out before Bananaphone’s final third, then enters during it',
+  dessertGate.previousServiceCleared
+    && !dessertGate.before.active && dessertGate.before.complete === false
+    && dessertGate.before.onTheOne
+    && dessertGate.before.performanceTime < dessertGate.before.threshold
     && dessertGate.dispatched && dessertGate.arrived
     && dessertGate.after.active && dessertGate.after.node === 'dessert'
-    && dessertGate.after.complete === true && dessertGate.restoredComplete === false,
+    && dessertGate.after.complete === false && dessertGate.restoredComplete === false,
   JSON.stringify(dessertGate));
 
 const featureEnd = await page.evaluate(() => {
@@ -2928,20 +2955,33 @@ check('the band play their four numbers, once each, and then the set is over',
 const orphan = await page.evaluate(() => {
   const b = window.__silver;
   b.dialogue.end();
+  const waiter = b.cast.byName.waiter;
+  /* The dessert gate deliberately restored across a physical service trip,
+   * which sends this same waiter back through the live aisle. That return is
+   * not part of the talk-over probe: finish it before asking him to take a new
+   * order, or debug.waiter() correctly refuses the double assignment and the
+   * harness mistakes "summon never started" for "conversation was orphaned". */
+  for (let t = 0; t < 50 && waiter.__serviceHome; t += 0.1) b.__serviceTick(0.1);
+  const priorServiceCleared = !waiter.__serviceHome;
   b.debug.waiter();
-  for (let t = 0; t < 40 && !(b.dialogue.active && b.cast.byName.waiter.job === 'stand'); t += 0.1) {
+  const summoned = waiter.__serviceHome && waiter.carryingShot
+    && waiter.serviceTray?.group?.visible === true;
+  for (let t = 0; t < 40 && !(b.dialogue.active && waiter.job === 'stand'); t += 0.1) {
     b.__serviceTick(0.1);
     b.dialogue.update(0.1, b.player.position);
   }
-  const during = { job: b.cast.byName.waiter.job, active: b.dialogue.active };
+  const during = { job: waiter.job, active: b.dialogue.active };
   b.cast.byName.smoker.group.userData.interact.onUse();
   return {
+    priorServiceCleared,
+    summoned,
     during,
-    after: { job: b.cast.byName.waiter.job, hasRound: !!b.cast.byName.waiter.route },
+    after: { job: waiter.job, hasRound: !!waiter.route },
   };
 });
 check('a waiter talked past mid-service goes back to his round instead of haunting the table',
-  orphan.during.job === 'stand' && orphan.during.active
+  orphan.priorServiceCleared && orphan.summoned
+    && orphan.during.job === 'stand' && orphan.during.active
     && orphan.after.job === 'patrol' && orphan.after.hasRound,
   JSON.stringify(orphan));
 
@@ -3141,6 +3181,10 @@ const dessertArrival = await page.evaluate(() => {
   b.__seatTick(0);
   for (let t = 0; t < 40 && !(b.dialogue.active && b.dialogue.nodeId === 'dessert'); t += 0.1) {
     b.__serviceTick(0.1);
+    /* A checkpoint may have interrupted the waiter's prior physical trip.
+     * The shipped frame retries the pending dessert entry while that body
+     * returns; the verifier must drive the queue as well as the legs. */
+    b.__seatTick(0.1);
     b.dialogue.update(0.1, b.player.position);
   }
   return b.dialogue.active && b.dialogue.nodeId === 'dessert';
@@ -3173,11 +3217,14 @@ const dessertToAsk = await page.evaluate((arrived) => {
       if (b.mission.state === 'invitation' && b.dialogue.options.length) return;
     }
   };
-  out.orderedDessert = seen.has('dessert');
   /* Past the closing entry's own `after`, which is what a player who has just
    * finished ordering reaches next, and then a full grace period of a man who
    * says nothing at all. */
   step(140);
+  /* `dessertArrival` can be false when an interrupted waiter return owns the
+   * first dispatch frame. The live retry above may enter dessert during this
+   * step, so read persistent history after driving the route, not before it. */
+  out.orderedDessert = seen.has('dessert') || b.dialogue.history.has('dessert');
   out.platesWent = seen.has('plates') || b.dialogue.history.has('plates');
   out.sheWentFirst = seen.has('waiting') || b.dialogue.history.has('waiting');
   out.promptShown = promptSeen;
