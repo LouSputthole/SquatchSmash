@@ -1209,7 +1209,12 @@ try {
         objective: sm?.certification?.objectiveText ?? null,
       };
     }).catch(() => null);
-    error.message += ` — waiting for SM-440; ride was ${JSON.stringify(stalled)}`;
+    /* console.error, not `error.message +=`. Node prints an uncaught
+     * exception's `stack`, and that string is built when the Error is
+     * constructed — appending to `.message` afterwards leaves the stack
+     * holding the original text, so the first version of this diagnostic
+     * captured the ride state and then threw it away. Print it. */
+    console.error(`Ride stalled waiting for SM-440: ${JSON.stringify(stalled)}`);
     throw error;
   }
   const revealAftermath = await page.evaluate(() => ({
