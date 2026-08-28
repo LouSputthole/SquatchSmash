@@ -806,7 +806,9 @@ try {
       player: runtime.player.position.toArray(),
       wake: runtime.cabin.spawns.wake.position.toArray(),
     };
-    runtime.story.completeBillyCall();
+    /* Waking only makes Booski's call due. Do not complete it before sampling
+     * the gated morning state; the explicit afterBillyCall block below owns
+     * the one real story transition this verifier is proving. */
     runtime.chapter.callbacks.onSync?.();
     runtime.chapter.callbacks.onWakeMorning?.({ restored: true });
     return {
@@ -845,13 +847,13 @@ try {
   /* THE OLD ASSERTION WAS THE OLD ROUTE. It expected the morning wake to
    * finish the chapter and release the car toward the Silver Case on Day 8 --
    * which is how a save that reached this cabin after the bank used to leave.
-   * Beat 7 ends at the Bing now: the wake lands at 09:33 on Day 4 with
+   * Beat 7 ends at the Bing now: the wake lands at 09:30 on Day 4 with
    * Booski's call about Billy still owed, and `tryLeave` holds the car with
    * `cabin_wait` until it comes. Measured, not assumed. */
   check('The morning wake leaves Booski’s call owed, and the car still gated',
     !morning.chapterComplete && morning.phase === 'billy_call'
       && morning.leave.kind === 'stay' && morning.leave.id === 'cabin_wait'
-      && morning.day === 4 && morning.timeMinutes === 573,
+      && morning.day === 4 && morning.timeMinutes === 9 * 60 + 30,
     `phase ${morning.phase}, complete ${morning.chapterComplete}, `
       + `door ${JSON.stringify(morning.leave)}, day ${morning.day}, minute ${morning.timeMinutes}`);
   check('Booski’s call about Billy closes the chapter and points the car at the Bing',
