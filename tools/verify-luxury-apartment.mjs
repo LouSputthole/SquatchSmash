@@ -607,7 +607,9 @@ try {
       callStatus: saved.events.booski_special_meeting_call?.status ?? null,
     };
   });
-  await specialMeetingPage.close();
+  const persistentPhoneSeed = await specialMeetingPage.evaluate(() => (
+    window.__squatchLifePreviewRuntime.storage.getItem('squatchlife.campaign')
+  ));
   check('beat 27 restores the persistent phone exactly once without manufacturing a table copy',
     persistentPhone.campaignCopies === 1
       && persistentPhone.hotbarCopies === 1
@@ -616,6 +618,149 @@ try {
       && persistentPhone.tablePropHidden
       && persistentPhone.callStatus === 'pending',
     JSON.stringify(persistentPhone));
+
+  /* Beat 27's phone is inventory, not furniture. Start the real runtime, let
+   * the real scheduler ring, move to the loft only as deterministic setup, and
+   * answer with the player's actual E key while the handset remains pocketed. */
+  await specialMeetingPage.locator('#start-btn').click();
+  await specialMeetingPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT?.state?.phase === 'active'
+      && window.LUXURY_APARTMENT.phone.ringing === true
+  ));
+  const distantRing = await specialMeetingPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    runtime.teleport('loft');
+    return {
+      ringing: runtime.phone.ringing,
+      held: runtime.home.inventory.held,
+      floor: runtime.player.position.y > 3 ? 'loft' : 'main',
+      objective: document.getElementById('objectives')?.textContent ?? '',
+    };
+  });
+  await specialMeetingPage.keyboard.press('e');
+  await specialMeetingPage.waitForFunction(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const saved = JSON.parse(
+      window.__squatchLifePreviewRuntime.storage.getItem('squatchlife.campaign'),
+    );
+    return runtime.phone.inCall
+      && !runtime.phone.ringing
+      && saved.events.booski_special_meeting_call?.status === 'answered';
+  });
+  const distantAnswer = await specialMeetingPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const saved = JSON.parse(
+      window.__squatchLifePreviewRuntime.storage.getItem('squatchlife.campaign'),
+    );
+    return {
+      ringing: runtime.phone.ringing,
+      inCall: runtime.phone.inCall,
+      held: runtime.home.inventory.held,
+      floor: runtime.player.position.y > 3 ? 'loft' : 'main',
+      callStatus: saved.events.booski_special_meeting_call?.status ?? null,
+      objective: document.getElementById('objectives')?.textContent ?? '',
+      ringLoop: runtime.audio.loops.has('phone.ring'),
+    };
+  });
+  check('Beat 27 answers the pocketed inventory phone from the loft with the real interaction key',
+    distantRing.ringing
+      && distantRing.held === null
+      && distantRing.floor === 'loft'
+      && /Answer Booskibro/i.test(distantRing.objective)
+      && !distantAnswer.ringing
+      && distantAnswer.inCall
+      && distantAnswer.held === null
+      && distantAnswer.floor === 'loft'
+      && distantAnswer.callStatus === 'answered'
+      && /Stay on the line/i.test(distantAnswer.objective)
+      && !distantAnswer.ringLoop,
+    JSON.stringify({ before: distantRing, after: distantAnswer }));
+  await specialMeetingPage.close();
+
+  /* A preview reload intentionally reseeds. Copy the same normalized Beat-27
+   * state into ordinary localStorage so this second receipt is a real save:
+   * reload once while ringing, answer downstairs, reload again, and prove the
+   * durable event suppresses every duplicate ring. */
+  const ringingReloadPage = await context.newPage();
+  ringingReloadPage.setDefaultTimeout(180000);
+  ringingReloadPage.setDefaultNavigationTimeout(180000);
+  ringingReloadPage.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
+  ringingReloadPage.on('console', (message) => {
+    if (message.type() === 'error') problems.push(`console: ${message.text().slice(0, 400)}`);
+  });
+  ringingReloadPage.on('requestfailed', (request) => {
+    problems.push(`request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
+  });
+  await ringingReloadPage.goto(`http://127.0.0.1:${PORT}/index.html`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await ringingReloadPage.evaluate((seed) => {
+    localStorage.setItem('squatchlife.campaign', seed);
+  }, persistentPhoneSeed);
+  await ringingReloadPage.goto(`http://127.0.0.1:${PORT}/luxury-apartment.html`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await ringingReloadPage.waitForFunction(() => Boolean(window.LUXURY_APARTMENT?.home));
+  await ringingReloadPage.locator('#start-btn').click();
+  await ringingReloadPage.waitForFunction(() => window.LUXURY_APARTMENT.phone.ringing === true);
+  const beforeRingReload = await ringingReloadPage.evaluate(() => ({
+    ringing: window.LUXURY_APARTMENT.phone.ringing,
+    held: window.LUXURY_APARTMENT.home.inventory.held,
+    status: JSON.parse(localStorage.getItem('squatchlife.campaign'))
+      .events.booski_special_meeting_call?.status ?? null,
+  }));
+  await ringingReloadPage.reload({ waitUntil: 'domcontentloaded' });
+  await ringingReloadPage.waitForFunction(() => Boolean(window.LUXURY_APARTMENT?.home));
+  await ringingReloadPage.locator('#start-btn').click();
+  await ringingReloadPage.waitForFunction(() => window.LUXURY_APARTMENT.phone.ringing === true);
+  await ringingReloadPage.evaluate(() => window.LUXURY_APARTMENT.teleport('main'));
+  await ringingReloadPage.keyboard.press('e');
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.phone.inCall
+      && JSON.parse(localStorage.getItem('squatchlife.campaign'))
+        .events.booski_special_meeting_call?.status === 'answered'
+  ));
+  const afterRingReload = await ringingReloadPage.evaluate(() => ({
+    ringing: window.LUXURY_APARTMENT.phone.ringing,
+    inCall: window.LUXURY_APARTMENT.phone.inCall,
+    held: window.LUXURY_APARTMENT.home.inventory.held,
+    status: JSON.parse(localStorage.getItem('squatchlife.campaign'))
+      .events.booski_special_meeting_call?.status ?? null,
+    ringLoop: window.LUXURY_APARTMENT.audio.loops.has('phone.ring'),
+  }));
+  await ringingReloadPage.reload({ waitUntil: 'domcontentloaded' });
+  await ringingReloadPage.waitForFunction(() => Boolean(window.LUXURY_APARTMENT?.home));
+  await ringingReloadPage.locator('#start-btn').click();
+  await ringingReloadPage.waitForTimeout(7200);
+  const afterAnsweredReload = await ringingReloadPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const saved = JSON.parse(localStorage.getItem('squatchlife.campaign'));
+    return {
+      ringing: runtime.phone.ringing,
+      inCall: runtime.phone.inCall,
+      hotbarCopies: runtime.home.inventory.items.filter((id) => id === 'phone').length,
+      campaignCopies: saved.inventory.carried.filter((id) => id === 'phone').length,
+      status: saved.events.booski_special_meeting_call?.status ?? null,
+      objective: document.getElementById('objectives')?.textContent ?? '',
+    };
+  });
+  await ringingReloadPage.close();
+  check('a real save reload during the ring recovers the call, while an answered reload cannot duplicate it',
+    beforeRingReload.ringing
+      && beforeRingReload.held === null
+      && beforeRingReload.status === 'pending'
+      && !afterRingReload.ringing
+      && afterRingReload.inCall
+      && afterRingReload.held === null
+      && afterRingReload.status === 'answered'
+      && !afterRingReload.ringLoop
+      && !afterAnsweredReload.ringing
+      && !afterAnsweredReload.inCall
+      && afterAnsweredReload.hotbarCopies === 1
+      && afterAnsweredReload.campaignCopies === 1
+      && afterAnsweredReload.status === 'answered'
+      && !/Answer Booskibro/i.test(afterAnsweredReload.objective),
+    JSON.stringify({ beforeRingReload, afterRingReload, afterAnsweredReload }));
   check('the authored walkable contract is two disjoint floors joined by elevation',
     authored.metrics.floors === 2
       && authored.mainFloorY === 0

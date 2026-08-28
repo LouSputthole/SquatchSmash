@@ -216,6 +216,12 @@ function currentObjective() {
   if (!routed) return readyTally.ready ? LUXURY_OBJECTIVE : readyTally.objective;
   if (luxuryMargo?.objective) return luxuryMargo.objective;
   if (phone?.inCall) return 'Stay on the line.';
+  /* A pending campaign call is not yet an action. Keep it off the panel during
+   * the six-second arrival beat, then expose it the instant the handset really
+   * rings. This is the same objective-honesty rule the shared panel applies to
+   * `pending` items: the UI cannot ask the player to answer silence. */
+  const pendingCall = luxuryStory.pendingCall();
+  if (pendingCall && !phone?.ringing) return LUXURY_OBJECTIVE;
   const [first] = luxuryStory.objectives().items;
   if (!first) return LUXURY_OBJECTIVE;
   /* Beat 14's door is an `activity`, and the activity is the three chores the
@@ -286,13 +292,12 @@ function updateLuxuryPhone(dt) {
    * successful one books the retry a full ring plus a breath later. */
   const rang = phone.ring(call) === true;
   if (rang) {
-    /* The phone is a carried prop in this flat, and it starts on the console
-     * table rather than in his pocket. A ring nobody can find is a beat that
-     * looks broken, so the toast says where it is and what to do with it. */
+    /* The owner note is literal here: after the original pickup this is Tony's
+     * campaign phone, not a nightstand/console/service-door hotspot. The global
+     * KeyE route below answers it before any unrelated world interaction. */
     hud.toast(`${call.from} is calling`, '', 5200);
-    hud.say(home?.inventory?.has('phone')
-      ? 'Take the phone out and answer it. <em>[E] on the handset.</em>'
-      : 'The phone is ringing. <em>It is on the console table by the lift.</em>', 4600);
+    hud.say('Your phone is ringing. <em>[E] answer — wherever you are.</em>', 4600);
+    refreshObjective();
   }
   luxuryPhone.nextRingAt = luxuryPhone.elapsed + (rang ? 28 : 1);
 }
@@ -1299,6 +1304,17 @@ function routeLuxuryKeyDown(event, { code }) {
   }
   if (!inputLive()) return true;
 
+  /* Story calls outrank every posture and nearby interactable. In particular,
+   * a darts throw, toilet prompt, console, or piece of furniture must never eat
+   * the standard interaction key while Beat 27 is ringing. The handset remains
+   * pocketed; `Phone.press()` is still the real public answer path and therefore
+   * owns ringtone shutdown, callbacks, VO order, and exact-once campaign state. */
+  if (code === 'KeyE' && !event.repeat && phone.ringing) {
+    event.preventDefault();
+    phone.press();
+    return true;
+  }
+
   if (luxuryMargo?.dressActive) {
     if (!event.repeat && code === 'KeyE') luxuryMargo.press();
     else if (!event.repeat && code === 'KeyQ') luxuryMargo.abandon();
@@ -1525,7 +1541,9 @@ function frame(now) {
     }
     luxuryMargo?.update(dt);
     updateLuxuryPhone(dt);
+    const wasRinging = phone.ringing;
     phone.update(dt);
+    if (wasRinging !== phone.ringing) refreshObjective();
     phone.draw();
     radio.update(dt);
     if (tv.update(dt) && tvTexture) tvTexture.needsUpdate = true;
