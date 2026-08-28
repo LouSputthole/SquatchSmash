@@ -2527,12 +2527,26 @@ try {
     await page.waitForLoadState('domcontentloaded');
     return readCompletion();
   });
-  check('completion records every irreversible beat and opens Front and Center',
+  /* THE DATE IS BEHIND HIM NOW, NOT AHEAD.
+   *
+   * This asserted the harbour hands off to the `date` chapter, which was true
+   * when NO WAKE was the first thing off the back of the Motel. The beats
+   * 12-19 reorder puts Front & Center at beat 15 and this at beat 18 -- the
+   * bible's trigger is "family call after Margo leaves", so the evening at the
+   * Silver Room has already happened, and `NoWakeStory.canBegin()` refuses
+   * with `silver_incomplete` if it has not. `date` is also one of the three
+   * chapters the schema-21 migration strands, so nothing on the live route
+   * can be standing in it.
+   *
+   * `complete()` says where it actually goes, and says why: *"the chapter
+   * this hands control to is the flat he now lives in."* Beat 19 is the
+   * luxury apartment, and Booski rings there about the case. */
+  check('completion records every irreversible beat and hands back to the luxury apartment',
     completed.mission.status === 'complete' && completed.mission.betrayalConfirmed
       && completed.mission.playerFired && completed.mission.bodyDisposed
-      && completed.chapter === 'date'
+      && completed.chapter === 'luxury_apartment'
       && /MISSION COMPLETE: NO WAKE/.test(completed.objective ?? ''),
-    JSON.stringify(completed.mission));
+    `${JSON.stringify(completed.mission)}; chapter ${completed.chapter}`);
   check('the complete browser playthrough leaves canonical storage byte-for-byte untouched',
     completed.canonical === SENTINEL);
   const { webglHealth } = completed;
