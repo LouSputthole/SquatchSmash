@@ -51,11 +51,23 @@ const seed = createCampaign({ storage: new MemoryStorage() }).state;
 const seedJson = JSON.stringify(seed);
 const invitedStorage = new MemoryStorage();
 const invitedCampaign = createCampaign({ storage: invitedStorage });
+/* THE ROUND MOVED, AND THIS SEED DID NOT FOLLOW IT.
+ *
+ * Silver Pines used to be Day 4, before the heist and after the Silver Room.
+ * The beats 12-19 reorder put THE TAKE on Day 5 and the round on the morning
+ * of Day 6, so `GolfStory.begin()` grew a `heist_incomplete` refusal ahead of
+ * the travel check -- and this seed, which never completed the heist, tripped
+ * on it and never reached the boundary it exists to test. The Silver Room
+ * comes AFTER the round now (beat 15 to the round's 13), so a save holding it
+ * complete here describes an evening that has not happened yet.
+ *
+ * Day 6 at 07:03 matches what the live route reaches; see the Silver Pines
+ * landing in tests/fresh-save-campaign-route.test.mjs. */
 invitedCampaign.update((state) => {
   state.story.chapter = 'golf_morning';
-  state.story.day = 4;
+  state.story.day = 6;
   state.story.timeMinutes = 7 * 60 + 3;
-  state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+  state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
   state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
   state.missions[MISSION_IDS.SILVER_PINES].status = 'available';
 });

@@ -164,9 +164,13 @@ export function evaluatePersistedLivenessReceipt(spec, receipt) {
     failures.push(failure('RUNTIME_NOT_READY', 'canonical runtime did not become playable'));
   }
   if (Array.isArray(receipt.runtime?.errors) && receipt.runtime.errors.length > 0) {
+    /* Say WHAT it threw. A gate that reports "1 page error" and not the
+     * message costs the reader a second run with their own listener attached
+     * before they can start on the actual bug. */
     failures.push(failure(
       'RUNTIME_ERRORS',
-      `canonical runtime emitted ${receipt.runtime.errors.length} page error(s)`,
+      `canonical runtime emitted ${receipt.runtime.errors.length} page error(s): `
+        + receipt.runtime.errors.map((message) => String(message).split('\n')[0]).join(' | '),
     ));
   }
   if (receipt.witness?.id !== spec.witness || receipt.witness?.attempted !== true) {
@@ -257,12 +261,26 @@ async function seedPublicCheckpoint(page, spec) {
     ensure(campaign.persistent, 'Campaign did not acquire browser localStorage');
 
     if (family === 'no_wake') {
+      /* BEAT 18 MOVED, AND THIS SEED DID NOT FOLLOW IT.
+       *
+       * NO WAKE used to be the first thing off the back of the Motel, on Day
+       * 3, with the date still ahead of him -- so this seeded `chapter:
+       * 'no_wake'`, Day 3, and never touched the Silver Room. The beats 12-19
+       * reorder made it the afternoon of Day 7, after the stayover, and
+       * `canBegin()` grew a `silver_incomplete` refusal to say so. This seed
+       * kept building the old world, so `begin()` refused every time and all
+       * five checkpoints failed against a scene the campaign marathon walks
+       * without complaint. `no_wake` is also one of the three chapters the
+       * schema-21 migration strands, which is the second reason it could not
+       * stand. Mirrors `readyCampaign()` in tests/no-wake-story.test.mjs; the
+       * two must move together. */
       campaign.update((state) => {
-        state.story.chapter = 'no_wake';
-        state.story.day = 3;
+        state.story.chapter = 'luxury_apartment';
+        state.story.day = 7;
         state.story.timeMinutes = 12 * 60 + 45;
         state.scene = { id: S.NO_WAKE, spawn: 'gate_c' };
         state.missions[M.JERKY_MOTEL].status = 'complete';
+        state.missions[M.SILVER_ROOM].status = 'complete';
         state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
         state.missions[M.NO_WAKE].status = 'available';
       });
