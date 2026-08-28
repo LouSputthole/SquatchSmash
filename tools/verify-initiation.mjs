@@ -60,8 +60,25 @@ const REQUIRED_TRAIL_BEATS = Object.freeze(['IN-210', 'IN-220', 'IN-230', 'IN-24
  * compilation and WebGL teardown can leave the next page rendering slowly
  * while the production Player is still making steady progress. Every woods
  * traversal gets the same budget as the clean-start golden path so elapsed
- * wall time is never misreported as a collision softlock. */
-const APPROACH_WALK_TIMEOUT_MS = 240_000;
+ * wall time is never misreported as a collision softlock. On the 2026-08-28
+ * release machine the clean run hit the old 240-second ceiling with live
+ * input, nonzero velocity, progress less than one second old, and only 7.1 m
+ * left. Six minutes keeps a measured 50% wall-clock margin without changing
+ * the authored route or using a position shortcut. */
+const APPROACH_WALK_TIMEOUT_MS = 360_000;
+/* A wall-clock-only stuck detector is false under a throttled SwiftShader
+ * frame: on the 2026-08-28 release machine, five seconds sometimes contained
+ * only one or two observable steering samples. Require a real sample budget
+ * as well as elapsed time before taking the human-like sidestep. The absolute
+ * route deadlines below still fail a genuinely blocked walk. */
+const MIN_STEERING_TICKS_BEFORE_AVOIDANCE = 12;
+const STEERING_PROGRESS_METRES = 0.05;
+/* The complete eight-waypoint procession retains a hard failure ceiling, but
+ * its measured software-renderer floor was roughly 0.5 observable samples per
+ * second. Fifteen minutes permits that real-input route without making the
+ * sample-based stuck detector or any authored gate less strict. */
+const TRAIL_WALK_TIMEOUT_MS = 900_000;
+const SCENE_LOAD_TIMEOUT_MS = 120_000;
 const productionKittenBegCueExists = fs.existsSync(KITTEN_BEG_CUE_PATH);
 const verifierSfxIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json')));
 const TYPES = {
@@ -336,6 +353,7 @@ async function walkTo(page, phase, { timeout = APPROACH_WALK_TIMEOUT_MS } = {}) 
   let lastProgressAt = Date.now();
   let avoidanceDirection = 1;
   let steeringTicks = 0;
+  let lastProgressTick = 0;
   /* Follow the authored dirt track instead of drawing a verifier-only chord
    * through its trees and rocks. The prior driver aimed directly from spawn
    * to the prospect slot; it left TRACK near its final bend and correctly hit
@@ -370,6 +388,7 @@ async function walkTo(page, phase, { timeout = APPROACH_WALK_TIMEOUT_MS } = {}) 
         waypointIndex += 1;
         best = Infinity;
         lastProgressAt = Date.now();
+        lastProgressTick = steeringTicks;
         continue;
       }
       if (Date.now() > deadline) {
@@ -400,9 +419,10 @@ async function walkTo(page, phase, { timeout = APPROACH_WALK_TIMEOUT_MS } = {}) 
             + `(Player.enabled false in '${at.phase}'). The adapter gates that on pointer `
             + 'lock, which this browser did not grant — the walk was never driveable.');
       }
-      if (gap < best - 0.2 || !Number.isFinite(best)) {
+      if (gap < best - STEERING_PROGRESS_METRES || !Number.isFinite(best)) {
         best = gap;
         lastProgressAt = Date.now();
+        lastProgressTick = steeringTicks;
       }
 
       /* The path is authored as a clear corridor, but the actual controller
@@ -410,16 +430,20 @@ async function walkTo(page, phase, { timeout = APPROACH_WALK_TIMEOUT_MS } = {}) 
        * rates, a diagonal can land exactly nose-on to a tree and keep a live
        * forward velocity while `pushOut` returns the same position forever.
        * A player naturally steps around it. Do exactly that with a real A/D
-       * hold after five seconds without 20 cm of progress, then resume toward
-       * the visible waypoint. Alternating sides keeps a second obstacle from
-       * turning the verifier's recovery into another deterministic wedge. */
-      if (at.enabled && Date.now() - lastProgressAt > 5000) {
+       * hold after five seconds and twelve observed steering samples without
+       * 5 cm of progress, then resume toward the visible waypoint. Alternating
+       * sides keeps a second obstacle from turning the verifier's recovery into
+       * another deterministic wedge. */
+      if (at.enabled
+        && Date.now() - lastProgressAt > 5000
+        && steeringTicks - lastProgressTick >= MIN_STEERING_TICKS_BEFORE_AVOIDANCE) {
         await hold(new Set([avoidanceDirection > 0 ? 'KeyA' : 'KeyD']));
         await page.waitForTimeout(5500);
         await hold(new Set());
         avoidanceDirection *= -1;
         best = Infinity;
         lastProgressAt = Date.now();
+        lastProgressTick = steeringTicks;
         continue;
       }
 
@@ -487,6 +511,7 @@ async function walkAuthoredRouteTo(page, phase, waypoints, { timeout = 240000 } 
   let best = Infinity;
   let lastProgressAt = Date.now();
   let avoidanceDirection = 1;
+  let lastProgressTick = 0;
   try {
     for (;;) {
       const target = waypoints[waypointIndex];
@@ -530,6 +555,7 @@ async function walkAuthoredRouteTo(page, phase, waypoints, { timeout = 240000 } 
         waypointIndex += 1;
         best = Infinity;
         lastProgressAt = Date.now();
+        lastProgressTick = keyTicks;
         continue;
       }
       if (Date.now() > deadline) {
@@ -538,17 +564,21 @@ async function walkAuthoredRouteTo(page, phase, waypoints, { timeout = 240000 } 
           + `(${at.x.toFixed(1)}, ${at.z.toFixed(1)}) after ${keyTicks} real WASD ticks`);
       }
 
-      if (gap < best - 0.2 || !Number.isFinite(best)) {
+      if (gap < best - STEERING_PROGRESS_METRES || !Number.isFinite(best)) {
         best = gap;
         lastProgressAt = Date.now();
+        lastProgressTick = keyTicks;
       }
-      if (at.enabled && Date.now() - lastProgressAt > 5000) {
+      if (at.enabled
+        && Date.now() - lastProgressAt > 5000
+        && keyTicks - lastProgressTick >= MIN_STEERING_TICKS_BEFORE_AVOIDANCE) {
         await hold(new Set([avoidanceDirection > 0 ? 'KeyA' : 'KeyD']));
         await page.waitForTimeout(5500);
         await hold(new Set());
         avoidanceDirection *= -1;
         best = Infinity;
         lastProgressAt = Date.now();
+        lastProgressTick = keyTicks;
         continue;
       }
 
@@ -620,7 +650,7 @@ async function runCleanStartGoldenPath(page) {
   const ordinaryUrl = `http://localhost:${PORT}/initiation.html`;
   const seen = new Set();
 
-  await page.goto(ordinaryUrl, { waitUntil: 'load' });
+  await page.goto(ordinaryUrl, { waitUntil: 'load', timeout: SCENE_LOAD_TIMEOUT_MS });
   await page.waitForFunction(() => window.INITIATION?.phase === 'approach', null, {
     timeout: 60000,
   });
@@ -699,7 +729,7 @@ async function runCleanStartGoldenPath(page) {
     ...TRAIL,
     CABIN_DOOR.outside,
     CABIN_DOOR.inside,
-  ], { timeout: 360000 });
+  ], { timeout: TRAIL_WALK_TIMEOUT_MS });
   const trailDistance = Math.hypot(cabinWalk.x - trailStart.x, cabinWalk.z - trailStart.z);
   if (!cabinWalk.trailChoiceAnswered
     || !cabinWalk.trail?.storyComplete
@@ -891,7 +921,10 @@ try {
   /* The remainder is broader failure/retry, staging and visual evidence. It
    * starts from a new ordinary navigation so none of the clean-start mission
    * state above is mistaken for a setup shortcut. */
-  await page.goto(`http://localhost:${PORT}/initiation.html`, { waitUntil: 'load' });
+  await page.goto(`http://localhost:${PORT}/initiation.html`, {
+    waitUntil: 'load',
+    timeout: SCENE_LOAD_TIMEOUT_MS,
+  });
   await page.waitForFunction(() => window.INITIATION?.phase, null, { timeout: 60000 });
 
   const initial = await page.evaluate(() => ({
@@ -972,9 +1005,10 @@ try {
   /* ---------------------------------------------------------------- */
 
   const voiceProbe = await page.evaluate(() => window.INITIATION.speakVoiceProbe());
-  check('the conspiracy reveal uses the authored Lou cue',
+  check('Lou separates Willy’s operational leak from the later house betrayal',
     voiceProbe.speaker === 'BIG UNCLE LOU SPUTTHOLE'
-      && voiceProbe.line.includes('Willy wasn’t the rat')
+      && voiceProbe.line.includes('Willy gave them the strip')
+      && voiceProbe.line.includes('He did not give them this house')
       && voiceProbe.cue.startsWith('vo.initiation.cabin.'),
     JSON.stringify(voiceProbe));
   check('the conspiracy reveal cue actually entered the audible buffer graph',
@@ -1069,7 +1103,11 @@ try {
       && !failedAttempt.reason?.includes('Could not load scene'),
     JSON.stringify({ before: wrongChoice.url, after: failedAttempt.url, reason: failedAttempt.reason }));
 
-  await page.reload({ waitUntil: 'load' });
+  /* Reload after the first full execution pass must rebuild the 273-row
+   * credits/runtime asset graph. The browser had already navigated when the
+   * implicit 30-second Playwright ceiling fired on the release machine, so
+   * use the verifier's existing scene-readiness budget for this real reload. */
+  await page.reload({ waitUntil: 'load', timeout: SCENE_LOAD_TIMEOUT_MS });
   await page.waitForFunction(() => window.INITIATION?.phase, null, { timeout: 60000 });
   const reloadedAttempt = await page.evaluate(() => ({
     phase: window.INITIATION.phase,
@@ -1244,7 +1282,7 @@ try {
     ...TRAIL,
     CABIN_DOOR.outside,
     CABIN_DOOR.inside,
-  ], { timeout: 360000 });
+  ], { timeout: TRAIL_WALK_TIMEOUT_MS });
   const trailDistance = Math.hypot(cabinWalk.x - trailStart.x, cabinWalk.z - trailStart.z);
   check('real WASD follows the authored trail and crosses the cabin doorway',
     cabinWalk.phase === 'ceremony'
