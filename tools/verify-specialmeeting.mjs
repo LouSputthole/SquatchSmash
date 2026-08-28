@@ -1182,13 +1182,36 @@ try {
   });
   await page.screenshot({ path: path.join(liveArtifactDir, 'arrival-kittenboss-reveal.png') });
 
-  await page.waitForFunction(
-    () => window.SPECIAL_MEETING.ride.beatId === 'SM-440'
-      && window.SPECIAL_MEETING.ride.options?.length >= 7
-      && window.SPECIAL_MEETING.stage.sedan.trunkOpen <= 0.02,
-    null,
-    { timeout: 240000 },
-  );
+  /* SAY WHICH BEAT IT DIED ON. This wait -- and its twin above -- report a
+   * bare TimeoutError, which cannot distinguish a ride that is STUCK from one
+   * that is merely slow: `chooseAtBeat` budgets 600 s for exactly this seam
+   * and explains why (SwiftShader renders this forest under 20 fps, and the
+   * game caps a frame's simulation delta at 50 ms, so authored seconds run
+   * long). Raising the number before knowing which of the two it is would be
+   * papering over a stall, so dump the ride's own state instead and let the
+   * next run answer it. */
+  try {
+    await page.waitForFunction(
+      () => window.SPECIAL_MEETING.ride.beatId === 'SM-440'
+        && window.SPECIAL_MEETING.ride.options?.length >= 7
+        && window.SPECIAL_MEETING.stage.sedan.trunkOpen <= 0.02,
+      null,
+      { timeout: 240000 },
+    );
+  } catch (error) {
+    const stalled = await page.evaluate(() => {
+      const sm = window.SPECIAL_MEETING;
+      return {
+        beat: sm?.ride?.beatId ?? null,
+        phase: sm?.ride?.phase ?? null,
+        optionCount: sm?.ride?.options?.length ?? null,
+        trunkOpen: sm?.stage?.sedan?.trunkOpen ?? null,
+        objective: sm?.certification?.objectiveText ?? null,
+      };
+    }).catch(() => null);
+    error.message += ` — waiting for SM-440; ride was ${JSON.stringify(stalled)}`;
+    throw error;
+  }
   const revealAftermath = await page.evaluate(() => ({
     beat: window.SPECIAL_MEETING.ride.beatId,
     rideTrunkOpen: window.SPECIAL_MEETING.ride.trunkOpen,
