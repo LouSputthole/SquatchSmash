@@ -1297,6 +1297,27 @@ window.__SQUATCH_SMASH_HOST = {
     if (!coldOpenActive) return false;
     return coldOpen.quit();
   },
+
+  /* [Q], FROM INSIDE THE FRAME.
+   *
+   * The apartment's own key handler promises "[Q] is the one exception: the
+   * stand-up key works everywhere", and while Squatch Smash is up that was
+   * not true: the iframe owns the keyboard, so the parent never saw the key
+   * at all. Owner, 2026-08-27: *"at the beginning you still can't get up. It
+   * needs to pan out. Q doesn't work to get you up."* He was pressing it into
+   * a game that has no Q, and the pull-back only ever ran off the quit box he
+   * had not found.
+   *
+   * During the cold open Q IS the quit: it starts the shutdown, the camera
+   * pulls back off the monitor, and `endColdOpen` puts him on his feet when
+   * it lands -- so one key gets both halves of what he asked for. At any
+   * later sitting there is no reveal to play and it is the plain stand. */
+  standUp() {
+    if (coldOpenActive) return coldOpen.quit();
+    if (!game.seated) return false;
+    standFromPC();
+    return true;
+  },
   /* THE ONE THING THE EMBEDDED GAME NEEDS TO KNOW ABOUT US.
    *
    * While the cold open is running the player believes Squatch Smash is a game

@@ -245,7 +245,16 @@ export class Hud {
       }
     }
     if (!this.objectives) return;
-    const items = conciseObjectiveItems(plan?.items);
+    /* ONE ROUTE ACTION PLUS ONE SOFT OPPORTUNITY, which is the shape the Bing
+     * settled on and this shared path never picked up. `conciseObjectiveItems`
+     * defaults `optionalLimit` to 0, so the starter apartment -- the only
+     * caller of this method -- drew the required row and nothing else, and
+     * Day One's whole optional tutorial went dark: the inbox, the computer, a
+     * game of Squatch Smash, and `killtime`, which is the row that tells a man
+     * waiting on a Bing that does not open until a quarter to midnight that he
+     * can sleep it off or have a drink. Without it the flat reads as a room
+     * with one chore and no way to pass the time. */
+    const items = conciseObjectiveItems(plan?.items, { optionalLimit: 1 });
     if (!plan || !items.length) {
       this._objectivesKey = null;
       this._objectiveVisibility.clear();

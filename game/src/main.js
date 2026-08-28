@@ -242,6 +242,37 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyR' && state === 'playing') tryRage();
   if (e.code === 'KeyM') toggleMute();
   if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
+  /* [Q] BACKS YOU OUT OF THE COMPUTER, from in here.
+   *
+   * On the apartment desk this page owns the keyboard, so the apartment's own
+   * "[Q] is the stand-up key everywhere" handler never sees it and Q did
+   * nothing at all -- there is no Q in this game. Owner, 2026-08-27: *"at the
+   * beginning you still can't get up. It needs to pan out. Q doesn't work to
+   * get you up."*
+   *
+   * During the cold open Q takes the SAME door the YES button takes, rather
+   * than calling the host directly. Calling `quitSquatchSmash()` on its own
+   * does move the sequence to `shutdown` -- measured, it returns true and the
+   * phase flips -- and then nothing else happens, because this page is still
+   * sitting over the monitor. `confirmQuit` is the whole gesture: it drops the
+   * confirm box, shows the shutdown card, stops the music and calls the host
+   * half a second later, which is the path the reveal has always been driven
+   * down. One quit door, not two that drift apart.
+   *
+   * Not while the quit box is up -- that box owns the screen, and Q behind it
+   * would answer a question it has not been given a chance to ask. Standalone
+   * (no apartment above us) there is nothing to stand up from, and at any
+   * later sitting there is no reveal to play, so the host does the plain
+   * stand instead. */
+  if (e.code === 'KeyQ' && !quitConfirmOpen()) {
+    const host = apartmentHost();
+    if (host?.coldOpenActive?.()) {
+      confirmQuit();
+      e.preventDefault();
+    } else if (host?.standUp?.()) {
+      e.preventDefault();
+    }
+  }
   if (e.code === 'Enter' && state === 'menu') startGame();
 });
 window.addEventListener('keyup', (e) => {

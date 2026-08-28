@@ -893,11 +893,23 @@ try {
       && rejectedShots.blocker.pools === 0,
     JSON.stringify(rejectedShots.blocker));
 
+  /* THE DRIVER TAKES HIM OUT OF TOWN. This waited on index.html because the
+   * first kill used to end at his own front door; beat 3 hands off to the
+   * Cabin now (`leaveTheRestaurant` spends DEPART_CABIN_LAY_LOW and routes to
+   * COUNTRYSIDE_CABIN unless the cabin chapter is already behind him), so the
+   * old wait could only ever time out. The campaign marathon has been walking
+   * squatchfather -> countryside_cabin the whole time this said otherwise.
+   *
+   * The landing is asserted by scene and spawn rather than by coordinates:
+   * the apartment's 2.55/3.72 was measured at its front door and there is no
+   * honest cabin equivalent to swap in without measuring one, so the position
+   * rides along in the detail string for a reader instead of being asserted
+   * against a number nobody took. */
   await page.click('#againBtn');
-  await page.waitForURL(`http://localhost:${PORT}/index.html`, { timeout: 45000 });
-  await page.waitForFunction(() => window.__squatch?.campaign, null, { timeout: 60000 });
+  await page.waitForURL(`http://localhost:${PORT}/cabin.html`, { timeout: 45000 });
+  await page.waitForFunction(() => window.CABIN?.campaign, null, { timeout: 60000 });
   const home = await page.evaluate(() => {
-    const game = window.__squatch;
+    const game = window.CABIN;
     const mission = game.campaign.state.missions.squatchfather;
     return {
       scene: game.campaign.state.scene,
@@ -910,12 +922,10 @@ try {
       },
     };
   });
-  check('Squatchfather returns to the apartment’s front door',
-    home.scene.id === 'apartment'
-      && home.scene.spawn === 'front_door'
-      && home.player.mode === 'walk'
-      && home.player.x === 2.55
-      && home.player.z === 3.72,
+  check('Squatchfather hands off to the cabin, and he arrives on his feet',
+    home.scene.id === 'countryside_cabin'
+      && home.scene.spawn === 'arrival'
+      && home.player.mode === 'walk',
     JSON.stringify(home));
   check('the package does not return after the weapon was dropped',
     !home.hasPackage && home.mission.status === 'complete',
