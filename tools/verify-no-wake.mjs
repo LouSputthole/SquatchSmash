@@ -139,7 +139,10 @@ const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', '
 const indexedFiles = new Set(soundIndex.files || []);
 const manifestVoice = soundManifest.sfx.filter((cue) => cue.name.startsWith('vo.nowake.'));
 const manifestByName = new Map(manifestVoice.map((cue) => [cue.name, cue]));
-const AUTHORED_LINE_COUNT = 37;
+/* The campaign continuity pass adds Lou's recorded-leak evidence and Willy's
+ * denial before the Negev question. Keep the explicit count so an accidental
+ * deletion cannot disappear behind manifest parity alone. */
+const AUTHORED_LINE_COUNT = 39;
 check(`all ${AUTHORED_LINE_COUNT} redesigned NO WAKE lines have stable cue ids, cast voices and exact manifest text`,
   authoredVoice.length === AUTHORED_LINE_COUNT
     && manifestVoice.length === authoredVoice.length
