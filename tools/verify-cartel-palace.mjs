@@ -1368,10 +1368,18 @@ try {
       const report = runtime.finale.report();
       return report.engaged && report.stage === 'sauce';
     };
-    for (let step = 0; step < 1200 && !done(); step++) {
+    /* The rendered takes, rather than the authored hold guesses, own how long
+     * this floor stays occupied. The expanded evidence and begging sequence
+     * now runs slightly past the old 120-second copy embedded in this check.
+     * Keep driving the published stage predicate, with a deliberately generous
+     * four-minute simulated ceiling only as a hang guard. */
+    let steps = 0;
+    while (steps < 2400 && !done()) {
       runtime.finale.update(0.1);
+      steps += 1;
     }
     return {
+      simulatedSeconds: +(steps * 0.1).toFixed(1),
       report: runtime.finale.report(),
       alarm: runtime.security.alarm,
       markActive: runtime.cast.mark.active,

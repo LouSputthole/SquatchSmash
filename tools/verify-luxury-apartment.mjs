@@ -568,6 +568,54 @@ try {
   check('the future home remains a standalone preview with no campaign placement',
     !authored.campaignAssigned,
     JSON.stringify({ campaignAssigned: authored.campaignAssigned }));
+
+  /* The ordinary page above is intentionally a fresh, unrouted apartment: it
+   * must still begin with the table phone and a 0/3 get-ready tally. Persistent
+   * ownership only exists on campaign landings. Prove the restoration on the
+   * canonical beat-27 direct-entry state instead of asking the standalone page
+   * for campaign state it deliberately does not publish. */
+  const specialMeetingPage = await context.newPage();
+  specialMeetingPage.setDefaultTimeout(180000);
+  specialMeetingPage.setDefaultNavigationTimeout(180000);
+  specialMeetingPage.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
+  specialMeetingPage.on('console', (message) => {
+    if (message.type() === 'error') problems.push(`console: ${message.text().slice(0, 400)}`);
+  });
+  specialMeetingPage.on('requestfailed', (request) => {
+    problems.push(`request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
+  });
+  await specialMeetingPage.goto(
+    `http://127.0.0.1:${PORT}/luxury-apartment.html?preview=1&beat=special_meeting_call`,
+    { waitUntil: 'domcontentloaded' },
+  );
+  await specialMeetingPage.waitForFunction(() => Boolean(
+    window.LUXURY_APARTMENT?.home
+      && window.__squatchLifePreviewRuntime?.seeded
+      && window.__squatchLifePreviewRuntime.storage?.getItem?.('squatchlife.campaign'),
+  ));
+  const persistentPhone = await specialMeetingPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const saved = JSON.parse(
+      window.__squatchLifePreviewRuntime.storage.getItem('squatchlife.campaign'),
+    );
+    return {
+      campaignCopies: saved.inventory.carried.filter((id) => id === 'phone').length,
+      hotbarCopies: runtime.home.inventory.items.filter((id) => id === 'phone').length,
+      held: runtime.home.inventory.held,
+      stateTaken: runtime.home.state.phoneTaken,
+      tablePropHidden: runtime.home.phoneProp?.group?.visible === false,
+      callStatus: saved.events.booski_special_meeting_call?.status ?? null,
+    };
+  });
+  await specialMeetingPage.close();
+  check('beat 27 restores the persistent phone exactly once without manufacturing a table copy',
+    persistentPhone.campaignCopies === 1
+      && persistentPhone.hotbarCopies === 1
+      && persistentPhone.held === null
+      && persistentPhone.stateTaken
+      && persistentPhone.tablePropHidden
+      && persistentPhone.callStatus === 'pending',
+    JSON.stringify(persistentPhone));
   check('the authored walkable contract is two disjoint floors joined by elevation',
     authored.metrics.floors === 2
       && authored.mainFloorY === 0
@@ -1181,12 +1229,6 @@ try {
 
     return {
       serviceDoor,
-      persistentPhone: {
-        campaignOwned: runtime.campaign.hasItem('phone'),
-        hotbarCopies: home.inventory.items.filter((id) => id === 'phone').length,
-        held: home.inventory.held,
-        tablePropHidden: home.phoneProp?.group?.visible === false,
-      },
       initialObjective,
       earlyLabel,
       elevatorBlocked,
@@ -1200,11 +1242,7 @@ try {
       && doorFlows.serviceDoor.locked
       && !doorFlows.serviceDoor.open
       && !doorFlows.serviceDoor.stateOpen
-      && doorFlows.persistentPhone.campaignOwned
-      && doorFlows.persistentPhone.hotbarCopies === 1
-      && doorFlows.persistentPhone.held === null
-      && doorFlows.persistentPhone.tablePropHidden
-      && /1\/3/.test(doorFlows.initialObjective)
+      && /0\/3/.test(doorFlows.initialObjective)
       && /get ready/i.test(doorFlows.earlyLabel)
       && !doorFlows.elevatorBlocked.open
       && !doorFlows.elevatorBlocked.stateOpen

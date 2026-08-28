@@ -3338,8 +3338,21 @@ try {
   /* ---- Epilogue / the report card. ---- */
   const epilogue = await page.evaluate(() => {
     const h = window.__enolaSquatch;
-    h.tick(9);
-    return { finished: h.mission.finished, report: h.mission.finished ? h.mission.report() : null };
+    /* The 2026-08-28 Sasole apron closeout deliberately lengthened this beat
+     * from eight to twelve seconds. Drive the published completion predicate
+     * instead of freezing the verifier to another copy of that duration; the
+     * twenty-second ceiling is only a hang guard and costs no extra work once
+     * the real mission seam fires. */
+    let elapsed = 0;
+    while (!h.mission.finished && elapsed < 20) {
+      h.tick(0.25);
+      elapsed += 0.25;
+    }
+    return {
+      elapsed,
+      finished: h.mission.finished,
+      report: h.mission.finished ? h.mission.report() : null,
+    };
   });
   /* ---- And it leaves. A marker that is still on the glass over the report
    * card is a marker telling the player to fly to an airfield he has landed
@@ -3366,7 +3379,12 @@ try {
     epilogue.finished && epilogue.report
       && typeof epilogue.report.rank === 'string'
       && Array.isArray(epilogue.report.stats) && epilogue.report.stats.length > 0,
-    JSON.stringify({ finished: epilogue.finished, rank: epilogue.report?.rank, tier: epilogue.report?.tier }));
+    JSON.stringify({
+      elapsed: epilogue.elapsed,
+      finished: epilogue.finished,
+      rank: epilogue.report?.rank,
+      tier: epilogue.report?.tier,
+    }));
 
   check('no runtime console/page errors occurred across the whole run', problems.length === 0, problems.join(' | '));
 
