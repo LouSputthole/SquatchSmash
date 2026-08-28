@@ -46,6 +46,7 @@ written before the beats 12–19 reorder and none followed it.
 | `verify:direct-entry` | Day 4, Silver Room complete, heist untouched | Day 6, heist complete — the Silver Room comes *after* the round now | 27/27 |
 | `verify:squatchfather` | waited for `index.html` after AGAIN | the Cabin — beat 3 hands off there | 50/50 |
 | `verify:day-one` | asserted the panel was visible right after a no-op update | the panel auto-collapses after 12s | 45/45 |
+| `verify:cabin-browser` | the cabin as a post-heist lay-low, Day 7 11:15, nightfall Day 7, blackout Day 8 | Act One: Day 2 05:20, nightfall Day 3, blackout Day 4 | 45/45 |
 
 `no_wake`, `date` and `golf_morning` are **stranded chapters** — the schema-21
 migration moves saves out of them. Any tool that seeds one is describing a
@@ -86,10 +87,16 @@ than a broken gate, and it found no defects. Completing it means teaching it
 to observe the scene, which is real work. `certify:persisted-liveness` already
 covers the same Hot Dog checkpoints through the production handlers and passes.
 
-**`verify:luxury-apartment-browser`** fails two headless checks — mouse-look
-producing no yaw, and a bathroom round trip. Both fail identically on
-`origin/codex/handoff-continuation-20260825`, so they predate the merge. Worth
-an hour, because one of them says headless mouse-look silently does nothing.
+**A correction.** An earlier pass in this session reported
+`verify:luxury-apartment-browser` as having two real failures — mouse-look
+producing no yaw, and a bathroom round trip — and claimed they predated the
+merge because a "baseline" run on the codex branch failed the same two. Both
+runs were under load. **On a clean one-browser-at-a-time run it passes.**
+There is nothing wrong with that scene. The wrong claim is recorded here
+rather than quietly deleted, because it is the sharpest evidence for the rule
+in the next section: contention does not merely add noise, it manufactures
+failures that read exactly like gameplay bugs, and it fooled a whole
+investigation including its own control.
 
 ## How to run a scene sweep without being lied to
 
@@ -103,20 +110,62 @@ and passed 50/50 alone, ten minutes later, with no code change in between.
 If you write an ad-hoc Playwright probe, pump frames the way the real
 verifiers do — `await page.evaluate(() => new Promise(r => requestAnimationFrame(() => r())))`
 in a loop — rather than `waitForTimeout`. A cold open that looks frozen is
-usually a page nobody is rendering.
+usually a page nobody is rendering. Chasing the Q bug, three separate "the
+camera never moves" results were pure frame starvation; the fix only looked
+like it was failing.
 
-## Not swept
+And be suspicious of tight waits. `verify:cabin-browser` budgeted five seconds
+for a pointer-lock capture its own comment admits headless Chromium grants
+unreliably. It was not flaky so much as under-funded — at thirty seconds it
+passes, and raising it revealed **twenty-nine further checks that had not run
+in a long time**, three of which were themselves asserting the pre-reorder
+calendar. A gate that dies early is a gate whose tail nobody is reading.
 
-The per-scene sweep was abandoned mid-run once its results were known to be
-contaminated. These were never cleanly checked and are the obvious next job,
-one at a time: `cabin-browser`, `beefrun`, `bing-two`, `graveyard`, `motel`,
-`heist`, `golf`, `silver`(passed under load), `no-wake`, `silvercase`,
+## The clean sweep, as far as it got
+
+Strictly sequential, one browser at a time. These results are trustworthy.
+
+| Scene | Result |
+|---|---|
+| `bing` | OK |
+| `luxury-apartment-browser` | OK |
+| `cold-open` · `computer` · `squatch-smash` | OK |
+| `day-one` | OK (45/45 after the fix above) |
+| `squatchfather` | OK (50/50 after the fix above) |
+| `cabin-browser` | OK (45/45 after the fixes above) |
+| `bing-two` | **2 failures — look at these** |
+| `motel` | 1 failure |
+| `beefrun` | 1 failure, cosmetic |
+| `golf` | timed out at 60s with no checks recorded |
+
+**`bing-two`, 2/35 failed.** `the party spawn enters walk mode and accepts
+movement input` — mode is `walk`, `spawnMoveDelta` is 0, the player does not
+move. And `the player keeps mouse look inside an authored shot, clamped to the
+staging` — the swing angle is 2.1e-8, i.e. fully pinned rather than clamped.
+These are the two worth a look first: a player who cannot move at a spawn is
+exactly what "could not complete the objective" feels like. It may also be the
+authored-shot camera lock behaving as designed and the check being stale — it
+has not been judged.
+
+**`motel`, 1/97 failed.** `the three transaction objects wait for the spoken
+package briefing` — `placeOwnCase` is enabled while `sample`, `jerkyCase` and
+`placeMoney` correctly wait. One step can be taken out of order.
+
+**`beefrun`, 1/79 failed.** The Tammy sticker on the pilot's dash rail
+projects off-screen and reports `visible: false`. Cosmetic.
+
+**`golf`** died on a 60-second `waitForFunction` before recording any checks.
+Undiagnosed.
+
+### Still not swept
+
+Never cleanly checked, one at a time, in this order: `no-wake`, `silvercase`,
 `mansion`, `mansion-siege`, `enolasquatch`, `mansion-return`, `cartel-palace`,
-`specialmeeting`, `initiation`, `preview`. `bing` passed cleanly.
+`specialmeeting`, `initiation`, `preview`, `graveyard`, `heist`.
 
-Two of those are known-red for reasons already recorded in `f2b8095d`:
-Graveyard has a SwiftShader pre-game failure and Heist a steering threshold
-failure, both unrelated to this pass.
+Two of those are known-red for reasons recorded in `f2b8095d`: Graveyard has a
+SwiftShader pre-game failure and Heist a steering threshold failure, both
+unrelated to this pass.
 
 ## Branches
 

@@ -232,11 +232,27 @@ try {
     };
   });
   check('Production Cabin preview boots without a failure surface', boot.ready && !boot.bootFailure);
-  check('Legacy post-heist preview opens at the Cabin on Day 7 at 11:15',
-    boot.sceneId === 'countryside_cabin' && boot.day === 7 && boot.timeMinutes === 675,
+  /* THE CABIN IS ACT ONE, AND THIS CHECK WAS STILL THE OLD PLACEMENT.
+   *
+   * It asserted Day 7 at 11:15 -- the post-heist lay-low the cabin used to be
+   * -- and the settled story rule is the opposite: *"One cabin, in Act One.
+   * The whole Cabin Hideaway chapter IS that scene. Beef Run cuts it in half.
+   * It is not a post-heist lay-low."* The driver takes him out of town
+   * straight off the Squatchfather, so the preview opens where the campaign
+   * marathon lands: `squatchfather -> countryside_cabin | day 2 05:20`.
+   *
+   * The door's refusal moved with it. On a fresh visit `visitOneComplete()`
+   * is false and `tryLeave()` answers `cabin_wait` -- Lou said stay put.
+   * `cabin_chapter_incomplete` is the LEGACY refusal, kept for a save that
+   * arrived here the old way after the bank, and asserting it on a first
+   * visit was asserting the branch this route no longer takes. */
+  check('The Act One preview opens at the Cabin on Day 2 at 05:20',
+    boot.sceneId === 'countryside_cabin' && boot.day === 2
+      && boot.timeMinutes === 5 * 60 + 20,
     `day ${boot.day}, minute ${boot.timeMinutes}`);
   check('The arrival rest is the opening chapter phase and the car is gated',
-    boot.phase === 'arrival_rest' && boot.leave.id === 'cabin_chapter_incomplete');
+    boot.phase === 'arrival_rest' && boot.leave.id === 'cabin_wait',
+    `phase ${boot.phase}, door ${boot.leave.id}`);
   check('First cellar entrance is physically hidden and disabled before Gratin calls',
     !boot.entryVisible && !boot.entryEnabled);
   check('Second concealed door is closed and unavailable before the cellar opens',
@@ -261,10 +277,15 @@ try {
    * Chromium does not consistently honor pointer lock requested from the
    * overlay button, even though a direct gameplay click is accepted. */
   await page.locator('#scene').click({ position: { x: 160, y: 100 } });
+  /* Five seconds was not enough on a cold SwiftShader page, and the comment
+   * above already says why: pointer lock here is not reliably granted on the
+   * first ask. The neighbouring waits in this file and in verify-cold-open
+   * budget thirty to sixty seconds for exactly this seam. What is being
+   * asserted is that capture arrives at all, not that it arrives quickly. */
   await page.waitForFunction(() => (
     window.COUNTRYSIDE_CABIN.input?.captured
       && window.COUNTRYSIDE_CABIN.input?.controls?.movementEnabled
-  ), null, { timeout: 5000 });
+  ), null, { timeout: 30000 });
   const beforeMove = await page.evaluate(() => window.COUNTRYSIDE_CABIN.player.position.toArray());
   await page.keyboard.down('w');
   await nextFrames(page, 8);
@@ -578,12 +599,14 @@ try {
       && execution.baiter.hits === 8 && execution.ateamState.hits === 8
       && execution.baiter.dead && execution.ateamState.dead,
     JSON.stringify(execution.branchBeat));
-  check('Both deaths switch the same legacy-preview Cabin world to Day 7 at 20:45 nightfall',
+  /* CABIN_NIGHTFALL moved Day 5 -> Day 3 with the beats 3-7 rewire; the hour
+   * it names, 20:45, never changed. Same for the blackout below at 09:30. */
+  check('Both deaths switch the Cabin world to Day 3 at 20:45 nightfall',
     execution.deaths && execution.night
       && execution.nightfallBeats.started === execution.nightfallBeats.expected
       && execution.nightfallBeats.completed
       && execution.phase === 'wrap_bodies'
-      && execution.day === 7 && execution.timeMinutes === 1245 && execution.dark,
+      && execution.day === 3 && execution.timeMinutes === 1245 && execution.dark,
     `day ${execution.day}, minute ${execution.timeMinutes}; ${JSON.stringify(execution.nightfallBeats)}`);
   await clearHands(page);
   await teleport(page, 'dungeonCounterStrikeCaptive', 'interact');
@@ -774,20 +797,45 @@ try {
       player: runtime.player.position.toArray(),
       wake: runtime.cabin.spawns.wake.position.toArray(),
       wakeCheckpoint,
+      /* BEAT 7 IS NOT OVER WHEN HE WAKES. Booski still has to ring about
+       * Billy, and the door says stay put until he does. Drive that last
+       * call here so the exit itself is proved, not just the morning. */
+      afterBillyCall: (() => {
+        const rang = runtime.story.completeBillyCall();
+        return {
+          rang,
+          chapterComplete: runtime.story.chapterComplete(),
+          phase: runtime.story.phase(),
+          leave: runtime.story.tryLeave(),
+        };
+      })(),
     };
   });
-  check('Blackout restores Tony fine in bed on Day 8 at 09:30',
-    morning.wakeCheckpoint.day === 8 && morning.wakeCheckpoint.timeMinutes === 570
+  check('Blackout restores Tony fine in bed on Day 4 at 09:30',
+    morning.wakeCheckpoint.day === 4 && morning.wakeCheckpoint.timeMinutes === 570
       && !morning.wakeCheckpoint.dark
       && Math.hypot(
         morning.wakeCheckpoint.player[0] - morning.wakeCheckpoint.wake[0],
         morning.wakeCheckpoint.player[2] - morning.wakeCheckpoint.wake[2],
       ) < 0.1,
     `day ${morning.wakeCheckpoint.day}, minute ${morning.wakeCheckpoint.timeMinutes}`);
-  check('Legacy morning wake completes the compatibility chapter and releases the car toward Silver Case',
-    morning.chapterComplete && morning.phase === 'complete'
-      && morning.leave.kind === 'go' && morning.leave.destination === 'silver_case'
-      && morning.day === 8 && morning.timeMinutes === 573);
+  /* THE OLD ASSERTION WAS THE OLD ROUTE. It expected the morning wake to
+   * finish the chapter and release the car toward the Silver Case on Day 8 --
+   * which is how a save that reached this cabin after the bank used to leave.
+   * Beat 7 ends at the Bing now: the wake lands at 09:33 on Day 4 with
+   * Booski's call about Billy still owed, and `tryLeave` holds the car with
+   * `cabin_wait` until it comes. Measured, not assumed. */
+  check('The morning wake leaves Booski’s call owed, and the car still gated',
+    !morning.chapterComplete && morning.phase === 'billy_call'
+      && morning.leave.kind === 'stay' && morning.leave.id === 'cabin_wait'
+      && morning.day === 4 && morning.timeMinutes === 573,
+    `phase ${morning.phase}, complete ${morning.chapterComplete}, `
+      + `door ${JSON.stringify(morning.leave)}, day ${morning.day}, minute ${morning.timeMinutes}`);
+  check('Booski’s call about Billy closes the chapter and points the car at the Bing',
+    morning.afterBillyCall.rang && morning.afterBillyCall.chapterComplete
+      && morning.afterBillyCall.leave.kind === 'go'
+      && morning.afterBillyCall.leave.destination === 'bada_bing_two',
+    JSON.stringify(morning.afterBillyCall));
   await capture(page, '10-morning-wake');
 
   check('Live Cabin browser produced no page, console, or request failures', problems.length === 0,
