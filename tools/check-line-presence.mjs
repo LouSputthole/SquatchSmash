@@ -155,8 +155,8 @@ export function sceneForCue(name, scenes) {
   return matches[0] || null;
 }
 
-function isCueSubstringExempt(name) {
-  return CUE_SUBSTRING_EXEMPTIONS.find((entry) => name.includes(entry.includes)) || null;
+function isCueSubstringExempt(name, exemptions) {
+  return exemptions.find((entry) => name.includes(entry.includes)) || null;
 }
 
 function isAllowlisted(sceneId, voice) {
@@ -168,6 +168,9 @@ function isAllowlisted(sceneId, voice) {
  *
  * @param {object} manifest   parsed assets/sfx/manifest.json
  * @param {object[]} scenes   tools/scene-casts.json's `scenes` array
+ * @param {{cueSubstringExemptions?: {includes:string, reason:string}[]}} [options]
+ *   Test seam for proving the narrow exemption rule without keeping dead
+ *   production exemptions after their staging defects have been repaired.
  * @returns {{
  *   violations: {scene:string, sceneId:string, voice:string, count:number, cues:string[]}[],
  *   allowlisted: {scene:string, voice:string, count:number, reason:string}[],
@@ -175,7 +178,9 @@ function isAllowlisted(sceneId, voice) {
  *   sceneSummary: {sceneId:string, label:string, voices:number, violations:number}[],
  * }}
  */
-export function findViolations(manifest, scenes) {
+export function findViolations(manifest, scenes, {
+  cueSubstringExemptions = CUE_SUBSTRING_EXEMPTIONS,
+} = {}) {
   const cues = spokenCues(manifest);
   const unmapped = [];
   /* scene id -> voice -> cue[] */
@@ -184,7 +189,7 @@ export function findViolations(manifest, scenes) {
   for (const cue of cues) {
     if (GLOBAL_EXEMPT_VOICES.includes(cue.voice)) continue;
     if (matchesAnyPrefix(cue.name, GLOBAL_EXEMPT_PREFIXES)) continue;
-    if (isCueSubstringExempt(cue.name)) continue;
+    if (isCueSubstringExempt(cue.name, cueSubstringExemptions)) continue;
 
     const scene = sceneForCue(cue.name, scenes);
     if (!scene) { unmapped.push({ name: cue.name, voice: cue.voice }); continue; }
