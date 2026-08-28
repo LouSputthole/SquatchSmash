@@ -369,6 +369,88 @@ try {
     JSON.stringify(contextLosses));
 
   check('no runtime console errors occurred', problems.length === 0, problems.slice(0, 3).join(' | '));
+
+  /* ---------------------------------------------------------------- */
+  /* [Q] GETS HIM OUT OF THE CHAIR                                     */
+  /* ---------------------------------------------------------------- */
+  /* A SECOND PAGE, because the cold open can only be quit once.
+   *
+   * Everything above walks the pause-menu Quit door, and that door has been
+   * green throughout a period when the owner twice reported he could not get
+   * out of the chair. He was not using it -- he was pressing Q, which is what
+   * the apartment's own key handler promises works "everywhere", and which
+   * reached nothing at all: Squatch Smash owns the keyboard while it is up and
+   * had no Q of its own, and the apartment's router only runs once the input
+   * adapter has captured, which during the cold open it never does.
+   *
+   * So: a fresh page, no clicking about, one keypress, and the reveal has to
+   * happen. This is the gesture the player actually makes. */
+  const qPage = await browser.newPage({ viewport: { width: 480, height: 300 } });
+  try {
+    await qPage.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+    await qPage.waitForFunction(() => window.__squatch?.coldOpenState, null, { timeout: 90000 });
+    await qPage.waitForFunction(() => window.__squatch.coldOpenState.active, null, { timeout: 60000 });
+    await qPage.waitForSelector('iframe[title="Squatch Smash"]', { timeout: 60000 });
+
+    const beforeQ = await qPage.evaluate(() => ({
+      seated: window.__squatch.game.seated,
+      phase: window.__squatch.coldOpenState.phase,
+      activeEl: document.activeElement?.tagName ?? null,
+    }));
+    /* Count the key on both sides. A bare "he is still seated" cannot tell a
+     * handler that ran and did nothing from a key that reached no document at
+     * all, and those have completely different fixes. */
+    await qPage.evaluate(() => {
+      window.__qTop = 0;
+      window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ') window.__qTop += 1; }, true);
+    });
+    const qFrame = await (await qPage.$('iframe[title="Squatch Smash"]')).contentFrame();
+    await qFrame.evaluate(() => {
+      window.__qIn = 0;
+      window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ') window.__qIn += 1; }, true);
+    });
+    await qPage.keyboard.press('q');
+    const delivery = {
+      top: await qPage.evaluate(() => window.__qTop),
+      iframe: await qFrame.evaluate(() => window.__qIn),
+    };
+
+    /* Pump frames rather than sleeping. Under swiftshader nobody is driving
+     * rAF for a page Playwright is not looking at, and a starved page looks
+     * exactly like a frozen one -- which cost this investigation two runs. */
+    let stood = false;
+    for (let i = 0; i < 90 && !stood; i += 1) {
+      const deadline = Date.now() + 1000;
+      while (Date.now() < deadline) {
+        await qPage.evaluate(() => new Promise((r) => requestAnimationFrame(() => r())));
+      }
+      stood = await qPage.evaluate(() => window.__squatch.coldOpenState.active === false);
+    }
+    /* `player.mode` is still 'frozen' at the instant the dolly lands -- the
+     * seat tween is unwinding and the morning beat has not handed control
+     * back yet. Give it a moment and assert what the player cares about:
+     * that he ends up able to walk. Asserting on the landing frame would be
+     * asserting on a transition. */
+    let walking = false;
+    for (let i = 0; i < 20 && !walking; i += 1) {
+      const deadline = Date.now() + 500;
+      while (Date.now() < deadline) {
+        await qPage.evaluate(() => new Promise((r) => requestAnimationFrame(() => r())));
+      }
+      walking = await qPage.evaluate(() => window.__squatch.player.mode === 'walk');
+    }
+    const afterQ = await qPage.evaluate(() => ({
+      seated: window.__squatch.game.seated,
+      active: window.__squatch.coldOpenState.active,
+      mode: window.__squatch.player.mode,
+    }));
+    check('[Q] alone ends the cold open and puts him on his feet',
+      beforeQ.seated && beforeQ.phase === 'playing'
+        && stood && !afterQ.seated && !afterQ.active && walking,
+      `${JSON.stringify(beforeQ)} -> ${JSON.stringify(afterQ)}; key delivered ${JSON.stringify(delivery)}`);
+  } finally {
+    await qPage.close();
+  }
 } finally {
   await browser.close();
   await new Promise((resolve) => server.close(resolve));
