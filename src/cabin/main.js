@@ -2010,6 +2010,16 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   radio,
   time,
   state,
+  /* Deterministic presentation seam for visual/browser evidence. Cabin time
+   * normally comes from the campaign and its lighting palette is applied by
+   * the active frame. Tests and previews that deliberately freeze that frame
+   * need one atomic way to stage both halves without waking radio, dialogue,
+   * objectives, or locomotion just to update the sun. */
+  setTime(day, timeMinutes) {
+    time.setTime(day, timeMinutes);
+    applyTimeOfDay();
+    return { day: time.day, minutes: time.minutes };
+  },
   lag: cabin.lag,
   lagHints,
   chapter,

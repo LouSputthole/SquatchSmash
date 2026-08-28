@@ -103,6 +103,14 @@ async function stageHomeMirror(page, kind) {
       : sceneKind === 'luxury'
         ? window.LUXURY_APARTMENT
         : window.CABIN;
+    /* Cabin entry is authored for Day 2 at 09:20. Unlike the Luxury test,
+     * which stages its clock in the living-room receipt immediately above,
+     * the Cabin receipt used to inherit whichever preview save/default the
+     * current campaign implementation supplied. That let a calendar change
+     * turn the same mirror baseline from Day 7 daylight into Day 2 pre-dawn.
+     * Set the story-owned arrival time while the render clock is frozen; the
+     * one explicit capture frame below then applies the matching sun/sky pass. */
+    if (sceneKind === 'cabin') runtime.setTime(2, 9 * 60 + 20);
     const home = runtime.apartment ?? runtime.home ?? runtime.cabin;
     const mirror = home.mirrorMesh;
     const bodyController = runtime.firstPersonBody ?? runtime.reflectionBody ?? null;
@@ -165,6 +173,8 @@ async function stageHomeMirror(page, kind) {
       outfit: bodyController?.outfitId ?? bodyMetadata?.outfitId ?? null,
       reflectionLayer: bodyController?.reflectionLayer ?? bodyMetadata?.reflectionLayer ?? null,
       visible: bodyGroup?.visible === true,
+      day: runtime.time?.day ?? null,
+      minutes: runtime.time?.minutes ?? null,
     };
   }, kind);
 }
@@ -289,7 +299,10 @@ test('cabin mirror and persisted outfit', async ({ page }) => {
     seed: 0x3303,
   });
   const mirror = await stageHomeMirror(page, 'cabin');
-  expect(mirror).toMatchObject({ outfit: 'cream_cashmere', reflectionLayer: 1, visible: true });
+  expect(mirror).toMatchObject({
+    outfit: 'cream_cashmere', reflectionLayer: 1, visible: true,
+    day: 2, minutes: 9 * 60 + 20,
+  });
   await captureVisual(page, 'cabin-mirror-outfit', mirror);
   assertNoVisualErrors(page);
 });
