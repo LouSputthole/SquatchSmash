@@ -1128,11 +1128,11 @@
   ],
   "voice": [
     {
-      "id": "vo.snow.room_twelve_meat_first_money_second",
+      "id": "vo.snow.room_twelve_the_jerky_deal_is_our_cover_until_da",
       "speaker": "Snow",
-      "line": "Room twelve. Meat first. Money second.",
+      "line": "Room twelve. The jerky deal is our cover until daylight. Meat first. Money second.",
       "context": "dialogue node \"snowBrief\" — prompt",
-      "file": "audio/motel/voice/snow/room_twelve_meat_first_money_second.wav",
+      "file": "audio/motel/voice/snow/room_twelve_the_jerky_deal_is_our_cover_until_da.wav",
       "status": "todo"
     },
     {
@@ -1760,11 +1760,11 @@
       "status": "todo"
     },
     {
-      "id": "vo.snow.buy_the_meat_leave_no_speeches",
+      "id": "vo.snow.buy_it_and_leave_i_said_no_speeches_and_i_can_se",
       "speaker": "Snow",
-      "line": "Buy the meat. Leave. No speeches.",
+      "line": "Buy it and leave. I said no speeches, and I can see one forming.",
       "context": "ambient Snow bark in the lot",
-      "file": "audio/motel/voice/snow/buy_the_meat_leave_no_speeches.wav",
+      "file": "audio/motel/voice/snow/buy_it_and_leave_i_said_no_speeches_and_i_can_se.wav",
       "status": "todo"
     },
     {
@@ -1872,11 +1872,11 @@
       "status": "todo"
     },
     {
-      "id": "vo.snow.how_much_survived",
+      "id": "vo.snow.we_wait_for_daylight_once_your_block_is_clean_i_",
       "speaker": "Snow",
-      "line": "How much survived?",
+      "line": "We wait for daylight. Once your block is clean, I put you home. Now show me what survived.",
       "context": "closing exchange on the road",
-      "file": "audio/motel/voice/snow/how_much_survived.wav",
+      "file": "audio/motel/voice/snow/we_wait_for_daylight_once_your_block_is_clean_i_.wav",
       "status": "todo"
     },
     {

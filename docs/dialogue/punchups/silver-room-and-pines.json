@@ -4,32 +4,6 @@
   "diagnosis": "Two different failures wearing the same coat. Margo is written razor-sharp for two hundred lines and then hands the player a polite dinner-date sign-off ('Thank you for dinner. The band was excellent.') at the one moment the scene needs heat. And the Prospect — a man the entire room is visibly afraid of — orders drinks like a hotel guest. 'We're fine.' 'We're alright.' 'Beer's fine.' 'Same again, when you get a second.' The sibling line 'Two cubes, I'm not an animal' proves the scene knows exactly how this man talks; he just stops talking that way whenever a waiter appears. On the course, Eric's caddie lines have collapsed into UI toasts — 'You have clubs.' 'You have a shot.' 'You have selected a driver.' — which is the game narrating itself in a man's voice.",
   "lines": [
     {
-      "cue": "vo.silver.margo.invitation.awkward",
-      "character": "margo",
-      "current": "I'm going to let them call me a car. Thank you for dinner. The band was excellent.",
-      "why": "The scene's biggest turn, and Margo suddenly speaks like a wedding thank-you card. This is the version where she says no — it should still be HER saying no, with a blade in it.",
-      "house": "I'm going to let them call me a car. And you're going to let me, and neither of us is going to say anything clever about it.",
-      "tarantino": "I'm going to let them call me a car. Not because the night went badly. It didn't. But I've watched every man in this room look at you twice, and I know exactly what that means, and I'd like to go home before I stop caring what it means.",
-      "mcdonagh": "I'll let them call me a car. It was a lovely dinner and you're a lovely fella and there's somethin' badly wrong with you, and I'd rather find out what on a night I've less drink in me.",
-      "houser": "I'm going to let them call me a car. Dinner was excellent, the band was fine, and you are a series of red flags in a very good jacket.",
-      "coen": "I'm going to let them call me a car. It was a nice dinner. I mean that. It's not a — it's not a thing about you.",
-      "status": "open"
-    },
-    {
-      "cue": "vo.silver.margo.invitation.polite",
-      "character": "margo",
-      "current": "That’s kind. In my experience kind comes with an invoice, so I’ll wait for the invoice.",
-      "why": "Stock politeness from the sharpest voice in the game.",
-      "house": "That's the first kind thing anybody's done in this room all night.",
-      "tarantino": "That's kind. Which is a strange word to use about anything that happens in this building, but there it is.",
-      "mcdonagh": "That's kind of you. And I'll say that now, before I find out what it costs.",
-      "houser": "That's kind. In my experience kind comes with an invoice, so I'll wait for the invoice.",
-      "coen": "That's kind. Thank you. People aren't, generally.",
-      "status": "ACCEPTED 2026-08-19",
-      "picked": "That’s kind. In my experience kind comes with an invoice, so I’ll wait for the invoice.",
-      "retiredText": "That's kind."
-    },
-    {
       "cue": "vo.silver.player.invitation.open.1eak4x9",
       "character": "player",
       "current": "Come back with me. There’s a bottle I’ve been saving for a reason I couldn’t name until about an hour ago.",
@@ -58,18 +32,6 @@
       "picked": "I’m not ready for this to be over and I’m too old to pretend otherwise.",
       "retiredText": "The night doesn't have to end here.",
       "retiredCue": "vo.silver.player.invitation.open.1i9c6n4"
-    },
-    {
-      "cue": "vo.silver.player.invitation.open.1p4sox7",
-      "character": "player",
-      "current": "I'll get you a car. This was good.",
-      "why": "'This was good' is a non-summary of an entire evening built on specific banter. It is the sound of a man who has stopped trying.",
-      "house": "I'll get you a car. And for what it's worth — that's the best night I've had in a building I'm allowed in.",
-      "tarantino": "I'll get you a car. And I want to say one true thing before you get in it: that's the best three hours I've had in about four years, and I've had some very expensive hours.",
-      "mcdonagh": "I'll get you a car. And that was the best night I've had in a long while, and I'll not be sayin' it twice.",
-      "houser": "I'll have a car brought round. And on the record — that was the most fun I've had somewhere I didn't have to check the exits.",
-      "coen": "I'll get you a car. That was — that was a good night. I'd like to say something better than that, but that's what I've got.",
-      "status": "open"
     },
     {
       "cue": "vo.silver.player.invitation.open.187q3m5",
@@ -260,32 +222,6 @@
       "status": "open"
     },
     {
-      "cue": "vo.golf.h1.prospect.im_ready",
-      "character": "player",
-      "current": "I'm ready.",
-      "why": "Hollow bravado cliché.",
-      "house": "I'm ready. I've got no idea what for, but I'm ready.",
-      "tarantino": "I'm ready. Which is a strange thing to be, on a golf course, in a borrowed shirt, with a man I've met twice.",
-      "mcdonagh": "I'm ready. Ready for what, I couldn't tell you, but I'm ready.",
-      "houser": "I'm ready. In the sense that I'm here and I've stopped asking questions.",
-      "coen": "I'm ready. I guess. Sure.",
-      "status": "open"
-    },
-    {
-      "cue": "vo.golf.h1.prospect.did_what_you_asked",
-      "character": "player",
-      "current": "I did what you asked. All of it. Including the part you didn’t say out loud.",
-      "why": "Completely generic subordinate-to-boss line with no edge for an ambitious prospect.",
-      "house": "I did what you asked. All of it. Including the part you didn't say out loud.",
-      "tarantino": "I did what you asked. And then I did the part you didn't ask for but definitely wanted, which I'd like noted somewhere.",
-      "mcdonagh": "I did what you asked. And the bit you didn't ask for and were hopin' I'd do anyway. I did that too.",
-      "houser": "I did what was asked. And the unasked part, which is where the real work always is and where nobody ever looks.",
-      "coen": "I did what you asked. All of it. I didn't ask any questions about it, either.",
-      "status": "ACCEPTED 2026-08-19",
-      "picked": "I did what you asked. All of it. Including the part you didn’t say out loud.",
-      "retiredText": "I did what you asked."
-    },
-    {
       "cue": "vo.golf.h1.prospect.i_came_back",
       "character": "player",
       "current": "I came back.",
@@ -310,30 +246,6 @@
       "status": "ACCEPTED 2026-08-19",
       "picked": "Is this a test? Because everything’s been a test and nobody tells me the results.",
       "retiredText": "Is this another test?"
-    },
-    {
-      "cue": "vo.golf.h1.prospect.what_happens",
-      "character": "player",
-      "current": "What happens?",
-      "why": "Could belong to any character in any scene.",
-      "house": "What happens then? To me, specifically.",
-      "tarantino": "What happens then. And I'm asking about me specifically, not the general case.",
-      "mcdonagh": "And what happens then? To me. Not to everyone. To me.",
-      "houser": "What's the outcome? And I'd like it in terms of what happens to me, not to the organization.",
-      "coen": "What happens then? I'm just trying to get a picture of it.",
-      "status": "open"
-    },
-    {
-      "cue": "vo.golf.h1.prospect.if_it_goes_bad",
-      "character": "player",
-      "current": "And if it doesn't go well?",
-      "why": "Generic stakes-question phrasing.",
-      "house": "And if it goes bad? Do I find out, or does somebody else find out about me?",
-      "tarantino": "And if it goes badly? I'm asking because in my experience there's two versions of badly, and only one of them involves me still being around to hear about it.",
-      "mcdonagh": "And if it goes wrong? Do I hear about it, or does someone hear about me?",
-      "houser": "And if it fails? Is that a conversation, or is that a phone call somebody else receives about me?",
-      "coen": "And if it doesn't go well? What does that look like? For me.",
-      "status": "open"
     },
     {
       "cue": "vo.golf.h1.prospect.got_lucky",

@@ -56,30 +56,25 @@
     "direction": "Quiet, after far too long. She is asking whether the paperwork is normal. She is wrong, and she will not find out."
   },
   {
-    "name": "vo.initiation.cabin.in-100-lou.1rpa646.1",
+    "name": "vo.initiation.cabin.in-100-lou.18ykyue.1",
     "voice": "lou",
-    "say": "Willy wasn’t the rat.",
-    "direction": "Plain fact. No absolution and no attempt to soften what the family did."
+    "say": "Willy gave them the strip. He did not give them this house.",
+    "direction": "Plain distinction. No absolution and no attempt to soften what the family did."
   },
   {
-    "name": "vo.initiation.cabin.in-100-lou.0ri6bou.1",
-    "voice": "lou",
-    "say": "We killed the wrong man."
-  },
-  {
-    "name": "vo.initiation.cabin.in-100-booskibro.01zs931.1",
+    "name": "vo.initiation.cabin.in-100-booskibro.185kcop.1",
     "voice": "booski",
-    "say": "Sauce was the rat. The palace proved that."
+    "say": "Sauce did. The palace proved it."
   },
   {
-    "name": "vo.initiation.cabin.in-100-booskibro.0s37hma.1",
+    "name": "vo.initiation.cabin.in-100-booskibro.0apw1h4.1",
     "voice": "booski",
-    "say": "It also proved he had help on the inside."
+    "say": "Short Bus. Sauce signed it. One of tonight’s prospects countersigned the breach."
   },
   {
-    "name": "vo.initiation.cabin.in-100-lou.07nti9k.1",
+    "name": "vo.initiation.cabin.in-100-lou.178c7be.1",
     "voice": "lou",
-    "say": "There is one place left. We are at quota."
+    "say": "There is one place left. Five prospects are standing for it."
   },
   {
     "name": "vo.initiation.cabin.in-100-booskibro.0jpbifj.1",
@@ -284,6 +279,12 @@
     "voice": "booski",
     "say": "You did what was asked. You kept your mouth shut. You handled yourself at the Bing. You flew the beef run. When it came time to stand up, you stood up.",
     "direction": "A list being confirmed, not a compliment being paid."
+  },
+  {
+    "name": "vo.initiation.cabin.in-340-booskibro.1fff3e2.1",
+    "voice": "booski",
+    "say": "You carried Lou’s case. You held his house when they came for it. You walked into their palace alone and ended the war.",
+    "direction": "The compact second half of the record. Each clause is a campaign deed, not praise."
   },
   {
     "name": "vo.initiation.cabin.in-350-rippinflow.1hyk744.1",

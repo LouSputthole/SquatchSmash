@@ -14,7 +14,9 @@
         "mcdonagh": "No. Whatever that is, no. I've seen your face doin' that before and it never ends well for me.",
         "houser": "Absolutely not. Whatever this is, I decline, and I'd like that reflected in the minutes.",
         "coen": "No. I don't — whatever this is, I'd rather not. Thank you, though.",
-        "status": "open"
+        "status": "KEEP 2026-08-28",
+        "picked": "Please don't make me a bit.",
+        "decision": "Keep in context: Hog Mama has just offered to make a literal comedy bit from Tony and then calls him one. This is an in-world performer exchange, not Tony naming the game's joke structure."
       },
       {
         "cue": "vo.bing.full.lou.warning.tony.awltb1",
@@ -423,42 +425,6 @@
         "status": "open"
       },
       {
-        "cue": "vo.enolasquatch.lou.arrival-lou-1.1",
-        "character": "lou1",
-        "current": "Did they get the package?",
-        "why": "The euphemism is right in principle — Lou would absolutely call it a package — but it is said so mildly it reads as shipping and receiving instead of a man asking whether a town is still there.",
-        "house": "Did it land where I paid for it to land?",
-        "tarantino": "So. Did they take delivery? And I want the real answer, not the one you rehearsed in the car.",
-        "mcdonagh": "Did they get it? And don't be soft with me now. Did they get it.",
-        "houser": "Did the package arrive? And by arrive I mean is there anybody left down there to have received it.",
-        "coen": "They get the package all right? I only ask because I've heard two versions already and they don't agree.",
-        "status": "open"
-      },
-      {
-        "cue": "vo.enolasquatch.prospect.arrival-lou-2.1",
-        "character": "player",
-        "current": "They signed for it.",
-        "why": "A delivery-driver gag on a mass-casualty report. It undercuts, and worse, the kid should not be joking yet — he has not landed emotionally.",
-        "house": "There's nothing down there to sign anything.",
-        "tarantino": "They got it. There's a hole where the road used to bend. I flew over the same ground twice looking for the bend.",
-        "mcdonagh": "They got it, aye. There's a hole in the ground the shape of a town and I'll be seein' it every time I close me eyes.",
-        "houser": "Delivered. Signed for by nobody, because signing requires hands.",
-        "coen": "They got it. There's — there's not a lot down there now. I don't know what else to tell you about it.",
-        "status": "open"
-      },
-      {
-        "cue": "vo.enolasquatch.lou.arrival-lou-3.1",
-        "character": "lou1",
-        "current": "Good. Put the plane back where you found it.",
-        "why": "This one is actually close to great — the banality is the joke, and the doctrine likes that. It just needs to be said by somebody who has already moved on, which is what makes it obscene.",
-        "house": "Good. Put the plane back where you found it and wash the smell out of your coat before dinner.",
-        "tarantino": "Good. Now put the plane back exactly where you found it, and I mean exactly, because the man I borrowed it from counts things.",
-        "mcdonagh": "Grand. Put the plane back. And wipe your boots, you've the whole state on 'em.",
-        "houser": "Excellent. Return the aircraft to inventory, and I want it in the condition you took it, because that lease is in my sister's name.",
-        "coen": "Good. Well. Put the plane back where you got it. And, you know — take a shower. You look like something.",
-        "status": "open"
-      },
-      {
         "cue": "vo.silentsquatch.reaction.orlova.wehavefamilies",
         "character": "orlova",
         "current": "We have families!",
@@ -637,20 +603,6 @@
         "retiredText": "Back up."
       },
       {
-        "cue": "vo.silentsquatch.office.lou.soonenough",
-        "character": "lou1",
-        "current": "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.",
-        "why": "Stock mysterious-boss filler, sitting next to genuinely great Lou writing ('It's a desk, kid, it's been there longer than you have').",
-        "house": "You'll find out. And then you'll wish you'd enjoyed not knowing more than you did.",
-        "tarantino": "You'll find out. And here's the part nobody warns you about — the not knowing was the good part. Right now, this, standing here annoyed at me. This is the good part.",
-        "mcdonagh": "You'll find out soon enough. And you'll wish to God you were back stood there botherin' me about it.",
-        "houser": "You'll be briefed. And when you are, you'll spend the rest of your life wishing you'd been slightly less curious in my office.",
-        "coen": "You'll find out. And then you'll have found out. That's how that goes.",
-        "status": "ACCEPTED 2026-08-19",
-        "picked": "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.",
-        "retiredText": "Eh. You'll find out soon enough."
-      },
-      {
         "cue": "vo.initiation.party.erican.190z6i5.1",
         "character": "eric (and four others, verbatim)",
         "current": "Welcome, brother. My initiation was worse. Everybody says that. Mine actually was.",
@@ -715,7 +667,9 @@
         "mcdonagh": "Right. Come on. Come on up, the whole fuckin' lot of yiz.",
         "houser": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
         "coen": "Okay. All right then. Come on up.",
-        "status": "open"
+        "status": "ACCEPTED 2026-08-28",
+        "picked": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
+        "retiredText": "Say hello to my little friend."
       },
       {
         "cue": "vo.nowake.cabin.willy.dont-remember.1",
@@ -836,20 +790,6 @@
         "houser": "Colton. His plot smells exactly like his van, which raises questions about the van that nobody wants answered.",
         "coen": "Colton. Huh. Smells just like his van did. That's — I don't know what to make of that.",
         "status": "open"
-      },
-      {
-        "cue": "vo.graveyard.snow.done",
-        "character": "snow",
-        "current": "That closes the HotDog thing. Get in the car. The next one doesn’t close with a shovel.",
-        "why": "Already strong. One note only: the second half telegraphs the next mission a little cleanly. Variants keep the dread and lose the signposting.",
-        "house": "That closes the HotDog thing. Get in the car. The next one doesn't close with a shovel.",
-        "tarantino": "That's HotDog done. Get in the car. The next one doesn't end with a shovel and a hole, and I'd get comfortable with that on the drive.",
-        "mcdonagh": "That's HotDog closed. Get in the car. The next one doesn't close with a shovel, and you'd want to be thinkin' about that on the way.",
-        "houser": "That concludes the HotDog matter. Get in the car. The next item does not resolve with earthmoving equipment.",
-        "coen": "Well. That closes HotDog. Get in the car. The next one's not going to be like this one.",
-        "status": "ACCEPTED 2026-08-19",
-        "picked": "That closes the HotDog thing. Get in the car. The next one doesn’t close with a shovel.",
-        "retiredText": "That closes the HotDog incident. The Motel does not close this easy."
       },
       {
         "cue": "vo.silvercase.aftermath.ape.badideas",
@@ -1091,16 +1031,19 @@
         "status": "open"
       },
       {
-        "cue": "radio.vo.announcer.157erj5",
+        "cue": "radio.vo.announcer.170fb70",
         "character": "announcer",
-        "current": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.",
-        "why": "A UI objective marker read on air. Story reminders through the radio are a great idea — this one just has no radio in it.",
-        "house": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening. We are not told what it is. We are told to say it.",
-        "tarantino": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening. That's all the information on the card. I've asked. I've asked three times. There's no more card.",
-        "mcdonagh": "The Squatch Meetin' is Wednesday. Tomorrow. Seven in the evenin'. That's all that's on the page and I'll not be takin' questions.",
-        "houser": "The Squatch Meeting is Wednesday. Tomorrow. Seven p.m. This announcement has been paid for in cash by a man who would not give his name and would not sit down.",
-        "coen": "The Squatch Meeting is Wednesday. That's tomorrow. Seven in the evening. That's what it says here.",
-        "status": "open"
+        "current": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+        "why": "Resolved against the campaign spine: this sounds like a normal members notice and preserves Day One without spoiling the later Initiation.",
+        "house": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+        "tarantino": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+        "mcdonagh": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+        "houser": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+        "coen": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+        "status": "ACCEPTED 2026-08-28",
+        "picked": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+        "retiredText": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.",
+        "retiredCue": "radio.vo.announcer.157erj5"
       }
     ],
     "newMaterial": {
@@ -1122,32 +1065,6 @@
     "reference": "The Silver Room is the supper-club date — the mob-restaurant scene. Silver Pines is the round of golf where the real conversation happens.",
     "diagnosis": "Two different failures wearing the same coat. Margo is written razor-sharp for two hundred lines and then hands the player a polite dinner-date sign-off ('Thank you for dinner. The band was excellent.') at the one moment the scene needs heat. And the Prospect — a man the entire room is visibly afraid of — orders drinks like a hotel guest. 'We're fine.' 'We're alright.' 'Beer's fine.' 'Same again, when you get a second.' The sibling line 'Two cubes, I'm not an animal' proves the scene knows exactly how this man talks; he just stops talking that way whenever a waiter appears. On the course, Eric's caddie lines have collapsed into UI toasts — 'You have clubs.' 'You have a shot.' 'You have selected a driver.' — which is the game narrating itself in a man's voice.",
     "lines": [
-      {
-        "cue": "vo.silver.margo.invitation.awkward",
-        "character": "margo",
-        "current": "I'm going to let them call me a car. Thank you for dinner. The band was excellent.",
-        "why": "The scene's biggest turn, and Margo suddenly speaks like a wedding thank-you card. This is the version where she says no — it should still be HER saying no, with a blade in it.",
-        "house": "I'm going to let them call me a car. And you're going to let me, and neither of us is going to say anything clever about it.",
-        "tarantino": "I'm going to let them call me a car. Not because the night went badly. It didn't. But I've watched every man in this room look at you twice, and I know exactly what that means, and I'd like to go home before I stop caring what it means.",
-        "mcdonagh": "I'll let them call me a car. It was a lovely dinner and you're a lovely fella and there's somethin' badly wrong with you, and I'd rather find out what on a night I've less drink in me.",
-        "houser": "I'm going to let them call me a car. Dinner was excellent, the band was fine, and you are a series of red flags in a very good jacket.",
-        "coen": "I'm going to let them call me a car. It was a nice dinner. I mean that. It's not a — it's not a thing about you.",
-        "status": "open"
-      },
-      {
-        "cue": "vo.silver.margo.invitation.polite",
-        "character": "margo",
-        "current": "That’s kind. In my experience kind comes with an invoice, so I’ll wait for the invoice.",
-        "why": "Stock politeness from the sharpest voice in the game.",
-        "house": "That's the first kind thing anybody's done in this room all night.",
-        "tarantino": "That's kind. Which is a strange word to use about anything that happens in this building, but there it is.",
-        "mcdonagh": "That's kind of you. And I'll say that now, before I find out what it costs.",
-        "houser": "That's kind. In my experience kind comes with an invoice, so I'll wait for the invoice.",
-        "coen": "That's kind. Thank you. People aren't, generally.",
-        "status": "ACCEPTED 2026-08-19",
-        "picked": "That’s kind. In my experience kind comes with an invoice, so I’ll wait for the invoice.",
-        "retiredText": "That's kind."
-      },
       {
         "cue": "vo.silver.player.invitation.open.1eak4x9",
         "character": "player",
@@ -1177,18 +1094,6 @@
         "picked": "I’m not ready for this to be over and I’m too old to pretend otherwise.",
         "retiredText": "The night doesn't have to end here.",
         "retiredCue": "vo.silver.player.invitation.open.1i9c6n4"
-      },
-      {
-        "cue": "vo.silver.player.invitation.open.1p4sox7",
-        "character": "player",
-        "current": "I'll get you a car. This was good.",
-        "why": "'This was good' is a non-summary of an entire evening built on specific banter. It is the sound of a man who has stopped trying.",
-        "house": "I'll get you a car. And for what it's worth — that's the best night I've had in a building I'm allowed in.",
-        "tarantino": "I'll get you a car. And I want to say one true thing before you get in it: that's the best three hours I've had in about four years, and I've had some very expensive hours.",
-        "mcdonagh": "I'll get you a car. And that was the best night I've had in a long while, and I'll not be sayin' it twice.",
-        "houser": "I'll have a car brought round. And on the record — that was the most fun I've had somewhere I didn't have to check the exits.",
-        "coen": "I'll get you a car. That was — that was a good night. I'd like to say something better than that, but that's what I've got.",
-        "status": "open"
       },
       {
         "cue": "vo.silver.player.invitation.open.187q3m5",
@@ -1379,32 +1284,6 @@
         "status": "open"
       },
       {
-        "cue": "vo.golf.h1.prospect.im_ready",
-        "character": "player",
-        "current": "I'm ready.",
-        "why": "Hollow bravado cliché.",
-        "house": "I'm ready. I've got no idea what for, but I'm ready.",
-        "tarantino": "I'm ready. Which is a strange thing to be, on a golf course, in a borrowed shirt, with a man I've met twice.",
-        "mcdonagh": "I'm ready. Ready for what, I couldn't tell you, but I'm ready.",
-        "houser": "I'm ready. In the sense that I'm here and I've stopped asking questions.",
-        "coen": "I'm ready. I guess. Sure.",
-        "status": "open"
-      },
-      {
-        "cue": "vo.golf.h1.prospect.did_what_you_asked",
-        "character": "player",
-        "current": "I did what you asked. All of it. Including the part you didn’t say out loud.",
-        "why": "Completely generic subordinate-to-boss line with no edge for an ambitious prospect.",
-        "house": "I did what you asked. All of it. Including the part you didn't say out loud.",
-        "tarantino": "I did what you asked. And then I did the part you didn't ask for but definitely wanted, which I'd like noted somewhere.",
-        "mcdonagh": "I did what you asked. And the bit you didn't ask for and were hopin' I'd do anyway. I did that too.",
-        "houser": "I did what was asked. And the unasked part, which is where the real work always is and where nobody ever looks.",
-        "coen": "I did what you asked. All of it. I didn't ask any questions about it, either.",
-        "status": "ACCEPTED 2026-08-19",
-        "picked": "I did what you asked. All of it. Including the part you didn’t say out loud.",
-        "retiredText": "I did what you asked."
-      },
-      {
         "cue": "vo.golf.h1.prospect.i_came_back",
         "character": "player",
         "current": "I came back.",
@@ -1429,30 +1308,6 @@
         "status": "ACCEPTED 2026-08-19",
         "picked": "Is this a test? Because everything’s been a test and nobody tells me the results.",
         "retiredText": "Is this another test?"
-      },
-      {
-        "cue": "vo.golf.h1.prospect.what_happens",
-        "character": "player",
-        "current": "What happens?",
-        "why": "Could belong to any character in any scene.",
-        "house": "What happens then? To me, specifically.",
-        "tarantino": "What happens then. And I'm asking about me specifically, not the general case.",
-        "mcdonagh": "And what happens then? To me. Not to everyone. To me.",
-        "houser": "What's the outcome? And I'd like it in terms of what happens to me, not to the organization.",
-        "coen": "What happens then? I'm just trying to get a picture of it.",
-        "status": "open"
-      },
-      {
-        "cue": "vo.golf.h1.prospect.if_it_goes_bad",
-        "character": "player",
-        "current": "And if it doesn't go well?",
-        "why": "Generic stakes-question phrasing.",
-        "house": "And if it goes bad? Do I find out, or does somebody else find out about me?",
-        "tarantino": "And if it goes badly? I'm asking because in my experience there's two versions of badly, and only one of them involves me still being around to hear about it.",
-        "mcdonagh": "And if it goes wrong? Do I hear about it, or does someone hear about me?",
-        "houser": "And if it fails? Is that a conversation, or is that a phone call somebody else receives about me?",
-        "coen": "And if it doesn't go well? What does that look like? For me.",
-        "status": "open"
       },
       {
         "cue": "vo.golf.h1.prospect.got_lucky",
@@ -1524,9 +1379,9 @@
         "status": "open"
       },
       {
-        "cue": "vo.sf.opening.2",
+        "cue": "vo.sf.opening.history.2",
         "character": "player",
-        "current": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
+        "current": "You put four in my uncle outside a fruit stand six years ago and now you want to talk about routes.",
         "why": "Statement of fact with no injury in it. The kid watched his people get shot; this reads like a customer-service complaint.",
         "house": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
         "tarantino": "See, that's a nice word. Difficult. My uncle's got a bag on his side he has to empty himself, and you're sat there saying difficult like the traffic was bad.",
@@ -1534,7 +1389,7 @@
         "houser": "You sent men to my family's business with guns and now you're pitching me a partnership. Is there a brochure?",
         "coen": "You shot my people. That's — I mean, that happened. That's a thing that happened and now we're eating.",
         "status": "ACCEPTED 2026-08-19",
-        "picked": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
+        "picked": "You put four in my uncle outside a fruit stand six years ago and now you want to talk about routes.",
         "retiredText": "You attacked my family."
       },
       {
@@ -1550,9 +1405,9 @@
         "status": "open"
       },
       {
-        "cue": "vo.sf.opening.4",
+        "cue": "vo.sf.opening.history.4",
         "character": "player",
-        "current": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
+        "current": "You shot Booski. In the stomach. Four times. Six years ago. He healed mean and still sends you a card every anniversary, so.",
         "why": "Three words. No image, no weight. The player should make the room look at what was done.",
         "house": "You shot Booski in the gut on a Tuesday and left him crawling to a payphone.",
         "tarantino": "You shot Booski. In the stomach. Which — and I want you to hear this — is the one place you shoot a man when you want him to have time to think about it.",
@@ -1560,7 +1415,7 @@
         "houser": "You shot Booski. He's got a colostomy bag and a lawsuit and neither one of them's covered.",
         "coen": "You shot Booski. He's — he's not doing great, is the thing. It's not the kind of thing that heals up.",
         "status": "ACCEPTED 2026-08-19",
-        "picked": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
+        "picked": "You shot Booski. In the stomach. Four times. Six years ago. He healed mean and still sends you a card every anniversary, so.",
         "retiredText": "You shot Booski."
       },
       {
@@ -1855,16 +1710,19 @@
     "diagnosis": "THE TAKE has one outright doctrine violation — the Counter-Strike line winks directly at the player mid-standoff — and a debrief where a mob boss reacts to a dead civilian like a middle manager reviewing a quarter. The Motel keeps putting mission objectives in mouths ('Buy. Leave. No speeches.') and then has two different characters recite the same rulebook phrase at each other. Across all three, the Prospect answers everything in one flat word: 'Yes.' 'Why?' 'Understood.' He is the player's mouth and right now he has no tongue.",
     "lines": [
       {
-        "cue": "heist.prospect_counterstrike",
+        "cue": "heist.prospect_lobby_quiet",
         "character": "player",
-        "current": "Good thing about all that Counter-Strike I've been playing.",
+        "current": "Huh. It's a lot slower than you'd think. That's the part nobody mentions.",
         "why": "CUT OR REWRITE — this is the doctrine violation. It names a real game, acknowledges the player, and tells the audience the scene is a joke at the exact moment the scene has to be a bank robbery. Everything the tone doc protects dies on this line.",
         "house": "[cut it — or, if the beat is needed] Everything's slower than I thought it'd be. Why is everything so slow.",
         "tarantino": "Nobody tells you it's quiet. You think it's going to be loud, and it's this. It's a man breathing through a mask and a woman's shoe squeaking on a floor.",
         "mcdonagh": "It's not like I thought. In me head there was music. There's no music. There's just this fella breathin' on me.",
         "houser": "Turns out the whole thing is admin. Stand here, count that, watch the door. Nobody mentions the admin.",
         "coen": "Huh. It's a lot slower than you'd think. That's the part nobody mentions.",
-        "status": "open"
+        "status": "ACCEPTED 2026-08-28",
+        "picked": "Huh. It's a lot slower than you'd think. That's the part nobody mentions.",
+        "retiredText": "Good thing about all that Counter-Strike I've been playing.",
+        "retiredCue": "heist.prospect_counterstrike"
       },
       {
         "cue": "heist.shubes_signature_cleanup",
@@ -1888,7 +1746,9 @@
         "mcdonagh": "I'm set. Vest, mags, the whole lot. And I've been sick twice, but I'm set.",
         "houser": "Vest on, mags full, plan understood. And I want it on record I have never done anything like this and I am doing it anyway.",
         "coen": "I'm ready. Everything's on, everything's full. I heard the plan twice. I'd hear it a third time if there was time.",
-        "status": "open"
+        "status": "ACCEPTED 2026-08-28",
+        "picked": "I'm set. Vest is on, mags are full, and my hands won't stop.",
+        "retiredText": "Armor is on. Magazines are full. I heard the plan."
       },
       {
         "cue": "heist.prospect_order_down",
@@ -1914,7 +1774,9 @@
         "mcdonagh": "Mask's on. I can see grand. I can hear me own heart, which is new.",
         "houser": "Mask down. Visibility's fine. Everything else about me is a work in progress.",
         "coen": "Mask's down. I can see okay. It's warm in here, is all.",
-        "status": "open"
+        "status": "ACCEPTED 2026-08-28",
+        "picked": "Mask's down. I can hear my own heart in this thing.",
+        "retiredText": "Mask is down. I can see fine."
       },
       {
         "cue": "heist.guard_warning",
@@ -1965,28 +1827,18 @@
         "status": "open"
       },
       {
-        "cue": "heist.prospect_home",
-        "character": "player",
-        "current": "We got out. Everybody came home.",
-        "why": "Mission-complete recap with no adrenaline in it after a shootout and a chase.",
-        "house": "We're out. Everybody's home. I can't feel my hands.",
-        "tarantino": "We got out. Everybody came home. And I'm sitting in a car outside my own building and I can't make myself open the door.",
-        "mcdonagh": "We got out. Everyone's home. And I've not stopped shakin' since the second car.",
-        "houser": "We're out, everybody's home, and I've just realised I'm still wearing the vest.",
-        "coen": "We got out. Everybody came home. That's — I keep saying that. I've said it about four times now.",
-        "status": "open"
-      },
-      {
-        "cue": "vo.motel.snow.4wspkp.1",
+        "cue": "vo.motel.snow.1om0zo2.1",
         "character": "snow",
-        "current": "Buy the meat. Leave. No speeches.",
+        "current": "Buy it and leave. I said no speeches, and I can see one forming.",
         "why": "An on-screen objective in a mouth. It is also said twice, near-verbatim, later in the scene — which is what exposes it as tutorial text.",
         "house": "You buy the meat, you get in the car. You don't make friends and you don't make a speech.",
         "tarantino": "Here's the whole night. You buy the meat. You get in the car. Anything you say in between those two things is a mistake you haven't made yet.",
         "mcdonagh": "Buy the meat. Get in the car. And whatever you're plannin' on sayin' — don't. I can see you plannin' it.",
         "houser": "Transaction, then exit. No conversation, no negotiation, no personality. You're a wallet with legs tonight.",
         "coen": "You buy the meat and then you leave. That's it. No speeches. People get hurt in the speeches.",
-        "status": "open"
+        "status": "ACCEPTED 2026-08-28",
+        "picked": "Buy it and leave. I said no speeches, and I can see one forming.",
+        "retiredCue": "vo.motel.snow.4wspkp.1"
       },
       {
         "cue": "vo.motel.snow.gqd56p.1",
@@ -1998,7 +1850,9 @@
         "mcdonagh": "Buy. Leave. No speeches. That's twice. There'll not be a third, there'll just be me disappointed in a car.",
         "houser": "Buy. Leave. And I'm repeating myself, which is a thing I do exactly once before I stop bringing somebody places.",
         "coen": "Buy it. Leave. No speeches. I've said that now. I'd hate to have said it for nothing.",
-        "status": "open"
+        "status": "KEEP 2026-08-28",
+        "picked": "Buy. Leave. No speeches.",
+        "decision": "Keep this first warning terse; the later ambient follow-up now escalates instead of repeating it."
       },
       {
         "cue": "vo.motel.rico.1l3y0w1.1",
@@ -2010,18 +1864,6 @@
         "mcdonagh": "Meat first, money second. That's how it goes. Ask me why and I'll tell you about a fella in a lake.",
         "houser": "Product first, payment second. Non-negotiable. I lost a lot of money learning that order and I'm not paying that tuition twice.",
         "coen": "Meat first. Then the money. That's how we do it here. It's not how everybody does it. It's how we do it.",
-        "status": "open"
-      },
-      {
-        "cue": "vo.motel.snow.8x9w8s.1",
-        "character": "snow",
-        "current": "Room twelve. Meat first. Money second.",
-        "why": "Snow repeating Rico's catchphrase back at him is the flattest kind of copy-paste. Snow should have his own read on the same rule, and it should be contemptuous.",
-        "house": "Room twelve. And he'll tell you meat first, money second, like it's scripture. Let him.",
-        "tarantino": "Room twelve. He's going to say meat first, money second, like he invented it. He didn't. Everybody says it. Let him have it.",
-        "mcdonagh": "Room twelve. He'll give you the meat-first-money-second speech. Nod along. He does love that speech.",
-        "houser": "Room twelve. He'll recite his little order-of-operations at you like it's a founding document. Let him finish, it's shorter that way.",
-        "coen": "Room twelve. He'll tell you meat first, money second. Just let him say it. He likes to say it.",
         "status": "open"
       },
       {

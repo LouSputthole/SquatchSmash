@@ -1069,20 +1069,6 @@
       "status": "MATCH"
     },
     {
-      "cue": "radio.vo.announcer.157erj5",
-      "file": "radio.vo.announcer.157erj5.mp3",
-      "voice": "announcer",
-      "intended": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.",
-      "intendedTextHash": "70ce4f83175f",
-      "sha256": "4432ec080c99eb6de9a7cbae49db668774c77a5e677ca2927a19706acbed4bde",
-      "bytes": 64827,
-      "transcript": "The Squatch meeting is Wednesday, tomorrow, seven in the evening",
-      "language": "eng",
-      "languageProbability": 1.0,
-      "similarity": 1.0,
-      "status": "MATCH"
-    },
-    {
       "cue": "radio.vo.announcer.15n90um",
       "file": "radio.vo.announcer.15n90um.mp3",
       "voice": "announcer",
@@ -1094,6 +1080,20 @@
       "language": "eng",
       "languageProbability": 1.0,
       "similarity": 1.0,
+      "status": "MATCH"
+    },
+    {
+      "cue": "radio.vo.announcer.170fb70",
+      "file": "radio.vo.announcer.170fb70.mp3",
+      "voice": "announcer",
+      "intended": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+      "intendedTextHash": "04e7a19e7f8e",
+      "sha256": "31a853e6b7db9fecc1866d654663148efa943866dba28dc1aaca746d4211b549",
+      "bytes": 145911,
+      "transcript": "Um, the Silver Sasquatch's weekly meeting is Wednesday, tomorrow, seven in the evening, members only. Routine business",
+      "language": "eng",
+      "languageProbability": 1.0,
+      "similarity": 0.9909,
       "status": "MATCH"
     },
     {

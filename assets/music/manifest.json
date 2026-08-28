@@ -106,7 +106,7 @@
       "file": "fortunate-son.mp3",
       "title": "Fortunate Son",
       "artist": "Creedence Clearwater Revival",
-      "_note": "The Enola Squatch's takeoff needle-drop, same mechanism as Beef Run's. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/enolasquatch/main.js.",
+      "_note": "SQUATCHOLA GAY's takeoff needle-drop, same mechanism as Beef Run's. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/enolasquatch/main.js.",
       "cue": true
     },
     {

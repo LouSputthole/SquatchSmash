@@ -30,9 +30,9 @@
       "status": "open"
     },
     {
-      "cue": "vo.sf.opening.2",
+      "cue": "vo.sf.opening.history.2",
       "character": "player",
-      "current": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
+      "current": "You put four in my uncle outside a fruit stand six years ago and now you want to talk about routes.",
       "why": "Statement of fact with no injury in it. The kid watched his people get shot; this reads like a customer-service complaint.",
       "house": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
       "tarantino": "See, that's a nice word. Difficult. My uncle's got a bag on his side he has to empty himself, and you're sat there saying difficult like the traffic was bad.",
@@ -40,7 +40,7 @@
       "houser": "You sent men to my family's business with guns and now you're pitching me a partnership. Is there a brochure?",
       "coen": "You shot my people. That's — I mean, that happened. That's a thing that happened and now we're eating.",
       "status": "ACCEPTED 2026-08-19",
-      "picked": "You put four in my uncle outside a fruit stand and now you want to talk about routes.",
+      "picked": "You put four in my uncle outside a fruit stand six years ago and now you want to talk about routes.",
       "retiredText": "You attacked my family."
     },
     {
@@ -56,9 +56,9 @@
       "status": "open"
     },
     {
-      "cue": "vo.sf.opening.4",
+      "cue": "vo.sf.opening.history.4",
       "character": "player",
-      "current": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
+      "current": "You shot Booski. In the stomach. Four times. Six years ago. He healed mean and still sends you a card every anniversary, so.",
       "why": "Three words. No image, no weight. The player should make the room look at what was done.",
       "house": "You shot Booski in the gut on a Tuesday and left him crawling to a payphone.",
       "tarantino": "You shot Booski. In the stomach. Which — and I want you to hear this — is the one place you shoot a man when you want him to have time to think about it.",
@@ -66,7 +66,7 @@
       "houser": "You shot Booski. He's got a colostomy bag and a lawsuit and neither one of them's covered.",
       "coen": "You shot Booski. He's — he's not doing great, is the thing. It's not the kind of thing that heals up.",
       "status": "ACCEPTED 2026-08-19",
-      "picked": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
+      "picked": "You shot Booski. In the stomach. Four times. Six years ago. He healed mean and still sends you a card every anniversary, so.",
       "retiredText": "You shot Booski."
     },
     {
