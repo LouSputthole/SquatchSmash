@@ -99,7 +99,7 @@ const VOICE_DIRECTION = {
   player: 'Tony Squatchtana. Younger, competent, and aware he is the only person treating any of this as unusual. Flat and dry rather than nervous. During THE TAKE he is prepared but still the prospect, so confidence never becomes command.',
   'old-stove': 'Old Stove. Pleasant, unhurried, and completely immovable. Warm enough that every refusal lands as friendly.',
   cecilio: 'Don Cecilio Barriga. Courteous, slow, and never once says what is in the crates.',
-  'motel-rico': 'Rico, the Jerky Motel antagonist. PROVISIONAL audition casting from the owner\'s Boston side-character pool; voice lead must approve or recast this profile before locking the final cast.',
+  'motel-rico': 'Rico, the Jerky Motel antagonist. Owner-approved 2026-08-24 recast: distinct, sharp, and defensive; all thirty-nine active takes use this locked performer.',
   'motel-chino': 'Chino, Rico\'s Motel lieutenant. PROVISIONAL audition casting from the owner\'s Southern NPC pool; voice lead must approve or recast this profile before locking the final cast.',
   'npc-male': 'Scene-local male NPC pool. PROVISIONAL audition casting from the owner\'s old-man NPC row; voice lead must approve or recast this profile before locking the final cast.',
   'caib-radio': 'Bureau radio. Procedural, bored, and filtered, as if reading a checklist at somebody it cannot see.',

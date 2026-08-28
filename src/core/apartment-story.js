@@ -1265,7 +1265,7 @@ export const CHAPTER_NEWS = Object.freeze({
 });
 
 /**
- * Day 4 opens with somebody else in the bed.
+ * Day 7 opens with somebody else in the bed.
  *
  * Margo stayed. She is warm about it and not sentimental about it, she is
  * slightly awkward in the way people are early in the morning in somebody
@@ -1336,12 +1336,13 @@ export const SILVER_ROOM_NEW_PLACE = Object.freeze({
 /**
  * The night the Silver Room ends with both of them coming back here.
  *
- * `SilverStory.complete` folds the mission's own verdict -- `cameHome`,
- * `['perfect', 'strong'].includes(outcome)` -- down into the campaign, so
- * this only ever plays for the two best outcomes. Short on purpose: this is
- * the walk from the front door to the bed, not the whole evening, which the
- * Silver Room mission has already had. Same shape as `BIG_NIGHT_MARGO_WAKE`
- * for the same reason -- `lines` is her, `replies[i]` answers `lines[i]`.
+ * `SilverStory.complete` folds the mission's own `cameHome` verdict into the
+ * campaign. The canonical Silver Room route now brings her home after every
+ * completed outcome, so this is an exact-once story beat rather than a grade
+ * reward. Short on purpose: this is the walk from the front door to the bed,
+ * not the whole evening, which the Silver Room mission has already had. Same
+ * shape as `BIG_NIGHT_MARGO_WAKE` for the same reason -- `lines` is her and
+ * `replies[i]` answers `lines[i]`.
  */
 export const SILVER_ROOM_COME_HOME = Object.freeze({
   characterId: CHARACTER_IDS.MARGO,

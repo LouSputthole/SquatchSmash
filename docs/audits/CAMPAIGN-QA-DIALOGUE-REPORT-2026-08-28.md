@@ -95,7 +95,8 @@ should be preserved during rebase and VO regeneration.
    is inserted.
 2. **Margo’s first call happens once, at the Cabin.** Tony initiates the short
    outgoing call after the authored exploration gate. It schedules Front &
-   Center’s Silver Room for Sunday at nine. The old later incoming-apartment
+   Center’s Silver Room for nine. The fragile weekday was removed after the
+   campaign clock proved Day 6 is Monday, not Sunday. The old later incoming-apartment
    date call is retired from new play but its ids remain readable for old-save
    normalization. Files: `src/cabin/script.js`,
    `src/core/countryside-cabin-story.js`,

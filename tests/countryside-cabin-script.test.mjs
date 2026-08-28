@@ -96,7 +96,9 @@ test('Margo has both a one-shot setup hook and the authored call it sets up', ()
   assert.match(margoCalls[0].lines.join(' '), /Front & Center/);
   assert.match(margoCalls[0].lines.join(' '), /Silver Room/);
   assert.match(margoCalls[0].lines.join(' '), /Nine o’clock/);
-  assert.match(margoCalls[0].lines.join(' '), /Sunday/);
+  assert.doesNotMatch(margoCalls[0].lines.join(' '),
+    /\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/,
+    'the call must not hard-code a weekday that can drift from the campaign clock');
   const turns = callScript(margoCalls[0]);
   assert.equal(turns[0].who, 'me');
   assert.equal(turns[0].text, 'Hello? Tony. From the Bing.');

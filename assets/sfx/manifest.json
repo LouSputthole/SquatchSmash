@@ -373,7 +373,7 @@
     },
     "waiter": {
       "id": "miqykcv8BCUvQnRlIGUV",
-      "_note": "Shared Silver Room staff: host, bandleader, back-of-house workers, and the room’s overheard voices. Keep these eighty cues on the existing actor. The featured date waiter was split into the dedicated silver-waiter profile on 2026-08-08, so his twelve replacement takes can be generated without recasting the rest of the room.",
+      "_note": "Shared Silver Room staff: host, back-of-house workers, and non-featured service staff. The featured date waiter, Midnight Pines bandleader, and three ambient diner rotations now use their dedicated profiles, so this actor no longer makes the whole room sound like one person.",
       "model": "eleven_multilingual_v2",
       "stability": 0.45,
       "similarity": 0.8,
@@ -13739,7 +13739,7 @@
     {
       "name": "vo.call.margo.cabin_date.2",
       "voice": "margo",
-      "say": "Sunday. Front & Center. Ask for the Silver Room. Nine o’clock. If you’re late, I eat without you."
+      "say": "Front & Center. Ask for the Silver Room. Nine o’clock. If you’re late, I eat without you."
     },
     {
       "name": "vo.call.margo.cabin_date.tony.2",
@@ -13754,7 +13754,7 @@
     {
       "name": "vo.call.margo.cabin_date.tony.3",
       "voice": "player",
-      "say": "Sunday. Front & Center. Silver Room. Nine. I won’t waste it."
+      "say": "Front & Center. Silver Room. Nine. I won’t waste it."
     },
     {
       "_comment": "cabin.booski.sasole — Phone call with BOOSKIBRO",

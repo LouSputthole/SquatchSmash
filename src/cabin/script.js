@@ -472,13 +472,13 @@ export const CABIN_PHONE_CALLS = Object.freeze({
     'call.margo.cabin_date',
     [
       'Tony. I was starting to think the number was decorative.',
-      'Sunday. Front & Center. Ask for the Silver Room. Nine o’clock. If you’re late, I eat without you.',
+      'Front & Center. Ask for the Silver Room. Nine o’clock. If you’re late, I eat without you.',
       'Good. Rye, one cube. And wear something that has met an iron.',
     ],
     [
       'Hello? Tony. From the Bing.',
       'Work dragged me out of town. I’m calling before the trees learn my name.',
-      'Sunday. Front & Center. Silver Room. Nine. I won’t waste it.',
+      'Front & Center. Silver Room. Nine. I won’t waste it.',
     ],
     { outgoing: true },
   ),
