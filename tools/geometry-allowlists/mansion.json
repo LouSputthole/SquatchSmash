@@ -36803,7 +36803,7 @@
       "kind": "INTERPENETRATION",
       "left": "root:mansion/name=SilentSquatch#0/name=xXx#0/name=xxx-chain#0/name=xxx-chain-link#0",
       "right": "root:mansion/name=SilentSquatch#0/name=xxx-hook-eye#0",
-      "maxDepthM": 0.034,
+      "maxDepthM": 0.037611,
       "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
       "source": "src/mansion/scenes/SilentSquatch.js:902",
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
@@ -37310,6 +37310,17 @@
       "left": "root:mansion/name=SilentSquatch#0/name=hidden-wall#0/type=Mesh#9",
       "right": "root:mansion/name=SilentSquatch#0/name=ss-landing-east#0",
       "maxDepthM": 0.081,
+      "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
+      "source": "src/mansion/scenes/SilentSquatch.js:902",
+      "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
+    },
+    {
+      "id": "mansion-checkpoint-aubbie-down-silent-core-soffit-current",
+      "state": "checkpoint-aubbie-down",
+      "kind": "INTERPENETRATION",
+      "left": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core#0/name=core-ring#1/type=Mesh#0",
+      "right": "root:mansion/name=SilentSquatch#0/name=ss-lower-soffit#2",
+      "maxDepthM": 0.066715,
       "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
       "source": "src/mansion/scenes/SilentSquatch.js:902",
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
@@ -54448,17 +54459,6 @@
       "left": "root:mansion/name=MansionInterior#0/type=Mesh#1516",
       "right": "root:mansion/name=SilentSquatch#0/name=silent-trophy#1/type=Mesh#2",
       "maxDepthM": 0.053,
-      "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
-      "source": "src/mansion/scenes/SilentSquatch.js:902",
-      "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
-    },
-    {
-      "id": "mansion-checkpoint-basement-silent-00044",
-      "state": "checkpoint-basement",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core#0/name=core-ring#1/type=Mesh#0",
-      "right": "root:mansion/name=SilentSquatch#0/name=ss-lower-soffit#2",
-      "maxDepthM": 0.045,
       "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
       "source": "src/mansion/scenes/SilentSquatch.js:902",
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
@@ -74572,6 +74572,28 @@
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
     },
     {
+      "id": "mansion-checkpoint-clear-silent-chain-hook-current",
+      "state": "checkpoint-clear",
+      "kind": "INTERPENETRATION",
+      "left": "root:mansion/name=SilentSquatch#0/name=xXx#0/name=xxx-chain#0/name=xxx-chain-link#0",
+      "right": "root:mansion/name=SilentSquatch#0/name=xxx-hook-eye#0",
+      "maxDepthM": 0.033209,
+      "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
+      "source": "src/mansion/scenes/SilentSquatch.js:902",
+      "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
+    },
+    {
+      "id": "mansion-checkpoint-clear-silent-core-soffit-current",
+      "state": "checkpoint-clear",
+      "kind": "INTERPENETRATION",
+      "left": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core#0/name=core-ring#1/type=Mesh#0",
+      "right": "root:mansion/name=SilentSquatch#0/name=ss-lower-soffit#2",
+      "maxDepthM": 0.066715,
+      "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
+      "source": "src/mansion/scenes/SilentSquatch.js:902",
+      "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
+    },
+    {
       "id": "mansion-checkpoint-core-complete-collider-00001",
       "state": "checkpoint-core-complete",
       "kind": "INTERPENETRATION",
@@ -93503,6 +93525,17 @@
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
     },
     {
+      "id": "mansion-checkpoint-core-complete-silent-core-soffit-current",
+      "state": "checkpoint-core-complete",
+      "kind": "INTERPENETRATION",
+      "left": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core#0/name=core-ring#1/type=Mesh#0",
+      "right": "root:mansion/name=SilentSquatch#0/name=ss-lower-soffit#2",
+      "maxDepthM": 0.066715,
+      "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
+      "source": "src/mansion/scenes/SilentSquatch.js:902",
+      "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
+    },
+    {
       "id": "mansion-checkpoint-lab-collider-00001",
       "state": "checkpoint-lab",
       "kind": "INTERPENETRATION",
@@ -110839,17 +110872,6 @@
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
     },
     {
-      "id": "mansion-checkpoint-lab-silent-00064",
-      "state": "checkpoint-lab",
-      "kind": "INTERPENETRATION",
-      "left": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core#0/name=core-ring#2/type=Mesh#0",
-      "right": "root:mansion/name=SilentSquatch#0/name=ss-lower-soffit#2",
-      "maxDepthM": 0.18,
-      "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
-      "source": "src/mansion/scenes/SilentSquatch.js:902",
-      "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
-    },
-    {
       "id": "mansion-checkpoint-lab-silent-00065",
       "state": "checkpoint-lab",
       "kind": "INTERPENETRATION",
@@ -112198,6 +112220,17 @@
       "left": "root:mansion/name=SilentSquatch#0/name=hidden-wall#0/type=Mesh#9",
       "right": "root:mansion/name=SilentSquatch#0/name=ss-landing-east#0",
       "maxDepthM": 0.081,
+      "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
+      "source": "src/mansion/scenes/SilentSquatch.js:902",
+      "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
+    },
+    {
+      "id": "mansion-checkpoint-lab-silent-chain-hook-current",
+      "state": "checkpoint-lab",
+      "kind": "INTERPENETRATION",
+      "left": "root:mansion/name=SilentSquatch#0/name=xXx#0/name=xxx-chain#0/name=xxx-chain-link#0",
+      "right": "root:mansion/name=SilentSquatch#0/name=xxx-hook-eye#0",
+      "maxDepthM": 0.034008,
       "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
       "source": "src/mansion/scenes/SilentSquatch.js:902",
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
@@ -130468,7 +130501,7 @@
       "kind": "INTERPENETRATION",
       "left": "root:mansion/name=SilentSquatch#0/name=xXx#0/name=xxx-chain#0/name=xxx-chain-link#0",
       "right": "root:mansion/name=SilentSquatch#0/name=xxx-hook-eye#0",
-      "maxDepthM": 0.033,
+      "maxDepthM": 0.037132,
       "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
       "source": "src/mansion/scenes/SilentSquatch.js:902",
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
@@ -130975,6 +131008,17 @@
       "left": "root:mansion/name=SilentSquatch#0/name=hidden-wall#0/type=Mesh#9",
       "right": "root:mansion/name=SilentSquatch#0/name=ss-landing-east#0",
       "maxDepthM": 0.081,
+      "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
+      "source": "src/mansion/scenes/SilentSquatch.js:902",
+      "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
+    },
+    {
+      "id": "mansion-checkpoint-locked-silent-core-soffit-current",
+      "state": "checkpoint-locked",
+      "kind": "INTERPENETRATION",
+      "left": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core#0/name=core-ring#1/type=Mesh#0",
+      "right": "root:mansion/name=SilentSquatch#0/name=ss-lower-soffit#2",
+      "maxDepthM": 0.066715,
       "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
       "source": "src/mansion/scenes/SilentSquatch.js:902",
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
@@ -168221,6 +168265,28 @@
       "left": "root:mansion/name=SilentSquatch#0/name=hidden-wall#0/type=Mesh#9",
       "right": "root:mansion/name=SilentSquatch#0/name=ss-landing-east#0",
       "maxDepthM": 0.081,
+      "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
+      "source": "src/mansion/scenes/SilentSquatch.js:902",
+      "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
+    },
+    {
+      "id": "mansion-checkpoint-silent-night-silent-chain-hook-current",
+      "state": "checkpoint-silent-night",
+      "kind": "INTERPENETRATION",
+      "left": "root:mansion/name=SilentSquatch#0/name=xXx#0/name=xxx-chain#0/name=xxx-chain-link#0",
+      "right": "root:mansion/name=SilentSquatch#0/name=xxx-hook-eye#0",
+      "maxDepthM": 0.033209,
+      "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
+      "source": "src/mansion/scenes/SilentSquatch.js:902",
+      "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
+    },
+    {
+      "id": "mansion-checkpoint-silent-night-silent-core-soffit-current",
+      "state": "checkpoint-silent-night",
+      "kind": "INTERPENETRATION",
+      "left": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core#0/name=core-ring#1/type=Mesh#0",
+      "right": "root:mansion/name=SilentSquatch#0/name=ss-lower-soffit#2",
+      "maxDepthM": 0.066715,
       "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
       "source": "src/mansion/scenes/SilentSquatch.js:902",
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
@@ -272234,8 +272300,8 @@
     },
     {
       "state": "checkpoint-aubbie-down",
-      "overlap": 1137,
-      "checkSupport": 2676,
+      "overlap": 1136,
+      "checkSupport": 2675,
       "sources": [
         {
           "sourceId": "root:mansion/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -277410,13 +277476,7 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-1#0",
-          "scope": "direct",
-          "overlap": 1,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-7#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-3#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
@@ -282465,8 +282525,8 @@
     },
     {
       "state": "checkpoint-basement",
-      "overlap": 1176,
-      "checkSupport": 2715,
+      "overlap": 1175,
+      "checkSupport": 2714,
       "sources": [
         {
           "sourceId": "root:mansion/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -287632,12 +287692,6 @@
           "sourceId": "root:mansion/name=MansionInterior#0/type=Mesh#993",
           "scope": "direct",
           "overlap": 0,
-          "checkSupport": 1
-        },
-        {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-5#0",
-          "scope": "direct",
-          "overlap": 1,
           "checkSupport": 1
         },
         {
@@ -297860,13 +297914,13 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-1#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-3#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-5#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-7#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
@@ -302921,8 +302975,8 @@
     },
     {
       "state": "checkpoint-core-complete",
-      "overlap": 1136,
-      "checkSupport": 2675,
+      "overlap": 1137,
+      "checkSupport": 2676,
       "sources": [
         {
           "sourceId": "root:mansion/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -308091,13 +308145,19 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-3#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-1#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
         },
         {
           "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-4#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-7#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
@@ -313146,8 +313206,8 @@
     },
     {
       "state": "checkpoint-lab",
-      "overlap": 1177,
-      "checkSupport": 2716,
+      "overlap": 1178,
+      "checkSupport": 2717,
       "sources": [
         {
           "sourceId": "root:mansion/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -318322,6 +318382,12 @@
           "checkSupport": 1
         },
         {
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-3#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
           "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-6#0",
           "scope": "direct",
           "overlap": 1,
@@ -323377,8 +323443,8 @@
     },
     {
       "state": "checkpoint-locked",
-      "overlap": 1136,
-      "checkSupport": 2675,
+      "overlap": 1137,
+      "checkSupport": 2676,
       "sources": [
         {
           "sourceId": "root:mansion/name=MansionGrounds#0/name=fountain-spray-jet#0",
@@ -328547,7 +328613,13 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-1#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-0#0",
+          "scope": "direct",
+          "overlap": 1,
+          "checkSupport": 1
+        },
+        {
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-3#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
@@ -349003,13 +349075,13 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-1#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-3#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-5#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-7#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
