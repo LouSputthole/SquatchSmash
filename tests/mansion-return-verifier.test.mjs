@@ -49,6 +49,20 @@ test('Mansion Return has a focused real-input browser verifier', () => {
   assert.match(source, /BRIEFING COMPLETE/);
   assert.match(source, /returnCount\s*===\s*1/);
   assert.match(source, /completeCount\s*===\s*1/);
+  assert.match(source, /userData\?\.actor\?\.id\s*===\s*['"]snow['"]/,
+    'the verifier never locates Snow through the real staged actor marker');
+  assert.match(source, /getObjectByName\(['"]repairs-screed['"]\)/,
+    'the verifier does not frame Snow with the damaged foyer geometry');
+  assert.match(source, /getObjectByName\(['"]snow-repair-hammer['"]\)/,
+    'the verifier never proves the real hand-socket hammer is present');
+  assert.match(source, /window\.mansion\.framesRendered\s*>\s*previous/,
+    'the repair motion is sampled without proving a rendered frame presented it');
+  assert.match(source, /hammerTravel\s*>\s*0\.08/,
+    'the verifier can pass without a readable hammer stroke');
+  assert.match(source, /rootTravel\s*<\s*0\.002/,
+    'the verifier does not reject Snow skating through the repair site');
+  assert.match(source, /qa-snow-active-repair\.png/,
+    'the verifier does not retain active-play visual evidence of the repair loop');
   assert.match(source, /cartel-palace\.html/);
   assert.match(source, /localStorage\.getItem\(key\)\s*===\s*null/,
     'the navigation init script would overwrite the completed briefing on Cartel load');

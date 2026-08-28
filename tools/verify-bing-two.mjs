@@ -171,6 +171,93 @@ async function incidentState(page) {
   });
 }
 
+/**
+ * Stage on the storage-room side of the authored service doorway, then let the
+ * canonical keyboard adapter and Player collision solver carry the Prospect
+ * across it. The setup teleport is deliberately inside the club: completion
+ * must come from real KeyW movement changing the runtime room to `yard`, never
+ * from placing the player on the far side of the mission seam.
+ */
+async function walkThroughServiceExit(page, { timeout = SIM_WAIT } = {}) {
+  const staged = await page.evaluate(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    const service = incident.club.doors.service;
+    const movementPresses = incident.input.receipts.movementPresses;
+    incident.teleport(9.05, -13.35, 0);
+    return {
+      room: incident.club.roomAt(incident.player.position.x, incident.player.position.z),
+      stateRoom: incident.state.room,
+      position: incident.player.position.toArray(),
+      departing: incident.state.departing,
+      doorOpen: service.open,
+      doorColliderPresent: incident.club.colliders.includes(service.box),
+      captured: incident.input.captured,
+      inputEnabled: incident.input.controls?.inputEnabled === true,
+      movementEnabled: incident.input.controls?.movementEnabled === true,
+      playerEnabled: incident.player.enabled,
+      pointerLockChanges: incident.input.receipts.pointerLockChanges,
+      movementPresses,
+    };
+  });
+
+  if (!staged.departing || staged.room !== 'storage' || !staged.doorOpen
+    || staged.doorColliderPresent || !staged.captured || !staged.inputEnabled
+    || !staged.movementEnabled || !staged.playerEnabled) {
+    throw new Error('service exit was not ready for a physical crossing: '
+      + JSON.stringify(staged));
+  }
+
+  await page.keyboard.down('KeyW');
+  try {
+    await page.waitForFunction(
+      () => {
+        const incident = window.HOTDOG_INCIDENT;
+        return incident.state.room === 'yard' && incident.game.phase === 'complete';
+      },
+      null,
+      { timeout },
+    );
+  } catch (error) {
+    const stalled = await page.evaluate(() => {
+      const incident = window.HOTDOG_INCIDENT;
+      const service = incident.club.doors.service;
+      return {
+        phase: incident.game.phase,
+        room: incident.state.room,
+        departing: incident.state.departing,
+        endingShown: incident.state.endingShown,
+        position: incident.player.position.toArray(),
+        velocity: incident.player.velocity.toArray(),
+        doorOpen: service.open,
+        doorColliderPresent: incident.club.colliders.includes(service.box),
+        movementPresses: incident.input.receipts.movementPresses,
+      };
+    });
+    throw new Error(error.message + '\nservice exit stalled at ' + JSON.stringify(stalled));
+  } finally {
+    await page.keyboard.up('KeyW');
+  }
+
+  const crossed = await page.evaluate(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    return {
+      room: incident.state.room,
+      position: incident.player.position.toArray(),
+      phase: incident.game.phase,
+      endingShown: incident.state.endingShown,
+      movementPresses: incident.input.receipts.movementPresses,
+    };
+  });
+  return {
+    staged,
+    crossed,
+    distance: Math.hypot(
+      crossed.position[0] - staged.position[0],
+      crossed.position[2] - staged.position[2],
+    ),
+  };
+}
+
 async function inventoryBarState(page) {
   return page.evaluate(() => {
     const bar = document.getElementById('hotbar');
@@ -1022,7 +1109,7 @@ try {
       && /sweep/i.test(cleanup.sweepObjective || ''),
     JSON.stringify(cleanup));
 
-  /* AND THEN HE HAS TO WALK OUT, which is the one thing this file never did.
+  /* AND THEN HE HAS TO WALK OUT.
    *
    * `finishParty()` is not called by the last beat of the handoff. The scene
    * ends on the frame the player reaches `yard` or `alley` -- see the comment
@@ -1033,20 +1120,29 @@ try {
    *
    * This never surfaced before because the sweep was never reaching the
    * ending at all; with the order fixed the scene now gets as far as waiting
-   * for him, and the wait is what times out. Put him in the yard, which is
-   * where the door leads. */
+   * for him, and the wait is what times out. Stage him inside the store room,
+   * then cross the actual doorway with the same KeyW path the player uses. */
   /* Wait for Lou to actually say go before walking out, which is the order a
    * player experiences. Doing it early is what surfaced the softlock now
    * fixed in `beginDeparture` -- worth keeping in mind, but the check below
    * is about the handoff, not about that edge. */
   await page.waitForFunction(() => window.HOTDOG_INCIDENT.state.departing === true,
     null, { timeout: 90000 });
-  await page.evaluate(() => {
-    const incident = window.HOTDOG_INCIDENT;
-    /* The scene's own `teleport`, not a position write: it sets the walk mode
-     * and the yaw with it, and it is on the runtime handle for this. */
-    incident.teleport(13, -20);   // ROOMS.yard: x 5..21, z -26..-15
-  });
+  const departureWalk = await walkThroughServiceExit(page);
+  check('the production handoff crosses the open service door with real movement input',
+    departureWalk.staged.room === 'storage'
+      && departureWalk.staged.doorOpen
+      && !departureWalk.staged.doorColliderPresent
+      && departureWalk.staged.captured
+      && departureWalk.staged.inputEnabled
+      && departureWalk.staged.movementEnabled
+      && departureWalk.staged.playerEnabled
+      && departureWalk.crossed.room === 'yard'
+      && departureWalk.crossed.phase === 'complete'
+      && departureWalk.crossed.endingShown
+      && departureWalk.crossed.movementPresses > departureWalk.staged.movementPresses
+      && departureWalk.distance > 1.5,
+    JSON.stringify(departureWalk));
 
   /* A bare timeout here says "it did not finish" and nothing else, which is
    * worth about ten minutes of guessing per occurrence. Say what it was doing
@@ -1371,9 +1467,35 @@ try {
     // the foreground so Chromium does not throttle the requestAnimationFrame
     // loop behind the still-open production route used earlier in this run.
     await cpPage.bringToFront();
-    await cpPage.evaluate(() => document.getElementById('start-btn').click());
+    /* A DOM `button.click()` inside evaluate is not a trusted user gesture.
+     * Pointer lock therefore never engaged on this fresh checkpoint context,
+     * leaving canonical movement disabled even though the mission was active.
+     * Playwright's click enters through the same real gesture path as a player. */
+    await cpPage.click('#start-btn');
     await cpPage.waitForFunction(() => window.HOTDOG_INCIDENT?.game?.started, null, { timeout: 90000 });
+    let checkpointDepartureWalk = null;
     if (id === 'graveyard') {
+      const checkpointInputReady = await cpPage.evaluate(() => {
+        const input = window.HOTDOG_INCIDENT.input;
+        return input.captured && input.controls?.movementEnabled === true;
+      });
+      if (!checkpointInputReady) {
+        /* Audio loading can outlive Chromium's activation window on a loaded
+         * machine. A real click on the game canvas is the player's supported
+         * recapture gesture; it is not an input-state test hook. */
+        await cpPage.locator('canvas').click({ position: { x: 320, y: 200 } });
+      }
+      await cpPage.waitForFunction(
+        () => {
+          const input = window.HOTDOG_INCIDENT.input;
+          return input.captured
+            && input.controls?.inputEnabled === true
+            && input.controls?.movementEnabled === true
+            && window.HOTDOG_INCIDENT.player.enabled === true;
+        },
+        null,
+        { timeout: SIM_WAIT },
+      );
       await cpPage.evaluate(() => {
         const incident = window.HOTDOG_INCIDENT;
         /* Run the handoff out. The director exhausting its sequence is what
@@ -1381,14 +1503,15 @@ try {
         for (let tick = 0; tick < 800 && !incident.state.departing; tick++) {
           incident.updateDirector(0.05);
         }
-        /* AND THEN HE WALKS OUT, which is the only thing that ends this scene
-         * -- `updateRoom` finishes the party on the frame the room changes to
-         * yard or alley, deliberately, so the ending is not a cutscene of a
-         * room he has already left. Pumping the director alone leaves the
-         * mission in `departure` for ever, which is what this branch was
-         * quietly waiting on. */
-        incident.teleport(13, -20);   // ROOMS.yard in src/bing/club.js
       });
+      await cpPage.waitForFunction(
+        () => window.HOTDOG_INCIDENT.state.departing === true,
+        null,
+        { timeout: SIM_WAIT },
+      );
+      /* Pumping the director only begins departure. The checkpoint/retry path
+       * must still cross the service door through canonical player input. */
+      checkpointDepartureWalk = await walkThroughServiceExit(cpPage);
     }
     await cpPage.waitForFunction(
       (expected) => window.HOTDOG_INCIDENT?.mission?.state === expected,
@@ -1413,8 +1536,21 @@ try {
       : result.campaignCheckpoint !== 'body_loaded';
     check(`?preview=1&checkpoint=${id} loads staged and lands on the right beat`,
       result.missionState === expectMissionState && checkpointOk
-        && chip.startsWith('Preview checkpoint:') && cpProblems.length === 0,
-      JSON.stringify({ ...result, chip, problems: cpProblems }));
+        && chip.startsWith('Preview checkpoint:') && cpProblems.length === 0
+        && (id !== 'graveyard'
+          || (checkpointDepartureWalk?.staged.room === 'storage'
+            && checkpointDepartureWalk.staged.doorOpen
+            && !checkpointDepartureWalk.staged.doorColliderPresent
+            && checkpointDepartureWalk.staged.captured
+            && checkpointDepartureWalk.staged.inputEnabled
+            && checkpointDepartureWalk.staged.movementEnabled
+            && checkpointDepartureWalk.staged.playerEnabled
+            && checkpointDepartureWalk.crossed.room === 'yard'
+            && checkpointDepartureWalk.crossed.phase === 'complete'
+            && checkpointDepartureWalk.crossed.movementPresses
+              > checkpointDepartureWalk.staged.movementPresses
+            && checkpointDepartureWalk.distance > 1.5)),
+      JSON.stringify({ ...result, chip, checkpointDepartureWalk, problems: cpProblems }));
     await cpContext.close();
   }
 } finally {

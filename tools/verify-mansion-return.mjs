@@ -170,6 +170,193 @@ try {
   await page.locator('#startBtn').click();
   await page.waitForFunction(() => window.mansion?.running === true
     && document.getElementById('menu')?.classList.contains('hidden'));
+
+  /* Snow's repair is active play, not constructor arithmetic. Stage the real
+   * player in the foyer, aim the real camera at the marked Snow actor and the
+   * lifted inlay, and ask the scene graph what the rendered camera can see.
+   * The proof below then advances the production update path between observed
+   * render frames; it never calls the pose helper or moves Snow directly. */
+  const stageSnowRepair = await page.evaluate(() => {
+    const M = window.mansion;
+    const visibleThroughParents = (object) => {
+      for (let node = object; node; node = node.parent) {
+        if (node.visible === false) return false;
+      }
+      return true;
+    };
+    let snow = null;
+    M.scene.traverse((object) => {
+      if (object.userData?.actor?.id === 'snow') snow = object;
+    });
+    const repairRoot = M.scene.getObjectByName('mansion-foyer-repairs');
+    const damage = repairRoot?.getObjectByName('repairs-screed') ?? null;
+    const hammer = snow?.getObjectByName('snow-repair-hammer') ?? null;
+    const hammerHead = snow?.getObjectByName('snow-repair-hammer-head') ?? null;
+    if (!snow || !repairRoot || !damage || !hammer || !hammerHead) {
+      return {
+        ok: false,
+        snow: Boolean(snow),
+        repairRoot: Boolean(repairRoot),
+        damage: Boolean(damage),
+        hammer: Boolean(hammer),
+        hammerHead: Boolean(hammerHead),
+      };
+    }
+
+    M.visibility.setEnabled(false);
+    M.scene.updateMatrixWorld(true);
+    const snowBounds = new M.THREE.Box3().setFromObject(snow);
+    const snowCenter = snowBounds.getCenter(new M.THREE.Vector3());
+    const damageBounds = new M.THREE.Box3().setFromObject(damage);
+    const damageCenter = damageBounds.getCenter(new M.THREE.Vector3());
+    const snowAt = snow.getWorldPosition(new M.THREE.Vector3());
+    const target = snowCenter.clone().lerp(damageCenter, 0.30);
+    /* An authored foyer vantage, clear of the centre table and repair tape.
+     * `teleport` remains only a verifier staging seam; once placed, camera,
+     * animation and rendering all follow the ordinary running scene. */
+    M.teleport(snowAt.x + 4.2, snowAt.y, snowAt.z - 5.1, 0);
+    const eye = M.player.position;
+    const dx = target.x - eye.x;
+    const dy = target.y - eye.y;
+    const dz = target.z - eye.z;
+    M.player.yaw = Math.atan2(-dx, -dz);
+    M.player.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    M.player.update(0);
+    M.camera.updateMatrixWorld(true);
+    M.scene.updateMatrixWorld(true);
+
+    const projection = new M.THREE.Matrix4().multiplyMatrices(
+      M.camera.projectionMatrix,
+      M.camera.matrixWorldInverse,
+    );
+    const frustum = new M.THREE.Frustum().setFromProjectionMatrix(projection);
+    const ndc = (point) => point.clone().project(M.camera).toArray()
+      .map((value) => Number(value.toFixed(4)));
+    const repairNames = [];
+    repairRoot.traverse((object) => {
+      if (object.visible && object.name) repairNames.push(object.name);
+    });
+    const hammerSize = new M.THREE.Box3().setFromObject(hammer)
+      .getSize(new M.THREE.Vector3());
+
+    M.setRendering(true);
+    return {
+      ok: true,
+      root: snowAt.toArray(),
+      snowCenter: snowCenter.toArray(),
+      damageCenter: damageCenter.toArray(),
+      distanceToDamage: snowAt.distanceTo(damageCenter),
+      snowVisible: visibleThroughParents(snow),
+      damageVisible: visibleThroughParents(damage),
+      hammerVisible: visibleThroughParents(hammer),
+      snowInFrustum: frustum.intersectsBox(snowBounds),
+      damageInFrustum: frustum.intersectsBox(damageBounds),
+      snowNdc: ndc(snowCenter),
+      damageNdc: ndc(damageCenter),
+      hammerAttachedToSnow: (() => {
+        for (let node = hammer; node; node = node.parent) {
+          if (node === snow) return true;
+        }
+        return false;
+      })(),
+      hammerName: hammer.name,
+      hammerHeight: hammerSize.y,
+      repairNames,
+      frame: M.framesRendered,
+    };
+  });
+  check('Snow and the damaged foyer are visible together in active play',
+    stageSnowRepair.ok
+      && stageSnowRepair.snowVisible
+      && stageSnowRepair.damageVisible
+      && stageSnowRepair.snowInFrustum
+      && stageSnowRepair.damageInFrustum
+      && Math.abs(stageSnowRepair.snowNdc[0]) <= 1
+      && Math.abs(stageSnowRepair.snowNdc[1]) <= 1
+      && Math.abs(stageSnowRepair.damageNdc[0]) <= 1
+      && Math.abs(stageSnowRepair.damageNdc[1]) <= 1
+      && stageSnowRepair.distanceToDamage < 2.2
+      && stageSnowRepair.repairNames.includes('repairs-screed')
+      && stageSnowRepair.repairNames.includes('repairs-marble-offcut'),
+    JSON.stringify(stageSnowRepair));
+  check('Snow carries the real hand-socket repair hammer',
+    stageSnowRepair.ok
+      && stageSnowRepair.hammerVisible
+      && stageSnowRepair.hammerAttachedToSnow
+      && stageSnowRepair.hammerName === 'snow-repair-hammer'
+      && stageSnowRepair.hammerHeight > 0.35,
+    JSON.stringify({
+      visible: stageSnowRepair.hammerVisible,
+      attached: stageSnowRepair.hammerAttachedToSnow,
+      name: stageSnowRepair.hammerName,
+      height: stageSnowRepair.hammerHeight,
+    }));
+
+  const snowRepairSamples = [];
+  let observedRepairFrame = stageSnowRepair.frame;
+  for (let sample = 0; sample < 4; sample += 1) {
+    /* A quarter stroke is deterministic and the following wait proves that
+     * the resulting pose was presented by a real render frame. Four quarters
+     * cover the whole loop without an arbitrary wall-clock sleep. */
+    await page.evaluate(() => {
+      const M = window.mansion;
+      M.setRendering(false);
+      M.tick(1 / (1.45 * 4), 1 / (1.45 * 4));
+      M.setRendering(true);
+    });
+    await page.waitForFunction(
+      (previous) => window.mansion.framesRendered > previous,
+      observedRepairFrame,
+    );
+    const frameSample = await page.evaluate(() => {
+      const M = window.mansion;
+      let snow = null;
+      M.scene.traverse((object) => {
+        if (object.userData?.actor?.id === 'snow') snow = object;
+      });
+      const hammerHead = snow?.getObjectByName('snow-repair-hammer-head') ?? null;
+      M.scene.updateMatrixWorld(true);
+      return {
+        frame: M.framesRendered,
+        root: snow?.getWorldPosition(new M.THREE.Vector3()).toArray() ?? null,
+        hammerHead: hammerHead?.getWorldPosition(new M.THREE.Vector3()).toArray() ?? null,
+      };
+    });
+    snowRepairSamples.push(frameSample);
+    observedRepairFrame = frameSample.frame;
+  }
+  const rootTravel = Math.max(...snowRepairSamples.map(({ root }) => Math.hypot(
+    root[0] - stageSnowRepair.root[0],
+    root[1] - stageSnowRepair.root[1],
+    root[2] - stageSnowRepair.root[2],
+  )));
+  const hammerAxisRanges = [0, 1, 2].map((axis) => {
+    const values = snowRepairSamples.map(({ hammerHead }) => hammerHead[axis]);
+    return Math.max(...values) - Math.min(...values);
+  });
+  const hammerTravel = Math.hypot(...hammerAxisRanges);
+  check('rendered frames carry Snow through a full repair loop without root skating',
+    snowRepairSamples.every(({ frame, root, hammerHead }) => (
+      Number.isFinite(frame)
+      && root?.every(Number.isFinite)
+      && hammerHead?.every(Number.isFinite)
+    ))
+      && new Set(snowRepairSamples.map(({ frame }) => frame)).size === snowRepairSamples.length
+      && hammerTravel > 0.08
+      && rootTravel < 0.002,
+    JSON.stringify({ rootTravel, hammerTravel, hammerAxisRanges, samples: snowRepairSamples }));
+
+  const snowRepairScreenshot = path.join(
+    ROOT, 'artifacts', 'mansion-return', 'qa-snow-active-repair.png',
+  );
+  await fsp.mkdir(path.dirname(snowRepairScreenshot), { recursive: true });
+  await page.screenshot({ path: snowRepairScreenshot });
+  check('active-play Snow repair visual evidence was captured',
+    fs.existsSync(snowRepairScreenshot) && fs.statSync(snowRepairScreenshot).size > 10_000,
+    `${snowRepairScreenshot} (${fs.existsSync(snowRepairScreenshot)
+      ? fs.statSync(snowRepairScreenshot).size
+      : 0} bytes)`);
+
   await page.evaluate(() => window.mansion.setRendering(false));
 
   const beforeWalk = await page.evaluate(() => {

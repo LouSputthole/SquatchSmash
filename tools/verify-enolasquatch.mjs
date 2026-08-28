@@ -2382,15 +2382,82 @@ try {
     h.tick(0);
   });
 
-  /* ---- Release: a real 1-5 choice, the payload actually detaches, mass drops. ---- */
+  /* ---- Release: a real 1-5 choice, the payload actually detaches, mass drops. ----
+   *
+   * Owner QA, 2026-08-28: "The bomb-choice input and engine/throttle input
+   * systems are colliding." Calling `chooseReleaseLine()` here used to prove
+   * only the mission method. Put a real Digit3 through the page instead, and
+   * take the after-state receipt synchronously in a later window keydown
+   * listener: that catches any flight-input action on the same physical event
+   * without measuring a naturally advancing animation frame. */
+  await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const snapshot = () => ({
+      phase: h.mission.phase,
+      releaseStep: h.mission._releaseStep,
+      releaseTimer: h.mission._releaseTimer,
+      battery: h.engines.masterBattery,
+      fuelSelectors: h.engines.fuelSelectors,
+      engines: h.engines.engines.map((engine) => ({
+        running: engine.running,
+        dead: engine.dead,
+        starter: engine.starter,
+      })),
+      throttle: h.input.throttle,
+      throttleSplit: h.input.throttleSplit,
+      headingDeg: h.physics.headingDeg,
+      flightKeys: [...h.input.keys],
+      weapons: {
+        loadoutSelected: h.loadout.selected,
+        loadoutEquipped: h.loadout.equipped,
+        gunner: { ...h.gunner.readout(), shots: h.gunner.shots },
+      },
+    });
+
+    window.__enolaReleaseInputProof = { before: snapshot(), after: null, event: null };
+    const captureAfterGame = (event) => {
+      if (event.code !== 'Digit3') return;
+      window.__enolaReleaseInputProof.after = snapshot();
+      window.__enolaReleaseInputProof.event = {
+        code: event.code,
+        key: event.key,
+        defaultPrevented: event.defaultPrevented,
+      };
+      window.removeEventListener('keydown', captureAfterGame, true);
+    };
+    // FirstPersonInput registered its capture listener when the scene booted;
+    // this later listener observes the result of that real game route.
+    window.addEventListener('keydown', captureAfterGame, true);
+  });
+  await page.keyboard.press('Digit3');
+  const releaseInput = await page.evaluate(() => window.__enolaReleaseInputProof);
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  check('real browser Digit3 advances the active release choice before aircraft controls see it',
+    releaseInput?.event?.code === 'Digit3'
+      && releaseInput.before.phase === 'release'
+      && releaseInput.before.releaseStep === 'awaitChoice'
+      && releaseInput.after.phase === 'release'
+      && releaseInput.after.releaseStep === 'stuck'
+      && releaseInput.after.releaseTimer === 2,
+    JSON.stringify(releaseInput));
+  check('release-choice Digit3 leaves engines, throttle, heading, flight keys, and weapons unchanged',
+    releaseInput?.event?.defaultPrevented === true
+      && releaseInput.before.battery === releaseInput.after.battery
+      && releaseInput.before.fuelSelectors === releaseInput.after.fuelSelectors
+      && same(releaseInput.before.engines, releaseInput.after.engines)
+      && releaseInput.before.throttle === releaseInput.after.throttle
+      && releaseInput.before.throttleSplit === releaseInput.after.throttleSplit
+      && releaseInput.before.headingDeg === releaseInput.after.headingDeg
+      && same(releaseInput.before.flightKeys, releaseInput.after.flightKeys)
+      && same(releaseInput.before.weapons, releaseInput.after.weapons),
+    JSON.stringify(releaseInput));
+
   const beforeMass = await page.evaluate(() => window.__enolaSquatch.physics.mass);
   const release = await page.evaluate(() => {
     const h = window.__enolaSquatch;
     const before = { released: h.payload.released, mass: h.physics.mass };
-    const chose = h.mission.chooseReleaseLine('3'); // "Lou sends his regards."
     h.tick(4); // stuck -> kick -> payload.release()
     return {
-      chose,
       before,
       released: h.payload.released,
       afterMass: h.physics.mass,
@@ -2398,8 +2465,9 @@ try {
       payloadReleasedFlag: h.mission.payloadReleased,
     };
   });
-  check('choosing release line 3 via chooseReleaseLine actually detaches the Fat Squatch and drops the mass',
-    release.chose && !release.before.released && release.released
+  check('choosing release line 3 through the real keyboard detaches the Fat Squatch and drops the mass',
+    releaseInput.after.releaseStep === 'stuck'
+      && !release.before.released && release.released
       && release.payloadReleasedFlag
       && (release.before.mass - release.afterMass) > 2000
       && release.phase === 'explosion',
