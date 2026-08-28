@@ -1133,7 +1133,7 @@ try {
       && window.SPECIAL_MEETING.ride.trunkOpen
       && window.SPECIAL_MEETING.stage.sedan.trunkOpen >= 0.98,
     null,
-    { timeout: 240000 },
+    { timeout: 600000 },
   );
 
   const kittenReveal = await page.evaluate(async () => {
@@ -1188,15 +1188,25 @@ try {
    * and explains why (SwiftShader renders this forest under 20 fps, and the
    * game caps a frame's simulation delta at 50 ms, so authored seconds run
    * long). Raising the number before knowing which of the two it is would be
-   * papering over a stall, so dump the ride's own state instead and let the
-   * next run answer it. */
+   * papering over a stall, so the state gets dumped first. It answered:
+   *
+   *   beat SM-430, phase "spur", optionCount null, trunkOpen 0,
+   *   objective "Wait by the car."
+   *
+   * The ride is one beat short of SM-440, the trunk condition is already met,
+   * and the beat it is sitting in is an authored wait — the objective says so.
+   * Nothing is stuck; the pause is real content playing out at headless frame
+   * rates. So these two raw waits get the same 600 s `chooseAtBeat` gives
+   * every other beat wait in this file, for the reason it already documents.
+   * The dump stays: the next person to see this time out should get the beat
+   * id rather than a bare TimeoutError, the way this one did not. */
   try {
     await page.waitForFunction(
       () => window.SPECIAL_MEETING.ride.beatId === 'SM-440'
         && window.SPECIAL_MEETING.ride.options?.length >= 7
         && window.SPECIAL_MEETING.stage.sedan.trunkOpen <= 0.02,
       null,
-      { timeout: 240000 },
+      { timeout: 600000 },
     );
   } catch (error) {
     const stalled = await page.evaluate(() => {
